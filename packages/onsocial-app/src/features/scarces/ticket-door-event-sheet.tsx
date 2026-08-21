@@ -151,6 +151,12 @@ export function TicketDoorEventSheet({
   const minted = attendance?.minted ?? view.minted;
   const supply = attendance?.totalSupply || view.totalSupply;
   const dropHref = collectionPath(view.collectionId);
+  const attendanceSuffix =
+    attendance && attendance.collectionId === view.collectionId
+      ? redeemVoice
+        ? `${Math.min(attendance.minted, attendance.fullyRedeemedCount)} of ${attendance.minted} redeemed`
+        : `${Math.min(attendance.minted, attendance.fullyRedeemedCount)} of ${attendance.minted} in`
+      : null;
 
   return (
     <>
@@ -261,7 +267,9 @@ export function TicketDoorEventSheet({
         open={doorLogOpen}
         onClose={() => setDoorLogOpen(false)}
         collectionId={view.collectionId}
+        dropTitle={view.title}
         voice={voice}
+        attendanceLine={attendanceSuffix}
         revision={logRevision}
       />
     </>
