@@ -94,7 +94,7 @@ function makeBoostEvent(
 }
 
 describe('mapDataUpdateNotifications', () => {
-    it('maps replies, quotes, and reposts from post writes', () => {
+  it('maps replies, quotes, and reposts from post writes', () => {
     const notifications = mapDataUpdateNotifications({
       id: 'du-1',
       block_height: 101,
