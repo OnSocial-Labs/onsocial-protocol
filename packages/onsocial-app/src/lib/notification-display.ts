@@ -154,9 +154,9 @@ export function notificationVerb(
     case 'scarces_offer':
       return 'made an offer';
     case 'reward_credited':
-      return 'reward credited';
+      return 'credited';
     case 'reward_claimed':
-      return 'reward claimed';
+      return 'collected';
     case 'boost_locked':
       return 'boost locked';
     case 'boost_extended':
@@ -164,7 +164,7 @@ export function notificationVerb(
     case 'boost_unlocked':
       return 'boost unlocked';
     case 'boost_reward_claimed':
-      return 'boost reward claimed';
+      return 'boost claimed';
     case 'boost_credits_purchased':
       return 'boost credits purchased';
     case 'boost_storage_deposited':
@@ -326,7 +326,7 @@ export function notificationDetail(
 
 export type NotificationSystemFamily =
   | 'boost'
-  | 'rewards'
+  | 'collect'
   | 'dao'
   | 'scarces'
   | 'guild'
@@ -362,7 +362,7 @@ export function isSystemNotification(
 
 function systemFamily(type: string): NotificationSystemFamily {
   if (type.startsWith('boost_')) return 'boost';
-  if (type.startsWith('reward_')) return 'rewards';
+  if (type.startsWith('reward_')) return 'collect';
   if (type.startsWith('dao_')) return 'dao';
   if (type.startsWith('scarces_')) return 'scarces';
   if (type.startsWith('group_')) return 'guild';
@@ -373,7 +373,7 @@ function systemFamily(type: string): NotificationSystemFamily {
 
 const SYSTEM_FAMILY_LABEL: Record<NotificationSystemFamily, string> = {
   boost: 'Boost',
-  rewards: 'Rewards',
+  collect: 'Collect',
   dao: 'DAO',
   scarces: 'Scarces',
   guild: 'Guild',
@@ -388,7 +388,7 @@ function systemAction(
 ): string {
   switch (type) {
     case 'boost_reward_claimed':
-      return 'Reward claimed';
+      return 'Claimed';
     case 'boost_locked':
       return 'Locked';
     case 'boost_extended':
@@ -402,7 +402,7 @@ function systemAction(
     case 'reward_credited':
       return 'Credited';
     case 'reward_claimed':
-      return 'Claimed';
+      return 'Collected';
     case 'profile_anniversary': {
       const years = numberField(context, 'years');
       if (years === 1) return '1 year on OnSocial';

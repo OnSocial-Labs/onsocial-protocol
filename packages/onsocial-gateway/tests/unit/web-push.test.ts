@@ -21,6 +21,12 @@ describe('pushNotificationVerb', () => {
       '4 years on OnSocial'
     );
   });
+
+  it('maps collect and boost verbs without reward wording', () => {
+    expect(pushNotificationVerb('reward_credited')).toBe('credited');
+    expect(pushNotificationVerb('reward_claimed')).toBe('collected');
+    expect(pushNotificationVerb('boost_reward_claimed')).toBe('boost claimed');
+  });
 });
 
 describe('pushNotificationUrl', () => {
@@ -98,6 +104,33 @@ describe('buildWebPushPayload', () => {
       url: '/@alice.near',
       tag: 'onsocial-notif-22222222-2222-2222-2222-222222222222',
       notificationId: '22222222-2222-2222-2222-222222222222',
+    });
+  });
+
+  it('titles collect and boost pushes by family', () => {
+    expect(
+      buildWebPushPayload({
+        id: '33333333-3333-3333-3333-333333333333',
+        recipient: 'alice.near',
+        actor: 'alice.near',
+        notification_type: 'reward_claimed',
+        context: {},
+      })
+    ).toMatchObject({
+      title: 'Collect',
+      body: 'collected',
+    });
+    expect(
+      buildWebPushPayload({
+        id: '44444444-4444-4444-4444-444444444444',
+        recipient: 'alice.near',
+        actor: 'alice.near',
+        notification_type: 'boost_reward_claimed',
+        context: {},
+      })
+    ).toMatchObject({
+      title: 'Boost',
+      body: 'boost claimed',
     });
   });
 });
