@@ -3,6 +3,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import {
   Divider,
+  ExternalLinkIcon,
   FireFillIcon,
   GiftFillIcon,
   HomeFillIcon,
@@ -19,6 +20,7 @@ import {
   formatNotificationTime,
   isSystemNotification,
   notificationDetail,
+  notificationExplorerHref,
   notificationSystemChrome,
   type NotificationSystemFamily,
 } from '@/lib/notification-display';
@@ -90,7 +92,7 @@ function SystemMark({ family }: { family: NotificationSystemFamily }) {
  * Hybrid Activity rows:
  * - Social (actor) → standing identity + verb
  * - System → Mage family mark + family title + action
- * Time aside; unread = green pip only.
+ * Time aside; unread = green pip only; optional Nearblocks icon when on-chain.
  */
 export function NotificationActivityRows({
   items,
@@ -108,6 +110,7 @@ export function NotificationActivityRows({
         const system = isSystemNotification(item);
         const when = formatNotificationTime(item.createdAt);
         const unread = !item.read;
+        const explorerHref = notificationExplorerHref(item);
 
         let title: string;
         let ariaLead: string;
@@ -194,6 +197,22 @@ export function NotificationActivityRows({
                   >
                     {when.label}
                   </span>
+                ) : null}
+                {explorerHref ? (
+                  <a
+                    className="notifications-activity-explorer"
+                    href={explorerHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="View on Nearblocks"
+                    title="View on Nearblocks"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <ExternalLinkIcon
+                      className="notifications-activity-explorer-icon"
+                      aria-hidden
+                    />
+                  </a>
                 ) : null}
                 {unread ? (
                   <span className="notifications-activity-pip" aria-hidden />

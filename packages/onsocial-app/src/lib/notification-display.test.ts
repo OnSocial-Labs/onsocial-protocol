@@ -4,6 +4,7 @@ import {
   isSystemNotification,
   notificationDescription,
   notificationDetail,
+  notificationExplorerHref,
   notificationHref,
   notificationSystemChrome,
   notificationVerb,
@@ -287,5 +288,26 @@ describe('notification display', () => {
         context: { years: 2, accountId: 'alice.testnet' },
       })
     ).toBe('/@alice.testnet');
+  });
+
+  it('builds Nearblocks href from receipt or context tx hash', () => {
+    expect(
+      notificationExplorerHref({
+        source: { contract: 'core', receiptId: 'abc123', blockHeight: 1 },
+        context: null,
+      })
+    ).toMatch(/\/txns\/abc123$/);
+    expect(
+      notificationExplorerHref({
+        source: { contract: 'onsocial', receiptId: null, blockHeight: null },
+        context: { txHash: 'def456' },
+      })
+    ).toMatch(/\/txns\/def456$/);
+    expect(
+      notificationExplorerHref({
+        source: { contract: 'onsocial', receiptId: null, blockHeight: null },
+        context: { years: 1 },
+      })
+    ).toBeNull();
   });
 });

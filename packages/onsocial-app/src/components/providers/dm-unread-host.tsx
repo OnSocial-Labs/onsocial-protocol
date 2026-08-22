@@ -1,8 +1,12 @@
 'use client';
 
 /**
- * Soft-polls DM unread count for the signed-in viewer.
- * Mount once under wallet providers — no plaintext, metadata only.
+ * Soft-polls DM unread for the Messages dock badge.
+ * Mount once under wallet providers.
+ *
+ * In-app awareness is the Messages unread pip only — do not toast on unread
+ * rises. That would share/clobber the global action toast slot (Collect, txs).
+ * Background alerts stay on Web Push when subscribed.
  */
 import {
   createContext,
@@ -14,16 +18,12 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
-import { usePathname } from 'next/navigation';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
   ensureAppGatewayAuth,
   getCachedAppGatewayAuth,
 } from '@/lib/app-gateway-auth';
-import { APP_MESSAGES_PATH } from '@/lib/app-routes';
-import { txToastSuccess } from '@/lib/transaction-toast-copy';
 
 const POLL_MS = 20_000;
 
@@ -65,7 +65,7 @@ export function useDmUnreadCount(): number {
   return fromContext ?? fromStore;
 }
 
-/** Trigger an immediate unread refresh (e.g. after markRead). */
+/** Trigger an immediate unread refresh (e.g. after opening a thread). */
 export function requestDmUnreadRefresh(): void {
   void refreshBridge?.();
 }
@@ -73,32 +73,18 @@ export function requestDmUnreadRefresh(): void {
 export function DmUnreadHost({ children }: { children?: ReactNode }) {
   const { accountId, isConnected, hasSocialSession } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
-  const { setTxResult } = useAppTransactionFeedback();
-  const pathname = usePathname();
   const unread = useSyncExternalStore(
     subscribeUnread,
     getUnreadSnapshot,
     () => 0
   );
-  const previousUnreadRef = useRef<number | null>(null);
   const previousAccountRef = useRef<string | null>(null);
-  const pathnameRef = useRef(pathname);
-  const setTxResultRef = useRef(setTxResult);
   const refreshGenRef = useRef(0);
-
-  useEffect(() => {
-    pathnameRef.current = pathname;
-  }, [pathname]);
-
-  useEffect(() => {
-    setTxResultRef.current = setTxResult;
-  }, [setTxResult]);
 
   useEffect(() => {
     const nextAccount = accountId?.trim().toLowerCase() || null;
     if (previousAccountRef.current !== nextAccount) {
       previousAccountRef.current = nextAccount;
-      previousUnreadRef.current = null;
       publishUnread(0);
       refreshGenRef.current += 1;
     }
@@ -152,24 +138,6 @@ export function DmUnreadHost({ children }: { children?: ReactNode }) {
       document.removeEventListener('visibilitychange', onFocus);
     };
   }, [hasSocialSession, isConnected, refresh]);
-
-  // Toast when unread rises while away from Messages (skip first sample).
-  useEffect(() => {
-    const previous = previousUnreadRef.current;
-    previousUnreadRef.current = unread;
-    if (previous == null) return;
-    const onMessages =
-      pathnameRef.current === APP_MESSAGES_PATH ||
-      pathnameRef.current.startsWith(`${APP_MESSAGES_PATH}/`);
-    if (unread > previous && !onMessages) {
-      setTxResultRef.current({
-        type: 'success',
-        msg: txToastSuccess.newPrivateMessage,
-        actionHref: APP_MESSAGES_PATH,
-        actionLabel: 'Open messages',
-      });
-    }
-  }, [unread]);
 
   const value = useMemo(
     () => ({

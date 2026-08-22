@@ -120,7 +120,7 @@ export function NotificationsPanel() {
     void loadInitial();
   }, [accountId, hasSocialSession, isConnected, loadInitial]);
 
-  // Soft refresh when host unread rises while viewing Activity (toast suppressed).
+  // Soft refresh when host unread rises while viewing Activity.
   useEffect(() => {
     const previous = previousUnreadRef.current;
     previousUnreadRef.current = activityUnread;

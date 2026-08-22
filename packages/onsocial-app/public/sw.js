@@ -164,14 +164,23 @@ self.addEventListener('push', (event) => {
       : 'onsocial-activity';
 
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      tag,
-      renotify: true,
-      icon: '/onsocial_icon_192.png',
-      badge: '/onsocial_icon_192.png',
-      data: { url },
-    })
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        // App already open and focused — dock unread covers awareness; skip OS banner.
+        const hasFocused = clientList.some(
+          (client) => 'focused' in client && client.focused
+        );
+        if (hasFocused) return undefined;
+        return self.registration.showNotification(title, {
+          body,
+          tag,
+          renotify: true,
+          icon: '/onsocial_icon_192.png',
+          badge: '/onsocial_icon_192.png',
+          data: { url },
+        });
+      })
   );
 });
 
