@@ -126,72 +126,41 @@ export function PageContentSections({
   const createdCount = Math.max(createdPeeks.length, createdMintCount);
   const storeListingCount = storeShelf.listingCount + storeShelf.drops.length;
 
-  const orderedStoreShelf = useMemo(
-    () =>
-      orderStoreShelfByPins(storeShelf, sectionPinsFor(config, 'store')),
-    [storeShelf, config]
+  const orderedStoreShelf = orderStoreShelfByPins(
+    storeShelf,
+    sectionPinsFor(config, 'store')
+  );
+  const orderedPosts = orderPagePostHighlights(
+    postPeeks,
+    sectionPinsFor(config, 'posts'),
+    (post) => post.postId,
+    PAGE_DRAWER_POST_HIGHLIGHT
+  );
+  const orderedGuilds = preferPinnedOrder(
+    guilds,
+    sectionPinsFor(config, 'groups'),
+    (guild) => guild.groupId
+  );
+  const orderedCreated = preferPinnedOrder(
+    createdPeeks,
+    sectionPinsFor(config, 'created'),
+    (item) => item.tokenId
+  );
+  const orderedHoldings = preferPinnedOrder(
+    holdings,
+    sectionPinsFor(config, 'collectibles'),
+    (item) => item.tokenId
   );
 
-  const orderedPosts = useMemo(
-    () =>
-      orderPagePostHighlights(
-        postPeeks,
-        sectionPinsFor(config, 'posts'),
-        (post) => post.postId,
-        PAGE_DRAWER_POST_HIGHLIGHT
-      ),
-    [postPeeks, config]
-  );
-  const orderedGuilds = useMemo(
-    () =>
-      preferPinnedOrder(
-        guilds,
-        sectionPinsFor(config, 'groups'),
-        (guild) => guild.groupId
-      ),
-    [guilds, config]
-  );
-  const orderedCreated = useMemo(
-    () =>
-      preferPinnedOrder(
-        createdPeeks,
-        sectionPinsFor(config, 'created'),
-        (item) => item.tokenId
-      ),
-    [createdPeeks, config]
-  );
-  const orderedHoldings = useMemo(
-    () =>
-      preferPinnedOrder(
-        holdings,
-        sectionPinsFor(config, 'collectibles'),
-        (item) => item.tokenId
-      ),
-    [holdings, config]
-  );
-
-  const sections = useMemo(
-    () =>
-      resolveVisiblePageSections(config, {
-        stats,
-        guilds,
-        links,
-        scarceCount: holdingsCount,
-        createdCount,
-        storeListingCount,
-        postPeekCount: postPeeks.length,
-      }),
-    [
-      config,
-      stats,
-      guilds,
-      links,
-      holdingsCount,
-      createdCount,
-      storeListingCount,
-      postPeeks.length,
-    ]
-  );
+  const sections = resolveVisiblePageSections(config, {
+    stats,
+    guilds,
+    links,
+    scarceCount: holdingsCount,
+    createdCount,
+    storeListingCount,
+    postPeekCount: postPeeks.length,
+  });
 
   const feedHref = overlayPath(pageAccountId, 'feed');
 

@@ -257,7 +257,6 @@ export function PageContentDrawer({
    */
   useEffect(() => {
     if (shelf.holdings.length > 0) {
-      setOwnedHoldings(shelf.holdings);
       return;
     }
     let cancelled = false;

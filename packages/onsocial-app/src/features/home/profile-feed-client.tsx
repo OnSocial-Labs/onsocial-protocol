@@ -85,7 +85,10 @@ export function ProfileFeedClient({
   useEffect(() => {
     if (!tab || fetchedTabsRef.current.has(tab)) return;
     fetchedTabsRef.current.add(tab);
-    setPendingTab(tab);
+    const requested = tab;
+    queueMicrotask(() => {
+      setPendingTab(requested);
+    });
     const client = createReadOnlyOnSocialClient();
     // Media has no indexed column — widen the window and filter client-side.
     const request =
