@@ -301,7 +301,7 @@ describe('group notifications', () => {
 });
 
 describe('mapRewardsEventNotifications', () => {
-  it('maps reward credits and claims', () => {
+  it('maps reward credits and claims into first-party Activity (appId default)', () => {
     const credited = mapRewardsEventNotifications({
       id: 'rw-1',
       block_height: 300,
@@ -313,7 +313,7 @@ describe('mapRewardsEventNotifications', () => {
       amount: '2500000000000000000',
       source: 'content_reward',
       credited_by: 'rewards.onsocial.testnet',
-      app_id: 'portal',
+      app_id: 'onsocial_portal',
     });
 
     const claimed = mapRewardsEventNotifications({
@@ -327,15 +327,45 @@ describe('mapRewardsEventNotifications', () => {
       amount: '1000000000000000000',
       source: null,
       credited_by: null,
-      app_id: 'portal',
+      app_id: 'onsocial_portal',
     });
 
     expect(credited).toHaveLength(1);
     expect(credited[0]?.notificationType).toBe('reward_credited');
-    expect(credited[0]?.appId).toBe('portal');
+    expect(credited[0]?.appId).toBe('default');
+    expect(credited[0]?.ownerAccountId).toBe('alice.testnet');
+    expect(credited[0]?.context).toMatchObject({
+      amount: '2500000000000000000',
+      source: 'content_reward',
+      rewardsAppId: 'onsocial_portal',
+    });
     expect(claimed).toHaveLength(1);
     expect(claimed[0]?.notificationType).toBe('reward_claimed');
+    expect(claimed[0]?.appId).toBe('default');
     expect(claimed[0]?.actor).toBe('alice.testnet');
+    expect(claimed[0]?.context).toMatchObject({
+      amount: '1000000000000000000',
+      rewardsAppId: 'onsocial_portal',
+    });
+  });
+
+  it('still maps when on-chain app_id is global', () => {
+    const credited = mapRewardsEventNotifications({
+      id: 'rw-global',
+      block_height: 302,
+      block_timestamp: '1730000007000000000',
+      receipt_id: 'rcpt-8',
+      account_id: 'alice.testnet',
+      event_type: 'REWARD_CREDITED',
+      success: true,
+      amount: '1',
+      source: 'daily_active',
+      credited_by: 'rewards.onsocial.testnet',
+      app_id: 'global',
+    });
+    expect(credited).toHaveLength(1);
+    expect(credited[0]?.appId).toBe('default');
+    expect(credited[0]?.context).toMatchObject({ rewardsAppId: 'global' });
   });
 });
 
