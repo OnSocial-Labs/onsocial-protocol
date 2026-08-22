@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import {
   SheetFactCopy,
   SheetFactCount,
@@ -14,6 +15,21 @@ import {
 } from '@/lib/leaderboard';
 import type { ProfileReputation } from '@/lib/profile-signals';
 
+function FactorLabel({
+  title,
+  hint,
+}: {
+  title: string;
+  hint: string;
+}): ReactNode {
+  return (
+    <span className="reputation-facts-factor-label">
+      <span className="reputation-facts-factor-title">{title}</span>
+      <span className="reputation-facts-factor-hint">{hint}</span>
+    </span>
+  );
+}
+
 export function ReputationBreakdownFacts({
   accountId,
   reputation,
@@ -24,9 +40,8 @@ export function ReputationBreakdownFacts({
   if (!reputation) {
     return (
       <p className="portfolio-support-collect-info-empty">
-        No protocol reputation indexed for @{accountId} yet. Weighted
-        stands, endorsements, paid support, posts, scarces fans, and
-        consistency build this score.
+        No reputation indexed for @{accountId} yet. It grows from stands,
+        endorsements, paid support, posts, and consistent activity.
       </p>
     );
   }
@@ -45,35 +60,75 @@ export function ReputationBreakdownFacts({
         </span>
       </div>
 
-      <SheetFactSection title="Breakdown">
+      <SheetFactCopy className="reputation-facts-intro">
+        Built from who stands with you, paid support, what you publish, and how
+        consistently you show up.
+      </SheetFactCopy>
+
+      <SheetFactSection title="Score">
         <SheetFactRow
-          label="Social"
+          label={
+            <FactorLabel
+              title="Social"
+              hint="Stands, endorsements, paid support"
+            />
+          }
           value={formatReputationComponent(reputation.socialScore)}
         />
         <SheetFactRow
-          label="Commitment"
+          label={
+            <FactorLabel
+              title="Commitment"
+              hint="SOCIAL staked toward the protocol"
+            />
+          }
           value={formatReputationComponent(reputation.commitmentScore)}
         />
         <SheetFactRow
-          label="Quality"
+          label={
+            <FactorLabel
+              title="Quality"
+              hint="Posts and amplifies received"
+            />
+          }
           value={formatReputationComponent(reputation.qualityScore)}
         />
         <SheetFactRow
-          label="Consistency"
+          label={
+            <FactorLabel
+              title="Consistency"
+              hint="Steady activity over time"
+            />
+          }
           value={formatReputationComponent(reputation.consistencyScore)}
         />
         <SheetFactRow
-          label="Scarces"
+          label={
+            <FactorLabel
+              title="Scarces"
+              hint="Fans and marketplace activity"
+            />
+          }
           value={formatReputationComponent(reputation.scarcesScore)}
         />
         <SheetFactRow
-          label="Confidence"
+          label={
+            <FactorLabel
+              title="Confidence"
+              hint="How much signal backs this score"
+            />
+          }
           value={`${confidence.label} · ${Math.round(reputation.confidenceScore * 100)}%`}
         />
         <SheetFactRow
-          label="Lock"
+          label={
+            <FactorLabel title="Lock" hint="How long stake has been locked" />
+          }
           value={commitmentLabel(reputation.lockMonths)}
         />
+      </SheetFactSection>
+
+      <SheetFactSection title="Activity">
         <SheetFactRow
           label="Posts"
           value={
@@ -90,14 +145,14 @@ export function ReputationBreakdownFacts({
               count={reputation.paidSupportSpenders}
               unit={
                 reputation.paidSupportSpenders === 1
-                  ? 'spender'
-                  : 'spenders'
+                  ? 'supporter'
+                  : 'supporters'
               }
             />
           }
         />
         <SheetFactRow
-          label="Inbound conversations"
+          label="Conversations"
           value={
             <SheetFactCount
               count={reputation.uniqueInboundPeers}

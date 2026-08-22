@@ -10,7 +10,7 @@ interface ReputationPanelProps {
 }
 
 /**
- * Overlay deep-link panel — same facts chrome as the portfolio hug drawer.
+ * Portfolio glass overlay (`/@account/reputation`) — face signal deep-link.
  * Chart navigates to `/leaderboard?track=reputation`.
  */
 export function ReputationPanel({
