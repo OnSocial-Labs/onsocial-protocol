@@ -28,7 +28,7 @@ type FillIcon = ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
 
 const SYSTEM_FAMILY_ICON: Record<NotificationSystemFamily, FillIcon> = {
   boost: FireFillIcon,
-  rewards: GiftFillIcon,
+  collect: GiftFillIcon,
   dao: HomeFillIcon,
   scarces: ShopFillIcon,
   guild: UsersFillIcon,

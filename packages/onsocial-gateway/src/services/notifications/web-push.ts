@@ -384,9 +384,21 @@ export function pushNotificationVerb(
     case 'scarces_offer':
       return 'made an offer';
     case 'reward_credited':
-      return 'reward credited';
+      return 'credited';
     case 'reward_claimed':
-      return 'reward claimed';
+      return 'collected';
+    case 'boost_locked':
+      return 'boost locked';
+    case 'boost_extended':
+      return 'boost extended';
+    case 'boost_unlocked':
+      return 'boost unlocked';
+    case 'boost_reward_claimed':
+      return 'boost claimed';
+    case 'boost_credits_purchased':
+      return 'boost credits purchased';
+    case 'boost_storage_deposited':
+      return 'boost storage deposited';
     case 'app_event':
       return 'app update';
     case 'profile_anniversary': {
@@ -474,6 +486,24 @@ export function buildWebPushPayload(row: NotificationRow): WebPushPayload {
   if (type === 'profile_anniversary') {
     return {
       title: 'OnSocial',
+      body,
+      url: pushNotificationUrl(row),
+      tag: `onsocial-notif-${row.id}`,
+      notificationId: row.id,
+    };
+  }
+  if (type.startsWith('reward_')) {
+    return {
+      title: 'Collect',
+      body,
+      url: pushNotificationUrl(row),
+      tag: `onsocial-notif-${row.id}`,
+      notificationId: row.id,
+    };
+  }
+  if (type.startsWith('boost_')) {
+    return {
+      title: 'Boost',
       body,
       url: pushNotificationUrl(row),
       tag: `onsocial-notif-${row.id}`,

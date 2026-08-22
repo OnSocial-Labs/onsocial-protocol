@@ -23,6 +23,9 @@ describe('notification display', () => {
     expect(notificationVerb('standing_new')).toBe('stood with you');
     expect(notificationVerb('dm')).toBe('sent a private message');
     expect(notificationVerb('boost_locked')).toBe('boost locked');
+    expect(notificationVerb('reward_credited')).toBe('credited');
+    expect(notificationVerb('reward_claimed')).toBe('collected');
+    expect(notificationVerb('boost_reward_claimed')).toBe('boost claimed');
     expect(notificationVerb('dao_proposal')).toBe('opened a DAO proposal');
     expect(
       notificationVerb('dao_proposal_resolved', { status: 'Approved' })
@@ -187,7 +190,7 @@ describe('notification display', () => {
     });
   });
 
-  it('classifies system chrome for boost / rewards / dao resolved', () => {
+  it('classifies system chrome for boost / collect / dao resolved', () => {
     expect(
       isSystemNotification({
         type: 'boost_reward_claimed',
@@ -221,7 +224,27 @@ describe('notification display', () => {
     ).toEqual({
       family: 'boost',
       familyLabel: 'Boost',
-      action: 'Reward claimed',
+      action: 'Claimed',
+    });
+    expect(
+      notificationSystemChrome({
+        type: 'reward_credited',
+        context: {},
+      })
+    ).toEqual({
+      family: 'collect',
+      familyLabel: 'Collect',
+      action: 'Credited',
+    });
+    expect(
+      notificationSystemChrome({
+        type: 'reward_claimed',
+        context: {},
+      })
+    ).toEqual({
+      family: 'collect',
+      familyLabel: 'Collect',
+      action: 'Collected',
     });
     expect(
       notificationSystemChrome({

@@ -34122,7 +34122,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: color-mix(in srgb, var(--protocol-amber, #f59e0b) 88%, rgb(var(--fg-rgb)));
 }
 
-.notifications-activity-mark--rewards {
+.notifications-activity-mark--collect {
   color: color-mix(in srgb, var(--protocol-green) 82%, rgb(var(--fg-rgb)));
 }
 
