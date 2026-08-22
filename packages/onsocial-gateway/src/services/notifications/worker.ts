@@ -465,6 +465,12 @@ export function mapGroupProposalNotifications(
     );
 }
 
+/**
+ * First-party Collect Activity always uses `appId: 'default'` (same as Boost).
+ * On-chain rewards `app_id` (e.g. `onsocial_portal`) is kept in context only —
+ * otherwise resolveOwnerAccountId looks up a developer app and either drops the
+ * row or stores it under the app owner, so the member never sees it in Activity.
+ */
 export function mapRewardsEventNotifications(
   row: RewardsEventRow
 ): NotificationInsert[] {
@@ -473,16 +479,19 @@ export function mapRewardsEventNotifications(
   }
 
   const eventType = normalizeText(row.event_type);
+  const rewardsAppId = normalizeText(row.app_id);
+
   if (eventType === 'REWARD_CREDITED') {
     const notification = buildNotification(row, {
       recipient: row.account_id ?? '',
       actor: row.credited_by ?? row.account_id ?? '',
-      appId: row.app_id,
+      appId: 'default',
       notificationType: 'reward_credited',
       sourceContract: 'rewards',
       context: {
         amount: normalizeText(row.amount),
         source: normalizeText(row.source),
+        ...(rewardsAppId ? { rewardsAppId } : {}),
       },
     });
 
@@ -498,7 +507,7 @@ export function mapRewardsEventNotifications(
     return [
       {
         ownerAccountId: recipient,
-        appId: normalizeAppId(row.app_id),
+        appId: 'default',
         recipient,
         actor: recipient,
         notificationType: 'reward_claimed',
@@ -508,6 +517,7 @@ export function mapRewardsEventNotifications(
         dedupeKey: `${row.id}:reward_claimed:${recipient}`,
         context: compactContext({
           amount: normalizeText(row.amount),
+          ...(rewardsAppId ? { rewardsAppId } : {}),
         }),
         createdAt: toIsoFromNanoseconds(row.block_timestamp),
       },
