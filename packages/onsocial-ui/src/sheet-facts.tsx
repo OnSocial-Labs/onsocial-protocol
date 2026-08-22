@@ -37,7 +37,7 @@ export function SheetFactRow({
   value,
   className,
 }: {
-  label: string;
+  label: ReactNode;
   value: ReactNode;
   className?: string;
 }) {

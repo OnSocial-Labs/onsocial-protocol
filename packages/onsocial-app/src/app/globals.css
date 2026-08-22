@@ -6869,6 +6869,31 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.4);
   }
 
+  .reputation-facts-intro {
+    margin: 0 0 1rem;
+  }
+
+  .reputation-facts-factor-label {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.12rem;
+    min-width: 0;
+  }
+
+  .reputation-facts-factor-title {
+    line-height: 1.2;
+  }
+
+  .reputation-facts-factor-hint {
+    font-size: 0.68rem;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    color: rgb(var(--fg-rgb) / 0.42);
+    line-height: 1.25;
+  }
+
   .reputation-panel-body {
     position: relative;
   }
