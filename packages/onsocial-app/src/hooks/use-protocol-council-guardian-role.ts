@@ -14,13 +14,14 @@ export function useProtocolCouncilGuardianRole(
   accountId: string,
   enabled: boolean
 ): ProtocolCouncilGuardianRoleId | null {
+  const normalized = accountId.trim().toLowerCase();
   const [roleId, setRoleId] = useState<ProtocolCouncilGuardianRoleId | null>(
     null
   );
+  const [resolvedKey, setResolvedKey] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!enabled || !accountId.trim()) {
-      setRoleId(null);
+    if (!enabled || !normalized) {
       return;
     }
 
@@ -31,10 +32,13 @@ export function useProtocolCouncilGuardianRole(
       try {
         const res = await fetch(
           `/api/profile/dao-roles?accountId=${encodeURIComponent(accountId)}`,
-          { signal: controller.signal }
+          { signal: controller.signal, cache: 'no-store' }
         );
         if (!res.ok) {
-          if (!cancelled) setRoleId(null);
+          if (!cancelled) {
+            setRoleId(null);
+            setResolvedKey(normalized);
+          }
           return;
         }
         const data = (await res.json()) as { daoRoleLabels?: string[] };
@@ -44,8 +48,12 @@ export function useProtocolCouncilGuardianRole(
             data.daoRoleLabels ?? []
           )
         );
+        setResolvedKey(normalized);
       } catch {
-        if (!cancelled) setRoleId(null);
+        if (!cancelled) {
+          setRoleId(null);
+          setResolvedKey(normalized);
+        }
       }
     })();
 
@@ -53,7 +61,10 @@ export function useProtocolCouncilGuardianRole(
       cancelled = true;
       controller.abort();
     };
-  }, [accountId, enabled]);
+  }, [accountId, enabled, normalized]);
 
+  if (!enabled || !normalized || resolvedKey !== normalized) {
+    return null;
+  }
   return roleId;
 }
