@@ -137,7 +137,10 @@ async function readLastRunUtcDate(client: Client): Promise<string> {
   return result.rows[0]?.last_event_id?.trim() ?? '';
 }
 
-async function writeLastRunUtcDate(client: Client, utcDate: string): Promise<void> {
+async function writeLastRunUtcDate(
+  client: Client,
+  utcDate: string
+): Promise<void> {
   await ensureAnniversaryCursor(client);
   await client.query(
     `

@@ -20,18 +20,18 @@ describe('profile anniversary helpers', () => {
   });
 
   it('celebrates Feb 29 joiners on Feb 28 in non-leap years', () => {
-    expect(anniversaryMonthDayKeys(new Date('2025-02-28T15:00:00.000Z'))).toEqual(
-      ['02-28', '02-29']
-    );
-    expect(anniversaryMonthDayKeys(new Date('2024-02-28T15:00:00.000Z'))).toEqual(
-      ['02-28']
-    );
-    expect(anniversaryMonthDayKeys(new Date('2024-02-29T15:00:00.000Z'))).toEqual(
-      ['02-29']
-    );
-    expect(anniversaryMonthDayKeys(new Date('2026-08-22T00:00:00.000Z'))).toEqual(
-      ['08-22']
-    );
+    expect(
+      anniversaryMonthDayKeys(new Date('2025-02-28T15:00:00.000Z'))
+    ).toEqual(['02-28', '02-29']);
+    expect(
+      anniversaryMonthDayKeys(new Date('2024-02-28T15:00:00.000Z'))
+    ).toEqual(['02-28']);
+    expect(
+      anniversaryMonthDayKeys(new Date('2024-02-29T15:00:00.000Z'))
+    ).toEqual(['02-29']);
+    expect(
+      anniversaryMonthDayKeys(new Date('2026-08-22T00:00:00.000Z'))
+    ).toEqual(['08-22']);
   });
 
   it('converts profile timestamps to ms and month-day', () => {
