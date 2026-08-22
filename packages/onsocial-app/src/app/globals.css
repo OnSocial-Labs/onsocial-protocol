@@ -34139,6 +34139,34 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   background: var(--protocol-green);
 }
 
+.notifications-activity-explorer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.12rem;
+  border: 0;
+  border-radius: 0.35rem;
+  color: color-mix(in srgb, rgb(var(--fg-rgb)) 42%, transparent);
+  background: transparent;
+  text-decoration: none;
+  line-height: 0;
+  transition: color 0.15s ease;
+}
+
+.notifications-activity-explorer:hover,
+.notifications-activity-explorer:focus-visible {
+  color: color-mix(in srgb, rgb(var(--fg-rgb)) 78%, transparent);
+  outline: none;
+}
+
+.notifications-activity-explorer-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+  display: block;
+}
+
 .notifications-activity-row .standing-row-aside {
   align-items: flex-end;
   gap: 0.28rem;

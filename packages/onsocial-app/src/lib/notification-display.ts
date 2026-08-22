@@ -1,5 +1,6 @@
 import type { Notification } from '@onsocial/sdk';
 import { formatSocialCalendarTime } from '@onsocial/ui';
+import { nearExplorerTxHref } from '@/lib/app-config';
 import {
   APP_GROUPS_PATH,
   APP_HOME_PATH,
@@ -446,6 +447,21 @@ export function notificationSystemChrome(
     familyLabel: SYSTEM_FAMILY_LABEL[family],
     action: systemAction(notification.type, notification.context),
   };
+}
+
+/**
+ * Nearblocks link when the notification has an on-chain receipt.
+ * Off-chain rows (anniversary, some app events) return null.
+ */
+export function notificationExplorerHref(
+  notification: Pick<Notification, 'source' | 'context'>
+): string | null {
+  const fromSource = nearExplorerTxHref(notification.source?.receiptId);
+  if (fromSource) return fromSource;
+  const fromContext =
+    textField(notification.context, 'txHash') ??
+    textField(notification.context, 'transactionHash');
+  return nearExplorerTxHref(fromContext);
 }
 
 /** @deprecated Prefer `notificationDetail` + aside time; kept for tests. */
