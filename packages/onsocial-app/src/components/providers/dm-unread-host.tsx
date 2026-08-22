@@ -109,7 +109,7 @@ export function DmUnreadHost({ children }: { children?: ReactNode }) {
         });
       }
       client.auth.setToken(token);
-      const next = await client.dm.unreadCount();
+      const { unread: next } = await client.dm.unreadCount();
       if (gen !== refreshGenRef.current) return;
       if (id.trim().toLowerCase() !== accountId.trim().toLowerCase()) return;
       publishUnread(Number.isFinite(next) ? next : 0);
