@@ -31,8 +31,12 @@ describe('ReputationBreakdownFacts', () => {
     );
     expect(html).toContain('Built from who stands with you');
     expect(html).toContain('Stands, endorsements, paid support');
+    expect(html).toContain('Protocol boost stake and lock time');
+    expect(html).toContain('Reactions, conversations, and amplifies');
+    expect(html).toContain('Creates, sales, and fans');
     expect(html).toContain('Score');
     expect(html).toContain('Activity');
+    expect(html).toContain('Lock');
     expect(html).toContain('rank #12');
   });
 

@@ -79,7 +79,7 @@ export function ReputationBreakdownFacts({
           label={
             <FactorLabel
               title="Commitment"
-              hint="SOCIAL staked toward the protocol"
+              hint="Protocol boost stake and lock time"
             />
           }
           value={formatReputationComponent(reputation.commitmentScore)}
@@ -88,7 +88,7 @@ export function ReputationBreakdownFacts({
           label={
             <FactorLabel
               title="Quality"
-              hint="Posts and amplifies received"
+              hint="Reactions, conversations, and amplifies"
             />
           }
           value={formatReputationComponent(reputation.qualityScore)}
@@ -106,7 +106,7 @@ export function ReputationBreakdownFacts({
           label={
             <FactorLabel
               title="Scarces"
-              hint="Fans and marketplace activity"
+              hint="Creates, sales, and fans"
             />
           }
           value={formatReputationComponent(reputation.scarcesScore)}
@@ -119,12 +119,6 @@ export function ReputationBreakdownFacts({
             />
           }
           value={`${confidence.label} · ${Math.round(reputation.confidenceScore * 100)}%`}
-        />
-        <SheetFactRow
-          label={
-            <FactorLabel title="Lock" hint="How long stake has been locked" />
-          }
-          value={commitmentLabel(reputation.lockMonths)}
         />
       </SheetFactSection>
 
@@ -181,6 +175,10 @@ export function ReputationBreakdownFacts({
               }
             />
           }
+        />
+        <SheetFactRow
+          label="Lock"
+          value={commitmentLabel(reputation.lockMonths)}
         />
       </SheetFactSection>
 

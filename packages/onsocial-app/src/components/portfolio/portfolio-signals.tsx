@@ -37,16 +37,12 @@ const metricBaseClass = 'signal-metric group';
 function metricClassName(options?: {
   highlight?: boolean;
   solidarity?: boolean;
-  readonly?: boolean;
 }): string {
   let className = metricBaseClass;
   if (options?.solidarity) className += ' signal-metric-solidarity';
   if (options?.highlight) className += ' signal-metric--highlight';
   if (options?.solidarity && options?.highlight) {
     className += ' signal-metric--solidarity-active';
-  }
-  if (options?.readonly) {
-    className += ' signal-metric-readonly';
   }
   return className;
 }
