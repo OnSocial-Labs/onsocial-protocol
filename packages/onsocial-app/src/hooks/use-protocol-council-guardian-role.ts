@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import {
-  primaryProtocolCouncilGuardianRoleIdFromLabels,
+  primaryProtocolCouncilGuardianRoleId,
   type ProtocolCouncilGuardianRoleId,
 } from '@/features/protocol/protocol-council-guardian';
+import { fetchDaoRolesClient } from '@/lib/fetch-dao-roles-client';
 
 /**
  * Soft-fill protocol Guardian/Council for a person face — never blocks paint.
- * Uses the same `/api/profile/dao-roles` path as Joined facts.
+ * Shares `/api/profile/dao-roles` cache with Joined facts.
  */
 export function useProtocolCouncilGuardianRole(
   accountId: string,
@@ -30,24 +31,9 @@ export function useProtocolCouncilGuardianRole(
 
     void (async () => {
       try {
-        const res = await fetch(
-          `/api/profile/dao-roles?accountId=${encodeURIComponent(accountId)}`,
-          { signal: controller.signal, cache: 'no-store' }
-        );
-        if (!res.ok) {
-          if (!cancelled) {
-            setRoleId(null);
-            setResolvedKey(normalized);
-          }
-          return;
-        }
-        const data = (await res.json()) as { daoRoleLabels?: string[] };
+        const data = await fetchDaoRolesClient(accountId, controller.signal);
         if (cancelled) return;
-        setRoleId(
-          primaryProtocolCouncilGuardianRoleIdFromLabels(
-            data.daoRoleLabels ?? []
-          )
-        );
+        setRoleId(primaryProtocolCouncilGuardianRoleId(data.daoRoleIds));
         setResolvedKey(normalized);
       } catch {
         if (!cancelled) {

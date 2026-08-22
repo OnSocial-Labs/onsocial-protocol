@@ -6288,14 +6288,16 @@ a.os-surface-row {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 0.4rem 0.55rem;
     max-width: 100%;
+    min-width: 0;
   }
 
   .portfolio-name-row .portfolio-name {
     width: auto;
     max-width: 100%;
+    min-width: 0;
   }
 
   .protocol-council-guardian-mark {
