@@ -9,6 +9,8 @@
 --   u    = 1.0 first amplify from an account on that post, else 0.25
 --   self = 0.25 when spender = recipient (author), else 1.0
 --   Only events in the last ~14 days (older heat ≈ 0 at 36h half-life).
+--   Floor: heat < 0.01 → 0 so residual decay does not keep cold posts under
+--   week-old amplifies forever (Hot then falls through to block height / time).
 -- Feed amplify heat stays out of reputation; author_amplify_received is the
 -- longer-window Quality input. Paid profile/endorsement support is a separate
 -- Social input via paid_support_inbound_events.
@@ -66,12 +68,21 @@ scored AS (
         ) / 36.0
       ) AS event_heat
   FROM events
+),
+aggregated AS (
+  SELECT
+    post_path,
+    COALESCE(SUM(event_heat), 0)::double precision AS raw_heat
+  FROM scored
+  GROUP BY post_path
 )
 SELECT
   post_path,
-  COALESCE(SUM(event_heat), 0)::double precision AS heat
-FROM scored
-GROUP BY post_path;
+  CASE
+    WHEN raw_heat < 0.01 THEN 0::double precision
+    ELSE raw_heat
+  END AS heat
+FROM aggregated;
 
 -- Paid inbound social for reputation Social factor (replaces empty stub).
 -- Per-event rows; reputation_scores caps per spender and applies issuer weight.
