@@ -62,6 +62,7 @@ import { subscribePersonalPostConfirmed } from '@/features/scarces/drop-compose-
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
   applyOptimisticAmplifyHeat,
+  effectiveAmplifyHeat,
   mergeAmplifyHeatFloors,
   optimisticAmplifyHeatDelta,
   type AmplifyHeatFloor,
@@ -203,7 +204,8 @@ async function loadFocusedFeedPage(
   // Topic/ticker indexes are chronological; hot reorders each hydrated page.
   if (sort !== 'hot') return page;
   const items = [...page.items].sort((a, b) => {
-    const byHeat = (b.amplifyHeat ?? 0) - (a.amplifyHeat ?? 0);
+    const byHeat =
+      effectiveAmplifyHeat(b.amplifyHeat) - effectiveAmplifyHeat(a.amplifyHeat);
     if (byHeat !== 0) return byHeat;
     return (b.blockHeight ?? 0) - (a.blockHeight ?? 0);
   });
