@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { ProfileAvatar } from '@onsocial/ui';
 import { protocolAccountHue } from '@/features/protocol/protocol-account-hue';
+import type { ProtocolCouncilGuardianRoleId } from '@/features/protocol/protocol-council-guardian';
+import { ProtocolCouncilGuardianMark } from '@/features/protocol/protocol-council-guardian-mark';
 import { fallbackLabel } from '@/lib/profile-display';
 
 /**
@@ -15,12 +17,14 @@ export function ProtocolAccountChip({
   avatarUrl,
   dense = false,
   href,
+  protocolRoleId = null,
 }: {
   accountId: string;
   profileName?: string | null;
   avatarUrl?: string | null;
   dense?: boolean;
   href?: string | null;
+  protocolRoleId?: ProtocolCouncilGuardianRoleId | null;
 }) {
   const hue = protocolAccountHue(accountId);
   const label = profileName?.trim() || `@${fallbackLabel(accountId)}`;
@@ -38,7 +42,10 @@ export function ProtocolAccountChip({
         }`}
       />
       <span className="protocol-account-chip-copy">
-        <span className="protocol-account-chip-name">{label}</span>
+        <span className="protocol-account-chip-name-row">
+          <span className="protocol-account-chip-name">{label}</span>
+          <ProtocolCouncilGuardianMark roleId={protocolRoleId} />
+        </span>
         {showHandle ? (
           <span className="protocol-account-chip-handle">@{handle}</span>
         ) : null}

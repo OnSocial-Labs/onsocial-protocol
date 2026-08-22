@@ -1417,6 +1417,7 @@ export function DaoWorkspacePanel({
                   key={application.app_id}
                   application={application}
                   daoPolicy={daoPolicy}
+                  daoAccountId={daoAccountId}
                   accountId={accountId}
                   nowMs={nowMs}
                   focused={

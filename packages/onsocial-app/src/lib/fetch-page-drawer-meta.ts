@@ -105,15 +105,19 @@ async function loadDaoPolicies(): Promise<{
 }
 
 /** DAO policy roles — client soft-fill only; never block portfolio SSR. */
-export async function fetchDaoRoleLabels(accountId: string): Promise<string[]> {
+export async function fetchDaoRoleIds(accountId: string): Promise<string[]> {
   const { governance, treasury } = await loadDaoPolicies();
 
-  const roleIds = sortDaoRoleIds([
+  return sortDaoRoleIds([
     ...roleIdsForAccount(governance, accountId),
     ...roleIdsForAccount(treasury, accountId),
   ]);
+}
 
-  return roleIds.map(formatDaoRoleLabel).filter(Boolean);
+export async function fetchDaoRoleLabels(accountId: string): Promise<string[]> {
+  return (await fetchDaoRoleIds(accountId))
+    .map(formatDaoRoleLabel)
+    .filter(Boolean);
 }
 
 async function fetchScarceMintCount(accountId: string): Promise<number> {

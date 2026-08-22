@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchDaoRoleLabels } from '@/lib/fetch-page-drawer-meta';
+import { fetchDaoRoleIds } from '@/lib/fetch-page-drawer-meta';
+import { formatDaoRoleLabel } from '@/lib/page-drawer-meta';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,11 +17,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const daoRoleLabels = await fetchDaoRoleLabels(accountId);
-    return NextResponse.json({ accountId, daoRoleLabels });
+    const daoRoleIds = await fetchDaoRoleIds(accountId);
+    const daoRoleLabels = daoRoleIds.map(formatDaoRoleLabel).filter(Boolean);
+    return NextResponse.json({ accountId, daoRoleIds, daoRoleLabels });
   } catch {
     return NextResponse.json(
-      { error: 'DAO roles unavailable', daoRoleLabels: [] },
+      {
+        error: 'DAO roles unavailable',
+        daoRoleIds: [],
+        daoRoleLabels: [],
+      },
       { status: 502 }
     );
   }

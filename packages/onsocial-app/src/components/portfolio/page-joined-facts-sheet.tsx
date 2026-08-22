@@ -33,22 +33,9 @@ import {
   shouldShowProfileUpdated,
   type PageDrawerMeta,
 } from '@/lib/page-drawer-meta';
+import { fetchDaoRolesClient } from '@/lib/fetch-dao-roles-client';
 import { pageContentDrawerPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
-
-async function fetchDaoRoleLabelsClient(
-  accountId: string
-): Promise<string[]> {
-  const response = await fetch(
-    `/api/profile/dao-roles?accountId=${encodeURIComponent(accountId)}`,
-    { cache: 'no-store' }
-  );
-  if (!response.ok) return [];
-  const body = (await response.json().catch(() => null)) as {
-    daoRoleLabels?: string[];
-  } | null;
-  return Array.isArray(body?.daoRoleLabels) ? body.daoRoleLabels : [];
-}
 
 interface PageJoinedFactsSheetProps {
   open: boolean;
@@ -139,10 +126,10 @@ export function PageJoinedFactsSheet({
 
     // Soft-fill DAO credentials after sheet open (not on portfolio SSR).
     if (meta.daoRoleLabels.length === 0) {
-      void fetchDaoRoleLabelsClient(pageAccountId)
-        .then((labels) => {
-          if (!cancelled && labels.length > 0) {
-            setFetchedDaoRoles(labels);
+      void fetchDaoRolesClient(pageAccountId)
+        .then((payload) => {
+          if (!cancelled && payload.daoRoleLabels.length > 0) {
+            setFetchedDaoRoles(payload.daoRoleLabels);
           }
         })
         .catch(() => {});

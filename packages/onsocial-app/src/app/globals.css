@@ -6284,6 +6284,36 @@ a.os-surface-row {
     text-wrap: balance;
   }
 
+  .portfolio-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 0.4rem 0.55rem;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .portfolio-name-row .portfolio-name {
+    width: auto;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .protocol-council-guardian-mark {
+    flex-shrink: 0;
+    font-size: 0.54rem;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    padding: 0.12rem 0.34rem;
+    line-height: 1.15;
+  }
+
+  .protocol-council-guardian-mark--face {
+    font-size: 0.62rem;
+    padding: 0.16rem 0.42rem;
+  }
+
   .portfolio-frame[data-mood] .portfolio-name,
   .profile-edit-slide[data-mood] .account-editor-name {
     font-family: var(
@@ -31980,6 +32010,18 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   flex-direction: column;
   gap: 0.05rem;
   line-height: 1.2;
+}
+
+.protocol-account-chip-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.protocol-account-chip-name-row .protocol-account-chip-name {
+  min-width: 0;
 }
 
 .protocol-account-chip-name {
