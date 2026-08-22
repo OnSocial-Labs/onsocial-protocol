@@ -7,6 +7,10 @@ import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { listDaoMembershipSections } from '@/features/protocol/dao-group-roles';
 import {
+  primaryProtocolCouncilGuardianRoleId,
+} from '@/features/protocol/protocol-council-guardian';
+import { ProtocolCouncilGuardianMark } from '@/features/protocol/protocol-council-guardian-mark';
+import {
   getProtocolGovernanceEligibility,
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
@@ -16,6 +20,7 @@ import {
   readDaoFeedCache,
   writeDaoFeedCache,
 } from '@/lib/dao-workspace-prefetch';
+import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import { portfolioPath } from '@/lib/overlay-routes';
@@ -124,6 +129,7 @@ export function DaoMembersSheet({
   }, [sheetOpen, accountId, daoAccountId]);
 
   const sections = useMemo(() => listDaoMembershipSections(policy), [policy]);
+  const showProtocolRoleMarks = isProtocolFacePairDao(daoAccountId);
   const accountIds = useMemo(
     () => [
       ...new Set(
@@ -200,6 +206,15 @@ export function DaoMembersSheet({
                           accountId={memberId}
                           profileName={profile?.displayName}
                           avatarUrl={profile?.avatarUrl}
+                          nameTrailing={
+                            showProtocolRoleMarks ? (
+                              <ProtocolCouncilGuardianMark
+                                roleId={primaryProtocolCouncilGuardianRoleId([
+                                  section.roleName,
+                                ])}
+                              />
+                            ) : null
+                          }
                         />
                       </Link>
                     </div>

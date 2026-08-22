@@ -5,6 +5,8 @@ import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kin
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { PostRichText } from '@/features/home/post-rich-text';
+import { ProtocolCouncilGuardianMark } from '@/features/protocol/protocol-council-guardian-mark';
+import { useProtocolCouncilGuardianRole } from '@/hooks/use-protocol-council-guardian-role';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
 import {
@@ -42,6 +44,7 @@ export function PortfolioIdentity({
 }: PortfolioIdentityProps) {
   const moodPreview = usePortfolioMoodPreviewOptional();
   const mood = moodPreview?.effectiveMood ?? savedMood;
+  const protocolRoleId = useProtocolCouncilGuardianRole(accountId, !isDao);
 
   const titleLabel = displayName(accountId, profileName ?? undefined);
   const summary = tagline?.trim() || bio?.trim();
@@ -72,7 +75,12 @@ export function PortfolioIdentity({
         ) : isDao && kindLabel ? (
           <p className="portfolio-entity-kind">{kindLabel}</p>
         ) : null}
-        <h1 className="portfolio-name">{titleLabel}</h1>
+        <div className="portfolio-name-row">
+          <h1 className="portfolio-name">{titleLabel}</h1>
+          {!isDao ? (
+            <ProtocolCouncilGuardianMark roleId={protocolRoleId} size="face" />
+          ) : null}
+        </div>
         <p
           className={`portfolio-handle${mood.id === 'terminal' ? ' portfolio-handle--terminal' : ''}`}
         >

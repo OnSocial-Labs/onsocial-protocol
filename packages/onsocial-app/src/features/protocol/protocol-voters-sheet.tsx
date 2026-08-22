@@ -1,14 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Divider,
   OsHugSheet,
   StandingIdentity,
 } from '@onsocial/ui';
+import { ProtocolCouncilGuardianMark } from '@/features/protocol/protocol-council-guardian-mark';
+import {
+  protocolCouncilGuardianRoleByAccount,
+} from '@/features/protocol/protocol-council-guardian';
 import { PROTOCOL_TASK_SHEET_Z } from '@/features/protocol/protocol-sheet-z';
-import type { ProtocolDaoVote } from '@/features/protocol/types';
+import type {
+  ProtocolDaoPolicy,
+  ProtocolDaoVote,
+} from '@/features/protocol/types';
 import { portfolioPath } from '@/lib/overlay-routes';
 
 type ProfilePeek = {
@@ -27,6 +34,8 @@ export function ProtocolVotersSheet({
   voteEntries,
   abstainers,
   profiles,
+  daoPolicy = null,
+  showProtocolRoleMarks = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -35,9 +44,19 @@ export function ProtocolVotersSheet({
   voteEntries: Array<[string, ProtocolDaoVote]>;
   abstainers: string[];
   profiles: Record<string, ProfilePeek | undefined>;
+  daoPolicy?: ProtocolDaoPolicy | null;
+  /** Protocol Governance / Treasury only. */
+  showProtocolRoleMarks?: boolean;
 }) {
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
+  const roleByAccount = useMemo(
+    () =>
+      showProtocolRoleMarks
+        ? protocolCouncilGuardianRoleByAccount(daoPolicy)
+        : null,
+    [daoPolicy, showProtocolRoleMarks]
+  );
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -100,6 +119,13 @@ export function ProtocolVotersSheet({
                       accountId={row.accountId}
                       profileName={profile?.displayName}
                       avatarUrl={profile?.avatarUrl}
+                      nameTrailing={
+                        <ProtocolCouncilGuardianMark
+                          roleId={roleByAccount?.get(
+                            row.accountId.trim().toLowerCase()
+                          )}
+                        />
+                      }
                     />
                   </Link>
                   <div className="standing-row-aside protocol-voter-row-aside">

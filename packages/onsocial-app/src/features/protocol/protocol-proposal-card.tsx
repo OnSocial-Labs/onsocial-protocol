@@ -21,12 +21,14 @@ import { ProtocolAccountChip } from '@/features/protocol/protocol-account-chip';
 import { deriveProtocolProposalView } from '@/features/protocol/protocol-card-view';
 import { ProtocolOnChainSheet } from '@/features/protocol/protocol-on-chain-sheet';
 import { splitRoutingTargetDisplay } from '@/features/protocol/protocol-proposal-routing-display';
+import { protocolCouncilGuardianRoleByAccount } from '@/features/protocol/protocol-council-guardian';
 import { ProtocolVotersSheet } from '@/features/protocol/protocol-voters-sheet';
 import type {
   ProtocolApplication,
   ProtocolDaoPolicy,
 } from '@/features/protocol/types';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 
@@ -58,6 +60,7 @@ function targetEyebrow(kind: string | null): string | null {
 export function ProtocolProposalCard({
   application,
   daoPolicy,
+  daoAccountId,
   accountId,
   nowMs,
   focused = false,
@@ -67,6 +70,8 @@ export function ProtocolProposalCard({
 }: {
   application: ProtocolApplication;
   daoPolicy: ProtocolDaoPolicy | null;
+  /** When set, Guardian/Council marks show on protocol DAO cards only. */
+  daoAccountId?: string | null;
   accountId: string | null;
   nowMs: number;
   focused?: boolean;
@@ -78,6 +83,16 @@ export function ProtocolProposalCard({
   const [copied, setCopied] = useState(false);
   const [onChainOpen, setOnChainOpen] = useState(false);
   const [votersOpen, setVotersOpen] = useState(false);
+  const showProtocolRoleMarks = Boolean(
+    daoAccountId && isProtocolFacePairDao(daoAccountId)
+  );
+  const protocolRoleByAccount = useMemo(
+    () =>
+      showProtocolRoleMarks
+        ? protocolCouncilGuardianRoleByAccount(daoPolicy)
+        : null,
+    [daoPolicy, showProtocolRoleMarks]
+  );
   const view = useMemo(
     () =>
       deriveProtocolProposalView({
@@ -229,6 +244,9 @@ export function ProtocolProposalCard({
                     avatarUrl={profiles[view.subjectAccount]?.avatarUrl}
                     dense
                     href={portfolioPath(view.subjectAccount)}
+                    protocolRoleId={protocolRoleByAccount?.get(
+                      view.subjectAccount.trim().toLowerCase()
+                    )}
                   />
                 </>
               ) : view.subjectText ? (
@@ -315,6 +333,9 @@ export function ProtocolProposalCard({
                 avatarUrl={profiles[view.proposer]?.avatarUrl}
                 dense
                 href={portfolioPath(view.proposer)}
+                protocolRoleId={protocolRoleByAccount?.get(
+                  view.proposer.trim().toLowerCase()
+                )}
               />
             )}
           </div>
@@ -487,6 +508,8 @@ export function ProtocolProposalCard({
       voteEntries={view.voteEntries}
       abstainers={abstainers}
       profiles={profiles}
+      daoPolicy={daoPolicy}
+      showProtocolRoleMarks={showProtocolRoleMarks}
     />
     </>
   );
