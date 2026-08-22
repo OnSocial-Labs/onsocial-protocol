@@ -3,6 +3,7 @@ import {
   isPageSectionVisible,
   pageDrawerJumpSections,
   pageDrawerSectionDomId,
+  pageSectionCountHint,
   resolvePageDrawerActiveSection,
   resolvePageSections,
   resolveVisiblePageSections,
@@ -131,6 +132,14 @@ describe('resolvePageDrawerActiveSection', () => {
 
   it('returns null when there are no sections', () => {
     expect(resolvePageDrawerActiveSection([], [], 50)).toBeNull();
+  });
+});
+
+describe('pageSectionCountHint', () => {
+  it('counts collectibles from the grouped peek, not raw tokens', () => {
+    expect(
+      pageSectionCountHint('collectibles', emptyStats, { scarceCount: 5 })
+    ).toBe('5');
   });
 });
 

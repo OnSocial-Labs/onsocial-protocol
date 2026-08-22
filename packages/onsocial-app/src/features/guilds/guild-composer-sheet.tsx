@@ -130,7 +130,7 @@ const POLL_PLACEHOLDER = 'Ask a question…';
 const TITLE: Record<ComposerMode, string> = {
   post: 'New post',
   reply: 'Respond',
-  quote: 'Respond',
+  quote: 'Quote',
 };
 
 const POLL_DURATION_OPTIONS = [
@@ -1157,10 +1157,16 @@ export function ComposerSheet({
                   variant="primary"
                   ready={canPost}
                   pending={pending}
-                  pendingLabel={postingAsDao ? 'Proposing…' : 'Posting…'}
+                  pendingLabel={
+                    postingAsDao
+                      ? 'Proposing…'
+                      : mode === 'quote'
+                        ? 'Quoting…'
+                        : 'Posting…'
+                  }
                   disabled={!canPost}
                 >
-                  {postingAsDao ? 'Propose' : 'Post'}
+                  {postingAsDao ? 'Propose' : mode === 'quote' ? 'Quote' : 'Post'}
                 </OsSheetAction>
               </OsSheetActions>
             </div>

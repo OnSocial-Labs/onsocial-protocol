@@ -137,6 +137,33 @@ export function toPortfolioHoldingPeek(
   };
 }
 
+/** Rail card that stands in for every owned edition of one collection. */
+export type PortfolioHoldingRailCard = PortfolioHoldingPeek & {
+  /** Owned editions represented by this card (1 = unique token). */
+  editionCount: number;
+};
+
+/**
+ * Collapse duplicate editions for the drawer rail — two copies of the same
+ * collection rendered as identical cards read as a bug, not a collection.
+ * First occurrence keeps its slot (pin order preserved).
+ */
+export function groupHoldingsForRail(
+  holdings: PortfolioHoldingPeek[]
+): PortfolioHoldingRailCard[] {
+  const byKey = new Map<string, PortfolioHoldingRailCard>();
+  for (const item of holdings) {
+    const key = item.collectionId ?? item.tokenId;
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.editionCount += 1;
+      continue;
+    }
+    byKey.set(key, { ...item, editionCount: 1 });
+  }
+  return [...byKey.values()];
+}
+
 /** Kind-tab filter for the Collectibles hub (unknown kinds only appear in All). */
 export function filterHoldingsByMedium<
   T extends { mediumKind: string | null },

@@ -222,7 +222,7 @@ export function PageContentDrawer({
       ? shelf.storeShelf
       : storeShelf;
   const [ownedHoldings, setOwnedHoldings] = useState<PortfolioHoldingPeek[]>(
-    []
+    shelf.holdings
   );
   const [scrollNode, setScrollNode] = useState<HTMLDivElement | null>(null);
   const [closing, setClosing] = useState(false);
@@ -251,8 +251,15 @@ export function PageContentDrawer({
     [drawerMeta.guildCount, drawerMeta.postCount, postPeeks.length, stats]
   );
 
+  /*
+   * Prefer streamed SSR peeks. Client fetch is fallback only — fetching on
+   * drawer open used to insert the Collectibles chip after layout.
+   */
   useEffect(() => {
-    if (!isOpen) return;
+    if (shelf.holdings.length > 0) {
+      setOwnedHoldings(shelf.holdings);
+      return;
+    }
     let cancelled = false;
     void fetchOwnedScarcesPage(pageAccountId, {
       pageSize: PAGE_DRAWER_HOLDINGS_PEEK,
@@ -267,9 +274,10 @@ export function PageContentDrawer({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, pageAccountId]);
+  }, [pageAccountId, shelf.holdings]);
 
-  const holdings = ownedHoldings;
+  const holdings =
+    shelf.holdings.length > 0 ? shelf.holdings : ownedHoldings;
   const holdingsCount = holdings.length;
   const createdCount = Math.max(
     createdPeeksResolved.length,

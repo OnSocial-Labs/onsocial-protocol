@@ -170,6 +170,7 @@ export type {
   GroupMemberRow,
   GroupBannedRow,
   ThreadCounts,
+  ViewerRepostRow,
   ThreadEdge,
   ThreadNode,
   ThreadTree,
@@ -202,7 +203,7 @@ export {
   aggregateEndorsementSupportRows,
   postContentPath,
 } from './query/index.js';
-export type { FeedSort } from './query/index.js';
+export type { FeedSection, FeedSort } from './query/index.js';
 export type {
   EndorsementSupporterAggregate,
   EndorsementSupportGivenRow,

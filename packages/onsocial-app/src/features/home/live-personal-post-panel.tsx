@@ -18,7 +18,7 @@ import {
   type ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
-import { submitPersonalPost, submitPersonalRepost } from '@/features/home/submit-personal-post';
+import { submitPersonalPost, submitPersonalRepost, submitPersonalUnrepost } from '@/features/home/submit-personal-post';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -29,6 +29,7 @@ import {
 } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
+import { resolveQuotedInset } from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
 import {
@@ -197,7 +198,11 @@ export function LivePersonalPostPanel({
     toggleSave,
     isReactionPending,
     isSavePending,
+    isSharePending,
+    withSharePending,
     confirmAmplify,
+    confirmRepost,
+    confirmUnrepost,
   } = usePostEngagement(engagementPosts, {
     initial: initial?.engagement ?? null,
     onError: (message) => setTxResult({ type: 'error', msg: message }),
@@ -451,7 +456,7 @@ export function LivePersonalPostPanel({
     : undefined;
   const repostHandler = canPostInThread
     ? (post: PostRow) => {
-        void (async () => {
+        void withSharePending(post, async () => {
           if (!accountId) return;
           try {
             const { client } = await getClient();
@@ -461,14 +466,43 @@ export function LivePersonalPostPanel({
               target: post,
               trackTransaction,
             });
-            if (result.confirmed) {
+            if (result.confirmed && result.optimisticPost) {
+              confirmRepost(post, {
+                postId: result.optimisticPost.postId,
+                groupId: result.optimisticPost.groupId,
+              });
               // Reposts are not quote-tab rows; wait for indexer reconcile.
               scheduleReconcile();
             }
           } catch {
             // toast via trackTransaction
           }
-        })();
+        });
+      }
+    : undefined;
+  const undoRepostHandler = canPostInThread
+    ? (post: PostRow) => {
+        const viewer = engagement[postKey(post)];
+        const viewerRepostId = viewer?.viewerRepostId;
+        if (!accountId || !viewerRepostId) return;
+        void withSharePending(post, async () => {
+          try {
+            const { client } = await getClient();
+            const result = await submitPersonalUnrepost({
+              client,
+              accountId,
+              target: post,
+              viewerRepost: {
+                postId: viewerRepostId,
+                groupId: viewer.viewerRepostGroupId,
+              },
+              trackTransaction,
+            });
+            if (result.confirmed) confirmUnrepost(post);
+          } catch {
+            // toast via trackTransaction
+          }
+        });
       }
     : undefined;
 
@@ -576,12 +610,14 @@ export function LivePersonalPostPanel({
                     }
                     reactionPending={isReactionPending(ancestor)}
                     savePending={isSavePending(ancestor)}
+                    sharePending={isSharePending(ancestor)}
                     onToggleReaction={toggleReaction}
                     onToggleSave={toggleSave}
                     onAmplifyConfirmed={confirmAmplify}
                     onReply={replyHandler}
                     onQuote={quoteHandler}
                     onRepost={repostHandler}
+                    onUndoRepost={undoRepostHandler}
                     pollTally={pollTallyFor(ancestor)}
                     pollVotePending={isPollVotePending(ancestor)}
                     onPollVote={(post, optionIndex) => {
@@ -628,12 +664,14 @@ export function LivePersonalPostPanel({
                   }
                   reactionPending={isReactionPending(conversation.root)}
                   savePending={isSavePending(conversation.root)}
+                  sharePending={isSharePending(conversation.root)}
                   onToggleReaction={toggleReaction}
                   onToggleSave={toggleSave}
                   onAmplifyConfirmed={confirmAmplify}
                   onReply={replyHandler}
                   onQuote={quoteHandler}
                   onRepost={repostHandler}
+                  onUndoRepost={undoRepostHandler}
                   pollTally={pollTallyFor(conversation.root)}
                   pollVotePending={isPollVotePending(conversation.root)}
                   onPollVote={(post, optionIndex) => {
@@ -774,12 +812,14 @@ export function LivePersonalPostPanel({
                             }
                             reactionPending={isReactionPending(row.post)}
                             savePending={isSavePending(row.post)}
+                            sharePending={isSharePending(row.post)}
                             onToggleReaction={toggleReaction}
                             onToggleSave={toggleSave}
                             onAmplifyConfirmed={confirmAmplify}
                             onReply={replyHandler}
                             onQuote={quoteHandler}
                             onRepost={repostHandler}
+                            onUndoRepost={undoRepostHandler}
                             pollTally={pollTallyFor(row.post)}
                             pollVotePending={isPollVotePending(row.post)}
                             onPollVote={(post, optionIndex) => {
@@ -794,7 +834,13 @@ export function LivePersonalPostPanel({
                   <div className="guild-state-card">No replies yet.</div>
                 )
               ) : quotes.length > 0 ? (
-                quotes.map((quote, index) => (
+                quotes.map((quote, index) => {
+                  const quoted = resolveQuotedInset(
+                    quote,
+                    quotedPosts,
+                    conversation.root
+                  );
+                  return (
                   <div key={postKey(quote)}>
                     <Divider
                       variant="item"
@@ -809,23 +855,26 @@ export function LivePersonalPostPanel({
                       authorProfile={postAuthorProfiles[quote.accountId]}
                       actionHref={postThreadPath(quote)}
                       showRelationBadge={false}
-                      quotedPost={conversation.root ?? undefined}
+                      quotedPost={quoted}
                       quotedAuthorProfile={
-                        conversation.root
-                          ? postAuthorProfiles[conversation.root.accountId]
+                        quoted
+                          ? postAuthorProfiles[quoted.accountId]
                           : undefined
                       }
+                      quotedHref={quotedHrefFor(quoted)}
                       engagement={
                         engagement[postKey(quote)] ?? EMPTY_POST_ENGAGEMENT
                       }
                       reactionPending={isReactionPending(quote)}
                       savePending={isSavePending(quote)}
+                      sharePending={isSharePending(quote)}
                       onToggleReaction={toggleReaction}
                       onToggleSave={toggleSave}
                       onAmplifyConfirmed={confirmAmplify}
                       onReply={replyHandler}
                       onQuote={quoteHandler}
                       onRepost={repostHandler}
+                      onUndoRepost={undoRepostHandler}
                       pollTally={pollTallyFor(quote)}
                       pollVotePending={isPollVotePending(quote)}
                       onPollVote={(post, optionIndex) => {
@@ -833,7 +882,8 @@ export function LivePersonalPostPanel({
                       }}
                     />
                   </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="guild-state-card">No quotes yet.</div>
               )}

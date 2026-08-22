@@ -6,6 +6,7 @@ import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import { FeedThreadBlock } from '@/features/guilds/feed-thread-block';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { postKey } from '@/features/home/post-card';
+import type { PersonalPostSubmitResult } from '@/features/home/submit-personal-post';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import {
   seedPostAuthorProfilesFromFeed,
@@ -23,12 +24,19 @@ import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useQuotedPosts } from '@/hooks/use-quoted-posts';
 import type { AmplifySuccessDetail } from '@/lib/amplify-heat';
 import { coalesceFeedThreads } from '@/lib/feed-threads';
+import { withRepostOriginals } from '@/lib/post-relation';
 
 interface PersonalFeedListProps {
   posts: PostRow[];
   onReply?: (post: PostRow) => void;
   onQuote?: (post: PostRow) => void;
-  onRepost?: (post: PostRow) => void;
+  onRepost?: (
+    post: PostRow
+  ) => void | Promise<PersonalPostSubmitResult | void>;
+  onUndoRepost?: (
+    post: PostRow,
+    viewerRepost: { postId: string; groupId?: string | null }
+  ) => void | Promise<PersonalPostSubmitResult | void>;
   /** After amplify tx confirms — parent may optimistic Hot re-rank. */
   onAmplified?: (post: PostRow, detail: AmplifySuccessDetail) => void;
   onEngagementError?: (message: string) => void;
@@ -49,6 +57,7 @@ export function PersonalFeedList({
   onReply,
   onQuote,
   onRepost,
+  onUndoRepost,
   onAmplified,
   onEngagementError,
   className,
@@ -89,11 +98,25 @@ export function PersonalFeedList({
 
   const postAuthorProfiles = usePostAuthorProfiles(authorIds);
   const guildNameById = useGuildDisplayNames(guildIds);
-  const { engagement, toggleReaction, toggleSave, isReactionPending, isSavePending, confirmAmplify } =
-    usePostEngagement(posts, {
+  const {
+    engagement,
+    toggleReaction,
+    toggleSave,
+    isReactionPending,
+    isSavePending,
+    isSharePending,
+    withSharePending,
+    confirmAmplify,
+    confirmRepost,
+    confirmUnrepost,
+  } = usePostEngagement(
+    // Repost rows render (and act on) the original post — fetch its stats too.
+    useMemo(() => withRepostOriginals(posts, quotedPosts), [posts, quotedPosts]),
+    {
       initial: initialEngagement,
       onError: onEngagementError,
-    });
+    }
+  );
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(posts, {
     onError: onEngagementError,
   });
@@ -119,6 +142,7 @@ export function PersonalFeedList({
             engagement={engagement}
             isReactionPending={isReactionPending}
             isSavePending={isSavePending}
+            isSharePending={isSharePending}
             onToggleReaction={toggleReaction}
             onToggleSave={toggleSave}
             onAmplifyConfirmed={(post, detail: PostAmplifySuccessDetail) => {
@@ -136,7 +160,39 @@ export function PersonalFeedList({
             }}
             onReply={onReply}
             onQuote={onQuote}
-            onRepost={onRepost}
+            onRepost={
+              onRepost
+                ? (post) => {
+                    void withSharePending(post, async () => {
+                      const result = await onRepost(post);
+                      if (result?.confirmed && result.optimisticPost) {
+                        confirmRepost(post, {
+                          postId: result.optimisticPost.postId,
+                          groupId: result.optimisticPost.groupId,
+                        });
+                      }
+                      return result;
+                    });
+                  }
+                : undefined
+            }
+            onUndoRepost={
+              onUndoRepost
+                ? (post) => {
+                    const viewer = engagement[postKey(post)];
+                    const viewerRepostId = viewer?.viewerRepostId;
+                    if (!viewerRepostId) return;
+                    void withSharePending(post, async () => {
+                      const result = await onUndoRepost(post, {
+                        postId: viewerRepostId,
+                        groupId: viewer.viewerRepostGroupId,
+                      });
+                      if (result?.confirmed) confirmUnrepost(post);
+                      return result;
+                    });
+                  }
+                : undefined
+            }
             showGuildAttribution={showGuildAttribution}
             guildNameById={guildNameById}
           />

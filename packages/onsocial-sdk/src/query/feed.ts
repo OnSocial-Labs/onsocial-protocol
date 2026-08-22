@@ -11,10 +11,11 @@ import {
   POST_ROW_FIELDS,
   audienceLikeValue,
   feedOrderByClause,
+  type FeedSection,
   type FeedSort,
 } from './_shared.js';
 
-export type { FeedSort };
+export type { FeedSection, FeedSort };
 
 /** Set when GraphQL rejects `postsFeed` (view not tracked yet). */
 let postsFeedUnavailable = false;
@@ -142,14 +143,20 @@ export class FeedQuery {
   }
 
   /**
-   * Recent / hot posts, optionally filtered by author.
+   * Recent / hot posts, optionally filtered by author and section.
    *
    * `sort: 'hot'` orders by decaying amplify heat then block height
    * (`posts_feed.amplify_heat`). Falls back to chronological when the
    * enriched feed view is unavailable.
    *
+   * `section` narrows server-side (indexer stores empty strings, not NULLs):
+   * - `'posts'` — roots that are not repost shells
+   * - `'replies'` — has a `parentPath`
+   * - `'reposts'` — `refType === 'repost'`
+   *
    * ```ts
    * const { items, nextOffset } = await os.query.feed.recent({ limit: 20, sort: 'hot' });
+   * const replies = await os.query.feed.recent({ author: 'alice.near', section: 'replies' });
    * ```
    */
   async recent(
@@ -158,6 +165,7 @@ export class FeedQuery {
       limit?: number;
       offset?: number;
       sort?: FeedSort;
+      section?: FeedSection;
     } = {}
   ): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
@@ -171,42 +179,39 @@ export class FeedQuery {
       offset,
     };
 
+    const conditions: string[] = [];
+    if (hasAuthor) conditions.push('accountId: {_eq: $author}');
+    if (opts.section === 'posts') {
+      conditions.push('parentPath: {_eq: ""}', 'refType: {_neq: "repost"}');
+    } else if (opts.section === 'replies') {
+      conditions.push('parentPath: {_neq: ""}');
+    } else if (opts.section === 'reposts') {
+      conditions.push('refType: {_eq: "repost"}');
+    }
+    const whereClause =
+      conditions.length > 0 ? `where: {${conditions.join(', ')}}, ` : '';
+    const params = hasAuthor
+      ? '$author: String!, $limit: Int!, $offset: Int!'
+      : '$limit: Int!, $offset: Int!';
+
     const chronoOrder = feedOrderByClause('recent');
     const rows = await this.queryFeedRows({
       variables,
-      postsFeedQuery: hasAuthor
-        ? `query Posts($author: String!, $limit: Int!, $offset: Int!) {
-            postsFeed(where: {accountId: {_eq: $author}}, limit: $limit, offset: $offset, orderBy: ${orderBy}) {
-              ${FEED_POST_ROW_FIELDS}
-            }
-          }`
-        : `query Posts($limit: Int!, $offset: Int!) {
-            postsFeed(limit: $limit, offset: $offset, orderBy: ${orderBy}) {
-              ${FEED_POST_ROW_FIELDS}
-            }
-          }`,
-      postsFeedQueryNoHeat: hasAuthor
-        ? `query Posts($author: String!, $limit: Int!, $offset: Int!) {
-            postsFeed(where: {accountId: {_eq: $author}}, limit: $limit, offset: $offset, orderBy: ${chronoOrder}) {
-              ${FEED_POST_ROW_FIELDS_NO_HEAT}
-            }
-          }`
-        : `query Posts($limit: Int!, $offset: Int!) {
-            postsFeed(limit: $limit, offset: $offset, orderBy: ${chronoOrder}) {
-              ${FEED_POST_ROW_FIELDS_NO_HEAT}
-            }
-          }`,
-      postsCurrentQuery: hasAuthor
-        ? `query Posts($author: String!, $limit: Int!, $offset: Int!) {
-            postsCurrent(where: {accountId: {_eq: $author}}, limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}]) {
-              ${POST_ROW_FIELDS}
-            }
-          }`
-        : `query Posts($limit: Int!, $offset: Int!) {
-            postsCurrent(limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}]) {
-              ${POST_ROW_FIELDS}
-            }
-          }`,
+      postsFeedQuery: `query Posts(${params}) {
+        postsFeed(${whereClause}limit: $limit, offset: $offset, orderBy: ${orderBy}) {
+          ${FEED_POST_ROW_FIELDS}
+        }
+      }`,
+      postsFeedQueryNoHeat: `query Posts(${params}) {
+        postsFeed(${whereClause}limit: $limit, offset: $offset, orderBy: ${chronoOrder}) {
+          ${FEED_POST_ROW_FIELDS_NO_HEAT}
+        }
+      }`,
+      postsCurrentQuery: `query Posts(${params}) {
+        postsCurrent(${whereClause}limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}]) {
+          ${POST_ROW_FIELDS}
+        }
+      }`,
     });
 
     return {

@@ -29,6 +29,8 @@ export interface ProfileStoreSale {
   buyerId: string | null;
   blockTimestamp: number;
   mediaUrl: string | null;
+  /** Source post when the sale was listed from a thread. */
+  sourcePostPath?: string;
 }
 
 /** A collection (drop) card on the creator's Store shelf. */

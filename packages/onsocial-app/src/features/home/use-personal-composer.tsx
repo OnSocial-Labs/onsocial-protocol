@@ -24,7 +24,12 @@ import {
 } from '@/features/guilds/use-composer-feed-targets';
 import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
 import { submitDaoPostProposal } from '@/features/home/submit-dao-post-proposal';
-import { submitPersonalPost, submitPersonalRepost } from '@/features/home/submit-personal-post';
+import {
+  submitPersonalPost,
+  submitPersonalRepost,
+  submitPersonalUnrepost,
+  type PersonalPostSubmitResult,
+} from '@/features/home/submit-personal-post';
 import {
   dispatchGuildPostConfirmed,
   submitGuildRootPost,
@@ -52,6 +57,7 @@ interface UsePersonalComposerOptions {
   /** Optional author map already loaded by the host feed. */
   authorProfiles?: Record<string, PostAuthorProfile>;
   onConfirmed?: (post: PostRow) => void;
+  onUnreposted?: (target: PostRow) => void;
 }
 
 /**
@@ -63,6 +69,7 @@ export function usePersonalComposer({
   registerPen,
   authorProfiles,
   onConfirmed,
+  onUnreposted,
 }: UsePersonalComposerOptions) {
   const router = useRouter();
   const { isConnected, connect, accountId, getSigningWallet } = useAppWallet();
@@ -183,7 +190,7 @@ export function usePersonalComposer({
   }, []);
 
   const openRepost = useCallback(
-    async (target: PostRow) => {
+    async (target: PostRow): Promise<PersonalPostSubmitResult | void> => {
       if (!accountId) {
         if (!isConnected) await connect();
         return;
@@ -201,6 +208,7 @@ export function usePersonalComposer({
         if (result.confirmed && result.optimisticPost) {
           onConfirmed?.(result.optimisticPost);
         }
+        return result;
       } catch (err) {
         if (!isWalletUserCancellation(err)) {
           setError(
@@ -216,6 +224,50 @@ export function usePersonalComposer({
       connect,
       isConnected,
       onConfirmed,
+      trackTransaction,
+      withClient,
+    ]
+  );
+
+  const openUndoRepost = useCallback(
+    async (
+      target: PostRow,
+      viewerRepost: { postId: string; groupId?: string | null }
+    ): Promise<PersonalPostSubmitResult | void> => {
+      if (!accountId) {
+        if (!isConnected) await connect();
+        return;
+      }
+      setError(null);
+      setPending(true);
+      try {
+        const { client } = await withClient();
+        const result = await submitPersonalUnrepost({
+          client,
+          accountId,
+          target,
+          viewerRepost,
+          trackTransaction,
+        });
+        if (result.confirmed) {
+          onUnreposted?.(target);
+        }
+        return result;
+      } catch (err) {
+        if (!isWalletUserCancellation(err)) {
+          setError(
+            err instanceof Error ? err.message : 'Could not undo repost.'
+          );
+        }
+      } finally {
+        setPending(false);
+      }
+    },
+    [
+      accountId,
+      connect,
+      isConnected,
+      onUnreposted,
       trackTransaction,
       withClient,
     ]
@@ -486,6 +538,7 @@ export function usePersonalComposer({
     openReply,
     openQuote,
     openRepost,
+    openUndoRepost,
     sheet,
     isOpen: Boolean(composer),
   };

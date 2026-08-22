@@ -652,6 +652,38 @@ describe('QueryModule', () => {
       expect(body.query).toContain('amplifyHeat: DESC');
       expect(body.query).toContain('amplifyHeat');
     });
+
+    // Indexer stores empty strings (not NULLs) for parentPath / refType —
+    // section filters must use equality, never _isNull.
+    it('filters roots without repost shells for section posts', async () => {
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
+      await os.query.feed.recent({ author: 'a.near', section: 'posts' });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('accountId: {_eq: $author}');
+      expect(body.query).toContain('parentPath: {_eq: ""}');
+      expect(body.query).toContain('refType: {_neq: "repost"}');
+    });
+
+    it('filters replies by non-empty parentPath', async () => {
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
+      await os.query.feed.recent({ author: 'a.near', section: 'replies' });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('parentPath: {_neq: ""}');
+    });
+
+    it('filters reposts by refType', async () => {
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
+      await os.query.feed.recent({ author: 'a.near', section: 'reposts' });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('refType: {_eq: "repost"}');
+    });
+
+    it('omits the where clause without author or section', async () => {
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
+      await os.query.feed.recent({ limit: 5 });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).not.toContain('where:');
+    });
   });
 
   describe('getFeed()', () => {
@@ -1278,6 +1310,65 @@ describe('QueryModule', () => {
     it('returns empty map without a request for an empty path list', async () => {
       const { os, fetch } = makeOs({ data: {} });
       await expect(os.query.threads.countsByPaths([])).resolves.toEqual({});
+      expect(fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('threads.viewerReposts()', () => {
+    it('returns the newest repost per path', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          reposts: [
+            {
+              refPath: 'bob.near/post/p2',
+              repostId: 'newer',
+              groupId: null,
+            },
+            {
+              refPath: 'bob.near/post/p2',
+              repostId: 'older',
+              groupId: null,
+            },
+            {
+              refPath: 'alice.near/groups/dao/content/post/p1',
+              repostId: 'g1',
+              groupId: 'dao',
+            },
+          ],
+        },
+      });
+
+      const rows = await os.query.threads.viewerReposts('carol.near', [
+        'bob.near/post/p2',
+        'alice.near/groups/dao/content/post/p1',
+      ]);
+
+      expect(rows).toEqual([
+        { refPath: 'bob.near/post/p2', repostId: 'newer' },
+        {
+          refPath: 'alice.near/groups/dao/content/post/p1',
+          repostId: 'g1',
+          groupId: 'dao',
+        },
+      ]);
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('reposts');
+      expect(body.variables).toEqual({
+        id: 'carol.near',
+        paths: ['bob.near/post/p2', 'alice.near/groups/dao/content/post/p1'],
+        limit: 8,
+      });
+    });
+
+    it('returns [] without a request when account or paths are empty', async () => {
+      const { os, fetch } = makeOs({ data: {} });
+      await expect(os.query.threads.viewerReposts('', ['a'])).resolves.toEqual(
+        []
+      );
+      await expect(
+        os.query.threads.viewerReposts('carol.near', [])
+      ).resolves.toEqual([]);
       expect(fetch).not.toHaveBeenCalled();
     });
   });

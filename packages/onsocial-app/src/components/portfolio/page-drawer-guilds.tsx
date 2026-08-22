@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { ChevronDownIcon } from '@onsocial/ui';
 import { GuildSummaryCard } from '@/features/guilds/guild-summary-card';
 import { PAGE_DRAWER_GUILD_PEEK } from '@/lib/page-sections';
 import type { ProfileGuildSummary } from '@/lib/profile-guilds';
 
-/** Membership peeks — discovery-row cards in a shared media rail; expand stays on-page. */
+/** Membership peeks — stacked discovery rows, same language as Discover. */
 export function PageDrawerGuilds({ guilds }: { guilds: ProfileGuildSummary[] }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -16,31 +17,18 @@ export function PageDrawerGuilds({ guilds }: { guilds: ProfileGuildSummary[] }) 
   const peek = guilds.slice(0, PAGE_DRAWER_GUILD_PEEK);
   const overflow = Math.max(0, guilds.length - peek.length);
   const visible = expanded ? guilds : peek;
-  const useRail = !expanded && visible.length > 1;
 
   return (
     <div className="page-drawer-peek-stack">
-      {useRail ? (
-        <div className="page-drawer-media-rail" aria-label="Guilds">
-          {visible.map((guild) => (
-            <GuildSummaryCard
-              key={guild.groupId}
-              variant="rail"
-              guild={guild}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="page-drawer-guild-list" aria-label="Guilds">
-          {visible.map((guild) => (
-            <GuildSummaryCard
-              key={guild.groupId}
-              variant="grid"
-              guild={guild}
-            />
-          ))}
-        </div>
-      )}
+      <div className="page-drawer-guild-list" aria-label="Guilds">
+        {visible.map((guild) => (
+          <GuildSummaryCard
+            key={guild.groupId}
+            variant="grid"
+            guild={guild}
+          />
+        ))}
+      </div>
 
       {overflow > 0 ? (
         <button
@@ -50,6 +38,13 @@ export function PageDrawerGuilds({ guilds }: { guilds: ProfileGuildSummary[] }) 
           aria-expanded={expanded}
         >
           {expanded ? 'Show fewer guilds' : `See all guilds · +${overflow}`}
+          {/* Chevron (not arrow): expands in place instead of navigating. */}
+          <ChevronDownIcon
+            className={`page-drawer-section-action-chevron${
+              expanded ? ' is-open' : ''
+            }`}
+            aria-hidden
+          />
         </button>
       ) : null}
     </div>

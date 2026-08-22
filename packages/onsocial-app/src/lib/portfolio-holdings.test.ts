@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   filterHoldingsByMedium,
+  groupHoldingsForRail,
   holdingsActionLabel,
   holdingsHrefForOwned,
   holdingsKindLabel,
@@ -115,6 +116,55 @@ describe('toPortfolioHoldingPeek', () => {
         listingKind: null,
       }).href
     ).toBe('/collectibles');
+  });
+});
+
+describe('groupHoldingsForRail', () => {
+  it('collapses editions of one collection into a single card with a count', () => {
+    const album1 = toPortfolioHoldingPeek({
+      tokenId: 'album:1',
+      title: 'Onsocial music album #1',
+      ownerId: 'alice.near',
+      collectionId: 'album',
+      mediumKind: 'audio',
+      listingKind: null,
+    });
+    const album2 = toPortfolioHoldingPeek({
+      tokenId: 'album:2',
+      title: 'Onsocial music album #1',
+      ownerId: 'alice.near',
+      collectionId: 'album',
+      mediumKind: 'audio',
+      listingKind: null,
+    });
+    const solo = toPortfolioHoldingPeek({
+      tokenId: 's:post-1',
+      title: 'Solo',
+      ownerId: 'alice.near',
+      listingKind: null,
+    });
+
+    const grouped = groupHoldingsForRail([album1, solo, album2]);
+    expect(grouped).toHaveLength(2);
+    // First occurrence keeps its slot; later editions fold into it.
+    expect(grouped[0]).toMatchObject({ tokenId: 'album:1', editionCount: 2 });
+    expect(grouped[1]).toMatchObject({ tokenId: 's:post-1', editionCount: 1 });
+  });
+
+  it('never merges collectionless tokens', () => {
+    const a = toPortfolioHoldingPeek({
+      tokenId: 's:a',
+      title: 'Same title',
+      ownerId: 'alice.near',
+      listingKind: null,
+    });
+    const b = toPortfolioHoldingPeek({
+      tokenId: 's:b',
+      title: 'Same title',
+      ownerId: 'alice.near',
+      listingKind: null,
+    });
+    expect(groupHoldingsForRail([a, b])).toHaveLength(2);
   });
 });
 

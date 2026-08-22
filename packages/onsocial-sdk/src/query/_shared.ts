@@ -70,6 +70,9 @@ export const FEED_POST_ROW_FIELDS = `
 /** Home / list feed ranking. `hot` needs `posts_feed.amplify_heat`. */
 export type FeedSort = 'recent' | 'hot';
 
+/** Profile feed section filter for `feed.recent`. */
+export type FeedSection = 'posts' | 'replies' | 'reposts';
+
 export function feedOrderByClause(sort: FeedSort = 'recent'): string {
   return sort === 'hot'
     ? '[{amplifyHeat: DESC}, {blockHeight: DESC}]'

@@ -174,6 +174,12 @@ export interface ThreadCounts {
   repostCount: number;
 }
 
+export interface ViewerRepostRow {
+  refPath: string;
+  repostId: string;
+  groupId?: string;
+}
+
 function flattenThreadNodes(nodes: ThreadNode[]): ThreadNode[] {
   return nodes.flatMap((node) => [
     node,
@@ -366,6 +372,56 @@ export class ThreadsQuery {
     for (const row of res.data?.repostCounts ?? []) {
       const entry = out[row.refPath];
       if (entry) entry.repostCount = row.repostCount;
+    }
+    return out;
+  }
+
+  /**
+   * Viewer's current reposts of the given content paths (newest first).
+   * One row per path — extra shares of the same original are dropped.
+   */
+  async viewerReposts(
+    accountId: string,
+    paths: string[]
+  ): Promise<ViewerRepostRow[]> {
+    const unique = [
+      ...new Set(paths.map((path) => path.trim()).filter(Boolean)),
+    ];
+    if (!accountId.trim() || unique.length === 0) return [];
+
+    const res = await this._q.graphql<{
+      reposts: Array<{
+        refPath: string;
+        repostId: string;
+        groupId?: string | null;
+      }>;
+    }>({
+      query: `query ViewerReposts($id: String!, $paths: [String!]!, $limit: Int!) {
+        reposts(
+          where: {repostAuthor: {_eq: $id}, refPath: {_in: $paths}},
+          limit: $limit,
+          orderBy: [{blockTimestamp: DESC}]
+        ) {
+          refPath repostId groupId
+        }
+      }`,
+      variables: {
+        id: accountId,
+        paths: unique,
+        limit: unique.length * 4,
+      },
+    });
+
+    const seen = new Set<string>();
+    const out: ViewerRepostRow[] = [];
+    for (const row of res.data?.reposts ?? []) {
+      if (!row.refPath || !row.repostId || seen.has(row.refPath)) continue;
+      seen.add(row.refPath);
+      out.push({
+        refPath: row.refPath,
+        repostId: row.repostId,
+        ...(row.groupId ? { groupId: row.groupId } : {}),
+      });
     }
     return out;
   }

@@ -33,7 +33,7 @@ export async function assertCanReplyToGuildPost(
   });
 
   if (!viewer.isMember) {
-    throw new Error('Join this guild to reply or quote.');
+    throw new Error('Join this guild to reply, quote, or repost.');
   }
 
   const canWriteSpaceIds = await resolveViewerAllowlistSpaceIds(

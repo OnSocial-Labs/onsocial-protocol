@@ -152,6 +152,16 @@ export function preferPinnedOrder<T>(
   return [...leading, ...rest];
 }
 
+/** Featured pins first, then recency — cap at the Launch highlight slots. */
+export function orderPagePostHighlights<T>(
+  items: T[],
+  pinnedIds: readonly string[],
+  idOf: (item: T) => string,
+  limit = 3
+): T[] {
+  return preferPinnedOrder(items, pinnedIds, idOf).slice(0, limit);
+}
+
 export function pageSectionCustomizeLabel(section: PageSection): string {
   return PAGE_SECTION_LABELS[section] ?? section;
 }

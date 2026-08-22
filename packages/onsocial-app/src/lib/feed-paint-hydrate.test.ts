@@ -81,10 +81,47 @@ describe('feed-paint-hydrate', () => {
       amplifyCount: 3,
       viewerAmplified: false,
       viewerSaved: false,
+      viewerReposted: false,
+      viewerRepostId: null,
+      viewerRepostGroupId: null,
     });
     expect(countsByPaths).toHaveBeenCalledTimes(1);
     expect(statesForPosts).toHaveBeenCalledTimes(1);
     expect(amplifyCountsForPostPaths).toHaveBeenCalledTimes(1);
+  });
+
+  it('loadPostEngagementMap seeds repost originals from refPath', async () => {
+    countsByPaths.mockResolvedValue({
+      'bob.near/post/orig': { replyCount: 4, quoteCount: 0, repostCount: 2 },
+    });
+    statesForPosts.mockResolvedValue({
+      'bob.near:orig': { counts: { total: 7 }, viewerReacted: [] },
+    });
+    amplifyCountsForPostPaths.mockResolvedValue({});
+
+    const shell: PostRow = {
+      ...post('alice.near', 'shell'),
+      refType: 'repost',
+      refPath: 'bob.near/post/orig',
+    };
+    const map = await loadPostEngagementMap(os as never, [shell]);
+
+    // Original is seeded even though its row wasn't in the page.
+    expect(map['bob.near:orig']).toMatchObject({
+      replyCount: 4,
+      repostCount: 2,
+      reactionCount: 7,
+    });
+    expect(map['alice.near:shell']).toBeDefined();
+    // Both paths went into the single batched calls.
+    expect(countsByPaths).toHaveBeenCalledWith([
+      'alice.near/post/shell',
+      'bob.near/post/orig',
+    ]);
+    expect(statesForPosts).toHaveBeenCalledWith([
+      { owner: 'alice.near', postId: 'shell' },
+      { owner: 'bob.near', postId: 'orig' },
+    ]);
   });
 
   it('hydrateLazyScarceEmbedsForPosts uses one activeListings per creator', async () => {

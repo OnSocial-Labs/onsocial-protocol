@@ -8874,6 +8874,77 @@ a.os-surface-row {
     margin: 0;
   }
 
+  /* Profile feed — icon tabs in the title row; label folds onto the active chip. */
+  .profile-feed-sheet-header .discover-sheet-title-row {
+    align-items: center;
+  }
+
+  .profile-feed-sheet-header .profile-feed-tab-bar {
+    min-width: 0;
+    flex: 1;
+    margin: 0;
+  }
+
+  .profile-feed-tab-fallback-chip {
+    display: inline-block;
+    flex: 0 0 auto;
+    width: 1.55rem;
+    height: 1.55rem;
+    border-radius: 9999px;
+  }
+
+  .profile-feed-tab-fallback-chip:first-child {
+    width: 4.35rem;
+  }
+
+  .profile-feed-tab-bar button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    transition:
+      gap 220ms ease,
+      color 160ms ease,
+      background 160ms ease;
+  }
+
+  .profile-feed-tab-bar button.is-active {
+    gap: 0.32rem;
+  }
+
+  .profile-feed-tab-icon {
+    flex: 0 0 auto;
+    width: 0.85rem;
+    height: 0.85rem;
+  }
+
+  .profile-feed-tab-label {
+    display: grid;
+    grid-template-columns: 0fr;
+    min-width: 0;
+    opacity: 0;
+    transition:
+      grid-template-columns 220ms ease,
+      opacity 160ms ease;
+  }
+
+  .profile-feed-tab-label > span {
+    overflow: hidden;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  .profile-feed-tab-bar button.is-active .profile-feed-tab-label {
+    grid-template-columns: 1fr;
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .profile-feed-tab-bar button,
+    .profile-feed-tab-label {
+      transition: none;
+    }
+  }
+
   .discover-omni-search-form {
     display: block;
     min-width: 0;
@@ -10164,59 +10235,181 @@ a.os-surface-row {
     width: fit-content;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    gap: 0.32rem;
+    border: 0;
     border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.04);
+    background: rgb(var(--fg-rgb) / 0.07);
     color: rgb(var(--fg-rgb) / 0.78);
     font: inherit;
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     font-weight: 600;
-    padding: 0.48rem 0.72rem;
+    padding: 0.28rem 0.72rem;
+    min-height: 1.65rem;
     text-decoration: none;
     cursor: pointer;
     transition:
       background 160ms ease,
-      border-color 160ms ease,
       color 160ms ease;
   }
 
   .page-drawer-section-action:hover,
   .page-drawer-section-action:focus-visible {
-    border-color: rgb(var(--fg-rgb) / 0.18);
-    background: rgb(var(--fg-rgb) / 0.07);
+    background: rgb(var(--fg-rgb) / 0.1);
     color: rgb(var(--fg-rgb) / 0.92);
     outline: none;
+  }
+
+  /* Directional cue: arrow = navigates away, chevron = expands in place. */
+  .page-drawer-section-action-arrow {
+    width: 0.55rem;
+    height: 0.55rem;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .page-drawer-section-action-chevron {
+    width: 0.7rem;
+    height: 0.7rem;
+    color: rgb(var(--fg-rgb) / 0.45);
+    transition: transform 200ms ease;
+  }
+
+  .page-drawer-section-action-chevron.is-open {
+    transform: rotate(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .page-drawer-section-action-chevron {
+      transition: none;
+    }
   }
 
   .page-drawer-post-peek {
     display: flex;
     flex-direction: column;
-    gap: 0.45rem;
-    margin: 0;
+    gap: 0.5rem;
+    margin: 0.1rem 0 0;
     padding: 0;
     list-style: none;
   }
 
+  /* Pressable highlight — same fill ladder as os-surface-row. */
   .page-drawer-post-peek-card {
     display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.035);
+    align-items: flex-start;
+    gap: 0.75rem;
+    border-radius: var(--os-surface-radius-row);
+    background: var(--os-surface-fill);
     color: inherit;
-    padding: 0.7rem 0.8rem 0.65rem;
+    padding: 0.62rem 0.72rem;
     text-decoration: none;
-    transition:
-      background 160ms ease,
-      border-color 160ms ease;
+    transition: background 160ms ease;
   }
 
   .page-drawer-post-peek-card:hover,
   .page-drawer-post-peek-card:focus-visible {
-    border-color: rgb(var(--fg-rgb) / 0.14);
-    background: rgb(var(--fg-rgb) / 0.055);
+    background: var(--os-surface-fill-hover);
     outline: none;
+  }
+
+  .page-drawer-post-peek-card:active {
+    background: var(--os-surface-fill-active);
+  }
+
+  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-post-peek-card {
+    background: color-mix(
+      in srgb,
+      var(--mood-surface, rgb(var(--fg-rgb) / 0.06)) 42%,
+      transparent
+    );
+  }
+
+  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-post-peek-card:hover,
+  .page-drawer-panel[data-tone='mood-thread']
+    .page-drawer-post-peek-card:focus-visible {
+    background: color-mix(
+      in srgb,
+      var(--mood-surface, rgb(var(--fg-rgb) / 0.06)) 70%,
+      transparent
+    );
+  }
+
+  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-post-peek-card:active {
+    background: color-mix(
+      in srgb,
+      var(--mood-surface, rgb(var(--fg-rgb) / 0.06)) 88%,
+      transparent
+    );
+  }
+
+  .page-drawer-post-peek-main {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  /* First attachment — highlight cover on the right of the peek card. */
+  .page-drawer-post-peek-thumb {
+    position: relative;
+    flex: 0 0 auto;
+    width: 3.75rem;
+    height: 3.75rem;
+    overflow: hidden;
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    border-radius: 0.7rem;
+    background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .page-drawer-post-peek-play {
+    position: absolute;
+    right: 0.28rem;
+    bottom: 0.28rem;
+    width: 0.95rem;
+    height: 0.95rem;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 0.62);
+  }
+
+  .page-drawer-post-peek-play::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 0.18rem 0 0.18rem 0.28rem;
+    border-color: transparent transparent transparent rgb(255 255 255 / 0.92);
+    transform: translateX(0.08rem);
+  }
+
+  .page-drawer-post-peek-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.28rem;
+  }
+
+  .page-drawer-post-peek-option {
+    max-width: 8.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.62);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    padding: 0.16rem 0.42rem;
+    line-height: 1.2;
+  }
+
+  .page-drawer-post-peek-thumb img,
+  .page-drawer-post-peek-thumb video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   .page-drawer-post-peek-text {
@@ -10250,7 +10443,7 @@ a.os-surface-row {
     gap: 0.7rem;
   }
 
-  /* Shared Launch media peeks — Store / Created / Collectibles / Guilds rail. */
+  /* Shared Launch media peeks — Store / Created / Collectibles rail. */
   .page-drawer-media-rail {
     display: grid;
     grid-auto-columns: minmax(9rem, 42%);
@@ -10263,6 +10456,11 @@ a.os-surface-row {
     scroll-padding-inline: 0.1rem;
     scroll-snap-type: x proximity;
     scrollbar-width: none;
+  }
+
+  /* One live listing — do not leave a lonely 42% carousel card. */
+  .page-drawer-media-rail.is-sparse {
+    grid-auto-columns: minmax(12rem, 72%);
   }
 
   .page-drawer-media-rail::-webkit-scrollbar {
@@ -10372,6 +10570,13 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.62);
   }
 
+  /* Owned edition count when one card stands in for several copies. */
+  .page-drawer-media-editions {
+    flex-shrink: 0;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.5);
+  }
+
   .page-drawer-media-facts {
     font-size: 0.64rem;
     color: rgb(var(--fg-rgb) / 0.5);
@@ -10388,45 +10593,15 @@ a.os-surface-row {
   .portfolio-store-sales {
     display: flex;
     flex-direction: column;
-    gap: 0.32rem;
+    gap: 0;
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
-  .portfolio-store-sale {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.6rem;
-    font-size: 0.72rem;
-  }
-
-  .portfolio-store-sale-title {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: rgb(var(--fg-rgb) / 0.72);
-  }
-
-  .portfolio-store-sale-meta {
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: baseline;
-    gap: 0.4rem;
-    color: rgb(var(--fg-rgb) / 0.5);
-  }
-
-  .portfolio-store-sale-price {
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.7);
-  }
-
-  .portfolio-store-cta-icon {
-    width: 0.9rem;
-    height: 0.9rem;
-    margin-right: 0.4rem;
+  .page-drawer-section .market-sale-row {
+    margin-inline: -0.15rem;
+    padding: 0.45rem 0.15rem;
   }
 
   /* Expanded guild memberships — discovery rows, flush. */
@@ -15426,6 +15601,44 @@ a.os-surface-row {
     cursor: pointer;
   }
 
+  /* Repost row: attribution line wraps above the avatar + copy columns. */
+  .post-card--reposted {
+    flex-wrap: wrap;
+    /* Card gap is for avatar|copy columns — don't let it push the
+       attribution line away from the post below it. */
+    row-gap: 0;
+  }
+
+  .post-card-repost-line {
+    position: relative;
+    z-index: 1;
+    display: block;
+    flex-basis: 100%;
+    /* Align with the copy column (avatar 2.25rem + 0.75rem gap). */
+    padding-left: 3rem;
+    margin-bottom: 0.05rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.42);
+    text-decoration: none;
+  }
+
+  .post-card-repost-line:hover {
+    text-decoration: underline;
+  }
+
+  .post-card-repost-line-icon {
+    display: inline-block;
+    width: 0.78rem;
+    height: 0.78rem;
+    margin-right: 0.28rem;
+    vertical-align: -0.14em;
+  }
+
   /*
    * Stretched open-hit under the card. Copy sits above it (z-index: 1) but
    * passes clicks through (`pointer-events: none`) except on interactive
@@ -15447,6 +15660,7 @@ a.os-surface-row {
     pointer-events: none;
   }
 
+  .post-card--openable .post-card-repost-line,
   .post-card--openable .post-card-avatar-link,
   .post-card--openable .post-identity-name,
   .post-card--openable .post-identity-handle,
@@ -15762,6 +15976,15 @@ a.os-surface-row {
     font-size: 0.72rem;
     line-height: 1.45;
     color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  /* Inline so the ellipsis truncation on the relation line keeps working. */
+  .post-card-relation-icon {
+    display: inline-block;
+    width: 0.78rem;
+    height: 0.78rem;
+    margin-right: 0.28rem;
+    vertical-align: -0.14em;
   }
 
   .post-card-header {
@@ -16729,6 +16952,10 @@ a.os-surface-row {
 
   .post-card-stat--quote:hover:not(:disabled),
   .post-card-stat--quote:focus-visible {
+    color: var(--protocol-green);
+  }
+
+  .post-card-stat--quote.is-active {
     color: var(--protocol-green);
   }
 
@@ -19627,7 +19854,7 @@ a.os-surface-row {
     background: var(--os-surface-row-hover);
   }
 
-  /* Match `.market-listing-action` compact primary pills (Buy / Sell). */
+  /* Match compact borderless Market Buy / Sell (no pill stroke). */
   .collectibles-holding-action {
     display: inline-flex;
     flex-shrink: 0;
@@ -19636,7 +19863,7 @@ a.os-surface-row {
     min-width: 4.5rem;
     min-height: 1.65rem;
     padding: 0.28rem 0.72rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.14);
+    border: 0;
     border-radius: 9999px;
     background: rgb(var(--fg-rgb) / 0.07);
     color: rgb(var(--fg-rgb) / 0.78);
@@ -19646,13 +19873,11 @@ a.os-surface-row {
     pointer-events: none;
     transition:
       background 160ms ease,
-      border-color 160ms ease,
       color 160ms ease;
   }
 
   a.collectibles-holding-row:hover .collectibles-holding-action,
   a.collectibles-holding-row:focus-visible .collectibles-holding-action {
-    border-color: rgb(var(--fg-rgb) / 0.22);
     background: rgb(var(--fg-rgb) / 0.1);
     color: rgb(var(--fg-rgb) / 0.92);
   }
@@ -26587,7 +26812,8 @@ a.os-surface-row {
     color: color-mix(in srgb, var(--protocol-amber) 72%, white);
   }
 
-  .post-card-react.is-pending {
+  .post-card-react.is-pending,
+  .post-card-stat--quote.is-pending {
     opacity: 0.55;
     cursor: default;
   }

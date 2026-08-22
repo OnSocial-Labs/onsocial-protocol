@@ -10,7 +10,12 @@ import {
 } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { Paginated, PostRow, PostScarceEmbed } from '@onsocial/sdk';
+import {
+  postContentPath,
+  type Paginated,
+  type PostRow,
+  type PostScarceEmbed,
+} from '@onsocial/sdk';
 import { OnSocialMark, ProtocolMotionArrow } from '@onsocial/ui';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 import { ListLoadError } from '@/components/panels/list-load-error';
@@ -788,17 +793,38 @@ export function HomePagePanel({
     });
   }, []);
 
+  const onUnreposted = useCallback(
+    (target: PostRow) => {
+      if (!accountId) return;
+      const targetPath = postContentPath(target);
+      setPosts((current) =>
+        current.filter(
+          (row) =>
+            !(
+              row.accountId === accountId &&
+              row.refType === 'repost' &&
+              row.refPath === targetPath
+            )
+        )
+      );
+    },
+    [accountId]
+  );
+
   useEffect(() => subscribePersonalPostConfirmed(onConfirmed), [onConfirmed]);
 
-  const { openReply, openQuote, openRepost, sheet } = usePersonalComposer({
+  const { openReply, openQuote, openRepost, openUndoRepost, sheet } =
+    usePersonalComposer({
     registerPen: Boolean(isConnected && accountId),
     destinationLabel,
     onConfirmed,
+    onUnreposted,
   });
 
   const replyHandler = isConnected ? openReply : undefined;
   const quoteHandler = isConnected ? openQuote : undefined;
   const repostHandler = isConnected ? openRepost : undefined;
+  const undoRepostHandler = isConnected ? openUndoRepost : undefined;
 
   const emptyCopy = activeFocus
     ? homeFeedFocusEmptyCopy(activeFocus)
@@ -890,6 +916,7 @@ export function HomePagePanel({
                 onReply={replyHandler}
                 onQuote={quoteHandler}
                 onRepost={repostHandler}
+                onUndoRepost={undoRepostHandler}
                 onAmplified={handleAmplified}
                 onEngagementError={(message) => setEngagementError(message)}
               />

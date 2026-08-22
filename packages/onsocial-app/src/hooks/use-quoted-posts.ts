@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { GroupPostRef, PostRow } from '@onsocial/sdk';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
+import { isRepostRefType } from '@/lib/post-relation';
 
 const GROUP_POST_PATH_PATTERN =
   /^([^/]+)\/groups\/([^/]+)\/content\/post\/(.+)$/;
@@ -116,10 +117,26 @@ export function useResolvedGroupPosts(paths: Array<string | undefined>) {
 /**
  * Resolve the quoted originals for the visible posts that are quotes
  * (`refPath` set).
+ *
+ * Repost shells get a second hop: the row renders the ORIGINAL as the card,
+ * and if that original is itself a quote, its inset needs `refPath` resolved
+ * too — otherwise the card degrades to a `Quoting @x` line.
  */
 export function useQuotedPosts(posts: PostRow[]) {
   const refPaths = useMemo(() => posts.map((post) => post.refPath), [posts]);
-  return useResolvedGroupPosts(refPaths);
+  const firstHop = useResolvedGroupPosts(refPaths);
+  const secondHopPaths = useMemo(
+    () =>
+      posts
+        .filter((post) => isRepostRefType(post.refType) && post.refPath)
+        .map((post) => firstHop[post.refPath!]?.refPath),
+    [posts, firstHop]
+  );
+  const secondHop = useResolvedGroupPosts(secondHopPaths);
+  return useMemo(
+    () => ({ ...secondHop, ...firstHop }),
+    [firstHop, secondHop]
+  );
 }
 
 const ANCESTOR_CHAIN_CAP = 12;

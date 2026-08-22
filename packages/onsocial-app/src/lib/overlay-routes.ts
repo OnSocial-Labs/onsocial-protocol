@@ -161,6 +161,10 @@ export function resolveOverlayPanelChrome(
     return { ariaTitle: 'Discover', expectsToolbar: true };
   }
 
+  if (panelKey === 'feed') {
+    return { ariaTitle: 'Feed', expectsToolbar: true };
+  }
+
   if ((OVERLAY_PANELS as readonly string[]).includes(panelKey)) {
     const label = panelLabel(panelKey as OverlayPanel);
     return { ariaTitle: label, title: label, expectsToolbar: false };

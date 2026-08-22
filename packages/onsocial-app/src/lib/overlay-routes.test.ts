@@ -165,7 +165,7 @@ describe('shouldOpenPortfolioGlassOverlay', () => {
 });
 
 describe('resolveOverlayPanelChrome', () => {
-  it('expects toolbar chrome for standing and discover', () => {
+  it('expects toolbar chrome for standing, discover, and feed', () => {
     expect(resolveOverlayPanelChrome('standing:incoming')).toEqual({
       ariaTitle: 'Standing',
       expectsToolbar: true,
@@ -174,12 +174,26 @@ describe('resolveOverlayPanelChrome', () => {
       ariaTitle: 'Discover',
       expectsToolbar: true,
     });
+    expect(resolveOverlayPanelChrome('feed')).toEqual({
+      ariaTitle: 'Feed',
+      expectsToolbar: true,
+    });
   });
 
   it('uses panel labels for simple overlay panels', () => {
-    expect(resolveOverlayPanelChrome('feed')).toEqual({
-      ariaTitle: 'Feed',
-      title: 'Feed',
+    expect(resolveOverlayPanelChrome('endorsements')).toEqual({
+      ariaTitle: 'Endorsements',
+      title: 'Endorsements',
+      expectsToolbar: false,
+    });
+    expect(resolveOverlayPanelChrome('reputation')).toEqual({
+      ariaTitle: 'Reputation',
+      title: 'Reputation',
+      expectsToolbar: false,
+    });
+    expect(resolveOverlayPanelChrome('collectibles')).toEqual({
+      ariaTitle: 'Collectibles',
+      title: 'Collectibles',
       expectsToolbar: false,
     });
   });

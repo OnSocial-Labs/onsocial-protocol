@@ -378,7 +378,8 @@ export async function submitPersonalRepost(params: {
         postId: target.postId,
       },
       postData,
-      newPostId
+      newPostId,
+      { wait: true }
     );
   }
 
@@ -416,4 +417,39 @@ export async function submitPersonalRepost(params: {
   };
 
   return { confirmed: true, optimisticPost };
+}
+
+/** SocialDB path for a viewer's own share post (personal or guild). */
+export function viewerRepostWritePath(opts: {
+  postId: string;
+  groupId?: string | null;
+}): string {
+  const groupId = opts.groupId?.trim();
+  if (groupId) return `groups/${groupId}/content/post/${opts.postId}`;
+  return `post/${opts.postId}`;
+}
+
+/** Undo a one-tap repost by deleting the viewer's share post. */
+export async function submitPersonalUnrepost(params: {
+  client: OnSocial;
+  accountId: string;
+  target: PostRow;
+  viewerRepost: { postId: string; groupId?: string | null };
+  trackTransaction: TrackTransaction;
+}): Promise<PersonalPostSubmitResult> {
+  const { client, accountId, target, viewerRepost, trackTransaction } = params;
+  if (target.groupId) {
+    await assertCanReplyToGuildPost(client, accountId, target);
+  }
+
+  const path = viewerRepostWritePath(viewerRepost);
+  const response = await client.social.set(path, null, { wait: true });
+  const confirmed = await trackTransaction({
+    txHashes: collectRelayTxHashes(response),
+    submittedMessage: txToastConfirming.unreposting,
+    successMessage: txToastSuccess.unrepostPublished,
+    failureMessage: txToastError.unrepostFailed,
+  });
+
+  return { confirmed, optimisticPost: null };
 }

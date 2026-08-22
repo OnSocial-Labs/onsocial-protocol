@@ -44,6 +44,20 @@ function OverlayHeaderFallback({
             {closeControl}
           </div>
         </div>
+      ) : panelKey === 'feed' ? (
+        <div className="standing-sheet-header profile-feed-sheet-header overlay-header-fallback">
+          <div className="discover-sheet-title-row" aria-hidden>
+            <div className="discover-tab-bar discover-tab-bar--header profile-feed-tab-bar">
+              <div className="discover-tab-bar-scroller">
+                <span className="standing-row-shimmer profile-feed-tab-fallback-chip" />
+                <span className="standing-row-shimmer profile-feed-tab-fallback-chip" />
+                <span className="standing-row-shimmer profile-feed-tab-fallback-chip" />
+                <span className="standing-row-shimmer profile-feed-tab-fallback-chip" />
+              </div>
+            </div>
+            {closeControl}
+          </div>
+        </div>
       ) : (
         <div className="standing-sheet-header overlay-header-fallback">
           <div className="standing-sheet-subject-row" aria-hidden>
@@ -59,7 +73,9 @@ function OverlayHeaderFallback({
           {hint.ariaTitle}
         </h2>
         {toolbarFallback}
-        <Divider variant="section" className="glass-sheet-header-divider" />
+        {panelKey === 'feed' ? null : (
+          <Divider variant="section" className="glass-sheet-header-divider" />
+        )}
       </>
     );
   }

@@ -6,6 +6,8 @@ import {
 import {
   submitPersonalPost,
   submitPersonalRepost,
+  submitPersonalUnrepost,
+  viewerRepostWritePath,
 } from '@/features/home/submit-personal-post';
 import type { OnSocial, PostRow } from '@onsocial/sdk';
 
@@ -21,8 +23,12 @@ function mockClient(overrides: {
   replyToPost?: ReturnType<typeof vi.fn>;
   quotePost?: ReturnType<typeof vi.fn>;
   repostPost?: ReturnType<typeof vi.fn>;
+  socialSet?: ReturnType<typeof vi.fn>;
 }): OnSocial {
   return {
+    social: {
+      set: overrides.socialSet ?? vi.fn().mockResolvedValue({ txHash: 'tx1' }),
+    },
     posts: {
       create: overrides.create ?? vi.fn().mockResolvedValue({ txHash: 'tx1' }),
       reply: overrides.reply ?? vi.fn().mockResolvedValue({ txHash: 'tx1' }),
@@ -500,5 +506,44 @@ describe('submitPersonalRepost', () => {
     expect(result.optimisticPost?.refType).toBe('repost');
     expect(result.optimisticPost?.groupId).toBe('builders');
     expect(result.optimisticPost?.isGroupContent).toBe(true);
+  });
+});
+
+describe('viewerRepostWritePath', () => {
+  it('uses the personal post key', () => {
+    expect(viewerRepostWritePath({ postId: '9' })).toBe('post/9');
+  });
+
+  it('uses the guild content key', () => {
+    expect(viewerRepostWritePath({ postId: '9', groupId: 'builders' })).toBe(
+      'groups/builders/content/post/9'
+    );
+  });
+});
+
+describe('submitPersonalUnrepost', () => {
+  it('deletes the viewer share post', async () => {
+    const socialSet = vi.fn().mockResolvedValue({ txHash: 'undo-tx' });
+    const client = mockClient({ socialSet });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+    const target: PostRow = {
+      accountId: 'bob.testnet',
+      postId: '9',
+      value: '{"v":1,"text":"hi"}',
+      blockHeight: 1,
+      blockTimestamp: 1,
+    };
+
+    const result = await submitPersonalUnrepost({
+      client,
+      accountId: 'alice.testnet',
+      target,
+      viewerRepost: { postId: '88' },
+      trackTransaction,
+    });
+
+    expect(socialSet).toHaveBeenCalledWith('post/88', null, { wait: true });
+    expect(result.confirmed).toBe(true);
+    expect(result.optimisticPost).toBeNull();
   });
 });

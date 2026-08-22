@@ -19,6 +19,7 @@ import {
   MessageRoundIcon,
   MultiplyIcon,
   ProfileAvatar,
+  PulsingDots,
   RepeatIcon,
   ShareIcon,
   TrashIcon,
@@ -117,6 +118,11 @@ import {
   truncatePostPreview,
 } from '@/lib/post-display';
 import {
+  isRepostRefType,
+  postRelationContext,
+  type PostRelationContext,
+} from '@/lib/post-relation';
+import {
   parsePostMedia,
   isRenderablePostVideoMime,
   appendPostMediaIndex,
@@ -138,6 +144,11 @@ interface PostCardProps {
   authorProfile?: PostAuthorProfile;
   /** Extra classes, e.g. thread chain position modifiers. */
   className?: string;
+  /**
+   * Repost attribution — the card body IS the original post; this credits
+   * the reposter with `You reposted` / `{name} reposted` above the card.
+   */
+  repostedBy?: { accountId: string; displayName?: string | null };
   /** Compact inset preview of the post this one quotes. */
   quotedPost?: PostRow;
   quotedAuthorProfile?: PostAuthorProfile;
@@ -159,6 +170,7 @@ interface PostCardProps {
   engagement?: PostEngagement;
   reactionPending?: boolean;
   savePending?: boolean;
+  sharePending?: boolean;
   onToggleReaction?: (post: PostRow) => void;
   onToggleSave?: (post: PostRow) => void;
   /** Optimistic amplify count / Hot heat after a confirmed spend. */
@@ -172,6 +184,8 @@ interface PostCardProps {
   onQuote?: (post: PostRow) => void;
   /** One-tap repost targeting this post. */
   onRepost?: (post: PostRow) => void;
+  /** Undo the viewer's existing repost. */
+  onUndoRepost?: (post: PostRow) => void;
   pollTally?: PollTally;
   pollVotePending?: boolean;
   onPollVote?: (post: PostRow, optionIndex: number) => void;
@@ -558,23 +572,6 @@ function postBadges(
   );
 }
 
-/** `Replying to @x` / `Quoting @x` — muted context line instead of a pill. */
-function postRelationContext(
-  post: PostRow,
-  hasQuoteInset: boolean
-): { verb: string; handle: string } | null {
-  if (post.parentPath) {
-    const handle = post.parentAuthor ?? post.parentPath.split('/')[0];
-    return handle ? { verb: 'Replying to', handle } : null;
-  }
-  // The quote inset already shows who's quoted — only label when it's absent.
-  if (post.refPath && !hasQuoteInset) {
-    const handle = post.refAuthor ?? post.refPath.split('/')[0];
-    return handle ? { verb: 'Quoting', handle } : null;
-  }
-  return null;
-}
-
 export function QuotedPostInset({
   post,
   authorProfile,
@@ -902,9 +899,11 @@ function PostEngagementRow({
   shareTitle,
   reactionPending,
   savePending,
+  sharePending,
   onReply,
   onQuote,
   onRepost,
+  onUndoRepost,
   onToggleReaction,
   onToggleSave,
   onAmplify,
@@ -915,21 +914,40 @@ function PostEngagementRow({
   shareTitle?: string | null;
   reactionPending?: boolean;
   savePending?: boolean;
+  sharePending?: boolean;
   onReply?: (post: PostRow) => void;
   onQuote?: (post: PostRow) => void;
   onRepost?: (post: PostRow) => void;
+  onUndoRepost?: (post: PostRow) => void;
   onToggleReaction?: (post: PostRow) => void;
   onToggleSave?: (post: PostRow) => void;
   onAmplify: () => void;
   post: PostRow;
 }) {
   const [shareOpen, setShareOpen] = useState(false);
-  const canShare = Boolean(onQuote || onRepost);
+  const canShare = Boolean(onQuote || onRepost || onUndoRepost);
+  const closeShare = () => setShareOpen(false);
   const shareCount =
     (engagement.repostCount ?? 0) + (engagement.quoteCount ?? 0);
   const shareItems = useMemo<ActionDrawerItem[]>(() => {
     const items: ActionDrawerItem[] = [];
-    if (onRepost) {
+    if (
+      engagement.viewerReposted &&
+      onUndoRepost &&
+      engagement.viewerRepostId
+    ) {
+      items.push({
+        id: 'unrepost',
+        label: 'Undo repost',
+        description: 'Remove from your feed',
+        leading: <RepeatIcon className="os-action-drawer-icon" aria-hidden />,
+        disabled: sharePending,
+        onSelect: () => {
+          closeShare();
+          onUndoRepost(post);
+        },
+      });
+    } else if (onRepost && !engagement.viewerReposted) {
       items.push({
         id: 'repost',
         label: 'Repost',
@@ -937,7 +955,11 @@ function PostEngagementRow({
           ? 'Share in this guild'
           : 'Share to your feed',
         leading: <RepeatIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => onRepost(post),
+        disabled: sharePending,
+        onSelect: () => {
+          closeShare();
+          onRepost(post);
+        },
       });
     }
     if (onQuote) {
@@ -948,11 +970,22 @@ function PostEngagementRow({
         leading: (
           <MessageRoundIcon className="os-action-drawer-icon" aria-hidden />
         ),
-        onSelect: () => onQuote(post),
+        onSelect: () => {
+          closeShare();
+          onQuote(post);
+        },
       });
     }
     return items;
-  }, [onQuote, onRepost, post]);
+  }, [
+    engagement.viewerReposted,
+    engagement.viewerRepostId,
+    onQuote,
+    onRepost,
+    onUndoRepost,
+    post,
+    sharePending,
+  ]);
 
   return (
     <div className="post-card-engagement">
@@ -966,12 +999,33 @@ function PostEngagementRow({
           onActivate={onReply ? () => onReply(post) : undefined}
         />
         <EngagementStat
-          icon={<RepeatIcon aria-hidden />}
+          icon={
+            sharePending ? (
+              <PulsingDots size="sm" label="Confirming share" />
+            ) : (
+              <RepeatIcon aria-hidden />
+            )
+          }
           count={shareCount}
-          label="reposts"
+          label="shares"
           tone="quote"
-          actionLabel={canShare ? 'Quote or repost' : undefined}
-          onActivate={canShare ? () => setShareOpen(true) : undefined}
+          className={`${engagement.viewerReposted && !sharePending ? 'is-active' : ''}${sharePending ? ' is-pending' : ''}`.trim() || undefined}
+          disabled={sharePending}
+          ariaPressed={
+            sharePending ? undefined : engagement.viewerReposted || undefined
+          }
+          actionLabel={
+            sharePending
+              ? 'Confirming share'
+              : canShare
+                ? engagement.viewerReposted
+                  ? 'Undo repost or quote'
+                  : 'Quote or repost'
+                : undefined
+          }
+          onActivate={
+            canShare && !sharePending ? () => setShareOpen(true) : undefined
+          }
         />
         {onToggleReaction ? (
           <EngagementStat
@@ -1056,7 +1110,7 @@ function PostCardBody({
   /** Thread focus / detail — show full copy, no Show more. */
   expandDisabled = false,
 }: {
-  relationContext: { verb: string; handle: string } | null;
+  relationContext: PostRelationContext | null;
   badges: string[];
   text: string;
   /** When the poll card already shows the question, skip duplicate body text. */
@@ -1075,17 +1129,26 @@ function PostCardBody({
     <>
       {relationContext ? (
         <span className="post-card-relation">
-          {relationContext.verb}{' '}
-          <Link
-            href={portfolioPath(relationContext.handle)}
-            className="os-mention post-card-relation-handle"
-            scroll={false}
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
-          >
-            @{relationContext.handle}
-          </Link>
+          {relationContext.kind === 'repost' ? (
+            <>
+              <RepeatIcon className="post-card-relation-icon" aria-hidden />
+              {relationContext.label}
+            </>
+          ) : (
+            <>
+              {relationContext.verb}{' '}
+              <Link
+                href={portfolioPath(relationContext.handle)}
+                className="os-mention post-card-relation-handle"
+                scroll={false}
+                onClick={(event) => {
+                  event.stopPropagation();
+                }}
+              >
+                @{relationContext.handle}
+              </Link>
+            </>
+          )}
         </span>
       ) : null}
       {badges.length > 0 ? (
@@ -1160,6 +1223,7 @@ export function PostCard({
   actionHref,
   authorProfile,
   className,
+  repostedBy,
   quotedPost,
   quotedAuthorProfile,
   quotedHref,
@@ -1171,12 +1235,14 @@ export function PostCard({
   engagement,
   reactionPending,
   savePending,
+  sharePending,
   onToggleReaction,
   onToggleSave,
   onAmplifyConfirmed,
   onReply,
   onQuote,
   onRepost,
+  onUndoRepost,
   pollTally,
   pollVotePending,
   onPollVote,
@@ -1357,11 +1423,17 @@ export function PostCard({
   // checks ran. Optimistic ledger + reconcile still flip to Cancel once
   // a listing is confirmed. Collection-reference posts are not listable
   // from the post (they point at an existing Drop / edition).
+  const isRepostShell = isRepostRefType(post.refType);
   const canListScarce =
-    isConnected && isSelf && !hasCollectionEmbed && !activelyListed;
+    isConnected &&
+    isSelf &&
+    !isRepostShell &&
+    !hasCollectionEmbed &&
+    !activelyListed;
   const canCancelScarce =
     isConnected &&
     isSelf &&
+    !isRepostShell &&
     !hasCollectionEmbed &&
     canCancelPostScarce(scarceEmbed);
 
@@ -1460,7 +1532,10 @@ export function PostCard({
   const name = authorProfile?.displayName?.trim() || fallback;
   const badges = postBadges(post, Boolean(poll), mediaItems.length > 0);
   const relationContext = showRelationBadge
-    ? postRelationContext(post, Boolean(quotedPost))
+    ? postRelationContext(post, Boolean(quotedPost), {
+        viewerAccountId,
+        authorName: name,
+      })
     : null;
   const profileHref = portfolioPath(post.accountId);
   const shareHref = actionHref ?? postThreadPath(post);
@@ -1471,11 +1546,17 @@ export function PostCard({
   const detailTimestampIso = detailLayout
     ? postTimestampIso(post.blockTimestamp)
     : undefined;
+  const repostedByLabel = repostedBy
+    ? viewerAccountId && accountIdsEqual(viewerAccountId, repostedBy.accountId)
+      ? 'You reposted'
+      : `${displayName(repostedBy.accountId, repostedBy.displayName ?? undefined)} reposted`
+    : null;
   const cardClassName = [
     'post-card',
     // No rise-in here: feed skeletons morph in-place; translating up reads as content jump.
     actionHref ? 'post-card--openable' : '',
     detailLayout ? 'post-card--detail' : '',
+    repostedBy ? 'post-card--reposted' : '',
     className ?? '',
   ]
     .filter(Boolean)
@@ -1490,6 +1571,17 @@ export function PostCard({
           scroll={false}
           aria-label="Open post"
         />
+      ) : null}
+      {repostedBy && repostedByLabel ? (
+        <Link
+          href={portfolioPath(repostedBy.accountId)}
+          className="post-card-repost-line"
+          scroll={false}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <RepeatIcon className="post-card-repost-line-icon" aria-hidden />
+          {repostedByLabel}
+        </Link>
       ) : null}
       <Link
         href={profileHref}
@@ -1557,7 +1649,8 @@ export function PostCard({
             expandDisabled={mediaFocused}
             hideText={
               (Boolean(poll) && text === poll?.question) ||
-              (mediaItems.length > 0 && !text.trim())
+              (mediaItems.length > 0 && !text.trim()) ||
+              (isRepostRefType(post.refType) && !text.trim())
             }
           />
           {poll ? (
@@ -1614,7 +1707,7 @@ export function PostCard({
               }
             />
           ) : null}
-          {scarceEmbed || canListScarce ? (
+          {!isRepostShell && (scarceEmbed || canListScarce) ? (
             <PostScarceCta
               embed={
                 scarceEmbed ?? {
@@ -1690,9 +1783,11 @@ export function PostCard({
             shareTitle={name}
             reactionPending={reactionPending}
             savePending={savePending}
+            sharePending={sharePending}
             onReply={onReply}
             onQuote={onQuote}
             onRepost={onRepost}
+            onUndoRepost={onUndoRepost}
             onToggleReaction={onToggleReaction}
             onToggleSave={onToggleSave}
             onAmplify={() => setAmplifyOpen(true)}
@@ -1766,7 +1861,7 @@ export function PostCard({
         bookPdf={collectionBookPdf}
         viewerAccountId={viewerAccountId}
         commerce={
-          scarceEmbed || canListScarce ? (
+          !isRepostShell && (scarceEmbed || canListScarce) ? (
             <PostScarceCta
               embed={
                 scarceEmbed ?? {
@@ -1803,6 +1898,7 @@ export function PostCard({
               shareTitle={name}
               reactionPending={reactionPending}
               savePending={savePending}
+              sharePending={sharePending}
               onReply={
                 onReply
                   ? (target) => {
@@ -1824,6 +1920,14 @@ export function PostCard({
                   ? (target) => {
                       setFeedMediumOpen(false);
                       onRepost(target);
+                    }
+                  : undefined
+              }
+              onUndoRepost={
+                onUndoRepost
+                  ? (target) => {
+                      setFeedMediumOpen(false);
+                      onUndoRepost(target);
                     }
                   : undefined
               }

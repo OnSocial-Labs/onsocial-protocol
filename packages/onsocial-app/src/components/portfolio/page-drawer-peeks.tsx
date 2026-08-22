@@ -1,17 +1,25 @@
 'use client';
 
 import Link from 'next/link';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import {
   formatRelativePostTimestamp,
   postTimestampIso,
 } from '@/lib/post-display';
-import type { ProfilePostPeek, ProfileCreatedPeek } from '@/lib/fetch-profile-peeks';
-import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
+import {
+  type ProfileCreatedPeek,
+  type ProfilePostPeek,
+} from '@/lib/fetch-profile-peeks';
+import {
+  groupHoldingsForRail,
+  type PortfolioHoldingPeek,
+} from '@/lib/portfolio-holdings';
 import { personalPostPath } from '@/lib/post-routes';
 import { marketCreatorPath } from '@/lib/app-routes';
 import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import { safeModePeekText } from '@/lib/post-content-labels';
+import { isPostVideoMime } from '@/lib/post-media';
 
 export function PageDrawerPostPeekList({
   pageAccountId,
@@ -32,6 +40,7 @@ export function PageDrawerPostPeekList({
         const href = personalPostPath(post.accountId || pageAccountId, post.postId);
         const relative = formatRelativePostTimestamp(post.blockTimestamp);
         const iso = postTimestampIso(post.blockTimestamp);
+        const gated = safeMode && (Boolean(post.nsfw) || Boolean(post.contentWarning));
         const displayText = safeModePeekText(
           post.text,
           {
@@ -42,18 +51,60 @@ export function PageDrawerPostPeekList({
           },
           safeMode
         );
+        const thumb = gated ? null : (post.media ?? null);
+        const pollOptions = post.pollOptions ?? [];
+        const showVideoPlay =
+          Boolean(thumb && isPostVideoMime(thumb.mime) && post.kind !== 'quote');
         return (
           <li key={`${post.accountId}:${post.postId}`}>
             <Link className="page-drawer-post-peek-card" href={href} scroll={false}>
-              <span className="page-drawer-post-peek-text">{displayText}</span>
-              <span className="page-drawer-post-peek-meta">
-                {post.kind ? (
-                  <span className="page-drawer-post-peek-kind">{post.kind}</span>
+              <span className="page-drawer-post-peek-main">
+                <span className="page-drawer-post-peek-text">
+                  {displayText || (thumb ? 'Media post' : '')}
+                </span>
+                {pollOptions.length > 0 ? (
+                  <span className="page-drawer-post-peek-options" aria-hidden>
+                    {pollOptions.map((option) => (
+                      <span
+                        key={option}
+                        className="page-drawer-post-peek-option"
+                      >
+                        {option}
+                      </span>
+                    ))}
+                  </span>
                 ) : null}
-                <time dateTime={iso} title={iso}>
-                  {relative}
-                </time>
+                <span className="page-drawer-post-peek-meta">
+                  {post.kind ? (
+                    <span className="page-drawer-post-peek-kind">{post.kind}</span>
+                  ) : null}
+                  <time dateTime={iso} title={iso}>
+                    {relative}
+                  </time>
+                </span>
               </span>
+              {thumb ? (
+                <span
+                  className={`page-drawer-post-peek-thumb${
+                    showVideoPlay ? ' is-video' : ''
+                  }`}
+                  aria-hidden
+                >
+                  {isPostVideoMime(thumb.mime) ? (
+                    <video
+                      src={thumb.url}
+                      muted
+                      playsInline
+                      preload="metadata"
+                    />
+                  ) : (
+                    <img src={thumb.url} alt="" loading="lazy" decoding="async" />
+                  )}
+                  {showVideoPlay ? (
+                    <span className="page-drawer-post-peek-play" />
+                  ) : null}
+                </span>
+              ) : null}
             </Link>
           </li>
         );
@@ -74,7 +125,7 @@ export function PageDrawerHoldingsRail({
 
   return (
     <div className="page-drawer-media-rail" aria-label="Collectibles">
-      {holdings.map((item) => (
+      {groupHoldingsForRail(holdings).map((item) => (
         <Link
           key={item.tokenId}
           href={item.href}
@@ -94,7 +145,11 @@ export function PageDrawerHoldingsRail({
               {item.kindLabel ? (
                 <span className="page-drawer-media-kind">{item.kindLabel}</span>
               ) : null}
-              <span className="page-drawer-media-action">{item.actionLabel}</span>
+              {item.editionCount > 1 ? (
+                <span className="page-drawer-media-editions">
+                  ×{item.editionCount}
+                </span>
+              ) : null}
             </span>
           </span>
         </Link>
@@ -139,7 +194,6 @@ export function PageDrawerCreatedRail({
                 {item.kindLabel ? (
                   <span className="page-drawer-media-kind">{item.kindLabel}</span>
                 ) : null}
-                <span className="page-drawer-media-action">Open</span>
               </span>
             </span>
           </Link>
@@ -156,11 +210,12 @@ export function PageDrawerCreatedSeeAll({
 }) {
   return (
     <Link
-      className="page-drawer-section-action"
+      className="page-drawer-section-action group"
       href={marketCreatorPath(pageAccountId)}
       scroll={false}
     >
       See all in Market
+      <ProtocolMotionArrow className="page-drawer-section-action-arrow" />
     </Link>
   );
 }
@@ -172,11 +227,12 @@ export function PageDrawerHoldingsSeeAll({
 }) {
   return (
     <Link
-      className="page-drawer-section-action"
+      className="page-drawer-section-action group"
       href={portfolioCollectiblesPath(pageAccountId)}
       scroll={false}
     >
       See all collectibles
+      <ProtocolMotionArrow className="page-drawer-section-action-arrow" />
     </Link>
   );
 }

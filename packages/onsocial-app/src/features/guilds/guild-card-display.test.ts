@@ -26,6 +26,22 @@ describe('guild-card-display', () => {
     );
   });
 
+  it('strips raw-id words embedded in stored names', () => {
+    expect(
+      guildDisplayName(
+        'MD grp_md_perm_1779813274071_ojf237',
+        'grp_md_perm_1779813274071_ojf237'
+      )
+    ).toBe('MD');
+    // Name that is only the raw id still falls back to the suffix form.
+    expect(
+      guildDisplayName(
+        'grp_md_perm_1779813274071_ojf237',
+        'grp_md_perm_1779813274071_ojf237'
+      )
+    ).toBe('Guild ojf237');
+  });
+
   it('derives meaningful initials from display names', () => {
     expect(
       guildDisplayInitials('Social Rebels #1', 'grp_test')

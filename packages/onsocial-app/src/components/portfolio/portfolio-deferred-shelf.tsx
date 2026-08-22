@@ -2,6 +2,7 @@ import {
   fetchProfileCreatedPeeks,
   fetchProfilePostPeeks,
 } from '@/lib/fetch-profile-peeks';
+import { fetchProfileHoldingsPeeks } from '@/lib/fetch-profile-holdings';
 import { fetchProfileStoreShelf } from '@/lib/fetch-profile-store';
 import { PortfolioDeferredShelfHydrator } from '@/components/portfolio/portfolio-deferred-shelf-hydrator';
 
@@ -11,10 +12,11 @@ export async function PortfolioDeferredShelf({
 }: {
   accountId: string;
 }) {
-  const [postPeeks, createdPeeks, storeShelf] = await Promise.all([
+  const [postPeeks, createdPeeks, storeShelf, holdings] = await Promise.all([
     fetchProfilePostPeeks(accountId),
     fetchProfileCreatedPeeks(accountId),
     fetchProfileStoreShelf(accountId),
+    fetchProfileHoldingsPeeks(accountId),
   ]);
 
   return (
@@ -22,6 +24,7 @@ export async function PortfolioDeferredShelf({
       postPeeks={postPeeks}
       createdPeeks={createdPeeks}
       storeShelf={storeShelf}
+      holdings={holdings}
     />
   );
 }

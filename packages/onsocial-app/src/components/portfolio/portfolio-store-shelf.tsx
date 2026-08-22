@@ -1,21 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { ShopFillIcon } from '@onsocial/ui';
+import { ProtocolMotionArrow } from '@onsocial/ui';
+import { MarketSaleRow } from '@/features/market/market-sale-row';
 import { collectionPath, marketCreatorPath } from '@/lib/app-routes';
-import { formatMarketRelativeTime } from '@/features/market/market-listings';
-import { fallbackLabel } from '@/lib/profile-display';
+import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
+import {
+  STORE_LISTING_BADGE,
+  storeListingHref,
+} from '@/lib/profile-store-links';
 import type {
   ProfileStoreDrop,
   ProfileStoreListing,
+  ProfileStoreSale,
   ProfileStoreShelf,
 } from '@/lib/profile-store-types';
-
-const KIND_TAG: Record<ProfileStoreListing['kind'], string> = {
-  lazy: 'Edition',
-  native: 'Fixed',
-  auction: 'Auction',
-};
 
 const DROP_STATUS_LABEL: Record<ProfileStoreDrop['status'], string> = {
   upcoming: 'Soon',
@@ -33,7 +32,7 @@ function dropPriceLine(drop: ProfileStoreDrop): string {
 }
 
 function priceLine(listing: ProfileStoreListing): string {
-  if (!listing.priceNear) return KIND_TAG[listing.kind];
+  if (!listing.priceNear) return STORE_LISTING_BADGE[listing.kind];
   if (listing.priceLabel === 'From') return `From ${listing.priceNear} NEAR`;
   if (listing.priceLabel === 'Ask') return `${listing.priceNear} NEAR`;
   return `${listing.priceLabel} · ${listing.priceNear} NEAR`;
@@ -52,6 +51,19 @@ function listingFacts(listing: ProfileStoreListing): string | null {
   return null;
 }
 
+function saleToMarketRow(sale: ProfileStoreSale) {
+  const postHref = postHrefFromSourcePath(sale.sourcePostPath);
+  return {
+    title: sale.title,
+    priceNear: sale.priceNear ?? '',
+    blockTimestamp: sale.blockTimestamp,
+    ...(sale.mediaUrl ? { mediaUrl: sale.mediaUrl } : {}),
+    ...(sale.buyerId ? { buyerId: sale.buyerId } : {}),
+    ...(sale.sourcePostPath ? { sourcePostPath: sale.sourcePostPath } : {}),
+    ...(postHref ? { postHref } : {}),
+  };
+}
+
 export function PortfolioStoreShelf({
   pageAccountId,
   shelf,
@@ -64,7 +76,12 @@ export function PortfolioStoreShelf({
   return (
     <div className="portfolio-store">
       {shelf.drops.length > 0 ? (
-        <div className="page-drawer-media-rail" aria-label="Drops">
+        <div
+          className={`page-drawer-media-rail${
+            shelf.drops.length === 1 ? ' is-sparse' : ''
+          }`}
+          aria-label="Drops"
+        >
           {shelf.drops.map((drop) => (
             <Link
               key={drop.key}
@@ -99,13 +116,18 @@ export function PortfolioStoreShelf({
       ) : null}
 
       {shelf.listings.length > 0 ? (
-        <div className="page-drawer-media-rail" aria-label="For sale now">
+        <div
+          className={`page-drawer-media-rail${
+            shelf.listings.length === 1 ? ' is-sparse' : ''
+          }`}
+          aria-label="For sale now"
+        >
           {shelf.listings.map((listing) => {
             const facts = listingFacts(listing);
             return (
               <Link
                 key={listing.key}
-                href={shopHref}
+                href={storeListingHref(listing, pageAccountId)}
                 scroll={false}
                 className="page-drawer-media-card group"
                 title={listing.title}
@@ -118,7 +140,7 @@ export function PortfolioStoreShelf({
                     <img src={listing.mediaUrl} alt="" />
                   ) : null}
                   <span className="page-drawer-media-badge">
-                    {KIND_TAG[listing.kind]}
+                    {STORE_LISTING_BADGE[listing.kind]}
                   </span>
                 </span>
                 <span className="page-drawer-media-body">
@@ -140,35 +162,23 @@ export function PortfolioStoreShelf({
 
       {shelf.sales.length > 0 ? (
         <ul className="portfolio-store-sales" aria-label="Recent sales">
-          {shelf.sales.map((sale) => {
-            const time = formatMarketRelativeTime(sale.blockTimestamp);
-            return (
-              <li key={sale.key} className="portfolio-store-sale">
-                <span className="portfolio-store-sale-title">{sale.title}</span>
-                <span className="portfolio-store-sale-meta">
-                  {sale.priceNear ? (
-                    <span className="portfolio-store-sale-price">
-                      {sale.priceNear} NEAR
-                    </span>
-                  ) : null}
-                  {sale.buyerId ? (
-                    <span className="portfolio-store-sale-buyer">
-                      → @{fallbackLabel(sale.buyerId)}
-                    </span>
-                  ) : null}
-                  {time ? (
-                    <span className="portfolio-store-sale-time">{time}</span>
-                  ) : null}
-                </span>
-              </li>
-            );
-          })}
+          {shelf.sales.map((sale) => (
+            <MarketSaleRow
+              key={sale.key}
+              soldTo
+              sale={saleToMarketRow(sale)}
+            />
+          ))}
         </ul>
       ) : null}
 
-      <Link className="page-drawer-section-action" href={shopHref} scroll={false}>
-        <ShopFillIcon className="portfolio-store-cta-icon" aria-hidden />
+      <Link
+        className="page-drawer-section-action group"
+        href={shopHref}
+        scroll={false}
+      >
         See all in Market
+        <ProtocolMotionArrow className="page-drawer-section-action-arrow" />
       </Link>
     </div>
   );

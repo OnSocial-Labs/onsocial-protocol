@@ -40,7 +40,7 @@ export const DEFAULT_PAGE_SECTIONS: PageSection[] = [
   'collectibles',
 ];
 
-/** Max guild cards in the drawer rail before “See all”. */
+/** Max guild discovery rows in the drawer before “See all”. */
 export const PAGE_DRAWER_GUILD_PEEK = 6;
 
 const PAGE_SECTION_SET = new Set<string>(Object.keys(PAGE_SECTION_LABELS));
@@ -99,6 +99,7 @@ export function pageSectionCountHint(
       return createdCount > 0 ? formatCompactCount(createdCount) : null;
     }
     case 'collectibles': {
+      // Callers pass grouped peek count so the chip matches the rail.
       const scarceCount = options.scarceCount ?? 0;
       return scarceCount > 0 ? formatCompactCount(scarceCount) : null;
     }

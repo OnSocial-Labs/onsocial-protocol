@@ -40,6 +40,7 @@ import {
   type PortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
 import { fetchOwnedScarcesPage } from '@/features/market/market-listings';
+import { usePortfolioShelf } from '@/contexts/portfolio-shelf-context';
 import { reorderByInsert } from '@/features/scarces/drop-track-order';
 
 interface CustomizeLaunchChaptersProps {
@@ -118,6 +119,7 @@ export function CustomizeLaunchChapters({
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [holdings, setHoldings] = useState<PortfolioHoldingPeek[]>([]);
+  const shelf = usePortfolioShelf();
   const listRef = useRef<HTMLUListElement | null>(null);
   const dragFromRef = useRef<number | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
@@ -133,6 +135,10 @@ export function CustomizeLaunchChapters({
   }, [config]);
 
   useEffect(() => {
+    if (shelf.holdings.length > 0) {
+      setHoldings(shelf.holdings);
+      return;
+    }
     const owner = pageAccountId.trim();
     if (!owner) {
       setHoldings([]);
@@ -152,7 +158,7 @@ export function CustomizeLaunchChapters({
     return () => {
       cancelled = true;
     };
-  }, [pageAccountId]);
+  }, [pageAccountId, shelf.holdings]);
 
   const links = useMemo(
     () => resolvePortfolioSocialLinks(profileLinks),

@@ -9,18 +9,20 @@ import {
   type ReactNode,
 } from 'react';
 import type { ProfileCreatedPeek } from '@/lib/fetch-profile-peeks';
+import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
 import {
   EMPTY_PROFILE_STORE,
   type ProfileStoreShelf,
 } from '@/lib/profile-store-types';
 
-interface PortfolioShelfContextValue {
+interface PortfolioShelfSnapshot {
   createdPeeks: ProfileCreatedPeek[];
   storeShelf: ProfileStoreShelf;
-  hydrateShelf: (next: {
-    createdPeeks: ProfileCreatedPeek[];
-    storeShelf: ProfileStoreShelf;
-  }) => void;
+  holdings: PortfolioHoldingPeek[];
+}
+
+interface PortfolioShelfContextValue extends PortfolioShelfSnapshot {
+  hydrateShelf: (next: Partial<PortfolioShelfSnapshot>) => void;
 }
 
 const PortfolioShelfContext = createContext<PortfolioShelfContextValue | null>(
@@ -35,21 +37,23 @@ export function PortfolioShelfProvider({
   const [createdPeeks, setCreatedPeeks] = useState<ProfileCreatedPeek[]>([]);
   const [storeShelf, setStoreShelf] =
     useState<ProfileStoreShelf>(EMPTY_PROFILE_STORE);
+  const [holdings, setHoldings] = useState<PortfolioHoldingPeek[]>([]);
 
-  const hydrateShelf = useCallback(
-    (next: {
-      createdPeeks: ProfileCreatedPeek[];
-      storeShelf: ProfileStoreShelf;
-    }) => {
+  const hydrateShelf = useCallback((next: Partial<PortfolioShelfSnapshot>) => {
+    if (next.createdPeeks) {
       setCreatedPeeks(next.createdPeeks);
+    }
+    if (next.storeShelf) {
       setStoreShelf(next.storeShelf);
-    },
-    []
-  );
+    }
+    if (next.holdings) {
+      setHoldings(next.holdings);
+    }
+  }, []);
 
   const value = useMemo(
-    () => ({ createdPeeks, storeShelf, hydrateShelf }),
-    [createdPeeks, hydrateShelf, storeShelf]
+    () => ({ createdPeeks, storeShelf, holdings, hydrateShelf }),
+    [createdPeeks, holdings, hydrateShelf, storeShelf]
   );
 
   return (
@@ -61,7 +65,7 @@ export function PortfolioShelfProvider({
 
 export function usePortfolioShelf(): Pick<
   PortfolioShelfContextValue,
-  'createdPeeks' | 'storeShelf'
+  'createdPeeks' | 'storeShelf' | 'holdings'
 > {
   const context = useContext(PortfolioShelfContext);
   if (!context) {
@@ -72,6 +76,7 @@ export function usePortfolioShelf(): Pick<
   return {
     createdPeeks: context.createdPeeks,
     storeShelf: context.storeShelf,
+    holdings: context.holdings,
   };
 }
 

@@ -20,6 +20,9 @@ export interface PostEngagement {
   viewerAmplified: boolean;
   /** Private bookmark — never a public count. */
   viewerSaved: boolean;
+  viewerReposted: boolean;
+  viewerRepostId: string | null;
+  viewerRepostGroupId: string | null;
 }
 
 export interface EngagementMap {
@@ -35,6 +38,9 @@ export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
   amplifyCount: 0,
   viewerAmplified: false,
   viewerSaved: false,
+  viewerReposted: false,
+  viewerRepostId: null,
+  viewerRepostGroupId: null,
 };
 
 /**
@@ -46,7 +52,8 @@ export function mergeEngagementSoftUpgrade(
   current: EngagementMap,
   fetched: EngagementMap,
   pendingReactionKeys: ReadonlySet<string>,
-  pendingSaveKeys: ReadonlySet<string>
+  pendingSaveKeys: ReadonlySet<string>,
+  unrepostedKeys: ReadonlySet<string> = new Set()
 ): EngagementMap {
   const merged: EngagementMap = {};
   for (const [key, row] of Object.entries(fetched)) {
@@ -76,6 +83,23 @@ export function mergeEngagementSoftUpgrade(
         ...next,
         viewerAmplified: true,
         amplifyCount: Math.max(next.amplifyCount, previous.amplifyCount),
+      };
+    }
+    if (unrepostedKeys.has(key) && next.viewerReposted) {
+      next = {
+        ...next,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+        repostCount: Math.min(next.repostCount, previous?.repostCount ?? 0),
+      };
+    } else if (previous?.viewerReposted && !next.viewerReposted) {
+      next = {
+        ...next,
+        viewerReposted: true,
+        viewerRepostId: previous.viewerRepostId,
+        viewerRepostGroupId: previous.viewerRepostGroupId,
+        repostCount: Math.max(next.repostCount, previous.repostCount),
       };
     }
     merged[key] = next;
@@ -109,10 +133,20 @@ export function usePostEngagement(
   const [pendingSaveKeys, setPendingSaveKeys] = useState<Set<string>>(
     () => new Set()
   );
+  const [unrepostedKeys, setUnrepostedKeys] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [pendingShareKeys, setPendingShareKeys] = useState<Set<string>>(
+    () => new Set()
+  );
   const pendingReactionKeysRef = useRef(pendingReactionKeys);
   const pendingSaveKeysRef = useRef(pendingSaveKeys);
+  const unrepostedKeysRef = useRef(unrepostedKeys);
+  const pendingShareKeysRef = useRef(pendingShareKeys);
   pendingReactionKeysRef.current = pendingReactionKeys;
   pendingSaveKeysRef.current = pendingSaveKeys;
+  unrepostedKeysRef.current = unrepostedKeys;
+  pendingShareKeysRef.current = pendingShareKeys;
   const loadIdRef = useRef(0);
   const ssrSkipRef = useRef(
     Boolean(opts.initial && Object.keys(opts.initial).length > 0)
@@ -162,7 +196,17 @@ export function usePostEngagement(
       accountId
         ? client.query.saves.forPaths(accountId, paths)
         : Promise.resolve([]),
-    ]).then(([threadResult, reactionResult, amplifyResult, savesResult]) => {
+      accountId
+        ? client.query.threads.viewerReposts(accountId, paths)
+        : Promise.resolve([]),
+    ]).then(
+      ([
+        threadResult,
+        reactionResult,
+        amplifyResult,
+        savesResult,
+        viewerRepostResult,
+      ]) => {
       if (loadIdRef.current !== loadId) return;
       if (
         threadResult.status === 'rejected' &&
@@ -183,12 +227,20 @@ export function usePostEngagement(
           ? savesResult.value.map((row) => row.contentPath)
           : []
       );
+      const viewerReposts = new Map(
+        (
+          viewerRepostResult.status === 'fulfilled'
+            ? viewerRepostResult.value
+            : []
+        ).map((row) => [row.refPath, row])
+      );
 
       const next: EngagementMap = {};
       for (const target of targets) {
         const counts = threadCounts[target.path];
         const reactions = reactionStates[`${target.owner}:${target.postId}`];
         const amplify = amplifyCounts[target.path];
+        const viewerRepost = viewerReposts.get(target.path);
         next[target.key] = {
           replyCount: counts?.replyCount ?? 0,
           quoteCount: counts?.quoteCount ?? 0,
@@ -198,6 +250,9 @@ export function usePostEngagement(
           amplifyCount: amplify?.amplifyCount ?? 0,
           viewerAmplified: amplify?.viewerAmplified ?? false,
           viewerSaved: savedPaths.has(target.path),
+          viewerReposted: Boolean(viewerRepost),
+          viewerRepostId: viewerRepost?.repostId ?? null,
+          viewerRepostGroupId: viewerRepost?.groupId ?? null,
         };
       }
       setEngagement((current) =>
@@ -205,10 +260,23 @@ export function usePostEngagement(
           current,
           next,
           pendingReactionKeysRef.current,
-          pendingSaveKeysRef.current
+          pendingSaveKeysRef.current,
+          unrepostedKeysRef.current
         )
       );
-    });
+      setUnrepostedKeys((current) => {
+        if (current.size === 0) return current;
+        const nextKeys = new Set(current);
+        for (const target of targets) {
+          const viewerRepost = viewerReposts.get(target.path);
+          if (nextKeys.has(target.key) && !viewerRepost) {
+            nextKeys.delete(target.key);
+          }
+        }
+        return nextKeys;
+      });
+    }
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetsSignature]);
 
@@ -345,6 +413,64 @@ export function usePostEngagement(
     });
   }, []);
 
+  const confirmRepost = useCallback(
+    (
+      post: PostRow,
+      viewerRepost: { postId: string; groupId?: string | null }
+    ) => {
+      const key = postKey(post);
+      setUnrepostedKeys((current) => {
+        if (!current.has(key)) return current;
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+      setEngagement((current) => {
+        const previous = current[key] ?? EMPTY_POST_ENGAGEMENT;
+        if (previous.viewerReposted) {
+          return {
+            ...current,
+            [key]: {
+              ...previous,
+              viewerRepostId: viewerRepost.postId,
+              viewerRepostGroupId: viewerRepost.groupId ?? null,
+            },
+          };
+        }
+        return {
+          ...current,
+          [key]: {
+            ...previous,
+            viewerReposted: true,
+            viewerRepostId: viewerRepost.postId,
+            viewerRepostGroupId: viewerRepost.groupId ?? null,
+            repostCount: previous.repostCount + 1,
+          },
+        };
+      });
+    },
+    []
+  );
+
+  const confirmUnrepost = useCallback((post: PostRow) => {
+    const key = postKey(post);
+    setUnrepostedKeys((current) => new Set(current).add(key));
+    setEngagement((current) => {
+      const previous = current[key] ?? EMPTY_POST_ENGAGEMENT;
+      if (!previous.viewerReposted) return current;
+      return {
+        ...current,
+        [key]: {
+          ...previous,
+          viewerReposted: false,
+          viewerRepostId: null,
+          viewerRepostGroupId: null,
+          repostCount: Math.max(0, previous.repostCount - 1),
+        },
+      };
+    });
+  }, []);
+
   const isReactionPending = useCallback(
     (post: PostRow) => pendingReactionKeys.has(postKey(post)),
     [pendingReactionKeys]
@@ -355,12 +481,39 @@ export function usePostEngagement(
     [pendingSaveKeys]
   );
 
+  const isSharePending = useCallback(
+    (post: PostRow) => pendingShareKeys.has(postKey(post)),
+    [pendingShareKeys]
+  );
+
+  const withSharePending = useCallback(
+    async <T,>(post: PostRow, task: () => Promise<T>): Promise<T | undefined> => {
+      const key = postKey(post);
+      if (pendingShareKeysRef.current.has(key)) return undefined;
+      setPendingShareKeys((current) => new Set(current).add(key));
+      try {
+        return await task();
+      } finally {
+        setPendingShareKeys((current) => {
+          const next = new Set(current);
+          next.delete(key);
+          return next;
+        });
+      }
+    },
+    []
+  );
+
   return {
     engagement,
     toggleReaction,
     toggleSave,
     isReactionPending,
     isSavePending,
+    isSharePending,
+    withSharePending,
     confirmAmplify,
+    confirmRepost,
+    confirmUnrepost,
   };
 }

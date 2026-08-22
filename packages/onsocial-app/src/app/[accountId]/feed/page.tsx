@@ -1,6 +1,4 @@
-import { panelLabel } from '@/lib/overlay-routes';
-import { FeedPanel } from '@/components/panels/feed-panel';
-import { PanelPage } from '@/components/panels/panel-page';
+import { ProfileFeedPagePanel } from '@/components/panels/profile-feed-panels';
 import { fetchProfileRecentPosts } from '@/lib/fetch-profile-peeks';
 import { resolveAccountId } from '@/lib/resolve-account';
 
@@ -15,12 +13,10 @@ export default async function FeedPage({ params }: PanelRouteProps) {
   const posts = await fetchProfileRecentPosts(accountId);
 
   return (
-    <PanelPage accountId={accountId} title={panelLabel('feed')}>
-      <FeedPanel
-        accountId={accountId}
-        posts={posts}
-        postCount={posts.length}
-      />
-    </PanelPage>
+    <ProfileFeedPagePanel
+      accountId={accountId}
+      posts={posts}
+      postCount={posts.length}
+    />
   );
 }

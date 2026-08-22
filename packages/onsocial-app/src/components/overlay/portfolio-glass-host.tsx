@@ -19,6 +19,7 @@ import { parseOverlayPanelKey } from '@/lib/overlay-routes';
 import type { OverlaySlotMode } from '@/lib/overlay-slot';
 import { shouldMountPortfolioGlassHost } from '@/lib/portfolio-glass-host';
 import { useLivePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
+import { PostRowSkeleton } from '@/features/home/post-card';
 import {
   OsPageSheet,
   type GlassSheetPresentation,
@@ -88,6 +89,7 @@ function PortfolioGlassSheet({
           presentation={presentation}
           scrollBodyRef={chrome?.scrollBodyRef}
           panelKey={panelKey}
+          showFeedSkeleton={panelKey === 'feed' && chrome == null}
         >
           {children}
         </PortfolioGlassSheetFrame>
@@ -104,6 +106,7 @@ function PortfolioGlassSheetFrame({
   presentation,
   scrollBodyRef,
   panelKey,
+  showFeedSkeleton,
   children,
 }: {
   sheetOpen: boolean;
@@ -113,6 +116,7 @@ function PortfolioGlassSheetFrame({
   presentation: Extract<GlassSheetPresentation, 'appear' | 'swap'>;
   scrollBodyRef?: React.RefObject<HTMLDivElement | null>;
   panelKey: string | null;
+  showFeedSkeleton: boolean;
   children: ReactNode;
 }) {
   const faceMood = useLivePortfolioMoodVars(overlayPresent);
@@ -128,7 +132,8 @@ function PortfolioGlassSheetFrame({
       open={sheetOpen}
       onClose={requestDismiss}
       onClosed={onClosed}
-      surface="glass"
+      // Feed sits on the page-drawer peek — opaque mood, not a second frost.
+      surface={panelKey === 'feed' ? 'page' : 'glass'}
       presentation={presentation}
       zIndex={50}
       ariaLabelledBy="overlay-title"
@@ -141,6 +146,11 @@ function PortfolioGlassSheetFrame({
       <div key={panelKey ?? 'overlay'} className="overlay-panel-outlet">
         {children}
       </div>
+      {showFeedSkeleton ? (
+        <div className="panel-body">
+          <PostRowSkeleton rows={4} />
+        </div>
+      ) : null}
     </OsPageSheet>
   );
 }

@@ -165,6 +165,29 @@ function saleMediaFromRow(row: ScarcesEventRow): string | null {
   return null;
 }
 
+function saleSourcePostFromRow(row: ScarcesEventRow): string | undefined {
+  if (!row.extraData) return undefined;
+  try {
+    const extra = JSON.parse(row.extraData) as Record<string, unknown>;
+    for (const key of ['sourcePostPath', 'postPath']) {
+      const value = extra[key];
+      if (typeof value === 'string' && value.includes('/post/')) {
+        return value.trim();
+      }
+    }
+    const nested = extra.sourcePost;
+    if (nested && typeof nested === 'object' && nested !== null) {
+      const path = (nested as { path?: unknown }).path;
+      if (typeof path === 'string' && path.includes('/post/')) {
+        return path.trim();
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return undefined;
+}
+
 export const fetchProfileStoreShelf = cache(
   async (accountId: string): Promise<ProfileStoreShelf> => {
     const seller = accountId.trim();
@@ -205,14 +228,18 @@ export const fetchProfileStoreShelf = cache(
 
       const saleItems: ProfileStoreSale[] = sales
         .slice(0, PROFILE_STORE_SALE_PEEK)
-        .map((row, index) => ({
-          key: `${row.tokenId ?? row.listingId ?? 'sale'}:${row.blockTimestamp}:${index}`,
-          title: saleTitleFromRow(row),
-          priceNear: yoctoToNearDisplay(row.price ?? row.amount),
-          buyerId: row.buyerId?.trim() || null,
-          blockTimestamp: Number(row.blockTimestamp) || 0,
-          mediaUrl: saleMediaFromRow(row),
-        }));
+        .map((row, index) => {
+          const sourcePostPath = saleSourcePostFromRow(row);
+          return {
+            key: `${row.tokenId ?? row.listingId ?? 'sale'}:${row.blockTimestamp}:${index}`,
+            title: saleTitleFromRow(row),
+            priceNear: yoctoToNearDisplay(row.price ?? row.amount),
+            buyerId: row.buyerId?.trim() || null,
+            blockTimestamp: Number(row.blockTimestamp) || 0,
+            mediaUrl: saleMediaFromRow(row),
+            ...(sourcePostPath ? { sourcePostPath } : {}),
+          };
+        });
 
       return {
         listings: previewed,

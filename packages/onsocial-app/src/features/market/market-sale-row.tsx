@@ -10,11 +10,18 @@ import { fallbackLabel } from '@/lib/profile-display';
 
 interface MarketSaleRowProps {
   sale: MarketSaleItem;
+  /**
+   * Store peek — the page owner is the seller, so lead with Sold + buyer
+   * instead of repeating the profile.
+   */
+  soldTo?: boolean;
 }
 
 /** Recent-sales list row — shared so Market panel stays lean. */
-export function MarketSaleRow({ sale }: MarketSaleRowProps) {
+export function MarketSaleRow({ sale, soldTo = false }: MarketSaleRowProps) {
   const seller = sale.sellerId?.trim() || sale.creatorId?.trim() || '';
+  const buyer = sale.buyerId?.trim() || '';
+  const counterpart = soldTo ? buyer : seller;
   const saleTime = formatMarketRelativeTime(sale.blockTimestamp);
   const title = sale.postHref ? (
     <Link
@@ -27,6 +34,9 @@ export function MarketSaleRow({ sale }: MarketSaleRowProps) {
   ) : (
     sale.title
   );
+  const price = sale.priceNear?.trim()
+    ? `${sale.priceNear.trim()} NEAR`
+    : null;
 
   return (
     <li className="market-sale-row">
@@ -45,19 +55,30 @@ export function MarketSaleRow({ sale }: MarketSaleRowProps) {
           <p className="market-sale-title">{title}</p>
         </div>
         <p className="market-sale-meta">
-          <span className="market-listing-price">{sale.priceNear} NEAR</span>
-          <span className="market-listing-own"> · </span>
-          {seller ? (
-            <Link
-              href={portfolioPath(seller)}
-              scroll={false}
-              className="market-listing-handle"
-            >
-              @{fallbackLabel(seller)}
-            </Link>
-          ) : (
-            'Sale'
-          )}
+          {soldTo ? <span className="market-listing-own">Sold</span> : null}
+          {soldTo && price ? (
+            <span className="market-listing-own"> · </span>
+          ) : null}
+          {price ? (
+            <span className="market-listing-price">{price}</span>
+          ) : null}
+          {counterpart ? (
+            <>
+              <span className="market-listing-own"> · </span>
+              <Link
+                href={portfolioPath(counterpart)}
+                scroll={false}
+                className="market-listing-handle"
+              >
+                @{fallbackLabel(counterpart)}
+              </Link>
+            </>
+          ) : !soldTo ? (
+            <>
+              {price ? <span className="market-listing-own"> · </span> : null}
+              <span className="market-listing-own">Sale</span>
+            </>
+          ) : null}
           {saleTime ? ` · ${saleTime}` : ''}
         </p>
       </div>

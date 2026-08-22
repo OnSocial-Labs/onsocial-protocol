@@ -18,7 +18,7 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { submitPersonalRepost } from '@/features/home/submit-personal-post';
+import { submitPersonalRepost, submitPersonalUnrepost } from '@/features/home/submit-personal-post';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { GuildFeedFilterList } from '@/features/guilds/guild-feed-filter-list';
@@ -84,6 +84,7 @@ import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useQuotedPosts } from '@/hooks/use-quoted-posts';
+import { withRepostOriginals } from '@/lib/post-relation';
 import {
   applyMediaKindOverride,
   buildOptimisticMediaEntries,
@@ -443,11 +444,28 @@ export function LiveGuildPanel({
   );
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
   seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
-  const { engagement, toggleReaction, toggleSave, isReactionPending, isSavePending, confirmAmplify } =
-    usePostEngagement(feedPosts, {
+  const {
+    engagement,
+    toggleReaction,
+    toggleSave,
+    isReactionPending,
+    isSavePending,
+    isSharePending,
+    withSharePending,
+    confirmAmplify,
+    confirmRepost,
+    confirmUnrepost,
+  } = usePostEngagement(
+    // Repost rows render (and act on) the original post — fetch its stats too.
+    useMemo(
+      () => withRepostOriginals(feedPosts, quotedPosts),
+      [feedPosts, quotedPosts]
+    ),
+    {
       initial: initial?.engagement ?? null,
       onError: (message) => setTxResult({ type: 'error', msg: message }),
-    });
+    }
+  );
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
     feedPosts,
     {
@@ -1543,20 +1561,52 @@ export function LiveGuildPanel({
             post.channel ??
             (composerSpace ? guildSpaceFeedChannel(composerSpace) : null);
           if (!canPostInChannel(channel)) return;
-          void (async () => {
+          void withSharePending(post, async () => {
             if (!accountId) return;
             try {
               const { client } = await getClient();
-              await submitPersonalRepost({
+              const result = await submitPersonalRepost({
                 client,
                 accountId,
                 target: post,
                 trackTransaction,
               });
+              if (result.confirmed && result.optimisticPost) {
+                confirmRepost(post, {
+                  postId: result.optimisticPost.postId,
+                  groupId: result.optimisticPost.groupId,
+                });
+              }
             } catch {
               // toast via trackTransaction
             }
-          })();
+          });
+        }
+      : undefined;
+  const undoRepostHandler =
+    viewer?.isMember && config
+      ? (post: PostRow) => {
+          const viewerRow = engagement[postKey(post)];
+          const viewerRepostId = viewerRow?.viewerRepostId;
+          if (!accountId || !viewerRepostId) return;
+          void withSharePending(post, async () => {
+            try {
+              const { client } = await getClient();
+              const result = await submitPersonalUnrepost({
+                client,
+                accountId,
+                target: post,
+                viewerRepost: {
+                  postId: viewerRepostId,
+                  groupId: viewerRow.viewerRepostGroupId,
+                },
+                trackTransaction,
+              });
+              if (result.confirmed) confirmUnrepost(post);
+            } catch {
+              // toast via trackTransaction
+            }
+          });
         }
       : undefined;
 
@@ -1878,6 +1928,7 @@ export function LiveGuildPanel({
                         engagement={engagement}
                         isReactionPending={isReactionPending}
                         isSavePending={isSavePending}
+                        isSharePending={isSharePending}
                         onToggleReaction={toggleReaction}
                         onToggleSave={toggleSave}
                         onAmplifyConfirmed={confirmAmplify}
@@ -1889,6 +1940,7 @@ export function LiveGuildPanel({
                         onReply={replyHandler}
                         onQuote={quoteHandler}
                     onRepost={repostHandler}
+                    onUndoRepost={undoRepostHandler}
                       />
                     </div>
                   ))}

@@ -17,6 +17,7 @@ import {
   parsePostTokenEmbed,
   postKey,
 } from '@/lib/post-display';
+import { isRepostRefType } from '@/lib/post-relation';
 
 export type PostEngagementMap = Record<string, PostEngagement>;
 export type PostScarceEmbedMap = Record<string, PostScarceEmbed>;
@@ -147,7 +148,10 @@ function paintSnapshotToEmbed(
     ...(resolvedTokenId ? { tokenId: resolvedTokenId } : {}),
     ...(snapshot.mediumKind ? { mediumKind: snapshot.mediumKind } : {}),
     ...(snapshot.mediaUrl
-      ? { mediaUrl: resolveScarceMediaUrl(snapshot.mediaUrl) ?? snapshot.mediaUrl }
+      ? {
+          mediaUrl:
+            resolveScarceMediaUrl(snapshot.mediaUrl) ?? snapshot.mediaUrl,
+        }
       : {}),
     events: [],
   };
@@ -378,6 +382,26 @@ export async function loadPostEngagementMap(
     owner: post.accountId,
     postId: post.postId,
   }));
+
+  // Repost rows render the original post's stats, so seed those too. The
+  // original row isn't loaded server-side, but its owner/postId are encoded
+  // in the shell's refPath (`owner/post/id` or `owner/groups/…/post/id`).
+  const seenKeys = new Set(targets.map((t) => t.key));
+  for (const post of posts) {
+    if (!isRepostRefType(post.refType)) continue;
+    const path = post.refPath?.trim();
+    if (!path) continue;
+    const segments = path.split('/');
+    const owner = segments[0];
+    const postId = segments[segments.length - 1];
+    if (!owner || !postId || segments[segments.length - 2] !== 'post') {
+      continue;
+    }
+    const key = `${owner}:${postId}`;
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    targets.push({ key, path, owner, postId });
+  }
   const paths = targets.map((t) => t.path);
 
   const [threadResult, reactionResult, amplifyResult] =
@@ -410,6 +434,9 @@ export async function loadPostEngagementMap(
       amplifyCount: amplify?.amplifyCount ?? 0,
       viewerAmplified: false,
       viewerSaved: false,
+      viewerReposted: false,
+      viewerRepostId: null,
+      viewerRepostGroupId: null,
     };
   }
   return next;

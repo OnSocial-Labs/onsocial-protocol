@@ -19,11 +19,15 @@ import {
   pageSectionCountHint,
   resolveVisiblePageSections,
 } from '@/lib/page-sections';
-import type {
-  ProfileCreatedPeek,
-  ProfilePostPeek,
+import {
+  PAGE_DRAWER_POST_HIGHLIGHT,
+  type ProfileCreatedPeek,
+  type ProfilePostPeek,
 } from '@/lib/fetch-profile-peeks';
-import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
+import {
+  groupHoldingsForRail,
+  type PortfolioHoldingPeek,
+} from '@/lib/portfolio-holdings';
 import {
   EMPTY_PROFILE_STORE,
   type ProfileStoreShelf,
@@ -38,6 +42,7 @@ import {
 } from '@/lib/profile-social-links';
 import { overlayPath } from '@/lib/overlay-routes';
 import {
+  orderPagePostHighlights,
   preferPinnedOrder,
   orderStoreShelfByPins,
   sectionPinsFor,
@@ -117,6 +122,7 @@ export function PageContentSections({
   );
 
   const holdingsCount = holdings.length;
+  const holdingsPeekCount = groupHoldingsForRail(holdings).length;
   const createdCount = Math.max(createdPeeks.length, createdMintCount);
   const storeListingCount = storeShelf.listingCount + storeShelf.drops.length;
 
@@ -128,10 +134,11 @@ export function PageContentSections({
 
   const orderedPosts = useMemo(
     () =>
-      preferPinnedOrder(
+      orderPagePostHighlights(
         postPeeks,
         sectionPinsFor(config, 'posts'),
-        (post) => post.postId
+        (post) => post.postId,
+        PAGE_DRAWER_POST_HIGHLIGHT
       ),
     [postPeeks, config]
   );
@@ -201,7 +208,7 @@ export function PageContentSections({
     <div className="page-drawer-sections">
       {sections.map((section, index) => {
         const count = pageSectionCountHint(section, stats, {
-          scarceCount: holdingsCount,
+          scarceCount: holdingsPeekCount,
           createdCount,
           createdCountHint: createdCount,
           storeListingCount,
@@ -230,24 +237,20 @@ export function PageContentSections({
               </header>
 
               {showPosts ? (
-                <>
+                <div className="page-drawer-peek-stack">
                   <PageDrawerPostPeekList
                     pageAccountId={pageAccountId}
                     posts={orderedPosts}
                   />
-                  {orderedPosts.length === 0 ? (
-                    <p className="page-drawer-section-empty">
-                      Latest posts open in their feed.
-                    </p>
-                  ) : null}
                   <Link
-                    className="page-drawer-section-action"
+                    className="page-drawer-section-action group"
                     href={feedHref}
                     scroll={false}
                   >
                     See all posts
+                    <ProtocolMotionArrow className="page-drawer-section-action-arrow" />
                   </Link>
-                </>
+                </div>
               ) : null}
 
               {showStore ? (

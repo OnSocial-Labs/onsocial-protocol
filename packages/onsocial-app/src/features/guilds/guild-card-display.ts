@@ -19,9 +19,15 @@ export function guildDisplayName(
   name: string | null | undefined,
   groupId: string
 ): string {
-  const trimmed = name?.trim();
-  if (trimmed && !isRawGroupId(trimmed) && trimmed !== groupId) {
-    return trimmed;
+  // Stored names sometimes embed the generated id ("MD grp_md_perm_…") —
+  // drop raw-id words so only the human part survives.
+  const cleaned = (name ?? '')
+    .split(/\s+/)
+    .filter((word) => word && !isRawGroupId(word) && word !== groupId)
+    .join(' ')
+    .trim();
+  if (cleaned && !isRawGroupId(cleaned) && cleaned !== groupId) {
+    return cleaned;
   }
 
   const suffix = groupId.split('_').pop()?.trim();

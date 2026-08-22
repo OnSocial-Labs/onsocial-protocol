@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   linkNotesEqual,
   orderStoreShelfByPins,
+  orderPagePostHighlights,
   preferPinnedOrder,
   pruneLinkNotes,
   sanitizeLinkNotes,
@@ -24,6 +25,20 @@ describe('preferPinnedOrder', () => {
     expect(
       preferPinnedOrder(items, ['c', 'missing', 'a'], (item) => item.id)
     ).toEqual([{ id: 'c' }, { id: 'a' }, { id: 'b' }, { id: 'd' }]);
+  });
+});
+
+describe('orderPagePostHighlights', () => {
+  it('caps at three after featured-first order', () => {
+    const items = [
+      { id: 'newest' },
+      { id: 'mid' },
+      { id: 'older' },
+      { id: 'featured' },
+    ];
+    expect(
+      orderPagePostHighlights(items, ['featured'], (item) => item.id)
+    ).toEqual([{ id: 'featured' }, { id: 'newest' }, { id: 'mid' }]);
   });
 });
 
