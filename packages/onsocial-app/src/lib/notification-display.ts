@@ -171,6 +171,12 @@ export function notificationVerb(
       return 'boost storage deposited';
     case 'app_event':
       return 'app update';
+    case 'profile_anniversary': {
+      const years = numberField(context, 'years');
+      if (years === 1) return '1 year on OnSocial';
+      if (years != null && years > 1) return `${years} years on OnSocial`;
+      return 'anniversary on OnSocial';
+    }
     default:
       return 'activity';
   }
@@ -209,11 +215,21 @@ function postHrefFromContext(
  * fall back to home when context is incomplete.
  */
 export function notificationHref(
-  notification: Pick<Notification, 'type' | 'actor' | 'context'>
+  notification: Pick<Notification, 'type' | 'actor' | 'context'> & {
+    recipient?: string;
+  }
 ): string {
   const context = notification.context ?? null;
   const type = notification.type;
   const actor = notification.actor?.trim() || null;
+
+  if (type === 'profile_anniversary') {
+    const accountId =
+      textField(context, 'accountId') ??
+      (notification.recipient?.trim() || null);
+    if (accountId) return portfolioPath(accountId);
+    return APP_HOME_PATH;
+  }
 
   if (type === 'dm') {
     const threadId = textField(context, 'threadId');
@@ -294,18 +310,150 @@ export function formatNotificationTime(iso: string): {
   return { label: calendar.label, title: calendar.title };
 }
 
-/** Row subtitle: verb · optional DAO snippet · relative time. */
-export function notificationDescription(
-  notification: Pick<Notification, 'type' | 'context' | 'createdAt'>
-): string {
+/** Verb + optional DAO snippet (time lives in the row aside). */
+export function notificationDetail(
+  notification: Pick<Notification, 'type' | 'context'>
+): { verb: string; snippet: string | null } {
   const verb = notificationVerb(notification.type, notification.context);
-  const when = formatNotificationTime(notification.createdAt).label;
   const snippet =
     notification.type === 'dao_proposal' ||
     notification.type === 'dao_proposal_resolved' ||
     notification.type === 'dao_proposal_vote'
       ? textField(notification.context, 'description')
       : null;
+  return { verb, snippet };
+}
+
+export type NotificationSystemFamily =
+  | 'boost'
+  | 'rewards'
+  | 'dao'
+  | 'scarces'
+  | 'guild'
+  | 'app'
+  | 'onsocial'
+  | 'activity';
+
+export interface NotificationSystemChrome {
+  family: NotificationSystemFamily;
+  familyLabel: string;
+  action: string;
+}
+
+/**
+ * System / protocol events — Mage mark + family title (not a person avatar).
+ * Social events with an actor stay on StandingIdentity.
+ */
+export function isSystemNotification(
+  notification: Pick<Notification, 'type' | 'actor'>
+): boolean {
+  const type = notification.type;
+  if (
+    type.startsWith('boost_') ||
+    type.startsWith('reward_') ||
+    type === 'app_event' ||
+    type === 'profile_anniversary' ||
+    type === 'dao_proposal_resolved'
+  ) {
+    return true;
+  }
+  return !(notification.actor?.trim());
+}
+
+function systemFamily(type: string): NotificationSystemFamily {
+  if (type.startsWith('boost_')) return 'boost';
+  if (type.startsWith('reward_')) return 'rewards';
+  if (type.startsWith('dao_')) return 'dao';
+  if (type.startsWith('scarces_')) return 'scarces';
+  if (type.startsWith('group_')) return 'guild';
+  if (type === 'app_event') return 'app';
+  if (type === 'profile_anniversary') return 'onsocial';
+  return 'activity';
+}
+
+const SYSTEM_FAMILY_LABEL: Record<NotificationSystemFamily, string> = {
+  boost: 'Boost',
+  rewards: 'Rewards',
+  dao: 'DAO',
+  scarces: 'Scarces',
+  guild: 'Guild',
+  app: 'App',
+  onsocial: 'OnSocial',
+  activity: 'Activity',
+};
+
+function systemAction(
+  type: string,
+  context?: Record<string, unknown> | null
+): string {
+  switch (type) {
+    case 'boost_reward_claimed':
+      return 'Reward claimed';
+    case 'boost_locked':
+      return 'Locked';
+    case 'boost_extended':
+      return 'Extended';
+    case 'boost_unlocked':
+      return 'Unlocked';
+    case 'boost_credits_purchased':
+      return 'Credits purchased';
+    case 'boost_storage_deposited':
+      return 'Storage deposited';
+    case 'reward_credited':
+      return 'Credited';
+    case 'reward_claimed':
+      return 'Claimed';
+    case 'profile_anniversary': {
+      const years = numberField(context, 'years');
+      if (years === 1) return '1 year on OnSocial';
+      if (years != null && years > 1) return `${years} years on OnSocial`;
+      return 'Anniversary';
+    }
+    case 'dao_proposal_resolved': {
+      const status = textField(context, 'status');
+      switch ((status ?? '').trim()) {
+        case 'Approved':
+          return 'Proposal approved';
+        case 'Rejected':
+          return 'Proposal rejected';
+        case 'Removed':
+          return 'Proposal removed';
+        case 'Expired':
+          return 'Proposal expired';
+        case 'Failed':
+          return 'Proposal failed';
+        case 'Moved':
+          return 'Proposal moved';
+        default:
+          return 'Proposal resolved';
+      }
+    }
+    case 'app_event':
+      return 'Update';
+    default: {
+      const verb = notificationVerb(type, context);
+      return verb.charAt(0).toUpperCase() + verb.slice(1);
+    }
+  }
+}
+
+export function notificationSystemChrome(
+  notification: Pick<Notification, 'type' | 'context'>
+): NotificationSystemChrome {
+  const family = systemFamily(notification.type);
+  return {
+    family,
+    familyLabel: SYSTEM_FAMILY_LABEL[family],
+    action: systemAction(notification.type, notification.context),
+  };
+}
+
+/** @deprecated Prefer `notificationDetail` + aside time; kept for tests. */
+export function notificationDescription(
+  notification: Pick<Notification, 'type' | 'context' | 'createdAt'>
+): string {
+  const { verb, snippet } = notificationDetail(notification);
+  const when = formatNotificationTime(notification.createdAt).label;
   const parts = [verb, snippet, when || null].filter(
     (part): part is string => Boolean(part)
   );

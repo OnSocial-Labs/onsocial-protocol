@@ -93,8 +93,17 @@ export function NotificationBellFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `notification-bell-pending-fill` — Activity with unread. */
-export function NotificationBellPendingFillIcon(props: MageFillIconProps) {
+/** Mage `notification-bell-pending-fill` — Activity with unread (bell + corner dot). */
+export function NotificationBellPendingFillIcon({
+  badgeClassName,
+  badgeFill = 'currentColor',
+  ...props
+}: MageFillIconProps & {
+  /** Optional class on the pending corner-dot path. */
+  badgeClassName?: string;
+  /** Dot fill — defaults to `currentColor`; dock uses protocol green. */
+  badgeFill?: string;
+}) {
   return (
     <MageFillSvg {...props}>
       <path
@@ -102,8 +111,9 @@ export function NotificationBellPendingFillIcon(props: MageFillIconProps) {
         fill="currentColor"
       />
       <path
+        className={badgeClassName}
         d="M15.303 8.107a2.782 2.782 0 1 0 0-5.564a2.782 2.782 0 0 0 0 5.564"
-        fill="currentColor"
+        fill={badgeFill}
       />
     </MageFillSvg>
   );

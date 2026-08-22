@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatNotificationTime,
+  isSystemNotification,
   notificationDescription,
+  notificationDetail,
   notificationHref,
+  notificationSystemChrome,
   notificationVerb,
   parseNotificationPostPath,
 } from '@/lib/notification-display';
@@ -164,5 +167,102 @@ describe('notification display', () => {
         createdAt,
       })
     ).toBe('approved your DAO proposal · Fund builders · 5m ago');
+  });
+
+  it('splits verb and DAO snippet without time', () => {
+    expect(
+      notificationDetail({
+        type: 'standing_new',
+        context: {},
+      })
+    ).toEqual({ verb: 'stood with you', snippet: null });
+    expect(
+      notificationDetail({
+        type: 'dao_proposal',
+        context: { description: 'Fund builders' },
+      })
+    ).toEqual({
+      verb: 'opened a DAO proposal',
+      snippet: 'Fund builders',
+    });
+  });
+
+  it('classifies system chrome for boost / rewards / dao resolved', () => {
+    expect(
+      isSystemNotification({
+        type: 'boost_reward_claimed',
+        actor: 'alice.testnet',
+      })
+    ).toBe(true);
+    expect(
+      isSystemNotification({
+        type: 'standing_new',
+        actor: 'bob.testnet',
+      })
+    ).toBe(false);
+    expect(
+      isSystemNotification({
+        type: 'mention',
+        actor: null,
+      })
+    ).toBe(true);
+    expect(
+      isSystemNotification({
+        type: 'profile_anniversary',
+        actor: '',
+      })
+    ).toBe(true);
+
+    expect(
+      notificationSystemChrome({
+        type: 'boost_reward_claimed',
+        context: {},
+      })
+    ).toEqual({
+      family: 'boost',
+      familyLabel: 'Boost',
+      action: 'Reward claimed',
+    });
+    expect(
+      notificationSystemChrome({
+        type: 'dao_proposal_resolved',
+        context: { status: 'Approved' },
+      })
+    ).toEqual({
+      family: 'dao',
+      familyLabel: 'DAO',
+      action: 'Proposal approved',
+    });
+    expect(
+      notificationSystemChrome({
+        type: 'profile_anniversary',
+        context: { years: 3, accountId: 'alice.testnet' },
+      })
+    ).toEqual({
+      family: 'onsocial',
+      familyLabel: 'OnSocial',
+      action: '3 years on OnSocial',
+    });
+    expect(
+      notificationSystemChrome({
+        type: 'profile_anniversary',
+        context: { years: 1 },
+      })
+    ).toEqual({
+      family: 'onsocial',
+      familyLabel: 'OnSocial',
+      action: '1 year on OnSocial',
+    });
+  });
+
+  it('deep-links profile anniversary to the member portfolio', () => {
+    expect(
+      notificationHref({
+        type: 'profile_anniversary',
+        actor: '',
+        recipient: 'alice.testnet',
+        context: { years: 2, accountId: 'alice.testnet' },
+      })
+    ).toBe('/@alice.testnet');
   });
 });

@@ -6,6 +6,7 @@ import {
   NotificationWorker,
   logProcessingSummary,
 } from '../services/notifications/worker.js';
+import { maybeEmitProfileAnniversaries } from '../services/notifications/profile-anniversary.js';
 import { deliverWebPushForNotificationId } from '../services/notifications/web-push.js';
 
 const LISTEN_CHANNEL = 'idx_events';
@@ -239,6 +240,9 @@ async function main(): Promise<void> {
     do {
       const results = await worker.runOnce();
       logProcessingSummary(results);
+
+      // Once per UTC day: birthday Activity from first profile timestamp.
+      await maybeEmitProfileAnniversaries(client);
 
       if (once || stopRequested) {
         break;

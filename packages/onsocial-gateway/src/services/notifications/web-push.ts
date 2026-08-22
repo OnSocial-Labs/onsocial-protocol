@@ -389,6 +389,12 @@ export function pushNotificationVerb(
       return 'reward claimed';
     case 'app_event':
       return 'app update';
+    case 'profile_anniversary': {
+      const years = numberField(_context, 'years');
+      if (years === 1) return '1 year on OnSocial';
+      if (years != null && years > 1) return `${years} years on OnSocial`;
+      return 'anniversary on OnSocial';
+    }
     default:
       if (type.startsWith('boost_')) return 'boost update';
       return 'new activity';
@@ -399,6 +405,7 @@ export function pushNotificationVerb(
 export function pushNotificationUrl(row: {
   notification_type: string;
   actor: string;
+  recipient?: string;
   context: Record<string, unknown> | null;
 }): string {
   const type = row.notification_type;
@@ -445,6 +452,15 @@ export function pushNotificationUrl(row: {
     return '/groups';
   }
 
+  if (type === 'profile_anniversary') {
+    const accountId =
+      textField(context, 'accountId') ?? (row.recipient?.trim() || null);
+    if (accountId) {
+      return `/@${encodeURIComponent(accountId)}`;
+    }
+    return '/notifications';
+  }
+
   if (actor) {
     return `/@${encodeURIComponent(actor)}`;
   }
@@ -453,8 +469,18 @@ export function pushNotificationUrl(row: {
 }
 
 export function buildWebPushPayload(row: NotificationRow): WebPushPayload {
+  const type = row.notification_type;
+  const body = pushNotificationVerb(type, row.context);
+  if (type === 'profile_anniversary') {
+    return {
+      title: 'OnSocial',
+      body,
+      url: pushNotificationUrl(row),
+      tag: `onsocial-notif-${row.id}`,
+      notificationId: row.id,
+    };
+  }
   const actor = row.actor?.trim() || 'Someone';
-  const body = pushNotificationVerb(row.notification_type, row.context);
   return {
     title: actor,
     body,

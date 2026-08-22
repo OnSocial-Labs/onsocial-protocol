@@ -19,8 +19,8 @@ interface OsDockPillProps {
 }
 
 /**
- * Unified OS dock — Activity (when connected), account, summon grip,
- * optional now-playing, optional compose.
+ * Unified OS dock — [activity] | [account] | grip | optional now-playing |
+ * | [compose]. Activity mirrors compose (own section + divider).
  */
 export function OsDockPill({
   pageAccountId,

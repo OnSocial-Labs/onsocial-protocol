@@ -8,9 +8,6 @@ import type { Notification } from '@onsocial/sdk';
 import {
   OsSheetAction,
   OsSheetActions,
-  OsSurfaceRow,
-  OsSurfaceRowList,
-  ProfileAvatar,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -26,12 +23,13 @@ import {
 } from '@/lib/app-gateway-auth';
 import { APP_HOME_PATH, messagesPath } from '@/lib/app-routes';
 import {
+  NotificationActivityRows,
+  NotificationActivitySkeleton,
+} from '@/features/notifications/notification-activity-rows';
+import {
   ACTIVITY_EXCLUDE_TYPE,
-  formatNotificationTime,
-  notificationDescription,
   notificationHref,
 } from '@/lib/notification-display';
-import { displayName } from '@/lib/profile-display';
 
 const PAGE_SIZE = 40;
 
@@ -258,43 +256,16 @@ export function NotificationsPanel() {
         ) : null}
 
         {items == null ? (
-          <p className="notifications-panel-empty">Loading…</p>
+          <NotificationActivitySkeleton />
         ) : items.length === 0 ? (
           <p className="notifications-panel-empty">No activity yet.</p>
         ) : (
           <>
-            <OsSurfaceRowList as="div" aria-label="Activity">
-              {items.map((item) => {
-                const actor = item.actor?.trim() || '';
-                const profile = actor ? profiles[actor] : undefined;
-                const name = actor
-                  ? displayName(actor, profile?.displayName)
-                  : 'OnSocial';
-                const when = formatNotificationTime(item.createdAt);
-                const unread = !item.read;
-                return (
-                  <OsSurfaceRow
-                    key={item.id}
-                    label={name}
-                    description={
-                      <span title={when.title || undefined}>
-                        {notificationDescription(item)}
-                      </span>
-                    }
-                    leading={
-                      <ProfileAvatar
-                        src={profile?.avatarUrl ?? undefined}
-                        fallbackInitial={name.slice(0, 1)}
-                        size="sm"
-                      />
-                    }
-                    badge={unread ? 'New' : undefined}
-                    trailing={unread ? undefined : 'navigate'}
-                    onClick={() => openItem(item)}
-                  />
-                );
-              })}
-            </OsSurfaceRowList>
+            <NotificationActivityRows
+              items={items}
+              profiles={profiles}
+              onOpen={openItem}
+            />
             {nextCursor ? (
               <div className="notifications-load-more">
                 <OsSheetAction

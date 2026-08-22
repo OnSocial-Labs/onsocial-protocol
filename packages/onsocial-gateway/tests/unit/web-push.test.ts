@@ -12,6 +12,15 @@ describe('pushNotificationVerb', () => {
     expect(pushNotificationVerb('standing_new')).toBe('stood with you');
     expect(pushNotificationVerb('dm')).toBe('sent a private message');
   });
+
+  it('maps profile anniversary years', () => {
+    expect(pushNotificationVerb('profile_anniversary', { years: 1 })).toBe(
+      '1 year on OnSocial'
+    );
+    expect(pushNotificationVerb('profile_anniversary', { years: 4 })).toBe(
+      '4 years on OnSocial'
+    );
+  });
 });
 
 describe('pushNotificationUrl', () => {
@@ -33,6 +42,17 @@ describe('pushNotificationUrl', () => {
         context: { daoAccountId: 'dao.near', proposalId: 12 },
       })
     ).toBe('/@dao.near?proposal=12');
+  });
+
+  it('deep-links profile anniversary to recipient portfolio', () => {
+    expect(
+      pushNotificationUrl({
+        notification_type: 'profile_anniversary',
+        actor: '',
+        recipient: 'alice.near',
+        context: { years: 2, accountId: 'alice.near' },
+      })
+    ).toBe('/@alice.near');
   });
 
   it('falls back to activity inbox', () => {
@@ -61,6 +81,23 @@ describe('buildWebPushPayload', () => {
       url: '/@alice.near',
       tag: 'onsocial-notif-11111111-1111-1111-1111-111111111111',
       notificationId: '11111111-1111-1111-1111-111111111111',
+    });
+  });
+
+  it('titles anniversary pushes as OnSocial', () => {
+    const payload = buildWebPushPayload({
+      id: '22222222-2222-2222-2222-222222222222',
+      recipient: 'alice.near',
+      actor: '',
+      notification_type: 'profile_anniversary',
+      context: { years: 3, accountId: 'alice.near' },
+    });
+    expect(payload).toEqual({
+      title: 'OnSocial',
+      body: '3 years on OnSocial',
+      url: '/@alice.near',
+      tag: 'onsocial-notif-22222222-2222-2222-2222-222222222222',
+      notificationId: '22222222-2222-2222-2222-222222222222',
     });
   });
 });

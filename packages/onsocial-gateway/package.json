@@ -15,6 +15,8 @@
     "notifications:worker": "tsx src/scripts/run-notification-worker.ts",
     "notifications:worker:once": "tsx src/scripts/run-notification-worker.ts --once",
     "notifications:worker:prod": "node dist/scripts/run-notification-worker.js",
+    "notifications:anniversary": "tsx src/scripts/run-profile-anniversary.ts",
+    "notifications:anniversary:prod": "node dist/scripts/run-profile-anniversary.js",
     "hasura:permissions": "tsx src/scripts/apply-hasura-permissions.ts create",
     "hasura:audit": "tsx src/scripts/audit-hasura-schema.ts",
     "lint": "eslint src",

@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import {
+  Divider,
   NotificationBellFillIcon,
   NotificationBellPendingFillIcon,
 } from '@onsocial/ui';
@@ -13,9 +14,8 @@ import {
 } from '@/lib/app-routes';
 
 /**
- * Dock Activity control — sits before the wallet zone.
- * Idle: compact bell. Unread: pending-fill bell + count expands into the pill.
- * Hidden until connected (inbox is account-scoped).
+ * Dock Activity — same section cell + icon box as compose (centered).
+ * Idle: Mage bell-fill. Unread: Mage pending-fill with green corner dot.
  */
 export function OsDockActivityZone() {
   const { accountId, isConnected } = useAppWallet();
@@ -27,31 +27,37 @@ export function OsDockActivityZone() {
 
   const hasUnread = unread > 0;
   const onActivity = pathname === APP_NOTIFICATIONS_PATH;
-  const label = hasUnread
-    ? `Activity, ${unread > 9 ? '9+' : unread} unread`
-    : 'Activity';
-  const Bell = hasUnread
-    ? NotificationBellPendingFillIcon
-    : NotificationBellFillIcon;
+  const countLabel = unread > 9 ? '9+' : String(unread);
+  const label = hasUnread ? `Activity, ${countLabel} unread` : 'Activity';
+  const iconClass = 'portfolio-summon-compose-icon';
 
   return (
-    <button
-      type="button"
-      className={`portfolio-summon-activity${hasUnread ? ' has-unread' : ''}${
-        onActivity ? ' is-current' : ''
-      }`}
-      aria-label={label}
-      aria-current={onActivity ? 'page' : undefined}
-      title={label}
-      onClick={() => router.push(notificationsPath())}
-    >
-      <Bell className="portfolio-summon-activity-icon" aria-hidden />
-      <span
-        className="portfolio-summon-activity-count"
-        aria-hidden={!hasUnread}
+    <>
+      <button
+        type="button"
+        className={`portfolio-summon-activity${hasUnread ? ' has-unread' : ''}${
+          onActivity ? ' is-current' : ''
+        }`}
+        aria-label={label}
+        aria-current={onActivity ? 'page' : undefined}
+        title={label}
+        onClick={() => router.push(notificationsPath())}
       >
-        {hasUnread ? (unread > 9 ? '9+' : unread) : null}
-      </span>
-    </button>
+        {hasUnread ? (
+          <NotificationBellPendingFillIcon
+            className={iconClass}
+            badgeFill="var(--protocol-green)"
+            aria-hidden
+          />
+        ) : (
+          <NotificationBellFillIcon className={iconClass} aria-hidden />
+        )}
+      </button>
+      <Divider
+        orientation="vertical"
+        variant="detail"
+        className="portfolio-summon-divider"
+      />
+    </>
   );
 }
