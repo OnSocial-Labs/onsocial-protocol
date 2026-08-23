@@ -90,7 +90,9 @@ function OverlayHeaderFallback({
             <h2 id="overlay-title" className="glass-sheet-header-title">
               {title}
             </h2>
-            {closeControl}
+            <div className="standing-sheet-actions standing-sheet-actions--payout">
+              {closeControl}
+            </div>
           </div>
         </div>
       </header>

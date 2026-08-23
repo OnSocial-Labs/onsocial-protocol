@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-root';
 import { panelLabel } from '@/lib/overlay-routes';
+import { CollectiblesHeaderActions } from '@/features/collectibles/collectibles-header-actions';
 import { CollectiblesPagePanel } from '@/features/collectibles/collectibles-page-panel';
 import { SimpleOverlayPanel } from '@/components/overlay/simple-overlay-panel';
 import { loadCollectiblesPageData } from '@/lib/load-collectibles-page';
@@ -21,7 +22,11 @@ export default async function CollectiblesOverlay({
 
   return (
     <OverlayInterceptRoot>
-      <SimpleOverlayPanel ariaTitle={title} title={title}>
+      <SimpleOverlayPanel
+        ariaTitle={title}
+        title={title}
+        headerActions={<CollectiblesHeaderActions pageAccountId={accountId} />}
+      >
         <Suspense fallback={null}>
           <CollectiblesPagePanel
             pageAccountId={accountId}

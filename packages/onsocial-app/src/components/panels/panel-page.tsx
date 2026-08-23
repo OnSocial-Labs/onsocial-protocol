@@ -7,6 +7,7 @@ interface PanelPageProps {
   title?: string;
   description?: string;
   toolbar?: ReactNode;
+  headerActions?: ReactNode;
   children: ReactNode;
 }
 
@@ -15,6 +16,7 @@ export function PanelPage({
   title,
   description,
   toolbar,
+  headerActions,
   children,
 }: PanelPageProps) {
   return (
@@ -28,9 +30,14 @@ export function PanelPage({
             <div className="panel-page-toolbar">{toolbar}</div>
           ) : (
             <div className="panel-page-heading">
-              <h1 className="panel-page-title">{title}</h1>
-              {description ? (
-                <p className="panel-page-description">{description}</p>
+              <div className="panel-page-heading-copy">
+                <h1 className="panel-page-title">{title}</h1>
+                {description ? (
+                  <p className="panel-page-description">{description}</p>
+                ) : null}
+              </div>
+              {headerActions ? (
+                <div className="panel-page-heading-actions">{headerActions}</div>
               ) : null}
             </div>
           )}

@@ -6,15 +6,21 @@ import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
 export function SimpleOverlayPanel({
   ariaTitle,
   title,
+  headerActions,
   children,
 }: {
   ariaTitle: string;
   title: string;
+  headerActions?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <>
-      <OverlayPanelChrome ariaTitle={ariaTitle} title={title} />
+      <OverlayPanelChrome
+        ariaTitle={ariaTitle}
+        title={title}
+        headerActions={headerActions}
+      />
       {children}
     </>
   );

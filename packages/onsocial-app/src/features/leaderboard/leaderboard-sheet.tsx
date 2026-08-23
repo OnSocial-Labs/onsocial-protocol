@@ -419,8 +419,8 @@ function LeaderboardReputationPeek({
       copy={
         reputation
           ? reputation.rank > 0
-            ? `Rank #${reputation.rank} · protocol v1`
-            : 'Protocol reputation v1'
+            ? `Rank #${reputation.rank}`
+            : 'Protocol reputation'
           : 'Not indexed yet'
       }
       closeAriaLabel="Close reputation"

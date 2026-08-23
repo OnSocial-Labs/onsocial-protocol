@@ -22,22 +22,28 @@ const sample: ProfileReputation = {
 };
 
 describe('ReputationBreakdownFacts', () => {
-  it('renders overlay-friendly intro and factor hints', () => {
+  it('keeps the headline compact and factors honest', () => {
     const html = renderToStaticMarkup(
       createElement(ReputationBreakdownFacts, {
         accountId: 'alice.near',
         reputation: sample,
       })
     );
-    expect(html).toContain('Built from who stands with you');
+    expect(html).toContain('42.5');
+    expect(html).toContain('#12');
+    expect(html).toContain('Established');
+    expect(html).toContain('80%');
     expect(html).toContain('Stands, endorsements, paid support');
-    expect(html).toContain('Protocol boost stake and lock time');
-    expect(html).toContain('Reactions, conversations, and amplifies');
-    expect(html).toContain('Creates, sales, and fans');
-    expect(html).toContain('Score');
+    expect(html).toContain('Boost lock · Scout');
+    expect(html).toContain('Reactions, conversations, amplifies');
+    expect(html).toContain('Creates, sales, fans');
+    expect(html).toContain('Factors');
     expect(html).toContain('Activity');
-    expect(html).toContain('Lock');
-    expect(html).toContain('rank #12');
+    expect(html).toContain('Supporters');
+    expect(html).toContain('Peers');
+    expect(html).not.toContain('Reputation · rank');
+    expect(html).not.toContain('How much signal backs this score');
+    expect(html).not.toContain('Backed by a broad set of indexed protocol signals');
   });
 
   it('explains empty state in plain language', () => {
@@ -48,6 +54,17 @@ describe('ReputationBreakdownFacts', () => {
       })
     );
     expect(html).toContain('No reputation indexed for @bob.near yet');
-    expect(html).toContain('stands');
+  });
+
+  it('shows a confidence note only while the score is still forming', () => {
+    const html = renderToStaticMarkup(
+      createElement(ReputationBreakdownFacts, {
+        accountId: 'cara.near',
+        reputation: { ...sample, confidenceScore: 0.4, rank: 0 },
+      })
+    );
+    expect(html).toContain('Building');
+    expect(html).toContain('Forming from social graph');
+    expect(html).not.toContain('#0');
   });
 });

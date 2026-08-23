@@ -3,7 +3,6 @@
 import type { ReactNode } from 'react';
 import {
   SheetFactCopy,
-  SheetFactCount,
   SheetFactRow,
   SheetFactSection,
 } from '@onsocial/ui';
@@ -30,6 +29,12 @@ function FactorLabel({
   );
 }
 
+function confidencePercent(score: number): string | null {
+  if (!Number.isFinite(score) || score < 0) return null;
+  const pct = score <= 1 ? Math.round(score * 100) : Math.round(score);
+  return `${Math.max(0, Math.min(100, pct))}%`;
+}
+
 export function ReputationBreakdownFacts({
   accountId,
   reputation,
@@ -40,13 +45,56 @@ export function ReputationBreakdownFacts({
   if (!reputation) {
     return (
       <p className="portfolio-support-collect-info-empty">
-        No reputation indexed for @{accountId} yet. It grows from stands,
-        endorsements, paid support, posts, and consistent activity.
+        No reputation indexed for @{accountId} yet.
       </p>
     );
   }
 
   const confidence = reputationConfidenceLabel(reputation.confidenceScore);
+  const confidencePct = confidencePercent(reputation.confidenceScore);
+  const rankLabel =
+    reputation.rank > 0 ? `#${reputation.rank}` : null;
+  const meta = [rankLabel, confidence.label, confidencePct]
+    .filter(Boolean)
+    .join(' · ');
+  const showConfidenceNote = confidence.label !== 'Established';
+  const lock = commitmentLabel(reputation.lockMonths);
+
+  const factors: { title: string; hint: string; value: string }[] = [
+    {
+      title: 'Social',
+      hint: 'Stands, endorsements, paid support',
+      value: formatReputationComponent(reputation.socialScore),
+    },
+    {
+      title: 'Commitment',
+      hint: `Boost lock · ${lock}`,
+      value: formatReputationComponent(reputation.commitmentScore),
+    },
+    {
+      title: 'Quality',
+      hint: 'Reactions, conversations, amplifies',
+      value: formatReputationComponent(reputation.qualityScore),
+    },
+    {
+      title: 'Consistency',
+      hint: 'Steady activity',
+      value: formatReputationComponent(reputation.consistencyScore),
+    },
+    {
+      title: 'Scarces',
+      hint: 'Creates, sales, fans',
+      value: formatReputationComponent(reputation.scarcesScore),
+    },
+  ];
+
+  const activity: { label: string; value: number }[] = [
+    { label: 'Posts', value: reputation.totalPosts },
+    { label: 'Supporters', value: reputation.paidSupportSpenders },
+    { label: 'Peers', value: reputation.uniqueInboundPeers },
+    { label: 'Fans', value: reputation.uniqueScarceFans },
+    { label: 'Amplifies', value: reputation.amplifyEvents },
+  ];
 
   return (
     <>
@@ -54,135 +102,41 @@ export function ReputationBreakdownFacts({
         <span className="reputation-facts-score">
           {formatReputationScore(reputation.reputation)}
         </span>
-        <span className="reputation-facts-score-label">
-          Reputation
-          {reputation.rank > 0 ? ` · rank #${reputation.rank}` : ''}
-        </span>
+        {meta ? (
+          <span className="reputation-facts-score-label">{meta}</span>
+        ) : null}
       </div>
 
-      <SheetFactCopy className="reputation-facts-intro">
-        Built from who stands with you, paid support, what you publish, and how
-        consistently you show up.
-      </SheetFactCopy>
+      {showConfidenceNote ? (
+        <SheetFactCopy className="reputation-facts-intro">
+          {confidence.detail}
+        </SheetFactCopy>
+      ) : null}
 
-      <SheetFactSection title="Score">
-        <SheetFactRow
-          label={
-            <FactorLabel
-              title="Social"
-              hint="Stands, endorsements, paid support"
-            />
-          }
-          value={formatReputationComponent(reputation.socialScore)}
-        />
-        <SheetFactRow
-          label={
-            <FactorLabel
-              title="Commitment"
-              hint="Protocol boost stake and lock time"
-            />
-          }
-          value={formatReputationComponent(reputation.commitmentScore)}
-        />
-        <SheetFactRow
-          label={
-            <FactorLabel
-              title="Quality"
-              hint="Reactions, conversations, and amplifies"
-            />
-          }
-          value={formatReputationComponent(reputation.qualityScore)}
-        />
-        <SheetFactRow
-          label={
-            <FactorLabel
-              title="Consistency"
-              hint="Steady activity over time"
-            />
-          }
-          value={formatReputationComponent(reputation.consistencyScore)}
-        />
-        <SheetFactRow
-          label={
-            <FactorLabel
-              title="Scarces"
-              hint="Creates, sales, and fans"
-            />
-          }
-          value={formatReputationComponent(reputation.scarcesScore)}
-        />
-        <SheetFactRow
-          label={
-            <FactorLabel
-              title="Confidence"
-              hint="How much signal backs this score"
-            />
-          }
-          value={`${confidence.label} · ${Math.round(reputation.confidenceScore * 100)}%`}
-        />
+      <SheetFactSection title="Factors">
+        {factors.map((factor) => (
+          <SheetFactRow
+            key={factor.title}
+            label={
+              <FactorLabel title={factor.title} hint={factor.hint} />
+            }
+            value={factor.value}
+          />
+        ))}
       </SheetFactSection>
 
-      <SheetFactSection title="Activity">
-        <SheetFactRow
-          label="Posts"
-          value={
-            <SheetFactCount
-              count={reputation.totalPosts}
-              unit={reputation.totalPosts === 1 ? 'post' : 'posts'}
-            />
-          }
-        />
-        <SheetFactRow
-          label="Paid supporters"
-          value={
-            <SheetFactCount
-              count={reputation.paidSupportSpenders}
-              unit={
-                reputation.paidSupportSpenders === 1
-                  ? 'supporter'
-                  : 'supporters'
-              }
-            />
-          }
-        />
-        <SheetFactRow
-          label="Conversations"
-          value={
-            <SheetFactCount
-              count={reputation.uniqueInboundPeers}
-              unit={
-                reputation.uniqueInboundPeers === 1 ? 'peer' : 'peers'
-              }
-            />
-          }
-        />
-        <SheetFactRow
-          label="Scarce fans"
-          value={
-            <SheetFactCount
-              count={reputation.uniqueScarceFans}
-              unit={reputation.uniqueScarceFans === 1 ? 'fan' : 'fans'}
-            />
-          }
-        />
-        <SheetFactRow
-          label="Amplifies received"
-          value={
-            <SheetFactCount
-              count={reputation.amplifyEvents}
-              unit={
-                reputation.amplifyEvents === 1 ? 'amplify' : 'amplifies'
-              }
-            />
-          }
-        />
-        <SheetFactRow
-          label="Lock"
-          value={commitmentLabel(reputation.lockMonths)}
-        />
+      <SheetFactSection
+        title="Activity"
+        className="reputation-facts-activity"
+      >
+        {activity.map((row) => (
+          <SheetFactRow
+            key={row.label}
+            label={row.label}
+            value={String(row.value)}
+          />
+        ))}
       </SheetFactSection>
-
-      <SheetFactCopy>{confidence.detail}</SheetFactCopy>
     </>
   );
 }

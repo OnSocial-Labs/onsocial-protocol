@@ -1,34 +1,18 @@
-import { panelLabel } from '@/lib/overlay-routes';
-import { EndorsementsPanel } from '@/components/panels/endorsements-panel';
-import { PanelPage } from '@/components/panels/panel-page';
-import { loadEndorsementsPageData } from '@/lib/load-endorsements-page';
-import { displayName } from '@/lib/profile-display';
-import { loadProfileShell } from '@/lib/profile-shell';
+import { redirect } from 'next/navigation';
+import { portfolioPath } from '@/lib/overlay-routes';
 import { resolveAccountId } from '@/lib/resolve-account';
 
-type PanelRouteProps = {
-  params: Promise<{
-    accountId: string;
-  }>;
+type EndorsementsRedirectProps = {
+  params: Promise<{ accountId: string }>;
 };
 
-export default async function EndorsementsPage({ params }: PanelRouteProps) {
+/**
+ * Hard refresh / shared link — endorsements are a face peek (overlay-only).
+ * Soft nav still opens the glass sheet via `@overlay/(.)endorsements`.
+ */
+export default async function EndorsementsPage({
+  params,
+}: EndorsementsRedirectProps) {
   const accountId = await resolveAccountId(params);
-  const title = panelLabel('endorsements');
-  const [shell, initial] = await Promise.all([
-    loadProfileShell(accountId),
-    loadEndorsementsPageData(accountId),
-  ]);
-  const profileName = displayName(accountId, shell?.name ?? undefined);
-
-  return (
-    <PanelPage accountId={accountId} title={title}>
-      <EndorsementsPanel
-        accountId={accountId}
-        profileName={profileName}
-        avatarUrl={shell?.avatarUrl ?? null}
-        initial={initial}
-      />
-    </PanelPage>
-  );
+  redirect(portfolioPath(accountId));
 }

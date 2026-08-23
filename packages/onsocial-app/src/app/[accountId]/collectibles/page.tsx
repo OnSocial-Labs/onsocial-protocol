@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { panelLabel } from '@/lib/overlay-routes';
+import { CollectiblesHeaderActions } from '@/features/collectibles/collectibles-header-actions';
 import { CollectiblesPagePanel } from '@/features/collectibles/collectibles-page-panel';
 import { PanelPage } from '@/components/panels/panel-page';
 import { loadCollectiblesPageData } from '@/lib/load-collectibles-page';
@@ -19,7 +20,11 @@ export default async function PortfolioCollectiblesPage({
   const title = panelLabel('collectibles');
 
   return (
-    <PanelPage accountId={accountId} title={title}>
+    <PanelPage
+      accountId={accountId}
+      title={title}
+      headerActions={<CollectiblesHeaderActions pageAccountId={accountId} />}
+    >
       <Suspense fallback={null}>
         <CollectiblesPagePanel
           pageAccountId={accountId}

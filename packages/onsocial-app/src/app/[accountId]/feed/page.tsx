@@ -1,22 +1,16 @@
-import { ProfileFeedPagePanel } from '@/components/panels/profile-feed-panels';
-import { fetchProfileRecentPosts } from '@/lib/fetch-profile-peeks';
+import { redirect } from 'next/navigation';
+import { portfolioPath } from '@/lib/overlay-routes';
 import { resolveAccountId } from '@/lib/resolve-account';
 
-type PanelRouteProps = {
-  params: Promise<{
-    accountId: string;
-  }>;
+type FeedRedirectProps = {
+  params: Promise<{ accountId: string }>;
 };
 
-export default async function FeedPage({ params }: PanelRouteProps) {
+/**
+ * Hard refresh / shared link — posts are a face peek (overlay-only).
+ * Soft nav still opens the glass sheet via `@overlay/(.)feed`.
+ */
+export default async function FeedPage({ params }: FeedRedirectProps) {
   const accountId = await resolveAccountId(params);
-  const posts = await fetchProfileRecentPosts(accountId);
-
-  return (
-    <ProfileFeedPagePanel
-      accountId={accountId}
-      posts={posts}
-      postCount={posts.length}
-    />
-  );
+  redirect(portfolioPath(accountId));
 }

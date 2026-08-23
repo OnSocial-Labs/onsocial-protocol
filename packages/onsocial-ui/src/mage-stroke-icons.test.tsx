@@ -24,6 +24,7 @@ import {
   HeartIcon,
   BookmarkIcon,
   ImageIcon,
+  MapMarkerIcon,
   InformationCircleIcon,
   LinkIcon,
   LogoutIcon,
@@ -73,6 +74,7 @@ describe('mage stroke icons', () => {
     expect(typeof HeartIcon).toBe('function');
     expect(typeof BookmarkIcon).toBe('function');
     expect(typeof ImageIcon).toBe('function');
+    expect(typeof MapMarkerIcon).toBe('function');
     expect(typeof InformationCircleIcon).toBe('function');
     expect(typeof LinkIcon).toBe('function');
     expect(typeof MessageIcon).toBe('function');

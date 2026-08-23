@@ -13,12 +13,15 @@ export function OverlayPanelChrome({
   ariaTitle,
   title,
   toolbar,
+  headerActions,
   scrollBodyRef,
   showHeaderDivider = true,
 }: {
   ariaTitle: string;
   title?: string;
   toolbar?: ReactNode;
+  /** Icon actions before close — same cluster as Standing / Boost. */
+  headerActions?: ReactNode;
   scrollBodyRef?: RefObject<HTMLDivElement | null>;
   /** Section divider under header. Off when tabs already close the chrome. */
   showHeaderDivider?: boolean;
@@ -35,6 +38,13 @@ export function OverlayPanelChrome({
     return null;
   }
 
+  const closeControl = (
+    <SheetCloseButton
+      onClick={close}
+      ariaLabel={`Close ${title ?? ariaTitle}`}
+    />
+  );
+
   const headerContent = toolbar ? (
     <>
       <h2 id="overlay-title" className="sr-only">
@@ -43,19 +53,19 @@ export function OverlayPanelChrome({
       {toolbar}
     </>
   ) : (
-    <div className="glass-sheet-header">
+    <header className="glass-sheet-header">
       <div className="glass-sheet-header-copy">
-        {title ? (
+        <div className="glass-sheet-header-title-row">
           <h2 id="overlay-title" className="glass-sheet-header-title">
-            {title}
+            {title ?? ariaTitle}
           </h2>
-        ) : null}
+          <div className="standing-sheet-actions standing-sheet-actions--payout">
+            {headerActions}
+            {closeControl}
+          </div>
+        </div>
       </div>
-      <SheetCloseButton
-        onClick={close}
-        ariaLabel={`Close ${title ?? ariaTitle}`}
-      />
-    </div>
+    </header>
   );
 
   return createPortal(

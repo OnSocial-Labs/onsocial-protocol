@@ -12,7 +12,6 @@ import {
 } from '@onsocial/ui';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
-import { PanelPage } from '@/components/panels/panel-page';
 import { useOverlayDismiss } from '@/contexts/overlay-dismiss-context';
 import {
   ProfileFeedClient,
@@ -31,9 +30,8 @@ function isProfileFeedTab(value: string | null): value is ProfileFeedTab {
 }
 
 /**
- * Tab state mirrored into `?tab=` so sections survive refresh and are
- * shareable. Shallow `history.replaceState` — the tab is client state, no
- * server round-trip needed.
+ * Tab state mirrored into `?tab=` so sections stay shareable in the overlay.
+ * Shallow `history.replaceState` — the tab is client state, no server trip.
  */
 function useProfileFeedTabParam(): [
   ProfileFeedTab,
@@ -150,39 +148,5 @@ export function ProfileFeedOverlayPanel({
         tab={tab}
       />
     </>
-  );
-}
-
-/**
- * Full-page fallback for hard loads / shared links of `/{account}/feed` —
- * same compact tabs as the overlay, plus the panel back link.
- */
-export function ProfileFeedPagePanel({
-  accountId,
-  posts,
-  postCount,
-}: {
-  accountId: string;
-  posts: PostRow[];
-  postCount: number;
-}) {
-  const [tab, setTab] = useProfileFeedTabParam();
-
-  return (
-    <PanelPage
-      accountId={accountId}
-      toolbar={
-        <div className="standing-sheet-header profile-feed-sheet-header">
-          <ProfileFeedTabsRail tab={tab} onTabChange={setTab} />
-        </div>
-      }
-    >
-      <ProfileFeedClient
-        accountId={accountId}
-        posts={posts}
-        postCount={postCount}
-        tab={tab}
-      />
-    </PanelPage>
   );
 }

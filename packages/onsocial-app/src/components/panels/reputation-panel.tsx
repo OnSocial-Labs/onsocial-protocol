@@ -1,6 +1,5 @@
 'use client';
 
-import { LeaderboardChartAction } from '@/features/leaderboard/leaderboard-chart-action';
 import { ReputationBreakdownFacts } from '@/features/leaderboard/reputation-breakdown-facts';
 import type { ProfileReputation } from '@/lib/profile-signals';
 
@@ -11,7 +10,7 @@ interface ReputationPanelProps {
 
 /**
  * Portfolio glass overlay (`/@account/reputation`) — face signal deep-link.
- * Chart navigates to `/leaderboard?track=reputation`.
+ * Leaderboard chart lives in overlay / full-page chrome, next to close.
  */
 export function ReputationPanel({
   accountId,
@@ -20,9 +19,6 @@ export function ReputationPanel({
   return (
     <div className="panel-body reputation-panel-body">
       <div className="guild-facts reputation-panel-facts">
-        <div className="reputation-panel-actions">
-          <LeaderboardChartAction track="reputation" />
-        </div>
         <ReputationBreakdownFacts
           accountId={accountId}
           reputation={reputation}

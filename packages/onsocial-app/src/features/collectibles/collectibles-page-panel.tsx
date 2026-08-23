@@ -3,15 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  OsIconAction,
-  PlusIcon,
-  SearchField,
-  ShopFillIcon,
-  StarsCFillIcon,
-} from '@onsocial/ui';
+import { SearchField, StarsCFillIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsChipRail } from '@/components/os/os-chip-rail';
+import { CollectiblesHeaderActions } from '@/features/collectibles/collectibles-header-actions';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
@@ -608,22 +603,7 @@ export function CollectiblesPagePanel({
       leading={null}
       glassChrome
       scrollRootRef={scrollRootRef}
-      actions={
-        <>
-          <OsIconAction asChild ariaLabel="Browse Market">
-            <Link href={APP_MARKET_PATH} scroll={false}>
-              <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
-            </Link>
-          </OsIconAction>
-          {isSelf ? (
-            <OsIconAction asChild ariaLabel="Start a drop">
-              <Link href={APP_DROP_CREATE_PATH} scroll={false}>
-                <PlusIcon aria-hidden className="glass-sheet-close-icon" />
-              </Link>
-            </OsIconAction>
-          ) : null}
-        </>
-      }
+      actions={<CollectiblesHeaderActions pageAccountId={ownerAccountId} />}
       heading={searchField}
       toolbar={toolbar ?? undefined}
     >

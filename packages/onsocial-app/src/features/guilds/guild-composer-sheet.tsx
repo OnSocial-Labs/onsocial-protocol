@@ -18,6 +18,8 @@ import {
   Divider,
   ImageFillIcon,
   ImageIcon,
+  MapMarkerFillIcon,
+  MapMarkerIcon,
   OsFieldRemove,
   OsHugSheet,
   OsIconAction,
@@ -323,11 +325,13 @@ export function ComposerSheet({
   const [contentWarning, setContentWarning] = useState('');
   const [nsfw, setNsfw] = useState(false);
   const [placeDraft, setPlaceDraft] = useState('');
+  const [placeOpen, setPlaceOpen] = useState(false);
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [dropPickerOpen, setDropPickerOpen] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const placeInputRef = useRef<HTMLInputElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const mediaStripRef = useRef<HTMLDivElement>(null);
   const warningInputRef = useRef<HTMLInputElement>(null);
@@ -336,6 +340,7 @@ export function ComposerSheet({
   const canUseMedia = !pollEnabled && !dropDraft;
   const canUseDrop =
     mode === 'post' && !pollEnabled && mediaFiles.length === 0;
+  const canUsePlace = mode === 'post';
 
   const viewerName = accountId
     ? displayName(accountId, viewerShell?.displayName)
@@ -370,6 +375,7 @@ export function ComposerSheet({
       setContentWarning('');
       setNsfw(false);
       setPlaceDraft('');
+      setPlaceOpen(false);
       setLabelsOpen(false);
       setDropPickerOpen(false);
     }
@@ -405,6 +411,17 @@ export function ComposerSheet({
     }, 40);
     return () => window.clearTimeout(focusTimer);
   }, [open, labelsOpen, formKey]);
+
+  useEffect(() => {
+    if (!open || !placeOpen) return;
+    const focusTimer = window.setTimeout(() => {
+      const field = placeInputRef.current;
+      if (!field) return;
+      field.focus();
+      scrollMobileFieldIntoView(field);
+    }, 40);
+    return () => window.clearTimeout(focusTimer);
+  }, [open, placeOpen, formKey]);
 
   useEffect(() => {
     return () => {
@@ -484,6 +501,17 @@ export function ComposerSheet({
     setPollOptions((current) => {
       if (current.length <= MIN_POLL_OPTIONS) return current;
       return current.filter((_, optionIndex) => optionIndex !== index);
+    });
+  };
+
+  const togglePlace = () => {
+    if (!canUsePlace || pending) return;
+    setPlaceOpen((current) => {
+      if (current) {
+        setPlaceDraft('');
+        return false;
+      }
+      return true;
     });
   };
 
@@ -950,19 +978,22 @@ export function ComposerSheet({
             ) : null}
           </div>
         ) : null}
-        {mode === 'post' ? (
+        {canUsePlace && placeOpen ? (
           <label className="guild-composer-place-field">
             <span className="sr-only">Place</span>
             <input
+              ref={placeInputRef}
               type="text"
+              className={`${osFieldBorderedClassName} guild-composer-place-input`}
               value={placeDraft}
               disabled={pending}
               maxLength={64}
               autoComplete="off"
               spellCheck={false}
-              placeholder="Place (optional) — Lisbon, ETH Denver…"
+              placeholder="Lisbon, ETH Denver…"
               aria-label="Place"
               onChange={(event) => setPlaceDraft(event.target.value)}
+              onFocus={scrollFieldIntoView}
             />
             {normalizePlaceSlug(placeDraft) ? (
               <span className="guild-composer-place-hint" aria-hidden>
@@ -1099,6 +1130,35 @@ export function ComposerSheet({
                   <StarsCFillIcon className="guild-composer-tool-icon" />
                 ) : (
                   <StarsCIcon className="guild-composer-tool-icon" />
+                )}
+              </button>
+              <button
+                type="button"
+                className={`guild-composer-tool${
+                  placeOpen ? ' is-active' : ''
+                }`}
+                disabled={!canUsePlace || pending}
+                title={
+                  canUsePlace
+                    ? placeOpen
+                      ? 'Remove place'
+                      : 'Add place'
+                    : 'Place is for new posts'
+                }
+                aria-label={
+                  canUsePlace
+                    ? placeOpen
+                      ? 'Remove place'
+                      : 'Add place'
+                    : 'Place is for new posts'
+                }
+                aria-pressed={placeOpen}
+                onClick={togglePlace}
+              >
+                {placeOpen ? (
+                  <MapMarkerFillIcon className="guild-composer-tool-icon" />
+                ) : (
+                  <MapMarkerIcon className="guild-composer-tool-icon" />
                 )}
               </button>
               <button
