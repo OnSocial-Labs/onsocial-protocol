@@ -61,6 +61,24 @@ export function withCollectionProvenance(
   };
 }
 
+/** Contract cap (`MAX_METADATA_LEN`) for `metadata_template` / `metadata`. */
+export const MAX_COLLECTION_METADATA_BYTES = 16_384;
+
+function byteLength(json: string): number {
+  return new TextEncoder().encode(json).length;
+}
+
+function assertMetadataSize(json: string, label: string): void {
+  const bytes = byteLength(json);
+  if (bytes > MAX_COLLECTION_METADATA_BYTES) {
+    throw new Error(
+      `Drop ${label} is too large (${bytes.toLocaleString()} bytes; max ` +
+        `${MAX_COLLECTION_METADATA_BYTES.toLocaleString()}). Trim the ` +
+        'description, lyrics, or track list and try again.'
+    );
+  }
+}
+
 export function buildCreateCollectionAction(opts: CollectionOptions) {
   const metadataTemplate = JSON.stringify(
     buildTokenMetadata({
@@ -72,6 +90,15 @@ export function buildCreateCollectionAction(opts: CollectionOptions) {
       ...(opts.extra ? { extra: opts.extra } : {}),
     })
   );
+  // Preflight the on-chain cap so oversized drops fail before the wallet
+  // opens (the contract rejects with the same limit).
+  assertMetadataSize(metadataTemplate, 'metadata');
+  const collectionMetadata = opts.metadata
+    ? JSON.stringify(opts.metadata)
+    : null;
+  if (collectionMetadata) {
+    assertMetadataSize(collectionMetadata, 'collection metadata');
+  }
 
   return {
     type: 'create_collection' as const,
@@ -80,7 +107,7 @@ export function buildCreateCollectionAction(opts: CollectionOptions) {
     metadata_template: metadataTemplate,
     price_near: nearToYocto(opts.priceNear ?? '0'),
     ...(opts.royalty ? { royalty: opts.royalty } : {}),
-    ...(opts.metadata ? { metadata: JSON.stringify(opts.metadata) } : {}),
+    ...(collectionMetadata ? { metadata: collectionMetadata } : {}),
     ...(opts.appId ? { app_id: opts.appId } : {}),
     ...(opts.mintMode ? { mint_mode: opts.mintMode } : {}),
     ...(opts.maxPerWallet != null ? { max_per_wallet: opts.maxPerWallet } : {}),
