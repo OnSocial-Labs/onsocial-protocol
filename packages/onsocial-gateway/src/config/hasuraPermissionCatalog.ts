@@ -641,6 +641,7 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'block_height',
       'block_timestamp',
       'group_id',
+      'heat',
     ],
   },
   {
@@ -656,6 +657,7 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'block_height',
       'block_timestamp',
       'group_id',
+      'heat',
     ],
   },
   {
@@ -671,6 +673,7 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'block_height',
       'block_timestamp',
       'group_id',
+      'heat',
     ],
   },
   {

@@ -197,18 +197,23 @@ async function loadFocusedFeedPage(
       ? await client.query.feed.byTicker(focus.value, {
           limit,
           offset,
+          sort,
         })
       : focus.kind === 'place'
         ? await client.query.feed.byPlace(focus.value, {
             limit,
             offset,
+            sort,
           })
         : await client.query.feed.byHashtag(focus.value, {
             limit,
             offset,
+            sort,
           });
-  // Topic/ticker indexes are chronological; hot reorders each hydrated page.
-  // Append paths re-rank the full accumulated list so cross-page order holds.
+  // Server orders topic indexes by heat under Hot (chrono while the heat
+  // column rolls out). The local epsilon re-sort is idempotent on server
+  // order and keeps optimistic floors coherent; append paths re-rank the
+  // full accumulated list so cross-page order holds.
   if (sort !== 'hot') return page;
   return { ...page, items: sortPostsByHot(page.items) };
 }
@@ -602,13 +607,14 @@ export function HomePagePanel({
 
     const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam, place: placeParam });
 
-    // Chrono-paged surfaces (Recent, and all focus feeds — their indexes
-    // page chronologically even under Hot) shift when new posts land at the
-    // head; compensate so appended pages don't skip rows.
+    // Chrono-paged surfaces (any Recent feed) shift when new posts land at
+    // the head; compensate so appended pages don't skip rows. Hot pages by
+    // heat order everywhere (topic indexes included), where chrono-new posts
+    // do not shift offsets.
     const pendingShift = pendingFeedOffsetShift({
       newPostCount: newPostCountRef.current,
       appliedShift: offsetShiftAppliedRef.current,
-      chronoPaged: focus != null || sort !== 'hot',
+      chronoPaged: sort !== 'hot',
     });
     const offset = baseOffset + pendingShift;
 
