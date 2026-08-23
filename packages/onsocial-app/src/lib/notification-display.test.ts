@@ -32,12 +32,12 @@ describe('notification display', () => {
       notificationVerb('dao_proposal_resolved', { status: 'Approved' })
     ).toBe('DAO proposal approved');
     expect(notificationVerb('repost')).toBe('reposted your post');
-    expect(
-      notificationVerb('dao_proposal_vote', { vote: 'Approve' })
-    ).toBe('approved your DAO proposal');
-    expect(
-      notificationVerb('dao_proposal_vote', { vote: 'Reject' })
-    ).toBe('rejected your DAO proposal');
+    expect(notificationVerb('dao_proposal_vote', { vote: 'Approve' })).toBe(
+      'approved your DAO proposal'
+    );
+    expect(notificationVerb('dao_proposal_vote', { vote: 'Reject' })).toBe(
+      'rejected your DAO proposal'
+    );
     expect(
       notificationVerb('reaction', {
         reactionValue: JSON.stringify({ type: 'like' }),
@@ -87,7 +87,7 @@ describe('notification display', () => {
         actor: 'bob.testnet',
         context: { groupId: 'guild.near' },
       })
-    ).toBe('/groups/guild.near/proposals');
+    ).toBe('/groups/guild.near?sheet=proposals');
 
     expect(
       notificationHref({

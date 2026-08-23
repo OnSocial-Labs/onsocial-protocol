@@ -389,6 +389,26 @@ export function guildPath(groupId: string): string {
   return `/groups/${encodeURIComponent(groupId)}`;
 }
 
+/** Shareable guild sheets opened on the home route (`?sheet=`). */
+export type GuildShareSheetId = 'proposals' | 'members' | 'requests';
+
+export function parseGuildSheetParam(
+  raw: string | null | undefined
+): GuildShareSheetId | null {
+  const value = (raw ?? '').trim().toLowerCase();
+  if (value === 'proposals' || value === 'members' || value === 'requests') {
+    return value;
+  }
+  return null;
+}
+
+export function guildSheetPath(
+  groupId: string,
+  sheet: GuildShareSheetId
+): string {
+  return `${guildPath(groupId)}?sheet=${sheet}`;
+}
+
 export function guildSectionPath(groupId: string, section: string): string {
   return `${guildPath(groupId)}/${section}`;
 }

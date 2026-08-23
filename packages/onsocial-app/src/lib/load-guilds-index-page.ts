@@ -5,7 +5,9 @@ import {
 import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 
-/** Public guild browse shell for SSR first paint (indexer only — no RPC). */
+/** Public guild browse shell for SSR first paint (indexer only — no RPC).
+ * Sort matches Discover client (`members`) so first paint does not reorder.
+ */
 export async function loadGuildsIndexPage(): Promise<
   GuildSummaryCardModel[] | null
 > {
@@ -13,6 +15,7 @@ export async function loadGuildsIndexPage(): Promise<
     const os = createServerOnSocialClient();
     const { items } = await os.query.groups.browse({
       publicOnly: true,
+      sort: 'members',
       limit: 24,
     });
     const cards = items.map((row) => guildSummaryCardFromBrowse(row));

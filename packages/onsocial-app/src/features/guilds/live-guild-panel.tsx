@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   postContentPath,
   type GroupMemberRow,
@@ -18,7 +19,10 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { submitPersonalRepost, submitPersonalUnrepost } from '@/features/home/submit-personal-post';
+import {
+  submitPersonalRepost,
+  submitPersonalUnrepost,
+} from '@/features/home/submit-personal-post';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { GuildFeedFilterList } from '@/features/guilds/guild-feed-filter-list';
@@ -74,7 +78,12 @@ import { GuildGroupStorageSheet } from '@/features/guilds/guild-group-storage-sh
 import { GuildProposalsSheet } from '@/features/guilds/guild-proposals-sheet';
 import { GuildSpaceWritersSheet } from '@/features/guilds/guild-space-writers-sheet';
 import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-write';
-import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import {
+  collectRelayTxHashes,
+  guildPath,
+  guildSheetPath,
+  type GuildShareSheetId,
+} from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
@@ -178,10 +187,13 @@ function pendingJoinRequest(request: JoinRequest | null): boolean {
 export function LiveGuildPanel({
   groupId,
   initial = null,
+  initialSheet = null,
 }: {
   groupId: string;
   initial?: GuildPageData | null;
+  initialSheet?: GuildShareSheetId | null;
 }) {
+  const router = useRouter();
   const {
     accountId,
     isConnected,
@@ -225,17 +237,13 @@ export function LiveGuildPanel({
           moderation: null,
         }
   );
-  const structureHydratedRef = useRef(
-    Boolean(initial?.structureResolved)
-  );
+  const structureHydratedRef = useRef(Boolean(initial?.structureResolved));
   const structureRetryTimersRef = useRef<number[]>([]);
   /** Skip one auto feed refresh when SSR already painted the default feed. */
   const skipSsrFeedRefreshRef = useRef(
     Boolean(initial && initial.posts != null)
   );
-  const configRef = useRef<GuildConfigSnapshot | null>(
-    initial?.config ?? null
-  );
+  const configRef = useRef<GuildConfigSnapshot | null>(initial?.config ?? null);
   const [localPosts, setLocalPosts] = useState<PostRow[]>([]);
   const [hasMorePosts, setHasMorePosts] = useState(
     () => initial?.hasMorePosts ?? false
@@ -263,8 +271,8 @@ export function LiveGuildPanel({
   const [shellPreview, setShellPreview] = useState<GuildShellCacheEntry | null>(
     () => initial?.shell ?? readGuildShellCache(groupId) ?? null
   );
-  const [shellExtrasResolved, setShellExtrasResolved] = useState(
-    () => Boolean(initial)
+  const [shellExtrasResolved, setShellExtrasResolved] = useState(() =>
+    Boolean(initial)
   );
   /** ACL resolved — separate from shell paint so join/leave never guess. */
   const [viewerAccessResolved, setViewerAccessResolved] = useState(false);
@@ -272,7 +280,7 @@ export function LiveGuildPanel({
   const ssrGroupIdRef = useRef(initial ? groupId : null);
   const [confirmingLeave, setConfirmingLeave] = useState(false);
   const [manageSheet, setManageSheet] = useState<GuildManageSheetId | null>(
-    null
+    () => initialSheet
   );
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
   const [groupStorageSheetOpen, setGroupStorageSheetOpen] = useState(false);
@@ -300,6 +308,25 @@ export function LiveGuildPanel({
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadMoreInFlightRef = useRef(false);
+
+  const openManageSheet = useCallback(
+    (sheet: GuildManageSheetId | null) => {
+      setManageSheet(sheet);
+      const shareable =
+        sheet === 'proposals' || sheet === 'members' || sheet === 'requests'
+          ? sheet
+          : null;
+      router.replace(
+        shareable ? guildSheetPath(groupId, shareable) : guildPath(groupId),
+        { scroll: false }
+      );
+    },
+    [groupId, router]
+  );
+
+  useEffect(() => {
+    if (initialSheet) setManageSheet(initialSheet);
+  }, [initialSheet]);
 
   const config = state.config;
   configRef.current = config;
@@ -680,20 +707,25 @@ export function LiveGuildPanel({
     setError(null);
     const client = createReadOnlyOnSocialClient();
 
-    const [indexedRows, feedResult, membersResult, countResult, postCountResult] =
-      await Promise.all([
-        client.query.groups.byIds([groupId]).catch(() => []),
-        client.query.groups
-          .feed({ groupId, limit: 20 })
-          .catch(() => ({ items: [] as PostRow[], nextOffset: undefined })),
-        client.query.groups
-          .membersOf(groupId, { limit: 8 })
-          .catch(() => ({ items: [] as GroupMemberRow[] })),
-        client.query.groups
-          .memberCountsFor([groupId])
-          .catch(() => new Map<string, number>()),
-        client.query.groups.postCountFor(groupId).catch(() => null),
-      ]);
+    const [
+      indexedRows,
+      feedResult,
+      membersResult,
+      countResult,
+      postCountResult,
+    ] = await Promise.all([
+      client.query.groups.byIds([groupId]).catch(() => []),
+      client.query.groups
+        .feed({ groupId, limit: 20 })
+        .catch(() => ({ items: [] as PostRow[], nextOffset: undefined })),
+      client.query.groups
+        .membersOf(groupId, { limit: 8 })
+        .catch(() => ({ items: [] as GroupMemberRow[] })),
+      client.query.groups
+        .memberCountsFor([groupId])
+        .catch(() => new Map<string, number>()),
+      client.query.groups.postCountFor(groupId).catch(() => null),
+    ]);
 
     const indexed = indexedRows[0] ?? null;
     if (indexed) {
@@ -962,8 +994,7 @@ export function LiveGuildPanel({
       '.os-app-screen-header'
     );
 
-    const screen =
-      scrollRoot.closest<HTMLElement>('.os-app-screen') ?? null;
+    const screen = scrollRoot.closest<HTMLElement>('.os-app-screen') ?? null;
     const railPin = scrollRoot.querySelector('.guild-feed-filter-pin');
 
     const syncElevated = () => {
@@ -1174,7 +1205,7 @@ export function LiveGuildPanel({
     if (effectiveIsBlacklisted) return;
 
     if (effectiveIsMember && effectiveIsOwner) {
-      setManageSheet('members');
+      openManageSheet('members');
       return;
     }
 
@@ -1228,7 +1259,11 @@ export function LiveGuildPanel({
                 : config.accessGated,
           });
         }
-        if (config.memberDriven && !effectiveIsMember && !effectiveJoinPending) {
+        if (
+          config.memberDriven &&
+          !effectiveIsMember &&
+          !effectiveJoinPending
+        ) {
           setOptimisticJoinPending(true);
         } else if (effectiveJoinPending) {
           setOptimisticJoinPending(false);
@@ -1276,7 +1311,7 @@ export function LiveGuildPanel({
     }
     clearConfirmLeave();
     if (effectiveIsMember && effectiveIsOwner) {
-      setManageSheet('members');
+      openManageSheet('members');
       return;
     }
     void runMembershipAction();
@@ -1610,7 +1645,6 @@ export function LiveGuildPanel({
         }
       : undefined;
 
-
   const renderFeedFilters = () => (
     <GuildFeedFilterList
       groupId={groupId}
@@ -1657,7 +1691,7 @@ export function LiveGuildPanel({
                 memberDriven={config.memberDriven}
                 canAddMember={canAddMember}
                 canReviewRequests={canManageGuild}
-                onOpenSheet={setManageSheet}
+                onOpenSheet={openManageSheet}
               />
             ) : null}
             {canManageGuild ? (
@@ -1760,9 +1794,8 @@ export function LiveGuildPanel({
             <p className="guild-eyebrow">Not found</p>
             <h2>We could not find this guild yet.</h2>
             <p>
-              If it was just created, wait for the transaction to settle and try
-              again. Anyone can open this page directly once the group exists on
-              the core contract.
+              If it was just created, wait a moment and try again. Anyone can
+              open this page once the guild is live.
             </p>
             <button
               className="guild-secondary-button"
@@ -1818,7 +1851,7 @@ export function LiveGuildPanel({
                     loading={!shellExtrasResolved}
                     onClick={() => {
                       if (!shellExtrasResolved) return;
-                      setManageSheet('members');
+                      openManageSheet('members');
                     }}
                     disabled={!shellExtrasResolved}
                   />
@@ -1872,9 +1905,7 @@ export function LiveGuildPanel({
                           !effectiveIsMember)
                       }
                       onClick={handleMembershipClick}
-                      onBlur={
-                        confirmingLeave ? clearConfirmLeave : undefined
-                      }
+                      onBlur={confirmingLeave ? clearConfirmLeave : undefined}
                     />
                   )}
                 </div>
@@ -1939,12 +1970,12 @@ export function LiveGuildPanel({
                         }}
                         onReply={replyHandler}
                         onQuote={quoteHandler}
-                    onRepost={repostHandler}
-                    onUndoRepost={undoRepostHandler}
+                        onRepost={repostHandler}
+                        onUndoRepost={undoRepostHandler}
                       />
                     </div>
                   ))}
-                  {(hasMorePosts || loadingMore) ? (
+                  {hasMorePosts || loadingMore ? (
                     <div className="home-feed-load-more">
                       {hasMorePosts ? (
                         <div
@@ -2050,7 +2081,7 @@ export function LiveGuildPanel({
           accountId={accountId}
           isMember={viewer?.isMember ?? false}
           memberDriven={config.memberDriven}
-          onClose={() => setManageSheet(null)}
+          onClose={() => openManageSheet(null)}
           onResolved={() => void refresh()}
         />
       ) : null}
@@ -2065,7 +2096,7 @@ export function LiveGuildPanel({
             viewerIsAdmin: viewer?.isAdmin ?? false,
             memberDriven: config.memberDriven,
           }}
-          onClose={() => setManageSheet(null)}
+          onClose={() => openManageSheet(null)}
           onMembersChanged={() => void refresh()}
           onAddStorage={(memberId) => {
             setGroupStorageRecipient(memberId);
@@ -2080,9 +2111,9 @@ export function LiveGuildPanel({
           accountId={accountId}
           isMember={viewer?.isMember ?? false}
           memberDriven={config.memberDriven}
-          onClose={() => setManageSheet(null)}
+          onClose={() => openManageSheet(null)}
           onOpenRequests={
-            viewer?.isMember ? () => setManageSheet('requests') : undefined
+            viewer?.isMember ? () => openManageSheet('requests') : undefined
           }
           onResolved={() => void refresh()}
         />
@@ -2092,7 +2123,7 @@ export function LiveGuildPanel({
           open
           groupId={groupId}
           memberIds={state.members.map((member) => member.memberId)}
-          onClose={() => setManageSheet(null)}
+          onClose={() => openManageSheet(null)}
           onAdded={() => void refresh()}
         />
       ) : null}
@@ -2119,7 +2150,7 @@ export function LiveGuildPanel({
             setFactsSheetOpen(false);
             const next = factsNextRef.current;
             factsNextRef.current = null;
-            if (next === 'members') setManageSheet('members');
+            if (next === 'members') openManageSheet('members');
           }}
           onOpenMembers={() => {
             factsNextRef.current = 'members';

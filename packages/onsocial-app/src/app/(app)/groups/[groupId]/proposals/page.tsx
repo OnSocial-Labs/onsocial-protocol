@@ -1,6 +1,5 @@
-import type { Metadata } from 'next';
-import { getGuildBlueprint } from '@/features/guilds/guilds-data';
-import { GuildProposalsPanel } from '@/features/guilds/guilds-panels';
+import { redirect } from 'next/navigation';
+import { guildSheetPath } from '@/features/guilds/guilds-data';
 
 type GuildProposalsPageProps = {
   params: Promise<{
@@ -8,21 +7,10 @@ type GuildProposalsPageProps = {
   }>;
 };
 
-export async function generateMetadata({
-  params,
-}: GuildProposalsPageProps): Promise<Metadata> {
-  const { groupId } = await params;
-  const guild = getGuildBlueprint(decodeURIComponent(groupId));
-
-  return {
-    title: `${guild.name} Proposals • OnSocial`,
-    description: `Guild proposals and collaborative governance for ${guild.name}.`,
-  };
-}
-
+/** Legacy `/proposals` deep links → live proposals sheet on the guild home. */
 export default async function GuildProposalsPage({
   params,
 }: GuildProposalsPageProps) {
   const { groupId } = await params;
-  return <GuildProposalsPanel groupId={decodeURIComponent(groupId)} />;
+  redirect(guildSheetPath(decodeURIComponent(groupId), 'proposals'));
 }

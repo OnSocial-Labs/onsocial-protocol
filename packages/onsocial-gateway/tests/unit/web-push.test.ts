@@ -50,6 +50,16 @@ describe('pushNotificationUrl', () => {
     ).toBe('/@dao.near?proposal=12');
   });
 
+  it('deep-links guild proposals to the live sheet', () => {
+    expect(
+      pushNotificationUrl({
+        notification_type: 'group_proposal',
+        actor: 'alice.near',
+        context: { groupId: 'guild.near' },
+      })
+    ).toBe('/groups/guild.near?sheet=proposals');
+  });
+
   it('deep-links profile anniversary to recipient portfolio', () => {
     expect(
       pushNotificationUrl({

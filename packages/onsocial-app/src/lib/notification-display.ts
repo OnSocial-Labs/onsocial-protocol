@@ -264,7 +264,7 @@ export function notificationHref(
     const groupId = textField(context, 'groupId');
     if (groupId) {
       if (type === 'group_proposal') {
-        return `${APP_GROUPS_PATH}/${encodeURIComponent(groupId)}/proposals`;
+        return `${APP_GROUPS_PATH}/${encodeURIComponent(groupId)}?sheet=proposals`;
       }
       return `${APP_GROUPS_PATH}/${encodeURIComponent(groupId)}`;
     }
@@ -358,7 +358,7 @@ export function isSystemNotification(
   ) {
     return true;
   }
-  return !(notification.actor?.trim());
+  return !notification.actor?.trim();
 }
 
 function systemFamily(type: string): NotificationSystemFamily {
@@ -470,8 +470,8 @@ export function notificationDescription(
 ): string {
   const { verb, snippet } = notificationDetail(notification);
   const when = formatNotificationTime(notification.createdAt).label;
-  const parts = [verb, snippet, when || null].filter(
-    (part): part is string => Boolean(part)
+  const parts = [verb, snippet, when || null].filter((part): part is string =>
+    Boolean(part)
   );
   return parts.join(' · ');
 }

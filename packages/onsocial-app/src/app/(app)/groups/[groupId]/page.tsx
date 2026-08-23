@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import {
   getGuildBlueprint,
   GUILD_PRODUCT_COPY,
+  parseGuildSheetParam,
 } from '@/features/guilds/guilds-data';
 import { LiveGuildPanel } from '@/features/guilds/live-guild-panel';
 import { loadGuildPageData } from '@/lib/load-guild-page';
@@ -9,6 +10,9 @@ import { loadGuildPageData } from '@/lib/load-guild-page';
 type GuildPageProps = {
   params: Promise<{
     groupId: string;
+  }>;
+  searchParams?: Promise<{
+    sheet?: string | string[];
   }>;
 };
 
@@ -33,9 +37,22 @@ export async function generateMetadata({
   };
 }
 
-export default async function GuildPage({ params }: GuildPageProps) {
+export default async function GuildPage({
+  params,
+  searchParams,
+}: GuildPageProps) {
   const { groupId } = await params;
+  const resolvedSearch = searchParams ? await searchParams : undefined;
+  const sheetRaw = Array.isArray(resolvedSearch?.sheet)
+    ? resolvedSearch.sheet[0]
+    : resolvedSearch?.sheet;
   const id = decodeURIComponent(groupId);
   const initial = await loadGuildPageData(id);
-  return <LiveGuildPanel groupId={id} initial={initial} />;
+  return (
+    <LiveGuildPanel
+      groupId={id}
+      initial={initial}
+      initialSheet={parseGuildSheetParam(sheetRaw)}
+    />
+  );
 }
