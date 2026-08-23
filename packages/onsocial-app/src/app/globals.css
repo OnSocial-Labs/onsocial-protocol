@@ -23807,6 +23807,13 @@ a.os-surface-row {
     cursor: pointer;
   }
 
+  /* Invisible hit-area expansion — tile corner button stays visually small. */
+  .drop-cover-seat-remove::after {
+    content: '';
+    position: absolute;
+    inset: -0.6rem;
+  }
+
   .drop-cover-seat-remove:hover:not(:disabled),
   .drop-cover-seat-remove:focus-visible {
     background: rgb(0 0 0 / 0.72);
@@ -24222,6 +24229,13 @@ a.os-surface-row {
     gap: 0.55rem;
   }
 
+  /* Tiny phones: full dates ("Aug 23, 2026, 3:00 PM") need the whole row. */
+  @media (max-width: 380px) {
+    .drop-schedule-pair {
+      grid-template-columns: 1fr;
+    }
+  }
+
   .drop-schedule-cell {
     display: flex;
     min-width: 0;
@@ -24285,6 +24299,7 @@ a.os-surface-row {
   }
 
   .drop-schedule-cell-clear {
+    position: relative;
     flex-shrink: 0;
     width: 1.85rem;
     height: 1.85rem;
@@ -24297,6 +24312,13 @@ a.os-surface-row {
     font-size: 0.8rem;
     line-height: 1;
     cursor: pointer;
+  }
+
+  /* Invisible hit-area expansion — keeps the compact chrome, ~44px target. */
+  .drop-schedule-cell-clear::after {
+    content: '';
+    position: absolute;
+    inset: -0.45rem;
   }
 
   .drop-schedule-cell-clear:hover:not(:disabled),
@@ -24800,6 +24822,7 @@ a.os-surface-row {
   }
 
   .gen-tool {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -24815,6 +24838,13 @@ a.os-surface-row {
     transition:
       background 160ms ease,
       color 160ms ease;
+  }
+
+  /* Invisible hit-area expansion — studio toolbar stays dense. */
+  .gen-tool::after {
+    content: '';
+    position: absolute;
+    inset: -0.5rem;
   }
 
   .gen-tool:not(:disabled):hover,
@@ -24965,6 +24995,13 @@ a.os-surface-row {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 0.4rem;
+  }
+
+  /* Tiny phones: 4-up tiles get too small to read — go two-up. */
+  @media (max-width: 380px) {
+    .gen-preview-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
   .gen-preview-grid img {
@@ -26075,12 +26112,29 @@ a.os-surface-row {
     margin: 0;
   }
 
+  /* Edge fade hints there are more template tabs off-screen (scrollbar is
+     hidden on the shared rail). */
+  .drop-template-toolbar .discover-tab-bar-scroller {
+    mask-image: linear-gradient(
+      to right,
+      #000 0%,
+      #000 calc(100% - 1.25rem),
+      transparent 100%
+    );
+  }
+
   /* Kind one-liner under the tabs — updates on pick; detail stays in header ?. */
   .drop-kind-lede {
     margin: 0 0 0.85rem;
     font-size: 0.875rem;
     line-height: 1.35;
-    color: var(--os-text-secondary, rgba(15, 23, 42, 0.62));
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  /* Keep focused inputs clear of the sticky chrome and the on-screen
+     keyboard when the browser auto-scrolls them into view. */
+  .drop-create-form :is(input, textarea, select):focus {
+    scroll-margin-block: 5rem 7rem;
   }
 
   .drop-media-ready-chip {
@@ -26123,8 +26177,10 @@ a.os-surface-row {
   }
 
   .drop-start-confirm-value {
+    min-width: 0;
     font-weight: 600;
     text-align: right;
+    overflow-wrap: anywhere;
   }
 
   .drop-start-confirm-note {
