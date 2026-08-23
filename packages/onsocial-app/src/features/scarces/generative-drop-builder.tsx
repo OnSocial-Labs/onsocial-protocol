@@ -34,12 +34,18 @@ import type {
   VariationSetUpload,
 } from '@onsocial/sdk';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
+import { fetchGenerativeRarityFromCid } from '@/features/scarces/variation-set-traits';
 import {
+  assertSameCanvasSize,
+  pngSizeFromBytes,
   comboAttributes,
+  GENERATIVE_RARITY_FILE,
   maxCombinations,
   sampleUniqueCombos,
+  tallyGenerativeRarity,
   MAX_GENERATED_PIECES,
   type GenLayerInput,
+  type GenerativeRarity,
 } from './generative-set';
 
 const MIN_PIECES = 2;
@@ -86,6 +92,7 @@ export interface BuilderDesignSummary {
 /** Imperative surface so the host can put Generate in the screen header. */
 export interface GenerativeBuilderHandle {
   generate: () => void;
+  reset: () => void;
 }
 
 export interface GeneratedSet {
@@ -94,6 +101,8 @@ export interface GeneratedSet {
   count: number;
   /** Object URLs of the first few composited pieces, for confirmation UI. */
   previews: string[];
+  /** Actual sealed-set frequencies, when known at generate time. */
+  rarity?: GenerativeRarity;
 }
 
 interface GenerativeDropBuilderProps {
@@ -108,6 +117,12 @@ interface GenerativeDropBuilderProps {
   /** Polls a server-side render job for progress. */
   remotePoll: (jobId: string) => Promise<GenerateSetJob>;
   onGenerated: (result: GeneratedSet) => void;
+  /** Server job to resume after refresh — polls until done or failed. */
+  resumeJobId?: string | null;
+  /** Persist the server job id so a refresh can resume polling. */
+  onJobStarted?: (jobId: string) => void;
+  /** Clear the persisted job after success or failure. */
+  onJobCleared?: () => void;
   /** Reports design progress so the host can summarize the studio while it's hidden. */
   onDesignChange?: (design: BuilderDesignSummary) => void;
   /** Exposes {@link GenerativeBuilderHandle} for the host's header CTA. */
@@ -141,6 +156,9 @@ export function GenerativeDropBuilder({
   remoteStart,
   remotePoll,
   onGenerated,
+  resumeJobId,
+  onJobStarted,
+  onJobCleared,
   onDesignChange,
   ref,
 }: GenerativeDropBuilderProps) {
@@ -159,6 +177,14 @@ export function GenerativeDropBuilder({
   const traitInputRef = useRef<HTMLInputElement>(null);
   const traitTargetLayerRef = useRef<string | null>(null);
   const traitNameInputRef = useRef<HTMLInputElement>(null);
+  /** Jobs started in this session — skip the resume effect for those. */
+  const localJobRef = useRef<string | null>(null);
+  const remotePollRef = useRef(remotePoll);
+  remotePollRef.current = remotePoll;
+  const onGeneratedRef = useRef(onGenerated);
+  onGeneratedRef.current = onGenerated;
+  const onJobClearedRef = useRef(onJobCleared);
+  onJobClearedRef.current = onJobCleared;
 
   const working = status.kind === 'working';
   const supply = Number.parseInt(supplyInput, 10);
@@ -332,18 +358,46 @@ export function GenerativeDropBuilder({
       const activeLayers = readyLayers;
       const genLayers = toGenLayers(activeLayers);
 
-      // Decode every trait image once, keyed by position in the layer list.
+      // Reject size mismatches from PNG headers first — do not stretch,
+      // and do not wait on a decode that may fail for the same reason.
       setStatus({ kind: 'working', label: 'Loading layers…' });
+      const headerSizes = await Promise.all(
+        activeLayers.flatMap((layer) =>
+          layer.traits.map(async (trait) => {
+            const bytes = new Uint8Array(await trait.file.arrayBuffer());
+            return pngSizeFromBytes(bytes);
+          })
+        )
+      );
+      const knownSizes = headerSizes.filter(
+        (size): size is { width: number; height: number } => size != null
+      );
+      if (knownSizes.length === headerSizes.length) {
+        assertSameCanvasSize(knownSizes);
+      }
+
       const bitmaps = await Promise.all(
         activeLayers.map((layer) =>
           Promise.all(
-            layer.traits.map((trait) => createImageBitmap(trait.file))
+            layer.traits.map(async (trait) => {
+              try {
+                return await createImageBitmap(trait.file);
+              } catch {
+                throw new Error(
+                  `Could not read “${trait.name.trim() || trait.file.name}” — use a PNG or WebP.`
+                );
+              }
+            })
           )
         )
       );
 
-      const width = bitmaps[0][0].width;
-      const height = bitmaps[0][0].height;
+      const { width, height } = assertSameCanvasSize(
+        bitmaps.flat().map((bitmap) => ({
+          width: bitmap.width,
+          height: bitmap.height,
+        }))
+      );
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
@@ -393,6 +447,8 @@ export function GenerativeDropBuilder({
             })),
           }))
         );
+        localJobRef.current = job.jobId;
+        onJobStarted?.(job.jobId);
 
         while (job.state !== 'done' && job.state !== 'failed') {
           setStatus({
@@ -406,21 +462,27 @@ export function GenerativeDropBuilder({
           job = await remotePoll(job.jobId);
         }
         if (job.state === 'failed' || !job.result?.reference) {
+          onJobCleared?.();
           throw new Error(job.error ?? 'Rendering the set failed — try again.');
         }
 
+        onJobCleared?.();
         setStatus({ kind: 'done' });
         onGenerated({
           artCid: job.result.variations.cid,
           traitsCid: job.result.reference.cid,
           count: job.result.variations.count,
           previews: previewUrls,
+          rarity:
+            (await fetchGenerativeRarityFromCid(job.result.reference.cid)) ??
+            undefined,
         });
         return;
       }
 
       // Local path: composite the full set in the browser and zip it.
       const combos = sampleUniqueCombos(genLayers, supply, cryptoRand);
+      const rarity = tallyGenerativeRarity(genLayers, combos);
       const artFiles: Record<string, Uint8Array> = {};
       const traitFiles: Record<string, Uint8Array> = {};
       const encoder = new TextEncoder();
@@ -447,6 +509,10 @@ export function GenerativeDropBuilder({
         }
       }
 
+      traitFiles[GENERATIVE_RARITY_FILE] = encoder.encode(
+        JSON.stringify(rarity)
+      );
+
       bitmaps.flat().forEach((bitmap) => bitmap.close());
       setPreviews(previewUrls);
 
@@ -470,6 +536,7 @@ export function GenerativeDropBuilder({
         traitsCid: pinned.reference.cid,
         count: pinned.variations.count,
         previews: previewUrls,
+        rarity,
       });
     } catch (cause) {
       setStatus({ kind: 'idle' });
@@ -487,11 +554,89 @@ export function GenerativeDropBuilder({
     remoteStart,
     remotePoll,
     onGenerated,
+    onJobStarted,
+    onJobCleared,
   ]);
 
-  useImperativeHandle(ref, () => ({ generate: () => void generate() }), [
-    generate,
-  ]);
+  // Resume a server render after refresh — previews may be empty.
+  useEffect(() => {
+    if (!resumeJobId) return;
+    if (localJobRef.current === resumeJobId) return;
+
+    let cancelled = false;
+    const run = async () => {
+      try {
+        setError(null);
+        setStatus({ kind: 'working', label: 'Resuming render…' });
+        let job = await remotePollRef.current(resumeJobId);
+        while (!cancelled && job.state !== 'done' && job.state !== 'failed') {
+          setStatus({
+            kind: 'working',
+            label:
+              job.state === 'pinning'
+                ? 'Pinning to IPFS…'
+                : `Rendering ${job.progress.done.toLocaleString()}/${job.progress.total.toLocaleString()} on OnSocial…`,
+          });
+          await new Promise((resolve) => setTimeout(resolve, REMOTE_POLL_MS));
+          job = await remotePollRef.current(resumeJobId);
+        }
+        if (cancelled) return;
+        if (job.state === 'failed' || !job.result?.reference) {
+          onJobClearedRef.current?.();
+          throw new Error(job.error ?? 'Rendering the set failed — try again.');
+        }
+        onJobClearedRef.current?.();
+        setStatus({ kind: 'done' });
+        onGeneratedRef.current({
+          artCid: job.result.variations.cid,
+          traitsCid: job.result.reference.cid,
+          count: job.result.variations.count,
+          previews: [],
+          rarity:
+            (await fetchGenerativeRarityFromCid(job.result.reference.cid)) ??
+            undefined,
+        });
+      } catch (cause) {
+        if (cancelled) return;
+        setStatus({ kind: 'idle' });
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : 'Resuming the render failed — try again.'
+        );
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [resumeJobId]);
+
+  const reset = useCallback(() => {
+    setLayers((prev) => {
+      prev.forEach((layer) =>
+        layer.traits.forEach((trait) => URL.revokeObjectURL(trait.url))
+      );
+      return [{ id: newId(), name: 'Background', optional: false, traits: [] }];
+    });
+    setSupplyInput('100');
+    setStatus({ kind: 'idle' });
+    setPreviews((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return [];
+    });
+    setError(null);
+    setEditingTrait(null);
+  }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      generate: () => void generate(),
+      reset,
+    }),
+    [generate, reset]
+  );
 
   return (
     <div className="gen-builder">
@@ -691,9 +836,7 @@ export function GenerativeDropBuilder({
         <span>Pieces to generate</span>
         <SuffixField
           value={supplyInput}
-          onValueChange={(value) =>
-            setSupplyInput(value.replace(/[^\d]/g, ''))
-          }
+          onValueChange={(value) => setSupplyInput(value.replace(/[^\d]/g, ''))}
           placeholder="100"
           aria-label="Pieces to generate"
           suffix="pieces"
@@ -704,7 +847,7 @@ export function GenerativeDropBuilder({
             ? supplyValid
               ? isRemoteSet
                 ? `Big set — rendered on OnSocial (a few minutes). Keep this screen open while it runs.`
-                : `${Math.min(possible, MAX_REMOTE_PIECES).toLocaleString()} unique pieces possible with these layers · higher weight = more common · tap a tile to rename`
+                : `${Math.min(possible, MAX_REMOTE_PIECES).toLocaleString()} unique pieces possible with these layers · same pixel size on every image · higher weight = more common · tap a tile to rename`
               : `Pick ${MIN_PIECES}–${Math.min(possible, MAX_REMOTE_PIECES).toLocaleString()} pieces — that's the most unique combinations these layers allow.`
             : 'Add trait images to each layer to unlock generating.'}
         </small>

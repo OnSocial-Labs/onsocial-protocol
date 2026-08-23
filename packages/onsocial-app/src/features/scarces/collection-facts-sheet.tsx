@@ -2,16 +2,8 @@
 
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
-import {
-  Divider,
-  OsHugSheet,
-  ProtocolMotionArrow,
-} from '@onsocial/ui';
-import {
-  SheetFactCopy,
-  SheetFactRow,
-  SheetFactSection,
-} from '@onsocial/ui';
+import { Divider, OsHugSheet, ProtocolMotionArrow } from '@onsocial/ui';
+import { SheetFactCopy, SheetFactRow, SheetFactSection } from '@onsocial/ui';
 import {
   collectionStatusLabel,
   deriveCollectionStatus,
@@ -152,7 +144,7 @@ export function CollectionFactsSheet({
         : `${view.maxPerWallet} per wallet`;
   const editionLabel = view.isVariations
     ? view.randomAssignment
-      ? 'Unique · random seat'
+      ? 'Unique · you get a random piece'
       : 'Unique · sequential'
     : 'Shared artwork';
   const rightsParts = [
@@ -208,7 +200,9 @@ export function CollectionFactsSheet({
               {access.ends ? (
                 <SheetFactRow label="Ends" value={access.ends} />
               ) : null}
-              {access.next ? <SheetFactCopy>{access.next}</SheetFactCopy> : null}
+              {access.next ? (
+                <SheetFactCopy>{access.next}</SheetFactCopy>
+              ) : null}
             </SheetFactSection>
             <Divider variant="detail" />
           </>

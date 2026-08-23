@@ -51,7 +51,9 @@ export {
   MAX_GENERATIVE_SUPPLY,
   parseGenerativeRecipe,
   validateLayerImages,
+  sampleUniqueCombos,
   renderGenerativeSet,
+  GENERATIVE_RARITY_FILE,
 } from './generative.js';
 export {
   type GenerateJobState,

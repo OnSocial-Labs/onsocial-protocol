@@ -13,7 +13,9 @@ import {
   parseGenerativeRecipe,
   validateLayerImages,
   renderGenerativeSet,
+  sampleUniqueCombos,
   ComposeError,
+  GENERATIVE_RARITY_FILE,
   type GenerativeRecipe,
 } from '../../../src/services/compose/index.js';
 import type { UploadedFile } from '../../../src/services/compose/index.js';
@@ -182,7 +184,14 @@ describe('renderGenerativeSet', () => {
         '3.png',
         '4.json',
         '4.png',
+        GENERATIVE_RARITY_FILE,
       ]);
+
+      const rarity = JSON.parse(
+        await readFile(join(tmp, GENERATIVE_RARITY_FILE), 'utf8')
+      ) as { supply: number; layers: Array<{ name: string }> };
+      expect(rarity.supply).toBe(4);
+      expect(rarity.layers[0].name).toBe('Background');
 
       // Trait JSON must be OpenSea-style attributes naming both layers.
       const traits = JSON.parse(await readFile(join(tmp, '1.json'), 'utf8'));
@@ -199,6 +208,16 @@ describe('renderGenerativeSet', () => {
       expect(
         artCall.files.map((f: { filename: string }) => f.filename)
       ).toEqual(['1.png', '2.png', '3.png', '4.png']);
+      const traitsCall = mockUploadDiskDirectory.mock.calls[1][0];
+      expect(
+        traitsCall.files.map((f: { filename: string }) => f.filename)
+      ).toEqual([
+        '1.json',
+        '2.json',
+        '3.json',
+        '4.json',
+        GENERATIVE_RARITY_FILE,
+      ]);
     } finally {
       await rm(tmp, { recursive: true, force: true });
     }
@@ -234,5 +253,47 @@ describe('renderGenerativeSet', () => {
       expect(error).toBeInstanceOf(ComposeError);
       expect((error as ComposeError).status).toBe(400);
     }
+  });
+});
+
+function seededRand(seed = 42): () => number {
+  let state = seed;
+  return () => {
+    state = (state * 1_664_525 + 1_013_904_223) % 4_294_967_296;
+    return state / 4_294_967_296;
+  };
+}
+
+describe('sampleUniqueCombos', () => {
+  it('keeps leftover seats weighted instead of flatten-filling', () => {
+    const layers = [
+      {
+        name: 'BG',
+        noneWeight: 0,
+        traits: [
+          { name: 'common', weight: 99, image: 0 },
+          { name: 'rare', weight: 1, image: 1 },
+        ],
+      },
+      {
+        name: 'Hat',
+        noneWeight: 0,
+        traits: ['a', 'b', 'c', 'd', 'e'].map((name, image) => ({
+          name,
+          weight: 1,
+          image,
+        })),
+      },
+    ];
+    const omittedRare: number[] = [];
+    for (let seed = 1; seed <= 40; seed += 1) {
+      const combos = sampleUniqueCombos(layers, 9, seededRand(seed));
+      expect(combos).toHaveLength(9);
+      const rareCount = combos.filter((combo) => combo[0] === 1).length;
+      omittedRare.push(5 - rareCount);
+    }
+    const omittedWasRare =
+      omittedRare.reduce((sum, n) => sum + n, 0) / omittedRare.length;
+    expect(omittedWasRare).toBeGreaterThan(0.7);
   });
 });

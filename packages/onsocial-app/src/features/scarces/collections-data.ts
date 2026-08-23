@@ -126,6 +126,10 @@ export interface CollectionView {
   maxRedeems: number | null;
   /** True when every token resolves its own artwork (media has a seat placeholder). */
   isVariations: boolean;
+  /** Sample piece URLs from the sealed variation set (cover + spread). */
+  variationSamples?: string[];
+  /** Trait JSON template with `{seat_number}`, when the set has a reference folder. */
+  variationReferenceTemplate?: string | null;
   /** True when mints draw a random unminted seat instead of the next one. */
   randomAssignment: boolean;
   /** Series grouping (from collection metadata `series`), when set. */
@@ -289,6 +293,8 @@ interface TemplateMeta {
   description?: string;
   mediaUrl: string | null;
   isVariations: boolean;
+  rawMedia: string | null;
+  variationReferenceTemplate: string | null;
   sourcePostPath?: string;
   cardBg?: string;
   kind?: string;
@@ -306,12 +312,44 @@ interface TemplateMeta {
 }
 
 const VARIATION_PLACEHOLDER = /\{(seat_number|index|token_id)\}/;
+/** Collector peek — enough to show the set without loading every seat. */
+export const VARIATION_SAMPLE_LIMIT = 8;
+
+/**
+ * Spread of 1-based seats for a variation preview grid.
+ * Always includes the cover seat when it is in range.
+ */
+export function variationSampleSeats(
+  totalSupply: number,
+  coverSeat: number,
+  limit = VARIATION_SAMPLE_LIMIT
+): number[] {
+  if (!Number.isSafeInteger(totalSupply) || totalSupply < 1) return [];
+  const cap = Math.min(Math.max(limit, 1), totalSupply);
+  const seats = new Set<number>();
+  if (
+    Number.isSafeInteger(coverSeat) &&
+    coverSeat >= 1 &&
+    coverSeat <= totalSupply
+  ) {
+    seats.add(coverSeat);
+  }
+  seats.add(1);
+  if (totalSupply > 1) seats.add(totalSupply);
+  if (seats.size < cap) {
+    const step = totalSupply / cap;
+    for (let i = 0; i < cap && seats.size < cap; i += 1) {
+      seats.add(Math.min(totalSupply, Math.max(1, Math.round(i * step) + 1)));
+    }
+  }
+  return [...seats].sort((a, b) => a - b).slice(0, cap);
+}
 
 /**
  * Cover art for a variation drop: the template media resolved for the
  * creator-chosen cover seat (defaults to seat 1).
  */
-function substituteSeat(
+export function substituteSeat(
   media: string,
   collectionId: string,
   seat: number
@@ -364,8 +402,7 @@ export function parseCoverMeta(metadataJson: string | null | undefined): {
     const cover = asRecord(meta?.cover);
     if (!cover) return empty;
     const seatNum = Number(cover.seat);
-    const seat =
-      Number.isSafeInteger(seatNum) && seatNum >= 1 ? seatNum : null;
+    const seat = Number.isSafeInteger(seatNum) && seatNum >= 1 ? seatNum : null;
     const url =
       typeof cover.url === 'string' && cover.url.trim()
         ? cover.url.trim()
@@ -444,6 +481,8 @@ function parseTemplate(
     title: collectionId,
     mediaUrl: null,
     isVariations: false,
+    rawMedia: null,
+    variationReferenceTemplate: null,
   };
   if (!template) return fallback;
   try {
@@ -457,6 +496,8 @@ function parseTemplate(
         ? meta.description.trim()
         : undefined;
     const rawMedia = typeof meta.media === 'string' ? meta.media : null;
+    const rawReference =
+      typeof meta.reference === 'string' ? meta.reference : null;
     const isVariations =
       rawMedia != null && VARIATION_PLACEHOLDER.test(rawMedia);
     const title = isVariations
@@ -520,6 +561,11 @@ function parseTemplate(
       ...(description ? { description } : {}),
       mediaUrl,
       isVariations,
+      rawMedia: rawMedia && isVariations ? rawMedia : null,
+      variationReferenceTemplate:
+        rawReference && VARIATION_PLACEHOLDER.test(rawReference)
+          ? rawReference
+          : null,
       ...(sourcePostPath ? { sourcePostPath } : {}),
       ...(cardBg ? { cardBg } : {}),
       ...(kind ? { kind } : {}),
@@ -629,6 +675,17 @@ export function toCollectionView(
     renewable: Boolean(record.renewable),
     maxRedeems,
     isVariations: template.isVariations,
+    variationSamples:
+      template.isVariations && template.rawMedia
+        ? variationSampleSeats(totalSupply, coverSeat)
+            .map((seat) =>
+              resolveScarceMediaUrl(
+                substituteSeat(template.rawMedia!, collectionId, seat)
+              )
+            )
+            .filter((url): url is string => Boolean(url))
+        : [],
+    variationReferenceTemplate: template.variationReferenceTemplate,
     randomAssignment: Boolean(record.random_assignment),
     seriesId: series?.id ?? null,
     seriesTitle: series?.title ?? null,
@@ -912,8 +969,9 @@ export async function fetchCollectionsByApp(
   try {
     const client =
       opts.client ??
-      (await import('@/lib/create-readonly-onsocial-client'))
-        .createReadOnlyOnSocialClient();
+      (
+        await import('@/lib/create-readonly-onsocial-client')
+      ).createReadOnlyOnSocialClient();
     const catalog = await client.query.scarces.collectionsCurrent({
       appId: id,
       limit,
