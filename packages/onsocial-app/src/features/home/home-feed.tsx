@@ -67,9 +67,9 @@ import { subscribePersonalPostConfirmed } from '@/features/scarces/drop-compose-
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
   applyOptimisticAmplifyHeat,
-  effectiveAmplifyHeat,
   mergeAmplifyHeatFloors,
   optimisticAmplifyHeatDelta,
+  sortPostsByHot,
   type AmplifyHeatFloor,
   type AmplifySuccessDetail,
 } from '@/lib/amplify-heat';
@@ -208,14 +208,9 @@ async function loadFocusedFeedPage(
             offset,
           });
   // Topic/ticker indexes are chronological; hot reorders each hydrated page.
+  // Append paths re-rank the full accumulated list so cross-page order holds.
   if (sort !== 'hot') return page;
-  const items = [...page.items].sort((a, b) => {
-    const byHeat =
-      effectiveAmplifyHeat(b.amplifyHeat) - effectiveAmplifyHeat(a.amplifyHeat);
-    if (byHeat !== 0) return byHeat;
-    return (b.blockHeight ?? 0) - (a.blockHeight ?? 0);
-  });
-  return { ...page, items };
+  return { ...page, items: sortPostsByHot(page.items) };
 }
 
 function HomeFeedLoadMoreFooter({
@@ -408,10 +403,11 @@ export function HomePagePanel({
   /**
    * Hot: optimistic heat bump + in-memory re-sort for instant lift, then one
    * soft reconcile refetch so indexer heat can replace the estimate.
+   * Focus feeds re-rank client-side, so the lift applies there too.
    */
   const handleAmplified = useCallback(
     (post: PostRow, detail: AmplifySuccessDetail) => {
-      if (sort !== 'hot' || activeFocus) return;
+      if (sort !== 'hot') return;
 
       const key = postKey(post);
       const delta = optimisticAmplifyHeatDelta(detail);
@@ -433,7 +429,7 @@ export function HomePagePanel({
         setReloadNonce((value) => value + 1);
       }, 2_500);
     },
-    [activeFocus, clearAmplifyReconcileTimer, sort]
+    [clearAmplifyReconcileTimer, sort]
   );
 
   useEffect(() => {
@@ -539,6 +535,11 @@ export function HomePagePanel({
 
         standingSourcesRef.current = result.standingSources;
         const items = result.page.items;
+        // Drop expired optimistic floors so the map does not grow unbounded.
+        const nowMs = Date.now();
+        for (const [key, floor] of amplifyHeatFloorsRef.current) {
+          if (floor.untilMs <= nowMs) amplifyHeatFloorsRef.current.delete(key);
+        }
         setPosts((current) => {
           revokeDroppedOptimisticMedia(current, items);
           const ranked =
@@ -639,7 +640,14 @@ export function HomePagePanel({
         if (pendingShift > 0) {
           offsetShiftAppliedRef.current += pendingShift;
         }
-        setPosts((current) => mergeFeedPosts(current, result.page.items));
+        setPosts((current) => {
+          const merged = mergeFeedPosts(current, result.page.items);
+          // Focus Hot pages arrive chrono; re-rank the whole list so a hot
+          // post from a later page can outrank cold rows from earlier pages.
+          return focus != null && sort === 'hot'
+            ? sortPostsByHot(merged)
+            : merged;
+        });
         setNextOffset(result.page.nextOffset);
         nextOffsetRef.current = result.page.nextOffset;
       } catch {
