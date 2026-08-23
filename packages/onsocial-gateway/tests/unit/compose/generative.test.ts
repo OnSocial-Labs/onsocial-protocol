@@ -211,7 +211,13 @@ describe('renderGenerativeSet', () => {
       const traitsCall = mockUploadDiskDirectory.mock.calls[1][0];
       expect(
         traitsCall.files.map((f: { filename: string }) => f.filename)
-      ).toEqual(['1.json', '2.json', '3.json', '4.json', GENERATIVE_RARITY_FILE]);
+      ).toEqual([
+        '1.json',
+        '2.json',
+        '3.json',
+        '4.json',
+        GENERATIVE_RARITY_FILE,
+      ]);
     } finally {
       await rm(tmp, { recursive: true, force: true });
     }

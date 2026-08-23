@@ -454,7 +454,13 @@ export function tallyGenerativeRarity(
         name: layer.name,
         traits,
         ...(layer.noneWeight > 0
-          ? { none: { name: 'none', count: noneCount, pct: pct(noneCount, supply) } }
+          ? {
+              none: {
+                name: 'none',
+                count: noneCount,
+                pct: pct(noneCount, supply),
+              },
+            }
           : {}),
       };
     }),
