@@ -17,11 +17,29 @@ import {
 
 export type { FeedSection, FeedSort };
 
-/** Set when GraphQL rejects `postsFeed` (view not tracked yet). */
-let postsFeedUnavailable = false;
+/**
+ * Downgrade window after a schema miss before retrying the full query.
+ * Keeps one transient Hasura metadata gap from degrading a long-lived
+ * client (or SSR process) forever.
+ */
+const SCHEMA_FALLBACK_TTL_MS = 5 * 60 * 1000;
 
-/** Set when GraphQL rejects `amplifyHeat` (column not tracked yet). */
-let amplifyHeatUnavailable = false;
+/** Per-client "schema feature missing" latch with expiry. */
+class SchemaFallback {
+  private until = 0;
+
+  get active(): boolean {
+    return Date.now() < this.until;
+  }
+
+  trip(): void {
+    this.until = Date.now() + SCHEMA_FALLBACK_TTL_MS;
+  }
+
+  clear(): void {
+    this.until = 0;
+  }
+}
 
 const FEED_POST_ROW_FIELDS_NO_HEAT = FEED_POST_ROW_FIELDS.replace(
   /\s*amplifyHeat\s*/,
@@ -48,6 +66,12 @@ function isAmplifyHeatUnavailableError(err: unknown): boolean {
 }
 
 export class FeedQuery {
+  /** Set when GraphQL rejects `postsFeed` (view not tracked yet). */
+  private postsFeedFallback = new SchemaFallback();
+
+  /** Set when GraphQL rejects `amplifyHeat` (column not tracked yet). */
+  private amplifyHeatFallback = new SchemaFallback();
+
   constructor(private _q: QueryModule) {}
 
   private async enrichFeedPosts(rows: PostRow[]): Promise<PostRow[]> {
@@ -106,24 +130,27 @@ export class FeedQuery {
     /** Chrono-only postsFeed query when amplifyHeat is not tracked yet. */
     postsFeedQueryNoHeat?: string;
   }): Promise<PostRow[]> {
-    if (!postsFeedUnavailable) {
-      const feedQuery =
-        amplifyHeatUnavailable && args.postsFeedQueryNoHeat
-          ? args.postsFeedQueryNoHeat
-          : args.postsFeedQuery;
+    if (!this.postsFeedFallback.active) {
+      const useNoHeat =
+        this.amplifyHeatFallback.active && Boolean(args.postsFeedQueryNoHeat);
+      const feedQuery = useNoHeat
+        ? args.postsFeedQueryNoHeat!
+        : args.postsFeedQuery;
       try {
         const res = await this._q.graphql<{ postsFeed: PostRow[] }>({
           query: feedQuery,
           variables: args.variables,
         });
+        // A full-heat success means the column is tracked again.
+        if (!useNoHeat) this.amplifyHeatFallback.clear();
         return res.data?.postsFeed ?? [];
       } catch (err) {
         if (
-          !amplifyHeatUnavailable &&
+          !useNoHeat &&
           args.postsFeedQueryNoHeat &&
           isAmplifyHeatUnavailableError(err)
         ) {
-          amplifyHeatUnavailable = true;
+          this.amplifyHeatFallback.trip();
           const res = await this._q.graphql<{ postsFeed: PostRow[] }>({
             query: args.postsFeedQueryNoHeat,
             variables: args.variables,
@@ -131,7 +158,7 @@ export class FeedQuery {
           return res.data?.postsFeed ?? [];
         }
         if (!isPostsFeedUnavailableError(err)) throw err;
-        postsFeedUnavailable = true;
+        this.postsFeedFallback.trip();
       }
     }
 
@@ -140,6 +167,60 @@ export class FeedQuery {
       variables: args.variables,
     });
     return this.enrichFeedPosts(res.data?.postsCurrent ?? []);
+  }
+
+  /**
+   * Hydrate index stubs (accountId + postId) into full feed rows,
+   * preserving stub order. Shared by hashtag / ticker / place feeds.
+   */
+  private async hydrateStubRows(
+    queryName: string,
+    stubs: Array<{ accountId: string; postId: string }>,
+    limit: number
+  ): Promise<PostRow[]> {
+    const accountIds = Array.from(new Set(stubs.map((row) => row.accountId)));
+    const postIds = Array.from(new Set(stubs.map((row) => row.postId)));
+    const variables = {
+      accounts: accountIds,
+      postIds,
+      limit: Math.max(stubs.length * 2, limit),
+    };
+    const whereClause = `where: {
+            _and: [
+              { accountId: { _in: $accounts } },
+              { postId: { _in: $postIds } }
+            ]
+          },
+          limit: $limit`;
+
+    const hydratedRows = await this.queryFeedRows({
+      variables,
+      postsFeedQuery: `query ${queryName}($accounts: [String!]!, $postIds: [String!]!, $limit: Int!) {
+        postsFeed(${whereClause}) {
+          ${FEED_POST_ROW_FIELDS}
+        }
+      }`,
+      postsFeedQueryNoHeat: `query ${queryName}($accounts: [String!]!, $postIds: [String!]!, $limit: Int!) {
+        postsFeed(${whereClause}) {
+          ${FEED_POST_ROW_FIELDS_NO_HEAT}
+        }
+      }`,
+      postsCurrentQuery: `query ${queryName}($accounts: [String!]!, $postIds: [String!]!, $limit: Int!) {
+        postsCurrent(${whereClause}) {
+          ${POST_ROW_FIELDS}
+        }
+      }`,
+    });
+
+    const byKey = new Map(
+      hydratedRows.map(
+        (row) => [`${row.accountId}\0${row.postId}`, row] as const
+      )
+    );
+
+    return stubs
+      .map((stub) => byKey.get(`${stub.accountId}\0${stub.postId}`))
+      .filter((row): row is PostRow => row != null);
   }
 
   /**
@@ -312,6 +393,18 @@ export class FeedQuery {
           ${FEED_POST_ROW_FIELDS}
         }
       }`,
+      postsFeedQueryNoHeat: `query FilteredFeed($accounts: [String!]!, $limit: Int!, $offset: Int!${filterExtras}) {
+        postsFeed(
+          where: {_and: [
+            {accountId: {_in: $accounts}}${whereExtras}
+          ]},
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          ${FEED_POST_ROW_FIELDS_NO_HEAT}
+        }
+      }`,
       postsCurrentQuery: `query FilteredFeed($accounts: [String!]!, $limit: Int!, $offset: Int!${filterExtras}) {
         postsCurrent(
           where: {_and: [
@@ -379,54 +472,11 @@ export class FeedQuery {
       return { items: [], nextOffset };
     }
 
-    const accountIds = Array.from(new Set(stubs.map((row) => row.accountId)));
-    const postIds = Array.from(new Set(stubs.map((row) => row.postId)));
-    const hydrateVariables = {
-      accounts: accountIds,
-      postIds,
-      limit: Math.max(stubs.length * 2, limit),
-    };
-
-    const hydratedRows = await this.queryFeedRows({
-      variables: hydrateVariables,
-      postsFeedQuery: `query PostsByHashtagHydrate($accounts: [String!]!, $postIds: [String!]!, $limit: Int!) {
-        postsFeed(
-          where: {
-            _and: [
-              { accountId: { _in: $accounts } },
-              { postId: { _in: $postIds } }
-            ]
-          },
-          limit: $limit
-        ) {
-          ${FEED_POST_ROW_FIELDS}
-        }
-      }`,
-      postsCurrentQuery: `query PostsByHashtagHydrate($accounts: [String!]!, $postIds: [String!]!, $limit: Int!) {
-        postsCurrent(
-          where: {
-            _and: [
-              { accountId: { _in: $accounts } },
-              { postId: { _in: $postIds } }
-            ]
-          },
-          limit: $limit
-        ) {
-          ${POST_ROW_FIELDS}
-        }
-      }`,
-    });
-
-    const byKey = new Map(
-      hydratedRows.map(
-        (row) => [`${row.accountId}\0${row.postId}`, row] as const
-      )
+    const items = await this.hydrateStubRows(
+      'PostsByHashtagHydrate',
+      stubs,
+      limit
     );
-
-    const items = stubs
-      .map((stub) => byKey.get(`${stub.accountId}\0${stub.postId}`))
-      .filter((row): row is PostRow => row != null);
-
     return { items, nextOffset };
   }
 
@@ -477,54 +527,11 @@ export class FeedQuery {
       return { items: [], nextOffset };
     }
 
-    const accountIds = Array.from(new Set(stubs.map((row) => row.accountId)));
-    const postIds = Array.from(new Set(stubs.map((row) => row.postId)));
-    const hydrateVariables = {
-      accounts: accountIds,
-      postIds,
-      limit: Math.max(stubs.length * 2, limit),
-    };
-
-    const hydratedRows = await this.queryFeedRows({
-      variables: hydrateVariables,
-      postsFeedQuery: `query PostsByTickerHydrate($accounts: [String!]!, $postIds: [String!]!, $limit: Int!) {
-        postsFeed(
-          where: {
-            _and: [
-              { accountId: { _in: $accounts } },
-              { postId: { _in: $postIds } }
-            ]
-          },
-          limit: $limit
-        ) {
-          ${FEED_POST_ROW_FIELDS}
-        }
-      }`,
-      postsCurrentQuery: `query PostsByTickerHydrate($accounts: [String!]!, $postIds: [String!]!, $limit: Int!) {
-        postsCurrent(
-          where: {
-            _and: [
-              { accountId: { _in: $accounts } },
-              { postId: { _in: $postIds } }
-            ]
-          },
-          limit: $limit
-        ) {
-          ${POST_ROW_FIELDS}
-        }
-      }`,
-    });
-
-    const byKey = new Map(
-      hydratedRows.map(
-        (row) => [`${row.accountId}\0${row.postId}`, row] as const
-      )
+    const items = await this.hydrateStubRows(
+      'PostsByTickerHydrate',
+      stubs,
+      limit
     );
-
-    const items = stubs
-      .map((stub) => byKey.get(`${stub.accountId}\0${stub.postId}`))
-      .filter((row): row is PostRow => row != null);
-
     return { items, nextOffset };
   }
 
@@ -575,54 +582,11 @@ export class FeedQuery {
       return { items: [], nextOffset };
     }
 
-    const accountIds = Array.from(new Set(stubs.map((row) => row.accountId)));
-    const postIds = Array.from(new Set(stubs.map((row) => row.postId)));
-    const hydrateVariables = {
-      accounts: accountIds,
-      postIds,
-      limit: Math.max(stubs.length * 2, limit),
-    };
-
-    const hydratedRows = await this.queryFeedRows({
-      variables: hydrateVariables,
-      postsFeedQuery: `query PostsByPlaceHydrate($accounts: [String!]!, $postIds: [String!]!, $limit: Int!) {
-        postsFeed(
-          where: {
-            _and: [
-              { accountId: { _in: $accounts } },
-              { postId: { _in: $postIds } }
-            ]
-          },
-          limit: $limit
-        ) {
-          ${FEED_POST_ROW_FIELDS}
-        }
-      }`,
-      postsCurrentQuery: `query PostsByPlaceHydrate($accounts: [String!]!, $postIds: [String!]!, $limit: Int!) {
-        postsCurrent(
-          where: {
-            _and: [
-              { accountId: { _in: $accounts } },
-              { postId: { _in: $postIds } }
-            ]
-          },
-          limit: $limit
-        ) {
-          ${POST_ROW_FIELDS}
-        }
-      }`,
-    });
-
-    const byKey = new Map(
-      hydratedRows.map(
-        (row) => [`${row.accountId}\0${row.postId}`, row] as const
-      )
+    const items = await this.hydrateStubRows(
+      'PostsByPlaceHydrate',
+      stubs,
+      limit
     );
-
-    const items = stubs
-      .map((stub) => byKey.get(`${stub.accountId}\0${stub.postId}`))
-      .filter((row): row is PostRow => row != null);
-
     return { items, nextOffset };
   }
 }
