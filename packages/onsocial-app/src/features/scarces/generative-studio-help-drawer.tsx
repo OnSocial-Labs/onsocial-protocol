@@ -12,7 +12,7 @@ const STUDIO_HELP_SUMMARY =
  * actually misread (Optional, weight); the rest stays flow, not a glossary.
  */
 const STUDIO_HELP_DETAIL =
-  'First layer is the background; later layers stack on top — use transparent PNG or WebP. Optional: some pieces skip that layer (e.g. no hat). Tap a tile to rename it; higher weight means more common. Set how many pieces, then Generate. You can step back to the drop form — a large render keeps going and resumes if you refresh.';
+  'First layer is the background; later layers stack on top — use transparent PNG or WebP, all the same pixel size. Optional: some pieces skip that layer (e.g. no hat). Tap a tile to rename it; higher weight means more common. Set how many pieces, then Generate. You can step back to the drop form — layers stay, and a large render keeps going and resumes if you refresh.';
 
 interface GenerativeStudioHelpDrawerProps {
   open: boolean;

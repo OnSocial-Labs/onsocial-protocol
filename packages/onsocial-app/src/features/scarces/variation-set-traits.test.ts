@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { variationSampleSeats } from '@/features/scarces/collections-data';
-import { summarizeVariationTraits } from '@/features/scarces/variation-set-traits';
+import {
+  summarizeVariationTraits,
+  traitsDirectoryRarityUrl,
+  traitsReferenceRarityUrl,
+} from '@/features/scarces/variation-set-traits';
 
 describe('variationSampleSeats', () => {
   it('spreads seats and always keeps the cover', () => {
@@ -29,5 +33,19 @@ describe('summarizeVariationTraits', () => {
         },
       ])
     ).toEqual(['Background', 'Hat', 'Body']);
+  });
+});
+
+describe('generative rarity urls', () => {
+  it('points at _rarity.json beside seat trait files', () => {
+    expect(traitsDirectoryRarityUrl('bafytraits')).toContain(
+      '/bafytraits/_rarity.json'
+    );
+    expect(
+      traitsReferenceRarityUrl(
+        'https://gateway.example/ipfs/bafytraits/{seat_number}.json',
+        'set-1'
+      )
+    ).toContain('/bafytraits/_rarity.json');
   });
 });

@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assertSameCanvasSize,
   comboAttributes,
   comboKey,
+  formatGenerativeRarityLines,
   maxCombinations,
+  parseGenerativeRarity,
   sampleUniqueCombos,
+  tallyGenerativeRarity,
   type GenLayerInput,
 } from './generative-set';
 
@@ -58,11 +62,29 @@ describe('sampleUniqueCombos', () => {
     expect(new Set(combos.map(comboKey)).size).toBe(12);
   });
 
-  it('fills a fully saturated set via enumeration fallback', () => {
+  it('fills a fully saturated set with every unique combo', () => {
     const layers = [layer('BG', ['a', 'b']), layer('Body', ['x', 'y', 'z'])];
     const combos = sampleUniqueCombos(layers, 6, seededRand());
     expect(combos).toHaveLength(6);
     expect(new Set(combos.map(comboKey)).size).toBe(6);
+  });
+
+  it('keeps leftover seats weighted instead of flatten-filling', () => {
+    const layers = [
+      layer('BG', ['common', 'rare'], { weights: [99, 1] }),
+      layer('Hat', ['a', 'b', 'c', 'd', 'e']),
+    ];
+    const omittedRare: number[] = [];
+    for (let seed = 1; seed <= 40; seed += 1) {
+      const combos = sampleUniqueCombos(layers, 9, seededRand(seed));
+      expect(combos).toHaveLength(9);
+      const rareCount = combos.filter((combo) => combo[0] === 1).length;
+      omittedRare.push(5 - rareCount);
+    }
+    const omittedWasRare =
+      omittedRare.reduce((sum, n) => sum + n, 0) / omittedRare.length;
+    // 5 common + 5 rare combos, take 9: the omitted seat should usually be rare.
+    expect(omittedWasRare).toBeGreaterThan(0.7);
   });
 
   it('rejects a supply beyond the possible combinations', () => {
@@ -94,6 +116,50 @@ describe('sampleUniqueCombos', () => {
     const layers = [layer('BG', ['a', 'b'], { noneWeight: 0 })];
     const combos = sampleUniqueCombos(layers, 2, seededRand());
     expect(combos.every((combo) => combo[0] >= 0)).toBe(true);
+  });
+});
+
+describe('assertSameCanvasSize', () => {
+  it('accepts matching sizes and rejects a mismatch', () => {
+    expect(
+      assertSameCanvasSize([
+        { width: 512, height: 512 },
+        { width: 512, height: 512 },
+      ])
+    ).toEqual({ width: 512, height: 512 });
+    expect(() =>
+      assertSameCanvasSize([
+        { width: 512, height: 512 },
+        { width: 256, height: 512 },
+      ])
+    ).toThrow('256×512');
+  });
+});
+
+describe('tallyGenerativeRarity', () => {
+  it('counts sealed-set frequencies, including optional none', () => {
+    const layers = [
+      layer('Background', ['Red', 'Blue']),
+      layer('Hat', ['Crown'], { noneWeight: 1 }),
+    ];
+    const rarity = tallyGenerativeRarity(layers, [
+      [0, 0],
+      [0, -1],
+      [1, -1],
+    ]);
+    expect(rarity.supply).toBe(3);
+    expect(rarity.layers[0]?.traits).toEqual([
+      { name: 'Red', count: 2, pct: 66.7 },
+      { name: 'Blue', count: 1, pct: 33.3 },
+    ]);
+    expect(rarity.layers[1]?.none).toEqual({
+      name: 'none',
+      count: 2,
+      pct: 66.7,
+    });
+    expect(formatGenerativeRarityLines(rarity)[0]).toContain('Red 67%');
+    expect(parseGenerativeRarity(rarity)).toEqual(rarity);
+    expect(parseGenerativeRarity({ supply: 0, layers: [] })).toBeNull();
   });
 });
 

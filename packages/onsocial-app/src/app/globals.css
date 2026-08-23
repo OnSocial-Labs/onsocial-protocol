@@ -25043,6 +25043,18 @@ a.os-surface-row {
     color: var(--os-surface-muted-strong);
   }
 
+  .collection-set-peek-rarity {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: var(--os-surface-muted-strong);
+  }
+
   /* ── App (store) create + access controls ─── */
   /* Borderless soft chips — same ladder as os-surface-chip (no card chrome). */
 

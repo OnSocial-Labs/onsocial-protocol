@@ -239,7 +239,34 @@ export function maxCombinations(layers: GenerativeLayerRecipe[]): number {
   return total;
 }
 
-const MAX_ENUMERABLE_COMBOS = 500_000;
+/**
+ * Enumerate + weighted sample without replacement up to this many combos.
+ * Near-full sets above this (and ≤ {@link MAX_ENUMERABLE_COMBOS}) still
+ * enumerate so leftover seats stay weighted instead of flatten-filled.
+ */
+const MAX_WEIGHTED_ENUMERATE = 50_000;
+/** Hard cap — above this we only rejection-sample, never enumerate. */
+const MAX_ENUMERABLE_COMBOS = 200_000;
+
+/** Pinned next to `1.json` in the traits folder — actual sealed-set frequencies. */
+export const GENERATIVE_RARITY_FILE = '_rarity.json';
+
+function comboKey(combo: GenCombo): string {
+  return combo.join('|');
+}
+
+function comboWeight(layers: GenerativeLayerRecipe[], combo: GenCombo): number {
+  let weight = 1;
+  for (let index = 0; index < layers.length; index += 1) {
+    const traitIndex = combo[index] ?? -1;
+    const layer = layers[index];
+    weight *=
+      traitIndex < 0
+        ? Math.max(0, layer.noneWeight)
+        : Math.max(0, layer.traits[traitIndex]?.weight ?? 0);
+  }
+  return weight;
+}
 
 function drawTrait(layer: GenerativeLayerRecipe, rand: () => number): number {
   const total =
@@ -284,49 +311,154 @@ function cryptoRand(): number {
   return randomBytes(6).readUIntBE(0, 6) / 2 ** 48;
 }
 
+function shuffleInPlace<T>(items: T[], rand: () => number): T[] {
+  for (let index = items.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(rand() * (index + 1));
+    const tmp = items[index];
+    items[index] = items[swap];
+    items[swap] = tmp;
+  }
+  return items;
+}
+
 /**
- * Draw `count` unique weighted combos: rejection sampling first (preserves
- * rarity weights), exhaustive enumeration as a fallback for nearly
- * saturated sets.
+ * Efraimidis–Spirakis weighted sample without replacement.
+ * Each combo is picked in proportion to its layer-weight product.
+ */
+function weightedSampleWithoutReplacement(
+  weighted: Array<{ combo: GenCombo; weight: number }>,
+  count: number,
+  rand: () => number
+): GenCombo[] {
+  const keyed = weighted
+    .filter((row) => row.weight > 0)
+    .map((row) => ({
+      combo: row.combo,
+      key: Math.pow(rand(), 1 / row.weight),
+    }));
+  keyed.sort((left, right) => right.key - left.key);
+  return keyed.slice(0, count).map((row) => row.combo);
+}
+
+function shouldEnumerateWeighted(possible: number, count: number): boolean {
+  if (possible <= MAX_WEIGHTED_ENUMERATE) return true;
+  return possible <= MAX_ENUMERABLE_COMBOS && count / possible >= 0.5;
+}
+
+/**
+ * Draw `count` unique combos. Full unique space = every combo once (weights
+ * do not change rarity). Partial sets use weighted sampling without
+ * replacement when the space is enumerable; otherwise rejection sampling.
+ * Never flatten leftover seats in enumerate order.
  */
 export function sampleUniqueCombos(
   layers: GenerativeLayerRecipe[],
   count: number,
   rand: () => number = cryptoRand
 ): GenCombo[] {
+  const possible = maxCombinations(layers);
+  if (count > possible) {
+    throw new ComposeError(
+      400,
+      `Only ${possible} unique combinations are possible with these layers — add traits or lower the supply below ${count}`
+    );
+  }
+
+  if (count === possible) {
+    if (possible > MAX_ENUMERABLE_COMBOS) {
+      throw new ComposeError(
+        400,
+        'This full unique set is too large to enumerate — lower the supply'
+      );
+    }
+    return shuffleInPlace([...enumerateCombos(layers)], rand);
+  }
+
+  if (shouldEnumerateWeighted(possible, count)) {
+    const weighted = [...enumerateCombos(layers)].map((combo) => ({
+      combo,
+      weight: comboWeight(layers, combo),
+    }));
+    return weightedSampleWithoutReplacement(weighted, count, rand);
+  }
+
   const seen = new Set<string>();
   const combos: GenCombo[] = [];
   const maxAttempts = count * 100 + 1_000;
-
   for (
     let attempt = 0;
     attempt < maxAttempts && combos.length < count;
     attempt += 1
   ) {
     const combo = layers.map((layer) => drawTrait(layer, rand));
-    const key = combo.join('|');
+    const key = comboKey(combo);
     if (seen.has(key)) continue;
     seen.add(key);
     combos.push(combo);
   }
-
   if (combos.length < count) {
-    if (maxCombinations(layers) > MAX_ENUMERABLE_COMBOS) {
-      throw new ComposeError(
-        400,
-        'The rarity weights are too skewed to fill this supply with unique pieces — flatten the weights or lower the supply'
-      );
-    }
-    for (const combo of enumerateCombos(layers)) {
-      if (combos.length >= count) break;
-      const key = combo.join('|');
-      if (seen.has(key)) continue;
-      seen.add(key);
-      combos.push(combo);
-    }
+    throw new ComposeError(
+      400,
+      'The rarity weights are too skewed to fill this supply with unique pieces — flatten the weights or lower the supply'
+    );
   }
-
   return combos;
+}
+
+interface GenerativeRarityTrait {
+  name: string;
+  count: number;
+  pct: number;
+}
+
+interface GenerativeRarityLayer {
+  name: string;
+  traits: GenerativeRarityTrait[];
+  none?: GenerativeRarityTrait;
+}
+
+export interface GenerativeRarity {
+  supply: number;
+  layers: GenerativeRarityLayer[];
+}
+
+function pct(count: number, supply: number): number {
+  if (supply <= 0) return 0;
+  return Math.round((count / supply) * 1000) / 10;
+}
+
+/** Count each trait in the sealed set — the honest rarity. */
+export function tallyGenerativeRarity(
+  layers: GenerativeLayerRecipe[],
+  combos: GenCombo[]
+): GenerativeRarity {
+  const supply = combos.length;
+  return {
+    supply,
+    layers: layers.map((layer, layerIndex) => {
+      const counts = layer.traits.map(() => 0);
+      let noneCount = 0;
+      for (const combo of combos) {
+        const traitIndex = combo[layerIndex] ?? -1;
+        if (traitIndex < 0) noneCount += 1;
+        else if (traitIndex < counts.length) counts[traitIndex] += 1;
+      }
+      const traits: GenerativeRarityTrait[] = layer.traits.map(
+        (trait, index) => ({
+          name: trait.name,
+          count: counts[index],
+          pct: pct(counts[index], supply),
+        })
+      );
+      return {
+        name: layer.name,
+        traits,
+        ...(layer.noneWeight > 0
+          ? { none: { name: 'none', count: noneCount, pct: pct(noneCount, supply) } }
+          : {}),
+      };
+    }),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -383,6 +515,7 @@ export async function renderGenerativeSet({
   }
 
   const combos = sampleUniqueCombos(recipe.layers, recipe.supply);
+  const rarity = tallyGenerativeRarity(recipe.layers, combos);
   const total = combos.length;
 
   for (let index = 0; index < combos.length; index += 1) {
@@ -429,6 +562,8 @@ export async function renderGenerativeSet({
     onProgress?.({ done: index + 1, total });
   }
 
+  await writeFile(join(tmpDir, GENERATIVE_RARITY_FILE), JSON.stringify(rarity));
+
   const artCid = await uploadDiskDirectory(
     combos.map((_, index) => ({
       path: join(tmpDir, `${index + 1}.png`),
@@ -436,13 +571,18 @@ export async function renderGenerativeSet({
       mime: 'image/png',
     }))
   );
-  const traitsCid = await uploadDiskDirectory(
-    combos.map((_, index) => ({
+  const traitsCid = await uploadDiskDirectory([
+    ...combos.map((_, index) => ({
       path: join(tmpDir, `${index + 1}.json`),
       filename: `${index + 1}.json`,
       mime: 'application/json',
-    }))
-  );
+    })),
+    {
+      path: join(tmpDir, GENERATIVE_RARITY_FILE),
+      filename: GENERATIVE_RARITY_FILE,
+      mime: 'application/json',
+    },
+  ]);
 
   logger.info(
     { artCid, traitsCid, count: total, width, height },

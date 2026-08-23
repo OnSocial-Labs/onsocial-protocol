@@ -10,6 +10,10 @@ import type { MusicReleaseFormat } from '@/features/scarces/drop-audio';
 import type { WritingReleaseFormat } from '@/features/scarces/drop-writing';
 import type { RoyaltySplitShare } from '@/features/scarces/scarce-royalty';
 import { DEFAULT_ROYALTY_BPS } from '@/features/scarces/scarce-royalty';
+import {
+  parseGenerativeRarity,
+  type GenerativeRarity,
+} from '@/features/scarces/generative-set';
 
 export type DropArtMode = 'single' | 'variations';
 export type DropVariationSource = 'upload' | 'generate' | 'cid';
@@ -52,6 +56,8 @@ export type DropFormDraft = {
   traitsCid: string;
   randomAssign: boolean;
   showAdvanced: boolean;
+  /** Sealed-set frequencies after generate — optional so older drafts still load. */
+  generativeRarity?: GenerativeRarity;
 };
 
 const STORAGE_KEY = 'onsocial.drop-form-draft.v1';
@@ -144,7 +150,13 @@ function readRaw(): DropFormDraft | null {
     ) {
       return null;
     }
-    return parsed as DropFormDraft;
+    const generativeRarity = parseGenerativeRarity(parsed.generativeRarity);
+    const draft = parsed as DropFormDraft;
+    if (!generativeRarity) {
+      delete draft.generativeRarity;
+      return draft;
+    }
+    return { ...draft, generativeRarity };
   } catch {
     return null;
   }

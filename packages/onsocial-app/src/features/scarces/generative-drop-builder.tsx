@@ -34,12 +34,17 @@ import type {
   VariationSetUpload,
 } from '@onsocial/sdk';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
+import { fetchGenerativeRarityFromCid } from '@/features/scarces/variation-set-traits';
 import {
+  assertSameCanvasSize,
   comboAttributes,
+  GENERATIVE_RARITY_FILE,
   maxCombinations,
   sampleUniqueCombos,
+  tallyGenerativeRarity,
   MAX_GENERATED_PIECES,
   type GenLayerInput,
+  type GenerativeRarity,
 } from './generative-set';
 
 const MIN_PIECES = 2;
@@ -86,6 +91,7 @@ export interface BuilderDesignSummary {
 /** Imperative surface so the host can put Generate in the screen header. */
 export interface GenerativeBuilderHandle {
   generate: () => void;
+  reset: () => void;
 }
 
 export interface GeneratedSet {
@@ -94,6 +100,8 @@ export interface GeneratedSet {
   count: number;
   /** Object URLs of the first few composited pieces, for confirmation UI. */
   previews: string[];
+  /** Actual sealed-set frequencies, when known at generate time. */
+  rarity?: GenerativeRarity;
 }
 
 interface GenerativeDropBuilderProps {
@@ -359,8 +367,12 @@ export function GenerativeDropBuilder({
         )
       );
 
-      const width = bitmaps[0][0].width;
-      const height = bitmaps[0][0].height;
+      const { width, height } = assertSameCanvasSize(
+        bitmaps.flat().map((bitmap) => ({
+          width: bitmap.width,
+          height: bitmap.height,
+        }))
+      );
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
@@ -436,12 +448,16 @@ export function GenerativeDropBuilder({
           traitsCid: job.result.reference.cid,
           count: job.result.variations.count,
           previews: previewUrls,
+          rarity:
+            (await fetchGenerativeRarityFromCid(job.result.reference.cid)) ??
+            undefined,
         });
         return;
       }
 
       // Local path: composite the full set in the browser and zip it.
       const combos = sampleUniqueCombos(genLayers, supply, cryptoRand);
+      const rarity = tallyGenerativeRarity(genLayers, combos);
       const artFiles: Record<string, Uint8Array> = {};
       const traitFiles: Record<string, Uint8Array> = {};
       const encoder = new TextEncoder();
@@ -468,6 +484,10 @@ export function GenerativeDropBuilder({
         }
       }
 
+      traitFiles[GENERATIVE_RARITY_FILE] = encoder.encode(
+        JSON.stringify(rarity)
+      );
+
       bitmaps.flat().forEach((bitmap) => bitmap.close());
       setPreviews(previewUrls);
 
@@ -491,6 +511,7 @@ export function GenerativeDropBuilder({
         traitsCid: pinned.reference.cid,
         count: pinned.variations.count,
         previews: previewUrls,
+        rarity,
       });
     } catch (cause) {
       setStatus({ kind: 'idle' });
@@ -546,6 +567,9 @@ export function GenerativeDropBuilder({
           traitsCid: job.result.reference.cid,
           count: job.result.variations.count,
           previews: [],
+          rarity:
+            (await fetchGenerativeRarityFromCid(job.result.reference.cid)) ??
+            undefined,
         });
       } catch (cause) {
         if (cancelled) return;
@@ -563,9 +587,31 @@ export function GenerativeDropBuilder({
     };
   }, [resumeJobId]);
 
-  useImperativeHandle(ref, () => ({ generate: () => void generate() }), [
-    generate,
-  ]);
+  const reset = useCallback(() => {
+    setLayers((prev) => {
+      prev.forEach((layer) =>
+        layer.traits.forEach((trait) => URL.revokeObjectURL(trait.url))
+      );
+      return [{ id: newId(), name: 'Background', optional: false, traits: [] }];
+    });
+    setSupplyInput('100');
+    setStatus({ kind: 'idle' });
+    setPreviews((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return [];
+    });
+    setError(null);
+    setEditingTrait(null);
+  }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      generate: () => void generate(),
+      reset,
+    }),
+    [generate, reset]
+  );
 
   return (
     <div className="gen-builder">
@@ -776,7 +822,7 @@ export function GenerativeDropBuilder({
             ? supplyValid
               ? isRemoteSet
                 ? `Big set — rendered on OnSocial (a few minutes). Keep this screen open while it runs.`
-                : `${Math.min(possible, MAX_REMOTE_PIECES).toLocaleString()} unique pieces possible with these layers · higher weight = more common · tap a tile to rename`
+                : `${Math.min(possible, MAX_REMOTE_PIECES).toLocaleString()} unique pieces possible with these layers · same pixel size on every image · higher weight = more common · tap a tile to rename`
               : `Pick ${MIN_PIECES}–${Math.min(possible, MAX_REMOTE_PIECES).toLocaleString()} pieces — that's the most unique combinations these layers allow.`
             : 'Add trait images to each layer to unlock generating.'}
         </small>

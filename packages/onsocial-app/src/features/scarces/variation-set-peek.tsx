@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { variationSampleSeats } from '@/features/scarces/collections-data';
-import { fetchVariationTraitLabels } from '@/features/scarces/variation-set-traits';
+import { formatGenerativeRarityLines } from '@/features/scarces/generative-set';
+import {
+  fetchGenerativeRarity,
+  fetchVariationTraitLabels,
+} from '@/features/scarces/variation-set-traits';
 
 export function VariationSetPeek({
   collectionId,
@@ -18,10 +22,43 @@ export function VariationSetPeek({
   referenceTemplate?: string | null;
 }) {
   const [traitLabels, setTraitLabels] = useState<string[]>([]);
+  const [rarityLines, setRarityLines] = useState<string[]>([]);
+  const [rarityResolved, setRarityResolved] = useState(false);
   const canFetchTraits = Boolean(referenceTemplate) && totalSupply >= 1;
 
   useEffect(() => {
-    if (!referenceTemplate || totalSupply < 1) return;
+    if (!referenceTemplate || totalSupply < 1) {
+      setRarityResolved(true);
+      return;
+    }
+    let cancelled = false;
+    setRarityLines([]);
+    setRarityResolved(false);
+    void fetchGenerativeRarity({
+      referenceTemplate,
+      collectionId,
+    })
+      .then((rarity) => {
+        if (cancelled || !rarity) return;
+        setRarityLines(formatGenerativeRarityLines(rarity));
+      })
+      .finally(() => {
+        if (!cancelled) setRarityResolved(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [collectionId, referenceTemplate, totalSupply]);
+
+  useEffect(() => {
+    if (
+      !referenceTemplate ||
+      totalSupply < 1 ||
+      !rarityResolved ||
+      rarityLines.length > 0
+    ) {
+      return;
+    }
     let cancelled = false;
     const seats = variationSampleSeats(totalSupply, 1, 6);
     void fetchVariationTraitLabels({
@@ -34,7 +71,13 @@ export function VariationSetPeek({
     return () => {
       cancelled = true;
     };
-  }, [collectionId, referenceTemplate, totalSupply]);
+  }, [
+    collectionId,
+    referenceTemplate,
+    totalSupply,
+    rarityResolved,
+    rarityLines.length,
+  ]);
 
   const shownTraitLabels = canFetchTraits ? traitLabels : [];
 
@@ -55,7 +98,13 @@ export function VariationSetPeek({
         </div>
       ) : null}
       <p className="collection-set-peek-lead">{lead}</p>
-      {shownTraitLabels.length > 0 ? (
+      {rarityLines.length > 0 ? (
+        <ul className="collection-set-peek-rarity">
+          {rarityLines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      ) : shownTraitLabels.length > 0 ? (
         <p className="collection-set-peek-traits">
           {shownTraitLabels.join(' · ')}
         </p>

@@ -48,13 +48,13 @@ const DROP_FIELD_INFO: Record<
     title: 'Artwork',
     summary: 'One artwork shares the same image on every edition; a set gives each piece its own image.',
     detail:
-      'For a generated set, bring transparent PNG or WebP layers. Stack them in the studio, generate, then start the drop.',
+      'For a generated set, bring transparent PNG or WebP layers that share one pixel size. Stack them in the studio, generate, then start the drop.',
   },
   setSource: {
     title: 'Set source',
     summary: 'Upload finished images, or generate a set from stacked PNG layers.',
     detail:
-      'Generate layers opens the studio. No CID to paste — the set pins when generation finishes. Then add a title and start.',
+      'Generate layers opens the studio. Every trait image must be the same pixel size. No CID to paste — the set pins when generation finishes. Then add a title and start.',
   },
   dropId: {
     title: 'Drop ID',

@@ -1,5 +1,10 @@
 import { substituteSeat } from '@/features/scarces/collections-data';
 import { resolveScarceMediaUrl } from '@/features/market/market-listings';
+import {
+  GENERATIVE_RARITY_FILE,
+  parseGenerativeRarity,
+  type GenerativeRarity,
+} from '@/features/scarces/generative-set';
 
 const TRAIT_FETCH_LIMIT = 8;
 
@@ -63,4 +68,50 @@ export async function fetchVariationTraitLabels(opts: {
     })
   );
   return summarizeVariationTraits(docs);
+}
+
+/** `_rarity.json` beside `1.json` in a traits directory. */
+export function traitsDirectoryRarityUrl(traitsCid: string): string | null {
+  const cid = traitsCid.trim();
+  if (!cid) return null;
+  return resolveScarceMediaUrl(`ipfs://${cid}/${GENERATIVE_RARITY_FILE}`);
+}
+
+async function readRarityJson(url: string | null): Promise<GenerativeRarity | null> {
+  if (!url) return null;
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(8_000) });
+    if (!response.ok) return null;
+    return parseGenerativeRarity(await response.json());
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchGenerativeRarityFromCid(
+  traitsCid: string
+): Promise<GenerativeRarity | null> {
+  return readRarityJson(traitsDirectoryRarityUrl(traitsCid));
+}
+
+/** `{seat_number}.json` → `_rarity.json` in the same traits folder. */
+export function traitsReferenceRarityUrl(
+  referenceTemplate: string,
+  collectionId: string
+): string | null {
+  const rarityPath = referenceTemplate
+    .replace(/\{seat_number\}/g, '_rarity')
+    .replace(/\{index\}/g, '_rarity')
+    .replace(/\{token_id\}/g, `${collectionId}:_rarity`);
+  if (rarityPath === referenceTemplate) return null;
+  return resolveScarceMediaUrl(rarityPath);
+}
+
+export async function fetchGenerativeRarity(opts: {
+  referenceTemplate: string;
+  collectionId: string;
+}): Promise<GenerativeRarity | null> {
+  return readRarityJson(
+    traitsReferenceRarityUrl(opts.referenceTemplate, opts.collectionId)
+  );
 }

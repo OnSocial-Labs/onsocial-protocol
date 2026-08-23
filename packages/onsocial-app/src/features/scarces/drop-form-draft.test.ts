@@ -108,4 +108,30 @@ describe('drop-form-draft', () => {
     clearDropFormDraft();
     expect(loadDropFormDraft('alice.near')).toBeNull();
   });
+
+  it('round-trips optional generative rarity and ignores a bad payload', () => {
+    saveDropFormDraft(
+      baseDraft({
+        title: 'Prints',
+        generativeRarity: {
+          supply: 3,
+          layers: [
+            {
+              name: 'Background',
+              traits: [{ name: 'Night', count: 2, pct: 66.7 }],
+            },
+          ],
+        },
+      })
+    );
+    expect(loadDropFormDraft('alice.near')?.generativeRarity?.supply).toBe(3);
+
+    saveDropFormDraft(
+      baseDraft({
+        title: 'Prints',
+        generativeRarity: { supply: 0, layers: [] } as never,
+      })
+    );
+    expect(loadDropFormDraft('alice.near')?.generativeRarity).toBeUndefined();
+  });
 });

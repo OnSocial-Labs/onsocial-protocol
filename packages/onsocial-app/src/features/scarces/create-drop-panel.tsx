@@ -103,6 +103,10 @@ import {
   type GeneratedSet,
   type GenerativeBuilderHandle,
 } from '@/features/scarces/generative-drop-builder';
+import {
+  formatGenerativeRarityLines,
+  type GenerativeRarity,
+} from '@/features/scarces/generative-set';
 import { GenerativeStudioHelpDrawer } from '@/features/scarces/generative-studio-help-drawer';
 import {
   clearDropPinDraft,
@@ -274,6 +278,8 @@ export function CreateDropPanel() {
   const [randomAssign, setRandomAssign] = useState(false);
   const [generatedNote, setGeneratedNote] = useState<string | null>(null);
   const [generatedPreviews, setGeneratedPreviews] = useState<string[]>([]);
+  const [generatedRarity, setGeneratedRarity] =
+    useState<GenerativeRarity | null>(null);
   /** Server generate job — persisted so a refresh can resume polling. */
   const [generateJobId, setGenerateJobId] = useState<string | null>(null);
   /** Full-screen layer studio step — the builder stays mounted underneath. */
@@ -406,6 +412,7 @@ export function CreateDropPanel() {
       prev.forEach((url) => URL.revokeObjectURL(url));
       return [];
     });
+    setGeneratedRarity(null);
     setGenerateJobId(null);
     setStudioOpen(false);
     setSeriesName('');
@@ -541,12 +548,17 @@ export function CreateDropPanel() {
         setRandomAssign(formDraft.randomAssign);
         setShowAdvanced(formDraft.showAdvanced);
         const storedCid = formDraft.variationsCid.trim();
-        if (formDraft.variationSource === 'cid' && !looksLikeCid(storedCid)) {
+        // `cid` was a leaked source flip after generate — restore as generate.
+        const source =
+          formDraft.variationSource === 'cid'
+            ? 'generate'
+            : formDraft.variationSource;
+        if (source === 'generate' && !looksLikeCid(storedCid)) {
           setVariationSource('generate');
           setVariationsCid('');
           setTraitsCid('');
         } else {
-          setVariationSource(formDraft.variationSource);
+          setVariationSource(source);
           setVariationsCid(formDraft.variationsCid);
           setTraitsCid(formDraft.traitsCid);
           if (looksLikeCid(storedCid)) {
@@ -556,6 +568,9 @@ export function CreateDropPanel() {
                 ? `Set pinned — ${count} pieces ready to mint.`
                 : 'Set pinned — ready to mint.'
             );
+            if (formDraft.generativeRarity) {
+              setGeneratedRarity(formDraft.generativeRarity);
+            }
           }
         }
       }
@@ -665,6 +680,7 @@ export function CreateDropPanel() {
         traitsCid,
         randomAssign,
         showAdvanced,
+        ...(generatedRarity ? { generativeRarity: generatedRarity } : {}),
       });
     }, 400);
     return () => window.clearTimeout(handle);
@@ -704,6 +720,7 @@ export function CreateDropPanel() {
     traitsCid,
     randomAssign,
     showAdvanced,
+    generatedRarity,
   ]);
 
   // The submit action lives in the header, so bring failures into view.
@@ -766,7 +783,7 @@ export function CreateDropPanel() {
   const traitsCidValid = !traitsCid.trim() || looksLikeCid(traitsCid.trim());
   /** Generated (or any traits-backed) directory set ready to start. */
   const generatedSetReady =
-    isVariations && pinnedCidValid && looksLikeCid(traitsCid.trim());
+    isGeneratedSet && pinnedCidValid && looksLikeCid(traitsCid.trim());
   const usePinnedCids = isPinnedSet || generatedSetReady;
   /** Upload too big to attach directly — zipped and pinned at submit. */
   const isLargeUpload =
@@ -1295,8 +1312,7 @@ export function CreateDropPanel() {
     clearDropPinDraftIfKind(accountId, 'generate-job');
   }, [accountId]);
 
-  // The generator hands back pinned CIDs — flip to the internal CID source
-  // so submit creates the drop from the pinned directories.
+  // Stay on Generate layers — CIDs are the pinned set, not a source flip.
   const onGenerated = useCallback(
     (result: GeneratedSet) => {
       setVariationsCid(result.artCid);
@@ -1306,6 +1322,7 @@ export function CreateDropPanel() {
       setCoverSeatInput('1');
       setRandomAssign(true);
       setFacets((prev) => ensureGenerativeFacet(prev));
+      setGeneratedRarity(result.rarity ?? null);
       setGeneratedNote(
         `Set generated and pinned — ${result.count} pieces ready to mint.`
       );
@@ -1313,7 +1330,7 @@ export function CreateDropPanel() {
         prev.forEach((url) => URL.revokeObjectURL(url));
         return result.previews;
       });
-      setVariationSource('cid');
+      setVariationSource('generate');
       setGenerateJobId(null);
       clearDropPinDraftIfKind(accountId, 'generate-job');
       setStudioOpen(false);
@@ -2382,12 +2399,6 @@ export function CreateDropPanel() {
             ariaLabel="Back to drop details"
             onClick={() => {
               setStudioOpen(false);
-              if (
-                looksLikeCid(variationsCid.trim()) &&
-                looksLikeCid(traitsCid.trim())
-              ) {
-                setVariationSource('cid');
-              }
             }}
           >
             <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
@@ -2621,12 +2632,8 @@ export function CreateDropPanel() {
                 }`}
                 disabled={pending}
                 onClick={() => {
-                  if (looksLikeCid(variationsCid.trim())) {
-                    setVariationSource('cid');
-                    return;
-                  }
                   setVariationSource('generate');
-                  setStudioOpen(true);
+                  if (!generatedSetReady) setStudioOpen(true);
                 }}
               >
                 Generate layers
@@ -2635,7 +2642,7 @@ export function CreateDropPanel() {
           </div>
         ) : null}
 
-        {isGeneratedSet ? (
+        {isGeneratedSet && !generatedSetReady ? (
           <button
             type="button"
             className="drop-cover-picker drop-studio-launch"
@@ -2716,7 +2723,7 @@ export function CreateDropPanel() {
           )
         ) : null}
 
-        {isPinnedSet && generatedNote ? (
+        {isGeneratedSet && generatedSetReady && generatedNote ? (
           <>
             {generatedPreviews.length > 0 ? (
               <div
@@ -2733,6 +2740,13 @@ export function CreateDropPanel() {
               </div>
             ) : null}
             <p className="drop-generated-note">{generatedNote}</p>
+            {generatedRarity ? (
+              <ul className="collection-set-peek-rarity">
+                {formatGenerativeRarityLines(generatedRarity).map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            ) : null}
             <div
               className="app-storage-presets"
               role="group"
@@ -2742,10 +2756,7 @@ export function CreateDropPanel() {
                 type="button"
                 className="os-surface-chip"
                 disabled={pending}
-                onClick={() => {
-                  setVariationSource('generate');
-                  setStudioOpen(true);
-                }}
+                onClick={() => setStudioOpen(true)}
               >
                 Continue designing
               </button>
@@ -2754,10 +2765,12 @@ export function CreateDropPanel() {
                 className="os-surface-chip"
                 disabled={pending}
                 onClick={() => {
+                  builderRef.current?.reset();
                   setVariationSource('generate');
                   setVariationsCid('');
                   setTraitsCid('');
                   setGeneratedNote(null);
+                  setGeneratedRarity(null);
                   setGeneratedPreviews((prev) => {
                     prev.forEach((url) => URL.revokeObjectURL(url));
                     return [];
@@ -2773,7 +2786,7 @@ export function CreateDropPanel() {
           </>
         ) : null}
 
-        {isPinnedSet || isLargeUpload ? (
+        {isPinnedSet || generatedSetReady || isLargeUpload ? (
           <label className="guild-field" htmlFor={fieldId('cover-seat')}>
             <span>Cover piece</span>
             <SuffixField
