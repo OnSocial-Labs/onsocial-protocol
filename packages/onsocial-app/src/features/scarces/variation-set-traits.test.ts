@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { variationSampleSeats } from '@/features/scarces/collections-data';
-import { summarizeVariationTraits } from '@/features/scarces/variation-set-peek';
+import { summarizeVariationTraits } from '@/features/scarces/variation-set-traits';
 
 describe('variationSampleSeats', () => {
   it('spreads seats and always keeps the cover', () => {

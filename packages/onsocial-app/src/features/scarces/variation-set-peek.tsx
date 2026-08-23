@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { variationSampleSeats } from '@/features/scarces/collections-data';
-import { fetchVariationTraitLabels } from '@/features/scarces/variation-set-peek';
+import { fetchVariationTraitLabels } from '@/features/scarces/variation-set-traits';
 
 export function VariationSetPeek({
   collectionId,
