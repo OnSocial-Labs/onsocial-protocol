@@ -546,33 +546,34 @@ export function LeaderboardSheet({
   onRowNavigate?: () => void;
 }) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
-  const [sheetOpen, setSheetOpen] = useState(open);
+  const [closing, setClosing] = useState(false);
   const [internalTrack, setInternalTrack] =
     useState<LeaderboardTrack>(initialTrack);
   const track = trackProp ?? internalTrack;
+  const sheetOpen = open && !closing;
+  const [boostOpen, setBoostOpen] = useState(false);
+  const [influenceHintSeen, setInfluenceHintSeen] = useState(readInfluenceHintSeen);
+
+  const dismissInfluenceHint = useCallback(() => {
+    persistInfluenceHintSeen();
+    setInfluenceHintSeen(true);
+  }, []);
+
   const setTrack = useCallback(
     (next: LeaderboardTrack) => {
+      if (track === 'influence' && next !== 'influence') {
+        dismissInfluenceHint();
+      }
+      if (next !== 'influence') {
+        setBoostOpen(false);
+      }
       onTrackChange?.(next);
       if (trackProp === undefined) {
         setInternalTrack(next);
       }
     },
-    [onTrackChange, trackProp]
+    [dismissInfluenceHint, onTrackChange, track, trackProp]
   );
-  const prevParentOpenRef = useRef(open);
-  useEffect(() => {
-    const parentOpened = open && !prevParentOpenRef.current;
-    const parentClosed = !open && prevParentOpenRef.current;
-    if (parentOpened) {
-      setSheetOpen(true);
-      if (trackProp === undefined) {
-        setInternalTrack(initialTrack);
-      }
-    } else if (parentClosed) {
-      setSheetOpen(false);
-    }
-    prevParentOpenRef.current = open;
-  }, [open, initialTrack, trackProp]);
 
   const viewerKey = isConnected ? (viewerAccountId ?? '') : '';
   const [cache, setCache] = useState<
@@ -588,29 +589,23 @@ export function LeaderboardSheet({
   const [error, setError] = useState<string | null>(null);
   const [viewerPinned, setViewerPinned] = useState(false);
   const [factsEntry, setFactsEntry] = useState<ReputationEntry | null>(null);
-  const [boostOpen, setBoostOpen] = useState(false);
   const requestIdRef = useRef(0);
   const viewerRowRef = useRef<HTMLDivElement | null>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const scrolledForKeyRef = useRef('');
-  const prevTrackRef = useRef<LeaderboardTrack>(track);
-  const [influenceHintSeen, setInfluenceHintSeen] = useState(readInfluenceHintSeen);
 
   const boostAccountId = isConnected ? (viewerAccountId ?? '') : '';
+  const boostSheetOpen =
+    boostOpen && sheetOpen && track === 'influence' && boostAccountId.length > 0;
   const boost = useBoostPosition(boostAccountId, {
-    live: boostOpen && track === 'influence' && boostAccountId.length > 0,
+    live: boostSheetOpen,
   });
-
-  const dismissInfluenceHint = useCallback(() => {
-    persistInfluenceHintSeen();
-    setInfluenceHintSeen(true);
-  }, []);
 
   const trackRailHidden = useDockAutoHide(false, scrollRootRef);
 
   const requestClose = useCallback(() => {
-    setSheetOpen(false);
+    setClosing(true);
   }, []);
 
   const handleRowNavigate = useCallback(() => {
@@ -622,6 +617,10 @@ export function LeaderboardSheet({
     if (track === 'influence') {
       dismissInfluenceHint();
     }
+    setClosing(false);
+    if (trackProp === undefined) {
+      setInternalTrack(initialTrack);
+    }
     setCache({});
     setError(null);
     setPending(false);
@@ -631,26 +630,7 @@ export function LeaderboardSheet({
     setBoostOpen(false);
     scrolledForKeyRef.current = '';
     onClose();
-  }, [dismissInfluenceHint, onClose, track]);
-
-  useEffect(() => {
-    if (prevTrackRef.current === 'influence' && track !== 'influence') {
-      dismissInfluenceHint();
-    }
-    prevTrackRef.current = track;
-  }, [dismissInfluenceHint, track]);
-
-  useEffect(() => {
-    if (track !== 'influence') {
-      setBoostOpen(false);
-    }
-  }, [track]);
-
-  useEffect(() => {
-    if (!sheetOpen) {
-      setBoostOpen(false);
-    }
-  }, [sheetOpen]);
+  }, [dismissInfluenceHint, initialTrack, onClose, track, trackProp]);
 
   useEffect(() => {
     if (!sheetOpen) return;
@@ -1025,7 +1005,7 @@ export function LeaderboardSheet({
 
       {showBoostAction ? (
         <PortfolioBoostSheet
-          open={boostOpen}
+          open={boostSheetOpen}
           accountId={boostAccountId}
           position={boost}
           onOpenChange={setBoostOpen}
