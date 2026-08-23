@@ -26145,6 +26145,28 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.72);
   }
 
+  .drop-pin-resume .drop-media-ready-chip {
+    margin: 0;
+  }
+
+  .drop-pin-resume-detail {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .drop-advanced-toggle-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+  }
+
+  .drop-discard-draft {
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
   .drop-start-confirm-body {
     display: flex;
     flex-direction: column;
