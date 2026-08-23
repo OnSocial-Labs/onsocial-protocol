@@ -6,6 +6,7 @@ import {
   formatGenerativeRarityLines,
   maxCombinations,
   parseGenerativeRarity,
+  pngSizeFromBytes,
   sampleUniqueCombos,
   tallyGenerativeRarity,
   type GenLayerInput,
@@ -116,6 +117,20 @@ describe('sampleUniqueCombos', () => {
     const layers = [layer('BG', ['a', 'b'], { noneWeight: 0 })];
     const combos = sampleUniqueCombos(layers, 2, seededRand());
     expect(combos.every((combo) => combo[0] >= 0)).toBe(true);
+  });
+});
+
+describe('pngSizeFromBytes', () => {
+  it('reads IHDR width and height', () => {
+    const bytes = new Uint8Array(24);
+    bytes[0] = 0x89;
+    bytes[1] = 0x50;
+    bytes[2] = 0x4e;
+    bytes[3] = 0x47;
+    new DataView(bytes.buffer).setUint32(16, 64);
+    new DataView(bytes.buffer).setUint32(20, 32);
+    expect(pngSizeFromBytes(bytes)).toEqual({ width: 64, height: 32 });
+    expect(pngSizeFromBytes(new Uint8Array(8))).toBeNull();
   });
 });
 

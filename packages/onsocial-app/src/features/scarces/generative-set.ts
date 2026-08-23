@@ -81,6 +81,26 @@ export function comboKey(combo: GenCombo): string {
   return combo.join('|');
 }
 
+/** PNG IHDR dimensions — used so size mismatches are rejected even if decode fails. */
+export function pngSizeFromBytes(
+  bytes: Uint8Array
+): { width: number; height: number } | null {
+  if (bytes.length < 24) return null;
+  if (
+    bytes[0] !== 0x89 ||
+    bytes[1] !== 0x50 ||
+    bytes[2] !== 0x4e ||
+    bytes[3] !== 0x47
+  ) {
+    return null;
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const width = view.getUint32(16);
+  const height = view.getUint32(20);
+  if (width < 1 || height < 1) return null;
+  return { width, height };
+}
+
 export function assertSameCanvasSize(
   sizes: ReadonlyArray<{ width: number; height: number }>
 ): { width: number; height: number } {

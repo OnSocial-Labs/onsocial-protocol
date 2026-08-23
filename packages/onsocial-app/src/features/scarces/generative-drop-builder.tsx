@@ -37,6 +37,7 @@ import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import { fetchGenerativeRarityFromCid } from '@/features/scarces/variation-set-traits';
 import {
   assertSameCanvasSize,
+  pngSizeFromBytes,
   comboAttributes,
   GENERATIVE_RARITY_FILE,
   maxCombinations,
@@ -357,12 +358,36 @@ export function GenerativeDropBuilder({
       const activeLayers = readyLayers;
       const genLayers = toGenLayers(activeLayers);
 
-      // Decode every trait image once, keyed by position in the layer list.
+      // Reject size mismatches from PNG headers first — do not stretch,
+      // and do not wait on a decode that may fail for the same reason.
       setStatus({ kind: 'working', label: 'Loading layers…' });
+      const headerSizes = await Promise.all(
+        activeLayers.flatMap((layer) =>
+          layer.traits.map(async (trait) => {
+            const bytes = new Uint8Array(await trait.file.arrayBuffer());
+            return pngSizeFromBytes(bytes);
+          })
+        )
+      );
+      const knownSizes = headerSizes.filter(
+        (size): size is { width: number; height: number } => size != null
+      );
+      if (knownSizes.length === headerSizes.length) {
+        assertSameCanvasSize(knownSizes);
+      }
+
       const bitmaps = await Promise.all(
         activeLayers.map((layer) =>
           Promise.all(
-            layer.traits.map((trait) => createImageBitmap(trait.file))
+            layer.traits.map(async (trait) => {
+              try {
+                return await createImageBitmap(trait.file);
+              } catch {
+                throw new Error(
+                  `Could not read “${trait.name.trim() || trait.file.name}” — use a PNG or WebP.`
+                );
+              }
+            })
           )
         )
       );
