@@ -18,10 +18,10 @@ export function CollectiblesHeaderActions({
   pageAccountId?: string | null;
 }) {
   const { accountId, isConnected } = useAppWallet();
+  const owner = pageAccountId?.trim() || null;
+  const viewer = accountId?.trim() || null;
   const isSelf =
-    Boolean(pageAccountId) &&
-    isConnected &&
-    accountIdsEqual(accountId, pageAccountId);
+    Boolean(owner && viewer && isConnected && accountIdsEqual(viewer, owner));
 
   return (
     <>
