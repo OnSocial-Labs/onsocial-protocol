@@ -24,10 +24,7 @@ import {
   type ProfileCreatedPeek,
   type ProfilePostPeek,
 } from '@/lib/fetch-profile-peeks';
-import {
-  groupHoldingsForRail,
-  type PortfolioHoldingPeek,
-} from '@/lib/portfolio-holdings';
+import { type PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
 import {
   EMPTY_PROFILE_STORE,
   type ProfileStoreShelf,
@@ -122,7 +119,6 @@ export function PageContentSections({
   );
 
   const holdingsCount = holdings.length;
-  const holdingsPeekCount = groupHoldingsForRail(holdings).length;
   const createdCount = Math.max(createdPeeks.length, createdMintCount);
   const storeListingCount = storeShelf.listingCount + storeShelf.drops.length;
 
@@ -177,12 +173,12 @@ export function PageContentSections({
     <div className="page-drawer-sections">
       {sections.map((section, index) => {
         const count = pageSectionCountHint(section, stats, {
-          scarceCount: holdingsPeekCount,
+          scarceCount: holdingsCount,
           createdCount,
           createdCountHint: createdCount,
           storeListingCount,
         });
-        const showGuildRail = section === 'groups' && guilds.length > 0;
+        const showGuilds = section === 'groups';
         const showLinks = section === 'links' && links.length > 0;
         const showPosts = section === 'posts';
         const showStore = section === 'store' && storeListingCount > 0;
@@ -211,6 +207,11 @@ export function PageContentSections({
                     pageAccountId={pageAccountId}
                     posts={orderedPosts}
                   />
+                  {orderedPosts.length === 0 ? (
+                    <p className="page-drawer-section-empty">
+                      Posts open in the full feed.
+                    </p>
+                  ) : null}
                   <Link
                     className="page-drawer-section-action group"
                     href={feedHref}
@@ -250,8 +251,14 @@ export function PageContentSections({
 
               {showLinks ? <PageDrawerLinksList links={links} /> : null}
 
-              {showGuildRail ? (
-                <PageDrawerGuilds guilds={orderedGuilds} />
+              {showGuilds ? (
+                guilds.length > 0 ? (
+                  <PageDrawerGuilds guilds={orderedGuilds} />
+                ) : (
+                  <p className="page-drawer-section-empty">
+                    Guild memberships sync shortly.
+                  </p>
+                )
               ) : null}
             </section>
           </Fragment>

@@ -9,10 +9,10 @@ import {
 } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 
-function daoPageMoodProps(
-  mood: ResolvedMood | null,
-  isPreviewingMood: boolean
-): { moodId: string | null; moodStyle: CSSProperties | undefined } {
+function daoPageMoodProps(mood: ResolvedMood | null): {
+  moodId: string | null;
+  moodStyle: CSSProperties | undefined;
+} {
   if (!mood) {
     return { moodId: null, moodStyle: undefined };
   }
@@ -20,7 +20,7 @@ function daoPageMoodProps(
   return {
     moodId: mood.id,
     moodStyle: {
-      ...portfolioMoodShellStyle(mood.cssVars, { preview: isPreviewingMood }),
+      ...portfolioMoodShellStyle(mood.cssVars),
       ...pageContentDrawerPanelStyle(mood.cssVars),
     } as CSSProperties,
   };
@@ -37,9 +37,5 @@ export function useDaoPageMood(
   const preview = usePortfolioMoodPreviewOptional();
   const fetchedMood = usePageOwnerMood(pageAccountId, active);
   const effectiveMood = preview?.effectiveMood ?? fetchedMood;
-  const isPreviewingMood = preview?.isPreviewingMood ?? false;
-  return useMemo(
-    () => daoPageMoodProps(effectiveMood, isPreviewingMood),
-    [effectiveMood, isPreviewingMood]
-  );
+  return useMemo(() => daoPageMoodProps(effectiveMood), [effectiveMood]);
 }

@@ -86,11 +86,8 @@ export function PortfolioIdentityGestures({
     if (isDao) {
       return null;
     }
-    return (
-      <div className="portfolio-identity-gestures">
-        <PortfolioOwnerPayoutMarks accountId={pageAccountId} />
-      </div>
-    );
+    // Marks render their own .portfolio-identity-gestures wrapper.
+    return <PortfolioOwnerPayoutMarks accountId={pageAccountId} />;
   }
 
   async function handleStandToggle() {

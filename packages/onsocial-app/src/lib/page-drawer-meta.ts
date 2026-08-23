@@ -105,23 +105,6 @@ export function pageDrawerActivityParts(meta: {
   return parts;
 }
 
-/** @deprecated Prefer `pageDrawerActivityParts` + interactive Joined. */
-export function formatPageDrawerActivityLine(meta: {
-  postCount: number;
-  guildCount: number;
-  scarceMintCount: number;
-  joinedAt: number | null;
-}): string | null {
-  const parts = pageDrawerActivityParts(meta).map(
-    (part) => `${part.count} ${part.unit}`
-  );
-  const joined = formatPageDrawerJoinedLabel(meta.joinedAt);
-  if (joined) {
-    parts.push(`Joined ${joined}`);
-  }
-  return parts.length > 0 ? parts.join(' · ') : null;
-}
-
 /** DAO / protocol roles only — reputation score stays on the face. */
 export function formatPageDrawerCredentialsLine(meta: {
   daoRoleLabels: string[];

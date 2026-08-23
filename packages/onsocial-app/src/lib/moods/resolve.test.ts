@@ -236,10 +236,8 @@ describe('moodPresetPreviewVars', () => {
       { mood: { id: 'protocol' } },
       'creative'
     );
-    const leadShell = portfolioMoodShellStyle(lead.cssVars, { preview: true });
-    const creativeShell = portfolioMoodShellStyle(creative.cssVars, {
-      preview: true,
-    });
+    const leadShell = portfolioMoodShellStyle(lead.cssVars);
+    const creativeShell = portfolioMoodShellStyle(creative.cssVars);
 
     expect(leadShell['--mood-accent']).toBe(MOOD_PRESETS.lead.theme.accent);
     expect(creativeShell['--mood-accent']).toBe(MOOD_PRESETS.creative.theme.accent);

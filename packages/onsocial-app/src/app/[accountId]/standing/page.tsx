@@ -1,13 +1,15 @@
 import { redirect } from 'next/navigation';
-import { portfolioPath } from '@/lib/overlay-routes';
+import { standingPath } from '@/lib/profile-social-standings';
 import { resolveAccountId } from '@/lib/resolve-account';
 
 type StandingRedirectProps = {
   params: Promise<{ accountId: string }>;
 };
 
-/** Bare `/standing` — same as kind routes: face only (sheet is soft-nav). */
-export default async function StandingRedirect({ params }: StandingRedirectProps) {
+/** Bare `/standing` — default to incoming, same as the overlay intercept. */
+export default async function StandingRedirect({
+  params,
+}: StandingRedirectProps) {
   const accountId = await resolveAccountId(params);
-  redirect(portfolioPath(accountId));
+  redirect(standingPath(accountId, 'incoming'));
 }

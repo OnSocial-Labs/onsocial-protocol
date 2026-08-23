@@ -124,9 +124,9 @@ export function isFullPagePanelLayout(segments: readonly string[]): boolean {
 
 /**
  * Open the portfolio glass drawer only for soft-nav intercepts over the profile
- * page. Hard refresh on `/discover` and `/collectibles` renders the full-page
- * panel in `children`. Face peeks (`/reputation`, `/feed`, `/endorsements`,
- * `/standing/…`) redirect to the profile — overlay-only, same as Standing.
+ * page. Hard refresh / shared link on any overlay route (`/discover`,
+ * `/collectibles`, `/reputation`, `/feed`, `/endorsements`, `/standing/…`)
+ * renders the full-page panel fallback in `children`.
  */
 export function shouldOpenPortfolioGlassOverlay(
   pathname: string,

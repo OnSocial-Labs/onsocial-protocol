@@ -224,9 +224,7 @@ export function moodSheetPanelStyle(
  * cannot inherit the committed mood from ancestors during live preview.
  */
 export function portfolioMoodShellStyle(
-  cssVars: Record<string, string>,
-  /** @deprecated Preview no longer boosts tint; kept for call-site compat. */
-  _options?: { preview?: boolean }
+  cssVars: Record<string, string>
 ): Record<string, string> {
   const accent = cssVars['--mood-preset-accent'] ?? cssVars['--mood-accent'];
   const accentLight =

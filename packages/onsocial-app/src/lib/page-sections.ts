@@ -99,7 +99,7 @@ export function pageSectionCountHint(
       return createdCount > 0 ? formatCompactCount(createdCount) : null;
     }
     case 'collectibles': {
-      // Callers pass grouped peek count so the chip matches the rail.
+      // Callers pass raw holdings count so the chip matches what users own.
       const scarceCount = options.scarceCount ?? 0;
       return scarceCount > 0 ? formatCompactCount(scarceCount) : null;
     }

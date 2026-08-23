@@ -136,7 +136,7 @@ describe('resolvePageDrawerActiveSection', () => {
 });
 
 describe('pageSectionCountHint', () => {
-  it('counts collectibles from the grouped peek, not raw tokens', () => {
+  it('counts collectibles from the raw holdings count', () => {
     expect(
       pageSectionCountHint('collectibles', emptyStats, { scarceCount: 5 })
     ).toBe('5');

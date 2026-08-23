@@ -13,8 +13,8 @@ export const CUSTOMIZABLE_PAGE_SECTIONS: PageSection[] = [
   'store',
   'created',
   'groups',
-  'collectibles',
   'links',
+  'collectibles',
 ];
 
 /** Max featured peeks per Launch chapter. */

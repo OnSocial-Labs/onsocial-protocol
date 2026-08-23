@@ -1,13 +1,12 @@
 import type { Metadata } from 'next';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
-import { displayName } from '@/lib/profile-display';
+import { displayName, normalizeProfileTags } from '@/lib/profile-display';
 import { fetchPublicPageData, resolvePageAvatarMode } from '@/lib/page-data';
+import type { PageDrawerMeta } from '@/lib/page-drawer-meta';
 import { readPageHeroSourceExplicit } from '@/lib/page-face';
 import { resolveAccountId, resolveAccountPage } from '@/lib/resolve-account';
 import { loadProfileShell } from '@/lib/profile-shell';
 import { fetchProfileSignals } from '@/lib/profile-signals';
-import { fetchProfileGuilds } from '@/lib/profile-guilds';
-import { fetchPageDrawerMeta } from '@/lib/fetch-page-drawer-meta';
 import {
   loadPortfolioDaoContextWithProfile,
   resolveDaoPortfolioSummary,
@@ -20,7 +19,6 @@ import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
 import { PortfolioShellRoot } from '@/components/portfolio/portfolio-shell-root';
 import { PortfolioProfileSeed } from '@/components/portfolio/portfolio-profile-seed';
 import { PortfolioSignalsShell } from '@/components/portfolio/portfolio-signals-shell';
-import { PortfolioStatsRow } from '@/components/portfolio/portfolio-stats-row';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,24 +81,19 @@ export default async function AccountPage({
     data.config,
     search?.avatarMode ?? search?.avatar ?? null
   );
-  // Hero-critical path only — drawer peeks stream via Suspense.
+  // Hero-critical path only — drawer meta, guild rows, and peeks stream via
+  // the deferred shelf Suspense boundary after first paint.
   const shellPromise = loadProfileShell(accountId);
-  const [shell, signals, guilds, drawerMetaBase, daoContext] = await Promise.all([
+  const [shell, signals, daoContext] = await Promise.all([
     shellPromise,
     fetchProfileSignals(accountId),
-    fetchProfileGuilds(accountId),
-    fetchPageDrawerMeta(accountId, {
-      profileName: accountId,
-      profileTags: [],
-      guildCount: data.stats.groupCount ?? 0,
-      postCount: data.stats.postCount ?? 0,
-    }),
     shellPromise.then((profileShell) =>
       loadPortfolioDaoContextWithProfile(accountId, profileShell)
     ),
   ]);
   const { entity: daoEntity, page: daoPage } = daoContext;
   const portfolioBio = resolveDaoPortfolioSummary({
+    tagline,
     shellBio: shell?.bio,
     daoPage,
   });
@@ -112,12 +105,18 @@ export default async function AccountPage({
     signals?.postCount ?? 0,
     data.stats.postCount ?? 0
   );
-  const drawerMeta = {
-    ...drawerMetaBase,
+  const drawerTags = normalizeProfileTags(shell?.tags);
+  // Cheap SSR seed — joined/updated/scarce meta hydrates from the shelf.
+  const drawerMeta: PageDrawerMeta = {
     name,
-    tags: shell?.tags?.length ? shell.tags : drawerMetaBase.tags,
-    guildCount: Math.max(guilds.length, drawerMetaBase.guildCount ?? 0),
-    postCount: Math.max(postCount, drawerMetaBase.postCount ?? 0),
+    joinedAt: null,
+    updatedAt: null,
+    updatedFields: [],
+    postCount,
+    guildCount: data.stats.groupCount ?? 0,
+    scarceMintCount: 0,
+    daoRoleLabels: [],
+    tags: drawerTags,
   };
   const daoIncomingStanding = daoEntity.isDao
     ? (signals?.standingCount ?? data.stats.standingCount ?? 0)
@@ -146,14 +145,19 @@ export default async function AccountPage({
         initialAvatarMode={avatarMode}
         config={data.config}
         stats={data.stats}
-        guilds={guilds}
         profileName={shell?.name ?? daoPage?.branding.name}
         bio={portfolioBio}
         profileLinks={shell?.links ?? null}
         drawerMeta={drawerMeta}
         incomingStandingCount={daoIncomingStanding}
         deferredShelf={
-          <PortfolioDeferredShelf accountId={accountId} />
+          <PortfolioDeferredShelf
+            accountId={accountId}
+            drawerName={name}
+            drawerTags={drawerTags}
+            guildCountHint={data.stats.groupCount ?? 0}
+            postCountHint={postCount}
+          />
         }
       >
         <PortfolioIdentity
@@ -189,8 +193,6 @@ export default async function AccountPage({
 
         {signals && !daoEntity.isDao ? (
           <PortfolioSignalsShell accountId={accountId} signals={signals} />
-        ) : !daoEntity.isDao ? (
-          <PortfolioStatsRow accountId={accountId} stats={data.stats} />
         ) : null}
         <PortfolioLinks links={shell?.links} />
       </PortfolioShellRoot>

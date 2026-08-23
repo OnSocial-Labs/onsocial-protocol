@@ -9,6 +9,10 @@ import {
 } from 'react';
 import { PortfolioFacePreviewProvider } from '@/contexts/portfolio-face-preview-context';
 import {
+  PortfolioDrawerDataProvider,
+  usePortfolioDrawerData,
+} from '@/contexts/portfolio-drawer-data-context';
+import {
   PortfolioMoodPreviewProvider,
   usePortfolioMoodPreview,
 } from '@/contexts/portfolio-mood-preview-context';
@@ -53,10 +57,12 @@ interface PortfolioShellRootProps {
   initialAvatarMode: PageAvatarMode;
   config: PublicPageConfig;
   stats: PublicPageStats;
+  /** SSR seed only — live guild rows stream in via the deferred shelf. */
   guilds?: ProfileGuildSummary[];
   profileName?: string | null;
   bio?: string | null;
   profileLinks?: unknown;
+  /** SSR seed only — joined/updated/scarce meta streams in via the shelf. */
   drawerMeta: PageDrawerMeta;
   /** DAO incoming stand count for drawer gesture row. */
   incomingStandingCount?: number;
@@ -73,18 +79,21 @@ function PortfolioShellPreviewBridge({
   bannerMedia,
   config,
   stats,
-  guilds = [],
   profileName,
   bio = null,
   profileLinks = null,
-  drawerMeta,
   incomingStandingCount = 0,
   deferredShelf = null,
   children,
 }: Omit<
   PortfolioShellRootProps,
-  'committedAvatarMode' | 'committedHeroSource' | 'initialAvatarMode'
+  | 'committedAvatarMode'
+  | 'committedHeroSource'
+  | 'initialAvatarMode'
+  | 'drawerMeta'
+  | 'guilds'
 >) {
+  const { drawerMeta, guilds } = usePortfolioDrawerData();
   const {
     effectiveAvatarMode,
     effectiveHeroSource,
@@ -134,11 +143,7 @@ function PortfolioShellPreviewBridge({
             data-mood-preview={isPreviewingMood ? 'true' : undefined}
             data-has-banner={hasBanner ? 'true' : undefined}
             data-mood-only={hasBanner ? undefined : 'true'}
-            style={
-              portfolioMoodShellStyle(effectiveMood.cssVars, {
-                preview: isPreviewingMood,
-              }) as CSSProperties
-            }
+            style={portfolioMoodShellStyle(effectiveMood.cssVars) as CSSProperties}
           >
             <PortfolioCustomize
               pageAccountId={pageAccountId}
@@ -194,6 +199,8 @@ export function PortfolioShellRoot({
   mood,
   config,
   pageAccountId,
+  drawerMeta,
+  guilds = [],
   ...props
 }: PortfolioShellRootProps) {
   // Soft-fill only when SSR config was empty (indexer lag). Once props have
@@ -235,24 +242,29 @@ export function PortfolioShellRoot({
         : mood;
 
   return (
-    <PageContentDrawerProvider>
-      <PortfolioFacePreviewProvider
-        committedAvatarMode={committedAvatarMode}
-        committedHeroSource={committedHeroSource}
-        initialAvatarMode={initialAvatarMode}
-      >
-        <PortfolioMoodPreviewProvider
-          committedMood={liveMood}
-          config={liveConfig}
+    <PortfolioDrawerDataProvider
+      initialDrawerMeta={drawerMeta}
+      initialGuilds={guilds}
+    >
+      <PageContentDrawerProvider>
+        <PortfolioFacePreviewProvider
+          committedAvatarMode={committedAvatarMode}
+          committedHeroSource={committedHeroSource}
+          initialAvatarMode={initialAvatarMode}
         >
-          <PortfolioShellPreviewBridge
-            mood={liveMood}
+          <PortfolioMoodPreviewProvider
+            committedMood={liveMood}
             config={liveConfig}
-            pageAccountId={pageAccountId}
-            {...props}
-          />
-        </PortfolioMoodPreviewProvider>
-      </PortfolioFacePreviewProvider>
-    </PageContentDrawerProvider>
+          >
+            <PortfolioShellPreviewBridge
+              mood={liveMood}
+              config={liveConfig}
+              pageAccountId={pageAccountId}
+              {...props}
+            />
+          </PortfolioMoodPreviewProvider>
+        </PortfolioFacePreviewProvider>
+      </PageContentDrawerProvider>
+    </PortfolioDrawerDataProvider>
   );
 }

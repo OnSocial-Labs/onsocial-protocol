@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   formatCompactCount,
   formatDaoRoleLabel,
-  formatPageDrawerActivityLine,
   formatPageDrawerCredentialsLine,
   formatPageDrawerJoinedFullLabel,
   formatPageDrawerJoinedLabel,
@@ -59,30 +58,6 @@ describe('formatCompactCount', () => {
   it('keeps small counts exact and compacts thousands', () => {
     expect(formatCompactCount(18)).toBe('18');
     expect(formatCompactCount(1540)).toBe('1.5K');
-  });
-});
-
-describe('formatPageDrawerActivityLine', () => {
-  it('omits zero counts and keeps joined', () => {
-    expect(
-      formatPageDrawerActivityLine({
-        postCount: 12,
-        guildCount: 0,
-        scarceMintCount: 3,
-        joinedAt: Date.UTC(2025, 2, 1),
-      })
-    ).toBe('12 posts · 3 scarces · Joined Mar 2025');
-  });
-
-  it('returns null when nothing to show', () => {
-    expect(
-      formatPageDrawerActivityLine({
-        postCount: 0,
-        guildCount: 0,
-        scarceMintCount: 0,
-        joinedAt: null,
-      })
-    ).toBeNull();
   });
 });
 

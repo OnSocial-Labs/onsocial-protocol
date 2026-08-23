@@ -43,9 +43,7 @@ export function PortfolioShell({
   const hasBanner = Boolean(hero);
   const isMoodOnly = !hasBanner;
   const isGlassFinish = mood.id === 'glass';
-  const shellStyle = portfolioMoodShellStyle(mood.cssVars, {
-    preview: isPreviewingMood,
-  });
+  const shellStyle = portfolioMoodShellStyle(mood.cssVars);
 
   return (
     <main

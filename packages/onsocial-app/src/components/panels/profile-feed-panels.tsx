@@ -118,6 +118,31 @@ function ProfileFeedSheetHeader({
   );
 }
 
+/** Full-page profile feed (hard refresh / shared link) — same tabs, no sheet chrome. */
+export function ProfileFeedPagePanel({
+  accountId,
+  posts,
+  postCount,
+}: {
+  accountId: string;
+  posts: PostRow[];
+  postCount: number;
+}) {
+  const [tab, setTab] = useProfileFeedTabParam();
+
+  return (
+    <>
+      <ProfileFeedTabsRail tab={tab} onTabChange={setTab} />
+      <ProfileFeedClient
+        accountId={accountId}
+        posts={posts}
+        postCount={postCount}
+        tab={tab}
+      />
+    </>
+  );
+}
+
 /** Profile feed overlay — compact section tabs + close. */
 export function ProfileFeedOverlayPanel({
   accountId,
