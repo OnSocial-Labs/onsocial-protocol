@@ -72,7 +72,7 @@ export function GuildSettingsSheet({
           }}
         />
         <OsSurfaceRow
-          label="Group storage"
+          label="Guild storage"
           description="Fund the pool and add storage for members"
           onClick={() => {
             onOpenGroupStorage();

@@ -7,7 +7,10 @@ import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { submitPersonalRepost, submitPersonalUnrepost } from '@/features/home/submit-personal-post';
+import {
+  submitPersonalRepost,
+  submitPersonalUnrepost,
+} from '@/features/home/submit-personal-post';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
@@ -40,7 +43,7 @@ import {
   collectRelayTxHashes,
   guildPath,
   guildPostPath,
-  guildSectionPath,
+  guildSheetPath,
 } from '@/features/guilds/guilds-data';
 import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access';
 import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-write';
@@ -812,7 +815,6 @@ export function LiveGuildPostPanel({
       }
     : undefined;
 
-
   /** Click-through target for a quoted post's own thread page. */
   const quotedHrefFor = (quoted: PostRow | undefined) =>
     quoted
@@ -884,7 +886,7 @@ export function LiveGuildPostPanel({
     }
     if (effectiveIsBlacklisted) return;
     if (effectiveIsMember && effectiveIsOwner) {
-      router.push(guildSectionPath(groupId, 'members'));
+      router.push(guildSheetPath(groupId, 'members'));
       return;
     }
     if (effectiveJoinPending && !joinCancelReady) return;
@@ -988,7 +990,7 @@ export function LiveGuildPostPanel({
     }
     clearConfirmLeave();
     if (effectiveIsMember && effectiveIsOwner) {
-      router.push(guildSectionPath(groupId, 'members'));
+      router.push(guildSheetPath(groupId, 'members'));
       return;
     }
     void runMembershipAction();
@@ -1180,8 +1182,8 @@ export function LiveGuildPostPanel({
                   onAmplifyConfirmed={confirmAmplify}
                   onReply={replyHandler}
                   onQuote={quoteHandler}
-                    onRepost={repostHandler}
-                    onUndoRepost={undoRepostHandler}
+                  onRepost={repostHandler}
+                  onUndoRepost={undoRepostHandler}
                   pollTally={pollTallyFor(conversation.root)}
                   pollVotePending={isPollVotePending(conversation.root)}
                   onPollVote={(post, optionIndex) => {
@@ -1332,7 +1334,7 @@ export function LiveGuildPostPanel({
                             onAmplifyConfirmed={confirmAmplify}
                             onReply={replyHandler}
                             onQuote={quoteHandler}
-                    onRepost={repostHandler}
+                            onRepost={repostHandler}
                             onUndoRepost={undoRepostHandler}
                             pollTally={pollTallyFor(row.post)}
                             pollVotePending={isPollVotePending(row.post)}
@@ -1355,49 +1357,49 @@ export function LiveGuildPostPanel({
                     conversation.root
                   );
                   return (
-                  <div key={postKey(quote)}>
-                    <Divider
-                      variant="item"
-                      className={
-                        index > 0
-                          ? 'post-row-divider'
-                          : 'post-row-divider post-row-divider--leading-hidden'
-                      }
-                    />
-                    <PostCard
-                      post={quote}
-                      authorProfile={postAuthorProfiles[quote.accountId]}
-                      actionHref={guildPostPath(
-                        groupId,
-                        quote.accountId,
-                        quote.postId
-                      )}
-                      showRelationBadge={false}
-                      quotedPost={quoted}
-                      quotedAuthorProfile={
-                        quoted
-                          ? postAuthorProfiles[quoted.accountId]
-                          : undefined
-                      }
-                      quotedHref={quotedHrefFor(quoted)}
-                      engagement={engagement[postKey(quote)]}
-                      reactionPending={isReactionPending(quote)}
-                      savePending={isSavePending(quote)}
-                      sharePending={isSharePending(quote)}
-                      onToggleReaction={toggleReaction}
-                      onToggleSave={toggleSave}
-                      onAmplifyConfirmed={confirmAmplify}
-                      onReply={replyHandler}
-                      onQuote={quoteHandler}
-                      onRepost={repostHandler}
-                      onUndoRepost={undoRepostHandler}
-                      pollTally={pollTallyFor(quote)}
-                      pollVotePending={isPollVotePending(quote)}
-                      onPollVote={(post, optionIndex) => {
-                        void castVote(post, optionIndex);
-                      }}
-                    />
-                  </div>
+                    <div key={postKey(quote)}>
+                      <Divider
+                        variant="item"
+                        className={
+                          index > 0
+                            ? 'post-row-divider'
+                            : 'post-row-divider post-row-divider--leading-hidden'
+                        }
+                      />
+                      <PostCard
+                        post={quote}
+                        authorProfile={postAuthorProfiles[quote.accountId]}
+                        actionHref={guildPostPath(
+                          groupId,
+                          quote.accountId,
+                          quote.postId
+                        )}
+                        showRelationBadge={false}
+                        quotedPost={quoted}
+                        quotedAuthorProfile={
+                          quoted
+                            ? postAuthorProfiles[quoted.accountId]
+                            : undefined
+                        }
+                        quotedHref={quotedHrefFor(quoted)}
+                        engagement={engagement[postKey(quote)]}
+                        reactionPending={isReactionPending(quote)}
+                        savePending={isSavePending(quote)}
+                        sharePending={isSharePending(quote)}
+                        onToggleReaction={toggleReaction}
+                        onToggleSave={toggleSave}
+                        onAmplifyConfirmed={confirmAmplify}
+                        onReply={replyHandler}
+                        onQuote={quoteHandler}
+                        onRepost={repostHandler}
+                        onUndoRepost={undoRepostHandler}
+                        pollTally={pollTallyFor(quote)}
+                        pollVotePending={isPollVotePending(quote)}
+                        onPollVote={(post, optionIndex) => {
+                          void castVote(post, optionIndex);
+                        }}
+                      />
+                    </div>
                   );
                 })
               ) : (

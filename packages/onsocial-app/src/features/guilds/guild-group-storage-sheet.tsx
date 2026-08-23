@@ -59,8 +59,8 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 
-const GROUP_STORAGE_LABEL = 'Group storage';
-const GROUP_STORAGE_FUND_HINT = 'Group pools start at 0.1 NEAR.';
+const GROUP_STORAGE_LABEL = 'Guild storage';
+const GROUP_STORAGE_FUND_HINT = 'Guild pools start at 0.1 NEAR.';
 const GROUP_STORAGE_GRANT_HINT = 'Members write guild content from this pool.';
 const GROUP_STORAGE_DEFAULT_HINT =
   'Applies to members without a personal grant.';
@@ -154,7 +154,7 @@ function GroupPoolReadout({
     return (
       <div className="app-storage-share-card">
         <span className="account-card-wallet-label">{GROUP_STORAGE_LABEL}</span>
-        <p className="app-storage-meta">Group storage unavailable right now.</p>
+        <p className="app-storage-meta">Guild storage unavailable right now.</p>
       </div>
     );
   }
@@ -820,7 +820,7 @@ export function GuildGroupStorageSheet({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      label="Group storage"
+      label="Guild storage"
       copy={guildName?.trim() || 'Guild pool and member grants'}
       closeAriaLabel="Close"
       backdropLabel="Close group storage"
@@ -865,7 +865,7 @@ export function GuildGroupStorageSheet({
                 onValueChange={applyFundAmountInput}
                 maxDecimals={STORAGE_NEAR_INPUT_DECIMALS}
                 placeholder={amountHint}
-                aria-label="Group pool fund amount in NEAR"
+                aria-label="Guild pool fund amount in NEAR"
                 invalid={Boolean(fundAmountInput) && !canFundAmount}
                 unit="NEAR"
                 disabled={pending}
@@ -1063,7 +1063,7 @@ export function GuildGroupStorageSheet({
                 <div
                   className="app-storage-presets"
                   role="group"
-                  aria-label="Group storage percent"
+                  aria-label="Guild storage percent"
                 >
                   {STORAGE_SHARE_PERCENT_PRESETS.map((preset) => (
                     <button

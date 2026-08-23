@@ -19,6 +19,7 @@ import {
 } from '@/features/guilds/guild-summary-card';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { APP_GROUPS_PATH } from '@/lib/app-routes';
 import {
   countPrimaryTopics,
@@ -70,13 +71,14 @@ function mergeGuildCards(
  * Browse chips: used primary topics (curated + custom), omit empty.
  */
 export function DiscoverGuildsPanel() {
-  const { query, clearSearch, initialGuilds } = useDiscoverPanel();
+  const { query, clearSearch, initialGuilds, scrollRootRef } =
+    useDiscoverPanel();
   const { accountId } = useAppWallet();
   const searchQuery = discoverPeopleSearchQuery(query);
 
-  const [browseGuilds, setBrowseGuilds] = useState<GuildSummaryCardModel[] | null>(
-    () => initialGuilds
-  );
+  const [browseGuilds, setBrowseGuilds] = useState<
+    GuildSummaryCardModel[] | null
+  >(() => initialGuilds);
   const [searchResults, setSearchResults] = useState<
     GuildSummaryCardModel[] | null
   >(null);
@@ -86,14 +88,19 @@ export function DiscoverGuildsPanel() {
   );
   const [pending, setPending] = useState(() => initialGuilds == null);
   const [searchPending, setSearchPending] = useState(false);
+  const [moreLoading, setMoreLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(
+    () => (initialGuilds?.length ?? 0) >= BROWSE_LIMIT
+  );
   const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const searchRequestRef = useRef(0);
   const hasPaintedRef = useRef(initialGuilds != null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const moreLoadingRef = useRef(false);
 
   const browseOptions = useMemo(
-    () =>
-      discoverTopicFiltersFromCounts(topicCounts, GUILD_TOPIC_SUGGESTIONS),
+    () => discoverTopicFiltersFromCounts(topicCounts, GUILD_TOPIC_SUGGESTIONS),
     [topicCounts]
   );
   const activeTopicFilter = useMemo((): DiscoverTopicFilter => {
@@ -121,10 +128,11 @@ export function DiscoverGuildsPanel() {
     void (async () => {
       try {
         const client = createReadOnlyOnSocialClient();
-        const { items } = await client.query.groups.browse({
+        const { items, nextOffset } = await client.query.groups.browse({
           publicOnly: !accountId,
           sort: 'members',
           limit: GUILD_TOPIC_CENSUS_LIMIT,
+          offset: 0,
         });
         if (cancelled) return;
         const cards = items.map((row) => guildSummaryCardFromBrowse(row));
@@ -135,6 +143,7 @@ export function DiscoverGuildsPanel() {
         );
         const page = cards.slice(0, BROWSE_LIMIT);
         setBrowseGuilds(page);
+        setHasMore(nextOffset != null);
         setPending(false);
         setError(null);
         hasPaintedRef.current = true;
@@ -144,7 +153,8 @@ export function DiscoverGuildsPanel() {
         if (cancelled) return;
         setPending(false);
         if (!soft) {
-          setBrowseGuilds([]);
+          setBrowseGuilds(null);
+          setHasMore(false);
           setError(
             cause instanceof Error ? cause.message : 'Could not load guilds.'
           );
@@ -160,6 +170,44 @@ export function DiscoverGuildsPanel() {
   const retry = useCallback(() => {
     setReloadNonce((n) => n + 1);
   }, []);
+
+  const loadMore = useCallback(async () => {
+    if (moreLoadingRef.current || !hasMore || searchQuery) return;
+    const offset = browseGuilds?.length ?? 0;
+    if (offset === 0) return;
+    moreLoadingRef.current = true;
+    setMoreLoading(true);
+    try {
+      const client = createReadOnlyOnSocialClient();
+      const { items, nextOffset } = await client.query.groups.browse({
+        publicOnly: !accountId,
+        sort: 'members',
+        limit: BROWSE_LIMIT,
+        offset,
+      });
+      const cards = items.map((row) => guildSummaryCardFromBrowse(row));
+      setBrowseGuilds((prev) => [...(prev ?? []), ...cards]);
+      setHasMore(nextOffset != null);
+      const withCounts = await enrichIndexedGuildSummaryCards(client, cards);
+      setBrowseGuilds((prev) => {
+        if (!prev) return withCounts;
+        const byId = new Map(withCounts.map((card) => [card.groupId, card]));
+        return prev.map((card) => byId.get(card.groupId) ?? card);
+      });
+    } catch {
+      setHasMore(false);
+    } finally {
+      moreLoadingRef.current = false;
+      setMoreLoading(false);
+    }
+  }, [accountId, browseGuilds?.length, hasMore, searchQuery]);
+
+  useInfiniteScrollSentinel({
+    scrollRootRef,
+    sentinelRef: loadMoreRef,
+    enabled: !searchQuery && hasMore && !moreLoading && !pending,
+    onIntersect: loadMore,
+  });
 
   useEffect(() => {
     if (!searchQuery) {
@@ -177,13 +225,12 @@ export function DiscoverGuildsPanel() {
           const { items } = await client.query.groups.browse({
             query: searchQuery,
             publicOnly: !accountId,
+            sort: 'members',
             limit: BROWSE_LIMIT,
           });
           if (searchRequestRef.current !== requestId) return;
           const cards = items.map((row) => guildSummaryCardFromBrowse(row));
-          setSearchResults(
-            await enrichIndexedGuildSummaryCards(client, cards)
-          );
+          setSearchResults(await enrichIndexedGuildSummaryCards(client, cards));
           setSearchPending(false);
         } catch {
           if (searchRequestRef.current !== requestId) return;
@@ -273,7 +320,10 @@ export function DiscoverGuildsPanel() {
         </p>
       ) : null}
 
-      {!showSkeleton && !showSearchBusy && visibleGuilds.length === 0 ? (
+      {!error &&
+      !showSkeleton &&
+      !showSearchBusy &&
+      visibleGuilds.length === 0 ? (
         <div className="standing-panel-empty-block">
           <div className="standing-panel-empty-state">
             <p className="standing-panel-empty-primary">
@@ -339,6 +389,24 @@ export function DiscoverGuildsPanel() {
               variant="grid"
             />
           ))}
+        </div>
+      ) : null}
+
+      {!searchQuery && (hasMore || moreLoading) ? (
+        <div className="dao-discover-load-more">
+          <div
+            ref={loadMoreRef}
+            className="protocol-feed-sentinel"
+            aria-hidden
+          />
+          <button
+            type="button"
+            className="daos-discover-more"
+            disabled={moreLoading}
+            onClick={() => void loadMore()}
+          >
+            {moreLoading ? 'Loading…' : 'Load more'}
+          </button>
         </div>
       ) : null}
     </div>

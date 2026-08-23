@@ -62,7 +62,7 @@ export function useGroupStorageGrants(
         if (!response.ok) {
           setState({
             loading: false,
-            error: body.error || 'Group storage grants unavailable right now.',
+            error: body.error || 'Guild storage grants unavailable right now.',
             grants: [],
             defaultQuota: null,
           });
@@ -84,7 +84,7 @@ export function useGroupStorageGrants(
           error:
             error instanceof Error
               ? error.message
-              : 'Group storage grants unavailable right now.',
+              : 'Guild storage grants unavailable right now.',
           grants: [],
           defaultQuota: null,
         });

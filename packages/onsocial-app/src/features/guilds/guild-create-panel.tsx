@@ -213,7 +213,7 @@ export function GuildCreatePanel() {
             className={`${osFieldBorderedClassName} ${idAvailabilityClass}`}
           />
           <small className={idAvailabilityClass}>
-            {entityIdAvailabilityLead(idAvailability)} · /groups/
+            {entityIdAvailabilityLead(idAvailability)} · public link /groups/
             {groupId || 'builder-room'}
           </small>
         </label>

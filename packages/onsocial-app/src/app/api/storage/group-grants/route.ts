@@ -29,7 +29,7 @@ function readIncludeTargets(request: NextRequest): string[] {
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
-  return 'Group storage grants query failed';
+  return 'Guild storage grants query failed';
 }
 
 export async function GET(request: NextRequest) {
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: 'Group storage grants unavailable right now',
+        error: 'Guild storage grants unavailable right now',
         detail: getErrorMessage(error),
       },
       { status: 502 }

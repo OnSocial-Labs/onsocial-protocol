@@ -458,7 +458,7 @@ export function pushNotificationUrl(row: {
     const groupId = textField(context, 'groupId');
     if (groupId) {
       return type === 'group_proposal'
-        ? `/groups/${encodeURIComponent(groupId)}/proposals`
+        ? `/groups/${encodeURIComponent(groupId)}?sheet=proposals`
         : `/groups/${encodeURIComponent(groupId)}`;
     }
     return '/groups';
