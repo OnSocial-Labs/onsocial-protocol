@@ -103,14 +103,10 @@ describe('leaderboard helpers', () => {
     );
   });
 
-  it('builds share copy for viewer ranks', () => {
-    expect(
-      leaderboardShareCopy({
-        track: 'reputation',
-        rank: 12,
-        accountId: 'alice.near',
-      }).text
-    ).toBe("I'm #12 on OnSocial reputation (@alice.near)");
+  it('builds share copy for leaderboard tracks', () => {
+    expect(leaderboardShareCopy('reputation').text).toMatch(
+      /reputation rankings/i
+    );
   });
 
   it('computes percent of leader', () => {
