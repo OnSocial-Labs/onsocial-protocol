@@ -65,6 +65,17 @@ function isAmplifyHeatUnavailableError(err: unknown): boolean {
   return hay.includes('amplifyheat') || hay.includes('amplify_heat');
 }
 
+/** Topic index `heat` column not tracked yet (deploy lag). */
+function isTopicHeatUnavailableError(err: unknown): boolean {
+  if (!(err instanceof GraphQLValidationError)) return false;
+  const hay =
+    `${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
+  return hay.includes('heat');
+}
+
+const TOPIC_ORDER_HOT = '[{heat: DESC}, {blockHeight: DESC}]';
+const TOPIC_ORDER_RECENT = '[{blockHeight: DESC}]';
+
 export class FeedQuery {
   /** Set when GraphQL rejects `postsFeed` (view not tracked yet). */
   private postsFeedFallback = new SchemaFallback();
@@ -72,7 +83,40 @@ export class FeedQuery {
   /** Set when GraphQL rejects `amplifyHeat` (column not tracked yet). */
   private amplifyHeatFallback = new SchemaFallback();
 
+  /** Set when topic index views reject `heat` ordering (column not tracked yet). */
+  private topicHeatFallback = new SchemaFallback();
+
   constructor(private _q: QueryModule) {}
+
+  /**
+   * Fetch topic index stubs, hot-ordered when requested. Falls back to
+   * chronological order while the `heat` column is not tracked yet.
+   */
+  private async queryTopicStubs<T>(args: {
+    buildQuery: (orderBy: string) => string;
+    variables: Record<string, unknown>;
+    sort: FeedSort;
+    pick: (data: Record<string, unknown> | undefined) => T[] | undefined;
+  }): Promise<T[]> {
+    const wantHot = args.sort === 'hot' && !this.topicHeatFallback.active;
+    const orderBy = wantHot ? TOPIC_ORDER_HOT : TOPIC_ORDER_RECENT;
+    try {
+      const res = await this._q.graphql<Record<string, unknown>>({
+        query: args.buildQuery(orderBy),
+        variables: args.variables,
+      });
+      if (wantHot) this.topicHeatFallback.clear();
+      return args.pick(res.data) ?? [];
+    } catch (err) {
+      if (!wantHot || !isTopicHeatUnavailableError(err)) throw err;
+      this.topicHeatFallback.trip();
+      const res = await this._q.graphql<Record<string, unknown>>({
+        query: args.buildQuery(TOPIC_ORDER_RECENT),
+        variables: args.variables,
+      });
+      return args.pick(res.data) ?? [];
+    }
+  }
 
   private async enrichFeedPosts(rows: PostRow[]): Promise<PostRow[]> {
     if (rows.length === 0) return rows;
@@ -426,33 +470,35 @@ export class FeedQuery {
   }
 
   /**
-   * Posts tagged with a hashtag (paginated, newest first).
+   * Posts tagged with a hashtag (paginated; newest first, or heat-ordered
+   * with `sort: 'hot'` once the topic `heat` column is deployed).
    * Hydrates full `postsFeed` / `postsCurrent` rows so list UIs get text/media.
    *
    * ```ts
-   * const page = await os.query.feed.byHashtag('onchain', { limit: 20 });
+   * const page = await os.query.feed.byHashtag('onchain', { limit: 20, sort: 'hot' });
    * ```
    */
   async byHashtag(
     hashtag: string,
-    opts: { limit?: number; offset?: number } = {}
+    opts: { limit?: number; offset?: number; sort?: FeedSort } = {}
   ): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
     const offset = opts.offset ?? 0;
-    const res = await this._q.graphql<{
-      postHashtags: Array<{
-        accountId: string;
-        postId: string;
-        hashtag: string;
-        blockHeight: number;
-        blockTimestamp: number;
-        groupId: string | null;
-      }>;
-    }>({
-      query: `query PostsByHashtag($tag: String!, $limit: Int!, $offset: Int!) {
+    type HashtagStub = {
+      accountId: string;
+      postId: string;
+      hashtag: string;
+      blockHeight: number;
+      blockTimestamp: number;
+      groupId: string | null;
+    };
+    const stubs = await this.queryTopicStubs<HashtagStub>({
+      buildQuery: (
+        orderBy
+      ) => `query PostsByHashtag($tag: String!, $limit: Int!, $offset: Int!) {
         postHashtags(
           where: {hashtag: {_eq: $tag}},
-          orderBy: [{blockHeight: DESC}],
+          orderBy: ${orderBy},
           limit: $limit,
           offset: $offset
         ) {
@@ -464,8 +510,10 @@ export class FeedQuery {
         limit,
         offset,
       },
+      sort: opts.sort ?? 'recent',
+      pick: (data) =>
+        (data as { postHashtags?: HashtagStub[] } | undefined)?.postHashtags,
     });
-    const stubs = res.data?.postHashtags ?? [];
     const nextOffset = stubs.length >= limit ? offset + limit : undefined;
 
     if (stubs.length === 0) {
@@ -481,33 +529,35 @@ export class FeedQuery {
   }
 
   /**
-   * Posts tagged with a ticker / cashtag (paginated, newest first).
+   * Posts tagged with a ticker / cashtag (paginated; newest first, or
+   * heat-ordered with `sort: 'hot'` once the topic `heat` column is deployed).
    * Hydrates full `postsFeed` / `postsCurrent` rows so list UIs get text/media.
    *
    * ```ts
-   * const page = await os.query.feed.byTicker('social', { limit: 20 });
+   * const page = await os.query.feed.byTicker('social', { limit: 20, sort: 'hot' });
    * ```
    */
   async byTicker(
     ticker: string,
-    opts: { limit?: number; offset?: number } = {}
+    opts: { limit?: number; offset?: number; sort?: FeedSort } = {}
   ): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
     const offset = opts.offset ?? 0;
-    const res = await this._q.graphql<{
-      postTickers: Array<{
-        accountId: string;
-        postId: string;
-        ticker: string;
-        blockHeight: number;
-        blockTimestamp: number;
-        groupId: string | null;
-      }>;
-    }>({
-      query: `query PostsByTicker($ticker: String!, $limit: Int!, $offset: Int!) {
+    type TickerStub = {
+      accountId: string;
+      postId: string;
+      ticker: string;
+      blockHeight: number;
+      blockTimestamp: number;
+      groupId: string | null;
+    };
+    const stubs = await this.queryTopicStubs<TickerStub>({
+      buildQuery: (
+        orderBy
+      ) => `query PostsByTicker($ticker: String!, $limit: Int!, $offset: Int!) {
         postTickers(
           where: {ticker: {_eq: $ticker}},
-          orderBy: [{blockHeight: DESC}],
+          orderBy: ${orderBy},
           limit: $limit,
           offset: $offset
         ) {
@@ -519,8 +569,10 @@ export class FeedQuery {
         limit,
         offset,
       },
+      sort: opts.sort ?? 'recent',
+      pick: (data) =>
+        (data as { postTickers?: TickerStub[] } | undefined)?.postTickers,
     });
-    const stubs = res.data?.postTickers ?? [];
     const nextOffset = stubs.length >= limit ? offset + limit : undefined;
 
     if (stubs.length === 0) {
@@ -536,33 +588,35 @@ export class FeedQuery {
   }
 
   /**
-   * Posts tagged with a place (paginated, newest first).
+   * Posts tagged with a place (paginated; newest first, or heat-ordered
+   * with `sort: 'hot'` once the topic `heat` column is deployed).
    * Hydrates full `postsFeed` / `postsCurrent` rows so list UIs get text/media.
    *
    * ```ts
-   * const page = await os.query.feed.byPlace('lisbon', { limit: 20 });
+   * const page = await os.query.feed.byPlace('lisbon', { limit: 20, sort: 'hot' });
    * ```
    */
   async byPlace(
     place: string,
-    opts: { limit?: number; offset?: number } = {}
+    opts: { limit?: number; offset?: number; sort?: FeedSort } = {}
   ): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
     const offset = opts.offset ?? 0;
-    const res = await this._q.graphql<{
-      postPlaces: Array<{
-        accountId: string;
-        postId: string;
-        place: string;
-        blockHeight: number;
-        blockTimestamp: number;
-        groupId: string | null;
-      }>;
-    }>({
-      query: `query PostsByPlace($place: String!, $limit: Int!, $offset: Int!) {
+    type PlaceStub = {
+      accountId: string;
+      postId: string;
+      place: string;
+      blockHeight: number;
+      blockTimestamp: number;
+      groupId: string | null;
+    };
+    const stubs = await this.queryTopicStubs<PlaceStub>({
+      buildQuery: (
+        orderBy
+      ) => `query PostsByPlace($place: String!, $limit: Int!, $offset: Int!) {
         postPlaces(
           where: {place: {_eq: $place}},
-          orderBy: [{blockHeight: DESC}],
+          orderBy: ${orderBy},
           limit: $limit,
           offset: $offset
         ) {
@@ -574,8 +628,10 @@ export class FeedQuery {
         limit,
         offset,
       },
+      sort: opts.sort ?? 'recent',
+      pick: (data) =>
+        (data as { postPlaces?: PlaceStub[] } | undefined)?.postPlaces,
     });
-    const stubs = res.data?.postPlaces ?? [];
     const nextOffset = stubs.length >= limit ? offset + limit : undefined;
 
     if (stubs.length === 0) {

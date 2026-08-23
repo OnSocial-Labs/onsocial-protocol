@@ -1118,7 +1118,8 @@ SELECT
   lower(trim(ht.tag)) AS hashtag,
   p.block_height,
   p.block_timestamp,
-  p.group_id
+  p.group_id,
+  COALESCE(h.heat, 0)::double precision AS heat
 FROM posts_current p
 CROSS JOIN LATERAL jsonb_array_elements_text(
   (
@@ -1128,6 +1129,12 @@ CROSS JOIN LATERAL jsonb_array_elements_text(
     END
   ) -> 'hashtags'
 ) AS ht(tag)
+LEFT JOIN post_amplify_heat h
+  ON h.post_path = CASE
+    WHEN p.group_id IS NOT NULL AND p.group_id <> ''
+      THEN p.account_id || '/groups/' || p.group_id || '/content/post/' || p.post_id
+    ELSE p.account_id || '/post/' || p.post_id
+  END
 WHERE p.value IS NOT NULL
   AND p.value != ''
   AND p.value ~ '^[\[\{]'
@@ -1164,7 +1171,8 @@ SELECT
   lower(trim(tk.sym)) AS ticker,
   p.block_height,
   p.block_timestamp,
-  p.group_id
+  p.group_id,
+  COALESCE(h.heat, 0)::double precision AS heat
 FROM posts_current p
 CROSS JOIN LATERAL jsonb_array_elements_text(
   (
@@ -1174,6 +1182,12 @@ CROSS JOIN LATERAL jsonb_array_elements_text(
     END
   ) -> 'tickers'
 ) AS tk(sym)
+LEFT JOIN post_amplify_heat h
+  ON h.post_path = CASE
+    WHEN p.group_id IS NOT NULL AND p.group_id <> ''
+      THEN p.account_id || '/groups/' || p.group_id || '/content/post/' || p.post_id
+    ELSE p.account_id || '/post/' || p.post_id
+  END
 WHERE p.value IS NOT NULL
   AND p.value != ''
   AND p.value ~ '^[\[\{]'
@@ -1210,7 +1224,8 @@ SELECT
   lower(trim(pl.place)) AS place,
   p.block_height,
   p.block_timestamp,
-  p.group_id
+  p.group_id,
+  COALESCE(h.heat, 0)::double precision AS heat
 FROM posts_current p
 CROSS JOIN LATERAL jsonb_array_elements_text(
   (
@@ -1220,6 +1235,12 @@ CROSS JOIN LATERAL jsonb_array_elements_text(
     END
   ) -> 'places'
 ) AS pl(place)
+LEFT JOIN post_amplify_heat h
+  ON h.post_path = CASE
+    WHEN p.group_id IS NOT NULL AND p.group_id <> ''
+      THEN p.account_id || '/groups/' || p.group_id || '/content/post/' || p.post_id
+    ELSE p.account_id || '/post/' || p.post_id
+  END
 WHERE p.value IS NOT NULL
   AND p.value != ''
   AND p.value ~ '^[\[\{]'

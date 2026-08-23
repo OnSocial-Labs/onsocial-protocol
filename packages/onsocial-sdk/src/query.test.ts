@@ -804,6 +804,99 @@ describe('QueryModule', () => {
     });
   });
 
+  describe('topic hot ordering', () => {
+    const hashtagStub = {
+      accountId: 'a.near',
+      postId: 'p1',
+      hashtag: 'onchain',
+      blockHeight: 1,
+      blockTimestamp: 0,
+      groupId: null,
+    };
+    const feedRow = {
+      accountId: 'a.near',
+      postId: 'p1',
+      value: '{}',
+      blockHeight: 1,
+      blockTimestamp: 0,
+    };
+
+    it('orders topic stubs by heat when sort is hot', async () => {
+      const queries: string[] = [];
+      const { os } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        queries.push(query);
+        if (query.includes('postHashtags')) {
+          return { data: { postHashtags: [hashtagStub] } };
+        }
+        return { data: { postsFeed: [feedRow] } };
+      });
+
+      const page = await os.query.feed.byHashtag('onchain', {
+        limit: 5,
+        sort: 'hot',
+      });
+      expect(page.items).toHaveLength(1);
+      const stubQuery = queries.find((q) => q.includes('postHashtags'));
+      expect(stubQuery).toContain('heat: DESC');
+    });
+
+    it('keeps chrono order by default', async () => {
+      const queries: string[] = [];
+      const { os } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        queries.push(query);
+        if (query.includes('postHashtags')) {
+          return { data: { postHashtags: [] } };
+        }
+        return { data: { postsFeed: [] } };
+      });
+
+      await os.query.feed.byHashtag('onchain', { limit: 5 });
+      const stubQuery = queries.find((q) => q.includes('postHashtags'));
+      expect(stubQuery).not.toContain('heat: DESC');
+      expect(stubQuery).toContain('blockHeight: DESC');
+    });
+
+    it('falls back to chrono while the heat column is not tracked', async () => {
+      const queries: string[] = [];
+      const { os } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        queries.push(query);
+        if (query.includes('postHashtags') && query.includes('heat: DESC')) {
+          return {
+            errors: [
+              {
+                message:
+                  "field 'heat' not found in type: 'postHashtagsOrderBy'",
+              },
+            ],
+            data: null,
+          };
+        }
+        if (query.includes('postHashtags')) {
+          return { data: { postHashtags: [hashtagStub] } };
+        }
+        return { data: { postsFeed: [feedRow] } };
+      });
+
+      const page = await os.query.feed.byHashtag('onchain', {
+        limit: 5,
+        sort: 'hot',
+      });
+      expect(page.items).toHaveLength(1);
+
+      // Second hot call skips the heat attempt while the fallback is active.
+      const before = queries.length;
+      await os.query.feed.byHashtag('onchain', { limit: 5, sort: 'hot' });
+      const newStubQueries = queries
+        .slice(before)
+        .filter((q) => q.includes('postHashtags'));
+      expect(newStubQueries).toHaveLength(1);
+      expect(newStubQueries[0]).not.toContain('heat: DESC');
+    });
+  });
+
   describe('getFeed()', () => {
     it('queries posts for standing-with accounts', async () => {
       const { os, fetch } = makeOs({
