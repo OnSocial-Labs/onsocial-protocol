@@ -585,6 +585,19 @@ describe('ScarcesModule.collections — management helpers', () => {
     });
   });
 
+  it('updateTemplateExpiry', async () => {
+    const http = makeHttp();
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
+    await mod.collections.updateTemplateExpiry('col1', 1_800_000_000_000);
+    expect(
+      prepareBodyFor(http.post, 'update-collection-template-expiry')
+    ).toEqual({
+      collectionId: 'col1',
+      expiresAtMs: 1_800_000_000_000,
+    });
+  });
+
   it('setAppMetadata', async () => {
     const http = makeHttp();
     const { getter } = makeSessionGetter();

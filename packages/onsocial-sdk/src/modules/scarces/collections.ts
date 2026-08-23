@@ -628,6 +628,28 @@ export class ScarcesCollectionsApi {
     );
   }
 
+  /**
+   * Rain-day postpone: move the mint template's expiry (NEP-177 ms) so
+   * tokens minted after a date change match renewed ones. Renewable
+   * collections only.
+   */
+  async updateTemplateExpiry(
+    collectionId: string,
+    expiresAtMs: number
+  ): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.UPDATE_COLLECTION_TEMPLATE_EXPIRY,
+      {
+        collectionId,
+        expiresAtMs,
+      },
+      'scarces.updateCollectionTemplateExpiry',
+      this._relayOpts({ confirmation: true })
+    );
+  }
+
   /** Set or clear the per-app metadata for a collection (app owner). */
   async setAppMetadata(
     appId: string,

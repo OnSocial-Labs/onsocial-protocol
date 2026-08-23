@@ -200,6 +200,15 @@ export async function extendTicketEntryAccess(
     responses.push(...renewResponses);
   }
 
+  // Also move the mint template expiry so tickets bought after the
+  // postponement are born with the new event end (not the old one).
+  responses.push(
+    await client.scarces.collections.updateTemplateExpiry(
+      input.collectionId,
+      eventEndsAtMs
+    )
+  );
+
   const record = await viewNearContract<{
     metadata?: string | null;
   } | null>(SCARCES_CONTRACT, 'get_collection', {

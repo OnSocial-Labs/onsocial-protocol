@@ -36,6 +36,7 @@ export const SCARCES_VERBS = {
   REMOVE_REDEEMER: 'remove-redeemer',
   SET_REDEEMERS: 'set-redeemers',
   SET_COLLECTION_METADATA: 'set-collection-metadata',
+  UPDATE_COLLECTION_TEMPLATE_EXPIRY: 'update-collection-template-expiry',
   SET_COLLECTION_APP_METADATA: 'set-collection-app-metadata',
   CANCEL_COLLECTION: 'cancel-collection',
   WITHDRAW_UNCLAIMED_REFUNDS: 'withdraw-unclaimed-refunds',

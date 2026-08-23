@@ -177,6 +177,36 @@ fn redeem_max_reached_fails() {
 }
 
 #[test]
+fn redeem_expired_token_fails() {
+    let (mut contract, tid) = setup_with_token(true, RevocationMode::None, true, Some(3));
+    // Event ended (NEP-177 ms in the past) — the door must reject.
+    let mut token = contract.scarces_by_id.get(&tid).unwrap().clone();
+    token.metadata.expires_at = Some(1_600_000_000_000);
+    contract.scarces_by_id.insert(tid.clone(), token);
+
+    testing_env!(context(creator()).build());
+    let err = contract.redeem_token(&creator(), &tid, "col").unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidState(_)));
+    assert_eq!(contract.scarces_by_id.get(&tid).unwrap().redeem_count, 0);
+}
+
+#[test]
+fn redeem_after_renew_succeeds() {
+    let (mut contract, tid) = setup_with_token(true, RevocationMode::None, true, Some(3));
+    let mut token = contract.scarces_by_id.get(&tid).unwrap().clone();
+    token.metadata.expires_at = Some(1_600_000_000_000);
+    contract.scarces_by_id.insert(tid.clone(), token);
+
+    // Rain-day: renew to a future date (ns arg), then the door admits again.
+    testing_env!(context(creator()).build());
+    contract
+        .renew_token(&creator(), &tid, "col", 1_800_000_000_000_000_000)
+        .unwrap();
+    contract.redeem_token(&creator(), &tid, "col").unwrap();
+    assert_eq!(contract.scarces_by_id.get(&tid).unwrap().redeem_count, 1);
+}
+
+#[test]
 fn redeem_non_redeemable_fails() {
     let (mut contract, tid) = setup_with_token(false, RevocationMode::None, true, None);
     testing_env!(context(creator()).build());

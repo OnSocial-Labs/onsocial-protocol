@@ -410,6 +410,18 @@
       }
     },
     {
+      "name": "update collection template expiry",
+      "expected_action_type": "update_collection_template_expiry",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "update_collection_template_expiry",
+          "collection_id": "genesis",
+          "expires_at_ms": 1800000000000
+        }
+      }
+    },
+    {
       "name": "set collection app metadata",
       "expected_action_type": "set_collection_app_metadata",
       "request": {

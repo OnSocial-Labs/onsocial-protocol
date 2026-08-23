@@ -236,6 +236,11 @@ export type ScarcesAction =
       metadata?: string;
     }
   | {
+      type: 'update_collection_template_expiry';
+      collection_id: string;
+      expires_at_ms: number;
+    }
+  | {
       type: 'set_collection_app_metadata';
       app_id: string;
       collection_id: string;

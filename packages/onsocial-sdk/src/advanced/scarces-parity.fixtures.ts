@@ -63,6 +63,7 @@ export const ALL_SCARCES_ACTION_TYPES = [
   'remove_redeemer',
   'set_redeemers',
   'set_collection_metadata',
+  'update_collection_template_expiry',
   'set_collection_app_metadata',
   'withdraw_unclaimed_refunds',
   // sale / auction
@@ -500,6 +501,19 @@ export function getScarcesParityCases(
         type: 'set_collection_metadata',
         collection_id: 'genesis',
         metadata: '{"banner":"ipfs://abc"}',
+      },
+    },
+    {
+      name: 'update collection template expiry',
+      action: {
+        type: 'update_collection_template_expiry',
+        collection_id: 'genesis',
+        expires_at_ms: 1_800_000_000_000,
+      },
+      expectedAction: {
+        type: 'update_collection_template_expiry',
+        collection_id: 'genesis',
+        expires_at_ms: 1_800_000_000_000,
       },
     },
     {
