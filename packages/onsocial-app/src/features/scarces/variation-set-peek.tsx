@@ -18,12 +18,10 @@ export function VariationSetPeek({
   referenceTemplate?: string | null;
 }) {
   const [traitLabels, setTraitLabels] = useState<string[]>([]);
+  const canFetchTraits = Boolean(referenceTemplate) && totalSupply >= 1;
 
   useEffect(() => {
-    if (!referenceTemplate || totalSupply < 1) {
-      setTraitLabels([]);
-      return;
-    }
+    if (!referenceTemplate || totalSupply < 1) return;
     let cancelled = false;
     const seats = variationSampleSeats(totalSupply, 1, 6);
     void fetchVariationTraitLabels({
@@ -37,6 +35,8 @@ export function VariationSetPeek({
       cancelled = true;
     };
   }, [collectionId, referenceTemplate, totalSupply]);
+
+  const shownTraitLabels = canFetchTraits ? traitLabels : [];
 
   if (samples.length === 0 && totalSupply < 2) return null;
 
@@ -55,8 +55,10 @@ export function VariationSetPeek({
         </div>
       ) : null}
       <p className="collection-set-peek-lead">{lead}</p>
-      {traitLabels.length > 0 ? (
-        <p className="collection-set-peek-traits">{traitLabels.join(' · ')}</p>
+      {shownTraitLabels.length > 0 ? (
+        <p className="collection-set-peek-traits">
+          {shownTraitLabels.join(' · ')}
+        </p>
       ) : null}
     </section>
   );
