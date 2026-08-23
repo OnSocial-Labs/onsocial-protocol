@@ -4,6 +4,7 @@ import {
   dropFacetFieldLabel,
   dropFacetLabel,
   dropFacetsExtraFields,
+  ensureGenerativeFacet,
   inferAudioFormatFromPlayableCount,
   normalizeDropFacets,
   parseAudioFormat,
@@ -75,6 +76,20 @@ describe('drop-facets', () => {
       facets: ['rock'],
     });
     expect(dropFacetsExtraFields([], 'audio')).toEqual({});
+  });
+
+  it('stamps generative first and respects the facet cap', () => {
+    expect(ensureGenerativeFacet([])).toEqual(['generative']);
+    expect(ensureGenerativeFacet(['photo'])).toEqual(['generative', 'photo']);
+    expect(ensureGenerativeFacet(['generative', 'photo'])).toEqual([
+      'generative',
+      'photo',
+    ]);
+    expect(ensureGenerativeFacet(['photo', '3d', 'paint'])).toEqual([
+      'generative',
+      'photo',
+      '3d',
+    ]);
   });
 
   it('parses and infers audioFormat', () => {

@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -42,10 +36,9 @@ import {
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
 import { CollectionOwnerManageMenu } from '@/features/scarces/collection-owner-manage-menu';
-import {
-  CollectionActivitySkeleton,
-} from '@/features/scarces/collection-page-skeleton';
+import { CollectionActivitySkeleton } from '@/features/scarces/collection-page-skeleton';
 import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
+import { VariationSetPeek } from '@/features/scarces/variation-set-peek';
 import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
@@ -73,7 +66,10 @@ import { writingReadingSectionLabel } from '@/features/scarces/drop-writing';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
-import { isPassMediumKind, passStaffVoice } from '@/features/scarces/ticket-pass-payload';
+import {
+  isPassMediumKind,
+  passStaffVoice,
+} from '@/features/scarces/ticket-pass-payload';
 import { fetchIsCollectionRedeemer } from '@/features/scarces/ticket-redeemers';
 import { TicketShowPassSheet } from '@/features/scarces/ticket-show-pass-sheet';
 import { CollectionDoorStaffManager } from '@/features/scarces/collection-door-staff-manager';
@@ -96,7 +92,10 @@ import {
   seriesPagePath,
 } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { formatFutureRelativeTime, formatMarketRelativeTime } from '@/features/market/market-listings';
+import {
+  formatFutureRelativeTime,
+  formatMarketRelativeTime,
+} from '@/features/market/market-listings';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import { holdingsActionLabel } from '@/lib/portfolio-holdings';
@@ -168,9 +167,7 @@ export function CollectionPagePanel({
     collectionId: showDropLove ? collectionId : null,
   });
   const dropFanIds = dropLoves.fanIds.slice(0, 5);
-  const dropFanProfiles = usePostAuthorProfiles(
-    showDropLove ? dropFanIds : []
-  );
+  const dropFanProfiles = usePostAuthorProfiles(showDropLove ? dropFanIds : []);
   const [dropFansOpen, setDropFansOpen] = useState(false);
   const [notFound, setNotFound] = useState(initial == null);
   const [walletRemaining, setWalletRemaining] = useState<number | null>(null);
@@ -192,9 +189,7 @@ export function CollectionPagePanel({
     key: string;
     rows: CollectionActivityRow[];
   } | null>(() =>
-    initial != null
-      ? { key: ssrActivityKey, rows: initialActivity }
-      : null
+    initial != null ? { key: ssrActivityKey, rows: initialActivity } : null
   );
   const [headerElevated, setHeaderElevated] = useState(false);
   const initialCreatorId = initial?.creatorId?.trim() || '';
@@ -385,11 +380,9 @@ export function CollectionPagePanel({
       return;
     }
     let cancelled = false;
-    void fetchIsCollectionRedeemer(collectionId, viewerAccountId).then(
-      (ok) => {
-        if (!cancelled) setIsRedeemer(ok);
-      }
-    );
+    void fetchIsCollectionRedeemer(collectionId, viewerAccountId).then((ok) => {
+      if (!cancelled) setIsRedeemer(ok);
+    });
     return () => {
       cancelled = true;
     };
@@ -419,8 +412,7 @@ export function CollectionPagePanel({
   const needsAllowlist =
     view != null && status === 'upcoming' && view.hasAllowlist;
   const allowlistOk =
-    !needsAllowlist ||
-    (allowlistRemaining != null && allowlistRemaining > 0);
+    !needsAllowlist || (allowlistRemaining != null && allowlistRemaining > 0);
   // Live always; upcoming only when this wallet still has allowlist allocation.
   const mintable =
     view != null &&
@@ -610,22 +602,15 @@ export function CollectionPagePanel({
     [sheetActivity]
   );
   const activityAccountIds = useMemo(
-    () =>
-      sheetActivity
-        .map((row) => row.actor?.trim() || '')
-        .filter(Boolean),
+    () => sheetActivity.map((row) => row.actor?.trim() || '').filter(Boolean),
     [sheetActivity]
   );
   const activityProfiles = usePostAuthorProfiles(activityAccountIds);
   const creatorId = view?.creatorId?.trim() || '';
   const creatorShellLoading =
     Boolean(creatorId) && creatorResolvedKey !== creatorId;
-  const resolvedCreatorAvatar = creatorShellLoading
-    ? null
-    : creatorAvatarUrl;
-  const resolvedCreatorName = creatorShellLoading
-    ? null
-    : creatorDisplayName;
+  const resolvedCreatorAvatar = creatorShellLoading ? null : creatorAvatarUrl;
+  const resolvedCreatorName = creatorShellLoading ? null : creatorDisplayName;
   const requestActivityClose = useCallback(() => {
     setActivityClosing(true);
   }, []);
@@ -775,7 +760,7 @@ export function CollectionPagePanel({
   if (view.isVariations) {
     chipParts.push(
       view.randomAssignment
-        ? `${view.totalSupply} unique · random`
+        ? `${view.totalSupply} unique · random piece`
         : `${view.totalSupply} unique`
     );
   }
@@ -790,9 +775,7 @@ export function CollectionPagePanel({
       : null;
   const immersive = hasImmersiveCover;
   const createdRel =
-    view.createdAtMs > 0
-      ? formatMarketRelativeTime(view.createdAtMs)
-      : '';
+    view.createdAtMs > 0 ? formatMarketRelativeTime(view.createdAtMs) : '';
   const showActivitySection =
     !activityLoaded || mintPreview.length > 0 || sheetActivity.length > 0;
   const showActivitySeeAll =
@@ -807,9 +790,7 @@ export function CollectionPagePanel({
       scrollRootRef={scrollRootRef}
       actions={
         <>
-          <span
-            className={`collection-header-status ${statusTone(status)}`}
-          >
+          <span className={`collection-header-status ${statusTone(status)}`}>
             {collectionStatusLabel(status)}
           </span>
           <OsIconAction asChild ariaLabel="Shop this creator">
@@ -994,7 +975,9 @@ export function CollectionPagePanel({
             </div>
             <div className="collection-product-row">
               <div className="collection-product-line">
-                <span className={`collection-product-status ${statusTone(status)}`}>
+                <span
+                  className={`collection-product-status ${statusTone(status)}`}
+                >
                   {schedule ?? collectionStatusLabel(status)}
                 </span>
                 <span className="collection-meta-sep" aria-hidden>
@@ -1142,10 +1125,7 @@ export function CollectionPagePanel({
               aria-valuemax={100}
               aria-label="Editions minted"
             >
-              <Divider
-                variant="detail"
-                className="collection-progress-rule"
-              />
+              <Divider variant="detail" className="collection-progress-rule" />
               <span
                 className="collection-progress-fill"
                 style={{ width: `${progressPct}%` }}
@@ -1159,9 +1139,7 @@ export function CollectionPagePanel({
                   memberCount={dropLoves.fanCount}
                   countUnit={{ one: 'fan', other: 'fans' }}
                   slots={Math.min(5, Math.max(1, dropLoves.fanCount))}
-                  loading={
-                    dropLoves.fansLoading && dropFanIds.length === 0
-                  }
+                  loading={dropLoves.fansLoading && dropFanIds.length === 0}
                   className="collection-drop-fans-facepile"
                   onClick={() => setDropFansOpen(true)}
                 />
@@ -1179,6 +1157,16 @@ export function CollectionPagePanel({
             ) : null}
           </header>
         </section>
+
+        {view.isVariations ? (
+          <VariationSetPeek
+            collectionId={view.collectionId}
+            totalSupply={view.totalSupply}
+            samples={view.variationSamples ?? []}
+            randomAssignment={view.randomAssignment}
+            referenceTemplate={view.variationReferenceTemplate}
+          />
+        ) : null}
 
         {hasPlayables ? (
           <section className="collection-tracks" aria-label="Tracks">
@@ -1251,9 +1239,7 @@ export function CollectionPagePanel({
         ) : null}
 
         {canDoor ||
-        (isOwner &&
-          view.maxRedeems != null &&
-          view.maxRedeems > 0) ||
+        (isOwner && view.maxRedeems != null && view.maxRedeems > 0) ||
         (isOwner && status === 'upcoming') ? (
           <section
             className="collection-reading"
@@ -1299,9 +1285,7 @@ export function CollectionPagePanel({
                 voice={staffVoice}
               />
             ) : null}
-            {isOwner &&
-            view.maxRedeems != null &&
-            view.maxRedeems > 0 ? (
+            {isOwner && view.maxRedeems != null && view.maxRedeems > 0 ? (
               <CollectionDoorStaffManager
                 collectionId={view.collectionId}
                 creatorId={view.creatorId}
@@ -1357,7 +1341,6 @@ export function CollectionPagePanel({
             )}
           </section>
         ) : null}
-
       </div>
 
       <OsHugSheet

@@ -229,6 +229,14 @@ export function dropFacetFieldLabel(
   }
 }
 
+/** Stamp Style: Generative when the set came from the layer studio. */
+export function ensureGenerativeFacet(facets: string[]): string[] {
+  const next = normalizeDropFacets(facets, 'art');
+  if (next.includes('generative')) return next;
+  if (next.length < DROP_MAX_FACETS) return ['generative', ...next];
+  return ['generative', ...next.slice(0, DROP_MAX_FACETS - 1)];
+}
+
 /** Keep only known slugs for the medium, capped. */
 export function normalizeDropFacets(
   raw: unknown,

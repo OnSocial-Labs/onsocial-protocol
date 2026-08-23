@@ -86,6 +86,7 @@ import {
   dropFacetFieldLabel,
   dropFacetsExtraFields,
   dropFacetsLabel,
+  ensureGenerativeFacet,
   normalizeDropFacetMedium,
   normalizeDropFacets,
 } from '@/features/scarces/drop-facets';
@@ -130,10 +131,7 @@ import {
   type SaleWindowField,
 } from '@/features/scarces/drop-sale-window-sheet';
 import { ticketEventExtraFields } from '@/features/scarces/ticket-event-meta';
-import {
-  normalizePlaceSlug,
-  placeLabel,
-} from '@/lib/post-place';
+import { normalizePlaceSlug, placeLabel } from '@/lib/post-place';
 import {
   buildRoyaltyMap,
   DEFAULT_ROYALTY_BPS,
@@ -276,6 +274,8 @@ export function CreateDropPanel() {
   const [randomAssign, setRandomAssign] = useState(false);
   const [generatedNote, setGeneratedNote] = useState<string | null>(null);
   const [generatedPreviews, setGeneratedPreviews] = useState<string[]>([]);
+  /** Server generate job — persisted so a refresh can resume polling. */
+  const [generateJobId, setGenerateJobId] = useState<string | null>(null);
   /** Full-screen layer studio step — the builder stays mounted underneath. */
   const [studioOpen, setStudioOpen] = useState(false);
   const [studioHelpOpen, setStudioHelpOpen] = useState(false);
@@ -346,6 +346,7 @@ export function CreateDropPanel() {
     setPinnedMusic(null);
     setPinnedWriting(null);
     setPinnedLargeSet(null);
+    setGenerateJobId(null);
     clearDropPinDraft();
   }, []);
 
@@ -405,6 +406,8 @@ export function CreateDropPanel() {
       prev.forEach((url) => URL.revokeObjectURL(url));
       return [];
     });
+    setGenerateJobId(null);
+    setStudioOpen(false);
     setSeriesName('');
     setError(null);
     setDiscardDraftOpen(false);
@@ -533,13 +536,28 @@ export function CreateDropPanel() {
         setMusicFormat(formDraft.musicFormat);
         setWritingFormat(formDraft.writingFormat);
         setFacets(formDraft.facets);
-        setVariationSource(formDraft.variationSource);
-        setVariationsCid(formDraft.variationsCid);
         setVariationsExt(formDraft.variationsExt);
         setCoverSeatInput(formDraft.coverSeatInput);
-        setTraitsCid(formDraft.traitsCid);
         setRandomAssign(formDraft.randomAssign);
         setShowAdvanced(formDraft.showAdvanced);
+        const storedCid = formDraft.variationsCid.trim();
+        if (formDraft.variationSource === 'cid' && !looksLikeCid(storedCid)) {
+          setVariationSource('generate');
+          setVariationsCid('');
+          setTraitsCid('');
+        } else {
+          setVariationSource(formDraft.variationSource);
+          setVariationsCid(formDraft.variationsCid);
+          setTraitsCid(formDraft.traitsCid);
+          if (looksLikeCid(storedCid)) {
+            const count = formDraft.supplyInput.trim();
+            setGeneratedNote(
+              count
+                ? `Set pinned — ${count} pieces ready to mint.`
+                : 'Set pinned — ready to mint.'
+            );
+          }
+        }
       }
     }
 
@@ -560,16 +578,30 @@ export function CreateDropPanel() {
             setWritingFormat(draft.pinned.writingFormat || draft.writingFormat);
             setPinnedWriting(draft.pinned);
           }
-        } else if (
-          !formTemplate ||
-          formTemplate === 'art' ||
-          formTemplate === 'custom'
-        ) {
-          setTemplateId(draft.templateId === 'custom' ? 'custom' : 'art');
-          setArtMode('variations');
-          setVariationSource('upload');
-          setPinnedLargeSet(draft.pinned);
-          setSupplyInput(String(draft.pinned.pieceCount));
+        } else if (draft.kind === 'generate-job') {
+          if (
+            !formTemplate ||
+            formTemplate === 'art' ||
+            formTemplate === 'custom'
+          ) {
+            setTemplateId(draft.templateId === 'custom' ? 'custom' : 'art');
+            setArtMode('variations');
+            setVariationSource('generate');
+            setGenerateJobId(draft.jobId);
+            setStudioOpen(true);
+          }
+        } else if (draft.kind === 'large-set') {
+          if (
+            !formTemplate ||
+            formTemplate === 'art' ||
+            formTemplate === 'custom'
+          ) {
+            setTemplateId(draft.templateId === 'custom' ? 'custom' : 'art');
+            setArtMode('variations');
+            setVariationSource('upload');
+            setPinnedLargeSet(draft.pinned);
+            setSupplyInput(String(draft.pinned.pieceCount));
+          }
         }
       }
     }
@@ -702,6 +734,7 @@ export function CreateDropPanel() {
       }
       // Art / Writing / Audio close Advanced; ticket-like kinds keep essentials open.
       setShowAdvanced(Boolean(next.openAdvanced));
+      setStudioOpen(false);
       if (next.id === 'audio') {
         setArtMode('single');
         setMusicFormat('single');
@@ -729,6 +762,12 @@ export function CreateDropPanel() {
   const isVariations = !isAudio && !isWriting && artMode === 'variations';
   const isPinnedSet = isVariations && variationSource === 'cid';
   const isGeneratedSet = isVariations && variationSource === 'generate';
+  const pinnedCidValid = looksLikeCid(variationsCid.trim());
+  const traitsCidValid = !traitsCid.trim() || looksLikeCid(traitsCid.trim());
+  /** Generated (or any traits-backed) directory set ready to start. */
+  const generatedSetReady =
+    isVariations && pinnedCidValid && looksLikeCid(traitsCid.trim());
+  const usePinnedCids = isPinnedSet || generatedSetReady;
   /** Upload too big to attach directly — zipped and pinned at submit. */
   const isLargeUpload =
     isVariations &&
@@ -742,23 +781,21 @@ export function CreateDropPanel() {
   );
   const editionSupply = Number.parseInt(supplyInput, 10);
   const supply =
-    isVariations && !isPinnedSet
+    isVariations && !usePinnedCids
       ? variationFiles.length > 0
         ? variationFiles.length
         : (pinnedLargeSet?.pieceCount ?? 0)
       : editionSupply;
   const price = finalizeAmountInput(priceInput, NEAR_INPUT_DECIMALS);
   const supplyValid =
-    isVariations && !isPinnedSet
+    isVariations && !usePinnedCids
       ? pinnedLargeSet != null
         ? supply >= MIN_VARIATIONS && supply <= MAX_SET_PIECES
         : variationFiles.length >= MIN_VARIATIONS &&
           variationFiles.length <= MAX_SET_PIECES
       : Number.isSafeInteger(editionSupply) &&
-        editionSupply >= (isPinnedSet ? MIN_VARIATIONS : MIN_SUPPLY) &&
+        editionSupply >= (usePinnedCids ? MIN_VARIATIONS : MIN_SUPPLY) &&
         editionSupply <= MAX_SUPPLY;
-  const pinnedCidValid = looksLikeCid(variationsCid.trim());
-  const traitsCidValid = !traitsCid.trim() || looksLikeCid(traitsCid.trim());
   const maxRedeems = Number.parseInt(maxRedeemsInput, 10);
   const maxRedeemsValid =
     !maxRedeemsInput.trim() ||
@@ -880,7 +917,7 @@ export function CreateDropPanel() {
     (!template.requiresEventEnd || eventEnds.trim().length > 0) &&
     (!template.requiresAccessEnd || accessEnds.trim().length > 0) &&
     (isVariations
-      ? isPinnedSet
+      ? usePinnedCids
         ? pinnedCidValid
         : variationFiles.length >= MIN_VARIATIONS || pinnedLargeSet != null
       : imageFile != null || pinnedMusic != null || pinnedWriting != null);
@@ -1226,32 +1263,63 @@ export function CreateDropPanel() {
 
   const pollServerGeneration = useCallback(
     async (jobId: string) => {
-      const { accountId, wallet } = await getSigningWallet();
-      const client = createAppScarcesWalletClient(accountId, wallet);
+      if (accountId) {
+        const client = createAppOnSocialClient(accountId);
+        return client.scarces.collections.generateVariationSetStatus(jobId);
+      }
+      const { accountId: signedId, wallet } = await getSigningWallet();
+      const client = createAppScarcesWalletClient(signedId, wallet);
       return client.scarces.collections.generateVariationSetStatus(jobId);
     },
-    [getSigningWallet]
+    [accountId, getSigningWallet]
   );
+
+  const persistGenerateJob = useCallback(
+    (jobId: string) => {
+      setGenerateJobId(jobId);
+      if (!accountId) return;
+      saveDropPinDraft({
+        kind: 'generate-job',
+        templateId: templateId === 'custom' ? 'custom' : 'art',
+        accountId,
+        fingerprint: `generate-job::${jobId}`,
+        savedAt: Date.now(),
+        jobId,
+      });
+    },
+    [accountId, templateId]
+  );
+
+  const clearGenerateJob = useCallback(() => {
+    setGenerateJobId(null);
+    clearDropPinDraftIfKind(accountId, 'generate-job');
+  }, [accountId]);
 
   // The generator hands back pinned CIDs — flip to the internal CID source
   // so submit creates the drop from the pinned directories.
-  const onGenerated = useCallback((result: GeneratedSet) => {
-    setVariationsCid(result.artCid);
-    setTraitsCid(result.traitsCid);
-    setVariationsExt('png');
-    setSupplyInput(String(result.count));
-    setCoverSeatInput('1');
-    setRandomAssign(true);
-    setGeneratedNote(
-      `Set generated and pinned — ${result.count} pieces ready to mint.`
-    );
-    setGeneratedPreviews((prev) => {
-      prev.forEach((url) => URL.revokeObjectURL(url));
-      return result.previews;
-    });
-    setVariationSource('cid');
-    setStudioOpen(false);
-  }, []);
+  const onGenerated = useCallback(
+    (result: GeneratedSet) => {
+      setVariationsCid(result.artCid);
+      setTraitsCid(result.traitsCid);
+      setVariationsExt('png');
+      setSupplyInput(String(result.count));
+      setCoverSeatInput('1');
+      setRandomAssign(true);
+      setFacets((prev) => ensureGenerativeFacet(prev));
+      setGeneratedNote(
+        `Set generated and pinned — ${result.count} pieces ready to mint.`
+      );
+      setGeneratedPreviews((prev) => {
+        prev.forEach((url) => URL.revokeObjectURL(url));
+        return result.previews;
+      });
+      setVariationSource('cid');
+      setGenerateJobId(null);
+      clearDropPinDraftIfKind(accountId, 'generate-job');
+      setStudioOpen(false);
+    },
+    [accountId]
+  );
 
   const needsWalletConfirm =
     (isAudio && pinnedMusic != null) ||
@@ -1280,7 +1348,14 @@ export function CreateDropPanel() {
       return `Pinned · ${n} ${n === 1 ? 'piece' : 'pieces'} · ready to sign`;
     }
     return 'Media ready · confirm in wallet to list';
-  }, [isAudio, isWriting, isVariations, pinnedMusic, pinnedWriting, pinnedLargeSet]);
+  }, [
+    isAudio,
+    isWriting,
+    isVariations,
+    pinnedMusic,
+    pinnedWriting,
+    pinnedLargeSet,
+  ]);
 
   const hasDiscardableDraft =
     Boolean(title.trim()) ||
@@ -1484,13 +1559,25 @@ export function CreateDropPanel() {
       await connect();
       return;
     }
-    if (isVariations && isPinnedSet && !pinnedCidValid) {
-      setError('Paste the IPFS folder CID of your pinned set.');
+    if (
+      isVariations &&
+      (isGeneratedSet || (isPinnedSet && !pinnedCidValid)) &&
+      !generatedSetReady
+    ) {
+      setVariationSource('generate');
+      if (!pinnedCidValid) {
+        setVariationsCid('');
+        setTraitsCid('');
+      }
+      setStudioOpen(true);
+      setError(
+        'Finish generating your set in the studio — then start the drop.'
+      );
       return;
     }
     if (
       isVariations &&
-      !isPinnedSet &&
+      !usePinnedCids &&
       variationFiles.length < MIN_VARIATIONS &&
       !pinnedLargeSet
     ) {
@@ -1537,9 +1624,9 @@ export function CreateDropPanel() {
     }
     if (!supplyValid) {
       setError(
-        isVariations && !isPinnedSet
+        isVariations && !usePinnedCids
           ? `Variation sets are ${MIN_VARIATIONS}–${MAX_SET_PIECES.toLocaleString()} pieces.`
-          : isPinnedSet
+          : usePinnedCids
             ? `Supply must be between ${MIN_VARIATIONS} and ${MAX_SUPPLY}.`
             : `Supply must be between ${MIN_SUPPLY} and ${MAX_SUPPLY}.`
       );
@@ -1657,6 +1744,9 @@ export function CreateDropPanel() {
     connect,
     isVariations,
     isPinnedSet,
+    isGeneratedSet,
+    generatedSetReady,
+    usePinnedCids,
     pinnedCidValid,
     variationFiles.length,
     pinnedLargeSet,
@@ -1989,7 +2079,7 @@ export function CreateDropPanel() {
             totalSupply: supply,
             title: title.trim(),
             ...(isVariations
-              ? isPinnedSet
+              ? usePinnedCids
                 ? {
                     variationsCid: variationsCid.trim(),
                     ...(variationsExt !== 'png' ? { variationsExt } : {}),
@@ -2013,7 +2103,7 @@ export function CreateDropPanel() {
                       mediaHash: writingPin.coverHash,
                     }
                   : { image: imageFile! }),
-            ...(isPinnedSet && traitsCid.trim()
+            ...(usePinnedCids && traitsCid.trim()
               ? { referenceCid: traitsCid.trim() }
               : {}),
             ...(isVariations && randomAssign ? { randomAssignment: true } : {}),
@@ -2143,6 +2233,7 @@ export function CreateDropPanel() {
     getSigningWallet,
     supply,
     isPinnedSet,
+    usePinnedCids,
     variationsCid,
     variationsExt,
     traitsCid,
@@ -2289,7 +2380,15 @@ export function CreateDropPanel() {
         studioOpen ? (
           <OsIconAction
             ariaLabel="Back to drop details"
-            onClick={() => setStudioOpen(false)}
+            onClick={() => {
+              setStudioOpen(false);
+              if (
+                looksLikeCid(variationsCid.trim()) &&
+                looksLikeCid(traitsCid.trim())
+              ) {
+                setVariationSource('cid');
+              }
+            }}
           >
             <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
           </OsIconAction>
@@ -2298,7 +2397,7 @@ export function CreateDropPanel() {
     >
       {/* The studio is hidden (not unmounted) when closed so uploaded layers
           and an in-flight server render survive stepping back to the form. */}
-      {isGeneratedSet ? (
+      {isGeneratedSet || generateJobId ? (
         <div
           className="drop-studio"
           style={studioOpen ? undefined : { display: 'none' }}
@@ -2310,6 +2409,9 @@ export function CreateDropPanel() {
             remoteStart={startServerGeneration}
             remotePoll={pollServerGeneration}
             onGenerated={onGenerated}
+            resumeJobId={accountId ? generateJobId : null}
+            onJobStarted={persistGenerateJob}
+            onJobCleared={clearGenerateJob}
             onDesignChange={setDesign}
           />
         </div>
@@ -2518,7 +2620,14 @@ export function CreateDropPanel() {
                   isGeneratedSet || isPinnedSet ? ' is-selected' : ''
                 }`}
                 disabled={pending}
-                onClick={() => setVariationSource('generate')}
+                onClick={() => {
+                  if (looksLikeCid(variationsCid.trim())) {
+                    setVariationSource('cid');
+                    return;
+                  }
+                  setVariationSource('generate');
+                  setStudioOpen(true);
+                }}
               >
                 Generate layers
               </button>
@@ -2546,7 +2655,7 @@ export function CreateDropPanel() {
                   ? 'Open the studio to watch progress.'
                   : design && design.traits > 0
                     ? `${design.layers} ${design.layers === 1 ? 'layer' : 'layers'} · ${design.traits} trait ${design.traits === 1 ? 'image' : 'images'} so far`
-                    : 'Opens the layer studio — stack, weight rarities, generate.'}
+                    : 'Bring PNG or WebP layers — stack, generate, start the drop.'}
               </small>
             </span>
           </button>
@@ -2624,6 +2733,43 @@ export function CreateDropPanel() {
               </div>
             ) : null}
             <p className="drop-generated-note">{generatedNote}</p>
+            <div
+              className="app-storage-presets"
+              role="group"
+              aria-label="Set actions"
+            >
+              <button
+                type="button"
+                className="os-surface-chip"
+                disabled={pending}
+                onClick={() => {
+                  setVariationSource('generate');
+                  setStudioOpen(true);
+                }}
+              >
+                Continue designing
+              </button>
+              <button
+                type="button"
+                className="os-surface-chip"
+                disabled={pending}
+                onClick={() => {
+                  setVariationSource('generate');
+                  setVariationsCid('');
+                  setTraitsCid('');
+                  setGeneratedNote(null);
+                  setGeneratedPreviews((prev) => {
+                    prev.forEach((url) => URL.revokeObjectURL(url));
+                    return [];
+                  });
+                  setGenerateJobId(null);
+                  clearDropPinDraftIfKind(accountId, 'generate-job');
+                  setStudioOpen(true);
+                }}
+              >
+                Replace set
+              </button>
+            </div>
           </>
         ) : null}
 
@@ -2660,7 +2806,7 @@ export function CreateDropPanel() {
           />
         ) : null}
 
-        {isVariations && !isGeneratedSet ? (
+        {isVariations && !isGeneratedSet && !traitsCid.trim() ? (
           <div className="guild-field">
             <span>Mint order</span>
             <div
@@ -2879,9 +3025,7 @@ export function CreateDropPanel() {
               <p className="drop-pin-resume-detail">
                 {pinnedWriting.writingFormat === 'book'
                   ? `${pinnedWriting.chapterCount} ${
-                      pinnedWriting.chapterCount === 1
-                        ? 'chapter'
-                        : 'chapters'
+                      pinnedWriting.chapterCount === 1 ? 'chapter' : 'chapters'
                     } pinned · ready to sign`
                   : 'Manuscript pinned · ready to sign'}
               </p>

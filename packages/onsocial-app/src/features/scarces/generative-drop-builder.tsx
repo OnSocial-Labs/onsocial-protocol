@@ -108,6 +108,12 @@ interface GenerativeDropBuilderProps {
   /** Polls a server-side render job for progress. */
   remotePoll: (jobId: string) => Promise<GenerateSetJob>;
   onGenerated: (result: GeneratedSet) => void;
+  /** Server job to resume after refresh — polls until done or failed. */
+  resumeJobId?: string | null;
+  /** Persist the server job id so a refresh can resume polling. */
+  onJobStarted?: (jobId: string) => void;
+  /** Clear the persisted job after success or failure. */
+  onJobCleared?: () => void;
   /** Reports design progress so the host can summarize the studio while it's hidden. */
   onDesignChange?: (design: BuilderDesignSummary) => void;
   /** Exposes {@link GenerativeBuilderHandle} for the host's header CTA. */
@@ -141,6 +147,9 @@ export function GenerativeDropBuilder({
   remoteStart,
   remotePoll,
   onGenerated,
+  resumeJobId,
+  onJobStarted,
+  onJobCleared,
   onDesignChange,
   ref,
 }: GenerativeDropBuilderProps) {
@@ -159,6 +168,14 @@ export function GenerativeDropBuilder({
   const traitInputRef = useRef<HTMLInputElement>(null);
   const traitTargetLayerRef = useRef<string | null>(null);
   const traitNameInputRef = useRef<HTMLInputElement>(null);
+  /** Jobs started in this session — skip the resume effect for those. */
+  const localJobRef = useRef<string | null>(null);
+  const remotePollRef = useRef(remotePoll);
+  remotePollRef.current = remotePoll;
+  const onGeneratedRef = useRef(onGenerated);
+  onGeneratedRef.current = onGenerated;
+  const onJobClearedRef = useRef(onJobCleared);
+  onJobClearedRef.current = onJobCleared;
 
   const working = status.kind === 'working';
   const supply = Number.parseInt(supplyInput, 10);
@@ -393,6 +410,8 @@ export function GenerativeDropBuilder({
             })),
           }))
         );
+        localJobRef.current = job.jobId;
+        onJobStarted?.(job.jobId);
 
         while (job.state !== 'done' && job.state !== 'failed') {
           setStatus({
@@ -406,9 +425,11 @@ export function GenerativeDropBuilder({
           job = await remotePoll(job.jobId);
         }
         if (job.state === 'failed' || !job.result?.reference) {
+          onJobCleared?.();
           throw new Error(job.error ?? 'Rendering the set failed — try again.');
         }
 
+        onJobCleared?.();
         setStatus({ kind: 'done' });
         onGenerated({
           artCid: job.result.variations.cid,
@@ -487,7 +508,60 @@ export function GenerativeDropBuilder({
     remoteStart,
     remotePoll,
     onGenerated,
+    onJobStarted,
+    onJobCleared,
   ]);
+
+  // Resume a server render after refresh — previews may be empty.
+  useEffect(() => {
+    if (!resumeJobId) return;
+    if (localJobRef.current === resumeJobId) return;
+
+    let cancelled = false;
+    const run = async () => {
+      try {
+        setError(null);
+        setStatus({ kind: 'working', label: 'Resuming render…' });
+        let job = await remotePollRef.current(resumeJobId);
+        while (!cancelled && job.state !== 'done' && job.state !== 'failed') {
+          setStatus({
+            kind: 'working',
+            label:
+              job.state === 'pinning'
+                ? 'Pinning to IPFS…'
+                : `Rendering ${job.progress.done.toLocaleString()}/${job.progress.total.toLocaleString()} on OnSocial…`,
+          });
+          await new Promise((resolve) => setTimeout(resolve, REMOTE_POLL_MS));
+          job = await remotePollRef.current(resumeJobId);
+        }
+        if (cancelled) return;
+        if (job.state === 'failed' || !job.result?.reference) {
+          onJobClearedRef.current?.();
+          throw new Error(job.error ?? 'Rendering the set failed — try again.');
+        }
+        onJobClearedRef.current?.();
+        setStatus({ kind: 'done' });
+        onGeneratedRef.current({
+          artCid: job.result.variations.cid,
+          traitsCid: job.result.reference.cid,
+          count: job.result.variations.count,
+          previews: [],
+        });
+      } catch (cause) {
+        if (cancelled) return;
+        setStatus({ kind: 'idle' });
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : 'Resuming the render failed — try again.'
+        );
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [resumeJobId]);
 
   useImperativeHandle(ref, () => ({ generate: () => void generate() }), [
     generate,
@@ -691,9 +765,7 @@ export function GenerativeDropBuilder({
         <span>Pieces to generate</span>
         <SuffixField
           value={supplyInput}
-          onValueChange={(value) =>
-            setSupplyInput(value.replace(/[^\d]/g, ''))
-          }
+          onValueChange={(value) => setSupplyInput(value.replace(/[^\d]/g, ''))}
           placeholder="100"
           aria-label="Pieces to generate"
           suffix="pieces"

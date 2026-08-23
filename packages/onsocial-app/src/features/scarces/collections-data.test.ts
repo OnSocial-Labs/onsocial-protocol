@@ -48,6 +48,30 @@ describe('toCollectionView cover seat', () => {
     expect(view?.mediaUrl).toContain('/1.png');
   });
 
+  it('exposes sample piece URLs for variation sets', () => {
+    const view = toCollectionView(
+      variationRecord({
+        metadata: JSON.stringify({ cover: { seat: 3 } }),
+        metadata_template: JSON.stringify({
+          title: 'Egg #{seat_number}',
+          media: 'https://gateway.example/ipfs/bafy123/{seat_number}.png',
+          reference:
+            'https://gateway.example/ipfs/bafytraits/{seat_number}.json',
+        }),
+      })
+    );
+    expect(view?.variationSamples?.length).toBeGreaterThan(0);
+    expect(view?.variationSamples?.some((url) => url.includes('/3.png'))).toBe(
+      true
+    );
+    expect(view?.variationSamples?.some((url) => url.includes('/1.png'))).toBe(
+      true
+    );
+    expect(view?.variationReferenceTemplate).toBe(
+      'https://gateway.example/ipfs/bafytraits/{seat_number}.json'
+    );
+  });
+
   it('strips the seat placeholder from the drop display title', () => {
     const view = toCollectionView(variationRecord());
     expect(view?.title).toBe('Egg');
@@ -142,8 +166,16 @@ describe('toCollectionView cover seat', () => {
           writingFormat: 'book',
           writingManifest: 'bafymanifestaaaaaaaaaaaaaaaaaaaa',
           readable: [
-            { cid: 'bafymd1aaaaaaaaaaaaaaaaaaaaaaaa', mime: 'text/markdown', title: 'One' },
-            { cid: 'bafymd2aaaaaaaaaaaaaaaaaaaaaaaa', mime: 'text/markdown', title: 'Two' },
+            {
+              cid: 'bafymd1aaaaaaaaaaaaaaaaaaaaaaaa',
+              mime: 'text/markdown',
+              title: 'One',
+            },
+            {
+              cid: 'bafymd2aaaaaaaaaaaaaaaaaaaaaaaa',
+              mime: 'text/markdown',
+              title: 'Two',
+            },
           ],
         }),
       }),

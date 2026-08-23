@@ -105,6 +105,36 @@ describe('drop-pin-draft', () => {
     expect(loadDropPinDraft('alice.near')).toBeNull();
   });
 
+  it('saves and loads a generate-job draft', () => {
+    saveDropPinDraft({
+      kind: 'generate-job',
+      templateId: 'art',
+      accountId: 'alice.near',
+      fingerprint: 'generate-job::job-1',
+      savedAt: Date.now(),
+      jobId: 'job-1',
+    });
+    const loaded = loadDropPinDraft('alice.near');
+    expect(loaded?.kind).toBe('generate-job');
+    if (loaded?.kind === 'generate-job') {
+      expect(loaded.jobId).toBe('job-1');
+      expect(loaded.templateId).toBe('art');
+    }
+
+    window.localStorage.setItem(
+      'onsocial.drop-pin-draft.v2',
+      JSON.stringify({
+        kind: 'generate-job',
+        templateId: 'art',
+        accountId: 'alice.near',
+        fingerprint: 'generate-job::empty',
+        savedAt: Date.now(),
+        jobId: '   ',
+      })
+    );
+    expect(loadDropPinDraft('alice.near')).toBeNull();
+  });
+
   it('expires drafts past the TTL', () => {
     vi.useFakeTimers();
     saveDropPinDraft({

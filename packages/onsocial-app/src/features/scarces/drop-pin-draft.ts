@@ -4,7 +4,7 @@
  * Drafts are scoped to account + template so a Writing pin can’t list as Art.
  */
 
-export type DropPinDraftKind = 'music' | 'writing' | 'large-set';
+export type DropPinDraftKind = 'music' | 'writing' | 'large-set' | 'generate-job';
 
 export type PinnedMusicDraft = {
   playable: Array<{
@@ -56,6 +56,10 @@ export type DropPinDraft =
   | (DropPinDraftBase & {
       kind: 'large-set';
       pinned: PinnedLargeSetDraft;
+    })
+  | (DropPinDraftBase & {
+      kind: 'generate-job';
+      jobId: string;
     });
 
 const STORAGE_KEY = 'onsocial.drop-pin-draft.v2';
@@ -115,12 +119,20 @@ function readRaw(): DropPinDraft | null {
       typeof parsed.fingerprint !== 'string' ||
       typeof parsed.savedAt !== 'number' ||
       typeof parsed.templateId !== 'string' ||
-      (parsed.kind !== 'music' &&
+      parsed.kind !== 'music' &&
         parsed.kind !== 'writing' &&
-        parsed.kind !== 'large-set') ||
-      !parsed.pinned ||
-      typeof parsed.pinned !== 'object'
+        parsed.kind !== 'large-set' &&
+        parsed.kind !== 'generate-job'
     ) {
+      return null;
+    }
+    if (parsed.kind === 'generate-job') {
+      return typeof (parsed as { jobId?: unknown }).jobId === 'string' &&
+        (parsed as { jobId: string }).jobId.trim()
+        ? (parsed as DropPinDraft)
+        : null;
+    }
+    if (!parsed.pinned || typeof parsed.pinned !== 'object') {
       return null;
     }
     return parsed as DropPinDraft;
