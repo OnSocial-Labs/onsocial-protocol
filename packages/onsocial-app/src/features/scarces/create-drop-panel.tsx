@@ -13,6 +13,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AmountFieldMetaRow,
   ArrowLeftIcon,
+  DiscardConfirmSheet,
   OsSheetAction,
   OsSheetActions,
   OsIconAction,
@@ -112,6 +113,11 @@ import {
   writingPinFingerprint,
 } from '@/features/scarces/drop-pin-draft';
 import {
+  clearDropFormDraft,
+  loadDropFormDraft,
+  saveDropFormDraft,
+} from '@/features/scarces/drop-form-draft';
+import {
   DropStartConfirmSheet,
   type DropStartConfirmPhase,
   type DropStartSummaryRow,
@@ -210,6 +216,7 @@ export function CreateDropPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const appId = searchParams.get(MARKET_APP_PARAM)?.trim() ?? '';
+  const seriesQuery = searchParams.get('series')?.trim() ?? '';
   const { accountId, isConnected, isLoading, connect, getSigningWallet } =
     useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
@@ -217,7 +224,7 @@ export function CreateDropPanel() {
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   /** Fixed for this form session — keeps the public-link preview honest. */
-  const [idSuffix] = useState(() => randomDropIdSuffix());
+  const [idSuffix, setIdSuffix] = useState(() => randomDropIdSuffix());
   const [description, setDescription] = useState('');
   const [supplyInput, setSupplyInput] = useState('25');
   const [priceInput, setPriceInput] = useState('1');
@@ -241,6 +248,7 @@ export function CreateDropPanel() {
   const [draftAllowlist, setDraftAllowlist] = useState<AllowlistEntry[]>([]);
   const [allowlistSheetOpen, setAllowlistSheetOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [discardDraftOpen, setDiscardDraftOpen] = useState(false);
   const [artMode, setArtMode] = useState<DropArtMode>('single');
   const [musicFormat, setMusicFormat] = useState<MusicReleaseFormat>('single');
   const [trackFiles, setTrackFiles] = useState<File[]>([]);
@@ -314,6 +322,9 @@ export function CreateDropPanel() {
     useState<DropStartConfirmPhase>('review');
   const [uploadLabel, setUploadLabel] = useState('Uploading…');
   const pinHydratedRef = useRef(false);
+  const formHydratedRef = useRef(false);
+  const skipFormSaveRef = useRef(true);
+  const seriesQueryAppliedRef = useRef(false);
   const prevAccountIdRef = useRef<string | null | undefined>(undefined);
   const startInFlightRef = useRef(false);
   const skipMusicPinInvalidate = useRef(true);
@@ -337,6 +348,67 @@ export function CreateDropPanel() {
     setPinnedLargeSet(null);
     clearDropPinDraft();
   }, []);
+
+  const resetCreateForm = useCallback(() => {
+    clearPins();
+    clearDropFormDraft();
+    setTemplateId('art');
+    setTitle('');
+    setSlug('');
+    setIdSuffix(randomDropIdSuffix());
+    setDescription('');
+    setSupplyInput('25');
+    setPriceInput('1');
+    setStartTime('');
+    setEndTime('');
+    setEventStarts('');
+    setEventEnds('');
+    setPlaceDraft('');
+    setAccessEnds('');
+    setMaxPerWallet('');
+    setRoyaltyBps(DEFAULT_ROYALTY_BPS);
+    setIsCustomRoyalty(false);
+    setCustomRoyaltyInput('');
+    setRoyaltyShares([]);
+    setTransferable(true);
+    setRenewable(false);
+    setMaxRedeemsInput('');
+    setDraftAllowlist([]);
+    setShowAdvanced(false);
+    setArtMode('single');
+    setMusicFormat('single');
+    setTrackFiles([]);
+    setTrackLyrics([]);
+    setWritingFormat('article');
+    setFacets([]);
+    setChapterFiles([]);
+    setBookPdfFile(null);
+    setImageFile(null);
+    setImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setVariationFiles([]);
+    setVariationPreviews((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return [];
+    });
+    setVariationSource('upload');
+    setVariationsCid('');
+    setVariationsExt('png');
+    setCoverSeatInput('1');
+    setCollage(emptyCollageSelection());
+    setTraitsCid('');
+    setRandomAssign(false);
+    setGeneratedNote(null);
+    setGeneratedPreviews((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return [];
+    });
+    setSeriesName('');
+    setError(null);
+    setDiscardDraftOpen(false);
+  }, [clearPins]);
 
   // Invalidate pins if the creator changes files after prepare — keep when
   // the local fingerprint still matches the saved draft for this account.
@@ -407,7 +479,7 @@ export function CreateDropPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variationFiles]);
 
-  // Resume a successful pin after refresh / reopen (same account, unexpired).
+  // Resume form fields + successful pins after refresh (same account, unexpired).
   useEffect(() => {
     const prev = prevAccountIdRef.current;
     prevAccountIdRef.current = accountId;
@@ -415,43 +487,192 @@ export function CreateDropPanel() {
     if (!accountId) {
       clearPins();
       pinHydratedRef.current = false;
+      formHydratedRef.current = false;
+      skipFormSaveRef.current = true;
       return;
     }
 
     if (prev && prev !== accountId) {
       clearPins();
       pinHydratedRef.current = false;
+      formHydratedRef.current = false;
+      skipFormSaveRef.current = true;
     }
 
-    if (pinHydratedRef.current) return;
-    pinHydratedRef.current = true;
-    const draft = loadDropPinDraft(accountId);
-    if (!draft) return;
+    if (formHydratedRef.current && pinHydratedRef.current) return;
 
-    if (draft.kind === 'music') {
-      setTemplateId('audio');
-      setMusicFormat(draft.musicFormat);
-      setPinnedMusic(draft.pinned);
-      return;
+    skipFormSaveRef.current = true;
+    const formDraft = loadDropFormDraft(accountId);
+    if (!formHydratedRef.current) {
+      formHydratedRef.current = true;
+      if (formDraft) {
+        setTemplateId(formDraft.templateId);
+        setTitle(formDraft.title);
+        setSlug(formDraft.slug);
+        setIdSuffix(formDraft.idSuffix);
+        setDescription(formDraft.description);
+        setSeriesName(formDraft.seriesName);
+        setSupplyInput(formDraft.supplyInput);
+        setPriceInput(formDraft.priceInput);
+        setStartTime(formDraft.startTime);
+        setEndTime(formDraft.endTime);
+        setEventStarts(formDraft.eventStarts);
+        setEventEnds(formDraft.eventEnds);
+        setPlaceDraft(formDraft.placeDraft);
+        setAccessEnds(formDraft.accessEnds);
+        setMaxPerWallet(formDraft.maxPerWallet);
+        setRoyaltyBps(formDraft.royaltyBps);
+        setIsCustomRoyalty(formDraft.isCustomRoyalty);
+        setCustomRoyaltyInput(formDraft.customRoyaltyInput);
+        setRoyaltyShares(formDraft.royaltyShares);
+        setTransferable(formDraft.transferable);
+        setRenewable(formDraft.renewable);
+        setMaxRedeemsInput(formDraft.maxRedeemsInput);
+        setDraftAllowlist(formDraft.draftAllowlist);
+        setArtMode(formDraft.artMode);
+        setMusicFormat(formDraft.musicFormat);
+        setWritingFormat(formDraft.writingFormat);
+        setFacets(formDraft.facets);
+        setVariationSource(formDraft.variationSource);
+        setVariationsCid(formDraft.variationsCid);
+        setVariationsExt(formDraft.variationsExt);
+        setCoverSeatInput(formDraft.coverSeatInput);
+        setTraitsCid(formDraft.traitsCid);
+        setRandomAssign(formDraft.randomAssign);
+        setShowAdvanced(formDraft.showAdvanced);
+      }
     }
 
-    if (draft.kind === 'writing') {
-      setTemplateId('writing');
-      setWritingFormat(draft.pinned.writingFormat || draft.writingFormat);
-      setPinnedWriting(draft.pinned);
-      return;
+    if (!pinHydratedRef.current) {
+      pinHydratedRef.current = true;
+      const draft = loadDropPinDraft(accountId);
+      if (draft) {
+        const formTemplate = formDraft?.templateId;
+        if (draft.kind === 'music') {
+          if (!formTemplate || formTemplate === 'audio') {
+            setTemplateId('audio');
+            setMusicFormat(draft.musicFormat);
+            setPinnedMusic(draft.pinned);
+          }
+        } else if (draft.kind === 'writing') {
+          if (!formTemplate || formTemplate === 'writing') {
+            setTemplateId('writing');
+            setWritingFormat(draft.pinned.writingFormat || draft.writingFormat);
+            setPinnedWriting(draft.pinned);
+          }
+        } else if (
+          !formTemplate ||
+          formTemplate === 'art' ||
+          formTemplate === 'custom'
+        ) {
+          setTemplateId(draft.templateId === 'custom' ? 'custom' : 'art');
+          setArtMode('variations');
+          setVariationSource('upload');
+          setPinnedLargeSet(draft.pinned);
+          setSupplyInput(String(draft.pinned.pieceCount));
+        }
+      }
     }
 
-    setTemplateId(draft.templateId === 'custom' ? 'custom' : 'art');
-    setArtMode('variations');
-    setVariationSource('upload');
-    setPinnedLargeSet(draft.pinned);
-    setSupplyInput(String(draft.pinned.pieceCount));
+    // Allow saves after hydrate settles.
+    const t = window.setTimeout(() => {
+      skipFormSaveRef.current = false;
+    }, 0);
+    return () => window.clearTimeout(t);
   }, [accountId, clearPins]);
+
+  // Optional `?series=` prefill when nothing else set the series field.
+  useEffect(() => {
+    if (seriesQueryAppliedRef.current) return;
+    if (!seriesQuery) return;
+    seriesQueryAppliedRef.current = true;
+    setSeriesName((prev) => (prev.trim() ? prev : seriesQuery.slice(0, 48)));
+  }, [seriesQuery]);
 
   const template =
     DROP_TEMPLATES.find((entry) => entry.id === templateId) ??
     DROP_TEMPLATES[0];
+
+  // Persist non-file form state so refresh restores title / pricing / Advanced.
+  useEffect(() => {
+    if (!accountId || skipFormSaveRef.current) return;
+    const handle = window.setTimeout(() => {
+      saveDropFormDraft({
+        accountId,
+        templateId,
+        title,
+        slug,
+        idSuffix,
+        description,
+        seriesName,
+        supplyInput,
+        priceInput,
+        startTime,
+        endTime,
+        eventStarts,
+        eventEnds,
+        placeDraft,
+        accessEnds,
+        maxPerWallet,
+        royaltyBps,
+        isCustomRoyalty,
+        customRoyaltyInput,
+        royaltyShares,
+        transferable,
+        renewable,
+        maxRedeemsInput,
+        draftAllowlist,
+        artMode,
+        musicFormat,
+        writingFormat,
+        facets,
+        variationSource,
+        variationsCid,
+        variationsExt,
+        coverSeatInput,
+        traitsCid,
+        randomAssign,
+        showAdvanced,
+      });
+    }, 400);
+    return () => window.clearTimeout(handle);
+  }, [
+    accountId,
+    templateId,
+    title,
+    slug,
+    idSuffix,
+    description,
+    seriesName,
+    supplyInput,
+    priceInput,
+    startTime,
+    endTime,
+    eventStarts,
+    eventEnds,
+    placeDraft,
+    accessEnds,
+    maxPerWallet,
+    royaltyBps,
+    isCustomRoyalty,
+    customRoyaltyInput,
+    royaltyShares,
+    transferable,
+    renewable,
+    maxRedeemsInput,
+    draftAllowlist,
+    artMode,
+    musicFormat,
+    writingFormat,
+    facets,
+    variationSource,
+    variationsCid,
+    variationsExt,
+    coverSeatInput,
+    traitsCid,
+    randomAssign,
+    showAdvanced,
+  ]);
 
   // The submit action lives in the header, so bring failures into view.
   useEffect(() => {
@@ -479,7 +700,8 @@ export function CreateDropPanel() {
         setEventEnds('');
         setPlaceDraft('');
       }
-      if (next.openAdvanced) setShowAdvanced(true);
+      // Art / Writing / Audio close Advanced; ticket-like kinds keep essentials open.
+      setShowAdvanced(Boolean(next.openAdvanced));
       if (next.id === 'audio') {
         setArtMode('single');
         setMusicFormat('single');
@@ -1035,6 +1257,43 @@ export function CreateDropPanel() {
     (isAudio && pinnedMusic != null) ||
     (isWriting && pinnedWriting != null) ||
     (isVariations && variationSource === 'upload' && pinnedLargeSet != null);
+
+  const pinResumeLabel = useMemo(() => {
+    if (isAudio && pinnedMusic) {
+      const n = pinnedMusic.playable.length;
+      return `Pinned · ${n} ${n === 1 ? 'track' : 'tracks'} · ready to sign`;
+    }
+    if (isWriting && pinnedWriting) {
+      const n = pinnedWriting.chapterCount;
+      const unit =
+        pinnedWriting.writingFormat === 'book'
+          ? n === 1
+            ? 'chapter'
+            : 'chapters'
+          : 'manuscript';
+      return n > 0 && pinnedWriting.writingFormat === 'book'
+        ? `Pinned · ${n} ${unit} · ready to sign`
+        : 'Pinned · manuscript · ready to sign';
+    }
+    if (isVariations && pinnedLargeSet) {
+      const n = pinnedLargeSet.pieceCount;
+      return `Pinned · ${n} ${n === 1 ? 'piece' : 'pieces'} · ready to sign`;
+    }
+    return 'Media ready · confirm in wallet to list';
+  }, [isAudio, isWriting, isVariations, pinnedMusic, pinnedWriting, pinnedLargeSet]);
+
+  const hasDiscardableDraft =
+    Boolean(title.trim()) ||
+    Boolean(slug.trim()) ||
+    Boolean(description.trim()) ||
+    Boolean(seriesName.trim()) ||
+    facets.length > 0 ||
+    draftAllowlist.length > 0 ||
+    needsWalletConfirm ||
+    Boolean(imageFile) ||
+    trackFiles.length > 0 ||
+    chapterFiles.length > 0 ||
+    variationFiles.length > 0;
 
   const startSummaryRows = useMemo((): DropStartSummaryRow[] => {
     const kindParts = [template.label];
@@ -1820,6 +2079,7 @@ export function CreateDropPanel() {
         }
 
         clearDropPinDraft();
+        clearDropFormDraft();
         setPinnedMusic(null);
         setPinnedWriting(null);
         setPinnedLargeSet(null);
@@ -2064,10 +2324,52 @@ export function CreateDropPanel() {
           {template.tagline}
         </p>
         {needsWalletConfirm ? (
-          <p className="drop-media-ready-chip" aria-live="polite">
-            Media ready · confirm in wallet to list
-          </p>
+          <div className="drop-pin-resume" role="status">
+            <p className="drop-media-ready-chip">{pinResumeLabel}</p>
+          </div>
         ) : null}
+
+        <label className="guild-field" htmlFor={fieldId('title')}>
+          <span>Title</span>
+          <input
+            id={fieldId('title')}
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder={
+              isWriting
+                ? 'The Quiet Hours'
+                : isAudio
+                  ? 'Night Drive'
+                  : 'Genesis Prints'
+            }
+            maxLength={MAX_TITLE}
+            className={osFieldBorderedClassName}
+          />
+        </label>
+
+        <div className="guild-field">
+          <DropFieldLabel
+            label="Description"
+            infoKey="description"
+            onOpenInfo={openFieldInfo}
+          />
+          <textarea
+            id={fieldId('description')}
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder={
+              isWriting
+                ? 'Short public blurb — the manuscript uploads separately.'
+                : 'What the collection is, why it’s special, and what collectors get.'
+            }
+            maxLength={MAX_DESCRIPTION}
+            className={osFieldBorderedClassName}
+          />
+          <small>
+            {description.length}/{MAX_DESCRIPTION}
+          </small>
+        </div>
+
         {isAudio ? (
           <div className="guild-field">
             <DropFieldLabel
@@ -2184,15 +2486,6 @@ export function CreateDropPanel() {
           </div>
         )}
 
-        {createFacetMedium ? (
-          <DropFacetsEditor
-            medium={createFacetMedium}
-            facets={facets}
-            onChange={setFacets}
-            disabled={pending}
-          />
-        ) : null}
-
         {isVariations ? (
           <div className="guild-field">
             <DropFieldLabel
@@ -2261,20 +2554,42 @@ export function CreateDropPanel() {
 
         {isVariations && variationSource === 'upload' ? (
           variationFiles.length === 0 ? (
-            <button
-              type="button"
-              className="drop-cover-picker drop-studio-launch"
-              onClick={() => openVariationPicker('replace')}
-              disabled={pending}
-            >
-              <span className="drop-cover-placeholder">
-                <strong>Add your set</strong>
-                <small>
-                  {MIN_VARIATIONS}–{MAX_SET_PIECES.toLocaleString()} images ·
-                  same format · ≤5 MB each
-                </small>
-              </span>
-            </button>
+            pinnedLargeSet ? (
+              <div className="guild-field">
+                <p className="drop-pin-resume-detail">
+                  {pinnedLargeSet.pieceCount} pieces pinned · ready to sign
+                </p>
+                <div
+                  className="app-storage-presets"
+                  role="group"
+                  aria-label="Set actions"
+                >
+                  <button
+                    type="button"
+                    className="os-surface-chip"
+                    disabled={pending}
+                    onClick={() => openVariationPicker('replace')}
+                  >
+                    Replace set
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="drop-cover-picker drop-studio-launch"
+                onClick={() => openVariationPicker('replace')}
+                disabled={pending}
+              >
+                <span className="drop-cover-placeholder">
+                  <strong>Add your set</strong>
+                  <small>
+                    {MIN_VARIATIONS}–{MAX_SET_PIECES.toLocaleString()} images ·
+                    same format · ≤5 MB each
+                  </small>
+                </span>
+              </button>
+            )
           ) : (
             <DropVariationSetManager
               previews={variationPreviews}
@@ -2412,6 +2727,28 @@ export function CreateDropPanel() {
                 </button>
               </div>
             </div>
+          ) : pinnedMusic || pinnedWriting ? (
+            <div className="guild-field">
+              <p className="drop-pin-resume-detail">
+                Cover pinned · re-add only if you need to replace it
+              </p>
+              <div
+                className="app-storage-presets"
+                role="group"
+                aria-label={
+                  isAudio || isWriting ? 'Cover actions' : 'Artwork actions'
+                }
+              >
+                <button
+                  type="button"
+                  className="os-surface-chip"
+                  disabled={pending}
+                  onClick={() => imageInputRef.current?.click()}
+                >
+                  Replace cover
+                </button>
+              </div>
+            </div>
           ) : (
             <button
               type="button"
@@ -2457,6 +2794,12 @@ export function CreateDropPanel() {
                 onReorder={reorderTracks}
                 onLyricsChange={setTrackLyricsAt}
               />
+            ) : pinnedMusic ? (
+              <p className="drop-pin-resume-detail">
+                {pinnedMusic.playable.length}{' '}
+                {pinnedMusic.playable.length === 1 ? 'track' : 'tracks'} pinned
+                · ready to sign
+              </p>
             ) : null}
             <div
               className="app-storage-presets"
@@ -2532,6 +2875,16 @@ export function CreateDropPanel() {
                 onRemove={removeChapterAt}
                 onReorder={reorderChapters}
               />
+            ) : pinnedWriting ? (
+              <p className="drop-pin-resume-detail">
+                {pinnedWriting.writingFormat === 'book'
+                  ? `${pinnedWriting.chapterCount} ${
+                      pinnedWriting.chapterCount === 1
+                        ? 'chapter'
+                        : 'chapters'
+                    } pinned · ready to sign`
+                  : 'Manuscript pinned · ready to sign'}
+              </p>
             ) : null}
             <div
               className="app-storage-presets"
@@ -2659,90 +3012,6 @@ export function CreateDropPanel() {
           />
         ) : null}
 
-        <label className="guild-field" htmlFor={fieldId('title')}>
-          <span>Title</span>
-          <input
-            id={fieldId('title')}
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder={
-              isWriting
-                ? 'The Quiet Hours'
-                : isAudio
-                  ? 'Night Drive'
-                  : 'Genesis Prints'
-            }
-            maxLength={MAX_TITLE}
-            className={osFieldBorderedClassName}
-          />
-        </label>
-
-        <div className="guild-field">
-          <DropFieldLabel
-            label="Drop ID"
-            infoKey="dropId"
-            onOpenInfo={openFieldInfo}
-          />
-          <input
-            id={fieldId('id')}
-            value={slug}
-            onChange={(event) => setSlug(event.target.value)}
-            placeholder={
-              derivedSlug ||
-              (isWriting
-                ? 'the-quiet-hours'
-                : isAudio
-                  ? 'night-drive'
-                  : 'genesis-prints')
-            }
-            maxLength={32}
-            className={osFieldBorderedClassName}
-          />
-          {collectionId ? (
-            <small>Public link: {collectionPath(collectionId)}</small>
-          ) : null}
-        </div>
-
-        <div className="guild-field">
-          <DropFieldLabel
-            label="Description"
-            infoKey="description"
-            onOpenInfo={openFieldInfo}
-          />
-          <textarea
-            id={fieldId('description')}
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder={
-              isWriting
-                ? 'Short public blurb — the manuscript uploads separately.'
-                : 'What the collection is, why it’s special, and what collectors get.'
-            }
-            maxLength={MAX_DESCRIPTION}
-            className={osFieldBorderedClassName}
-          />
-          <small>
-            {description.length}/{MAX_DESCRIPTION}
-          </small>
-        </div>
-
-        <div className="guild-field">
-          <DropFieldLabel
-            label="Series (optional)"
-            infoKey="series"
-            onOpenInfo={openFieldInfo}
-          />
-          <input
-            id={fieldId('series')}
-            value={seriesName}
-            onChange={(event) => setSeriesName(event.target.value)}
-            placeholder="Ink Studies"
-            maxLength={48}
-            disabled={pending}
-            className={osFieldBorderedClassName}
-          />
-        </div>
-
         {isPinnedSet ? (
           <div className="guild-field">
             <DropFieldLabel
@@ -2833,20 +3102,7 @@ export function CreateDropPanel() {
           />
         </div>
 
-        <ScarceRoyaltyField
-          royaltyBps={royaltyBps}
-          isCustomRoyalty={isCustomRoyalty}
-          customRoyaltyInput={customRoyaltyInput}
-          pending={pending}
-          primaryAccountId={accountId ?? ''}
-          shares={resolvedRoyaltyShares}
-          onSharesChange={setRoyaltyShares}
-          onRoyaltyBpsChange={setRoyaltyBps}
-          onCustomRoyaltyChange={setCustomRoyaltyInput}
-          onCustomToggle={setIsCustomRoyalty}
-        />
-
-        <div className="guild-field">
+        <div className="guild-field drop-advanced-toggle-row">
           <button
             type="button"
             className="collection-allowlist-toggle"
@@ -2856,10 +3112,85 @@ export function CreateDropPanel() {
           >
             {showAdvanced ? 'Hide advanced' : 'Advanced'}
           </button>
+          {hasDiscardableDraft ? (
+            <button
+              type="button"
+              className="collection-allowlist-toggle drop-discard-draft"
+              disabled={pending}
+              onClick={() => setDiscardDraftOpen(true)}
+            >
+              Discard draft
+            </button>
+          ) : null}
         </div>
 
         {showAdvanced ? (
           <>
+            <div className="guild-field">
+              <DropFieldLabel
+                label="Drop ID"
+                infoKey="dropId"
+                onOpenInfo={openFieldInfo}
+              />
+              <input
+                id={fieldId('id')}
+                value={slug}
+                onChange={(event) => setSlug(event.target.value)}
+                placeholder={
+                  derivedSlug ||
+                  (isWriting
+                    ? 'the-quiet-hours'
+                    : isAudio
+                      ? 'night-drive'
+                      : 'genesis-prints')
+                }
+                maxLength={32}
+                className={osFieldBorderedClassName}
+              />
+              {collectionId ? (
+                <small>Public link: {collectionPath(collectionId)}</small>
+              ) : null}
+            </div>
+
+            <div className="guild-field">
+              <DropFieldLabel
+                label="Series (optional)"
+                infoKey="series"
+                onOpenInfo={openFieldInfo}
+              />
+              <input
+                id={fieldId('series')}
+                value={seriesName}
+                onChange={(event) => setSeriesName(event.target.value)}
+                placeholder="Ink Studies"
+                maxLength={48}
+                disabled={pending}
+                className={osFieldBorderedClassName}
+              />
+            </div>
+
+            {createFacetMedium ? (
+              <DropFacetsEditor
+                medium={createFacetMedium}
+                facets={facets}
+                onChange={setFacets}
+                disabled={pending}
+              />
+            ) : null}
+
+            <ScarceRoyaltyField
+              royaltyBps={royaltyBps}
+              isCustomRoyalty={isCustomRoyalty}
+              customRoyaltyInput={customRoyaltyInput}
+              pending={pending}
+              primaryAccountId={accountId ?? ''}
+              shares={resolvedRoyaltyShares}
+              onSharesChange={setRoyaltyShares}
+              onRoyaltyBpsChange={setRoyaltyBps}
+              onCustomRoyaltyChange={setCustomRoyaltyInput}
+              onCustomToggle={setIsCustomRoyalty}
+            />
+
             {isTicket ? (
               <>
                 <div className="guild-field">
@@ -3235,6 +3566,16 @@ export function CreateDropPanel() {
         title={`${template.label} drops`}
         summary={template.tagline}
         detail={template.hint}
+      />
+
+      <DiscardConfirmSheet
+        open={discardDraftOpen}
+        onDiscard={resetCreateForm}
+        onKeepEditing={() => setDiscardDraftOpen(false)}
+        title="Discard draft?"
+        body="Clears this drop form and any pinned media for it."
+        discardLabel="Discard draft"
+        keepEditingLabel="Keep editing"
       />
 
       <DropFieldInfoDrawer
