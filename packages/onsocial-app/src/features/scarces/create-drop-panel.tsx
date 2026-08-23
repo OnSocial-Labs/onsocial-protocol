@@ -655,6 +655,8 @@ export function CreateDropPanel() {
     tracksReady &&
     chaptersReady &&
     resolvedRoyaltyBps != null &&
+    (!template.requiresEventEnd || eventEnds.trim().length > 0) &&
+    (!template.requiresAccessEnd || accessEnds.trim().length > 0) &&
     (isVariations
       ? isPinnedSet
         ? pinnedCidValid
@@ -1019,7 +1021,7 @@ export function CreateDropPanel() {
     setCoverSeatInput('1');
     setRandomAssign(true);
     setGeneratedNote(
-      `Set generated and pinned — ${result.count} pieces. Art and trait CIDs are filled in below.`
+      `Set generated and pinned — ${result.count} pieces ready to mint.`
     );
     setGeneratedPreviews((prev) => {
       prev.forEach((url) => URL.revokeObjectURL(url));
@@ -1137,7 +1139,11 @@ export function CreateDropPanel() {
       rows.push({ label: 'Series', value: trimmedSeries });
     }
     // Tickets stamp expires_at from Event ends — skip duplicate Access ends row.
-    if (!isTicket && renewable && accessEnds.trim()) {
+    if (
+      !isTicket &&
+      (renewable || template.requiresAccessEnd) &&
+      accessEnds.trim()
+    ) {
       rows.push({
         label: 'Access ends',
         value: formatScheduleLabel(accessEnds),
@@ -1300,7 +1306,7 @@ export function CreateDropPanel() {
       setError('Set when the event ends — tickets need an event window.');
       return;
     }
-    if (template.requiresAccessEnd && !(renewable && accessEnds)) {
+    if (template.requiresAccessEnd && !accessEnds) {
       setError(`Set when access ends — ${template.unit} need an expiry date.`);
       return;
     }
@@ -1312,9 +1318,10 @@ export function CreateDropPanel() {
       : undefined;
     const eventEndsMs = eventEnds ? localDateTimeToMs(eventEnds) : undefined;
     // Tickets: Event ends is the single end date (also stamps expires_at).
+    // Coupons keep their expiry even when renewals are toggled off.
     const expiresAtMs = isTicket
       ? eventEndsMs
-      : renewable && accessEnds
+      : (renewable || template.requiresAccessEnd) && accessEnds
         ? localDateTimeToMs(accessEnds)
         : undefined;
     const nowNs = BigInt(Date.now()) * 1_000_000n;
@@ -1639,7 +1646,7 @@ export function CreateDropPanel() {
       const eventEndsMs = eventEnds ? localDateTimeToMs(eventEnds) : undefined;
       const expiresAtMs = isTicket
         ? eventEndsMs
-        : renewable && accessEnds
+        : (renewable || template.requiresAccessEnd) && accessEnds
           ? localDateTimeToMs(accessEnds)
           : undefined;
       const perWallet = Number.parseInt(maxPerWallet, 10);
@@ -3108,10 +3115,14 @@ export function CreateDropPanel() {
               </div>
             </div>
 
-            {!isTicket && renewable ? (
+            {!isTicket && (renewable || template.requiresAccessEnd) ? (
               <div className="guild-field">
                 <DropFieldLabel
-                  label="Access ends (optional)"
+                  label={
+                    template.requiresAccessEnd
+                      ? 'Access ends'
+                      : 'Access ends (optional)'
+                  }
                   infoKey="accessEnds"
                   onOpenInfo={openFieldInfo}
                 />
@@ -3130,7 +3141,11 @@ export function CreateDropPanel() {
                       Access ends
                     </span>
                     <span className="drop-schedule-cell-value">
-                      {accessEnds ? formatScheduleLabel(accessEnds) : 'No end'}
+                      {accessEnds
+                        ? formatScheduleLabel(accessEnds)
+                        : template.requiresAccessEnd
+                          ? 'Required'
+                          : 'No end'}
                     </span>
                   </button>
                   {accessEnds ? (

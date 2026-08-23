@@ -239,6 +239,34 @@ describe('scarces builders — collections', () => {
     ]);
   });
 
+  it('rejects metadata templates over the on-chain 16KB cap before signing', () => {
+    expect(() =>
+      buildCreateCollectionAction({
+        collectionId: 'oversized',
+        totalSupply: 10,
+        title: 'Oversized',
+        description: 'x'.repeat(17_000),
+      })
+    ).toThrow(/too large/);
+    // Multibyte characters count as bytes, not UTF-16 units.
+    expect(() =>
+      buildCreateCollectionAction({
+        collectionId: 'oversized-emoji',
+        totalSupply: 10,
+        title: 'Oversized',
+        description: '🔥'.repeat(4_500),
+      })
+    ).toThrow(/too large/);
+    expect(() =>
+      buildCreateCollectionAction({
+        collectionId: 'fits',
+        totalSupply: 10,
+        title: 'Fits',
+        description: 'x'.repeat(1_000),
+      })
+    ).not.toThrow();
+  });
+
   it('mint_from_collection includes optional receiver', () => {
     expect(buildMintFromCollectionAction('genesis', 2, 'carol.near')).toEqual({
       type: 'mint_from_collection',
