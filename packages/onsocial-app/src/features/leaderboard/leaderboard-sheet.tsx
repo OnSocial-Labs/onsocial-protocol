@@ -358,19 +358,24 @@ function viewerPrimary(
 function presentationForEntry<T extends { accountId: string; rank: number }>(
   entry: T,
   rows: ReadonlyArray<T>
-): { denseIndex: number; rankLabel: string; tied: boolean } {
+): { denseIndex: number; rankLabel: string; rankTied: boolean } {
   const index = rows.findIndex((row) => row.accountId === entry.accountId);
   if (index >= 0) {
-    return computeLeaderboardRankPresentation(rows)[index]!;
+    const presentation = computeLeaderboardRankPresentation(rows)[index]!;
+    return {
+      denseIndex: presentation.denseIndex,
+      rankLabel: presentation.rankLabel,
+      rankTied: presentation.tied,
+    };
   }
   const rank = Math.max(1, Math.floor(entry.rank));
-  const tied =
+  const rankTied =
     rows.filter((row) => Math.max(1, Math.floor(row.rank)) === rank).length >
     1;
   return {
     denseIndex: rank,
-    tied,
-    rankLabel: leaderboardRankLabel(rank, tied),
+    rankTied,
+    rankLabel: leaderboardRankLabel(rank, rankTied),
   };
 }
 
