@@ -1,5 +1,6 @@
 'use client';
 
+import { osHugSheetBodyClassName } from '@onsocial/ui';
 import { ReputationBreakdownFacts } from '@/features/leaderboard/reputation-breakdown-facts';
 import type { ProfileReputation } from '@/lib/profile-signals';
 
@@ -17,7 +18,9 @@ export function ReputationPanel({
   reputation,
 }: ReputationPanelProps) {
   return (
-    <div className="panel-body reputation-panel-body">
+    <div
+      className={`panel-body reputation-panel-body ${osHugSheetBodyClassName}`}
+    >
       <div className="guild-facts reputation-panel-facts">
         <ReputationBreakdownFacts
           accountId={accountId}

@@ -19,6 +19,15 @@ describe('leaderboardPath', () => {
       `${APP_LEADERBOARD_PATH}?track=earners`
     );
   });
+
+  it('can include the default track for share links', () => {
+    expect(leaderboardPath({ includeDefaultTrack: true })).toBe(
+      `${APP_LEADERBOARD_PATH}?track=reputation`
+    );
+    expect(
+      leaderboardPath({ track: 'reputation', includeDefaultTrack: true })
+    ).toBe(`${APP_LEADERBOARD_PATH}?track=reputation`);
+  });
 });
 
 describe('parseLeaderboardTrackParam', () => {

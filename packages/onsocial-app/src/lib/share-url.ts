@@ -37,7 +37,8 @@ export async function shareUrl(input: {
     if (typeof document !== 'undefined' && !document.hasFocus()) {
       return 'failed';
     }
-    await navigator.clipboard.writeText(url);
+    const text = input.text?.trim();
+    await navigator.clipboard.writeText(text ? `${text}\n${url}` : url);
     return 'copied';
   } catch {
     return 'failed';

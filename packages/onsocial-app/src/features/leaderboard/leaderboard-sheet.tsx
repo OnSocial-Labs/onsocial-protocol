@@ -14,22 +14,26 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type Ref,
 } from 'react';
 import Link from 'next/link';
 import {
-  CheckIcon,
   Divider,
+  FireFillIcon,
   OsHugSheet,
   OsIconAction,
-  ShareIcon,
   SheetCloseButton,
   StandingIdentity,
+  osIconActionGlyphClassName,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { StandingListLoadMoreFooter } from '@/components/panels/standing-list-load-more-footer';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
+import { PortfolioBoostSheet } from '@/features/boost/portfolio-boost-sheet';
+import { useBoostPosition } from '@/features/boost/use-boost-position';
 import { ReputationBreakdownFacts } from '@/features/leaderboard/reputation-breakdown-facts';
 import {
   usePostAuthorProfiles,
@@ -37,20 +41,24 @@ import {
 } from '@/hooks/use-post-author-profiles';
 import {
   appendLeaderboardPage,
-  commitmentLabel,
+  computeLeaderboardRankPresentation,
   entriesForTrack,
   fetchLeaderboardBoard,
+  filterLeaderboardEarnerRows,
   findViewerEntry,
   formatReputationScore,
   formatSocialCompact,
+  isLeaderboardEarnerRanked,
+  leaderboardRankLabel,
   LEADERBOARD_FACTS_Z,
   LEADERBOARD_PAGE_SIZE,
   LEADERBOARD_TRACKS,
   LEADERBOARD_Z,
-  leaderboardShareCopy,
+  leaderboardPrimaryUnit,
+  leaderboardTrackHint,
   leaderboardTrackSubtitle,
+  leaderboardViewerLine,
   pctOfLeader,
-  reputationBoardMeta,
   reputationEntryToProfile,
   type EarnerEntry,
   type InfluenceEntry,
@@ -58,41 +66,45 @@ import {
   type LeaderboardTrackCache,
   type ReputationEntry,
 } from '@/lib/leaderboard';
-import { leaderboardPath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { shareUrl } from '@/lib/share-url';
 
-function ProgressBar({
-  pct,
-  track,
-}: {
-  pct: number;
-  track: LeaderboardTrack;
-}) {
-  return (
-    <div className="leaderboard-row-bar" aria-hidden>
-      <span
-        className="leaderboard-row-bar-fill"
-        data-track={track}
-        style={{ width: `${Math.max(2, pct)}%` }}
-      />
-    </div>
-  );
+const INFLUENCE_HINT_SESSION_KEY = 'leaderboard-influence-hint-seen';
+
+function readInfluenceHintSeen(): boolean {
+  if (typeof sessionStorage === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(INFLUENCE_HINT_SESSION_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function persistInfluenceHintSeen(): void {
+  try {
+    sessionStorage.setItem(INFLUENCE_HINT_SESSION_KEY, '1');
+  } catch {
+    /* ignore */
+  }
 }
 
 function topRankClass(rank: number): string {
-  if (rank === 1) return ' is-top is-top-1';
-  if (rank === 2) return ' is-top is-top-2';
-  if (rank === 3) return ' is-top is-top-3';
-  return '';
+  return rank <= 3 ? ' is-top' : '';
+}
+
+function rowsWithRankPresentation<T extends { rank: number }>(
+  rows: T[]
+): Array<T & { denseIndex: number; rankLabel: string; tied: boolean }> {
+  const presentation = computeLeaderboardRankPresentation(rows);
+  return rows.map((row, index) => ({ ...row, ...presentation[index]! }));
 }
 
 function BoardRow({
   accountId,
   rank,
-  meta,
+  rankLabel,
+  denseIndex,
+  rankTied = false,
   primary,
-  primaryLabel,
   pct,
   track,
   profile,
@@ -103,37 +115,53 @@ function BoardRow({
 }: {
   accountId: string;
   rank: number;
-  meta?: string | null;
+  rankLabel: string;
+  denseIndex: number;
+  rankTied?: boolean;
   primary: string;
-  primaryLabel: string;
   pct: number;
   track: LeaderboardTrack;
   profile?: PostAuthorProfile;
   onNavigate?: () => void;
-  /** Reputation track: open factor peek instead of jumping to portfolio. */
+  /** Reputation track: score opens the factor peek; the name still goes to profile. */
   onOpenFacts?: () => void;
   isViewer?: boolean;
   rowRef?: Ref<HTMLDivElement>;
 }) {
-  const label = profile?.displayName?.trim()
-    ? `${profile.displayName} · rank ${rank}`
-    : `@${accountId} · rank ${rank}`;
+  const who = profile?.displayName?.trim() || `@${accountId}`;
+  const positionHint = rankTied ? `, position ${denseIndex}` : '';
+  const primaryUnit = leaderboardPrimaryUnit(track);
+  const label = `${who} · rank ${rankLabel}${positionHint} · ${primary} ${primaryUnit}`;
+
+  const scoreColumn = (
+    <span className="leaderboard-row-value">
+      <span className="leaderboard-row-primary">{primary}</span>
+      <span className="leaderboard-row-unit">{primaryUnit}</span>
+    </span>
+  );
 
   const main = (
     <>
-      <span className="leaderboard-row-rank" aria-hidden>
-        {rank}
+      <span
+        className={`leaderboard-row-rank${rankTied ? ' is-tied' : ''}`}
+        aria-hidden
+      >
+        <span className="leaderboard-row-rank-label">{rankLabel}</span>
+        <span
+          className={`leaderboard-row-rank-dense${
+            rankTied ? '' : ' is-empty'
+          }`}
+        >
+          {rankTied ? denseIndex : '\u00a0'}
+        </span>
       </span>
       <StandingIdentity
         accountId={accountId}
         profileName={profile?.displayName}
         avatarUrl={profile?.avatarUrl}
-        size="lg"
-        showHandle="when-named"
-      >
-        {meta ? <span className="standing-row-bio">{meta}</span> : null}
-        <ProgressBar pct={pct} track={track} />
-      </StandingIdentity>
+        size="sm"
+        showHandle={false}
+      />
     </>
   );
 
@@ -141,31 +169,38 @@ function BoardRow({
     <div
       ref={rowRef}
       className={`standing-row leaderboard-row${isViewer ? ' is-viewer' : ''}${topRankClass(rank)}`}
+      data-track={track}
+      style={{ '--lb-fill': `${Math.max(2, pct)}%` } as CSSProperties}
     >
+      <Link
+        href={portfolioPath(accountId)}
+        className="standing-row-main"
+        scroll={false}
+        aria-label={label}
+        onClick={onNavigate}
+      >
+        {main}
+      </Link>
       {onOpenFacts ? (
         <button
           type="button"
-          className="standing-row-main leaderboard-row-main-button"
-          aria-label={`${label} · reputation factors`}
+          className="standing-row-aside leaderboard-row-aside leaderboard-row-score"
+          aria-label={`${primary} ${primaryUnit} · factors`}
           onClick={onOpenFacts}
         >
-          {main}
+          {scoreColumn}
         </button>
       ) : (
         <Link
           href={portfolioPath(accountId)}
-          className="standing-row-main"
+          className="standing-row-aside leaderboard-row-aside"
           scroll={false}
           aria-label={label}
           onClick={onNavigate}
         >
-          {main}
+          {scoreColumn}
         </Link>
       )}
-      <div className="standing-row-aside leaderboard-row-aside">
-        <span className="leaderboard-row-primary">{primary}</span>
-        <span className="leaderboard-row-primary-label">{primaryLabel}</span>
-      </div>
     </div>
   );
 }
@@ -192,19 +227,20 @@ function InfluenceRows({
   viewerRowRef?: Ref<HTMLDivElement>;
 }) {
   const leader = rows[0]?.effectiveBoost ?? '1';
+  const presented = rowsWithRankPresentation(rows);
   return (
     <BoardList>
-      {rows.map((entry, index) => {
+      {presented.map((entry) => {
         const isViewer = Boolean(findViewerEntry([entry], viewerAccountId));
         return (
           <div key={entry.accountId} role="listitem">
-            {index > 0 ? <Divider variant="item" /> : null}
             <BoardRow
               accountId={entry.accountId}
               rank={entry.rank}
-              meta={commitmentLabel(entry.lockMonths)}
+              rankLabel={entry.rankLabel}
+              denseIndex={entry.denseIndex}
+              rankTied={entry.tied}
               primary={formatSocialCompact(entry.effectiveBoost)}
-              primaryLabel="Boost"
               pct={pctOfLeader(entry.effectiveBoost, leader)}
               track="influence"
               profile={profiles[entry.accountId]}
@@ -222,33 +258,37 @@ function InfluenceRows({
 function ReputationRows({
   rows,
   profiles,
+  onNavigate,
   viewerAccountId,
   viewerRowRef,
   onOpenFacts,
 }: {
   rows: ReputationEntry[];
   profiles: Record<string, PostAuthorProfile>;
+  onNavigate?: () => void;
   viewerAccountId?: string | null;
   viewerRowRef?: Ref<HTMLDivElement>;
   onOpenFacts: (entry: ReputationEntry) => void;
 }) {
   const leader = rows[0]?.reputation ?? '1';
+  const presented = rowsWithRankPresentation(rows);
   return (
     <BoardList>
-      {rows.map((entry, index) => {
+      {presented.map((entry) => {
         const isViewer = Boolean(findViewerEntry([entry], viewerAccountId));
         return (
           <div key={entry.accountId} role="listitem">
-            {index > 0 ? <Divider variant="item" /> : null}
             <BoardRow
               accountId={entry.accountId}
               rank={entry.rank}
-              meta={reputationBoardMeta(entry)}
+              rankLabel={entry.rankLabel}
+              denseIndex={entry.denseIndex}
+              rankTied={entry.tied}
               primary={formatReputationScore(entry.reputation)}
-              primaryLabel="Rep"
               pct={pctOfLeader(entry.reputation, leader)}
               track="reputation"
               profile={profiles[entry.accountId]}
+              onNavigate={onNavigate}
               onOpenFacts={() => onOpenFacts(entry)}
               isViewer={isViewer}
               rowRef={isViewer ? viewerRowRef : undefined}
@@ -274,23 +314,20 @@ function EarnerRows({
   viewerRowRef?: Ref<HTMLDivElement>;
 }) {
   const leader = rows[0]?.totalEarned ?? '1';
+  const presented = rowsWithRankPresentation(rows);
   return (
     <BoardList>
-      {rows.map((entry, index) => {
-        const unclaimed =
-          entry.unclaimed && entry.unclaimed !== '0' && entry.unclaimed !== ''
-            ? `${formatSocialCompact(entry.unclaimed)} claimable`
-            : null;
+      {presented.map((entry) => {
         const isViewer = Boolean(findViewerEntry([entry], viewerAccountId));
         return (
           <div key={entry.accountId} role="listitem">
-            {index > 0 ? <Divider variant="item" /> : null}
             <BoardRow
               accountId={entry.accountId}
               rank={entry.rank}
-              meta={unclaimed}
+              rankLabel={entry.rankLabel}
+              denseIndex={entry.denseIndex}
+              rankTied={entry.tied}
               primary={formatSocialCompact(entry.totalEarned)}
-              primaryLabel="Earned"
               pct={pctOfLeader(entry.totalEarned, leader)}
               track="earners"
               profile={profiles[entry.accountId]}
@@ -305,11 +342,46 @@ function EarnerRows({
   );
 }
 
+function viewerPrimary(
+  track: LeaderboardTrack,
+  entry: InfluenceEntry | ReputationEntry | EarnerEntry
+): string {
+  if (track === 'influence') {
+    return formatSocialCompact((entry as InfluenceEntry).effectiveBoost);
+  }
+  if (track === 'reputation') {
+    return formatReputationScore((entry as ReputationEntry).reputation);
+  }
+  return formatSocialCompact((entry as EarnerEntry).totalEarned);
+}
+
+function presentationForEntry<T extends { accountId: string; rank: number }>(
+  entry: T,
+  rows: ReadonlyArray<T>
+): { denseIndex: number; rankLabel: string; tied: boolean } {
+  const index = rows.findIndex((row) => row.accountId === entry.accountId);
+  if (index >= 0) {
+    return computeLeaderboardRankPresentation(rows)[index]!;
+  }
+  const rank = Math.max(1, Math.floor(entry.rank));
+  const tied =
+    rows.filter((row) => Math.max(1, Math.floor(row.rank)) === rank).length >
+    1;
+  return {
+    denseIndex: rank,
+    tied,
+    rankLabel: leaderboardRankLabel(rank, tied),
+  };
+}
+
 function ViewerFooter({
   track,
   entry,
   leaderValue,
   profile,
+  rankLabel,
+  denseIndex,
+  rankTied,
   onNavigate,
   onOpenFacts,
 }: {
@@ -317,6 +389,9 @@ function ViewerFooter({
   entry: InfluenceEntry | ReputationEntry | EarnerEntry;
   leaderValue: string;
   profile?: PostAuthorProfile;
+  rankLabel: string;
+  denseIndex: number;
+  rankTied: boolean;
   onNavigate?: () => void;
   onOpenFacts?: (entry: ReputationEntry) => void;
 }) {
@@ -324,13 +399,13 @@ function ViewerFooter({
     const row = entry as InfluenceEntry;
     return (
       <div className="leaderboard-viewer-footer" role="complementary">
-        <p className="leaderboard-viewer-footer-label">Your rank</p>
         <BoardRow
           accountId={row.accountId}
           rank={row.rank}
-          meta={commitmentLabel(row.lockMonths)}
+          rankLabel={rankLabel}
+          denseIndex={denseIndex}
+          rankTied={rankTied}
           primary={formatSocialCompact(row.effectiveBoost)}
-          primaryLabel="Boost"
           pct={pctOfLeader(row.effectiveBoost, leaderValue)}
           track="influence"
           profile={profile}
@@ -344,38 +419,33 @@ function ViewerFooter({
     const row = entry as ReputationEntry;
     return (
       <div className="leaderboard-viewer-footer" role="complementary">
-        <p className="leaderboard-viewer-footer-label">Your rank</p>
         <BoardRow
           accountId={row.accountId}
           rank={row.rank}
-          meta={reputationBoardMeta(row)}
+          rankLabel={rankLabel}
+          denseIndex={denseIndex}
+          rankTied={rankTied}
           primary={formatReputationScore(row.reputation)}
-          primaryLabel="Rep"
           pct={pctOfLeader(row.reputation, leaderValue)}
           track="reputation"
           profile={profile}
-          onOpenFacts={
-            onOpenFacts ? () => onOpenFacts(row) : undefined
-          }
+          onNavigate={onNavigate}
+          onOpenFacts={onOpenFacts ? () => onOpenFacts(row) : undefined}
           isViewer
         />
       </div>
     );
   }
   const row = entry as EarnerEntry;
-  const unclaimed =
-    row.unclaimed && row.unclaimed !== '0' && row.unclaimed !== ''
-      ? `${formatSocialCompact(row.unclaimed)} claimable`
-      : null;
   return (
     <div className="leaderboard-viewer-footer" role="complementary">
-      <p className="leaderboard-viewer-footer-label">Your rank</p>
       <BoardRow
         accountId={row.accountId}
         rank={row.rank}
-        meta={unclaimed}
+        rankLabel={rankLabel}
+        denseIndex={denseIndex}
+        rankTied={rankTied}
         primary={formatSocialCompact(row.totalEarned)}
-        primaryLabel="Earned"
         pct={pctOfLeader(row.totalEarned, leaderValue)}
         track="earners"
         profile={profile}
@@ -464,6 +534,7 @@ export function LeaderboardSheet({
   initialTrack = 'reputation',
   track: trackProp,
   onTrackChange,
+  onRowNavigate,
 }: {
   open: boolean;
   onClose: () => void;
@@ -471,6 +542,8 @@ export function LeaderboardSheet({
   /** Controlled track (URL-driven `/leaderboard?track=`). */
   track?: LeaderboardTrack;
   onTrackChange?: (track: LeaderboardTrack) => void;
+  /** Fired when a row link is taken — parent can skip history.back(). */
+  onRowNavigate?: () => void;
 }) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const [sheetOpen, setSheetOpen] = useState(open);
@@ -486,12 +559,20 @@ export function LeaderboardSheet({
     },
     [onTrackChange, trackProp]
   );
-  if (open && !sheetOpen) {
-    setSheetOpen(true);
-    if (trackProp === undefined) {
-      setInternalTrack(initialTrack);
+  const prevParentOpenRef = useRef(open);
+  useEffect(() => {
+    const parentOpened = open && !prevParentOpenRef.current;
+    const parentClosed = !open && prevParentOpenRef.current;
+    if (parentOpened) {
+      setSheetOpen(true);
+      if (trackProp === undefined) {
+        setInternalTrack(initialTrack);
+      }
+    } else if (parentClosed) {
+      setSheetOpen(false);
     }
-  }
+    prevParentOpenRef.current = open;
+  }, [open, initialTrack, trackProp]);
 
   const viewerKey = isConnected ? (viewerAccountId ?? '') : '';
   const [cache, setCache] = useState<
@@ -507,27 +588,69 @@ export function LeaderboardSheet({
   const [error, setError] = useState<string | null>(null);
   const [viewerPinned, setViewerPinned] = useState(false);
   const [factsEntry, setFactsEntry] = useState<ReputationEntry | null>(null);
-  const [shareCopied, setShareCopied] = useState(false);
+  const [boostOpen, setBoostOpen] = useState(false);
   const requestIdRef = useRef(0);
   const viewerRowRef = useRef<HTMLDivElement | null>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const scrollRootRef = useRef<HTMLElement | null>(null);
   const scrolledForKeyRef = useRef('');
+  const prevTrackRef = useRef<LeaderboardTrack>(track);
+  const [influenceHintSeen, setInfluenceHintSeen] = useState(readInfluenceHintSeen);
+
+  const boostAccountId = isConnected ? (viewerAccountId ?? '') : '';
+  const boost = useBoostPosition(boostAccountId, {
+    live: boostOpen && track === 'influence' && boostAccountId.length > 0,
+  });
+
+  const dismissInfluenceHint = useCallback(() => {
+    persistInfluenceHintSeen();
+    setInfluenceHintSeen(true);
+  }, []);
+
+  const trackRailHidden = useDockAutoHide(false, scrollRootRef);
 
   const requestClose = useCallback(() => {
     setSheetOpen(false);
   }, []);
 
+  const handleRowNavigate = useCallback(() => {
+    onRowNavigate?.();
+    requestClose();
+  }, [onRowNavigate, requestClose]);
+
   const handleClosed = useCallback(() => {
+    if (track === 'influence') {
+      dismissInfluenceHint();
+    }
     setCache({});
     setError(null);
     setPending(false);
     setLoadingMore(false);
     setViewerPinned(false);
     setFactsEntry(null);
-    setShareCopied(false);
+    setBoostOpen(false);
     scrolledForKeyRef.current = '';
     onClose();
-  }, [onClose]);
+  }, [dismissInfluenceHint, onClose, track]);
+
+  useEffect(() => {
+    if (prevTrackRef.current === 'influence' && track !== 'influence') {
+      dismissInfluenceHint();
+    }
+    prevTrackRef.current = track;
+  }, [dismissInfluenceHint, track]);
+
+  useEffect(() => {
+    if (track !== 'influence') {
+      setBoostOpen(false);
+    }
+  }, [track]);
+
+  useEffect(() => {
+    if (!sheetOpen) {
+      setBoostOpen(false);
+    }
+  }, [sheetOpen]);
 
   useEffect(() => {
     if (!sheetOpen) return;
@@ -564,7 +687,14 @@ export function LeaderboardSheet({
 
   const trackCache = cache[track] ?? null;
   const board = trackCache?.board ?? null;
-  const rows = entriesForTrack(track, board);
+  const rawRows = entriesForTrack(track, board);
+  const rows = useMemo(() => {
+    if (!rawRows) return null;
+    if (track === 'earners') {
+      return filterLeaderboardEarnerRows(rawRows as EarnerEntry[]);
+    }
+    return rawRows;
+  }, [rawRows, track]);
   const hasMore = trackCache?.hasMore ?? false;
   const viewerInList = findViewerEntry(rows ?? [], viewerAccountId);
   const viewerInListRow =
@@ -574,12 +704,28 @@ export function LeaderboardSheet({
           | ReputationEntry
           | EarnerEntry)
       : null;
-  const viewerOutside =
+  const rawViewerOutside =
     !viewerInListRow && board?.viewerEntry
       ? (board.viewerEntry as InfluenceEntry | ReputationEntry | EarnerEntry)
       : null;
+  const viewerOutside =
+    track === 'earners' && rawViewerOutside
+      ? isLeaderboardEarnerRanked(rawViewerOutside as EarnerEntry)
+        ? rawViewerOutside
+        : null
+      : rawViewerOutside;
   const stickyViewer = viewerOutside ?? (viewerPinned ? viewerInListRow : null);
   const shareViewer = viewerInListRow ?? viewerOutside;
+  const trackHint =
+    track === 'influence' &&
+    !influenceHintSeen &&
+    leaderboardTrackHint(track);
+  /** Quiet you-line whenever the viewer has a rank on this track. */
+  const showYouLine = Boolean(shareViewer && isConnected);
+
+  const scrollToViewer = useCallback(() => {
+    viewerRowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, []);
 
   const accountIds = useMemo(() => {
     const ids = (rows ?? []).map((row) => row.accountId);
@@ -677,28 +823,6 @@ export function LeaderboardSheet({
     };
   }, [sheetOpen, hasMore, loadingMore, pending, loadMore, rows]);
 
-  const handleShare = useCallback(async () => {
-    if (!shareViewer || !viewerAccountId) return;
-    const copy = leaderboardShareCopy({
-      track,
-      rank: shareViewer.rank,
-      accountId: viewerAccountId,
-    });
-    const url = new URL(
-      leaderboardPath({ track }),
-      window.location.origin
-    ).toString();
-    const result = await shareUrl({
-      url,
-      title: copy.title,
-      text: copy.text,
-    });
-    if (result === 'copied') {
-      setShareCopied(true);
-      window.setTimeout(() => setShareCopied(false), 1600);
-    }
-  }, [shareViewer, track, viewerAccountId]);
-
   const empty =
     rows != null && rows.length === 0
       ? 'No rankings yet. Activity will appear once indexed.'
@@ -706,16 +830,37 @@ export function LeaderboardSheet({
   const showSkeleton = pending && rows == null;
 
   const stickyFooter =
-    stickyViewer && !showSkeleton && !error && !empty ? (
-      <ViewerFooter
-        track={track}
-        entry={stickyViewer}
-        leaderValue={leaderValue}
-        profile={profiles[stickyViewer.accountId]}
-        onNavigate={requestClose}
-        onOpenFacts={setFactsEntry}
-      />
+    stickyViewer && rows && !showSkeleton && !error && !empty ? (
+      <>
+        <Divider variant="section" className="leaderboard-footer-divider" />
+        <ViewerFooter
+          track={track}
+          entry={stickyViewer}
+          leaderValue={leaderValue}
+          profile={profiles[stickyViewer.accountId]}
+          {...presentationForEntry(stickyViewer, rows)}
+          onNavigate={handleRowNavigate}
+          onOpenFacts={setFactsEntry}
+        />
+      </>
     ) : null;
+
+  const youLineText =
+    showYouLine && shareViewer
+      ? ` · ${leaderboardViewerLine({
+          rank: shareViewer.rank,
+          primary: viewerPrimary(track, shareViewer),
+        })}`
+      : null;
+
+  const showBoostAction =
+    track === 'influence' && isConnected && boostAccountId.length > 0;
+  const boostLockedLabel = boost.hasPosition
+    ? formatSocialCompact(boost.lockedYocto)
+    : '';
+  const boostAriaLabel = boost.hasPosition
+    ? `${boostLockedLabel} SOCIAL boosting — manage`
+    : 'Boost — lock SOCIAL to grow influence';
 
   return (
     <>
@@ -724,57 +869,88 @@ export function LeaderboardSheet({
         onClose={requestClose}
         onClosed={handleClosed}
         title="Leaderboard"
-        subtitle={leaderboardTrackSubtitle(track)}
+        heading={
+          <>
+            <h1 className="os-app-screen-title">Leaderboard</h1>
+            <p className="os-app-screen-subtitle leaderboard-sheet-subline">
+              <span className="leaderboard-sheet-subline-metric">
+                {leaderboardTrackSubtitle(track)}
+              </span>
+              {youLineText ? (
+                viewerInListRow ? (
+                  <button
+                    type="button"
+                    className="leaderboard-sheet-subline-you is-jump"
+                    onClick={scrollToViewer}
+                  >
+                    {youLineText}
+                  </button>
+                ) : (
+                  <span className="leaderboard-sheet-subline-you">
+                    {youLineText}
+                  </span>
+                )
+              ) : null}
+            </p>
+          </>
+        }
         zIndex={LEADERBOARD_Z}
         closeAriaLabel="Back from leaderboard"
         className="leaderboard-slide"
+        scrollRootRef={scrollRootRef}
         actions={
-          shareViewer && isConnected ? (
-            <OsIconAction
-              ariaLabel="Share your rank"
-              onClick={() => {
-                void handleShare();
-              }}
-            >
-              {shareCopied ? (
-                <CheckIcon aria-hidden />
-              ) : (
-                <ShareIcon aria-hidden />
-              )}
-            </OsIconAction>
+          showBoostAction ? (
+            <div className="standing-sheet-actions standing-sheet-actions--payout">
+              <OsIconAction
+                ariaLabel={boostAriaLabel}
+                onClick={() => setBoostOpen(true)}
+              >
+                <FireFillIcon
+                  className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
+                  aria-hidden
+                />
+              </OsIconAction>
+            </div>
           ) : null
         }
         toolbar={
-          <div
-            className="leaderboard-track-row"
-            role="tablist"
-            aria-label="Leaderboard tracks"
-          >
-            {LEADERBOARD_TRACKS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={track === item.id}
-                className={`os-surface-chip leaderboard-track-chip${
-                  track === item.id ? ' is-selected' : ''
-                }${item.emphasis === 'tertiary' ? ' is-tertiary' : ''}`}
-                onClick={() => {
-                  setError(null);
-                  setViewerPinned(false);
-                  setFactsEntry(null);
-                  scrolledForKeyRef.current = '';
-                  setCache((prev) => {
-                    const next = { ...prev };
-                    delete next[item.id];
-                    return next;
-                  });
-                  setTrack(item.id);
-                }}
+          <div className="leaderboard-toolbar">
+            <div
+              className={`os-app-chrome-rail leaderboard-track-rail${
+                trackRailHidden ? ' is-scroll-hidden' : ''
+              }`}
+            >
+              <div
+                className="leaderboard-track-row"
+                role="tablist"
+                aria-label="Leaderboard tracks"
               >
-                {item.label}
-              </button>
-            ))}
+                {LEADERBOARD_TRACKS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={track === item.id}
+                    className={`leaderboard-track-seg${
+                      track === item.id ? ' is-selected' : ''
+                    }`}
+                    onClick={() => {
+                      if (item.id === track) return;
+                      setError(null);
+                      setViewerPinned(false);
+                      setFactsEntry(null);
+                      scrolledForKeyRef.current = '';
+                      setTrack(item.id);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {trackHint ? (
+              <p className="leaderboard-track-hint">{trackHint}</p>
+            ) : null}
           </div>
         }
         contentClassName="leaderboard-sheet-content"
@@ -792,7 +968,7 @@ export function LeaderboardSheet({
               <InfluenceRows
                 rows={rows as InfluenceEntry[]}
                 profiles={profiles}
-                onNavigate={requestClose}
+                onNavigate={handleRowNavigate}
                 viewerAccountId={viewerAccountId}
                 viewerRowRef={viewerRowRef}
               />
@@ -800,6 +976,7 @@ export function LeaderboardSheet({
               <ReputationRows
                 rows={rows as ReputationEntry[]}
                 profiles={profiles}
+                onNavigate={handleRowNavigate}
                 viewerAccountId={viewerAccountId}
                 viewerRowRef={viewerRowRef}
                 onOpenFacts={setFactsEntry}
@@ -808,7 +985,7 @@ export function LeaderboardSheet({
               <EarnerRows
                 rows={rows as EarnerEntry[]}
                 profiles={profiles}
-                onNavigate={requestClose}
+                onNavigate={handleRowNavigate}
                 viewerAccountId={viewerAccountId}
                 viewerRowRef={viewerRowRef}
               />
@@ -831,6 +1008,10 @@ export function LeaderboardSheet({
               <p className="leaderboard-sheet-footnote">
                 Connect a wallet to see your rank on this board.
               </p>
+            ) : track === 'earners' && isConnected && !shareViewer && board ? (
+              <p className="leaderboard-sheet-footnote">
+                No SOCIAL earned yet — you won&apos;t appear on this board.
+              </p>
             ) : null}
           </>
         )}
@@ -841,6 +1022,16 @@ export function LeaderboardSheet({
         entry={factsEntry}
         onClose={() => setFactsEntry(null)}
       />
+
+      {showBoostAction ? (
+        <PortfolioBoostSheet
+          open={boostOpen}
+          accountId={boostAccountId}
+          position={boost}
+          onOpenChange={setBoostOpen}
+          zIndex={LEADERBOARD_FACTS_Z}
+        />
+      ) : null}
     </>
   );
 }

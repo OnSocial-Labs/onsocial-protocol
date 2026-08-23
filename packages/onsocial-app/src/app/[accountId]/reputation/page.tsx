@@ -1,32 +1,18 @@
-import { panelLabel } from '@/lib/overlay-routes';
-import { ReputationPanel } from '@/components/panels/reputation-panel';
-import { PanelPage } from '@/components/panels/panel-page';
-import { LeaderboardChartAction } from '@/features/leaderboard/leaderboard-chart-action';
-import { fetchProfileReputation } from '@/lib/profile-signals';
+import { redirect } from 'next/navigation';
+import { portfolioPath } from '@/lib/overlay-routes';
 import { resolveAccountId } from '@/lib/resolve-account';
 
-type PanelRouteProps = {
-  params: Promise<{
-    accountId: string;
-  }>;
+type ReputationRedirectProps = {
+  params: Promise<{ accountId: string }>;
 };
 
 /**
- * Hard refresh / shared link — full-page reputation fallback.
+ * Hard refresh / shared link — reputation is a face peek (overlay-only).
  * Soft nav still opens the glass sheet via `@overlay/(.)reputation`.
  */
-export default async function ReputationPage({ params }: PanelRouteProps) {
+export default async function ReputationPage({
+  params,
+}: ReputationRedirectProps) {
   const accountId = await resolveAccountId(params);
-  const reputation = await fetchProfileReputation(accountId);
-  const title = panelLabel('reputation');
-
-  return (
-    <PanelPage
-      accountId={accountId}
-      title={title}
-      headerActions={<LeaderboardChartAction track="reputation" />}
-    >
-      <ReputationPanel accountId={accountId} reputation={reputation} />
-    </PanelPage>
-  );
+  redirect(portfolioPath(accountId));
 }

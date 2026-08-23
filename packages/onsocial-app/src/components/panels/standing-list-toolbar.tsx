@@ -49,7 +49,14 @@ function CountBadge({
   );
 }
 
-export function StandingListToolbar({ trailing }: { trailing?: ReactNode }) {
+export function StandingListToolbar({
+  trailing,
+  onViewMenuOpenChange,
+}: {
+  trailing?: ReactNode;
+  /** Pins toolbar tuck while the view switcher menu is open. */
+  onViewMenuOpenChange?: (open: boolean) => void;
+}) {
   const {
     kind,
     navigateKind,
@@ -96,6 +103,9 @@ export function StandingListToolbar({ trailing }: { trailing?: ReactNode }) {
             />
           }
           className="standing-view-menu"
+          {...(onViewMenuOpenChange
+            ? { onOpenChange: onViewMenuOpenChange }
+            : {})}
         />
       )}
 

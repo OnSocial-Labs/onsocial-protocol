@@ -1,11 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import {
-  SheetFactCopy,
-  SheetFactRow,
-  SheetFactSection,
-} from '@onsocial/ui';
+import { SheetFactRow, SheetFactSection } from '@onsocial/ui';
 import {
   commitmentLabel,
   formatReputationComponent,
@@ -57,7 +53,6 @@ export function ReputationBreakdownFacts({
   const meta = [rankLabel, confidence.label, confidencePct]
     .filter(Boolean)
     .join(' · ');
-  const showConfidenceNote = confidence.label !== 'Established';
   const lock = commitmentLabel(reputation.lockMonths);
 
   const factors: { title: string; hint: string; value: string }[] = [
@@ -106,12 +101,6 @@ export function ReputationBreakdownFacts({
           <span className="reputation-facts-score-label">{meta}</span>
         ) : null}
       </div>
-
-      {showConfidenceNote ? (
-        <SheetFactCopy className="reputation-facts-intro">
-          {confidence.detail}
-        </SheetFactCopy>
-      ) : null}
 
       <SheetFactSection title="Factors">
         {factors.map((factor) => (

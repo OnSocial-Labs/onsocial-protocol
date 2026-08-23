@@ -1,13 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import {
   commitmentLabel,
+  computeLeaderboardRankPresentation,
+  filterLeaderboardEarnerRows,
   findViewerEntry,
   formatReputationComponent,
   formatReputationScore,
+  isLeaderboardEarnerRanked,
   LEADERBOARD_TRACKS,
+  leaderboardPrimaryUnit,
+  leaderboardRankLabel,
   leaderboardShareCopy,
+  leaderboardTrackHint,
   leaderboardTrackSubtitle,
+  leaderboardViewerLine,
   pctOfLeader,
+  influenceBoardMeta,
   reputationBoardMeta,
   reputationConfidenceLabel,
   reputationTierLabel,
@@ -35,7 +43,14 @@ describe('leaderboard helpers', () => {
     expect(reputationConfidenceLabel(0.8).label).toBe('Established');
   });
 
-  it('picks one scannable reputation meta line', () => {
+  it('formats influence meta as lock months', () => {
+    expect(influenceBoardMeta({ lockMonths: 0 })).toBe('');
+    expect(influenceBoardMeta({ lockMonths: 1 })).toBe('1 mo lock');
+    expect(influenceBoardMeta({ lockMonths: 12 })).toBe('12 mo lock');
+    expect(influenceBoardMeta({ lockMonths: 48 })).toBe('48 mo lock');
+  });
+
+  it('keeps reputation meta on standing only', () => {
     expect(
       reputationBoardMeta({
         standingWith: 12,
@@ -51,7 +66,7 @@ describe('leaderboard helpers', () => {
         activeDays: 10,
         rank: 40,
       })
-    ).toBe('3 posts');
+    ).toBe('');
     expect(
       reputationBoardMeta({
         standingWith: 0,
@@ -59,16 +74,33 @@ describe('leaderboard helpers', () => {
         activeDays: 0,
         rank: 40,
       })
-    ).toBe('New');
+    ).toBe('');
   });
 
-  it('marks earners as tertiary emphasis', () => {
-    expect(LEADERBOARD_TRACKS.find((t) => t.id === 'earners')?.emphasis).toBe(
-      'tertiary'
+  it('names the metric in the subtitle, not the tab', () => {
+    expect(LEADERBOARD_TRACKS.map((t) => t.id)).toEqual([
+      'reputation',
+      'influence',
+      'earners',
+    ]);
+    expect(leaderboardTrackSubtitle('reputation')).toBe(
+      'All-time weighted score'
     );
-    expect(leaderboardTrackSubtitle('reputation')).toBe('Protocol reputation');
-    expect(leaderboardTrackSubtitle('influence')).toBe('Boost influence');
-    expect(leaderboardTrackSubtitle('earners')).toBe('Rewards earned');
+    expect(leaderboardTrackSubtitle('influence')).toBe(
+      'All-time effective boost'
+    );
+    expect(leaderboardTrackSubtitle('earners')).toBe('All-time SOCIAL earned');
+    expect(leaderboardPrimaryUnit('influence')).toBe('Boost');
+    expect(leaderboardPrimaryUnit('earners')).toBe('SOCIAL');
+    expect(leaderboardPrimaryUnit('reputation')).toBe('Score');
+    expect(leaderboardTrackHint('influence')).toMatch(/locked SOCIAL/);
+    expect(leaderboardTrackHint('earners')).toBeNull();
+  });
+
+  it('builds a quiet you-line', () => {
+    expect(leaderboardViewerLine({ rank: 47, primary: '12.4' })).toBe(
+      "You're #47 · 12.4"
+    );
   });
 
   it('builds share copy for viewer ranks', () => {
@@ -94,5 +126,36 @@ describe('leaderboard helpers', () => {
     ];
     expect(findViewerEntry(rows, 'alice.near')?.index).toBe(0);
     expect(findViewerEntry(rows, 'carol.near')).toBeNull();
+  });
+
+  it('labels tied competition ranks and keeps dense order', () => {
+    expect(leaderboardRankLabel(7, false)).toBe('7');
+    expect(leaderboardRankLabel(12, true)).toBe('T12');
+    const rows = [
+      { rank: 9 },
+      { rank: 9 },
+      { rank: 11 },
+      { rank: 12 },
+      { rank: 12 },
+    ];
+    const presentation = computeLeaderboardRankPresentation(rows);
+    expect(presentation[0]?.rankLabel).toBe('T9');
+    expect(presentation[0]?.denseIndex).toBe(1);
+    expect(presentation[1]?.rankLabel).toBe('T9');
+    expect(presentation[1]?.denseIndex).toBe(2);
+    expect(presentation[2]?.rankLabel).toBe('11');
+    expect(presentation[3]?.rankLabel).toBe('T12');
+    expect(presentation[4]?.denseIndex).toBe(5);
+  });
+
+  it('filters zero earners from the earners board', () => {
+    const rows = [
+      { accountId: 'a', totalEarned: '1.0', rank: 1 },
+      { accountId: 'b', totalEarned: '0', rank: 23 },
+      { accountId: 'c', totalEarned: '0.00', rank: 23 },
+    ];
+    expect(isLeaderboardEarnerRanked(rows[0]!)).toBe(true);
+    expect(isLeaderboardEarnerRanked(rows[1]!)).toBe(false);
+    expect(filterLeaderboardEarnerRows(rows)).toHaveLength(1);
   });
 });

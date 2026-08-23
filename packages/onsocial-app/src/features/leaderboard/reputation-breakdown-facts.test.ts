@@ -56,7 +56,7 @@ describe('ReputationBreakdownFacts', () => {
     expect(html).toContain('No reputation indexed for @bob.near yet');
   });
 
-  it('shows a confidence note only while the score is still forming', () => {
+  it('shows building confidence in the headline meta only', () => {
     const html = renderToStaticMarkup(
       createElement(ReputationBreakdownFacts, {
         accountId: 'cara.near',
@@ -64,7 +64,8 @@ describe('ReputationBreakdownFacts', () => {
       })
     );
     expect(html).toContain('Building');
-    expect(html).toContain('Forming from social graph');
+    expect(html).toContain('40%');
+    expect(html).not.toContain('Forming from social graph');
     expect(html).not.toContain('#0');
   });
 });

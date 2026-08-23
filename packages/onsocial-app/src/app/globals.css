@@ -172,6 +172,23 @@
   --glass-sheet-body-opacity: 0.64;
 }
 
+/*
+ * Hosted glass sheets (portfolio overlays + hug peeks in the OS column) —
+ * header top inset matches `.os-app-screen-header`. Unlayered so it wins over
+ * `@onsocial/ui` `.glass-sheet-header { padding: 0 … }`.
+ */
+.glass-sheet-root--hosted .glass-sheet-header,
+.glass-sheet-root--hosted .standing-sheet-header {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.65rem);
+}
+
+/* Facts peeks over slide-overs — no drag grip band above the title row. */
+.glass-sheet-root--hosted
+  .glass-sheet-panel.guild-facts-sheet-panel
+  > .glass-sheet-drag {
+  display: none;
+}
+
 /* Allowlist account edit — shorter cap than generic hug. */
 .glass-sheet-panel.collection-allowlist-edit-sheet-panel {
   max-height: min(72dvh, 22rem);
@@ -524,7 +541,8 @@
  * Drop page Manage — same Sell family, but height-locked to bookmark / share
  * (1.35rem) so owner ↔ viewer wallet switches don’t jump the product line.
  */
-.collection-product-manage .collectibles-play-sell-action.os-sheet-actions--row-compact
+.collection-product-manage
+  .collectibles-play-sell-action.os-sheet-actions--row-compact
   .os-sheet-action,
 .collection-product-manage
   .collectibles-play-sell-action.os-sheet-actions--row-compact
@@ -1227,9 +1245,7 @@
 }
 
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme])
-    .mood-sheet-panel
-    .mood-sheet-item:not(.is-active) {
+  :root:not([data-theme]) .mood-sheet-panel .mood-sheet-item:not(.is-active) {
     --mood-bg-preset-mix: 30%;
   }
 }
@@ -1283,7 +1299,10 @@
   .mood-sheet-panel
   .mood-sheet-item:not(.is-active):not([data-mood='gold'])
   .mood-sheet-item-label {
-  color: var(--mood-row-accent-light, var(--mood-row-accent, var(--mood-accent)));
+  color: var(
+    --mood-row-accent-light,
+    var(--mood-row-accent, var(--mood-accent))
+  );
 }
 
 :root[data-theme='light']
@@ -3166,8 +3185,8 @@ a.os-surface-row {
     }
 
     .portfolio-frame[data-has-banner='true'] .portfolio-profile-banner {
-      border-radius: max(0px, calc(1.25rem - 1px))
-        max(0px, calc(1.25rem - 1px)) 0 0;
+      border-radius: max(0px, calc(1.25rem - 1px)) max(0px, calc(1.25rem - 1px))
+        0 0;
     }
 
     .portfolio-frame[data-avatar-cover='true'] .portfolio-avatar-cover,
@@ -3669,7 +3688,9 @@ a.os-surface-row {
   }
 
   :root[data-theme='light'] .portfolio-frame[data-mood='glass'] .portfolio-bio,
-  :root[data-theme='light'] .profile-edit-slide[data-mood='glass'] .account-editor-bio,
+  :root[data-theme='light']
+    .profile-edit-slide[data-mood='glass']
+    .account-editor-bio,
   :root[data-theme='light']
     .portfolio-frame[data-mood='glass']
     .mood-indicator-note {
@@ -3809,7 +3830,9 @@ a.os-surface-row {
 
   @media (prefers-color-scheme: light) {
     :root:not([data-theme]) .portfolio-frame[data-mood='glass'] .portfolio-bio,
-    :root:not([data-theme]) .profile-edit-slide[data-mood='glass'] .account-editor-bio,
+    :root:not([data-theme])
+      .profile-edit-slide[data-mood='glass']
+      .account-editor-bio,
     :root:not([data-theme])
       .portfolio-frame[data-mood='glass']
       .mood-indicator-note {
@@ -3965,7 +3988,9 @@ a.os-surface-row {
   }
 
   :root[data-theme='light'] .portfolio-frame[data-mood='gold'] .portfolio-name,
-  :root[data-theme='light'] .profile-edit-slide[data-mood='gold'] .account-editor-name,
+  :root[data-theme='light']
+    .profile-edit-slide[data-mood='gold']
+    .account-editor-name,
   :root[data-theme='light']
     .mood-sheet-item[data-mood='gold']
     .mood-sheet-item-label {
@@ -4152,7 +4177,9 @@ a.os-surface-row {
   }
 
   :root[data-theme='light'] .portfolio-frame[data-mood='carbon'] .portfolio-bio,
-  :root[data-theme='light'] .profile-edit-slide[data-mood='carbon'] .account-editor-bio,
+  :root[data-theme='light']
+    .profile-edit-slide[data-mood='carbon']
+    .account-editor-bio,
   :root[data-theme='light']
     .portfolio-frame[data-mood='carbon']
     .mood-indicator-note {
@@ -4187,7 +4214,9 @@ a.os-surface-row {
 
   @media (prefers-color-scheme: light) {
     :root:not([data-theme]) .portfolio-frame[data-mood='carbon'] .portfolio-bio,
-    :root:not([data-theme]) .profile-edit-slide[data-mood='carbon'] .account-editor-bio,
+    :root:not([data-theme])
+      .profile-edit-slide[data-mood='carbon']
+      .account-editor-bio,
     :root:not([data-theme])
       .portfolio-frame[data-mood='carbon']
       .mood-indicator-note {
@@ -6181,7 +6210,8 @@ a.os-surface-row {
 
   .portfolio-frame[data-mood] .portfolio-entity-kind-switch {
     background: color-mix(in srgb, var(--mood-text) 8%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mood-text) 10%, transparent);
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--mood-text) 10%, transparent);
     color: color-mix(in srgb, var(--mood-muted) 72%, var(--mood-text));
   }
 
@@ -6201,7 +6231,8 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood] .portfolio-entity-kind-option.is-active:hover,
-  .portfolio-frame[data-mood] .portfolio-entity-kind-option.is-active:focus-visible {
+  .portfolio-frame[data-mood]
+    .portfolio-entity-kind-option.is-active:focus-visible {
     color: var(--mood-text);
     background: color-mix(in srgb, var(--mood-text) 16%, transparent);
   }
@@ -6546,7 +6577,8 @@ a.os-surface-row {
     color: color-mix(in srgb, var(--mood-muted) 28%, var(--mood-text));
   }
 
-  .portfolio-frame[data-mood] .portfolio-dao-tools-link:not(:last-child)::after {
+  .portfolio-frame[data-mood]
+    .portfolio-dao-tools-link:not(:last-child)::after {
     color: color-mix(in srgb, var(--mood-muted) 52%, transparent);
   }
 
@@ -6899,10 +6931,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.46);
   }
 
-  .reputation-facts-intro {
-    margin: 0.15rem 0 0;
-  }
-
   .reputation-facts-activity .os-sheet-facts-section-rows,
   .reputation-facts-activity .guild-facts-section-rows {
     gap: 0.38rem;
@@ -6929,6 +6957,11 @@ a.os-surface-row {
     line-height: 1.25;
   }
 
+  .reputation-panel-body.panel-body {
+    gap: 0;
+    padding: 0.15rem 1.15rem 1.35rem;
+  }
+
   .reputation-panel-body {
     position: relative;
   }
@@ -6942,71 +6975,203 @@ a.os-surface-row {
     margin-inline-start: auto;
   }
 
-  .leaderboard-sheet-content {
+  /* Same social-list inset as Standing / Endorsements — must target
+     `.os-slide-over-content.…` so the pad survives CSS minify. */
+  .leaderboard-slide .os-slide-over-content.leaderboard-sheet-content {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.65rem;
+    padding: 0.1rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
   }
 
-  .leaderboard-track-row {
+  .leaderboard-slide .os-app-screen-toolbar {
+    margin-bottom: -0.15rem;
+  }
+
+  .leaderboard-sheet-subline {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .leaderboard-sheet-subline-metric {
+    color: rgb(var(--fg-rgb) / 0.58);
+  }
+
+  .leaderboard-sheet-subline-you {
+    display: inline;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .leaderboard-sheet-subline-you.is-jump {
+    display: inline;
+    appearance: none;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: rgb(var(--fg-rgb) / 0.22);
+    text-underline-offset: 0.14em;
+  }
+
+  .leaderboard-sheet-subline-you.is-jump:hover,
+  .leaderboard-sheet-subline-you.is-jump:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.72);
+    outline: none;
+  }
+
+  .leaderboard-slide .os-app-screen-toolbar:has(
+      .leaderboard-track-rail.is-scroll-hidden
+    ) {
+    margin-top: 0;
+  }
+
+  .leaderboard-track-rail {
+    max-height: 2.65rem;
+  }
+
+  .leaderboard-toolbar {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 0.45rem;
   }
 
-  .leaderboard-track-chip.is-tertiary:not(.is-selected) {
-    opacity: 0.62;
-    font-weight: 500;
+  .leaderboard-track-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.2rem;
+    width: 100%;
+    padding: 0.18rem;
+    border-radius: 0.85rem;
+    background: var(--os-surface-fill);
+  }
+
+  .leaderboard-track-seg {
+    appearance: none;
+    border: 0;
+    border-radius: 0.7rem;
+    background: transparent;
+    color: var(--os-surface-muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 550;
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+    padding: 0.38rem 0.35rem;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .leaderboard-track-seg:hover,
+  .leaderboard-track-seg:focus-visible {
+    color: var(--os-surface-emphasis);
+    outline: none;
+  }
+
+  .leaderboard-track-seg.is-selected {
+    background: var(--os-surface-elevated);
+    color: rgb(var(--fg-rgb) / 0.94);
+  }
+
+  .leaderboard-track-hint {
+    margin: 0;
+    padding-inline: 0.2rem;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .leaderboard-slide .leaderboard-row-main {
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  .leaderboard-slide .leaderboard-row .standing-row-avatar-slot {
+    margin-top: 0;
   }
 
   .leaderboard-list {
     display: flex;
     flex-direction: column;
+    gap: 0.28rem;
   }
 
   .leaderboard-row {
+    position: relative;
     align-items: center;
+    margin-inline: 0;
+    padding-block: 0.48rem;
+    padding-inline: 0.45rem;
+    --lb-track: var(--signal-reputation);
   }
 
-  .leaderboard-row.is-viewer {
-    border-radius: 0.85rem;
-    background: var(--os-surface-fill);
+  .leaderboard-row[data-track='influence'] {
+    --lb-track: var(--signal-standing);
   }
 
-  .leaderboard-row.is-top-1 .leaderboard-row-rank {
-    font-size: 1rem;
+  .leaderboard-row[data-track='earners'] {
+    --lb-track: var(--signal-endorse);
+  }
+
+  /* Share of the leader, read as a background wash rather than a capped meter.
+     Tail lands on the row-hover alpha so it dissolves instead of ending hard;
+     only the leading corners round, or partial fills read as floating pills. */
+  .leaderboard-row::before {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: var(--lb-fill, 0%);
+    border-start-start-radius: 0.85rem;
+    border-end-start-radius: 0.85rem;
+    background: linear-gradient(
+      to right,
+      color-mix(in srgb, var(--lb-track) 12%, transparent),
+      color-mix(in srgb, var(--lb-track) 3%, transparent)
+    );
+    pointer-events: none;
+  }
+
+  .leaderboard-row > .standing-row-main,
+  .leaderboard-row > .standing-row-aside {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Viewer in the scroll list: same row chrome as everyone else — wash
+     carries share-of-leader; sticky footer owns blur + divider when scrolled. */
+  .leaderboard-row.is-viewer .leaderboard-row-rank-label {
     font-weight: 700;
-    color: rgb(var(--fg-rgb) / 0.88);
+    color: color-mix(in srgb, var(--lb-track) 82%, transparent);
   }
 
-  .leaderboard-row.is-top-2 .leaderboard-row-rank {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.72);
-  }
-
-  .leaderboard-row.is-top-3 .leaderboard-row-rank {
-    font-size: 0.84rem;
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.62);
-  }
-
-  .leaderboard-row.is-top-1 .leaderboard-row-primary {
-    font-size: 1.02rem;
-  }
-
-  .leaderboard-row.is-top-2 .leaderboard-row-primary,
-  .leaderboard-row.is-top-3 .leaderboard-row-primary {
-    font-size: 0.96rem;
+  /* Podium is binary — fading ranks 2 and 3 pushed them below the plain
+     numerals they outrank. Same treatment for all three; order does the rest. */
+  .leaderboard-row.is-top .leaderboard-row-rank-label {
+    font-weight: 700;
+    color: color-mix(in srgb, var(--lb-track) 90%, transparent);
   }
 
   .leaderboard-slide[data-screen-footer='true'] {
-    --os-screen-footer-band: 7.25rem;
+    --os-screen-footer-band: 5.75rem;
   }
 
   .leaderboard-slide .os-slide-over-footer-inner {
     position: relative;
-    padding-top: 0.35rem;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding-top: 0;
     padding-bottom: calc(0.45rem + env(safe-area-inset-bottom, 0px));
   }
 
@@ -7017,19 +7182,29 @@ a.os-surface-row {
     bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
     z-index: 0;
     pointer-events: none;
-    border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
-    background: rgb(var(--bg-rgb) / 0.78);
-    backdrop-filter: blur(18px) saturate(1.25);
+    border-top: 0;
+    /* Same frost as elevated `.os-app-screen-header::before` (glass chrome). */
+    background: rgb(var(--bg-rgb) / 0.72);
+    backdrop-filter: blur(20px) saturate(1.3);
   }
 
-  .leaderboard-slide .os-slide-over-footer-inner > * {
+  .leaderboard-slide .os-slide-over-footer-inner > .leaderboard-footer-divider {
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    width: calc(100% + (2 * var(--os-screen-body-pad-x, 1rem)));
+    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 1rem));
+  }
+
+  .leaderboard-slide .os-slide-over-footer-inner > .leaderboard-viewer-footer {
     position: relative;
     z-index: 1;
+    padding-top: 0.35rem;
   }
 
   @media (prefers-reduced-transparency: reduce) {
     .leaderboard-slide .os-slide-over-footer-inner::before {
-      background: rgb(var(--bg-rgb) / 0.96);
+      background: rgb(var(--bg-rgb) / 0.94);
       backdrop-filter: none;
     }
   }
@@ -7040,57 +7215,66 @@ a.os-surface-row {
     border-top: 0;
   }
 
-  .leaderboard-viewer-footer-label {
-    margin: 0 0 0.35rem;
-    padding-inline: 0.15rem;
-    font-size: 0.68rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.5);
-  }
-
   .leaderboard-row-rank {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
-    width: 1.6rem;
-    font-size: 0.78rem;
-    font-variant-numeric: tabular-nums;
-    color: rgb(var(--fg-rgb) / 0.45);
+    width: 2.05rem;
+    min-height: 1.9rem;
+    gap: 0.05rem;
+    line-height: 1.05;
     text-align: center;
   }
 
-  .leaderboard-row-bar {
-    margin-top: 0.4rem;
-    height: 0.28rem;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.08);
-    overflow: hidden;
+  .leaderboard-row-rank-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 1.12rem;
+    font-size: 1.06rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--fg-rgb) / 0.62);
+    letter-spacing: -0.02em;
   }
 
-  .leaderboard-row-bar-fill {
-    display: block;
-    height: 100%;
-    border-radius: 9999px;
-    background: color-mix(in srgb, var(--signal-reputation) 78%, transparent);
+  .leaderboard-row-rank.is-tied .leaderboard-row-rank-label {
+    font-size: 0.88rem;
+    letter-spacing: -0.03em;
   }
 
-  .leaderboard-row-bar-fill[data-track='reputation'] {
-    background: color-mix(in srgb, var(--signal-reputation) 78%, transparent);
+  .leaderboard-row-rank-dense {
+    font-size: 0.62rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--fg-rgb) / 0.38);
+    letter-spacing: 0;
+    line-height: 1.1;
+    min-height: 0.68rem;
   }
 
-  .leaderboard-row-bar-fill[data-track='influence'] {
-    background: color-mix(in srgb, var(--signal-standing) 78%, transparent);
+  .leaderboard-row-rank-dense.is-empty {
+    visibility: hidden;
+    user-select: none;
   }
 
-  .leaderboard-row-bar-fill[data-track='earners'] {
-    background: color-mix(in srgb, var(--signal-endorse) 78%, transparent);
+  .leaderboard-row-aside.leaderboard-row-aside {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 4.25rem;
+    color: inherit;
+    text-decoration: none;
   }
 
-  .leaderboard-row-aside {
+  .leaderboard-row-value {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 0.1rem;
-    min-width: 3.5rem;
+    gap: 0.04rem;
+    line-height: 1.05;
   }
 
   .leaderboard-row-primary {
@@ -7100,11 +7284,13 @@ a.os-surface-row {
     letter-spacing: -0.02em;
   }
 
-  .leaderboard-row-primary-label {
+  .leaderboard-row-unit {
     font-size: 0.65rem;
-    letter-spacing: 0.08em;
+    font-weight: 600;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.42);
+    color: rgb(var(--fg-rgb) / 0.46);
+    font-variant-numeric: tabular-nums;
   }
 
   .leaderboard-sheet-empty {
@@ -7121,7 +7307,7 @@ a.os-surface-row {
     line-height: 1.4;
   }
 
-  .leaderboard-row-main-button {
+  .leaderboard-row-score {
     appearance: none;
     border: 0;
     background: transparent;
@@ -7129,8 +7315,16 @@ a.os-surface-row {
     margin: 0;
     font: inherit;
     color: inherit;
-    text-align: inherit;
     cursor: pointer;
+    border-radius: 0.55rem;
+  }
+
+  .leaderboard-row-score:hover,
+  .leaderboard-row-score:focus-visible {
+    background: var(--os-surface-row-hover);
+    outline: none;
+    /* Hit area without changing row height vs plain aside. */
+    box-shadow: 0 0 0 0.2rem var(--os-surface-row-hover);
   }
 
   .leaderboard-facts-profile-link {
@@ -9248,7 +9442,8 @@ a.os-surface-row {
    * Opt out: `.glass-sheet-root[data-keep-dock='true']` (DAO proposals mood page).
    */
   body:has([data-os-slide-over='true']) .portfolio-summon-dock,
-  body:has(.glass-sheet-root:not([data-keep-dock='true'])) .portfolio-summon-dock,
+  body:has(.glass-sheet-root:not([data-keep-dock='true']))
+    .portfolio-summon-dock,
   body:has(.os-launcher-root) .portfolio-summon-dock {
     transform: translateX(-50%)
       translateY(calc(100% + env(safe-area-inset-bottom)));
@@ -9256,7 +9451,9 @@ a.os-surface-row {
     pointer-events: none;
   }
 
-  body:has([data-os-slide-over='true']) .portfolio-summon-dock .portfolio-summon,
+  body:has([data-os-slide-over='true'])
+    .portfolio-summon-dock
+    .portfolio-summon,
   body:has(.glass-sheet-root:not([data-keep-dock='true']))
     .portfolio-summon-dock
     .portfolio-summon,
@@ -9266,15 +9463,11 @@ a.os-surface-row {
 
   /* Room for the portfolio dock under a keep-dock mood page. */
   .glass-sheet-root[data-keep-dock='true'] .glass-sheet-body {
-    padding-bottom: calc(
-      4.75rem + env(safe-area-inset-bottom, 0px)
-    );
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
   }
 
   .glass-sheet-root[data-keep-dock='true'] .dao-proposals-page-body {
-    padding-bottom: calc(
-      1.25rem + 4.75rem + env(safe-area-inset-bottom, 0px)
-    );
+    padding-bottom: calc(1.25rem + 4.75rem + env(safe-area-inset-bottom, 0px));
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -9508,7 +9701,8 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.1);
   }
 
-  .portfolio-summon-now-playing.has-media .portfolio-summon-now-playing-cover::after {
+  .portfolio-summon-now-playing.has-media
+    .portfolio-summon-now-playing-cover::after {
     content: '';
     position: absolute;
     inset: 0;
@@ -10040,8 +10234,7 @@ a.os-surface-row {
   }
 
   .page-joined-facts-panel[data-tone='mood-thread'] .page-joined-facts-title,
-  .page-joined-facts-panel[data-tone='mood-thread']
-    .guild-facts-section-title {
+  .page-joined-facts-panel[data-tone='mood-thread'] .guild-facts-section-title {
     color: color-mix(
       in srgb,
       var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55)))
@@ -10354,7 +10547,8 @@ a.os-surface-row {
     );
   }
 
-  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-post-peek-card:active {
+  .page-drawer-panel[data-tone='mood-thread']
+    .page-drawer-post-peek-card:active {
     background: color-mix(
       in srgb,
       var(--mood-surface, rgb(var(--fg-rgb) / 0.06)) 88%,
@@ -11088,7 +11282,9 @@ a.os-surface-row {
   }
 
   @media (min-width: 768px) {
-    .glass-sheet-panel .standing-sheet-header {
+    .glass-sheet-root:not(.glass-sheet-root--hosted)
+      .glass-sheet-panel
+      .standing-sheet-header {
       padding-top: 0.75rem;
     }
   }
@@ -11196,10 +11392,20 @@ a.os-surface-row {
     width: min(100%, 7.5rem);
   }
 
+  .standing-sheet-header:has(.standing-toolbar-rail.is-scroll-hidden) {
+    gap: 0;
+  }
+
   .standing-sheet-toolbar-row {
     display: flex;
     align-items: center;
     min-width: 0;
+  }
+
+  .standing-toolbar-rail {
+    width: 100%;
+    min-width: 0;
+    max-height: 2.85rem;
   }
 
   .standing-sheet-toolbar-row .standing-list-toolbar {
@@ -12843,7 +13049,6 @@ a.os-surface-row {
     gap: 0.55rem;
   }
 
-
   .account-wallet-get-social {
     display: inline-flex;
     align-items: center;
@@ -13006,15 +13211,27 @@ a.os-surface-row {
   }
 
   .app-swap-detail-value.is-impact-low {
-    color: color-mix(in srgb, var(--protocol-green, #16a34a) 85%, rgb(var(--fg-rgb)));
+    color: color-mix(
+      in srgb,
+      var(--protocol-green, #16a34a) 85%,
+      rgb(var(--fg-rgb))
+    );
   }
 
   .app-swap-detail-value.is-impact-medium {
-    color: color-mix(in srgb, var(--protocol-amber, #d97706) 88%, rgb(var(--fg-rgb)));
+    color: color-mix(
+      in srgb,
+      var(--protocol-amber, #d97706) 88%,
+      rgb(var(--fg-rgb))
+    );
   }
 
   .app-swap-detail-value.is-impact-high {
-    color: color-mix(in srgb, var(--protocol-red, #dc2626) 88%, rgb(var(--fg-rgb)));
+    color: color-mix(
+      in srgb,
+      var(--protocol-red, #dc2626) 88%,
+      rgb(var(--fg-rgb))
+    );
   }
 
   /*
@@ -17887,7 +18104,8 @@ a.os-surface-row {
   }
 
   .os-choice-swatch--format-header .os-choice-format-aa {
-    font-family: var(--font-ibm-plex-sans), 'IBM Plex Sans', system-ui, sans-serif;
+    font-family:
+      var(--font-ibm-plex-sans), 'IBM Plex Sans', system-ui, sans-serif;
     font-size: 0.68rem;
     font-weight: 650;
     letter-spacing: -0.01em;
@@ -17965,18 +18183,15 @@ a.os-surface-row {
     letter-spacing: 0;
   }
 
-  .os-choice-swatch--format.os-choice-swatch--chip
-    .os-choice-format-aa {
+  .os-choice-swatch--format.os-choice-swatch--chip .os-choice-format-aa {
     font-size: 0.48rem;
   }
 
-  .os-choice-swatch--format-letter.os-choice-swatch--chip
-    .os-choice-format-aa {
+  .os-choice-swatch--format-letter.os-choice-swatch--chip .os-choice-format-aa {
     font-size: 0.52rem;
   }
 
-  .os-choice-swatch--format.os-choice-swatch--chip
-    .os-choice-format-caption {
+  .os-choice-swatch--format.os-choice-swatch--chip .os-choice-format-caption {
     font-size: 0.32rem;
   }
 
@@ -18717,11 +18932,7 @@ a.os-surface-row {
     width: 100%;
     height: 100%;
     border-radius: 9999px;
-    background: color-mix(
-      in srgb,
-      var(--protocol-green) 72%,
-      transparent
-    );
+    background: color-mix(in srgb, var(--protocol-green) 72%, transparent);
     transform: scaleX(var(--scarce-clip-p));
     transform-origin: left center;
     will-change: transform;
@@ -18818,7 +19029,8 @@ a.os-surface-row {
   }
 
   .scarce-clip-progress-scrub:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--protocol-green) 45%, transparent);
+    outline: 2px solid
+      color-mix(in srgb, var(--protocol-green) 45%, transparent);
     outline-offset: 2px;
     border-radius: 0.35rem;
   }
@@ -19133,11 +19345,7 @@ a.os-surface-row {
   }
 
   .scarce-clip-listen-controls .scarce-clip-progress-fill {
-    background: color-mix(
-      in srgb,
-      var(--protocol-green) 72%,
-      transparent
-    );
+    background: color-mix(in srgb, var(--protocol-green) 72%, transparent);
   }
 
   .scarce-clip-listen-controls .scarce-clip-progress-knob {
@@ -19171,8 +19379,7 @@ a.os-surface-row {
   }
 
   .scarce-clip-listen-transport .scarce-clip-transport-btn--play:hover,
-  .scarce-clip-listen-transport
-    .scarce-clip-transport-btn--play:focus-visible {
+  .scarce-clip-listen-transport .scarce-clip-transport-btn--play:focus-visible {
     background: rgb(var(--fg-rgb) / 0.16);
   }
 
@@ -19971,7 +20178,9 @@ a.os-surface-row {
    * Drop cold-load shimmers — immersive cover reuses music-hero player geometry
    * (edge-bleed height). Flat shimmer only; no box-shadow on shells.
    */
-  .collection-page--skeleton .collection-music-hero.is-immersive .scarce-clip-player {
+  .collection-page--skeleton
+    .collection-music-hero.is-immersive
+    .scarce-clip-player {
     margin-bottom: 0;
   }
 
@@ -20162,9 +20371,7 @@ a.os-surface-row {
     margin-inline: calc(-1 * var(--os-screen-body-pad-x, 1rem));
     border-radius: 0;
     aspect-ratio: auto;
-    height: calc(
-      env(safe-area-inset-top, 0px) + clamp(10rem, 42vw, 14.5rem)
-    );
+    height: calc(env(safe-area-inset-top, 0px) + clamp(10rem, 42vw, 14.5rem));
   }
 
   /*
@@ -21196,7 +21403,8 @@ a.os-surface-row {
     outline: none;
   }
 
-  .collection-writing-chapter-chip:focus-visible .collection-writing-chapter-chip-title {
+  .collection-writing-chapter-chip:focus-visible
+    .collection-writing-chapter-chip-title {
     text-decoration: underline;
     text-underline-offset: 0.12em;
   }
@@ -21220,7 +21428,8 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.72);
   }
 
-  .collection-writing-chapter-chip.is-open .collection-writing-chapter-chip-title {
+  .collection-writing-chapter-chip.is-open
+    .collection-writing-chapter-chip-title {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
@@ -21357,11 +21566,7 @@ a.os-surface-row {
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: color-mix(
-      in srgb,
-      var(--protocol-green) 70%,
-      transparent
-    );
+    background: color-mix(in srgb, var(--protocol-green) 70%, transparent);
     transition: width 120ms ease-out;
   }
 
@@ -22058,9 +22263,7 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.55);
   }
 
-  .ticket-door-preview-holder-copy:not(
-      :has(.ticket-door-preview-holder-name)
-    )
+  .ticket-door-preview-holder-copy:not(:has(.ticket-door-preview-holder-name))
     .ticket-door-preview-holder-account {
     font-size: 0.95rem;
     font-weight: 650;
@@ -22554,12 +22757,11 @@ a.os-surface-row {
 
   .collection-allowlist-check.is-on {
     border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.95);
-    background:
-      radial-gradient(
-        circle at center,
-        rgb(var(--signal-reputation-rgb, 0 236 151) / 0.95) 0 35%,
-        transparent 36%
-      );
+    background: radial-gradient(
+      circle at center,
+      rgb(var(--signal-reputation-rgb, 0 236 151) / 0.95) 0 35%,
+      transparent 36%
+    );
   }
 
   .collection-allowlist-field {
@@ -22657,7 +22859,8 @@ a.os-surface-row {
     width: 100%;
   }
 
-  .profile-support-sheet-footer .collection-mint-actions.os-sheet-actions--stack {
+  .profile-support-sheet-footer
+    .collection-mint-actions.os-sheet-actions--stack {
     width: auto;
     flex: 1 1 auto;
     min-width: 0;
@@ -23303,7 +23506,8 @@ a.os-surface-row {
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px dashed color-mix(in srgb, var(--os-surface-ink, #111) 22%, transparent);
+    border: 1px dashed
+      color-mix(in srgb, var(--os-surface-ink, #111) 22%, transparent);
     background: color-mix(in srgb, var(--os-surface-ink, #111) 4%, transparent);
     color: var(--os-surface-muted);
     cursor: pointer;
@@ -23380,8 +23584,10 @@ a.os-surface-row {
   .app-surface:has(> .glass-sheet-root)::-webkit-scrollbar,
   .portfolio-frame:has(> .glass-sheet-root)::-webkit-scrollbar,
   .frame:has(> .glass-sheet-root)::-webkit-scrollbar,
-  .portfolio-frame:has(> .glass-sheet-root) > .portfolio-page::-webkit-scrollbar,
-  .portfolio-frame:has(> .os-launcher-root) > .portfolio-page::-webkit-scrollbar {
+  .portfolio-frame:has(> .glass-sheet-root)
+    > .portfolio-page::-webkit-scrollbar,
+  .portfolio-frame:has(> .os-launcher-root)
+    > .portfolio-page::-webkit-scrollbar {
     width: 0;
     height: 0;
   }
@@ -23472,8 +23678,7 @@ a.os-surface-row {
   }
 
   @media (prefers-color-scheme: light) {
-    :root:not([data-theme])
-      .os-app-screen.os-slide-over.os-app-screen--mood {
+    :root:not([data-theme]) .os-app-screen.os-slide-over.os-app-screen--mood {
       background-color: var(--mood-bg);
     }
   }
@@ -23488,7 +23693,8 @@ a.os-surface-row {
    * Beat `html[data-theme=light] .os-app-screen` (#fff flat base)
    * so home mood wash matches portfolio / slide-over strength. */
   .os-app-screen.os-app-screen--mood:not(.os-slide-over),
-  html[data-theme='light'] .os-app-screen.os-app-screen--mood:not(.os-slide-over),
+  html[data-theme='light']
+    .os-app-screen.os-app-screen--mood:not(.os-slide-over),
   :root[data-theme='light']
     .os-app-screen.os-app-screen--mood:not(.os-slide-over) {
     background-color: var(--mood-bg);
@@ -23663,8 +23869,10 @@ a.os-surface-row {
    * Carbon / Glass paint the host frame. Covering them with OS --mood-bg
    * hides the finish — let the live face show through.
    */
-  .portfolio-frame > .os-app-screen.os-slide-over.profile-edit-slide[data-mood='carbon'],
-  .portfolio-frame > .os-app-screen.os-slide-over.profile-edit-slide[data-mood='glass'] {
+  .portfolio-frame
+    > .os-app-screen.os-slide-over.profile-edit-slide[data-mood='carbon'],
+  .portfolio-frame
+    > .os-app-screen.os-slide-over.profile-edit-slide[data-mood='glass'] {
     background-color: transparent;
   }
 
@@ -23980,21 +24188,12 @@ a.os-surface-row {
     inset: 14% 8% 14% auto;
     width: 24%;
     background:
-      linear-gradient(
-          #0000 0 28%,
-          var(--drop-collage-swatch-seat) 0 33%
-        )
-        0 0 / 100% 33%,
-      linear-gradient(
-          #0000 0 28%,
-          var(--drop-collage-swatch-seat) 0 33%
-        )
-        0 50% / 100% 33%,
-      linear-gradient(
-          #0000 0 28%,
-          var(--drop-collage-swatch-seat) 0 33%
-        )
-        0 100% / 100% 33%;
+      linear-gradient(#0000 0 28%, var(--drop-collage-swatch-seat) 0 33%) 0 0 /
+        100% 33%,
+      linear-gradient(#0000 0 28%, var(--drop-collage-swatch-seat) 0 33%) 0
+        50% / 100% 33%,
+      linear-gradient(#0000 0 28%, var(--drop-collage-swatch-seat) 0 33%) 0
+        100% / 100% 33%;
     background-repeat: no-repeat;
   }
 
@@ -24074,30 +24273,14 @@ a.os-surface-row {
     height: auto;
     border-radius: 0;
     background:
-      linear-gradient(
-          90deg,
-          var(--drop-collage-swatch-seat) 0 18%,
-          #0000 0
-        )
-        0 0 / 22% 100%,
-      linear-gradient(
-          90deg,
-          var(--drop-collage-swatch-seat) 0 18%,
-          #0000 0
-        )
-        28% 0 / 22% 100%,
-      linear-gradient(
-          90deg,
-          var(--drop-collage-swatch-seat) 0 18%,
-          #0000 0
-        )
-        56% 0 / 22% 100%,
-      linear-gradient(
-          90deg,
-          var(--drop-collage-swatch-seat) 0 18%,
-          #0000 0
-        )
-        84% 0 / 22% 100%;
+      linear-gradient(90deg, var(--drop-collage-swatch-seat) 0 18%, #0000 0) 0
+        0 / 22% 100%,
+      linear-gradient(90deg, var(--drop-collage-swatch-seat) 0 18%, #0000 0) 28%
+        0 / 22% 100%,
+      linear-gradient(90deg, var(--drop-collage-swatch-seat) 0 18%, #0000 0) 56%
+        0 / 22% 100%,
+      linear-gradient(90deg, var(--drop-collage-swatch-seat) 0 18%, #0000 0) 84%
+        0 / 22% 100%;
     background-repeat: no-repeat;
   }
   .drop-collage-style-swatch--film::after {
@@ -27087,7 +27270,6 @@ a.os-surface-row {
     padding: 0 0.15rem;
   }
 
-
   .guild-loading-lines {
     display: flex;
     min-width: 0;
@@ -27116,7 +27298,6 @@ a.os-surface-row {
     gap: 0.35rem;
     padding: 0 0.1rem 0.2rem;
   }
-
 
   /* Full-bleed solid banner — fills the top under the immersive nav. */
   .guild-hero > .guild-hero-cover {
@@ -28665,7 +28846,6 @@ a.os-surface-row {
     left: 0.75rem;
   }
 
-
   .guild-field input[readonly] {
     opacity: 0.72;
     cursor: default;
@@ -29722,8 +29902,13 @@ a.os-surface-row {
   }
 
   .guild-composer-nsfw-switch.is-on .guild-composer-nsfw-switch-track,
-  .guild-composer-nsfw-switch:has(input:checked) .guild-composer-nsfw-switch-track {
-    background: color-mix(in srgb, var(--protocol-green, #34d399) 72%, transparent);
+  .guild-composer-nsfw-switch:has(input:checked)
+    .guild-composer-nsfw-switch-track {
+    background: color-mix(
+      in srgb,
+      var(--protocol-green, #34d399) 72%,
+      transparent
+    );
   }
 
   .guild-composer-nsfw-switch.is-on .guild-composer-nsfw-switch-track::after,
@@ -31264,7 +31449,6 @@ a.os-surface-row {
     color: var(--signal-error, #ef4444);
   }
 
-
   /* ── Profile support sheet ──────────────────────────────── */
 
   /* Body inset: UI `.os-gesture-sheet-body`. Host class kept for footer/keyboard. */
@@ -31741,11 +31925,7 @@ button.scarce-clip-cover-expand:focus-visible {
 }
 
 .scarce-clip-cover-progress .scarce-clip-progress-fill {
-  background: color-mix(
-    in srgb,
-    var(--protocol-green) 72%,
-    transparent
-  );
+  background: color-mix(in srgb, var(--protocol-green) 72%, transparent);
 }
 
 .scarce-clip-cover-progress .scarce-clip-progress-knob {
@@ -31756,7 +31936,6 @@ button.scarce-clip-cover-expand:focus-visible {
     0 0 0 1.5px rgb(255 255 255 / 0.55),
     0 1px 2px rgb(0 0 0 / 0.14);
 }
-
 
 /* Muted & blocked management sheet */
 .mute-block-lists-tabs {
@@ -32116,10 +32295,7 @@ a.protocol-board-chip {
 }
 
 .protocol-card.is-focused {
-  border-color: var(
-    --os-field-bordered-border-focus,
-    rgb(var(--fg-rgb) / 0.2)
-  );
+  border-color: var(--os-field-bordered-border-focus, rgb(var(--fg-rgb) / 0.2));
 }
 
 .protocol-card.is-focused.is-approved {
@@ -33775,7 +33951,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.55rem;
 }
 
-
 .launcher-home-empty-block {
   display: flex;
   flex-direction: column;
@@ -34526,7 +34701,11 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 .notifications-activity-mark--boost {
-  color: color-mix(in srgb, var(--protocol-amber, #f59e0b) 88%, rgb(var(--fg-rgb)));
+  color: color-mix(
+    in srgb,
+    var(--protocol-amber, #f59e0b) 88%,
+    rgb(var(--fg-rgb))
+  );
 }
 
 .notifications-activity-mark--collect {

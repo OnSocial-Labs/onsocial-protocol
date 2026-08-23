@@ -47,6 +47,20 @@ describe('shareUrl', () => {
     expect(writeText).toHaveBeenCalledWith('https://example.com/p');
   });
 
+  it('copies rank text with the url on clipboard fallback', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    await expect(
+      shareUrl({
+        url: 'https://example.com/leaderboard?track=reputation',
+        text: "I'm #7 on OnSocial reputation (@alice.near)",
+      })
+    ).resolves.toBe('copied');
+    expect(writeText).toHaveBeenCalledWith(
+      "I'm #7 on OnSocial reputation (@alice.near)\nhttps://example.com/leaderboard?track=reputation"
+    );
+  });
+
   it('falls back to clipboard when share is missing', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('navigator', { clipboard: { writeText } });

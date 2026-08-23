@@ -113,6 +113,7 @@ interface StandingPanelContextValue {
     account: StandingAccountSummary,
     shouldStand: boolean
   ) => Promise<void>;
+  scrollRootRef?: RefObject<Element | null>;
 }
 
 const StandingPanelContext = createContext<StandingPanelContextValue | null>(
@@ -865,6 +866,7 @@ export function StandingPanelProvider({
       listKey,
       retryLoad,
       navigateKind,
+      scrollRootRef,
     }),
     [
       accountId,
@@ -898,6 +900,7 @@ export function StandingPanelProvider({
       showSubjectSkeleton,
       summary,
       viewerAccountId,
+      scrollRootRef,
     ]
   );
 

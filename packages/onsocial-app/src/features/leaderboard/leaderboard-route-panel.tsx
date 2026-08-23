@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { LeaderboardSheet } from '@/features/leaderboard/leaderboard-sheet';
@@ -23,6 +23,7 @@ export function LeaderboardRoutePanel() {
     searchParams.get(LEADERBOARD_TRACK_PARAM)
   ) as LeaderboardTrack;
   const [open, setOpen] = useState(true);
+  const rowNavigateRef = useRef(false);
 
   const handleTrackChange = useCallback(
     (next: LeaderboardTrack) => {
@@ -31,8 +32,16 @@ export function LeaderboardRoutePanel() {
     [router]
   );
 
+  const handleRowNavigate = useCallback(() => {
+    rowNavigateRef.current = true;
+  }, []);
+
   const handleClosed = useCallback(() => {
     setOpen(false);
+    if (rowNavigateRef.current) {
+      rowNavigateRef.current = false;
+      return;
+    }
     if (typeof window !== 'undefined' && window.history.length > 1) {
       router.back();
       return;
@@ -55,6 +64,7 @@ export function LeaderboardRoutePanel() {
       <LeaderboardSheet
         open={open}
         onClose={handleClosed}
+        onRowNavigate={handleRowNavigate}
         track={track}
         onTrackChange={handleTrackChange}
         initialTrack={track}

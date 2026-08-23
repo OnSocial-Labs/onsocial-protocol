@@ -8,48 +8,75 @@ export type LeaderboardTrack = 'influence' | 'reputation' | 'earners';
 export const LEADERBOARD_TRACKS: {
   id: LeaderboardTrack;
   label: string;
-  /** Visual weight in track tabs — earners stay available but quieter. */
-  emphasis?: 'primary' | 'tertiary';
 }[] = [
   { id: 'reputation', label: 'Reputation' },
   { id: 'influence', label: 'Influence' },
-  { id: 'earners', label: 'Earners', emphasis: 'tertiary' },
+  { id: 'earners', label: 'Earners' },
 ];
 
 export function leaderboardTrackSubtitle(track: LeaderboardTrack): string {
   switch (track) {
     case 'reputation':
-      return 'Protocol reputation';
+      return 'All-time weighted score';
     case 'influence':
-      return 'Boost influence';
+      return 'All-time effective boost';
     case 'earners':
-      return 'Rewards earned';
+      return 'All-time SOCIAL earned';
   }
 }
 
-/** Share sheet title/body for the viewer's rank on a track. */
-export function leaderboardShareCopy(input: {
-  track: LeaderboardTrack;
+/** Short column unit under the ranked value on board rows. */
+export function leaderboardPrimaryUnit(track: LeaderboardTrack): string {
+  switch (track) {
+    case 'reputation':
+      return 'Score';
+    case 'influence':
+      return 'Boost';
+    case 'earners':
+      return 'SOCIAL';
+  }
+}
+
+/** One quiet explainer under track segments — only when the metric needs it. */
+export function leaderboardTrackHint(track: LeaderboardTrack): string | null {
+  switch (track) {
+    case 'influence':
+      return 'Ranked by effective boost — locked SOCIAL × lock length.';
+    case 'reputation':
+    case 'earners':
+      return null;
+  }
+}
+
+/** Quiet orientation line for the connected viewer on a track. */
+export function leaderboardViewerLine(input: {
   rank: number;
-  accountId: string;
-}): { title: string; text: string } {
+  primary: string;
+}): string {
   const rank = Math.max(1, Math.floor(input.rank));
-  const handle = input.accountId.trim() || 'me';
-  switch (input.track) {
+  return `You're #${rank} · ${input.primary}`;
+}
+
+/** Share sheet title/body for the leaderboard page on a track. */
+export function leaderboardShareCopy(track: LeaderboardTrack): {
+  title: string;
+  text: string;
+} {
+  switch (track) {
     case 'reputation':
       return {
-        title: 'OnSocial reputation',
-        text: `I'm #${rank} on OnSocial reputation (@${handle})`,
+        title: 'OnSocial reputation leaderboard',
+        text: 'All-time protocol reputation rankings on OnSocial.',
       };
     case 'influence':
       return {
-        title: 'OnSocial influence',
-        text: `I'm #${rank} on OnSocial influence (@${handle})`,
+        title: 'OnSocial influence leaderboard',
+        text: 'See who leads on effective boost — locked SOCIAL × lock length.',
       };
     case 'earners':
       return {
-        title: 'OnSocial earners',
-        text: `I'm #${rank} on OnSocial earners (@${handle})`,
+        title: 'OnSocial earners leaderboard',
+        text: 'Top all-time SOCIAL earners on OnSocial.',
       };
   }
 }
@@ -223,27 +250,31 @@ export function reputationTierLabel(rank: number): string {
 }
 
 /**
- * One scannable meta line for reputation board rows.
- * Prefer social proof → activity → quiet tier — never a ·-joined stack.
+ * One comparable meta line for reputation board rows.
+ * Standing only — blank when zero. Never swap to posts / days / tier.
  */
 export function reputationBoardMeta(entry: {
   standingWith: number;
-  totalPosts: number;
-  activeDays: number;
-  rank: number;
+  totalPosts?: number;
+  activeDays?: number;
+  rank?: number;
 }): string {
   if (entry.standingWith > 0) {
     return entry.standingWith === 1
       ? '1 standing'
       : `${entry.standingWith} standing`;
   }
-  if (entry.totalPosts > 0) {
-    return entry.totalPosts === 1 ? '1 post' : `${entry.totalPosts} posts`;
-  }
-  if (entry.activeDays > 0) {
-    return `${entry.activeDays}d active`;
-  }
-  return reputationTierLabel(entry.rank);
+  return '';
+}
+
+/**
+ * One comparable meta line for influence board rows — lock duration only.
+ * Blank when unlocked (Observer). Prefer months over tier names on list surfaces.
+ */
+export function influenceBoardMeta(entry: { lockMonths: number }): string {
+  const months = Math.max(0, Math.floor(entry.lockMonths));
+  if (months <= 0) return '';
+  return months === 1 ? '1 mo lock' : `${months} mo lock`;
 }
 
 export function reputationTier(rank: number): {
@@ -317,4 +348,56 @@ export function findViewerEntry(
   );
   if (index < 0) return null;
   return { index, entry: rows[index]! };
+}
+
+export type LeaderboardRankPresentation = {
+  /** 1-based position in the loaded list (breaks ties). */
+  denseIndex: number;
+  rank: number;
+  tied: boolean;
+  rankLabel: string;
+};
+
+export function leaderboardRankLabel(rank: number, tied: boolean): string {
+  const normalized = Math.max(1, Math.floor(rank));
+  return tied ? `T${normalized}` : String(normalized);
+}
+
+/** Competition rank + dense index for tied rows on the loaded page. */
+export function computeLeaderboardRankPresentation(
+  rows: ReadonlyArray<{ rank: number }>
+): LeaderboardRankPresentation[] {
+  const rankCounts = new Map<number, number>();
+  for (const row of rows) {
+    const rank = Math.max(1, Math.floor(row.rank));
+    rankCounts.set(rank, (rankCounts.get(rank) ?? 0) + 1);
+  }
+  return rows.map((row, index) => {
+    const rank = Math.max(1, Math.floor(row.rank));
+    const tied = (rankCounts.get(rank) ?? 0) > 1;
+    return {
+      denseIndex: index + 1,
+      rank,
+      tied,
+      rankLabel: leaderboardRankLabel(rank, tied),
+    };
+  });
+}
+
+export function parseLeaderboardAmount(value: string | number): number {
+  const amount = Number.parseFloat(String(value));
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+export function isLeaderboardEarnerRanked(
+  entry: Pick<EarnerEntry, 'totalEarned'>
+): boolean {
+  return parseLeaderboardAmount(entry.totalEarned) > 0;
+}
+
+/** Drop zero-earned rows from the earners board — they read as unranked noise. */
+export function filterLeaderboardEarnerRows<T extends EarnerEntry>(
+  rows: ReadonlyArray<T>
+): T[] {
+  return rows.filter(isLeaderboardEarnerRanked);
 }

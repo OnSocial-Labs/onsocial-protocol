@@ -5,6 +5,8 @@ import {
   entriesForTrack,
   formatReputationComponent,
   formatReputationScore,
+  leaderboardTrackSubtitle,
+  leaderboardViewerLine,
   pctOfLeader,
   reputationConfidenceLabel,
   reputationEntryToProfile,
@@ -95,5 +97,14 @@ describe('leaderboard helpers', () => {
     expect(
       reputationEntryToProfile(second.board.reputationScores![1]!).rank
     ).toBe(2);
+  });
+
+  it('re-exports metric subtitle and you-line', () => {
+    expect(leaderboardTrackSubtitle('reputation')).toBe(
+      'All-time weighted score'
+    );
+    expect(leaderboardViewerLine({ rank: 47, primary: '12.4' })).toBe(
+      "You're #47 · 12.4"
+    );
   });
 });

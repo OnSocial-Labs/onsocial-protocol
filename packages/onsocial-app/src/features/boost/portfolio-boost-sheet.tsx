@@ -277,6 +277,8 @@ interface PortfolioBoostSheetProps {
   accountId: string;
   position: BoostPosition;
   onOpenChange: (open: boolean) => void;
+  /** Default 56 — pass higher when stacking over another sheet (e.g. leaderboard). */
+  zIndex?: number;
 }
 
 function BoostAmountField({
@@ -333,6 +335,7 @@ export function PortfolioBoostSheet({
   accountId,
   position,
   onOpenChange,
+  zIndex = 56,
 }: PortfolioBoostSheetProps) {
   const titleId = useId();
   const [closing, setClosing] = useState(false);
@@ -804,7 +807,7 @@ export function PortfolioBoostSheet({
       }`}
       initialDetent="full"
       peekRatio={1}
-      zIndex={56}
+      zIndex={zIndex}
       ariaLabelledBy={titleId}
       backdropLabel="Close boost"
       bodyClassName={`profile-support-sheet-body ${osGestureSheetBodyClassName}`}
@@ -855,7 +858,7 @@ export function PortfolioBoostSheet({
               <div className="standing-sheet-actions standing-sheet-actions--payout">
                 <LeaderboardChartAction
                   track="influence"
-                  ariaLabel="Open boost leaderboard"
+                  ariaLabel="Open influence leaderboard"
                 />
                 <SheetCloseButton
                   onClick={requestClose}

@@ -92,12 +92,18 @@ export function parseLeaderboardTrackParam(
 /** Leaderboard path, optionally deep-linked to a track tab. */
 export function leaderboardPath(opts?: {
   track?: LeaderboardTrackParam | null;
+  /** Include `?track=reputation` — share links, not in-app navigation. */
+  includeDefaultTrack?: boolean;
 }): string {
   const track = opts?.track?.trim().toLowerCase() ?? '';
-  if (!track || track === 'reputation' || !LEADERBOARD_TRACK_VALUES.has(track)) {
+  const resolved =
+    track && LEADERBOARD_TRACK_VALUES.has(track)
+      ? track
+      : 'reputation';
+  if (resolved === 'reputation' && !opts?.includeDefaultTrack) {
     return APP_LEADERBOARD_PATH;
   }
-  return `${APP_LEADERBOARD_PATH}?${LEADERBOARD_TRACK_PARAM}=${encodeURIComponent(track)}`;
+  return `${APP_LEADERBOARD_PATH}?${LEADERBOARD_TRACK_PARAM}=${encodeURIComponent(resolved)}`;
 }
 
 const DROPS_SORT_VALUES = new Set<string>([
