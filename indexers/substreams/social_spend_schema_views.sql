@@ -14,8 +14,16 @@
 -- Feed amplify heat stays out of reputation; author_amplify_received is the
 -- longer-window Quality input. Paid profile/endorsement support is a separate
 -- Social input via paid_support_inbound_events.
+--
+-- Serving layout (Hot must not recompute the 14d window per query):
+--   post_amplify_heat_live — the formula, computed on read (refresh source)
+--   post_amplify_heat_mat  — materialized snapshot + indexes
+--   post_amplify_heat      — serving view over the snapshot (posts_feed joins)
+-- Refresh: gateway notification worker every ~5 min (36h half-life ⇒ ≤0.2%
+-- decay drift per cycle). Manual / pg_cron:
+--   REFRESH MATERIALIZED VIEW CONCURRENTLY post_amplify_heat_mat;
 
-CREATE OR REPLACE VIEW post_amplify_heat AS
+CREATE OR REPLACE VIEW post_amplify_heat_live AS
 WITH events AS (
   SELECT
     e.target_id AS post_path,
@@ -83,6 +91,24 @@ SELECT
     ELSE raw_heat
   END AS heat
 FROM aggregated;
+
+-- Snapshot the live formula. The matview query never changes — future formula
+-- edits go into post_amplify_heat_live and land on the next refresh.
+CREATE MATERIALIZED VIEW IF NOT EXISTS post_amplify_heat_mat AS
+SELECT post_path, heat
+FROM post_amplify_heat_live;
+
+-- Unique path index (required by REFRESH ... CONCURRENTLY) + Hot ordering.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_post_amplify_heat_mat_path
+  ON post_amplify_heat_mat (post_path);
+CREATE INDEX IF NOT EXISTS idx_post_amplify_heat_mat_heat
+  ON post_amplify_heat_mat (heat DESC);
+
+-- Replace the core stub: posts_feed keeps joining post_amplify_heat, now
+-- backed by the indexed snapshot instead of the per-query window scan.
+CREATE OR REPLACE VIEW post_amplify_heat AS
+SELECT post_path, heat
+FROM post_amplify_heat_mat;
 
 -- Paid inbound social for reputation Social factor (replaces empty stub).
 -- Per-event rows; reputation_scores caps per spender and applies issuer weight.

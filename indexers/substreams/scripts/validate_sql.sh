@@ -59,6 +59,16 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
       ")"
       if [ "$has_spend" = "t" ] && [ -f /work/social_spend_schema_views.sql ]; then
         apply_sql "$db" /work/social_spend_schema_views.sql
+        mat_exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT to_regclass('"'"'public.post_amplify_heat_mat'"'"') IS NOT NULL;
+        ")"
+        if [ "$mat_exists" != "t" ]; then
+          echo "error: expected materialized view post_amplify_heat_mat in $db" >&2
+          exit 1
+        fi
+        # Exercise the worker refresh path (unique index makes this valid).
+        psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 \
+          -c "REFRESH MATERIALIZED VIEW CONCURRENTLY post_amplify_heat_mat;" >/dev/null
       fi
     }
 

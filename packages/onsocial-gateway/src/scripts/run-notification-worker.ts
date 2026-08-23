@@ -7,6 +7,7 @@ import {
   logProcessingSummary,
 } from '../services/notifications/worker.js';
 import { maybeEmitProfileAnniversaries } from '../services/notifications/profile-anniversary.js';
+import { maybeRefreshAmplifyHeat } from '../services/notifications/amplify-heat-refresh.js';
 import { deliverWebPushForNotificationId } from '../services/notifications/web-push.js';
 
 const LISTEN_CHANNEL = 'idx_events';
@@ -243,6 +244,13 @@ async function main(): Promise<void> {
 
       // Once per UTC day: birthday Activity from first profile timestamp.
       await maybeEmitProfileAnniversaries(client);
+
+      // Every ~5 min: refresh the Hot feed heat snapshot (never fatal).
+      try {
+        await maybeRefreshAmplifyHeat(client);
+      } catch (error) {
+        logger.warn({ error }, 'Amplify heat refresh failed');
+      }
 
       if (once || stopRequested) {
         break;
