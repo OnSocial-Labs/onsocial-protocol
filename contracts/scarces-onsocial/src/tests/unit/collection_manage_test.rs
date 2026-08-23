@@ -415,6 +415,115 @@ fn remove_from_allowlist_non_creator_fails() {
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
+fn renewable_ticket_config(id: &str) -> CollectionConfig {
+    let mut cfg = minimal_config(id);
+    cfg.renewable = true;
+    cfg.metadata_template = r#"{"title":"Ticket #{seat_number}","expires_at":1750000000000,"extra":"{\"kind\":\"ticket\",\"eventEndsAt\":1750000000000}"}"#.to_string();
+    cfg
+}
+
+fn setup_with_ticket_collection(id: &str) -> Contract {
+    let mut contract = setup_contract();
+    testing_env!(context(creator()).build());
+    contract
+        .execute(make_request(Action::CreateCollection {
+            params: renewable_ticket_config(id),
+        }))
+        .unwrap();
+    contract
+}
+
+#[test]
+fn update_template_expiry_happy_syncs_extra_event_end() {
+    let mut contract = setup_with_ticket_collection("tik");
+
+    testing_env!(context_with_deposit(creator(), 1).build());
+    contract
+        .execute(make_request(Action::UpdateCollectionTemplateExpiry {
+            collection_id: "tik".to_string(),
+            expires_at_ms: 1_800_000_000_000,
+        }))
+        .unwrap();
+
+    let col = contract.collections.get("tik").unwrap();
+    let template: near_sdk::serde_json::Value =
+        near_sdk::serde_json::from_str(&col.metadata_template).unwrap();
+    assert_eq!(template["expires_at"], 1_800_000_000_000u64);
+    // Placeholders and unknown keys survive the rewrite.
+    assert_eq!(template["title"], "Ticket #{seat_number}");
+    let extra: near_sdk::serde_json::Value =
+        near_sdk::serde_json::from_str(template["extra"].as_str().unwrap()).unwrap();
+    assert_eq!(extra["eventEndsAt"], 1_800_000_000_000u64);
+    assert_eq!(extra["kind"], "ticket");
+}
+
+#[test]
+fn update_template_expiry_without_extra_sets_expiry_only() {
+    let mut contract = setup_contract();
+    testing_env!(context(creator()).build());
+    let mut cfg = minimal_config("plain");
+    cfg.renewable = true;
+    contract
+        .execute(make_request(Action::CreateCollection { params: cfg }))
+        .unwrap();
+
+    testing_env!(context_with_deposit(creator(), 1).build());
+    contract
+        .execute(make_request(Action::UpdateCollectionTemplateExpiry {
+            collection_id: "plain".to_string(),
+            expires_at_ms: 1_800_000_000_000,
+        }))
+        .unwrap();
+
+    let col = contract.collections.get("plain").unwrap();
+    let template: near_sdk::serde_json::Value =
+        near_sdk::serde_json::from_str(&col.metadata_template).unwrap();
+    assert_eq!(template["expires_at"], 1_800_000_000_000u64);
+    assert_eq!(template["title"], "Token #{seat_number}");
+}
+
+#[test]
+fn update_template_expiry_non_renewable_fails() {
+    let mut contract = setup_with_collection("col1");
+
+    testing_env!(context_with_deposit(creator(), 1).build());
+    let err = contract
+        .execute(make_request(Action::UpdateCollectionTemplateExpiry {
+            collection_id: "col1".to_string(),
+            expires_at_ms: 1_800_000_000_000,
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidState(_)));
+}
+
+#[test]
+fn update_template_expiry_non_creator_fails() {
+    let mut contract = setup_with_ticket_collection("tik");
+    testing_env!(context_with_deposit(buyer(), 1).build());
+
+    let err = contract
+        .execute(make_request(Action::UpdateCollectionTemplateExpiry {
+            collection_id: "tik".to_string(),
+            expires_at_ms: 1_800_000_000_000,
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::Unauthorized(_)));
+}
+
+#[test]
+fn update_template_expiry_past_fails() {
+    let mut contract = setup_with_ticket_collection("tik");
+
+    testing_env!(context_with_deposit(creator(), 1).build());
+    let err = contract
+        .execute(make_request(Action::UpdateCollectionTemplateExpiry {
+            collection_id: "tik".to_string(),
+            expires_at_ms: 1_600_000_000_000,
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
+}
+
 #[test]
 fn set_collection_metadata_happy() {
     let mut contract = setup_with_collection("meta");

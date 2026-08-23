@@ -43,6 +43,7 @@ impl Contract {
             | Action::RemoveRedeemer { .. }
             | Action::SetRedeemers { .. }
             | Action::SetCollectionMetadata { .. }
+            | Action::UpdateCollectionTemplateExpiry { .. }
             | Action::SetCollectionAppMetadata { .. }
             | Action::WithdrawUnclaimedRefunds { .. } => {
                 self.dispatch_collections(action, actor_id)

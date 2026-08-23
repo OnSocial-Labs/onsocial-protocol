@@ -192,6 +192,16 @@ impl Contract {
             ));
         }
 
+        // Event/access end (NEP-177 ms) gates the door; organisers postpone
+        // via renew + template expiry update when dates change.
+        if token
+            .metadata
+            .expires_at
+            .is_some_and(|exp| crate::time::now_ms() >= exp)
+        {
+            return Err(MarketplaceError::InvalidState("Token has expired".into()));
+        }
+
         let owner_id = token.owner_id.clone();
         token.redeemed_at = Some(env::block_timestamp());
         token.redeem_count += 1;

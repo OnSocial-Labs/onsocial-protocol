@@ -556,6 +556,57 @@ fn purchase_native_stale_ownership_keeps_sale_and_restores_deposit() {
 }
 
 #[test]
+fn purchase_native_with_future_expiry_succeeds() {
+    let mut contract = new_contract();
+    let tid = make_standalone_token(&mut contract, &buyer());
+    // NEP-177 expires_at is ms — a future expiry must not block resale
+    // (regression: the check previously compared block time in ns).
+    let mut token = contract.scarces_by_id.get(&tid).unwrap().clone();
+    token.metadata.expires_at = Some(1_800_000_000_000);
+    contract.scarces_by_id.insert(tid.clone(), token);
+
+    testing_env!(context(buyer()).build());
+    contract
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .unwrap();
+
+    testing_env!(context(creator()).build());
+    contract.pending_attached_balance = 0;
+    contract
+        .purchase_native_scarce(&creator(), tid.clone(), 1_000)
+        .unwrap();
+    assert_eq!(
+        contract.scarces_by_id.get(&tid).unwrap().owner_id,
+        creator()
+    );
+}
+
+#[test]
+fn purchase_native_expired_token_fails_and_restores_deposit() {
+    let mut contract = new_contract();
+    let tid = make_standalone_token(&mut contract, &buyer());
+
+    testing_env!(context(buyer()).build());
+    contract
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .unwrap();
+
+    // Expire after listing (ms in the past relative to block time).
+    let mut token = contract.scarces_by_id.get(&tid).unwrap().clone();
+    token.metadata.expires_at = Some(1_600_000_000_000);
+    contract.scarces_by_id.insert(tid.clone(), token);
+
+    testing_env!(context(creator()).build());
+    contract.pending_attached_balance = 0;
+    let deposit = 1_500u128;
+    let err = contract
+        .purchase_native_scarce(&creator(), tid.clone(), deposit)
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidState(_)));
+    assert_eq!(contract.pending_attached_balance, deposit);
+}
+
+#[test]
 fn purchase_native_happy_credits_overpay_only() {
     let mut contract = new_contract();
     let tid = make_standalone_token(&mut contract, &buyer());

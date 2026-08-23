@@ -338,6 +338,26 @@ export function buildSetCollectionMetadataAction(params: {
   };
 }
 
+/** Build an UpdateCollectionTemplateExpiry action — rain-day postpone. */
+export function buildUpdateCollectionTemplateExpiryAction(params: {
+  collectionId: string;
+  expiresAtMs: number;
+  targetAccount?: string;
+}): SimpleActionResult {
+  if (!params.collectionId) throw new ComposeError(400, 'Missing collectionId');
+  if (!Number.isFinite(params.expiresAtMs) || params.expiresAtMs <= 0) {
+    throw new ComposeError(400, 'Invalid expiresAtMs');
+  }
+  return {
+    action: {
+      type: 'update_collection_template_expiry',
+      collection_id: params.collectionId,
+      expires_at_ms: Math.floor(params.expiresAtMs),
+    },
+    targetAccount: resolveScarcesTarget(params.targetAccount),
+  };
+}
+
 /** Build a SetCollectionAppMetadata action — app-scoped metadata. */
 export function buildSetCollectionAppMetadataAction(params: {
   appId: string;

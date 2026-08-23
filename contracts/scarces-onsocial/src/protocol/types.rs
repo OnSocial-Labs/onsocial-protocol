@@ -114,6 +114,12 @@ pub enum Action {
         collection_id: String,
         metadata: Option<String>,
     },
+    /// Rain-day postpone: move the mint template expiry (NEP-177 ms) so
+    /// tokens minted after the change match renewed ones.
+    UpdateCollectionTemplateExpiry {
+        collection_id: String,
+        expires_at_ms: u64,
+    },
     SetCollectionAppMetadata {
         app_id: String,
         collection_id: String,

@@ -22,6 +22,7 @@ import {
   buildRemoveRedeemerAction,
   buildSetRedeemersAction,
   buildSetCollectionMetadataAction,
+  buildUpdateCollectionTemplateExpiryAction,
   buildSetCollectionAppMetadataAction,
 } from '../../services/compose/collection-manage.js';
 import { ComposeError } from '../../services/compose/shared.js';
@@ -244,6 +245,21 @@ const setMeta = actionHandlers(
 collectionManageRouter.post(
   '/prepare/set-collection-metadata',
   setMeta.prepare
+);
+
+// ── Update Collection Template Expiry (rain-day postpone) ──────────────────
+const updateTemplateExpiry = actionHandlers(
+  (b) =>
+    buildUpdateCollectionTemplateExpiryAction({
+      collectionId: String(b.collectionId || ''),
+      expiresAtMs: Number(b.expiresAtMs),
+      targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
+    }),
+  'update-collection-template-expiry'
+);
+collectionManageRouter.post(
+  '/prepare/update-collection-template-expiry',
+  updateTemplateExpiry.prepare
 );
 
 // ── Set Collection App Metadata ─────────────────────────────────────────────

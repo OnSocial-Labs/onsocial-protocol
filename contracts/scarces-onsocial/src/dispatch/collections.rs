@@ -101,6 +101,13 @@ impl Contract {
                 self.set_collection_metadata(actor_id, &collection_id, metadata)?;
                 Ok(Value::Null)
             }
+            Action::UpdateCollectionTemplateExpiry {
+                collection_id,
+                expires_at_ms,
+            } => {
+                self.update_collection_template_expiry(actor_id, &collection_id, expires_at_ms)?;
+                Ok(Value::Null)
+            }
             Action::SetCollectionAppMetadata {
                 app_id,
                 collection_id,

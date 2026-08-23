@@ -124,7 +124,7 @@ fn validate_hash_pair(
     Ok(())
 }
 
-fn validate_nep177_timestamp_ms(
+pub(crate) fn validate_nep177_timestamp_ms(
     field_name: &str,
     timestamp: Option<u64>,
 ) -> Result<(), MarketplaceError> {

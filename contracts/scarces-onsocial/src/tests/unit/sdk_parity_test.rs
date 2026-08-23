@@ -33,6 +33,7 @@ const ALL_ACTION_TYPES: &[&str] = &[
     "remove_redeemer",
     "set_redeemers",
     "set_collection_metadata",
+    "update_collection_template_expiry",
     "set_collection_app_metadata",
     "withdraw_unclaimed_refunds",
     "list_native_scarce",
