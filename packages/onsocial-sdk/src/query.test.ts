@@ -686,6 +686,124 @@ describe('QueryModule', () => {
     });
   });
 
+  describe('feed schema fallbacks', () => {
+    const heatError = {
+      errors: [
+        { message: "field 'amplifyHeat' not found in type: 'postsFeed'" },
+      ],
+      data: null,
+    };
+    const feedRow = {
+      accountId: 'a.near',
+      postId: 'p1',
+      value: '{}',
+      blockHeight: 1,
+      blockTimestamp: 0,
+    };
+
+    function heatRejectingGraph() {
+      return makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('postsFeed') && query.includes('amplifyHeat')) {
+          return heatError;
+        }
+        return { data: { postsFeed: [feedRow] } };
+      });
+    }
+
+    it('retries without heat and reuses the fallback on later calls', async () => {
+      const { os, fetch } = heatRejectingGraph();
+
+      const first = await os.query.feed.recent({ limit: 5 });
+      expect(first.items).toHaveLength(1);
+      // Full query attempted, then NoHeat retry.
+      expect(fetch).toHaveBeenCalledTimes(2);
+
+      const second = await os.query.feed.recent({ limit: 5 });
+      expect(second.items).toHaveLength(1);
+      // Fallback active — NoHeat used directly, no failed attempt first.
+      expect(fetch).toHaveBeenCalledTimes(3);
+      const lastBody = JSON.parse(String(fetch.mock.calls[2][1].body));
+      expect(lastBody.query).not.toContain('amplifyHeat');
+    });
+
+    it('scopes the heat fallback per client instance', async () => {
+      const tripped = heatRejectingGraph();
+      await tripped.os.query.feed.recent({ limit: 5 });
+
+      // A fresh client still attempts the full-heat query.
+      const { os, fetch } = makeOs({ data: { postsFeed: [feedRow] } });
+      await os.query.feed.recent({ limit: 5 });
+      const body = JSON.parse(String(fetch.mock.calls[0][1].body));
+      expect(body.query).toContain('amplifyHeat');
+    });
+
+    it('retries the full-heat query after the fallback TTL expires', async () => {
+      vi.useFakeTimers();
+      try {
+        const { os, fetch } = heatRejectingGraph();
+        await os.query.feed.recent({ limit: 5 });
+        expect(fetch).toHaveBeenCalledTimes(2);
+
+        vi.setSystemTime(Date.now() + 6 * 60 * 1000);
+        await os.query.feed.recent({ limit: 5 });
+        // TTL expired — full-heat attempted again (fails, NoHeat retry).
+        expect(fetch).toHaveBeenCalledTimes(4);
+        const retryBody = JSON.parse(String(fetch.mock.calls[2][1].body));
+        expect(retryBody.query).toContain('amplifyHeat');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('falls back to NoHeat on hashtag hydrate instead of throwing', async () => {
+      const { os } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('postHashtags')) {
+          return {
+            data: {
+              postHashtags: [
+                {
+                  accountId: 'a.near',
+                  postId: 'p1',
+                  hashtag: 'onchain',
+                  blockHeight: 1,
+                  blockTimestamp: 0,
+                  groupId: null,
+                },
+              ],
+            },
+          };
+        }
+        if (query.includes('amplifyHeat')) {
+          return heatError;
+        }
+        return { data: { postsFeed: [feedRow] } };
+      });
+
+      const page = await os.query.feed.byHashtag('onchain', { limit: 5 });
+      expect(page.items).toHaveLength(1);
+      expect(page.items[0]?.postId).toBe('p1');
+    });
+
+    it('falls back to NoHeat on filtered account feeds', async () => {
+      const { os } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('amplifyHeat')) {
+          return heatError;
+        }
+        return { data: { postsFeed: [feedRow] } };
+      });
+
+      const page = await os.query.feed.fromAccountsFiltered({
+        accounts: ['a.near'],
+        channel: 'general',
+        limit: 5,
+      });
+      expect(page.items).toHaveLength(1);
+    });
+  });
+
   describe('getFeed()', () => {
     it('queries posts for standing-with accounts', async () => {
       const { os, fetch } = makeOs({

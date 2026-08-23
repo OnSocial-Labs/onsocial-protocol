@@ -33,3 +33,21 @@ export function homeFeedNewPostsLabel(
   if (count >= probeSize) return `${probeSize}+ new posts`;
   return `${count} new posts`;
 }
+
+/**
+ * Offset compensation for load-more on chrono-paged feeds.
+ *
+ * When N new posts land at the head between pages, the row previously at
+ * `offset` moves to `offset + N` — appending at the stored offset would skip
+ * N rows. Shift by the not-yet-applied part of the unseen count. Hot
+ * global/standing pages by heat order, where chrono-new posts do not shift
+ * offsets, so those pass `chronoPaged: false`.
+ */
+export function pendingFeedOffsetShift(opts: {
+  newPostCount: number;
+  appliedShift: number;
+  chronoPaged: boolean;
+}): number {
+  if (!opts.chronoPaged) return 0;
+  return Math.max(0, opts.newPostCount - opts.appliedShift);
+}

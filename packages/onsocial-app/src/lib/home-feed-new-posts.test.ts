@@ -4,6 +4,7 @@ import {
   countUnseenFeedPosts,
   feedPostKeySet,
   homeFeedNewPostsLabel,
+  pendingFeedOffsetShift,
 } from './home-feed-new-posts';
 
 function row(accountId: string, postId: string): PostRow {
@@ -36,5 +37,48 @@ describe('homeFeedNewPostsLabel', () => {
     expect(homeFeedNewPostsLabel(3)).toBe('3 new posts');
     expect(homeFeedNewPostsLabel(8)).toBe('8+ new posts');
     expect(homeFeedNewPostsLabel(0)).toBe('');
+  });
+});
+
+describe('pendingFeedOffsetShift', () => {
+  it('shifts chrono pages by the unapplied unseen count', () => {
+    expect(
+      pendingFeedOffsetShift({
+        newPostCount: 3,
+        appliedShift: 0,
+        chronoPaged: true,
+      })
+    ).toBe(3);
+    expect(
+      pendingFeedOffsetShift({
+        newPostCount: 3,
+        appliedShift: 3,
+        chronoPaged: true,
+      })
+    ).toBe(0);
+    expect(
+      pendingFeedOffsetShift({
+        newPostCount: 5,
+        appliedShift: 3,
+        chronoPaged: true,
+      })
+    ).toBe(2);
+  });
+
+  it('never shifts hot-paged feeds or goes negative', () => {
+    expect(
+      pendingFeedOffsetShift({
+        newPostCount: 3,
+        appliedShift: 0,
+        chronoPaged: false,
+      })
+    ).toBe(0);
+    expect(
+      pendingFeedOffsetShift({
+        newPostCount: 1,
+        appliedShift: 4,
+        chronoPaged: true,
+      })
+    ).toBe(0);
   });
 });

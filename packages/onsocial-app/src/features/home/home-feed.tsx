@@ -82,6 +82,7 @@ import {
   HOME_FEED_NEW_POLL_MS,
   HOME_FEED_NEW_PROBE_SIZE,
   homeFeedNewPostsLabel,
+  pendingFeedOffsetShift,
 } from '@/lib/home-feed-new-posts';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 import { filterHiddenAuthors } from '@/lib/viewer-mute-block-filter';
@@ -328,6 +329,9 @@ export function HomePagePanel({
   const amplifyHeatFloorsRef = useRef<Map<string, AmplifyHeatFloor>>(new Map());
   const seenPostKeysRef = useRef<Set<string>>(new Set());
   const newPostsProbeInFlightRef = useRef(false);
+  const newPostCountRef = useRef(0);
+  /** Head growth already folded into `nextOffset` by load-more compensation. */
+  const offsetShiftAppliedRef = useRef(0);
   const isRefreshingRef = useRef(false);
   const isLoadingRef = useRef(initialPage == null);
   const ssrBootstrapDoneRef = useRef(initialPage != null);
@@ -347,6 +351,10 @@ export function HomePagePanel({
   useEffect(() => {
     isRefreshingRef.current = isRefreshing;
   }, [isRefreshing]);
+
+  useEffect(() => {
+    newPostCountRef.current = newPostCount;
+  }, [newPostCount]);
 
   useEffect(() => {
     isLoadingRef.current = isLoading;
@@ -503,6 +511,8 @@ export function HomePagePanel({
     setEngagementError(null);
     setLoadError(null);
     setNewPostCount(0);
+    newPostCountRef.current = 0;
+    offsetShiftAppliedRef.current = 0;
 
     const keepPrevious = postsLengthRef.current > 0;
     if (keepPrevious) {
@@ -583,14 +593,27 @@ export function HomePagePanel({
 
   const loadMore = useCallback(() => {
     if (appendInFlightRef.current) return;
-    const offset = nextOffsetRef.current;
-    if (offset === undefined) return;
+    // Never race a full load / soft refresh — a load-more here would bump
+    // loadIdRef, cancel the refresh, and append onto a stale list.
+    if (isLoadingRef.current || isRefreshingRef.current) return;
+    const baseOffset = nextOffsetRef.current;
+    if (baseOffset === undefined) return;
+
+    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam, place: placeParam });
+
+    // Chrono-paged surfaces (Recent, and all focus feeds — their indexes
+    // page chronologically even under Hot) shift when new posts land at the
+    // head; compensate so appended pages don't skip rows.
+    const pendingShift = pendingFeedOffsetShift({
+      newPostCount: newPostCountRef.current,
+      appliedShift: offsetShiftAppliedRef.current,
+      chronoPaged: focus != null || sort !== 'hot',
+    });
+    const offset = baseOffset + pendingShift;
 
     const loadId = ++loadIdRef.current;
     appendInFlightRef.current = true;
     setIsLoadingMore(true);
-
-    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam, place: placeParam });
 
     void (async () => {
       try {
@@ -613,6 +636,9 @@ export function HomePagePanel({
           standingSourcesRef.current = result.standingSources;
         }
 
+        if (pendingShift > 0) {
+          offsetShiftAppliedRef.current += pendingShift;
+        }
         setPosts((current) => mergeFeedPosts(current, result.page.items));
         setNextOffset(result.page.nextOffset);
         nextOffsetRef.current = result.page.nextOffset;
@@ -620,8 +646,8 @@ export function HomePagePanel({
         // Keep the current list; the sentinel stays available to retry.
         if (loadIdRef.current === loadId) {
           // Restore offset so the next intersect can retry this page.
-          nextOffsetRef.current = offset;
-          setNextOffset(offset);
+          nextOffsetRef.current = baseOffset;
+          setNextOffset(baseOffset);
         }
       } finally {
         if (loadIdRef.current === loadId) {
@@ -638,7 +664,8 @@ export function HomePagePanel({
   useInfiniteScrollSentinel({
     scrollRootRef,
     sentinelRef: loadMoreRef,
-    enabled: showLoadMoreSentinel && !isLoading && !isLoadingMore,
+    enabled:
+      showLoadMoreSentinel && !isLoading && !isLoadingMore && !isRefreshing,
     onIntersect: loadMore,
     rootMargin: '200px 0px',
   });
