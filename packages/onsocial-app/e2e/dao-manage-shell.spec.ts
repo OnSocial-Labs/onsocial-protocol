@@ -39,7 +39,7 @@ test.describe('DAO manage shell', () => {
       page.getByRole('button', { name: /Edit profile/ })
     ).toHaveCount(0);
 
-    await manage.click();
+    await page.getByRole('button', { name: 'Close' }).click();
     await expect(manage).toHaveAttribute('aria-expanded', 'false');
   });
 
