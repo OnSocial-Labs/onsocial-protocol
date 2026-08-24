@@ -196,13 +196,21 @@ export function PortfolioCustomize({
   }, [customizeApi, canCustomizeFace, openCustomizeSheet]);
 
   useEffect(() => {
-    if (!canEditMood) {
+    // DAO faces register before council eligibility resolves so Manage →
+    // Propose mood is not a silent no-op while capability is still loading.
+    if (!isDao && !canEditMood) {
       return;
     }
 
     registerMoodSheetOpen(openMoodSheet);
     return () => unregisterMoodSheetOpen();
-  }, [canEditMood, openMoodSheet, registerMoodSheetOpen, unregisterMoodSheetOpen]);
+  }, [
+    canEditMood,
+    isDao,
+    openMoodSheet,
+    registerMoodSheetOpen,
+    unregisterMoodSheetOpen,
+  ]);
 
   if (!canEditMood) {
     return null;

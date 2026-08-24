@@ -5,6 +5,7 @@ import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet
 import {
   getProtocolDaoConfig,
   getProtocolGovernanceEligibility,
+  viewerCanProposeOnDao,
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
 import { fetchProtocolDaoTransferAssets } from '@/features/protocol/protocol-dao-context-client';
@@ -246,7 +247,7 @@ export function ProtocolDaoInfoSheet({
           <div className="protocol-dao-info-block">
             <p className="protocol-dao-info-eyebrow">Your position</p>
             <p className="protocol-dao-info-value">
-              {eligibility.canPropose
+              {viewerCanProposeOnDao(eligibility)
                 ? 'Can propose'
                 : `Need ${formatSocialCompact(eligibility.remainingToThreshold)} more SOCIAL`}
             </p>
@@ -256,6 +257,8 @@ export function ProtocolDaoInfoSheet({
               {formatNearCompact(eligibility.nearBalance)} NEAR
             </p>
           </div>
+        ) : accountId && loadState === 'loading' ? (
+          <p className="protocol-compose-note">Checking your position…</p>
         ) : accountId ? null : (
           <p className="protocol-compose-note">
             Connect a wallet to see your stake position.

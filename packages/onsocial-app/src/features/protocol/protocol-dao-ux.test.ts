@@ -21,6 +21,7 @@ import {
   viewerHasPolicyActionPermission,
 } from '@/features/protocol/protocol-propose-gate';
 import {
+  hasDaoProposalsDeepLink,
   parseProtocolProposalFamily,
   protocolProposalFamilyFromBadge,
 } from '@/features/protocol/protocol-proposal-family';
@@ -210,6 +211,17 @@ describe('protocol proposal family', () => {
     expect(daoPortfolioPath('guild.sputnik-dao.near', { family: 'boost' })).toBe(
       '/@guild.sputnik-dao.near?kind=boost'
     );
+  });
+
+  it('opens Proposals for proposal, status, search, and family kind', () => {
+    const params = (raw: string) => new URLSearchParams(raw);
+    expect(hasDaoProposalsDeepLink(params(''))).toBe(false);
+    expect(hasDaoProposalsDeepLink(params('kind=all'))).toBe(false);
+    expect(hasDaoProposalsDeepLink(params('kind=nope'))).toBe(false);
+    expect(hasDaoProposalsDeepLink(params('kind=boost'))).toBe(true);
+    expect(hasDaoProposalsDeepLink(params('status=open'))).toBe(true);
+    expect(hasDaoProposalsDeepLink(params('q=bond'))).toBe(true);
+    expect(hasDaoProposalsDeepLink(params('proposal=12'))).toBe(true);
   });
 
   it('classifies core execute set keys', () => {

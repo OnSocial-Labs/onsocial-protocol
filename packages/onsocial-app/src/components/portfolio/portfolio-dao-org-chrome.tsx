@@ -20,11 +20,8 @@ import { DaoProposalsSheet } from '@/features/protocol/dao-proposals-sheet';
 import { DaoTreasurySheet } from '@/features/protocol/dao-treasury-sheet';
 import type { DaoWorkspaceTool } from '@/features/protocol/dao-workspace-panel';
 import { DaoWorkspaceToolsHost } from '@/features/protocol/dao-workspace-tools-host';
-import {
-  getProtocolGovernanceEligibility,
-  viewerCanProposeOnDao,
-  type ProtocolGovernanceEligibility,
-} from '@/features/protocol/protocol-eligibility';
+import { hasDaoProposalsDeepLink } from '@/features/protocol/protocol-proposal-family';
+import { useDaoPageCapability } from '@/hooks/use-dao-page-capability';
 import { softIndexDaoMemberships } from '@/features/protocol/my-daos-client';
 import {
   bumpDaoWorkspacePrefetch,
@@ -46,11 +43,6 @@ import {
   txToastGovSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
-import {
-  PROTOCOL_PROPOSAL_PARAM,
-  PROTOCOL_SEARCH_PARAM,
-  PROTOCOL_STATUS_PARAM,
-} from '@/lib/app-routes';
 
 type PortfolioOverlay =
   | 'manage'
@@ -62,11 +54,6 @@ type PortfolioOverlay =
   | 'boost'
   | null;
 
-type EligibilitySnapshot = {
-  key: string;
-  value: ProtocolGovernanceEligibility;
-};
-
 export type PortfolioDaoOrgChromeProps = {
   daoAccountId: string;
   daoName: string;
@@ -75,20 +62,6 @@ export type PortfolioDaoOrgChromeProps = {
   configPurpose: string | null;
   configMetadata: string;
 };
-
-function eligibilityKey(accountId: string, daoAccountId: string): string {
-  return `${accountId}:${daoAccountId}`;
-}
-
-function hasProposalsDeepLink(searchParams: {
-  get(name: string): string | null;
-}): boolean {
-  return Boolean(
-    searchParams.get(PROTOCOL_PROPOSAL_PARAM)?.trim() ||
-      searchParams.get(PROTOCOL_STATUS_PARAM)?.trim() ||
-      searchParams.get(PROTOCOL_SEARCH_PARAM)?.trim()
-  );
-}
 
 function PortfolioDaoOrgChromeInner({
   daoAccountId,
@@ -99,7 +72,7 @@ function PortfolioDaoOrgChromeInner({
   configMetadata,
 }: PortfolioDaoOrgChromeProps) {
   const searchParams = useSearchParams();
-  const { accountId, getSigningWallet } = useAppWallet();
+  const { getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const {
     registerDaoStakeRequest,
@@ -107,12 +80,14 @@ function PortfolioDaoOrgChromeInner({
     requestOpenMoodSheet,
   } = usePortfolioMoodPreview();
   const [overlay, setOverlay] = useState<PortfolioOverlay>(() =>
-    hasProposalsDeepLink(searchParams) ? 'proposals' : null
+    hasDaoProposalsDeepLink(searchParams) ? 'proposals' : null
   );
   const [toolRequest, setToolRequest] = useState<DaoWorkspaceTool>(null);
-  const [eligibility, setEligibility] = useState<EligibilitySnapshot | null>(
-    null
-  );
+  const {
+    canPropose,
+    isLoading: councilAccessPending,
+    eligibility: liveEligibility,
+  } = useDaoPageCapability(daoAccountId, true);
   const [claimableYocto, setClaimableYocto] = useState<bigint | null>(null);
   const [claimPending, setClaimPending] = useState(false);
   const [claimConfirmOpen, setClaimConfirmOpen] = useState(false);
@@ -138,25 +113,11 @@ function PortfolioDaoOrgChromeInner({
   }, [daoAccountId]);
 
   useEffect(() => {
-    if (!hasProposalsDeepLink(searchParams)) return;
+    if (!hasDaoProposalsDeepLink(searchParams)) return;
     queueMicrotask(() => {
       setOverlay((current) => (current == null ? 'proposals' : current));
     });
   }, [searchParams]);
-
-  useEffect(() => {
-    if (!accountId) return;
-    const key = eligibilityKey(accountId, daoAccountId);
-    let cancelled = false;
-    void getProtocolGovernanceEligibility(accountId, daoAccountId).then(
-      (next) => {
-        if (!cancelled) setEligibility({ key, value: next });
-      }
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [accountId, daoAccountId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -182,15 +143,7 @@ function PortfolioDaoOrgChromeInner({
     return () => unregisterDaoStakeRequest();
   }, [openStakeFromFace, registerDaoStakeRequest, unregisterDaoStakeRequest]);
 
-  const canEdit = Boolean(
-    accountId &&
-      eligibility?.key === eligibilityKey(accountId, daoAccountId) &&
-      viewerCanProposeOnDao(eligibility.value)
-  );
-  const liveEligibility =
-    accountId && eligibility?.key === eligibilityKey(accountId, daoAccountId)
-      ? eligibility.value
-      : null;
+  const canEdit = canPropose;
   const claimSupportLabel =
     canEdit && claimableYocto != null && claimableYocto > 0n
       ? formatSocialCompact(claimableYocto.toString())
@@ -307,7 +260,10 @@ function PortfolioDaoOrgChromeInner({
             key={tool.id}
             type="button"
             className="portfolio-dao-tools-link"
-            onClick={() => setOverlay(tool.id)}
+            aria-expanded={overlay === tool.id}
+            onClick={() =>
+              setOverlay((current) => (current === tool.id ? null : tool.id))
+            }
           >
             {tool.label}
           </button>
@@ -319,7 +275,7 @@ function PortfolioDaoOrgChromeInner({
         daoName={title}
         canEdit={canEdit}
         claimSupportLabel={claimSupportLabel}
-        claimSupportPending={claimPending}
+        councilAccessPending={councilAccessPending}
         onClose={() =>
           setOverlay((current) => (current === 'manage' ? null : current))
         }
@@ -335,7 +291,7 @@ function PortfolioDaoOrgChromeInner({
             : 'Submit a proposal to collect Support into the DAO wallet.'
         }
         eligibility={liveEligibility}
-        eligibilityLoading={Boolean(accountId) && !liveEligibility}
+        eligibilityLoading={councilAccessPending}
         pending={claimPending}
         proposeLabel="Propose"
         onDiscard={() => setClaimConfirmOpen(false)}
@@ -352,9 +308,7 @@ function PortfolioDaoOrgChromeInner({
         open={overlay === 'proposals'}
         daoAccountId={daoAccountId}
         daoName={title}
-        canPropose={Boolean(
-          liveEligibility && viewerCanProposeOnDao(liveEligibility)
-        )}
+        canPropose={canPropose}
         toolRequest={
           overlay === 'proposals' && toolRequest === 'propose'
             ? 'propose'
@@ -416,7 +370,7 @@ function PortfolioDaoOrgChromeInner({
         daoAccountId={daoAccountId}
         daoName={title}
         eligibility={liveEligibility}
-        eligibilityLoading={Boolean(accountId) && !liveEligibility}
+        eligibilityLoading={councilAccessPending}
         onClose={() =>
           setOverlay((current) => (current === 'boost' ? null : current))
         }
@@ -433,6 +387,9 @@ export function PortfolioDaoOrgChrome(props: PortfolioDaoOrgChromeProps) {
       fallback={
         <nav className="portfolio-dao-tools-inline" aria-hidden>
           <span className="portfolio-dao-tools-link">Proposals</span>
+          <span className="portfolio-dao-tools-link">Members</span>
+          <span className="portfolio-dao-tools-link">Treasury</span>
+          <span className="portfolio-dao-tools-link">Manage</span>
         </nav>
       }
     >
