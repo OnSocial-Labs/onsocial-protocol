@@ -9,6 +9,7 @@ import {
   LauncherHomeSection,
   LauncherMineCard,
   LauncherMineRail,
+  LauncherMineRailSkeleton,
 } from '@/components/launcher-home';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { DaoCreateSheet } from '@/features/protocol/dao-create-sheet';
@@ -202,7 +203,6 @@ export function DaosIndexPanel() {
   return (
     <OsAppScreen
       title="DAOs"
-      subtitle="Your orgs"
       backFallbackHref="/"
       glassChrome
       actions={headerActions}
@@ -223,7 +223,7 @@ export function DaosIndexPanel() {
           </Link>
         </div>
 
-        <LauncherHomeSection title="My DAOs">
+        <LauncherHomeSection aria-label="My DAOs">
           <LauncherHomeMineStatus
             connected={Boolean(accountId)}
             loading={!myDaosReady}
@@ -232,6 +232,7 @@ export function DaosIndexPanel() {
             emptyLoggedOut="Connect to see DAOs you’ve joined — or tap search to explore."
             emptyNone="You haven’t joined a DAO yet. Tap Search to explore, or + to start one."
             loadingLabel="Loading your DAOs…"
+            loadingSkeleton={<LauncherMineRailSkeleton count={4} />}
             hasItems={myEntries.length > 0}
           >
             <LauncherMineRail>
@@ -260,7 +261,7 @@ export function DaosIndexPanel() {
         {showProposals ? (
           <>
             <Divider className="launcher-home-divider" />
-            <LauncherHomeSection title="Proposals">
+            <LauncherHomeSection title="Latest">
               <DaosExplorePanel accountId={accountId} myDaos={myDaos} />
             </LauncherHomeSection>
           </>

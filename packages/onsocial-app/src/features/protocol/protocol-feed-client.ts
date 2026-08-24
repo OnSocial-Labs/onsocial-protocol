@@ -92,6 +92,7 @@ export type ProtocolProposalPeek = {
   daoAccountId: string;
   daoName: string;
   proposalId: number;
+  proposer: string;
   label: string;
   status: string;
   createdAt: string;

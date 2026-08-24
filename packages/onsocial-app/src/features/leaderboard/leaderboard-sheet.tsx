@@ -944,7 +944,7 @@ export function LeaderboardSheet({
         {error ? (
           <p className="leaderboard-sheet-empty">{error}</p>
         ) : showSkeleton ? (
-          <ProfileSocialListSkeleton count={6} />
+          <ProfileSocialListSkeleton count={6} rowVariant="leaderboard" />
         ) : empty ? (
           <p className="leaderboard-sheet-empty">{empty}</p>
         ) : (
@@ -975,12 +975,13 @@ export function LeaderboardSheet({
                 viewerRowRef={viewerRowRef}
               />
             ) : (
-              <ProfileSocialListSkeleton count={6} />
+              <ProfileSocialListSkeleton count={6} rowVariant="leaderboard" />
             )}
             <StandingListLoadMoreFooter
               loadMoreSentinelRef={loadMoreSentinelRef}
               isLoadingMore={loadingMore}
               showSentinel={hasMore}
+              skeletonRowVariant="leaderboard"
               resultsSummary={
                 hasMore
                   ? null

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Divider } from '@onsocial/ui';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import { FeedThreadBlock } from '@/features/guilds/feed-thread-block';
@@ -8,6 +8,7 @@ import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form
 import { postKey } from '@/features/home/post-card';
 import type { PersonalPostSubmitResult } from '@/features/home/submit-personal-post';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
+import { subscribePersonalReplyConfirmed } from '@/features/scarces/drop-compose-host';
 import {
   seedPostAuthorProfilesFromFeed,
   usePostAuthorProfiles,
@@ -24,7 +25,7 @@ import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useQuotedPosts } from '@/hooks/use-quoted-posts';
 import type { AmplifySuccessDetail } from '@/lib/amplify-heat';
 import { coalesceFeedThreads } from '@/lib/feed-threads';
-import { withRepostOriginals } from '@/lib/post-relation';
+import { withRepostOriginals, collectRelationTargetAccountIds } from '@/lib/post-relation';
 
 interface PersonalFeedListProps {
   posts: PostRow[];
@@ -43,6 +44,8 @@ interface PersonalFeedListProps {
   className?: string;
   /** Hashtag results include replies to other people. */
   includeForeignReplies?: boolean;
+  /** Standing lens — show foreign replies from these authors. */
+  stoodWithAccountIds?: ReadonlySet<string>;
   /** Home / hashtag mixed feed — guild source chip on group posts. */
   showGuildAttribution?: boolean;
   /** SSR engagement seed — counts on first paint. */
@@ -62,6 +65,7 @@ export function PersonalFeedList({
   onEngagementError,
   className,
   includeForeignReplies = false,
+  stoodWithAccountIds,
   showGuildAttribution = false,
   initialEngagement = null,
   initialScarceEmbeds = null,
@@ -71,8 +75,12 @@ export function PersonalFeedList({
   seedScarceEmbedsFromSsr(initialScarceEmbeds);
 
   const feedBlocks = useMemo(
-    () => coalesceFeedThreads(posts, { includeForeignReplies }),
-    [includeForeignReplies, posts]
+    () =>
+      coalesceFeedThreads(posts, {
+        includeForeignReplies,
+        stoodWithAccountIds,
+      }),
+    [includeForeignReplies, posts, stoodWithAccountIds]
   );
   const quotedPosts = useQuotedPosts(posts);
   seedPostAuthorProfilesFromFeed(Object.values(quotedPosts));
@@ -83,6 +91,14 @@ export function PersonalFeedList({
     for (const post of posts) ids.add(post.accountId);
     for (const quoted of Object.values(quotedPosts)) {
       ids.add(quoted.accountId);
+    }
+    for (const targetId of collectRelationTargetAccountIds(posts)) {
+      ids.add(targetId);
+    }
+    for (const targetId of collectRelationTargetAccountIds(
+      Object.values(quotedPosts)
+    )) {
+      ids.add(targetId);
     }
     return Array.from(ids);
   }, [posts, quotedPosts]);
@@ -109,6 +125,7 @@ export function PersonalFeedList({
     confirmAmplify,
     confirmRepost,
     confirmUnrepost,
+    confirmReply,
   } = usePostEngagement(
     // Repost rows render (and act on) the original post — fetch its stats too.
     useMemo(() => withRepostOriginals(posts, quotedPosts), [posts, quotedPosts]),
@@ -121,12 +138,18 @@ export function PersonalFeedList({
     onError: onEngagementError,
   });
 
+  useEffect(() => {
+    return subscribePersonalReplyConfirmed(({ parent }) => {
+      confirmReply(parent);
+    });
+  }, [confirmReply]);
+
   if (feedBlocks.length === 0) return null;
 
   return (
     <div className={className ?? 'home-feed-list'}>
-      {feedBlocks.map((block, blockIndex) => (
-        <div key={postKey(block[0]!)}>
+      {feedBlocks.map(({ posts, standingPeek, standingCoilTail }, blockIndex) => (
+        <div key={postKey(posts[0]!)}>
           <Divider
             variant="item"
             className={
@@ -136,7 +159,9 @@ export function PersonalFeedList({
             }
           />
           <FeedThreadBlock
-            block={block}
+            block={posts}
+            standingPeek={standingPeek}
+            standingCoilTail={standingCoilTail}
             postAuthorProfiles={postAuthorProfiles}
             quotedPosts={quotedPosts}
             engagement={engagement}

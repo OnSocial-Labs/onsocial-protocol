@@ -7,12 +7,27 @@ export type GuildCardMetaTag = {
 };
 
 const RAW_GROUP_ID_RE = /^grp[_-][a-z0-9_.-]+$/i;
+const TECHNICAL_GUILD_NAME_RE = /^guild\s+pub[-_]\d/i;
 
 export function isRawGroupId(value: string): boolean {
   const trimmed = value.trim();
   if (!trimmed) return false;
   if (RAW_GROUP_ID_RE.test(trimmed)) return true;
   return trimmed.length > 28 && !trimmed.includes(' ');
+}
+
+function isTechnicalGuildName(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (TECHNICAL_GUILD_NAME_RE.test(trimmed)) return true;
+  if (/^pub[-_]\d{6,}$/i.test(trimmed)) return true;
+  return false;
+}
+
+function guildPubFallbackLabel(groupId: string): string | null {
+  const digits = groupId.match(/pub[-_](\d{6,})/i)?.[1];
+  if (!digits) return null;
+  return `Public ·${digits.slice(-4)}`;
 }
 
 export function guildDisplayName(
@@ -26,9 +41,17 @@ export function guildDisplayName(
     .filter((word) => word && !isRawGroupId(word) && word !== groupId)
     .join(' ')
     .trim();
-  if (cleaned && !isRawGroupId(cleaned) && cleaned !== groupId) {
+  if (
+    cleaned &&
+    !isRawGroupId(cleaned) &&
+    cleaned !== groupId &&
+    !isTechnicalGuildName(cleaned)
+  ) {
     return cleaned;
   }
+
+  const pubLabel = guildPubFallbackLabel(groupId);
+  if (pubLabel) return pubLabel;
 
   const suffix = groupId.split('_').pop()?.trim();
   if (suffix && suffix.length >= 4 && suffix.length <= 14) {

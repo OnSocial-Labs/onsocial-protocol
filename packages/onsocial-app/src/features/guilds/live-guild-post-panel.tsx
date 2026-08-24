@@ -54,8 +54,9 @@ import {
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
+import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
-import { resolveQuotedInset } from '@/lib/post-relation';
+import { resolveQuotedInset, collectRelationTargetAccountIds } from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   setGuildMembershipActionPending,
@@ -244,6 +245,19 @@ export function LiveGuildPostPanel({
       treePosts.length + withoutIndexedPosts(localReplies, treePosts).length,
     [treePosts, localReplies]
   );
+  const replyFocusKey = useMemo(
+    () =>
+      replyRows
+        .flatMap((row) => (row.kind === 'post' ? [postKey(row.post)] : []))
+        .join('\n'),
+    [replyRows]
+  );
+  const threadFocus = useThreadFocusReply(loadState === 'ready', replyFocusKey, {
+    onFocusReply: () => {
+      setActiveThreadTab('replies');
+      setThreadTabTouched(true);
+    },
+  });
   // Quotes read newest-first — your fresh quote leads the list.
   const quotes = useMemo(
     () => [
@@ -272,14 +286,19 @@ export function LiveGuildPostPanel({
     [threadPosts, ancestorChain]
   );
   const quotedPosts = useQuotedPosts(quotedPostSources);
-  const postAuthorIds = useMemo(
-    () => [
-      ...threadPosts.map((post) => post.accountId),
-      ...Object.values(quotedPosts).map((post) => post.accountId),
-      ...ancestorChain.map((post) => post.accountId),
-    ],
-    [threadPosts, quotedPosts, ancestorChain]
-  );
+  const postAuthorIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const post of threadPosts) ids.add(post.accountId);
+    for (const post of Object.values(quotedPosts)) ids.add(post.accountId);
+    for (const post of ancestorChain) ids.add(post.accountId);
+    for (const targetId of collectRelationTargetAccountIds(threadPosts)) {
+      ids.add(targetId);
+    }
+    for (const targetId of collectRelationTargetAccountIds(ancestorChain)) {
+      ids.add(targetId);
+    }
+    return Array.from(ids);
+  }, [threadPosts, quotedPosts, ancestorChain]);
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
   const {
     engagement,
@@ -677,6 +696,7 @@ export function LiveGuildPostPanel({
       setLocalQuotes((current) => [...current, confirmedRow]);
     } else {
       setLocalReplies((current) => [...current, confirmedRow]);
+      threadFocus.requestFocus(confirmedRow);
     }
     setActiveThreadTab(mode === 'quote' ? 'quotes' : 'replies');
     setThreadTabTouched(true);
@@ -1091,6 +1111,7 @@ export function LiveGuildPostPanel({
                     )}
                     // Top of chain keeps its context line if truncated.
                     showRelationBadge={index === 0}
+                    authorProfiles={postAuthorProfiles}
                     quotedPost={
                       ancestor.refPath
                         ? quotedPosts[ancestor.refPath]
@@ -1144,6 +1165,7 @@ export function LiveGuildPostPanel({
                   detailLayout
                   // Parent drawn above with a chain line already says "reply".
                   showRelationBadge={!hasParent}
+                  authorProfiles={postAuthorProfiles}
                   // Thread is reached from anywhere — root keeps channel context.
                   showChannel
                   channelLabel={
@@ -1295,6 +1317,9 @@ export function LiveGuildPostPanel({
                         ? 'post-thread-item--up post-thread-item--cont'
                         : '',
                       connectedToNext ? 'post-thread-item--down' : '',
+                      threadFocus.isHighlighted(row.post)
+                        ? 'post-thread-item--focus-reply'
+                        : '',
                     ]
                       .filter(Boolean)
                       .join(' ');
@@ -1307,7 +1332,11 @@ export function LiveGuildPostPanel({
                             className="post-row-divider"
                           />
                         ) : null}
-                        <div className={itemClassName}>
+                        <div
+                          className={itemClassName}
+                          data-thread-focus-reply={row.post.postId}
+                          data-thread-focus-key={postKey(row.post)}
+                        >
                           <PostCard
                             post={row.post}
                             authorProfile={

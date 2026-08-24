@@ -121,6 +121,23 @@
   color: rgb(var(--fg-rgb) / 0.92);
 }
 
+.app-tx-toast-action {
+  display: inline-block;
+  margin-top: 0.125rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: rgb(var(--fg-rgb) / 0.62);
+  text-decoration: none;
+}
+
+.app-tx-toast-action:hover,
+.app-tx-toast-action:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.88);
+  text-decoration: underline;
+  outline: none;
+}
+
 .app-tx-toast-explorer,
 .app-tx-toast-close {
   display: inline-flex;

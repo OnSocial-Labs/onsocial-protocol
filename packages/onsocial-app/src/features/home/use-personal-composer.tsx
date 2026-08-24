@@ -34,6 +34,7 @@ import {
   dispatchGuildPostConfirmed,
   submitGuildRootPost,
 } from '@/features/scarces/submit-guild-drop-post';
+import { dispatchPersonalReplyConfirmed } from '@/features/scarces/drop-compose-host';
 import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
 import {
   usePostAuthorProfiles,
@@ -391,6 +392,12 @@ export function usePersonalComposer({
           trackTransaction,
         });
         if (result.confirmed && result.optimisticPost) {
+          if (mode === 'reply' && target) {
+            dispatchPersonalReplyConfirmed({
+              parent: target,
+              reply: result.optimisticPost,
+            });
+          }
           onConfirmed?.(result.optimisticPost);
           resetComposerState();
         }

@@ -120,7 +120,7 @@ export function useResolvedGroupPosts(paths: Array<string | undefined>) {
  *
  * Repost shells get a second hop: the row renders the ORIGINAL as the card,
  * and if that original is itself a quote, its inset needs `refPath` resolved
- * too — otherwise the card degrades to a `Quoting @x` line.
+ * too — otherwise the quote inset stays empty while loading.
  */
 export function useQuotedPosts(posts: PostRow[]) {
   const refPaths = useMemo(() => posts.map((post) => post.refPath), [posts]);

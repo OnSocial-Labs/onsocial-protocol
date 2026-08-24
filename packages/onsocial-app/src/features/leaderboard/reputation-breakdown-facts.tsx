@@ -6,7 +6,6 @@ import {
   commitmentLabel,
   formatReputationComponent,
   formatReputationScore,
-  reputationConfidenceLabel,
 } from '@/lib/leaderboard';
 import type { ProfileReputation } from '@/lib/profile-signals';
 
@@ -25,12 +24,6 @@ function FactorLabel({
   );
 }
 
-function confidencePercent(score: number): string | null {
-  if (!Number.isFinite(score) || score < 0) return null;
-  const pct = score <= 1 ? Math.round(score * 100) : Math.round(score);
-  return `${Math.max(0, Math.min(100, pct))}%`;
-}
-
 export function ReputationBreakdownFacts({
   accountId,
   reputation,
@@ -46,13 +39,8 @@ export function ReputationBreakdownFacts({
     );
   }
 
-  const confidence = reputationConfidenceLabel(reputation.confidenceScore);
-  const confidencePct = confidencePercent(reputation.confidenceScore);
   const rankLabel =
     reputation.rank > 0 ? `#${reputation.rank}` : null;
-  const meta = [rankLabel, confidence.label, confidencePct]
-    .filter(Boolean)
-    .join(' · ');
   const lock = commitmentLabel(reputation.lockMonths);
 
   const factors: { title: string; hint: string; value: string }[] = [
@@ -97,8 +85,8 @@ export function ReputationBreakdownFacts({
         <span className="reputation-facts-score">
           {formatReputationScore(reputation.reputation)}
         </span>
-        {meta ? (
-          <span className="reputation-facts-score-label">{meta}</span>
+        {rankLabel ? (
+          <span className="reputation-facts-score-label">{rankLabel}</span>
         ) : null}
       </div>
 

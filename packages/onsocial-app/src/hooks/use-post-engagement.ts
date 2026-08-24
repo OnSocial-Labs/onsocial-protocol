@@ -85,6 +85,12 @@ export function mergeEngagementSoftUpgrade(
         amplifyCount: Math.max(next.amplifyCount, previous.amplifyCount),
       };
     }
+    if (previous && next.replyCount < previous.replyCount) {
+      next = {
+        ...next,
+        replyCount: previous.replyCount,
+      };
+    }
     if (unrepostedKeys.has(key) && next.viewerReposted) {
       next = {
         ...next,
@@ -471,6 +477,20 @@ export function usePostEngagement(
     });
   }, []);
 
+  const confirmReply = useCallback((post: PostRow) => {
+    const key = postKey(post);
+    setEngagement((current) => {
+      const previous = current[key] ?? EMPTY_POST_ENGAGEMENT;
+      return {
+        ...current,
+        [key]: {
+          ...previous,
+          replyCount: previous.replyCount + 1,
+        },
+      };
+    });
+  }, []);
+
   const isReactionPending = useCallback(
     (post: PostRow) => pendingReactionKeys.has(postKey(post)),
     [pendingReactionKeys]
@@ -515,5 +535,6 @@ export function usePostEngagement(
     confirmAmplify,
     confirmRepost,
     confirmUnrepost,
+    confirmReply,
   };
 }

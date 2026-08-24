@@ -256,6 +256,9 @@ export function HomePagePanel({
   const searchParams = useSearchParams();
   const { accountId, isConnected, isLoading: walletLoading } = useAppWallet();
   const [posts, setPosts] = useState<PostRow[]>(() => initialPage?.items ?? []);
+  const [standingNetworkIds, setStandingNetworkIds] = useState<
+    readonly string[] | null
+  >(null);
   const [muteBlockSyncVersion, setMuteBlockSyncVersion] = useState(
     () =>
       getGlobalViewerMuteLedgerVersion() + getGlobalViewerBlockLedgerVersion()
@@ -388,6 +391,13 @@ export function HomePagePanel({
 
   const activeLens = resolveHomeFeedLens(lens, isConnected);
 
+  const stoodWithAccountIds = useMemo(() => {
+    if (activeFocus || activeLens !== 'standing' || !standingNetworkIds?.length) {
+      return undefined;
+    }
+    return new Set(standingNetworkIds);
+  }, [activeFocus, activeLens, standingNetworkIds]);
+
   const handleSortChange = useCallback((next: HomeFeedSort) => {
     setSort(next);
     writeHomeFeedSort(next);
@@ -509,6 +519,7 @@ export function HomePagePanel({
     const previousStandingSources = standingSourcesRef.current;
     const previousNextOffset = nextOffsetRef.current;
     standingSourcesRef.current = null;
+    setStandingNetworkIds(null);
     setEngagementError(null);
     setLoadError(null);
     setNewPostCount(0);
@@ -539,6 +550,7 @@ export function HomePagePanel({
         if (loadIdRef.current !== loadId) return;
 
         standingSourcesRef.current = result.standingSources;
+        setStandingNetworkIds(result.standingSources);
         const items = result.page.items;
         // Drop expired optimistic floors so the map does not grow unbounded.
         const nowMs = Date.now();
@@ -564,6 +576,7 @@ export function HomePagePanel({
         setLoadError(message);
         if (keepPrevious) {
           standingSourcesRef.current = previousStandingSources;
+          setStandingNetworkIds(previousStandingSources);
           setNextOffset(previousNextOffset);
           nextOffsetRef.current = previousNextOffset;
         } else {
@@ -641,6 +654,7 @@ export function HomePagePanel({
 
         if (result.standingSources) {
           standingSourcesRef.current = result.standingSources;
+          setStandingNetworkIds(result.standingSources);
         }
 
         if (pendingShift > 0) {
@@ -789,7 +803,8 @@ export function HomePagePanel({
 
       const unseen = countUnseenFeedPosts(
         result.page.items,
-        seenPostKeysRef.current
+        seenPostKeysRef.current,
+        { includeForeignReplies: Boolean(focus) }
       );
       setNewPostCount(unseen);
     } catch {
@@ -950,6 +965,7 @@ export function HomePagePanel({
               <PersonalFeedList
                 posts={visiblePosts}
                 includeForeignReplies={Boolean(activeFocus)}
+                stoodWithAccountIds={stoodWithAccountIds}
                 showGuildAttribution
                 className={`home-feed-list${isRefreshing ? ' is-refreshing' : ''}`}
                 initialEngagement={initialEngagement}

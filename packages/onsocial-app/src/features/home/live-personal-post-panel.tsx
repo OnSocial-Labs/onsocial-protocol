@@ -28,8 +28,9 @@ import {
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
+import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
-import { resolveQuotedInset } from '@/lib/post-relation';
+import { resolveQuotedInset, collectRelationTargetAccountIds } from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
 import {
@@ -157,6 +158,19 @@ export function LivePersonalPostPanel({
       treePosts.length + withoutIndexedPosts(localReplies, treePosts).length,
     [treePosts, localReplies]
   );
+  const replyFocusKey = useMemo(
+    () =>
+      replyRows
+        .flatMap((row) => (row.kind === 'post' ? [postKey(row.post)] : []))
+        .join('\n'),
+    [replyRows]
+  );
+  const threadFocus = useThreadFocusReply(loadState === 'ready', replyFocusKey, {
+    onFocusReply: () => {
+      setActiveThreadTab('replies');
+      setThreadTabTouched(true);
+    },
+  });
   const quotes = useMemo(
     () => [
       ...withoutIndexedPosts(localQuotes, conversation.quotes),
@@ -183,14 +197,19 @@ export function LivePersonalPostPanel({
     [threadPosts, ancestorChain]
   );
   const quotedPosts = useQuotedPosts(quotedPostSources);
-  const postAuthorIds = useMemo(
-    () => [
-      ...threadPosts.map((post) => post.accountId),
-      ...Object.values(quotedPosts).map((post) => post.accountId),
-      ...ancestorChain.map((post) => post.accountId),
-    ],
-    [threadPosts, quotedPosts, ancestorChain]
-  );
+  const postAuthorIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const post of threadPosts) ids.add(post.accountId);
+    for (const post of Object.values(quotedPosts)) ids.add(post.accountId);
+    for (const post of ancestorChain) ids.add(post.accountId);
+    for (const targetId of collectRelationTargetAccountIds(threadPosts)) {
+      ids.add(targetId);
+    }
+    for (const targetId of collectRelationTargetAccountIds(ancestorChain)) {
+      ids.add(targetId);
+    }
+    return Array.from(ids);
+  }, [threadPosts, quotedPosts, ancestorChain]);
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
   const {
     engagement,
@@ -392,6 +411,9 @@ export function LivePersonalPostPanel({
     }
     setActiveThreadTab(mode === 'quote' ? 'quotes' : 'replies');
     setThreadTabTouched(true);
+    if (mode === 'reply') {
+      threadFocus.requestFocus(optimisticPost);
+    }
     scheduleReconcile();
   };
 
@@ -588,6 +610,7 @@ export function LivePersonalPostPanel({
                     authorProfile={postAuthorProfiles[ancestor.accountId]}
                     actionHref={postThreadPath(ancestor)}
                     showRelationBadge={index === 0}
+                    authorProfiles={postAuthorProfiles}
                     quotedPost={
                       ancestor.refPath
                         ? quotedPosts[ancestor.refPath]
@@ -640,6 +663,7 @@ export function LivePersonalPostPanel({
                   mediaResumeIndex={mediaResumeIndex}
                   detailLayout
                   showRelationBadge={!hasParent}
+                  authorProfiles={postAuthorProfiles}
                   quotedPost={
                     conversation.root.refPath
                       ? quotedPosts[conversation.root.refPath]
@@ -781,6 +805,9 @@ export function LivePersonalPostPanel({
                         ? 'post-thread-item--up post-thread-item--cont'
                         : '',
                       connectedToNext ? 'post-thread-item--down' : '',
+                      threadFocus.isHighlighted(row.post)
+                        ? 'post-thread-item--focus-reply'
+                        : '',
                     ]
                       .filter(Boolean)
                       .join(' ');
@@ -793,7 +820,11 @@ export function LivePersonalPostPanel({
                             className="post-row-divider"
                           />
                         ) : null}
-                        <div className={itemClassName}>
+                        <div
+                          className={itemClassName}
+                          data-thread-focus-reply={row.post.postId}
+                          data-thread-focus-key={postKey(row.post)}
+                        >
                           <PostCard
                             post={row.post}
                             authorProfile={

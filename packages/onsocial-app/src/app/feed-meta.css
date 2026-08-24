@@ -12,7 +12,7 @@
  * Commerce / buy-sell stay hard protocol green elsewhere — not these tokens.
  *
  * Composer textarea + backdrop stay 300 in globals so the caret aligns.
- * Thread fold uses the same 300 / AA as Show more; compact 0.72rem size.
+ * Thread fold uses the same 300 / AA as Show more; compact label size.
  */
 :is(
   .os-hashtag,
@@ -20,8 +20,7 @@
   .os-ticker,
   .os-link,
   button.post-card-show-more,
-  .post-card .post-card-show-more,
-  .post-thread-more
+  .post-card .post-card-show-more
 ) {
   color: var(--protocol-green);
   font-family: var(--app-font-sans);
@@ -34,6 +33,24 @@
    * Grayscale AA on the token only — not on a parent GPU layer (that
    * stacked with body-block and looked soft / thick).
    */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:is(
+  .os-hashtag,
+  .os-mention,
+  .os-ticker,
+  .os-link,
+  button.post-card-show-more,
+  .post-card .post-card-show-more,
+  .post-thread-more
+) {
+  color: var(--protocol-green);
+  font-family: var(--app-font-sans);
+  font-style: normal;
+  font-weight: 300;
+  text-decoration: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -62,10 +79,16 @@
   );
 }
 
-/* Fold — same 300 / green / AA as tokens; compact size for chrome. */
-.post-thread-more {
+/* Thread fold label — match post @handle meta size (not body inherit). */
+button.post-thread-more:not(.post-thread-more--coil-tail) {
   font-size: 0.72rem;
-  line-height: 1.45;
+  line-height: 1.25;
+  letter-spacing: normal;
+  transform: translateZ(0);
+  isolation: isolate;
+}
+
+.post-thread-more--coil-tail {
   transform: translateZ(0);
   isolation: isolate;
 }

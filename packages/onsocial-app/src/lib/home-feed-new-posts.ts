@@ -1,5 +1,6 @@
 import type { PostRow } from '@onsocial/sdk';
 import { postKey } from '@/lib/post-display';
+import { isForeignReply } from '@/lib/feed-threads';
 
 /** Head-page probe size for “new posts” detection. */
 export const HOME_FEED_NEW_PROBE_SIZE = 8;
@@ -10,11 +11,14 @@ export const HOME_FEED_NEW_POLL_MS = 45_000;
 /** Count head-page posts the viewer has not loaded yet. */
 export function countUnseenFeedPosts(
   head: readonly PostRow[],
-  seenKeys: ReadonlySet<string>
+  seenKeys: ReadonlySet<string>,
+  options?: { includeForeignReplies?: boolean }
 ): number {
   let count = 0;
   for (const post of head) {
-    if (!seenKeys.has(postKey(post))) count += 1;
+    if (seenKeys.has(postKey(post))) continue;
+    if (!options?.includeForeignReplies && isForeignReply(post)) continue;
+    count += 1;
   }
   return count;
 }

@@ -14,8 +14,9 @@ export type TransactionFeedback = {
   msg: string;
   /** Optional override — default toast is one-line (no eyebrow). */
   eyebrow?: string;
+  /** Nearblocks tx link — icon only; omit when an in-app action is shown. */
   explorerHref?: string | null;
-  /** In-app navigation (e.g. Messages). Prefer over explorerHref for app routes. */
+  /** In-app follow-up (e.g. View thread) — text link under the message. */
   actionHref?: string | null;
   actionLabel?: string | null;
 };
@@ -83,20 +84,13 @@ export function TransactionFeedbackToast({
               <span className="app-tx-toast-eyebrow">{result.eyebrow}</span>
             ) : null}
             <span className="app-tx-toast-message">{result.msg}</span>
+            {result.actionHref && result.actionLabel ? (
+              <a href={result.actionHref} className="app-tx-toast-action">
+                {result.actionLabel}
+              </a>
+            ) : null}
           </div>
-          {result.actionHref ? (
-            <a
-              className="app-tx-toast-explorer"
-              href={result.actionHref}
-              aria-label={result.actionLabel ?? 'Open'}
-              title={result.actionLabel ?? 'Open'}
-            >
-              <ExternalLinkIcon
-                className="app-tx-toast-explorer-icon"
-                aria-hidden
-              />
-            </a>
-          ) : result.explorerHref ? (
+          {result.explorerHref ? (
             <a
               className="app-tx-toast-explorer"
               href={result.explorerHref}

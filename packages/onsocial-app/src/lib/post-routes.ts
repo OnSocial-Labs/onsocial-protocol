@@ -30,6 +30,26 @@ export function postThreadPath(post: {
   return personalPostPath(post.accountId, post.postId);
 }
 
+/** Query param: scroll + highlight a reply on thread landing. */
+export const THREAD_FOCUS_REPLY_QUERY = 'reply';
+
+export function appendThreadFocusReply(
+  href: string,
+  replyPostId: string
+): string {
+  const id = replyPostId.trim();
+  if (!id) return href;
+  const join = href.includes('?') ? '&' : '?';
+  return `${href}${join}${THREAD_FOCUS_REPLY_QUERY}=${encodeURIComponent(id)}`;
+}
+
+export function readThreadFocusReplyId(
+  searchParams: Pick<URLSearchParams, 'get'>
+): string | null {
+  const id = searchParams.get(THREAD_FOCUS_REPLY_QUERY)?.trim();
+  return id || null;
+}
+
 function parseSourcePostPath(
   path: string | undefined
 ): { author: string; postId: string; path: string } | null {

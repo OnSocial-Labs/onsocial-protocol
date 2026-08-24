@@ -120,6 +120,7 @@ import {
 import {
   isRepostRefType,
   postRelationContext,
+  formatPostRelationTarget,
   type PostRelationContext,
 } from '@/lib/post-relation';
 import {
@@ -156,6 +157,8 @@ interface PostCardProps {
   quotedHref?: string;
   /** Hide the `Replying to @x` context line (redundant inside thread tabs). */
   showRelationBadge?: boolean;
+  /** Profile shells for reply / quote targets (`@{handle}` lines). */
+  authorProfiles?: Record<string, PostAuthorProfile>;
   /** Show room under identity (guild “All” / thread root). */
   showChannel?: boolean;
   /** Prefer room title when `channel` is an id. */
@@ -1101,8 +1104,54 @@ function PostEngagementRow({
   );
 }
 
+function PostCardRelationLine({
+  relationContext,
+  relationTargetProfileName,
+}: {
+  relationContext: PostRelationContext;
+  relationTargetProfileName?: string | null;
+}) {
+  if (relationContext.kind === 'repost') {
+    return (
+      <span className="post-card-relation">
+        <RepeatIcon className="post-card-relation-icon" aria-hidden />
+        {relationContext.label}
+      </span>
+    );
+  }
+
+  const target = formatPostRelationTarget(
+    relationContext.handle,
+    relationTargetProfileName
+  );
+
+  return (
+    <span className="post-card-relation">
+      {relationContext.verb}{' '}
+      <Link
+        href={portfolioPath(relationContext.handle)}
+        className="os-mention post-card-relation-target"
+        scroll={false}
+        onClick={(event) => {
+          event.stopPropagation();
+        }}
+      >
+        {target.name ? (
+          <>
+            <span className="post-card-relation-name">{target.name}</span>{' '}
+            <span className="post-card-relation-handle">@{target.handle}</span>
+          </>
+        ) : (
+          <span className="post-card-relation-handle">@{target.handle}</span>
+        )}
+      </Link>
+    </span>
+  );
+}
+
 function PostCardBody({
   relationContext,
+  relationTargetProfileName,
   badges,
   text,
   hideText = false,
@@ -1111,6 +1160,7 @@ function PostCardBody({
   expandDisabled = false,
 }: {
   relationContext: PostRelationContext | null;
+  relationTargetProfileName?: string | null;
   badges: string[];
   text: string;
   /** When the poll card already shows the question, skip duplicate body text. */
@@ -1128,28 +1178,10 @@ function PostCardBody({
   return (
     <>
       {relationContext ? (
-        <span className="post-card-relation">
-          {relationContext.kind === 'repost' ? (
-            <>
-              <RepeatIcon className="post-card-relation-icon" aria-hidden />
-              {relationContext.label}
-            </>
-          ) : (
-            <>
-              {relationContext.verb}{' '}
-              <Link
-                href={portfolioPath(relationContext.handle)}
-                className="os-mention post-card-relation-handle"
-                scroll={false}
-                onClick={(event) => {
-                  event.stopPropagation();
-                }}
-              >
-                @{relationContext.handle}
-              </Link>
-            </>
-          )}
-        </span>
+        <PostCardRelationLine
+          relationContext={relationContext}
+          relationTargetProfileName={relationTargetProfileName}
+        />
       ) : null}
       {badges.length > 0 ? (
         <div className="post-card-badges">
@@ -1228,6 +1260,7 @@ export function PostCard({
   quotedAuthorProfile,
   quotedHref,
   showRelationBadge = true,
+  authorProfiles,
   showChannel = false,
   channelLabel,
   showGuildAttribution = false,
@@ -1532,11 +1565,15 @@ export function PostCard({
   const name = authorProfile?.displayName?.trim() || fallback;
   const badges = postBadges(post, Boolean(poll), mediaItems.length > 0);
   const relationContext = showRelationBadge
-    ? postRelationContext(post, Boolean(quotedPost), {
+    ? postRelationContext(post, {
         viewerAccountId,
         authorName: name,
       })
     : null;
+  const relationTargetProfileName =
+    relationContext &&
+    relationContext.kind !== 'repost' &&
+    authorProfiles?.[relationContext.handle]?.displayName;
   const profileHref = portfolioPath(post.accountId);
   const shareHref = actionHref ?? postThreadPath(post);
   const guildId = post.groupId?.trim() || null;
@@ -1643,6 +1680,7 @@ export function PostCard({
         <PostSensitiveGate labels={labels} safeMode={safeMode}>
           <PostCardBody
             relationContext={relationContext}
+            relationTargetProfileName={relationTargetProfileName}
             badges={badges}
             text={text}
             hasMedia={hasMedia}

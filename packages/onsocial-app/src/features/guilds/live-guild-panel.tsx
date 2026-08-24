@@ -1939,8 +1939,8 @@ export function LiveGuildPanel({
                 <div
                   className={`home-feed-list${isFeedRefreshing ? ' is-refreshing' : ''}`}
                 >
-                  {feedBlocks.map((block, blockIndex) => (
-                    <div key={postKey(block[0])}>
+                  {feedBlocks.map(({ posts }, blockIndex) => (
+                    <div key={postKey(posts[0]!)}>
                       <Divider
                         variant="item"
                         className={
@@ -1950,7 +1950,7 @@ export function LiveGuildPanel({
                         }
                       />
                       <FeedThreadBlock
-                        block={block}
+                        block={posts}
                         groupId={groupId}
                         showChannel={selectedFeedFilterId === 'all'}
                         channelTitleById={channelTitleById}

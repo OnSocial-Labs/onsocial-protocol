@@ -1,25 +1,32 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
   LauncherHomeEmpty,
   LauncherHomeError,
-  LauncherPeekList,
-  LauncherPeekRow,
+  LauncherSocialPeekList,
+  LauncherSocialPeekRow,
+  LauncherSocialPeekSkeleton,
+  launcherPeekOverflowLabel,
+  LAUNCHER_PEEK_DISPLAY_LIMIT,
 } from '@/components/launcher-home';
 import type { AppView } from '@/features/scarces/apps-data';
 import { collectionCurrentRowToView } from '@/features/scarces/collections-data';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
+import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { collectionPath } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 
 const HUB_DROP_LIMIT = 24;
-const PEEK_LIMIT = 24;
+const PEEK_FETCH_LIMIT = 24;
 
 export type HubDropPeek = {
   key: string;
   appId: string;
   hubName: string;
+  creatorId: string;
   collectionId: string;
   title: string;
   createdAtMs: number;
@@ -96,7 +103,7 @@ export function HubsLatestDropsPanel({
         const client = createReadOnlyOnSocialClient();
         const rows = await client.query.scarces.collectionsCurrent({
           appIds: hubIds,
-          limit: PEEK_LIMIT,
+          limit: PEEK_FETCH_LIMIT,
         });
         if (cancelled) return;
         const mapped = rows
@@ -104,10 +111,13 @@ export function HubsLatestDropsPanel({
             const view = collectionCurrentRowToView(row);
             if (!view) return null;
             const appId = view.appId?.trim() || '';
+            const creatorId = view.creatorId?.trim();
+            if (!creatorId) return null;
             return {
               key: `${appId}:${view.collectionId}`,
               appId,
               hubName: hubNameById.get(appId) ?? (appId || 'Hub'),
+              creatorId,
               collectionId: view.collectionId,
               title: (view.title || view.collectionId).trim().slice(0, 120),
               createdAtMs: view.createdAtMs || 0,
@@ -132,6 +142,23 @@ export function HubsLatestDropsPanel({
     };
   }, [accountId, hubIds, hubNameById, myHubs, retryKey]);
 
+  const visiblePeeks = useMemo(
+    () => (peeks ?? []).slice(0, LAUNCHER_PEEK_DISPLAY_LIMIT),
+    [peeks]
+  );
+
+  const creatorIds = useMemo(
+    () => visiblePeeks.map((peek) => peek.creatorId),
+    [visiblePeeks]
+  );
+  const creatorProfiles = usePostAuthorProfiles(creatorIds);
+  const discoverHubsHref = appDiscoverTabHref('hubs');
+  const overflowLabel = launcherPeekOverflowLabel(
+    peeks?.length ?? 0,
+    'discover',
+    LAUNCHER_PEEK_DISPLAY_LIMIT
+  );
+
   if (!accountId) {
     return null;
   }
@@ -146,7 +173,7 @@ export function HubsLatestDropsPanel({
   }
 
   if (myHubs == null || pending) {
-    return <LauncherHomeEmpty>Loading drops…</LauncherHomeEmpty>;
+    return <LauncherSocialPeekSkeleton count={5} />;
   }
 
   if (hubIds.length === 0) {
@@ -158,25 +185,43 @@ export function HubsLatestDropsPanel({
   }
 
   return (
-    <LauncherPeekList aria-label="Drops from your hubs">
-      {peeks.map((peek) => (
-        <LauncherPeekRow
-          key={peek.key}
-          href={peek.href}
-          title={peek.title}
-          meta={
-            <>
-              {peek.hubName}
-              {peek.createdAtMs > 0 ? (
-                <>
-                  <span aria-hidden> · </span>
-                  {formatMarketRelativeTime(peek.createdAtMs)}
-                </>
-              ) : null}
-            </>
-          }
-        />
-      ))}
-    </LauncherPeekList>
+    <LauncherSocialPeekList
+      aria-label="Latest drops from your hubs"
+      footer={
+        overflowLabel ? (
+          <p className="launcher-home-more">
+            <Link
+              href={discoverHubsHref}
+              className="launcher-home-inline-link"
+              scroll={false}
+            >
+              {overflowLabel}
+            </Link>
+          </p>
+        ) : null
+      }
+    >
+      {visiblePeeks.map((peek, index) => {
+        const profile = creatorProfiles[peek.creatorId];
+        const timeLabel =
+          peek.createdAtMs > 0
+            ? formatMarketRelativeTime(peek.createdAtMs)
+            : null;
+
+        return (
+          <LauncherSocialPeekRow
+            key={peek.key}
+            href={peek.href}
+            accountId={peek.creatorId}
+            profileName={profile?.displayName}
+            avatarUrl={profile?.avatarUrl}
+            contextLabel={peek.hubName}
+            timeLabel={timeLabel}
+            excerpt={peek.title}
+            showDivider={index > 0}
+          />
+        );
+      })}
+    </LauncherSocialPeekList>
   );
 }

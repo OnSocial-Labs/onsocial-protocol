@@ -26,6 +26,15 @@ describe('guild-card-display', () => {
     );
   });
 
+  it('formats pub guild technical names', () => {
+    expect(
+      guildDisplayName('Guild pub-1771027510', 'grp_pub_1771027510_room1')
+    ).toBe('Public ·7510');
+    expect(guildDisplayName(null, 'grp_pub_1771027510_room1')).toBe(
+      'Public ·7510'
+    );
+  });
+
   it('strips raw-id words embedded in stored names', () => {
     expect(
       guildDisplayName(

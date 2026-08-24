@@ -29,6 +29,26 @@ describe('countUnseenFeedPosts', () => {
     const posts = [row('a.near', '1'), row('b.near', '2')];
     expect(countUnseenFeedPosts(posts, feedPostKeySet(posts))).toBe(0);
   });
+
+  it('ignores foreign replies that the home feed would hide', () => {
+    const seen = feedPostKeySet([row('bob.near', 'root')]);
+    const head: PostRow[] = [
+      {
+        accountId: 'alice.near',
+        postId: 'reply',
+        value: '{"text":"hi"}',
+        blockHeight: 2,
+        blockTimestamp: 2,
+        parentPath: 'bob.near/post/root',
+        parentAuthor: 'bob.near',
+      },
+      row('bob.near', 'root'),
+    ];
+    expect(countUnseenFeedPosts(head, seen)).toBe(0);
+    expect(
+      countUnseenFeedPosts(head, seen, { includeForeignReplies: true })
+    ).toBe(1);
+  });
 });
 
 describe('homeFeedNewPostsLabel', () => {

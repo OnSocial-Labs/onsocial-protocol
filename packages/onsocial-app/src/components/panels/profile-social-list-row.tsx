@@ -23,7 +23,8 @@ export type ProfileStandingTimeMode = 'always' | 'viewer-only' | 'never';
 export type ProfileSocialListSkeletonRowVariant =
   | 'standing'
   | 'discover'
-  | 'guild-member';
+  | 'guild-member'
+  | 'leaderboard';
 
 function resolveStandingTimeMeta(
   account: ProfileListAccount,
@@ -146,6 +147,34 @@ export function ProfileSocialListSkeletonRow({
   const showTimeShimmer =
     rowVariant === 'standing' || rowVariant === 'guild-member';
   const isGuildMember = rowVariant === 'guild-member';
+  const isLeaderboard = rowVariant === 'leaderboard';
+
+  if (isLeaderboard) {
+    return (
+      <div
+        className="standing-row leaderboard-row leaderboard-row--skeleton standing-row--skeleton"
+        aria-hidden
+      >
+        <div className="standing-row-main">
+          <div className="leaderboard-row-rank" aria-hidden>
+            <div className="standing-row-shimmer leaderboard-row-shimmer-rank" />
+            <div className="standing-row-shimmer leaderboard-row-shimmer-rank-dense" />
+          </div>
+          <div className="standing-row-avatar standing-row-shimmer" />
+          <div className="standing-row-copy">
+            <div className="standing-row-shimmer standing-row-shimmer-line leaderboard-row-shimmer-name" />
+            <div className="standing-row-shimmer standing-row-shimmer-line-bio leaderboard-row-shimmer-meta" />
+          </div>
+        </div>
+        <div className="standing-row-aside leaderboard-row-aside">
+          <div className="leaderboard-row-value">
+            <div className="standing-row-shimmer leaderboard-row-shimmer-primary" />
+            <div className="standing-row-shimmer leaderboard-row-shimmer-unit" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isGuildMember) {
     return (
@@ -366,16 +395,18 @@ export function ProfileSocialListSkeleton({
   variant?: 'full' | 'append';
   rowVariant?: ProfileSocialListSkeletonRowVariant;
 }) {
+  const isLeaderboard = rowVariant === 'leaderboard';
+
   return (
     <div
-      className={`standing-list standing-list-skeleton${
+      className={`standing-list${isLeaderboard ? ' leaderboard-list' : ''} standing-list-skeleton${
         variant === 'append' ? ' standing-list-skeleton--append' : ''
       }`}
       aria-hidden
     >
       {Array.from({ length: count }, (_, index) => (
         <div key={index}>
-          {index > 0 || variant === 'append' ? (
+          {!isLeaderboard && (index > 0 || variant === 'append') ? (
             <Divider variant="item" />
           ) : null}
           <ProfileSocialListSkeletonRow rowVariant={rowVariant} />

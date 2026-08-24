@@ -15,6 +15,7 @@ export type DaoProposalPeek = {
   daoAccountId: string;
   daoName: string;
   proposalId: number;
+  proposer: string;
   label: string;
   status: string;
   createdAt: string;
@@ -67,6 +68,7 @@ export function mapStoredRowToDaoProposalPeek(
     daoAccountId: row.daoAccountId,
     daoName: daoNameById.get(row.daoAccountId) ?? row.daoAccountId,
     proposalId: row.proposalId,
+    proposer: row.proposalSnapshot.proposer?.trim() || row.daoAccountId,
     label: peekLabelFromSnapshot(row),
     status,
     createdAt: parseSubmissionTimeToIso(

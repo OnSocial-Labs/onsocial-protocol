@@ -1,6 +1,10 @@
 import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { accountIdsEqual } from '@/lib/account-match';
 import { postKey } from '@/lib/post-display';
+import {
+  customDisplayName,
+  fallbackLabel,
+} from '@/lib/profile-display';
 
 export function isRepostRefType(refType: string | undefined): boolean {
   return (refType ?? '').trim().toLowerCase() === 'repost';
@@ -12,28 +16,73 @@ export function isQuoteRefType(refType: string | undefined): boolean {
 }
 
 export type PostRelationContext =
-  | { kind: 'reply' | 'quote'; verb: string; handle: string }
+  | { kind: 'reply'; verb: string; handle: string }
   | { kind: 'repost'; label: string };
 
-/** Reply / quote fallback / share attribution — muted context line. */
+function relationHandleFromPost(post: {
+  accountId?: string;
+  parentPath?: string;
+  parentAuthor?: string;
+}): { kind: 'reply'; handle: string } | null {
+  if (!post.parentPath) return null;
+  const handle = (post.parentAuthor ?? post.parentPath.split('/')[0])?.trim();
+  if (!handle) return null;
+  if (post.accountId && accountIdsEqual(post.accountId, handle)) return null;
+  return { kind: 'reply', handle };
+}
+
+export function formatPostRelationTarget(
+  accountId: string,
+  profileName?: string | null
+): { name: string | null; handle: string; label: string } {
+  const handle = fallbackLabel(accountId);
+  const name = customDisplayName(accountId, profileName);
+  return {
+    name: name || null,
+    handle,
+    label: name ? `${name} @${handle}` : `@${handle}`,
+  };
+}
+
+/** Reply target account id — null for self-replies. */
+export function relationTargetAccountIdFromPost(
+  post: Pick<PostRow, 'accountId' | 'parentPath' | 'parentAuthor'>
+): string | null {
+  return relationHandleFromPost(post)?.handle ?? null;
+}
+
+export function collectRelationTargetAccountIds(
+  posts: Array<Pick<PostRow, 'accountId' | 'parentPath' | 'parentAuthor'>>
+): string[] {
+  const ids = new Set<string>();
+  for (const post of posts) {
+    const targetId = relationTargetAccountIdFromPost(post);
+    if (targetId) ids.add(targetId);
+  }
+  return [...ids];
+}
+
+/** Reply / repost attribution — muted context line. Quotes use the inset card only. */
 export function postRelationContext(
   post: {
     accountId?: string;
     parentPath?: string;
     parentAuthor?: string;
     refPath?: string;
-    refAuthor?: string;
     refType?: string;
   },
-  hasQuoteInset: boolean,
   opts?: {
     viewerAccountId?: string | null;
     authorName?: string | null;
   }
 ): PostRelationContext | null {
-  if (post.parentPath) {
-    const handle = post.parentAuthor ?? post.parentPath.split('/')[0];
-    return handle ? { kind: 'reply', verb: 'Replying to', handle } : null;
+  const reply = relationHandleFromPost(post);
+  if (reply) {
+    return {
+      kind: 'reply',
+      verb: 'Replying to',
+      handle: reply.handle,
+    };
   }
   if (isRepostRefType(post.refType) && post.refPath) {
     const viewer = opts?.viewerAccountId;
@@ -45,11 +94,6 @@ export function postRelationContext(
       kind: 'repost',
       label: isYou ? 'You reposted' : name ? `${name} reposted` : 'Reposted',
     };
-  }
-  // Quote inset already shows the original — only label when it's missing.
-  if (post.refPath && !hasQuoteInset) {
-    const handle = post.refAuthor ?? post.refPath.split('/')[0];
-    return handle ? { kind: 'quote', verb: 'Quoting', handle } : null;
   }
   return null;
 }

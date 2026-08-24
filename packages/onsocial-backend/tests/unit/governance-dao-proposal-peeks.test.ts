@@ -88,6 +88,7 @@ describe('governance-dao-proposal-peeks', () => {
       daoAccountId: 'dao.near',
       daoName: 'Cool DAO',
       proposalId: 7,
+      proposer: 'alice.testnet',
       label: 'Treasury transfer',
       status: 'InProgress',
       open: true,

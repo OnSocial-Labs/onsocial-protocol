@@ -21,7 +21,10 @@ describe('coalesceFeedThreads', () => {
     const a = post({ postId: 'a' });
     const b = post({ postId: 'b', accountId: 'bob.near' });
 
-    expect(coalesceFeedThreads([a, b])).toEqual([[a], [b]]);
+    expect(coalesceFeedThreads([a, b])).toEqual([
+      { posts: [a] },
+      { posts: [b] },
+    ]);
   });
 
   it('joins a self-reply with its parent, parent first', () => {
@@ -34,7 +37,9 @@ describe('coalesceFeedThreads', () => {
     });
 
     // Newest-first feed: reply appears before its parent.
-    expect(coalesceFeedThreads([reply, parent])).toEqual([[parent, reply]]);
+    expect(coalesceFeedThreads([reply, parent])).toEqual([
+      { posts: [parent, reply] },
+    ]);
   });
 
   it('hides cross-author replies from the feed', () => {
@@ -46,7 +51,9 @@ describe('coalesceFeedThreads', () => {
     });
 
     // The reply lives on bob's thread page; the feed keeps only his post.
-    expect(coalesceFeedThreads([reply, parent])).toEqual([[parent]]);
+    expect(coalesceFeedThreads([reply, parent])).toEqual([
+      { posts: [parent] },
+    ]);
   });
 
   it('keeps cross-author replies when includeForeignReplies is set', () => {
@@ -59,7 +66,137 @@ describe('coalesceFeedThreads', () => {
 
     expect(
       coalesceFeedThreads([reply, parent], { includeForeignReplies: true })
-    ).toEqual([[reply], [parent]]);
+    ).toEqual([{ posts: [reply] }, { posts: [parent] }]);
+  });
+
+  it('tucks a stood-with reply under the parent post', () => {
+    const parent = post({ postId: 'root', accountId: 'bob.near' });
+    const reply = post({
+      postId: 'r1',
+      accountId: 'alice.near',
+      parentPath: parentPathFor('bob.near', 'root'),
+      parentAuthor: 'bob.near',
+    });
+
+    expect(
+      coalesceFeedThreads([reply, parent], {
+        stoodWithAccountIds: new Set(['alice.near']),
+      })
+    ).toEqual([{ posts: [parent], standingPeek: reply }]);
+  });
+
+  it('shows only the newest stood-with reply with a coil tail for longer chains', () => {
+    const bobsPost = post({ postId: 'root', accountId: 'bob.near' });
+    const aliceReply = post({
+      postId: 'r1',
+      accountId: 'alice.near',
+      parentPath: parentPathFor('bob.near', 'root'),
+      parentAuthor: 'bob.near',
+    });
+    const aliceFollowUp = post({
+      postId: 'r2',
+      accountId: 'alice.near',
+      blockTimestamp: 3,
+      parentPath: parentPathFor('alice.near', 'r1'),
+      parentAuthor: 'alice.near',
+    });
+
+    expect(
+      coalesceFeedThreads([aliceFollowUp, aliceReply, bobsPost], {
+        stoodWithAccountIds: new Set(['alice.near']),
+      })
+    ).toEqual([
+      {
+        posts: [bobsPost],
+        standingPeek: aliceFollowUp,
+        standingCoilTail: true,
+      },
+    ]);
+  });
+
+  it('keeps the newest stood-with reply when several accounts reply to one parent', () => {
+    const parent = post({
+      postId: 'root',
+      accountId: 'bob.near',
+      blockTimestamp: 1,
+    });
+    const aliceReply = post({
+      postId: 'alice-r',
+      accountId: 'alice.near',
+      blockTimestamp: 2,
+      parentPath: parentPathFor('bob.near', 'root'),
+      parentAuthor: 'bob.near',
+    });
+    const carolReply = post({
+      postId: 'carol-r',
+      accountId: 'carol.near',
+      blockTimestamp: 4,
+      parentPath: parentPathFor('bob.near', 'root'),
+      parentAuthor: 'bob.near',
+    });
+    const daveReply = post({
+      postId: 'dave-r',
+      accountId: 'dave.near',
+      blockTimestamp: 3,
+      parentPath: parentPathFor('bob.near', 'root'),
+      parentAuthor: 'bob.near',
+    });
+
+    expect(
+      coalesceFeedThreads([carolReply, daveReply, aliceReply, parent], {
+        stoodWithAccountIds: new Set([
+          'alice.near',
+          'carol.near',
+          'dave.near',
+        ]),
+      })
+    ).toEqual([{ posts: [parent], standingPeek: carolReply }]);
+  });
+
+  it('keeps stood-with peek outside a long native self-thread chain', () => {
+    const root = post({ postId: 'root', blockTimestamp: 1 });
+    const r2 = post({
+      postId: 'r2',
+      blockTimestamp: 2,
+      parentPath: parentPathFor('alice.near', 'root'),
+      parentAuthor: 'alice.near',
+    });
+    const r3 = post({
+      postId: 'r3',
+      blockTimestamp: 3,
+      parentPath: parentPathFor('alice.near', 'r2'),
+      parentAuthor: 'alice.near',
+    });
+    const r4 = post({
+      postId: 'r4',
+      blockTimestamp: 4,
+      parentPath: parentPathFor('alice.near', 'r3'),
+      parentAuthor: 'alice.near',
+    });
+    const r5 = post({
+      postId: 'r5',
+      blockTimestamp: 5,
+      parentPath: parentPathFor('alice.near', 'r4'),
+      parentAuthor: 'alice.near',
+    });
+    const bobReply = post({
+      postId: 'bob-r',
+      accountId: 'bob.near',
+      blockTimestamp: 6,
+      parentPath: parentPathFor('alice.near', 'root'),
+      parentAuthor: 'alice.near',
+    });
+
+    expect(
+      coalesceFeedThreads([bobReply, r5, r4, r3, r2, root], {
+        stoodWithAccountIds: new Set(['bob.near']),
+      })
+    ).toEqual([
+      {
+        posts: [root, r2, r3, r4, r5],
+        standingPeek: bobReply,
+      },
+    ]);
   });
 
   it('hides a self-thread rooted in a reply to someone else', () => {
@@ -76,7 +213,7 @@ describe('coalesceFeedThreads', () => {
     });
 
     expect(coalesceFeedThreads([aliceFollowUp, aliceReply, bobsPost])).toEqual([
-      [bobsPost],
+      { posts: [bobsPost] },
     ]);
   });
 
@@ -90,8 +227,8 @@ describe('coalesceFeedThreads', () => {
     });
 
     expect(coalesceFeedThreads([reply, other, parent])).toEqual([
-      [parent, reply],
-      [other],
+      { posts: [parent, reply] },
+      { posts: [other] },
     ]);
   });
 
@@ -108,7 +245,7 @@ describe('coalesceFeedThreads', () => {
       parentAuthor: 'alice.near',
     });
 
-    expect(coalesceFeedThreads([c, b, a])).toEqual([[a, b, c]]);
+    expect(coalesceFeedThreads([c, b, a])).toEqual([{ posts: [a, b, c] }]);
   });
 
   it('keeps a self-reply alone when the parent is not on this page', () => {
@@ -118,7 +255,7 @@ describe('coalesceFeedThreads', () => {
       parentAuthor: 'alice.near',
     });
 
-    expect(coalesceFeedThreads([reply])).toEqual([[reply]]);
+    expect(coalesceFeedThreads([reply])).toEqual([{ posts: [reply] }]);
   });
 
   it('gives the parent to the newest sibling only', () => {
@@ -135,8 +272,8 @@ describe('coalesceFeedThreads', () => {
     });
 
     expect(coalesceFeedThreads([newer, older, parent])).toEqual([
-      [parent, newer],
-      [older],
+      { posts: [parent, newer] },
+      { posts: [older] },
     ]);
   });
 });

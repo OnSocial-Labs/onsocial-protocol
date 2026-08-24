@@ -31,8 +31,9 @@ describe('ReputationBreakdownFacts', () => {
     );
     expect(html).toContain('42.5');
     expect(html).toContain('#12');
-    expect(html).toContain('Established');
-    expect(html).toContain('80%');
+    expect(html).not.toContain('Established');
+    expect(html).not.toContain('80%');
+    expect(html).not.toContain('Limited data');
     expect(html).toContain('Stands, endorsements, paid support');
     expect(html).toContain('Boost lock · Scout');
     expect(html).toContain('Reactions, conversations, amplifies');
@@ -56,16 +57,16 @@ describe('ReputationBreakdownFacts', () => {
     expect(html).toContain('No reputation indexed for @bob.near yet');
   });
 
-  it('shows building confidence in the headline meta only', () => {
+  it('omits rank label when unranked', () => {
     const html = renderToStaticMarkup(
       createElement(ReputationBreakdownFacts, {
         accountId: 'cara.near',
         reputation: { ...sample, confidenceScore: 0.4, rank: 0 },
       })
     );
-    expect(html).toContain('Building');
-    expect(html).toContain('40%');
-    expect(html).not.toContain('Forming from social graph');
+    expect(html).not.toContain('Building');
+    expect(html).not.toContain('40%');
+    expect(html).not.toContain('Limited data');
     expect(html).not.toContain('#0');
   });
 });

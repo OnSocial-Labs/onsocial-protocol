@@ -1,12 +1,17 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
   LauncherHomeEmpty,
   LauncherHomeError,
-  LauncherPeekList,
-  LauncherPeekRow,
+  LauncherSocialPeekList,
+  LauncherSocialPeekRow,
+  LauncherSocialPeekSkeleton,
+  launcherPeekOverflowLabel,
+  LAUNCHER_PEEK_DISPLAY_LIMIT,
 } from '@/components/launcher-home';
+import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import {
   fetchProtocolProposalPeeks,
   type ProtocolProposalPeek,
@@ -18,7 +23,9 @@ import {
   PROTOCOL_PROPOSAL_PEEK_DAO_LIMIT,
   PROTOCOL_PROPOSAL_PEEK_LIMIT,
 } from '@/features/protocol/protocol-proposal-peek-limits';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { daoPortfolioPath } from '@/lib/app-routes';
+import { formatRelativePostTimestamp } from '@/lib/post-display';
 
 const EXPLORE_DAO_LIMIT = PROTOCOL_PROPOSAL_PEEK_DAO_LIMIT;
 const EXPLORE_PEEK_LIMIT = PROTOCOL_PROPOSAL_PEEK_LIMIT;
@@ -27,25 +34,39 @@ export type DaosExplorePeek = {
   key: string;
   daoAccountId: string;
   daoName: string;
+  proposer: string;
   proposalId: number;
   label: string;
   statusLabel: string;
-  createdAt: string;
-  open: boolean;
+  createdAtMs: number;
+  href: string;
 };
 
 function mapPeek(row: ProtocolProposalPeek): DaosExplorePeek {
   const status = String(row.status || 'InProgress');
+  const createdAtMs = row.createdAt ? Date.parse(row.createdAt) : 0;
   return {
     key: `${row.daoAccountId}:${row.proposalId}`,
     daoAccountId: row.daoAccountId,
     daoName: row.daoName || row.daoAccountId,
+    proposer: row.proposer?.trim() || row.daoAccountId,
     proposalId: row.proposalId,
     label: (row.label || `Proposal #${row.proposalId}`).trim().slice(0, 120),
     statusLabel: statusLabel(status as ProtocolDaoProposalStatus),
-    createdAt: row.createdAt || '',
-    open: Boolean(row.open),
+    createdAtMs: Number.isFinite(createdAtMs) ? createdAtMs : 0,
+    href: daoPortfolioPath(row.daoAccountId, {
+      proposal: row.proposalId,
+    }),
   };
+}
+
+function daoContextLabel(peek: DaosExplorePeek): string {
+  const named =
+    peek.daoName.trim().toLowerCase() !== peek.daoAccountId.trim().toLowerCase();
+  if (named) {
+    return `${peek.daoName} · ${peek.statusLabel}`;
+  }
+  return `${peek.daoAccountId} · ${peek.statusLabel}`;
 }
 
 /**
@@ -131,6 +152,23 @@ export function DaosExplorePanel({
     };
   }, [accountId, daoIds, myDaos, retryKey]);
 
+  const visiblePeeks = useMemo(
+    () => (peeks ?? []).slice(0, LAUNCHER_PEEK_DISPLAY_LIMIT),
+    [peeks]
+  );
+
+  const proposerIds = useMemo(
+    () => visiblePeeks.map((peek) => peek.proposer),
+    [visiblePeeks]
+  );
+  const proposerProfiles = usePostAuthorProfiles(proposerIds);
+  const discoverDaosHref = appDiscoverTabHref('daos');
+  const overflowLabel = launcherPeekOverflowLabel(
+    peeks?.length ?? 0,
+    'discover',
+    LAUNCHER_PEEK_DISPLAY_LIMIT
+  );
+
   if (!accountId) {
     return null;
   }
@@ -145,7 +183,7 @@ export function DaosExplorePanel({
   }
 
   if (myDaos == null || pending) {
-    return <LauncherHomeEmpty>Loading proposals…</LauncherHomeEmpty>;
+    return <LauncherSocialPeekSkeleton count={5} />;
   }
 
   if (daoIds.length === 0) {
@@ -157,34 +195,48 @@ export function DaosExplorePanel({
   }
 
   return (
-    <LauncherPeekList aria-label="Proposals from your DAOs">
-      {peeks.map((peek) => {
-        const named =
-          peek.daoName.trim().toLowerCase() !==
-          peek.daoAccountId.trim().toLowerCase();
+    <LauncherSocialPeekList
+      aria-label="Latest proposals from your DAOs"
+      footer={
+        overflowLabel ? (
+          <p className="launcher-home-more">
+            <Link
+              href={discoverDaosHref}
+              className="launcher-home-inline-link"
+              scroll={false}
+            >
+              {overflowLabel}
+            </Link>
+          </p>
+        ) : null
+      }
+    >
+      {visiblePeeks.map((peek, index) => {
+        const profile = proposerProfiles[peek.proposer];
+        const timeLabel =
+          peek.createdAtMs > 0
+            ? formatRelativePostTimestamp(peek.createdAtMs)
+            : null;
+
         return (
-          <LauncherPeekRow
+          <LauncherSocialPeekRow
             key={peek.key}
-            href={daoPortfolioPath(peek.daoAccountId, {
-              proposal: peek.proposalId,
-            })}
-            title={peek.label}
-            meta={
-              <>
-                {named ? (
-                  <>
-                    {peek.daoName}
-                    <span aria-hidden> · </span>
-                  </>
-                ) : null}
-                {peek.daoAccountId}
-                <span aria-hidden> · </span>
-                {peek.statusLabel}
-              </>
+            href={peek.href}
+            accountId={peek.proposer}
+            profileName={profile?.displayName}
+            avatarUrl={profile?.avatarUrl}
+            contextLabel={daoContextLabel(peek)}
+            timeLabel={timeLabel}
+            timeTitle={
+              peek.createdAtMs > 0
+                ? new Date(peek.createdAtMs).toISOString()
+                : undefined
             }
+            excerpt={peek.label}
+            showDivider={index > 0}
           />
         );
       })}
-    </LauncherPeekList>
+    </LauncherSocialPeekList>
   );
 }

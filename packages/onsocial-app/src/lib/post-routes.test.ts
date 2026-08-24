@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  appendThreadFocusReply,
   personalPostContentPath,
   personalPostPath,
   postThreadPath,
@@ -57,5 +58,16 @@ describe('postThreadPath', () => {
     ).toBe(
       '/groups/grp_md_perm_1779813274071_ojf237/posts/test05.onsocial.testnet/1783799687804'
     );
+  });
+});
+
+describe('appendThreadFocusReply', () => {
+  it('appends reply focus query', () => {
+    expect(
+      appendThreadFocusReply('/@alice.testnet/posts/1', '999')
+    ).toBe('/@alice.testnet/posts/1?reply=999');
+    expect(
+      appendThreadFocusReply('/@alice.testnet/posts/1?media=unmute', '999')
+    ).toBe('/@alice.testnet/posts/1?media=unmute&reply=999');
   });
 });

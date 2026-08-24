@@ -13,6 +13,30 @@ export function LauncherMineRail({ children }: { children: ReactNode }) {
   return <ul className="launcher-mine-rail">{children}</ul>;
 }
 
+/** Horizontal card shimmer while mine membership loads. */
+export function LauncherMineRailSkeleton({ count = 4 }: { count?: number }) {
+  return (
+    <ul
+      className="launcher-mine-rail launcher-mine-rail--skeleton"
+      aria-busy="true"
+      aria-label="Loading your spaces"
+    >
+      {Array.from({ length: count }, (_, index) => (
+        <li key={index} aria-hidden>
+          <div className="launcher-mine-card launcher-mine-card--skeleton">
+            <span className="launcher-mine-banner standing-row-shimmer" />
+            <span className="launcher-mine-rule" aria-hidden />
+            <span className="launcher-mine-foot">
+              <span className="launcher-mine-mark standing-row-shimmer" />
+              <span className="standing-row-shimmer standing-row-shimmer-line launcher-mine-title-shimmer" />
+            </span>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /**
  * Mine home place card — banner plane, hairline, footer mark + title.
  * No members / description (those live on Discover).

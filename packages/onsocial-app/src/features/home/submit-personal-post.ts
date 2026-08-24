@@ -34,6 +34,7 @@ import {
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
+import { appendThreadFocusReply, postThreadPath } from '@/lib/post-routes';
 
 export interface PersonalPostSubmitResult {
   confirmed: boolean;
@@ -45,6 +46,8 @@ type TrackTransaction = (input: {
   submittedMessage: string;
   successMessage: string;
   failureMessage: string;
+  actionHref?: string | null;
+  actionLabel?: string | null;
 }) => Promise<boolean>;
 
 function toastCopy(mode: ComposerMode) {
@@ -299,6 +302,12 @@ export async function submitPersonalPost(args: {
   const confirmed = await trackTransaction({
     txHashes: collectRelayTxHashes(response),
     ...toastCopy(mode),
+    ...(mode === 'reply' && target
+      ? {
+          actionHref: appendThreadFocusReply(postThreadPath(target), newPostId),
+          actionLabel: txToastSuccess.viewThread,
+        }
+      : {}),
   });
 
   if (!confirmed) {

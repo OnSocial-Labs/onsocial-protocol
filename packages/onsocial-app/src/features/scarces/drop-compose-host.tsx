@@ -260,3 +260,31 @@ export function subscribePersonalPostConfirmed(
   window.addEventListener(PERSONAL_POST_CONFIRMED, handler);
   return () => window.removeEventListener(PERSONAL_POST_CONFIRMED, handler);
 }
+
+const PERSONAL_REPLY_CONFIRMED = 'onsocial:personal-reply-confirmed';
+
+export type PersonalReplyConfirmedDetail = {
+  parent: PostRow;
+  reply: PostRow;
+};
+
+function dispatchPersonalReplyConfirmed(detail: PersonalReplyConfirmedDetail) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent(PERSONAL_REPLY_CONFIRMED, { detail })
+  );
+}
+
+export function subscribePersonalReplyConfirmed(
+  listener: (detail: PersonalReplyConfirmedDetail) => void
+): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+  const handler = (event: Event) => {
+    const detail = (event as CustomEvent<PersonalReplyConfirmedDetail>).detail;
+    if (detail?.parent) listener(detail);
+  };
+  window.addEventListener(PERSONAL_REPLY_CONFIRMED, handler);
+  return () => window.removeEventListener(PERSONAL_REPLY_CONFIRMED, handler);
+}
+
+export { dispatchPersonalReplyConfirmed };

@@ -1,23 +1,32 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
   LauncherHomeEmpty,
   LauncherHomeError,
-  LauncherPeekList,
-  LauncherPeekRow,
+  LauncherSocialPeekList,
+  LauncherSocialPeekRow,
+  LauncherSocialPeekSkeleton,
+  launcherPeekOverflowLabel,
+  LAUNCHER_PEEK_DISPLAY_LIMIT,
 } from '@/components/launcher-home';
 import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import { useResolvedGroupPosts } from '@/hooks/use-quoted-posts';
+import { APP_HOME_PATH } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { resolveLauncherPostPeekDisplay, relationTargetAccountId } from '@/lib/launcher-post-peek';
 import {
   formatRelativePostTimestamp,
-  parsePostText,
+  postTimestampIso,
 } from '@/lib/post-display';
+import { isRepostRefType } from '@/lib/post-relation';
 import { postThreadPath } from '@/lib/post-routes';
 
 const GUILD_FEED_LIMIT = 24;
-const PEEK_LIMIT = 24;
+const PEEK_FETCH_LIMIT = 24;
 
 export type GuildPostPeek = {
   key: string;
@@ -25,9 +34,16 @@ export type GuildPostPeek = {
   guildName: string;
   author: string;
   postId: string;
-  label: string;
+  value: string;
+  kind?: string | null;
+  excerpt: string;
   blockTimestamp: number;
   href: string;
+  refType?: string;
+  refPath?: string;
+  refAuthor?: string;
+  parentPath?: string;
+  parentAuthor?: string;
 };
 
 /**
@@ -100,7 +116,7 @@ export function GuildsLatestPostsPanel({
         const client = createReadOnlyOnSocialClient();
         const feed = await client.query.groups.feedFromGroups({
           groupIds: guildIds,
-          limit: PEEK_LIMIT,
+          limit: PEEK_FETCH_LIMIT,
         });
         if (cancelled) return;
         const mapped = feed.items
@@ -109,21 +125,23 @@ export function GuildsLatestPostsPanel({
             const author = post.accountId?.trim();
             const groupId = post.groupId?.trim();
             if (!postId || !author || !groupId) return null;
-            const text = parsePostText(post.value ?? '').trim();
-            const label = (
-              text ||
-              (post.kind ? String(post.kind) : '') ||
-              `Post ${postId}`
-            ).slice(0, 120);
+            const value = post.value ?? '';
             return {
               key: `${groupId}:${author}:${postId}`,
               groupId,
               guildName: guildNameById.get(groupId) ?? groupId,
               author,
               postId,
-              label,
+              value,
+              kind: post.kind,
+              excerpt: '',
               blockTimestamp: Number(post.blockTimestamp) || 0,
               href: postThreadPath(post),
+              refType: post.refType,
+              refPath: post.refPath,
+              refAuthor: post.refAuthor,
+              parentPath: post.parentPath,
+              parentAuthor: post.parentAuthor,
             } satisfies GuildPostPeek;
           })
           .filter((row): row is GuildPostPeek => row != null);
@@ -144,6 +162,42 @@ export function GuildsLatestPostsPanel({
     };
   }, [accountId, guildIds, guildNameById, myGuilds, retryKey]);
 
+  const visiblePeeks = useMemo(
+    () => (peeks ?? []).slice(0, LAUNCHER_PEEK_DISPLAY_LIMIT),
+    [peeks]
+  );
+
+  const repostRefPaths = useMemo(
+    () =>
+      visiblePeeks
+        .filter((peek) => isRepostRefType(peek.refType) && peek.refPath)
+        .map((peek) => peek.refPath),
+    [visiblePeeks]
+  );
+  const resolvedPosts = useResolvedGroupPosts(repostRefPaths);
+
+  const authorIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const peek of visiblePeeks) {
+      ids.add(peek.author);
+      const targetId = relationTargetAccountId(peek);
+      if (targetId) ids.add(targetId);
+      const original =
+        peek.refPath && isRepostRefType(peek.refType)
+          ? resolvedPosts[peek.refPath]
+          : undefined;
+      if (original?.accountId) ids.add(original.accountId);
+    }
+    return [...ids];
+  }, [resolvedPosts, visiblePeeks]);
+
+  const authorProfiles = usePostAuthorProfiles(authorIds);
+  const overflowLabel = launcherPeekOverflowLabel(
+    peeks?.length ?? 0,
+    'home',
+    LAUNCHER_PEEK_DISPLAY_LIMIT
+  );
+
   if (!accountId) {
     return null;
   }
@@ -158,7 +212,7 @@ export function GuildsLatestPostsPanel({
   }
 
   if (myGuilds == null || pending) {
-    return <LauncherHomeEmpty>Loading posts…</LauncherHomeEmpty>;
+    return <LauncherSocialPeekSkeleton count={5} />;
   }
 
   if (guildIds.length === 0) {
@@ -170,25 +224,60 @@ export function GuildsLatestPostsPanel({
   }
 
   return (
-    <LauncherPeekList aria-label="Posts from your guilds">
-      {peeks.map((peek) => (
-        <LauncherPeekRow
-          key={peek.key}
-          href={peek.href}
-          title={peek.label}
-          meta={
-            <>
-              {peek.guildName}
-              {peek.blockTimestamp > 0 ? (
-                <>
-                  <span aria-hidden> · </span>
-                  {formatRelativePostTimestamp(peek.blockTimestamp)}
-                </>
-              ) : null}
-            </>
-          }
-        />
-      ))}
-    </LauncherPeekList>
+    <LauncherSocialPeekList
+      aria-label="Latest posts from your guilds"
+      footer={
+        overflowLabel ? (
+          <p className="launcher-home-more">
+            <Link
+              href={APP_HOME_PATH}
+              className="launcher-home-inline-link"
+              scroll={false}
+            >
+              {overflowLabel}
+            </Link>
+          </p>
+        ) : null
+      }
+    >
+      {visiblePeeks.map((peek, index) => {
+        const display = resolveLauncherPostPeekDisplay({
+          peek,
+          resolvedByPath: resolvedPosts,
+          viewerAccountId: accountId,
+          authorDisplayName: authorProfiles[peek.author]?.displayName,
+        });
+        const profile = authorProfiles[display.accountId];
+        const relationTargetId = display.relation
+          ? relationTargetAccountId(peek)
+          : null;
+        const timeLabel =
+          peek.blockTimestamp > 0
+            ? formatRelativePostTimestamp(peek.blockTimestamp)
+            : null;
+
+        return (
+          <LauncherSocialPeekRow
+            key={peek.key}
+            href={display.href}
+            accountId={display.accountId}
+            profileName={profile?.displayName}
+            avatarUrl={profile?.avatarUrl}
+            contextLabel={peek.guildName}
+            timeLabel={timeLabel}
+            timeTitle={postTimestampIso(peek.blockTimestamp) ?? undefined}
+            excerpt={display.excerpt}
+            relation={display.relation}
+            repostAttribution={display.repostAttribution}
+            relationTargetProfileName={
+              relationTargetId
+                ? authorProfiles[relationTargetId]?.displayName
+                : undefined
+            }
+            showDivider={index > 0}
+          />
+        );
+      })}
+    </LauncherSocialPeekList>
   );
 }

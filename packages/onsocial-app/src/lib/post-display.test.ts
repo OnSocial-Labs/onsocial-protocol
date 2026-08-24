@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatPostPeekExcerpt,
   formatPostTimestamp,
   formatRelativePostTimestamp,
   parseDropPaintSnapshot,
   parsePostCollectionEmbed,
+  parsePostPollEmbed,
   parsePostText,
   postFeedPreviewLimit,
   postPreviewNeedsExpand,
   postTimestampIso,
   POST_FEED_PREVIEW_CHARS,
   POST_FEED_PREVIEW_CHARS_WITH_MEDIA,
+  POST_PEEK_EXCERPT_CHARS,
   POST_QUOTE_PREVIEW_CHARS,
   POST_TEXT_MAX_LENGTH,
   truncatePostPreview,
@@ -131,6 +134,7 @@ describe('post text preview', () => {
     expect(POST_FEED_PREVIEW_CHARS).toBe(280);
     expect(POST_FEED_PREVIEW_CHARS_WITH_MEDIA).toBe(140);
     expect(POST_QUOTE_PREVIEW_CHARS).toBe(120);
+    expect(POST_PEEK_EXCERPT_CHARS).toBe(120);
     expect(postFeedPreviewLimit(false)).toBe(280);
     expect(postFeedPreviewLimit(true)).toBe(140);
   });
@@ -141,6 +145,49 @@ describe('post text preview', () => {
     expect(truncatePostPreview('a'.repeat(200), 120).length).toBe(121);
     expect(postPreviewNeedsExpand('a'.repeat(140), 140)).toBe(false);
     expect(postPreviewNeedsExpand('a'.repeat(141), 140)).toBe(true);
+  });
+});
+
+describe('formatPostPeekExcerpt', () => {
+  it('prefers post text, then poll question, then drop title', () => {
+    expect(
+      formatPostPeekExcerpt(JSON.stringify({ v: 1, text: 'Hello guild' }))
+    ).toBe('Hello guild');
+    expect(
+      formatPostPeekExcerpt(
+        JSON.stringify({
+          v: 1,
+          text: '',
+          embeds: [
+            {
+              kind: 'poll',
+              question: 'What is your favourite colour?',
+              options: ['Red', 'Blue'],
+            },
+          ],
+        }),
+        { kind: 'poll' }
+      )
+    ).toBe('What is your favourite colour?');
+    expect(
+      formatPostPeekExcerpt(
+        JSON.stringify({
+          v: 1,
+          text: '',
+          x: {
+            onsocial: {
+              drop: { collectionId: 'drop-1', title: 'Night Drop' },
+            },
+          },
+        })
+      )
+    ).toBe('Night Drop');
+  });
+
+  it('falls back to kind labels and post id', () => {
+    expect(formatPostPeekExcerpt('', { kind: 'poll' })).toBe('Poll');
+    expect(formatPostPeekExcerpt('', { kind: 'image' })).toBe('Photo');
+    expect(formatPostPeekExcerpt('', { postId: 'p1' })).toBe('Post p1');
   });
 });
 

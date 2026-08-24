@@ -15,6 +15,8 @@ type TrackNearTransactionParams = {
   successMessage: string;
   failureMessage?: string;
   onFailure?: (message: string) => void;
+  actionHref?: string | null;
+  actionLabel?: string | null;
 };
 
 function resolveExplorerTxHash(hashes: string[]): string | null {
@@ -37,6 +39,8 @@ export function useNearTransactionFeedback(
       successMessage,
       failureMessage,
       onFailure,
+      actionHref,
+      actionLabel,
     }: TrackNearTransactionParams): Promise<boolean> => {
       const uniqueHashes = [...new Set(txHashes.filter(Boolean))];
       const explorerHref = nearExplorerTxHref(
@@ -51,7 +55,12 @@ export function useNearTransactionFeedback(
       }
 
       if (uniqueHashes.length === 0) {
-        setTxResult({ type: 'success', msg: successMessage });
+        setTxResult({
+          type: 'success',
+          msg: successMessage,
+          actionHref,
+          actionLabel,
+        });
         return true;
       }
 
@@ -70,7 +79,13 @@ export function useNearTransactionFeedback(
           return false;
         }
 
-        setTxResult({ type: 'success', msg: successMessage, explorerHref });
+        setTxResult({
+          type: 'success',
+          msg: successMessage,
+          explorerHref: actionHref ? null : explorerHref,
+          actionHref,
+          actionLabel,
+        });
         return true;
       } catch (error) {
         const msg =

@@ -6,6 +6,9 @@ import {
   postRelationContext,
   resolveQuotedInset,
   withRepostOriginals,
+  formatPostRelationTarget,
+  relationTargetAccountIdFromPost,
+  collectRelationTargetAccountIds,
 } from '@/lib/post-relation';
 
 function post(over: Partial<PostRow> = {}): PostRow {
@@ -40,17 +43,14 @@ describe('isQuoteRefType', () => {
 });
 
 describe('postRelationContext', () => {
-  it('prefers reply over quote/repost', () => {
+  it('prefers reply over repost ref', () => {
     expect(
-      postRelationContext(
-        {
-          parentPath: 'bob.near/post/2',
-          parentAuthor: 'bob.near',
-          refPath: 'carol.near/post/3',
-          refType: 'repost',
-        },
-        false
-      )
+      postRelationContext({
+        parentPath: 'bob.near/post/2',
+        parentAuthor: 'bob.near',
+        refPath: 'carol.near/post/3',
+        refType: 'repost',
+      })
     ).toEqual({ kind: 'reply', verb: 'Replying to', handle: 'bob.near' });
   });
 
@@ -63,7 +63,6 @@ describe('postRelationContext', () => {
           refAuthor: 'bob.near',
           refType: 'repost',
         },
-        true,
         { viewerAccountId: 'alice.near', authorName: 'Alice' }
       )
     ).toEqual({ kind: 'repost', label: 'You reposted' });
@@ -78,7 +77,6 @@ describe('postRelationContext', () => {
           refAuthor: 'bob.near',
           refType: 'repost',
         },
-        false,
         { viewerAccountId: 'carol.near', authorName: 'Alice' }
       )
     ).toEqual({ kind: 'repost', label: 'Alice reposted' });
@@ -86,41 +84,89 @@ describe('postRelationContext', () => {
 
   it('falls back to the reposter account id when no display name', () => {
     expect(
-      postRelationContext(
-        {
-          accountId: 'alice.near',
-          refPath: 'bob.near/post/2',
-          refType: 'repost',
-        },
-        false
-      )
+      postRelationContext({
+        accountId: 'alice.near',
+        refPath: 'bob.near/post/2',
+        refType: 'repost',
+      })
     ).toEqual({ kind: 'repost', label: 'alice.near reposted' });
   });
 
-  it('hides Quoting when the quote inset is present', () => {
+  it('never shows a quote relation — the inset card carries context', () => {
     expect(
-      postRelationContext(
-        {
-          refPath: 'bob.near/post/2',
-          refAuthor: 'bob.near',
-          refType: 'quote',
-        },
-        true
-      )
+      postRelationContext({
+        refPath: 'bob.near/post/2',
+        refAuthor: 'bob.near',
+        refType: 'quote',
+      })
     ).toBeNull();
   });
 
-  it('shows Quoting only when the quote inset is missing', () => {
+  it('suppresses self-replies', () => {
     expect(
-      postRelationContext(
-        {
-          refPath: 'bob.near/post/2',
-          refAuthor: 'bob.near',
-          refType: 'post',
-        },
-        false
-      )
-    ).toEqual({ kind: 'quote', verb: 'Quoting', handle: 'bob.near' });
+      postRelationContext({
+        accountId: 'test03.onsocial.testnet',
+        parentPath: 'test03.onsocial.testnet/post/1',
+        parentAuthor: 'test03.onsocial.testnet',
+      })
+    ).toBeNull();
+  });
+});
+
+describe('formatPostRelationTarget', () => {
+  it('includes name and handle when profile is known', () => {
+    expect(formatPostRelationTarget('bob.near', 'Bob')).toEqual({
+      name: 'Bob',
+      handle: 'bob.near',
+      label: 'Bob @bob.near',
+    });
+  });
+
+  it('falls back to handle only', () => {
+    expect(formatPostRelationTarget('bob.near')).toEqual({
+      name: null,
+      handle: 'bob.near',
+      label: '@bob.near',
+    });
+  });
+});
+
+describe('relationTargetAccountIdFromPost', () => {
+  it('returns reply target', () => {
+    expect(
+      relationTargetAccountIdFromPost({
+        accountId: 'alice.near',
+        parentPath: 'bob.near/post/2',
+        parentAuthor: 'bob.near',
+      })
+    ).toBe('bob.near');
+  });
+
+  it('returns null for self-replies', () => {
+    expect(
+      relationTargetAccountIdFromPost({
+        accountId: 'alice.near',
+        parentPath: 'alice.near/post/2',
+        parentAuthor: 'alice.near',
+      })
+    ).toBeNull();
+  });
+});
+
+describe('collectRelationTargetAccountIds', () => {
+  it('dedupes reply targets across posts', () => {
+    expect(
+      collectRelationTargetAccountIds([
+        post({
+          parentPath: 'bob.near/post/1',
+          parentAuthor: 'bob.near',
+        }),
+        post({
+          parentPath: 'bob.near/post/2',
+          parentAuthor: 'bob.near',
+        }),
+      ])
+    ).toEqual(['bob.near']);
   });
 });
 

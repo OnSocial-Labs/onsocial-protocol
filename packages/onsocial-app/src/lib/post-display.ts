@@ -12,6 +12,19 @@ export const POST_FEED_PREVIEW_CHARS_WITH_MEDIA = 140;
 /** Quoted-post inset preview. */
 export const POST_QUOTE_PREVIEW_CHARS = 120;
 
+/** Launcher / shelf post peek excerpt. */
+export const POST_PEEK_EXCERPT_CHARS = 120;
+
+const POST_KIND_PEEK_LABELS: Record<string, string> = {
+  poll: 'Poll',
+  text: 'Post',
+  image: 'Photo',
+  video: 'Video',
+  audio: 'Audio',
+  repost: 'Repost',
+  quote: 'Quote',
+};
+
 /** Soft warn in composer when remaining budget dips below this. */
 export const POST_TEXT_WARN_REMAINING = 200;
 
@@ -342,6 +355,50 @@ export function truncatePostPreview(text: string, maxChars: number): string {
   const normalized = normalizePostPreviewText(text);
   if (normalized.length <= maxChars) return normalized;
   return `${normalized.slice(0, maxChars).trimEnd()}…`;
+}
+
+/**
+ * One-line launcher peek copy — text first, then poll question / drop title,
+ * then kind-aware fallbacks.
+ */
+export function formatPostPeekExcerpt(
+  value: string,
+  options?: { kind?: string | null; postId?: string }
+): string {
+  const text = parsePostText(value).trim();
+  if (text) {
+    return truncatePostPreview(text, POST_PEEK_EXCERPT_CHARS);
+  }
+
+  const poll = parsePostPollEmbed(value);
+  if (poll) {
+    return truncatePostPreview(poll.question, POST_PEEK_EXCERPT_CHARS);
+  }
+
+  const drop = parseDropPaintSnapshot(value);
+  if (drop?.title) {
+    return truncatePostPreview(drop.title, POST_PEEK_EXCERPT_CHARS);
+  }
+
+  if (parsePostCollectionEmbed(value)) {
+    return 'Drop';
+  }
+
+  if (parsePostTokenEmbed(value)) {
+    return 'Token';
+  }
+
+  const kind = options?.kind?.trim().toLowerCase() ?? '';
+  if (kind && POST_KIND_PEEK_LABELS[kind]) {
+    return POST_KIND_PEEK_LABELS[kind]!;
+  }
+  if (kind) {
+    return `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
+  }
+
+  const postId = options?.postId?.trim();
+  if (postId) return `Post ${postId}`;
+  return 'Post';
 }
 
 export function postPreviewNeedsExpand(

@@ -8,6 +8,7 @@ import {
   LauncherHomeSection,
   LauncherMineCard,
   LauncherMineRail,
+  LauncherMineRailSkeleton,
 } from '@/components/launcher-home';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -86,13 +87,12 @@ export function HubsIndexPanel() {
   return (
     <OsAppScreen
       title="Hubs"
-      subtitle="Your stores"
       backFallbackHref="/"
       glassChrome
       actions={headerActions}
     >
       <div className="launcher-home">
-        <LauncherHomeSection title="My Hubs">
+        <LauncherHomeSection aria-label="My hubs">
           <LauncherHomeMineStatus
             connected={Boolean(accountId)}
             loading={!myHubsReady}
@@ -101,6 +101,7 @@ export function HubsIndexPanel() {
             emptyLoggedOut="Connect to see hubs you’ve joined — or tap search to explore."
             emptyNone="You haven’t joined a hub yet. Tap Search to explore, or + to start one."
             loadingLabel="Loading your hubs…"
+            loadingSkeleton={<LauncherMineRailSkeleton count={4} />}
             hasItems={(myHubs?.length ?? 0) > 0}
           >
             <LauncherMineRail>
@@ -122,7 +123,7 @@ export function HubsIndexPanel() {
         {showDrops ? (
           <>
             <Divider className="launcher-home-divider" />
-            <LauncherHomeSection title="Drops">
+            <LauncherHomeSection title="Latest">
               <HubsLatestDropsPanel accountId={accountId} myHubs={myHubs} />
             </LauncherHomeSection>
           </>

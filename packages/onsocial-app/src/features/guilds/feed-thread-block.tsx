@@ -4,7 +4,10 @@ import { useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { PostCard, postKey } from '@/features/home/post-card';
-import { ThreadFoldButton } from '@/features/home/thread-fold-button';
+import {
+  ThreadCoilTailLink,
+  ThreadFoldButton,
+} from '@/features/home/thread-fold-button';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import {
   EMPTY_POST_ENGAGEMENT,
@@ -51,6 +54,10 @@ interface FeedThreadBlockProps {
   onQuote?: (post: PostRow) => void;
   onRepost?: (post: PostRow) => void;
   onUndoRepost?: (post: PostRow) => void;
+  /** Standing lens — peek reply after the native chain (outside fold math). */
+  standingPeek?: PostRow;
+  /** Standing lens — coil after the peek reply when more posts exist in thread. */
+  standingCoilTail?: boolean;
 }
 
 interface BlockRow {
@@ -100,10 +107,16 @@ export function FeedThreadBlock({
   onQuote,
   onRepost,
   onUndoRepost,
+  standingPeek,
+  standingCoilTail = false,
 }: FeedThreadBlockProps) {
   const [expanded, setExpanded] = useState(false);
   const collapsed = !expanded && block.length > BLOCK_MAX_UNCOLLAPSED;
   const hiddenCount = collapsed ? block.length - 1 - BLOCK_TAIL_VISIBLE : 0;
+  const coilTailHref =
+    standingCoilTail && standingPeek
+      ? postThreadPath(standingPeek)
+      : undefined;
 
   const toRow = (
     post: PostRow,
@@ -113,7 +126,9 @@ export function FeedThreadBlock({
   ): BlockRow => ({
     post,
     up: index > 0,
-    down: index < posts.length - 1,
+    down:
+      index < posts.length - 1 ||
+      Boolean(standingPeek && index === posts.length - 1),
     first: index === 0,
     ...options,
   });
@@ -129,6 +144,15 @@ export function FeedThreadBlock({
           toRow(post, index, posts, { up: true, first: false })
         )
     : [];
+
+  const standingPeekRow: BlockRow | null = standingPeek
+    ? {
+        post: standingPeek,
+        up: true,
+        down: Boolean(standingCoilTail),
+        first: false,
+      }
+    : null;
 
   const renderRow = ({ post, up, down, first }: BlockRow) => {
     const itemClassName = [
@@ -185,6 +209,7 @@ export function FeedThreadBlock({
             card.groupId ? guildNameById?.[card.groupId] : undefined
           }
           showRelationBadge={first}
+          authorProfiles={postAuthorProfiles}
           className={first ? undefined : 'post-card--chain-cont'}
           quotedPost={quoted}
           quotedAuthorProfile={
@@ -211,7 +236,13 @@ export function FeedThreadBlock({
   };
 
   return (
-    <div className="post-thread-block">
+    <div
+      className={
+        standingCoilTail
+          ? 'post-thread-block post-thread-block--standing-coil'
+          : 'post-thread-block'
+      }
+    >
       {head.map(renderRow)}
       {collapsed ? (
         <ThreadFoldButton onClick={() => setExpanded(true)}>
@@ -221,6 +252,8 @@ export function FeedThreadBlock({
         </ThreadFoldButton>
       ) : null}
       {tail.map(renderRow)}
+      {standingPeekRow ? renderRow(standingPeekRow) : null}
+      {coilTailHref ? <ThreadCoilTailLink href={coilTailHref} /> : null}
     </div>
   );
 }

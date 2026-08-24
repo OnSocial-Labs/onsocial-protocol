@@ -8,6 +8,7 @@ import {
   LauncherHomeSection,
   LauncherMineCard,
   LauncherMineRail,
+  LauncherMineRailSkeleton,
 } from '@/components/launcher-home';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -94,13 +95,12 @@ export function LiveGuildsIndexPanel() {
   return (
     <OsAppScreen
       title="Guilds"
-      subtitle="Your spaces"
       backFallbackHref="/"
       glassChrome
       actions={headerActions}
     >
       <div className="launcher-home">
-        <LauncherHomeSection title="My Guilds">
+        <LauncherHomeSection aria-label="My guilds">
           <LauncherHomeMineStatus
             connected={Boolean(accountId)}
             loading={!myGuildsReady}
@@ -109,6 +109,7 @@ export function LiveGuildsIndexPanel() {
             emptyLoggedOut="Connect to see guilds you’ve joined — or tap search to explore."
             emptyNone="You haven’t joined a guild yet. Tap Search to explore, or + to start one."
             loadingLabel="Loading your guilds…"
+            loadingSkeleton={<LauncherMineRailSkeleton count={4} />}
             hasItems={(myGuilds?.length ?? 0) > 0}
           >
             <LauncherMineRail>
@@ -133,7 +134,7 @@ export function LiveGuildsIndexPanel() {
         {showPosts ? (
           <>
             <Divider className="launcher-home-divider" />
-            <LauncherHomeSection title="Posts">
+            <LauncherHomeSection title="Latest">
               <GuildsLatestPostsPanel
                 accountId={accountId}
                 myGuilds={myGuilds}

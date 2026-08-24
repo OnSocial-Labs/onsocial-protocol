@@ -12,7 +12,7 @@ export function LauncherHomeSection({
   'aria-label': ariaLabel,
   children,
 }: {
-  title: string;
+  title?: string;
   'aria-label'?: string;
   children: ReactNode;
 }) {
@@ -21,7 +21,7 @@ export function LauncherHomeSection({
       className="launcher-home-section"
       aria-label={ariaLabel ?? title}
     >
-      <h2 className="launcher-home-heading">{title}</h2>
+      {title ? <h2 className="launcher-home-heading">{title}</h2> : null}
       {children}
     </section>
   );
@@ -39,6 +39,7 @@ export function LauncherHomeMineStatus({
   emptyLoggedOut,
   emptyNone,
   loadingLabel,
+  loadingSkeleton,
   hasItems,
   children,
 }: {
@@ -49,6 +50,8 @@ export function LauncherHomeMineStatus({
   emptyLoggedOut: ReactNode;
   emptyNone: ReactNode;
   loadingLabel: ReactNode;
+  /** Layout-accurate shimmer while membership loads. */
+  loadingSkeleton?: ReactNode;
   hasItems: boolean;
   children: ReactNode;
 }) {
@@ -63,6 +66,7 @@ export function LauncherHomeMineStatus({
     );
   }
   if (loading) {
+    if (loadingSkeleton) return <>{loadingSkeleton}</>;
     return <LauncherHomeEmpty>{loadingLabel}</LauncherHomeEmpty>;
   }
   if (!hasItems) {

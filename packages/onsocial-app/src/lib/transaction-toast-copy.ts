@@ -162,6 +162,7 @@ export const txToastSuccess = {
   guildLeft: 'Guild left.',
   postPublished: 'Posted.',
   replyPublished: 'Reply posted.',
+  viewThread: 'View thread',
   quotePublished: 'Quote posted.',
   repostPublished: 'Reposted.',
   unrepostPublished: 'Repost removed.',
