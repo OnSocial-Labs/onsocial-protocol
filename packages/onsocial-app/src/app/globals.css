@@ -122,6 +122,12 @@
     margin 220ms ease;
 }
 
+/* Vault kind rail wraps (Memberships, etc.) — lift the one-row chrome cap. */
+.os-app-chrome-rail.collectibles-filter-toolbar {
+  max-height: none;
+  align-items: flex-start;
+}
+
 .os-app-chrome-rail.is-scroll-hidden {
   max-height: 0;
   margin: 0;
@@ -19357,11 +19363,18 @@ a.os-surface-row {
   .collectibles-filter-toolbar .discover-tab-bar,
   .collectibles-filter-toolbar .discover-tab-bar-scroller {
     min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .collectibles-filter-toolbar .discover-tab-bar {
+    margin-bottom: 0;
   }
 
   .collectibles-filter-toolbar .discover-tab-bar-scroller {
     flex-wrap: wrap;
     overflow: visible;
+    row-gap: 0.2rem;
   }
 
   /* Host audio must stay in the document (not display:none) for audible play. */

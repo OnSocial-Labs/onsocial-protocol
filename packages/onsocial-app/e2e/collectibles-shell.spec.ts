@@ -22,9 +22,11 @@ test.describe('collectibles shell', () => {
     await expect(
       page.getByText('Connect your wallet to open your Collectibles vault.')
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Connect' })).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Browse Market' })
+      page.getByRole('main').getByRole('button', { name: 'Connect' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('main').getByRole('link', { name: 'Browse Market' })
     ).toBeVisible();
     await expectSearchHidden(page, 'Search collectibles');
     await expect(page.getByRole('tablist', { name: KIND_RAIL })).toHaveCount(0);
@@ -37,7 +39,7 @@ test.describe('collectibles shell', () => {
       timeout: 30_000,
     });
     await expect(
-      page.getByRole('link', { name: 'Browse Market' })
+      page.getByRole('main').getByRole('link', { name: 'Browse Market' })
     ).toBeVisible();
     await expectSearchHidden(page, 'Search collectibles');
     await expect(page.getByRole('tablist', { name: KIND_RAIL })).toHaveCount(0);
@@ -67,9 +69,12 @@ test.describe('collectibles shell', () => {
     expect(allBox).toBeTruthy();
     expect(membershipsBox).toBeTruthy();
     expect(membershipsBox!.y).toBeGreaterThan(allBox!.y);
+    expect(membershipsBox!.width).toBeGreaterThan(48);
     expect(
       await memberships.evaluate(
-        (el) => (el as HTMLElement).scrollWidth <= (el as HTMLElement).clientWidth + 1
+        (el) =>
+          (el as HTMLElement).scrollWidth <=
+          (el as HTMLElement).clientWidth + 1
       )
     ).toBe(true);
 
