@@ -32,6 +32,8 @@ export const DROPS_SORT_PARAM = 'sort';
 
 /** Query key that pre-filters Market / Collectibles / Drops by medium. */
 export const MARKET_KIND_PARAM = 'kind';
+/** Collectibles vault search (`q=night`). */
+export const COLLECTIBLES_SEARCH_PARAM = 'q';
 /** Query key for Market browse sort (`newest` | `price-asc` | `price-desc` | `ending`). */
 export const MARKET_SORT_PARAM = 'sort';
 

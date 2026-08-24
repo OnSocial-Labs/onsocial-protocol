@@ -122,6 +122,12 @@
     margin 220ms ease;
 }
 
+/* Vault kind rail wraps (Memberships, etc.) — lift the one-row chrome cap. */
+.os-app-chrome-rail.collectibles-filter-toolbar {
+  max-height: none;
+  align-items: flex-start;
+}
+
 .os-app-chrome-rail.is-scroll-hidden {
   max-height: 0;
   margin: 0;
@@ -19310,47 +19316,22 @@ a.os-surface-row {
     gap: 0.55rem;
   }
 
-  .collectibles-sheet-header {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 0;
-  }
-
-  .collectibles-sheet-nav-row {
-    --os-app-screen-nav-row-height: 2.75rem;
-  }
-
-  .collectibles-sheet-header .os-app-screen-heading {
+  /* Vault kind chips wrap — do not clip Memberships / Biography / Folk. */
+  .collectibles-filter-toolbar .discover-tab-bar,
+  .collectibles-filter-toolbar .discover-tab-bar-scroller {
     min-width: 0;
-    flex: 1;
-    overflow: visible;
-  }
-
-  .collectibles-sheet-header .os-app-screen-search {
     width: 100%;
+    max-width: 100%;
   }
 
-  .collectibles-sheet-header .os-app-screen-actions {
-    flex-shrink: 0;
+  .collectibles-filter-toolbar .discover-tab-bar {
+    margin-bottom: 0;
   }
 
-  .collectibles-sheet-header:has(.collectibles-filter-toolbar.is-scroll-hidden) {
-    gap: 0;
-  }
-
-  .panel-page-header:has(.collectibles-sheet-header) {
-    gap: 0.65rem;
-    margin-bottom: 1rem;
-  }
-
-  .panel-page-toolbar .collectibles-sheet-header {
-    max-width: none;
-    padding-right: 0;
-  }
-
-  .panel-page-toolbar .collectibles-filter-toolbar {
-    padding-right: 0;
+  .collectibles-filter-toolbar .discover-tab-bar-scroller {
+    flex-wrap: wrap;
+    overflow: visible;
+    row-gap: 0.2rem;
   }
 
   /* Host audio must stay in the document (not display:none) for audible play. */
@@ -19630,6 +19611,12 @@ a.os-surface-row {
     -webkit-line-clamp: 2;
   }
 
+  .collectibles-holding-row .market-listing-meta {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .collectibles-page .market-section {
     gap: 0.65rem;
   }
@@ -19639,35 +19626,14 @@ a.os-surface-row {
   }
 
   a.collectibles-holding-action {
-    display: inline-flex;
     flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
     min-width: 4.5rem;
-    min-height: 1.65rem;
-    padding: 0.28rem 0.72rem;
-    border: 0;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.07);
-    color: rgb(var(--fg-rgb) / 0.78);
-    font-size: 0.72rem;
-    font-weight: 600;
-    line-height: 1.2;
-    text-decoration: none;
-    transition:
-      background 160ms ease,
-      color 160ms ease;
   }
 
-  a.collectibles-holding-row:hover .collectibles-holding-action,
-  a.collectibles-holding-row:focus-visible .collectibles-holding-action,
   .collectibles-holding-row:hover .collectibles-holding-action,
-  .collectibles-holding-row:focus-within .collectibles-holding-action,
-  a.collectibles-holding-action:hover,
-  a.collectibles-holding-action:focus-visible {
+  .collectibles-holding-row:focus-within .collectibles-holding-action {
     background: rgb(var(--fg-rgb) / 0.1);
     color: rgb(var(--fg-rgb) / 0.92);
-    outline: none;
   }
 
   .market-creator-filter {

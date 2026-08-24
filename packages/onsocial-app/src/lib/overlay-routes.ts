@@ -1,4 +1,8 @@
 import {
+  COLLECTIBLES_SEARCH_PARAM,
+  MARKET_KIND_PARAM,
+} from '@/lib/app-routes';
+import {
   isProfileSearchQuery,
   normalizeProfileSearchQuery,
 } from '@/lib/profile-account-search';
@@ -42,12 +46,16 @@ export function overlayPath(accountId: string, panel: OverlayPanel): string {
 /** Held catalog for an account — Launch See all + OS vault when connected. */
 export function portfolioCollectiblesPath(
   accountId: string,
-  options?: { kind?: string | null }
+  options?: { kind?: string | null; q?: string | null }
 ): string {
   const base = overlayPath(accountId, 'collectibles');
+  const params = new URLSearchParams();
   const kind = options?.kind?.trim().toLowerCase() ?? '';
-  if (!kind || kind === 'all') return base;
-  return `${base}?kind=${encodeURIComponent(kind)}`;
+  if (kind && kind !== 'all') params.set(MARKET_KIND_PARAM, kind);
+  const q = options?.q?.trim() ?? '';
+  if (q) params.set(COLLECTIBLES_SEARCH_PARAM, q);
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }
 
 /** Discover hub href. Contextual entries can deep-link a tab (e.g. Profiles). */

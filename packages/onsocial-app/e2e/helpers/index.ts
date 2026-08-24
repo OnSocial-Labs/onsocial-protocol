@@ -20,6 +20,7 @@ export {
   clickTab,
   clickTabAndWaitUrl,
   expectChoiceMenuVisible,
+  expectSearchHidden,
   expectSearchVisible,
   expectTabSelected,
   expectTabVisible,

@@ -22,6 +22,12 @@ describe('portfolioCollectiblesPath', () => {
     expect(portfolioCollectiblesPath('alice.testnet', { kind: 'all' })).toBe(
       '/@alice.testnet/collectibles'
     );
+    expect(portfolioCollectiblesPath('alice.testnet', { q: 'night' })).toBe(
+      '/@alice.testnet/collectibles?q=night'
+    );
+    expect(
+      portfolioCollectiblesPath('alice.testnet', { kind: 'audio', q: 'jazz' })
+    ).toBe('/@alice.testnet/collectibles?kind=audio&q=jazz');
   });
 });
 

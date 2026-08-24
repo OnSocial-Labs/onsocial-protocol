@@ -5,6 +5,7 @@ import {
 } from '@/lib/app-config';
 import {
   APP_COLLECTIBLES_PATH,
+  COLLECTIBLES_SEARCH_PARAM,
   collectionDoorPath,
   collectionPath,
   collectionRedeemPath,
@@ -28,6 +29,7 @@ describe('collectibles routes', () => {
     expect(isAppRoutePath('/collectibles/play')).toBe(true);
     expect(collectiblesKindPath('writing')).toBe('/collectibles?kind=writing');
     expect(collectiblesKindPath('all')).toBe('/collectibles');
+    expect(COLLECTIBLES_SEARCH_PARAM).toBe('q');
     expect(collectiblesPlayPath('night-drive')).toBe(
       '/collectibles/play?c=night-drive'
     );
