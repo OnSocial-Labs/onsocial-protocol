@@ -20,7 +20,6 @@ export function DaoProposeConfirmSheet({
   body,
   eligibility,
   eligibilityLoading = false,
-  isGroupMember,
   pending = false,
   proposeLabel = 'Propose',
   discardLabel = 'Discard',
@@ -35,8 +34,6 @@ export function DaoProposeConfirmSheet({
   body: string;
   eligibility: ProtocolGovernanceEligibility | null;
   eligibilityLoading?: boolean;
-  /** Group council can propose without the Member stake threshold. */
-  isGroupMember?: boolean;
   pending?: boolean;
   proposeLabel?: string;
   discardLabel?: string;
@@ -46,9 +43,7 @@ export function DaoProposeConfirmSheet({
   onPropose: () => void;
   onStake?: () => void;
 }) {
-  const gate = resolveDaoProposeBondGate(eligibility, eligibilityLoading, {
-    isGroupMember,
-  });
+  const gate = resolveDaoProposeBondGate(eligibility, eligibilityLoading);
   const loading = eligibilityLoading && !eligibility;
 
   let detail: string;
@@ -58,6 +53,8 @@ export function DaoProposeConfirmSheet({
     detail = gate.bondLabel
       ? `Stake enough SOCIAL to propose. Bond ${gate.bondLabel} on submit.`
       : 'Stake enough SOCIAL to propose on this DAO.';
+  } else if (!gate.canPropose) {
+    detail = 'You are not on a proposing role on this DAO.';
   } else if (!gate.bondOk) {
     detail = gate.shortfallNearLabel
       ? `Need ${gate.shortfallNearLabel} more spendable NEAR for the ${gate.bondLabel} bond.`

@@ -12,6 +12,7 @@ import { findProtocolRole } from '@/features/protocol/protocol-create';
 import {
   getProtocolDaoConfig,
   getProtocolGovernanceEligibility,
+  viewerCanProposeOnDao,
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
 import {
@@ -52,7 +53,6 @@ import {
 } from '@/features/protocol/protocol-policy-presets';
 import {
   getProtocolPolicyActionBlockReason,
-  isProtocolDaoGroupMember,
   viewerHasPolicyActionPermission,
 } from '@/features/protocol/protocol-propose-gate';
 import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
@@ -150,10 +150,6 @@ export function ProtocolSettingsSheet({
   const removableRoles = useMemo(
     () => getRemovableProtocolPolicyRoleOptions(daoPolicy),
     [daoPolicy]
-  );
-  const isGroupMember = useMemo(
-    () => isProtocolDaoGroupMember(daoPolicy, accountId),
-    [daoPolicy, accountId]
   );
   const availableActions = useMemo(() => {
     if (!accountId || loadState !== 'ready') {
@@ -446,8 +442,8 @@ export function ProtocolSettingsSheet({
   const needsStake =
     loadState === 'ready' &&
     eligibility != null &&
-    !isGroupMember &&
-    !eligibility.canPropose;
+    eligibility.hasStakeProposePath &&
+    !viewerCanProposeOnDao(eligibility);
   const shortfall =
     eligibility && BigInt(eligibility.remainingToThreshold) > 0n
       ? formatSocialCompact(eligibility.remainingToThreshold)
@@ -968,7 +964,6 @@ export function ProtocolSettingsSheet({
       body="Submit this settings proposal to the DAO. It goes live after approval."
       eligibility={eligibility}
       eligibilityLoading={loadState === 'loading'}
-      isGroupMember={isGroupMember}
       pending={pending}
       proposeLabel="Propose"
       zIndex={PROTOCOL_CONFIRM_Z}

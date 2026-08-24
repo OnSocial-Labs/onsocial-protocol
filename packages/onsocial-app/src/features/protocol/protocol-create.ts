@@ -14,6 +14,7 @@ import {
   buildProtocolWithdrawBoostInfraPayload,
   type ProtocolContractConfigOpId,
 } from '@/features/protocol/protocol-contracts';
+import { daoRoleGroupMembers } from '@/features/protocol/protocol-dao-role-kind';
 import { getProtocolProposalBond } from '@/features/protocol/protocol-eligibility';
 import type {
   ProtocolDaoPolicy,
@@ -184,7 +185,7 @@ export function getCreatableProtocolRoleOptions(
 ): string[] {
   const names =
     policy?.roles
-      ?.filter((role) => Array.isArray(role.kind?.Group))
+      ?.filter((role) => daoRoleGroupMembers(role).length > 0)
       .map((role) => role.name?.trim())
       .filter((name): name is string => Boolean(name))
       .filter((name) => name !== 'delegated_proposers') ?? [];

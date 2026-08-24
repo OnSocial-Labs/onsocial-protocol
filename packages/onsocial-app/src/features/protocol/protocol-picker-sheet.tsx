@@ -21,7 +21,9 @@ export type ProtocolPickerEligibility = {
   canProposeAny: boolean;
   remainingLabel: string | null;
   isGroupMember: boolean;
+  hasStakeProposePath: boolean;
   stakeBlocked: boolean;
+  roleBlocked: boolean;
 };
 
 /** Shared eligibility load for Propose / Settings picker hug sheets. */
@@ -40,6 +42,7 @@ export function useProtocolPickerEligibility({
   const [delegatedWeight, setDelegatedWeight] = useState('0');
   const [canProposeAny, setCanProposeAny] = useState(true);
   const [remainingLabel, setRemainingLabel] = useState<string | null>(null);
+  const [hasStakeProposePath, setHasStakeProposePath] = useState(false);
 
   const isGroupMember = useMemo(
     () => isProtocolDaoGroupMember(daoPolicy, accountId),
@@ -52,6 +55,7 @@ export function useProtocolPickerEligibility({
       setDelegatedWeight('0');
       setCanProposeAny(true);
       setRemainingLabel(null);
+      setHasStakeProposePath(false);
       return;
     }
     if (!daoAccountId || !accountId) {
@@ -69,11 +73,11 @@ export function useProtocolPickerEligibility({
         );
         if (cancelled) return;
         setDelegatedWeight(eligibility.delegatedWeight);
-        setCanProposeAny(
-          eligibility.canPropose || eligibility.isGroupMember || isGroupMember
-        );
+        setCanProposeAny(eligibility.canAddProposal);
+        setHasStakeProposePath(eligibility.hasStakeProposePath);
         setRemainingLabel(
-          BigInt(eligibility.remainingToThreshold) > 0n
+          eligibility.hasStakeProposePath &&
+            BigInt(eligibility.remainingToThreshold) > 0n
             ? formatSocialCompact(eligibility.remainingToThreshold)
             : null
         );
@@ -87,13 +91,18 @@ export function useProtocolPickerEligibility({
     return () => {
       cancelled = true;
     };
-  }, [open, daoAccountId, accountId, isGroupMember]);
+  }, [open, daoAccountId, accountId]);
 
   const stakeBlocked =
     Boolean(accountId) &&
     loadState === 'ready' &&
     !canProposeAny &&
-    !isGroupMember;
+    hasStakeProposePath;
+  const roleBlocked =
+    Boolean(accountId) &&
+    loadState === 'ready' &&
+    !canProposeAny &&
+    !hasStakeProposePath;
 
   return {
     loadState,
@@ -101,7 +110,9 @@ export function useProtocolPickerEligibility({
     canProposeAny,
     remainingLabel,
     isGroupMember,
+    hasStakeProposePath,
     stakeBlocked,
+    roleBlocked,
   };
 }
 
@@ -151,6 +162,8 @@ export function ProtocolPickerStatus({
   errorNote,
   stakeBlocked,
   stakeMessage,
+  roleBlocked = false,
+  roleMessage = 'You are not on a proposing role on this DAO.',
   onOpenStake,
   onClose,
 }: {
@@ -161,6 +174,8 @@ export function ProtocolPickerStatus({
   errorNote: string;
   stakeBlocked: boolean;
   stakeMessage: string;
+  roleBlocked?: boolean;
+  roleMessage?: string;
   onOpenStake: () => void;
   onClose: () => void;
 }) {
@@ -190,6 +205,10 @@ export function ProtocolPickerStatus({
             Stake
           </button>
         </div>
+      ) : null}
+
+      {roleBlocked ? (
+        <p className="protocol-compose-note is-warn">{roleMessage}</p>
       ) : null}
     </>
   );

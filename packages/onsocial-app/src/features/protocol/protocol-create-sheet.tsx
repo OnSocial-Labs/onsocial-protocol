@@ -30,11 +30,11 @@ import {
 import { createDefaultProtocolSeasonConfigDraft } from '@/features/protocol/protocol-season-config';
 import {
   getProtocolGovernanceEligibility,
+  viewerCanProposeOnDao,
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
 import {
   getProtocolCreateKindBlockReason,
-  isProtocolDaoGroupMember,
   viewerHasCreateKindPermission,
 } from '@/features/protocol/protocol-propose-gate';
 import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
@@ -164,10 +164,6 @@ export function ProtocolCreateSheet({
   const roles = useMemo(
     () => getCreatableProtocolRoleOptions(daoPolicy),
     [daoPolicy]
-  );
-  const isGroupMember = useMemo(
-    () => isProtocolDaoGroupMember(daoPolicy, accountId),
-    [daoPolicy, accountId]
   );
   const availableKinds = useMemo(() => {
     if (!accountId || loadState !== 'ready') {
@@ -466,8 +462,8 @@ export function ProtocolCreateSheet({
   const needsStake =
     loadState === 'ready' &&
     eligibility != null &&
-    !isGroupMember &&
-    !eligibility.canPropose;
+    eligibility.hasStakeProposePath &&
+    !viewerCanProposeOnDao(eligibility);
   const bondLabel = eligibility?.proposalBond
     ? `${yoctoToNear(eligibility.proposalBond)} NEAR`
     : null;
@@ -1168,7 +1164,6 @@ export function ProtocolCreateSheet({
       body="Submit this proposal to the DAO. It goes live after approval."
       eligibility={eligibility}
       eligibilityLoading={loadState === 'loading'}
-      isGroupMember={isGroupMember}
       pending={pending}
       proposeLabel="Propose"
       zIndex={PROTOCOL_CONFIRM_Z}

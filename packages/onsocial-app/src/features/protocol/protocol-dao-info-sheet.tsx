@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from 'react';
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
+import { daoRoleGroupMembers } from '@/features/protocol/protocol-dao-role-kind';
 import {
   getProtocolDaoConfig,
   getProtocolGovernanceEligibility,
@@ -41,8 +42,8 @@ function resolveCouncilSize(policy: ProtocolDaoPolicy | null): number | null {
     const role = policy?.roles?.find(
       (entry) => entry.name?.trim().toLowerCase() === roleId
     );
-    const group = role?.kind?.Group;
-    if (Array.isArray(group) && group.length > 0) return group.length;
+    const group = role ? daoRoleGroupMembers(role) : [];
+    if (group.length > 0) return group.length;
   }
   return null;
 }
@@ -249,7 +250,9 @@ export function ProtocolDaoInfoSheet({
             <p className="protocol-dao-info-value">
               {viewerCanProposeOnDao(eligibility)
                 ? 'Can propose'
-                : `Need ${formatSocialCompact(eligibility.remainingToThreshold)} more SOCIAL`}
+                : eligibility.hasStakeProposePath
+                  ? `Need ${formatSocialCompact(eligibility.remainingToThreshold)} more SOCIAL`
+                  : 'Not on a proposing role'}
             </p>
             <p className="protocol-compose-note">
               Delegated {formatSocialCompact(eligibility.delegatedWeight)} ·

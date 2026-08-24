@@ -125,6 +125,7 @@ export function ProtocolProposeKindSheet({
         errorNote="Could not verify proposal eligibility. Close and try again."
         stakeBlocked={eligibility.stakeBlocked}
         stakeMessage={`Need ${eligibility.remainingLabel ?? 'more'} SOCIAL delegated to propose — stake now, or pick a kind and confirm later.`}
+        roleBlocked={eligibility.roleBlocked}
         onOpenStake={onOpenStake}
         onClose={onClose}
       />

@@ -1,4 +1,7 @@
-import type { ProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
+import {
+  viewerCanProposeOnDao,
+  type ProtocolGovernanceEligibility,
+} from '@/features/protocol/protocol-eligibility';
 import { formatNearCompact } from '@/lib/format-near-balance';
 
 export type DaoProposeBondGate = {
@@ -12,13 +15,12 @@ export type DaoProposeBondGate = {
 };
 
 /**
- * Gate a DAO `add_proposal` confirm hug — propose rights + spendable NEAR for bond.
- * Group council can propose without meeting the Member stake threshold.
+ * Gate a DAO `add_proposal` confirm hug — this DAO's policy + spendable NEAR.
+ * SOCIAL stake only when the DAO has a Member path and staking contract.
  */
 export function resolveDaoProposeBondGate(
   eligibility: ProtocolGovernanceEligibility | null,
-  loading = false,
-  opts?: { isGroupMember?: boolean }
+  loading = false
 ): DaoProposeBondGate {
   if (loading || !eligibility) {
     return {
@@ -36,16 +38,12 @@ export function resolveDaoProposeBondGate(
   const near = BigInt(eligibility.nearBalance || '0');
   const bondOk = near >= bond;
   const shortfall = bond > near ? bond - near : 0n;
-  const isGroupMember =
-    opts?.isGroupMember !== undefined
-      ? opts.isGroupMember
-      : Boolean(eligibility.isGroupMember);
-  const canPropose = isGroupMember || eligibility.canPropose;
+  const canPropose = viewerCanProposeOnDao(eligibility);
 
   return {
     canPropose,
     bondOk,
-    needsStake: !canPropose,
+    needsStake: !canPropose && eligibility.hasStakeProposePath,
     bondLabel: `${formatNearCompact(bond)} NEAR`,
     nearLabel: `${formatNearCompact(near)} NEAR`,
     shortfallNearLabel:

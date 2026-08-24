@@ -447,6 +447,17 @@ describe('protocol propose kind UX helpers', () => {
         canProposeKind: true,
       })
     ).toBeNull();
+    expect(
+      getProtocolCreateKindLockReason({
+        kind: 'signal',
+        accountId: 'bob.near',
+        canProposeAny: false,
+        isGroupMember: false,
+        remainingLabel: '12.5K',
+        canProposeKind: false,
+        hasStakeProposePath: false,
+      })
+    ).toBe('Not on a proposing role');
   });
 
   it('hides create kinds by permission, not by stake weight', () => {

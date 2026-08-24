@@ -56,7 +56,10 @@ import {
   fetchProtocolFeed,
   fetchProtocolProposal,
 } from '@/features/protocol/protocol-feed-client';
-import { isProtocolDaoGroupMember } from '@/features/protocol/protocol-propose-gate';
+import {
+  daoRoleGroupMembers,
+  isProtocolDaoGroupMember,
+} from '@/features/protocol/protocol-propose-gate';
 import { softIndexDaoMemberships } from '@/features/protocol/my-daos-client';
 import { rememberOptimisticMyDao } from '@/features/protocol/my-daos-optimistic';
 import {
@@ -413,7 +416,7 @@ export function DaoWorkspacePanel({
       if (accountId && feed.daoPolicy) {
         const roleNames = (feed.daoPolicy.roles ?? [])
           .filter((role) =>
-            role.kind?.Group?.some(
+            daoRoleGroupMembers(role).some(
               (member) =>
                 member.trim().toLowerCase() === accountId.trim().toLowerCase()
             )

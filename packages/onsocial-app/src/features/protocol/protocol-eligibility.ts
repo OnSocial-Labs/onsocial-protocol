@@ -9,10 +9,13 @@ import {
   viewNearContract,
   type NearAccountView,
 } from '@/lib/app-near-rpc';
-import { isProtocolDaoGroupMember } from '@/features/protocol/protocol-propose-gate';
+import {
+  daoHasStakeProposePath,
+  getMemberProposeThreshold,
+  isProtocolDaoGroupMember,
+  viewerCanAddProposalOnPolicy,
+} from '@/features/protocol/protocol-propose-gate';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
-
-const DEFAULT_PROPOSER_THRESHOLD = '100000000000000000000';
 const NEAR_STORAGE_BYTE_COST = 10_000_000_000_000_000_000n;
 const DELEGATION_STORAGE_BYTES_OVERHEAD = 16n;
 const REGISTRATION_DEPOSIT_FLOOR = '50000000000000000000000';
@@ -38,25 +41,34 @@ export interface ProtocolGovernanceEligibility {
   availableToWithdraw: string;
   /** Member-role stake threshold met (weight only). */
   canPropose: boolean;
-  /** Viewer is listed on a Group role (council path without stake). */
+  /** Viewer is listed on a Group role (any Group, including vote-only). */
   isGroupMember: boolean;
+  /**
+   * This DAO's policy: Everyone, a proposing Group, or Member weight.
+   * Use for Manage / mood / Boost / claim / As-DAO entry.
+   */
+  canAddProposal: boolean;
+  /** Member propose role + staking contract — SOCIAL stake can unlock. */
+  hasStakeProposePath: boolean;
   proposalBond: string;
 }
 
 /**
- * Effective propose right — Group council OR Member stake threshold.
- * Use for Manage / mood / Boost / claim / As-DAO entry; keep `canPropose`
- * for stake-sheet weight copy.
+ * Effective propose right from this DAO's policy (not "any Group").
+ * Keep `canPropose` for stake-sheet weight copy.
  */
 export function viewerCanProposeOnDao(
   eligibility:
-    | Pick<ProtocolGovernanceEligibility, 'canPropose' | 'isGroupMember'>
+    | (Pick<ProtocolGovernanceEligibility, 'canPropose' | 'isGroupMember'> &
+        Partial<Pick<ProtocolGovernanceEligibility, 'canAddProposal'>>)
     | null
     | undefined
 ): boolean {
-  return Boolean(
-    eligibility && (eligibility.isGroupMember || eligibility.canPropose)
-  );
+  if (!eligibility) return false;
+  if (typeof eligibility.canAddProposal === 'boolean') {
+    return eligibility.canAddProposal;
+  }
+  return Boolean(eligibility.isGroupMember || eligibility.canPropose);
 }
 
 interface StakingUser {
@@ -104,17 +116,49 @@ function getDelegationStorageCost(accountId: string): string {
   return (bytes * NEAR_STORAGE_BYTE_COST).toString();
 }
 
-function getProposerThreshold(policy: ProtocolDaoPolicy | null): string {
-  const roles = policy?.roles ?? [];
-  const proposerRole =
-    roles.find((role) => role.name === 'delegated_proposers') ??
-    roles.find(
-      (role) =>
-        role.kind?.Member != null &&
-        role.kind.Member !== '' &&
-        (role.permissions ?? []).includes('call:AddProposal')
-    );
-  return proposerRole?.kind?.Member ?? DEFAULT_PROPOSER_THRESHOLD;
+function resolveEligibilityRights(
+  policy: ProtocolDaoPolicy | null,
+  accountId: string,
+  delegatedWeight: string,
+  stakingContractId: string | null
+): {
+  requiredWeight: string;
+  remainingToThreshold: string;
+  canProposeByWeight: boolean;
+  isGroupMember: boolean;
+  canAddProposal: boolean;
+  hasStakeProposePath: boolean;
+} {
+  const memberThreshold = getMemberProposeThreshold(policy);
+  const hasMemberProposeRole = memberThreshold != null;
+  const requiredWeight = memberThreshold ?? '0';
+  const remainingToThreshold = hasMemberProposeRole
+    ? maxYocto(BigInt(requiredWeight) - BigInt(delegatedWeight))
+    : '0';
+  return {
+    requiredWeight,
+    remainingToThreshold,
+    canProposeByWeight:
+      hasMemberProposeRole &&
+      BigInt(delegatedWeight) >= BigInt(requiredWeight),
+    isGroupMember: isProtocolDaoGroupMember(policy, accountId),
+    canAddProposal: viewerCanAddProposalOnPolicy(
+      policy,
+      accountId,
+      delegatedWeight
+    ),
+    hasStakeProposePath: daoHasStakeProposePath(policy, stakingContractId),
+  };
+}
+
+export async function getProtocolDaoStakeProposePath(
+  daoAccountId: string
+): Promise<boolean> {
+  const [policy, stakingContractRaw] = await Promise.all([
+    tryViewNearContract<ProtocolDaoPolicy>(daoAccountId, 'get_policy'),
+    tryViewNearContract<string>(daoAccountId, 'get_staking_contract'),
+  ]);
+  return daoHasStakeProposePath(policy, stakingContractRaw?.trim() || null);
 }
 
 export async function getProtocolProposalBond(
@@ -159,18 +203,25 @@ export async function getProtocolGovernanceEligibility(
     tryViewAccount(accountId),
   ]);
 
-  const requiredWeight = getProposerThreshold(policy);
   const delegatedWeight = String(delegatedWeightRaw ?? '0');
   const walletBalance = normalizeFtBalanceYocto(walletBalanceRaw).toString();
   const nearBalance = getSpendableNearBalance(nearAccount);
   const proposalBond = policy?.proposal_bond ?? '0';
   const stakingContractId = stakingContractRaw?.trim() || null;
-  const remainingToThreshold = maxYocto(
-    BigInt(requiredWeight) - BigInt(delegatedWeight)
+  const rights = resolveEligibilityRights(
+    policy,
+    accountId,
+    delegatedWeight,
+    stakingContractId
   );
-  const isGroupMember = isProtocolDaoGroupMember(policy, accountId);
-  const canProposeByWeight =
-    BigInt(delegatedWeight) >= BigInt(requiredWeight);
+  const {
+    requiredWeight,
+    remainingToThreshold,
+    canProposeByWeight,
+    isGroupMember,
+    canAddProposal,
+    hasStakeProposePath,
+  } = rights;
 
   if (!stakingContractId) {
     return {
@@ -194,6 +245,8 @@ export async function getProtocolGovernanceEligibility(
       availableToWithdraw: '0',
       canPropose: canProposeByWeight,
       isGroupMember,
+      canAddProposal,
+      hasStakeProposePath,
       proposalBond,
     };
   }
@@ -279,6 +332,8 @@ export async function getProtocolGovernanceEligibility(
     availableToWithdraw,
     canPropose: canProposeByWeight,
     isGroupMember,
+    canAddProposal,
+    hasStakeProposePath,
     proposalBond,
   };
 }

@@ -244,7 +244,9 @@ export function DaoMembersSheet({
                     ? `You meet it · ${viewerDelegatedLabel} SOCIAL`
                     : `You have ${viewerDelegatedLabel} SOCIAL · need ${viewerRemainingLabel} more`}
                 </p>
-                {!viewerMeetsStake && onRequestStake ? (
+                {!viewerMeetsStake &&
+                eligibility.hasStakeProposePath &&
+                onRequestStake ? (
                   <button
                     type="button"
                     className="dao-members-stake"

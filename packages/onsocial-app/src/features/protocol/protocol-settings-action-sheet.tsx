@@ -125,6 +125,7 @@ export function ProtocolSettingsActionSheet({
         errorNote="Could not verify settings eligibility. Close and try again."
         stakeBlocked={eligibility.stakeBlocked}
         stakeMessage={`Need ${eligibility.remainingLabel ?? 'more'} SOCIAL delegated to propose settings — stake now, or pick an action and confirm later.`}
+        roleBlocked={eligibility.roleBlocked}
         onOpenStake={onOpenStake}
         onClose={onClose}
       />
