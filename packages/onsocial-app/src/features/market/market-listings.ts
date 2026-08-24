@@ -1198,7 +1198,7 @@ export async function fetchNativeMarketListings(
 /** Default “Yours” page — small enough to never stall the panel. */
 export const OWNED_PAGE_SIZE = 24;
 /** Cap so a huge vault doesn’t stall Market; newest pages still load first. */
-const OWNED_MAX_TOKENS = 300;
+export const OWNED_MAX_TOKENS = 300;
 
 /** One page of wallet-owned scarces for Market “Yours”. */
 export interface OwnedScarcesPage {

@@ -17,6 +17,7 @@ import {
   type CollectiblesPanelChromeContextValue,
 } from '@/features/collectibles/collectibles-panel-context';
 import {
+  OWNED_MAX_TOKENS,
   fetchOwnedScarcesPage,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
@@ -77,6 +78,8 @@ const EMPTY_HOLDINGS: HoldingsState = {
   failed: false,
 };
 
+const EMPTY_FACETS: string[] = [];
+
 function parseMediumFilter(raw: string | null): MarketMediumFilter {
   const value = raw?.trim().toLowerCase() ?? '';
   const known = MARKET_MEDIUM_FILTERS.find(
@@ -128,18 +131,26 @@ export function CollectiblesPagePanel({
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlSearch = searchParams.get(COLLECTIBLES_SEARCH_PARAM) ?? '';
+  const searchQuery = urlSearch;
   const mediumFilter = parseMediumFilter(searchParams.get(MARKET_KIND_PARAM));
   const facetMedium = normalizeDropFacetMedium(mediumFilter);
-  const selectedFacets = facetMedium
-    ? normalizeDropFacets(
-        parseMarketFacetsParam(searchParams.get(MARKET_FACETS_PARAM)),
-        facetMedium
-      )
-    : [];
+  const facetsParam = searchParams.get(MARKET_FACETS_PARAM);
+  const selectedFacets = useMemo(
+    () =>
+      facetMedium
+        ? normalizeDropFacets(parseMarketFacetsParam(facetsParam), facetMedium)
+        : EMPTY_FACETS,
+    [facetMedium, facetsParam]
+  );
   const audioFormatFilter: MarketAudioFormatFilter =
     facetMedium === 'audio'
       ? parseAudioFormat(searchParams.get(MARKET_AUDIO_FORMAT_PARAM))
       : null;
+  const urlDiscoveryActive =
+    urlSearch.trim().length > 0 ||
+    mediumFilter !== 'all' ||
+    selectedFacets.length > 0 ||
+    Boolean(audioFormatFilter);
 
   const ownerAccountId = (pageAccountId ?? viewerAccountId)?.trim() || null;
   const isSelf =
@@ -179,7 +190,6 @@ export function CollectiblesPagePanel({
     return EMPTY_HOLDINGS;
   });
   const [loadingMore, setLoadingMore] = useState(false);
-  const [searchQuery, setSearchQueryState] = useState(urlSearch);
   const [offlineHoldings, setOfflineHoldings] = useState<
     PortfolioHoldingPeek[]
   >([]);
@@ -204,23 +214,16 @@ export function CollectiblesPagePanel({
 
   const setSearchQuery = useCallback(
     (next: string) => {
-      setSearchQueryState(next);
       const trimmed = next.trim();
-      const current = (searchParams.get(COLLECTIBLES_SEARCH_PARAM) ?? '').trim();
+      const current = urlSearch.trim();
       if (trimmed === current) return;
       replaceListParams((params) => {
         if (trimmed) params.set(COLLECTIBLES_SEARCH_PARAM, trimmed);
         else params.delete(COLLECTIBLES_SEARCH_PARAM);
       });
     },
-    [replaceListParams, searchParams]
+    [replaceListParams, urlSearch]
   );
-
-  useEffect(() => {
-    setSearchQueryState((prev) =>
-      prev.trim() === urlSearch.trim() ? prev : urlSearch
-    );
-  }, [urlSearch]);
 
   const setMediumFilter = useCallback(
     (next: MarketMediumFilter) => {
@@ -263,7 +266,10 @@ export function CollectiblesPagePanel({
     }
 
     let cancelled = false;
-    void fetchOwnedScarcesPage(ownerAccountId)
+    void fetchOwnedScarcesPage(ownerAccountId, {
+      pageSize: urlDiscoveryActive ? OWNED_MAX_TOKENS : undefined,
+      bypassCache: urlDiscoveryActive,
+    })
       .then((page) => {
         if (cancelled) return;
         setHoldings({
@@ -286,7 +292,7 @@ export function CollectiblesPagePanel({
     return () => {
       cancelled = true;
     };
-  }, [ownerAccountId, loadKey]);
+  }, [ownerAccountId, loadKey, urlDiscoveryActive]);
 
   useEffect(() => {
     if (!isSelf) {
@@ -345,7 +351,14 @@ export function CollectiblesPagePanel({
         /* keep existing rows */
       })
       .finally(() => setLoadingMore(false));
-  }, [ownerAccountId, holdings.hasMore, holdings.nextFromEnd, loadingMore]);
+  }, [
+    ownerAccountId,
+    holdings.hasMore,
+    holdings.nextFromEnd,
+    loadingMore,
+    setHoldings,
+    setLoadingMore,
+  ]);
 
   const sameOwnerHoldings =
     Boolean(ownerAccountId) &&
@@ -353,13 +366,20 @@ export function CollectiblesPagePanel({
     holdings.loadKey.startsWith(`${ownerAccountId}:`) &&
     holdings.items.length > 0;
   /** Offline library is owner-vault only — skip when browsing someone else. */
-  const selfOfflineHoldings = isSelf ? offlineHoldings : [];
+  const selfOfflineHoldings = useMemo(
+    () => (isSelf ? offlineHoldings : []),
+    [isSelf, offlineHoldings]
+  );
   const selfOfflineReady = isSelf ? offlineReady : true;
-  const vaultItems = sameOwnerHoldings
-    ? holdings.items
-    : isSelf
-      ? selfOfflineHoldings
-      : [];
+  const vaultItems = useMemo(
+    () =>
+      sameOwnerHoldings
+        ? holdings.items
+        : isSelf
+          ? selfOfflineHoldings
+          : [],
+    [sameOwnerHoldings, holdings.items, isSelf, selfOfflineHoldings]
+  );
   const usingOfflineLibrary =
     isSelf && !sameOwnerHoldings && selfOfflineHoldings.length > 0;
   const showVaultSkeleton =
@@ -456,21 +476,6 @@ export function CollectiblesPagePanel({
     : filterAwaitingLoad && filtered.length === 0
       ? 'Looking for matches…'
       : 'Show more';
-
-  useEffect(() => {
-    if (!clientDiscoveryFilterActive) return;
-    if (status !== 'ready' && !usingOfflineLibrary) return;
-    if (!holdings.hasMore || loadingMore) return;
-    loadMore();
-  }, [
-    clientDiscoveryFilterActive,
-    holdings.hasMore,
-    holdings.items.length,
-    loadMore,
-    loadingMore,
-    status,
-    usingOfflineLibrary,
-  ]);
 
   useInfiniteScrollSentinel({
     scrollRootRef,
