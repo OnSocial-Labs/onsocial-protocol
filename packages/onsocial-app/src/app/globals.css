@@ -19353,6 +19353,17 @@ a.os-surface-row {
     padding-right: 0;
   }
 
+  /* Vault kind chips wrap — do not clip Memberships / Biography / Folk. */
+  .collectibles-filter-toolbar .discover-tab-bar,
+  .collectibles-filter-toolbar .discover-tab-bar-scroller {
+    min-width: 0;
+  }
+
+  .collectibles-filter-toolbar .discover-tab-bar-scroller {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
   /* Host audio must stay in the document (not display:none) for audible play. */
   .collectibles-now-playing-host-audio {
     position: fixed;

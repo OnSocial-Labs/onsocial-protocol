@@ -1,5 +1,6 @@
 import {
   collectionIdFromTokenId,
+  editionSeatFromTokenId,
   resolveTokenDisplayTitle,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
@@ -25,6 +26,10 @@ export interface PortfolioHoldingPeek {
   title: string;
   mediaUrl: string | null;
   collectionId: string | null;
+  /** Drop creator account when known. */
+  creatorId?: string | null;
+  /** Edition seat from `collectionId:n` tokens. */
+  editionSeat?: number | null;
   mediumKind: string | null;
   /** Audio release format when known. */
   audioFormat?: 'single' | 'album' | 'podcast' | null;
@@ -49,6 +54,7 @@ export function holdingsActionLabel(
   if (isAudioMediumKind(key)) return 'Play';
   switch (key) {
     case 'writing':
+    case 'book':
       return 'Read';
     case 'video':
       return 'Watch';
@@ -128,11 +134,15 @@ export function toPortfolioHoldingPeek(
   const mediumKind = inferOwnedMediumKind(item);
   const collectionId =
     item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
+  const editionSeat = editionSeatFromTokenId(item.tokenId);
+  const creatorId = item.creatorId?.trim() || null;
   return {
     tokenId: item.tokenId,
     title: displayTitleForOwnedHolding(item),
     mediaUrl: item.mediaUrl ?? null,
     collectionId,
+    ...(creatorId ? { creatorId } : {}),
+    ...(editionSeat != null ? { editionSeat } : {}),
     mediumKind,
     ...(item.audioFormat !== undefined
       ? { audioFormat: item.audioFormat }
@@ -248,13 +258,19 @@ export function filterHoldingsByMedium<
 export function holdingsMatchQuery(
   item: Pick<
     PortfolioHoldingPeek,
-    'title' | 'kindLabel' | 'actionLabel' | 'tokenId'
+    'title' | 'kindLabel' | 'actionLabel' | 'tokenId' | 'creatorId'
   >,
   query: string
 ): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  const haystack = [item.title, item.kindLabel, item.actionLabel, item.tokenId]
+  const haystack = [
+    item.title,
+    item.kindLabel,
+    item.actionLabel,
+    item.tokenId,
+    item.creatorId,
+  ]
     .filter(Boolean)
     .join(' ')
     .toLowerCase();

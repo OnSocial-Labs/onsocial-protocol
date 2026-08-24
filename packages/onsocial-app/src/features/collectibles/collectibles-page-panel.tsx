@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAppWallet } from '@/contexts/app-wallet-context';
 import { ContextualBack } from '@/components/app/contextual-back';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { CollectiblesHeaderActions } from '@/features/collectibles/collectibles-header-actions';
@@ -31,18 +32,19 @@ import {
   MARKET_MEDIUM_FILTERS,
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
-import { useAppWallet } from '@/contexts/app-wallet-context';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_COLLECTIBLES_PATH,
   APP_DROP_CREATE_PATH,
   APP_MARKET_PATH,
+  COLLECTIBLES_SEARCH_PARAM,
   MARKET_KIND_PARAM,
   MARKET_FACETS_PARAM,
   MARKET_AUDIO_FORMAT_PARAM,
   marketFacetsParamValue,
   parseMarketFacetsParam,
 } from '@/lib/app-routes';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
   listOfflineAlbums,
   offlineAlbumToHoldingPeek,
@@ -122,9 +124,10 @@ export function CollectiblesPagePanel({
   shell?: 'portfolio' | 'os';
 } = {}) {
   const resolvedShell = embedded ? 'portfolio' : shell;
-  const { accountId: viewerAccountId, isConnected } = useAppWallet();
+  const { accountId: viewerAccountId, isConnected, connect } = useAppWallet();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const urlSearch = searchParams.get(COLLECTIBLES_SEARCH_PARAM) ?? '';
   const mediumFilter = parseMediumFilter(searchParams.get(MARKET_KIND_PARAM));
   const facetMedium = normalizeDropFacetMedium(mediumFilter);
   const selectedFacets = facetMedium
@@ -176,26 +179,21 @@ export function CollectiblesPagePanel({
     return EMPTY_HOLDINGS;
   });
   const [loadingMore, setLoadingMore] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQueryState] = useState(urlSearch);
   const [offlineHoldings, setOfflineHoldings] = useState<
     PortfolioHoldingPeek[]
   >([]);
   const [offlineReady, setOfflineReady] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
 
   const loadKey = ownerAccountId ? `${ownerAccountId}:${retryKey}` : null;
   const trimmedSearch = searchQuery.trim();
 
-  const setMediumFilter = useCallback(
-    (next: MarketMediumFilter) => {
+  const replaceListParams = useCallback(
+    (mutate: (params: URLSearchParams) => void) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (next === 'all') {
-        params.delete(MARKET_KIND_PARAM);
-      } else {
-        params.set(MARKET_KIND_PARAM, next);
-      }
-      params.delete(MARKET_FACETS_PARAM);
-      params.delete(MARKET_AUDIO_FORMAT_PARAM);
+      mutate(params);
       const qs = params.toString();
       router.replace(qs ? `${listBasePath}?${qs}` : listBasePath, {
         scroll: false,
@@ -204,27 +202,59 @@ export function CollectiblesPagePanel({
     [router, searchParams, listBasePath]
   );
 
+  const setSearchQuery = useCallback(
+    (next: string) => {
+      setSearchQueryState(next);
+      const trimmed = next.trim();
+      const current = (searchParams.get(COLLECTIBLES_SEARCH_PARAM) ?? '').trim();
+      if (trimmed === current) return;
+      replaceListParams((params) => {
+        if (trimmed) params.set(COLLECTIBLES_SEARCH_PARAM, trimmed);
+        else params.delete(COLLECTIBLES_SEARCH_PARAM);
+      });
+    },
+    [replaceListParams, searchParams]
+  );
+
+  useEffect(() => {
+    setSearchQueryState((prev) =>
+      prev.trim() === urlSearch.trim() ? prev : urlSearch
+    );
+  }, [urlSearch]);
+
+  const setMediumFilter = useCallback(
+    (next: MarketMediumFilter) => {
+      replaceListParams((params) => {
+        if (next === 'all') {
+          params.delete(MARKET_KIND_PARAM);
+        } else {
+          params.set(MARKET_KIND_PARAM, next);
+        }
+        params.delete(MARKET_FACETS_PARAM);
+        params.delete(MARKET_AUDIO_FORMAT_PARAM);
+      });
+    },
+    [replaceListParams]
+  );
+
   const replaceDiscoveryParams = useCallback(
     (next: {
       facets?: string[];
       audioFormat?: MarketAudioFormatFilter;
     }) => {
-      const params = new URLSearchParams(searchParams.toString());
       const facets =
         next.facets !== undefined ? next.facets : selectedFacets;
       const audioFormat =
         next.audioFormat !== undefined ? next.audioFormat : audioFormatFilter;
-      const facetsValue = marketFacetsParamValue(facets);
-      if (facetsValue) params.set(MARKET_FACETS_PARAM, facetsValue);
-      else params.delete(MARKET_FACETS_PARAM);
-      if (audioFormat) params.set(MARKET_AUDIO_FORMAT_PARAM, audioFormat);
-      else params.delete(MARKET_AUDIO_FORMAT_PARAM);
-      const qs = params.toString();
-      router.replace(qs ? `${listBasePath}?${qs}` : listBasePath, {
-        scroll: false,
+      replaceListParams((params) => {
+        const facetsValue = marketFacetsParamValue(facets);
+        if (facetsValue) params.set(MARKET_FACETS_PARAM, facetsValue);
+        else params.delete(MARKET_FACETS_PARAM);
+        if (audioFormat) params.set(MARKET_AUDIO_FORMAT_PARAM, audioFormat);
+        else params.delete(MARKET_AUDIO_FORMAT_PARAM);
       });
     },
-    [router, searchParams, selectedFacets, audioFormatFilter, listBasePath]
+    [replaceListParams, selectedFacets, audioFormatFilter]
   );
 
   useEffect(() => {
@@ -373,7 +403,15 @@ export function CollectiblesPagePanel({
     facetMedium != null &&
     (selectedFacets.length > 0 || Boolean(audioFormatFilter));
 
-  const showTabs = Boolean(ownerAccountId) || usingOfflineLibrary;
+  /** OS vault entry with no wallet — portfolio routes always have pageAccountId. */
+  const showConnectPrompt =
+    !pageAccountId &&
+    selfOfflineReady &&
+    (!isConnected || !viewerAccountId) &&
+    !usingOfflineLibrary;
+  const hasVaultItems = vaultItems.length > 0;
+  const showDiscoveryChrome = hasVaultItems && !showConnectPrompt;
+  const showTabs = showDiscoveryChrome;
   const emptyVault =
     !usingOfflineLibrary &&
     status === 'ready' &&
@@ -416,15 +454,30 @@ export function CollectiblesPagePanel({
   const loadMoreLabel = loadingMore
     ? 'Loading…'
     : filterAwaitingLoad && filtered.length === 0
-      ? 'Load more holdings'
+      ? 'Looking for matches…'
       : 'Show more';
 
-  /** OS vault entry with no wallet — portfolio routes always have pageAccountId. */
-  const showConnectPrompt =
-    !pageAccountId &&
-    selfOfflineReady &&
-    (!isConnected || !viewerAccountId) &&
-    !usingOfflineLibrary;
+  useEffect(() => {
+    if (!clientDiscoveryFilterActive) return;
+    if (status !== 'ready' && !usingOfflineLibrary) return;
+    if (!holdings.hasMore || loadingMore) return;
+    loadMore();
+  }, [
+    clientDiscoveryFilterActive,
+    holdings.hasMore,
+    holdings.items.length,
+    loadMore,
+    loadingMore,
+    status,
+    usingOfflineLibrary,
+  ]);
+
+  useInfiniteScrollSentinel({
+    scrollRootRef,
+    sentinelRef: loadMoreSentinelRef,
+    enabled: showLoadMore && !clientDiscoveryFilterActive,
+    onIntersect: loadMore,
+  });
 
   const chromeValue = useMemo<CollectiblesPanelChromeContextValue>(
     () => ({
@@ -432,6 +485,7 @@ export function CollectiblesPagePanel({
       scrollRootRef,
       searchQuery,
       setSearchQuery,
+      showSearch: showDiscoveryChrome,
       showTabs,
       mediumFilter,
       setMediumFilter,
@@ -443,6 +497,8 @@ export function CollectiblesPagePanel({
     [
       ownerAccountId,
       searchQuery,
+      setSearchQuery,
+      showDiscoveryChrome,
       showTabs,
       mediumFilter,
       setMediumFilter,
@@ -462,9 +518,18 @@ export function CollectiblesPagePanel({
           <p className="market-page-empty-copy">
             Connect your wallet to open your Collectibles vault.
           </p>
-          <Link className="page-drawer-section-action" href={APP_MARKET_PATH}>
-            Browse Market
-          </Link>
+          <div className="collectibles-empty-actions">
+            <button
+              type="button"
+              className="page-drawer-section-action"
+              onClick={() => void connect()}
+            >
+              Connect
+            </button>
+            <Link className="page-drawer-section-action" href={APP_MARKET_PATH}>
+              Browse Market
+            </Link>
+          </div>
         </div>
       ) : null}
 
@@ -556,11 +621,7 @@ export function CollectiblesPagePanel({
       ) : null}
 
       {filterAwaitingLoad ? (
-        <div className="market-page-empty">
-          <p className="market-page-empty-copy">
-            No matches in what’s loaded yet.
-          </p>
-        </div>
+        <p className="market-page-status">Looking for matches…</p>
       ) : null}
 
       {filtered.length > 0 && (status === 'ready' || usingOfflineLibrary) ? (
@@ -585,14 +646,17 @@ export function CollectiblesPagePanel({
       ) : null}
 
       {showLoadMore ? (
-        <button
-          type="button"
-          className="market-sales-more"
-          disabled={loadingMore}
-          onClick={loadMore}
-        >
-          {loadMoreLabel}
-        </button>
+        <>
+          <button
+            type="button"
+            className="market-sales-more"
+            disabled={loadingMore}
+            onClick={loadMore}
+          >
+            {loadMoreLabel}
+          </button>
+          <div ref={loadMoreSentinelRef} aria-hidden />
+        </>
       ) : null}
     </div>
   );
@@ -614,8 +678,12 @@ export function CollectiblesPagePanel({
         glassChrome
         scrollRootRef={scrollRootRef}
         actions={<CollectiblesHeaderActions pageAccountId={ownerAccountId} />}
-        heading={<CollectiblesSearchHeading />}
-        toolbar={<CollectiblesFilterToolbar />}
+        heading={
+          showDiscoveryChrome ? <CollectiblesSearchHeading /> : undefined
+        }
+        toolbar={
+          showDiscoveryChrome ? <CollectiblesFilterToolbar /> : undefined
+        }
       >
         {body}
       </OsAppScreen>

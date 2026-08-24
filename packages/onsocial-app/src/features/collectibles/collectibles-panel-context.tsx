@@ -3,10 +3,8 @@
 import {
   createContext,
   useContext,
-  type Dispatch,
   type ReactNode,
   type RefObject,
-  type SetStateAction,
 } from 'react';
 import type { MarketAudioFormatFilter } from '@/features/market/market-facet-rail';
 import type { MarketMediumFilter } from '@/features/market/market-medium';
@@ -16,7 +14,8 @@ export interface CollectiblesPanelChromeContextValue {
   pageAccountId: string | null;
   scrollRootRef: RefObject<HTMLElement | null>;
   searchQuery: string;
-  setSearchQuery: Dispatch<SetStateAction<string>>;
+  setSearchQuery: (next: string) => void;
+  showSearch: boolean;
   showTabs: boolean;
   mediumFilter: MarketMediumFilter;
   setMediumFilter: (next: MarketMediumFilter) => void;

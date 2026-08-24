@@ -21,6 +21,7 @@ describe('collectionIdFromTokenId', () => {
 describe('holdingsActionLabel', () => {
   it('maps medium kinds to use actions', () => {
     expect(holdingsActionLabel('writing')).toBe('Read');
+    expect(holdingsActionLabel('book')).toBe('Read');
     expect(holdingsActionLabel('audio')).toBe('Play');
     expect(holdingsActionLabel('music')).toBe('Play');
     expect(holdingsActionLabel('video')).toBe('Watch');
@@ -104,6 +105,20 @@ describe('toPortfolioHoldingPeek', () => {
       listingKind: null,
     });
     expect(peek.kindLabel).toBe('Collectible');
+  });
+
+  it('keeps creator and edition seat on the peek', () => {
+    const peek = toPortfolioHoldingPeek({
+      tokenId: 'album:3',
+      title: 'Night Drive',
+      ownerId: 'bob.near',
+      collectionId: 'album',
+      creatorId: 'alice.near',
+      mediumKind: 'audio',
+      listingKind: null,
+    });
+    expect(peek.creatorId).toBe('alice.near');
+    expect(peek.editionSeat).toBe(3);
   });
 
   it('surfaces listed resale state in the peek', () => {
@@ -246,14 +261,16 @@ describe('holdingsMatchQuery', () => {
     kindLabel: 'Writing',
     actionLabel: 'Read',
     tokenId: 'quiet-hours:1',
+    creatorId: 'alice.near',
   };
 
-  it('matches title, kind, action, or token id', () => {
+  it('matches title, kind, action, token id, or creator', () => {
     expect(holdingsMatchQuery(item, '')).toBe(true);
     expect(holdingsMatchQuery(item, 'quiet')).toBe(true);
     expect(holdingsMatchQuery(item, 'writing')).toBe(true);
     expect(holdingsMatchQuery(item, 'read')).toBe(true);
     expect(holdingsMatchQuery(item, 'quiet-hours')).toBe(true);
+    expect(holdingsMatchQuery(item, 'alice.near')).toBe(true);
     expect(holdingsMatchQuery(item, 'ticket')).toBe(false);
   });
 });

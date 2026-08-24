@@ -157,6 +157,8 @@ export interface OwnedScarceItem {
    * Drop id when `tokenId` is `collectionId:edition` (not post `s:` scarces).
    */
   collectionId?: string | null;
+  /** Drop creator when known from the collection catalog. */
+  creatorId?: string | null;
   /** Medium taxonomy from metadata `extra.kind` when set. */
   mediumKind?: string | null;
   /** Audio release format from `extra.audioFormat` (or inferred). */
@@ -1520,6 +1522,9 @@ async function fetchOwnedScarcesPageFromIndexer(
       mediaUrl: face?.mediaUrl ?? null,
       ownerId: row.ownerId?.trim() || owner,
       collectionId,
+      ...(catalog?.creatorId?.trim()
+        ? { creatorId: catalog.creatorId.trim() }
+        : {}),
       mediumKind,
       ...discovery,
       listingKind: listed?.kind ?? null,

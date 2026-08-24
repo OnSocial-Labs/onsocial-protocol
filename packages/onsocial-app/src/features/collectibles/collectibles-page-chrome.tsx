@@ -10,7 +10,12 @@ import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 
 /** Search field with Collectibles icon — same heading slot as Market. */
 export function CollectiblesSearchHeading() {
-  const { searchQuery, setSearchQuery } = useCollectiblesPanelChrome();
+  const { searchQuery, setSearchQuery, showSearch } =
+    useCollectiblesPanelChrome();
+
+  if (!showSearch) {
+    return null;
+  }
 
   return (
     <SearchField
