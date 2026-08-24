@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   getProtocolDaoStakeProposePath,
@@ -10,7 +11,8 @@ import {
 } from '@/features/protocol/protocol-eligibility';
 
 /**
- * Propose capability for a DAO public face — this DAO's policy.
+ * Propose capability for a DAO public face — shared snapshot when mounted
+ * under `DaoFaceEligibilityProvider`, otherwise a one-off fetch.
  */
 export function useDaoPageCapability(
   daoAccountId: string,
@@ -23,6 +25,7 @@ export function useDaoPageCapability(
   hasStakeProposePath: boolean;
   stakePathReady: boolean;
 } {
+  const face = useMatchingDaoFaceEligibility(enabled ? daoAccountId : null);
   const { accountId, isConnected } = useAppWallet();
   const [eligibility, setEligibility] =
     useState<ProtocolGovernanceEligibility | null>(null);
@@ -31,13 +34,15 @@ export function useDaoPageCapability(
   const [stakePathReady, setStakePathReady] = useState(false);
 
   useEffect(() => {
-    if (!enabled) {
-      queueMicrotask(() => {
-        setEligibility(null);
-        setLoading(false);
-        setHasStakeProposePath(false);
-        setStakePathReady(false);
-      });
+    if (face || !enabled) {
+      if (!enabled) {
+        queueMicrotask(() => {
+          setEligibility(null);
+          setLoading(false);
+          setHasStakeProposePath(false);
+          setStakePathReady(false);
+        });
+      }
       return;
     }
 
@@ -84,7 +89,18 @@ export function useDaoPageCapability(
     return () => {
       cancelled = true;
     };
-  }, [accountId, daoAccountId, enabled, isConnected]);
+  }, [accountId, daoAccountId, enabled, face, isConnected]);
+
+  if (face) {
+    return {
+      canPropose: face.canPropose,
+      isGroupMember: face.isGroupMember,
+      isLoading: face.isLoading,
+      eligibility: face.eligibility,
+      hasStakeProposePath: face.hasStakeProposePath,
+      stakePathReady: face.stakePathReady,
+    };
+  }
 
   const live = enabled && isConnected ? eligibility : null;
 

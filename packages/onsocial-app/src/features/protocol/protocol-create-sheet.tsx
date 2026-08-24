@@ -28,6 +28,7 @@ import {
   type ProtocolProposalPayload,
 } from '@/features/protocol/protocol-create';
 import { createDefaultProtocolSeasonConfigDraft } from '@/features/protocol/protocol-season-config';
+import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import {
   getProtocolGovernanceEligibility,
   viewerCanProposeOnDao,
@@ -102,6 +103,7 @@ export function ProtocolCreateSheet({
   onChangeKind?: () => void;
 }) {
   const formId = useId();
+  const face = useMatchingDaoFaceEligibility(daoAccountId);
   const staticUpgradable = useMemo(() => getProtocolUpgradableContracts(), []);
   const defaultSeasonConfigDraft = useMemo(
     () => createDefaultProtocolSeasonConfigDraft(),
@@ -151,8 +153,9 @@ export function ProtocolCreateSheet({
     ProtocolDaoManagedContract[]
   >([]);
   const [managedContractsLoading, setManagedContractsLoading] = useState(false);
-  const [eligibility, setEligibility] =
+  const [fetchedEligibility, setFetchedEligibility] =
     useState<ProtocolGovernanceEligibility | null>(null);
+  const eligibility = face?.eligibility ?? fetchedEligibility;
   const [loadState, setLoadState] = useState<
     'idle' | 'loading' | 'ready' | 'error'
   >('idle');
@@ -210,7 +213,7 @@ export function ProtocolCreateSheet({
       setBoostInfraLoading(false);
       setManagedContracts([]);
       setManagedContractsLoading(false);
-      setEligibility(null);
+      setFetchedEligibility(null);
       setLoadState('idle');
       setFormError(null);
       setProposeConfirmOpen(false);
@@ -231,8 +234,15 @@ export function ProtocolCreateSheet({
     }
 
     if (!daoAccountId || !accountId) {
-      setEligibility(null);
+      setFetchedEligibility(null);
       setLoadState('ready');
+      return;
+    }
+    if (face) {
+      setFetchedEligibility(face.eligibility);
+      setLoadState(
+        face.isLoading && !face.eligibility ? 'loading' : 'ready'
+      );
       return;
     }
     let cancelled = false;
@@ -240,12 +250,12 @@ export function ProtocolCreateSheet({
     void getProtocolGovernanceEligibility(accountId, daoAccountId)
       .then((next) => {
         if (cancelled) return;
-        setEligibility(next);
+        setFetchedEligibility(next);
         setLoadState('ready');
       })
       .catch(() => {
         if (cancelled) return;
-        setEligibility(null);
+        setFetchedEligibility(null);
         setLoadState('error');
       });
     return () => {
@@ -258,6 +268,7 @@ export function ProtocolCreateSheet({
     defaultSeasonConfigDraft,
     initialKind,
     staticUpgradable,
+    face,
   ]);
 
   useEffect(() => {
@@ -459,8 +470,10 @@ export function ProtocolCreateSheet({
         ? 'This DAO cannot update boost infra authority from the current contract state.'
         : null;
 
+  const eligibilityLoading =
+    loadState === 'loading' || Boolean(face?.isLoading && !eligibility);
   const needsStake =
-    loadState === 'ready' &&
+    !eligibilityLoading &&
     eligibility != null &&
     eligibility.hasStakeProposePath &&
     !viewerCanProposeOnDao(eligibility);
@@ -1163,7 +1176,7 @@ export function ProtocolCreateSheet({
       title={`Propose ${protocolCreateKindLabel(kind)}?`}
       body="Submit this proposal to the DAO. It goes live after approval."
       eligibility={eligibility}
-      eligibilityLoading={loadState === 'loading'}
+      eligibilityLoading={eligibilityLoading}
       pending={pending}
       proposeLabel="Propose"
       zIndex={PROTOCOL_CONFIRM_Z}

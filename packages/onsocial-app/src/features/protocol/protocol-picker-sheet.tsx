@@ -2,14 +2,15 @@
 
 import {
   useEffect,
-  useMemo,
   useState,
   type ReactNode,
 } from 'react';
 import { OsHugSheet } from '@onsocial/ui';
+import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { getProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
 import { isProtocolDaoGroupMember } from '@/features/protocol/protocol-propose-gate';
 import { PROTOCOL_TASK_SHEET_Z } from '@/features/protocol/protocol-sheet-z';
+import type { ProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 
@@ -26,73 +27,20 @@ export type ProtocolPickerEligibility = {
   roleBlocked: boolean;
 };
 
-/** Shared eligibility load for Propose / Settings picker hug sheets. */
-export function useProtocolPickerEligibility({
-  open,
-  daoAccountId,
-  accountId,
-  daoPolicy,
-}: {
-  open: boolean;
-  daoAccountId: string | null;
-  accountId: string | null;
-  daoPolicy: ProtocolDaoPolicy | null;
-}): ProtocolPickerEligibility {
-  const [loadState, setLoadState] = useState<ProtocolPickerLoadState>('idle');
-  const [delegatedWeight, setDelegatedWeight] = useState('0');
-  const [canProposeAny, setCanProposeAny] = useState(true);
-  const [remainingLabel, setRemainingLabel] = useState<string | null>(null);
-  const [hasStakeProposePath, setHasStakeProposePath] = useState(false);
-
-  const isGroupMember = useMemo(
-    () => isProtocolDaoGroupMember(daoPolicy, accountId),
-    [daoPolicy, accountId]
-  );
-
-  useEffect(() => {
-    if (!open) {
-      setLoadState('idle');
-      setDelegatedWeight('0');
-      setCanProposeAny(true);
-      setRemainingLabel(null);
-      setHasStakeProposePath(false);
-      return;
-    }
-    if (!daoAccountId || !accountId) {
-      setLoadState('ready');
-      return;
-    }
-
-    let cancelled = false;
-    void (async () => {
-      setLoadState('loading');
-      try {
-        const eligibility = await getProtocolGovernanceEligibility(
-          accountId,
-          daoAccountId
-        );
-        if (cancelled) return;
-        setDelegatedWeight(eligibility.delegatedWeight);
-        setCanProposeAny(eligibility.canAddProposal);
-        setHasStakeProposePath(eligibility.hasStakeProposePath);
-        setRemainingLabel(
-          eligibility.hasStakeProposePath &&
-            BigInt(eligibility.remainingToThreshold) > 0n
-            ? formatSocialCompact(eligibility.remainingToThreshold)
-            : null
-        );
-        setLoadState('ready');
-      } catch {
-        if (cancelled) return;
-        setLoadState('error');
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, daoAccountId, accountId]);
-
+export function deriveProtocolPickerEligibility(
+  eligibility: ProtocolGovernanceEligibility | null,
+  accountId: string | null,
+  daoPolicy: ProtocolDaoPolicy | null,
+  loadState: ProtocolPickerLoadState
+): ProtocolPickerEligibility {
+  const isGroupMember = isProtocolDaoGroupMember(daoPolicy, accountId);
+  const canProposeAny = Boolean(eligibility?.canAddProposal);
+  const hasStakeProposePath = Boolean(eligibility?.hasStakeProposePath);
+  const remainingLabel =
+    eligibility?.hasStakeProposePath &&
+    BigInt(eligibility.remainingToThreshold) > 0n
+      ? formatSocialCompact(eligibility.remainingToThreshold)
+      : null;
   const stakeBlocked =
     Boolean(accountId) &&
     loadState === 'ready' &&
@@ -106,7 +54,7 @@ export function useProtocolPickerEligibility({
 
   return {
     loadState,
-    delegatedWeight,
+    delegatedWeight: eligibility?.delegatedWeight ?? '0',
     canProposeAny,
     remainingLabel,
     isGroupMember,
@@ -114,6 +62,70 @@ export function useProtocolPickerEligibility({
     stakeBlocked,
     roleBlocked,
   };
+}
+
+/** Shared eligibility for Propose / Settings picker — face snapshot first. */
+export function useProtocolPickerEligibility({
+  open,
+  daoAccountId,
+  accountId,
+  daoPolicy,
+}: {
+  open: boolean;
+  daoAccountId: string | null;
+  accountId: string | null;
+  daoPolicy: ProtocolDaoPolicy | null;
+}): ProtocolPickerEligibility {
+  const face = useMatchingDaoFaceEligibility(daoAccountId);
+  const [fetched, setFetched] =
+    useState<ProtocolGovernanceEligibility | null>(null);
+  const [fetchState, setFetchState] =
+    useState<ProtocolPickerLoadState>('idle');
+
+  useEffect(() => {
+    if (!open || face) {
+      if (!open) {
+        setFetched(null);
+        setFetchState('idle');
+      }
+      return;
+    }
+    if (!daoAccountId || !accountId) {
+      setFetchState('ready');
+      return;
+    }
+
+    let cancelled = false;
+    setFetchState('loading');
+    void getProtocolGovernanceEligibility(accountId, daoAccountId)
+      .then((next) => {
+        if (cancelled) return;
+        setFetched(next);
+        setFetchState('ready');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFetchState('error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, daoAccountId, face, open]);
+
+  const loadState: ProtocolPickerLoadState = !open
+    ? 'idle'
+    : face
+      ? face.isLoading && !face.eligibility
+        ? 'loading'
+        : 'ready'
+      : fetchState;
+
+  return deriveProtocolPickerEligibility(
+    face ? face.eligibility : fetched,
+    accountId,
+    daoPolicy,
+    loadState
+  );
 }
 
 /**

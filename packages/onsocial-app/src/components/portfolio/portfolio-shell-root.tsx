@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
+import { DaoFaceEligibilityProvider } from '@/contexts/dao-face-eligibility-context';
 import { PortfolioFacePreviewProvider } from '@/contexts/portfolio-face-preview-context';
 import {
   PortfolioDrawerDataProvider,
@@ -250,12 +251,23 @@ export function PortfolioShellRoot({
             committedMood={liveMood}
             config={liveConfig}
           >
-            <PortfolioShellPreviewBridge
-              mood={liveMood}
-              config={liveConfig}
-              pageAccountId={pageAccountId}
-              {...props}
-            />
+            {props.isDao ? (
+              <DaoFaceEligibilityProvider daoAccountId={pageAccountId}>
+                <PortfolioShellPreviewBridge
+                  mood={liveMood}
+                  config={liveConfig}
+                  pageAccountId={pageAccountId}
+                  {...props}
+                />
+              </DaoFaceEligibilityProvider>
+            ) : (
+              <PortfolioShellPreviewBridge
+                mood={liveMood}
+                config={liveConfig}
+                pageAccountId={pageAccountId}
+                {...props}
+              />
+            )}
           </PortfolioMoodPreviewProvider>
         </PortfolioFacePreviewProvider>
       </PageContentDrawerProvider>

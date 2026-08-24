@@ -181,9 +181,74 @@ export async function getProtocolDaoConfig(
   }>(daoAccountId, 'get_config');
 }
 
+const ELIGIBILITY_TTL_MS = 20_000;
+const eligibilityCache = new Map<
+  string,
+  { at: number; value: ProtocolGovernanceEligibility }
+>();
+const eligibilityInflight = new Map<
+  string,
+  Promise<ProtocolGovernanceEligibility>
+>();
+
+function eligibilityCacheKey(accountId: string, daoAccountId: string): string {
+  return `${accountId.trim().toLowerCase()}::${daoAccountId.trim().toLowerCase()}`;
+}
+
+export function invalidateProtocolGovernanceEligibility(
+  accountId?: string,
+  daoAccountId?: string
+): void {
+  if (!accountId && !daoAccountId) {
+    eligibilityCache.clear();
+    return;
+  }
+  const account = accountId?.trim().toLowerCase() ?? '';
+  const dao = daoAccountId?.trim().toLowerCase() ?? '';
+  for (const key of eligibilityCache.keys()) {
+    const [cachedAccount, cachedDao] = key.split('::');
+    if (account && cachedAccount !== account) continue;
+    if (dao && cachedDao !== dao) continue;
+    eligibilityCache.delete(key);
+  }
+}
+
 export async function getProtocolGovernanceEligibility(
   accountId: string,
-  daoAccountId = GOVERNANCE_DAO_ACCOUNT
+  daoAccountId = GOVERNANCE_DAO_ACCOUNT,
+  opts?: { fresh?: boolean }
+): Promise<ProtocolGovernanceEligibility> {
+  const key = eligibilityCacheKey(accountId, daoAccountId);
+  if (opts?.fresh) {
+    eligibilityCache.delete(key);
+  } else {
+    const hit = eligibilityCache.get(key);
+    if (hit && Date.now() - hit.at < ELIGIBILITY_TTL_MS) {
+      return hit.value;
+    }
+    const pending = eligibilityInflight.get(key);
+    if (pending) return pending;
+  }
+
+  const task = loadProtocolGovernanceEligibility(accountId, daoAccountId)
+    .then((value) => {
+      if (eligibilityInflight.get(key) === task) {
+        eligibilityCache.set(key, { at: Date.now(), value });
+      }
+      return value;
+    })
+    .finally(() => {
+      if (eligibilityInflight.get(key) === task) {
+        eligibilityInflight.delete(key);
+      }
+    });
+  eligibilityInflight.set(key, task);
+  return task;
+}
+
+async function loadProtocolGovernanceEligibility(
+  accountId: string,
+  daoAccountId: string
 ): Promise<ProtocolGovernanceEligibility> {
   const [
     policy,

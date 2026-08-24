@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from 'react';
 import { osFieldBorderedClassName } from '@onsocial/ui';
+import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import {
   getProtocolGovernanceEligibility,
@@ -54,34 +55,43 @@ export function ProtocolStakeSheet({
   onWithdraw: (amountYocto: string) => void;
 }) {
   const formId = useId();
+  const face = useMatchingDaoFaceEligibility(daoAccountId);
   const [mode, setMode] = useState<StakeMode>('delegate');
   const [amount, setAmount] = useState('');
-  const [eligibility, setEligibility] =
+  const [fetchedEligibility, setFetchedEligibility] =
     useState<ProtocolGovernanceEligibility | null>(null);
+  const eligibility = face?.eligibility ?? fetchedEligibility;
   const [loadState, setLoadState] = useState<
     'idle' | 'loading' | 'ready' | 'error'
   >('idle');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const refresh = async () => {
+  const refresh = async (opts?: { fresh?: boolean }) => {
     if (!daoAccountId || !accountId) {
-      setEligibility(null);
+      setFetchedEligibility(null);
       setLoadState('ready');
+      return;
+    }
+    if (face && !opts?.fresh) {
+      setFetchedEligibility(face.eligibility);
+      setAmount(defaultAmountSocial(face.eligibility, mode));
+      setLoadState(face.isLoading && !face.eligibility ? 'loading' : 'ready');
       return;
     }
     setLoadState('loading');
     setLoadError(null);
     try {
-      const next = await getProtocolGovernanceEligibility(
-        accountId,
-        daoAccountId
-      );
-      setEligibility(next);
+      const next = face
+        ? await face.refresh({ fresh: true })
+        : await getProtocolGovernanceEligibility(accountId, daoAccountId, {
+            fresh: true,
+          });
+      setFetchedEligibility(next);
       setAmount(defaultAmountSocial(next, mode));
       setLoadState('ready');
     } catch (error) {
-      setEligibility(null);
+      setFetchedEligibility(null);
       setLoadError(
         error instanceof Error
           ? error.message
@@ -95,15 +105,15 @@ export function ProtocolStakeSheet({
     if (!open) {
       setMode('delegate');
       setAmount('');
-      setEligibility(null);
+      setFetchedEligibility(null);
       setLoadState('idle');
       setLoadError(null);
       setFormError(null);
       return;
     }
     void refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh on open/account/dao
-  }, [open, daoAccountId, accountId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh on open/account/dao/face
+  }, [open, daoAccountId, accountId, face]);
 
   useEffect(() => {
     if (!open || !eligibility) return;
@@ -193,7 +203,7 @@ export function ProtocolStakeSheet({
             <button
               type="button"
               className="protocol-retry"
-              onClick={() => void refresh()}
+              onClick={() => void refresh({ fresh: true })}
             >
               Retry
             </button>

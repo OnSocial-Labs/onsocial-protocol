@@ -9,6 +9,7 @@ import {
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import type { ProtocolProposalPayload } from '@/features/protocol/protocol-create';
 import { findProtocolRole } from '@/features/protocol/protocol-create';
+import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import {
   getProtocolDaoConfig,
   getProtocolGovernanceEligibility,
@@ -110,6 +111,7 @@ export function ProtocolSettingsSheet({
   onChangeAction?: () => void;
 }) {
   const formId = useId();
+  const face = useMatchingDaoFaceEligibility(daoAccountId);
   const [actionId, setActionId] =
     useState<ProtocolPolicyActionId>(initialAction);
   const [description, setDescription] = useState('');
@@ -133,8 +135,9 @@ export function ProtocolSettingsSheet({
   const [removeRoleId, setRemoveRoleId] = useState('');
   const [permissionsRoleId, setPermissionsRoleId] = useState('');
   const [permissions, setPermissions] = useState<string[]>([]);
-  const [eligibility, setEligibility] =
+  const [fetchedEligibility, setFetchedEligibility] =
     useState<ProtocolGovernanceEligibility | null>(null);
+  const eligibility = face?.eligibility ?? fetchedEligibility;
   const [loadState, setLoadState] = useState<
     'idle' | 'loading' | 'ready' | 'error'
   >('idle');
@@ -311,7 +314,7 @@ export function ProtocolSettingsSheet({
       setRemoveRoleId('');
       setPermissionsRoleId('');
       setPermissions([]);
-      setEligibility(null);
+      setFetchedEligibility(null);
       setLoadState('idle');
       setFormError(null);
       setProposeConfirmOpen(false);
@@ -356,14 +359,14 @@ export function ProtocolSettingsSheet({
     let cancelled = false;
     setLoadState('loading');
     void Promise.all([
-      accountId
-        ? getProtocolGovernanceEligibility(accountId, daoAccountId)
-        : Promise.resolve(null),
+      face || !accountId
+        ? Promise.resolve(face?.eligibility ?? null)
+        : getProtocolGovernanceEligibility(accountId, daoAccountId),
       getProtocolDaoConfig(daoAccountId),
     ])
       .then(([nextEligibility, config]) => {
         if (cancelled) return;
-        setEligibility(nextEligibility);
+        setFetchedEligibility(nextEligibility);
         const name = config?.name ?? '';
         const purpose = config?.purpose ?? '';
         setConfigName(name);
@@ -374,7 +377,7 @@ export function ProtocolSettingsSheet({
       })
       .catch(() => {
         if (cancelled) return;
-        setEligibility(null);
+        setFetchedEligibility(null);
         setLoadState('error');
       });
     return () => {
@@ -439,8 +442,10 @@ export function ProtocolSettingsSheet({
     currentVoteThreshold,
   ]);
 
+  const eligibilityLoading =
+    loadState === 'loading' || Boolean(face?.isLoading && !eligibility);
   const needsStake =
-    loadState === 'ready' &&
+    !eligibilityLoading &&
     eligibility != null &&
     eligibility.hasStakeProposePath &&
     !viewerCanProposeOnDao(eligibility);
@@ -963,7 +968,7 @@ export function ProtocolSettingsSheet({
       title={`Propose ${protocolPolicyActionLabel(actionId)}?`}
       body="Submit this settings proposal to the DAO. It goes live after approval."
       eligibility={eligibility}
-      eligibilityLoading={loadState === 'loading'}
+      eligibilityLoading={eligibilityLoading}
       pending={pending}
       proposeLabel="Propose"
       zIndex={PROTOCOL_CONFIRM_Z}
