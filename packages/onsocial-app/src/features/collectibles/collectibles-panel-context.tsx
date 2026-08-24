@@ -15,8 +15,7 @@ export interface CollectiblesPanelChromeContextValue {
   scrollRootRef: RefObject<HTMLElement | null>;
   searchQuery: string;
   setSearchQuery: (next: string) => void;
-  showSearch: boolean;
-  showTabs: boolean;
+  showDiscoveryChrome: boolean;
   mediumFilter: MarketMediumFilter;
   setMediumFilter: (next: MarketMediumFilter) => void;
   facetMedium: DropFacetMedium | null;

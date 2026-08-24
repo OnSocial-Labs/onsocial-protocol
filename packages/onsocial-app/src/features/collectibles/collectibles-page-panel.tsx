@@ -21,7 +21,10 @@ import {
   fetchOwnedScarcesPage,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
-import { peekOwnedVaultPage } from '@/features/market/owned-vault-cache';
+import {
+  peekOwnedVaultPage,
+  putOwnedVaultPage,
+} from '@/features/market/owned-vault-cache';
 import {
   normalizeDropFacetMedium,
   normalizeDropFacets,
@@ -171,6 +174,7 @@ export function CollectiblesPagePanel({
       initialAccountId &&
       initialAccountId === account
     ) {
+      putOwnedVaultPage(account, initialHoldings);
       return holdingsStateFromItems(
         initialHoldings.items,
         initialHoldings.nextFromEnd,
@@ -196,6 +200,11 @@ export function CollectiblesPagePanel({
   const [offlineReady, setOfflineReady] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const holdingsRef = useRef(holdings);
+
+  useEffect(() => {
+    holdingsRef.current = holdings;
+  });
 
   const loadKey = ownerAccountId ? `${ownerAccountId}:${retryKey}` : null;
   const trimmedSearch = searchQuery.trim();
@@ -265,6 +274,16 @@ export function CollectiblesPagePanel({
       return;
     }
 
+    const current = holdingsRef.current;
+    const sameKeyReady =
+      current.loadKey === loadKey &&
+      !current.failed &&
+      current.items.length > 0;
+    // Client-side filter is enough once this owner's vault is fully in memory.
+    if (sameKeyReady && (!urlDiscoveryActive || !current.hasMore)) {
+      return;
+    }
+
     let cancelled = false;
     void fetchOwnedScarcesPage(ownerAccountId, {
       pageSize: urlDiscoveryActive ? OWNED_MAX_TOKENS : undefined,
@@ -282,10 +301,18 @@ export function CollectiblesPagePanel({
       })
       .catch(() => {
         if (cancelled) return;
-        setHoldings({
-          ...EMPTY_HOLDINGS,
-          loadKey,
-          failed: true,
+        setHoldings((prev) => {
+          if (
+            prev.items.length > 0 &&
+            prev.loadKey?.startsWith(`${ownerAccountId}:`)
+          ) {
+            return prev;
+          }
+          return {
+            ...EMPTY_HOLDINGS,
+            loadKey,
+            failed: true,
+          };
         });
       });
 
@@ -431,7 +458,6 @@ export function CollectiblesPagePanel({
     !usingOfflineLibrary;
   const hasVaultItems = vaultItems.length > 0;
   const showDiscoveryChrome = hasVaultItems && !showConnectPrompt;
-  const showTabs = showDiscoveryChrome;
   const emptyVault =
     !usingOfflineLibrary &&
     status === 'ready' &&
@@ -490,8 +516,7 @@ export function CollectiblesPagePanel({
       scrollRootRef,
       searchQuery,
       setSearchQuery,
-      showSearch: showDiscoveryChrome,
-      showTabs,
+      showDiscoveryChrome,
       mediumFilter,
       setMediumFilter,
       facetMedium,
@@ -504,7 +529,6 @@ export function CollectiblesPagePanel({
       searchQuery,
       setSearchQuery,
       showDiscoveryChrome,
-      showTabs,
       mediumFilter,
       setMediumFilter,
       facetMedium,
@@ -601,13 +625,15 @@ export function CollectiblesPagePanel({
           <p className="market-page-empty-copy">
             No collectibles match “{trimmedSearch}”.
           </p>
-          <button
-            type="button"
-            className="market-sales-more"
-            onClick={() => setSearchQuery('')}
-          >
-            Clear search
-          </button>
+          <div className="collectibles-empty-actions">
+            <button
+              type="button"
+              className="page-drawer-section-action"
+              onClick={() => setSearchQuery('')}
+            >
+              Clear search
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -620,13 +646,15 @@ export function CollectiblesPagePanel({
                 ? `No ${emptyFilterLabel.toLowerCase()} in your vault.`
                 : `No ${emptyFilterLabel.toLowerCase()} held.`}
           </p>
-          <button
-            type="button"
-            className="market-sales-more"
-            onClick={() => setMediumFilter('all')}
-          >
-            Show all
-          </button>
+          <div className="collectibles-empty-actions">
+            <button
+              type="button"
+              className="page-drawer-section-action"
+              onClick={() => setMediumFilter('all')}
+            >
+              Show all
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -635,10 +663,7 @@ export function CollectiblesPagePanel({
       ) : null}
 
       {filtered.length > 0 && (status === 'ready' || usingOfflineLibrary) ? (
-        <section
-          className="market-section"
-          aria-labelledby="collectibles-results"
-        >
+        <section className="market-section" aria-label="Collectibles">
           <div
             id="collectibles-results"
             className="market-listing-list"
