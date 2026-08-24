@@ -22,7 +22,9 @@ export function useThreadFocusReply(
   const pendingPostIdRef = useRef<string | null>(null);
   const clearedQueryRef = useRef(false);
   const onFocusReplyRef = useRef(options?.onFocusReply);
-  onFocusReplyRef.current = options?.onFocusReply;
+  useEffect(() => {
+    onFocusReplyRef.current = options?.onFocusReply;
+  });
 
   const stripFocusQuery = useCallback(() => {
     if (clearedQueryRef.current) return;
