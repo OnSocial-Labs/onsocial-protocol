@@ -53,6 +53,8 @@ export function DaoProposeConfirmSheet({
     detail = gate.bondLabel
       ? `Stake enough SOCIAL to propose. Bond ${gate.bondLabel} on submit.`
       : 'Stake enough SOCIAL to propose on this DAO.';
+  } else if (gate.needsForeignStake) {
+    detail = `Need ${gate.foreignStakeTokenLabel ?? "this DAO's token"} stake to propose.`;
   } else if (!gate.canPropose) {
     detail = 'You are not on a proposing role on this DAO.';
   } else if (!gate.bondOk) {

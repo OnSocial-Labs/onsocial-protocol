@@ -28,6 +28,7 @@ function eligibility(
     isGroupMember: false,
     canAddProposal: true,
     hasStakeProposePath: true,
+    foreignStakeTokenLabel: null,
     proposalBond: '100000000000000000000000', // 0.1 NEAR
     ...partial,
   };
@@ -49,6 +50,22 @@ describe('resolveDaoProposeBondGate', () => {
       })
     );
     expect(gate.needsStake).toBe(true);
+    expect(gate.canSubmit).toBe(false);
+  });
+
+  it('does not offer SOCIAL stake when the DAO requires another token', () => {
+    const gate = resolveDaoProposeBondGate(
+      eligibility({
+        canPropose: false,
+        canAddProposal: false,
+        hasStakeProposePath: false,
+        foreignStakeTokenLabel: 'USDC',
+        nearBalance: '1000000000000000000000000',
+      })
+    );
+    expect(gate.needsStake).toBe(false);
+    expect(gate.needsForeignStake).toBe(true);
+    expect(gate.foreignStakeTokenLabel).toBe('USDC');
     expect(gate.canSubmit).toBe(false);
   });
 

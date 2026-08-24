@@ -241,8 +241,9 @@ export function DaoMembersSheet({
               <span className="dao-members-role-meta">Stake</span>
             </h2>
             <p className="dao-members-threshold">
-              Need {formatSocialCompact(section.thresholdYocto)} SOCIAL
-              delegated to hold this role.
+              Need {formatSocialCompact(section.thresholdYocto)}{' '}
+              {eligibility?.foreignStakeTokenLabel ?? 'SOCIAL'} delegated to
+              hold this role.
             </p>
             {accountId && eligibility ? (
               <div className="dao-members-viewer">

@@ -29,6 +29,7 @@ function eligibility(
     isGroupMember: false,
     canAddProposal: false,
     hasStakeProposePath: false,
+    foreignStakeTokenLabel: null,
     proposalBond: '0',
     ...partial,
   };
@@ -70,6 +71,23 @@ describe('deriveProtocolPickerEligibility', () => {
     expect(next.stakeBlocked).toBe(false);
     expect(next.roleBlocked).toBe(true);
     expect(next.remainingLabel).toBeNull();
+  });
+
+  it('blocks on a named foreign token without offering SOCIAL stake', () => {
+    const next = deriveProtocolPickerEligibility(
+      eligibility({
+        canAddProposal: false,
+        hasStakeProposePath: false,
+        foreignStakeTokenLabel: 'USDC',
+      }),
+      'alice.near',
+      emptyPolicy,
+      'ready'
+    );
+    expect(next.stakeBlocked).toBe(false);
+    expect(next.foreignStakeBlocked).toBe(true);
+    expect(next.roleBlocked).toBe(false);
+    expect(next.foreignStakeTokenLabel).toBe('USDC');
   });
 
   it('is open when policy can add a proposal', () => {

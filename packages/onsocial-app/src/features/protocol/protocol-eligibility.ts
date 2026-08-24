@@ -1,6 +1,8 @@
 import {
   GOVERNANCE_DAO_ACCOUNT,
   SOCIAL_TOKEN_CONTRACT,
+  STAKING_GOVERNANCE_DAO_ACCOUNT,
+  STAKING_TREASURY_DAO_ACCOUNT,
 } from '@/lib/app-config';
 import {
   getSpendableNearBalance,
@@ -10,9 +12,10 @@ import {
   type NearAccountView,
 } from '@/lib/app-near-rpc';
 import {
-  daoHasStakeProposePath,
+  defaultForeignStakeTokenLabel,
   getMemberProposeThreshold,
   isProtocolDaoGroupMember,
+  resolveStakeProposeKind,
   viewerCanAddProposalOnPolicy,
 } from '@/features/protocol/protocol-propose-gate';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
@@ -48,8 +51,13 @@ export interface ProtocolGovernanceEligibility {
    * Use for Manage / mood / Boost / claim / As-DAO entry.
    */
   canAddProposal: boolean;
-  /** Member propose role + staking contract — SOCIAL stake can unlock. */
+  /** Member propose role + SOCIAL staking contract — our Stake sheet can unlock. */
   hasStakeProposePath: boolean;
+  /**
+   * Member propose role + a non-SOCIAL (or unknown) staking token.
+   * Block propose; do not offer SOCIAL Stake.
+   */
+  foreignStakeTokenLabel: string | null;
   proposalBond: string;
 }
 
@@ -116,11 +124,24 @@ function getDelegationStorageCost(accountId: string): string {
   return (bytes * NEAR_STORAGE_BYTE_COST).toString();
 }
 
+const KNOWN_SOCIAL_STAKING_CONTRACTS = [
+  STAKING_GOVERNANCE_DAO_ACCOUNT,
+  STAKING_TREASURY_DAO_ACCOUNT,
+] as const;
+
+const STAKE_TOKEN_VIEW_METHODS = [
+  'get_token_id',
+  'get_ft_contract_id',
+  'get_vote_token_id',
+] as const;
+
 function resolveEligibilityRights(
   policy: ProtocolDaoPolicy | null,
   accountId: string,
   delegatedWeight: string,
-  stakingContractId: string | null
+  stakingContractId: string | null,
+  stakeTokenId: string | null,
+  foreignStakeTokenLabel: string | null
 ): {
   requiredWeight: string;
   remainingToThreshold: string;
@@ -128,6 +149,7 @@ function resolveEligibilityRights(
   isGroupMember: boolean;
   canAddProposal: boolean;
   hasStakeProposePath: boolean;
+  foreignStakeTokenLabel: string | null;
 } {
   const memberThreshold = getMemberProposeThreshold(policy);
   const hasMemberProposeRole = memberThreshold != null;
@@ -135,6 +157,13 @@ function resolveEligibilityRights(
   const remainingToThreshold = hasMemberProposeRole
     ? maxYocto(BigInt(requiredWeight) - BigInt(delegatedWeight))
     : '0';
+  const stakeKind = resolveStakeProposeKind({
+    hasMemberProposeRole,
+    stakingContractId,
+    stakeTokenId,
+    socialTokenId: SOCIAL_TOKEN_CONTRACT,
+    knownSocialStakingIds: KNOWN_SOCIAL_STAKING_CONTRACTS,
+  });
   return {
     requiredWeight,
     remainingToThreshold,
@@ -147,7 +176,68 @@ function resolveEligibilityRights(
       accountId,
       delegatedWeight
     ),
-    hasStakeProposePath: daoHasStakeProposePath(policy, stakingContractId),
+    hasStakeProposePath: stakeKind === 'social',
+    foreignStakeTokenLabel:
+      stakeKind === 'foreign'
+        ? (foreignStakeTokenLabel ?? defaultForeignStakeTokenLabel(stakeTokenId))
+        : null,
+  };
+}
+
+function firstNonEmptyString(values: Array<string | null>): string | null {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) return trimmed;
+  }
+  return null;
+}
+
+async function getStakingVoteTokenId(
+  stakingContractId: string
+): Promise<string | null> {
+  const hits = await Promise.all(
+    STAKE_TOKEN_VIEW_METHODS.map((method) =>
+      tryViewNearContract<string>(stakingContractId, method)
+    )
+  );
+  return firstNonEmptyString(hits.map((value) => value));
+}
+
+async function getFtSymbol(tokenId: string): Promise<string | null> {
+  const meta = await tryViewNearContract<{ symbol?: string }>(
+    tokenId,
+    'ft_metadata'
+  );
+  const symbol = meta?.symbol?.trim();
+  return symbol || null;
+}
+
+async function resolveStakeTokenContext(
+  stakingContractId: string | null
+): Promise<{ stakeTokenId: string | null; foreignStakeTokenLabel: string | null }> {
+  if (!stakingContractId) {
+    return { stakeTokenId: null, foreignStakeTokenLabel: null };
+  }
+  const knownSocial = KNOWN_SOCIAL_STAKING_CONTRACTS.some(
+    (id) => id.trim().toLowerCase() === stakingContractId.toLowerCase()
+  );
+  if (knownSocial) {
+    return {
+      stakeTokenId: SOCIAL_TOKEN_CONTRACT,
+      foreignStakeTokenLabel: null,
+    };
+  }
+  const stakeTokenId = await getStakingVoteTokenId(stakingContractId);
+  if (
+    stakeTokenId &&
+    stakeTokenId.toLowerCase() === SOCIAL_TOKEN_CONTRACT.toLowerCase()
+  ) {
+    return { stakeTokenId, foreignStakeTokenLabel: null };
+  }
+  const symbol = stakeTokenId ? await getFtSymbol(stakeTokenId) : null;
+  return {
+    stakeTokenId,
+    foreignStakeTokenLabel: symbol || defaultForeignStakeTokenLabel(stakeTokenId),
   };
 }
 
@@ -158,7 +248,17 @@ export async function getProtocolDaoStakeProposePath(
     tryViewNearContract<ProtocolDaoPolicy>(daoAccountId, 'get_policy'),
     tryViewNearContract<string>(daoAccountId, 'get_staking_contract'),
   ]);
-  return daoHasStakeProposePath(policy, stakingContractRaw?.trim() || null);
+  const stakingContractId = stakingContractRaw?.trim() || null;
+  const { stakeTokenId } = await resolveStakeTokenContext(stakingContractId);
+  return (
+    resolveStakeProposeKind({
+      hasMemberProposeRole: getMemberProposeThreshold(policy) != null,
+      stakingContractId,
+      stakeTokenId,
+      socialTokenId: SOCIAL_TOKEN_CONTRACT,
+      knownSocialStakingIds: KNOWN_SOCIAL_STAKING_CONTRACTS,
+    }) === 'social'
+  );
 }
 
 export async function getProtocolProposalBond(
@@ -273,11 +373,15 @@ async function loadProtocolGovernanceEligibility(
   const nearBalance = getSpendableNearBalance(nearAccount);
   const proposalBond = policy?.proposal_bond ?? '0';
   const stakingContractId = stakingContractRaw?.trim() || null;
+  const { stakeTokenId, foreignStakeTokenLabel } =
+    await resolveStakeTokenContext(stakingContractId);
   const rights = resolveEligibilityRights(
     policy,
     accountId,
     delegatedWeight,
-    stakingContractId
+    stakingContractId,
+    stakeTokenId,
+    foreignStakeTokenLabel
   );
   const {
     requiredWeight,
@@ -286,6 +390,7 @@ async function loadProtocolGovernanceEligibility(
     isGroupMember,
     canAddProposal,
     hasStakeProposePath,
+    foreignStakeTokenLabel: foreignLabel,
   } = rights;
 
   if (!stakingContractId) {
@@ -312,6 +417,7 @@ async function loadProtocolGovernanceEligibility(
       isGroupMember,
       canAddProposal,
       hasStakeProposePath,
+      foreignStakeTokenLabel: foreignLabel,
       proposalBond,
     };
   }
@@ -399,6 +505,7 @@ async function loadProtocolGovernanceEligibility(
     isGroupMember,
     canAddProposal,
     hasStakeProposePath,
+    foreignStakeTokenLabel: foreignLabel,
     proposalBond,
   };
 }

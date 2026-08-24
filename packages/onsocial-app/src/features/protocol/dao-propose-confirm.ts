@@ -8,6 +8,8 @@ export type DaoProposeBondGate = {
   canPropose: boolean;
   bondOk: boolean;
   needsStake: boolean;
+  needsForeignStake: boolean;
+  foreignStakeTokenLabel: string | null;
   bondLabel: string | null;
   nearLabel: string | null;
   shortfallNearLabel: string | null;
@@ -27,6 +29,8 @@ export function resolveDaoProposeBondGate(
       canPropose: false,
       bondOk: false,
       needsStake: false,
+      needsForeignStake: false,
+      foreignStakeTokenLabel: null,
       bondLabel: null,
       nearLabel: null,
       shortfallNearLabel: null,
@@ -44,6 +48,9 @@ export function resolveDaoProposeBondGate(
     canPropose,
     bondOk,
     needsStake: !canPropose && eligibility.hasStakeProposePath,
+    needsForeignStake:
+      !canPropose && Boolean(eligibility.foreignStakeTokenLabel),
+    foreignStakeTokenLabel: eligibility.foreignStakeTokenLabel ?? null,
     bondLabel: `${formatNearCompact(bond)} NEAR`,
     nearLabel: `${formatNearCompact(near)} NEAR`,
     shortfallNearLabel:

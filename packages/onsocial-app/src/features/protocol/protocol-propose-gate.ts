@@ -157,12 +157,55 @@ export function getMemberProposeThreshold(
   return null;
 }
 
-/** SOCIAL stake can unlock propose only with a Member path and staking contract. */
+/** A Member propose role plus a staking contract — token may not be SOCIAL. */
 export function daoHasStakeProposePath(
   policy: ProtocolDaoPolicy | null | undefined,
   stakingContractId: string | null | undefined
 ): boolean {
   return Boolean(stakingContractId?.trim()) && getMemberProposeThreshold(policy) != null;
+}
+
+export type StakeProposeKind = 'none' | 'social' | 'foreign';
+
+/**
+ * SOCIAL stake UI only when this DAO's staking token is SOCIAL.
+ * Any other (or unknown) token is foreign — block propose, no Stake sheet.
+ */
+export function resolveStakeProposeKind(opts: {
+  hasMemberProposeRole: boolean;
+  stakingContractId: string | null | undefined;
+  stakeTokenId: string | null | undefined;
+  socialTokenId: string;
+  knownSocialStakingIds?: readonly string[];
+}): StakeProposeKind {
+  const staking = opts.stakingContractId?.trim() ?? '';
+  if (!opts.hasMemberProposeRole || !staking) return 'none';
+
+  const token = opts.stakeTokenId?.trim() ?? '';
+  if (token) {
+    return token.toLowerCase() === opts.socialTokenId.trim().toLowerCase()
+      ? 'social'
+      : 'foreign';
+  }
+  const known = opts.knownSocialStakingIds ?? [];
+  if (
+    known.some(
+      (id) => id.trim().toLowerCase() === staking.toLowerCase()
+    )
+  ) {
+    return 'social';
+  }
+  return 'foreign';
+}
+
+export function defaultForeignStakeTokenLabel(
+  stakeTokenId: string | null | undefined
+): string {
+  return stakeTokenId?.trim() || "this DAO's token";
+}
+
+export function foreignStakeLockReason(tokenLabel: string): string {
+  return `Need ${tokenLabel} stake`;
 }
 
 export function canProposeProtocolCreateKind(
@@ -274,8 +317,12 @@ export function getProtocolCreateKindBlockReason(
 
 function getProposePathLockReason(opts: {
   hasStakeProposePath?: boolean;
+  foreignStakeTokenLabel?: string | null;
   remainingLabel: string | null;
 }): string {
+  if (opts.foreignStakeTokenLabel) {
+    return foreignStakeLockReason(opts.foreignStakeTokenLabel);
+  }
   if (opts.hasStakeProposePath === false) {
     return 'Not on a proposing role';
   }
@@ -293,6 +340,7 @@ export function getProtocolCreateKindLockReason(opts: {
   remainingLabel: string | null;
   canProposeKind: boolean;
   hasStakeProposePath?: boolean;
+  foreignStakeTokenLabel?: string | null;
 }): string | null {
   if (!opts.accountId) return 'Connect a wallet';
   if (!opts.canProposeAny && !opts.isGroupMember) {
@@ -335,6 +383,7 @@ export function getProtocolPolicyActionLockReason(opts: {
   remainingLabel: string | null;
   canProposeAction: boolean;
   hasStakeProposePath?: boolean;
+  foreignStakeTokenLabel?: string | null;
 }): string | null {
   if (!opts.accountId) return 'Connect a wallet';
   if (!opts.canProposeAny && !opts.isGroupMember) {

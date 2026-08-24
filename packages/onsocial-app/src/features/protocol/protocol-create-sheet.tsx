@@ -477,6 +477,11 @@ export function ProtocolCreateSheet({
     eligibility != null &&
     eligibility.hasStakeProposePath &&
     !viewerCanProposeOnDao(eligibility);
+  const needsForeignStake =
+    !eligibilityLoading &&
+    eligibility != null &&
+    Boolean(eligibility.foreignStakeTokenLabel) &&
+    !viewerCanProposeOnDao(eligibility);
   const bondLabel = eligibility?.proposalBond
     ? `${yoctoToNear(eligibility.proposalBond)} NEAR`
     : null;
@@ -648,6 +653,13 @@ export function ProtocolCreateSheet({
             Need {shortfall ?? 'more'} SOCIAL delegated — you can still fill
             this form; confirm will offer Stake
             {bondLabel ? ` · bond ${bondLabel}` : ''}.
+          </p>
+        ) : null}
+
+        {needsForeignStake ? (
+          <p className="protocol-compose-note is-warn">
+            Need {eligibility?.foreignStakeTokenLabel ?? "this DAO's token"}{' '}
+            stake to propose.
           </p>
         ) : null}
 

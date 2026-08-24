@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   canProposeProtocolCreateKind,
   daoHasStakeProposePath,
+  defaultForeignStakeTokenLabel,
+  foreignStakeLockReason,
   getMemberProposeThreshold,
   isProtocolDaoGroupMember,
+  resolveStakeProposeKind,
   viewerCanAddProposalOnPolicy,
   viewerHasCreateKindPermission,
 } from '@/features/protocol/protocol-propose-gate';
@@ -116,5 +119,54 @@ describe('daoHasStakeProposePath', () => {
     expect(daoHasStakeProposePath(factoryEveryone, 'staking.example')).toBe(
       false
     );
+  });
+});
+
+describe('resolveStakeProposeKind', () => {
+  const social = 'token.onsocial.testnet';
+
+  it('offers SOCIAL only when the staking token is SOCIAL', () => {
+    expect(
+      resolveStakeProposeKind({
+        hasMemberProposeRole: true,
+        stakingContractId: 'staking.other',
+        stakeTokenId: social,
+        socialTokenId: social,
+      })
+    ).toBe('social');
+  });
+
+  it('is foreign when the staking token is another FT', () => {
+    expect(
+      resolveStakeProposeKind({
+        hasMemberProposeRole: true,
+        stakingContractId: 'staking.other',
+        stakeTokenId: 'usdc.near',
+        socialTokenId: social,
+      })
+    ).toBe('foreign');
+    expect(foreignStakeLockReason(defaultForeignStakeTokenLabel('usdc.near'))).toBe(
+      'Need usdc.near stake'
+    );
+  });
+
+  it('treats an unknown token as foreign unless the staking contract is known SOCIAL', () => {
+    expect(
+      resolveStakeProposeKind({
+        hasMemberProposeRole: true,
+        stakingContractId: 'staking.mystery',
+        stakeTokenId: null,
+        socialTokenId: social,
+      })
+    ).toBe('foreign');
+    expect(
+      resolveStakeProposeKind({
+        hasMemberProposeRole: true,
+        stakingContractId: 'staking-governance.onsocial.testnet',
+        stakeTokenId: null,
+        socialTokenId: social,
+        knownSocialStakingIds: ['staking-governance.onsocial.testnet'],
+      })
+    ).toBe('social');
   });
 });

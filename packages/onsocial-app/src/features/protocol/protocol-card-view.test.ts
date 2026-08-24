@@ -368,6 +368,7 @@ describe('protocol create + stake helpers', () => {
       isGroupMember: false,
       canAddProposal: false,
       hasStakeProposePath: true,
+      foreignStakeTokenLabel: null,
       proposalBond: '0',
     };
     const plan = buildProtocolDelegationPlan(eligibility, 100n);

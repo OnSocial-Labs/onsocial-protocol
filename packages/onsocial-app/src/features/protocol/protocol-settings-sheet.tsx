@@ -452,6 +452,11 @@ export function ProtocolSettingsSheet({
     eligibility != null &&
     eligibility.hasStakeProposePath &&
     !viewerCanProposeOnDao(eligibility);
+  const needsForeignStake =
+    !eligibilityLoading &&
+    eligibility != null &&
+    Boolean(eligibility.foreignStakeTokenLabel) &&
+    !viewerCanProposeOnDao(eligibility);
   const shortfall =
     eligibility && BigInt(eligibility.remainingToThreshold) > 0n
       ? formatSocialCompact(eligibility.remainingToThreshold)
@@ -579,6 +584,13 @@ export function ProtocolSettingsSheet({
           <p className="protocol-compose-note is-warn">
             Need {shortfall ?? 'more'} SOCIAL delegated — you can still fill
             this form; confirm will offer Stake.
+          </p>
+        ) : null}
+
+        {needsForeignStake ? (
+          <p className="protocol-compose-note is-warn">
+            Need {eligibility?.foreignStakeTokenLabel ?? "this DAO's token"}{' '}
+            stake to propose.
           </p>
         ) : null}
 

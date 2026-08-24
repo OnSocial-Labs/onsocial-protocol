@@ -256,7 +256,9 @@ export function ProtocolDaoInfoSheet({
                 ? 'Can propose'
                 : eligibility.hasStakeProposePath
                   ? `Need ${formatSocialCompact(eligibility.remainingToThreshold)} more SOCIAL`
-                  : 'Not on a proposing role'}
+                  : eligibility.foreignStakeTokenLabel
+                    ? `Need ${eligibility.foreignStakeTokenLabel} stake`
+                    : 'Not on a proposing role'}
             </p>
             <p className="protocol-compose-note">
               Delegated {formatSocialCompact(eligibility.delegatedWeight)} ·

@@ -23,7 +23,9 @@ export type ProtocolPickerEligibility = {
   remainingLabel: string | null;
   isGroupMember: boolean;
   hasStakeProposePath: boolean;
+  foreignStakeTokenLabel: string | null;
   stakeBlocked: boolean;
+  foreignStakeBlocked: boolean;
   roleBlocked: boolean;
 };
 
@@ -36,6 +38,7 @@ export function deriveProtocolPickerEligibility(
   const isGroupMember = isProtocolDaoGroupMember(daoPolicy, accountId);
   const canProposeAny = Boolean(eligibility?.canAddProposal);
   const hasStakeProposePath = Boolean(eligibility?.hasStakeProposePath);
+  const foreignStakeTokenLabel = eligibility?.foreignStakeTokenLabel ?? null;
   const remainingLabel =
     eligibility?.hasStakeProposePath &&
     BigInt(eligibility.remainingToThreshold) > 0n
@@ -46,11 +49,17 @@ export function deriveProtocolPickerEligibility(
     loadState === 'ready' &&
     !canProposeAny &&
     hasStakeProposePath;
+  const foreignStakeBlocked =
+    Boolean(accountId) &&
+    loadState === 'ready' &&
+    !canProposeAny &&
+    Boolean(foreignStakeTokenLabel);
   const roleBlocked =
     Boolean(accountId) &&
     loadState === 'ready' &&
     !canProposeAny &&
-    !hasStakeProposePath;
+    !hasStakeProposePath &&
+    !foreignStakeTokenLabel;
 
   return {
     loadState,
@@ -59,7 +68,9 @@ export function deriveProtocolPickerEligibility(
     remainingLabel,
     isGroupMember,
     hasStakeProposePath,
+    foreignStakeTokenLabel,
     stakeBlocked,
+    foreignStakeBlocked,
     roleBlocked,
   };
 }
@@ -176,6 +187,8 @@ export function ProtocolPickerStatus({
   errorNote,
   stakeBlocked,
   stakeMessage,
+  foreignStakeBlocked = false,
+  foreignStakeMessage = "Need this DAO's token stake.",
   roleBlocked = false,
   roleMessage = 'You are not on a proposing role on this DAO.',
   onOpenStake,
@@ -188,6 +201,8 @@ export function ProtocolPickerStatus({
   errorNote: string;
   stakeBlocked: boolean;
   stakeMessage: string;
+  foreignStakeBlocked?: boolean;
+  foreignStakeMessage?: string;
   roleBlocked?: boolean;
   roleMessage?: string;
   onOpenStake: () => void;
@@ -219,6 +234,10 @@ export function ProtocolPickerStatus({
             Stake
           </button>
         </div>
+      ) : null}
+
+      {foreignStakeBlocked ? (
+        <p className="protocol-compose-note is-warn">{foreignStakeMessage}</p>
       ) : null}
 
       {roleBlocked ? (
