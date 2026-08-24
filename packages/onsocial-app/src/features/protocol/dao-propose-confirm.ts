@@ -1,10 +1,15 @@
-import type { ProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
+import {
+  viewerCanProposeOnDao,
+  type ProtocolGovernanceEligibility,
+} from '@/features/protocol/protocol-eligibility';
 import { formatNearCompact } from '@/lib/format-near-balance';
 
 export type DaoProposeBondGate = {
   canPropose: boolean;
   bondOk: boolean;
   needsStake: boolean;
+  needsForeignStake: boolean;
+  foreignStakeTokenLabel: string | null;
   bondLabel: string | null;
   nearLabel: string | null;
   shortfallNearLabel: string | null;
@@ -12,19 +17,20 @@ export type DaoProposeBondGate = {
 };
 
 /**
- * Gate a DAO `add_proposal` confirm hug — propose rights + spendable NEAR for bond.
- * Group council can propose without meeting the Member stake threshold.
+ * Gate a DAO `add_proposal` confirm hug — this DAO's policy + spendable NEAR.
+ * SOCIAL stake only when the DAO has a Member path and staking contract.
  */
 export function resolveDaoProposeBondGate(
   eligibility: ProtocolGovernanceEligibility | null,
-  loading = false,
-  opts?: { isGroupMember?: boolean }
+  loading = false
 ): DaoProposeBondGate {
   if (loading || !eligibility) {
     return {
       canPropose: false,
       bondOk: false,
       needsStake: false,
+      needsForeignStake: false,
+      foreignStakeTokenLabel: null,
       bondLabel: null,
       nearLabel: null,
       shortfallNearLabel: null,
@@ -36,16 +42,15 @@ export function resolveDaoProposeBondGate(
   const near = BigInt(eligibility.nearBalance || '0');
   const bondOk = near >= bond;
   const shortfall = bond > near ? bond - near : 0n;
-  const isGroupMember =
-    opts?.isGroupMember !== undefined
-      ? opts.isGroupMember
-      : Boolean(eligibility.isGroupMember);
-  const canPropose = isGroupMember || eligibility.canPropose;
+  const canPropose = viewerCanProposeOnDao(eligibility);
 
   return {
     canPropose,
     bondOk,
-    needsStake: !canPropose,
+    needsStake: !canPropose && eligibility.hasStakeProposePath,
+    needsForeignStake:
+      !canPropose && Boolean(eligibility.foreignStakeTokenLabel),
+    foreignStakeTokenLabel: eligibility.foreignStakeTokenLabel ?? null,
     bondLabel: `${formatNearCompact(bond)} NEAR`,
     nearLabel: `${formatNearCompact(near)} NEAR`,
     shortfallNearLabel:

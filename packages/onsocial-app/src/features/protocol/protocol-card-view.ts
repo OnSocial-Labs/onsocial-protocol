@@ -1,3 +1,4 @@
+import { daoRoleGroupMembers } from '@/features/protocol/protocol-propose-gate';
 import { deriveProtocolProposalPresentation } from '@/features/protocol/protocol-proposal-presentation';
 import { proposalPeriodNsToDays } from '@/features/protocol/protocol-policy';
 import type {
@@ -227,7 +228,7 @@ export function statusTone(
 }
 
 function getGroupMembers(role: ProtocolDaoRole): string[] {
-  return (role.kind?.Group ?? []).map((id) => normalizeAccount(id));
+  return daoRoleGroupMembers(role).map((id) => normalizeAccount(id));
 }
 
 function findViewerRole(

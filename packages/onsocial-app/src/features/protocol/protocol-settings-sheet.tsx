@@ -9,9 +9,11 @@ import {
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import type { ProtocolProposalPayload } from '@/features/protocol/protocol-create';
 import { findProtocolRole } from '@/features/protocol/protocol-create';
+import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import {
   getProtocolDaoConfig,
   getProtocolGovernanceEligibility,
+  viewerCanProposeOnDao,
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
 import {
@@ -52,7 +54,6 @@ import {
 } from '@/features/protocol/protocol-policy-presets';
 import {
   getProtocolPolicyActionBlockReason,
-  isProtocolDaoGroupMember,
   viewerHasPolicyActionPermission,
 } from '@/features/protocol/protocol-propose-gate';
 import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
@@ -110,6 +111,7 @@ export function ProtocolSettingsSheet({
   onChangeAction?: () => void;
 }) {
   const formId = useId();
+  const face = useMatchingDaoFaceEligibility(daoAccountId);
   const [actionId, setActionId] =
     useState<ProtocolPolicyActionId>(initialAction);
   const [description, setDescription] = useState('');
@@ -133,8 +135,9 @@ export function ProtocolSettingsSheet({
   const [removeRoleId, setRemoveRoleId] = useState('');
   const [permissionsRoleId, setPermissionsRoleId] = useState('');
   const [permissions, setPermissions] = useState<string[]>([]);
-  const [eligibility, setEligibility] =
+  const [fetchedEligibility, setFetchedEligibility] =
     useState<ProtocolGovernanceEligibility | null>(null);
+  const eligibility = face?.eligibility ?? fetchedEligibility;
   const [loadState, setLoadState] = useState<
     'idle' | 'loading' | 'ready' | 'error'
   >('idle');
@@ -150,10 +153,6 @@ export function ProtocolSettingsSheet({
   const removableRoles = useMemo(
     () => getRemovableProtocolPolicyRoleOptions(daoPolicy),
     [daoPolicy]
-  );
-  const isGroupMember = useMemo(
-    () => isProtocolDaoGroupMember(daoPolicy, accountId),
-    [daoPolicy, accountId]
   );
   const availableActions = useMemo(() => {
     if (!accountId || loadState !== 'ready') {
@@ -315,7 +314,7 @@ export function ProtocolSettingsSheet({
       setRemoveRoleId('');
       setPermissionsRoleId('');
       setPermissions([]);
-      setEligibility(null);
+      setFetchedEligibility(null);
       setLoadState('idle');
       setFormError(null);
       setProposeConfirmOpen(false);
@@ -360,14 +359,14 @@ export function ProtocolSettingsSheet({
     let cancelled = false;
     setLoadState('loading');
     void Promise.all([
-      accountId
-        ? getProtocolGovernanceEligibility(accountId, daoAccountId)
-        : Promise.resolve(null),
+      face || !accountId
+        ? Promise.resolve(face?.eligibility ?? null)
+        : getProtocolGovernanceEligibility(accountId, daoAccountId),
       getProtocolDaoConfig(daoAccountId),
     ])
       .then(([nextEligibility, config]) => {
         if (cancelled) return;
-        setEligibility(nextEligibility);
+        setFetchedEligibility(nextEligibility);
         const name = config?.name ?? '';
         const purpose = config?.purpose ?? '';
         setConfigName(name);
@@ -378,13 +377,16 @@ export function ProtocolSettingsSheet({
       })
       .catch(() => {
         if (cancelled) return;
-        setEligibility(null);
+        setFetchedEligibility(null);
         setLoadState('error');
       });
     return () => {
       cancelled = true;
     };
-  }, [open, daoAccountId, accountId, daoPolicy, initialAction]);
+  },
+  // Face snapshot is read at render so this form is not reset on arrival.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- face snapshot
+  [open, daoAccountId, accountId, daoPolicy, initialAction]);
 
   // Action is chosen in ProtocolSettingsActionSheet — only fall back if the
   // selected action is no longer permissioned for this viewer.
@@ -443,11 +445,18 @@ export function ProtocolSettingsSheet({
     currentVoteThreshold,
   ]);
 
+  const eligibilityLoading =
+    loadState === 'loading' || Boolean(face?.isLoading && !eligibility);
   const needsStake =
-    loadState === 'ready' &&
+    !eligibilityLoading &&
     eligibility != null &&
-    !isGroupMember &&
-    !eligibility.canPropose;
+    eligibility.hasStakeProposePath &&
+    !viewerCanProposeOnDao(eligibility);
+  const needsForeignStake =
+    !eligibilityLoading &&
+    eligibility != null &&
+    Boolean(eligibility.foreignStakeTokenLabel) &&
+    !viewerCanProposeOnDao(eligibility);
   const shortfall =
     eligibility && BigInt(eligibility.remainingToThreshold) > 0n
       ? formatSocialCompact(eligibility.remainingToThreshold)
@@ -575,6 +584,13 @@ export function ProtocolSettingsSheet({
           <p className="protocol-compose-note is-warn">
             Need {shortfall ?? 'more'} SOCIAL delegated — you can still fill
             this form; confirm will offer Stake.
+          </p>
+        ) : null}
+
+        {needsForeignStake ? (
+          <p className="protocol-compose-note is-warn">
+            Need {eligibility?.foreignStakeTokenLabel ?? "this DAO's token"}{' '}
+            stake to propose.
           </p>
         ) : null}
 
@@ -967,8 +983,7 @@ export function ProtocolSettingsSheet({
       title={`Propose ${protocolPolicyActionLabel(actionId)}?`}
       body="Submit this settings proposal to the DAO. It goes live after approval."
       eligibility={eligibility}
-      eligibilityLoading={loadState === 'loading'}
-      isGroupMember={isGroupMember}
+      eligibilityLoading={eligibilityLoading}
       pending={pending}
       proposeLabel="Propose"
       zIndex={PROTOCOL_CONFIRM_Z}

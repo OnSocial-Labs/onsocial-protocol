@@ -21,12 +21,18 @@ export interface ProtocolDaoVotePolicy {
   weight_kind: 'RoleWeight' | 'TokenWeight';
 }
 
+/** Sputnik role kind — factory `all` is the string `"Everyone"`. */
+export type ProtocolDaoRoleKind =
+  | 'Everyone'
+  | {
+      Everyone?: Record<string, unknown> | '';
+      Group?: string[];
+      Member?: string;
+    };
+
 export interface ProtocolDaoRole {
   name?: string;
-  kind?: {
-    Group?: string[];
-    Member?: string;
-  };
+  kind?: ProtocolDaoRoleKind;
   permissions?: string[];
   vote_policy?: Record<string, ProtocolDaoVotePolicy>;
 }

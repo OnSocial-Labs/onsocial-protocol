@@ -87,6 +87,8 @@ function PortfolioDaoOrgChromeInner({
     canPropose,
     isLoading: councilAccessPending,
     eligibility: liveEligibility,
+    hasStakeProposePath,
+    stakePathReady,
   } = useDaoPageCapability(daoAccountId, true);
   const [claimableYocto, setClaimableYocto] = useState<bigint | null>(null);
   const [claimPending, setClaimPending] = useState(false);
@@ -274,6 +276,7 @@ function PortfolioDaoOrgChromeInner({
         open={overlay === 'manage'}
         daoName={title}
         canEdit={canEdit}
+        showStake={!stakePathReady || hasStakeProposePath}
         claimSupportLabel={claimSupportLabel}
         councilAccessPending={councilAccessPending}
         onClose={() =>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Divider, StandingIdentity } from '@onsocial/ui';
 import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
+import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { listDaoMembershipSections } from '@/features/protocol/dao-group-roles';
 import {
@@ -45,14 +46,16 @@ export function DaoMembersSheet({
   onRequestStake?: () => void;
 }) {
   const { accountId } = useAppWallet();
+  const face = useMatchingDaoFaceEligibility(daoAccountId);
   const [sheetOpen, setSheetOpen] = useState(open);
   if (open && !sheetOpen) setSheetOpen(true);
 
   const [policy, setPolicy] = useState<ProtocolDaoPolicy | null>(
     () => readDaoFeedCache(daoAccountId)?.daoPolicy ?? null
   );
-  const [eligibility, setEligibility] =
+  const [fetchedEligibility, setFetchedEligibility] =
     useState<ProtocolGovernanceEligibility | null>(null);
+  const eligibility = face?.eligibility ?? fetchedEligibility;
   const [pending, setPending] = useState(
     () => readDaoFeedCache(daoAccountId)?.daoPolicy == null
   );
@@ -64,7 +67,7 @@ export function DaoMembersSheet({
 
   const handleClosed = useCallback(() => {
     setPolicy(null);
-    setEligibility(null);
+    setFetchedEligibility(null);
     setError(null);
     setPending(false);
     onClose();
@@ -114,19 +117,23 @@ export function DaoMembersSheet({
 
   useEffect(() => {
     if (!sheetOpen || !accountId) {
-      queueMicrotask(() => setEligibility(null));
+      queueMicrotask(() => setFetchedEligibility(null));
+      return;
+    }
+    if (face) {
+      queueMicrotask(() => setFetchedEligibility(face.eligibility));
       return;
     }
     let cancelled = false;
     void getProtocolGovernanceEligibility(accountId, daoAccountId).then(
       (next) => {
-        if (!cancelled) setEligibility(next);
+        if (!cancelled) setFetchedEligibility(next);
       }
     );
     return () => {
       cancelled = true;
     };
-  }, [sheetOpen, accountId, daoAccountId]);
+  }, [sheetOpen, accountId, daoAccountId, face]);
 
   const sections = useMemo(() => listDaoMembershipSections(policy), [policy]);
   const showProtocolRoleMarks = isProtocolFacePairDao(daoAccountId);
@@ -234,8 +241,9 @@ export function DaoMembersSheet({
               <span className="dao-members-role-meta">Stake</span>
             </h2>
             <p className="dao-members-threshold">
-              Need {formatSocialCompact(section.thresholdYocto)} SOCIAL
-              delegated to hold this role.
+              Need {formatSocialCompact(section.thresholdYocto)}{' '}
+              {eligibility?.foreignStakeTokenLabel ?? 'SOCIAL'} delegated to
+              hold this role.
             </p>
             {accountId && eligibility ? (
               <div className="dao-members-viewer">
@@ -244,7 +252,9 @@ export function DaoMembersSheet({
                     ? `You meet it · ${viewerDelegatedLabel} SOCIAL`
                     : `You have ${viewerDelegatedLabel} SOCIAL · need ${viewerRemainingLabel} more`}
                 </p>
-                {!viewerMeetsStake && onRequestStake ? (
+                {!viewerMeetsStake &&
+                eligibility.hasStakeProposePath &&
+                onRequestStake ? (
                   <button
                     type="button"
                     className="dao-members-stake"

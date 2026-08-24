@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useMemo, useState } from 'react';
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
+import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
+import { daoRoleGroupMembers } from '@/features/protocol/protocol-dao-role-kind';
 import {
   getProtocolDaoConfig,
   getProtocolGovernanceEligibility,
@@ -41,8 +43,8 @@ function resolveCouncilSize(policy: ProtocolDaoPolicy | null): number | null {
     const role = policy?.roles?.find(
       (entry) => entry.name?.trim().toLowerCase() === roleId
     );
-    const group = role?.kind?.Group;
-    if (Array.isArray(group) && group.length > 0) return group.length;
+    const group = role ? daoRoleGroupMembers(role) : [];
+    if (group.length > 0) return group.length;
   }
   return null;
 }
@@ -65,12 +67,13 @@ export function ProtocolDaoInfoSheet({
   onOpenSettings: () => void;
 }) {
   const formId = useId();
+  const face = useMatchingDaoFaceEligibility(daoAccountId);
   const [loadState, setLoadState] = useState<
     'idle' | 'loading' | 'ready' | 'error'
   >('idle');
   const [configName, setConfigName] = useState('');
   const [configPurpose, setConfigPurpose] = useState('');
-  const [eligibility, setEligibility] =
+  const [fetchedEligibility, setFetchedEligibility] =
     useState<ProtocolGovernanceEligibility | null>(null);
   const [treasuryBalances, setTreasuryBalances] = useState<{
     nearYocto: string;
@@ -87,9 +90,9 @@ export function ProtocolDaoInfoSheet({
       try {
         const [config, nextEligibility, assets] = await Promise.all([
           getProtocolDaoConfig(daoAccountId),
-          accountId
-            ? getProtocolGovernanceEligibility(accountId, daoAccountId)
-            : Promise.resolve(null),
+          face || !accountId
+            ? Promise.resolve(null)
+            : getProtocolGovernanceEligibility(accountId, daoAccountId),
           fetchProtocolDaoTransferAssets(daoAccountId).catch(() => []),
         ]);
         if (cancelled) return;
@@ -101,7 +104,7 @@ export function ProtocolDaoInfoSheet({
         );
         setConfigName(config?.name?.trim() || '');
         setConfigPurpose(config?.purpose?.trim() || '');
-        setEligibility(nextEligibility);
+        setFetchedEligibility(nextEligibility);
         setTreasuryBalances({
           nearYocto: nearAsset?.balanceSmallest ?? '0',
           socialYocto: socialAsset?.balanceSmallest ?? '0',
@@ -116,7 +119,9 @@ export function ProtocolDaoInfoSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, daoAccountId, accountId]);
+  }, [accountId, daoAccountId, face, open]);
+
+  const eligibility = face?.eligibility ?? fetchedEligibility;
 
   const roleNames =
     daoPolicy?.roles
@@ -249,7 +254,11 @@ export function ProtocolDaoInfoSheet({
             <p className="protocol-dao-info-value">
               {viewerCanProposeOnDao(eligibility)
                 ? 'Can propose'
-                : `Need ${formatSocialCompact(eligibility.remainingToThreshold)} more SOCIAL`}
+                : eligibility.hasStakeProposePath
+                  ? `Need ${formatSocialCompact(eligibility.remainingToThreshold)} more SOCIAL`
+                  : eligibility.foreignStakeTokenLabel
+                    ? `Need ${eligibility.foreignStakeTokenLabel} stake`
+                    : 'Not on a proposing role'}
             </p>
             <p className="protocol-compose-note">
               Delegated {formatSocialCompact(eligibility.delegatedWeight)} ·

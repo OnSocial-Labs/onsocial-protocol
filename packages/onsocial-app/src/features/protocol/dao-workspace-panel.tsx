@@ -10,6 +10,7 @@ import {
   OsProposalCardList,
 } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import {
@@ -56,7 +57,10 @@ import {
   fetchProtocolFeed,
   fetchProtocolProposal,
 } from '@/features/protocol/protocol-feed-client';
-import { isProtocolDaoGroupMember } from '@/features/protocol/protocol-propose-gate';
+import {
+  daoRoleGroupMembers,
+  isProtocolDaoGroupMember,
+} from '@/features/protocol/protocol-propose-gate';
 import { softIndexDaoMemberships } from '@/features/protocol/my-daos-client';
 import { rememberOptimisticMyDao } from '@/features/protocol/my-daos-optimistic';
 import {
@@ -176,6 +180,17 @@ export function DaoWorkspacePanel({
   );
   const { accountId, isConnected, connect, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const face = useMatchingDaoFaceEligibility(daoAccountId);
+  const loadFreshEligibility = useCallback(
+    async (signerId: string) => {
+      const fromFace = await face?.refresh({ fresh: true });
+      if (fromFace) return fromFace;
+      return getProtocolGovernanceEligibility(signerId, daoAccountId, {
+        fresh: true,
+      });
+    },
+    [daoAccountId, face]
+  );
 
   const cachedFeed = readDaoFeedCache(daoAccountId);
   const [applications, setApplications] = useState<ProtocolApplication[]>(
@@ -413,7 +428,7 @@ export function DaoWorkspacePanel({
       if (accountId && feed.daoPolicy) {
         const roleNames = (feed.daoPolicy.roles ?? [])
           .filter((role) =>
-            role.kind?.Group?.some(
+            daoRoleGroupMembers(role).some(
               (member) =>
                 member.trim().toLowerCase() === accountId.trim().toLowerCase()
             )
@@ -879,10 +894,7 @@ export function DaoWorkspacePanel({
       setStakePending(true);
       try {
         const { accountId: signerId, wallet } = await getSigningWallet();
-        const eligibility = await getProtocolGovernanceEligibility(
-          signerId,
-          daoAccountId
-        );
+        const eligibility = await loadFreshEligibility(signerId);
         if (!eligibility.stakingContractId) {
           throw new Error('This DAO has no staking contract.');
         }
@@ -916,6 +928,7 @@ export function DaoWorkspacePanel({
           failureMessage: txToastGovError.actionFailed('delegation'),
         });
         setStakeOpen(false);
+        void face?.refresh({ fresh: true });
       } catch (error) {
         if (!isWalletUserCancellation(error)) {
           setTxResult({
@@ -931,10 +944,11 @@ export function DaoWorkspacePanel({
       }
     },
     [
-      daoAccountId,
+      face,
       isConnected,
       connect,
       getSigningWallet,
+      loadFreshEligibility,
       trackTransaction,
       setTxResult,
     ]
@@ -949,10 +963,7 @@ export function DaoWorkspacePanel({
       setStakePending(true);
       try {
         const { accountId: signerId, wallet } = await getSigningWallet();
-        const eligibility = await getProtocolGovernanceEligibility(
-          signerId,
-          daoAccountId
-        );
+        const eligibility = await loadFreshEligibility(signerId);
         if (!eligibility.stakingContractId) {
           throw new Error('This DAO has no staking contract.');
         }
@@ -969,6 +980,7 @@ export function DaoWorkspacePanel({
           failureMessage: txToastGovError.actionFailed('undelegation'),
         });
         setStakeOpen(false);
+        void face?.refresh({ fresh: true });
       } catch (error) {
         if (!isWalletUserCancellation(error)) {
           setTxResult({
@@ -984,10 +996,11 @@ export function DaoWorkspacePanel({
       }
     },
     [
-      daoAccountId,
+      face,
       isConnected,
       connect,
       getSigningWallet,
+      loadFreshEligibility,
       trackTransaction,
       setTxResult,
     ]
@@ -1002,10 +1015,7 @@ export function DaoWorkspacePanel({
       setStakePending(true);
       try {
         const { accountId: signerId, wallet } = await getSigningWallet();
-        const eligibility = await getProtocolGovernanceEligibility(
-          signerId,
-          daoAccountId
-        );
+        const eligibility = await loadFreshEligibility(signerId);
         if (!eligibility.stakingContractId) {
           throw new Error('This DAO has no staking contract.');
         }
@@ -1022,6 +1032,7 @@ export function DaoWorkspacePanel({
           failureMessage: txToastGovError.actionFailed('stake withdrawal'),
         });
         setStakeOpen(false);
+        void face?.refresh({ fresh: true });
       } catch (error) {
         if (!isWalletUserCancellation(error)) {
           setTxResult({
@@ -1037,10 +1048,11 @@ export function DaoWorkspacePanel({
       }
     },
     [
-      daoAccountId,
+      face,
       isConnected,
       connect,
       getSigningWallet,
+      loadFreshEligibility,
       trackTransaction,
       setTxResult,
     ]

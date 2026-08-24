@@ -2,14 +2,15 @@
 
 import {
   useEffect,
-  useMemo,
   useState,
   type ReactNode,
 } from 'react';
 import { OsHugSheet } from '@onsocial/ui';
+import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { getProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
 import { isProtocolDaoGroupMember } from '@/features/protocol/protocol-propose-gate';
 import { PROTOCOL_TASK_SHEET_Z } from '@/features/protocol/protocol-sheet-z';
+import type { ProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 
@@ -21,10 +22,60 @@ export type ProtocolPickerEligibility = {
   canProposeAny: boolean;
   remainingLabel: string | null;
   isGroupMember: boolean;
+  hasStakeProposePath: boolean;
+  foreignStakeTokenLabel: string | null;
   stakeBlocked: boolean;
+  foreignStakeBlocked: boolean;
+  roleBlocked: boolean;
 };
 
-/** Shared eligibility load for Propose / Settings picker hug sheets. */
+export function deriveProtocolPickerEligibility(
+  eligibility: ProtocolGovernanceEligibility | null,
+  accountId: string | null,
+  daoPolicy: ProtocolDaoPolicy | null,
+  loadState: ProtocolPickerLoadState
+): ProtocolPickerEligibility {
+  const isGroupMember = isProtocolDaoGroupMember(daoPolicy, accountId);
+  const canProposeAny = Boolean(eligibility?.canAddProposal);
+  const hasStakeProposePath = Boolean(eligibility?.hasStakeProposePath);
+  const foreignStakeTokenLabel = eligibility?.foreignStakeTokenLabel ?? null;
+  const remainingLabel =
+    eligibility?.hasStakeProposePath &&
+    BigInt(eligibility.remainingToThreshold) > 0n
+      ? formatSocialCompact(eligibility.remainingToThreshold)
+      : null;
+  const stakeBlocked =
+    Boolean(accountId) &&
+    loadState === 'ready' &&
+    !canProposeAny &&
+    hasStakeProposePath;
+  const foreignStakeBlocked =
+    Boolean(accountId) &&
+    loadState === 'ready' &&
+    !canProposeAny &&
+    Boolean(foreignStakeTokenLabel);
+  const roleBlocked =
+    Boolean(accountId) &&
+    loadState === 'ready' &&
+    !canProposeAny &&
+    !hasStakeProposePath &&
+    !foreignStakeTokenLabel;
+
+  return {
+    loadState,
+    delegatedWeight: eligibility?.delegatedWeight ?? '0',
+    canProposeAny,
+    remainingLabel,
+    isGroupMember,
+    hasStakeProposePath,
+    foreignStakeTokenLabel,
+    stakeBlocked,
+    foreignStakeBlocked,
+    roleBlocked,
+  };
+}
+
+/** Shared eligibility for Propose / Settings picker — face snapshot first. */
 export function useProtocolPickerEligibility({
   open,
   daoAccountId,
@@ -36,73 +87,58 @@ export function useProtocolPickerEligibility({
   accountId: string | null;
   daoPolicy: ProtocolDaoPolicy | null;
 }): ProtocolPickerEligibility {
-  const [loadState, setLoadState] = useState<ProtocolPickerLoadState>('idle');
-  const [delegatedWeight, setDelegatedWeight] = useState('0');
-  const [canProposeAny, setCanProposeAny] = useState(true);
-  const [remainingLabel, setRemainingLabel] = useState<string | null>(null);
-
-  const isGroupMember = useMemo(
-    () => isProtocolDaoGroupMember(daoPolicy, accountId),
-    [daoPolicy, accountId]
-  );
+  const face = useMatchingDaoFaceEligibility(daoAccountId);
+  const [fetched, setFetched] =
+    useState<ProtocolGovernanceEligibility | null>(null);
+  const [fetchState, setFetchState] =
+    useState<ProtocolPickerLoadState>('idle');
 
   useEffect(() => {
-    if (!open) {
-      setLoadState('idle');
-      setDelegatedWeight('0');
-      setCanProposeAny(true);
-      setRemainingLabel(null);
+    if (!open || face) {
+      if (!open) {
+        queueMicrotask(() => {
+          setFetched(null);
+          setFetchState('idle');
+        });
+      }
       return;
     }
     if (!daoAccountId || !accountId) {
-      setLoadState('ready');
+      queueMicrotask(() => setFetchState('ready'));
       return;
     }
 
     let cancelled = false;
-    void (async () => {
-      setLoadState('loading');
-      try {
-        const eligibility = await getProtocolGovernanceEligibility(
-          accountId,
-          daoAccountId
-        );
+    queueMicrotask(() => setFetchState('loading'));
+    void getProtocolGovernanceEligibility(accountId, daoAccountId)
+      .then((next) => {
         if (cancelled) return;
-        setDelegatedWeight(eligibility.delegatedWeight);
-        setCanProposeAny(
-          eligibility.canPropose || eligibility.isGroupMember || isGroupMember
-        );
-        setRemainingLabel(
-          BigInt(eligibility.remainingToThreshold) > 0n
-            ? formatSocialCompact(eligibility.remainingToThreshold)
-            : null
-        );
-        setLoadState('ready');
-      } catch {
+        setFetched(next);
+        setFetchState('ready');
+      })
+      .catch(() => {
         if (cancelled) return;
-        setLoadState('error');
-      }
-    })();
-
+        setFetchState('error');
+      });
     return () => {
       cancelled = true;
     };
-  }, [open, daoAccountId, accountId, isGroupMember]);
+  }, [accountId, daoAccountId, face, open]);
 
-  const stakeBlocked =
-    Boolean(accountId) &&
-    loadState === 'ready' &&
-    !canProposeAny &&
-    !isGroupMember;
+  const loadState: ProtocolPickerLoadState = !open
+    ? 'idle'
+    : face
+      ? face.isLoading && !face.eligibility
+        ? 'loading'
+        : 'ready'
+      : fetchState;
 
-  return {
-    loadState,
-    delegatedWeight,
-    canProposeAny,
-    remainingLabel,
-    isGroupMember,
-    stakeBlocked,
-  };
+  return deriveProtocolPickerEligibility(
+    face ? face.eligibility : fetched,
+    accountId,
+    daoPolicy,
+    loadState
+  );
 }
 
 /**
@@ -151,6 +187,10 @@ export function ProtocolPickerStatus({
   errorNote,
   stakeBlocked,
   stakeMessage,
+  foreignStakeBlocked = false,
+  foreignStakeMessage = "Need this DAO's token stake.",
+  roleBlocked = false,
+  roleMessage = 'You are not on a proposing role on this DAO.',
   onOpenStake,
   onClose,
 }: {
@@ -161,6 +201,10 @@ export function ProtocolPickerStatus({
   errorNote: string;
   stakeBlocked: boolean;
   stakeMessage: string;
+  foreignStakeBlocked?: boolean;
+  foreignStakeMessage?: string;
+  roleBlocked?: boolean;
+  roleMessage?: string;
   onOpenStake: () => void;
   onClose: () => void;
 }) {
@@ -190,6 +234,14 @@ export function ProtocolPickerStatus({
             Stake
           </button>
         </div>
+      ) : null}
+
+      {foreignStakeBlocked ? (
+        <p className="protocol-compose-note is-warn">{foreignStakeMessage}</p>
+      ) : null}
+
+      {roleBlocked ? (
+        <p className="protocol-compose-note is-warn">{roleMessage}</p>
       ) : null}
     </>
   );

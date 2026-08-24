@@ -1,3 +1,7 @@
+import {
+  daoRoleGroupMembers,
+  daoRoleMemberThreshold,
+} from '@/features/protocol/protocol-propose-gate';
 import type { ProtocolDaoPolicy, ProtocolDaoRole } from '@/features/protocol/types';
 
 export interface DaoGroupRoleSection {
@@ -77,7 +81,7 @@ export function listDaoMembershipSections(
 function uniqueGroupMembers(role: ProtocolDaoRole): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const raw of role.kind?.Group ?? []) {
+  for (const raw of daoRoleGroupMembers(role)) {
     const id = normalizeAccount(raw);
     if (!id || seen.has(id)) continue;
     seen.add(id);
@@ -87,8 +91,8 @@ function uniqueGroupMembers(role: ProtocolDaoRole): string[] {
 }
 
 function memberThresholdYocto(role: ProtocolDaoRole): string | null {
-  const raw = role.kind?.Member;
-  if (raw == null || raw === '') return null;
+  const raw = daoRoleMemberThreshold(role);
+  if (raw == null) return null;
   try {
     const value = BigInt(raw);
     if (value <= 0n) return null;

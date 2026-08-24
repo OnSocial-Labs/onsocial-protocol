@@ -1,3 +1,4 @@
+import { daoRoleGroupMembers } from '@/features/protocol/protocol-propose-gate';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 import {
   formatDaoRoleLabel,
@@ -60,7 +61,7 @@ export function protocolCouncilGuardianRoleIdForAccount(
   for (const role of policy.roles) {
     const roleName = role.name?.trim().toLowerCase() ?? '';
     if (!isProtocolCouncilGuardianRoleId(roleName)) continue;
-    const inGroup = role.kind?.Group?.some(
+    const inGroup = daoRoleGroupMembers(role).some(
       (member) => normalizeAccountId(member) === normalized
     );
     if (inGroup) matched.push(roleName);
@@ -81,7 +82,7 @@ export function protocolCouncilGuardianRoleByAccount(
   for (const role of policy.roles) {
     const roleName = role.name?.trim().toLowerCase() ?? '';
     if (!isProtocolCouncilGuardianRoleId(roleName)) continue;
-    for (const raw of role.kind?.Group ?? []) {
+    for (const raw of daoRoleGroupMembers(role)) {
       const id = normalizeAccountId(raw);
       if (!id) continue;
       const list = idsByAccount.get(id) ?? [];

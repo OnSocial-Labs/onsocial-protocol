@@ -1,4 +1,5 @@
 import { findProtocolRole } from '@/features/protocol/protocol-create';
+import { daoRoleGroupMembers } from '@/features/protocol/protocol-dao-role-kind';
 import type {
   ProtocolDaoPolicy,
   ProtocolDaoRole,
@@ -180,8 +181,8 @@ export function resolveCouncilVotePoolSize(
 ): number | null {
   for (const roleId of COUNCIL_VOTE_ROLE_IDS) {
     const role = findProtocolRole(policy, roleId);
-    const group = role?.kind?.Group;
-    if (Array.isArray(group) && group.length > 0) {
+    const group = role ? daoRoleGroupMembers(role) : [];
+    if (group.length > 0) {
       return group.length;
     }
   }

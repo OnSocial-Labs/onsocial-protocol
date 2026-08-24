@@ -21,6 +21,7 @@ export function DaoManageSheet({
   open,
   daoName,
   canEdit,
+  showStake = true,
   claimSupportLabel,
   councilAccessPending = false,
   onClose,
@@ -29,6 +30,8 @@ export function DaoManageSheet({
   open: boolean;
   daoName?: string;
   canEdit: boolean;
+  /** Member + staking contract on this DAO — hide for council-only boards. */
+  showStake?: boolean;
   /** When set, council can propose claiming the Support pot. */
   claimSupportLabel?: string | null;
   /** Connected viewer — council rows may still be resolving. */
@@ -76,11 +79,13 @@ export function DaoManageSheet({
           description="Create a governance proposal"
           onClick={() => run('propose')}
         />
-        <OsSurfaceRow
-          label="Stake"
-          description="Deposit and delegate SOCIAL"
-          onClick={() => run('stake')}
-        />
+        {showStake ? (
+          <OsSurfaceRow
+            label="Stake"
+            description="Deposit and delegate SOCIAL"
+            onClick={() => run('stake')}
+          />
+        ) : null}
         <OsSurfaceRow
           label="Settings"
           description="Change policy via proposal"

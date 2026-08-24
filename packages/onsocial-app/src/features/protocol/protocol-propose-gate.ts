@@ -1,9 +1,20 @@
 import type { ProtocolCreateKind } from '@/features/protocol/protocol-create';
+import {
+  daoRoleGroupMembers,
+  daoRoleMemberThreshold,
+  isEveryoneDaoRole,
+} from '@/features/protocol/protocol-dao-role-kind';
 import type { ProtocolPolicyActionId } from '@/features/protocol/protocol-policy';
 import type {
   ProtocolDaoPolicy,
   ProtocolDaoRole,
 } from '@/features/protocol/types';
+
+export {
+  daoRoleGroupMembers,
+  daoRoleMemberThreshold,
+  isEveryoneDaoRole,
+} from '@/features/protocol/protocol-dao-role-kind';
 
 type ProtocolCreatableKindLabel =
   | 'add_member_to_role'
@@ -51,35 +62,10 @@ export function isProtocolDaoGroupMember(
   const normalized = normalizeAccountId(accountId);
   if (!normalized) return false;
   return (policy?.roles ?? []).some((role) =>
-    role.kind?.Group?.some(
+    daoRoleGroupMembers(role).some(
       (member) => normalizeAccountId(member) === normalized
     )
   );
-}
-
-function roleMatchesDelegatedUser(
-  role: ProtocolDaoRole,
-  accountId: string,
-  delegatedWeight: string
-): boolean {
-  const normalizedAccount = normalizeAccountId(accountId);
-  if (!normalizedAccount) return false;
-
-  if (role.kind?.Group?.length) {
-    return role.kind.Group.some(
-      (member) => normalizeAccountId(member) === normalizedAccount
-    );
-  }
-
-  if (role.kind?.Member != null && role.kind.Member !== '') {
-    try {
-      return BigInt(delegatedWeight || '0') >= BigInt(role.kind.Member);
-    } catch {
-      return false;
-    }
-  }
-
-  return false;
 }
 
 function roleCanAddProposal(
@@ -94,6 +80,132 @@ function roleCanAddProposal(
       permission === `${proposalPolicyLabel}:AddProposal` ||
       permission === `${proposalPolicyLabel}:*`
   );
+}
+
+function roleCanAddAnyProposal(role: ProtocolDaoRole): boolean {
+  return (role.permissions ?? []).some((permission) => {
+    if (permission === '*:*' || permission === '*:AddProposal') return true;
+    const sep = permission.lastIndexOf(':');
+    if (sep <= 0) return false;
+    const action = permission.slice(sep + 1);
+    return action === 'AddProposal' || action === '*';
+  });
+}
+
+function roleMatchesDelegatedUser(
+  role: ProtocolDaoRole,
+  accountId: string,
+  delegatedWeight: string
+): boolean {
+  const normalizedAccount = normalizeAccountId(accountId);
+  if (!normalizedAccount) return false;
+
+  if (isEveryoneDaoRole(role)) return true;
+
+  const group = daoRoleGroupMembers(role);
+  if (group.length > 0) {
+    return group.some(
+      (member) => normalizeAccountId(member) === normalizedAccount
+    );
+  }
+
+  const threshold = daoRoleMemberThreshold(role);
+  if (threshold != null) {
+    try {
+      return BigInt(delegatedWeight || '0') >= BigInt(threshold);
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * This DAO's `get_policy` — a role that can AddProposal matches via Everyone,
+ * the viewer's Group, or Member weight. Not "any Group" (vote-only lists).
+ */
+export function viewerCanAddProposalOnPolicy(
+  policy: ProtocolDaoPolicy | null | undefined,
+  accountId: string | null | undefined,
+  delegatedWeight = '0'
+): boolean {
+  const proposer = accountId?.trim() ?? '';
+  if (!proposer) return false;
+  return (policy?.roles ?? []).some(
+    (role) =>
+      roleCanAddAnyProposal(role) &&
+      roleMatchesDelegatedUser(role, proposer, delegatedWeight)
+  );
+}
+
+/** Member-threshold role that can AddProposal — no invented default. */
+export function getMemberProposeThreshold(
+  policy: ProtocolDaoPolicy | null | undefined
+): string | null {
+  const roles = policy?.roles ?? [];
+  const named = roles.find(
+    (role) =>
+      role.name === 'delegated_proposers' &&
+      daoRoleMemberThreshold(role) != null
+  );
+  if (named) return daoRoleMemberThreshold(named);
+  for (const role of roles) {
+    const threshold = daoRoleMemberThreshold(role);
+    if (threshold != null && roleCanAddAnyProposal(role)) return threshold;
+  }
+  return null;
+}
+
+/** A Member propose role plus a staking contract — token may not be SOCIAL. */
+export function daoHasStakeProposePath(
+  policy: ProtocolDaoPolicy | null | undefined,
+  stakingContractId: string | null | undefined
+): boolean {
+  return Boolean(stakingContractId?.trim()) && getMemberProposeThreshold(policy) != null;
+}
+
+export type StakeProposeKind = 'none' | 'social' | 'foreign';
+
+/**
+ * SOCIAL stake UI only when this DAO's staking token is SOCIAL.
+ * Any other (or unknown) token is foreign — block propose, no Stake sheet.
+ */
+export function resolveStakeProposeKind(opts: {
+  hasMemberProposeRole: boolean;
+  stakingContractId: string | null | undefined;
+  stakeTokenId: string | null | undefined;
+  socialTokenId: string;
+  knownSocialStakingIds?: readonly string[];
+}): StakeProposeKind {
+  const staking = opts.stakingContractId?.trim() ?? '';
+  if (!opts.hasMemberProposeRole || !staking) return 'none';
+
+  const token = opts.stakeTokenId?.trim() ?? '';
+  if (token) {
+    return token.toLowerCase() === opts.socialTokenId.trim().toLowerCase()
+      ? 'social'
+      : 'foreign';
+  }
+  const known = opts.knownSocialStakingIds ?? [];
+  if (
+    known.some(
+      (id) => id.trim().toLowerCase() === staking.toLowerCase()
+    )
+  ) {
+    return 'social';
+  }
+  return 'foreign';
+}
+
+export function defaultForeignStakeTokenLabel(
+  stakeTokenId: string | null | undefined
+): string {
+  return stakeTokenId?.trim() || "this DAO's token";
+}
+
+export function foreignStakeLockReason(tokenLabel: string): string {
+  return `Need ${tokenLabel} stake`;
 }
 
 export function canProposeProtocolCreateKind(
@@ -127,15 +239,13 @@ export function viewerHasCreateKindPermission(
   const label = CREATE_KIND_POLICY_LABEL[kind];
   return (policy?.roles ?? []).some((role) => {
     if (!roleCanAddProposal(role, label)) return false;
-    if (role.kind?.Group?.length) {
-      return role.kind.Group.some(
+    if (isEveryoneDaoRole(role)) return true;
+    if (daoRoleGroupMembers(role).length > 0) {
+      return daoRoleGroupMembers(role).some(
         (member) => normalizeAccountId(member) === proposer
       );
     }
-    if (role.kind?.Member != null && role.kind.Member !== '') {
-      return true;
-    }
-    return false;
+    return daoRoleMemberThreshold(role) != null;
   });
 }
 
@@ -166,15 +276,13 @@ export function viewerHasPolicyActionPermission(
   const label = POLICY_ACTION_PERMISSION_LABEL[actionId];
   return (policy?.roles ?? []).some((role) => {
     if (!roleCanAddProposal(role, label)) return false;
-    if (role.kind?.Group?.length) {
-      return role.kind.Group.some(
+    if (isEveryoneDaoRole(role)) return true;
+    if (daoRoleGroupMembers(role).length > 0) {
+      return daoRoleGroupMembers(role).some(
         (member) => normalizeAccountId(member) === proposer
       );
     }
-    if (role.kind?.Member != null && role.kind.Member !== '') {
-      return true;
-    }
-    return false;
+    return daoRoleMemberThreshold(role) != null;
   });
 }
 
@@ -207,6 +315,22 @@ export function getProtocolCreateKindBlockReason(
   }
 }
 
+function getProposePathLockReason(opts: {
+  hasStakeProposePath?: boolean;
+  foreignStakeTokenLabel?: string | null;
+  remainingLabel: string | null;
+}): string {
+  if (opts.foreignStakeTokenLabel) {
+    return foreignStakeLockReason(opts.foreignStakeTokenLabel);
+  }
+  if (opts.hasStakeProposePath === false) {
+    return 'Not on a proposing role';
+  }
+  return opts.remainingLabel
+    ? `Need ${opts.remainingLabel} SOCIAL`
+    : 'Stake more SOCIAL';
+}
+
 /** One-line lock copy for the propose kind drawer. */
 export function getProtocolCreateKindLockReason(opts: {
   kind: ProtocolCreateKind;
@@ -215,12 +339,12 @@ export function getProtocolCreateKindLockReason(opts: {
   isGroupMember: boolean;
   remainingLabel: string | null;
   canProposeKind: boolean;
+  hasStakeProposePath?: boolean;
+  foreignStakeTokenLabel?: string | null;
 }): string | null {
   if (!opts.accountId) return 'Connect a wallet';
   if (!opts.canProposeAny && !opts.isGroupMember) {
-    return opts.remainingLabel
-      ? `Need ${opts.remainingLabel} SOCIAL`
-      : 'Stake more SOCIAL';
+    return getProposePathLockReason(opts);
   }
   if (!opts.canProposeKind) {
     return getProtocolCreateKindBlockReason(opts.kind);
@@ -258,12 +382,12 @@ export function getProtocolPolicyActionLockReason(opts: {
   isGroupMember: boolean;
   remainingLabel: string | null;
   canProposeAction: boolean;
+  hasStakeProposePath?: boolean;
+  foreignStakeTokenLabel?: string | null;
 }): string | null {
   if (!opts.accountId) return 'Connect a wallet';
   if (!opts.canProposeAny && !opts.isGroupMember) {
-    return opts.remainingLabel
-      ? `Need ${opts.remainingLabel} SOCIAL`
-      : 'Stake more SOCIAL';
+    return getProposePathLockReason(opts);
   }
   if (!opts.canProposeAction) {
     return getProtocolPolicyActionBlockReason(opts.actionId);

@@ -1,5 +1,9 @@
 import type { ProtocolProposalPayload } from '@/features/protocol/protocol-create';
 import { findProtocolRole } from '@/features/protocol/protocol-create';
+import {
+  daoRoleGroupMembers,
+  daoRoleMemberThreshold,
+} from '@/features/protocol/protocol-dao-role-kind';
 import type {
   ProtocolDaoPolicy,
   ProtocolDaoRole,
@@ -219,8 +223,7 @@ function isProtocolCouncilRole(role: ProtocolDaoRole): boolean {
   if (name === GUARDIANS_ROLE_ID || name === 'council') return true;
   return (
     roleHasWildcardPermissions(role) &&
-    Array.isArray(role.kind?.Group) &&
-    (role.kind?.Group?.length ?? 0) > 0
+    daoRoleGroupMembers(role).length > 0
   );
 }
 
@@ -294,8 +297,7 @@ export function findDelegatedProposersRole(
   return (
     policy?.roles?.find(
       (role) =>
-        role.kind?.Member != null &&
-        role.kind.Member !== '' &&
+        daoRoleMemberThreshold(role) != null &&
         (role.permissions ?? []).includes('call:AddProposal')
     ) ?? null
   );
@@ -325,11 +327,13 @@ export function getAddRoleAccessBlockReason(
 function serializeProtocolRoleKind(
   role: ProtocolDaoRole
 ): { Group: string[] } | { Member: string } {
-  if (role.kind?.Group?.length) {
-    return { Group: role.kind.Group };
+  const group = daoRoleGroupMembers(role);
+  if (group.length > 0) {
+    return { Group: group };
   }
-  if (role.kind?.Member != null && role.kind.Member !== '') {
-    return { Member: role.kind.Member };
+  const member = daoRoleMemberThreshold(role);
+  if (member != null) {
+    return { Member: member };
   }
   throw new Error(`Role ${role.name ?? 'unknown'} has no supported kind.`);
 }

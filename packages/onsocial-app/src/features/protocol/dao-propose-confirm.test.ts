@@ -26,6 +26,9 @@ function eligibility(
     availableToWithdraw: '0',
     canPropose: true,
     isGroupMember: false,
+    canAddProposal: true,
+    hasStakeProposePath: true,
+    foreignStakeTokenLabel: null,
     proposalBond: '100000000000000000000000', // 0.1 NEAR
     ...partial,
   };
@@ -37,10 +40,12 @@ describe('resolveDaoProposeBondGate', () => {
     expect(resolveDaoProposeBondGate(null).canSubmit).toBe(false);
   });
 
-  it('needs stake when the wallet cannot propose', () => {
+  it('needs stake when this DAO has a Member path and the wallet cannot propose', () => {
     const gate = resolveDaoProposeBondGate(
       eligibility({
         canPropose: false,
+        canAddProposal: false,
+        hasStakeProposePath: true,
         nearBalance: '1000000000000000000000000',
       })
     );
@@ -48,17 +53,65 @@ describe('resolveDaoProposeBondGate', () => {
     expect(gate.canSubmit).toBe(false);
   });
 
-  it('lets group council propose without Member stake weight', () => {
+  it('does not offer SOCIAL stake when the DAO requires another token', () => {
+    const gate = resolveDaoProposeBondGate(
+      eligibility({
+        canPropose: false,
+        canAddProposal: false,
+        hasStakeProposePath: false,
+        foreignStakeTokenLabel: 'USDC',
+        nearBalance: '1000000000000000000000000',
+      })
+    );
+    expect(gate.needsStake).toBe(false);
+    expect(gate.needsForeignStake).toBe(true);
+    expect(gate.foreignStakeTokenLabel).toBe('USDC');
+    expect(gate.canSubmit).toBe(false);
+  });
+
+  it('does not offer SOCIAL stake on a council-only DAO', () => {
+    const gate = resolveDaoProposeBondGate(
+      eligibility({
+        canPropose: false,
+        canAddProposal: false,
+        hasStakeProposePath: false,
+        isGroupMember: false,
+        nearBalance: '1000000000000000000000000',
+      })
+    );
+    expect(gate.needsStake).toBe(false);
+    expect(gate.canPropose).toBe(false);
+    expect(gate.canSubmit).toBe(false);
+  });
+
+  it('lets policy propose rights skip Member stake weight', () => {
     const gate = resolveDaoProposeBondGate(
       eligibility({
         canPropose: false,
         isGroupMember: true,
+        canAddProposal: true,
+        hasStakeProposePath: true,
         nearBalance: '200000000000000000000000',
       })
     );
     expect(gate.needsStake).toBe(false);
     expect(gate.canPropose).toBe(true);
     expect(gate.canSubmit).toBe(true);
+  });
+
+  it('does not treat a vote-only Group as propose rights', () => {
+    const gate = resolveDaoProposeBondGate(
+      eligibility({
+        canPropose: false,
+        isGroupMember: true,
+        canAddProposal: false,
+        hasStakeProposePath: false,
+        nearBalance: '200000000000000000000000',
+      })
+    );
+    expect(gate.canPropose).toBe(false);
+    expect(gate.needsStake).toBe(false);
+    expect(gate.canSubmit).toBe(false);
   });
 
   it('allows submit when propose-ready and bond covered', () => {

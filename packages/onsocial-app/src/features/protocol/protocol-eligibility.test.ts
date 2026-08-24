@@ -7,7 +7,24 @@ describe('viewerCanProposeOnDao', () => {
     expect(viewerCanProposeOnDao(undefined)).toBe(false);
   });
 
-  it('accepts group membership or stake weight', () => {
+  it('uses policy canAddProposal when present', () => {
+    expect(
+      viewerCanProposeOnDao({
+        canPropose: false,
+        isGroupMember: true,
+        canAddProposal: false,
+      })
+    ).toBe(false);
+    expect(
+      viewerCanProposeOnDao({
+        canPropose: false,
+        isGroupMember: false,
+        canAddProposal: true,
+      })
+    ).toBe(true);
+  });
+
+  it('falls back to group or weight when canAddProposal is omitted', () => {
     expect(
       viewerCanProposeOnDao({ canPropose: false, isGroupMember: true })
     ).toBe(true);
