@@ -10,10 +10,10 @@ import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 
 /** Search field with Collectibles icon — same heading slot as Market. */
 export function CollectiblesSearchHeading() {
-  const { searchQuery, setSearchQuery, showSearch } =
+  const { searchQuery, setSearchQuery, showDiscoveryChrome } =
     useCollectiblesPanelChrome();
 
-  if (!showSearch) {
+  if (!showDiscoveryChrome) {
     return null;
   }
 
@@ -34,7 +34,7 @@ export function CollectiblesSearchHeading() {
 export function CollectiblesFilterToolbar() {
   const {
     scrollRootRef,
-    showTabs,
+    showDiscoveryChrome,
     mediumFilter,
     setMediumFilter,
     facetMedium,
@@ -45,7 +45,7 @@ export function CollectiblesFilterToolbar() {
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const toolbarHidden = useDockAutoHide(filterMenuOpen, scrollRootRef);
 
-  if (!showTabs) {
+  if (!showDiscoveryChrome) {
     return null;
   }
 

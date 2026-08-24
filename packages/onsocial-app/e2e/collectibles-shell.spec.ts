@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import {
   COLLECTIBLES_VAULT_OWNER,
   stubCollectiblesVaultGraph,
@@ -12,6 +12,16 @@ import {
 } from './helpers';
 
 const KIND_RAIL = 'Collectible kind';
+const PILL_ACTION = /page-drawer-section-action/;
+
+async function expectEmptySitsUnderChrome(page: Page) {
+  const empty = page.locator('.collectibles-page .market-page-empty');
+  await expect(empty).toBeVisible();
+  const box = await empty.boundingBox();
+  expect(box).toBeTruthy();
+  // Shared Market empty is 40vh (~337px on 844). Vault copy sits under chrome.
+  expect(box!.height).toBeLessThan(200);
+}
 
 test.describe('collectibles shell', () => {
   test('hides discovery chrome on the disconnected OS vault', async ({
@@ -24,10 +34,11 @@ test.describe('collectibles shell', () => {
     ).toBeVisible();
     await expect(
       page.getByRole('main').getByRole('button', { name: 'Connect' })
-    ).toBeVisible();
+    ).toHaveClass(PILL_ACTION);
     await expect(
       page.getByRole('main').getByRole('link', { name: 'Browse Market' })
-    ).toBeVisible();
+    ).toHaveClass(PILL_ACTION);
+    await expectEmptySitsUnderChrome(page);
     await expectSearchHidden(page, 'Search collectibles');
     await expect(page.getByRole('tablist', { name: KIND_RAIL })).toHaveCount(0);
   });
@@ -40,7 +51,8 @@ test.describe('collectibles shell', () => {
     });
     await expect(
       page.getByRole('main').getByRole('link', { name: 'Browse Market' })
-    ).toBeVisible();
+    ).toHaveClass(PILL_ACTION);
+    await expectEmptySitsUnderChrome(page);
     await expectSearchHidden(page, 'Search collectibles');
     await expect(page.getByRole('tablist', { name: KIND_RAIL })).toHaveCount(0);
   });
@@ -96,6 +108,9 @@ test.describe('collectibles shell', () => {
     await expect(
       chapterRow.getByRole('link', { name: /Read Chapter One/ })
     ).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Collectibles' })
+    ).toBeVisible();
 
     await page.screenshot({
       path: `${testInfo.outputDir}/collectibles-populated-mobile.png`,
@@ -104,11 +119,34 @@ test.describe('collectibles shell', () => {
 
     await searchField(page, 'Search collectibles').fill('chapter');
     await page.waitForURL(/[?&]q=chapter/);
+    await expect(page.locator('.market-listing-list--skeleton')).toHaveCount(0);
     await expect(nightRow).toHaveCount(0);
     await expect(chapterRow).toBeVisible();
 
-    await page.getByRole('button', { name: 'Clear search' }).click();
+    await searchField(page, 'Search collectibles').fill('zzznone');
+    await page.waitForURL(/[?&]q=zzznone/);
+    await expect(page.locator('.market-listing-list--skeleton')).toHaveCount(0);
+    await expect(
+      page.getByText('No collectibles match “zzznone”.')
+    ).toBeVisible();
+    const clearSearch = page
+      .locator('.collectibles-page .market-page-empty')
+      .getByRole('button', { name: 'Clear search' });
+    await expect(clearSearch).toHaveClass(PILL_ACTION);
+    await expectEmptySitsUnderChrome(page);
+    await clearSearch.click();
     await page.waitForURL((url) => !url.searchParams.has('q'));
     await expect(nightRow).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Memberships' }).click();
+    await expect(
+      page.getByText('No memberships held.')
+    ).toBeVisible();
+    const showAll = page.getByRole('button', { name: 'Show all' });
+    await expect(showAll).toHaveClass(PILL_ACTION);
+    await expectEmptySitsUnderChrome(page);
+    await showAll.click();
+    await expect(nightRow).toBeVisible();
+    await expect(chapterRow).toBeVisible();
   });
 });

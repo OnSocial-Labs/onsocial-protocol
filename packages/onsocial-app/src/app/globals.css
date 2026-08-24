@@ -19316,6 +19316,12 @@ a.os-surface-row {
     gap: 0.55rem;
   }
 
+  /* Vault empties sit under chrome — do not float in a 40vh Market block. */
+  .collectibles-page .market-page-empty {
+    min-height: 0;
+    justify-content: flex-start;
+  }
+
   /* Vault kind chips wrap — do not clip Memberships / Biography / Folk. */
   .collectibles-filter-toolbar .discover-tab-bar,
   .collectibles-filter-toolbar .discover-tab-bar-scroller {
