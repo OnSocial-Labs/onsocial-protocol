@@ -30,6 +30,7 @@ export type DaoWorkspaceChromeContextValue = {
   familyFilter: ProtocolProposalFamily;
   navigateFamily: (family: ProtocolProposalFamily) => void;
   familyCounts: Record<ProtocolProposalFamily, number>;
+  inProposalDetail: boolean;
 };
 
 const DaoWorkspaceChromeContext =
@@ -67,7 +68,12 @@ export function DaoWorkspaceHeaderSearch() {
     setSearchDraft,
     searchQuery,
     commitSearch,
+    inProposalDetail,
   } = useDaoWorkspaceChrome();
+
+  if (inProposalDetail) {
+    return null;
+  }
 
   if (loadState !== 'ready') {
     return (
@@ -188,10 +194,10 @@ function ProtocolFamilyRail() {
 
 /** Status + family chip rails — tuck on scroll like Discover / Market. */
 export function DaoWorkspaceHeaderToolbar() {
-  const { scrollRootRef, loadState } = useDaoWorkspaceChrome();
+  const { scrollRootRef, loadState, inProposalDetail } = useDaoWorkspaceChrome();
   const toolbarHidden = useDockAutoHide(false, scrollRootRef);
 
-  if (loadState !== 'ready') {
+  if (loadState !== 'ready' || inProposalDetail) {
     return null;
   }
 

@@ -62,6 +62,18 @@
   box-shadow: inset 0 1px 0 var(--protocol-red);
 }
 
+.os-account-field.is-warn,
+.near-account-field.is-warn {
+  background: transparent;
+  box-shadow: inset 0 1px 0 var(--protocol-amber, #d97706);
+}
+
+.os-account-field.is-warn:focus-within,
+.near-account-field.is-warn:focus-within {
+  background: transparent;
+  box-shadow: inset 0 1px 0 var(--protocol-amber, #d97706);
+}
+
 .os-account-field-leading,
 .near-account-field-leading {
   display: inline-flex;

@@ -10,11 +10,16 @@ import {
   type ProtocolPolicyActionId,
 } from '@/features/protocol/protocol-policy';
 import {
-  ProtocolPickerItem,
-  ProtocolPickerSection,
+  buildProtocolPickerSections,
+  countProtocolPickerOptions,
+  protocolPickerForeignStakeMessage,
+  protocolPickerStakeGateMessage,
+  resolveProtocolPickerSheetLayout,
+} from '@/features/protocol/protocol-picker-sections';
+import {
+  ProtocolPickerOptionList,
   ProtocolPickerSheet,
   ProtocolPickerStatus,
-  protocolPickerItemLockReason,
   useProtocolPickerEligibility,
 } from '@/features/protocol/protocol-picker-sheet';
 import { viewerHasPolicyActionPermission } from '@/features/protocol/protocol-propose-gate';
@@ -56,52 +61,43 @@ export function ProtocolSettingsActionSheet({
     return lastAction ?? readLastProtocolPolicyAction();
   }, [open, lastAction]);
 
-  const filterByPermission = (
-    options: typeof PROTOCOL_POLICY_ACTION_OPTIONS
-  ) => {
-    if (!accountId || eligibility.loadState !== 'ready') return options;
-    return options.filter((option) =>
-      viewerHasPolicyActionPermission(daoPolicy, accountId, option.id)
-    );
-  };
+  const filterReady =
+    Boolean(accountId) && eligibility.loadState === 'ready';
 
-  const commonOptions = useMemo(
+  const { common, grouped, hasVisible } = useMemo(
     () =>
-      filterByPermission(
-        PROTOCOL_POLICY_ACTION_COMMON.map((id) =>
-          PROTOCOL_POLICY_ACTION_OPTIONS.find((option) => option.id === id)
-        ).filter(
-          (option): option is (typeof PROTOCOL_POLICY_ACTION_OPTIONS)[number] =>
-            Boolean(option)
-        )
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [accountId, daoPolicy, eligibility.loadState]
+      buildProtocolPickerSections({
+        allOptions: PROTOCOL_POLICY_ACTION_OPTIONS,
+        commonIds: PROTOCOL_POLICY_ACTION_COMMON,
+        groups: PROTOCOL_POLICY_ACTION_GROUPS,
+        filterReady,
+        hasPermission: (id) =>
+          viewerHasPolicyActionPermission(daoPolicy, accountId, id),
+      }),
+    [accountId, daoPolicy, filterReady]
   );
 
-  const commonIds = useMemo(
-    () => new Set<ProtocolPolicyActionId>(PROTOCOL_POLICY_ACTION_COMMON),
-    []
+  const sections = useMemo(
+    () => [
+      { key: 'common', label: 'Common', options: common },
+      ...grouped.map((group) => ({
+        key: group.id,
+        label: group.label,
+        options: group.options,
+      })),
+    ],
+    [common, grouped]
   );
 
-  const grouped = useMemo(
-    () =>
-      PROTOCOL_POLICY_ACTION_GROUPS.map((group) => ({
-        ...group,
-        options: filterByPermission(
-          PROTOCOL_POLICY_ACTION_OPTIONS.filter(
-            (option) =>
-              option.group === group.id && !commonIds.has(option.id)
-          )
-        ),
-      })).filter((group) => group.options.length > 0),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [accountId, daoPolicy, eligibility.loadState, commonIds]
+  const optionCount = useMemo(
+    () => countProtocolPickerOptions(common, grouped),
+    [common, grouped]
   );
 
-  const hasVisibleActions =
-    commonOptions.length > 0 ||
-    grouped.some((group) => group.options.length > 0);
+  const sheetLayout = useMemo(
+    () => resolveProtocolPickerSheetLayout(optionCount),
+    [optionCount]
+  );
 
   const selectAction = (actionId: ProtocolPolicyActionId) => {
     rememberProtocolPolicyAction(actionId);
@@ -116,6 +112,8 @@ export function ProtocolSettingsActionSheet({
       copy="Choose a DAO policy change."
       closeAriaLabel="Close settings"
       backdropLabel="Close settings"
+      initialDetent={sheetLayout.initialDetent}
+      peekRatio={sheetLayout.peekRatio}
     >
       <ProtocolPickerStatus
         accountId={accountId}
@@ -124,83 +122,33 @@ export function ProtocolSettingsActionSheet({
         loadingEmpty="Checking what you can change…"
         errorNote="Could not verify settings eligibility. Close and try again."
         stakeBlocked={eligibility.stakeBlocked}
-        stakeMessage={`Need ${eligibility.remainingLabel ?? 'more'} SOCIAL delegated to propose settings — stake now, or pick an action and confirm later.`}
+        stakeMessage={protocolPickerStakeGateMessage(
+          eligibility.remainingLabel,
+          'settings'
+        )}
         foreignStakeBlocked={eligibility.foreignStakeBlocked}
-        foreignStakeMessage={`Need ${eligibility.foreignStakeTokenLabel ?? "this DAO's token"} stake to propose settings.`}
+        foreignStakeMessage={protocolPickerForeignStakeMessage(
+          eligibility.foreignStakeTokenLabel,
+          'settings'
+        )}
         roleBlocked={eligibility.roleBlocked}
         onOpenStake={onOpenStake}
         onClose={onClose}
       />
 
-      {accountId &&
-      eligibility.loadState === 'ready' &&
-      !hasVisibleActions ? (
+      {accountId && eligibility.loadState === 'ready' && !hasVisible ? (
         <p className="protocol-compose-note is-warn">
           No settings actions match your roles on this DAO.
         </p>
       ) : null}
 
-      <ActionSection
-        label="Common"
-        options={commonOptions}
+      <ProtocolPickerOptionList
+        sections={sections}
         accountId={accountId}
         loadState={eligibility.loadState}
-        highlightedAction={highlightedAction}
-        onSelectAction={selectAction}
+        highlightedId={highlightedAction}
+        onSelect={selectAction}
       />
-
-      {grouped.map((group) => (
-        <ActionSection
-          key={group.id}
-          label={group.label}
-          options={group.options}
-          accountId={accountId}
-          loadState={eligibility.loadState}
-          highlightedAction={highlightedAction}
-          onSelectAction={selectAction}
-        />
-      ))}
     </ProtocolPickerSheet>
-  );
-}
-
-function ActionSection({
-  label,
-  options,
-  accountId,
-  loadState,
-  highlightedAction,
-  onSelectAction,
-}: {
-  label: string;
-  options: typeof PROTOCOL_POLICY_ACTION_OPTIONS;
-  accountId: string | null;
-  loadState: ReturnType<typeof useProtocolPickerEligibility>['loadState'];
-  highlightedAction: ProtocolPolicyActionId | null;
-  onSelectAction: (actionId: ProtocolPolicyActionId) => void;
-}) {
-  if (options.length === 0) return null;
-
-  return (
-    <ProtocolPickerSection label={label}>
-      {options.map((option) => {
-        const lockReason = protocolPickerItemLockReason({
-          accountId,
-          loadState,
-          readyReason: accountId ? null : 'Connect a wallet',
-        });
-
-        return (
-          <ProtocolPickerItem
-            key={option.id}
-            label={option.label}
-            hint={option.hint}
-            lockReason={lockReason}
-            isLast={highlightedAction === option.id}
-            onSelect={() => onSelectAction(option.id)}
-          />
-        );
-      })}
-    </ProtocolPickerSection>
   );
 }

@@ -9,6 +9,7 @@ import {
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import type { ProtocolProposalPayload } from '@/features/protocol/protocol-create';
 import { findProtocolRole } from '@/features/protocol/protocol-create';
+import { ProtocolComposeChangeTypeRow } from '@/features/protocol/protocol-compose-change-type-row';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import {
   getProtocolDaoConfig,
@@ -628,23 +629,15 @@ export function ProtocolSettingsSheet({
         ) : null}
 
         {onChangeAction ? (
-          <div className="protocol-propose-kind-current">
-            <p className="protocol-compose-note">
-              {
-                PROTOCOL_POLICY_ACTION_OPTIONS.find(
-                  (option) => option.id === actionId
-                )?.hint
-              }
-            </p>
-            <button
-              type="button"
-              className="protocol-tool is-ghost"
-              onClick={onChangeAction}
-              disabled={pending}
-            >
-              Change type
-            </button>
-          </div>
+          <ProtocolComposeChangeTypeRow
+            hint={
+              PROTOCOL_POLICY_ACTION_OPTIONS.find(
+                (option) => option.id === actionId
+              )?.hint ?? ''
+            }
+            pending={pending}
+            onChangeKind={onChangeAction}
+          />
         ) : null}
 
         {actionId === 'update_parameters' ? (

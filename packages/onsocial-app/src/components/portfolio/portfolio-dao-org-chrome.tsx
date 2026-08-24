@@ -212,10 +212,6 @@ function PortfolioDaoOrgChromeInner({
     setOverlay((current) => (current === 'tools' ? null : current));
   }, []);
 
-  const handleProposeToolHandled = useCallback(() => {
-    setToolRequest(null);
-  }, []);
-
   const handleManageAction = useCallback(
     (action: DaoManageAction) => {
       if (action === 'edit') {
@@ -234,11 +230,6 @@ function PortfolioDaoOrgChromeInner({
       }
       if (action === 'boost') {
         setOverlay('boost');
-        return;
-      }
-      if (action === 'propose') {
-        setOverlay('proposals');
-        setToolRequest('propose');
         return;
       }
       setOverlay('tools');
@@ -312,12 +303,6 @@ function PortfolioDaoOrgChromeInner({
         daoAccountId={daoAccountId}
         daoName={title}
         canPropose={canPropose}
-        toolRequest={
-          overlay === 'proposals' && toolRequest === 'propose'
-            ? 'propose'
-            : null
-        }
-        onToolRequestHandled={handleProposeToolHandled}
         onClose={() =>
           setOverlay((current) => (current === 'proposals' ? null : current))
         }
@@ -326,11 +311,7 @@ function PortfolioDaoOrgChromeInner({
       <DaoWorkspaceToolsHost
         open={overlay === 'tools'}
         daoAccountId={daoAccountId}
-        toolRequest={
-          overlay === 'tools' && toolRequest && toolRequest !== 'propose'
-            ? toolRequest
-            : null
-        }
+        toolRequest={overlay === 'tools' ? toolRequest : null}
         onClose={handleToolsHostClose}
       />
 

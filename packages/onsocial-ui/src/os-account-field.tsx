@@ -25,6 +25,7 @@ export function OsAccountField({
   leading,
   'aria-invalid': ariaInvalid,
   'aria-label': ariaLabel,
+  readOnly = false,
   className,
   inputClassName,
 }: {
@@ -40,6 +41,7 @@ export function OsAccountField({
   leading?: ReactNode;
   'aria-invalid'?: boolean;
   'aria-label'?: string;
+  readOnly?: boolean;
   className?: string;
   inputClassName?: string;
 }) {
@@ -80,11 +82,15 @@ export function OsAccountField({
         autoCorrect="off"
         value={value}
         disabled={disabled}
+        readOnly={readOnly}
         placeholder={placeholder}
         aria-invalid={ariaInvalid}
         aria-label={ariaLabel}
         className={inputClassName}
-        onChange={(event) => onValueChange(event.target.value)}
+        onChange={(event) => {
+          if (readOnly) return;
+          onValueChange(event.target.value);
+        }}
       />
     </div>
   );

@@ -41,6 +41,10 @@ export interface ProtocolGovernanceEligibility {
   depositNeeded: string;
   delegateNeeded: string;
   isInCooldown: boolean;
+  /** Staking contract `next_action_timestamp` (ns) when cooldown is active. */
+  nextActionTimestamp: string;
+  /** Nanoseconds until cooldown ends; `0` when not in cooldown. */
+  cooldownRemainingNs: string;
   availableToWithdraw: string;
   /** Member-role stake threshold met (weight only). */
   canPropose: boolean;
@@ -412,6 +416,8 @@ async function loadProtocolGovernanceEligibility(
       depositNeeded: remainingToThreshold,
       delegateNeeded: '0',
       isInCooldown: false,
+      nextActionTimestamp: '0',
+      cooldownRemainingNs: '0',
       availableToWithdraw: '0',
       canPropose: canProposeByWeight,
       isGroupMember,
@@ -463,8 +469,12 @@ async function loadProtocolGovernanceEligibility(
     BigInt(voteAmount) - BigInt(totalDelegatedFromStaking)
   );
   const nowNs = BigInt(Date.now()) * 1_000_000n;
-  const cooldownEndsAt = BigInt(String(user?.next_action_timestamp ?? '0'));
+  const nextActionTimestamp = String(user?.next_action_timestamp ?? '0');
+  const cooldownEndsAt = BigInt(nextActionTimestamp || '0');
   const isInCooldown = cooldownEndsAt > nowNs;
+  const cooldownRemainingNs = isInCooldown
+    ? (cooldownEndsAt - nowNs).toString()
+    : '0';
   const availableToWithdraw = isInCooldown ? '0' : availableToDelegate;
   const depositNeeded = maxYocto(
     BigInt(remainingToThreshold) - BigInt(availableToDelegate)
@@ -500,6 +510,8 @@ async function loadProtocolGovernanceEligibility(
     depositNeeded,
     delegateNeeded,
     isInCooldown,
+    nextActionTimestamp,
+    cooldownRemainingNs,
     availableToWithdraw,
     canPropose: canProposeByWeight,
     isGroupMember,

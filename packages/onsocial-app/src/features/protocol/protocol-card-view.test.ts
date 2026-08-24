@@ -363,6 +363,8 @@ describe('protocol create + stake helpers', () => {
       depositNeeded: '80',
       delegateNeeded: '20',
       isInCooldown: false,
+      nextActionTimestamp: '0',
+      cooldownRemainingNs: '0',
       availableToWithdraw: '20',
       canPropose: false,
       isGroupMember: false,

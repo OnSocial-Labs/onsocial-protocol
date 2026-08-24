@@ -1,39 +1,38 @@
 'use client';
 
-import { useEffect, useId, useMemo, useState } from 'react';
-import { osFieldBorderedClassName } from '@onsocial/ui';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import {
+  AmountField,
+  AmountFieldMetaRow,
+  TokenIcon,
+} from '@onsocial/ui';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import {
   getProtocolGovernanceEligibility,
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
-import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
-import { yoctoToNear } from '@/lib/app-near-rpc';
 import {
-  formatSocialCompact,
-  yoctoToSocial,
-} from '@/lib/format-social-balance';
-import { socialToYocto } from '@/lib/social-spend-profile';
+  applyProtocolStakeAmountInput,
+  defaultProtocolStakeAmountInput,
+  finalizeProtocolStakeAmountInput,
+  formatProtocolStakeMaxAmount,
+  parseProtocolStakeAmountYocto,
+  protocolStakeActionBlocked,
+  protocolStakeAmountError,
+  protocolStakeAmountMeta,
+  protocolStakeShowsAmountField,
+  protocolStakeWhisper,
+  resolveProtocolStakeMaxYocto,
+  type ProtocolStakeMode,
+} from '@/features/protocol/protocol-stake-amount';
+import { ProtocolStakeFacts } from '@/features/protocol/protocol-stake-facts';
+import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
+import { useSocialTokenIcon } from '@/hooks/use-social-token-icon';
+import { yoctoToSocial } from '@/lib/format-social-balance';
+import { SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS } from '@/lib/social-spend-profile';
 
-type StakeMode = 'delegate' | 'undelegate' | 'withdraw';
-
-function defaultAmountSocial(
-  eligibility: ProtocolGovernanceEligibility | null,
-  mode: StakeMode
-): string {
-  if (!eligibility) return '';
-  if (mode === 'delegate') {
-    const need = BigInt(eligibility.remainingToThreshold || '0');
-    return need > 0n ? yoctoToSocial(need.toString()) : '';
-  }
-  if (mode === 'undelegate') {
-    const self = BigInt(eligibility.selfDelegatedWeight || '0');
-    return self > 0n ? yoctoToSocial(self.toString()) : '';
-  }
-  const withdraw = BigInt(eligibility.availableToWithdraw || '0');
-  return withdraw > 0n ? yoctoToSocial(withdraw.toString()) : '';
-}
+type StakeMode = ProtocolStakeMode;
 
 export function ProtocolStakeSheet({
   open,
@@ -55,6 +54,7 @@ export function ProtocolStakeSheet({
   onWithdraw: (amountYocto: string) => void;
 }) {
   const formId = useId();
+  const socialIcon = useSocialTokenIcon();
   const face = useMatchingDaoFaceEligibility(daoAccountId);
   const [mode, setMode] = useState<StakeMode>('delegate');
   const [amount, setAmount] = useState('');
@@ -75,7 +75,7 @@ export function ProtocolStakeSheet({
     }
     if (face && !opts?.fresh) {
       setFetchedEligibility(face.eligibility);
-      setAmount(defaultAmountSocial(face.eligibility, mode));
+      setAmount(defaultProtocolStakeAmountInput(face.eligibility, mode));
       setLoadState(face.isLoading && !face.eligibility ? 'loading' : 'ready');
       return;
     }
@@ -88,7 +88,7 @@ export function ProtocolStakeSheet({
             fresh: true,
           });
       setFetchedEligibility(next);
-      setAmount(defaultAmountSocial(next, mode));
+      setAmount(defaultProtocolStakeAmountInput(next, mode));
       setLoadState('ready');
     } catch (error) {
       setFetchedEligibility(null);
@@ -111,23 +111,106 @@ export function ProtocolStakeSheet({
       setFormError(null);
       return;
     }
-    void refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh on open/account/dao/face
-  }, [open, daoAccountId, accountId, face]);
+    void refresh({ fresh: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh on open/account/dao
+  }, [open, daoAccountId, accountId]);
 
   useEffect(() => {
     if (!open || !eligibility) return;
-    setAmount(defaultAmountSocial(eligibility, mode));
-  }, [mode, open, eligibility]);
+    setAmount(defaultProtocolStakeAmountInput(eligibility, mode));
+  }, [open, eligibility, mode]);
 
-  const amountYocto = (() => {
-    try {
-      return socialToYocto(amount.trim() || '0');
-    } catch {
-      return '0';
-    }
-  })();
-  const amountOk = BigInt(amountYocto) > 0n;
+  const selectMode = useCallback(
+    (next: StakeMode) => {
+      setMode(next);
+      setFormError(null);
+      if (eligibility) {
+        setAmount(defaultProtocolStakeAmountInput(eligibility, next));
+      }
+    },
+    [eligibility]
+  );
+
+  const maxYocto = useMemo(
+    () =>
+      eligibility ? resolveProtocolStakeMaxYocto(eligibility, mode) : 0n,
+    [eligibility, mode]
+  );
+
+  const applyAmountInput = useCallback(
+    (raw: string) => {
+      setFormError(null);
+      setAmount(applyProtocolStakeAmountInput(raw, maxYocto));
+    },
+    [maxYocto]
+  );
+
+  const normalizedAmount = useMemo(
+    () => finalizeProtocolStakeAmountInput(amount),
+    [amount]
+  );
+  const amountYocto = parseProtocolStakeAmountYocto(normalizedAmount);
+  const amountOk = amountYocto > 0n;
+  const amountError = protocolStakeAmountError(amountYocto, maxYocto, mode);
+  const actionBlocked = protocolStakeActionBlocked(
+    mode,
+    Boolean(eligibility?.isInCooldown)
+  );
+  const showsAmountField = protocolStakeShowsAmountField(
+    mode,
+    Boolean(eligibility?.isInCooldown)
+  );
+  const remainingToThreshold = BigInt(eligibility?.remainingToThreshold ?? '0');
+  const thresholdPreset =
+    mode === 'delegate' &&
+    !eligibility?.isInCooldown &&
+    remainingToThreshold > 0n &&
+    eligibility
+      ? finalizeProtocolStakeAmountInput(
+          yoctoToSocial(eligibility.remainingToThreshold)
+        )
+      : null;
+  const amountPresets = thresholdPreset ? [thresholdPreset] : undefined;
+
+  const applyMaxAmount = useCallback(() => {
+    setFormError(null);
+    setAmount(formatProtocolStakeMaxAmount(maxYocto));
+  }, [maxYocto]);
+
+  const stakeWhisper = protocolStakeWhisper(
+    mode,
+    Boolean(eligibility?.isInCooldown)
+  );
+  const [cooldownTick, setCooldownTick] = useState(0);
+
+  useEffect(() => {
+    if (!open || !eligibility?.isInCooldown) return;
+    const id = window.setInterval(() => {
+      setCooldownTick((tick) => tick + 1);
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [eligibility?.isInCooldown, open]);
+
+  const amountMeta = useMemo(
+    () =>
+      protocolStakeAmountMeta({
+        mode,
+        maxYocto,
+        isInCooldown: Boolean(eligibility?.isInCooldown),
+        nextActionTimestamp: eligibility?.nextActionTimestamp,
+        cooldownRemainingNs: eligibility?.cooldownRemainingNs,
+        nowMs: Date.now(),
+      }),
+    [
+      cooldownTick,
+      eligibility?.cooldownRemainingNs,
+      eligibility?.isInCooldown,
+      eligibility?.nextActionTimestamp,
+      maxYocto,
+      mode,
+    ]
+  );
+
   const stakingReady = Boolean(eligibility?.stakingContractId);
   const ctaLabel =
     mode === 'delegate'
@@ -147,6 +230,8 @@ export function ProtocolStakeSheet({
         Boolean(accountId) &&
         stakingReady &&
         amountOk &&
+        !amountError &&
+        !actionBlocked &&
         loadState === 'ready',
       pending,
       disabled:
@@ -154,10 +239,22 @@ export function ProtocolStakeSheet({
         !accountId ||
         !stakingReady ||
         !amountOk ||
+        Boolean(amountError) ||
+        actionBlocked ||
         loadState !== 'ready',
       primaryType: 'submit',
     };
-  }, [open, ctaLabel, pending, accountId, stakingReady, amountOk, loadState]);
+  }, [
+    open,
+    ctaLabel,
+    pending,
+    accountId,
+    stakingReady,
+    amountOk,
+    amountError,
+    actionBlocked,
+    loadState,
+  ]);
 
   return (
     <ProtocolTaskSheet
@@ -165,7 +262,7 @@ export function ProtocolStakeSheet({
       onClose={onClose}
       verb="Stake"
       handle={daoAccountId ?? undefined}
-      whisper="Delegate SOCIAL to meet the proposal threshold."
+      whisper={stakeWhisper}
       closeAriaLabel="Close stake"
       backdropLabel="Close stake"
       formId={formId}
@@ -176,12 +273,20 @@ export function ProtocolStakeSheet({
         className="protocol-compose protocol-task-form"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!eligibility?.stakingContractId || !amountOk || pending) return;
+          if (
+            !eligibility?.stakingContractId ||
+            !amountOk ||
+            amountError ||
+            actionBlocked ||
+            pending
+          )
+            return;
           setFormError(null);
           try {
-            if (mode === 'delegate') onDelegate(amountYocto);
-            else if (mode === 'undelegate') onUndelegate([amountYocto]);
-            else onWithdraw(amountYocto);
+            const amountYoctoStr = amountYocto.toString();
+            if (mode === 'delegate') onDelegate(amountYoctoStr);
+            else if (mode === 'undelegate') onUndelegate([amountYoctoStr]);
+            else onWithdraw(amountYoctoStr);
           } catch (error) {
             setFormError(
               error instanceof Error ? error.message : 'Could not submit.'
@@ -218,33 +323,7 @@ export function ProtocolStakeSheet({
 
         {eligibility?.stakingContractId ? (
           <>
-            <dl className="protocol-action-facts">
-              <div>
-                <dt>Threshold</dt>
-                <dd>
-                  {formatSocialCompact(eligibility.requiredWeight)} SOCIAL
-                </dd>
-              </div>
-              <div>
-                <dt>Delegated</dt>
-                <dd>
-                  {formatSocialCompact(eligibility.delegatedWeight)} SOCIAL
-                  {eligibility.canPropose ? ' · can propose' : ''}
-                </dd>
-              </div>
-              <div>
-                <dt>Available</dt>
-                <dd>
-                  {formatSocialCompact(eligibility.availableToDelegate)} in
-                  stake · {formatSocialCompact(eligibility.walletBalance)}{' '}
-                  wallet
-                </dd>
-              </div>
-              <div>
-                <dt>NEAR</dt>
-                <dd>{yoctoToNear(eligibility.nearBalance)} spendable</dd>
-              </div>
-            </dl>
+            <ProtocolStakeFacts eligibility={eligibility} />
 
             <div
               className="protocol-mode-rail"
@@ -264,7 +343,11 @@ export function ProtocolStakeSheet({
                   role="tab"
                   aria-selected={mode === value}
                   className={`protocol-board-chip${mode === value ? ' is-active' : ''}`}
-                  onClick={() => setMode(value)}
+                  onMouseDown={(event) => {
+                    // Keep amount field from blurring with stale mode limits.
+                    event.preventDefault();
+                  }}
+                  onClick={() => selectMode(value)}
                   disabled={pending}
                 >
                   {label}
@@ -272,24 +355,42 @@ export function ProtocolStakeSheet({
               ))}
             </div>
 
-            {eligibility.isInCooldown && mode !== 'delegate' ? (
-              <p className="protocol-compose-note is-warn">
-                Cooldown active — withdraw may be locked until it ends.
-              </p>
+            {showsAmountField ? (
+              <>
+                <AmountField
+                  value={amount}
+                  onValueChange={applyAmountInput}
+                  maxDecimals={SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS}
+                  placeholder="0"
+                  aria-label="Amount in SOCIAL"
+                  invalid={Boolean(amountError)}
+                  unit="SOCIAL"
+                  unitIcon={<TokenIcon src={socialIcon} label="SOCIAL" />}
+                  disabled={pending}
+                />
+
+                <AmountFieldMetaRow
+                  tone="support"
+                  presets={amountPresets}
+                  selectedValue={normalizedAmount}
+                  onSelectPreset={applyAmountInput}
+                  max={{
+                    onClick: applyMaxAmount,
+                    disabled: maxYocto <= 0n,
+                  }}
+                  disabled={pending}
+                  meta={amountMeta}
+                />
+              </>
+            ) : amountMeta ? (
+              <p className="protocol-stake-status">{amountMeta}</p>
             ) : null}
 
-            <label className="guild-field">
-              <span>Amount (SOCIAL)</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                placeholder="0"
-                disabled={pending}
-                className={osFieldBorderedClassName}
-              />
-            </label>
+            {amountError ? (
+              <p className="protocol-compose-note is-warn" role="alert">
+                {amountError}
+              </p>
+            ) : null}
           </>
         ) : null}
 

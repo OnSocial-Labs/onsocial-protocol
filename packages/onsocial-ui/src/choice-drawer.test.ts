@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  choiceDrawerHasPersistedSelection,
   osChoiceChipClassName,
   osChoiceSheetBodyClassName,
   osChoiceSheetPanelClassName,
@@ -9,6 +10,21 @@ import {
   osActionDrawerConfirmClassName,
   osActionDrawerIconClassName,
 } from './action-drawer.js';
+
+describe('choiceDrawerHasPersistedSelection', () => {
+  it('treats empty token ids as a valid persisted selection', () => {
+    const options = [
+      { value: '', label: 'NEAR' },
+      { value: 'social.testnet', label: 'SOCIAL' },
+    ] as const;
+
+    expect(choiceDrawerHasPersistedSelection('', options)).toBe(true);
+    expect(choiceDrawerHasPersistedSelection('social.testnet', options)).toBe(
+      true
+    );
+    expect(choiceDrawerHasPersistedSelection('missing', options)).toBe(false);
+  });
+});
 
 describe('choice / action drawer class names', () => {
   it('exports stable class names', () => {

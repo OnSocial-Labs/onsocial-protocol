@@ -10,19 +10,26 @@ import {
   type ProtocolCreateKind,
 } from '@/features/protocol/protocol-create';
 import {
-  ProtocolPickerItem,
-  ProtocolPickerSection,
+  buildProtocolPickerSections,
+  countProtocolPickerOptions,
+  protocolPickerForeignStakeMessage,
+  protocolPickerStakeGateMessage,
+  resolveProtocolPickerSheetLayout,
+} from '@/features/protocol/protocol-picker-sections';
+import {
+  ProtocolPickerOptionList,
   ProtocolPickerSheet,
   ProtocolPickerStatus,
-  protocolPickerItemLockReason,
   useProtocolPickerEligibility,
 } from '@/features/protocol/protocol-picker-sheet';
+import { isProtocolCreateKindChainAvailable } from '@/features/protocol/protocol-propose-chain-filter';
 import { viewerHasCreateKindPermission } from '@/features/protocol/protocol-propose-gate';
+import { useProtocolProposeChainContext } from '@/features/protocol/use-protocol-propose-chain-context';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 
 /**
- * Propose kind picker — permission-dead kinds hidden; stake-short stays visible
- * (bond / stake gate lands on the confirm hug after compose).
+ * Propose kind picker — policy + on-chain capability; stake-short kinds stay
+ * visible until confirm (bond / stake gate lands on the confirm hug).
  */
 export function ProtocolProposeKindSheet({
   open,
@@ -50,63 +57,76 @@ export function ProtocolProposeKindSheet({
     accountId,
     daoPolicy,
   });
+  const chainContext = useProtocolProposeChainContext(daoAccountId, open);
 
   const highlightedKind = useMemo(() => {
     if (!open) return lastKind;
     return lastKind ?? readLastProtocolCreateKind();
   }, [open, lastKind]);
 
-  const filterByPermission = (
-    options: typeof PROTOCOL_CREATE_KIND_OPTIONS
-  ) => {
-    if (!accountId || eligibility.loadState !== 'ready') return options;
-    return options.filter((option) =>
-      viewerHasCreateKindPermission(daoPolicy, accountId, option.id)
-    );
-  };
+  const pickerLoading =
+    Boolean(accountId) &&
+    (eligibility.loadState === 'loading' || chainContext.loadState === 'loading');
+  const pickerReady =
+    Boolean(accountId) &&
+    eligibility.loadState === 'ready' &&
+    chainContext.loadState === 'ready';
+  const pickerError =
+    Boolean(accountId) &&
+    (eligibility.loadState === 'error' || chainContext.loadState === 'error');
 
-  const commonOptions = useMemo(
+  const { common, grouped, hasVisible } = useMemo(
     () =>
-      filterByPermission(
-        PROTOCOL_CREATE_KIND_COMMON.map((id) =>
-          PROTOCOL_CREATE_KIND_OPTIONS.find((option) => option.id === id)
-        ).filter(
-          (option): option is (typeof PROTOCOL_CREATE_KIND_OPTIONS)[number] =>
-            Boolean(option)
-        )
-      ),
-    // eligibility.loadState + daoPolicy + accountId drive filter
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- filter reads those
-    [accountId, daoPolicy, eligibility.loadState]
+      buildProtocolPickerSections({
+        allOptions: PROTOCOL_CREATE_KIND_OPTIONS,
+        commonIds: PROTOCOL_CREATE_KIND_COMMON,
+        groups: PROTOCOL_CREATE_KIND_GROUPS,
+        filterReady: pickerReady,
+        hasPermission: (id) => {
+          if (!viewerHasCreateKindPermission(daoPolicy, accountId, id)) {
+            return false;
+          }
+          if (!pickerReady) return false;
+          return isProtocolCreateKindChainAvailable(id, chainContext.chain);
+        },
+      }),
+    [accountId, chainContext.chain, daoPolicy, pickerReady]
   );
 
-  const commonIds = useMemo(
-    () => new Set<ProtocolCreateKind>(PROTOCOL_CREATE_KIND_COMMON),
-    []
+  const sections = useMemo(
+    () => [
+      { key: 'common', label: 'Common', options: common },
+      ...grouped.map((group) => ({
+        key: group.id,
+        label: group.label,
+        options: group.options,
+      })),
+    ],
+    [common, grouped]
   );
 
-  const grouped = useMemo(
-    () =>
-      PROTOCOL_CREATE_KIND_GROUPS.map((group) => ({
-        ...group,
-        options: filterByPermission(
-          PROTOCOL_CREATE_KIND_OPTIONS.filter(
-            (option) =>
-              option.group === group.id && !commonIds.has(option.id)
-          )
-        ),
-      })).filter((group) => group.options.length > 0),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [accountId, daoPolicy, eligibility.loadState, commonIds]
+  const optionCount = useMemo(
+    () => countProtocolPickerOptions(common, grouped),
+    [common, grouped]
   );
 
-  const hasVisibleKinds =
-    commonOptions.length > 0 || grouped.some((group) => group.options.length > 0);
+  const sheetLayout = useMemo(
+    () => resolveProtocolPickerSheetLayout(optionCount),
+    [optionCount]
+  );
 
   const selectKind = (kind: ProtocolCreateKind) => {
     rememberProtocolCreateKind(kind);
     onSelectKind(kind);
   };
+
+  const statusLoadState = !accountId
+    ? eligibility.loadState
+    : pickerLoading
+      ? 'loading'
+      : pickerError
+        ? 'error'
+        : 'ready';
 
   return (
     <ProtocolPickerSheet
@@ -116,95 +136,43 @@ export function ProtocolProposeKindSheet({
       copy="Choose what to put on-chain."
       closeAriaLabel="Close propose"
       backdropLabel="Close propose"
+      initialDetent={sheetLayout.initialDetent}
+      peekRatio={sheetLayout.peekRatio}
     >
       <ProtocolPickerStatus
         accountId={accountId}
-        loadState={eligibility.loadState}
+        loadState={statusLoadState}
         connectEmpty="Connect a wallet to propose."
         loadingEmpty="Checking what you can propose…"
         errorNote="Could not verify proposal eligibility. Close and try again."
         stakeBlocked={eligibility.stakeBlocked}
-        stakeMessage={`Need ${eligibility.remainingLabel ?? 'more'} SOCIAL delegated to propose — stake now, or pick a kind and confirm later.`}
+        stakeMessage={protocolPickerStakeGateMessage(
+          eligibility.remainingLabel,
+          'propose'
+        )}
         foreignStakeBlocked={eligibility.foreignStakeBlocked}
-        foreignStakeMessage={`Need ${eligibility.foreignStakeTokenLabel ?? "this DAO's token"} stake to propose.`}
+        foreignStakeMessage={protocolPickerForeignStakeMessage(
+          eligibility.foreignStakeTokenLabel,
+          'propose'
+        )}
         roleBlocked={eligibility.roleBlocked}
         onOpenStake={onOpenStake}
         onClose={onClose}
       />
 
-      {accountId &&
-      eligibility.loadState === 'ready' &&
-      !hasVisibleKinds ? (
+      {pickerReady && !hasVisible ? (
         <p className="protocol-compose-note is-warn">
           No proposal types match your roles on this DAO.
         </p>
       ) : null}
 
-      <KindSection
-        label="Common"
-        options={commonOptions}
+      <ProtocolPickerOptionList
+        sections={sections}
         accountId={accountId}
-        loadState={eligibility.loadState}
-        highlightedKind={highlightedKind}
-        onSelectKind={selectKind}
+        loadState={statusLoadState}
+        highlightedId={highlightedKind}
+        onSelect={selectKind}
       />
-
-      {grouped.map((group) => (
-        <KindSection
-          key={group.id}
-          label={group.label}
-          options={group.options}
-          accountId={accountId}
-          loadState={eligibility.loadState}
-          highlightedKind={highlightedKind}
-          onSelectKind={selectKind}
-        />
-      ))}
     </ProtocolPickerSheet>
-  );
-}
-
-function KindSection({
-  label,
-  options,
-  accountId,
-  loadState,
-  highlightedKind,
-  onSelectKind,
-}: {
-  label: string;
-  options: typeof PROTOCOL_CREATE_KIND_OPTIONS;
-  accountId: string | null;
-  loadState: ReturnType<typeof useProtocolPickerEligibility>['loadState'];
-  highlightedKind: ProtocolCreateKind | null;
-  onSelectKind: (kind: ProtocolCreateKind) => void;
-}) {
-  if (options.length === 0) return null;
-
-  return (
-    <ProtocolPickerSection label={label}>
-      {options.map((option) => {
-        // Permission already filtered. Only soft-lock while checking / disconnected —
-        // stake shortfalls stay selectable; confirm hug gates bond + stake.
-        const lockReason = protocolPickerItemLockReason({
-          accountId,
-          loadState,
-          // Permission already filtered. Soft-lock only when disconnected /
-          // loading — stake shortfalls stay selectable for the confirm hug.
-          readyReason: accountId ? null : 'Connect a wallet',
-        });
-
-        return (
-          <ProtocolPickerItem
-            key={option.id}
-            label={option.label}
-            hint={option.hint}
-            lockReason={lockReason}
-            isLast={highlightedKind === option.id}
-            onSelect={() => onSelectKind(option.id)}
-          />
-        );
-      })}
-    </ProtocolPickerSection>
   );
 }

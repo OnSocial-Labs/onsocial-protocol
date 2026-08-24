@@ -541,20 +541,46 @@ export function deriveProtocolProposalPresentation({
       });
     }
 
-    if (
-      shape.methodName === 'withdraw_treasury' ||
-      shape.methodName === 'withdraw_infra'
-    ) {
+    if (shape.methodName === 'withdraw_infra') {
       const amountLabel = shape.amountYocto
         ? `${yoctoToSocial(shape.amountYocto)} SOCIAL`
         : null;
-      const verb = shape.methodName === 'withdraw_infra' ? 'Withdraw' : 'Sweep';
+      const treasuryId = shape.transferCallReceiverId;
+      const treasuryLabel = shortContractName(treasuryId);
+      const treasuryHeadline =
+        treasuryLabel &&
+        treasuryLabel.charAt(0).toUpperCase() + treasuryLabel.slice(1);
+      return finish({
+        headline:
+          amountLabel && treasuryHeadline
+            ? `Withdraw ${amountLabel} · infra pool → ${treasuryHeadline}`
+            : amountLabel
+              ? `Withdraw ${amountLabel} from infra pool`
+              : 'Withdraw infra pool',
+        actionBadge: 'Treasury',
+        targetKind: amountLabel ? 'amount' : null,
+        targetValue: amountLabel,
+        targetAccountId: shape.receiverId,
+        subjectAccount: treasuryId,
+        subjectEyebrow: treasuryId ? 'To' : null,
+        showProposerSeparately: Boolean(
+          normalizedProposer &&
+            treasuryId &&
+            normalizedProposer.toLowerCase() !== treasuryId.toLowerCase()
+        ),
+      });
+    }
+
+    if (shape.methodName === 'withdraw_treasury') {
+      const amountLabel = shape.amountYocto
+        ? `${yoctoToSocial(shape.amountYocto)} SOCIAL`
+        : null;
       return finish({
         headline: amountLabel
-          ? `${verb} ${amountLabel}`
+          ? `Sweep ${amountLabel} from social spend`
           : contractLabel
-            ? `${verb} ${contractLabel}`
-            : `${verb} treasury`,
+            ? `Sweep ${contractLabel} treasury fees`
+            : 'Sweep social-spend treasury fees',
         actionBadge: 'Treasury',
         targetKind: amountLabel ? 'amount' : 'contract',
         targetValue: amountLabel ?? contractLabel,

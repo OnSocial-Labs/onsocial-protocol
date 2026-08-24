@@ -23,10 +23,22 @@ import {
   PROTOCOL_CREATE_KIND_OPTIONS,
   buildProtocolCreatePayload,
   getCreatableProtocolRoleOptions,
+  getProtocolRoleMemberOptions,
+  isProtocolCreateMembershipKind,
+  protocolCreateComposeKindHint,
   protocolCreateKindLabel,
   type ProtocolCreateKind,
   type ProtocolProposalPayload,
 } from '@/features/protocol/protocol-create';
+import { ProtocolComposeChangeTypeRow } from '@/features/protocol/protocol-compose-change-type-row';
+import {
+  isProtocolNearAccountFieldReady,
+  ProtocolComposeNearAccountField,
+} from '@/features/protocol/protocol-compose-near-account-field';
+import {
+  isProtocolRemoveMemberReady,
+  ProtocolComposeRemoveMemberField,
+} from '@/features/protocol/protocol-compose-remove-member-field';
 import { createDefaultProtocolSeasonConfigDraft } from '@/features/protocol/protocol-season-config';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import {
@@ -38,6 +50,22 @@ import {
   getProtocolCreateKindBlockReason,
   viewerHasCreateKindPermission,
 } from '@/features/protocol/protocol-propose-gate';
+import { ProtocolComposeFundSeasonFields } from '@/features/protocol/protocol-compose-fund-season-fields';
+import { ProtocolComposeTransferFields } from '@/features/protocol/protocol-compose-transfer-fields';
+import { ProtocolComposeWithdrawBoostFields } from '@/features/protocol/protocol-compose-withdraw-boost-fields';
+import {
+  protocolCreateBoostWithdrawReady,
+  protocolCreateBoundedSocialAmountReady,
+  protocolCreateDescriptionReady,
+  protocolCreateWhisper,
+} from '@/features/protocol/protocol-create-compose';
+import {
+  protocolCreateTransferReady,
+  resolveProtocolTransferAmountYocto,
+  resolveProtocolTransferAsset,
+} from '@/features/protocol/protocol-transfer-compose';
+import { ProtocolComposeDescriptionField } from '@/features/protocol/protocol-compose-description-field';
+import { ProtocolCreateRoleRow } from '@/features/protocol/protocol-create-role-row';
 import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
 import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
@@ -46,29 +74,18 @@ import type { ProtocolDaoManagedContract } from '@/lib/protocol-dao-managed-cont
 import type { ProtocolDaoSocialSpendTreasuryContext } from '@/lib/protocol-dao-social-spend-treasury';
 import type { ProtocolDaoTransferAsset } from '@/lib/protocol-dao-transfer-assets';
 import { TREASURY_DAO_ACCOUNT } from '@/lib/app-config';
-import { tokenAmountToSmallestUnit, yoctoToNear } from '@/lib/app-near-rpc';
+import { yoctoToNear } from '@/lib/app-near-rpc';
+import { normalizeNearAccountId } from '@/lib/app-near-account';
+import { normalizeBoundedNote } from '@/lib/bounded-note-field';
+import { useNearAccountStatus } from '@/hooks/use-near-account-status';
 import {
   formatSocialCompact,
-  yoctoToSocial,
 } from '@/lib/format-social-balance';
 import { socialToYocto } from '@/lib/social-spend-profile';
 import {
   PROTOCOL_CONFIRM_Z,
   PROTOCOL_NESTED_CHOICE_Z,
 } from '@/features/protocol/protocol-sheet-z';
-
-function tokenSmallestToDisplay(value: string, decimals: number): string {
-  if (!value || value === '0') return '0';
-  const safeDecimals = Math.max(0, Math.floor(decimals));
-  if (safeDecimals === 0) return value.replace(/^0+/, '') || '0';
-  const padded = value.padStart(safeDecimals + 1, '0');
-  const whole = padded.slice(0, padded.length - safeDecimals) || '0';
-  const fraction = padded
-    .slice(padded.length - safeDecimals)
-    .replace(/0+$/, '')
-    .slice(0, 6);
-  return fraction ? `${whole}.${fraction}` : whole;
-}
 
 function isGreaterThanBalance(amountSmallest: string, balanceSmallest: string) {
   try {
@@ -103,6 +120,9 @@ export function ProtocolCreateSheet({
   onChangeKind?: () => void;
 }) {
   const formId = useId();
+  const memberAccountFieldId = `${formId}-member-account`;
+  const newOwnerFieldId = `${formId}-new-owner`;
+  const descriptionFieldId = `${formId}-description`;
   const face = useMatchingDaoFaceEligibility(daoAccountId);
   const staticUpgradable = useMemo(() => getProtocolUpgradableContracts(), []);
   const defaultSeasonConfigDraft = useMemo(
@@ -180,6 +200,14 @@ export function ProtocolCreateSheet({
   const hasKindPermission = useMemo(
     () => viewerHasCreateKindPermission(daoPolicy, accountId, kind),
     [daoPolicy, accountId, kind]
+  );
+
+  const removableMemberOptions = useMemo(
+    () =>
+      getProtocolRoleMemberOptions(daoPolicy, roleId, {
+        excludeAccountId: accountId ?? '',
+      }),
+    [accountId, daoPolicy, roleId]
   );
 
   useEffect(() => {
@@ -282,6 +310,24 @@ export function ProtocolCreateSheet({
     );
   }, [open, roles]);
 
+  useEffect(() => {
+    setDescription('');
+  }, [kind]);
+
+  useEffect(() => {
+    if (!open || kind !== 'remove_member') return;
+    setMemberId((current) => {
+      const normalizedCurrent = normalizeNearAccountId(current);
+      return (
+        removableMemberOptions.find(
+          (member) => normalizeNearAccountId(member) === normalizedCurrent
+        ) ??
+        removableMemberOptions[0] ??
+        ''
+      );
+    });
+  }, [kind, open, removableMemberOptions, roleId]);
+
   // Kind is chosen in ProtocolProposeKindSheet — only fall back if the
   // selected kind is no longer permissioned for this viewer.
   useEffect(() => {
@@ -382,11 +428,7 @@ export function ProtocolCreateSheet({
         if (cancelled) return;
         setBoostInfraContext(context);
         if (!context) return;
-        setReceiverId((current) => current || context.defaultReceiverId);
         setAuthorityId(context.treasuryDaoAccountId);
-        if (kind === 'withdraw_boost_infra') {
-          setAmountSocial(yoctoToSocial(context.infraPoolYocto));
-        }
       })
       .catch(() => {
         if (!cancelled) setBoostInfraContext(null);
@@ -447,10 +489,10 @@ export function ProtocolCreateSheet({
     managedContracts.length > 0
       ? managedContracts.filter((contract) => contract.upgradable)
       : staticUpgradable;
-  const selectedTransferAsset =
-    transferAssets.find((asset) => asset.tokenId === transferTokenId) ??
-    transferAssets[0] ??
-    null;
+  const selectedTransferAsset = useMemo(
+    () => resolveProtocolTransferAsset(transferAssets, transferTokenId),
+    [transferAssets, transferTokenId]
+  );
   const liveContextLoading =
     (kind === 'transfer' && transferAssetsLoading) ||
     (kind === 'fund_season_pool' && socialSpendLoading) ||
@@ -469,6 +511,12 @@ export function ProtocolCreateSheet({
           !boostInfraContext.canSetBoostInfraAuthority
         ? 'This DAO cannot update boost infra authority from the current contract state.'
         : null;
+  const composeFieldsOwnLiveLoading =
+    (kind === 'transfer' && transferAssetsLoading) ||
+    (kind === 'fund_season_pool' && socialSpendLoading) ||
+    ((kind === 'withdraw_boost_infra' ||
+      kind === 'set_boost_infra_authority') &&
+      boostInfraLoading);
 
   const eligibilityLoading =
     loadState === 'loading' || Boolean(face?.isLoading && !eligibility);
@@ -494,12 +542,83 @@ export function ProtocolCreateSheet({
       ? getProtocolCreateKindBlockReason(kind)
       : null;
 
+  const memberAccountStatus = useNearAccountStatus(
+    kind === 'add_member' ? memberId : ''
+  );
+  const receiverAccountStatus = useNearAccountStatus(
+    kind === 'transfer' ? receiverId : ''
+  );
+  const newOwnerAccountStatus = useNearAccountStatus(
+    kind === 'transfer_ownership' ? newOwnerId : ''
+  );
+  const membershipFieldsReady = (() => {
+    const isMembership =
+      kind === 'join_self' ||
+      kind === 'leave_self' ||
+      kind === 'add_member' ||
+      kind === 'remove_member';
+    if (!isMembership) return true;
+    if (!roleId.trim() || roles.length === 0) return false;
+    if (kind === 'add_member') {
+      return isProtocolNearAccountFieldReady(memberAccountStatus, memberId, {
+        requireOnChain: true,
+      });
+    }
+    if (kind === 'remove_member') {
+      return isProtocolRemoveMemberReady(memberId, removableMemberOptions);
+    }
+    return true;
+  })();
+  const ownershipFieldsReady =
+    kind !== 'transfer_ownership' ||
+    (Boolean(contractId.trim()) &&
+      isProtocolNearAccountFieldReady(newOwnerAccountStatus, newOwnerId, {
+        requireOnChain: false,
+      }));
+  const boostWithdrawFieldsReady =
+    kind !== 'withdraw_boost_infra' ||
+    protocolCreateBoostWithdrawReady(amountSocial, {
+      canWithdraw: Boolean(boostInfraContext?.canWithdrawBoostInfra),
+      infraPoolYocto: boostInfraContext?.infraPoolYocto ?? '0',
+    });
+  const fundSeasonFieldsReady =
+    kind !== 'fund_season_pool' ||
+    (Boolean(seasonId.trim()) &&
+      protocolCreateBoundedSocialAmountReady(
+        amountSocial,
+        socialSpendContext?.daoSocialBalanceYocto ?? '0'
+      ));
+  const transferFieldsReady =
+    kind !== 'transfer' ||
+    protocolCreateTransferReady(
+      selectedTransferAsset,
+      receiverAccountStatus,
+      receiverId,
+      amountNear
+    );
+  const descriptionReady = protocolCreateDescriptionReady(description);
+
   const formReady =
     Boolean(accountId) &&
     loadState === 'ready' &&
     hasKindPermission &&
     !liveContextLoading &&
-    !liveContextBlock;
+    !liveContextBlock &&
+    membershipFieldsReady &&
+    ownershipFieldsReady &&
+    boostWithdrawFieldsReady &&
+    fundSeasonFieldsReady &&
+    transferFieldsReady &&
+    descriptionReady;
+
+  const composeBondLabel =
+    loadState === 'ready' && accountId && hasKindPermission && bondLabel
+      ? bondLabel
+      : null;
+  const composeWhisper = useMemo(
+    () => protocolCreateWhisper(kind, composeBondLabel),
+    [composeBondLabel, kind]
+  );
 
   const footerState = useMemo((): CommerceSheetFooterState | null => {
     if (!open) return null;
@@ -509,26 +628,10 @@ export function ProtocolCreateSheet({
       primaryPendingLabel: 'Submitting…',
       canSubmit: !pending && formReady,
       pending,
-      disabled:
-        pending ||
-        !accountId ||
-        loadState === 'loading' ||
-        loadState === 'error' ||
-        liveContextLoading ||
-        Boolean(liveContextBlock) ||
-        !hasKindPermission,
+      disabled: pending || !formReady,
       primaryType: 'submit',
     };
-  }, [
-    open,
-    pending,
-    formReady,
-    accountId,
-    loadState,
-    liveContextLoading,
-    liveContextBlock,
-    hasKindPermission,
-  ]);
+  }, [open, pending, formReady]);
 
   return (
     <>
@@ -537,7 +640,7 @@ export function ProtocolCreateSheet({
       onClose={onClose}
       verb={protocolCreateKindLabel(kind)}
       handle={daoAccountId ?? undefined}
-      whisper="Fill the fields, then confirm bond and submit."
+      whisper={composeWhisper}
       closeAriaLabel="Close propose"
       backdropLabel="Close propose"
       formId={formId}
@@ -555,20 +658,10 @@ export function ProtocolCreateSheet({
               if (!selectedTransferAsset) {
                 throw new Error('Choose an asset with a live DAO balance.');
               }
-              transferAmountYocto = tokenAmountToSmallestUnit(
-                amountNear.trim() || '0',
-                selectedTransferAsset.decimals
+              transferAmountYocto = resolveProtocolTransferAmountYocto(
+                amountNear,
+                selectedTransferAsset
               );
-              if (
-                isGreaterThanBalance(
-                  transferAmountYocto,
-                  selectedTransferAsset.balanceSmallest
-                )
-              ) {
-                throw new Error(
-                  `Amount exceeds the DAO ${selectedTransferAsset.symbol} balance.`
-                );
-              }
             }
             const socialYocto =
               kind === 'fund_season_pool' || kind === 'withdraw_boost_infra'
@@ -597,13 +690,13 @@ export function ProtocolCreateSheet({
             const payload = buildProtocolCreatePayload({
               kind,
               accountId,
-              description,
+              description: normalizeBoundedNote(description),
               roleId,
-              memberId,
+              memberId: normalizeNearAccountId(memberId),
               receiverId:
                 kind === 'withdraw_boost_infra'
-                  ? receiverId || TREASURY_DAO_ACCOUNT
-                  : receiverId,
+                  ? boostInfraContext?.defaultReceiverId ?? TREASURY_DAO_ACCOUNT
+                  : normalizeNearAccountId(receiverId),
               amountYocto:
                 kind === 'transfer' ? transferAmountYocto : socialYocto,
               tokenId:
@@ -613,7 +706,7 @@ export function ProtocolCreateSheet({
               seasonActive,
               seasonDurationDays,
               contractId,
-              newOwnerId,
+              newOwnerId: normalizeNearAccountId(newOwnerId),
               codeHash,
               authorityId,
               configOpId,
@@ -667,16 +760,12 @@ export function ProtocolCreateSheet({
           <p className="protocol-compose-note is-warn">{permissionBlock}</p>
         ) : null}
 
-        {liveContextLoading ? (
+        {liveContextLoading && !composeFieldsOwnLiveLoading ? (
           <p className="protocol-compose-note">Loading live DAO context…</p>
         ) : null}
 
         {liveContextBlock ? (
           <p className="protocol-compose-note is-warn">{liveContextBlock}</p>
-        ) : null}
-
-        {eligibility && hasKindPermission && !needsStake && bondLabel ? (
-          <p className="protocol-compose-note">Bond {bondLabel} on submit.</p>
         ) : null}
 
         {loadState === 'ready' &&
@@ -687,258 +776,117 @@ export function ProtocolCreateSheet({
           </p>
         ) : null}
 
-        {onChangeKind ? (
-          <div className="protocol-propose-kind-current">
-            <p className="protocol-compose-note">
-              {
-                PROTOCOL_CREATE_KIND_OPTIONS.find(
-                  (option) => option.id === kind
-                )?.hint
-              }
-            </p>
-            <button
-              type="button"
-              className="protocol-tool is-ghost"
-              onClick={onChangeKind}
-              disabled={pending}
-            >
-              Change type
-            </button>
-          </div>
-        ) : null}
-
-        {(kind === 'join_self' ||
-          kind === 'add_member' ||
-          kind === 'leave_self' ||
-          kind === 'remove_member') &&
-          (roles.length === 0 ? (
-            <p className="protocol-compose-note">No roles available.</p>
-          ) : (
-            <div className="guild-field">
-              <ChoiceDrawerField
-                label="Role"
-                value={roleId}
-                options={roles.map(
-                  (role): ChoiceOption<string> => ({
-                    value: role,
-                    label: role,
-                  })
-                )}
-                onChange={setRoleId}
-                disabled={pending}
-                copy="Group role for this membership proposal"
-                zIndex={PROTOCOL_NESTED_CHOICE_Z}
-              />
-            </div>
-          ))}
-
-        {(kind === 'add_member' || kind === 'remove_member') && (
-          <label className="guild-field">
-            <span>Member account</span>
-            <input
-              type="text"
-              value={memberId}
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              placeholder="alice.near"
-              onChange={(event) => setMemberId(event.target.value)}
-              disabled={pending}
-              className={osFieldBorderedClassName}
+        <div className="protocol-create-fields">
+          {onChangeKind && !isProtocolCreateMembershipKind(kind) ? (
+            <ProtocolComposeChangeTypeRow
+              hint={protocolCreateComposeKindHint(kind)}
+              pending={pending}
+              onChangeKind={onChangeKind}
             />
-          </label>
-        )}
+          ) : null}
+
+          <ProtocolCreateRoleRow
+            kind={kind}
+            roleId={roleId}
+            roles={roles}
+            pending={pending}
+            zIndex={PROTOCOL_NESTED_CHOICE_Z}
+            onChangeRole={setRoleId}
+            onChangeKind={
+              onChangeKind && isProtocolCreateMembershipKind(kind)
+                ? onChangeKind
+                : undefined
+            }
+          />
+
+          {kind === 'add_member' ? (
+            <ProtocolComposeNearAccountField
+              id={memberAccountFieldId}
+              label="Account"
+              value={memberId}
+              status={memberAccountStatus}
+              onValueChange={(next) => {
+                setMemberId(next);
+                setFormError(null);
+              }}
+              disabled={pending}
+              requireOnChain
+            />
+          ) : null}
+
+          {kind === 'remove_member' ? (
+            <ProtocolComposeRemoveMemberField
+              roleId={roleId}
+              memberId={memberId}
+              options={removableMemberOptions}
+              onMemberChange={(next) => {
+                setMemberId(next);
+                setFormError(null);
+              }}
+              disabled={pending}
+              zIndex={PROTOCOL_NESTED_CHOICE_Z}
+            />
+          ) : null}
 
         {kind === 'transfer' ? (
-          <>
-            {transferAssets.length === 0 ? (
-              <p className="protocol-compose-note">
-                {transferAssetsLoading ? 'Loading assets…' : 'No assets'}
-              </p>
-            ) : (
-              <div className="guild-field">
-                <ChoiceDrawerField
-                  label="Asset"
-                  value={selectedTransferAsset?.tokenId ?? transferTokenId}
-                  options={transferAssets.map(
-                    (asset): ChoiceOption<string> => ({
-                      value: asset.tokenId,
-                      label: asset.symbol,
-                      description: `${tokenSmallestToDisplay(
-                        asset.balanceSmallest,
-                        asset.decimals
-                      )} available`,
-                    })
-                  )}
-                  onChange={(next) => {
-                    setTransferTokenId(next);
-                    setFormError(null);
-                  }}
-                  disabled={pending || transferAssetsLoading}
-                  copy="Spendable balance held by this DAO"
-                  zIndex={PROTOCOL_NESTED_CHOICE_Z}
-                />
-              </div>
-            )}
-            <label className="guild-field">
-              <span>Recipient</span>
-              <input
-                type="text"
-                value={receiverId}
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                placeholder="alice.near"
-                onChange={(event) => setReceiverId(event.target.value)}
-                disabled={pending}
-                className={osFieldBorderedClassName}
-              />
-            </label>
-            <label className="guild-field">
-              <span>Amount ({selectedTransferAsset?.symbol ?? 'asset'})</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={amountNear}
-                placeholder="0"
-                onChange={(event) => setAmountNear(event.target.value)}
-                disabled={pending || transferAssetsLoading}
-                className={osFieldBorderedClassName}
-              />
-            </label>
-            {selectedTransferAsset ? (
-              <p className="protocol-compose-note">
-                DAO balance{' '}
-                {tokenSmallestToDisplay(
-                  selectedTransferAsset.balanceSmallest,
-                  selectedTransferAsset.decimals
-                )}{' '}
-                {selectedTransferAsset.symbol}
-              </p>
-            ) : null}
-          </>
+          <ProtocolComposeTransferFields
+            formId={formId}
+            transferAssets={transferAssets}
+            transferAssetsLoading={transferAssetsLoading}
+            transferTokenId={transferTokenId}
+            onTransferTokenChange={(next) => {
+              setTransferTokenId(next);
+              setAmountNear('');
+              setFormError(null);
+            }}
+            receiverId={receiverId}
+            receiverStatus={receiverAccountStatus}
+            onReceiverChange={(next) => {
+              setReceiverId(next);
+              setFormError(null);
+            }}
+            amountInput={amountNear}
+            onAmountChange={(next) => {
+              setAmountNear(next);
+              setFormError(null);
+            }}
+            pending={pending}
+            zIndex={PROTOCOL_NESTED_CHOICE_Z}
+          />
         ) : null}
 
         {kind === 'fund_season_pool' ? (
-          <>
-            {socialSpendContext?.fundableSeasonIds.length ? (
-              <div className="guild-field">
-                <ChoiceDrawerField
-                  label="Season"
-                  value={seasonId}
-                  options={socialSpendContext.fundableSeasonIds.map(
-                    (id): ChoiceOption<string> => ({
-                      value: id,
-                      label: id,
-                    })
-                  )}
-                  onChange={setSeasonId}
-                  disabled={pending || socialSpendLoading}
-                  copy="Live rally seasons reported on-chain"
-                  zIndex={PROTOCOL_NESTED_CHOICE_Z}
-                />
-              </div>
-            ) : (
-              <label className="guild-field">
-                <span>Season id</span>
-                <input
-                  type="text"
-                  value={seasonId}
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  placeholder="season2"
-                  onChange={(event) => setSeasonId(event.target.value)}
-                  disabled={pending || socialSpendLoading}
-                  className={osFieldBorderedClassName}
-                />
-              </label>
-            )}
-            <label className="guild-field">
-              <span>Amount (SOCIAL)</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={amountSocial}
-                placeholder="0"
-                onChange={(event) => setAmountSocial(event.target.value)}
-                disabled={pending || socialSpendLoading}
-                className={osFieldBorderedClassName}
-              />
-            </label>
-            <p className="protocol-compose-note">
-              DAO SOCIAL balance{' '}
-              {formatSocialCompact(
-                socialSpendContext?.daoSocialBalanceYocto ?? '0'
-              )}{' '}
-              SOCIAL
-            </p>
-            {socialSpendContext?.daoSocialBalanceYocto &&
-            BigInt(socialSpendContext.daoSocialBalanceYocto) > 0n ? (
-              <button
-                type="button"
-                className="protocol-tool is-ghost"
-                onClick={() =>
-                  setAmountSocial(
-                    yoctoToSocial(socialSpendContext.daoSocialBalanceYocto)
-                  )
-                }
-                disabled={pending || socialSpendLoading}
-              >
-                Use full balance
-              </button>
-            ) : null}
-            {socialSpendContext &&
-            socialSpendContext.fundableSeasonIds.length === 0 ? (
-              <p className="protocol-compose-note is-warn">
-                No live rally seasons were reported on-chain; enter an id
-                manually if needed.
-              </p>
-            ) : null}
-          </>
+          <ProtocolComposeFundSeasonFields
+            socialSpendContext={socialSpendContext}
+            socialSpendLoading={socialSpendLoading}
+            seasonId={seasonId}
+            onSeasonIdChange={(next) => {
+              setSeasonId(next);
+              setFormError(null);
+            }}
+            amountSocial={amountSocial}
+            onAmountChange={(next) => {
+              setAmountSocial(next);
+              setFormError(null);
+            }}
+            pending={pending}
+            zIndex={PROTOCOL_NESTED_CHOICE_Z}
+          />
         ) : null}
 
         {kind === 'withdraw_boost_infra' ? (
-          <>
-            <label className="guild-field">
-              <span>Amount (SOCIAL)</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={amountSocial}
-                placeholder="0"
-                onChange={(event) => setAmountSocial(event.target.value)}
-                disabled={
-                  pending ||
-                  boostInfraLoading ||
-                  Boolean(
-                    boostInfraContext &&
-                      !boostInfraContext.canWithdrawBoostInfra
-                  )
-                }
-                className={osFieldBorderedClassName}
-              />
-            </label>
-            <label className="guild-field">
-              <span>Receiver</span>
-              <input
-                type="text"
-                value={receiverId || TREASURY_DAO_ACCOUNT}
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                onChange={(event) => setReceiverId(event.target.value)}
-                disabled={pending || boostInfraLoading}
-                className={osFieldBorderedClassName}
-              />
-            </label>
-            {boostInfraContext ? (
-              <p className="protocol-compose-note">
-                Infra pool {yoctoToSocial(boostInfraContext.infraPoolYocto)}{' '}
-                SOCIAL → {boostInfraContext.defaultReceiverId}
-              </p>
-            ) : null}
-          </>
+          <ProtocolComposeWithdrawBoostFields
+            formId={formId}
+            boostInfraContext={boostInfraContext}
+            boostInfraLoading={boostInfraLoading}
+            amountSocial={amountSocial}
+            onAmountChange={(next) => {
+              setAmountSocial(next);
+              setFormError(null);
+            }}
+            pending={pending}
+            blocked={Boolean(liveContextBlock)}
+          />
         ) : null}
 
         {kind === 'set_boost_infra_authority' ? (
@@ -983,6 +931,7 @@ export function ProtocolCreateSheet({
               )}
               onChange={setContractId}
               disabled={pending || managedContractsLoading}
+              persistSelected
               copy={
                 managedContracts.length > 0
                   ? 'Contracts currently owned by this DAO'
@@ -994,20 +943,18 @@ export function ProtocolCreateSheet({
         ) : null}
 
         {kind === 'transfer_ownership' ? (
-          <label className="guild-field">
-            <span>New owner</span>
-            <input
-              type="text"
-              value={newOwnerId}
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              placeholder="alice.near"
-              onChange={(event) => setNewOwnerId(event.target.value)}
-              disabled={pending}
-              className={osFieldBorderedClassName}
-            />
-          </label>
+          <ProtocolComposeNearAccountField
+            id={newOwnerFieldId}
+            label="New owner"
+            value={newOwnerId}
+            status={newOwnerAccountStatus}
+            onValueChange={(next) => {
+              setNewOwnerId(next);
+              setFormError(null);
+            }}
+            disabled={pending}
+            requireOnChain={false}
+          />
         ) : null}
 
         {kind === 'contract_upgrade' ? (
@@ -1162,21 +1109,18 @@ export function ProtocolCreateSheet({
           </>
         ) : null}
 
-        <label className="guild-field">
-          <span>{kind === 'signal' ? 'Signal' : 'Description'}</span>
-          <textarea
-            rows={kind === 'signal' ? 5 : 3}
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder={
-              kind === 'signal'
-                ? 'What should the DAO decide?'
-                : 'Optional rationale'
-            }
-            disabled={pending}
-            className={osFieldBorderedClassName}
-          />
-        </label>
+        <ProtocolComposeDescriptionField
+          id={descriptionFieldId}
+          kind={kind}
+          value={description}
+          roleId={roleId}
+          onValueChange={(next) => {
+            setDescription(next);
+            setFormError(null);
+          }}
+          disabled={pending}
+        />
+        </div>
 
         {formError ? (
           <p className="protocol-compose-note is-warn">{formError}</p>

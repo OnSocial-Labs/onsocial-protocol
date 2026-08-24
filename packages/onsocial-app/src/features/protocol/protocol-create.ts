@@ -20,6 +20,7 @@ import type {
   ProtocolDaoPolicy,
   ProtocolDaoRole,
 } from '@/features/protocol/types';
+import { normalizeNearAccountId } from '@/lib/app-near-account';
 
 const ADD_PROPOSAL_GAS = '300000000000000';
 
@@ -48,7 +49,7 @@ export const PROTOCOL_CREATE_KIND_OPTIONS: Array<{
     id: 'signal',
     label: 'Signal',
     group: 'signaling',
-    hint: 'Text-only direction — nothing executes.',
+    hint: 'Text-only · nothing executes.',
   },
   {
     id: 'join_self',
@@ -145,6 +146,47 @@ export function protocolCreateKindLabel(kind: ProtocolCreateKind): string {
   return (
     PROTOCOL_CREATE_KIND_OPTIONS.find((option) => option.id === kind)?.label ??
     'Proposal'
+  );
+}
+
+export function protocolCreateKindHint(kind: ProtocolCreateKind): string {
+  return (
+    PROTOCOL_CREATE_KIND_OPTIONS.find((option) => option.id === kind)?.hint ??
+    ''
+  );
+}
+
+/** Compose sheet — skip picker hints when the header whisper already guides the form. */
+export function protocolCreateComposeKindHint(kind: ProtocolCreateKind): string {
+  switch (kind) {
+    case 'signal':
+      return protocolCreateKindHint(kind);
+    case 'transfer':
+    case 'fund_season_pool':
+    case 'withdraw_boost_infra':
+    case 'set_boost_infra_authority':
+    case 'transfer_ownership':
+    case 'contract_upgrade':
+    case 'season_config':
+    case 'contract_config':
+    case 'add_member':
+    case 'remove_member':
+    case 'join_self':
+    case 'leave_self':
+      return '';
+    default:
+      return protocolCreateKindHint(kind);
+  }
+}
+
+export function isProtocolCreateMembershipKind(
+  kind: ProtocolCreateKind
+): boolean {
+  return (
+    kind === 'join_self' ||
+    kind === 'leave_self' ||
+    kind === 'add_member' ||
+    kind === 'remove_member'
   );
 }
 
@@ -443,5 +485,26 @@ export function findProtocolRole(
     policy?.roles?.find(
       (role) => role.name?.trim().toLowerCase() === normalized
     ) ?? null
+  );
+}
+
+/** Group-role members eligible for remove-member proposals (excludes proposer). */
+export function getProtocolRoleMemberOptions(
+  policy: ProtocolDaoPolicy | null | undefined,
+  roleId: string,
+  options?: { excludeAccountId?: string }
+): string[] {
+  const role = findProtocolRole(policy, roleId);
+  const exclude = normalizeNearAccountId(options?.excludeAccountId ?? '');
+  const group = role ? daoRoleGroupMembers(role) : [];
+  const members = group
+    .map((member) => member.trim())
+    .filter((member): member is string => Boolean(member))
+    .filter(
+      (member) => !exclude || normalizeNearAccountId(member) !== exclude
+    );
+
+  return [...new Set(members)].sort((left, right) =>
+    left.localeCompare(right)
   );
 }

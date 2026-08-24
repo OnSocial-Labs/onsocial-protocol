@@ -5,7 +5,12 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { OsHugSheet } from '@onsocial/ui';
+import {
+  OsHugSheet,
+  OsSurfaceRow,
+  OsSurfaceRowList,
+  type GlassSheetDetent,
+} from '@onsocial/ui';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { getProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
 import { isProtocolDaoGroupMember } from '@/features/protocol/protocol-propose-gate';
@@ -152,6 +157,8 @@ export function ProtocolPickerSheet({
   closeAriaLabel,
   backdropLabel,
   children,
+  initialDetent = 'peek',
+  peekRatio = 0.62,
 }: {
   open: boolean;
   onClose: () => void;
@@ -160,7 +167,11 @@ export function ProtocolPickerSheet({
   closeAriaLabel: string;
   backdropLabel: string;
   children: ReactNode;
+  initialDetent?: GlassSheetDetent;
+  peekRatio?: number;
 }) {
+  const longList = initialDetent === 'full';
+
   return (
     <OsHugSheet
       open={open}
@@ -170,9 +181,14 @@ export function ProtocolPickerSheet({
       closeAriaLabel={closeAriaLabel}
       backdropLabel={backdropLabel}
       zIndex={PROTOCOL_TASK_SHEET_Z}
-      initialDetent="peek"
-      peekRatio={0.62}
-      bodyClassName="protocol-action-sheet-body"
+      sizing="hug"
+      initialDetent={initialDetent}
+      peekRatio={peekRatio}
+      bodyClassName={
+        longList
+          ? 'protocol-action-sheet-body protocol-picker-sheet-body is-long'
+          : 'protocol-action-sheet-body protocol-picker-sheet-body'
+      }
     >
       <div className="protocol-propose-kind">{children}</div>
     </OsHugSheet>
@@ -221,7 +237,7 @@ export function ProtocolPickerStatus({
       ) : null}
 
       {stakeBlocked ? (
-        <div className="protocol-propose-kind-block">
+        <div className="protocol-propose-kind-current">
           <p className="protocol-compose-note is-warn">{stakeMessage}</p>
           <button
             type="button"
@@ -247,6 +263,51 @@ export function ProtocolPickerStatus({
   );
 }
 
+export function ProtocolPickerOptionList<T extends string>({
+  sections,
+  accountId,
+  loadState,
+  highlightedId,
+  onSelect,
+}: {
+  sections: Array<{
+    key: string;
+    label: string;
+    options: Array<{ id: T; label: string; hint: string }>;
+  }>;
+  accountId: string | null;
+  loadState: ProtocolPickerLoadState;
+  highlightedId: T | null;
+  onSelect: (id: T) => void;
+}) {
+  return sections.map((section) => {
+    if (section.options.length === 0) return null;
+
+    return (
+      <ProtocolPickerSection key={section.key} label={section.label}>
+        {section.options.map((option) => {
+          const lockReason = protocolPickerItemLockReason({
+            accountId,
+            loadState,
+            readyReason: accountId ? null : 'Connect a wallet',
+          });
+
+          return (
+            <ProtocolPickerItem
+              key={option.id}
+              label={option.label}
+              hint={option.hint}
+              lockReason={lockReason}
+              isLast={highlightedId === option.id}
+              onSelect={() => onSelect(option.id)}
+            />
+          );
+        })}
+      </ProtocolPickerSection>
+    );
+  });
+}
+
 export function ProtocolPickerSection({
   label,
   children,
@@ -255,9 +316,11 @@ export function ProtocolPickerSection({
   children: ReactNode;
 }) {
   return (
-    <section className="protocol-propose-kind-group">
-      <h3 className="protocol-propose-kind-group-label">{label}</h3>
-      <ul className="protocol-propose-kind-list">{children}</ul>
+    <section className="protocol-picker-section">
+      <h3 className="protocol-picker-section-label">{label}</h3>
+      <OsSurfaceRowList as="div" className="protocol-picker-section-list">
+        {children}
+      </OsSurfaceRowList>
     </section>
   );
 }
@@ -278,31 +341,15 @@ export function ProtocolPickerItem({
   const disabled = Boolean(lockReason);
 
   return (
-    <li>
-      <button
-        type="button"
-        className={[
-          'protocol-propose-kind-item',
-          isLast ? 'is-last' : '',
-          disabled ? 'is-locked' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        disabled={disabled}
-        aria-current={isLast ? 'true' : undefined}
-        onClick={onSelect}
-      >
-        <span className="protocol-propose-kind-item-top">
-          <span className="protocol-propose-kind-item-label">{label}</span>
-          {isLast ? (
-            <span className="protocol-propose-kind-item-badge">Last used</span>
-          ) : null}
-        </span>
-        <span className="protocol-propose-kind-item-hint">
-          {disabled && lockReason ? lockReason : hint}
-        </span>
-      </button>
-    </li>
+    <OsSurfaceRow
+      label={label}
+      description={disabled && lockReason ? lockReason : hint}
+      badge={isLast ? 'Last used' : undefined}
+      active={isLast}
+      trailing={isLast ? 'none' : 'navigate'}
+      disabled={disabled}
+      onClick={onSelect}
+    />
   );
 }
 

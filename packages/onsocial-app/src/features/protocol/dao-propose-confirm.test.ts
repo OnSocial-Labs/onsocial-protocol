@@ -23,6 +23,8 @@ function eligibility(
     depositNeeded: '0',
     delegateNeeded: '0',
     isInCooldown: false,
+    nextActionTimestamp: '0',
+    cooldownRemainingNs: '0',
     availableToWithdraw: '0',
     canPropose: true,
     isGroupMember: false,

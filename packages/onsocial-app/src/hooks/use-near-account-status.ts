@@ -105,13 +105,13 @@ export function useNearAccountStatus(accountId: string): NearAccountStatus {
 }
 
 /**
- * Lip tint only after a complete id settles on-chain.
- * Incomplete / invalid typing stays untinted (no mid-keystroke red).
+ * Lip tint only after a complete id settles.
+ * Green = on-chain account found; amber = invalid or not found; idle while typing.
  */
 export function nearAccountStatusClass(
   status: NearAccountStatus
 ): string | undefined {
   if (status === 'found') return 'is-available';
-  if (status === 'missing') return 'is-taken';
+  if (status === 'invalid' || status === 'missing') return 'is-warn';
   return undefined;
 }

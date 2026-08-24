@@ -20,6 +20,7 @@ export function NearAccountField({
   placeholder,
   status = 'idle',
   statusClass,
+  readOnly = false,
   'aria-invalid': ariaInvalid,
 }: {
   id: string;
@@ -31,6 +32,7 @@ export function NearAccountField({
   status?: NearAccountStatus;
   /** `is-available` / `is-taken` — tints the field top lip. */
   statusClass?: string;
+  readOnly?: boolean;
   'aria-invalid'?: boolean;
 }) {
   const normalized = normalizeNearAccountId(value);
@@ -43,8 +45,12 @@ export function NearAccountField({
     <OsAccountField
       id={id}
       value={value}
-      onValueChange={(next) => onValueChange(sanitizeNearAccountInput(next))}
+      onValueChange={(next) => {
+        if (readOnly) return;
+        onValueChange(sanitizeNearAccountInput(next));
+      }}
       disabled={disabled}
+      readOnly={readOnly}
       placeholder={placeholder}
       statusClass={statusClass}
       aria-invalid={ariaInvalid}

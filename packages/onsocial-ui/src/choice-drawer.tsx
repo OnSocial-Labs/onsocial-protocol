@@ -75,6 +75,14 @@ function groupOptions<T extends string>(
   return groups;
 }
 
+/** True when `value` matches an option — including empty string (native NEAR). */
+export function choiceDrawerHasPersistedSelection<T extends string>(
+  value: T,
+  options: readonly ChoiceOption<T>[]
+): boolean {
+  return options.some((option) => option.value === value);
+}
+
 export interface ChoiceDrawerProps<T extends string> {
   open: boolean;
   onClose: () => void;
@@ -236,7 +244,10 @@ export function ChoiceDrawerField<T extends string>({
   const active = options.find((option) => option.value === value);
   const activeLabel = active?.label ?? value;
   const sheetOpen = open && !closing;
-  const chipSelected = open || closing || (persistSelected && Boolean(value));
+  const chipSelected =
+    open ||
+    closing ||
+    (persistSelected && choiceDrawerHasPersistedSelection(value, options));
 
   const requestClose = useCallback(() => {
     setClosing(true);

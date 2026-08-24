@@ -140,7 +140,7 @@ export function DaoWorkspacePanel({
   hideTools?: boolean;
   /**
    * Mount tool sheets only (no proposals feed / mood page). Used when Manage
-   * opens Stake / Settings / Info from the portfolio face.
+   * opens Propose / Stake / Settings / Info from the portfolio face.
    */
   toolsHostOnly?: boolean;
   /** Viewer may create proposals — dock Propose on the mood page. */
@@ -267,17 +267,16 @@ export function DaoWorkspacePanel({
   }, [searchQuery]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    setStatusFilter(parseProtocolFeedStatus(params.get(PROTOCOL_STATUS_PARAM)));
-    setFamilyFilter(parseProtocolProposalFamily(params.get(PROTOCOL_FAMILY_PARAM)));
-    setSearchQuery(parseProtocolSearchQuery(params.get(PROTOCOL_SEARCH_PARAM)));
+    setStatusFilter(parseProtocolFeedStatus(searchParams.get(PROTOCOL_STATUS_PARAM)));
+    setFamilyFilter(parseProtocolProposalFamily(searchParams.get(PROTOCOL_FAMILY_PARAM)));
+    setSearchQuery(parseProtocolSearchQuery(searchParams.get(PROTOCOL_SEARCH_PARAM)));
     setFocusedProposalId(
-      parseProtocolProposalId(params.get(PROTOCOL_PROPOSAL_PARAM))
+      parseProtocolProposalId(searchParams.get(PROTOCOL_PROPOSAL_PARAM))
     );
-  }, [daoAccountId]);
+  }, [searchParams]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const syncFromUrl = () => {
       const params = new URLSearchParams(window.location.search);
       setStatusFilter(parseProtocolFeedStatus(params.get(PROTOCOL_STATUS_PARAM)));
@@ -387,6 +386,40 @@ export function DaoWorkspacePanel({
       }),
     [daoAccountId, statusFilter, familyFilter, focusedProposalId, searchQuery]
   );
+
+  const navigateToProposalDetail = useCallback(
+    (proposalId: number) => {
+      setFocusedProposalId(proposalId);
+      replaceBrowserUrl(
+        daoPortfolioPath(daoAccountId, {
+          status: statusFilter,
+          family: familyFilter,
+          proposal: proposalId,
+          q: searchQuery,
+        })
+      );
+    },
+    [daoAccountId, statusFilter, familyFilter, searchQuery]
+  );
+
+  const clearProposalDetail = useCallback(() => {
+    setFocusedProposalId(null);
+    replaceBrowserUrl(
+      daoPortfolioPath(daoAccountId, {
+        status: statusFilter,
+        family: familyFilter,
+        proposal: null,
+        q: searchQuery,
+      })
+    );
+  }, [daoAccountId, statusFilter, familyFilter, searchQuery]);
+
+  const detailApplication = useMemo(() => {
+    if (focusedProposalId == null) return null;
+    return findProtocolApplicationByProposalId(applications, focusedProposalId);
+  }, [applications, focusedProposalId]);
+
+  const inProposalDetail = focusedProposalId != null;
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 30_000);
@@ -743,6 +776,14 @@ export function DaoWorkspacePanel({
         bumpDaoWorkspacePrefetch(daoAccountId);
         setActionAppId(null);
 
+        if (
+          action === 'VoteApprove' ||
+          action === 'VoteReject' ||
+          action === 'VoteRemove'
+        ) {
+          navigateToProposalDetail(proposalId);
+        }
+
         try {
           const refreshed = await fetchProtocolProposal({
             daoAccountId,
@@ -779,6 +820,7 @@ export function DaoWorkspacePanel({
       mergeProposal,
       trackTransaction,
       setTxResult,
+      navigateToProposalDetail,
     ]
   );
 
@@ -1077,6 +1119,62 @@ export function DaoWorkspacePanel({
     onToolsHostClose?.();
   }, [toolsHostOnly, toolsHostSession, manageToolsOpen, onToolsHostClose]);
 
+  const renderProposalCard = useCallback(
+    (
+      application: ProtocolApplication,
+      opts?: { interactive?: boolean; focused?: boolean }
+    ) => {
+      const proposalId =
+        resolveLiveProposal(application)?.id ??
+        application.governance_proposal?.proposal_id ??
+        null;
+      const shareHref =
+        proposalId != null ? buildDaoHref({ proposal: proposalId }) : null;
+      return (
+        <ProtocolProposalCard
+          key={application.app_id}
+          application={application}
+          daoPolicy={daoPolicy}
+          daoAccountId={daoAccountId}
+          accountId={accountId}
+          nowMs={nowMs}
+          interactive={opts?.interactive ?? true}
+          focused={opts?.focused ?? false}
+          shareHref={shareHref}
+          proposalHref={shareHref}
+          onOpenActions={() => {
+            setActionAppId(application.app_id);
+            if (proposalId != null) {
+              navigateToProposalDetail(proposalId);
+            }
+          }}
+          onCopyLink={
+            shareHref
+              ? () => {
+                  void navigator.clipboard?.writeText(
+                    new URL(shareHref, window.location.origin).toString()
+                  );
+                }
+              : undefined
+          }
+          onNavigateToProposal={
+            proposalId != null
+              ? () => navigateToProposalDetail(proposalId)
+              : undefined
+          }
+        />
+      );
+    },
+    [
+      accountId,
+      buildDaoHref,
+      daoAccountId,
+      daoPolicy,
+      navigateToProposalDetail,
+      nowMs,
+    ]
+  );
+
   const chromeValue = useMemo(
     () => ({
       scrollRootRef,
@@ -1091,6 +1189,7 @@ export function DaoWorkspacePanel({
       familyFilter,
       navigateFamily,
       familyCounts,
+      inProposalDetail,
     }),
     [
       loadState,
@@ -1103,6 +1202,7 @@ export function DaoWorkspacePanel({
       familyFilter,
       navigateFamily,
       familyCounts,
+      inProposalDetail,
     ]
   );
 
@@ -1286,7 +1386,7 @@ export function DaoWorkspacePanel({
         </div>
       ) : null}
 
-      {loadState === 'ready' && !useHeaderChrome ? (
+      {loadState === 'ready' && !useHeaderChrome && !inProposalDetail ? (
         <label className="protocol-search-field">
           <span className="sr-only">Search proposals</span>
           <input
@@ -1312,7 +1412,7 @@ export function DaoWorkspacePanel({
         </label>
       ) : null}
 
-      {loadState === 'ready' && !useHeaderChrome ? (
+      {loadState === 'ready' && !useHeaderChrome && !inProposalDetail ? (
         <div
           className="protocol-status-rail"
           role="tablist"
@@ -1343,7 +1443,7 @@ export function DaoWorkspacePanel({
         </div>
       ) : null}
 
-      {loadState === 'ready' && !useHeaderChrome ? (
+      {loadState === 'ready' && !useHeaderChrome && !inProposalDetail ? (
         <div
           className="protocol-family-rail"
           role="tablist"
@@ -1412,60 +1512,42 @@ export function DaoWorkspacePanel({
                 : `No ${statusFilter === 'open' ? 'open' : statusFilter} proposals.`}
         </p>
       ) : null}
-      {loadState === 'ready' && paintedApplications.length > 0 ? (
+      {loadState === 'ready' && inProposalDetail ? (
+        detailApplication ? (
+          <div className="protocol-proposal-detail-shell">
+            <button
+              type="button"
+              className="protocol-proposal-detail-back"
+              onClick={clearProposalDetail}
+            >
+              All proposals
+            </button>
+            {renderProposalCard(detailApplication, {
+              interactive: false,
+              focused: true,
+            })}
+          </div>
+        ) : (
+          <div className="protocol-empty">
+            <p>Proposal not found.</p>
+            <button
+              type="button"
+              className="protocol-proposal-detail-back"
+              onClick={clearProposalDetail}
+            >
+              All proposals
+            </button>
+          </div>
+        )
+      ) : null}
+      {loadState === 'ready' &&
+      !inProposalDetail &&
+      paintedApplications.length > 0 ? (
         <>
           <OsProposalCardList className="protocol-card-list">
-            {paintedApplications.map((application) => {
-              const proposalId =
-                resolveLiveProposal(application)?.id ??
-                application.governance_proposal?.proposal_id ??
-                null;
-              const shareHref =
-                proposalId != null
-                  ? buildDaoHref({ proposal: proposalId })
-                  : null;
-              return (
-                <ProtocolProposalCard
-                  key={application.app_id}
-                  application={application}
-                  daoPolicy={daoPolicy}
-                  daoAccountId={daoAccountId}
-                  accountId={accountId}
-                  nowMs={nowMs}
-                  focused={
-                    focusedProposalId != null &&
-                    proposalId === focusedProposalId
-                  }
-                  shareHref={shareHref}
-                  onOpenActions={() => {
-                    setActionAppId(application.app_id);
-                    if (proposalId != null) {
-                      setFocusedProposalId(proposalId);
-                      replaceBrowserUrl(
-                        daoPortfolioPath(daoAccountId, {
-                          status: statusFilter,
-                          family: familyFilter,
-                          proposal: proposalId,
-                          q: searchQuery,
-                        })
-                      );
-                    }
-                  }}
-                  onCopyLink={
-                    shareHref
-                      ? () => {
-                          void navigator.clipboard?.writeText(
-                            new URL(
-                              shareHref,
-                              window.location.origin
-                            ).toString()
-                          );
-                        }
-                      : undefined
-                  }
-                />
-              );
-            })}
+            {paintedApplications.map((application) =>
+              renderProposalCard(application)
+            )}
           </OsProposalCardList>
           {hasMorePainted || feedEndSummary ? (
             <div className="protocol-feed-load-more">

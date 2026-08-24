@@ -3,6 +3,9 @@ import {
   PROTOCOL_CREATE_KIND_COMMON,
   PROTOCOL_CREATE_KIND_OPTIONS,
   isProtocolCreateKind,
+  isProtocolCreateMembershipKind,
+  protocolCreateKindHint,
+  protocolCreateComposeKindHint,
 } from '@/features/protocol/protocol-create';
 import {
   countProtocolApplicationsByFamily,
@@ -346,6 +349,32 @@ describe('protocol proposal presentation', () => {
       family: 'support',
       headline: 'Claim support to treasury',
     });
+
+    expect(
+      deriveProtocolProposalPresentation({
+        kind: {
+          FunctionCall: {
+            receiver_id: 'boost.onsocial.testnet',
+            actions: [
+              {
+                method_name: 'withdraw_infra',
+                args: encodeArgs({
+                  amount: '1000000000000000000000',
+                  receiver_id: 'treasury.onsocial.testnet',
+                }),
+              },
+            ],
+          },
+        },
+        description: null,
+        proposer: 'alice.near',
+      })
+    ).toMatchObject({
+      headline: 'Withdraw 1000 SOCIAL · infra pool → Treasury',
+      actionBadge: 'Treasury',
+      subjectAccount: 'treasury.onsocial.testnet',
+      subjectEyebrow: 'To',
+    });
   });
 
   it('uses signal description for Vote proposals', () => {
@@ -390,6 +419,18 @@ describe('protocol proposal presentation', () => {
 });
 
 describe('protocol propose kind UX helpers', () => {
+  it('maps kind hints and membership kinds for compose chrome', () => {
+    expect(protocolCreateKindHint('transfer')).toBe(
+      'Send NEAR or FT from the DAO treasury.'
+    );
+    expect(protocolCreateComposeKindHint('transfer')).toBe('');
+    expect(protocolCreateComposeKindHint('signal')).toBe(
+      'Text-only · nothing executes.'
+    );
+    expect(isProtocolCreateMembershipKind('join_self')).toBe(true);
+    expect(isProtocolCreateMembershipKind('signal')).toBe(false);
+  });
+
   it('pins common kinds first and buries power contracts', () => {
     expect(PROTOCOL_CREATE_KIND_COMMON).toEqual([
       'signal',

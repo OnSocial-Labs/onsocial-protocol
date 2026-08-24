@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import {
   CheckIcon,
+  CopyIcon,
   MultiplyIcon,
   OsProposalCard,
   OsProposalCardBody,
@@ -14,6 +15,7 @@ import {
   OsProposalCardStripStart,
   OsSheetAction,
   OsSheetActions,
+  ShareIcon,
   UserMinusIcon,
   osProposalCardActionsClassName,
 } from '@onsocial/ui';
@@ -21,6 +23,10 @@ import { ProtocolAccountChip } from '@/features/protocol/protocol-account-chip';
 import { deriveProtocolProposalView } from '@/features/protocol/protocol-card-view';
 import { ProtocolOnChainSheet } from '@/features/protocol/protocol-on-chain-sheet';
 import { splitRoutingTargetDisplay } from '@/features/protocol/protocol-proposal-routing-display';
+import {
+  protocolProposalCardInteractiveLayerClassName,
+  protocolProposalCardNavLinkClassName,
+} from '@/features/protocol/protocol-proposal-card-interaction';
 import { protocolCouncilGuardianRoleByAccount } from '@/features/protocol/protocol-council-guardian';
 import { ProtocolVotersSheet } from '@/features/protocol/protocol-voters-sheet';
 import type {
@@ -31,6 +37,7 @@ import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
+import { shareUrl } from '@/lib/share-url';
 
 function targetEyebrow(kind: string | null): string | null {
   switch (kind) {
@@ -64,9 +71,12 @@ export function ProtocolProposalCard({
   accountId,
   nowMs,
   focused = false,
+  interactive = true,
   shareHref,
+  proposalHref,
   onOpenActions,
   onCopyLink,
+  onNavigateToProposal,
 }: {
   application: ProtocolApplication;
   daoPolicy: ProtocolDaoPolicy | null;
@@ -75,12 +85,18 @@ export function ProtocolProposalCard({
   accountId: string | null;
   nowMs: number;
   focused?: boolean;
+  /** Feed cards link through to the proposal detail view. */
+  interactive?: boolean;
   shareHref?: string | null;
+  proposalHref?: string | null;
   onOpenActions: () => void;
   onCopyLink?: () => void;
+  /** Opens the single-proposal view + shareable portfolio URL. */
+  onNavigateToProposal?: () => void;
 }) {
   const [descOpen, setDescOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
   const [onChainOpen, setOnChainOpen] = useState(false);
   const [votersOpen, setVotersOpen] = useState(false);
   const showProtocolRoleMarks = Boolean(
@@ -165,6 +181,26 @@ export function ProtocolProposalCard({
       ? view.description.trim()
       : null;
   const descriptionLong = Boolean(description && description.length > 140);
+  const cardNavigable = Boolean(
+    interactive && proposalHref && onNavigateToProposal
+  );
+  const navLabel =
+    view.proposalId != null
+      ? `View proposal #${view.proposalId}`
+      : `View proposal ${view.headline}`;
+
+  const copyProposalLink = () => {
+    if (!shareHref) return;
+    if (onCopyLink) {
+      onCopyLink();
+    } else {
+      void navigator.clipboard?.writeText(
+        new URL(shareHref, window.location.origin).toString()
+      );
+    }
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
 
   return (
     <>
@@ -175,342 +211,404 @@ export function ProtocolProposalCard({
             ? `protocol-proposal-${view.proposalId}`
             : undefined
         }
-        className={`protocol-card is-${view.statusTone}${focused ? ' is-focused' : ''}`}
+        className={`protocol-card is-${view.statusTone}${focused ? ' is-focused' : ''}${cardNavigable ? ' is-interactive' : ''}`}
         aria-labelledby={`protocol-card-${application.app_id}`}
       >
-        <OsProposalCardStrip className="protocol-card-strip">
-          <OsProposalCardStripStart>
-            <OsProposalCardStripMain className="protocol-card-strip-main">
-              {view.proposalId != null ? (
-                <span className="protocol-card-id">#{view.proposalId}</span>
-              ) : null}
-              {view.actionBadge ? (
-                <>
-                  <OsProposalCardSep />
-                  <span className="protocol-card-action-badge">
-                    {view.actionBadge}
-                  </span>
-                </>
-              ) : null}
-            </OsProposalCardStripMain>
-            {view.submission ? (
-              <span
-                className="protocol-card-strip-meta-line"
-                title={view.submission.absolute}
-              >
-                Submitted {view.submission.relative}
-              </span>
-            ) : null}
-          </OsProposalCardStripStart>
-          <OsProposalCardStripEnd>
-            <span
-              className={`protocol-card-strip-status is-${view.statusTone}`}
-            >
-              {view.statusLabel}
-            </span>
-            {view.deadline ? (
-              <span
-                className={`protocol-card-strip-meta-line${
-                  view.deadline.expired ? ' is-urgent' : ''
-                }`}
-                title={view.deadline.absolute}
-              >
-                {view.deadline.prefix} {view.deadline.relative}
-              </span>
-            ) : null}
-          </OsProposalCardStripEnd>
-        </OsProposalCardStrip>
-
-      <OsProposalCardBody className="protocol-card-body">
-        <h2
-          id={`protocol-card-${application.app_id}`}
-          className="protocol-card-sr-title"
-        >
-          {view.headline}
-        </h2>
-        {hasIdentity ? (
-          <div className="protocol-card-identity">
-            <div className="protocol-card-identity-subject">
-              {view.subjectAccount ? (
-                <>
-                  {view.subjectEyebrow ? (
-                    <span className="protocol-card-eyebrow">
-                      {view.subjectEyebrow}
+        {cardNavigable ? (
+          <a
+            href={proposalHref!}
+            className={protocolProposalCardNavLinkClassName}
+            aria-label={navLabel}
+            tabIndex={-1}
+            onClick={(event) => {
+              event.preventDefault();
+              onNavigateToProposal?.();
+            }}
+          />
+        ) : null}
+        <div className={protocolProposalCardInteractiveLayerClassName}>
+          <OsProposalCardStrip className="protocol-card-strip">
+            <OsProposalCardStripStart>
+              <OsProposalCardStripMain className="protocol-card-strip-main">
+                {view.proposalId != null ? (
+                  <span className="protocol-card-id">#{view.proposalId}</span>
+                ) : null}
+                {view.actionBadge ? (
+                  <>
+                    <OsProposalCardSep />
+                    <span className="protocol-card-action-badge">
+                      {view.actionBadge}
                     </span>
-                  ) : null}
+                  </>
+                ) : null}
+              </OsProposalCardStripMain>
+              {view.submission ? (
+                <span
+                  className="protocol-card-strip-meta-line"
+                  title={view.submission.absolute}
+                >
+                  Submitted {view.submission.relative}
+                </span>
+              ) : null}
+            </OsProposalCardStripStart>
+            <OsProposalCardStripEnd>
+              <span
+                className={`protocol-card-strip-status is-${view.statusTone}`}
+              >
+                {view.statusLabel}
+              </span>
+              {view.deadline ? (
+                <span
+                  className={`protocol-card-strip-meta-line${
+                    view.deadline.expired ? ' is-urgent' : ''
+                  }`}
+                  title={view.deadline.absolute}
+                >
+                  {view.deadline.prefix} {view.deadline.relative}
+                </span>
+              ) : null}
+            </OsProposalCardStripEnd>
+          </OsProposalCardStrip>
+
+          <OsProposalCardBody className="protocol-card-body">
+            <h2
+              id={`protocol-card-${application.app_id}`}
+              className="protocol-card-sr-title"
+            >
+              {view.headline}
+            </h2>
+            {hasIdentity ? (
+              <div className="protocol-card-identity">
+                <div className="protocol-card-identity-subject">
+                  {view.subjectAccount ? (
+                    <>
+                      {view.subjectEyebrow ? (
+                        <span className="protocol-card-eyebrow">
+                          {view.subjectEyebrow}
+                        </span>
+                      ) : null}
+                      <ProtocolAccountChip
+                        accountId={view.subjectAccount}
+                        profileName={profiles[view.subjectAccount]?.displayName}
+                        avatarUrl={profiles[view.subjectAccount]?.avatarUrl}
+                        dense
+                        href={portfolioPath(view.subjectAccount)}
+                        protocolRoleId={protocolRoleByAccount?.get(
+                          view.subjectAccount.trim().toLowerCase()
+                        )}
+                      />
+                    </>
+                  ) : view.subjectText ? (
+                    <>
+                      {view.subjectEyebrow ? (
+                        <span className="protocol-card-eyebrow">
+                          {view.subjectEyebrow}
+                        </span>
+                      ) : null}
+                      <span className="protocol-card-identity-text">
+                        {view.subjectText}
+                      </span>
+                    </>
+                  ) : (
+                    <p className="protocol-card-title">{view.headline}</p>
+                  )}
+                </div>
+
+                {view.targetValue || view.targetAccount ? (
+                  <div className="protocol-card-identity-target">
+                    <span className="protocol-card-eyebrow">
+                      {eyebrow ?? 'Target'}
+                    </span>
+                    {routingDisplay ? (
+                      <span className="protocol-card-routing-value">
+                        {routingDisplay.minLabel ? (
+                          <span className="protocol-card-identity-value">
+                            {routingDisplay.minLabel}
+                          </span>
+                        ) : null}
+                        {routingDisplay.routingParts.length > 0 ? (
+                          <span className="protocol-card-routing-parts">
+                            {routingDisplay.routingParts.map((part) => (
+                              <span
+                                key={part}
+                                className="protocol-card-identity-value is-muted"
+                              >
+                                {part}
+                              </span>
+                            ))}
+                          </span>
+                        ) : routingDisplay.routingLabel ? (
+                          <span className="protocol-card-identity-value is-muted">
+                            {routingDisplay.routingLabel}
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : (
+                      <span
+                        className={`protocol-card-identity-value${
+                          view.targetKind === 'code_hash' ? ' is-mono' : ''
+                        }`}
+                        title={
+                          view.targetAccount && view.targetValue
+                            ? `${view.targetValue} · ${view.targetAccount}`
+                            : (view.targetValue ?? view.targetAccount ?? undefined)
+                        }
+                      >
+                        {view.targetValue ??
+                          `@${fallbackLabel(view.targetAccount!)}`}
+                      </span>
+                    )}
+                    {view.targetMethod ? (
+                      <span className="protocol-card-identity-method">
+                        {view.targetMethod.replace(/_/g, ' ')}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="protocol-card-title">{view.headline}</p>
+            )}
+
+            {showProposer && view.proposer ? (
+              <div className="protocol-card-proposer-row">
+                <span className="protocol-card-eyebrow">Proposer</span>
+                {view.showProposerAsSelf ? (
+                  <span className="protocol-card-identity-text">Self</span>
+                ) : (
                   <ProtocolAccountChip
-                    accountId={view.subjectAccount}
-                    profileName={profiles[view.subjectAccount]?.displayName}
-                    avatarUrl={profiles[view.subjectAccount]?.avatarUrl}
+                    accountId={view.proposer}
+                    profileName={profiles[view.proposer]?.displayName}
+                    avatarUrl={profiles[view.proposer]?.avatarUrl}
                     dense
-                    href={portfolioPath(view.subjectAccount)}
+                    href={portfolioPath(view.proposer)}
                     protocolRoleId={protocolRoleByAccount?.get(
-                      view.subjectAccount.trim().toLowerCase()
+                      view.proposer.trim().toLowerCase()
                     )}
                   />
-                </>
-              ) : view.subjectText ? (
-                <>
-                  {view.subjectEyebrow ? (
-                    <span className="protocol-card-eyebrow">
-                      {view.subjectEyebrow}
-                    </span>
-                  ) : null}
-                  <span className="protocol-card-identity-text">
-                    {view.subjectText}
-                  </span>
-                </>
-              ) : (
-                <p className="protocol-card-title">{view.headline}</p>
-              )}
-            </div>
-
-            {view.targetValue || view.targetAccount ? (
-              <div className="protocol-card-identity-target">
-                <span className="protocol-card-eyebrow">
-                  {eyebrow ?? 'Target'}
-                </span>
-                {routingDisplay ? (
-                  <span className="protocol-card-routing-value">
-                    {routingDisplay.minLabel ? (
-                      <span className="protocol-card-identity-value">
-                        {routingDisplay.minLabel}
-                      </span>
-                    ) : null}
-                    {routingDisplay.routingParts.length > 0 ? (
-                      <span className="protocol-card-routing-parts">
-                        {routingDisplay.routingParts.map((part) => (
-                          <span
-                            key={part}
-                            className="protocol-card-identity-value is-muted"
-                          >
-                            {part}
-                          </span>
-                        ))}
-                      </span>
-                    ) : routingDisplay.routingLabel ? (
-                      <span className="protocol-card-identity-value is-muted">
-                        {routingDisplay.routingLabel}
-                      </span>
-                    ) : null}
-                  </span>
-                ) : (
-                  <span
-                    className={`protocol-card-identity-value${
-                      view.targetKind === 'code_hash' ? ' is-mono' : ''
-                    }`}
-                    title={
-                      view.targetAccount && view.targetValue
-                        ? `${view.targetValue} · ${view.targetAccount}`
-                        : (view.targetValue ?? view.targetAccount ?? undefined)
-                    }
-                  >
-                    {view.targetValue ??
-                      `@${fallbackLabel(view.targetAccount!)}`}
-                  </span>
                 )}
-                {view.targetMethod ? (
-                  <span className="protocol-card-identity-method">
-                    {view.targetMethod.replace(/_/g, ' ')}
-                  </span>
+              </div>
+            ) : null}
+
+            {description ? (
+              <div className="protocol-card-description-block">
+                <p
+                  className={`protocol-card-description${
+                    descriptionLong && !descOpen ? ' is-clamped' : ''
+                  }`}
+                >
+                  {description}
+                </p>
+                {descriptionLong ? (
+                  <button
+                    type="button"
+                    className="protocol-card-description-more"
+                    aria-expanded={descOpen}
+                    onClick={() => setDescOpen((open) => !open)}
+                  >
+                    {descOpen ? 'Show less' : 'Show more'}
+                  </button>
                 ) : null}
               </div>
             ) : null}
-          </div>
-        ) : (
-          <p className="protocol-card-title">{view.headline}</p>
-        )}
 
-        {showProposer && view.proposer ? (
-          <div className="protocol-card-proposer-row">
-            <span className="protocol-card-eyebrow">Proposer</span>
-            {view.showProposerAsSelf ? (
-              <span className="protocol-card-identity-text">Self</span>
-            ) : (
-              <ProtocolAccountChip
-                accountId={view.proposer}
-                profileName={profiles[view.proposer]?.displayName}
-                avatarUrl={profiles[view.proposer]?.avatarUrl}
-                dense
-                href={portfolioPath(view.proposer)}
-                protocolRoleId={protocolRoleByAccount?.get(
-                  view.proposer.trim().toLowerCase()
-                )}
-              />
-            )}
-          </div>
-        ) : null}
-
-        {description ? (
-          <div className="protocol-card-description-block">
-            <p
-              className={`protocol-card-description${
-                descriptionLong && !descOpen ? ' is-clamped' : ''
-              }`}
-            >
-              {description}
-            </p>
-            {descriptionLong ? (
-              <button
-                type="button"
-                className="protocol-card-description-more"
-                aria-expanded={descOpen}
-                onClick={() => setDescOpen((open) => !open)}
-              >
-                {descOpen ? 'Show less' : 'Show more'}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className="protocol-card-votes">
-          <div className="protocol-card-vote-counts">
-            <span
-              className={`is-approve${
-                view.currentVote === 'Approve' ? ' is-confirmed' : ''
-              }`}
-            >
-              <CheckIcon className="protocol-card-vote-icon" aria-hidden />
-              <span>{view.approveVotes}</span>
-            </span>
-            <span
-              className={`is-reject${
-                view.currentVote === 'Reject' ? ' is-confirmed' : ''
-              }`}
-            >
-              <MultiplyIcon className="protocol-card-vote-icon" aria-hidden />
-              <span>{view.rejectVotes}</span>
-            </span>
-            {view.removeVotes > 0 || view.currentVote === 'Remove' ? (
-              <span
-                className={`is-remove${
-                  view.currentVote === 'Remove' ? ' is-confirmed' : ''
-                }`}
-              >
-                <UserMinusIcon
-                  className="protocol-card-vote-icon"
-                  aria-hidden
-                />
-                <span>{view.removeVotes}</span>
-              </span>
-            ) : null}
-            {progress.threshold != null && progress.totalWeight != null ? (
-              <span className="protocol-card-vote-rule">
-                {progress.threshold}/{progress.totalWeight} required
-              </span>
-            ) : null}
-          </div>
-          {total > 0 ? (
-            <div className="protocol-card-vote-bar" aria-hidden>
-              <span
-                className="is-approve"
-                style={{ width: `${approvePct}%` }}
-              />
-              <span className="is-reject" style={{ width: `${rejectPct}%` }} />
-              <span className="is-remove" style={{ width: `${removePct}%` }} />
-              <span
-                className="is-pending"
-                style={{ width: `${pendingPct}%` }}
-              />
-              {thresholdPct != null &&
-              thresholdPct > 0 &&
-              thresholdPct < 100 ? (
-                <i style={{ left: `${thresholdPct}%` }} />
+            <div className="protocol-card-votes">
+              <div className="protocol-card-vote-counts">
+                <span
+                  className={`is-approve${
+                    view.currentVote === 'Approve' ? ' is-confirmed' : ''
+                  }`}
+                >
+                  <CheckIcon className="protocol-card-vote-icon" aria-hidden />
+                  <span>{view.approveVotes}</span>
+                </span>
+                <span
+                  className={`is-reject${
+                    view.currentVote === 'Reject' ? ' is-confirmed' : ''
+                  }`}
+                >
+                  <MultiplyIcon className="protocol-card-vote-icon" aria-hidden />
+                  <span>{view.rejectVotes}</span>
+                </span>
+                {view.removeVotes > 0 || view.currentVote === 'Remove' ? (
+                  <span
+                    className={`is-remove${
+                      view.currentVote === 'Remove' ? ' is-confirmed' : ''
+                    }`}
+                  >
+                    <UserMinusIcon
+                      className="protocol-card-vote-icon"
+                      aria-hidden
+                    />
+                    <span>{view.removeVotes}</span>
+                  </span>
+                ) : null}
+                {progress.threshold != null && progress.totalWeight != null ? (
+                  <span className="protocol-card-vote-rule">
+                    {progress.threshold}/{progress.totalWeight} required
+                  </span>
+                ) : null}
+              </div>
+              {total > 0 ? (
+                <div className="protocol-card-vote-bar" aria-hidden>
+                  <span
+                    className="is-approve"
+                    style={{ width: `${approvePct}%` }}
+                  />
+                  <span
+                    className="is-reject"
+                    style={{ width: `${rejectPct}%` }}
+                  />
+                  <span
+                    className="is-remove"
+                    style={{ width: `${removePct}%` }}
+                  />
+                  <span
+                    className="is-pending"
+                    style={{ width: `${pendingPct}%` }}
+                  />
+                  {thresholdPct != null &&
+                  thresholdPct > 0 &&
+                  thresholdPct < 100 ? (
+                    <i style={{ left: `${thresholdPct}%` }} />
+                  ) : null}
+                </div>
+              ) : null}
+              {view.currentVote ? (
+                <p className="protocol-card-your-vote">
+                  You voted {view.currentVote}
+                </p>
               ) : null}
             </div>
-          ) : null}
-          {view.currentVote ? (
-            <p className="protocol-card-your-vote">
-              You voted {view.currentVote}
-            </p>
+
+            {showVoters ? (
+              <div className="protocol-card-voters">
+                <button
+                  type="button"
+                  className="protocol-card-voters-toggle"
+                  aria-haspopup="dialog"
+                  aria-expanded={votersOpen}
+                  onClick={() => setVotersOpen(true)}
+                >
+                  Votes · {view.voteEntries.length}
+                  {view.eligibleVoters.length > 0
+                    ? `/${view.eligibleVoters.length}`
+                    : ''}
+                </button>
+              </div>
+            ) : null}
+          </OsProposalCardBody>
+
+          {canAct || shareHref || hasOnChain ? (
+            <OsProposalCardFooter className="protocol-card-footer">
+              {canAct ? (
+                <div className="protocol-card-footer-actions-row">
+                  <OsSheetActions
+                    layout="row-compact"
+                    tone="frosted-primary"
+                    borderless
+                    className={`${osProposalCardActionsClassName} protocol-card-footer-actions protocol-vote-actions`}
+                  >
+                    <OsSheetAction
+                      type="button"
+                      variant="primary"
+                      ready
+                      onClick={onOpenActions}
+                    >
+                      {view.canFinalize ? view.finalizeLabel : 'Vote'}
+                    </OsSheetAction>
+                  </OsSheetActions>
+                </div>
+              ) : null}
+              {shareHref || hasOnChain ? (
+                <div className="protocol-card-footer-tools-row">
+                  {shareHref ? (
+                    <>
+                      <button
+                        type="button"
+                        className={`protocol-card-share${shared ? ' is-done' : ''}`}
+                        aria-label={shared ? 'Link shared' : 'Share proposal'}
+                        onClick={() => {
+                          void (async () => {
+                            const url = new URL(
+                              shareHref,
+                              window.location.origin
+                            ).toString();
+                            const result = await shareUrl({
+                              url,
+                              title: view.headline,
+                              text: view.headline,
+                            });
+                            if (result === 'copied' || result === 'shared') {
+                              setShared(true);
+                              window.setTimeout(() => setShared(false), 1600);
+                            }
+                          })();
+                        }}
+                      >
+                        {shared ? (
+                          <CheckIcon
+                            className="protocol-card-share-icon"
+                            aria-hidden
+                          />
+                        ) : (
+                          <ShareIcon
+                            className="protocol-card-share-icon"
+                            aria-hidden
+                          />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className={`protocol-card-share${copied ? ' is-done' : ''}`}
+                        aria-label={copied ? 'Link copied' : 'Copy link'}
+                        onClick={copyProposalLink}
+                      >
+                        {copied ? (
+                          <CheckIcon
+                            className="protocol-card-share-icon"
+                            aria-hidden
+                          />
+                        ) : (
+                          <CopyIcon
+                            className="protocol-card-share-icon"
+                            aria-hidden
+                          />
+                        )}
+                      </button>
+                    </>
+                  ) : null}
+                  {hasOnChain ? (
+                    <button
+                      type="button"
+                      className="protocol-card-footer-link"
+                      onClick={() => setOnChainOpen(true)}
+                    >
+                      On-chain
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </OsProposalCardFooter>
           ) : null}
         </div>
-
-        {showVoters ? (
-          <div className="protocol-card-voters">
-            <button
-              type="button"
-              className="protocol-card-voters-toggle"
-              aria-haspopup="dialog"
-              aria-expanded={votersOpen}
-              onClick={() => setVotersOpen(true)}
-            >
-              Votes · {view.voteEntries.length}
-              {view.eligibleVoters.length > 0
-                ? `/${view.eligibleVoters.length}`
-                : ''}
-            </button>
-          </div>
-        ) : null}
-      </OsProposalCardBody>
-
-      {canAct || shareHref || hasOnChain ? (
-        <OsProposalCardFooter className="protocol-card-footer">
-          {shareHref ? (
-            <button
-              type="button"
-              className="protocol-card-link"
-              onClick={() => {
-                if (onCopyLink) {
-                  onCopyLink();
-                  setCopied(true);
-                  window.setTimeout(() => setCopied(false), 1600);
-                  return;
-                }
-                void navigator.clipboard?.writeText(
-                  new URL(shareHref, window.location.origin).toString()
-                );
-                setCopied(true);
-                window.setTimeout(() => setCopied(false), 1600);
-              }}
-            >
-              {copied ? 'Copied' : 'Copy link'}
-            </button>
-          ) : null}
-          {hasOnChain ? (
-            <button
-              type="button"
-              className="protocol-card-link"
-              onClick={() => setOnChainOpen(true)}
-            >
-              On-chain
-            </button>
-          ) : null}
-          {canAct ? (
-            <OsSheetActions
-              layout="row-compact"
-              tone="frosted-primary"
-              borderless
-              className={`${osProposalCardActionsClassName} protocol-card-footer-actions`}
-            >
-              <OsSheetAction
-                type="button"
-                variant="primary"
-                onClick={onOpenActions}
-              >
-                {view.canFinalize ? view.finalizeLabel : 'Vote'}
-              </OsSheetAction>
-            </OsSheetActions>
-          ) : null}
-        </OsProposalCardFooter>
-      ) : null}
       </OsProposalCard>
-    <ProtocolOnChainSheet
-      open={onChainOpen}
-      onClose={() => setOnChainOpen(false)}
-      application={application}
-    />
-    <ProtocolVotersSheet
-      open={votersOpen}
-      onClose={() => setVotersOpen(false)}
-      proposalId={view.proposalId}
-      headline={view.headline}
-      voteEntries={view.voteEntries}
-      abstainers={abstainers}
-      profiles={profiles}
-      daoPolicy={daoPolicy}
-      showProtocolRoleMarks={showProtocolRoleMarks}
-    />
+      <ProtocolOnChainSheet
+        open={onChainOpen}
+        onClose={() => setOnChainOpen(false)}
+        application={application}
+      />
+      <ProtocolVotersSheet
+        open={votersOpen}
+        onClose={() => setVotersOpen(false)}
+        proposalId={view.proposalId}
+        headline={view.headline}
+        voteEntries={view.voteEntries}
+        abstainers={abstainers}
+        profiles={profiles}
+        daoPolicy={daoPolicy}
+        showProtocolRoleMarks={showProtocolRoleMarks}
+      />
     </>
   );
 }

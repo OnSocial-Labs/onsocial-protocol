@@ -6,9 +6,8 @@ import {
 } from '@/features/protocol/dao-workspace-panel';
 
 /**
- * Headless host for Manage Stake / Settings / Info — opens those drawers
- * without the proposals mood page behind them. Propose opens the proposals
- * page (dock) instead.
+ * Headless host for Manage Propose / Stake / Settings / Info — opens those
+ * drawers without the proposals mood page behind them.
  */
 export function DaoWorkspaceToolsHost({
   open,
