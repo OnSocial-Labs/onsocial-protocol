@@ -85,18 +85,20 @@ export function useProtocolPickerEligibility({
   useEffect(() => {
     if (!open || face) {
       if (!open) {
-        setFetched(null);
-        setFetchState('idle');
+        queueMicrotask(() => {
+          setFetched(null);
+          setFetchState('idle');
+        });
       }
       return;
     }
     if (!daoAccountId || !accountId) {
-      setFetchState('ready');
+      queueMicrotask(() => setFetchState('ready'));
       return;
     }
 
     let cancelled = false;
-    setFetchState('loading');
+    queueMicrotask(() => setFetchState('loading'));
     void getProtocolGovernanceEligibility(accountId, daoAccountId)
       .then((next) => {
         if (cancelled) return;

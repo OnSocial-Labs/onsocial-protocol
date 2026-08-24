@@ -383,7 +383,10 @@ export function ProtocolSettingsSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, daoAccountId, accountId, daoPolicy, initialAction]);
+  },
+  // Face snapshot is read at render so this form is not reset on arrival.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- face snapshot
+  [open, daoAccountId, accountId, daoPolicy, initialAction]);
 
   // Action is chosen in ProtocolSettingsActionSheet — only fall back if the
   // selected action is no longer permissioned for this viewer.

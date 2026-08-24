@@ -944,7 +944,6 @@ export function DaoWorkspacePanel({
       }
     },
     [
-      daoAccountId,
       face,
       isConnected,
       connect,
@@ -997,7 +996,6 @@ export function DaoWorkspacePanel({
       }
     },
     [
-      daoAccountId,
       face,
       isConnected,
       connect,
@@ -1050,7 +1048,6 @@ export function DaoWorkspacePanel({
       }
     },
     [
-      daoAccountId,
       face,
       isConnected,
       connect,
