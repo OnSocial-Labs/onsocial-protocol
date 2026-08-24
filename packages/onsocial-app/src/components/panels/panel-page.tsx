@@ -8,6 +8,8 @@ interface PanelPageProps {
   description?: string;
   toolbar?: ReactNode;
   headerActions?: ReactNode;
+  /** When the toolbar includes an inline back control (e.g. collectibles search row). */
+  showBackLink?: boolean;
   children: ReactNode;
 }
 
@@ -17,15 +19,18 @@ export function PanelPage({
   description,
   toolbar,
   headerActions,
+  showBackLink = true,
   children,
 }: PanelPageProps) {
   return (
     <main className="frame app-surface">
       <div className="portfolio-container panel-page">
         <header className="panel-page-header">
-          <Link className="panel-back" href={portfolioPath(accountId)}>
-            ← Portfolio
-          </Link>
+          {showBackLink ? (
+            <Link className="panel-back" href={portfolioPath(accountId)}>
+              ← Portfolio
+            </Link>
+          ) : null}
           {toolbar ? (
             <div className="panel-page-toolbar">{toolbar}</div>
           ) : (

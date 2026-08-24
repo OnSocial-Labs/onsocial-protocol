@@ -22,7 +22,13 @@ export function shouldMountPortfolioGlassHost(input: {
   layoutSegments: readonly string[];
   overlaySlotMode: OverlaySlotMode;
 }): boolean {
-  if (parseOverlayPanelKey(input.pathname) == null) {
+  const panelKey = parseOverlayPanelKey(input.pathname);
+  if (panelKey == null) {
+    return false;
+  }
+
+  // Feed drawer redirect and collectibles PanelPage vault — no glass host.
+  if (panelKey === 'feed' || panelKey === 'collectibles') {
     return false;
   }
 

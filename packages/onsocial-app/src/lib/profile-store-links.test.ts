@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   STORE_LISTING_BADGE,
+  storeListingBadge,
   storeListingHref,
 } from '@/lib/profile-store-links';
 
@@ -9,6 +10,19 @@ describe('STORE_LISTING_BADGE', () => {
     expect(STORE_LISTING_BADGE.native).toBe('For sale');
     expect(STORE_LISTING_BADGE.lazy).toBe('Edition');
     expect(STORE_LISTING_BADGE.auction).toBe('Auction');
+  });
+});
+
+describe('storeListingBadge', () => {
+  it('marks secondary sales of another creator’s work as Resale', () => {
+    expect(storeListingBadge({ kind: 'native', resale: true })).toBe('Resale');
+    expect(storeListingBadge({ kind: 'native' })).toBe('For sale');
+  });
+
+  it('keeps the Auction badge even for resold work', () => {
+    expect(storeListingBadge({ kind: 'auction', resale: true })).toBe(
+      'Auction'
+    );
   });
 });
 

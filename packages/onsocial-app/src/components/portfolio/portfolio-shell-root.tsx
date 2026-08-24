@@ -23,6 +23,7 @@ import { PortfolioFacePreviewBar } from '@/components/portfolio/portfolio-face-p
 import { PortfolioMoodPreviewBar } from '@/components/portfolio/portfolio-mood-preview-bar';
 import { PageContentDrawer } from '@/components/portfolio/page-content-drawer';
 import { PortfolioPageDock } from '@/components/portfolio/portfolio-page-dock';
+import { PortfolioDrawerScrollTrigger } from '@/components/portfolio/portfolio-drawer-scroll-trigger';
 import { PortfolioPersonalComposer } from '@/components/portfolio/portfolio-personal-composer';
 import { ViewerWalletMoodSync } from '@/components/wallet/viewer-wallet-mood-sync';
 import { PortfolioCustomize } from '@/components/portfolio/portfolio-customize';
@@ -64,7 +65,7 @@ interface PortfolioShellRootProps {
   profileLinks?: unknown;
   /** SSR seed only — joined/updated/scarce meta streams in via the shelf. */
   drawerMeta: PageDrawerMeta;
-  /** DAO incoming stand count for drawer gesture row. */
+  /** DAO incoming stand count for face gesture row. */
   incomingStandingCount?: number;
   /** Streamed below-fold peeks (Suspense). */
   deferredShelf?: ReactNode;
@@ -93,7 +94,7 @@ function PortfolioShellPreviewBridge({
   | 'drawerMeta'
   | 'guilds'
 >) {
-  const { drawerMeta, guilds } = usePortfolioDrawerData();
+  const { drawerMeta } = usePortfolioDrawerData();
   const {
     effectiveAvatarMode,
     effectiveHeroSource,
@@ -153,24 +154,17 @@ function PortfolioShellPreviewBridge({
               avatarUrl={avatarMedia?.url ?? null}
               bannerUrl={bannerMedia?.url ?? null}
               bannerKind={bannerMedia?.kind ?? null}
-              profileLinks={profileLinks}
-              guilds={guilds}
             />
             <PortfolioPersonalComposer pageAccountId={pageAccountId} />
+            <PortfolioDrawerScrollTrigger />
             <PortfolioPageDock pageAccountId={pageAccountId} />
             <PageContentDrawer
               pageAccountId={pageAccountId}
-              isDao={isDao}
               mood={effectiveMood}
               profileName={profileName}
-              bio={bio}
-              profileLinks={profileLinks}
               drawerMeta={drawerMeta}
               avatarUrl={avatarMedia?.url ?? null}
-              config={config}
               stats={stats}
-              guilds={guilds}
-              incomingStandingCount={incomingStandingCount}
             />
             <PortfolioFacePreviewBar
               pageAccountId={pageAccountId}

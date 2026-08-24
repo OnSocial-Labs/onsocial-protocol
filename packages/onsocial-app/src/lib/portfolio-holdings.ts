@@ -1,5 +1,6 @@
 import {
   collectionIdFromTokenId,
+  resolveTokenDisplayTitle,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import {
@@ -16,6 +17,8 @@ import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
 
 /** Max holdings cards in the portfolio Collectibles rail. */
 export const PAGE_DRAWER_HOLDINGS_PEEK = 6;
+/** Max grouped rows in the drawer Collection preview before See all. */
+export const PAGE_DRAWER_COLLECTION_PREVIEW_ROWS = 24;
 
 export interface PortfolioHoldingPeek {
   tokenId: string;
@@ -31,8 +34,11 @@ export interface PortfolioHoldingPeek {
   href: string;
   /** Primary use action for this medium. */
   actionLabel: string;
-  /** Short medium label for the badge, when known. */
-  kindLabel: string | null;
+  /** Short medium label for the badge. */
+  kindLabel: string;
+  /** Resale listing state when this token is on Market. */
+  listingKind?: 'fixed' | 'auction' | null;
+  listedPriceNear?: string | null;
 }
 
 /** Holder-facing primary action for a medium kind. */
@@ -61,8 +67,96 @@ export function holdingsActionLabel(
 
 export function holdingsKindLabel(
   mediumKind: string | null | undefined
-): string | null {
-  return marketMediumLabel(mediumKind);
+): string {
+  return marketMediumLabel(mediumKind) ?? 'Collectible';
+}
+
+/** Drop editions tagged `thought` from post mint still read as Collectible in lists. */
+export function displayKindLabelForOwned(
+  mediumKind: string | null,
+  tokenId: string,
+  collectionId: string | null
+): string {
+  const kind = mediumKind?.trim().toLowerCase() || null;
+  if (kind === 'thought' && collectionId && !tokenId.trim().startsWith('s:')) {
+    return 'Collectible';
+  }
+  return holdingsKindLabel(kind);
+}
+
+function inferOwnedMediumKind(item: OwnedScarceItem): string | null {
+  const kind = item.mediumKind?.trim().toLowerCase();
+  if (kind) return kind;
+  // Post mint scarces only — drop editions can still carry sourcePostPath.
+  if (item.tokenId.trim().startsWith('s:')) return 'thought';
+  return null;
+}
+
+function displayTitleForOwnedHolding(item: OwnedScarceItem): string {
+  const tokenId = item.tokenId.trim();
+  const collectionId =
+    item.collectionId?.trim() || collectionIdFromTokenId(tokenId);
+  const raw = item.title?.trim() || '';
+  const resolved = raw ? resolveTokenDisplayTitle(raw, tokenId) : '';
+
+  if (
+    resolved &&
+    resolved !== 'Scarce' &&
+    resolved !== tokenId &&
+    !(collectionId && resolved === collectionId)
+  ) {
+    return resolved;
+  }
+
+  const description = item.description?.trim();
+  if (description && description !== resolved) {
+    return description.length > 72
+      ? `${description.slice(0, 69)}…`
+      : description;
+  }
+
+  if (resolved && resolved !== 'Scarce') {
+    return resolved;
+  }
+
+  return 'Collectible';
+}
+
+export function toPortfolioHoldingPeek(
+  item: OwnedScarceItem
+): PortfolioHoldingPeek {
+  const mediumKind = inferOwnedMediumKind(item);
+  const collectionId =
+    item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
+  return {
+    tokenId: item.tokenId,
+    title: displayTitleForOwnedHolding(item),
+    mediaUrl: item.mediaUrl ?? null,
+    collectionId,
+    mediumKind,
+    ...(item.audioFormat !== undefined
+      ? { audioFormat: item.audioFormat }
+      : {}),
+    ...(item.facets && item.facets.length > 0 ? { facets: item.facets } : {}),
+    ...(item.listingKind
+      ? {
+          listingKind: item.listingKind,
+          listedPriceNear: item.listedPriceNear ?? null,
+        }
+      : item.listedPriceNear?.trim()
+        ? { listingKind: null, listedPriceNear: item.listedPriceNear }
+        : {}),
+    href:
+      holdingsHrefForOwned({
+        tokenId: item.tokenId,
+        collectionId,
+        sourcePostPath: item.sourcePostPath,
+        postHref: item.postHref,
+        mediumKind,
+      }) ?? APP_COLLECTIBLES_PATH,
+    actionLabel: holdingsActionLabel(mediumKind),
+    kindLabel: displayKindLabelForOwned(mediumKind, item.tokenId, collectionId),
+  };
 }
 
 /**
@@ -108,35 +202,6 @@ export function holdingsHrefForOwned(item: {
   return postHref;
 }
 
-export function toPortfolioHoldingPeek(
-  item: OwnedScarceItem
-): PortfolioHoldingPeek {
-  const mediumKind = item.mediumKind?.trim().toLowerCase() || null;
-  const collectionId =
-    item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
-  return {
-    tokenId: item.tokenId,
-    title: item.title,
-    mediaUrl: item.mediaUrl ?? null,
-    collectionId,
-    mediumKind,
-    ...(item.audioFormat !== undefined
-      ? { audioFormat: item.audioFormat }
-      : {}),
-    ...(item.facets && item.facets.length > 0 ? { facets: item.facets } : {}),
-    href:
-      holdingsHrefForOwned({
-        tokenId: item.tokenId,
-        collectionId,
-        sourcePostPath: item.sourcePostPath,
-        postHref: item.postHref,
-        mediumKind,
-      }) ?? APP_COLLECTIBLES_PATH,
-    actionLabel: holdingsActionLabel(mediumKind),
-    kindLabel: holdingsKindLabel(mediumKind),
-  };
-}
-
 /** Rail card that stands in for every owned edition of one collection. */
 export type PortfolioHoldingRailCard = PortfolioHoldingPeek & {
   /** Owned editions represented by this card (1 = unique token). */
@@ -144,9 +209,9 @@ export type PortfolioHoldingRailCard = PortfolioHoldingPeek & {
 };
 
 /**
- * Collapse duplicate editions for the drawer rail — two copies of the same
- * collection rendered as identical cards read as a bug, not a collection.
- * First occurrence keeps its slot (pin order preserved).
+ * Collapse duplicate editions — two copies of the same collection rendered as
+ * identical rows read as a bug, not a collection. Listed state folds in from
+ * any edition in the group.
  */
 export function groupHoldingsForRail(
   holdings: PortfolioHoldingPeek[]
@@ -157,6 +222,10 @@ export function groupHoldingsForRail(
     const existing = byKey.get(key);
     if (existing) {
       existing.editionCount += 1;
+      if (!existing.listedPriceNear?.trim() && item.listedPriceNear?.trim()) {
+        existing.listingKind = item.listingKind ?? null;
+        existing.listedPriceNear = item.listedPriceNear;
+      }
       continue;
     }
     byKey.set(key, { ...item, editionCount: 1 });

@@ -13,6 +13,9 @@ interface PageContentDrawerContextValue {
   isOpen: boolean;
   open: () => void;
   close: () => void;
+  /** Drawer body scroller — dock auto-hide listens here while the sheet is open. */
+  scrollNode: HTMLDivElement | null;
+  setScrollNode: (node: HTMLDivElement | null) => void;
 }
 
 const PageContentDrawerContext =
@@ -20,13 +23,19 @@ const PageContentDrawerContext =
 
 export function PageContentDrawerProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [scrollNode, setScrollNodeState] = useState<HTMLDivElement | null>(
+    null
+  );
 
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
+  const setScrollNode = useCallback((node: HTMLDivElement | null) => {
+    setScrollNodeState(node);
+  }, []);
 
   const value = useMemo(
-    () => ({ isOpen, open, close }),
-    [close, isOpen, open]
+    () => ({ isOpen, open, close, scrollNode, setScrollNode }),
+    [close, isOpen, open, scrollNode, setScrollNode]
   );
 
   return (

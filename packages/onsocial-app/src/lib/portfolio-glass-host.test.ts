@@ -69,4 +69,31 @@ describe('shouldMountPortfolioGlassHost', () => {
       })
     ).toBe(false);
   });
+
+  it('does not mount for inline feed scroll redirect', () => {
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/feed',
+        layoutSegments: [],
+        overlaySlotMode: 'idle',
+      })
+    ).toBe(false);
+  });
+
+  it('does not mount for collectibles PanelPage vault', () => {
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/collectibles',
+        layoutSegments: ['collectibles'],
+        overlaySlotMode: 'idle',
+      })
+    ).toBe(false);
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/collectibles',
+        layoutSegments: [],
+        overlaySlotMode: 'idle',
+      })
+    ).toBe(false);
+  });
 });

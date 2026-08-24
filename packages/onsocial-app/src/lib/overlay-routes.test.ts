@@ -6,6 +6,7 @@ import {
   isPortfolioOverlayPath,
   parseOverlayPanelKey,
   portfolioCollectiblesPath,
+  portfolioFeedPath,
   resolveOverlayPanelChrome,
   shouldOpenPortfolioGlassOverlay,
 } from './overlay-routes';
@@ -20,6 +21,14 @@ describe('portfolioCollectiblesPath', () => {
     );
     expect(portfolioCollectiblesPath('alice.testnet', { kind: 'all' })).toBe(
       '/@alice.testnet/collectibles'
+    );
+  });
+});
+
+describe('portfolioFeedPath', () => {
+  it('deep-links the page drawer via the one-shot feed anchor', () => {
+    expect(portfolioFeedPath('alice.testnet')).toBe(
+      '/@alice.testnet#portfolio-feed'
     );
   });
 });
@@ -107,6 +116,11 @@ describe('isPortfolioOverlayPath', () => {
     expect(isPortfolioOverlayPath('/@alice.testnet/discover')).toBe(true);
   });
 
+  it('does not match full-page panel routes', () => {
+    expect(isPortfolioOverlayPath('/@alice.testnet/collectibles')).toBe(false);
+    expect(isPortfolioOverlayPath('/@alice.testnet/feed')).toBe(false);
+  });
+
   it('does not match portfolio root', () => {
     expect(isPortfolioOverlayPath('/@alice.testnet')).toBe(false);
   });
@@ -162,20 +176,33 @@ describe('shouldOpenPortfolioGlassOverlay', () => {
   it('does not open on portfolio root', () => {
     expect(shouldOpenPortfolioGlassOverlay('/@alice.testnet', [])).toBe(false);
   });
+
+  it('does not open for feed (page drawer instead)', () => {
+    expect(shouldOpenPortfolioGlassOverlay('/@alice.testnet/feed', [])).toBe(
+      false
+    );
+  });
+
+  it('does not open for collectibles (PanelPage vault)', () => {
+    expect(
+      shouldOpenPortfolioGlassOverlay('/@alice.testnet/collectibles', [])
+    ).toBe(false);
+    expect(
+      shouldOpenPortfolioGlassOverlay('/@alice.testnet/collectibles', [
+        'collectibles',
+      ])
+    ).toBe(false);
+  });
 });
 
 describe('resolveOverlayPanelChrome', () => {
-  it('expects toolbar chrome for standing, discover, and feed', () => {
+  it('expects toolbar chrome for standing and discover', () => {
     expect(resolveOverlayPanelChrome('standing:incoming')).toEqual({
       ariaTitle: 'Standing',
       expectsToolbar: true,
     });
     expect(resolveOverlayPanelChrome('discover')).toEqual({
       ariaTitle: 'Discover',
-      expectsToolbar: true,
-    });
-    expect(resolveOverlayPanelChrome('feed')).toEqual({
-      ariaTitle: 'Feed',
       expectsToolbar: true,
     });
   });

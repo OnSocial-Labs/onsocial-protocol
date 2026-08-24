@@ -12,6 +12,18 @@ export const STORE_LISTING_BADGE: Record<ProfileStoreListing['kind'], string> =
   };
 
 /**
+ * Card badge — marks primary vs secondary in one list instead of splitting
+ * tabs: their own work reads Edition / For sale, another creator's work
+ * they're selling reads Resale.
+ */
+export function storeListingBadge(
+  listing: Pick<ProfileStoreListing, 'kind' | 'resale'>
+): string {
+  if (listing.resale && listing.kind !== 'auction') return 'Resale';
+  return STORE_LISTING_BADGE[listing.kind];
+}
+
+/**
  * Deep-link a Store peek to the item (source post or drop), not the whole
  * creator shop. Shop is the "See all" fallback only.
  */

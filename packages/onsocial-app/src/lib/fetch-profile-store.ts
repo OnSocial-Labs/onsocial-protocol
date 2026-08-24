@@ -1,35 +1,32 @@
 import { cache } from 'react';
-import type { ScarcesActiveListingRow, ScarcesEventRow } from '@onsocial/sdk';
+import type { ScarcesActiveListingRow } from '@onsocial/sdk';
 import {
   deriveCollectionStatus,
   fetchCollectionsByCreator,
 } from '@/features/scarces/collections-data';
+import { collectionIdFromTokenId } from '@/features/market/market-listings';
+import { filterBuyableStoreDrops } from '@/lib/profile-store-available';
+import { collectionToProfileStoreDrop } from '@/lib/profile-store-map';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import {
   EMPTY_PROFILE_STORE,
-  type ProfileStoreDrop,
   type ProfileStoreListing,
-  type ProfileStoreSale,
   type ProfileStoreShelf,
 } from '@/lib/profile-store-types';
 
 /**
- * Creator Store shelf (Phase 1) — an account's live listings plus recent
- * sales, indexer-first via `os.query.scarces.activeListings({ sellerId })`
- * and `recentSales({ sellerId })`. Read-only for the portfolio drawer; buy /
- * bid still happen in Market (deep-linked by creator).
+ * Creator Store shelf — buyable drops (live / soon) plus active listings seed.
+ * Sold-out catalog history lives in the Drops tab; recent sales are omitted.
  */
 
-/** How many live listings to preview on the shelf before "Shop all". */
+/** SSR seed size — the Store tab client-fetches the full list after mount. */
 export const PROFILE_STORE_LISTING_PEEK = 6;
-/** How many recent sales to show under the shelf. */
-export const PROFILE_STORE_SALE_PEEK = 4;
-/** How many drops (collections) to show on the shelf. */
-export const PROFILE_STORE_DROP_PEEK = 6;
+/** Drop (collection) cards on the shelf — buyable live / soon only in Store. */
+export const PROFILE_STORE_DROP_PEEK = 24;
 
 export { EMPTY_PROFILE_STORE };
-export type { ProfileStoreListing, ProfileStoreSale, ProfileStoreShelf };
+export type { ProfileStoreListing, ProfileStoreShelf };
 
 const NEAR_DECIMALS = 24;
 
@@ -109,6 +106,12 @@ function listingFromRow(
         ? 'From'
         : 'Ask';
 
+  const creator = row.creatorId?.trim().toLowerCase();
+  const seller = row.sellerId?.trim().toLowerCase();
+  const resale = Boolean(creator && seller && creator !== seller);
+  const tokenId = row.tokenId?.trim() || null;
+  const collectionId = tokenId ? collectionIdFromTokenId(tokenId) : null;
+
   return {
     key: row.listingKey,
     kind,
@@ -116,7 +119,9 @@ function listingFromRow(
     priceNear: yoctoToNearDisplay(displayYocto),
     priceLabel,
     mediaUrl: resolveMedia(row.media),
-    ...(row.tokenId?.trim() ? { tokenId: row.tokenId.trim() } : {}),
+    ...(resale ? { resale: true } : {}),
+    ...(collectionId ? { collectionId } : {}),
+    ...(tokenId ? { tokenId } : {}),
     ...(kind === 'lazy' && row.listingId?.trim()
       ? { listingId: row.listingId.trim() }
       : {}),
@@ -134,74 +139,17 @@ function listingFromRow(
   };
 }
 
-function saleTitleFromRow(row: ScarcesEventRow): string {
-  if (row.extraData) {
-    try {
-      const extra = JSON.parse(row.extraData) as Record<string, unknown>;
-      for (const key of ['title', 'name', 'tokenTitle']) {
-        const value = extra[key];
-        if (typeof value === 'string' && value.trim()) return value.trim();
-      }
-    } catch {
-      // fall through
-    }
-  }
-  return displayTitle(null, row.tokenId);
-}
-
-function saleMediaFromRow(row: ScarcesEventRow): string | null {
-  if (!row.extraData) return null;
-  try {
-    const extra = JSON.parse(row.extraData) as Record<string, unknown>;
-    for (const key of ['media', 'mediaUrl', 'mediaCid']) {
-      const value = extra[key];
-      if (typeof value === 'string' && value.trim()) {
-        return resolveMedia(value.trim());
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return null;
-}
-
-function saleSourcePostFromRow(row: ScarcesEventRow): string | undefined {
-  if (!row.extraData) return undefined;
-  try {
-    const extra = JSON.parse(row.extraData) as Record<string, unknown>;
-    for (const key of ['sourcePostPath', 'postPath']) {
-      const value = extra[key];
-      if (typeof value === 'string' && value.includes('/post/')) {
-        return value.trim();
-      }
-    }
-    const nested = extra.sourcePost;
-    if (nested && typeof nested === 'object' && nested !== null) {
-      const path = (nested as { path?: unknown }).path;
-      if (typeof path === 'string' && path.includes('/post/')) {
-        return path.trim();
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return undefined;
-}
-
 export const fetchProfileStoreShelf = cache(
   async (accountId: string): Promise<ProfileStoreShelf> => {
     const seller = accountId.trim();
     if (!seller) return EMPTY_PROFILE_STORE;
     try {
       const os = createServerOnSocialClient();
-      const [rows, sales, collections] = await Promise.all([
+      const [rows, collections] = await Promise.all([
         os.query.scarces.activeListings({
           sellerId: seller,
           limit: PROFILE_STORE_LISTING_PEEK + 1,
         }),
-        os.query.scarces
-          .recentSales({ sellerId: seller, limit: PROFILE_STORE_SALE_PEEK })
-          .catch(() => [] as ScarcesEventRow[]),
         fetchCollectionsByCreator(seller, {
           limit: PROFILE_STORE_DROP_PEEK,
         }).catch(() => []),
@@ -212,39 +160,19 @@ export const fetchProfileStoreShelf = cache(
         .filter((item): item is ProfileStoreListing => item != null);
       const previewed = listings.slice(0, PROFILE_STORE_LISTING_PEEK);
 
-      const drops: ProfileStoreDrop[] = collections
-        .filter((collection) => deriveCollectionStatus(collection) !== 'cancelled')
-        .slice(0, PROFILE_STORE_DROP_PEEK)
-        .map((collection) => ({
-          key: collection.collectionId,
-          collectionId: collection.collectionId,
-          title: collection.title,
-          mediaUrl: collection.mediaUrl,
-          priceNear: collection.priceNear,
-          remaining: collection.remaining,
-          totalSupply: collection.totalSupply,
-          status: deriveCollectionStatus(collection),
-        }));
-
-      const saleItems: ProfileStoreSale[] = sales
-        .slice(0, PROFILE_STORE_SALE_PEEK)
-        .map((row, index) => {
-          const sourcePostPath = saleSourcePostFromRow(row);
-          return {
-            key: `${row.tokenId ?? row.listingId ?? 'sale'}:${row.blockTimestamp}:${index}`,
-            title: saleTitleFromRow(row),
-            priceNear: yoctoToNearDisplay(row.price ?? row.amount),
-            buyerId: row.buyerId?.trim() || null,
-            blockTimestamp: Number(row.blockTimestamp) || 0,
-            mediaUrl: saleMediaFromRow(row),
-            ...(sourcePostPath ? { sourcePostPath } : {}),
-          };
-        });
+      const drops = filterBuyableStoreDrops(
+        collections
+          .filter(
+            (collection) => deriveCollectionStatus(collection) !== 'cancelled'
+          )
+          .slice(0, PROFILE_STORE_DROP_PEEK)
+          .map(collectionToProfileStoreDrop)
+      );
 
       return {
         listings: previewed,
         drops,
-        sales: saleItems,
+        sales: [],
         listingCount: previewed.length,
         hasMore: listings.length > previewed.length,
       };

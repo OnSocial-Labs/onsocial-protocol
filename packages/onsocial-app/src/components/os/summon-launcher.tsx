@@ -13,8 +13,6 @@ import {
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  PenFillIcon,
-  StarsCFillIcon,
   OnSocialMark,
   glassSheetBackdropFilterStyle,
   osLauncherBackdropClassName,
@@ -49,6 +47,7 @@ import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { ThemeToggle } from '@/components/os/theme-toggle';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
+import { PortfolioSummonComposeButton } from '@/components/portfolio/portfolio-summon-compose-button';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
@@ -443,40 +442,7 @@ export function SummonLauncher({
             nowPlaying={<CollectiblesNowPlayingDockChip />}
             action={
               compose ? (
-                <button
-                  type="button"
-                  className={`portfolio-summon-compose${
-                    compose.kind === 'drop'
-                      ? ' is-drop'
-                      : compose.kind === 'mint'
-                        ? ' is-mint'
-                        : compose.kind === 'propose'
-                          ? ' is-propose'
-                          : ''
-                  }`}
-                  onClick={compose.action}
-                  aria-label={
-                    compose.kind === 'drop'
-                      ? 'Start a drop'
-                      : compose.kind === 'mint'
-                        ? 'Mint'
-                        : compose.kind === 'propose'
-                          ? 'Create a proposal'
-                          : 'Compose a post'
-                  }
-                >
-                  {compose.kind === 'drop' || compose.kind === 'mint' ? (
-                    <StarsCFillIcon
-                      className="portfolio-summon-compose-icon"
-                      aria-hidden
-                    />
-                  ) : (
-                    <PenFillIcon
-                      className="portfolio-summon-compose-icon"
-                      aria-hidden
-                    />
-                  )}
-                </button>
+                <PortfolioSummonComposeButton compose={compose} />
               ) : undefined
             }
           />

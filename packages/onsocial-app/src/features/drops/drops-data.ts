@@ -164,108 +164,115 @@ function rowToDiscoveryItem(
   };
 }
 
+export type DropFanRoster = { fanCount: number; fanIds: string[] };
+
+function mergeFanRosterRows(
+  byId: Map<string, DropFanRoster>,
+  rows: Array<{
+    collectionId: string;
+    fanCount: number;
+    fanAccountIds?: string[];
+  }>
+): void {
+  for (const row of rows) {
+    const id = row.collectionId?.trim();
+    const count = Number(row.fanCount) || 0;
+    if (!id || count <= 0) continue;
+    const fanIds = (row.fanAccountIds ?? [])
+      .map((fanId) => fanId.trim())
+      .filter(Boolean)
+      .slice(0, 5);
+    const prev = byId.get(id);
+    if (!prev || count > prev.fanCount) {
+      byId.set(id, { fanCount: count, fanIds });
+    }
+  }
+}
+
+function mergeFanCountRows(
+  byId: Map<string, DropFanRoster>,
+  rows: Array<{ collectionId: string; fanCount: number }>
+): void {
+  for (const row of rows) {
+    const id = row.collectionId?.trim();
+    const count = Number(row.fanCount) || 0;
+    if (!id || count <= 0) continue;
+    const prev = byId.get(id);
+    if (!prev || count > prev.fanCount) {
+      byId.set(id, { fanCount: count, fanIds: prev?.fanIds ?? [] });
+    }
+  }
+}
+
 /**
- * Soft-attach discovery fan counts + top fan ids (facepile).
+ * Batch fan counts + top fan ids (facepile) for collection rows.
  * Prefers `scarce_collection_love_fan_ids` (track ∪ drop-level);
  * falls back to counts-only, then legacy album-only views.
  */
-async function withDropFanRosters(
-  items: DropDiscoveryItem[],
-  client: OnSocial
-): Promise<DropDiscoveryItem[]> {
-  if (items.length === 0) return items;
+export async function fetchDropFanRostersByCollectionIds(
+  collectionIds: string[],
+  client?: OnSocial
+): Promise<Map<string, DropFanRoster>> {
   const ids = [
-    ...new Set(
-      items.map((item) => item.collectionId.trim()).filter(Boolean)
-    ),
+    ...new Set(collectionIds.map((id) => id.trim()).filter(Boolean)),
   ];
-  if (ids.length === 0) return items;
-
-  const applyRosterRows = (
-    rows: Array<{
-      collectionId: string;
-      fanCount: number;
-      fanAccountIds?: string[];
-    }>
-  ): DropDiscoveryItem[] | null => {
-    if (rows.length === 0) return null;
-    const byId = new Map<string, { fanCount: number; fanIds: string[] }>();
-    for (const row of rows) {
-      const id = row.collectionId?.trim();
-      const count = Number(row.fanCount) || 0;
-      if (!id || count <= 0) continue;
-      const fanIds = (row.fanAccountIds ?? [])
-        .map((fanId) => fanId.trim())
-        .filter(Boolean)
-        .slice(0, 5);
-      const prev = byId.get(id);
-      if (!prev || count > prev.fanCount) {
-        byId.set(id, { fanCount: count, fanIds });
-      }
-    }
-    if (byId.size === 0) return null;
-    return items.map((item) => {
-      const roster = byId.get(item.collectionId.trim());
-      if (!roster) return item;
-      return {
-        ...item,
-        fanCount: roster.fanCount,
-        ...(roster.fanIds.length > 0 ? { fanIds: roster.fanIds } : {}),
-      };
-    });
-  };
-
-  const applyCountRows = (
-    rows: Array<{ collectionId: string; fanCount: number }>
-  ): DropDiscoveryItem[] | null => {
-    if (rows.length === 0) return null;
-    const byId = new Map<string, number>();
-    for (const row of rows) {
-      const id = row.collectionId?.trim();
-      const count = Number(row.fanCount) || 0;
-      if (!id || count <= 0) continue;
-      const prev = byId.get(id) ?? 0;
-      if (count > prev) byId.set(id, count);
-    }
-    if (byId.size === 0) return null;
-    return items.map((item) => {
-      const fanCount = byId.get(item.collectionId.trim());
-      return fanCount != null ? { ...item, fanCount } : item;
-    });
-  };
+  const byId = new Map<string, DropFanRoster>();
+  if (ids.length === 0) return byId;
+  const os = client ?? createReadOnlyOnSocialClient();
 
   try {
     const rows =
-      await client.query.scarces.collectionLoveFanIdsByCollectionIds(ids);
-    const next = applyRosterRows(rows);
-    if (next) return next;
+      await os.query.scarces.collectionLoveFanIdsByCollectionIds(ids);
+    mergeFanRosterRows(byId, rows);
   } catch {
     // View may not be tracked yet — fall through.
   }
 
   try {
     const rows =
-      await client.query.scarces.collectionLoveFansByCollectionIds(ids);
-    const next = applyCountRows(rows);
-    if (next) return next;
+      await os.query.scarces.collectionLoveFansByCollectionIds(ids);
+    mergeFanCountRows(byId, rows);
   } catch {
     // Fall through to legacy album views.
   }
 
   try {
-    const rows = await client.query.scarces.albumLoveFanIdsByCollectionIds(ids);
-    const next = applyRosterRows(rows);
-    if (next) return next;
+    const rows = await os.query.scarces.albumLoveFanIdsByCollectionIds(ids);
+    mergeFanRosterRows(byId, rows);
   } catch {
     // View may not be tracked yet — fall through to counts-only.
   }
 
   try {
-    const rows = await client.query.scarces.albumLoveFansByCollectionIds(ids);
-    return applyCountRows(rows) ?? items;
+    const rows = await os.query.scarces.albumLoveFansByCollectionIds(ids);
+    mergeFanCountRows(byId, rows);
   } catch {
-    return items;
+    // Best-effort — return partial map.
   }
+
+  return byId;
+}
+
+/** Soft-attach discovery fan counts + top fan ids (facepile). */
+async function withDropFanRosters(
+  items: DropDiscoveryItem[],
+  client: OnSocial
+): Promise<DropDiscoveryItem[]> {
+  if (items.length === 0) return items;
+  const byId = await fetchDropFanRostersByCollectionIds(
+    items.map((item) => item.collectionId),
+    client
+  );
+  if (byId.size === 0) return items;
+  return items.map((item) => {
+    const roster = byId.get(item.collectionId.trim());
+    if (!roster) return item;
+    return {
+      ...item,
+      fanCount: roster.fanCount,
+      ...(roster.fanIds.length > 0 ? { fanIds: roster.fanIds } : {}),
+    };
+  });
 }
 
 /** Soft-attach creator avatar + display name for the page of drops. */

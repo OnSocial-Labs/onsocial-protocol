@@ -3,20 +3,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { SearchField, StarsCFillIcon } from '@onsocial/ui';
+import { ContextualBack } from '@/components/app/contextual-back';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { OsChipRail } from '@/components/os/os-chip-rail';
 import { CollectiblesHeaderActions } from '@/features/collectibles/collectibles-header-actions';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
-import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
-  MarketFacetRail,
-  type MarketAudioFormatFilter,
-} from '@/features/market/market-facet-rail';
+  CollectiblesFilterToolbar,
+  CollectiblesSearchHeading,
+} from '@/features/collectibles/collectibles-page-chrome';
 import {
-  MARKET_MEDIUM_FILTERS,
-  type MarketMediumFilter,
-} from '@/features/market/market-medium';
+  CollectiblesPanelChromeProvider,
+  type CollectiblesPanelChromeContextValue,
+} from '@/features/collectibles/collectibles-panel-context';
 import {
   fetchOwnedScarcesPage,
   type OwnedScarceItem,
@@ -27,8 +25,13 @@ import {
   normalizeDropFacets,
   parseAudioFormat,
 } from '@/features/scarces/drop-facets';
+import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
+import type { MarketAudioFormatFilter } from '@/features/market/market-facet-rail';
+import {
+  MARKET_MEDIUM_FILTERS,
+  type MarketMediumFilter,
+} from '@/features/market/market-medium';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_COLLECTIBLES_PATH,
@@ -44,9 +47,10 @@ import {
   listOfflineAlbums,
   offlineAlbumToHoldingPeek,
 } from '@/lib/collectibles-offline';
-import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
+import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import {
   filterHoldingsByMedium,
+  groupHoldingsForRail,
   holdingsMatchQuery,
   toPortfolioHoldingPeek,
   type PortfolioHoldingPeek,
@@ -100,9 +104,10 @@ export function CollectiblesPagePanel({
   initialAccountId = null,
   initialHoldings = null,
   /**
-   * Portfolio overlay / full panel — chrome comes from overlay or PanelPage.
-   * OS `/collectibles` keeps OsAppScreen.
+   * Portfolio PanelPage vault — merged search header + scroll-fold filters.
+   * OS `/collectibles` uses `os` until connected, then redirects to portfolio.
    */
+  shell = 'os' as 'portfolio' | 'os',
   embedded = false,
 }: {
   pageAccountId?: string | null;
@@ -112,8 +117,11 @@ export function CollectiblesPagePanel({
     nextFromEnd: number;
     hasMore: boolean;
   } | null;
+  /** @deprecated Use `shell="portfolio"` */
   embedded?: boolean;
+  shell?: 'portfolio' | 'os';
 } = {}) {
+  const resolvedShell = embedded ? 'portfolio' : shell;
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -174,8 +182,6 @@ export function CollectiblesPagePanel({
   >([]);
   const [offlineReady, setOfflineReady] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
-  /** Same chrome scroll-hide motion as Market filter rail. */
-  const toolbarHidden = useDockAutoHide(false);
 
   const loadKey = ownerAccountId ? `${ownerAccountId}:${retryKey}` : null;
   const trimmedSearch = searchQuery.trim();
@@ -353,6 +359,11 @@ export function CollectiblesPagePanel({
     trimmedSearch,
   ]);
 
+  const displayRows = useMemo(
+    () => groupHoldingsForRail(filtered),
+    [filtered]
+  );
+
   const clientDiscoveryFilterActive =
     trimmedSearch.length > 0 ||
     mediumFilter !== 'all' ||
@@ -388,6 +399,26 @@ export function CollectiblesPagePanel({
     MARKET_MEDIUM_FILTERS.find((tab) => tab.id === mediumFilter)?.label ??
     'items';
 
+  const filterAwaitingLoad =
+    clientDiscoveryFilterActive &&
+    filtered.length === 0 &&
+    holdings.hasMore &&
+    !emptyFilter &&
+    !emptySearch &&
+    vaultItems.length > 0 &&
+    (status === 'ready' || usingOfflineLibrary);
+
+  const showLoadMore =
+    holdings.hasMore &&
+    (status === 'ready' || usingOfflineLibrary) &&
+    (filtered.length > 0 || !clientDiscoveryFilterActive || filterAwaitingLoad);
+
+  const loadMoreLabel = loadingMore
+    ? 'Loading…'
+    : filterAwaitingLoad && filtered.length === 0
+      ? 'Load more holdings'
+      : 'Show more';
+
   /** OS vault entry with no wallet — portfolio routes always have pageAccountId. */
   const showConnectPrompt =
     !pageAccountId &&
@@ -395,63 +426,35 @@ export function CollectiblesPagePanel({
     (!isConnected || !viewerAccountId) &&
     !usingOfflineLibrary;
 
-  const searchField = (
-    <SearchField
-      value={searchQuery}
-      onValueChange={setSearchQuery}
-      placeholder="Search collectibles"
-      clearAriaLabel="Clear search"
-      ariaLabel="Search collectibles"
-      className="discover-nav-search-field os-app-screen-search"
-      leadingIcon={
-        <StarsCFillIcon className="search-field-icon" aria-hidden />
-      }
-    />
+  const chromeValue = useMemo<CollectiblesPanelChromeContextValue>(
+    () => ({
+      pageAccountId: ownerAccountId,
+      scrollRootRef,
+      searchQuery,
+      setSearchQuery,
+      showTabs,
+      mediumFilter,
+      setMediumFilter,
+      facetMedium,
+      selectedFacets,
+      audioFormatFilter,
+      replaceDiscoveryParams,
+    }),
+    [
+      ownerAccountId,
+      searchQuery,
+      showTabs,
+      mediumFilter,
+      setMediumFilter,
+      facetMedium,
+      selectedFacets,
+      audioFormatFilter,
+      replaceDiscoveryParams,
+    ]
   );
-
-  const toolbar = showTabs ? (
-    <div
-      className={`os-app-chrome-rail market-listing-toolbar${
-        toolbarHidden ? ' is-scroll-hidden' : ''
-      }`}
-    >
-      <div className="market-listing-filter-stack">
-        <OsChipRail
-          className="market-listing-filters"
-          ariaLabel="Collectible kind"
-          value={mediumFilter}
-          onValueChange={setMediumFilter}
-          tabIdFor={(id) => `collectibles-kind-tab-${id}`}
-          ariaControls="collectibles-results"
-          items={MARKET_MEDIUM_FILTERS.map((tab) => ({
-            id: tab.id,
-            label: tab.label,
-          }))}
-        />
-        {facetMedium ? (
-          <MarketFacetRail
-            medium={facetMedium}
-            audioFormat={audioFormatFilter}
-            selectedFacets={selectedFacets}
-            onAudioFormatChange={(format) =>
-              replaceDiscoveryParams({ audioFormat: format })
-            }
-            onFacetsChange={(facets) => replaceDiscoveryParams({ facets })}
-          />
-        ) : null}
-      </div>
-    </div>
-  ) : null;
 
   const body = (
     <div className="market-page collectibles-page">
-      {embedded ? (
-        <div className="collectibles-embedded-chrome">
-          {searchField}
-          {toolbar}
-        </div>
-      ) : null}
-
       {showVaultSkeleton ? <MarketListSkeleton rows={6} /> : null}
 
       {showConnectPrompt ? (
@@ -552,6 +555,14 @@ export function CollectiblesPagePanel({
         </div>
       ) : null}
 
+      {filterAwaitingLoad ? (
+        <div className="market-page-empty">
+          <p className="market-page-empty-copy">
+            No matches in what’s loaded yet.
+          </p>
+        </div>
+      ) : null}
+
       {filtered.length > 0 && (status === 'ready' || usingOfflineLibrary) ? (
         <section
           className="market-section"
@@ -562,52 +573,52 @@ export function CollectiblesPagePanel({
             className="market-listing-list"
             role="list"
           >
-            {filtered.map((item) => (
-              <CollectiblesHoldingRow key={item.tokenId} item={item} />
+            {displayRows.map((item) => (
+              <CollectiblesHoldingRow
+                key={item.tokenId}
+                item={item}
+                editionCount={item.editionCount}
+              />
             ))}
           </div>
         </section>
       ) : null}
 
-      {clientDiscoveryFilterActive &&
-      holdings.hasMore &&
-      filtered.length === 0 &&
-      !emptyFilter &&
-      !emptySearch ? (
-        <p className="market-page-status">Looking for matches…</p>
-      ) : null}
-
-      {(filtered.length > 0 ||
-        (clientDiscoveryFilterActive && holdings.hasMore)) &&
-      holdings.hasMore &&
-      (status === 'ready' || usingOfflineLibrary) ? (
+      {showLoadMore ? (
         <button
           type="button"
           className="market-sales-more"
           disabled={loadingMore}
           onClick={loadMore}
         >
-          {loadingMore ? 'Loading…' : 'Show more'}
+          {loadMoreLabel}
         </button>
       ) : null}
     </div>
   );
 
-  if (embedded) {
-    return body;
-  }
+  const portfolioBackHref =
+    resolvedShell === 'portfolio' && pageAccountId
+      ? portfolioPath(pageAccountId)
+      : null;
 
   return (
-    <OsAppScreen
-      title="Collectibles"
-      leading={null}
-      glassChrome
-      scrollRootRef={scrollRootRef}
-      actions={<CollectiblesHeaderActions pageAccountId={ownerAccountId} />}
-      heading={searchField}
-      toolbar={toolbar ?? undefined}
-    >
-      {body}
-    </OsAppScreen>
+    <CollectiblesPanelChromeProvider value={chromeValue}>
+      <OsAppScreen
+        title="Collectibles"
+        leading={
+          portfolioBackHref ? (
+            <ContextualBack fallbackHref={portfolioBackHref} />
+          ) : null
+        }
+        glassChrome
+        scrollRootRef={scrollRootRef}
+        actions={<CollectiblesHeaderActions pageAccountId={ownerAccountId} />}
+        heading={<CollectiblesSearchHeading />}
+        toolbar={<CollectiblesFilterToolbar />}
+      >
+        {body}
+      </OsAppScreen>
+    </CollectiblesPanelChromeProvider>
   );
 }

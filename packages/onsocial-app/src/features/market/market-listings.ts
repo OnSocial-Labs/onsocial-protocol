@@ -1623,11 +1623,13 @@ async function fetchOwnedScarcesPageFromRpc(
   tokens.reverse();
 
   const listedByToken = await fetchOwnerListedStates(owner);
-  const nextFromEnd = fromEnd + take;
+  const fetched = tokens.length;
+  const nextFromEnd = fromEnd + fetched;
   return {
     items: ownedItemsFromTokens(tokens, owner, listedByToken),
     nextFromEnd,
-    hasMore: nextFromEnd < Math.min(total, OWNED_MAX_TOKENS),
+    hasMore:
+      fetched >= take && nextFromEnd < Math.min(total, OWNED_MAX_TOKENS),
   };
 }
 

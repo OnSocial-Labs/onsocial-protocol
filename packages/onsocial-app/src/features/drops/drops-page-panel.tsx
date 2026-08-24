@@ -6,12 +6,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
+import { DropRowFans } from '@/components/drops/drop-row-fans';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
-import {
-  arePostAuthorProfilesResolved,
-  usePostAuthorProfiles,
-} from '@/hooks/use-post-author-profiles';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import {
   DropsHeadingActions,
@@ -34,7 +31,6 @@ import {
   type UpcomingBucket,
 } from '@/features/drops/drops-data';
 import { OsChipRail } from '@/components/os/os-chip-rail';
-import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import {
   MarketFacetRail,
   type MarketAudioFormatFilter,
@@ -335,41 +331,6 @@ function dropRowCommerceAction(
   }
 
   return null;
-}
-
-function DropRowFans({
-  fanIds,
-  fanCount,
-}: {
-  fanIds?: string[];
-  fanCount: number;
-}) {
-  const ids = (fanIds ?? []).slice(0, 3);
-  const profiles = usePostAuthorProfiles(ids);
-  // Shimmer until fetch settles — avoids letter → shadow → photo flash.
-  const profilesLoading =
-    ids.length > 0 && !arePostAuthorProfilesResolved(ids);
-  if (ids.length === 0) {
-    return (
-      <span className="drops-discovery-deal-bit">
-        {fanCount === 1 ? '1 fan' : `${fanCount} fans`}
-      </span>
-    );
-  }
-  return (
-    <span className="drops-discovery-deal-fans">
-      <GuildFacepile
-        memberIds={ids}
-        profiles={profiles}
-        memberCount={fanCount}
-        countUnit={{ one: 'fan', other: 'fans' }}
-        slots={Math.min(3, ids.length)}
-        loading={profilesLoading}
-        showCount
-        className="drops-discovery-fans-facepile"
-      />
-    </span>
-  );
 }
 
 function DropRow({

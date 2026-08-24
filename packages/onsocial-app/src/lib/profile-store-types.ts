@@ -13,6 +13,10 @@ export interface ProfileStoreListing {
   /** Disambiguates auction vs fixed vs edition price. */
   priceLabel: 'Ask' | 'Reserve' | 'High bid' | 'From';
   mediaUrl: string | null;
+  /** Secondary sale of another creator's work — badge reads “Resale”. */
+  resale?: boolean;
+  /** Drop id when known — used to dedupe against live drop cards. */
+  collectionId?: string | null;
   tokenId?: string;
   listingId?: string;
   sourcePostPath?: string;
@@ -50,6 +54,18 @@ export interface ProfileStoreDrop {
     | 'ended'
     | 'paused'
     | 'cancelled';
+  /** NEP-177 `extra.kind` — Ticket, Audio, Writing, … */
+  mediumKind?: string | null;
+  audioFormat?: 'single' | 'album' | 'podcast' | null;
+  writingFormat?: 'article' | 'book' | null;
+  /** Clip on cover — show listen glyph (opens collection). */
+  hasPlayable?: boolean;
+  /** When the drop was created (ms) — relative time in action column. */
+  createdAtMs?: number | null;
+  /** Loved fan count when known (> 0). */
+  fanCount?: number;
+  /** Top recent fan account ids for list facepile (≤ 5). */
+  fanIds?: string[];
 }
 
 export interface ProfileStoreShelf {
@@ -58,7 +74,7 @@ export interface ProfileStoreShelf {
   sales: ProfileStoreSale[];
   /** Live listings previewed on the shelf. */
   listingCount: number;
-  /** More listings exist than the preview — deep-link to Market to see all. */
+  /** More listings exist than the seed — the Store tab pages them in place. */
   hasMore: boolean;
 }
 

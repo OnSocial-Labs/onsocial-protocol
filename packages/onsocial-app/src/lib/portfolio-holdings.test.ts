@@ -39,7 +39,7 @@ describe('holdingsKindLabel', () => {
     expect(holdingsKindLabel('thought')).toBe('Thoughts');
     expect(holdingsKindLabel('video')).toBe('Video');
     expect(holdingsKindLabel('ticket')).toBe('Tickets');
-    expect(holdingsKindLabel(null)).toBeNull();
+    expect(holdingsKindLabel(null)).toBe('Collectible');
   });
 });
 
@@ -70,6 +70,54 @@ describe('toPortfolioHoldingPeek', () => {
     });
     expect(peek.href).toBe('/collectibles/play?c=album&t=album%3A1');
     expect(peek.actionLabel).toBe('Play');
+  });
+
+  it('infers post scarces as Thoughts from token id', () => {
+    const peek = toPortfolioHoldingPeek({
+      tokenId: 's:vote-1',
+      title: 'I voted!',
+      ownerId: 'alice.near',
+      listingKind: null,
+    });
+    expect(peek.kindLabel).toBe('Thoughts');
+    expect(peek.actionLabel).toBe('Open');
+  });
+
+  it('falls back to Collectible for unknown kinds', () => {
+    const peek = toPortfolioHoldingPeek({
+      tokenId: 'lazy-fixture-1',
+      title: 'Lazy Fixture NFT',
+      ownerId: 'alice.near',
+      listingKind: null,
+    });
+    expect(peek.kindLabel).toBe('Collectible');
+  });
+
+  it('does not infer Thoughts from sourcePostPath on drop editions', () => {
+    const peek = toPortfolioHoldingPeek({
+      tokenId: 'lazy-fixture:1',
+      title: 'Lazy Fixture NFT',
+      ownerId: 'alice.near',
+      collectionId: 'lazy-fixture',
+      mediumKind: 'thought',
+      sourcePostPath: 'alice.near/post/99',
+      listingKind: null,
+    });
+    expect(peek.kindLabel).toBe('Collectible');
+  });
+
+  it('surfaces listed resale state in the peek', () => {
+    const peek = toPortfolioHoldingPeek({
+      tokenId: 'album:1',
+      title: 'Night Drive',
+      ownerId: 'alice.near',
+      collectionId: 'album',
+      mediumKind: 'audio',
+      listingKind: 'fixed',
+      listedPriceNear: '2',
+    });
+    expect(peek.listedPriceNear).toBe('2');
+    expect(peek.listingKind).toBe('fixed');
   });
 
   it('routes ticket holdings to Show pass on the drop page', () => {
@@ -149,6 +197,30 @@ describe('groupHoldingsForRail', () => {
     // First occurrence keeps its slot; later editions fold into it.
     expect(grouped[0]).toMatchObject({ tokenId: 'album:1', editionCount: 2 });
     expect(grouped[1]).toMatchObject({ tokenId: 's:post-1', editionCount: 1 });
+  });
+
+  it('folds listed state from any edition in a group', () => {
+    const listed = toPortfolioHoldingPeek({
+      tokenId: 'album:2',
+      title: 'Onsocial music album #1',
+      ownerId: 'alice.near',
+      collectionId: 'album',
+      mediumKind: 'audio',
+      listingKind: 'fixed',
+      listedPriceNear: '1',
+    });
+    const plain = toPortfolioHoldingPeek({
+      tokenId: 'album:1',
+      title: 'Onsocial music album #1',
+      ownerId: 'alice.near',
+      collectionId: 'album',
+      mediumKind: 'audio',
+      listingKind: null,
+    });
+    const grouped = groupHoldingsForRail([plain, listed]);
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0]?.editionCount).toBe(2);
+    expect(grouped[0]?.listedPriceNear).toBe('1');
   });
 
   it('never merges collectionless tokens', () => {

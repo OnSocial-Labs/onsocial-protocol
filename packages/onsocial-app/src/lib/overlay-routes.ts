@@ -18,11 +18,21 @@ export const OVERLAY_PANELS = [
 
 export type OverlayPanel = (typeof OVERLAY_PANELS)[number];
 
+/** Portfolio panel URLs that always render as full pages — never the glass overlay. */
+const FULL_PAGE_PORTFOLIO_PANELS = new Set<string>(['feed', 'collectibles']);
+
 export type { StanceDetailKind } from '@/lib/profile-social-standings';
 export { standingPath } from '@/lib/profile-social-standings';
 
+export const PORTFOLIO_FEED_SECTION_ID = 'portfolio-feed';
+
 export function portfolioPath(accountId: string): string {
   return `/@${encodeURIComponent(accountId)}`;
+}
+
+/** One-shot deep link — opens the portfolio page drawer, hash is stripped after. */
+export function portfolioFeedPath(accountId: string): string {
+  return `${portfolioPath(accountId)}#${PORTFOLIO_FEED_SECTION_ID}`;
 }
 
 export function overlayPath(accountId: string, panel: OverlayPanel): string {
@@ -96,9 +106,13 @@ export function parseOverlayPanelKey(pathname: string): string | null {
   return null;
 }
 
-/** True when pathname is an open portfolio overlay drawer (standing tab, discover, etc.). */
+/** True when pathname is an open portfolio glass overlay (standing, discover, etc.). */
 export function isPortfolioOverlayPath(pathname: string): boolean {
-  return parseOverlayPanelKey(pathname) != null;
+  const panelKey = parseOverlayPanelKey(pathname);
+  if (panelKey == null) {
+    return false;
+  }
+  return !FULL_PAGE_PORTFOLIO_PANELS.has(panelKey);
 }
 
 /** Intercepting @overlay slot is active (soft nav). Empty on hard refresh / default slot. */
@@ -126,17 +140,24 @@ export function isFullPagePanelLayout(segments: readonly string[]): boolean {
  * Open the portfolio glass drawer only for soft-nav intercepts over the profile
  * page.
  *
- * Face peeks — reputation, feed, endorsements, standing — stay overlay-only.
- * Hard refresh / shared link redirects to the profile face.
+ * Face peeks — reputation, endorsements, standing — stay overlay-only.
+ * Feed opens the portfolio page drawer (`#portfolio-feed` one-shot signal);
+ * hard refresh on `/feed` redirects to that anchor.
  *
- * Discover, collectibles, and an individual post stay real pages on hard
- * refresh (full-page `children`, no glass).
+ * Discover and an individual post stay real pages on hard refresh (full-page
+ * `children`, no glass). Collectibles vault is always PanelPage — drawer
+ * Collection tab is preview-only.
  */
 export function shouldOpenPortfolioGlassOverlay(
   pathname: string,
   layoutSegments: readonly string[]
 ): boolean {
-  if (parseOverlayPanelKey(pathname) == null) {
+  const panelKey = parseOverlayPanelKey(pathname);
+  if (panelKey == null) {
+    return false;
+  }
+
+  if (FULL_PAGE_PORTFOLIO_PANELS.has(panelKey)) {
     return false;
   }
 
@@ -165,10 +186,7 @@ export function resolveOverlayPanelChrome(
     return { ariaTitle: 'Discover', expectsToolbar: true };
   }
 
-  if (panelKey === 'feed') {
-    return { ariaTitle: 'Feed', expectsToolbar: true };
-  }
-
+  // `feed` never reaches glass chrome — it redirects into the page drawer.
   if ((OVERLAY_PANELS as readonly string[]).includes(panelKey)) {
     const label = panelLabel(panelKey as OverlayPanel);
     return { ariaTitle: label, title: label, expectsToolbar: false };

@@ -13,12 +13,16 @@ import {
 } from '@/lib/portfolio-holdings';
 import { APP_COLLECTIBLES_PATH } from '@/lib/app-routes';
 
-/** Visible Launch highlights after featured-first order. */
-export const PAGE_DRAWER_POST_HIGHLIGHT = 3;
-/** Recent pool so featured pins can lead even when they are not the latest 3. */
+/**
+ * Recent post peeks — optimistic drawer post count (composer prepend) and a
+ * floor for `postCount` before the stats indexer catches up.
+ */
 export const PAGE_DRAWER_POST_PEEK = 8;
-/** Public Created rail — recent editions this account minted. */
-export const PAGE_DRAWER_CREATED_PEEK = 6;
+/**
+ * Drops tab — full recent created list lives in the drawer now (no Market
+ * bounce), capped at the indexer window.
+ */
+export const PAGE_DRAWER_CREATED_PEEK = 24;
 
 export interface ProfilePostPeek {
   accountId: string;
@@ -264,7 +268,7 @@ export const fetchProfilePostPeeks = cache(
   }
 );
 
-/** Recent editions minted by this account — public Created shelf. */
+/** Recent works minted by this account — public Created / Drops catalog. */
 export const fetchProfileCreatedPeeks = cache(
   async (
     accountId: string,
@@ -275,14 +279,17 @@ export const fetchProfileCreatedPeeks = cache(
       const mints = await os.query.scarces.mintsBy(accountId, {
         limit: Math.max(limit * 2, 12),
       });
+      // One card per work: collapse editions of the same drop (drop-1:1,
+      // drop-1:2, …) to the newest mint; post scarces (s:…) stay per token.
       const seen = new Set<string>();
       const peeks: ProfileCreatedPeek[] = [];
       for (const row of mints) {
         const peek = toProfileCreatedPeek(row);
-        if (!peek || seen.has(peek.tokenId)) {
-          continue;
-        }
-        seen.add(peek.tokenId);
+        if (!peek) continue;
+        const workKey =
+          collectionIdFromTokenId(peek.tokenId) ?? peek.tokenId;
+        if (seen.has(workKey)) continue;
+        seen.add(workKey);
         peeks.push(peek);
         if (peeks.length >= limit) {
           break;

@@ -4937,6 +4937,21 @@ a.os-surface-row {
 
   /* .portfolio-hero--strip-overlap — legacy class; overlap lives on .portfolio-identity. */
 
+  /* Rail tabs inside the page drawer header. */
+  .page-drawer-rail-tabs {
+    margin-top: 0.4rem;
+  }
+
+  .page-drawer-scarces {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .page-drawer-scarces-segments {
+    margin-bottom: 0.15rem;
+  }
+
   .portfolio-os-dock {
     position: fixed;
     left: 0;
@@ -9487,13 +9502,15 @@ a.os-surface-row {
   }
 
   /*
-   * Overlays portal into the card; the portfolio dock is a sibling outside that
-   * host so it would stay on top — tuck it like scroll-hide.
-   * Opt out: `.glass-sheet-root[data-keep-dock='true']` (DAO proposals mood page).
+   * Overlays portal into the card; tuck the face dock while other sheets are up.
+   * Page drawer keeps the same fixed dock — lifted with `.is-drawer-overlay`.
    */
-  body:has([data-os-slide-over='true']) .portfolio-summon-dock,
+  body:has([data-os-slide-over='true'])
+    .portfolio-os-layer
+    > .portfolio-summon-dock:not(.is-drawer-overlay),
   body:has(.glass-sheet-root:not([data-keep-dock='true']))
-    .portfolio-summon-dock,
+    .portfolio-os-layer
+    > .portfolio-summon-dock:not(.is-drawer-overlay),
   body:has(.os-launcher-root) .portfolio-summon-dock {
     transform: translateX(-50%)
       translateY(calc(100% + env(safe-area-inset-bottom)));
@@ -9502,13 +9519,20 @@ a.os-surface-row {
   }
 
   body:has([data-os-slide-over='true'])
-    .portfolio-summon-dock
+    .portfolio-os-layer
+    > .portfolio-summon-dock:not(.is-drawer-overlay)
     .portfolio-summon,
   body:has(.glass-sheet-root:not([data-keep-dock='true']))
-    .portfolio-summon-dock
+    .portfolio-os-layer
+    > .portfolio-summon-dock:not(.is-drawer-overlay)
     .portfolio-summon,
   body:has(.os-launcher-root) .portfolio-summon-dock .portfolio-summon {
     pointer-events: none;
+  }
+
+  /* Same fixed pill over the page drawer (sheet z-index 48). */
+  .portfolio-os-layer > .portfolio-summon-dock.is-drawer-overlay {
+    z-index: 49;
   }
 
   /* Room for the portfolio dock under a keep-dock mood page. */
@@ -9929,96 +9953,6 @@ a.os-surface-row {
     );
   }
 
-  .page-drawer-links {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    margin: 0.15rem 0 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .page-drawer-link-row {
-    display: grid;
-    grid-template-columns: 1.6rem minmax(0, 1fr) auto;
-    gap: 0.65rem;
-    align-items: center;
-    min-height: 2.55rem;
-    padding: 0.35rem 0.15rem;
-    border-radius: 0.7rem;
-    color: inherit;
-    text-decoration: none;
-    transition: background 160ms ease;
-  }
-
-  .page-drawer-link-row:hover,
-  .page-drawer-link-row:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.04);
-    outline: none;
-  }
-
-  .page-drawer-link-icon {
-    display: inline-flex;
-    width: 1.6rem;
-    height: 1.6rem;
-    align-items: center;
-    justify-content: center;
-    color: rgb(var(--fg-rgb) / 0.55);
-  }
-
-  .page-drawer-link-glyph {
-    width: 1.05rem;
-    height: 1.05rem;
-  }
-
-  .page-drawer-link-copy {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 0.08rem;
-  }
-
-  .page-drawer-link-label {
-    font-size: 0.82rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: rgb(var(--fg-rgb) / 0.88);
-  }
-
-  .page-drawer-link-detail {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.7rem;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    color: rgb(var(--fg-rgb) / 0.42);
-  }
-
-  .page-drawer-link-arrow {
-    width: 0.55rem;
-    height: 0.55rem;
-    color: rgb(var(--fg-rgb) / 0.34);
-  }
-
-  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-link-detail {
-    color: color-mix(
-      in srgb,
-      var(--mood-muted, rgb(var(--fg-rgb) / 0.42)) 90%,
-      transparent
-    );
-  }
-
-  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-link-row:hover,
-  .page-drawer-panel[data-tone='mood-thread']
-    .page-drawer-link-row:focus-visible {
-    background: color-mix(
-      in srgb,
-      var(--mood-surface, rgb(var(--fg-rgb) / 0.06)) 55%,
-      transparent
-    );
-  }
-
   .glass-sheet-panel > .page-drawer-header {
     position: relative;
     z-index: 3;
@@ -10316,144 +10250,8 @@ a.os-surface-row {
    */
   .page-drawer-scroll-end {
     flex-shrink: 0;
-    height: calc(3.75rem + env(safe-area-inset-bottom, 0px));
+    height: calc(4.75rem + env(safe-area-inset-bottom, 0px));
     pointer-events: none;
-  }
-
-  /*
-   * Floating gesture dock — overlay footer over the single body scroller.
-   * Transform-only hide (no opacity) so toast backdrop-filter stays sharp.
-   */
-  .page-drawer-gestures {
-    --signals-arrow-size: 0.55rem;
-    position: relative;
-    z-index: 1;
-    display: flex;
-    justify-content: center;
-    padding: 0.55rem 1rem calc(0.65rem + env(safe-area-inset-bottom, 0px));
-    pointer-events: none;
-    transform: translateY(0);
-    transition: transform 260ms ease;
-  }
-
-  .page-drawer-gestures.is-hidden {
-    transform: translateY(calc(100% + 0.75rem));
-    pointer-events: none;
-  }
-
-  .page-drawer-gestures.is-hidden .page-drawer-gestures-pill {
-    pointer-events: none;
-  }
-
-  .page-drawer-gestures:empty {
-    display: none;
-    padding: 0;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .page-drawer-gestures {
-      transition: none;
-    }
-
-    .page-drawer-gestures.is-hidden {
-      visibility: hidden;
-    }
-  }
-
-  /* Toast family, denser — content scrolls under the pill. */
-  .page-drawer-gestures-pill {
-    display: inline-flex;
-    max-width: 100%;
-    align-items: center;
-    justify-content: center;
-    pointer-events: auto;
-    overflow: hidden;
-    border: 0;
-    border-radius: 9999px;
-    background: rgb(var(--bg-rgb) / 0.96);
-    backdrop-filter: blur(32px) saturate(1.6);
-    -webkit-backdrop-filter: blur(32px) saturate(1.6);
-    box-shadow:
-      inset 0 1px 0 rgb(var(--fg-rgb) / 0.1),
-      0 18px 40px -18px rgb(0 0 0 / 0.34),
-      0 6px 16px -12px rgb(0 0 0 / 0.18);
-    padding: 0.2rem 0.35rem;
-  }
-
-  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-gestures-pill {
-    background: color-mix(
-      in srgb,
-      var(--mood-accent-chrome, var(--mood-accent, transparent)) 6%,
-      rgb(var(--bg-rgb) / 0.96)
-    );
-    box-shadow:
-      inset 0 1px 0
-        color-mix(
-          in srgb,
-          var(
-              --mood-accent-chrome,
-              var(--mood-accent, rgb(var(--fg-rgb) / 0.2))
-            )
-            22%,
-          rgb(var(--fg-rgb) / 0.1)
-        ),
-      0 18px 40px -18px rgb(0 0 0 / 0.34),
-      0 6px 16px -12px rgb(0 0 0 / 0.18);
-  }
-
-  .page-drawer-gestures .portfolio-identity-gesture {
-    height: 1.55rem;
-    font-size: 0.6rem;
-    padding: 0 0.48rem;
-  }
-
-  .page-drawer-gestures .portfolio-identity-gesture-sep {
-    height: 1.55rem;
-    width: 0.7rem;
-  }
-
-  .page-drawer-gestures .standing-toggle-arrow,
-  .page-drawer-gestures .signal-metric-arrow {
-    width: var(--signals-arrow-size);
-    height: var(--signals-arrow-size);
-  }
-
-  .page-drawer-gestures-connect {
-    border: none;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.52);
-    font: inherit;
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    padding: 0.42rem 0.7rem;
-    cursor: pointer;
-    transition: color 160ms ease;
-  }
-
-  .page-drawer-gestures-connect:hover,
-  .page-drawer-gestures-connect:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.82);
-    outline: none;
-  }
-
-  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-gestures-connect {
-    color: color-mix(
-      in srgb,
-      var(--mood-muted, rgb(var(--fg-rgb) / 0.45)) 70%,
-      rgb(var(--fg-rgb) / 0.4)
-    );
-  }
-
-  .page-drawer-panel[data-tone='mood-thread']
-    .page-drawer-gestures-connect:hover,
-  .page-drawer-panel[data-tone='mood-thread']
-    .page-drawer-gestures-connect:focus-visible {
-    color: color-mix(
-      in srgb,
-      var(--mood-text, rgb(var(--fg-rgb) / 0.9)) 55%,
-      rgb(var(--fg-rgb) / 0.7)
-    );
   }
 
   .page-drawer-section {
@@ -10545,160 +10343,6 @@ a.os-surface-row {
     .page-drawer-section-action-chevron {
       transition: none;
     }
-  }
-
-  .page-drawer-post-peek {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin: 0.1rem 0 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  /* Pressable highlight — same fill ladder as os-surface-row. */
-  .page-drawer-post-peek-card {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    border-radius: var(--os-surface-radius-row);
-    background: var(--os-surface-fill);
-    color: inherit;
-    padding: 0.62rem 0.72rem;
-    text-decoration: none;
-    transition: background 160ms ease;
-  }
-
-  .page-drawer-post-peek-card:hover,
-  .page-drawer-post-peek-card:focus-visible {
-    background: var(--os-surface-fill-hover);
-    outline: none;
-  }
-
-  .page-drawer-post-peek-card:active {
-    background: var(--os-surface-fill-active);
-  }
-
-  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-post-peek-card {
-    background: color-mix(
-      in srgb,
-      var(--mood-surface, rgb(var(--fg-rgb) / 0.06)) 42%,
-      transparent
-    );
-  }
-
-  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-post-peek-card:hover,
-  .page-drawer-panel[data-tone='mood-thread']
-    .page-drawer-post-peek-card:focus-visible {
-    background: color-mix(
-      in srgb,
-      var(--mood-surface, rgb(var(--fg-rgb) / 0.06)) 70%,
-      transparent
-    );
-  }
-
-  .page-drawer-panel[data-tone='mood-thread']
-    .page-drawer-post-peek-card:active {
-    background: color-mix(
-      in srgb,
-      var(--mood-surface, rgb(var(--fg-rgb) / 0.06)) 88%,
-      transparent
-    );
-  }
-
-  .page-drawer-post-peek-main {
-    display: flex;
-    min-width: 0;
-    flex: 1;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  /* First attachment — highlight cover on the right of the peek card. */
-  .page-drawer-post-peek-thumb {
-    position: relative;
-    flex: 0 0 auto;
-    width: 3.75rem;
-    height: 3.75rem;
-    overflow: hidden;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 0.7rem;
-    background: rgb(var(--fg-rgb) / 0.06);
-  }
-
-  .page-drawer-post-peek-play {
-    position: absolute;
-    right: 0.28rem;
-    bottom: 0.28rem;
-    width: 0.95rem;
-    height: 0.95rem;
-    border-radius: 999px;
-    background: rgb(0 0 0 / 0.62);
-  }
-
-  .page-drawer-post-peek-play::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    margin: auto;
-    width: 0;
-    height: 0;
-    border-style: solid;
-    border-width: 0.18rem 0 0.18rem 0.28rem;
-    border-color: transparent transparent transparent rgb(255 255 255 / 0.92);
-    transform: translateX(0.08rem);
-  }
-
-  .page-drawer-post-peek-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.28rem;
-  }
-
-  .page-drawer-post-peek-option {
-    max-width: 8.5rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.06);
-    color: rgb(var(--fg-rgb) / 0.62);
-    font-size: 0.62rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    padding: 0.16rem 0.42rem;
-    line-height: 1.2;
-  }
-
-  .page-drawer-post-peek-thumb img,
-  .page-drawer-post-peek-thumb video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .page-drawer-post-peek-text {
-    font-size: 0.86rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.88);
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow: hidden;
-  }
-
-  .page-drawer-post-peek-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    font-size: 0.7rem;
-    letter-spacing: 0.02em;
-    color: rgb(var(--fg-rgb) / 0.42);
-  }
-
-  .page-drawer-post-peek-kind {
-    text-transform: lowercase;
-    color: rgb(var(--fg-rgb) / 0.5);
   }
 
   /* Same stack rhythm as `.portfolio-store` (rail → CTA). */
@@ -10852,28 +10496,12 @@ a.os-surface-row {
   .portfolio-store {
     display: flex;
     flex-direction: column;
-    gap: 0.7rem;
-  }
-
-  .portfolio-store-sales {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    margin: 0;
-    padding: 0;
-    list-style: none;
+    gap: 1.1rem;
   }
 
   .page-drawer-section .market-sale-row {
     margin-inline: -0.15rem;
     padding: 0.45rem 0.15rem;
-  }
-
-  /* Expanded guild memberships — discovery rows, flush. */
-  .page-drawer-guild-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
   }
 
   .feed-panel-list {
@@ -19682,221 +19310,47 @@ a.os-surface-row {
     gap: 0.55rem;
   }
 
-  .collectibles-embedded-chrome {
+  .collectibles-sheet-header {
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
-    margin-bottom: 0.85rem;
-  }
-
-  .collectibles-embedded-chrome .os-app-screen-search {
-    width: 100%;
-  }
-
-  .customize-launch {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .customize-chapter-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    margin: 0;
+    gap: 0.5rem;
     padding: 0;
-    list-style: none;
   }
 
-  .customize-chapter-list.is-reordering {
-    cursor: grabbing;
+  .collectibles-sheet-nav-row {
+    --os-app-screen-nav-row-height: 2.75rem;
   }
 
-  .customize-chapter-row {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.55rem;
-    padding: 0.45rem 0.15rem;
-    border-bottom: 1px solid rgb(var(--fg-rgb) / 0.08);
-  }
-
-  .customize-chapter-row:last-child {
-    border-bottom: none;
-  }
-
-  .customize-chapter-row.is-dragging {
-    opacity: 0.45;
-  }
-
-  .customize-chapter-handle {
-    flex: none;
-    width: 1.25rem;
-    text-align: center;
-    font-size: 0.72rem;
-    letter-spacing: -0.08em;
-    color: rgb(var(--fg-rgb) / 0.35);
-    user-select: none;
-  }
-
-  .customize-chapter-handle.is-sortable {
-    cursor: grab;
-    color: rgb(var(--fg-rgb) / 0.55);
-  }
-
-  .customize-chapter-handle.is-sortable:active {
-    cursor: grabbing;
-  }
-
-  .customize-chapter-insert,
-  .customize-chapter-insert-end .customize-chapter-insert {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: -0.12rem;
-    height: 2px;
-    border-radius: 9999px;
-    background: rgb(var(--mood-accent-rgb, var(--accent-rgb)) / 0.85);
-    pointer-events: none;
-  }
-
-  .customize-chapter-insert-end {
-    position: relative;
-    list-style: none;
-    height: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
-  }
-
-  .customize-chapter-insert-end .customize-chapter-insert {
-    top: -0.05rem;
-  }
-
-  .customize-chapter-name {
-    flex: 1 1 auto;
+  .collectibles-sheet-header .os-app-screen-heading {
     min-width: 0;
-    font-size: 0.88rem;
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.9);
+    flex: 1;
+    overflow: visible;
   }
 
-  .customize-chapter-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-
-  .customize-chapter-move,
-  .customize-chapter-hide {
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.04);
-    color: rgb(var(--fg-rgb) / 0.72);
-    font: inherit;
-    font-size: 0.72rem;
-    font-weight: 600;
-    padding: 0.28rem 0.55rem;
-    cursor: pointer;
-  }
-
-  .customize-chapter-move:disabled,
-  .customize-chapter-hide:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-
-  .customize-chapter-hidden-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-  }
-
-  .customize-pin-block {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-  }
-
-  .customize-pin-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .customize-pin-row {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
+  .collectibles-sheet-header .os-app-screen-search {
     width: 100%;
-    border: 0;
-    border-radius: 0.65rem;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    padding: 0.4rem 0.35rem;
-    cursor: pointer;
   }
 
-  .customize-pin-row:hover,
-  .customize-pin-row:focus-visible {
-    background: var(--os-surface-row-hover);
-    outline: none;
-  }
-
-  .customize-pin-row.is-pinned .customize-pin-mark {
-    color: var(--mood-accent, rgb(var(--fg-rgb) / 0.85));
-  }
-
-  .customize-pin-mark {
+  .collectibles-sheet-header .os-app-screen-actions {
     flex-shrink: 0;
-    width: 1rem;
-    color: rgb(var(--fg-rgb) / 0.4);
   }
 
-  .customize-pin-label {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.8rem;
+  .collectibles-sheet-header:has(.collectibles-filter-toolbar.is-scroll-hidden) {
+    gap: 0;
   }
 
-  .customize-link-note-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
+  .panel-page-header:has(.collectibles-sheet-header) {
+    gap: 0.65rem;
+    margin-bottom: 1rem;
   }
 
-  .customize-link-note-row {
-    display: flex;
-    flex-direction: column;
-    gap: 0.28rem;
+  .panel-page-toolbar .collectibles-sheet-header {
+    max-width: none;
+    padding-right: 0;
   }
 
-  .customize-link-note-label {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.78);
-  }
-
-  .customize-link-note-input {
-    width: 100%;
-  }
-
-  .customize-link-note-dest {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.7rem;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    color: rgb(var(--fg-rgb) / 0.42);
+  .panel-page-toolbar .collectibles-filter-toolbar {
+    padding-right: 0;
   }
 
   /* Host audio must stay in the document (not display:none) for audible play. */
@@ -20131,19 +19585,60 @@ a.os-surface-row {
     -webkit-backdrop-filter: none;
   }
 
-  a.collectibles-holding-row {
+  a.collectibles-holding-row,
+  .collectibles-holding-row {
     color: inherit;
     text-decoration: none;
-    cursor: pointer;
+    align-items: flex-start;
+    margin-inline: -0.15rem;
+    padding: 0.55rem 0.15rem;
   }
 
-  a.collectibles-holding-row:focus-visible {
+  a.collectibles-holding-row-main {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    align-items: flex-start;
+    gap: 0.9rem;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  a.collectibles-holding-row-main:focus-visible {
     outline: none;
+  }
+
+  .collectibles-holding-action-col {
+    flex-shrink: 0;
+    align-items: flex-end;
+    gap: 0.35rem;
+  }
+
+  a.collectibles-holding-row:focus-visible,
+  .collectibles-holding-row:focus-within {
+    outline: none;
+  }
+
+  .collectibles-holding-row:focus-within {
     background: var(--os-surface-row-hover);
   }
 
-  /* Match compact borderless Market Buy / Sell (no pill stroke). */
-  .collectibles-holding-action {
+  a.collectibles-holding-row .market-listing-title {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .collectibles-page .market-section {
+    gap: 0.65rem;
+  }
+
+  .collectibles-page .market-listing-list {
+    gap: 0.2rem;
+  }
+
+  a.collectibles-holding-action {
     display: inline-flex;
     flex-shrink: 0;
     align-items: center;
@@ -20158,16 +19653,21 @@ a.os-surface-row {
     font-size: 0.72rem;
     font-weight: 600;
     line-height: 1.2;
-    pointer-events: none;
+    text-decoration: none;
     transition:
       background 160ms ease,
       color 160ms ease;
   }
 
   a.collectibles-holding-row:hover .collectibles-holding-action,
-  a.collectibles-holding-row:focus-visible .collectibles-holding-action {
+  a.collectibles-holding-row:focus-visible .collectibles-holding-action,
+  .collectibles-holding-row:hover .collectibles-holding-action,
+  .collectibles-holding-row:focus-within .collectibles-holding-action,
+  a.collectibles-holding-action:hover,
+  a.collectibles-holding-action:focus-visible {
     background: rgb(var(--fg-rgb) / 0.1);
     color: rgb(var(--fg-rgb) / 0.92);
+    outline: none;
   }
 
   .market-creator-filter {
