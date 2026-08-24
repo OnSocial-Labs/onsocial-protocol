@@ -134,6 +134,10 @@ test.describe('collectibles shell', () => {
       .getByRole('button', { name: 'Clear search' });
     await expect(clearSearch).toHaveClass(PILL_ACTION);
     await expectEmptySitsUnderChrome(page);
+    await page.screenshot({
+      path: `${testInfo.outputDir}/collectibles-empty-search.png`,
+      fullPage: true,
+    });
     await clearSearch.click();
     await page.waitForURL((url) => !url.searchParams.has('q'));
     await expect(nightRow).toBeVisible();
@@ -145,6 +149,10 @@ test.describe('collectibles shell', () => {
     const showAll = page.getByRole('button', { name: 'Show all' });
     await expect(showAll).toHaveClass(PILL_ACTION);
     await expectEmptySitsUnderChrome(page);
+    await page.screenshot({
+      path: `${testInfo.outputDir}/collectibles-empty-filter.png`,
+      fullPage: true,
+    });
     await showAll.click();
     await expect(nightRow).toBeVisible();
     await expect(chapterRow).toBeVisible();
