@@ -70,6 +70,13 @@ export async function expectSearchVisible(
   });
 }
 
+export async function expectSearchHidden(
+  page: Page,
+  name: string | RegExp
+): Promise<void> {
+  await expect(searchField(page, name)).toHaveCount(0);
+}
+
 /**
  * ChoiceDrawerMenu trigger — default aria is `Open ${label.toLowerCase()} menu`.
  */
