@@ -119,32 +119,31 @@ export function GuildsLatestPostsPanel({
           limit: PEEK_FETCH_LIMIT,
         });
         if (cancelled) return;
-        const mapped = feed.items
-          .map((post) => {
-            const postId = post.postId?.trim();
-            const author = post.accountId?.trim();
-            const groupId = post.groupId?.trim();
-            if (!postId || !author || !groupId) return null;
-            const value = post.value ?? '';
-            return {
-              key: `${groupId}:${author}:${postId}`,
-              groupId,
-              guildName: guildNameById.get(groupId) ?? groupId,
-              author,
-              postId,
-              value,
-              kind: post.kind,
-              excerpt: '',
-              blockTimestamp: Number(post.blockTimestamp) || 0,
-              href: postThreadPath(post),
-              refType: post.refType,
-              refPath: post.refPath,
-              refAuthor: post.refAuthor,
-              parentPath: post.parentPath,
-              parentAuthor: post.parentAuthor,
-            } satisfies GuildPostPeek;
-          })
-          .filter((row): row is GuildPostPeek => row != null);
+        const mapped: GuildPostPeek[] = [];
+        for (const post of feed.items) {
+          const postId = post.postId?.trim();
+          const author = post.accountId?.trim();
+          const groupId = post.groupId?.trim();
+          if (!postId || !author || !groupId) continue;
+          const value = post.value ?? '';
+          mapped.push({
+            key: `${groupId}:${author}:${postId}`,
+            groupId,
+            guildName: guildNameById.get(groupId) ?? groupId,
+            author,
+            postId,
+            value,
+            kind: post.kind ?? null,
+            excerpt: '',
+            blockTimestamp: Number(post.blockTimestamp) || 0,
+            href: postThreadPath(post),
+            refType: post.refType,
+            refPath: post.refPath,
+            refAuthor: post.refAuthor,
+            parentPath: post.parentPath,
+            parentAuthor: post.parentAuthor,
+          });
+        }
         setPeeks(mapped);
         setPending(false);
       } catch (cause) {

@@ -1571,9 +1571,9 @@ export function PostCard({
       })
     : null;
   const relationTargetProfileName =
-    relationContext &&
-    relationContext.kind !== 'repost' &&
-    authorProfiles?.[relationContext.handle]?.displayName;
+    relationContext && relationContext.kind !== 'repost'
+      ? authorProfiles?.[relationContext.handle]?.displayName ?? null
+      : null;
   const profileHref = portfolioPath(post.accountId);
   const shareHref = actionHref ?? postThreadPath(post);
   const guildId = post.groupId?.trim() || null;

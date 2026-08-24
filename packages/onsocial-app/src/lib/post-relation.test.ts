@@ -60,7 +60,6 @@ describe('postRelationContext', () => {
         {
           accountId: 'alice.near',
           refPath: 'bob.near/post/2',
-          refAuthor: 'bob.near',
           refType: 'repost',
         },
         { viewerAccountId: 'alice.near', authorName: 'Alice' }
@@ -74,7 +73,6 @@ describe('postRelationContext', () => {
         {
           accountId: 'alice.near',
           refPath: 'bob.near/post/2',
-          refAuthor: 'bob.near',
           refType: 'repost',
         },
         { viewerAccountId: 'carol.near', authorName: 'Alice' }
@@ -96,7 +94,6 @@ describe('postRelationContext', () => {
     expect(
       postRelationContext({
         refPath: 'bob.near/post/2',
-        refAuthor: 'bob.near',
         refType: 'quote',
       })
     ).toBeNull();
