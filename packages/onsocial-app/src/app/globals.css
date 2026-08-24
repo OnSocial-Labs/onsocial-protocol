@@ -6531,6 +6531,7 @@ a.os-surface-row {
     pointer-events: none;
   }
 
+  .portfolio-dao-tools-link[aria-expanded='true'],
   .portfolio-dao-tools-link:hover {
     color: rgb(var(--fg-rgb) / 0.96);
   }
@@ -6603,6 +6604,7 @@ a.os-surface-row {
     color: color-mix(in srgb, var(--mood-muted) 52%, transparent);
   }
 
+  .portfolio-frame[data-mood] .portfolio-dao-tools-link[aria-expanded='true'],
   .portfolio-frame[data-mood] .portfolio-dao-tools-link:hover,
   .portfolio-frame[data-mood] .portfolio-dao-tools-link:focus-visible {
     color: var(--mood-text);

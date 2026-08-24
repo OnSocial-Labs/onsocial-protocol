@@ -3,6 +3,13 @@
  * Badges (Mood / Boost / …) stay specific; family groups them for filtering.
  */
 
+import {
+  PROTOCOL_FAMILY_PARAM,
+  PROTOCOL_PROPOSAL_PARAM,
+  PROTOCOL_SEARCH_PARAM,
+  PROTOCOL_STATUS_PARAM,
+} from '@/lib/app-routes';
+
 export type ProtocolProposalFamily =
   | 'all'
   | 'face'
@@ -80,4 +87,20 @@ export function parseProtocolProposalFamily(
     default:
       return 'all';
   }
+}
+
+/**
+ * Portfolio query that should open the Proposals overlay.
+ * Matches `daoPortfolioPath` — proposal id, status, search, or family `kind`.
+ */
+export function hasDaoProposalsDeepLink(searchParams: {
+  get(name: string): string | null;
+}): boolean {
+  return Boolean(
+    searchParams.get(PROTOCOL_PROPOSAL_PARAM)?.trim() ||
+      searchParams.get(PROTOCOL_STATUS_PARAM)?.trim() ||
+      searchParams.get(PROTOCOL_SEARCH_PARAM)?.trim() ||
+      parseProtocolProposalFamily(searchParams.get(PROTOCOL_FAMILY_PARAM)) !==
+        'all'
+  );
 }

@@ -22,7 +22,7 @@ export function DaoManageSheet({
   daoName,
   canEdit,
   claimSupportLabel,
-  claimSupportPending = false,
+  councilAccessPending = false,
   onClose,
   onAction,
 }: {
@@ -31,7 +31,8 @@ export function DaoManageSheet({
   canEdit: boolean;
   /** When set, council can propose claiming the Support pot. */
   claimSupportLabel?: string | null;
-  claimSupportPending?: boolean;
+  /** Connected viewer — council rows may still be resolving. */
+  councilAccessPending?: boolean;
   onClose: () => void;
   onAction: (action: DaoManageAction) => void;
 }) {
@@ -113,13 +114,15 @@ export function DaoManageSheet({
         ) : null}
         {showClaimSupport ? (
           <OsSurfaceRow
-            label={claimSupportPending ? 'Claiming…' : 'Claim support'}
+            label="Claim support"
             description={`Propose collecting ${claimSupportLabel} to the DAO wallet`}
-            disabled={claimSupportPending}
             onClick={() => run('claim-support')}
           />
         ) : null}
       </OsSurfaceRowList>
+      {councilAccessPending ? (
+        <p className="protocol-compose-note">Checking council access…</p>
+      ) : null}
     </OsHugSheet>
   );
 }
