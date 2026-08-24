@@ -92,7 +92,7 @@ export function CollectiblesHoldingRow({
         <Link
           href={item.href}
           scroll={false}
-          className="collectibles-holding-action"
+          className="page-drawer-section-action collectibles-holding-action"
           aria-label={`${item.actionLabel} ${item.title}`}
         >
           {item.actionLabel}

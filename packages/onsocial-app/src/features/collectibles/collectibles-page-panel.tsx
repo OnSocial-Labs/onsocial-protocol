@@ -584,9 +584,14 @@ export function CollectiblesPagePanel({
               </Link>
             </div>
           ) : (
-            <Link className="page-drawer-section-action" href={APP_MARKET_PATH}>
-              Browse Market
-            </Link>
+            <div className="collectibles-empty-actions">
+              <Link
+                className="page-drawer-section-action"
+                href={APP_MARKET_PATH}
+              >
+                Browse Market
+              </Link>
+            </div>
           )}
         </div>
       ) : null}
