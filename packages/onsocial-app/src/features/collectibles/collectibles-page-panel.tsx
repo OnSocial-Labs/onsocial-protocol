@@ -201,7 +201,10 @@ export function CollectiblesPagePanel({
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const holdingsRef = useRef(holdings);
-  holdingsRef.current = holdings;
+
+  useEffect(() => {
+    holdingsRef.current = holdings;
+  });
 
   const loadKey = ownerAccountId ? `${ownerAccountId}:${retryKey}` : null;
   const trimmedSearch = searchQuery.trim();
