@@ -57,12 +57,7 @@ export function useMessagesInboxSearch(opts: {
   }, [isSearching, names, normalized, opts.previews, searchableThreads]);
 
   useEffect(() => {
-    if (!opts.enabled || !peopleActive) {
-      setPeople([]);
-      setPeoplePending(false);
-      setPeopleError(null);
-      return;
-    }
+    if (!opts.enabled || !peopleActive) return;
 
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
@@ -100,9 +95,10 @@ export function useMessagesInboxSearch(opts: {
   }, [normalized, opts.enabled, opts.viewerAccountId, peopleActive]);
 
   const peopleResults = useMemo(() => {
+    if (!peopleActive) return [];
     const peers = searchableThreads.map((thread) => thread.peerAccountId);
     return excludePeersInInbox(people, peers, opts.viewerAccountId);
-  }, [opts.viewerAccountId, people, searchableThreads]);
+  }, [opts.viewerAccountId, people, peopleActive, searchableThreads]);
 
   const clearSearch = useCallback(() => setQuery(''), []);
 
@@ -115,7 +111,7 @@ export function useMessagesInboxSearch(opts: {
     peopleActive,
     filteredThreads,
     peopleResults,
-    peoplePending,
-    peopleError,
+    peoplePending: peopleActive && peoplePending,
+    peopleError: peopleActive ? peopleError : null,
   };
 }
