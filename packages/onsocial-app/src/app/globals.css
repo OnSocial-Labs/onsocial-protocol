@@ -34227,31 +34227,14 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 .messages-panel {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  width: min(72rem, 100%);
-  margin: 0 auto;
+  gap: 0.85rem;
   min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
 }
 
-.messages-screen-back-thread,
-.messages-heading-thread {
+.messages-screen-back-thread {
   display: none;
-}
-
-.messages-heading {
-  min-width: 0;
-}
-
-.messages-heading .os-app-screen-title,
-.messages-heading .os-app-screen-subtitle {
-  margin: 0;
-}
-
-.messages-heading .os-app-screen-title-link {
-  display: block;
-  min-width: 0;
 }
 
 .messages-layout {
@@ -34272,7 +34255,11 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 .messages-thread-list {
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-right: 0.75rem;
+}
+
+/* Nested scroller — can't use standing-row edge bleed; negative margin clips hover. */
+.messages-thread-list .messages-inbox-row.standing-row {
+  margin-inline: 0;
 }
 
 .messages-thread {
@@ -34491,17 +34478,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   font-weight: 650;
   color: rgb(var(--fg-rgb) / 0.5);
   cursor: pointer;
-}
-
-.messages-thread-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.18rem;
-  flex-shrink: 0;
-  font-size: 0.68rem;
-  line-height: 1.2;
-  color: rgb(var(--fg-rgb) / 0.46);
 }
 
 .messages-panel-empty,
@@ -34800,8 +34776,13 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   word-break: break-all;
 }
 
-.messages-thread-list .os-surface-row-list {
-  gap: 0.1rem;
+.messages-inbox-row.is-active {
+  background: var(--os-surface-row-hover);
+}
+
+.messages-inbox-row.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .messages-inbox-search {
@@ -34907,10 +34888,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
     min-height: 0;
   }
 
-  .messages-thread-list {
-    padding-right: 0;
-  }
-
   .messages-thread {
     border-left: 0;
     padding-left: 0;
@@ -34960,18 +34937,9 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
     display: inline-flex;
   }
 
-  .os-app-screen:has([data-mobile-pane='thread']) .messages-heading-inbox {
-    display: none;
-  }
-
   .os-app-screen:has(.messages-panel[data-mobile-pane='thread'])
     .os-app-screen-toolbar:has(.messages-inbox-search) {
     display: none;
-  }
-
-  .os-app-screen:has([data-mobile-pane='thread']) .messages-heading-thread {
-    display: block;
-    min-width: 0;
   }
 
   .messages-thread-peer {

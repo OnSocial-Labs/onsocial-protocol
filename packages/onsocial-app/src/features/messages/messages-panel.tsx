@@ -16,8 +16,6 @@ import {
   OsIconAction,
   OsSheetAction,
   OsSheetActions,
-  OsSurfaceRow,
-  OsSurfaceRowList,
   ProfileAvatar,
   PulsingDots,
 } from '@onsocial/ui';
@@ -63,7 +61,7 @@ import { DmRecoveryCodeSheet } from '@/features/messages/dm-recovery-code-sheet'
 import { inboxPreviewFromDecrypted } from '@/features/messages/dm-inbox-preview';
 import {
   formatAbsoluteDmTime,
-  formatRelativeDmTime,
+  formatDmBubbleTime,
 } from '@/features/messages/dm-time';
 import {
   type DmOutgoingDraft,
@@ -80,6 +78,10 @@ import {
 import { DmThreadComposer } from '@/features/messages/dm-thread-composer';
 import { MessagesInboxSearchField } from '@/features/messages/messages-inbox-search-field';
 import {
+  MessagesInboxPeopleRows,
+  MessagesInboxThreadRows,
+} from '@/features/messages/messages-inbox-rows';
+import {
   buildDmThreadId,
   messagingBlockedCopy,
   messagingBlockedReason,
@@ -90,22 +92,6 @@ import { requestDmUnreadRefresh } from '@/components/providers/dm-unread-host';
 
 const THREAD_POLL_MS = 12_000;
 const THREAD_PAGE_SIZE = 50;
-
-function threadTimeTrailing(iso: string, unread = false) {
-  const relative = formatRelativeDmTime(iso);
-  const absolute = formatAbsoluteDmTime(iso);
-  if (!relative && !unread) return 'none' as const;
-  return (
-    <span className="messages-thread-meta">
-      {unread ? <span className="os-surface-row-badge">New</span> : null}
-      {relative ? (
-        <time dateTime={iso} title={absolute || undefined}>
-          {relative}
-        </time>
-      ) : null}
-    </span>
-  );
-}
 
 export function MessagesPanel() {
   const router = useRouter();
@@ -1370,10 +1356,20 @@ export function MessagesPanel() {
       : '0px',
   } as CSSProperties;
 
+  const screenTitle = threadOpen ? peerName || 'Conversation' : 'Messages';
+  const screenSubtitle = threadOpen
+    ? peerHandle && peerName !== peerHandle
+      ? `@${peerHandle}`
+      : undefined
+    : 'Private · sealed on your device';
+
   return (
     <OsAppScreen
-      title="Messages"
-      subtitle="Private · sealed on your device"
+      title={screenTitle}
+      titleHref={
+        threadOpen && peerFromThread ? `/${peerFromThread}` : undefined
+      }
+      subtitle={screenSubtitle}
       backFallbackHref={APP_HOME_PATH}
       glassChrome
       style={screenStyle}
@@ -1403,39 +1399,6 @@ export function MessagesPanel() {
             </OsIconAction>
           ) : null}
         </>
-      }
-      heading={
-        <div className="messages-heading">
-          <div className="messages-heading-inbox">
-            <p className="os-app-screen-title">Messages</p>
-            <p className="os-app-screen-subtitle">
-              Private · sealed on your device
-            </p>
-          </div>
-          {threadOpen ? (
-            <div className="messages-heading-thread">
-              {peerFromThread ? (
-                <Link
-                  href={`/${peerFromThread}`}
-                  className="os-app-screen-title-link"
-                  title={peerName || 'Conversation'}
-                  scroll={false}
-                >
-                  <p className="os-app-screen-title">
-                    {peerName || 'Conversation'}
-                  </p>
-                </Link>
-              ) : (
-                <p className="os-app-screen-title">
-                  {peerName || 'Conversation'}
-                </p>
-              )}
-              {peerHandle && peerName !== peerHandle ? (
-                <p className="os-app-screen-subtitle">@{peerHandle}</p>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
       }
     >
       <div
@@ -1479,48 +1442,18 @@ export function MessagesPanel() {
                     {peopleActive ? (
                       <p className="messages-search-section">Conversations</p>
                     ) : null}
-                    <OsSurfaceRowList as="div" aria-label="Matching conversations">
-                      {filteredThreads.map((thread) => {
-                        const sealed = sealedThreadIds.has(thread.threadId);
-                        const profile = profiles[thread.peerAccountId];
-                        const name = displayName(
-                          thread.peerAccountId,
-                          profile?.displayName
-                        );
-                        const handle = fallbackLabel(thread.peerAccountId);
-                        const preview = inboxPreviewByThread[thread.threadId];
-                        return (
-                          <OsSurfaceRow
-                            key={thread.threadId}
-                            active={thread.threadId === activeThreadId}
-                            label={name}
-                            description={
-                              sealed
-                                ? name !== handle
-                                  ? `@${handle} · sealed`
-                                  : 'Sealed before reset'
-                                : preview ||
-                                  (name !== handle ? `@${handle}` : undefined)
-                            }
-                            leading={
-                              <ProfileAvatar
-                                src={profile?.avatarUrl ?? undefined}
-                                fallbackInitial={name.slice(0, 1)}
-                                size="sm"
-                              />
-                            }
-                            trailing={threadTimeTrailing(
-                              thread.lastMessageAt,
-                              sealed ? false : thread.unread
-                            )}
-                            onClick={() => {
-                              clearSearch();
-                              void openThread(thread.threadId);
-                            }}
-                          />
-                        );
-                      })}
-                    </OsSurfaceRowList>
+                    <MessagesInboxThreadRows
+                      threads={filteredThreads}
+                      ariaLabel="Matching conversations"
+                      profiles={profiles}
+                      inboxPreviewByThread={inboxPreviewByThread}
+                      sealedThreadIds={sealedThreadIds}
+                      activeThreadId={activeThreadId}
+                      onOpenThread={(threadId) => {
+                        clearSearch();
+                        void openThread(threadId);
+                      }}
+                    />
                   </>
                 )}
                 {peopleActive ? (
@@ -1533,42 +1466,13 @@ export function MessagesPanel() {
                     ) : peopleResults.length === 0 ? (
                       <p className="messages-muted">No people match.</p>
                     ) : (
-                      <OsSurfaceRowList as="div" aria-label="People">
-                        {peopleResults.map((person) => {
-                          const blocked = messagingBlockedReason(
-                            person.accountId
-                          );
-                          const name = displayName(
-                            person.accountId,
-                            person.name ?? undefined
-                          );
-                          const handle = fallbackLabel(person.accountId);
-                          return (
-                            <OsSurfaceRow
-                              key={person.accountId}
-                              label={name}
-                              description={
-                                messagingBlockedCopy(blocked) ||
-                                (name !== handle ? `@${handle}` : handle)
-                              }
-                              disabled={Boolean(blocked)}
-                              trailing={blocked ? 'none' : 'navigate'}
-                              leading={
-                                <ProfileAvatar
-                                  src={person.avatarUrl ?? undefined}
-                                  fallbackInitial={name.slice(0, 1)}
-                                  size="sm"
-                                />
-                              }
-                              onClick={
-                                blocked
-                                  ? undefined
-                                  : () => startChatFromPeer(person.accountId)
-                              }
-                            />
-                          );
-                        })}
-                      </OsSurfaceRowList>
+                      <MessagesInboxPeopleRows
+                        people={peopleResults}
+                        ariaLabel="People"
+                        isBlocked={messagingBlockedReason}
+                        blockedCopy={messagingBlockedCopy}
+                        onOpenPerson={startChatFromPeer}
+                      />
                     )}
                   </div>
                 ) : null}
@@ -1591,40 +1495,14 @@ export function MessagesPanel() {
                 their profile.
               </p>
             ) : (
-              <OsSurfaceRowList as="div" aria-label="Conversations">
-                {(inboxThreads ?? []).map((thread) => {
-                  const profile = profiles[thread.peerAccountId];
-                  const name = displayName(
-                    thread.peerAccountId,
-                    profile?.displayName
-                  );
-                  const handle = fallbackLabel(thread.peerAccountId);
-                  const preview = inboxPreviewByThread[thread.threadId];
-                  return (
-                    <OsSurfaceRow
-                      key={thread.threadId}
-                      active={thread.threadId === activeThreadId}
-                      label={name}
-                      description={
-                        preview ||
-                        (name !== handle ? `@${handle}` : undefined)
-                      }
-                      leading={
-                        <ProfileAvatar
-                          src={profile?.avatarUrl ?? undefined}
-                          fallbackInitial={name.slice(0, 1)}
-                          size="sm"
-                        />
-                      }
-                      trailing={threadTimeTrailing(
-                        thread.lastMessageAt,
-                        thread.unread
-                      )}
-                      onClick={() => void openThread(thread.threadId)}
-                    />
-                  );
-                })}
-              </OsSurfaceRowList>
+              <MessagesInboxThreadRows
+                threads={inboxThreads ?? []}
+                ariaLabel="Conversations"
+                profiles={profiles}
+                inboxPreviewByThread={inboxPreviewByThread}
+                activeThreadId={activeThreadId}
+                onOpenThread={(threadId) => void openThread(threadId)}
+              />
             )}
             {!isSearching && sealedThreads.length > 0 ? (
               <div className="messages-sealed-archive">
@@ -1638,37 +1516,15 @@ export function MessagesPanel() {
                   {sealedThreads.length}
                 </button>
                 {showSealedArchive ? (
-                  <OsSurfaceRowList as="div" aria-label="Sealed conversations">
-                    {sealedThreads.map((thread) => {
-                      const profile = profiles[thread.peerAccountId];
-                      const name = displayName(
-                        thread.peerAccountId,
-                        profile?.displayName
-                      );
-                      const handle = fallbackLabel(thread.peerAccountId);
-                      return (
-                        <OsSurfaceRow
-                          key={thread.threadId}
-                          active={thread.threadId === activeThreadId}
-                          label={name}
-                          description={
-                            name !== handle
-                              ? `@${handle} · sealed`
-                              : 'Sealed before reset'
-                          }
-                          leading={
-                            <ProfileAvatar
-                              src={profile?.avatarUrl ?? undefined}
-                              fallbackInitial={name.slice(0, 1)}
-                              size="sm"
-                            />
-                          }
-                          trailing={threadTimeTrailing(thread.lastMessageAt)}
-                          onClick={() => void openThread(thread.threadId)}
-                        />
-                      );
-                    })}
-                  </OsSurfaceRowList>
+                  <MessagesInboxThreadRows
+                    threads={sealedThreads}
+                    ariaLabel="Sealed conversations"
+                    profiles={profiles}
+                    inboxPreviewByThread={inboxPreviewByThread}
+                    treatAllAsSealed
+                    activeThreadId={activeThreadId}
+                    onOpenThread={(threadId) => void openThread(threadId)}
+                  />
                 ) : null}
               </div>
             ) : null}
@@ -1758,7 +1614,7 @@ export function MessagesPanel() {
                       const mine =
                         msg.senderAccountId === accountId.toLowerCase();
                       const text = plainById[msg.id];
-                      const relative = formatRelativeDmTime(msg.createdAt);
+                      const bubbleTime = formatDmBubbleTime(msg.createdAt);
                       const absolute = formatAbsoluteDmTime(msg.createdAt);
                       const parentId = replyToById[msg.id];
                       const parentText = parentId
@@ -1857,12 +1713,12 @@ export function MessagesPanel() {
                               >
                                 {draft.error || 'Couldn’t send'} · Retry
                               </button>
-                            ) : relative ? (
+                            ) : bubbleTime ? (
                               <time
                                 dateTime={msg.createdAt}
                                 title={absolute || undefined}
                               >
-                                {relative}
+                                {bubbleTime}
                               </time>
                             ) : null}
                             {canReply ? (

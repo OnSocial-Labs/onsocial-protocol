@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   dmLocalDayKey,
   formatAbsoluteDmTime,
+  formatDmBubbleTime,
   formatDmDaySeparator,
   formatRelativeDmTime,
   parseDmDate,
@@ -71,5 +72,18 @@ describe('formatAbsoluteDmTime', () => {
     const label = formatAbsoluteDmTime('2026-08-24T15:04:00.000Z');
     expect(label).toMatch(/Aug/);
     expect(label).toMatch(/2026/);
+  });
+});
+
+describe('formatDmBubbleTime', () => {
+  it('formats local clock time without calendar', () => {
+    const label = formatDmBubbleTime('2026-08-24T15:04:00.000Z');
+    expect(label).toMatch(/\d/);
+    expect(label).not.toMatch(/Aug/);
+    expect(label).not.toMatch(/2026/);
+  });
+
+  it('returns empty for invalid input', () => {
+    expect(formatDmBubbleTime('')).toBe('');
   });
 });

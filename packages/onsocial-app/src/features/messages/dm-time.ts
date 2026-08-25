@@ -76,3 +76,16 @@ export function formatAbsoluteDmTime(iso: string | null | undefined): string {
     minute: '2-digit',
   }).format(date);
 }
+
+/**
+ * Clock time on thread bubbles — day rules own the calendar; bubbles show
+ * when in the day (iMessage / WhatsApp pattern), not feed-style `2d` / `40m`.
+ */
+export function formatDmBubbleTime(iso: string | null | undefined): string {
+  const date = parseDmDate(iso);
+  if (!date) return '';
+  return new Intl.DateTimeFormat(ABSOLUTE_LOCALE, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+}
