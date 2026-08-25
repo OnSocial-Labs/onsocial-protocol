@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { DmMessageRecord, DmThreadSummary, OnSocial } from '@onsocial/sdk';
@@ -13,7 +14,6 @@ import {
   OsSurfaceRowList,
   ProfileAvatar,
 } from '@onsocial/ui';
-import { ContextualBack } from '@/components/app/contextual-back';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -57,6 +57,8 @@ import {
 } from '@/features/messages/dm-time';
 import { DmThreadComposer } from '@/features/messages/dm-thread-composer';
 import { DmUnlockPanel } from '@/features/messages/dm-unlock-panel';
+import { resolveMessagesScreenChrome } from '@/features/messages/messages-screen-chrome';
+import { useMessagesNarrow } from '@/features/messages/use-messages-narrow';
 import { requestDmUnreadRefresh } from '@/components/providers/dm-unread-host';
 
 const THREAD_POLL_MS = 12_000;
@@ -85,6 +87,7 @@ export function MessagesPanel() {
   const threadParam = searchParams.get('thread')?.trim() ?? '';
   const { accountId, isConnected, connect, hasSocialSession } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
+  const narrow = useMessagesNarrow();
 
   const [threads, setThreads] = useState<DmThreadSummary[] | null>(null);
   const [messages, setMessages] = useState<DmMessageRecord[] | null>(null);
@@ -648,45 +651,6 @@ export function MessagesPanel() {
     }
   };
 
-  if (!isConnected || !accountId) {
-    return (
-      <OsAppScreen
-        title="Messages"
-        subtitle="Private · sealed on your device"
-        backFallbackHref={APP_HOME_PATH}
-        glassChrome
-      >
-        <div className="messages-panel">
-          <p className="messages-panel-empty">
-            Connect your wallet to send private messages.
-          </p>
-          <OsSheetActions>
-            <OsSheetAction type="button" ready onClick={() => void connect()}>
-              Connect
-            </OsSheetAction>
-          </OsSheetActions>
-        </div>
-      </OsAppScreen>
-    );
-  }
-
-  if (!hasSocialSession) {
-    return (
-      <OsAppScreen
-        title="Messages"
-        subtitle="Private · sealed on your device"
-        backFallbackHref={APP_HOME_PATH}
-        glassChrome
-      >
-        <div className="messages-panel">
-          <p className="messages-panel-empty">
-            Connect your session to load private messages.
-          </p>
-        </div>
-      </OsAppScreen>
-    );
-  }
-
   const threadOpen = Boolean(activeThreadId && isUnlocked);
   const mobilePane = threadOpen ? 'thread' : 'list';
   const peerProfile = peerFromThread ? profiles[peerFromThread] : undefined;
@@ -694,102 +658,75 @@ export function MessagesPanel() {
     ? displayName(peerFromThread, peerProfile?.displayName)
     : '';
   const peerHandle = peerFromThread ? fallbackLabel(peerFromThread) : '';
+  const chrome = resolveMessagesScreenChrome({
+    narrow,
+    threadOpen,
+    peerName,
+    peerHandle,
+    peerAccountId: peerFromThread,
+  });
 
-  const composer =
-    peerFromThread && isUnlocked && activeThreadId ? (
-      <DmThreadComposer
-        peerAccountId={peerFromThread}
-        onSent={() => {
-          void refreshThreads();
-          if (activeThreadId) void openThread(activeThreadId);
-        }}
-        onRecoveryCode={(code) => {
-          setRecoveryVariant('created');
-          setRecoveryCode(code);
-        }}
-      />
-    ) : null;
+  let body: ReactNode;
+  if (!isConnected || !accountId) {
+    body = (
+      <>
+        <p className="messages-panel-empty">
+          Connect your wallet to send private messages.
+        </p>
+        <OsSheetActions>
+          <OsSheetAction type="button" ready onClick={() => void connect()}>
+            Connect
+          </OsSheetAction>
+        </OsSheetActions>
+      </>
+    );
+  } else if (!hasSocialSession) {
+    body = (
+      <p className="messages-panel-empty">
+        Connect your session to load private messages.
+      </p>
+    );
+  } else {
+    const composer =
+      peerFromThread && isUnlocked && activeThreadId ? (
+        <DmThreadComposer
+          peerAccountId={peerFromThread}
+          onSent={() => {
+            void refreshThreads();
+            if (activeThreadId) void openThread(activeThreadId);
+          }}
+          onRecoveryCode={(code) => {
+            setRecoveryVariant('created');
+            setRecoveryCode(code);
+          }}
+        />
+      ) : null;
 
-  const unlockPanel =
-    !isUnlocked && accountId ? (
-      <DmUnlockPanel
-        accountId={accountId}
-        onUnlocked={() => void handleUnlocked()}
-        onReset={(code) => {
-          if (accountId) {
-            recordDmKeysReset(accountId);
-            archiveSealedDmThreads(
-              accountId,
-              (threads ?? []).map((thread) => thread.threadId)
-            );
-            setArchiveTick((n) => n + 1);
-            setShowSealedArchive(false);
-          }
-          setPlainById({});
-          setRecoveryVariant('reset');
-          setRecoveryCode(code);
-          void handleUnlocked();
-        }}
-      />
-    ) : null;
+    const unlockPanel =
+      !isUnlocked && accountId ? (
+        <DmUnlockPanel
+          accountId={accountId}
+          onUnlocked={() => void handleUnlocked()}
+          onReset={(code) => {
+            if (accountId) {
+              recordDmKeysReset(accountId);
+              archiveSealedDmThreads(
+                accountId,
+                (threads ?? []).map((thread) => thread.threadId)
+              );
+              setArchiveTick((n) => n + 1);
+              setShowSealedArchive(false);
+            }
+            setPlainById({});
+            setRecoveryVariant('reset');
+            setRecoveryCode(code);
+            void handleUnlocked();
+          }}
+        />
+      ) : null;
 
-  return (
-    <OsAppScreen
-      title="Messages"
-      subtitle="Private · sealed on your device"
-      backFallbackHref={APP_HOME_PATH}
-      glassChrome
-      leading={
-        <>
-          <span className="messages-screen-back-home">
-            <ContextualBack fallbackHref={APP_HOME_PATH} />
-          </span>
-          {threadOpen ? (
-            <OsIconAction
-              className="messages-screen-back-thread"
-              ariaLabel="Back to conversations"
-              onClick={closeThread}
-            >
-              <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
-            </OsIconAction>
-          ) : null}
-        </>
-      }
-      heading={
-        <div className="messages-heading">
-          <div className="messages-heading-inbox">
-            <p className="os-app-screen-title">Messages</p>
-            <p className="os-app-screen-subtitle">
-              Private · sealed on your device
-            </p>
-          </div>
-          {threadOpen ? (
-            <div className="messages-heading-thread">
-              {peerFromThread ? (
-                <Link
-                  href={`/${peerFromThread}`}
-                  className="os-app-screen-title-link"
-                  title={peerName || 'Conversation'}
-                  scroll={false}
-                >
-                  <p className="os-app-screen-title">
-                    {peerName || 'Conversation'}
-                  </p>
-                </Link>
-              ) : (
-                <p className="os-app-screen-title">
-                  {peerName || 'Conversation'}
-                </p>
-              )}
-              {peerHandle && peerName !== peerHandle ? (
-                <p className="os-app-screen-subtitle">@{peerHandle}</p>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      }
-    >
-      <div className="messages-panel" data-mobile-pane={mobilePane}>
+    body = (
+      <>
         {unlockPanel}
 
         {isUnlocked && canPasskey && !passkeyEnrolled ? (
@@ -911,7 +848,7 @@ export function MessagesPanel() {
           </aside>
 
           <section className="messages-thread" aria-label="Thread">
-            {activeThreadId && peerFromThread ? (
+            {!narrow && activeThreadId && peerFromThread ? (
               <header className="messages-thread-peer">
                 <ProfileAvatar
                   src={peerProfile?.avatarUrl ?? undefined}
@@ -1055,6 +992,27 @@ export function MessagesPanel() {
           }}
           onPasskeyEnrolled={() => setKeysTick((n) => n + 1)}
         />
+      </>
+    );
+  }
+
+  return (
+    <OsAppScreen
+      title={chrome.title}
+      subtitle={chrome.subtitle}
+      titleHref={chrome.titleHref}
+      backFallbackHref={APP_HOME_PATH}
+      glassChrome
+      leading={
+        chrome.closeThread ? (
+          <OsIconAction ariaLabel="Back to conversations" onClick={closeThread}>
+            <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
+          </OsIconAction>
+        ) : undefined
+      }
+    >
+      <div className="messages-panel" data-mobile-pane={mobilePane}>
+        {body}
       </div>
     </OsAppScreen>
   );

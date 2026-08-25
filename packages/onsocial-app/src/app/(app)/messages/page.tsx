@@ -2,6 +2,10 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { MessagesPanel } from '@/features/messages/messages-panel';
+import {
+  MESSAGES_INBOX_SUBTITLE,
+  MESSAGES_INBOX_TITLE,
+} from '@/features/messages/messages-screen-chrome';
 import { APP_HOME_PATH } from '@/lib/app-routes';
 
 export const metadata: Metadata = {
@@ -12,8 +16,8 @@ export const metadata: Metadata = {
 function MessagesFallback() {
   return (
     <OsAppScreen
-      title="Messages"
-      subtitle="Private · sealed on your device"
+      title={MESSAGES_INBOX_TITLE}
+      subtitle={MESSAGES_INBOX_SUBTITLE}
       backFallbackHref={APP_HOME_PATH}
       glassChrome
     >

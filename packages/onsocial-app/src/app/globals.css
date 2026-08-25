@@ -34235,25 +34235,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   flex: 1 1 auto;
 }
 
-.messages-screen-back-thread,
-.messages-heading-thread {
-  display: none;
-}
-
-.messages-heading {
-  min-width: 0;
-}
-
-.messages-heading .os-app-screen-title,
-.messages-heading .os-app-screen-subtitle {
-  margin: 0;
-}
-
-.messages-heading .os-app-screen-title-link {
-  display: block;
-  min-width: 0;
-}
-
 .messages-layout {
   display: grid;
   grid-template-columns: minmax(16.5rem, 22rem) minmax(0, 1fr);
@@ -34700,27 +34681,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
   .messages-layout[data-mobile-pane='thread'] .messages-thread {
     min-height: 100%;
-  }
-
-  .os-app-screen:has([data-mobile-pane='thread']) .messages-screen-back-home {
-    display: none;
-  }
-
-  .os-app-screen:has([data-mobile-pane='thread']) .messages-screen-back-thread {
-    display: inline-flex;
-  }
-
-  .os-app-screen:has([data-mobile-pane='thread']) .messages-heading-inbox {
-    display: none;
-  }
-
-  .os-app-screen:has([data-mobile-pane='thread']) .messages-heading-thread {
-    display: block;
-    min-width: 0;
-  }
-
-  .messages-thread-peer {
-    display: none;
   }
 
   .messages-panel[data-mobile-pane='thread'] .messages-passkey-hint {
