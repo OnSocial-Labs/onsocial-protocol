@@ -65,6 +65,13 @@ import {
   formatRelativeDmTime,
 } from '@/features/messages/dm-time';
 import { DmThreadComposer } from '@/features/messages/dm-thread-composer';
+import { MessagesInboxSearchField } from '@/features/messages/messages-inbox-search-field';
+import {
+  buildDmThreadId,
+  messagingBlockedCopy,
+  messagingBlockedReason,
+} from '@/features/messages/messages-inbox-search';
+import { useMessagesInboxSearch } from '@/features/messages/use-messages-inbox-search';
 import { DmUnlockPanel } from '@/features/messages/dm-unlock-panel';
 import { requestDmUnreadRefresh } from '@/components/providers/dm-unread-host';
 
@@ -204,6 +211,30 @@ export function MessagesPanel() {
   );
   const inboxThreadsRef = useRef(inboxThreads);
   inboxThreadsRef.current = inboxThreads;
+
+  const inboxSearch = useMessagesInboxSearch({
+    enabled: Boolean(isConnected && hasSocialSession),
+    viewerAccountId: accountId,
+    inboxThreads,
+    sealedThreads,
+    profiles,
+    previews: inboxPreviewByThread,
+  });
+  const {
+    query: inboxQuery,
+    setQuery: setInboxQuery,
+    clearSearch,
+    isSearching,
+    peopleActive,
+    filteredThreads,
+    peopleResults,
+    peoplePending,
+    peopleError,
+  } = inboxSearch;
+  const sealedThreadIds = useMemo(
+    () => new Set(sealedThreads.map((thread) => thread.threadId)),
+    [sealedThreads]
+  );
 
   const withAuth = useCallback(async () => {
     const { client, session, wallet, accountId: id } = await getClient();
@@ -536,6 +567,25 @@ export function MessagesPanel() {
       router,
       withAuth,
     ]
+  );
+
+  const startChatFromPeer = useCallback(
+    (peer: string) => {
+      const target = peer.trim();
+      if (!accountId || !target) return;
+      if (messagingBlockedReason(target)) return;
+      const threadId = buildDmThreadId(accountId, target);
+      const existing = (threads ?? []).find(
+        (thread) => thread.threadId === threadId
+      );
+      clearSearch();
+      if (existing) {
+        void openThread(existing.threadId);
+        return;
+      }
+      router.replace(messagesPath({ peer: target }));
+    },
+    [accountId, clearSearch, openThread, router, threads]
   );
 
   const softRefreshOpenThread = useCallback(
@@ -913,6 +963,12 @@ export function MessagesPanel() {
       backFallbackHref={APP_HOME_PATH}
       glassChrome
       style={screenStyle}
+      toolbar={
+        <MessagesInboxSearchField
+          value={inboxQuery}
+          onValueChange={setInboxQuery}
+        />
+      }
       footer={
         composer ? (
           <div className="messages-screen-composer">{composer}</div>
@@ -998,9 +1054,115 @@ export function MessagesPanel() {
           <aside className="messages-thread-list" aria-label="Conversations">
             {threads == null ? (
               <p className="messages-panel-empty">Loading…</p>
+            ) : isSearching ? (
+              <>
+                {filteredThreads.length === 0 ? (
+                  <p className="messages-panel-empty">
+                    No conversations match.
+                  </p>
+                ) : (
+                  <>
+                    {peopleActive ? (
+                      <p className="messages-search-section">Conversations</p>
+                    ) : null}
+                    <OsSurfaceRowList as="div" aria-label="Matching conversations">
+                      {filteredThreads.map((thread) => {
+                        const sealed = sealedThreadIds.has(thread.threadId);
+                        const profile = profiles[thread.peerAccountId];
+                        const name = displayName(
+                          thread.peerAccountId,
+                          profile?.displayName
+                        );
+                        const handle = fallbackLabel(thread.peerAccountId);
+                        const preview = inboxPreviewByThread[thread.threadId];
+                        return (
+                          <OsSurfaceRow
+                            key={thread.threadId}
+                            active={thread.threadId === activeThreadId}
+                            label={name}
+                            description={
+                              sealed
+                                ? name !== handle
+                                  ? `@${handle} · sealed`
+                                  : 'Sealed before reset'
+                                : preview ||
+                                  (name !== handle ? `@${handle}` : undefined)
+                            }
+                            leading={
+                              <ProfileAvatar
+                                src={profile?.avatarUrl ?? undefined}
+                                fallbackInitial={name.slice(0, 1)}
+                                size="sm"
+                              />
+                            }
+                            trailing={threadTimeTrailing(
+                              thread.lastMessageAt,
+                              sealed ? false : thread.unread
+                            )}
+                            onClick={() => {
+                              clearSearch();
+                              void openThread(thread.threadId);
+                            }}
+                          />
+                        );
+                      })}
+                    </OsSurfaceRowList>
+                  </>
+                )}
+                {peopleActive ? (
+                  <div className="messages-search-people">
+                    <p className="messages-search-section">People</p>
+                    {peoplePending ? (
+                      <p className="messages-muted">Searching people…</p>
+                    ) : peopleError ? (
+                      <p className="messages-muted">{peopleError}</p>
+                    ) : peopleResults.length === 0 ? (
+                      <p className="messages-muted">No people match.</p>
+                    ) : (
+                      <OsSurfaceRowList as="div" aria-label="People">
+                        {peopleResults.map((person) => {
+                          const blocked = messagingBlockedReason(
+                            person.accountId
+                          );
+                          const name = displayName(
+                            person.accountId,
+                            person.name
+                          );
+                          const handle = fallbackLabel(person.accountId);
+                          return (
+                            <OsSurfaceRow
+                              key={person.accountId}
+                              label={name}
+                              description={
+                                messagingBlockedCopy(blocked) ||
+                                (name !== handle ? `@${handle}` : handle)
+                              }
+                              disabled={Boolean(blocked)}
+                              trailing={blocked ? 'none' : 'navigate'}
+                              leading={
+                                <ProfileAvatar
+                                  src={person.avatarUrl ?? undefined}
+                                  fallbackInitial={name.slice(0, 1)}
+                                  size="sm"
+                                />
+                              }
+                              onClick={
+                                blocked
+                                  ? undefined
+                                  : () => startChatFromPeer(person.accountId)
+                              }
+                            />
+                          );
+                        })}
+                      </OsSurfaceRowList>
+                    )}
+                  </div>
+                ) : null}
+              </>
             ) : threads.length === 0 ? (
               <p className="messages-panel-empty">
-                No conversations yet. Message someone from their profile.
+                No conversations yet. Search someone, or message them from
+                their profile.
               </p>
             ) : inboxThreads &&
               inboxThreads.length === 0 &&
@@ -1011,7 +1173,8 @@ export function MessagesPanel() {
               </p>
             ) : inboxThreads && inboxThreads.length === 0 ? (
               <p className="messages-panel-empty">
-                No conversations yet. Message someone from their profile.
+                No conversations yet. Search someone, or message them from
+                their profile.
               </p>
             ) : (
               <OsSurfaceRowList as="div" aria-label="Conversations">
@@ -1049,7 +1212,7 @@ export function MessagesPanel() {
                 })}
               </OsSurfaceRowList>
             )}
-            {sealedThreads.length > 0 ? (
+            {!isSearching && sealedThreads.length > 0 ? (
               <div className="messages-sealed-archive">
                 <button
                   type="button"
@@ -1133,7 +1296,8 @@ export function MessagesPanel() {
             >
               {!activeThreadId ? (
                 <p className="messages-panel-empty messages-thread-empty">
-                  Pick a conversation, or message someone from their profile.
+                  Pick a conversation, search someone, or message them from
+                  their profile.
                 </p>
               ) : !isUnlocked ? (
                 <p className="messages-panel-empty">

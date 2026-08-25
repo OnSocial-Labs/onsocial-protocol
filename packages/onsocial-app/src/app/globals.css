@@ -34690,6 +34690,29 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.1rem;
 }
 
+.messages-inbox-search {
+  width: 100%;
+}
+
+.messages-search-people {
+  margin-top: 0.55rem;
+}
+
+.messages-search-section {
+  margin: 0 0 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.48);
+}
+
+.messages-muted {
+  margin: 0;
+  color: rgb(var(--fg-rgb) / 0.58);
+  font-size: 0.86rem;
+}
+
 .messages-sealed-archive {
   margin-top: 0.65rem;
   padding-top: 0.5rem;
@@ -34824,6 +34847,11 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   }
 
   .os-app-screen:has([data-mobile-pane='thread']) .messages-heading-inbox {
+    display: none;
+  }
+
+  .os-app-screen:has(.messages-panel[data-mobile-pane='thread'])
+    .os-app-screen-toolbar:has(.messages-inbox-search) {
     display: none;
   }
 
