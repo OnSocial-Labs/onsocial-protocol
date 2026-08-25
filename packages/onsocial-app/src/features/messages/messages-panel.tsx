@@ -13,6 +13,8 @@ import {
   OsSurfaceRowList,
   ProfileAvatar,
 } from '@onsocial/ui';
+import { ContextualBack } from '@/components/app/contextual-back';
+import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -20,11 +22,8 @@ import {
   ensureAppGatewayAuth,
   getCachedAppGatewayAuth,
 } from '@/lib/app-gateway-auth';
-import { messagesPath } from '@/lib/app-routes';
-import {
-  decryptDmMessage,
-  isDmDecryptFailureText,
-} from '@/lib/dm/send';
+import { APP_HOME_PATH, messagesPath } from '@/lib/app-routes';
+import { decryptDmMessage, isDmDecryptFailureText } from '@/lib/dm/send';
 import {
   DmKeysLockedError,
   DmKeysMismatchError,
@@ -52,12 +51,32 @@ import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { DmComposeSheet } from '@/features/messages/dm-compose-sheet';
 import { DmMediaBubble } from '@/features/messages/dm-media-bubble';
 import { DmRecoveryCodeSheet } from '@/features/messages/dm-recovery-code-sheet';
+import {
+  formatAbsoluteDmTime,
+  formatRelativeDmTime,
+} from '@/features/messages/dm-time';
 import { DmThreadComposer } from '@/features/messages/dm-thread-composer';
 import { DmUnlockPanel } from '@/features/messages/dm-unlock-panel';
 import { requestDmUnreadRefresh } from '@/components/providers/dm-unread-host';
 
 const THREAD_POLL_MS = 12_000;
 const THREAD_PAGE_SIZE = 50;
+
+function threadTimeTrailing(iso: string, unread = false) {
+  const relative = formatRelativeDmTime(iso);
+  const absolute = formatAbsoluteDmTime(iso);
+  if (!relative && !unread) return 'none' as const;
+  return (
+    <span className="messages-thread-meta">
+      {unread ? <span className="os-surface-row-badge">New</span> : null}
+      {relative ? (
+        <time dateTime={iso} title={absolute || undefined}>
+          {relative}
+        </time>
+      ) : null}
+    </span>
+  );
+}
 
 export function MessagesPanel() {
   const router = useRouter();
@@ -102,13 +121,16 @@ export function MessagesPanel() {
     accountGenRef.current += 1;
   }, [accountId]);
 
-  const isCurrentAccount = useCallback((expected: string | null | undefined) => {
-    if (!expected) return false;
-    const current = accountIdRef.current;
-    return Boolean(
-      current && current.toLowerCase() === expected.toLowerCase()
-    );
-  }, []);
+  const isCurrentAccount = useCallback(
+    (expected: string | null | undefined) => {
+      if (!expected) return false;
+      const current = accountIdRef.current;
+      return Boolean(
+        current && current.toLowerCase() === expected.toLowerCase()
+      );
+    },
+    []
+  );
 
   // keysTick forces a re-read of localStorage after unlock / bootstrap.
   const isUnlocked = Boolean(
@@ -174,17 +196,11 @@ export function MessagesPanel() {
     const gen = accountGenRef.current;
     const expectedAccount = accountId;
     const { client } = await getClient();
-    if (
-      accountGenRef.current !== gen ||
-      !isCurrentAccount(expectedAccount)
-    ) {
+    if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
       return;
     }
     const remote = await lookupDmKeyBackup(client, accountId);
-    if (
-      accountGenRef.current !== gen ||
-      !isCurrentAccount(expectedAccount)
-    ) {
+    if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
       return;
     }
     if (remote.status === 'unavailable') {
@@ -196,10 +212,7 @@ export function MessagesPanel() {
     }
     try {
       const keys = await ensureDmKeys(accountId, { remote });
-      if (
-        accountGenRef.current !== gen ||
-        !isCurrentAccount(expectedAccount)
-      ) {
+      if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
         return;
       }
       if (keys.backup) {
@@ -211,10 +224,7 @@ export function MessagesPanel() {
           created: keys.created,
         });
       }
-      if (
-        accountGenRef.current !== gen ||
-        !isCurrentAccount(expectedAccount)
-      ) {
+      if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
         return;
       }
       const pending = keys.recoveryCode ?? peekPendingDmRecoveryCode(accountId);
@@ -224,10 +234,7 @@ export function MessagesPanel() {
       }
       setKeysTick((n) => n + 1);
     } catch (cause) {
-      if (
-        accountGenRef.current !== gen ||
-        !isCurrentAccount(expectedAccount)
-      ) {
+      if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
         return;
       }
       if (
@@ -268,17 +275,11 @@ export function MessagesPanel() {
     const gen = accountGenRef.current;
     const expectedAccount = accountId;
     const { client } = await withAuth();
-    if (
-      accountGenRef.current !== gen ||
-      !isCurrentAccount(expectedAccount)
-    ) {
+    if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
       return;
     }
     const { threads: next } = await client.dm.listThreads();
-    if (
-      accountGenRef.current !== gen ||
-      !isCurrentAccount(expectedAccount)
-    ) {
+    if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
       return;
     }
     setThreads(next);
@@ -617,7 +618,9 @@ export function MessagesPanel() {
       await decryptMessages(client, merged, activeThreadId);
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : 'Could not load older messages.'
+        cause instanceof Error
+          ? cause.message
+          : 'Could not load older messages.'
       );
     } finally {
       setLoadingOlder(false);
@@ -647,319 +650,412 @@ export function MessagesPanel() {
 
   if (!isConnected || !accountId) {
     return (
-      <div className="messages-panel">
-        <header className="messages-panel-header">
-          <h1>Messages</h1>
-          <p>Private · sealed on your device</p>
-        </header>
-        <p className="messages-panel-empty">
-          Connect your wallet to send private messages.
-        </p>
-        <OsSheetActions>
-          <OsSheetAction type="button" ready onClick={() => void connect()}>
-            Connect
-          </OsSheetAction>
-        </OsSheetActions>
-      </div>
+      <OsAppScreen
+        title="Messages"
+        subtitle="Private · sealed on your device"
+        backFallbackHref={APP_HOME_PATH}
+        glassChrome
+      >
+        <div className="messages-panel">
+          <p className="messages-panel-empty">
+            Connect your wallet to send private messages.
+          </p>
+          <OsSheetActions>
+            <OsSheetAction type="button" ready onClick={() => void connect()}>
+              Connect
+            </OsSheetAction>
+          </OsSheetActions>
+        </div>
+      </OsAppScreen>
     );
   }
 
-  const mobilePane = activeThreadId ? 'thread' : 'list';
+  if (!hasSocialSession) {
+    return (
+      <OsAppScreen
+        title="Messages"
+        subtitle="Private · sealed on your device"
+        backFallbackHref={APP_HOME_PATH}
+        glassChrome
+      >
+        <div className="messages-panel">
+          <p className="messages-panel-empty">
+            Connect your session to load private messages.
+          </p>
+        </div>
+      </OsAppScreen>
+    );
+  }
+
+  const threadOpen = Boolean(activeThreadId && isUnlocked);
+  const mobilePane = threadOpen ? 'thread' : 'list';
   const peerProfile = peerFromThread ? profiles[peerFromThread] : undefined;
   const peerName = peerFromThread
     ? displayName(peerFromThread, peerProfile?.displayName)
     : '';
   const peerHandle = peerFromThread ? fallbackLabel(peerFromThread) : '';
 
-  return (
-    <div className="messages-panel" data-mobile-pane={mobilePane}>
-      <header className="messages-panel-header">
-        <h1>Messages</h1>
-        <p>Private · sealed on your device</p>
-      </header>
-
-      {!isUnlocked && accountId ? (
-        <DmUnlockPanel
-          accountId={accountId}
-          onUnlocked={() => void handleUnlocked()}
-          onReset={(code) => {
-            if (accountId) {
-              recordDmKeysReset(accountId);
-              archiveSealedDmThreads(
-                accountId,
-                (threads ?? []).map((thread) => thread.threadId)
-              );
-              setArchiveTick((n) => n + 1);
-              setShowSealedArchive(false);
-            }
-            setPlainById({});
-            setRecoveryVariant('reset');
-            setRecoveryCode(code);
-            void handleUnlocked();
-          }}
-        />
-      ) : isUnlocked && canPasskey && !passkeyEnrolled ? (
-        <section className="messages-unlock" aria-label="Enable passkey unlock">
-          <p>
-            Optional: unlock next time with this device instead of your code.
-          </p>
-          <OsSheetActions>
-            <OsSheetAction
-              type="button"
-              ready={!enrollPending}
-              pending={enrollPending}
-              pendingLabel="Enabling…"
-              onClick={() => void handleEnrollPasskey()}
-            >
-              Enable device unlock
-            </OsSheetAction>
-          </OsSheetActions>
-        </section>
-      ) : null}
-
-      {error ? (
-        <p className="messages-panel-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-
-      <div className="messages-layout" data-mobile-pane={mobilePane}>
-        <aside className="messages-thread-list" aria-label="Conversations">
-          {threads == null ? (
-            <p className="messages-panel-empty">Loading…</p>
-          ) : threads.length === 0 ? (
-            <p className="messages-panel-empty">No conversations yet.</p>
-          ) : inboxThreads &&
-            inboxThreads.length === 0 &&
-            sealedThreads.length > 0 ? (
-            <p className="messages-panel-empty">
-              No open conversations. Sealed threads from before a key reset are
-              below.
-            </p>
-          ) : inboxThreads && inboxThreads.length === 0 ? (
-            <p className="messages-panel-empty">No conversations yet.</p>
-          ) : (
-            <OsSurfaceRowList as="div" aria-label="Conversations">
-              {(inboxThreads ?? []).map((thread) => {
-                const profile = profiles[thread.peerAccountId];
-                const name = displayName(
-                  thread.peerAccountId,
-                  profile?.displayName
-                );
-                const handle = fallbackLabel(thread.peerAccountId);
-                return (
-                  <OsSurfaceRow
-                    key={thread.threadId}
-                    active={thread.threadId === activeThreadId}
-                    label={name}
-                    description={name !== handle ? `@${handle}` : undefined}
-                    leading={
-                      <ProfileAvatar
-                        src={profile?.avatarUrl ?? undefined}
-                        fallbackInitial={name.slice(0, 1)}
-                        size="sm"
-                      />
-                    }
-                    badge={thread.unread ? 'New' : undefined}
-                    trailing={thread.unread ? undefined : 'navigate'}
-                    onClick={() => void openThread(thread.threadId)}
-                  />
-                );
-              })}
-            </OsSurfaceRowList>
-          )}
-          {sealedThreads.length > 0 ? (
-            <div className="messages-sealed-archive">
-              <button
-                type="button"
-                className="messages-sealed-archive-toggle"
-                aria-expanded={showSealedArchive}
-                onClick={() => setShowSealedArchive((open) => !open)}
-              >
-                {showSealedArchive ? 'Hide' : 'Show'} sealed before reset (
-                {sealedThreads.length})
-              </button>
-              {showSealedArchive ? (
-                <OsSurfaceRowList as="div" aria-label="Sealed conversations">
-                  {sealedThreads.map((thread) => {
-                    const profile = profiles[thread.peerAccountId];
-                    const name = displayName(
-                      thread.peerAccountId,
-                      profile?.displayName
-                    );
-                    const handle = fallbackLabel(thread.peerAccountId);
-                    return (
-                      <OsSurfaceRow
-                        key={thread.threadId}
-                        active={thread.threadId === activeThreadId}
-                        label={name}
-                        description={
-                          name !== handle
-                            ? `@${handle} · sealed`
-                            : 'Sealed before reset'
-                        }
-                        leading={
-                          <ProfileAvatar
-                            src={profile?.avatarUrl ?? undefined}
-                            fallbackInitial={name.slice(0, 1)}
-                            size="sm"
-                          />
-                        }
-                        trailing="navigate"
-                        onClick={() => void openThread(thread.threadId)}
-                      />
-                    );
-                  })}
-                </OsSurfaceRowList>
-              ) : null}
-            </div>
-          ) : null}
-        </aside>
-
-        <section className="messages-thread" aria-label="Thread">
-          {activeThreadId ? (
-            <header className="messages-thread-nav">
-              <OsIconAction
-                className="messages-thread-back"
-                ariaLabel="Back to conversations"
-                onClick={closeThread}
-              >
-                <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
-              </OsIconAction>
-              <div className="messages-thread-nav-heading">
-                <h2 className="messages-thread-nav-title">
-                  {peerName || 'Conversation'}
-                </h2>
-                {peerHandle && peerName !== peerHandle ? (
-                  <p className="messages-thread-nav-subtitle">@{peerHandle}</p>
-                ) : null}
-              </div>
-            </header>
-          ) : null}
-          <div className="messages-thread-scroll">
-            {!activeThreadId ? (
-              <p className="messages-panel-empty">
-                Pick a conversation or message someone from their profile.
-              </p>
-            ) : !isUnlocked ? (
-              <p className="messages-panel-empty">
-                Unlock messages to read this conversation.
-              </p>
-            ) : messages == null ? (
-              <p className="messages-panel-empty">Loading…</p>
-            ) : (
-              <>
-                {accountId &&
-                activeThreadId &&
-                isDmThreadSealedArchived(accountId, activeThreadId) ? (
-                  <p className="messages-sealed-banner" role="status">
-                    Sealed before a key reset — these messages stay unreadable.
-                    New replies in this conversation will open normally.
-                  </p>
-                ) : null}
-                {hasMoreMessages ? (
-                  <div className="messages-load-older">
-                    <OsSheetAction
-                      type="button"
-                      ready={!loadingOlder}
-                      pending={loadingOlder}
-                      pendingLabel="Loading…"
-                      onClick={() => void loadOlderMessages()}
-                    >
-                      Load earlier messages
-                    </OsSheetAction>
-                  </div>
-                ) : null}
-                <ul className="messages-bubble-list">
-                  {messages.map((msg) => {
-                    const mine = msg.senderAccountId === accountId.toLowerCase();
-                    const text = plainById[msg.id];
-                    return (
-                      <li
-                        key={msg.id}
-                        className={
-                          mine ? 'messages-bubble is-mine' : 'messages-bubble'
-                        }
-                      >
-                        {text != null ? text ? <p>{text}</p> : null : <p>…</p>}
-                        {msg.media?.length
-                          ? msg.media.map((item) => (
-                              <DmMediaBubble
-                                key={`${msg.id}-${item.cid}`}
-                                accountId={accountId}
-                                senderAccountId={msg.senderAccountId}
-                                senderPubkey={msg.senderPubkey}
-                                ephemeralPubkey={msg.ephemeralPubkey}
-                                cid={item.cid}
-                                mime={item.mime}
-                                nonce={item.nonce}
-                                senderNonce={item.senderNonce}
-                              />
-                            ))
-                          : null}
-                        <time dateTime={msg.createdAt}>
-                          {new Date(msg.createdAt).toLocaleString()}
-                        </time>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            )}
-          </div>
-          {peerFromThread && isUnlocked && activeThreadId ? (
-            <div className="messages-thread-footer">
-              <DmThreadComposer
-                peerAccountId={peerFromThread}
-                onSent={() => {
-                  void refreshThreads();
-                  if (activeThreadId) void openThread(activeThreadId);
-                }}
-                onRecoveryCode={(code) => {
-                  setRecoveryVariant('created');
-                  setRecoveryCode(code);
-                }}
-              />
-              <Link
-                className="messages-thread-profile-link"
-                href={`/${peerFromThread}`}
-              >
-                View profile
-              </Link>
-            </div>
-          ) : null}
-        </section>
-      </div>
-
-      <DmComposeSheet
-        open={showCompose && Boolean(composePeer)}
-        peerAccountId={composePeer}
-        onClose={() => {
-          if (peerParam) {
-            router.replace(messagesPath({ threadId: activeThreadId || null }));
-          }
-        }}
+  const composer =
+    peerFromThread && isUnlocked && activeThreadId ? (
+      <DmThreadComposer
+        peerAccountId={peerFromThread}
         onSent={() => {
           void refreshThreads();
           if (activeThreadId) void openThread(activeThreadId);
         }}
-      />
-      <DmRecoveryCodeSheet
-        open={Boolean(recoveryCode)}
-        code={recoveryCode ?? ''}
-        accountId={accountId}
-        variant={recoveryVariant}
-        onClose={() => {
-          // Passive dismiss keeps pendingRecoveryCode so the sheet can reappear.
-          setRecoveryCode(null);
-        }}
-        onAcknowledge={() => {
-          if (accountId) acknowledgeDmRecoveryCode(accountId);
-          setRecoveryCode(null);
+        onRecoveryCode={(code) => {
           setRecoveryVariant('created');
+          setRecoveryCode(code);
         }}
-        onPasskeyEnrolled={() => setKeysTick((n) => n + 1)}
       />
-    </div>
+    ) : null;
+
+  const unlockPanel =
+    !isUnlocked && accountId ? (
+      <DmUnlockPanel
+        accountId={accountId}
+        onUnlocked={() => void handleUnlocked()}
+        onReset={(code) => {
+          if (accountId) {
+            recordDmKeysReset(accountId);
+            archiveSealedDmThreads(
+              accountId,
+              (threads ?? []).map((thread) => thread.threadId)
+            );
+            setArchiveTick((n) => n + 1);
+            setShowSealedArchive(false);
+          }
+          setPlainById({});
+          setRecoveryVariant('reset');
+          setRecoveryCode(code);
+          void handleUnlocked();
+        }}
+      />
+    ) : null;
+
+  return (
+    <OsAppScreen
+      title="Messages"
+      subtitle="Private · sealed on your device"
+      backFallbackHref={APP_HOME_PATH}
+      glassChrome
+      leading={
+        <>
+          <span className="messages-screen-back-home">
+            <ContextualBack fallbackHref={APP_HOME_PATH} />
+          </span>
+          {threadOpen ? (
+            <OsIconAction
+              className="messages-screen-back-thread"
+              ariaLabel="Back to conversations"
+              onClick={closeThread}
+            >
+              <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
+            </OsIconAction>
+          ) : null}
+        </>
+      }
+      heading={
+        <div className="messages-heading">
+          <div className="messages-heading-inbox">
+            <p className="os-app-screen-title">Messages</p>
+            <p className="os-app-screen-subtitle">
+              Private · sealed on your device
+            </p>
+          </div>
+          {threadOpen ? (
+            <div className="messages-heading-thread">
+              {peerFromThread ? (
+                <Link
+                  href={`/${peerFromThread}`}
+                  className="os-app-screen-title-link"
+                  title={peerName || 'Conversation'}
+                  scroll={false}
+                >
+                  <p className="os-app-screen-title">
+                    {peerName || 'Conversation'}
+                  </p>
+                </Link>
+              ) : (
+                <p className="os-app-screen-title">
+                  {peerName || 'Conversation'}
+                </p>
+              )}
+              {peerHandle && peerName !== peerHandle ? (
+                <p className="os-app-screen-subtitle">@{peerHandle}</p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      }
+    >
+      <div className="messages-panel" data-mobile-pane={mobilePane}>
+        {unlockPanel}
+
+        {isUnlocked && canPasskey && !passkeyEnrolled ? (
+          <button
+            type="button"
+            className="messages-passkey-hint"
+            disabled={enrollPending}
+            onClick={() => void handleEnrollPasskey()}
+          >
+            {enrollPending
+              ? 'Enabling device unlock…'
+              : 'Unlock next time with this device'}
+          </button>
+        ) : null}
+
+        {error ? (
+          <p className="messages-panel-error" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="messages-layout" data-mobile-pane={mobilePane}>
+          <aside className="messages-thread-list" aria-label="Conversations">
+            {threads == null ? (
+              <p className="messages-panel-empty">Loading…</p>
+            ) : threads.length === 0 ? (
+              <p className="messages-panel-empty">
+                No conversations yet. Message someone from their profile.
+              </p>
+            ) : inboxThreads &&
+              inboxThreads.length === 0 &&
+              sealedThreads.length > 0 ? (
+              <p className="messages-panel-empty">
+                No open conversations. Sealed threads from before a key reset
+                are below.
+              </p>
+            ) : inboxThreads && inboxThreads.length === 0 ? (
+              <p className="messages-panel-empty">
+                No conversations yet. Message someone from their profile.
+              </p>
+            ) : (
+              <OsSurfaceRowList as="div" aria-label="Conversations">
+                {(inboxThreads ?? []).map((thread) => {
+                  const profile = profiles[thread.peerAccountId];
+                  const name = displayName(
+                    thread.peerAccountId,
+                    profile?.displayName
+                  );
+                  const handle = fallbackLabel(thread.peerAccountId);
+                  return (
+                    <OsSurfaceRow
+                      key={thread.threadId}
+                      active={thread.threadId === activeThreadId}
+                      label={name}
+                      description={name !== handle ? `@${handle}` : undefined}
+                      leading={
+                        <ProfileAvatar
+                          src={profile?.avatarUrl ?? undefined}
+                          fallbackInitial={name.slice(0, 1)}
+                          size="sm"
+                        />
+                      }
+                      trailing={threadTimeTrailing(
+                        thread.lastMessageAt,
+                        thread.unread
+                      )}
+                      onClick={() => void openThread(thread.threadId)}
+                    />
+                  );
+                })}
+              </OsSurfaceRowList>
+            )}
+            {sealedThreads.length > 0 ? (
+              <div className="messages-sealed-archive">
+                <button
+                  type="button"
+                  className="messages-sealed-archive-toggle"
+                  aria-expanded={showSealedArchive}
+                  onClick={() => setShowSealedArchive((open) => !open)}
+                >
+                  {showSealedArchive ? 'Hide sealed' : 'Sealed before reset'} ·{' '}
+                  {sealedThreads.length}
+                </button>
+                {showSealedArchive ? (
+                  <OsSurfaceRowList as="div" aria-label="Sealed conversations">
+                    {sealedThreads.map((thread) => {
+                      const profile = profiles[thread.peerAccountId];
+                      const name = displayName(
+                        thread.peerAccountId,
+                        profile?.displayName
+                      );
+                      const handle = fallbackLabel(thread.peerAccountId);
+                      return (
+                        <OsSurfaceRow
+                          key={thread.threadId}
+                          active={thread.threadId === activeThreadId}
+                          label={name}
+                          description={
+                            name !== handle
+                              ? `@${handle} · sealed`
+                              : 'Sealed before reset'
+                          }
+                          leading={
+                            <ProfileAvatar
+                              src={profile?.avatarUrl ?? undefined}
+                              fallbackInitial={name.slice(0, 1)}
+                              size="sm"
+                            />
+                          }
+                          trailing={threadTimeTrailing(thread.lastMessageAt)}
+                          onClick={() => void openThread(thread.threadId)}
+                        />
+                      );
+                    })}
+                  </OsSurfaceRowList>
+                ) : null}
+              </div>
+            ) : null}
+          </aside>
+
+          <section className="messages-thread" aria-label="Thread">
+            {activeThreadId && peerFromThread ? (
+              <header className="messages-thread-peer">
+                <ProfileAvatar
+                  src={peerProfile?.avatarUrl ?? undefined}
+                  fallbackInitial={(peerName || '?').slice(0, 1)}
+                  size="sm"
+                />
+                <div className="messages-thread-peer-copy">
+                  <Link
+                    href={`/${peerFromThread}`}
+                    className="messages-thread-peer-name"
+                    scroll={false}
+                  >
+                    {peerName || 'Conversation'}
+                  </Link>
+                  {peerHandle && peerName !== peerHandle ? (
+                    <p className="messages-thread-peer-handle">@{peerHandle}</p>
+                  ) : (
+                    <p className="messages-thread-peer-handle">{peerHandle}</p>
+                  )}
+                </div>
+              </header>
+            ) : null}
+            <div className="messages-thread-scroll">
+              {!activeThreadId ? (
+                <p className="messages-panel-empty messages-thread-empty">
+                  Pick a conversation, or message someone from their profile.
+                </p>
+              ) : !isUnlocked ? (
+                <p className="messages-panel-empty">
+                  Unlock messages to read this conversation.
+                </p>
+              ) : messages == null ? (
+                <p className="messages-panel-empty">Loading…</p>
+              ) : (
+                <>
+                  {accountId &&
+                  activeThreadId &&
+                  isDmThreadSealedArchived(accountId, activeThreadId) ? (
+                    <p className="messages-sealed-banner" role="status">
+                      Sealed before a key reset. New replies open normally.
+                    </p>
+                  ) : null}
+                  {hasMoreMessages ? (
+                    <div className="messages-load-older">
+                      <OsSheetAction
+                        type="button"
+                        ready={!loadingOlder}
+                        pending={loadingOlder}
+                        pendingLabel="Loading…"
+                        onClick={() => void loadOlderMessages()}
+                      >
+                        Earlier
+                      </OsSheetAction>
+                    </div>
+                  ) : null}
+                  <ul className="messages-bubble-list">
+                    {messages.map((msg) => {
+                      const mine =
+                        msg.senderAccountId === accountId.toLowerCase();
+                      const text = plainById[msg.id];
+                      const relative = formatRelativeDmTime(msg.createdAt);
+                      const absolute = formatAbsoluteDmTime(msg.createdAt);
+                      return (
+                        <li
+                          key={msg.id}
+                          className={
+                            mine ? 'messages-bubble is-mine' : 'messages-bubble'
+                          }
+                        >
+                          {text != null ? (
+                            text ? (
+                              <p>{text}</p>
+                            ) : null
+                          ) : (
+                            <p>…</p>
+                          )}
+                          {msg.media?.length
+                            ? msg.media.map((item) => (
+                                <DmMediaBubble
+                                  key={`${msg.id}-${item.cid}`}
+                                  accountId={accountId}
+                                  senderAccountId={msg.senderAccountId}
+                                  senderPubkey={msg.senderPubkey}
+                                  ephemeralPubkey={msg.ephemeralPubkey}
+                                  cid={item.cid}
+                                  mime={item.mime}
+                                  nonce={item.nonce}
+                                  senderNonce={item.senderNonce}
+                                />
+                              ))
+                            : null}
+                          {relative ? (
+                            <time
+                              dateTime={msg.createdAt}
+                              title={absolute || undefined}
+                            >
+                              {relative}
+                            </time>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
+            </div>
+            {composer ? (
+              <div className="messages-thread-footer">{composer}</div>
+            ) : null}
+          </section>
+        </div>
+
+        <DmComposeSheet
+          open={showCompose && Boolean(composePeer)}
+          peerAccountId={composePeer}
+          onClose={() => {
+            if (peerParam) {
+              router.replace(
+                messagesPath({ threadId: activeThreadId || null })
+              );
+            }
+          }}
+          onSent={() => {
+            void refreshThreads();
+            if (activeThreadId) void openThread(activeThreadId);
+          }}
+        />
+        <DmRecoveryCodeSheet
+          open={Boolean(recoveryCode)}
+          code={recoveryCode ?? ''}
+          accountId={accountId}
+          variant={recoveryVariant}
+          onClose={() => {
+            // Passive dismiss keeps pendingRecoveryCode so the sheet can reappear.
+            setRecoveryCode(null);
+          }}
+          onAcknowledge={() => {
+            if (accountId) acknowledgeDmRecoveryCode(accountId);
+            setRecoveryCode(null);
+            setRecoveryVariant('created');
+          }}
+          onPasskeyEnrolled={() => setKeysTick((n) => n + 1)}
+        />
+      </div>
+    </OsAppScreen>
   );
 }

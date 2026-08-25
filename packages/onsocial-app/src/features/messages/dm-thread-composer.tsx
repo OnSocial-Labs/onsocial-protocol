@@ -2,10 +2,10 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import {
-  OsField,
-  OsSheetAction,
-  OsSheetActions,
-  osFieldBorderedClassName,
+  ImageIcon,
+  OsIconAction,
+  PulsingDots,
+  osFieldSoftClassName,
 } from '@onsocial/ui';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -32,6 +32,7 @@ export function DmThreadComposer({
 }: DmThreadComposerProps) {
   const mediaInputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
   const { accountId, isConnected, connect, hasSocialSession } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const [text, setText] = useState('');
@@ -50,6 +51,13 @@ export function DmThreadComposer({
     return () => URL.revokeObjectURL(url);
   }, [mediaFile]);
 
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+    el.style.height = '0px';
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [text]);
+
   const clearMedia = () => {
     setMediaFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -57,8 +65,8 @@ export function DmThreadComposer({
 
   const canSend = Boolean(text.trim() || mediaFile) && !disabled;
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
+  const handleSubmit = async (event?: FormEvent) => {
+    event?.preventDefault();
     setError(null);
     if (!isConnected || !accountId) {
       await connect();
@@ -106,64 +114,91 @@ export function DmThreadComposer({
 
   return (
     <form
-      className="messages-thread-composer"
+      className="messages-composer"
       onSubmit={(e) => void handleSubmit(e)}
       aria-label="Reply"
     >
-      <OsField label="Reply" htmlFor="dm-thread-reply">
-        <textarea
-          id="dm-thread-reply"
-          className={osFieldBorderedClassName}
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          placeholder="Write a reply…"
-          rows={2}
-          disabled={pending || disabled}
-        />
-      </OsField>
+      <input
+        ref={fileInputRef}
+        id={mediaInputId}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+        className="sr-only"
+        disabled={pending || disabled}
+        onChange={(event) => setMediaFile(event.target.files?.[0] ?? null)}
+      />
 
-      <div className="dm-compose-media">
-        <input
-          ref={fileInputRef}
-          id={mediaInputId}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
-          className="sr-only"
-          disabled={pending || disabled}
-          onChange={(event) => setMediaFile(event.target.files?.[0] ?? null)}
-        />
-        {previewUrl && mediaFile ? (
-          <div className="dm-compose-media-preview">
-            {mediaFile.type.startsWith('video/') ? (
-              <video
-                src={previewUrl}
-                className="dm-compose-media-el"
-                controls
-                playsInline
-                preload="metadata"
-              />
-            ) : (
-              <img src={previewUrl} alt="" className="dm-compose-media-el" />
-            )}
-            <button
-              type="button"
-              className="dm-compose-media-remove"
-              disabled={pending || disabled}
-              onClick={clearMedia}
-            >
-              Remove media
-            </button>
-          </div>
-        ) : (
+      {previewUrl && mediaFile ? (
+        <div className="messages-composer-preview">
+          {mediaFile.type.startsWith('video/') ? (
+            <video
+              src={previewUrl}
+              className="messages-composer-preview-el"
+              muted
+              playsInline
+              preload="metadata"
+            />
+          ) : (
+            <img
+              src={previewUrl}
+              alt=""
+              className="messages-composer-preview-el"
+            />
+          )}
           <button
             type="button"
-            className="dm-compose-media-attach"
+            className="messages-composer-preview-remove"
             disabled={pending || disabled}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={clearMedia}
           >
-            Attach photo or video
+            Remove
           </button>
-        )}
+        </div>
+      ) : null}
+
+      <div className="messages-composer-bar">
+        <OsIconAction
+          ariaLabel="Attach photo or video"
+          disabled={pending || disabled}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <ImageIcon className="glass-sheet-close-icon" aria-hidden />
+        </OsIconAction>
+        <textarea
+          ref={textRef}
+          id={`${mediaInputId}-reply`}
+          className={`${osFieldSoftClassName} messages-composer-input`}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (
+              event.key !== 'Enter' ||
+              event.shiftKey ||
+              event.nativeEvent.isComposing
+            ) {
+              return;
+            }
+            event.preventDefault();
+            void handleSubmit();
+          }}
+          placeholder="Message"
+          aria-label="Message"
+          rows={1}
+          disabled={pending || disabled}
+        />
+        <button
+          type="submit"
+          className="messages-composer-send"
+          disabled={pending || disabled || (!canSend && isConnected)}
+        >
+          {pending ? (
+            <PulsingDots size="sm" label="Sending" />
+          ) : !isConnected ? (
+            'Connect'
+          ) : (
+            'Send'
+          )}
+        </button>
       </div>
 
       {error ? (
@@ -171,17 +206,6 @@ export function DmThreadComposer({
           {error}
         </p>
       ) : null}
-
-      <OsSheetActions>
-        <OsSheetAction
-          type="submit"
-          ready={canSend && !pending}
-          pending={pending}
-          pendingLabel="Sending…"
-        >
-          {!isConnected ? 'Connect wallet' : 'Send'}
-        </OsSheetAction>
-      </OsSheetActions>
     </form>
   );
 }
