@@ -4,25 +4,72 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import {
   ImageIcon,
   OsIconAction,
-  PulsingDots,
   osFieldSoftClassName,
 } from '@onsocial/ui';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
+import { normalizeDmReplyToMessageId } from '@/lib/dm/crypto';
 import { sendEncryptedDm } from '@/lib/dm/send';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { createDmOutgoingLocalId } from '@/features/messages/dm-outgoing';
 
 const MOBILE_MAX_WIDTH_PX = 767;
+const mediaPreviewUrls = new WeakMap<File, string>();
+
+function mediaPreviewUrlFor(file: File | null): string | null {
+  if (!file) return null;
+  const cached = mediaPreviewUrls.get(file);
+  if (cached) return cached;
+  const url = URL.createObjectURL(file);
+  mediaPreviewUrls.set(file, url);
+  return url;
+}
+
+function revokeMediaPreview(file: File | null) {
+  if (!file) return;
+  const url = mediaPreviewUrls.get(file);
+  if (!url) return;
+  URL.revokeObjectURL(url);
+  mediaPreviewUrls.delete(file);
+}
 
 function shouldSendOnEnterKey(): boolean {
   if (typeof window === 'undefined') return false;
   return !window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH_PX}px)`).matches;
 }
 
+type DmComposerReply = {
+  messageId: string;
+  preview: string;
+};
+
 type DmThreadComposerProps = {
   peerAccountId: string;
   disabled?: boolean;
+  disabledReason?: string | null;
+  replyTo?: DmComposerReply | null;
+  onCancelReply?: () => void;
+  onOutgoingStart?: (draft: {
+    localId: string;
+    text: string;
+    peerAccountId: string;
+    replyToMessageId?: string;
+    mediaFile?: File | null;
+    mediaPreviewUrl?: string | null;
+    mediaMime?: string | null;
+  }) => void;
+  onOutgoingConfirm?: (opts: {
+    localId: string;
+    messageId: string;
+    threadId: string;
+  }) => void;
+  onOutgoingFail?: (opts: {
+    localId: string;
+    error: string;
+    needsUnlock?: boolean;
+  }) => void;
+  onOutgoingCancel?: (localId: string) => void;
   onSent?: () => void;
   /** First-time key create — parent shows recovery sheet. */
   onRecoveryCode?: (code: string) => void;
@@ -35,6 +82,13 @@ type DmThreadComposerProps = {
 export function DmThreadComposer({
   peerAccountId,
   disabled = false,
+  disabledReason = null,
+  replyTo = null,
+  onCancelReply,
+  onOutgoingStart,
+  onOutgoingConfirm,
+  onOutgoingFail,
+  onOutgoingCancel,
   onSent,
   onRecoveryCode,
 }: DmThreadComposerProps) {
@@ -46,19 +100,9 @@ export function DmThreadComposer({
   const { getClient } = useAppOnSocialClient();
   const [text, setText] = useState('');
   const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!mediaFile) {
-      setPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(mediaFile);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [mediaFile]);
+  const submitLockRef = useRef(false);
+  const mediaPreviewUrl = mediaPreviewUrlFor(mediaFile);
 
   useEffect(() => {
     const el = textRef.current;
@@ -68,6 +112,7 @@ export function DmThreadComposer({
   }, [text]);
 
   const clearMedia = () => {
+    revokeMediaPreview(mediaFile);
     setMediaFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -86,12 +131,32 @@ export function DmThreadComposer({
       return;
     }
     if (!canSend) return;
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
 
-    setPending(true);
+    const localId = createDmOutgoingLocalId();
+    const outgoingText = text;
+    const outgoingMedia = mediaFile;
+    const replyToMessageId = normalizeDmReplyToMessageId(replyTo?.messageId);
+
     try {
+      onOutgoingStart?.({
+        localId,
+        text: outgoingText.trim(),
+        peerAccountId,
+        replyToMessageId,
+        mediaFile: outgoingMedia,
+        mediaMime: outgoingMedia?.type ?? null,
+      });
+      setText('');
+      clearMedia();
+      onCancelReply?.();
       const { client, session, wallet } = await getClient();
       if (!session) {
-        setError('Connect your session to send private messages.');
+        onOutgoingFail?.({
+          localId,
+          error: 'Connect your session to send private messages.',
+        });
         return;
       }
       const result = await sendEncryptedDm({
@@ -100,24 +165,39 @@ export function DmThreadComposer({
         wallet,
         session,
         recipientAccountId: peerAccountId,
-        text,
-        mediaFile,
+        text: outgoingText,
+        mediaFile: outgoingMedia,
+        replyToMessageId,
       });
       if (!result.ok) {
-        setError(result.error);
+        onOutgoingFail?.({
+          localId,
+          error: result.error,
+          needsUnlock: result.needsUnlock,
+        });
         return;
       }
-      setText('');
-      clearMedia();
+      onOutgoingConfirm?.({
+        localId,
+        messageId: result.messageId,
+        threadId: result.threadId,
+      });
       if (result.recoveryCode) onRecoveryCode?.(result.recoveryCode);
       onSent?.();
     } catch (cause) {
-      if (isWalletUserCancellation(cause)) return;
-      setError(
-        cause instanceof Error ? cause.message : 'Could not send message.'
-      );
+      if (isWalletUserCancellation(cause)) {
+        onOutgoingCancel?.(localId);
+        setText(outgoingText);
+        if (outgoingMedia) setMediaFile(outgoingMedia);
+        return;
+      }
+      onOutgoingFail?.({
+        localId,
+        error:
+          cause instanceof Error ? cause.message : 'Could not send message.',
+      });
     } finally {
-      setPending(false);
+      submitLockRef.current = false;
     }
   };
 
@@ -133,15 +213,31 @@ export function DmThreadComposer({
         type="file"
         accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
         className="sr-only"
-        disabled={pending || disabled}
+        disabled={disabled}
         onChange={(event) => setMediaFile(event.target.files?.[0] ?? null)}
       />
 
-      {previewUrl && mediaFile ? (
+      {replyTo ? (
+        <div className="messages-composer-reply">
+          <p className="messages-composer-reply-copy">
+            <span>Replying</span>
+            {replyTo.preview}
+          </p>
+          <button
+            type="button"
+            className="messages-composer-reply-cancel"
+            onClick={onCancelReply}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : null}
+
+      {mediaPreviewUrl && mediaFile ? (
         <div className="messages-composer-preview">
           {mediaFile.type.startsWith('video/') ? (
             <video
-              src={previewUrl}
+              src={mediaPreviewUrl}
               className="messages-composer-preview-el"
               muted
               playsInline
@@ -149,7 +245,7 @@ export function DmThreadComposer({
             />
           ) : (
             <img
-              src={previewUrl}
+              src={mediaPreviewUrl}
               alt=""
               className="messages-composer-preview-el"
             />
@@ -157,7 +253,7 @@ export function DmThreadComposer({
           <button
             type="button"
             className="messages-composer-preview-remove"
-            disabled={pending || disabled}
+            disabled={disabled}
             onClick={clearMedia}
           >
             Remove
@@ -168,7 +264,7 @@ export function DmThreadComposer({
       <div className="messages-composer-bar">
         <OsIconAction
           ariaLabel="Attach photo or video"
-          disabled={pending || disabled}
+          disabled={disabled}
           onClick={() => fileInputRef.current?.click()}
         >
           <ImageIcon className="glass-sheet-close-icon" aria-hidden />
@@ -198,24 +294,22 @@ export function DmThreadComposer({
           autoComplete="off"
           autoCorrect="on"
           rows={1}
-          disabled={pending || disabled}
+          disabled={disabled}
         />
         <button
           type="submit"
           className="messages-composer-send"
-          disabled={pending || disabled || (!canSend && isConnected)}
+          disabled={disabled || (!canSend && isConnected)}
         >
-          {pending ? (
-            <PulsingDots size="sm" label="Sending" />
-          ) : !isConnected ? (
-            'Connect'
-          ) : (
-            'Send'
-          )}
+          {!isConnected ? 'Connect' : 'Send'}
         </button>
       </div>
 
-      {error ? (
+      {disabledReason ? (
+        <p className="dm-compose-error" role="status">
+          {disabledReason}
+        </p>
+      ) : error ? (
         <p className="dm-compose-error" role="alert">
           {error}
         </p>

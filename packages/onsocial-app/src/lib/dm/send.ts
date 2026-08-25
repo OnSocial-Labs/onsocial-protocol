@@ -153,6 +153,7 @@ export async function sendEncryptedDm(opts: {
   recipientAccountId: string;
   text: string;
   mediaFile?: File | null;
+  replyToMessageId?: string | null;
 }): Promise<SendDmResult> {
   const recipient = opts.recipientAccountId.trim().toLowerCase();
   if (!opts.text.trim() && !opts.mediaFile) {
@@ -236,6 +237,7 @@ export async function sendEncryptedDm(opts: {
     senderKeyPair: keys.keyPair,
     ephemeral: sharedEphemeral,
     mediaCids: media?.map((item) => item.cid) ?? null,
+    replyToMessageId: opts.replyToMessageId,
   });
 
   try {
@@ -280,7 +282,7 @@ export async function decryptDmMessage(opts: {
    * Pass from a per-thread cache after one successful lookup.
    */
   expectedSenderPublicKey?: Uint8Array | null;
-}): Promise<string> {
+}): Promise<{ text: string; replyToMessageId?: string }> {
   const keyPair = loadDmKeyPair(opts.accountId);
   if (!keyPair) {
     throw new Error('Unlock messages on this device to read.');
@@ -321,7 +323,7 @@ export async function decryptDmMessage(opts: {
     viewerIsSender,
     mediaCids: opts.mediaCids,
   });
-  return body.text;
+  return body;
 }
 
 export type DecryptedDmMedia = {

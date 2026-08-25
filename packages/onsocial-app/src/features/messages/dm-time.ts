@@ -22,6 +22,48 @@ export function formatRelativeDmTime(
   return formatRelativePostTimestamp(date.getTime(), now);
 }
 
+/** Local calendar day key (`YYYY-MM-DD`) for thread day rules. */
+export function dmLocalDayKey(iso: string | null | undefined): string | null {
+  const date = parseDmDate(iso);
+  if (!date) return null;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/** Thread day rule — Today / Yesterday / weekday date. */
+export function formatDmDaySeparator(
+  iso: string | null | undefined,
+  now: Date = new Date()
+): string {
+  const date = parseDmDate(iso);
+  if (!date) return '';
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startThat = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate()
+  );
+  const diffDays = Math.round(
+    (startToday.getTime() - startThat.getTime()) / 86_400_000
+  );
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (date.getFullYear() === now.getFullYear()) {
+    return new Intl.DateTimeFormat(ABSOLUTE_LOCALE, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    }).format(date);
+  }
+  return new Intl.DateTimeFormat(ABSOLUTE_LOCALE, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
+}
+
 /** Absolute time for `title` / `dateTime` hover precision. */
 export function formatAbsoluteDmTime(iso: string | null | undefined): string {
   const date = parseDmDate(iso);

@@ -3,6 +3,7 @@ import {
   encodeDmPublicKey,
   generateDmKeyPair,
   generateDmRecoveryCode,
+  normalizeDmReplyToMessageId,
   openDmBytes,
   openDmText,
   recoveryCodeToWrapKey,
@@ -47,6 +48,31 @@ describe('dm crypto', () => {
       viewerIsSender: true,
     });
     expect(sentCopy.text).toBe('hello bob');
+  });
+
+  it('seals and opens an optional reply parent id', () => {
+    const alice = generateDmKeyPair();
+    const bob = generateDmKeyPair();
+    const sealed = sealDmText({
+      text: 'on my way',
+      recipientPublicKey: bob.publicKey,
+      senderKeyPair: alice,
+      replyToMessageId: 'parent-1',
+    });
+    const opened = openDmText({
+      ciphertext: sealed.ciphertext,
+      nonce: sealed.nonce,
+      senderPubkey: sealed.senderPubkey,
+      ephemeralPubkey: sealed.ephemeralPubkey,
+      authTag: sealed.authTag,
+      recipientSecretKey: bob.secretKey,
+    });
+    expect(opened).toEqual({
+      text: 'on my way',
+      replyToMessageId: 'parent-1',
+    });
+    expect(normalizeDmReplyToMessageId('local:pending')).toBeUndefined();
+    expect(normalizeDmReplyToMessageId('parent-1')).toBe('parent-1');
   });
 
   it('rejects forged sender attribution via auth tag', () => {

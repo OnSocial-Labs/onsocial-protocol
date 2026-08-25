@@ -43,7 +43,35 @@ export type DmSealedPayload = {
 
 export type DmPlainBody = {
   text: string;
+  /** Sealed with the text — server never sees the parent id. */
+  replyToMessageId?: string;
 };
+
+export function normalizeDmReplyToMessageId(
+  value: string | null | undefined
+): string | undefined {
+  const id = value?.trim() ?? '';
+  if (!id || id.length > 80) return undefined;
+  if (!/^[a-zA-Z0-9._:-]+$/.test(id)) return undefined;
+  if (id.startsWith('local:')) return undefined;
+  return id;
+}
+
+export function parseDmPlainBody(raw: unknown): DmPlainBody {
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('Invalid message payload');
+  }
+  const text = (raw as { text?: unknown }).text;
+  if (typeof text !== 'string') {
+    throw new Error('Invalid message payload');
+  }
+  const replyToMessageId = normalizeDmReplyToMessageId(
+    typeof (raw as { replyToMessageId?: unknown }).replyToMessageId === 'string'
+      ? ((raw as { replyToMessageId: string }).replyToMessageId)
+      : undefined
+  );
+  return replyToMessageId ? { text, replyToMessageId } : { text };
+}
 
 function assertKeyLength(key: Uint8Array, expected: number, label: string) {
   if (key.length !== expected) {
@@ -198,10 +226,13 @@ export function sealDmText(opts: {
   /** Reuse when dual-sealing media after text (or vice versa). */
   ephemeral?: DmKeyPair;
   mediaCids?: readonly string[] | null;
+  replyToMessageId?: string | null;
 }): DmSealedPayload & { ephemeral: DmKeyPair } {
-  const message = decodeUTF8(
-    JSON.stringify({ text: opts.text } satisfies DmPlainBody)
-  );
+  const replyToMessageId = normalizeDmReplyToMessageId(opts.replyToMessageId);
+  const body: DmPlainBody = replyToMessageId
+    ? { text: opts.text, replyToMessageId }
+    : { text: opts.text };
+  const message = decodeUTF8(JSON.stringify(body));
   const ephemeral = opts.ephemeral ?? generateDmKeyPair();
   const forRecipient = boxTo(
     message,
@@ -293,11 +324,7 @@ export function openDmText(opts: {
       opts.recipientSecretKey
     );
     if (!opened) throw new Error('Failed to open sent message');
-    const parsed = JSON.parse(encodeUTF8(opened)) as DmPlainBody;
-    if (typeof parsed?.text !== 'string') {
-      throw new Error('Invalid message payload');
-    }
-    return { text: parsed.text };
+    return parseDmPlainBody(JSON.parse(encodeUTF8(opened)) as unknown);
   }
 
   const opened = nacl.box.open(
@@ -309,11 +336,7 @@ export function openDmText(opts: {
   if (!opened) {
     throw new Error('Failed to open message');
   }
-  const parsed = JSON.parse(encodeUTF8(opened)) as DmPlainBody;
-  if (typeof parsed?.text !== 'string') {
-    throw new Error('Invalid message payload');
-  }
-  return { text: parsed.text };
+  return parseDmPlainBody(JSON.parse(encodeUTF8(opened)) as unknown);
 }
 
 /** Seal arbitrary bytes with a fresh ephemeral key (same as text forward secrecy). */
