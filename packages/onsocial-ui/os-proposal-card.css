@@ -56,7 +56,10 @@
   padding-inline: var(--os-proposal-inset-x);
 }
 
-.os-proposal-card--bordered > .os-proposal-card-strip {
+.os-proposal-card--bordered > .os-proposal-card-strip,
+.os-proposal-card--bordered
+  > .protocol-proposal-card-interactive-layer
+  > .os-proposal-card-strip {
   align-items: center;
   padding: 0.28rem var(--os-proposal-inset-x) 0.22rem;
 }
@@ -107,7 +110,10 @@
   padding-inline: 0;
 }
 
-.os-proposal-card--bordered > .os-proposal-card-body {
+.os-proposal-card--bordered > .os-proposal-card-body,
+.os-proposal-card--bordered
+  > .protocol-proposal-card-interactive-layer
+  > .os-proposal-card-body {
   padding: 0.28rem var(--os-proposal-inset-x) 0.42rem;
   gap: 0.38rem;
 }
@@ -126,7 +132,10 @@
   margin-top: 0.08rem;
 }
 
-.os-proposal-card--bordered > .os-proposal-card-footer {
+.os-proposal-card--bordered > .os-proposal-card-footer,
+.os-proposal-card--bordered
+  > .protocol-proposal-card-interactive-layer
+  > .os-proposal-card-footer {
   padding: 0.35rem var(--os-proposal-inset-x) 0.55rem;
 }
 

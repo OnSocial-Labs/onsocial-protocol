@@ -227,6 +227,16 @@ describe('protocol proposal family', () => {
     expect(hasDaoProposalsDeepLink(params('proposal=12'))).toBe(true);
   });
 
+  it('builds a path without sticky proposal when clearing deep links', () => {
+    expect(
+      daoPortfolioPath('treasury.onsocial.testnet', {
+        status: 'approved',
+        proposal: null,
+        q: 'sweep',
+      })
+    ).toBe('/@treasury.onsocial.testnet?status=approved&q=sweep');
+  });
+
   it('classifies core execute set keys', () => {
     expect(classifyCoreExecuteSetKeys(['page/main'])).toBe('mood');
     expect(classifyCoreExecuteSetKeys(['post/99'])).toBe('post');

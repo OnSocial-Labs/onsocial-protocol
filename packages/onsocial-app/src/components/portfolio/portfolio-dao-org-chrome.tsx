@@ -20,7 +20,7 @@ import { DaoProposalsSheet } from '@/features/protocol/dao-proposals-sheet';
 import { DaoTreasurySheet } from '@/features/protocol/dao-treasury-sheet';
 import type { DaoWorkspaceTool } from '@/features/protocol/dao-workspace-panel';
 import { DaoWorkspaceToolsHost } from '@/features/protocol/dao-workspace-tools-host';
-import { hasDaoProposalsDeepLink } from '@/features/protocol/protocol-proposal-family';
+import { hasDaoProposalsDeepLink, clearDaoProposalDeepLink } from '@/features/protocol/protocol-proposal-family';
 import { useDaoPageCapability } from '@/hooks/use-dao-page-capability';
 import { softIndexDaoMemberships } from '@/features/protocol/my-daos-client';
 import {
@@ -245,6 +245,20 @@ function PortfolioDaoOrgChromeInner({
     { id: 'manage' as const, label: 'Manage' },
   ];
 
+  const openDaoTool = useCallback(
+    (toolId: (typeof tools)[number]['id']) => {
+      setOverlay((current) => {
+        if (current === toolId) return null;
+        if (toolId === 'proposals') {
+          // Face entry always opens the feed — shared `?proposal=` must not stick.
+          clearDaoProposalDeepLink(daoAccountId);
+        }
+        return toolId;
+      });
+    },
+    [daoAccountId]
+  );
+
   return (
     <>
       <nav className="portfolio-dao-tools-inline" aria-label="DAO tools">
@@ -254,9 +268,7 @@ function PortfolioDaoOrgChromeInner({
             type="button"
             className="portfolio-dao-tools-link"
             aria-expanded={overlay === tool.id}
-            onClick={() =>
-              setOverlay((current) => (current === tool.id ? null : tool.id))
-            }
+            onClick={() => openDaoTool(tool.id)}
           >
             {tool.label}
           </button>
@@ -303,9 +315,10 @@ function PortfolioDaoOrgChromeInner({
         daoAccountId={daoAccountId}
         daoName={title}
         canPropose={canPropose}
-        onClose={() =>
-          setOverlay((current) => (current === 'proposals' ? null : current))
-        }
+        onClose={() => {
+          clearDaoProposalDeepLink(daoAccountId);
+          setOverlay((current) => (current === 'proposals' ? null : current));
+        }}
       />
 
       <DaoWorkspaceToolsHost

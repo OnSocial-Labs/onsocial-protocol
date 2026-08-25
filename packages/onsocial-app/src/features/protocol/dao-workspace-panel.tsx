@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import {
   ArrowLeftIcon,
   Divider,
+  NoteTextIcon,
   OsIconAction,
   OsPageSheet,
   OsProposalCardList,
@@ -274,6 +275,16 @@ export function DaoWorkspacePanel({
       parseProtocolProposalId(searchParams.get(PROTOCOL_PROPOSAL_PARAM))
     );
   }, [searchParams]);
+
+  // `replaceState` (clear shared proposal) does not update Next searchParams —
+  // re-read the address bar whenever the proposals page opens.
+  useEffect(() => {
+    if (!sheet?.open || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    setFocusedProposalId(
+      parseProtocolProposalId(params.get(PROTOCOL_PROPOSAL_PARAM))
+    );
+  }, [sheet?.open]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1515,13 +1526,6 @@ export function DaoWorkspacePanel({
       {loadState === 'ready' && inProposalDetail ? (
         detailApplication ? (
           <div className="protocol-proposal-detail-shell">
-            <button
-              type="button"
-              className="protocol-proposal-detail-back"
-              onClick={clearProposalDetail}
-            >
-              All proposals
-            </button>
             {renderProposalCard(detailApplication, {
               interactive: false,
               focused: true,
@@ -1530,13 +1534,6 @@ export function DaoWorkspacePanel({
         ) : (
           <div className="protocol-empty">
             <p>Proposal not found.</p>
-            <button
-              type="button"
-              className="protocol-proposal-detail-back"
-              onClick={clearProposalDetail}
-            >
-              All proposals
-            </button>
           </div>
         )
       ) : null}
@@ -1626,14 +1623,44 @@ export function DaoWorkspacePanel({
                     />
                   </OsIconAction>
                   <div className="os-app-screen-heading">
-                    <h1 id={titleId} className="sr-only">
-                      {sheet.title ?? 'Proposals'}
-                    </h1>
-                    {sheet.subtitle ? (
-                      <p className="sr-only">{sheet.subtitle}</p>
-                    ) : null}
-                    <DaoWorkspaceHeaderSearch />
+                    {inProposalDetail ? (
+                      <>
+                        <h1 id={titleId} className="os-app-screen-title">
+                          {focusedProposalId != null
+                            ? `#${focusedProposalId}`
+                            : 'Proposal'}
+                        </h1>
+                        {sheet.subtitle ? (
+                          <p className="os-app-screen-subtitle">
+                            {sheet.subtitle}
+                          </p>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        <h1 id={titleId} className="sr-only">
+                          {sheet.title ?? 'Proposals'}
+                        </h1>
+                        {sheet.subtitle ? (
+                          <p className="sr-only">{sheet.subtitle}</p>
+                        ) : null}
+                        <DaoWorkspaceHeaderSearch />
+                      </>
+                    )}
                   </div>
+                  {inProposalDetail ? (
+                    <div className="os-app-screen-actions">
+                      <OsIconAction
+                        ariaLabel="All proposals"
+                        onClick={clearProposalDetail}
+                      >
+                        <NoteTextIcon
+                          className="glass-sheet-close-icon"
+                          aria-hidden
+                        />
+                      </OsIconAction>
+                    </div>
+                  ) : null}
                 </div>
                 <DaoWorkspaceHeaderToolbar />
               </header>

@@ -8,7 +8,11 @@ import {
   PROTOCOL_PROPOSAL_PARAM,
   PROTOCOL_SEARCH_PARAM,
   PROTOCOL_STATUS_PARAM,
+  daoPortfolioPath,
+  parseProtocolFeedStatus,
+  parseProtocolSearchQuery,
 } from '@/lib/app-routes';
+import { replaceBrowserUrl } from '@/lib/sync-browser-url-query';
 
 export type ProtocolProposalFamily =
   | 'all'
@@ -102,5 +106,23 @@ export function hasDaoProposalsDeepLink(searchParams: {
       searchParams.get(PROTOCOL_SEARCH_PARAM)?.trim() ||
       parseProtocolProposalFamily(searchParams.get(PROTOCOL_FAMILY_PARAM)) !==
         'all'
+  );
+}
+
+/**
+ * Drop sticky `?proposal=` so closing / reopening Proposals lands on the feed
+ * instead of the last shared detail view. Preserves status / family / search.
+ */
+export function clearDaoProposalDeepLink(daoAccountId: string): boolean {
+  if (typeof window === 'undefined') return false;
+  const params = new URLSearchParams(window.location.search);
+  if (!params.get(PROTOCOL_PROPOSAL_PARAM)?.trim()) return false;
+  return replaceBrowserUrl(
+    daoPortfolioPath(daoAccountId, {
+      status: parseProtocolFeedStatus(params.get(PROTOCOL_STATUS_PARAM)),
+      family: parseProtocolProposalFamily(params.get(PROTOCOL_FAMILY_PARAM)),
+      proposal: null,
+      q: parseProtocolSearchQuery(params.get(PROTOCOL_SEARCH_PARAM)),
+    })
   );
 }

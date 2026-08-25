@@ -480,50 +480,60 @@ export function ProtocolProposalCard({
                 </p>
               ) : null}
             </div>
-
-            {showVoters ? (
-              <div className="protocol-card-voters">
-                <button
-                  type="button"
-                  className="protocol-card-voters-toggle"
-                  aria-haspopup="dialog"
-                  aria-expanded={votersOpen}
-                  onClick={() => setVotersOpen(true)}
-                >
-                  Votes · {view.voteEntries.length}
-                  {view.eligibleVoters.length > 0
-                    ? `/${view.eligibleVoters.length}`
-                    : ''}
-                </button>
-              </div>
-            ) : null}
           </OsProposalCardBody>
 
-          {canAct || shareHref || hasOnChain ? (
+          {showVoters || hasOnChain || shareHref || canAct ? (
             <OsProposalCardFooter className="protocol-card-footer">
-              {canAct ? (
-                <div className="protocol-card-footer-actions-row">
-                  <OsSheetActions
-                    layout="row-compact"
-                    tone="frosted-primary"
-                    borderless
-                    className={`${osProposalCardActionsClassName} protocol-card-footer-actions protocol-vote-actions`}
-                  >
-                    <OsSheetAction
+              {showVoters || hasOnChain ? (
+                <div className="protocol-card-action-meta">
+                  {showVoters ? (
+                    <button
                       type="button"
-                      variant="primary"
-                      ready
-                      onClick={onOpenActions}
+                      className="protocol-card-voters-toggle"
+                      aria-haspopup="dialog"
+                      aria-expanded={votersOpen}
+                      onClick={() => setVotersOpen(true)}
                     >
-                      {view.canFinalize ? view.finalizeLabel : 'Vote'}
-                    </OsSheetAction>
-                  </OsSheetActions>
+                      Votes · {view.voteEntries.length}
+                      {view.eligibleVoters.length > 0
+                        ? `/${view.eligibleVoters.length}`
+                        : ''}
+                    </button>
+                  ) : null}
+                  {showVoters && hasOnChain ? (
+                    <span className="protocol-card-voters-sep" aria-hidden>
+                      ·
+                    </span>
+                  ) : null}
+                  {hasOnChain ? (
+                    <button
+                      type="button"
+                      className="protocol-card-onchain"
+                      onClick={() => setOnChainOpen(true)}
+                    >
+                      On-chain
+                    </button>
+                  ) : null}
                 </div>
-              ) : null}
-              {shareHref || hasOnChain ? (
-                <div className="protocol-card-footer-tools-row">
+              ) : (
+                <span className="protocol-card-action-meta-spacer" aria-hidden />
+              )}
+              {shareHref || canAct ? (
+                <div className="protocol-card-action-end">
                   {shareHref ? (
-                    <>
+                    <div className="protocol-card-footer-tools">
+                      <button
+                        type="button"
+                        className={`protocol-card-share${copied ? ' is-done' : ''}`}
+                        aria-label={copied ? 'Link copied' : 'Copy link'}
+                        onClick={copyProposalLink}
+                      >
+                        {copied ? (
+                          <CheckIcon aria-hidden />
+                        ) : (
+                          <CopyIcon aria-hidden />
+                        )}
+                      </button>
                       <button
                         type="button"
                         className={`protocol-card-share${shared ? ' is-done' : ''}`}
@@ -547,45 +557,29 @@ export function ProtocolProposalCard({
                         }}
                       >
                         {shared ? (
-                          <CheckIcon
-                            className="protocol-card-share-icon"
-                            aria-hidden
-                          />
+                          <CheckIcon aria-hidden />
                         ) : (
-                          <ShareIcon
-                            className="protocol-card-share-icon"
-                            aria-hidden
-                          />
+                          <ShareIcon aria-hidden />
                         )}
                       </button>
-                      <button
-                        type="button"
-                        className={`protocol-card-share${copied ? ' is-done' : ''}`}
-                        aria-label={copied ? 'Link copied' : 'Copy link'}
-                        onClick={copyProposalLink}
-                      >
-                        {copied ? (
-                          <CheckIcon
-                            className="protocol-card-share-icon"
-                            aria-hidden
-                          />
-                        ) : (
-                          <CopyIcon
-                            className="protocol-card-share-icon"
-                            aria-hidden
-                          />
-                        )}
-                      </button>
-                    </>
+                    </div>
                   ) : null}
-                  {hasOnChain ? (
-                    <button
-                      type="button"
-                      className="protocol-card-footer-link"
-                      onClick={() => setOnChainOpen(true)}
+                  {canAct ? (
+                    <OsSheetActions
+                      layout="row-compact"
+                      tone="frosted-primary"
+                      borderless
+                      className={`${osProposalCardActionsClassName} protocol-card-footer-actions protocol-vote-actions`}
                     >
-                      On-chain
-                    </button>
+                      <OsSheetAction
+                        type="button"
+                        variant="primary"
+                        ready
+                        onClick={onOpenActions}
+                      >
+                        {view.canFinalize ? view.finalizeLabel : 'Vote'}
+                      </OsSheetAction>
+                    </OsSheetActions>
                   ) : null}
                 </div>
               ) : null}
