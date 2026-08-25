@@ -67,8 +67,11 @@ import {
 } from '@/features/messages/dm-time';
 import {
   type DmOutgoingDraft,
+  isLocalDmMessageId,
+  retainOutgoingAgainstArchive,
   revokeBlobUrls,
   shouldDecryptDmRecord,
+  shouldRetainOutgoing,
 } from '@/features/messages/dm-outgoing';
 import {
   buildDmThreadRows,
@@ -239,6 +242,39 @@ export function MessagesPanel() {
   localMediaByIdRef.current = localMediaById;
   const retryLockRef = useRef(new Set<string>());
 
+  useEffect(() => {
+    const archive = messages ?? [];
+    const prev = outgoingRef.current;
+    const next = retainOutgoingAgainstArchive(prev, archive);
+    if (next.length === prev.length) return;
+    const dropped = prev.filter(
+      (item) => !next.some((kept) => kept.localId === item.localId)
+    );
+    revokeBlobUrls([
+      ...dropped.map((item) => item.mediaPreviewUrl),
+      ...dropped.flatMap((item) => [
+        localMediaByIdRef.current[item.localId]?.url,
+        item.messageId ? localMediaByIdRef.current[item.messageId]?.url : null,
+      ]),
+    ]);
+    setOutgoing(next);
+    setLocalMediaById((media) => {
+      let changed = false;
+      const copy = { ...media };
+      for (const item of dropped) {
+        if (copy[item.localId]) {
+          delete copy[item.localId];
+          changed = true;
+        }
+        if (item.messageId && copy[item.messageId]) {
+          delete copy[item.messageId];
+          changed = true;
+        }
+      }
+      return changed ? copy : media;
+    });
+  }, [messages]);
+
   const inboxSearch = useMessagesInboxSearch({
     enabled: Boolean(isConnected && hasSocialSession),
     viewerAccountId: accountId,
@@ -266,7 +302,11 @@ export function MessagesPanel() {
     const confirmed = messages ?? [];
     if (!accountId || !activeThreadId) return confirmed;
     const extras = outgoing
-      .filter((item) => item.threadId === activeThreadId)
+      .filter(
+        (item) =>
+          item.threadId === activeThreadId &&
+          shouldRetainOutgoing(item, confirmed)
+      )
       .map(
         (item): DmMessageRecord => ({
           id: item.localId,
@@ -753,12 +793,18 @@ export function MessagesPanel() {
         (item) => item.localId === opts.localId
       );
       setOutgoing((prev) =>
-        prev.filter((item) => item.localId !== opts.localId)
+        retainOutgoingAgainstArchive(
+          prev.map((item) =>
+            item.localId === opts.localId
+              ? { ...item, status: 'confirmed', messageId: opts.messageId }
+              : item
+          ),
+          messagesRef.current ?? []
+        )
       );
       if (draft?.mediaPreviewUrl) {
         setLocalMediaById((prev) => {
           const next = { ...prev };
-          delete next[opts.localId];
           next[opts.messageId] = {
             url: draft.mediaPreviewUrl!,
             mime: draft.mediaMime || 'application/octet-stream',
@@ -766,38 +812,19 @@ export function MessagesPanel() {
           return next;
         });
       }
-      if (!accountId || !draft) return;
-      const record: DmMessageRecord = {
-        id: opts.messageId,
-        threadId: opts.threadId,
-        senderAccountId: accountId.toLowerCase(),
-        recipientAccountId: draft.peerAccountId,
-        createdAt: draft.createdAt,
-        ciphertext: '',
-        nonce: '',
-        senderCiphertext: null,
-        senderNonce: null,
-        media: null,
-        senderPubkey: '',
-        ephemeralPubkey: null,
-        authTag: null,
-      };
-      setMessages((prev) => {
-        const list = prev ?? [];
-        if (list.some((msg) => msg.id === opts.messageId)) return list;
-        return [...list, record];
-      });
-      setPlainById((prev) => {
-        const next = { ...prev, [opts.messageId]: draft.text };
-        delete next[opts.localId];
-        return next;
-      });
-      setReplyToById((prev) => {
-        const next = { ...prev };
-        if (draft.replyToMessageId) next[opts.messageId] = draft.replyToMessageId;
-        delete next[opts.localId];
-        return next;
-      });
+      if (!draft) return;
+      setPlainById((prev) => ({
+        ...prev,
+        [opts.localId]: draft.text,
+        [opts.messageId]: draft.text,
+      }));
+      if (draft.replyToMessageId) {
+        setReplyToById((prev) => ({
+          ...prev,
+          [opts.localId]: draft.replyToMessageId!,
+          [opts.messageId]: draft.replyToMessageId!,
+        }));
+      }
       const preview = inboxPreviewFromDecrypted({
         text: draft.text,
         hasMedia: Boolean(draft.mediaFile),
@@ -806,7 +833,7 @@ export function MessagesPanel() {
         rememberInboxPreview(opts.threadId, opts.messageId, preview);
       }
     },
-    [accountId, rememberInboxPreview]
+    [rememberInboxPreview]
   );
 
   const handleOutgoingFail = useCallback(
@@ -1745,7 +1772,17 @@ export function MessagesPanel() {
                             item.senderAccountId === accountId.toLowerCase()
                         );
                       const draft = outgoingById.get(msg.id);
-                      const localMedia = localMediaById[msg.id];
+                      const localMedia =
+                        localMediaById[msg.id] ??
+                        (draft?.messageId
+                          ? localMediaById[draft.messageId]
+                          : undefined);
+                      const replyMessageId = draft?.messageId ?? msg.id;
+                      const canReply =
+                        (!draft || draft.status === 'confirmed') &&
+                        text != null &&
+                        !isDmDecryptFailureText(text) &&
+                        !isLocalDmMessageId(replyMessageId);
                       const bubbleClass = [
                         'messages-bubble',
                         mine ? 'is-mine' : '',
@@ -1828,16 +1865,16 @@ export function MessagesPanel() {
                                 {relative}
                               </time>
                             ) : null}
-                            {!draft && text != null && !isDmDecryptFailureText(text) ? (
+                            {canReply ? (
                               <button
                                 type="button"
                                 className="messages-bubble-reply"
                                 onClick={() =>
                                   setReplyDraft({
-                                    messageId: msg.id,
+                                    messageId: replyMessageId,
                                     preview: formatDmReplyPreview(
                                       text,
-                                      Boolean(msg.media?.length)
+                                      Boolean(msg.media?.length || draft?.mediaFile)
                                     ),
                                   })
                                 }

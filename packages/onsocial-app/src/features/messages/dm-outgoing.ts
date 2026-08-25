@@ -1,4 +1,4 @@
-export type DmOutgoingStatus = 'pending' | 'failed';
+export type DmOutgoingStatus = 'pending' | 'failed' | 'confirmed';
 
 export type DmOutgoingDraft = {
   localId: string;
@@ -8,6 +8,8 @@ export type DmOutgoingDraft = {
   replyToMessageId?: string;
   createdAt: string;
   status: DmOutgoingStatus;
+  /** Set after the send tx confirms; used to drop the overlay when mailbox returns. */
+  messageId?: string;
   error?: string;
   mediaFile?: File | null;
   mediaPreviewUrl?: string | null;
@@ -32,6 +34,32 @@ export function shouldDecryptDmRecord(msg: {
 }): boolean {
   if (isLocalDmMessageId(msg.id)) return false;
   return Boolean(msg.ciphertext?.trim());
+}
+
+export function archiveHasDecryptableMessage(
+  archive: readonly { id: string; ciphertext?: string | null }[],
+  messageId: string | undefined
+): boolean {
+  if (!messageId) return false;
+  return archive.some(
+    (msg) => msg.id === messageId && shouldDecryptDmRecord(msg)
+  );
+}
+
+/** Keep overlay until mailbox returns a decryptable row for that id. */
+export function shouldRetainOutgoing(
+  item: Pick<DmOutgoingDraft, 'status' | 'messageId'>,
+  archive: readonly { id: string; ciphertext?: string | null }[]
+): boolean {
+  if (item.status !== 'confirmed') return true;
+  return !archiveHasDecryptableMessage(archive, item.messageId);
+}
+
+export function retainOutgoingAgainstArchive<T extends DmOutgoingDraft>(
+  outgoing: readonly T[],
+  archive: readonly { id: string; ciphertext?: string | null }[]
+): T[] {
+  return outgoing.filter((item) => shouldRetainOutgoing(item, archive));
 }
 
 export function revokeBlobUrls(
