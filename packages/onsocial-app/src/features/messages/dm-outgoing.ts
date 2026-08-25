@@ -20,3 +20,27 @@ export function createDmOutgoingLocalId(): string {
   }
   return `local:${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
+
+export function isLocalDmMessageId(id: string | null | undefined): boolean {
+  return Boolean(id?.startsWith('local:'));
+}
+
+/** Skip decrypt for pending stubs (empty envelope) and local ids. */
+export function shouldDecryptDmRecord(msg: {
+  id: string;
+  ciphertext?: string | null;
+}): boolean {
+  if (isLocalDmMessageId(msg.id)) return false;
+  return Boolean(msg.ciphertext?.trim());
+}
+
+export function revokeBlobUrls(
+  urls: Iterable<string | null | undefined>
+): void {
+  const seen = new Set<string>();
+  for (const url of urls) {
+    if (!url || !url.startsWith('blob:') || seen.has(url)) continue;
+    seen.add(url);
+    URL.revokeObjectURL(url);
+  }
+}

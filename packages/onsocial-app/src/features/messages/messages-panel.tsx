@@ -67,6 +67,8 @@ import {
 } from '@/features/messages/dm-time';
 import {
   type DmOutgoingDraft,
+  revokeBlobUrls,
+  shouldDecryptDmRecord,
 } from '@/features/messages/dm-outgoing';
 import {
   buildDmThreadRows,
@@ -233,6 +235,9 @@ export function MessagesPanel() {
   inboxThreadsRef.current = inboxThreads;
   const outgoingRef = useRef(outgoing);
   outgoingRef.current = outgoing;
+  const localMediaByIdRef = useRef(localMediaById);
+  localMediaByIdRef.current = localMediaById;
+  const retryLockRef = useRef(new Set<string>());
 
   const inboxSearch = useMessagesInboxSearch({
     enabled: Boolean(isConnected && hasSocialSession),
@@ -407,8 +412,17 @@ export function MessagesPanel() {
     [rememberInboxPreview]
   );
 
+  const releaseOutgoingMedia = useCallback(() => {
+    revokeBlobUrls([
+      ...outgoingRef.current.map((item) => item.mediaPreviewUrl),
+      ...Object.values(localMediaByIdRef.current).map((item) => item.url),
+    ]);
+    setLocalMediaById({});
+  }, []);
+
   const clearThreadState = useCallback(() => {
     openThreadSeqRef.current += 1;
+    releaseOutgoingMedia();
     setThreads(null);
     setMessages(null);
     setHasMoreMessages(false);
@@ -422,7 +436,7 @@ export function MessagesPanel() {
     setError(null);
     setRecoveryCode(null);
     setRecoveryVariant('created');
-  }, []);
+  }, [releaseOutgoingMedia]);
 
   useEffect(() => {
     clearThreadState();
@@ -530,7 +544,6 @@ export function MessagesPanel() {
     ): Promise<Record<string, string>> => {
       if (activeThreadIdRef.current !== threadId) return {};
       if (!accountId || !hasUnlockedDmKey(accountId)) {
-        setPlainById({});
         return {};
       }
       const expectedAccount = accountId;
@@ -540,7 +553,8 @@ export function MessagesPanel() {
         string,
         Awaited<ReturnType<typeof lookupDmPublicKey>>
       >();
-      for (const msg of next) {
+      const decryptable = next.filter(shouldDecryptDmRecord);
+      for (const msg of decryptable) {
         const opened = await decryptPlaintextForMessage(
           client,
           accountId,
@@ -561,7 +575,7 @@ export function MessagesPanel() {
       const archiveChange = reconcileDmThreadArchiveAfterDecrypt({
         accountId: expectedAccount,
         threadId,
-        messageIds: next.map((msg) => msg.id),
+        messageIds: decryptable.map((msg) => msg.id),
         plainById: plain,
         isDecryptFailure: isDmDecryptFailureText,
       });
@@ -763,15 +777,7 @@ export function MessagesPanel() {
         nonce: '',
         senderCiphertext: null,
         senderNonce: null,
-        media: draft.mediaFile
-          ? [
-              {
-                cid: opts.messageId,
-                mime: draft.mediaMime || 'application/octet-stream',
-                size: draft.mediaFile.size,
-              },
-            ]
-          : null,
+        media: null,
         senderPubkey: '',
         ephemeralPubkey: null,
         authTag: null,
@@ -804,7 +810,7 @@ export function MessagesPanel() {
   );
 
   const handleOutgoingFail = useCallback(
-    (opts: { localId: string; error: string }) => {
+    (opts: { localId: string; error: string; needsUnlock?: boolean }) => {
       setOutgoing((prev) =>
         prev.map((item) =>
           item.localId === opts.localId
@@ -812,13 +818,23 @@ export function MessagesPanel() {
             : item
         )
       );
+      if (opts.needsUnlock) setKeysTick((n) => n + 1);
     },
     []
   );
 
   const handleOutgoingCancel = useCallback((localId: string) => {
     const draft = outgoingRef.current.find((item) => item.localId === localId);
-    if (draft?.mediaPreviewUrl) URL.revokeObjectURL(draft.mediaPreviewUrl);
+    revokeBlobUrls([
+      draft?.mediaPreviewUrl,
+      localMediaByIdRef.current[localId]?.url,
+    ]);
+    setLocalMediaById((prev) => {
+      if (!prev[localId]) return prev;
+      const next = { ...prev };
+      delete next[localId];
+      return next;
+    });
     setOutgoing((prev) => prev.filter((item) => item.localId !== localId));
     setPlainById((prev) => {
       const next = { ...prev };
@@ -841,7 +857,8 @@ export function MessagesPanel() {
   const retryOutgoing = useCallback(
     async (localId: string) => {
       const draft = outgoingRef.current.find((item) => item.localId === localId);
-      if (!draft || !accountId) return;
+      if (!draft || !accountId || retryLockRef.current.has(localId)) return;
+      retryLockRef.current.add(localId);
       setOutgoing((prev) =>
         prev.map((item) =>
           item.localId === localId
@@ -869,7 +886,11 @@ export function MessagesPanel() {
           replyToMessageId: draft.replyToMessageId,
         });
         if (!result.ok) {
-          handleOutgoingFail({ localId, error: result.error });
+          handleOutgoingFail({
+            localId,
+            error: result.error,
+            needsUnlock: result.needsUnlock,
+          });
           return;
         }
         handleOutgoingConfirm({
@@ -884,6 +905,8 @@ export function MessagesPanel() {
           error:
             cause instanceof Error ? cause.message : 'Could not send message.',
         });
+      } finally {
+        retryLockRef.current.delete(localId);
       }
     },
     [
@@ -931,6 +954,17 @@ export function MessagesPanel() {
           merged.length > prev.length ||
           merged.at(-1)?.id !== prev.at(-1)?.id;
         setMessages(merged);
+        setLocalMediaById((prev) => {
+          let changed = false;
+          const nextMedia = { ...prev };
+          for (const msg of merged) {
+            if (!nextMedia[msg.id] || !shouldDecryptDmRecord(msg)) continue;
+            revokeBlobUrls([nextMedia[msg.id]?.url]);
+            delete nextMedia[msg.id];
+            changed = true;
+          }
+          return changed ? nextMedia : prev;
+        });
         // hasMore from newest-page fetch only applies when we have no older pages.
         if (!prev || prev.length <= THREAD_PAGE_SIZE) {
           setHasMoreMessages(hasMore);
@@ -1291,7 +1325,11 @@ export function MessagesPanel() {
             setArchiveTick((n) => n + 1);
             setShowSealedArchive(false);
           }
+          releaseOutgoingMedia();
+          setOutgoing([]);
+          setReplyDraft(null);
           setPlainById({});
+          setReplyToById({});
           setRecoveryVariant('reset');
           setRecoveryCode(code);
           void handleUnlocked();

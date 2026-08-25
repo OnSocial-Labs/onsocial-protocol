@@ -64,7 +64,11 @@ type DmThreadComposerProps = {
     messageId: string;
     threadId: string;
   }) => void;
-  onOutgoingFail?: (opts: { localId: string; error: string }) => void;
+  onOutgoingFail?: (opts: {
+    localId: string;
+    error: string;
+    needsUnlock?: boolean;
+  }) => void;
   onOutgoingCancel?: (localId: string) => void;
   onSent?: () => void;
   /** First-time key create — parent shows recovery sheet. */
@@ -97,6 +101,7 @@ export function DmThreadComposer({
   const [text, setText] = useState('');
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const submitLockRef = useRef(false);
   const mediaPreviewUrl = mediaPreviewUrlFor(mediaFile);
 
   useEffect(() => {
@@ -126,25 +131,26 @@ export function DmThreadComposer({
       return;
     }
     if (!canSend) return;
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
 
     const localId = createDmOutgoingLocalId();
     const outgoingText = text;
     const outgoingMedia = mediaFile;
     const replyToMessageId = normalizeDmReplyToMessageId(replyTo?.messageId);
 
-    onOutgoingStart?.({
-      localId,
-      text: outgoingText.trim(),
-      peerAccountId,
-      replyToMessageId,
-      mediaFile: outgoingMedia,
-      mediaMime: outgoingMedia?.type ?? null,
-    });
-    setText('');
-    clearMedia();
-    onCancelReply?.();
-
     try {
+      onOutgoingStart?.({
+        localId,
+        text: outgoingText.trim(),
+        peerAccountId,
+        replyToMessageId,
+        mediaFile: outgoingMedia,
+        mediaMime: outgoingMedia?.type ?? null,
+      });
+      setText('');
+      clearMedia();
+      onCancelReply?.();
       const { client, session, wallet } = await getClient();
       if (!session) {
         onOutgoingFail?.({
@@ -164,7 +170,11 @@ export function DmThreadComposer({
         replyToMessageId,
       });
       if (!result.ok) {
-        onOutgoingFail?.({ localId, error: result.error });
+        onOutgoingFail?.({
+          localId,
+          error: result.error,
+          needsUnlock: result.needsUnlock,
+        });
         return;
       }
       onOutgoingConfirm?.({
@@ -186,6 +196,8 @@ export function DmThreadComposer({
         error:
           cause instanceof Error ? cause.message : 'Could not send message.',
       });
+    } finally {
+      submitLockRef.current = false;
     }
   };
 
