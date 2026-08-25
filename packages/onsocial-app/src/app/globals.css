@@ -34505,11 +34505,67 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   flex-wrap: wrap;
 }
 
-.messages-thread-footer {
-  flex-shrink: 0;
-  margin-top: 0.45rem;
-  padding-top: 0.5rem;
+.os-app-screen:has(.messages-panel)[data-screen-footer='true'] {
+  --os-screen-footer-band: 4.35rem;
+}
+
+.messages-screen-composer {
+  position: relative;
+  padding: 0.45rem var(--os-screen-body-pad-x, 1rem) 0.4rem;
+  overflow: visible;
+}
+
+.messages-screen-composer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  inset-inline: 0;
+  bottom: calc(-1 * var(--portfolio-dock-clearance, 4.75rem));
+  z-index: 0;
+  pointer-events: none;
   border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
+  background: rgb(var(--bg-rgb) / 0.72);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  transition: bottom 260ms ease;
+}
+
+.os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
+  .messages-screen-composer::before,
+.os-app-screen:has(.messages-panel[data-keyboard='open'])
+  .messages-screen-composer::before {
+  bottom: 0;
+}
+
+.messages-screen-composer > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .messages-screen-composer::before {
+    background: rgb(var(--bg-rgb) / 0.94);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.os-app-screen:has(.messages-panel[data-keyboard='open'])
+  .os-app-screen-footer {
+  bottom: var(--messages-keyboard-lift, 0px);
+}
+
+.os-app-screen:has(.messages-panel[data-keyboard='open'])
+  > .portfolio-summon-dock {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.os-app-screen:has(.messages-panel[data-keyboard='open'])[data-screen-footer='true']
+  .os-app-screen-body {
+  padding-bottom: calc(
+    var(--messages-keyboard-lift, 0px) + var(--os-screen-footer-band)
+  );
 }
 
 .messages-composer {
@@ -34533,6 +34589,9 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   line-height: 1.35;
   padding-top: 0.55rem;
   padding-bottom: 0.55rem;
+  /* 16px — iOS zooms the page when a focused field is under 16px. */
+  font-size: 16px;
+  --os-field-font-size: 16px;
 }
 
 .messages-composer-send {
@@ -34669,6 +34728,23 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   background: var(--signal-endorse, rgb(37 99 235));
 }
 
+@media (min-width: 768px) {
+  .os-app-screen:has(.messages-panel) {
+    --messages-inbox-col: 18.5rem;
+  }
+
+  .messages-layout {
+    grid-template-columns: var(--messages-inbox-col, 18.5rem) minmax(0, 1fr);
+  }
+
+  .os-app-screen:has(.messages-panel) .messages-screen-composer {
+    margin-left: calc(
+      var(--os-screen-body-pad-x, 1rem) + var(--messages-inbox-col, 18.5rem)
+    );
+    padding-left: 0.9rem;
+  }
+}
+
 @media (max-width: 767px) {
   .messages-layout {
     grid-template-columns: 1fr;
@@ -34695,6 +34771,24 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   .messages-layout[data-mobile-pane='thread'] {
     min-height: calc(
       100dvh - var(--os-screen-chrome-height, 5.25rem) - 4.25rem
+    );
+  }
+
+  .os-app-screen[data-screen-footer='true']
+    .messages-layout[data-mobile-pane='thread'] {
+    min-height: calc(
+      100dvh - var(--os-screen-chrome-height, 5.25rem) -
+        var(--portfolio-dock-clearance, 4.75rem) -
+        var(--os-screen-footer-band, 4.35rem)
+    );
+  }
+
+  .os-app-screen:has(.messages-panel[data-keyboard='open'])
+    .messages-layout[data-mobile-pane='thread'] {
+    min-height: calc(
+      100dvh - var(--os-screen-chrome-height, 5.25rem) -
+        var(--messages-keyboard-lift, 0px) -
+        var(--os-screen-footer-band, 4.35rem)
     );
   }
 

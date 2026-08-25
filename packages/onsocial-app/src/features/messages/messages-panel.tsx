@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { DmMessageRecord, DmThreadSummary, OnSocial } from '@onsocial/sdk';
@@ -18,6 +25,7 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import {
   ensureAppGatewayAuth,
   getCachedAppGatewayAuth,
@@ -51,6 +59,7 @@ import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { DmComposeSheet } from '@/features/messages/dm-compose-sheet';
 import { DmMediaBubble } from '@/features/messages/dm-media-bubble';
 import { DmRecoveryCodeSheet } from '@/features/messages/dm-recovery-code-sheet';
+import { inboxPreviewFromDecrypted } from '@/features/messages/dm-inbox-preview';
 import {
   formatAbsoluteDmTime,
   formatRelativeDmTime,
@@ -101,12 +110,20 @@ export function MessagesPanel() {
   const [keysTick, setKeysTick] = useState(0);
   const [archiveTick, setArchiveTick] = useState(0);
   const [showSealedArchive, setShowSealedArchive] = useState(false);
+  const [inboxPreviewByThread, setInboxPreviewByThread] = useState<
+    Record<string, string>
+  >({});
   const activeThreadIdRef = useRef(activeThreadId);
   const messagesRef = useRef(messages);
   const openThreadSeqRef = useRef(0);
   /** Bumps on account change so late async commits cannot leak across wallets. */
   const accountGenRef = useRef(0);
   const accountIdRef = useRef(accountId);
+  const inboxPreviewCacheRef = useRef(
+    new Map<string, { messageId: string; text: string }>()
+  );
+  const threadScrollRef = useRef<HTMLDivElement>(null);
+  const pinThreadToLatestRef = useRef(true);
 
   useEffect(() => {
     activeThreadIdRef.current = activeThreadId;
@@ -136,6 +153,9 @@ export function MessagesPanel() {
   const isUnlocked = Boolean(
     accountId && keysTick >= 0 && hasUnlockedDmKey(accountId)
   );
+  const threadOpen = Boolean(activeThreadId && isUnlocked);
+  const viewport = useVisualViewportSheetMetrics(threadOpen);
+  const keyboardOpen = threadOpen && viewport.isMobile && viewport.lift > 0;
   const passkeyEnrolled = Boolean(
     accountId && keysTick >= 0 && hasDmPasskeyEnrolled(accountId)
   );
@@ -174,6 +194,16 @@ export function MessagesPanel() {
     }
     return { inboxThreads: inbox, sealedThreads: sealed };
   }, [accountId, archiveTick, threads]);
+
+  const inboxPreviewJobs = useMemo(
+    () =>
+      (inboxThreads ?? [])
+        .map((thread) => `${thread.threadId}:${thread.lastMessageId}`)
+        .join('|'),
+    [inboxThreads]
+  );
+  const inboxThreadsRef = useRef(inboxThreads);
+  inboxThreadsRef.current = inboxThreads;
 
   const withAuth = useCallback(async () => {
     const { client, session, wallet, accountId: id } = await getClient();
@@ -254,12 +284,43 @@ export function MessagesPanel() {
     }
   }, [accountId, getClient, hasSocialSession, isCurrentAccount]);
 
+  const rememberInboxPreview = useCallback(
+    (threadId: string, messageId: string, text: string) => {
+      if (!threadId || !text) return;
+      inboxPreviewCacheRef.current.set(threadId, { messageId, text });
+      setInboxPreviewByThread((prev) => {
+        if (prev[threadId] === text) return prev;
+        return { ...prev, [threadId]: text };
+      });
+    },
+    []
+  );
+
+  const rememberPreviewFromPlain = useCallback(
+    (
+      threadId: string,
+      msgs: DmMessageRecord[],
+      plain: Record<string, string>
+    ) => {
+      const last = msgs.at(-1);
+      if (!last) return;
+      const preview = inboxPreviewFromDecrypted({
+        text: plain[last.id],
+        hasMedia: Boolean(last.media?.length),
+      });
+      if (preview) rememberInboxPreview(threadId, last.id, preview);
+    },
+    [rememberInboxPreview]
+  );
+
   const clearThreadState = useCallback(() => {
     openThreadSeqRef.current += 1;
     setThreads(null);
     setMessages(null);
     setHasMoreMessages(false);
     setPlainById({});
+    setInboxPreviewByThread({});
+    inboxPreviewCacheRef.current.clear();
     setActiveThreadId('');
     setError(null);
     setRecoveryCode(null);
@@ -314,6 +375,56 @@ export function MessagesPanel() {
     []
   );
 
+  const decryptPlaintextForMessage = useCallback(
+    async (
+      client: OnSocial,
+      accountIdForKeys: string,
+      msg: DmMessageRecord,
+      senderKeyCache: Map<
+        string,
+        Awaited<ReturnType<typeof lookupDmPublicKey>>
+      >
+    ): Promise<string> => {
+      try {
+        const senderId = msg.senderAccountId.trim().toLowerCase();
+        const viewerIsSender =
+          senderId === accountIdForKeys.trim().toLowerCase();
+        let expectedSenderPublicKey: Uint8Array | null | undefined;
+        if (!viewerIsSender) {
+          let lookup = senderKeyCache.get(senderId);
+          if (!lookup) {
+            lookup = await lookupDmPublicKey(client, senderId);
+            senderKeyCache.set(senderId, lookup);
+          }
+          if (lookup.status === 'unavailable') {
+            throw new Error('Could not verify sender messaging key.');
+          }
+          if (lookup.status === 'absent') {
+            throw new Error('Sender has no published messaging key.');
+          }
+          expectedSenderPublicKey = lookup.value;
+        }
+        return await decryptDmMessage({
+          client,
+          accountId: accountIdForKeys,
+          ciphertext: msg.ciphertext,
+          nonce: msg.nonce,
+          senderPubkey: msg.senderPubkey,
+          senderAccountId: msg.senderAccountId,
+          senderCiphertext: msg.senderCiphertext,
+          senderNonce: msg.senderNonce,
+          ephemeralPubkey: msg.ephemeralPubkey,
+          authTag: msg.authTag,
+          mediaCids: msg.media?.map((item) => item.cid) ?? null,
+          expectedSenderPublicKey,
+        });
+      } catch {
+        return 'Unable to decrypt on this device.';
+      }
+    },
+    []
+  );
+
   const decryptMessages = useCallback(
     async (
       client: OnSocial,
@@ -332,41 +443,12 @@ export function MessagesPanel() {
         Awaited<ReturnType<typeof lookupDmPublicKey>>
       >();
       for (const msg of next) {
-        try {
-          const senderId = msg.senderAccountId.trim().toLowerCase();
-          const viewerIsSender = senderId === accountId.trim().toLowerCase();
-          let expectedSenderPublicKey: Uint8Array | null | undefined;
-          if (!viewerIsSender) {
-            let lookup = senderKeyCache.get(senderId);
-            if (!lookup) {
-              lookup = await lookupDmPublicKey(client, senderId);
-              senderKeyCache.set(senderId, lookup);
-            }
-            if (lookup.status === 'unavailable') {
-              throw new Error('Could not verify sender messaging key.');
-            }
-            if (lookup.status === 'absent') {
-              throw new Error('Sender has no published messaging key.');
-            }
-            expectedSenderPublicKey = lookup.value;
-          }
-          plain[msg.id] = await decryptDmMessage({
-            client,
-            accountId,
-            ciphertext: msg.ciphertext,
-            nonce: msg.nonce,
-            senderPubkey: msg.senderPubkey,
-            senderAccountId: msg.senderAccountId,
-            senderCiphertext: msg.senderCiphertext,
-            senderNonce: msg.senderNonce,
-            ephemeralPubkey: msg.ephemeralPubkey,
-            authTag: msg.authTag,
-            mediaCids: msg.media?.map((item) => item.cid) ?? null,
-            expectedSenderPublicKey,
-          });
-        } catch {
-          plain[msg.id] = 'Unable to decrypt on this device.';
-        }
+        plain[msg.id] = await decryptPlaintextForMessage(
+          client,
+          accountId,
+          msg,
+          senderKeyCache
+        );
       }
       if (activeThreadIdRef.current !== threadId) return plain;
       if (!isCurrentAccount(expectedAccount)) return plain;
@@ -381,9 +463,15 @@ export function MessagesPanel() {
       if (archiveChange !== 'unchanged') {
         setArchiveTick((n) => n + 1);
       }
+      rememberPreviewFromPlain(threadId, next, plain);
       return plain;
     },
-    [accountId, isCurrentAccount]
+    [
+      accountId,
+      decryptPlaintextForMessage,
+      isCurrentAccount,
+      rememberPreviewFromPlain,
+    ]
   );
 
   const openThread = useCallback(
@@ -393,6 +481,7 @@ export function MessagesPanel() {
       const expectedAccount = accountId;
       setActiveThreadId(threadId);
       setError(null);
+      pinThreadToLatestRef.current = true;
       router.replace(messagesPath({ threadId }));
       const { client } = await withAuth();
       if (
@@ -566,6 +655,84 @@ export function MessagesPanel() {
     softRefreshOpenThread,
   ]);
 
+  useEffect(() => {
+    const snapshot = inboxThreadsRef.current;
+    if (!isUnlocked || !accountId || !snapshot?.length) return;
+    const gen = accountGenRef.current;
+    const expectedAccount = accountId;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { client } = await withAuth();
+        if (
+          cancelled ||
+          accountGenRef.current !== gen ||
+          !isCurrentAccount(expectedAccount)
+        ) {
+          return;
+        }
+        const senderKeyCache = new Map<
+          string,
+          Awaited<ReturnType<typeof lookupDmPublicKey>>
+        >();
+        for (const thread of snapshot) {
+          if (cancelled) return;
+          const cached = inboxPreviewCacheRef.current.get(thread.threadId);
+          if (cached?.messageId === thread.lastMessageId) continue;
+          try {
+            const { messages: page } = await client.dm.listMessages(
+              thread.threadId,
+              { limit: 1 }
+            );
+            if (
+              cancelled ||
+              accountGenRef.current !== gen ||
+              !isCurrentAccount(expectedAccount)
+            ) {
+              return;
+            }
+            const last = page.at(-1);
+            if (!last) continue;
+            const text = await decryptPlaintextForMessage(
+              client,
+              expectedAccount,
+              last,
+              senderKeyCache
+            );
+            const preview = inboxPreviewFromDecrypted({
+              text,
+              hasMedia: Boolean(last.media?.length),
+            });
+            if (preview) {
+              rememberInboxPreview(thread.threadId, last.id, preview);
+            }
+          } catch {
+            // One thread failing should not block the rest of the inbox.
+          }
+        }
+      } catch {
+        // Soft hydrate — ignore transient auth / network errors.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    accountId,
+    decryptPlaintextForMessage,
+    inboxPreviewJobs,
+    isCurrentAccount,
+    isUnlocked,
+    rememberInboxPreview,
+    withAuth,
+  ]);
+
+  useEffect(() => {
+    const el = threadScrollRef.current;
+    if (!el || !threadOpen || !pinThreadToLatestRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [threadOpen, messages, keyboardOpen, viewport.lift]);
+
   const handleUnlocked = useCallback(async () => {
     setError(null);
     setKeysTick((n) => n + 1);
@@ -589,6 +756,7 @@ export function MessagesPanel() {
     if (!activeThreadId || !accountId || loadingOlder) return;
     const oldest = messagesRef.current?.[0];
     if (!oldest) return;
+    pinThreadToLatestRef.current = false;
     setLoadingOlder(true);
     try {
       const gen = accountGenRef.current;
@@ -687,7 +855,6 @@ export function MessagesPanel() {
     );
   }
 
-  const threadOpen = Boolean(activeThreadId && isUnlocked);
   const mobilePane = threadOpen ? 'thread' : 'list';
   const peerProfile = peerFromThread ? profiles[peerFromThread] : undefined;
   const peerName = peerFromThread
@@ -733,12 +900,24 @@ export function MessagesPanel() {
       />
     ) : null;
 
+  const screenStyle = {
+    ['--messages-keyboard-lift' as string]: keyboardOpen
+      ? `${viewport.lift}px`
+      : '0px',
+  } as CSSProperties;
+
   return (
     <OsAppScreen
       title="Messages"
       subtitle="Private · sealed on your device"
       backFallbackHref={APP_HOME_PATH}
       glassChrome
+      style={screenStyle}
+      footer={
+        composer ? (
+          <div className="messages-screen-composer">{composer}</div>
+        ) : undefined
+      }
       leading={
         <>
           <span className="messages-screen-back-home">
@@ -789,7 +968,11 @@ export function MessagesPanel() {
         </div>
       }
     >
-      <div className="messages-panel" data-mobile-pane={mobilePane}>
+      <div
+        className="messages-panel"
+        data-mobile-pane={mobilePane}
+        data-keyboard={keyboardOpen ? 'open' : undefined}
+      >
         {unlockPanel}
 
         {isUnlocked && canPasskey && !passkeyEnrolled ? (
@@ -839,12 +1022,16 @@ export function MessagesPanel() {
                     profile?.displayName
                   );
                   const handle = fallbackLabel(thread.peerAccountId);
+                  const preview = inboxPreviewByThread[thread.threadId];
                   return (
                     <OsSurfaceRow
                       key={thread.threadId}
                       active={thread.threadId === activeThreadId}
                       label={name}
-                      description={name !== handle ? `@${handle}` : undefined}
+                      description={
+                        preview ||
+                        (name !== handle ? `@${handle}` : undefined)
+                      }
                       leading={
                         <ProfileAvatar
                           src={profile?.avatarUrl ?? undefined}
@@ -934,7 +1121,16 @@ export function MessagesPanel() {
                 </div>
               </header>
             ) : null}
-            <div className="messages-thread-scroll">
+            <div
+              ref={threadScrollRef}
+              className="messages-thread-scroll"
+              onScroll={() => {
+                const el = threadScrollRef.current;
+                if (!el) return;
+                pinThreadToLatestRef.current =
+                  el.scrollHeight - el.scrollTop - el.clientHeight < 96;
+              }}
+            >
               {!activeThreadId ? (
                 <p className="messages-panel-empty messages-thread-empty">
                   Pick a conversation, or message someone from their profile.
@@ -1018,9 +1214,6 @@ export function MessagesPanel() {
                 </>
               )}
             </div>
-            {composer ? (
-              <div className="messages-thread-footer">{composer}</div>
-            ) : null}
           </section>
         </div>
 
