@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  dmLocalDayKey,
   formatAbsoluteDmTime,
+  formatDmDaySeparator,
   formatRelativeDmTime,
   parseDmDate,
 } from './dm-time';
@@ -42,6 +44,25 @@ describe('formatRelativeDmTime', () => {
 
   it('returns empty for invalid input', () => {
     expect(formatRelativeDmTime('nope', now)).toBe('');
+  });
+});
+
+describe('formatDmDaySeparator', () => {
+  const now = new Date(2026, 7, 25, 15, 0, 0);
+
+  it('labels today, yesterday, and older dates', () => {
+    expect(formatDmDaySeparator(new Date(2026, 7, 25, 9, 0, 0).toISOString(), now)).toBe(
+      'Today'
+    );
+    expect(formatDmDaySeparator(new Date(2026, 7, 24, 9, 0, 0).toISOString(), now)).toBe(
+      'Yesterday'
+    );
+    expect(formatDmDaySeparator(new Date(2026, 7, 20, 9, 0, 0).toISOString(), now)).toMatch(
+      /Aug/
+    );
+    expect(dmLocalDayKey(new Date(2026, 7, 25, 23, 15, 0).toISOString())).toBe(
+      '2026-08-25'
+    );
   });
 });
 

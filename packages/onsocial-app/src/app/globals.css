@@ -34373,10 +34373,124 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 .messages-bubble time {
   display: block;
-  margin-top: 0.18rem;
+  margin-top: 0;
   font-size: 0.62rem;
   letter-spacing: 0.01em;
   color: rgb(var(--fg-rgb) / 0.46);
+}
+
+.messages-day-rule {
+  align-self: center;
+  max-width: 100%;
+  padding: 0.55rem 0 0.2rem;
+  list-style: none;
+}
+
+.messages-day-rule span {
+  display: inline-block;
+  color: rgb(var(--fg-rgb) / 0.46);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.messages-bubble-quote {
+  margin: 0 0 0.35rem;
+  padding: 0.28rem 0.45rem;
+  border-left: 2px solid rgb(var(--fg-rgb) / 0.22);
+  border-radius: 0.35rem;
+  background: rgb(var(--fg-rgb) / 0.05);
+}
+
+.messages-bubble-quote span {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 650;
+  color: rgb(var(--fg-rgb) / 0.52);
+}
+
+.messages-bubble-quote p {
+  margin: 0.08rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgb(var(--fg-rgb) / 0.7);
+}
+
+.messages-bubble-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  margin-top: 0.18rem;
+}
+
+.messages-bubble.is-mine .messages-bubble-meta {
+  justify-content: flex-end;
+}
+
+.messages-bubble-reply,
+.messages-bubble-retry {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 650;
+  color: rgb(var(--fg-rgb) / 0.5);
+  cursor: pointer;
+}
+
+.messages-bubble-reply:hover,
+.messages-bubble-reply:focus-visible,
+.messages-bubble-retry:hover,
+.messages-bubble-retry:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.82);
+  outline: none;
+}
+
+.messages-bubble.is-pending {
+  opacity: 0.72;
+}
+
+.messages-bubble.is-failed {
+  box-shadow: inset 0 0 0 1px rgb(185 28 28 / 0.28);
+}
+
+.messages-composer-reply {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.15rem 0.15rem 0.35rem;
+}
+
+.messages-composer-reply-copy {
+  min-width: 0;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgb(var(--fg-rgb) / 0.62);
+}
+
+.messages-composer-reply-copy span {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.48);
+}
+
+.messages-composer-reply-cancel {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: rgb(var(--fg-rgb) / 0.5);
+  cursor: pointer;
 }
 
 .messages-thread-meta {
