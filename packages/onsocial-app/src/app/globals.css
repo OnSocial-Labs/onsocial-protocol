@@ -34236,12 +34236,15 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 .messages-layout {
-  display: grid;
-  grid-template-columns: minmax(16.5rem, 22rem) minmax(0, 1fr);
-  gap: 0;
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-height: max(22rem, calc(100dvh - 12rem));
   min-width: 0;
+}
+
+.messages-layout[data-pane='thread'] {
+  min-height: calc(100dvh - var(--os-screen-chrome-height, 5.25rem) - 4.25rem);
 }
 
 .messages-thread-list,
@@ -34253,55 +34256,13 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 .messages-thread-list {
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-right: 0.75rem;
 }
 
 .messages-thread {
   display: flex;
   flex-direction: column;
-  padding-left: 0.9rem;
-  border-left: 1px solid rgb(var(--fg-rgb) / 0.08);
-}
-
-.messages-thread-peer {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  flex-shrink: 0;
-  min-width: 0;
-  padding: 0 0 0.7rem;
-}
-
-.messages-thread-peer-copy {
-  min-width: 0;
-}
-
-.messages-thread-peer-name {
-  display: block;
-  font-size: 0.95rem;
-  font-weight: 650;
-  line-height: 1.25;
-  color: inherit;
-  text-decoration: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.messages-thread-peer-name:hover,
-.messages-thread-peer-name:focus-visible {
-  text-decoration: underline;
-  text-underline-offset: 0.12em;
-  outline: none;
-}
-
-.messages-thread-peer-handle {
-  margin: 0.08rem 0 0;
-  font-size: 0.75rem;
-  color: rgb(var(--fg-rgb) / 0.52);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1 1 auto;
+  min-height: 100%;
 }
 
 .messages-thread-scroll {
@@ -34310,10 +34271,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-}
-
-.messages-thread-empty {
-  padding-top: 1.25rem;
 }
 
 .messages-bubble-list {
@@ -34650,42 +34607,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   background: var(--signal-endorse, rgb(37 99 235));
 }
 
-@media (max-width: 767px) {
-  .messages-layout {
-    grid-template-columns: 1fr;
-    min-height: 0;
-  }
-
-  .messages-thread-list {
-    padding-right: 0;
-  }
-
-  .messages-thread {
-    border-left: 0;
-    padding-left: 0;
-  }
-
-  .messages-layout[data-mobile-pane='list'] .messages-thread {
-    display: none;
-  }
-
-  .messages-layout[data-mobile-pane='thread'] .messages-thread-list {
-    display: none;
-  }
-
-  .messages-layout[data-mobile-pane='thread'] {
-    min-height: calc(
-      100dvh - var(--os-screen-chrome-height, 5.25rem) - 4.25rem
-    );
-  }
-
-  .messages-layout[data-mobile-pane='thread'] .messages-thread {
-    min-height: 100%;
-  }
-
-  .messages-panel[data-mobile-pane='thread'] .messages-passkey-hint {
-    display: none;
-  }
+.messages-panel[data-pane='thread'] .messages-passkey-hint {
+  display: none;
 }
 
 /* ── Activity / notifications ─────────────────────────────────────────────── */

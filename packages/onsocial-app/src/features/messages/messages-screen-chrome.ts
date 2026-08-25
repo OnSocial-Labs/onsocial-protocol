@@ -1,4 +1,3 @@
-export const MESSAGES_NARROW_MAX_PX = 767;
 export const MESSAGES_INBOX_TITLE = 'Messages';
 export const MESSAGES_INBOX_SUBTITLE = 'Private · sealed on your device';
 
@@ -11,23 +10,21 @@ export type MessagesScreenChrome = {
 };
 
 /**
- * Inbox chrome on desktop (and mobile list). Mobile thread uses the peer
- * as the real screen title so the `h1` / back match what is on screen.
+ * One pane, every viewport — same drill-in as Activity.
+ * List: inbox title + default back. Thread: peer title + close-thread back.
  */
 export function resolveMessagesScreenChrome({
-  narrow,
   threadOpen,
   peerName,
   peerHandle,
   peerAccountId,
 }: {
-  narrow: boolean;
   threadOpen: boolean;
   peerName: string;
   peerHandle: string;
   peerAccountId: string;
 }): MessagesScreenChrome {
-  if (narrow && threadOpen) {
+  if (threadOpen) {
     return {
       title: peerName || 'Conversation',
       subtitle:

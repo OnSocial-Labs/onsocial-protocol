@@ -12,24 +12,9 @@ const peer = {
 };
 
 describe('resolveMessagesScreenChrome', () => {
-  it('keeps inbox chrome on desktop even with a thread open', () => {
+  it('uses the peer as the screen title when a thread is open', () => {
     expect(
       resolveMessagesScreenChrome({
-        narrow: false,
-        threadOpen: true,
-        ...peer,
-      })
-    ).toEqual({
-      title: MESSAGES_INBOX_TITLE,
-      subtitle: MESSAGES_INBOX_SUBTITLE,
-      closeThread: false,
-    });
-  });
-
-  it('uses the peer as the screen title on a mobile thread', () => {
-    expect(
-      resolveMessagesScreenChrome({
-        narrow: true,
         threadOpen: true,
         ...peer,
       })
@@ -44,7 +29,6 @@ describe('resolveMessagesScreenChrome', () => {
   it('stays on inbox chrome when no thread is open', () => {
     expect(
       resolveMessagesScreenChrome({
-        narrow: true,
         threadOpen: false,
         ...peer,
       })
@@ -58,7 +42,6 @@ describe('resolveMessagesScreenChrome', () => {
   it('omits a redundant @handle when the name is the account', () => {
     expect(
       resolveMessagesScreenChrome({
-        narrow: true,
         threadOpen: true,
         peerName: 'ada.near',
         peerHandle: 'ada.near',
