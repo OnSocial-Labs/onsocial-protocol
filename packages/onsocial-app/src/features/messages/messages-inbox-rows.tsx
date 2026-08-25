@@ -50,7 +50,7 @@ export function MessagesInboxThreadRow({
   active?: boolean;
   onOpen: () => void;
 }) {
-  const name = displayName(peerAccountId, profileName);
+  const name = displayName(peerAccountId, profileName ?? undefined);
   const handle = fallbackLabel(peerAccountId);
   const relative = formatRelativeDmTime(lastMessageAt);
   const absolute = formatAbsoluteDmTime(lastMessageAt);
@@ -118,7 +118,7 @@ export function MessagesInboxPeopleRow({
   disabled?: boolean;
   onOpen?: () => void;
 }) {
-  const name = displayName(accountId, profileName);
+  const name = displayName(accountId, profileName ?? undefined);
   const previewLine = description?.trim() || null;
   const ariaLead = [name, previewLine].filter(Boolean).join(', ');
 
