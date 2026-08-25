@@ -1126,7 +1126,7 @@ export function MessagesPanel() {
                           );
                           const name = displayName(
                             person.accountId,
-                            person.name
+                            person.name ?? undefined
                           );
                           const handle = fallbackLabel(person.accountId);
                           return (
