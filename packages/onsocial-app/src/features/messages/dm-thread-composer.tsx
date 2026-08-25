@@ -9,8 +9,16 @@ import {
 } from '@onsocial/ui';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { sendEncryptedDm } from '@/lib/dm/send';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+
+const MOBILE_MAX_WIDTH_PX = 767;
+
+function shouldSendOnEnterKey(): boolean {
+  if (typeof window === 'undefined') return false;
+  return !window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH_PX}px)`).matches;
+}
 
 type DmThreadComposerProps = {
   peerAccountId: string;
@@ -33,6 +41,7 @@ export function DmThreadComposer({
   const mediaInputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const scrollFieldIntoView = useMobileFieldFocusScroll<HTMLTextAreaElement>();
   const { accountId, isConnected, connect, hasSocialSession } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const [text, setText] = useState('');
@@ -170,11 +179,13 @@ export function DmThreadComposer({
           className={`${osFieldSoftClassName} messages-composer-input`}
           value={text}
           onChange={(event) => setText(event.target.value)}
+          onFocus={scrollFieldIntoView}
           onKeyDown={(event) => {
             if (
               event.key !== 'Enter' ||
               event.shiftKey ||
-              event.nativeEvent.isComposing
+              event.nativeEvent.isComposing ||
+              !shouldSendOnEnterKey()
             ) {
               return;
             }
@@ -183,6 +194,9 @@ export function DmThreadComposer({
           }}
           placeholder="Message"
           aria-label="Message"
+          enterKeyHint="send"
+          autoComplete="off"
+          autoCorrect="on"
           rows={1}
           disabled={pending || disabled}
         />
