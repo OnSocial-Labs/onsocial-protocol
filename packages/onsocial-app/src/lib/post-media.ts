@@ -97,6 +97,16 @@ export function resolveFeedMediaActivate(
   return { kind: 'thread', unmute: false, mediaIndex };
 }
 
+/** Step one still. Stops at the ends — never wraps. */
+export function stepFeedPhotoIndex(
+  current: number,
+  last: number,
+  delta: -1 | 1
+): number {
+  if (last < 0) return 0;
+  return Math.min(last, Math.max(0, current + delta));
+}
+
 /** Format seconds as `0:12` / `1:05` for quote thumbs. */
 export function formatMediaDuration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '';

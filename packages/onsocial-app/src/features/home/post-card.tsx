@@ -916,6 +916,7 @@ function PostEngagementRow({
   onToggleReaction,
   onToggleSave,
   onAmplify,
+  shareDrawerZIndex,
   post,
 }: {
   engagement: PostEngagement;
@@ -931,6 +932,8 @@ function PostEngagementRow({
   onToggleReaction?: (post: PostRow) => void;
   onToggleSave?: (post: PostRow) => void;
   onAmplify: () => void;
+  /** Quote / repost drawer — raise when this row sits on an OS enlarge. */
+  shareDrawerZIndex?: number;
   post: PostRow;
 }) {
   const [shareOpen, setShareOpen] = useState(false);
@@ -1107,6 +1110,7 @@ function PostEngagementRow({
           onClose={() => setShareOpen(false)}
           label="Quote or repost"
           items={shareItems}
+          {...(shareDrawerZIndex != null ? { zIndex: shareDrawerZIndex } : {})}
         />
       ) : null}
     </div>
@@ -1965,6 +1969,7 @@ export function PostCard({
                 setPhotoOpen(false);
                 setAmplifyOpen(true);
               }}
+              shareDrawerZIndex={SCARCE_Z.commerceOverListen}
               post={post}
             />
           ) : null
@@ -2062,6 +2067,7 @@ export function PostCard({
                 setFeedMediumOpen(false);
                 setAmplifyOpen(true);
               }}
+              shareDrawerZIndex={SCARCE_Z.commerceOverListen}
               post={post}
             />
           ) : null

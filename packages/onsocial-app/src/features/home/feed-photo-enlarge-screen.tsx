@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon, OsIconAction } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
-import type { PostMediaItem } from '@/lib/post-media';
+import { stepFeedPhotoIndex, type PostMediaItem } from '@/lib/post-media';
 
 function clampIndex(value: number, last: number): number {
   if (last < 0) return 0;
@@ -47,12 +47,12 @@ export function FeedPhotoEnlargeScreen({
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        setIndex((current) => (current <= 0 ? last : current - 1));
+        setIndex((current) => stepFeedPhotoIndex(current, last, -1));
         return;
       }
       if (event.key === 'ArrowRight') {
         event.preventDefault();
-        setIndex((current) => (current >= last ? 0 : current + 1));
+        setIndex((current) => stepFeedPhotoIndex(current, last, 1));
       }
     };
     window.addEventListener('keydown', onKey);
@@ -97,20 +97,22 @@ export function FeedPhotoEnlargeScreen({
             <OsIconAction
               ariaLabel="Previous photo"
               className="feed-photo-nav-btn"
+              disabled={index <= 0}
               onClick={() =>
-                setIndex((current) => (current <= 0 ? last : current - 1))
+                setIndex((current) => stepFeedPhotoIndex(current, last, -1))
               }
             >
               <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
             </OsIconAction>
-            <span className="feed-photo-count">
+            <span className="feed-photo-count" aria-live="polite">
               {index + 1} / {photos.length}
             </span>
             <OsIconAction
               ariaLabel="Next photo"
               className="feed-photo-nav-btn"
+              disabled={index >= last}
               onClick={() =>
-                setIndex((current) => (current >= last ? 0 : current + 1))
+                setIndex((current) => stepFeedPhotoIndex(current, last, 1))
               }
             >
               <ChevronRightIcon

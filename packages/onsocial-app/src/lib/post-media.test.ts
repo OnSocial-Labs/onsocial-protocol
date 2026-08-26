@@ -15,6 +15,7 @@ import {
   postStillImages,
   readPostMediaUnmuteIndex,
   resolveFeedMediaActivate,
+  stepFeedPhotoIndex,
   revokeDroppedOptimisticMedia,
   revokeOptimisticMediaPreviewUrls,
   truncateQuoteText,
@@ -243,5 +244,12 @@ describe('feed photo enlarge helpers', () => {
       kind: 'none',
     });
     expect(resolveFeedMediaActivate(items, 4)).toEqual({ kind: 'none' });
+  });
+
+  it('stepFeedPhotoIndex stops at the ends', () => {
+    expect(stepFeedPhotoIndex(0, 2, -1)).toBe(0);
+    expect(stepFeedPhotoIndex(0, 2, 1)).toBe(1);
+    expect(stepFeedPhotoIndex(2, 2, 1)).toBe(2);
+    expect(stepFeedPhotoIndex(2, 2, -1)).toBe(1);
   });
 });

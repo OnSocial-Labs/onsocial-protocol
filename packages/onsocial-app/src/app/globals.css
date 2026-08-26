@@ -23692,6 +23692,11 @@ a.os-surface-row {
     height: 2.35rem;
   }
 
+  .feed-photo-slide .feed-photo-nav-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
   .scarce-read-slide .scarce-writing-read {
     --writing-read-measure: min(34rem, 100%);
     display: flex;
