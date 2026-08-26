@@ -10,7 +10,10 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useFocusWriteDock } from '@/contexts/compose-launcher-context';
 import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
-import { writeDockReplyPlaceholder } from '@/lib/os-write-dock';
+import {
+  writeDockDraftKey,
+  writeDockReplyPlaceholder,
+} from '@/lib/os-write-dock';
 import {
   ComposerSheet,
   type ComposerMode,
@@ -581,6 +584,7 @@ export function LivePersonalPostPanel({
       : 'Add a reply…',
     above: writeAbove,
     revision: writeTarget ? postKey(writeTarget) : '',
+    draftKey: root ? writeDockDraftKey('post', postKey(root)) : undefined,
     onConfirmed: (reply, target) => {
       if (conversation.root && postKey(target) === postKey(conversation.root)) {
         insertConfirmedRootChild('reply', reply);
@@ -759,17 +763,6 @@ export function LivePersonalPostPanel({
             <Divider variant="detail" />
 
             <div className="guild-thread-chrome">
-              <button
-                type="button"
-                className="guild-reply-prompt"
-                onClick={() => {
-                  setDockTarget(conversation.root);
-                  focusWriteDock();
-                }}
-              >
-                Add a reply…
-              </button>
-
               <div
                 className="guild-thread-tabs"
                 role="tablist"

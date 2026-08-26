@@ -29,3 +29,7 @@ export function writeDockIsThoughtEnlarge(
 ): boolean {
   return feedMediumOpen && mode === 'viewer';
 }
+
+export function writeDockDraftKey(kind: 'post' | 'dm', id: string): string {
+  return `${kind}:${id}`;
+}

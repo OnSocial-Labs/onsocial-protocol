@@ -213,7 +213,8 @@ export function SummonLauncher({
   const compose = useComposeLauncher();
   const writePinned = useWriteDockPinned();
   const write = compose?.type === 'write' ? compose.entry : null;
-  const dockHidden = useDockAutoHide(open || writePinned) && !open;
+  const dockHidden =
+    useDockAutoHide(open || writePinned || Boolean(write)) && !open;
   const portalHost = useOsPortalHost();
   const clientMounted = useSyncExternalStore(
     clientMountedSubscribe,
@@ -449,6 +450,7 @@ export function SummonLauncher({
             write={
               write ? (
                 <OsWriteDock
+                  key={write.draftKey ?? 'write'}
                   placeholder={write.placeholder}
                   ariaLabel={write.ariaLabel}
                   disabled={write.disabled}
@@ -456,6 +458,7 @@ export function SummonLauncher({
                   error={write.error}
                   above={write.above}
                   accept={write.accept}
+                  draftKey={write.draftKey}
                   onSubmit={write.onSubmit}
                 />
               ) : undefined

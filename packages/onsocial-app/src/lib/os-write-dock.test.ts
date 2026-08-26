@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   writeDockCanSend,
+  writeDockDraftKey,
   writeDockIsThoughtEnlarge,
   writeDockReplyPlaceholder,
   writeDockShouldSendOnEnter,
@@ -22,6 +23,11 @@ describe('os write dock helpers', () => {
   it('names a nested reply or falls back', () => {
     expect(writeDockReplyPlaceholder(null)).toBe('Add a reply…');
     expect(writeDockReplyPlaceholder('  Ada  ')).toBe('Reply to Ada…');
+  });
+
+  it('namespaces draft keys by surface', () => {
+    expect(writeDockDraftKey('post', 'a/1')).toBe('post:a/1');
+    expect(writeDockDraftKey('dm', 'alice.near')).toBe('dm:alice.near');
   });
 
   it('treats thought enlarge as the viewer medium, not listen or read', () => {

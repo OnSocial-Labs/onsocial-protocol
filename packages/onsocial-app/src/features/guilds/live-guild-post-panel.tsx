@@ -13,7 +13,10 @@ import {
 } from '@/features/home/submit-personal-post';
 import { useFocusWriteDock } from '@/contexts/compose-launcher-context';
 import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
-import { writeDockReplyPlaceholder } from '@/lib/os-write-dock';
+import {
+  writeDockDraftKey,
+  writeDockReplyPlaceholder,
+} from '@/lib/os-write-dock';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import { postMetaFromText } from '@/features/home/post-mentions';
@@ -886,6 +889,7 @@ export function LiveGuildPostPanel({
       : 'Add a reply…',
     above: writeAbove,
     revision: writeTarget ? postKey(writeTarget) : '',
+    draftKey: root ? writeDockDraftKey('post', postKey(root)) : undefined,
     onConfirmed: (reply, target) => {
       if (conversation.root && postKey(target) === postKey(conversation.root)) {
         setLocalReplies((current) => [...current, reply]);
@@ -1261,19 +1265,6 @@ export function LiveGuildPostPanel({
             <Divider variant="detail" />
 
             <div className="guild-thread-chrome">
-              {!accountId || canPostInThread ? (
-                <button
-                  type="button"
-                  className="guild-reply-prompt"
-                  onClick={() => {
-                    setDockTarget(conversation.root);
-                    focusWriteDock();
-                  }}
-                >
-                  Add a reply…
-                </button>
-              ) : null}
-
               <div
                 className="guild-thread-tabs"
                 role="tablist"

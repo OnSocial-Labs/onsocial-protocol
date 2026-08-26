@@ -42,6 +42,8 @@ export interface WriteDockRegistration {
   accept?: string;
   /** Extra key so chips (reply-to) refresh without remounting the stack. */
   revision?: string;
+  /** Persist type/media across enlarge open/close and reply-target swaps. */
+  draftKey?: string;
   onSubmit: (
     payload: WriteDockSubmit
   ) => boolean | void | Promise<boolean | void>;
@@ -190,6 +192,7 @@ export function useRegisterWriteDock(entry: WriteDockRegistration | null) {
         entry.error ?? '',
         entry.accept ?? '',
         entry.revision ?? '',
+        entry.draftKey ?? '',
         Boolean(entry.above) ? '1' : '0',
       ].join('\0')
     : '';

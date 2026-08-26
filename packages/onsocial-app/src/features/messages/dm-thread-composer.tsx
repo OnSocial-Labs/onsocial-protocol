@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useRegisterWriteDock } from '@/contexts/compose-launcher-context';
+import { writeDockDraftKey } from '@/lib/os-write-dock';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { normalizeDmReplyToMessageId } from '@/lib/dm/crypto';
@@ -201,6 +202,7 @@ export function DmThreadComposer({
     error: disabledReason ? null : error,
     above,
     revision: `${replyTo?.messageId ?? ''}:${disabledReason ?? ''}:${error ?? ''}`,
+    draftKey: writeDockDraftKey('dm', peerAccountId),
     onSubmit: handleSubmit,
   });
 

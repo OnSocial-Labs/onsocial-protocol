@@ -12,7 +12,11 @@ import { dispatchPersonalReplyConfirmed } from '@/features/scarces/drop-compose-
 import { submitPersonalPost } from '@/features/home/submit-personal-post';
 import { useOnSocialWriter } from '@/hooks/use-onsocial-writer';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
-import { writeDockReplyPlaceholder } from '@/lib/os-write-dock';
+import {
+  writeDockDraftKey,
+  writeDockReplyPlaceholder,
+} from '@/lib/os-write-dock';
+import { postKey } from '@/lib/post-display';
 
 export function useReplyWriteDock({
   target,
@@ -20,6 +24,7 @@ export function useReplyWriteDock({
   placeholder,
   above,
   revision,
+  draftKey,
   onConfirmed,
 }: {
   target: PostRow | null;
@@ -27,6 +32,7 @@ export function useReplyWriteDock({
   placeholder?: string;
   above?: ReactNode;
   revision?: string;
+  draftKey?: string;
   onConfirmed?: (reply: PostRow, target: PostRow) => void;
 }) {
   const { isConnected, connect, accountId } = useAppWallet();
@@ -98,9 +104,20 @@ export function useReplyWriteDock({
       error,
       above,
       revision,
+      draftKey: draftKey ?? writeDockDraftKey('post', postKey(target)),
       onSubmit: submit,
     };
-  }, [above, enabled, error, pending, placeholder, revision, submit, target]);
+  }, [
+    above,
+    draftKey,
+    enabled,
+    error,
+    pending,
+    placeholder,
+    revision,
+    submit,
+    target,
+  ]);
 
   useRegisterWriteDock(entry);
 }

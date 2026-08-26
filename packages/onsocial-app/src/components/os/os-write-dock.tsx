@@ -22,6 +22,12 @@ import {
   writeDockCanSend,
   writeDockShouldSendOnEnter,
 } from '@/lib/os-write-dock';
+import {
+  clearWriteDockDraft,
+  readWriteDockDraft,
+  writeDockDraftIsDirty,
+  writeWriteDockDraft,
+} from '@/lib/os-write-dock-draft';
 
 const mediaPreviewUrls = new WeakMap<File, string>();
 
@@ -61,6 +67,7 @@ export interface OsWriteDockProps {
   error?: string | null;
   above?: ReactNode;
   accept?: string;
+  draftKey?: string;
   onSubmit: (payload: {
     text: string;
     files: File[];
@@ -75,6 +82,7 @@ export function OsWriteDock({
   error = null,
   above,
   accept = WRITE_DOCK_MEDIA_ACCEPT,
+  draftKey,
   onSubmit,
 }: OsWriteDockProps) {
   const fieldId = useId();
@@ -83,9 +91,14 @@ export function OsWriteDock({
   const scrollFieldIntoView = useMobileFieldFocusScroll<HTMLTextAreaElement>();
   const { registerWriteFocus, setWritePinned } = useWriteDockChrome();
   const { isConnected, connect } = useAppWallet();
-  const [text, setText] = useState('');
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const initialDraft = draftKey
+    ? readWriteDockDraft(draftKey)
+    : { text: '', file: null };
+  const [text, setText] = useState(initialDraft.text);
+  const [mediaFile, setMediaFile] = useState<File | null>(initialDraft.file);
+  const [expanded, setExpanded] = useState(() =>
+    writeDockDraftIsDirty(initialDraft)
+  );
   const submitLockRef = useRef(false);
   const mediaPreviewUrl = mediaPreviewUrlFor(mediaFile);
   const canSend = writeDockCanSend(
@@ -94,12 +107,24 @@ export function OsWriteDock({
     disabled || pending
   );
 
+  const persistDraft = (nextText: string, nextFile: File | null) => {
+    if (!draftKey) return;
+    writeWriteDockDraft(draftKey, { text: nextText, file: nextFile });
+  };
+
+  const holdOpen = () => {
+    setExpanded(true);
+    setWritePinned?.(true);
+  };
+
   useEffect(() => {
     if (!registerWriteFocus) return;
     return registerWriteFocus(() => {
+      setExpanded(true);
+      setWritePinned?.(true);
       textRef.current?.focus();
     });
-  }, [registerWriteFocus]);
+  }, [registerWriteFocus, setWritePinned]);
 
   useEffect(() => {
     const el = textRef.current;
@@ -111,6 +136,7 @@ export function OsWriteDock({
   const clearMedia = () => {
     revokeMediaPreview(mediaFile);
     setMediaFile(null);
+    persistDraft(text, null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -131,7 +157,12 @@ export function OsWriteDock({
       });
       if (result !== false) {
         setText('');
-        clearMedia();
+        revokeMediaPreview(outgoingMedia);
+        setMediaFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        if (draftKey) clearWriteDockDraft(draftKey);
+        setExpanded(false);
+        setWritePinned?.(false);
       }
     } finally {
       submitLockRef.current = false;
@@ -190,7 +221,13 @@ export function OsWriteDock({
           accept={accept}
           className="sr-only"
           disabled={disabled || pending}
-          onChange={(event) => setMediaFile(event.target.files?.[0] ?? null)}
+          onChange={(event) => {
+            const next = event.target.files?.[0] ?? null;
+            revokeMediaPreview(mediaFile);
+            setMediaFile(next);
+            persistDraft(text, next);
+            if (next) holdOpen();
+          }}
         />
         <textarea
           ref={textRef}
@@ -204,15 +241,15 @@ export function OsWriteDock({
           autoComplete="off"
           autoCorrect="on"
           rows={1}
-          onChange={(event) => setText(event.target.value)}
-          onFocus={(event) => {
-            setExpanded(true);
-            setWritePinned?.(true);
-            scrollFieldIntoView(event);
+          onChange={(event) => {
+            const next = event.target.value;
+            setText(next);
+            persistDraft(next, mediaFile);
+            holdOpen();
           }}
-          onBlur={() => {
-            setExpanded(false);
-            setWritePinned?.(false);
+          onFocus={(event) => {
+            holdOpen();
+            scrollFieldIntoView(event);
           }}
           onKeyDown={(event) => {
             if (

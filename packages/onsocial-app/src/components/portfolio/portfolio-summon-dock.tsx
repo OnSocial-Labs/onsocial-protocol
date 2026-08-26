@@ -94,6 +94,7 @@ export function PortfolioSummonDock({
       previewPinned ||
         openPinned ||
         writePinned ||
+        Boolean(write) ||
         (pageDrawerOpen && !scrollNode),
       scrollRoot
     ) && !osOpen;
@@ -247,6 +248,7 @@ export function PortfolioSummonDock({
           write={
             write ? (
               <OsWriteDock
+                key={write.draftKey ?? 'write'}
                 placeholder={write.placeholder}
                 ariaLabel={write.ariaLabel}
                 disabled={write.disabled}
@@ -254,6 +256,7 @@ export function PortfolioSummonDock({
                 error={write.error}
                 above={write.above}
                 accept={write.accept}
+                draftKey={write.draftKey}
                 onSubmit={write.onSubmit}
               />
             ) : undefined

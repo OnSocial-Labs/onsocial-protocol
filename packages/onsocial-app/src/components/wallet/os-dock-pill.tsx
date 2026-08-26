@@ -22,8 +22,8 @@ interface OsDockPillProps {
 
 /**
  * Unified OS dock — [activity] | [account] | grip | optional now-playing |
- * | [compose]. Activity mirrors compose (own section + divider).
- * Write mode: [activity] | [avatar] | grip | [type | media | send].
+ * | [compose]. Write mode drops activity + grip:
+ * [avatar] | [type | media | send].
  */
 export function OsDockPill({
   pageAccountId,
@@ -33,12 +33,22 @@ export function OsDockPill({
   write,
 }: OsDockPillProps) {
   const writing = Boolean(write);
+  if (writing) {
+    return (
+      <div className={`${osDockPillClassName} portfolio-summon is-writing`}>
+        <OsDockAccountZone pageAccountId={pageAccountId} />
+        <Divider
+          orientation="vertical"
+          variant="detail"
+          className="portfolio-summon-divider"
+        />
+        {write}
+      </div>
+    );
+  }
+
   return (
-    <div
-      className={`${osDockPillClassName} portfolio-summon${
-        writing ? ' is-writing' : ''
-      }`}
-    >
+    <div className={`${osDockPillClassName} portfolio-summon`}>
       <OsDockActivityZone />
       <OsDockAccountZone pageAccountId={pageAccountId} />
       <Divider
@@ -47,23 +57,17 @@ export function OsDockPill({
         className="portfolio-summon-divider"
       />
       {grip}
-      {writing ? (
-        write
-      ) : (
+      {nowPlaying}
+      {action ? (
         <>
-          {nowPlaying}
-          {action ? (
-            <>
-              <Divider
-                orientation="vertical"
-                variant="detail"
-                className="portfolio-summon-divider"
-              />
-              {action}
-            </>
-          ) : null}
+          <Divider
+            orientation="vertical"
+            variant="detail"
+            className="portfolio-summon-divider"
+          />
+          {action}
         </>
-      )}
+      ) : null}
     </div>
   );
 }
