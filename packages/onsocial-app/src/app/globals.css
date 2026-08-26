@@ -23617,6 +23617,206 @@ a.os-surface-row {
     padding: 0.35rem 1.15rem 1.35rem;
   }
 
+  /*
+   * Listen / Read / Pass / thought / feed photo enlarge — fill the OS
+   * screen body. Must target `.os-slide-over-content.…` so the pad survives
+   * CSS minify.
+   */
+  .scarce-listen-slide .os-app-screen-body,
+  .scarce-read-slide .os-app-screen-body,
+  .ticket-pass-slide .os-app-screen-body,
+  .scarce-medium-slide .os-app-screen-body,
+  .feed-photo-slide .os-app-screen-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .scarce-listen-slide .os-slide-over-content.scarce-listen-slide-body,
+  .scarce-read-slide .os-slide-over-content.scarce-read-slide-body,
+  .ticket-pass-slide .os-slide-over-content.ticket-pass-slide-body,
+  .scarce-medium-slide .os-slide-over-content.scarce-medium-slide-body,
+  .feed-photo-slide .os-slide-over-content.feed-photo-slide-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .scarce-listen-slide .scarce-clip-listen,
+  .scarce-medium-slide .scarce-clip-listen {
+    padding-top: 0.75rem;
+    padding-bottom: 1.1rem;
+  }
+
+  .feed-photo-listen {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.45rem;
+    width: 100%;
+    min-height: 0;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 0.55rem 1rem max(1.05rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .feed-photo-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+  }
+
+  .feed-photo-track {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-snap-stop: always;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+    scrollbar-width: none;
+  }
+
+  .feed-photo-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .feed-photo-page {
+    box-sizing: border-box;
+    display: flex;
+    flex: 0 0 100%;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-width: 100%;
+    height: 100%;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  .feed-photo-image {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .feed-photo-image--empty {
+    width: min(100%, 28rem);
+    aspect-ratio: 1 / 1;
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .feed-photo-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    flex: 0 0 auto;
+  }
+
+  .feed-photo-dots {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.05rem;
+    min-width: 4.25rem;
+  }
+
+  .feed-photo-dot {
+    position: relative;
+    flex: 0 0 auto;
+    width: 1.25rem;
+    height: 1.25rem;
+    min-width: 1.25rem;
+    min-height: 1.25rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    appearance: none;
+  }
+
+  .feed-photo-dot::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    transform: translate(-50%, -50%);
+    border: 1.5px solid rgb(var(--fg-rgb) / 0.48);
+    background: transparent;
+  }
+
+  .feed-photo-dot.is-current::after {
+    width: 0.42rem;
+    height: 0.42rem;
+    border-color: transparent;
+    background: rgb(var(--fg-rgb) / 0.88);
+  }
+
+  .feed-photo-dot:focus-visible {
+    outline: 2px solid rgb(var(--fg-rgb) / 0.45);
+    outline-offset: 1px;
+    border-radius: 999px;
+  }
+
+  .feed-photo-footer {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    flex: 0 0 auto;
+  }
+
+  .feed-photo-footer .post-card-engagement {
+    margin-top: 0;
+  }
+
+  .feed-photo-slide .feed-photo-nav-btn {
+    width: 2.2rem;
+    height: 2.2rem;
+  }
+
+  .feed-photo-slide .feed-photo-nav-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .scarce-read-slide .scarce-writing-read {
+    --writing-read-measure: min(34rem, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    width: min(100%, 44rem);
+    max-height: none;
+    height: 100%;
+    margin: 0 auto;
+    padding: 0.55rem 1.1rem 0.85rem;
+    min-height: 0;
+    box-sizing: border-box;
+  }
+
+  .scarce-read-slide .scarce-writing-read-progress {
+    margin: 0;
+  }
+
+  .ticket-pass-slide .ticket-show-pass {
+    --pass-pad-t: 0.55rem;
+    height: 100%;
+  }
+
   .hub-manage-slide .os-slide-over-footer-inner {
     max-width: none;
     width: 100%;

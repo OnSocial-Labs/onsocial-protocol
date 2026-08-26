@@ -2,7 +2,7 @@
  * Scarce overlay stacking — keep listen under commerce, nest above commerce.
  *
  * 56  default GlassSheet
- * 80  listen / feed enlarge player shell (.scarce-clip-listen-lightbox)
+ * 80  listen / read / thought / feed photo enlarge (OsSlideOverScreen)
  * 90  list / buy / bid when opened over the player shell
  * 110 art zoom + option drawers nested from commerce
  */

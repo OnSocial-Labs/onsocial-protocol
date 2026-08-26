@@ -11,7 +11,13 @@ import {
   mediaKindFromFile,
   parsePostMedia,
   postMediaStripClassName,
+  postStillImageIndex,
+  postStillImages,
   readPostMediaUnmuteIndex,
+  resolveFeedMediaActivate,
+  stepFeedPhotoIndex,
+  feedPhotoIndexFromScroll,
+  feedPhotoScrollLeft,
   revokeDroppedOptimisticMedia,
   revokeOptimisticMediaPreviewUrls,
   truncateQuoteText,
@@ -196,5 +202,70 @@ describe('revokeOptimisticMediaPreviewUrls', () => {
     );
     expect(revoke).toHaveBeenCalledOnce();
     expect(revoke).toHaveBeenCalledWith('blob:drop');
+  });
+});
+
+describe('feed photo enlarge helpers', () => {
+  const photoA = { url: '/a.jpg', mime: 'image/jpeg' };
+  const photoB = { url: '/b.png', mime: 'image/png' };
+  const video = { url: '/c.mp4', mime: 'video/mp4' };
+  const audio = { url: '/d.mp3', mime: 'audio/mpeg' };
+
+  it('postStillImages drops video and audio', () => {
+    expect(postStillImages([photoA, video, photoB, audio])).toEqual([
+      photoA,
+      photoB,
+    ]);
+  });
+
+  it('postStillImageIndex maps strip index onto stills', () => {
+    const items = [video, photoA, audio, photoB];
+    expect(postStillImageIndex(items, 0)).toBe(-1);
+    expect(postStillImageIndex(items, 1)).toBe(0);
+    expect(postStillImageIndex(items, 2)).toBe(-1);
+    expect(postStillImageIndex(items, 3)).toBe(1);
+    expect(postStillImageIndex(items, 9)).toBe(-1);
+  });
+
+  it('resolveFeedMediaActivate enlarges stills and threads video', () => {
+    const items = [photoA, video, photoB];
+    expect(resolveFeedMediaActivate(items, 0)).toEqual({
+      kind: 'enlarge',
+      stillIndex: 0,
+    });
+    expect(resolveFeedMediaActivate(items, 1)).toEqual({
+      kind: 'thread',
+      unmute: true,
+      mediaIndex: 1,
+    });
+    expect(resolveFeedMediaActivate(items, 2)).toEqual({
+      kind: 'enlarge',
+      stillIndex: 1,
+    });
+    expect(resolveFeedMediaActivate(items, 0, { mediaFocused: true })).toEqual({
+      kind: 'none',
+    });
+    expect(resolveFeedMediaActivate(items, 4)).toEqual({ kind: 'none' });
+  });
+
+  it('stepFeedPhotoIndex stops at the ends', () => {
+    expect(stepFeedPhotoIndex(0, 2, -1)).toBe(0);
+    expect(stepFeedPhotoIndex(0, 2, 1)).toBe(1);
+    expect(stepFeedPhotoIndex(2, 2, 1)).toBe(2);
+    expect(stepFeedPhotoIndex(2, 2, -1)).toBe(1);
+  });
+
+  it('feedPhotoIndexFromScroll snaps to the nearest page', () => {
+    expect(feedPhotoIndexFromScroll(0, 320, 2)).toBe(0);
+    expect(feedPhotoIndexFromScroll(170, 320, 2)).toBe(1);
+    expect(feedPhotoIndexFromScroll(640, 320, 2)).toBe(2);
+    expect(feedPhotoIndexFromScroll(900, 320, 2)).toBe(2);
+    expect(feedPhotoIndexFromScroll(10, 0, 2)).toBe(0);
+  });
+
+  it('feedPhotoScrollLeft maps index to offset', () => {
+    expect(feedPhotoScrollLeft(0, 320)).toBe(0);
+    expect(feedPhotoScrollLeft(2, 320)).toBe(640);
+    expect(feedPhotoScrollLeft(1, 0)).toBe(0);
   });
 });

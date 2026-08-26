@@ -1,21 +1,7 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from 'react';
-import { createPortal } from 'react-dom';
-import {
-  OsGestureSheet,
-  ScaleDownIcon,
-  useScrollLock,
-} from '@onsocial/ui';
+import { useEffect, useState, type ReactNode } from 'react';
+import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { fetchScarceTokenMeta } from '@/features/market/market-listings';
 import {
@@ -30,15 +16,13 @@ import type {
 } from '@/features/scarces/drop-writing';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
+import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { accountIdsEqual } from '@/lib/account-match';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import {
   resolveScarceFeedMediumMode,
   type ScarceFeedMediumMode,
 } from '@/features/scarces/scarce-feed-medium-mode';
-
-const VIEWER_EXIT_MS = 180;
 
 export type { ScarceFeedMediumMode };
 export { resolveScarceFeedMediumMode };
@@ -48,11 +32,10 @@ function inlineSvgMarkup(svg: string): string {
 }
 
 /**
- * Feed cover tap → shared listen-player card shell.
+ * Feed / Drops cover tap → shared OsSlideOverScreen enlarge.
  *
- * Audio opens the real listen player with Mint/Buy + engagement under the
- * cover. Thought/art uses the same card without transport. Writing keeps the
- * immersive reader for now (same shell + Read stack is a follow-up).
+ * Audio opens Listen. Writing opens Read. Thought/art uses the same screen
+ * without transport.
  */
 export function ScarceFeedMediumSheet({
   open,
@@ -92,9 +75,6 @@ export function ScarceFeedMediumSheet({
   /** Post reply / quote / like / boost row. */
   engagement?: ReactNode;
 }) {
-  const titleId = useId();
-  const closeRef = useRef<HTMLButtonElement | null>(null);
-  const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const [hydratedPlayables, setHydratedPlayables] = useState<
     ScarcePlayableMedia[]
@@ -108,24 +88,18 @@ export function ScarceFeedMediumSheet({
     useState<ScarceReadableMedia | null>(null);
   const [hydrateSettled, setHydrateSettled] = useState(false);
   const [holdsEdition, setHoldsEdition] = useState<boolean | null>(null);
-  const [entered, setEntered] = useState(false);
   const playables =
     playablesProp.length > 0 ? playablesProp : hydratedPlayables;
   const readables =
     readablesProp.length > 0 ? readablesProp : hydratedReadables;
   const writingFormat = writingFormatProp ?? hydratedWritingFormat;
   const bookPdf = bookPdfProp ?? hydratedBookPdf;
-  const sheetOpen = open && !closing;
   const clip = playables[0] ?? null;
-  /** Audio with a playable uses the real listen enlarge (no custom lightbox). */
+  /** Audio with a playable uses the real listen enlarge. */
   const immersiveAudio = mode === 'audio' && clip != null && open;
-  /** Writing uses the dedicated read lightbox (cover + manuscript). */
+  /** Writing uses the dedicated read screen. */
   const immersiveWriting = mode === 'writing' && open;
   const isOverlay = mode === 'viewer' || (mode === 'audio' && !clip);
-  const requestClose = useCallback(() => setClosing(true), []);
-  const viewport = useVisualViewportSheetMetrics(sheetOpen);
-  // Overlay / listen paths need host lock; OsGestureSheet locks the reader sheet.
-  useScrollLock((isOverlay || immersiveAudio) && (open || closing));
 
   const isCreator =
     Boolean(viewerAccountId?.trim()) &&
@@ -135,8 +109,6 @@ export function ScarceFeedMediumSheet({
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
-      setClosing(false);
-      setEntered(false);
       setHydratedPlayables([]);
       setHydratedReadables([]);
       setHydratedWritingFormat(null);
@@ -147,7 +119,7 @@ export function ScarceFeedMediumSheet({
   }
 
   useEffect(() => {
-    if (!sheetOpen) return;
+    if (!open) return;
     const needsAudio =
       mode === 'audio' && playables.length === 0 && (collectionId || tokenId);
     const needsWriting =
@@ -203,7 +175,7 @@ export function ScarceFeedMediumSheet({
       cancelled = true;
     };
   }, [
-    sheetOpen,
+    open,
     mode,
     playables.length,
     readables.length,
@@ -213,7 +185,7 @@ export function ScarceFeedMediumSheet({
   ]);
 
   useEffect(() => {
-    if (!sheetOpen || mode !== 'writing' || !collectionId) return;
+    if (!open || mode !== 'writing' || !collectionId) return;
     if (isCreator) {
       setHoldsEdition(true);
       return;
@@ -231,50 +203,7 @@ export function ScarceFeedMediumSheet({
     return () => {
       cancelled = true;
     };
-  }, [sheetOpen, mode, collectionId, viewerAccountId, isCreator]);
-
-  useEffect(() => {
-    if (!sheetOpen || !isOverlay) return;
-    const frame = window.requestAnimationFrame(() => {
-      setEntered(true);
-      closeRef.current?.focus();
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [sheetOpen, isOverlay]);
-
-  useEffect(() => {
-    if (!isOverlay || !closing) return;
-    const timer = window.setTimeout(() => {
-      setClosing(false);
-      onOpenChange(false);
-    }, VIEWER_EXIT_MS);
-    return () => window.clearTimeout(timer);
-  }, [closing, isOverlay, onOpenChange]);
-
-  useEffect(() => {
-    if (!isOverlay || !sheetOpen) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        requestClose();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isOverlay, sheetOpen, requestClose]);
-
-  const lightboxStyle = useMemo((): CSSProperties | undefined => {
-    if (typeof window === 'undefined') return undefined;
-    const vv = window.visualViewport;
-    if (!viewport.isMobile || !vv || viewport.height <= 0) return undefined;
-    return {
-      top: vv.offsetTop,
-      left: vv.offsetLeft,
-      width: vv.width,
-      height: vv.height,
-      ['--scarce-lightbox-vh' as string]: `${viewport.height}px`,
-    };
-  }, [viewport.height, viewport.isMobile]);
+  }, [open, mode, collectionId, viewerAccountId, isCreator]);
 
   const name = title.trim() || 'Drop';
   const hasWriting = readables.length > 0 || bookPdf != null;
@@ -356,22 +285,17 @@ export function ScarceFeedMediumSheet({
   }
 
   if (isOverlay) {
-    if (typeof document === 'undefined') return null;
-    if (!open && !closing) return null;
-    return createPortal(
-      <div
-        className={`scarce-card-lightbox scarce-clip-listen-lightbox scarce-post-medium-lightbox${
-          entered && !closing ? ' is-open' : ''
-        }${closing ? ' is-closing' : ''}`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        style={lightboxStyle}
+    return (
+      <OsSlideOverScreen
+        open={open}
+        onClose={() => onOpenChange(false)}
+        title={name}
+        closeAriaLabel="Back from preview"
+        zIndex={SCARCE_Z.listenShell}
+        className="scarce-medium-slide"
+        contentClassName="scarce-medium-slide-body"
       >
         <div className="scarce-clip-listen scarce-post-medium-listen">
-          <p id={titleId} className="sr-only">
-            {name}
-          </p>
           <div className="scarce-clip-listen-art">{coverArt}</div>
           {mode === 'audio' ? (
             <p className="scarce-feed-medium-empty">
@@ -383,67 +307,49 @@ export function ScarceFeedMediumSheet({
           {postChrome ? (
             <div className="scarce-clip-listen-footer">{postChrome}</div>
           ) : null}
-          <div className="scarce-post-medium-dismiss">
-            <button
-              ref={closeRef}
-              type="button"
-              className="scarce-clip-cover-expand scarce-clip-listen-contract"
-              aria-label="Close preview"
-              onClick={requestClose}
-            >
-              <ScaleDownIcon
-                className="scarce-clip-cover-expand-icon"
-                aria-hidden
-              />
-            </button>
-          </div>
         </div>
-      </div>,
-      document.body
+      </OsSlideOverScreen>
     );
   }
 
   return (
-    <OsGestureSheet
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={() => {
-        setClosing(false);
-        onOpenChange(false);
-      }}
-      verb="Read"
-      personName=""
-      handle={name}
-      signal="reputation"
-      whisper="Drop writing"
-      closeAriaLabel="Close reader"
-      backdropLabel="Close reader"
-      size="compact"
-      bodyClassName="profile-support-sheet-body"
-      titleId={titleId}
-      zIndex={56}
+    <OsSlideOverScreen
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title={name}
+      subtitle="Read"
+      closeAriaLabel="Back from reader"
+      zIndex={SCARCE_Z.listenShell}
+      className="scarce-read-slide"
+      contentClassName="scarce-read-slide-body"
     >
-      {postChrome}
-      {sheetOpen && collectionId && hasWriting ? (
-        <CollectionWritingReader
-          collectionId={collectionId}
-          accountId={viewerAccountId}
-          readables={readables}
-          bookPdf={bookPdf}
-          writingFormat={writingFormat}
-          canRead={canReadWriting}
-          lockedHint={writingLockedHint}
-        />
-      ) : null}
-      {sheetOpen && (!hasWriting || !collectionId) ? (
-        <p className="scarce-feed-medium-empty">
-          {!collectionId
-            ? 'Open the Drop to read this release.'
-            : hydrateSettled
-              ? 'Writing unavailable for this Drop.'
-              : 'Loading writing…'}
-        </p>
-      ) : null}
-    </OsGestureSheet>
+      <div className="scarce-writing-read">
+        {postChrome ? (
+          <div className="scarce-writing-read-footer">{postChrome}</div>
+        ) : null}
+        {open && collectionId && hasWriting ? (
+          <div className="scarce-writing-read-body">
+            <CollectionWritingReader
+              collectionId={collectionId}
+              accountId={viewerAccountId}
+              readables={readables}
+              bookPdf={bookPdf}
+              writingFormat={writingFormat}
+              canRead={canReadWriting}
+              lockedHint={writingLockedHint}
+            />
+          </div>
+        ) : null}
+        {open && (!hasWriting || !collectionId) ? (
+          <p className="scarce-feed-medium-empty">
+            {!collectionId
+              ? 'Open the Drop to read this release.'
+              : hydrateSettled
+                ? 'Writing unavailable for this Drop.'
+                : 'Loading writing…'}
+          </p>
+        ) : null}
+      </div>
+    </OsSlideOverScreen>
   );
 }
