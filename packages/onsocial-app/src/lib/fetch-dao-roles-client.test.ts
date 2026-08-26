@@ -44,7 +44,10 @@ describe('fetchDaoRolesClient abort isolation', () => {
     controllerA.abort();
     await expect(waiterA).rejects.toMatchObject({ name: 'AbortError' });
 
-    resolveFetch?.(
+    if (!resolveFetch) {
+      throw new Error('fetch mock did not capture resolve');
+    }
+    resolveFetch(
       new Response(
         JSON.stringify({
           accountId: 'alice.near',
