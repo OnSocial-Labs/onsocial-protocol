@@ -29,6 +29,7 @@ import {
 import {
   ACTIVITY_EXCLUDE_TYPE,
   notificationHref,
+  notificationProfileAccountIds,
 } from '@/lib/notification-display';
 
 const PAGE_SIZE = 40;
@@ -63,10 +64,11 @@ export function NotificationsPanel() {
     );
   }, []);
 
-  const actorIds = (items ?? [])
-    .map((item) => item.actor)
-    .filter((id): id is string => Boolean(id));
-  const profiles = usePostAuthorProfiles(actorIds);
+  const profileIds = useMemo(
+    () => notificationProfileAccountIds(items ?? []),
+    [items]
+  );
+  const profiles = usePostAuthorProfiles(profileIds);
 
   const withAuth = useCallback(async () => {
     const { client, session, wallet, accountId: id } = await getClient();

@@ -65,33 +65,61 @@ function daoStatusFilter(
 function daoResolvedVerb(status: string | null | undefined): string {
   switch ((status ?? '').trim()) {
     case 'Approved':
-      return 'DAO proposal approved';
+      return 'Proposal approved';
     case 'Rejected':
-      return 'DAO proposal rejected';
+      return 'Proposal rejected';
     case 'Removed':
-      return 'DAO proposal removed';
+      return 'Proposal removed';
     case 'Expired':
-      return 'DAO proposal expired';
+      return 'Proposal expired';
     case 'Failed':
-      return 'DAO proposal failed';
+      return 'Proposal failed';
     case 'Moved':
-      return 'DAO proposal moved';
+      return 'Proposal moved';
     default:
-      return 'DAO proposal resolved';
+      return 'Proposal resolved';
   }
 }
 
 function daoVoteVerb(vote: string | null | undefined): string {
   switch ((vote ?? '').trim()) {
     case 'Approve':
-      return 'approved your DAO proposal';
+      return 'approved your proposal';
     case 'Reject':
-      return 'rejected your DAO proposal';
+      return 'rejected your proposal';
     case 'Remove':
-      return 'voted to remove your DAO proposal';
+      return 'voted to remove your proposal';
     default:
-      return 'voted on your DAO proposal';
+      return 'voted on your proposal';
   }
+}
+
+export function isDaoActivityType(type: string): boolean {
+  return (
+    type === 'dao_proposal' ||
+    type === 'dao_proposal_resolved' ||
+    type === 'dao_proposal_vote'
+  );
+}
+
+export function notificationDaoAccountId(
+  notification: Pick<Notification, 'context'>
+): string | null {
+  return textField(notification.context, 'daoAccountId');
+}
+
+/** Actor plus DAO place — so Activity can resolve DAO names. */
+export function notificationProfileAccountIds(
+  items: readonly Pick<Notification, 'actor' | 'context'>[]
+): string[] {
+  const ids = new Set<string>();
+  for (const item of items) {
+    const actor = item.actor?.trim();
+    if (actor) ids.add(actor);
+    const dao = notificationDaoAccountId(item);
+    if (dao) ids.add(dao);
+  }
+  return [...ids];
 }
 
 /** Parse `author/post/{id}` content paths used in notification context. */
@@ -145,7 +173,7 @@ export function notificationVerb(
     case 'group_proposal':
       return 'opened a guild proposal';
     case 'dao_proposal':
-      return 'opened a DAO proposal';
+      return 'opened a proposal';
     case 'dao_proposal_resolved':
       return daoResolvedVerb(textField(context, 'status'));
     case 'dao_proposal_vote':
@@ -311,18 +339,21 @@ export function formatNotificationTime(iso: string): {
   return { label: calendar.label, title: calendar.title };
 }
 
-/** Verb + optional DAO snippet (time lives in the row aside). */
+/** Verb + optional DAO place + proposal first line (time lives in the row aside). */
 export function notificationDetail(
   notification: Pick<Notification, 'type' | 'context'>
-): { verb: string; snippet: string | null } {
-  const verb = notificationVerb(notification.type, notification.context);
-  const snippet =
-    notification.type === 'dao_proposal' ||
-    notification.type === 'dao_proposal_resolved' ||
-    notification.type === 'dao_proposal_vote'
-      ? textField(notification.context, 'description')
+): { verb: string; placeAccountId: string | null; snippet: string | null } {
+  const type = notification.type;
+  const verb = notificationVerb(type, notification.context);
+  const daoAccountId = notificationDaoAccountId(notification);
+  const snippet = isDaoActivityType(type)
+    ? textField(notification.context, 'description')
+    : null;
+  const placeAccountId =
+    type === 'dao_proposal' || type === 'dao_proposal_vote'
+      ? daoAccountId
       : null;
-  return { verb, snippet };
+  return { verb, placeAccountId, snippet };
 }
 
 export type NotificationSystemFamily =
@@ -353,8 +384,7 @@ export function isSystemNotification(
     type.startsWith('boost_') ||
     type.startsWith('reward_') ||
     type === 'app_event' ||
-    type === 'profile_anniversary' ||
-    type === 'dao_proposal_resolved'
+    type === 'profile_anniversary'
   ) {
     return true;
   }
@@ -410,25 +440,8 @@ function systemAction(
       if (years != null && years > 1) return `${years} years on OnSocial`;
       return 'Anniversary';
     }
-    case 'dao_proposal_resolved': {
-      const status = textField(context, 'status');
-      switch ((status ?? '').trim()) {
-        case 'Approved':
-          return 'Proposal approved';
-        case 'Rejected':
-          return 'Proposal rejected';
-        case 'Removed':
-          return 'Proposal removed';
-        case 'Expired':
-          return 'Proposal expired';
-        case 'Failed':
-          return 'Proposal failed';
-        case 'Moved':
-          return 'Proposal moved';
-        default:
-          return 'Proposal resolved';
-      }
-    }
+    case 'dao_proposal_resolved':
+      return daoResolvedVerb(textField(context, 'status'));
     case 'app_event':
       return 'Update';
     default: {
@@ -450,14 +463,12 @@ export function notificationSystemChrome(
 }
 
 /**
- * Nearblocks link when the notification has an on-chain receipt.
- * Off-chain rows (anniversary, some app events) return null.
+ * Nearblocks txn URL when context has a transaction hash.
+ * Receipt ids are not txn hashes — do not put them on `/txns/`.
  */
 export function notificationExplorerHref(
-  notification: Pick<Notification, 'source' | 'context'>
+  notification: Pick<Notification, 'context'>
 ): string | null {
-  const fromSource = nearExplorerTxHref(notification.source?.receiptId);
-  if (fromSource) return fromSource;
   const fromContext =
     textField(notification.context, 'txHash') ??
     textField(notification.context, 'transactionHash');
@@ -468,10 +479,10 @@ export function notificationExplorerHref(
 export function notificationDescription(
   notification: Pick<Notification, 'type' | 'context' | 'createdAt'>
 ): string {
-  const { verb, snippet } = notificationDetail(notification);
+  const { verb, placeAccountId, snippet } = notificationDetail(notification);
   const when = formatNotificationTime(notification.createdAt).label;
-  const parts = [verb, snippet, when || null].filter((part): part is string =>
-    Boolean(part)
+  const parts = [verb, placeAccountId, snippet, when || null].filter(
+    (part): part is string => Boolean(part)
   );
   return parts.join(' · ');
 }

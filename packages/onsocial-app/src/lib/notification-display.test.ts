@@ -6,6 +6,7 @@ import {
   notificationDetail,
   notificationExplorerHref,
   notificationHref,
+  notificationProfileAccountIds,
   notificationSystemChrome,
   notificationVerb,
   parseNotificationPostPath,
@@ -27,16 +28,16 @@ describe('notification display', () => {
     expect(notificationVerb('reward_credited')).toBe('credited');
     expect(notificationVerb('reward_claimed')).toBe('collected');
     expect(notificationVerb('boost_reward_claimed')).toBe('boost claimed');
-    expect(notificationVerb('dao_proposal')).toBe('opened a DAO proposal');
+    expect(notificationVerb('dao_proposal')).toBe('opened a proposal');
     expect(
       notificationVerb('dao_proposal_resolved', { status: 'Approved' })
-    ).toBe('DAO proposal approved');
+    ).toBe('Proposal approved');
     expect(notificationVerb('repost')).toBe('reposted your post');
     expect(notificationVerb('dao_proposal_vote', { vote: 'Approve' })).toBe(
-      'approved your DAO proposal'
+      'approved your proposal'
     );
     expect(notificationVerb('dao_proposal_vote', { vote: 'Reject' })).toBe(
-      'rejected your DAO proposal'
+      'rejected your proposal'
     );
     expect(
       notificationVerb('reaction', {
@@ -148,7 +149,9 @@ describe('notification display', () => {
         },
         createdAt,
       })
-    ).toBe('opened a DAO proposal · Fund builders · 5m ago');
+    ).toBe(
+      'opened a proposal · gov.sputnik-dao.testnet · Fund builders · 5m ago'
+    );
 
     expect(
       notificationDescription({
@@ -159,7 +162,7 @@ describe('notification display', () => {
         },
         createdAt,
       })
-    ).toBe('DAO proposal approved · Fund builders · 5m ago');
+    ).toBe('Proposal approved · Fund builders · 5m ago');
 
     expect(
       notificationDescription({
@@ -170,7 +173,9 @@ describe('notification display', () => {
         },
         createdAt,
       })
-    ).toBe('approved your DAO proposal · Fund builders · 5m ago');
+    ).toBe(
+      'approved your proposal · Fund builders · 5m ago'
+    );
   });
 
   it('splits verb and DAO snippet without time', () => {
@@ -179,16 +184,46 @@ describe('notification display', () => {
         type: 'standing_new',
         context: {},
       })
-    ).toEqual({ verb: 'stood with you', snippet: null });
+    ).toEqual({ verb: 'stood with you', placeAccountId: null, snippet: null });
     expect(
       notificationDetail({
         type: 'dao_proposal',
-        context: { description: 'Fund builders' },
+        context: {
+          daoAccountId: 'gov.sputnik-dao.testnet',
+          description: 'Fund builders',
+        },
       })
     ).toEqual({
-      verb: 'opened a DAO proposal',
+      verb: 'opened a proposal',
+      placeAccountId: 'gov.sputnik-dao.testnet',
       snippet: 'Fund builders',
     });
+    expect(
+      notificationDetail({
+        type: 'dao_proposal_resolved',
+        context: {
+          daoAccountId: 'gov.sputnik-dao.testnet',
+          status: 'Approved',
+          description: 'Fund builders',
+        },
+      })
+    ).toEqual({
+      verb: 'Proposal approved',
+      placeAccountId: null,
+      snippet: 'Fund builders',
+    });
+  });
+
+  it('collects actor and DAO accounts for profile fetch', () => {
+    expect(
+      notificationProfileAccountIds([
+        {
+          actor: 'bob.testnet',
+          context: { daoAccountId: 'gov.sputnik-dao.testnet' },
+        },
+        { actor: 'bob.testnet', context: {} },
+      ])
+    ).toEqual(['bob.testnet', 'gov.sputnik-dao.testnet']);
   });
 
   it('classifies system chrome for boost / collect / dao resolved', () => {
@@ -216,6 +251,12 @@ describe('notification display', () => {
         actor: '',
       })
     ).toBe(true);
+    expect(
+      isSystemNotification({
+        type: 'dao_proposal_resolved',
+        actor: 'gov.sputnik-dao.testnet',
+      })
+    ).toBe(false);
 
     expect(
       notificationSystemChrome({
@@ -290,22 +331,19 @@ describe('notification display', () => {
     ).toBe('/@alice.testnet');
   });
 
-  it('builds Nearblocks href from receipt or context tx hash', () => {
+  it('builds Nearblocks href only from a transaction hash', () => {
     expect(
       notificationExplorerHref({
-        source: { contract: 'core', receiptId: 'abc123', blockHeight: 1 },
         context: null,
       })
-    ).toMatch(/\/txns\/abc123$/);
+    ).toBeNull();
     expect(
       notificationExplorerHref({
-        source: { contract: 'onsocial', receiptId: null, blockHeight: null },
         context: { txHash: 'def456' },
       })
     ).toMatch(/\/txns\/def456$/);
     expect(
       notificationExplorerHref({
-        source: { contract: 'onsocial', receiptId: null, blockHeight: null },
         context: { years: 1 },
       })
     ).toBeNull();
