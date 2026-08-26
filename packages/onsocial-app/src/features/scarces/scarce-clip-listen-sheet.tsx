@@ -1,17 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-  type CSSProperties,
-  type ReactNode,
-  type RefObject,
-} from 'react';
-import { createPortal } from 'react-dom';
+import { useId, type ReactNode, type RefObject } from 'react';
 import {
   HeartFillIcon,
   HeartIcon,
@@ -21,20 +10,14 @@ import {
   PauseFillIcon,
   PlayFillIcon,
   PreviousFillIcon,
-  ScaleDownIcon,
-  useScrollLock,
 } from '@onsocial/ui';
+import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { ScarceClipShareButton } from '@/features/scarces/scarce-clip-share-button';
-import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
-
-const clientMountedSubscribe = () => () => {};
-const getClientMountedSnapshot = () => true;
-const getServerMountedSnapshot = () => false;
-const LIGHTBOX_EXIT_MS = 180;
+import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
 /**
- * Full-screen listen mode — same dark art-modal chrome as post / cover zoom,
- * not a GlassSheet drawer.
+ * Listen enlarge — same OsSlideOverScreen chrome as Read / Pass.
+ * Back lives in the OS nav row, clipped to the phone card.
  */
 export function ScarceClipListenSheet({
   open,
@@ -119,95 +102,29 @@ export function ScarceClipListenSheet({
   /** Optional post chrome under love/share (Mint/Buy + engagement). */
   footer?: ReactNode;
 }) {
-  const titleId = useId();
   const lyricsId = useId();
-  const [closing, setClosing] = useState(false);
-  const [entered, setEntered] = useState(false);
-  const [wasOpen, setWasOpen] = useState(open);
-  const mounted = useSyncExternalStore(
-    clientMountedSubscribe,
-    getClientMountedSnapshot,
-    getServerMountedSnapshot
-  );
   const showLove = Boolean(onToggleLove);
   const showShare = Boolean(shareTitle?.trim());
   const showSave = Boolean(onToggleSave);
   const showActions = showLove || showShare || showSave;
+  const screenTitle = albumTitle.trim() || trackTitle.trim() || 'Listen';
+  const screenSubtitle =
+    trackTitle.trim() && trackTitle.trim() !== screenTitle
+      ? trackTitle.trim()
+      : undefined;
 
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) {
-      setClosing(false);
-      setEntered(false);
-    }
-  }
-
-  const lightboxOpen = open && !closing;
-  const viewport = useVisualViewportSheetMetrics(open || closing);
-  useScrollLock(lightboxOpen);
-
-  const lightboxStyle = useMemo((): CSSProperties | undefined => {
-    if (typeof window === 'undefined') return undefined;
-    const vv = window.visualViewport;
-    if (!viewport.isMobile || !vv || viewport.height <= 0) return undefined;
-    return {
-      top: vv.offsetTop,
-      left: vv.offsetLeft,
-      width: vv.width,
-      height: vv.height,
-      ['--scarce-lightbox-vh' as string]: `${viewport.height}px`,
-    };
-  }, [viewport.height, viewport.isMobile]);
-
-  const requestClose = useCallback(() => {
-    setClosing(true);
-    setEntered(false);
-  }, []);
-
-  useEffect(() => {
-    if (!closing) return;
-    const timer = window.setTimeout(() => {
-      setClosing(false);
-      onClose();
-    }, LIGHTBOX_EXIT_MS);
-    return () => window.clearTimeout(timer);
-  }, [closing, onClose]);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const id = window.requestAnimationFrame(() => setEntered(true));
-    return () => window.cancelAnimationFrame(id);
-  }, [lightboxOpen]);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        requestClose();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [lightboxOpen, requestClose]);
-
-  if (!mounted || (!open && !closing)) return null;
-
-  return createPortal(
-    <div
-      className={`scarce-card-lightbox scarce-clip-listen-lightbox${
-        entered && !closing ? ' is-open' : ''
-      }${closing ? ' is-closing' : ''}`}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      style={lightboxStyle}
+  return (
+    <OsSlideOverScreen
+      open={open}
+      onClose={onClose}
+      title={screenTitle}
+      subtitle={screenSubtitle}
+      closeAriaLabel="Back from listen"
+      zIndex={SCARCE_Z.listenShell}
+      className="scarce-listen-slide"
+      contentClassName="scarce-listen-slide-body"
     >
       <div className={`scarce-clip-listen${lyricsOpen ? ' is-lyrics' : ''}`}>
-        <p id={titleId} className="sr-only">
-          {trackTitle}
-        </p>
-
         <div className="scarce-clip-listen-art">
           {cover ? (
             <img src={cover} alt="" className="scarce-clip-listen-cover" />
@@ -325,17 +242,6 @@ export function ScarceClipListenSheet({
                   {formatListenTime(duration)}
                 </span>
               </span>
-              <button
-                type="button"
-                className="scarce-clip-cover-expand scarce-clip-listen-contract"
-                aria-label="Close listen"
-                onClick={requestClose}
-              >
-                <ScaleDownIcon
-                  className="scarce-clip-cover-expand-icon"
-                  aria-hidden
-                />
-              </button>
             </div>
             <div
               className={`scarce-clip-progress-track${
@@ -457,8 +363,7 @@ export function ScarceClipListenSheet({
           ) : null}
         </div>
       </div>
-    </div>,
-    document.body
+    </OsSlideOverScreen>
   );
 }
 

@@ -1,23 +1,11 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type CSSProperties,
-} from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ProfileAvatar,
-  resolveGlassScrimBackdropFilter,
   resolveOsGlassPanelFilter,
-  SheetCloseButton,
-  useScrollLock,
 } from '@onsocial/ui';
+import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   fetchCollectionCreatorFace,
@@ -46,16 +34,11 @@ import {
 } from '@/lib/app-social-session-cache';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fallbackLabel } from '@/lib/profile-display';
-import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
-
-const clientMountedSubscribe = () => () => {};
-const getClientMountedSnapshot = () => true;
-const getServerMountedSnapshot = () => false;
-const LIGHTBOX_EXIT_MS = 180;
+import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
 /**
- * Full-screen Show pass — live signed QR for the door.
- * Frost scrim like drawers; glass card; quiet copyable live code.
+ * Show pass — same OsSlideOverScreen chrome as Listen / Read.
+ * Back lives in the OS nav row, clipped to the phone card.
  */
 export function TicketShowPassSheet({
   open,
@@ -72,10 +55,6 @@ export function TicketShowPassSheet({
   collectionId: string;
   tokenId: string;
 }) {
-  const titleId = useId();
-  const closeRef = useRef<HTMLButtonElement | null>(null);
-  const [closing, setClosing] = useState(false);
-  const [entered, setEntered] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const [status, setStatus] = useState<TicketTokenStatus | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -93,17 +72,10 @@ export function TicketShowPassSheet({
   );
   const [holderFetchDone, setHolderFetchDone] = useState(false);
   const { accountId } = useAppWallet();
-  const mounted = useSyncExternalStore(
-    clientMountedSubscribe,
-    getClientMountedSnapshot,
-    getServerMountedSnapshot
-  );
 
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
-      setClosing(false);
-      setEntered(false);
       setStatus(null);
       setStatusError(null);
       setStatusReady(false);
@@ -118,41 +90,14 @@ export function TicketShowPassSheet({
     }
   }
 
-  const lightboxOpen = open && !closing;
-  const statusLoading = lightboxOpen && !statusReady;
-  const viewport = useVisualViewportSheetMetrics(open || closing);
-  useScrollLock(lightboxOpen);
+  const statusLoading = open && !statusReady;
 
-  const lightboxStyle = useMemo((): CSSProperties => {
-    const frost = closing ? 'blur(0px)' : resolveGlassScrimBackdropFilter();
-    const style: CSSProperties = {
-      backdropFilter: frost,
-      WebkitBackdropFilter: frost,
-    };
-    if (typeof window === 'undefined') return style;
-    const vv = window.visualViewport;
-    if (!viewport.isMobile || !vv || viewport.height <= 0) return style;
-    return {
-      ...style,
-      top: vv.offsetTop,
-      left: vv.offsetLeft,
-      width: vv.width,
-      height: viewport.height,
-      ['--scarce-lightbox-vh' as string]: `${viewport.height}px`,
-    };
-  }, [closing, viewport.height, viewport.isMobile]);
-
-  const cardStyle = useMemo((): CSSProperties => {
+  const cardStyle = useMemo(() => {
     const frost = resolveOsGlassPanelFilter();
     return {
       backdropFilter: frost,
       WebkitBackdropFilter: frost,
     };
-  }, []);
-
-  const requestClose = useCallback(() => {
-    setClosing(true);
-    setEntered(false);
   }, []);
 
   const passCode = livePayload?.trim() || '';
@@ -168,37 +113,7 @@ export function TicketShowPassSheet({
   }, [passCode]);
 
   useEffect(() => {
-    if (!closing) return;
-    const timer = window.setTimeout(() => {
-      setClosing(false);
-      onClose();
-    }, LIGHTBOX_EXIT_MS);
-    return () => window.clearTimeout(timer);
-  }, [closing, onClose]);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const id = window.requestAnimationFrame(() => {
-      setEntered(true);
-      closeRef.current?.focus();
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [lightboxOpen]);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        requestClose();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [lightboxOpen, requestClose]);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
+    if (!open) return;
     const id = tokenId.trim();
     if (!id) return;
     let cancelled = false;
@@ -218,15 +133,15 @@ export function TicketShowPassSheet({
     return () => {
       cancelled = true;
     };
-  }, [lightboxOpen, tokenId]);
+  }, [open, tokenId]);
 
   const ownerId = status?.ownerId?.trim() || '';
-  const shouldFetchHolder = lightboxOpen && Boolean(ownerId);
+  const shouldFetchHolder = open && Boolean(ownerId);
   const holderFaceForOwner =
     shouldFetchHolder && holderFetchOwnerId === ownerId ? holderFace : null;
   const holderReady = shouldFetchHolder
     ? holderFetchOwnerId === ownerId && holderFetchDone
-    : !lightboxOpen || statusReady;
+    : !open || statusReady;
 
   useEffect(() => {
     if (!shouldFetchHolder) return;
@@ -250,9 +165,8 @@ export function TicketShowPassSheet({
     };
   }, [shouldFetchHolder, ownerId]);
 
-  // Silent live QR — session key, refresh while open.
   useEffect(() => {
-    if (!lightboxOpen) return;
+    if (!open) return;
     if (!statusReady || !status) return;
 
     let cancelled = false;
@@ -318,7 +232,7 @@ export function TicketShowPassSheet({
       cancelled = true;
       if (timer != null) window.clearInterval(timer);
     };
-  }, [accountId, collectionId, lightboxOpen, status, statusReady, tokenId]);
+  }, [accountId, collectionId, open, status, statusReady, tokenId]);
 
   const name = (status?.title ?? title).trim() || 'Pass';
   const coverUrl = resolveScarceMediaUrl(cover?.trim() || null);
@@ -356,29 +270,18 @@ export function TicketShowPassSheet({
       ? liveError
       : null;
 
-  if (!mounted || (!open && !closing)) return null;
-
-  return createPortal(
-    <div
-      className={`scarce-card-lightbox ticket-show-pass-lightbox${
-        entered && !closing ? ' is-open' : ''
-      }${closing ? ' is-closing' : ''}`}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Show pass"
-      aria-labelledby={titleId}
-      style={lightboxStyle}
+  return (
+    <OsSlideOverScreen
+      open={open}
+      onClose={onClose}
+      title={name}
+      subtitle={statusLine}
+      closeAriaLabel="Back from pass"
+      zIndex={SCARCE_Z.nestedOverCommerce}
+      className="ticket-pass-slide"
+      contentClassName="ticket-pass-slide-body"
     >
       <div className="ticket-show-pass">
-        <div className="ticket-show-pass-top">
-          <SheetCloseButton
-            ref={closeRef}
-            onClick={requestClose}
-            ariaLabel="Close pass"
-            className="ticket-show-pass-close"
-          />
-        </div>
-
         <div className="ticket-show-pass-card">
           <div
             className="ticket-show-pass-card-frost"
@@ -396,9 +299,7 @@ export function TicketShowPassSheet({
                 />
               ) : null}
 
-              <h2 id={titleId} className="ticket-show-pass-title">
-                {name}
-              </h2>
+              <h2 className="ticket-show-pass-title">{name}</h2>
               <p className={`ticket-show-pass-status${toneClass}`}>
                 {statusLine}
               </p>
@@ -477,7 +378,6 @@ export function TicketShowPassSheet({
           </div>
         </div>
       </div>
-    </div>,
-    document.body
+    </OsSlideOverScreen>
   );
 }

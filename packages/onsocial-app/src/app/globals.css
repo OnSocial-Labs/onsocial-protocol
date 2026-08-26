@@ -23617,6 +23617,58 @@ a.os-surface-row {
     padding: 0.35rem 1.15rem 1.35rem;
   }
 
+  /*
+   * Listen / Read / Pass / thought enlarge — fill the OS screen body.
+   * Must target `.os-slide-over-content.…` so the pad survives CSS minify.
+   */
+  .scarce-listen-slide .os-app-screen-body,
+  .scarce-read-slide .os-app-screen-body,
+  .ticket-pass-slide .os-app-screen-body,
+  .scarce-medium-slide .os-app-screen-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .scarce-listen-slide .os-slide-over-content.scarce-listen-slide-body,
+  .scarce-read-slide .os-slide-over-content.scarce-read-slide-body,
+  .ticket-pass-slide .os-slide-over-content.ticket-pass-slide-body,
+  .scarce-medium-slide .os-slide-over-content.scarce-medium-slide-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .scarce-listen-slide .scarce-clip-listen,
+  .scarce-medium-slide .scarce-clip-listen {
+    padding-top: 0.75rem;
+    padding-bottom: 1.1rem;
+  }
+
+  .scarce-read-slide .scarce-writing-read {
+    --writing-read-measure: min(34rem, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    width: min(100%, 44rem);
+    max-height: none;
+    height: 100%;
+    margin: 0 auto;
+    padding: 0.55rem 1.1rem 0.85rem;
+    min-height: 0;
+    box-sizing: border-box;
+  }
+
+  .scarce-read-slide .scarce-writing-read-progress {
+    margin: 0;
+  }
+
+  .ticket-pass-slide .ticket-show-pass {
+    --pass-pad-t: 0.55rem;
+    height: 100%;
+  }
+
   .hub-manage-slide .os-slide-over-footer-inner {
     max-width: none;
     width: 100%;
