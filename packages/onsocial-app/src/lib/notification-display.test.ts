@@ -5,6 +5,7 @@ import {
   notificationDescription,
   notificationDetail,
   notificationExplorerHref,
+  notificationCollectionIds,
   notificationHref,
   notificationProfileAccountIds,
   notificationSystemChrome,
@@ -141,6 +142,16 @@ describe('notification display', () => {
       notificationHref({
         type: 'boost_locked',
         actor: 'alice.testnet',
+        recipient: 'alice.testnet',
+        context: {},
+      })
+    ).toBe('/@alice.testnet?sheet=boost');
+
+    expect(
+      notificationHref({
+        type: 'reward_claimed',
+        actor: 'alice.testnet',
+        recipient: 'alice.testnet',
         context: {},
       })
     ).toBe('/home');
@@ -191,9 +202,7 @@ describe('notification display', () => {
         },
         createdAt,
       })
-    ).toBe(
-      'approved your proposal · Fund builders · 5m ago'
-    );
+    ).toBe('approved your proposal · Fund builders · 5m ago');
   });
 
   it('splits verb and DAO snippet without time', () => {
@@ -285,6 +294,22 @@ describe('notification display', () => {
       placeCollectionId: 'night-drive',
       snippet: '12.00 SOCIAL',
     });
+  });
+
+  it('collects collection ids for drop title fetch', () => {
+    expect(
+      notificationCollectionIds([
+        {
+          type: 'scarces_sold',
+          context: { collectionId: 'night-drive' },
+        },
+        {
+          type: 'scarces_offer',
+          context: { collectionId: 'night-drive' },
+        },
+        { type: 'reply', context: {} },
+      ])
+    ).toEqual(['night-drive']);
   });
 
   it('collects actor and DAO accounts for profile fetch', () => {

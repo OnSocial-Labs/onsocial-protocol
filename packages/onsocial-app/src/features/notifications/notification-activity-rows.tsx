@@ -120,11 +120,13 @@ export function NotificationActivityRows({
   items,
   profiles,
   guildNames,
+  collectionNames,
   onOpen,
 }: {
   items: Notification[];
   profiles: Record<string, PostAuthorProfile>;
   guildNames?: Record<string, string>;
+  collectionNames?: Record<string, string>;
   onOpen: (item: Notification) => void;
 }) {
   return (
@@ -154,7 +156,9 @@ export function NotificationActivityRows({
           : placeGroupId
             ? guildNames?.[placeGroupId] ||
               guildDisplayName(null, placeGroupId)
-            : placeCollectionId;
+            : placeCollectionId
+              ? collectionNames?.[placeCollectionId] || placeCollectionId
+              : null;
 
         let ariaLead: string;
         let body: ReactNode;

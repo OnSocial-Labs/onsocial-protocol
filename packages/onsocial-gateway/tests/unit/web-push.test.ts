@@ -77,7 +77,7 @@ describe('pushNotificationUrl', () => {
     ).toBe('/@alice.near');
   });
 
-  it('deep-links replies to the post and boost to home', () => {
+  it('deep-links replies to the post and boost to the owner sheet', () => {
     expect(
       pushNotificationUrl({
         notification_type: 'reply',
@@ -89,6 +89,15 @@ describe('pushNotificationUrl', () => {
       pushNotificationUrl({
         notification_type: 'boost_locked',
         actor: 'alice.near',
+        recipient: 'alice.near',
+        context: {},
+      })
+    ).toBe('/@alice.near?sheet=boost');
+    expect(
+      pushNotificationUrl({
+        notification_type: 'reward_claimed',
+        actor: 'alice.near',
+        recipient: 'alice.near',
         context: {},
       })
     ).toBe('/home');

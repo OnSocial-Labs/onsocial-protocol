@@ -497,7 +497,15 @@ export function pushNotificationUrl(row: {
     }
   }
 
-  if (type.startsWith('boost_') || type.startsWith('reward_')) {
+  if (type.startsWith('boost_')) {
+    const recipient = row.recipient?.trim();
+    if (recipient) {
+      return `/@${encodeURIComponent(recipient)}?sheet=boost`;
+    }
+    return '/home';
+  }
+
+  if (type.startsWith('reward_')) {
     return '/home';
   }
 

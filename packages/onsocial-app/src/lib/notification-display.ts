@@ -10,7 +10,7 @@ import {
   type ProtocolFeedStatusFilter,
 } from '@/lib/app-routes';
 import { formatSocialCompact } from '@/lib/format-social-balance';
-import { portfolioPath } from '@/lib/overlay-routes';
+import { portfolioBoostPath, portfolioPath } from '@/lib/overlay-routes';
 import { postThreadPath } from '@/lib/post-routes';
 
 /** Mailbox owns DMs — Activity list/count/mark-all skip this kind. */
@@ -160,6 +160,17 @@ export function notificationGroupIds(
   for (const item of items) {
     const groupId = notificationPlaceGroupId(item);
     if (groupId) ids.add(groupId);
+  }
+  return [...ids];
+}
+
+export function notificationCollectionIds(
+  items: readonly Pick<Notification, 'type' | 'context'>[]
+): string[] {
+  const ids = new Set<string>();
+  for (const item of items) {
+    const collectionId = notificationPlaceCollectionId(item);
+    if (collectionId) ids.add(collectionId);
   }
   return [...ids];
 }
@@ -388,7 +399,13 @@ export function notificationHref(
     if (collectionId) return collectionPath(collectionId);
   }
 
-  if (type.startsWith('boost_') || type.startsWith('reward_')) {
+  if (type.startsWith('boost_')) {
+    const recipient = notification.recipient?.trim();
+    if (recipient) return portfolioBoostPath(recipient);
+    return APP_HOME_PATH;
+  }
+
+  if (type.startsWith('reward_')) {
     return APP_HOME_PATH;
   }
 
