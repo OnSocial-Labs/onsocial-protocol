@@ -26,11 +26,13 @@ describe('fetchDaoRolesClient abort isolation', () => {
   });
 
   it('keeps the shared request alive when one waiter aborts', async () => {
-    let resolveFetch: ((value: Response) => void) | null = null;
+    const deferred: { resolve: ((value: Response) => void) | null } = {
+      resolve: null,
+    };
     const fetchMock = vi.fn(
       () =>
         new Promise<Response>((resolve) => {
-          resolveFetch = resolve;
+          deferred.resolve = resolve;
         })
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -44,10 +46,10 @@ describe('fetchDaoRolesClient abort isolation', () => {
     controllerA.abort();
     await expect(waiterA).rejects.toMatchObject({ name: 'AbortError' });
 
-    if (!resolveFetch) {
+    if (!deferred.resolve) {
       throw new Error('fetch mock did not capture resolve');
     }
-    resolveFetch(
+    deferred.resolve(
       new Response(
         JSON.stringify({
           accountId: 'alice.near',
