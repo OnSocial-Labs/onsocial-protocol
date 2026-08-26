@@ -58,6 +58,7 @@ export function FeedPhotoEnlargeScreen({
   const trackRef = useRef<HTMLDivElement>(null);
   const skipSnapRef = useRef(false);
   const prevOpenRef = useRef(open);
+  const indexRef = useRef(index);
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -75,6 +76,7 @@ export function FeedPhotoEnlargeScreen({
   );
 
   useLayoutEffect(() => {
+    indexRef.current = index;
     const justOpened = open && !prevOpenRef.current;
     prevOpenRef.current = open;
     const track = trackRef.current;
@@ -93,16 +95,56 @@ export function FeedPhotoEnlargeScreen({
   useEffect(() => {
     const track = trackRef.current;
     if (!open || !track || photos.length < 2) return;
-    const snap = () => {
+    let width = track.clientWidth;
+    const observer = new ResizeObserver(() => {
+      const nextWidth = track.clientWidth;
+      if (nextWidth === width) return;
+      width = nextWidth;
       track.scrollTo({
-        left: feedPhotoScrollLeft(index, track.clientWidth),
+        left: feedPhotoScrollLeft(indexRef.current, nextWidth),
         behavior: 'auto',
       });
-    };
-    const observer = new ResizeObserver(snap);
+    });
     observer.observe(track);
     return () => observer.disconnect();
-  }, [open, index, photos.length]);
+  }, [open, photos.length]);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!open || !track || photos.length < 2) return;
+    const settle = () => {
+      const next = feedPhotoIndexFromScroll(
+        track.scrollLeft,
+        track.clientWidth,
+        last
+      );
+      skipSnapRef.current = true;
+      setIndex(next);
+      const left = feedPhotoScrollLeft(next, track.clientWidth);
+      if (Math.abs(track.scrollLeft - left) > 1) {
+        track.scrollTo({
+          left,
+          behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+        });
+      }
+    };
+    let timer = 0;
+    const onScroll = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(settle, 90);
+    };
+    const onScrollEnd = () => {
+      window.clearTimeout(timer);
+      settle();
+    };
+    track.addEventListener('scroll', onScroll, { passive: true });
+    track.addEventListener('scrollend', onScrollEnd);
+    return () => {
+      window.clearTimeout(timer);
+      track.removeEventListener('scroll', onScroll);
+      track.removeEventListener('scrollend', onScrollEnd);
+    };
+  }, [open, photos.length, last]);
 
   useEffect(() => {
     if (!open || photos.length < 2) return;
@@ -140,22 +182,7 @@ export function FeedPhotoEnlargeScreen({
       <div className="scarce-clip-listen scarce-post-medium-listen feed-photo-listen">
         <div className="scarce-clip-listen-art feed-photo-stage">
           {showNav ? (
-            <div
-              ref={trackRef}
-              className="feed-photo-track"
-              onScroll={() => {
-                const track = trackRef.current;
-                if (!track) return;
-                const next = feedPhotoIndexFromScroll(
-                  track.scrollLeft,
-                  track.clientWidth,
-                  last
-                );
-                if (next === index) return;
-                skipSnapRef.current = true;
-                setIndex(next);
-              }}
-            >
+            <div ref={trackRef} className="feed-photo-track">
               {photos.map((item, photoIndex) => (
                 <div
                   key={`${item.cid ?? item.url}:${photoIndex}`}
