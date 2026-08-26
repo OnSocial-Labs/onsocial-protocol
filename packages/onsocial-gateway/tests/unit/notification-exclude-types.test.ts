@@ -15,7 +15,10 @@ describe('parseExcludeTypes', () => {
   });
 
   it('trims blanks and drops empty tokens', () => {
-    expect(parseExcludeTypes(' dm, ,boost_locked ')).toEqual(['dm', 'boost_locked']);
+    expect(parseExcludeTypes(' dm, ,boost_locked ')).toEqual([
+      'dm',
+      'boost_locked',
+    ]);
   });
 
   it('returns an empty list when unset', () => {

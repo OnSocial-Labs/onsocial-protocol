@@ -382,14 +382,10 @@ describe('mapBoostEventNotifications', () => {
   it('does not notify the viewer for their own boost taps', () => {
     expect(mapBoostEventNotifications(makeBoostEvent())).toHaveLength(0);
     expect(
-      mapBoostEventNotifications(
-        makeBoostEvent({ event_type: 'BOOST_EXTEND' })
-      )
+      mapBoostEventNotifications(makeBoostEvent({ event_type: 'BOOST_EXTEND' }))
     ).toHaveLength(0);
     expect(
-      mapBoostEventNotifications(
-        makeBoostEvent({ event_type: 'BOOST_UNLOCK' })
-      )
+      mapBoostEventNotifications(makeBoostEvent({ event_type: 'BOOST_UNLOCK' }))
     ).toHaveLength(0);
     expect(
       mapBoostEventNotifications(
