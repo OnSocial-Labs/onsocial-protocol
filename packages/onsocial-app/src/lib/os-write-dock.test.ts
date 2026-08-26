@@ -5,6 +5,8 @@ import {
   writeDockIsThoughtEnlarge,
   writeDockReplyPlaceholder,
   writeDockShouldSendOnEnter,
+  writeDockShowExpand,
+  writeDockShowSend,
 } from '@/lib/os-write-dock';
 
 describe('os write dock helpers', () => {
@@ -14,6 +16,18 @@ describe('os write dock helpers', () => {
     expect(writeDockCanSend('hi', 0)).toBe(true);
     expect(writeDockCanSend('', 1)).toBe(true);
     expect(writeDockCanSend('hi', 1, true)).toBe(false);
+  });
+
+  it('shows send only when there is something to send or a send is pending', () => {
+    expect(writeDockShowSend(false)).toBe(false);
+    expect(writeDockShowSend(true)).toBe(true);
+    expect(writeDockShowSend(false, true)).toBe(true);
+  });
+
+  it('shows expand only after the dock is open', () => {
+    expect(writeDockShowExpand(true, false)).toBe(false);
+    expect(writeDockShowExpand(true, true)).toBe(true);
+    expect(writeDockShowExpand(false, true)).toBe(false);
   });
 
   it('does not send on Enter during SSR', () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { OsWriteDockReplyChip } from '@/components/os/os-write-dock';
 import { useRegisterWriteDock } from '@/contexts/compose-launcher-context';
 import { writeDockDraftKey } from '@/lib/os-write-dock';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -171,20 +172,11 @@ export function DmThreadComposer({
     if (!replyTo && !disabledReason) return null;
     return (
       <>
-        {replyTo ? (
-          <div className="os-write-dock-reply">
-            <p className="os-write-dock-reply-copy">
-              <span>Replying</span>
-              {replyTo.preview}
-            </p>
-            <button
-              type="button"
-              className="os-write-dock-reply-cancel"
-              onClick={onCancelReply}
-            >
-              Cancel
-            </button>
-          </div>
+        {replyTo && onCancelReply ? (
+          <OsWriteDockReplyChip
+            label={replyTo.preview}
+            onCancel={onCancelReply}
+          />
         ) : null}
         {disabledReason ? (
           <p className="os-write-dock-error" role="status">

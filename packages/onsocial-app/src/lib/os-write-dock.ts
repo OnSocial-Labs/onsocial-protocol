@@ -11,6 +11,19 @@ export function writeDockCanSend(
   return !disabled && (Boolean(text.trim()) || fileCount > 0);
 }
 
+/** Send owns the bar — hide the dead circle until there is something to send. */
+export function writeDockShowSend(canSend: boolean, pending = false): boolean {
+  return pending || canSend;
+}
+
+/** Expand stays off the compact rest; it appears once the dock is open. */
+export function writeDockShowExpand(
+  hasExpand: boolean,
+  expanded: boolean
+): boolean {
+  return hasExpand && expanded;
+}
+
 export function writeDockShouldSendOnEnter(
   maxWidthPx = WRITE_DOCK_MOBILE_MAX_WIDTH_PX
 ): boolean {

@@ -19,6 +19,8 @@ import {
   WRITE_DOCK_MEDIA_ACCEPT,
   writeDockCanSend,
   writeDockShouldSendOnEnter,
+  writeDockShowExpand,
+  writeDockShowSend,
 } from '@/lib/os-write-dock';
 import {
   clearWriteDockDraft,
@@ -93,8 +95,8 @@ export function OsWriteDockReplyChip({
   return (
     <div className="os-write-dock-reply">
       <p className="os-write-dock-reply-copy">
-        <span>Replying</span>
-        {label}
+        <span className="os-write-dock-reply-kicker">Replying</span>
+        <span className="os-write-dock-reply-name">{label}</span>
       </p>
       <button
         type="button"
@@ -153,6 +155,8 @@ export function OsWriteDock({
     mediaFile ? 1 : 0,
     disabled || pending
   );
+  const showSend = writeDockShowSend(canSend, pending);
+  const showExpand = writeDockShowExpand(Boolean(onExpand), expanded);
 
   const persistDraft = (nextText: string, nextFile: File | null) => {
     if (!draftKey) return;
@@ -194,11 +198,11 @@ export function OsWriteDock({
 
   const handleSubmit = async (event?: FormEvent) => {
     event?.preventDefault();
+    if (!canSend || submitLockRef.current) return;
     if (!isConnected) {
       await connect();
       return;
     }
-    if (!canSend || submitLockRef.current) return;
     submitLockRef.current = true;
     const outgoingText = text;
     const outgoingMedia = mediaFile;
@@ -251,9 +255,10 @@ export function OsWriteDock({
                 type="button"
                 className="os-write-dock-preview-remove"
                 disabled={disabled || pending}
+                aria-label="Remove"
                 onClick={clearMedia}
               >
-                Remove
+                ×
               </button>
             </div>
           ) : null}
@@ -330,39 +335,41 @@ export function OsWriteDock({
         >
           <ImageIcon className="os-write-dock-media-icon" aria-hidden />
         </button>
-        {onExpand ? (
+        {showExpand ? (
           <button
             type="button"
-            className="os-write-dock-tool"
+            className="os-write-dock-tool is-quiet"
             aria-label="Open full composer"
             disabled={disabled || pending}
             onClick={() => {
               persistDraft(text, mediaFile);
               holdOpen();
-              onExpand(currentPayload());
+              onExpand?.(currentPayload());
             }}
           >
             <WriteDockExpandIcon />
           </button>
         ) : null}
-        <button
-          type="submit"
-          className={`os-write-dock-send${pending ? ' is-pending' : ''}`}
-          disabled={disabled || pending || (isConnected && !canSend)}
-          aria-label={
-            pending
-              ? 'Sending'
-              : !isConnected
-                ? 'Connect to send'
-                : 'Send'
-          }
-        >
-          {pending ? (
-            <span className="os-write-dock-send-spinner" aria-hidden />
-          ) : (
-            <WriteDockSendIcon />
-          )}
-        </button>
+        {showSend ? (
+          <button
+            type="submit"
+            className={`os-write-dock-send${pending ? ' is-pending' : ''}`}
+            disabled={disabled || pending}
+            aria-label={
+              pending
+                ? 'Sending'
+                : !isConnected
+                  ? 'Connect to send'
+                  : 'Send'
+            }
+          >
+            {pending ? (
+              <span className="os-write-dock-send-spinner" aria-hidden />
+            ) : (
+              <WriteDockSendIcon />
+            )}
+          </button>
+        ) : null}
       </div>
     </form>
   );

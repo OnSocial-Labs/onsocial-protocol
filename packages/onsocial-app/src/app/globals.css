@@ -10080,9 +10080,11 @@ a.os-surface-row {
   }
 
   .os-write-dock-above {
-    display: grid;
-    gap: 0.3rem;
-    padding: 0.4rem 0.45rem 0.1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    padding: 0.28rem 0.45rem 0;
   }
 
   .os-write-dock-bar {
@@ -10139,6 +10141,10 @@ a.os-surface-row {
   .os-write-dock-tool:disabled {
     opacity: 0.32;
     cursor: default;
+  }
+
+  .os-write-dock-tool.is-quiet {
+    color: rgb(var(--fg-rgb) / 0.36);
   }
 
   .os-write-dock-tool:not(:disabled):hover,
@@ -10214,15 +10220,16 @@ a.os-surface-row {
 
   .os-write-dock-preview {
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
-    gap: 0.55rem;
+    gap: 0.3rem;
   }
 
   .os-write-dock-preview-el {
     display: block;
-    width: 2.75rem;
-    height: 2.75rem;
-    border-radius: 0.55rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.4rem;
     object-fit: cover;
   }
 
@@ -10235,8 +10242,16 @@ a.os-surface-row {
     font: inherit;
     font-size: 0.72rem;
     font-weight: 650;
+    line-height: 1;
     color: rgb(var(--fg-rgb) / 0.5);
     cursor: pointer;
+  }
+
+  .os-write-dock-preview-remove {
+    width: 1.25rem;
+    height: 1.25rem;
+    font-size: 1.05rem;
+    font-weight: 500;
   }
 
   .os-write-dock-preview-remove:hover,
@@ -10249,21 +10264,28 @@ a.os-surface-row {
 
   .os-write-dock-reply {
     display: flex;
+    flex: 1 1 0;
     align-items: center;
     justify-content: space-between;
-    gap: 0.6rem;
+    gap: 0.45rem;
+    min-width: 0;
   }
 
   .os-write-dock-reply-copy {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
     min-width: 0;
     margin: 0;
+    overflow: hidden;
     font-size: 0.78rem;
-    line-height: 1.35;
+    line-height: 1.2;
     color: rgb(var(--fg-rgb) / 0.62);
+    white-space: nowrap;
   }
 
-  .os-write-dock-reply-copy span {
-    display: block;
+  .os-write-dock-reply-kicker {
+    flex-shrink: 0;
     font-size: 0.62rem;
     font-weight: 700;
     letter-spacing: 0.02em;
@@ -10271,10 +10293,21 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.48);
   }
 
+  .os-write-dock-reply-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .os-write-dock-error {
+    flex: 1 1 0;
+    min-width: 0;
     margin: 0;
+    overflow: hidden;
     font-size: 0.78rem;
     color: rgb(var(--fg-rgb) / 0.7);
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .portfolio-summon-hint {
