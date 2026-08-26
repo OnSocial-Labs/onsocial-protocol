@@ -44,6 +44,7 @@ export {
   type OsPageSheetSurface,
 } from './os-page-sheet.js';
 export {
+  DirectionUpFillIcon,
   CopyFillIcon,
   TrashFillIcon,
   PlayFillIcon,

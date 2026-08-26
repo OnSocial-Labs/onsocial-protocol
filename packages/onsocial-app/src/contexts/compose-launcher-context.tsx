@@ -59,14 +59,18 @@ export type ComposeLauncherSurface =
   | { type: 'action'; entry: ComposeLauncherEntry }
   | { type: 'write'; entry: WriteDockRegistration };
 
+export type WriteDockMorph = 'idle' | 'tools' | 'expanded';
+
 interface ComposeLauncherContextValue {
   surface: ComposeLauncherSurface | null;
   writePinned: boolean;
+  writeDockMorph: WriteDockMorph;
   upsertCompose: (item: ComposeStackItem) => void;
   popCompose: (id: string) => void;
   focusWriteDock: () => void;
   registerWriteFocus: (fn: () => void) => () => void;
   setWritePinned: (pinned: boolean) => void;
+  setWriteDockMorph: (morph: WriteDockMorph) => void;
 }
 
 const ComposeLauncherContext =
@@ -75,6 +79,7 @@ const ComposeLauncherContext =
 export function ComposeLauncherProvider({ children }: { children: ReactNode }) {
   const [stack, setStack] = useState<ComposeStackItem[]>([]);
   const [writePinned, setWritePinned] = useState(false);
+  const [writeDockMorph, setWriteDockMorph] = useState<WriteDockMorph>('idle');
   const writeFocusRef = useRef<(() => void) | null>(null);
 
   const upsertCompose = useCallback((item: ComposeStackItem) => {
@@ -110,11 +115,13 @@ export function ComposeLauncherProvider({ children }: { children: ReactNode }) {
     () => ({
       surface,
       writePinned: writing && writePinned,
+      writeDockMorph: writing ? writeDockMorph : 'idle',
       upsertCompose,
       popCompose,
       focusWriteDock,
       registerWriteFocus,
       setWritePinned,
+      setWriteDockMorph,
     }),
     [
       focusWriteDock,
@@ -122,6 +129,7 @@ export function ComposeLauncherProvider({ children }: { children: ReactNode }) {
       registerWriteFocus,
       surface,
       upsertCompose,
+      writeDockMorph,
       writePinned,
       writing,
     ]
@@ -142,6 +150,10 @@ export function useWriteDockPinned(): boolean {
   return useContext(ComposeLauncherContext)?.writePinned ?? false;
 }
 
+export function useWriteDockMorph(): WriteDockMorph {
+  return useContext(ComposeLauncherContext)?.writeDockMorph ?? 'idle';
+}
+
 export function useFocusWriteDock(): () => void {
   return (
     useContext(ComposeLauncherContext)?.focusWriteDock ?? (() => undefined)
@@ -153,6 +165,7 @@ export function useWriteDockChrome() {
   return {
     registerWriteFocus: context?.registerWriteFocus,
     setWritePinned: context?.setWritePinned,
+    setWriteDockMorph: context?.setWriteDockMorph,
   };
 }
 

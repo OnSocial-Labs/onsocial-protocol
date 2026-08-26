@@ -13,6 +13,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   useComposeLauncher,
   useWriteDockPinned,
+  useWriteDockMorph,
 } from '@/contexts/compose-launcher-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
@@ -64,6 +65,7 @@ export function PortfolioSummonDock({
   const { accountId, isConnected } = useAppWallet();
   const compose = useComposeLauncher();
   const writePinned = useWriteDockPinned();
+  const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
   const { effectiveMood, isPreviewingMood } = usePortfolioMoodPreview();
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
@@ -224,6 +226,7 @@ export function PortfolioSummonDock({
         ) : null}
         <OsDockPill
           pageAccountId={pageAccountId}
+          writeMorph={writeMorph}
           grip={
             <button
               type="button"

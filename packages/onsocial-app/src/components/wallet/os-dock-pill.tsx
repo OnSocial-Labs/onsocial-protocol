@@ -18,6 +18,8 @@ interface OsDockPillProps {
   action?: ReactNode;
   /** Compact write bar — grows the pill and replaces now-playing + pen. */
   write?: ReactNode;
+  /** Launcher pill shape while the write dock is open. */
+  writeMorph?: 'idle' | 'tools' | 'expanded';
 }
 
 /**
@@ -31,11 +33,16 @@ export function OsDockPill({
   nowPlaying,
   action,
   write,
+  writeMorph = 'idle',
 }: OsDockPillProps) {
   const writing = Boolean(write);
   if (writing) {
     return (
-      <div className={`${osDockPillClassName} portfolio-summon is-writing`}>
+      <div
+        className={`${osDockPillClassName} portfolio-summon is-writing${
+          writeMorph === 'tools' ? ' is-compose-tools' : ''
+        }${writeMorph === 'expanded' ? ' is-compose-expanded' : ''}`}
+      >
         <OsDockAccountZone pageAccountId={pageAccountId} />
         <Divider
           orientation="vertical"

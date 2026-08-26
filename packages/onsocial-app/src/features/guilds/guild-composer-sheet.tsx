@@ -313,7 +313,7 @@ export function ComposerSheet({
   // Seed from props when the sheet mounts already open (DropComposeHost).
   // `wasOpen` starts false so the open transition below always applies
   // `initialDrop` / `initialText` on first paint.
-  const [text, setText] = useState(() => (open ? initialText.trim() : ''));
+  const [text, setText] = useState(() => (open ? initialText : ''));
   const [pollEnabled, setPollEnabled] = useState(false);
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [pollDurationMs, setPollDurationMs] = useState<number | undefined>();
@@ -364,7 +364,7 @@ export function ComposerSheet({
     setWasOpen(open);
     if (open) {
       setFormKey((key) => key + 1);
-      setText(initialText.trim());
+      setText(initialText);
       setPollEnabled(false);
       setPollOptions(['', '']);
       setPollDurationMs(undefined);
@@ -393,6 +393,8 @@ export function ComposerSheet({
       const field = textareaRef.current;
       if (!field) return;
       field.focus();
+      const end = field.value.length;
+      field.setSelectionRange(end, end);
       scrollMobileFieldIntoView(field);
     }, 280);
     return () => window.clearTimeout(focusTimer);

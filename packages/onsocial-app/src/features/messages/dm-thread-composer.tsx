@@ -189,7 +189,7 @@ export function DmThreadComposer({
 
   useRegisterWriteDock({
     placeholder: 'Message',
-    ariaLabel: 'Reply',
+    ariaLabel: replyTo ? 'Reply' : 'Message',
     disabled,
     error: disabledReason ? null : error,
     above,

@@ -40,6 +40,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   useComposeLauncher,
   useWriteDockPinned,
+  useWriteDockMorph,
 } from '@/contexts/compose-launcher-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
 import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
@@ -212,6 +213,7 @@ export function SummonLauncher({
 
   const compose = useComposeLauncher();
   const writePinned = useWriteDockPinned();
+  const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
   const dockHidden =
     useDockAutoHide(open || writePinned || Boolean(write)) && !open;
@@ -434,6 +436,7 @@ export function SummonLauncher({
           ) : null}
           <OsDockPill
             pageAccountId={pageAccountId}
+            writeMorph={writeMorph}
             grip={
               <button
                 type="button"

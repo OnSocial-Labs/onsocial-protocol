@@ -1576,18 +1576,18 @@ a.os-surface-row {
   pointer-events: none;
 }
 
-/* OS dock pill — mood-tinted glass; depth shadow only (no accent halo).
+/* OS dock pill — mood-tinted header frost; depth shadow only (no accent halo).
  * Include mooded summon on OS screens so home isn’t a near-opaque --bg slab.
  * Glass finish keeps its own `.portfolio-summon-dock[data-mood=glass]` tokens. */
 .portfolio-os-layer .os-dock-pill,
 .portfolio-summon-dock[data-mood]:not([data-mood='glass']) .os-dock-pill {
   --os-dock-fill: color-mix(
     in srgb,
-    var(--glass-surface, rgb(var(--bg-rgb) / 0.36)) 68%,
+    rgb(var(--bg-rgb) / 0.72) 78%,
     color-mix(
       in srgb,
-      var(--mood-accent-chrome, var(--mood-accent)) 16%,
-      rgb(var(--bg-rgb) / 0.12)
+      var(--mood-accent-chrome, var(--mood-accent)) 14%,
+      transparent
     )
   );
   --os-dock-fill-hover: color-mix(
@@ -3936,13 +3936,19 @@ a.os-surface-row {
 
   /* Glass summon — mood-native dock tokens on Glass finish (dock’s mood, not page). */
   .portfolio-summon-dock[data-mood='glass'] .os-dock-pill {
-    --os-dock-fill: var(--glass-summon-bg);
-    --os-dock-fill-hover: var(--glass-summon-hover-bg);
+    --os-dock-fill: color-mix(
+      in srgb,
+      rgb(var(--bg-rgb) / 0.72) 62%,
+      var(--glass-summon-bg)
+    );
+    --os-dock-fill-hover: color-mix(
+      in srgb,
+      rgb(var(--bg-rgb) / 0.72) 52%,
+      var(--glass-summon-hover-bg)
+    );
     --os-dock-shadow: var(--os-chrome-elev-shadow);
     --os-dock-shadow-hover: var(--os-chrome-elev-shadow-hover);
     --os-dock-lip: var(--glass-summon-lip);
-    backdrop-filter: blur(20px) saturate(1.3);
-    -webkit-backdrop-filter: blur(20px) saturate(1.3);
   }
 
   .portfolio-summon-dock[data-mood='glass'] .portfolio-summon-grip {
@@ -3956,8 +3962,6 @@ a.os-surface-row {
 
   @media (prefers-reduced-transparency: reduce) {
     .portfolio-summon-dock[data-mood='glass'] .os-dock-pill {
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
       --os-dock-shadow: var(--os-chrome-elev-shadow);
       --os-dock-shadow-hover: var(--os-chrome-elev-shadow-hover);
     }
@@ -9091,24 +9095,24 @@ a.os-surface-row {
   }
 
   /*
-   * Launcher dock on non-mood OS screens — dense frosted capsule.
-   * Mooded pages share the portfolio summon fill (unlayered) so the pill
-   * isn’t a near-opaque --bg slab on the same wash.
+   * Launcher dock on non-mood OS screens — same frost as elevated header chrome.
    */
   .os-app-screen:not(.os-app-screen--mood) .os-dock-pill {
-    --os-dock-fill: rgb(var(--bg-rgb) / 0.96);
+    --os-dock-fill: rgb(var(--bg-rgb) / 0.72);
     --os-dock-fill-hover: color-mix(
       in srgb,
-      rgb(var(--bg-rgb) / 0.96) 88%,
+      rgb(var(--bg-rgb) / 0.72) 88%,
       rgb(var(--fg-rgb) / 0.08)
     );
-    --os-dock-shadow:
-      0 18px 40px -18px rgb(0 0 0 / 0.34), 0 6px 16px -12px rgb(0 0 0 / 0.18);
-    --os-dock-shadow-hover:
-      0 20px 44px -16px rgb(0 0 0 / 0.38), 0 8px 18px -12px rgb(0 0 0 / 0.2);
+    --os-dock-shadow: var(--os-chrome-elev-shadow);
+    --os-dock-shadow-hover: var(--os-chrome-elev-shadow-hover);
     --os-dock-lip: inset 0 1px 0 rgb(var(--fg-rgb) / 0.1);
-    backdrop-filter: blur(32px) saturate(1.6);
-    -webkit-backdrop-filter: blur(32px) saturate(1.6);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .os-app-screen:not(.os-app-screen--mood) .os-dock-pill {
+      --os-dock-fill: rgb(var(--bg-rgb) / 0.94);
+    }
   }
 
   .os-app-screen[data-tone='os'] .standing-list-toolbar .sheet-control {
@@ -10062,10 +10066,10 @@ a.os-surface-row {
     width: 100%;
     overflow: hidden;
     align-items: stretch;
-    border-radius: 1.75rem;
+    transition: min-height 220ms ease;
   }
 
-  .os-dock-pill.is-writing:has(.os-write-dock.is-expanded) {
+  .os-dock-pill.is-writing.is-compose-expanded {
     min-height: 5.5rem;
   }
 
@@ -10075,8 +10079,12 @@ a.os-surface-row {
     position: relative;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: center;
     align-self: stretch;
+  }
+
+  .os-write-dock.is-expanded {
+    justify-content: flex-end;
   }
 
   .os-write-dock-above {
@@ -10085,41 +10093,104 @@ a.os-surface-row {
     gap: 0.45rem;
     min-width: 0;
     padding: 0.28rem 0.45rem 0;
+    transition: padding 220ms ease;
+  }
+
+  .os-write-dock.is-expanded .os-write-dock-above {
+    padding: 0.5rem 0.65rem 0.2rem;
   }
 
   .os-write-dock-bar {
     display: flex;
-    align-items: flex-end;
-    gap: 0.15rem;
+    align-items: stretch;
+    gap: 0;
     min-width: 0;
-    padding: 0.2rem 0.3rem 0.2rem 0.15rem;
+    min-height: 2.75rem;
+    padding: 0;
+    transition: min-height 220ms ease;
+  }
+
+  .os-write-dock.is-expanded .os-write-dock-bar {
+    min-height: 3.25rem;
+  }
+
+  .os-write-dock-field {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0 0.45rem 0 0.4rem;
+    transition: padding 220ms ease;
+  }
+
+  .os-write-dock.is-expanded .os-write-dock-field {
+    align-items: flex-end;
+    padding: 0.45rem 0.55rem 0.4rem 0.45rem;
   }
 
   .os-write-dock-input {
     flex: 1 1 auto;
+    width: 100%;
     min-width: 0;
     resize: none;
-    min-height: 1.5rem;
-    max-height: 2.5rem;
-    overflow-y: auto;
-    line-height: 1.35;
-    padding: 0.4rem 0.2rem;
+    min-height: 0;
+    max-height: 1.35rem;
+    overflow-y: hidden;
+    line-height: 1.25;
+    padding: 0;
     border: 0;
     background: transparent;
     box-shadow: none;
+    color: rgb(var(--fg-rgb) / 0.92);
     /* 16px — iOS zooms the page when a focused field is under 16px. */
     font-size: 16px;
     --os-field-font-size: 16px;
   }
 
+  .os-write-dock-input::placeholder {
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .os-write-dock-input:focus,
+  .os-write-dock-input:focus-visible {
+    background: transparent;
+    box-shadow: none;
+    outline: none;
+  }
+
   .os-write-dock.is-expanded .os-write-dock-input {
-    min-height: 3rem;
     max-height: 6rem;
+    overflow-y: auto;
   }
 
   .os-write-dock-divider {
     align-self: stretch;
-    margin: 0.35rem 0.1rem;
+    margin-block: 0.45rem;
+    transition: margin-block 220ms ease;
+  }
+
+  .os-write-dock.is-expanded .os-write-dock-divider {
+    margin-block: 0.55rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .os-dock-pill.is-writing,
+    .os-write-dock-above,
+    .os-write-dock-bar,
+    .os-write-dock-field,
+    .os-write-dock-divider,
+    .os-write-dock-footer,
+    .os-write-dock-footer-shell {
+      transition: none;
+    }
+  }
+
+  .os-write-dock-tools {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: stretch;
+    align-self: stretch;
   }
 
   .os-write-dock-tool {
@@ -10127,15 +10198,21 @@ a.os-surface-row {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    margin: 0.15rem 0;
+    width: 2.75rem;
+    min-width: 2.75rem;
+    height: auto;
+    margin: 0;
     padding: 0;
     border: 0;
-    border-radius: 9999px;
+    border-radius: 0;
     background: transparent;
     color: rgb(var(--fg-rgb) / 0.58);
     cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      background 180ms ease,
+      color 180ms ease;
   }
 
   .os-write-dock-tool:disabled {
@@ -10149,15 +10226,20 @@ a.os-surface-row {
 
   .os-write-dock-tool:not(:disabled):hover,
   .os-write-dock-tool:not(:disabled):focus-visible {
+    background: rgb(var(--fg-rgb) / 0.06);
     color: rgb(var(--fg-rgb) / 0.92);
     outline: none;
+  }
+
+  .os-write-dock-tool:not(:disabled):active {
+    background: rgb(var(--fg-rgb) / 0.1);
   }
 
   .os-write-dock-media-icon,
   .os-write-dock-expand-icon {
     display: block;
-    width: 1.05rem;
-    height: 1.05rem;
+    width: 1.15rem;
+    height: 1.15rem;
   }
 
   .os-write-dock-send {
@@ -10165,14 +10247,22 @@ a.os-surface-row {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    margin: 0.15rem 0.1rem 0.15rem 0.05rem;
+    align-self: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    padding: 0;
+    margin: 0;
     border: 0;
-    border-radius: 9999px;
-    background: var(--protocol-green, #00ec97);
-    color: #04110a;
+    border-radius: 0;
+    background: transparent;
+    color: var(--protocol-green, #00ec97);
     cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      background 180ms ease,
+      color 180ms ease;
   }
 
   .os-write-dock-send:disabled {
@@ -10188,8 +10278,8 @@ a.os-surface-row {
     display: block;
     width: 0.95rem;
     height: 0.95rem;
-    border: 2px solid rgb(4 17 10 / 0.22);
-    border-top-color: #04110a;
+    border: 2px solid rgb(0 236 151 / 0.22);
+    border-top-color: var(--protocol-green, #00ec97);
     border-radius: 50%;
     animation: os-write-dock-send-spin 0.7s linear infinite;
   }
@@ -10208,14 +10298,22 @@ a.os-surface-row {
 
   .os-write-dock-send:not(:disabled):hover,
   .os-write-dock-send:not(:disabled):focus-visible {
-    filter: brightness(1.06);
+    background: rgb(var(--fg-rgb) / 0.06);
     outline: none;
+  }
+
+  .os-write-dock-send:not(:disabled):active {
+    background: rgb(var(--fg-rgb) / 0.1);
   }
 
   .os-write-dock-send-icon {
     display: block;
-    width: 1.1rem;
-    height: 1.1rem;
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+
+  .os-write-dock-tool.is-active {
+    color: rgb(var(--fg-rgb) / 0.92);
   }
 
   .os-write-dock-preview {
@@ -10308,6 +10406,156 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.7);
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* Compose open — text row on top, pen-style toolbar footer below. */
+  .os-write-dock.is-compose-open {
+    justify-content: flex-end;
+  }
+
+  .os-write-dock.is-compose-open .os-write-dock-bar {
+    min-height: 2.5rem;
+  }
+
+  .os-write-dock.is-compose-open .os-write-dock-field {
+    align-items: flex-end;
+    padding: 0.35rem 0.55rem 0.3rem 0.45rem;
+  }
+
+  .os-write-dock.is-compose-open.is-expanded .os-write-dock-field {
+    padding: 0.45rem 0.55rem 0.38rem 0.45rem;
+  }
+
+  .os-write-dock.is-compose-open .os-write-dock-footer {
+    padding-inline: 0 0.08rem;
+  }
+
+  .os-write-dock-footer-shell {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .os-write-dock-footer-divider {
+    flex-shrink: 0;
+    width: 100%;
+    margin: 0;
+    opacity: 0.9;
+  }
+
+  .os-write-dock-footer {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0;
+  }
+
+  .os-write-dock-footer-tools {
+    display: inline-flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 0;
+    min-width: 0;
+    min-height: 2.75rem;
+  }
+
+  .os-write-dock-footer-tools .os-write-dock-tool {
+    flex-shrink: 0;
+    align-self: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-height: 0;
+  }
+
+  .os-write-dock-footer-tools .os-write-dock-footer-tools-divider {
+    flex-shrink: 0;
+    align-self: center;
+    height: 1.25rem;
+    margin-block: 0;
+    margin-inline: 0.2rem 0.4rem;
+  }
+
+  .os-write-dock-footer-tools .os-write-dock-preview {
+    align-self: center;
+    gap: 0.2rem;
+    margin: 0;
+  }
+
+  .os-write-dock-footer-tools .os-write-dock-preview-el {
+    width: 1.65rem;
+    height: 1.65rem;
+    border-radius: 0.35rem;
+  }
+
+  .os-write-dock-footer-tools .os-write-dock-preview-remove {
+    width: 1.1rem;
+    height: 1.1rem;
+    margin-left: 0.1rem;
+    font-size: 0.95rem;
+  }
+
+  .os-write-dock-footer-actions {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    align-self: center;
+    gap: 0;
+    margin-left: auto;
+    min-height: 2.75rem;
+  }
+
+  .os-write-dock-footer-actions .os-write-dock-tool,
+  .os-write-dock-footer-actions .os-write-dock-send {
+    flex-shrink: 0;
+    align-self: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+  }
+
+  .os-write-dock-footer-actions .os-write-dock-divider {
+    flex-shrink: 0;
+    align-self: center;
+    height: 1.25rem;
+    margin-block: 0;
+    margin-inline: 0.05rem;
+  }
+
+  .os-write-dock-char-count {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 2.25rem;
+    height: 2.75rem;
+    padding: 0 0.15rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    color: rgb(var(--fg-rgb) / 0.35);
+    transition:
+      color 160ms ease,
+      opacity 160ms ease;
+  }
+
+  .os-write-dock-char-count.is-idle {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .os-write-dock-char-count.is-warn {
+    color: color-mix(in srgb, var(--protocol-amber, #d97706) 82%, transparent);
+  }
+
+  .os-write-dock-char-count.is-error {
+    color: color-mix(in srgb, var(--protocol-red) 92%, transparent);
   }
 
   .portfolio-summon-hint {
@@ -31974,6 +32222,75 @@ a.os-surface-row {
 }
 
 /*
+ * Write dock radius — unlayered so it beats imported os-launcher.css
+ * `.os-dock-pill { border-radius: 9999px }` (layered rules lose to unlayered).
+ * Fixed arc = launcher end-cap at 2.75rem; taller compose grows straight sides.
+ */
+.os-dock-pill.portfolio-summon.is-writing {
+  --os-write-dock-radius: 1.375rem;
+  border-radius: var(--os-write-dock-radius) !important;
+}
+
+/* Write dock footer — unlayered so tool/send sizing beats layered dock rules. */
+.os-write-dock .os-write-dock-footer {
+  padding-inline: 0 0.08rem;
+}
+
+.os-write-dock-footer {
+  align-items: center;
+}
+
+.os-write-dock-footer-tools,
+.os-write-dock-footer-actions {
+  align-items: center;
+}
+
+.os-write-dock-footer-tools .os-write-dock-tool,
+.os-write-dock-footer-actions .os-write-dock-tool,
+.os-write-dock-footer-actions .os-write-dock-send {
+  width: 2.75rem;
+  height: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  align-self: center;
+}
+
+.os-write-dock-footer-tools .os-write-dock-footer-tools-divider,
+.os-write-dock-footer-actions .os-write-dock-divider {
+  align-self: center;
+  height: 1.25rem;
+  margin-block: 0;
+}
+
+.os-write-dock-footer-tools .os-write-dock-footer-tools-divider {
+  margin-inline: 0.2rem 0.4rem;
+}
+
+.os-write-dock-footer-actions .os-write-dock-divider {
+  margin-inline: 0.05rem;
+}
+
+/* Unlayered frost — beats layered imports; samples feed like header ::before. */
+.os-dock-pill.portfolio-summon::before {
+  background: var(--os-dock-fill);
+  backdrop-filter: blur(20px) saturate(1.3);
+}
+
+.os-dock-pill.portfolio-summon:hover::before {
+  background: var(--os-dock-fill-hover);
+  box-shadow: var(--os-dock-shadow-hover), var(--os-dock-lip);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .os-dock-pill.portfolio-summon::before {
+    backdrop-filter: none;
+    background: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.94));
+  }
+}
+
+/*
  * Launcher nested in the phone card — unlayered so it beats imported
  * `.os-launcher-root { position: fixed }` (same trap as slide-overs living in
  * `@layer`: layered absolute never wins against unlayered fixed).
@@ -35463,43 +35780,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   box-shadow: inset 0 0 0 1px rgb(185 28 28 / 0.28);
 }
 
-.messages-composer-reply {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  padding: 0.15rem 0.15rem 0.35rem;
-}
-
-.messages-composer-reply-copy {
-  min-width: 0;
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.35;
-  color: rgb(var(--fg-rgb) / 0.62);
-}
-
-.messages-composer-reply-copy span {
-  display: block;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: rgb(var(--fg-rgb) / 0.48);
-}
-
-.messages-composer-reply-cancel {
-  flex-shrink: 0;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 650;
-  color: rgb(var(--fg-rgb) / 0.5);
-  cursor: pointer;
-}
-
 .messages-panel-empty,
 .messages-panel-error,
 .dm-compose-error {
@@ -35624,55 +35904,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   --os-screen-footer-band: 4.35rem;
 }
 
-.messages-screen-composer {
-  position: relative;
-  padding: 0.45rem var(--os-screen-body-pad-x, 1rem) 0.4rem;
-  overflow: visible;
-}
-
-.messages-screen-composer::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  inset-inline: 0;
-  bottom: calc(-1 * var(--portfolio-dock-clearance, 4.75rem));
-  z-index: 0;
-  pointer-events: none;
-  border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
-  background: color-mix(
-    in srgb,
-    var(--mood-bg, var(--bg)) 72%,
-    transparent
-  );
-  backdrop-filter: blur(20px) saturate(1.3);
-  -webkit-backdrop-filter: blur(20px) saturate(1.3);
-  transition: bottom 260ms ease;
-}
-
-.os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
-  .messages-screen-composer::before,
-.os-app-screen:has(.messages-panel[data-keyboard='open'])
-  .messages-screen-composer::before {
-  bottom: 0;
-}
-
-.messages-screen-composer > * {
-  position: relative;
-  z-index: 1;
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .messages-screen-composer::before {
-    background: color-mix(
-      in srgb,
-      var(--mood-bg, var(--bg)) 94%,
-      rgb(var(--bg-rgb))
-    );
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-}
-
 .os-app-screen:has(.messages-panel[data-keyboard='open'])
   .os-app-screen-footer {
   bottom: var(--messages-keyboard-lift, 0px);
@@ -35689,92 +35920,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   padding-bottom: calc(
     var(--messages-keyboard-lift, 0px) + var(--portfolio-dock-clearance, 4.75rem)
   );
-}
-
-.messages-composer {
-  display: grid;
-  gap: 0.4rem;
-}
-
-.messages-composer-bar {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.3rem;
-}
-
-.messages-composer-input {
-  flex: 1 1 auto;
-  min-width: 0;
-  resize: none;
-  min-height: 2.35rem;
-  max-height: 7.5rem;
-  overflow-y: auto;
-  line-height: 1.35;
-  padding-top: 0.55rem;
-  padding-bottom: 0.55rem;
-  /* 16px — iOS zooms the page when a focused field is under 16px. */
-  font-size: 16px;
-  --os-field-font-size: 16px;
-}
-
-.messages-composer-send {
-  flex-shrink: 0;
-  align-self: flex-end;
-  min-width: 3.55rem;
-  height: 2.35rem;
-  padding: 0 0.85rem;
-  border: 0;
-  border-radius: 999px;
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: #fff;
-  background: var(
-    --signal-endorse,
-    var(--mood-accent-chrome, var(--mood-accent))
-  );
-  cursor: pointer;
-}
-
-.messages-composer-send:disabled {
-  opacity: 0.38;
-  cursor: default;
-}
-
-.messages-composer-send:not(:disabled):hover,
-.messages-composer-send:not(:disabled):focus-visible {
-  filter: brightness(1.06);
-  outline: none;
-}
-
-.messages-composer-preview {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-}
-
-.messages-composer-preview-el {
-  display: block;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 0.55rem;
-  object-fit: cover;
-}
-
-.messages-composer-preview-remove {
-  border: 0;
-  background: transparent;
-  color: rgb(var(--fg-rgb) / 0.62);
-  font: inherit;
-  font-size: 0.78rem;
-  cursor: pointer;
-  padding: 0;
-}
-
-.messages-composer-preview-remove:hover,
-.messages-composer-preview-remove:focus-visible {
-  color: rgb(var(--fg-rgb) / 0.9);
-  outline: none;
 }
 
 .dm-recovery-lead {
@@ -35892,13 +36037,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
   .messages-layout {
     grid-template-columns: var(--messages-inbox-col, 18.5rem) minmax(0, 1fr);
-  }
-
-  .os-app-screen:has(.messages-panel) .messages-screen-composer {
-    margin-left: calc(
-      var(--os-screen-body-pad-x, 1rem) + var(--messages-inbox-col, 18.5rem)
-    );
-    padding-left: 0.9rem;
   }
 }
 

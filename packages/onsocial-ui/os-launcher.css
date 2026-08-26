@@ -26,6 +26,7 @@
 }
 
 /* Dock pill — same frost as elevated screen headers so feed under it blurs.
+ * Frost lives on ::before (not the pill node) so backdrop samples scroll content.
  * Optional mood tokens from host (--os-dock-*). */
 .os-dock-pill {
   --os-dock-fill: var(--glass-surface, rgb(var(--bg-rgb) / 0.32));
@@ -44,24 +45,39 @@
   );
   --os-dock-lip: inset 0 1px 0 rgb(var(--fg-rgb) / 0.1);
   position: relative;
-  isolation: isolate;
   display: inline-flex;
   align-items: stretch;
   min-height: 2.75rem;
   border: 0;
   border-radius: 9999px;
-  background: var(--os-dock-fill);
-  backdrop-filter: blur(20px) saturate(1.3);
-  -webkit-backdrop-filter: blur(20px) saturate(1.3);
-  box-shadow: var(--os-dock-shadow), var(--os-dock-lip);
+  background: transparent;
+  box-shadow: none;
   color: rgb(var(--fg-rgb) / 0.88);
   overflow: hidden;
+  transition: color 180ms ease;
+}
+
+.os-dock-pill::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--os-dock-fill);
+  backdrop-filter: blur(20px) saturate(1.3);
+  box-shadow: var(--os-dock-shadow), var(--os-dock-lip);
   transition:
     background 180ms ease,
     box-shadow 450ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.os-dock-pill:hover {
+.os-dock-pill > * {
+  position: relative;
+  z-index: 1;
+}
+
+.os-dock-pill:hover::before {
   background: var(--os-dock-fill-hover);
   box-shadow: var(--os-dock-shadow-hover), var(--os-dock-lip);
 }
@@ -490,9 +506,12 @@
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .os-dock-pill {
+  .os-dock-pill::before {
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    background: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.94));
+  }
+
+  .os-dock-pill {
     --os-dock-fill: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.94));
     --os-dock-shadow: var(
       --os-chrome-elev-shadow,
@@ -502,7 +521,6 @@
       --os-chrome-elev-shadow-hover,
       var(--os-dock-shadow)
     );
-    box-shadow: var(--os-dock-shadow), var(--os-dock-lip);
   }
 
   .os-launcher-backdrop {

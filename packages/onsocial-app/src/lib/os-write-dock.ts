@@ -1,14 +1,31 @@
+import {
+  POST_TEXT_MAX_LENGTH,
+} from '@/lib/post-display';
+
 export const WRITE_DOCK_MOBILE_MAX_WIDTH_PX = 767;
 
 export const WRITE_DOCK_MEDIA_ACCEPT =
   'image/jpeg,image/png,image/webp,video/mp4,video/webm';
+
+export function writeDockTextRemaining(text: string): number {
+  return POST_TEXT_MAX_LENGTH - text.length;
+}
+
+/** Compact dock — show the budget whenever there is draft text. */
+export function writeDockShowTextCount(text: string): boolean {
+  return text.length > 0;
+}
 
 export function writeDockCanSend(
   text: string,
   fileCount: number,
   disabled = false
 ): boolean {
-  return !disabled && (Boolean(text.trim()) || fileCount > 0);
+  return (
+    !disabled &&
+    text.length <= POST_TEXT_MAX_LENGTH &&
+    (Boolean(text.trim()) || fileCount > 0)
+  );
 }
 
 /** Send owns the bar — hide the dead circle until there is something to send. */
