@@ -16,6 +16,8 @@ import {
   readPostMediaUnmuteIndex,
   resolveFeedMediaActivate,
   stepFeedPhotoIndex,
+  feedPhotoIndexFromScroll,
+  feedPhotoScrollLeft,
   revokeDroppedOptimisticMedia,
   revokeOptimisticMediaPreviewUrls,
   truncateQuoteText,
@@ -251,5 +253,19 @@ describe('feed photo enlarge helpers', () => {
     expect(stepFeedPhotoIndex(0, 2, 1)).toBe(1);
     expect(stepFeedPhotoIndex(2, 2, 1)).toBe(2);
     expect(stepFeedPhotoIndex(2, 2, -1)).toBe(1);
+  });
+
+  it('feedPhotoIndexFromScroll snaps to the nearest page', () => {
+    expect(feedPhotoIndexFromScroll(0, 320, 2)).toBe(0);
+    expect(feedPhotoIndexFromScroll(170, 320, 2)).toBe(1);
+    expect(feedPhotoIndexFromScroll(640, 320, 2)).toBe(2);
+    expect(feedPhotoIndexFromScroll(900, 320, 2)).toBe(2);
+    expect(feedPhotoIndexFromScroll(10, 0, 2)).toBe(0);
+  });
+
+  it('feedPhotoScrollLeft maps index to offset', () => {
+    expect(feedPhotoScrollLeft(0, 320)).toBe(0);
+    expect(feedPhotoScrollLeft(2, 320)).toBe(640);
+    expect(feedPhotoScrollLeft(1, 0)).toBe(0);
   });
 });

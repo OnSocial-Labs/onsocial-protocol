@@ -107,6 +107,21 @@ export function stepFeedPhotoIndex(
   return Math.min(last, Math.max(0, current + delta));
 }
 
+/** Snap-page index from a horizontal photo track. */
+export function feedPhotoIndexFromScroll(
+  scrollLeft: number,
+  pageWidth: number,
+  last: number
+): number {
+  if (last < 0 || pageWidth <= 0) return 0;
+  return Math.min(last, Math.max(0, Math.round(scrollLeft / pageWidth)));
+}
+
+export function feedPhotoScrollLeft(index: number, pageWidth: number): number {
+  if (pageWidth <= 0 || !Number.isFinite(index)) return 0;
+  return Math.max(0, Math.floor(index)) * pageWidth;
+}
+
 /** Format seconds as `0:12` / `1:05` for quote thumbs. */
 export function formatMediaDuration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '';

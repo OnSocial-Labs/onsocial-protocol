@@ -1,15 +1,34 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { ChevronLeftIcon, ChevronRightIcon, OsIconAction } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
-import { stepFeedPhotoIndex, type PostMediaItem } from '@/lib/post-media';
+import {
+  feedPhotoIndexFromScroll,
+  feedPhotoScrollLeft,
+  stepFeedPhotoIndex,
+  type PostMediaItem,
+} from '@/lib/post-media';
 
 function clampIndex(value: number, last: number): number {
   if (last < 0) return 0;
   if (!Number.isFinite(value)) return 0;
   return Math.min(last, Math.max(0, Math.floor(value)));
+}
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
 }
 
 /**
@@ -36,30 +55,72 @@ export function FeedPhotoEnlargeScreen({
   const last = photos.length - 1;
   const [wasOpen, setWasOpen] = useState(open);
   const [index, setIndex] = useState(() => clampIndex(initialIndex, last));
+  const trackRef = useRef<HTMLDivElement>(null);
+  const skipSnapRef = useRef(false);
+  const prevOpenRef = useRef(open);
 
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) setIndex(clampIndex(initialIndex, last));
   }
 
+  const goTo = useCallback(
+    (next: number) => {
+      const clamped = clampIndex(next, last);
+      if (clamped === index) return;
+      skipSnapRef.current = false;
+      setIndex(clamped);
+    },
+    [index, last]
+  );
+
+  useLayoutEffect(() => {
+    const justOpened = open && !prevOpenRef.current;
+    prevOpenRef.current = open;
+    const track = trackRef.current;
+    if (!open || !track || photos.length < 2) return;
+    if (!justOpened && skipSnapRef.current) {
+      skipSnapRef.current = false;
+      return;
+    }
+    skipSnapRef.current = false;
+    track.scrollTo({
+      left: feedPhotoScrollLeft(index, track.clientWidth),
+      behavior: justOpened || prefersReducedMotion() ? 'auto' : 'smooth',
+    });
+  }, [open, index, photos.length]);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!open || !track || photos.length < 2) return;
+    const snap = () => {
+      track.scrollTo({
+        left: feedPhotoScrollLeft(index, track.clientWidth),
+        behavior: 'auto',
+      });
+    };
+    const observer = new ResizeObserver(snap);
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, [open, index, photos.length]);
+
   useEffect(() => {
     if (!open || photos.length < 2) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        setIndex((current) => stepFeedPhotoIndex(current, last, -1));
+        goTo(stepFeedPhotoIndex(index, last, -1));
         return;
       }
       if (event.key === 'ArrowRight') {
         event.preventDefault();
-        setIndex((current) => stepFeedPhotoIndex(current, last, 1));
+        goTo(stepFeedPhotoIndex(index, last, 1));
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, photos.length, last]);
+  }, [open, photos.length, last, index, goTo]);
 
-  const photo = photos[index];
   const showNav = photos.length > 1;
   const postChrome = engagement ? (
     <div className="scarce-post-medium-chrome">{engagement}</div>
@@ -78,18 +139,39 @@ export function FeedPhotoEnlargeScreen({
     >
       <div className="scarce-clip-listen scarce-post-medium-listen feed-photo-listen">
         <div className="scarce-clip-listen-art feed-photo-stage">
-          {photo ? (
-            <img
-              key={`${photo.cid ?? photo.url}:${index}`}
-              src={photo.url}
-              alt={photo.alt?.trim() || ''}
-              className="feed-photo-image"
-            />
-          ) : (
+          {showNav ? (
             <div
-              className="feed-photo-image feed-photo-image--empty"
-              aria-hidden
-            />
+              ref={trackRef}
+              className="feed-photo-track"
+              onScroll={() => {
+                const track = trackRef.current;
+                if (!track) return;
+                const next = feedPhotoIndexFromScroll(
+                  track.scrollLeft,
+                  track.clientWidth,
+                  last
+                );
+                if (next === index) return;
+                skipSnapRef.current = true;
+                setIndex(next);
+              }}
+            >
+              {photos.map((item, photoIndex) => (
+                <div
+                  key={`${item.cid ?? item.url}:${photoIndex}`}
+                  className="feed-photo-page"
+                >
+                  <img
+                    src={item.url}
+                    alt={item.alt?.trim() || ''}
+                    className="feed-photo-image"
+                    draggable={false}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            photoStage(photos[0] ?? null)
           )}
         </div>
         {showNav ? (
@@ -98,9 +180,7 @@ export function FeedPhotoEnlargeScreen({
               ariaLabel="Previous photo"
               className="feed-photo-nav-btn"
               disabled={index <= 0}
-              onClick={() =>
-                setIndex((current) => stepFeedPhotoIndex(current, last, -1))
-              }
+              onClick={() => goTo(stepFeedPhotoIndex(index, last, -1))}
             >
               <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
             </OsIconAction>
@@ -111,9 +191,7 @@ export function FeedPhotoEnlargeScreen({
               ariaLabel="Next photo"
               className="feed-photo-nav-btn"
               disabled={index >= last}
-              onClick={() =>
-                setIndex((current) => stepFeedPhotoIndex(current, last, 1))
-              }
+              onClick={() => goTo(stepFeedPhotoIndex(index, last, 1))}
             >
               <ChevronRightIcon
                 className="glass-sheet-close-icon"
@@ -127,5 +205,21 @@ export function FeedPhotoEnlargeScreen({
         ) : null}
       </div>
     </OsSlideOverScreen>
+  );
+}
+
+function photoStage(photo: PostMediaItem | null) {
+  if (!photo) {
+    return (
+      <div className="feed-photo-image feed-photo-image--empty" aria-hidden />
+    );
+  }
+  return (
+    <img
+      src={photo.url}
+      alt={photo.alt?.trim() || ''}
+      className="feed-photo-image"
+      draggable={false}
+    />
   );
 }
