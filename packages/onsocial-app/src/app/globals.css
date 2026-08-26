@@ -23644,13 +23644,28 @@ a.os-surface-row {
   }
 
   .scarce-listen-slide .scarce-clip-listen,
-  .scarce-medium-slide .scarce-clip-listen,
-  .feed-photo-slide .scarce-clip-listen {
+  .scarce-medium-slide .scarce-clip-listen {
     padding-top: 0.75rem;
     padding-bottom: 1.1rem;
   }
 
+  .feed-photo-listen {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.65rem;
+    width: 100%;
+    min-height: 0;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 0.65rem 1rem max(1.05rem, env(safe-area-inset-bottom, 0px));
+  }
+
   .feed-photo-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 auto;
     width: 100%;
     min-height: 0;
   }
@@ -23706,22 +23721,66 @@ a.os-surface-row {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.55rem;
+    gap: 0.2rem;
     flex: 0 0 auto;
   }
 
-  .feed-photo-count {
-    min-width: 3.25rem;
-    text-align: center;
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: rgb(var(--fg-rgb) / 0.62);
+  .feed-photo-dots {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.05rem;
+    min-width: 4.25rem;
+  }
+
+  .feed-photo-dot {
+    position: relative;
+    width: 1.2rem;
+    height: 1.2rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .feed-photo-dot::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0.38rem;
+    height: 0.38rem;
+    border-radius: 999px;
+    transform: translate(-50%, -50%);
+    background: rgb(var(--fg-rgb) / 0.28);
+  }
+
+  .feed-photo-dot.is-current::after {
+    width: 0.46rem;
+    height: 0.46rem;
+    background: rgb(var(--fg-rgb) / 0.82);
+  }
+
+  .feed-photo-dot:focus-visible {
+    outline: 2px solid rgb(var(--fg-rgb) / 0.45);
+    outline-offset: 1px;
+    border-radius: 999px;
+  }
+
+  .feed-photo-footer {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    flex: 0 0 auto;
+  }
+
+  .feed-photo-footer .post-card-engagement {
+    margin-top: 0;
   }
 
   .feed-photo-slide .feed-photo-nav-btn {
-    width: 2.35rem;
-    height: 2.35rem;
+    width: 2.2rem;
+    height: 2.2rem;
   }
 
   .feed-photo-slide .feed-photo-nav-btn:disabled {

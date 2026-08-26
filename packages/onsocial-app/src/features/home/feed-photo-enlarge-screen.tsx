@@ -32,7 +32,7 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
- * Feed photo enlarge — same OsSlideOverScreen as Drops thought enlarge.
+ * Feed photo enlarge — own OsSlideOverScreen chrome (not Listen / thought).
  * Engagement (reply / like / quote / boost) sits under the photo.
  */
 export function FeedPhotoEnlargeScreen({
@@ -164,9 +164,6 @@ export function FeedPhotoEnlargeScreen({
   }, [open, photos.length, last, index, goTo]);
 
   const showNav = photos.length > 1;
-  const postChrome = engagement ? (
-    <div className="scarce-post-medium-chrome">{engagement}</div>
-  ) : null;
 
   return (
     <OsSlideOverScreen
@@ -176,11 +173,11 @@ export function FeedPhotoEnlargeScreen({
       subtitle={subtitle?.trim() || undefined}
       closeAriaLabel="Back from photo"
       zIndex={SCARCE_Z.listenShell}
-      className="scarce-medium-slide feed-photo-slide"
-      contentClassName="scarce-medium-slide-body feed-photo-slide-body"
+      className="feed-photo-slide"
+      contentClassName="feed-photo-slide-body"
     >
-      <div className="scarce-clip-listen scarce-post-medium-listen feed-photo-listen">
-        <div className="scarce-clip-listen-art feed-photo-stage">
+      <div className="feed-photo-listen">
+        <div className="feed-photo-stage">
           {showNav ? (
             <div ref={trackRef} className="feed-photo-track">
               {photos.map((item, photoIndex) => (
@@ -211,9 +208,22 @@ export function FeedPhotoEnlargeScreen({
             >
               <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
             </OsIconAction>
-            <span className="feed-photo-count" aria-live="polite">
-              {index + 1} / {photos.length}
-            </span>
+            <div className="feed-photo-dots">
+              {photos.map((item, photoIndex) => (
+                <button
+                  key={`${item.cid ?? item.url}:${photoIndex}`}
+                  type="button"
+                  className={
+                    photoIndex === index
+                      ? 'feed-photo-dot is-current'
+                      : 'feed-photo-dot'
+                  }
+                  aria-label={`Go to photo ${photoIndex + 1} of ${photos.length}`}
+                  aria-current={photoIndex === index ? 'true' : undefined}
+                  onClick={() => goTo(photoIndex)}
+                />
+              ))}
+            </div>
             <OsIconAction
               ariaLabel="Next photo"
               className="feed-photo-nav-btn"
@@ -225,10 +235,13 @@ export function FeedPhotoEnlargeScreen({
                 aria-hidden
               />
             </OsIconAction>
+            <span className="sr-only" aria-live="polite">
+              {index + 1} of {photos.length}
+            </span>
           </div>
         ) : null}
-        {postChrome ? (
-          <div className="scarce-clip-listen-footer">{postChrome}</div>
+        {engagement ? (
+          <div className="feed-photo-footer">{engagement}</div>
         ) : null}
       </div>
     </OsSlideOverScreen>
