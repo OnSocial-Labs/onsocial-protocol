@@ -9,6 +9,7 @@ import {
   mapGroupProposalNotifications,
   mapRewardsEventNotifications,
   mapScarcesEventNotifications,
+  postSnippetFromValue,
 } from '../../src/services/notifications/worker.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -149,6 +150,21 @@ describe('mapDataUpdateNotifications', () => {
     expect(repostNotifications.map((n) => n.notificationType)).toEqual([
       'repost',
     ]);
+  });
+
+  it('seals a first-line snippet from post text', () => {
+    expect(postSnippetFromValue('{"text":"Nice take"}')).toBe('Nice take');
+    expect(postSnippetFromValue('{"type":"md"}')).toBeNull();
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        value: '{"text":"Nice take"}',
+        parent_author: 'bob.testnet',
+        parent_path: 'bob/post/root',
+        ref_author: null,
+        ref_path: null,
+      })
+    );
+    expect(notifications[0]?.context).toMatchObject({ snippet: 'Nice take' });
   });
 
   it('maps reactions and standings to the target account', () => {
@@ -339,14 +355,7 @@ describe('mapRewardsEventNotifications', () => {
       source: 'content_reward',
       rewardsAppId: 'onsocial_portal',
     });
-    expect(claimed).toHaveLength(1);
-    expect(claimed[0]?.notificationType).toBe('reward_claimed');
-    expect(claimed[0]?.appId).toBe('default');
-    expect(claimed[0]?.actor).toBe('alice.testnet');
-    expect(claimed[0]?.context).toMatchObject({
-      amount: '1000000000000000000',
-      rewardsAppId: 'onsocial_portal',
-    });
+    expect(claimed).toHaveLength(0);
   });
 
   it('still maps when on-chain app_id is global', () => {
@@ -370,77 +379,29 @@ describe('mapRewardsEventNotifications', () => {
 });
 
 describe('mapBoostEventNotifications', () => {
-  it('maps user-facing boost lifecycle events', () => {
-    const locked = mapBoostEventNotifications(makeBoostEvent());
-    const extended = mapBoostEventNotifications(
-      makeBoostEvent({
-        id: 'boost-extend',
-        event_type: 'BOOST_EXTEND',
-        amount: null,
-        effective_boost: null,
-        months: null,
-        new_months: 12,
-        new_effective_boost: '3000000000000000000',
-      })
-    );
-    const unlocked = mapBoostEventNotifications(
-      makeBoostEvent({ id: 'boost-unlock', event_type: 'BOOST_UNLOCK' })
-    );
-    const claimed = mapBoostEventNotifications(
-      makeBoostEvent({ id: 'boost-claim', event_type: 'REWARDS_CLAIM' })
-    );
-
-    expect(locked[0]?.notificationType).toBe('boost_locked');
-    expect(locked[0]?.recipient).toBe('alice.testnet');
-    expect(locked[0]?.sourceContract).toBe('boost');
-    expect(locked[0]?.context).toEqual(
-      expect.objectContaining({
-        eventType: 'BOOST_LOCK',
-        amount: '1000000000000000000',
-        effectiveBoost: '2000000000000000000',
-        months: '6',
-      })
-    );
-    expect(extended[0]?.notificationType).toBe('boost_extended');
-    expect(extended[0]?.context).toEqual(
-      expect.objectContaining({
-        eventType: 'BOOST_EXTEND',
-        newMonths: '12',
-        newEffectiveBoost: '3000000000000000000',
-      })
-    );
-    expect(unlocked[0]?.notificationType).toBe('boost_unlocked');
-    expect(claimed[0]?.notificationType).toBe('boost_reward_claimed');
-  });
-
-  it('maps boost credits and storage deposits', () => {
-    const credits = mapBoostEventNotifications(
-      makeBoostEvent({
-        id: 'boost-credits',
-        event_type: 'CREDITS_PURCHASE',
-        infra_share: '600',
-        rewards_share: '400',
-      })
-    );
-    const storage = mapBoostEventNotifications(
-      makeBoostEvent({
-        id: 'boost-storage',
-        event_type: 'STORAGE_DEPOSIT',
-        amount: null,
-        effective_boost: null,
-        months: null,
-        deposit: '5000000000000000000000',
-      })
-    );
-
-    expect(credits[0]?.notificationType).toBe('boost_credits_purchased');
-    expect(credits[0]?.context).toEqual(
-      expect.objectContaining({ infraShare: '600', rewardsShare: '400' })
-    );
-    expect(storage[0]?.notificationType).toBe('boost_storage_deposited');
-    expect(storage[0]?.context).toEqual(
-      expect.objectContaining({ deposit: '5000000000000000000000' })
-    );
+  it('does not notify the viewer for their own boost taps', () => {
+    expect(mapBoostEventNotifications(makeBoostEvent())).toHaveLength(0);
+    expect(
+      mapBoostEventNotifications(makeBoostEvent({ event_type: 'BOOST_EXTEND' }))
+    ).toHaveLength(0);
+    expect(
+      mapBoostEventNotifications(makeBoostEvent({ event_type: 'BOOST_UNLOCK' }))
+    ).toHaveLength(0);
+    expect(
+      mapBoostEventNotifications(
+        makeBoostEvent({ event_type: 'REWARDS_CLAIM' })
+      )
+    ).toHaveLength(0);
+    expect(
+      mapBoostEventNotifications(
+        makeBoostEvent({ event_type: 'CREDITS_PURCHASE' })
+      )
+    ).toHaveLength(0);
+    expect(
+      mapBoostEventNotifications(
+        makeBoostEvent({ event_type: 'STORAGE_DEPOSIT' })
+      )
+    ).toHaveLength(0);
   });
 
   it('ignores failed or non-user-facing boost events', () => {

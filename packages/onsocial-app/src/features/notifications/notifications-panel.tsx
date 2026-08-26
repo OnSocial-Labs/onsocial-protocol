@@ -12,6 +12,10 @@ import {
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useAppAccountSheet } from '@/contexts/app-account-sheet-context';
+import { useActivityPostSnippets } from '@/hooks/use-activity-post-snippets';
+import { useCollectionDisplayNames } from '@/hooks/use-collection-display-names';
+import { useGuildDisplayNames } from '@/hooks/use-guild-display-names';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
   requestNotificationsUnreadRefresh,
@@ -28,7 +32,12 @@ import {
 } from '@/features/notifications/notification-activity-rows';
 import {
   ACTIVITY_EXCLUDE_TYPE,
+  isCollectActivityType,
+  notificationCollectionIds,
+  notificationGroupIds,
   notificationHref,
+  notificationProfileAccountIds,
+  notificationSnippetPostRefs,
 } from '@/lib/notification-display';
 
 const PAGE_SIZE = 40;
@@ -38,6 +47,7 @@ const PAGE_SIZE = 40;
  */
 export function NotificationsPanel() {
   const router = useRouter();
+  const { openAccountSheet } = useAppAccountSheet();
   const { accountId, isConnected, connect, hasSocialSession } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const activityUnread = useNotificationsUnreadCount();
@@ -63,10 +73,26 @@ export function NotificationsPanel() {
     );
   }, []);
 
-  const actorIds = (items ?? [])
-    .map((item) => item.actor)
-    .filter((id): id is string => Boolean(id));
-  const profiles = usePostAuthorProfiles(actorIds);
+  const profileIds = useMemo(
+    () => notificationProfileAccountIds(items ?? []),
+    [items]
+  );
+  const profiles = usePostAuthorProfiles(profileIds);
+  const groupIds = useMemo(
+    () => notificationGroupIds(items ?? []),
+    [items]
+  );
+  const guildNames = useGuildDisplayNames(groupIds);
+  const collectionIds = useMemo(
+    () => notificationCollectionIds(items ?? []),
+    [items]
+  );
+  const collectionNames = useCollectionDisplayNames(collectionIds);
+  const snippetRefs = useMemo(
+    () => notificationSnippetPostRefs(items ?? []),
+    [items]
+  );
+  const postSnippets = useActivityPostSnippets(snippetRefs);
 
   const withAuth = useCallback(async () => {
     const { client, session, wallet, accountId: id } = await getClient();
@@ -185,7 +211,7 @@ export function NotificationsPanel() {
 
   const openItem = useCallback(
     (item: Notification) => {
-      const href = notificationHref(item);
+      const collect = isCollectActivityType(item.type);
       if (!item.read && accountId) {
         setItems((prev) =>
           prev
@@ -204,9 +230,13 @@ export function NotificationsPanel() {
           }
         })();
       }
-      router.push(href);
+      if (collect) {
+        openAccountSheet();
+        return;
+      }
+      router.push(notificationHref(item));
     },
-    [accountId, router, withAuth]
+    [accountId, openAccountSheet, router, withAuth]
   );
 
   const unreadCount = useMemo(
@@ -264,6 +294,9 @@ export function NotificationsPanel() {
             <NotificationActivityRows
               items={items}
               profiles={profiles}
+              guildNames={guildNames}
+              collectionNames={collectionNames}
+              postSnippets={postSnippets}
               onOpen={openItem}
             />
             {nextCursor ? (

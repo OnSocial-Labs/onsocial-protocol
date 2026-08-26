@@ -2,9 +2,11 @@
 
 import { AppSocialBalanceProvider } from '@/contexts/app-social-balance-context';
 import { AppRewardsProvider } from '@/contexts/app-rewards-context';
+import { Suspense } from 'react';
 import {
   AppAccountSheetHost,
   AppAccountSheetProvider,
+  WalletSheetDeepLink,
 } from '@/contexts/app-account-sheet-context';
 import { CollectiblesNowPlayingProvider } from '@/contexts/collectibles-now-playing-context';
 import { AppTransactionFeedbackProvider } from '@/contexts/app-transaction-feedback-context';
@@ -56,6 +58,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                                     {children}
                                     <ViewerMuteBlockHost />
                                     <DropComposeHost />
+                                    <Suspense fallback={null}>
+                                      <WalletSheetDeepLink />
+                                    </Suspense>
                                     <AppAccountSheetHost />
                                   </WebPushProvider>
                                 </NotificationsHost>

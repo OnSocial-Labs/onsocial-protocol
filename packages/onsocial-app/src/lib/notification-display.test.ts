@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
+import { homeWalletPath, parseAppWalletSheetParam } from '@/lib/app-routes';
 import {
+  ACTIVITY_EXCLUDE_TYPE,
   formatNotificationTime,
   isSystemNotification,
   notificationDescription,
   notificationDetail,
   notificationExplorerHref,
+  notificationCollectionIds,
   notificationHref,
+  notificationSnippetPostRef,
+  notificationSnippetPostRefs,
+  notificationProfileAccountIds,
+  snippetFromPostValue,
   notificationSystemChrome,
   notificationVerb,
   parseNotificationPostPath,
@@ -23,20 +30,22 @@ describe('notification display', () => {
   it('maps verbs', () => {
     expect(notificationVerb('standing_new')).toBe('stood with you');
     expect(notificationVerb('dm')).toBe('sent a private message');
-    expect(notificationVerb('boost_locked')).toBe('boost locked');
-    expect(notificationVerb('reward_credited')).toBe('credited');
-    expect(notificationVerb('reward_claimed')).toBe('collected');
-    expect(notificationVerb('boost_reward_claimed')).toBe('boost claimed');
-    expect(notificationVerb('dao_proposal')).toBe('opened a DAO proposal');
+    expect(notificationVerb('boost_locked')).toBe('your boost is locked');
+    expect(notificationVerb('reward_credited')).toBe('SOCIAL credited');
+    expect(notificationVerb('reward_claimed')).toBe('SOCIAL collected');
+    expect(notificationVerb('boost_reward_claimed')).toBe('boost collected');
+    expect(notificationVerb('group_invite')).toBe('invited you');
+    expect(notificationVerb('scarces_sold')).toBe('bought this');
+    expect(notificationVerb('dao_proposal')).toBe('opened a proposal');
     expect(
       notificationVerb('dao_proposal_resolved', { status: 'Approved' })
-    ).toBe('DAO proposal approved');
+    ).toBe('Proposal approved');
     expect(notificationVerb('repost')).toBe('reposted your post');
     expect(notificationVerb('dao_proposal_vote', { vote: 'Approve' })).toBe(
-      'approved your DAO proposal'
+      'approved your proposal'
     );
     expect(notificationVerb('dao_proposal_vote', { vote: 'Reject' })).toBe(
-      'rejected your DAO proposal'
+      'rejected your proposal'
     );
     expect(
       notificationVerb('reaction', {
@@ -125,6 +134,35 @@ describe('notification display', () => {
         },
       })
     ).toBe('/@gov.sputnik-dao.testnet?status=open&proposal=12');
+
+    expect(
+      notificationHref({
+        type: 'scarces_sold',
+        actor: 'bob.testnet',
+        context: { collectionId: 'night-drive' },
+      })
+    ).toBe('/collection/night-drive');
+
+    expect(
+      notificationHref({
+        type: 'boost_locked',
+        actor: 'alice.testnet',
+        recipient: 'alice.testnet',
+        context: {},
+      })
+    ).toBe('/@alice.testnet?sheet=boost');
+
+    expect(
+      notificationHref({
+        type: 'reward_claimed',
+        actor: 'alice.testnet',
+        recipient: 'alice.testnet',
+        context: {},
+      })
+    ).toBe('/home?sheet=wallet');
+    expect(homeWalletPath()).toBe('/home?sheet=wallet');
+    expect(parseAppWalletSheetParam('wallet')).toBe('wallet');
+    expect(parseAppWalletSheetParam('boost')).toBeNull();
   });
 
   it('builds relative description lines', () => {
@@ -148,7 +186,9 @@ describe('notification display', () => {
         },
         createdAt,
       })
-    ).toBe('opened a DAO proposal · Fund builders · 5m ago');
+    ).toBe(
+      'opened a proposal · gov.sputnik-dao.testnet · Fund builders · 5m ago'
+    );
 
     expect(
       notificationDescription({
@@ -159,7 +199,7 @@ describe('notification display', () => {
         },
         createdAt,
       })
-    ).toBe('DAO proposal approved · Fund builders · 5m ago');
+    ).toBe('Proposal approved · Fund builders · 5m ago');
 
     expect(
       notificationDescription({
@@ -170,7 +210,7 @@ describe('notification display', () => {
         },
         createdAt,
       })
-    ).toBe('approved your DAO proposal · Fund builders · 5m ago');
+    ).toBe('approved your proposal · Fund builders · 5m ago');
   });
 
   it('splits verb and DAO snippet without time', () => {
@@ -179,16 +219,158 @@ describe('notification display', () => {
         type: 'standing_new',
         context: {},
       })
-    ).toEqual({ verb: 'stood with you', snippet: null });
+    ).toEqual({
+      verb: 'stood with you',
+      placeAccountId: null,
+      placeGroupId: null,
+      placeCollectionId: null,
+      snippet: null,
+    });
     expect(
       notificationDetail({
         type: 'dao_proposal',
-        context: { description: 'Fund builders' },
+        context: {
+          daoAccountId: 'gov.sputnik-dao.testnet',
+          description: 'Fund builders',
+        },
       })
     ).toEqual({
-      verb: 'opened a DAO proposal',
+      verb: 'opened a proposal',
+      placeAccountId: 'gov.sputnik-dao.testnet',
+      placeGroupId: null,
+      placeCollectionId: null,
       snippet: 'Fund builders',
     });
+    expect(
+      notificationDetail({
+        type: 'dao_proposal_resolved',
+        context: {
+          daoAccountId: 'gov.sputnik-dao.testnet',
+          status: 'Approved',
+          description: 'Fund builders',
+        },
+      })
+    ).toEqual({
+      verb: 'Proposal approved',
+      placeAccountId: null,
+      placeGroupId: null,
+      placeCollectionId: null,
+      snippet: 'Fund builders',
+    });
+    expect(
+      notificationDetail({
+        type: 'group_proposal',
+        context: {
+          groupId: 'writers',
+          title: 'Add mods',
+        },
+      })
+    ).toEqual({
+      verb: 'opened a proposal',
+      placeAccountId: null,
+      placeGroupId: 'writers',
+      placeCollectionId: null,
+      snippet: 'Add mods',
+    });
+    expect(
+      notificationDetail({
+        type: 'reply',
+        context: {
+          groupId: 'writers',
+          snippet: 'Nice take',
+        },
+      })
+    ).toEqual({
+      verb: 'replied to your post',
+      placeAccountId: null,
+      placeGroupId: 'writers',
+      placeCollectionId: null,
+      snippet: 'Nice take',
+    });
+    expect(
+      notificationDetail({
+        type: 'scarces_sold',
+        context: {
+          collectionId: 'night-drive',
+          price: '12000000000000000000',
+        },
+      })
+    ).toEqual({
+      verb: 'bought this',
+      placeAccountId: null,
+      placeGroupId: null,
+      placeCollectionId: 'night-drive',
+      snippet: '12.00 SOCIAL',
+    });
+  });
+
+  it('backfills snippet refs only when context has no snippet', () => {
+    expect(
+      snippetFromPostValue(JSON.stringify({ text: 'Nice take on this' }))
+    ).toBe('Nice take on this');
+    expect(
+      notificationSnippetPostRef({
+        type: 'reply',
+        actor: 'bob.testnet',
+        context: { snippet: 'Nice take', path: 'bob.testnet/post/10' },
+      })
+    ).toBeNull();
+    expect(
+      notificationSnippetPostRef({
+        type: 'reply',
+        actor: 'bob.testnet',
+        context: { path: 'bob.testnet/post/10' },
+      })
+    ).toEqual({ author: 'bob.testnet', postId: '10' });
+    expect(
+      notificationSnippetPostRef({
+        type: 'reaction',
+        actor: 'bob.testnet',
+        context: { reactionTargetPath: 'alice.testnet/post/9' },
+      })
+    ).toEqual({ author: 'alice.testnet', postId: '9' });
+    expect(
+      notificationSnippetPostRefs([
+        {
+          type: 'reply',
+          actor: 'bob.testnet',
+          context: { path: 'bob.testnet/post/10' },
+        },
+        {
+          type: 'mention',
+          actor: 'bob.testnet',
+          context: { postId: '10' },
+        },
+      ])
+    ).toEqual([{ author: 'bob.testnet', postId: '10' }]);
+  });
+
+  it('collects collection ids for drop title fetch', () => {
+    expect(
+      notificationCollectionIds([
+        {
+          type: 'scarces_sold',
+          context: { collectionId: 'night-drive' },
+        },
+        {
+          type: 'scarces_offer',
+          context: { collectionId: 'night-drive' },
+        },
+        { type: 'reply', context: {} },
+      ])
+    ).toEqual(['night-drive']);
+  });
+
+  it('collects actor and DAO accounts for profile fetch', () => {
+    expect(
+      notificationProfileAccountIds([
+        {
+          actor: 'bob.testnet',
+          context: { daoAccountId: 'gov.sputnik-dao.testnet' },
+        },
+        { actor: 'bob.testnet', context: {} },
+      ])
+    ).toEqual(['bob.testnet', 'gov.sputnik-dao.testnet']);
   });
 
   it('classifies system chrome for boost / collect / dao resolved', () => {
@@ -216,6 +398,12 @@ describe('notification display', () => {
         actor: '',
       })
     ).toBe(true);
+    expect(
+      isSystemNotification({
+        type: 'dao_proposal_resolved',
+        actor: 'gov.sputnik-dao.testnet',
+      })
+    ).toBe(false);
 
     expect(
       notificationSystemChrome({
@@ -225,7 +413,7 @@ describe('notification display', () => {
     ).toEqual({
       family: 'boost',
       familyLabel: 'Boost',
-      action: 'Claimed',
+      action: 'Boost collected',
     });
     expect(
       notificationSystemChrome({
@@ -235,7 +423,7 @@ describe('notification display', () => {
     ).toEqual({
       family: 'collect',
       familyLabel: 'Collect',
-      action: 'Credited',
+      action: 'SOCIAL credited',
     });
     expect(
       notificationSystemChrome({
@@ -245,7 +433,17 @@ describe('notification display', () => {
     ).toEqual({
       family: 'collect',
       familyLabel: 'Collect',
-      action: 'Collected',
+      action: 'SOCIAL collected',
+    });
+    expect(
+      notificationSystemChrome({
+        type: 'boost_locked',
+        context: {},
+      })
+    ).toEqual({
+      family: 'boost',
+      familyLabel: 'Boost',
+      action: 'Your boost is locked',
     });
     expect(
       notificationSystemChrome({
@@ -290,24 +488,40 @@ describe('notification display', () => {
     ).toBe('/@alice.testnet');
   });
 
-  it('builds Nearblocks href from receipt or context tx hash', () => {
+  it('builds Nearblocks href only from a transaction hash', () => {
     expect(
       notificationExplorerHref({
-        source: { contract: 'core', receiptId: 'abc123', blockHeight: 1 },
         context: null,
       })
-    ).toMatch(/\/txns\/abc123$/);
+    ).toBeNull();
     expect(
       notificationExplorerHref({
-        source: { contract: 'onsocial', receiptId: null, blockHeight: null },
         context: { txHash: 'def456' },
       })
     ).toMatch(/\/txns\/def456$/);
     expect(
       notificationExplorerHref({
-        source: { contract: 'onsocial', receiptId: null, blockHeight: null },
         context: { years: 1 },
       })
     ).toBeNull();
+  });
+
+  it('hides DMs and the viewer own boost/collect taps from Activity', () => {
+    const excluded = ACTIVITY_EXCLUDE_TYPE.split(',');
+    expect(excluded).toEqual(
+      expect.arrayContaining([
+        'dm',
+        'reward_claimed',
+        'boost_locked',
+        'boost_extended',
+        'boost_unlocked',
+        'boost_reward_claimed',
+        'boost_credits_purchased',
+        'boost_storage_deposited',
+      ])
+    );
+    expect(excluded).not.toContain('reward_credited');
+    expect(excluded).not.toContain('follow');
+    expect(excluded).not.toContain('standing_new');
   });
 });

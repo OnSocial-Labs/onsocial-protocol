@@ -6,14 +6,29 @@ import {
   APP_HOME_PATH,
   collectionPath,
   daoPortfolioPath,
+  homeWalletPath,
   messagesPath,
   type ProtocolFeedStatusFilter,
 } from '@/lib/app-routes';
-import { portfolioPath } from '@/lib/overlay-routes';
+import { parsePostText } from '@/lib/post-display';
+import { formatSocialCompact } from '@/lib/format-social-balance';
+import { portfolioBoostPath, portfolioPath } from '@/lib/overlay-routes';
 import { postThreadPath } from '@/lib/post-routes';
 
-/** Mailbox owns DMs — Activity list/count/mark-all skip this kind. */
-export const ACTIVITY_EXCLUDE_TYPE = 'dm';
+/**
+ * Activity list/count/mark-all skip mailbox DMs and your own money taps
+ * (toast + wallet / boost sheet already confirmed those).
+ */
+export const ACTIVITY_EXCLUDE_TYPE = [
+  'dm',
+  'reward_claimed',
+  'boost_locked',
+  'boost_extended',
+  'boost_unlocked',
+  'boost_reward_claimed',
+  'boost_credits_purchased',
+  'boost_storage_deposited',
+].join(',');
 
 function textField(
   context: Record<string, unknown> | null | undefined,
@@ -65,33 +80,210 @@ function daoStatusFilter(
 function daoResolvedVerb(status: string | null | undefined): string {
   switch ((status ?? '').trim()) {
     case 'Approved':
-      return 'DAO proposal approved';
+      return 'Proposal approved';
     case 'Rejected':
-      return 'DAO proposal rejected';
+      return 'Proposal rejected';
     case 'Removed':
-      return 'DAO proposal removed';
+      return 'Proposal removed';
     case 'Expired':
-      return 'DAO proposal expired';
+      return 'Proposal expired';
     case 'Failed':
-      return 'DAO proposal failed';
+      return 'Proposal failed';
     case 'Moved':
-      return 'DAO proposal moved';
+      return 'Proposal moved';
     default:
-      return 'DAO proposal resolved';
+      return 'Proposal resolved';
   }
 }
 
 function daoVoteVerb(vote: string | null | undefined): string {
   switch ((vote ?? '').trim()) {
     case 'Approve':
-      return 'approved your DAO proposal';
+      return 'approved your proposal';
     case 'Reject':
-      return 'rejected your DAO proposal';
+      return 'rejected your proposal';
     case 'Remove':
-      return 'voted to remove your DAO proposal';
+      return 'voted to remove your proposal';
     default:
-      return 'voted on your DAO proposal';
+      return 'voted on your proposal';
   }
+}
+
+export function isDaoActivityType(type: string): boolean {
+  return (
+    type === 'dao_proposal' ||
+    type === 'dao_proposal_resolved' ||
+    type === 'dao_proposal_vote'
+  );
+}
+
+export function notificationDaoAccountId(
+  notification: Pick<Notification, 'context'>
+): string | null {
+  return textField(notification.context, 'daoAccountId');
+}
+
+/** Actor plus DAO place — so Activity can resolve DAO names. */
+export function notificationProfileAccountIds(
+  items: readonly Pick<Notification, 'actor' | 'context'>[]
+): string[] {
+  const ids = new Set<string>();
+  for (const item of items) {
+    const actor = item.actor?.trim();
+    if (actor) ids.add(actor);
+    const dao = notificationDaoAccountId(item);
+    if (dao) ids.add(dao);
+  }
+  return [...ids];
+}
+
+export function notificationPlaceGroupId(
+  notification: Pick<Notification, 'type' | 'context'>
+): string | null {
+  const type = notification.type;
+  if (
+    type === 'group_invite' ||
+    type === 'group_proposal' ||
+    type === 'reply' ||
+    type === 'quote' ||
+    type === 'repost' ||
+    type === 'mention' ||
+    type === 'reaction'
+  ) {
+    return textField(notification.context, 'groupId');
+  }
+  return null;
+}
+
+export function notificationPlaceCollectionId(
+  notification: Pick<Notification, 'type' | 'context'>
+): string | null {
+  if (
+    notification.type === 'scarces_sold' ||
+    notification.type === 'scarces_offer'
+  ) {
+    return textField(notification.context, 'collectionId');
+  }
+  return null;
+}
+
+export function notificationGroupIds(
+  items: readonly Pick<Notification, 'type' | 'context'>[]
+): string[] {
+  const ids = new Set<string>();
+  for (const item of items) {
+    const groupId = notificationPlaceGroupId(item);
+    if (groupId) ids.add(groupId);
+  }
+  return [...ids];
+}
+
+export function notificationCollectionIds(
+  items: readonly Pick<Notification, 'type' | 'context'>[]
+): string[] {
+  const ids = new Set<string>();
+  for (const item of items) {
+    const collectionId = notificationPlaceCollectionId(item);
+    if (collectionId) ids.add(collectionId);
+  }
+  return [...ids];
+}
+
+const SNIPPET_CHARS = 72;
+
+const SOCIAL_SNIPPET_TYPES = new Set([
+  'reply',
+  'quote',
+  'repost',
+  'mention',
+  'reaction',
+]);
+
+function firstLineSnippet(raw: string | null): string | null {
+  if (!raw) return null;
+  const first = raw.replace(/\s+/g, ' ').trim();
+  if (!first) return null;
+  if (first.length <= SNIPPET_CHARS) return first;
+  return `${first.slice(0, SNIPPET_CHARS - 1).trimEnd()}…`;
+}
+
+export function snippetFromPostValue(
+  value: string | null | undefined
+): string | null {
+  if (!value) return null;
+  return firstLineSnippet(parsePostText(value));
+}
+
+export function notificationSnippetKey(
+  author: string,
+  postId: string
+): string {
+  return `${author}\0${postId}`;
+}
+
+/** Post to fetch when context has no snippet yet (old social rows + reactions). */
+export function notificationSnippetPostRef(
+  notification: Pick<Notification, 'type' | 'actor' | 'context'>
+): { author: string; postId: string } | null {
+  const type = notification.type;
+  if (!SOCIAL_SNIPPET_TYPES.has(type)) return null;
+  if (
+    firstLineSnippet(
+      textField(notification.context, 'snippet') ??
+        textField(notification.context, 'text')
+    )
+  ) {
+    return null;
+  }
+  const context = notification.context;
+  if (type === 'reaction') {
+    return (
+      parseNotificationPostPath(textField(context, 'reactionTargetPath')) ??
+      parseNotificationPostPath(textField(context, 'path'))
+    );
+  }
+  const fromPath = parseNotificationPostPath(textField(context, 'path'));
+  if (fromPath) return fromPath;
+  const postId = textField(context, 'postId');
+  const actor = notification.actor?.trim() || null;
+  if (actor && postId) return { author: actor, postId };
+  return null;
+}
+
+export function notificationSnippetPostRefs(
+  items: readonly Pick<Notification, 'type' | 'actor' | 'context'>[]
+): Array<{ author: string; postId: string }> {
+  const seen = new Set<string>();
+  const refs: Array<{ author: string; postId: string }> = [];
+  for (const item of items) {
+    const ref = notificationSnippetPostRef(item);
+    if (!ref) continue;
+    const key = notificationSnippetKey(ref.author, ref.postId);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    refs.push(ref);
+  }
+  return refs;
+}
+
+export function isCollectActivityType(type: string): boolean {
+  return type.startsWith('reward_');
+}
+
+function socialAmountSnippet(
+  context: Record<string, unknown> | null | undefined
+): string | null {
+  const raw =
+    textField(context, 'amount') ??
+    textField(context, 'price') ??
+    textField(context, 'bidAmount');
+  if (!raw) return null;
+  if (/^\d+$/.test(raw) && raw.length >= 16) {
+    const label = formatSocialCompact(raw);
+    if (label === '0') return null;
+    return `${label} SOCIAL`;
+  }
+  return `${raw} SOCIAL`;
 }
 
 /** Parse `author/post/{id}` content paths used in notification context. */
@@ -141,35 +333,35 @@ export function notificationVerb(
     case 'dm':
       return 'sent a private message';
     case 'group_invite':
-      return 'invited you to a guild';
+      return 'invited you';
     case 'group_proposal':
-      return 'opened a guild proposal';
+      return 'opened a proposal';
     case 'dao_proposal':
-      return 'opened a DAO proposal';
+      return 'opened a proposal';
     case 'dao_proposal_resolved':
       return daoResolvedVerb(textField(context, 'status'));
     case 'dao_proposal_vote':
       return daoVoteVerb(textField(context, 'vote'));
     case 'scarces_sold':
-      return 'bought your scarce';
+      return 'bought this';
     case 'scarces_offer':
       return 'made an offer';
     case 'reward_credited':
-      return 'credited';
+      return 'SOCIAL credited';
     case 'reward_claimed':
-      return 'collected';
+      return 'SOCIAL collected';
     case 'boost_locked':
-      return 'boost locked';
+      return 'your boost is locked';
     case 'boost_extended':
-      return 'boost extended';
+      return 'your boost was extended';
     case 'boost_unlocked':
-      return 'boost unlocked';
+      return 'your boost unlocked';
     case 'boost_reward_claimed':
-      return 'boost claimed';
+      return 'boost collected';
     case 'boost_credits_purchased':
-      return 'boost credits purchased';
+      return 'credits bought';
     case 'boost_storage_deposited':
-      return 'boost storage deposited';
+      return 'storage deposited';
     case 'app_event':
       return 'app update';
     case 'profile_anniversary': {
@@ -292,8 +484,14 @@ export function notificationHref(
     if (collectionId) return collectionPath(collectionId);
   }
 
-  if (type.startsWith('boost_') || type.startsWith('reward_')) {
+  if (type.startsWith('boost_')) {
+    const recipient = notification.recipient?.trim();
+    if (recipient) return portfolioBoostPath(recipient);
     return APP_HOME_PATH;
+  }
+
+  if (type.startsWith('reward_')) {
+    return homeWalletPath();
   }
 
   if (actor) return portfolioPath(actor);
@@ -311,18 +509,54 @@ export function formatNotificationTime(iso: string): {
   return { label: calendar.label, title: calendar.title };
 }
 
-/** Verb + optional DAO snippet (time lives in the row aside). */
+/** Verb + place + object line (time lives in the row aside). */
 export function notificationDetail(
   notification: Pick<Notification, 'type' | 'context'>
-): { verb: string; snippet: string | null } {
-  const verb = notificationVerb(notification.type, notification.context);
-  const snippet =
-    notification.type === 'dao_proposal' ||
-    notification.type === 'dao_proposal_resolved' ||
-    notification.type === 'dao_proposal_vote'
-      ? textField(notification.context, 'description')
+): {
+  verb: string;
+  placeAccountId: string | null;
+  placeGroupId: string | null;
+  placeCollectionId: string | null;
+  snippet: string | null;
+} {
+  const type = notification.type;
+  const context = notification.context;
+  const verb = notificationVerb(type, context);
+  const daoAccountId = notificationDaoAccountId(notification);
+  const placeAccountId =
+    type === 'dao_proposal' || type === 'dao_proposal_vote'
+      ? daoAccountId
       : null;
-  return { verb, snippet };
+  const placeGroupId = notificationPlaceGroupId(notification);
+  const placeCollectionId = notificationPlaceCollectionId(notification);
+
+  let snippet: string | null = null;
+  if (isDaoActivityType(type)) {
+    snippet = firstLineSnippet(textField(context, 'description'));
+  } else if (type === 'group_proposal') {
+    snippet = firstLineSnippet(
+      textField(context, 'title') ?? textField(context, 'description')
+    );
+  } else if (
+    type === 'scarces_sold' ||
+    type === 'scarces_offer' ||
+    type.startsWith('boost_') ||
+    type.startsWith('reward_')
+  ) {
+    snippet = socialAmountSnippet(context);
+  } else {
+    snippet = firstLineSnippet(
+      textField(context, 'snippet') ?? textField(context, 'text')
+    );
+  }
+
+  return {
+    verb,
+    placeAccountId,
+    placeGroupId,
+    placeCollectionId,
+    snippet,
+  };
 }
 
 export type NotificationSystemFamily =
@@ -353,8 +587,7 @@ export function isSystemNotification(
     type.startsWith('boost_') ||
     type.startsWith('reward_') ||
     type === 'app_event' ||
-    type === 'profile_anniversary' ||
-    type === 'dao_proposal_resolved'
+    type === 'profile_anniversary'
   ) {
     return true;
   }
@@ -389,46 +622,29 @@ function systemAction(
 ): string {
   switch (type) {
     case 'boost_reward_claimed':
-      return 'Claimed';
+      return 'Boost collected';
     case 'boost_locked':
-      return 'Locked';
+      return 'Your boost is locked';
     case 'boost_extended':
-      return 'Extended';
+      return 'Your boost was extended';
     case 'boost_unlocked':
-      return 'Unlocked';
+      return 'Your boost unlocked';
     case 'boost_credits_purchased':
-      return 'Credits purchased';
+      return 'Credits bought';
     case 'boost_storage_deposited':
       return 'Storage deposited';
     case 'reward_credited':
-      return 'Credited';
+      return 'SOCIAL credited';
     case 'reward_claimed':
-      return 'Collected';
+      return 'SOCIAL collected';
     case 'profile_anniversary': {
       const years = numberField(context, 'years');
       if (years === 1) return '1 year on OnSocial';
       if (years != null && years > 1) return `${years} years on OnSocial`;
       return 'Anniversary';
     }
-    case 'dao_proposal_resolved': {
-      const status = textField(context, 'status');
-      switch ((status ?? '').trim()) {
-        case 'Approved':
-          return 'Proposal approved';
-        case 'Rejected':
-          return 'Proposal rejected';
-        case 'Removed':
-          return 'Proposal removed';
-        case 'Expired':
-          return 'Proposal expired';
-        case 'Failed':
-          return 'Proposal failed';
-        case 'Moved':
-          return 'Proposal moved';
-        default:
-          return 'Proposal resolved';
-      }
-    }
+    case 'dao_proposal_resolved':
+      return daoResolvedVerb(textField(context, 'status'));
     case 'app_event':
       return 'Update';
     default: {
@@ -450,14 +666,12 @@ export function notificationSystemChrome(
 }
 
 /**
- * Nearblocks link when the notification has an on-chain receipt.
- * Off-chain rows (anniversary, some app events) return null.
+ * Nearblocks txn URL when context has a transaction hash.
+ * Receipt ids are not txn hashes — do not put them on `/txns/`.
  */
 export function notificationExplorerHref(
-  notification: Pick<Notification, 'source' | 'context'>
+  notification: Pick<Notification, 'context'>
 ): string | null {
-  const fromSource = nearExplorerTxHref(notification.source?.receiptId);
-  if (fromSource) return fromSource;
   const fromContext =
     textField(notification.context, 'txHash') ??
     textField(notification.context, 'transactionHash');
@@ -468,10 +682,16 @@ export function notificationExplorerHref(
 export function notificationDescription(
   notification: Pick<Notification, 'type' | 'context' | 'createdAt'>
 ): string {
-  const { verb, snippet } = notificationDetail(notification);
+  const { verb, placeAccountId, placeGroupId, placeCollectionId, snippet } =
+    notificationDetail(notification);
   const when = formatNotificationTime(notification.createdAt).label;
-  const parts = [verb, snippet, when || null].filter((part): part is string =>
-    Boolean(part)
-  );
+  const parts = [
+    verb,
+    placeAccountId,
+    placeGroupId,
+    placeCollectionId,
+    snippet,
+    when || null,
+  ].filter((part): part is string => Boolean(part));
   return parts.join(' · ');
 }

@@ -1,7 +1,4 @@
-import {
-  COLLECTIBLES_SEARCH_PARAM,
-  MARKET_KIND_PARAM,
-} from '@/lib/app-routes';
+import { COLLECTIBLES_SEARCH_PARAM, MARKET_KIND_PARAM } from '@/lib/app-routes';
 import {
   isProfileSearchQuery,
   normalizeProfileSearchQuery,
@@ -32,6 +29,23 @@ export const PORTFOLIO_FEED_SECTION_ID = 'portfolio-feed';
 
 export function portfolioPath(accountId: string): string {
   return `/@${encodeURIComponent(accountId)}`;
+}
+
+/** Shareable owner sheets on the profile face (`?sheet=`). */
+export const PORTFOLIO_SHEET_PARAM = 'sheet';
+
+export type PortfolioShareSheetId = 'boost';
+
+export function parsePortfolioSheetParam(
+  raw: string | null | undefined
+): PortfolioShareSheetId | null {
+  const value = (raw ?? '').trim().toLowerCase();
+  return value === 'boost' ? value : null;
+}
+
+/** Owner boost drawer on the profile face. */
+export function portfolioBoostPath(accountId: string): string {
+  return `${portfolioPath(accountId)}?${PORTFOLIO_SHEET_PARAM}=boost`;
 }
 
 /** One-shot deep link — opens the portfolio page drawer, hash is stripped after. */

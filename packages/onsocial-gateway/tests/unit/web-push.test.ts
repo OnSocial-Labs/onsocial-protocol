@@ -23,9 +23,15 @@ describe('pushNotificationVerb', () => {
   });
 
   it('maps collect and boost verbs without reward wording', () => {
-    expect(pushNotificationVerb('reward_credited')).toBe('credited');
-    expect(pushNotificationVerb('reward_claimed')).toBe('collected');
-    expect(pushNotificationVerb('boost_reward_claimed')).toBe('boost claimed');
+    expect(pushNotificationVerb('reward_credited')).toBe('SOCIAL credited');
+    expect(pushNotificationVerb('reward_claimed')).toBe('SOCIAL collected');
+    expect(pushNotificationVerb('boost_reward_claimed')).toBe(
+      'boost collected'
+    );
+    expect(pushNotificationVerb('dao_proposal')).toBe('opened a proposal');
+    expect(
+      pushNotificationVerb('dao_proposal_resolved', { status: 'Approved' })
+    ).toBe('Proposal approved');
   });
 });
 
@@ -69,6 +75,39 @@ describe('pushNotificationUrl', () => {
         context: { years: 2, accountId: 'alice.near' },
       })
     ).toBe('/@alice.near');
+  });
+
+  it('deep-links replies to the post and boost to the owner sheet', () => {
+    expect(
+      pushNotificationUrl({
+        notification_type: 'reply',
+        actor: 'bob.near',
+        context: { parentPath: 'alice.near/post/9', postId: '10' },
+      })
+    ).toBe('/@alice.near/posts/9');
+    expect(
+      pushNotificationUrl({
+        notification_type: 'boost_locked',
+        actor: 'alice.near',
+        recipient: 'alice.near',
+        context: {},
+      })
+    ).toBe('/@alice.near?sheet=boost');
+    expect(
+      pushNotificationUrl({
+        notification_type: 'reward_claimed',
+        actor: 'alice.near',
+        recipient: 'alice.near',
+        context: {},
+      })
+    ).toBe('/home?sheet=wallet');
+    expect(
+      pushNotificationUrl({
+        notification_type: 'scarces_sold',
+        actor: 'bob.near',
+        context: { collectionId: 'night-drive' },
+      })
+    ).toBe('/collection/night-drive');
   });
 
   it('falls back to activity inbox', () => {
@@ -128,7 +167,7 @@ describe('buildWebPushPayload', () => {
       })
     ).toMatchObject({
       title: 'Collect',
-      body: 'collected',
+      body: 'SOCIAL collected',
     });
     expect(
       buildWebPushPayload({
@@ -140,7 +179,7 @@ describe('buildWebPushPayload', () => {
       })
     ).toMatchObject({
       title: 'Boost',
-      body: 'boost claimed',
+      body: 'boost collected',
     });
   });
 });

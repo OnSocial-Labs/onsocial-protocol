@@ -280,6 +280,23 @@ function buildNotification(
 }
 
 /** Mentions live on PostV1 inside the indexed `value` JSON column. */
+const POST_SNIPPET_CHARS = 72;
+
+/** First line of post `text` for Activity / push. */
+export function postSnippetFromValue(value: string | null): string | null {
+  if (!value?.trim()) return null;
+  try {
+    const parsed = JSON.parse(value) as { text?: unknown };
+    const text = typeof parsed?.text === 'string' ? parsed.text : '';
+    const first = text.replace(/\s+/g, ' ').trim();
+    if (!first) return null;
+    if (first.length <= POST_SNIPPET_CHARS) return first;
+    return `${first.slice(0, POST_SNIPPET_CHARS - 1).trimEnd()}…`;
+  } catch {
+    return null;
+  }
+}
+
 function parseMentions(value: string | null): string[] {
   if (!value) return [];
   try {
@@ -327,6 +344,7 @@ export function mapDataUpdateNotifications(
         path: normalizeText(row.path),
         parentPath: normalizeText(row.parent_path),
         groupId: normalizeText(row.group_id),
+        snippet: postSnippetFromValue(row.value),
       },
     });
 
@@ -343,6 +361,7 @@ export function mapDataUpdateNotifications(
         refPath: normalizeText(row.ref_path),
         groupId: normalizeText(row.group_id),
         refType: shareType,
+        snippet: postSnippetFromValue(row.value),
       },
     });
 
@@ -385,6 +404,7 @@ export function mapDataUpdateNotifications(
           postId: normalizeText(row.data_id),
           path: normalizeText(row.path),
           groupId: normalizeText(row.group_id),
+          snippet: postSnippetFromValue(row.value),
         },
       });
       if (mention) {
@@ -499,29 +519,8 @@ export function mapRewardsEventNotifications(
   }
 
   if (eventType === 'REWARD_CLAIMED') {
-    const recipient = normalizeAccountId(row.account_id);
-    if (!recipient) {
-      return [];
-    }
-
-    return [
-      {
-        ownerAccountId: recipient,
-        appId: 'default',
-        recipient,
-        actor: recipient,
-        notificationType: 'reward_claimed',
-        sourceContract: 'rewards',
-        sourceReceiptId: normalizeText(row.receipt_id),
-        sourceBlockHeight: row.block_height,
-        dedupeKey: `${row.id}:reward_claimed:${recipient}`,
-        context: compactContext({
-          amount: normalizeText(row.amount),
-          ...(rewardsAppId ? { rewardsAppId } : {}),
-        }),
-        createdAt: toIsoFromNanoseconds(row.block_timestamp),
-      },
-    ];
+    // Own collect — toast + wallet already confirmed. Activity is inbound only.
+    return [];
   }
 
   return [];
@@ -824,56 +823,10 @@ async function resolveOwnerAccountId(
 }
 
 export function mapBoostEventNotifications(
-  row: BoostEventRow
+  _row: BoostEventRow
 ): NotificationInsert[] {
-  if (row.success === false) {
-    return [];
-  }
-
-  const recipient = normalizeAccountId(row.account_id);
-  const eventType = normalizeText(row.event_type);
-  if (!recipient || !eventType) {
-    return [];
-  }
-
-  const notificationTypeByEvent: Partial<Record<string, NotificationType>> = {
-    BOOST_LOCK: 'boost_locked',
-    BOOST_EXTEND: 'boost_extended',
-    BOOST_UNLOCK: 'boost_unlocked',
-    REWARDS_CLAIM: 'boost_reward_claimed',
-    CREDITS_PURCHASE: 'boost_credits_purchased',
-    STORAGE_DEPOSIT: 'boost_storage_deposited',
-  };
-  const notificationType = notificationTypeByEvent[eventType];
-  if (!notificationType) {
-    return [];
-  }
-
-  return [
-    {
-      ownerAccountId: recipient,
-      appId: 'default',
-      recipient,
-      actor: recipient,
-      notificationType,
-      sourceContract: 'boost',
-      sourceReceiptId: normalizeText(row.receipt_id),
-      sourceBlockHeight: row.block_height,
-      dedupeKey: `${row.id}:${notificationType}:${recipient}`,
-      context: compactContext({
-        eventType,
-        amount: normalizeText(row.amount),
-        effectiveBoost: normalizeText(row.effective_boost),
-        months: normalizeText(row.months),
-        newMonths: normalizeText(row.new_months),
-        newEffectiveBoost: normalizeText(row.new_effective_boost),
-        infraShare: normalizeText(row.infra_share),
-        rewardsShare: normalizeText(row.rewards_share),
-        deposit: normalizeText(row.deposit),
-      }),
-      createdAt: toIsoFromNanoseconds(row.block_timestamp),
-    },
-  ];
+  // Own boost taps — toast + boost sheet already confirmed. Activity is inbound only.
+  return [];
 }
 
 export class NotificationWorker {

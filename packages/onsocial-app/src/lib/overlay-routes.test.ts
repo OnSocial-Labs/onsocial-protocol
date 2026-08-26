@@ -5,6 +5,8 @@ import {
   isOverlayInterceptActive,
   isPortfolioOverlayPath,
   parseOverlayPanelKey,
+  parsePortfolioSheetParam,
+  portfolioBoostPath,
   portfolioCollectiblesPath,
   portfolioFeedPath,
   resolveOverlayPanelChrome,
@@ -28,6 +30,17 @@ describe('portfolioCollectiblesPath', () => {
     expect(
       portfolioCollectiblesPath('alice.testnet', { kind: 'audio', q: 'jazz' })
     ).toBe('/@alice.testnet/collectibles?kind=audio&q=jazz');
+  });
+});
+
+describe('portfolioBoostPath', () => {
+  it('deep-links the owner boost sheet', () => {
+    expect(parsePortfolioSheetParam('boost')).toBe('boost');
+    expect(parsePortfolioSheetParam('Boost')).toBe('boost');
+    expect(parsePortfolioSheetParam('wallet')).toBeNull();
+    expect(portfolioBoostPath('alice.testnet')).toBe(
+      '/@alice.testnet?sheet=boost'
+    );
   });
 });
 

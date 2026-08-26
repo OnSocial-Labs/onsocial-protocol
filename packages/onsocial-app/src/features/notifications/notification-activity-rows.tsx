@@ -3,7 +3,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import {
   Divider,
-  ExternalLinkIcon,
   FireFillIcon,
   GiftFillIcon,
   HomeFillIcon,
@@ -19,11 +18,15 @@ import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import {
   formatNotificationTime,
   isSystemNotification,
+  notificationDaoAccountId,
   notificationDetail,
-  notificationExplorerHref,
+  notificationSnippetKey,
+  notificationSnippetPostRef,
   notificationSystemChrome,
   type NotificationSystemFamily,
 } from '@/lib/notification-display';
+import { guildDisplayName } from '@/features/guilds/guild-card-display';
+import { buildNotificationDayRows } from '@/lib/notification-day-rows';
 import { displayName } from '@/lib/profile-display';
 
 type FillIcon = ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
@@ -88,38 +91,109 @@ function SystemMark({ family }: { family: NotificationSystemFamily }) {
   );
 }
 
+function ActivityCopy({
+  verb,
+  place,
+  snippet,
+}: {
+  verb: string;
+  place?: string | null;
+  snippet?: string | null;
+}) {
+  return (
+    <>
+      <span className="notifications-activity-verb">{verb}</span>
+      {place ? (
+        <span className="notifications-activity-place">{place}</span>
+      ) : null}
+      {snippet ? (
+        <span className="notifications-activity-snippet">{snippet}</span>
+      ) : null}
+    </>
+  );
+}
+
 /**
  * Hybrid Activity rows:
- * - Social (actor) → standing identity + verb
+ * - Social / DAO identity → standing lead + verb
  * - System → Mage family mark + family title + action
- * Time aside; unread = green pip only; optional Nearblocks icon when on-chain.
+ * Time + unread pip as one aside cluster. No explorer on the list.
  */
 export function NotificationActivityRows({
   items,
   profiles,
+  guildNames,
+  collectionNames,
+  postSnippets,
   onOpen,
 }: {
   items: Notification[];
   profiles: Record<string, PostAuthorProfile>;
+  guildNames?: Record<string, string>;
+  collectionNames?: Record<string, string>;
+  postSnippets?: Record<string, string>;
   onOpen: (item: Notification) => void;
 }) {
+  const rows = buildNotificationDayRows(items);
+
   return (
     <div className="standing-list notifications-activity-list" role="list">
-      {items.map((item, index) => {
+      {rows.map((row, index) => {
+        if (row.kind === 'day') {
+          return (
+            <div
+              key={row.key}
+              className="notifications-activity-day"
+              aria-label={row.label}
+            >
+              <span>{row.label}</span>
+            </div>
+          );
+        }
+
+        const item = row.item;
+        const previous = index > 0 ? rows[index - 1] : null;
         const actor = item.actor?.trim() || null;
-        const system = isSystemNotification(item);
+        const daoAccountId = notificationDaoAccountId(item);
+        const leadAccount =
+          item.type === 'dao_proposal_resolved'
+            ? daoAccountId || actor
+            : actor;
+        const system = !leadAccount && isSystemNotification(item);
         const when = formatNotificationTime(item.createdAt);
         const unread = !item.read;
-        const explorerHref = notificationExplorerHref(item);
+        const {
+          verb,
+          placeAccountId,
+          placeGroupId,
+          placeCollectionId,
+          snippet: contextSnippet,
+        } = notificationDetail(item);
+        const snippetRef = notificationSnippetPostRef(item);
+        const snippet =
+          contextSnippet ??
+          (snippetRef
+            ? postSnippets?.[
+                notificationSnippetKey(snippetRef.author, snippetRef.postId)
+              ]
+            : null);
+        const placeProfile = placeAccountId
+          ? profiles[placeAccountId]
+          : undefined;
+        const placeName = placeAccountId
+          ? displayName(placeAccountId, placeProfile?.displayName)
+          : placeGroupId
+            ? guildNames?.[placeGroupId] ||
+              guildDisplayName(null, placeGroupId)
+            : placeCollectionId
+              ? collectionNames?.[placeCollectionId] || placeCollectionId
+              : null;
 
-        let title: string;
         let ariaLead: string;
         let body: ReactNode;
 
         if (system) {
           const chrome = notificationSystemChrome(item);
-          const { snippet } = notificationDetail(item);
-          title = chrome.familyLabel;
           ariaLead = `${chrome.familyLabel}, ${chrome.action}`;
           body = (
             <>
@@ -128,47 +202,43 @@ export function NotificationActivityRows({
                 <span className="standing-row-name-row">
                   <span className="standing-row-name">{chrome.familyLabel}</span>
                 </span>
-                <span className="notifications-activity-verb">
-                  {chrome.action}
-                </span>
-                {snippet ? (
-                  <span className="notifications-activity-snippet">
-                    {snippet}
-                  </span>
-                ) : null}
+                <ActivityCopy
+                  verb={chrome.action}
+                  place={placeName}
+                  snippet={snippet}
+                />
               </div>
             </>
           );
         } else {
-          const profile = actor ? profiles[actor] : undefined;
-          const name = actor
-            ? displayName(actor, profile?.displayName)
+          const profile = leadAccount ? profiles[leadAccount] : undefined;
+          const name = leadAccount
+            ? displayName(leadAccount, profile?.displayName)
             : 'OnSocial';
-          const identityLabel = actor
-            ? standingIdentityLabel(actor, profile?.displayName).label
+          const identityLabel = leadAccount
+            ? standingIdentityLabel(leadAccount, profile?.displayName).label
             : name;
-          const { verb, snippet } = notificationDetail(item);
-          title = identityLabel;
-          ariaLead = `${identityLabel}, ${verb}`;
-          body = actor ? (
+          ariaLead = [identityLabel, verb, placeName].filter(Boolean).join(', ');
+          body = leadAccount ? (
             <StandingIdentity
-              accountId={actor}
+              accountId={leadAccount}
               profileName={profile?.displayName}
               avatarUrl={profile?.avatarUrl}
             >
-              <span className="notifications-activity-verb">{verb}</span>
-              {snippet ? (
-                <span className="notifications-activity-snippet">{snippet}</span>
-              ) : null}
+              <ActivityCopy
+                verb={verb}
+                place={placeName}
+                snippet={snippet}
+              />
             </StandingIdentity>
           ) : (
             <>
               <SystemMark family="activity" />
               <div className="standing-row-copy notifications-activity-system">
                 <span className="standing-row-name-row">
-                  <span className="standing-row-name">{title}</span>
+                  <span className="standing-row-name">{identityLabel}</span>
                 </span>
-                <span className="notifications-activity-verb">{verb}</span>
+                <ActivityCopy verb={verb} place={placeName} snippet={snippet} />
               </div>
             </>
           );
@@ -178,7 +248,7 @@ export function NotificationActivityRows({
 
         return (
           <div key={item.id} role="listitem">
-            {index > 0 ? <Divider variant="item" /> : null}
+            {previous?.kind === 'item' ? <Divider variant="item" /> : null}
             <div className="standing-row notifications-activity-row">
               <div className="standing-row-main">
                 <button
@@ -190,33 +260,19 @@ export function NotificationActivityRows({
                 {body}
               </div>
               <div className="standing-row-aside">
-                {when.label ? (
-                  <span
-                    className="standing-row-time"
-                    title={when.title || undefined}
-                  >
-                    {when.label}
-                  </span>
-                ) : null}
-                {explorerHref ? (
-                  <a
-                    className="notifications-activity-explorer"
-                    href={explorerHref}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="View on Nearblocks"
-                    title="View on Nearblocks"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <ExternalLinkIcon
-                      className="notifications-activity-explorer-icon"
-                      aria-hidden
-                    />
-                  </a>
-                ) : null}
-                {unread ? (
-                  <span className="notifications-activity-pip" aria-hidden />
-                ) : null}
+                <span className="notifications-activity-meta">
+                  {when.label ? (
+                    <span
+                      className="standing-row-time"
+                      title={when.title || undefined}
+                    >
+                      {when.label}
+                    </span>
+                  ) : null}
+                  {unread ? (
+                    <span className="notifications-activity-pip" aria-hidden />
+                  ) : null}
+                </span>
               </div>
             </div>
           </div>

@@ -60,8 +60,21 @@ interface NotificationListParams {
   type?: string;
   eventType?: string;
   cursor?: string;
-  /** Omit a kind from the list (e.g. `dm` when Messages owns that surface). */
+  /** Omit kinds from the list (`dm` or `dm,boost_locked`). */
   excludeType?: string;
+}
+
+/** Comma-separated `excludeType` → unique notification kinds. */
+export function parseExcludeTypes(raw?: string | null): string[] {
+  if (!raw?.trim()) return [];
+  return [
+    ...new Set(
+      raw
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean)
+    ),
+  ];
 }
 
 interface NotificationStore {
@@ -104,14 +117,14 @@ class MemoryNotificationStore implements NotificationStore {
   }> = [];
 
   async list(params: NotificationListParams): Promise<NotificationListResult> {
-    const exclude = params.excludeType?.trim() || undefined;
+    const excluded = new Set(parseExcludeTypes(params.excludeType));
     const filtered = this.notifications
       .filter((item) => item.ownerAccountId === params.ownerAccountId)
       .filter((item) => item.appId === params.appId)
       .filter((item) => item.recipient === params.recipient)
       .filter((item) => params.read === undefined || item.read === params.read)
       .filter((item) => !params.type || item.type === params.type)
-      .filter((item) => !exclude || item.type !== exclude)
+      .filter((item) => excluded.size === 0 || !excluded.has(item.type))
       .filter(
         (item) =>
           !params.eventType || item.context.eventType === params.eventType
@@ -149,13 +162,14 @@ class MemoryNotificationStore implements NotificationStore {
     eventType?: string,
     excludeType?: string
   ): Promise<number> {
+    const excluded = new Set(parseExcludeTypes(excludeType));
     return this.notifications.filter(
       (item) =>
         item.ownerAccountId === ownerAccountId &&
         item.appId === appId &&
         item.recipient === recipient &&
         (!eventType || item.context.eventType === eventType) &&
-        (!excludeType || item.type !== excludeType) &&
+        (excluded.size === 0 || !excluded.has(item.type)) &&
         !item.read
     ).length;
   }
@@ -170,7 +184,7 @@ class MemoryNotificationStore implements NotificationStore {
     contextContains?: Record<string, unknown>;
     excludeType?: string;
   }): Promise<number> {
-    const exclude = params.excludeType?.trim() || undefined;
+    const excluded = new Set(parseExcludeTypes(params.excludeType));
     let updated = 0;
     for (const item of this.notifications) {
       const matchesScope =
@@ -179,7 +193,7 @@ class MemoryNotificationStore implements NotificationStore {
         item.recipient === params.recipient &&
         !item.read;
       const matchesType = !params.type || item.type === params.type;
-      const matchesExclude = !exclude || item.type !== exclude;
+      const matchesExclude = excluded.size === 0 || !excluded.has(item.type);
       const matchesContext =
         !params.contextContains ||
         Object.entries(params.contextContains).every(
@@ -236,7 +250,7 @@ class HasuraNotificationStore implements NotificationStore {
 
   async list(params: NotificationListParams): Promise<NotificationListResult> {
     const eventTypeFilter = normalizeEventType(params.eventType);
-    const exclude = params.excludeType?.trim() || undefined;
+    const excluded = parseExcludeTypes(params.excludeType);
     const whereFields = [
       'ownerAccountId: { _eq: $owner }',
       'appId: { _eq: $app }',
@@ -250,8 +264,8 @@ class HasuraNotificationStore implements NotificationStore {
     if (params.type) {
       whereFields.push('notificationType: { _eq: $type }');
     }
-    if (exclude) {
-      whereFields.push('notificationType: { _neq: $excludeType }');
+    if (excluded.length > 0) {
+      whereFields.push('notificationType: { _nin: $excludeTypes }');
     }
 
     if (eventTypeFilter) {
@@ -267,7 +281,7 @@ class HasuraNotificationStore implements NotificationStore {
     ];
     if (params.read !== undefined) varDecls.push('$read: Boolean');
     if (params.type) varDecls.push('$type: String');
-    if (exclude) varDecls.push('$excludeType: String!');
+    if (excluded.length > 0) varDecls.push('$excludeTypes: [String!]!');
     if (eventTypeFilter) varDecls.push('$eventContext: jsonb');
 
     const result = await this.gql<{
@@ -314,7 +328,7 @@ class HasuraNotificationStore implements NotificationStore {
         cursor: params.cursor ?? '9999-12-31T23:59:59.999Z',
         ...(params.read !== undefined ? { read: params.read } : {}),
         ...(params.type ? { type: params.type } : {}),
-        ...(exclude ? { excludeType: exclude } : {}),
+        ...(excluded.length > 0 ? { excludeTypes: excluded } : {}),
         ...(eventTypeFilter
           ? { eventContext: { eventType: eventTypeFilter } }
           : {}),
@@ -354,7 +368,7 @@ class HasuraNotificationStore implements NotificationStore {
     excludeType?: string
   ): Promise<number> {
     const eventTypeFilter = normalizeEventType(eventType);
-    const exclude = excludeType?.trim() || undefined;
+    const excluded = parseExcludeTypes(excludeType);
     const whereFields = [
       'ownerAccountId: { _eq: $owner }',
       'appId: { _eq: $app }',
@@ -365,8 +379,8 @@ class HasuraNotificationStore implements NotificationStore {
     if (eventTypeFilter) {
       whereFields.push('context: { _contains: $eventContext }');
     }
-    if (exclude) {
-      whereFields.push('notificationType: { _neq: $excludeType }');
+    if (excluded.length > 0) {
+      whereFields.push('notificationType: { _nin: $excludeTypes }');
     }
 
     const countVarDecls = [
@@ -375,7 +389,7 @@ class HasuraNotificationStore implements NotificationStore {
       '$recipient: String!',
     ];
     if (eventTypeFilter) countVarDecls.push('$eventContext: jsonb');
-    if (exclude) countVarDecls.push('$excludeType: String!');
+    if (excluded.length > 0) countVarDecls.push('$excludeTypes: [String!]!');
 
     const result = await this.gql<{
       notificationsAggregate: { aggregate: { count: number } };
@@ -396,7 +410,7 @@ class HasuraNotificationStore implements NotificationStore {
         ...(eventTypeFilter
           ? { eventContext: { eventType: eventTypeFilter } }
           : {}),
-        ...(exclude ? { excludeType: exclude } : {}),
+        ...(excluded.length > 0 ? { excludeTypes: excluded } : {}),
       }
     );
 
@@ -451,17 +465,17 @@ class HasuraNotificationStore implements NotificationStore {
       return result.updateNotifications.affectedRows;
     }
 
-    const exclude = params.excludeType?.trim() || undefined;
+    const excluded = parseExcludeTypes(params.excludeType);
     const mutation =
-      params.all && exclude
-        ? `mutation($owner: String!, $app: String!, $recipient: String!, $excludeType: String!, $readAt: timestamptz!) {
+      params.all && excluded.length > 0
+        ? `mutation($owner: String!, $app: String!, $recipient: String!, $excludeTypes: [String!]!, $readAt: timestamptz!) {
           updateNotifications(
             where: {
               ownerAccountId: { _eq: $owner }
               appId: { _eq: $app }
               recipient: { _eq: $recipient }
               read: { _eq: false }
-              notificationType: { _neq: $excludeType }
+              notificationType: { _nin: $excludeTypes }
             }
             _set: { read: true, readAt: $readAt }
           ) {
@@ -504,8 +518,8 @@ class HasuraNotificationStore implements NotificationStore {
       app: params.appId,
       recipient: params.recipient,
       ...(params.all
-        ? exclude
-          ? { excludeType: exclude }
+        ? excluded.length > 0
+          ? { excludeTypes: excluded }
           : {}
         : { ids: params.ids ?? [] }),
       readAt: new Date().toISOString(),
