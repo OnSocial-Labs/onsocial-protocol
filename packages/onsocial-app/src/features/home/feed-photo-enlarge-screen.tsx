@@ -34,12 +34,13 @@ export function FeedPhotoEnlargeScreen({
   engagement?: ReactNode;
 }) {
   const last = photos.length - 1;
+  const [wasOpen, setWasOpen] = useState(open);
   const [index, setIndex] = useState(() => clampIndex(initialIndex, last));
 
-  useEffect(() => {
-    if (!open) return;
-    setIndex(clampIndex(initialIndex, last));
-  }, [open, initialIndex, last]);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setIndex(clampIndex(initialIndex, last));
+  }
 
   useEffect(() => {
     if (!open || photos.length < 2) return;
