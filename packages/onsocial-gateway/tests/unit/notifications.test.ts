@@ -155,6 +155,25 @@ describe('GET /developer/notifications', () => {
     );
   });
 
+  it('forwards a comma-separated excludeType list', async () => {
+    mockListNotifications.mockResolvedValue({
+      notifications: [],
+      nextCursor: null,
+    });
+
+    const excludeType = 'dm,reward_claimed,boost_locked';
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'apikey' })
+    )
+      .get('/developer/notifications')
+      .query({ recipient: 'bob.testnet', excludeType });
+
+    expect(res.status).toBe(200);
+    expect(mockListNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({ excludeType })
+    );
+  });
+
   it('allows free-tier read access', async () => {
     mockListNotifications.mockResolvedValue({
       notifications: [],

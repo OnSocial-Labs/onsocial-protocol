@@ -15,8 +15,20 @@ import { formatSocialCompact } from '@/lib/format-social-balance';
 import { portfolioBoostPath, portfolioPath } from '@/lib/overlay-routes';
 import { postThreadPath } from '@/lib/post-routes';
 
-/** Mailbox owns DMs — Activity list/count/mark-all skip this kind. */
-export const ACTIVITY_EXCLUDE_TYPE = 'dm';
+/**
+ * Activity list/count/mark-all skip mailbox DMs and your own money taps
+ * (toast + wallet / boost sheet already confirmed those).
+ */
+export const ACTIVITY_EXCLUDE_TYPE = [
+  'dm',
+  'reward_claimed',
+  'boost_locked',
+  'boost_extended',
+  'boost_unlocked',
+  'boost_reward_claimed',
+  'boost_credits_purchased',
+  'boost_storage_deposited',
+].join(',');
 
 function textField(
   context: Record<string, unknown> | null | undefined,

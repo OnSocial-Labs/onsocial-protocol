@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { homeWalletPath, parseAppWalletSheetParam } from '@/lib/app-routes';
 import {
+  ACTIVITY_EXCLUDE_TYPE,
   formatNotificationTime,
   isSystemNotification,
   notificationDescription,
@@ -503,5 +504,24 @@ describe('notification display', () => {
         context: { years: 1 },
       })
     ).toBeNull();
+  });
+
+  it('hides DMs and the viewer own boost/collect taps from Activity', () => {
+    const excluded = ACTIVITY_EXCLUDE_TYPE.split(',');
+    expect(excluded).toEqual(
+      expect.arrayContaining([
+        'dm',
+        'reward_claimed',
+        'boost_locked',
+        'boost_extended',
+        'boost_unlocked',
+        'boost_reward_claimed',
+        'boost_credits_purchased',
+        'boost_storage_deposited',
+      ])
+    );
+    expect(excluded).not.toContain('reward_credited');
+    expect(excluded).not.toContain('follow');
+    expect(excluded).not.toContain('standing_new');
   });
 });

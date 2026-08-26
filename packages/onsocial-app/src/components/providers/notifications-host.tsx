@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * Soft-polls first-party notification unread (excludes `dm` — Messages owns that).
+ * Soft-polls first-party notification unread (excludes mailbox DMs and the
+ * viewer's own boost/collect taps — toast + wallet / boost sheet confirm those).
  * Mount once under wallet providers.
  *
  * In-app awareness is the Activity dock unread pip only — do not toast on unread
