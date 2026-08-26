@@ -31,3 +31,20 @@ export function clearWriteDockDraft(key: string): void {
   if (!key) return;
   drafts.delete(key);
 }
+
+export function writeDockToComposerSeed(draft: WriteDockDraft): {
+  initialText: string;
+  initialFiles: File[];
+} {
+  return {
+    initialText: draft.text,
+    initialFiles: draft.file ? [draft.file] : [],
+  };
+}
+
+export function writeDockDraftFromComposer(payload: {
+  text: string;
+  files: File[];
+}): WriteDockDraft {
+  return { text: payload.text, file: payload.files[0] ?? null };
+}

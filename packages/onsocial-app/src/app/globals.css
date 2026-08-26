@@ -10060,7 +10060,7 @@ a.os-surface-row {
   .os-dock-pill.is-writing {
     display: flex;
     width: 100%;
-    overflow: visible;
+    overflow: hidden;
     align-items: stretch;
     border-radius: 1.75rem;
   }
@@ -10080,22 +10080,9 @@ a.os-surface-row {
   }
 
   .os-write-dock-above {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: calc(100% + 0.45rem);
     display: grid;
-    gap: 0.35rem;
-    padding: 0.45rem 0.65rem;
-    border-radius: 1rem;
-    background: color-mix(
-      in srgb,
-      var(--mood-bg, var(--bg)) 78%,
-      transparent
-    );
-    backdrop-filter: blur(16px) saturate(1.3);
-    -webkit-backdrop-filter: blur(16px) saturate(1.3);
-    box-shadow: 0 10px 28px -16px rgb(0 0 0 / 0.4);
+    gap: 0.3rem;
+    padding: 0.4rem 0.45rem 0.1rem;
   }
 
   .os-write-dock-bar {
@@ -10133,7 +10120,8 @@ a.os-surface-row {
     margin: 0.35rem 0.1rem;
   }
 
-  .os-write-dock-media-icon {
+  .os-write-dock-media-icon,
+  .os-write-dock-expand-icon {
     width: 1.05rem;
     height: 1.05rem;
   }
@@ -10156,6 +10144,32 @@ a.os-surface-row {
   .os-write-dock-send:disabled {
     opacity: 0.32;
     cursor: default;
+  }
+
+  .os-write-dock-send.is-pending:disabled {
+    opacity: 1;
+  }
+
+  .os-write-dock-send-spinner {
+    display: block;
+    width: 0.95rem;
+    height: 0.95rem;
+    border: 2px solid rgb(4 17 10 / 0.22);
+    border-top-color: #04110a;
+    border-radius: 50%;
+    animation: os-write-dock-send-spin 0.7s linear infinite;
+  }
+
+  @keyframes os-write-dock-send-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .os-write-dock-send-spinner {
+      animation: none;
+    }
   }
 
   .os-write-dock-send:not(:disabled):hover,

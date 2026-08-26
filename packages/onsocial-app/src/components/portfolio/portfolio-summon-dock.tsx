@@ -257,6 +257,7 @@ export function PortfolioSummonDock({
                 above={write.above}
                 accept={write.accept}
                 draftKey={write.draftKey}
+                onExpand={write.onExpand}
                 onSubmit={write.onSubmit}
               />
             ) : undefined

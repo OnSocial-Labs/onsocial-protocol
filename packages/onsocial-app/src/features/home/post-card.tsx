@@ -45,9 +45,12 @@ import { PostAmplifySheet } from '@/features/home/post-amplify-sheet';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { useFocusWriteDock } from '@/contexts/compose-launcher-context';
+import {
+  useFocusWriteDock,
+  type WriteDockSubmit,
+} from '@/contexts/compose-launcher-context';
 import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
-import { writeDockIsThoughtEnlarge } from '@/lib/os-write-dock';
+import { writeDockDraftKey } from '@/lib/os-write-dock';
 import { guildPath } from '@/features/guilds/guilds-data';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
@@ -192,6 +195,8 @@ interface PostCardProps {
   ) => void;
   /** Open a reply composer targeting this post. */
   onReply?: (post: PostRow) => void;
+  /** Expand the compact write dock into the full reply composer. */
+  onExpandReply?: (post: PostRow, draft: WriteDockSubmit) => void;
   /** Open a quote composer targeting this post. */
   onQuote?: (post: PostRow) => void;
   /** One-tap repost targeting this post. */
@@ -1289,6 +1294,7 @@ export function PostCard({
   onToggleSave,
   onAmplifyConfirmed,
   onReply,
+  onExpandReply,
   onQuote,
   onRepost,
   onUndoRepost,
@@ -1322,14 +1328,21 @@ export function PostCard({
   );
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
-  const enlargeWrite =
-    photoOpen || writeDockIsThoughtEnlarge(feedMediumOpen, feedMediumMode);
+  const enlargeWrite = photoOpen || feedMediumOpen;
   const focusWriteDock = useFocusWriteDock();
   useReplyWriteDock({
     target: post,
     enabled: enlargeWrite,
     placeholder: 'Add a reply…',
     revision: enlargeWrite ? postKey(post) : '',
+    draftKey: writeDockDraftKey('post', postKey(post)),
+    onExpand: onExpandReply
+      ? (payload) => {
+          setPhotoOpen(false);
+          setFeedMediumOpen(false);
+          onExpandReply(post, payload);
+        }
+      : undefined,
   });
   const [menuForceEmbed, setMenuForceEmbed] = useState(false);
   const [cancelScarcePending, setCancelScarcePending] = useState(false);
@@ -2038,13 +2051,8 @@ export function PostCard({
               sharePending={sharePending}
               onReply={
                 onReply
-                  ? (target) => {
-                      if (feedMediumMode === 'viewer') {
-                        focusWriteDock();
-                        return;
-                      }
-                      setFeedMediumOpen(false);
-                      onReply(target);
+                  ? () => {
+                      focusWriteDock();
                     }
                   : undefined
               }

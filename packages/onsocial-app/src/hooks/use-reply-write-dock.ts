@@ -7,6 +7,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   useRegisterWriteDock,
   type WriteDockRegistration,
+  type WriteDockSubmit,
 } from '@/contexts/compose-launcher-context';
 import { dispatchPersonalReplyConfirmed } from '@/features/scarces/drop-compose-host';
 import { submitPersonalPost } from '@/features/home/submit-personal-post';
@@ -25,6 +26,7 @@ export function useReplyWriteDock({
   above,
   revision,
   draftKey,
+  onExpand,
   onConfirmed,
 }: {
   target: PostRow | null;
@@ -33,6 +35,7 @@ export function useReplyWriteDock({
   above?: ReactNode;
   revision?: string;
   draftKey?: string;
+  onExpand?: (payload: WriteDockSubmit) => void;
   onConfirmed?: (reply: PostRow, target: PostRow) => void;
 }) {
   const { isConnected, connect, accountId } = useAppWallet();
@@ -105,6 +108,7 @@ export function useReplyWriteDock({
       above,
       revision,
       draftKey: draftKey ?? writeDockDraftKey('post', postKey(target)),
+      onExpand,
       onSubmit: submit,
     };
   }, [
@@ -112,6 +116,7 @@ export function useReplyWriteDock({
     draftKey,
     enabled,
     error,
+    onExpand,
     pending,
     placeholder,
     revision,

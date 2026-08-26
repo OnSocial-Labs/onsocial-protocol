@@ -44,6 +44,8 @@ export interface WriteDockRegistration {
   revision?: string;
   /** Persist type/media across enlarge open/close and reply-target swaps. */
   draftKey?: string;
+  /** Open the full composer with the current dock draft. Omit on DMs. */
+  onExpand?: (payload: WriteDockSubmit) => void;
   onSubmit: (
     payload: WriteDockSubmit
   ) => boolean | void | Promise<boolean | void>;
@@ -194,6 +196,7 @@ export function useRegisterWriteDock(entry: WriteDockRegistration | null) {
         entry.revision ?? '',
         entry.draftKey ?? '',
         Boolean(entry.above) ? '1' : '0',
+        Boolean(entry.onExpand) ? '1' : '0',
       ].join('\0')
     : '';
 
@@ -210,6 +213,9 @@ export function useRegisterWriteDock(entry: WriteDockRegistration | null) {
       entry: {
         ...current,
         onSubmit: (payload) => entryRef.current?.onSubmit(payload),
+        onExpand: entryRef.current.onExpand
+          ? (payload) => entryRef.current?.onExpand?.(payload)
+          : undefined,
       },
     });
     return () => popCompose(id);

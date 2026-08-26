@@ -23,7 +23,17 @@ import {
   submitPersonalRepost,
   submitPersonalUnrepost,
 } from '@/features/home/submit-personal-post';
-import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
+import {
+  useRegisterComposeAction,
+  type WriteDockSubmit,
+} from '@/contexts/compose-launcher-context';
+import { useFeedReplyWriteDock } from '@/hooks/use-feed-reply-write-dock';
+import { writeDockDraftKey } from '@/lib/os-write-dock';
+import {
+  clearWriteDockDraft,
+  writeDockDraftFromComposer,
+  writeWriteDockDraft,
+} from '@/lib/os-write-dock-draft';
 import { PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { GuildFeedFilterList } from '@/features/guilds/guild-feed-filter-list';
 import { postMetaFromText } from '@/features/home/post-mentions';
@@ -262,6 +272,8 @@ export function LiveGuildPanel({
   const [composer, setComposer] = useState<{
     mode: GuildComposerMode;
     target: PostRow | null;
+    initialText?: string;
+    initialFiles?: File[];
   } | null>(null);
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -1551,6 +1563,9 @@ export function LiveGuildPanel({
           ...current,
         ]);
         scheduleReconcile();
+        if (mode === 'reply' && target) {
+          clearWriteDockDraft(writeDockDraftKey('post', postKey(target)));
+        }
         setComposer(null);
       }
     } catch (cause) {
@@ -1569,16 +1584,46 @@ export function LiveGuildPanel({
     }
   };
 
-  const replyHandler =
-    viewer?.isMember && config
-      ? (post: PostRow) => {
-          const channel =
-            post.channel ??
-            (composerSpace ? guildSpaceFeedChannel(composerSpace) : null);
-          if (!canPostInChannel(channel)) return;
-          openComposerModal('reply')(post);
+  const openFullReply = (target: PostRow, draft?: WriteDockSubmit) => {
+    const channel =
+      target.channel ??
+      (composerSpace ? guildSpaceFeedChannel(composerSpace) : null);
+    if (!canPostInChannel(channel)) return;
+    setModalError(null);
+    setComposer({
+      mode: 'reply',
+      target,
+      initialText: draft?.text ?? '',
+      initialFiles: draft?.files ?? [],
+    });
+  };
+
+  const { startReply, clearReply } = useFeedReplyWriteDock({
+    enabled: Boolean(canCompose),
+    sheetOpen: Boolean(composer),
+    authorNameFor: (accountId) =>
+      postAuthorProfiles[accountId]?.displayName,
+    onExpand: openFullReply,
+    onConfirmed: (reply) => {
+      setLocalPosts((current) => {
+        if (current.some((row) => postKey(row) === postKey(reply))) {
+          return current;
         }
-      : undefined;
+        return [reply, ...current];
+      });
+      scheduleReconcile();
+    },
+  });
+
+  const replyHandler = canCompose
+    ? (post: PostRow) => {
+        const channel =
+          post.channel ??
+          (composerSpace ? guildSpaceFeedChannel(composerSpace) : null);
+        if (!canPostInChannel(channel)) return;
+        startReply(post);
+      }
+    : undefined;
   const quoteHandler =
     viewer?.isMember && config
       ? (post: PostRow) => {
@@ -1586,6 +1631,7 @@ export function LiveGuildPanel({
             post.channel ??
             (composerSpace ? guildSpaceFeedChannel(composerSpace) : null);
           if (!canPostInChannel(channel)) return;
+          clearReply();
           openComposerModal('quote')(post);
         }
       : undefined;
@@ -1969,6 +2015,7 @@ export function LiveGuildPanel({
                           void castVote(post, optionIndex);
                         }}
                         onReply={replyHandler}
+                        onExpandReply={openFullReply}
                         onQuote={quoteHandler}
                         onRepost={repostHandler}
                         onUndoRepost={undoRepostHandler}
@@ -2033,6 +2080,8 @@ export function LiveGuildPanel({
               ? postAuthorProfiles[composer.target.accountId]
               : undefined
           }
+          initialText={composer.initialText ?? ''}
+          initialFiles={composer.initialFiles}
           onModeChange={
             composer.target
               ? (mode) =>
@@ -2057,8 +2106,15 @@ export function LiveGuildPanel({
           }
           pending={modalPending}
           error={modalError}
-          onClose={() => {
-            if (!modalPending) setComposer(null);
+          onClose={(draft) => {
+            if (modalPending) return;
+            if (composer.mode === 'reply' && composer.target && draft) {
+              writeWriteDockDraft(
+                writeDockDraftKey('post', postKey(composer.target)),
+                writeDockDraftFromComposer(draft)
+              );
+            }
+            setComposer(null);
           }}
           onSubmit={(payload) => void submitFromModal(payload)}
         />

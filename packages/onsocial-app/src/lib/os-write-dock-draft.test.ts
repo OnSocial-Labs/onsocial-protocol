@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   clearWriteDockDraft,
   readWriteDockDraft,
+  writeDockDraftFromComposer,
   writeDockDraftIsDirty,
+  writeDockToComposerSeed,
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
 
@@ -35,5 +37,18 @@ describe('write dock draft', () => {
     expect(writeDockDraftIsDirty({ text: '', file: new File([], 'a') })).toBe(
       true
     );
+  });
+
+  it('seeds the full composer from a dock draft and back', () => {
+    const file = new File(['x'], 'shot.png', { type: 'image/png' });
+    const seed = writeDockToComposerSeed({ text: 'hello', file });
+    expect(seed).toEqual({ initialText: 'hello', initialFiles: [file] });
+    expect(writeDockDraftFromComposer({ text: 'hello', files: [file] })).toEqual(
+      { text: 'hello', file }
+    );
+    expect(writeDockDraftFromComposer({ text: '', files: [] })).toEqual({
+      text: '',
+      file: null,
+    });
   });
 });

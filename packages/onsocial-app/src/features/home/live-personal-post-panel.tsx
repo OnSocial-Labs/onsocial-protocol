@@ -8,12 +8,21 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { useFocusWriteDock } from '@/contexts/compose-launcher-context';
+import {
+  useFocusWriteDock,
+  type WriteDockSubmit,
+} from '@/contexts/compose-launcher-context';
+import { OsWriteDockReplyChip } from '@/components/os/os-write-dock';
 import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
 import {
   writeDockDraftKey,
   writeDockReplyPlaceholder,
 } from '@/lib/os-write-dock';
+import {
+  clearWriteDockDraft,
+  writeDockDraftFromComposer,
+  writeWriteDockDraft,
+} from '@/lib/os-write-dock-draft';
 import {
   ComposerSheet,
   type ComposerMode,
@@ -118,6 +127,10 @@ export function LivePersonalPostPanel({
   const [localQuotes, setLocalQuotes] = useState<PostRow[]>([]);
   const [modalTarget, setModalTarget] = useState<PostRow | null>(null);
   const [modalMode, setModalMode] = useState<ComposerMode>('quote');
+  const [modalSeed, setModalSeed] = useState<{ text: string; files: File[] }>({
+    text: '',
+    files: [],
+  });
   const [dockTarget, setDockTarget] = useState<PostRow | null>(null);
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -474,7 +487,11 @@ export function LivePersonalPostPanel({
         } else {
           scheduleReconcile();
         }
+        if (modalMode === 'reply') {
+          clearWriteDockDraft(writeDockDraftKey('post', postKey(target)));
+        }
         setModalTarget(null);
+        setModalSeed({ text: '', files: [] });
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
@@ -496,8 +513,15 @@ export function LivePersonalPostPanel({
     focusWriteDock();
   };
   const quoteHandler = canPostInThread
-    ? (post: PostRow) => openComposerModal('quote')(post)
+    ? (post: PostRow) => {
+        setModalSeed({ text: '', files: [] });
+        openComposerModal('quote')(post);
+      }
     : undefined;
+  const expandReply = (post: PostRow, payload: WriteDockSubmit) => {
+    setModalSeed({ text: payload.text, files: payload.files });
+    openComposerModal('reply')(post);
+  };
   const repostHandler = canPostInThread
     ? (post: PostRow) => {
         void withSharePending(post, async () => {
@@ -561,30 +585,27 @@ export function LivePersonalPostPanel({
   const writeName = writeTarget
     ? postAuthorProfiles[writeTarget.accountId]?.displayName
     : null;
+  const threadDraftKey = root
+    ? writeDockDraftKey('post', postKey(root))
+    : undefined;
   const writeAbove = nestedDockReply ? (
-    <div className="os-write-dock-reply">
-      <p className="os-write-dock-reply-copy">
-        <span>Replying</span>
-        {writeName?.trim() || 'this post'}
-      </p>
-      <button
-        type="button"
-        className="os-write-dock-reply-cancel"
-        onClick={() => setDockTarget(null)}
-      >
-        Cancel
-      </button>
-    </div>
+    <OsWriteDockReplyChip
+      label={writeName?.trim() || 'this post'}
+      onCancel={() => setDockTarget(null)}
+    />
   ) : null;
   useReplyWriteDock({
     target: writeTarget,
-    enabled: Boolean(root),
+    enabled: Boolean(root) && !modalTarget,
     placeholder: nestedDockReply
       ? writeDockReplyPlaceholder(writeName)
       : 'Add a reply…',
     above: writeAbove,
     revision: writeTarget ? postKey(writeTarget) : '',
-    draftKey: root ? writeDockDraftKey('post', postKey(root)) : undefined,
+    draftKey: threadDraftKey,
+    onExpand: writeTarget
+      ? (payload) => expandReply(writeTarget, payload)
+      : undefined,
     onConfirmed: (reply, target) => {
       if (conversation.root && postKey(target) === postKey(conversation.root)) {
         insertConfirmedRootChild('reply', reply);
@@ -693,6 +714,7 @@ export function LivePersonalPostPanel({
                     onToggleSave={toggleSave}
                     onAmplifyConfirmed={confirmAmplify}
                     onReply={replyHandler}
+                    onExpandReply={expandReply}
                     onQuote={quoteHandler}
                     onRepost={repostHandler}
                     onUndoRepost={undoRepostHandler}
@@ -748,6 +770,7 @@ export function LivePersonalPostPanel({
                   onToggleSave={toggleSave}
                   onAmplifyConfirmed={confirmAmplify}
                   onReply={replyHandler}
+                  onExpandReply={expandReply}
                   onQuote={quoteHandler}
                   onRepost={repostHandler}
                   onUndoRepost={undoRepostHandler}
@@ -891,6 +914,7 @@ export function LivePersonalPostPanel({
                             onToggleSave={toggleSave}
                             onAmplifyConfirmed={confirmAmplify}
                             onReply={replyHandler}
+                            onExpandReply={expandReply}
                             onQuote={quoteHandler}
                             onRepost={repostHandler}
                             onUndoRepost={undoRepostHandler}
@@ -946,6 +970,7 @@ export function LivePersonalPostPanel({
                         onToggleSave={toggleSave}
                         onAmplifyConfirmed={confirmAmplify}
                         onReply={replyHandler}
+                        onExpandReply={expandReply}
                         onQuote={quoteHandler}
                         onRepost={repostHandler}
                         onUndoRepost={undoRepostHandler}
@@ -981,17 +1006,33 @@ export function LivePersonalPostPanel({
           </section>
         ) : null}
       </div>
-      {modalTarget && modalMode === 'quote' ? (
+      {modalTarget ? (
         <ComposerSheet
           open
           target={modalTarget}
           targetAuthorProfile={postAuthorProfiles[modalTarget.accountId]}
           mode={modalMode}
           onModeChange={setModalMode}
+          initialText={modalSeed.text}
+          initialFiles={modalSeed.files}
           pending={modalPending}
           error={modalError}
-          onClose={() => {
-            if (!modalPending) setModalTarget(null);
+          onClose={(draft) => {
+            if (modalPending) return;
+            if (modalMode === 'reply' && draft) {
+              const persistKey =
+                threadDraftKey &&
+                writeTarget &&
+                postKey(modalTarget) === postKey(writeTarget)
+                  ? threadDraftKey
+                  : writeDockDraftKey('post', postKey(modalTarget));
+              writeWriteDockDraft(
+                persistKey,
+                writeDockDraftFromComposer(draft)
+              );
+            }
+            setModalTarget(null);
+            setModalSeed({ text: '', files: [] });
           }}
           onSubmit={(payload) => void submitFromModal(payload)}
         />

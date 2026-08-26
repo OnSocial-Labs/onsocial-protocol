@@ -197,9 +197,11 @@ interface ComposerSheetProps {
   initialDrop?: ComposerDropDraft | null;
   /** Prefill caption when opening with a Drop. */
   initialText?: string;
+  /** Prefill media when expanding from the compact write dock. */
+  initialFiles?: File[];
   pending: boolean;
   error?: string | null;
-  onClose: () => void;
+  onClose: (draft?: { text: string; files: File[] }) => void;
   onSubmit: (payload: ComposerSubmit) => void;
 }
 
@@ -279,6 +281,7 @@ export function ComposerSheet({
   authorTargets,
   initialDrop = null,
   initialText = '',
+  initialFiles = [],
   pending,
   error,
   onClose,
@@ -366,10 +369,13 @@ export function ComposerSheet({
       setPollOptions(['', '']);
       setPollDurationMs(undefined);
       setDropDraft(initialDrop);
-      setMediaFiles([]);
+      setMediaFiles(initialFiles);
       setMediaPreviews((current) => {
         for (const preview of current) URL.revokeObjectURL(preview.url);
-        return [];
+        return initialFiles.map((file) => ({
+          url: URL.createObjectURL(file),
+          mime: file.type || 'application/octet-stream',
+        }));
       });
       setMediaError(null);
       setContentWarning('');
@@ -480,7 +486,7 @@ export function ComposerSheet({
 
   const requestClose = () => {
     if (pending) return;
-    onClose();
+    onClose({ text, files: mediaFiles });
   };
 
   const updatePollOption = (index: number, value: string) => {

@@ -12,9 +12,13 @@ import {
   Divider,
   ImageIcon,
   OsIconAction,
+  ScaleUpIcon,
   osFieldSoftClassName,
 } from '@onsocial/ui';
-import { useWriteDockChrome } from '@/contexts/compose-launcher-context';
+import {
+  useWriteDockChrome,
+  type WriteDockSubmit,
+} from '@/contexts/compose-launcher-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import {
@@ -59,6 +63,30 @@ function WriteDockSendIcon() {
   );
 }
 
+export function OsWriteDockReplyChip({
+  label,
+  onCancel,
+}: {
+  label: string;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="os-write-dock-reply">
+      <p className="os-write-dock-reply-copy">
+        <span>Replying</span>
+        {label}
+      </p>
+      <button
+        type="button"
+        className="os-write-dock-reply-cancel"
+        onClick={onCancel}
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
+
 export interface OsWriteDockProps {
   placeholder: string;
   ariaLabel?: string;
@@ -68,10 +96,8 @@ export interface OsWriteDockProps {
   above?: ReactNode;
   accept?: string;
   draftKey?: string;
-  onSubmit: (payload: {
-    text: string;
-    files: File[];
-  }) => boolean | void | Promise<boolean | void>;
+  onExpand?: (payload: WriteDockSubmit) => void;
+  onSubmit: (payload: WriteDockSubmit) => boolean | void | Promise<boolean | void>;
 }
 
 export function OsWriteDock({
@@ -83,6 +109,7 @@ export function OsWriteDock({
   above,
   accept = WRITE_DOCK_MEDIA_ACCEPT,
   draftKey,
+  onExpand,
   onSubmit,
 }: OsWriteDockProps) {
   const fieldId = useId();
@@ -111,6 +138,11 @@ export function OsWriteDock({
     if (!draftKey) return;
     writeWriteDockDraft(draftKey, { text: nextText, file: nextFile });
   };
+
+  const currentPayload = (): WriteDockSubmit => ({
+    text,
+    files: mediaFile ? [mediaFile] : [],
+  });
 
   const holdOpen = () => {
     setExpanded(true);
@@ -276,13 +308,36 @@ export function OsWriteDock({
         >
           <ImageIcon className="os-write-dock-media-icon" aria-hidden />
         </OsIconAction>
+        {onExpand ? (
+          <OsIconAction
+            ariaLabel="Open full composer"
+            disabled={disabled || pending}
+            onClick={() => {
+              persistDraft(text, mediaFile);
+              holdOpen();
+              onExpand(currentPayload());
+            }}
+          >
+            <ScaleUpIcon className="os-write-dock-expand-icon" aria-hidden />
+          </OsIconAction>
+        ) : null}
         <button
           type="submit"
-          className="os-write-dock-send"
+          className={`os-write-dock-send${pending ? ' is-pending' : ''}`}
           disabled={disabled || pending || (isConnected && !canSend)}
-          aria-label={!isConnected ? 'Connect to send' : 'Send'}
+          aria-label={
+            pending
+              ? 'Sending'
+              : !isConnected
+                ? 'Connect to send'
+                : 'Send'
+          }
         >
-          <WriteDockSendIcon />
+          {pending ? (
+            <span className="os-write-dock-send-spinner" aria-hidden />
+          ) : (
+            <WriteDockSendIcon />
+          )}
         </button>
       </div>
     </form>
