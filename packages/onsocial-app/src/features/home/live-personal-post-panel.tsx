@@ -488,12 +488,10 @@ export function LivePersonalPostPanel({
   };
 
   const focusWriteDock = useFocusWriteDock();
-  const replyHandler = canPostInThread
-    ? (post: PostRow) => {
-        setDockTarget(post);
-        focusWriteDock();
-      }
-    : undefined;
+  const replyHandler = (post: PostRow) => {
+    setDockTarget(post);
+    focusWriteDock();
+  };
   const quoteHandler = canPostInThread
     ? (post: PostRow) => openComposerModal('quote')(post)
     : undefined;
@@ -577,7 +575,7 @@ export function LivePersonalPostPanel({
   ) : null;
   useReplyWriteDock({
     target: writeTarget,
-    enabled: canPostInThread && Boolean(root),
+    enabled: Boolean(root),
     placeholder: nestedDockReply
       ? writeDockReplyPlaceholder(writeName)
       : 'Add a reply…',
@@ -761,18 +759,16 @@ export function LivePersonalPostPanel({
             <Divider variant="detail" />
 
             <div className="guild-thread-chrome">
-              {canPostInThread ? (
-                <button
-                  type="button"
-                  className="guild-reply-prompt"
-                  onClick={() => {
-                    setDockTarget(conversation.root);
-                    focusWriteDock();
-                  }}
-                >
-                  Add a reply…
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="guild-reply-prompt"
+                onClick={() => {
+                  setDockTarget(conversation.root);
+                  focusWriteDock();
+                }}
+              >
+                Add a reply…
+              </button>
 
               <div
                 className="guild-thread-tabs"

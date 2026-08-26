@@ -1327,7 +1327,7 @@ export function PostCard({
   const focusWriteDock = useFocusWriteDock();
   useReplyWriteDock({
     target: post,
-    enabled: Boolean(onReply && enlargeWrite),
+    enabled: enlargeWrite,
     placeholder: 'Add a reply…',
     revision: enlargeWrite ? postKey(post) : '',
   });
@@ -1943,13 +1943,9 @@ export function PostCard({
               reactionPending={reactionPending}
               savePending={savePending}
               sharePending={sharePending}
-              onReply={
-                onReply
-                  ? () => {
-                      focusWriteDock();
-                    }
-                  : undefined
-              }
+              onReply={() => {
+                focusWriteDock();
+              }}
               onQuote={
                 onQuote
                   ? (target) => {

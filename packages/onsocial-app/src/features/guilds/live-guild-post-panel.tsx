@@ -780,14 +780,12 @@ export function LiveGuildPostPanel({
   };
 
   const focusWriteDock = useFocusWriteDock();
-  const replyHandler = canPostInThread
-    ? (post: PostRow) => {
-        const channel = post.channel ?? threadChannel;
-        if (!canPostInChannel(channel)) return;
-        setDockTarget(post);
-        focusWriteDock();
-      }
-    : undefined;
+  const replyHandler = (post: PostRow) => {
+    const channel = post.channel ?? threadChannel;
+    if (accountId && !canPostInChannel(channel)) return;
+    setDockTarget(post);
+    focusWriteDock();
+  };
   const quoteHandler = canPostInThread
     ? (post: PostRow) => {
         const channel = post.channel ?? threadChannel;
@@ -882,7 +880,7 @@ export function LiveGuildPostPanel({
   ) : null;
   useReplyWriteDock({
     target: writeTarget,
-    enabled: canPostInThread && Boolean(root),
+    enabled: Boolean(root) && (!accountId || canPostInThread),
     placeholder: nestedDockReply
       ? writeDockReplyPlaceholder(writeName)
       : 'Add a reply…',
@@ -1263,7 +1261,7 @@ export function LiveGuildPostPanel({
             <Divider variant="detail" />
 
             <div className="guild-thread-chrome">
-              {canPostInThread ? (
+              {!accountId || canPostInThread ? (
                 <button
                   type="button"
                   className="guild-reply-prompt"
