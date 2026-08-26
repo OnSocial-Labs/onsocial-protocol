@@ -34,8 +34,8 @@ function inlineSvgMarkup(svg: string): string {
 /**
  * Feed / Drops cover tap → shared OsSlideOverScreen enlarge.
  *
- * Audio opens Listen. Writing opens Read. Thought/art uses the same screen
- * without transport.
+ * Audio opens Listen. Writing opens Read. Thought/art uses its own screen
+ * (not Listen chrome) without transport.
  */
 export function ScarceFeedMediumSheet({
   open,
@@ -229,14 +229,14 @@ export function ScarceFeedMediumSheet({
   const coverArt =
     inlineSvg && !rasterCover ? (
       <div
-        className="scarce-clip-listen-cover scarce-post-medium-cover--svg"
+        className="scarce-thought-art scarce-thought-art--svg"
         dangerouslySetInnerHTML={{ __html: inlineSvg }}
       />
     ) : rasterCover ? (
-      <img src={rasterCover} alt="" className="scarce-clip-listen-cover" />
+      <img src={rasterCover} alt="" className="scarce-thought-art" />
     ) : (
       <div
-        className="scarce-clip-listen-cover scarce-clip-listen-cover--empty"
+        className="scarce-thought-art scarce-thought-art--empty"
         aria-hidden
       />
     );
@@ -292,11 +292,11 @@ export function ScarceFeedMediumSheet({
         title={name}
         closeAriaLabel="Back from preview"
         zIndex={SCARCE_Z.listenShell}
-        className="scarce-medium-slide"
-        contentClassName="scarce-medium-slide-body"
+        className="scarce-thought-slide"
+        contentClassName="scarce-thought-slide-body"
       >
-        <div className="scarce-clip-listen scarce-post-medium-listen">
-          <div className="scarce-clip-listen-art">{coverArt}</div>
+        <div className="scarce-thought-body">
+          <div className="scarce-thought-stage">{coverArt}</div>
           {mode === 'audio' ? (
             <p className="scarce-feed-medium-empty">
               {hydrateSettled
@@ -305,7 +305,7 @@ export function ScarceFeedMediumSheet({
             </p>
           ) : null}
           {postChrome ? (
-            <div className="scarce-clip-listen-footer">{postChrome}</div>
+            <div className="scarce-thought-footer">{postChrome}</div>
           ) : null}
         </div>
       </OsSlideOverScreen>
