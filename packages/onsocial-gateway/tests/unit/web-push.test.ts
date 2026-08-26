@@ -25,7 +25,9 @@ describe('pushNotificationVerb', () => {
   it('maps collect and boost verbs without reward wording', () => {
     expect(pushNotificationVerb('reward_credited')).toBe('SOCIAL credited');
     expect(pushNotificationVerb('reward_claimed')).toBe('SOCIAL collected');
-    expect(pushNotificationVerb('boost_reward_claimed')).toBe('boost collected');
+    expect(pushNotificationVerb('boost_reward_claimed')).toBe(
+      'boost collected'
+    );
     expect(pushNotificationVerb('dao_proposal')).toBe('opened a proposal');
     expect(
       pushNotificationVerb('dao_proposal_resolved', { status: 'Approved' })
