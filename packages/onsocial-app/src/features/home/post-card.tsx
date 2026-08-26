@@ -47,6 +47,7 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { guildPath } from '@/features/guilds/guilds-data';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
+import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
 import { PostMediaStrip } from '@/features/home/post-media';
 import { PostPollEmbedCard } from '@/features/home/post-poll-embed';
 import { PostRichText } from '@/features/home/post-rich-text';
@@ -78,7 +79,10 @@ import {
   postScarceCoverImage,
   ScarcePostPreview,
 } from '@/features/scarces/scarce-post-preview';
-import { postDropIsPlayable, postDropIsReadable } from '@/features/scarces/post-drop-cta';
+import {
+  postDropIsPlayable,
+  postDropIsReadable,
+} from '@/features/scarces/post-drop-cta';
 import {
   resolveScarceFeedMediumMode,
   ScarceFeedMediumSheet,
@@ -129,6 +133,8 @@ import {
   appendPostMediaIndex,
   appendPostMediaUnmute,
   formatMediaDuration,
+  postStillImages,
+  resolveFeedMediaActivate,
   truncateQuoteText,
   type PostMediaItem,
 } from '@/lib/post-media';
@@ -411,7 +417,9 @@ function PostCardMenu({
             : 'Mute',
         description: muted ? undefined : MUTE_ACTION_DESCRIPTION,
         disabled: mutePending,
-        leading: <UserMinusIcon className="os-action-drawer-icon" aria-hidden />,
+        leading: (
+          <UserMinusIcon className="os-action-drawer-icon" aria-hidden />
+        ),
         onSelect: () => void handleMuteToggle(),
       });
       items.push({
@@ -508,9 +516,7 @@ function PostCardMenu({
 
         <ActionDrawer
           open={isOpen}
-          onClose={
-            confirmBlock ? () => setConfirmBlock(false) : requestClose
-          }
+          onClose={confirmBlock ? () => setConfirmBlock(false) : requestClose}
           onClosed={handleClosed}
           label={
             confirmBlock
@@ -1012,7 +1018,10 @@ function PostEngagementRow({
           count={shareCount}
           label="shares"
           tone="quote"
-          className={`${engagement.viewerReposted && !sharePending ? 'is-active' : ''}${sharePending ? ' is-pending' : ''}`.trim() || undefined}
+          className={
+            `${engagement.viewerReposted && !sharePending ? 'is-active' : ''}${sharePending ? ' is-pending' : ''}`.trim() ||
+            undefined
+          }
           disabled={sharePending}
           ariaPressed={
             sharePending ? undefined : engagement.viewerReposted || undefined
@@ -1304,6 +1313,8 @@ export function PostCard({
   const [feedMediumCoverSvg, setFeedMediumCoverSvg] = useState<string | null>(
     null
   );
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(0);
   const [menuForceEmbed, setMenuForceEmbed] = useState(false);
   const [cancelScarcePending, setCancelScarcePending] = useState(false);
   const isSelf =
@@ -1513,6 +1524,10 @@ export function PostCard({
   const dropPaint = parseDropPaintSnapshot(post.value);
   const mediaItems = parsePostMedia(post.value);
   const hasMedia = mediaItems.length > 0;
+  const stillPhotos = postStillImages(mediaItems);
+  const photoSubtitle = text.trim()
+    ? truncatePostPreview(text.split(/\r?\n/, 1)[0] ?? '', 72)
+    : null;
   const photoCover = postScarceCoverImage(post);
   const scarceCoverUrl =
     scarceEmbed?.mediaUrl?.trim() || dropPaint?.mediaUrl?.trim() || null;
@@ -1572,7 +1587,7 @@ export function PostCard({
     : null;
   const relationTargetProfileName =
     relationContext && relationContext.kind !== 'repost'
-      ? authorProfiles?.[relationContext.handle]?.displayName ?? null
+      ? (authorProfiles?.[relationContext.handle]?.displayName ?? null)
       : null;
   const profileHref = portfolioPath(post.accountId);
   const shareHref = actionHref ?? postThreadPath(post);
@@ -1712,17 +1727,30 @@ export function PostCard({
               resumeFocusedVideo={mediaUnmuted}
               resumeMediaIndex={mediaResumeIndex}
               onActivate={
-                !mediaFocused && actionHref && hasMedia
+                !mediaFocused && hasMedia
                   ? (index) => {
-                      const item = mediaItems[index];
-                      const unmute = Boolean(
-                        item && isRenderablePostVideoMime(item.mime)
+                      const action = resolveFeedMediaActivate(
+                        mediaItems,
+                        index
                       );
-                      router.push(
-                        unmute
-                          ? appendPostMediaUnmute(actionHref, index)
-                          : appendPostMediaIndex(actionHref, index)
-                      );
+                      if (action.kind === 'enlarge') {
+                        setPhotoIndex(action.stillIndex);
+                        setPhotoOpen(true);
+                        return;
+                      }
+                      if (action.kind === 'thread' && actionHref) {
+                        router.push(
+                          action.unmute
+                            ? appendPostMediaUnmute(
+                                actionHref,
+                                action.mediaIndex
+                              )
+                            : appendPostMediaIndex(
+                                actionHref,
+                                action.mediaIndex
+                              )
+                        );
+                      }
                     }
                   : undefined
               }
@@ -1882,6 +1910,65 @@ export function PostCard({
           retryScarceEmbed();
           refreshOwnedScarce();
         }}
+      />
+      <FeedPhotoEnlargeScreen
+        open={photoOpen}
+        onOpenChange={setPhotoOpen}
+        title={name}
+        subtitle={photoSubtitle}
+        photos={stillPhotos}
+        initialIndex={photoIndex}
+        engagement={
+          engagement ? (
+            <PostEngagementRow
+              engagement={engagement}
+              shareHref={shareHref}
+              shareTitle={name}
+              reactionPending={reactionPending}
+              savePending={savePending}
+              sharePending={sharePending}
+              onReply={
+                onReply
+                  ? (target) => {
+                      setPhotoOpen(false);
+                      onReply(target);
+                    }
+                  : undefined
+              }
+              onQuote={
+                onQuote
+                  ? (target) => {
+                      setPhotoOpen(false);
+                      onQuote(target);
+                    }
+                  : undefined
+              }
+              onRepost={
+                onRepost
+                  ? (target) => {
+                      setPhotoOpen(false);
+                      onRepost(target);
+                    }
+                  : undefined
+              }
+              onUndoRepost={
+                onUndoRepost
+                  ? (target) => {
+                      setPhotoOpen(false);
+                      onUndoRepost(target);
+                    }
+                  : undefined
+              }
+              onToggleReaction={onToggleReaction}
+              onToggleSave={onToggleSave}
+              onAmplify={() => {
+                setPhotoOpen(false);
+                setAmplifyOpen(true);
+              }}
+              post={post}
+            />
+          ) : null
+        }
       />
       <ScarceFeedMediumSheet
         open={feedMediumOpen}

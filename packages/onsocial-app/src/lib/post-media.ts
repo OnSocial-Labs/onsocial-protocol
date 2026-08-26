@@ -50,6 +50,53 @@ export function isRenderablePostPlayableMime(mime: string): boolean {
   return isRenderablePostVideoMime(mime) || isRenderablePostAudioMime(mime);
 }
 
+/** Still frames only — never video or audio. */
+export function postStillImages(
+  items: readonly PostMediaItem[]
+): PostMediaItem[] {
+  return items.filter((item) => !isRenderablePostPlayableMime(item.mime));
+}
+
+/** Index into `postStillImages(items)` for a media-strip index, or `-1`. */
+export function postStillImageIndex(
+  items: readonly PostMediaItem[],
+  mediaIndex: number
+): number {
+  const item = items[mediaIndex];
+  if (!item || isRenderablePostPlayableMime(item.mime)) return -1;
+  let stillIndex = -1;
+  for (let i = 0; i <= mediaIndex; i += 1) {
+    const entry = items[i];
+    if (entry && !isRenderablePostPlayableMime(entry.mime)) stillIndex += 1;
+  }
+  return stillIndex;
+}
+
+export type FeedMediaActivate =
+  | { kind: 'enlarge'; stillIndex: number }
+  | { kind: 'thread'; unmute: boolean; mediaIndex: number }
+  | { kind: 'none' };
+
+/**
+ * Feed tile tap: stills enlarge in place; video goes to the thread with sound.
+ * Thread-focused media stays inline (`none`).
+ */
+export function resolveFeedMediaActivate(
+  items: readonly PostMediaItem[],
+  mediaIndex: number,
+  options: { mediaFocused?: boolean } = {}
+): FeedMediaActivate {
+  if (options.mediaFocused) return { kind: 'none' };
+  const item = items[mediaIndex];
+  if (!item) return { kind: 'none' };
+  if (isRenderablePostVideoMime(item.mime)) {
+    return { kind: 'thread', unmute: true, mediaIndex };
+  }
+  const stillIndex = postStillImageIndex(items, mediaIndex);
+  if (stillIndex >= 0) return { kind: 'enlarge', stillIndex };
+  return { kind: 'thread', unmute: false, mediaIndex };
+}
+
 /** Format seconds as `0:12` / `1:05` for quote thumbs. */
 export function formatMediaDuration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '';

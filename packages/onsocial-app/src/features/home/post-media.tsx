@@ -32,7 +32,7 @@ interface PostMediaBlockProps {
 
 /**
  * Feed media tile — muted list autoplay for video; tap opens detail.
- * Images stay still until the post thread is opened.
+ * Stills enlarge in place; video tap opens the thread with sound.
  */
 export function PostMediaBlock({
   item,
@@ -123,7 +123,11 @@ export function PostMediaBlock({
           src={item.url}
           controls={isDetailVideo && !showUnmuteGate}
           playsInline
-          muted={isListVideo || playbackDisabled || (isDetailVideo && focusedVideoMuted)}
+          muted={
+            isListVideo ||
+            playbackDisabled ||
+            (isDetailVideo && focusedVideoMuted)
+          }
           loop={isListVideo}
           preload="metadata"
           data-post-focus-video={isDetailVideo ? String(index) : undefined}
@@ -229,9 +233,7 @@ export function PostMediaStrip({
               ? true
               : focusedVideoMuted
           }
-          resumeFocusedVideo={
-            resumeFocusedVideo && index === resumeMediaIndex
-          }
+          resumeFocusedVideo={resumeFocusedVideo && index === resumeMediaIndex}
           onActivate={onActivate ? () => onActivate(index) : undefined}
         />
       ))}

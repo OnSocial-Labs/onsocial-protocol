@@ -23618,13 +23618,15 @@ a.os-surface-row {
   }
 
   /*
-   * Listen / Read / Pass / thought enlarge — fill the OS screen body.
-   * Must target `.os-slide-over-content.…` so the pad survives CSS minify.
+   * Listen / Read / Pass / thought / feed photo enlarge — fill the OS
+   * screen body. Must target `.os-slide-over-content.…` so the pad survives
+   * CSS minify.
    */
   .scarce-listen-slide .os-app-screen-body,
   .scarce-read-slide .os-app-screen-body,
   .ticket-pass-slide .os-app-screen-body,
-  .scarce-medium-slide .os-app-screen-body {
+  .scarce-medium-slide .os-app-screen-body,
+  .feed-photo-slide .os-app-screen-body {
     display: flex;
     flex-direction: column;
   }
@@ -23632,7 +23634,8 @@ a.os-surface-row {
   .scarce-listen-slide .os-slide-over-content.scarce-listen-slide-body,
   .scarce-read-slide .os-slide-over-content.scarce-read-slide-body,
   .ticket-pass-slide .os-slide-over-content.ticket-pass-slide-body,
-  .scarce-medium-slide .os-slide-over-content.scarce-medium-slide-body {
+  .scarce-medium-slide .os-slide-over-content.scarce-medium-slide-body,
+  .feed-photo-slide .os-slide-over-content.feed-photo-slide-body {
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
@@ -23641,9 +23644,52 @@ a.os-surface-row {
   }
 
   .scarce-listen-slide .scarce-clip-listen,
-  .scarce-medium-slide .scarce-clip-listen {
+  .scarce-medium-slide .scarce-clip-listen,
+  .feed-photo-slide .scarce-clip-listen {
     padding-top: 0.75rem;
     padding-bottom: 1.1rem;
+  }
+
+  .feed-photo-stage {
+    width: 100%;
+  }
+
+  .feed-photo-image {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .feed-photo-image--empty {
+    width: min(100%, 28rem);
+    aspect-ratio: 1 / 1;
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .feed-photo-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    flex: 0 0 auto;
+  }
+
+  .feed-photo-count {
+    min-width: 3.25rem;
+    text-align: center;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .feed-photo-slide .feed-photo-nav-btn {
+    width: 2.35rem;
+    height: 2.35rem;
   }
 
   .scarce-read-slide .scarce-writing-read {
