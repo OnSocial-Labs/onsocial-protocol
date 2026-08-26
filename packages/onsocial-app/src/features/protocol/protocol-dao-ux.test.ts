@@ -31,6 +31,7 @@ import {
 import {
   classifyCoreExecuteSetKeys,
   deriveProtocolProposalPresentation,
+  formatProtocolOnChainActionLabel,
 } from '@/features/protocol/protocol-proposal-presentation';
 import { isProtocolApplicationSoftExpired } from '@/features/protocol/protocol-card-view';
 import type { ProtocolApplication } from '@/features/protocol/types';
@@ -246,6 +247,18 @@ describe('protocol proposal family', () => {
 });
 
 describe('protocol proposal presentation', () => {
+  it('humanizes on-chain policy permission labels', () => {
+    expect(
+      formatProtocolOnChainActionLabel('add_member_to_role', 'policy')
+    ).toBe('Add Member To Role');
+    expect(formatProtocolOnChainActionLabel('vote', 'policy')).toBe(
+      'Vote signal'
+    );
+    expect(formatProtocolOnChainActionLabel('update_contract', 'method')).toBe(
+      'update_contract'
+    );
+  });
+
   it('headlines membership and transfer kinds', () => {
     expect(
       deriveProtocolProposalPresentation({

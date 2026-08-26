@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { MessageFillIcon } from '@onsocial/ui';
+import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import {
   formatPostTimestamp,
   formatRelativePostTimestamp,
@@ -55,16 +56,26 @@ export function PostIdentityMeta({
     <span className="post-identity-name">{name}</span>
   );
 
+  const marksNode = (
+    <span className="post-identity-name-marks">
+      <ProtocolNameTrailing accountId={accountId} />
+    </span>
+  );
+
+  const handleLabel = `@${accountId}`;
   const handleNode = profileHandleHref ? (
     <Link
       href={profileHandleHref}
       className="post-identity-handle"
+      title={handleLabel}
       scroll={false}
     >
-      @{accountId}
+      {handleLabel}
     </Link>
   ) : (
-    <span className="post-identity-handle">@{accountId}</span>
+    <span className="post-identity-handle" title={handleLabel}>
+      {handleLabel}
+    </span>
   );
 
   const timeNode = showTime ? (
@@ -89,6 +100,32 @@ export function PostIdentityMeta({
     )
   ) : null;
 
+  const inlineCluster = (
+    <span className="post-identity-inline-cluster">
+      {nameNode}
+      {marksNode}
+      {handleNode}
+      {timeNode ? (
+        <>
+          <span className="post-identity-sep" aria-hidden>
+            ·
+          </span>
+          {timeNode}
+        </>
+      ) : null}
+    </span>
+  );
+
+  const stackedCluster = (
+    <>
+      <span className="post-identity-name-cluster">
+        {nameNode}
+        {marksNode}
+      </span>
+      {handleNode}
+    </>
+  );
+
   return (
     <div
       className={`post-identity${stacked ? ' post-identity--stacked' : ''}${
@@ -103,16 +140,7 @@ export function PostIdentityMeta({
               : 'post-identity-main'
           }
         >
-          {nameNode}
-          {handleNode}
-          {timeNode ? (
-            <>
-              <span className="post-identity-sep" aria-hidden>
-                ·
-              </span>
-              {timeNode}
-            </>
-          ) : null}
+          {stacked ? stackedCluster : inlineCluster}
         </div>
         {trailing}
       </div>

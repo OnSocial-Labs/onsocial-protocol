@@ -26,3 +26,21 @@ export function isProtocolGovernanceFace(accountId: string): boolean {
     GOVERNANCE_DAO_ACCOUNT.trim().toLowerCase()
   );
 }
+
+export function isProtocolTreasuryFace(accountId: string): boolean {
+  return (
+    accountId.trim().toLowerCase() ===
+    TREASURY_DAO_ACCOUNT.trim().toLowerCase()
+  );
+}
+
+export type ProtocolFaceDaoKind = 'governance' | 'treasury';
+
+/** Protocol Governance / Treasury faces — config ids only, no RPC. */
+export function resolveProtocolFaceDaoKind(
+  accountId: string
+): ProtocolFaceDaoKind | null {
+  if (isProtocolGovernanceFace(accountId)) return 'governance';
+  if (isProtocolTreasuryFace(accountId)) return 'treasury';
+  return null;
+}

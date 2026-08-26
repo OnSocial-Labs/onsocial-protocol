@@ -95,8 +95,18 @@ export function sumVoteCounts(
   return total;
 }
 
-function isLikelyRoleWeightVoteCount(value: string | undefined): boolean {
-  const raw = value?.trim();
+function normalizeVoteCountToken(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(Math.trunc(value));
+  }
+  if (typeof value === 'bigint') return value.toString();
+  return String(value).trim();
+}
+
+function isLikelyRoleWeightVoteCount(value: unknown): boolean {
+  const raw = normalizeVoteCountToken(value);
   if (!raw || !/^\d+$/.test(raw)) return false;
   // Head-count tallies stay small; token-weight buckets use yocto-scale strings.
   return raw.length <= 4;
@@ -111,7 +121,7 @@ function readRoleWeightVoteCount(
   if (!normalizedRole || !voteCounts?.[normalizedRole]) return null;
   const value = voteCounts[normalizedRole][index];
   if (!isLikelyRoleWeightVoteCount(value)) return null;
-  return Number.parseInt(value!, 10);
+  return Number.parseInt(normalizeVoteCountToken(value), 10);
 }
 
 function countVotesFromProposalMap(
@@ -135,13 +145,13 @@ function readLegacyRoleWeightVoteTallies(
   for (const [roleName, counts] of Object.entries(voteCounts)) {
     if (roleName === 'all') continue;
     const approvals = isLikelyRoleWeightVoteCount(counts[0])
-      ? Number.parseInt(counts[0], 10)
+      ? Number.parseInt(normalizeVoteCountToken(counts[0]), 10)
       : 0;
     const rejects = isLikelyRoleWeightVoteCount(counts[1])
-      ? Number.parseInt(counts[1], 10)
+      ? Number.parseInt(normalizeVoteCountToken(counts[1]), 10)
       : 0;
     const removes = isLikelyRoleWeightVoteCount(counts[2])
-      ? Number.parseInt(counts[2], 10)
+      ? Number.parseInt(normalizeVoteCountToken(counts[2]), 10)
       : 0;
     if (approvals + rejects + removes > 0) {
       return { approvals, rejects, removes };

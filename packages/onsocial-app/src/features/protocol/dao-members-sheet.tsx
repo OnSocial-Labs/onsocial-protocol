@@ -7,10 +7,7 @@ import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { listDaoMembershipSections } from '@/features/protocol/dao-group-roles';
-import {
-  primaryProtocolCouncilGuardianRoleId,
-} from '@/features/protocol/protocol-council-guardian';
-import { ProtocolCouncilGuardianMark } from '@/features/protocol/protocol-council-guardian-mark';
+import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import {
   getProtocolGovernanceEligibility,
   type ProtocolGovernanceEligibility,
@@ -215,11 +212,7 @@ export function DaoMembersSheet({
                           avatarUrl={profile?.avatarUrl}
                           nameTrailing={
                             showProtocolRoleMarks ? (
-                              <ProtocolCouncilGuardianMark
-                                roleId={primaryProtocolCouncilGuardianRoleId([
-                                  section.roleName,
-                                ])}
-                              />
+                              <ProtocolNameTrailing accountId={memberId} />
                             ) : null
                           }
                         />

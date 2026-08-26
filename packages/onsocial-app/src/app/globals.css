@@ -6329,10 +6329,10 @@ a.os-surface-row {
     margin: 0;
     width: 100%;
     font-family: var(--font-space-grotesk), system-ui, sans-serif;
-    font-size: clamp(1.5rem, 6vw, 2rem);
-    font-weight: 600;
-    letter-spacing: -0.04em;
-    line-height: 1.12;
+    font-size: 1em;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    line-height: inherit;
     text-wrap: balance;
   }
 
@@ -6341,29 +6341,127 @@ a.os-surface-row {
     align-items: center;
     justify-content: center;
     flex-wrap: nowrap;
-    gap: 0.4rem 0.55rem;
+    gap: 0.35em 0.45em;
     max-width: 100%;
     min-width: 0;
+    font-size: clamp(1.5rem, 6vw, 2rem);
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    line-height: 1.12;
   }
 
   .portfolio-name-row .portfolio-name {
     width: auto;
     max-width: 100%;
     min-width: 0;
+    font-size: 1em;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    line-height: inherit;
   }
 
-  .protocol-council-guardian-mark {
+  .protocol-identity-mark-cluster {
+    display: inline-flex;
     flex-shrink: 0;
-    font-size: 0.54rem;
-    font-weight: 650;
-    letter-spacing: 0.02em;
-    padding: 0.12rem 0.34rem;
-    line-height: 1.15;
+    align-items: center;
+    gap: 0.18em;
+    font-size: 1em;
+    line-height: 1;
   }
 
-  .protocol-council-guardian-mark--face {
-    font-size: 0.62rem;
-    padding: 0.16rem 0.42rem;
+  .protocol-identity-mark {
+    position: relative;
+    z-index: 2;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 9999px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 1em;
+    line-height: 0;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .protocol-identity-mark--guardian,
+  .protocol-identity-mark--governance {
+    color: var(--protocol-green, #00ec97);
+  }
+
+  .protocol-identity-mark--guardian:hover,
+  .protocol-identity-mark--guardian:focus-visible,
+  .protocol-identity-mark--governance:hover,
+  .protocol-identity-mark--governance:focus-visible {
+    color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
+  }
+
+  .protocol-identity-mark--treasury {
+    color: var(--protocol-blue, #3b82f6);
+  }
+
+  .protocol-identity-mark--treasury:hover,
+  .protocol-identity-mark--treasury:focus-visible {
+    color: var(--protocol-blue-hover, var(--protocol-blue, #3b82f6));
+  }
+
+  .protocol-identity-mark--proposer {
+    color: var(--protocol-purple, #c084fc);
+  }
+
+  .protocol-identity-mark--proposer:hover,
+  .protocol-identity-mark--proposer:focus-visible {
+    color: var(--protocol-purple-hover, var(--protocol-purple, #c084fc));
+  }
+
+  .protocol-identity-mark:focus-visible {
+    outline: 2px solid color-mix(in srgb, currentColor 45%, transparent);
+    outline-offset: 2px;
+  }
+
+  .protocol-identity-mark-glyph {
+    display: block;
+    width: 0.95em;
+    height: 0.95em;
+    overflow: hidden;
+    line-height: 0;
+  }
+
+  .protocol-identity-mark-icon,
+  .protocol-identity-mark-glyph svg {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100%;
+    max-height: 100%;
+    color: inherit;
+  }
+
+  .protocol-identity-mark-hint-body {
+    padding-top: 0.35rem;
+    padding-bottom: 0.85rem;
+  }
+
+  /* Match protocol / commerce sheet footers — 1.15rem column + safe area. */
+  .protocol-identity-mark-hint-footer {
+    padding: 0.45rem 1.15rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .protocol-identity-mark-hint {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  /* Re-enable mark taps above standing-row hit overlay. */
+  .standing-row-main:has(.standing-row-hit) .protocol-identity-mark {
+    pointer-events: auto;
   }
 
   .portfolio-frame[data-mood] .portfolio-name,
@@ -6383,6 +6481,94 @@ a.os-surface-row {
     font-size: 0.82rem;
     letter-spacing: 0.02em;
     color: var(--portfolio-meta-color);
+  }
+
+  .portfolio-handle-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 0.32em;
+    margin: 0;
+    max-width: 100%;
+    min-width: 0;
+    font-size: 0.82rem;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+  }
+
+  .portfolio-handle-row .portfolio-handle {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: 1em;
+    letter-spacing: inherit;
+    line-height: inherit;
+  }
+
+  .portfolio-handle-marks {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    line-height: 0;
+  }
+
+  /*
+   * Person portfolio — gov/treasury credentials with @handle, not the display name.
+   * Muted at rest; protocol color on hover/focus.
+   */
+  .portfolio-identity:not([data-entity='dao']) .portfolio-handle-marks .protocol-identity-mark {
+    font-size: 0.95em;
+  }
+
+  .portfolio-identity:not([data-entity='dao'])
+    .portfolio-handle-marks
+    .protocol-identity-mark--governance,
+  .portfolio-identity:not([data-entity='dao'])
+    .portfolio-handle-marks
+    .protocol-identity-mark--treasury,
+  .portfolio-identity:not([data-entity='dao'])
+    .portfolio-handle-marks
+    .protocol-identity-mark--proposer {
+    color: rgb(var(--fg-rgb) / 0.36);
+  }
+
+  .portfolio-identity:not([data-entity='dao'])
+    .portfolio-handle-marks
+    .protocol-identity-mark--governance:hover,
+  .portfolio-identity:not([data-entity='dao'])
+    .portfolio-handle-marks
+    .protocol-identity-mark--governance:focus-visible {
+    color: color-mix(
+      in srgb,
+      var(--protocol-green, #00ec97) 75%,
+      rgb(var(--fg-rgb))
+    );
+  }
+
+  .portfolio-identity:not([data-entity='dao'])
+    .portfolio-handle-marks
+    .protocol-identity-mark--treasury:hover,
+  .portfolio-identity:not([data-entity='dao'])
+    .portfolio-handle-marks
+    .protocol-identity-mark--treasury:focus-visible {
+    color: color-mix(
+      in srgb,
+      var(--protocol-blue, #3b82f6) 75%,
+      rgb(var(--fg-rgb))
+    );
+  }
+
+  .portfolio-identity:not([data-entity='dao'])
+    .portfolio-handle-marks
+    .protocol-identity-mark--proposer:hover,
+  .portfolio-identity:not([data-entity='dao'])
+    .portfolio-handle-marks
+    .protocol-identity-mark--proposer:focus-visible {
+    color: color-mix(
+      in srgb,
+      var(--protocol-purple, #c084fc) 75%,
+      rgb(var(--fg-rgb))
+    );
   }
 
   .portfolio-location {
@@ -11478,6 +11664,20 @@ a.os-surface-row {
     line-height: 1.2;
     color: rgb(var(--fg-rgb) / 0.5);
     text-align: right;
+    white-space: nowrap;
+  }
+
+  .standing-row-aside .standing-row-time,
+  .standing-row-aside .protocol-pill {
+    margin-top: 0.12rem;
+  }
+
+  .standing-row-name-row .protocol-identity-mark {
+    line-height: 1;
+  }
+
+  .standing-row-name-row .protocol-identity-mark-glyph {
+    transform: translateY(0.05em);
   }
 
   .standing-row-signals {
@@ -15755,8 +15955,8 @@ a.os-surface-row {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
-    align-items: baseline;
-    gap: 0.28rem;
+    align-items: center;
+    gap: 0.3em;
     min-width: 0;
     flex: 1 1 auto;
     overflow: hidden;
@@ -15779,6 +15979,8 @@ a.os-surface-row {
   .post-identity--stacked .post-identity-handle {
     flex: 0 1 auto;
     max-width: 100%;
+    color: rgb(var(--fg-rgb) / 0.42);
+    text-decoration: none;
   }
 
   .post-card-detail-time {
@@ -15795,36 +15997,126 @@ a.os-surface-row {
     margin-top: 0.35rem;
   }
 
+  .post-identity-name-cluster {
+    display: inline-flex;
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.3em;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.5;
+  }
+
+  /* Feed: Name marks @handle · time — one hugging row. */
+  .post-identity-inline-cluster {
+    display: inline-flex;
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.28em;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.5;
+  }
+
+  .post-identity-inline-cluster .post-identity-name,
+  .post-identity-name-cluster .post-identity-name {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: 1em;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    line-height: inherit;
+  }
+
+  .post-identity-inline-cluster .post-identity-handle {
+    flex: 0 999 auto;
+    min-width: 3.5ch;
+    font-size: 0.82em;
+    font-weight: 550;
+    line-height: inherit;
+    color: rgb(var(--fg-rgb) / 0.42);
+    text-decoration: none;
+  }
+
+  .post-identity-inline-cluster .post-identity-sep {
+    flex: 0 0 auto;
+    overflow: visible;
+    padding-inline: 0.12em;
+    font-size: 0.82em;
+    font-weight: 400;
+    line-height: inherit;
+    color: rgb(var(--fg-rgb) / 0.28);
+    user-select: none;
+  }
+
+  .post-identity-inline-cluster .post-identity-time {
+    flex: 0 0 auto;
+    overflow: visible;
+    font-size: 0.82em;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    line-height: inherit;
+    color: rgb(var(--fg-rgb) / 0.42);
+    text-decoration: none;
+  }
+
+  .post-identity-name-marks {
+    display: inline-flex;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.18em;
+    line-height: 1;
+  }
+
+  .post-identity-name-marks .protocol-identity-mark-cluster {
+    align-items: center;
+    line-height: 1;
+  }
+
+  .post-identity-name-marks .protocol-identity-mark {
+    line-height: 1;
+    pointer-events: auto;
+  }
+
+  .post-identity-name-marks .protocol-identity-mark-glyph {
+    transform: translateY(0.05em);
+  }
+
   .post-identity-name {
     flex: 0 1 auto;
-    min-width: 2.5rem;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 0.875rem;
     font-weight: 600;
     letter-spacing: -0.01em;
-    line-height: 1.25;
+    line-height: 1.5;
     color: rgb(var(--fg-rgb) / 0.96);
     text-decoration: none;
   }
 
   .post-identity-handle,
-  .post-identity-time,
-  .post-identity-sep {
+  .post-identity-time {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 0.72rem;
-    line-height: 1.25;
+    line-height: 1.5;
   }
 
-  /* Shrink handle first on narrow widths; keep name visible longer. */
-  .post-identity-handle {
-    flex: 0 999 auto;
+  .post-identity-main > .post-identity-inline-cluster {
+    flex: 0 1 auto;
     min-width: 0;
-    color: rgb(var(--fg-rgb) / 0.42);
-    text-decoration: none;
   }
 
   /* Keep open-post identity stacked after the shared feed rules above. */
@@ -15846,17 +16138,21 @@ a.os-surface-row {
     max-width: 100%;
   }
 
-  .post-identity-time {
-    flex: 0 0 auto;
-    color: rgb(var(--fg-rgb) / 0.42);
-    text-decoration: none;
+  /* Keep marks beside the name on open-post stacked layout. */
+  .post-identity--stacked .post-identity-name-cluster {
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    max-width: 100%;
   }
 
-  .post-identity-sep {
-    flex: 0 0 auto;
-    line-height: 1;
-    color: rgb(var(--fg-rgb) / 0.28);
-    user-select: none;
+  .post-identity--stacked .post-identity-name-cluster .post-identity-name {
+    display: block;
+    flex: 0 1 auto;
+    min-width: 0;
+    width: auto;
+    max-width: 100%;
   }
 
   a.post-identity-name:hover,
@@ -16686,6 +16982,11 @@ a.os-surface-row {
     display: flex;
     align-items: center;
     gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .post-card-quote-inset-head .post-identity {
+    flex: 1 1 auto;
     min-width: 0;
   }
 
@@ -32098,6 +32399,33 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   background: color-mix(in srgb, var(--protocol-pink) 18%, transparent);
 }
 
+.protocol-account-chip-icon-slot {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 9999px;
+  background: rgb(var(--fg-rgb) / 0.06);
+  color: rgb(var(--fg-rgb) / 0.48);
+}
+
+.protocol-account-chip-icon-slot.is-dense {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.protocol-account-chip-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.protocol-account-chip-icon-slot.is-dense .protocol-account-chip-icon {
+  width: 0.68rem;
+  height: 0.68rem;
+}
+
 .protocol-account-chip-copy {
   display: flex;
   min-width: 0;
@@ -32109,20 +32437,31 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 .protocol-account-chip-name-row {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.3em;
   min-width: 0;
   max-width: 100%;
+  font-size: 0.84rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
 .protocol-account-chip-name-row .protocol-account-chip-name {
   min-width: 0;
 }
 
+.protocol-account-chip-name-row .protocol-identity-mark {
+  line-height: 1;
+}
+
+.protocol-account-chip-name-row .protocol-identity-mark-glyph {
+  transform: translateY(0.05em);
+}
+
 .protocol-account-chip-name {
   overflow: hidden;
-  font-size: 0.84rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-size: 1em;
+  font-weight: inherit;
+  letter-spacing: inherit;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: rgb(var(--fg-rgb) / 0.92);
@@ -32396,7 +32735,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 .protocol-voter-row {
-  align-items: center;
+  align-items: flex-start;
 }
 
 .protocol-voter-row.is-no-vote {
@@ -32405,6 +32744,10 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 .protocol-voter-row-aside {
   flex-shrink: 0;
+}
+
+.protocol-voter-row-aside .protocol-pill {
+  margin-top: 0.12rem;
 }
 
 .protocol-card.is-interactive {
@@ -32785,10 +33128,52 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   -webkit-overflow-scrolling: touch;
 }
 
+.protocol-on-chain-sheet-panel {
+  max-height: min(88dvh, 36rem);
+  --glass-header-scrim-height: min(5rem, 24%);
+  --glass-sheet-body-opacity: 0.64;
+}
+
+/* Hug cap — defer scroll to the raw JSON block, not the sheet body. */
+.protocol-on-chain-sheet-panel[data-sizing='hug']
+  > .glass-sheet-body.protocol-on-chain-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .protocol-on-chain-sheet-body {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.protocol-on-chain-facts {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.protocol-on-chain-facts .guild-facts-section {
+  padding: 0.4rem 0 0.45rem;
+}
+
+.protocol-on-chain-raw-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-bottom: 0.35rem;
+}
+
+.protocol-on-chain-raw-section .guild-facts-section-rows {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .protocol-on-chain-action-value {
@@ -32808,17 +33193,20 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 .protocol-on-chain-raw {
-  margin: 0.15rem 0 0;
-  max-height: min(42vh, 22rem);
+  margin: 0.1rem 0 0;
+  max-height: min(46dvh, 18.5rem);
   overflow: auto;
-  padding: 0.75rem 0.85rem;
-  border-radius: 0.85rem;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.65rem 0.7rem;
+  border-radius: 0.75rem;
   background: rgb(var(--fg-rgb) / 0.05);
   color: rgb(var(--fg-rgb) / 0.78);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.7rem;
-  line-height: 1.45;
+  font-size: 0.68rem;
+  line-height: 1.4;
   white-space: pre;
+  scrollbar-gutter: auto;
 }
 
 .protocol-on-chain-raw code {

@@ -13,6 +13,7 @@ import {
 } from '@/features/governance/governance-proposal-presentation';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { splitRoutingTargetDisplay } from '@/features/governance/governance-proposal-routing-display';
+import { resolveGovernanceAccountSubjectKind } from '@onsocial/ui';
 import { cn } from '@/lib/utils';
 
 const TARGET_COLUMN_CLASS =
@@ -153,6 +154,12 @@ export function GovernanceProposalIdentityRow({
     targetValue,
     targetAccountId,
   } = presentation;
+  const subjectKind = resolveGovernanceAccountSubjectKind({
+    subjectEyebrow,
+    targetKind,
+    subjectAccount,
+    targetAccountId,
+  });
 
   if (!subjectAccount && !subjectText && !targetValue) {
     return (
@@ -189,6 +196,7 @@ export function GovernanceProposalIdentityRow({
             accountId={subjectAccount}
             dense
             className="max-w-full"
+            subjectKind={subjectKind}
           />
         </div>
       ) : subjectText ? (

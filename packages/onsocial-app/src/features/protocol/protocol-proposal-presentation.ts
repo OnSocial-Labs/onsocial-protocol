@@ -10,6 +10,7 @@ import {
   protocolProposalFamilyFromBadge,
   type ProtocolProposalFamily,
 } from '@/features/protocol/protocol-proposal-family';
+import { formatSocialSpendActionConfigCardSummary } from '@/features/protocol/protocol-social-spend-routing-display';
 
 export type ProtocolProposalTargetKind =
   | 'role'
@@ -66,6 +67,20 @@ export function getProtocolProposalPolicyLabel(
 ): string {
   const kindKey = Object.keys(kind ?? {})[0];
   return PROPOSAL_KIND_POLICY_LABEL[kindKey] ?? '*';
+}
+
+/** Human label for on-chain action rows (policy permission or contract method). */
+export function formatProtocolOnChainActionLabel(
+  action: string | null | undefined,
+  kind: 'policy' | 'method' | null | undefined
+): string | null {
+  const raw = typeof action === 'string' ? action.trim() : '';
+  if (!raw) return null;
+  if (kind === 'method') return raw;
+  if (raw === 'vote') return 'Vote signal';
+  return raw
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function resolveOnChainActionFields(
@@ -276,20 +291,11 @@ function readExecuteSetKeys(args: Record<string, unknown> | null): string[] {
   return data ? Object.keys(data) : [];
 }
 
-function formatRoutingSummary(config: unknown): string {
-  if (!config || typeof config !== 'object' || Array.isArray(config)) {
-    return 'No routing';
-  }
-  const record = config as Record<string, unknown>;
-  const readBps = (field: string): number =>
-    typeof record[field] === 'number' && Number.isFinite(record[field])
-      ? (record[field] as number)
-      : 0;
-  const treasury = readBps('treasury_bps');
-  const season = readBps('season_pool_bps');
-  const target = readBps('target_bps');
-  const burn = readBps('burn_bps');
-  return `${(treasury / 100).toFixed(0)}% treasury · ${(season / 100).toFixed(0)}% season · ${(target / 100).toFixed(0)}% target · ${(burn / 100).toFixed(0)}% burn`;
+function formatRoutingSummary(
+  config: unknown,
+  actionId: string | null | undefined
+): string {
+  return formatSocialSpendActionConfigCardSummary(config, actionId);
 }
 
 function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
@@ -685,7 +691,7 @@ export function deriveProtocolProposalPresentation({
     }
 
     if (shape.methodName === 'set_action_config' && shape.actionId) {
-      const routingSummary = formatRoutingSummary(shape.config);
+      const routingSummary = formatRoutingSummary(shape.config, shape.actionId);
       const actionLabel = shape.actionId.replace(/_/g, ' ');
       return finish({
         headline: contractLabel

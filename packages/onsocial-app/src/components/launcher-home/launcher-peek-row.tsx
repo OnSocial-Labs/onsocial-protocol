@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Divider, RepeatIcon, StandingIdentity, standingIdentityLabel } from '@onsocial/ui';
 import type { ReactNode } from 'react';
+import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import type { PostRelationContext } from '@/lib/post-relation';
 import {
   formatLauncherRelationTarget,
@@ -189,6 +190,7 @@ export function LauncherSocialPeekRow({
             avatarUrl={avatarUrl}
             size="sm"
             showHandle={false}
+            nameTrailing={<ProtocolNameTrailing accountId={accountId} />}
             copyLeading={
               repostAttribution ? (
                 <span className="launcher-home-peek-relation">

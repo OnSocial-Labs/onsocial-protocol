@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { Divider, ProtocolMotionArrow } from '@onsocial/ui';
-import { DiscoverMoodDot } from '@/components/moods/discover-mood-dot';
 import {
   StandingIdentity,
   standingIdentityLabel,
@@ -10,6 +9,7 @@ import {
 import { StandingRelationshipSignal } from '@/components/ui/standing-relationship-signal';
 import { StandingToggle } from '@/components/ui/standing-toggle';
 import { PostRichText } from '@/features/home/post-rich-text';
+import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { daoPath } from '@/lib/app-routes';
 import { isDaoStandingTarget } from '@/lib/dao-standing-account';
@@ -331,9 +331,11 @@ export function ProfileSocialListRow({
             ) : null
           }
           nameTrailing={
-            moodId !== 'protocol' ? (
-              <DiscoverMoodDot moodId={moodId} />
-            ) : null
+            <ProtocolNameTrailing
+              accountId={account.accountId}
+              isDao={isDaoTarget}
+              moodId={moodId}
+            />
           }
         >
           {bio ? (

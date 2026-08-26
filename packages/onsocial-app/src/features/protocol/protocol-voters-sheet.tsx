@@ -1,16 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useMemo, useState } from 'react';
-import {
-  Divider,
-  OsHugSheet,
-  StandingIdentity,
-} from '@onsocial/ui';
-import { ProtocolCouncilGuardianMark } from '@/features/protocol/protocol-council-guardian-mark';
-import {
-  protocolCouncilGuardianRoleByAccount,
-} from '@/features/protocol/protocol-council-guardian';
+import { useCallback, useState } from 'react';
+import { Divider, OsHugSheet, StandingIdentity } from '@onsocial/ui';
+import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { PROTOCOL_TASK_SHEET_Z } from '@/features/protocol/protocol-sheet-z';
 import type {
   ProtocolDaoPolicy,
@@ -34,7 +27,6 @@ export function ProtocolVotersSheet({
   voteEntries,
   abstainers,
   profiles,
-  daoPolicy = null,
   showProtocolRoleMarks = false,
   votingClosed = false,
 }: {
@@ -53,13 +45,6 @@ export function ProtocolVotersSheet({
 }) {
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
-  const roleByAccount = useMemo(
-    () =>
-      showProtocolRoleMarks
-        ? protocolCouncilGuardianRoleByAccount(daoPolicy)
-        : null,
-    [daoPolicy, showProtocolRoleMarks]
-  );
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -79,8 +64,7 @@ export function ProtocolVotersSheet({
     ...abstainers.map((accountId) => ({ accountId, vote: null })),
   ];
 
-  const title =
-    proposalId != null ? `Votes · #${proposalId}` : 'Votes';
+  const title = proposalId != null ? `Votes · #${proposalId}` : 'Votes';
   const copy = headline?.trim() || null;
 
   return (
@@ -124,11 +108,9 @@ export function ProtocolVotersSheet({
                       profileName={profile?.displayName}
                       avatarUrl={profile?.avatarUrl}
                       nameTrailing={
-                        <ProtocolCouncilGuardianMark
-                          roleId={roleByAccount?.get(
-                            row.accountId.trim().toLowerCase()
-                          )}
-                        />
+                        showProtocolRoleMarks ? (
+                          <ProtocolNameTrailing accountId={row.accountId} />
+                        ) : null
                       }
                     />
                   </Link>

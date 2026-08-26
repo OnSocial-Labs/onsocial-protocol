@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
+import { ACTIVE_BACKEND_URL, ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import {
   formatDaoRoleLabel,
@@ -9,6 +9,10 @@ import {
   type ProfileFieldUpdateRow,
 } from '@/lib/page-drawer-meta';
 import { normalizeProfileTags } from '@/lib/profile-display';
+import {
+  EMPTY_PROTOCOL_DAO_PROPOSER_FLAGS,
+  type ProtocolDaoProposerFlags,
+} from '@/lib/protocol-dao-memberships';
 import { getActiveServerNearRpc } from '@/server/near-rpc-bff';
 
 const GOVERNANCE_DAO_ACCOUNT =
@@ -23,7 +27,13 @@ const TREASURY_DAO_ACCOUNT =
 
 interface DaoPolicyRole {
   name?: string;
-  kind?: { Group?: string[] };
+  kind?:
+    | string
+    | {
+        Everyone?: unknown;
+        Group?: string[];
+        Member?: string;
+      };
 }
 
 interface DaoPolicy {
@@ -44,11 +54,15 @@ function roleIdsForAccount(
   }
 
   return policy.roles
-    .filter((role) =>
-      role.kind?.Group?.some(
-        (member) => normalizeAccountId(member) === normalized
-      )
-    )
+    .filter((role) => {
+      const kind = role.kind;
+      if (!kind || typeof kind === 'string') return false;
+      const group = kind.Group;
+      if (!Array.isArray(group)) return false;
+      return group.some(
+        (member) => normalizeAccountId(String(member)) === normalized
+      );
+    })
     .map((role) => role.name?.trim() ?? '')
     .filter(Boolean);
 }
@@ -106,12 +120,68 @@ async function loadDaoPolicies(): Promise<{
 
 /** DAO policy roles — client soft-fill only; never block portfolio SSR. */
 export async function fetchDaoRoleIds(accountId: string): Promise<string[]> {
-  const { governance, treasury } = await loadDaoPolicies();
+  const memberships = await fetchProtocolDaoMemberships(accountId);
+  return sortDaoRoleIds(
+    [memberships.governance, memberships.treasury].filter(
+      (role): role is NonNullable<typeof role> => role != null
+    )
+  );
+}
 
-  return sortDaoRoleIds([
-    ...roleIdsForAccount(governance, accountId),
-    ...roleIdsForAccount(treasury, accountId),
-  ]);
+export type ProtocolDaoCouncilRole = import('@/lib/protocol-dao-memberships').ProtocolDaoCouncilRole;
+export type ProtocolDaoMemberships =
+  import('@/lib/protocol-dao-memberships').ProtocolDaoMemberships;
+
+function primaryCouncilRole(
+  roleIds: string[]
+): ProtocolDaoCouncilRole | null {
+  const normalized = roleIds.map((id) => id.trim().toLowerCase());
+  if (normalized.includes('guardians')) return 'guardians';
+  if (normalized.includes('council')) return 'council';
+  return null;
+}
+
+/** Per protocol DAO council membership — used for dual identity marks. */
+export async function fetchProtocolDaoMemberships(
+  accountId: string
+): Promise<Omit<import('@/lib/protocol-dao-memberships').ProtocolDaoMemberships, 'proposer'>> {
+  const { governance, treasury } = await loadDaoPolicies();
+  return {
+    governance: primaryCouncilRole(roleIdsForAccount(governance, accountId)),
+    treasury: primaryCouncilRole(roleIdsForAccount(treasury, accountId)),
+  };
+}
+
+function parseProtocolDaoProposerFlags(
+  value: unknown
+): ProtocolDaoProposerFlags {
+  if (!value || typeof value !== 'object') {
+    return EMPTY_PROTOCOL_DAO_PROPOSER_FLAGS;
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    governance: record.governance === true,
+    treasury: record.treasury === true,
+  };
+}
+
+/** Whether the account has submitted proposals to protocol Governance / Treasury. */
+export async function fetchProtocolDaoProposerFlags(
+  accountId: string
+): Promise<ProtocolDaoProposerFlags> {
+  try {
+    const res = await fetch(
+      `${ACTIVE_BACKEND_URL.replace(/\/$/, '')}/v1/governance/dao-proposer-flags?accountId=${encodeURIComponent(accountId)}`,
+      { cache: 'no-store' }
+    );
+    if (!res.ok) return EMPTY_PROTOCOL_DAO_PROPOSER_FLAGS;
+    const body = (await res.json().catch(() => null)) as {
+      proposer?: unknown;
+    } | null;
+    return parseProtocolDaoProposerFlags(body?.proposer);
+  } catch {
+    return EMPTY_PROTOCOL_DAO_PROPOSER_FLAGS;
+  }
 }
 
 export async function fetchDaoRoleLabels(accountId: string): Promise<string[]> {

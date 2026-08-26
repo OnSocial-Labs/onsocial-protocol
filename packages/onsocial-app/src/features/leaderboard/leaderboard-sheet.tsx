@@ -28,6 +28,7 @@ import {
   osIconActionGlyphClassName,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { StandingListLoadMoreFooter } from '@/components/panels/standing-list-load-more-footer';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -161,6 +162,7 @@ function BoardRow({
         avatarUrl={profile?.avatarUrl}
         size="sm"
         showHandle={false}
+        nameTrailing={<ProtocolNameTrailing accountId={accountId} />}
       />
     </>
   );

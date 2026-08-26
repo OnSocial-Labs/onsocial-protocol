@@ -1,31 +1,18 @@
 'use client';
 
-import {
-  protocolCouncilGuardianMarkLabel,
-  type ProtocolCouncilGuardianRoleId,
-} from '@/features/protocol/protocol-council-guardian';
+import { ProtocolGuardianRoleMark } from '@/features/protocol/protocol-identity-mark-button';
+import type { ProtocolCouncilGuardianRoleId } from '@/features/protocol/protocol-council-guardian';
 
 /**
- * Quiet same-line mark for protocol Guardian / Council (StandingIdentity
- * nameTrailing + portfolio face name row).
+ * Single-DAO surface mark (proposal voters / members when policy is already known).
+ * Person faces & lists use {@link ProtocolNameTrailing} soft-fill instead.
  */
 export function ProtocolCouncilGuardianMark({
   roleId,
-  size = 'row',
 }: {
   roleId: ProtocolCouncilGuardianRoleId | null | undefined;
-  /** `face` = denser title mark; `row` = standing / chip badge. */
   size?: 'face' | 'row';
 }) {
   if (!roleId) return null;
-  const label = protocolCouncilGuardianMarkLabel(roleId);
-  return (
-    <span
-      className={`os-surface-row-badge protocol-council-guardian-mark protocol-council-guardian-mark--${size}`}
-      title={label}
-      aria-label={label}
-    >
-      {label}
-    </span>
-  );
+  return <ProtocolGuardianRoleMark roleId={roleId} />;
 }

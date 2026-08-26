@@ -15,8 +15,8 @@ import type { ProtocolApplication } from '@/features/protocol/types';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/app-config';
 
 /**
- * Quiet on-chain details — method/policy ref + decoded raw proposal JSON.
- * Kept off the Vote drawer so decisions stay decision-focused.
+ * Quiet on-chain details — permission/method ref + decoded raw proposal JSON.
+ * Headline lives in the sheet subtitle; card already covers status/votes.
  */
 export function ProtocolOnChainSheet({
   open,
@@ -60,12 +60,12 @@ export function ProtocolOnChainSheet({
     );
   }, [view]);
 
-  const actionLabel =
+  const actionKindLabel =
     view?.onChainActionKind === 'method'
       ? 'Contract method'
       : view?.onChainActionKind === 'policy'
         ? 'DAO permission'
-        : null;
+        : 'On-chain';
 
   const explorerHref = application?.governance_proposal?.tx_hash
     ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${application.governance_proposal.tx_hash}`
@@ -86,15 +86,14 @@ export function ProtocolOnChainSheet({
       closeAriaLabel="Close on-chain details"
       backdropLabel="Close on-chain details"
       zIndex={PROTOCOL_TASK_SHEET_Z}
-      initialDetent="peek"
-      peekRatio={0.62}
-      bodyClassName="protocol-on-chain-sheet-body guild-facts-sheet-body"
+      panelClassName="protocol-on-chain-sheet-panel"
+      bodyClassName="protocol-on-chain-sheet-body"
     >
-      <div className="os-sheet-facts guild-facts">
+      <div className="os-sheet-facts guild-facts protocol-on-chain-facts">
         {view?.onChainAction ? (
           <SheetFactSection title="Action">
             <SheetFactRow
-              label={actionLabel ?? 'On-chain'}
+              label={actionKindLabel}
               value={
                 <span className="protocol-on-chain-action-value">
                   {view.onChainAction}
@@ -113,7 +112,10 @@ export function ProtocolOnChainSheet({
         {rawJson ? (
           <>
             {view?.onChainAction ? <Divider variant="detail" /> : null}
-            <SheetFactSection title="Raw proposal">
+            <SheetFactSection
+              title="Raw proposal"
+              className="protocol-on-chain-raw-section"
+            >
               <pre className="protocol-on-chain-raw">
                 <code>{rawJson}</code>
               </pre>

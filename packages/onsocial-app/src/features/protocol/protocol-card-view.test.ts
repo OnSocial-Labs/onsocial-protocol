@@ -439,6 +439,26 @@ describe('protocol card view', () => {
     expect(statusLabel('InProgress')).toBe('In review');
   });
 
+  it('accepts numeric vote_counts buckets from chain snapshots', () => {
+    const numericProposal: ProtocolDaoProposal = {
+      ...proposal,
+      vote_counts: { council: [2, 0, 0] as unknown as [string, string, string] },
+    };
+    const view = deriveProtocolProposalView({
+      application: {
+        ...application,
+        governance_proposal: {
+          ...application.governance_proposal!,
+          snapshot: numericProposal,
+        },
+      },
+      accountId: 'alice.testnet',
+      daoPolicy: policy,
+    });
+    expect(view.approveVotes).toBe(2);
+    expect(view.rejectVotes).toBe(0);
+  });
+
   it('derives full on-page card view', () => {
     const view = deriveProtocolProposalView({
       application,

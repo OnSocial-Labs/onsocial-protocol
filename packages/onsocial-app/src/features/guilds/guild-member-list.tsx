@@ -20,6 +20,7 @@ import {
   guildMemberRowActions,
 } from '@/features/guilds/guild-member-row-actions';
 import { guildMemberTimeMeta } from '@/features/guilds/guild-member-time-meta';
+import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { portfolioPath } from '@/lib/overlay-routes';
 
@@ -90,12 +91,17 @@ export function GuildMemberList({
                   avatarUrl={profile?.avatarUrl}
                   nameRowClassName="guild-member-row-name-row"
                   nameTrailing={
-                    showRoleBadge ? (
-                      <GuildMemberRoleBadge
-                        member={member}
-                        pendingRoleLevel={pendingRoleLevel}
-                      />
-                    ) : null
+                    <ProtocolNameTrailing
+                      accountId={member.memberId}
+                      extra={
+                        showRoleBadge ? (
+                          <GuildMemberRoleBadge
+                            member={member}
+                            pendingRoleLevel={pendingRoleLevel}
+                          />
+                        ) : null
+                      }
+                    />
                   }
                 />
               </Link>

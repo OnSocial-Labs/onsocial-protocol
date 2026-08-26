@@ -1,15 +1,28 @@
 'use client';
 
 import Link from 'next/link';
-import { ProfileAvatar } from '@onsocial/ui';
+import {
+  Box3dIcon,
+  formatNearAccountFallbackTitle,
+  ProfileAvatar,
+  UserIcon,
+  type GovernanceAccountSubjectKind,
+} from '@onsocial/ui';
 import { protocolAccountHue } from '@/features/protocol/protocol-account-hue';
-import type { ProtocolCouncilGuardianRoleId } from '@/features/protocol/protocol-council-guardian';
-import { ProtocolCouncilGuardianMark } from '@/features/protocol/protocol-council-guardian-mark';
+import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { fallbackLabel } from '@/lib/profile-display';
+
+function hasSocialProfile(
+  profileName?: string | null,
+  avatarUrl?: string | null
+): boolean {
+  return Boolean(profileName?.trim() || avatarUrl?.trim());
+}
 
 /**
  * Compact account chip for protocol proposal cards — avatar + primary label.
- * Missing avatars use a hash-colored soft wash (App placeholders).
+ * Without a social profile, uses Mage user / box-3d icons instead of initials.
+ * Protocol membership marks soft-fill next to the name (gov + treasury).
  */
 export function ProtocolAccountChip({
   accountId,
@@ -17,46 +30,67 @@ export function ProtocolAccountChip({
   avatarUrl,
   dense = false,
   href,
-  protocolRoleId = null,
+  subjectKind = 'person',
 }: {
   accountId: string;
   profileName?: string | null;
   avatarUrl?: string | null;
   dense?: boolean;
   href?: string | null;
-  protocolRoleId?: ProtocolCouncilGuardianRoleId | null;
+  /** @deprecated Unused — soft-fill memberships replace single-DAO role marks. */
+  protocolRoleId?: string | null;
+  subjectKind?: GovernanceAccountSubjectKind;
 }) {
+  const socialProfile = hasSocialProfile(profileName, avatarUrl);
   const hue = protocolAccountHue(accountId);
-  const label = profileName?.trim() || `@${fallbackLabel(accountId)}`;
+  const title =
+    profileName?.trim() || formatNearAccountFallbackTitle(accountId);
   const handle = fallbackLabel(accountId);
-  const showHandle = Boolean(profileName?.trim());
+  const resolvedHref =
+    subjectKind === 'infrastructure' && !socialProfile ? null : href;
+  const FallbackIcon =
+    subjectKind === 'infrastructure' ? Box3dIcon : UserIcon;
+
+  const avatar = socialProfile ? (
+    <ProfileAvatar
+      src={avatarUrl ?? null}
+      fallbackInitial={profileName || accountId}
+      size="sm"
+      className={`protocol-account-chip-avatar is-hue-${hue}${
+        dense ? ' is-dense' : ''
+      }`}
+    />
+  ) : (
+    <span
+      className={`protocol-account-chip-icon-slot${
+        dense ? ' is-dense' : ''
+      }`}
+      aria-hidden
+    >
+      <FallbackIcon className="protocol-account-chip-icon" />
+    </span>
+  );
 
   const body = (
     <>
-      <ProfileAvatar
-        src={avatarUrl ?? null}
-        fallbackInitial={profileName || accountId}
-        size="sm"
-        className={`protocol-account-chip-avatar is-hue-${hue}${
-          dense ? ' is-dense' : ''
-        }`}
-      />
+      {avatar}
       <span className="protocol-account-chip-copy">
         <span className="protocol-account-chip-name-row">
-          <span className="protocol-account-chip-name">{label}</span>
-          <ProtocolCouncilGuardianMark roleId={protocolRoleId} />
+          <span className="protocol-account-chip-name">{title}</span>
+          <ProtocolNameTrailing
+            accountId={accountId}
+            softFill={subjectKind === 'person'}
+          />
         </span>
-        {showHandle ? (
-          <span className="protocol-account-chip-handle">@{handle}</span>
-        ) : null}
+        <span className="protocol-account-chip-handle">@{handle}</span>
       </span>
     </>
   );
 
-  if (href) {
+  if (resolvedHref) {
     return (
       <Link
-        href={href}
+        href={resolvedHref}
         className={`protocol-account-chip${dense ? ' is-dense' : ''}`}
       >
         {body}

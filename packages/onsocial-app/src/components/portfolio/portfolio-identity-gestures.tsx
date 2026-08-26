@@ -50,23 +50,10 @@ export function PortfolioIdentityGestures({
   incomingStandingCount = 0,
 }: PortfolioIdentityGesturesProps) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
-  const { setTxResult } = useAppTransactionFeedback();
-  const { viewerStanding, theyStandWithViewer, isLoading } = useViewerRelationship(pageAccountId);
-  const { updateStanding, isStandingPendingForTarget } =
-    useViewerStanding(pageAccountId);
-  const { isMuting } = useViewerMute();
-  const [supportOpen, setSupportOpen] = useState(false);
-  const [endorseOpen, setEndorseOpen] = useState(false);
-  const [messageOpen, setMessageOpen] = useState(false);
 
   const isSelf =
     Boolean(viewerAccountId) &&
     accountIdsEqual(viewerAccountId!, pageAccountId);
-  const pending = isStandingPendingForTarget(pageAccountId);
-  const label = displayName(pageAccountId, profileName ?? undefined);
-  const blockEitherWay = isBlockEitherWay(pageAccountId);
-  const viewerMuted = isMuting(pageAccountId) || isViewerMuting(pageAccountId);
-  const messagingBlocked = blockEitherWay || viewerMuted;
 
   if (!isConnected || !viewerAccountId) {
     if (isDao && incomingStandingCount > 0) {
@@ -89,6 +76,45 @@ export function PortfolioIdentityGestures({
     // Marks render their own .portfolio-identity-gestures wrapper.
     return <PortfolioOwnerPayoutMarks accountId={pageAccountId} />;
   }
+
+  return (
+    <PortfolioIdentityGesturesVisitor
+      pageAccountId={pageAccountId}
+      profileName={profileName}
+      bio={bio}
+      avatarUrl={avatarUrl}
+      mood={mood}
+      isDao={isDao}
+      incomingStandingCount={incomingStandingCount}
+    />
+  );
+}
+
+/** Connected visitor row — mounts only under AppTransactionFeedbackProvider. */
+function PortfolioIdentityGesturesVisitor({
+  pageAccountId,
+  profileName,
+  bio,
+  avatarUrl,
+  mood = null,
+  isDao = false,
+  incomingStandingCount = 0,
+}: PortfolioIdentityGesturesProps) {
+  const { setTxResult } = useAppTransactionFeedback();
+  const { viewerStanding, theyStandWithViewer, isLoading } =
+    useViewerRelationship(pageAccountId);
+  const { updateStanding, isStandingPendingForTarget } =
+    useViewerStanding(pageAccountId);
+  const { isMuting } = useViewerMute();
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [endorseOpen, setEndorseOpen] = useState(false);
+  const [messageOpen, setMessageOpen] = useState(false);
+
+  const pending = isStandingPendingForTarget(pageAccountId);
+  const label = displayName(pageAccountId, profileName ?? undefined);
+  const blockEitherWay = isBlockEitherWay(pageAccountId);
+  const viewerMuted = isMuting(pageAccountId) || isViewerMuting(pageAccountId);
+  const messagingBlocked = blockEitherWay || viewerMuted;
 
   async function handleStandToggle() {
     if (pending) return;

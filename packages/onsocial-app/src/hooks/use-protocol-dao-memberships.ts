@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  primaryProtocolCouncilGuardianRoleId,
-  type ProtocolCouncilGuardianRoleId,
-} from '@/features/protocol/protocol-council-guardian';
 import { fetchDaoRolesClient } from '@/lib/fetch-dao-roles-client';
+import {
+  EMPTY_PROTOCOL_DAO_MEMBERSHIPS,
+  type ProtocolDaoMemberships,
+} from '@/lib/protocol-dao-memberships';
 
 function isAbortError(error: unknown): boolean {
   return (
@@ -15,15 +15,15 @@ function isAbortError(error: unknown): boolean {
 }
 
 /**
- * Soft-fill protocol Guardian/Council for a person face — never blocks paint.
- * Shares `/api/profile/dao-roles` cache with Joined facts.
+ * Soft-fill protocol Governance / Treasury membership for person faces & lists.
+ * Never blocks paint. Shares `/api/profile/dao-roles` cache with Joined facts.
  */
-export function useProtocolCouncilGuardianRole(
+export function useProtocolDaoMemberships(
   accountId: string,
   enabled: boolean
-): ProtocolCouncilGuardianRoleId | null {
+): ProtocolDaoMemberships | null {
   const normalized = accountId.trim().toLowerCase();
-  const [roleId, setRoleId] = useState<ProtocolCouncilGuardianRoleId | null>(
+  const [memberships, setMemberships] = useState<ProtocolDaoMemberships | null>(
     null
   );
   const [resolvedKey, setResolvedKey] = useState<string | null>(null);
@@ -40,11 +40,12 @@ export function useProtocolCouncilGuardianRole(
       try {
         const data = await fetchDaoRolesClient(accountId, controller.signal);
         if (cancelled) return;
-        setRoleId(primaryProtocolCouncilGuardianRoleId(data.daoRoleIds));
+        setMemberships(data.memberships);
         setResolvedKey(normalized);
       } catch (error) {
+        // Abort = unmount / account change — keep unresolved so we retry.
         if (cancelled || isAbortError(error)) return;
-        setRoleId(null);
+        setMemberships(EMPTY_PROTOCOL_DAO_MEMBERSHIPS);
         setResolvedKey(normalized);
       }
     })();
@@ -58,5 +59,5 @@ export function useProtocolCouncilGuardianRole(
   if (!enabled || !normalized || resolvedKey !== normalized) {
     return null;
   }
-  return roleId;
+  return memberships;
 }

@@ -1,7 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { User } from 'lucide-react';
+import type { ReactNode } from 'react';
+import {
+  Box3dIcon,
+  formatNearAccountFallbackTitle,
+  UserIcon,
+  type GovernanceAccountSubjectKind,
+} from '@onsocial/ui';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   prefetchMemberAccountLookups,
@@ -20,13 +26,11 @@ export function prefetchGovernanceCardAccounts(
   );
 }
 
-function fallbackDisplayName(accountId: string): string {
-  const local = accountId.split('.')[0] ?? accountId;
-  if (!local) {
-    return accountId;
-  }
-
-  return local.charAt(0).toUpperCase() + local.slice(1);
+function hasSocialProfile(
+  displayName: string | null | undefined,
+  avatarUrl: string | null | undefined
+): boolean {
+  return Boolean(displayName?.trim() || avatarUrl?.trim());
 }
 
 export function GovernanceAccountChipSkeleton({
@@ -76,12 +80,14 @@ export function GovernanceAccountChip({
   compact = false,
   dense = false,
   className,
+  subjectKind = 'person',
 }: {
   accountId: string;
   avatarClassName?: string;
   compact?: boolean;
   dense?: boolean;
   className?: string;
+  subjectKind?: GovernanceAccountSubjectKind;
 }) {
   const resolvedAvatarClass =
     avatarClassName ?? (dense ? 'h-6 w-6' : compact ? 'h-5 w-5' : 'h-7 w-7');
@@ -102,41 +108,58 @@ export function GovernanceAccountChip({
     );
   }
 
-  const displayName = lookup.displayName ?? fallbackDisplayName(accountId);
+  const socialProfile = hasSocialProfile(
+    lookup.displayName,
+    lookup.avatarUrl
+  );
+  const socialName = lookup.displayName?.trim() || null;
+  const displayName =
+    socialName || formatNearAccountFallbackTitle(accountId);
+  const profileHref =
+    subjectKind === 'infrastructure' && !socialProfile
+      ? null
+      : getPortalProfileUrl(accountId);
+  const FallbackIcon =
+    subjectKind === 'infrastructure' ? Box3dIcon : UserIcon;
 
-  return (
-    <Link
-      href={getPortalProfileUrl(accountId)}
-      prefetch
-      onClick={(event) => event.stopPropagation()}
-      className={cn(
-        'group/chip inline-flex w-fit max-w-full min-w-0 items-center gap-2 overflow-hidden transition-opacity hover:opacity-90',
-        className
-      )}
-      aria-label={`${displayName} @${accountId}`}
-    >
+  let avatar: ReactNode;
+  if (lookup.avatarUrl) {
+    avatar = (
+      <img
+        src={lookup.avatarUrl}
+        alt=""
+        className="h-full w-full object-cover"
+      />
+    );
+  } else if (socialName) {
+    avatar = (
+      <span className="flex h-full w-full items-center justify-center text-[0.65rem] font-semibold leading-none text-muted-foreground">
+        {socialName.charAt(0).toUpperCase()}
+      </span>
+    );
+  } else {
+    avatar = (
+      <span className="flex h-full w-full items-center justify-center text-muted-foreground">
+        <FallbackIcon className="h-3.5 w-3.5" />
+      </span>
+    );
+  }
+
+  const body = (
+    <>
       <span
         className={cn(
           'relative block shrink-0 overflow-hidden rounded-full border border-border/40 bg-muted/30',
           resolvedAvatarClass
         )}
       >
-        {lookup.avatarUrl ? (
-          <img
-            src={lookup.avatarUrl}
-            alt=""
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <span className="flex h-full w-full items-center justify-center text-muted-foreground">
-            <User className="h-3.5 w-3.5" strokeWidth={2} />
-          </span>
-        )}
+        {avatar}
       </span>
       <span className="flex min-w-0 flex-col leading-tight">
         <span
           className={cn(
-            'truncate font-semibold tracking-[-0.01em] text-foreground transition-colors group-hover/chip:text-foreground/80',
+            'truncate font-semibold tracking-[-0.01em] text-foreground transition-colors',
+            profileHref ? 'group-hover/chip:text-foreground/80' : null,
             dense || compact ? 'portal-type-body' : 'portal-type-lead'
           )}
         >
@@ -146,6 +169,35 @@ export function GovernanceAccountChip({
           @{accountId}
         </span>
       </span>
+    </>
+  );
+
+  if (!profileHref) {
+    return (
+      <span
+        className={cn(
+          'inline-flex w-fit max-w-full min-w-0 items-center gap-2 overflow-hidden',
+          className
+        )}
+        aria-label={`${displayName} @${accountId}`}
+      >
+        {body}
+      </span>
+    );
+  }
+
+  return (
+    <Link
+      href={profileHref}
+      prefetch
+      onClick={(event) => event.stopPropagation()}
+      className={cn(
+        'group/chip inline-flex w-fit max-w-full min-w-0 items-center gap-2 overflow-hidden transition-opacity hover:opacity-90',
+        className
+      )}
+      aria-label={`${displayName} @${accountId}`}
+    >
+      {body}
     </Link>
   );
 }

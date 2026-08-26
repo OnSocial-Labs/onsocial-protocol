@@ -18,6 +18,7 @@ import {
   ShareIcon,
   UserMinusIcon,
   osProposalCardActionsClassName,
+  resolveGovernanceAccountSubjectKind,
 } from '@onsocial/ui';
 import { ProtocolAccountChip } from '@/features/protocol/protocol-account-chip';
 import {
@@ -213,6 +214,21 @@ export function ProtocolProposalCard({
     view.targetKind === 'routing' && view.targetValue
       ? splitRoutingTargetDisplay(view.targetValue)
       : null;
+  const subjectKind = useMemo(
+    () =>
+      resolveGovernanceAccountSubjectKind({
+        subjectEyebrow: view.subjectEyebrow,
+        targetKind: view.targetKind,
+        subjectAccount: view.subjectAccount,
+        targetAccountId: view.targetAccount,
+      }),
+    [
+      view.subjectEyebrow,
+      view.targetKind,
+      view.subjectAccount,
+      view.targetAccount,
+    ]
+  );
   const hasIdentity =
     Boolean(view.subjectAccount) ||
     Boolean(view.subjectText) ||
@@ -338,6 +354,7 @@ export function ProtocolProposalCard({
                         protocolRoleId={protocolRoleByAccount?.get(
                           view.subjectAccount.trim().toLowerCase()
                         )}
+                        subjectKind={subjectKind}
                       />
                     </>
                   ) : view.subjectText ? (
@@ -364,7 +381,7 @@ export function ProtocolProposalCard({
                     {routingDisplay ? (
                       <span className="protocol-card-routing-value">
                         {routingDisplay.minLabel ? (
-                          <span className="protocol-card-identity-value">
+                          <span className="protocol-card-identity-value is-muted">
                             {routingDisplay.minLabel}
                           </span>
                         ) : null}

@@ -96,6 +96,8 @@ export {
   ArrowLeftIcon,
   ArrowUpRightIcon,
   BookmarkIcon,
+  Box3dIcon,
+  BoxCheckIcon,
   CameraIcon,
   ChartVerticalIcon,
   CheckIcon,
@@ -136,6 +138,8 @@ export {
   SearchIcon,
   SettingsIcon,
   ShareIcon,
+  ShieldCheckIcon,
+  SecurityShieldIcon,
   ShopIcon,
   StarMovingIcon,
   StarsCIcon,
@@ -147,6 +151,12 @@ export {
   VideoPlayerIcon,
   type MageStrokeIconProps,
 } from './mage-stroke-icons.js';
+export {
+  formatNearAccountFallbackTitle,
+  looksLikeInfrastructureAccount,
+  resolveGovernanceAccountSubjectKind,
+  type GovernanceAccountSubjectKind,
+} from './governance-account-subject.js';
 export {
   ProfileEditorMediaToolbar,
   PROFILE_EDITOR_MEDIA_GLYPH_STROKE,

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { StandingIdentity, standingIdentityLabel } from '@onsocial/ui';
+import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import type { EndorsementPanelItem } from '@/lib/endorsements-panel-data';
 import {
   formatEndorsementTime,
@@ -108,9 +109,14 @@ export function EndorsementListRow({
           profileName={otherName}
           avatarUrl={otherAvatar}
           nameTrailing={
-            topic ? (
-              <span className="endorsement-row-topic">{topic}</span>
-            ) : null
+            <ProtocolNameTrailing
+              accountId={otherAccountId}
+              extra={
+                topic ? (
+                  <span className="endorsement-row-topic">{topic}</span>
+                ) : null
+              }
+            />
           }
         >
           {note ? <span className="endorsement-row-note">{note}</span> : null}

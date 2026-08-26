@@ -91,9 +91,13 @@
 .standing-row-name-row {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3em;
   min-width: 0;
   max-width: 100%;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.5;
 }
 
 .standing-row-name {
@@ -104,10 +108,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.875rem;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  line-height: 1.5;
+  font-size: 1em;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
   color: rgb(var(--fg-rgb) / 0.96);
 }
 

@@ -23,6 +23,8 @@ import {
   GlobeIcon,
   HeartIcon,
   BookmarkIcon,
+  Box3dIcon,
+  BoxCheckIcon,
   ImageIcon,
   MapMarkerIcon,
   InformationCircleIcon,
@@ -42,6 +44,8 @@ import {
   SearchIcon,
   SettingsIcon,
   ShareIcon,
+  ShieldCheckIcon,
+  SecurityShieldIcon,
   ShopIcon,
   StarMovingIcon,
   StarsCIcon,
@@ -73,6 +77,8 @@ describe('mage stroke icons', () => {
     expect(typeof FireIcon).toBe('function');
     expect(typeof HeartIcon).toBe('function');
     expect(typeof BookmarkIcon).toBe('function');
+    expect(typeof Box3dIcon).toBe('function');
+    expect(typeof BoxCheckIcon).toBe('function');
     expect(typeof ImageIcon).toBe('function');
     expect(typeof MapMarkerIcon).toBe('function');
     expect(typeof InformationCircleIcon).toBe('function');
@@ -99,6 +105,8 @@ describe('mage stroke icons', () => {
     expect(typeof SearchIcon).toBe('function');
     expect(typeof SettingsIcon).toBe('function');
     expect(typeof ShareIcon).toBe('function');
+    expect(typeof ShieldCheckIcon).toBe('function');
+    expect(typeof SecurityShieldIcon).toBe('function');
     expect(typeof ShopIcon).toBe('function');
     expect(typeof StarMovingIcon).toBe('function');
     expect(typeof StarsCIcon).toBe('function');
