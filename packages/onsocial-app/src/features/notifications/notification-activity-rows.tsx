@@ -23,6 +23,7 @@ import {
   notificationSystemChrome,
   type NotificationSystemFamily,
 } from '@/lib/notification-display';
+import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import { displayName } from '@/lib/profile-display';
 
 type FillIcon = ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
@@ -118,10 +119,12 @@ function ActivityCopy({
 export function NotificationActivityRows({
   items,
   profiles,
+  guildNames,
   onOpen,
 }: {
   items: Notification[];
   profiles: Record<string, PostAuthorProfile>;
+  guildNames?: Record<string, string>;
   onOpen: (item: Notification) => void;
 }) {
   return (
@@ -136,13 +139,22 @@ export function NotificationActivityRows({
         const system = !leadAccount && isSystemNotification(item);
         const when = formatNotificationTime(item.createdAt);
         const unread = !item.read;
-        const { verb, placeAccountId, snippet } = notificationDetail(item);
+        const {
+          verb,
+          placeAccountId,
+          placeGroupId,
+          placeCollectionId,
+          snippet,
+        } = notificationDetail(item);
         const placeProfile = placeAccountId
           ? profiles[placeAccountId]
           : undefined;
         const placeName = placeAccountId
           ? displayName(placeAccountId, placeProfile?.displayName)
-          : null;
+          : placeGroupId
+            ? guildNames?.[placeGroupId] ||
+              guildDisplayName(null, placeGroupId)
+            : placeCollectionId;
 
         let ariaLead: string;
         let body: ReactNode;

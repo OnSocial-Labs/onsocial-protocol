@@ -9,6 +9,7 @@ import {
   mapGroupProposalNotifications,
   mapRewardsEventNotifications,
   mapScarcesEventNotifications,
+  postSnippetFromValue,
 } from '../../src/services/notifications/worker.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -149,6 +150,21 @@ describe('mapDataUpdateNotifications', () => {
     expect(repostNotifications.map((n) => n.notificationType)).toEqual([
       'repost',
     ]);
+  });
+
+  it('seals a first-line snippet from post text', () => {
+    expect(postSnippetFromValue('{"text":"Nice take"}')).toBe('Nice take');
+    expect(postSnippetFromValue('{"type":"md"}')).toBeNull();
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        value: '{"text":"Nice take"}',
+        parent_author: 'bob.testnet',
+        parent_path: 'bob/post/root',
+        ref_author: null,
+        ref_path: null,
+      })
+    );
+    expect(notifications[0]?.context).toMatchObject({ snippet: 'Nice take' });
   });
 
   it('maps reactions and standings to the target account', () => {

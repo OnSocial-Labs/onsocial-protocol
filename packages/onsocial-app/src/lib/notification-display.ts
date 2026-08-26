@@ -9,6 +9,7 @@ import {
   messagesPath,
   type ProtocolFeedStatusFilter,
 } from '@/lib/app-routes';
+import { formatSocialCompact } from '@/lib/format-social-balance';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { postThreadPath } from '@/lib/post-routes';
 
@@ -122,6 +123,73 @@ export function notificationProfileAccountIds(
   return [...ids];
 }
 
+export function notificationPlaceGroupId(
+  notification: Pick<Notification, 'type' | 'context'>
+): string | null {
+  const type = notification.type;
+  if (
+    type === 'group_invite' ||
+    type === 'group_proposal' ||
+    type === 'reply' ||
+    type === 'quote' ||
+    type === 'repost' ||
+    type === 'mention' ||
+    type === 'reaction'
+  ) {
+    return textField(notification.context, 'groupId');
+  }
+  return null;
+}
+
+export function notificationPlaceCollectionId(
+  notification: Pick<Notification, 'type' | 'context'>
+): string | null {
+  if (
+    notification.type === 'scarces_sold' ||
+    notification.type === 'scarces_offer'
+  ) {
+    return textField(notification.context, 'collectionId');
+  }
+  return null;
+}
+
+export function notificationGroupIds(
+  items: readonly Pick<Notification, 'type' | 'context'>[]
+): string[] {
+  const ids = new Set<string>();
+  for (const item of items) {
+    const groupId = notificationPlaceGroupId(item);
+    if (groupId) ids.add(groupId);
+  }
+  return [...ids];
+}
+
+const SNIPPET_CHARS = 72;
+
+function firstLineSnippet(raw: string | null): string | null {
+  if (!raw) return null;
+  const first = raw.replace(/\s+/g, ' ').trim();
+  if (!first) return null;
+  if (first.length <= SNIPPET_CHARS) return first;
+  return `${first.slice(0, SNIPPET_CHARS - 1).trimEnd()}…`;
+}
+
+function socialAmountSnippet(
+  context: Record<string, unknown> | null | undefined
+): string | null {
+  const raw =
+    textField(context, 'amount') ??
+    textField(context, 'price') ??
+    textField(context, 'bidAmount');
+  if (!raw) return null;
+  if (/^\d+$/.test(raw) && raw.length >= 16) {
+    const label = formatSocialCompact(raw);
+    if (label === '0') return null;
+    return `${label} SOCIAL`;
+  }
+  return `${raw} SOCIAL`;
+}
+
 /** Parse `author/post/{id}` content paths used in notification context. */
 export function parseNotificationPostPath(
   path: string | null | undefined
@@ -169,9 +237,9 @@ export function notificationVerb(
     case 'dm':
       return 'sent a private message';
     case 'group_invite':
-      return 'invited you to a guild';
+      return 'invited you';
     case 'group_proposal':
-      return 'opened a guild proposal';
+      return 'opened a proposal';
     case 'dao_proposal':
       return 'opened a proposal';
     case 'dao_proposal_resolved':
@@ -179,25 +247,25 @@ export function notificationVerb(
     case 'dao_proposal_vote':
       return daoVoteVerb(textField(context, 'vote'));
     case 'scarces_sold':
-      return 'bought your scarce';
+      return 'bought this';
     case 'scarces_offer':
       return 'made an offer';
     case 'reward_credited':
-      return 'credited';
+      return 'SOCIAL credited';
     case 'reward_claimed':
-      return 'collected';
+      return 'SOCIAL collected';
     case 'boost_locked':
-      return 'boost locked';
+      return 'your boost is locked';
     case 'boost_extended':
-      return 'boost extended';
+      return 'your boost was extended';
     case 'boost_unlocked':
-      return 'boost unlocked';
+      return 'your boost unlocked';
     case 'boost_reward_claimed':
-      return 'boost claimed';
+      return 'boost collected';
     case 'boost_credits_purchased':
-      return 'boost credits purchased';
+      return 'credits bought';
     case 'boost_storage_deposited':
-      return 'boost storage deposited';
+      return 'storage deposited';
     case 'app_event':
       return 'app update';
     case 'profile_anniversary': {
@@ -339,21 +407,54 @@ export function formatNotificationTime(iso: string): {
   return { label: calendar.label, title: calendar.title };
 }
 
-/** Verb + optional DAO place + proposal first line (time lives in the row aside). */
+/** Verb + place + object line (time lives in the row aside). */
 export function notificationDetail(
   notification: Pick<Notification, 'type' | 'context'>
-): { verb: string; placeAccountId: string | null; snippet: string | null } {
+): {
+  verb: string;
+  placeAccountId: string | null;
+  placeGroupId: string | null;
+  placeCollectionId: string | null;
+  snippet: string | null;
+} {
   const type = notification.type;
-  const verb = notificationVerb(type, notification.context);
+  const context = notification.context;
+  const verb = notificationVerb(type, context);
   const daoAccountId = notificationDaoAccountId(notification);
-  const snippet = isDaoActivityType(type)
-    ? textField(notification.context, 'description')
-    : null;
   const placeAccountId =
     type === 'dao_proposal' || type === 'dao_proposal_vote'
       ? daoAccountId
       : null;
-  return { verb, placeAccountId, snippet };
+  const placeGroupId = notificationPlaceGroupId(notification);
+  const placeCollectionId = notificationPlaceCollectionId(notification);
+
+  let snippet: string | null = null;
+  if (isDaoActivityType(type)) {
+    snippet = firstLineSnippet(textField(context, 'description'));
+  } else if (type === 'group_proposal') {
+    snippet = firstLineSnippet(
+      textField(context, 'title') ?? textField(context, 'description')
+    );
+  } else if (
+    type === 'scarces_sold' ||
+    type === 'scarces_offer' ||
+    type.startsWith('boost_') ||
+    type.startsWith('reward_')
+  ) {
+    snippet = socialAmountSnippet(context);
+  } else {
+    snippet = firstLineSnippet(
+      textField(context, 'snippet') ?? textField(context, 'text')
+    );
+  }
+
+  return {
+    verb,
+    placeAccountId,
+    placeGroupId,
+    placeCollectionId,
+    snippet,
+  };
 }
 
 export type NotificationSystemFamily =
@@ -419,21 +520,21 @@ function systemAction(
 ): string {
   switch (type) {
     case 'boost_reward_claimed':
-      return 'Claimed';
+      return 'Boost collected';
     case 'boost_locked':
-      return 'Locked';
+      return 'Your boost is locked';
     case 'boost_extended':
-      return 'Extended';
+      return 'Your boost was extended';
     case 'boost_unlocked':
-      return 'Unlocked';
+      return 'Your boost unlocked';
     case 'boost_credits_purchased':
-      return 'Credits purchased';
+      return 'Credits bought';
     case 'boost_storage_deposited':
       return 'Storage deposited';
     case 'reward_credited':
-      return 'Credited';
+      return 'SOCIAL credited';
     case 'reward_claimed':
-      return 'Collected';
+      return 'SOCIAL collected';
     case 'profile_anniversary': {
       const years = numberField(context, 'years');
       if (years === 1) return '1 year on OnSocial';
@@ -479,10 +580,16 @@ export function notificationExplorerHref(
 export function notificationDescription(
   notification: Pick<Notification, 'type' | 'context' | 'createdAt'>
 ): string {
-  const { verb, placeAccountId, snippet } = notificationDetail(notification);
+  const { verb, placeAccountId, placeGroupId, placeCollectionId, snippet } =
+    notificationDetail(notification);
   const when = formatNotificationTime(notification.createdAt).label;
-  const parts = [verb, placeAccountId, snippet, when || null].filter(
-    (part): part is string => Boolean(part)
-  );
+  const parts = [
+    verb,
+    placeAccountId,
+    placeGroupId,
+    placeCollectionId,
+    snippet,
+    when || null,
+  ].filter((part): part is string => Boolean(part));
   return parts.join(' · ');
 }

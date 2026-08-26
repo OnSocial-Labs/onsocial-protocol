@@ -24,10 +24,12 @@ describe('notification display', () => {
   it('maps verbs', () => {
     expect(notificationVerb('standing_new')).toBe('stood with you');
     expect(notificationVerb('dm')).toBe('sent a private message');
-    expect(notificationVerb('boost_locked')).toBe('boost locked');
-    expect(notificationVerb('reward_credited')).toBe('credited');
-    expect(notificationVerb('reward_claimed')).toBe('collected');
-    expect(notificationVerb('boost_reward_claimed')).toBe('boost claimed');
+    expect(notificationVerb('boost_locked')).toBe('your boost is locked');
+    expect(notificationVerb('reward_credited')).toBe('SOCIAL credited');
+    expect(notificationVerb('reward_claimed')).toBe('SOCIAL collected');
+    expect(notificationVerb('boost_reward_claimed')).toBe('boost collected');
+    expect(notificationVerb('group_invite')).toBe('invited you');
+    expect(notificationVerb('scarces_sold')).toBe('bought this');
     expect(notificationVerb('dao_proposal')).toBe('opened a proposal');
     expect(
       notificationVerb('dao_proposal_resolved', { status: 'Approved' })
@@ -126,6 +128,22 @@ describe('notification display', () => {
         },
       })
     ).toBe('/@gov.sputnik-dao.testnet?status=open&proposal=12');
+
+    expect(
+      notificationHref({
+        type: 'scarces_sold',
+        actor: 'bob.testnet',
+        context: { collectionId: 'night-drive' },
+      })
+    ).toBe('/collection/night-drive');
+
+    expect(
+      notificationHref({
+        type: 'boost_locked',
+        actor: 'alice.testnet',
+        context: {},
+      })
+    ).toBe('/home');
   });
 
   it('builds relative description lines', () => {
@@ -184,7 +202,13 @@ describe('notification display', () => {
         type: 'standing_new',
         context: {},
       })
-    ).toEqual({ verb: 'stood with you', placeAccountId: null, snippet: null });
+    ).toEqual({
+      verb: 'stood with you',
+      placeAccountId: null,
+      placeGroupId: null,
+      placeCollectionId: null,
+      snippet: null,
+    });
     expect(
       notificationDetail({
         type: 'dao_proposal',
@@ -196,6 +220,8 @@ describe('notification display', () => {
     ).toEqual({
       verb: 'opened a proposal',
       placeAccountId: 'gov.sputnik-dao.testnet',
+      placeGroupId: null,
+      placeCollectionId: null,
       snippet: 'Fund builders',
     });
     expect(
@@ -210,7 +236,54 @@ describe('notification display', () => {
     ).toEqual({
       verb: 'Proposal approved',
       placeAccountId: null,
+      placeGroupId: null,
+      placeCollectionId: null,
       snippet: 'Fund builders',
+    });
+    expect(
+      notificationDetail({
+        type: 'group_proposal',
+        context: {
+          groupId: 'writers',
+          title: 'Add mods',
+        },
+      })
+    ).toEqual({
+      verb: 'opened a proposal',
+      placeAccountId: null,
+      placeGroupId: 'writers',
+      placeCollectionId: null,
+      snippet: 'Add mods',
+    });
+    expect(
+      notificationDetail({
+        type: 'reply',
+        context: {
+          groupId: 'writers',
+          snippet: 'Nice take',
+        },
+      })
+    ).toEqual({
+      verb: 'replied to your post',
+      placeAccountId: null,
+      placeGroupId: 'writers',
+      placeCollectionId: null,
+      snippet: 'Nice take',
+    });
+    expect(
+      notificationDetail({
+        type: 'scarces_sold',
+        context: {
+          collectionId: 'night-drive',
+          price: '12000000000000000000',
+        },
+      })
+    ).toEqual({
+      verb: 'bought this',
+      placeAccountId: null,
+      placeGroupId: null,
+      placeCollectionId: 'night-drive',
+      snippet: '12.00 SOCIAL',
     });
   });
 
@@ -266,7 +339,7 @@ describe('notification display', () => {
     ).toEqual({
       family: 'boost',
       familyLabel: 'Boost',
-      action: 'Claimed',
+      action: 'Boost collected',
     });
     expect(
       notificationSystemChrome({
@@ -276,7 +349,7 @@ describe('notification display', () => {
     ).toEqual({
       family: 'collect',
       familyLabel: 'Collect',
-      action: 'Credited',
+      action: 'SOCIAL credited',
     });
     expect(
       notificationSystemChrome({
@@ -286,7 +359,17 @@ describe('notification display', () => {
     ).toEqual({
       family: 'collect',
       familyLabel: 'Collect',
-      action: 'Collected',
+      action: 'SOCIAL collected',
+    });
+    expect(
+      notificationSystemChrome({
+        type: 'boost_locked',
+        context: {},
+      })
+    ).toEqual({
+      family: 'boost',
+      familyLabel: 'Boost',
+      action: 'Your boost is locked',
     });
     expect(
       notificationSystemChrome({

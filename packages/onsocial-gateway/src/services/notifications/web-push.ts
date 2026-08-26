@@ -370,35 +370,52 @@ export function pushNotificationVerb(
     case 'dm':
       return 'sent a private message';
     case 'group_invite':
-      return 'invited you to a guild';
+      return 'invited you';
     case 'group_proposal':
-      return 'opened a guild proposal';
+      return 'opened a proposal';
     case 'dao_proposal':
-      return 'opened a DAO proposal';
-    case 'dao_proposal_resolved':
-      return 'DAO proposal updated';
+      return 'opened a proposal';
+    case 'dao_proposal_resolved': {
+      const status = textField(_context, 'status');
+      switch ((status ?? '').trim()) {
+        case 'Approved':
+          return 'Proposal approved';
+        case 'Rejected':
+          return 'Proposal rejected';
+        case 'Removed':
+          return 'Proposal removed';
+        case 'Expired':
+          return 'Proposal expired';
+        case 'Failed':
+          return 'Proposal failed';
+        case 'Moved':
+          return 'Proposal moved';
+        default:
+          return 'Proposal resolved';
+      }
+    }
     case 'dao_proposal_vote':
-      return 'voted on your DAO proposal';
+      return 'voted on your proposal';
     case 'scarces_sold':
-      return 'bought your scarce';
+      return 'bought this';
     case 'scarces_offer':
       return 'made an offer';
     case 'reward_credited':
-      return 'credited';
+      return 'SOCIAL credited';
     case 'reward_claimed':
-      return 'collected';
+      return 'SOCIAL collected';
     case 'boost_locked':
-      return 'boost locked';
+      return 'your boost is locked';
     case 'boost_extended':
-      return 'boost extended';
+      return 'your boost was extended';
     case 'boost_unlocked':
-      return 'boost unlocked';
+      return 'your boost unlocked';
     case 'boost_reward_claimed':
-      return 'boost claimed';
+      return 'boost collected';
     case 'boost_credits_purchased':
-      return 'boost credits purchased';
+      return 'credits bought';
     case 'boost_storage_deposited':
-      return 'boost storage deposited';
+      return 'storage deposited';
     case 'app_event':
       return 'app update';
     case 'profile_anniversary': {
@@ -473,11 +490,54 @@ export function pushNotificationUrl(row: {
     return '/notifications';
   }
 
+  if (type === 'scarces_sold' || type === 'scarces_offer') {
+    const collectionId = textField(context, 'collectionId');
+    if (collectionId) {
+      return `/collection/${encodeURIComponent(collectionId)}`;
+    }
+  }
+
+  if (type.startsWith('boost_') || type.startsWith('reward_')) {
+    return '/home';
+  }
+
+  if (
+    type === 'reply' ||
+    type === 'quote' ||
+    type === 'repost' ||
+    type === 'mention' ||
+    type === 'reaction'
+  ) {
+    const groupId = textField(context, 'groupId');
+    const fromPath =
+      parsePushPostPath(textField(context, 'parentPath')) ??
+      parsePushPostPath(textField(context, 'refPath')) ??
+      parsePushPostPath(textField(context, 'reactionTargetPath')) ??
+      parsePushPostPath(textField(context, 'path'));
+    const postId = fromPath?.postId ?? textField(context, 'postId');
+    const author = fromPath?.author ?? actor;
+    if (author && postId) {
+      if (groupId) {
+        return `/groups/${encodeURIComponent(groupId)}/posts/${encodeURIComponent(author)}/${encodeURIComponent(postId)}`;
+      }
+      return `/@${encodeURIComponent(author)}/posts/${encodeURIComponent(postId)}`;
+    }
+  }
+
   if (actor) {
     return `/@${encodeURIComponent(actor)}`;
   }
 
   return '/notifications';
+}
+
+function parsePushPostPath(
+  path: string | null
+): { author: string; postId: string } | null {
+  if (!path) return null;
+  const match = path.trim().match(/^(.+)\/post\/(.+)$/);
+  if (!match?.[1] || !match[2]) return null;
+  return { author: match[1], postId: match[2] };
 }
 
 export function buildWebPushPayload(row: NotificationRow): WebPushPayload {

@@ -280,6 +280,23 @@ function buildNotification(
 }
 
 /** Mentions live on PostV1 inside the indexed `value` JSON column. */
+const POST_SNIPPET_CHARS = 72;
+
+/** First line of post `text` for Activity / push. */
+export function postSnippetFromValue(value: string | null): string | null {
+  if (!value?.trim()) return null;
+  try {
+    const parsed = JSON.parse(value) as { text?: unknown };
+    const text = typeof parsed?.text === 'string' ? parsed.text : '';
+    const first = text.replace(/\s+/g, ' ').trim();
+    if (!first) return null;
+    if (first.length <= POST_SNIPPET_CHARS) return first;
+    return `${first.slice(0, POST_SNIPPET_CHARS - 1).trimEnd()}…`;
+  } catch {
+    return null;
+  }
+}
+
 function parseMentions(value: string | null): string[] {
   if (!value) return [];
   try {
@@ -327,6 +344,7 @@ export function mapDataUpdateNotifications(
         path: normalizeText(row.path),
         parentPath: normalizeText(row.parent_path),
         groupId: normalizeText(row.group_id),
+        snippet: postSnippetFromValue(row.value),
       },
     });
 
@@ -343,6 +361,7 @@ export function mapDataUpdateNotifications(
         refPath: normalizeText(row.ref_path),
         groupId: normalizeText(row.group_id),
         refType: shareType,
+        snippet: postSnippetFromValue(row.value),
       },
     });
 
@@ -385,6 +404,7 @@ export function mapDataUpdateNotifications(
           postId: normalizeText(row.data_id),
           path: normalizeText(row.path),
           groupId: normalizeText(row.group_id),
+          snippet: postSnippetFromValue(row.value),
         },
       });
       if (mention) {

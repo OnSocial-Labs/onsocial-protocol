@@ -12,6 +12,7 @@ import {
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useGuildDisplayNames } from '@/hooks/use-guild-display-names';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
   requestNotificationsUnreadRefresh,
@@ -28,6 +29,7 @@ import {
 } from '@/features/notifications/notification-activity-rows';
 import {
   ACTIVITY_EXCLUDE_TYPE,
+  notificationGroupIds,
   notificationHref,
   notificationProfileAccountIds,
 } from '@/lib/notification-display';
@@ -69,6 +71,11 @@ export function NotificationsPanel() {
     [items]
   );
   const profiles = usePostAuthorProfiles(profileIds);
+  const groupIds = useMemo(
+    () => notificationGroupIds(items ?? []),
+    [items]
+  );
+  const guildNames = useGuildDisplayNames(groupIds);
 
   const withAuth = useCallback(async () => {
     const { client, session, wallet, accountId: id } = await getClient();
@@ -266,6 +273,7 @@ export function NotificationsPanel() {
             <NotificationActivityRows
               items={items}
               profiles={profiles}
+              guildNames={guildNames}
               onOpen={openItem}
             />
             {nextCursor ? (
