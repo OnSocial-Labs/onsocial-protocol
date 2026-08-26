@@ -217,7 +217,7 @@ export function PortfolioSummonDock({
         data-mood={dockMoodId ?? undefined}
         style={dockMoodStyle}
       >
-        {showHint && !pageDrawerOpen ? (
+        {showHint && !pageDrawerOpen && !write ? (
           <p className="portfolio-summon-hint" aria-hidden="true">
             Swipe up · hold for apps
           </p>

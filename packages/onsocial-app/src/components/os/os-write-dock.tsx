@@ -20,6 +20,7 @@ import {
   writeDockCanSend,
   writeDockShouldSendOnEnter,
   writeDockShowExpand,
+  writeDockShowMedia,
   writeDockShowSend,
 } from '@/lib/os-write-dock';
 import {
@@ -156,7 +157,9 @@ export function OsWriteDock({
     disabled || pending
   );
   const showSend = writeDockShowSend(canSend, pending);
+  const showMedia = writeDockShowMedia(expanded);
   const showExpand = writeDockShowExpand(Boolean(onExpand), expanded);
+  const showTools = showMedia || showExpand || showSend;
 
   const persistDraft = (nextText: string, nextFile: File | null) => {
     if (!draftKey) return;
@@ -321,20 +324,24 @@ export function OsWriteDock({
             void handleSubmit();
           }}
         />
-        <Divider
-          orientation="vertical"
-          variant="detail"
-          className="portfolio-summon-divider os-write-dock-divider"
-        />
-        <button
-          type="button"
-          className="os-write-dock-tool"
-          aria-label="Attach photo or video"
-          disabled={disabled || pending}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <ImageIcon className="os-write-dock-media-icon" aria-hidden />
-        </button>
+        {showTools ? (
+          <Divider
+            orientation="vertical"
+            variant="detail"
+            className="portfolio-summon-divider os-write-dock-divider"
+          />
+        ) : null}
+        {showMedia ? (
+          <button
+            type="button"
+            className="os-write-dock-tool"
+            aria-label="Attach photo or video"
+            disabled={disabled || pending}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <ImageIcon className="os-write-dock-media-icon" aria-hidden />
+          </button>
+        ) : null}
         {showExpand ? (
           <button
             type="button"

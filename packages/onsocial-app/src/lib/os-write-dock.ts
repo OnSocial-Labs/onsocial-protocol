@@ -16,6 +16,11 @@ export function writeDockShowSend(canSend: boolean, pending = false): boolean {
   return pending || canSend;
 }
 
+/** Media stays off the compact rest; it appears once the dock is open. */
+export function writeDockShowMedia(expanded: boolean): boolean {
+  return expanded;
+}
+
 /** Expand stays off the compact rest; it appears once the dock is open. */
 export function writeDockShowExpand(
   hasExpand: boolean,

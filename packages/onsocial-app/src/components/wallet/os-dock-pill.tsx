@@ -25,8 +25,7 @@ interface OsDockPillProps {
 /**
  * Unified OS dock — [activity] | [account] | grip | optional now-playing |
  * | [compose]. Write mode drops activity + grip:
- * [avatar] | [type | media]; expand after open; send when ready.
- * Hold avatar for apps.
+ * [avatar] | [type]; media and expand after open; send when ready.
  */
 export function OsDockPill({
   pageAccountId,

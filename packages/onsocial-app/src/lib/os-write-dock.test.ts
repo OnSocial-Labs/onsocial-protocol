@@ -6,6 +6,7 @@ import {
   writeDockReplyPlaceholder,
   writeDockShouldSendOnEnter,
   writeDockShowExpand,
+  writeDockShowMedia,
   writeDockShowSend,
 } from '@/lib/os-write-dock';
 
@@ -28,6 +29,11 @@ describe('os write dock helpers', () => {
     expect(writeDockShowExpand(true, false)).toBe(false);
     expect(writeDockShowExpand(true, true)).toBe(true);
     expect(writeDockShowExpand(false, true)).toBe(false);
+  });
+
+  it('shows media only after the dock is open', () => {
+    expect(writeDockShowMedia(false)).toBe(false);
+    expect(writeDockShowMedia(true)).toBe(true);
   });
 
   it('does not send on Enter during SSR', () => {
