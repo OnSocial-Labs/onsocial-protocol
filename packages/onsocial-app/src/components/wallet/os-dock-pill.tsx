@@ -18,8 +18,6 @@ interface OsDockPillProps {
   action?: ReactNode;
   /** Compact write bar — grows the pill and replaces now-playing + pen. */
   write?: ReactNode;
-  /** Hold the avatar while writing to open the app launcher. */
-  onHoldApps?: () => void;
 }
 
 /**
@@ -33,16 +31,12 @@ export function OsDockPill({
   nowPlaying,
   action,
   write,
-  onHoldApps,
 }: OsDockPillProps) {
   const writing = Boolean(write);
   if (writing) {
     return (
       <div className={`${osDockPillClassName} portfolio-summon is-writing`}>
-        <OsDockAccountZone
-          pageAccountId={pageAccountId}
-          onHoldApps={onHoldApps}
-        />
+        <OsDockAccountZone pageAccountId={pageAccountId} />
         <Divider
           orientation="vertical"
           variant="detail"

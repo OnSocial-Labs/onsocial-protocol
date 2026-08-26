@@ -434,7 +434,6 @@ export function SummonLauncher({
           ) : null}
           <OsDockPill
             pageAccountId={pageAccountId}
-            onHoldApps={write ? () => setOpen(true) : undefined}
             grip={
               <button
                 type="button"
