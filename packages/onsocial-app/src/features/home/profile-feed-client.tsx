@@ -147,7 +147,7 @@ export function ProfileFeedClient({
     [viewerId]
   );
 
-  const { openReply, openQuote, openRepost, openUndoRepost, sheet } =
+  const { openReply, openFullReply, openQuote, openRepost, openUndoRepost, sheet } =
     usePersonalComposer({
       registerPen: false,
       destinationLabel,
@@ -155,7 +155,7 @@ export function ProfileFeedClient({
       onUnreposted,
     });
 
-  const replyHandler = isConnected ? openReply : undefined;
+  const replyHandler = openReply;
   const quoteHandler = isConnected ? openQuote : undefined;
   const repostHandler = isConnected ? openRepost : undefined;
   const undoRepostHandler = isConnected ? openUndoRepost : undefined;
@@ -231,6 +231,7 @@ export function ProfileFeedClient({
         posts={visiblePosts}
         includeForeignReplies={tab === 'replies'}
         onReply={replyHandler}
+        onExpandReply={openFullReply}
         onQuote={quoteHandler}
         onRepost={repostHandler}
         onUndoRepost={undoRepostHandler}

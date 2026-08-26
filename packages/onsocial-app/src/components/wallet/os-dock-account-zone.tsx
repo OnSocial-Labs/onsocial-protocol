@@ -33,7 +33,9 @@ export function OsDockAccountZone({ pageAccountId }: OsDockAccountZoneProps) {
         type="button"
         className="portfolio-summon-account is-connect"
         aria-label="Connect wallet"
-        onClick={() => void connect()}
+        onClick={() => {
+          void connect();
+        }}
       >
         <span className="app-wallet-connect-glyph" aria-hidden />
       </button>
@@ -50,7 +52,9 @@ export function OsDockAccountZone({ pageAccountId }: OsDockAccountZoneProps) {
       aria-haspopup="dialog"
       aria-expanded={open}
       title={`@${label}`}
-      onClick={() => openAccountSheet({ pageAccountId })}
+      onClick={() => {
+        openAccountSheet({ pageAccountId });
+      }}
     >
       <ProfileAvatar
         src={avatarUrl}

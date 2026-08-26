@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
+import type { WriteDockSubmit } from '@/contexts/compose-launcher-context';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { PostCard, postKey } from '@/features/home/post-card';
 import {
@@ -51,6 +52,7 @@ interface FeedThreadBlockProps {
   isPollVotePending?: (post: PostRow) => boolean;
   onPollVote?: (post: PostRow, optionIndex: number) => void;
   onReply?: (post: PostRow) => void;
+  onExpandReply?: (post: PostRow, draft: WriteDockSubmit) => void;
   onQuote?: (post: PostRow) => void;
   onRepost?: (post: PostRow) => void;
   onUndoRepost?: (post: PostRow) => void;
@@ -104,6 +106,7 @@ export function FeedThreadBlock({
   isPollVotePending,
   onPollVote,
   onReply,
+  onExpandReply,
   onQuote,
   onRepost,
   onUndoRepost,
@@ -227,6 +230,7 @@ export function FeedThreadBlock({
           pollVotePending={isPollVotePending?.(card)}
           onPollVote={onPollVote}
           onReply={onReply}
+          onExpandReply={onExpandReply}
           onQuote={onQuote}
           onRepost={onRepost}
           onUndoRepost={onUndoRepost}

@@ -11,7 +11,21 @@ import {
   submitPersonalRepost,
   submitPersonalUnrepost,
 } from '@/features/home/submit-personal-post';
-import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
+import {
+  useFocusWriteDock,
+  type WriteDockSubmit,
+} from '@/contexts/compose-launcher-context';
+import { OsWriteDockReplyChip } from '@/components/os/os-write-dock';
+import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
+import {
+  writeDockDraftKey,
+  writeDockReplyPlaceholder,
+} from '@/lib/os-write-dock';
+import {
+  clearWriteDockDraft,
+  writeDockDraftFromComposer,
+  writeWriteDockDraft,
+} from '@/lib/os-write-dock-draft';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import { postMetaFromText } from '@/features/home/post-mentions';
@@ -56,7 +70,10 @@ import {
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
-import { resolveQuotedInset, collectRelationTargetAccountIds } from '@/lib/post-relation';
+import {
+  resolveQuotedInset,
+  collectRelationTargetAccountIds,
+} from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   setGuildMembershipActionPending,
@@ -186,7 +203,12 @@ export function LiveGuildPostPanel({
   const [confirmingLeave, setConfirmingLeave] = useState(false);
   const joinActionPending = useGuildMembershipActionPending(accountId, groupId);
   const [modalTarget, setModalTarget] = useState<PostRow | null>(null);
-  const [modalMode, setModalMode] = useState<GuildComposerMode>('reply');
+  const [modalMode, setModalMode] = useState<GuildComposerMode>('quote');
+  const [modalSeed, setModalSeed] = useState<{ text: string; files: File[] }>({
+    text: '',
+    files: [],
+  });
+  const [dockTarget, setDockTarget] = useState<PostRow | null>(null);
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [activeThreadTab, setActiveThreadTab] = useState<ThreadTab>('replies');
@@ -252,12 +274,16 @@ export function LiveGuildPostPanel({
         .join('\n'),
     [replyRows]
   );
-  const threadFocus = useThreadFocusReply(loadState === 'ready', replyFocusKey, {
-    onFocusReply: () => {
-      setActiveThreadTab('replies');
-      setThreadTabTouched(true);
-    },
-  });
+  const threadFocus = useThreadFocusReply(
+    loadState === 'ready',
+    replyFocusKey,
+    {
+      onFocusReply: () => {
+        setActiveThreadTab('replies');
+        setThreadTabTouched(true);
+      },
+    }
+  );
   // Quotes read newest-first — your fresh quote leads the list.
   const quotes = useMemo(
     () => [
@@ -753,7 +779,11 @@ export function LiveGuildPostPanel({
         } else {
           scheduleReconcile();
         }
+        if (modalMode === 'reply') {
+          clearWriteDockDraft(writeDockDraftKey('post', postKey(target)));
+        }
         setModalTarget(null);
+        setModalSeed({ text: '', files: [] });
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
@@ -769,20 +799,27 @@ export function LiveGuildPostPanel({
     }
   };
 
-  const replyHandler = canPostInThread
-    ? (post: PostRow) => {
-        const channel = post.channel ?? threadChannel;
-        if (!canPostInChannel(channel)) return;
-        openComposerModal('reply')(post);
-      }
-    : undefined;
+  const focusWriteDock = useFocusWriteDock();
+  const replyHandler = (post: PostRow) => {
+    const channel = post.channel ?? threadChannel;
+    if (accountId && !canPostInChannel(channel)) return;
+    setDockTarget(post);
+    focusWriteDock();
+  };
   const quoteHandler = canPostInThread
     ? (post: PostRow) => {
         const channel = post.channel ?? threadChannel;
         if (!canPostInChannel(channel)) return;
+        setModalSeed({ text: '', files: [] });
         openComposerModal('quote')(post);
       }
     : undefined;
+  const expandReply = (post: PostRow, payload: WriteDockSubmit) => {
+    const channel = post.channel ?? threadChannel;
+    if (accountId && !canPostInChannel(channel)) return;
+    setModalSeed({ text: payload.text, files: payload.files });
+    openComposerModal('reply')(post);
+  };
   const repostHandler = canPostInThread
     ? (post: PostRow) => {
         const channel = post.channel ?? threadChannel;
@@ -845,15 +882,46 @@ export function LiveGuildPostPanel({
         )
       : undefined;
 
-  // Dock pen on a thread page = reply to the thread root.
   const root = conversation.root;
-  const composeReplyToRoot = useCallback(() => {
-    if (!root) return;
-    setModalMode('reply');
-    setModalError(null);
-    setModalTarget(root);
-  }, [root]);
-  useRegisterComposeAction(canPostInThread && root ? composeReplyToRoot : null);
+  const writeTarget = dockTarget ?? root;
+  const nestedDockReply = Boolean(
+    root && writeTarget && postKey(writeTarget) !== postKey(root)
+  );
+  const writeName = writeTarget
+    ? postAuthorProfiles[writeTarget.accountId]?.displayName
+    : null;
+  const threadDraftKey = root
+    ? writeDockDraftKey('post', postKey(root))
+    : undefined;
+  const writeAbove = nestedDockReply ? (
+    <OsWriteDockReplyChip
+      label={writeName?.trim() || 'this post'}
+      onCancel={() => setDockTarget(null)}
+    />
+  ) : null;
+  useReplyWriteDock({
+    target: writeTarget,
+    enabled: Boolean(root) && (!accountId || canPostInThread) && !modalTarget,
+    placeholder: nestedDockReply
+      ? writeDockReplyPlaceholder(writeName)
+      : 'Add a reply…',
+    above: writeAbove,
+    revision: writeTarget ? postKey(writeTarget) : '',
+    draftKey: threadDraftKey,
+    onExpand: writeTarget
+      ? (payload) => expandReply(writeTarget, payload)
+      : undefined,
+    onConfirmed: (reply, target) => {
+      if (conversation.root && postKey(target) === postKey(conversation.root)) {
+        setLocalReplies((current) => [...current, reply]);
+        threadFocus.requestFocus(reply);
+        setActiveThreadTab('replies');
+        setThreadTabTouched(true);
+      }
+      scheduleReconcile();
+      setDockTarget(null);
+    },
+  });
 
   const membershipHint = accountId
     ? (readGuildMembershipCache(accountId, groupId) ?? null)
@@ -1139,6 +1207,7 @@ export function LiveGuildPostPanel({
                     onToggleSave={toggleSave}
                     onAmplifyConfirmed={confirmAmplify}
                     onReply={replyHandler}
+                    onExpandReply={expandReply}
                     onQuote={quoteHandler}
                     onRepost={repostHandler}
                     onUndoRepost={undoRepostHandler}
@@ -1203,6 +1272,7 @@ export function LiveGuildPostPanel({
                   onToggleSave={toggleSave}
                   onAmplifyConfirmed={confirmAmplify}
                   onReply={replyHandler}
+                  onExpandReply={expandReply}
                   onQuote={quoteHandler}
                   onRepost={repostHandler}
                   onUndoRepost={undoRepostHandler}
@@ -1218,20 +1288,6 @@ export function LiveGuildPostPanel({
             <Divider variant="detail" />
 
             <div className="guild-thread-chrome">
-              {canPostInThread ? (
-                <button
-                  type="button"
-                  className="guild-reply-prompt"
-                  onClick={() =>
-                    conversation.root
-                      ? openComposerModal('reply')(conversation.root)
-                      : undefined
-                  }
-                >
-                  Add a reply…
-                </button>
-              ) : null}
-
               <div
                 className="guild-thread-tabs"
                 role="tablist"
@@ -1362,6 +1418,7 @@ export function LiveGuildPostPanel({
                             onToggleSave={toggleSave}
                             onAmplifyConfirmed={confirmAmplify}
                             onReply={replyHandler}
+                            onExpandReply={expandReply}
                             onQuote={quoteHandler}
                             onRepost={repostHandler}
                             onUndoRepost={undoRepostHandler}
@@ -1419,6 +1476,7 @@ export function LiveGuildPostPanel({
                         onToggleSave={toggleSave}
                         onAmplifyConfirmed={confirmAmplify}
                         onReply={replyHandler}
+                        onExpandReply={expandReply}
                         onQuote={quoteHandler}
                         onRepost={repostHandler}
                         onUndoRepost={undoRepostHandler}
@@ -1461,10 +1519,26 @@ export function LiveGuildPostPanel({
           targetAuthorProfile={postAuthorProfiles[modalTarget.accountId]}
           mode={modalMode}
           onModeChange={setModalMode}
+          initialText={modalSeed.text}
+          initialFiles={modalSeed.files}
           pending={modalPending}
           error={modalError}
-          onClose={() => {
-            if (!modalPending) setModalTarget(null);
+          onClose={(draft) => {
+            if (modalPending) return;
+            if (modalMode === 'reply' && draft) {
+              const persistKey =
+                threadDraftKey &&
+                writeTarget &&
+                postKey(modalTarget) === postKey(writeTarget)
+                  ? threadDraftKey
+                  : writeDockDraftKey('post', postKey(modalTarget));
+              writeWriteDockDraft(
+                persistKey,
+                writeDockDraftFromComposer(draft)
+              );
+            }
+            setModalTarget(null);
+            setModalSeed({ text: '', files: [] });
           }}
           onSubmit={(payload) => void submitFromModal(payload)}
         />

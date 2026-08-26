@@ -7,6 +7,7 @@ import { FeedThreadBlock } from '@/features/guilds/feed-thread-block';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { postKey } from '@/features/home/post-card';
 import type { PersonalPostSubmitResult } from '@/features/home/submit-personal-post';
+import type { WriteDockSubmit } from '@/contexts/compose-launcher-context';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import { subscribePersonalReplyConfirmed } from '@/features/scarces/drop-compose-host';
 import {
@@ -30,6 +31,7 @@ import { withRepostOriginals, collectRelationTargetAccountIds } from '@/lib/post
 interface PersonalFeedListProps {
   posts: PostRow[];
   onReply?: (post: PostRow) => void;
+  onExpandReply?: (post: PostRow, draft: WriteDockSubmit) => void;
   onQuote?: (post: PostRow) => void;
   onRepost?: (
     post: PostRow
@@ -58,6 +60,7 @@ interface PersonalFeedListProps {
 export function PersonalFeedList({
   posts,
   onReply,
+  onExpandReply,
   onQuote,
   onRepost,
   onUndoRepost,
@@ -184,6 +187,7 @@ export function PersonalFeedList({
               void castVote(post, optionIndex);
             }}
             onReply={onReply}
+            onExpandReply={onExpandReply}
             onQuote={onQuote}
             onRepost={
               onRepost

@@ -5,20 +5,35 @@ import { useSearchParams } from 'next/navigation';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@onsocial/ui';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
+import {
+  useFocusWriteDock,
+  type WriteDockSubmit,
+} from '@/contexts/compose-launcher-context';
+import { OsWriteDockReplyChip } from '@/components/os/os-write-dock';
+import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
+import {
+  writeDockDraftKey,
+  writeDockReplyPlaceholder,
+} from '@/lib/os-write-dock';
+import {
+  clearWriteDockDraft,
+  writeDockDraftFromComposer,
+  writeWriteDockDraft,
+} from '@/lib/os-write-dock-draft';
 import {
   ComposerSheet,
   type ComposerMode,
   type ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
-import { submitPersonalPost, submitPersonalRepost, submitPersonalUnrepost } from '@/features/home/submit-personal-post';
+import {
+  submitPersonalPost,
+  submitPersonalRepost,
+  submitPersonalUnrepost,
+} from '@/features/home/submit-personal-post';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -30,7 +45,10 @@ import {
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
-import { resolveQuotedInset, collectRelationTargetAccountIds } from '@/lib/post-relation';
+import {
+  resolveQuotedInset,
+  collectRelationTargetAccountIds,
+} from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
 import {
@@ -41,10 +59,7 @@ import {
   type PersonalPostPageData,
 } from '@/lib/load-personal-post-page';
 import { portfolioPath } from '@/lib/overlay-routes';
-import {
-  personalPostContentPath,
-  postThreadPath,
-} from '@/lib/post-routes';
+import { personalPostContentPath, postThreadPath } from '@/lib/post-routes';
 import {
   buildReplyRows,
   flattenTreePosts,
@@ -111,7 +126,12 @@ export function LivePersonalPostPanel({
   const [localReplies, setLocalReplies] = useState<PostRow[]>([]);
   const [localQuotes, setLocalQuotes] = useState<PostRow[]>([]);
   const [modalTarget, setModalTarget] = useState<PostRow | null>(null);
-  const [modalMode, setModalMode] = useState<ComposerMode>('reply');
+  const [modalMode, setModalMode] = useState<ComposerMode>('quote');
+  const [modalSeed, setModalSeed] = useState<{ text: string; files: File[] }>({
+    text: '',
+    files: [],
+  });
+  const [dockTarget, setDockTarget] = useState<PostRow | null>(null);
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [activeThreadTab, setActiveThreadTab] = useState<ThreadTab>('replies');
@@ -165,12 +185,16 @@ export function LivePersonalPostPanel({
         .join('\n'),
     [replyRows]
   );
-  const threadFocus = useThreadFocusReply(loadState === 'ready', replyFocusKey, {
-    onFocusReply: () => {
-      setActiveThreadTab('replies');
-      setThreadTabTouched(true);
-    },
-  });
+  const threadFocus = useThreadFocusReply(
+    loadState === 'ready',
+    replyFocusKey,
+    {
+      onFocusReply: () => {
+        setActiveThreadTab('replies');
+        setThreadTabTouched(true);
+      },
+    }
+  );
   const quotes = useMemo(
     () => [
       ...withoutIndexedPosts(localQuotes, conversation.quotes),
@@ -242,19 +266,21 @@ export function LivePersonalPostPanel({
 
       try {
         const client = createReadOnlyOnSocialClient();
-        const [rootResult, quotesResult, treeResult] = await Promise.allSettled([
-          fetchPersonalPost({ author, postId }),
-          client.query.threads.quotes(author, postId, {
-            limit: QUOTE_PAGE_SIZE,
-            order: 'desc',
-          }),
-          client.query.threads.treeByPath(rootPath, {
-            depth: REPLY_TREE_DEPTH,
-            includeQuotes: false,
-            replyLimit: REPLY_PAGE_SIZE,
-            maxNodes: REPLY_TREE_MAX_NODES,
-          }),
-        ]);
+        const [rootResult, quotesResult, treeResult] = await Promise.allSettled(
+          [
+            fetchPersonalPost({ author, postId }),
+            client.query.threads.quotes(author, postId, {
+              limit: QUOTE_PAGE_SIZE,
+              order: 'desc',
+            }),
+            client.query.threads.treeByPath(rootPath, {
+              depth: REPLY_TREE_DEPTH,
+              includeQuotes: false,
+              replyLimit: REPLY_PAGE_SIZE,
+              maxNodes: REPLY_TREE_MAX_NODES,
+            }),
+          ]
+        );
 
         if (rootResult.status === 'rejected') {
           throw rootResult.reason;
@@ -296,9 +322,7 @@ export function LivePersonalPostPanel({
         if (options.background) return;
         setLoadState('error');
         setError(
-          cause instanceof Error
-            ? cause.message
-            : 'Could not load post thread.'
+          cause instanceof Error ? cause.message : 'Could not load post thread.'
         );
       }
     },
@@ -323,7 +347,11 @@ export function LivePersonalPostPanel({
 
   useEffect(() => {
     if (threadTabTouched) return;
-    if (activeThreadTab === 'replies' && replyCount === 0 && quotes.length > 0) {
+    if (
+      activeThreadTab === 'replies' &&
+      replyCount === 0 &&
+      quotes.length > 0
+    ) {
       setActiveThreadTab('quotes');
     }
   }, [activeThreadTab, quotes.length, replyCount, threadTabTouched]);
@@ -395,7 +423,12 @@ export function LivePersonalPostPanel({
         setLoadingMore(false);
       }
     },
-    [conversation.quotes.length, conversation.replies.length, loadingMore, rootPath]
+    [
+      conversation.quotes.length,
+      conversation.replies.length,
+      loadingMore,
+      rootPath,
+    ]
   );
 
   const canPostInThread = Boolean(isConnected && accountId);
@@ -454,7 +487,11 @@ export function LivePersonalPostPanel({
         } else {
           scheduleReconcile();
         }
+        if (modalMode === 'reply') {
+          clearWriteDockDraft(writeDockDraftKey('post', postKey(target)));
+        }
         setModalTarget(null);
+        setModalSeed({ text: '', files: [] });
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
@@ -470,12 +507,21 @@ export function LivePersonalPostPanel({
     }
   };
 
-  const replyHandler = canPostInThread
-    ? (post: PostRow) => openComposerModal('reply')(post)
-    : undefined;
+  const focusWriteDock = useFocusWriteDock();
+  const replyHandler = (post: PostRow) => {
+    setDockTarget(post);
+    focusWriteDock();
+  };
   const quoteHandler = canPostInThread
-    ? (post: PostRow) => openComposerModal('quote')(post)
+    ? (post: PostRow) => {
+        setModalSeed({ text: '', files: [] });
+        openComposerModal('quote')(post);
+      }
     : undefined;
+  const expandReply = (post: PostRow, payload: WriteDockSubmit) => {
+    setModalSeed({ text: payload.text, files: payload.files });
+    openComposerModal('reply')(post);
+  };
   const repostHandler = canPostInThread
     ? (post: PostRow) => {
         void withSharePending(post, async () => {
@@ -532,13 +578,43 @@ export function LivePersonalPostPanel({
     quoted ? postThreadPath(quoted) : undefined;
 
   const root = conversation.root;
-  const composeReplyToRoot = useCallback(() => {
-    if (!root) return;
-    setModalMode('reply');
-    setModalError(null);
-    setModalTarget(root);
-  }, [root]);
-  useRegisterComposeAction(canPostInThread && root ? composeReplyToRoot : null);
+  const writeTarget = dockTarget ?? root;
+  const nestedDockReply = Boolean(
+    root && writeTarget && postKey(writeTarget) !== postKey(root)
+  );
+  const writeName = writeTarget
+    ? postAuthorProfiles[writeTarget.accountId]?.displayName
+    : null;
+  const threadDraftKey = root
+    ? writeDockDraftKey('post', postKey(root))
+    : undefined;
+  const writeAbove = nestedDockReply ? (
+    <OsWriteDockReplyChip
+      label={writeName?.trim() || 'this post'}
+      onCancel={() => setDockTarget(null)}
+    />
+  ) : null;
+  useReplyWriteDock({
+    target: writeTarget,
+    enabled: Boolean(root) && !modalTarget,
+    placeholder: nestedDockReply
+      ? writeDockReplyPlaceholder(writeName)
+      : 'Add a reply…',
+    above: writeAbove,
+    revision: writeTarget ? postKey(writeTarget) : '',
+    draftKey: threadDraftKey,
+    onExpand: writeTarget
+      ? (payload) => expandReply(writeTarget, payload)
+      : undefined,
+    onConfirmed: (reply, target) => {
+      if (conversation.root && postKey(target) === postKey(conversation.root)) {
+        insertConfirmedRootChild('reply', reply);
+      } else {
+        scheduleReconcile();
+      }
+      setDockTarget(null);
+    },
+  });
 
   const connectAction =
     !walletLoading && !isConnected ? (
@@ -638,6 +714,7 @@ export function LivePersonalPostPanel({
                     onToggleSave={toggleSave}
                     onAmplifyConfirmed={confirmAmplify}
                     onReply={replyHandler}
+                    onExpandReply={expandReply}
                     onQuote={quoteHandler}
                     onRepost={repostHandler}
                     onUndoRepost={undoRepostHandler}
@@ -693,6 +770,7 @@ export function LivePersonalPostPanel({
                   onToggleSave={toggleSave}
                   onAmplifyConfirmed={confirmAmplify}
                   onReply={replyHandler}
+                  onExpandReply={expandReply}
                   onQuote={quoteHandler}
                   onRepost={repostHandler}
                   onUndoRepost={undoRepostHandler}
@@ -708,20 +786,6 @@ export function LivePersonalPostPanel({
             <Divider variant="detail" />
 
             <div className="guild-thread-chrome">
-              {canPostInThread ? (
-                <button
-                  type="button"
-                  className="guild-reply-prompt"
-                  onClick={() =>
-                    conversation.root
-                      ? openComposerModal('reply')(conversation.root)
-                      : undefined
-                  }
-                >
-                  Add a reply…
-                </button>
-              ) : null}
-
               <div
                 className="guild-thread-tabs"
                 role="tablist"
@@ -759,7 +823,9 @@ export function LivePersonalPostPanel({
                   }}
                 >
                   Quotes
-                  <span className="guild-thread-tab-count">{quotes.length}</span>
+                  <span className="guild-thread-tab-count">
+                    {quotes.length}
+                  </span>
                 </button>
               </div>
             </div>
@@ -848,6 +914,7 @@ export function LivePersonalPostPanel({
                             onToggleSave={toggleSave}
                             onAmplifyConfirmed={confirmAmplify}
                             onReply={replyHandler}
+                            onExpandReply={expandReply}
                             onQuote={quoteHandler}
                             onRepost={repostHandler}
                             onUndoRepost={undoRepostHandler}
@@ -872,47 +939,48 @@ export function LivePersonalPostPanel({
                     conversation.root
                   );
                   return (
-                  <div key={postKey(quote)}>
-                    <Divider
-                      variant="item"
-                      className={
-                        index > 0
-                          ? 'post-row-divider'
-                          : 'post-row-divider post-row-divider--leading-hidden'
-                      }
-                    />
-                    <PostCard
-                      post={quote}
-                      authorProfile={postAuthorProfiles[quote.accountId]}
-                      actionHref={postThreadPath(quote)}
-                      showRelationBadge={false}
-                      quotedPost={quoted}
-                      quotedAuthorProfile={
-                        quoted
-                          ? postAuthorProfiles[quoted.accountId]
-                          : undefined
-                      }
-                      quotedHref={quotedHrefFor(quoted)}
-                      engagement={
-                        engagement[postKey(quote)] ?? EMPTY_POST_ENGAGEMENT
-                      }
-                      reactionPending={isReactionPending(quote)}
-                      savePending={isSavePending(quote)}
-                      sharePending={isSharePending(quote)}
-                      onToggleReaction={toggleReaction}
-                      onToggleSave={toggleSave}
-                      onAmplifyConfirmed={confirmAmplify}
-                      onReply={replyHandler}
-                      onQuote={quoteHandler}
-                      onRepost={repostHandler}
-                      onUndoRepost={undoRepostHandler}
-                      pollTally={pollTallyFor(quote)}
-                      pollVotePending={isPollVotePending(quote)}
-                      onPollVote={(post, optionIndex) => {
-                        void castVote(post, optionIndex);
-                      }}
-                    />
-                  </div>
+                    <div key={postKey(quote)}>
+                      <Divider
+                        variant="item"
+                        className={
+                          index > 0
+                            ? 'post-row-divider'
+                            : 'post-row-divider post-row-divider--leading-hidden'
+                        }
+                      />
+                      <PostCard
+                        post={quote}
+                        authorProfile={postAuthorProfiles[quote.accountId]}
+                        actionHref={postThreadPath(quote)}
+                        showRelationBadge={false}
+                        quotedPost={quoted}
+                        quotedAuthorProfile={
+                          quoted
+                            ? postAuthorProfiles[quoted.accountId]
+                            : undefined
+                        }
+                        quotedHref={quotedHrefFor(quoted)}
+                        engagement={
+                          engagement[postKey(quote)] ?? EMPTY_POST_ENGAGEMENT
+                        }
+                        reactionPending={isReactionPending(quote)}
+                        savePending={isSavePending(quote)}
+                        sharePending={isSharePending(quote)}
+                        onToggleReaction={toggleReaction}
+                        onToggleSave={toggleSave}
+                        onAmplifyConfirmed={confirmAmplify}
+                        onReply={replyHandler}
+                        onExpandReply={expandReply}
+                        onQuote={quoteHandler}
+                        onRepost={repostHandler}
+                        onUndoRepost={undoRepostHandler}
+                        pollTally={pollTallyFor(quote)}
+                        pollVotePending={isPollVotePending(quote)}
+                        onPollVote={(post, optionIndex) => {
+                          void castVote(post, optionIndex);
+                        }}
+                      />
+                    </div>
                   );
                 })
               ) : (
@@ -945,10 +1013,26 @@ export function LivePersonalPostPanel({
           targetAuthorProfile={postAuthorProfiles[modalTarget.accountId]}
           mode={modalMode}
           onModeChange={setModalMode}
+          initialText={modalSeed.text}
+          initialFiles={modalSeed.files}
           pending={modalPending}
           error={modalError}
-          onClose={() => {
-            if (!modalPending) setModalTarget(null);
+          onClose={(draft) => {
+            if (modalPending) return;
+            if (modalMode === 'reply' && draft) {
+              const persistKey =
+                threadDraftKey &&
+                writeTarget &&
+                postKey(modalTarget) === postKey(writeTarget)
+                  ? threadDraftKey
+                  : writeDockDraftKey('post', postKey(modalTarget));
+              writeWriteDockDraft(
+                persistKey,
+                writeDockDraftFromComposer(draft)
+              );
+            }
+            setModalTarget(null);
+            setModalSeed({ text: '', files: [] });
           }}
           onSubmit={(payload) => void submitFromModal(payload)}
         />

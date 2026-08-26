@@ -30,7 +30,11 @@ import {
   getCachedAppGatewayAuth,
 } from '@/lib/app-gateway-auth';
 import { APP_HOME_PATH, messagesPath } from '@/lib/app-routes';
-import { decryptDmMessage, isDmDecryptFailureText, sendEncryptedDm } from '@/lib/dm/send';
+import {
+  decryptDmMessage,
+  isDmDecryptFailureText,
+  sendEncryptedDm,
+} from '@/lib/dm/send';
 import {
   DmKeysLockedError,
   DmKeysMismatchError,
@@ -517,10 +521,7 @@ export function MessagesPanel() {
       client: OnSocial,
       accountIdForKeys: string,
       msg: DmMessageRecord,
-      senderKeyCache: Map<
-        string,
-        Awaited<ReturnType<typeof lookupDmPublicKey>>
-      >
+      senderKeyCache: Map<string, Awaited<ReturnType<typeof lookupDmPublicKey>>>
     ): Promise<{ text: string; replyToMessageId?: string }> => {
       try {
         const senderId = msg.senderAccountId.trim().toLowerCase();
@@ -762,11 +763,7 @@ export function MessagesPanel() {
         hasMedia: Boolean(draft.mediaFile),
       });
       if (preview) {
-        rememberInboxPreview(
-          activeThreadIdRef.current,
-          draft.localId,
-          preview
-        );
+        rememberInboxPreview(activeThreadIdRef.current, draft.localId, preview);
       }
       pinThreadToLatestRef.current = true;
     },
@@ -836,40 +833,50 @@ export function MessagesPanel() {
     []
   );
 
-  const handleOutgoingCancel = useCallback((localId: string) => {
-    const draft = outgoingRef.current.find((item) => item.localId === localId);
-    revokeBlobUrls([
-      draft?.mediaPreviewUrl,
-      localMediaByIdRef.current[localId]?.url,
-    ]);
-    setLocalMediaById((prev) => {
-      if (!prev[localId]) return prev;
-      const next = { ...prev };
-      delete next[localId];
-      return next;
-    });
-    setOutgoing((prev) => prev.filter((item) => item.localId !== localId));
-    setPlainById((prev) => {
-      const next = { ...prev };
-      delete next[localId];
-      return next;
-    });
-    setReplyToById((prev) => {
-      const next = { ...prev };
-      delete next[localId];
-      return next;
-    });
-    if (draft?.replyToMessageId) {
-      setReplyDraft({
-        messageId: draft.replyToMessageId,
-        preview: formatDmReplyPreview(plainById[draft.replyToMessageId], false),
+  const handleOutgoingCancel = useCallback(
+    (localId: string) => {
+      const draft = outgoingRef.current.find(
+        (item) => item.localId === localId
+      );
+      revokeBlobUrls([
+        draft?.mediaPreviewUrl,
+        localMediaByIdRef.current[localId]?.url,
+      ]);
+      setLocalMediaById((prev) => {
+        if (!prev[localId]) return prev;
+        const next = { ...prev };
+        delete next[localId];
+        return next;
       });
-    }
-  }, [plainById]);
+      setOutgoing((prev) => prev.filter((item) => item.localId !== localId));
+      setPlainById((prev) => {
+        const next = { ...prev };
+        delete next[localId];
+        return next;
+      });
+      setReplyToById((prev) => {
+        const next = { ...prev };
+        delete next[localId];
+        return next;
+      });
+      if (draft?.replyToMessageId) {
+        setReplyDraft({
+          messageId: draft.replyToMessageId,
+          preview: formatDmReplyPreview(
+            plainById[draft.replyToMessageId],
+            false
+          ),
+        });
+      }
+    },
+    [plainById]
+  );
 
   const retryOutgoing = useCallback(
     async (localId: string) => {
-      const draft = outgoingRef.current.find((item) => item.localId === localId);
+      const draft = outgoingRef.current.find(
+        (item) => item.localId === localId
+      );
       if (!draft || !accountId || retryLockRef.current.has(localId)) return;
       retryLockRef.current.add(localId);
       setOutgoing((prev) =>
@@ -1379,11 +1386,6 @@ export function MessagesPanel() {
           onValueChange={setInboxQuery}
         />
       }
-      footer={
-        composer ? (
-          <div className="messages-screen-composer">{composer}</div>
-        ) : undefined
-      }
       leading={
         <>
           <span className="messages-screen-back-home">
@@ -1406,6 +1408,7 @@ export function MessagesPanel() {
         data-mobile-pane={mobilePane}
         data-keyboard={keyboardOpen ? 'open' : undefined}
       >
+        {composer}
         {unlockPanel}
 
         {isUnlocked && canPasskey && !passkeyEnrolled ? (
@@ -1479,8 +1482,8 @@ export function MessagesPanel() {
               </>
             ) : threads.length === 0 ? (
               <p className="messages-panel-empty">
-                No conversations yet. Search someone, or message them from
-                their profile.
+                No conversations yet. Search someone, or message them from their
+                profile.
               </p>
             ) : inboxThreads &&
               inboxThreads.length === 0 &&
@@ -1491,8 +1494,8 @@ export function MessagesPanel() {
               </p>
             ) : inboxThreads && inboxThreads.length === 0 ? (
               <p className="messages-panel-empty">
-                No conversations yet. Search someone, or message them from
-                their profile.
+                No conversations yet. Search someone, or message them from their
+                profile.
               </p>
             ) : (
               <MessagesInboxThreadRows
@@ -1687,21 +1690,21 @@ export function MessagesPanel() {
                                 className="messages-media"
                               />
                             )
-                          ) : msg.media?.length
-                            ? msg.media.map((item) => (
-                                <DmMediaBubble
-                                  key={`${msg.id}-${item.cid}`}
-                                  accountId={accountId}
-                                  senderAccountId={msg.senderAccountId}
-                                  senderPubkey={msg.senderPubkey}
-                                  ephemeralPubkey={msg.ephemeralPubkey}
-                                  cid={item.cid}
-                                  mime={item.mime}
-                                  nonce={item.nonce}
-                                  senderNonce={item.senderNonce}
-                                />
-                              ))
-                            : null}
+                          ) : msg.media?.length ? (
+                            msg.media.map((item) => (
+                              <DmMediaBubble
+                                key={`${msg.id}-${item.cid}`}
+                                accountId={accountId}
+                                senderAccountId={msg.senderAccountId}
+                                senderPubkey={msg.senderPubkey}
+                                ephemeralPubkey={msg.ephemeralPubkey}
+                                cid={item.cid}
+                                mime={item.mime}
+                                nonce={item.nonce}
+                                senderNonce={item.senderNonce}
+                              />
+                            ))
+                          ) : null}
                           <div className="messages-bubble-meta">
                             {draft?.status === 'pending' ? (
                               <PulsingDots size="sm" label="Sending" />
@@ -1730,7 +1733,9 @@ export function MessagesPanel() {
                                     messageId: replyMessageId,
                                     preview: formatDmReplyPreview(
                                       text,
-                                      Boolean(msg.media?.length || draft?.mediaFile)
+                                      Boolean(
+                                        msg.media?.length || draft?.mediaFile
+                                      )
                                     ),
                                   })
                                 }

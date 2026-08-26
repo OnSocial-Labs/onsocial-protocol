@@ -5,7 +5,18 @@ import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
+import {
+  useRegisterComposeAction,
+  type WriteDockSubmit,
+} from '@/contexts/compose-launcher-context';
+import { useFeedReplyWriteDock } from '@/hooks/use-feed-reply-write-dock';
+import { writeDockDraftKey } from '@/lib/os-write-dock';
+import {
+  clearWriteDockDraft,
+  writeDockDraftFromComposer,
+  writeWriteDockDraft,
+} from '@/lib/os-write-dock-draft';
+import { postKey } from '@/lib/post-display';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import {
   ComposerSheet,
@@ -80,6 +91,8 @@ export function usePersonalComposer({
   const [composer, setComposer] = useState<{
     mode: ComposerMode;
     target: PostRow | null;
+    initialText?: string;
+    initialFiles?: File[];
   } | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -143,10 +156,35 @@ export function usePersonalComposer({
     }
   }, [authorMode]);
 
-  const targetAuthorIds = useMemo(
-    () => (composer?.target ? [composer.target.accountId] : []),
-    [composer?.target]
+  const openFullReply = useCallback(
+    (target: PostRow, draft?: WriteDockSubmit) => {
+      setError(null);
+      setTargetId(COMPOSER_PERSONAL_TARGET);
+      setAuthorMode(COMPOSER_AUTHOR_ME);
+      setSelectedDaoId(null);
+      setComposer({
+        mode: 'reply',
+        target,
+        initialText: draft?.text ?? '',
+        initialFiles: draft?.files ?? [],
+      });
+    },
+    []
   );
+
+  const { startReply, clearReply, replyTarget } = useFeedReplyWriteDock({
+    sheetOpen: Boolean(composer),
+    authorNameFor: (accountId) => authorProfiles?.[accountId]?.displayName,
+    onExpand: openFullReply,
+    onConfirmed,
+  });
+
+  const targetAuthorIds = useMemo(() => {
+    const ids: string[] = [];
+    if (composer?.target) ids.push(composer.target.accountId);
+    if (replyTarget) ids.push(replyTarget.accountId);
+    return ids;
+  }, [composer?.target, replyTarget]);
   const fetchedProfiles = usePostAuthorProfiles(targetAuthorIds);
   const targetAuthorProfile = composer?.target
     ? (authorProfiles?.[composer.target.accountId] ??
@@ -171,24 +209,20 @@ export function usePersonalComposer({
     setProposeConfirmOpen(false);
     setPendingDaoPayload(null);
     resetGuildState();
+    clearReply();
     setComposer({ mode: 'post', target: null });
-  }, [resetGuildState]);
+  }, [clearReply, resetGuildState]);
 
-  const openReply = useCallback((target: PostRow) => {
-    setError(null);
-    setTargetId(COMPOSER_PERSONAL_TARGET);
-    setAuthorMode(COMPOSER_AUTHOR_ME);
-    setSelectedDaoId(null);
-    setComposer({ mode: 'reply', target });
-  }, []);
+  const openReply = startReply;
 
   const openQuote = useCallback((target: PostRow) => {
     setError(null);
     setTargetId(COMPOSER_PERSONAL_TARGET);
     setAuthorMode(COMPOSER_AUTHOR_ME);
     setSelectedDaoId(null);
+    clearReply();
     setComposer({ mode: 'quote', target });
-  }, []);
+  }, [clearReply]);
 
   const openRepost = useCallback(
     async (target: PostRow): Promise<PersonalPostSubmitResult | void> => {
@@ -397,6 +431,8 @@ export function usePersonalComposer({
               parent: target,
               reply: result.optimisticPost,
             });
+            clearWriteDockDraft(writeDockDraftKey('post', postKey(target)));
+            clearReply();
           }
           onConfirmed?.(result.optimisticPost);
           resetComposerState();
@@ -419,6 +455,7 @@ export function usePersonalComposer({
     [
       accountId,
       authorMode,
+      clearReply,
       composer,
       connect,
       guildLoading,
@@ -444,6 +481,8 @@ export function usePersonalComposer({
         mode={composer.mode}
         target={composer.target}
         targetAuthorProfile={targetAuthorProfile}
+        initialText={composer.initialText ?? ''}
+        initialFiles={composer.initialFiles}
         onModeChange={
           composer.target
             ? (mode) =>
@@ -501,10 +540,15 @@ export function usePersonalComposer({
             guildLoading)
         }
         error={error}
-        onClose={() => {
-          if (!pending) {
-            resetComposerState();
+        onClose={(draft) => {
+          if (pending) return;
+          if (composer.mode === 'reply' && composer.target && draft) {
+            writeWriteDockDraft(
+              writeDockDraftKey('post', postKey(composer.target)),
+              writeDockDraftFromComposer(draft)
+            );
           }
+          resetComposerState();
         }}
         onSubmit={(payload) => void submit(payload)}
       />
@@ -543,6 +587,7 @@ export function usePersonalComposer({
   return {
     openPost,
     openReply,
+    openFullReply,
     openQuote,
     openRepost,
     openUndoRepost,
