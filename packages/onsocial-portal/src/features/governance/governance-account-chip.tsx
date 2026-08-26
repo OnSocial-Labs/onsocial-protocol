@@ -108,19 +108,14 @@ export function GovernanceAccountChip({
     );
   }
 
-  const socialProfile = hasSocialProfile(
-    lookup.displayName,
-    lookup.avatarUrl
-  );
+  const socialProfile = hasSocialProfile(lookup.displayName, lookup.avatarUrl);
   const socialName = lookup.displayName?.trim() || null;
-  const displayName =
-    socialName || formatNearAccountFallbackTitle(accountId);
+  const displayName = socialName || formatNearAccountFallbackTitle(accountId);
   const profileHref =
     subjectKind === 'infrastructure' && !socialProfile
       ? null
       : getPortalProfileUrl(accountId);
-  const FallbackIcon =
-    subjectKind === 'infrastructure' ? Box3dIcon : UserIcon;
+  const FallbackIcon = subjectKind === 'infrastructure' ? Box3dIcon : UserIcon;
 
   let avatar: ReactNode;
   if (lookup.avatarUrl) {
