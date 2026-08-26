@@ -8,13 +8,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react';
-import {
-  Divider,
-  ImageIcon,
-  OsIconAction,
-  ScaleUpIcon,
-  osFieldSoftClassName,
-} from '@onsocial/ui';
+import { Divider, ImageIcon, osFieldSoftClassName } from '@onsocial/ui';
 import {
   useWriteDockChrome,
   type WriteDockSubmit,
@@ -58,6 +52,32 @@ function WriteDockSendIcon() {
       <path
         fill="currentColor"
         d="M12 5.2 6.1 11.1a1 1 0 0 0 1.4 1.4L11 8.9V18a1 1 0 1 0 2 0V8.9l3.5 3.6a1 1 0 0 0 1.4-1.4Z"
+      />
+    </svg>
+  );
+}
+
+/** Compose expand — box + out arrow. Not the Listen scale-up mark. */
+function WriteDockExpandIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="os-write-dock-expand-icon" aria-hidden>
+      <rect
+        x="4.5"
+        y="9"
+        width="10.5"
+        height="10.5"
+        rx="2.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M13 5.2h5.8V11M19 5.2 11.2 13"
       />
     </svg>
   );
@@ -301,16 +321,20 @@ export function OsWriteDock({
           variant="detail"
           className="portfolio-summon-divider os-write-dock-divider"
         />
-        <OsIconAction
-          ariaLabel="Attach photo or video"
+        <button
+          type="button"
+          className="os-write-dock-tool"
+          aria-label="Attach photo or video"
           disabled={disabled || pending}
           onClick={() => fileInputRef.current?.click()}
         >
           <ImageIcon className="os-write-dock-media-icon" aria-hidden />
-        </OsIconAction>
+        </button>
         {onExpand ? (
-          <OsIconAction
-            ariaLabel="Open full composer"
+          <button
+            type="button"
+            className="os-write-dock-tool"
+            aria-label="Open full composer"
             disabled={disabled || pending}
             onClick={() => {
               persistDraft(text, mediaFile);
@@ -318,8 +342,8 @@ export function OsWriteDock({
               onExpand(currentPayload());
             }}
           >
-            <ScaleUpIcon className="os-write-dock-expand-icon" aria-hidden />
-          </OsIconAction>
+            <WriteDockExpandIcon />
+          </button>
         ) : null}
         <button
           type="submit"

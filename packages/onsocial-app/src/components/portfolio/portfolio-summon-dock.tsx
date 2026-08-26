@@ -224,6 +224,7 @@ export function PortfolioSummonDock({
         ) : null}
         <OsDockPill
           pageAccountId={pageAccountId}
+          onHoldApps={write ? openLauncher : undefined}
           grip={
             <button
               type="button"

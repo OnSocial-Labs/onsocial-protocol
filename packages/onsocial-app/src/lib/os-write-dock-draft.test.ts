@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   clearWriteDockDraft,
+  dropWriteDockDraftMemory,
   readWriteDockDraft,
   writeDockDraftFromComposer,
   writeDockDraftIsDirty,
@@ -37,6 +38,30 @@ describe('write dock draft', () => {
     expect(writeDockDraftIsDirty({ text: '', file: new File([], 'a') })).toBe(
       true
     );
+  });
+
+  it('rehydrates text from storage after memory is gone', () => {
+    writeWriteDockDraft('post:reload', { text: 'keep me', file: null });
+    dropWriteDockDraftMemory('post:reload');
+    expect(readWriteDockDraft('post:reload')).toEqual({
+      text: 'keep me',
+      file: null,
+    });
+    clearWriteDockDraft('post:reload');
+    dropWriteDockDraftMemory('post:reload');
+    expect(readWriteDockDraft('post:reload')).toEqual({ text: '', file: null });
+  });
+
+  it('does not persist files — only text survives a reload', () => {
+    const file = new File(['x'], 'shot.png', { type: 'image/png' });
+    writeWriteDockDraft('post:file', { text: 'caption', file });
+    expect(readWriteDockDraft('post:file').file).toBe(file);
+    dropWriteDockDraftMemory('post:file');
+    expect(readWriteDockDraft('post:file')).toEqual({
+      text: 'caption',
+      file: null,
+    });
+    clearWriteDockDraft('post:file');
   });
 
   it('seeds the full composer from a dock draft and back', () => {

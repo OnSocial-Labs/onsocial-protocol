@@ -18,12 +18,14 @@ interface OsDockPillProps {
   action?: ReactNode;
   /** Compact write bar — grows the pill and replaces now-playing + pen. */
   write?: ReactNode;
+  /** Hold the avatar while writing to open the app launcher. */
+  onHoldApps?: () => void;
 }
 
 /**
  * Unified OS dock — [activity] | [account] | grip | optional now-playing |
  * | [compose]. Write mode drops activity + grip:
- * [avatar] | [type | media | send].
+ * [avatar] | [type | media | expand | send]. Hold avatar for apps.
  */
 export function OsDockPill({
   pageAccountId,
@@ -31,12 +33,16 @@ export function OsDockPill({
   nowPlaying,
   action,
   write,
+  onHoldApps,
 }: OsDockPillProps) {
   const writing = Boolean(write);
   if (writing) {
     return (
       <div className={`${osDockPillClassName} portfolio-summon is-writing`}>
-        <OsDockAccountZone pageAccountId={pageAccountId} />
+        <OsDockAccountZone
+          pageAccountId={pageAccountId}
+          onHoldApps={onHoldApps}
+        />
         <Divider
           orientation="vertical"
           variant="detail"

@@ -10120,8 +10120,36 @@ a.os-surface-row {
     margin: 0.35rem 0.1rem;
   }
 
+  .os-write-dock-tool {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    margin: 0.15rem 0;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.58);
+    cursor: pointer;
+  }
+
+  .os-write-dock-tool:disabled {
+    opacity: 0.32;
+    cursor: default;
+  }
+
+  .os-write-dock-tool:not(:disabled):hover,
+  .os-write-dock-tool:not(:disabled):focus-visible {
+    color: rgb(var(--fg-rgb) / 0.92);
+    outline: none;
+  }
+
   .os-write-dock-media-icon,
   .os-write-dock-expand-icon {
+    display: block;
     width: 1.05rem;
     height: 1.05rem;
   }
