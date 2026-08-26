@@ -92,23 +92,20 @@ export function ComposeLauncherProvider({ children }: { children: ReactNode }) {
     writeFocusRef.current?.();
   }, []);
 
-  const top = topComposeStack(stack);
-  const surface: ComposeLauncherSurface | null = top
-    ? top.type === 'write'
+  const surface = useMemo<ComposeLauncherSurface | null>(() => {
+    const top = topComposeStack(stack);
+    if (!top) return null;
+    return top.type === 'write'
       ? { type: 'write', entry: top.entry }
-      : { type: 'action', entry: top.entry }
-    : null;
+      : { type: 'action', entry: top.entry };
+  }, [stack]);
 
-  useEffect(() => {
-    if (surface?.type !== 'write') {
-      setWritePinned(false);
-    }
-  }, [surface?.type]);
+  const writing = surface?.type === 'write';
 
   const value = useMemo<ComposeLauncherContextValue>(
     () => ({
       surface,
-      writePinned: surface?.type === 'write' && writePinned,
+      writePinned: writing && writePinned,
       upsertCompose,
       popCompose,
       focusWriteDock,
@@ -122,6 +119,7 @@ export function ComposeLauncherProvider({ children }: { children: ReactNode }) {
       surface,
       upsertCompose,
       writePinned,
+      writing,
     ]
   );
 
@@ -183,9 +181,6 @@ export function useRegisterWriteDock(entry: WriteDockRegistration | null) {
   const popCompose = context?.popCompose;
   const id = useId();
   const entryRef = useRef(entry);
-  entryRef.current = entry;
-  const submitRef = useRef(entry?.onSubmit);
-  submitRef.current = entry?.onSubmit;
   const key = entry
     ? [
         entry.placeholder,
@@ -200,6 +195,10 @@ export function useRegisterWriteDock(entry: WriteDockRegistration | null) {
     : '';
 
   useEffect(() => {
+    entryRef.current = entry;
+  }, [entry]);
+
+  useEffect(() => {
     if (!upsertCompose || !popCompose || !entryRef.current) return;
     const current = entryRef.current;
     upsertCompose({
@@ -207,7 +206,7 @@ export function useRegisterWriteDock(entry: WriteDockRegistration | null) {
       type: 'write',
       entry: {
         ...current,
-        onSubmit: (payload) => submitRef.current?.(payload),
+        onSubmit: (payload) => entryRef.current?.onSubmit(payload),
       },
     });
     return () => popCompose(id);
