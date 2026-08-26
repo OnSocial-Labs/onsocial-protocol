@@ -35480,6 +35480,21 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   min-width: 0;
 }
 
+.notifications-activity-day {
+  padding: 0.75rem 0 0.28rem;
+}
+
+.notifications-activity-day:first-child {
+  padding-top: 0.1rem;
+}
+
+.notifications-activity-day span {
+  color: rgb(var(--fg-rgb) / 0.46);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
 .notifications-activity-verb {
   margin: 0;
   font-size: 0.72rem;

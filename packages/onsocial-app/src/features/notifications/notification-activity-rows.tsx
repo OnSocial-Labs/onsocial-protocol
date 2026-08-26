@@ -26,6 +26,7 @@ import {
   type NotificationSystemFamily,
 } from '@/lib/notification-display';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
+import { buildNotificationDayRows } from '@/lib/notification-day-rows';
 import { displayName } from '@/lib/profile-display';
 
 type FillIcon = ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
@@ -133,9 +134,25 @@ export function NotificationActivityRows({
   postSnippets?: Record<string, string>;
   onOpen: (item: Notification) => void;
 }) {
+  const rows = buildNotificationDayRows(items);
+
   return (
     <div className="standing-list notifications-activity-list" role="list">
-      {items.map((item, index) => {
+      {rows.map((row, index) => {
+        if (row.kind === 'day') {
+          return (
+            <div
+              key={row.key}
+              className="notifications-activity-day"
+              aria-label={row.label}
+            >
+              <span>{row.label}</span>
+            </div>
+          );
+        }
+
+        const item = row.item;
+        const previous = index > 0 ? rows[index - 1] : null;
         const actor = item.actor?.trim() || null;
         const daoAccountId = notificationDaoAccountId(item);
         const leadAccount =
@@ -231,7 +248,7 @@ export function NotificationActivityRows({
 
         return (
           <div key={item.id} role="listitem">
-            {index > 0 ? <Divider variant="item" /> : null}
+            {previous?.kind === 'item' ? <Divider variant="item" /> : null}
             <div className="standing-row notifications-activity-row">
               <div className="standing-row-main">
                 <button
