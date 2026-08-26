@@ -23794,6 +23794,17 @@ a.os-surface-row {
     cursor: default;
   }
 
+  /* Phone: swipe + dots. Chevrons stay from sm up for pointer click. */
+  @media (max-width: 639px) {
+    .feed-photo-slide .feed-photo-nav-btn {
+      display: none;
+    }
+
+    .feed-photo-dots {
+      min-width: 0;
+    }
+  }
+
   .scarce-read-slide .scarce-writing-read {
     --writing-read-measure: min(34rem, 100%);
     display: flex;
