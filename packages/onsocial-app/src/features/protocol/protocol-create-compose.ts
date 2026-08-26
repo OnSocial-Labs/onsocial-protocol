@@ -38,6 +38,10 @@ export function protocolCreateWhisper(
       return `Infra pool to treasury${bond || ' · confirm to submit'}.`;
     case 'set_boost_infra_authority':
       return `Boost authority${bond || ' · confirm to submit'}.`;
+    case 'contract_config':
+      return `Setting and routing split${bond || ' · confirm to submit'}.`;
+    case 'season_config':
+      return `Season schedule${bond || ' · confirm to submit'}.`;
     default:
       return `Fill the form${bond || ' · confirm to submit'}.`;
   }

@@ -8,6 +8,10 @@ import {
 import {
   applyOptimisticVote,
   deriveProtocolProposalView,
+  getProtocolProposalVotesCast,
+  mergeProtocolFeedApplications,
+  mergeProtocolProposalSnapshot,
+  shouldAdoptProtocolProposalSnapshot,
   statusLabel,
   sumVoteCounts,
 } from '@/features/protocol/protocol-card-view';
@@ -447,7 +451,7 @@ describe('protocol card view', () => {
     expect(view.targetAccount).toBe('boost.onsocial.testnet');
     expect(view.canApprove).toBe(true);
     expect(view.canReject).toBe(true);
-    expect(view.votingProgress.threshold).toBe(1);
+    expect(view.votingProgress.threshold).toBe(2);
     expect(view.votingProgress.totalWeight).toBe(2);
     expect(view.submission).not.toBeNull();
     expect(view.deadline).not.toBeNull();
@@ -464,9 +468,869 @@ describe('protocol card view', () => {
   });
 
   it('applies optimistic votes', () => {
-    const next = applyOptimisticVote(proposal, 'alice.testnet', 'Approve');
+    const next = applyOptimisticVote(
+      proposal,
+      'alice.testnet',
+      'Approve',
+      policy
+    );
     expect(next.votes['alice.testnet']).toBe('Approve');
     expect(sumVoteCounts(next.vote_counts, 0)).toBe(2);
+  });
+
+  it('does not regress terminal status when feed refresh is stale', () => {
+    const approved: ProtocolDaoProposal = {
+      ...proposal,
+      status: 'Approved',
+      vote_counts: { council: ['2', '0', '0'] },
+      votes: {
+        'alice.testnet': 'Approve',
+        'bob.testnet': 'Approve',
+      },
+    };
+    const staleOpen: ProtocolDaoProposal = {
+      ...approved,
+      status: 'InProgress',
+    };
+    expect(shouldAdoptProtocolProposalSnapshot(approved, staleOpen)).toBe(
+      false
+    );
+    expect(
+      mergeProtocolProposalSnapshot(approved, staleOpen)?.status
+    ).toBe('Approved');
+  });
+
+  it('keeps fresher vote counts when feed refresh is stale', () => {
+    const optimistic = applyOptimisticVote(
+      proposal,
+      'alice.testnet',
+      'Approve',
+      policy
+    );
+    const staleRefresh: ProtocolDaoProposal = { ...proposal };
+    expect(getProtocolProposalVotesCast(optimistic)).toBe(2);
+    expect(getProtocolProposalVotesCast(staleRefresh)).toBe(1);
+    expect(shouldAdoptProtocolProposalSnapshot(optimistic, staleRefresh)).toBe(
+      false
+    );
+    const merged = mergeProtocolProposalSnapshot(optimistic, staleRefresh);
+    expect(sumVoteCounts(merged?.vote_counts, 0)).toBe(2);
+    expect(merged?.votes['alice.testnet']).toBe('Approve');
+  });
+
+  it('merges feed rows without regressing confirmed vote snapshots', () => {
+    const optimistic = applyOptimisticVote(
+      proposal,
+      'alice.testnet',
+      'Approve',
+      policy
+    );
+    const currentApp: ProtocolApplication = {
+      ...application,
+      governance_proposal: {
+        ...application.governance_proposal!,
+        snapshot: optimistic,
+      },
+    };
+    const staleFeedApp: ProtocolApplication = {
+      ...application,
+      governance_proposal: {
+        ...application.governance_proposal!,
+        snapshot: proposal,
+      },
+    };
+    const merged = mergeProtocolFeedApplications(
+      [currentApp],
+      [staleFeedApp]
+    );
+    expect(sumVoteCounts(merged[0]?.governance_proposal?.snapshot?.vote_counts, 0)).toBe(
+      2
+    );
+  });
+
+  it('keeps add-member vote pool stable when nominee appears in refreshed policy', () => {
+    const addProposal: ProtocolDaoProposal = {
+      id: 21,
+      proposer: 'alice.testnet',
+      description: 'Add berry to council',
+      kind: { AddMemberToRole: { member_id: 'berry.testnet', role: 'council' } },
+      status: 'InProgress',
+      vote_counts: { council: ['2', '0', '0'] },
+      votes: {
+        'alice.testnet': 'Approve',
+        'bob.testnet': 'Approve',
+      },
+      submission_time: String(BigInt(Date.now()) * 1_000_000n),
+    };
+    const policyWithNominee: ProtocolDaoPolicy = {
+      proposal_period: String(7n * 24n * 60n * 60n * 1_000_000_000n),
+      default_vote_policy: {
+        quorum: '0',
+        threshold: [1, 2],
+        weight_kind: 'RoleWeight',
+      },
+      roles: [
+        {
+          name: 'council',
+          kind: { Group: ['alice.testnet', 'bob.testnet', 'berry.testnet'] },
+          permissions: ['*:VoteApprove', '*:VoteReject', '*:Finalize'],
+        },
+      ],
+    };
+    const addApp: ProtocolApplication = {
+      app_id: 'protocol-proposal-21',
+      label: 'Join',
+      status: 'approved',
+      description: null,
+      created_at: '1',
+      protocol_kind: 'join',
+      protocol_subject: 'berry.testnet',
+      governance_proposal: {
+        proposal_id: 21,
+        status: 'InProgress',
+        description: addProposal.description,
+        dao_account: GOVERNANCE_DAO_ACCOUNT,
+        tx_hash: null,
+        submitted_at: addProposal.submission_time,
+        snapshot: addProposal,
+      },
+    };
+    const view = deriveProtocolProposalView({
+      application: addApp,
+      accountId: 'alice.testnet',
+      daoPolicy: policyWithNominee,
+    });
+    expect(view.eligibleVoters).toEqual(['alice.testnet', 'bob.testnet']);
+    expect(view.votingProgress.totalWeight).toBe(2);
+    expect(view.votingProgress.threshold).toBe(2);
+    expect(view.votingProgress.approvals).toBe(2);
+  });
+
+  it('shows vote-time 2/2 on approved add-member after nominee joins policy', () => {
+    const addProposal: ProtocolDaoProposal = {
+      id: 54,
+      proposer: 'voter2.onsocial.testnet',
+      description: 'Add Berry to guardians',
+      kind: {
+        AddMemberToRole: {
+          member_id: 'berrysamba.testnet',
+          role: 'guardians',
+        },
+      },
+      status: 'Approved',
+      vote_counts: { guardians: ['2', '0', '0'] },
+      votes: {
+        'voter1.onsocial.testnet': 'Approve',
+        'voter2.onsocial.testnet': 'Approve',
+      },
+      submission_time: '1',
+      policy_snapshot: {
+        roles: [
+          {
+            name: 'guardians',
+            kind: { Group: ['voter1.onsocial.testnet', 'voter2.onsocial.testnet'] },
+          },
+        ],
+      },
+    };
+    const policyWithNominee: ProtocolDaoPolicy = {
+      default_vote_policy: {
+        quorum: '0',
+        threshold: [1, 2],
+        weight_kind: 'RoleWeight',
+      },
+      roles: [
+        {
+          name: 'guardians',
+          kind: {
+            Group: [
+              'voter1.onsocial.testnet',
+              'voter2.onsocial.testnet',
+              'berrysamba.testnet',
+            ],
+          },
+          permissions: ['*:VoteApprove', '*:VoteReject', '*:Finalize'],
+        },
+      ],
+    };
+    const addApp: ProtocolApplication = {
+      app_id: 'protocol-proposal-54',
+      label: 'Join',
+      status: 'approved',
+      description: null,
+      created_at: '1',
+      protocol_kind: 'join',
+      protocol_subject: 'berrysamba.testnet',
+      governance_proposal: {
+        proposal_id: 54,
+        status: 'Approved',
+        description: addProposal.description,
+        dao_account: GOVERNANCE_DAO_ACCOUNT,
+        tx_hash: null,
+        submitted_at: addProposal.submission_time,
+        snapshot: addProposal,
+      },
+    };
+    const view = deriveProtocolProposalView({
+      application: addApp,
+      accountId: 'voter2.onsocial.testnet',
+      daoPolicy: policyWithNominee,
+    });
+    expect(view.votingProgress.totalWeight).toBe(2);
+    expect(view.votingProgress.threshold).toBe(2);
+    expect(view.voteEntries).toHaveLength(2);
+  });
+
+  it('uses role-specific vote policy labels for threshold math', () => {
+    const callProposal: ProtocolDaoProposal = {
+      ...proposal,
+      kind: { FunctionCall: { receiver_id: 'boost.onsocial.testnet' } },
+    };
+    const rolePolicy: ProtocolDaoPolicy = {
+      ...policy,
+      roles: [
+        {
+          name: 'council',
+          kind: { Group: ['alice.testnet', 'bob.testnet'] },
+          permissions: ['call:VoteApprove', 'call:VoteReject', '*:Finalize'],
+          vote_policy: {
+            call: {
+              quorum: '0',
+              threshold: [2, 2],
+              weight_kind: 'RoleWeight',
+            },
+          },
+        },
+      ],
+    };
+    const view = deriveProtocolProposalView({
+      application: {
+        ...application,
+        governance_proposal: {
+          ...application.governance_proposal!,
+          snapshot: callProposal,
+        },
+      },
+      accountId: 'alice.testnet',
+      daoPolicy: rolePolicy,
+    });
+    expect(view.votingProgress.totalWeight).toBe(2);
+    expect(view.votingProgress.threshold).toBe(2);
+    expect(view.canApprove).toBe(true);
+  });
+
+  it('expands remove-member vote pool while subject is still in role', () => {
+    const removeProposal: ProtocolDaoProposal = {
+      id: 9,
+      proposer: 'alice.testnet',
+      description: 'Remove bob',
+      kind: {
+        RemoveMemberFromRole: { member_id: 'bob.testnet', role: 'council' },
+      },
+      status: 'InProgress',
+      vote_counts: { council: ['0', '0', '0'] },
+      votes: {},
+      submission_time: String(BigInt(Date.now()) * 1_000_000n),
+    };
+    const removeApp: ProtocolApplication = {
+      ...application,
+      app_id: 'protocol-proposal-9',
+      governance_proposal: {
+        ...application.governance_proposal!,
+        proposal_id: 9,
+        snapshot: removeProposal,
+      },
+    };
+    const view = deriveProtocolProposalView({
+      application: removeApp,
+      accountId: 'alice.testnet',
+      daoPolicy: policy,
+    });
+    expect(view.eligibleVoters).toEqual(['alice.testnet', 'bob.testnet']);
+    expect(view.votingProgress.totalWeight).toBe(2);
+    expect(view.votingProgress.threshold).toBe(2);
+  });
+
+  it('blocks voting after the review window closes', () => {
+    const staleMs = Date.now() - 8 * 86_400_000;
+    const staleProposal: ProtocolDaoProposal = {
+      ...proposal,
+      submission_time: String(BigInt(staleMs) * 1_000_000n),
+    };
+    const staleApp: ProtocolApplication = {
+      ...application,
+      governance_proposal: {
+        ...application.governance_proposal!,
+        snapshot: staleProposal,
+      },
+    };
+    const view = deriveProtocolProposalView({
+      application: staleApp,
+      accountId: 'alice.testnet',
+      daoPolicy: policy,
+      nowMs: Date.now(),
+    });
+    expect(view.canApprove).toBe(false);
+    expect(view.canFinalize).toBe(true);
+  });
+
+  it('uses vote-time pool on terminal proposals when live policy grew', () => {
+    const approvedProposal: ProtocolDaoProposal = {
+      ...proposal,
+      kind: { ChangeConfig: { config: { purpose: 'test' } } },
+      status: 'Approved',
+      vote_counts: { council: ['2', '0', '0'] },
+      votes: {
+        'alice.testnet': 'Approve',
+        'bob.testnet': 'Approve',
+      },
+      policy_snapshot: {
+        roles: [
+          {
+            name: 'council',
+            kind: { Group: ['alice.testnet', 'bob.testnet'] },
+          },
+        ],
+      },
+    };
+    const threeMemberPolicy: ProtocolDaoPolicy = {
+      ...policy,
+      roles: [
+        {
+          name: 'council',
+          kind: { Group: ['alice.testnet', 'bob.testnet', 'carol.testnet'] },
+          permissions: ['*:VoteApprove', '*:VoteReject', '*:Finalize'],
+        },
+      ],
+    };
+    const view = deriveProtocolProposalView({
+      application: {
+        ...application,
+        governance_proposal: {
+          ...application.governance_proposal!,
+          status: 'Approved',
+          snapshot: approvedProposal,
+        },
+      },
+      accountId: 'alice.testnet',
+      daoPolicy: threeMemberPolicy,
+    });
+    expect(view.votingProgress.totalWeight).toBe(2);
+    expect(view.votingProgress.threshold).toBe(2);
+  });
+
+  it('shows vote-time 2/2 on terminal policy proposals when council grew later', () => {
+    const approvedProposal: ProtocolDaoProposal = {
+      ...proposal,
+      kind: {
+        ChangePolicyRemoveRole: {
+          role: 'partner_proposers',
+        },
+      },
+      status: 'Approved',
+      vote_counts: { guardians: ['2', '0', '0'] },
+      votes: {
+        'greenghost.onsocial.testnet': 'Approve',
+        'voter2.onsocial.testnet': 'Approve',
+      },
+    };
+    const threeMemberPolicy: ProtocolDaoPolicy = {
+      default_vote_policy: {
+        quorum: '0',
+        threshold: [50, 100],
+        weight_kind: 'RoleWeight',
+      },
+      roles: [
+        {
+          name: 'guardians',
+          kind: {
+            Group: [
+              'greenghost.onsocial.testnet',
+              'voter2.onsocial.testnet',
+              'berrysamba.testnet',
+            ],
+          },
+          permissions: ['*:VoteApprove', '*:VoteReject', '*:Finalize'],
+        },
+      ],
+    };
+    const view = deriveProtocolProposalView({
+      application: {
+        ...application,
+        governance_proposal: {
+          ...application.governance_proposal!,
+          status: 'Approved',
+          snapshot: approvedProposal,
+        },
+      },
+      accountId: 'greenghost.onsocial.testnet',
+      daoPolicy: threeMemberPolicy,
+    });
+    expect(view.votingProgress.totalWeight).toBe(2);
+    expect(view.votingProgress.threshold).toBe(2);
+    expect(view.eligibleVoters).toEqual([
+      'greenghost.onsocial.testnet',
+      'voter2.onsocial.testnet',
+    ]);
+  });
+
+  it('shows vote-time 2/2 on approved add-member when nominee was later removed', () => {
+    const addProposal: ProtocolDaoProposal = {
+      id: 37,
+      proposer: 'berrysamba.testnet',
+      description: 'Add test05 to guardians',
+      kind: {
+        AddMemberToRole: {
+          member_id: 'test05.onsocial.testnet',
+          role: 'guardians',
+        },
+      },
+      status: 'Approved',
+      vote_counts: { guardians: ['2', '0', '0'] },
+      votes: {
+        'greenghost.onsocial.testnet': 'Approve',
+        'voter2.onsocial.testnet': 'Approve',
+      },
+      submission_time: '1',
+    };
+    const currentPolicy: ProtocolDaoPolicy = {
+      default_vote_policy: {
+        quorum: '0',
+        threshold: [50, 100],
+        weight_kind: 'RoleWeight',
+      },
+      roles: [
+        {
+          name: 'guardians',
+          kind: {
+            Group: [
+              'greenghost.onsocial.testnet',
+              'voter2.onsocial.testnet',
+              'berrysamba.testnet',
+            ],
+          },
+          permissions: ['*:VoteApprove', '*:VoteReject', '*:Finalize'],
+        },
+      ],
+    };
+    const addApp: ProtocolApplication = {
+      app_id: 'protocol-proposal-37',
+      label: 'Join',
+      status: 'approved',
+      description: null,
+      created_at: '1',
+      protocol_kind: 'join',
+      protocol_subject: 'test05.onsocial.testnet',
+      governance_proposal: {
+        proposal_id: 37,
+        status: 'Approved',
+        description: addProposal.description,
+        dao_account: GOVERNANCE_DAO_ACCOUNT,
+        tx_hash: null,
+        submitted_at: addProposal.submission_time,
+        snapshot: addProposal,
+      },
+    };
+    const view = deriveProtocolProposalView({
+      application: addApp,
+      accountId: 'greenghost.onsocial.testnet',
+      daoPolicy: currentPolicy,
+    });
+    expect(view.votingProgress.totalWeight).toBe(2);
+    expect(view.votingProgress.threshold).toBe(2);
+    expect(view.eligibleVoters).toEqual([
+      'greenghost.onsocial.testnet',
+      'voter2.onsocial.testnet',
+    ]);
+  });
+
+  it('shows vote-time 2/3 on approved remove-member when leaver did not vote', () => {
+    const removeProposal: ProtocolDaoProposal = {
+      id: 55,
+      proposer: 'greenghost.onsocial.testnet',
+      description: 'Remove from Guardians',
+      kind: {
+        RemoveMemberFromRole: {
+          member_id: 'berrysamba.testnet',
+          role: 'guardians',
+        },
+      },
+      status: 'Approved',
+      vote_counts: { guardians: ['2', '0', '0'] },
+      votes: {
+        'voter1.onsocial.testnet': 'Approve',
+        'voter2.onsocial.testnet': 'Approve',
+      },
+      submission_time: '1',
+    };
+    const postRemovalPolicy: ProtocolDaoPolicy = {
+      default_vote_policy: {
+        quorum: '0',
+        threshold: [1, 2],
+        weight_kind: 'RoleWeight',
+      },
+      roles: [
+        {
+          name: 'guardians',
+          kind: {
+            Group: ['voter1.onsocial.testnet', 'voter2.onsocial.testnet'],
+          },
+          permissions: ['*:VoteApprove', '*:VoteReject', '*:Finalize'],
+        },
+      ],
+    };
+    const removeApp: ProtocolApplication = {
+      app_id: 'protocol-proposal-55',
+      label: 'Leave',
+      status: 'approved',
+      description: null,
+      created_at: '1',
+      protocol_kind: 'leave',
+      protocol_subject: 'berrysamba.testnet',
+      governance_proposal: {
+        proposal_id: 55,
+        status: 'Approved',
+        description: removeProposal.description,
+        dao_account: GOVERNANCE_DAO_ACCOUNT,
+        tx_hash: null,
+        submitted_at: removeProposal.submission_time,
+        snapshot: removeProposal,
+      },
+    };
+    const view = deriveProtocolProposalView({
+      application: removeApp,
+      accountId: 'voter1.onsocial.testnet',
+      daoPolicy: postRemovalPolicy,
+    });
+    expect(view.votingProgress.totalWeight).toBe(3);
+    expect(view.votingProgress.threshold).toBe(2);
+    expect(view.approveVotes).toBe(2);
+    expect(view.eligibleVoters).toEqual([
+      'voter1.onsocial.testnet',
+      'voter2.onsocial.testnet',
+      'berrysamba.testnet',
+    ]);
+  });
+
+  it('shows vote-time 2/3 on approved remove when subject later left and council grew', () => {
+    const removeProposal: ProtocolDaoProposal = {
+      id: 38,
+      proposer: 'berrysamba.testnet',
+      description: 'Remove test05 from guardians',
+      kind: {
+        RemoveMemberFromRole: {
+          member_id: 'test05.onsocial.testnet',
+          role: 'guardians',
+        },
+      },
+      status: 'Approved',
+      vote_counts: { guardians: ['2', '0', '0'] },
+      votes: {
+        'test05.onsocial.testnet': 'Approve',
+        'voter2.onsocial.testnet': 'Approve',
+      },
+      submission_time: '1',
+    };
+    const currentPolicy: ProtocolDaoPolicy = {
+      default_vote_policy: {
+        quorum: '0',
+        threshold: [50, 100],
+        weight_kind: 'RoleWeight',
+      },
+      roles: [
+        {
+          name: 'guardians',
+          kind: {
+            Group: [
+              'greenghost.onsocial.testnet',
+              'voter2.onsocial.testnet',
+              'berrysamba.testnet',
+            ],
+          },
+          permissions: ['*:VoteApprove', '*:VoteReject', '*:Finalize'],
+        },
+      ],
+    };
+    const removeApp: ProtocolApplication = {
+      app_id: 'protocol-proposal-38',
+      label: 'Leave',
+      status: 'approved',
+      description: null,
+      created_at: '1',
+      protocol_kind: 'leave',
+      protocol_subject: 'test05.onsocial.testnet',
+      governance_proposal: {
+        proposal_id: 38,
+        status: 'Approved',
+        description: removeProposal.description,
+        dao_account: GOVERNANCE_DAO_ACCOUNT,
+        tx_hash: null,
+        submitted_at: removeProposal.submission_time,
+        snapshot: removeProposal,
+      },
+    };
+    const view = deriveProtocolProposalView({
+      application: removeApp,
+      accountId: 'voter2.onsocial.testnet',
+      daoPolicy: currentPolicy,
+    });
+    expect(view.votingProgress.totalWeight).toBe(3);
+    expect(view.votingProgress.threshold).toBe(2);
+    expect(view.eligibleVoters).toEqual([
+      'greenghost.onsocial.testnet',
+      'voter2.onsocial.testnet',
+      'test05.onsocial.testnet',
+    ]);
+    expect(view.eligibleVoters).not.toContain('berrysamba.testnet');
+  });
+
+  it('shows vote-time 2/2 when legacy token vote_counts only include the all role', () => {
+    const upgradeProposal: ProtocolDaoProposal = {
+      id: 14,
+      proposer: 'greenghost.onsocial.testnet',
+      description:
+        'Upgrade rewards contract by published code hash (250 TGas, cleaned artifact)',
+      kind: {
+        FunctionCall: {
+          receiver_id: 'rewards.onsocial.testnet',
+          actions: [],
+        },
+      },
+      status: 'Approved',
+      vote_counts: {
+        all: ['2000000000000000000000', '0', '0'],
+      },
+      votes: {
+        'greenghost.onsocial.testnet': 'Approve',
+        'voter2.onsocial.testnet': 'Approve',
+      },
+      submission_time: '1773328609709106241',
+    };
+    const currentPolicy: ProtocolDaoPolicy = {
+      default_vote_policy: {
+        quorum: '0',
+        threshold: [50, 100],
+        weight_kind: 'RoleWeight',
+      },
+      roles: [
+        {
+          name: 'guardians',
+          kind: {
+            Group: [
+              'greenghost.onsocial.testnet',
+              'voter2.onsocial.testnet',
+              'berrysamba.testnet',
+            ],
+          },
+          permissions: ['*:VoteApprove', '*:VoteReject', '*:Finalize'],
+        },
+      ],
+    };
+    const upgradeApp: ProtocolApplication = {
+      app_id: 'protocol-proposal-14',
+      label: 'Upgrade',
+      status: 'approved',
+      description: null,
+      created_at: '1',
+      protocol_kind: 'upgrade',
+      protocol_target_account: 'rewards.onsocial.testnet',
+      protocol_target_method: 'update_contract_from_hash',
+      governance_proposal: {
+        proposal_id: 14,
+        status: 'Approved',
+        description: upgradeProposal.description,
+        dao_account: GOVERNANCE_DAO_ACCOUNT,
+        tx_hash: null,
+        submitted_at: upgradeProposal.submission_time,
+        snapshot: upgradeProposal,
+      },
+    };
+    const view = deriveProtocolProposalView({
+      application: upgradeApp,
+      accountId: 'greenghost.onsocial.testnet',
+      daoPolicy: currentPolicy,
+    });
+    expect(view.approveVotes).toBe(2);
+    expect(view.rejectVotes).toBe(0);
+    expect(view.votingProgress.totalWeight).toBe(2);
+    expect(view.votingProgress.threshold).toBe(2);
+    expect(view.eligibleVoters).toEqual([
+      'greenghost.onsocial.testnet',
+      'voter2.onsocial.testnet',
+    ]);
+  });
+
+  it('shows vote-time 2/2 when feed policy_snapshot uses legacy council role', () => {
+    const upgradeProposal: ProtocolDaoProposal = {
+      id: 14,
+      proposer: 'greenghost.onsocial.testnet',
+      description:
+        'Upgrade rewards contract by published code hash (250 TGas, cleaned artifact)',
+      kind: {
+        FunctionCall: {
+          receiver_id: 'rewards.onsocial.testnet',
+          actions: [],
+        },
+      },
+      status: 'Approved',
+      vote_counts: {
+        all: ['2000000000000000000000', '0', '0'],
+      },
+      votes: {
+        'greenghost.onsocial.testnet': 'Approve',
+        'voter2.onsocial.testnet': 'Approve',
+      },
+      submission_time: '1773328609709106241',
+      policy_snapshot: {
+        roles: [
+          {
+            name: 'council',
+            kind: {
+              Group: [
+                'greenghost.onsocial.testnet',
+                'voter2.onsocial.testnet',
+              ],
+            },
+          },
+        ],
+      },
+    };
+    const currentPolicy: ProtocolDaoPolicy = {
+      default_vote_policy: {
+        quorum: '0',
+        threshold: [50, 100],
+        weight_kind: 'RoleWeight',
+      },
+      roles: [
+        {
+          name: 'guardians',
+          kind: {
+            Group: [
+              'greenghost.onsocial.testnet',
+              'voter2.onsocial.testnet',
+              'berrysamba.testnet',
+            ],
+          },
+          permissions: ['*:VoteApprove', '*:VoteReject', '*:Finalize'],
+        },
+      ],
+    };
+    const upgradeApp: ProtocolApplication = {
+      app_id: 'protocol-proposal-14',
+      label: 'Upgrade',
+      status: 'approved',
+      description: null,
+      created_at: '1',
+      protocol_kind: 'upgrade',
+      governance_proposal: {
+        proposal_id: 14,
+        status: 'Approved',
+        description: upgradeProposal.description,
+        dao_account: GOVERNANCE_DAO_ACCOUNT,
+        tx_hash: null,
+        submitted_at: upgradeProposal.submission_time,
+        snapshot: upgradeProposal,
+      },
+    };
+    const view = deriveProtocolProposalView({
+      application: upgradeApp,
+      accountId: 'greenghost.onsocial.testnet',
+      daoPolicy: currentPolicy,
+    });
+    expect(view.approveVotes).toBe(2);
+    expect(view.votingProgress.totalWeight).toBe(2);
+    expect(view.votingProgress.threshold).toBe(2);
+  });
+
+  it('shows vote-time 1/1 on founding proposals when only one guardian existed', () => {
+    const foundingProposal: ProtocolDaoProposal = {
+      id: 0,
+      proposer: 'greenghost.onsocial.testnet',
+      description: 'Set governance staking contract',
+      kind: {
+        SetStakingContract: {
+          staking_id: 'staking-governance.onsocial.testnet',
+        },
+      },
+      status: 'Approved',
+      vote_counts: { council: ['1', '0', '0'] },
+      votes: {
+        'greenghost.onsocial.testnet': 'Approve',
+      },
+      submission_time: '1773316571093161525',
+    };
+    const currentPolicy: ProtocolDaoPolicy = {
+      default_vote_policy: {
+        quorum: '0',
+        threshold: [50, 100],
+        weight_kind: 'RoleWeight',
+      },
+      roles: [
+        {
+          name: 'guardians',
+          kind: {
+            Group: [
+              'greenghost.onsocial.testnet',
+              'voter2.onsocial.testnet',
+              'berrysamba.testnet',
+            ],
+          },
+          permissions: ['*:VoteApprove', '*:VoteReject', '*:Finalize'],
+        },
+      ],
+    };
+    const foundingApp: ProtocolApplication = {
+      app_id: 'protocol-proposal-0',
+      label: 'Staking',
+      status: 'approved',
+      description: null,
+      created_at: '1',
+      protocol_kind: 'staking',
+      governance_proposal: {
+        proposal_id: 0,
+        status: 'Approved',
+        description: foundingProposal.description,
+        dao_account: GOVERNANCE_DAO_ACCOUNT,
+        tx_hash: null,
+        submitted_at: foundingProposal.submission_time,
+        snapshot: foundingProposal,
+      },
+    };
+    const view = deriveProtocolProposalView({
+      application: foundingApp,
+      accountId: 'greenghost.onsocial.testnet',
+      daoPolicy: currentPolicy,
+    });
+    expect(view.approveVotes).toBe(1);
+    expect(view.votingProgress.totalWeight).toBe(1);
+    expect(view.votingProgress.threshold).toBe(1);
+    expect(view.eligibleVoters).toEqual(['greenghost.onsocial.testnet']);
+  });
+
+  it('shows votes-in state when threshold is met during review', () => {
+    const passedProposal: ProtocolDaoProposal = {
+      ...proposal,
+      vote_counts: { council: ['2', '0', '0'] },
+      votes: {
+        'alice.testnet': 'Approve',
+        'bob.testnet': 'Approve',
+      },
+    };
+    const passedApp: ProtocolApplication = {
+      ...application,
+      governance_proposal: {
+        ...application.governance_proposal!,
+        snapshot: passedProposal,
+      },
+    };
+    const view = deriveProtocolProposalView({
+      application: passedApp,
+      accountId: 'alice.testnet',
+      daoPolicy: policy,
+    });
+    expect(view.statusLabel).toBe('Votes in');
+    expect(view.statusTone).toBe('approved');
+    expect(view.canFinalize).toBe(true);
   });
 
   it('enables finalize after the review window closes', () => {

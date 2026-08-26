@@ -43,6 +43,7 @@ export function ProtocolCreateRoleRow({
           )}
           onChange={onChangeRole}
           disabled={pending}
+          persistSelected
           zIndex={zIndex}
         />
       </div>

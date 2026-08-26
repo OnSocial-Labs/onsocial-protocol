@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildPathWithQuery,
+  pushBrowserUrl,
   replaceBrowserQueryUrl,
 } from './sync-browser-url-query';
 
@@ -25,5 +26,11 @@ describe('replaceBrowserQueryUrl', () => {
     expect(replaceBrowserQueryUrl('/discover', new URLSearchParams())).toBe(
       false
     );
+  });
+});
+
+describe('pushBrowserUrl', () => {
+  it('returns false in non-browser environments', () => {
+    expect(pushBrowserUrl('/discover')).toBe(false);
   });
 });

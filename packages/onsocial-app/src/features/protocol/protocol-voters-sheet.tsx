@@ -36,6 +36,7 @@ export function ProtocolVotersSheet({
   profiles,
   daoPolicy = null,
   showProtocolRoleMarks = false,
+  votingClosed = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -47,6 +48,8 @@ export function ProtocolVotersSheet({
   daoPolicy?: ProtocolDaoPolicy | null;
   /** Protocol Governance / Treasury only. */
   showProtocolRoleMarks?: boolean;
+  /** Closed review window or terminal status — non-voters did not vote. */
+  votingClosed?: boolean;
 }) {
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
@@ -101,13 +104,14 @@ export function ProtocolVotersSheet({
         <div className="standing-list protocol-voters-list">
           {rows.map((row, index) => {
             const profile = profiles[row.accountId];
-            const pending = row.vote == null;
+            const noVote = row.vote == null;
+            const noVoteLabel = votingClosed ? 'Did not vote' : "Hasn't voted";
             return (
-              <div key={`${row.accountId}-${row.vote ?? 'pending'}`}>
+              <div key={`${row.accountId}-${row.vote ?? 'no-vote'}`}>
                 {index > 0 ? <Divider variant="item" /> : null}
                 <div
                   className={`standing-row protocol-voter-row${
-                    pending ? ' is-pending' : ''
+                    noVote ? ' is-no-vote' : ''
                   }`}
                 >
                   <Link
@@ -131,12 +135,12 @@ export function ProtocolVotersSheet({
                   <div className="standing-row-aside protocol-voter-row-aside">
                     <span
                       className={
-                        pending
-                          ? 'protocol-pill'
+                        noVote
+                          ? 'protocol-pill is-no-vote'
                           : `protocol-pill is-vote is-${row.vote!.toLowerCase()}`
                       }
                     >
-                      {pending ? 'Pending' : row.vote}
+                      {noVote ? noVoteLabel : row.vote}
                     </span>
                   </div>
                 </div>

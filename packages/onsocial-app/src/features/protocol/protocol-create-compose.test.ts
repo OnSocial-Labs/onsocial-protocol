@@ -37,6 +37,12 @@ describe('protocolCreateWhisper', () => {
       'Asset, recipient, and amount · 0.1 NEAR bond on confirm.'
     );
   });
+
+  it('describes contract config compose', () => {
+    expect(protocolCreateWhisper('contract_config', '0.1 NEAR')).toBe(
+      'Setting and routing split · 0.1 NEAR bond on confirm.'
+    );
+  });
 });
 
 describe('protocolCreateBoostWithdrawReady', () => {

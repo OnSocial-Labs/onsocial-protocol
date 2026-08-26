@@ -1,10 +1,16 @@
-import { resolveLiveProposal } from '@/features/protocol/protocol-card-view';
+import {
+  mergeProtocolProposalSnapshot,
+  resolveLiveProposal,
+} from '@/features/protocol/protocol-card-view';
 import {
   protocolProposalFamilyFromBadge,
   type ProtocolProposalFamily,
 } from '@/features/protocol/protocol-proposal-family';
 import { deriveProtocolProposalPresentation } from '@/features/protocol/protocol-proposal-presentation';
-import type { ProtocolApplication } from '@/features/protocol/types';
+import type {
+  ProtocolApplication,
+  ProtocolDaoProposal,
+} from '@/features/protocol/types';
 import type { ProtocolFeedStatusFilter } from '@/lib/app-routes';
 
 export {
@@ -215,6 +221,115 @@ export function findProtocolApplicationByProposalId(
       return id === proposalId;
     }) ?? null
   );
+}
+
+/** Pruned on-chain ids — keep at the bottom; real proposals newest first. */
+export function isProtocolRemovedFromChainPlaceholder(
+  application: ProtocolApplication
+): boolean {
+  if (application.protocol_target_method?.trim().toLowerCase() === 'removed') {
+    return true;
+  }
+  const proposal = resolveLiveProposal(application);
+  if (!proposal?.kind || typeof proposal.kind !== 'object') return false;
+  return Object.keys(proposal.kind)[0] === 'Removed';
+}
+
+export function sortProtocolApplicationsForFeed(
+  applications: ProtocolApplication[]
+): ProtocolApplication[] {
+  return [...applications].sort((left, right) => {
+    const leftPlaceholder = isProtocolRemovedFromChainPlaceholder(left);
+    const rightPlaceholder = isProtocolRemovedFromChainPlaceholder(right);
+    if (leftPlaceholder !== rightPlaceholder) {
+      return leftPlaceholder ? 1 : -1;
+    }
+
+    const leftId =
+      resolveLiveProposal(left)?.id ??
+      left.governance_proposal?.proposal_id ??
+      -1;
+    const rightId =
+      resolveLiveProposal(right)?.id ??
+      right.governance_proposal?.proposal_id ??
+      -1;
+    if (leftId !== rightId) {
+      return rightId - leftId;
+    }
+
+    const leftCreated = Date.parse(left.created_at ?? '') || 0;
+    const rightCreated = Date.parse(right.created_at ?? '') || 0;
+    return rightCreated - leftCreated;
+  });
+}
+
+export function buildProtocolProposalAppId(proposalId: number): string {
+  return `protocol-proposal-${proposalId}`;
+}
+
+/** Insert or merge a live on-chain proposal row for detail navigation after submit. */
+export function upsertProtocolProposalApplication(
+  applications: ProtocolApplication[],
+  proposal: ProtocolDaoProposal,
+  daoAccountId: string
+): ProtocolApplication[] {
+  const proposalId = proposal.id ?? null;
+  if (proposalId == null) return applications;
+
+  const existing = findProtocolApplicationByProposalId(applications, proposalId);
+  if (existing) {
+    return applications.map((row) => {
+      if (row.app_id !== existing.app_id) return row;
+      const gp = row.governance_proposal;
+      if (!gp) return row;
+      const previousSnapshot = gp.snapshot ?? null;
+      const mergedSnapshot = mergeProtocolProposalSnapshot(
+        resolveLiveProposal(row) ?? previousSnapshot,
+        proposal
+      );
+      if (!mergedSnapshot) return row;
+      return {
+        ...row,
+        governance_proposal: {
+          ...gp,
+          status: mergedSnapshot.status,
+          proposer: mergedSnapshot.proposer,
+          snapshot: {
+            ...mergedSnapshot,
+            policy_snapshot:
+              mergedSnapshot.policy_snapshot ??
+              previousSnapshot?.policy_snapshot ??
+              null,
+          },
+          kind: mergedSnapshot.kind,
+          description: mergedSnapshot.description,
+        },
+      };
+    });
+  }
+
+  return [
+    {
+      app_id: buildProtocolProposalAppId(proposalId),
+      label: 'Proposal',
+      status: 'approved',
+      description: proposal.description?.trim() || null,
+      created_at: proposal.submission_time,
+      governance_scope: 'protocol',
+      governance_proposal: {
+        proposal_id: proposalId,
+        status: proposal.status,
+        proposer: proposal.proposer,
+        description: proposal.description,
+        dao_account: daoAccountId,
+        tx_hash: null,
+        submitted_at: proposal.submission_time,
+        kind: proposal.kind,
+        snapshot: proposal,
+      },
+    },
+    ...applications,
+  ];
 }
 
 /** Portal parity — first paint a short batch, reveal more on scroll. */

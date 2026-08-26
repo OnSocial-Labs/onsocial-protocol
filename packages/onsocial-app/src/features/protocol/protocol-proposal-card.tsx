@@ -20,7 +20,10 @@ import {
   osProposalCardActionsClassName,
 } from '@onsocial/ui';
 import { ProtocolAccountChip } from '@/features/protocol/protocol-account-chip';
-import { deriveProtocolProposalView } from '@/features/protocol/protocol-card-view';
+import {
+  deriveProtocolProposalView,
+  isTerminalProtocolProposalStatus,
+} from '@/features/protocol/protocol-card-view';
 import { ProtocolOnChainSheet } from '@/features/protocol/protocol-on-chain-sheet';
 import { splitRoutingTargetDisplay } from '@/features/protocol/protocol-proposal-routing-display';
 import {
@@ -31,6 +34,7 @@ import { protocolCouncilGuardianRoleByAccount } from '@/features/protocol/protoc
 import { ProtocolVotersSheet } from '@/features/protocol/protocol-voters-sheet';
 import type {
   ProtocolApplication,
+  ProtocolDaoAction,
   ProtocolDaoPolicy,
 } from '@/features/protocol/types';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -77,6 +81,7 @@ export function ProtocolProposalCard({
   onOpenActions,
   onCopyLink,
   onNavigateToProposal,
+  confirmedVoteAction = null,
 }: {
   application: ProtocolApplication;
   daoPolicy: ProtocolDaoPolicy | null;
@@ -93,6 +98,11 @@ export function ProtocolProposalCard({
   onCopyLink?: () => void;
   /** Opens the single-proposal view + shareable portfolio URL. */
   onNavigateToProposal?: () => void;
+  /** Brief pulse on the vote the viewer just confirmed. */
+  confirmedVoteAction?: Extract<
+    ProtocolDaoAction,
+    'VoteApprove' | 'VoteReject' | 'VoteRemove'
+  > | null;
 }) {
   const [descOpen, setDescOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -136,26 +146,58 @@ export function ProtocolProposalCard({
   const profiles = usePostAuthorProfiles(profileIds);
 
   const progress = view.votingProgress;
-  const total =
-    progress.totalWeight && progress.totalWeight > 0
-      ? progress.totalWeight
-      : progress.approvals + progress.rejects + progress.removes;
-  const approvePct = total > 0 ? (progress.approvals / total) * 100 : 0;
-  const rejectPct = total > 0 ? (progress.rejects / total) * 100 : 0;
-  const removePct = total > 0 ? (progress.removes / total) * 100 : 0;
-  const pendingPct = Math.max(0, 100 - approvePct - rejectPct - removePct);
-  const thresholdPct =
+  const votesCast = progress.approvals + progress.rejects + progress.removes;
+  const showVoteRule =
     progress.threshold != null &&
     progress.totalWeight != null &&
-    progress.totalWeight > 0
-      ? (progress.threshold / progress.totalWeight) * 100
+    progress.totalWeight > 0;
+  const barDenominator = showVoteRule
+    ? progress.totalWeight!
+    : votesCast > 0
+      ? votesCast
+      : 0;
+  const approvePct =
+    barDenominator > 0 ? (progress.approvals / barDenominator) * 100 : 0;
+  const rejectPct =
+    barDenominator > 0 ? (progress.rejects / barDenominator) * 100 : 0;
+  const removePct =
+    barDenominator > 0 ? (progress.removes / barDenominator) * 100 : 0;
+  const pendingPct =
+    showVoteRule && barDenominator > 0
+      ? Math.max(100 - approvePct - rejectPct - removePct, 0)
+      : 0;
+  const thresholdPct =
+    showVoteRule && progress.threshold != null && progress.totalWeight! > 0
+      ? (progress.threshold / progress.totalWeight!) * 100
       : null;
+  const pulseApprove = confirmedVoteAction === 'VoteApprove';
+  const pulseReject = confirmedVoteAction === 'VoteReject';
+  const pulseRemove = confirmedVoteAction === 'VoteRemove';
+  const voterPoolSize =
+    showVoteRule && progress.totalWeight != null && progress.totalWeight > 0
+      ? progress.totalWeight
+      : view.eligibleVoters.length;
   const votedAccounts = new Set(
     view.voteEntries.map(([id]) => id.trim().toLowerCase())
   );
-  const abstainers = view.eligibleVoters.filter(
+  const abstainersRaw = view.eligibleVoters.filter(
     (id) => !votedAccounts.has(id.trim().toLowerCase())
   );
+  const subjectAccount = view.subjectAccount?.trim().toLowerCase() ?? null;
+  const abstainers =
+    subjectAccount != null
+      ? [
+          ...abstainersRaw.filter(
+            (id) => id.trim().toLowerCase() !== subjectAccount
+          ),
+          ...abstainersRaw.filter(
+            (id) => id.trim().toLowerCase() === subjectAccount
+          ),
+        ]
+      : abstainersRaw;
+  const votingClosed =
+    isTerminalProtocolProposalStatus(view.status) ||
+    Boolean(view.deadline?.expired);
   const canAct =
     view.canApprove || view.canReject || view.canRemove || view.canFinalize;
   const hasOnChain = Boolean(view.proposal) || Boolean(view.onChainAction);
@@ -417,7 +459,7 @@ export function ProtocolProposalCard({
                 <span
                   className={`is-approve${
                     view.currentVote === 'Approve' ? ' is-confirmed' : ''
-                  }`}
+                  }${pulseApprove ? ' is-pulse' : ''}`}
                 >
                   <CheckIcon className="protocol-card-vote-icon" aria-hidden />
                   <span>{view.approveVotes}</span>
@@ -425,7 +467,7 @@ export function ProtocolProposalCard({
                 <span
                   className={`is-reject${
                     view.currentVote === 'Reject' ? ' is-confirmed' : ''
-                  }`}
+                  }${pulseReject ? ' is-pulse' : ''}`}
                 >
                   <MultiplyIcon className="protocol-card-vote-icon" aria-hidden />
                   <span>{view.rejectVotes}</span>
@@ -434,7 +476,7 @@ export function ProtocolProposalCard({
                   <span
                     className={`is-remove${
                       view.currentVote === 'Remove' ? ' is-confirmed' : ''
-                    }`}
+                    }${pulseRemove ? ' is-pulse' : ''}`}
                   >
                     <UserMinusIcon
                       className="protocol-card-vote-icon"
@@ -443,14 +485,18 @@ export function ProtocolProposalCard({
                     <span>{view.removeVotes}</span>
                   </span>
                 ) : null}
-                {progress.threshold != null && progress.totalWeight != null ? (
+                {showVoteRule ? (
                   <span className="protocol-card-vote-rule">
                     {progress.threshold}/{progress.totalWeight} required
                   </span>
                 ) : null}
               </div>
-              {total > 0 ? (
-                <div className="protocol-card-vote-bar" aria-hidden>
+              {barDenominator > 0 ? (
+                <div
+                  className="protocol-card-vote-bar"
+                  aria-hidden
+                  data-animate-votes
+                >
                   <span
                     className="is-approve"
                     style={{ width: `${approvePct}%` }}
@@ -495,9 +541,7 @@ export function ProtocolProposalCard({
                       onClick={() => setVotersOpen(true)}
                     >
                       Votes · {view.voteEntries.length}
-                      {view.eligibleVoters.length > 0
-                        ? `/${view.eligibleVoters.length}`
-                        : ''}
+                      {voterPoolSize > 0 ? `/${voterPoolSize}` : ''}
                     </button>
                   ) : null}
                   {showVoters && hasOnChain ? (
@@ -602,6 +646,7 @@ export function ProtocolProposalCard({
         profiles={profiles}
         daoPolicy={daoPolicy}
         showProtocolRoleMarks={showProtocolRoleMarks}
+        votingClosed={votingClosed}
       />
     </>
   );

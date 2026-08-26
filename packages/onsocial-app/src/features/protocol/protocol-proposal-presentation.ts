@@ -61,6 +61,13 @@ const PROPOSAL_KIND_POLICY_LABEL: Record<string, string> = {
   ChangePolicyUpdateParameters: 'policy_update_parameters',
 };
 
+export function getProtocolProposalPolicyLabel(
+  kind: Record<string, unknown> | null | undefined
+): string {
+  const kindKey = Object.keys(kind ?? {})[0];
+  return PROPOSAL_KIND_POLICY_LABEL[kindKey] ?? '*';
+}
+
 function resolveOnChainActionFields(
   kind: Record<string, unknown> | null | undefined,
   kindKey: string | null

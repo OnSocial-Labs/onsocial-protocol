@@ -845,6 +845,41 @@ function classifyProtocolProposal(
   return null;
 }
 
+function isRemovedFromChainFeedPlaceholder(
+  item: PublicGovernanceApplication
+): boolean {
+  return item.protocol_target_method?.trim().toLowerCase() === 'removed';
+}
+
+function compareProtocolFeedItems(
+  left: PublicGovernanceApplication,
+  right: PublicGovernanceApplication
+): number {
+  const leftPlaceholder = isRemovedFromChainFeedPlaceholder(left);
+  const rightPlaceholder = isRemovedFromChainFeedPlaceholder(right);
+  if (leftPlaceholder !== rightPlaceholder) {
+    return leftPlaceholder ? 1 : -1;
+  }
+
+  const leftId =
+    normalizeProposalId(left.governance_proposal?.proposal_id) ?? -1;
+  const rightId =
+    normalizeProposalId(right.governance_proposal?.proposal_id) ?? -1;
+  if (leftId !== rightId) {
+    return rightId - leftId;
+  }
+
+  const leftCreated = Date.parse(left.created_at ?? '') || 0;
+  const rightCreated = Date.parse(right.created_at ?? '') || 0;
+  return rightCreated - leftCreated;
+}
+
+export function sortProtocolGovernanceFeedItems(
+  items: PublicGovernanceApplication[]
+): PublicGovernanceApplication[] {
+  return [...items].sort(compareProtocolFeedItems);
+}
+
 function mapMissingProposalToFeedItem(
   daoAccountId: string,
   proposalId: number
@@ -1071,7 +1106,10 @@ async function fetchDaoGovernanceFeed(daoAccountId: string): Promise<{
           )
         : [];
 
-    const protocolItems = [...protocolItemsMapped, ...gapItems].reverse();
+    const protocolItems = sortProtocolGovernanceFeedItems([
+      ...protocolItemsMapped,
+      ...gapItems,
+    ]);
 
     const scannedProposalIds = new Set(
       proposals

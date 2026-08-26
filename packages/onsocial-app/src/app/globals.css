@@ -32267,6 +32267,38 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 .protocol-card-vote-bar > span {
   display: block;
   height: 100%;
+  transition: width 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .protocol-card-vote-bar > span {
+    transition: none;
+  }
+}
+
+.protocol-card-vote-counts > span.is-pulse {
+  animation: protocol-vote-count-pulse 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes protocol-vote-count-pulse {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  45% {
+    transform: scale(1.08);
+    filter: brightness(1.15);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .protocol-card-vote-counts > span.is-pulse {
+    animation: none;
+  }
 }
 
 .protocol-card-vote-bar > span.is-approve {
@@ -32367,7 +32399,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   align-items: center;
 }
 
-.protocol-voter-row.is-pending {
+.protocol-voter-row.is-no-vote {
   opacity: 0.72;
 }
 
@@ -32903,10 +32935,81 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 .protocol-compose-fund-season-fields,
-.protocol-compose-withdraw-boost-fields {
+.protocol-compose-withdraw-boost-fields,
+.protocol-compose-split-block {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+}
+
+.protocol-compose-split-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem 0.65rem;
+}
+
+.protocol-compose-split-field {
+  min-width: 0;
+}
+
+.protocol-task-form .protocol-compose-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  max-width: 100%;
+}
+
+.protocol-task-form .protocol-compose-field-label-copy {
+  display: inline;
+  min-width: 0;
+}
+
+.protocol-task-form .protocol-compose-field-label-text {
+  display: inline;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
+.protocol-task-form .protocol-compose-field-label-meta {
+  display: inline;
+  margin-left: 0.12rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: rgb(var(--fg-rgb) / 0.38);
+}
+
+.protocol-task-form .protocol-compose-field-info-button {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.38);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.protocol-task-form .protocol-compose-field-info-button:hover,
+.protocol-task-form .protocol-compose-field-info-button:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.72);
+}
+
+.protocol-task-form .protocol-compose-field-info-button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.protocol-task-form .protocol-compose-field-info-icon {
+  width: 0.72rem;
+  height: 0.72rem;
+  display: block;
 }
 
 .protocol-compose-transfer-asset {

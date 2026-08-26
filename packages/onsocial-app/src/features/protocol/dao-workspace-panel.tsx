@@ -29,6 +29,9 @@ import {
   actionLabel,
   applyOptimisticVote,
   isProtocolApplicationSoftExpired,
+  isTerminalProtocolProposalStatus,
+  mergeProtocolFeedApplications,
+  mergeProtocolProposalSnapshot,
   resolveLiveProposal,
 } from '@/features/protocol/protocol-card-view';
 import {
@@ -51,7 +54,9 @@ import {
   PROTOCOL_FEED_FAMILY_OPTIONS,
   PROTOCOL_FEED_PAGE_SIZE,
   PROTOCOL_FEED_STATUS_OPTIONS,
+  sortProtocolApplicationsForFeed,
   type ProtocolProposalFamily,
+  upsertProtocolProposalApplication,
 } from '@/features/protocol/protocol-feed-filters';
 import { parseProtocolProposalFamily } from '@/features/protocol/protocol-proposal-family';
 import {
@@ -89,7 +94,6 @@ import type {
   ProtocolApplication,
   ProtocolDaoAction,
   ProtocolDaoPolicy,
-  ProtocolDaoVote,
 } from '@/features/protocol/types';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
@@ -108,7 +112,10 @@ import {
   txToastGovPending,
   txToastGovSuccess,
 } from '@/lib/transaction-toast-copy';
-import { replaceBrowserUrl } from '@/lib/sync-browser-url-query';
+import {
+  pushBrowserUrl,
+  replaceBrowserUrl,
+} from '@/lib/sync-browser-url-query';
 import {
   bumpDaoWorkspacePrefetch,
   readDaoFeedCache,
@@ -118,6 +125,8 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 /** Below page drawer (48) + launcher (60) so dock actions aren’t buried. */
 const PROPOSALS_PAGE_Z = 45;
+const POST_ACTION_REFRESH_MS = 2_000;
+const POST_ACTION_REFRESH_WINDOW_MS = 20_000;
 
 /** Tool the Manage sheet can ask `DaoWorkspacePanel` to open. */
 export type DaoWorkspaceTool = 'propose' | 'stake' | 'settings' | 'info' | null;
@@ -211,6 +220,13 @@ export function DaoWorkspacePanel({
   const [pendingAction, setPendingAction] = useState<ProtocolDaoAction | null>(
     null
   );
+  const [confirmedVotePulse, setConfirmedVotePulse] = useState<{
+    proposalId: number;
+    action: Extract<
+      ProtocolDaoAction,
+      'VoteApprove' | 'VoteReject' | 'VoteRemove'
+    >;
+  } | null>(null);
   const [proposeKindOpen, setProposeKindOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createKind, setCreateKind] = useState<ProtocolCreateKind>(
@@ -234,6 +250,7 @@ export function DaoWorkspacePanel({
   const [visibleCount, setVisibleCount] = useState(PROTOCOL_FEED_PAGE_SIZE);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
+  const savedListScrollRef = useRef<number | null>(null);
   const useHeaderChrome = sheet != null && !toolsHostOnly;
 
   const closeAllSheets = useCallback(() => {
@@ -341,11 +358,13 @@ export function DaoWorkspacePanel({
 
   const filteredApplications = useMemo(
     () =>
-      filterProtocolApplications(applications, statusFilter, {
-        isSoftExpired: softExpired,
-        searchQuery,
-        family: familyFilter,
-      }),
+      sortProtocolApplicationsForFeed(
+        filterProtocolApplications(applications, statusFilter, {
+          isSoftExpired: softExpired,
+          searchQuery,
+          family: familyFilter,
+        })
+      ),
     [applications, statusFilter, softExpired, searchQuery, familyFilter]
   );
 
@@ -400,8 +419,12 @@ export function DaoWorkspacePanel({
 
   const navigateToProposalDetail = useCallback(
     (proposalId: number) => {
+      const scrollRoot = scrollRootRef.current;
+      if (scrollRoot) {
+        savedListScrollRef.current = scrollRoot.scrollTop;
+      }
       setFocusedProposalId(proposalId);
-      replaceBrowserUrl(
+      pushBrowserUrl(
         daoPortfolioPath(daoAccountId, {
           status: statusFilter,
           family: familyFilter,
@@ -414,6 +437,16 @@ export function DaoWorkspacePanel({
   );
 
   const clearProposalDetail = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (
+        params.get(PROTOCOL_PROPOSAL_PARAM)?.trim() &&
+        window.history.length > 1
+      ) {
+        window.history.back();
+        return;
+      }
+    }
     setFocusedProposalId(null);
     replaceBrowserUrl(
       daoPortfolioPath(daoAccountId, {
@@ -424,6 +457,15 @@ export function DaoWorkspacePanel({
       })
     );
   }, [daoAccountId, statusFilter, familyFilter, searchQuery]);
+
+  const requestCloseSheet = sheet?.onRequestClose;
+  const handleSheetBack = useCallback(() => {
+    if (focusedProposalId != null) {
+      clearProposalDetail();
+      return;
+    }
+    requestCloseSheet?.();
+  }, [clearProposalDetail, focusedProposalId, requestCloseSheet]);
 
   const detailApplication = useMemo(() => {
     if (focusedProposalId == null) return null;
@@ -451,7 +493,9 @@ export function DaoWorkspacePanel({
     let soft = Boolean(opts?.soft);
     const cached = readDaoFeedCache(daoAccountId);
     if (!soft && cached) {
-      setApplications(cached.applications);
+      setApplications((current) =>
+        mergeProtocolFeedApplications(current, cached.applications)
+      );
       setDaoPolicy((prev) => cached.daoPolicy ?? prev);
       setFeedSyncing(Boolean(cached.syncing));
       setLoadState('ready');
@@ -464,7 +508,9 @@ export function DaoWorkspacePanel({
     try {
       const feed = await fetchProtocolFeed(daoAccountId, 'protocol');
       writeDaoFeedCache(daoAccountId, feed);
-      setApplications(feed.applications);
+      setApplications((current) =>
+        mergeProtocolFeedApplications(current, feed.applications)
+      );
       setDaoPolicy((prev) => feed.daoPolicy ?? prev);
       setFeedSyncing(Boolean(feed.syncing));
       setLoadState('ready');
@@ -603,6 +649,19 @@ export function DaoWorkspacePanel({
     return () => window.cancelAnimationFrame(frame);
   }, [focusHandled, focusedProposalId, loadState, paintedApplications]);
 
+  useEffect(() => {
+    if (focusedProposalId != null) return;
+    const savedScrollTop = savedListScrollRef.current;
+    if (savedScrollTop == null) return;
+    savedListScrollRef.current = null;
+    const scrollRoot = scrollRootRef.current;
+    if (!scrollRoot) return;
+    const frame = window.requestAnimationFrame(() => {
+      scrollRoot.scrollTop = savedScrollTop;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusedProposalId, loadState, paintedApplications.length]);
+
   const navigateStatus = useCallback(
     (nextStatus: ProtocolFeedStatusFilter) => {
       setStatusFilter(nextStatus);
@@ -658,21 +717,25 @@ export function DaoWorkspacePanel({
         current.map((row) => {
           if (row.app_id !== appId) return row;
           const gp = row.governance_proposal;
-          const previousSnapshot = gp?.snapshot;
-          const mergedSnapshot = {
-            ...nextProposal,
-            policy_snapshot:
-              nextProposal.policy_snapshot ??
-              previousSnapshot?.policy_snapshot ??
-              null,
-          };
+          const previousSnapshot = gp?.snapshot ?? null;
+          const mergedSnapshot = mergeProtocolProposalSnapshot(
+            resolveLiveProposal(row) ?? previousSnapshot,
+            nextProposal
+          );
+          if (!mergedSnapshot) return row;
           return {
             ...row,
             governance_proposal: gp
               ? {
                   ...gp,
                   status: mergedSnapshot.status,
-                  snapshot: mergedSnapshot,
+                  snapshot: {
+                    ...mergedSnapshot,
+                    policy_snapshot:
+                      mergedSnapshot.policy_snapshot ??
+                      previousSnapshot?.policy_snapshot ??
+                      null,
+                  },
                   kind: mergedSnapshot.kind,
                   description: mergedSnapshot.description,
                 }
@@ -682,6 +745,94 @@ export function DaoWorkspacePanel({
       );
     },
     []
+  );
+
+  const refreshProposalLive = useCallback(
+    async (appId: string, proposalId: number) => {
+      const refreshed = await fetchProtocolProposal({
+        daoAccountId,
+        proposalId,
+        live: true,
+      });
+      if (refreshed.proposal) {
+        mergeProposal(appId, refreshed.proposal);
+      }
+      if (refreshed.daoPolicy) setDaoPolicy(refreshed.daoPolicy);
+      return refreshed.proposal;
+    },
+    [daoAccountId, mergeProposal]
+  );
+
+  const schedulePostActionProposalRefresh = useCallback(
+    (appId: string, proposalId: number) => {
+      const refreshUntil = Date.now() + POST_ACTION_REFRESH_WINDOW_MS;
+
+      const tick = async () => {
+        try {
+          const proposal = await refreshProposalLive(appId, proposalId);
+          if (proposal && isTerminalProtocolProposalStatus(proposal.status)) {
+            return;
+          }
+        } catch {
+          // Best-effort live sync after wallet confirm.
+        }
+
+        if (Date.now() < refreshUntil) {
+          window.setTimeout(() => {
+            void tick();
+          }, POST_ACTION_REFRESH_MS);
+        }
+      };
+
+      void tick();
+    },
+    [refreshProposalLive]
+  );
+
+  const adoptLiveProposal = useCallback(
+    (proposal: NonNullable<ReturnType<typeof resolveLiveProposal>>) => {
+      setApplications((current) =>
+        upsertProtocolProposalApplication(current, proposal, daoAccountId)
+      );
+    },
+    [daoAccountId]
+  );
+
+  const landOnSubmittedProposal = useCallback(
+    async (proposalId: number | null) => {
+      closeAllSheets();
+      if (proposalId == null) {
+        bumpDaoWorkspacePrefetch(daoAccountId);
+        void loadFeed();
+        return;
+      }
+
+      navigateToProposalDetail(proposalId);
+
+      try {
+        const refreshed = await fetchProtocolProposal({
+          daoAccountId,
+          proposalId,
+          live: true,
+        });
+        if (refreshed.proposal) {
+          adoptLiveProposal(refreshed.proposal);
+        }
+        if (refreshed.daoPolicy) setDaoPolicy(refreshed.daoPolicy);
+      } catch {
+        // Best-effort — detail shell can show until feed/indexer catches up.
+      }
+
+      bumpDaoWorkspacePrefetch(daoAccountId);
+      void loadFeed();
+    },
+    [
+      adoptLiveProposal,
+      closeAllSheets,
+      daoAccountId,
+      loadFeed,
+      navigateToProposalDetail,
+    ]
   );
 
   useEffect(() => {
@@ -703,21 +854,25 @@ export function DaoWorkspacePanel({
             return current.map((row) => {
               if (row.app_id !== match.app_id) return row;
               const gp = row.governance_proposal;
-              const previousSnapshot = gp?.snapshot;
-              const mergedSnapshot = {
-                ...refreshed.proposal!,
-                policy_snapshot:
-                  refreshed.proposal!.policy_snapshot ??
-                  previousSnapshot?.policy_snapshot ??
-                  null,
-              };
+              const previousSnapshot = gp?.snapshot ?? null;
+              const mergedSnapshot = mergeProtocolProposalSnapshot(
+                resolveLiveProposal(row) ?? previousSnapshot,
+                refreshed.proposal!
+              );
+              if (!mergedSnapshot) return row;
               return {
                 ...row,
                 governance_proposal: gp
                   ? {
                       ...gp,
                       status: mergedSnapshot.status,
-                      snapshot: mergedSnapshot,
+                      snapshot: {
+                        ...mergedSnapshot,
+                        policy_snapshot:
+                          mergedSnapshot.policy_snapshot ??
+                          previousSnapshot?.policy_snapshot ??
+                          null,
+                      },
                       kind: mergedSnapshot.kind,
                       description: mergedSnapshot.description,
                     }
@@ -764,43 +919,68 @@ export function DaoWorkspacePanel({
           proposalKind: proposal.kind,
         });
 
-        if (action !== 'Finalize') {
-          const vote: ProtocolDaoVote =
-            action === 'VoteApprove'
-              ? 'Approve'
-              : action === 'VoteReject'
-                ? 'Reject'
-                : 'Remove';
-          mergeProposal(
-            actionApplication.app_id,
-            applyOptimisticVote(proposal, signerId, vote)
-          );
-        }
-
-        await trackTransaction({
+        const confirmed = await trackTransaction({
           txHashes,
           submittedMessage: txToastGovPending.actionSubmitted(label),
           successMessage: txToastGovSuccess.actionConfirmed(label),
           failureMessage: txToastGovError.actionFailed(label),
         });
+        if (!confirmed) return;
 
-        bumpDaoWorkspacePrefetch(daoAccountId);
         setActionAppId(null);
 
-        if (
-          action === 'VoteApprove' ||
-          action === 'VoteReject' ||
-          action === 'VoteRemove'
-        ) {
+        const voteChoice =
+          action === 'VoteApprove'
+            ? ('Approve' as const)
+            : action === 'VoteReject'
+              ? ('Reject' as const)
+              : action === 'VoteRemove'
+                ? ('Remove' as const)
+                : null;
+
+        if (voteChoice) {
+          const live = resolveLiveProposal(actionApplication);
+          if (live) {
+            mergeProposal(
+              actionApplication.app_id,
+              applyOptimisticVote(live, signerId, voteChoice, daoPolicy)
+            );
+          }
+          setConfirmedVotePulse({
+            proposalId,
+            action:
+              voteChoice === 'Approve'
+                ? 'VoteApprove'
+                : voteChoice === 'Reject'
+                  ? 'VoteReject'
+                  : 'VoteRemove',
+          });
+          window.setTimeout(() => setConfirmedVotePulse(null), 3000);
           navigateToProposalDetail(proposalId);
         }
 
         try {
-          const refreshed = await fetchProtocolProposal({
+          let refreshed = await fetchProtocolProposal({
             daoAccountId,
             proposalId,
             live: true,
           });
+          const viewer = signerId.trim().toLowerCase();
+          const hasViewerVote = (proposal: typeof refreshed.proposal) =>
+            Boolean(
+              proposal?.votes &&
+                Object.entries(proposal.votes).some(
+                  ([id]) => id.trim().toLowerCase() === viewer
+                )
+            );
+          if (voteChoice && refreshed.proposal && !hasViewerVote(refreshed.proposal)) {
+            await new Promise((resolve) => window.setTimeout(resolve, 900));
+            refreshed = await fetchProtocolProposal({
+              daoAccountId,
+              proposalId,
+              live: true,
+            });
+          }
           if (refreshed.proposal) {
             mergeProposal(actionApplication.app_id, refreshed.proposal);
           }
@@ -808,6 +988,13 @@ export function DaoWorkspacePanel({
         } catch {
           // soft refresh best-effort
         }
+
+        schedulePostActionProposalRefresh(
+          actionApplication.app_id,
+          proposalId
+        );
+
+        bumpDaoWorkspacePrefetch(daoAccountId);
       } catch (error) {
         if (!isWalletUserCancellation(error)) {
           setTxResult({
@@ -825,10 +1012,12 @@ export function DaoWorkspacePanel({
     [
       actionApplication,
       daoAccountId,
+      daoPolicy,
       isConnected,
       connect,
       getSigningWallet,
       mergeProposal,
+      schedulePostActionProposalRefresh,
       trackTransaction,
       setTxResult,
       navigateToProposalDetail,
@@ -844,21 +1033,21 @@ export function DaoWorkspacePanel({
       setCreatePending(true);
       try {
         const { accountId: signerId, wallet } = await getSigningWallet();
-        const { txHashes } = await submitProtocolProposal({
+        const { proposalId, txHashes } = await submitProtocolProposal({
           wallet,
           accountId: signerId,
           daoAccountId,
           payload,
         });
-        await trackTransaction({
+        const confirmed = await trackTransaction({
           txHashes,
           submittedMessage: txToastGovPending.actionSubmitted('proposal'),
           successMessage: txToastGovSuccess.actionConfirmed('proposal'),
           failureMessage: txToastGovError.actionFailed('proposal'),
         });
-        setCreateOpen(false);
-        bumpDaoWorkspacePrefetch(daoAccountId);
-        await loadFeed();
+        if (!confirmed) return;
+
+        await landOnSubmittedProposal(proposalId);
       } catch (error) {
         if (!isWalletUserCancellation(error)) {
           setTxResult({
@@ -880,7 +1069,7 @@ export function DaoWorkspacePanel({
       getSigningWallet,
       trackTransaction,
       setTxResult,
-      loadFeed,
+      landOnSubmittedProposal,
     ]
   );
 
@@ -893,13 +1082,13 @@ export function DaoWorkspacePanel({
       setSettingsPending(true);
       try {
         const { accountId: signerId, wallet } = await getSigningWallet();
-        const { txHashes } = await submitProtocolProposal({
+        const { proposalId, txHashes } = await submitProtocolProposal({
           wallet,
           accountId: signerId,
           daoAccountId,
           payload,
         });
-        await trackTransaction({
+        const confirmed = await trackTransaction({
           txHashes,
           submittedMessage: txToastGovPending.actionSubmitted(
             'settings proposal'
@@ -909,10 +1098,9 @@ export function DaoWorkspacePanel({
           ),
           failureMessage: txToastGovError.actionFailed('settings proposal'),
         });
-        setSettingsOpen(false);
-        setSettingsActionOpen(false);
-        bumpDaoWorkspacePrefetch(daoAccountId);
-        await loadFeed();
+        if (!confirmed) return;
+
+        await landOnSubmittedProposal(proposalId);
       } catch (error) {
         if (!isWalletUserCancellation(error)) {
           setTxResult({
@@ -934,7 +1122,7 @@ export function DaoWorkspacePanel({
       getSigningWallet,
       trackTransaction,
       setTxResult,
-      loadFeed,
+      landOnSubmittedProposal,
     ]
   );
 
@@ -1141,6 +1329,10 @@ export function DaoWorkspacePanel({
         null;
       const shareHref =
         proposalId != null ? buildDaoHref({ proposal: proposalId }) : null;
+      const confirmedVoteAction =
+        confirmedVotePulse?.proposalId === proposalId
+          ? confirmedVotePulse.action
+          : null;
       return (
         <ProtocolProposalCard
           key={application.app_id}
@@ -1153,6 +1345,7 @@ export function DaoWorkspacePanel({
           focused={opts?.focused ?? false}
           shareHref={shareHref}
           proposalHref={shareHref}
+          confirmedVoteAction={confirmedVoteAction}
           onOpenActions={() => {
             setActionAppId(application.app_id);
             if (proposalId != null) {
@@ -1179,6 +1372,7 @@ export function DaoWorkspacePanel({
     [
       accountId,
       buildDaoHref,
+      confirmedVotePulse,
       daoAccountId,
       daoPolicy,
       navigateToProposalDetail,
@@ -1593,7 +1787,7 @@ export function DaoWorkspacePanel({
       ) : sheet ? (
         <OsPageSheet
           open={sheet.open}
-          onClose={sheet.onRequestClose}
+          onClose={handleSheetBack}
           onClosed={sheet.onClosed}
           surface="page"
           presentation="appear"
@@ -1614,8 +1808,12 @@ export function DaoWorkspacePanel({
               <header className="dao-proposals-page-header">
                 <div className="os-app-screen-nav-row">
                   <OsIconAction
-                    ariaLabel={sheet.closeAriaLabel ?? 'Back from proposals'}
-                    onClick={sheet.onRequestClose}
+                    ariaLabel={
+                      inProposalDetail
+                        ? 'Back to all proposals'
+                        : (sheet.closeAriaLabel ?? 'Back from proposals')
+                    }
+                    onClick={handleSheetBack}
                   >
                     <ArrowLeftIcon
                       className="glass-sheet-close-icon"

@@ -47,3 +47,21 @@ export function replaceBrowserUrl(nextUrl: string): boolean {
   window.history.replaceState(window.history.state, '', nextUrl);
   return true;
 }
+
+/**
+ * Push pathname + query without a Next.js soft navigation.
+ * Use when entering nested overlay steps so browser back reverses one level.
+ */
+export function pushBrowserUrl(nextUrl: string): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const currentUrl = `${window.location.pathname}${window.location.search}`;
+  if (nextUrl === currentUrl) {
+    return false;
+  }
+
+  window.history.pushState(window.history.state, '', nextUrl);
+  return true;
+}

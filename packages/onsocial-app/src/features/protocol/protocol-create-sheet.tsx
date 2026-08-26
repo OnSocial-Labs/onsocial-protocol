@@ -26,6 +26,7 @@ import {
   getProtocolRoleMemberOptions,
   isProtocolCreateMembershipKind,
   protocolCreateComposeKindHint,
+  protocolCreateKindHint,
   protocolCreateKindLabel,
   type ProtocolCreateKind,
   type ProtocolProposalPayload,
@@ -64,6 +65,7 @@ import {
   resolveProtocolTransferAmountYocto,
   resolveProtocolTransferAsset,
 } from '@/features/protocol/protocol-transfer-compose';
+import { ProtocolComposeContractConfigFields } from '@/features/protocol/protocol-compose-contract-config-fields';
 import { ProtocolComposeDescriptionField } from '@/features/protocol/protocol-compose-description-field';
 import { ProtocolCreateRoleRow } from '@/features/protocol/protocol-create-role-row';
 import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
@@ -779,7 +781,10 @@ export function ProtocolCreateSheet({
         <div className="protocol-create-fields">
           {onChangeKind && !isProtocolCreateMembershipKind(kind) ? (
             <ProtocolComposeChangeTypeRow
-              hint={protocolCreateComposeKindHint(kind)}
+              hint={
+                protocolCreateComposeKindHint(kind) ||
+                protocolCreateKindHint(kind)
+              }
               pending={pending}
               onChangeKind={onChangeKind}
             />
@@ -975,71 +980,32 @@ export function ProtocolCreateSheet({
         ) : null}
 
         {kind === 'contract_config' ? (
-          <>
-            <div className="guild-field">
-              <ChoiceDrawerField
-                label="Setting"
-                value={configOpId}
-                options={PROTOCOL_CONTRACT_CONFIG_OPS.map(
-                  (op): ChoiceOption<ProtocolContractConfigOpId> => ({
-                    value: op.id,
-                    label: op.label,
-                  })
-                )}
-                onChange={setConfigOpId}
-                disabled={pending}
-                zIndex={PROTOCOL_NESTED_CHOICE_Z}
-              />
-            </div>
-            <div className="protocol-community-row">
-              <label className="guild-field">
-                <span>Treasury bps</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={treasuryBps}
-                  onChange={(event) => setTreasuryBps(event.target.value)}
-                  disabled={pending}
-                  className={osFieldBorderedClassName}
-                />
-              </label>
-              <label className="guild-field">
-                <span>Season bps</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={seasonPoolBps}
-                  onChange={(event) => setSeasonPoolBps(event.target.value)}
-                  disabled={pending}
-                  className={osFieldBorderedClassName}
-                />
-              </label>
-            </div>
-            <div className="protocol-community-row">
-              <label className="guild-field">
-                <span>Target bps</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={targetBps}
-                  onChange={(event) => setTargetBps(event.target.value)}
-                  disabled={pending}
-                  className={osFieldBorderedClassName}
-                />
-              </label>
-              <label className="guild-field">
-                <span>Burn bps</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={burnBps}
-                  onChange={(event) => setBurnBps(event.target.value)}
-                  disabled={pending}
-                  className={osFieldBorderedClassName}
-                />
-              </label>
-            </div>
-          </>
+          <ProtocolComposeContractConfigFields
+            configOpId={configOpId}
+            onConfigOpChange={setConfigOpId}
+            treasuryBps={treasuryBps}
+            onTreasuryBpsChange={(next) => {
+              setTreasuryBps(next);
+              setFormError(null);
+            }}
+            seasonPoolBps={seasonPoolBps}
+            onSeasonPoolBpsChange={(next) => {
+              setSeasonPoolBps(next);
+              setFormError(null);
+            }}
+            targetBps={targetBps}
+            onTargetBpsChange={(next) => {
+              setTargetBps(next);
+              setFormError(null);
+            }}
+            burnBps={burnBps}
+            onBurnBpsChange={(next) => {
+              setBurnBps(next);
+              setFormError(null);
+            }}
+            pending={pending}
+            zIndex={PROTOCOL_NESTED_CHOICE_Z}
+          />
         ) : null}
 
         {kind === 'season_config' ? (
