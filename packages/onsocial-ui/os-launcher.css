@@ -25,7 +25,8 @@
   }
 }
 
-/* Dock pill — frosted glass + optional mood tokens from host (--os-dock-*). */
+/* Dock pill — same frost as elevated screen headers so feed under it blurs.
+ * Optional mood tokens from host (--os-dock-*). */
 .os-dock-pill {
   --os-dock-fill: var(--glass-surface, rgb(var(--bg-rgb) / 0.32));
   --os-dock-fill-hover: color-mix(
@@ -50,8 +51,8 @@
   border: 0;
   border-radius: 9999px;
   background: var(--os-dock-fill);
-  backdrop-filter: blur(14px) saturate(150%);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
   box-shadow: var(--os-dock-shadow), var(--os-dock-lip);
   color: rgb(var(--fg-rgb) / 0.88);
   overflow: hidden;
