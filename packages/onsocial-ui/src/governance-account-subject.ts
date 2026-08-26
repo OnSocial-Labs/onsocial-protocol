@@ -36,7 +36,9 @@ export function formatNearAccountFallbackTitle(accountId: string): string {
     .join(' ');
 }
 
-function normalizeAccountId(accountId: string | null | undefined): string | null {
+function normalizeAccountId(
+  accountId: string | null | undefined
+): string | null {
   const value = accountId?.trim().toLowerCase();
   return value || null;
 }

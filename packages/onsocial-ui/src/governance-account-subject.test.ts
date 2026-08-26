@@ -7,9 +7,9 @@ import {
 
 describe('formatNearAccountFallbackTitle', () => {
   it('title-cases hyphenated contract slugs', () => {
-    expect(formatNearAccountFallbackTitle('social-spend.onsocial.testnet')).toBe(
-      'Social Spend'
-    );
+    expect(
+      formatNearAccountFallbackTitle('social-spend.onsocial.testnet')
+    ).toBe('Social Spend');
   });
 
   it('handles implicit accounts', () => {
@@ -31,9 +31,9 @@ describe('looksLikeInfrastructureAccount', () => {
 
   it('leaves people alone', () => {
     expect(looksLikeInfrastructureAccount('alice.testnet')).toBe(false);
-    expect(
-      looksLikeInfrastructureAccount('greenghost.onsocial.testnet')
-    ).toBe(false);
+    expect(looksLikeInfrastructureAccount('greenghost.onsocial.testnet')).toBe(
+      false
+    );
   });
 });
 
