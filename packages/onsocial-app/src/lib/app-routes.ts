@@ -1,4 +1,16 @@
 export const APP_HOME_PATH = '/home';
+/** Global wallet / Collect sheet (`?sheet=wallet`) — dock account drawer. */
+export const APP_SHEET_PARAM = 'sheet';
+
+export function parseAppWalletSheetParam(
+  raw: string | null | undefined
+): 'wallet' | null {
+  return (raw ?? '').trim().toLowerCase() === 'wallet' ? 'wallet' : null;
+}
+
+export function homeWalletPath(): string {
+  return `${APP_HOME_PATH}?${APP_SHEET_PARAM}=wallet`;
+}
 export const APP_DISCOVER_PATH = '/discover';
 export const APP_GROUPS_PATH = '/groups';
 export const APP_MARKET_PATH = '/market';

@@ -100,7 +100,7 @@ describe('pushNotificationUrl', () => {
         recipient: 'alice.near',
         context: {},
       })
-    ).toBe('/home');
+    ).toBe('/home?sheet=wallet');
     expect(
       pushNotificationUrl({
         notification_type: 'scarces_sold',

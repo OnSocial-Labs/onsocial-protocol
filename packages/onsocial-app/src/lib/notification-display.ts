@@ -6,9 +6,11 @@ import {
   APP_HOME_PATH,
   collectionPath,
   daoPortfolioPath,
+  homeWalletPath,
   messagesPath,
   type ProtocolFeedStatusFilter,
 } from '@/lib/app-routes';
+import { parsePostText } from '@/lib/post-display';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import { portfolioBoostPath, portfolioPath } from '@/lib/overlay-routes';
 import { postThreadPath } from '@/lib/post-routes';
@@ -177,12 +179,83 @@ export function notificationCollectionIds(
 
 const SNIPPET_CHARS = 72;
 
+const SOCIAL_SNIPPET_TYPES = new Set([
+  'reply',
+  'quote',
+  'repost',
+  'mention',
+  'reaction',
+]);
+
 function firstLineSnippet(raw: string | null): string | null {
   if (!raw) return null;
   const first = raw.replace(/\s+/g, ' ').trim();
   if (!first) return null;
   if (first.length <= SNIPPET_CHARS) return first;
   return `${first.slice(0, SNIPPET_CHARS - 1).trimEnd()}…`;
+}
+
+export function snippetFromPostValue(
+  value: string | null | undefined
+): string | null {
+  if (!value) return null;
+  return firstLineSnippet(parsePostText(value));
+}
+
+export function notificationSnippetKey(
+  author: string,
+  postId: string
+): string {
+  return `${author}\0${postId}`;
+}
+
+/** Post to fetch when context has no snippet yet (old social rows + reactions). */
+export function notificationSnippetPostRef(
+  notification: Pick<Notification, 'type' | 'actor' | 'context'>
+): { author: string; postId: string } | null {
+  const type = notification.type;
+  if (!SOCIAL_SNIPPET_TYPES.has(type)) return null;
+  if (
+    firstLineSnippet(
+      textField(notification.context, 'snippet') ??
+        textField(notification.context, 'text')
+    )
+  ) {
+    return null;
+  }
+  const context = notification.context;
+  if (type === 'reaction') {
+    return (
+      parseNotificationPostPath(textField(context, 'reactionTargetPath')) ??
+      parseNotificationPostPath(textField(context, 'path'))
+    );
+  }
+  const fromPath = parseNotificationPostPath(textField(context, 'path'));
+  if (fromPath) return fromPath;
+  const postId = textField(context, 'postId');
+  const actor = notification.actor?.trim() || null;
+  if (actor && postId) return { author: actor, postId };
+  return null;
+}
+
+export function notificationSnippetPostRefs(
+  items: readonly Pick<Notification, 'type' | 'actor' | 'context'>[]
+): Array<{ author: string; postId: string }> {
+  const seen = new Set<string>();
+  const refs: Array<{ author: string; postId: string }> = [];
+  for (const item of items) {
+    const ref = notificationSnippetPostRef(item);
+    if (!ref) continue;
+    const key = notificationSnippetKey(ref.author, ref.postId);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    refs.push(ref);
+  }
+  return refs;
+}
+
+export function isCollectActivityType(type: string): boolean {
+  return type.startsWith('reward_');
 }
 
 function socialAmountSnippet(
@@ -406,7 +479,7 @@ export function notificationHref(
   }
 
   if (type.startsWith('reward_')) {
-    return APP_HOME_PATH;
+    return homeWalletPath();
   }
 
   if (actor) return portfolioPath(actor);

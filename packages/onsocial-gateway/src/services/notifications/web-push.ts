@@ -506,7 +506,7 @@ export function pushNotificationUrl(row: {
   }
 
   if (type.startsWith('reward_')) {
-    return '/home';
+    return '/home?sheet=wallet';
   }
 
   if (

@@ -20,6 +20,8 @@ import {
   isSystemNotification,
   notificationDaoAccountId,
   notificationDetail,
+  notificationSnippetKey,
+  notificationSnippetPostRef,
   notificationSystemChrome,
   type NotificationSystemFamily,
 } from '@/lib/notification-display';
@@ -121,12 +123,14 @@ export function NotificationActivityRows({
   profiles,
   guildNames,
   collectionNames,
+  postSnippets,
   onOpen,
 }: {
   items: Notification[];
   profiles: Record<string, PostAuthorProfile>;
   guildNames?: Record<string, string>;
   collectionNames?: Record<string, string>;
+  postSnippets?: Record<string, string>;
   onOpen: (item: Notification) => void;
 }) {
   return (
@@ -146,8 +150,16 @@ export function NotificationActivityRows({
           placeAccountId,
           placeGroupId,
           placeCollectionId,
-          snippet,
+          snippet: contextSnippet,
         } = notificationDetail(item);
+        const snippetRef = notificationSnippetPostRef(item);
+        const snippet =
+          contextSnippet ??
+          (snippetRef
+            ? postSnippets?.[
+                notificationSnippetKey(snippetRef.author, snippetRef.postId)
+              ]
+            : null);
         const placeProfile = placeAccountId
           ? profiles[placeAccountId]
           : undefined;

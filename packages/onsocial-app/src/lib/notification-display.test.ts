@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { homeWalletPath, parseAppWalletSheetParam } from '@/lib/app-routes';
 import {
   formatNotificationTime,
   isSystemNotification,
@@ -7,7 +8,10 @@ import {
   notificationExplorerHref,
   notificationCollectionIds,
   notificationHref,
+  notificationSnippetPostRef,
+  notificationSnippetPostRefs,
   notificationProfileAccountIds,
+  snippetFromPostValue,
   notificationSystemChrome,
   notificationVerb,
   parseNotificationPostPath,
@@ -154,7 +158,10 @@ describe('notification display', () => {
         recipient: 'alice.testnet',
         context: {},
       })
-    ).toBe('/home');
+    ).toBe('/home?sheet=wallet');
+    expect(homeWalletPath()).toBe('/home?sheet=wallet');
+    expect(parseAppWalletSheetParam('wallet')).toBe('wallet');
+    expect(parseAppWalletSheetParam('boost')).toBeNull();
   });
 
   it('builds relative description lines', () => {
@@ -294,6 +301,47 @@ describe('notification display', () => {
       placeCollectionId: 'night-drive',
       snippet: '12.00 SOCIAL',
     });
+  });
+
+  it('backfills snippet refs only when context has no snippet', () => {
+    expect(
+      snippetFromPostValue(JSON.stringify({ text: 'Nice take on this' }))
+    ).toBe('Nice take on this');
+    expect(
+      notificationSnippetPostRef({
+        type: 'reply',
+        actor: 'bob.testnet',
+        context: { snippet: 'Nice take', path: 'bob.testnet/post/10' },
+      })
+    ).toBeNull();
+    expect(
+      notificationSnippetPostRef({
+        type: 'reply',
+        actor: 'bob.testnet',
+        context: { path: 'bob.testnet/post/10' },
+      })
+    ).toEqual({ author: 'bob.testnet', postId: '10' });
+    expect(
+      notificationSnippetPostRef({
+        type: 'reaction',
+        actor: 'bob.testnet',
+        context: { reactionTargetPath: 'alice.testnet/post/9' },
+      })
+    ).toEqual({ author: 'alice.testnet', postId: '9' });
+    expect(
+      notificationSnippetPostRefs([
+        {
+          type: 'reply',
+          actor: 'bob.testnet',
+          context: { path: 'bob.testnet/post/10' },
+        },
+        {
+          type: 'mention',
+          actor: 'bob.testnet',
+          context: { postId: '10' },
+        },
+      ])
+    ).toEqual([{ author: 'bob.testnet', postId: '10' }]);
   });
 
   it('collects collection ids for drop title fetch', () => {
