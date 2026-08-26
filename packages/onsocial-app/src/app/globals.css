@@ -8788,6 +8788,11 @@ a.os-surface-row {
     z-index: 40;
   }
 
+  /* Write bar sits over enlarge (80) and under commerce (90). */
+  .os-app-screen > .portfolio-summon-dock:has(.os-write-dock) {
+    z-index: 85;
+  }
+
   .os-app-screen-header {
     position: relative;
     z-index: 2;
@@ -10050,6 +10055,184 @@ a.os-surface-row {
   .portfolio-summon-compose-icon {
     width: 1.15rem;
     height: 1.15rem;
+  }
+
+  .os-dock-pill.is-writing {
+    display: flex;
+    width: 100%;
+    overflow: visible;
+    align-items: stretch;
+    border-radius: 1.75rem;
+  }
+
+  .os-dock-pill.is-writing:has(.os-write-dock.is-expanded) {
+    min-height: 5.5rem;
+  }
+
+  .os-write-dock {
+    flex: 1 1 auto;
+    min-width: 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-self: stretch;
+  }
+
+  .os-write-dock-above {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(100% + 0.45rem);
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.45rem 0.65rem;
+    border-radius: 1rem;
+    background: color-mix(
+      in srgb,
+      var(--mood-bg, var(--bg)) 78%,
+      transparent
+    );
+    backdrop-filter: blur(16px) saturate(1.3);
+    -webkit-backdrop-filter: blur(16px) saturate(1.3);
+    box-shadow: 0 10px 28px -16px rgb(0 0 0 / 0.4);
+  }
+
+  .os-write-dock-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.15rem;
+    min-width: 0;
+    padding: 0.2rem 0.3rem 0.2rem 0.15rem;
+  }
+
+  .os-write-dock-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    resize: none;
+    min-height: 1.5rem;
+    max-height: 2.5rem;
+    overflow-y: auto;
+    line-height: 1.35;
+    padding: 0.4rem 0.2rem;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    /* 16px — iOS zooms the page when a focused field is under 16px. */
+    font-size: 16px;
+    --os-field-font-size: 16px;
+  }
+
+  .os-write-dock.is-expanded .os-write-dock-input {
+    min-height: 3rem;
+    max-height: 6rem;
+  }
+
+  .os-write-dock-divider {
+    align-self: stretch;
+    margin: 0.35rem 0.1rem;
+  }
+
+  .os-write-dock-media-icon {
+    width: 1.05rem;
+    height: 1.05rem;
+  }
+
+  .os-write-dock-send {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    margin: 0.15rem 0.1rem 0.15rem 0.05rem;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--protocol-green, #00ec97);
+    color: #04110a;
+    cursor: pointer;
+  }
+
+  .os-write-dock-send:disabled {
+    opacity: 0.32;
+    cursor: default;
+  }
+
+  .os-write-dock-send:not(:disabled):hover,
+  .os-write-dock-send:not(:disabled):focus-visible {
+    filter: brightness(1.06);
+    outline: none;
+  }
+
+  .os-write-dock-send-icon {
+    display: block;
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+
+  .os-write-dock-preview {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  .os-write-dock-preview-el {
+    display: block;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.55rem;
+    object-fit: cover;
+  }
+
+  .os-write-dock-preview-remove,
+  .os-write-dock-reply-cancel {
+    flex-shrink: 0;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 650;
+    color: rgb(var(--fg-rgb) / 0.5);
+    cursor: pointer;
+  }
+
+  .os-write-dock-preview-remove:hover,
+  .os-write-dock-preview-remove:focus-visible,
+  .os-write-dock-reply-cancel:hover,
+  .os-write-dock-reply-cancel:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.9);
+    outline: none;
+  }
+
+  .os-write-dock-reply {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+
+  .os-write-dock-reply-copy {
+    min-width: 0;
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .os-write-dock-reply-copy span {
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .os-write-dock-error {
+    margin: 0;
+    font-size: 0.78rem;
+    color: rgb(var(--fg-rgb) / 0.7);
   }
 
   .portfolio-summon-hint {
@@ -35422,14 +35605,14 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 .os-app-screen:has(.messages-panel[data-keyboard='open'])
   > .portfolio-summon-dock {
-  visibility: hidden;
-  pointer-events: none;
+  bottom: var(--messages-keyboard-lift, 0px);
+  z-index: 85;
 }
 
-.os-app-screen:has(.messages-panel[data-keyboard='open'])[data-screen-footer='true']
+.os-app-screen:has(.messages-panel[data-keyboard='open'])
   .os-app-screen-body {
   padding-bottom: calc(
-    var(--messages-keyboard-lift, 0px) + var(--os-screen-footer-band)
+    var(--messages-keyboard-lift, 0px) + var(--portfolio-dock-clearance, 4.75rem)
   );
 }
 
@@ -35683,7 +35866,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
     min-height: calc(
       100dvh - var(--os-screen-chrome-height, 5.25rem) -
         var(--messages-keyboard-lift, 0px) -
-        var(--os-screen-footer-band, 4.35rem)
+        var(--portfolio-dock-clearance, 4.75rem)
     );
   }
 

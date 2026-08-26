@@ -37,7 +37,11 @@ import {
   useScrollLock,
 } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { useComposeLauncher } from '@/contexts/compose-launcher-context';
+import {
+  useComposeLauncher,
+  useWriteDockPinned,
+} from '@/contexts/compose-launcher-context';
+import { OsWriteDock } from '@/components/os/os-write-dock';
 import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
 import { useNotificationsUnreadCount } from '@/components/providers/notifications-host';
 import { useOsPortalHost } from '@/contexts/os-portal-host-context';
@@ -207,7 +211,9 @@ export function SummonLauncher({
   );
 
   const compose = useComposeLauncher();
-  const dockHidden = useDockAutoHide() && !open;
+  const writePinned = useWriteDockPinned();
+  const write = compose?.type === 'write' ? compose.entry : null;
+  const dockHidden = useDockAutoHide(open || writePinned) && !open;
   const portalHost = useOsPortalHost();
   const clientMounted = useSyncExternalStore(
     clientMountedSubscribe,
@@ -412,7 +418,7 @@ export function SummonLauncher({
     <>
       {!hideTrigger ? (
         <div
-          className={`portfolio-summon-dock${open ? ' is-launcher-open' : ''}${dockHidden ? ' is-scroll-hidden' : ''}`}
+          className={`portfolio-summon-dock${open ? ' is-launcher-open' : ''}${dockHidden ? ' is-scroll-hidden' : ''}${write ? ' is-writing' : ''}`}
           data-mood={dockMoodId ?? undefined}
           style={dockMoodStyle}
         >
@@ -440,9 +446,23 @@ export function SummonLauncher({
               </button>
             }
             nowPlaying={<CollectiblesNowPlayingDockChip />}
+            write={
+              write ? (
+                <OsWriteDock
+                  placeholder={write.placeholder}
+                  ariaLabel={write.ariaLabel}
+                  disabled={write.disabled}
+                  pending={write.pending}
+                  error={write.error}
+                  above={write.above}
+                  accept={write.accept}
+                  onSubmit={write.onSubmit}
+                />
+              ) : undefined
+            }
             action={
-              compose ? (
-                <PortfolioSummonComposeButton compose={compose} />
+              compose?.type === 'action' ? (
+                <PortfolioSummonComposeButton compose={compose.entry} />
               ) : undefined
             }
           />

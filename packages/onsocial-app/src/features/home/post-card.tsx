@@ -45,6 +45,9 @@ import { PostAmplifySheet } from '@/features/home/post-amplify-sheet';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useFocusWriteDock } from '@/contexts/compose-launcher-context';
+import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
+import { writeDockIsThoughtEnlarge } from '@/lib/os-write-dock';
 import { guildPath } from '@/features/guilds/guilds-data';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
@@ -1319,6 +1322,15 @@ export function PostCard({
   );
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const enlargeWrite =
+    photoOpen || writeDockIsThoughtEnlarge(feedMediumOpen, feedMediumMode);
+  const focusWriteDock = useFocusWriteDock();
+  useReplyWriteDock({
+    target: post,
+    enabled: Boolean(onReply && enlargeWrite),
+    placeholder: 'Add a reply…',
+    revision: enlargeWrite ? postKey(post) : '',
+  });
   const [menuForceEmbed, setMenuForceEmbed] = useState(false);
   const [cancelScarcePending, setCancelScarcePending] = useState(false);
   const isSelf =
@@ -1933,9 +1945,8 @@ export function PostCard({
               sharePending={sharePending}
               onReply={
                 onReply
-                  ? (target) => {
-                      setPhotoOpen(false);
-                      onReply(target);
+                  ? () => {
+                      focusWriteDock();
                     }
                   : undefined
               }
@@ -2032,6 +2043,10 @@ export function PostCard({
               onReply={
                 onReply
                   ? (target) => {
+                      if (feedMediumMode === 'viewer') {
+                        focusWriteDock();
+                        return;
+                      }
                       setFeedMediumOpen(false);
                       onReply(target);
                     }

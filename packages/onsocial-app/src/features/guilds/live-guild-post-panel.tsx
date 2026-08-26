@@ -11,7 +11,9 @@ import {
   submitPersonalRepost,
   submitPersonalUnrepost,
 } from '@/features/home/submit-personal-post';
-import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
+import { useFocusWriteDock } from '@/contexts/compose-launcher-context';
+import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
+import { writeDockReplyPlaceholder } from '@/lib/os-write-dock';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import { postMetaFromText } from '@/features/home/post-mentions';
@@ -56,7 +58,10 @@ import {
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
-import { resolveQuotedInset, collectRelationTargetAccountIds } from '@/lib/post-relation';
+import {
+  resolveQuotedInset,
+  collectRelationTargetAccountIds,
+} from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   setGuildMembershipActionPending,
@@ -186,7 +191,8 @@ export function LiveGuildPostPanel({
   const [confirmingLeave, setConfirmingLeave] = useState(false);
   const joinActionPending = useGuildMembershipActionPending(accountId, groupId);
   const [modalTarget, setModalTarget] = useState<PostRow | null>(null);
-  const [modalMode, setModalMode] = useState<GuildComposerMode>('reply');
+  const [modalMode, setModalMode] = useState<GuildComposerMode>('quote');
+  const [dockTarget, setDockTarget] = useState<PostRow | null>(null);
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [activeThreadTab, setActiveThreadTab] = useState<ThreadTab>('replies');
@@ -252,12 +258,16 @@ export function LiveGuildPostPanel({
         .join('\n'),
     [replyRows]
   );
-  const threadFocus = useThreadFocusReply(loadState === 'ready', replyFocusKey, {
-    onFocusReply: () => {
-      setActiveThreadTab('replies');
-      setThreadTabTouched(true);
-    },
-  });
+  const threadFocus = useThreadFocusReply(
+    loadState === 'ready',
+    replyFocusKey,
+    {
+      onFocusReply: () => {
+        setActiveThreadTab('replies');
+        setThreadTabTouched(true);
+      },
+    }
+  );
   // Quotes read newest-first — your fresh quote leads the list.
   const quotes = useMemo(
     () => [
@@ -769,11 +779,13 @@ export function LiveGuildPostPanel({
     }
   };
 
+  const focusWriteDock = useFocusWriteDock();
   const replyHandler = canPostInThread
     ? (post: PostRow) => {
         const channel = post.channel ?? threadChannel;
         if (!canPostInChannel(channel)) return;
-        openComposerModal('reply')(post);
+        setDockTarget(post);
+        focusWriteDock();
       }
     : undefined;
   const quoteHandler = canPostInThread
@@ -845,15 +857,48 @@ export function LiveGuildPostPanel({
         )
       : undefined;
 
-  // Dock pen on a thread page = reply to the thread root.
   const root = conversation.root;
-  const composeReplyToRoot = useCallback(() => {
-    if (!root) return;
-    setModalMode('reply');
-    setModalError(null);
-    setModalTarget(root);
-  }, [root]);
-  useRegisterComposeAction(canPostInThread && root ? composeReplyToRoot : null);
+  const writeTarget = dockTarget ?? root;
+  const nestedDockReply = Boolean(
+    root && writeTarget && postKey(writeTarget) !== postKey(root)
+  );
+  const writeName = writeTarget
+    ? postAuthorProfiles[writeTarget.accountId]?.displayName
+    : null;
+  const writeAbove = nestedDockReply ? (
+    <div className="os-write-dock-reply">
+      <p className="os-write-dock-reply-copy">
+        <span>Replying</span>
+        {writeName?.trim() || 'this post'}
+      </p>
+      <button
+        type="button"
+        className="os-write-dock-reply-cancel"
+        onClick={() => setDockTarget(null)}
+      >
+        Cancel
+      </button>
+    </div>
+  ) : null;
+  useReplyWriteDock({
+    target: writeTarget,
+    enabled: canPostInThread && Boolean(root),
+    placeholder: nestedDockReply
+      ? writeDockReplyPlaceholder(writeName)
+      : 'Add a reply…',
+    above: writeAbove,
+    revision: writeTarget ? postKey(writeTarget) : '',
+    onConfirmed: (reply, target) => {
+      if (conversation.root && postKey(target) === postKey(conversation.root)) {
+        setLocalReplies((current) => [...current, reply]);
+        threadFocus.requestFocus(reply);
+        setActiveThreadTab('replies');
+        setThreadTabTouched(true);
+      }
+      scheduleReconcile();
+      setDockTarget(null);
+    },
+  });
 
   const membershipHint = accountId
     ? (readGuildMembershipCache(accountId, groupId) ?? null)
@@ -1222,11 +1267,10 @@ export function LiveGuildPostPanel({
                 <button
                   type="button"
                   className="guild-reply-prompt"
-                  onClick={() =>
-                    conversation.root
-                      ? openComposerModal('reply')(conversation.root)
-                      : undefined
-                  }
+                  onClick={() => {
+                    setDockTarget(conversation.root);
+                    focusWriteDock();
+                  }}
                 >
                   Add a reply…
                 </button>
@@ -1454,7 +1498,7 @@ export function LiveGuildPostPanel({
           </section>
         ) : null}
       </div>
-      {modalTarget ? (
+      {modalTarget && modalMode === 'quote' ? (
         <GuildComposerSheet
           open
           target={modalTarget}

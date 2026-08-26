@@ -11,25 +11,34 @@ interface OsDockPillProps {
   /**
    * Optional now-playing segment (between grip and compose).
    * Pass `CollectiblesNowPlayingDockChip` — it owns its leading divider and
-   * returns null when idle.
+   * returns null when idle. Hidden while the action slot is a write dock.
    */
   nowPlaying?: ReactNode;
   /** Optional trailing segment, e.g. the compose pen on composable surfaces. */
   action?: ReactNode;
+  /** Compact write bar — grows the pill and replaces now-playing + pen. */
+  write?: ReactNode;
 }
 
 /**
  * Unified OS dock — [activity] | [account] | grip | optional now-playing |
  * | [compose]. Activity mirrors compose (own section + divider).
+ * Write mode: [activity] | [avatar] | grip | [type | media | send].
  */
 export function OsDockPill({
   pageAccountId,
   grip,
   nowPlaying,
   action,
+  write,
 }: OsDockPillProps) {
+  const writing = Boolean(write);
   return (
-    <div className={`${osDockPillClassName} portfolio-summon`}>
+    <div
+      className={`${osDockPillClassName} portfolio-summon${
+        writing ? ' is-writing' : ''
+      }`}
+    >
       <OsDockActivityZone />
       <OsDockAccountZone pageAccountId={pageAccountId} />
       <Divider
@@ -38,17 +47,23 @@ export function OsDockPill({
         className="portfolio-summon-divider"
       />
       {grip}
-      {nowPlaying}
-      {action ? (
+      {writing ? (
+        write
+      ) : (
         <>
-          <Divider
-            orientation="vertical"
-            variant="detail"
-            className="portfolio-summon-divider"
-          />
-          {action}
+          {nowPlaying}
+          {action ? (
+            <>
+              <Divider
+                orientation="vertical"
+                variant="detail"
+                className="portfolio-summon-divider"
+              />
+              {action}
+            </>
+          ) : null}
         </>
-      ) : null}
+      )}
     </div>
   );
 }

@@ -10,7 +10,11 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { useComposeLauncher } from '@/contexts/compose-launcher-context';
+import {
+  useComposeLauncher,
+  useWriteDockPinned,
+} from '@/contexts/compose-launcher-context';
+import { OsWriteDock } from '@/components/os/os-write-dock';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
@@ -18,10 +22,7 @@ import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
-import {
-  ownerPortfolioOsApps,
-  visitorPortfolioOsApps,
-} from '@/lib/os-apps';
+import { ownerPortfolioOsApps, visitorPortfolioOsApps } from '@/lib/os-apps';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
 import { SummonLauncher } from '@/components/os/summon-launcher';
 import { PortfolioSummonComposeButton } from '@/components/portfolio/portfolio-summon-compose-button';
@@ -52,7 +53,9 @@ function readDockHintPending(): boolean {
  * drawer (z-index lift while the sheet is open). Scroll-hide follows the drawer
  * body scroller when open, otherwise the main screen scroll.
  */
-export function PortfolioSummonDock({ pageAccountId }: PortfolioSummonDockProps) {
+export function PortfolioSummonDock({
+  pageAccountId,
+}: PortfolioSummonDockProps) {
   const {
     open: openPageDrawer,
     isOpen: pageDrawerOpen,
@@ -60,6 +63,8 @@ export function PortfolioSummonDock({ pageAccountId }: PortfolioSummonDockProps)
   } = usePageContentDrawer();
   const { accountId, isConnected } = useAppWallet();
   const compose = useComposeLauncher();
+  const writePinned = useWriteDockPinned();
+  const write = compose?.type === 'write' ? compose.entry : null;
   const { effectiveMood, isPreviewingMood } = usePortfolioMoodPreview();
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
   const viewerDockMood = useViewerDockMood(pageAccountId);
@@ -86,7 +91,10 @@ export function PortfolioSummonDock({ pageAccountId }: PortfolioSummonDockProps)
   const scrollRoot = pageDrawerOpen ? scrollNode : null;
   const scrollHidden =
     useDockAutoHide(
-      previewPinned || openPinned || (pageDrawerOpen && !scrollNode),
+      previewPinned ||
+        openPinned ||
+        writePinned ||
+        (pageDrawerOpen && !scrollNode),
       scrollRoot
     ) && !osOpen;
 
@@ -105,9 +113,7 @@ export function PortfolioSummonDock({ pageAccountId }: PortfolioSummonDockProps)
     ? ownerPortfolioOsApps(pageAccountId)
     : visitorPortfolioOsApps(pageAccountId);
 
-  const dockMoodId = isOwner
-    ? String(effectiveMood.id)
-    : viewerDockMood.moodId;
+  const dockMoodId = isOwner ? String(effectiveMood.id) : viewerDockMood.moodId;
   const dockMoodStyle = useMemo(() => {
     if (isOwner) {
       return portfolioMoodShellStyle(effectiveMood.cssVars) as CSSProperties;
@@ -204,7 +210,9 @@ export function PortfolioSummonDock({ pageAccountId }: PortfolioSummonDockProps)
       <div
         className={`portfolio-summon-dock${osOpen ? ' is-launcher-open' : ''}${
           scrollHidden ? ' is-scroll-hidden' : ''
-        }${pageDrawerOpen ? ' is-drawer-overlay' : ''}`}
+        }${pageDrawerOpen ? ' is-drawer-overlay' : ''}${
+          write ? ' is-writing' : ''
+        }`}
         data-mood={dockMoodId ?? undefined}
         style={dockMoodStyle}
       >
@@ -236,9 +244,23 @@ export function PortfolioSummonDock({ pageAccountId }: PortfolioSummonDockProps)
             </button>
           }
           nowPlaying={<CollectiblesNowPlayingDockChip />}
+          write={
+            write ? (
+              <OsWriteDock
+                placeholder={write.placeholder}
+                ariaLabel={write.ariaLabel}
+                disabled={write.disabled}
+                pending={write.pending}
+                error={write.error}
+                above={write.above}
+                accept={write.accept}
+                onSubmit={write.onSubmit}
+              />
+            ) : undefined
+          }
           action={
-            compose ? (
-              <PortfolioSummonComposeButton compose={compose} />
+            compose?.type === 'action' ? (
+              <PortfolioSummonComposeButton compose={compose.entry} />
             ) : undefined
           }
         />
