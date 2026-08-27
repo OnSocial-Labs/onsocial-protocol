@@ -12,6 +12,8 @@ describe('transaction-toast-copy', () => {
   it('uses minimal SOCIAL-forward pending and success lines', () => {
     expect(txToastPending.collectingSocial).toBe('Collecting SOCIAL…');
     expect(txToastSuccess.socialCollected).toBe('SOCIAL collected.');
+    expect(txToastSuccess.onTheBoard).toBe("You're on the board.");
+    expect(txToastSuccess.offTheBoard).toBe('Removed from the board.');
     expect(txToastSuccess.joinedRally('Season Two')).toBe(
       "You're in Season Two. Rally badge on your profile."
     );

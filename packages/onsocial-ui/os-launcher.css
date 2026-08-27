@@ -295,6 +295,16 @@
   color: rgb(var(--fg-rgb) / 0.5);
 }
 
+.os-launcher-community-empty p + p {
+  margin-top: 0.45rem;
+}
+
+.os-launcher-community-empty a {
+  color: rgb(var(--fg-rgb) / 0.72);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
 .os-launcher-dots {
   display: flex;
   justify-content: center;

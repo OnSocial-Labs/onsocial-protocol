@@ -73,6 +73,7 @@ import {
 import { OsAppIcon } from '@/lib/os-app-icons';
 import { osAppAccent } from '@/lib/os-app-accents';
 import { useCommunityAppCatalog } from '@/hooks/use-community-app-catalog';
+import { portalHref } from '@/lib/app-links';
 
 const LAUNCHER_DISMISS_PX = 96;
 const LAUNCHER_PRESENTATION_MS = 320;
@@ -642,6 +643,15 @@ export function SummonLauncher({
                     {!communityReady ? null : communityApps.length === 0 ? (
                       <li className={osLauncherCommunityEmptyClassName}>
                         <p>No community dapps yet.</p>
+                        <p>
+                          <a
+                            href={portalHref('/onapi/apps')}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            List yours on Portal
+                          </a>
+                        </p>
                       </li>
                     ) : (
                       communityApps.map((app) => (

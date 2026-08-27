@@ -35,6 +35,9 @@ export const txToastSuccess = {
   storageWithdrawn: 'Storage withdrawn to wallet.',
   sharePoolFunded: 'Share pool funded.',
   storageShared: 'Storage shared.',
+  onTheBoard: "You're on the board.",
+  offTheBoard: 'Removed from the board.',
+  listingSaved: 'Listing saved.',
 } as const;
 
 /** Wallet connect / OnSocial session key setup. */
@@ -63,6 +66,7 @@ export const txToastError = {
   storageWithdrawFailed: 'Could not withdraw storage.',
   sharePoolFundFailed: 'Could not fund share pool.',
   storageShareFailed: 'Could not share storage.',
+  listingFailed: 'Could not update the listing.',
   genericFailed: 'Transaction did not go through.',
 } as const;
 

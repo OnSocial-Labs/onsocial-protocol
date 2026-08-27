@@ -21,8 +21,15 @@ import {
   listDeveloperApps,
   registerDeveloperApp,
   deleteDeveloperApp,
+  updateDeveloperAppListing,
   type DeveloperAppInfo,
 } from '@/features/onapi/api';
+import { DeveloperAppListingPanel } from '@/features/onapi/developer-app-listing-panel';
+import {
+  listingPublishToast,
+  type ListingDraft,
+} from '@/features/onapi/listing';
+import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 
 const APP_ID_RE = /^[a-z0-9][a-z0-9_-]{1,63}$/;
 
@@ -62,6 +69,8 @@ export default function OnApiAppsPage() {
 
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [editingAppId, setEditingAppId] = useState<string | null>(null);
+  const [savingListing, setSavingListing] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<TransactionFeedback | null>(null);
@@ -150,6 +159,31 @@ export default function OnApiAppsPage() {
     }
   };
 
+  const handleSaveListing = async (
+    app: DeveloperAppInfo,
+    draft: ListingDraft
+  ) => {
+    if (!jwt) return;
+    const wasListed = Boolean(app.listed);
+    setSavingListing(app.appId);
+    setError(null);
+    try {
+      const updated = await updateDeveloperAppListing(jwt, app.appId, draft);
+      setApps((current) =>
+        current.map((entry) =>
+          entry.appId === app.appId ? { ...entry, ...updated } : entry
+        )
+      );
+      setEditingAppId(null);
+      const toastKey = listingPublishToast(wasListed, draft.listed);
+      setToast({ type: 'success', msg: txToastSuccess[toastKey] });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : txToastError.listingFailed);
+    } finally {
+      setSavingListing(null);
+    }
+  };
+
   const appIdValid = APP_ID_RE.test(appIdInput.trim().toLowerCase());
 
   // ── Unauthenticated state ──
@@ -214,7 +248,7 @@ export default function OnApiAppsPage() {
       <SecondaryPageHeader
         badge="App Namespaces"
         badgeAccent="blue"
-        description="Scope notifications, events, and webhooks per app. A &ldquo;default&rdquo; namespace is created automatically."
+        description="Scope notifications per app, then list a public https site on the Community board."
       />
 
       {/* ── Create form ── */}
@@ -324,8 +358,8 @@ export default function OnApiAppsPage() {
             <div className="px-4 pb-5 pt-2 text-center md:px-5">
               <Boxes className="mx-auto mb-2 h-5 w-5 text-muted-foreground/30" />
               <p className="text-xs text-muted-foreground">
-                No app namespaces yet. Create one to scope your notifications
-                and webhooks.
+                Create a namespace, then list its https site on the Community
+                board.
               </p>
             </div>
           ) : loading && apps.length === 0 ? (
@@ -338,24 +372,40 @@ export default function OnApiAppsPage() {
                     <div className="h-px divider-detail mx-4 md:mx-5" />
                   )}
                   <div className="flex items-center gap-3 px-4 py-3 md:px-5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/40 bg-muted/20">
-                      <Boxes className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-[0.65rem] border border-border/40 bg-muted/20">
+                      {app.iconUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={app.iconUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Boxes className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <code className="block truncate font-mono text-sm font-medium text-foreground">
-                        {app.appId}
-                      </code>
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {app.name?.trim() || app.appId}
+                      </p>
                       <p className="mt-0.5 portal-type-caption text-muted-foreground">
-                        Created{' '}
-                        {new Date(app.createdAt).toLocaleDateString(undefined, {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })}
+                        <code className="font-mono">{app.appId}</code>
+                        {app.listed ? ' · On the board' : ' · Not listed'}
                       </p>
                     </div>
 
-                    {/* delete — protected for "default" */}
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      onClick={() =>
+                        setEditingAppId((current) =>
+                          current === app.appId ? null : app.appId
+                        )
+                      }
+                    >
+                      {editingAppId === app.appId ? 'Close' : 'List'}
+                    </Button>
+
                     {app.appId === 'default' ? (
                       <span className="portal-eyebrow text-muted-foreground/50">
                         Default
@@ -389,6 +439,15 @@ export default function OnApiAppsPage() {
                       </button>
                     )}
                   </div>
+                  {editingAppId === app.appId ? (
+                    <DeveloperAppListingPanel
+                      key={`${app.appId}:${app.listed ? '1' : '0'}:${app.href ?? ''}`}
+                      app={app}
+                      saving={savingListing === app.appId}
+                      onSave={(draft) => void handleSaveListing(app, draft)}
+                      onCancel={() => setEditingAppId(null)}
+                    />
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -408,7 +467,8 @@ export default function OnApiAppsPage() {
                 <strong className="text-foreground/70">
                   What are app namespaces?
                 </strong>{' '}
-                They isolate notification events, rules, and webhooks. Use
+                They isolate notification events, rules, and webhooks — and hold
+                the public Community listing (name, icon, https site). Use
                 separate namespaces for different products (e.g.{' '}
                 <code className="portal-blue-text">my-tg-bot</code>,{' '}
                 <code className="portal-blue-text">my-web-app</code>).
