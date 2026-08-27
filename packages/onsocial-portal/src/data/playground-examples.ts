@@ -69,7 +69,7 @@ console.log({ result, entry });`,
     id: 'app-item-and-query',
     title: 'Set an App Item',
     description:
-      'Write under apps/<appId>, query it, then list the app on the Community board',
+      'Write under apps/<appId>, query it, then list and hand off a Community session',
     category: 'apps',
     code: `// Custom app JSON — indexed automatically, no schema PR.
 const accountId = wallet.accountId;
@@ -89,9 +89,9 @@ const planned = await os.query.raw.byAppJsonContains(
   { accountId, limit: 10 }
 );
 
-// List the public tile on Portal → OnAPI → Apps
-// (name, icon, https URL, listed). This runner does not publish the board.
-// On the dapp origin: await os.auth.completeAppHandoff();
+// List on Portal → OnAPI → Apps, then on your site:
+// const session = await os.auth.completeAppHandoff();
+// os.auth.startOnSocialHandoff({ osOrigin: "https://onsocial.id", appId });
 console.log({ result, item, rows, planned, listOnPortal: "/onapi/apps" });`,
   },
   {

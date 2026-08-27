@@ -484,7 +484,7 @@ const reply = await os.social.getOne('post/' + replyId, accountId);`,
       {
         title: 'Write and query a custom app item',
         description:
-          'No schema PR. Then list the public tile on Portal → OnAPI → Apps.',
+          'No schema PR. List the tile, then completeAppHandoff on the dapp origin.',
         code: `const appId = 'playground';
 const itemId = Date.now().toString(36);
 const path = 'apps/' + appId + '/item/' + itemId;
@@ -525,7 +525,7 @@ const planned = await os.query.raw.byAppJsonContains(
       'Batch only paths that belong to the same user intent and should succeed or fail together.',
       'Use wait: true for writes where an on-chain revert must immediately stop follow-up work.',
       'Custom app JSON under apps/<appId> is queryable via byAppId. List the public tile on /onapi/apps.',
-      'Listed tiles hand off a one-time code. On the dapp origin call os.auth.completeAppHandoff() for an app-scoped JWT.',
+      'Listed tiles and /handoff?app= hand off a one-time code. Call os.auth.completeAppHandoff() on the dapp origin. Cold visits use os.auth.startOnSocialHandoff().',
     ],
     playgroundHref: '/playground?example=app-item-and-query',
   },

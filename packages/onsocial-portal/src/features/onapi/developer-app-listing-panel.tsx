@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { CommunityTilePreview } from '@/features/onapi/community-tile-preview';
+import { CommunityDappShipSnippet } from '@/features/onapi/community-dapp-ship-snippet';
 import {
   listingDraftError,
   listingDraftsEqual,
@@ -135,6 +136,7 @@ export function DeveloperAppListingPanel({
           Cancel
         </Button>
       </div>
+      <CommunityDappShipSnippet appId={app.appId} />
     </div>
   );
 }

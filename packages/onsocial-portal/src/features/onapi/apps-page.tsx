@@ -248,7 +248,7 @@ export default function OnApiAppsPage() {
       <SecondaryPageHeader
         badge="App Namespaces"
         badgeAccent="blue"
-        description="Scope notifications per app, then list a public https site on the Community board."
+        description="Create a namespace, list the https site, paste the snippet. Users sign in from the launcher or Continue with OnSocial."
       />
 
       {/* ── Create form ── */}
@@ -464,19 +464,22 @@ export default function OnApiAppsPage() {
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/40" />
             <div className="space-y-1.5 text-xs text-muted-foreground">
               <p>
-                <strong className="text-foreground/70">
-                  What are app namespaces?
-                </strong>{' '}
-                They isolate notification events, rules, and webhooks — and hold
-                the public Community listing (name, icon, https site). Use
-                separate namespaces for different products (e.g.{' '}
-                <code className="portal-blue-text">my-tg-bot</code>,{' '}
-                <code className="portal-blue-text">my-web-app</code>).
+                <strong className="text-foreground/70">Ship a dapp</strong> —
+                create a namespace, list the https site, then paste the snippet
+                from List. An OnAPI key is optional and stays on your server.
+                Listing does not create a key.
               </p>
               <p>
-                The <code className="portal-blue-text">default</code> namespace
-                is created automatically and used when no appId is specified in
-                API calls.
+                Users tap the Community tile or Continue with OnSocial. Your
+                site exchanges a one-time code with{' '}
+                <code className="portal-blue-text">
+                  os.auth.completeAppHandoff()
+                </code>
+                . Write custom JSON under{' '}
+                <code className="portal-blue-text">apps/&lt;appId&gt;/…</code>{' '}
+                and use <code className="portal-blue-text">os.posts</code> /{' '}
+                <code className="portal-blue-text">os.profiles</code> when you
+                want the real social graph.
               </p>
             </div>
           </div>
