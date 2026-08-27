@@ -1,4 +1,6 @@
 export const APP_HOME_PATH = '/home';
+/** Community dapp “Continue with OnSocial” return (`?app=`). */
+export const APP_HANDOFF_PATH = '/handoff';
 /** Global wallet / Collect sheet (`?sheet=wallet`) — dock account drawer. */
 export const APP_SHEET_PARAM = 'sheet';
 
@@ -49,11 +51,7 @@ export const COLLECTIBLES_SEARCH_PARAM = 'q';
 /** Query key for Market browse sort (`newest` | `price-asc` | `price-desc` | `ending`). */
 export const MARKET_SORT_PARAM = 'sort';
 
-export type MarketSortParam =
-  | 'newest'
-  | 'price-asc'
-  | 'price-desc'
-  | 'ending';
+export type MarketSortParam = 'newest' | 'price-asc' | 'price-desc' | 'ending';
 
 const MARKET_SORT_VALUES = new Set<string>([
   'newest',
@@ -81,10 +79,7 @@ export type DropsSortParam =
   | 'traded'
   | 'saved';
 
-export type LeaderboardTrackParam =
-  | 'reputation'
-  | 'influence'
-  | 'earners';
+export type LeaderboardTrackParam = 'reputation' | 'influence' | 'earners';
 
 const LEADERBOARD_TRACK_VALUES = new Set<string>([
   'reputation',
@@ -111,9 +106,7 @@ export function leaderboardPath(opts?: {
 }): string {
   const track = opts?.track?.trim().toLowerCase() ?? '';
   const resolved =
-    track && LEADERBOARD_TRACK_VALUES.has(track)
-      ? track
-      : 'reputation';
+    track && LEADERBOARD_TRACK_VALUES.has(track) ? track : 'reputation';
   if (resolved === 'reputation' && !opts?.includeDefaultTrack) {
     return APP_LEADERBOARD_PATH;
   }
@@ -567,6 +560,8 @@ export function isAppRoutePath(pathname: string): boolean {
   return (
     pathname === APP_HOME_PATH ||
     pathname.startsWith(`${APP_HOME_PATH}/`) ||
+    pathname === APP_HANDOFF_PATH ||
+    pathname.startsWith(`${APP_HANDOFF_PATH}/`) ||
     pathname === APP_LEADERBOARD_PATH ||
     pathname.startsWith(`${APP_LEADERBOARD_PATH}/`) ||
     pathname === APP_NOTIFICATIONS_PATH ||
