@@ -13,6 +13,11 @@ import {
   restoreAppHandoffSessionKey,
 } from '../auth-handoff-key.js';
 import {
+  clearAppHandoffSession,
+  readAppHandoffSession,
+  writeAppHandoffSession,
+} from '../auth-handoff-session.js';
+import {
   buildOsAppHandoffUrl,
   communityAppSessionPath,
   normalizeAppId,
@@ -35,6 +40,9 @@ export type AuthModuleHooks = {
 };
 
 export class AuthModule {
+  private _appId: string | null = null;
+  private _refreshing: Promise<boolean> | null = null;
+
   constructor(
     private _http: HttpClient,
     private _hooks: AuthModuleHooks = {}
@@ -74,8 +82,9 @@ export class AuthModule {
    * Exchange a launcher / Continue-with-OnSocial code for an app-scoped JWT
    * and attach the dapp-held session key when one was prepared.
    *
-   * Pass `osOrigin` in the browser so a missing code (or missing key after a
-   * launcher tile) redirects to OS to grant `apps/<appId>/`.
+   * Returning visits restore from the stored app refresh token — no OS bounce.
+   * Pass `osOrigin` in the browser so a first visit redirects to OS to grant
+   * `apps/<appId>/`.
    */
   async completeAppHandoff(
     input: Partial<AppHandoffParams> & {
@@ -94,6 +103,10 @@ export class AuthModule {
     const osOrigin = input.osOrigin?.trim().replace(/\/$/, '') ?? '';
 
     if (!code) {
+      if (appId) {
+        const restored = await this.restoreAppSession(appId);
+        if (restored) return restored;
+      }
       if (osOrigin && appId && typeof window !== 'undefined') {
         await this.startOnSocialHandoff({ osOrigin, appId });
         return new Promise(() => undefined);
@@ -104,38 +117,16 @@ export class AuthModule {
       throw new Error('Missing onsocial_code or onsocial_app');
     }
 
-    const sessionKey = await restoreAppHandoffSessionKey(appId);
-    if (!sessionKey && osOrigin && typeof window !== 'undefined') {
-      await this.startOnSocialHandoff({ osOrigin, appId });
-      return new Promise(() => undefined);
-    }
-
     const res = await this._http.post<AppSessionResponse>('/auth/app-session', {
       code,
       appId,
     });
-    this._http.setToken(res.token);
+    const accepted = await this._acceptAppSession(res);
 
-    let sessionAttached = false;
-    if (sessionKey) {
-      const session = await persistSessionFromKey({
-        network: this._http.network,
-        accountId: res.accountId,
-        sessionKey,
-        contract: 'core',
-        path: communityAppSessionPath(appId),
-        ttlMs: COMMUNITY_APP_SESSION_TTL_MS,
-        functionCallKey: {
-          methodNames: ['execute'],
-          allowanceYocto: COMMUNITY_APP_SESSION_ALLOWANCE_YOCTO,
-        },
-        store:
-          typeof window === 'undefined'
-            ? undefined
-            : localStorageKeyStore('onsocial.community.session.'),
-      });
-      this._hooks.attachSession?.(session);
-      sessionAttached = true;
+    const sessionKey = await restoreAppHandoffSessionKey(appId);
+    if (!sessionKey && osOrigin && typeof window !== 'undefined') {
+      await this.startOnSocialHandoff({ osOrigin, appId });
+      return new Promise(() => undefined);
     }
 
     const replaceUrl = input.replaceUrl ?? typeof window !== 'undefined';
@@ -146,7 +137,40 @@ export class AuthModule {
         stripAppHandoffFromUrl(window.location.href)
       );
     }
-    return { ...res, sessionAttached };
+    return accepted;
+  }
+
+  /**
+   * Restore an app-scoped JWT from the refresh token stored on this origin.
+   * Used on later visits and by the HTTP 401 retry.
+   */
+  async restoreAppSession(
+    appId: string
+  ): Promise<(AppSessionResponse & { sessionAttached: boolean }) | null> {
+    const id = normalizeAppId(appId);
+    if (!id) return null;
+    const stored = readAppHandoffSession(id);
+    if (!stored) return null;
+    try {
+      const res = await this._http.post<AppSessionResponse>(
+        '/auth/app-refresh',
+        { refreshToken: stored.refreshToken, appId: id }
+      );
+      return this._acceptAppSession(res);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Rotate the stored app refresh token after a 401. Single-flight.
+   */
+  refreshAppAccess(): Promise<boolean> {
+    if (this._refreshing) return this._refreshing;
+    this._refreshing = this._refreshAppAccess().finally(() => {
+      this._refreshing = null;
+    });
+    return this._refreshing;
   }
 
   /**
@@ -175,5 +199,52 @@ export class AuthModule {
   /** Clear credentials. */
   logout(): void {
     this._http.clearToken();
+    if (this._appId) clearAppHandoffSession(this._appId);
+    this._appId = null;
+  }
+
+  private async _refreshAppAccess(): Promise<boolean> {
+    if (!this._appId) return false;
+    const restored = await this.restoreAppSession(this._appId);
+    return restored !== null;
+  }
+
+  private async _acceptAppSession(
+    res: AppSessionResponse
+  ): Promise<AppSessionResponse & { sessionAttached: boolean }> {
+    this._http.setToken(res.token);
+    this._appId = res.appId;
+    if (res.refreshToken) {
+      writeAppHandoffSession({
+        appId: res.appId,
+        accountId: res.accountId,
+        refreshToken: res.refreshToken,
+      });
+    }
+
+    let sessionAttached = false;
+    const sessionKey = await restoreAppHandoffSessionKey(res.appId);
+    if (sessionKey) {
+      const session = await persistSessionFromKey({
+        network: this._http.network,
+        accountId: res.accountId,
+        sessionKey,
+        contract: 'core',
+        path: communityAppSessionPath(res.appId),
+        ttlMs: COMMUNITY_APP_SESSION_TTL_MS,
+        functionCallKey: {
+          methodNames: ['execute'],
+          allowanceYocto: COMMUNITY_APP_SESSION_ALLOWANCE_YOCTO,
+        },
+        store:
+          typeof window === 'undefined'
+            ? undefined
+            : localStorageKeyStore('onsocial.community.session.'),
+      });
+      this._hooks.attachSession?.(session);
+      sessionAttached = true;
+    }
+
+    return { ...res, sessionAttached };
   }
 }

@@ -112,6 +112,11 @@ export interface LoginResponse {
 export interface AppSessionResponse extends LoginResponse {
   accountId: string;
   appId: string;
+  /**
+   * App-scoped refresh JWT from the JSON body (never a cookie). Stored on
+   * the dapp origin so graph reads continue after the 15-minute access TTL.
+   */
+  refreshToken?: string;
   /** True when completeAppHandoff attached the dapp-held session key. */
   sessionAttached?: boolean;
 }

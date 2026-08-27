@@ -457,6 +457,7 @@ export class OnSocial {
     this.auth = new AuthModule(this.http, {
       attachSession: (session) => this.attachSession(session),
     });
+    this.http.setUnauthorizedHandler(() => this.auth.refreshAppAccess());
     this.social = new SocialModule(
       this.http,
       () => this._session,

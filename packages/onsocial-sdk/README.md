@@ -144,7 +144,7 @@ console.log(session.tier);
 
 ### Community dapp handoff
 
-The dapp creates a session keypair on **its** origin. OnSocial grants `apps/<appId>/` to that public key. `completeAppHandoff` exchanges the one-time code for an app-scoped JWT and attaches the local session so writes work — the OS session key never leaves OnSocial.
+The dapp creates a session keypair on **its** origin. OnSocial grants `apps/<appId>/` to that public key. `completeAppHandoff` exchanges the one-time code for an app-scoped JWT (plus a body refresh token) and attaches the local session so writes work — the OS session key never leaves OnSocial. Later visits restore the JWT from that refresh token; graph reads do not die at 15 minutes.
 
 ```ts
 const session = await os.auth.completeAppHandoff({
