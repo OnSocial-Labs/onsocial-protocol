@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { getSdkMethodGuide } from '@/data/sdk-method-guides';
 import {
   communityDappContinueUrl,
   communityDappSnippet,
@@ -18,6 +19,9 @@ describe('community dapp snippet', () => {
     expect(communityDappContinueUrl('https://onsocial.id/', 'Tracker')).toBe(
       'https://onsocial.id/handoff?app=tracker'
     );
+    expect(
+      getSdkMethodGuide('advanced-control')?.notes.join(' ')
+    ).toMatch(/AppHandoffRedirect/);
   });
 
   it('rejects an invalid continue app id', () => {

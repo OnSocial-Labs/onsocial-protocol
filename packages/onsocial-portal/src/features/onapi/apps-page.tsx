@@ -475,7 +475,9 @@ export default function OnApiAppsPage() {
                 <code className="portal-blue-text">
                   os.auth.completeAppHandoff({'{ osOrigin, appId }'})
                 </code>
-                — that grants{' '}
+                . First visit throws{' '}
+                <code className="portal-blue-text">AppHandoffRedirect</code> and
+                goes to OS. Later visits restore a refresh token. That grants{' '}
                 <code className="portal-blue-text">apps/&lt;appId&gt;/</code> to
                 a keypair that never leaves your origin. Write custom JSON under{' '}
                 <code className="portal-blue-text">apps/&lt;appId&gt;/…</code>{' '}

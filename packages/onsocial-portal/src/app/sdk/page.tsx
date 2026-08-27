@@ -9,12 +9,10 @@ import {
   BookOpen,
   Boxes,
   CheckCircle2,
-  Code2,
   Database,
   ExternalLink,
   GitBranch,
   Layers3,
-  Package,
   Play,
   Route,
   ShieldCheck,
@@ -28,6 +26,7 @@ import { SectionHeader } from '@/components/layout/section-header';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import { ProtocolMotionArrow } from '@onsocial/ui';
 import { SurfacePanel } from '@/components/ui/surface-panel';
+import { communityDappSnippet } from '@/features/onapi/community-dapp-snippet';
 import { portalColors, type PortalAccent } from '@/lib/portal-colors';
 
 function accentCardStyle(accent: PortalAccent): CSSProperties {
@@ -40,13 +39,15 @@ function accentCardStyle(accent: PortalAccent): CSSProperties {
 const modernInteractiveCardClass =
   'h-full overflow-hidden transition-[border-color,box-shadow] duration-200 [@media(hover:hover)]:hover:border-[var(--_accent-border)] [@media(hover:hover)]:hover:shadow-[0_0_20px_var(--_accent-shadow)]';
 
-type DocStep = {
-  label: string;
+type OnRamp = {
   title: string;
+  badge: string;
   body: string;
-  code?: string;
+  steps: string[];
   accent: PortalAccent;
   icon: LucideIcon;
+  href: string;
+  hrefLabel: string;
 };
 
 type Decision = {
@@ -84,55 +85,45 @@ type MethodFamily = {
   href: string;
 };
 
-const QUICKSTART_STEPS: DocStep[] = [
+const ON_RAMPS: OnRamp[] = [
   {
-    label: '01',
-    title: 'Install the SDK',
-    body: 'Start with the unified client. Use testnet while developing, then switch the network and endpoints for production.',
-    code: 'pnpm add @onsocial/sdk',
+    title: 'Community dapp',
+    badge: 'Listed site',
+    body: 'Your https site on launcher page two. Visitors stay signed in with OnSocial. You never hold the OS session key.',
+    steps: [
+      'List the site on Portal → OnAPI → Apps (name, icon, https URL). An OnAPI key does not list a tile.',
+      'On load call completeAppHandoff({ osOrigin, appId }). First visit throws AppHandoffRedirect and goes to OS to grant apps/<appId>/. Later visits restore a stored refresh token — no bounce.',
+      'Write apps/<appId>/… or os.posts / os.profiles. Query with byAppId.',
+    ],
     accent: 'blue',
-    icon: Package,
+    icon: Boxes,
+    href: '/onapi/apps',
+    hrefLabel: 'List a site',
   },
   {
-    label: '02',
-    title: 'Create a client',
-    body: 'The same client holds auth, writes, direct reads, indexed queries, storage, groups, permissions, scarces, and rewards.',
-    code: `import { OnSocial } from '@onsocial/sdk';
-
-const os = new OnSocial({
-  network: 'testnet',
-  gatewayUrl: 'https://testnet.onsocial.id',
-});`,
-    accent: 'purple',
-    icon: Code2,
-  },
-  {
-    label: '03',
-    title: 'Connect wallet and auth',
-    body: 'Browser apps connect a NEAR wallet for user ownership, then attach OnAPI auth for compose, indexed query, and storage routes.',
-    code: `const accountId = wallet.accountId;
-const authToken = await getOnApiJwt(wallet, accountId);
-
-os.auth.setToken(authToken);`,
+    title: 'Wallet or playground',
+    badge: 'Connected wallet',
+    body: 'A first-party app or this playground, where the visitor’s wallet signs writes and the OnAPI challenge.',
+    steps: [
+      'Connect a NEAR wallet, sign the gateway challenge, then os.auth.setToken.',
+      'Write with wallet broadcast. Read fresh state with os.social.getOne, then os.query after the indexer catches up.',
+    ],
     accent: 'green',
     icon: Wallet,
-  },
-  {
-    label: '04',
-    title: 'Write, read, then query',
-    body: 'Use direct reads immediately after writes. Use indexed reads for feeds, history, search, and app surfaces after the indexer catches up.',
-    code: `const postId = Date.now().toString();
-
-const result = await os.posts.create({ text: 'gm OnSocial' }, postId);
-
-const fresh = await os.social.getOne(\`post/\${postId}\`, accountId);
-const feed = await os.query.feed.recent({ author: accountId });`,
-    accent: 'gold',
-    icon: Database,
+    href: '/playground',
+    hrefLabel: 'Open playground',
   },
 ];
 
 const DECISIONS: Decision[] = [
+  {
+    choice: 'Community handoff',
+    use: 'Listed public site. Sign-in and apps/<appId>/ writes without a wallet on your origin.',
+    wallet: 'Once on OS, then none',
+    auth: 'completeAppHandoff',
+    method: 'os.auth.completeAppHandoff, os.query.raw.byAppId',
+    accent: 'blue',
+  },
   {
     choice: 'Direct contract read',
     use: 'Fresh readback after a write or current on-chain state.',
@@ -183,10 +174,9 @@ const BUILD_PATHS: BuildPath[] = [
     bestFor:
       'A public https site on launcher page two that reuses OnSocial sign-in and apps/<appId> JSON.',
     steps: [
-      'Create an app namespace on Portal → OnAPI → Apps and list the https site.',
-      'On first load call os.auth.completeAppHandoff({ osOrigin, appId }). That creates a keypair here, grants apps/<appId>/ on OS, and attaches the session. Later visits restore silently from a stored app refresh token.',
-      'Write custom JSON under apps/<appId>/… and query with byAppId. Use os.posts / os.profiles for the real graph.',
-      'Keep OnAPI keys on the server. Listing does not create a key. Teams with their own wallet connect can still grant a session themselves.',
+      'Create a namespace on OnAPI → Apps and list the https site.',
+      'Call completeAppHandoff({ osOrigin, appId }). Catch AppHandoffRedirect — first visit goes to OS. Later visits restore the refresh token.',
+      'Write apps/<appId>/… or os.posts. Keep OnAPI keys on the server. Teams with their own wallet connect can still grant a session themselves.',
     ],
   },
   {
@@ -231,6 +221,12 @@ const BUILD_PATHS: BuildPath[] = [
     ],
   },
 ];
+
+const COMMUNITY_STARTER_CODE = communityDappSnippet({
+  appId: 'tracker',
+  osOrigin: 'https://testnet.onsocial.id',
+  network: 'testnet',
+});
 
 const BROWSER_STARTER_CODE = `import { OnSocial } from '@onsocial/sdk';
 
@@ -305,6 +301,18 @@ const fresh = await os.social.getOne(\`post/\${postId}\`, wallet.accountId);
 const feed = await os.query.feed.recent({ author: wallet.accountId, limit: 10 });`;
 
 const PLAYGROUND_RECIPES: Recipe[] = [
+  {
+    title: 'Community dapp',
+    methods: [
+      'os.auth.completeAppHandoff',
+      'os.social.set',
+      'os.query.raw.byAppId',
+    ],
+    badges: ['Handoff', 'App JSON'],
+    note: 'List the https site, then Continue with OnSocial. First visit throws AppHandoffRedirect.',
+    accent: 'blue',
+    href: '/onapi/apps',
+  },
   {
     title: 'Create profile',
     methods: ['os.profiles.update', 'os.social.get'],
@@ -475,7 +483,7 @@ const SDK_PACKAGES = [
     name: '@onsocial/sdk',
     manager: 'pnpm',
     command: 'pnpm add @onsocial/sdk',
-    status: 'Unified client',
+    status: 'Unified client. Not on npm yet — this repo uses workspace:*',
     accent: 'blue' as PortalAccent,
   },
   {
@@ -518,8 +526,8 @@ export default function SDKPage() {
         badge="SDK Docs"
         badgeAccent="purple"
         glowAccents={['purple', 'blue', 'green']}
-        title="Build OnSocial Apps From Wallet to Indexed Feeds"
-        description="A practical map for choosing wallet, session, gateway, direct read, indexed query, batch, storage, permission, group, and economy flows without guessing."
+        title="Build with the OnSocial SDK"
+        description="Listed community dapps use Continue with OnSocial. Wallet apps and this playground sign a challenge. Same client after that: write, read fresh, then query."
       >
         <Link
           href="/playground"
@@ -550,36 +558,50 @@ export default function SDKPage() {
         <SectionHeader
           badge="Start Here"
           badgeAccent="blue"
-          title="The shortest path to a real app"
-          description="Follow this order first. It matches how the playground runs: connect identity, authenticate service routes, write protocol state, read fresh state, then query indexed app views."
+          title="Pick the on-ramp"
+          description="A listed community site does not connect a wallet on its origin. Wallet apps and the playground do. After auth, writes and queries are the same."
         />
-        <div className="grid gap-4 lg:grid-cols-4">
-          {QUICKSTART_STEPS.map((step) => {
-            const Icon = step.icon;
+        <div className="grid gap-4 lg:grid-cols-2">
+          {ON_RAMPS.map((ramp) => {
+            const Icon = ramp.icon;
             return (
               <SurfacePanel
-                key={step.label}
+                key={ramp.title}
                 radius="xl"
                 tone="soft"
                 padding="roomy"
                 className="min-w-0"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <PortalBadge accent={step.accent} size="sm">
-                    {step.label}
+                  <PortalBadge accent={ramp.accent} size="sm">
+                    {ramp.badge}
                   </PortalBadge>
                   <Icon
                     className="h-5 w-5"
-                    style={{ color: portalColors[step.accent] }}
+                    style={{ color: portalColors[ramp.accent] }}
                   />
                 </div>
                 <h2 className="mt-4 text-lg font-semibold tracking-[-0.02em]">
-                  {step.title}
+                  {ramp.title}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {step.body}
+                  {ramp.body}
                 </p>
-                {step.code ? <CodeBlock code={step.code} /> : null}
+                <ul className="mt-4 grid gap-2 text-sm leading-6 text-muted-foreground">
+                  {ramp.steps.map((step) => (
+                    <li key={step} className="flex gap-2">
+                      <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-400" />
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href={ramp.href}
+                  className="portal-action-link mt-4 inline-flex items-center gap-2 text-sm font-medium"
+                >
+                  {ramp.hrefLabel}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
               </SurfacePanel>
             );
           })}
@@ -596,10 +618,10 @@ export default function SDKPage() {
         <SectionHeader
           badge="Build Path"
           badgeAccent="green"
-          title="Choose the app shape first"
-          description="A developer should know which path they are building before choosing methods. Most browser apps start with wallet broadcast, then add sessions or backend lanes only when the workflow needs them."
+          title="Then the app shape"
+          description="Community is the default for a public https site on the launcher. Wallet broadcast is the default for first-party apps. Add a backend or session key only when the flow needs it."
         />
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-2">
           {BUILD_PATHS.map((path) => {
             const Icon = path.icon;
             return (
@@ -638,21 +660,38 @@ export default function SDKPage() {
             );
           })}
         </div>
-        <SurfacePanel
-          radius="xl"
-          tone="subtle"
-          padding="spacious"
-          className="mt-4 min-w-0"
-        >
-          <SectionHeader
-            badge="Browser Starter"
-            badgeAccent="blue"
-            title="Minimal wallet-connected flow"
-            description="This is the concrete shape behind the playground: wallet connection, OnAPI JWT, SDK client, wallet broadcast, one write, direct read, indexed feed read."
-            className="mb-0"
-          />
-          <CodeBlock code={BROWSER_STARTER_CODE} />
-        </SurfacePanel>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <SurfacePanel
+            radius="xl"
+            tone="subtle"
+            padding="spacious"
+            className="min-w-0"
+          >
+            <SectionHeader
+              badge="Community starter"
+              badgeAccent="blue"
+              title="Continue with OnSocial"
+              description="Paste this on the listed origin. First visit throws AppHandoffRedirect and goes to OS /handoff. Later visits restore the refresh token."
+              className="mb-0"
+            />
+            <CodeBlock code={COMMUNITY_STARTER_CODE} />
+          </SurfacePanel>
+          <SurfacePanel
+            radius="xl"
+            tone="subtle"
+            padding="spacious"
+            className="min-w-0"
+          >
+            <SectionHeader
+              badge="Wallet starter"
+              badgeAccent="green"
+              title="Challenge plus broadcast"
+              description="The playground shape: wallet, OnAPI JWT, one write, fresh read, indexed feed."
+              className="mb-0"
+            />
+            <CodeBlock code={BROWSER_STARTER_CODE} />
+          </SurfacePanel>
+        </div>
       </motion.section>
 
       <motion.section
@@ -904,7 +943,7 @@ await os.social.set({
           badge="Packages"
           badgeAccent="neutral"
           title="Installable surfaces"
-          description="Use the unified SDK for protocol apps. The rewards package remains available for partner integrations that only need rewards."
+          description="@onsocial/sdk is the unified client. It is not on npm yet — this repo uses workspace:*. The rewards package is on npm for partner-only integrations."
         />
         <div className="grid gap-4 md:grid-cols-2">
           {SDK_PACKAGES.map((pkg) => (

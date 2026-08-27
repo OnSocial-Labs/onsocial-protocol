@@ -36,7 +36,7 @@ export const SDK_METHOD_GUIDES: SdkMethodGuide[] = [
       'Apps that need immediate post readback plus indexed discovery later.',
     ],
     buildOrder: [
-      'Connect the wallet and create an OnSocial client with wallet broadcast for browser writes.',
+      'Auth: completeAppHandoff for a listed community site, or wallet + os.auth.setToken for a first-party app.',
       'Write through os.profiles, os.posts, os.reactions, os.saves, os.standings, os.endorsements, or os.attestations.',
       'Read the exact path back with os.social.getOne or os.social.get immediately after the write.',
       'Use os.query.feed, os.query.threads, or other indexed helpers for product lists once the indexer catches up.',
@@ -484,7 +484,7 @@ const reply = await os.social.getOne('post/' + replyId, accountId);`,
       {
         title: 'Write and query a custom app item',
         description:
-          'No schema PR. List the tile, then completeAppHandoff on the dapp origin.',
+          'No schema PR. List the tile, then completeAppHandoff on the dapp origin. Catch AppHandoffRedirect.',
         code: `const appId = 'playground';
 const itemId = Date.now().toString(36);
 const path = 'apps/' + appId + '/item/' + itemId;
@@ -525,7 +525,7 @@ const planned = await os.query.raw.byAppJsonContains(
       'Batch only paths that belong to the same user intent and should succeed or fail together.',
       'Use wait: true for writes where an on-chain revert must immediately stop follow-up work.',
       'Custom app JSON under apps/<appId> is queryable via byAppId. List the public tile on /onapi/apps.',
-      'Listed tiles and /handoff?app=&pk= grant apps/<appId>/ to the dapp-held key. Call os.auth.completeAppHandoff({ osOrigin, appId }) on the dapp origin. Later visits restore from a stored app refresh token.',
+      'Listed tiles and /handoff?app=&pk= grant apps/<appId>/ to the dapp-held key. Call completeAppHandoff({ osOrigin, appId }) on the dapp origin. First visit throws AppHandoffRedirect. Later visits restore a stored refresh token.',
     ],
     playgroundHref: '/playground?example=app-item-and-query',
   },
