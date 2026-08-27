@@ -24,11 +24,12 @@ export function OsAppChromePageStatus({
   className,
   children,
   error = false,
+  ...props
 }: {
   className?: string;
   children: ReactNode;
   error?: boolean;
-}) {
+} & Omit<HTMLAttributes<HTMLParagraphElement>, 'className' | 'children'>) {
   return (
     <p
       className={cn(
@@ -36,6 +37,7 @@ export function OsAppChromePageStatus({
         error && 'is-error',
         className
       )}
+      {...props}
     >
       {children}
     </p>
