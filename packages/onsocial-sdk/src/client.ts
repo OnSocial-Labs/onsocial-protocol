@@ -454,7 +454,9 @@ export class OnSocial {
       this.http
     );
     const getBroadcast = () => this._defaultBroadcast;
-    this.auth = new AuthModule(this.http);
+    this.auth = new AuthModule(this.http, {
+      attachSession: (session) => this.attachSession(session),
+    });
     this.social = new SocialModule(
       this.http,
       () => this._session,

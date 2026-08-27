@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAppHandoffUrl,
   buildOsAppHandoffUrl,
+  communityAppSessionPath,
   parseAppHandoffFromUrl,
   stripAppHandoffFromUrl,
 } from './auth-handoff.js';
@@ -37,6 +38,14 @@ describe('app handoff URL helpers', () => {
     expect(buildOsAppHandoffUrl('https://onsocial.id', 'Tracker')).toBe(
       'https://onsocial.id/handoff?app=tracker'
     );
+    expect(
+      buildOsAppHandoffUrl(
+        'https://onsocial.id',
+        'Tracker',
+        'ed25519:8hK7pQ2nV'
+      )
+    ).toBe('https://onsocial.id/handoff?app=tracker&pk=ed25519%3A8hK7pQ2nV');
+    expect(communityAppSessionPath('Tracker')).toBe('apps/tracker/');
     expect(
       stripAppHandoffFromUrl(
         'https://track.example.com/app?ref=1&onsocial_code=abc&onsocial_app=tracker'

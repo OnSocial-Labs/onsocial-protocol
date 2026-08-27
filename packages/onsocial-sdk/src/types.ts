@@ -112,6 +112,8 @@ export interface LoginResponse {
 export interface AppSessionResponse extends LoginResponse {
   accountId: string;
   appId: string;
+  /** True when completeAppHandoff attached the dapp-held session key. */
+  sessionAttached?: boolean;
 }
 
 export interface AuthInfo {

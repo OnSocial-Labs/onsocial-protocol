@@ -144,14 +144,17 @@ console.log(session.tier);
 
 ### Community dapp handoff
 
-A listed tile opens with `onsocial_code` + `onsocial_app`. Exchange that one-time code for an **app-scoped** JWT — not the OS session key:
+The dapp creates a session keypair on **its** origin. OnSocial grants `apps/<appId>/` to that public key. `completeAppHandoff` exchanges the one-time code for an app-scoped JWT and attaches the local session so writes work — the OS session key never leaves OnSocial.
 
 ```ts
-const session = await os.auth.completeAppHandoff();
-// session.appId is the listed dapp; DMs / keys / refresh stay blocked.
+const session = await os.auth.completeAppHandoff({
+  osOrigin: 'https://onsocial.id',
+  appId: 'tracker',
+});
+// session.appId is the listed dapp; os.session signs apps/tracker/ writes.
 
-// Cold visit on your site:
-os.auth.startOnSocialHandoff({
+// Or send a cold visitor explicitly:
+await os.auth.startOnSocialHandoff({
   osOrigin: 'https://onsocial.id',
   appId: 'tracker',
 });

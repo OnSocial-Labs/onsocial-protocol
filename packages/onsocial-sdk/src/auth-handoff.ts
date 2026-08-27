@@ -57,9 +57,21 @@ export function buildAppHandoffUrl(
 
 export const OS_HANDOFF_PATH = '/handoff';
 export const OS_HANDOFF_APP_PARAM = 'app';
+export const OS_HANDOFF_PK_PARAM = 'pk';
 
-/** OS page that signs the viewer in and returns them to the listed site. */
-export function buildOsAppHandoffUrl(osOrigin: string, appId: string): string {
+/** Core contract path scope granted to a community dapp session key. */
+export function communityAppSessionPath(appId: string): string {
+  const id = normalizeAppId(appId);
+  if (!id) throw new Error('appId is invalid');
+  return `apps/${id}/`;
+}
+
+/** OS page that signs the viewer in, grants the dapp pk, and returns them. */
+export function buildOsAppHandoffUrl(
+  osOrigin: string,
+  appId: string,
+  publicKey?: string
+): string {
   const origin = osOrigin.trim().replace(/\/$/, '');
   const id = normalizeAppId(appId);
   if (!origin || !id) {
@@ -67,6 +79,8 @@ export function buildOsAppHandoffUrl(osOrigin: string, appId: string): string {
   }
   const url = new URL(OS_HANDOFF_PATH, `${origin}/`);
   url.searchParams.set(OS_HANDOFF_APP_PARAM, id);
+  const pk = publicKey?.trim();
+  if (pk) url.searchParams.set(OS_HANDOFF_PK_PARAM, pk);
   return url.toString();
 }
 

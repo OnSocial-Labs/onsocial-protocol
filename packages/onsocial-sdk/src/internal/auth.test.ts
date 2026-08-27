@@ -29,6 +29,7 @@ describe('AuthModule.completeAppHandoff', () => {
 
     expect(session.appId).toBe('tracker');
     expect(session.token).toBe('app.jwt.token');
+    expect(session.sessionAttached).toBe(false);
     expect(fetch).toHaveBeenCalledWith(
       'https://testnet.onsocial.id/auth/app-session',
       expect.objectContaining({
