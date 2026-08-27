@@ -32,6 +32,7 @@ const TABLES_BY_MIGRATION: Record<string, string[]> = {
   '011_dm_mailbox.sql': ['dm_messages', 'dm_thread_reads'],
   '012_dm_ephemeral_pubkey.sql': ['dm_messages'],
   '013_dm_auth_tag.sql': ['dm_messages'],
+  '014_developer_app_listing.sql': ['developer_apps'],
 };
 
 function requireDatabaseUrl(): string {

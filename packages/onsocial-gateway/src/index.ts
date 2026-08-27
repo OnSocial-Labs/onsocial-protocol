@@ -10,6 +10,7 @@ import { authMiddleware, rateLimitMiddleware } from './middleware/index.js';
 import { meteringMiddleware } from './middleware/metering.js';
 import { authRouter } from './routes/auth.js';
 import { analyticsRouter } from './routes/analytics.js';
+import { communityAppsRouter } from './routes/community-apps.js';
 import { developerRouter } from './routes/developer.js';
 import { notificationRouter } from './routes/notifications.js';
 import { muteRouter } from './routes/mutes.js';
@@ -113,6 +114,7 @@ app.use(meteringMiddleware);
 
 // Routes — 3 proxies + auth + developer keys
 app.use('/auth', authRouter);
+app.use('/developer', communityAppsRouter); // public catalog
 app.use('/developer', subscriptionRouter); // before developerRouter — /plans is public
 app.use('/developer', analyticsRouter);
 app.use('/developer', notificationRouter);

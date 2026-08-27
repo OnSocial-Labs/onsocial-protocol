@@ -15,8 +15,10 @@ vi.mock('../../src/logger.js', () => ({
 import {
   deleteDeveloperApp,
   getDeveloperAppById,
+  listCommunityAppCatalog,
   listDeveloperApps,
   registerDeveloperApp,
+  updateDeveloperAppListing,
 } from '../../src/services/developer-apps/index.js';
 
 describe('developer app registry', () => {
@@ -51,5 +53,25 @@ describe('developer app registry', () => {
     const deleted = await deleteDeveloperApp('alice.testnet', 'portal_owned');
     expect(deleted).toBe(true);
     expect(await getDeveloperAppById('portal_owned')).toBeNull();
+  });
+
+  it('lists only published community listings', async () => {
+    await registerDeveloperApp('alice.testnet', 'catalog_hidden');
+    await registerDeveloperApp('alice.testnet', 'catalog_live');
+    const listed = await updateDeveloperAppListing(
+      'alice.testnet',
+      'catalog_live',
+      {
+        name: 'Tracker',
+        iconUrl: null,
+        href: 'https://track.example.com/',
+        listed: true,
+      }
+    );
+    expect('code' in listed).toBe(false);
+
+    const catalog = await listCommunityAppCatalog();
+    expect(catalog.map((entry) => entry.appId)).toEqual(['catalog_live']);
+    expect(catalog[0]?.href).toBe('https://track.example.com/');
   });
 });

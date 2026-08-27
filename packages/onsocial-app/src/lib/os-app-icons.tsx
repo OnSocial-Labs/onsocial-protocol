@@ -7,6 +7,7 @@ import {
   HomeFillIcon,
   MessageFillIcon,
   NotificationBellFillIcon,
+  osLauncherItemIconRemoteClassName,
   SearchFillIcon,
   ShopFillIcon,
   StarMovingFillIcon,
@@ -37,10 +38,26 @@ const OS_APP_ICON_BY_ID: Record<string, ComponentType<MageFillIconProps>> = {
 export function OsAppIcon({
   appId,
   className,
+  iconUrl,
 }: {
   appId: string;
   className?: string;
+  iconUrl?: string;
 }) {
-  const Icon = OS_APP_ICON_BY_ID[appId] ?? HomeFillIcon;
+  if (iconUrl) {
+    return (
+      <img
+        src={iconUrl}
+        alt=""
+        className={[className, osLauncherItemIconRemoteClassName]
+          .filter(Boolean)
+          .join(' ')}
+        draggable={false}
+      />
+    );
+  }
+  const Icon =
+    OS_APP_ICON_BY_ID[appId] ??
+    (appId.startsWith('community:') ? GlobeFillIcon : HomeFillIcon);
   return <Icon className={className} aria-hidden />;
 }

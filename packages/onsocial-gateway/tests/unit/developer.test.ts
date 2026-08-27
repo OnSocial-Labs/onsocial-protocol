@@ -16,6 +16,7 @@ const mockGetUsageTimeline = vi.fn();
 const mockRegisterDeveloperApp = vi.fn();
 const mockListDeveloperApps = vi.fn();
 const mockDeleteDeveloperApp = vi.fn();
+const mockUpdateDeveloperAppListing = vi.fn();
 
 vi.mock('../../src/services/apikeys/index.js', () => ({
   createApiKey: (...args: unknown[]) => mockCreateApiKey(...args),
@@ -59,6 +60,8 @@ vi.mock('../../src/services/developer-apps/index.js', () => ({
     mockRegisterDeveloperApp(...args),
   listDeveloperApps: (...args: unknown[]) => mockListDeveloperApps(...args),
   deleteDeveloperApp: (...args: unknown[]) => mockDeleteDeveloperApp(...args),
+  updateDeveloperAppListing: (...args: unknown[]) =>
+    mockUpdateDeveloperAppListing(...args),
 }));
 
 vi.mock('../../src/config/index.js', () => ({
@@ -414,5 +417,59 @@ describe('DELETE /developer/apps/:appId', () => {
     ).delete('/developer/apps/missing');
 
     expect(res.status).toBe(404);
+  });
+});
+
+describe('PATCH /developer/apps/:appId', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('publishes a community listing', async () => {
+    mockUpdateDeveloperAppListing.mockResolvedValue({
+      appId: 'tracker',
+      ownerAccountId: 'alice.testnet',
+      createdAt: Date.now(),
+      name: 'Tracker',
+      iconUrl: null,
+      href: 'https://track.example.com/',
+      listed: true,
+    });
+
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    )
+      .patch('/developer/apps/tracker')
+      .send({
+        listed: true,
+        name: 'Tracker',
+        href: 'https://track.example.com',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.app.listed).toBe(true);
+    expect(mockUpdateDeveloperAppListing).toHaveBeenCalledWith(
+      'alice.testnet',
+      'tracker',
+      {
+        listed: true,
+        name: 'Tracker',
+        href: 'https://track.example.com/',
+        iconUrl: null,
+      }
+    );
+  });
+
+  it('rejects a non-https listing href', async () => {
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    )
+      .patch('/developer/apps/tracker')
+      .send({
+        listed: true,
+        name: 'Tracker',
+        href: 'http://track.example.com',
+      });
+
+    expect(res.status).toBe(400);
+    expect(mockUpdateDeveloperAppListing).not.toHaveBeenCalled();
   });
 });

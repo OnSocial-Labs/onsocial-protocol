@@ -33,11 +33,23 @@ export const osLauncherToolbarClassName = 'os-launcher-toolbar';
 /** Profile avatar in the launcher-style crown slot (account sheet, etc.). */
 export const osLauncherCrownAvatarClassName = 'os-launcher-crown-avatar';
 
+export const osLauncherPagesClassName = 'os-launcher-pages';
+
+export const osLauncherPageClassName = 'os-launcher-page';
+
+export const osLauncherCommunityEmptyClassName = 'os-launcher-community-empty';
+
+export const osLauncherDotsClassName = 'os-launcher-dots';
+
+export const osLauncherDotClassName = 'os-launcher-dot';
+
 export const osLauncherGridClassName = 'os-launcher-grid';
 
 export const osLauncherItemClassName = 'os-launcher-item';
 
 export const osLauncherItemIconClassName = 'os-launcher-item-icon';
+
+export const osLauncherItemIconRemoteClassName = 'os-launcher-item-icon--remote';
 
 export const osLauncherItemIconShellClassName = 'os-launcher-item-icon-shell';
 

@@ -19,6 +19,8 @@ vi.mock('../../src/services/developer-apps/index.js', () => ({
   registerDeveloperApp: vi.fn(),
   listDeveloperApps: vi.fn(),
   deleteDeveloperApp: vi.fn(),
+  updateDeveloperAppListing: vi.fn(),
+  listCommunityAppCatalog: vi.fn(),
 }));
 
 vi.mock('../../src/services/notifications/index.js', () => ({

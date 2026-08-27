@@ -35,6 +35,8 @@ export interface OsAppLink {
   href?: string;
   overlay?: OverlayPanel;
   soon?: boolean;
+  /** Community-board icon. First-party tiles use {@link OsAppIcon}. */
+  iconUrl?: string;
 }
 
 /**

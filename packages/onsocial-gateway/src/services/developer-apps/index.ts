@@ -5,6 +5,17 @@ export interface DeveloperAppRecord {
   appId: string;
   ownerAccountId: string;
   createdAt: number;
+  name: string | null;
+  iconUrl: string | null;
+  href: string | null;
+  listed: boolean;
+}
+
+export interface DeveloperAppListing {
+  name: string | null;
+  iconUrl: string | null;
+  href: string | null;
+  listed: boolean;
 }
 
 export interface DeveloperAppError {
@@ -26,9 +37,19 @@ function isValidAppId(appId: string): boolean {
   return APP_ID_REGEX.test(appId);
 }
 
+function emptyListing(): DeveloperAppListing {
+  return { name: null, iconUrl: null, href: null, listed: false };
+}
+
 interface DeveloperAppStore {
   register(record: DeveloperAppRecord): Promise<void>;
   listByOwner(ownerAccountId: string): Promise<DeveloperAppRecord[]>;
+  listCatalog(): Promise<DeveloperAppRecord[]>;
+  updateListing(
+    ownerAccountId: string,
+    appId: string,
+    listing: DeveloperAppListing
+  ): Promise<DeveloperAppRecord | null>;
   deleteByOwner(ownerAccountId: string, appId: string): Promise<boolean>;
   getByAppId(appId: string): Promise<DeveloperAppRecord | null>;
 }
@@ -37,13 +58,33 @@ class MemoryStore implements DeveloperAppStore {
   private apps = new Map<string, DeveloperAppRecord>();
 
   async register(record: DeveloperAppRecord): Promise<void> {
-    this.apps.set(record.appId, record);
+    this.apps.set(record.appId, { ...emptyListing(), ...record });
   }
 
   async listByOwner(ownerAccountId: string): Promise<DeveloperAppRecord[]> {
     return Array.from(this.apps.values()).filter(
       (record) => record.ownerAccountId === ownerAccountId
     );
+  }
+
+  async listCatalog(): Promise<DeveloperAppRecord[]> {
+    return Array.from(this.apps.values()).filter(
+      (record) => record.listed && Boolean(record.href)
+    );
+  }
+
+  async updateListing(
+    ownerAccountId: string,
+    appId: string,
+    listing: DeveloperAppListing
+  ): Promise<DeveloperAppRecord | null> {
+    const existing = this.apps.get(appId);
+    if (!existing || existing.ownerAccountId !== ownerAccountId) {
+      return null;
+    }
+    const next = { ...existing, ...listing };
+    this.apps.set(appId, next);
+    return next;
   }
 
   async deleteByOwner(ownerAccountId: string, appId: string): Promise<boolean> {
@@ -94,6 +135,10 @@ class HasuraStore implements DeveloperAppStore {
       appId: row.appId as string,
       ownerAccountId: row.ownerAccountId as string,
       createdAt: new Date(row.createdAt as string).getTime(),
+      name: typeof row.name === 'string' ? row.name : null,
+      iconUrl: typeof row.iconUrl === 'string' ? row.iconUrl : null,
+      href: typeof row.href === 'string' ? row.href : null,
+      listed: Boolean(row.listed),
     };
   }
 
@@ -106,6 +151,10 @@ class HasuraStore implements DeveloperAppStore {
         obj: {
           appId: record.appId,
           ownerAccountId: record.ownerAccountId,
+          name: record.name,
+          iconUrl: record.iconUrl,
+          href: record.href,
+          listed: record.listed,
         },
       }
     );
@@ -120,6 +169,10 @@ class HasuraStore implements DeveloperAppStore {
           appId
           ownerAccountId
           createdAt
+          name
+          iconUrl
+          href
+          listed
         }
       }`,
       { owner: ownerAccountId }
@@ -152,6 +205,10 @@ class HasuraStore implements DeveloperAppStore {
           appId
           ownerAccountId
           createdAt
+          name
+          iconUrl
+          href
+          listed
         }
       }`,
       { appId }
@@ -160,6 +217,69 @@ class HasuraStore implements DeveloperAppStore {
     return data.developerAppsByPk
       ? this.toRecord(data.developerAppsByPk)
       : null;
+  }
+
+  async listCatalog(): Promise<DeveloperAppRecord[]> {
+    const data = await this.gql<{
+      developerApps: Array<Record<string, unknown>>;
+    }>(
+      `query {
+        developerApps(
+          where: { listed: { _eq: true }, href: { _isNull: false } }
+          orderBy: [{ createdAt: ASC }]
+        ) {
+          appId
+          ownerAccountId
+          createdAt
+          name
+          iconUrl
+          href
+          listed
+        }
+      }`
+    );
+    return data.developerApps.map((row) => this.toRecord(row));
+  }
+
+  async updateListing(
+    ownerAccountId: string,
+    appId: string,
+    listing: DeveloperAppListing
+  ): Promise<DeveloperAppRecord | null> {
+    const data = await this.gql<{
+      updateDeveloperApps: {
+        returning: Array<Record<string, unknown>>;
+      };
+    }>(
+      `mutation($owner: String!, $appId: String!, $set: DeveloperAppsSetInput!) {
+        updateDeveloperApps(
+          where: { ownerAccountId: { _eq: $owner }, appId: { _eq: $appId } }
+          _set: $set
+        ) {
+          returning {
+            appId
+            ownerAccountId
+            createdAt
+            name
+            iconUrl
+            href
+            listed
+          }
+        }
+      }`,
+      {
+        owner: ownerAccountId,
+        appId,
+        set: {
+          name: listing.name,
+          iconUrl: listing.iconUrl,
+          href: listing.href,
+          listed: listing.listed,
+        },
+      }
+    );
+    const row = data.updateDeveloperApps.returning[0];
+    return row ? this.toRecord(row) : null;
   }
 }
 
@@ -202,9 +322,32 @@ export async function registerDeveloperApp(
     appId: normalizedAppId,
     ownerAccountId: normalizedOwner,
     createdAt: Date.now(),
+    ...emptyListing(),
   };
   await store.register(record);
   return record;
+}
+
+export async function listCommunityAppCatalog(): Promise<
+  DeveloperAppRecord[]
+> {
+  return store.listCatalog();
+}
+
+export async function updateDeveloperAppListing(
+  ownerAccountId: string,
+  appId: string,
+  listing: DeveloperAppListing
+): Promise<DeveloperAppRecord | DeveloperAppError> {
+  const updated = await store.updateListing(
+    normalizeAccountId(ownerAccountId),
+    normalizeAppId(appId),
+    listing
+  );
+  if (!updated) {
+    return { code: 'NOT_FOUND', message: 'App not found' };
+  }
+  return updated;
 }
 
 export async function listDeveloperApps(
