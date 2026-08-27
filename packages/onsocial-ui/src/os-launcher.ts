@@ -49,7 +49,8 @@ export const osLauncherItemClassName = 'os-launcher-item';
 
 export const osLauncherItemIconClassName = 'os-launcher-item-icon';
 
-export const osLauncherItemIconRemoteClassName = 'os-launcher-item-icon--remote';
+export const osLauncherItemIconRemoteClassName =
+  'os-launcher-item-icon--remote';
 
 export const osLauncherItemIconShellClassName = 'os-launcher-item-icon-shell';
 
