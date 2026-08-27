@@ -12,8 +12,13 @@ export interface TierInfo {
 export interface JwtPayload {
   accountId: string;
   tier: Tier;
-  /** Token purpose: 'access' for API calls, 'refresh' for silent renewal. */
+  /** Token purpose: 'access' for API calls, 'refresh' for viewer silent renewal. */
   kind?: 'access' | 'refresh';
+  /**
+   * When set, this access token was issued for a community dapp handoff.
+   * It must not manage developer resources, DMs, or mutes.
+   */
+  appId?: string;
   /** How the request was authenticated */
   method?: AuthMethod;
   iat: number;

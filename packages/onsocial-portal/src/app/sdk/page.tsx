@@ -177,6 +177,19 @@ const DECISIONS: Decision[] = [
 
 const BUILD_PATHS: BuildPath[] = [
   {
+    title: 'Community dapp',
+    icon: Boxes,
+    accent: 'blue',
+    bestFor:
+      'A public https site on launcher page two that reuses OnSocial sign-in and apps/<appId> JSON.',
+    steps: [
+      'Create an app namespace on Portal → OnAPI → Apps and list the https site.',
+      'On first load call os.auth.completeAppHandoff({ osOrigin, appId }). That creates a keypair here, grants apps/<appId>/ on OS, and attaches the session. Later visits restore silently from a stored app refresh token.',
+      'Write custom JSON under apps/<appId>/… and query with byAppId. Use os.posts / os.profiles for the real graph.',
+      'Keep OnAPI keys on the server. Listing does not create a key. Teams with their own wallet connect can still grant a session themselves.',
+    ],
+  },
+  {
     title: 'Browser app',
     icon: Wallet,
     accent: 'green',

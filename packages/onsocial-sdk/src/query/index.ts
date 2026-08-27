@@ -35,6 +35,7 @@
 //   os.query.boost.topBoosters({ limit: 10 })
 //   os.query.socialSpend.seasonActivity('season0')
 //   os.query.raw.byType('vegancert')
+//   os.query.raw.byAppId('acme-track')
 //
 // For unindexed or one-off queries, drop down to `os.query.graphql<T>(...)`.
 // ---------------------------------------------------------------------------
@@ -71,6 +72,8 @@ import { RawQuery } from './raw.js';
 import { PagesQuery } from './pages.js';
 
 export { GraphQLValidationError } from './_shared.js';
+export { APP_DATA_TYPE } from './raw.js';
+export type { DataRow } from './raw.js';
 export type {
   PostRow,
   ReactionRow,
@@ -165,7 +168,6 @@ export type {
   SupportReceivedRow,
 } from './social-spend.js';
 export type { SocialSpendEventType } from './social-spend-events.js';
-export type { DataRow } from './raw.js';
 export type { PageCurrentRow } from './pages.js';
 export type {
   GroupCurrentRow,

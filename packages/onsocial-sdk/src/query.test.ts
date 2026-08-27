@@ -4344,4 +4344,37 @@ describe('QueryModule', () => {
       expect(await os.query.boost.events()).toEqual([]);
     });
   });
+
+  describe('raw app namespace', () => {
+    it('byAppId filters data_type apps and data_id appId', async () => {
+      const { os, fetch } = makeOs({ data: { dataUpdates: [] } });
+      await os.query.raw.byAppId('acme-track', {
+        accountId: 'alice.near',
+        limit: 10,
+      });
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/dataId: \{\s*_eq: \$appId/);
+      expect(body.variables).toMatchObject({
+        dataType: 'apps',
+        appId: 'acme-track',
+        accountId: 'alice.near',
+      });
+    });
+
+    it('byAppJsonContains adds a JSONB contains filter', async () => {
+      const { os, fetch } = makeOs({ data: { dataUpdates: [] } });
+      await os.query.raw.byAppJsonContains('acme-track', { status: 'shipped' });
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/valueJson: \{\s*_contains: \$contains/);
+      expect(body.variables).toMatchObject({
+        dataType: 'apps',
+        appId: 'acme-track',
+        contains: { status: 'shipped' },
+      });
+    });
+  });
 });

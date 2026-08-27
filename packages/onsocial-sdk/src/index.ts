@@ -15,6 +15,21 @@ export { SessionRequiredError } from './internal/session-bridge.js';
 // Modules (for advanced composition)
 export { AuthModule } from './internal/auth.js';
 export {
+  APP_HANDOFF_APP_PARAM,
+  APP_HANDOFF_CODE_PARAM,
+  APP_ID_RE,
+  OS_HANDOFF_APP_PARAM,
+  OS_HANDOFF_PATH,
+  OS_HANDOFF_PK_PARAM,
+  buildAppHandoffUrl,
+  buildOsAppHandoffUrl,
+  communityAppSessionPath,
+  normalizeAppId,
+  parseAppHandoffFromUrl,
+  stripAppHandoffFromUrl,
+} from './auth-handoff.js';
+export type { AppHandoffParams } from './auth-handoff.js';
+export {
   SocialModule,
   resolvePostMedia,
   buildPostSetData,
@@ -544,6 +559,7 @@ export type {
   OnSocialConfig,
   LoginRequest,
   LoginResponse,
+  AppSessionResponse,
   AuthInfo,
   BroadcastTarget,
   WalletBroadcastSigner,

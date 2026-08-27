@@ -5,6 +5,9 @@
 
 import type { QueryModule } from './index.js';
 
+/** First path segment after the account when writes use `paths.app(appId, …)`. */
+export const APP_DATA_TYPE = 'apps';
+
 export interface DataRow {
   path: string;
   value: string;
@@ -115,6 +118,74 @@ export class RawQuery {
       }`,
       variables: {
         dataType,
+        contains,
+        ...(opts.accountId ? { accountId: opts.accountId } : {}),
+      },
+    });
+    return res.data?.dataUpdates ?? [];
+  }
+
+  /**
+   * Query writes under `apps/<appId>/…`.
+   * Indexed as `data_type = apps` and `data_id = appId`.
+   */
+  async byAppId(
+    appId: string,
+    opts: { accountId?: string; limit?: number; offset?: number } = {}
+  ): Promise<DataRow[]> {
+    const limit = opts.limit ?? 50;
+    const offset = opts.offset ?? 0;
+    const conditions = [
+      `{dataType: {_eq: $dataType}}`,
+      `{dataId: {_eq: $appId}}`,
+    ];
+    if (opts.accountId) conditions.push(`{accountId: {_eq: $accountId}}`);
+    const where = `{_and: [${conditions.join(', ')}]}`;
+
+    const res = await this._q.graphql<{ dataUpdates: DataRow[] }>({
+      query: `query DataByAppId($dataType: String!, $appId: String!${opts.accountId ? ', $accountId: String!' : ''}) {
+        dataUpdates(where: ${where}, limit: ${limit}, offset: ${offset}, orderBy: [{blockHeight: DESC}]) {
+          path value accountId dataType dataId blockHeight blockTimestamp operation
+        }
+      }`,
+      variables: {
+        dataType: APP_DATA_TYPE,
+        appId,
+        ...(opts.accountId ? { accountId: opts.accountId } : {}),
+      },
+    });
+    return res.data?.dataUpdates ?? [];
+  }
+
+  /**
+   * JSON-contains filter scoped to one app namespace (`apps/<appId>/…`).
+   */
+  async byAppJsonContains(
+    appId: string,
+    contains: Record<string, unknown>,
+    opts: { accountId?: string; limit?: number; offset?: number } = {}
+  ): Promise<DataRow[]> {
+    const limit = opts.limit ?? 50;
+    const offset = opts.offset ?? 0;
+    const conditions = [
+      `{dataType: {_eq: $dataType}}`,
+      `{dataId: {_eq: $appId}}`,
+      `{valueJson: {_contains: $contains}}`,
+    ];
+    if (opts.accountId) conditions.push(`{accountId: {_eq: $accountId}}`);
+    const where = `{_and: [${conditions.join(', ')}]}`;
+
+    const res = await this._q.graphql<{ dataUpdates: DataRow[] }>({
+      query: `query DataByAppJsonContains($dataType: String!, $appId: String!, $contains: jsonb!${
+        opts.accountId ? ', $accountId: String!' : ''
+      }) {
+        dataUpdates(where: ${where}, limit: ${limit}, offset: ${offset}, orderBy: [{blockHeight: DESC}]) {
+          path value accountId dataType dataId blockHeight blockTimestamp operation
+        }
+      }`,
+      variables: {
+        dataType: APP_DATA_TYPE,
+        appId,
         contains,
         ...(opts.accountId ? { accountId: opts.accountId } : {}),
       },

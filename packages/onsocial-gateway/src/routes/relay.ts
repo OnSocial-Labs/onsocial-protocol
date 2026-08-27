@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import { config } from '../config/index.js';
 import { requireAuth } from '../middleware/index.js';
 import { logger } from '../logger.js';
+import { appScopedSignedDelegateError } from '../services/app-scoped-paths.js';
 
 export const relayRouter = Router();
 
@@ -52,6 +53,17 @@ relayRouter.post(
         error: 'Missing or invalid signed_delegate (expected base64 string)',
       });
       return;
+    }
+
+    if (req.auth?.appId) {
+      const scoped = appScopedSignedDelegateError(
+        signed_delegate,
+        req.auth.appId
+      );
+      if (scoped) {
+        res.status(403).json({ error: scoped, appId: req.auth.appId });
+        return;
+      }
     }
 
     const upstream = `${config.relayUrl}/execute_delegate${

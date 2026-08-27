@@ -17,8 +17,10 @@ import {
   deleteDeveloperApp,
   listDeveloperApps,
   registerDeveloperApp,
+  updateDeveloperAppListing,
   type DeveloperAppError,
 } from '../services/developer-apps/index.js';
+import { normalizeListingInput } from '../services/developer-apps/listing.js';
 import {
   getUsageSummary,
   getUsageTimeline,
@@ -37,6 +39,12 @@ function requireJwtAuth(req: Request, res: Response, next: () => void): void {
     res
       .status(403)
       .json({ error: 'API keys cannot manage developer resources. Use JWT.' });
+    return;
+  }
+  if (req.auth.appId) {
+    res.status(403).json({
+      error: 'App-scoped sessions cannot manage developer resources.',
+    });
     return;
   }
   next();
@@ -211,6 +219,31 @@ developerRouter.get('/apps', async (req: Request, res: Response) => {
   } catch (error) {
     req.log.error({ error }, 'Failed to list developer apps');
     res.status(500).json({ error: 'Failed to list apps' });
+  }
+});
+
+developerRouter.patch('/apps/:appId', async (req: Request, res: Response) => {
+  try {
+    const listing = normalizeListingInput(req.body ?? {});
+    if ('error' in listing) {
+      res.status(400).json({ error: listing.error, code: listing.code });
+      return;
+    }
+
+    const result = await updateDeveloperAppListing(
+      req.auth!.accountId,
+      req.params.appId,
+      listing
+    );
+    if ('code' in result) {
+      res.status(404).json({ error: result.message, code: result.code });
+      return;
+    }
+
+    res.json({ app: result });
+  } catch (error) {
+    req.log.error({ error }, 'Failed to update developer app listing');
+    res.status(500).json({ error: 'Failed to update listing' });
   }
 });
 

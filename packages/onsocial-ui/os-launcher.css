@@ -263,6 +263,69 @@
   justify-items: center;
 }
 
+.os-launcher-pages {
+  display: flex;
+  width: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.os-launcher-pages::-webkit-scrollbar {
+  display: none;
+}
+
+.os-launcher-page {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  box-sizing: border-box;
+}
+
+.os-launcher-community-empty {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  padding: 1.4rem 0.75rem 0.4rem;
+  text-align: center;
+}
+
+.os-launcher-community-empty p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgb(var(--fg-rgb) / 0.5);
+}
+
+.os-launcher-community-empty p + p {
+  margin-top: 0.45rem;
+}
+
+.os-launcher-community-empty a {
+  color: rgb(var(--fg-rgb) / 0.72);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+.os-launcher-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.7rem 0 0.15rem;
+}
+
+.os-launcher-dot {
+  width: 0.38rem;
+  height: 0.38rem;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: rgb(var(--fg-rgb) / 0.22);
+  cursor: pointer;
+}
+
+.os-launcher-dot.is-current {
+  background: rgb(var(--fg-rgb) / 0.72);
+}
+
 /* App icons — wallet neutral tile + protocol hue glyph (iPhone-style). */
 .os-launcher-item {
   position: relative;
@@ -303,6 +366,13 @@
   flex-shrink: 0;
   color: rgb(var(--fg-rgb) / 0.62);
   transition: color 160ms ease;
+}
+
+.os-launcher-item-icon--remote {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
 }
 
 /*

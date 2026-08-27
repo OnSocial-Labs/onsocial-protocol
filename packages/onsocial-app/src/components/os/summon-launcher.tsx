@@ -30,6 +30,11 @@ import {
   osLauncherRootHostedClassName,
   osLauncherSheetClassName,
   osLauncherFrostClassName,
+  osLauncherPagesClassName,
+  osLauncherPageClassName,
+  osLauncherCommunityEmptyClassName,
+  osLauncherDotsClassName,
+  osLauncherDotClassName,
   resolveBackdropPresentation,
   resolvePanelPresentation,
   SheetCloseButton,
@@ -67,6 +72,14 @@ import {
 } from '@/lib/os-apps';
 import { OsAppIcon } from '@/lib/os-app-icons';
 import { osAppAccent } from '@/lib/os-app-accents';
+import { useCommunityAppCatalog } from '@/hooks/use-community-app-catalog';
+import { portalHref } from '@/lib/app-links';
+import { getCachedAppGatewayAuth } from '@/lib/app-gateway-auth';
+import {
+  communityAppIdFromLauncherId,
+  launchCommunityApp,
+  openCommunityAppWindow,
+} from '@/lib/community-app-handoff';
 
 const LAUNCHER_DISMISS_PX = 96;
 const LAUNCHER_PRESENTATION_MS = 320;
@@ -131,7 +144,11 @@ function LauncherAppTile({
         className={osLauncherItemIconShellClassName}
         data-accent={app.soon ? undefined : accent}
       >
-        <OsAppIcon appId={app.id} className={osLauncherItemIconClassName} />
+        <OsAppIcon
+          appId={app.id}
+          iconUrl={app.iconUrl}
+          className={osLauncherItemIconClassName}
+        />
         {app.soon ? (
           <span className={osLauncherItemSoonClassName}>Soon</span>
         ) : unread > 0 ? (
@@ -145,6 +162,7 @@ function LauncherAppTile({
   );
 
   if (app.kind === 'external' && app.href) {
+    const community = Boolean(communityAppIdFromLauncherId(app.id));
     return (
       <a
         className={tileClassName}
@@ -153,7 +171,12 @@ function LauncherAppTile({
         rel="noreferrer"
         aria-label={ariaLabel}
         aria-current={active ? 'page' : undefined}
-        onClick={onActivate}
+        onClick={(event) => {
+          if (community) {
+            event.preventDefault();
+          }
+          onActivate();
+        }}
       >
         {tileBody}
       </a>
@@ -202,6 +225,21 @@ export function SummonLauncher({
   const activeAppId = resolveActiveOsAppId(pathname, accountId);
   const [openInternal, setOpenInternal] = useState(false);
   const open = openProp ?? openInternal;
+  const communityListings = useCommunityAppCatalog(open);
+  const communityReady = communityListings !== null;
+  const communityApps = useMemo<OsAppLink[]>(
+    () =>
+      (communityListings ?? []).map((app) => ({
+        id: `community:${app.appId}`,
+        label: app.name,
+        kind: 'external',
+        href: app.href,
+        iconUrl: app.iconUrl ?? undefined,
+      })),
+    [communityListings]
+  );
+  const [launcherPage, setLauncherPage] = useState(0);
+  const pagesRef = useRef<HTMLDivElement>(null);
 
   const setOpen = useCallback(
     (next: boolean) => {
@@ -257,6 +295,7 @@ export function SummonLauncher({
     setPanelHeightPx(0);
     setDragY(0);
     setDragging(false);
+    setLauncherPage(0);
   }
 
   const resetDrag = useCallback(() => {
@@ -313,6 +352,19 @@ export function SummonLauncher({
     if (navigate(app)) {
       closeLauncher();
     }
+  }
+
+  function handleCommunityActivate(app: OsAppLink) {
+    const appId = communityAppIdFromLauncherId(app.id);
+    const href = app.href;
+    if (!appId || !href) {
+      closeLauncher();
+      return;
+    }
+    const popup = openCommunityAppWindow();
+    closeLauncher();
+    const token = accountId ? getCachedAppGatewayAuth(accountId) : null;
+    void launchCommunityApp({ appId, href, token, popup });
   }
 
   const handleDragPointerDown = useCallback(
@@ -543,7 +595,7 @@ export function SummonLauncher({
                       />
                       <span className="standing-sheet-subject-copy">
                         <span className="standing-sheet-subject-name">
-                          OnSocial
+                          {launcherPage === 1 ? 'Community' : 'OnSocial'}
                         </span>
                       </span>
                     </div>
@@ -556,46 +608,122 @@ export function SummonLauncher({
                   </div>
                 </header>
 
-                <ul className={osLauncherGridClassName}>
-                  {apps.map((app) => (
-                    <li key={app.id}>
-                      <LauncherAppTile
-                        app={app}
-                        openingPage={openingPage}
-                        active={isOsAppActive(app.id, activeAppId)}
-                        unread={launcherUnreadForApp(
-                          app.id,
-                          activityUnread,
-                          dmUnread
-                        )}
-                        onActivate={() => {
-                          if (app.kind === 'external') {
+                <div
+                  ref={pagesRef}
+                  className={osLauncherPagesClassName}
+                  onScroll={(event) => {
+                    const width = event.currentTarget.clientWidth;
+                    if (width <= 0) return;
+                    const next = Math.round(
+                      event.currentTarget.scrollLeft / width
+                    );
+                    setLauncherPage(next === 1 ? 1 : 0);
+                  }}
+                >
+                  <ul
+                    className={`${osLauncherGridClassName} ${osLauncherPageClassName}`}
+                  >
+                    {apps.map((app) => (
+                      <li key={app.id}>
+                        <LauncherAppTile
+                          app={app}
+                          openingPage={openingPage}
+                          active={isOsAppActive(app.id, activeAppId)}
+                          unread={launcherUnreadForApp(
+                            app.id,
+                            activityUnread,
+                            dmUnread
+                          )}
+                          onActivate={() => {
+                            if (app.kind === 'external') {
+                              closeLauncher();
+                              return;
+                            }
+                            handleNavigate(app);
+                          }}
+                        />
+                      </li>
+                    ))}
+                    {showMyPage && accountId ? (
+                      <li>
+                        <LauncherAppTile
+                          app={{
+                            id: 'my-page',
+                            label: 'Page',
+                            kind: 'app',
+                          }}
+                          openingPage={false}
+                          active={isOsAppActive('my-page', activeAppId)}
+                          onActivate={() => {
                             closeLauncher();
-                            return;
-                          }
-                          handleNavigate(app);
-                        }}
-                      />
-                    </li>
-                  ))}
-                  {showMyPage && accountId ? (
-                    <li>
-                      <LauncherAppTile
-                        app={{
-                          id: 'my-page',
-                          label: 'Page',
-                          kind: 'app',
-                        }}
-                        openingPage={false}
-                        active={isOsAppActive('my-page', activeAppId)}
-                        onActivate={() => {
-                          closeLauncher();
-                          router.push(portfolioPath(accountId));
-                        }}
-                      />
-                    </li>
-                  ) : null}
-                </ul>
+                            router.push(portfolioPath(accountId));
+                          }}
+                        />
+                      </li>
+                    ) : null}
+                  </ul>
+                  <ul
+                    className={`${osLauncherGridClassName} ${osLauncherPageClassName}`}
+                  >
+                    {!communityReady ? null : communityApps.length === 0 ? (
+                      <li className={osLauncherCommunityEmptyClassName}>
+                        <p>No community dapps yet.</p>
+                        <p>
+                          <a
+                            href={portalHref('/onapi/apps')}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            List yours on Portal
+                          </a>
+                        </p>
+                      </li>
+                    ) : (
+                      communityApps.map((app) => (
+                        <li key={app.id}>
+                          <LauncherAppTile
+                            app={app}
+                            openingPage={false}
+                            active={false}
+                            onActivate={() => {
+                              handleCommunityActivate(app);
+                            }}
+                          />
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </div>
+                <div
+                  className={osLauncherDotsClassName}
+                  aria-label="Launcher pages"
+                >
+                  <button
+                    type="button"
+                    className={`${osLauncherDotClassName}${launcherPage === 0 ? ' is-current' : ''}`}
+                    aria-label="OnSocial apps"
+                    onClick={() => {
+                      pagesRef.current?.scrollTo({
+                        left: 0,
+                        behavior: 'smooth',
+                      });
+                      setLauncherPage(0);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className={`${osLauncherDotClassName}${launcherPage === 1 ? ' is-current' : ''}`}
+                    aria-label="Community dapps"
+                    onClick={() => {
+                      const width = pagesRef.current?.clientWidth ?? 0;
+                      pagesRef.current?.scrollTo({
+                        left: width,
+                        behavior: 'smooth',
+                      });
+                      setLauncherPage(1);
+                    }}
+                  />
+                </div>
 
                 <div className={osLauncherFooterClassName}>
                   <ThemeToggle />

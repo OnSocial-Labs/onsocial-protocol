@@ -8,8 +8,16 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import multer from 'multer';
 import { logger } from '../../logger.js';
-import { buildSetAction, ComposeError } from '../../services/compose/index.js';
+import {
+  buildSetAction,
+  buildSetBatchAction,
+  ComposeError,
+} from '../../services/compose/index.js';
 import { collectFiles, resolveActorId } from './helpers.js';
+import {
+  appScopedSetPathError,
+  appScopedSetPathsError,
+} from '../../services/app-scoped-paths.js';
 
 export const setRouter = Router();
 
@@ -26,10 +34,49 @@ setRouter.post(
     const effectiveActorId = resolveActorId(req);
 
     try {
+      const rawEntries = req.body.entries;
+      if (
+        rawEntries &&
+        typeof rawEntries === 'object' &&
+        !Array.isArray(rawEntries)
+      ) {
+        const entries = rawEntries as Record<string, unknown>;
+        if (req.auth?.appId) {
+          const scoped = appScopedSetPathsError(
+            Object.keys(entries),
+            req.auth.appId
+          );
+          if (scoped) {
+            res.status(403).json({ error: scoped, appId: req.auth.appId });
+            return;
+          }
+        }
+        const built = buildSetBatchAction(
+          effectiveActorId,
+          entries,
+          typeof req.body.targetAccount === 'string'
+            ? req.body.targetAccount
+            : undefined
+        );
+        res.status(200).json({
+          action: built.action,
+          target_account: built.targetAccount,
+          uploads: {},
+        });
+        return;
+      }
+
       const path = req.body.path;
       if (!path || typeof path !== 'string') {
         res.status(400).json({ error: 'Missing required field: path' });
         return;
+      }
+      if (req.auth?.appId) {
+        const scoped = appScopedSetPathError(path, req.auth.appId);
+        if (scoped) {
+          res.status(403).json({ error: scoped, appId: req.auth.appId });
+          return;
+        }
       }
 
       // Value can be a JSON string (multipart) or object (JSON body).

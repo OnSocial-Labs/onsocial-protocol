@@ -17,6 +17,7 @@ export class HttpClient {
   private _token: string | null = null;
   private _apiKey: string | null = null;
   private _actorId: string | null = null;
+  private _onUnauthorized: (() => Promise<boolean>) | null = null;
 
   constructor(config: OnSocialConfig = {}) {
     this.network = config.network ?? 'mainnet';
@@ -47,6 +48,14 @@ export class HttpClient {
   /** Current actor account injected for API-key write flows, if configured. */
   get actorId(): string | null {
     return this._actorId;
+  }
+
+  /**
+   * Called once on HTTP 401 so community dapps can rotate an app-scoped
+   * refresh token. Must not recurse into `/auth/app-refresh`.
+   */
+  setUnauthorizedHandler(handler: (() => Promise<boolean>) | null): void {
+    this._onUnauthorized = handler;
   }
 
   // ── Request helpers ─────────────────────────────────────────────────────
@@ -124,8 +133,24 @@ export class HttpClient {
     return { ok: true, raw: payload } as T;
   }
 
+  private _skipUnauthorizedRetry(path: string): boolean {
+    const pathname = path.split('?')[0] ?? '';
+    return (
+      pathname === '/auth/app-refresh' ||
+      pathname === '/auth/app-session' ||
+      pathname === '/auth/refresh' ||
+      pathname === '/auth/login' ||
+      pathname === '/auth/challenge'
+    );
+  }
+
   /** JSON request. */
-  async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    retried = false
+  ): Promise<T> {
     // Auto-wait: compose writes inherently broadcast a transaction. Without
     // ?wait=true the relayer returns a tx_hash before the inner action runs,
     // so callers (and integration tests) treat on-chain panics as success.
@@ -169,6 +194,18 @@ export class HttpClient {
     });
 
     if (!res.ok) {
+      if (
+        res.status === 401 &&
+        !retried &&
+        !this._apiKey &&
+        this._onUnauthorized &&
+        !this._skipUnauthorizedRetry(effectivePath)
+      ) {
+        const refreshed = await this._onUnauthorized();
+        if (refreshed) {
+          return this.request<T>(method, path, body, true);
+        }
+      }
       const err: ApiError = await res.json().catch(() => ({
         error: `HTTP ${res.status}`,
       }));

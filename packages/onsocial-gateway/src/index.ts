@@ -6,10 +6,16 @@ import { pinoHttp } from 'pino-http';
 
 import { config, validateRevolutBillingConfig } from './config/index.js';
 import { logger } from './logger.js';
-import { authMiddleware, rateLimitMiddleware } from './middleware/index.js';
+import {
+  authMiddleware,
+  rateLimitMiddleware,
+  restrictAppScopedSession,
+} from './middleware/index.js';
+import { createCorsOriginResolver } from './middleware/cors-origin.js';
 import { meteringMiddleware } from './middleware/metering.js';
 import { authRouter } from './routes/auth.js';
 import { analyticsRouter } from './routes/analytics.js';
+import { communityAppsRouter } from './routes/community-apps.js';
 import { developerRouter } from './routes/developer.js';
 import { notificationRouter } from './routes/notifications.js';
 import { muteRouter } from './routes/mutes.js';
@@ -32,14 +38,10 @@ for (const warning of revolutBilling.warnings) {
 // Security
 app.use(helmet());
 app.use(
-  cors(
-    config.corsOrigins === '*'
-      ? { credentials: true, origin: true } // dev: mirror request origin
-      : {
-          origin: config.corsOrigins.split(',').map((s) => s.trim()),
-          credentials: true,
-        }
-  )
+  cors({
+    credentials: true,
+    origin: config.corsOrigins === '*' ? true : createCorsOriginResolver(),
+  })
 );
 // Webhook route — BEFORE auth/json middleware (needs raw body, no auth)
 app.use('/webhooks', webhookRouter);
@@ -107,12 +109,14 @@ app.get('/health/ready', async (_req, res) => {
 
 // Auth middleware (parses JWT, attaches to req.auth)
 app.use(authMiddleware);
+app.use(restrictAppScopedSession);
 
 // Usage metering (fire-and-forget: records after response is sent)
 app.use(meteringMiddleware);
 
 // Routes — 3 proxies + auth + developer keys
 app.use('/auth', authRouter);
+app.use('/developer', communityAppsRouter); // public catalog
 app.use('/developer', subscriptionRouter); // before developerRouter — /plans is public
 app.use('/developer', analyticsRouter);
 app.use('/developer', notificationRouter);

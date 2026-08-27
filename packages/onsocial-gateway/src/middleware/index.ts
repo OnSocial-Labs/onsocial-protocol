@@ -264,6 +264,50 @@ export function requireAuth(
   next();
 }
 
+const APP_SCOPED_PREFIXES = [
+  '/graph',
+  '/data',
+  '/compose',
+  '/storage',
+  '/relay',
+];
+const APP_SCOPED_EXACT = new Set([
+  '/auth/me',
+  '/auth/app-session',
+  '/auth/app-refresh',
+]);
+
+/** Community handoff JWTs cannot read DMs, mutes, keys, or refresh to a full session. */
+export function restrictAppScopedSession(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  if (!req.auth?.appId) {
+    next();
+    return;
+  }
+
+  const path = (req.originalUrl ?? req.url).split('?')[0] ?? '';
+  if (APP_SCOPED_EXACT.has(path)) {
+    next();
+    return;
+  }
+  if (
+    APP_SCOPED_PREFIXES.some(
+      (prefix) => path === prefix || path.startsWith(`${prefix}/`)
+    )
+  ) {
+    next();
+    return;
+  }
+
+  res.status(403).json({
+    error: 'App-scoped session cannot access this endpoint',
+    appId: req.auth.appId,
+  });
+}
+
 export function requireTier(...allowedTiers: Tier[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.auth) {

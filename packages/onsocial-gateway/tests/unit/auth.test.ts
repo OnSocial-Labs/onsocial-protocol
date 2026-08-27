@@ -40,8 +40,11 @@ vi.mock('../../src/logger.js', () => ({
 import {
   createAuthChallenge,
   verifyNearSignature,
+  generateAppRefreshToken,
+  generateAppToken,
   generateToken,
   generateRefreshToken,
+  verifyAppRefreshToken,
   verifyRefreshToken,
   verifyToken,
 } from '../../src/auth/index.js';
@@ -336,6 +339,21 @@ describe('JWT tokens', () => {
     const tampered = token.slice(0, -2) + 'xx';
     expect(verifyToken(tampered)).toBeNull();
   });
+
+  it('generates an app-scoped token with the listing appId', async () => {
+    const token = await generateAppToken('bob.testnet', 'tracker');
+    const payload = verifyToken(token);
+    expect(payload).not.toBeNull();
+    expect(payload!.accountId).toBe('bob.testnet');
+    expect(payload!.tier).toBe('free');
+    expect(payload!.appId).toBe('tracker');
+    expect(payload!.kind).toBe('access');
+  });
+
+  it('does not attach appId on a full viewer token', async () => {
+    const token = await generateToken('bob.testnet');
+    expect(verifyToken(token)?.appId).toBeUndefined();
+  });
 });
 
 describe('Refresh tokens', () => {
@@ -371,5 +389,18 @@ describe('Refresh tokens', () => {
     // Cross-verification must fail
     expect(verifyRefreshToken(accessToken)).toBeNull();
     expect(verifyToken(refreshToken)).toBeNull();
+  });
+
+  it('issues an app refresh that cannot mint a viewer session', () => {
+    const token = generateAppRefreshToken('bob.testnet', 'tracker');
+    expect(verifyAppRefreshToken(token)).toEqual({
+      accountId: 'bob.testnet',
+      appId: 'tracker',
+    });
+    expect(verifyRefreshToken(token)).toBeNull();
+    expect(verifyToken(token)).toBeNull();
+    expect(
+      verifyAppRefreshToken(generateRefreshToken('bob.testnet'))
+    ).toBeNull();
   });
 });

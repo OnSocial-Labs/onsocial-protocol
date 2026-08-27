@@ -8,7 +8,8 @@ export interface ExampleSnippet {
     | 'social'
     | 'groups'
     | 'permissions'
-    | 'storage';
+    | 'storage'
+    | 'apps';
   code: string;
 }
 
@@ -63,6 +64,37 @@ const result = await os.posts.create({
 
 const entry = await os.social.getOne(\`post/\${postId}\`, accountId);
 console.log({ result, entry });`,
+  },
+  {
+    id: 'app-item-and-query',
+    title: 'Set an App Item',
+    description:
+      'Write under apps/<appId>, query it, then list and hand off a Community session',
+    category: 'apps',
+    code: `// Custom app JSON — indexed automatically, no schema PR.
+const accountId = wallet.accountId;
+const appId = "playground";
+const itemId = Date.now().toString(36);
+const path = \`apps/\${appId}/item/\${itemId}\`;
+
+const result = await os.social.set({
+  [path]: { title: "Ship the board", status: "planned" }
+});
+
+const item = await os.social.getOne(path, accountId);
+const rows = await os.query.raw.byAppId(appId, { accountId, limit: 10 });
+const planned = await os.query.raw.byAppJsonContains(
+  appId,
+  { status: "planned" },
+  { accountId, limit: 10 }
+);
+
+// List on Portal → OnAPI → Apps, then on your site:
+// const session = await os.auth.completeAppHandoff({
+//   osOrigin: "https://onsocial.id",
+//   appId,
+// });
+console.log({ result, item, rows, planned, listOnPortal: "/onapi/apps" });`,
   },
   {
     id: 'reply-to-post',
@@ -645,6 +677,7 @@ import {
   Building2,
   Shield,
   Database,
+  AppWindow,
   LucideIcon,
 } from 'lucide-react';
 
@@ -655,4 +688,5 @@ export const categories: { id: string; name: string; icon: LucideIcon }[] = [
   { id: 'groups', name: 'Groups', icon: Building2 },
   { id: 'permissions', name: 'Permissions', icon: Shield },
   { id: 'storage', name: 'Storage', icon: Database },
+  { id: 'apps', name: 'Apps', icon: AppWindow },
 ];

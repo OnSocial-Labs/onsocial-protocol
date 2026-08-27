@@ -438,6 +438,7 @@ const recentSales = await os.query.scarces.recentSales({ limit: 20 });`,
       'buildPostSetData/buildReplySetData/buildGroupPostSetData',
       'os.execute(action, opts?)',
       'os.raw.social, os.raw.http, os.raw.execute',
+      'os.query.raw.byAppId / byAppJsonContains',
       'defaultBroadcast: { kind: "wallet" | "gateway" | "relayer" }',
       'os.auth.setToken(token) for browser gateway auth after NEP-413 login',
     ],
@@ -481,6 +482,26 @@ const root = await os.social.getOne('post/' + rootPostId, accountId);
 const reply = await os.social.getOne('post/' + replyId, accountId);`,
       },
       {
+        title: 'Write and query a custom app item',
+        description:
+          'No schema PR. List the tile, then completeAppHandoff on the dapp origin.',
+        code: `const appId = 'playground';
+const itemId = Date.now().toString(36);
+const path = 'apps/' + appId + '/item/' + itemId;
+
+await os.social.set({
+  [path]: { title: 'Ship the board', status: 'planned' },
+});
+
+const item = await os.social.getOne(path, accountId);
+const rows = await os.query.raw.byAppId(appId, { accountId, limit: 10 });
+const planned = await os.query.raw.byAppJsonContains(
+  appId,
+  { status: 'planned' },
+  { accountId, limit: 10 }
+);`,
+      },
+      {
         title: 'Execute a custom core action',
         description:
           'Use this when the contract supports an action before the SDK has a named module method.',
@@ -503,8 +524,10 @@ const reply = await os.social.getOne('post/' + replyId, accountId);`,
       'Advanced APIs are powerful, but the high-level modules are the safer default for app teams.',
       'Batch only paths that belong to the same user intent and should succeed or fail together.',
       'Use wait: true for writes where an on-chain revert must immediately stop follow-up work.',
+      'Custom app JSON under apps/<appId> is queryable via byAppId. List the public tile on /onapi/apps.',
+      'Listed tiles and /handoff?app=&pk= grant apps/<appId>/ to the dapp-held key. Call os.auth.completeAppHandoff({ osOrigin, appId }) on the dapp origin. Later visits restore from a stored app refresh token.',
     ],
-    playgroundHref: '/playground?example=reply-to-post',
+    playgroundHref: '/playground?example=app-item-and-query',
   },
 ];
 

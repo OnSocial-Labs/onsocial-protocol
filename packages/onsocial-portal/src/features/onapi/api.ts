@@ -402,7 +402,44 @@ export async function rotateApiKey(
 export interface DeveloperAppInfo {
   appId: string;
   ownerAccountId: string;
-  createdAt: string;
+  createdAt: number | string;
+  name?: string | null;
+  iconUrl?: string | null;
+  href?: string | null;
+  listed?: boolean;
+}
+
+export async function updateDeveloperAppListing(
+  jwt: string,
+  appId: string,
+  listing: {
+    name: string;
+    iconUrl: string;
+    href: string;
+    listed: boolean;
+  }
+): Promise<DeveloperAppInfo> {
+  const res = await fetch(
+    `${GATEWAY_BASE}/developer/apps/${encodeURIComponent(appId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwt}`,
+      },
+      body: JSON.stringify(listing),
+    }
+  );
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body as { error?: string }).error ?? 'Failed to update listing'
+    );
+  }
+
+  const data = (await res.json()) as { app: DeveloperAppInfo };
+  return data.app;
 }
 
 export async function listDeveloperApps(

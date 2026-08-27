@@ -16,6 +16,7 @@ const mockGetUsageTimeline = vi.fn();
 const mockRegisterDeveloperApp = vi.fn();
 const mockListDeveloperApps = vi.fn();
 const mockDeleteDeveloperApp = vi.fn();
+const mockUpdateDeveloperAppListing = vi.fn();
 
 vi.mock('../../src/services/apikeys/index.js', () => ({
   createApiKey: (...args: unknown[]) => mockCreateApiKey(...args),
@@ -59,6 +60,8 @@ vi.mock('../../src/services/developer-apps/index.js', () => ({
     mockRegisterDeveloperApp(...args),
   listDeveloperApps: (...args: unknown[]) => mockListDeveloperApps(...args),
   deleteDeveloperApp: (...args: unknown[]) => mockDeleteDeveloperApp(...args),
+  updateDeveloperAppListing: (...args: unknown[]) =>
+    mockUpdateDeveloperAppListing(...args),
 }));
 
 vi.mock('../../src/config/index.js', () => ({
@@ -208,6 +211,28 @@ describe('GET /developer/keys', () => {
     ).get('/developer/keys');
 
     expect(res.status).toBe(403);
+  });
+
+  it('rejects app-scoped JWT auth', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => {
+      req.auth = {
+        accountId: 'alice.testnet',
+        method: 'jwt',
+        tier: 'free',
+        appId: 'tracker',
+        iat: 0,
+        exp: 0,
+      };
+      req.log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() } as never;
+      next();
+    });
+    app.use('/developer', developerRouter);
+
+    const res = await request(app).get('/developer/keys');
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/app-scoped/i);
   });
 });
 
@@ -414,5 +439,59 @@ describe('DELETE /developer/apps/:appId', () => {
     ).delete('/developer/apps/missing');
 
     expect(res.status).toBe(404);
+  });
+});
+
+describe('PATCH /developer/apps/:appId', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('publishes a community listing', async () => {
+    mockUpdateDeveloperAppListing.mockResolvedValue({
+      appId: 'tracker',
+      ownerAccountId: 'alice.testnet',
+      createdAt: Date.now(),
+      name: 'Tracker',
+      iconUrl: null,
+      href: 'https://track.example.com/',
+      listed: true,
+    });
+
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    )
+      .patch('/developer/apps/tracker')
+      .send({
+        listed: true,
+        name: 'Tracker',
+        href: 'https://track.example.com',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.app.listed).toBe(true);
+    expect(mockUpdateDeveloperAppListing).toHaveBeenCalledWith(
+      'alice.testnet',
+      'tracker',
+      {
+        listed: true,
+        name: 'Tracker',
+        href: 'https://track.example.com/',
+        iconUrl: null,
+      }
+    );
+  });
+
+  it('rejects a non-https listing href', async () => {
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    )
+      .patch('/developer/apps/tracker')
+      .send({
+        listed: true,
+        name: 'Tracker',
+        href: 'http://track.example.com',
+      });
+
+    expect(res.status).toBe(400);
+    expect(mockUpdateDeveloperAppListing).not.toHaveBeenCalled();
   });
 });

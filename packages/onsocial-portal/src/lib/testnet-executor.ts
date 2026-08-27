@@ -83,6 +83,7 @@ const GATEWAY_AUTH_EXAMPLES = new Set([
   'get-posts',
   'query-post-thread',
   'get-group-info',
+  'app-item-and-query',
 ]);
 
 export function isReadOnlyPlaygroundExample(exampleId: string): boolean {
@@ -181,6 +182,9 @@ export async function executeOnPortalNetwork(
         return await executeQueryPostThread(os, accountId);
       case 'get-group-info':
         return await executeGetGroupInfo(os, accountId);
+      case 'app-item-and-query':
+        requireWallet(wallet);
+        return await executeAppItemAndQuery(os, accountId);
       default:
         return {
           success: false,
@@ -364,6 +368,12 @@ function inferExampleId(code: string): string {
   ) {
     return 'get-group-info';
   }
+  if (
+    code.includes('os.query.raw.byAppId') ||
+    code.includes('os.query.raw.byAppJsonContains')
+  ) {
+    return 'app-item-and-query';
+  }
   return 'unknown';
 }
 
@@ -413,6 +423,42 @@ function playgroundTargetAccount(): string {
   return ACTIVE_NEAR_NETWORK === 'mainnet'
     ? 'onsocial.near'
     : 'test-user.testnet';
+}
+
+async function executeAppItemAndQuery(
+  os: ReturnType<typeof createPlaygroundClient>,
+  accountId: string
+) {
+  const appId = 'playground';
+  const itemId = Date.now().toString(36);
+  const path = `apps/${appId}/item/${itemId}`;
+  const payload = { title: 'Ship the board', status: 'planned' };
+  const response = await os.social.set({ [path]: payload });
+
+  const readback = await readbackWithOs('app item query', async () => {
+    const [item, rows, planned] = await Promise.all([
+      os.social.getOne(path, accountId),
+      os.query.raw.byAppId(appId, { accountId, limit: 10 }),
+      os.query.raw.byAppJsonContains(
+        appId,
+        { status: 'planned' },
+        { accountId, limit: 10 }
+      ),
+    ]);
+    return { item, rows, planned };
+  });
+
+  return writeResult(
+    'App item write',
+    [response],
+    [
+      `SDK method: os.social.set + os.query.raw.byAppId`,
+      `Account: ${accountId}`,
+      `Path: ${path}`,
+      'List the public tile on Portal → OnAPI → Apps.',
+    ],
+    readback
+  );
 }
 
 async function executeCreatePost(

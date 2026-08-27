@@ -20,6 +20,11 @@ interface AllowedProxyRoute {
    * server API key. Required for private prefs like mutes.
    */
   forwardAuthorization?: boolean;
+  /**
+   * Public reads that still work when the app has no server API key.
+   * Sends `X-API-Key` when one is configured.
+   */
+  optionalApiKey?: boolean;
 }
 
 const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
@@ -152,6 +157,21 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'POST', path: 'auth/challenge', body: 'json' },
   { method: 'POST', path: 'auth/login', body: 'json' },
 
+  // Community dapp handoff — viewer JWT issues a one-time code.
+  {
+    method: 'POST',
+    path: 'auth/app-handoff',
+    body: 'json',
+    forwardAuthorization: true,
+  },
+  // Public exchange on the dapp origin (also usable via the OS proxy).
+  {
+    method: 'POST',
+    path: 'auth/app-session',
+    body: 'json',
+    optionalApiKey: true,
+  },
+
   // Private mute prefs (viewer JWT — not the server API key).
   {
     method: 'GET',
@@ -229,6 +249,14 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
     body: 'json',
     forwardAuthorization: true,
   },
+
+  // Public community dapp board (listed https sites).
+  {
+    method: 'GET',
+    path: 'developer/apps/catalog',
+    body: 'none',
+    optionalApiKey: true,
+  },
 ];
 
 const FORWARDED_RESPONSE_HEADERS = ['content-type', 'cache-control'] as const;
@@ -250,8 +278,7 @@ function findAllowedRoute(
   const path = pathSegments.join('/');
   return (
     ALLOWED_PROXY_ROUTES.find(
-      (route) =>
-        route.method === method && pathMatchesAllowed(route.path, path)
+      (route) => route.method === method && pathMatchesAllowed(route.path, path)
     ) ?? null
   );
 }
@@ -304,7 +331,7 @@ async function proxyOnApiRequest(
   }
 
   const apiKey = getServerApiKey();
-  if (!apiKey) {
+  if (!apiKey && !route.optionalApiKey && !route.forwardAuthorization) {
     return NextResponse.json(
       { error: 'ONSOCIAL_API_KEY is not configured for this app' },
       { status: 503 }
@@ -321,7 +348,7 @@ async function proxyOnApiRequest(
       );
     }
     headers.set('Authorization', authorization);
-  } else {
+  } else if (apiKey) {
     headers.set('X-API-Key', apiKey);
   }
 

@@ -197,3 +197,24 @@ export async function buildSetAction(
     uploads,
   };
 }
+
+/** Atomic multi-path Set — same Action::Set shape the SDK used to sign locally. */
+export function buildSetBatchAction(
+  accountId: string,
+  entries: Record<string, unknown>,
+  targetAccount?: string
+): SetActionResult {
+  const keys = Object.keys(entries);
+  if (keys.length === 0) {
+    throw new ComposeError(400, 'entries must not be empty');
+  }
+  for (const path of keys) {
+    const pathError = validatePath(path, accountId);
+    if (pathError) throw new ComposeError(400, pathError);
+  }
+  return {
+    action: { type: 'set', data: entries },
+    targetAccount: targetAccount || resolveCoreTarget(),
+    uploads: {},
+  };
+}

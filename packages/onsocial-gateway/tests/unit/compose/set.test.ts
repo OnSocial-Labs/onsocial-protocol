@@ -13,6 +13,7 @@ import {
 } from './helpers.js';
 import {
   buildSetAction,
+  buildSetBatchAction,
   validatePath,
   ComposeError,
 } from '../../../src/services/compose/index.js';
@@ -194,5 +195,27 @@ describe('validatePath', () => {
     const segs = Array.from({ length: 12 }, (_, i) => `s${i}`);
     const groupPath = 'groups/' + segs.slice(0, 11).join('/');
     expect(validatePath(groupPath)).toBeNull();
+  });
+});
+
+describe('buildSetBatchAction', () => {
+  it('emits a single Action::Set for multiple paths', () => {
+    const result = buildSetBatchAction('alice.testnet', {
+      'profile/name': 'Alice',
+      'apps/tracker/item/1': { hello: true },
+    });
+    expect(result.action).toEqual({
+      type: 'set',
+      data: {
+        'profile/name': 'Alice',
+        'apps/tracker/item/1': { hello: true },
+      },
+    });
+  });
+
+  it('rejects an invalid path in the batch', () => {
+    expect(() =>
+      buildSetBatchAction('alice.testnet', { 'post//main': {} })
+    ).toThrow(ComposeError);
   });
 });
