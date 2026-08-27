@@ -1,11 +1,12 @@
 'use client';
 
 import type { CSSProperties, ReactNode, RefObject } from 'react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ContextualBack } from '@/components/app/contextual-back';
 import { AppShellLauncher } from '@/components/os/summon-launcher';
 import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
+import { useRegisterDockBack } from '@/contexts/dock-chrome-context';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 
 export interface OsAppScreenProps {
@@ -40,6 +41,15 @@ export interface OsAppScreenProps {
    * (immersive screens own their elevation / glass band).
    */
   glassChrome?: boolean;
+  /**
+   * Slim header — toolbar-only when possible; pairs with frosted glass chrome.
+   * Hides the nav row when there is no heading/actions content.
+   */
+  compactChrome?: boolean;
+  /**
+   * Move contextual back to the summon dock (hidden while writing / launcher open).
+   */
+  dockBack?: boolean;
   toolbar?: ReactNode;
   /**
    * Drawer-style dock outside the scroll body (GlassSheet footer recipe).
@@ -73,6 +83,8 @@ export function OsAppScreen({
   headerElevated = false,
   immersiveHeaderBanner = null,
   glassChrome = false,
+  compactChrome = false,
+  dockBack = false,
   toolbar,
   footer,
   scrollRootRef,
@@ -93,6 +105,20 @@ export function OsAppScreen({
   const resolvedMoodStyle =
     moodStyle !== undefined ? moodStyle : viewerMood.style;
   const hasMood = Boolean(resolvedMoodId);
+  const dockBackEntry = useMemo(
+    () =>
+      dockBack
+        ? { fallbackHref: backFallbackHref, ariaLabel: 'Back' }
+        : null,
+    [backFallbackHref, dockBack]
+  );
+  useRegisterDockBack(dockBackEntry);
+  const navBackInDock = dockBack && leading === undefined;
+  const showNavRow =
+    !compactChrome ||
+    Boolean(actions || subtitle || heading) ||
+    leading != null ||
+    navBackInDock;
 
   const setBodyRef = (node: HTMLElement | null) => {
     bodyRef.current = node;
@@ -148,6 +174,8 @@ export function OsAppScreen({
       data-immersive-header={immersiveHeader ? 'true' : undefined}
       data-immersive-banner={immersiveHeaderBanner ? 'true' : undefined}
       data-glass-chrome={glassMode ? 'true' : undefined}
+      data-compact-chrome={compactChrome ? 'true' : undefined}
+      data-dock-back={dockBack ? 'true' : undefined}
       data-screen-footer={hasFooter ? 'true' : undefined}
       data-mood={hasMood ? resolvedMoodId! : undefined}
       style={screenStyle}
@@ -157,46 +185,51 @@ export function OsAppScreen({
           ref={headerRef}
           className={`os-app-screen-header${elevated ? ' is-elevated' : ''}`}
         >
-          <div className="os-app-screen-nav-row">
-            {leading !== undefined ? (
-              leading
-            ) : (
-              <ContextualBack fallbackHref={backFallbackHref} />
-            )}
-            <div className="os-app-screen-heading">
-              {heading ? (
-                <>
-                  <h1 className="sr-only">{title}</h1>
-                  {heading}
-                </>
+          {showNavRow ? (
+            <div className="os-app-screen-nav-row">
+              {navBackInDock ? null : leading !== undefined ? (
+                leading
               ) : (
-                <>
-                  <h1 className="os-app-screen-title">
-                    {titleHref ? (
-                      <Link
-                        href={titleHref}
-                        className="os-app-screen-title-link"
-                        title={title}
-                        scroll={false}
-                      >
-                        {title}
-                      </Link>
-                    ) : (
-                      title
-                    )}
-                  </h1>
-                  {subtitle ? (
-                    <p className="os-app-screen-subtitle">{subtitle}</p>
-                  ) : null}
-                </>
+                <ContextualBack fallbackHref={backFallbackHref} />
               )}
+              <div className="os-app-screen-heading">
+                {heading ? (
+                  <>
+                    <h1 className="sr-only">{title}</h1>
+                    {heading}
+                  </>
+                ) : (
+                  <>
+                    <h1 className="os-app-screen-title">
+                      {titleHref ? (
+                        <Link
+                          href={titleHref}
+                          className="os-app-screen-title-link"
+                          title={title}
+                          scroll={false}
+                        >
+                          {title}
+                        </Link>
+                      ) : (
+                        title
+                      )}
+                    </h1>
+                    {subtitle ? (
+                      <p className="os-app-screen-subtitle">{subtitle}</p>
+                    ) : null}
+                  </>
+                )}
+              </div>
+              {actions ? (
+                <div className="os-app-screen-actions">{actions}</div>
+              ) : null}
             </div>
-            {actions ? (
-              <div className="os-app-screen-actions">{actions}</div>
-            ) : null}
-          </div>
+          ) : null}
           {toolbar ? (
-            <div className="os-app-screen-toolbar">{toolbar}</div>
+            <div className="os-app-screen-toolbar">
+              {!showNavRow ? <h1 className="sr-only">{title}</h1> : null}
+              {toolbar}
+            </div>
           ) : null}
         </header>
         <main ref={setBodyRef} className="os-app-screen-body">

@@ -33,17 +33,22 @@ export function writeDockShowSend(canSend: boolean, pending = false): boolean {
   return pending || canSend;
 }
 
-/** Media stays off the compact rest; it appears once the dock is open. */
-export function writeDockShowMedia(expanded: boolean): boolean {
-  return expanded;
+/** Footer toolbar — media once the compose session opens. */
+export function writeDockShowMedia(footerOpen: boolean): boolean {
+  return footerOpen;
 }
 
-/** Expand stays off the compact rest; it appears once the dock is open. */
+/** Footer toolbar — expand once the compose session opens. */
 export function writeDockShowExpand(
   hasExpand: boolean,
-  expanded: boolean
+  footerOpen: boolean
 ): boolean {
-  return hasExpand && expanded;
+  return hasExpand && footerOpen;
+}
+
+/** One-line dock — media + expand stay visible on the bar until the footer opens. */
+export function writeDockShowCompactBarTools(footerOpen: boolean): boolean {
+  return !footerOpen;
 }
 
 export function writeDockShouldSendOnEnter(

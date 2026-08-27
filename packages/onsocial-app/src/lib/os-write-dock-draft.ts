@@ -1,6 +1,6 @@
 export type WriteDockDraft = {
   text: string;
-  file: File | null;
+  files: File[];
 };
 
 export const WRITE_DOCK_DRAFT_STORAGE_PREFIX = 'os-write-dock:';
@@ -10,11 +10,11 @@ const drafts = new Map<string, WriteDockDraft>();
 const storedTexts = new Map<string, string>();
 
 export function emptyWriteDockDraft(): WriteDockDraft {
-  return { text: '', file: null };
+  return { text: '', files: [] };
 }
 
 export function writeDockDraftIsDirty(draft: WriteDockDraft): boolean {
-  return Boolean(draft.text.trim() || draft.file);
+  return Boolean(draft.text.trim() || draft.files.length > 0);
 }
 
 export function writeDockDraftStorageKey(key: string): string {
@@ -61,18 +61,22 @@ export function readWriteDockDraft(key: string): WriteDockDraft {
   if (memory) return memory;
   const stored = readStoredText(key);
   if (!stored.trim()) return emptyWriteDockDraft();
-  return { text: stored, file: null };
+  return { text: stored, files: [] };
 }
 
 export function writeWriteDockDraft(key: string, draft: WriteDockDraft): void {
   if (!key) return;
-  if (!writeDockDraftIsDirty(draft)) {
+  const normalized: WriteDockDraft = {
+    text: draft.text,
+    files: draft.files,
+  };
+  if (!writeDockDraftIsDirty(normalized)) {
     drafts.delete(key);
     writeStoredText(key, '');
     return;
   }
-  drafts.set(key, { text: draft.text, file: draft.file });
-  writeStoredText(key, draft.text);
+  drafts.set(key, normalized);
+  writeStoredText(key, normalized.text);
 }
 
 export function clearWriteDockDraft(key: string): void {
@@ -93,7 +97,7 @@ export function writeDockToComposerSeed(draft: WriteDockDraft): {
 } {
   return {
     initialText: draft.text,
-    initialFiles: draft.file ? [draft.file] : [],
+    initialFiles: [...draft.files],
   };
 }
 
@@ -101,5 +105,21 @@ export function writeDockDraftFromComposer(payload: {
   text: string;
   files: File[];
 }): WriteDockDraft {
-  return { text: payload.text, file: payload.files[0] ?? null };
+  return { text: payload.text, files: [...payload.files] };
+}
+
+/** Live dock payload wins for media; draft fills text when the field is empty. */
+export function writeDockExpandSeed(
+  key: string,
+  payload: { text: string; files: File[] }
+): { initialText: string; initialFiles: File[] } {
+  const draft = readWriteDockDraft(key);
+  const files =
+    payload.files.length > 0
+      ? [...payload.files]
+      : draft.files.length > 0
+        ? [...draft.files]
+        : [];
+  const text = payload.text.trim() ? payload.text : draft.text;
+  return { initialText: text, initialFiles: files };
 }

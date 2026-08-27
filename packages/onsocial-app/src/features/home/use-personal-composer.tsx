@@ -14,6 +14,7 @@ import { writeDockDraftKey } from '@/lib/os-write-dock';
 import {
   clearWriteDockDraft,
   writeDockDraftFromComposer,
+  writeDockExpandSeed,
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
 import { postKey } from '@/lib/post-display';
@@ -162,11 +163,15 @@ export function usePersonalComposer({
       setTargetId(COMPOSER_PERSONAL_TARGET);
       setAuthorMode(COMPOSER_AUTHOR_ME);
       setSelectedDaoId(null);
+      const seed = writeDockExpandSeed(
+        writeDockDraftKey('post', postKey(target)),
+        { text: draft?.text ?? '', files: draft?.files ?? [] }
+      );
       setComposer({
         mode: 'reply',
         target,
-        initialText: draft?.text ?? '',
-        initialFiles: draft?.files ?? [],
+        initialText: seed.initialText,
+        initialFiles: seed.initialFiles,
       });
     },
     []

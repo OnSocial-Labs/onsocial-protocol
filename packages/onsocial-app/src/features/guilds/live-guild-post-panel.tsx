@@ -24,6 +24,7 @@ import {
 import {
   clearWriteDockDraft,
   writeDockDraftFromComposer,
+  writeDockExpandSeed,
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
@@ -817,7 +818,10 @@ export function LiveGuildPostPanel({
   const expandReply = (post: PostRow, payload: WriteDockSubmit) => {
     const channel = post.channel ?? threadChannel;
     if (accountId && !canPostInChannel(channel)) return;
-    setModalSeed({ text: payload.text, files: payload.files });
+    const draftKey =
+      threadDraftKey ?? writeDockDraftKey('post', postKey(post));
+    const seed = writeDockExpandSeed(draftKey, payload);
+    setModalSeed({ text: seed.initialText, files: seed.initialFiles });
     openComposerModal('reply')(post);
   };
   const repostHandler = canPostInThread
@@ -901,7 +905,8 @@ export function LiveGuildPostPanel({
   ) : null;
   useReplyWriteDock({
     target: writeTarget,
-    enabled: Boolean(root) && (!accountId || canPostInThread) && !modalTarget,
+    enabled: Boolean(root) && (!accountId || canPostInThread),
+    disabled: Boolean(modalTarget),
     placeholder: nestedDockReply
       ? writeDockReplyPlaceholder(writeName)
       : 'Add a reply…',
@@ -1514,6 +1519,11 @@ export function LiveGuildPostPanel({
       </div>
       {modalTarget ? (
         <GuildComposerSheet
+          key={`${postKey(modalTarget)}:${modalSeed.files
+            .map(
+              (file) => `${file.name}:${file.size}:${file.lastModified}`
+            )
+            .join('|')}`}
           open
           target={modalTarget}
           targetAuthorProfile={postAuthorProfiles[modalTarget.accountId]}
@@ -1539,6 +1549,9 @@ export function LiveGuildPostPanel({
             }
             setModalTarget(null);
             setModalSeed({ text: '', files: [] });
+            if (modalMode === 'reply' && draft?.text.trim()) {
+              focusWriteDock();
+            }
           }}
           onSubmit={(payload) => void submitFromModal(payload)}
         />

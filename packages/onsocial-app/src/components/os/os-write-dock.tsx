@@ -16,6 +16,7 @@ import {
 } from '@onsocial/ui';
 import {
   useWriteDockChrome,
+  type WriteDockMorph,
   type WriteDockSubmit,
 } from '@/contexts/compose-launcher-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -24,6 +25,7 @@ import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet
 import {
   WRITE_DOCK_MEDIA_ACCEPT,
   writeDockCanSend,
+  writeDockShowCompactBarTools,
   writeDockShowExpand,
   writeDockShowMedia,
   writeDockShowSend,
@@ -31,31 +33,19 @@ import {
   writeDockTextRemaining,
   writeDockShouldSendOnEnter,
 } from '@/lib/os-write-dock';
+import {
+  POST_MEDIA_MAX_FILES,
+  appendPostMediaFiles,
+  postMediaLocalPreviewUrl,
+  postMediaRevokeLocalPreviewUrl,
+} from '@/lib/post-media';
 import { POST_TEXT_MAX_LENGTH, POST_TEXT_WARN_REMAINING } from '@/lib/post-display';
 import {
   clearWriteDockDraft,
+  emptyWriteDockDraft,
   readWriteDockDraft,
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
-
-const mediaPreviewUrls = new WeakMap<File, string>();
-
-function mediaPreviewUrlFor(file: File | null): string | null {
-  if (!file) return null;
-  const cached = mediaPreviewUrls.get(file);
-  if (cached) return cached;
-  const url = URL.createObjectURL(file);
-  mediaPreviewUrls.set(file, url);
-  return url;
-}
-
-function revokeMediaPreview(file: File | null) {
-  if (!file) return;
-  const url = mediaPreviewUrls.get(file);
-  if (!url) return;
-  URL.revokeObjectURL(url);
-  mediaPreviewUrls.delete(file);
-}
 
 export function OsWriteDockReplyChip({
   label,
@@ -110,24 +100,26 @@ export function OsWriteDock({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const scrollFieldIntoView = useMobileFieldFocusScroll<HTMLTextAreaElement>();
-  const { registerWriteFocus, setWritePinned, setWriteDockMorph } =
+  const { registerWriteFocus, setWritePinned, setWriteDockMorph, setWriteDockHasDraft } =
     useWriteDockChrome();
   const { isConnected, connect } = useAppWallet();
   const initialDraft = draftKey
     ? readWriteDockDraft(draftKey)
-    : { text: '', file: null };
+    : emptyWriteDockDraft();
   const [text, setText] = useState(() =>
     initialDraft.text.slice(0, POST_TEXT_MAX_LENGTH)
   );
-  const [mediaFile, setMediaFile] = useState<File | null>(initialDraft.file);
+  const [mediaFiles, setMediaFiles] = useState<File[]>(() => [...initialDraft.files]);
+  const mediaFilesRef = useRef(mediaFiles);
+  mediaFilesRef.current = mediaFiles;
+  const [mediaError, setMediaError] = useState<string | null>(null);
   const [fieldFocused, setFieldFocused] = useState(false);
   const [composeExpanded, setComposeExpanded] = useState(
-    Boolean(initialDraft.text.trim() || initialDraft.file)
+    Boolean(initialDraft.text.trim() || initialDraft.files.length)
   );
   const submitLockRef = useRef(false);
-  const mediaPreviewUrl = mediaPreviewUrlFor(mediaFile);
   const viewport = useVisualViewportSheetMetrics(fieldFocused);
-  const hasContent = Boolean(text.trim() || mediaFile);
+  const hasContent = Boolean(text.trim() || mediaFiles.length);
   const hasReplyChrome = Boolean(above);
   const hasErrorChrome = Boolean(error);
   const keyboardOpen =
@@ -139,40 +131,79 @@ export function OsWriteDock({
   const [isTall, setIsTall] = useState(
     hasReplyChrome || hasErrorChrome || keyboardOpen
   );
+  const nextMorph: WriteDockMorph = isTall
+    ? 'expanded'
+    : toolsOpen
+      ? 'tools'
+      : 'idle';
+  const morphSyncRef = useRef<WriteDockMorph>('idle');
+  const draftSyncRef = useRef(false);
+  if (morphSyncRef.current !== nextMorph) {
+    morphSyncRef.current = nextMorph;
+    setWriteDockMorph?.(nextMorph);
+  }
+  if (draftSyncRef.current !== hasContent) {
+    draftSyncRef.current = hasContent;
+    setWriteDockHasDraft?.(hasContent);
+  }
   const canSend = writeDockCanSend(
     text,
-    mediaFile ? 1 : 0,
+    mediaFiles.length,
     disabled || pending
   );
   const showSend = writeDockShowSend(canSend, pending);
-  const showMedia = writeDockShowMedia(toolsOpen);
-  const showExpand = writeDockShowExpand(Boolean(onExpand), toolsOpen);
+  const showCompactBarTools = writeDockShowCompactBarTools(footerOpen);
+  const showCompactMedia = showCompactBarTools;
+  const showCompactExpand = showCompactBarTools && Boolean(onExpand);
+  const showMedia = writeDockShowMedia(footerOpen);
+  const showExpand = writeDockShowExpand(Boolean(onExpand), footerOpen);
   const textRemaining = writeDockTextRemaining(text);
   const showTextCount = writeDockShowTextCount(text);
 
-  const persistDraft = (nextText: string, nextFile: File | null) => {
+  const persistDraft = (nextText: string, nextFiles: File[]) => {
     if (!draftKey) return;
-    writeWriteDockDraft(draftKey, { text: nextText, file: nextFile });
+    writeWriteDockDraft(draftKey, { text: nextText, files: nextFiles });
   };
 
   const currentPayload = (): WriteDockSubmit => ({
     text,
-    files: mediaFile ? [mediaFile] : [],
+    files: mediaFiles,
   });
+
+  const attachMediaFiles = async (fileList: FileList | null) => {
+    if (!fileList?.length || disabled || pending) return;
+    const result = await appendPostMediaFiles(mediaFilesRef.current, fileList);
+    setMediaError(result.error);
+    const unchanged =
+      result.files.length === mediaFilesRef.current.length &&
+      result.files.every((file, index) => file === mediaFilesRef.current[index]);
+    if (unchanged) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    setMediaFiles(result.files);
+    persistDraft(text, result.files);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   useEffect(() => {
     setWritePinned?.(toolsOpen || isTall || fieldFocused);
   }, [fieldFocused, isTall, setWritePinned, toolsOpen]);
 
   useEffect(() => {
-    setWriteDockMorph?.(isTall ? 'expanded' : toolsOpen ? 'tools' : 'idle');
-  }, [isTall, setWriteDockMorph, toolsOpen]);
+    return () => {
+      setWriteDockMorph?.('idle');
+      setWriteDockHasDraft?.(false);
+    };
+  }, [setWriteDockHasDraft, setWriteDockMorph]);
 
-  useEffect(() => {
-    if (!hasContent && !hasErrorChrome && !pending) {
+  const collapseComposeSessionIfEmpty = () => {
+    const draftEmpty =
+      !textRef.current?.value.trim() && mediaFilesRef.current.length === 0;
+    if (draftEmpty && !hasErrorChrome && !pending) {
       setComposeExpanded(false);
     }
-  }, [hasContent, hasErrorChrome, pending]);
+  };
 
   useEffect(() => {
     if (!registerWriteFocus) return;
@@ -196,10 +227,15 @@ export function OsWriteDock({
     el.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
   }, [hasErrorChrome, hasReplyChrome, keyboardOpen, text]);
 
-  const clearMedia = () => {
-    revokeMediaPreview(mediaFile);
-    setMediaFile(null);
-    persistDraft(text, null);
+  const removeMediaAt = (index: number) => {
+    setMediaFiles((current) => {
+      const removed = current[index];
+      if (removed) postMediaRevokeLocalPreviewUrl(removed);
+      const next = current.filter((_, i) => i !== index);
+      persistDraft(text, next);
+      return next;
+    });
+    setMediaError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -212,69 +248,85 @@ export function OsWriteDock({
     }
     submitLockRef.current = true;
     const outgoingText = text;
-    const outgoingMedia = mediaFile;
+    const outgoingMedia = mediaFiles;
     try {
       const result = await onSubmit({
         text: outgoingText,
-        files: outgoingMedia ? [outgoingMedia] : [],
+        files: outgoingMedia,
       });
       if (result !== false) {
         setText('');
-        revokeMediaPreview(outgoingMedia);
-        setMediaFile(null);
+        for (const file of outgoingMedia) postMediaRevokeLocalPreviewUrl(file);
+        setMediaFiles([]);
         if (fileInputRef.current) fileInputRef.current.value = '';
         if (draftKey) clearWriteDockDraft(draftKey);
+        setMediaError(null);
         setFieldFocused(false);
+        setComposeExpanded(false);
       }
     } finally {
       submitLockRef.current = false;
     }
   };
 
-  const mediaButton = showMedia ? (
+  const mediaAtMax = mediaFiles.length >= POST_MEDIA_MAX_FILES;
+  const chromeError = error ?? mediaError;
+
+  const mediaButton = (
     <button
       type="button"
-      className={`os-write-dock-tool${mediaFile ? ' is-active' : ''}`}
+      className={`os-write-dock-tool${mediaFiles.length ? ' is-active' : ''}`}
       aria-label="Attach photo or video"
-      disabled={disabled || pending}
+      disabled={disabled || pending || mediaAtMax}
       onMouseDown={(event) => event.preventDefault()}
       onClick={() => fileInputRef.current?.click()}
     >
       <ImageIcon className="os-write-dock-media-icon" aria-hidden />
     </button>
-  ) : null;
+  );
 
-  const mediaPreview =
-    mediaPreviewUrl && mediaFile ? (
-      <div className="os-write-dock-preview">
-        {mediaFile.type.startsWith('video/') ? (
-          <video
-            src={mediaPreviewUrl}
-            className="os-write-dock-preview-el"
-            muted
-            playsInline
-            preload="metadata"
-          />
-        ) : (
-          <img
-            src={mediaPreviewUrl}
-            alt=""
-            className="os-write-dock-preview-el"
-          />
-        )}
-        <button
-          type="button"
-          className="os-write-dock-preview-remove"
-          disabled={disabled || pending}
-          aria-label="Remove"
-          onClick={clearMedia}
-        >
-          ×
-        </button>
+  const mediaPreviews =
+    mediaFiles.length > 0 ? (
+      <div className="os-write-dock-preview-strip" role="list">
+        {mediaFiles.map((file, index) => {
+          const previewUrl = postMediaLocalPreviewUrl(file);
+          return (
+            <div
+              key={`${file.name}-${file.size}-${file.lastModified}`}
+              className="os-write-dock-preview"
+              role="listitem"
+            >
+              {file.type.startsWith('video/') ? (
+                <video
+                  src={previewUrl}
+                  className="os-write-dock-preview-el"
+                  muted
+                  playsInline
+                  preload="metadata"
+                />
+              ) : (
+                <img
+                  src={previewUrl}
+                  alt=""
+                  className="os-write-dock-preview-el"
+                />
+              )}
+              <button
+                type="button"
+                className="os-write-dock-preview-remove"
+                disabled={disabled || pending}
+                aria-label="Remove"
+                onClick={() => removeMediaAt(index)}
+              >
+                ×
+              </button>
+            </div>
+          );
+        })}
       </div>
     ) : null;
 
-  const expandButton = showExpand ? (
+  const expandButton = onExpand ? (
     <button
       type="button"
       className="os-write-dock-tool"
@@ -282,8 +334,8 @@ export function OsWriteDock({
       disabled={disabled || pending}
       onMouseDown={(event) => event.preventDefault()}
       onClick={() => {
-        persistDraft(text, mediaFile);
-        onExpand?.(currentPayload());
+        persistDraft(text, mediaFiles);
+        onExpand(currentPayload());
       }}
     >
       <ScaleUpIcon className="os-write-dock-expand-icon" aria-hidden />
@@ -310,16 +362,16 @@ export function OsWriteDock({
 
   return (
     <form
-      className={`os-write-dock${toolsOpen ? ' is-tools-open' : ''}${isTall ? ' is-expanded' : ''}${footerOpen ? ' is-compose-open' : ''}`}
+      className={`os-write-dock${toolsOpen ? ' is-tools-open' : ''}${isTall ? ' is-expanded' : ''}${footerOpen ? ' is-compose-open' : ''}${showCompactBarTools ? ' is-compact-bar-tools' : ''}`}
       onSubmit={(event) => void handleSubmit(event)}
       aria-label={ariaLabel}
     >
-      {above || error ? (
+      {above || chromeError ? (
         <div className="os-write-dock-above">
           {above}
-          {error ? (
+          {chromeError ? (
             <p className="os-write-dock-error" role="alert">
-              {error}
+              {chromeError}
             </p>
           ) : null}
         </div>
@@ -332,12 +384,10 @@ export function OsWriteDock({
           type="file"
           accept={accept}
           className="sr-only"
-          disabled={disabled || pending}
+          multiple
+          disabled={disabled || pending || mediaAtMax}
           onChange={(event) => {
-            const next = event.target.files?.[0] ?? null;
-            revokeMediaPreview(mediaFile);
-            setMediaFile(next);
-            persistDraft(text, next);
+            void attachMediaFiles(event.target.files);
           }}
         />
         <div className="os-write-dock-field">
@@ -357,7 +407,7 @@ export function OsWriteDock({
             onChange={(event) => {
               const next = event.target.value.slice(0, POST_TEXT_MAX_LENGTH);
               setText(next);
-              persistDraft(next, mediaFile);
+              persistDraft(next, mediaFiles);
             }}
             onFocus={(event) => {
               setFieldFocused(true);
@@ -368,6 +418,7 @@ export function OsWriteDock({
               window.setTimeout(() => {
                 if (textRef.current !== document.activeElement) {
                   setFieldFocused(false);
+                  collapseComposeSessionIfEmpty();
                 }
               }, 0);
             }}
@@ -385,6 +436,23 @@ export function OsWriteDock({
             }}
           />
         </div>
+        {showCompactBarTools ? (
+          <div
+            className="os-write-dock-bar-actions"
+            role="group"
+            aria-label="Compose shortcuts"
+          >
+            {showCompactMedia ? mediaButton : null}
+            {showCompactMedia && showCompactExpand ? (
+              <Divider
+                orientation="vertical"
+                variant="detail"
+                className="os-write-dock-bar-actions-divider self-center"
+              />
+            ) : null}
+            {showCompactExpand ? expandButton : null}
+          </div>
+        ) : null}
       </div>
       {footerOpen ? (
         <div className="os-write-dock-footer-shell">
@@ -403,15 +471,15 @@ export function OsWriteDock({
               role="group"
               aria-label="Add to message"
             >
-              {mediaButton}
-              {mediaPreview ? (
+              {showMedia ? mediaButton : null}
+              {showMedia && mediaPreviews ? (
                 <>
                   <Divider
                     orientation="vertical"
                     variant="detail"
                     className="portfolio-summon-divider os-write-dock-divider os-write-dock-footer-tools-divider"
                   />
-                  {mediaPreview}
+                  {mediaPreviews}
                 </>
               ) : null}
             </div>
@@ -437,8 +505,8 @@ export function OsWriteDock({
               >
                 {showTextCount ? textRemaining : '\u00a0'}
               </span>
-              {expandButton}
-              {expandButton && sendButton ? (
+              {showExpand ? expandButton : null}
+              {showExpand && expandButton && sendButton ? (
                   <Divider
                     orientation="vertical"
                     variant="detail"

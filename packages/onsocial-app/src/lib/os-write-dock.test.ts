@@ -5,6 +5,7 @@ import {
   writeDockIsThoughtEnlarge,
   writeDockReplyPlaceholder,
   writeDockShouldSendOnEnter,
+  writeDockShowCompactBarTools,
   writeDockShowExpand,
   writeDockShowMedia,
   writeDockShowSend,
@@ -25,15 +26,20 @@ describe('os write dock helpers', () => {
     expect(writeDockShowSend(false, true)).toBe(true);
   });
 
-  it('shows expand only after the dock is open', () => {
+  it('shows expand in the footer once the compose session opens', () => {
     expect(writeDockShowExpand(true, false)).toBe(false);
     expect(writeDockShowExpand(true, true)).toBe(true);
     expect(writeDockShowExpand(false, true)).toBe(false);
   });
 
-  it('shows media only after the dock is open', () => {
+  it('shows media in the footer once the compose session opens', () => {
     expect(writeDockShowMedia(false)).toBe(false);
     expect(writeDockShowMedia(true)).toBe(true);
+  });
+
+  it('shows compact bar tools only while the footer is closed', () => {
+    expect(writeDockShowCompactBarTools(false)).toBe(true);
+    expect(writeDockShowCompactBarTools(true)).toBe(false);
   });
 
   it('does not send on Enter during SSR', () => {

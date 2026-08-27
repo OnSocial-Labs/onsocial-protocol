@@ -65,12 +65,15 @@ interface ComposeLauncherContextValue {
   surface: ComposeLauncherSurface | null;
   writePinned: boolean;
   writeDockMorph: WriteDockMorph;
+  /** True once the write dock has draft text or media — drives back-under-avatar morph. */
+  writeDockHasDraft: boolean;
   upsertCompose: (item: ComposeStackItem) => void;
   popCompose: (id: string) => void;
   focusWriteDock: () => void;
   registerWriteFocus: (fn: () => void) => () => void;
   setWritePinned: (pinned: boolean) => void;
   setWriteDockMorph: (morph: WriteDockMorph) => void;
+  setWriteDockHasDraft: (hasDraft: boolean) => void;
 }
 
 const ComposeLauncherContext =
@@ -80,6 +83,7 @@ export function ComposeLauncherProvider({ children }: { children: ReactNode }) {
   const [stack, setStack] = useState<ComposeStackItem[]>([]);
   const [writePinned, setWritePinned] = useState(false);
   const [writeDockMorph, setWriteDockMorph] = useState<WriteDockMorph>('idle');
+  const [writeDockHasDraft, setWriteDockHasDraft] = useState(false);
   const writeFocusRef = useRef<(() => void) | null>(null);
 
   const upsertCompose = useCallback((item: ComposeStackItem) => {
@@ -116,12 +120,14 @@ export function ComposeLauncherProvider({ children }: { children: ReactNode }) {
       surface,
       writePinned: writing && writePinned,
       writeDockMorph: writing ? writeDockMorph : 'idle',
+      writeDockHasDraft: writing && writeDockHasDraft,
       upsertCompose,
       popCompose,
       focusWriteDock,
       registerWriteFocus,
       setWritePinned,
       setWriteDockMorph,
+      setWriteDockHasDraft,
     }),
     [
       focusWriteDock,
@@ -129,6 +135,7 @@ export function ComposeLauncherProvider({ children }: { children: ReactNode }) {
       registerWriteFocus,
       surface,
       upsertCompose,
+      writeDockHasDraft,
       writeDockMorph,
       writePinned,
       writing,
@@ -154,6 +161,10 @@ export function useWriteDockMorph(): WriteDockMorph {
   return useContext(ComposeLauncherContext)?.writeDockMorph ?? 'idle';
 }
 
+export function useWriteDockHasDraft(): boolean {
+  return useContext(ComposeLauncherContext)?.writeDockHasDraft ?? false;
+}
+
 export function useFocusWriteDock(): () => void {
   return (
     useContext(ComposeLauncherContext)?.focusWriteDock ?? (() => undefined)
@@ -166,6 +177,7 @@ export function useWriteDockChrome() {
     registerWriteFocus: context?.registerWriteFocus,
     setWritePinned: context?.setWritePinned,
     setWriteDockMorph: context?.setWriteDockMorph,
+    setWriteDockHasDraft: context?.setWriteDockHasDraft,
   };
 }
 

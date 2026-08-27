@@ -5,28 +5,29 @@ import {
   readWriteDockDraft,
   writeDockDraftFromComposer,
   writeDockDraftIsDirty,
+  writeDockExpandSeed,
   writeDockToComposerSeed,
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
 
 describe('write dock draft', () => {
-  it('round-trips text and file, then clears', () => {
+  it('round-trips text and files, then clears', () => {
     const file = new File(['x'], 'shot.png', { type: 'image/png' });
-    writeWriteDockDraft('post:a', { text: 'hello', file });
-    expect(readWriteDockDraft('post:a')).toEqual({ text: 'hello', file });
+    writeWriteDockDraft('post:a', { text: 'hello', files: [file] });
+    expect(readWriteDockDraft('post:a')).toEqual({ text: 'hello', files: [file] });
     clearWriteDockDraft('post:a');
-    expect(readWriteDockDraft('post:a')).toEqual({ text: '', file: null });
+    expect(readWriteDockDraft('post:a')).toEqual({ text: '', files: [] });
   });
 
   it('drops an empty draft instead of storing it', () => {
-    writeWriteDockDraft('post:b', { text: 'keep', file: null });
-    writeWriteDockDraft('post:b', { text: '   ', file: null });
-    expect(readWriteDockDraft('post:b')).toEqual({ text: '', file: null });
+    writeWriteDockDraft('post:b', { text: 'keep', files: [] });
+    writeWriteDockDraft('post:b', { text: '   ', files: [] });
+    expect(readWriteDockDraft('post:b')).toEqual({ text: '', files: [] });
   });
 
   it('keeps drafts isolated by key', () => {
-    writeWriteDockDraft('post:one', { text: 'one', file: null });
-    writeWriteDockDraft('dm:two', { text: 'two', file: null });
+    writeWriteDockDraft('post:one', { text: 'one', files: [] });
+    writeWriteDockDraft('dm:two', { text: 'two', files: [] });
     expect(readWriteDockDraft('post:one').text).toBe('one');
     expect(readWriteDockDraft('dm:two').text).toBe('two');
     clearWriteDockDraft('post:one');
@@ -34,46 +35,65 @@ describe('write dock draft', () => {
   });
 
   it('treats whitespace-only as empty', () => {
-    expect(writeDockDraftIsDirty({ text: '  ', file: null })).toBe(false);
-    expect(writeDockDraftIsDirty({ text: '', file: new File([], 'a') })).toBe(
-      true
-    );
+    expect(writeDockDraftIsDirty({ text: '  ', files: [] })).toBe(false);
+    expect(
+      writeDockDraftIsDirty({ text: '', files: [new File([], 'a')] })
+    ).toBe(true);
   });
 
   it('rehydrates text from storage after memory is gone', () => {
-    writeWriteDockDraft('post:reload', { text: 'keep me', file: null });
+    writeWriteDockDraft('post:reload', { text: 'keep me', files: [] });
     dropWriteDockDraftMemory('post:reload');
     expect(readWriteDockDraft('post:reload')).toEqual({
       text: 'keep me',
-      file: null,
+      files: [],
     });
     clearWriteDockDraft('post:reload');
     dropWriteDockDraftMemory('post:reload');
-    expect(readWriteDockDraft('post:reload')).toEqual({ text: '', file: null });
+    expect(readWriteDockDraft('post:reload')).toEqual({ text: '', files: [] });
   });
 
   it('does not persist files — only text survives a reload', () => {
     const file = new File(['x'], 'shot.png', { type: 'image/png' });
-    writeWriteDockDraft('post:file', { text: 'caption', file });
-    expect(readWriteDockDraft('post:file').file).toBe(file);
+    writeWriteDockDraft('post:file', { text: 'caption', files: [file] });
+    expect(readWriteDockDraft('post:file').files).toEqual([file]);
     dropWriteDockDraftMemory('post:file');
     expect(readWriteDockDraft('post:file')).toEqual({
       text: 'caption',
-      file: null,
+      files: [],
     });
     clearWriteDockDraft('post:file');
   });
 
   it('seeds the full composer from a dock draft and back', () => {
     const file = new File(['x'], 'shot.png', { type: 'image/png' });
-    const seed = writeDockToComposerSeed({ text: 'hello', file });
+    const seed = writeDockToComposerSeed({ text: 'hello', files: [file] });
     expect(seed).toEqual({ initialText: 'hello', initialFiles: [file] });
-    expect(writeDockDraftFromComposer({ text: 'hello', files: [file] })).toEqual(
-      { text: 'hello', file }
-    );
+    expect(
+      writeDockDraftFromComposer({ text: 'hello', files: [file] })
+    ).toEqual({ text: 'hello', files: [file] });
     expect(writeDockDraftFromComposer({ text: '', files: [] })).toEqual({
       text: '',
-      file: null,
+      files: [],
     });
+  });
+
+  it('prefers payload files over text-only stored draft on expand', () => {
+    const file = new File(['x'], 'shot.png', { type: 'image/png' });
+    writeWriteDockDraft('post:expand', { text: 'stored line', files: [] });
+    dropWriteDockDraftMemory('post:expand');
+    expect(
+      writeDockExpandSeed('post:expand', { text: '', files: [file] })
+    ).toEqual({ initialText: 'stored line', initialFiles: [file] });
+    clearWriteDockDraft('post:expand');
+  });
+
+  it('round-trips payload files when draft memory still holds them', () => {
+    const file = new File(['x'], 'shot.png', { type: 'image/png' });
+    writeWriteDockDraft('post:expand', { text: 'hello', files: [file] });
+    expect(
+      writeDockExpandSeed('post:expand', { text: 'hello', files: [file] })
+    ).toEqual({ initialText: 'hello', initialFiles: [file] });
+    clearWriteDockDraft('post:expand');
   });
 });

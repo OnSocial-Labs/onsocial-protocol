@@ -22,6 +22,7 @@ import { postKey } from '@/lib/post-display';
 export function useReplyWriteDock({
   target,
   enabled,
+  disabled = false,
   placeholder,
   above,
   revision,
@@ -31,6 +32,7 @@ export function useReplyWriteDock({
 }: {
   target: PostRow | null;
   enabled: boolean;
+  disabled?: boolean;
   placeholder?: string;
   above?: ReactNode;
   revision?: string;
@@ -103,6 +105,7 @@ export function useReplyWriteDock({
     return {
       placeholder: placeholder ?? writeDockReplyPlaceholder(),
       ariaLabel: placeholder ?? 'Reply',
+      disabled,
       pending,
       error,
       above,
@@ -113,6 +116,7 @@ export function useReplyWriteDock({
     };
   }, [
     above,
+    disabled,
     draftKey,
     enabled,
     error,

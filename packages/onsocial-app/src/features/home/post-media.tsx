@@ -138,7 +138,7 @@ export function PostMediaBlock({
           src={item.url}
           alt={item.alt?.trim() || ''}
           className="post-media-element"
-          loading="lazy"
+          loading={item.url.startsWith('blob:') ? 'eager' : 'lazy'}
           decoding="async"
         />
       )}

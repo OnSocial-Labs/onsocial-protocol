@@ -63,7 +63,13 @@ import {
   POST_TEXT_MAX_LENGTH,
   POST_TEXT_WARN_REMAINING,
 } from '@/lib/post-display';
-import { POST_MEDIA_MAX_FILES, validatePostMediaFile } from '@/lib/post-media';
+import {
+  POST_MEDIA_MAX_FILES,
+  postMediaLocalPreviewUrl,
+  postMediaPreviewEntriesFromFiles,
+  postMediaRevokeLocalPreviewUrl,
+  validatePostMediaFile,
+} from '@/lib/post-media';
 import {
   normalizeComposerContentLabels,
   parsePostContentLabels,
@@ -265,6 +271,17 @@ function normalizePollOptions(options: string[]): string[] {
   return options.map((option) => option.trim()).filter(Boolean);
 }
 
+function postMediaSeedKey(files: readonly File[]): string {
+  if (files.length === 0) return '';
+  return files
+    .map((file) => `${file.name}:${file.size}:${file.lastModified}`)
+    .join('\0');
+}
+
+function revokeComposerPreviewFiles(files: readonly File[]) {
+  for (const file of files) postMediaRevokeLocalPreviewUrl(file);
+}
+
 /**
  * WYSIWYG composer in an OsPageSheet (`surface="page"` — same flat fill as the
  * old slide-over). Polls attach as an inline card on new posts only; replies/
@@ -337,6 +354,7 @@ export function ComposerSheet({
   const placeInputRef = useRef<HTMLInputElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const mediaStripRef = useRef<HTMLDivElement>(null);
+  const [appliedMediaSeedKey, setAppliedMediaSeedKey] = useState('');
   const warningInputRef = useRef<HTMLInputElement>(null);
   const viewport = useVisualViewportSheetMetrics(open);
   const canUsePoll = mode === 'post' && !dropDraft;
@@ -360,6 +378,8 @@ export function ComposerSheet({
     ];
   }, [mode, target, targetAuthorProfile]);
 
+  const initialMediaSeedKey = postMediaSeedKey(initialFiles);
+
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
@@ -369,14 +389,9 @@ export function ComposerSheet({
       setPollOptions(['', '']);
       setPollDurationMs(undefined);
       setDropDraft(initialDrop);
-      setMediaFiles(initialFiles);
-      setMediaPreviews((current) => {
-        for (const preview of current) URL.revokeObjectURL(preview.url);
-        return initialFiles.map((file) => ({
-          url: URL.createObjectURL(file),
-          mime: file.type || 'application/octet-stream',
-        }));
-      });
+      setAppliedMediaSeedKey(initialMediaSeedKey);
+      setMediaFiles([...initialFiles]);
+      setMediaPreviews(postMediaPreviewEntriesFromFiles(initialFiles));
       setMediaError(null);
       setContentWarning('');
       setNsfw(false);
@@ -384,7 +399,13 @@ export function ComposerSheet({
       setPlaceOpen(false);
       setLabelsOpen(false);
       setDropPickerOpen(false);
+    } else {
+      setAppliedMediaSeedKey('');
     }
+  } else if (open && appliedMediaSeedKey !== initialMediaSeedKey) {
+    setAppliedMediaSeedKey(initialMediaSeedKey);
+    setMediaFiles([...initialFiles]);
+    setMediaPreviews(postMediaPreviewEntriesFromFiles(initialFiles));
   }
 
   useEffect(() => {
@@ -430,12 +451,6 @@ export function ComposerSheet({
     }, 40);
     return () => window.clearTimeout(focusTimer);
   }, [open, placeOpen, formKey]);
-
-  useEffect(() => {
-    return () => {
-      for (const preview of mediaPreviews) URL.revokeObjectURL(preview.url);
-    };
-  }, [mediaPreviews]);
 
   const filledPollOptions = normalizePollOptions(pollOptions);
   const pollReady =
@@ -532,10 +547,8 @@ export function ComposerSheet({
         return false;
       }
       setMediaFiles([]);
-      setMediaPreviews((previews) => {
-        for (const preview of previews) URL.revokeObjectURL(preview.url);
-        return [];
-      });
+      setMediaPreviews([]);
+      revokeComposerPreviewFiles(mediaFiles);
       setMediaError(null);
       setDropDraft(null);
       return true;
@@ -547,23 +560,20 @@ export function ComposerSheet({
     setPollEnabled(false);
     setPollOptions(['', '']);
     setPollDurationMs(undefined);
+    revokeComposerPreviewFiles(mediaFiles);
     setMediaFiles([]);
-    setMediaPreviews((previews) => {
-      for (const preview of previews) URL.revokeObjectURL(preview.url);
-      return [];
-    });
+    setMediaPreviews([]);
     setMediaError(null);
     setDropPickerOpen(false);
   };
 
   const removeMediaAt = (index: number) => {
-    setMediaFiles((current) => current.filter((_, i) => i !== index));
-    setMediaPreviews((current) => {
-      const next = [...current];
-      const [removed] = next.splice(index, 1);
-      if (removed) URL.revokeObjectURL(removed.url);
-      return next;
+    setMediaFiles((current) => {
+      const removed = current[index];
+      if (removed) postMediaRevokeLocalPreviewUrl(removed);
+      return current.filter((_, i) => i !== index);
     });
+    setMediaPreviews((current) => current.filter((_, i) => i !== index));
     setMediaError(null);
   };
 
@@ -583,7 +593,7 @@ export function ComposerSheet({
       }
       candidates.push(file);
       candidatePreviews.push({
-        url: URL.createObjectURL(file),
+        url: postMediaLocalPreviewUrl(file),
         mime: file.type || 'application/octet-stream',
       });
     }
@@ -597,8 +607,8 @@ export function ComposerSheet({
     const room = Math.max(0, POST_MEDIA_MAX_FILES - alreadyCount);
     const take = candidates.slice(0, room);
     const takePreviews = candidatePreviews.slice(0, room);
-    for (const preview of candidatePreviews.slice(room)) {
-      URL.revokeObjectURL(preview.url);
+    for (const file of candidates.slice(room)) {
+      postMediaRevokeLocalPreviewUrl(file);
     }
 
     if (room === 0 || candidates.length > room) {

@@ -260,6 +260,73 @@ function readVideoDurationSeconds(file: File): Promise<number> {
   });
 }
 
+const localPreviewUrls = new WeakMap<File, string>();
+
+/** Stable blob preview for compose surfaces (compact dock + full sheet). */
+export function postMediaLocalPreviewUrl(file: File): string {
+  const cached = localPreviewUrls.get(file);
+  if (cached) return cached;
+  const url = URL.createObjectURL(file);
+  localPreviewUrls.set(file, url);
+  return url;
+}
+
+export function postMediaRevokeLocalPreviewUrl(file: File): void {
+  const url = localPreviewUrls.get(file);
+  if (!url) return;
+  URL.revokeObjectURL(url);
+  localPreviewUrls.delete(file);
+}
+
+export function postMediaPreviewEntriesFromFiles(files: readonly File[]) {
+  return files.map((file) => ({
+    url: postMediaLocalPreviewUrl(file),
+    mime: file.type || 'application/octet-stream',
+  }));
+}
+
+/** Merge validated uploads into a post media list (max POST_MEDIA_MAX_FILES). */
+export async function appendPostMediaFiles(
+  current: readonly File[],
+  incoming: FileList | File[] | null
+): Promise<{ files: File[]; error: string | null }> {
+  const list = incoming
+    ? Array.from(incoming instanceof FileList ? incoming : incoming)
+    : [];
+  if (list.length === 0) {
+    return { files: [...current], error: null };
+  }
+
+  const candidates: File[] = [];
+  let error: string | null = null;
+
+  for (const file of list) {
+    if (candidates.length + current.length >= POST_MEDIA_MAX_FILES) break;
+    const validationError = await validatePostMediaFile(file);
+    if (validationError) {
+      error = validationError;
+      continue;
+    }
+    candidates.push(file);
+  }
+
+  const room = Math.max(0, POST_MEDIA_MAX_FILES - current.length);
+  const take = candidates.slice(0, room);
+  if (room === 0) {
+    return {
+      files: [...current],
+      error: error ?? `You can attach up to ${POST_MEDIA_MAX_FILES} files.`,
+    };
+  }
+  if (candidates.length > room) {
+    error = error ?? `You can attach up to ${POST_MEDIA_MAX_FILES} files.`;
+  }
+  return {
+    files: [...current, ...take].slice(0, POST_MEDIA_MAX_FILES),
+    error,
+  };
+}
+
 export async function validatePostMediaFile(
   file: File
 ): Promise<string | null> {

@@ -8879,6 +8879,30 @@ a.os-surface-row {
     );
   }
 
+  .os-app-screen[data-compact-chrome='true'] {
+    --os-app-screen-nav-row-height: 2.35rem;
+  }
+
+  .os-app-screen[data-compact-chrome='true'] .os-app-screen-header {
+    padding: calc(env(safe-area-inset-top, 0px) + 0.35rem)
+      max(1rem, env(safe-area-inset-right, 0px)) 0.35rem
+      max(1rem, env(safe-area-inset-left, 0px));
+  }
+
+  .os-app-screen[data-compact-chrome='true'] .os-app-screen-toolbar {
+    margin-top: 0;
+  }
+
+  .os-app-screen[data-compact-chrome='true'][data-dock-back='true']
+    .os-app-screen-nav-row {
+    min-height: 2.35rem;
+  }
+
+  .os-app-screen[data-compact-chrome='true'][data-dock-back='true']
+    .os-app-screen-title {
+    font-size: 0.98rem;
+  }
+
   /*
    * One-pane chrome glass: on guild screens a viewport-anchored sticky band
    * (.os-chrome-glass) owns a single frost sheet covering nav + room rail.
@@ -9714,6 +9738,9 @@ a.os-surface-row {
   body:has(.glass-sheet-root:not([data-keep-dock='true']))
     .portfolio-os-layer
     > .portfolio-summon-dock:not(.is-drawer-overlay),
+  body:has(.glass-sheet-root:not([data-keep-dock='true']))
+    .os-app-screen
+    > .portfolio-summon-dock:not(.is-drawer-overlay),
   body:has(.os-launcher-root) .portfolio-summon-dock {
     transform: translateX(-50%)
       translateY(calc(100% + env(safe-area-inset-bottom)));
@@ -9727,6 +9754,10 @@ a.os-surface-row {
     .portfolio-summon,
   body:has(.glass-sheet-root:not([data-keep-dock='true']))
     .portfolio-os-layer
+    > .portfolio-summon-dock:not(.is-drawer-overlay)
+    .portfolio-summon,
+  body:has(.glass-sheet-root:not([data-keep-dock='true']))
+    .os-app-screen
     > .portfolio-summon-dock:not(.is-drawer-overlay)
     .portfolio-summon,
   body:has(.os-launcher-root) .portfolio-summon-dock .portfolio-summon {
@@ -9756,6 +9787,156 @@ a.os-surface-row {
   .portfolio-summon {
     pointer-events: auto;
     --portfolio-summon-avatar-size: 1.35rem;
+  }
+
+  /* Write mode fills the dock column; idle pill stays content-sized (grip flex:1). */
+  .portfolio-summon.is-writing,
+  .portfolio-summon-dock .os-dock-pill.is-writing {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .portfolio-summon-dock .os-dock-pill:not(.is-writing) {
+    width: auto;
+    max-width: 100%;
+  }
+
+  .portfolio-summon-back {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    align-self: stretch;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.78);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      background 180ms ease,
+      color 180ms ease;
+  }
+
+  .portfolio-summon.is-writing.has-dock-back:not(.has-dock-back-stacked)
+    .portfolio-summon-back {
+    border-radius: var(--os-write-dock-radius, 1.375rem) 0 0
+      var(--os-write-dock-radius, 1.375rem);
+  }
+
+  .portfolio-summon-back:hover,
+  .portfolio-summon-back:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.92);
+    outline: none;
+  }
+
+  .portfolio-summon-back:active {
+    background: rgb(var(--fg-rgb) / 0.1);
+  }
+
+  .portfolio-summon-back-icon {
+    display: block;
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+
+  .portfolio-summon-back--stacked {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    min-width: 2.75rem;
+    height: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0;
+    align-self: end;
+    color: rgb(var(--fg-rgb) / 0.78);
+    border-radius: 0 0 0 var(--os-write-dock-radius, 1.375rem);
+  }
+
+  .portfolio-summon-account-column {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    align-self: stretch;
+    width: 2.75rem;
+    min-width: 2.75rem;
+  }
+
+  .portfolio-summon.is-writing.has-dock-back-stacked .portfolio-summon-account-column {
+    display: grid;
+    grid-template-rows: minmax(2.75rem, 1fr) 2.75rem;
+  }
+
+  .portfolio-summon.is-writing.has-dock-back-stacked
+    .portfolio-summon-account-column
+    .portfolio-summon-back--stacked {
+    grid-row: 2;
+    align-self: stretch;
+    margin-top: 0;
+  }
+
+  .portfolio-summon-account-column .portfolio-summon-account {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    min-width: 2.75rem;
+    height: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0;
+    border-radius: var(--os-write-dock-radius, 1.375rem) 0 0 0;
+  }
+
+  .portfolio-summon.is-writing.has-dock-back:not(.has-dock-back-stacked)
+    .portfolio-summon-account {
+    align-self: stretch;
+    width: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .portfolio-summon.is-writing:not(.has-dock-back-stacked):not(.has-dock-back)
+    .portfolio-summon-account {
+    align-self: center;
+  }
+
+  .portfolio-summon.is-writing.is-compose-tools:not(.has-dock-back-stacked):not(
+      .has-dock-back
+    )
+    .portfolio-summon-account {
+    align-self: flex-start;
+    padding-top: 0.35rem;
+  }
+
+  .portfolio-summon.is-writing.is-compose-expanded:not(.has-dock-back-stacked):not(
+      .has-dock-back
+    )
+    .portfolio-summon-account {
+    align-self: flex-start;
+    padding-top: 0.45rem;
+  }
+
+  /* Narrow phones — hide activity when dock back is shown to keep the pill on one row. */
+  @media (max-width: 380px) {
+    .portfolio-summon:has(.portfolio-summon-back) .portfolio-summon-activity {
+      display: none;
+    }
+
+    .portfolio-summon:has(.portfolio-summon-back) .portfolio-summon-activity + .portfolio-summon-divider {
+      display: none;
+    }
   }
 
   .portfolio-summon-divider {
@@ -9879,14 +10060,22 @@ a.os-surface-row {
   }
 
   .portfolio-summon-grip-zone {
-    flex: 1;
+    flex: 1 1 auto;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 4.75rem;
-    padding: 0 1.1rem;
+    min-width: 2.75rem;
+    max-width: 4.75rem;
+    padding: 0 0.65rem;
     border: 0;
     background: transparent;
+  }
+
+  .portfolio-summon.has-dock-back .portfolio-summon-grip-zone {
+    flex: 0 0 auto;
+    min-width: 2.75rem;
+    max-width: 2.75rem;
+    padding: 0;
   }
 
   .portfolio-summon-grip-zone.is-interactive {
@@ -10110,6 +10299,34 @@ a.os-surface-row {
     transition: min-height 220ms ease;
   }
 
+  .os-write-dock.is-compact-bar-tools .os-write-dock-field {
+    padding-right: 0.2rem;
+  }
+
+  .os-write-dock-bar-actions {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    align-self: stretch;
+  }
+
+  .os-write-dock-bar-actions .os-write-dock-tool {
+    flex-shrink: 0;
+    align-self: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+  }
+
+  .os-write-dock-bar-actions .os-write-dock-bar-actions-divider {
+    flex-shrink: 0;
+    align-self: center;
+    height: 1.25rem;
+    min-height: 1.25rem;
+    margin: 0;
+    opacity: 0.9;
+  }
+
   .os-write-dock.is-expanded .os-write-dock-bar {
     min-height: 3.25rem;
   }
@@ -10321,6 +10538,25 @@ a.os-surface-row {
     flex: 0 0 auto;
     align-items: center;
     gap: 0.3rem;
+  }
+
+  .os-write-dock-preview-strip {
+    display: inline-flex;
+    flex: 0 1 auto;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .os-write-dock-preview-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .os-write-dock-preview-strip .os-write-dock-preview {
+    flex-shrink: 0;
   }
 
   .os-write-dock-preview-el {
@@ -15568,6 +15804,23 @@ a.os-surface-row {
   .home-feed-header-toolbar {
     min-width: 0;
     margin: 0;
+  }
+
+  .home-feed-compact-chrome {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .home-feed-compact-chrome .home-feed-chip-bar {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .home-feed-compact-chrome .home-feed-sort-toggle {
+    flex-shrink: 0;
   }
 
   /* Home has no title chrome — collapse the flex heading so Discover ↔ sort balance. */
@@ -32231,6 +32484,42 @@ a.os-surface-row {
   border-radius: var(--os-write-dock-radius) !important;
 }
 
+.os-dock-pill.portfolio-summon.is-writing.has-dock-back-stacked
+  .portfolio-summon-account-column
+  .portfolio-summon-account {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border-radius: var(--os-write-dock-radius) 0 0 0;
+}
+
+.os-dock-pill.portfolio-summon.is-writing.has-dock-back-stacked
+  .portfolio-summon-back--stacked {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  border-radius: 0 0 0 var(--os-write-dock-radius);
+}
+
+.os-dock-pill.portfolio-summon.is-writing.has-dock-back-stacked
+  .portfolio-summon-back--stacked
+  .portfolio-summon-back-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.os-dock-pill.portfolio-summon.is-writing.has-dock-back:not(.has-dock-back-stacked)
+  .portfolio-summon-account {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border-radius: 0;
+}
+
 /* Write dock footer — unlayered so tool/send sizing beats layered dock rules. */
 .os-write-dock .os-write-dock-footer {
   padding-inline: 0 0.08rem;
@@ -32258,9 +32547,11 @@ a.os-surface-row {
 }
 
 .os-write-dock-footer-tools .os-write-dock-footer-tools-divider,
-.os-write-dock-footer-actions .os-write-dock-divider {
+.os-write-dock-footer-actions .os-write-dock-divider,
+.os-write-dock-bar-actions .os-write-dock-bar-actions-divider {
   align-self: center;
   height: 1.25rem;
+  min-height: 1.25rem;
   margin-block: 0;
 }
 

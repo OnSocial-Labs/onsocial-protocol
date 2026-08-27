@@ -21,6 +21,7 @@ import {
 import {
   clearWriteDockDraft,
   writeDockDraftFromComposer,
+  writeDockExpandSeed,
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
 import {
@@ -519,7 +520,10 @@ export function LivePersonalPostPanel({
       }
     : undefined;
   const expandReply = (post: PostRow, payload: WriteDockSubmit) => {
-    setModalSeed({ text: payload.text, files: payload.files });
+    const draftKey =
+      threadDraftKey ?? writeDockDraftKey('post', postKey(post));
+    const seed = writeDockExpandSeed(draftKey, payload);
+    setModalSeed({ text: seed.initialText, files: seed.initialFiles });
     openComposerModal('reply')(post);
   };
   const repostHandler = canPostInThread
@@ -596,7 +600,8 @@ export function LivePersonalPostPanel({
   ) : null;
   useReplyWriteDock({
     target: writeTarget,
-    enabled: Boolean(root) && !modalTarget,
+    enabled: Boolean(root),
+    disabled: Boolean(modalTarget),
     placeholder: nestedDockReply
       ? writeDockReplyPlaceholder(writeName)
       : 'Add a reply…',
@@ -641,6 +646,9 @@ export function LivePersonalPostPanel({
   return (
     <OsAppScreen
       title="Post"
+      compactChrome
+      dockBack
+      glassChrome
       backFallbackHref={portfolioPath(author)}
       actions={connectAction}
     >
@@ -1008,6 +1016,11 @@ export function LivePersonalPostPanel({
       </div>
       {modalTarget ? (
         <ComposerSheet
+          key={`${postKey(modalTarget)}:${modalSeed.files
+            .map(
+              (file) => `${file.name}:${file.size}:${file.lastModified}`
+            )
+            .join('|')}`}
           open
           target={modalTarget}
           targetAuthorProfile={postAuthorProfiles[modalTarget.accountId]}
@@ -1033,6 +1046,9 @@ export function LivePersonalPostPanel({
             }
             setModalTarget(null);
             setModalSeed({ text: '', files: [] });
+            if (modalMode === 'reply' && draft?.text.trim()) {
+              focusWriteDock();
+            }
           }}
           onSubmit={(payload) => void submitFromModal(payload)}
         />

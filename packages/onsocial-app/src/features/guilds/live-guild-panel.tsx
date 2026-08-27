@@ -32,6 +32,7 @@ import { writeDockDraftKey } from '@/lib/os-write-dock';
 import {
   clearWriteDockDraft,
   writeDockDraftFromComposer,
+  writeDockExpandSeed,
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
 import { PostRowSkeleton, postKey } from '@/features/home/post-card';
@@ -1590,11 +1591,15 @@ export function LiveGuildPanel({
       (composerSpace ? guildSpaceFeedChannel(composerSpace) : null);
     if (!canPostInChannel(channel)) return;
     setModalError(null);
+    const seed = writeDockExpandSeed(
+      writeDockDraftKey('post', postKey(target)),
+      { text: draft?.text ?? '', files: draft?.files ?? [] }
+    );
     setComposer({
       mode: 'reply',
       target,
-      initialText: draft?.text ?? '',
-      initialFiles: draft?.files ?? [],
+      initialText: seed.initialText,
+      initialFiles: seed.initialFiles,
     });
   };
 

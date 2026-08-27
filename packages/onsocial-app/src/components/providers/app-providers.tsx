@@ -12,6 +12,7 @@ import { CollectiblesNowPlayingProvider } from '@/contexts/collectibles-now-play
 import { AppTransactionFeedbackProvider } from '@/contexts/app-transaction-feedback-context';
 import { AppWalletProvider } from '@/contexts/app-wallet-context';
 import { ComposeLauncherProvider } from '@/contexts/compose-launcher-context';
+import { DockChromeProvider } from '@/contexts/dock-chrome-context';
 import {
   OsPortalHostProvider,
   useOsPortalHost,
@@ -49,6 +50,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                   <AppRewardsProvider>
                     <PortfolioCustomizeProvider>
                       <ComposeLauncherProvider>
+                        <DockChromeProvider>
                         <OsPortalHostProvider>
                           <OsGlassSheetPortalBridge>
                             <CollectiblesNowPlayingProvider>
@@ -68,6 +70,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                             </CollectiblesNowPlayingProvider>
                           </OsGlassSheetPortalBridge>
                         </OsPortalHostProvider>
+                        </DockChromeProvider>
                       </ComposeLauncherProvider>
                     </PortfolioCustomizeProvider>
                   </AppRewardsProvider>

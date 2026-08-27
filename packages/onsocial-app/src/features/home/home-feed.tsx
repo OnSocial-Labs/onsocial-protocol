@@ -899,30 +899,24 @@ export function HomePagePanel({
     <HomeActiveFocusProvider focus={activeFocus}>
       <OsAppScreen
         title="Home"
+        compactChrome
         glassChrome
         scrollRootRef={scrollRootRef}
-        leading={
-          <Link
-            href={APP_DISCOVER_PATH}
-            className="home-feed-discover-link"
-            scroll={false}
-          >
-            <OnSocialMark className="home-feed-discover-mark" aria-hidden />
-            Discover
-          </Link>
-        }
-        heading={<span className="home-feed-nav-empty" aria-hidden />}
-        actions={
-          activeLens === 'saved' ? null : (
-            <HomeFeedSortToggle sort={sort} onSortChange={handleSortChange} />
-          )
-        }
+        leading={null}
         toolbar={
           <div
-            className={`os-app-chrome-rail home-feed-header-toolbar${
+            className={`os-app-chrome-rail home-feed-compact-chrome${
               toolbarHidden ? ' is-scroll-hidden' : ''
             }`}
           >
+            <Link
+              href={APP_DISCOVER_PATH}
+              className="home-feed-discover-link"
+              scroll={false}
+            >
+              <OnSocialMark className="home-feed-discover-mark" aria-hidden />
+              Discover
+            </Link>
             <HomeFeedChipBar
               lens={activeLens}
               onLensChange={handleLensChange}
@@ -934,6 +928,9 @@ export function HomePagePanel({
               onClearFocus={clearFocusSearch}
               onNewFeed={() => setSavedFeedSheetOpen(true)}
             />
+            {activeLens === 'saved' ? null : (
+              <HomeFeedSortToggle sort={sort} onSortChange={handleSortChange} />
+            )}
           </div>
         }
       >
