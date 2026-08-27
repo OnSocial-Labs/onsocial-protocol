@@ -104,7 +104,7 @@ export class AuthModule {
       throw new Error('Missing onsocial_code or onsocial_app');
     }
 
-    let sessionKey = await restoreAppHandoffSessionKey(appId);
+    const sessionKey = await restoreAppHandoffSessionKey(appId);
     if (!sessionKey && osOrigin && typeof window !== 'undefined') {
       await this.startOnSocialHandoff({ osOrigin, appId });
       return new Promise(() => undefined);
