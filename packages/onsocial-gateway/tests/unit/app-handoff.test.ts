@@ -30,7 +30,11 @@ describe('app handoff', () => {
     const again = await createAppHandoff('bob.testnet', listedApp);
     if ('error' in again) throw new Error(again.error);
     expect(
-      await consumeAppHandoff(again.code, 'tracker', 'https://track.example.com')
+      await consumeAppHandoff(
+        again.code,
+        'tracker',
+        'https://track.example.com'
+      )
     ).toEqual({
       accountId: 'bob.testnet',
       appId: 'tracker',
@@ -42,7 +46,11 @@ describe('app handoff', () => {
       appId: 'tracker',
     });
     expect(
-      await consumeAppHandoff(again.code, 'tracker', 'https://track.example.com')
+      await consumeAppHandoff(
+        again.code,
+        'tracker',
+        'https://track.example.com'
+      )
     ).toMatchObject({
       code: 'INVALID_HANDOFF',
     });

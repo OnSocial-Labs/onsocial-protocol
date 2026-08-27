@@ -399,6 +399,8 @@ describe('Refresh tokens', () => {
     });
     expect(verifyRefreshToken(token)).toBeNull();
     expect(verifyToken(token)).toBeNull();
-    expect(verifyAppRefreshToken(generateRefreshToken('bob.testnet'))).toBeNull();
+    expect(
+      verifyAppRefreshToken(generateRefreshToken('bob.testnet'))
+    ).toBeNull();
   });
 });

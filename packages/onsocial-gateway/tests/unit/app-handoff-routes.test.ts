@@ -314,12 +314,10 @@ describe('POST /auth/app-refresh', () => {
       .post('/auth/app-session')
       .send({ code: issued.body.code, appId: 'tracker' });
 
-    const res = await request(createApp())
-      .post('/auth/app-refresh')
-      .send({
-        refreshToken: exchanged.body.refreshToken,
-        appId: 'other',
-      });
+    const res = await request(createApp()).post('/auth/app-refresh').send({
+      refreshToken: exchanged.body.refreshToken,
+      appId: 'other',
+    });
     expect(res.status).toBe(401);
   });
 
