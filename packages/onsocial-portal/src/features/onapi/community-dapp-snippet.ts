@@ -9,14 +9,12 @@ export function communityDappSnippet(input: {
 
 const os = new OnSocial({ network: "${input.network}" });
 
-// Launcher tile or Continue with OnSocial returns ?onsocial_code=&onsocial_app=
-const session = await os.auth.completeAppHandoff();
-
-// Cold visit — send them to OnSocial, then they come back with a code:
-// os.auth.startOnSocialHandoff({
-//   osOrigin: "${osOrigin}",
-//   appId: "${appId}",
-// });
+// Creates a keypair on this origin, then Continue with OnSocial grants
+// apps/${appId}/ to that public key and returns ?onsocial_code=
+const session = await os.auth.completeAppHandoff({
+  osOrigin: "${osOrigin}",
+  appId: "${appId}",
+});
 
 await os.social.set({
   [\`apps/${appId}/item/\${Date.now().toString(36)}\`]: { hello: true },

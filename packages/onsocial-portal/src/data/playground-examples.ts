@@ -90,8 +90,10 @@ const planned = await os.query.raw.byAppJsonContains(
 );
 
 // List on Portal → OnAPI → Apps, then on your site:
-// const session = await os.auth.completeAppHandoff();
-// os.auth.startOnSocialHandoff({ osOrigin: "https://onsocial.id", appId });
+// const session = await os.auth.completeAppHandoff({
+//   osOrigin: "https://onsocial.id",
+//   appId,
+// });
 console.log({ result, item, rows, planned, listOnPortal: "/onapi/apps" });`,
   },
   {

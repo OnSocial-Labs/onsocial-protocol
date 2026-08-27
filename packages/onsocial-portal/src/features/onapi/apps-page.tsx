@@ -471,11 +471,13 @@ export default function OnApiAppsPage() {
               </p>
               <p>
                 Users tap the Community tile or Continue with OnSocial. Your
-                site exchanges a one-time code with{' '}
+                site calls{' '}
                 <code className="portal-blue-text">
-                  os.auth.completeAppHandoff()
+                  os.auth.completeAppHandoff({'{ osOrigin, appId }'})
                 </code>
-                . Write custom JSON under{' '}
+                — that grants{' '}
+                <code className="portal-blue-text">apps/&lt;appId&gt;/</code> to
+                a keypair that never leaves your origin. Write custom JSON under{' '}
                 <code className="portal-blue-text">apps/&lt;appId&gt;/…</code>{' '}
                 and use <code className="portal-blue-text">os.posts</code> /{' '}
                 <code className="portal-blue-text">os.profiles</code> when you

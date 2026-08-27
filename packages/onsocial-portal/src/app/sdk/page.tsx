@@ -184,10 +184,9 @@ const BUILD_PATHS: BuildPath[] = [
       'A public https site on launcher page two that reuses OnSocial sign-in and apps/<appId> JSON.',
     steps: [
       'Create an app namespace on Portal → OnAPI → Apps and list the https site.',
-      'On first load call os.auth.completeAppHandoff() to exchange onsocial_code.',
-      'For a cold visit, send users to os.auth.startOnSocialHandoff({ osOrigin, appId }).',
+      'On first load call os.auth.completeAppHandoff({ osOrigin, appId }). That creates a keypair here, grants apps/<appId>/ on OS, and attaches the session.',
       'Write custom JSON under apps/<appId>/… and query with byAppId. Use os.posts / os.profiles for the real graph.',
-      'Keep OnAPI keys on the server. Listing does not create a key.',
+      'Keep OnAPI keys on the server. Listing does not create a key. Teams with their own wallet connect can still grant a session themselves.',
     ],
   },
   {

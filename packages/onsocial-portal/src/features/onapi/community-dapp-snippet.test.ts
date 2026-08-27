@@ -13,7 +13,7 @@ describe('community dapp snippet', () => {
     });
     expect(snippet).toContain('completeAppHandoff');
     expect(snippet).toContain('apps/tracker/item/');
-    expect(snippet).toContain('os.auth.startOnSocialHandoff');
+    expect(snippet).toContain('osOrigin: "https://onsocial.id"');
     expect(communityDappContinueUrl('https://onsocial.id/', 'Tracker')).toBe(
       'https://onsocial.id/handoff?app=tracker'
     );
