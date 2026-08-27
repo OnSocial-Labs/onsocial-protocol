@@ -4,6 +4,7 @@ import type { NearWalletBase } from '@hot-labs/near-connect';
 import type { Session } from '@onsocial/sdk/advanced';
 import { decodeBase64, encodeBase64 } from 'tweetnacl-util';
 import { ensureAppGatewayAuth } from '@/lib/app-gateway-auth';
+import { DM_PEER_MESSAGES_UNAVAILABLE } from '@/lib/dm/copy';
 import {
   decodeDmPublicKey,
   encodeDmPublicKey,
@@ -203,8 +204,7 @@ export async function sendEncryptedDm(opts: {
   if (recipientLookup.status === 'absent') {
     return {
       ok: false,
-      error:
-        'They have not enabled private messages yet. Ask them to open Messages once.',
+      error: DM_PEER_MESSAGES_UNAVAILABLE,
     };
   }
   const recipientPubkey = recipientLookup.value;

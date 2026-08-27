@@ -4,6 +4,7 @@ import { DiscoverOmniSearchField } from '@/features/discover/discover-omni-searc
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { DiscoverTabBar } from '@/features/discover/discover-tab-bar';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
+import { OsAppChromeToolbarRail } from '@onsocial/ui';
 
 export function DiscoverNavSearch({ className }: { className?: string }) {
   return <DiscoverOmniSearchField className={className} />;
@@ -18,16 +19,15 @@ export function DiscoverHeaderTabs() {
   const toolbarHidden = useDockAutoHide(false, scrollRootRef ?? null);
 
   return (
-    <div
-      className={`os-app-chrome-rail discover-header-toolbar${
-        toolbarHidden ? ' is-scroll-hidden' : ''
-      }`}
+    <OsAppChromeToolbarRail
+      hidden={toolbarHidden}
+      className="discover-header-toolbar"
     >
       <DiscoverTabBar
         tab={tab}
         onTabChange={setTab}
         className="discover-tab-bar--header"
       />
-    </div>
+    </OsAppChromeToolbarRail>
   );
 }

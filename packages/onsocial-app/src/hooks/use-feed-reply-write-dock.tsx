@@ -10,9 +10,10 @@ import {
 import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
+  WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
   writeDockDraftKey,
-  writeDockReplyPlaceholder,
 } from '@/lib/os-write-dock';
+import { clearWriteDockDraft } from '@/lib/os-write-dock-draft';
 import { postKey } from '@/lib/post-display';
 
 export function useFeedReplyWriteDock({
@@ -39,7 +40,14 @@ export function useFeedReplyWriteDock({
     [focusWriteDock]
   );
 
-  const clearReply = useCallback(() => setTarget(null), []);
+  const clearReply = useCallback(() => {
+    setTarget((current) => {
+      if (current) {
+        clearWriteDockDraft(writeDockDraftKey('post', postKey(current)));
+      }
+      return null;
+    });
+  }, []);
 
   const fetchedProfiles = usePostAuthorProfiles(
     target ? [target.accountId] : []
@@ -69,7 +77,7 @@ export function useFeedReplyWriteDock({
   useReplyWriteDock({
     target,
     enabled: (enabled ?? true) && Boolean(target) && !sheetOpen,
-    placeholder: writeDockReplyPlaceholder(name),
+    placeholder: WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
     above,
     revision: target ? postKey(target) : '',
     draftKey: target ? writeDockDraftKey('post', postKey(target)) : undefined,

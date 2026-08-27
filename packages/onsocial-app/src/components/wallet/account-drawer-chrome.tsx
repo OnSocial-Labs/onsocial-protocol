@@ -2,12 +2,10 @@
 
 import { useCallback, useEffect, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
-import { SheetCloseButton } from '@onsocial/ui';
-import { StandingSheetSubjectAvatar } from '@/components/panels/standing-sheet-subject';
+import { OsChromeSubject, SheetCloseButton, osChromeSubjectClassName } from '@onsocial/ui';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
   accountDrawerPrimaryLabel,
-  fallbackLabel,
 } from '@/lib/profile-display';
 
 function AccountDrawerHandleCopy({ accountId }: { accountId: string }) {
@@ -70,20 +68,19 @@ export function AccountDrawerChrome({
       <div className="standing-sheet-subject-row account-drawer-subject-row">
         <Link
           href={portfolioPath(accountId)}
-          className="standing-sheet-subject account-drawer-subject"
+          className={osChromeSubjectClassName}
           aria-label={`${primaryLabel} portfolio`}
           onClick={onClose}
         >
-          <StandingSheetSubjectAvatar
-            avatarUrl={avatarUrl ?? null}
-            fallbackInitial={fallbackLabel(accountId).charAt(0).toUpperCase()}
+          <OsChromeSubject
+            accountId={accountId}
+            profileName={profileName}
+            avatarUrl={avatarUrl}
+            primaryLabel={primaryLabel}
+            showHandle
+            handleSlot={<AccountDrawerHandleCopy accountId={accountId} />}
+            unstyled
           />
-          <span className="standing-sheet-subject-copy account-drawer-subject-copy">
-            <span className="standing-sheet-subject-name account-drawer-subject-name">
-              {primaryLabel}
-            </span>
-            <AccountDrawerHandleCopy accountId={accountId} />
-          </span>
         </Link>
         <div className="standing-sheet-actions account-drawer-actions">
           <SheetCloseButton onClick={onClose} ariaLabel="Close" />

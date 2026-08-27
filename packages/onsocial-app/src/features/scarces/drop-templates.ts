@@ -6,7 +6,8 @@
  *
  * Copy bar (hub-create style):
  * - tagline: one product sentence — shown under the kind tabs
- * - hint: presets + one “why” — InfoDrawer detail only (no field tours)
+ * - hint: use cases + example + defaults — InfoDrawer detail only (no field tours)
+ * - helpTitle: InfoDrawer title — e.g. "Art drop", "Ticket drop"
  */
 
 export type DropTemplateId =
@@ -21,9 +22,11 @@ export type DropTemplateId =
 export interface DropTemplate {
   id: DropTemplateId;
   label: string;
+  /** InfoDrawer title — e.g. "Art drop", "Ticket drop". */
+  helpTitle: string;
   /** One product sentence — kind lede + InfoDrawer summary. */
   tagline: string;
-  /** Presets + one why — InfoDrawer detail only. */
+  /** Use cases, example, and defaults — InfoDrawer detail only. */
   hint: string;
   /** Token provenance kind; null = derive from rights (custom). */
   kind: string | null;
@@ -48,8 +51,10 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'art',
     label: 'Art',
-    tagline: 'Supply-capped editions fans mint until sold out.',
-    hint: 'Tradable and permanent by default. Optional sale window in Advanced.',
+    helpTitle: 'Art drop',
+    tagline: 'Limited editions fans collect until they sell out.',
+    hint:
+      'Good for prints, photography, digital art, and posters. e.g. “Genesis Prints” — 25 editions at 1 NEAR. Tradable by default; optional sale window in Advanced.',
     kind: 'art',
     unit: 'editions',
     unitSingular: 'edition',
@@ -59,8 +64,10 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'writing',
     label: 'Writing',
-    tagline: 'A written work as capped editions — books, poems, essays.',
-    hint: 'Article or Book with a cover. Tradable by default; soulbound in Advanced.',
+    helpTitle: 'Writing drop',
+    tagline: 'Capped copies of a book, essay, or poem.',
+    hint:
+      'Good for ebooks, zines, and serialized essays. e.g. “Field Notes Vol. 1” — 100 copies with a cover image. Tradable by default; lock to holder in Advanced if you want.',
     kind: 'writing',
     unit: 'copies',
     unitSingular: 'copy',
@@ -70,8 +77,10 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'audio',
     label: 'Audio',
-    tagline: 'A single or album — one cover, playable tracks, shared release.',
-    hint: 'Every edition gets the same tracks. Cover fronts wallets; play in OnSocial.',
+    helpTitle: 'Audio drop',
+    tagline: 'One release — same tracks on every edition.',
+    hint:
+      'Good for singles, EPs, and albums. e.g. “Midnight EP” — cover art plus playable tracks in every edition. Fans play in OnSocial; optional sale window in Advanced.',
     kind: 'audio',
     unit: 'editions',
     unitSingular: 'edition',
@@ -81,8 +90,10 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'ticket',
     label: 'Tickets',
+    helpTitle: 'Ticket drop',
     tagline: 'Event entry — one redeem per ticket.',
-    hint: 'Event ends sets access. Date changes on for rain days. Sale window is buy-only.',
+    hint:
+      'Good for shows, meetups, and conferences. e.g. “Neartopia Night” — 200 tickets, event end after doors close. Enable Allow date changes for postponements; sale window is buy-only.',
     kind: 'ticket',
     unit: 'tickets',
     unitSingular: 'ticket',
@@ -93,8 +104,10 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'coupon',
     label: 'Coupons',
-    tagline: 'Redeemable perks with an expiry.',
-    hint: 'Redeems once, then expires. Set access end in Advanced.',
+    helpTitle: 'Coupon drop',
+    tagline: 'Redeemable perks with an expiry date.',
+    hint:
+      'Good for merch discounts, early access, and partner offers. e.g. “20% off studio gear” — one redeem per coupon, access ends when the offer does. Set the expiry in Advanced.',
     kind: 'coupon',
     unit: 'coupons',
     unitSingular: 'coupon',
@@ -105,8 +118,10 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'membership',
     label: 'Membership',
+    helpTitle: 'Membership drop',
     tagline: 'Renewable passes that stay with the member.',
-    hint: 'Soulbound and renewable. Optional access end for seasons.',
+    hint:
+      'Good for fan clubs, seasons, and creator subscriptions. e.g. “Season Two Pass” — non-transferable, renewable each season. Optional access end in Advanced.',
     kind: 'membership',
     unit: 'passes',
     unitSingular: 'pass',
@@ -116,8 +131,10 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'custom',
     label: 'Custom',
-    tagline: 'Every switch open — configure the drop yourself.',
-    hint: 'Transfer, renewals, redeems, allowlists, sale windows — you pick the rights.',
+    helpTitle: 'Custom drop',
+    tagline: 'Start from scratch — you set the rules.',
+    hint:
+      'Good when no preset fits — bundles, experiments, or mixed media. e.g. combine transfer rules, renewals, redeem limits, allowlists, and sale windows yourself. Advanced opens by default.',
     kind: 'custom',
     unit: 'editions',
     unitSingular: 'edition',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import {
   OsActionDrawerConfirm,
   OsField,
@@ -21,6 +21,12 @@ import {
 } from '@/lib/dm/keys';
 import { lookupDmKeyBackup } from '@/lib/dm/pubkey';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+
+function isPasskeyUnlockCancellation(cause: unknown): boolean {
+  return (
+    cause instanceof Error && cause.message === 'Passkey unlock cancelled.'
+  );
+}
 
 type DmUnlockPanelProps = {
   accountId: string;
@@ -48,6 +54,7 @@ export function DmUnlockPanel({
   const { hasSocialSession } = useAppWallet();
   const resetTitleId = useId();
   const resetBodyId = useId();
+  const codeInputId = useId();
   const [recoveryInput, setRecoveryInput] = useState('');
   const [unlockPending, setUnlockPending] = useState(false);
   const [passkeyPending, setPasskeyPending] = useState(false);
@@ -56,7 +63,17 @@ export function DmUnlockPanel({
   const [error, setError] = useState<string | null>(null);
   const passkeyEnrolled = hasDmPasskeyEnrolled(accountId);
   const canPasskey = canOfferDmPasskey();
+  const passkeyPrimary = passkeyEnrolled && canPasskey;
+  const [recoveryMode, setRecoveryMode] = useState(() => !passkeyPrimary);
+  const autoPromptedRef = useRef(false);
   const busy = unlockPending || passkeyPending || resetPending;
+
+  useEffect(() => {
+    autoPromptedRef.current = false;
+    setRecoveryMode(!passkeyPrimary);
+    setRecoveryInput('');
+    setError(null);
+  }, [accountId, passkeyPrimary]);
 
   const handleRestore = async () => {
     if (!recoveryInput.trim()) return;
@@ -118,6 +135,13 @@ export function DmUnlockPanel({
       setResetConfirm(false);
       onUnlocked();
     } catch (cause) {
+      if (isPasskeyUnlockCancellation(cause)) return;
+      if (
+        cause instanceof Error &&
+        cause.message.includes('cannot unlock with a passkey')
+      ) {
+        setRecoveryMode(true);
+      }
       setError(
         cause instanceof Error
           ? cause.message
@@ -127,6 +151,16 @@ export function DmUnlockPanel({
       setPasskeyPending(false);
     }
   };
+
+  useEffect(() => {
+    if (!passkeyPrimary || recoveryMode || resetConfirm || autoPromptedRef.current) {
+      return;
+    }
+    autoPromptedRef.current = true;
+    void handlePasskeyUnlock();
+    // Auto-prompt once per visit when device unlock is available.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional single mount prompt
+  }, [passkeyPrimary, recoveryMode, resetConfirm]);
 
   const handleReset = async () => {
     setResetPending(true);
@@ -192,50 +226,97 @@ export function DmUnlockPanel({
             </OsActionDrawerConfirm>
           </div>
         </div>
-      ) : (
-        <>
-          <p className="messages-unlock-title">
-            {passkeyEnrolled
-              ? 'Unlock private messages on this device.'
-              : 'Enter your recovery code to unlock.'}
-          </p>
-          {passkeyEnrolled && canPasskey ? (
-            <OsSheetActions layout="stack">
-              <OsSheetAction
-                type="button"
-                ready={!busy}
-                pending={passkeyPending}
-                pendingLabel="Unlocking…"
-                onClick={() => void handlePasskeyUnlock()}
-              >
-                Unlock with this device
-              </OsSheetAction>
-            </OsSheetActions>
+      ) : passkeyPrimary && !recoveryMode ? (
+        <div className="messages-unlock-form">
+          {compact ? (
+            <p className="messages-unlock-title">
+              Unlock private messages on this device.
+            </p>
           ) : null}
-          <OsField
-            label={passkeyEnrolled ? 'Or recovery code' : 'Recovery code'}
-            htmlFor={compact ? 'dm-compose-unlock-code' : 'dm-unlock-code'}
-          >
+          {error ? (
+            <p className="dm-compose-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+            <OsSheetAction
+              type="button"
+              ready={!busy}
+              pending={passkeyPending}
+              pendingLabel="Unlocking…"
+              onClick={() => void handlePasskeyUnlock()}
+            >
+              Unlock with this device
+            </OsSheetAction>
+            <OsSheetAction
+              type="button"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                setError(null);
+                setRecoveryMode(true);
+              }}
+            >
+              Use recovery code
+            </OsSheetAction>
+          </OsSheetActions>
+        </div>
+      ) : (
+        <form
+          className="messages-unlock-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleRestore();
+          }}
+        >
+          {compact ? (
+            <p className="messages-unlock-title">
+              Enter your recovery code to unlock.
+            </p>
+          ) : null}
+          <OsField label="Recovery code" htmlFor={codeInputId}>
             <input
-              id={compact ? 'dm-compose-unlock-code' : 'dm-unlock-code'}
-              className={osFieldBorderedClassName}
+              id={codeInputId}
+              className={`${osFieldBorderedClassName} messages-unlock-code-input`}
               value={recoveryInput}
-              onChange={(e) => setRecoveryInput(e.target.value)}
+              onChange={(event) => setRecoveryInput(event.target.value)}
               placeholder="XXXX-XXXX-XXXX-XXXX"
               autoComplete="off"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="go"
               disabled={busy}
             />
           </OsField>
-          <OsSheetActions layout="stack">
+          {error ? (
+            <p className="dm-compose-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
             <OsSheetAction
-              type="button"
+              type="submit"
               ready={Boolean(recoveryInput.trim()) && !busy}
               pending={unlockPending}
               pendingLabel="Unlocking…"
-              onClick={() => void handleRestore()}
             >
-              Unlock with code
+              Unlock
             </OsSheetAction>
+            {passkeyPrimary ? (
+              <OsSheetAction
+                type="button"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => {
+                  setError(null);
+                  setRecoveryInput('');
+                  setRecoveryMode(false);
+                }}
+              >
+                Back to device unlock
+              </OsSheetAction>
+            ) : null}
             <OsSheetAction
               type="button"
               variant="ghost"
@@ -248,12 +329,7 @@ export function DmUnlockPanel({
               Lost your recovery code?
             </OsSheetAction>
           </OsSheetActions>
-          {error ? (
-            <p className="dm-compose-error" role="alert">
-              {error}
-            </p>
-          ) : null}
-        </>
+        </form>
       )}
     </section>
   );

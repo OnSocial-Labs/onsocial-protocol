@@ -1,4 +1,5 @@
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { APP_HOME_PATH } from '@/lib/app-routes';
 import {
   MarketLoadingActions,
   MarketSearchHeading,
@@ -10,12 +11,14 @@ export function MarketLoadingScreen() {
   return (
     <OsAppScreen
       title="Market"
+      compactChrome
+      dockBack
       leading={null}
+      backFallbackHref={APP_HOME_PATH}
       glassChrome
       heading={<MarketSearchHeading interactive={false} />}
       actions={<MarketLoadingActions />}
     >
-      <div aria-hidden className="os-chrome-glass" />
       <div className="market-page" aria-busy="true" aria-live="polite">
         <p className="sr-only">Loading listings…</p>
         <div className="market-section">

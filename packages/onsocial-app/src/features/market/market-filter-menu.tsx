@@ -86,6 +86,7 @@ export function MarketFilterMenu({
   onFacetsChange,
   onClear,
   onOpenChange,
+  showFacets = true,
 }: {
   medium: MarketMediumFilter;
   onMediumChange: (medium: MarketMediumFilter) => void;
@@ -96,6 +97,8 @@ export function MarketFilterMenu({
   onFacetsChange: (facets: string[]) => void;
   onClear: () => void;
   onOpenChange?: (open: boolean) => void;
+  /** Drops catalog omits genre facets until indexer supports them. */
+  showFacets?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -229,7 +232,7 @@ export function MarketFilterMenu({
             </section>
           ) : null}
 
-          {suggestions.length > 0 && facetMedium ? (
+          {showFacets && suggestions.length > 0 && facetMedium ? (
             <section
               className="market-filter-sheet-block"
               aria-label={dropFacetFieldLabel(facetMedium)}

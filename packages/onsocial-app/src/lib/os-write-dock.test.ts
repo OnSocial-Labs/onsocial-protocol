@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
   writeDockCanSend,
   writeDockDraftKey,
+  writeDockInputHeightPx,
+  writeDockInputLineHeightPx,
+  writeDockInputMaxLines,
   writeDockIsThoughtEnlarge,
   writeDockReplyPlaceholder,
   writeDockShouldSendOnEnter,
@@ -47,7 +51,8 @@ describe('os write dock helpers', () => {
   });
 
   it('names a nested reply or falls back', () => {
-    expect(writeDockReplyPlaceholder(null)).toBe('Add a reply…');
+    expect(WRITE_DOCK_ADD_REPLY_PLACEHOLDER).toBe('Add a reply…');
+    expect(writeDockReplyPlaceholder(null)).toBe(WRITE_DOCK_ADD_REPLY_PLACEHOLDER);
     expect(writeDockReplyPlaceholder('  Ada  ')).toBe('Reply to Ada…');
   });
 
@@ -61,5 +66,14 @@ describe('os write dock helpers', () => {
     expect(writeDockIsThoughtEnlarge(true, 'audio')).toBe(false);
     expect(writeDockIsThoughtEnlarge(true, 'writing')).toBe(false);
     expect(writeDockIsThoughtEnlarge(false, 'viewer')).toBe(false);
+  });
+
+  it('snaps compose height to full lines', () => {
+    const line = writeDockInputLineHeightPx(16);
+    expect(writeDockInputMaxLines(false)).toBe(4);
+    expect(writeDockInputMaxLines(true)).toBe(3);
+    expect(writeDockInputHeightPx(line, 4)).toBe(line);
+    expect(writeDockInputHeightPx(line * 2.1, 4)).toBe(line * 3);
+    expect(writeDockInputHeightPx(line * 5, 3)).toBe(line * 3);
   });
 });

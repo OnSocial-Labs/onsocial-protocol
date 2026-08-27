@@ -23,6 +23,7 @@ function DiscoverPageScreen({
   return (
     <OsAppScreen
       title="Discover"
+      compactChrome
       leading={
         backFallbackHref ? (
           <ContextualBack fallbackHref={backFallbackHref} />
@@ -31,7 +32,7 @@ function DiscoverPageScreen({
       glassChrome
       scrollRootRef={scrollRootRef}
       heading={
-        <DiscoverNavSearch className="discover-nav-search-field os-app-screen-search" />
+        <DiscoverNavSearch className="os-app-screen-search" />
       }
       toolbar={<DiscoverHeaderTabs />}
     >

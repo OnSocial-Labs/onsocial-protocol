@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { OsSheetAction, OsSheetActions, OsAppChromeToolbarRail } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { DropRowFans } from '@/components/drops/drop-row-fans';
+import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
@@ -31,10 +32,8 @@ import {
   type UpcomingBucket,
 } from '@/features/drops/drops-data';
 import { OsChipRail } from '@/components/os/os-chip-rail';
-import {
-  MarketFacetRail,
-  type MarketAudioFormatFilter,
-} from '@/features/market/market-facet-rail';
+import type { MarketAudioFormatFilter } from '@/features/market/market-facet-rail';
+import { MarketFilterMenu } from '@/features/market/market-filter-menu';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
   MARKET_MEDIUM_FILTERS,
@@ -45,7 +44,7 @@ import {
   fetchAllowlistRemaining,
   isCollectionMintable,
 } from '@/features/scarces/collections-data';
-import { parseAudioFormat } from '@/features/scarces/drop-facets';
+import { parseAudioFormat, normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 import {
   ScarceBuySheet,
   type ScarceBuyListing,
@@ -106,10 +105,10 @@ const BASE_SORTS: ReadonlyArray<{ id: DropsSort; label: string }> = [
   { id: 'live', label: 'Live' },
   { id: 'closing', label: 'Closing' },
   { id: 'upcoming', label: 'Upcoming' },
-  { id: 'finished', label: 'Finished' },
   { id: 'new', label: 'New' },
   { id: 'loved', label: 'Loved' },
   { id: 'traded', label: 'Traded' },
+  { id: 'finished', label: 'Finished' },
 ];
 
 const UPCOMING_SECTIONS: ReadonlyArray<{
@@ -611,6 +610,32 @@ function EmptyDropsStatus({
       </p>
     );
   }
+  if (sort === 'new') {
+    return (
+      <p className="market-page-status">
+        No new drops yet.{' '}
+        <Link href={dropsPath()}>See Live</Link>
+        {' · '}
+        <Link href={dropsPath({ sort: 'upcoming' })}>See Upcoming</Link>
+      </p>
+    );
+  }
+  if (sort === 'loved') {
+    return (
+      <p className="market-page-status">
+        No loved drops yet.{' '}
+        <Link href={dropsPath()}>Browse Live</Link>
+      </p>
+    );
+  }
+  if (sort === 'traded') {
+    return (
+      <p className="market-page-status">
+        No traded drops yet.{' '}
+        <Link href={dropsPath()}>Browse Live</Link>
+      </p>
+    );
+  }
   return <p className="market-page-status">No drops yet.</p>;
 }
 
@@ -644,6 +669,13 @@ export function DropsPagePanel({
 }) {
   const { accountId, isConnected, connect } = useAppWallet();
   const router = useRouter();
+  const openDropCreate = useCallback(() => {
+    router.push(APP_DROP_CREATE_PATH);
+  }, [router]);
+  useRegisterComposeAction(
+    isConnected && accountId?.trim() ? openDropCreate : null,
+    'drop'
+  );
   const searchParams = useSearchParams();
   const urlSort = parseDropsSortParam(searchParams.get(DROPS_SORT_PARAM));
   const urlMedium = parseDropsMediumParam(searchParams.get(MARKET_KIND_PARAM));
@@ -652,7 +684,8 @@ export function DropsPagePanel({
       ? parseAudioFormat(searchParams.get(MARKET_AUDIO_FORMAT_PARAM))
       : null;
   const scrollRootRef = useRef<HTMLElement | null>(null);
-  const toolbarHidden = useDockAutoHide(false, scrollRootRef);
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const toolbarHidden = useDockAutoHide(filterMenuOpen, scrollRootRef);
   const [nowMs, setNowMs] = useState(
     () => initialNowMs ?? Date.now()
   );
@@ -734,6 +767,7 @@ export function DropsPagePanel({
   >({});
   const [playItem, setPlayItem] = useState<DropDiscoveryItem | null>(null);
   const [mintItem, setMintItem] = useState<DropDiscoveryItem | null>(null);
+  const facetMedium = normalizeDropFacetMedium(medium);
 
   const collectionIds = useMemo(
     () => items.map((item) => item.collectionId),
@@ -1283,6 +1317,8 @@ export function DropsPagePanel({
   return (
     <OsAppScreen
       title="Drops"
+      compactChrome
+      dockBack
       leading={null}
       glassChrome
       scrollRootRef={scrollRootRef}
@@ -1292,10 +1328,9 @@ export function DropsPagePanel({
       }
       actions={<DropsHeadingActions />}
       toolbar={
-        <div
-          className={`os-app-chrome-rail market-listing-toolbar${
-            toolbarHidden ? ' is-scroll-hidden' : ''
-          }`}
+        <OsAppChromeToolbarRail
+          hidden={toolbarHidden}
+          className="market-listing-toolbar"
         >
           <div className="market-listing-filter-stack">
             <OsChipRail
@@ -1308,28 +1343,20 @@ export function DropsPagePanel({
                 label: entry.label,
               }))}
             />
-            <OsChipRail
-              className="market-listing-filters"
-              ariaLabel="Drop medium"
-              value={medium}
-              onValueChange={selectMedium}
-              items={DROP_MEDIUM_FILTERS.map((entry) => ({
-                id: entry.id,
-                label: entry.label,
-              }))}
-            />
-            {medium === 'audio' ? (
-              <MarketFacetRail
-                medium="audio"
-                audioFormat={audioFormat}
-                selectedFacets={[]}
-                showFacets={false}
-                onAudioFormatChange={selectAudioFormat}
-                onFacetsChange={() => undefined}
-              />
-            ) : null}
           </div>
-        </div>
+          <MarketFilterMenu
+            medium={medium}
+            onMediumChange={selectMedium}
+            facetMedium={facetMedium}
+            audioFormat={audioFormat}
+            selectedFacets={[]}
+            onAudioFormatChange={selectAudioFormat}
+            onFacetsChange={() => undefined}
+            onClear={() => selectMedium('all')}
+            onOpenChange={setFilterMenuOpen}
+            showFacets={false}
+          />
+        </OsAppChromeToolbarRail>
       }
     >
       <div className="drops-screen-body">

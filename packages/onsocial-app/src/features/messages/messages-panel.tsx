@@ -8,28 +8,29 @@ import {
   useState,
   type CSSProperties,
 } from 'react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { DmMessageRecord, DmThreadSummary, OnSocial } from '@onsocial/sdk';
 import {
-  ArrowLeftIcon,
-  OsIconAction,
   OsSheetAction,
   OsSheetActions,
-  ProfileAvatar,
+  OsIconAction,
   PulsingDots,
+  QuestionMarkCircleFillIcon,
+  OsAppChromePage,
+  OsAppChromePageStatus,
 } from '@onsocial/ui';
-import { ContextualBack } from '@/components/app/contextual-back';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import {
   ensureAppGatewayAuth,
   getCachedAppGatewayAuth,
 } from '@/lib/app-gateway-auth';
 import { APP_HOME_PATH, messagesPath } from '@/lib/app-routes';
+import { DM_PEER_MESSAGES_UNAVAILABLE } from '@/lib/dm/copy';
 import {
   decryptDmMessage,
   isDmDecryptFailureText,
@@ -59,7 +60,7 @@ import {
   reconcileDmThreadArchiveAfterDecrypt,
 } from '@/lib/dm/thread-archive';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
-import { DmComposeSheet } from '@/features/messages/dm-compose-sheet';
+import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { DmMediaBubble } from '@/features/messages/dm-media-bubble';
 import { DmRecoveryCodeSheet } from '@/features/messages/dm-recovery-code-sheet';
 import { inboxPreviewFromDecrypted } from '@/features/messages/dm-inbox-preview';
@@ -81,6 +82,8 @@ import {
 } from '@/features/messages/dm-thread-rows';
 import { DmThreadComposer } from '@/features/messages/dm-thread-composer';
 import { MessagesInboxSearchField } from '@/features/messages/messages-inbox-search-field';
+import { messagesThreadChromeTitle } from '@/features/messages/messages-thread-chrome';
+import { MessagesThreadChromeHeading } from '@/features/messages/messages-thread-chrome-heading';
 import {
   MessagesInboxPeopleRows,
   MessagesInboxThreadRows,
@@ -92,6 +95,10 @@ import {
 } from '@/features/messages/messages-inbox-search';
 import { useMessagesInboxSearch } from '@/features/messages/use-messages-inbox-search';
 import { DmUnlockPanel } from '@/features/messages/dm-unlock-panel';
+import {
+  MESSAGES_PRIVATE_INFO_TITLE,
+  MessagesPrivateInfoDrawer,
+} from '@/features/messages/messages-private-info-drawer';
 import { requestDmUnreadRefresh } from '@/components/providers/dm-unread-host';
 
 const THREAD_POLL_MS = 12_000;
@@ -102,7 +109,7 @@ export function MessagesPanel() {
   const searchParams = useSearchParams();
   const peerParam = searchParams.get('peer')?.trim().toLowerCase() ?? '';
   const threadParam = searchParams.get('thread')?.trim() ?? '';
-  const { accountId, isConnected, connect, hasSocialSession } = useAppWallet();
+  const { accountId, isConnected, hasSocialSession } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
 
   const [threads, setThreads] = useState<DmThreadSummary[] | null>(null);
@@ -144,7 +151,7 @@ export function MessagesPanel() {
   const inboxPreviewCacheRef = useRef(
     new Map<string, { messageId: string; text: string }>()
   );
-  const threadScrollRef = useRef<HTMLDivElement>(null);
+  const scrollRootRef = useRef<HTMLElement | null>(null);
   const pinThreadToLatestRef = useRef(true);
 
   useEffect(() => {
@@ -178,6 +185,15 @@ export function MessagesPanel() {
   const threadOpen = Boolean(activeThreadId && isUnlocked);
   const viewport = useVisualViewportSheetMetrics(threadOpen);
   const keyboardOpen = threadOpen && viewport.isMobile && viewport.lift > 0;
+  const [inboxSearchActive, setInboxSearchActive] = useState(false);
+  const [privateInfoOpen, setPrivateInfoOpen] = useState(false);
+
+  useEffect(() => {
+    if (threadOpen) {
+      setInboxSearchActive(false);
+    }
+  }, [threadOpen]);
+
   const passkeyEnrolled = Boolean(
     accountId && keysTick >= 0 && hasDmPasskeyEnrolled(accountId)
   );
@@ -189,15 +205,23 @@ export function MessagesPanel() {
     return parts.find((p) => p !== accountId.toLowerCase()) ?? peerParam;
   }, [activeThreadId, accountId, peerParam]);
 
-  const composePeer = peerParam;
-  /** Sheet only for starting a DM from `?peer=` (profile still uses its own sheet). */
-  const showCompose = Boolean(peerParam);
-
-  const peerIds = useMemo(
-    () => (threads ?? []).map((t) => t.peerAccountId),
-    [threads]
-  );
+  const peerIds = useMemo(() => {
+    const ids = new Set((threads ?? []).map((t) => t.peerAccountId));
+    if (peerFromThread) ids.add(peerFromThread);
+    return [...ids];
+  }, [peerFromThread, threads]);
   const profiles = usePostAuthorProfiles(peerIds);
+  const peerMood = usePageOwnerMood(
+    peerFromThread,
+    threadOpen && Boolean(peerFromThread)
+  );
+  const threadMoodStyle = useMemo(
+    () =>
+      threadOpen && peerMood
+        ? (supportSheetPanelStyle(peerMood.cssVars) as CSSProperties)
+        : undefined,
+    [peerMood, threadOpen]
+  );
 
   const { inboxThreads, sealedThreads } = useMemo(() => {
     if (!threads || !accountId) {
@@ -699,21 +723,13 @@ export function MessagesPanel() {
 
   const startChatFromPeer = useCallback(
     (peer: string) => {
-      const target = peer.trim();
+      const target = peer.trim().toLowerCase();
       if (!accountId || !target) return;
       if (messagingBlockedReason(target)) return;
-      const threadId = buildDmThreadId(accountId, target);
-      const existing = (threads ?? []).find(
-        (thread) => thread.threadId === threadId
-      );
       clearSearch();
-      if (existing) {
-        void openThread(existing.threadId);
-        return;
-      }
-      router.replace(messagesPath({ peer: target }));
+      void openThread(buildDmThreadId(accountId, target));
     },
-    [accountId, clearSearch, openThread, router, threads]
+    [accountId, clearSearch, messagingBlockedReason, openThread]
   );
 
   const handleOutgoingStart = useCallback(
@@ -1022,7 +1038,11 @@ export function MessagesPanel() {
       try {
         await bootstrapKeys();
         await refreshThreads();
-        if (threadParam) await openThread(threadParam);
+        if (threadParam) {
+          await openThread(threadParam);
+        } else if (peerParam) {
+          await openThread(buildDmThreadId(accountId, peerParam));
+        }
       } catch (cause) {
         setError(
           cause instanceof Error ? cause.message : 'Could not load messages.'
@@ -1035,6 +1055,7 @@ export function MessagesPanel() {
     hasSocialSession,
     isConnected,
     openThread,
+    peerParam,
     refreshThreads,
     threadParam,
   ]);
@@ -1139,10 +1160,27 @@ export function MessagesPanel() {
   ]);
 
   useEffect(() => {
-    const el = threadScrollRef.current;
+    const el = scrollRootRef.current;
+    if (!el || !threadOpen) return;
+    const onScroll = () => {
+      pinThreadToLatestRef.current =
+        el.scrollHeight - el.scrollTop - el.clientHeight < 96;
+    };
+    onScroll();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [threadOpen, activeThreadId]);
+
+  useEffect(() => {
+    const el = scrollRootRef.current;
     if (!el || !threadOpen || !pinThreadToLatestRef.current) return;
     el.scrollTop = el.scrollHeight;
-  }, [threadOpen, displayMessages, keyboardOpen, viewport.lift]);
+  }, [
+    threadOpen,
+    displayMessages,
+    keyboardOpen,
+    viewport.lift,
+  ]);
 
   useEffect(() => {
     if (!isUnlocked || !peerFromThread || !hasSocialSession) {
@@ -1191,8 +1229,8 @@ export function MessagesPanel() {
     });
     setReplyDraft(null);
     setError(null);
-    router.replace(messagesPath({ peer: peerParam || null }));
-  }, [peerParam, router]);
+    router.replace(messagesPath());
+  }, [router]);
 
   const loadOlderMessages = useCallback(async () => {
     if (!activeThreadId || !accountId || loadingOlder) return;
@@ -1262,20 +1300,35 @@ export function MessagesPanel() {
     return (
       <OsAppScreen
         title="Messages"
-        subtitle="Private · sealed on your device"
-        backFallbackHref={APP_HOME_PATH}
+        compactChrome
         glassChrome
+        dockBack
+        backFallbackHref={APP_HOME_PATH}
+        leading={null}
+        heading={<p className="os-app-screen-title">Messages</p>}
+        actions={
+          <OsIconAction
+            ariaLabel={MESSAGES_PRIVATE_INFO_TITLE}
+            aria-expanded={privateInfoOpen}
+            aria-haspopup="dialog"
+            onClick={() => setPrivateInfoOpen(true)}
+          >
+            <QuestionMarkCircleFillIcon
+              aria-hidden
+              className="glass-sheet-close-icon"
+            />
+          </OsIconAction>
+        }
       >
-        <div className="messages-panel">
-          <p className="messages-panel-empty">
-            Connect your wallet to send private messages.
-          </p>
-          <OsSheetActions>
-            <OsSheetAction type="button" ready onClick={() => void connect()}>
-              Connect
-            </OsSheetAction>
-          </OsSheetActions>
-        </div>
+        <OsAppChromePage className="messages-panel">
+          <OsAppChromePageStatus>
+            Private encrypted messages between OnSocial accounts.
+          </OsAppChromePageStatus>
+        </OsAppChromePage>
+        <MessagesPrivateInfoDrawer
+          open={privateInfoOpen}
+          onClose={() => setPrivateInfoOpen(false)}
+        />
       </OsAppScreen>
     );
   }
@@ -1284,20 +1337,41 @@ export function MessagesPanel() {
     return (
       <OsAppScreen
         title="Messages"
-        subtitle="Private · sealed on your device"
-        backFallbackHref={APP_HOME_PATH}
+        compactChrome
         glassChrome
+        dockBack
+        backFallbackHref={APP_HOME_PATH}
+        leading={null}
+        heading={<p className="os-app-screen-title">Messages</p>}
+        actions={
+          <OsIconAction
+            ariaLabel={MESSAGES_PRIVATE_INFO_TITLE}
+            aria-expanded={privateInfoOpen}
+            aria-haspopup="dialog"
+            onClick={() => setPrivateInfoOpen(true)}
+          >
+            <QuestionMarkCircleFillIcon
+              aria-hidden
+              className="glass-sheet-close-icon"
+            />
+          </OsIconAction>
+        }
       >
-        <div className="messages-panel">
-          <p className="messages-panel-empty">
+        <OsAppChromePage className="messages-panel">
+          <OsAppChromePageStatus>
             Connect your session to load private messages.
-          </p>
-        </div>
+          </OsAppChromePageStatus>
+        </OsAppChromePage>
+        <MessagesPrivateInfoDrawer
+          open={privateInfoOpen}
+          onClose={() => setPrivateInfoOpen(false)}
+        />
       </OsAppScreen>
     );
   }
 
-  const mobilePane = threadOpen ? 'thread' : 'list';
+  const messagesPane = threadOpen ? 'thread' : 'list';
+  const keysLocked = !isUnlocked;
   const peerProfile = peerFromThread ? profiles[peerFromThread] : undefined;
   const peerName = peerFromThread
     ? displayName(peerFromThread, peerProfile?.displayName)
@@ -1310,9 +1384,7 @@ export function MessagesPanel() {
         peerAccountId={peerFromThread}
         disabled={peerMessagingReady === 'absent'}
         disabledReason={
-          peerMessagingReady === 'absent'
-            ? 'They have not enabled private messages yet. Ask them to open Messages once.'
-            : null
+          peerMessagingReady === 'absent' ? DM_PEER_MESSAGES_UNAVAILABLE : null
         }
         replyTo={replyDraft}
         onCancelReply={() => setReplyDraft(null)}
@@ -1363,49 +1435,70 @@ export function MessagesPanel() {
       : '0px',
   } as CSSProperties;
 
-  const screenTitle = threadOpen ? peerName || 'Conversation' : 'Messages';
-  const screenSubtitle = threadOpen
-    ? peerHandle && peerName !== peerHandle
-      ? `@${peerHandle}`
-      : undefined
-    : 'Private · sealed on your device';
+  const screenTitle = threadOpen
+    ? messagesThreadChromeTitle(peerName, peerHandle)
+    : 'Messages';
+  const threadChromeHeading =
+    threadOpen && peerFromThread ? (
+      <MessagesThreadChromeHeading
+        accountId={peerFromThread}
+        profileName={peerProfile?.displayName}
+        avatarUrl={peerProfile?.avatarUrl}
+      />
+    ) : null;
+  const showPrivateInfoAction = !threadOpen;
 
   return (
     <OsAppScreen
       title={screenTitle}
       titleHref={
-        threadOpen && peerFromThread ? `/${peerFromThread}` : undefined
+        !threadChromeHeading && threadOpen && peerFromThread
+          ? `/${peerFromThread}`
+          : undefined
       }
-      subtitle={screenSubtitle}
-      backFallbackHref={APP_HOME_PATH}
+      compactChrome
       glassChrome
+      scrollRootRef={scrollRootRef}
+      moodId={threadOpen && peerMood ? peerMood.id : undefined}
+      moodStyle={threadMoodStyle}
+      dockBack={threadOpen}
+      onDockBack={closeThread}
+      backFallbackHref={threadOpen ? messagesPath() : APP_HOME_PATH}
+      leading={null}
       style={screenStyle}
-      toolbar={
-        <MessagesInboxSearchField
-          value={inboxQuery}
-          onValueChange={setInboxQuery}
-        />
+      heading={
+        threadChromeHeading ??
+        (keysLocked ? (
+          <p className="os-app-screen-title">Messages</p>
+        ) : !threadOpen ? (
+          <MessagesInboxSearchField
+            value={inboxQuery}
+            onValueChange={setInboxQuery}
+            onActiveChange={setInboxSearchActive}
+          />
+        ) : undefined)
       }
-      leading={
-        <>
-          <span className="messages-screen-back-home">
-            <ContextualBack fallbackHref={APP_HOME_PATH} />
-          </span>
-          {threadOpen ? (
-            <OsIconAction
-              className="messages-screen-back-thread"
-              ariaLabel="Back to conversations"
-              onClick={closeThread}
-            >
-              <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
-            </OsIconAction>
-          ) : null}
-        </>
+      actions={
+        showPrivateInfoAction ? (
+          <OsIconAction
+            ariaLabel={MESSAGES_PRIVATE_INFO_TITLE}
+            aria-expanded={privateInfoOpen}
+            aria-haspopup="dialog"
+            onClick={() => setPrivateInfoOpen(true)}
+          >
+            <QuestionMarkCircleFillIcon
+              aria-hidden
+              className="glass-sheet-close-icon"
+            />
+          </OsIconAction>
+        ) : undefined
       }
     >
-      <div
+      <OsAppChromePage
         className="messages-panel"
-        data-mobile-pane={mobilePane}
+        data-messages-pane={messagesPane}
+        data-keys-locked={keysLocked ? 'true' : undefined}
+        data-inbox-search={inboxSearchActive ? 'active' : undefined}
         data-keyboard={keyboardOpen ? 'open' : undefined}
       >
         {composer}
@@ -1425,21 +1518,22 @@ export function MessagesPanel() {
         ) : null}
 
         {error ? (
-          <p className="messages-panel-error" role="alert">
+          <OsAppChromePageStatus error role="alert">
             {error}
-          </p>
+          </OsAppChromePageStatus>
         ) : null}
 
-        <div className="messages-layout" data-mobile-pane={mobilePane}>
+        {!keysLocked ? (
+        <div className="messages-layout" data-messages-pane={messagesPane}>
           <aside className="messages-thread-list" aria-label="Conversations">
             {threads == null ? (
-              <p className="messages-panel-empty">Loading…</p>
+              <OsAppChromePageStatus>Loading…</OsAppChromePageStatus>
             ) : isSearching ? (
               <>
                 {filteredThreads.length === 0 ? (
-                  <p className="messages-panel-empty">
+                  <OsAppChromePageStatus>
                     No conversations match.
-                  </p>
+                  </OsAppChromePageStatus>
                 ) : (
                   <>
                     {peopleActive ? (
@@ -1461,17 +1555,17 @@ export function MessagesPanel() {
                 )}
                 {peopleActive ? (
                   <div className="messages-search-people">
-                    <p className="messages-search-section">People</p>
+                    <p className="messages-search-section">Start a chat</p>
                     {peoplePending ? (
-                      <p className="messages-muted">Searching people…</p>
+                      <p className="messages-muted">Searching…</p>
                     ) : peopleError ? (
                       <p className="messages-muted">{peopleError}</p>
                     ) : peopleResults.length === 0 ? (
-                      <p className="messages-muted">No people match.</p>
+                      <p className="messages-muted">No matches.</p>
                     ) : (
                       <MessagesInboxPeopleRows
                         people={peopleResults}
-                        ariaLabel="People"
+                        ariaLabel="Start a chat"
                         isBlocked={messagingBlockedReason}
                         blockedCopy={messagingBlockedCopy}
                         onOpenPerson={startChatFromPeer}
@@ -1481,22 +1575,22 @@ export function MessagesPanel() {
                 ) : null}
               </>
             ) : threads.length === 0 ? (
-              <p className="messages-panel-empty">
-                No conversations yet. Search someone, or message them from their
-                profile.
-              </p>
+              <OsAppChromePageStatus>
+                No conversations yet. Search to start a chat, or message them
+                from their profile.
+              </OsAppChromePageStatus>
             ) : inboxThreads &&
               inboxThreads.length === 0 &&
               sealedThreads.length > 0 ? (
-              <p className="messages-panel-empty">
+              <OsAppChromePageStatus>
                 No open conversations. Sealed threads from before a key reset
                 are below.
-              </p>
+              </OsAppChromePageStatus>
             ) : inboxThreads && inboxThreads.length === 0 ? (
-              <p className="messages-panel-empty">
-                No conversations yet. Search someone, or message them from their
-                profile.
-              </p>
+              <OsAppChromePageStatus>
+                No conversations yet. Search to start a chat, or message them
+                from their profile.
+              </OsAppChromePageStatus>
             ) : (
               <MessagesInboxThreadRows
                 threads={inboxThreads ?? []}
@@ -1534,50 +1628,17 @@ export function MessagesPanel() {
           </aside>
 
           <section className="messages-thread" aria-label="Thread">
-            {activeThreadId && peerFromThread ? (
-              <header className="messages-thread-peer">
-                <ProfileAvatar
-                  src={peerProfile?.avatarUrl ?? undefined}
-                  fallbackInitial={(peerName || '?').slice(0, 1)}
-                  size="sm"
-                />
-                <div className="messages-thread-peer-copy">
-                  <Link
-                    href={`/${peerFromThread}`}
-                    className="messages-thread-peer-name"
-                    scroll={false}
-                  >
-                    {peerName || 'Conversation'}
-                  </Link>
-                  {peerHandle && peerName !== peerHandle ? (
-                    <p className="messages-thread-peer-handle">@{peerHandle}</p>
-                  ) : (
-                    <p className="messages-thread-peer-handle">{peerHandle}</p>
-                  )}
-                </div>
-              </header>
-            ) : null}
-            <div
-              ref={threadScrollRef}
-              className="messages-thread-scroll"
-              onScroll={() => {
-                const el = threadScrollRef.current;
-                if (!el) return;
-                pinThreadToLatestRef.current =
-                  el.scrollHeight - el.scrollTop - el.clientHeight < 96;
-              }}
-            >
               {!activeThreadId ? (
-                <p className="messages-panel-empty messages-thread-empty">
-                  Pick a conversation, search someone, or message them from
-                  their profile.
-                </p>
+                <OsAppChromePageStatus className="messages-thread-empty">
+                  Pick a conversation, search to start a chat, or message them
+                  from their profile.
+                </OsAppChromePageStatus>
               ) : !isUnlocked ? (
-                <p className="messages-panel-empty">
+                <OsAppChromePageStatus>
                   Unlock messages to read this conversation.
-                </p>
+                </OsAppChromePageStatus>
               ) : messages == null ? (
-                <p className="messages-panel-empty">Loading…</p>
+                <OsAppChromePageStatus>Loading…</OsAppChromePageStatus>
               ) : (
                 <>
                   {accountId &&
@@ -1750,25 +1811,10 @@ export function MessagesPanel() {
                   </ul>
                 </>
               )}
-            </div>
           </section>
         </div>
+        ) : null}
 
-        <DmComposeSheet
-          open={showCompose && Boolean(composePeer)}
-          peerAccountId={composePeer}
-          onClose={() => {
-            if (peerParam) {
-              router.replace(
-                messagesPath({ threadId: activeThreadId || null })
-              );
-            }
-          }}
-          onSent={() => {
-            void refreshThreads();
-            if (activeThreadId) void openThread(activeThreadId);
-          }}
-        />
         <DmRecoveryCodeSheet
           open={Boolean(recoveryCode)}
           code={recoveryCode ?? ''}
@@ -1785,7 +1831,11 @@ export function MessagesPanel() {
           }}
           onPasskeyEnrolled={() => setKeysTick((n) => n + 1)}
         />
-      </div>
+        <MessagesPrivateInfoDrawer
+          open={privateInfoOpen}
+          onClose={() => setPrivateInfoOpen(false)}
+        />
+      </OsAppChromePage>
     </OsAppScreen>
   );
 }

@@ -37,7 +37,7 @@ export const LEADERBOARD_TRACK_PARAM = 'track';
  * Canonical home is `/@accountId` via {@link daoPath}; `/dao` permanently redirects.
  */
 export const APP_DAO_PATH = '/dao';
-/** Social drop discovery — Live / Closing / Upcoming / Finished / New / Loved / Saved. */
+/** Social drop discovery — Live / Closing / Upcoming / New / Loved / Traded / Finished / Saved. */
 export const APP_DROPS_PATH = '/drops';
 /** Query key for Drops catalog sort. */
 export const DROPS_SORT_PARAM = 'sort';

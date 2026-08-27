@@ -58,9 +58,46 @@ export function writeDockShouldSendOnEnter(
   return !window.matchMedia(`(max-width: ${maxWidthPx}px)`).matches;
 }
 
+export const WRITE_DOCK_ADD_REPLY_PLACEHOLDER = 'Add a reply…';
+
+/** Matches `--portfolio-summon-avatar-size` / `.os-write-dock-input` line-height. */
+export const WRITE_DOCK_INPUT_LINE_REM = 1.35;
+
+/** Full compose — four full rows before in-field scroll. */
+export const WRITE_DOCK_COMPOSE_MAX_LINES = 4;
+
+/** Home quick reply — keep the dock compact; three full rows then scroll. */
+export const WRITE_DOCK_REPLY_MAX_LINES = 3;
+
+export function writeDockInputLineHeightPx(
+  rootFontSizePx = 16
+): number {
+  return Math.round(WRITE_DOCK_INPUT_LINE_REM * rootFontSizePx);
+}
+
+export function writeDockInputMaxLines(hasReplyChrome: boolean): number {
+  return hasReplyChrome
+    ? WRITE_DOCK_REPLY_MAX_LINES
+    : WRITE_DOCK_COMPOSE_MAX_LINES;
+}
+
+/** Snap visible height to whole lines so capped text never clips mid-row. */
+export function writeDockInputHeightPx(
+  scrollHeightPx: number,
+  maxLines: number,
+  rootFontSizePx = 16
+): number {
+  const linePx = writeDockInputLineHeightPx(rootFontSizePx);
+  const lines = Math.min(
+    Math.max(1, Math.ceil(scrollHeightPx / linePx)),
+    maxLines
+  );
+  return lines * linePx;
+}
+
 export function writeDockReplyPlaceholder(name?: string | null): string {
   const trimmed = name?.trim();
-  return trimmed ? `Reply to ${trimmed}…` : 'Add a reply…';
+  return trimmed ? `Reply to ${trimmed}…` : WRITE_DOCK_ADD_REPLY_PLACEHOLDER;
 }
 
 export function writeDockIsThoughtEnlarge(

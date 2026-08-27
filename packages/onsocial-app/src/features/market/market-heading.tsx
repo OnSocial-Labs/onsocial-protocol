@@ -4,8 +4,8 @@ import Link from 'next/link';
 import {
   BookmarkFillIcon,
   GiftFillIcon,
+  OsAppChromeNavSearch,
   OsIconAction,
-  SearchField,
   ShopFillIcon,
 } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -25,7 +25,7 @@ export function MarketSearchHeading({
   interactive = true,
 }: MarketSearchHeadingProps) {
   return (
-    <SearchField
+    <OsAppChromeNavSearch
       value={listingQuery}
       onValueChange={
         interactive && onListingQueryChange
@@ -35,7 +35,7 @@ export function MarketSearchHeading({
       placeholder="Search listings"
       clearAriaLabel="Clear search"
       ariaLabel="Search Market listings"
-      className="discover-nav-search-field os-app-screen-search"
+      idleClassName="discover-nav-search-field"
       leadingIcon={<ShopFillIcon className="search-field-icon" aria-hidden />}
     />
   );

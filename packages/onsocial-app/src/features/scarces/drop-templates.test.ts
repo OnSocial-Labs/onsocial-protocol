@@ -8,6 +8,7 @@ describe('DROP_TEMPLATES', () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const template of DROP_TEMPLATES) {
       expect(template.label.trim()).not.toBe('');
+      expect(template.helpTitle.trim()).not.toBe('');
       expect(template.tagline.trim()).not.toBe('');
       expect(template.hint.trim()).not.toBe('');
       expect(template.unit.trim()).not.toBe('');
@@ -15,12 +16,14 @@ describe('DROP_TEMPLATES', () => {
     }
   });
 
-  it('keeps kind help hub-tight (one-liner + short detail)', () => {
+  it('keeps kind help readable (one-liner + enriched detail)', () => {
     for (const template of DROP_TEMPLATES) {
       expect(template.tagline.length).toBeLessThanOrEqual(80);
-      expect(template.hint.length).toBeLessThanOrEqual(140);
+      expect(template.hint.length).toBeLessThanOrEqual(320);
       expect(template.tagline.includes('\n')).toBe(false);
       expect(template.hint.includes('\n')).toBe(false);
+      expect(template.helpTitle.toLowerCase()).toMatch(/ drop$/);
+      expect(template.helpTitle.toLowerCase()).not.toContain('drops');
     }
   });
 

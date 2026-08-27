@@ -16,7 +16,7 @@ import {
   type PostRow,
   type PostScarceEmbed,
 } from '@onsocial/sdk';
-import { OnSocialMark, ProtocolMotionArrow } from '@onsocial/ui';
+import { OnSocialMark, OsAppChromePage, OsAppChromeToolbarRail, ProtocolMotionArrow } from '@onsocial/ui';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -59,6 +59,7 @@ import {
 } from '@/features/home/home-saved-feeds';
 import {
   PersonalFeedList,
+  insertOptimisticFeedPost,
   shouldPrependOptimisticFeedPost,
 } from '@/features/home/personal-feed-list';
 import { PostRowSkeleton, postKey } from '@/features/home/post-card';
@@ -804,7 +805,10 @@ export function HomePagePanel({
       const unseen = countUnseenFeedPosts(
         result.page.items,
         seenPostKeysRef.current,
-        { includeForeignReplies: Boolean(focus) }
+        {
+          includeForeignReplies: Boolean(focus),
+          viewerAccountId: accountId,
+        }
       );
       setNewPostCount(unseen);
     } catch {
@@ -842,11 +846,9 @@ export function HomePagePanel({
 
   const onConfirmed = useCallback((post: PostRow) => {
     if (!shouldPrependOptimisticFeedPost(post)) return;
-    setPosts((current) => {
-      const key = postKey(post);
-      if (current.some((row) => postKey(row) === key)) return current;
-      return [post, ...current];
-    });
+    setNewPostCount(0);
+    newPostCountRef.current = 0;
+    setPosts((current) => insertOptimisticFeedPost(current, post));
   }, []);
 
   const onUnreposted = useCallback(
@@ -904,10 +906,9 @@ export function HomePagePanel({
         scrollRootRef={scrollRootRef}
         leading={null}
         toolbar={
-          <div
-            className={`os-app-chrome-rail home-feed-compact-chrome${
-              toolbarHidden ? ' is-scroll-hidden' : ''
-            }`}
+          <OsAppChromeToolbarRail
+            hidden={toolbarHidden}
+            className="home-feed-compact-chrome"
           >
             <Link
               href={APP_DISCOVER_PATH}
@@ -931,10 +932,10 @@ export function HomePagePanel({
             {activeLens === 'saved' ? null : (
               <HomeFeedSortToggle sort={sort} onSortChange={handleSortChange} />
             )}
-          </div>
+          </OsAppChromeToolbarRail>
         }
       >
-        <div className="home-feed">
+        <OsAppChromePage className="home-feed">
           {!isConnected && !walletLoading ? (
             <section className="post-composer post-composer-guest">
               <p className="post-composer-lead">Connect your wallet to post.</p>
@@ -984,7 +985,7 @@ export function HomePagePanel({
           ) : null}
 
           {sheet}
-        </div>
+        </OsAppChromePage>
       </OsAppScreen>
 
       {showNewPostsPill ? (

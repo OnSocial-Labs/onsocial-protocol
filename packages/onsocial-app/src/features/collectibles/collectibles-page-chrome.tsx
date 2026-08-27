@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { SearchField, StarsCFillIcon } from '@onsocial/ui';
+import { OsAppChromeNavSearch, OsAppChromeToolbarRail, StarsCFillIcon } from '@onsocial/ui';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { useCollectiblesPanelChrome } from '@/features/collectibles/collectibles-panel-context';
 import { MarketFilterMenu } from '@/features/market/market-filter-menu';
@@ -18,13 +18,13 @@ export function CollectiblesSearchHeading() {
   }
 
   return (
-    <SearchField
+    <OsAppChromeNavSearch
       value={searchQuery}
       onValueChange={setSearchQuery}
       placeholder="Search collectibles"
       clearAriaLabel="Clear search"
       ariaLabel="Search collectibles"
-      className="discover-nav-search-field os-app-screen-search"
+      idleClassName="discover-nav-search-field"
       leadingIcon={<StarsCFillIcon className="search-field-icon" aria-hidden />}
     />
   );
@@ -50,10 +50,9 @@ export function CollectiblesFilterToolbar() {
   }
 
   return (
-    <div
-      className={`os-app-chrome-rail market-listing-toolbar collectibles-filter-toolbar${
-        toolbarHidden ? ' is-scroll-hidden' : ''
-      }`}
+    <OsAppChromeToolbarRail
+      hidden={toolbarHidden}
+      className="market-listing-toolbar collectibles-filter-toolbar"
     >
       <div className="market-listing-filter-stack">
         <OsChipRail
@@ -82,6 +81,6 @@ export function CollectiblesFilterToolbar() {
         onClear={() => setMediumFilter('all')}
         onOpenChange={setFilterMenuOpen}
       />
-    </div>
+    </OsAppChromeToolbarRail>
   );
 }

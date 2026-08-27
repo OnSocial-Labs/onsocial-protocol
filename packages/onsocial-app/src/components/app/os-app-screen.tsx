@@ -47,9 +47,16 @@ export interface OsAppScreenProps {
    */
   compactChrome?: boolean;
   /**
+   * Nested panes scroll under the absolute glass header (Messages inbox / thread).
+   * Sets `data-nested-scroll-chrome` — body flush, frost samples nested scrollers.
+   */
+  nestedScrollChrome?: boolean;
+  /**
    * Move contextual back to the summon dock (hidden while writing / launcher open).
    */
   dockBack?: boolean;
+  /** When set with `dockBack`, runs instead of history navigation (e.g. close thread). */
+  onDockBack?: () => void;
   toolbar?: ReactNode;
   /**
    * Drawer-style dock outside the scroll body (GlassSheet footer recipe).
@@ -58,6 +65,13 @@ export interface OsAppScreenProps {
   footer?: ReactNode;
   /** Scroll container for nested infinite lists (`.os-app-screen-body`). */
   scrollRootRef?: RefObject<HTMLElement | null>;
+  /**
+   * Nested panes that scroll outside `.os-app-screen-body` (e.g. Messages
+   * inbox / thread). OR'd with body scrollTop for glass frost elevation.
+   */
+  glassScrollElevated?: boolean;
+  /** Keep glass frost on without waiting for scroll (Messages-style panes). */
+  glassChromeAlwaysElevated?: boolean;
   /**
    * Mood wash in the app column (`data-mood` + CSS vars).
    * `undefined` (default) → connected viewer mood via `useViewerDockMood`.
@@ -68,6 +82,8 @@ export interface OsAppScreenProps {
   /** CSS vars; defaults with viewer mood when `moodId` is omitted. */
   moodStyle?: CSSProperties;
   style?: CSSProperties;
+  /** Nested in OsPageSheet / overlay — skip summon launcher + flat host fill. */
+  embedded?: boolean;
   children: ReactNode;
 }
 
@@ -84,13 +100,18 @@ export function OsAppScreen({
   immersiveHeaderBanner = null,
   glassChrome = false,
   compactChrome = false,
+  nestedScrollChrome = false,
   dockBack = false,
+  onDockBack,
   toolbar,
   footer,
   scrollRootRef,
+  glassScrollElevated = false,
+  glassChromeAlwaysElevated = false,
   moodId,
   moodStyle,
   style,
+  embedded = false,
   children,
 }: OsAppScreenProps) {
   const glassMode = glassChrome && !immersiveHeader;
@@ -108,9 +129,13 @@ export function OsAppScreen({
   const dockBackEntry = useMemo(
     () =>
       dockBack
-        ? { fallbackHref: backFallbackHref, ariaLabel: 'Back' }
+        ? {
+            fallbackHref: backFallbackHref,
+            ariaLabel: 'Back',
+            ...(onDockBack ? { onBack: onDockBack } : {}),
+          }
         : null,
-    [backFallbackHref, dockBack]
+    [backFallbackHref, dockBack, onDockBack]
   );
   useRegisterDockBack(dockBackEntry);
   const navBackInDock = dockBack && leading === undefined;
@@ -145,7 +170,7 @@ export function OsAppScreen({
     syncHeight();
 
     const syncElevated = () => {
-      setGlassElevated(body.scrollTop > 8);
+      setGlassElevated(body.scrollTop > 8 || glassScrollElevated);
     };
     syncElevated();
     body.addEventListener('scroll', syncElevated, { passive: true });
@@ -154,7 +179,7 @@ export function OsAppScreen({
       body.removeEventListener('scroll', syncElevated);
       screen?.style.removeProperty('--os-screen-chrome-height');
     };
-  }, [glassMode]);
+  }, [glassMode, glassScrollElevated]);
 
   const screenStyle: CSSProperties = {
     ...resolvedMoodStyle,
@@ -164,17 +189,22 @@ export function OsAppScreen({
     ...style,
   };
 
-  const elevated = headerElevated || (glassMode && glassElevated);
+  const elevated =
+    headerElevated ||
+    (glassMode && (glassChromeAlwaysElevated || glassElevated));
 
   return (
     <div
-      ref={portalHostRef}
-      className={`os-app-screen app-surface${hasMood ? ' os-app-screen--mood' : ''}`}
+      ref={embedded ? undefined : portalHostRef}
+      className={`os-app-screen app-surface${hasMood ? ' os-app-screen--mood' : ''}${embedded ? ' os-app-screen--embedded' : ''}`}
       data-tone="os"
       data-immersive-header={immersiveHeader ? 'true' : undefined}
       data-immersive-banner={immersiveHeaderBanner ? 'true' : undefined}
       data-glass-chrome={glassMode ? 'true' : undefined}
       data-compact-chrome={compactChrome ? 'true' : undefined}
+      data-nested-scroll-chrome={
+        glassMode && nestedScrollChrome ? 'true' : undefined
+      }
       data-dock-back={dockBack ? 'true' : undefined}
       data-screen-footer={hasFooter ? 'true' : undefined}
       data-mood={hasMood ? resolvedMoodId! : undefined}
@@ -194,31 +224,27 @@ export function OsAppScreen({
               )}
               <div className="os-app-screen-heading">
                 {heading ? (
-                  <>
-                    <h1 className="sr-only">{title}</h1>
-                    {heading}
-                  </>
+                  <h1 className="sr-only">{title}</h1>
                 ) : (
-                  <>
-                    <h1 className="os-app-screen-title">
-                      {titleHref ? (
-                        <Link
-                          href={titleHref}
-                          className="os-app-screen-title-link"
-                          title={title}
-                          scroll={false}
-                        >
-                          {title}
-                        </Link>
-                      ) : (
-                        title
-                      )}
-                    </h1>
-                    {subtitle ? (
-                      <p className="os-app-screen-subtitle">{subtitle}</p>
-                    ) : null}
-                  </>
+                  <h1 className="os-app-screen-title">
+                    {titleHref ? (
+                      <Link
+                        href={titleHref}
+                        className="os-app-screen-title-link"
+                        title={title}
+                        scroll={false}
+                      >
+                        {title}
+                      </Link>
+                    ) : (
+                      title
+                    )}
+                  </h1>
                 )}
+                {heading ?? null}
+                {!heading && subtitle ? (
+                  <p className="os-app-screen-subtitle">{subtitle}</p>
+                ) : null}
               </div>
               {actions ? (
                 <div className="os-app-screen-actions">{actions}</div>
@@ -239,7 +265,7 @@ export function OsAppScreen({
           <div className="os-app-screen-footer">{footer}</div>
         ) : null}
       </div>
-      <AppShellLauncher />
+      {embedded ? null : <AppShellLauncher />}
     </div>
   );
 }

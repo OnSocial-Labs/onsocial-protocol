@@ -294,6 +294,28 @@ export {
   type StandingIdentityShowHandle,
 } from './standing-identity.js';
 export {
+  OsChromeSubject,
+  osChromeSubjectClassName,
+  type OsChromeSubjectShowHandle,
+} from './os-chrome-subject.js';
+export {
+  OsAppChromeNavSearch,
+  osAppChromeNavHeightClassName,
+  osAppChromeNavSearchClassName,
+  osAppChromeNavSearchIdleClassName,
+  osAppChromeRailClassName,
+  OsAppChromeToolbarRail,
+  osAppChromePanelFlushClassName,
+  OsAppChromePage,
+  OsAppChromePageStatus,
+  osAppChromePageClassName,
+  osAppChromePageStatusClassName,
+  OsAppChromeScroller,
+  osAppChromeScrollerBleedClassName,
+  osAppChromeScrollerClassName,
+  osAppChromeScrollerInsetClassName,
+} from './os-app-chrome.js';
+export {
   SheetFactCopy,
   SheetFactCount,
   SheetFactRow,

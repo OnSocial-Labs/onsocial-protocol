@@ -3,6 +3,7 @@
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
+import { OsAppChromePage, OsAppChromePageStatus } from '@onsocial/ui';
 import { DiscoverDaosPanel } from '@/features/discover/discover-daos-panel';
 import { DiscoverGuildsPanel } from '@/features/discover/discover-guilds-panel';
 import { DiscoverHubsPanel } from '@/features/discover/discover-hubs-panel';
@@ -15,7 +16,6 @@ export function DiscoverPanelContent() {
     listAccounts,
     viewerAccountId,
     isConnected,
-    connect,
     showConnectHint,
     loadError,
     actionError,
@@ -27,7 +27,7 @@ export function DiscoverPanelContent() {
     showListSkeleton,
     isListRefreshing,
     isLoadingMore,
-  relationshipSynced,
+    relationshipSynced,
   showLoadMoreSentinel,
   loadMoreRef,
   footerSummary,
@@ -40,7 +40,7 @@ export function DiscoverPanelContent() {
   } = useDiscoverPanel();
 
   return (
-    <div className="standing-panel discover-panel">
+    <OsAppChromePage className="standing-panel discover-panel">
       {tab === 'trending' ? (
         <DiscoverTrendingPanel
           onOpenTab={setTab}
@@ -51,16 +51,9 @@ export function DiscoverPanelContent() {
       {tab === 'profiles' ? (
         <>
           {showConnectHint ? (
-            <p className="discover-connect-hint">
-              <button
-                type="button"
-                className="discover-connect-hint-action"
-                onClick={() => void connect()}
-              >
-                Connect wallet
-              </button>{' '}
-              to stand with profiles.
-            </p>
+            <OsAppChromePageStatus className="discover-connect-hint">
+              Connect to stand with profiles.
+            </OsAppChromePageStatus>
           ) : null}
 
           {loadError ? (
@@ -172,6 +165,6 @@ export function DiscoverPanelContent() {
           initialRows={initialTrending?.tickers ?? null}
         />
       ) : null}
-    </div>
+    </OsAppChromePage>
   );
 }

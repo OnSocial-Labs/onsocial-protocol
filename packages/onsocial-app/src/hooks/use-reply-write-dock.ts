@@ -14,8 +14,8 @@ import { submitPersonalPost } from '@/features/home/submit-personal-post';
 import { useOnSocialWriter } from '@/hooks/use-onsocial-writer';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
+  WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
   writeDockDraftKey,
-  writeDockReplyPlaceholder,
 } from '@/lib/os-write-dock';
 import { postKey } from '@/lib/post-display';
 
@@ -103,7 +103,7 @@ export function useReplyWriteDock({
   const entry = useMemo<WriteDockRegistration | null>(() => {
     if (!enabled || !target) return null;
     return {
-      placeholder: placeholder ?? writeDockReplyPlaceholder(),
+      placeholder: placeholder ?? WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
       ariaLabel: placeholder ?? 'Reply',
       disabled,
       pending,

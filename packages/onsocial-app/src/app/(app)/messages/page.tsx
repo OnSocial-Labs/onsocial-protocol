@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Suspense } from 'react';
+import { OsAppChromePage, OsAppChromePageStatus } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { MessagesPanel } from '@/features/messages/messages-panel';
 import { APP_HOME_PATH } from '@/lib/app-routes';
@@ -18,13 +19,14 @@ function MessagesFallback() {
   return (
     <OsAppScreen
       title="Messages"
-      subtitle="Private · sealed on your device"
+      compactChrome
       backFallbackHref={APP_HOME_PATH}
       glassChrome
+      heading={<p className="os-app-screen-title">Messages</p>}
     >
-      <div className="messages-panel">
-        <p className="messages-panel-empty">Loading…</p>
-      </div>
+      <OsAppChromePage className="messages-panel">
+        <OsAppChromePageStatus>Loading…</OsAppChromePageStatus>
+      </OsAppChromePage>
     </OsAppScreen>
   );
 }

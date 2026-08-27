@@ -446,6 +446,7 @@ export function SummonLauncher({
                 <OsDockBackZone
                   fallbackHref={dockBack.fallbackHref}
                   ariaLabel={dockBack.ariaLabel}
+                  onBack={dockBack.onBack}
                 />
               ) : undefined
             }

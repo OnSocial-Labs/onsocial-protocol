@@ -6,8 +6,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Notification } from '@onsocial/sdk';
 import {
+  OsAppChromePage,
+  OsAppChromePageStatus,
   OsSheetAction,
-  OsSheetActions,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -48,7 +49,7 @@ const PAGE_SIZE = 40;
 export function NotificationsPanel() {
   const router = useRouter();
   const { openAccountSheet } = useAppAccountSheet();
-  const { accountId, isConnected, connect, hasSocialSession } = useAppWallet();
+  const { accountId, isConnected, hasSocialSession } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const activityUnread = useNotificationsUnreadCount();
   const [items, setItems] = useState<Notification[] | null>(null);
@@ -259,36 +260,29 @@ export function NotificationsPanel() {
   let body: ReactNode;
   if (!isConnected || !accountId) {
     body = (
-      <>
-        <p className="notifications-panel-empty">
-          Connect your wallet to see activity.
-        </p>
-        <OsSheetActions>
-          <OsSheetAction type="button" ready onClick={() => void connect()}>
-            Connect
-          </OsSheetAction>
-        </OsSheetActions>
-      </>
+      <OsAppChromePageStatus>
+        Stands, mentions, sales, and more — connect to see activity.
+      </OsAppChromePageStatus>
     );
   } else if (!hasSocialSession) {
     body = (
-      <p className="notifications-panel-empty">
+      <OsAppChromePageStatus>
         Connect your session to load activity.
-      </p>
+      </OsAppChromePageStatus>
     );
   } else {
     body = (
       <>
         {error ? (
-          <p className="notifications-panel-error" role="alert">
+          <OsAppChromePageStatus error role="alert">
             {error}
-          </p>
+          </OsAppChromePageStatus>
         ) : null}
 
         {items == null ? (
           <NotificationActivitySkeleton />
         ) : items.length === 0 ? (
-          <p className="notifications-panel-empty">No activity yet.</p>
+          <OsAppChromePageStatus>No activity yet.</OsAppChromePageStatus>
         ) : (
           <>
             <NotificationActivityRows
@@ -326,12 +320,15 @@ export function NotificationsPanel() {
   return (
     <OsAppScreen
       title="Activity"
-      subtitle="Stands, mentions, sales, and more"
-      backFallbackHref={APP_HOME_PATH}
+      compactChrome
       glassChrome
+      dockBack
+      leading={null}
+      backFallbackHref={APP_HOME_PATH}
+      heading={<p className="os-app-screen-title">Activity</p>}
       actions={markAllAction}
     >
-      <div className="notifications-panel">{body}</div>
+      <OsAppChromePage className="notifications-panel">{body}</OsAppChromePage>
     </OsAppScreen>
   );
 }

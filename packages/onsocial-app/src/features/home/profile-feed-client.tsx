@@ -5,6 +5,7 @@ import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   PersonalFeedList,
+  insertOptimisticFeedPost,
   shouldPrependOptimisticFeedPost,
 } from '@/features/home/personal-feed-list';
 import { PostRowSkeleton } from '@/features/home/post-card';
@@ -124,7 +125,7 @@ export function ProfileFeedClient({
     (post: PostRow) => {
       if (post.accountId !== accountId) return;
       if (!shouldPrependOptimisticFeedPost(post)) return;
-      setPosts((current) => [post, ...current]);
+      setPosts((current) => insertOptimisticFeedPost(current, post));
     },
     [accountId]
   );

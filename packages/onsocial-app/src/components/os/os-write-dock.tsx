@@ -12,6 +12,7 @@ import {
   DirectionUpFillIcon,
   Divider,
   ImageIcon,
+  MultiplyIcon,
   ScaleUpIcon,
 } from '@onsocial/ui';
 import {
@@ -25,6 +26,9 @@ import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet
 import {
   WRITE_DOCK_MEDIA_ACCEPT,
   writeDockCanSend,
+  writeDockInputHeightPx,
+  writeDockInputLineHeightPx,
+  writeDockInputMaxLines,
   writeDockShowCompactBarTools,
   writeDockShowExpand,
   writeDockShowMedia,
@@ -54,6 +58,8 @@ export function OsWriteDockReplyChip({
   label: string;
   onCancel: () => void;
 }) {
+  const dismiss = () => onCancel();
+
   return (
     <div className="os-write-dock-reply">
       <p className="os-write-dock-reply-copy">
@@ -63,9 +69,20 @@ export function OsWriteDockReplyChip({
       <button
         type="button"
         className="os-write-dock-reply-cancel"
-        onClick={onCancel}
+        aria-label="Cancel reply"
+        onPointerDown={(event) => {
+          // One tap on mobile — keep focus on the field until we dismiss so
+          // the keyboard does not eat the first tap before click fires.
+          event.preventDefault();
+          dismiss();
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          dismiss();
+        }}
       >
-        Cancel
+        <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
       </button>
     </div>
   );
@@ -128,24 +145,12 @@ export function OsWriteDock({
     composeExpanded || hasContent || hasErrorChrome || pending;
   const toolsOpen =
     footerOpen || hasReplyChrome || keyboardOpen;
-  const [isTall, setIsTall] = useState(
-    hasReplyChrome || hasErrorChrome || keyboardOpen
-  );
+  const [isTall, setIsTall] = useState(hasErrorChrome || keyboardOpen);
   const nextMorph: WriteDockMorph = isTall
     ? 'expanded'
     : toolsOpen
       ? 'tools'
       : 'idle';
-  const morphSyncRef = useRef<WriteDockMorph>('idle');
-  const draftSyncRef = useRef(false);
-  if (morphSyncRef.current !== nextMorph) {
-    morphSyncRef.current = nextMorph;
-    setWriteDockMorph?.(nextMorph);
-  }
-  if (draftSyncRef.current !== hasContent) {
-    draftSyncRef.current = hasContent;
-    setWriteDockHasDraft?.(hasContent);
-  }
   const canSend = writeDockCanSend(
     text,
     mediaFiles.length,
@@ -191,6 +196,14 @@ export function OsWriteDock({
   }, [fieldFocused, isTall, setWritePinned, toolsOpen]);
 
   useEffect(() => {
+    setWriteDockMorph?.(nextMorph);
+  }, [nextMorph, setWriteDockMorph]);
+
+  useEffect(() => {
+    setWriteDockHasDraft?.(hasContent);
+  }, [hasContent, setWriteDockHasDraft]);
+
+  useEffect(() => {
     return () => {
       setWriteDockMorph?.('idle');
       setWriteDockHasDraft?.(false);
@@ -215,16 +228,22 @@ export function OsWriteDock({
   useEffect(() => {
     const el = textRef.current;
     if (!el) return;
-    const tallChrome = hasReplyChrome || hasErrorChrome || keyboardOpen;
+    const tallChrome = hasErrorChrome || keyboardOpen;
     el.style.height = '0px';
     el.style.maxHeight = 'none';
     const scrollHeight = el.scrollHeight;
     el.style.maxHeight = '';
-    const wrapped = scrollHeight > 26;
-    const nextTall = tallChrome || wrapped;
-    setIsTall(nextTall);
-    const maxHeight = nextTall ? 96 : 22;
-    el.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+    const rootFontSize = parseFloat(
+      getComputedStyle(document.documentElement).fontSize || '16'
+    );
+    const linePx = writeDockInputLineHeightPx(rootFontSize);
+    const maxLines = writeDockInputMaxLines(hasReplyChrome);
+    const wrapped = scrollHeight > linePx + 1;
+    // Reply chip lives in the row above — only morph the dock for keyboard/error,
+    // not when the field wraps to a second line.
+    const dockExpanded = tallChrome || (wrapped && !hasReplyChrome);
+    setIsTall(dockExpanded);
+    el.style.height = `${writeDockInputHeightPx(scrollHeight, maxLines, rootFontSize)}px`;
   }, [hasErrorChrome, hasReplyChrome, keyboardOpen, text]);
 
   const removeMediaAt = (index: number) => {

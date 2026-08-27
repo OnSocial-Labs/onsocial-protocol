@@ -3,16 +3,11 @@
 import Link from 'next/link';
 import {
   GiftFillIcon,
+  OsAppChromeNavSearch,
   OsIconAction,
-  PlusIcon,
-  SearchField,
   ShopFillIcon,
 } from '@onsocial/ui';
-import { useAppWallet } from '@/contexts/app-wallet-context';
-import {
-  APP_DROP_CREATE_PATH,
-  APP_MARKET_PATH,
-} from '@/lib/app-routes';
+import { APP_MARKET_PATH } from '@/lib/app-routes';
 
 interface DropsSearchHeadingProps {
   query?: string;
@@ -27,7 +22,7 @@ export function DropsSearchHeading({
   interactive = true,
 }: DropsSearchHeadingProps) {
   return (
-    <SearchField
+    <OsAppChromeNavSearch
       value={query}
       onValueChange={
         interactive && onQueryChange ? onQueryChange : () => undefined
@@ -35,32 +30,20 @@ export function DropsSearchHeading({
       placeholder="Search drops"
       clearAriaLabel="Clear search"
       ariaLabel="Search drops"
-      className="discover-nav-search-field os-app-screen-search"
+      idleClassName="discover-nav-search-field"
       leadingIcon={<GiftFillIcon className="search-field-icon" aria-hidden />}
     />
   );
 }
 
-/** Market + Create — same actions slot / glyph size as other screens. */
+/** Market cross-link — mirrors Market header → Drops. Create lives in the dock. */
 export function DropsHeadingActions() {
-  const { accountId } = useAppWallet();
-  const viewerAccountId = accountId?.trim() || null;
-
   return (
-    <>
-      <OsIconAction asChild ariaLabel="Browse Market" title="Secondary listings">
-        <Link href={APP_MARKET_PATH} scroll={false}>
-          <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
-        </Link>
-      </OsIconAction>
-      {viewerAccountId ? (
-        <OsIconAction asChild ariaLabel="Start a drop">
-          <Link href={APP_DROP_CREATE_PATH} scroll={false}>
-            <PlusIcon aria-hidden className="glass-sheet-close-icon" />
-          </Link>
-        </OsIconAction>
-      ) : null}
-    </>
+    <OsIconAction asChild ariaLabel="Browse Market" title="Secondary listings">
+      <Link href={APP_MARKET_PATH} scroll={false}>
+        <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
+      </Link>
+    </OsIconAction>
   );
 }
 

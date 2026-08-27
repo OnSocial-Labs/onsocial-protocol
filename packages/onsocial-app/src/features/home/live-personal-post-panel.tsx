@@ -14,10 +14,7 @@ import {
 } from '@/contexts/compose-launcher-context';
 import { OsWriteDockReplyChip } from '@/components/os/os-write-dock';
 import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
-import {
-  writeDockDraftKey,
-  writeDockReplyPlaceholder,
-} from '@/lib/os-write-dock';
+import { writeDockDraftKey, WRITE_DOCK_ADD_REPLY_PLACEHOLDER } from '@/lib/os-write-dock';
 import {
   clearWriteDockDraft,
   writeDockDraftFromComposer,
@@ -602,9 +599,7 @@ export function LivePersonalPostPanel({
     target: writeTarget,
     enabled: Boolean(root),
     disabled: Boolean(modalTarget),
-    placeholder: nestedDockReply
-      ? writeDockReplyPlaceholder(writeName)
-      : 'Add a reply…',
+    placeholder: WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
     above: writeAbove,
     revision: writeTarget ? postKey(writeTarget) : '',
     draftKey: threadDraftKey,

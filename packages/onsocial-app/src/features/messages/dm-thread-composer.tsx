@@ -7,6 +7,7 @@ import { writeDockDraftKey } from '@/lib/os-write-dock';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { normalizeDmReplyToMessageId } from '@/lib/dm/crypto';
+import { DM_PEER_MESSAGES_UNAVAILABLE } from '@/lib/dm/copy';
 import { sendEncryptedDm } from '@/lib/dm/send';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { createDmOutgoingLocalId } from '@/features/messages/dm-outgoing';
@@ -168,32 +169,30 @@ export function DmThreadComposer({
     ]
   );
 
+  const peerUnavailable = disabled && Boolean(disabledReason);
+  const composeLabel = peerUnavailable
+    ? (disabledReason ?? DM_PEER_MESSAGES_UNAVAILABLE)
+    : replyTo
+      ? 'Reply'
+      : 'Message';
+
   const above = useMemo(() => {
-    if (!replyTo && !disabledReason) return null;
+    if (!replyTo || !onCancelReply) return null;
     return (
-      <>
-        {replyTo && onCancelReply ? (
-          <OsWriteDockReplyChip
-            label={replyTo.preview}
-            onCancel={onCancelReply}
-          />
-        ) : null}
-        {disabledReason ? (
-          <p className="os-write-dock-error" role="status">
-            {disabledReason}
-          </p>
-        ) : null}
-      </>
+      <OsWriteDockReplyChip
+        label={replyTo.preview}
+        onCancel={onCancelReply}
+      />
     );
-  }, [disabledReason, onCancelReply, replyTo]);
+  }, [onCancelReply, replyTo]);
 
   useRegisterWriteDock({
-    placeholder: 'Message',
-    ariaLabel: replyTo ? 'Reply' : 'Message',
+    placeholder: composeLabel,
+    ariaLabel: composeLabel,
     disabled,
-    error: disabledReason ? null : error,
+    error,
     above,
-    revision: `${replyTo?.messageId ?? ''}:${disabledReason ?? ''}:${error ?? ''}`,
+    revision: `${replyTo?.messageId ?? ''}:${peerUnavailable ? '1' : '0'}:${error ?? ''}`,
     draftKey: writeDockDraftKey('dm', peerAccountId),
     onSubmit: handleSubmit,
   });

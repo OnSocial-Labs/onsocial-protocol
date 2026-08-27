@@ -20,6 +20,9 @@
 @import '@onsocial/ui/os-choice-drawer.css';
 @import '@onsocial/ui/os-gesture-sheet-header.css';
 @import '@onsocial/ui/os-standing-identity.css';
+@import '@onsocial/ui/os-chrome-subject.css';
+@import '@onsocial/ui/os-app-chrome.css';
+@import '@onsocial/ui/os-app-chrome-page.css';
 @import '@onsocial/ui/os-sheet-facts.css';
 @import '@onsocial/ui/os-proposal-card.css';
 @import './transaction-feedback-toast.css';
@@ -108,43 +111,14 @@
 }
 
 /*
- * App chrome rail (Market filters / Discover tabs) — unlayered so scroll-hide
- * beats @layer components host overflow / margin rules.
+ * App chrome rail — see @onsocial/ui/os-app-chrome.css (OsAppChromeToolbarRail).
  */
-.os-app-chrome-rail {
-  transform: translateY(0);
-  opacity: 1;
-  max-height: 3rem;
-  transition:
-    transform 220ms ease,
-    opacity 180ms ease,
-    max-height 220ms ease,
-    margin 220ms ease;
-}
 
-/* Vault kind rail wraps (Memberships, etc.) — lift the one-row chrome cap. */
 .os-app-chrome-rail.collectibles-filter-toolbar {
+  /* Vault kind rail wraps (Memberships, etc.) — stay one band, allow wrap inside. */
   max-height: none;
+  min-height: var(--os-app-chrome-rail-height, 2.35rem);
   align-items: flex-start;
-}
-
-.os-app-chrome-rail.is-scroll-hidden {
-  max-height: 0;
-  margin: 0;
-  opacity: 0;
-  transform: translateY(-0.35rem);
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.os-app-screen-toolbar:has(.os-app-chrome-rail.is-scroll-hidden) {
-  margin-top: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .os-app-chrome-rail {
-    transition: none;
-  }
 }
 
 .os-app-screen:has(.market-listing-sort-menu-panel) .os-app-screen-header {
@@ -267,6 +241,38 @@
 .glass-sheet-panel.page-drawer-panel
   > .glass-sheet-footer.glass-sheet-footer--overlay {
   z-index: 20;
+}
+
+/*
+ * Composer embeds OsAppScreen for shared glassChrome frost (Post / Home).
+ * Unlayered height overrides beat `.os-app-screen { height: 100dvh }`.
+ */
+.glass-sheet-panel.guild-composer-sheet-panel
+  > .glass-sheet-body.guild-composer-sheet-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 0;
+  overflow: hidden;
+}
+
+.glass-sheet-panel.guild-composer-sheet-panel .os-app-screen--embedded {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.glass-sheet-panel.guild-composer-sheet-panel
+  .os-app-screen--embedded
+  .os-app-screen-column {
+  max-width: none;
+  height: 100%;
 }
 
 /*
@@ -8863,9 +8869,15 @@ a.os-surface-row {
     background: transparent;
   }
 
-  .os-app-screen[data-glass-chrome='true']
-    .os-app-screen-header.is-elevated::before {
+  .os-app-screen[data-glass-chrome='true'] .os-app-screen-header.is-elevated::before {
     opacity: 1;
+  }
+
+  /* Interactive chrome (search, back) above scrolling under-header bleed. */
+  .os-app-screen[data-glass-chrome='true'] .os-app-screen-nav-row,
+  .os-app-screen[data-glass-chrome='true'] .os-app-screen-toolbar {
+    position: relative;
+    z-index: 1;
   }
 
   .os-app-screen[data-glass-chrome='true'] .os-app-screen-body {
@@ -8881,6 +8893,20 @@ a.os-surface-row {
 
   .os-app-screen[data-compact-chrome='true'] {
     --os-app-screen-nav-row-height: 2.35rem;
+    --os-app-screen-chrome-height: calc(
+      env(safe-area-inset-top, 0px) + 0.35rem +
+        var(--os-app-screen-nav-row-height) + 0.35rem
+    );
+  }
+
+  /* Default OsIconAction is 2.75rem — would loft the 2.35rem compact band. */
+  .os-app-screen[data-compact-chrome='true']
+    .os-app-screen-nav-row
+    > .glass-sheet-icon-action {
+    width: var(--os-app-screen-nav-row-height);
+    height: var(--os-app-screen-nav-row-height);
+    min-width: var(--os-app-screen-nav-row-height);
+    min-height: var(--os-app-screen-nav-row-height);
   }
 
   .os-app-screen[data-compact-chrome='true'] .os-app-screen-header {
@@ -8891,6 +8917,43 @@ a.os-surface-row {
 
   .os-app-screen[data-compact-chrome='true'] .os-app-screen-toolbar {
     margin-top: 0;
+    display: flex;
+    align-items: center;
+    min-height: var(--os-app-screen-nav-row-height);
+  }
+
+  /* Toolbar-only compact screens (Home search rail, Messages inbox) — same
+     block height as the post-thread nav row so frost band never jumps. */
+  .os-app-screen[data-compact-chrome='true']
+    .os-app-screen-toolbar:has(.os-app-screen-search),
+  .os-app-screen[data-compact-chrome='true']
+    .os-app-screen-toolbar:has(.home-feed-compact-chrome) {
+    min-height: var(--os-app-screen-nav-row-height);
+  }
+
+  .os-app-screen[data-compact-chrome='true']
+    .os-app-screen-toolbar
+    .search-field.os-floating-panel-search,
+  .os-app-screen[data-compact-chrome='true']
+    .os-app-screen-toolbar
+    .search-field.os-app-screen-search {
+    height: var(--os-app-screen-nav-row-height);
+    min-height: var(--os-app-screen-nav-row-height);
+  }
+
+  .os-app-screen-heading .os-app-chrome-nav-search {
+    width: 100%;
+  }
+
+  /* DM thread peer — compact nav band; identity via @onsocial/ui OsChromeSubject. */
+  .os-app-screen-heading .os-chrome-subject {
+    height: var(--os-app-screen-nav-row-height);
+    min-height: var(--os-app-screen-nav-row-height);
+    max-height: var(--os-app-screen-nav-row-height);
+  }
+
+  .os-app-screen[data-compact-chrome='true'] .home-feed-compact-chrome {
+    min-height: var(--os-app-screen-nav-row-height);
   }
 
   .os-app-screen[data-compact-chrome='true'][data-dock-back='true']
@@ -9181,34 +9244,11 @@ a.os-surface-row {
     background: var(--os-surface-fill-hover);
   }
 
-  .discover-panel.standing-panel {
-    padding-top: 0;
-  }
-
   .discover-connect-hint {
     margin: 0;
     font-size: 0.75rem;
     line-height: 1.45;
     color: rgb(var(--fg-rgb) / 0.52);
-  }
-
-  .discover-connect-hint-action {
-    border: none;
-    padding: 0;
-    background: none;
-    color: var(--signal-standing);
-    font: inherit;
-    font-size: inherit;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 0.14em;
-  }
-
-  .discover-connect-hint-action:hover,
-  .discover-connect-hint-action:focus-visible {
-    color: color-mix(in srgb, var(--signal-standing) 85%, rgb(var(--fg-rgb)));
-    outline: none;
   }
 
   .discover-trending-strip {
@@ -9346,9 +9386,11 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .os-app-screen-heading .discover-nav-search-field {
-    min-height: 2.25rem;
-    height: 2.25rem;
+  .os-app-screen-heading .discover-nav-search-field,
+  .os-app-screen-heading .os-app-chrome-nav-search {
+    width: 100%;
+    min-height: var(--os-app-screen-nav-row-height);
+    height: var(--os-app-screen-nav-row-height);
   }
 
   .discover-sheet-nav-row {
@@ -9874,6 +9916,13 @@ a.os-surface-row {
   .portfolio-summon.is-writing.has-dock-back-stacked .portfolio-summon-account-column {
     display: grid;
     grid-template-rows: minmax(2.75rem, 1fr) 2.75rem;
+    align-items: start;
+  }
+
+  .portfolio-summon.is-writing.has-dock-back-stacked
+    .portfolio-summon-account-column
+    .portfolio-summon-account {
+    align-self: start;
   }
 
   .portfolio-summon.is-writing.has-dock-back-stacked
@@ -10270,6 +10319,9 @@ a.os-surface-row {
     flex-direction: column;
     justify-content: center;
     align-self: stretch;
+    --os-write-dock-line-height: var(--portfolio-summon-avatar-size, 1.35rem);
+    --os-write-dock-compose-max-lines: 4;
+    --os-write-dock-reply-max-lines: 3;
   }
 
   .os-write-dock.is-expanded {
@@ -10341,6 +10393,12 @@ a.os-surface-row {
     transition: padding 220ms ease;
   }
 
+  /* Idle single-line — lock first row to avatar cap height (Message / Add a reply…). */
+  .os-write-dock:not(.is-expanded):not(.is-compose-open) .os-write-dock-field {
+    align-items: flex-start;
+    padding-top: calc((2.75rem - var(--portfolio-summon-avatar-size, 1.35rem)) / 2);
+  }
+
   .os-write-dock.is-expanded .os-write-dock-field {
     align-items: flex-end;
     padding: 0.45rem 0.55rem 0.4rem 0.45rem;
@@ -10352,9 +10410,9 @@ a.os-surface-row {
     min-width: 0;
     resize: none;
     min-height: 0;
-    max-height: 1.35rem;
+    max-height: var(--portfolio-summon-avatar-size, 1.35rem);
     overflow-y: hidden;
-    line-height: 1.25;
+    line-height: var(--portfolio-summon-avatar-size, 1.35rem);
     padding: 0;
     border: 0;
     background: transparent;
@@ -10369,6 +10427,12 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.42);
   }
 
+  .os-write-dock-input:disabled::placeholder {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .os-write-dock-input:focus,
   .os-write-dock-input:focus-visible {
     background: transparent;
@@ -10377,7 +10441,17 @@ a.os-surface-row {
   }
 
   .os-write-dock.is-expanded .os-write-dock-input {
-    max-height: 6rem;
+    max-height: calc(
+      var(--os-write-dock-line-height) * var(--os-write-dock-compose-max-lines)
+    );
+    overflow-y: auto;
+  }
+
+  /* Quick reply — three full rows, then in-field scroll (no mid-line clip). */
+  .os-write-dock:has(.os-write-dock-reply).is-compose-open .os-write-dock-input {
+    max-height: calc(
+      var(--os-write-dock-line-height) * var(--os-write-dock-reply-max-lines)
+    );
     overflow-y: auto;
   }
 
@@ -10573,19 +10647,36 @@ a.os-surface-row {
     border: 0;
     background: transparent;
     padding: 0;
-    font: inherit;
-    font-size: 0.72rem;
-    font-weight: 650;
-    line-height: 1;
-    color: rgb(var(--fg-rgb) / 0.5);
     cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .os-write-dock-preview-remove {
-    width: 1.25rem;
-    height: 1.25rem;
+    font: inherit;
     font-size: 1.05rem;
     font-weight: 500;
+    line-height: 1;
+    color: rgb(var(--fg-rgb) / 0.5);
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .os-write-dock-reply-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    width: 2rem;
+    min-width: 2rem;
+    min-height: 2.75rem;
+    margin: -0.35rem 0;
+    color: rgb(var(--fg-rgb) / 0.5);
+  }
+
+  .os-write-dock-reply-cancel .glass-sheet-close-icon {
+    width: 1.05rem;
+    height: 1.05rem;
   }
 
   .os-write-dock-preview-remove:hover,
@@ -10650,11 +10741,12 @@ a.os-surface-row {
   }
 
   .os-write-dock.is-compose-open .os-write-dock-bar {
-    min-height: 2.5rem;
+    min-height: 2.75rem;
   }
 
+  /* Pin first typed line to avatar row — not flex-end above the footer. */
   .os-write-dock.is-compose-open .os-write-dock-field {
-    align-items: flex-end;
+    align-items: flex-start;
     padding: 0.35rem 0.55rem 0.3rem 0.45rem;
   }
 
@@ -12861,27 +12953,10 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .account-drawer-subject {
+  .account-drawer-subject-row .os-chrome-subject {
     pointer-events: auto;
     flex: 1;
-  }
-
-  .account-drawer-subject-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 0.12rem;
     min-width: 0;
-  }
-
-  .account-drawer-subject-name {
-    font-size: 1rem;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-    color: rgb(var(--fg-rgb) / 0.92);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .account-drawer-handle-button {
@@ -12891,8 +12966,8 @@ a.os-surface-row {
     background: transparent;
     padding: 0;
     font: inherit;
-    font-size: 0.76rem;
-    line-height: 1.25;
+    font-size: 0.72rem;
+    line-height: 1.2;
     color: rgb(var(--fg-rgb) / 0.48);
     cursor: pointer;
     overflow: hidden;
@@ -12904,8 +12979,8 @@ a.os-surface-row {
   .account-drawer-handle {
     margin: 0;
     max-width: 100%;
-    font-size: 0.76rem;
-    line-height: 1.25;
+    font-size: 0.72rem;
+    line-height: 1.2;
     color: rgb(var(--fg-rgb) / 0.48);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -15760,7 +15835,6 @@ a.os-surface-row {
    * Shared OsAppScreen body inset — one rule for every padded page root.
    * Discover/Standing denser vertical uses the same --os-screen-body-pad-x.
    */
-  .home-feed,
   .app-soon-page,
   .guilds-page,
   .market-page,
@@ -15773,13 +15847,12 @@ a.os-surface-row {
   .drop-studio,
   .guild-create-form,
   .protocol-page,
-  .notifications-panel,
-  .messages-panel,
   .launcher-home {
     padding: var(--os-screen-body-inset, 0.15rem 1rem 1.5rem);
   }
 
-  .home-feed,
+  .messages-panel,
+  .notifications-panel,
   .app-soon-page {
     display: flex;
     flex-direction: column;
@@ -27220,7 +27293,11 @@ a.os-surface-row {
   /* Keep focused inputs clear of the sticky chrome and the on-screen
      keyboard when the browser auto-scrolls them into view. */
   .drop-create-form :is(input, textarea, select):focus {
-    scroll-margin-block: 5rem 7rem;
+    scroll-margin-block: 6rem 10rem;
+  }
+
+  .drop-create-form .guild-tags-editor-draft:focus-within {
+    scroll-margin-block: 6rem 10rem;
   }
 
   .drop-media-ready-chip {
@@ -27302,8 +27379,15 @@ a.os-surface-row {
     flex: 1 1 auto;
     min-width: 0;
     display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.35rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .market-listing-filter-stack::-webkit-scrollbar {
+    display: none;
   }
 
   .market-listing-filters {
@@ -30080,32 +30164,63 @@ a.os-surface-row {
   }
 
   /*
-   * Composer — OsPageSheet surface=page (flat slide fill); form / footer padding
-   * stays on the glass body + footer (not the image-first zero inset).
+   * Composer — OsPageSheet hosts embedded OsAppScreen (shared glassChrome frost).
    */
   .guild-composer-sheet-panel.glass-sheet-panel {
     overflow: hidden;
   }
 
-  .guild-composer-sheet-panel > .glass-sheet-body.guild-composer-sheet-body {
-    min-height: 0;
-    flex: 1 1 auto;
-    overscroll-behavior: contain;
+  .guild-composer-sheet-panel
+    .os-app-screen--embedded
+    .os-app-screen-body {
+    /* Match post thread: chrome clearance on scroller, inset on page root. */
+    padding-bottom: 0;
   }
 
-  .guild-composer-sheet-body {
-    padding: 0.35rem 1.15rem 0.85rem;
-  }
-
-  .guild-composer-sheet-header .guild-composer-mode {
+  .guild-composer-sheet-panel
+    .os-app-screen--embedded
+    .os-app-screen-heading
+    .guild-composer-mode-rail {
+    display: flex;
+    align-items: center;
     width: 100%;
-    margin-top: 0.35rem;
+    min-width: 0;
+    height: var(--os-app-screen-nav-row-height, 2.35rem);
+    margin: 0;
+  }
+
+  .guild-composer-sheet-panel
+    .guild-composer-mode-rail
+    .discover-tab-bar-scroller {
+    align-items: center;
+    height: 100%;
+  }
+
+  /*
+   * Mode chips — hug the label (no empty balloon). Slightly larger than
+   * Discover filters; optical nudge so cap-height meets the back glyph.
+   */
+  .guild-composer-sheet-panel .guild-composer-mode-rail button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+    min-height: 0;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    transform: translateY(1px);
   }
 
   .guild-composer-sheet-form {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    padding: var(--os-screen-body-pad-top, 0.15rem)
+      var(--os-screen-body-pad-x, 1rem)
+      0.85rem;
   }
 
   .guild-composer-sheet-form .post-card-quote-inset {
@@ -30161,7 +30276,8 @@ a.os-surface-row {
 
   /* Compose dock — tools left, compact Post right (above keyboard). */
   .guild-composer-sheet-footer {
-    padding: 0.4rem 1.15rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.4rem var(--os-screen-body-pad-x, 1rem)
+      calc(0.5rem + env(safe-area-inset-bottom, 0px));
   }
 
   .guild-composer-sheet-footer.is-keyboard-open {
@@ -30563,33 +30679,6 @@ a.os-surface-row {
   .guild-composer-warning-input {
     width: 100%;
     min-width: 0;
-  }
-
-  .guild-composer-sheet-header.is-compact .standing-sheet-subject-row {
-    min-height: 0;
-    padding-block: 0;
-    justify-content: flex-end;
-  }
-
-  .guild-composer-sheet-header.is-compact {
-    padding-top: 0.05rem;
-    padding-bottom: 0;
-    gap: 0;
-  }
-
-  .guild-composer-sheet-header.is-compact .standing-sheet-actions {
-    flex-shrink: 0;
-  }
-
-  @media (min-width: 768px) {
-    .guild-composer-sheet-header.is-compact.standing-sheet-header {
-      padding-top: 0.15rem;
-    }
-  }
-
-  .guild-composer-sheet-panel:has(.guild-composer-sheet-header.is-compact)
-    > .glass-sheet-body.guild-composer-sheet-body {
-    padding-top: 0;
   }
 
   .guild-composer-sheet-form:has(.guild-composer-self.has-destination-menus) {
@@ -32484,6 +32573,18 @@ a.os-surface-row {
   border-radius: var(--os-write-dock-radius) !important;
 }
 
+/* Feed / home quick reply — same avatar cell + hover as post thread write dock. */
+.os-dock-pill.portfolio-summon.is-writing:not(.has-dock-back)
+  .portfolio-summon-account {
+  align-self: flex-start;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border-radius: var(--os-write-dock-radius, 1.375rem) 0 0 0;
+}
+
 .os-dock-pill.portfolio-summon.is-writing.has-dock-back-stacked
   .portfolio-summon-account-column
   .portfolio-summon-account {
@@ -32515,9 +32616,19 @@ a.os-surface-row {
   .portfolio-summon-account {
   width: 2.75rem;
   min-width: 2.75rem;
+  height: 2.75rem;
   min-height: 2.75rem;
   padding: 0;
   border-radius: 0;
+}
+
+.os-dock-pill.portfolio-summon.is-writing.has-dock-back-stacked
+  .os-write-dock.is-compose-open:not(.is-expanded)
+  .os-write-dock-field,
+.os-dock-pill.portfolio-summon.is-writing.has-dock-back-stacked
+  .os-write-dock.is-compose-open.is-expanded
+  .os-write-dock-field {
+  padding-top: calc((2.75rem - var(--portfolio-summon-avatar-size, 1.35rem)) / 2);
 }
 
 /* Write dock footer — unlayered so tool/send sizing beats layered dock rules. */
@@ -35847,31 +35958,58 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 /* ── Private messages ───────────────────────────────────────────────────── */
 
-.os-app-screen-body:has(> .messages-panel) {
-  display: flex;
-  flex-direction: column;
-}
-
 .messages-panel {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
   min-width: 0;
-  min-height: 0;
-  flex: 1 1 auto;
-}
-
-.messages-screen-back-thread {
-  display: none;
 }
 
 .messages-layout {
   display: grid;
-  grid-template-columns: minmax(16.5rem, 22rem) minmax(0, 1fr);
+  grid-template-columns: 1fr;
   gap: 0;
-  flex: 1 1 auto;
-  min-height: max(22rem, calc(100dvh - 12rem));
   min-width: 0;
+}
+
+.messages-layout[data-messages-pane='list'] .messages-thread {
+  display: none;
+}
+
+.messages-layout[data-messages-pane='thread'] .messages-thread-list {
+  display: none;
+}
+
+.messages-layout[data-messages-pane='thread'] {
+  min-height: calc(100dvh - var(--portfolio-dock-clearance, 4.75rem));
+}
+
+.messages-panel[data-messages-pane='thread'] {
+  gap: 0;
+}
+
+.os-app-screen[data-screen-footer='true']
+  .messages-layout[data-messages-pane='thread'] {
+  min-height: calc(
+    100dvh - var(--portfolio-dock-clearance, 4.75rem) -
+      var(--os-screen-footer-band, 4.35rem)
+  );
+}
+
+.os-app-screen:has(.messages-panel[data-keyboard='open'])
+  .messages-layout[data-messages-pane='thread'] {
+  min-height: calc(
+    100dvh - var(--portfolio-dock-clearance, 4.75rem) -
+      var(--messages-keyboard-lift, 0px)
+  );
+}
+
+.messages-layout[data-messages-pane='thread'] .messages-thread {
+  min-height: 100%;
+}
+
+.messages-panel[data-messages-pane='thread'] .messages-passkey-hint {
+  display: none;
 }
 
 .messages-thread-list,
@@ -35881,79 +36019,25 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 .messages-thread-list {
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-/* Nested scroller — can't use standing-row edge bleed; negative margin clips hover. */
-.messages-thread-list .messages-inbox-row.standing-row {
-  margin-inline: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .messages-thread {
   display: flex;
   flex-direction: column;
-  padding-left: 0.9rem;
-  border-left: 1px solid rgb(var(--fg-rgb) / 0.08);
-}
-
-.messages-thread-peer {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  flex-shrink: 0;
-  min-width: 0;
-  padding: 0 0 0.7rem;
-}
-
-.messages-thread-peer-copy {
-  min-width: 0;
-}
-
-.messages-thread-peer-name {
-  display: block;
-  font-size: 0.95rem;
-  font-weight: 650;
-  line-height: 1.25;
-  color: inherit;
-  text-decoration: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.messages-thread-peer-name:hover,
-.messages-thread-peer-name:focus-visible {
-  text-decoration: underline;
-  text-underline-offset: 0.12em;
-  outline: none;
-}
-
-.messages-thread-peer-handle {
-  margin: 0.08rem 0 0;
-  font-size: 0.75rem;
-  color: rgb(var(--fg-rgb) / 0.52);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.messages-thread-scroll {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
 }
 
 .messages-thread-empty {
-  padding-top: 1.25rem;
+  padding-top: 0;
 }
 
 .messages-bubble-list {
   list-style: none;
   margin: 0;
-  padding: 0.15rem 0 0.5rem;
+  padding: 0 0 0.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -36084,10 +36168,25 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: var(--signal-error, rgb(185 28 28));
 }
 
+.messages-panel > .messages-panel-error {
+  margin: 0;
+}
+
 .messages-unlock {
   display: grid;
   gap: 0.55rem;
   margin: 0 0 0.15rem;
+}
+
+.messages-unlock-form {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.messages-unlock-code-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
 }
 
 .messages-unlock-title {
@@ -36213,6 +36312,20 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   );
 }
 
+/* New drop form — lift dock + scroll room while a field is focused (mobile). */
+.os-app-screen:has(.drop-create-form[data-keyboard='open'])
+  > .portfolio-summon-dock {
+  bottom: var(--drop-create-keyboard-lift, 0px);
+  z-index: 85;
+}
+
+.os-app-screen:has(.drop-create-form[data-keyboard='open']) .os-app-screen-body {
+  padding-bottom: calc(
+    var(--drop-create-keyboard-lift, 0px) + 3.25rem +
+      env(safe-area-inset-bottom, 0px)
+  );
+}
+
 .dm-recovery-lead {
   margin: 0;
   font-size: 0.92rem;
@@ -36243,6 +36356,29 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 .messages-inbox-search {
   width: 100%;
+}
+
+/* Branded prefix — match Market heading search; nudge divider to icon optical center. */
+.messages-inbox-search.search-field--branded .search-field-leading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.messages-inbox-search.search-field--branded .search-field-icon {
+  display: block;
+}
+
+.messages-inbox-search.search-field--branded .search-field-divider {
+  align-self: center;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  max-height: 1.25rem;
+}
+
+.messages-inbox-search.search-field--branded .search-field-input {
+  line-height: 1.2rem;
 }
 
 .messages-search-people {
@@ -36321,85 +36457,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   );
 }
 
-@media (min-width: 768px) {
-  .os-app-screen:has(.messages-panel) {
-    --messages-inbox-col: 18.5rem;
-  }
-
-  .messages-layout {
-    grid-template-columns: var(--messages-inbox-col, 18.5rem) minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 767px) {
-  .messages-layout {
-    grid-template-columns: 1fr;
-    min-height: 0;
-  }
-
-  .messages-thread {
-    border-left: 0;
-    padding-left: 0;
-  }
-
-  .messages-layout[data-mobile-pane='list'] .messages-thread {
-    display: none;
-  }
-
-  .messages-layout[data-mobile-pane='thread'] .messages-thread-list {
-    display: none;
-  }
-
-  .messages-layout[data-mobile-pane='thread'] {
-    min-height: calc(
-      100dvh - var(--os-screen-chrome-height, 5.25rem) - 4.25rem
-    );
-  }
-
-  .os-app-screen[data-screen-footer='true']
-    .messages-layout[data-mobile-pane='thread'] {
-    min-height: calc(
-      100dvh - var(--os-screen-chrome-height, 5.25rem) -
-        var(--portfolio-dock-clearance, 4.75rem) -
-        var(--os-screen-footer-band, 4.35rem)
-    );
-  }
-
-  .os-app-screen:has(.messages-panel[data-keyboard='open'])
-    .messages-layout[data-mobile-pane='thread'] {
-    min-height: calc(
-      100dvh - var(--os-screen-chrome-height, 5.25rem) -
-        var(--messages-keyboard-lift, 0px) -
-        var(--portfolio-dock-clearance, 4.75rem)
-    );
-  }
-
-  .messages-layout[data-mobile-pane='thread'] .messages-thread {
-    min-height: 100%;
-  }
-
-  .os-app-screen:has([data-mobile-pane='thread']) .messages-screen-back-home {
-    display: none;
-  }
-
-  .os-app-screen:has([data-mobile-pane='thread']) .messages-screen-back-thread {
-    display: inline-flex;
-  }
-
-  .os-app-screen:has(.messages-panel[data-mobile-pane='thread'])
-    .os-app-screen-toolbar:has(.messages-inbox-search) {
-    display: none;
-  }
-
-  .messages-thread-peer {
-    display: none;
-  }
-
-  .messages-panel[data-mobile-pane='thread'] .messages-passkey-hint {
-    display: none;
-  }
-}
-
 /* ── Activity / notifications ─────────────────────────────────────────────── */
 
 .notifications-panel {
@@ -36409,16 +36466,10 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   min-width: 0;
 }
 
-.notifications-panel-empty,
-.notifications-panel-error,
 .notifications-panel-footnote {
   margin: 0;
   color: rgb(var(--fg-rgb) / 0.7);
   font-size: 0.9rem;
-}
-
-.notifications-panel-error {
-  color: var(--signal-error, rgb(185 28 28));
 }
 
 .notifications-panel-footnote a {

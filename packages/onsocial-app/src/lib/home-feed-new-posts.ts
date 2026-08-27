@@ -1,4 +1,6 @@
 import type { PostRow } from '@onsocial/sdk';
+import { postContentPath } from '@onsocial/sdk';
+import { accountIdsEqual } from '@/lib/account-match';
 import { postKey } from '@/lib/post-display';
 import { isForeignReply } from '@/lib/feed-threads';
 
@@ -12,11 +14,17 @@ export const HOME_FEED_NEW_POLL_MS = 45_000;
 export function countUnseenFeedPosts(
   head: readonly PostRow[],
   seenKeys: ReadonlySet<string>,
-  options?: { includeForeignReplies?: boolean }
+  options?: { includeForeignReplies?: boolean; viewerAccountId?: string | null }
 ): number {
   let count = 0;
   for (const post of head) {
     if (seenKeys.has(postKey(post))) continue;
+    if (
+      options?.viewerAccountId &&
+      accountIdsEqual(post.accountId, options.viewerAccountId)
+    ) {
+      continue;
+    }
     if (!options?.includeForeignReplies && isForeignReply(post)) continue;
     count += 1;
   }

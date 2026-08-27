@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from 'react';
 import { Divider } from '@onsocial/ui';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
+import { postContentPath } from '@onsocial/sdk';
 import { FeedThreadBlock } from '@/features/guilds/feed-thread-block';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { postKey } from '@/features/home/post-card';
@@ -240,4 +241,26 @@ export function shouldPrependOptimisticFeedPost(post: PostRow): boolean {
   // Self-replies chain under the parent when it's on-page; others hide.
   const parentAuthor = post.parentAuthor ?? post.parentPath.split('/')[0];
   return parentAuthor === post.accountId;
+}
+
+/** Insert an optimistic post without jumping self-threads to the feed head. */
+export function insertOptimisticFeedPost(
+  posts: readonly PostRow[],
+  post: PostRow
+): PostRow[] {
+  const key = postKey(post);
+  if (posts.some((row) => postKey(row) === key)) return [...posts];
+
+  if (post.parentPath) {
+    const parentIndex = posts.findIndex(
+      (row) => postContentPath(row) === post.parentPath
+    );
+    if (parentIndex !== -1) {
+      const next = posts.slice();
+      next.splice(parentIndex, 0, post);
+      return next;
+    }
+  }
+
+  return [post, ...posts];
 }

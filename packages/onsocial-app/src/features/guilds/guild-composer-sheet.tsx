@@ -15,7 +15,6 @@ import {
   ArrowLeftIcon,
   ChartVerticalFillIcon,
   ChartVerticalIcon,
-  Divider,
   ImageFillIcon,
   ImageIcon,
   MapMarkerFillIcon,
@@ -51,6 +50,8 @@ import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { ComposerHashtagTextarea } from '@/features/guilds/composer-hashtag-textarea';
 import { ComposerDropPicker } from '@/features/guilds/composer-drop-picker';
+import { OsChipRail } from '@/components/os/os-chip-rail';
+import { OsAppScreen } from '@/components/app/os-app-screen';
 import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
 import {
   scrollMobileFieldIntoView,
@@ -137,7 +138,7 @@ const POLL_PLACEHOLDER = 'Ask a question…';
 
 const TITLE: Record<ComposerMode, string> = {
   post: 'New post',
-  reply: 'Respond',
+  reply: 'Reply',
   quote: 'Quote',
 };
 
@@ -496,7 +497,6 @@ export function ComposerSheet({
   const panelStyle = useMemo((): CSSProperties | undefined => {
     if (!viewport.isMobile || viewport.lift <= 0) return undefined;
     return {
-      // Keep the compose dock above the soft keyboard (same lift as the old sheet).
       marginBottom: `calc(${viewport.lift}px - env(safe-area-inset-bottom, 0px))`,
     };
   }, [viewport.isMobile, viewport.lift]);
@@ -1024,28 +1024,24 @@ export function ComposerSheet({
     </div>
   );
 
-  const modeToolbar =
-    mode !== 'post' && onModeChange ? (
-      <div
-        className="guild-composer-mode"
-        role="radiogroup"
-        aria-label="Composer mode"
-      >
-        {(['reply', 'quote'] as const).map((option) => (
-          <button
-            key={option}
-            type="button"
-            role="radio"
-            aria-checked={mode === option}
-            className={mode === option ? 'is-active' : undefined}
-            disabled={pending}
-            onClick={() => onModeChange(option)}
-          >
-            {option === 'reply' ? 'Reply' : 'Quote'}
-          </button>
-        ))}
-      </div>
-    ) : null;
+  const showModeRail = mode !== 'post' && Boolean(onModeChange);
+
+  const modeChipRail = showModeRail ? (
+    <OsChipRail
+      className="discover-tab-bar--header guild-composer-mode-rail"
+      ariaLabel="Composer mode"
+      selection="option"
+      items={[
+        { id: 'reply', label: 'Reply' },
+        { id: 'quote', label: 'Quote' },
+      ]}
+      value={mode === 'quote' ? 'quote' : 'reply'}
+      onValueChange={(next) => {
+        if (pending) return;
+        onModeChange?.(next);
+      }}
+    />
+  ) : null;
 
   const composerFooter = (
         <div
@@ -1267,44 +1263,36 @@ export function ComposerSheet({
       panelStyle={panelStyle}
       panelClassName="guild-composer-sheet-panel"
       bodyClassName="guild-composer-sheet-body"
-      header={
-        <>
-          <header className="guild-composer-sheet-header standing-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <OsIconAction
-                ariaLabel="Back"
-                disabled={pending}
-                onClick={requestClose}
-              >
-                <ArrowLeftIcon
-                  className="glass-sheet-close-icon"
-                  aria-hidden
-                />
-              </OsIconAction>
-              <div className="standing-sheet-subject">
-                <span className="standing-sheet-subject-copy">
-                  <span
-                    id={titleId}
-                    className="standing-sheet-subject-name"
-                  >
-                    {TITLE[mode]}
-                  </span>
-                </span>
-              </div>
-            </div>
-            {modeToolbar}
-          </header>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      header={null}
       footer={composerFooter}
     >
-      <form
-        id={formId}
-        key={formKey}
-        className="guild-composer-sheet-form"
-        onSubmit={handleSubmit}
+      <OsAppScreen
+        title={TITLE[mode]}
+        glassChrome
+        compactChrome
+        embedded
+        leading={
+          <OsIconAction
+            ariaLabel="Back"
+            disabled={pending}
+            onClick={requestClose}
+          >
+            <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
+          </OsIconAction>
+        }
+        heading={showModeRail ? modeChipRail : undefined}
+        moodId={viewerMoodId}
+        moodStyle={viewerMoodStyle}
       >
+        <form
+          id={formId}
+          key={formKey}
+          className="guild-composer-sheet-form"
+          onSubmit={handleSubmit}
+        >
+          <span id={titleId} className="sr-only">
+            {TITLE[mode]}
+          </span>
         {mode === 'reply' && target ? (
           <div className="guild-composer-reply-flow">
             <ReplyTargetPreview
@@ -1330,6 +1318,7 @@ export function ComposerSheet({
         {mediaError ? <p className="guild-form-error">{mediaError}</p> : null}
         {error ? <p className="guild-form-error">{error}</p> : null}
       </form>
+      </OsAppScreen>
     </OsPageSheet>
     <ComposerDropPicker
       open={dropPickerOpen && open}

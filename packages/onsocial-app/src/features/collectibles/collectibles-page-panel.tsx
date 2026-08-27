@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { ContextualBack } from '@/components/app/contextual-back';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { CollectiblesHeaderActions } from '@/features/collectibles/collectibles-header-actions';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
@@ -40,6 +39,7 @@ import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_COLLECTIBLES_PATH,
   APP_DROP_CREATE_PATH,
+  APP_HOME_PATH,
   APP_MARKET_PATH,
   COLLECTIBLES_SEARCH_PARAM,
   MARKET_KIND_PARAM,
@@ -700,16 +700,16 @@ export function CollectiblesPagePanel({
     resolvedShell === 'portfolio' && pageAccountId
       ? portfolioPath(pageAccountId)
       : null;
+  const dockBackHref = portfolioBackHref ?? APP_HOME_PATH;
 
   return (
     <CollectiblesPanelChromeProvider value={chromeValue}>
       <OsAppScreen
         title="Collectibles"
-        leading={
-          portfolioBackHref ? (
-            <ContextualBack fallbackHref={portfolioBackHref} />
-          ) : null
-        }
+        compactChrome
+        dockBack
+        leading={null}
+        backFallbackHref={dockBackHref}
         glassChrome
         scrollRootRef={scrollRootRef}
         actions={<CollectiblesHeaderActions pageAccountId={ownerAccountId} />}

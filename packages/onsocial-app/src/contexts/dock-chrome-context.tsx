@@ -12,6 +12,8 @@ import {
 export type DockBackRegistration = {
   fallbackHref: string;
   ariaLabel?: string;
+  /** Prefer programmatic back (e.g. close a thread pane) over history. */
+  onBack?: () => void;
 };
 
 interface DockChromeContextValue {
@@ -47,5 +49,5 @@ export function useRegisterDockBack(entry: DockBackRegistration | null) {
     if (!setDockBack) return;
     setDockBack(entry);
     return () => setDockBack(null);
-  }, [entry?.ariaLabel, entry?.fallbackHref, entry, setDockBack]);
+  }, [entry?.ariaLabel, entry?.fallbackHref, entry?.onBack, entry, setDockBack]);
 }

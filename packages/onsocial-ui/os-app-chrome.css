@@ -1,0 +1,173 @@
+/**
+ * @onsocial/ui — OsAppScreen compact glass chrome (2.35rem nav band).
+ *
+ * Horizontal spacing MUST use app tokens (--os-screen-body-pad-x /
+ * --os-screen-body-inset) — do not introduce page-specific padding.
+ *
+ * Pair with app `OsAppScreen` (`compactChrome`, `glassChrome`, optional
+ * `nestedScrollChrome` for split panes only — default is body scroll like Home).
+ *
+ * Primitives:
+ * - `.os-app-chrome-scroller-bleed` — under-header offset (nested scroll only)
+ * - `.os-app-chrome-scroller` — edge-rail overflow (no horizontal padding)
+ * - `.os-app-chrome-scroller-inset` — same horizontal inset as `.home-feed`
+ * - `.os-app-chrome-panel-flush` — flush rails when nested; inset on scroller
+ * - `.os-app-chrome-nav-search*` — compact heading search (mobile expand)
+ * - `.os-app-chrome-rail` — one-line toolbar row (scroll tuck)
+ */
+
+:root {
+  --os-app-chrome-rail-height: 2.35rem;
+  --os-app-chrome-nav-height: 2.35rem;
+  --os-app-chrome-compact-height: calc(
+    env(safe-area-inset-top, 0px) + 0.35rem + var(--os-app-chrome-nav-height) +
+      0.35rem
+  );
+}
+
+.os-app-chrome-rail {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--os-app-chrome-rail-height);
+  max-height: var(--os-app-chrome-rail-height);
+  transform: translateY(0);
+  opacity: 1;
+  overflow: hidden;
+  transition:
+    transform 220ms ease,
+    opacity 180ms ease,
+    max-height 220ms ease,
+    min-height 220ms ease,
+    margin 220ms ease;
+}
+
+.os-app-chrome-rail.is-scroll-hidden {
+  min-height: 0;
+  max-height: 0;
+  margin: 0;
+  opacity: 0;
+  transform: translateY(-0.35rem);
+  pointer-events: none;
+}
+
+/* Parent toolbar slot — collapse with the rail so frost band height tracks. */
+.os-app-screen-toolbar:has(.os-app-chrome-rail.is-scroll-hidden) {
+  min-height: 0 !important;
+  margin-top: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-app-chrome-rail {
+    transition: none;
+  }
+}
+
+/* Nested scroll under absolute glass header (Messages thread — not inbox list). */
+.os-app-screen[data-glass-chrome='true'][data-nested-scroll-chrome='true'] {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.os-app-screen[data-glass-chrome='true'][data-nested-scroll-chrome='true']
+  .os-app-screen-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-top: 0;
+  scroll-padding-top: 0;
+}
+
+.os-app-chrome-panel-flush {
+  padding: 0;
+}
+
+/* Bleed shell — under-header offset without moving the scrollbar track. */
+.os-app-chrome-scroller-bleed {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  margin-top: calc(
+    -1 *
+      var(
+        --os-screen-chrome-height,
+        var(--os-app-screen-chrome-height, var(--os-app-chrome-compact-height))
+      )
+  );
+  padding-top: var(
+    --os-screen-chrome-height,
+    var(--os-app-screen-chrome-height, var(--os-app-chrome-compact-height))
+  );
+}
+
+.os-app-chrome-scroller {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-top: 0.15rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.os-app-chrome-scroller-inset {
+  padding-top: var(--os-screen-body-pad-top, 0.15rem);
+  padding-inline: var(--os-screen-body-pad-x, 1rem);
+  padding-bottom: var(--os-screen-body-pad-bottom, 1.5rem);
+}
+
+.os-app-chrome-heading-slot {
+  height: var(--os-app-chrome-nav-height, 2.35rem);
+  min-height: var(--os-app-chrome-nav-height, 2.35rem);
+  max-height: var(--os-app-chrome-nav-height, 2.35rem);
+}
+
+.os-app-chrome-nav-search {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+  height: var(--os-app-chrome-nav-height, 2.35rem);
+  min-height: var(--os-app-chrome-nav-height, 2.35rem);
+  max-height: var(--os-app-chrome-nav-height, 2.35rem);
+}
+
+.os-app-chrome-nav-search-input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--os-surface-emphasis, rgb(var(--fg-rgb) / 0.88));
+  font: inherit;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+  outline: none;
+}
+
+.os-app-chrome-nav-search-input::placeholder {
+  color: rgb(var(--fg-rgb) / 0.48);
+}
+
+.os-app-chrome-nav-search .glass-sheet-icon-action {
+  flex-shrink: 0;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.os-app-chrome-nav-search .glass-sheet-icon-action > svg {
+  display: block;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+}

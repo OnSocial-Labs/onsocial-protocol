@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { CreateDropPanel } from '@/features/scarces/create-drop-panel';
 
 export const metadata: Metadata = {
-  title: 'Start a drop • OnSocial',
+  title: 'New drop • OnSocial',
   description: 'Create a supply-capped collection drop on OnSocial.',
 };
 

@@ -49,6 +49,21 @@ describe('countUnseenFeedPosts', () => {
       countUnseenFeedPosts(head, seen, { includeForeignReplies: true })
     ).toBe(1);
   });
+
+  it('ignores the viewer own posts at the head', () => {
+    const seen = feedPostKeySet([
+      row('alice.near', 'root'),
+      row('bob.near', 'other'),
+    ]);
+    const head = [row('alice.near', 'new'), row('bob.near', 'other')];
+    expect(countUnseenFeedPosts(head, seen)).toBe(1);
+    expect(
+      countUnseenFeedPosts(head, seen, { viewerAccountId: 'alice.near' })
+    ).toBe(0);
+    expect(
+      countUnseenFeedPosts(head, seen, { viewerAccountId: 'bob.near' })
+    ).toBe(1);
+  });
 });
 
 describe('homeFeedNewPostsLabel', () => {

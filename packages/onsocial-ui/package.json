@@ -31,6 +31,9 @@
     "./os-choice-drawer.css": "./os-choice-drawer.css",
     "./os-gesture-sheet-header.css": "./os-gesture-sheet-header.css",
     "./os-standing-identity.css": "./os-standing-identity.css",
+    "./os-chrome-subject.css": "./os-chrome-subject.css",
+    "./os-app-chrome.css": "./os-app-chrome.css",
+    "./os-app-chrome-page.css": "./os-app-chrome-page.css",
     "./os-sheet-facts.css": "./os-sheet-facts.css",
     "./os-proposal-card.css": "./os-proposal-card.css"
   },
@@ -84,6 +87,9 @@
     "os-choice-drawer.css",
     "os-gesture-sheet-header.css",
     "os-standing-identity.css",
+    "os-chrome-subject.css",
+    "os-app-chrome.css",
+    "os-app-chrome-page.css",
     "os-sheet-facts.css",
     "os-proposal-card.css"
   ],

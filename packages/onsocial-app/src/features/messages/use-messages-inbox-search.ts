@@ -79,7 +79,7 @@ export function useMessagesInboxSearch(opts: {
             return;
           }
           setPeopleError(
-            cause instanceof Error ? cause.message : 'Could not search people.'
+            cause instanceof Error ? cause.message : 'Search failed.'
           );
           setPeople([]);
         })

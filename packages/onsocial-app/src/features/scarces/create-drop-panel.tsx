@@ -7,6 +7,8 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type CSSProperties,
+  type FocusEvent,
   type FormEvent,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -17,6 +19,7 @@ import {
   OsSheetAction,
   OsSheetActions,
   OsIconAction,
+  OsAppChromeToolbarRail,
   QuestionMarkCircleFillIcon,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
@@ -31,6 +34,7 @@ import {
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
+import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
@@ -205,6 +209,14 @@ function fieldId(name: string) {
   return `drop-create-${name}`;
 }
 
+function isFormFieldTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  );
+}
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -346,7 +358,46 @@ export function CreateDropPanel() {
   const variationFilesRef = useRef(variationFiles);
   variationFilesRef.current = variationFiles;
   const errorRef = useRef<HTMLParagraphElement>(null);
-  const toolbarHidden = useDockAutoHide();
+  const scrollRootRef = useRef<HTMLElement | null>(null);
+  const toolbarHidden = useDockAutoHide(false, scrollRootRef);
+  const [formFieldFocused, setFormFieldFocused] = useState(false);
+  const formKeyboardActive = formFieldFocused && !studioOpen;
+  const formViewport = useVisualViewportSheetMetrics(formKeyboardActive);
+  const formKeyboardOpen =
+    formKeyboardActive && formViewport.isMobile && formViewport.lift > 0;
+
+  const handleFormFocusCapture = useCallback(
+    (event: FocusEvent<HTMLFormElement>) => {
+      if (isFormFieldTarget(event.target)) setFormFieldFocused(true);
+    },
+    []
+  );
+
+  const handleFormBlurCapture = useCallback(
+    (event: FocusEvent<HTMLFormElement>) => {
+      const next = event.relatedTarget;
+      const form = event.currentTarget;
+      if (
+        next instanceof Node &&
+        form.contains(next) &&
+        isFormFieldTarget(next)
+      ) {
+        return;
+      }
+      setFormFieldFocused(false);
+    },
+    []
+  );
+
+  const screenStyle = useMemo(
+    () =>
+      ({
+        ['--drop-create-keyboard-lift' as string]: formKeyboardOpen
+          ? `${formViewport.lift}px`
+          : '0px',
+      }) as CSSProperties,
+    [formKeyboardOpen, formViewport.lift]
+  );
 
   const clearPins = useCallback(() => {
     setPinnedMusic(null);
@@ -1636,7 +1687,9 @@ export function CreateDropPanel() {
       return;
     }
     if (!traitsCidValid) {
-      setError('The traits folder CID doesn’t look like an IPFS CID.');
+      setError(
+        'That traits folder link doesn’t look valid. Generate layers to pin it automatically.'
+      );
       return;
     }
     if (!supplyValid) {
@@ -2283,9 +2336,12 @@ export function CreateDropPanel() {
 
   return (
     <OsAppScreen
-      title={studioOpen ? 'Design your set' : appId || 'Start a drop'}
+      title={studioOpen ? 'Design your set' : appId || 'New drop'}
       backFallbackHref={appId ? appPath(appId) : APP_MARKET_PATH}
+      compactChrome
       glassChrome
+      scrollRootRef={scrollRootRef}
+      style={screenStyle}
       actions={
         studioOpen ? (
           <>
@@ -2321,7 +2377,7 @@ export function CreateDropPanel() {
         ) : (
           <>
             <OsIconAction
-              ariaLabel={`About ${template.label} drops`}
+              ariaLabel={`About ${template.helpTitle}`}
               aria-expanded={helpOpen}
               aria-haspopup="dialog"
               onClick={() => setHelpOpen(true)}
@@ -2362,10 +2418,9 @@ export function CreateDropPanel() {
       }
       toolbar={
         studioOpen ? undefined : (
-          <div
-            className={`os-app-chrome-rail drop-template-toolbar${
-              toolbarHidden ? ' is-scroll-hidden' : ''
-            }`}
+          <OsAppChromeToolbarRail
+            hidden={toolbarHidden}
+            className="drop-template-toolbar"
           >
             <div
               className="discover-tab-bar market-listing-filters"
@@ -2390,7 +2445,7 @@ export function CreateDropPanel() {
                 ))}
               </div>
             </div>
-          </div>
+          </OsAppChromeToolbarRail>
         )
       }
       leading={
@@ -2430,7 +2485,10 @@ export function CreateDropPanel() {
       <form
         id={fieldId('form')}
         className="drop-create-form"
+        data-keyboard={formKeyboardOpen ? 'open' : undefined}
         style={studioOpen ? { display: 'none' } : undefined}
+        onFocusCapture={handleFormFocusCapture}
+        onBlurCapture={handleFormBlurCapture}
         onSubmit={handleSubmit}
       >
         <p className="drop-kind-lede" aria-live="polite">
@@ -2473,7 +2531,7 @@ export function CreateDropPanel() {
             placeholder={
               isWriting
                 ? 'Short public blurb — the manuscript uploads separately.'
-                : 'What the collection is, why it’s special, and what collectors get.'
+                : 'What fans get and why it matters — shown on the drop page.'
             }
             maxLength={MAX_DESCRIPTION}
             className={osFieldBorderedClassName}
@@ -3720,7 +3778,7 @@ export function CreateDropPanel() {
       <InfoDrawer
         open={helpOpen}
         onClose={() => setHelpOpen(false)}
-        title={`${template.label} drops`}
+        title={template.helpTitle}
         summary={template.tagline}
         detail={template.hint}
       />

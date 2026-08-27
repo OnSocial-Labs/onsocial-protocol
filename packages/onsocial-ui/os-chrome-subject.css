@@ -1,0 +1,56 @@
+/**
+ * @onsocial/ui — header / sheet identity cluster (avatar + name + @handle).
+ *
+ * Pair with {@link OsChromeSubject}. Host sets band height — e.g. app
+ * `.os-app-screen-heading .os-chrome-subject` uses `--os-app-screen-nav-row-height`.
+ */
+
+.os-chrome-subject {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+a.os-chrome-subject:hover .os-chrome-subject__name,
+a.os-chrome-subject:focus-visible .os-chrome-subject__name {
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+  outline: none;
+}
+
+.os-chrome-subject__avatar {
+  flex-shrink: 0;
+}
+
+.os-chrome-subject__copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.06rem;
+  min-width: 0;
+}
+
+.os-chrome-subject__name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.98rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.os-chrome-subject__handle {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: rgb(var(--fg-rgb) / 0.48);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

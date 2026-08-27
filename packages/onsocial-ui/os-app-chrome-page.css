@@ -1,0 +1,35 @@
+/**
+ * Page root + status line under OsAppScreen glass chrome.
+ * Always pair with app `OsAppScreen` — never hand-roll page padding.
+ */
+
+.os-app-chrome-page {
+  padding: var(--os-screen-body-inset, 0.15rem 1rem 1.5rem);
+}
+
+/* Discover / standing lists — flush top under compact search + tab rail. */
+.os-app-chrome-page.standing-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: var(--os-screen-body-inset, 0.15rem 1rem 1.5rem);
+  padding-top: 0;
+}
+
+.os-app-chrome-page.home-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.os-app-chrome-page-status {
+  margin: 0;
+  color: rgb(var(--fg-rgb) / 0.7);
+  font-size: 0.9rem;
+}
+
+.os-app-chrome-page-status.is-error {
+  color: var(--signal-error, rgb(185 28 28));
+}

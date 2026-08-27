@@ -1,25 +1,31 @@
 'use client';
 
-import { SearchField } from '@onsocial/ui';
+import { MessageFillIcon, OsAppChromeNavSearch } from '@onsocial/ui';
 import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
+
+const SEARCH_PLACEHOLDER_IDLE = 'Search';
+const SEARCH_ARIA_LABEL = 'Search conversations or OnSocial';
 
 export function MessagesInboxSearchField({
   value,
   onValueChange,
+  onActiveChange,
 }: {
   value: string;
   onValueChange: (value: string) => void;
+  onActiveChange?: (active: boolean) => void;
 }) {
   return (
-    <SearchField
+    <OsAppChromeNavSearch
       value={value}
       onValueChange={onValueChange}
-      placeholder="Search conversations or people"
+      onActiveChange={onActiveChange}
+      placeholder={SEARCH_PLACEHOLDER_IDLE}
       maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
       clearAriaLabel="Clear search"
-      ariaLabel="Search conversations or people"
-      chrome="floating-panel"
-      className="messages-inbox-search os-app-screen-search"
+      ariaLabel={SEARCH_ARIA_LABEL}
+      idleClassName="discover-nav-search-field messages-inbox-search"
+      leadingIcon={<MessageFillIcon className="search-field-icon" aria-hidden />}
     />
   );
 }

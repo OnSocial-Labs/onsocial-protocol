@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { OnSocialMark, SearchField } from '@onsocial/ui';
+import { OnSocialMark, OsAppChromeNavSearch } from '@onsocial/ui';
 import {
   classifyDiscoverSearch,
   isDiscoverTopicDraft,
@@ -28,10 +28,8 @@ const SUGGEST_DEBOUNCE_MS = 220;
  */
 export function DiscoverOmniSearchField({
   className,
-  chrome = 'sheet',
 }: {
   className?: string;
-  chrome?: 'sheet' | 'floating-panel';
 }) {
   const router = useRouter();
   const { query, setQuery, tab } = useDiscoverPanel();
@@ -136,15 +134,14 @@ export function DiscoverOmniSearchField({
   return (
     <div className="discover-omni-search">
       <form className="discover-omni-search-form" onSubmit={handleSubmit}>
-        <SearchField
+        <OsAppChromeNavSearch
           value={query}
           onValueChange={setQuery}
           placeholder={searchPlaceholder}
           maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
           clearAriaLabel="Clear search"
           ariaLabel={searchAriaLabel}
-          chrome={chrome}
-          className={className}
+          idleClassName={`discover-nav-search-field${className ? ` ${className}` : ''}`}
           leadingIcon={<OnSocialMark className="search-field-icon" aria-hidden />}
           onFocus={() => setFocused(true)}
           onBlur={() => {

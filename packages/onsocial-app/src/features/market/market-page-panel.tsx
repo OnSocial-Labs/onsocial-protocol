@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   MultiplyIcon,
+  OsAppChromeToolbarRail,
   ShopFillIcon,
   StarMovingFillIcon,
 } from '@onsocial/ui';
@@ -25,7 +26,6 @@ import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { MarketListingRow } from '@/features/market/market-listing-row';
 import { MarketListingSortMenu } from '@/features/market/market-listing-sort-menu';
 import type { MarketAudioFormatFilter } from '@/features/market/market-facet-rail';
-import { MarketFacetRail } from '@/features/market/market-facet-rail';
 import { MarketFilterMenu } from '@/features/market/market-filter-menu';
 import {
   MARKET_MEDIUM_FILTERS,
@@ -132,27 +132,6 @@ const LISTING_FILTERS: { id: ListingFilter; label: string }[] = [
   { id: 'fixed', label: 'Fixed' },
   { id: 'auctions', label: 'Auctions' },
 ];
-
-/**
- * Primary discovery mediums on Market — full taxonomy minus listing-only noise
- * (coupons / memberships / custom stay in the Filter drawer).
- */
-const MARKET_DISCOVERY_MEDIUM_FILTERS: ReadonlyArray<{
-  id: MarketMediumFilter;
-  label: string;
-}> = MARKET_MEDIUM_FILTERS.filter((entry) =>
-  (
-    [
-      'all',
-      'thought',
-      'art',
-      'writing',
-      'audio',
-      'video',
-      'ticket',
-    ] as MarketMediumFilter[]
-  ).includes(entry.id)
-);
 
 function parseMediumFilter(raw: string | null): MarketMediumFilter {
   const value = raw?.trim().toLowerCase() ?? '';
@@ -368,9 +347,9 @@ export function MarketPagePanel({
   >(() => new Map());
   const [myOffers, setMyOffers] = useState<MyOpenTokenOffer[]>([]);
   const [offersRevision, setOffersRevision] = useState(0);
-  const toolbarHidden = useDockAutoHide(sortMenuOpen);
   const listingsSentinelRef = useRef<HTMLDivElement | null>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
+  const toolbarHidden = useDockAutoHide(sortMenuOpen, scrollRootRef);
   // Soft SSR already seeded default browse — skip one duplicate keyed query.
   const ssrDefaultBrowseSkipRef = useRef(canSeedDefaultBrowse);
   const ssrSalesSkipRef = useRef(initialSales != null);
@@ -1341,7 +1320,10 @@ export function MarketPagePanel({
   return (
     <OsAppScreen
       title="Market"
+      compactChrome
+      dockBack
       leading={null}
+      backFallbackHref={APP_HOME_PATH}
       glassChrome
       scrollRootRef={scrollRootRef}
       heading={
@@ -1353,10 +1335,9 @@ export function MarketPagePanel({
       actions={<MarketHeadingActions />}
       toolbar={
         showListingToolbar ? (
-          <div
-            className={`os-app-chrome-rail market-listing-toolbar${
-              toolbarHidden ? ' is-scroll-hidden' : ''
-            }`}
+          <OsAppChromeToolbarRail
+            hidden={toolbarHidden}
+            className="market-listing-toolbar"
           >
             <div className="market-listing-filter-stack">
               <OsChipRail
@@ -1371,29 +1352,6 @@ export function MarketPagePanel({
                   label: tab.label,
                 }))}
               />
-              <OsChipRail
-                className="market-listing-filters"
-                ariaLabel="Listing medium"
-                value={mediumFilter}
-                onValueChange={setMediumFilter}
-                items={MARKET_DISCOVERY_MEDIUM_FILTERS.map((tab) => ({
-                  id: tab.id,
-                  label: tab.label,
-                }))}
-              />
-              {facetMedium ? (
-                <MarketFacetRail
-                  medium={facetMedium}
-                  audioFormat={audioFormatFilter}
-                  selectedFacets={selectedFacets}
-                  onAudioFormatChange={(format) =>
-                    replaceDiscoveryParams({ audioFormat: format })
-                  }
-                  onFacetsChange={(facets) =>
-                    replaceDiscoveryParams({ facets })
-                  }
-                />
-              ) : null}
             </div>
             <MarketFilterMenu
               medium={mediumFilter}
@@ -1414,7 +1372,7 @@ export function MarketPagePanel({
               endingDisabled={listingFilter === 'fixed'}
               onOpenChange={setSortMenuOpen}
             />
-          </div>
+          </OsAppChromeToolbarRail>
         ) : undefined
       }
     >
