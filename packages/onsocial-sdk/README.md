@@ -147,13 +147,23 @@ console.log(session.tier);
 The dapp creates a session keypair on **its** origin. OnSocial grants `apps/<appId>/` to that public key. `completeAppHandoff` exchanges the one-time code for an app-scoped JWT (plus a body refresh token) and attaches the local session so writes work — the OS session key never leaves OnSocial. Later visits restore the JWT from that refresh token; graph reads do not die at 15 minutes.
 
 ```ts
-const session = await os.auth.completeAppHandoff({
-  osOrigin: 'https://onsocial.id',
-  appId: 'tracker',
-});
-// session.appId is the listed dapp; os.session signs apps/tracker/ writes.
+import { isAppHandoffRedirect, OnSocial } from '@onsocial/sdk';
 
-// Or send a cold visitor explicitly:
+try {
+  const session = await os.auth.completeAppHandoff({
+    osOrigin: 'https://onsocial.id',
+    appId: 'tracker',
+  });
+  // session.appId is the listed dapp; os.session signs apps/tracker/ writes.
+} catch (error) {
+  if (isAppHandoffRedirect(error)) {
+    // First visit: the browser is going to OS /handoff.
+    return;
+  }
+  throw error;
+}
+
+// Or send a cold visitor explicitly (also throws AppHandoffRedirect):
 await os.auth.startOnSocialHandoff({
   osOrigin: 'https://onsocial.id',
   appId: 'tracker',
