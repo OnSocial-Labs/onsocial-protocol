@@ -525,7 +525,7 @@ const planned = await os.query.raw.byAppJsonContains(
       'Batch only paths that belong to the same user intent and should succeed or fail together.',
       'Use wait: true for writes where an on-chain revert must immediately stop follow-up work.',
       'Custom app JSON under apps/<appId> is queryable via byAppId. List the public tile on /onapi/apps.',
-      'Listed tiles and /handoff?app=&pk= grant apps/<appId>/ to the dapp-held key. Call os.auth.completeAppHandoff({ osOrigin, appId }) on the dapp origin.',
+      'Listed tiles and /handoff?app=&pk= grant apps/<appId>/ to the dapp-held key. Call os.auth.completeAppHandoff({ osOrigin, appId }) on the dapp origin. Later visits restore from a stored app refresh token.',
     ],
     playgroundHref: '/playground?example=app-item-and-query',
   },

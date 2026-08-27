@@ -9,8 +9,8 @@ export function communityDappSnippet(input: {
 
 const os = new OnSocial({ network: "${input.network}" });
 
-// Creates a keypair on this origin, then Continue with OnSocial grants
-// apps/${appId}/ to that public key and returns ?onsocial_code=
+// First visit: keypair here, then Continue with OnSocial grants
+// apps/${appId}/. Later visits restore the JWT from a stored refresh token.
 const session = await os.auth.completeAppHandoff({
   osOrigin: "${osOrigin}",
   appId: "${appId}",
