@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { getSdkMethodGuide } from '@/data/sdk-method-guides';
 import {
   communityDappContinueUrl,
   communityDappSnippet,
@@ -17,6 +18,9 @@ describe('community dapp snippet', () => {
     expect(snippet).toContain('osOrigin: "https://onsocial.id"');
     expect(communityDappContinueUrl('https://onsocial.id/', 'Tracker')).toBe(
       'https://onsocial.id/handoff?app=tracker'
+    );
+    expect(getSdkMethodGuide('advanced-control')?.notes.join(' ')).toMatch(
+      /AppHandoffRedirect/
     );
   });
 
