@@ -1,13 +1,16 @@
 import { Router } from 'express';
 import {
   createAuthChallenge,
+  generateAppRefreshToken,
   generateAppToken,
   generateToken,
   generateRefreshToken,
+  verifyAppRefreshToken,
   verifyRefreshToken,
   verifyNearSignature,
 } from '../auth/index.js';
 import { getDeveloperAppById } from '../services/developer-apps/index.js';
+import { listingOrigin } from '../services/developer-apps/listing.js';
 import {
   consumeAppHandoff,
   createAppHandoff,
@@ -270,7 +273,7 @@ authRouter.post('/app-handoff', async (req: Request, res: Response) => {
       res.status(404).json({ error: 'App not found', code: 'NOT_FOUND' });
       return;
     }
-    const handoff = createAppHandoff(req.auth.accountId, app);
+    const handoff = await createAppHandoff(req.auth.accountId, app);
     if ('error' in handoff) {
       res.status(400).json({ error: handoff.error, code: handoff.code });
       return;
@@ -282,9 +285,36 @@ authRouter.post('/app-handoff', async (req: Request, res: Response) => {
   }
 });
 
+async function issueAppSessionJson(
+  accountId: string,
+  appId: string
+): Promise<{
+  token: string;
+  refreshToken: string;
+  accountId: string;
+  appId: string;
+  expiresIn: string;
+  tier: string;
+  rateLimit: number;
+}> {
+  const token = await generateAppToken(accountId, appId);
+  const refreshToken = generateAppRefreshToken(accountId, appId);
+  const tierInfo = await getTierInfo(accountId);
+  return {
+    token,
+    refreshToken,
+    accountId,
+    appId,
+    expiresIn: config.jwtExpiresIn,
+    tier: tierInfo.tier,
+    rateLimit: tierInfo.rateLimit,
+  };
+}
+
 /**
  * POST /auth/app-session
- * Public: exchange a handoff code for an app-scoped JWT. No refresh cookie.
+ * Public: exchange a handoff code for an app-scoped JWT + body refresh token.
+ * Never sets a viewer refresh cookie.
  */
 authRouter.post('/app-session', async (req: Request, res: Response) => {
   const code = String(req.body?.code ?? '').trim();
@@ -297,25 +327,65 @@ authRouter.post('/app-session', async (req: Request, res: Response) => {
   }
 
   const originHeader = req.get('origin');
-  const consumed = consumeAppHandoff(code, appId, originHeader ?? null);
+  const consumed = await consumeAppHandoff(code, appId, originHeader ?? null);
   if ('error' in consumed) {
     res.status(400).json({ error: consumed.error, code: consumed.code });
     return;
   }
 
   try {
-    const token = await generateAppToken(consumed.accountId, consumed.appId);
-    const tierInfo = await getTierInfo(consumed.accountId);
-    res.json({
-      token,
-      accountId: consumed.accountId,
-      appId: consumed.appId,
-      expiresIn: config.jwtExpiresIn,
-      tier: tierInfo.tier,
-      rateLimit: tierInfo.rateLimit,
-    });
+    res.json(await issueAppSessionJson(consumed.accountId, consumed.appId));
   } catch (error) {
     logger.error({ error }, 'App session error');
     res.status(500).json({ error: 'Failed to create app session' });
+  }
+});
+
+/**
+ * POST /auth/app-refresh
+ * Public: rotate an app-scoped refresh token. Cannot mint a viewer session.
+ * Body: { refreshToken, appId }. No cookie.
+ */
+authRouter.post('/app-refresh', async (req: Request, res: Response) => {
+  const refreshToken = String(req.body?.refreshToken ?? '').trim();
+  const appId = String(req.body?.appId ?? '')
+    .trim()
+    .toLowerCase();
+  if (!refreshToken || !appId) {
+    res.status(400).json({ error: 'refreshToken and appId are required' });
+    return;
+  }
+
+  const payload = verifyAppRefreshToken(refreshToken);
+  if (!payload || payload.appId !== appId) {
+    res.status(401).json({ error: 'Valid app refresh token required' });
+    return;
+  }
+
+  const originHeader = req.get('origin');
+  if (originHeader) {
+    try {
+      const app = await getDeveloperAppById(appId);
+      const listed = app?.href ? listingOrigin(app.href) : null;
+      if (listed && originHeader !== listed) {
+        res.status(400).json({
+          error: 'Refresh origin does not match listing',
+          code: 'INVALID_HANDOFF',
+        });
+        return;
+      }
+    } catch (error) {
+      logger.error({ error }, 'App refresh listing lookup failed');
+      res.status(500).json({ error: 'Token refresh failed' });
+      return;
+    }
+  }
+
+  try {
+    clearTierCache(payload.accountId);
+    res.json(await issueAppSessionJson(payload.accountId, payload.appId));
+  } catch (error) {
+    logger.error({ error }, 'App refresh error');
+    res.status(500).json({ error: 'Token refresh failed' });
   }
 });

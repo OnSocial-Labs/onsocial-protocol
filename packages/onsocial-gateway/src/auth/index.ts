@@ -101,6 +101,29 @@ export async function generateAppToken(
 }
 
 /**
+ * App-scoped refresh JWT. Lives as long as the granted `apps/<appId>/`
+ * session key so graph reads do not die while writes still work.
+ * Distinct `kind` so it cannot mint a viewer session via `/auth/refresh`.
+ */
+export const APP_REFRESH_EXPIRES_IN = '90d';
+
+export function generateAppRefreshToken(
+  accountId: string,
+  appId: string
+): string {
+  return jwt.sign(
+    {
+      accountId,
+      appId,
+      kind: 'app_refresh',
+      jti: randomBytes(16).toString('hex'),
+    },
+    config.refreshSecret,
+    { expiresIn: APP_REFRESH_EXPIRES_IN } as jwt.SignOptions
+  );
+}
+
+/**
  * Generate long-lived refresh JWT.
  * Contains only identity — tier is re-resolved on refresh.
  */
@@ -124,6 +147,31 @@ export function verifyRefreshToken(
     };
     if (payload.kind !== 'refresh' || !payload.accountId) return null;
     return { accountId: payload.accountId };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Verify an app-scoped refresh token. Rejects viewer refresh tokens.
+ */
+export function verifyAppRefreshToken(
+  token: string
+): { accountId: string; appId: string } | null {
+  try {
+    const payload = jwt.verify(token, config.refreshSecret) as {
+      accountId?: string;
+      appId?: string;
+      kind?: string;
+    };
+    if (
+      payload.kind !== 'app_refresh' ||
+      !payload.accountId ||
+      !payload.appId
+    ) {
+      return null;
+    }
+    return { accountId: payload.accountId, appId: payload.appId };
   } catch {
     return null;
   }

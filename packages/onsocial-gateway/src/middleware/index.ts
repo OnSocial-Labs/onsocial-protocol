@@ -271,7 +271,11 @@ const APP_SCOPED_PREFIXES = [
   '/storage',
   '/relay',
 ];
-const APP_SCOPED_EXACT = new Set(['/auth/me', '/auth/app-session']);
+const APP_SCOPED_EXACT = new Set([
+  '/auth/me',
+  '/auth/app-session',
+  '/auth/app-refresh',
+]);
 
 /** Community handoff JWTs cannot read DMs, mutes, keys, or refresh to a full session. */
 export function restrictAppScopedSession(

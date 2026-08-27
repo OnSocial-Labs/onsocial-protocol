@@ -40,9 +40,11 @@ vi.mock('../../src/logger.js', () => ({
 import {
   createAuthChallenge,
   verifyNearSignature,
+  generateAppRefreshToken,
   generateAppToken,
   generateToken,
   generateRefreshToken,
+  verifyAppRefreshToken,
   verifyRefreshToken,
   verifyToken,
 } from '../../src/auth/index.js';
@@ -387,5 +389,16 @@ describe('Refresh tokens', () => {
     // Cross-verification must fail
     expect(verifyRefreshToken(accessToken)).toBeNull();
     expect(verifyToken(refreshToken)).toBeNull();
+  });
+
+  it('issues an app refresh that cannot mint a viewer session', () => {
+    const token = generateAppRefreshToken('bob.testnet', 'tracker');
+    expect(verifyAppRefreshToken(token)).toEqual({
+      accountId: 'bob.testnet',
+      appId: 'tracker',
+    });
+    expect(verifyRefreshToken(token)).toBeNull();
+    expect(verifyToken(token)).toBeNull();
+    expect(verifyAppRefreshToken(generateRefreshToken('bob.testnet'))).toBeNull();
   });
 });

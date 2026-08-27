@@ -166,6 +166,7 @@ describe('POST /auth/app-session', () => {
     expect(exchanged.body.accountId).toBe('bob.testnet');
     expect(exchanged.body.appId).toBe('tracker');
     expect(exchanged.body.token).toBeTruthy();
+    expect(exchanged.body.refreshToken).toBeTruthy();
     expect(exchanged.headers['set-cookie']).toBeUndefined();
   });
 
@@ -255,6 +256,126 @@ describe('restrictAppScopedSession', () => {
       .send({ code: issued.body.code, appId: 'tracker' });
     expect(exchanged.status).toBe(200);
     expect(exchanged.body.appId).toBe('tracker');
+  });
+});
+
+describe('POST /auth/app-refresh', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetTierInfo.mockResolvedValue({ tier: 'free', rateLimit: 60 });
+  });
+
+  it('rotates an app-scoped refresh token without a cookie', async () => {
+    mockGetDeveloperAppById.mockResolvedValue(listedApp);
+    const issued = await request(
+      createApp({ accountId: 'bob.testnet', method: 'jwt' })
+    )
+      .post('/auth/app-handoff')
+      .send({ appId: 'tracker' });
+    const exchanged = await request(createApp())
+      .post('/auth/app-session')
+      .set('Origin', 'https://track.example.com')
+      .send({ code: issued.body.code, appId: 'tracker' });
+
+    const refreshed = await request(createApp())
+      .post('/auth/app-refresh')
+      .set('Origin', 'https://track.example.com')
+      .send({
+        refreshToken: exchanged.body.refreshToken,
+        appId: 'tracker',
+      });
+
+    expect(refreshed.status).toBe(200);
+    expect(refreshed.body.accountId).toBe('bob.testnet');
+    expect(refreshed.body.appId).toBe('tracker');
+    expect(refreshed.body.token).toBeTruthy();
+    expect(refreshed.body.refreshToken).toBeTruthy();
+    expect(refreshed.body.refreshToken).not.toBe(exchanged.body.refreshToken);
+    expect(refreshed.headers['set-cookie']).toBeUndefined();
+  });
+
+  it('rejects a viewer refresh token', async () => {
+    const { generateRefreshToken } = await import('../../src/auth/index.js');
+    const viewer = generateRefreshToken('bob.testnet');
+    const res = await request(createApp())
+      .post('/auth/app-refresh')
+      .send({ refreshToken: viewer, appId: 'tracker' });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects a mismatched appId', async () => {
+    mockGetDeveloperAppById.mockResolvedValue(listedApp);
+    const issued = await request(
+      createApp({ accountId: 'bob.testnet', method: 'jwt' })
+    )
+      .post('/auth/app-handoff')
+      .send({ appId: 'tracker' });
+    const exchanged = await request(createApp())
+      .post('/auth/app-session')
+      .send({ code: issued.body.code, appId: 'tracker' });
+
+    const res = await request(createApp())
+      .post('/auth/app-refresh')
+      .send({
+        refreshToken: exchanged.body.refreshToken,
+        appId: 'other',
+      });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects a mismatched Origin when the app is listed', async () => {
+    mockGetDeveloperAppById.mockResolvedValue(listedApp);
+    const issued = await request(
+      createApp({ accountId: 'bob.testnet', method: 'jwt' })
+    )
+      .post('/auth/app-handoff')
+      .send({ appId: 'tracker' });
+    const exchanged = await request(createApp())
+      .post('/auth/app-session')
+      .send({ code: issued.body.code, appId: 'tracker' });
+
+    const res = await request(createApp())
+      .post('/auth/app-refresh')
+      .set('Origin', 'https://other.example')
+      .send({
+        refreshToken: exchanged.body.refreshToken,
+        appId: 'tracker',
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INVALID_HANDOFF');
+  });
+});
+
+describe('restrictAppScopedSession', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetTierInfo.mockResolvedValue({ tier: 'free', rateLimit: 60 });
+  });
+
+  it('allows app-refresh while holding an app JWT', async () => {
+    mockGetDeveloperAppById.mockResolvedValue(listedApp);
+    const issued = await request(
+      createApp({ accountId: 'bob.testnet', method: 'jwt' })
+    )
+      .post('/auth/app-handoff')
+      .send({ appId: 'tracker' });
+    const exchanged = await request(createApp())
+      .post('/auth/app-session')
+      .send({ code: issued.body.code, appId: 'tracker' });
+
+    const refreshed = await request(
+      createApp({
+        accountId: 'bob.testnet',
+        method: 'jwt',
+        appId: 'tracker',
+      })
+    )
+      .post('/auth/app-refresh')
+      .send({
+        refreshToken: exchanged.body.refreshToken,
+        appId: 'tracker',
+      });
+    expect(refreshed.status).toBe(200);
   });
 
   it('blocks DMs and refresh', async () => {
