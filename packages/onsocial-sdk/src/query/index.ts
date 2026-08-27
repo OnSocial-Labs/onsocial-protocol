@@ -168,7 +168,6 @@ export type {
   SupportReceivedRow,
 } from './social-spend.js';
 export type { SocialSpendEventType } from './social-spend-events.js';
-export type { DataRow } from './raw.js';
 export type { PageCurrentRow } from './pages.js';
 export type {
   GroupCurrentRow,
