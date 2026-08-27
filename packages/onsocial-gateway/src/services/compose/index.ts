@@ -70,6 +70,7 @@ export {
   type SetActionResult,
   validatePath,
   buildSetAction,
+  buildSetBatchAction,
 } from './set.js';
 
 // Mint (scarces contract)
