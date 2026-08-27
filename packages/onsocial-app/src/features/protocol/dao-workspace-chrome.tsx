@@ -6,7 +6,11 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
-import { SearchField } from '@onsocial/ui';
+import {
+  NoteTextIcon,
+  OsAppChromeNavSearch,
+  OsAppChromeToolbarRail,
+} from '@onsocial/ui';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import {
   PROTOCOL_FEED_FAMILY_OPTIONS,
@@ -60,13 +64,12 @@ function useDaoWorkspaceChrome(): DaoWorkspaceChromeContextValue {
   return value;
 }
 
-/** Search beside back — same recipe as Discover / Market. */
+/** Compact nav search — same OsAppChromeNavSearch recipe as Market / Messages. */
 export function DaoWorkspaceHeaderSearch() {
   const {
     loadState,
     searchDraft,
     setSearchDraft,
-    searchQuery,
     commitSearch,
     inProposalDetail,
   } = useDaoWorkspaceChrome();
@@ -75,48 +78,30 @@ export function DaoWorkspaceHeaderSearch() {
     return null;
   }
 
-  if (loadState !== 'ready') {
-    return (
-      <SearchField
-        value=""
-        onValueChange={() => {}}
-        placeholder="Search proposals"
-        ariaLabel="Search proposals"
-        chrome="floating-panel"
-        className="dao-proposals-header-search os-app-screen-search"
-      />
-    );
-  }
+  const interactive = loadState === 'ready';
 
   return (
     <div
       className="dao-proposals-header-search-wrap"
       onKeyDown={(event) => {
+        if (!interactive) return;
         if (event.key === 'Enter') {
           event.preventDefault();
           commitSearch(searchDraft);
         }
       }}
     >
-      <SearchField
-        value={searchDraft}
-        onValueChange={(next) => {
-          setSearchDraft(next);
-          if (!next.trim()) {
-            commitSearch('');
-          }
-        }}
+      <OsAppChromeNavSearch
+        value={interactive ? searchDraft : ''}
+        onValueChange={interactive ? setSearchDraft : () => undefined}
         placeholder="Search proposals"
         maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
         clearAriaLabel="Clear proposal search"
         ariaLabel="Search proposals"
-        chrome="floating-panel"
-        className="dao-proposals-header-search os-app-screen-search"
-        onBlur={() => {
-          if (searchDraft.trim() !== searchQuery.trim()) {
-            commitSearch(searchDraft);
-          }
-        }}
+        idleClassName="discover-nav-search-field dao-proposals-header-search"
+        leadingIcon={
+          <NoteTextIcon className="search-field-icon" aria-hidden />
+        }
       />
     </div>
   );
@@ -194,7 +179,8 @@ function ProtocolFamilyRail() {
 
 /** Status + family chip rails — tuck on scroll like Discover / Market. */
 export function DaoWorkspaceHeaderToolbar() {
-  const { scrollRootRef, loadState, inProposalDetail } = useDaoWorkspaceChrome();
+  const { scrollRootRef, loadState, inProposalDetail } =
+    useDaoWorkspaceChrome();
   const toolbarHidden = useDockAutoHide(false, scrollRootRef);
 
   if (loadState !== 'ready' || inProposalDetail) {
@@ -202,15 +188,14 @@ export function DaoWorkspaceHeaderToolbar() {
   }
 
   return (
-    <div
-      className={`os-app-chrome-rail dao-proposals-header-toolbar${
-        toolbarHidden ? ' is-scroll-hidden' : ''
-      }`}
+    <OsAppChromeToolbarRail
+      hidden={toolbarHidden}
+      className="dao-proposals-header-toolbar"
     >
       <div className="dao-proposals-filter-stack">
         <ProtocolStatusRail />
         <ProtocolFamilyRail />
       </div>
-    </div>
+    </OsAppChromeToolbarRail>
   );
 }

@@ -309,7 +309,13 @@ function useSheetFocusTrap(
     const autoFocusTarget = focusables.find((element) =>
       element.hasAttribute('autofocus')
     );
-    const initialTarget = autoFocusTarget ?? focusables[0] ?? panel;
+    // Skip chrome search (and similar) so opening a page sheet does not
+    // land focus in the nav field and expand mobile OsAppChromeNavSearch.
+    const preferredTarget = focusables.find(
+      (element) => !element.closest('[data-sheet-initial-focus-skip]')
+    );
+    const initialTarget =
+      autoFocusTarget ?? preferredTarget ?? panel;
     if (initialTarget === panel) {
       panel.tabIndex = -1;
     }

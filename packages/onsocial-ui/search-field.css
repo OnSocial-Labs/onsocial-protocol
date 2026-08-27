@@ -31,9 +31,11 @@
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
+    line-height: 0;
   }
 
   .search-field-icon {
+    display: block;
     width: 0.9375rem;
     height: 0.9375rem;
     flex-shrink: 0;
@@ -52,12 +54,15 @@
     opacity: 0.72;
   }
 
-  /* Portal-style inset rail after prefix (NEAR account / amount fields). */
+  /*
+   * Portal-style inset rail after prefix. Cap height + center — Divider's
+   * default `self-stretch` would fill the whole field and read optically high.
+   */
   .search-field-divider {
     align-self: center;
-    height: 1.25rem;
-    min-height: 1.25rem;
-    max-height: 1.25rem;
+    height: 1.05rem;
+    min-height: 1.05rem;
+    max-height: 1.05rem;
   }
 
   .search-field-input {
@@ -181,6 +186,14 @@
     -webkit-backdrop-filter: none;
     background: var(--os-surface-fill-hover-soft);
   }
+}
+
+/* Unlayered — beat Divider utility `self-stretch` so the rail stays centered. */
+.search-field .search-field-divider {
+  align-self: center;
+  height: 1.05rem;
+  min-height: 1.05rem;
+  max-height: 1.05rem;
 }
 
 /* Neutralize floating-panel nested overrides so SearchField stays one look. */

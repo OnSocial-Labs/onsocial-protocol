@@ -3,13 +3,10 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
-  ArrowLeftIcon,
-  Divider,
-  NoteTextIcon,
-  OsIconAction,
   OsPageSheet,
   OsProposalCardList,
 } from '@onsocial/ui';
+import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -127,6 +124,8 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 const PROPOSALS_PAGE_Z = 45;
 const POST_ACTION_REFRESH_MS = 2_000;
 const POST_ACTION_REFRESH_WINDOW_MS = 20_000;
+/** Live filter while typing — same cadence as Market. */
+const SEARCH_DEBOUNCE_MS = 300;
 
 /** Tool the Manage sheet can ask `DaoWorkspacePanel` to open. */
 export type DaoWorkspaceTool = 'propose' | 'stake' | 'settings' | 'info' | null;
@@ -707,6 +706,17 @@ export function DaoWorkspacePanel({
     },
     [daoAccountId, statusFilter, familyFilter, focusedProposalId]
   );
+
+  // Live search — debounce URL + filter commit while typing (Market recipe).
+  useEffect(() => {
+    const trimmed = searchDraft.trim();
+    if (trimmed === searchQuery.trim()) return;
+    const delay = trimmed.length === 0 ? 0 : SEARCH_DEBOUNCE_MS;
+    const id = window.setTimeout(() => {
+      commitSearch(searchDraft);
+    }, delay);
+    return () => window.clearTimeout(id);
+  }, [searchDraft, searchQuery, commitSearch]);
 
   const mergeProposal = useCallback(
     (
@@ -1608,11 +1618,6 @@ export function DaoWorkspacePanel({
                 commitSearch(searchDraft);
               }
             }}
-            onBlur={() => {
-              if (searchDraft.trim() !== searchQuery) {
-                commitSearch(searchDraft);
-              }
-            }}
           />
         </label>
       ) : null}
@@ -1773,12 +1778,10 @@ export function DaoWorkspacePanel({
     </div>
   );
 
-  const setPageBodyRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      scrollRootRef.current = node;
-    },
-    []
-  );
+  const sheetTitle = sheet?.title ?? 'Proposals';
+  const sheetSubtitle = sheet?.subtitle?.trim() || undefined;
+  const detailTitle =
+    focusedProposalId != null ? `#${focusedProposalId}` : 'Proposal';
 
   return (
     <DaoWorkspaceChromeProvider value={chromeValue}>
@@ -1802,74 +1805,35 @@ export function DaoWorkspacePanel({
           bodyClassName={
             sheet.contentClassName ?? 'dao-proposals-page-body'
           }
-          bodyRef={setPageBodyRef}
-          header={
-            <>
-              <header className="dao-proposals-page-header">
-                <div className="os-app-screen-nav-row">
-                  <OsIconAction
-                    ariaLabel={
-                      inProposalDetail
-                        ? 'Back to all proposals'
-                        : (sheet.closeAriaLabel ?? 'Back from proposals')
-                    }
-                    onClick={handleSheetBack}
-                  >
-                    <ArrowLeftIcon
-                      className="glass-sheet-close-icon"
-                      aria-hidden
-                    />
-                  </OsIconAction>
-                  <div className="os-app-screen-heading">
-                    {inProposalDetail ? (
-                      <>
-                        <h1 id={titleId} className="os-app-screen-title">
-                          {focusedProposalId != null
-                            ? `#${focusedProposalId}`
-                            : 'Proposal'}
-                        </h1>
-                        {sheet.subtitle ? (
-                          <p className="os-app-screen-subtitle">
-                            {sheet.subtitle}
-                          </p>
-                        ) : null}
-                      </>
-                    ) : (
-                      <>
-                        <h1 id={titleId} className="sr-only">
-                          {sheet.title ?? 'Proposals'}
-                        </h1>
-                        {sheet.subtitle ? (
-                          <p className="sr-only">{sheet.subtitle}</p>
-                        ) : null}
-                        <DaoWorkspaceHeaderSearch />
-                      </>
-                    )}
-                  </div>
-                  {inProposalDetail ? (
-                    <div className="os-app-screen-actions">
-                      <OsIconAction
-                        ariaLabel="All proposals"
-                        onClick={clearProposalDetail}
-                      >
-                        <NoteTextIcon
-                          className="glass-sheet-close-icon"
-                          aria-hidden
-                        />
-                      </OsIconAction>
-                    </div>
-                  ) : null}
-                </div>
-                <DaoWorkspaceHeaderToolbar />
-              </header>
-              <Divider
-                variant="section"
-                className="glass-sheet-header-divider"
-              />
-            </>
-          }
+          header={null}
         >
-          {workspace}
+          <OsAppScreen
+            title={inProposalDetail ? detailTitle : sheetTitle}
+            subtitle={inProposalDetail ? sheetSubtitle : undefined}
+            glassChrome
+            compactChrome
+            embedded
+            dockBack
+            onDockBack={handleSheetBack}
+            backFallbackHref={daoPortfolioPath(daoAccountId)}
+            leading={null}
+            moodId={pageMood.moodId}
+            moodStyle={pageMood.moodStyle}
+            scrollRootRef={scrollRootRef}
+            heading={
+              inProposalDetail ? undefined : <DaoWorkspaceHeaderSearch />
+            }
+            toolbar={
+              loadState === 'ready' && !inProposalDetail ? (
+                <DaoWorkspaceHeaderToolbar />
+              ) : undefined
+            }
+          >
+            <span id={titleId} className="sr-only">
+              {inProposalDetail ? detailTitle : sheetTitle}
+            </span>
+            {workspace}
+          </OsAppScreen>
         </OsPageSheet>
       ) : (
         workspace

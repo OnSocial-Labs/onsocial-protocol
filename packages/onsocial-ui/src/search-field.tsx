@@ -77,7 +77,7 @@ export function SearchField({
         <Divider
           orientation="vertical"
           variant="detail"
-          className="search-field-divider"
+          className="search-field-divider self-center"
         />
       ) : null}
       <input

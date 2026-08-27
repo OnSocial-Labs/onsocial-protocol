@@ -111,6 +111,55 @@
 }
 
 /*
+ * Heading SearchField — beat @onsocial/ui SearchField's 2rem default so Discover /
+ * Market / Messages / Proposals share the same 2.35rem compact nav band.
+ */
+.os-app-screen-heading .search-field.os-app-screen-search,
+.os-app-screen-heading .search-field.discover-nav-search-field {
+  width: 100%;
+  height: var(--os-app-screen-nav-row-height, 2.35rem);
+  min-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  max-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  box-sizing: border-box;
+}
+
+/*
+ * Discover omni wrappers — `display: contents` so the SearchField is a direct
+ * heading flex item (same box as Market). Extra form/div was lofting the pill.
+ */
+.os-app-screen-heading:has(.discover-omni-search) {
+  position: relative;
+  overflow: visible;
+}
+
+.os-app-screen-heading .discover-omni-search,
+.os-app-screen-heading .discover-omni-search-form {
+  display: contents;
+}
+
+.os-app-screen-heading .os-app-chrome-nav-search,
+.os-app-screen-heading [data-sheet-initial-focus-skip],
+.os-app-screen-heading .dao-proposals-header-search-wrap {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-height: var(--os-app-screen-nav-row-height, 2.35rem);
+}
+
+/* Suggest list still anchors under the search field / heading. */
+.os-app-screen-heading .discover-omni-suggest {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  z-index: 6;
+}
+
+/*
  * App chrome rail — see @onsocial/ui/os-app-chrome.css (OsAppChromeToolbarRail).
  */
 
@@ -269,6 +318,37 @@
 }
 
 .glass-sheet-panel.guild-composer-sheet-panel
+  .os-app-screen--embedded
+  .os-app-screen-column {
+  max-width: none;
+  height: 100%;
+}
+
+/*
+ * Proposals mood page — same embedded OsAppScreen frost as composer.
+ */
+.glass-sheet-panel.dao-proposals-page
+  > .glass-sheet-body.dao-proposals-page-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 0;
+  overflow: hidden;
+}
+
+.glass-sheet-panel.dao-proposals-page .os-app-screen--embedded {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.glass-sheet-panel.dao-proposals-page
   .os-app-screen--embedded
   .os-app-screen-column {
   max-width: none;
@@ -8893,16 +8973,29 @@ a.os-surface-row {
 
   .os-app-screen[data-compact-chrome='true'] {
     --os-app-screen-nav-row-height: 2.35rem;
+    /* Equal pad above search and below chips — avoids “more top / less bottom”. */
+    --os-app-chrome-pad-y: 0.3rem;
     --os-app-screen-chrome-height: calc(
-      env(safe-area-inset-top, 0px) + 0.35rem +
-        var(--os-app-screen-nav-row-height) + 0.35rem
+      env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y) +
+        var(--os-app-screen-nav-row-height) + var(--os-app-chrome-pad-y)
     );
   }
 
-  /* Default OsIconAction is 2.75rem — would loft the 2.35rem compact band. */
+  /*
+   * One compact nav band everywhere (Discover / Market / Messages / Proposals).
+   * Market actions used to stay at OsIconAction's 2.75rem and loft the row —
+   * Discover (no actions) stayed 2.35rem, so its search sat higher / chips closer.
+   */
+  .os-app-screen[data-compact-chrome='true'] .os-app-screen-nav-row {
+    align-items: center;
+    height: var(--os-app-screen-nav-row-height);
+    min-height: var(--os-app-screen-nav-row-height);
+    max-height: var(--os-app-screen-nav-row-height);
+  }
+
   .os-app-screen[data-compact-chrome='true']
     .os-app-screen-nav-row
-    > .glass-sheet-icon-action {
+    .glass-sheet-icon-action {
     width: var(--os-app-screen-nav-row-height);
     height: var(--os-app-screen-nav-row-height);
     min-width: var(--os-app-screen-nav-row-height);
@@ -8910,16 +9003,28 @@ a.os-surface-row {
   }
 
   .os-app-screen[data-compact-chrome='true'] .os-app-screen-header {
-    padding: calc(env(safe-area-inset-top, 0px) + 0.35rem)
-      max(1rem, env(safe-area-inset-right, 0px)) 0.35rem
+    padding: calc(env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y))
+      max(1rem, env(safe-area-inset-right, 0px)) var(--os-app-chrome-pad-y)
       max(1rem, env(safe-area-inset-left, 0px));
   }
 
   .os-app-screen[data-compact-chrome='true'] .os-app-screen-toolbar {
-    margin-top: 0;
     display: flex;
     align-items: center;
     min-height: var(--os-app-screen-nav-row-height);
+  }
+
+  /*
+   * Heading (search / title) + chip rail — tight shared gap, chip-band height
+   * (not another 2.35rem search row). Compact used to zero toolbar margin for
+   * toolbar-only screens; keep a small gap for Discover / Market / Proposals.
+   */
+  .os-app-screen[data-compact-chrome='true']
+    .os-app-screen-nav-row
+    + .os-app-screen-toolbar {
+    margin-top: var(--os-app-chrome-chip-gap, 0.28rem);
+    min-height: 0;
+    align-items: center;
   }
 
   /* Toolbar-only compact screens (Home search rail, Messages inbox) — same
@@ -8928,6 +9033,7 @@ a.os-surface-row {
     .os-app-screen-toolbar:has(.os-app-screen-search),
   .os-app-screen[data-compact-chrome='true']
     .os-app-screen-toolbar:has(.home-feed-compact-chrome) {
+    margin-top: 0;
     min-height: var(--os-app-screen-nav-row-height);
   }
 
@@ -9081,6 +9187,12 @@ a.os-surface-row {
   /* Discover search lives in the heading — allow the suggest panel to escape. */
   .os-app-screen-heading:has(.discover-omni-search) {
     overflow: visible;
+    justify-content: center;
+  }
+
+  /* Compact search heading — same vertical centering as Market. */
+  .os-app-screen[data-compact-chrome='true'] .os-app-screen-nav-row {
+    align-items: center;
   }
 
   /* Title + subtitle stack — align to the back control top, then optical nudge. */
@@ -9386,13 +9498,6 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .os-app-screen-heading .discover-nav-search-field,
-  .os-app-screen-heading .os-app-chrome-nav-search {
-    width: 100%;
-    min-height: var(--os-app-screen-nav-row-height);
-    height: var(--os-app-screen-nav-row-height);
-  }
-
   .discover-sheet-nav-row {
     display: flex;
     align-items: center;
@@ -9407,7 +9512,7 @@ a.os-surface-row {
 
   .os-app-screen-toolbar:has(.discover-tab-bar),
   .os-app-screen-toolbar:has(.os-app-chrome-rail) {
-    margin-top: 0.5rem;
+    margin-top: var(--os-app-chrome-chip-gap, 0.28rem);
   }
 
   .discover-tab-bar--header {
@@ -9530,6 +9635,16 @@ a.os-surface-row {
     border-radius: 0;
     background: transparent;
     box-shadow: none;
+  }
+
+  /*
+   * Header chip rails — beat the body `.discover-tab-bar` bottom margin
+   * (equal specificity otherwise left dead space under chips).
+   */
+  .discover-tab-bar.discover-tab-bar--header,
+  .os-app-chrome-rail .discover-tab-bar,
+  .os-app-screen-toolbar .discover-tab-bar {
+    margin: 0;
   }
 
   .discover-tab-bar-scroller {
@@ -9816,7 +9931,7 @@ a.os-surface-row {
     padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
   }
 
-  .glass-sheet-root[data-keep-dock='true'] .dao-proposals-page-body {
+  .glass-sheet-root[data-keep-dock='true'] .dao-proposals-page .dao-workspace {
     padding-bottom: calc(1.25rem + 4.75rem + env(safe-area-inset-bottom, 0px));
   }
 
@@ -15867,7 +15982,7 @@ a.os-surface-row {
   /* Same toolbar offset as Discover tab rail. */
   .os-app-screen-toolbar:has(.home-feed-chip-bar),
   .os-app-screen-toolbar:has(.home-feed-header-toolbar) {
-    margin-top: 0.5rem;
+    margin-top: var(--os-app-chrome-chip-gap, 0.28rem);
   }
 
   .os-app-screen-header:has(.home-feed-header-toolbar) {
@@ -24741,44 +24856,20 @@ a.os-surface-row {
     --os-screen-body-pad-x: 1rem;
   }
 
-  .dao-proposals-page-header {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-    padding: 0.55rem var(--os-screen-body-pad-x, 1rem) 0.35rem;
-    box-sizing: border-box;
-  }
-
-  .dao-proposals-page-header .os-app-screen-nav-row {
-    --os-app-screen-nav-row-height: 2.75rem;
-  }
-
-  .dao-proposals-page-header .os-app-screen-heading {
-    overflow: visible;
-  }
-
-  .dao-proposals-page-header .dao-proposals-header-search,
-  .dao-proposals-page-header .dao-proposals-header-search-wrap {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .dao-proposals-page-header .dao-proposals-header-search {
-    min-height: 2.25rem;
-    height: 2.25rem;
-  }
-
   .dao-proposals-page-body {
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
-    padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
+    gap: 0;
+    padding: 0;
     box-sizing: border-box;
   }
 
-  .dao-proposals-page-body .dao-workspace {
+  .dao-proposals-page .dao-workspace {
     gap: 0.65rem;
     min-width: 0;
+    padding: var(--os-screen-body-pad-top, 0.15rem)
+      var(--os-screen-body-pad-x, 1rem)
+      var(--os-screen-body-pad-bottom, 1.5rem);
   }
 
   /*
@@ -34992,26 +35083,39 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   min-width: 0;
 }
 
-.dao-proposals-page .dao-workspace {
-  gap: 0.65rem;
-}
-
 .dao-proposals-header-search-wrap,
 .dao-proposals-header-search {
   width: 100%;
   min-width: 0;
 }
 
+.os-app-screen-heading .dao-proposals-header-search-wrap {
+  width: 100%;
+  min-width: 0;
+}
+
 .os-app-screen-heading .dao-proposals-header-search {
-  min-height: 2.25rem;
-  height: 2.25rem;
+  min-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  height: var(--os-app-screen-nav-row-height, 2.35rem);
 }
 
 .dao-proposals-header-toolbar {
   min-width: 0;
   margin: 0;
-  /* Two chip rows — default chrome rail is one row (3rem). */
+  /* Two chip rows — default chrome rail is one row (2.35rem). */
   max-height: none;
+  min-height: 0;
+  height: auto;
+  align-items: flex-start;
+  overflow: visible;
+}
+
+/* Compact chrome — same search→chips gap; two rails stack (not one-line height). */
+.os-app-screen[data-compact-chrome='true']
+  .os-app-screen-toolbar:has(.dao-proposals-header-toolbar) {
+  margin-top: var(--os-app-chrome-chip-gap, 0.28rem);
+  align-items: flex-start;
+  min-height: 0;
 }
 
 .dao-proposals-filter-stack {
@@ -35019,6 +35123,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   flex-direction: column;
   gap: 0.3rem;
   min-width: 0;
+  width: 100%;
 }
 
 .dao-proposals-status-rail,

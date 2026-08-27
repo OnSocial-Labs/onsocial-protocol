@@ -17,11 +17,14 @@
  */
 
 :root {
-  --os-app-chrome-rail-height: 2.35rem;
+  /* Chip band under search — shorter than the 2.35rem nav/search row. */
+  --os-app-chrome-rail-height: 1.85rem;
+  --os-app-chrome-chip-gap: 0.28rem;
+  --os-app-chrome-pad-y: 0.3rem;
   --os-app-chrome-nav-height: 2.35rem;
   --os-app-chrome-compact-height: calc(
-    env(safe-area-inset-top, 0px) + 0.35rem + var(--os-app-chrome-nav-height) +
-      0.35rem
+    env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y) +
+      var(--os-app-chrome-nav-height) + var(--os-app-chrome-pad-y)
   );
 }
 
@@ -42,6 +45,38 @@
     max-height 220ms ease,
     min-height 220ms ease,
     margin 220ms ease;
+}
+
+/* One-line chip header — fill the rail, center chips, no bottom margin air. */
+.os-app-chrome-rail .discover-tab-bar {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  min-width: 0;
+  height: 100%;
+  max-height: 100%;
+}
+
+.os-app-chrome-rail > .discover-tab-bar {
+  flex: 1 1 auto;
+}
+
+.os-app-chrome-rail .discover-tab-bar-scroller {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+}
+
+/* Nested filter stacks (Market) — stay one centered chip band. */
+.os-app-chrome-rail > .market-listing-filter-stack {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  max-height: 100%;
+  margin: 0;
 }
 
 .os-app-chrome-rail.is-scroll-hidden {

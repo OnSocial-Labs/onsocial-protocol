@@ -15,6 +15,10 @@ import {
   useWriteDockPinned,
   useWriteDockMorph,
 } from '@/contexts/compose-launcher-context';
+import {
+  useDockBack,
+  type DockBackRegistration,
+} from '@/contexts/dock-chrome-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
@@ -22,17 +26,25 @@ import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-conte
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
+import { APP_HOME_PATH } from '@/lib/app-routes';
 import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
 import { ownerPortfolioOsApps, visitorPortfolioOsApps } from '@/lib/os-apps';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
 import { SummonLauncher } from '@/components/os/summon-launcher';
 import { PortfolioSummonComposeButton } from '@/components/portfolio/portfolio-summon-compose-button';
+import { OsDockBackZone } from '@/components/wallet/os-dock-back-zone';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
 
 const DOCK_HINT_KEY = 'onpage-portfolio-dock-hint-seen';
 const LONG_PRESS_MS = 480;
 const SWIPE_UP_PX = 28;
 const TAP_SLOP_PX = 12;
+
+/** Face default — history.back(), else Home (overlays override via context). */
+const FACE_DOCK_BACK: DockBackRegistration = {
+  fallbackHref: APP_HOME_PATH,
+  ariaLabel: 'Back',
+};
 
 export interface PortfolioSummonDockProps {
   pageAccountId: string;
@@ -67,12 +79,15 @@ export function PortfolioSummonDock({
   const writePinned = useWriteDockPinned();
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
+  const registeredDockBack = useDockBack();
+  const dockBack = registeredDockBack ?? FACE_DOCK_BACK;
   const { effectiveMood, isPreviewingMood } = usePortfolioMoodPreview();
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
   const viewerDockMood = useViewerDockMood(pageAccountId);
   const [osOpen, setOsOpen] = useState(false);
   const [showHint, setShowHint] = useState(readDockHintPending);
   const [openPinned, setOpenPinned] = useState(false);
+  const showDockBack = !osOpen && !write;
 
   const previewPinned = isPreviewingMood || isPreviewingFace;
 
@@ -227,6 +242,15 @@ export function PortfolioSummonDock({
         <OsDockPill
           pageAccountId={pageAccountId}
           writeMorph={writeMorph}
+          navBack={
+            showDockBack ? (
+              <OsDockBackZone
+                fallbackHref={dockBack.fallbackHref}
+                ariaLabel={dockBack.ariaLabel}
+                onBack={dockBack.onBack}
+              />
+            ) : undefined
+          }
           grip={
             <button
               type="button"

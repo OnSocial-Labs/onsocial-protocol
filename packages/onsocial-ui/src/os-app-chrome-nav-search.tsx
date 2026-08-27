@@ -144,17 +144,19 @@ export function OsAppChromeNavSearch({
   }
 
   return (
-    <SearchField
-      value={value}
-      onValueChange={onValueChange}
-      placeholder={placeholder}
-      maxLength={maxLength}
-      clearAriaLabel={clearAriaLabel}
-      ariaLabel={ariaLabel ?? placeholder}
-      className={`${osAppChromeNavSearchIdleClassName}${idleClassName ? ` ${idleClassName}` : ''}`}
-      leadingIcon={leadingIcon}
-      onFocus={handleIdleFocus}
-      onBlur={onBlur}
-    />
+    <div data-sheet-initial-focus-skip="">
+      <SearchField
+        value={value}
+        onValueChange={onValueChange}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        clearAriaLabel={clearAriaLabel}
+        ariaLabel={ariaLabel ?? placeholder}
+        className={`${osAppChromeNavSearchIdleClassName}${idleClassName ? ` ${idleClassName}` : ''}`}
+        leadingIcon={leadingIcon}
+        onFocus={handleIdleFocus}
+        onBlur={onBlur}
+      />
+    </div>
   );
 }

@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, type RefObject } from 'react';
-import { ContextualBack } from '@/components/app/contextual-back';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { DiscoverPanelContent } from '@/features/discover/discover-panel-content';
 import {
@@ -18,22 +17,25 @@ function DiscoverPageScreen({
   backFallbackHref,
 }: {
   scrollRootRef: RefObject<HTMLElement | null>;
+  /** Nested Discover (portfolio `/@account/discover`) — dock back, not header. */
   backFallbackHref?: string;
 }) {
+  const nested = Boolean(backFallbackHref);
+
   return (
     <OsAppScreen
       title="Discover"
       compactChrome
-      leading={
-        backFallbackHref ? (
-          <ContextualBack fallbackHref={backFallbackHref} />
-        ) : null
-      }
       glassChrome
       scrollRootRef={scrollRootRef}
-      heading={
-        <DiscoverNavSearch className="os-app-screen-search" />
-      }
+      leading={null}
+      {...(nested
+        ? {
+            dockBack: true as const,
+            backFallbackHref,
+          }
+        : {})}
+      heading={<DiscoverNavSearch />}
       toolbar={<DiscoverHeaderTabs />}
     >
       <DiscoverPanelContent />
@@ -48,7 +50,7 @@ export function DiscoverPagePanel({
   initialGuilds = null,
 }: {
   /**
-   * When set (portfolio `/@account/discover`), show back before search —
+   * When set (portfolio `/@account/discover`), register launcher dock back —
    * e.g. Standing → Discover. App `/discover` omits this (launcher root).
    */
   backFallbackHref?: string;

@@ -141,7 +141,11 @@ export function DiscoverOmniSearchField({
           maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
           clearAriaLabel="Clear search"
           ariaLabel={searchAriaLabel}
-          idleClassName={`discover-nav-search-field${className ? ` ${className}` : ''}`}
+          idleClassName={
+            className
+              ? `discover-nav-search-field ${className}`
+              : 'discover-nav-search-field'
+          }
           leadingIcon={<OnSocialMark className="search-field-icon" aria-hidden />}
           onFocus={() => setFocused(true)}
           onBlur={() => {
