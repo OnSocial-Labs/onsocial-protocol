@@ -1,11 +1,17 @@
 import { Router } from 'express';
 import {
   createAuthChallenge,
+  generateAppToken,
   generateToken,
   generateRefreshToken,
   verifyRefreshToken,
   verifyNearSignature,
 } from '../auth/index.js';
+import { getDeveloperAppById } from '../services/developer-apps/index.js';
+import {
+  consumeAppHandoff,
+  createAppHandoff,
+} from '../services/app-handoff.js';
 import { getTierInfo, clearTierCache } from '../tiers/index.js';
 import { config } from '../config/index.js';
 import { SUBSCRIPTION_PLANS, formatPrice } from '../services/revolut/index.js';
@@ -191,6 +197,7 @@ authRouter.get('/me', async (req: Request, res: Response) => {
       accountId: req.auth.accountId,
       tier: tierInfo.tier,
       rateLimit: tierInfo.rateLimit,
+      ...(req.auth.appId ? { appId: req.auth.appId } : {}),
     });
   } catch (error) {
     logger.error({ error }, 'Get me error');
@@ -231,4 +238,84 @@ authRouter.get('/config', (_req: Request, res: Response) => {
       socialToken: config.socialTokenContract,
     },
   });
+});
+
+/**
+ * POST /auth/app-handoff
+ * Viewer JWT (not app-scoped) issues a one-time code for a listed community app.
+ */
+authRouter.post('/app-handoff', async (req: Request, res: Response) => {
+  if (!req.auth) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+  if (req.auth.method === 'apikey' || req.auth.appId) {
+    res.status(403).json({
+      error: 'Use an OnSocial viewer session to start a dapp handoff',
+    });
+    return;
+  }
+
+  const appId = String(req.body?.appId ?? '')
+    .trim()
+    .toLowerCase();
+  if (!appId) {
+    res.status(400).json({ error: 'appId is required' });
+    return;
+  }
+
+  try {
+    const app = await getDeveloperAppById(appId);
+    if (!app) {
+      res.status(404).json({ error: 'App not found', code: 'NOT_FOUND' });
+      return;
+    }
+    const handoff = createAppHandoff(req.auth.accountId, app);
+    if ('error' in handoff) {
+      res.status(400).json({ error: handoff.error, code: handoff.code });
+      return;
+    }
+    res.json(handoff);
+  } catch (error) {
+    logger.error({ error }, 'App handoff error');
+    res.status(500).json({ error: 'Failed to create handoff' });
+  }
+});
+
+/**
+ * POST /auth/app-session
+ * Public: exchange a handoff code for an app-scoped JWT. No refresh cookie.
+ */
+authRouter.post('/app-session', async (req: Request, res: Response) => {
+  const code = String(req.body?.code ?? '').trim();
+  const appId = String(req.body?.appId ?? '')
+    .trim()
+    .toLowerCase();
+  if (!code || !appId) {
+    res.status(400).json({ error: 'code and appId are required' });
+    return;
+  }
+
+  const originHeader = req.get('origin');
+  const consumed = consumeAppHandoff(code, appId, originHeader ?? null);
+  if ('error' in consumed) {
+    res.status(400).json({ error: consumed.error, code: consumed.code });
+    return;
+  }
+
+  try {
+    const token = await generateAppToken(consumed.accountId, consumed.appId);
+    const tierInfo = await getTierInfo(consumed.accountId);
+    res.json({
+      token,
+      accountId: consumed.accountId,
+      appId: consumed.appId,
+      expiresIn: config.jwtExpiresIn,
+      tier: tierInfo.tier,
+      rateLimit: tierInfo.rateLimit,
+    });
+  } catch (error) {
+    logger.error({ error }, 'App session error');
+    res.status(500).json({ error: 'Failed to create app session' });
+  }
 });

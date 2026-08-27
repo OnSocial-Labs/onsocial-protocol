@@ -91,6 +91,7 @@ const planned = await os.query.raw.byAppJsonContains(
 
 // List the public tile on Portal → OnAPI → Apps
 // (name, icon, https URL, listed). This runner does not publish the board.
+// On the dapp origin: await os.auth.completeAppHandoff();
 console.log({ result, item, rows, planned, listOnPortal: "/onapi/apps" });`,
   },
   {

@@ -74,6 +74,12 @@ import { OsAppIcon } from '@/lib/os-app-icons';
 import { osAppAccent } from '@/lib/os-app-accents';
 import { useCommunityAppCatalog } from '@/hooks/use-community-app-catalog';
 import { portalHref } from '@/lib/app-links';
+import { getCachedAppGatewayAuth } from '@/lib/app-gateway-auth';
+import {
+  communityAppIdFromLauncherId,
+  launchCommunityApp,
+  openCommunityAppWindow,
+} from '@/lib/community-app-handoff';
 
 const LAUNCHER_DISMISS_PX = 96;
 const LAUNCHER_PRESENTATION_MS = 320;
@@ -156,6 +162,7 @@ function LauncherAppTile({
   );
 
   if (app.kind === 'external' && app.href) {
+    const community = Boolean(communityAppIdFromLauncherId(app.id));
     return (
       <a
         className={tileClassName}
@@ -164,7 +171,12 @@ function LauncherAppTile({
         rel="noreferrer"
         aria-label={ariaLabel}
         aria-current={active ? 'page' : undefined}
-        onClick={onActivate}
+        onClick={(event) => {
+          if (community) {
+            event.preventDefault();
+          }
+          onActivate();
+        }}
       >
         {tileBody}
       </a>
@@ -340,6 +352,19 @@ export function SummonLauncher({
     if (navigate(app)) {
       closeLauncher();
     }
+  }
+
+  function handleCommunityActivate(app: OsAppLink) {
+    const appId = communityAppIdFromLauncherId(app.id);
+    const href = app.href;
+    if (!appId || !href) {
+      closeLauncher();
+      return;
+    }
+    const popup = openCommunityAppWindow();
+    closeLauncher();
+    const token = accountId ? getCachedAppGatewayAuth(accountId) : null;
+    void launchCommunityApp({ appId, href, token, popup });
   }
 
   const handleDragPointerDown = useCallback(
@@ -661,7 +686,7 @@ export function SummonLauncher({
                             openingPage={false}
                             active={false}
                             onActivate={() => {
-                              closeLauncher();
+                              handleCommunityActivate(app);
                             }}
                           />
                         </li>
@@ -678,7 +703,10 @@ export function SummonLauncher({
                     className={`${osLauncherDotClassName}${launcherPage === 0 ? ' is-current' : ''}`}
                     aria-label="OnSocial apps"
                     onClick={() => {
-                      pagesRef.current?.scrollTo({ left: 0, behavior: 'smooth' });
+                      pagesRef.current?.scrollTo({
+                        left: 0,
+                        behavior: 'smooth',
+                      });
                       setLauncherPage(0);
                     }}
                   />

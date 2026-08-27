@@ -109,10 +109,17 @@ export interface LoginResponse {
   rateLimit: number;
 }
 
+export interface AppSessionResponse extends LoginResponse {
+  accountId: string;
+  appId: string;
+}
+
 export interface AuthInfo {
   accountId: string;
   tier: Tier;
   rateLimit: number;
+  /** Present when this JWT was issued for a community dapp handoff. */
+  appId?: string;
 }
 
 // ── Relay / Compose ─────────────────────────────────────────────────────────

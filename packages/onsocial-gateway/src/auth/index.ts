@@ -83,6 +83,23 @@ export async function generateToken(accountId: string): Promise<string> {
   } as jwt.SignOptions);
 }
 
+/** Short-lived access JWT bound to one listed community app. No refresh cookie. */
+export async function generateAppToken(
+  accountId: string,
+  appId: string
+): Promise<string> {
+  const tierInfo = await getTierInfo(accountId);
+  const payload: Omit<JwtPayload, 'iat' | 'exp'> = {
+    accountId,
+    tier: tierInfo.tier,
+    kind: 'access',
+    appId,
+  };
+  return jwt.sign(payload, config.jwtSecret, {
+    expiresIn: config.jwtExpiresIn,
+  } as jwt.SignOptions);
+}
+
 /**
  * Generate long-lived refresh JWT.
  * Contains only identity — tier is re-resolved on refresh.

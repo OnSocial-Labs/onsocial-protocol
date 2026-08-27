@@ -157,6 +157,21 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'POST', path: 'auth/challenge', body: 'json' },
   { method: 'POST', path: 'auth/login', body: 'json' },
 
+  // Community dapp handoff — viewer JWT issues a one-time code.
+  {
+    method: 'POST',
+    path: 'auth/app-handoff',
+    body: 'json',
+    forwardAuthorization: true,
+  },
+  // Public exchange on the dapp origin (also usable via the OS proxy).
+  {
+    method: 'POST',
+    path: 'auth/app-session',
+    body: 'json',
+    optionalApiKey: true,
+  },
+
   // Private mute prefs (viewer JWT — not the server API key).
   {
     method: 'GET',
@@ -263,8 +278,7 @@ function findAllowedRoute(
   const path = pathSegments.join('/');
   return (
     ALLOWED_PROXY_ROUTES.find(
-      (route) =>
-        route.method === method && pathMatchesAllowed(route.path, path)
+      (route) => route.method === method && pathMatchesAllowed(route.path, path)
     ) ?? null
   );
 }

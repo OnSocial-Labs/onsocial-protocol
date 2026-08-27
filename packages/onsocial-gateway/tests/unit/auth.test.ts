@@ -40,6 +40,7 @@ vi.mock('../../src/logger.js', () => ({
 import {
   createAuthChallenge,
   verifyNearSignature,
+  generateAppToken,
   generateToken,
   generateRefreshToken,
   verifyRefreshToken,
@@ -335,6 +336,21 @@ describe('JWT tokens', () => {
     // Flip a character
     const tampered = token.slice(0, -2) + 'xx';
     expect(verifyToken(tampered)).toBeNull();
+  });
+
+  it('generates an app-scoped token with the listing appId', async () => {
+    const token = await generateAppToken('bob.testnet', 'tracker');
+    const payload = verifyToken(token);
+    expect(payload).not.toBeNull();
+    expect(payload!.accountId).toBe('bob.testnet');
+    expect(payload!.tier).toBe('free');
+    expect(payload!.appId).toBe('tracker');
+    expect(payload!.kind).toBe('access');
+  });
+
+  it('does not attach appId on a full viewer token', async () => {
+    const token = await generateToken('bob.testnet');
+    expect(verifyToken(token)?.appId).toBeUndefined();
   });
 });
 

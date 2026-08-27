@@ -41,6 +41,12 @@ function requireJwtAuth(req: Request, res: Response, next: () => void): void {
       .json({ error: 'API keys cannot manage developer resources. Use JWT.' });
     return;
   }
+  if (req.auth.appId) {
+    res.status(403).json({
+      error: 'App-scoped sessions cannot manage developer resources.',
+    });
+    return;
+  }
   next();
 }
 

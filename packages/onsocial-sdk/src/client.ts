@@ -145,7 +145,7 @@ function findMintedTokenId(value: unknown, depth = 0): string | undefined {
  *
  * | Namespace             | Purpose                                                      |
  * | --------------------- | ------------------------------------------------------------ |
- * | `os.auth`             | Login, refresh, logout                                       |
+ * | `os.auth`             | Login, refresh, logout, community handoff                    |
  * | `os.social`           | Atomic `Action::Set` writes + raw `getOne`/`getMany` reads   |
  * | `os.posts`            | Blessed single entry point for post creation                 |
  * | `os.profiles`         | Read/write profiles + auto media upload                      |

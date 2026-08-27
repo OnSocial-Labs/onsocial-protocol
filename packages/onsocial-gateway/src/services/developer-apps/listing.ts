@@ -41,6 +41,16 @@ export function normalizeHttpsUrl(
   return url.toString();
 }
 
+export function listingOrigin(href: string): string | null {
+  try {
+    const url = new URL(href);
+    if (url.protocol !== 'https:' || !url.hostname) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
 export function normalizeListingInput(body: {
   name?: unknown;
   iconUrl?: unknown;

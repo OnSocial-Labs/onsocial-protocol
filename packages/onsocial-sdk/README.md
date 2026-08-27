@@ -142,6 +142,15 @@ const session = await os.auth.login({
 console.log(session.tier);
 ```
 
+### Community dapp handoff
+
+A listed tile opens with `onsocial_code` + `onsocial_app`. Exchange that one-time code for an **app-scoped** JWT — not the OS session key:
+
+```ts
+const session = await os.auth.completeAppHandoff();
+// session.appId is the listed dapp; DMs / keys / refresh stay blocked.
+```
+
 ## Quick Start
 
 ### Profiles & posts

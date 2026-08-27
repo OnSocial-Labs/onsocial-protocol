@@ -212,6 +212,28 @@ describe('GET /developer/keys', () => {
 
     expect(res.status).toBe(403);
   });
+
+  it('rejects app-scoped JWT auth', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => {
+      req.auth = {
+        accountId: 'alice.testnet',
+        method: 'jwt',
+        tier: 'free',
+        appId: 'tracker',
+        iat: 0,
+        exp: 0,
+      };
+      req.log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() } as never;
+      next();
+    });
+    app.use('/developer', developerRouter);
+
+    const res = await request(app).get('/developer/keys');
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/app-scoped/i);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
