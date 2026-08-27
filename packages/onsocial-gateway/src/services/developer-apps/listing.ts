@@ -4,7 +4,8 @@ export type ListingHrefError = { error: string; code: 'INVALID_LISTING' };
 
 export function normalizeListingName(raw: unknown): string | ListingHrefError {
   const name = typeof raw === 'string' ? raw.trim() : '';
-  if (!name) return { error: 'name is required to list', code: 'INVALID_LISTING' };
+  if (!name)
+    return { error: 'name is required to list', code: 'INVALID_LISTING' };
   if (name.length > LISTING_NAME_MAX) {
     return {
       error: `name must be ${LISTING_NAME_MAX} characters or fewer`,

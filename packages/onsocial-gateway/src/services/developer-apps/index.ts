@@ -328,9 +328,7 @@ export async function registerDeveloperApp(
   return record;
 }
 
-export async function listCommunityAppCatalog(): Promise<
-  DeveloperAppRecord[]
-> {
+export async function listCommunityAppCatalog(): Promise<DeveloperAppRecord[]> {
   return store.listCatalog();
 }
 
