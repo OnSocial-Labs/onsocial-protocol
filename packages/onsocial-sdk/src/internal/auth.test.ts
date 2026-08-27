@@ -383,7 +383,9 @@ describe('AuthModule.completeAppHandoff', () => {
     });
     const { clearAppHandoffKey, writeAppHandoffKey, readAppHandoffKey } =
       await import('../auth-handoff-key.js');
-    const { readAppHandoffSession } = await import('../auth-handoff-session.js');
+    const { readAppHandoffSession } = await import(
+      '../auth-handoff-session.js'
+    );
     const pendingKey = {
       appId: 'tracker',
       publicKey: 'ed25519:keep',
