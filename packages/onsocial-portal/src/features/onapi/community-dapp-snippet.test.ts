@@ -12,6 +12,7 @@ describe('community dapp snippet', () => {
       network: 'mainnet',
     });
     expect(snippet).toContain('completeAppHandoff');
+    expect(snippet).toContain('isAppHandoffRedirect');
     expect(snippet).toContain('apps/tracker/item/');
     expect(snippet).toContain('osOrigin: "https://onsocial.id"');
     expect(communityDappContinueUrl('https://onsocial.id/', 'Tracker')).toBe(

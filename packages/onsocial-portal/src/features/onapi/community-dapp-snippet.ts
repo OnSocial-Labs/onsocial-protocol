@@ -5,16 +5,21 @@ export function communityDappSnippet(input: {
 }): string {
   const appId = input.appId.trim().toLowerCase();
   const osOrigin = input.osOrigin.replace(/\/$/, '');
-  return `import { OnSocial } from "@onsocial/sdk";
+  return `import { isAppHandoffRedirect, OnSocial } from "@onsocial/sdk";
 
 const os = new OnSocial({ network: "${input.network}" });
 
-// First visit: keypair here, then Continue with OnSocial grants
-// apps/${appId}/. Later visits restore the JWT from a stored refresh token.
-const session = await os.auth.completeAppHandoff({
-  osOrigin: "${osOrigin}",
-  appId: "${appId}",
-});
+// First visit redirects to OS. Later visits restore a stored refresh token.
+let session;
+try {
+  session = await os.auth.completeAppHandoff({
+    osOrigin: "${osOrigin}",
+    appId: "${appId}",
+  });
+} catch (error) {
+  if (isAppHandoffRedirect(error)) return;
+  throw error;
+}
 
 await os.social.set({
   [\`apps/${appId}/item/\${Date.now().toString(36)}\`]: { hello: true },
