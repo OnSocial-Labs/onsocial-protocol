@@ -149,6 +149,12 @@ A listed tile opens with `onsocial_code` + `onsocial_app`. Exchange that one-tim
 ```ts
 const session = await os.auth.completeAppHandoff();
 // session.appId is the listed dapp; DMs / keys / refresh stay blocked.
+
+// Cold visit on your site:
+os.auth.startOnSocialHandoff({
+  osOrigin: 'https://onsocial.id',
+  appId: 'tracker',
+});
 ```
 
 ## Quick Start

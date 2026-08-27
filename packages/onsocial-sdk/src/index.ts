@@ -17,8 +17,14 @@ export { AuthModule } from './internal/auth.js';
 export {
   APP_HANDOFF_APP_PARAM,
   APP_HANDOFF_CODE_PARAM,
+  APP_ID_RE,
+  OS_HANDOFF_APP_PARAM,
+  OS_HANDOFF_PATH,
   buildAppHandoffUrl,
+  buildOsAppHandoffUrl,
+  normalizeAppId,
   parseAppHandoffFromUrl,
+  stripAppHandoffFromUrl,
 } from './auth-handoff.js';
 export type { AppHandoffParams } from './auth-handoff.js';
 export {

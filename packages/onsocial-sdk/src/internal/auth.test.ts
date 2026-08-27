@@ -89,4 +89,35 @@ describe('AuthModule.completeAppHandoff', () => {
       auth.completeAppHandoff({ url: 'https://track.example.com/app' })
     ).rejects.toThrow(/onsocial_code/);
   });
+
+  it('strips handoff params from the current URL after exchange', async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          token: 'app.jwt.token',
+          accountId: 'bob.testnet',
+          appId: 'tracker',
+          expiresIn: '1h',
+          tier: 'free',
+          rateLimit: 60,
+        }),
+    });
+    const replaceState = vi.fn();
+    vi.stubGlobal('window', {
+      location: {
+        href: 'https://track.example.com/app?onsocial_code=abc&onsocial_app=tracker&ref=1',
+      },
+      history: { state: null, replaceState },
+    });
+    try {
+      const auth = new AuthModule(
+        new HttpClient({ fetch, gatewayUrl: 'https://testnet.onsocial.id' })
+      );
+      await auth.completeAppHandoff();
+      expect(replaceState).toHaveBeenCalledWith(null, '', '/app?ref=1');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

@@ -113,7 +113,7 @@ describe('social set-data builders', () => {
 //
 // SocialModule writes now route through the session-bridge:
 //   - single set: /compose/prepare/set then /relay/delegate
-//   - multi-entry set: signAndRelay (no prepare)
+//   - multi-entry set: /compose/prepare/set { entries } then /relay/delegate
 //
 // Tests assert the **prepared body** posted to /compose/prepare/set or the
 // **signed action** captured by session.sign() — the two SDK-controlled
@@ -204,30 +204,19 @@ describe('SocialModule transport (session-bridge)', () => {
     });
   });
 
-  it('batches multi-entry set() into a single signed Action::Set', async () => {
-    const { social, post, signed, target } = makeHarness();
+  it('batches multi-entry set() through compose/prepare/set', async () => {
+    const { social, post, target } = makeHarness();
     await social.set({
       'profile/name': 'Alice',
       'posts/main/p1': { text: 'gm' },
     });
-    // No /compose/prepare/set call — the multi-entry path builds the action client-side.
-    expect(
-      post.mock.calls.find(
-        (c) => (c as unknown as [string])[0] === '/compose/prepare/set'
-      )
-    ).toBeUndefined();
-    expect(signed).toEqual([
-      {
-        action: {
-          type: 'set',
-          data: {
-            'profile/name': 'Alice',
-            'posts/main/p1': { text: 'gm' },
-          },
-        },
-        targetAccount: target,
+    expect(findPrepBody(post)).toEqual({
+      entries: {
+        'profile/name': 'Alice',
+        'posts/main/p1': { text: 'gm' },
       },
-    ]);
+      targetAccount: target,
+    });
   });
 
   it('single-entry set(object) routes through compose/prepare/set like set(path, value)', async () => {

@@ -24,7 +24,6 @@ import type { HttpClient } from '../internal/http.js';
 import { resolveContractId } from '../internal/contracts.js';
 import {
   composeAndSign,
-  signAndRelay,
   type SessionGetter,
   type BroadcastGetter,
 } from '../internal/session-bridge.js';
@@ -752,12 +751,14 @@ export class SocialModule {
         opts
       );
     }
-    const action = { type: 'set', data: pathOrEntries };
-    return signAndRelay(
+    return composeAndSign(
       this._http,
       this._getSession(),
-      action,
-      this._coreContract,
+      'set',
+      {
+        entries: pathOrEntries,
+        targetAccount: this._coreContract,
+      },
       'social.set',
       { ...this._broadcastOpts(), ...opts }
     );
