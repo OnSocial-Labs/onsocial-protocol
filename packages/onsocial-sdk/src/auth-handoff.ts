@@ -1,3 +1,19 @@
+/** Thrown after `location.assign` to OS so `await completeAppHandoff` settles. */
+export class AppHandoffRedirect extends Error {
+  readonly redirected = true as const;
+
+  constructor(readonly href: string) {
+    super('Redirecting to OnSocial to continue');
+    this.name = 'AppHandoffRedirect';
+  }
+}
+
+export function isAppHandoffRedirect(
+  error: unknown
+): error is AppHandoffRedirect {
+  return error instanceof AppHandoffRedirect;
+}
+
 export const APP_HANDOFF_CODE_PARAM = 'onsocial_code';
 export const APP_HANDOFF_APP_PARAM = 'onsocial_app';
 /** Listed community app ids: 2–64 lowercase letters, numbers, hyphen, underscore. */

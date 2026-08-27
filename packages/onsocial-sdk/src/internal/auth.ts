@@ -9,6 +9,7 @@ import {
 } from '../advanced/bootstrap.js';
 import type { Session } from '../advanced/session.js';
 import {
+  clearAppHandoffKey,
   prepareAppHandoffKey,
   restoreAppHandoffSessionKey,
 } from '../auth-handoff-key.js';
@@ -18,6 +19,7 @@ import {
   writeAppHandoffSession,
 } from '../auth-handoff-session.js';
 import {
+  AppHandoffRedirect,
   buildOsAppHandoffUrl,
   communityAppSessionPath,
   normalizeAppId,
@@ -66,8 +68,20 @@ export class AuthModule {
     return res;
   }
 
-  /** Refresh the current JWT. */
+  /**
+   * Refresh the current JWT. After a community handoff this rotates the
+   * stored app refresh token — it does not call the viewer cookie route.
+   */
   async refresh(): Promise<LoginResponse> {
+    if (this._appId) {
+      const restored = await this.restoreAppSession(this._appId);
+      if (!restored) {
+        throw new Error(
+          `Community app session expired for "${this._appId}". Call completeAppHandoff({ osOrigin, appId }) again.`
+        );
+      }
+      return restored;
+    }
     const res = await this._http.post<LoginResponse>('/auth/refresh');
     this._http.setToken(res.token);
     return res;
@@ -109,12 +123,20 @@ export class AuthModule {
       }
       if (osOrigin && appId && typeof window !== 'undefined') {
         await this.startOnSocialHandoff({ osOrigin, appId });
-        return new Promise(() => undefined);
       }
-      throw new Error('Missing onsocial_code or onsocial_app');
+      if (!appId) {
+        throw new Error(
+          'Missing appId. Pass appId or open this page with ?onsocial_app=.'
+        );
+      }
+      throw new Error(
+        `No community session for "${appId}". Pass osOrigin to continue with OnSocial, or open this page from a listed tile.`
+      );
     }
     if (!appId) {
-      throw new Error('Missing onsocial_code or onsocial_app');
+      throw new Error(
+        'Missing appId. Pass appId or open this page with ?onsocial_app=.'
+      );
     }
 
     const res = await this._http.post<AppSessionResponse>('/auth/app-session', {
@@ -126,7 +148,6 @@ export class AuthModule {
     const sessionKey = await restoreAppHandoffSessionKey(appId);
     if (!sessionKey && osOrigin && typeof window !== 'undefined') {
       await this.startOnSocialHandoff({ osOrigin, appId });
-      return new Promise(() => undefined);
     }
 
     const replaceUrl = input.replaceUrl ?? typeof window !== 'undefined';
@@ -181,14 +202,18 @@ export class AuthModule {
   async startOnSocialHandoff(input: {
     osOrigin: string;
     appId: string;
-  }): Promise<void> {
+  }): Promise<never> {
     if (typeof window === 'undefined') {
       throw new Error('startOnSocialHandoff requires a browser');
     }
     const key = await prepareAppHandoffKey(input.appId, input.osOrigin);
-    window.location.assign(
-      buildOsAppHandoffUrl(input.osOrigin, input.appId, key.publicKey)
+    const href = buildOsAppHandoffUrl(
+      input.osOrigin,
+      input.appId,
+      key.publicKey
     );
+    window.location.assign(href);
+    throw new AppHandoffRedirect(href);
   }
 
   /** Manually set a pre-obtained JWT. */
@@ -196,10 +221,18 @@ export class AuthModule {
     this._http.setToken(token);
   }
 
-  /** Clear credentials. */
-  logout(): void {
+  /**
+   * Clear the access JWT. After a community handoff this also drops the
+   * stored refresh token so graph reads stop. The dapp-held keypair stays
+   * so the next Continue with OnSocial can skip AddKey. Pass `forgetKey`
+   * to delete that keypair too.
+   */
+  logout(options?: { forgetKey?: boolean }): void {
     this._http.clearToken();
-    if (this._appId) clearAppHandoffSession(this._appId);
+    if (this._appId) {
+      clearAppHandoffSession(this._appId);
+      if (options?.forgetKey) clearAppHandoffKey(this._appId);
+    }
     this._appId = null;
   }
 

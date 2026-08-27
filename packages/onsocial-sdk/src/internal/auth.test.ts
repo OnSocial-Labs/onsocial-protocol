@@ -89,7 +89,13 @@ describe('AuthModule.completeAppHandoff', () => {
     const auth = new AuthModule(new HttpClient({ fetch: vi.fn() }));
     await expect(
       auth.completeAppHandoff({ url: 'https://track.example.com/app' })
-    ).rejects.toThrow(/onsocial_code/);
+    ).rejects.toThrow(/Missing appId/);
+    await expect(
+      auth.completeAppHandoff({
+        url: 'https://track.example.com/app',
+        appId: 'tracker',
+      })
+    ).rejects.toThrow(/No community session for "tracker"/);
   });
 
   it('restores a stored app refresh when the URL has no code', async () => {
@@ -220,6 +226,209 @@ describe('AuthModule.completeAppHandoff', () => {
       expect(fetch.mock.calls[3][1].headers.Authorization).toBe(
         'Bearer second.access'
       );
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis as any).localStorage;
+    }
+  });
+
+  it('throws AppHandoffRedirect instead of hanging on first visit', async () => {
+    const memory = new Map<string, string>();
+    const assign = vi.fn();
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => memory.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          memory.set(key, value);
+        },
+        removeItem: (key: string) => {
+          memory.delete(key);
+        },
+      },
+    });
+    vi.stubGlobal('window', {
+      location: {
+        href: 'https://track.example.com/app',
+        assign,
+      },
+    });
+    try {
+      const auth = new AuthModule(new HttpClient({ fetch: vi.fn() }));
+      await expect(
+        auth.completeAppHandoff({
+          url: 'https://track.example.com/app',
+          appId: 'tracker',
+          osOrigin: 'https://onsocial.id',
+        })
+      ).rejects.toMatchObject({
+        name: 'AppHandoffRedirect',
+        redirected: true,
+      });
+      expect(String(assign.mock.calls[0]?.[0])).toContain(
+        'https://onsocial.id/handoff?app=tracker&pk='
+      );
+    } finally {
+      vi.unstubAllGlobals();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis as any).localStorage;
+    }
+  });
+
+  it('refresh() rotates the app token after handoff, not the viewer cookie', async () => {
+    const memory = new Map<string, string>();
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => memory.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          memory.set(key, value);
+        },
+        removeItem: (key: string) => {
+          memory.delete(key);
+        },
+      },
+    });
+    writeAppHandoffSession({
+      appId: 'tracker',
+      accountId: 'bob.testnet',
+      refreshToken: 'old.refresh',
+    });
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            token: 'first.access',
+            refreshToken: 'first.refresh',
+            accountId: 'bob.testnet',
+            appId: 'tracker',
+            expiresIn: '15m',
+            tier: 'free',
+            rateLimit: 60,
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            token: 'second.access',
+            refreshToken: 'second.refresh',
+            accountId: 'bob.testnet',
+            appId: 'tracker',
+            expiresIn: '15m',
+            tier: 'free',
+            rateLimit: 60,
+          }),
+      });
+    try {
+      const auth = new AuthModule(
+        new HttpClient({ fetch, gatewayUrl: 'https://testnet.onsocial.id' })
+      );
+      await auth.completeAppHandoff({
+        url: 'https://track.example.com/app',
+        appId: 'tracker',
+      });
+      const refreshed = await auth.refresh();
+      expect(refreshed.token).toBe('second.access');
+      expect(fetch.mock.calls.map((call) => String(call[0]))).toEqual([
+        'https://testnet.onsocial.id/auth/app-refresh',
+        'https://testnet.onsocial.id/auth/app-refresh',
+      ]);
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis as any).localStorage;
+    }
+  });
+
+  it('refresh() still uses the viewer cookie route without an app session', async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          token: 'viewer.access',
+          expiresIn: '15m',
+          tier: 'free',
+          rateLimit: 60,
+        }),
+    });
+    const auth = new AuthModule(
+      new HttpClient({ fetch, gatewayUrl: 'https://testnet.onsocial.id' })
+    );
+    await auth.refresh();
+    expect(String(fetch.mock.calls[0][0])).toBe(
+      'https://testnet.onsocial.id/auth/refresh'
+    );
+  });
+
+  it('logout clears the app refresh and can forget the keypair', async () => {
+    const memory = new Map<string, string>();
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => memory.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          memory.set(key, value);
+        },
+        removeItem: (key: string) => {
+          memory.delete(key);
+        },
+      },
+    });
+    writeAppHandoffSession({
+      appId: 'tracker',
+      accountId: 'bob.testnet',
+      refreshToken: 'old.refresh',
+    });
+    const { clearAppHandoffKey, writeAppHandoffKey, readAppHandoffKey } =
+      await import('../auth-handoff-key.js');
+    const { readAppHandoffSession } = await import('../auth-handoff-session.js');
+    const pendingKey = {
+      appId: 'tracker',
+      publicKey: 'ed25519:keep',
+      secretSeedB64u: 'seed',
+      osOrigin: 'https://onsocial.id',
+    };
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          token: 'first.access',
+          refreshToken: 'first.refresh',
+          accountId: 'bob.testnet',
+          appId: 'tracker',
+          expiresIn: '15m',
+          tier: 'free',
+          rateLimit: 60,
+        }),
+    });
+    try {
+      const auth = new AuthModule(
+        new HttpClient({ fetch, gatewayUrl: 'https://testnet.onsocial.id' })
+      );
+      await auth.completeAppHandoff({
+        url: 'https://track.example.com/app',
+        appId: 'tracker',
+      });
+      writeAppHandoffKey(pendingKey);
+      auth.logout();
+      expect(readAppHandoffSession('tracker')).toBeNull();
+      expect(readAppHandoffKey('tracker')?.publicKey).toBe('ed25519:keep');
+
+      writeAppHandoffSession({
+        appId: 'tracker',
+        accountId: 'bob.testnet',
+        refreshToken: 'old.refresh',
+      });
+      clearAppHandoffKey('tracker');
+      await auth.completeAppHandoff({
+        url: 'https://track.example.com/app',
+        appId: 'tracker',
+      });
+      writeAppHandoffKey(pendingKey);
+      auth.logout({ forgetKey: true });
+      expect(readAppHandoffKey('tracker')).toBeNull();
     } finally {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (globalThis as any).localStorage;

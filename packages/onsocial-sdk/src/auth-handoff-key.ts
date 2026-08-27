@@ -53,6 +53,13 @@ export function readAppHandoffKey(appId: string): StoredAppHandoffKey | null {
   }
 }
 
+export function clearAppHandoffKey(appId: string): void {
+  const id = normalizeAppId(appId);
+  const ls = readStorage();
+  if (!id || !ls) return;
+  ls.removeItem(storageKey(id));
+}
+
 export function writeAppHandoffKey(value: StoredAppHandoffKey): void {
   const ls = readStorage();
   if (!ls) {

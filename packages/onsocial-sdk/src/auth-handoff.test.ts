@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AppHandoffRedirect,
   buildAppHandoffUrl,
   buildOsAppHandoffUrl,
   communityAppSessionPath,
+  isAppHandoffRedirect,
   parseAppHandoffFromUrl,
   stripAppHandoffFromUrl,
 } from './auth-handoff.js';
@@ -51,6 +53,15 @@ describe('app handoff URL helpers', () => {
         'https://track.example.com/app?ref=1&onsocial_code=abc&onsocial_app=tracker'
       )
     ).toBe('/app?ref=1');
+  });
+
+  it('treats AppHandoffRedirect as a typed navigation', () => {
+    const error = new AppHandoffRedirect(
+      'https://onsocial.id/handoff?app=tracker'
+    );
+    expect(isAppHandoffRedirect(error)).toBe(true);
+    expect(isAppHandoffRedirect(new Error('nope'))).toBe(false);
+    expect(error.redirected).toBe(true);
   });
 
   it('rejects an invalid community app id', () => {

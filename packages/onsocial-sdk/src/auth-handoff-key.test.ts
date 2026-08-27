@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { readAppHandoffKey, writeAppHandoffKey } from './auth-handoff-key.js';
+import {
+  clearAppHandoffKey,
+  readAppHandoffKey,
+  writeAppHandoffKey,
+} from './auth-handoff-key.js';
 
 describe('app handoff key store', () => {
   const memory = new Map<string, string>();
@@ -38,5 +42,7 @@ describe('app handoff key store', () => {
       osOrigin: 'https://onsocial.id',
     });
     expect(readAppHandoffKey('dating')).toBeNull();
+    clearAppHandoffKey('Tracker');
+    expect(readAppHandoffKey('tracker')).toBeNull();
   });
 });
