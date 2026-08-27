@@ -19,9 +19,9 @@ describe('community dapp snippet', () => {
     expect(communityDappContinueUrl('https://onsocial.id/', 'Tracker')).toBe(
       'https://onsocial.id/handoff?app=tracker'
     );
-    expect(
-      getSdkMethodGuide('advanced-control')?.notes.join(' ')
-    ).toMatch(/AppHandoffRedirect/);
+    expect(getSdkMethodGuide('advanced-control')?.notes.join(' ')).toMatch(
+      /AppHandoffRedirect/
+    );
   });
 
   it('rejects an invalid continue app id', () => {
