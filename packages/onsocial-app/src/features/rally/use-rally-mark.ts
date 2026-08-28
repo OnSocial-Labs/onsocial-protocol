@@ -34,24 +34,22 @@ export function useRallyMark(
   const [loaded, setLoaded] = useState(!entry);
   const [standing, setStanding] = useState<RallyStanding | null>(null);
   const [apiClaim, setApiClaim] = useState<RallyClaimRecord | null>(null);
+  const [tracked, setTracked] = useState({
+    seasonId: entry?.seasonId ?? null,
+    accountId,
+  });
 
   const seasonId = entry?.seasonId ?? null;
+  if (tracked.seasonId !== seasonId || tracked.accountId !== accountId) {
+    setTracked({ seasonId, accountId });
+    setStanding(null);
+    setApiClaim(null);
+    setLoaded(!seasonId || !accountId);
+  }
 
   useEffect(() => {
-    if (!seasonId) {
-      setStanding(null);
-      setApiClaim(null);
-      setLoaded(true);
-      return;
-    }
-    if (!accountId) {
-      setStanding(null);
-      setApiClaim(null);
-      setLoaded(true);
-      return;
-    }
+    if (!seasonId || !accountId) return;
     let cancelled = false;
-    setLoaded(false);
     void (async () => {
       const [nextStanding, nextClaim] = await Promise.all([
         fetchRallyMe(seasonId, accountId),
@@ -108,6 +106,7 @@ export function useRallyMark(
           ? `Join ${pageTitle}`
           : pageTitle;
 
+    void participateSyncVersion;
     return {
       loaded,
       visible: true,

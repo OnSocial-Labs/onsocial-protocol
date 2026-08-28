@@ -4,12 +4,10 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useRef,
   useState,
   type ReactNode,
 } from 'react';
-import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   deriveSeasonClaimRecord,
   hasSeasonJoinOverride,
@@ -48,23 +46,11 @@ export function SeasonParticipationProvider({
 }: {
   children: ReactNode;
 }) {
-  const { accountId } = useAppWallet();
   const confirmedClaimsRef = useRef<Map<string, true>>(new Map());
   const confirmedJoinsRef = useRef<Map<string, true>>(new Map());
   const pendingClaimsRef = useRef<Set<string>>(new Set());
   const pendingJoinsRef = useRef<Set<string>>(new Set());
-  const activeAccountIdRef = useRef<string | null>(null);
   const [participateSyncVersion, setParticipateSyncVersion] = useState(0);
-
-  useEffect(() => {
-    if (activeAccountIdRef.current === accountId) return;
-    activeAccountIdRef.current = accountId ?? null;
-    confirmedClaimsRef.current.clear();
-    confirmedJoinsRef.current.clear();
-    pendingClaimsRef.current.clear();
-    pendingJoinsRef.current.clear();
-    setParticipateSyncVersion((version) => version + 1);
-  }, [accountId]);
 
   const bumpParticipateSync = useCallback(() => {
     setParticipateSyncVersion((version) => version + 1);

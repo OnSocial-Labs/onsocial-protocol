@@ -52,23 +52,32 @@ export function useRallyPlayer(
     hasSeasonJoinConfirmed,
   } = useSeasonParticipation();
   const [reloadNonce, setReloadNonce] = useState(0);
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(!seasonId);
   const [phase, setPhase] = useState<RallyLifecyclePhase | null>(null);
   const [apiStanding, setApiStanding] = useState<RallyStanding | null>(null);
   const [apiClaim, setApiClaim] = useState<RallyClaimRecord | null>(null);
   const [joinMinYocto, setJoinMinYocto] = useState<bigint | null>(null);
   const [balanceYocto, setBalanceYocto] = useState<bigint | null>(null);
   const [label, setLabel] = useState<string | null>(null);
+  const [trackedSeasonId, setTrackedSeasonId] = useState(seasonId);
 
   const refresh = useCallback(() => {
     setReloadNonce((value) => value + 1);
   }, []);
 
+  if (trackedSeasonId !== seasonId) {
+    setTrackedSeasonId(seasonId);
+    setLoaded(!seasonId);
+    setPhase(null);
+    setApiStanding(null);
+    setApiClaim(null);
+    setJoinMinYocto(null);
+    setBalanceYocto(null);
+    setLabel(null);
+  }
+
   useEffect(() => {
-    if (!enabled || !seasonId) {
-      setLoaded(Boolean(!seasonId));
-      return;
-    }
+    if (!enabled || !seasonId) return;
     let cancelled = false;
     void (async () => {
       const [status, standing, claim, chainMin, balance] = await Promise.all([
@@ -156,8 +165,9 @@ export function useRallyPlayer(
     };
   }, [enabled, hasClaimOverride, hasJoinOverride, refresh, seasonId]);
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    void participateSyncVersion;
+    return {
       loaded,
       seasonId: seasonId ?? '',
       pageTitle: presentation.pageTitle,
@@ -175,8 +185,8 @@ export function useRallyPlayer(
       joinPending,
       claimPending,
       refresh,
-    }),
-    [
+    };
+  }, [
       apiStanding,
       balanceYocto,
       canCollect,
@@ -188,12 +198,12 @@ export function useRallyPlayer(
       joinPending,
       joined,
       loaded,
+      participateSyncVersion,
       phase,
       presentation.pageTitle,
       presentation.profileBadgeLabel,
       refresh,
       seasonId,
-      participateSyncVersion,
     ]
   );
 }

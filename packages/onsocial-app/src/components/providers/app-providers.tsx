@@ -10,7 +10,7 @@ import {
 } from '@/contexts/app-account-sheet-context';
 import { CollectiblesNowPlayingProvider } from '@/contexts/collectibles-now-playing-context';
 import { AppTransactionFeedbackProvider } from '@/contexts/app-transaction-feedback-context';
-import { AppWalletProvider } from '@/contexts/app-wallet-context';
+import { AppWalletProvider, useAppWallet } from '@/contexts/app-wallet-context';
 import { SeasonParticipationProvider } from '@/contexts/season-participation-context';
 import {
   RallySheetDeepLink,
@@ -33,6 +33,16 @@ import { PwaProvider } from '@/components/providers/pwa-provider';
 import { WebPushProvider } from '@/components/providers/web-push-provider';
 import { GlassSheetPortalProvider } from '@onsocial/ui';
 
+/** Remount the join/claim ledger when the wallet account changes. */
+function SeasonParticipationGate({ children }: { children: React.ReactNode }) {
+  const { accountId } = useAppWallet();
+  return (
+    <SeasonParticipationProvider key={accountId ?? 'guest'}>
+      {children}
+    </SeasonParticipationProvider>
+  );
+}
+
 /** Clip GlassSheet frost to the live OS / portfolio card (same host as slide-overs). */
 function OsGlassSheetPortalBridge({ children }: { children: React.ReactNode }) {
   const host = useOsPortalHost();
@@ -48,7 +58,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <PwaProvider>
       <AppWalletProvider>
         <AppTransactionFeedbackProvider>
-          <SeasonParticipationProvider>
+          <SeasonParticipationGate>
           <AppSocialBalanceProvider>
             <ViewerProfileShellProvider>
               <ViewerWalletMoodProvider>
@@ -87,7 +97,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
               </ViewerWalletMoodProvider>
             </ViewerProfileShellProvider>
           </AppSocialBalanceProvider>
-          </SeasonParticipationProvider>
+          </SeasonParticipationGate>
         </AppTransactionFeedbackProvider>
       </AppWalletProvider>
     </PwaProvider>
