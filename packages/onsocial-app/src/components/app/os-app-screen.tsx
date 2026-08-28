@@ -7,7 +7,11 @@ import { ContextualBack } from '@/components/app/contextual-back';
 import { AppShellLauncher } from '@/components/os/summon-launcher';
 import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
 import { useRegisterDockBack } from '@/contexts/dock-chrome-context';
+import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
+
+/** Scroll tuck target — search+chip screens tuck the nav search; toolbar-only screens tuck chips. */
+export type OsAppScreenScrollTuck = 'search' | 'toolbar';
 
 export interface OsAppScreenProps {
   title: string;
@@ -57,6 +61,13 @@ export interface OsAppScreenProps {
   dockBack?: boolean;
   /** When set with `dockBack`, runs instead of history navigation (e.g. close thread). */
   onDockBack?: () => void;
+  /**
+   * Scroll tuck on compact glass chrome. `search` — chips stay, search row slides
+   * away under them; `toolbar` — legacy chip-rail hide (Home toolbar-only).
+   */
+  scrollTuck?: OsAppScreenScrollTuck;
+  /** Pin search tuck while a header menu is open (sort / filter). */
+  scrollTuckPinned?: boolean;
   toolbar?: ReactNode;
   /**
    * Drawer-style dock outside the scroll body (GlassSheet footer recipe).
@@ -103,6 +114,8 @@ export function OsAppScreen({
   nestedScrollChrome = false,
   dockBack = false,
   onDockBack,
+  scrollTuck,
+  scrollTuckPinned = false,
   toolbar,
   footer,
   scrollRootRef,
@@ -117,6 +130,12 @@ export function OsAppScreen({
   const glassMode = glassChrome && !immersiveHeader;
   const headerRef = useRef<HTMLElement | null>(null);
   const bodyRef = useRef<HTMLElement | null>(null);
+  const fallbackScrollRef = useRef<HTMLElement | null>(null);
+  const tuckScrollRef = scrollRootRef ?? fallbackScrollRef;
+  const searchTucked = useDockAutoHide(
+    scrollTuck !== 'search' || scrollTuckPinned,
+    scrollTuck === 'search' ? tuckScrollRef : null
+  );
   const portalHostRef = useRegisterOsPortalHost<HTMLDivElement>();
   const [glassElevated, setGlassElevated] = useState(false);
   const hasFooter = footer != null;
@@ -147,6 +166,7 @@ export function OsAppScreen({
 
   const setBodyRef = (node: HTMLElement | null) => {
     bodyRef.current = node;
+    fallbackScrollRef.current = node;
     if (scrollRootRef) scrollRootRef.current = node;
   };
 
@@ -206,6 +226,7 @@ export function OsAppScreen({
         glassMode && nestedScrollChrome ? 'true' : undefined
       }
       data-dock-back={dockBack ? 'true' : undefined}
+      data-scroll-tuck={scrollTuck}
       data-screen-footer={hasFooter ? 'true' : undefined}
       data-mood={hasMood ? resolvedMoodId! : undefined}
       style={screenStyle}
@@ -213,7 +234,11 @@ export function OsAppScreen({
       <div className="os-app-screen-column">
         <header
           ref={headerRef}
-          className={`os-app-screen-header${elevated ? ' is-elevated' : ''}`}
+          className={`os-app-screen-header${elevated ? ' is-elevated' : ''}${
+            scrollTuck === 'search' && searchTucked && toolbar && heading
+              ? ' is-search-tucked'
+              : ''
+          }`}
         >
           {showNavRow ? (
             <div className="os-app-screen-nav-row">

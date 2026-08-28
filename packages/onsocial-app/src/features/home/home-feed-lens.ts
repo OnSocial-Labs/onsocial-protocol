@@ -1,17 +1,34 @@
-export type HomeFeedLens = 'standing' | 'global' | 'saved';
+export type HomeFeedLens = 'pulse' | 'circle' | 'global' | 'saved';
 
 export const HOME_FEED_LENS_STORAGE_KEY = 'onsocial.home.feed-lens';
 
+/** All supported lenses (including hidden ones). */
 export const HOME_FEED_LENSES: readonly HomeFeedLens[] = [
-  'standing',
+  'pulse',
+  'circle',
   'global',
   'saved',
 ] as const;
 
+/** Flip to `true` to show the Circle chip beside Pulse on Home. */
+export const HOME_FEED_CIRCLE_LENS_ENABLED = false;
+
+/** Chip rail — Circle omitted while `HOME_FEED_CIRCLE_LENS_ENABLED` is false. */
+export function homeFeedVisibleLenses(
+  socialAvailable: boolean
+): readonly HomeFeedLens[] {
+  if (!socialAvailable) return ['global'];
+  return HOME_FEED_CIRCLE_LENS_ENABLED
+    ? ['pulse', 'circle', 'global', 'saved']
+    : ['pulse', 'global', 'saved'];
+}
+
 export function homeFeedLensLabel(lens: HomeFeedLens): string {
   switch (lens) {
-    case 'standing':
-      return 'Standing';
+    case 'pulse':
+      return 'Pulse';
+    case 'circle':
+      return 'Circle';
     case 'global':
       return 'Global';
     case 'saved':
@@ -21,8 +38,10 @@ export function homeFeedLensLabel(lens: HomeFeedLens): string {
 
 export function homeFeedLensSubtitle(lens: HomeFeedLens): string {
   switch (lens) {
-    case 'standing':
-      return 'Posts from you and accounts you stand with.';
+    case 'pulse':
+      return 'People you stand with — and where they show up.';
+    case 'circle':
+      return 'Posts from you and people you stand with only.';
     case 'global':
       return 'Recent posts across OnSocial.';
     case 'saved':
@@ -32,8 +51,10 @@ export function homeFeedLensSubtitle(lens: HomeFeedLens): string {
 
 export function homeFeedLensEmptyCopy(lens: HomeFeedLens): string {
   switch (lens) {
-    case 'standing':
-      return 'No posts from your standing network yet.';
+    case 'pulse':
+      return 'Nothing in your pulse yet.';
+    case 'circle':
+      return 'No posts from your circle yet.';
     case 'global':
       return 'No posts yet. Be the first to share something.';
     case 'saved':
@@ -43,8 +64,10 @@ export function homeFeedLensEmptyCopy(lens: HomeFeedLens): string {
 
 export function homeFeedLensDescription(lens: HomeFeedLens): string {
   switch (lens) {
-    case 'standing':
-      return 'You and accounts you stand with';
+    case 'pulse':
+      return 'Your stood-with network, with soft edges';
+    case 'circle':
+      return 'You and people you stand with';
     case 'global':
       return 'Everyone on OnSocial';
     case 'saved':
@@ -52,12 +75,26 @@ export function homeFeedLensDescription(lens: HomeFeedLens): string {
   }
 }
 
-/** Connected default Standing; guests stay on Global. Saved requires wallet. */
+function normalizeStoredHomeFeedLens(value: string | null): HomeFeedLens | null {
+  if (value === 'standing') return 'pulse';
+  if (value === 'pulse' || value === 'global' || value === 'saved') {
+    return value;
+  }
+  if (value === 'circle') {
+    return HOME_FEED_CIRCLE_LENS_ENABLED ? 'circle' : 'pulse';
+  }
+  return null;
+}
+
+/** Connected default Pulse; guests stay on Global. Saved requires wallet. */
 export function resolveHomeFeedLens(
   requested: HomeFeedLens,
   isConnected: boolean
 ): HomeFeedLens {
   if (!isConnected) return 'global';
+  if (requested === 'circle' && !HOME_FEED_CIRCLE_LENS_ENABLED) {
+    return 'pulse';
+  }
   return requested;
 }
 
@@ -65,13 +102,12 @@ export function readStoredHomeFeedLens(isConnected: boolean): HomeFeedLens {
   if (!isConnected || typeof window === 'undefined') return 'global';
   try {
     const value = window.sessionStorage.getItem(HOME_FEED_LENS_STORAGE_KEY);
-    if (value === 'standing' || value === 'global' || value === 'saved') {
-      return value;
-    }
+    const normalized = normalizeStoredHomeFeedLens(value);
+    if (normalized) return normalized;
   } catch {
     /* private mode / denied */
   }
-  return 'standing';
+  return 'pulse';
 }
 
 export function writeStoredHomeFeedLens(lens: HomeFeedLens): void {

@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { ListLoadError } from '@/components/panels/list-load-error';
-import { DiscoverCommunityHandoff } from '@/features/discover/discover-community-handoff';
+import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { DaoDirectoryList } from '@/features/protocol/dao-directory-row';
 import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-search';
 import { useDaoCatalogBrowse } from '@/hooks/use-dao-catalog-browse';
+import { discoverDaosLead } from '@/lib/discover-tab-lead';
 import { APP_DAOS_PATH, daosCreateHref } from '@/lib/app-routes';
 
 /**
@@ -20,7 +21,8 @@ export function DiscoverDaosPanel() {
     rows,
     pending,
     error,
-    statusLine,
+    syncing,
+    total,
     hasMore,
     loadMore,
     loadMoreRef,
@@ -41,18 +43,14 @@ export function DiscoverDaosPanel() {
       aria-labelledby="discover-tab-daos"
       className="standing-panel-body discover-daos-panel"
     >
-      <div className="discover-community-toolbar">
-        <p className="launcher-home-empty dao-discover-status">
-          {statusLine}
-          {catalogQuery ? ` · “${catalogQuery}”` : ' · OnSocial first, then Near'}
-        </p>
-        <DiscoverCommunityHandoff
-          links={[
-            { href: APP_DAOS_PATH, label: 'My DAOs' },
-            { href: daosCreateHref(), label: 'Create' },
-          ]}
-        />
-      </div>
+      <DiscoverTabLead
+        links={[
+          { href: APP_DAOS_PATH, label: 'My DAOs' },
+          { href: daosCreateHref(), label: 'Create' },
+        ]}
+      >
+        {discoverDaosLead(total, catalogQuery, syncing)}
+      </DiscoverTabLead>
 
       {error ? <ListLoadError message={error} onRetry={retry} /> : null}
 

@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { DiscoverBrowseChipRail } from '@/features/discover/discover-browse-chip-rail';
-import { DiscoverCommunityHandoff } from '@/features/discover/discover-community-handoff';
+import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-search';
+import { discoverGuildsLead } from '@/lib/discover-tab-lead';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import { GUILD_TOPIC_SUGGESTIONS } from '@/features/guilds/guild-config';
 import {
@@ -289,21 +290,17 @@ export function DiscoverGuildsPanel() {
       aria-labelledby="discover-tab-guilds"
       className="standing-panel-body discover-guilds-panel"
     >
-      <div className="discover-community-toolbar">
-        <p className="launcher-home-empty dao-discover-status">
-          {searchQuery
-            ? `Searching “${searchQuery}”`
-            : activeTopicFilter !== 'all'
-              ? `Guilds · ${topicFilterLabel}`
-              : 'Public guilds on this network'}
-        </p>
-        <DiscoverCommunityHandoff
-          links={[
-            { href: APP_GROUPS_PATH, label: 'Open Guilds' },
-            { href: `${APP_GROUPS_PATH}/create`, label: 'Create' },
-          ]}
-        />
-      </div>
+      <DiscoverTabLead
+        links={[
+          { href: APP_GROUPS_PATH, label: 'Open Guilds' },
+          { href: `${APP_GROUPS_PATH}/create`, label: 'Create' },
+        ]}
+      >
+        {discoverGuildsLead(
+          searchQuery,
+          activeTopicFilter !== 'all' ? topicFilterLabel : null
+        )}
+      </DiscoverTabLead>
 
       <DiscoverBrowseChipRail
         ariaLabel="Browse guilds by topic"

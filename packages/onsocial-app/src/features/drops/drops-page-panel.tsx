@@ -9,7 +9,6 @@ import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stac
 import { DropRowFans } from '@/components/drops/drop-row-fans';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import {
   DropsHeadingActions,
@@ -685,7 +684,6 @@ export function DropsPagePanel({
       : null;
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const toolbarHidden = useDockAutoHide(filterMenuOpen, scrollRootRef);
   const [nowMs, setNowMs] = useState(
     () => initialNowMs ?? Date.now()
   );
@@ -1318,6 +1316,8 @@ export function DropsPagePanel({
     <OsAppScreen
       title="Drops"
       compactChrome
+      scrollTuck="search"
+      scrollTuckPinned={filterMenuOpen}
       dockBack
       leading={null}
       glassChrome
@@ -1328,10 +1328,7 @@ export function DropsPagePanel({
       }
       actions={<DropsHeadingActions />}
       toolbar={
-        <OsAppChromeToolbarRail
-          hidden={toolbarHidden}
-          className="market-listing-toolbar"
-        >
+        <OsAppChromeToolbarRail className="market-listing-toolbar">
           <div className="market-listing-filter-stack">
             <OsChipRail
               className="market-listing-filters"

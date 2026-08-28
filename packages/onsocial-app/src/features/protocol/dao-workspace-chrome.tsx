@@ -17,7 +17,6 @@ import {
   PROTOCOL_FEED_STATUS_OPTIONS,
   type ProtocolProposalFamily,
 } from '@/features/protocol/protocol-feed-filters';
-import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 import type { ProtocolFeedStatusFilter } from '@/lib/app-routes';
 
@@ -177,21 +176,16 @@ function ProtocolFamilyRail() {
   );
 }
 
-/** Status + family chip rails — tuck on scroll like Discover / Market. */
+/** Status + family chip rails — scroll tuck hides search above (OsAppScreen scrollTuck="search"). */
 export function DaoWorkspaceHeaderToolbar() {
-  const { scrollRootRef, loadState, inProposalDetail } =
-    useDaoWorkspaceChrome();
-  const toolbarHidden = useDockAutoHide(false, scrollRootRef);
+  const { loadState, inProposalDetail } = useDaoWorkspaceChrome();
 
   if (loadState !== 'ready' || inProposalDetail) {
     return null;
   }
 
   return (
-    <OsAppChromeToolbarRail
-      hidden={toolbarHidden}
-      className="dao-proposals-header-toolbar"
-    >
+    <OsAppChromeToolbarRail className="dao-proposals-header-toolbar">
       <div className="dao-proposals-filter-stack">
         <ProtocolStatusRail />
         <ProtocolFamilyRail />

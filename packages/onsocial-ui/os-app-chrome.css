@@ -88,6 +88,41 @@
   pointer-events: none;
 }
 
+/*
+ * Search tuck — on scroll down the nav search collapses; the chip rail reflows
+ * up into its place (no translate — layout collapse already moves the toolbar).
+ */
+.os-app-screen[data-scroll-tuck='search'] .os-app-screen-nav-row {
+  transition:
+    opacity 180ms ease,
+    max-height 220ms ease,
+    min-height 220ms ease,
+    height 220ms ease,
+    margin 220ms ease;
+}
+
+.os-app-screen[data-scroll-tuck='search']
+  .os-app-screen-nav-row
+  + .os-app-screen-toolbar {
+  transition: margin 220ms ease;
+}
+
+.os-app-screen-header.is-search-tucked .os-app-screen-nav-row {
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.os-app-screen-header.is-search-tucked
+  .os-app-screen-nav-row
+  + .os-app-screen-toolbar {
+  margin-top: 0 !important;
+}
+
 /* Parent toolbar slot — collapse with the rail so frost band height tracks. */
 .os-app-screen-toolbar:has(.os-app-chrome-rail.is-scroll-hidden) {
   min-height: 0 !important;
@@ -98,6 +133,13 @@
 
 @media (prefers-reduced-motion: reduce) {
   .os-app-chrome-rail {
+    transition: none;
+  }
+
+  .os-app-screen[data-scroll-tuck='search'] .os-app-screen-nav-row,
+  .os-app-screen[data-scroll-tuck='search']
+    .os-app-screen-nav-row
+    + .os-app-screen-toolbar {
     transition: none;
   }
 }

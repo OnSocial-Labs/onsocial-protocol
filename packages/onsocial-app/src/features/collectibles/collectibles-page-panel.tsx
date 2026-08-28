@@ -200,6 +200,7 @@ export function CollectiblesPagePanel({
   const [offlineReady, setOfflineReady] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const [scrollTuckPinned, setScrollTuckPinned] = useState(false);
   const holdingsRef = useRef(holdings);
 
   useEffect(() => {
@@ -514,6 +515,8 @@ export function CollectiblesPagePanel({
     () => ({
       pageAccountId: ownerAccountId,
       scrollRootRef,
+      scrollTuckPinned,
+      setScrollTuckPinned,
       searchQuery,
       setSearchQuery,
       showDiscoveryChrome,
@@ -526,6 +529,7 @@ export function CollectiblesPagePanel({
     }),
     [
       ownerAccountId,
+      scrollTuckPinned,
       searchQuery,
       setSearchQuery,
       showDiscoveryChrome,
@@ -707,6 +711,8 @@ export function CollectiblesPagePanel({
       <OsAppScreen
         title="Collectibles"
         compactChrome
+        scrollTuck="search"
+        scrollTuckPinned={scrollTuckPinned}
         dockBack
         leading={null}
         backFallbackHref={dockBackHref}

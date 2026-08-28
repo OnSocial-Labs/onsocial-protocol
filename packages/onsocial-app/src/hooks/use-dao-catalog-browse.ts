@@ -7,6 +7,7 @@ import {
   type DaoCatalogEntry,
 } from '@/features/protocol/dao-catalog-client';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { discoverDaosLead } from '@/lib/discover-tab-lead';
 
 const PAGE_SIZE = 24;
 const SOFT_POLL_MS = 2800;
@@ -134,11 +135,7 @@ export function useDaoCatalogBrowse(opts: {
     onIntersect: loadMore,
   });
 
-  const statusLine = syncing
-    ? `Indexing factory catalog… ${indexedCount.toLocaleString()} indexed`
-    : `${total.toLocaleString()} DAOs${
-        factoryCount > 0 ? ` · factory ${factoryCount.toLocaleString()}` : ''
-      }`;
+  const statusLine = discoverDaosLead(total, activeQuery, syncing);
 
   const retry = useCallback(() => {
     setError(null);

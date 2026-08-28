@@ -13,6 +13,8 @@ import type { DropFacetMedium } from '@/features/scarces/drop-facets';
 export interface CollectiblesPanelChromeContextValue {
   pageAccountId: string | null;
   scrollRootRef: RefObject<HTMLElement | null>;
+  scrollTuckPinned: boolean;
+  setScrollTuckPinned: (pinned: boolean) => void;
   searchQuery: string;
   setSearchQuery: (next: string) => void;
   showDiscoveryChrome: boolean;

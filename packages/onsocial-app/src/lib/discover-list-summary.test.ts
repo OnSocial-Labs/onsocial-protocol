@@ -5,12 +5,12 @@ import {
 } from './discover-list-summary';
 
 describe('formatDiscoverSubtitle', () => {
-  it('uses graph total when available', () => {
-    expect(formatDiscoverSubtitle(12_500)).toBe('12.5K on the graph');
+  it('uses profile total when available', () => {
+    expect(formatDiscoverSubtitle(12_500)).toBe('12.5K profiles');
   });
 
   it('falls back without total', () => {
-    expect(formatDiscoverSubtitle(null)).toBe('On the graph');
+    expect(formatDiscoverSubtitle(null)).toBe('Profiles');
   });
 });
 

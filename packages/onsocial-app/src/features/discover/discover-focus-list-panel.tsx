@@ -4,6 +4,11 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import type { HashtagCount, TickerCount } from '@onsocial/sdk';
 import { DiscoverFocusListSkeleton } from '@/features/discover/discover-loading-skeleton';
+import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
+import {
+  discoverTopicsLead,
+  discoverTickersLead,
+} from '@/lib/discover-tab-lead';
 import { homeHashtagPath } from '@/features/home/home-hashtag-search';
 import {
   formatTickerDisplay,
@@ -105,15 +110,11 @@ export function DiscoverFocusListPanel({
       : 'No trending topics yet.';
 
   const sectionHeading =
-    !filterPrefix && !error && rows.length > 0
+    filterPrefix && !error && rows.length > 0
       ? kind === 'ticker'
-        ? 'Trending tickers'
-        : 'Trending topics'
-      : filterPrefix && !error && rows.length > 0
-        ? kind === 'ticker'
-          ? 'Matching tickers'
-          : 'Matching topics'
-        : null;
+        ? 'Matching tickers'
+        : 'Matching topics'
+      : null;
 
   return (
     <div
@@ -123,6 +124,12 @@ export function DiscoverFocusListPanel({
       aria-label={kind === 'ticker' ? 'Tickers' : 'Topics'}
       aria-busy={loading || undefined}
     >
+      <DiscoverTabLead>
+        {kind === 'ticker'
+          ? discoverTickersLead(filterPrefix)
+          : discoverTopicsLead(filterPrefix)}
+      </DiscoverTabLead>
+
       {showColdSkeleton ? (
         <>
           <p className="sr-only">

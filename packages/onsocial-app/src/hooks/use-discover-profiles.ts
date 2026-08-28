@@ -598,6 +598,7 @@ export function useDiscoverProfiles(
     tab,
     setTab,
     topicFilterPrefix,
+    discoverableTotal,
     listAccounts,
     viewerAccountId: viewerAccountId ?? null,
     isConnected,

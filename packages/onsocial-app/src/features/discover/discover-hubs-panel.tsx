@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CommunityDiscoverRow } from '@/components/community-cards';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { DiscoverBrowseChipRail } from '@/features/discover/discover-browse-chip-rail';
-import { DiscoverCommunityHandoff } from '@/features/discover/discover-community-handoff';
+import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import {
   fetchMostLovedScarcePeeks,
   fetchMostTradedScarcePeeks,
@@ -13,6 +13,7 @@ import {
 } from '@/features/discover/discover-scarce-peeks';
 import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-search';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
+import { discoverHubsLead } from '@/lib/discover-tab-lead';
 import {
   creatorAccessShort,
   fetchAppsDirectory,
@@ -218,21 +219,17 @@ export function DiscoverHubsPanel() {
       aria-labelledby="discover-tab-hubs"
       className="standing-panel-body discover-hubs-panel"
     >
-      <div className="discover-community-toolbar">
-        <p className="launcher-home-empty dao-discover-status">
-          {searchQuery
-            ? `Searching “${searchQuery}”`
-            : activeCategoryFilter !== 'all'
-              ? `Hubs · ${categoryLabel}`
-              : 'Creator hubs on this network'}
-        </p>
-        <DiscoverCommunityHandoff
-          links={[
-            { href: APP_APPS_PATH, label: 'My Hubs' },
-            { href: APP_APP_CREATE_PATH, label: 'Create' },
-          ]}
-        />
-      </div>
+      <DiscoverTabLead
+        links={[
+          { href: APP_APPS_PATH, label: 'My Hubs' },
+          { href: APP_APP_CREATE_PATH, label: 'Create' },
+        ]}
+      >
+        {discoverHubsLead(
+          searchQuery,
+          activeCategoryFilter !== 'all' ? categoryLabel : null
+        )}
+      </DiscoverTabLead>
 
       <DiscoverBrowseChipRail
         ariaLabel="Browse hubs by category"

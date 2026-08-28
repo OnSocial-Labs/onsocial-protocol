@@ -1,22 +1,17 @@
-function formatDiscoverCount(count: number): string {
-  const numericCount = Number(count);
-  if (!Number.isFinite(numericCount)) return '0';
+import { formatDiscoverTabCount } from '@/lib/discover-tab-lead';
 
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits:
-      Math.abs(numericCount) >= 1000 && Math.abs(numericCount) < 100000 ? 1 : 0,
-    notation: Math.abs(numericCount) >= 1000 ? 'compact' : 'standard',
-  }).format(numericCount);
+function formatDiscoverCount(count: number): string {
+  return formatDiscoverTabCount(count);
 }
 
 export function formatDiscoverSubtitle(
   discoverableTotal: number | null | undefined
 ): string {
   if (typeof discoverableTotal === 'number' && discoverableTotal > 0) {
-    return `${formatDiscoverCount(discoverableTotal)} on the graph`;
+    return `${formatDiscoverCount(discoverableTotal)} profiles`;
   }
 
-  return 'On the graph';
+  return 'Profiles';
 }
 
 export function buildDiscoverListSummary({

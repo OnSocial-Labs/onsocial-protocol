@@ -79,10 +79,7 @@ export function DaoDiscoverSheet({
         chrome="sheet"
       />
 
-      <p className="launcher-home-empty dao-discover-status">
-        {statusLine}
-        {query ? ` · “${query}”` : ''}
-      </p>
+      <p className="launcher-home-empty dao-discover-status">{statusLine}</p>
 
       {error ? <p className="launcher-home-empty">{error}</p> : null}
 

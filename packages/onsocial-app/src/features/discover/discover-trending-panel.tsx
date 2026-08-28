@@ -9,7 +9,9 @@ import {
   DiscoverTrendingGuildsSectionSkeleton,
   DiscoverTrendingProfilesSectionSkeleton,
 } from '@/features/discover/discover-loading-skeleton';
+import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
+import { discoverTrendingLead } from '@/lib/discover-tab-lead';
 import { homeHashtagPath } from '@/features/home/home-hashtag-search';
 import { homePlacePath, placeLabel } from '@/lib/post-place';
 import {
@@ -328,6 +330,8 @@ export function DiscoverTrendingPanel({
       aria-labelledby="discover-tab-trending"
       aria-busy={anyLoading || undefined}
     >
+      <DiscoverTabLead>{discoverTrendingLead()}</DiscoverTabLead>
+
       {anyLoading ? (
         <p className="sr-only">Loading trending…</p>
       ) : null}

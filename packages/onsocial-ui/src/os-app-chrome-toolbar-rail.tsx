@@ -7,9 +7,9 @@ import { cn } from './cn.js';
 export const osAppChromeRailClassName = 'os-app-chrome-rail';
 
 /**
- * Single-line toolbar rail — pairs with app `useDockAutoHide` + `OsAppScreen`
- * `toolbar` slot. When `hidden`, the rail and parent toolbar collapse so the
- * frosted band shrinks with the chips (ResizeObserver on header).
+ * Single-line toolbar rail — pairs with app `OsAppScreen` `toolbar` slot.
+ * For search+chip screens use `scrollTuck="search"` on the screen (chips stay).
+ * Pass `hidden` only for toolbar-only tuck (e.g. Home chip bar).
  */
 export function OsAppChromeToolbarRail({
   hidden = false,

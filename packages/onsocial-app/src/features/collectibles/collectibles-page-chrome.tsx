@@ -1,12 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import { OsAppChromeNavSearch, OsAppChromeToolbarRail, StarsCFillIcon } from '@onsocial/ui';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { useCollectiblesPanelChrome } from '@/features/collectibles/collectibles-panel-context';
 import { MarketFilterMenu } from '@/features/market/market-filter-menu';
 import { MARKET_MEDIUM_FILTERS } from '@/features/market/market-medium';
-import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 
 /** Search field with Collectibles icon — same heading slot as Market. */
 export function CollectiblesSearchHeading() {
@@ -33,7 +31,7 @@ export function CollectiblesSearchHeading() {
 /** Kind rail + Filter drawer — format/genres live in the sheet (Market parity). */
 export function CollectiblesFilterToolbar() {
   const {
-    scrollRootRef,
+    setScrollTuckPinned,
     showDiscoveryChrome,
     mediumFilter,
     setMediumFilter,
@@ -42,18 +40,13 @@ export function CollectiblesFilterToolbar() {
     audioFormatFilter,
     replaceDiscoveryParams,
   } = useCollectiblesPanelChrome();
-  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const toolbarHidden = useDockAutoHide(filterMenuOpen, scrollRootRef);
 
   if (!showDiscoveryChrome) {
     return null;
   }
 
   return (
-    <OsAppChromeToolbarRail
-      hidden={toolbarHidden}
-      className="market-listing-toolbar collectibles-filter-toolbar"
-    >
+    <OsAppChromeToolbarRail className="market-listing-toolbar collectibles-filter-toolbar">
       <div className="market-listing-filter-stack">
         <OsChipRail
           className="market-listing-filters"
@@ -79,7 +72,7 @@ export function CollectiblesFilterToolbar() {
         }
         onFacetsChange={(facets) => replaceDiscoveryParams({ facets })}
         onClear={() => setMediumFilter('all')}
-        onOpenChange={setFilterMenuOpen}
+        onOpenChange={setScrollTuckPinned}
       />
     </OsAppChromeToolbarRail>
   );

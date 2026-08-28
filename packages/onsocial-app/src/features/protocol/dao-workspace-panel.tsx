@@ -1812,6 +1812,7 @@ export function DaoWorkspacePanel({
             subtitle={inProposalDetail ? sheetSubtitle : undefined}
             glassChrome
             compactChrome
+            scrollTuck="search"
             embedded
             dockBack
             onDockBack={handleSheetBack}

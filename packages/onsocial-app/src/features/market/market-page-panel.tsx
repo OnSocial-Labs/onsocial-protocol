@@ -54,7 +54,6 @@ import { invalidateOwnedVaultCache } from '@/features/market/owned-vault-cache';
 import { MarketOfferRow } from '@/features/market/market-offer-row';
 import { MarketOwnedRow } from '@/features/market/market-owned-row';
 import { MarketSaleRow } from '@/features/market/market-sale-row';
-import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import type { ScarceBidSuccessDetail } from '@/features/scarces/scarce-bid-form';
 import {
@@ -349,7 +348,6 @@ export function MarketPagePanel({
   const [offersRevision, setOffersRevision] = useState(0);
   const listingsSentinelRef = useRef<HTMLDivElement | null>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
-  const toolbarHidden = useDockAutoHide(sortMenuOpen, scrollRootRef);
   // Soft SSR already seeded default browse — skip one duplicate keyed query.
   const ssrDefaultBrowseSkipRef = useRef(canSeedDefaultBrowse);
   const ssrSalesSkipRef = useRef(initialSales != null);
@@ -1321,6 +1319,8 @@ export function MarketPagePanel({
     <OsAppScreen
       title="Market"
       compactChrome
+      scrollTuck="search"
+      scrollTuckPinned={sortMenuOpen}
       dockBack
       leading={null}
       backFallbackHref={APP_HOME_PATH}
@@ -1335,10 +1335,7 @@ export function MarketPagePanel({
       actions={<MarketHeadingActions />}
       toolbar={
         showListingToolbar ? (
-          <OsAppChromeToolbarRail
-            hidden={toolbarHidden}
-            className="market-listing-toolbar"
-          >
+          <OsAppChromeToolbarRail className="market-listing-toolbar">
             <div className="market-listing-filter-stack">
               <OsChipRail
                 className="market-listing-filters"

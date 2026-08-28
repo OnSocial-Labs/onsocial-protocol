@@ -26,6 +26,11 @@ import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { HomeFeedSortToggle } from '@/features/home/home-feed-sort-toggle';
 import { APP_DISCOVER_PATH } from '@/lib/app-routes';
 import {
+  fetchCircleFeedPage,
+  fetchPulseFeedPage,
+  isHomeFeedSocialLens,
+} from '@/features/home/home-feed-pulse';
+import {
   homeFeedLensEmptyCopy,
   readStoredHomeFeedLens,
   resolveHomeFeedLens,
@@ -159,7 +164,7 @@ async function fetchHomeFeedPageClient(
     return { page, standingSources: null };
   }
 
-  if (lens === 'standing' && accountId) {
+  if (isHomeFeedSocialLens(lens) && accountId) {
     const sources =
       standingSources ?? (await resolveStandingSources(accountId));
 
@@ -167,12 +172,10 @@ async function fetchHomeFeedPageClient(
       return { page: { items: [] }, standingSources: sources };
     }
 
-    const page = await client.query.feed.fromAccounts({
-      accounts: sources,
-      limit,
-      offset,
-      sort,
-    });
+    const page =
+      lens === 'circle'
+        ? await fetchCircleFeedPage(client, sources, { limit, offset, sort })
+        : await fetchPulseFeedPage(client, sources, { limit, offset, sort });
     return { page, standingSources: sources };
   }
 
@@ -393,7 +396,7 @@ export function HomePagePanel({
   const activeLens = resolveHomeFeedLens(lens, isConnected);
 
   const stoodWithAccountIds = useMemo(() => {
-    if (activeFocus || activeLens !== 'standing' || !standingNetworkIds?.length) {
+    if (activeFocus || !isHomeFeedSocialLens(activeLens) || !standingNetworkIds?.length) {
       return undefined;
     }
     return new Set(standingNetworkIds);
@@ -468,7 +471,7 @@ export function HomePagePanel({
       ssrHotGlobalReloadNonceRef.current = reloadNonce;
       // Soft-upgrade standing once wallet + lens are ready.
       if (walletLoading || !lensReady) return;
-      if (activeLens !== 'standing' || !accountId) return;
+      if (!isHomeFeedSocialLens(activeLens) || !accountId) return;
       ssrHotGlobalSkipRef.current = false;
     }
 

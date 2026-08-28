@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { MultiplyIcon, PlusIcon } from '@onsocial/ui';
 import {
   homeFeedLensLabel,
+  homeFeedVisibleLenses,
   type HomeFeedLens,
 } from '@/features/home/home-feed-lens';
 import {
@@ -45,9 +46,7 @@ export function HomeFeedChipBar({
     (feed) => homeFeedFocusKey(homeSavedFeedFocus(feed)) === activeFocusKey
   );
   const showEphemeralFocus = Boolean(activeFocus && !activeSaved);
-  const lenses: HomeFeedLens[] = standingAvailable
-    ? ['standing', 'global', 'saved']
-    : ['global'];
+  const lenses = homeFeedVisibleLenses(standingAvailable);
 
   useEffect(() => {
     const chip = activeChipRef.current;

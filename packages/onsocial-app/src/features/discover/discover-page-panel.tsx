@@ -27,6 +27,7 @@ function DiscoverPageScreen({
       title="Discover"
       compactChrome
       glassChrome
+      scrollTuck="search"
       scrollRootRef={scrollRootRef}
       leading={null}
       {...(nested

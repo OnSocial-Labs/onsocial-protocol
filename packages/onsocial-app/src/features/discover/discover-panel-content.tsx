@@ -8,8 +8,10 @@ import { DiscoverDaosPanel } from '@/features/discover/discover-daos-panel';
 import { DiscoverGuildsPanel } from '@/features/discover/discover-guilds-panel';
 import { DiscoverHubsPanel } from '@/features/discover/discover-hubs-panel';
 import { DiscoverFocusListPanel } from '@/features/discover/discover-focus-list-panel';
+import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { DiscoverTrendingPanel } from '@/features/discover/discover-trending-panel';
+import { discoverProfilesLead } from '@/lib/discover-tab-lead';
 
 export function DiscoverPanelContent() {
   const {
@@ -24,19 +26,21 @@ export function DiscoverPanelContent() {
     tab,
     setTab,
     topicFilterPrefix,
+    query,
+    discoverableTotal,
     showListSkeleton,
     isListRefreshing,
     isLoadingMore,
     relationshipSynced,
-  showLoadMoreSentinel,
-  loadMoreRef,
-  footerSummary,
-  listKey,
-  clearSearch,
-  retryLoad,
-  isStandingPendingForTarget,
-  handleUpdateStanding,
-  initialTrending,
+    showLoadMoreSentinel,
+    loadMoreRef,
+    footerSummary,
+    listKey,
+    clearSearch,
+    retryLoad,
+    isStandingPendingForTarget,
+    handleUpdateStanding,
+    initialTrending,
   } = useDiscoverPanel();
 
   return (
@@ -50,6 +54,10 @@ export function DiscoverPanelContent() {
 
       {tab === 'profiles' ? (
         <>
+          <DiscoverTabLead>
+            {discoverProfilesLead(discoverableTotal, query)}
+          </DiscoverTabLead>
+
           {showConnectHint ? (
             <OsAppChromePageStatus className="discover-connect-hint">
               Connect to stand with profiles.
