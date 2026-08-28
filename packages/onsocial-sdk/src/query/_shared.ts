@@ -40,6 +40,9 @@ export interface PostRow {
   audiences?: string;
   groupId?: string;
   isGroupContent?: boolean;
+  /** Conversation root — equals this post when it is the thread head. */
+  rootPath?: string;
+  rootAuthor?: string;
   /** Present when row comes from `posts_feed` or client enrich. */
   authorName?: string | null;
   authorAvatar?: string | null;

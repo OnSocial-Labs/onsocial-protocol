@@ -161,6 +161,57 @@ describe('assemblePulsePage', () => {
     expect(page.nextOffset).toBe(1);
   });
 
+  it('cards a nested reply on the thread root, not the mid-thread parent', () => {
+    const nested = row('alice.near', 'r2', {
+      parentPath: 'dave.near/post/mid',
+      parentAuthor: 'dave.near',
+      rootPath: 'bob.near/post/root',
+      rootAuthor: 'bob.near',
+      blockHeight: 40,
+    });
+    const page = assemblePulsePage({
+      native: [native],
+      bridges: [nested],
+      parents: [stranger],
+      accounts,
+      sort: 'recent',
+      offset: 0,
+      limit: 20,
+      take: 20,
+    });
+    expect(page.items.map((item) => item.postId)).toEqual([
+      'root',
+      'r2',
+      'hello',
+    ]);
+  });
+
+  it('collapses two nest levels in the same thread to one root card', () => {
+    const onRoot = row('carol.near', 'r0', {
+      parentPath: 'bob.near/post/root',
+      parentAuthor: 'bob.near',
+      rootPath: 'bob.near/post/root',
+      blockHeight: 20,
+    });
+    const nested = row('alice.near', 'r2', {
+      parentPath: 'dave.near/post/mid',
+      parentAuthor: 'dave.near',
+      rootPath: 'bob.near/post/root',
+      blockHeight: 40,
+    });
+    const page = assemblePulsePage({
+      native: [],
+      bridges: [onRoot, nested],
+      parents: [stranger],
+      accounts,
+      sort: 'recent',
+      offset: 0,
+      limit: 20,
+      take: 20,
+    });
+    expect(page.items.map((item) => item.postId)).toEqual(['root', 'r2']);
+  });
+
   it('skips a bridge when the parent did not hydrate', () => {
     const page = assemblePulsePage({
       native: [native],
@@ -177,6 +228,21 @@ describe('assemblePulsePage', () => {
 });
 
 describe('pulseParentRefsToHydrate', () => {
+  it('hydrates the indexed root when a nested reply sets rootPath', () => {
+    const refs = pulseParentRefsToHydrate(
+      [
+        row('alice.near', 'r2', {
+          parentPath: 'dave.near/post/mid',
+          parentAuthor: 'dave.near',
+          rootPath: 'bob.near/post/root',
+          rootAuthor: 'bob.near',
+        }),
+      ],
+      accounts
+    );
+    expect(refs).toEqual([{ accountId: 'bob.near', postId: 'root' }]);
+  });
+
   it('dedupes parent paths from foreign replies', () => {
     const refs = pulseParentRefsToHydrate(
       [

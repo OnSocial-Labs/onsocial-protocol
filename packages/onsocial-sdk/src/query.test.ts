@@ -1012,8 +1012,10 @@ describe('QueryModule', () => {
         value: '{}',
         blockHeight: 9,
         blockTimestamp: 9,
-        parentPath: 'bob.near/post/root',
-        parentAuthor: 'bob.near',
+        parentPath: 'dave.near/post/mid',
+        parentAuthor: 'dave.near',
+        rootPath: 'bob.near/post/root',
+        rootAuthor: 'bob.near',
       };
       const { os, fetch } = pulseGraph({
         native: [],
@@ -1025,6 +1027,10 @@ describe('QueryModule', () => {
         limit: 10,
       });
       expect(page.items.map((item) => item.postId)).toEqual(['root', 'r1']);
+      const bridgeQuery = fetch.mock.calls
+        .map((call) => JSON.parse(call[1].body))
+        .find((body) => String(body.query).includes('PulseBridges'));
+      expect(String(bridgeQuery.query)).toContain('rootPath');
       const parentQuery = fetch.mock.calls
         .map((call) => JSON.parse(call[1].body))
         .find((body) => String(body.query).includes('PulseParents'));
