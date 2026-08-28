@@ -6,6 +6,7 @@
 // readonly sub-namespaces:
 //
 //   os.query.feed.recent({ limit: 20 })
+//   os.query.feed.pulse({ accounts, limit: 20 })
 //   os.query.threads.replies('alice.near', '123')
 //   os.query.groups.feed({ groupId: 'dao' })
 //   os.query.groups.membershipsBy('alice.near')

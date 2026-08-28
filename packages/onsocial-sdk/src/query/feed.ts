@@ -14,6 +14,7 @@ import {
   type FeedSection,
   type FeedSort,
 } from './_shared.js';
+import { assemblePulsePage, pulseParentRefsToHydrate } from './feed-pulse.js';
 
 export type { FeedSection, FeedSort };
 
@@ -75,6 +76,24 @@ function isTopicHeatUnavailableError(err: unknown): boolean {
 
 const TOPIC_ORDER_HOT = '[{heat: DESC}, {blockHeight: DESC}]';
 const TOPIC_ORDER_RECENT = '[{blockHeight: DESC}]';
+
+function accountsFeedWhere(nativeOnly: boolean): string {
+  if (!nativeOnly) return 'where: {accountId: {_in: $accounts}}';
+  return `where: {_and: [
+            {accountId: {_in: $accounts}},
+            {_or: [
+              {parentPath: {_eq: ""}},
+              {parentAuthor: {_in: $accounts}}
+            ]}
+          ]}`;
+}
+
+const PULSE_BRIDGE_WHERE = `where: {_and: [
+            {accountId: {_in: $accounts}},
+            {parentPath: {_neq: ""}},
+            {parentAuthor: {_neq: ""}},
+            {parentAuthor: {_nin: $accounts}}
+          ]}`;
 
 export class FeedQuery {
   /** Set when GraphQL rejects `postsFeed` (view not tracked yet). */
@@ -348,6 +367,10 @@ export class FeedQuery {
   /**
    * Feed from a list of accounts (e.g. accounts you stand with).
    *
+   * `nativeOnly` drops replies whose parent author is outside `accounts`
+   * (Circle). Pulse uses {@link FeedQuery.pulse} to bring those threads back
+   * as parent + peek.
+   *
    * ```ts
    * const accounts = await os.query.standings.outgoing('alice.near');
    * const { items } = await os.query.feed.fromAccounts({ accounts, limit: 20, sort: 'hot' });
@@ -358,6 +381,7 @@ export class FeedQuery {
     limit?: number;
     offset?: number;
     sort?: FeedSort;
+    nativeOnly?: boolean;
   }): Promise<Paginated<PostRow>> {
     if (opts.accounts.length === 0) return { items: [] };
     const limit = opts.limit ?? 20;
@@ -365,13 +389,14 @@ export class FeedQuery {
     const sort = opts.sort ?? 'recent';
     const orderBy = feedOrderByClause(sort);
     const chronoOrder = feedOrderByClause('recent');
+    const where = accountsFeedWhere(Boolean(opts.nativeOnly));
     const variables = { accounts: opts.accounts, limit, offset };
 
     const rows = await this.queryFeedRows({
       variables,
       postsFeedQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!) {
         postsFeed(
-          where: {accountId: {_in: $accounts}},
+          ${where},
           limit: $limit, offset: $offset,
           orderBy: ${orderBy}
         ) {
@@ -380,7 +405,7 @@ export class FeedQuery {
       }`,
       postsFeedQueryNoHeat: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!) {
         postsFeed(
-          where: {accountId: {_in: $accounts}},
+          ${where},
           limit: $limit, offset: $offset,
           orderBy: ${chronoOrder}
         ) {
@@ -389,7 +414,7 @@ export class FeedQuery {
       }`,
       postsCurrentQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!) {
         postsCurrent(
-          where: {accountId: {_in: $accounts}},
+          ${where},
           limit: $limit, offset: $offset,
           orderBy: [{blockHeight: DESC}]
         ) {
@@ -402,6 +427,122 @@ export class FeedQuery {
       items: rows,
       nextOffset: rows.length >= limit ? offset + limit : undefined,
     };
+  }
+
+  /**
+   * Pulse feed — Circle posts plus stranger threads a circle member replied
+   * into. Rank a bridge by the circle reply. Each bridge flattens to
+   * `[parent, newestCircleReply]` so the app can peek without a second fetch.
+   *
+   * `limit` / `offset` page cards (native post or one bridge), not raw rows.
+   *
+   * ```ts
+   * const { items } = await os.query.feed.pulse({ accounts, limit: 20, sort: 'hot' });
+   * ```
+   */
+  async pulse(opts: {
+    accounts: string[];
+    limit?: number;
+    offset?: number;
+    sort?: FeedSort;
+  }): Promise<Paginated<PostRow>> {
+    if (opts.accounts.length === 0) return { items: [] };
+    const limit = opts.limit ?? 20;
+    const offset = opts.offset ?? 0;
+    const sort = opts.sort ?? 'recent';
+    const take = offset + limit;
+    const orderBy = feedOrderByClause(sort);
+    const chronoOrder = feedOrderByClause('recent');
+    const nativeWhere = accountsFeedWhere(true);
+    const variables = {
+      accounts: opts.accounts,
+      limit: take,
+      offset: 0,
+    };
+
+    const [native, bridges] = await Promise.all([
+      this.queryFeedRows({
+        variables,
+        postsFeedQuery: `query PulseNative($accounts: [String!]!, $limit: Int!, $offset: Int!) {
+        postsFeed(
+          ${nativeWhere},
+          limit: $limit, offset: $offset,
+          orderBy: ${orderBy}
+        ) {
+          ${FEED_POST_ROW_FIELDS}
+        }
+      }`,
+        postsFeedQueryNoHeat: `query PulseNative($accounts: [String!]!, $limit: Int!, $offset: Int!) {
+        postsFeed(
+          ${nativeWhere},
+          limit: $limit, offset: $offset,
+          orderBy: ${chronoOrder}
+        ) {
+          ${FEED_POST_ROW_FIELDS_NO_HEAT}
+        }
+      }`,
+        postsCurrentQuery: `query PulseNative($accounts: [String!]!, $limit: Int!, $offset: Int!) {
+        postsCurrent(
+          ${nativeWhere},
+          limit: $limit, offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          ${POST_ROW_FIELDS}
+        }
+      }`,
+      }),
+      this.queryFeedRows({
+        variables,
+        postsFeedQuery: `query PulseBridges($accounts: [String!]!, $limit: Int!, $offset: Int!) {
+        postsFeed(
+          ${PULSE_BRIDGE_WHERE},
+          limit: $limit, offset: $offset,
+          orderBy: ${orderBy}
+        ) {
+          ${FEED_POST_ROW_FIELDS}
+        }
+      }`,
+        postsFeedQueryNoHeat: `query PulseBridges($accounts: [String!]!, $limit: Int!, $offset: Int!) {
+        postsFeed(
+          ${PULSE_BRIDGE_WHERE},
+          limit: $limit, offset: $offset,
+          orderBy: ${chronoOrder}
+        ) {
+          ${FEED_POST_ROW_FIELDS_NO_HEAT}
+        }
+      }`,
+        postsCurrentQuery: `query PulseBridges($accounts: [String!]!, $limit: Int!, $offset: Int!) {
+        postsCurrent(
+          ${PULSE_BRIDGE_WHERE},
+          limit: $limit, offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          ${POST_ROW_FIELDS}
+        }
+      }`,
+      }),
+    ]);
+
+    const parentRefs = pulseParentRefsToHydrate(bridges, opts.accounts);
+    const parents =
+      parentRefs.length > 0
+        ? await this.hydrateStubRows(
+            'PulseParents',
+            parentRefs,
+            parentRefs.length
+          )
+        : [];
+
+    return assemblePulsePage({
+      native,
+      bridges,
+      parents,
+      accounts: opts.accounts,
+      sort,
+      offset,
+      limit,
+      take,
+    });
   }
 
   /** Feed from a list of accounts, filtered by indexed post metadata. */
