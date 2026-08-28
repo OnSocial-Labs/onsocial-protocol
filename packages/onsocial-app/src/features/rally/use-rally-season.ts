@@ -11,9 +11,12 @@ import {
   fetchRallyStatus,
   formatJoinRallyMinLabel,
   formatRallyMarkCaption,
+  resolveRallyCanJoin,
   resolveRallyLifecyclePhase,
+  resolveRallyMarkNudge,
   resolveRallyOccasion,
   resolveRallyPresentation,
+  shouldFetchRallyJoinAffordance,
   type RallyClaimRecord,
   type RallyLifecyclePhase,
   type RallyRegistryEntry,
@@ -184,16 +187,38 @@ export function useRallySeason(
   ]);
 
   useEffect(() => {
-    if (!detail || !seasonId) return;
+    if (
+      !shouldFetchRallyJoinAffordance({
+        seasonId,
+        live: Boolean(entry?.is_live),
+        sheetOpen: detail,
+        accountId,
+      })
+    ) {
+      return;
+    }
     let cancelled = false;
     void (async () => {
-      const [status, chainMin, balance] = await Promise.all([
-        fetchRallyStatus(seasonId),
+      const [chainMin, balance] = await Promise.all([
         fetchJoinRallyMinYocto(),
         accountId
           ? fetchWalletSocialBalanceYocto(accountId).catch(() => null)
           : Promise.resolve(null),
       ]);
+      if (cancelled) return;
+      setJoinMinYocto(chainMin);
+      setBalanceYocto(balance);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, detail, entry?.is_live, reloadNonce, seasonId]);
+
+  useEffect(() => {
+    if (!detail || !seasonId) return;
+    let cancelled = false;
+    void (async () => {
+      const status = await fetchRallyStatus(seasonId);
       if (cancelled) return;
       setChainLabel(status?.onChainConfig?.label ?? null);
       setPhase(
@@ -202,14 +227,15 @@ export function useRallySeason(
           status?.settlement ?? null
         ) ?? phaseFromEntry(entry)
       );
-      setJoinMinYocto(chainMin ?? parseStatusMinYocto(status?.joinMinYocto));
-      setBalanceYocto(balance);
+      setJoinMinYocto(
+        (current) => current ?? parseStatusMinYocto(status?.joinMinYocto)
+      );
       setDetailLoaded(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [accountId, detail, entry, reloadNonce, seasonId]);
+  }, [detail, entry, reloadNonce, seasonId]);
 
   const presentation = resolveRallyPresentation(
     seasonId ?? 'season-one',
@@ -226,12 +252,14 @@ export function useRallySeason(
     joinMinYocto != null &&
     balanceYocto != null &&
     balanceYocto >= joinMinYocto;
-  const canJoin =
-    Boolean(seasonId) &&
-    resolvedPhase === 'live' &&
-    !joined &&
-    joinMinYocto != null &&
-    (accountId == null || hasEnoughSocial);
+  const canJoin = resolveRallyCanJoin({
+    seasonId,
+    accountId,
+    phase: resolvedPhase,
+    joined,
+    joinMinYocto,
+    hasEnoughSocial,
+  });
   const canCollect =
     resolvedPhase === 'claim_open' && Boolean(claim && claim.claimed === false);
   const hasJoinOverride = seasonId ? hasSeasonJoinConfirmed(seasonId) : false;
@@ -277,7 +305,11 @@ export function useRallySeason(
     const mark: RallyMarkState = {
       loaded: occasionLoaded && snapshotReady,
       visible: Boolean(entry),
-      nudge: Boolean(entry) && (canJoin || canCollect),
+      nudge: resolveRallyMarkNudge({
+        visible: Boolean(entry),
+        canJoin,
+        canCollect,
+      }),
       label,
       ariaLabel,
     };

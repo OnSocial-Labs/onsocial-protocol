@@ -184,6 +184,45 @@ export function formatJoinRallyMinLabel(yocto: bigint): string {
   return yoctoToSocial(yocto.toString());
 }
 
+/** Join-min + balance: live connected mark, or a live sheet (guest copy). */
+export function shouldFetchRallyJoinAffordance(input: {
+  seasonId: string | null;
+  live: boolean;
+  sheetOpen: boolean;
+  accountId: string | null;
+}): boolean {
+  if (!input.seasonId || !input.live) return false;
+  return Boolean(input.accountId) || input.sheetOpen;
+}
+
+/** You can pay to join — guests never count. */
+export function resolveRallyCanJoin(input: {
+  seasonId: string | null;
+  accountId: string | null;
+  phase: RallyLifecyclePhase | null;
+  joined: boolean;
+  joinMinYocto: bigint | null;
+  hasEnoughSocial: boolean;
+}): boolean {
+  return (
+    Boolean(input.seasonId) &&
+    Boolean(input.accountId) &&
+    input.phase === 'live' &&
+    !input.joined &&
+    input.joinMinYocto != null &&
+    input.hasEnoughSocial
+  );
+}
+
+/** Soft wiggle on the two marks only — join or collect, never “season exists”. */
+export function resolveRallyMarkNudge(input: {
+  visible: boolean;
+  canJoin: boolean;
+  canCollect: boolean;
+}): boolean {
+  return input.visible && (input.canJoin || input.canCollect);
+}
+
 export function formatRallyRankLabel(
   rank: number | null | undefined
 ): string {

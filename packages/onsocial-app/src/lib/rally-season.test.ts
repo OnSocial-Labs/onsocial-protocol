@@ -5,9 +5,12 @@ import {
   parseJoinRallyMinYocto,
   rallyPortalPath,
   resolveRallyLifecyclePhase,
+  resolveRallyCanJoin,
+  resolveRallyMarkNudge,
   resolveRallyOccasion,
   resolveRallyPresentation,
   resolveRallySheetView,
+  shouldFetchRallyJoinAffordance,
 } from '@/lib/rally-season';
 
 describe('rally-season', () => {
@@ -175,5 +178,94 @@ describe('rally-season', () => {
         isConnected: false,
       }).body
     ).toBe('Connect to collect if you placed.');
+  });
+
+  it('prefetches join affordance for live connected marks, not guests or claim', () => {
+    expect(
+      shouldFetchRallyJoinAffordance({
+        seasonId: 'season-one',
+        live: true,
+        sheetOpen: false,
+        accountId: 'alice.near',
+      })
+    ).toBe(true);
+    expect(
+      shouldFetchRallyJoinAffordance({
+        seasonId: 'season-one',
+        live: true,
+        sheetOpen: false,
+        accountId: null,
+      })
+    ).toBe(false);
+    expect(
+      shouldFetchRallyJoinAffordance({
+        seasonId: 'season-one',
+        live: true,
+        sheetOpen: true,
+        accountId: null,
+      })
+    ).toBe(true);
+    expect(
+      shouldFetchRallyJoinAffordance({
+        seasonId: 'season-four',
+        live: false,
+        sheetOpen: false,
+        accountId: 'alice.near',
+      })
+    ).toBe(false);
+  });
+
+  it('nudges only when the viewer can join or collect', () => {
+    expect(
+      resolveRallyCanJoin({
+        seasonId: 'season-one',
+        accountId: 'alice.near',
+        phase: 'live',
+        joined: false,
+        joinMinYocto: 1n,
+        hasEnoughSocial: true,
+      })
+    ).toBe(true);
+    expect(
+      resolveRallyCanJoin({
+        seasonId: 'season-one',
+        accountId: null,
+        phase: 'live',
+        joined: false,
+        joinMinYocto: 1n,
+        hasEnoughSocial: true,
+      })
+    ).toBe(false);
+    expect(
+      resolveRallyCanJoin({
+        seasonId: 'season-one',
+        accountId: 'alice.near',
+        phase: 'live',
+        joined: false,
+        joinMinYocto: 1n,
+        hasEnoughSocial: false,
+      })
+    ).toBe(false);
+    expect(
+      resolveRallyMarkNudge({
+        visible: true,
+        canJoin: true,
+        canCollect: false,
+      })
+    ).toBe(true);
+    expect(
+      resolveRallyMarkNudge({
+        visible: true,
+        canJoin: false,
+        canCollect: true,
+      })
+    ).toBe(true);
+    expect(
+      resolveRallyMarkNudge({
+        visible: true,
+        canJoin: false,
+        canCollect: false,
+      })
+    ).toBe(false);
   });
 });
