@@ -142,6 +142,69 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
       done
 
       validate_guild_view_columns "$db"
+      validate_posts_current_root "$db"
+    }
+
+    validate_posts_current_root() {
+      db="$1"
+      for column_name in root_path root_author; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = '"'"'public'"'"'
+              AND table_name = '"'"'posts_current'"'"'
+              AND column_name = '"'"'${column_name}'"'"'
+          );
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected posts_current.${column_name} in $db" >&2
+          exit 1
+        fi
+      done
+
+      trigger_exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT EXISTS (
+          SELECT 1 FROM pg_trigger
+          WHERE tgname = '"'"'trg_posts_current_set_root'"'"'
+        );
+      ")"
+      if [ "$trigger_exists" != "t" ]; then
+        echo "error: expected trg_posts_current_set_root in $db" >&2
+        exit 1
+      fi
+
+      apply_sql "$db" /work/tests/fixtures/posts_current_root_check.sql
+
+      roots="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT concat(post_id, chr(61), root_path)
+        FROM posts_current
+        WHERE account_id IN ('"'"'bob.near'"'"', '"'"'dave.near'"'"', '"'"'alice.near'"'"')
+        ORDER BY post_id;
+      ")"
+      expected_roots="mid=bob.near/post/root
+nested=bob.near/post/root
+root=bob.near/post/root"
+      if [ "$roots" != "$expected_roots" ]; then
+        echo "error: unexpected posts_current roots in $db" >&2
+        echo "  expected: $expected_roots" >&2
+        echo "  actual:   ${roots:-missing}" >&2
+        exit 1
+      fi
+
+      feed_has_root="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = '"'"'public'"'"'
+            AND table_name = '"'"'posts_feed'"'"'
+            AND column_name = '"'"'root_path'"'"'
+        );
+      ")"
+      if [ "$feed_has_root" != "t" ]; then
+        echo "error: expected posts_feed.root_path in $db" >&2
+        exit 1
+      fi
     }
 
     validate_guild_view_columns() {

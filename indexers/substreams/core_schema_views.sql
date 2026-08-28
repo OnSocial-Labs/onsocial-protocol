@@ -876,7 +876,9 @@ SELECT
   ps.name AS author_name,
   ps.avatar AS author_avatar,
   g.group_name AS group_name,
-  COALESCE(h.heat, 0)::double precision AS amplify_heat
+  COALESCE(h.heat, 0)::double precision AS amplify_heat,
+  p.root_path,
+  p.root_author
 FROM posts_current p
 LEFT JOIN profile_search ps
   ON ps.account_id = p.account_id
@@ -905,7 +907,9 @@ SELECT
   value,
   block_height,
   block_timestamp,
-  group_id
+  group_id,
+  root_path,
+  root_author
 FROM posts_current
 WHERE parent_author IS NOT NULL
   AND parent_author != '';

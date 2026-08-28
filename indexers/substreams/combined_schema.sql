@@ -273,12 +273,19 @@ CREATE TABLE IF NOT EXISTS posts_current (
   audiences TEXT,
   group_id TEXT,
   is_group_content BOOLEAN,
+  root_path TEXT NOT NULL DEFAULT '',
+  root_author TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (account_id, post_id)
 );
 CREATE INDEX IF NOT EXISTS idx_posts_current_block ON posts_current(block_height DESC);
 CREATE INDEX IF NOT EXISTS idx_posts_current_group ON posts_current(group_id) WHERE group_id IS NOT NULL AND group_id != '';
 CREATE INDEX IF NOT EXISTS idx_posts_current_parent ON posts_current(parent_path) WHERE parent_path IS NOT NULL AND parent_path != '';
 CREATE INDEX IF NOT EXISTS idx_posts_current_ref ON posts_current(ref_path) WHERE ref_path IS NOT NULL AND ref_path != '';
+ALTER TABLE posts_current ADD COLUMN IF NOT EXISTS root_path TEXT NOT NULL DEFAULT '';
+ALTER TABLE posts_current ADD COLUMN IF NOT EXISTS root_author TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_posts_current_root
+  ON posts_current(root_path)
+  WHERE root_path IS NOT NULL AND root_path != '';
 
 CREATE TABLE IF NOT EXISTS reactions_current (
   account_id TEXT NOT NULL,
