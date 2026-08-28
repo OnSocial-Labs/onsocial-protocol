@@ -5743,12 +5743,17 @@ a.os-surface-row {
     animation-delay: 7s;
   }
 
-  .os-launcher-rally-mark {
+  .glass-sheet-icon-action.os-launcher-rally-mark {
     color: rgb(218 176 102);
   }
 
-  :root[data-theme='light'] .os-launcher-rally-mark {
-    color: rgb(128 94 38);
+  :root[data-theme='light'] .glass-sheet-icon-action.os-launcher-rally-mark {
+    color: rgb(168 122 48);
+  }
+
+  .glass-sheet-icon-action.os-launcher-rally-mark:hover,
+  .glass-sheet-icon-action.os-launcher-rally-mark:focus-visible {
+    color: rgb(232 196 118);
   }
 
   .os-launcher-rally-mark.is-nudge {
