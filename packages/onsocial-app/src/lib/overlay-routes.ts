@@ -34,18 +34,23 @@ export function portfolioPath(accountId: string): string {
 /** Shareable owner sheets on the profile face (`?sheet=`). */
 export const PORTFOLIO_SHEET_PARAM = 'sheet';
 
-export type PortfolioShareSheetId = 'boost';
+export type PortfolioShareSheetId = 'boost' | 'rally';
 
 export function parsePortfolioSheetParam(
   raw: string | null | undefined
 ): PortfolioShareSheetId | null {
   const value = (raw ?? '').trim().toLowerCase();
-  return value === 'boost' ? value : null;
+  return value === 'boost' || value === 'rally' ? value : null;
 }
 
 /** Owner boost drawer on the profile face. */
 export function portfolioBoostPath(accountId: string): string {
   return `${portfolioPath(accountId)}?${PORTFOLIO_SHEET_PARAM}=boost`;
+}
+
+/** Owner rally player on the profile face. */
+export function portfolioRallyPath(accountId: string): string {
+  return `${portfolioPath(accountId)}?${PORTFOLIO_SHEET_PARAM}=rally`;
 }
 
 /** One-shot deep link — opens the portfolio page drawer, hash is stripped after. */

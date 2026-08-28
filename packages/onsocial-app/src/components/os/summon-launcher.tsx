@@ -37,7 +37,9 @@ import {
   osLauncherDotClassName,
   resolveBackdropPresentation,
   resolvePanelPresentation,
+  OsIconAction,
   SheetCloseButton,
+  StarsCFillIcon,
   usePrefersReducedTransparency,
   useScrollLock,
 } from '@onsocial/ui';
@@ -72,6 +74,7 @@ import {
 } from '@/lib/os-apps';
 import { OsAppIcon } from '@/lib/os-app-icons';
 import { osAppAccent } from '@/lib/os-app-accents';
+import { useRallySheetOptional } from '@/features/rally/rally-sheet-host';
 import { useCommunityAppCatalog } from '@/hooks/use-community-app-catalog';
 import { portalHref } from '@/lib/app-links';
 import { getCachedAppGatewayAuth } from '@/lib/app-gateway-auth';
@@ -217,6 +220,7 @@ export function SummonLauncher({
   const router = useRouter();
   const pathname = usePathname();
   const { accountId, isConnected, connect } = useAppWallet();
+  const rally = useRallySheetOptional();
   const activityUnread = useNotificationsUnreadCount();
   const dmUnread = useDmUnreadCount();
   const { moodId: dockMoodId, style: dockMoodStyle } =
@@ -600,6 +604,23 @@ export function SummonLauncher({
                       </span>
                     </div>
                     <div className="standing-sheet-actions">
+                      {rally?.mark.visible ? (
+                        <OsIconAction
+                          className={`os-launcher-rally-mark${
+                            rally.mark.nudge ? ' is-nudge' : ''
+                          }`}
+                          ariaLabel={rally.mark.ariaLabel}
+                          onClick={() => {
+                            closeLauncher();
+                            rally.openRallySheet();
+                          }}
+                        >
+                          <StarsCFillIcon
+                            className="glass-sheet-icon-action-glyph"
+                            aria-hidden
+                          />
+                        </OsIconAction>
+                      ) : null}
                       <SheetCloseButton
                         onClick={closeLauncher}
                         ariaLabel="Close launcher"

@@ -8,6 +8,7 @@ import {
   parsePortfolioSheetParam,
   portfolioBoostPath,
   portfolioCollectiblesPath,
+  portfolioRallyPath,
   portfolioFeedPath,
   resolveOverlayPanelChrome,
   shouldOpenPortfolioGlassOverlay,
@@ -40,6 +41,16 @@ describe('portfolioBoostPath', () => {
     expect(parsePortfolioSheetParam('wallet')).toBeNull();
     expect(portfolioBoostPath('alice.testnet')).toBe(
       '/@alice.testnet?sheet=boost'
+    );
+  });
+});
+
+describe('portfolioRallyPath', () => {
+  it('deep-links the owner rally sheet', () => {
+    expect(parsePortfolioSheetParam('rally')).toBe('rally');
+    expect(parsePortfolioSheetParam('Rally')).toBe('rally');
+    expect(portfolioRallyPath('alice.testnet')).toBe(
+      '/@alice.testnet?sheet=rally'
     );
   });
 });

@@ -11,6 +11,11 @@ import {
 import { CollectiblesNowPlayingProvider } from '@/contexts/collectibles-now-playing-context';
 import { AppTransactionFeedbackProvider } from '@/contexts/app-transaction-feedback-context';
 import { AppWalletProvider } from '@/contexts/app-wallet-context';
+import { SeasonParticipationProvider } from '@/contexts/season-participation-context';
+import {
+  RallySheetDeepLink,
+  RallySheetProvider,
+} from '@/features/rally/rally-sheet-host';
 import { ComposeLauncherProvider } from '@/contexts/compose-launcher-context';
 import { DockChromeProvider } from '@/contexts/dock-chrome-context';
 import {
@@ -43,6 +48,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <PwaProvider>
       <AppWalletProvider>
         <AppTransactionFeedbackProvider>
+          <SeasonParticipationProvider>
           <AppSocialBalanceProvider>
             <ViewerProfileShellProvider>
               <ViewerWalletMoodProvider>
@@ -53,6 +59,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                         <DockChromeProvider>
                         <OsPortalHostProvider>
                           <OsGlassSheetPortalBridge>
+                            <RallySheetProvider>
                             <CollectiblesNowPlayingProvider>
                               <DmUnreadHost>
                                 <NotificationsHost>
@@ -62,12 +69,14 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                                     <DropComposeHost />
                                     <Suspense fallback={null}>
                                       <WalletSheetDeepLink />
+                                      <RallySheetDeepLink />
                                     </Suspense>
                                     <AppAccountSheetHost />
                                   </WebPushProvider>
                                 </NotificationsHost>
                               </DmUnreadHost>
                             </CollectiblesNowPlayingProvider>
+                            </RallySheetProvider>
                           </OsGlassSheetPortalBridge>
                         </OsPortalHostProvider>
                         </DockChromeProvider>
@@ -78,6 +87,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
               </ViewerWalletMoodProvider>
             </ViewerProfileShellProvider>
           </AppSocialBalanceProvider>
+          </SeasonParticipationProvider>
         </AppTransactionFeedbackProvider>
       </AppWalletProvider>
     </PwaProvider>

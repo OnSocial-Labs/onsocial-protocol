@@ -6,6 +6,7 @@ export const TX_TOAST_EYEBROW = {
 /** Chain-confirmation lines — shown in toast after wallet submit. */
 export const txToastConfirming = {
   collectingSocial: 'Confirming collection…',
+  joiningRally: (seasonTitle: string) => `Joining ${seasonTitle}…`,
   swappingSocial: 'Confirming SOCIAL…',
   addingStorage: 'Confirming storage…',
   withdrawingStorage: 'Confirming withdrawal…',
@@ -87,6 +88,7 @@ export const txToastConfirming = {
 
 export const txToastPending = {
   collectingSocial: 'Collecting SOCIAL…',
+  joiningRally: (seasonTitle: string) => `Joining ${seasonTitle}…`,
   swappingSocial: 'Getting SOCIAL…',
   addingStorage: 'Adding storage…',
   withdrawingStorage: 'Withdrawing storage…',
@@ -140,6 +142,8 @@ export const txToastPending = {
 
 export const txToastSuccess = {
   socialCollected: 'SOCIAL collected.',
+  joinedRally: (seasonTitle: string, badgeLabel = 'Rally') =>
+    `You're in ${seasonTitle}. ${badgeLabel} badge on your profile.`,
   socialInWallet: 'SOCIAL is in your wallet.',
   rewardsCollected: (amountLabel: string) => `${amountLabel} SOCIAL collected.`,
   rewardCredited: (amountLabel: string, reason?: string | null) =>
@@ -239,6 +243,7 @@ export const txToastSuccess = {
 
 export const txToastError = {
   collectSocialFailed: 'Could not collect SOCIAL.',
+  joinRallyFailed: 'Could not join the rally.',
   swapFailed: 'Could not get SOCIAL.',
   profileSaveFailed: 'Could not save profile.',
   profileOnSocialMissing: 'OnSocial account not found on this network.',

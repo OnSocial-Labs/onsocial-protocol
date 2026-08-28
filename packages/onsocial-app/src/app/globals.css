@@ -5727,8 +5727,53 @@ a.os-surface-row {
     animation-delay: 5.25s;
   }
 
+  .portfolio-payout-mark-icon--rally {
+    color: rgb(218 176 102);
+  }
+
+  :root[data-theme='light'] .portfolio-payout-mark-icon--rally {
+    color: rgb(128 94 38);
+  }
+
+  .portfolio-payout-mark-icon--rally.portfolio-payout-mark-icon--nudge {
+    animation-delay: 2.6s;
+  }
+
   .portfolio-payout-mark-icon--messages.portfolio-payout-mark-icon--nudge {
     animation-delay: 7s;
+  }
+
+  .os-launcher-rally-mark {
+    color: rgb(218 176 102);
+  }
+
+  :root[data-theme='light'] .os-launcher-rally-mark {
+    color: rgb(128 94 38);
+  }
+
+  .os-launcher-rally-mark.is-nudge {
+    animation: portfolio-gift-nudge 11s ease-in-out infinite;
+  }
+
+  .portfolio-rally-standings-link {
+    display: inline-flex;
+    align-self: flex-start;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: rgb(var(--fg-rgb) / 0.55);
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
+  }
+
+  .portfolio-rally-standings-link:hover,
+  .portfolio-rally-standings-link:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
   }
 
   .portfolio-listing-action-row {
