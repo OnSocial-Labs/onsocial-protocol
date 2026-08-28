@@ -1252,6 +1252,9 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
   },
 ];
 
+/** Tracked Postgres query functions (Hasura `pg_track_function`). */
+export const PUBLIC_FUNCTIONS = ['feed_pulse'] as const;
+
 export const ADMIN_ONLY_TABLES = [
   'api_keys',
   'api_usage',

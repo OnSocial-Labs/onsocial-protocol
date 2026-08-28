@@ -13,6 +13,7 @@
 import { config } from '../config/index.js';
 import {
   ADMIN_ONLY_TABLES,
+  PUBLIC_FUNCTIONS,
   PUBLIC_TABLES as TABLES,
 } from '../config/hasuraPermissionCatalog.js';
 
@@ -148,6 +149,155 @@ async function fetchTrackedTables(): Promise<Set<string>> {
     if (typeof name === 'string') set.add(name);
   }
   return set;
+}
+
+async function fetchTrackedFunctions(): Promise<Set<string>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- export_metadata response is deeply nested
+  const result: any = await hasuraMetadata({
+    type: 'export_metadata',
+    version: 2,
+    args: {},
+  });
+  const functions = result?.metadata?.sources?.[0]?.functions ?? [];
+  const set = new Set<string>();
+  for (const fn of functions) {
+    const name = fn?.function?.name;
+    if (typeof name === 'string') set.add(name);
+  }
+  return set;
+}
+
+async function fetchLiveFunctions(): Promise<Set<string>> {
+  const sql = `SELECT p.proname
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+    ORDER BY p.proname`;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- run_sql response is untyped
+  const result: any = await withTransientRetry('hasura run_sql', async () => {
+    const response = await fetch(HASURA_QUERY_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-hasura-admin-secret': config.hasuraAdminSecret || '',
+      },
+      body: JSON.stringify({
+        type: 'run_sql',
+        args: { source: 'default', sql, read_only: true },
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(`Hasura /v2/query error: ${JSON.stringify(data)}`);
+    }
+    return data;
+  });
+  const rows: Array<[string]> = (result?.result ?? []).slice(1);
+  return new Set(rows.map(([name]) => name));
+}
+
+async function trackFunctions(): Promise<void> {
+  console.log('📌 Tracking query functions in Hasura...');
+
+  const [live, tracked] = await Promise.all([
+    fetchLiveFunctions().catch(() => new Set<string>()),
+    fetchTrackedFunctions().catch(() => new Set<string>()),
+  ]);
+
+  const toTrack = PUBLIC_FUNCTIONS.filter(
+    (name) => live.has(name) && !tracked.has(name)
+  );
+  const missingFromDb = PUBLIC_FUNCTIONS.filter((name) => !live.has(name));
+
+  if (missingFromDb.length > 0) {
+    console.log(
+      `   ⚠ ${missingFromDb.length} catalog functions not yet in Postgres: ${missingFromDb.join(', ')}`
+    );
+  }
+
+  if (toTrack.length === 0) {
+    console.log(
+      `   ✓ All ${PUBLIC_FUNCTIONS.length - missingFromDb.length} eligible functions already tracked\n`
+    );
+    return;
+  }
+
+  const ops: BulkOp[] = toTrack.map((name) => ({
+    type: 'pg_track_function',
+    args: {
+      source: 'default',
+      function: { schema: 'public', name },
+      configuration: { exposed_as: 'query' },
+    },
+  }));
+
+  let trackedNow = 0;
+  const results = await hasuraBulk(ops);
+  for (let i = 0; i < ops.length; i++) {
+    const r = results[i] as { error?: string } | undefined;
+    if (r && typeof r === 'object' && 'error' in r && r.error) {
+      const msg = String(r.error);
+      if (msg.includes('already tracked') || msg.includes('already-tracked')) {
+        // expected race
+      } else {
+        console.warn(`   ✗ track function ${toTrack[i]}: ${msg}`);
+      }
+    } else {
+      trackedNow++;
+    }
+  }
+
+  console.log(`   ✓ Tracked ${trackedNow} new function(s)\n`);
+}
+
+async function createFunctionPermissions(): Promise<void> {
+  console.log('🔧 Creating function permissions...');
+
+  const live = await fetchLiveFunctions().catch(() => new Set<string>());
+  const ops: BulkOp[] = [];
+  for (const role of Object.keys(TIERS)) {
+    for (const name of PUBLIC_FUNCTIONS) {
+      if (!live.has(name)) continue;
+      ops.push({
+        type: 'pg_create_function_permission',
+        args: {
+          source: 'default',
+          function: { schema: 'public', name },
+          role,
+        },
+      });
+    }
+  }
+
+  if (ops.length === 0) {
+    console.log('   ✓ No function permissions to create\n');
+    return;
+  }
+
+  let created = 0;
+  const results = await hasuraBulk(ops);
+  for (let i = 0; i < ops.length; i++) {
+    const r = results[i] as { error?: string } | undefined;
+    if (r && typeof r === 'object' && 'error' in r && r.error) {
+      const msg = String(r.error);
+      if (
+        msg.includes('already defined') ||
+        msg.includes('already-exists') ||
+        msg.includes('already exists')
+      ) {
+        // expected on re-run
+      } else {
+        unexpectedErrors++;
+        console.warn(
+          `   ✗ function ${ops[i].args.role}@${ops[i].args.function.name}: ${msg}`
+        );
+      }
+    } else {
+      created++;
+    }
+  }
+
+  console.log(`   ✓ Function permissions created: ${created}\n`);
 }
 
 async function fetchPublicViewNames(): Promise<Set<string>> {
@@ -834,21 +984,27 @@ async function main(): Promise<void> {
         break;
       case 'create':
         await trackTables();
+        await trackFunctions();
         await createPermissions();
+        await createFunctionPermissions();
         break;
       case 'reset':
         await snapshotMetadata();
         await trackTables();
+        await trackFunctions();
         await refreshTrackedSqlViews();
         await reloadHasuraSources();
+        await trackFunctions();
         await dropPermissions();
         await createPermissions();
+        await createFunctionPermissions();
         await reloadHasuraSources();
         await smokeTestServiceRole();
         break;
       case 'sync':
         await snapshotMetadata();
         await trackTables();
+        await trackFunctions();
         if (SKIP_VIEW_REFRESH) {
           console.log(
             '   ⏭ Skipping view refresh (HASURA_SKIP_VIEW_REFRESH set — substreams deploy already retracked views)\n'
@@ -857,7 +1013,9 @@ async function main(): Promise<void> {
           await refreshTrackedSqlViews();
         }
         await reloadHasuraSources();
+        await trackFunctions();
         await syncPermissions();
+        await createFunctionPermissions();
         await reloadHasuraSources();
         await smokeTestServiceRole();
         break;

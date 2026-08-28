@@ -3,8 +3,10 @@ import type { PostRow } from './_shared.js';
 import {
   assemblePulsePage,
   isCircleNativePost,
+  paginatePulseFunctionRows,
   parsePostRefFromContentPath,
   pulseParentRefsToHydrate,
+  splitPulseFunctionRows,
 } from './feed-pulse.js';
 
 function row(
@@ -224,6 +226,36 @@ describe('assemblePulsePage', () => {
       take: 20,
     });
     expect(page.items).toEqual([native]);
+  });
+});
+
+describe('splitPulseFunctionRows', () => {
+  const root = row('bob.near', 'root', { blockHeight: 10 });
+  const peek = row('alice.near', 'r1', {
+    parentPath: 'bob.near/post/root',
+    parentAuthor: 'bob.near',
+    rootPath: 'bob.near/post/root',
+    blockHeight: 30,
+  });
+  const native = row('alice.near', 'hello', { blockHeight: 15 });
+
+  it('keeps native cards as one row and bridges as root + peek', () => {
+    const cards = splitPulseFunctionRows([root, peek, native], accounts);
+    expect(cards.map((card) => card.map((item) => item.postId))).toEqual([
+      ['root', 'r1'],
+      ['hello'],
+    ]);
+  });
+
+  it('pages SQL Pulse rows by cards', () => {
+    const page = paginatePulseFunctionRows({
+      rows: [root, peek, native],
+      accounts,
+      offset: 0,
+      limit: 1,
+    });
+    expect(page.items.map((item) => item.postId)).toEqual(['root', 'r1']);
+    expect(page.nextOffset).toBe(1);
   });
 });
 

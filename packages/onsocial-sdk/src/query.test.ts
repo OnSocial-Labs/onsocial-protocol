@@ -952,6 +952,15 @@ describe('QueryModule', () => {
     }) {
       return makeOsWithGraph((body) => {
         const query = String(body.query);
+        if (query.includes('feedPulse')) {
+          return {
+            errors: [
+              {
+                message: 'field "feedPulse" not found in type: \'query_root\'',
+              },
+            ],
+          };
+        }
         if (query.includes('_nin: $accounts')) {
           return { data: { postsFeed: args.bridges ?? [] } };
         }
@@ -1036,6 +1045,48 @@ describe('QueryModule', () => {
         .find((body) => String(body.query).includes('PulseParents'));
       expect(parentQuery.variables.postIds).toContain('root');
       expect(parentQuery.variables.accounts).toContain('bob.near');
+    });
+
+    it('prefers SQL feedPulse when Hasura tracks the function', async () => {
+      const root = {
+        accountId: 'bob.near',
+        postId: 'root',
+        value: '{}',
+        blockHeight: 2,
+        blockTimestamp: 2,
+      };
+      const peek = {
+        accountId: 'alice.near',
+        postId: 'r1',
+        value: '{}',
+        blockHeight: 9,
+        blockTimestamp: 9,
+        parentPath: 'bob.near/post/root',
+        parentAuthor: 'bob.near',
+        rootPath: 'bob.near/post/root',
+      };
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query);
+        if (query.includes('feedPulse')) {
+          return { data: { feedPulse: [root, peek] } };
+        }
+        return { data: { postsFeed: [] } };
+      });
+      const page = await os.query.feed.pulse({
+        accounts: ['alice.near'],
+        limit: 10,
+      });
+      expect(page.items.map((item) => item.postId)).toEqual(['root', 'r1']);
+      const queries = fetch.mock.calls.map(
+        (call) => JSON.parse(call[1].body).query as string
+      );
+      expect(queries.some((query) => query.includes('feedPulse'))).toBe(true);
+      expect(queries.some((query) => query.includes('PulseNative'))).toBe(
+        false
+      );
+      expect(queries.some((query) => query.includes('PulseParents'))).toBe(
+        false
+      );
     });
   });
 

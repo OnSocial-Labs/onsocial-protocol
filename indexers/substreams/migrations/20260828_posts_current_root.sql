@@ -116,6 +116,52 @@ ON posts_current
 FOR EACH ROW
 EXECUTE FUNCTION posts_current_set_root();
 
+-- When a parent is indexed later, push its root down to replies that
+-- landed first (they stored parent_path as a fallback root).
+CREATE OR REPLACE FUNCTION posts_current_cascade_root()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.root_path IS NULL OR btrim(NEW.root_path) = '' THEN
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'UPDATE'
+    AND OLD.root_path IS NOT DISTINCT FROM NEW.root_path
+    AND OLD.root_author IS NOT DISTINCT FROM NEW.root_author
+    AND OLD.account_id IS NOT DISTINCT FROM NEW.account_id
+    AND OLD.post_id IS NOT DISTINCT FROM NEW.post_id
+    AND OLD.group_id IS NOT DISTINCT FROM NEW.group_id
+  THEN
+    RETURN NEW;
+  END IF;
+
+  UPDATE posts_current child
+  SET
+    root_path = NEW.root_path,
+    root_author = NEW.root_author
+  WHERE child.parent_path = posts_current_own_path(
+      NEW.account_id,
+      NEW.post_id,
+      NEW.group_id
+    )
+    AND (
+      child.root_path IS DISTINCT FROM NEW.root_path
+      OR child.root_author IS DISTINCT FROM NEW.root_author
+    );
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_posts_current_cascade_root ON posts_current;
+CREATE TRIGGER trg_posts_current_cascade_root
+AFTER INSERT OR UPDATE OF root_path, root_author, account_id, post_id, group_id
+ON posts_current
+FOR EACH ROW
+EXECUTE FUNCTION posts_current_cascade_root();
+
 -- Fill existing rows, then walk nested replies until roots stabilize.
 UPDATE posts_current
 SET parent_path = parent_path;

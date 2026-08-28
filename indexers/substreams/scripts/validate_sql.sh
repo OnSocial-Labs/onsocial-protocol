@@ -174,12 +174,23 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
         exit 1
       fi
 
+      cascade_exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT EXISTS (
+          SELECT 1 FROM pg_trigger
+          WHERE tgname = '"'"'trg_posts_current_cascade_root'"'"'
+        );
+      ")"
+      if [ "$cascade_exists" != "t" ]; then
+        echo "error: expected trg_posts_current_cascade_root in $db" >&2
+        exit 1
+      fi
+
       apply_sql "$db" /work/tests/fixtures/posts_current_root_check.sql
 
       roots="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
         SELECT concat(post_id, chr(61), root_path)
         FROM posts_current
-        WHERE account_id IN ('"'"'bob.near'"'"', '"'"'dave.near'"'"', '"'"'alice.near'"'"')
+        WHERE post_id IN ('"'"'root'"'"', '"'"'mid'"'"', '"'"'nested'"'"')
         ORDER BY post_id;
       ")"
       expected_roots="mid=bob.near/post/root
@@ -203,6 +214,43 @@ root=bob.near/post/root"
       ")"
       if [ "$feed_has_root" != "t" ]; then
         echo "error: expected posts_feed.root_path in $db" >&2
+        exit 1
+      fi
+
+      apply_sql "$db" /work/tests/fixtures/posts_current_root_late_parent.sql
+      late_roots="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT concat(post_id, chr(61), root_path)
+        FROM posts_current
+        WHERE post_id IN ('"'"'late_root'"'"', '"'"'late_mid'"'"', '"'"'late_nested'"'"')
+        ORDER BY post_id;
+      ")"
+      expected_late="late_mid=bob.near/post/late_root
+late_nested=bob.near/post/late_root
+late_root=bob.near/post/late_root"
+      if [ "$late_roots" != "$expected_late" ]; then
+        echo "error: late-parent cascade failed in $db" >&2
+        echo "  expected: $expected_late" >&2
+        echo "  actual:   ${late_roots:-missing}" >&2
+        exit 1
+      fi
+
+      pulse_fn="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT COUNT(*) FROM pg_proc WHERE proname = '"'"'feed_pulse'"'"';
+      ")"
+      if [ "$pulse_fn" -lt 1 ]; then
+        echo "error: expected feed_pulse() in $db" >&2
+        exit 1
+      fi
+
+      apply_sql "$db" /work/tests/fixtures/feed_pulse_check.sql
+      pulse_ids="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atf /work/tests/fixtures/feed_pulse_assert.sql)"
+      expected_pulse="root
+nested
+hello"
+      if [ "$pulse_ids" != "$expected_pulse" ]; then
+        echo "error: unexpected feed_pulse cards in $db" >&2
+        echo "  expected: $expected_pulse" >&2
+        echo "  actual:   ${pulse_ids:-missing}" >&2
         exit 1
       fi
     }
@@ -294,6 +342,7 @@ SQLEOF
       echo ">>> Guild view upgrade (append-only columns)"
       psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 <<SQLEOF >/dev/null
 -- Dependents of groups_current must drop first (posts_feed / members / bans / ranks).
+DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text);
 DROP VIEW IF EXISTS posts_feed;
 DROP VIEW IF EXISTS groups_by_member_count;
 DROP VIEW IF EXISTS group_member_counts;

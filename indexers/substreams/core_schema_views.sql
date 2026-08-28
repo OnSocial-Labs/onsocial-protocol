@@ -893,6 +893,200 @@ LEFT JOIN post_amplify_heat h
     ELSE p.account_id || '/post/' || p.post_id
   END;
 
+-- Pulse — one page of Home cards: Circle natives plus stranger roots a
+-- circle member replied into. `card_limit` / `card_offset` page events,
+-- not raw rows. A bridge flattens to [root, newest circle peek].
+CREATE OR REPLACE FUNCTION feed_pulse(
+  accounts text[],
+  card_limit integer,
+  card_offset integer,
+  sort text DEFAULT 'recent'
+)
+RETURNS SETOF posts_feed
+LANGUAGE sql
+STABLE
+AS $$
+  WITH circle AS (
+    SELECT DISTINCT btrim(a) AS account_id
+    FROM unnest(COALESCE(accounts, ARRAY[]::text[])) AS a
+    WHERE a IS NOT NULL AND btrim(a) <> ''
+  ),
+  native AS (
+    SELECT
+      p.*,
+      posts_current_own_path(p.account_id, p.post_id, p.group_id) AS event_key,
+      COALESCE(p.amplify_heat, 0) AS event_heat,
+      COALESCE(p.block_height, 0) AS event_height,
+      0 AS event_kind,
+      NULL::text AS peek_account_id,
+      NULL::text AS peek_post_id
+    FROM posts_feed p
+    JOIN circle c ON c.account_id = p.account_id
+    WHERE p.parent_path IS NULL
+      OR btrim(p.parent_path) = ''
+      OR EXISTS (
+        SELECT 1 FROM circle parent WHERE parent.account_id = p.parent_author
+      )
+  ),
+  bridge_replies AS (
+    SELECT
+      p.*,
+      COALESCE(
+        NULLIF(btrim(p.root_path), ''),
+        NULLIF(btrim(p.parent_path), '')
+      ) AS card_path,
+      COALESCE(p.amplify_heat, 0) AS reply_heat,
+      COALESCE(p.block_height, 0) AS reply_height
+    FROM posts_feed p
+    JOIN circle c ON c.account_id = p.account_id
+    WHERE p.parent_path IS NOT NULL
+      AND btrim(p.parent_path) <> ''
+      AND p.parent_author IS NOT NULL
+      AND btrim(p.parent_author) <> ''
+      AND NOT EXISTS (
+        SELECT 1 FROM circle parent WHERE parent.account_id = p.parent_author
+      )
+  ),
+  best_bridge AS (
+    SELECT DISTINCT ON (card_path)
+      card_path,
+      account_id,
+      post_id,
+      reply_heat,
+      reply_height
+    FROM bridge_replies
+    WHERE card_path IS NOT NULL AND btrim(card_path) <> ''
+    ORDER BY
+      card_path,
+      CASE WHEN sort = 'hot' THEN reply_heat ELSE 0 END DESC,
+      reply_height DESC
+  ),
+  bridge_events AS (
+    SELECT
+      root.*,
+      b.card_path AS event_key,
+      b.reply_heat AS event_heat,
+      b.reply_height AS event_height,
+      1 AS event_kind,
+      b.account_id AS peek_account_id,
+      b.post_id AS peek_post_id
+    FROM best_bridge b
+    JOIN posts_feed root
+      ON posts_current_own_path(root.account_id, root.post_id, root.group_id)
+        = b.card_path
+    WHERE NOT EXISTS (
+      SELECT 1 FROM native n
+      WHERE posts_current_own_path(n.account_id, n.post_id, n.group_id)
+        = b.card_path
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM native n
+      WHERE n.account_id = root.account_id
+        AND n.post_id = root.post_id
+    )
+  ),
+  events AS (
+    SELECT
+      event_key,
+      event_heat,
+      event_height,
+      event_kind,
+      account_id,
+      post_id,
+      group_id,
+      peek_account_id,
+      peek_post_id
+    FROM native
+    UNION ALL
+    SELECT
+      event_key,
+      event_heat,
+      event_height,
+      event_kind,
+      account_id,
+      post_id,
+      group_id,
+      peek_account_id,
+      peek_post_id
+    FROM bridge_events
+  ),
+  ranked AS (
+    SELECT
+      e.*,
+      ROW_NUMBER() OVER (
+        ORDER BY
+          CASE WHEN sort = 'hot' THEN e.event_heat ELSE 0 END DESC,
+          e.event_height DESC,
+          e.event_key
+      ) AS rn
+    FROM events e
+  ),
+  page AS (
+    SELECT *
+    FROM ranked
+    WHERE rn > GREATEST(COALESCE(card_offset, 0), 0)
+      AND rn <= GREATEST(COALESCE(card_offset, 0), 0)
+        + GREATEST(COALESCE(card_limit, 0), 0)
+  ),
+  out_rows AS (
+    SELECT
+      pg.rn,
+      1 AS role,
+      p.*
+    FROM page pg
+    JOIN posts_feed p
+      ON p.account_id = pg.account_id
+     AND p.post_id = pg.post_id
+    WHERE pg.event_kind = 0
+    UNION ALL
+    SELECT
+      pg.rn,
+      1 AS role,
+      p.*
+    FROM page pg
+    JOIN posts_feed p
+      ON p.account_id = pg.account_id
+     AND p.post_id = pg.post_id
+    WHERE pg.event_kind = 1
+    UNION ALL
+    SELECT
+      pg.rn,
+      2 AS role,
+      p.*
+    FROM page pg
+    JOIN posts_feed p
+      ON p.account_id = pg.peek_account_id
+     AND p.post_id = pg.peek_post_id
+    WHERE pg.event_kind = 1
+  )
+  SELECT
+    account_id,
+    post_id,
+    value,
+    block_height,
+    block_timestamp,
+    receipt_id,
+    parent_path,
+    parent_author,
+    parent_type,
+    ref_path,
+    ref_author,
+    ref_type,
+    channel,
+    kind,
+    audiences,
+    group_id,
+    is_group_content,
+    author_name,
+    author_avatar,
+    group_name,
+    amplify_heat,
+    root_path,
+    root_author
+  FROM out_rows
+  ORDER BY rn, role;
+$$;
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- 7. thread_replies — posts that are replies
 -- ────────────────────────────────────────────────────────────────────────────
