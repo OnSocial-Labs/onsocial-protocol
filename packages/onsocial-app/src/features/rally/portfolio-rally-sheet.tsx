@@ -404,6 +404,12 @@ export function PortfolioRallySheet({
                 ? `Spend ${player.joinMinLabel} SOCIAL to join ${player.pageTitle}.`
                 : `Join ${player.pageTitle}.`}
             </p>
+          ) : player.phase === 'claim_open' ? (
+            <p className="portfolio-boost-intro">
+              {isConnected
+                ? `No SOCIAL to collect from ${player.pageTitle}.`
+                : `Claim is open. Connect to collect if you placed.`}
+            </p>
           ) : (
             <p className="portfolio-boost-intro">
               {player.pageTitle} is closed.
