@@ -5743,16 +5743,23 @@ a.os-surface-row {
     animation-delay: 7s;
   }
 
+  /* Labeled mark + close — same 2.75rem rail as icon actions, not gap: 0. */
+  .os-launcher-header-actions {
+    gap: 0.12rem;
+  }
+
   .os-launcher-rally-mark {
     display: inline-flex;
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 0.32rem;
+    justify-content: center;
+    gap: 0.3rem;
     min-height: 2.75rem;
     margin: 0;
-    padding: 0 0.4rem 0 0.28rem;
+    padding: 0 0.12rem 0 0.28rem;
     border: 0;
+    border-radius: 0.5rem;
     background: transparent;
     color: rgb(218 176 102);
     font: inherit;
@@ -5798,25 +5805,38 @@ a.os-surface-row {
     animation: portfolio-gift-nudge 11s ease-in-out infinite;
   }
 
+  .portfolio-rally-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
   .portfolio-rally-standings-link {
     display: inline-flex;
     align-self: flex-start;
+    align-items: center;
+    min-height: 1.65rem;
     margin: 0;
     padding: 0;
     border: 0;
     background: none;
     font: inherit;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     font-weight: 600;
     letter-spacing: -0.01em;
-    color: rgb(var(--fg-rgb) / 0.55);
-    text-decoration: underline;
-    text-underline-offset: 0.16em;
+    color: rgb(var(--fg-rgb) / 0.48);
+    text-decoration: none;
   }
 
   .portfolio-rally-standings-link:hover,
   .portfolio-rally-standings-link:focus-visible {
     color: rgb(var(--fg-rgb) / 0.88);
+  }
+
+  .portfolio-rally-standings-link:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
+    border-radius: 0.4rem;
   }
 
   .portfolio-listing-action-row {
@@ -32630,6 +32650,13 @@ a.os-surface-row {
   .profile-support-sheet-panel:has(.profile-support-sheet-footer)
     .profile-support-sheet-body {
     padding-bottom: 1.1rem;
+  }
+
+  .profile-support-sheet-panel:has(.profile-support-sheet-footer):has(
+      .portfolio-rally-view
+    )
+    .profile-support-sheet-body {
+    padding-bottom: 0.3rem;
   }
 
   /*

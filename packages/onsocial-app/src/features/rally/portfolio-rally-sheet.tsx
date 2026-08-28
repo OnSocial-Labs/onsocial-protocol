@@ -381,7 +381,7 @@ export function PortfolioRallySheet({
       {!player.loaded ? (
         <RallySheetLoadingSkeleton />
       ) : (
-        <div className="portfolio-boost-view">
+        <div className="portfolio-rally-view">
           <p className="portfolio-boost-intro">{view.body}</p>
 
           {isConnected &&

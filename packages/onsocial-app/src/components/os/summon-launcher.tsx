@@ -602,7 +602,13 @@ export function SummonLauncher({
                         </span>
                       </span>
                     </div>
-                    <div className="standing-sheet-actions">
+                    <div
+                      className={`standing-sheet-actions${
+                        rally?.mark.visible
+                          ? ' os-launcher-header-actions'
+                          : ''
+                      }`}
+                    >
                       {rally?.mark.visible ? (
                         <RallyLauncherMark
                           label={rally.mark.label}
