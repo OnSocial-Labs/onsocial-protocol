@@ -266,6 +266,8 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'audiences',
       'group_id',
       'is_group_content',
+      'root_path',
+      'root_author',
     ],
   },
   {
@@ -292,6 +294,8 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'author_avatar',
       'group_name',
       'amplify_heat',
+      'root_path',
+      'root_author',
     ],
   },
   {
@@ -493,6 +497,8 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'block_height',
       'block_timestamp',
       'group_id',
+      'root_path',
+      'root_author',
     ],
   },
   {
@@ -1245,6 +1251,9 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
 ];
+
+/** Tracked Postgres query functions (Hasura `pg_track_function`). */
+export const PUBLIC_FUNCTIONS = ['feed_pulse'] as const;
 
 export const ADMIN_ONLY_TABLES = [
   'api_keys',

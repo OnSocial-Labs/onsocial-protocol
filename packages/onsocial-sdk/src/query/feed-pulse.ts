@@ -33,6 +33,13 @@ function parentAuthorOf(row: PostRow): string | null {
   return row.parentAuthor || row.parentPath.split('/')[0] || null;
 }
 
+/** Conversation to card — indexed root, else immediate parent. */
+export function pulseBridgeCardPath(row: PostRow): string | null {
+  const root = row.rootPath?.trim();
+  if (root) return root;
+  return row.parentPath?.trim() || null;
+}
+
 export function isCircleNativePost(
   row: PostRow,
   accounts: ReadonlySet<string>
@@ -69,9 +76,9 @@ type PulseEvent = {
 };
 
 /**
- * Merge native circle rows with hydrated bridge parents + one newest
- * circle reply per stranger thread. `limit` / `offset` page events
- * (cards), not raw rows — a bridge event flattens to parent + reply.
+ * Merge native circle rows with hydrated thread roots + one newest
+ * circle reply per stranger conversation. `limit` / `offset` page events
+ * (cards), not raw rows — a bridge event flattens to root + reply.
  */
 export function assemblePulsePage(input: {
   native: readonly PostRow[];
@@ -106,9 +113,9 @@ export function assemblePulsePage(input: {
   const bestBridge = new Map<string, PostRow>();
   for (const reply of input.bridges) {
     if (isCircleNativePost(reply, accounts)) continue;
-    const parentPath = reply.parentPath;
-    if (!parentPath) continue;
-    const existing = bestBridge.get(parentPath);
+    const cardPath = pulseBridgeCardPath(reply);
+    if (!cardPath) continue;
+    const existing = bestBridge.get(cardPath);
     if (
       !existing ||
       comparePulseRank(
@@ -117,14 +124,14 @@ export function assemblePulsePage(input: {
         input.sort
       ) < 0
     ) {
-      bestBridge.set(parentPath, reply);
+      bestBridge.set(cardPath, reply);
     }
   }
 
   const bridgeEvents: PulseEvent[] = [];
-  for (const [parentPath, reply] of bestBridge) {
-    if (nativePaths.has(parentPath)) continue;
-    const parent = parentByPath.get(parentPath);
+  for (const [cardPath, reply] of bestBridge) {
+    if (nativePaths.has(cardPath)) continue;
+    const parent = parentByPath.get(cardPath);
     if (!parent || nativeKeys.has(postKey(parent))) continue;
     bridgeEvents.push({
       heat: rankHeat(reply),
@@ -154,6 +161,61 @@ export function assemblePulsePage(input: {
   };
 }
 
+/** Native Circle row that `feed_pulse` emits as a one-row card. */
+export function isPulseNativeCardRow(
+  row: PostRow,
+  accounts: ReadonlySet<string>
+): boolean {
+  return accounts.has(row.accountId) && isCircleNativePost(row, accounts);
+}
+
+/**
+ * Split SQL `feed_pulse` rows into cards. Natives are one row; bridges are
+ * `[strangerRoot, circlePeek]` in that order.
+ */
+export function splitPulseFunctionRows(
+  rows: readonly PostRow[],
+  accounts: readonly string[]
+): PostRow[][] {
+  const accountSet = new Set(accounts);
+  const cards: PostRow[][] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]!;
+    if (isPulseNativeCardRow(row, accountSet)) {
+      cards.push([row]);
+      continue;
+    }
+    if (!accountSet.has(row.accountId)) {
+      const peek = rows[i + 1];
+      const rootPath = postContentPath(row);
+      if (peek && pulseBridgeCardPath(peek) === rootPath) {
+        cards.push([row, peek]);
+        i += 1;
+      } else {
+        cards.push([row]);
+      }
+      continue;
+    }
+    cards.push([row]);
+  }
+  return cards;
+}
+
+export function paginatePulseFunctionRows(input: {
+  rows: readonly PostRow[];
+  accounts: readonly string[];
+  offset: number;
+  limit: number;
+}): Paginated<PostRow> {
+  const cards = splitPulseFunctionRows(input.rows, input.accounts);
+  const sliced = cards.slice(0, input.limit);
+  return {
+    items: sliced.flat(),
+    nextOffset:
+      cards.length > input.limit ? input.offset + sliced.length : undefined,
+  };
+}
+
 /** Distinct parent refs that still need a `postsFeed` hydrate. */
 export function pulseParentRefsToHydrate(
   bridges: readonly PostRow[],
@@ -164,7 +226,7 @@ export function pulseParentRefsToHydrate(
   const refs: PulsePostRef[] = [];
   for (const reply of bridges) {
     if (isCircleNativePost(reply, accountSet)) continue;
-    const path = reply.parentPath;
+    const path = pulseBridgeCardPath(reply);
     if (!path || seen.has(path)) continue;
     const ref = parsePostRefFromContentPath(path);
     if (!ref) continue;
