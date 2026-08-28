@@ -9027,12 +9027,10 @@ a.os-surface-row {
     align-items: center;
   }
 
-  /* Toolbar-only compact screens (Home search rail, Messages inbox) — same
-     block height as the post-thread nav row so frost band never jumps. */
+  /* Toolbar-only compact screens (Messages inbox) — same block height as the
+     post-thread nav row so frost band never jumps. */
   .os-app-screen[data-compact-chrome='true']
-    .os-app-screen-toolbar:has(.os-app-screen-search),
-  .os-app-screen[data-compact-chrome='true']
-    .os-app-screen-toolbar:has(.home-feed-compact-chrome) {
+    .os-app-screen-toolbar:has(.os-app-screen-search) {
     margin-top: 0;
     min-height: var(--os-app-screen-nav-row-height);
   }
@@ -9056,10 +9054,6 @@ a.os-surface-row {
     height: var(--os-app-screen-nav-row-height);
     min-height: var(--os-app-screen-nav-row-height);
     max-height: var(--os-app-screen-nav-row-height);
-  }
-
-  .os-app-screen[data-compact-chrome='true'] .home-feed-compact-chrome {
-    min-height: var(--os-app-screen-nav-row-height);
   }
 
   .os-app-screen[data-compact-chrome='true'][data-dock-back='true']
@@ -9649,6 +9643,7 @@ a.os-surface-row {
 
   .discover-tab-bar-scroller {
     display: flex;
+    align-items: center;
     gap: 0.2rem;
     overflow-x: auto;
     scrollbar-width: none;
@@ -9699,6 +9694,88 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.94);
     box-shadow: none;
     text-decoration: none;
+  }
+
+  /* Selected chip + × — one pill wash, same as Discover tabs. */
+  .discover-tab-bar-chip-cluster {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    max-width: 100%;
+    border-radius: 9999px;
+  }
+
+  .discover-tab-bar-chip-cluster.is-active {
+    background: var(--os-surface-fill);
+  }
+
+  .discover-tab-bar-chip-cluster > button[role='tab'] {
+    min-width: 0;
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .discover-tab-bar-chip-cluster.is-active > button[role='tab'].is-active {
+    background: transparent;
+    padding-right: 0.2rem;
+  }
+
+  .discover-tab-bar-chip-cluster.is-active > button[role='tab'].is-active:hover,
+  .discover-tab-bar-chip-cluster.is-active
+    > button[role='tab'].is-active:focus-visible {
+    background: transparent;
+  }
+
+  /* Beat .discover-tab-bar button padding / hover so × stays a tight control. */
+  .discover-tab-bar .discover-tab-bar-chip-remove {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    min-width: 1.35rem;
+    min-height: 1.35rem;
+    margin: 0 0.28rem 0 0;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    box-shadow: none;
+    color: rgb(var(--fg-rgb) / 0.45);
+    font-size: 0;
+    line-height: 1;
+    letter-spacing: 0;
+    cursor: pointer;
+  }
+
+  .discover-tab-bar .discover-tab-bar-chip-remove:hover,
+  .discover-tab-bar .discover-tab-bar-chip-remove:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.84);
+    background: rgb(var(--fg-rgb) / 0.08);
+    outline: none;
+  }
+
+  .discover-tab-bar-chip-remove-icon {
+    width: 0.72rem;
+    height: 0.72rem;
+  }
+
+  /* Same vertical padding as Discover tabs; square + at the rail end. */
+  .discover-tab-bar .discover-tab-bar-chip-add {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 1.7rem;
+    min-width: 1.7rem;
+    padding: 0.28rem;
+  }
+
+  .discover-tab-bar-chip-add-icon {
+    width: 0.9rem;
+    height: 0.9rem;
   }
 
   .discover-focus-list {
@@ -15979,98 +16056,6 @@ a.os-surface-row {
     flex-direction: column;
   }
 
-  /* Same toolbar offset as Discover tab rail. */
-  .os-app-screen-toolbar:has(.home-feed-chip-bar),
-  .os-app-screen-toolbar:has(.home-feed-header-toolbar) {
-    margin-top: var(--os-app-chrome-chip-gap, 0.28rem);
-  }
-
-  .os-app-screen-header:has(.home-feed-header-toolbar) {
-    overflow: visible;
-  }
-
-  .home-feed-header-toolbar {
-    min-width: 0;
-    margin: 0;
-  }
-
-  .home-feed-compact-chrome {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    min-width: 0;
-    width: 100%;
-  }
-
-  .home-feed-compact-chrome .home-feed-chip-bar {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .home-feed-compact-chrome .home-feed-sort-toggle {
-    flex-shrink: 0;
-  }
-
-  /* Home has no title chrome — collapse the flex heading so Discover ↔ sort balance. */
-  .os-app-screen-heading:has(.home-feed-nav-empty) {
-    flex: 0 0 0;
-    width: 0;
-    min-width: 0;
-    overflow: hidden;
-    pointer-events: none;
-  }
-
-  .home-feed-nav-empty {
-    display: block;
-    width: 0;
-    height: 0;
-  }
-
-  /* Discover jump — soft-filled chip (not a feed tab). */
-  .home-feed-discover-link {
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: center;
-    align-self: center;
-    gap: 0.4rem;
-    margin: 0;
-    border: 0;
-    border-radius: 9999px;
-    padding: 0.34rem 0.75rem 0.34rem 0.55rem;
-    background: var(--os-surface-fill);
-    box-shadow: none;
-    color: rgb(var(--fg-rgb) / 0.78);
-    font: inherit;
-    font-size: 0.8125rem;
-    font-weight: 550;
-    letter-spacing: -0.01em;
-    line-height: 1.2;
-    text-decoration: none;
-    white-space: nowrap;
-    transition:
-      background 160ms ease,
-      color 160ms ease;
-  }
-
-  .home-feed-discover-link:hover,
-  .home-feed-discover-link:focus-visible {
-    background: var(--os-surface-fill-hover);
-    color: var(--os-surface-emphasis);
-    outline: none;
-  }
-
-  .home-feed-discover-link:active {
-    background: var(--os-surface-fill-active);
-  }
-
-  .home-feed-discover-mark {
-    display: block;
-    flex-shrink: 0;
-    width: 1.05rem;
-    height: 1.05rem;
-    color: inherit;
-  }
-
   .home-feed-me-avatar {
     display: inline-flex;
     flex-shrink: 0;
@@ -16135,98 +16120,6 @@ a.os-surface-row {
   .home-feed-sort-btn-icon {
     width: 1.2rem;
     height: 1.2rem;
-  }
-
-  .home-feed-chip-bar {
-    margin: 0;
-    min-width: 0;
-    width: 100%;
-  }
-
-  .home-feed-chip-bar .discover-tab-bar-scroller {
-    align-items: center;
-  }
-
-  /* Active #/$ chip + × — one pill wash, same as Discover tabs. */
-  .home-feed-chip-cluster {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    max-width: 100%;
-    border-radius: 9999px;
-  }
-
-  .home-feed-chip-cluster.is-active {
-    background: var(--os-surface-fill);
-  }
-
-  .home-feed-chip-cluster > button[role='tab'] {
-    min-width: 0;
-    max-width: 12rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .home-feed-chip-cluster.is-active > button[role='tab'].is-active {
-    background: transparent;
-    padding-right: 0.2rem;
-  }
-
-  .home-feed-chip-cluster.is-active > button[role='tab'].is-active:hover,
-  .home-feed-chip-cluster.is-active
-    > button[role='tab'].is-active:focus-visible {
-    background: transparent;
-  }
-
-  /* Beat .discover-tab-bar button padding / hover so × stays a tight control. */
-  .home-feed-chip-bar .home-feed-chip-remove {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
-    min-width: 1.35rem;
-    min-height: 1.35rem;
-    margin: 0 0.28rem 0 0;
-    padding: 0;
-    border: 0;
-    border-radius: 9999px;
-    background: transparent;
-    box-shadow: none;
-    color: rgb(var(--fg-rgb) / 0.45);
-    font-size: 0;
-    line-height: 1;
-    letter-spacing: 0;
-    cursor: pointer;
-  }
-
-  .home-feed-chip-bar .home-feed-chip-remove:hover,
-  .home-feed-chip-bar .home-feed-chip-remove:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.84);
-    background: rgb(var(--fg-rgb) / 0.08);
-    outline: none;
-  }
-
-  .home-feed-chip-remove-icon {
-    width: 0.72rem;
-    height: 0.72rem;
-  }
-
-  /* Same vertical padding as Discover tabs; square + at the rail end. */
-  .home-feed-chip-bar .home-feed-chip-add {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    width: 1.7rem;
-    min-width: 1.7rem;
-    padding: 0.28rem;
-  }
-
-  .home-feed-chip-add-icon {
-    width: 0.9rem;
-    height: 0.9rem;
   }
 
   .home-hashtag-search {

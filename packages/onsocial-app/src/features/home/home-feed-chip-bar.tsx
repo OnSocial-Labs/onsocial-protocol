@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { MultiplyIcon, PlusIcon } from '@onsocial/ui';
+import { useEffect, useMemo, useRef } from 'react';
+import { PlusIcon } from '@onsocial/ui';
+import { OsChipRail, type OsChipRailItem } from '@/components/os/os-chip-rail';
 import {
   homeFeedLensLabel,
   homeFeedVisibleLenses,
@@ -18,6 +19,8 @@ import {
   type HomeSavedFeed,
 } from '@/features/home/home-saved-feeds';
 
+type HomeFeedChipId = `lens:${HomeFeedLens}` | `saved:${string}` | 'focus';
+
 export function HomeFeedChipBar({
   lens,
   onLensChange,
@@ -28,6 +31,7 @@ export function HomeFeedChipBar({
   onRemoveSavedFeed,
   onClearFocus,
   onNewFeed,
+  className,
 }: {
   lens: HomeFeedLens;
   onLensChange: (lens: HomeFeedLens) => void;
@@ -38,6 +42,7 @@ export function HomeFeedChipBar({
   onRemoveSavedFeed: (id: string) => void;
   onClearFocus: () => void;
   onNewFeed: () => void;
+  className?: string;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const activeChipRef = useRef<HTMLElement | null>(null);
@@ -47,6 +52,47 @@ export function HomeFeedChipBar({
   );
   const showEphemeralFocus = Boolean(activeFocus && !activeSaved);
   const lenses = homeFeedVisibleLenses(standingAvailable);
+
+  const items = useMemo<OsChipRailItem<HomeFeedChipId>[]>(() => {
+    const next: OsChipRailItem<HomeFeedChipId>[] = lenses.map((option) => ({
+      id: `lens:${option}`,
+      label: homeFeedLensLabel(option),
+    }));
+
+    for (const feed of savedFeeds) {
+      const label = homeSavedFeedLabel(feed);
+      next.push({
+        id: `saved:${feed.id}`,
+        label,
+        onRemove: () => onRemoveSavedFeed(feed.id),
+        removeAriaLabel: `Remove ${label}`,
+      });
+    }
+
+    if (showEphemeralFocus && activeFocus) {
+      next.push({
+        id: 'focus',
+        label: homeFeedFocusQueryValue(activeFocus),
+        onRemove: onClearFocus,
+        removeAriaLabel: 'Clear feed focus',
+      });
+    }
+
+    return next;
+  }, [
+    activeFocus,
+    lenses,
+    onClearFocus,
+    onRemoveSavedFeed,
+    savedFeeds,
+    showEphemeralFocus,
+  ]);
+
+  const value: HomeFeedChipId = activeSaved
+    ? `saved:${activeSaved.id}`
+    : showEphemeralFocus
+      ? 'focus'
+      : `lens:${lens}`;
 
   useEffect(() => {
     const chip = activeChipRef.current;
@@ -66,123 +112,38 @@ export function HomeFeedChipBar({
   }, [activeFocusKey, lens, savedFeeds.length]);
 
   return (
-    <div
-      className="discover-tab-bar home-feed-chip-bar discover-tab-bar--header"
-      role="tablist"
-      aria-label="Feed"
-    >
-      <div className="discover-tab-bar-scroller" ref={scrollerRef}>
-        {lenses.map((option) => {
-          const selected = !activeFocus && option === lens;
-          return (
-            <button
-              key={option}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              className={selected ? 'is-active' : undefined}
-              ref={
-                selected
-                  ? (node) => {
-                      activeChipRef.current = node;
-                    }
-                  : undefined
-              }
-              onClick={() => onLensChange(option)}
-            >
-              {homeFeedLensLabel(option)}
-            </button>
+    <OsChipRail
+      ariaLabel="Feed"
+      className={['discover-tab-bar--header', className]
+        .filter(Boolean)
+        .join(' ')}
+      scrollerRef={scrollerRef}
+      selectedRef={activeChipRef}
+      value={value}
+      onValueChange={(id) => {
+        if (id === 'focus') return;
+        if (id.startsWith('lens:')) {
+          onLensChange(id.slice('lens:'.length) as HomeFeedLens);
+          return;
+        }
+        if (id.startsWith('saved:')) {
+          const feed = savedFeeds.find(
+            (entry) => entry.id === id.slice('saved:'.length)
           );
-        })}
-
-        {savedFeeds.map((feed) => {
-          const selected = activeSaved?.id === feed.id;
-          const label = homeSavedFeedLabel(feed);
-
-          if (!selected) {
-            return (
-              <button
-                key={feed.id}
-                type="button"
-                role="tab"
-                aria-selected={false}
-                onClick={() => onSelectSavedFeed(feed)}
-              >
-                {label}
-              </button>
-            );
-          }
-
-          return (
-            <span
-              key={feed.id}
-              ref={(node) => {
-                activeChipRef.current = node;
-              }}
-              className="home-feed-chip-cluster is-active"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected
-                className="is-active"
-                onClick={() => onSelectSavedFeed(feed)}
-              >
-                {label}
-              </button>
-              <button
-                type="button"
-                className="home-feed-chip-remove"
-                aria-label={`Remove ${label}`}
-                onClick={() => onRemoveSavedFeed(feed.id)}
-              >
-                <MultiplyIcon
-                  aria-hidden
-                  className="home-feed-chip-remove-icon"
-                />
-              </button>
-            </span>
-          );
-        })}
-
-        {showEphemeralFocus && activeFocus ? (
-          <span
-            ref={(node) => {
-              activeChipRef.current = node;
-            }}
-            className="home-feed-chip-cluster is-active"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected
-              className="is-active"
-            >
-              {homeFeedFocusQueryValue(activeFocus)}
-            </button>
-            <button
-              type="button"
-              className="home-feed-chip-remove"
-              aria-label="Clear feed focus"
-              onClick={onClearFocus}
-            >
-              <MultiplyIcon
-                aria-hidden
-                className="home-feed-chip-remove-icon"
-              />
-            </button>
-          </span>
-        ) : null}
-
+          if (feed) onSelectSavedFeed(feed);
+        }
+      }}
+      items={items}
+      trailing={
         <button
           type="button"
-          className="home-feed-chip-add"
+          className="discover-tab-bar-chip-add"
           aria-label="Add feed"
           onClick={onNewFeed}
         >
-          <PlusIcon aria-hidden className="home-feed-chip-add-icon" />
+          <PlusIcon aria-hidden className="discover-tab-bar-chip-add-icon" />
         </button>
-      </div>
-    </div>
+      }
+    />
   );
 }

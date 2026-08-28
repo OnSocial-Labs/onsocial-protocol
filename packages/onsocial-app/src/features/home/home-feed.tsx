@@ -8,7 +8,6 @@ import {
   useState,
   type RefObject,
 } from 'react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   postContentPath,
@@ -16,15 +15,13 @@ import {
   type PostRow,
   type PostScarceEmbed,
 } from '@onsocial/sdk';
-import { OnSocialMark, OsAppChromePage, OsAppChromeToolbarRail, ProtocolMotionArrow } from '@onsocial/ui';
+import { OsAppChromePage, OsAppChromeToolbarRail, ProtocolMotionArrow } from '@onsocial/ui';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HomeFeedChipBar } from '@/features/home/home-feed-chip-bar';
-import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { HomeFeedSortToggle } from '@/features/home/home-feed-sort-toggle';
-import { APP_DISCOVER_PATH } from '@/lib/app-routes';
 import {
   fetchCircleFeedPage,
   fetchPulseFeedPage,
@@ -898,7 +895,6 @@ export function HomePagePanel({
   const newPostsLabel = homeFeedNewPostsLabel(newPostCount);
   const showNewPostsPill =
     Boolean(newPostsLabel) && showFeed && !isRefreshing && !isLoading;
-  const toolbarHidden = useDockAutoHide(false, scrollRootRef);
 
   return (
     <HomeActiveFocusProvider focus={activeFocus}>
@@ -906,22 +902,14 @@ export function HomePagePanel({
         title="Home"
         compactChrome
         glassChrome
+        scrollTuck="search"
         scrollRootRef={scrollRootRef}
         leading={null}
+        heading={<p className="os-app-screen-title">Home</p>}
         toolbar={
-          <OsAppChromeToolbarRail
-            hidden={toolbarHidden}
-            className="home-feed-compact-chrome"
-          >
-            <Link
-              href={APP_DISCOVER_PATH}
-              className="home-feed-discover-link"
-              scroll={false}
-            >
-              <OnSocialMark className="home-feed-discover-mark" aria-hidden />
-              Discover
-            </Link>
+          <OsAppChromeToolbarRail className="market-listing-toolbar">
             <HomeFeedChipBar
+              className="market-listing-filters"
               lens={activeLens}
               onLensChange={handleLensChange}
               standingAvailable={isConnected}

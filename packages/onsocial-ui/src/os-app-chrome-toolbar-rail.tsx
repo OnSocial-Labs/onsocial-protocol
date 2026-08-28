@@ -8,8 +8,8 @@ export const osAppChromeRailClassName = 'os-app-chrome-rail';
 
 /**
  * Single-line toolbar rail — pairs with app `OsAppScreen` `toolbar` slot.
- * For search+chip screens use `scrollTuck="search"` on the screen (chips stay).
- * Pass `hidden` only for toolbar-only tuck (e.g. Home chip bar).
+ * For heading+chip screens use `scrollTuck="search"` on the screen (chips stay).
+ * Pass `hidden` only for toolbar-only tuck.
  */
 export function OsAppChromeToolbarRail({
   hidden = false,

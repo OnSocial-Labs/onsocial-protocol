@@ -63,4 +63,51 @@ describe('OsChipRail', () => {
     expect(html).toContain('role="option"');
     expect(html).toContain('aria-selected="true"');
   });
+
+  it('renders a selected removable chip as a cluster with ×', () => {
+    const html = renderToStaticMarkup(
+      createElement(OsChipRail, {
+        ariaLabel: 'Feed',
+        value: 'saved:social',
+        onValueChange: () => undefined,
+        items: [
+          { id: 'pulse', label: 'Pulse' },
+          {
+            id: 'saved:social',
+            label: '$SOCIAL',
+            onRemove: () => undefined,
+            removeAriaLabel: 'Remove $SOCIAL',
+          },
+        ],
+      })
+    );
+
+    expect(html).toContain('discover-tab-bar-chip-cluster is-active');
+    expect(html).toContain('discover-tab-bar-chip-remove');
+    expect(html).toContain('aria-label="Remove $SOCIAL"');
+    expect(html).toContain('>$SOCIAL<');
+    expect(html).not.toContain('discover-tab-bar-chip-cluster is-active">Pulse');
+  });
+
+  it('renders trailing after chips', () => {
+    const html = renderToStaticMarkup(
+      createElement(OsChipRail, {
+        ariaLabel: 'Feed',
+        value: 'pulse',
+        onValueChange: () => undefined,
+        items: [{ id: 'pulse', label: 'Pulse' }],
+        trailing: createElement('button', {
+          type: 'button',
+          className: 'discover-tab-bar-chip-add',
+          'aria-label': 'Add feed',
+        }),
+      })
+    );
+
+    expect(html).toContain('discover-tab-bar-chip-add');
+    expect(html).toContain('aria-label="Add feed"');
+    expect(html.indexOf('>Pulse<')).toBeLessThan(
+      html.indexOf('discover-tab-bar-chip-add')
+    );
+  });
 });

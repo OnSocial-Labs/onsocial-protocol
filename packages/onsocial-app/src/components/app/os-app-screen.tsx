@@ -10,7 +10,7 @@ import { useRegisterDockBack } from '@/contexts/dock-chrome-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 
-/** Scroll tuck target — search+chip screens tuck the nav search; toolbar-only screens tuck chips. */
+/** Scroll tuck target — heading+chip screens tuck the nav row; toolbar-only screens tuck chips. */
 export type OsAppScreenScrollTuck = 'search' | 'toolbar';
 
 export interface OsAppScreenProps {
@@ -62,8 +62,8 @@ export interface OsAppScreenProps {
   /** When set with `dockBack`, runs instead of history navigation (e.g. close thread). */
   onDockBack?: () => void;
   /**
-   * Scroll tuck on compact glass chrome. `search` — chips stay, search row slides
-   * away under them; `toolbar` — legacy chip-rail hide (Home toolbar-only).
+   * Scroll tuck on compact glass chrome. `search` — chips stay, heading / search
+   * row slides away under them; `toolbar` — legacy chip-rail hide.
    */
   scrollTuck?: OsAppScreenScrollTuck;
   /** Pin search tuck while a header menu is open (sort / filter). */

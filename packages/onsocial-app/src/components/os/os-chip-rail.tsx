@@ -1,12 +1,19 @@
 'use client';
 
 import type { ReactNode, Ref } from 'react';
+import { MultiplyIcon } from '@onsocial/ui';
 
 export type OsChipRailItem<TId extends string | null = string> = {
   id: TId;
   label: ReactNode;
   /** Override React key when `id` may be null. */
   key?: string;
+  /**
+   * When set, the selected chip becomes a cluster with ×.
+   * Used for removable saved / ephemeral Home chips.
+   */
+  onRemove?: () => void;
+  removeAriaLabel?: string;
 };
 
 type OsChipRailBase = {
@@ -14,6 +21,10 @@ type OsChipRailBase = {
   className?: string;
   scrollerClassName?: string;
   scrollerRef?: Ref<HTMLDivElement>;
+  /** Attached to the selected chip (or cluster) for scroll-into-view. */
+  selectedRef?: Ref<HTMLElement | null>;
+  /** After chips inside the scroller — e.g. Home + add-feed. */
+  trailing?: ReactNode;
 };
 
 export type OsChipRailSingleProps<TId extends string | null = string> =
@@ -64,9 +75,18 @@ function joinClassNames(
   return value || undefined;
 }
 
+function assignRef<T>(ref: Ref<T> | undefined, value: T) {
+  if (!ref) return;
+  if (typeof ref === 'function') {
+    ref(value);
+  } else {
+    ref.current = value;
+  }
+}
+
 /**
  * Horizontal discovery chip rail — shared chrome for Discover / Drops /
- * Market / Collectibles / Guilds filter tabs.
+ * Market / Collectibles / Guilds / Home filter tabs.
  *
  * Keep app-local (OS chrome). Do not move into `@onsocial/ui`.
  */
@@ -78,6 +98,8 @@ export function OsChipRail<TId extends string | null = string>(
     className,
     scrollerClassName,
     scrollerRef,
+    selectedRef,
+    trailing,
     items,
   } = props;
   const selection = props.selection ?? 'single';
@@ -107,15 +129,15 @@ export function OsChipRail<TId extends string | null = string>(
             const id = item.id as Extract<TId, string>;
             const selected = multi.values.includes(id);
             return (
-              <button
+              <ChipNode
                 key={key}
-                type="button"
-                aria-pressed={selected}
-                className={selected ? 'is-active' : undefined}
-                onClick={() => multi.onToggle(id)}
-              >
-                {item.label}
-              </button>
+                item={item}
+                selected={selected}
+                selectedRef={selectedRef}
+                role="button"
+                pressed={selected}
+                onSelect={() => multi.onToggle(id)}
+              />
             );
           }
 
@@ -123,16 +145,14 @@ export function OsChipRail<TId extends string | null = string>(
             const option = props as OsChipRailOptionProps<TId>;
             const selected = option.value === item.id;
             return (
-              <button
+              <ChipNode
                 key={key}
-                type="button"
+                item={item}
+                selected={selected}
+                selectedRef={selectedRef}
                 role="option"
-                aria-selected={selected}
-                className={selected ? 'is-active' : undefined}
-                onClick={() => option.onValueChange(item.id)}
-              >
-                {item.label}
-              </button>
+                onSelect={() => option.onValueChange(item.id)}
+              />
             );
           }
 
@@ -145,21 +165,86 @@ export function OsChipRail<TId extends string | null = string>(
               : single.ariaControls;
 
           return (
-            <button
+            <ChipNode
               key={key}
-              type="button"
+              item={item}
+              selected={selected}
+              selectedRef={selectedRef}
               role="tab"
-              id={tabId}
-              aria-controls={controls}
-              aria-selected={selected}
-              className={selected ? 'is-active' : undefined}
-              onClick={() => single.onValueChange(item.id)}
-            >
-              {item.label}
-            </button>
+              tabId={tabId}
+              ariaControls={controls}
+              onSelect={() => single.onValueChange(item.id)}
+            />
           );
         })}
+        {trailing}
       </div>
     </div>
+  );
+}
+
+function ChipNode<TId extends string | null>({
+  item,
+  selected,
+  selectedRef,
+  role,
+  tabId,
+  ariaControls,
+  pressed,
+  onSelect,
+}: {
+  item: OsChipRailItem<TId>;
+  selected: boolean;
+  selectedRef?: Ref<HTMLElement | null>;
+  role: 'tab' | 'option' | 'button';
+  tabId?: string;
+  ariaControls?: string;
+  pressed?: boolean;
+  onSelect: () => void;
+}) {
+  const showRemove = Boolean(item.onRemove && selected);
+  const button = (
+    <button
+      type="button"
+      role={role === 'button' ? undefined : role}
+      id={tabId}
+      aria-controls={ariaControls}
+      aria-selected={role === 'button' ? undefined : selected}
+      aria-pressed={role === 'button' ? pressed : undefined}
+      className={selected ? 'is-active' : undefined}
+      ref={
+        selected && !showRemove
+          ? (node) => assignRef(selectedRef, node)
+          : undefined
+      }
+      onClick={onSelect}
+    >
+      {item.label}
+    </button>
+  );
+
+  if (!showRemove) return button;
+
+  return (
+    <span
+      ref={(node) => assignRef(selectedRef, node)}
+      className="discover-tab-bar-chip-cluster is-active"
+    >
+      {button}
+      <button
+        type="button"
+        className="discover-tab-bar-chip-remove"
+        aria-label={item.removeAriaLabel ?? 'Remove'}
+        onClick={(event) => {
+          event.stopPropagation();
+          item.onRemove?.();
+        }}
+      >
+        <MultiplyIcon
+          aria-hidden
+          className="discover-tab-bar-chip-remove-icon"
+        />
+      </button>
+    </span>
   );
 }
