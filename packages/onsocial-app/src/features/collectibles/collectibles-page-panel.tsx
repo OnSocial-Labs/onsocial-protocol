@@ -530,6 +530,7 @@ export function CollectiblesPagePanel({
     [
       ownerAccountId,
       scrollTuckPinned,
+      setScrollTuckPinned,
       searchQuery,
       setSearchQuery,
       showDiscoveryChrome,
