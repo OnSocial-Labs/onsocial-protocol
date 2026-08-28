@@ -2371,6 +2371,19 @@ a.os-surface-row {
   font-weight: 550;
 }
 
+/* Unlayered — beats `.os-gesture-sheet-body` hug inset + default `a` color. */
+.profile-support-sheet-panel:has(.portfolio-rally-view)
+  .profile-support-sheet-body.os-gesture-sheet-body {
+  padding-bottom: 0.3rem;
+}
+
+.portfolio-rally-standings-link,
+.portfolio-rally-standings-link:hover,
+.portfolio-rally-standings-link:focus-visible,
+.portfolio-rally-standings-link:visited {
+  text-decoration: none;
+}
+
 .scarce-provenance-original-link:hover,
 .scarce-provenance-original-link:focus-visible {
   color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
@@ -32650,13 +32663,6 @@ a.os-surface-row {
   .profile-support-sheet-panel:has(.profile-support-sheet-footer)
     .profile-support-sheet-body {
     padding-bottom: 1.1rem;
-  }
-
-  .profile-support-sheet-panel:has(.profile-support-sheet-footer):has(
-      .portfolio-rally-view
-    )
-    .profile-support-sheet-body {
-    padding-bottom: 0.3rem;
   }
 
   /*
