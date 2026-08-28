@@ -22,10 +22,17 @@ export type OsSheetActionsLayout = 'stack' | 'row' | 'row-compact';
  */
 export type OsSheetActionsTone = 'default' | 'frosted' | 'frosted-primary';
 
+/**
+ * `md` is the 2.75rem sheet footer default; `sm` is the 1.65rem compact
+ * pill for inline rows (market Buy, guild Join, drop Start).
+ */
+export type OsSheetActionsSize = 'md' | 'sm';
+
 export interface OsSheetActionsProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   layout?: OsSheetActionsLayout;
   tone?: OsSheetActionsTone;
+  size?: OsSheetActionsSize;
   /** Frosted fills without pill borders (pairs with `frosted-primary`). */
   borderless?: boolean;
   /** Match profile editor discard confirm — frost danger pill. */
@@ -37,6 +44,7 @@ export function OsSheetActions({
   className,
   layout = 'stack',
   tone = 'default',
+  size = 'md',
   borderless = false,
   discardConfirm = false,
   ...props
@@ -50,6 +58,7 @@ export function OsSheetActions({
         layout === 'row-compact' && 'os-sheet-actions--row-compact',
         (tone === 'frosted' || tone === 'frosted-primary') &&
           'os-sheet-actions--frosted-primary',
+        size === 'sm' && 'os-sheet-actions--sm',
         borderless && osSheetActionsBorderlessClassName,
         discardConfirm && 'os-sheet-actions--discard-confirm',
         className

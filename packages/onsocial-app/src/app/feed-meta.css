@@ -22,7 +22,8 @@
   button.post-card-show-more,
   .post-card .post-card-show-more
 ) {
-  color: var(--protocol-green);
+  /* Theme-safe protocol green ink — neon hue fails AA on light surfaces. */
+  color: var(--protocol-green-ink, var(--protocol-green));
   font-family: var(--app-font-sans);
   font-size: inherit;
   font-style: normal;
@@ -46,7 +47,7 @@
   .post-card .post-card-show-more,
   .post-thread-more
 ) {
-  color: var(--protocol-green);
+  color: var(--protocol-green-ink, var(--protocol-green));
   font-family: var(--app-font-sans);
   font-style: normal;
   font-weight: 300;
@@ -123,7 +124,7 @@ button.post-thread-more:not(.post-thread-more--coil-tail) {
   :is(.os-hashtag, .os-mention, .os-ticker, .os-link) {
   font-family: inherit;
   font-weight: inherit;
-  color: var(--protocol-green);
+  color: var(--protocol-green-ink, var(--protocol-green));
 }
 
 /* Edit profile bio — same mood token color as the live face. */
@@ -156,7 +157,7 @@ button.post-thread-more:not(.post-thread-more--coil-tail) {
       button.post-card-show-more,
       .post-card .post-card-show-more
     ):is(:hover, :focus-visible) {
-    color: var(--protocol-green);
+    color: var(--protocol-green-ink, var(--protocol-green));
     text-decoration: underline;
     text-underline-offset: 0.12em;
     text-decoration-thickness: from-font;

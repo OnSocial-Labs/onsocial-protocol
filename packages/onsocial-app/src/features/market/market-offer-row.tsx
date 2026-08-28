@@ -51,6 +51,7 @@ export function MarketOfferRow({
       <OsSheetActions
         layout="row-compact"
         tone="frosted-primary"
+        size="sm"
         borderless
         className="market-listing-action"
       >

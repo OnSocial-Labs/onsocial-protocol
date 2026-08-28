@@ -68,12 +68,6 @@
   font-display: block;
 }
 
-/* Discover tabs close the header — never pair with the section hairline. */
-.overlay-header-portal:has(.discover-tab-bar) .glass-sheet-header-divider,
-.discover-sheet-header ~ .glass-sheet-header-divider {
-  display: none;
-}
-
 /*
  * Bid history rows — unlayered + explicit ink. Layered surface tokens were
  * reading as near-invisible on frosted sheet glass (only selection revealed text).
@@ -182,21 +176,39 @@
   z-index: 50;
 }
 
-/* Content-sized glass sheets — material/caps only; height via sizing="hug". */
+/*
+ * Content-sized glass sheets — material only; height via sizing="hug".
+ * Max-height comes from three shared tiers, opted in via panelClassName:
+ *   os-sheet-cap-short     pickers + short forms   min(72dvh, 28rem)
+ *   os-sheet-cap-standard  facts / lists           min(88dvh, 36rem)
+ *   os-sheet-cap-tall      editors / commerce      min(94dvh, 46rem)
+ * Deliberate exceptions with their own caps: page drawer + account editor
+ * (fixed height), home saved-feed (fixed), publish requests inbox (caps at
+ * the 0.62 peek ratio on purpose).
+ */
+.glass-sheet-panel.os-sheet-cap-short {
+  max-height: min(72dvh, 28rem);
+}
+
+.glass-sheet-panel.os-sheet-cap-standard {
+  max-height: min(88dvh, 36rem);
+}
+
+.glass-sheet-panel.os-sheet-cap-tall {
+  max-height: min(94dvh, 46rem);
+}
+
 .glass-sheet-panel.account-drawer-panel {
-  max-height: min(88dvh, 34rem);
   --glass-header-scrim-height: min(4rem, 22%);
   --glass-sheet-body-opacity: 0.62;
 }
 
 .glass-sheet-panel.page-joined-facts-panel {
-  max-height: min(72dvh, 28rem);
   --glass-header-scrim-height: min(5rem, 24%);
   --glass-sheet-body-opacity: 0.64;
 }
 
 .glass-sheet-panel.guild-facts-sheet-panel {
-  max-height: min(88dvh, 36rem);
   --glass-header-scrim-height: min(5rem, 24%);
   --glass-sheet-body-opacity: 0.64;
 }
@@ -224,9 +236,8 @@
   padding-top: 0;
 }
 
-/* Allowlist account edit — shorter cap than generic hug. */
+/* Allowlist account edit — short tier cap via os-sheet-cap-short. */
 .glass-sheet-panel.collection-allowlist-edit-sheet-panel {
-  max-height: min(72dvh, 22rem);
   --glass-header-scrim-height: min(4rem, 22%);
   --glass-sheet-body-opacity: 0.64;
 }
@@ -253,7 +264,6 @@
 
 /* Allowlist / door staff / royalty split — material only; width from GlassSheet. */
 .glass-sheet-panel.collection-allowlist-sheet-panel {
-  max-height: min(90dvh, 36rem);
   --glass-header-scrim-height: min(5rem, 24%);
   --glass-sheet-body-opacity: 0.64;
 }
@@ -263,7 +273,6 @@
 }
 
 .glass-sheet-panel.portfolio-support-collect-info-panel {
-  max-height: min(88dvh, 36rem);
   --glass-header-scrim-height: min(5rem, 24%);
 }
 
@@ -286,16 +295,6 @@
 /* Single scroller = sheet body. Content scrolls under the floating pill. */
 .glass-sheet-panel.page-drawer-panel > .glass-sheet-body.page-drawer-body {
   padding: 0.1rem 1.15rem 0;
-}
-
-/*
- * Keep the overlay gesture dock above body chrome.
- * Sticky + backdrop-filter inside the body can promote a compositor layer
- * that otherwise paints over the absolute footer.
- */
-.glass-sheet-panel.page-drawer-panel
-  > .glass-sheet-footer.glass-sheet-footer--overlay {
-  z-index: 20;
 }
 
 /*
@@ -382,8 +381,8 @@
   padding: 0;
   border: 0;
   border-radius: 9999px;
-  background: rgb(0 0 0 / 0.42);
-  color: rgb(255 255 255 / 0.96);
+  background: var(--app-scrim-media);
+  color: var(--app-on-media-ink);
   filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -397,7 +396,7 @@
   .guild-manage-menu-icon {
   width: 1.25rem;
   height: 1.25rem;
-  color: rgb(255 255 255 / 0.96);
+  color: var(--app-on-media-ink);
 }
 
 /*
@@ -428,8 +427,8 @@
   height: 1.85rem;
   padding: 0 0.72rem;
   border-radius: 9999px;
-  background: rgb(0 0 0 / 0.42);
-  color: rgb(255 255 255 / 0.96);
+  background: var(--app-scrim-media);
+  color: var(--app-on-media-ink);
   font-size: 0.8rem;
   font-weight: 650;
   letter-spacing: -0.02em;
@@ -481,7 +480,7 @@
 .os-app-screen[data-immersive-header='true']
   .os-app-screen-header:not(.is-elevated)
   .glass-sheet-icon-action:focus-visible {
-  background: rgb(0 0 0 / 0.55);
+  background: var(--app-scrim-media-hover);
   color: rgb(255 255 255 / 1);
 }
 
@@ -497,8 +496,8 @@
 }
 
 /*
- * Guild hero membership — unlayered so compact size beats os-sheet-action.css
- * row-compact (2.75rem). Slot owns fixed width so Join/Request/Joined don't CLS.
+ * Guild hero membership — compact size comes from OsSheetActions size="sm".
+ * Slot owns fixed width so Join/Request/Joined don't CLS.
  */
 .guild-hero-membership-slot {
   display: flex;
@@ -557,7 +556,10 @@
   gap: 0;
 }
 
-/* Market row Buy / Listed — compact borderless pills (same family as guild Join). */
+/*
+ * Market row Buy / Listed — compact borderless pills (same family as guild
+ * Join). Dimensions come from OsSheetActions size="sm"; slot owns width.
+ */
 .market-listing-action.os-sheet-actions--row-compact {
   flex-shrink: 0;
   width: auto;
@@ -565,22 +567,10 @@
   gap: 0;
 }
 
-.market-listing-action.os-sheet-actions--row-compact .os-sheet-action,
-.market-listing-action.os-sheet-actions--row-compact .os-sheet-action--primary,
-.market-listing-action.os-sheet-actions--row-compact .os-sheet-action--danger {
+.market-listing-action.os-sheet-actions--row-compact .os-sheet-action {
   flex: 0 0 auto;
   width: 100%;
   min-width: 0;
-  min-height: 1.65rem;
-  padding: 0.28rem 0.72rem;
-  font-size: 0.72rem;
-  line-height: 1.2;
-  border-radius: 9999px;
-  box-shadow: none;
-}
-
-.market-listing-action.os-sheet-actions--borderless .os-sheet-action__shell {
-  min-height: 1.1rem;
 }
 
 /*
@@ -616,24 +606,7 @@
   min-height: 0;
 }
 
-.collectibles-play-sell-action
-  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
-.collectibles-play-sell-action
-  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
-  border-color: rgb(var(--fg-rgb) / 0.12);
-  background: rgb(var(--fg-rgb) / 0.07);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  box-shadow: none;
-  color: var(--protocol-green);
-}
-
-.collectibles-play-sell-action
-  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
-  border-color: rgb(var(--fg-rgb) / 0.16);
-  background: rgb(var(--fg-rgb) / 0.1);
-  color: var(--protocol-green-hover, var(--protocol-green));
-}
+/* Sell / Manage green now comes from OsSheetAction tone="brand". */
 
 /*
  * Drop page Manage — same Sell family, but height-locked to bookmark / share
@@ -715,55 +688,27 @@
   gap: 0;
 }
 
-.drop-create-header-cta.os-sheet-actions--row-compact .os-sheet-action,
-.drop-create-header-cta.os-sheet-actions--row-compact
-  .os-sheet-action--primary {
+.drop-create-header-cta.os-sheet-actions--row-compact .os-sheet-action {
   flex: 0 0 auto;
   width: 100%;
   min-width: 0;
-  min-height: 1.65rem;
-  padding: 0.28rem 0.72rem;
-  font-size: 0.72rem;
-  line-height: 1.2;
-  border-radius: 9999px;
-  box-shadow: none;
 }
 
-.drop-create-header-cta.os-sheet-actions--borderless .os-sheet-action__shell {
-  min-height: 1.1rem;
-}
-
+/* Dimensions come from OsSheetActions size="sm"; slots own width only. */
 .guild-hero
-  .guild-hero-membership-slot
-  .guild-hero-membership.os-sheet-actions--row-compact
-  .os-sheet-action,
-.guild-hero
-  .guild-hero-membership-slot
-  .guild-hero-membership.os-sheet-actions--row-compact
-  .os-sheet-action--primary,
-.app-page-hero
   .guild-hero-membership-slot
   .guild-hero-membership.os-sheet-actions--row-compact
   .os-sheet-action,
 .app-page-hero
   .guild-hero-membership-slot
   .guild-hero-membership.os-sheet-actions--row-compact
-  .os-sheet-action--primary,
-.guild-thread-nav-membership-slot
-  .guild-thread-nav-membership.os-sheet-actions--row-compact
   .os-sheet-action,
 .guild-thread-nav-membership-slot
   .guild-thread-nav-membership.os-sheet-actions--row-compact
-  .os-sheet-action--primary {
+  .os-sheet-action {
   flex: 0 0 auto;
   width: 100%;
   min-width: 0;
-  min-height: 1.65rem;
-  padding: 0.28rem 0.62rem;
-  font-size: 0.72rem;
-  line-height: 1.2;
-  border-radius: 9999px;
-  box-shadow: none;
 }
 
 /*
@@ -807,7 +752,7 @@
 
 .guild-add-space-segment:hover:not(:disabled):not(.is-active),
 .guild-add-space-segment:focus-visible:not(:disabled):not(.is-active) {
-  color: rgb(var(--fg-rgb) / 0.84);
+  color: rgb(var(--fg-rgb) / 0.92);
   outline: none;
 }
 
@@ -821,15 +766,17 @@
 
 .guild-add-space-segment:disabled {
   cursor: default;
-  opacity: 0.55;
+  opacity: 1;
+  color: rgb(var(--fg-rgb) / 0.26);
 }
 
 /* Composer dock Post — unlayered so row-compact stays pill-sized. */
 /* Proposal card vote chips — unlayered so they beat os-sheet-action row-compact. */
-/* Pending-count candy badge — solid purple + light glass lip. */
+/* Pending-count candy badge — solid purple + dark on-accent ink (the soft
+   purple fails contrast with white text in both themes). */
 .guild-manage-menu-badge {
   background: var(--protocol-purple);
-  color: #fff;
+  color: rgb(0 0 0 / 0.85);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.28),
     0 0 0 1px rgb(255 255 255 / 0.12),
@@ -938,7 +885,6 @@
 }
 
 .glass-sheet-panel.account-storage-panel {
-  max-height: min(92dvh, 40rem);
   --glass-sheet-body-opacity: 0.62;
 }
 
@@ -1019,7 +965,7 @@
   background: color-mix(
     in srgb,
     rgb(var(--bg-rgb) / 0.82) 82%,
-    rgb(0 0 0 / 0.42)
+    var(--app-scrim-media)
   );
   color: rgb(var(--fg-rgb) / 0.96);
   outline: none;
@@ -1031,7 +977,7 @@
 .account-editor-cover-stage.has-media
   .account-editor-hero-chrome
   .glass-sheet-icon-action {
-  background: rgb(0 0 0 / 0.42);
+  background: var(--app-scrim-media);
   color: rgb(255 255 255 / 0.94);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.12),
@@ -1044,13 +990,12 @@
 .account-editor-cover-stage.has-media
   .account-editor-hero-chrome
   .glass-sheet-icon-action:focus-visible {
-  background: rgb(0 0 0 / 0.55);
+  background: var(--app-scrim-media-hover);
   color: rgb(255 255 255 / 1);
 }
 
 .glass-sheet-panel.customize-sheet-panel,
 .glass-sheet-panel.mood-sheet-panel {
-  max-height: min(94dvh, 42rem);
   --glass-sheet-body-opacity: 0.64;
 }
 
@@ -1296,10 +1241,6 @@
 }
 
 /* Mood sheet — borderless rows, mood-colored halo, customize-aligned chrome. */
-.mood-sheet-panel .mood-sheet-header {
-  border-bottom: 0;
-}
-
 .mood-sheet-panel .mood-sheet-section + .mood-sheet-section {
   border-top: 0;
   padding-top: 0;
@@ -1929,6 +1870,12 @@ a.os-surface-row {
     --glass-lip-os: transparent;
     --glass-shadow-os: none;
     --glass-shadow-os-reduced: none;
+
+    /* On-media chrome — scrim discs + ink over arbitrary imagery
+       (immersive headers, cover play, badges). Theme-independent. */
+    --app-scrim-media: rgb(0 0 0 / 0.42);
+    --app-scrim-media-hover: rgb(0 0 0 / 0.55);
+    --app-on-media-ink: rgb(255 255 255 / 0.96);
 
     /* OS chrome elevation — dock pill + launcher sheet (balanced per theme). */
     --os-chrome-elev-shadow: 0 12px 36px -10px rgb(0 0 0 / 0.52);
@@ -2697,6 +2644,33 @@ a.os-surface-row {
     font-weight: 600;
     padding: 0.65rem 1rem;
     cursor: pointer;
+    transition:
+      background 160ms ease,
+      transform 120ms ease;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .gate-cta:hover:not(:disabled) {
+      background: rgb(var(--fg-rgb));
+    }
+  }
+
+  .gate-cta:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+  }
+
+  .gate-cta:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+
+  .gate-cta:disabled {
+    background: rgb(var(--fg-rgb) / 0.03);
+    color: rgb(var(--fg-rgb) / 0.26);
+    cursor: default;
   }
 
   .gate-hints {
@@ -2808,6 +2782,35 @@ a.os-surface-row {
     padding: 0.65rem 1rem;
     cursor: pointer;
     text-decoration: none;
+    transition:
+      border-color 160ms ease,
+      background 160ms ease,
+      color 160ms ease,
+      transform 120ms ease;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .gate-connect-button:hover,
+    .gate-connect-link:hover {
+      border-color: rgb(var(--fg-rgb) / 0.2);
+      background: rgb(var(--fg-rgb) / 0.07);
+      color: rgb(var(--fg-rgb) / 0.92);
+    }
+  }
+
+  .gate-connect-button:focus-visible,
+  .gate-connect-link:focus-visible {
+    outline: none;
+    border-color: rgb(var(--fg-rgb) / 0.2);
+    color: rgb(var(--fg-rgb) / 0.92);
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue, #60a5fa) 35%, transparent)
+    );
+  }
+
+  .gate-connect-button:active:not(:disabled) {
+    transform: scale(0.985);
   }
 
   .gate-connect-link {
@@ -3113,10 +3116,32 @@ a.os-surface-row {
     font-weight: 600;
     padding: 0.45rem 0.85rem;
     cursor: pointer;
+    transition:
+      background 160ms ease,
+      transform 120ms ease;
   }
 
+  @media (hover: hover) and (pointer: fine) {
+    .portfolio-activate-strip-cta:hover:not(:disabled) {
+      background: rgb(var(--fg-rgb));
+    }
+  }
+
+  .portfolio-activate-strip-cta:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+  }
+
+  .portfolio-activate-strip-cta:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+
+  /* Disabled here is a working state (cursor: wait) — keep the solid shade. */
   .portfolio-activate-strip-cta:disabled {
-    opacity: 0.6;
+    opacity: 1;
     cursor: wait;
   }
 
@@ -5190,7 +5215,7 @@ a.os-surface-row {
     border: 1px solid transparent;
     border-radius: 9999px;
     background: transparent;
-    color: rgb(var(--fg-rgb) / 0.68);
+    color: rgb(var(--fg-rgb) / 0.72);
     font-size: 0.62rem;
     font-weight: 600;
     letter-spacing: 0.01em;
@@ -5209,23 +5234,34 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
+  .portfolio-identity-gesture:focus-visible:not(:disabled) {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+  }
+
+  /* Standing on the face is naked — dot + word at the same ink as the
+     gestures beside it; the signal dot alone carries the on-state. */
   .portfolio-identity-gesture--stand.is-standing {
-    color: rgb(var(--fg-rgb) / 0.58);
+    background: transparent;
   }
 
   .portfolio-identity-gesture--stand.is-standing:hover:not(:disabled),
   .portfolio-identity-gesture--stand.is-standing:focus-visible:not(:disabled) {
     background: color-mix(
       in srgb,
-      var(--signal-error, #ef4444) 7%,
+      var(--signal-error, var(--protocol-red)) 7%,
       transparent
     );
-    color: rgb(var(--fg-rgb) / 0.88);
+    color: rgb(var(--fg-rgb) / 0.92);
   }
 
   .portfolio-identity-gesture:disabled {
     cursor: default;
-    opacity: 0.72;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   /* Match panel toggle hues — do not override step-back red. */
@@ -5235,7 +5271,7 @@ a.os-surface-row {
   }
 
   .portfolio-identity-gesture--stand .standing-toggle-arrow--step-back {
-    color: var(--signal-error, #ef4444);
+    color: var(--signal-error, var(--protocol-red));
   }
 
   .portfolio-identity-gesture--stand .standing-toggle-dot {
@@ -5255,7 +5291,7 @@ a.os-surface-row {
 
   /* Owner collect — green gift mark (signal-arrow role); Collect = quiet text. */
   .portfolio-identity-gesture--collect {
-    color: rgb(var(--fg-rgb) / 0.68);
+    color: rgb(var(--fg-rgb) / 0.72);
   }
 
   .portfolio-identity-gesture--collect:hover:not(:disabled),
@@ -5514,6 +5550,25 @@ a.os-surface-row {
     font: inherit;
     font-size: 0.85rem;
     cursor: pointer;
+    transition: background 160ms ease;
+  }
+
+  .dao-boost-mode-chip:hover:not(:disabled):not(.is-selected) {
+    background: color-mix(in srgb, currentColor 6%, transparent);
+  }
+
+  .dao-boost-mode-chip:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+  }
+
+  .dao-boost-mode-chip:disabled {
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
+    cursor: default;
   }
 
   .dao-boost-mode-chip.is-selected {
@@ -5994,7 +6049,7 @@ a.os-surface-row {
     border: 0;
     border-radius: 9999px;
     background: transparent;
-    color: rgb(var(--fg-rgb) / 0.4);
+    color: rgb(var(--fg-rgb) / 0.5);
     cursor: pointer;
     line-height: 0;
     transition: color 160ms ease;
@@ -6002,7 +6057,7 @@ a.os-surface-row {
 
   .portfolio-support-collect-info-button:hover,
   .portfolio-support-collect-info-button:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.78);
+    color: rgb(var(--fg-rgb) / 0.92);
     outline: none;
   }
 
@@ -6341,7 +6396,7 @@ a.os-surface-row {
     font-size: 0.68rem;
     line-height: 1.35;
     text-align: center;
-    color: var(--signal-error, #ef4444);
+    color: var(--signal-error, var(--protocol-red));
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -7358,7 +7413,7 @@ a.os-surface-row {
   }
 
   .reputation-facts-activity .os-sheet-facts-section-rows,
-  .reputation-facts-activity .guild-facts-section-rows {
+  .reputation-facts-activity .os-sheet-facts-section-rows {
     gap: 0.38rem;
   }
 
@@ -8163,6 +8218,33 @@ a.os-surface-row {
     font-weight: 600;
     padding: 0.7rem 1rem;
     cursor: pointer;
+    transition:
+      background 160ms ease,
+      transform 120ms ease;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .panel-action:hover:not(:disabled) {
+      background: rgb(var(--fg-rgb));
+    }
+  }
+
+  .panel-action:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+  }
+
+  .panel-action:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+
+  .panel-action:disabled {
+    background: rgb(var(--fg-rgb) / 0.03);
+    color: rgb(var(--fg-rgb) / 0.26);
+    cursor: default;
   }
 
   .panel-error {
@@ -8241,30 +8323,9 @@ a.os-surface-row {
     min-height: 0;
   }
 
-  .mood-sheet-panel .mood-sheet-copy {
+  .mood-sheet-panel .mood-sheet-copy,
+  .mood-sheet-panel .glass-sheet-header-subtitle {
     color: var(--mood-muted, rgb(var(--fg-rgb) / 0.44));
-  }
-
-  .mood-sheet-panel .mood-sheet-header {
-    border-bottom-color: color-mix(
-      in srgb,
-      var(--mood-accent) 10%,
-      rgb(var(--fg-rgb) / 0.08)
-    );
-  }
-
-  .mood-sheet-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.92rem 1rem 0.68rem;
-    border-bottom: 1px solid rgb(var(--fg-rgb) / 0.08);
-  }
-
-  .mood-sheet-title {
-    font-size: 1rem;
-    font-weight: 600;
   }
 
   .mood-sheet-copy {
@@ -8599,21 +8660,11 @@ a.os-surface-row {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  .customize-sheet-panel .customize-sheet-copy {
+  .customize-sheet-panel .customize-sheet-copy,
+  .customize-sheet-panel .glass-sheet-header-subtitle {
     color: var(--mood-muted, rgb(var(--fg-rgb) / 0.44));
   }
 
-  .customize-sheet-header {
-    position: relative;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.92rem 1rem 0.68rem;
-    border-bottom: 0;
-  }
-
-  .customize-sheet-header::after,
   .customize-sheet-actions::after {
     content: '';
     position: absolute;
@@ -8634,11 +8685,6 @@ a.os-surface-row {
     );
     opacity: 0.72;
     pointer-events: none;
-  }
-
-  .customize-sheet-title {
-    font-size: 1rem;
-    font-weight: 600;
   }
 
   .customize-sheet-copy {
@@ -8762,8 +8808,7 @@ a.os-surface-row {
   }
 
   .customize-sheet-panel .os-surface-row:disabled {
-    cursor: wait;
-    opacity: 0.72;
+    cursor: progress;
   }
 
   .customize-hero-fields {
@@ -8839,7 +8884,8 @@ a.os-surface-row {
   }
 
   .customize-sheet-secondary:disabled {
-    opacity: 0.5;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: not-allowed;
   }
 
@@ -9565,7 +9611,7 @@ a.os-surface-row {
     padding: 0.28rem 0.6rem;
     border-radius: 999px;
     background: rgb(var(--fg-rgb) / 0.05);
-    color: var(--protocol-green);
+    color: var(--protocol-green-ink, var(--protocol-green));
     font-size: 0.8rem;
     font-weight: 600;
     line-height: 1;
@@ -9578,7 +9624,7 @@ a.os-surface-row {
   .discover-trending-chip:hover,
   .discover-trending-chip:focus-visible {
     background: rgb(var(--fg-rgb) / 0.09);
-    color: var(--protocol-green-hover);
+    color: var(--protocol-green-ink, var(--protocol-green-hover));
     outline: none;
   }
 
@@ -9610,7 +9656,11 @@ a.os-surface-row {
   }
 
   .discover-trending-chip .discover-trending-chip-count {
-    color: color-mix(in srgb, var(--protocol-green) 55%, rgb(var(--fg-rgb)));
+    color: color-mix(
+      in srgb,
+      var(--protocol-green-ink, var(--protocol-green)) 55%,
+      rgb(var(--fg-rgb))
+    );
   }
 
   .discover-omni-search {
@@ -10014,17 +10064,18 @@ a.os-surface-row {
 
   /*
    * Overlays portal into the card; tuck the face dock while other sheets are up.
-   * Page drawer keeps the same fixed dock — lifted with `.is-drawer-overlay`.
+   * The page drawer keeps the dock via keepDock (data-keep-dock) — any sheet
+   * without it tucks the dock, including sheets opened above the drawer.
    */
   body:has([data-os-slide-over='true'])
     .portfolio-os-layer
-    > .portfolio-summon-dock:not(.is-drawer-overlay),
+    > .portfolio-summon-dock,
   body:has(.glass-sheet-root:not([data-keep-dock='true']))
     .portfolio-os-layer
-    > .portfolio-summon-dock:not(.is-drawer-overlay),
+    > .portfolio-summon-dock,
   body:has(.glass-sheet-root:not([data-keep-dock='true']))
     .os-app-screen
-    > .portfolio-summon-dock:not(.is-drawer-overlay),
+    > .portfolio-summon-dock,
   body:has(.os-launcher-root) .portfolio-summon-dock {
     transform: translateX(-50%)
       translateY(calc(100% + env(safe-area-inset-bottom)));
@@ -10034,15 +10085,15 @@ a.os-surface-row {
 
   body:has([data-os-slide-over='true'])
     .portfolio-os-layer
-    > .portfolio-summon-dock:not(.is-drawer-overlay)
+    > .portfolio-summon-dock
     .portfolio-summon,
   body:has(.glass-sheet-root:not([data-keep-dock='true']))
     .portfolio-os-layer
-    > .portfolio-summon-dock:not(.is-drawer-overlay)
+    > .portfolio-summon-dock
     .portfolio-summon,
   body:has(.glass-sheet-root:not([data-keep-dock='true']))
     .os-app-screen
-    > .portfolio-summon-dock:not(.is-drawer-overlay)
+    > .portfolio-summon-dock
     .portfolio-summon,
   body:has(.os-launcher-root) .portfolio-summon-dock .portfolio-summon {
     pointer-events: none;
@@ -10492,8 +10543,8 @@ a.os-surface-row {
   }
 
   .portfolio-summon-now-playing.has-media .portfolio-summon-now-playing-icon {
-    color: #fff;
-    filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.55));
+    color: var(--app-on-media-ink);
+    filter: drop-shadow(0 1px 2px var(--app-scrim-media-hover));
   }
 
   .portfolio-summon-now-playing-icon--play {
@@ -10749,12 +10800,13 @@ a.os-surface-row {
   }
 
   .os-write-dock-tool:disabled {
-    opacity: 0.32;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
   .os-write-dock-tool.is-quiet {
-    color: rgb(var(--fg-rgb) / 0.36);
+    color: rgb(var(--fg-rgb) / 0.5);
   }
 
   .os-write-dock-tool:not(:disabled):hover,
@@ -10789,7 +10841,7 @@ a.os-surface-row {
     border: 0;
     border-radius: 0;
     background: transparent;
-    color: var(--protocol-green, #00ec97);
+    color: var(--protocol-green-ink, var(--protocol-green));
     cursor: pointer;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
@@ -10799,20 +10851,24 @@ a.os-surface-row {
   }
 
   .os-write-dock-send:disabled {
-    opacity: 0.32;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
+  /* Pending keeps the armed shade — the spinner carries the work signal. */
   .os-write-dock-send.is-pending:disabled {
-    opacity: 1;
+    color: var(--protocol-green-ink, var(--protocol-green));
+    cursor: progress;
   }
 
   .os-write-dock-send-spinner {
     display: block;
     width: 0.95rem;
     height: 0.95rem;
-    border: 2px solid rgb(0 236 151 / 0.22);
-    border-top-color: var(--protocol-green, #00ec97);
+    border: 2px solid
+      color-mix(in srgb, var(--protocol-green) 22%, transparent);
+    border-top-color: var(--protocol-green-ink, var(--protocol-green));
     border-radius: 50%;
     animation: os-write-dock-send-spin 0.7s linear infinite;
   }
@@ -11185,7 +11241,7 @@ a.os-surface-row {
     min-height: 1.85rem;
     padding: 0.32rem 0.62rem;
     background: rgb(var(--fg-rgb) / 0.05);
-    color: rgb(var(--fg-rgb) / 0.58);
+    color: rgb(var(--fg-rgb) / 0.55);
     font: inherit;
     font-size: 0.68rem;
     font-weight: 600;
@@ -11198,14 +11254,14 @@ a.os-surface-row {
 
   .page-drawer-jump-chip:hover,
   .page-drawer-jump-chip:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.08);
-    color: rgb(var(--fg-rgb) / 0.82);
+    background: rgb(var(--fg-rgb) / 0.085);
+    color: rgb(var(--fg-rgb) / 0.92);
     outline: none;
   }
 
   .page-drawer-jump-chip.is-active {
-    background: rgb(var(--fg-rgb) / 0.1);
-    color: rgb(var(--fg-rgb) / 0.92);
+    background: rgb(var(--fg-rgb) / 0.12);
+    color: rgb(var(--fg-rgb) / 0.94);
   }
 
   .page-drawer-panel[data-tone='mood-thread'] .page-drawer-jump-chip.is-active {
@@ -11420,7 +11476,7 @@ a.os-surface-row {
 
   /* Joined → account facts. Header chrome is shared SheetHeader. */
 
-  /* Row/section/count chrome: shared `.guild-facts-*` via SheetFact*. */
+  /* Row/section/count chrome: shared `.os-sheet-facts-*` via SheetFact*. */
 
   .page-joined-fact-link {
     display: inline-flex;
@@ -11453,7 +11509,7 @@ a.os-surface-row {
   }
 
   .page-joined-facts-panel[data-tone='mood-thread'] .glass-sheet-header-eyebrow,
-  .page-joined-facts-panel[data-tone='mood-thread'] .guild-facts-section-title {
+  .page-joined-facts-panel[data-tone='mood-thread'] .os-sheet-facts-section-title {
     color: color-mix(
       in srgb,
       var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55)))
@@ -11661,7 +11717,7 @@ a.os-surface-row {
     left: 0.4rem;
     padding: 0.12rem 0.42rem;
     border-radius: 9999px;
-    background: rgb(0 0 0 / 0.55);
+    background: var(--app-scrim-media-hover);
     color: rgb(255 255 255 / 0.92);
     font-size: 0.6rem;
     font-weight: 600;
@@ -12686,7 +12742,7 @@ a.os-surface-row {
       transparent
     );
     font-size: 0.78rem;
-    color: var(--signal-error, #ef4444);
+    color: var(--signal-error, var(--protocol-red));
   }
 
   .standing-list {
@@ -12841,6 +12897,7 @@ a.os-surface-row {
     opacity: 0.4;
   }
 
+  /* Borderless pill — fills carry every state, no frame. */
   .standing-action {
     display: inline-flex;
     flex-shrink: 0;
@@ -12848,7 +12905,7 @@ a.os-surface-row {
     justify-content: center;
     height: 1.65rem;
     padding: 0 0.55rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    border: 1px solid transparent;
     border-radius: 9999px;
     background: rgb(var(--fg-rgb) / 0.03);
     color: rgb(var(--fg-rgb) / 0.72);
@@ -12863,11 +12920,6 @@ a.os-surface-row {
   }
 
   .standing-action:hover:not(:disabled) {
-    border-color: color-mix(
-      in srgb,
-      var(--signal-standing) 24%,
-      rgb(var(--fg-rgb) / 0.1)
-    );
     background: color-mix(
       in srgb,
       var(--signal-standing) 8%,
@@ -12876,29 +12928,33 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
+  .standing-action:focus-visible:not(:disabled) {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+  }
+
+  /* On-state: selected wash + armed ink — dimmed ink read as disabled. */
   .standing-action.is-standing {
-    border-color: rgb(var(--fg-rgb) / 0.12);
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.58);
+    background: rgb(var(--fg-rgb) / 0.09);
+    color: rgb(var(--fg-rgb) / 0.94);
   }
 
   .standing-action.is-standing:hover:not(:disabled) {
-    border-color: color-mix(
-      in srgb,
-      var(--signal-error, #ef4444) 28%,
-      rgb(var(--fg-rgb) / 0.12)
-    );
     background: color-mix(
       in srgb,
-      var(--signal-error, #ef4444) 6%,
-      transparent
+      var(--signal-error, var(--protocol-red)) 6%,
+      rgb(var(--fg-rgb) / 0.09)
     );
-    color: rgb(var(--fg-rgb) / 0.88);
+    color: rgb(var(--fg-rgb) / 0.92);
   }
 
   .standing-action:disabled {
     cursor: default;
-    opacity: 0.72;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .standing-toggle {
@@ -12941,7 +12997,7 @@ a.os-surface-row {
   }
 
   .standing-toggle-arrow--step-back {
-    color: var(--signal-error, #ef4444);
+    color: var(--signal-error, var(--protocol-red));
   }
 
   .standing-toggle-dot {
@@ -13201,7 +13257,7 @@ a.os-surface-row {
   }
 
   .account-drawer-handle-button.is-copied {
-    color: var(--protocol-green);
+    color: var(--protocol-green-ink, var(--protocol-green));
   }
 
   .account-drawer-actions {
@@ -13267,7 +13323,8 @@ a.os-surface-row {
   }
 
   .account-card-session-chip:disabled {
-    opacity: 0.55;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -13945,7 +14002,8 @@ a.os-surface-row {
   }
 
   .app-storage-mode:disabled {
-    opacity: 0.45;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -14250,7 +14308,8 @@ a.os-surface-row {
   }
 
   .app-storage-submit:disabled {
-    opacity: 0.45;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -14326,7 +14385,8 @@ a.os-surface-row {
   }
 
   .app-storage-share-link:disabled {
-    opacity: 0.45;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -14928,7 +14988,7 @@ a.os-surface-row {
     pointer-events: none;
     background: linear-gradient(
       180deg,
-      rgb(0 0 0 / 0.42) 0%,
+      var(--app-scrim-media) 0%,
       rgb(0 0 0 / 0.12) 42%,
       transparent 72%
     );
@@ -16021,7 +16081,7 @@ a.os-surface-row {
   }
 
   html[data-theme='light'] .os-app-screen {
-    background-color: #fff;
+    background-color: var(--app-on-media-ink);
   }
 
   .os-app-screen .os-app-screen-column {
@@ -16197,7 +16257,7 @@ a.os-surface-row {
   }
 
   .home-feed-sort-btn {
-    color: rgb(var(--fg-rgb) / 0.38);
+    color: rgb(var(--fg-rgb) / 0.5);
   }
 
   .home-feed-sort-btn:hover,
@@ -16207,21 +16267,37 @@ a.os-surface-row {
 
   /* Selected sort — soft protocol tint (not amplify-button loud). */
   .home-feed-sort-btn--hot.is-active {
-    color: color-mix(in srgb, var(--protocol-amber) 82%, rgb(var(--fg-rgb)));
+    color: color-mix(
+      in srgb,
+      var(--protocol-amber-ink, var(--protocol-amber)) 82%,
+      rgb(var(--fg-rgb))
+    );
   }
 
   .home-feed-sort-btn--hot.is-active:hover,
   .home-feed-sort-btn--hot.is-active:focus-visible {
-    color: color-mix(in srgb, var(--protocol-amber) 92%, rgb(var(--fg-rgb)));
+    color: color-mix(
+      in srgb,
+      var(--protocol-amber-ink, var(--protocol-amber)) 92%,
+      rgb(var(--fg-rgb))
+    );
   }
 
   .home-feed-sort-btn--recent.is-active {
-    color: color-mix(in srgb, var(--protocol-blue) 72%, rgb(var(--fg-rgb)));
+    color: color-mix(
+      in srgb,
+      var(--protocol-blue-ink, var(--protocol-blue)) 72%,
+      rgb(var(--fg-rgb))
+    );
   }
 
   .home-feed-sort-btn--recent.is-active:hover,
   .home-feed-sort-btn--recent.is-active:focus-visible {
-    color: color-mix(in srgb, var(--protocol-blue) 85%, rgb(var(--fg-rgb)));
+    color: color-mix(
+      in srgb,
+      var(--protocol-blue-ink, var(--protocol-blue)) 85%,
+      rgb(var(--fg-rgb))
+    );
   }
 
   .home-feed-sort-btn-icon {
@@ -17760,7 +17836,7 @@ a.os-surface-row {
     padding: 0;
     cursor: pointer;
     background: rgb(0 0 0 / 0.38);
-    color: #fff;
+    color: var(--app-on-media-ink);
   }
 
   .post-media-unmute-gate-label {
@@ -17801,7 +17877,7 @@ a.os-surface-row {
     padding: 0;
     border: 0;
     border-radius: 9999px;
-    background: rgb(0 0 0 / 0.55);
+    background: var(--app-scrim-media-hover);
     color: rgb(255 255 255 / 0.95);
     font-size: 1rem;
     line-height: 1;
@@ -18087,7 +18163,7 @@ a.os-surface-row {
     padding: 0.08rem 0.28rem;
     border-radius: 0.28rem;
     background: rgb(0 0 0 / 0.62);
-    color: #fff;
+    color: var(--app-on-media-ink);
     font-size: 0.62rem;
     font-weight: 650;
     letter-spacing: 0.01em;
@@ -18142,14 +18218,21 @@ a.os-surface-row {
     transition: color 160ms ease;
   }
 
+  /* Standard save/copy green — always protocol green, never mood-blended
+     (signal vars remap under [data-mood]; -ink stays the protocol hue). */
   .post-card-share.is-copied,
   .post-card-save.is-active {
-    color: var(--signal-reputation, var(--protocol-green));
+    color: var(--protocol-green-ink, var(--protocol-green));
   }
 
-  .post-card-save.is-pending,
-  .post-card-save:disabled {
-    opacity: 0.55;
+  /* Pending keeps its shade (the dots signal work); only disabled dims. */
+  .post-card-save.is-pending {
+    cursor: progress;
+  }
+
+  .post-card-save:disabled:not(.is-pending) {
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -18158,7 +18241,7 @@ a.os-surface-row {
   .post-card-amplify,
   .post-card-share,
   .post-card-save {
-    color: rgb(var(--fg-rgb) / 0.44);
+    color: rgb(var(--fg-rgb) / 0.5);
     font-family: inherit;
     font-size: 0.72rem;
     font-weight: 600;
@@ -18217,33 +18300,39 @@ a.os-surface-row {
   .post-card-share:focus-visible,
   .post-card-save:focus-visible {
     outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+    border-radius: 9999px;
   }
 
-  /* Hover colors the whole control (icon + count) in the action's protocol hue. */
+  /* Hover colors the whole control (icon + count) in the action's protocol
+     hue — the theme-safe ink variants, so light mode stays legible. */
   .post-card-stat--reply:hover:not(:disabled),
   .post-card-stat--reply:focus-visible {
-    color: var(--protocol-blue);
+    color: var(--protocol-blue-ink, var(--protocol-blue));
   }
 
   .post-card-stat--quote:hover:not(:disabled),
   .post-card-stat--quote:focus-visible {
-    color: var(--protocol-green);
+    color: var(--protocol-green-ink, var(--protocol-green));
   }
 
   .post-card-stat--quote.is-active {
-    color: var(--protocol-green);
+    color: var(--protocol-green-ink, var(--protocol-green));
   }
 
   .post-card-react:hover:not(:disabled),
   .post-card-react:focus-visible {
-    color: var(--protocol-red, #ef4444);
+    color: var(--protocol-red-ink, var(--protocol-red));
   }
 
   .post-card-stat--amplify:hover:not(:disabled),
   .post-card-stat--amplify:focus-visible,
   .post-card-amplify:hover:not(:disabled),
   .post-card-amplify:focus-visible {
-    color: var(--protocol-amber);
+    color: var(--protocol-amber-ink, var(--protocol-amber));
   }
 
   .post-card-share:hover:not(:disabled),
@@ -18255,26 +18344,22 @@ a.os-surface-row {
 
   .post-card-save.is-active:hover:not(:disabled),
   .post-card-save.is-active:focus-visible {
-    color: color-mix(
-      in srgb,
-      var(--signal-reputation, var(--protocol-green)) 72%,
-      white
-    );
+    color: var(--protocol-green-ink, var(--protocol-green));
   }
 
   /* Liked is persistent state: icon + count stay red. */
   .post-card-react.is-active {
-    color: var(--protocol-red, #ef4444);
+    color: var(--protocol-red-ink, var(--protocol-red));
   }
 
-  /* Hovering a liked heart brightens — feedback that unlike is available. */
+  /* Hovering a liked heart keeps the hue — feedback that unlike is available. */
   .post-card-react.is-active:hover:not(:disabled),
   .post-card-react.is-active:focus-visible {
-    color: color-mix(in srgb, var(--protocol-red, #ef4444) 72%, white);
+    color: var(--protocol-red-ink, var(--protocol-red));
   }
 
   .post-card-amplify.is-active {
-    color: var(--protocol-amber);
+    color: var(--protocol-amber-ink, var(--protocol-amber));
   }
 
   .post-card-scarce-cta {
@@ -18422,7 +18507,7 @@ a.os-surface-row {
   }
 
   .post-card-scarce-buy-main {
-    color: var(--protocol-green);
+    color: var(--protocol-green-ink, var(--protocol-green));
     /* Protocol green chrome — not a bold CTA. */
     font-weight: 400;
     text-decoration: none;
@@ -18435,22 +18520,29 @@ a.os-surface-row {
 
   /* Desktop: same underline hover as feed tokens. Touch: no sticky hover. */
   @media (hover: hover) and (pointer: fine) {
-    .post-card-scarce-buy:hover:not(:disabled) .post-card-scarce-buy-main,
-    .post-card-scarce-buy:focus-visible .post-card-scarce-buy-main {
-      color: var(--protocol-green);
+    .post-card-scarce-buy:hover:not(:disabled) .post-card-scarce-buy-main {
+      color: var(--protocol-green-ink, var(--protocol-green));
       text-decoration: underline;
       text-underline-offset: 0.12em;
       text-decoration-thickness: from-font;
     }
 
     .post-card-scarce-buy--secondary:hover:not(:disabled)
-      .post-card-scarce-buy-main,
-    .post-card-scarce-buy--secondary:focus-visible .post-card-scarce-buy-main {
-      color: var(--protocol-green);
+      .post-card-scarce-buy-main {
+      color: var(--protocol-green-ink, var(--protocol-green));
       text-decoration: underline;
       text-underline-offset: 0.12em;
       text-decoration-thickness: from-font;
     }
+  }
+
+  /* Keyboard focus always underlines — not gated on fine pointer. */
+  .post-card-scarce-buy:focus-visible .post-card-scarce-buy-main,
+  .post-card-scarce-buy--secondary:focus-visible .post-card-scarce-buy-main {
+    color: var(--protocol-green-ink, var(--protocol-green));
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
+    text-decoration-thickness: from-font;
   }
 
   .post-card-scarce-buy:disabled {
@@ -18458,7 +18550,7 @@ a.os-surface-row {
   }
 
   .post-card-scarce-buy:disabled .post-card-scarce-buy-main {
-    color: rgb(var(--fg-rgb) / 0.38);
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .post-card-scarce-buy:focus-visible {
@@ -18488,7 +18580,7 @@ a.os-surface-row {
 
   .post-card-scarce-link:hover,
   .post-card-scarce-link:focus-visible {
-    color: var(--protocol-green);
+    color: var(--protocol-green-ink, var(--protocol-green));
   }
 
   /*
@@ -18785,7 +18877,8 @@ a.os-surface-row {
 
   .scarce-cover-upload:disabled {
     cursor: not-allowed;
-    opacity: 0.55;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   /*
@@ -18865,7 +18958,7 @@ a.os-surface-row {
     width: fit-content;
     padding: 0.35rem 0.7rem;
     border-radius: 999px;
-    background: rgb(0 0 0 / 0.55);
+    background: var(--app-scrim-media-hover);
     color: rgb(255 255 255 / 0.9);
     font-size: 0.72rem;
     line-height: 1.2;
@@ -19399,7 +19492,7 @@ a.os-surface-row {
       rgb(0 0 0 / 0.28) 0%,
       transparent 28%,
       transparent 58%,
-      rgb(0 0 0 / 0.55) 100%
+      var(--app-scrim-media-hover) 100%
     );
   }
 
@@ -19438,8 +19531,8 @@ a.os-surface-row {
     place-items: center;
     transform: none;
     cursor: pointer;
-    color: rgb(255 255 255 / 0.96);
-    background: rgb(0 0 0 / 0.42);
+    color: var(--app-on-media-ink);
+    background: var(--app-scrim-media);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
@@ -19451,7 +19544,7 @@ a.os-surface-row {
   }
 
   .scarce-clip-player-play--skip:disabled {
-    opacity: 0.35;
+    opacity: 0.4;
     cursor: default;
   }
 
@@ -19464,7 +19557,7 @@ a.os-surface-row {
 
   .scarce-clip-player-play:hover,
   .scarce-clip-player-play:focus-visible {
-    background: rgb(0 0 0 / 0.55);
+    background: var(--app-scrim-media-hover);
     outline: none;
   }
 
@@ -19688,12 +19781,11 @@ a.os-surface-row {
   }
 
   .scarce-clip-track-love.is-loved {
-    color: var(--protocol-green);
+    color: var(--protocol-green-ink, var(--protocol-green));
   }
 
   .scarce-clip-track-love.is-pending {
-    opacity: 0.55;
-    cursor: default;
+    cursor: progress;
   }
 
   .scarce-clip-track-love-icon {
@@ -19760,7 +19852,8 @@ a.os-surface-row {
   }
 
   .media-download-control:disabled:not(.is-busy):not(.is-done) {
-    opacity: 0.4;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -19874,7 +19967,8 @@ a.os-surface-row {
   }
 
   .scarce-clip-transport-btn:disabled {
-    opacity: 0.35;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -20244,12 +20338,11 @@ a.os-surface-row {
   }
 
   .scarce-clip-listen-love.is-loved {
-    color: var(--protocol-green);
+    color: var(--protocol-green-ink, var(--protocol-green));
   }
 
   .scarce-clip-listen-love.is-pending {
-    opacity: 0.55;
-    cursor: default;
+    cursor: progress;
   }
 
   .scarce-clip-listen-love-icon {
@@ -20286,12 +20379,11 @@ a.os-surface-row {
   }
 
   .scarce-clip-listen-save.is-saved {
-    color: var(--protocol-green, #16a34a);
+    color: var(--protocol-green-ink, var(--protocol-green));
   }
 
   .scarce-clip-listen-save.is-pending {
-    opacity: 0.55;
-    cursor: default;
+    cursor: progress;
   }
 
   .scarce-clip-listen-save-icon {
@@ -20883,8 +20975,8 @@ a.os-surface-row {
     .os-app-screen-header:not(.is-elevated)
     a.collectibles-play-drop-action {
     border: 0;
-    background: rgb(0 0 0 / 0.42);
-    color: rgb(255 255 255 / 0.96);
+    background: var(--app-scrim-media);
+    color: var(--app-on-media-ink);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
@@ -20897,7 +20989,7 @@ a.os-surface-row {
     .os-app-screen-header:not(.is-elevated)
     a.collectibles-play-drop-action:focus-visible {
     border: 0;
-    background: rgb(0 0 0 / 0.55);
+    background: var(--app-scrim-media-hover);
     color: rgb(255 255 255 / 1);
   }
 
@@ -21311,8 +21403,8 @@ a.os-surface-row {
     font-weight: 600;
     letter-spacing: 0.01em;
     backdrop-filter: blur(8px);
-    background: rgb(0 0 0 / 0.42);
-    color: #fff;
+    background: var(--app-scrim-media);
+    color: var(--app-on-media-ink);
   }
 
   /* Keep Live clear of immersive back / shop chips (static art covers). */
@@ -21351,8 +21443,8 @@ a.os-surface-row {
   .os-app-screen[data-immersive-header='true']
     .os-app-screen-header:not(.is-elevated)
     .collection-header-status:not(.is-live) {
-    background: rgb(0 0 0 / 0.42);
-    color: rgb(255 255 255 / 0.96);
+    background: var(--app-scrim-media);
+    color: var(--app-on-media-ink);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
@@ -21430,7 +21522,7 @@ a.os-surface-row {
   }
 
   .collection-status.is-closed {
-    background: rgb(0 0 0 / 0.55);
+    background: var(--app-scrim-media-hover);
     color: rgb(255 255 255 / 0.86);
   }
 
@@ -21848,7 +21940,7 @@ a.os-surface-row {
     border: 0;
     border-radius: 9999px;
     background: transparent;
-    color: rgb(var(--fg-rgb) / 0.42);
+    color: rgb(var(--fg-rgb) / 0.5);
     cursor: pointer;
     line-height: 0;
     transition: color 160ms ease;
@@ -21856,7 +21948,7 @@ a.os-surface-row {
 
   .collection-commerce-share:hover,
   .collection-commerce-share:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.78);
+    color: rgb(var(--fg-rgb) / 0.92);
     outline: none;
   }
 
@@ -21878,7 +21970,7 @@ a.os-surface-row {
     border: 0;
     border-radius: 9999px;
     background: transparent;
-    color: rgb(var(--fg-rgb) / 0.42);
+    color: rgb(var(--fg-rgb) / 0.5);
     cursor: pointer;
     line-height: 0;
     transition:
@@ -21888,17 +21980,18 @@ a.os-surface-row {
 
   .collection-commerce-save:hover,
   .collection-commerce-save:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.78);
+    color: rgb(var(--fg-rgb) / 0.92);
     outline: none;
   }
 
+  /* One saved green across post-card, commerce, and listen surfaces. */
   .collection-commerce-save.is-saved {
-    color: var(--protocol-green, #16a34a);
+    color: var(--protocol-green-ink, var(--protocol-green));
   }
 
+  /* Pending keeps its shade — dimming read as disabled. */
   .collection-commerce-save.is-pending {
-    opacity: 0.55;
-    cursor: default;
+    cursor: progress;
   }
 
   .collection-commerce-save-icon {
@@ -21920,7 +22013,7 @@ a.os-surface-row {
     border: 0;
     border-radius: 9999px;
     background: transparent;
-    color: rgb(var(--fg-rgb) / 0.42);
+    color: rgb(var(--fg-rgb) / 0.5);
     cursor: pointer;
     line-height: 0;
     transition:
@@ -21930,17 +22023,16 @@ a.os-surface-row {
 
   .collection-commerce-love:hover,
   .collection-commerce-love:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.78);
+    color: rgb(var(--fg-rgb) / 0.92);
     outline: none;
   }
 
   .collection-commerce-love.is-loved {
-    color: var(--protocol-green);
+    color: var(--protocol-green-ink, var(--protocol-green));
   }
 
   .collection-commerce-love.is-pending {
-    opacity: 0.55;
-    cursor: default;
+    cursor: progress;
   }
 
   .collection-commerce-love-icon {
@@ -23077,7 +23169,8 @@ a.os-surface-row {
   }
 
   .ticket-door-lookup:disabled {
-    opacity: 0.45;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
     text-decoration: none;
   }
@@ -23463,7 +23556,8 @@ a.os-surface-row {
   }
 
   .collection-allowlist-chip-main:disabled {
-    opacity: 0.55;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -23522,7 +23616,8 @@ a.os-surface-row {
   }
 
   .collection-allowlist-chip-remove:disabled {
-    opacity: 0.45;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -23608,7 +23703,8 @@ a.os-surface-row {
   }
 
   .collection-allowlist-text-btn:disabled {
-    opacity: 0.45;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -23794,7 +23890,6 @@ a.os-surface-row {
   }
 
   .glass-sheet-panel.collection-activity-sheet-panel {
-    max-height: min(88dvh, 36rem);
     --glass-header-scrim-height: min(5rem, 24%);
     --glass-sheet-body-opacity: 0.64;
   }
@@ -23900,7 +23995,6 @@ a.os-surface-row {
   }
 
   .glass-sheet-panel.scarce-fans-sheet-panel {
-    max-height: min(88dvh, 36rem);
     --glass-header-scrim-height: min(5rem, 24%);
     --glass-sheet-body-opacity: 0.64;
   }
@@ -24205,7 +24299,8 @@ a.os-surface-row {
   }
 
   .drop-track-lyrics-toggle:disabled {
-    opacity: 0.45;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -24394,7 +24489,8 @@ a.os-surface-row {
   }
 
   .drop-variation-set-overflow:disabled {
-    opacity: 0.5;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: not-allowed;
   }
 
@@ -24889,7 +24985,7 @@ a.os-surface-row {
   }
 
   .feed-photo-slide .feed-photo-nav-btn:disabled {
-    opacity: 0.35;
+    opacity: 0.4;
     cursor: default;
   }
 
@@ -25136,7 +25232,7 @@ a.os-surface-row {
     padding: 0;
     border: 0;
     border-radius: 9999px;
-    background: rgb(0 0 0 / 0.55);
+    background: var(--app-scrim-media-hover);
     color: rgb(255 255 255 / 0.9);
     cursor: pointer;
   }
@@ -25246,7 +25342,8 @@ a.os-surface-row {
   }
 
   .drop-collage-arrow:disabled {
-    opacity: 0.35;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -25490,7 +25587,8 @@ a.os-surface-row {
   }
 
   .drop-collage-lightbox-step:disabled {
-    opacity: 0.4;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -25578,7 +25676,8 @@ a.os-surface-row {
 
   .drop-schedule-cell-main:disabled {
     cursor: not-allowed;
-    opacity: 0.55;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .drop-schedule-cell-main:focus-visible {
@@ -25637,11 +25736,7 @@ a.os-surface-row {
     outline: none;
   }
 
-  /* Schedule picker — height via sizing="hug"; width from GlassSheet. */
-  .glass-sheet-panel.drop-schedule-sheet-panel {
-    max-height: min(92dvh, 42rem);
-  }
-
+  /* Schedule picker — tall tier cap; height via sizing="hug". */
   .drop-schedule-sheet-body {
     padding: 0.1rem 1.05rem 0.55rem;
   }
@@ -25733,7 +25828,8 @@ a.os-surface-row {
   }
 
   .drop-cal-nav-btn:disabled {
-    opacity: 0.3;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: not-allowed;
   }
 
@@ -25862,7 +25958,8 @@ a.os-surface-row {
 
   .drop-cal-day.is-disabled,
   .drop-cal-day:disabled {
-    opacity: 0.28;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: not-allowed;
     background: transparent;
     box-shadow: none;
@@ -25943,10 +26040,6 @@ a.os-surface-row {
     width: 0.95rem;
     height: 0.95rem;
     color: var(--os-surface-muted);
-  }
-
-  .drop-time-sheet-panel {
-    max-height: min(72dvh, 720px);
   }
 
   .drop-time-sheet-body {
@@ -26057,12 +26150,14 @@ a.os-surface-row {
   }
 
   .drop-time-drum-option:disabled {
-    opacity: 0.28;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: not-allowed;
   }
 
   .drop-cal-chip:disabled {
-    opacity: 0.28;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: not-allowed;
   }
 
@@ -26164,7 +26259,8 @@ a.os-surface-row {
   }
 
   .gen-tool:disabled {
-    opacity: 0.4;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -26240,7 +26336,7 @@ a.os-surface-row {
     z-index: 1;
     padding: 0.1rem 0.4rem;
     border-radius: 999px;
-    background: rgb(0 0 0 / 0.55);
+    background: var(--app-scrim-media-hover);
     color: rgb(255 255 255 / 0.92);
     font-size: 0.65rem;
     font-weight: 700;
@@ -26261,7 +26357,7 @@ a.os-surface-row {
     padding: 0;
     border: 0;
     border-radius: 9999px;
-    background: rgb(0 0 0 / 0.55);
+    background: var(--app-scrim-media-hover);
     color: rgb(255 255 255 / 0.9);
     cursor: pointer;
   }
@@ -26414,7 +26510,8 @@ a.os-surface-row {
   }
 
   .app-access-option:disabled {
-    opacity: 0.45;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -27052,19 +27149,12 @@ a.os-surface-row {
     --glass-sheet-body-opacity: 0.72;
   }
 
-  /* Transfer / short hub forms — tighter cap; height via sizing="hug". */
-  .glass-sheet-panel.hub-manage-sheet-panel--hug {
-    max-height: min(72dvh, 32rem);
-  }
-
-  /* Publish inbox — hug account rows, cap at standard peek (0.62). */
+  /*
+   * Publish inbox — hug account rows, caps at the standard peek (0.62).
+   * Deliberate exception to the shared os-sheet-cap tiers.
+   */
   .glass-sheet-panel.hub-publish-requests-sheet-panel {
     max-height: min(62dvh, 32rem);
-  }
-
-  /* Requester publish-access drawer — short form, content-hug. */
-  .glass-sheet-panel.hub-publish-access-sheet-panel {
-    max-height: min(56dvh, 28rem);
   }
 
   .hub-manage-form {
@@ -27331,7 +27421,8 @@ a.os-surface-row {
   }
 
   .apps-directory-more-btn:disabled {
-    opacity: 0.55;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -28261,13 +28352,13 @@ a.os-surface-row {
 
   .post-card-amplify.is-active:hover:not(:disabled),
   .post-card-amplify.is-active:focus-visible {
-    color: color-mix(in srgb, var(--protocol-amber) 72%, white);
+    color: var(--protocol-amber-ink, var(--protocol-amber));
   }
 
+  /* Pending keeps its shade — dimming read as disabled. */
   .post-card-react.is-pending,
   .post-card-stat--quote.is-pending {
-    opacity: 0.55;
-    cursor: default;
+    cursor: progress;
   }
 
   .discover-search-input {
@@ -28686,7 +28777,7 @@ a.os-surface-row {
     .os-app-screen-header:not(.is-elevated)
     .guild-manage-menu-trigger.has-badge
     .guild-manage-menu-icon {
-    color: rgb(255 255 255 / 0.96);
+    color: var(--app-on-media-ink);
   }
 
   .guild-manage-menu-badge {
@@ -28701,7 +28792,7 @@ a.os-surface-row {
     padding: 0 0.22rem;
     border-radius: 9999px;
     background: var(--protocol-purple);
-    color: #fff;
+    color: rgb(0 0 0 / 0.85);
     font-size: 0.62rem;
     font-weight: 700;
     line-height: 1rem;
@@ -28719,6 +28810,13 @@ a.os-surface-row {
 
   .glass-sheet-panel.guild-members-sheet-panel {
     --glass-sheet-body-opacity: 0.72;
+    /* Hug floor — keeps the toolbar steady while search/filter shrinks rows. */
+    min-height: min(20rem, 55dvh);
+  }
+
+  /* SheetHeader owns the members title row — no second top inset when hosted. */
+  .glass-sheet-root--hosted .standing-sheet-header.guild-members-sheet-chrome {
+    padding-top: 0;
   }
 
   .guild-members-sheet-body {
@@ -28771,7 +28869,8 @@ a.os-surface-row {
 
   .guild-settings-sheet-list .os-surface-row:disabled {
     cursor: default;
-    opacity: 0.72;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .guild-edit-sheet-body {
@@ -29209,7 +29308,7 @@ a.os-surface-row {
   }
 
   .os-floating-panel-item.is-destructive {
-    color: var(--signal-error, #ef4444);
+    color: var(--signal-error, var(--protocol-red));
   }
 
   .os-floating-panel-item.is-destructive:hover,
@@ -29219,7 +29318,7 @@ a.os-surface-row {
       var(--signal-error, #ef4444) 10%,
       var(--os-fp-neutral-bg)
     );
-    color: var(--signal-error, #ef4444);
+    color: var(--signal-error, var(--protocol-red));
   }
 
   .guild-member-row-menu-error {
@@ -29228,7 +29327,7 @@ a.os-surface-row {
     font-size: 0.62rem;
     line-height: 1.35;
     text-align: right;
-    color: var(--signal-error, #ef4444);
+    color: var(--signal-error, var(--protocol-red));
   }
 
   /* Confirm uses OsNoticeCard; keep panel width + error only. */
@@ -29696,7 +29795,8 @@ a.os-surface-row {
   }
 
   button.guild-add-member-result:disabled {
-    opacity: 0.55;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
@@ -29935,7 +30035,8 @@ a.os-surface-row {
 
   .guild-primary-button:disabled,
   .guild-secondary-button:disabled {
-    opacity: 0.45;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: not-allowed;
   }
 
@@ -30327,7 +30428,8 @@ a.os-surface-row {
 
   .guild-load-more:disabled {
     cursor: default;
-    opacity: 0.6;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .guild-thread-column {
@@ -30509,7 +30611,8 @@ a.os-surface-row {
 
   .guild-composer-tool:disabled {
     cursor: default;
-    opacity: 0.42;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .guild-composer-tool.is-active {
@@ -30971,7 +31074,8 @@ a.os-surface-row {
 
   .guild-composer-poll-add:disabled {
     cursor: default;
-    opacity: 0.45;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .guild-composer-poll-duration {
@@ -31017,7 +31121,8 @@ a.os-surface-row {
 
   .guild-composer-poll-chip:disabled {
     cursor: default;
-    opacity: 0.45;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .guild-composer-labels-sheet-body {
@@ -31103,7 +31208,8 @@ a.os-surface-row {
 
   .guild-composer-nsfw-switch:has(input:disabled) {
     cursor: default;
-    opacity: 0.55;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .guild-composer-nsfw-switch-copy {
@@ -31195,7 +31301,8 @@ a.os-surface-row {
 
   .guild-composer-label-chip:disabled {
     cursor: default;
-    opacity: 0.55;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .guild-composer-reply-text {
@@ -31311,7 +31418,8 @@ a.os-surface-row {
 
   .guild-composer-mode button:disabled {
     cursor: default;
-    opacity: 0.6;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   /* Same chip language as feed filters / composer Reply·Quote — no dark track. */
@@ -31805,7 +31913,8 @@ a.os-surface-row {
   }
 
   .guild-structure-space-title-input:disabled {
-    opacity: 0.6;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .guild-structure-advanced {
@@ -32267,15 +32376,29 @@ a.os-surface-row {
       color 140ms ease;
   }
 
-  .endorsements-mode-chip:hover {
-    color: rgb(var(--fg-rgb) / 0.82);
+  .endorsements-mode-chip:hover:not(:disabled) {
+    color: rgb(var(--fg-rgb) / 0.92);
     background: rgb(var(--fg-rgb) / 0.04);
+  }
+
+  .endorsements-mode-chip:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+  }
+
+  .endorsements-mode-chip:disabled {
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
+    cursor: default;
   }
 
   .endorsements-mode-chip.is-selected {
     border-color: rgb(var(--fg-rgb) / 0.1);
     background: rgb(var(--fg-rgb) / 0.05);
-    color: rgb(var(--fg-rgb) / 0.9);
+    color: rgb(var(--fg-rgb) / 0.94);
   }
 
   .endorsements-mode-count {
@@ -32520,7 +32643,8 @@ a.os-surface-row {
 
   .endorse-compose-chip:disabled {
     cursor: default;
-    opacity: 0.55;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .endorse-compose-media {
@@ -32548,7 +32672,8 @@ a.os-surface-row {
   }
 
   .endorse-compose-media-attach:disabled {
-    opacity: 0.45;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: not-allowed;
   }
 
@@ -32608,7 +32733,8 @@ a.os-surface-row {
   }
 
   .endorse-compose-add-note:disabled {
-    opacity: 0.45;
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
     cursor: not-allowed;
   }
 
@@ -32624,7 +32750,7 @@ a.os-surface-row {
   }
 
   .endorse-compose-error {
-    color: var(--signal-error, #ef4444);
+    color: var(--signal-error, var(--protocol-red));
   }
 
   /* ── Profile support sheet ──────────────────────────────── */
@@ -32742,7 +32868,7 @@ a.os-surface-row {
   }
 
   .profile-support-error {
-    color: var(--signal-error, #ef4444);
+    color: var(--signal-error, var(--protocol-red));
   }
 }
 
@@ -33058,7 +33184,8 @@ button.drop-track-list-play:focus-visible {
 }
 
 button.drop-track-list-play:disabled {
-  opacity: 0.55;
+  opacity: 1;
+  color: rgb(var(--fg-rgb) / 0.26);
   cursor: not-allowed;
 }
 
@@ -33122,8 +33249,8 @@ button.scarce-clip-cover-expand {
   margin: 0;
   border: 0;
   border-radius: 9999px;
-  color: rgb(255 255 255 / 0.96);
-  background: rgb(0 0 0 / 0.42);
+  color: var(--app-on-media-ink);
+  background: var(--app-scrim-media);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
@@ -33215,7 +33342,7 @@ button.scarce-clip-cover-expand {
 
 button.scarce-clip-cover-expand:hover,
 button.scarce-clip-cover-expand:focus-visible {
-  background: rgb(0 0 0 / 0.55);
+  background: var(--app-scrim-media-hover);
   color: rgb(255 255 255 / 1);
   outline: none;
 }
@@ -34287,14 +34414,14 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: none;
-  color: var(--protocol-green);
+  color: var(--protocol-green-ink, var(--protocol-green));
 }
 
 .protocol-vote-actions.os-sheet-actions--row-compact
   .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
   border-color: rgb(var(--fg-rgb) / 0.16);
   background: rgb(var(--fg-rgb) / 0.1);
-  color: var(--protocol-green-hover, var(--protocol-green));
+  color: var(--protocol-green-ink, var(--protocol-green));
 }
 
 .protocol-vote-sheet-actions.os-sheet-actions--row-compact {
@@ -34317,14 +34444,14 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--protocol-green) 14%, transparent),
     0 3px 8px -2px color-mix(in srgb, var(--protocol-green) 12%, transparent);
-  color: var(--protocol-green);
+  color: var(--protocol-green-ink, var(--protocol-green));
 }
 
 .protocol-vote-sheet-actions.protocol-vote-actions
   .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
   border-color: color-mix(in srgb, var(--protocol-green) 42%, transparent);
   background: color-mix(in srgb, var(--protocol-green) 14%, transparent);
-  color: var(--protocol-green-hover, var(--protocol-green));
+  color: var(--protocol-green-ink, var(--protocol-green));
 }
 
 .protocol-action-remove {
@@ -34350,7 +34477,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 .protocol-action-remove:disabled {
   cursor: default;
-  opacity: 0.6;
+  opacity: 1;
+  color: rgb(var(--fg-rgb) / 0.26);
 }
 
 .protocol-card-act {
@@ -34560,7 +34688,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 .protocol-on-chain-sheet-panel {
-  max-height: min(88dvh, 36rem);
   --glass-header-scrim-height: min(5rem, 24%);
   --glass-sheet-body-opacity: 0.64;
 }
@@ -34588,7 +34715,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   flex: 1 1 auto;
 }
 
-.protocol-on-chain-facts .guild-facts-section {
+.protocol-on-chain-facts .os-sheet-facts-section {
   padding: 0.4rem 0 0.45rem;
 }
 
@@ -34600,7 +34727,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   padding-bottom: 0.35rem;
 }
 
-.protocol-on-chain-raw-section .guild-facts-section-rows {
+.protocol-on-chain-raw-section .os-sheet-facts-section-rows {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -34821,7 +34948,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 .protocol-task-form .protocol-compose-field-info-button:disabled {
-  opacity: 0.42;
+  opacity: 1;
+  color: rgb(var(--fg-rgb) / 0.26);
   cursor: not-allowed;
 }
 
@@ -36048,7 +36176,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 .daos-discover-more:disabled {
-  opacity: 0.55;
+  opacity: 1;
+  color: rgb(var(--fg-rgb) / 0.26);
   cursor: default;
 }
 
@@ -36416,7 +36545,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 .messages-passkey-hint:disabled {
   cursor: default;
-  opacity: 0.7;
+  opacity: 1;
+  color: rgb(var(--fg-rgb) / 0.26);
 }
 
 .messages-load-older {
@@ -36647,7 +36777,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   font-size: 0.65rem;
   font-weight: 700;
   line-height: 1;
-  color: #fff;
+  color: var(--app-on-media-ink);
   background: var(
     --signal-endorse,
     var(--mood-accent-chrome, var(--mood-accent))
@@ -36819,7 +36949,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 .notifications-mark-all:disabled {
-  opacity: 0.55;
+  opacity: 1;
+  color: rgb(var(--fg-rgb) / 0.26);
   cursor: default;
 }
 
@@ -36837,7 +36968,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   font-size: 0.55rem;
   font-weight: 700;
   line-height: 1;
-  color: #fff;
+  color: var(--app-on-media-ink);
   background: var(--signal-endorse, rgb(37 99 235));
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.18);
 }

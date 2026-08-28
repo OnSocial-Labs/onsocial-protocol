@@ -13,6 +13,7 @@ import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 interface ProfileSupportSheetProps {
   open: boolean;
@@ -85,7 +86,7 @@ export function ProfileSupportSheet({
       panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
-      zIndex={56}
+      zIndex={SHEET_Z.gesture}
     >
       <ProfileSupportForm
         key={formKey}

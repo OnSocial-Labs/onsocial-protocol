@@ -18,6 +18,7 @@ import { OverlayDismissProvider } from '@/contexts/overlay-dismiss-context';
 import { parseOverlayPanelKey } from '@/lib/overlay-routes';
 import type { OverlaySlotMode } from '@/lib/overlay-slot';
 import { shouldMountPortfolioGlassHost } from '@/lib/portfolio-glass-host';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { useLivePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
 import { PostRowSkeleton } from '@/features/home/post-card';
 import {
@@ -135,7 +136,7 @@ function PortfolioGlassSheetFrame({
       // Feed sits on the page-drawer peek — opaque mood, not a second frost.
       surface={panelKey === 'feed' ? 'page' : 'glass'}
       presentation={presentation}
-      zIndex={50}
+      zIndex={SHEET_Z.overlayHost}
       ariaLabelledBy="overlay-title"
       backdropLabel="Close panel"
       bodyRef={scrollBodyRef}

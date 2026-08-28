@@ -1,6 +1,6 @@
 'use client';
 
-import { Divider, SheetCloseButton } from '@onsocial/ui';
+import { SheetCloseButton } from '@onsocial/ui';
 import {
   useOverlayChrome,
   useOverlayHeaderPortalTarget,
@@ -73,9 +73,6 @@ function OverlayHeaderFallback({
           {hint.ariaTitle}
         </h2>
         {toolbarFallback}
-        {panelKey === 'feed' ? null : (
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        )}
       </>
     );
   }
@@ -95,9 +92,7 @@ function OverlayHeaderFallback({
             </div>
           </div>
         </div>
-      </header>
-      <Divider variant="section" className="glass-sheet-header-divider" />
-    </>
+      </header>    </>
   );
 }
 

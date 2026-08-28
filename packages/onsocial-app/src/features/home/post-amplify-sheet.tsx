@@ -16,6 +16,7 @@ import {
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 interface PostAmplifySheetProps {
   open: boolean;
@@ -82,7 +83,7 @@ export function PostAmplifySheet({
       panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
-      zIndex={56}
+      zIndex={SHEET_Z.gesture}
     >
       {post ? (
         <PostAmplifyForm

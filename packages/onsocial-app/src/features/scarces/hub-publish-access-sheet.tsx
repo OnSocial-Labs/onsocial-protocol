@@ -19,6 +19,7 @@ import {
   type StorePublishRequest,
 } from '@/features/scarces/store-publish-requests';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastConfirming,
   txToastError,
@@ -223,10 +224,8 @@ export function HubPublishAccessSheet({
       copy={subtitle}
       closeAriaLabel="Close publish access"
       backdropLabel="Close publish access"
-      zIndex={58}
-      initialDetent="peek"
-      peekRatio={1}
-      panelClassName="hub-manage-sheet-panel hub-manage-sheet-panel--hug hub-publish-access-sheet-panel"
+      zIndex={SHEET_Z.list}
+      panelClassName="hub-manage-sheet-panel hub-manage-sheet-panel--hug hub-publish-access-sheet-panel os-sheet-cap-short"
       bodyClassName="hub-manage-sheet-body"
     >
       {!loaded ? (

@@ -1,7 +1,6 @@
 'use client';
 
 import { useId, type CSSProperties, type ReactNode } from 'react';
-import { Divider } from './divider.js';
 import {
   GlassSheet,
   SheetHeader,
@@ -176,7 +175,6 @@ export function OsHugSheet({
                 ? { onClose, closeAriaLabel: closeLabel }
                 : {})}
           />
-          <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
       footer={footer}

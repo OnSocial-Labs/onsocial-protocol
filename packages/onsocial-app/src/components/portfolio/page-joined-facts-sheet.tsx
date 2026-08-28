@@ -36,6 +36,7 @@ import {
 import { fetchDaoRolesClient } from '@/lib/fetch-dao-roles-client';
 import { pageContentDrawerPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 interface PageJoinedFactsSheetProps {
   open: boolean;
@@ -233,11 +234,11 @@ export function PageJoinedFactsSheet({
       moodId={mood.id}
       panelStyle={panelStyle}
       initialDetent="full"
-      zIndex={52}
+      zIndex={SHEET_Z.overlayFacts}
       ariaLabelledBy="page-joined-facts-title"
       backdropLabel="Close account facts"
       bodyClassName={osHugSheetBodyClassName}
-      panelClassName="page-joined-facts-panel"
+      panelClassName="page-joined-facts-panel os-sheet-cap-short"
       header={
         <>
           <SheetHeader
@@ -246,9 +247,7 @@ export function PageJoinedFactsSheet({
             title={meta.name}
             onClose={requestClose}
             closeAriaLabel="Close"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
+          />        </>
       }
     >
       <div className="guild-facts page-joined-facts">

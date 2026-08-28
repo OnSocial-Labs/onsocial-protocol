@@ -54,6 +54,7 @@ import {
   normalizeProfileSearchQuery,
 } from '@/lib/profile-account-search';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastConfirming,
   txToastError,
@@ -1042,8 +1043,8 @@ function CollectionAllowlistSheet({
       copy={headerCopy}
       closeAriaLabel="Close allowlist"
       backdropLabel="Close allowlist"
-      zIndex={58}
-      panelClassName="collection-allowlist-sheet-panel"
+      zIndex={SHEET_Z.list}
+      panelClassName="collection-allowlist-sheet-panel os-sheet-cap-standard"
       bodyClassName="collection-allowlist-sheet-body"
       footer={
         <div className="guild-add-member-footer">
@@ -1461,9 +1462,9 @@ function CollectionAllowlistSheet({
       {...(confirmingRemove ? { copy: 'Confirm removal' } : {})}
       closeAriaLabel="Close mint cap"
       backdropLabel="Close account edit"
-      zIndex={60}
+      zIndex={SHEET_Z.nested}
       titleId={editTitleId}
-      panelClassName="collection-allowlist-edit-sheet-panel"
+      panelClassName="collection-allowlist-edit-sheet-panel os-sheet-cap-short"
       bodyClassName="collection-allowlist-edit-sheet-body"
       footer={
         editingFace ? (

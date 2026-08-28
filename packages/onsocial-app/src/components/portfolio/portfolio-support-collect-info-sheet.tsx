@@ -38,6 +38,7 @@ import {
   type ProfileSupportReceivedHistoryPage,
   type ProfileSupportReceivedSummary,
 } from '@/lib/profile-support-received';
+import { SHEET_Z } from '@/lib/sheet-z';
 import type { SupportPotAction, SupportReceivedRow } from '@onsocial/sdk';
 import {
   CommerceSheetFooter,
@@ -329,12 +330,12 @@ export function PortfolioSupportCollectInfoSheet({
       sizing="hug"
       moodId={mood?.id}
       initialDetent="full"
-      zIndex={56}
+      zIndex={SHEET_Z.gesture}
       ariaLabelledBy={titleId}
       backdropLabel="Close support"
       bodyClassName={`portfolio-support-collect-info-body ${osHugSheetBodyClassName}`}
       bodyRef={bodyRef}
-      panelClassName="portfolio-support-collect-info-panel"
+      panelClassName="portfolio-support-collect-info-panel os-sheet-cap-standard"
       panelStyle={panelStyle}
       header={
         <>
@@ -368,9 +369,7 @@ export function PortfolioSupportCollectInfoSheet({
                 />
               </div>
             </div>
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
+          </div>        </>
       }
       footer={
         footerState ? (

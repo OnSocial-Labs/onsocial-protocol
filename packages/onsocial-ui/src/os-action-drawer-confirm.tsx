@@ -28,7 +28,16 @@ export interface OsActionDrawerConfirmProps {
   className?: string;
 }
 
-/** Shared two-step confirm body for ActionDrawer (block / delete / guild). */
+/**
+ * Shared two-step confirm body for ActionDrawer (block / delete / guild).
+ *
+ * Confirm-pattern guide — pick one, don't mix:
+ * - `OsActionDrawerConfirm` — destructive actions with consequences worth an
+ *   interstitial (block, delete, transfer ownership).
+ * - `useDiscardConfirm` — guards unsaved edits when a dirty sheet closes.
+ * - danger `ready` arming on `OsSheetAction` — inline confirm for simple
+ *   destructive commits; the pill stays muted until the guard passes.
+ */
 export function OsActionDrawerConfirm({
   body,
   confirmLabel,

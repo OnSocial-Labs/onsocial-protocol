@@ -14,6 +14,7 @@ import {
 } from '@/features/home/home-feed-focus';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 const SUGGEST_DEBOUNCE_MS = 220;
 const SUGGEST_LIMIT = 12;
@@ -135,7 +136,7 @@ export function HomeSavedFeedSheet({
       copy="Pick a #topic or $ticker. Saved on this device."
       closeAriaLabel="Close"
       backdropLabel="Close add feed"
-      zIndex={58}
+      zIndex={SHEET_Z.list}
       sizing="full"
       headerClassName="home-saved-feed-sheet-header"
       panelClassName="home-saved-feed-sheet-panel"

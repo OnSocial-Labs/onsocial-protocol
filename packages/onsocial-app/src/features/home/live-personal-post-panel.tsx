@@ -621,6 +621,7 @@ export function LivePersonalPostPanel({
       <OsSheetActions
         layout="row-compact"
         tone="frosted-primary"
+        size="sm"
         borderless
         className="guild-thread-nav-membership"
       >

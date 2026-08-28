@@ -97,7 +97,7 @@ export function ScarceAboutSheet({
       closeAriaLabel="Close about"
       backdropLabel="Close about"
       zIndex={zIndex}
-      panelClassName="guild-facts-sheet-panel"
+      panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
     >
       <div className="guild-facts collection-about-sheet">

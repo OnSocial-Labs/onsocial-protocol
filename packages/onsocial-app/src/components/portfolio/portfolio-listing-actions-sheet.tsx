@@ -51,6 +51,7 @@ import { APP_MARKET_PATH } from '@/lib/app-routes';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
 import { fallbackLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { txToastError } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
@@ -206,6 +207,7 @@ function ActionRow({
         <OsSheetActions
           layout="row-compact"
           tone="frosted-primary"
+          size="sm"
           borderless
           className="market-listing-action portfolio-listing-action-cta"
         >
@@ -515,10 +517,10 @@ export function PortfolioListingActionsSheet({
         {...(subtitle ? { copy: subtitle } : {})}
         closeAriaLabel="Close listing actions"
         backdropLabel="Close listing actions"
-        zIndex={56}
+        zIndex={SHEET_Z.gesture}
         {...(mood?.id ? { moodId: mood.id } : {})}
         bodyClassName="portfolio-support-collect-info-body"
-        panelClassName="portfolio-support-collect-info-panel"
+        panelClassName="portfolio-support-collect-info-panel os-sheet-cap-standard"
         {...(panelStyle ? { panelStyle } : {})}
         headerActions={
           <div className="standing-sheet-actions standing-sheet-actions--payout">
@@ -589,7 +591,7 @@ export function PortfolioListingActionsSheet({
       <ScarceBidSheet
         open={bidListing != null}
         listing={bidListing}
-        zIndex={58}
+        zIndex={SHEET_Z.list}
         onOpenChange={(next) => {
           if (!next) {
             setBidListing(null);
@@ -603,7 +605,7 @@ export function PortfolioListingActionsSheet({
         open={buyListing != null}
         listing={buyListing}
         alreadyOwnsEdition
-        zIndex={58}
+        zIndex={SHEET_Z.list}
         onOpenChange={(next) => {
           if (!next) {
             setBuyListing(null);

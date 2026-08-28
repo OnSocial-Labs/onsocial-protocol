@@ -26,6 +26,7 @@ import {
 } from '@/features/guilds/guild-structure';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastConfirming,
   txToastError,
@@ -215,7 +216,7 @@ export function GuildRoomsSheet({
       copy="Rooms and feed tabs for this guild"
       closeAriaLabel="Close"
       backdropLabel="Close guild rooms"
-      zIndex={58}
+      zIndex={SHEET_Z.list}
       sizing="full"
       panelClassName="guild-rooms-sheet-panel"
       bodyClassName="guild-rooms-sheet-body"

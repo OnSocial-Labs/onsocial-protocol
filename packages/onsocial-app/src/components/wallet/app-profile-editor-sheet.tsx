@@ -51,14 +51,13 @@ import {
   profileLinksInputFromRecord,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { nearExplorerTxHref } from '@/lib/app-config';
 import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 
 const MOBILE_MAX_WIDTH_PX = 767;
-/** Above account GlassSheet; matches Door log / series edit. */
-const PROFILE_EDIT_Z = 90;
 const PROFILE_NAME_MAX = 50;
 const PROFILE_BIO_MAX = 180;
 const PROFILE_NAME_LIMIT_WARN = 40;
@@ -471,7 +470,7 @@ export function AppProfileEditorSheet({
         title="Edit profile"
         closeAriaLabel="Back"
         closeDisabled={saving}
-        zIndex={PROFILE_EDIT_Z}
+        zIndex={SHEET_Z.overShell}
         moodId={viewerMoodId ?? undefined}
         moodStyle={viewerMoodStyle}
         className="profile-edit-slide"

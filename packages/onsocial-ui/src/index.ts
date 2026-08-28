@@ -179,7 +179,9 @@ export {
 export {
   OsSheetAction,
   osSheetActionClassName,
+  resolveOsSheetActionState,
   type OsSheetActionProps,
+  type OsSheetActionStateInput,
   type OsSheetActionVariant,
 } from './os-sheet-action.js';
 export {
@@ -367,6 +369,7 @@ export {
   osSheetActionsClassName,
   type OsSheetActionsLayout,
   type OsSheetActionsProps,
+  type OsSheetActionsSize,
   type OsSheetActionsTone,
 } from './os-sheet-actions.js';
 export {

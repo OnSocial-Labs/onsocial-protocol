@@ -242,7 +242,7 @@ export function ScarceRoyaltySplitSheet({
         closeAriaLabel="Close royalty split"
         backdropLabel="Close royalty split"
         zIndex={zIndex}
-        panelClassName="collection-allowlist-sheet-panel"
+        panelClassName="collection-allowlist-sheet-panel os-sheet-cap-standard"
         bodyClassName="collection-allowlist-sheet-body"
         footer={
           <div className="guild-add-member-footer">
@@ -439,7 +439,7 @@ export function ScarceRoyaltySplitSheet({
         backdropLabel="Close share edit"
         zIndex={zIndex + 2}
         titleId={editTitleId}
-        panelClassName="collection-allowlist-edit-sheet-panel"
+        panelClassName="collection-allowlist-edit-sheet-panel os-sheet-cap-short"
         bodyClassName="collection-allowlist-edit-sheet-body"
         footer={
           editingFace ? (

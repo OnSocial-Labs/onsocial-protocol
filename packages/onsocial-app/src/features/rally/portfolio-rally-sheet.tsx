@@ -1,9 +1,7 @@
 'use client';
 
 import { useCallback, useId, useState } from 'react';
-import {
-  Divider,
-  GlassSheet,
+import {  GlassSheet,
   SheetCloseButton,
   osGestureSheetBodyClassName,
   useScrollLock,
@@ -316,7 +314,7 @@ export function PortfolioRallySheet({
       sizing="hug"
       moodId={mood?.id}
       panelStyle={panelStyle}
-      panelClassName="profile-support-sheet-panel"
+      panelClassName="os-gesture-sheet-panel os-gesture-sheet-panel--tall profile-support-sheet-panel"
       initialDetent="full"
       peekRatio={1}
       zIndex={zIndex}
@@ -364,9 +362,7 @@ export function PortfolioRallySheet({
                 />
               </div>
             </div>
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
+          </div>        </>
       }
       footer={
         footerState ? (

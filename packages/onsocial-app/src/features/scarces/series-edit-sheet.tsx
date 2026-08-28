@@ -28,6 +28,7 @@ import {
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastConfirming,
   txToastError,
@@ -37,8 +38,6 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const MAX_TITLE = 48;
 const MAX_DESCRIPTION = 280;
-/** Above glass chrome; matches Door log / nested slide-overs. */
-const SERIES_EDIT_Z = 90;
 
 interface SeriesEditSheetProps {
   open: boolean;
@@ -215,7 +214,7 @@ export function SeriesEditSheet({
       subtitle="Brand the series — drops keep their own art."
       closeAriaLabel="Back from edit series"
       closeDisabled={pending}
-      zIndex={SERIES_EDIT_Z}
+      zIndex={SHEET_Z.overShell}
       className="hub-manage-slide"
       contentClassName="hub-manage-slide-body"
       footer={

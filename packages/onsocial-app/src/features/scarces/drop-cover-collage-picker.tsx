@@ -17,6 +17,7 @@ import {
   ScarceFinishSwatch,
   ScarceFormatSwatch,
 } from '@/features/scarces/scarce-choice-visuals';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   COLLAGE_FONT_DESCRIPTIONS,
   COLLAGE_FONT_LABELS,
@@ -526,7 +527,7 @@ export function DropCoverCollagePicker({
                       paperHex={chipPaperHex}
                     />
                   }
-                  zIndex={130}
+                  zIndex={SHEET_Z.lightboxNested}
                   onChange={(style) =>
                     void renderCommitted({
                       style,
@@ -557,7 +558,7 @@ export function DropCoverCollagePicker({
                       size="chip"
                     />
                   }
-                  zIndex={130}
+                  zIndex={SHEET_Z.lightboxNested}
                   onChange={(paper) =>
                     void renderCommitted({
                       style: value.style,
@@ -577,7 +578,7 @@ export function DropCoverCollagePicker({
                   chipLeading={
                     <CollageFontSwatch font={value.font} size="chip" />
                   }
-                  zIndex={130}
+                  zIndex={SHEET_Z.lightboxNested}
                   onChange={(font) =>
                     void renderCommitted({
                       style: value.style,

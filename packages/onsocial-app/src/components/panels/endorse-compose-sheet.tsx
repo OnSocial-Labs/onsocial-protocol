@@ -41,6 +41,7 @@ import type { EndorseExistingDraft } from '@/lib/endorsements-panel-data';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { txToastError } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
@@ -495,7 +496,7 @@ export function EndorseComposeSheet({
         size="compact"
         bodyClassName="profile-support-sheet-body"
         titleId={titleId}
-        zIndex={56}
+        zIndex={SHEET_Z.gesture}
       >
         <div className="endorse-compose-form">
           <label className="endorse-compose-field">

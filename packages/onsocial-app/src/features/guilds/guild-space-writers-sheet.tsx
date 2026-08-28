@@ -29,6 +29,7 @@ import {
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastConfirming,
   txToastError,
@@ -290,8 +291,8 @@ export function GuildSpaceWritersSheet({
       copy={spaceTitle}
       closeAriaLabel="Close who can share"
       backdropLabel="Close who can share"
-      zIndex={58}
-      panelClassName="guild-facts-sheet-panel"
+      zIndex={SHEET_Z.list}
+      panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
     >
       <div className="guild-space-writers-body">

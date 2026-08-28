@@ -80,12 +80,11 @@ import {
   placeLabel,
 } from '@/lib/post-place';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 
-/** Composer slide-over z-index — nested choice drawers stack above. */
-const COMPOSER_SHEET_Z = 58;
-const COMPOSER_NEST_Z = scarceNestZIndex(COMPOSER_SHEET_Z);
+const COMPOSER_NEST_Z = scarceNestZIndex(SHEET_Z.list);
 
 export type ComposerMode = 'post' | 'reply' | 'quote';
 /** @deprecated Prefer `ComposerMode`. */
@@ -1255,7 +1254,7 @@ export function ComposerSheet({
       onClose={requestClose}
       surface="page"
       presentation="appear"
-      zIndex={COMPOSER_SHEET_Z}
+      zIndex={SHEET_Z.list}
       ariaLabelledBy={titleId}
       backdropLabel="Close composer"
       moodId={viewerMoodId ?? undefined}

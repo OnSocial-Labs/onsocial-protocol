@@ -49,6 +49,7 @@ import {
   profileLinksInputFromRecord,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastGovError,
   txToastGovPending,
@@ -58,8 +59,6 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR } from '@/lib/app-config';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 
-const DAO_EDIT_Z = 90;
-const DAO_EDIT_CONFIRM_Z = 110;
 const MAX_NAME = 64;
 const MAX_DESCRIPTION = 280;
 const BANNER_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
@@ -413,7 +412,7 @@ export function DaoEditSheet({
         subtitle="Cover + square crest — publishes as a config proposal."
         closeAriaLabel="Back from edit DAO"
         closeDisabled={pending}
-        zIndex={DAO_EDIT_Z}
+        zIndex={SHEET_Z.overShell}
         className="hub-manage-slide"
         contentClassName="hub-manage-slide-body"
         footer={
@@ -634,7 +633,7 @@ export function DaoEditSheet({
         eligibilityLoading={eligibilityLoading}
         pending={pending}
         proposeLabel="Propose"
-        zIndex={DAO_EDIT_CONFIRM_Z}
+        zIndex={SHEET_Z.confirm}
         onDiscard={() => setProposeConfirmOpen(false)}
         onPropose={() => {
           void save();

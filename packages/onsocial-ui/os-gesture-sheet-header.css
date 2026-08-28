@@ -8,13 +8,12 @@
  *   .os-gesture-sheet-panel         — signal fallbacks + body opacity
  *   .os-gesture-sheet-panel--tall   — Support / scarce / protocol max-height
  *   .os-gesture-sheet-body          — form inset + safe-area (overrides hug body)
- * Legacy aliases: .profile-support-sheet-panel, .endorse-compose-sheet-panel
+ * Legacy panel aliases were removed — the app keeps
+ * `.profile-support-sheet-*` as app-owned classes.
  */
 
 /* Shared gesture panel — signal defaults when opened outside mood face. */
-.glass-sheet-panel.os-gesture-sheet-panel,
-.glass-sheet-panel.profile-support-sheet-panel,
-.glass-sheet-panel.endorse-compose-sheet-panel {
+.glass-sheet-panel.os-gesture-sheet-panel {
   --glass-header-scrim-height: min(5rem, 24%);
   --glass-sheet-body-opacity: 0.64;
   --signal-reputation: var(--mood-signal-reputation, var(--protocol-green));
@@ -34,14 +33,11 @@
   --signal-reputation-rgb: 0 236 151;
 }
 
-.glass-sheet-panel.os-gesture-sheet-panel--tall,
-.glass-sheet-panel.profile-support-sheet-panel {
+.glass-sheet-panel.os-gesture-sheet-panel--tall {
   max-height: min(94dvh, 46rem);
 }
 
-.glass-sheet-panel.os-gesture-sheet-panel.is-keyboard-open > .glass-sheet-body,
-.glass-sheet-panel.profile-support-sheet-panel.is-keyboard-open
-  > .glass-sheet-body {
+.glass-sheet-panel.os-gesture-sheet-panel.is-keyboard-open > .glass-sheet-body {
   flex: 1 1 auto;
   min-height: 0;
 }

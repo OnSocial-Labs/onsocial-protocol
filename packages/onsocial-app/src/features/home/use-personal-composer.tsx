@@ -54,10 +54,11 @@ import {
 } from '@/hooks/use-post-author-profiles';
 import { useOnSocialWriter } from '@/hooks/use-onsocial-writer';
 import { daoPath } from '@/lib/app-routes';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
-const COMPOSER_CONFIRM_Z = scarceNestZIndex(58);
+const COMPOSER_CONFIRM_Z = scarceNestZIndex(SHEET_Z.list);
 
 interface UsePersonalComposerOptions {
   /** When true, dock pen opens a new personal post. */

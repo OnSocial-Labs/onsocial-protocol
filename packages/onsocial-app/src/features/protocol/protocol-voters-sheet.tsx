@@ -79,7 +79,7 @@ export function ProtocolVotersSheet({
       zIndex={PROTOCOL_TASK_SHEET_Z}
       initialDetent="peek"
       peekRatio={0.55}
-      panelClassName="guild-facts-sheet-panel"
+      panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="protocol-voters-sheet-body guild-facts-sheet-body"
     >
       {rows.length === 0 ? (

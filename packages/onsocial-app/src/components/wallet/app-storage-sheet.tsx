@@ -36,6 +36,7 @@ import {
   PLATFORM_STORAGE_LABEL,
   type PlatformStorageSummary,
 } from '@/lib/platform-storage-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   clampStorageNearAmountInput,
   formatStorageMinNearLabel,
@@ -348,10 +349,10 @@ export function AppStorageSheet({
         copy={`@${accountId}`}
         closeAriaLabel="Close"
         backdropLabel="Close storage"
-        zIndex={57}
+        zIndex={SHEET_Z.facts}
         titleId="app-storage-sheet-title"
         headerClassName="account-storage-header"
-        panelClassName={`account-storage-panel${pageMoodId ? ' account-storage-panel--page-mood' : ''}`}
+        panelClassName={`account-storage-panel os-sheet-cap-tall${pageMoodId ? ' account-storage-panel--page-mood' : ''}`}
         bodyClassName="account-storage-body"
         {...(panelStyle ? { panelStyle } : {})}
       >

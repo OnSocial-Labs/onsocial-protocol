@@ -14,9 +14,7 @@ import {
   type Ref,
 } from 'react';
 import {
-  AmountFieldMetaRow,
-  Divider,
-  GlassSheet,
+  AmountFieldMetaRow,  GlassSheet,
   SheetCloseButton,
   TokenIcon,
   osGestureSheetBodyClassName,
@@ -802,7 +800,7 @@ export function PortfolioBoostSheet({
       sizing="hug"
       moodId={mood?.id}
       panelStyle={panelStyle}
-      panelClassName={`profile-support-sheet-panel${
+      panelClassName={`os-gesture-sheet-panel os-gesture-sheet-panel--tall profile-support-sheet-panel${
         keyboardOpen ? ' is-keyboard-open' : ''
       }`}
       initialDetent="full"
@@ -866,9 +864,7 @@ export function PortfolioBoostSheet({
                 />
               </div>
             </div>
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
+          </div>        </>
       }
       footer={
         footerState ? (
@@ -911,6 +907,7 @@ export function PortfolioBoostSheet({
                 className={`os-surface-chip${
                   mode === chip.id ? ' is-selected' : ''
                 }`}
+                aria-pressed={mode === chip.id}
                 disabled={txPending}
                 onClick={() => switchMode(chip.id)}
               >
@@ -976,6 +973,7 @@ export function PortfolioBoostSheet({
                       className={`os-surface-chip${
                         extendMonths === option.months ? ' is-selected' : ''
                       }`}
+                      aria-pressed={extendMonths === option.months}
                       disabled={txPending}
                       onClick={() =>
                         setExtendMonths((current) =>

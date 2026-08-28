@@ -99,6 +99,8 @@ import {
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import { holdingsActionLabel } from '@/lib/portfolio-holdings';
+import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 const MINT_ACTIVITY_OPS = new Set([
   'purchase',
@@ -706,6 +708,7 @@ export function CollectionPagePanel({
         : null;
   const playables = view.playables;
   const hasPlayables = playables.length > 0;
+  const sourceHref = postHrefFromSourcePath(view.sourcePostPath);
   const isAudio =
     hasPlayables || view.kind === 'audio' || view.kind === 'music';
   const mediumKind = (view.kind ?? '').trim().toLowerCase();
@@ -1304,9 +1307,9 @@ export function CollectionPagePanel({
           </section>
         ) : null}
 
-        {view.sourcePostPath ? (
+        {sourceHref ? (
           <Link
-            href={`/${view.sourcePostPath}`}
+            href={sourceHref}
             scroll={false}
             className="collection-source-link"
           >
@@ -1351,8 +1354,8 @@ export function CollectionPagePanel({
         copy={view.title}
         closeAriaLabel="Close activity"
         backdropLabel="Close activity"
-        zIndex={58}
-        panelClassName="collection-activity-sheet-panel"
+        zIndex={SHEET_Z.list}
+        panelClassName="collection-activity-sheet-panel os-sheet-cap-standard"
         bodyClassName="collection-activity-sheet-body"
       >
         {sheetActivity.length > 0 ? (

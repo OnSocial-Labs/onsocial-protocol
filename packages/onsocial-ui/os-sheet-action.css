@@ -1,8 +1,9 @@
 /**
  * @onsocial/ui — full-width sheet actions (save, cancel, discard).
  *
- * Requires host theme tokens: --fg-rgb (space-separated RGB).
- * Optional glass material: --glass-surface-os or --glass-surface.
+ * Requires host theme tokens: --fg-rgb and --bg-rgb (space-separated RGB).
+ * Armed primary is solid inverted (fg fill / bg ink) — the one solid
+ * object on the frosted sheet; dormant/disabled are plain fg fill steps.
  * Import after protocol.css for semantic success/danger hues.
  */
 
@@ -15,6 +16,46 @@
     --os-action-shadow: rgb(0 0 0 / 0.14);
     --os-action-shadow-soft: rgb(0 0 0 / 0.08);
     --os-action-lip: rgb(var(--fg-rgb) / 0.08);
+
+    /*
+     * Interactive ink ladder — one perceptual scale across chrome + buttons.
+     * disabled < faint < quiet (dormant commits) < chrome (icons + ghost
+     * labels) < hover (every hover target) < armed (ready commits).
+     */
+    --os-action-ink-disabled: rgb(var(--fg-rgb) / 0.26);
+    --os-action-ink-faint: rgb(var(--fg-rgb) / 0.5);
+    --os-action-ink-quiet: rgb(var(--fg-rgb) / 0.55);
+    --os-action-ink-chrome: rgb(var(--fg-rgb) / 0.72);
+    --os-action-ink-hover: rgb(var(--fg-rgb) / 0.92);
+    --os-action-ink-armed: rgb(var(--fg-rgb) / 0.94);
+
+    /*
+     * Active toggle fill — framed pills read the shared surface scale's
+     * active step; borderless pills (no frame) go one step stronger so the
+     * fill alone carries the "on" read against row chrome (~0.03 hovers).
+     */
+    --os-action-active-fill-strong: rgb(var(--fg-rgb) / 0.12);
+    --os-action-active-fill-strong-hover: rgb(var(--fg-rgb) / 0.14);
+
+    /*
+     * Rest-state fill ladder — three unmistakable rungs. Disabled and
+     * dormant never share a fill; the armed primary leaves glass entirely
+     * so it can never wash out against the sheet's own frost.
+     */
+    --os-action-fill-disabled: rgb(var(--fg-rgb) / 0.03);
+    --os-action-fill-dormant: rgb(var(--fg-rgb) / 0.055);
+    --os-action-fill-dormant-hover: rgb(var(--fg-rgb) / 0.07);
+
+    /*
+     * Armed primary — solid inverted fill. The one solid object on the
+     * frosted sheet: 0.92 keeps 8% ambient transmission (mood breathes
+     * through) while legibility never depends on the backdrop.
+     */
+    --os-action-solid: rgb(var(--fg-rgb) / 0.92);
+    --os-action-solid-hover: rgb(var(--fg-rgb));
+    --os-action-solid-ink: rgb(var(--bg-rgb, 0 0 0));
+    --os-action-lift: rgb(0 0 0 / 0.3);
+    --os-action-lift-hover: rgb(0 0 0 / 0.36);
   }
 
   @media (prefers-color-scheme: light) {
@@ -73,7 +114,7 @@
   border: 1px solid var(--os-action-border);
   border-radius: 9999px;
   background: transparent;
-  color: rgb(var(--fg-rgb) / 0.55);
+  color: var(--os-action-ink-quiet);
   -webkit-appearance: none;
   appearance: none;
   font: inherit;
@@ -125,66 +166,72 @@
 
 .os-sheet-action:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px
-    color-mix(in srgb, var(--protocol-blue, #60a5fa) 35%, transparent);
+  box-shadow: var(
+    --os-focus-ring,
+    0 0 0 2px color-mix(in srgb, var(--protocol-blue, #60a5fa) 35%, transparent)
+  );
 }
 
-.os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-dirty):not(
-    .is-pending
-  ):not(.is-succeeded):hover {
-  border-color: rgb(var(--fg-rgb) / 0.2);
-  background: rgb(var(--fg-rgb) / 0.04);
-  color: rgb(var(--fg-rgb) / 0.78);
+/*
+ * Dormant primary (enabled, nothing to commit) — surface-fill step with
+ * icon-strength ink: a full rung above disabled, clearly not the action yet.
+ */
+.os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-pending):not(
+    .is-succeeded
+  ):not(.is-failed) {
+  background: var(--os-action-fill-dormant);
+  color: var(--os-action-ink-chrome);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+}
+
+/* Hover only on devices with a true pointer — no sticky wash after touch. */
+@media (hover: hover) and (pointer: fine) {
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-pending):not(
+      .is-succeeded
+    ):hover {
+    border-color: rgb(var(--fg-rgb) / 0.22);
+    background: var(--os-action-fill-dormant-hover);
+    color: var(--os-action-ink-hover);
+  }
 }
 
 .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):not(
-    .is-pending
-  ),
-.os-sheet-action--primary.is-dirty:not(:disabled):not(.is-succeeded):not(
     .is-pending
   ) {
   animation: os-action-ready-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/*
+ * Armed primary — solid inverted. The one solid object on the frosted
+ * sheet: opposite polarity to the glass on every theme, so it can never
+ * wash out. 0.92 leaves 8% ambient transmission; hover goes fully solid.
+ */
 .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
-.os-sheet-action--primary.is-dirty:not(:disabled):not(.is-succeeded),
 .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded) {
-  border-color: var(--os-action-border-strong);
-  background: color-mix(
-    in srgb,
-    var(--glass-surface-os, var(--glass-surface)) 36%,
-    var(--os-action-bg)
-  );
-  color: rgb(var(--fg-rgb) / 0.94);
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-  box-shadow:
-    inset 0 1px 0 var(--os-action-lip),
-    0 3px 8px -2px var(--os-action-shadow-soft);
+  border-color: transparent;
+  background: var(--os-action-solid);
+  color: var(--os-action-solid-ink);
+  box-shadow: 0 8px 24px -8px var(--os-action-lift);
 }
 
-.os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover,
-.os-sheet-action--primary.is-dirty:not(:disabled):not(.is-succeeded):hover {
-  border-color: rgb(var(--fg-rgb) / 0.32);
-  background: color-mix(
-    in srgb,
-    var(--glass-surface-os, var(--glass-surface)) 30%,
-    var(--os-action-bg-hover)
-  );
-  box-shadow:
-    inset 0 1px 0 var(--os-action-lip),
-    0 6px 14px -4px var(--os-action-shadow);
+@media (hover: hover) and (pointer: fine) {
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
+    background: var(--os-action-solid-hover);
+    box-shadow: 0 10px 28px -8px var(--os-action-lift-hover);
+  }
 }
 
 .os-sheet-action--primary:active:not(:disabled) {
   transform: scale(0.985);
 }
 
+/* Disabled — own faint fill a rung below dormant, ink at the disabled step. */
 .os-sheet-action--primary:disabled:not(.is-succeeded):not(.is-pending) {
   opacity: 1;
-  border-color: rgb(var(--fg-rgb) / 0.1);
-  background: transparent;
-  color: rgb(var(--fg-rgb) / 0.26);
+  border-color: rgb(var(--fg-rgb) / 0.08);
+  background: var(--os-action-fill-disabled);
+  color: var(--os-action-ink-disabled);
   box-shadow: none;
   cursor: default;
 }
@@ -193,10 +240,11 @@
   cursor: progress;
 }
 
-.os-sheet-action--primary.is-succeeded {
+/* Success / failure chrome applies to every variant — one state language. */
+.os-sheet-action.is-succeeded {
   border-color: color-mix(in srgb, var(--protocol-green) 32%, transparent);
   background: color-mix(in srgb, var(--protocol-green) 10%, transparent);
-  color: var(--protocol-green);
+  color: var(--protocol-green-ink, var(--protocol-green));
   backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
   box-shadow:
@@ -204,10 +252,10 @@
     0 3px 8px -2px color-mix(in srgb, var(--protocol-green) 12%, transparent);
 }
 
-.os-sheet-action--primary.is-failed {
+.os-sheet-action.is-failed {
   border-color: color-mix(in srgb, var(--protocol-red) 32%, transparent);
   background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
-  color: var(--protocol-red);
+  color: var(--protocol-red-ink, var(--protocol-red));
   backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
   box-shadow:
@@ -220,29 +268,45 @@
   height: 0.95rem;
 }
 
-.os-sheet-action--primary.is-succeeded .os-sheet-action__icon {
+.os-sheet-action.is-succeeded .os-sheet-action__icon,
+.os-sheet-action.is-failed .os-sheet-action__icon {
   animation: os-action-check-in 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.os-sheet-action--primary.is-failed .os-sheet-action__icon {
-  animation: os-action-check-in 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
+/*
+ * Ghost rides the chrome tier — same ink as the header icons beside it,
+ * but never naked: a quiet rest fill keeps secondary actions (Make an
+ * offer) readable as buttons before hover. Hover lifts one fill step.
+ */
 .os-sheet-action--ghost {
-  color: rgb(var(--fg-rgb) / 0.52);
+  background: var(--os-surface-fill-quiet, rgb(var(--fg-rgb) / 0.035));
+  color: var(--os-action-ink-chrome);
 }
 
-.os-sheet-action--ghost:hover {
-  border-color: rgb(var(--fg-rgb) / 0.2);
-  background: var(--os-action-bg);
-  color: rgb(var(--fg-rgb) / 0.78);
-  backdrop-filter: blur(10px) saturate(140%);
-  -webkit-backdrop-filter: blur(10px) saturate(140%);
-  box-shadow: 0 3px 8px -2px var(--os-action-shadow-soft);
+@media (hover: hover) and (pointer: fine) {
+  .os-sheet-action--ghost:not(:disabled):hover {
+    border-color: rgb(var(--fg-rgb) / 0.2);
+    background: var(--os-action-bg);
+    color: var(--os-action-ink-hover);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    box-shadow: 0 3px 8px -2px var(--os-action-shadow-soft);
+  }
 }
 
-.os-sheet-action--ghost:active {
+.os-sheet-action--ghost:active:not(:disabled) {
   transform: scale(0.985);
+}
+
+.os-sheet-action--ghost:disabled:not(.is-pending):not(.is-succeeded) {
+  opacity: 1;
+  color: var(--os-action-ink-disabled);
+  cursor: default;
+}
+
+.os-sheet-action--ghost.is-pending:disabled:not(.is-succeeded) {
+  cursor: progress;
+  opacity: 1;
 }
 
 /*
@@ -252,7 +316,7 @@
 .os-sheet-action--danger {
   border-color: rgb(var(--fg-rgb) / 0.1);
   background: transparent;
-  color: rgb(var(--fg-rgb) / 0.26);
+  color: var(--os-action-ink-disabled);
   cursor: default;
 }
 
@@ -264,23 +328,31 @@
     var(--os-action-border)
   );
   background: color-mix(in srgb, var(--protocol-red) 5%, transparent);
-  color: color-mix(in srgb, var(--protocol-red) 78%, rgb(var(--fg-rgb) / 0.52));
+  color: color-mix(
+    in srgb,
+    var(--protocol-red-ink, var(--protocol-red)) 78%,
+    rgb(var(--fg-rgb) / 0.52)
+  );
   cursor: pointer;
 }
 
-.os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded):hover {
-  border-color: color-mix(in srgb, var(--protocol-red) 42%, transparent);
-  background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
-  color: var(--protocol-red);
-  backdrop-filter: blur(10px) saturate(140%);
-  -webkit-backdrop-filter: blur(10px) saturate(140%);
-  box-shadow: 0 3px 8px -2px
-    color-mix(in srgb, var(--protocol-red) 10%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  .os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded):hover {
+    border-color: color-mix(in srgb, var(--protocol-red) 42%, transparent);
+    background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
+    color: var(--protocol-red-ink, var(--protocol-red));
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    box-shadow: 0 3px 8px -2px
+      color-mix(in srgb, var(--protocol-red) 10%, transparent);
+  }
 }
 
 .os-sheet-action--danger.is-ready:not(:disabled):focus-visible {
-  box-shadow: 0 0 0 2px
-    color-mix(in srgb, var(--protocol-red, #f87171) 35%, transparent);
+  box-shadow: var(
+    --os-focus-ring-danger,
+    0 0 0 2px color-mix(in srgb, var(--protocol-red, #f87171) 35%, transparent)
+  );
 }
 
 .os-sheet-action--danger.is-ready:not(:disabled):active {
@@ -292,7 +364,7 @@
   opacity: 1;
   border-color: rgb(var(--fg-rgb) / 0.1);
   background: transparent;
-  color: rgb(var(--fg-rgb) / 0.26);
+  color: var(--os-action-ink-disabled);
   box-shadow: none;
   cursor: default;
 }
@@ -309,7 +381,7 @@
 .os-sheet-action--dismiss {
   border-color: transparent;
   background: transparent;
-  color: rgb(var(--fg-rgb) / 0.35);
+  color: var(--os-action-ink-faint);
   cursor: default;
 }
 
@@ -317,21 +389,31 @@
 .os-sheet-action--dismiss.is-pending:disabled:not(.is-succeeded) {
   border-color: transparent;
   background: rgb(var(--fg-rgb) / 0.06);
-  color: rgb(var(--fg-rgb) / 0.94);
+  color: var(--os-action-ink-armed);
   cursor: pointer;
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
-.os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-succeeded):hover,
 .os-sheet-action--dismiss.is-ready:not(:disabled):focus-visible {
   border-color: transparent;
   background: rgb(var(--fg-rgb) / 0.09);
-  color: rgb(var(--fg-rgb) / 0.94);
+  color: var(--os-action-ink-armed);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-succeeded):hover {
+    border-color: transparent;
+    background: rgb(var(--fg-rgb) / 0.09);
+    color: var(--os-action-ink-armed);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+  }
 }
 
 .os-sheet-action--dismiss.is-ready:not(:disabled):active {
@@ -344,7 +426,7 @@
   opacity: 1;
   border-color: transparent;
   background: transparent;
-  color: rgb(var(--fg-rgb) / 0.26);
+  color: var(--os-action-ink-disabled);
   box-shadow: none;
   cursor: default;
 }
@@ -352,6 +434,24 @@
 .os-sheet-action--dismiss.is-pending:disabled:not(.is-succeeded) {
   cursor: progress;
   opacity: 1;
+}
+
+/*
+ * Active toggle (aria-pressed) — the shared surface scale's active step +
+ * frame + armed ink. Orthogonal to variant: a ghost chip and a primary pill
+ * share the same "on" language. Tabs/aria-selected stay on the quieter
+ * --os-surface-fill step; toggles own --os-surface-fill-active.
+ */
+.os-sheet-action.is-active:not(.is-succeeded):not(.is-failed) {
+  border-color: var(--os-action-border-strong);
+  background: var(--os-surface-fill-active, rgb(var(--fg-rgb) / 0.09));
+  color: var(--os-action-ink-armed);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .os-sheet-action.is-active:not(:disabled):not(.is-succeeded):hover {
+    background: var(--os-action-active-fill-strong);
+  }
 }
 
 @media (min-width: 640px) {
@@ -388,27 +488,34 @@
     transform: none;
   }
 
-  .os-sheet-action--primary.is-succeeded .os-sheet-action__icon {
+  .os-sheet-action.is-succeeded .os-sheet-action__icon,
+  .os-sheet-action.is-failed .os-sheet-action__icon {
     animation: none;
   }
 
-  .os-sheet-action--primary.is-ready,
-  .os-sheet-action--primary.is-dirty {
+  .os-sheet-action--primary.is-ready {
     animation: none;
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
   .os-sheet-action--primary.is-ready,
-  .os-sheet-action--primary.is-dirty,
   .os-sheet-action--primary.is-pending,
-  .os-sheet-action--primary.is-succeeded,
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-pending):not(
+      .is-succeeded
+    ):not(.is-failed),
+  .os-sheet-action--primary:disabled,
+  .os-sheet-action.is-succeeded,
+  .os-sheet-action.is-failed,
   .os-sheet-action--ghost:hover,
   .os-sheet-action--danger,
   .os-sheet-action--danger:hover {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
+
+  /* Fills no longer rely on transparency — armed is solid, dormant and
+   * disabled are plain fg steps, so no solid fallbacks are needed here. */
 }
 
 /* ─── Action groups (stack / row footers) ───────────────── */
@@ -454,44 +561,43 @@
   pointer-events: none;
 }
 
-/* Frosted glass pill — profile editor + preview bar (enabled / ready primary). */
-.os-sheet-actions.os-sheet-actions--frosted-primary
-  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
-.os-sheet-actions.os-sheet-actions--frosted-primary
-  .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
-.os-sheet-actions.os-sheet-actions--frosted-primary
-  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded) {
-  border-color: var(--os-action-border-strong);
-  background: color-mix(
-    in srgb,
-    var(--glass-surface-os, var(--glass-surface)) 36%,
-    var(--os-action-bg)
-  );
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-  box-shadow:
-    inset 0 1px 0 var(--os-action-lip),
-    0 3px 8px -2px var(--os-action-shadow-soft);
-  color: rgb(var(--fg-rgb) / 0.94);
+/*
+ * Compact pill (size="sm") — market Buy, guild Join, drop Start rows.
+ * Dimensional only; width/hug stays with the surface, chrome with the tone.
+ * After row-compact so equal-specificity size props win.
+ */
+.os-sheet-actions--sm .os-sheet-action {
+  min-height: 1.65rem;
+  padding: 0.28rem 0.72rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
 }
 
-.os-sheet-actions.os-sheet-actions--frosted-primary
-  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover,
-.os-sheet-actions.os-sheet-actions--frosted-primary
-  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(
-    .is-succeeded
-  ):hover {
-  border-color: rgb(var(--fg-rgb) / 0.32);
-  background: color-mix(
-    in srgb,
-    var(--glass-surface-os, var(--glass-surface)) 30%,
-    var(--os-action-bg-hover)
-  );
-  box-shadow:
-    inset 0 1px 0 var(--os-action-lip),
-    0 6px 14px -4px var(--os-action-shadow);
+.os-sheet-actions--sm .os-sheet-action__shell {
+  min-height: 1.1rem;
 }
 
+/*
+ * Invisible hit-slop — the 1.65rem pill stays visually compact while the
+ * tap target reaches ~44px vertically. overflow: visible on sm pills is
+ * safe: they render flat fills, no glass sheen to clip.
+ */
+.os-sheet-actions--sm .os-sheet-action {
+  position: relative;
+  overflow: visible;
+}
+
+.os-sheet-actions--sm .os-sheet-action::before {
+  content: '';
+  position: absolute;
+  inset: -9px 0;
+  border-radius: 9999px;
+}
+
+/*
+ * Frosted-primary tone — the base ladder owns the primary look (solid
+ * armed, surface-fill dormant). Only danger keeps a tone-level blur.
+ */
 .os-sheet-actions--frosted-primary
   .os-sheet-action--danger.is-ready:not(:disabled),
 .os-sheet-actions--frosted-primary
@@ -502,28 +608,6 @@
   -webkit-backdrop-filter: blur(10px) saturate(140%);
 }
 
-@media (prefers-reduced-transparency: reduce) {
-  .os-sheet-actions.os-sheet-actions--frosted-primary
-    .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
-  .os-sheet-actions.os-sheet-actions--frosted-primary
-    .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
-  .os-sheet-actions.os-sheet-actions--frosted-primary
-    .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded) {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    background: rgb(var(--bg-rgb) / 0.94);
-  }
-
-  .os-sheet-actions.os-sheet-actions--frosted-primary
-    .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover,
-  .os-sheet-actions.os-sheet-actions--frosted-primary
-    .os-sheet-action--primary:not(:disabled):not(.is-ready):not(
-      .is-succeeded
-    ):hover {
-    background: rgb(var(--bg-rgb) / 0.98);
-  }
-}
-
 /* Borderless frosted actions — faint fill, stronger hover, no pill chrome. */
 .os-sheet-actions.os-sheet-actions--borderless
   .os-sheet-action:is(
@@ -531,7 +615,7 @@
     :focus-visible,
     :active,
     .is-ready,
-    .is-dirty,
+    .is-active,
     .is-pending,
     .is-succeeded,
     .os-sheet-action--danger.is-ready,
@@ -574,7 +658,7 @@
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
   .os-sheet-action--danger:not(.is-ready):not(.is-pending) {
   background: transparent;
-  color: rgb(var(--fg-rgb) / 0.26);
+  color: var(--os-action-ink-disabled);
 }
 
 .os-sheet-actions.os-sheet-actions--borderless
@@ -590,17 +674,25 @@
 }
 
 .os-sheet-actions.os-sheet-actions--borderless
-  .os-sheet-action--danger.is-ready:not(:disabled):hover,
-.os-sheet-actions.os-sheet-actions--borderless
   .os-sheet-action--danger.is-ready:not(:disabled):focus-visible,
-.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
-  .os-sheet-action--danger.is-ready:not(:disabled):hover,
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
   .os-sheet-action--danger.is-ready:not(:disabled):focus-visible {
   background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
   color: var(--protocol-red);
   backdrop-filter: blur(10px) saturate(140%);
   -webkit-backdrop-filter: blur(10px) saturate(140%);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .os-sheet-actions.os-sheet-actions--borderless
+    .os-sheet-action--danger.is-ready:not(:disabled):hover,
+  .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+    .os-sheet-action--danger.is-ready:not(:disabled):hover {
+    background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
+    color: var(--protocol-red);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+  }
 }
 
 /* Borderless dismiss — chip wash + fg mark (never danger red). */
@@ -613,83 +705,105 @@
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
   .os-sheet-action--dismiss.is-pending:disabled:not(.is-succeeded) {
   background: rgb(var(--fg-rgb) / 0.06);
-  color: rgb(var(--fg-rgb) / 0.94);
+  color: var(--os-action-ink-armed);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
-.os-sheet-actions.os-sheet-actions--borderless
-  .os-sheet-action--dismiss.is-ready:not(:disabled):hover,
 .os-sheet-actions.os-sheet-actions--borderless
   .os-sheet-action--dismiss.is-ready:not(:disabled):focus-visible,
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
-  .os-sheet-action--dismiss.is-ready:not(:disabled):hover,
-.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
   .os-sheet-action--dismiss.is-ready:not(:disabled):focus-visible {
   background: rgb(var(--fg-rgb) / 0.09);
-  color: rgb(var(--fg-rgb) / 0.94);
+  color: var(--os-action-ink-armed);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .os-sheet-actions.os-sheet-actions--borderless
+    .os-sheet-action--dismiss.is-ready:not(:disabled):hover,
+  .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+    .os-sheet-action--dismiss.is-ready:not(:disabled):hover {
+    background: rgb(var(--fg-rgb) / 0.09);
+    color: var(--os-action-ink-armed);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/*
+ * Borderless primary — armed keeps the solid inverted fill (the borderless
+ * strip above removes the frame + lift); dormant wears the surface-fill
+ * step with icon-strength ink.
+ */
 .os-sheet-actions.os-sheet-actions--borderless
   .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
 .os-sheet-actions.os-sheet-actions--borderless
   .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
-.os-sheet-actions.os-sheet-actions--borderless
-  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded),
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
   .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
-  .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
+  .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded) {
+  background: var(--os-action-solid);
+  color: var(--os-action-solid-ink);
+}
+
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-pending):not(
+    .is-succeeded
+  ):not(.is-failed),
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
-  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded) {
-  background: color-mix(
-    in srgb,
-    var(--glass-surface-os, var(--glass-surface)) 36%,
-    var(--os-action-bg)
-  );
-  color: rgb(var(--fg-rgb) / 0.94);
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-pending):not(
+    .is-succeeded
+  ):not(.is-failed) {
+  background: var(--os-action-fill-dormant);
+  color: var(--os-action-ink-chrome);
   backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
 }
 
-.os-sheet-actions.os-sheet-actions--borderless
-  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover,
-.os-sheet-actions.os-sheet-actions--borderless
-  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(
-    .is-succeeded
-  ):hover,
-.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
-  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover,
-.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
-  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(
-    .is-succeeded
-  ):hover {
-  background: color-mix(
-    in srgb,
-    var(--glass-surface-os, var(--glass-surface)) 30%,
-    var(--os-action-bg-hover)
-  );
-  color: rgb(var(--fg-rgb) / 0.94);
+@media (hover: hover) and (pointer: fine) {
+  .os-sheet-actions.os-sheet-actions--borderless
+    .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover,
+  .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+    .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
+    background: var(--os-action-solid-hover);
+    color: var(--os-action-solid-ink);
+  }
+
+  .os-sheet-actions.os-sheet-actions--borderless
+    .os-sheet-action--primary:not(:disabled):not(.is-ready):not(
+      .is-pending
+    ):not(.is-succeeded):not(.is-failed):hover,
+  .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+    .os-sheet-action--primary:not(:disabled):not(.is-ready):not(
+      .is-pending
+    ):not(.is-succeeded):not(.is-failed):hover {
+    background: var(--os-action-fill-dormant-hover);
+    color: var(--os-action-ink-hover);
+  }
 }
 
-.os-sheet-actions.os-sheet-actions--borderless
-  .os-sheet-action--primary.is-succeeded {
+.os-sheet-actions.os-sheet-actions--borderless .os-sheet-action.is-succeeded {
   background: color-mix(in srgb, var(--protocol-green) 10%, transparent);
   color: var(--protocol-green);
 }
 
 .os-sheet-actions.os-sheet-actions--borderless .os-sheet-action:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px
-    color-mix(in srgb, var(--protocol-blue, #60a5fa) 28%, transparent);
+  box-shadow: var(
+    --os-focus-ring,
+    0 0 0 2px color-mix(in srgb, var(--protocol-blue, #60a5fa) 35%, transparent)
+  );
 }
 
 .os-sheet-actions.os-sheet-actions--borderless
   .os-sheet-action--danger:focus-visible {
-  box-shadow: 0 0 0 2px
-    color-mix(in srgb, var(--protocol-red, #f87171) 28%, transparent);
+  box-shadow: var(
+    --os-focus-ring-danger,
+    0 0 0 2px color-mix(in srgb, var(--protocol-red, #f87171) 35%, transparent)
+  );
 }
 
 @media (prefers-reduced-transparency: reduce) {
@@ -706,10 +820,36 @@
     -webkit-backdrop-filter: none;
   }
 
+  /* No background fallbacks needed — armed is solid, dormant is a flat
+   * fg step; neither depends on transparency to read correctly. */
+}
+
+/*
+ * Active toggle inside frosted/borderless containers — the selected wash
+ * beats the armed glass fill so Joined reads "on", not "commit".
+ */
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action.is-active:not(.is-succeeded):not(.is-failed),
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action.is-active:not(.is-succeeded):not(.is-failed) {
+  background: var(--os-action-active-fill-strong);
+  color: var(--os-action-ink-armed);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
   .os-sheet-actions.os-sheet-actions--borderless
-    .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
-  .os-sheet-actions.os-sheet-actions--borderless
-    .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded) {
-    background: rgb(var(--bg-rgb) / 0.94);
+    .os-sheet-action.is-active:not(:disabled):not(.is-succeeded):hover,
+  .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+    .os-sheet-action.is-active:not(:disabled):not(.is-succeeded):hover {
+    background: var(--os-action-active-fill-strong-hover);
   }
 }
+
+/*
+ * No brand/green armed tone — by design. Green is reserved for success +
+ * reputation semantics; an armed green Buy would collide with the
+ * armed→success morph (green → green is invisible). Money commits stay
+ * neutral solid; the green moment arrives via .is-succeeded.
+ */

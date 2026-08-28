@@ -86,7 +86,7 @@ export function ProtocolOnChainSheet({
       closeAriaLabel="Close on-chain details"
       backdropLabel="Close on-chain details"
       zIndex={PROTOCOL_TASK_SHEET_Z}
-      panelClassName="protocol-on-chain-sheet-panel"
+      panelClassName="protocol-on-chain-sheet-panel os-sheet-cap-standard"
       bodyClassName="protocol-on-chain-sheet-body"
     >
       <div className="os-sheet-facts guild-facts protocol-on-chain-facts">

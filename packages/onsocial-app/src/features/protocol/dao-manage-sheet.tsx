@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { OsHugSheet, OsSurfaceRow, OsSurfaceRowList } from '@onsocial/ui';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 export type DaoManageAction =
   | 'propose'
@@ -67,8 +68,7 @@ export function DaoManageSheet({
       copy={daoName?.trim() || 'DAO tools'}
       closeAriaLabel="Close"
       backdropLabel="Close DAO manage"
-      zIndex={57}
-      initialDetent="peek"
+      zIndex={SHEET_Z.facts}
     >
       <OsSurfaceRowList
         className="dao-manage-sheet-list"

@@ -6,8 +6,7 @@ import { SearchField } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { DaoDirectoryList } from '@/features/protocol/dao-directory-row';
 import { useDaoCatalogBrowse } from '@/hooks/use-dao-catalog-browse';
-
-const DISCOVER_Z = 72;
+import { SHEET_Z } from '@/lib/sheet-z';
 
 /**
  * Full-factory Discover slide-over — Standing-style square-crest list.
@@ -67,7 +66,7 @@ export function DaoDiscoverSheet({
       onClosed={handleClosed}
       title="Discover"
       subtitle="Every Sputnik factory DAO on this network"
-      zIndex={DISCOVER_Z}
+      zIndex={SHEET_Z.discover}
       contentClassName="dao-discover-sheet"
     >
       <SearchField

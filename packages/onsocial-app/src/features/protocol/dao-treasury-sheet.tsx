@@ -19,9 +19,10 @@ import {
 } from '@/lib/app-near-account-facts';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import type { ProtocolDaoTransferAsset } from '@/lib/protocol-dao-transfer-assets';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { fetchProfileSupportBalanceYocto } from '@/lib/social-spend-profile';
 
-const TREASURY_Z = 74;
+const TREASURY_Z = SHEET_Z.board;
 
 function treasuryAssetExplorerHref(
   asset: ProtocolDaoTransferAsset,

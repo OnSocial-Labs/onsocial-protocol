@@ -7,7 +7,7 @@ import {
   useOverlayHeaderPortal,
 } from '@/contexts/overlay-chrome-context';
 import { useOverlayDismiss } from '@/contexts/overlay-dismiss-context';
-import { Divider, SheetCloseButton } from '@onsocial/ui';
+import { SheetCloseButton } from '@onsocial/ui';
 
 export function OverlayPanelChrome({
   ariaTitle,
@@ -15,7 +15,6 @@ export function OverlayPanelChrome({
   toolbar,
   headerActions,
   scrollBodyRef,
-  showHeaderDivider = true,
 }: {
   ariaTitle: string;
   title?: string;
@@ -23,8 +22,6 @@ export function OverlayPanelChrome({
   /** Icon actions before close — same cluster as Standing / Boost. */
   headerActions?: ReactNode;
   scrollBodyRef?: RefObject<HTMLDivElement | null>;
-  /** Section divider under header. Off when tabs already close the chrome. */
-  showHeaderDivider?: boolean;
 }) {
   const registerChrome = useOverlayChromeRegister();
   const headerPortal = useOverlayHeaderPortal();
@@ -68,13 +65,5 @@ export function OverlayPanelChrome({
     </header>
   );
 
-  return createPortal(
-    <>
-      {headerContent}
-      {showHeaderDivider ? (
-        <Divider variant="section" className="glass-sheet-header-divider" />
-      ) : null}
-    </>,
-    headerPortal
-  );
+  return createPortal(headerContent, headerPortal);
 }

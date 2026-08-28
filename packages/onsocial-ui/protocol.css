@@ -11,7 +11,9 @@
  */
 
 @layer tokens {
-  /* Core hues — identical in light and dark */
+  /* Core hues — identical in light and dark. Fills, glows, dots only:
+     for text/ink use the per-theme --protocol-{hue}-ink variants below
+     (neon hues fail WCAG AA on light surfaces). */
   :root {
     /* TEMP trial: soft blue — matches soft NEAR green energy */
     --protocol-blue: #60a5fa;
@@ -31,6 +33,14 @@
   /* Light surfaces (Portal :root, OnPage data-theme=light) */
   :root:not(.dark):not([data-theme='dark']),
   [data-theme='light'] {
+    /* Hue ink — darkened to ≥4.5:1 on --bg for text/labels. */
+    --protocol-blue-ink: #1d6fd8;
+    --protocol-purple-ink: #9333ea;
+    --protocol-green-ink: #00854f;
+    --protocol-amber-ink: #b45309;
+    --protocol-red-ink: #dc2626;
+    --protocol-pink-ink: #db2777;
+
     --protocol-blue-border: rgb(96 165 250 / 0.4);
     --protocol-blue-border-strong: rgb(96 165 250 / 0.6);
     --protocol-blue-bg: rgb(96 165 250 / 0.06);
@@ -93,6 +103,14 @@
   /* Dark surfaces (Portal .dark, OnPage data-theme=dark) */
   .dark,
   [data-theme='dark'] {
+    /* Hue ink — neon hues already pass on dark; ink = base hue. */
+    --protocol-blue-ink: var(--protocol-blue);
+    --protocol-purple-ink: var(--protocol-purple);
+    --protocol-green-ink: var(--protocol-green);
+    --protocol-amber-ink: var(--protocol-amber);
+    --protocol-red-ink: var(--protocol-red);
+    --protocol-pink-ink: var(--protocol-pink);
+
     --protocol-blue-border: rgb(96 165 250 / 0.4);
     --protocol-blue-border-strong: rgb(96 165 250 / 0.6);
     --protocol-blue-bg: rgb(96 165 250 / 0.06);
@@ -152,12 +170,22 @@
     --protocol-red-glow: rgb(248 113 113 / 0.16);
   }
 
-  /* Profile signal semantics → protocol hues */
+  /* Profile signal semantics → protocol hue ink (theme-safe for text) */
   :root {
-    --signal-standing: var(--protocol-blue);
-    --signal-solidarity: var(--protocol-purple);
+    --signal-standing: var(--protocol-blue-ink);
+    --signal-solidarity: var(--protocol-purple-ink);
     --signal-endorse: var(--protocol-gold);
-    --signal-reputation: var(--protocol-green);
+    --signal-reputation: var(--protocol-green-ink);
+  }
+
+  /* Focus rings — one ring language across chrome, actions, and CTAs. */
+  :root {
+    --os-focus-ring: 0 0 0 2px
+      color-mix(in srgb, var(--protocol-blue) 35%, transparent);
+    --os-focus-ring-danger: 0 0 0 2px
+      color-mix(in srgb, var(--protocol-red) 35%, transparent);
+    --os-focus-ring-success: 0 0 0 2px
+      color-mix(in srgb, var(--protocol-green) 35%, transparent);
   }
 
   /* Portal legacy aliases — prefer --protocol-* in new code */

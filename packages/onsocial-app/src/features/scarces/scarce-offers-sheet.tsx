@@ -17,6 +17,7 @@ import {
 } from '@/features/scarces/scarce-offers';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastConfirming,
   txToastError,
@@ -135,7 +136,7 @@ export function ScarceOffersSheet({
       panelClassName={osGestureSheetPanelCommerceClassName}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
-      zIndex={56}
+      zIndex={SHEET_Z.gesture}
     >
       {sheetOpen && item ? (
         <div className="profile-support-form">

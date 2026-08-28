@@ -16,6 +16,7 @@ import {
 } from '@/lib/block-confirm-copy';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
@@ -174,7 +175,7 @@ export function MuteBlockListsSheet({
         label="Muted & blocked"
         closeAriaLabel="Close muted and blocked"
         backdropLabel="Close muted and blocked"
-        zIndex={58}
+        zIndex={SHEET_Z.list}
         sizing="full"
         titleId="mute-block-lists-title"
       >

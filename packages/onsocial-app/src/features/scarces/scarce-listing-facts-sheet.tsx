@@ -235,7 +235,7 @@ export function ScarceListingFactsSheet({
       closeAriaLabel="Close scarce facts"
       backdropLabel="Close scarce facts"
       zIndex={zIndex}
-      panelClassName="guild-facts-sheet-panel"
+      panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
     >
       <div className="guild-facts">

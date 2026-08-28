@@ -53,6 +53,7 @@ import type { ProtocolGovernanceEligibility } from '@/features/protocol/protocol
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { bumpDaoWorkspacePrefetch } from '@/lib/dao-workspace-prefetch';
 import { formatSocialCompact, yoctoToSocial } from '@/lib/format-social-balance';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS,
   socialToYocto,
@@ -63,9 +64,6 @@ import {
   txToastGovSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
-
-const DAO_BOOST_Z = 90;
-const DAO_BOOST_CONFIRM_Z = 110;
 
 type DaoBoostMode =
   | 'lock'
@@ -404,7 +402,7 @@ export function DaoBoostSheet({
         subtitle={subtitle}
         closeAriaLabel="Back from DAO Boost"
         closeDisabled={pending}
-        zIndex={DAO_BOOST_Z}
+        zIndex={SHEET_Z.overShell}
         className="hub-manage-slide"
         contentClassName="hub-manage-slide-body"
         footer={
@@ -633,7 +631,7 @@ export function DaoBoostSheet({
         eligibilityLoading={eligibilityLoading}
         pending={pending}
         proposeLabel="Propose"
-        zIndex={DAO_BOOST_CONFIRM_Z}
+        zIndex={SHEET_Z.confirm}
         onDiscard={() => setConfirm(null)}
         onPropose={() => {
           void submitConfirm();

@@ -1,7 +1,6 @@
 'use client';
 
 import { useId, type CSSProperties, type ReactNode } from 'react';
-import { Divider } from './divider.js';
 import {
   GlassSheet,
   type GlassSheetDetent,
@@ -143,7 +142,6 @@ export function OsGestureSheet({
             onClose={onClose}
             {...(whisper != null ? { whisper } : {})}
           />
-          <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
     >

@@ -16,6 +16,15 @@ import {
 } from './action-drawer.js';
 import { OsHugSheet } from './os-hug-sheet.js';
 
+/**
+ * Confirm-pattern guide — pick one, don't mix:
+ * - `useDiscardConfirm` (this) — guards unsaved edits when a dirty sheet
+ *   closes ("Discard changes?").
+ * - `OsActionDrawerConfirm` — destructive actions with consequences worth an
+ *   interstitial (block, delete, transfer ownership).
+ * - danger `ready` arming on `OsSheetAction` — inline confirm for simple
+ *   destructive commits; the pill stays muted until the guard passes.
+ */
 export interface UseDiscardConfirmOptions {
   /** Parent surface open — clears confirm when the surface closes. */
   open: boolean;

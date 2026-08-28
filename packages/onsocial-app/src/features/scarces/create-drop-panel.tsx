@@ -2359,6 +2359,7 @@ export function CreateDropPanel() {
             <OsSheetActions
               layout="row-compact"
               tone="frosted-primary"
+              size="sm"
               borderless
               className="drop-create-header-cta"
             >
@@ -2390,6 +2391,7 @@ export function CreateDropPanel() {
             <OsSheetActions
               layout="row-compact"
               tone="frosted-primary"
+              size="sm"
               borderless
               className="drop-create-header-cta"
             >

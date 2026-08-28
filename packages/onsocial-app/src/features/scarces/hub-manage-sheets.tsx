@@ -47,6 +47,7 @@ import {
 } from '@/lib/app-near-account';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { topicsEqual } from '@/lib/topic-slug';
 import {
   txToastConfirming,
@@ -55,7 +56,7 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
-const HUB_MANAGE_Z = 58;
+const HUB_MANAGE_Z = SHEET_Z.list;
 
 export type HubManageSheetId =
   | 'look'

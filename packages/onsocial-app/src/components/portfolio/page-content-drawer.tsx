@@ -10,9 +10,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import {
-  Divider,
-  GlassSheet,
+import {  GlassSheet,
   ProtocolMotionArrow,
   SheetCloseButton,
   useScrollLock,
@@ -50,6 +48,7 @@ import {
   toPortfolioHoldingPeek,
   type PortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 /** Tall page sheet — thin mood-face strip above (~95dvh). */
 const PAGE_DRAWER_PEEK_RATIO = 0.95;
@@ -262,7 +261,8 @@ function PageContentDrawerInner({
         panelStyle={panelStyle}
         peekRatio={PAGE_DRAWER_PEEK_RATIO}
         initialDetent="full"
-        zIndex={48}
+        zIndex={SHEET_Z.pageDrawer}
+        keepDock
         ariaLabelledBy="page-drawer-title"
         backdropLabel="Close page"
         bodyClassName="page-drawer-body"
@@ -283,9 +283,7 @@ function PageContentDrawerInner({
                   className="page-drawer-rail-tabs"
                 />
               }
-            />
-            <Divider variant="section" className="glass-sheet-header-divider" />
-          </>
+            />          </>
         }
       >
         <PageDrawerRailPanels

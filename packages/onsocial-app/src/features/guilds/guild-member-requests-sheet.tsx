@@ -23,6 +23,7 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
   txToastConfirming,
@@ -337,7 +338,7 @@ export function GuildMemberRequestsSheet({
       copy={subtitle}
       closeAriaLabel="Close"
       backdropLabel="Close member requests"
-      zIndex={57}
+      zIndex={SHEET_Z.facts}
       sizing="full"
       initialDetent="peek"
       peekRatio={GLASS_SHEET_PEEK_RATIO}

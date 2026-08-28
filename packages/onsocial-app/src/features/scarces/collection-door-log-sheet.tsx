@@ -23,8 +23,9 @@ import {
 import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { SHEET_Z } from '@/lib/sheet-z';
 
-const DOOR_LOG_Z = 90;
+const DOOR_LOG_Z = SHEET_Z.overShell;
 
 /**
  * Organizer Door log — OsSlideOverScreen list of who was admitted,

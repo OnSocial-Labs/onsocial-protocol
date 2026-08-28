@@ -6,12 +6,7 @@ import {
   PAGE_MOOD_CATALOG,
   type PageMoodId,
 } from '@onsocial/sdk';
-import {
-  Divider,
-  GlassSheet,
-  SheetCloseButton,
-  useScrollLock,
-} from '@onsocial/ui';
+import { GlassSheet, SheetHeader, useScrollLock } from '@onsocial/ui';
 import { useApplyMood } from '@/hooks/use-apply-mood';
 import { useUnlockPremiumMood } from '@/hooks/use-unlock-premium-mood';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
@@ -31,6 +26,7 @@ import {
 } from '@/lib/moods/presets';
 import type { MoodPreset, ResolvedMood } from '@/lib/moods/types';
 import type { PublicPageConfig } from '@/lib/page-data';
+import { SHEET_Z } from '@/lib/sheet-z';
 import type { PageConfig } from '@onsocial/sdk';
 
 export interface MoodSheetProps {
@@ -147,28 +143,23 @@ export function MoodSheet({
       moodId={activeMood.id}
       panelStyle={moodSheetPanelStyle(activeMood.cssVars) as CSSProperties}
       initialDetent="full"
-      zIndex={58}
+      zIndex={SHEET_Z.list}
       ariaLabelledBy="mood-sheet-title"
       backdropLabel="Close moods"
-      panelClassName="mood-sheet-panel"
+      panelClassName="mood-sheet-panel os-sheet-cap-tall"
       bodyClassName="mood-sheet-body"
       header={
-        <>
-          <header className="mood-sheet-header">
-            <div>
-              <h2 id="mood-sheet-title" className="mood-sheet-title">
-                {proposeOnly ? 'Propose mood' : 'Moods'}
-              </h2>
-              <p className="mood-sheet-copy">
-                {proposeOnly
-                  ? 'Preview a mood, then propose it for council approval.'
-                  : 'Choose a page mood. We preview it first, then you save it.'}
-              </p>
-            </div>
-            <SheetCloseButton onClick={onClose} ariaLabel="Close moods" />
-          </header>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
+        <SheetHeader
+          titleId="mood-sheet-title"
+          title={proposeOnly ? 'Propose mood' : 'Moods'}
+          subtitle={
+            proposeOnly
+              ? 'Preview a mood, then propose it for council approval.'
+              : 'Choose a page mood. We preview it first, then you save it.'
+          }
+          onClose={onClose}
+          closeAriaLabel="Close moods"
+        />
       }
     >
       {needsConnect ? (

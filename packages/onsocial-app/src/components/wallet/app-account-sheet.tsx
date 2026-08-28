@@ -27,6 +27,7 @@ import { ACCOUNT_SHEET_PEEK_RATIO } from '@/lib/account-sheet-config';
 import { accountSheetPageMoodPanel } from '@/lib/account-sheet-page-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import { accountDrawerPrimaryLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 interface AppAccountSheetProps {
   open: boolean;
@@ -265,10 +266,10 @@ export function AppAccountSheet({
         sizing="hug"
         initialDetent="full"
         peekRatio={ACCOUNT_SHEET_PEEK_RATIO}
-        zIndex={55}
+        zIndex={SHEET_Z.account}
         ariaLabelledBy="account-sheet-title"
         backdropLabel="Close"
-        panelClassName={`account-drawer-panel${pageMoodPanelClass}`}
+        panelClassName={`account-drawer-panel os-sheet-cap-standard${pageMoodPanelClass}`}
         panelStyle={accountPanelStyle}
         bodyClassName="account-card-body"
         bodyRef={bodyRef}
@@ -281,9 +282,7 @@ export function AppAccountSheet({
               accountId={accountId}
               profileName={profileName}
               avatarUrl={avatarUrl}
-            />
-            <Divider variant="section" className="glass-sheet-header-divider" />
-          </>
+            />          </>
         }
       >
         <div className="account-card">

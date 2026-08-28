@@ -1,4 +1,5 @@
 import { formatSocialCompact } from '@/lib/format-social-balance';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   LEADERBOARD_PAGE_SIZE,
   LEADERBOARD_TRACKS,
@@ -55,7 +56,7 @@ export {
 };
 
 /** Above hug sheets (boost / reputation facts ~56) and nested manage slides. */
-export const LEADERBOARD_Z = 74;
+export const LEADERBOARD_Z = SHEET_Z.board;
 /** Nested reputation peek opened from the leaderboard. */
 export const LEADERBOARD_FACTS_Z = LEADERBOARD_Z + 4;
 

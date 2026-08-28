@@ -29,6 +29,7 @@ import {
   formatPageDrawerJoinedFullLabel,
 } from '@/lib/page-drawer-meta';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 /**
  * Hub twin of the guild facts drawer — access, activity stats, details.
@@ -90,8 +91,8 @@ export function HubFactsSheet({
       copy={app.title}
       closeAriaLabel="Close hub facts"
       backdropLabel="Close hub facts"
-      zIndex={57}
-      panelClassName="guild-facts-sheet-panel"
+      zIndex={SHEET_Z.facts}
+      panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
     >
       <div className="guild-facts">
@@ -271,8 +272,8 @@ export function HubCreatorsSheet({
       copy={app.title}
       closeAriaLabel="Close creators"
       backdropLabel="Close creators"
-      zIndex={57}
-      panelClassName="guild-facts-sheet-panel"
+      zIndex={SHEET_Z.facts}
+      panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
     >
       <ul className="hub-people-list">

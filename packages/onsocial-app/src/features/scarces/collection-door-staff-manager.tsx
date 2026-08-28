@@ -35,6 +35,7 @@ import {
   normalizeProfileSearchQuery,
 } from '@/lib/profile-account-search';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastConfirming,
   txToastError,
@@ -333,8 +334,8 @@ export function CollectionDoorStaffManager({
         backdropLabel={
           voice === 'redeem' ? 'Close redeem staff' : 'Close door staff'
         }
-        zIndex={88}
-        panelClassName="scarce-commerce-sheet-panel collection-allowlist-sheet-panel"
+        zIndex={SHEET_Z.shellManager}
+        panelClassName="scarce-commerce-sheet-panel collection-allowlist-sheet-panel os-sheet-cap-standard"
         bodyClassName="scarce-commerce-sheet-body collection-allowlist-sheet-body"
         footer={
           <div className="guild-add-member-footer">

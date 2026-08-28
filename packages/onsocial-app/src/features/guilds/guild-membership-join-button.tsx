@@ -14,6 +14,7 @@ import {
 export function GuildMembershipJoinButton({
   label,
   ready,
+  active,
   pending,
   pendingLabel,
   disabled,
@@ -24,6 +25,8 @@ export function GuildMembershipJoinButton({
 }: {
   label: string;
   ready: boolean;
+  /** Selected wash for the Joined state (aria-pressed). */
+  active?: boolean;
   pending: boolean;
   pendingLabel: string;
   disabled?: boolean;
@@ -36,6 +39,7 @@ export function GuildMembershipJoinButton({
     <OsSheetActions
       layout="row-compact"
       tone="frosted-primary"
+      size="sm"
       borderless
       className={className}
     >
@@ -44,6 +48,7 @@ export function GuildMembershipJoinButton({
         className="guild-hero-action"
         variant={variant}
         ready={ready}
+        active={active}
         pending={pending}
         pendingLabel={pendingLabel}
         disabled={disabled}

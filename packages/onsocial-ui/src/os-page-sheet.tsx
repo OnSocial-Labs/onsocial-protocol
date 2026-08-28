@@ -26,7 +26,6 @@ export interface OsPageSheetProps {
   presentation?: GlassSheetPresentation;
   header?: ReactNode;
   footer?: ReactNode;
-  footerOverlay?: boolean;
   children: ReactNode;
   bodyRef?: Ref<HTMLDivElement | null>;
   bodyClassName?: string;
@@ -60,7 +59,6 @@ export function OsPageSheet({
   presentation = 'appear',
   header,
   footer,
-  footerOverlay = false,
   children,
   bodyRef,
   bodyClassName,
@@ -105,7 +103,6 @@ export function OsPageSheet({
       {...(portalContainer !== undefined ? { portalContainer } : {})}
       header={header}
       footer={footer}
-      footerOverlay={footerOverlay}
     >
       {children}
     </GlassSheet>

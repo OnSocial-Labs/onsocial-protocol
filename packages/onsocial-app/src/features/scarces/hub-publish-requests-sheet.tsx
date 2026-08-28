@@ -30,6 +30,7 @@ import {
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastConfirming,
   txToastError,
@@ -239,9 +240,7 @@ export function HubPublishRequestsSheet({
       copy={subtitle}
       closeAriaLabel="Close publish requests"
       backdropLabel="Close publish requests"
-      zIndex={58}
-      initialDetent="peek"
-      peekRatio={1}
+      zIndex={SHEET_Z.list}
       panelClassName="hub-manage-sheet-panel hub-manage-sheet-panel--hug hub-publish-requests-sheet-panel"
       bodyClassName="hub-manage-sheet-body"
     >

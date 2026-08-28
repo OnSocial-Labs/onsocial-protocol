@@ -208,6 +208,7 @@ export function MarketOwnedRow({
         <OsSheetActions
           layout="row-compact"
           tone="frosted-primary"
+          size="sm"
           borderless
           className="market-listing-action"
         >
@@ -280,6 +281,7 @@ export function MarketOwnedRow({
           <OsSheetActions
             layout="row-compact"
             tone="frosted-primary"
+            size="sm"
             borderless
             className="market-listing-action"
           >
@@ -310,6 +312,7 @@ export function MarketOwnedRow({
           <OsSheetActions
             layout="row-compact"
             tone="frosted-primary"
+            size="sm"
             borderless
             className="market-listing-action"
           >

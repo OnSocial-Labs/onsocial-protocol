@@ -13,6 +13,7 @@ import {
   type ScarceOfferSuccessDetail,
 } from '@/features/scarces/scarce-offer-form';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 export interface ScarceOfferListing {
   tokenId: string;
@@ -92,7 +93,7 @@ export function ScarceOfferSheet({
       panelClassName={osGestureSheetPanelCommerceClassName}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
-      zIndex={56}
+      zIndex={SHEET_Z.gesture}
       footer={
         footerState?.visible ? (
           <CommerceSheetFooter

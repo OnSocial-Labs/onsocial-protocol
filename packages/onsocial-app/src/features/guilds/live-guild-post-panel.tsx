@@ -1106,6 +1106,7 @@ export function LiveGuildPostPanel({
           className="guild-hero-membership guild-thread-nav-membership"
           label={membershipActionLabel}
           ready={membershipActionReady}
+          active={effectiveIsMember && !confirmingLeave}
           pending={joinActionPending}
           pendingLabel={guildMembershipJoinPendingLabel({
             accessGated,

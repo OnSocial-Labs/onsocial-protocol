@@ -1939,6 +1939,7 @@ export function LiveGuildPanel({
                       className="guild-hero-membership"
                       label={actionLabel}
                       variant={confirmingLeave ? 'danger' : 'primary'}
+                      active={effectiveIsMember && !confirmingLeave}
                       ready={
                         membershipActionReady && !needsCollaborativeStorage
                       }

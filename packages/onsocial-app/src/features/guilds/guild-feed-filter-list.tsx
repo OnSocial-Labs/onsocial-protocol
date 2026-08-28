@@ -26,6 +26,7 @@ import {
   type GuildSpaceWritersShareDisplay,
 } from '@/features/guilds/guild-space-write';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 function spaceKindLabel(kind: GuildSpace['kind']): string {
   return (
@@ -144,8 +145,8 @@ function GuildRoomFactsSheet({
       copy={space.title}
       closeAriaLabel="Close room info"
       backdropLabel="Close room info"
-      zIndex={56}
-      panelClassName="guild-facts-sheet-panel"
+      zIndex={SHEET_Z.gesture}
+      panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
     >
       <div className="guild-facts">

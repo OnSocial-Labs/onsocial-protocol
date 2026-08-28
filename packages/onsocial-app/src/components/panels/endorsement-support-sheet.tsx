@@ -14,6 +14,7 @@ import { humanizeEndorsementTopic } from '@/lib/endorsement-display';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 export interface EndorsementSupportTarget {
   endorsementId: string;
@@ -101,7 +102,7 @@ export function EndorsementSupportSheet({
       panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
-      zIndex={57}
+      zIndex={SHEET_Z.facts}
     >
       {target ? (
         <EndorsementSupportForm

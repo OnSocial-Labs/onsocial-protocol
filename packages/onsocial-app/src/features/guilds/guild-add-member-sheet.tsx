@@ -24,6 +24,7 @@ import {
   PROFILE_SEARCH_MIN_QUERY_LENGTH,
   normalizeProfileSearchQuery,
 } from '@/lib/profile-account-search';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
   txToastConfirming,
@@ -205,8 +206,8 @@ export function GuildAddMemberSheet({
       copy="Search profiles to invite."
       closeAriaLabel="Close add member"
       backdropLabel="Close add member"
-      zIndex={60}
-      panelClassName="guild-facts-sheet-panel"
+      zIndex={SHEET_Z.nested}
+      panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
       footer={
         <div className="guild-add-member-footer">

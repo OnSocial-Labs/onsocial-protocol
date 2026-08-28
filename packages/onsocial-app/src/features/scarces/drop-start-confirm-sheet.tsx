@@ -6,6 +6,7 @@ import {
   OsSheetAction,
   OsSheetActions,
 } from '@onsocial/ui';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 export type DropStartConfirmPhase =
   | 'review'
@@ -102,7 +103,7 @@ export function DropStartConfirmSheet({
       closeAriaLabel="Close"
       backdropLabel="Close"
       showClose={!closeLocked}
-      zIndex={62}
+      zIndex={SHEET_Z.nestedConfirm}
       bodyClassName="drop-start-confirm-body"
     >
       {status ? <p className="drop-start-confirm-summary">{status}</p> : null}

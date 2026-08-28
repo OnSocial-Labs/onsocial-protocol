@@ -3,6 +3,7 @@
 import { useCallback, useState, type CSSProperties } from 'react';
 import { OsHugSheet } from '@onsocial/ui';
 import { AppSocialSwapForm } from '@/components/wallet/app-social-swap-form';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 interface AppSocialSwapSheetProps {
   open: boolean;
@@ -45,8 +46,8 @@ export function AppSocialSwapSheet({
       label="Get SOCIAL"
       closeAriaLabel="Close Get SOCIAL"
       backdropLabel="Close Get SOCIAL"
-      zIndex={57}
-      panelClassName="account-storage-panel"
+      zIndex={SHEET_Z.facts}
+      panelClassName="account-storage-panel os-sheet-cap-tall"
       bodyClassName="account-storage-body"
       {...(panelStyle ? { panelStyle } : {})}
     >

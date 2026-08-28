@@ -26,6 +26,7 @@ import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts'
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { seriesPagePath } from '@/lib/app-routes';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 /**
  * One-line drop blurb. Shows inline “…” when the line truncates, or when
@@ -135,8 +136,8 @@ export function CollectionAboutSheet({
       copy={view.title}
       closeAriaLabel="Close about"
       backdropLabel="Close about"
-      zIndex={57}
-      panelClassName="guild-facts-sheet-panel"
+      zIndex={SHEET_Z.facts}
+      panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
     >
       <div className="guild-facts collection-about-sheet">

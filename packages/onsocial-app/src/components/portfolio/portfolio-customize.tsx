@@ -4,7 +4,7 @@ import {
   Divider,
   GlassSheet,
   ProfileEditorMediaToolbar,
-  SheetCloseButton,
+  SheetHeader,
   useScrollLock,
 } from '@onsocial/ui';
 import {
@@ -30,6 +30,7 @@ import type {
   PublicPageConfig,
   ResolvedPageHeroKind,
 } from '@/lib/page-data';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { useApplyPageFace } from '@/hooks/use-apply-page-face';
 import { useApplyPageMoodTint } from '@/hooks/use-apply-page-mood-tint';
@@ -320,26 +321,19 @@ export function PortfolioCustomize({
         moodId={portfolioMoodId ?? mood.id}
         panelStyle={customizePanelStyle}
         initialDetent="full"
-        zIndex={57}
+        zIndex={SHEET_Z.facts}
         ariaLabelledBy="customize-sheet-title"
         backdropLabel="Close customize"
-        panelClassName="customize-sheet-panel"
+        panelClassName="customize-sheet-panel os-sheet-cap-tall"
         bodyClassName="customize-sheet-body"
         header={
-          <header className="customize-sheet-header">
-            <div>
-              <h2 id="customize-sheet-title" className="customize-sheet-title">
-                Customize
-              </h2>
-              <p className="customize-sheet-copy">
-                Tune mood, layout, and media for this page.
-              </p>
-            </div>
-            <SheetCloseButton
-              onClick={() => setOpen(false)}
-              ariaLabel="Close customize"
-            />
-          </header>
+          <SheetHeader
+            titleId="customize-sheet-title"
+            title="Customize"
+            subtitle="Tune mood, layout, and media for this page."
+            onClose={() => setOpen(false)}
+            closeAriaLabel="Close customize"
+          />
         }
       >
         {needsConnect ? (

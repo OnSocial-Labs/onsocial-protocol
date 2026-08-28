@@ -25,6 +25,7 @@ import {
   formatPageDrawerJoinedFullLabel,
 } from '@/lib/page-drawer-meta';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { topicLabel } from '@/lib/topic-slug';
 
 interface GuildFactsSheetProps {
@@ -160,8 +161,8 @@ export function GuildFactsSheet({
       copy={guildName}
       closeAriaLabel="Close guild facts"
       backdropLabel="Close guild facts"
-      zIndex={57}
-      panelClassName="guild-facts-sheet-panel"
+      zIndex={SHEET_Z.facts}
+      panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
     >
       <div className="guild-facts">
@@ -184,11 +185,11 @@ export function GuildFactsSheet({
                   requestClose();
                 }}
               >
-                <span className="guild-facts-count-value">
-                  <span className="guild-facts-count">
+                <span className="os-sheet-facts-count-value">
+                  <span className="os-sheet-facts-count">
                     {formatCompactCount(memberCount)}
                   </span>
-                  <span className="guild-facts-unit">
+                  <span className="os-sheet-facts-unit">
                     {' '}
                     {memberCount === 1 ? 'member' : 'members'}
                   </span>
@@ -218,11 +219,11 @@ export function GuildFactsSheet({
             <SheetFactRow
               label="Posts"
               value={
-                <span className="guild-facts-count-value">
-                  <span className="guild-facts-count">
+                <span className="os-sheet-facts-count-value">
+                  <span className="os-sheet-facts-count">
                     {formatCompactCount(postCount)}
                   </span>
-                  <span className="guild-facts-unit">
+                  <span className="os-sheet-facts-unit">
                     {' '}
                     {postCount === 1 ? 'post' : 'posts'}
                   </span>
@@ -234,11 +235,11 @@ export function GuildFactsSheet({
             <SheetFactRow
               label="Rooms"
               value={
-                <span className="guild-facts-count-value">
-                  <span className="guild-facts-count">
+                <span className="os-sheet-facts-count-value">
+                  <span className="os-sheet-facts-count">
                     {formatCompactCount(roomCount)}
                   </span>
-                  <span className="guild-facts-unit">
+                  <span className="os-sheet-facts-unit">
                     {' '}
                     {roomCount === 1 ? 'room' : 'rooms'}
                   </span>

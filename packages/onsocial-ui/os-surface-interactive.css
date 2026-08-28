@@ -233,19 +233,19 @@
 
 .os-surface-tile.is-danger {
   background: color-mix(in srgb, var(--protocol-red) 8%, transparent);
-  color: var(--protocol-red);
+  color: var(--protocol-red-ink, var(--protocol-red));
 }
 
 .os-surface-tile.is-danger:not(:disabled):hover,
 .os-surface-tile.is-danger:not(:disabled):focus-visible {
   background: color-mix(in srgb, var(--protocol-red) 14%, transparent);
-  color: var(--protocol-red);
+  color: var(--protocol-red-ink, var(--protocol-red));
   outline: none;
 }
 
 .os-surface-tile.is-danger:not(:disabled):active {
   background: color-mix(in srgb, var(--protocol-red) 18%, transparent);
-  color: var(--protocol-red);
+  color: var(--protocol-red-ink, var(--protocol-red));
 }
 
 .os-surface-chip {
@@ -274,52 +274,54 @@
 /* Selected preset / segmented option — fill tint only, no border. */
 .os-surface-chip.is-selected {
   background: color-mix(in srgb, var(--protocol-green) 14%, transparent);
-  color: var(--protocol-green);
+  color: var(--protocol-green-ink, var(--protocol-green));
 }
 
 .os-surface-chip.is-selected:not(:disabled):hover,
 .os-surface-chip.is-selected:not(:disabled):focus-visible {
   background: color-mix(in srgb, var(--protocol-green-hover) 20%, transparent);
-  color: var(--protocol-green-hover);
+  color: var(--protocol-green-ink, var(--protocol-green));
 }
 
 .os-surface-chip.is-ready {
   background: color-mix(in srgb, var(--protocol-green) 14%, transparent);
-  color: var(--protocol-green);
+  color: var(--protocol-green-ink, var(--protocol-green));
 }
 
 .os-surface-chip.is-ready:not(:disabled):hover,
 .os-surface-chip.is-ready:not(:disabled):focus-visible {
   background: color-mix(in srgb, var(--protocol-green) 20%, transparent);
-  color: var(--protocol-green);
+  color: var(--protocol-green-ink, var(--protocol-green));
 }
 
 .os-surface-chip.is-accent {
   background: color-mix(in srgb, var(--protocol-amber) 14%, transparent);
-  color: var(--protocol-amber);
+  color: var(--protocol-amber-ink, var(--protocol-amber));
 }
 
 .os-surface-chip.is-accent:not(:disabled):hover,
 .os-surface-chip.is-accent:not(:disabled):focus-visible {
   background: color-mix(in srgb, var(--protocol-amber) 20%, transparent);
-  color: var(--protocol-amber);
+  color: var(--protocol-amber-ink, var(--protocol-amber));
 }
 
 .os-surface-chip.is-succeeded {
   background: color-mix(in srgb, var(--protocol-green) 14%, transparent);
-  color: var(--protocol-green);
+  color: var(--protocol-green-ink, var(--protocol-green));
 }
 
 .os-surface-chip.is-succeeded:not(:disabled):hover,
 .os-surface-chip.is-succeeded:not(:disabled):focus-visible {
   background: color-mix(in srgb, var(--protocol-green) 14%, transparent);
-  color: var(--protocol-green);
+  color: var(--protocol-green-ink, var(--protocol-green));
 }
 
+/* Disabled — ink drops to the disabled step; never element opacity. */
 .os-surface-row:disabled,
 .os-surface-tile:disabled,
 .os-surface-chip:disabled {
-  opacity: 0.45;
+  opacity: 1;
+  color: rgb(var(--fg-rgb) / 0.26);
   cursor: default;
 }
 

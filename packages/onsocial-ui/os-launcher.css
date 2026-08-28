@@ -85,7 +85,9 @@
 .os-launcher-root {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  /* Below the app sheet scale (SHEET_Z.pageDrawer 48+) — sheets are modal
+     over the launcher; the launcher closes before opening one anyway. */
+  z-index: 46;
   display: flex;
   align-items: flex-end;
   justify-content: center;

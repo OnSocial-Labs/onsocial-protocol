@@ -285,6 +285,7 @@ export function MarketListingRow({
         <OsSheetActions
           layout="row-compact"
           tone="frosted-primary"
+          size="sm"
           borderless
           className="market-listing-action"
         >

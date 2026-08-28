@@ -18,6 +18,7 @@ import {
 import { persistGuildStructure } from '@/features/guilds/persist-guild-structure';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const POLICY_CHIP_LABEL: Record<GuildSpacePostPolicy, string> = {
@@ -151,8 +152,7 @@ export function GuildAddSpaceSheet({
       copy="New feed tab in this guild."
       closeAriaLabel="Close"
       backdropLabel="Close add room"
-      zIndex={57}
-      initialDetent="peek"
+      zIndex={SHEET_Z.facts}
       headerClassName="guild-add-space-sheet-header"
       panelClassName="guild-add-space-sheet-panel"
       bodyClassName="guild-add-space-sheet-body"

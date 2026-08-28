@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import {
+  OsActionDrawerConfirm,
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
@@ -49,6 +51,8 @@ export function ProtocolActionSheet({
   nowMs?: number;
   onAct: (action: ProtocolDaoAction) => void;
 }) {
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+
   const view = application
     ? deriveProtocolProposalView({
         application,
@@ -64,27 +68,31 @@ export function ProtocolActionSheet({
   const rowVoteActions = actionsLayout === 'row-compact';
   const actionsReady = !pendingAction;
 
-  const requestRemove = () => {
-    const ok = window.confirm(
-      'Remove this proposal from the board? This cannot be undone from the vote sheet.'
-    );
-    if (!ok) return;
-    onAct('VoteRemove');
+  const requestRemove = () => setConfirmingRemove(true);
+
+  const handleClose = () => {
+    if (confirmingRemove) {
+      setConfirmingRemove(false);
+      return;
+    }
+    onClose();
   };
 
   return (
     <OsHugSheet
       open={open}
-      onClose={onClose}
-      label={title}
+      onClose={handleClose}
+      onClosed={() => setConfirmingRemove(false)}
+      label={confirmingRemove ? 'Remove proposal' : title}
       {...(view?.headline ? { copy: view.headline } : {})}
-      closeAriaLabel="Close actions"
-      backdropLabel="Close actions"
+      closeAriaLabel={confirmingRemove ? 'Back to actions' : 'Close actions'}
+      backdropLabel={confirmingRemove ? 'Back to actions' : 'Close actions'}
       zIndex={PROTOCOL_TASK_SHEET_Z}
       initialDetent="peek"
       peekRatio={0.38}
       bodyClassName="protocol-action-sheet-body"
       footer={
+        !confirmingRemove &&
         view &&
         (view.canApprove || view.canReject || view.canFinalize) ? (
           <div className="protocol-action-sheet-footer">
@@ -151,7 +159,17 @@ export function ProtocolActionSheet({
         ) : undefined
       }
     >
-      {view ? (
+      {confirmingRemove ? (
+        <OsActionDrawerConfirm
+          body="Remove this proposal from the board? This cannot be undone from the vote sheet."
+          confirmLabel="Remove"
+          variant="danger"
+          pending={pendingAction === 'VoteRemove'}
+          pendingLabel="Removing…"
+          onConfirm={() => onAct('VoteRemove')}
+          onCancel={() => setConfirmingRemove(false)}
+        />
+      ) : view ? (
         <div className="protocol-action-summary">
           {lede ? (
             <SheetFactCopy className="protocol-action-lede">{lede}</SheetFactCopy>

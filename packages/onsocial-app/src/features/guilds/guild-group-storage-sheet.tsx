@@ -33,6 +33,7 @@ import {
 } from '@/lib/app-storage-transactions';
 import { formatNearCompact } from '@/lib/format-near-balance';
 import { formatCompactBytes } from '@/lib/platform-storage-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   clampStorageNearAmountInput,
   formatStorageMinNearLabel,
@@ -824,11 +825,11 @@ export function GuildGroupStorageSheet({
       copy={guildName?.trim() || 'Guild pool and member grants'}
       closeAriaLabel="Close"
       backdropLabel="Close group storage"
-      zIndex={58}
+      zIndex={SHEET_Z.list}
       initialDetent="peek"
       peekRatio={GLASS_SHEET_PEEK_RATIO}
       headerClassName="account-storage-header"
-      panelClassName="account-storage-panel"
+      panelClassName="account-storage-panel os-sheet-cap-tall"
       bodyClassName="account-storage-body"
     >
       <div className="app-storage-sheet">

@@ -23,6 +23,7 @@ import {
 } from '@/features/market/market-listings';
 import { collectionPath } from '@/lib/app-routes';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 function saleScheduleLines(
   view: CollectionView,
@@ -135,8 +136,8 @@ export function TicketDoorEventSheet({
         copy={view.title}
         closeAriaLabel="Close event"
         backdropLabel="Close event"
-        zIndex={57}
-        panelClassName="guild-facts-sheet-panel"
+        zIndex={SHEET_Z.facts}
+        panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
         bodyClassName="guild-facts-sheet-body"
       >
         <div className="guild-facts">

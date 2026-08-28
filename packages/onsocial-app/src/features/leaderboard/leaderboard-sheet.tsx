@@ -504,7 +504,7 @@ function LeaderboardReputationPeek({
       closeAriaLabel="Close reputation"
       backdropLabel="Close reputation"
       zIndex={LEADERBOARD_FACTS_Z}
-      panelClassName="guild-facts-sheet-panel"
+      panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
       headerActions={
         <div className="standing-sheet-actions standing-sheet-actions--payout">

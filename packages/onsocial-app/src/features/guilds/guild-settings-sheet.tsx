@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { OsHugSheet, OsSurfaceRow, OsSurfaceRowList } from '@onsocial/ui';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 interface GuildSettingsSheetProps {
   open: boolean;
@@ -46,8 +47,7 @@ export function GuildSettingsSheet({
       copy={guildName?.trim() || 'Guild tools and configuration'}
       closeAriaLabel="Close"
       backdropLabel="Close guild settings"
-      zIndex={57}
-      initialDetent="peek"
+      zIndex={SHEET_Z.facts}
       headerClassName="guild-settings-sheet-header"
       panelClassName="guild-settings-sheet-panel"
     >

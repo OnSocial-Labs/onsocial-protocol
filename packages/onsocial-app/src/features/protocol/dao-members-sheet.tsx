@@ -22,8 +22,7 @@ import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import { portfolioPath } from '@/lib/overlay-routes';
-
-const MEMBERS_Z = 74;
+import { SHEET_Z } from '@/lib/sheet-z';
 
 /**
  * DAO membership — Group people as circles; Member roles show stake threshold
@@ -163,7 +162,7 @@ export function DaoMembersSheet({
       title="Members"
       subtitle={daoName?.trim() || daoAccountId}
       closeAriaLabel="Back from members"
-      zIndex={MEMBERS_Z}
+      zIndex={SHEET_Z.board}
       className="dao-members-slide"
       contentClassName="dao-members-sheet"
     >

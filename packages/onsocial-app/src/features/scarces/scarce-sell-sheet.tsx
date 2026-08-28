@@ -13,6 +13,7 @@ import {
   ScarceSellForm,
   type ScarceSellSuccessDetail,
 } from '@/features/scarces/scarce-sell-form';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 interface ScarceSellSheetProps {
   open: boolean;
@@ -94,7 +95,7 @@ export function ScarceSellSheet({
       panelClassName={osGestureSheetPanelCommerceClassName}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
-      zIndex={56}
+      zIndex={SHEET_Z.gesture}
       footer={
         <CommerceSheetFooter
           formId={formId}

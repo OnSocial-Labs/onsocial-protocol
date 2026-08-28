@@ -38,6 +38,7 @@ import { appPath, seriesPagePath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
 import { fallbackLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 const SCARCES_CONTRACT =
   ACTIVE_NEAR_NETWORK === 'mainnet'
@@ -172,8 +173,8 @@ export function CollectionFactsSheet({
       copy={view.title}
       closeAriaLabel="Close drop facts"
       backdropLabel="Close drop facts"
-      zIndex={57}
-      panelClassName="guild-facts-sheet-panel"
+      zIndex={SHEET_Z.facts}
+      panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
     >
       <div className="guild-facts">

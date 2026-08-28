@@ -38,6 +38,7 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastConfirming,
   txToastError,
@@ -46,7 +47,7 @@ import {
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const GUILD_IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
-const GUILD_EDIT_Z = 58;
+const GUILD_EDIT_Z = SHEET_Z.overShell;
 const GUILD_BADGE_MAX_BYTES = 5 * 1024 * 1024;
 
 function fieldId(prefix: string, name: string) {

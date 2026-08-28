@@ -1,5 +1,8 @@
+import { SHEET_Z } from '@/lib/sheet-z';
+
 /**
  * Scarce overlay stacking — keep listen under commerce, nest above commerce.
+ * Bands come from the shared app scale (@/lib/sheet-z):
  *
  * 56  default GlassSheet
  * 80  listen / read / thought / feed photo enlarge (OsSlideOverScreen)
@@ -7,10 +10,10 @@
  * 110 art zoom + option drawers nested from commerce
  */
 export const SCARCE_Z = {
-  sheet: 56,
-  listenShell: 80,
-  commerceOverListen: 90,
-  nestedOverCommerce: 110,
+  sheet: SHEET_Z.gesture,
+  listenShell: SHEET_Z.shell,
+  commerceOverListen: SHEET_Z.overShell,
+  nestedOverCommerce: SHEET_Z.confirm,
 } as const;
 
 /** Nested choice / details / royalty sheets above a parent commerce sheet. */

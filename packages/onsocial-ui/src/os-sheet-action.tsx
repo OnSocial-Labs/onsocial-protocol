@@ -9,14 +9,55 @@ export const osSheetActionClassName = 'os-sheet-action';
 
 export type OsSheetActionVariant = 'primary' | 'ghost' | 'danger' | 'dismiss';
 
+export interface OsSheetActionStateInput {
+  variant: OsSheetActionVariant;
+  ready?: boolean;
+  active?: boolean;
+  pending: boolean;
+  succeeded: boolean;
+  failed: boolean;
+  disabled?: boolean;
+}
+
+/**
+ * Shared state machine for every variant: ghost is always armed, pill
+ * variants gate on `ready`; pending/succeeded disable and win over ready.
+ * `active` is the aria-pressed toggle state — orthogonal to arming.
+ */
+export function resolveOsSheetActionState({
+  variant,
+  ready,
+  active,
+  pending,
+  succeeded,
+  failed,
+  disabled,
+}: OsSheetActionStateInput) {
+  const armsOnReady = variant !== 'ghost';
+  const isReady = ready ?? false;
+  return {
+    isReady: armsOnReady && isReady && !succeeded && !failed && !pending,
+    isActive: Boolean(active) && !succeeded && !pending,
+    isSucceeded: succeeded,
+    isFailed: failed && !succeeded,
+    isPending: pending,
+    isDisabled: Boolean(disabled) || pending || succeeded,
+  };
+}
+
 export interface OsSheetActionProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   children: ReactNode;
   variant?: OsSheetActionVariant;
-  /** Primary only — framed surface when edits are ready to commit. */
+  /**
+   * Arms the pill (framed frosted surface). Danger and dismiss stay muted
+   * until armed so a destructive pill can never look clickable by default —
+   * always drive this from the same guard as onClick (e.g. `ready={canPay}`).
+   * Ghost ignores it — ghost is always armed.
+   */
   ready?: boolean;
-  /** @deprecated Use {@link ready}. */
-  dirty?: boolean;
+  /** Toggle state — sets aria-pressed and the selected wash (Join/Joined). */
+  active?: boolean;
   pending?: boolean;
   pendingLabel?: ReactNode;
   succeeded?: boolean;
@@ -30,7 +71,7 @@ export function OsSheetAction({
   children,
   variant = 'primary',
   ready,
-  dirty,
+  active,
   pending = false,
   pendingLabel = 'Saving…',
   succeeded = false,
@@ -43,10 +84,15 @@ export function OsSheetAction({
   ref,
   ...props
 }: OsSheetActionProps) {
-  const isPrimary = variant === 'primary';
-  const usesPendingShell =
-    isPrimary || variant === 'danger' || variant === 'dismiss';
-  const isReady = ready ?? dirty ?? false;
+  const state = resolveOsSheetActionState({
+    variant,
+    ready,
+    active,
+    pending,
+    succeeded,
+    failed,
+    disabled,
+  });
   const label = succeeded
     ? (succeededLabel ?? children)
     : failed
@@ -55,24 +101,6 @@ export function OsSheetAction({
   const pendingSrLabel =
     typeof pendingLabel === 'string' ? pendingLabel : 'Saving';
 
-  if (!usesPendingShell) {
-    return (
-      <button
-        ref={ref}
-        type={type}
-        className={cn(
-          osSheetActionClassName,
-          `os-sheet-action--${variant}`,
-          className
-        )}
-        disabled={disabled}
-        {...props}
-      >
-        {children}
-      </button>
-    );
-  }
-
   return (
     <button
       ref={ref}
@@ -80,20 +108,17 @@ export function OsSheetAction({
       className={cn(
         osSheetActionClassName,
         `os-sheet-action--${variant}`,
-        (isPrimary || variant === 'danger' || variant === 'dismiss') &&
-          isReady &&
-          !succeeded &&
-          !failed &&
-          !pending &&
-          'is-ready',
-        succeeded && 'is-succeeded',
-        failed && !succeeded && 'is-failed',
-        pending && 'is-pending',
+        state.isReady && 'is-ready',
+        state.isActive && 'is-active',
+        state.isSucceeded && 'is-succeeded',
+        state.isFailed && 'is-failed',
+        state.isPending && 'is-pending',
         className
       )}
-      aria-busy={pending || undefined}
+      aria-busy={state.isPending || undefined}
+      aria-pressed={typeof active === 'boolean' ? state.isActive : undefined}
       {...props}
-      disabled={disabled || pending || succeeded}
+      disabled={state.isDisabled}
     >
       <span className="os-sheet-action__shell">
         <span

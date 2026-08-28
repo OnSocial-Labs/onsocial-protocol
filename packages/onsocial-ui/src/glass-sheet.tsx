@@ -67,7 +67,12 @@ export const GLASS_SHEET_PANEL_BLUR_PX = 12;
 export const GLASS_SHEET_OS_PANEL_BLUR_PX = GLASS_SHEET_PANEL_BLUR_PX;
 export const GLASS_SHEET_PANEL_SATURATE = 1.22;
 export const GLASS_SHEET_MOOD_GLASS_SATURATE = GLASS_SHEET_PANEL_SATURATE;
-const SHEET_PRESENTATION_EASE = 'cubic-bezier(0.22, 0.61, 0.36, 1)';
+/**
+ * Snappy out-curve for sheet presentation — fast attack, soft settle. No
+ * overshoot: bottom-anchored panels would briefly lift off the viewport edge.
+ * Keep in sync with the enter/transition eases in glass-sheet.css.
+ */
+const SHEET_PRESENTATION_EASE = 'cubic-bezier(0.2, 0.9, 0.24, 1)';
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
@@ -227,11 +232,6 @@ export interface GlassSheetProps {
   header?: ReactNode;
   /** Slot below the scroll body (e.g. action dock). */
   footer?: ReactNode;
-  /**
-   * When true, footer overlays the body (no flex strip) so content scrolls
-   * full-height underneath.
-   */
-  footerOverlay?: boolean;
   children: ReactNode;
   bodyClassName?: string;
   /** Scroll container for nested infinite lists (`.glass-sheet-body`). */
@@ -657,7 +657,6 @@ export function GlassSheet({
   backdropLabel = 'Close',
   header,
   footer,
-  footerOverlay = false,
   children,
   bodyClassName,
   bodyRef,
@@ -882,14 +881,7 @@ export function GlassSheet({
         </div>
 
         {footer ? (
-          <div
-            className={cn(
-              'glass-sheet-footer',
-              footerOverlay && 'glass-sheet-footer--overlay'
-            )}
-          >
-            {footer}
-          </div>
+          <div className="glass-sheet-footer">{footer}</div>
         ) : null}
       </div>
     </div>

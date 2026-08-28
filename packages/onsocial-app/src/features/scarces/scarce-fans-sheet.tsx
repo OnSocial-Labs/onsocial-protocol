@@ -13,6 +13,7 @@ import { accountIdsEqual } from '@/lib/account-match';
 import { loadProfileListAccounts } from '@/lib/load-profile-list-accounts';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
 import { profileListAccountToStandingSummary } from '@/lib/profile-list-account';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 /**
@@ -129,8 +130,8 @@ export function ScarceFansSheet({
       copy={dropTitle?.trim() || countLabel}
       closeAriaLabel="Close fans"
       backdropLabel="Close fans"
-      zIndex={58}
-      panelClassName="scarce-fans-sheet-panel"
+      zIndex={SHEET_Z.list}
+      panelClassName="scarce-fans-sheet-panel os-sheet-cap-standard"
       bodyClassName="scarce-fans-sheet-body"
     >
       {showSkeleton ? (

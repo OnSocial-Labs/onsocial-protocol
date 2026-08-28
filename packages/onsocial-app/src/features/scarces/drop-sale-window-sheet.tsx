@@ -18,11 +18,11 @@ import {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  Divider,
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
 } from '@onsocial/ui';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 export type SaleWindowField =
   | 'opens'
@@ -494,9 +494,9 @@ function DropTimePickerSheet({
       copy={`${formatTimeChip(draft)} · local`}
       closeAriaLabel="Close time"
       backdropLabel="Close time picker"
-      zIndex={60}
+      zIndex={SHEET_Z.nested}
       titleId={titleId}
-      panelClassName="drop-time-sheet-panel"
+      panelClassName="drop-time-sheet-panel os-sheet-cap-short"
       bodyClassName="drop-time-sheet-body"
       footer={
         <div className="drop-schedule-sheet-footer">
@@ -837,10 +837,10 @@ function DropSaleWindowDraftBody({
       }
       closeAriaLabel="Close"
       backdropLabel={`Close ${title.toLowerCase()} picker`}
-      zIndex={58}
+      zIndex={SHEET_Z.list}
       presentation="enter"
       titleId={titleId}
-      panelClassName="drop-schedule-sheet-panel"
+      panelClassName="drop-schedule-sheet-panel os-sheet-cap-tall"
       bodyClassName="drop-schedule-sheet-body"
       footer={
         <div className="drop-schedule-sheet-footer">

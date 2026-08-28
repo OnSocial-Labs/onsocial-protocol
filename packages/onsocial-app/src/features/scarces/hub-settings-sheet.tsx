@@ -9,6 +9,7 @@ import {
 } from '@onsocial/ui';
 import type { HubManageSheetId } from '@/features/scarces/hub-manage-sheets';
 import { formatProfileCount } from '@/lib/profile-social-standings';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 interface HubSettingsSheetProps {
   open: boolean;
@@ -64,8 +65,7 @@ export function HubSettingsSheet({
       copy={hubName?.trim() || 'Hub tools and configuration'}
       closeAriaLabel="Close"
       backdropLabel="Close hub settings"
-      zIndex={57}
-      initialDetent="peek"
+      zIndex={SHEET_Z.facts}
       headerClassName="guild-settings-sheet-header"
       panelClassName="guild-settings-sheet-panel"
     >
