@@ -272,7 +272,7 @@ export function resolveRallySheetView(input: {
       eyebrow,
       title: rank || pageTitle,
       titleUnit: null,
-      body: pageTitle,
+      body: rank ? pageTitle : "You're in.",
       ariaLabel: rank ? `${rank} in ${pageTitle}` : `You're in ${pageTitle}`,
     };
   }

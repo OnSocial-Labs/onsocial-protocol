@@ -1,6 +1,6 @@
 'use client';
 
-import { StarsCFillIcon } from '@onsocial/ui';
+import { TrophyFillIcon } from '@onsocial/ui';
 
 export function RallyLauncherMark({
   label,
@@ -20,7 +20,7 @@ export function RallyLauncherMark({
       aria-label={ariaLabel}
       onClick={onClick}
     >
-      <StarsCFillIcon className="os-launcher-rally-mark-icon" aria-hidden />
+      <TrophyFillIcon className="os-launcher-rally-mark-icon" aria-hidden />
       <span className="os-launcher-rally-mark-label">{label || 'Rally'}</span>
     </button>
   );

@@ -5745,8 +5745,10 @@ a.os-surface-row {
 
   .os-launcher-rally-mark {
     display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 0.28rem;
+    gap: 0.32rem;
     min-height: 2.75rem;
     margin: 0;
     padding: 0 0.4rem 0 0.28rem;
@@ -5761,7 +5763,7 @@ a.os-surface-row {
   }
 
   :root[data-theme='light'] .os-launcher-rally-mark {
-    color: rgb(184 132 36);
+    color: rgb(196 148 42);
   }
 
   .os-launcher-rally-mark:hover,
@@ -5775,13 +5777,20 @@ a.os-surface-row {
     border-radius: 0.5rem;
   }
 
+  .os-launcher-rally-mark-icon,
+  .os-launcher-rally-mark-label {
+    flex-shrink: 0;
+    color: inherit;
+  }
+
   .os-launcher-rally-mark-icon {
     display: block;
-    width: 1.05rem;
-    height: 1.05rem;
+    width: 1.15rem;
+    height: 1.15rem;
   }
 
   .os-launcher-rally-mark-label {
+    white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
 

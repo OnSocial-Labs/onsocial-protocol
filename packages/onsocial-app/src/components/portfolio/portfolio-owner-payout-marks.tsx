@@ -7,7 +7,7 @@ import {
   GiftFillIcon,
   MessageFillIcon,
   ShopFillIcon,
-  StarsCFillIcon,
+  TrophyFillIcon,
 } from '@onsocial/ui';
 import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
 import {
@@ -365,7 +365,7 @@ export function PortfolioOwnerPayoutMarks({
                           : ''
                       }`}
                     >
-                      <StarsCFillIcon className="portfolio-payout-mark-svg" />
+                      <TrophyFillIcon className="portfolio-payout-mark-svg" />
                     </span>
                   </span>
                   {rally.mark.label ? (

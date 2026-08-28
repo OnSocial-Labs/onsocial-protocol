@@ -70,6 +70,7 @@ export {
   ShopFillIcon,
   StarMovingFillIcon,
   StarsCFillIcon,
+  TrophyFillIcon,
   UsersFillIcon,
   HomeFillIcon,
   SearchFillIcon,

@@ -138,6 +138,21 @@ describe('rally-season', () => {
         loaded: true,
         pageTitle: 'OnSocial Rally #4',
         phase: 'live',
+        joined: true,
+        canCollect: false,
+        collected: false,
+        isConnected: true,
+      })
+    ).toMatchObject({
+      eyebrow: 'Rally',
+      title: 'OnSocial Rally #4',
+      body: "You're in.",
+    });
+    expect(
+      resolveRallySheetView({
+        loaded: true,
+        pageTitle: 'OnSocial Rally #4',
+        phase: 'live',
         joined: false,
         canCollect: false,
         collected: false,
