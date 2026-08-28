@@ -211,11 +211,14 @@
   padding-top: calc(env(safe-area-inset-top, 0px) + 0.65rem);
 }
 
-/* Facts peeks over slide-overs — no drag grip band above the title row. */
+/*
+ * Fact peeks keep the standard GlassSheet grip. Don't add a second title
+ * inset — that pad was compensating for a hidden handle.
+ */
 .glass-sheet-root--hosted
   .glass-sheet-panel.guild-facts-sheet-panel
-  > .glass-sheet-drag {
-  display: none;
+  > .glass-sheet-header {
+  padding-top: 0;
 }
 
 /* Allowlist account edit — shorter cap than generic hug. */
