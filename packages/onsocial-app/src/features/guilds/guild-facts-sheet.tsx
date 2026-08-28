@@ -155,6 +155,7 @@ export function GuildFactsSheet({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
+      chrome="facts"
       label="Guild"
       copy={guildName}
       closeAriaLabel="Close guild facts"

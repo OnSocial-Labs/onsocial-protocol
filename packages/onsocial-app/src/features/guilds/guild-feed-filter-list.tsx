@@ -139,8 +139,9 @@ function GuildRoomFactsSheet({
         setClosing(false);
         onClose();
       }}
-      label={space.title}
-      copy="Room details"
+      chrome="facts"
+      label="Room"
+      copy={space.title}
       closeAriaLabel="Close room info"
       backdropLabel="Close room info"
       zIndex={56}

@@ -229,8 +229,9 @@ export function ScarceListingFactsSheet({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      label={facts.title.trim() || 'Scarce'}
-      copy={kindLabel(facts.kind)}
+      chrome="facts"
+      label={kindLabel(facts.kind)}
+      copy={facts.title.trim() || 'Scarce'}
       closeAriaLabel="Close scarce facts"
       backdropLabel="Close scarce facts"
       zIndex={zIndex}

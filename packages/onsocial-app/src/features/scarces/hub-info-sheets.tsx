@@ -85,6 +85,7 @@ export function HubFactsSheet({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
+      chrome="facts"
       label="Hub"
       copy={app.title}
       closeAriaLabel="Close hub facts"
@@ -265,6 +266,7 @@ export function HubCreatorsSheet({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
+      chrome="facts"
       label="Creators"
       copy={app.title}
       closeAriaLabel="Close creators"

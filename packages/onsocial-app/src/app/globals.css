@@ -217,6 +217,9 @@
  */
 .glass-sheet-root--hosted
   .glass-sheet-panel.guild-facts-sheet-panel
+  > .glass-sheet-header,
+.glass-sheet-root--hosted
+  .glass-sheet-panel.page-joined-facts-panel
   > .glass-sheet-header {
   padding-top: 0;
 }
@@ -11415,42 +11418,7 @@ a.os-surface-row {
     );
   }
 
-  /* Joined → account facts sheet (Portal-style depth). */
-
-  .page-joined-facts-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.1rem 1.15rem 0.55rem;
-  }
-
-  .page-joined-facts-header-copy {
-    display: flex;
-    min-width: 0;
-    flex: 1;
-    flex-direction: column;
-    gap: 0.12rem;
-    padding-top: 0.15rem;
-  }
-
-  .page-joined-facts-title {
-    margin: 0;
-    font-size: 0.68rem;
-    font-weight: 650;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.4);
-  }
-
-  .page-joined-facts-subtitle {
-    margin: 0;
-    font-size: 0.95rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    line-height: 1.25;
-    color: rgb(var(--fg-rgb) / 0.9);
-  }
+  /* Joined → account facts. Header chrome is shared SheetHeader. */
 
   /* Row/section/count chrome: shared `.guild-facts-*` via SheetFact*. */
 
@@ -11484,7 +11452,7 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.4);
   }
 
-  .page-joined-facts-panel[data-tone='mood-thread'] .page-joined-facts-title,
+  .page-joined-facts-panel[data-tone='mood-thread'] .glass-sheet-header-eyebrow,
   .page-joined-facts-panel[data-tone='mood-thread'] .guild-facts-section-title {
     color: color-mix(
       in srgb,

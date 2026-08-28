@@ -130,6 +130,7 @@ export function TicketDoorEventSheet({
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleClosed}
+        chrome="facts"
         label="Event"
         copy={view.title}
         closeAriaLabel="Close event"

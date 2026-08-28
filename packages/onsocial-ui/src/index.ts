@@ -240,6 +240,7 @@ export {
 export {
   OsHugSheet,
   osHugSheetBodyClassName,
+  resolveHugSheetHeader,
   type OsHugSheetChrome,
   type OsHugSheetProps,
 } from './os-hug-sheet.js';

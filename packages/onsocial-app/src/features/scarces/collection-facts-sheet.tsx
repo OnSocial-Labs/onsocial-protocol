@@ -167,6 +167,7 @@ export function CollectionFactsSheet({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
+      chrome="facts"
       label="Drop"
       copy={view.title}
       closeAriaLabel="Close drop facts"

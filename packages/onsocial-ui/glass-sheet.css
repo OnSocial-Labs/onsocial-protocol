@@ -446,9 +446,24 @@
   width: 100%;
 }
 
+.glass-sheet-header-heading {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.glass-sheet-header-eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
 .glass-sheet-header-title {
   margin: 0;
-  flex: 1 1 auto;
   min-width: 0;
   font-size: 1.05rem;
   font-weight: 600;
@@ -456,6 +471,11 @@
   line-height: 1.2;
   /* First line mid aligns with ✕ mid inside the 2.75rem hit target. */
   padding-top: calc((2.75rem - 1.2em) / 2);
+}
+
+.glass-sheet-header-title-row:has(.glass-sheet-header-eyebrow)
+  .glass-sheet-header-title {
+  padding-top: 0;
 }
 
 .glass-sheet-header-title-row > .glass-sheet-icon-action {

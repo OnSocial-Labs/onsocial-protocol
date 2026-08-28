@@ -285,6 +285,7 @@ export function GuildSpaceWritersSheet({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
+      chrome="facts"
       label="Who can share"
       copy={spaceTitle}
       closeAriaLabel="Close who can share"
