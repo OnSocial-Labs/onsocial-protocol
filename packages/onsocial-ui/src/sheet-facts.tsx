@@ -20,15 +20,9 @@ export function SheetFactSection({
   className?: string;
 }) {
   return (
-    <section
-      className={cn('os-sheet-facts-section', className)}
-    >
-      <h3 className="os-sheet-facts-section-title">
-        {title}
-      </h3>
-      <div className="os-sheet-facts-section-rows">
-        {children}
-      </div>
+    <section className={cn('os-sheet-facts-section', className)}>
+      <h3 className="os-sheet-facts-section-title">{title}</h3>
+      <div className="os-sheet-facts-section-rows">{children}</div>
     </section>
   );
 }
@@ -58,11 +52,7 @@ export function SheetFactCopy({
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <p className={cn('os-sheet-facts-copy', className)}>
-      {children}
-    </p>
-  );
+  return <p className={cn('os-sheet-facts-copy', className)}>{children}</p>;
 }
 
 /** Emphasized count + optional unit in the value column. */
@@ -87,9 +77,7 @@ export function SheetFactCount({
       {...(loading ? { 'aria-hidden': true } : {})}
     >
       <span className="os-sheet-facts-count">{count}</span>
-      {unit ? (
-        <span className="os-sheet-facts-unit"> {unit}</span>
-      ) : null}
+      {unit ? <span className="os-sheet-facts-unit"> {unit}</span> : null}
     </span>
   );
 }

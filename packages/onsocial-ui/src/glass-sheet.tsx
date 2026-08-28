@@ -880,9 +880,7 @@ export function GlassSheet({
           {children}
         </div>
 
-        {footer ? (
-          <div className="glass-sheet-footer">{footer}</div>
-        ) : null}
+        {footer ? <div className="glass-sheet-footer">{footer}</div> : null}
       </div>
     </div>
   );
