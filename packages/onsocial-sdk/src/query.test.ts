@@ -931,6 +931,106 @@ describe('QueryModule', () => {
       expect(page.items).toEqual([]);
       expect(fetch).not.toHaveBeenCalled();
     });
+
+    it('restricts Circle pages to native circle posts', async () => {
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
+      await os.query.feed.fromAccounts({
+        accounts: ['alice.near'],
+        nativeOnly: true,
+      });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('parentPath: {_eq: ""}');
+      expect(body.query).toContain('parentAuthor: {_in: $accounts}');
+    });
+  });
+
+  describe('feed.pulse()', () => {
+    function pulseGraph(args: {
+      native?: unknown[];
+      bridges?: unknown[];
+      parents?: unknown[];
+    }) {
+      return makeOsWithGraph((body) => {
+        const query = String(body.query);
+        if (query.includes('_nin: $accounts')) {
+          return { data: { postsFeed: args.bridges ?? [] } };
+        }
+        if (query.includes('$postIds')) {
+          return { data: { postsFeed: args.parents ?? [] } };
+        }
+        if (query.includes('parentPath: {_eq: ""}')) {
+          return { data: { postsFeed: args.native ?? [] } };
+        }
+        return { data: { postsFeed: [] } };
+      });
+    }
+
+    it('returns empty for empty standing list', async () => {
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
+      const page = await os.query.feed.pulse({ accounts: [] });
+      expect(page.items).toEqual([]);
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('skips parent hydrate when the circle has no bridge replies', async () => {
+      const native = {
+        accountId: 'alice.near',
+        postId: 'hello',
+        value: '{}',
+        blockHeight: 4,
+        blockTimestamp: 4,
+      };
+      const { os, fetch } = pulseGraph({ native: [native], bridges: [] });
+      const page = await os.query.feed.pulse({
+        accounts: ['alice.near'],
+        limit: 10,
+      });
+      expect(page.items).toEqual([native]);
+      const queries = fetch.mock.calls.map(
+        (call) => JSON.parse(call[1].body).query as string
+      );
+      expect(queries.some((query) => query.includes('PulseNative'))).toBe(true);
+      expect(queries.some((query) => query.includes('PulseBridges'))).toBe(
+        true
+      );
+      expect(queries.some((query) => query.includes('PulseParents'))).toBe(
+        false
+      );
+    });
+
+    it('hydrates the stranger parent for a circle reply', async () => {
+      const parent = {
+        accountId: 'bob.near',
+        postId: 'root',
+        value: '{}',
+        blockHeight: 2,
+        blockTimestamp: 2,
+      };
+      const reply = {
+        accountId: 'alice.near',
+        postId: 'r1',
+        value: '{}',
+        blockHeight: 9,
+        blockTimestamp: 9,
+        parentPath: 'bob.near/post/root',
+        parentAuthor: 'bob.near',
+      };
+      const { os, fetch } = pulseGraph({
+        native: [],
+        bridges: [reply],
+        parents: [parent],
+      });
+      const page = await os.query.feed.pulse({
+        accounts: ['alice.near'],
+        limit: 10,
+      });
+      expect(page.items.map((item) => item.postId)).toEqual(['root', 'r1']);
+      const parentQuery = fetch.mock.calls
+        .map((call) => JSON.parse(call[1].body))
+        .find((body) => String(body.query).includes('PulseParents'));
+      expect(parentQuery.variables.postIds).toContain('root');
+      expect(parentQuery.variables.accounts).toContain('bob.near');
+    });
   });
 
   describe('getFilteredFeed()', () => {
