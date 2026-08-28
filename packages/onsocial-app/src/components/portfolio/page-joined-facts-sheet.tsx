@@ -11,7 +11,7 @@ import {
   Divider,
   GlassSheet,
   ProtocolMotionArrow,
-  SheetCloseButton,
+  SheetHeader,
   osHugSheetBodyClassName,
 } from '@onsocial/ui';
 import {
@@ -240,15 +240,13 @@ export function PageJoinedFactsSheet({
       panelClassName="page-joined-facts-panel"
       header={
         <>
-          <div className="page-joined-facts-header">
-            <div className="page-joined-facts-header-copy">
-              <h2 id="page-joined-facts-title" className="page-joined-facts-title">
-                Account
-              </h2>
-              <p className="page-joined-facts-subtitle">{meta.name}</p>
-            </div>
-            <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-          </div>
+          <SheetHeader
+            titleId="page-joined-facts-title"
+            eyebrow="Account"
+            title={meta.name}
+            onClose={requestClose}
+            closeAriaLabel="Close"
+          />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }

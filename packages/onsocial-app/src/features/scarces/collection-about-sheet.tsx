@@ -130,6 +130,7 @@ export function CollectionAboutSheet({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
+      chrome="facts"
       label="About"
       copy={view.title}
       closeAriaLabel="Close about"

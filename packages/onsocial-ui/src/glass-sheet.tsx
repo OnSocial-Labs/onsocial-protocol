@@ -926,6 +926,8 @@ export function SheetCloseButton({
 export interface SheetHeaderProps {
   titleId?: string;
   title: ReactNode;
+  /** Quiet kind line above the title (facts: Hub / Guild / Account). */
+  eyebrow?: ReactNode;
   /** Sibling of the title (e.g. Clear) — stays outside the heading. */
   titleAccessory?: ReactNode;
   subtitle?: ReactNode;
@@ -938,6 +940,7 @@ export interface SheetHeaderProps {
 export function SheetHeader({
   titleId,
   title,
+  eyebrow,
   titleAccessory,
   subtitle,
   onClose,
@@ -955,9 +958,14 @@ export function SheetHeader({
     <header className={cn('glass-sheet-header', className)}>
       <div className="glass-sheet-header-copy">
         <div className="glass-sheet-header-title-row">
-          <h2 id={titleId} className="glass-sheet-header-title">
-            {title}
-          </h2>
+          <div className="glass-sheet-header-heading">
+            {eyebrow ? (
+              <p className="glass-sheet-header-eyebrow">{eyebrow}</p>
+            ) : null}
+            <h2 id={titleId} className="glass-sheet-header-title">
+              {title}
+            </h2>
+          </div>
           {titleAccessory}
           {closeControl}
         </div>

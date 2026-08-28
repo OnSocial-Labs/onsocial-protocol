@@ -492,6 +492,7 @@ function LeaderboardReputationPeek({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
+      chrome="facts"
       label="Reputation"
       copy={
         reputation

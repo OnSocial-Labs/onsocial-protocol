@@ -19,7 +19,34 @@ import { cn } from './cn.js';
 
 export { osHugSheetBodyClassName } from './os-choice-tokens.js';
 
-export type OsHugSheetChrome = 'choice' | 'plain';
+export type OsHugSheetChrome = 'choice' | 'plain' | 'facts';
+
+export function resolveHugSheetHeader({
+  chrome,
+  label,
+  title,
+  copy,
+}: {
+  chrome: OsHugSheetChrome;
+  label: string;
+  title?: ReactNode;
+  copy?: string;
+}): {
+  eyebrow?: string;
+  title: ReactNode;
+  subtitle?: string;
+} {
+  if (chrome === 'facts' && (title != null || copy)) {
+    return {
+      eyebrow: label,
+      title: title ?? copy ?? label,
+    };
+  }
+  return {
+    title: title ?? label,
+    ...(copy ? { subtitle: copy } : {}),
+  };
+}
 
 export interface OsHugSheetProps {
   open: boolean;
@@ -46,7 +73,8 @@ export interface OsHugSheetProps {
   zIndex?: number;
   /**
    * `choice` — pick/action drawer panel + body tokens.
-   * `plain` — host supplies panel/body classes (facts, protocol, forms).
+   * `facts` — kind eyebrow + name title (Hub / Guild / Drop / Account).
+   * `plain` — host supplies panel/body classes (lists, forms).
    */
   chrome?: OsHugSheetChrome;
   panelClassName?: string;
@@ -69,7 +97,8 @@ export interface OsHugSheetProps {
 
 /**
  * Shared content-hugging OS sheet shell — header + divider + GlassSheet hug.
- * Choice / Action / Info drawers use `chrome="choice"`; facts & protocol use plain.
+ * Choice / Action / Info drawers use `chrome="choice"`; entity peeks use
+ * `chrome="facts"`; lists and forms use plain.
  * Body inset is standard via `.os-hug-sheet-body` (override with bodyClassName
  * when a flush body is required). Pair with `os-choice-drawer.css` when
  * `chrome="choice"`.
@@ -104,6 +133,7 @@ export function OsHugSheet({
   const generatedTitleId = useId();
   const titleId = titleIdProp ?? generatedTitleId;
   const closeLabel = closeAriaLabel ?? `Close ${label.toLowerCase()}`;
+  const heading = resolveHugSheetHeader({ chrome, label, title, copy });
 
   useScrollLock(open);
 
@@ -135,10 +165,11 @@ export function OsHugSheet({
         <>
           <SheetHeader
             titleId={titleId}
-            title={title ?? label}
+            title={heading.title}
             className={headerClassName}
+            {...(heading.eyebrow ? { eyebrow: heading.eyebrow } : {})}
             {...(titleAccessory ? { titleAccessory } : {})}
-            {...(copy ? { subtitle: copy } : {})}
+            {...(heading.subtitle ? { subtitle: heading.subtitle } : {})}
             {...(headerActions
               ? { actions: headerActions }
               : showClose

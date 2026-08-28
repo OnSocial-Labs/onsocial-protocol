@@ -91,6 +91,7 @@ export function ScarceAboutSheet({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
+      chrome="facts"
       label="About"
       {...(headerTitle !== 'About' ? { copy: headerTitle } : {})}
       closeAriaLabel="Close about"
