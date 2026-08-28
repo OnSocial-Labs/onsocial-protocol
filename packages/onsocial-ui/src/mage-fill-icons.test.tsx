@@ -23,6 +23,7 @@ import {
   TimeFillIcon,
   ShopFillIcon,
   StarMovingFillIcon,
+  TrophyFillIcon,
   UsersFillIcon,
   HomeFillIcon,
   SearchFillIcon,
@@ -60,6 +61,7 @@ describe('mage fill icons', () => {
     expect(typeof TimeFillIcon).toBe('function');
     expect(typeof ShopFillIcon).toBe('function');
     expect(typeof StarMovingFillIcon).toBe('function');
+    expect(typeof TrophyFillIcon).toBe('function');
     expect(typeof UsersFillIcon).toBe('function');
     expect(typeof HomeFillIcon).toBe('function');
     expect(typeof SearchFillIcon).toBe('function');

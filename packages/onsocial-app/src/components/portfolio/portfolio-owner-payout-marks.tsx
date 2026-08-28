@@ -7,6 +7,7 @@ import {
   GiftFillIcon,
   MessageFillIcon,
   ShopFillIcon,
+  TrophyFillIcon,
 } from '@onsocial/ui';
 import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
 import {
@@ -16,6 +17,7 @@ import {
 import { BOOST_CLAIM_DUST_YOCTO } from '@/features/boost/boost-position';
 import { PortfolioBoostSheet } from '@/features/boost/portfolio-boost-sheet';
 import { useBoostPosition } from '@/features/boost/use-boost-position';
+import { useRallySheet } from '@/features/rally/rally-sheet-host';
 import { PortfolioScarceEarningsSheet } from '@/components/portfolio/portfolio-scarce-earnings-sheet';
 import { PortfolioSupportCollectInfoSheet } from '@/components/portfolio/portfolio-support-collect-info-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -79,6 +81,7 @@ export function PortfolioOwnerPayoutMarks({
       'boost'
   );
   const boost = useBoostPosition(accountId, { live: boostOpen });
+  const rally = useRallySheet();
 
   useEffect(() => {
     if (
@@ -214,11 +217,14 @@ export function PortfolioOwnerPayoutMarks({
   const showSales = salesYocto != null && salesYocto !== '0';
   const showListings = listingActions.length > 0;
   /** Wait for every mark — paint the row once so amounts don’t shove each other. */
+  const rallyReady =
+    rally.occasion.loaded && (!rally.mark.visible || rally.mark.loaded);
   const marksReady =
     claimableYocto != null &&
     salesYocto != null &&
     listingsLoaded &&
-    boost.loaded;
+    boost.loaded &&
+    rallyReady;
 
   const supportLabel = showSupport
     ? formatSocialCompact(claimableYocto!.toString())
@@ -336,6 +342,40 @@ export function PortfolioOwnerPayoutMarks({
                 </span>
               ) : null}
             </button>
+
+            {rally.mark.visible ? (
+              <>
+                <span className="portfolio-identity-gesture-sep" aria-hidden>
+                  ·
+                </span>
+                <button
+                  type="button"
+                  className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
+                  onClick={() => rally.openRallySheet()}
+                  aria-label={rally.mark.ariaLabel}
+                >
+                  <span
+                    className="signal-group signal-group-standing"
+                    aria-hidden
+                  >
+                    <span
+                      className={`portfolio-payout-mark-icon portfolio-payout-mark-icon--rally${
+                        rally.mark.nudge
+                          ? ' portfolio-payout-mark-icon--nudge'
+                          : ''
+                      }`}
+                    >
+                      <TrophyFillIcon className="portfolio-payout-mark-svg" />
+                    </span>
+                  </span>
+                  {rally.mark.label ? (
+                    <span className="portfolio-payout-mark-amount">
+                      {rally.mark.label}
+                    </span>
+                  ) : null}
+                </button>
+              </>
+            ) : null}
 
             <span className="portfolio-identity-gesture-sep" aria-hidden>
               ·

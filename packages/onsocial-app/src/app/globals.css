@@ -2371,6 +2371,19 @@ a.os-surface-row {
   font-weight: 550;
 }
 
+/* Unlayered — beats `.os-gesture-sheet-body` hug inset + default `a` color. */
+.profile-support-sheet-panel:has(.portfolio-rally-view)
+  .profile-support-sheet-body.os-gesture-sheet-body {
+  padding-bottom: 0.3rem;
+}
+
+.portfolio-rally-standings-link,
+.portfolio-rally-standings-link:hover,
+.portfolio-rally-standings-link:focus-visible,
+.portfolio-rally-standings-link:visited {
+  text-decoration: none;
+}
+
 .scarce-provenance-original-link:hover,
 .scarce-provenance-original-link:focus-visible {
   color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
@@ -5727,8 +5740,116 @@ a.os-surface-row {
     animation-delay: 5.25s;
   }
 
+  .portfolio-payout-mark-icon--rally {
+    color: rgb(218 176 102);
+  }
+
+  :root[data-theme='light'] .portfolio-payout-mark-icon--rally {
+    color: rgb(128 94 38);
+  }
+
+  .portfolio-payout-mark-icon--rally.portfolio-payout-mark-icon--nudge {
+    animation-delay: 2.6s;
+  }
+
   .portfolio-payout-mark-icon--messages.portfolio-payout-mark-icon--nudge {
     animation-delay: 7s;
+  }
+
+  /* Labeled mark + close — same 2.75rem rail as icon actions, not gap: 0. */
+  .os-launcher-header-actions {
+    gap: 0.12rem;
+  }
+
+  .os-launcher-rally-mark {
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    min-height: 2.75rem;
+    margin: 0;
+    padding: 0 0.12rem 0 0.28rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: rgb(218 176 102);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+  }
+
+  :root[data-theme='light'] .os-launcher-rally-mark {
+    color: rgb(196 148 42);
+  }
+
+  .os-launcher-rally-mark:hover,
+  .os-launcher-rally-mark:focus-visible {
+    color: rgb(232 196 118);
+  }
+
+  .os-launcher-rally-mark:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
+    border-radius: 0.5rem;
+  }
+
+  .os-launcher-rally-mark-icon,
+  .os-launcher-rally-mark-label {
+    flex-shrink: 0;
+    color: inherit;
+  }
+
+  .os-launcher-rally-mark-icon {
+    display: block;
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+
+  .os-launcher-rally-mark-label {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .os-launcher-rally-mark.is-nudge .os-launcher-rally-mark-icon {
+    animation: portfolio-gift-nudge 11s ease-in-out infinite;
+  }
+
+  .portfolio-rally-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .portfolio-rally-standings-link {
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: center;
+    min-height: 1.65rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: rgb(var(--fg-rgb) / 0.48);
+    text-decoration: none;
+  }
+
+  .portfolio-rally-standings-link:hover,
+  .portfolio-rally-standings-link:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+  }
+
+  .portfolio-rally-standings-link:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
+    border-radius: 0.4rem;
   }
 
   .portfolio-listing-action-row {

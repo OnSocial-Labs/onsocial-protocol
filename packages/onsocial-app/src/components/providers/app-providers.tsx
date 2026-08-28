@@ -10,7 +10,12 @@ import {
 } from '@/contexts/app-account-sheet-context';
 import { CollectiblesNowPlayingProvider } from '@/contexts/collectibles-now-playing-context';
 import { AppTransactionFeedbackProvider } from '@/contexts/app-transaction-feedback-context';
-import { AppWalletProvider } from '@/contexts/app-wallet-context';
+import { AppWalletProvider, useAppWallet } from '@/contexts/app-wallet-context';
+import { SeasonParticipationProvider } from '@/contexts/season-participation-context';
+import {
+  RallySheetDeepLink,
+  RallySheetProvider,
+} from '@/features/rally/rally-sheet-host';
 import { ComposeLauncherProvider } from '@/contexts/compose-launcher-context';
 import { DockChromeProvider } from '@/contexts/dock-chrome-context';
 import {
@@ -28,6 +33,16 @@ import { PwaProvider } from '@/components/providers/pwa-provider';
 import { WebPushProvider } from '@/components/providers/web-push-provider';
 import { GlassSheetPortalProvider } from '@onsocial/ui';
 
+/** Remount the join/claim ledger when the wallet account changes. */
+function SeasonParticipationGate({ children }: { children: React.ReactNode }) {
+  const { accountId } = useAppWallet();
+  return (
+    <SeasonParticipationProvider key={accountId ?? 'guest'}>
+      {children}
+    </SeasonParticipationProvider>
+  );
+}
+
 /** Clip GlassSheet frost to the live OS / portfolio card (same host as slide-overs). */
 function OsGlassSheetPortalBridge({ children }: { children: React.ReactNode }) {
   const host = useOsPortalHost();
@@ -43,6 +58,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <PwaProvider>
       <AppWalletProvider>
         <AppTransactionFeedbackProvider>
+          <SeasonParticipationGate>
           <AppSocialBalanceProvider>
             <ViewerProfileShellProvider>
               <ViewerWalletMoodProvider>
@@ -53,6 +69,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                         <DockChromeProvider>
                         <OsPortalHostProvider>
                           <OsGlassSheetPortalBridge>
+                            <RallySheetProvider>
                             <CollectiblesNowPlayingProvider>
                               <DmUnreadHost>
                                 <NotificationsHost>
@@ -62,12 +79,14 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                                     <DropComposeHost />
                                     <Suspense fallback={null}>
                                       <WalletSheetDeepLink />
+                                      <RallySheetDeepLink />
                                     </Suspense>
                                     <AppAccountSheetHost />
                                   </WebPushProvider>
                                 </NotificationsHost>
                               </DmUnreadHost>
                             </CollectiblesNowPlayingProvider>
+                            </RallySheetProvider>
                           </OsGlassSheetPortalBridge>
                         </OsPortalHostProvider>
                         </DockChromeProvider>
@@ -78,6 +97,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
               </ViewerWalletMoodProvider>
             </ViewerProfileShellProvider>
           </AppSocialBalanceProvider>
+          </SeasonParticipationGate>
         </AppTransactionFeedbackProvider>
       </AppWalletProvider>
     </PwaProvider>
