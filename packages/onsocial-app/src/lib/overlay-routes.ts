@@ -1,4 +1,8 @@
-import { COLLECTIBLES_SEARCH_PARAM, MARKET_KIND_PARAM } from '@/lib/app-routes';
+import {
+  APP_HOME_PATH,
+  COLLECTIBLES_SEARCH_PARAM,
+  MARKET_KIND_PARAM,
+} from '@/lib/app-routes';
 import {
   isProfileSearchQuery,
   normalizeProfileSearchQuery,
@@ -51,6 +55,11 @@ export function portfolioBoostPath(accountId: string): string {
 /** Owner rally player on the profile face. */
 export function portfolioRallyPath(accountId: string): string {
   return `${portfolioPath(accountId)}?${PORTFOLIO_SHEET_PARAM}=rally`;
+}
+
+/** Viewer rally player from Home (same `sheet=` key as wallet). */
+export function homeRallyPath(): string {
+  return `${APP_HOME_PATH}?${PORTFOLIO_SHEET_PARAM}=rally`;
 }
 
 /** One-shot deep link — opens the portfolio page drawer, hash is stripped after. */

@@ -12,12 +12,12 @@ import {
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { PortfolioRallySheet } from '@/features/rally/portfolio-rally-sheet';
-import { useRallyMark, type RallyMarkState } from '@/features/rally/use-rally-mark';
 import {
-  useRallyOccasion,
+  useRallySeason,
+  type RallyMarkState,
   type RallyOccasion,
-} from '@/features/rally/use-rally-occasion';
-import { accountIdsEqual } from '@/lib/account-match';
+  type RallyPlayerState,
+} from '@/features/rally/use-rally-season';
 import {
   PORTFOLIO_SHEET_PARAM,
   parsePortfolioSheetParam,
@@ -30,6 +30,8 @@ type RallySheetContextValue = {
   closeRallySheet: () => void;
   occasion: RallyOccasion;
   mark: RallyMarkState;
+  player: RallyPlayerState;
+  refresh: () => void;
 };
 
 const RallySheetContext = createContext<RallySheetContextValue | null>(null);
@@ -48,16 +50,13 @@ export function useRallySheetOptional(): RallySheetContextValue | null {
 
 export function RallySheetProvider({ children }: { children: ReactNode }) {
   const { accountId } = useAppWallet();
-  const occasion = useRallyOccasion();
-  const mark = useRallyMark(occasion.entry, occasion.pageTitle, accountId);
   const [open, setOpen] = useState(false);
-  const [activeSeasonId, setActiveSeasonId] = useState<string | null>(null);
+  const season = useRallySeason(accountId, open);
 
   const openRallySheet = useCallback(() => {
-    if (!occasion.entry) return;
-    setActiveSeasonId(occasion.entry.seasonId);
+    if (!season.occasion.entry) return;
     setOpen(true);
-  }, [occasion.entry]);
+  }, [season.occasion.entry]);
 
   const closeRallySheet = useCallback(() => {
     setOpen(false);
@@ -69,23 +68,24 @@ export function RallySheetProvider({ children }: { children: ReactNode }) {
         open,
         openRallySheet,
         closeRallySheet,
-        occasion,
-        mark,
+        occasion: season.occasion,
+        mark: season.mark,
+        player: season.player,
+        refresh: season.refresh,
       }}
     >
       {children}
       <PortfolioRallySheet
         open={open}
-        seasonId={activeSeasonId ?? occasion.seasonId}
+        player={season.player}
         onOpenChange={setOpen}
       />
     </RallySheetContext.Provider>
   );
 }
 
-/** Owner-page `?sheet=rally` — same deep-link family as Boost. */
+/** `?sheet=rally` on any surface — viewer player, same key as wallet/boost. */
 export function RallySheetDeepLink() {
-  const { accountId } = useAppWallet();
   const { open, openRallySheet, occasion } = useRallySheet();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -94,34 +94,23 @@ export function RallySheetDeepLink() {
     parsePortfolioSheetParam(searchParams.get(PORTFOLIO_SHEET_PARAM)) ===
     'rally';
   const openedFromUrlRef = useRef(false);
-  const ownerPath =
-    accountId != null &&
-    pathname != null &&
-    accountIdsEqual(
-      decodePortfolioAccount(pathname) ?? '',
-      accountId
-    );
 
   useEffect(() => {
     if (!wanted || !occasion.loaded) return;
     if (!occasion.entry) {
       const next = new URLSearchParams(searchParams.toString());
-      if (
-        parsePortfolioSheetParam(next.get(PORTFOLIO_SHEET_PARAM)) !== 'rally'
-      ) {
+      if (parsePortfolioSheetParam(next.get(PORTFOLIO_SHEET_PARAM)) !== 'rally') {
         return;
       }
       next.delete(PORTFOLIO_SHEET_PARAM);
       router.replace(buildPathWithQuery(pathname, next), { scroll: false });
       return;
     }
-    if (!ownerPath) return;
     queueMicrotask(() => openRallySheet());
   }, [
     occasion.entry,
     occasion.loaded,
     openRallySheet,
-    ownerPath,
     pathname,
     router,
     searchParams,
@@ -144,14 +133,4 @@ export function RallySheetDeepLink() {
   }, [open, pathname, router, searchParams]);
 
   return null;
-}
-
-function decodePortfolioAccount(pathname: string): string | null {
-  const match = pathname.match(/^\/@([^/]+)/);
-  if (!match?.[1]) return null;
-  try {
-    return decodeURIComponent(match[1]);
-  } catch {
-    return match[1];
-  }
 }

@@ -5743,20 +5743,49 @@ a.os-surface-row {
     animation-delay: 7s;
   }
 
-  .glass-sheet-icon-action.os-launcher-rally-mark {
+  .os-launcher-rally-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    min-height: 2.75rem;
+    margin: 0;
+    padding: 0 0.4rem 0 0.28rem;
+    border: 0;
+    background: transparent;
     color: rgb(218 176 102);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    cursor: pointer;
   }
 
-  :root[data-theme='light'] .glass-sheet-icon-action.os-launcher-rally-mark {
-    color: rgb(168 122 48);
+  :root[data-theme='light'] .os-launcher-rally-mark {
+    color: rgb(184 132 36);
   }
 
-  .glass-sheet-icon-action.os-launcher-rally-mark:hover,
-  .glass-sheet-icon-action.os-launcher-rally-mark:focus-visible {
+  .os-launcher-rally-mark:hover,
+  .os-launcher-rally-mark:focus-visible {
     color: rgb(232 196 118);
   }
 
-  .os-launcher-rally-mark.is-nudge {
+  .os-launcher-rally-mark:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
+    border-radius: 0.5rem;
+  }
+
+  .os-launcher-rally-mark-icon {
+    display: block;
+    width: 1.05rem;
+    height: 1.05rem;
+  }
+
+  .os-launcher-rally-mark-label {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .os-launcher-rally-mark.is-nudge .os-launcher-rally-mark-icon {
     animation: portfolio-gift-nudge 11s ease-in-out infinite;
   }
 

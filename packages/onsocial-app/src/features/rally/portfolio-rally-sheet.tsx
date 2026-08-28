@@ -13,17 +13,14 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useSeasonParticipation } from '@/contexts/season-participation-context';
 import { CommerceSheetFooter } from '@/features/scarces/commerce-sheet-footer';
-import { useRallyPlayer } from '@/features/rally/use-rally-player';
+import type { RallyPlayerState } from '@/features/rally/use-rally-season';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { extractNearTransactionHashes } from '@/lib/app-near-rpc';
 import { refreshAppSocialBalanceAfterClaim } from '@/lib/app-social-balance-sync';
-import { formatSocialCompact, yoctoToSocial } from '@/lib/format-social-balance';
+import { formatSocialCompact } from '@/lib/format-social-balance';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
-import {
-  formatRallyRankLabel,
-  rallyPortalPath,
-} from '@/lib/rally-season';
+import { rallyPortalPath, resolveRallySheetView } from '@/lib/rally-season';
 import {
   txToastConfirming,
   txToastError,
@@ -36,24 +33,27 @@ const APP_SOCIAL_SPEND_APP_ID = 'onpage';
 
 interface PortfolioRallySheetProps {
   open: boolean;
-  seasonId: string | null;
+  player: RallyPlayerState;
   onOpenChange: (open: boolean) => void;
   zIndex?: number;
 }
 
 function RallySheetLoadingSkeleton() {
   return (
-    <div className="portfolio-boost-view" role="status" aria-label="Loading rally">
+    <div
+      className="portfolio-boost-view"
+      role="status"
+      aria-label="Loading rally"
+    >
       <span className="standing-row-shimmer portfolio-boost-shimmer-eyebrow" />
       <span className="standing-row-shimmer portfolio-boost-shimmer-amount" />
-      <span className="standing-row-shimmer portfolio-boost-shimmer-rate" />
     </div>
   );
 }
 
 export function PortfolioRallySheet({
   open,
-  seasonId,
+  player,
   onOpenChange,
   zIndex = 56,
 }: PortfolioRallySheetProps) {
@@ -62,11 +62,9 @@ export function PortfolioRallySheet({
   const sheetOpen = open && !closing;
   const moodPreview = usePortfolioMoodPreviewOptional();
   const mood = moodPreview?.effectiveMood ?? null;
-  const panelStyle = mood
-    ? supportSheetPanelStyle(mood.cssVars)
-    : undefined;
+  const panelStyle = mood ? supportSheetPanelStyle(mood.cssVars) : undefined;
 
-  const { accountId, isConnected, connect } = useAppWallet();
+  const { isConnected, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const {
@@ -78,7 +76,6 @@ export function PortfolioRallySheet({
     endSeasonClaim,
   } = useSeasonParticipation();
 
-  const player = useRallyPlayer(seasonId, accountId, sheetOpen);
   const [action, setAction] = useState<'join' | 'collect' | 'connect' | null>(
     null
   );
@@ -102,6 +99,47 @@ export function PortfolioRallySheet({
     player.balanceYocto < player.joinMinYocto
       ? player.joinMinYocto - player.balanceYocto
       : 0n;
+  const view = resolveRallySheetView({
+    loaded: player.loaded,
+    pageTitle: player.pageTitle,
+    phase: player.phase,
+    joined: player.joined,
+    rank: player.standing?.rank,
+    canCollect: player.canCollect,
+    collectYocto: player.claim?.amountYocto,
+    collected: Boolean(player.claim?.claimed),
+    joinMinLabel: player.joinMinLabel,
+    isConnected,
+  });
+
+  async function sendSignedSpend(
+    build: (client: Awaited<ReturnType<typeof getClient>>['client']) => {
+      receiverId: string;
+      actions: Array<{
+        methodName: string;
+        args: Record<string, unknown>;
+        gas: string;
+        deposit: string;
+      }>;
+    }
+  ) {
+    const bundle = await getClient();
+    const payload = build(bundle.client);
+    return bundle.wallet.signAndSendTransaction({
+      network: ACTIVE_NEAR_NETWORK,
+      signerId: bundle.accountId,
+      receiverId: payload.receiverId,
+      actions: payload.actions.map((step) => ({
+        type: 'FunctionCall' as const,
+        params: {
+          methodName: step.methodName,
+          args: step.args,
+          gas: step.gas,
+          deposit: step.deposit,
+        },
+      })),
+    });
+  }
 
   async function handleConnect() {
     if (action) return;
@@ -114,6 +152,7 @@ export function PortfolioRallySheet({
   }
 
   async function handleJoin() {
+    const seasonId = player.seasonId;
     if (
       !seasonId ||
       player.joined ||
@@ -131,29 +170,16 @@ export function PortfolioRallySheet({
     setAction('join');
     beginSeasonJoin(seasonId);
     try {
-      const { client, accountId: signingAccountId, wallet } = await getClient();
-      const payload = client.socialSpend.buildSpendTransaction({
-        amount: player.joinMinYocto.toString(),
-        appId: APP_SOCIAL_SPEND_APP_ID,
-        action: 'join_rally',
-        targetType: 'rally',
-        targetId: seasonId,
-        seasonId,
-      });
-      const payment = await wallet.signAndSendTransaction({
-        network: ACTIVE_NEAR_NETWORK,
-        signerId: signingAccountId,
-        receiverId: payload.receiverId,
-        actions: payload.actions.map((step) => ({
-          type: 'FunctionCall' as const,
-          params: {
-            methodName: step.methodName,
-            args: step.args,
-            gas: step.gas,
-            deposit: step.deposit,
-          },
-        })),
-      });
+      const payment = await sendSignedSpend((client) =>
+        client.socialSpend.buildSpendTransaction({
+          amount: player.joinMinYocto!.toString(),
+          appId: APP_SOCIAL_SPEND_APP_ID,
+          action: 'join_rally',
+          targetType: 'rally',
+          targetId: seasonId,
+          seasonId,
+        })
+      );
       const confirmed = await trackTransaction({
         txHashes: extractNearTransactionHashes(payment),
         submittedMessage: txToastPending.joiningRally(player.pageTitle),
@@ -165,10 +191,8 @@ export function PortfolioRallySheet({
       });
       if (confirmed) {
         confirmSeasonJoin(seasonId);
-        await Promise.all([
-          refreshAppSocialBalanceAfterClaim(),
-          Promise.resolve(player.refresh()),
-        ]);
+        await refreshAppSocialBalanceAfterClaim();
+        player.refresh();
       }
     } catch (cause) {
       if (!isWalletUserCancellation(cause)) {
@@ -188,6 +212,7 @@ export function PortfolioRallySheet({
 
   async function handleCollect() {
     const claim = player.claim;
+    const seasonId = player.seasonId;
     if (!seasonId || !claim || claim.claimed || action) return;
     if (!isConnected) {
       await handleConnect();
@@ -197,26 +222,13 @@ export function PortfolioRallySheet({
     setAction('collect');
     beginSeasonClaim(seasonId);
     try {
-      const { client, accountId: signingAccountId, wallet } = await getClient();
-      const payload = client.socialSpend.buildClaimSeasonRewardTransaction({
-        seasonId: claim.seasonId,
-        amount: claim.amountYocto,
-        proof: claim.proof,
-      });
-      const payment = await wallet.signAndSendTransaction({
-        network: ACTIVE_NEAR_NETWORK,
-        signerId: signingAccountId,
-        receiverId: payload.receiverId,
-        actions: payload.actions.map((step) => ({
-          type: 'FunctionCall' as const,
-          params: {
-            methodName: step.methodName,
-            args: step.args,
-            gas: step.gas,
-            deposit: step.deposit,
-          },
-        })),
-      });
+      const payment = await sendSignedSpend((client) =>
+        client.socialSpend.buildClaimSeasonRewardTransaction({
+          seasonId: claim.seasonId,
+          amount: claim.amountYocto,
+          proof: claim.proof,
+        })
+      );
       const confirmed = await trackTransaction({
         txHashes: extractNearTransactionHashes(payment),
         submittedMessage: txToastConfirming.collectingSocial,
@@ -225,10 +237,8 @@ export function PortfolioRallySheet({
       });
       if (confirmed) {
         confirmSeasonClaim(seasonId);
-        await Promise.all([
-          refreshAppSocialBalanceAfterClaim(),
-          Promise.resolve(player.refresh()),
-        ]);
+        await refreshAppSocialBalanceAfterClaim();
+        player.refresh();
       }
     } catch (cause) {
       if (!isWalletUserCancellation(cause)) {
@@ -297,11 +307,6 @@ export function PortfolioRallySheet({
     return null;
   })();
 
-  const rankLabel = formatRallyRankLabel(player.standing?.rank);
-  const collectLabel = player.claim
-    ? formatSocialCompact(player.claim.amountYocto)
-    : '';
-
   return (
     <GlassSheet
       open={sheetOpen}
@@ -316,7 +321,7 @@ export function PortfolioRallySheet({
       peekRatio={1}
       zIndex={zIndex}
       ariaLabelledBy={titleId}
-      backdropLabel={`Close ${player.pageTitle}`}
+      backdropLabel="Close rally"
       bodyClassName={`profile-support-sheet-body ${osGestureSheetBodyClassName}`}
       header={
         <>
@@ -325,37 +330,29 @@ export function PortfolioRallySheet({
               <div className="standing-sheet-subject">
                 <div className="standing-sheet-subject-copy">
                   <p className="portfolio-payout-sheet-eyebrow">
-                    {player.pageTitle}
+                    {view.eyebrow}
                   </p>
                   <h2
                     id={titleId}
                     className="portfolio-payout-sheet-total portfolio-boost-sheet-title"
+                    aria-label={view.ariaLabel}
                   >
                     {!player.loaded ? (
                       <span
                         className="standing-row-shimmer portfolio-boost-shimmer-title"
                         aria-hidden
                       />
-                    ) : player.canCollect ? (
-                      <>
-                        <span className="portfolio-boost-sheet-title-amount">
-                          {collectLabel}
-                        </span>
-                        <span className="portfolio-payout-sheet-unit">
-                          SOCIAL to collect
-                        </span>
-                      </>
-                    ) : player.joined && rankLabel ? (
-                      <>
-                        <span className="portfolio-boost-sheet-title-amount">
-                          {rankLabel}
-                        </span>
-                        <span className="portfolio-payout-sheet-unit">
-                          {player.profileBadgeLabel}
-                        </span>
-                      </>
                     ) : (
-                      <span>{player.pageTitle}</span>
+                      <>
+                        <span className="portfolio-boost-sheet-title-amount">
+                          {view.title}
+                        </span>
+                        {view.titleUnit ? (
+                          <span className="portfolio-payout-sheet-unit">
+                            {view.titleUnit}
+                          </span>
+                        ) : null}
+                      </>
                     )}
                   </h2>
                 </div>
@@ -363,7 +360,7 @@ export function PortfolioRallySheet({
               <div className="standing-sheet-actions standing-sheet-actions--payout">
                 <SheetCloseButton
                   onClick={requestClose}
-                  ariaLabel={`Close ${player.pageTitle}`}
+                  ariaLabel="Close rally"
                 />
               </div>
             </div>
@@ -385,50 +382,21 @@ export function PortfolioRallySheet({
         <RallySheetLoadingSkeleton />
       ) : (
         <div className="portfolio-boost-view">
-          {player.canCollect ? (
-            <p className="portfolio-boost-intro">
-              Your {player.pageTitle} place is ready to collect.
-            </p>
-          ) : player.claim?.claimed ? (
-            <p className="portfolio-boost-intro">SOCIAL collected.</p>
-          ) : player.joined ? (
-            <p className="portfolio-boost-intro">
-              {rankLabel ? `${rankLabel} · ` : ''}
-              {player.standing
-                ? `${player.standing.score.toLocaleString('en-US')} points.`
-                : `You're in ${player.pageTitle}.`}
-            </p>
-          ) : player.phase === 'live' ? (
-            <p className="portfolio-boost-intro">
-              {player.joinMinLabel
-                ? `Spend ${player.joinMinLabel} SOCIAL to join ${player.pageTitle}.`
-                : `Join ${player.pageTitle}.`}
-            </p>
-          ) : player.phase === 'claim_open' ? (
-            <p className="portfolio-boost-intro">
-              {isConnected
-                ? `No SOCIAL to collect from ${player.pageTitle}.`
-                : `Claim is open. Connect to collect if you placed.`}
-            </p>
-          ) : (
-            <p className="portfolio-boost-intro">
-              {player.pageTitle} is closed.
-            </p>
-          )}
+          <p className="portfolio-boost-intro">{view.body}</p>
 
           {isConnected &&
           player.phase === 'live' &&
           !player.joined &&
           shortfallYocto > 0n ? (
             <p className="profile-support-error" role="alert">
-              Need {yoctoToSocial(shortfallYocto)} more SOCIAL.
+              Need {formatSocialCompact(shortfallYocto)} more SOCIAL.
             </p>
           ) : null}
 
-          {seasonId ? (
+          {player.seasonId ? (
             <a
               className="portfolio-rally-standings-link"
-              href={rallyPortalPath(seasonId)}
+              href={rallyPortalPath(player.seasonId)}
               target="_blank"
               rel="noreferrer"
             >

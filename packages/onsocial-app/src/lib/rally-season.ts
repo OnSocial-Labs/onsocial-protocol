@@ -207,6 +207,110 @@ export function formatRallyMarkCaption(input: {
   return formatRallyRankLabel(input.rank);
 }
 
+export type RallySheetView = {
+  eyebrow: string;
+  title: string;
+  titleUnit: string | null;
+  body: string;
+  ariaLabel: string;
+};
+
+/** Number-first sheet copy — Boost collect hierarchy, one season name max. */
+export function resolveRallySheetView(input: {
+  loaded: boolean;
+  pageTitle: string;
+  phase: RallyLifecyclePhase | null;
+  joined: boolean;
+  rank?: number | null;
+  canCollect: boolean;
+  collectYocto?: string | null;
+  collected: boolean;
+  joinMinLabel?: string | null;
+  isConnected: boolean;
+}): RallySheetView {
+  const eyebrow = 'Rally';
+  const pageTitle = input.pageTitle.trim() || 'OnSocial Rally';
+
+  if (!input.loaded) {
+    return {
+      eyebrow,
+      title: '',
+      titleUnit: null,
+      body: '',
+      ariaLabel: 'Loading rally',
+    };
+  }
+
+  if (input.canCollect) {
+    const amount = formatRallyMarkCaption({
+      collectYocto: input.collectYocto,
+    });
+    return {
+      eyebrow,
+      title: amount || pageTitle,
+      titleUnit: amount ? 'SOCIAL' : null,
+      body: 'Ready to collect.',
+      ariaLabel: amount
+        ? `${amount} SOCIAL ready to collect`
+        : `${pageTitle} ready to collect`,
+    };
+  }
+
+  if (input.collected) {
+    return {
+      eyebrow,
+      title: pageTitle,
+      titleUnit: null,
+      body: 'SOCIAL collected.',
+      ariaLabel: `${pageTitle} collected`,
+    };
+  }
+
+  if (input.joined) {
+    const rank = formatRallyRankLabel(input.rank);
+    return {
+      eyebrow,
+      title: rank || pageTitle,
+      titleUnit: null,
+      body: pageTitle,
+      ariaLabel: rank ? `${rank} in ${pageTitle}` : `You're in ${pageTitle}`,
+    };
+  }
+
+  if (input.phase === 'live') {
+    const min = input.joinMinLabel?.trim() || '';
+    return {
+      eyebrow,
+      title: 'Join',
+      titleUnit: min ? `${min} SOCIAL` : null,
+      body: min
+        ? `Spend ${min} SOCIAL to enter ${pageTitle}.`
+        : `Join ${pageTitle}.`,
+      ariaLabel: min ? `Join ${pageTitle} · ${min} SOCIAL` : `Join ${pageTitle}`,
+    };
+  }
+
+  if (input.phase === 'claim_open') {
+    return {
+      eyebrow,
+      title: pageTitle,
+      titleUnit: null,
+      body: input.isConnected
+        ? 'Nothing to collect.'
+        : 'Connect to collect if you placed.',
+      ariaLabel: pageTitle,
+    };
+  }
+
+  return {
+    eyebrow,
+    title: pageTitle,
+    titleUnit: null,
+    body: `${pageTitle} is closed.`,
+    ariaLabel: pageTitle,
+  };
+}
+
 export async function fetchRallyRegistry(): Promise<RallyRegistrySnapshot | null> {
   const response = await fetch('/api/seasons/registry', { cache: 'no-store' });
   if (!response.ok) return null;

@@ -7,6 +7,7 @@ import {
   resolveRallyLifecyclePhase,
   resolveRallyOccasion,
   resolveRallyPresentation,
+  resolveRallySheetView,
 } from '@/lib/rally-season';
 
 describe('rally-season', () => {
@@ -95,5 +96,69 @@ describe('rally-season', () => {
       })
     ).toBe('1,500');
     expect(formatRallyMarkCaption({ rank: 12 })).toBe('#12');
+  });
+
+  it('keeps the sheet number-first', () => {
+    expect(
+      resolveRallySheetView({
+        loaded: true,
+        pageTitle: 'OnSocial Rally #4',
+        phase: 'claim_open',
+        joined: false,
+        canCollect: true,
+        collectYocto: '1500000000000000000000',
+        collected: false,
+        isConnected: true,
+      })
+    ).toEqual({
+      eyebrow: 'Rally',
+      title: '1,500',
+      titleUnit: 'SOCIAL',
+      body: 'Ready to collect.',
+      ariaLabel: '1,500 SOCIAL ready to collect',
+    });
+    expect(
+      resolveRallySheetView({
+        loaded: true,
+        pageTitle: 'OnSocial Rally #4',
+        phase: 'live',
+        joined: true,
+        rank: 12,
+        canCollect: false,
+        collected: false,
+        isConnected: true,
+      })
+    ).toMatchObject({
+      eyebrow: 'Rally',
+      title: '#12',
+      body: 'OnSocial Rally #4',
+    });
+    expect(
+      resolveRallySheetView({
+        loaded: true,
+        pageTitle: 'OnSocial Rally #4',
+        phase: 'live',
+        joined: false,
+        canCollect: false,
+        collected: false,
+        joinMinLabel: '10',
+        isConnected: true,
+      })
+    ).toMatchObject({
+      eyebrow: 'Rally',
+      title: 'Join',
+      titleUnit: '10 SOCIAL',
+    });
+    expect(
+      resolveRallySheetView({
+        loaded: true,
+        pageTitle: 'OnSocial Rally #4',
+        phase: 'claim_open',
+        joined: false,
+        canCollect: false,
+        collected: false,
+        isConnected: false,
+      }).body
+    ).toBe('Connect to collect if you placed.');
   });
 });

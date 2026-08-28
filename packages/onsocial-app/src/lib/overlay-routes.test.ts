@@ -8,6 +8,7 @@ import {
   parsePortfolioSheetParam,
   portfolioBoostPath,
   portfolioCollectiblesPath,
+  homeRallyPath,
   portfolioRallyPath,
   portfolioFeedPath,
   resolveOverlayPanelChrome,
@@ -52,6 +53,7 @@ describe('portfolioRallyPath', () => {
     expect(portfolioRallyPath('alice.testnet')).toBe(
       '/@alice.testnet?sheet=rally'
     );
+    expect(homeRallyPath()).toBe('/home?sheet=rally');
   });
 });
 

@@ -37,9 +37,7 @@ import {
   osLauncherDotClassName,
   resolveBackdropPresentation,
   resolvePanelPresentation,
-  OsIconAction,
   SheetCloseButton,
-  StarsCFillIcon,
   usePrefersReducedTransparency,
   useScrollLock,
 } from '@onsocial/ui';
@@ -74,6 +72,7 @@ import {
 } from '@/lib/os-apps';
 import { OsAppIcon } from '@/lib/os-app-icons';
 import { osAppAccent } from '@/lib/os-app-accents';
+import { RallyLauncherMark } from '@/features/rally/rally-launcher-mark';
 import { useRallySheetOptional } from '@/features/rally/rally-sheet-host';
 import { useCommunityAppCatalog } from '@/hooks/use-community-app-catalog';
 import { portalHref } from '@/lib/app-links';
@@ -605,21 +604,15 @@ export function SummonLauncher({
                     </div>
                     <div className="standing-sheet-actions">
                       {rally?.mark.visible ? (
-                        <OsIconAction
-                          className={`os-launcher-rally-mark${
-                            rally.mark.nudge ? ' is-nudge' : ''
-                          }`}
+                        <RallyLauncherMark
+                          label={rally.mark.label}
+                          nudge={rally.mark.nudge}
                           ariaLabel={rally.mark.ariaLabel}
                           onClick={() => {
                             closeLauncher();
                             rally.openRallySheet();
                           }}
-                        >
-                          <StarsCFillIcon
-                            className="glass-sheet-icon-action-glyph"
-                            aria-hidden
-                          />
-                        </OsIconAction>
+                        />
                       ) : null}
                       <SheetCloseButton
                         onClick={closeLauncher}
