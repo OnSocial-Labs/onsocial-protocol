@@ -314,8 +314,7 @@ function useSheetFocusTrap(
     const preferredTarget = focusables.find(
       (element) => !element.closest('[data-sheet-initial-focus-skip]')
     );
-    const initialTarget =
-      autoFocusTarget ?? preferredTarget ?? panel;
+    const initialTarget = autoFocusTarget ?? preferredTarget ?? panel;
     if (initialTarget === panel) {
       panel.tabIndex = -1;
     }
