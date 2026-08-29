@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CommunityDiscoverRow } from '@/components/community-cards';
 import { ListLoadError } from '@/components/panels/list-load-error';
-import { DiscoverBrowseChipRail } from '@/features/discover/discover-browse-chip-rail';
+import { OsChipRail } from '@/components/os/os-chip-rail';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import {
   fetchMostLovedScarcePeeks,
@@ -231,12 +231,15 @@ export function DiscoverHubsPanel() {
         )}
       </DiscoverTabLead>
 
-      <DiscoverBrowseChipRail
-        ariaLabel="Browse hubs by category"
-        options={browseOptions}
-        value={activeCategoryFilter}
-        onChange={(next) => setCategoryFilter(next as HubCategoryFilter)}
-      />
+      {browseOptions.length > 1 ? (
+        <OsChipRail
+          variant="browse"
+          ariaLabel="Browse hubs by category"
+          items={browseOptions}
+          value={activeCategoryFilter}
+          onValueChange={(next) => setCategoryFilter(next as HubCategoryFilter)}
+        />
+      ) : null}
 
       {error ? <ListLoadError message={error} onRetry={retry} /> : null}
 

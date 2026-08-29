@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ListLoadError } from '@/components/panels/list-load-error';
-import { DiscoverBrowseChipRail } from '@/features/discover/discover-browse-chip-rail';
+import { OsChipRail } from '@/components/os/os-chip-rail';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-search';
@@ -302,12 +302,15 @@ export function DiscoverGuildsPanel() {
         )}
       </DiscoverTabLead>
 
-      <DiscoverBrowseChipRail
-        ariaLabel="Browse guilds by topic"
-        options={browseOptions}
-        value={activeTopicFilter}
-        onChange={(next) => setTopicFilter(next as DiscoverTopicFilter)}
-      />
+      {browseOptions.length > 1 ? (
+        <OsChipRail
+          variant="browse"
+          ariaLabel="Browse guilds by topic"
+          items={browseOptions}
+          value={activeTopicFilter}
+          onValueChange={(next) => setTopicFilter(next as DiscoverTopicFilter)}
+        />
+      ) : null}
 
       {error ? <ListLoadError message={error} onRetry={retry} /> : null}
 
