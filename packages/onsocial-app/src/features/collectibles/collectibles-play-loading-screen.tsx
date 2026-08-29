@@ -7,6 +7,7 @@ export function CollectiblesPlayLoadingScreen() {
   return (
     <OsAppScreen
       title="Player"
+      dockBack
       backFallbackHref={APP_COLLECTIBLES_PATH}
       immersiveHeader
     >

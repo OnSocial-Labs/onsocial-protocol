@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ArrowLeftIcon } from '@onsocial/ui';
+import { ChevronLeftIcon } from '@onsocial/ui';
+import { resolveOsLeave } from '@/lib/os-leave';
 
 interface OsDockBackZoneProps {
   fallbackHref: string;
@@ -11,7 +12,7 @@ interface OsDockBackZoneProps {
   variant?: 'segment' | 'stacked';
 }
 
-/** Leading summon segment — mirrors header contextual back. */
+/** Leading summon segment — leave this place (parent), not browser history. */
 export function OsDockBackZone({
   fallbackHref,
   ariaLabel = 'Back',
@@ -28,18 +29,15 @@ export function OsDockBackZone({
       }`}
       aria-label={ariaLabel}
       onClick={() => {
-        if (onBack) {
-          onBack();
+        const leave = resolveOsLeave({ onBack, fallbackHref });
+        if (leave.kind === 'callback') {
+          onBack?.();
           return;
         }
-        if (typeof window !== 'undefined' && window.history.length > 1) {
-          router.back();
-        } else {
-          router.push(fallbackHref);
-        }
+        router.push(leave.href);
       }}
     >
-      <ArrowLeftIcon className="portfolio-summon-back-icon" aria-hidden />
+      <ChevronLeftIcon className="portfolio-summon-back-icon" aria-hidden />
     </button>
   );
 }

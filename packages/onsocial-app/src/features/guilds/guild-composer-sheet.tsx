@@ -12,7 +12,7 @@ import {
 } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import {
-  ArrowLeftIcon,
+  ChevronLeftIcon,
   ChartVerticalFillIcon,
   ChartVerticalIcon,
   ImageFillIcon,
@@ -1276,7 +1276,7 @@ export function ComposerSheet({
             disabled={pending}
             onClick={requestClose}
           >
-            <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
+            <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
           </OsIconAction>
         }
         heading={showModeRail ? modeChipRail : undefined}

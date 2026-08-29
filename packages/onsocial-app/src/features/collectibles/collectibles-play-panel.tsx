@@ -421,6 +421,7 @@ export function CollectiblesPlayPanel({
   return (
     <OsAppScreen
       title={screenTitle}
+      dockBack
       backFallbackHref={APP_COLLECTIBLES_PATH}
       immersiveHeader={immersive}
       headerElevated={immersive ? headerElevated : false}

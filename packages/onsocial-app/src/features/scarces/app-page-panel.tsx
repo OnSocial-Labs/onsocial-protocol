@@ -424,7 +424,7 @@ export function AppPagePanel({
 
   if (notFound && !app) {
     return (
-      <OsAppScreen title="Hub" backFallbackHref={APP_APPS_PATH}>
+      <OsAppScreen title="Hub" dockBack backFallbackHref={APP_APPS_PATH}>
         <div className="market-page">
           <p className="market-page-status">
             This hub isn&rsquo;t available.{' '}
@@ -439,7 +439,12 @@ export function AppPagePanel({
 
   if (!app) {
     return (
-      <OsAppScreen title="Hub" backFallbackHref={APP_APPS_PATH} immersiveHeader>
+      <OsAppScreen
+        title="Hub"
+        dockBack
+        backFallbackHref={APP_APPS_PATH}
+        immersiveHeader
+      >
         <div className="app-page" aria-busy="true">
           <div className="app-hub-cover guild-hero-cover--fallback" />
           <p className="sr-only">Loading hub…</p>
@@ -459,6 +464,7 @@ export function AppPagePanel({
   return (
     <OsAppScreen
       title={app.title}
+      dockBack
       backFallbackHref={APP_APPS_PATH}
       actions={
         showSettingsGear ? (

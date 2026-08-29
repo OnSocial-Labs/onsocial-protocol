@@ -16,6 +16,7 @@ import {
   useWriteDockMorph,
 } from '@/contexts/compose-launcher-context';
 import {
+  resolveDockBackVisible,
   useDockBack,
   type DockBackRegistration,
 } from '@/contexts/dock-chrome-context';
@@ -87,7 +88,12 @@ export function PortfolioSummonDock({
   const [osOpen, setOsOpen] = useState(false);
   const [showHint, setShowHint] = useState(readDockHintPending);
   const [openPinned, setOpenPinned] = useState(false);
-  const showDockBack = !osOpen && !write;
+  const showDockBack =
+    !write &&
+    resolveDockBackVisible({
+      dockBack,
+      launcherOpen: osOpen,
+    });
 
   const previewPinned = isPreviewingMood || isPreviewingFace;
 

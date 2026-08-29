@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import {
   GiftFillIcon,
-  OsAppChromeNavSearch,
   OsIconAction,
   ShopFillIcon,
 } from '@onsocial/ui';
+import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { APP_MARKET_PATH } from '@/lib/app-routes';
 
 interface DropsSearchHeadingProps {

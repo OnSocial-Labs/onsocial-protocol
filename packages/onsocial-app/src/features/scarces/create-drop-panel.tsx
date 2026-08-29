@@ -14,7 +14,7 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AmountFieldMetaRow,
-  ArrowLeftIcon,
+  ChevronLeftIcon,
   DiscardConfirmSheet,
   OsSheetAction,
   OsSheetActions,
@@ -2337,6 +2337,7 @@ export function CreateDropPanel() {
   return (
     <OsAppScreen
       title={studioOpen ? 'Design your set' : appId || 'New drop'}
+      dockBack={!studioOpen}
       backFallbackHref={appId ? appPath(appId) : APP_MARKET_PATH}
       compactChrome
       glassChrome
@@ -2458,7 +2459,7 @@ export function CreateDropPanel() {
               setStudioOpen(false);
             }}
           >
-            <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
+            <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
           </OsIconAction>
         ) : undefined
       }

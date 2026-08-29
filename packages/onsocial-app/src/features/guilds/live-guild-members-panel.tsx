@@ -64,6 +64,7 @@ export function LiveGuildMembersPanel({
           ? 'Loading members…'
           : `${members.length} ${members.length === 1 ? 'member' : 'members'}`
       }
+      dockBack
       backFallbackHref={guildPath(groupId)}
     >
       <GuildMembersRoster

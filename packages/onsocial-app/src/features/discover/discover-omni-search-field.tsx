@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { OnSocialMark, OsAppChromeNavSearch } from '@onsocial/ui';
+import { OnSocialMark } from '@onsocial/ui';
+import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import {
   classifyDiscoverSearch,
   isDiscoverTopicDraft,

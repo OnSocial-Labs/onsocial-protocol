@@ -99,7 +99,12 @@ export function CommunityHandoffPanel() {
   }, [appId, getClient, publicKey, setTxResult, trackTransaction]);
 
   return (
-    <OsAppScreen title="Continue" backFallbackHref={APP_HOME_PATH} glassChrome>
+    <OsAppScreen
+      title="Continue"
+      dockBack
+      backFallbackHref={APP_HOME_PATH}
+      glassChrome
+    >
       <OsAppChromePage>
         {!appId ? (
           <OsAppChromePageStatus>

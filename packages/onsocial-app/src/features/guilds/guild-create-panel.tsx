@@ -160,6 +160,7 @@ export function GuildCreatePanel() {
   return (
     <OsAppScreen
       title="Create guild"
+      dockBack
       backFallbackHref="/groups"
       glassChrome
       actions={

@@ -31,6 +31,7 @@ export function LiveGuildSettingsPanel({
     <OsAppScreen
       title="Guild settings"
       subtitle="Edit identity and rooms from the sheet."
+      dockBack
       backFallbackHref={guildPath(groupId)}
     >
       <GuildEditSheet

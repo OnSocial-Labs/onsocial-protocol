@@ -87,6 +87,7 @@ export function HubsIndexPanel() {
   return (
     <OsAppScreen
       title="Hubs"
+      dockBack
       backFallbackHref="/"
       glassChrome
       actions={headerActions}

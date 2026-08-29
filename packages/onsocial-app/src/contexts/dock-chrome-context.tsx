@@ -23,12 +23,20 @@ interface DockChromeContextValue {
 
 const DockChromeContext = createContext<DockChromeContextValue | null>(null);
 
+/** Dock leave stays visible unless the launcher is open. */
+export function resolveDockBackVisible({
+  dockBack,
+  launcherOpen,
+}: {
+  dockBack: unknown;
+  launcherOpen: boolean;
+}): boolean {
+  return Boolean(dockBack) && !launcherOpen;
+}
+
 export function DockChromeProvider({ children }: { children: ReactNode }) {
   const [dockBack, setDockBack] = useState<DockBackRegistration | null>(null);
-  const value = useMemo(
-    () => ({ dockBack, setDockBack }),
-    [dockBack]
-  );
+  const value = useMemo(() => ({ dockBack, setDockBack }), [dockBack]);
   return (
     <DockChromeContext.Provider value={value}>
       {children}

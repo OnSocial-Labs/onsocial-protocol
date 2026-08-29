@@ -666,7 +666,7 @@ export function CollectionPagePanel({
 
   if (notFound || !view) {
     return (
-      <OsAppScreen title="Drop" backFallbackHref={APP_MARKET_PATH}>
+      <OsAppScreen title="Drop" dockBack backFallbackHref={APP_MARKET_PATH}>
         <div className="market-page">
           <p className="market-page-status">
             This drop isn’t available.{' '}
@@ -787,6 +787,7 @@ export function CollectionPagePanel({
   return (
     <OsAppScreen
       title={view.title}
+      dockBack
       backFallbackHref={APP_MARKET_PATH}
       immersiveHeader={immersive}
       headerElevated={immersive ? headerElevated : false}

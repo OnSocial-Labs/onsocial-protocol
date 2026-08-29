@@ -17,6 +17,7 @@ import {
   RallySheetProvider,
 } from '@/features/rally/rally-sheet-host';
 import { ComposeLauncherProvider } from '@/contexts/compose-launcher-context';
+import { OsArrivalSync } from '@/components/app/os-arrival-sync';
 import { DockChromeProvider } from '@/contexts/dock-chrome-context';
 import {
   OsPortalHostProvider,
@@ -67,6 +68,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                     <PortfolioCustomizeProvider>
                       <ComposeLauncherProvider>
                         <DockChromeProvider>
+                        <OsArrivalSync />
                         <OsPortalHostProvider>
                           <OsGlassSheetPortalBridge>
                             <RallySheetProvider>

@@ -203,6 +203,7 @@ export function DaosIndexPanel() {
   return (
     <OsAppScreen
       title="DAOs"
+      dockBack
       backFallbackHref="/"
       glassChrome
       actions={headerActions}

@@ -12,7 +12,7 @@
  * - `.os-app-chrome-scroller` — edge-rail overflow (no horizontal padding)
  * - `.os-app-chrome-scroller-inset` — same horizontal inset as `.home-feed`
  * - `.os-app-chrome-panel-flush` — flush rails when nested; inset on scroller
- * - `.os-app-chrome-nav-search*` — compact heading search (mobile expand)
+ * - `.os-app-chrome-nav-search*` — compact heading search pill
  * - `.os-app-chrome-rail` — one-line toolbar row (scroll tuck)
  */
 

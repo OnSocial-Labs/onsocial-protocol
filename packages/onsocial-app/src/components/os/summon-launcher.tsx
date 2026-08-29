@@ -47,7 +47,10 @@ import {
   useWriteDockPinned,
   useWriteDockMorph,
 } from '@/contexts/compose-launcher-context';
-import { useDockBack } from '@/contexts/dock-chrome-context';
+import {
+  resolveDockBackVisible,
+  useDockBack,
+} from '@/contexts/dock-chrome-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
 import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
 import { useNotificationsUnreadCount } from '@/components/providers/notifications-host';
@@ -261,7 +264,10 @@ export function SummonLauncher({
   const write = compose?.type === 'write' ? compose.entry : null;
   const dockHidden =
     useDockAutoHide(open || writePinned || Boolean(write)) && !open;
-  const showDockBack = Boolean(dockBack) && !open;
+  const showDockBack = resolveDockBackVisible({
+    dockBack,
+    launcherOpen: open,
+  });
   const portalHost = useOsPortalHost();
   const clientMounted = useSyncExternalStore(
     clientMountedSubscribe,

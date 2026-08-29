@@ -343,6 +343,7 @@ export function TicketDoorPagePanel({
     <OsAppScreen
       title={screenTitle}
       subtitle={screenSubtitle}
+      dockBack
       backFallbackHref={dropHref}
       glassChrome
       footer={footer}

@@ -1130,6 +1130,7 @@ export function LiveGuildPostPanel({
     <OsAppScreen
       title={guildDisplayName(guildName, groupId)}
       titleHref={guildPath(groupId)}
+      dockBack
       backFallbackHref={guildPath(groupId)}
       actions={membershipActions}
     >

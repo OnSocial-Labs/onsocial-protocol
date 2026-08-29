@@ -95,6 +95,7 @@ export function LiveGuildsIndexPanel() {
   return (
     <OsAppScreen
       title="Guilds"
+      dockBack
       backFallbackHref="/"
       glassChrome
       actions={headerActions}
