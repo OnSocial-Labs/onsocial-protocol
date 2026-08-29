@@ -14,7 +14,7 @@ import {
   OsSheetAction,
   OsSheetActions,
 } from '@onsocial/ui';
-import type { MarketAudioFormatFilter } from '@/features/market/market-facet-rail';
+import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
   MARKET_MEDIUM_FILTERS,
   type MarketMediumFilter,

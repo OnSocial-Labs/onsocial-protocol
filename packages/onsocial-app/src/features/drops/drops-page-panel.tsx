@@ -31,7 +31,7 @@ import {
   type UpcomingBucket,
 } from '@/features/drops/drops-data';
 import { OsChipRail } from '@/components/os/os-chip-rail';
-import type { MarketAudioFormatFilter } from '@/features/market/market-facet-rail';
+import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import { MarketFilterMenu } from '@/features/market/market-filter-menu';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {

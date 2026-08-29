@@ -8130,48 +8130,6 @@ a.os-surface-row {
     padding-top: 0.5rem;
   }
 
-  .panel-page-header {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .panel-page-heading {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  .panel-page-heading-copy {
-    min-width: 0;
-    flex: 1;
-  }
-
-  .panel-page-heading-actions {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-  }
-
-  .panel-page-toolbar {
-    min-width: 0;
-  }
-
-  .panel-page-toolbar .standing-sheet-header {
-    max-width: 42rem;
-  }
-
-  .panel-page-toolbar .standing-sheet-toolbar-row {
-    padding-right: 0;
-  }
-
-  .panel-back {
-    font-size: 0.82rem;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
-
   .panel-page-title {
     font-size: clamp(1.6rem, 4vw, 2rem);
     letter-spacing: -0.04em;
@@ -11220,58 +11178,6 @@ a.os-surface-row {
   }
 
   /* ── Page content drawer (sections inside GlassSheet) ─── */
-
-  .page-drawer-jump {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.28rem;
-    padding: 0.05rem 0 0;
-  }
-
-  .page-drawer-jump-chip {
-    margin: 0;
-    border: 0;
-    border-radius: 9999px;
-    min-height: 1.85rem;
-    padding: 0.32rem 0.62rem;
-    background: rgb(var(--fg-rgb) / 0.05);
-    color: rgb(var(--fg-rgb) / 0.55);
-    font: inherit;
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    cursor: pointer;
-    transition:
-      background 160ms ease,
-      color 160ms ease;
-  }
-
-  .page-drawer-jump-chip:hover,
-  .page-drawer-jump-chip:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.085);
-    color: rgb(var(--fg-rgb) / 0.92);
-    outline: none;
-  }
-
-  .page-drawer-jump-chip.is-active {
-    background: rgb(var(--fg-rgb) / 0.12);
-    color: rgb(var(--fg-rgb) / 0.94);
-  }
-
-  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-jump-chip.is-active {
-    background: color-mix(
-      in srgb,
-      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.2)))
-        14%,
-      rgb(var(--fg-rgb) / 0.07)
-    );
-    color: color-mix(
-      in srgb,
-      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.7)))
-        36%,
-      var(--mood-text, rgb(var(--fg-rgb) / 0.92))
-    );
-  }
 
   .glass-sheet-panel > .page-drawer-header {
     position: relative;
@@ -27661,17 +27567,6 @@ a.os-surface-row {
   .market-listing-filters {
     flex: 1 1 auto;
     min-width: 0;
-    margin: 0;
-  }
-
-  .market-facet-rail {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    min-width: 0;
-  }
-
-  .market-facet-rail-row {
     margin: 0;
   }
 
