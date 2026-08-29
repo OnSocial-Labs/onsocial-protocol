@@ -1,6 +1,6 @@
 'use client';
 
-import { SheetCloseButton } from '@onsocial/ui';
+import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { useOverlayDismiss } from '@/contexts/overlay-dismiss-context';
 import {
   DiscoverHeaderTabs,
@@ -14,14 +14,15 @@ export function DiscoverSheetHeader() {
   const showClose = shellVariant === 'overlay';
 
   return (
-    <div className="standing-sheet-header discover-sheet-header">
-      <div className="discover-sheet-nav-row">
-        <DiscoverNavSearch className="discover-nav-search-field standing-list-toolbar-search" />
-        {showClose ? (
-          <SheetCloseButton onClick={close} ariaLabel="Close Discover" />
-        ) : null}
-      </div>
-      <DiscoverHeaderTabs />
-    </div>
+    <SheetChromeHeader
+      className="discover-sheet-header"
+      rowClassName="discover-sheet-nav-row"
+      onClose={showClose ? close : undefined}
+      closeAriaLabel="Close Discover"
+      toolbar={<DiscoverHeaderTabs />}
+      toolbarClassName={null}
+    >
+      <DiscoverNavSearch className="discover-nav-search-field standing-list-toolbar-search" />
+    </SheetChromeHeader>
   );
 }

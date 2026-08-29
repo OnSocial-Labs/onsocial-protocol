@@ -2,10 +2,10 @@
 
 import { useCallback, useId, useState } from 'react';
 import {  GlassSheet,
-  SheetCloseButton,
   osGestureSheetBodyClassName,
   useScrollLock,
 } from '@onsocial/ui';
+import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
@@ -322,47 +322,43 @@ export function PortfolioRallySheet({
       backdropLabel="Close rally"
       bodyClassName={`profile-support-sheet-body ${osGestureSheetBodyClassName}`}
       header={
-        <>
-          <div className="standing-sheet-header portfolio-support-collect-info-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <p className="portfolio-payout-sheet-eyebrow">
-                    {view.eyebrow}
-                  </p>
-                  <h2
-                    id={titleId}
-                    className="portfolio-payout-sheet-total portfolio-boost-sheet-title"
-                    aria-label={view.ariaLabel}
-                  >
-                    {!player.loaded ? (
-                      <span
-                        className="standing-row-shimmer portfolio-boost-shimmer-title"
-                        aria-hidden
-                      />
-                    ) : (
-                      <>
-                        <span className="portfolio-boost-sheet-title-amount">
-                          {view.title}
-                        </span>
-                        {view.titleUnit ? (
-                          <span className="portfolio-payout-sheet-unit">
-                            {view.titleUnit}
-                          </span>
-                        ) : null}
-                      </>
-                    )}
-                  </h2>
-                </div>
-              </div>
-              <div className="standing-sheet-actions standing-sheet-actions--payout">
-                <SheetCloseButton
-                  onClick={requestClose}
-                  ariaLabel="Close rally"
-                />
-              </div>
+        <SheetChromeHeader
+          className="portfolio-support-collect-info-header"
+          actionsClassName="standing-sheet-actions--payout"
+          onClose={requestClose}
+          closeAriaLabel="Close rally"
+        >
+          <div className="standing-sheet-subject">
+            <div className="standing-sheet-subject-copy">
+              <p className="portfolio-payout-sheet-eyebrow">
+                {view.eyebrow}
+              </p>
+              <h2
+                id={titleId}
+                className="portfolio-payout-sheet-total portfolio-boost-sheet-title"
+                aria-label={view.ariaLabel}
+              >
+                {!player.loaded ? (
+                  <span
+                    className="standing-row-shimmer portfolio-boost-shimmer-title"
+                    aria-hidden
+                  />
+                ) : (
+                  <>
+                    <span className="portfolio-boost-sheet-title-amount">
+                      {view.title}
+                    </span>
+                    {view.titleUnit ? (
+                      <span className="portfolio-payout-sheet-unit">
+                        {view.titleUnit}
+                      </span>
+                    ) : null}
+                  </>
+                )}
+              </h2>
             </div>
-          </div>        </>
+          </div>
+        </SheetChromeHeader>
       }
       footer={
         footerState ? (

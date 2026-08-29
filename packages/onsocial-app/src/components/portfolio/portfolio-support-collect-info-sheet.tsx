@@ -13,11 +13,11 @@ import {
   ChevronDownIcon,
   Divider,
   GlassSheet,
-  SheetCloseButton,
   osHugSheetBodyClassName,
   useScrollLock,
 } from '@onsocial/ui';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
+import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { PortfolioPayoutKindFilters } from '@/components/portfolio/portfolio-payout-kind-filters';
 import { StandingIdentity } from '@onsocial/ui';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
@@ -338,38 +338,33 @@ export function PortfolioSupportCollectInfoSheet({
       panelClassName="portfolio-support-collect-info-panel os-sheet-cap-standard"
       panelStyle={panelStyle}
       header={
-        <>
-          <div className="standing-sheet-header portfolio-support-collect-info-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <p className="portfolio-payout-sheet-eyebrow">Support</p>
-                  <h2 id={titleId} className="portfolio-payout-sheet-total">
-                    {claimableLabel}{' '}
-                    <span className="portfolio-payout-sheet-unit">SOCIAL</span>
-                  </h2>
-                  {kindTotals.length > 0 ? (
-                    <PortfolioPayoutKindFilters
-                      parts={kindTotals.map((entry) => ({
-                        id: entry.action,
-                        label: entry.label,
-                        amountLabel: entry.amountLabel,
-                      }))}
-                      active={kindFilter}
-                      onChange={setKindFilter}
-                      ariaLabel="Filter support by kind"
-                    />
-                  ) : null}
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton
-                  onClick={requestClose}
-                  ariaLabel="Close support"
+        <SheetChromeHeader
+          className="portfolio-support-collect-info-header"
+          onClose={requestClose}
+          closeAriaLabel="Close support"
+        >
+          <div className="standing-sheet-subject">
+            <div className="standing-sheet-subject-copy">
+              <p className="portfolio-payout-sheet-eyebrow">Support</p>
+              <h2 id={titleId} className="portfolio-payout-sheet-total">
+                {claimableLabel}{' '}
+                <span className="portfolio-payout-sheet-unit">SOCIAL</span>
+              </h2>
+              {kindTotals.length > 0 ? (
+                <PortfolioPayoutKindFilters
+                  parts={kindTotals.map((entry) => ({
+                    id: entry.action,
+                    label: entry.label,
+                    amountLabel: entry.amountLabel,
+                  }))}
+                  active={kindFilter}
+                  onChange={setKindFilter}
+                  ariaLabel="Filter support by kind"
                 />
-              </div>
+              ) : null}
             </div>
-          </div>        </>
+          </div>
+        </SheetChromeHeader>
       }
       footer={
         footerState ? (
