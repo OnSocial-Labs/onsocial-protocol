@@ -1723,6 +1723,27 @@ a.os-surface-row {
   }
 }
 
+/*
+ * App-to-app hop — subtle fade on the (app) template, keyed per pathname.
+ * Opacity-only: transform would re-contain the fixed dock mid-animation.
+ */
+@keyframes os-page-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .os-page-enter {
+    animation: os-page-enter var(--os-motion-chrome, 220ms)
+      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1));
+  }
+}
+
 @keyframes breathe {
   0%,
   100% {
