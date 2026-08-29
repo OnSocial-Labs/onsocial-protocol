@@ -15,7 +15,6 @@ import {
 } from 'react';
 import {
   AmountFieldMetaRow,  GlassSheet,
-  SheetCloseButton,
   TokenIcon,
   osGestureSheetBodyClassName,
   useScrollLock,
@@ -28,6 +27,7 @@ import {
 import { AmountField } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
+import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import {
   applyLockBonus,
   BOOST_ADJUST_GAS,
@@ -810,61 +810,59 @@ export function PortfolioBoostSheet({
       backdropLabel="Close boost"
       bodyClassName={`profile-support-sheet-body ${osGestureSheetBodyClassName}`}
       header={
-        <>
-          <div className="standing-sheet-header portfolio-support-collect-info-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <p className="portfolio-payout-sheet-eyebrow">Boost</p>
-                  <h2
-                    id={titleId}
-                    className="portfolio-payout-sheet-total portfolio-boost-sheet-title"
-                    aria-label={
-                      !loaded
-                        ? 'Loading boost'
-                        : hasPosition
-                          ? `${formatSocialCompact(lockedYocto)} SOCIAL locked`
-                          : 'Lock SOCIAL'
-                    }
-                  >
-                    {!loaded ? (
-                      <span
-                        className="standing-row-shimmer portfolio-boost-shimmer-title"
-                        aria-hidden
-                      />
-                    ) : hasPosition ? (
-                      <>
-                        <span
-                          className="portfolio-boost-sheet-title-amount"
-                          aria-hidden
-                        >
-                          {formatSocialCompact(lockedYocto)}
-                        </span>
-                        <span
-                          className="portfolio-payout-sheet-unit"
-                          aria-hidden
-                        >
-                          SOCIAL locked
-                        </span>
-                      </>
-                    ) : (
-                      <span aria-hidden>Lock SOCIAL</span>
-                    )}
-                  </h2>
-                </div>
-              </div>
-              <div className="standing-sheet-actions standing-sheet-actions--payout">
-                <LeaderboardChartAction
-                  track="influence"
-                  ariaLabel="Open influence leaderboard"
-                />
-                <SheetCloseButton
-                  onClick={requestClose}
-                  ariaLabel="Close boost"
-                />
-              </div>
+        <SheetChromeHeader
+          className="portfolio-support-collect-info-header"
+          actionsClassName="standing-sheet-actions--payout"
+          actions={
+            <LeaderboardChartAction
+              track="influence"
+              ariaLabel="Open influence leaderboard"
+            />
+          }
+          onClose={requestClose}
+          closeAriaLabel="Close boost"
+        >
+          <div className="standing-sheet-subject">
+            <div className="standing-sheet-subject-copy">
+              <p className="portfolio-payout-sheet-eyebrow">Boost</p>
+              <h2
+                id={titleId}
+                className="portfolio-payout-sheet-total portfolio-boost-sheet-title"
+                aria-label={
+                  !loaded
+                    ? 'Loading boost'
+                    : hasPosition
+                      ? `${formatSocialCompact(lockedYocto)} SOCIAL locked`
+                      : 'Lock SOCIAL'
+                }
+              >
+                {!loaded ? (
+                  <span
+                    className="standing-row-shimmer portfolio-boost-shimmer-title"
+                    aria-hidden
+                  />
+                ) : hasPosition ? (
+                  <>
+                    <span
+                      className="portfolio-boost-sheet-title-amount"
+                      aria-hidden
+                    >
+                      {formatSocialCompact(lockedYocto)}
+                    </span>
+                    <span
+                      className="portfolio-payout-sheet-unit"
+                      aria-hidden
+                    >
+                      SOCIAL locked
+                    </span>
+                  </>
+                ) : (
+                  <span aria-hidden>Lock SOCIAL</span>
+                )}
+              </h2>
             </div>
-          </div>        </>
+          </div>
+        </SheetChromeHeader>
       }
       footer={
         footerState ? (

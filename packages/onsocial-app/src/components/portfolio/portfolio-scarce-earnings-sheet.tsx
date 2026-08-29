@@ -13,13 +13,13 @@ import {
   Divider,
   GlassSheet,
   OsIconAction,
-  SheetCloseButton,
   ShopFillIcon,
   osHugSheetBodyClassName,
   osIconActionGlyphClassName,
   useScrollLock,
 } from '@onsocial/ui';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
+import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { PortfolioPayoutKindFilters } from '@/components/portfolio/portfolio-payout-kind-filters';
 import {
   StandingIdentity,
@@ -341,50 +341,48 @@ export function PortfolioScarceEarningsSheet({
       panelClassName="portfolio-support-collect-info-panel os-sheet-cap-standard"
       panelStyle={panelStyle}
       header={
-        <>
-          <div className="standing-sheet-header portfolio-support-collect-info-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <p className="portfolio-payout-sheet-eyebrow">Scarce sales</p>
-                  <h2 id={titleId} className="portfolio-payout-sheet-total">
-                    {totalLabel}{' '}
-                    <span className="portfolio-payout-sheet-unit">NEAR</span>
-                  </h2>
-                  {kindTotals.length > 0 ? (
-                    <PortfolioPayoutKindFilters
-                      parts={kindTotals.map((entry) => ({
-                        id: entry.kind,
-                        label: entry.label,
-                        amountLabel: entry.amountLabel,
-                      }))}
-                      active={kindFilter}
-                      onChange={setKindFilter}
-                      ariaLabel="Filter scarce sales by kind"
-                    />
-                  ) : null}
-                </div>
-              </div>
-              <div className="standing-sheet-actions standing-sheet-actions--payout">
-                <OsIconAction asChild ariaLabel="Open Market">
-                  <Link
-                    href={APP_MARKET_PATH}
-                    scroll={false}
-                    onClick={requestClose}
-                  >
-                    <ShopFillIcon
-                      className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
-                      aria-hidden
-                    />
-                  </Link>
-                </OsIconAction>
-                <SheetCloseButton
-                  onClick={requestClose}
-                  ariaLabel="Close scarce earnings"
+        <SheetChromeHeader
+          className="portfolio-support-collect-info-header"
+          actionsClassName="standing-sheet-actions--payout"
+          actions={
+            <OsIconAction asChild ariaLabel="Open Market">
+              <Link
+                href={APP_MARKET_PATH}
+                scroll={false}
+                onClick={requestClose}
+              >
+                <ShopFillIcon
+                  className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
+                  aria-hidden
                 />
-              </div>
+              </Link>
+            </OsIconAction>
+          }
+          onClose={requestClose}
+          closeAriaLabel="Close scarce earnings"
+        >
+          <div className="standing-sheet-subject">
+            <div className="standing-sheet-subject-copy">
+              <p className="portfolio-payout-sheet-eyebrow">Scarce sales</p>
+              <h2 id={titleId} className="portfolio-payout-sheet-total">
+                {totalLabel}{' '}
+                <span className="portfolio-payout-sheet-unit">NEAR</span>
+              </h2>
+              {kindTotals.length > 0 ? (
+                <PortfolioPayoutKindFilters
+                  parts={kindTotals.map((entry) => ({
+                    id: entry.kind,
+                    label: entry.label,
+                    amountLabel: entry.amountLabel,
+                  }))}
+                  active={kindFilter}
+                  onChange={setKindFilter}
+                  ariaLabel="Filter scarce sales by kind"
+                />
+              ) : null}
             </div>
-          </div>        </>
+          </div>
+        </SheetChromeHeader>
       }
     >
       <section className="portfolio-support-collect-info-block">

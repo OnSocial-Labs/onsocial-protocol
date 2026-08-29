@@ -37,7 +37,6 @@ import {
   osLauncherDotClassName,
   resolveBackdropPresentation,
   resolvePanelPresentation,
-  SheetCloseButton,
   usePrefersReducedTransparency,
   useScrollLock,
 } from '@onsocial/ui';
@@ -59,6 +58,7 @@ import { ThemeToggle } from '@/components/os/theme-toggle';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
 import { PortfolioSummonComposeButton } from '@/components/portfolio/portfolio-summon-compose-button';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
+import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
   appShellOsApps,
@@ -574,46 +574,39 @@ export function SummonLauncher({
                   <span className="glass-sheet-grip" aria-hidden />
                 </button>
 
-                <header
-                  className={`standing-sheet-header ${osLauncherHeaderClassName}`}
+                <SheetChromeHeader
+                  className={osLauncherHeaderClassName}
+                  actionsClassName={
+                    rally?.mark.visible ? 'os-launcher-header-actions' : undefined
+                  }
+                  actions={
+                    rally?.mark.visible ? (
+                      <RallyLauncherMark
+                        label={rally.mark.label}
+                        nudge={rally.mark.nudge}
+                        ariaLabel={rally.mark.ariaLabel}
+                        onClick={() => {
+                          closeLauncher();
+                          rally.openRallySheet();
+                        }}
+                      />
+                    ) : null
+                  }
+                  onClose={closeLauncher}
+                  closeAriaLabel="Close launcher"
                 >
-                  <div className="standing-sheet-subject-row">
-                    <div className="standing-sheet-subject">
-                      <OnSocialMark
-                        className={osLauncherMarkIconClassName}
-                        aria-hidden
-                      />
-                      <span className="standing-sheet-subject-copy">
-                        <span className="standing-sheet-subject-name">
-                          {launcherPage === 1 ? 'Community' : 'OnSocial'}
-                        </span>
+                  <div className="standing-sheet-subject">
+                    <OnSocialMark
+                      className={osLauncherMarkIconClassName}
+                      aria-hidden
+                    />
+                    <span className="standing-sheet-subject-copy">
+                      <span className="standing-sheet-subject-name">
+                        {launcherPage === 1 ? 'Community' : 'OnSocial'}
                       </span>
-                    </div>
-                    <div
-                      className={`standing-sheet-actions${
-                        rally?.mark.visible
-                          ? ' os-launcher-header-actions'
-                          : ''
-                      }`}
-                    >
-                      {rally?.mark.visible ? (
-                        <RallyLauncherMark
-                          label={rally.mark.label}
-                          nudge={rally.mark.nudge}
-                          ariaLabel={rally.mark.ariaLabel}
-                          onClick={() => {
-                            closeLauncher();
-                            rally.openRallySheet();
-                          }}
-                        />
-                      ) : null}
-                      <SheetCloseButton
-                        onClick={closeLauncher}
-                        ariaLabel="Close launcher"
-                      />
-                    </div>
+                    </span>
                   </div>
-                </header>
+                </SheetChromeHeader>
 
                 <div
                   ref={pagesRef}
