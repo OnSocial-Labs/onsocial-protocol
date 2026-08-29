@@ -6,11 +6,8 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
-import {
-  NoteTextIcon,
-  OsAppChromeNavSearch,
-  OsAppChromeToolbarRail,
-} from '@onsocial/ui';
+import { NoteTextIcon, OsAppChromeToolbarRail } from '@onsocial/ui';
+import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import {
   PROTOCOL_FEED_FAMILY_OPTIONS,

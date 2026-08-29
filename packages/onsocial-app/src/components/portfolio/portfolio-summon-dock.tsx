@@ -16,7 +16,9 @@ import {
   useWriteDockMorph,
 } from '@/contexts/compose-launcher-context';
 import {
+  resolveDockBackVisible,
   useDockBack,
+  useSearchChromeActive,
   type DockBackRegistration,
 } from '@/contexts/dock-chrome-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
@@ -80,6 +82,7 @@ export function PortfolioSummonDock({
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
   const registeredDockBack = useDockBack();
+  const searchChromeActive = useSearchChromeActive();
   const dockBack = registeredDockBack ?? FACE_DOCK_BACK;
   const { effectiveMood, isPreviewingMood } = usePortfolioMoodPreview();
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
@@ -87,7 +90,13 @@ export function PortfolioSummonDock({
   const [osOpen, setOsOpen] = useState(false);
   const [showHint, setShowHint] = useState(readDockHintPending);
   const [openPinned, setOpenPinned] = useState(false);
-  const showDockBack = !osOpen && !write;
+  const showDockBack =
+    !write &&
+    resolveDockBackVisible({
+      dockBack,
+      launcherOpen: osOpen,
+      searchChromeActive,
+    });
 
   const previewPinned = isPreviewingMood || isPreviewingFace;
 

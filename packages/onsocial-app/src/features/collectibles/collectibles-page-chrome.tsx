@@ -1,6 +1,7 @@
 'use client';
 
-import { OsAppChromeNavSearch, OsAppChromeToolbarRail, StarsCFillIcon } from '@onsocial/ui';
+import { OsAppChromeToolbarRail, StarsCFillIcon } from '@onsocial/ui';
+import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { useCollectiblesPanelChrome } from '@/features/collectibles/collectibles-panel-context';
 import { MarketFilterMenu } from '@/features/market/market-filter-menu';

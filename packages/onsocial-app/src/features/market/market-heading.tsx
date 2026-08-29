@@ -4,10 +4,10 @@ import Link from 'next/link';
 import {
   BookmarkFillIcon,
   GiftFillIcon,
-  OsAppChromeNavSearch,
   OsIconAction,
   ShopFillIcon,
 } from '@onsocial/ui';
+import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { APP_DROPS_PATH, dropsPath } from '@/lib/app-routes';
 
