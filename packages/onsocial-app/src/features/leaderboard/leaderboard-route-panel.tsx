@@ -54,7 +54,7 @@ export function LeaderboardRoutePanel() {
       <OsAppScreen
         title="Leaderboard"
         subtitle="Protocol rankings"
-        backFallbackHref={APP_HOME_PATH}
+        leading={null}
         glassChrome
       >
         <p className="leaderboard-route-underlay">

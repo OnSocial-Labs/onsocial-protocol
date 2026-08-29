@@ -188,6 +188,7 @@ export function CreateAppPanel() {
   return (
     <OsAppScreen
       title="Open a hub"
+      dockBack
       backFallbackHref={APP_APPS_PATH}
       glassChrome
       actions={

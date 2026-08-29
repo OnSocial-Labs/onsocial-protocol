@@ -1302,8 +1302,6 @@ export function MessagesPanel() {
         title="Messages"
         compactChrome
         glassChrome
-        dockBack
-        backFallbackHref={APP_HOME_PATH}
         leading={null}
         heading={<p className="os-app-screen-title">Messages</p>}
         actions={
@@ -1339,8 +1337,6 @@ export function MessagesPanel() {
         title="Messages"
         compactChrome
         glassChrome
-        dockBack
-        backFallbackHref={APP_HOME_PATH}
         leading={null}
         heading={<p className="os-app-screen-title">Messages</p>}
         actions={

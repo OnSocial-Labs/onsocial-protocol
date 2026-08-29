@@ -87,6 +87,7 @@ export function SeriesPagePanel({
     <OsAppScreen
       title={title}
       subtitle={dropCountLabel}
+      dockBack
       backFallbackHref={shopHref}
       glassChrome
       actions={

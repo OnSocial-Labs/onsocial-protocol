@@ -6,6 +6,7 @@ export default function CollectionLoading() {
   return (
     <OsAppScreen
       title="Drop"
+      dockBack
       backFallbackHref={APP_MARKET_PATH}
       immersiveHeader
     >

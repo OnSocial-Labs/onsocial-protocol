@@ -2337,6 +2337,7 @@ export function CreateDropPanel() {
   return (
     <OsAppScreen
       title={studioOpen ? 'Design your set' : appId || 'New drop'}
+      dockBack={!studioOpen}
       backFallbackHref={appId ? appPath(appId) : APP_MARKET_PATH}
       compactChrome
       glassChrome

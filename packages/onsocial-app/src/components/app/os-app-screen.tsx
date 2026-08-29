@@ -56,7 +56,8 @@ export interface OsAppScreenProps {
    */
   nestedScrollChrome?: boolean;
   /**
-   * Move contextual back to the summon dock (hidden while writing / launcher open).
+   * Leave this place from the summon dock (parent href). Hidden while the
+   * launcher is open or mobile header search is expanded.
    */
   dockBack?: boolean;
   /** When set with `dockBack`, runs instead of history navigation (e.g. close thread). */

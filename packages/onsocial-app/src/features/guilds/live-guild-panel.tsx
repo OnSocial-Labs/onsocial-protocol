@@ -1725,6 +1725,7 @@ export function LiveGuildPanel({
       title={title}
       // Hero owns the name; nav title appears when it scrolls under (no morph).
       // Loading stays title-only — no marketing subtitle / raw groupId flash.
+      dockBack
       backFallbackHref="/groups"
       actions={
         loadState === 'ready' &&

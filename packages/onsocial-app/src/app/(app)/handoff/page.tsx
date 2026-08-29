@@ -13,7 +13,12 @@ export const metadata: Metadata = {
 
 function HandoffFallback() {
   return (
-    <OsAppScreen title="Continue" backFallbackHref={APP_HOME_PATH} glassChrome>
+    <OsAppScreen
+      title="Continue"
+      dockBack
+      backFallbackHref={APP_HOME_PATH}
+      glassChrome
+    >
       <OsAppChromePage>
         <OsAppChromePageStatus>Loading…</OsAppChromePageStatus>
       </OsAppChromePage>

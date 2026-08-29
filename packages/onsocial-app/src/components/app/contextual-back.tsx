@@ -14,11 +14,7 @@ export function ContextualBack({ fallbackHref = '/' }: ContextualBackProps) {
     <OsIconAction
       ariaLabel="Back"
       onClick={() => {
-        if (typeof window !== 'undefined' && window.history.length > 1) {
-          router.back();
-        } else {
-          router.push(fallbackHref);
-        }
+        router.push(fallbackHref);
       }}
     >
       <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
