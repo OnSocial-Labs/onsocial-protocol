@@ -50,7 +50,6 @@ import {
 import {
   resolveDockBackVisible,
   useDockBack,
-  useSearchChromeActive,
 } from '@/contexts/dock-chrome-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
 import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
@@ -260,7 +259,6 @@ export function SummonLauncher({
 
   const compose = useComposeLauncher();
   const dockBack = useDockBack();
-  const searchChromeActive = useSearchChromeActive();
   const writePinned = useWriteDockPinned();
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
@@ -269,7 +267,6 @@ export function SummonLauncher({
   const showDockBack = resolveDockBackVisible({
     dockBack,
     launcherOpen: open,
-    searchChromeActive,
   });
   const portalHost = useOsPortalHost();
   const clientMounted = useSyncExternalStore(

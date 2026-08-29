@@ -7,19 +7,8 @@ describe('resolveDockBackVisible', () => {
       resolveDockBackVisible({
         dockBack: { fallbackHref: '/home' },
         launcherOpen: false,
-        searchChromeActive: false,
       })
     ).toBe(true);
-  });
-
-  it('hides dock back while mobile header search is expanded', () => {
-    expect(
-      resolveDockBackVisible({
-        dockBack: { fallbackHref: '/home' },
-        launcherOpen: false,
-        searchChromeActive: true,
-      })
-    ).toBe(false);
   });
 
   it('hides dock back while the launcher is open', () => {
@@ -27,7 +16,6 @@ describe('resolveDockBackVisible', () => {
       resolveDockBackVisible({
         dockBack: { fallbackHref: '/home' },
         launcherOpen: true,
-        searchChromeActive: false,
       })
     ).toBe(false);
   });
