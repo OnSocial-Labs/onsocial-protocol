@@ -9308,6 +9308,16 @@ a.os-surface-row {
        row would cut off header dropdowns (guild manage / members menu). */
   }
 
+  /*
+   * Mobile search mode owns the leading slot — its ArrowLeft dismisses
+   * search. Hide the header's contextual back so two arrows never sit
+   * side by side; the header back returns when search mode exits.
+   */
+  .os-app-screen-nav-row:has(.os-app-chrome-nav-search)
+    > .glass-sheet-icon-action:first-child {
+    display: none;
+  }
+
   /* Top-level section mark — same slot as back, not interactive. */
   .os-app-screen-mark {
     pointer-events: none;
