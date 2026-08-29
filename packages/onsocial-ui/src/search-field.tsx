@@ -9,7 +9,11 @@ import {
   type ReactNode,
 } from 'react';
 import { Divider } from './divider.js';
-import { ChevronDownIcon, MultiplyIcon, SearchIcon } from './mage-stroke-icons.js';
+import {
+  ChevronDownIcon,
+  MultiplyIcon,
+  SearchIcon,
+} from './mage-stroke-icons.js';
 
 export const searchFieldClassName = 'search-field';
 
@@ -154,7 +158,10 @@ export function SearchField({
               onClick={handleDismiss}
               aria-label={dismissAriaLabel}
             >
-              <ChevronDownIcon className="search-field-clear-icon" aria-hidden />
+              <ChevronDownIcon
+                className="search-field-clear-icon"
+                aria-hidden
+              />
             </button>
           ) : null}
         </span>
