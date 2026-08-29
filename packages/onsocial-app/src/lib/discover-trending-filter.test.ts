@@ -26,8 +26,8 @@ describe('discover trending filter', () => {
     expect(
       filterTrendingTickers(
         [
-          { ticker: 'social', postCount: 3 },
-          { ticker: 'near', postCount: 1 },
+          { ticker: 'social', postCount: 3, lastBlock: 1 },
+          { ticker: 'near', postCount: 1, lastBlock: 1 },
         ],
         'soc'
       ).map((row) => row.ticker)
@@ -36,8 +36,8 @@ describe('discover trending filter', () => {
     expect(
       filterTrendingTopics(
         [
-          { hashtag: 'gm', postCount: 2 },
-          { hashtag: 'near', postCount: 9 },
+          { hashtag: 'gm', postCount: 2, lastBlock: 1 },
+          { hashtag: 'near', postCount: 9, lastBlock: 1 },
         ],
         'nea'
       ).map((row) => row.hashtag)

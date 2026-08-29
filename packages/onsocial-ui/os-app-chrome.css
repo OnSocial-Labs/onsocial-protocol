@@ -320,7 +320,8 @@
   -webkit-text-size-adjust: 100%;
 }
 
-.search-field.sheet-control.os-app-screen-search .search-field-input::placeholder,
+.search-field.sheet-control.os-app-screen-search
+  .search-field-input::placeholder,
 .os-app-chrome-nav-search-input::placeholder {
   font-family: inherit;
   font-size: inherit;
