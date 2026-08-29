@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import {
   LauncherHomeMineStatus,
   LauncherHomeSection,
@@ -204,7 +205,7 @@ export function DaosIndexPanel() {
     <OsAppScreen
       title="DAOs"
       dockBack
-      backFallbackHref="/"
+      backFallbackHref={OS_INDEX_LEAVE_HREF}
       glassChrome
       actions={headerActions}
     >

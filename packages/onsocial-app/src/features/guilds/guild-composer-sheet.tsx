@@ -12,13 +12,13 @@ import {
 } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import {
-  ChevronLeftIcon,
   ChartVerticalFillIcon,
   ChartVerticalIcon,
   ImageFillIcon,
   ImageIcon,
   MapMarkerFillIcon,
   MapMarkerIcon,
+  MultiplyIcon,
   OsFieldRemove,
   OsHugSheet,
   OsIconAction,
@@ -1272,11 +1272,11 @@ export function ComposerSheet({
         embedded
         leading={
           <OsIconAction
-            ariaLabel="Back"
+            ariaLabel="Close"
             disabled={pending}
             onClick={requestClose}
           >
-            <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+            <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
           </OsIconAction>
         }
         heading={showModeRail ? modeChipRail : undefined}

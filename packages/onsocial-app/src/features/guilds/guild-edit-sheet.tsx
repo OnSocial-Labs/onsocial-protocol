@@ -416,7 +416,7 @@ export function GuildEditSheet({
         onClosed={clearDiscardConfirm}
         onBeforeClose={requestCloseOrConfirm}
         title="Edit guild"
-        closeAriaLabel="Back"
+        closeAriaLabel="Close"
         closeDisabled={pending}
         zIndex={GUILD_EDIT_Z}
         className="guild-edit-slide"

@@ -8,7 +8,6 @@ import {
   DiscoverNavSearch,
 } from '@/features/discover/discover-screen-chrome';
 import { DiscoverPanelRoot } from '@/features/discover/discover-panel';
-import { useOsRootLeaveHref } from '@/hooks/use-os-root-leave-href';
 import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
 import type { DiscoverProfilesResponse } from '@/lib/discover-profiles';
 import type { DiscoverTrendingSeed } from '@/lib/discover-trending-server';
@@ -21,9 +20,6 @@ function DiscoverPageScreen({
   /** Nested Discover (portfolio `/@account/discover`) — dock back, not header. */
   backFallbackHref?: string;
 }) {
-  const arrivalLeaveHref = useOsRootLeaveHref();
-  const leaveHref = backFallbackHref ?? arrivalLeaveHref;
-
   return (
     <OsAppScreen
       title="Discover"
@@ -32,10 +28,10 @@ function DiscoverPageScreen({
       scrollTuck="search"
       scrollRootRef={scrollRootRef}
       leading={null}
-      {...(leaveHref
+      {...(backFallbackHref
         ? {
             dockBack: true as const,
-            backFallbackHref: leaveHref,
+            backFallbackHref,
           }
         : {})}
       heading={<DiscoverNavSearch />}
@@ -54,7 +50,7 @@ export function DiscoverPagePanel({
 }: {
   /**
    * When set (portfolio `/@account/discover`), dock leave goes to that page.
-   * App `/discover` uses arrival leave only if you came from elsewhere.
+   * App `/discover` is a root — no leave.
    */
   backFallbackHref?: string;
   initialPage?: DiscoverProfilesResponse | null;

@@ -468,7 +468,7 @@ export function AppProfileEditorSheet({
         onClosed={handleClosed}
         onBeforeClose={handleBeforeClose}
         title="Edit profile"
-        closeAriaLabel="Back"
+        closeAriaLabel="Close"
         closeDisabled={saving}
         zIndex={SHEET_Z.overShell}
         moodId={viewerMoodId ?? undefined}

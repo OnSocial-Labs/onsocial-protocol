@@ -127,7 +127,7 @@ function HubManageSheetChrome({
         onBeforeClose={requestCloseOrConfirm}
         title={title}
         subtitle={subtitle}
-        closeAriaLabel="Back"
+        closeAriaLabel="Close"
         closeDisabled={pending}
         zIndex={HUB_MANAGE_Z}
         className="hub-manage-slide"

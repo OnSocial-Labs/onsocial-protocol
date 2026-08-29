@@ -11,6 +11,7 @@ import {
   LauncherMineRailSkeleton,
 } from '@/components/launcher-home';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   fetchPublishableApps,
@@ -88,7 +89,7 @@ export function HubsIndexPanel() {
     <OsAppScreen
       title="Hubs"
       dockBack
-      backFallbackHref="/"
+      backFallbackHref={OS_INDEX_LEAVE_HREF}
       glassChrome
       actions={headerActions}
     >

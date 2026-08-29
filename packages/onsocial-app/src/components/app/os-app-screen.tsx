@@ -8,6 +8,7 @@ import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
 import { useRegisterDockBack } from '@/contexts/dock-chrome-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
+import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 
 /** Scroll tuck target — search+chip screens tuck the nav search; toolbar-only screens tuck chips. */
 export type OsAppScreenScrollTuck = 'search' | 'toolbar';
@@ -19,7 +20,7 @@ export interface OsAppScreenProps {
   subtitle?: string;
   backFallbackHref?: string;
   /**
-   * Optional header leading control (studio / composer close).
+   * Optional header leading control (studio / composer close — ×).
    * Leave is `dockBack` — not an implicit header chevron.
    */
   leading?: ReactNode | null;
@@ -102,7 +103,7 @@ export function OsAppScreen({
   title,
   titleHref,
   subtitle,
-  backFallbackHref = '/',
+  backFallbackHref = OS_INDEX_LEAVE_HREF,
   leading,
   actions,
   heading,
