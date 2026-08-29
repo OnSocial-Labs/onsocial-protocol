@@ -24,7 +24,8 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HomeFeedChipBar } from '@/features/home/home-feed-chip-bar';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { HomeFeedSortToggle } from '@/features/home/home-feed-sort-toggle';
-import { APP_DISCOVER_PATH } from '@/lib/app-routes';
+import { APP_DISCOVER_PATH, APP_HOME_PATH } from '@/lib/app-routes';
+import { useOsRootLeaveHref } from '@/hooks/use-os-root-leave-href';
 import {
   fetchCircleFeedPage,
   fetchPulseFeedPage,
@@ -899,6 +900,7 @@ export function HomePagePanel({
   const showNewPostsPill =
     Boolean(newPostsLabel) && showFeed && !isRefreshing && !isLoading;
   const toolbarHidden = useDockAutoHide(false, scrollRootRef);
+  const leaveHref = useOsRootLeaveHref();
 
   return (
     <HomeActiveFocusProvider focus={activeFocus}>
@@ -908,6 +910,8 @@ export function HomePagePanel({
         glassChrome
         scrollRootRef={scrollRootRef}
         leading={null}
+        dockBack={Boolean(leaveHref)}
+        backFallbackHref={leaveHref ?? APP_HOME_PATH}
         toolbar={
           <OsAppChromeToolbarRail
             hidden={toolbarHidden}
