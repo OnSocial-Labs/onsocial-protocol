@@ -8,7 +8,7 @@ export const osAppChromeNavSearchIdleClassName = 'os-app-screen-search';
 
 /**
  * Compact nav-row search — same pill on phone and desktop. Leave stays in the
- * dock. X clears the query. Focused down-chevron blurs (keyboard down).
+ * dock. Focused down-chevron is on the left (Done). X on the right clears.
  */
 export function OsAppChromeNavSearch({
   value,

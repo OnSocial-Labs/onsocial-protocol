@@ -20,10 +20,15 @@ export const searchFieldClassName = 'search-field';
 export function searchFieldTrailing(
   focused: boolean,
   value: string
-): { showClear: boolean; showDismiss: boolean } {
+): {
+  showClear: boolean;
+  showDismiss: boolean;
+  dismissSide: 'leading';
+} {
   return {
     showClear: Boolean(value.trim()),
     showDismiss: focused,
+    dismissSide: 'leading',
   };
 }
 
@@ -56,8 +61,8 @@ export interface SearchFieldProps {
  * (`sheet-control`) is styled by the host app, `floating-panel` by
  * `floating-panel.css`.
  *
- * Trailing: `X` clears and keeps focus. Focused-only down-chevron blurs
- * (keyboard down) without clearing or leaving.
+ * Left (focused): down-chevron blurs (keyboard down). Right: `X` clears
+ * and keeps focus. Neither leaves the place.
  */
 export function SearchField({
   value,
@@ -109,19 +114,34 @@ export function SearchField({
     <div
       className={`search-field${branded ? ' search-field--branded' : ''} ${chromeClass}${className ? ` ${className}` : ''}`}
     >
+      {showDismiss ? (
+        <button
+          type="button"
+          className="search-field-clear"
+          onMouseDown={handleDismissMouseDown}
+          onClick={handleDismiss}
+          aria-label={dismissAriaLabel}
+        >
+          <ChevronDownIcon className="search-field-clear-icon" aria-hidden />
+        </button>
+      ) : null}
       <label className="search-field-core">
-        <span className="search-field-leading">
-          {leadingIcon ?? (
-            <SearchIcon className="search-field-icon" aria-hidden />
-          )}
-        </span>
-        {branded ? (
-          <Divider
-            orientation="vertical"
-            variant="detail"
-            className="search-field-divider self-center"
-          />
-        ) : null}
+        {showDismiss ? null : (
+          <>
+            <span className="search-field-leading">
+              {leadingIcon ?? (
+                <SearchIcon className="search-field-icon" aria-hidden />
+              )}
+            </span>
+            {branded ? (
+              <Divider
+                orientation="vertical"
+                variant="detail"
+                className="search-field-divider self-center"
+              />
+            ) : null}
+          </>
+        )}
         <input
           ref={inputRef}
           type="text"
@@ -138,33 +158,15 @@ export function SearchField({
           className="search-field-input"
         />
       </label>
-      {showClear || showDismiss ? (
-        <span className="search-field-trailing">
-          {showClear ? (
-            <button
-              type="button"
-              className="search-field-clear"
-              onClick={handleClear}
-              aria-label={clearAriaLabel}
-            >
-              <MultiplyIcon className="search-field-clear-icon" aria-hidden />
-            </button>
-          ) : null}
-          {showDismiss ? (
-            <button
-              type="button"
-              className="search-field-clear"
-              onMouseDown={handleDismissMouseDown}
-              onClick={handleDismiss}
-              aria-label={dismissAriaLabel}
-            >
-              <ChevronDownIcon
-                className="search-field-clear-icon"
-                aria-hidden
-              />
-            </button>
-          ) : null}
-        </span>
+      {showClear ? (
+        <button
+          type="button"
+          className="search-field-clear"
+          onClick={handleClear}
+          aria-label={clearAriaLabel}
+        >
+          <MultiplyIcon className="search-field-clear-icon" aria-hidden />
+        </button>
       ) : null}
     </div>
   );
