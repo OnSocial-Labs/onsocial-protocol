@@ -8960,7 +8960,7 @@ a.os-surface-row {
     width: 100%;
     flex: none;
     pointer-events: none;
-    transition: bottom 260ms ease;
+    transition: bottom var(--os-motion-dock, 260ms) ease;
   }
 
   .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
@@ -8988,7 +8988,7 @@ a.os-surface-row {
     padding-bottom: calc(
       var(--portfolio-dock-clearance, 4.75rem) + var(--os-screen-footer-band)
     );
-    transition: padding-bottom 260ms ease;
+    transition: padding-bottom var(--os-motion-dock, 260ms) ease;
   }
 
   .os-app-screen[data-screen-footer='true']:has(
@@ -9674,9 +9674,9 @@ a.os-surface-row {
     align-items: center;
     gap: 0;
     transition:
-      gap 220ms ease,
-      color 160ms ease,
-      background 160ms ease;
+      gap var(--os-motion-chrome, 220ms) ease,
+      color var(--os-motion-chip, 160ms) ease,
+      background var(--os-motion-chip, 160ms) ease;
   }
 
   .profile-feed-tab-bar button.is-active {
@@ -9695,8 +9695,8 @@ a.os-surface-row {
     min-width: 0;
     opacity: 0;
     transition:
-      grid-template-columns 220ms ease,
-      opacity 160ms ease;
+      grid-template-columns var(--os-motion-chrome, 220ms) ease,
+      opacity var(--os-motion-chip, 160ms) ease;
   }
 
   .profile-feed-tab-label > span {
@@ -9796,8 +9796,8 @@ a.os-surface-row {
     white-space: nowrap;
     cursor: pointer;
     transition:
-      color 160ms ease,
-      background 160ms ease;
+      color var(--os-motion-chip, 160ms) ease,
+      background var(--os-motion-chip, 160ms) ease;
   }
 
   .discover-tab-bar button::before,
@@ -9842,8 +9842,8 @@ a.os-surface-row {
     font-weight: 600;
     line-height: 1;
     transition:
-      background 120ms ease,
-      color 120ms ease;
+      background var(--os-motion-micro, 120ms) ease,
+      color var(--os-motion-micro, 120ms) ease;
   }
 
   .discover-tab-bar--browse button:hover,
@@ -10027,7 +10027,7 @@ a.os-surface-row {
     pointer-events: none;
     transform: translateX(-50%);
     transition:
-      transform 260ms ease,
+      transform var(--os-motion-dock, 260ms) ease,
       opacity 200ms ease;
   }
 
@@ -21693,7 +21693,7 @@ a.os-surface-row {
     pointer-events: none;
     background: rgb(var(--bg-rgb) / 0.72);
     backdrop-filter: blur(20px) saturate(1.3);
-    transition: bottom 260ms ease;
+    transition: bottom var(--os-motion-dock, 260ms) ease;
   }
 
   .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
@@ -24441,7 +24441,8 @@ a.os-surface-row {
     height: 100%;
     max-width: none;
     transform: translate3d(100%, 0, 0);
-    transition: transform 280ms cubic-bezier(0.32, 0.72, 0, 1);
+    transition: transform var(--os-motion-sheet, 280ms)
+      var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1));
     /* Above create-drop drawers; below lightbox zoom (scarce-card ~120+). */
     pointer-events: auto;
   }

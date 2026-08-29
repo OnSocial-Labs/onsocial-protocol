@@ -26,6 +26,26 @@
     env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y) +
       var(--os-app-chrome-nav-height) + var(--os-app-chrome-pad-y)
   );
+
+  /*
+   * Motion scale — one duration/easing family for OS chrome + overlays.
+   * Reference with fallbacks in package CSS (var(--os-motion-*, <ms>)) so
+   * files still work when imported without this token block.
+   */
+  --os-motion-micro: 120ms; /* hover / tint micro feedback */
+  --os-motion-chip: 160ms; /* chip + small state color */
+  --os-motion-chrome: 220ms; /* chrome morphs (rails, pills, pads) */
+  --os-motion-dock: 260ms; /* dock tuck / reveal */
+  --os-motion-sheet: 280ms; /* slide-overs, appear sheets */
+  --os-motion-overlay: 320ms; /* bottom sheets, launcher */
+  --os-motion-ease-out: cubic-bezier(0.2, 0.9, 0.24, 1); /* glass sheet family */
+  --os-motion-ease-standard: cubic-bezier(
+    0.22,
+    0.61,
+    0.36,
+    1
+  ); /* launcher family */
+  --os-motion-ease-slide: cubic-bezier(0.32, 0.72, 0, 1); /* slide-over */
 }
 
 .os-app-chrome-rail {
@@ -40,11 +60,11 @@
   opacity: 1;
   overflow: hidden;
   transition:
-    transform 220ms ease,
+    transform var(--os-motion-chrome, 220ms) ease,
     opacity 180ms ease,
-    max-height 220ms ease,
-    min-height 220ms ease,
-    margin 220ms ease;
+    max-height var(--os-motion-chrome, 220ms) ease,
+    min-height var(--os-motion-chrome, 220ms) ease,
+    margin var(--os-motion-chrome, 220ms) ease;
 }
 
 /* One-line chip header — fill the rail, center chips, no bottom margin air. */
