@@ -6,7 +6,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
-import type { MarketAudioFormatFilter } from '@/features/market/market-facet-rail';
+import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import type { MarketMediumFilter } from '@/features/market/market-medium';
 import type { DropFacetMedium } from '@/features/scarces/drop-facets';
 

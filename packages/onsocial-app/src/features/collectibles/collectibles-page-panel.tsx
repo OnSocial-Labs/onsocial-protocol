@@ -30,7 +30,7 @@ import {
   parseAudioFormat,
 } from '@/features/scarces/drop-facets';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
-import type { MarketAudioFormatFilter } from '@/features/market/market-facet-rail';
+import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
   MARKET_MEDIUM_FILTERS,
   type MarketMediumFilter,

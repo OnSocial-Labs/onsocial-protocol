@@ -25,7 +25,7 @@ import {
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { MarketListingRow } from '@/features/market/market-listing-row';
 import { MarketListingSortMenu } from '@/features/market/market-listing-sort-menu';
-import type { MarketAudioFormatFilter } from '@/features/market/market-facet-rail';
+import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import { MarketFilterMenu } from '@/features/market/market-filter-menu';
 import {
   MARKET_MEDIUM_FILTERS,
