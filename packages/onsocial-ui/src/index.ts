@@ -492,5 +492,6 @@ export {
 export {
   SearchField,
   searchFieldClassName,
+  searchFieldTrailing,
   type SearchFieldProps,
 } from './search-field.js';
