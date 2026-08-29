@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ArrowLeftIcon } from '@onsocial/ui';
+import { ChevronLeftIcon } from '@onsocial/ui';
 
 interface OsDockBackZoneProps {
   fallbackHref: string;
@@ -39,7 +39,7 @@ export function OsDockBackZone({
         }
       }}
     >
-      <ArrowLeftIcon className="portfolio-summon-back-icon" aria-hidden />
+      <ChevronLeftIcon className="portfolio-summon-back-icon" aria-hidden />
     </button>
   );
 }

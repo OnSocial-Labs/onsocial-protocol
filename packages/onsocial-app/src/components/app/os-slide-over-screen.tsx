@@ -2,7 +2,7 @@
 
 /**
  * Full-screen side slide — same glass surface as `OsAppScreen` (feed / create),
- * with a back arrow instead of a sheet close ×.
+ * with a back chevron instead of a sheet close ×.
  * Reuse for nested manage flows that should feel like a pushed page.
  *
  * Portals into the registered `OsPortalHost` (OS / portfolio card with
@@ -23,7 +23,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeftIcon,
+  ChevronLeftIcon,
   OsIconAction,
   useScrollLock,
 } from '@onsocial/ui';
@@ -263,7 +263,7 @@ export function OsSlideOverScreen({
               disabled={closeDisabled}
               onClick={requestClose}
             >
-              <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
+              <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
             </OsIconAction>
             <div className="os-app-screen-heading">
               {heading ? (

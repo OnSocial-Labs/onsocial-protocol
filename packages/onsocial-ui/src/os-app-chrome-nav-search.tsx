@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { OsIconAction } from './os-icon-action.js';
-import { ArrowLeftIcon, MultiplyIcon } from './mage-stroke-icons.js';
+import { ChevronLeftIcon, MultiplyIcon } from './mage-stroke-icons.js';
 import { SearchField } from './search-field.js';
 
 export const osAppChromeNavSearchClassName = 'os-app-chrome-nav-search';
@@ -42,7 +42,7 @@ function useMobileViewport() {
 
 /**
  * Compact nav-row search — idle pill in the header; on mobile focus expands to
- * back + full-width field (Messages / Discover / Market pattern).
+ * chevron-left + full-width field (Messages / Discover / Market pattern).
  */
 export function OsAppChromeNavSearch({
   value,
@@ -116,7 +116,7 @@ export function OsAppChromeNavSearch({
     return (
       <div className={osAppChromeNavSearchClassName}>
         <OsIconAction ariaLabel="Close search" onClick={dismissSearch}>
-          <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
+          <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
         </OsIconAction>
         <input
           ref={inputRef}

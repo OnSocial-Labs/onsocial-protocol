@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ArrowLeftIcon, OsIconAction } from '@onsocial/ui';
+import { ChevronLeftIcon, OsIconAction } from '@onsocial/ui';
 
 interface ContextualBackProps {
   fallbackHref?: string;
@@ -21,7 +21,7 @@ export function ContextualBack({ fallbackHref = '/' }: ContextualBackProps) {
         }
       }}
     >
-      <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
+      <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
     </OsIconAction>
   );
 }
