@@ -61,8 +61,8 @@ export interface SearchFieldProps {
  * (`sheet-control`) is styled by the host app, `floating-panel` by
  * `floating-panel.css`.
  *
- * Left (focused): down-chevron blurs (keyboard down). Right: `X` clears
- * and keeps focus. Neither leaves the place.
+ * Left (focused): down-chevron blurs (keyboard down). Shop / search mark
+ * stays. Right: `X` clears and keeps focus. Neither leaves the place.
  */
 export function SearchField({
   value,
@@ -126,22 +126,18 @@ export function SearchField({
         </button>
       ) : null}
       <label className="search-field-core">
-        {showDismiss ? null : (
-          <>
-            <span className="search-field-leading">
-              {leadingIcon ?? (
-                <SearchIcon className="search-field-icon" aria-hidden />
-              )}
-            </span>
-            {branded ? (
-              <Divider
-                orientation="vertical"
-                variant="detail"
-                className="search-field-divider self-center"
-              />
-            ) : null}
-          </>
-        )}
+        <span className="search-field-leading">
+          {leadingIcon ?? (
+            <SearchIcon className="search-field-icon" aria-hidden />
+          )}
+        </span>
+        {branded ? (
+          <Divider
+            orientation="vertical"
+            variant="detail"
+            className="search-field-divider self-center"
+          />
+        ) : null}
         <input
           ref={inputRef}
           type="text"

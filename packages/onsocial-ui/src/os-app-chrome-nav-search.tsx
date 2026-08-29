@@ -8,7 +8,7 @@ export const osAppChromeNavSearchIdleClassName = 'os-app-screen-search';
 
 /**
  * Compact nav-row search — same pill on phone and desktop. Leave stays in the
- * dock. Focused down-chevron is on the left (Done). X on the right clears.
+ * dock. Focused down-chevron sits left of the shop / search mark. X clears.
  */
 export function OsAppChromeNavSearch({
   value,
