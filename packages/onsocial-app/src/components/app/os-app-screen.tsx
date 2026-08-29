@@ -3,7 +3,6 @@
 import type { CSSProperties, ReactNode, RefObject } from 'react';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ContextualBack } from '@/components/app/contextual-back';
 import { AppShellLauncher } from '@/components/os/summon-launcher';
 import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
 import { useRegisterDockBack } from '@/contexts/dock-chrome-context';
@@ -20,8 +19,8 @@ export interface OsAppScreenProps {
   subtitle?: string;
   backFallbackHref?: string;
   /**
-   * Leading control. `undefined` = contextual back; `null` = none (search roots).
-   * When set to a node, `backFallbackHref` is unused.
+   * Optional header leading control (studio / composer close).
+   * Leave is `dockBack` — not an implicit header chevron.
    */
   leading?: ReactNode | null;
   /** Icon actions pinned opposite the back button (e.g. settings). */
@@ -57,7 +56,7 @@ export interface OsAppScreenProps {
   nestedScrollChrome?: boolean;
   /**
    * Leave this place from the summon dock (parent href). Hidden while the
-   * launcher is open or mobile header search is expanded.
+   * launcher is open.
    */
   dockBack?: boolean;
   /** When set with `dockBack`, runs instead of history navigation (e.g. close thread). */
@@ -243,11 +242,7 @@ export function OsAppScreen({
         >
           {showNavRow ? (
             <div className="os-app-screen-nav-row">
-              {navBackInDock ? null : leading !== undefined ? (
-                leading
-              ) : (
-                <ContextualBack fallbackHref={backFallbackHref} />
-              )}
+              {navBackInDock ? null : leading}
               <div className="os-app-screen-heading">
                 {heading ? (
                   <h1 className="sr-only">{title}</h1>
