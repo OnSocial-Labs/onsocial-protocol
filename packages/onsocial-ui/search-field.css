@@ -231,19 +231,22 @@
   opacity: 0.72;
 }
 
-.search-field.sheet-control .search-field-input,
+.search-field.sheet-control:not(.os-app-screen-search) .search-field-input,
 .search-field.os-floating-panel-search .search-field-input {
   color: var(--os-surface-emphasis);
   font-size: 0.78rem;
 }
 
-.search-field.sheet-control .search-field-input::placeholder,
+.search-field.sheet-control:not(.os-app-screen-search)
+  .search-field-input::placeholder,
 .search-field.os-floating-panel-search .search-field-input::placeholder {
   color: rgb(var(--fg-rgb) / 0.42);
 }
 
-.search-field.sheet-control:hover .search-field-input::placeholder,
-.search-field.sheet-control:focus-within .search-field-input::placeholder,
+.search-field.sheet-control:not(.os-app-screen-search):hover
+  .search-field-input::placeholder,
+.search-field.sheet-control:not(.os-app-screen-search):focus-within
+  .search-field-input::placeholder,
 .search-field.os-floating-panel-search:hover .search-field-input::placeholder,
 .search-field.os-floating-panel-search:focus-within
   .search-field-input::placeholder {

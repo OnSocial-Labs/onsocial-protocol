@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { HashtagCount, PlaceCount, TickerCount } from '@onsocial/sdk';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
 import {
@@ -10,6 +10,7 @@ import {
   DiscoverTrendingProfilesSectionSkeleton,
 } from '@/features/discover/discover-loading-skeleton';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
+import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
 import { discoverTrendingLead } from '@/lib/discover-tab-lead';
 import { homeHashtagPath } from '@/features/home/home-hashtag-search';
@@ -40,6 +41,16 @@ import type {
   DiscoverTrendingHub,
   DiscoverTrendingSeed,
 } from '@/lib/discover-trending-server';
+import {
+  discoverTrendingFilterQuery,
+  filterTrendingDaos,
+  filterTrendingGuilds,
+  filterTrendingHubs,
+  filterTrendingPlaces,
+  filterTrendingProfiles,
+  filterTrendingTickers,
+  filterTrendingTopics,
+} from '@/lib/discover-trending-filter';
 import { fetchDaoCatalog } from '@/features/protocol/dao-catalog-client';
 import { resolveDaoDirectoryName } from '@/features/protocol/dao-directory';
 import { fetchAppsDirectory } from '@/features/scarces/apps-data';
@@ -64,6 +75,7 @@ export function DiscoverTrendingPanel({
   onOpenTab: (tab: DiscoverTab) => void;
   initial?: DiscoverTrendingSeed | null;
 }) {
+  const { query } = useDiscoverPanel();
   const {
     accountId: viewerAccountId,
     isConnected,
@@ -296,31 +308,61 @@ export function DiscoverTrendingPanel({
     [isStandingPending, updateStanding]
   );
 
+  const filterNeedle = discoverTrendingFilterQuery(query);
+  const visibleTickers = useMemo(
+    () => (tickers == null ? null : filterTrendingTickers(tickers, query)),
+    [query, tickers]
+  );
+  const visibleTopics = useMemo(
+    () => (topics == null ? null : filterTrendingTopics(topics, query)),
+    [query, topics]
+  );
+  const visiblePlaces = useMemo(
+    () => (places == null ? null : filterTrendingPlaces(places, query)),
+    [places, query]
+  );
+  const visibleProfiles = useMemo(
+    () => (profiles == null ? null : filterTrendingProfiles(profiles, query)),
+    [profiles, query]
+  );
+  const visibleDaos = useMemo(
+    () => (daos == null ? null : filterTrendingDaos(daos, query)),
+    [daos, query]
+  );
+  const visibleGuilds = useMemo(
+    () => (guilds == null ? null : filterTrendingGuilds(guilds, query)),
+    [guilds, query]
+  );
+  const visibleHubs = useMemo(
+    () => (hubs == null ? null : filterTrendingHubs(hubs, query)),
+    [hubs, query]
+  );
+
   const allSettled =
-    tickers !== null &&
-    topics !== null &&
-    places !== null &&
-    profiles !== null &&
-    guilds !== null &&
-    daos !== null &&
-    hubs !== null;
+    visibleTickers !== null &&
+    visibleTopics !== null &&
+    visiblePlaces !== null &&
+    visibleProfiles !== null &&
+    visibleGuilds !== null &&
+    visibleDaos !== null &&
+    visibleHubs !== null;
   const empty =
     allSettled &&
-    tickers.length === 0 &&
-    topics.length === 0 &&
-    places.length === 0 &&
-    profiles.length === 0 &&
-    guilds.length === 0 &&
-    daos.length === 0 &&
-    hubs.length === 0;
+    visibleTickers.length === 0 &&
+    visibleTopics.length === 0 &&
+    visiblePlaces.length === 0 &&
+    visibleProfiles.length === 0 &&
+    visibleGuilds.length === 0 &&
+    visibleDaos.length === 0 &&
+    visibleHubs.length === 0;
   const anyLoading =
-    tickers === null ||
-    topics === null ||
-    places === null ||
-    profiles === null ||
-    guilds === null ||
-    daos === null ||
-    hubs === null;
+    visibleTickers === null ||
+    visibleTopics === null ||
+    visiblePlaces === null ||
+    visibleProfiles === null ||
+    visibleGuilds === null ||
+    visibleDaos === null ||
+    visibleHubs === null;
 
   return (
     <div
@@ -338,17 +380,20 @@ export function DiscoverTrendingPanel({
 
       {empty ? (
         <div className="standing-panel-empty-state">
-          <p className="standing-panel-empty-primary">Nothing trending yet.</p>
+          <p className="standing-panel-empty-primary">
+            {filterNeedle ? 'No matches.' : 'Nothing trending yet.'}
+          </p>
           <p className="standing-panel-empty-secondary">
-            Open Profiles, DAOs, Guilds, Hubs, Topics, or Tickers to browse the
-            graph.
+            {filterNeedle
+              ? 'Try another search, or open Profiles, DAOs, Guilds, Hubs, Topics, or Tickers.'
+              : 'Open Profiles, DAOs, Guilds, Hubs, Topics, or Tickers to browse the graph.'}
           </p>
         </div>
       ) : null}
 
-      {tickers === null ? (
+      {visibleTickers === null ? (
         <DiscoverTrendingChipSectionSkeleton />
-      ) : tickers.length > 0 ? (
+      ) : visibleTickers.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
             <h2 className="discover-trending-heading">Trending tickers</h2>
@@ -361,7 +406,7 @@ export function DiscoverTrendingPanel({
             </button>
           </div>
           <div className="discover-trending-chips">
-            {tickers.slice(0, 6).map((item) => (
+            {visibleTickers.slice(0, 6).map((item) => (
               <Link
                 key={`k-${item.ticker}`}
                 href={homeTickerPath(item.ticker)}
@@ -377,9 +422,9 @@ export function DiscoverTrendingPanel({
         </section>
       ) : null}
 
-      {topics === null ? (
+      {visibleTopics === null ? (
         <DiscoverTrendingChipSectionSkeleton />
-      ) : topics.length > 0 ? (
+      ) : visibleTopics.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
             <h2 className="discover-trending-heading">Trending topics</h2>
@@ -392,7 +437,7 @@ export function DiscoverTrendingPanel({
             </button>
           </div>
           <div className="discover-trending-chips">
-            {topics.slice(0, 6).map((item) => (
+            {visibleTopics.slice(0, 6).map((item) => (
               <Link
                 key={`h-${item.hashtag}`}
                 href={homeHashtagPath(item.hashtag)}
@@ -408,15 +453,15 @@ export function DiscoverTrendingPanel({
         </section>
       ) : null}
 
-      {places === null ? (
+      {visiblePlaces === null ? (
         <DiscoverTrendingChipSectionSkeleton />
-      ) : places.length > 0 ? (
+      ) : visiblePlaces.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
             <h2 className="discover-trending-heading">Trending places</h2>
           </div>
           <div className="discover-trending-chips">
-            {places.slice(0, 6).map((item) => (
+            {visiblePlaces.slice(0, 6).map((item) => (
               <Link
                 key={`p-${item.place}`}
                 href={homePlacePath(item.place)}
@@ -432,9 +477,9 @@ export function DiscoverTrendingPanel({
         </section>
       ) : null}
 
-      {profiles === null ? (
+      {visibleProfiles === null ? (
         <DiscoverTrendingProfilesSectionSkeleton />
-      ) : profiles.length > 0 ? (
+      ) : visibleProfiles.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
             <h2 className="discover-trending-heading">Standing out</h2>
@@ -467,7 +512,7 @@ export function DiscoverTrendingPanel({
           ) : null}
 
           <ProfileSocialList
-            accounts={profiles}
+            accounts={visibleProfiles}
             listKey="trending-profiles"
             viewerAccountId={viewerKey}
             showSolidarityBadge
@@ -492,9 +537,9 @@ export function DiscoverTrendingPanel({
         </section>
       ) : null}
 
-      {daos === null ? (
+      {visibleDaos === null ? (
         <DiscoverTrendingGuildsSectionSkeleton />
-      ) : daos.length > 0 ? (
+      ) : visibleDaos.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
             <h2 className="discover-trending-heading">DAOs</h2>
@@ -507,7 +552,7 @@ export function DiscoverTrendingPanel({
             </button>
           </div>
           <ul className="discover-focus-rows">
-            {daos.map((dao) => {
+            {visibleDaos.map((dao) => {
               const label = resolveDaoDirectoryName(dao.daoAccountId, {
                 name: dao.name,
               });
@@ -526,9 +571,9 @@ export function DiscoverTrendingPanel({
         </section>
       ) : null}
 
-      {guilds === null ? (
+      {visibleGuilds === null ? (
         <DiscoverTrendingGuildsSectionSkeleton />
-      ) : guilds.length > 0 ? (
+      ) : visibleGuilds.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
             <h2 className="discover-trending-heading">Guilds</h2>
@@ -541,7 +586,7 @@ export function DiscoverTrendingPanel({
             </button>
           </div>
           <ul className="discover-focus-rows">
-            {guilds.map((guild) => (
+            {visibleGuilds.map((guild) => (
               <li key={guild.groupId}>
                 <Link
                   href={`${APP_GROUPS_PATH}/${encodeURIComponent(guild.groupId)}`}
@@ -557,9 +602,9 @@ export function DiscoverTrendingPanel({
         </section>
       ) : null}
 
-      {hubs === null ? (
+      {visibleHubs === null ? (
         <DiscoverTrendingGuildsSectionSkeleton />
-      ) : hubs.length > 0 ? (
+      ) : visibleHubs.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
             <h2 className="discover-trending-heading">Hubs</h2>
@@ -572,7 +617,7 @@ export function DiscoverTrendingPanel({
             </button>
           </div>
           <ul className="discover-focus-rows">
-            {hubs.map((hub) => (
+            {visibleHubs.map((hub) => (
               <li key={hub.appId}>
                 <Link href={appPath(hub.appId)} className="discover-focus-row">
                   <span className="discover-focus-row-label">

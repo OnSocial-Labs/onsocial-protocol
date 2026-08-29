@@ -12,8 +12,8 @@ describe('discoverProfilesLead', () => {
     expect(discoverProfilesLead(12_500, '')).toBe('12.5K profiles');
   });
 
-  it('shows search line when filtered', () => {
-    expect(discoverProfilesLead(12_500, 'alex')).toBe('Searching “alex”');
+  it('keeps the count while filtering (query stays in the field)', () => {
+    expect(discoverProfilesLead(12_500, 'alex')).toBe('12.5K profiles');
   });
 
   it('falls back without total', () => {
@@ -26,9 +26,9 @@ describe('discoverDaosLead', () => {
     expect(discoverDaosLead(5310, '', false)).toBe('5,310 NEAR DAOs');
   });
 
-  it('shows search when querying', () => {
+  it('keeps the count while filtering', () => {
     expect(discoverDaosLead(5310, 'community', false)).toBe(
-      'Searching “community”'
+      '5,310 NEAR DAOs'
     );
   });
 

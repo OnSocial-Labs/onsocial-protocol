@@ -85,7 +85,7 @@ export function appDiscoverTabHref(tab: DiscoverTab): string {
 
 /**
  * When the user types `#` / `$`, switch to the matching tab.
- * Bare text stays on the current tab (Trending keeps the mixed #/$ suggest).
+ * Bare text stays on the current tab and filters that tab's content.
  */
 export function discoverTabForQueryDraft(
   raw: string,

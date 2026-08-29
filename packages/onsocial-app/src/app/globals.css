@@ -139,9 +139,19 @@
   width: 100%;
   min-width: 0;
   margin: 0;
-  padding: 0;
   border: 0;
   min-height: var(--os-app-screen-nav-row-height, 2.35rem);
+}
+
+/* Wrappers stay flush; the nav-search shell owns its own padding. */
+.os-app-screen-heading [data-sheet-initial-focus-skip]:not(.os-app-chrome-nav-search),
+.os-app-screen-heading .dao-proposals-header-search-wrap {
+  padding: 0;
+}
+
+.os-app-screen-heading .os-app-chrome-nav-search {
+  padding-inline: 0.55rem 0.45rem;
+  box-sizing: border-box;
 }
 
 /* Suggest list still anchors under the search field / heading. */
@@ -2343,6 +2353,41 @@ a.os-surface-row {
   color: var(--protocol-green, #00ec97);
   text-decoration: none;
   font-weight: 550;
+}
+
+/*
+ * Post scarce commerce — unlayered so light never falls back to -ink and so
+ * `a { color: inherit }` cannot mute Drop / Open Drop. Same neon both themes.
+ * Edition meta (e.g. 4/5 left) stays muted — layered + unlayered below.
+ */
+.post-card-scarce-buy-main {
+  color: var(--protocol-green, #00ec97);
+}
+
+.post-card-scarce-buy-meta {
+  color: rgb(var(--fg-rgb) / 0.38);
+}
+
+.post-card-scarce-buy:hover:not(:disabled) .post-card-scarce-buy-main,
+.post-card-scarce-buy:focus-visible .post-card-scarce-buy-main {
+  color: var(--protocol-green, #00ec97);
+}
+
+.post-card-scarce-buy--secondary .post-card-scarce-buy-main,
+.post-card-scarce-link {
+  color: rgb(var(--fg-rgb) / 0.4);
+}
+
+.post-card-scarce-buy--secondary:hover:not(:disabled) .post-card-scarce-buy-main,
+.post-card-scarce-buy--secondary:focus-visible .post-card-scarce-buy-main,
+.post-card-scarce-link:hover,
+.post-card-scarce-link:focus-visible {
+  color: var(--protocol-green, #00ec97);
+}
+
+.post-card-scarce-buy:disabled .post-card-scarce-buy-main,
+.post-card-scarce-buy:disabled .post-card-scarce-buy-meta {
+  color: rgb(var(--fg-rgb) / 0.26);
 }
 
 /* Unlayered — beats `.os-gesture-sheet-body` hug inset + default `a` color. */
@@ -18002,7 +18047,7 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
-  /* Quoted post — protocol-green gradient rail (divider-v-green-detail), no fill. */
+  /* Quoted post — muted detail rail (structure, not protocol green). */
   .post-card-quote-inset {
     display: flex;
     flex-direction: row;
@@ -18174,11 +18219,10 @@ a.os-surface-row {
     transition: color 160ms ease;
   }
 
-  /* Standard save/copy green — always protocol green, never mood-blended
-     (signal vars remap under [data-mood]; -ink stays the protocol hue). */
+  /* Standard save/copy green — same neon as dark in light. */
   .post-card-share.is-copied,
   .post-card-save.is-active {
-    color: var(--protocol-green-ink, var(--protocol-green));
+    color: var(--protocol-green);
   }
 
   /* Pending keeps its shade (the dots signal work); only disabled dims. */
@@ -18263,32 +18307,31 @@ a.os-surface-row {
     border-radius: 9999px;
   }
 
-  /* Hover colors the whole control (icon + count) in the action's protocol
-     hue — the theme-safe ink variants, so light mode stays legible. */
+  /* Hover / active — same neon hues as dark mode (not light -ink). */
   .post-card-stat--reply:hover:not(:disabled),
   .post-card-stat--reply:focus-visible {
-    color: var(--protocol-blue-ink, var(--protocol-blue));
+    color: var(--protocol-blue);
   }
 
   .post-card-stat--quote:hover:not(:disabled),
   .post-card-stat--quote:focus-visible {
-    color: var(--protocol-green-ink, var(--protocol-green));
+    color: var(--protocol-green);
   }
 
   .post-card-stat--quote.is-active {
-    color: var(--protocol-green-ink, var(--protocol-green));
+    color: var(--protocol-green);
   }
 
   .post-card-react:hover:not(:disabled),
   .post-card-react:focus-visible {
-    color: var(--protocol-red-ink, var(--protocol-red));
+    color: var(--protocol-red);
   }
 
   .post-card-stat--amplify:hover:not(:disabled),
   .post-card-stat--amplify:focus-visible,
   .post-card-amplify:hover:not(:disabled),
   .post-card-amplify:focus-visible {
-    color: var(--protocol-amber-ink, var(--protocol-amber));
+    color: var(--protocol-amber);
   }
 
   .post-card-share:hover:not(:disabled),
@@ -18300,22 +18343,22 @@ a.os-surface-row {
 
   .post-card-save.is-active:hover:not(:disabled),
   .post-card-save.is-active:focus-visible {
-    color: var(--protocol-green-ink, var(--protocol-green));
+    color: var(--protocol-green);
   }
 
-  /* Liked is persistent state: icon + count stay red. */
+  /* Liked is persistent state: icon + count stay crimson (same as dark). */
   .post-card-react.is-active {
-    color: var(--protocol-red-ink, var(--protocol-red));
+    color: var(--protocol-red);
   }
 
   /* Hovering a liked heart keeps the hue — feedback that unlike is available. */
   .post-card-react.is-active:hover:not(:disabled),
   .post-card-react.is-active:focus-visible {
-    color: var(--protocol-red-ink, var(--protocol-red));
+    color: var(--protocol-red);
   }
 
   .post-card-amplify.is-active {
-    color: var(--protocol-amber-ink, var(--protocol-amber));
+    color: var(--protocol-amber);
   }
 
   .post-card-scarce-cta {
@@ -18463,8 +18506,7 @@ a.os-surface-row {
   }
 
   .post-card-scarce-buy-main {
-    color: var(--protocol-green-ink, var(--protocol-green));
-    /* Protocol green chrome — not a bold CTA. */
+    /* Neon forced unlayered below — keep weight/decoration here. */
     font-weight: 400;
     text-decoration: none;
   }
@@ -18477,28 +18519,27 @@ a.os-surface-row {
   /* Desktop: same underline hover as feed tokens. Touch: no sticky hover. */
   @media (hover: hover) and (pointer: fine) {
     .post-card-scarce-buy:hover:not(:disabled) .post-card-scarce-buy-main {
-      color: var(--protocol-green-ink, var(--protocol-green));
       text-decoration: underline;
       text-underline-offset: 0.12em;
       text-decoration-thickness: from-font;
     }
 
+    /* List / Sell — match Drop · Hub · Market (green on hover only). */
     .post-card-scarce-buy--secondary:hover:not(:disabled)
       .post-card-scarce-buy-main {
-      color: var(--protocol-green-ink, var(--protocol-green));
-      text-decoration: underline;
-      text-underline-offset: 0.12em;
-      text-decoration-thickness: from-font;
+      text-decoration: none;
     }
   }
 
   /* Keyboard focus always underlines — not gated on fine pointer. */
-  .post-card-scarce-buy:focus-visible .post-card-scarce-buy-main,
-  .post-card-scarce-buy--secondary:focus-visible .post-card-scarce-buy-main {
-    color: var(--protocol-green-ink, var(--protocol-green));
+  .post-card-scarce-buy:focus-visible .post-card-scarce-buy-main {
     text-decoration: underline;
     text-underline-offset: 0.12em;
     text-decoration-thickness: from-font;
+  }
+
+  .post-card-scarce-buy--secondary:focus-visible .post-card-scarce-buy-main {
+    text-decoration: none;
   }
 
   .post-card-scarce-buy:disabled {
@@ -18513,9 +18554,13 @@ a.os-surface-row {
     outline: none;
   }
 
+  /*
+   * List / Sell — same chrome as Drop · Hub · Market (muted, green on hover).
+   * Money verbs (Mint / Buy / Bid) stay protocol-green primary.
+   */
   .post-card-scarce-buy--secondary .post-card-scarce-buy-main {
-    color: rgb(var(--fg-rgb) / 0.55);
     font-weight: 600;
+    text-decoration: none;
   }
 
   .post-card-scarce-links {
@@ -18527,16 +18572,10 @@ a.os-surface-row {
   }
 
   .post-card-scarce-link {
-    color: rgb(var(--fg-rgb) / 0.4);
     font-size: 0.72rem;
     font-weight: 600;
     text-decoration: none;
     transition: color 160ms ease;
-  }
-
-  .post-card-scarce-link:hover,
-  .post-card-scarce-link:focus-visible {
-    color: var(--protocol-green-ink, var(--protocol-green));
   }
 
   /*
@@ -19737,7 +19776,7 @@ a.os-surface-row {
   }
 
   .scarce-clip-track-love.is-loved {
-    color: var(--protocol-green-ink, var(--protocol-green));
+    color: var(--protocol-green, #00ec97);
   }
 
   .scarce-clip-track-love.is-pending {
@@ -20294,7 +20333,7 @@ a.os-surface-row {
   }
 
   .scarce-clip-listen-love.is-loved {
-    color: var(--protocol-green-ink, var(--protocol-green));
+    color: var(--protocol-green, #00ec97);
   }
 
   .scarce-clip-listen-love.is-pending {
@@ -20335,7 +20374,7 @@ a.os-surface-row {
   }
 
   .scarce-clip-listen-save.is-saved {
-    color: var(--protocol-green-ink, var(--protocol-green));
+    color: var(--protocol-green, #00ec97);
   }
 
   .scarce-clip-listen-save.is-pending {
@@ -21942,7 +21981,7 @@ a.os-surface-row {
 
   /* One saved green across post-card, commerce, and listen surfaces. */
   .collection-commerce-save.is-saved {
-    color: var(--protocol-green-ink, var(--protocol-green));
+    color: var(--protocol-green, #00ec97);
   }
 
   /* Pending keeps its shade — dimming read as disabled. */
@@ -21984,7 +22023,7 @@ a.os-surface-row {
   }
 
   .collection-commerce-love.is-loved {
-    color: var(--protocol-green-ink, var(--protocol-green));
+    color: var(--protocol-green, #00ec97);
   }
 
   .collection-commerce-love.is-pending {
@@ -28298,7 +28337,7 @@ a.os-surface-row {
 
   .post-card-amplify.is-active:hover:not(:disabled),
   .post-card-amplify.is-active:focus-visible {
-    color: var(--protocol-amber-ink, var(--protocol-amber));
+    color: var(--protocol-amber);
   }
 
   /* Pending keeps its shade — dimming read as disabled. */
@@ -36651,7 +36690,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 .messages-inbox-search.search-field--branded .search-field-input {
-  line-height: 1.2rem;
+  line-height: 1.25;
 }
 
 .messages-search-people {

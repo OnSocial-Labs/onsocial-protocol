@@ -351,7 +351,7 @@
 .os-sheet-action--danger.is-ready:not(:disabled):focus-visible {
   box-shadow: var(
     --os-focus-ring-danger,
-    0 0 0 2px color-mix(in srgb, var(--protocol-red, #f87171) 35%, transparent)
+    0 0 0 2px color-mix(in srgb, var(--protocol-red, #f25c5c) 35%, transparent)
   );
 }
 
@@ -802,7 +802,7 @@
   .os-sheet-action--danger:focus-visible {
   box-shadow: var(
     --os-focus-ring-danger,
-    0 0 0 2px color-mix(in srgb, var(--protocol-red, #f87171) 35%, transparent)
+    0 0 0 2px color-mix(in srgb, var(--protocol-red, #f25c5c) 35%, transparent)
   );
 }
 

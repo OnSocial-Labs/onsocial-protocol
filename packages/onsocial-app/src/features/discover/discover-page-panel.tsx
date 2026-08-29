@@ -9,6 +9,7 @@ import {
 } from '@/features/discover/discover-screen-chrome';
 import { DiscoverPanelRoot } from '@/features/discover/discover-panel';
 import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
+import { APP_HOME_PATH } from '@/lib/app-routes';
 import type { DiscoverProfilesResponse } from '@/lib/discover-profiles';
 import type { DiscoverTrendingSeed } from '@/lib/discover-trending-server';
 
@@ -17,8 +18,8 @@ function DiscoverPageScreen({
   backFallbackHref,
 }: {
   scrollRootRef: RefObject<HTMLElement | null>;
-  /** Nested Discover (portfolio `/@account/discover`) — dock back, not header. */
-  backFallbackHref?: string;
+  /** Parent place for dock leave — portfolio nested, or Home for `/discover`. */
+  backFallbackHref: string;
 }) {
   return (
     <OsAppScreen
@@ -28,12 +29,8 @@ function DiscoverPageScreen({
       scrollTuck="search"
       scrollRootRef={scrollRootRef}
       leading={null}
-      {...(backFallbackHref
-        ? {
-            dockBack: true as const,
-            backFallbackHref,
-          }
-        : {})}
+      dockBack
+      backFallbackHref={backFallbackHref}
       heading={<DiscoverNavSearch />}
       toolbar={<DiscoverHeaderTabs />}
     >
@@ -49,8 +46,8 @@ export function DiscoverPagePanel({
   initialGuilds = null,
 }: {
   /**
-   * When set (portfolio `/@account/discover`), dock leave goes to that page.
-   * App `/discover` is a root — no leave.
+   * Dock leave parent. Portfolio `/@account/discover` → that portfolio;
+   * app `/discover` → Home (same as Market).
    */
   backFallbackHref?: string;
   initialPage?: DiscoverProfilesResponse | null;
@@ -58,6 +55,7 @@ export function DiscoverPagePanel({
   initialGuilds?: GuildSummaryCardModel[] | null;
 }) {
   const scrollRootRef = useRef<HTMLElement>(null);
+  const leaveHref = backFallbackHref ?? APP_HOME_PATH;
 
   return (
     <DiscoverPanelRoot
@@ -69,7 +67,7 @@ export function DiscoverPagePanel({
     >
       <DiscoverPageScreen
         scrollRootRef={scrollRootRef}
-        backFallbackHref={backFallbackHref}
+        backFallbackHref={leaveHref}
       />
     </DiscoverPanelRoot>
   );

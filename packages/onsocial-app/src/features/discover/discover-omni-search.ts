@@ -11,9 +11,9 @@ import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
 /**
  * Discover omni-search intent.
  *
- * Discover is the global search hub, but topics/tickers live in the Home
- * focused feed — so an explicit `#`/`$` query hands off to Home while bare
- * text stays in-Discover people search (the primary tab).
+ * Bare text filters the active Discover tab. Explicit `#` / `$` drafts switch
+ * to Topics / Tickers; committing them (Enter) can hand off to the Home
+ * focused feed.
  */
 export type DiscoverSearchIntent =
   | { kind: 'people' }

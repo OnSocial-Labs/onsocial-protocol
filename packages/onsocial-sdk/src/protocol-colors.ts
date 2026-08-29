@@ -13,7 +13,7 @@ export const PROTOCOL_COLORS = {
   greenHover: '#33f0ad',
   amber: '#fbbf24',
   pink: '#ec4899',
-  red: '#f87171',
+  red: '#f25c5c',
 } as const;
 
 export type ProtocolColorKey = keyof typeof PROTOCOL_COLORS;

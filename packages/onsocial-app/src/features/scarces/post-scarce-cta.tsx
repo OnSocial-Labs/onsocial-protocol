@@ -176,11 +176,11 @@ function OpenDropButton({ collectionId }: { collectionId: string }) {
   return (
     <Link
       href={collectionPath(collectionId)}
-      className="post-card-scarce-buy"
+      className="post-card-scarce-link"
       scroll={false}
       onClick={(event) => event.stopPropagation()}
     >
-      <span className="post-card-scarce-buy-main">Open Drop</span>
+      Open Drop
     </Link>
   );
 }
@@ -222,7 +222,7 @@ export function PostScarceCta({
         <div className="post-card-scarce-cta">
           <button
             type="button"
-            className="post-card-scarce-buy"
+            className="post-card-scarce-buy post-card-scarce-buy--secondary"
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -244,7 +244,7 @@ export function PostScarceCta({
       <div className="post-card-scarce-cta">
         <button
           type="button"
-          className="post-card-scarce-buy"
+          className="post-card-scarce-buy post-card-scarce-buy--secondary"
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();

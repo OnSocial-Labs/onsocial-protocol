@@ -23,6 +23,7 @@ import {
 import { portalHref } from '@/lib/app-links';
 import {
   portfolioCollectiblesPath,
+  discoverPath,
   type OverlayPanel,
 } from '@/lib/overlay-routes';
 
@@ -272,7 +273,7 @@ export function ownerPortfolioOsApps(accountId: string): OsAppLink[] {
       id: 'discover',
       label: 'Discover',
       kind: 'app',
-      href: APP_DISCOVER_PATH,
+      href: discoverPath(accountId),
     },
     {
       id: 'market',
@@ -305,7 +306,7 @@ export function ownerPortfolioOsApps(accountId: string): OsAppLink[] {
   ];
 }
 
-export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
+export function visitorPortfolioOsApps(accountId: string): OsAppLink[] {
   return [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
     {
@@ -324,7 +325,7 @@ export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
       id: 'discover',
       label: 'Discover',
       kind: 'app',
-      href: APP_DISCOVER_PATH,
+      href: discoverPath(accountId),
     },
     {
       id: 'market',

@@ -502,5 +502,5 @@
 .os-sheet-floating-panel-error {
   margin: 0;
   font-size: 0.72rem;
-  color: var(--protocol-red, #f87171);
+  color: var(--protocol-red, #f25c5c);
 }

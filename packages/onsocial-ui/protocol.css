@@ -27,7 +27,8 @@
     --protocol-green-hover: #33f0ad;
     --protocol-amber: #fbbf24;
     --protocol-pink: #ec4899;
-    --protocol-red: #f87171;
+    /* Crimson — soft enough for light, still clear on dark (between red-400/500). */
+    --protocol-red: #f25c5c;
   }
 
   /* Light surfaces (Portal :root, OnPage data-theme=light) */
@@ -91,13 +92,13 @@
     --protocol-pink-bg: rgb(236 72 153 / 0.06);
     --protocol-pink-glow: rgb(236 72 153 / 0.16);
 
-    --protocol-red-border: rgb(248 113 113 / 0.48);
-    --protocol-red-border-strong: rgb(248 113 113 / 0.65);
-    --protocol-red-frame-border: rgb(248 113 113 / 0.35);
-    --protocol-red-frame-bg: rgb(248 113 113 / 0.08);
-    --protocol-red-bg: rgb(248 113 113 / 0.06);
-    --protocol-red-shadow: rgb(248 113 113 / 0.24);
-    --protocol-red-glow: rgb(248 113 113 / 0.16);
+    --protocol-red-border: rgb(242 92 92 / 0.48);
+    --protocol-red-border-strong: rgb(242 92 92 / 0.65);
+    --protocol-red-frame-border: rgb(242 92 92 / 0.35);
+    --protocol-red-frame-bg: rgb(242 92 92 / 0.08);
+    --protocol-red-bg: rgb(242 92 92 / 0.06);
+    --protocol-red-shadow: rgb(242 92 92 / 0.24);
+    --protocol-red-glow: rgb(242 92 92 / 0.16);
   }
 
   /* Dark surfaces (Portal .dark, OnPage data-theme=dark) */
@@ -161,13 +162,13 @@
     --protocol-pink-bg: rgb(236 72 153 / 0.06);
     --protocol-pink-glow: rgb(236 72 153 / 0.16);
 
-    --protocol-red-border: rgb(248 113 113 / 0.48);
-    --protocol-red-border-strong: rgb(248 113 113 / 0.65);
-    --protocol-red-frame-border: rgb(248 113 113 / 0.35);
-    --protocol-red-frame-bg: rgb(248 113 113 / 0.08);
-    --protocol-red-bg: rgb(248 113 113 / 0.06);
-    --protocol-red-shadow: rgb(248 113 113 / 0.26);
-    --protocol-red-glow: rgb(248 113 113 / 0.16);
+    --protocol-red-border: rgb(242 92 92 / 0.48);
+    --protocol-red-border-strong: rgb(242 92 92 / 0.65);
+    --protocol-red-frame-border: rgb(242 92 92 / 0.35);
+    --protocol-red-frame-bg: rgb(242 92 92 / 0.08);
+    --protocol-red-bg: rgb(242 92 92 / 0.06);
+    --protocol-red-shadow: rgb(242 92 92 / 0.26);
+    --protocol-red-glow: rgb(242 92 92 / 0.16);
   }
 
   /* Profile signal semantics → protocol hue ink (theme-safe for text) */

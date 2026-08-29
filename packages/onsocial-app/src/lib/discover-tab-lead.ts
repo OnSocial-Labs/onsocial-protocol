@@ -10,18 +10,14 @@ export function formatDiscoverTabCount(count: number): string {
   }).format(numericCount);
 }
 
-export function discoverSearchLead(query: string): string {
-  const trimmed = query.trim();
-  if (!trimmed) return '';
-  return `Searching “${trimmed}”`;
-}
-
+/**
+ * Lead lines name the section / count. Do not echo the query — it's already
+ * in the search field.
+ */
 export function discoverProfilesLead(
   discoverableTotal: number | null | undefined,
-  query: string
+  _query?: string
 ): string {
-  const search = discoverSearchLead(query);
-  if (search) return search;
   if (typeof discoverableTotal === 'number' && discoverableTotal > 0) {
     return `${formatDiscoverTabCount(discoverableTotal)} profiles`;
   }
@@ -30,32 +26,26 @@ export function discoverProfilesLead(
 
 export function discoverDaosLead(
   total: number,
-  query: string,
+  _query: string,
   syncing: boolean
 ): string {
-  const search = discoverSearchLead(query);
-  if (search) return search;
   if (syncing && total === 0) return 'Finding NEAR DAOs…';
   if (total > 0) return `${total.toLocaleString()} NEAR DAOs`;
   return 'NEAR DAOs';
 }
 
 export function discoverGuildsLead(
-  query: string,
+  _query: string,
   topicLabel: string | null
 ): string {
-  const search = discoverSearchLead(query);
-  if (search) return search;
   if (topicLabel) return `Guilds · ${topicLabel}`;
   return 'Public guilds';
 }
 
 export function discoverHubsLead(
-  query: string,
+  _query: string,
   categoryLabel: string | null
 ): string {
-  const search = discoverSearchLead(query);
-  if (search) return search;
   if (categoryLabel) return `Hubs · ${categoryLabel}`;
   return 'Creator hubs';
 }

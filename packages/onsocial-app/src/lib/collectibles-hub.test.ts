@@ -110,6 +110,23 @@ describe('collectibles os apps', () => {
     ).toBe(false);
   });
 
+  it('opens Discover nested under the portfolio so leave returns there', () => {
+    expect(
+      ownerPortfolioOsApps('alice.near').find((app) => app.id === 'discover')
+        ?.href
+    ).toBe('/@alice.near/discover');
+    expect(
+      visitorPortfolioOsApps('bob.near').find((app) => app.id === 'discover')
+        ?.href
+    ).toBe('/@bob.near/discover');
+    expect(
+      appShellOsApps('alice.near').find((app) => app.id === 'discover')?.href
+    ).toBe('/discover');
+    expect(
+      gateOsApps().find((app) => app.id === 'discover')?.href
+    ).toBe('/discover');
+  });
+
   it('inserts Collectibles after Market when the wallet is connected', () => {
     const disconnected = appShellOsApps(null).map((app) => app.id);
     expect(disconnected).not.toContain('collectibles');

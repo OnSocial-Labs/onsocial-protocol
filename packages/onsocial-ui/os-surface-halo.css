@@ -53,7 +53,7 @@
 }
 
 .os-surface-halo--danger {
-  --os-surface-halo-accent: var(--protocol-red, #f87171);
+  --os-surface-halo-accent: var(--protocol-red, #f25c5c);
   --os-surface-halo-glow: color-mix(
     in srgb,
     var(--os-surface-halo-accent) 12%,

@@ -643,7 +643,7 @@ export function QuotedPostInset({
           : undefined
       }
     >
-      <Divider orientation="vertical" variant="green-detail" />
+      <Divider orientation="vertical" variant="detail" />
       <div className="post-card-quote-inset-content">
         <span className="post-card-quote-inset-head">
           <ProfileAvatar
