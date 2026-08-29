@@ -61,6 +61,11 @@ export interface OsSlideOverScreenProps {
    */
   immersiveHeader?: boolean;
   zIndex?: number;
+  /**
+   * Label for the leading ArrowLeft. Slide-overs are pushed pages, so the
+   * ArrowLeft family convention applies — "Back" / "Back from X", never
+   * "Close" (× owns dismissal on sheets).
+   */
   closeAriaLabel?: string;
   /** When true, back + Escape do nothing (e.g. post pending). */
   closeDisabled?: boolean;
