@@ -17,6 +17,22 @@
     cursor: text;
   }
 
+  /* Label wraps glyph + input so trailing X / Done are not inside it. */
+  .search-field-core {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    align-items: center;
+    gap: inherit;
+    cursor: text;
+  }
+
+  .search-field-trailing {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+  }
+
   .search-field--branded {
     gap: 0.45rem;
     padding-left: 0.55rem;
