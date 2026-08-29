@@ -12,8 +12,6 @@ export function MarketLoadingScreen() {
     <OsAppScreen
       title="Market"
       compactChrome
-      dockBack
-      leading={null}
       backFallbackHref={APP_HOME_PATH}
       glassChrome
       heading={<MarketSearchHeading interactive={false} />}

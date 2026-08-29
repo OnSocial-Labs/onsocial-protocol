@@ -705,7 +705,7 @@ export function CollectiblesPagePanel({
     resolvedShell === 'portfolio' && pageAccountId
       ? portfolioPath(pageAccountId)
       : null;
-  const dockBackHref = portfolioBackHref ?? APP_HOME_PATH;
+  const backHref = portfolioBackHref ?? APP_HOME_PATH;
 
   return (
     <CollectiblesPanelChromeProvider value={chromeValue}>
@@ -714,9 +714,7 @@ export function CollectiblesPagePanel({
         compactChrome
         scrollTuck="search"
         scrollTuckPinned={scrollTuckPinned}
-        dockBack
-        leading={null}
-        backFallbackHref={dockBackHref}
+        backFallbackHref={backHref}
         glassChrome
         scrollRootRef={scrollRootRef}
         actions={<CollectiblesHeaderActions pageAccountId={ownerAccountId} />}

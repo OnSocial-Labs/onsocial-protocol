@@ -322,8 +322,6 @@ export function NotificationsPanel() {
       title="Activity"
       compactChrome
       glassChrome
-      dockBack
-      leading={null}
       backFallbackHref={APP_HOME_PATH}
       heading={<p className="os-app-screen-title">Activity</p>}
       actions={markAllAction}

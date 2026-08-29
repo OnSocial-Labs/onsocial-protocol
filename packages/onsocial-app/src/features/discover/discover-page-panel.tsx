@@ -17,7 +17,7 @@ function DiscoverPageScreen({
   backFallbackHref,
 }: {
   scrollRootRef: RefObject<HTMLElement | null>;
-  /** Nested Discover (portfolio `/@account/discover`) — dock back, not header. */
+  /** Nested Discover (portfolio `/@account/discover`) — header contextual back. */
   backFallbackHref?: string;
 }) {
   const nested = Boolean(backFallbackHref);
@@ -29,13 +29,8 @@ function DiscoverPageScreen({
       glassChrome
       scrollTuck="search"
       scrollRootRef={scrollRootRef}
-      leading={null}
-      {...(nested
-        ? {
-            dockBack: true as const,
-            backFallbackHref,
-          }
-        : {})}
+      leading={nested ? undefined : null}
+      {...(nested ? { backFallbackHref } : {})}
       heading={<DiscoverNavSearch />}
       toolbar={<DiscoverHeaderTabs />}
     >
@@ -51,7 +46,7 @@ export function DiscoverPagePanel({
   initialGuilds = null,
 }: {
   /**
-   * When set (portfolio `/@account/discover`), register launcher dock back —
+   * When set (portfolio `/@account/discover`), show header contextual back —
    * e.g. Standing → Discover. App `/discover` omits this (launcher root).
    */
   backFallbackHref?: string;

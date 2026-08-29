@@ -7,6 +7,7 @@ import {
   OsProposalCardList,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { ContextualBack } from '@/components/app/contextual-back';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -1814,10 +1815,7 @@ export function DaoWorkspacePanel({
             compactChrome
             scrollTuck="search"
             embedded
-            dockBack
-            onDockBack={handleSheetBack}
-            backFallbackHref={daoPortfolioPath(daoAccountId)}
-            leading={null}
+            leading={<ContextualBack onBack={handleSheetBack} />}
             moodId={pageMood.moodId}
             moodStyle={pageMood.moodStyle}
             scrollRootRef={scrollRootRef}

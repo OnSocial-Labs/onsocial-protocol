@@ -17,7 +17,6 @@ import {
   RallySheetProvider,
 } from '@/features/rally/rally-sheet-host';
 import { ComposeLauncherProvider } from '@/contexts/compose-launcher-context';
-import { DockChromeProvider } from '@/contexts/dock-chrome-context';
 import {
   OsPortalHostProvider,
   useOsPortalHost,
@@ -66,7 +65,6 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                   <AppRewardsProvider>
                     <PortfolioCustomizeProvider>
                       <ComposeLauncherProvider>
-                        <DockChromeProvider>
                         <OsPortalHostProvider>
                           <OsGlassSheetPortalBridge>
                             <RallySheetProvider>
@@ -89,7 +87,6 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                             </RallySheetProvider>
                           </OsGlassSheetPortalBridge>
                         </OsPortalHostProvider>
-                        </DockChromeProvider>
                       </ComposeLauncherProvider>
                     </PortfolioCustomizeProvider>
                   </AppRewardsProvider>

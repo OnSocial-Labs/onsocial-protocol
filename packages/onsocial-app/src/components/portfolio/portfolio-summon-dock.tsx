@@ -15,10 +15,6 @@ import {
   useWriteDockPinned,
   useWriteDockMorph,
 } from '@/contexts/compose-launcher-context';
-import {
-  useDockBack,
-  type DockBackRegistration,
-} from '@/contexts/dock-chrome-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
@@ -40,11 +36,12 @@ const LONG_PRESS_MS = 480;
 const SWIPE_UP_PX = 28;
 const TAP_SLOP_PX = 12;
 
-/** Face default — history.back(), else Home (overlays override via context). */
-const FACE_DOCK_BACK: DockBackRegistration = {
+/** Face back — history.back(), else Home. The face has no header, so back
+ * lives in the dock here; app screens keep back in the header instead. */
+const FACE_DOCK_BACK = {
   fallbackHref: APP_HOME_PATH,
   ariaLabel: 'Back',
-};
+} as const;
 
 export interface PortfolioSummonDockProps {
   pageAccountId: string;
@@ -79,8 +76,7 @@ export function PortfolioSummonDock({
   const writePinned = useWriteDockPinned();
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
-  const registeredDockBack = useDockBack();
-  const dockBack = registeredDockBack ?? FACE_DOCK_BACK;
+  const dockBack = FACE_DOCK_BACK;
   const { effectiveMood, isPreviewingMood } = usePortfolioMoodPreview();
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
   const viewerDockMood = useViewerDockMood(pageAccountId);
@@ -247,7 +243,6 @@ export function PortfolioSummonDock({
               <OsDockBackZone
                 fallbackHref={dockBack.fallbackHref}
                 ariaLabel={dockBack.ariaLabel}
-                onBack={dockBack.onBack}
               />
             ) : undefined
           }

@@ -1,12 +1,11 @@
 'use client';
 
 import type { CSSProperties, ReactNode, RefObject } from 'react';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ContextualBack } from '@/components/app/contextual-back';
 import { AppShellLauncher } from '@/components/os/summon-launcher';
 import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
-import { useRegisterDockBack } from '@/contexts/dock-chrome-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 
@@ -55,12 +54,6 @@ export interface OsAppScreenProps {
    * Sets `data-nested-scroll-chrome` — body flush, frost samples nested scrollers.
    */
   nestedScrollChrome?: boolean;
-  /**
-   * Move contextual back to the summon dock (hidden while writing / launcher open).
-   */
-  dockBack?: boolean;
-  /** When set with `dockBack`, runs instead of history navigation (e.g. close thread). */
-  onDockBack?: () => void;
   /**
    * Scroll tuck on compact glass chrome. `search` — chips stay, search row slides
    * away under them; `toolbar` — legacy chip-rail hide (Home toolbar-only).
@@ -112,8 +105,6 @@ export function OsAppScreen({
   glassChrome = false,
   compactChrome = false,
   nestedScrollChrome = false,
-  dockBack = false,
-  onDockBack,
   scrollTuck,
   scrollTuckPinned = false,
   toolbar,
@@ -145,24 +136,10 @@ export function OsAppScreen({
   const resolvedMoodStyle =
     moodStyle !== undefined ? moodStyle : viewerMood.style;
   const hasMood = Boolean(resolvedMoodId);
-  const dockBackEntry = useMemo(
-    () =>
-      dockBack
-        ? {
-            fallbackHref: backFallbackHref,
-            ariaLabel: 'Back',
-            ...(onDockBack ? { onBack: onDockBack } : {}),
-          }
-        : null,
-    [backFallbackHref, dockBack, onDockBack]
-  );
-  useRegisterDockBack(dockBackEntry);
-  const navBackInDock = dockBack && leading === undefined;
   const showNavRow =
     !compactChrome ||
     Boolean(actions || subtitle || heading) ||
-    leading != null ||
-    navBackInDock;
+    leading != null;
 
   const setBodyRef = (node: HTMLElement | null) => {
     bodyRef.current = node;
@@ -225,7 +202,6 @@ export function OsAppScreen({
       data-nested-scroll-chrome={
         glassMode && nestedScrollChrome ? 'true' : undefined
       }
-      data-dock-back={dockBack ? 'true' : undefined}
       data-scroll-tuck={scrollTuck}
       data-screen-footer={hasFooter ? 'true' : undefined}
       data-mood={hasMood ? resolvedMoodId! : undefined}
@@ -242,7 +218,7 @@ export function OsAppScreen({
         >
           {showNavRow ? (
             <div className="os-app-screen-nav-row">
-              {navBackInDock ? null : leading !== undefined ? (
+              {leading !== undefined ? (
                 leading
               ) : (
                 <ContextualBack fallbackHref={backFallbackHref} />

@@ -47,7 +47,6 @@ import {
   useWriteDockPinned,
   useWriteDockMorph,
 } from '@/contexts/compose-launcher-context';
-import { useDockBack } from '@/contexts/dock-chrome-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
 import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
 import { useNotificationsUnreadCount } from '@/components/providers/notifications-host';
@@ -60,7 +59,6 @@ import { ThemeToggle } from '@/components/os/theme-toggle';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
 import { PortfolioSummonComposeButton } from '@/components/portfolio/portfolio-summon-compose-button';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
-import { OsDockBackZone } from '@/components/wallet/os-dock-back-zone';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
   appShellOsApps,
@@ -255,13 +253,11 @@ export function SummonLauncher({
   );
 
   const compose = useComposeLauncher();
-  const dockBack = useDockBack();
   const writePinned = useWriteDockPinned();
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
   const dockHidden =
     useDockAutoHide(open || writePinned || Boolean(write)) && !open;
-  const showDockBack = Boolean(dockBack) && !open;
   const portalHost = useOsPortalHost();
   const clientMounted = useSyncExternalStore(
     clientMountedSubscribe,
@@ -496,15 +492,6 @@ export function SummonLauncher({
           <OsDockPill
             pageAccountId={pageAccountId}
             writeMorph={writeMorph}
-            navBack={
-              showDockBack && dockBack ? (
-                <OsDockBackZone
-                  fallbackHref={dockBack.fallbackHref}
-                  ariaLabel={dockBack.ariaLabel}
-                  onBack={dockBack.onBack}
-                />
-              ) : undefined
-            }
             grip={
               <button
                 type="button"

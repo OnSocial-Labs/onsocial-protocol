@@ -9235,13 +9235,7 @@ a.os-surface-row {
     min-height: var(--os-app-screen-nav-row-height);
   }
 
-  .os-app-screen[data-compact-chrome='true'][data-dock-back='true']
-    .os-app-screen-nav-row {
-    min-height: 2.35rem;
-  }
-
-  .os-app-screen[data-compact-chrome='true'][data-dock-back='true']
-    .os-app-screen-title {
+  .os-app-screen[data-compact-chrome='true'] .os-app-screen-title {
     font-size: 0.98rem;
   }
 

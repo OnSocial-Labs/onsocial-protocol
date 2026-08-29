@@ -643,7 +643,6 @@ export function LivePersonalPostPanel({
     <OsAppScreen
       title="Post"
       compactChrome
-      dockBack
       glassChrome
       backFallbackHref={portfolioPath(author)}
       actions={connectAction}

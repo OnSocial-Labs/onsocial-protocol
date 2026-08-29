@@ -1319,8 +1319,6 @@ export function DropsPagePanel({
       compactChrome
       scrollTuck="search"
       scrollTuckPinned={filterMenuOpen}
-      dockBack
-      leading={null}
       glassChrome
       scrollRootRef={scrollRootRef}
       backFallbackHref={APP_MARKET_PATH}

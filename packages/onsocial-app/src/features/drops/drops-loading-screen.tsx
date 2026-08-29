@@ -12,8 +12,6 @@ export function DropsLoadingScreen() {
     <OsAppScreen
       title="Drops"
       compactChrome
-      dockBack
-      leading={null}
       glassChrome
       backFallbackHref={APP_MARKET_PATH}
       heading={<DropsSearchHeading interactive={false} />}

@@ -1321,8 +1321,6 @@ export function MarketPagePanel({
       compactChrome
       scrollTuck="search"
       scrollTuckPinned={sortMenuOpen}
-      dockBack
-      leading={null}
       backFallbackHref={APP_HOME_PATH}
       glassChrome
       scrollRootRef={scrollRootRef}

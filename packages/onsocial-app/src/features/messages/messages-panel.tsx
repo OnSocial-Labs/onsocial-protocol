@@ -20,6 +20,7 @@ import {
   OsAppChromePageStatus,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { ContextualBack } from '@/components/app/contextual-back';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -1302,9 +1303,7 @@ export function MessagesPanel() {
         title="Messages"
         compactChrome
         glassChrome
-        dockBack
         backFallbackHref={APP_HOME_PATH}
-        leading={null}
         heading={<p className="os-app-screen-title">Messages</p>}
         actions={
           <OsIconAction
@@ -1339,9 +1338,7 @@ export function MessagesPanel() {
         title="Messages"
         compactChrome
         glassChrome
-        dockBack
         backFallbackHref={APP_HOME_PATH}
-        leading={null}
         heading={<p className="os-app-screen-title">Messages</p>}
         actions={
           <OsIconAction
@@ -1461,10 +1458,11 @@ export function MessagesPanel() {
       scrollRootRef={scrollRootRef}
       moodId={threadOpen && peerMood ? peerMood.id : undefined}
       moodStyle={threadMoodStyle}
-      dockBack={threadOpen}
-      onDockBack={closeThread}
-      backFallbackHref={threadOpen ? messagesPath() : APP_HOME_PATH}
-      leading={null}
+      leading={
+        threadOpen ? (
+          <ContextualBack onBack={closeThread} ariaLabel="Back to messages" />
+        ) : null
+      }
       style={screenStyle}
       heading={
         threadChromeHeading ??
