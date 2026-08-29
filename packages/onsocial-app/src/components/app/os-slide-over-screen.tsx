@@ -1,9 +1,8 @@
 'use client';
 
 /**
- * Full-screen side slide — same glass surface as `OsAppScreen` (feed / create),
- * with a back chevron instead of a sheet close ×.
- * Reuse for nested manage flows that should feel like a pushed page.
+ * Full-screen side slide — same glass surface as `OsAppScreen` (feed / create).
+ * Close with × (same as sheets). Leave a place is the dock chevron.
  *
  * Portals into the registered `OsPortalHost` (OS / portfolio card with
  * overflow clip) so the panel slides from that edge only.
@@ -23,7 +22,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ChevronLeftIcon,
+  MultiplyIcon,
   OsIconAction,
   useScrollLock,
 } from '@onsocial/ui';
@@ -41,13 +40,13 @@ export interface OsSlideOverScreenProps {
   /** After the exit slide finishes and the layer unmounts. */
   onClosed?: () => void;
   /**
-   * Called before back / Escape starts the exit slide.
+   * Called before close / Escape starts the exit slide.
    * Return `false` to keep the layer open (e.g. show discard confirm).
    */
   onBeforeClose?: () => boolean;
   title: string;
   subtitle?: string;
-  /** Icon actions opposite the back control. */
+  /** Icon actions opposite the close control. */
   actions?: ReactNode;
   /** Replaces the default title/subtitle block (keep `title` for screen readers). */
   heading?: ReactNode;
@@ -56,13 +55,13 @@ export interface OsSlideOverScreenProps {
   children: ReactNode;
   /**
    * Overlay chrome on top media (guild page recipe). Banner starts at the
-   * screen top; back + title sit on frost. Default is glass chrome with
+   * screen top; close + title sit on frost. Default is glass chrome with
    * body offset — use this for cover/identity editors.
    */
   immersiveHeader?: boolean;
   zIndex?: number;
   closeAriaLabel?: string;
-  /** When true, back + Escape do nothing (e.g. post pending). */
+  /** When true, close + Escape do nothing (e.g. post pending). */
   closeDisabled?: boolean;
   /**
    * Mood wash under glass (`data-mood` + CSS vars).
@@ -81,7 +80,7 @@ export interface OsSlideOverScreenProps {
 }
 
 /**
- * Portaled slide-over page shell — feed chrome, viewer mood, back to dismiss.
+ * Portaled slide-over page shell — feed chrome, viewer mood, × to dismiss.
  */
 export function OsSlideOverScreen({
   open,
@@ -97,7 +96,7 @@ export function OsSlideOverScreen({
   children,
   immersiveHeader = false,
   zIndex = 70,
-  closeAriaLabel = 'Back',
+  closeAriaLabel = 'Close',
   closeDisabled = false,
   moodId,
   moodStyle,
@@ -263,7 +262,7 @@ export function OsSlideOverScreen({
               disabled={closeDisabled}
               onClick={requestClose}
             >
-              <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+              <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
             </OsIconAction>
             <div className="os-app-screen-heading">
               {heading ? (

@@ -14,10 +14,10 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AmountFieldMetaRow,
-  ChevronLeftIcon,
   DiscardConfirmSheet,
   OsSheetAction,
   OsSheetActions,
+  MultiplyIcon,
   OsIconAction,
   OsAppChromeToolbarRail,
   QuestionMarkCircleFillIcon,
@@ -2454,12 +2454,12 @@ export function CreateDropPanel() {
       leading={
         studioOpen ? (
           <OsIconAction
-            ariaLabel="Back to drop details"
+            ariaLabel="Close studio"
             onClick={() => {
               setStudioOpen(false);
             }}
           >
-            <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+            <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
           </OsIconAction>
         ) : undefined
       }
