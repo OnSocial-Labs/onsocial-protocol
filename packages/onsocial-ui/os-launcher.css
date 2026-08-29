@@ -132,7 +132,8 @@
 }
 
 .os-launcher-root.is-enter .os-launcher-backdrop {
-  animation: os-launcher-backdrop-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation: os-launcher-backdrop-in var(--os-motion-overlay, 320ms)
+    var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 /* Bottom sheet — same glass panel as standing GlassSheet. */
@@ -155,12 +156,13 @@
   box-shadow: var(--glass-shadow, none);
   /* Stable resting transform — enter animation is one-shot via .is-enter. */
   transform: translateY(var(--os-launcher-y, 0px));
-  transition: transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: transform var(--os-motion-overlay, 320ms)
+    var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 .os-launcher-sheet.is-enter {
-  animation: os-launcher-sheet-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1)
-    forwards;
+  animation: os-launcher-sheet-in var(--os-motion-overlay, 320ms)
+    var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1)) forwards;
   transition: none;
 }
 

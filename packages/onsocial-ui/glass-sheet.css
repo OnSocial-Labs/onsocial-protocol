@@ -100,7 +100,8 @@
 }
 
 .glass-sheet-root.is-visible.glass-sheet-root--enter .glass-sheet-backdrop {
-  animation: glass-sheet-backdrop-enter 320ms cubic-bezier(0.2, 0.9, 0.24, 1);
+  animation: glass-sheet-backdrop-enter var(--os-motion-overlay, 320ms)
+    var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
 }
 
 .glass-sheet-panel {
@@ -130,7 +131,8 @@
   color: rgb(var(--fg-rgb) / 0.96);
   box-shadow: var(--glass-shadow, none);
   transform: translateY(100%);
-  transition: transform 320ms cubic-bezier(0.2, 0.9, 0.24, 1);
+  transition: transform var(--os-motion-overlay, 320ms)
+    var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
 }
 
 /*
@@ -250,7 +252,8 @@
 }
 
 .glass-sheet-panel.is-open.glass-sheet-panel--enter {
-  animation: glass-sheet-enter 320ms cubic-bezier(0.2, 0.9, 0.24, 1) forwards;
+  animation: glass-sheet-enter var(--os-motion-overlay, 320ms)
+    var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)) forwards;
   transition: none;
 }
 
@@ -266,7 +269,8 @@
 .glass-sheet-panel[data-presentation='appear'] {
   transform: none;
   opacity: 0;
-  transition: opacity 280ms cubic-bezier(0.2, 0.9, 0.24, 1);
+  transition: opacity var(--os-motion-sheet, 280ms)
+    var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
 }
 
 .glass-sheet-panel[data-presentation='appear'].is-open {
@@ -275,7 +279,8 @@
 }
 
 .glass-sheet-panel[data-presentation='appear'].is-open.glass-sheet-panel--enter {
-  animation: glass-sheet-appear 280ms cubic-bezier(0.2, 0.9, 0.24, 1) forwards;
+  animation: glass-sheet-appear var(--os-motion-sheet, 280ms)
+    var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)) forwards;
   transition: none;
 }
 
