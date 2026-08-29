@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { ChevronLeftIcon, OsIconAction } from '@onsocial/ui';
 
+/** Opt-in header leave. Screens use `dockBack` by default — do not imply this. */
 interface ContextualBackProps {
   fallbackHref?: string;
 }
