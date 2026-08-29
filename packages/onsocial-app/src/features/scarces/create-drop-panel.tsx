@@ -32,6 +32,7 @@ import {
   type DropFieldInfoKey,
 } from '@/features/scarces/drop-field-info';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsChipRail } from '@/components/os/os-chip-rail';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
@@ -2425,29 +2426,20 @@ export function CreateDropPanel() {
             hidden={toolbarHidden}
             className="drop-template-toolbar"
           >
-            <div
-              className="discover-tab-bar market-listing-filters"
-              role="tablist"
-              aria-label="What are you dropping?"
-            >
-              <div className="discover-tab-bar-scroller">
-                {DROP_TEMPLATES.map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={templateId === entry.id}
-                    className={
-                      templateId === entry.id ? 'is-active' : undefined
-                    }
-                    disabled={pending}
-                    onClick={() => applyTemplate(entry)}
-                  >
-                    {entry.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <OsChipRail
+              className="market-listing-filters"
+              ariaLabel="What are you dropping?"
+              items={DROP_TEMPLATES.map((entry) => ({
+                id: entry.id,
+                label: entry.label,
+              }))}
+              value={templateId}
+              disabled={pending}
+              onValueChange={(id) => {
+                const entry = DROP_TEMPLATES.find((t) => t.id === id);
+                if (entry) applyTemplate(entry);
+              }}
+            />
           </OsAppChromeToolbarRail>
         )
       }

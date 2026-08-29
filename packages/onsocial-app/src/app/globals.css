@@ -9592,17 +9592,6 @@ a.os-surface-row {
     font: inherit;
   }
 
-  .discover-browse-chips {
-    margin: 0.15rem 0 0.55rem;
-  }
-
-  .discover-browse-chip.is-selected,
-  .discover-browse-chip.is-selected:hover,
-  .discover-browse-chip.is-selected:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.12);
-    color: rgb(var(--fg-rgb) / 0.9);
-  }
-
   .discover-trending-chip--ticker {
     letter-spacing: 0.02em;
   }
@@ -9834,6 +9823,46 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.94);
     box-shadow: none;
     text-decoration: none;
+  }
+
+  /*
+   * Browse variant — wrapping green-ink chips for Discover community tabs
+   * (guild topics / hub categories). Same chip system, tinted recipe.
+   */
+  .discover-tab-bar--browse {
+    margin: 0.15rem 0 0.55rem;
+  }
+
+  .discover-tab-bar--browse .discover-tab-bar-scroller {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    overflow-x: visible;
+  }
+
+  .discover-tab-bar--browse button {
+    gap: 0.35rem;
+    padding: 0.28rem 0.6rem;
+    background: rgb(var(--fg-rgb) / 0.05);
+    color: var(--protocol-green-ink, var(--protocol-green));
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1;
+    transition:
+      background 120ms ease,
+      color 120ms ease;
+  }
+
+  .discover-tab-bar--browse button:hover,
+  .discover-tab-bar--browse button:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.09);
+    color: var(--protocol-green-ink, var(--protocol-green-hover));
+  }
+
+  .discover-tab-bar--browse button.is-active,
+  .discover-tab-bar--browse button.is-active:hover,
+  .discover-tab-bar--browse button.is-active:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.12);
+    color: rgb(var(--fg-rgb) / 0.9);
   }
 
   .discover-focus-list {

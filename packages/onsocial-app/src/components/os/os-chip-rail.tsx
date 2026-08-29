@@ -14,6 +14,13 @@ type OsChipRailBase = {
   className?: string;
   scrollerClassName?: string;
   scrollerRef?: Ref<HTMLDivElement>;
+  /**
+   * `chrome` (default) — transparent idle, fill on active, horizontal scroll.
+   * `browse` — wrapping green-ink chips (Discover guild topics / hub categories).
+   */
+  variant?: 'chrome' | 'browse';
+  /** Disable every chip (e.g. while submitting). */
+  disabled?: boolean;
 };
 
 export type OsChipRailSingleProps<TId extends string | null = string> =
@@ -69,6 +76,12 @@ function joinClassNames(
  * Market / Collectibles / Guilds filter tabs.
  *
  * Keep app-local (OS chrome). Do not move into `@onsocial/ui`.
+ *
+ * Sanctioned off-rail recipes (kept for product reasons, do not copy):
+ * guild room rail (`guild-feed-filter-list` — re-tap facts + add room),
+ * protocol board pills (`dao-workspace-panel` fallback), DAO boost mode
+ * chips (`dao-boost-sheet` — bordered form chips), payout kind text filters
+ * (`portfolio-payout-kind-filters`).
  */
 export function OsChipRail<TId extends string | null = string>(
   props: OsChipRailProps<TId>
@@ -78,6 +91,8 @@ export function OsChipRail<TId extends string | null = string>(
     className,
     scrollerClassName,
     scrollerRef,
+    variant = 'chrome',
+    disabled = false,
     items,
   } = props;
   const selection = props.selection ?? 'single';
@@ -91,7 +106,11 @@ export function OsChipRail<TId extends string | null = string>(
 
   return (
     <div
-      className={joinClassNames('discover-tab-bar', className)}
+      className={joinClassNames(
+        'discover-tab-bar',
+        variant === 'browse' ? 'discover-tab-bar--browse' : undefined,
+        className
+      )}
       role={rootRole}
       aria-label={ariaLabel}
     >
@@ -112,6 +131,7 @@ export function OsChipRail<TId extends string | null = string>(
                 type="button"
                 aria-pressed={selected}
                 className={selected ? 'is-active' : undefined}
+                disabled={disabled}
                 onClick={() => multi.onToggle(id)}
               >
                 {item.label}
@@ -129,6 +149,7 @@ export function OsChipRail<TId extends string | null = string>(
                 role="option"
                 aria-selected={selected}
                 className={selected ? 'is-active' : undefined}
+                disabled={disabled}
                 onClick={() => option.onValueChange(item.id)}
               >
                 {item.label}
@@ -153,6 +174,7 @@ export function OsChipRail<TId extends string | null = string>(
               aria-controls={controls}
               aria-selected={selected}
               className={selected ? 'is-active' : undefined}
+              disabled={disabled}
               onClick={() => single.onValueChange(item.id)}
             >
               {item.label}
