@@ -10,7 +10,7 @@ import {
   TokenIcon,
 } from '@onsocial/ui';
 import { AppCreateTokenSheet } from '@/features/tokens/app-create-token-sheet';
-import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/app-config';
+import { AppManageTokenSheet } from '@/features/tokens/app-manage-token-sheet';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
   listUserCreatedTokens,
@@ -31,6 +31,8 @@ export function AppTokensSheet({
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const [createOpen, setCreateOpen] = useState(false);
+  const [manageToken, setManageToken] =
+    useState<UserCreatedTokenRecord | null>(null);
   const [tokens, setTokens] = useState<UserCreatedTokenRecord[]>(() =>
     listUserCreatedTokens(accountId)
   );
@@ -42,6 +44,7 @@ export function AppTokensSheet({
     if (open) {
       setClosing(false);
       setCreateOpen(false);
+      setManageToken(null);
       setTokens(listUserCreatedTokens(accountId));
     }
   }
@@ -52,12 +55,14 @@ export function AppTokensSheet({
 
   const requestClose = useCallback(() => {
     setCreateOpen(false);
+    setManageToken(null);
     setClosing(true);
   }, []);
 
   const handleClosed = useCallback(() => {
     setClosing(false);
     setCreateOpen(false);
+    setManageToken(null);
     onClose();
   }, [onClose]);
 
@@ -98,9 +103,8 @@ export function AppTokensSheet({
                       size="md"
                     />
                   }
-                  href={`${ACTIVE_NEAR_EXPLORER_URL}/address/${token.contractId}`}
-                  external
-                  trailing="external"
+                  trailing="navigate"
+                  onClick={() => setManageToken(token)}
                 />
               ))}
             </OsSurfaceRowList>
@@ -123,6 +127,15 @@ export function AppTokensSheet({
         panelStyle={panelStyle}
         onClose={() => setCreateOpen(false)}
         onCreated={() => setTokens(listUserCreatedTokens(accountId))}
+      />
+
+      <AppManageTokenSheet
+        open={Boolean(manageToken) && open}
+        token={manageToken}
+        accountId={accountId}
+        panelStyle={panelStyle}
+        onClose={() => setManageToken(null)}
+        onChanged={() => setTokens(listUserCreatedTokens(accountId))}
       />
     </>
   );

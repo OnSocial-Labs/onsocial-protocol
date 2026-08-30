@@ -37,6 +37,20 @@ export function listUserCreatedTokens(
   }
 }
 
+function writeUserCreatedTokens(
+  accountId: string,
+  records: UserCreatedTokenRecord[]
+): void {
+  try {
+    window.localStorage.setItem(
+      storageKey(accountId),
+      JSON.stringify(records.slice(0, 40))
+    );
+  } catch {
+    // ignore quota
+  }
+}
+
 export function rememberUserCreatedToken(
   accountId: string,
   record: UserCreatedTokenRecord
@@ -46,12 +60,17 @@ export function rememberUserCreatedToken(
     (row) => row.contractId !== record.contractId
   );
   existing.unshift(record);
-  try {
-    window.localStorage.setItem(
-      storageKey(accountId),
-      JSON.stringify(existing.slice(0, 40))
-    );
-  } catch {
-    // ignore quota
-  }
+  writeUserCreatedTokens(accountId, existing);
+}
+
+export function patchUserCreatedToken(
+  accountId: string,
+  contractId: string,
+  patch: Partial<UserCreatedTokenRecord>
+): void {
+  if (typeof window === 'undefined' || !accountId.trim()) return;
+  const next = listUserCreatedTokens(accountId).map((row) =>
+    row.contractId === contractId ? { ...row, ...patch } : row
+  );
+  writeUserCreatedTokens(accountId, next);
 }

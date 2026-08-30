@@ -5,6 +5,8 @@ import {
   defaultFtIconDataUrl,
   FT_ICON_MAX_DATA_URL,
   getFtIconError,
+  isFtAdminFor,
+  isFtAdminLocked,
   getFtContractAccountError,
   getFtParentAccountError,
   getFtSubaccountLabelError,
@@ -70,6 +72,13 @@ describe('app-create-token', () => {
     expect(
       getFtIconError(`data:image/png;base64,${'A'.repeat(FT_ICON_MAX_DATA_URL)}`)
     ).toMatch(/smaller/i);
+  });
+
+  it('treats system owner as locked admin', () => {
+    expect(isFtAdminLocked('system')).toBe(true);
+    expect(isFtAdminFor('system', NAMED_PARENT)).toBe(false);
+    expect(isFtAdminFor(NAMED_PARENT, NAMED_PARENT)).toBe(true);
+    expect(isFtAdminFor(NAMED_PARENT, 'other.testnet')).toBe(false);
   });
 
   it('does not silently resolve an unpublished SOCIAL fallback', () => {

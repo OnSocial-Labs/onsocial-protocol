@@ -37228,6 +37228,12 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   border-radius: 0.85rem;
 }
 
+.token-manage-id {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+}
+
 .token-create-icon-input {
   position: absolute;
   width: 0.1px;

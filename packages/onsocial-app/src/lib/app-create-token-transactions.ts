@@ -119,3 +119,46 @@ export async function sendCreateUserTokenTransaction(
 
   return extractNearTransactionHashes(result);
 }
+
+const FT_ADMIN_GAS = '30000000000000';
+
+async function sendTokenOwnerCall(
+  getSigningWallet: () => Promise<SigningWallet>,
+  contractId: string,
+  methodName: string,
+  args: Record<string, unknown>
+): Promise<string[]> {
+  const { wallet, accountId: signerId } = await getSigningWallet();
+  const result = await wallet.signAndSendTransaction({
+    network: ACTIVE_NEAR_NETWORK,
+    signerId,
+    receiverId: contractId,
+    actions: [
+      {
+        type: 'FunctionCall',
+        params: {
+          methodName,
+          args,
+          gas: FT_ADMIN_GAS,
+          deposit: '0',
+        },
+      },
+    ],
+  });
+  return extractNearTransactionHashes(result);
+}
+
+export async function sendSetTokenIconTransaction(
+  getSigningWallet: () => Promise<SigningWallet>,
+  contractId: string,
+  icon: string
+): Promise<string[]> {
+  return sendTokenOwnerCall(getSigningWallet, contractId, 'set_icon', { icon });
+}
+
+export async function sendRenounceTokenOwnerTransaction(
+  getSigningWallet: () => Promise<SigningWallet>,
+  contractId: string
+): Promise<string[]> {
+  return sendTokenOwnerCall(getSigningWallet, contractId, 'renounce_owner', {});
+}

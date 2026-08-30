@@ -107,6 +107,24 @@ export function defaultFtIconDataUrl(symbol: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
+export const FT_SYSTEM_OWNER = 'system';
+
+export function isFtAdminLocked(ownerId: string | null | undefined): boolean {
+  const owner = (ownerId ?? '').trim().toLowerCase();
+  return !owner || owner === FT_SYSTEM_OWNER;
+}
+
+export function isFtAdminFor(
+  ownerId: string | null | undefined,
+  accountId: string | null | undefined
+): boolean {
+  if (isFtAdminLocked(ownerId)) return false;
+  return (
+    (ownerId ?? '').trim().toLowerCase() ===
+    (accountId ?? '').trim().toLowerCase()
+  );
+}
+
 export function getFtIconError(dataUrl: string): string {
   const trimmed = dataUrl.trim();
   if (!trimmed) return 'Add an icon.';
