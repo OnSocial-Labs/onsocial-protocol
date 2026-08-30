@@ -297,8 +297,13 @@ describe('mapDataUpdateNotifications', () => {
     );
     expect(prior).toBe('set');
     expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('data_type = \'endorsement\''),
-      ['alice.testnet', 'alice.testnet/endorsement/bob.testnet/design', 110, 'du-4b']
+      expect.stringContaining("data_type = 'endorsement'"),
+      [
+        'alice.testnet',
+        'alice.testnet/endorsement/bob.testnet/design',
+        110,
+        'du-4b',
+      ]
     );
   });
 });
