@@ -971,7 +971,7 @@ function endorsementSupportFieldsFromMetadata(metadata: string | null): {
 }
 
 /**
- * Inbound backing of a vouch. Spender → endorsement target.
+ * Inbound SOCIAL support. Spender → profile or endorsement target.
  * Own support and failed spends stay off Activity (toast already confirmed).
  */
 export function mapSocialSpendNotifications(
@@ -983,14 +983,35 @@ export function mapSocialSpendNotifications(
   if (normalizeText(row.event_type) !== 'SOCIAL_SPENT') {
     return [];
   }
-  if (normalizeText(row.action) !== 'support_endorsement') {
+
+  const action = normalizeText(row.action);
+  const actor = row.spender_id ?? row.account_id ?? '';
+
+  if (action === 'support_profile') {
+    const recipient = row.recipient_id || row.target_id || '';
+    const notification = buildNotification(row, {
+      recipient,
+      actor,
+      appId: 'default',
+      notificationType: 'profile_supported',
+      sourceContract: 'social-spend',
+      context: {
+        amount: normalizeText(row.amount),
+        targetId: normalizeText(row.target_id),
+        targetAccount: normalizeText(recipient),
+      },
+    });
+    return notification ? [notification] : [];
+  }
+
+  if (action !== 'support_endorsement') {
     return [];
   }
 
   const fields = endorsementSupportFieldsFromMetadata(row.metadata);
   const notification = buildNotification(row, {
     recipient: row.recipient_id ?? '',
-    actor: row.spender_id ?? row.account_id ?? '',
+    actor,
     appId: 'default',
     notificationType: 'endorsement_supported',
     sourceContract: 'social-spend',

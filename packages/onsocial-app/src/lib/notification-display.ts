@@ -338,6 +338,8 @@ export function notificationVerb(
       return 'endorsed you';
     case 'endorsement_supported':
       return 'supported your endorsement';
+    case 'profile_supported':
+      return 'supported you';
     case 'dm':
       return 'sent a private message';
     case 'group_invite':
@@ -456,7 +458,7 @@ export function notificationHref(
     if (actor) return portfolioPath(actor);
   }
 
-  if (type === 'standing_new') {
+  if (type === 'standing_new' || type === 'profile_supported') {
     if (actor) return portfolioPath(actor);
   }
 
@@ -557,6 +559,7 @@ export function notificationDetail(
     type === 'scarces_sold' ||
     type === 'scarces_offer' ||
     type === 'endorsement_supported' ||
+    type === 'profile_supported' ||
     type.startsWith('boost_') ||
     type.startsWith('reward_')
   ) {

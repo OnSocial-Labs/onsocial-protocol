@@ -371,6 +371,8 @@ export function pushNotificationVerb(
       return 'endorsed you';
     case 'endorsement_supported':
       return 'supported your endorsement';
+    case 'profile_supported':
+      return 'supported you';
     case 'dm':
       return 'sent a private message';
     case 'group_invite':

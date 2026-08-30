@@ -349,9 +349,29 @@ describe('mapSocialSpendNotifications', () => {
     });
   });
 
+  it('maps support_profile to the profile being supported', () => {
+    const notifications = mapSocialSpendNotifications(
+      makeSpend({
+        action: 'support_profile',
+        target_type: 'profile',
+        target_id: 'bob.testnet',
+        recipient_id: null,
+        metadata: null,
+      })
+    );
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]?.notificationType).toBe('profile_supported');
+    expect(notifications[0]?.recipient).toBe('bob.testnet');
+    expect(notifications[0]?.actor).toBe('carol.testnet');
+    expect(notifications[0]?.context).toMatchObject({
+      amount: '12000000000000000000',
+      targetAccount: 'bob.testnet',
+    });
+  });
+
   it('skips other spend actions, failed transfers, and self-support', () => {
     expect(
-      mapSocialSpendNotifications(makeSpend({ action: 'support_profile' }))
+      mapSocialSpendNotifications(makeSpend({ action: 'join_rally' }))
     ).toHaveLength(0);
     expect(
       mapSocialSpendNotifications(makeSpend({ success: false }))
