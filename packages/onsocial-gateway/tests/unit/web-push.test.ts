@@ -14,6 +14,7 @@ describe('pushNotificationVerb', () => {
     expect(pushNotificationVerb('endorsement_supported')).toBe(
       'supported your endorsement'
     );
+    expect(pushNotificationVerb('profile_supported')).toBe('supported you');
     expect(pushNotificationVerb('dm')).toBe('sent a private message');
   });
 
