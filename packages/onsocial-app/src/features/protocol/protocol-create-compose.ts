@@ -41,7 +41,7 @@ export function protocolCreateWhisper(
     case 'contract_config':
       return `Setting and routing split${bond || ' · confirm to submit'}.`;
     case 'season_config':
-      return `Season schedule${bond || ' · confirm to submit'}.`;
+      return `Season, name, and duration${bond || ' · confirm to submit'}.`;
     default:
       return `Fill the form${bond || ' · confirm to submit'}.`;
   }
@@ -107,7 +107,7 @@ export function protocolCreateDescriptionPlaceholder(
     case 'contract_config':
       return 'Why this contract setting should change';
     case 'season_config':
-      return 'Why this rally season should change';
+      return 'Why this rally should start';
     case 'leave_self':
       return 'Why you are stepping back from this role';
     case 'remove_member':

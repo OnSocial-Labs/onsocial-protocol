@@ -33,9 +33,34 @@ describe('isProtocolCreateKindChainAvailable', () => {
         ...EMPTY_PROTOCOL_PROPOSE_CHAIN_CONTEXT,
         socialSpendTreasuryContext: {
           canFundSeasonPool: true,
+          canSetSeasonConfig: false,
           fundableSeasonIds: [],
         },
       })
     ).toBe(false);
+  });
+
+  it('requires social-spend owner for start rally', () => {
+    expect(
+      isProtocolCreateKindChainAvailable('season_config', {
+        ...EMPTY_PROTOCOL_PROPOSE_CHAIN_CONTEXT,
+        socialSpendTreasuryContext: {
+          canFundSeasonPool: true,
+          canSetSeasonConfig: false,
+          fundableSeasonIds: ['season-two'],
+        },
+      })
+    ).toBe(false);
+
+    expect(
+      isProtocolCreateKindChainAvailable('season_config', {
+        ...EMPTY_PROTOCOL_PROPOSE_CHAIN_CONTEXT,
+        socialSpendTreasuryContext: {
+          canFundSeasonPool: true,
+          canSetSeasonConfig: true,
+          fundableSeasonIds: [],
+        },
+      })
+    ).toBe(true);
   });
 });

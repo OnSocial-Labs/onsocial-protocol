@@ -712,10 +712,10 @@ export function deriveProtocolProposalPresentation({
       const label = shape.seasonLabel;
       return finish({
         headline: label
-          ? `Configure season ${label}`
+          ? `Start ${label}`
           : seasonId
-            ? `Configure season ${seasonId}`
-            : 'Configure rally season',
+            ? `Start ${seasonId}`
+            : 'Start rally season',
         actionBadge: 'Season',
         targetKind: 'season',
         targetValue: label ?? seasonId,
