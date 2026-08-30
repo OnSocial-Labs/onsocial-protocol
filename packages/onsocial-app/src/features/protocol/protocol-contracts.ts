@@ -348,7 +348,7 @@ export function buildProtocolSeasonConfigPayload(
     proposal: {
       description:
         opts.description?.trim() ||
-        `Configure ${input.season_id} rally season.`,
+        `Start ${input.season_id} rally season.`,
       kind: {
         FunctionCall: {
           receiver_id: SOCIAL_SPEND_CONTRACT,

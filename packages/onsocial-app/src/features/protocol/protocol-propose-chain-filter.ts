@@ -7,6 +7,7 @@ export type ProtocolProposeChainContext = {
   socialSpendTreasuryLoading: boolean;
   socialSpendTreasuryContext: {
     canFundSeasonPool: boolean;
+    canSetSeasonConfig: boolean;
     fundableSeasonIds: readonly string[];
   } | null;
   boostInfraLoading: boolean;
@@ -60,6 +61,15 @@ export function resolveAvailableProtocolCreateKinds(
       chain.socialSpendTreasuryContext.fundableSeasonIds.length === 0
     ) {
       kinds = kinds.filter((kind) => kind !== 'fund_season_pool');
+    }
+  }
+
+  if (kinds.includes('season_config')) {
+    if (
+      chain.socialSpendTreasuryLoading ||
+      !chain.socialSpendTreasuryContext?.canSetSeasonConfig
+    ) {
+      kinds = kinds.filter((kind) => kind !== 'season_config');
     }
   }
 

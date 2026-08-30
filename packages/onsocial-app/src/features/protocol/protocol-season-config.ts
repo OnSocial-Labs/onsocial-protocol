@@ -20,14 +20,82 @@ const SEASON_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const NS_PER_MS = 1_000_000n;
 const MS_PER_MINUTE = 60_000;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const SEASON_WORD_RANKS = [
+  'one',
+  'two',
+  'three',
+  'four',
+  'five',
+  'six',
+  'seven',
+  'eight',
+  'nine',
+  'ten',
+] as const;
 
 export function createDefaultProtocolSeasonConfigDraft(): ProtocolSeasonConfigDraft {
   return {
-    seasonId: 'season-two',
+    seasonId: '',
     label: 'OnSocial Rally',
     active: true,
     durationDays: '7',
   };
+}
+
+function unusedSeasonId(candidate: string, taken: Set<string>): string {
+  if (!taken.has(candidate)) return candidate;
+  let suffix = 2;
+  while (taken.has(`${candidate}-${suffix}`)) suffix += 1;
+  return `${candidate}-${suffix}`;
+}
+
+/** Next unused `season-*` id from on-chain ids (`season-two` → `season-three`). */
+export function suggestNextRallySeasonId(
+  existingIds: readonly string[]
+): string {
+  const taken = new Set(
+    existingIds.map((id) => id.trim().toLowerCase()).filter(Boolean)
+  );
+
+  let bestNumeric = 0;
+  let bestWord = -1;
+  for (const id of taken) {
+    const numeric = /^season-(\d+)$/.exec(id);
+    if (numeric) {
+      bestNumeric = Math.max(bestNumeric, Number(numeric[1]));
+      continue;
+    }
+    const word = /^season-([a-z]+)$/.exec(id);
+    if (!word) continue;
+    const rank = SEASON_WORD_RANKS.indexOf(
+      word[1] as (typeof SEASON_WORD_RANKS)[number]
+    );
+    if (rank > bestWord) bestWord = rank;
+  }
+
+  if (bestNumeric > 0) {
+    return unusedSeasonId(`season-${bestNumeric + 1}`, taken);
+  }
+  if (bestWord >= 0) {
+    const next =
+      bestWord + 1 < SEASON_WORD_RANKS.length
+        ? `season-${SEASON_WORD_RANKS[bestWord + 1]}`
+        : `season-${bestWord + 2}`;
+    return unusedSeasonId(next, taken);
+  }
+
+  return unusedSeasonId('season-one', taken);
+}
+
+export function protocolCreateSeasonConfigReady(
+  draft: ProtocolSeasonConfigDraft
+): boolean {
+  try {
+    buildProtocolSeasonConfigInput(draft);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function durationDaysToMs(input: string): number {

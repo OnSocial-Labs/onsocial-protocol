@@ -88,6 +88,12 @@ export const PROTOCOL_CREATE_KIND_OPTIONS: Array<{
     hint: 'Move SOCIAL into a live season pool.',
   },
   {
+    id: 'season_config',
+    label: 'Start rally',
+    group: 'treasury',
+    hint: 'Open a new rally season.',
+  },
+  {
     id: 'withdraw_boost_infra',
     label: 'Withdraw boost',
     group: 'treasury',
@@ -98,12 +104,6 @@ export const PROTOCOL_CREATE_KIND_OPTIONS: Array<{
     label: 'Boost authority',
     group: 'contracts',
     hint: 'Set who can withdraw boost infra.',
-  },
-  {
-    id: 'season_config',
-    label: 'Season config',
-    group: 'contracts',
-    hint: 'Create or update a rally season.',
   },
   {
     id: 'transfer_ownership',
@@ -130,6 +130,7 @@ export const PROTOCOL_CREATE_KIND_COMMON: ProtocolCreateKind[] = [
   'signal',
   'join_self',
   'transfer',
+  'season_config',
 ];
 
 export const PROTOCOL_CREATE_KIND_GROUPS: Array<{

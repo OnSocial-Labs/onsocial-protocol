@@ -5,6 +5,7 @@ import {
   isProtocolCreateKind,
   isProtocolCreateMembershipKind,
   protocolCreateKindHint,
+  protocolCreateKindLabel,
   protocolCreateComposeKindHint,
 } from '@/features/protocol/protocol-create';
 import {
@@ -446,6 +447,10 @@ describe('protocol propose kind UX helpers', () => {
     expect(protocolCreateKindHint('transfer')).toBe(
       'Send NEAR or FT from the DAO treasury.'
     );
+    expect(protocolCreateKindLabel('season_config')).toBe('Start rally');
+    expect(protocolCreateKindHint('season_config')).toBe(
+      'Open a new rally season.'
+    );
     expect(protocolCreateComposeKindHint('transfer')).toBe('');
     expect(protocolCreateComposeKindHint('signal')).toBe(
       'Text-only · nothing executes.'
@@ -459,6 +464,7 @@ describe('protocol propose kind UX helpers', () => {
       'signal',
       'join_self',
       'transfer',
+      'season_config',
     ]);
     const contractIds = PROTOCOL_CREATE_KIND_OPTIONS.filter(
       (option) => option.group === 'contracts'

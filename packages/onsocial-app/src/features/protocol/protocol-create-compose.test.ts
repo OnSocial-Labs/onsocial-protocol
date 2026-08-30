@@ -43,6 +43,15 @@ describe('protocolCreateWhisper', () => {
       'Setting and routing split · 0.1 NEAR bond on confirm.'
     );
   });
+
+  it('describes start rally compose', () => {
+    expect(protocolCreateWhisper('season_config', '0.1 NEAR')).toBe(
+      'Season, name, and duration · 0.1 NEAR bond on confirm.'
+    );
+    expect(protocolCreateDescriptionPlaceholder('season_config')).toBe(
+      'Why this rally should start'
+    );
+  });
 });
 
 describe('protocolCreateBoostWithdrawReady', () => {

@@ -30,6 +30,9 @@ export interface ProtocolDaoSocialSpendTreasuryContext {
   /** SOCIAL held in the DAO account wallet. */
   daoSocialBalanceYocto: string;
   canFundSeasonPool: boolean;
+  canSetSeasonConfig: boolean;
+  /** All season ids reported by social-spend. */
+  existingSeasonIds: string[];
   /** Live rally seasons only (`active && is_live`). */
   fundableSeasonIds: string[];
 }
@@ -94,14 +97,14 @@ export async function loadProtocolDaoSocialSpendTreasuryContext(
 
   const ownerId = normalizeAccountId(info?.owner_id);
   const treasuryId = normalizeAccountId(info?.treasury_id);
-  const { canFundSeasonPool } =
+  const { canFundSeasonPool, canSetSeasonConfig } =
     resolveProtocolDaoSocialSpendTreasuryCapabilities(
       normalizedDaoAccountId,
       ownerId,
       treasuryId
     );
 
-  if (!canFundSeasonPool) {
+  if (!canFundSeasonPool && !canSetSeasonConfig) {
     return null;
   }
 
@@ -142,6 +145,8 @@ export async function loadProtocolDaoSocialSpendTreasuryContext(
     contractId: SOCIAL_SPEND_CONTRACT,
     daoSocialBalanceYocto,
     canFundSeasonPool,
+    canSetSeasonConfig,
+    existingSeasonIds: allSeasonIds,
     fundableSeasonIds,
   };
 }

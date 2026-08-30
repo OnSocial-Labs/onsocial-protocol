@@ -20,6 +20,24 @@ describe('protocol DAO social spend capabilities', () => {
       ).canFundSeasonPool
     ).toBe(false);
   });
+
+  it('lets only the social-spend owner start a rally season', () => {
+    expect(
+      resolveProtocolDaoSocialSpendTreasuryCapabilities(
+        'owner.onsocial.testnet',
+        'owner.onsocial.testnet',
+        'treasury.onsocial.testnet'
+      ).canSetSeasonConfig
+    ).toBe(true);
+
+    expect(
+      resolveProtocolDaoSocialSpendTreasuryCapabilities(
+        'treasury.onsocial.testnet',
+        'owner.onsocial.testnet',
+        'treasury.onsocial.testnet'
+      ).canSetSeasonConfig
+    ).toBe(false);
+  });
 });
 
 describe('protocol DAO boost infra capabilities', () => {

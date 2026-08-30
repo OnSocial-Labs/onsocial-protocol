@@ -40,7 +40,11 @@ import {
   isProtocolRemoveMemberReady,
   ProtocolComposeRemoveMemberField,
 } from '@/features/protocol/protocol-compose-remove-member-field';
-import { createDefaultProtocolSeasonConfigDraft } from '@/features/protocol/protocol-season-config';
+import {
+  createDefaultProtocolSeasonConfigDraft,
+  protocolCreateSeasonConfigReady,
+  suggestNextRallySeasonId,
+} from '@/features/protocol/protocol-season-config';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import {
   getProtocolGovernanceEligibility,
@@ -52,6 +56,7 @@ import {
   viewerHasCreateKindPermission,
 } from '@/features/protocol/protocol-propose-gate';
 import { ProtocolComposeFundSeasonFields } from '@/features/protocol/protocol-compose-fund-season-fields';
+import { ProtocolComposeSeasonConfigFields } from '@/features/protocol/protocol-compose-season-config-fields';
 import { ProtocolComposeTransferFields } from '@/features/protocol/protocol-compose-transfer-fields';
 import { ProtocolComposeWithdrawBoostFields } from '@/features/protocol/protocol-compose-withdraw-boost-fields';
 import {
@@ -142,9 +147,6 @@ export function ProtocolCreateSheet({
   const [seasonLabel, setSeasonLabel] = useState(
     defaultSeasonConfigDraft.label
   );
-  const [seasonActive, setSeasonActive] = useState(
-    defaultSeasonConfigDraft.active
-  );
   const [seasonDurationDays, setSeasonDurationDays] = useState(
     defaultSeasonConfigDraft.durationDays
   );
@@ -223,7 +225,6 @@ export function ProtocolCreateSheet({
       setAmountSocial('');
       setSeasonId('');
       setSeasonLabel(defaultSeasonConfigDraft.label);
-      setSeasonActive(defaultSeasonConfigDraft.active);
       setSeasonDurationDays(defaultSeasonConfigDraft.durationDays);
       setContractId(PROTOCOL_MANAGED_CONTRACTS[0]?.contractId ?? '');
       setNewOwnerId('');
@@ -384,7 +385,11 @@ export function ProtocolCreateSheet({
   }, [open, daoAccountId, kind]);
 
   useEffect(() => {
-    if (!open || !daoAccountId || kind !== 'fund_season_pool') {
+    if (
+      !open ||
+      !daoAccountId ||
+      (kind !== 'fund_season_pool' && kind !== 'season_config')
+    ) {
       return;
     }
 
@@ -394,11 +399,18 @@ export function ProtocolCreateSheet({
       .then((context) => {
         if (cancelled) return;
         setSocialSpendContext(context);
-        if (context?.fundableSeasonIds.length) {
+        if (kind === 'fund_season_pool' && context?.fundableSeasonIds.length) {
           setSeasonId((current) =>
             context.fundableSeasonIds.includes(current)
               ? current
               : (context.fundableSeasonIds[0] ?? '')
+          );
+        }
+        if (kind === 'season_config' && context?.canSetSeasonConfig) {
+          setSeasonId((current) =>
+            current.trim()
+              ? current
+              : suggestNextRallySeasonId(context.existingSeasonIds)
           );
         }
       })
@@ -497,7 +509,8 @@ export function ProtocolCreateSheet({
   );
   const liveContextLoading =
     (kind === 'transfer' && transferAssetsLoading) ||
-    (kind === 'fund_season_pool' && socialSpendLoading) ||
+    ((kind === 'fund_season_pool' || kind === 'season_config') &&
+      socialSpendLoading) ||
     ((kind === 'withdraw_boost_infra' ||
       kind === 'set_boost_infra_authority') &&
       boostInfraLoading) ||
@@ -512,10 +525,15 @@ export function ProtocolCreateSheet({
           boostInfraContext &&
           !boostInfraContext.canSetBoostInfraAuthority
         ? 'This DAO cannot update boost infra authority from the current contract state.'
-        : null;
+        : kind === 'season_config' &&
+            !socialSpendLoading &&
+            !socialSpendContext?.canSetSeasonConfig
+          ? 'This DAO does not own social-spend, so it cannot start a rally season.'
+          : null;
   const composeFieldsOwnLiveLoading =
     (kind === 'transfer' && transferAssetsLoading) ||
-    (kind === 'fund_season_pool' && socialSpendLoading) ||
+    ((kind === 'fund_season_pool' || kind === 'season_config') &&
+      socialSpendLoading) ||
     ((kind === 'withdraw_boost_infra' ||
       kind === 'set_boost_infra_authority') &&
       boostInfraLoading);
@@ -590,6 +608,14 @@ export function ProtocolCreateSheet({
         amountSocial,
         socialSpendContext?.daoSocialBalanceYocto ?? '0'
       ));
+  const seasonConfigFieldsReady =
+    kind !== 'season_config' ||
+    protocolCreateSeasonConfigReady({
+      seasonId,
+      label: seasonLabel,
+      active: true,
+      durationDays: seasonDurationDays,
+    });
   const transferFieldsReady =
     kind !== 'transfer' ||
     protocolCreateTransferReady(
@@ -610,6 +636,7 @@ export function ProtocolCreateSheet({
     ownershipFieldsReady &&
     boostWithdrawFieldsReady &&
     fundSeasonFieldsReady &&
+    seasonConfigFieldsReady &&
     transferFieldsReady &&
     descriptionReady;
 
@@ -705,7 +732,7 @@ export function ProtocolCreateSheet({
                 kind === 'transfer' ? selectedTransferAsset?.tokenId : '',
               seasonId,
               seasonLabel,
-              seasonActive,
+              seasonActive: true,
               seasonDurationDays,
               contractId,
               newOwnerId: normalizeNearAccountId(newOwnerId),
@@ -1009,70 +1036,25 @@ export function ProtocolCreateSheet({
         ) : null}
 
         {kind === 'season_config' ? (
-          <>
-            <label className="guild-field">
-              <span>Season id</span>
-              <input
-                type="text"
-                value={seasonId}
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                placeholder="season-two"
-                onChange={(event) => setSeasonId(event.target.value)}
-                disabled={pending}
-                className={osFieldBorderedClassName}
-              />
-            </label>
-            <label className="guild-field">
-              <span>Label</span>
-              <input
-                type="text"
-                value={seasonLabel}
-                onChange={(event) => setSeasonLabel(event.target.value)}
-                disabled={pending}
-                className={osFieldBorderedClassName}
-              />
-            </label>
-            <div className="protocol-community-row">
-              <label className="guild-field">
-                <span>Duration days</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={seasonDurationDays}
-                  onChange={(event) =>
-                    setSeasonDurationDays(event.target.value)
-                  }
-                  disabled={pending}
-                  className={osFieldBorderedClassName}
-                />
-              </label>
-              <div className="guild-field">
-                <ChoiceDrawerField
-                  label="Status"
-                  value={seasonActive ? 'true' : 'false'}
-                  options={[
-                    {
-                      value: 'true' as const,
-                      label: 'Active',
-                    },
-                    {
-                      value: 'false' as const,
-                      label: 'Paused',
-                    },
-                  ]}
-                  onChange={(next) => setSeasonActive(next === 'true')}
-                  disabled={pending}
-                  zIndex={PROTOCOL_NESTED_CHOICE_Z}
-                />
-              </div>
-            </div>
-            <p className="protocol-compose-note">
-              Starts about 10 minutes after submission; end time is derived from
-              duration.
-            </p>
-          </>
+          <ProtocolComposeSeasonConfigFields
+            seasonId={seasonId}
+            onSeasonIdChange={(next) => {
+              setSeasonId(next);
+              setFormError(null);
+            }}
+            seasonLabel={seasonLabel}
+            onSeasonLabelChange={(next) => {
+              setSeasonLabel(next);
+              setFormError(null);
+            }}
+            seasonDurationDays={seasonDurationDays}
+            onSeasonDurationDaysChange={(next) => {
+              setSeasonDurationDays(next);
+              setFormError(null);
+            }}
+            pending={pending}
+            loading={socialSpendLoading}
+          />
         ) : null}
 
         <ProtocolComposeDescriptionField

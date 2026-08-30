@@ -3,6 +3,8 @@ import { tokenAmountToSmallestUnit } from '@/lib/app-near-rpc';
 import {
   buildProtocolSeasonConfigInput,
   durationDaysToMs,
+  protocolCreateSeasonConfigReady,
+  suggestNextRallySeasonId,
 } from '@/features/protocol/protocol-season-config';
 
 describe('protocol season config', () => {
@@ -31,6 +33,33 @@ describe('protocol season config', () => {
 
   it('converts duration days to milliseconds', () => {
     expect(durationDaysToMs('1.5')).toBe(129_600_000);
+  });
+
+  it('suggests the next unused season id', () => {
+    expect(suggestNextRallySeasonId([])).toBe('season-one');
+    expect(suggestNextRallySeasonId(['season-two'])).toBe('season-three');
+    expect(suggestNextRallySeasonId(['season-2', 'season-two'])).toBe(
+      'season-3'
+    );
+  });
+
+  it('requires a valid start-rally draft', () => {
+    expect(
+      protocolCreateSeasonConfigReady({
+        seasonId: '',
+        label: 'OnSocial Rally',
+        active: true,
+        durationDays: '7',
+      })
+    ).toBe(false);
+    expect(
+      protocolCreateSeasonConfigReady({
+        seasonId: 'season-three',
+        label: 'OnSocial Rally',
+        active: true,
+        durationDays: '7',
+      })
+    ).toBe(true);
   });
 });
 
