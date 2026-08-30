@@ -18,6 +18,7 @@ export interface DiscoverProfileSummary {
   viewerStanding: boolean;
   theyStandWithViewer: boolean;
   targetEndorsedViewer: boolean;
+  viewerEndorsed: boolean;
   /** Present when the viewer stands with this profile. */
   standingSince?: number | null;
   standingBlockTimestamp?: number | null;

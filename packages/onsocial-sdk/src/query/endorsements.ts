@@ -263,6 +263,39 @@ export class EndorsementsQuery {
   }
 
   /**
+   * Targets from `targetAccountIds` that `issuerAccountId` currently endorses.
+   */
+  async targetsAmong(
+    issuerAccountId: string,
+    targetAccountIds: string[]
+  ): Promise<string[]> {
+    const targets = [
+      ...new Set(targetAccountIds.map((id) => id.trim()).filter(Boolean)),
+    ];
+    if (targets.length === 0) return [];
+
+    const res = await this._q.graphql<{
+      endorsementsCurrent: Array<{ target: string }>;
+    }>({
+      query: `query EndorsementTargetsAmong($issuer: String!, $targets: [String!]!) {
+        endorsementsCurrent(
+          where: {
+            issuer: {_eq: $issuer},
+            target: {_in: $targets},
+            operation: {_eq: "set"}
+          }
+        ) {
+          target
+        }
+      }`,
+      variables: { issuer: issuerAccountId, targets },
+    });
+    return [
+      ...new Set((res.data?.endorsementsCurrent ?? []).map((r) => r.target)),
+    ];
+  }
+
+  /**
    * Paginated received endorsements limited to a participant set.
    */
   async receivedFilteredPage(

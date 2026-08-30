@@ -3,6 +3,7 @@ import type { EndorsementPanelItem } from '@/lib/endorsements-panel-data';
 import {
   deriveEndorsementListItems,
   derivePortfolioEndorsementCounts,
+  overlayViewerEndorsedOnAccounts,
   recordViewerEndorse,
   recordViewerEndorseRemove,
   reconcileViewerEndorsement,
@@ -164,6 +165,24 @@ describe('resolveViewerEndorsed', () => {
   it('falls back to the API when the ledger is empty', () => {
     expect(resolveViewerEndorsed(new Map(), 'alice.testnet', true)).toBe(true);
   });
+
+  it('overlays ledger Endorsed onto list rows', () => {
+    const ledger: ViewerEndorsementLedger = new Map();
+    recordViewerEndorse(ledger, 'alice.testnet', 'design');
+
+    expect(
+      overlayViewerEndorsedOnAccounts(
+        [
+          { accountId: 'alice.testnet', viewerEndorsed: false },
+          { accountId: 'carol.testnet', viewerEndorsed: true },
+        ],
+        ledger
+      )
+    ).toEqual([
+      { accountId: 'alice.testnet', viewerEndorsed: true },
+      { accountId: 'carol.testnet', viewerEndorsed: true },
+    ]);
+  });
 });
 
 describe('deriveEndorsementListItems', () => {
@@ -191,6 +210,48 @@ describe('deriveEndorsementListItems', () => {
       target: 'alice.testnet',
       topic: 'design',
       targetName: 'Alice',
+    });
+  });
+
+  it('fills received issuer shell and draft media on inject', () => {
+    const ledger: ViewerEndorsementLedger = new Map();
+    recordViewerEndorse(ledger, 'alice.testnet', 'design', {
+      snapshot: {
+        accountId: 'alice.testnet',
+        name: 'Alice',
+        avatarUrl: 'https://cdn/alice.png',
+      },
+      issuerSnapshot: {
+        accountId: 'bob.testnet',
+        name: 'Bob',
+        avatarUrl: 'https://cdn/bob.png',
+      },
+      draft: {
+        topic: 'design',
+        note: 'Shipped it.',
+        id: 'e1',
+        media: { cid: 'bafy', mime: 'image/jpeg' },
+        mediaUrl: 'https://cdn/vouch.jpg',
+      },
+    });
+
+    const derived = deriveEndorsementListItems({
+      items: [],
+      ledger,
+      mode: 'received',
+      listAccountId: 'alice.testnet',
+      viewerAccountId: 'bob.testnet',
+    });
+
+    expect(derived.items).toHaveLength(1);
+    expect(derived.items[0]).toMatchObject({
+      issuer: 'bob.testnet',
+      issuerName: 'Bob',
+      issuerAvatarUrl: 'https://cdn/bob.png',
+      targetName: 'Alice',
+      note: 'Shipped it.',
+      mediaUrl: 'https://cdn/vouch.jpg',
+      media: { cid: 'bafy', mime: 'image/jpeg' },
     });
   });
 

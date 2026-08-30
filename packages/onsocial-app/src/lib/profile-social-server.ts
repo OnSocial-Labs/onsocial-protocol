@@ -29,6 +29,8 @@ export interface StandingAccountSummary {
   endorsementsGivenCount: number;
   viewerStanding: boolean;
   theyStandWithViewer: boolean;
+  targetEndorsedViewer: boolean;
+  viewerEndorsed: boolean;
   moodId: PageMoodId;
   /** True when this peer is a DAO org (catalog / heuristic). */
   isDao: boolean;
@@ -83,6 +85,8 @@ function mapStandingRowsToSummaries(
   >,
   viewerOutgoingSet: Set<string>,
   viewerIncomingSet: Set<string>,
+  viewerEndorsementIssuerSet: Set<string>,
+  viewerEndorsementTargetSet: Set<string>,
   moodIds: Partial<Record<string, PageMoodId>>
 ): StandingAccountSummary[] {
   return rows.map((row) => {
@@ -114,6 +118,8 @@ function mapStandingRowsToSummaries(
       endorsementsGivenCount: stats?.endorsementsGivenCount ?? 0,
       viewerStanding: viewerOutgoingSet.has(id),
       theyStandWithViewer: viewerIncomingSet.has(id),
+      targetEndorsedViewer: viewerEndorsementIssuerSet.has(id),
+      viewerEndorsed: viewerEndorsementTargetSet.has(id),
       moodId: moodIds[id] ?? 'protocol',
       isDao: false,
     };
@@ -161,6 +167,24 @@ async function buildStandingAccountSummaries(
 
   const viewerOutgoingSet = new Set(enrichment.viewerOutgoingPeerIds);
   const viewerIncomingSet = new Set(enrichment.viewerIncomingPeerIds);
+  const viewerEndorsementIssuerSet = new Set<string>();
+  const viewerEndorsementTargetSet = new Set<string>();
+  const viewer = viewerAccountId?.trim() || '';
+  if (viewer && accountIds.length > 0) {
+    const peers = accountIds.filter((id) => id !== viewer);
+    if (peers.length > 0) {
+      try {
+        const [inbound, outbound] = await Promise.all([
+          os.query.endorsements.issuersAmong(viewer, peers),
+          os.query.endorsements.targetsAmong(viewer, peers),
+        ]);
+        for (const issuer of inbound) viewerEndorsementIssuerSet.add(issuer);
+        for (const target of outbound) viewerEndorsementTargetSet.add(target);
+      } catch {
+        // Endorsement badges are optional — standing lists still work.
+      }
+    }
+  }
 
   const summaries = mapStandingRowsToSummaries(
     os,
@@ -170,6 +194,8 @@ async function buildStandingAccountSummaries(
     profileStats,
     viewerOutgoingSet,
     viewerIncomingSet,
+    viewerEndorsementIssuerSet,
+    viewerEndorsementTargetSet,
     moodIds
   );
 

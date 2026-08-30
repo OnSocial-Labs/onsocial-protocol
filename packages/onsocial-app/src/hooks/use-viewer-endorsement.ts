@@ -106,6 +106,7 @@ export function useViewerEndorsement(listAccountId: string) {
       options?: {
         previousTopic?: string | null;
         snapshot?: EndorsementListSnapshot;
+        issuerSnapshot?: EndorsementListSnapshot;
         draft?: ViewerEndorsementDraft;
       }
     ) => {

@@ -11,6 +11,7 @@ import {
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import {
   getGlobalViewerBlockLedgerVersion,
@@ -57,6 +58,10 @@ import {
   writeDiscoverListCache,
 } from '@/lib/discover-list-cache';
 import { replaceBrowserQueryUrl } from '@/lib/sync-browser-url-query';
+import {
+  overlayViewerEndorsedOnAccounts,
+} from '@/lib/viewer-endorsement-ledger';
+import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
 
 function discoverUrlQueryValue(query: string, tab: DiscoverTab): string {
   if (
@@ -132,6 +137,7 @@ export function useDiscoverProfiles(
   } = useAppWallet();
   const { updateStanding, isStandingPendingForTarget, standingSyncVersion } =
     useViewerStanding('discover');
+  const { endorsementSyncVersion } = useViewerEndorsement('discover');
   const [muteBlockSyncVersion, setMuteBlockSyncVersion] = useState(
     () =>
       getGlobalViewerMuteLedgerVersion() + getGlobalViewerBlockLedgerVersion()
@@ -483,9 +489,12 @@ export function useDiscoverProfiles(
 
   const listAccounts = useMemo(
     () =>
-      filterHiddenAuthors(profiles).map(discoverProfileToProfileListAccount),
+      overlayViewerEndorsedOnAccounts(
+        filterHiddenAuthors(profiles).map(discoverProfileToProfileListAccount),
+        getGlobalViewerEndorsementLedger()
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [profiles, muteBlockSyncVersion]
+    [profiles, muteBlockSyncVersion, endorsementSyncVersion]
   );
 
   const footerSummary = useMemo(() => {

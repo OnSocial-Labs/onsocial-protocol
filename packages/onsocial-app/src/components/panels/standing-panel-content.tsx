@@ -1,15 +1,18 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useStandingPanel } from '@/components/panels/standing-panel-context';
 import { ListLoadError } from '@/components/panels/list-load-error';
+import { useStandingPanel } from '@/components/panels/standing-panel-context';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { StandingDiscoverLink } from '@/components/panels/standing-discover-link';
+import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import {
   profileListAccountToStandingSummary,
   standingAccountToProfileListAccount,
 } from '@/lib/profile-list-account';
+import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
+import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
 
 export function StandingPanelContent() {
   const {
@@ -33,12 +36,18 @@ export function StandingPanelContent() {
     listKey,
     retryLoad,
     handleUpdateStanding,
+    accountId,
   } = useStandingPanel();
+  const { endorsementSyncVersion } = useViewerEndorsement(accountId);
 
   const isSearchEmpty = Boolean(query.trim());
   const listAccounts = useMemo(
-    () => filteredAccounts.map(standingAccountToProfileListAccount),
-    [filteredAccounts]
+    () =>
+      overlayViewerEndorsedOnAccounts(
+        filteredAccounts.map(standingAccountToProfileListAccount),
+        getGlobalViewerEndorsementLedger()
+      ),
+    [endorsementSyncVersion, filteredAccounts]
   );
 
   return (

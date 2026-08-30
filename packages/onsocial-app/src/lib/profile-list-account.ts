@@ -17,6 +17,7 @@ export interface ProfileListAccount {
   viewerStanding: boolean;
   theyStandWithViewer: boolean;
   targetEndorsedViewer: boolean;
+  viewerEndorsed: boolean;
   moodId?: PageMoodId;
   standingSince?: number | null;
   standingBlockTimestamp?: number | null;
@@ -42,6 +43,7 @@ export function standingAccountToProfileListAccount(
     viewerStanding: Boolean(account.viewerStanding),
     theyStandWithViewer: Boolean(account.theyStandWithViewer),
     targetEndorsedViewer: Boolean(account.targetEndorsedViewer),
+    viewerEndorsed: Boolean(account.viewerEndorsed),
     moodId: account.moodId,
     standingSince: account.standingSince,
     standingBlockTimestamp: account.standingBlockTimestamp,
@@ -66,6 +68,7 @@ export function discoverProfileToProfileListAccount(
     viewerStanding: profile.viewerStanding,
     theyStandWithViewer: profile.theyStandWithViewer,
     targetEndorsedViewer: profile.targetEndorsedViewer,
+    viewerEndorsed: profile.viewerEndorsed,
     moodId: profile.moodId,
     standingSince: profile.standingSince,
     standingBlockTimestamp: profile.standingBlockTimestamp,
@@ -88,6 +91,7 @@ export function profileListAccountToStandingSummary(
     viewerStanding: account.viewerStanding,
     theyStandWithViewer: account.theyStandWithViewer,
     targetEndorsedViewer: account.targetEndorsedViewer,
+    viewerEndorsed: account.viewerEndorsed,
     moodId: account.moodId,
     standingSince: account.standingSince,
     standingBlockTimestamp: account.standingBlockTimestamp,

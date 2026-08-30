@@ -24,6 +24,7 @@ export async function loadProfileListAccounts(
   let viewerOutgoing = new Set<string>();
   let viewerIncoming = new Set<string>();
   let endorsementIssuers = new Set<string>();
+  let endorsementTargets = new Set<string>();
   const viewer = viewerAccountId?.trim() || '';
   if (viewer) {
     const targets = ids.filter((id) => !accountIdsEqual(id, viewer));
@@ -32,6 +33,7 @@ export async function loadProfileListAccounts(
         viewerOutgoing: Array<{ targetAccount: string }>;
         viewerIncoming: Array<{ accountId: string }>;
         viewerEndorsements: Array<{ issuer: string }>;
+        viewerOutgoingEndorsements: Array<{ target: string }>;
       }>({
         query: `query FansRosterViewerContext($viewer: String!, $pageAccountIds: [String!]!) {
           viewerOutgoing: standingsCurrent(
@@ -53,6 +55,13 @@ export async function loadProfileListAccounts(
               operation: {_eq: "set"}
             }
           ) { issuer }
+          viewerOutgoingEndorsements: endorsementsCurrent(
+            where: {
+              issuer: {_eq: $viewer},
+              target: {_in: $pageAccountIds},
+              operation: {_eq: "set"}
+            }
+          ) { target }
         }`,
         variables: { viewer, pageAccountIds: targets },
       });
@@ -64,6 +73,9 @@ export async function loadProfileListAccounts(
       );
       endorsementIssuers = new Set(
         (res.data?.viewerEndorsements ?? []).map((row) => row.issuer)
+      );
+      endorsementTargets = new Set(
+        (res.data?.viewerOutgoingEndorsements ?? []).map((row) => row.target)
       );
     }
   }
@@ -93,6 +105,7 @@ export async function loadProfileListAccounts(
       viewerStanding: viewerOutgoing.has(accountId),
       theyStandWithViewer: viewerIncoming.has(accountId),
       targetEndorsedViewer: endorsementIssuers.has(accountId),
+      viewerEndorsed: endorsementTargets.has(accountId),
       rowHydrated: true,
     } satisfies ProfileListAccount;
   });

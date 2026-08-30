@@ -99,6 +99,7 @@ import { usePostScarceEmbed } from '@/features/scarces/use-post-scarce-embed';
 import { usePostTokenEmbed } from '@/features/scarces/use-post-token-embed';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { useViewerMute } from '@/hooks/use-viewer-mute';
@@ -242,10 +243,13 @@ function PostCardMenu({
   // Arm relationship fetch only after the menu opens — avoids N fetches per feed.
   const [gesturesArmed, setGesturesArmed] = useState(false);
   const relationshipAccountId = gesturesArmed ? accountId : '';
-  const { viewerStanding, isLoading } = useViewerRelationship(
+  const { viewerStanding, viewerEndorsed, isLoading } = useViewerRelationship(
     relationshipAccountId
   );
   const { updateStanding, isStandingPendingForTarget } = useViewerStanding(
+    relationshipAccountId || accountId
+  );
+  const { isEndorsePendingForTarget } = useViewerEndorsement(
     relationshipAccountId || accountId
   );
   const { updateMute, isMuting, isMutePendingForTarget } = useViewerMute();
@@ -273,6 +277,7 @@ function PostCardMenu({
   const showCancelScarce =
     isConnected && isSelf && canCancelScarce && onCancelScarce;
   const pending = isStandingPendingForTarget(accountId);
+  const endorsePending = isEndorsePendingForTarget(accountId);
   const profileHref = portfolioPath(accountId);
 
   const copyLink = async () => {
@@ -377,6 +382,16 @@ function PostCardMenu({
         ? 'Step back'
         : 'Stand with';
 
+  const endorseLabel = isLoading
+    ? '…'
+    : endorsePending
+      ? viewerEndorsed
+        ? 'Updating…'
+        : 'Endorsing…'
+      : viewerEndorsed
+        ? 'Endorsed'
+        : 'Endorse';
+
   const muted = isMuting(accountId);
   const blocked = isBlocking(accountId);
   const mutePending = isMutePendingForTarget(accountId);
@@ -407,8 +422,13 @@ function PostCardMenu({
       });
       items.push({
         id: 'endorse',
-        label: 'Endorse',
-        leading: <FireBIcon className="os-action-drawer-icon" aria-hidden />,
+        label: endorseLabel,
+        disabled: endorsePending || isLoading,
+        leading: viewerEndorsed ? (
+          <FireBFillIcon className="os-action-drawer-icon" aria-hidden />
+        ) : (
+          <FireBIcon className="os-action-drawer-icon" aria-hidden />
+        ),
         onSelect: () => {
           setEndorseOpen(true);
           requestClose();
@@ -488,7 +508,10 @@ function PostCardMenu({
     showGestures,
     standLabel,
     viewerStanding,
+    endorseLabel,
+    viewerEndorsed,
     pending,
+    endorsePending,
     isLoading,
     muted,
     blocked,
@@ -557,6 +580,7 @@ function PostCardMenu({
         pageAccountId={accountId}
         profileName={authorProfile?.displayName}
         avatarUrl={authorProfile?.avatarUrl}
+        intent={viewerEndorsed ? 'auto' : 'create'}
         onOpenChange={setEndorseOpen}
       />
       <ProfileSupportSheet

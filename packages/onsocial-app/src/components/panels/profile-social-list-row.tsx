@@ -271,12 +271,17 @@ export function ProfileSocialListRow({
     showSolidarityBadge && viewerStandsWithAccount && theyStandWithViewer;
   const showEndorsedYou =
     relationshipKnown && Boolean(account.targetEndorsedViewer);
+  const showEndorsedThem =
+    relationshipKnown && Boolean(account.viewerEndorsed);
   const bio = account.bio?.trim();
   const timeMeta = isResolvingViewerRelationship
     ? null
     : resolveStandingTimeMeta(account, standingTimeMode);
   const showRelationshipSignals =
-    sharedSolidarity || theyStandWithViewer || showEndorsedYou;
+    sharedSolidarity ||
+    theyStandWithViewer ||
+    showEndorsedYou ||
+    showEndorsedThem;
   const moodId = account.moodId ?? 'protocol';
   const isDaoTarget = isDaoStandingTarget(account.accountId, account.isDao);
   const targetHref = isDaoTarget
@@ -325,6 +330,13 @@ export function ProfileSocialListRow({
                     label="Endorsed you"
                     tone="endorse"
                     title="This account has endorsed you"
+                  />
+                ) : null}
+                {showEndorsedThem ? (
+                  <StandingRelationshipSignal
+                    label="Endorsed"
+                    tone="endorse"
+                    title="You endorsed this account"
                   />
                 ) : null}
               </div>

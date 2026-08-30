@@ -24,6 +24,7 @@ import {
 } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
@@ -104,6 +105,7 @@ export function EndorseComposeSheet({
   const mediaInputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { accountId, isConnected, connect } = useAppWallet();
+  const viewerShell = useViewerProfileShellContext();
   const { getClient } = useAppOnSocialClient();
   const { setTxResult } = useAppTransactionFeedback();
   const {
@@ -438,10 +440,24 @@ export function EndorseComposeSheet({
           name: profileName,
           avatarUrl,
         },
+        ...(accountId
+          ? {
+              issuerSnapshot: {
+                accountId,
+                name: viewerShell?.displayName ?? null,
+                avatarUrl: viewerShell?.avatarUrl ?? null,
+              },
+            }
+          : {}),
         draft: {
           topic: normalizedTopic ?? '',
           note: trimmedNote || null,
           id: endorsementId,
+          media: mediaRemoved ? null : existingMedia,
+          mediaUrl: mediaRemoved
+            ? null
+            : (existingMediaUrl ??
+              resolveEndorsementDisplayMediaUrl({ media: existingMedia })),
         },
       });
       onSuccess?.();

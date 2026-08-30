@@ -20,6 +20,9 @@ import {
   homeTickerPath,
 } from '@/features/home/home-ticker-search';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
+import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
+import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import {
   APP_GROUPS_PATH,
@@ -83,6 +86,7 @@ export function DiscoverTrendingPanel({
   } = useAppWallet();
   const { updateStanding, isStandingPendingForTarget } =
     useViewerStanding('discover');
+  const { endorsementSyncVersion } = useViewerEndorsement('discover');
 
   const [tickers, setTickers] = useState<TickerCount[] | null>(
     () => initial?.tickers ?? null
@@ -322,8 +326,14 @@ export function DiscoverTrendingPanel({
     [places, query]
   );
   const visibleProfiles = useMemo(
-    () => (profiles == null ? null : filterTrendingProfiles(profiles, query)),
-    [profiles, query]
+    () =>
+      profiles == null
+        ? null
+        : overlayViewerEndorsedOnAccounts(
+            filterTrendingProfiles(profiles, query),
+            getGlobalViewerEndorsementLedger()
+          ),
+    [endorsementSyncVersion, profiles, query]
   );
   const visibleDaos = useMemo(
     () => (daos == null ? null : filterTrendingDaos(daos, query)),

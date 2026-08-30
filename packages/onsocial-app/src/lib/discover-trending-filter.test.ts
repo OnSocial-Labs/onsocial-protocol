@@ -58,6 +58,7 @@ describe('discover trending filter', () => {
         viewerStanding: false,
         theyStandWithViewer: false,
         targetEndorsedViewer: false,
+        viewerEndorsed: false,
       },
       {
         accountId: 'bob.near',
@@ -71,6 +72,7 @@ describe('discover trending filter', () => {
         viewerStanding: false,
         theyStandWithViewer: false,
         targetEndorsedViewer: false,
+        viewerEndorsed: false,
       },
     ];
     expect(

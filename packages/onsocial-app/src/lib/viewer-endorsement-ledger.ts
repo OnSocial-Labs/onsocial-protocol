@@ -1,3 +1,4 @@
+import type { MediaRef } from '@onsocial/sdk';
 import { endorsementTopicKey } from '@/lib/endorsement-display';
 import type {
   EndorsementPanelItem,
@@ -15,6 +16,8 @@ export type ViewerEndorsementDraft = {
   topic: string;
   note: string | null;
   id: string | null;
+  media?: MediaRef | null;
+  mediaUrl?: string | null;
 };
 
 export type ViewerEndorsementLedgerEntry = {
@@ -26,7 +29,10 @@ export type ViewerEndorsementLedgerEntry = {
    */
   apiTopics: string[];
   latest?: ViewerEndorsementDraft;
+  /** Target (endorsed account) shell for Given rows. */
   snapshot?: EndorsementListSnapshot;
+  /** Viewer (issuer) shell for Received rows on the target’s page. */
+  issuerSnapshot?: EndorsementListSnapshot;
 };
 
 export type PortfolioEndorsementCounts = {
@@ -108,6 +114,7 @@ export function recordViewerEndorse(
   options?: {
     previousTopic?: string | null;
     snapshot?: EndorsementListSnapshot;
+    issuerSnapshot?: EndorsementListSnapshot;
     draft?: ViewerEndorsementDraft;
   }
 ): void {
@@ -131,6 +138,7 @@ export function recordViewerEndorse(
     topics: uniqueTopics(topics),
     apiTopics: previous?.apiTopics ?? [],
     snapshot: options?.snapshot ?? previous?.snapshot,
+    issuerSnapshot: options?.issuerSnapshot ?? previous?.issuerSnapshot,
     latest: options?.draft ?? previous?.latest,
   });
 }
@@ -150,6 +158,7 @@ export function recordViewerEndorseRemove(
     topics,
     apiTopics: previous?.apiTopics ?? (previous ? [] : [removedTopic]),
     snapshot: previous?.snapshot,
+    issuerSnapshot: previous?.issuerSnapshot,
     latest: previous?.latest,
   });
 }
@@ -162,6 +171,20 @@ export function resolveViewerEndorsed(
   const entry = findLedgerEntry(ledger, targetAccountId);
   if (!entry) return apiEndorsed;
   return entryIsEndorsed(entry);
+}
+
+/** Overlay ledger Endorsed onto list rows until the indexer agrees. */
+export function overlayViewerEndorsedOnAccounts<
+  T extends { accountId: string; viewerEndorsed?: boolean },
+>(accounts: T[], ledger: ViewerEndorsementLedger): T[] {
+  return accounts.map((account) => ({
+    ...account,
+    viewerEndorsed: resolveViewerEndorsed(
+      ledger,
+      account.accountId,
+      Boolean(account.viewerEndorsed)
+    ),
+  }));
 }
 
 export function reconcileViewerEndorsement(
@@ -330,13 +353,19 @@ function buildInjectedEndorsementItem({
       ? { note: entry.latest.note }
       : {}),
     ...(latestMatches && entry.latest?.id ? { id: entry.latest.id } : {}),
+    ...(latestMatches && entry.latest?.media
+      ? { media: entry.latest.media }
+      : {}),
     blockHeight: 0,
     blockTimestamp: now,
-    issuerName: null,
-    issuerAvatarUrl: null,
+    issuerName: entry.issuerSnapshot?.name ?? null,
+    issuerAvatarUrl: entry.issuerSnapshot?.avatarUrl ?? null,
     targetName: entry.snapshot?.name ?? null,
     targetAvatarUrl: entry.snapshot?.avatarUrl ?? null,
-    mediaUrl: null,
+    mediaUrl:
+      latestMatches && entry.latest?.mediaUrl
+        ? entry.latest.mediaUrl
+        : null,
   };
 }
 

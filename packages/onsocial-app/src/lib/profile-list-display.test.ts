@@ -49,6 +49,7 @@ describe('isProfileListAccountDisplayReady', () => {
         viewerStanding: false,
         theyStandWithViewer: false,
         targetEndorsedViewer: false,
+        viewerEndorsed: false,
       })
     ).toBe(true);
   });
@@ -67,6 +68,7 @@ describe('isProfileListAccountDisplayReady', () => {
         viewerStanding: false,
         theyStandWithViewer: false,
         targetEndorsedViewer: false,
+        viewerEndorsed: false,
         rowHydrated: false,
       })
     ).toBe(false);

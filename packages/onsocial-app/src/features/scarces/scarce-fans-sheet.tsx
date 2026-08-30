@@ -8,7 +8,10 @@ import {
 } from '@/components/panels/profile-social-list-row';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
+import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
+import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
 import { accountIdsEqual } from '@/lib/account-match';
 import { loadProfileListAccounts } from '@/lib/load-profile-list-accounts';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
@@ -36,6 +39,7 @@ export function ScarceFansSheet({
   const { setTxResult } = useAppTransactionFeedback();
   const { updateStanding, isStandingPendingForTarget } =
     useViewerStanding('scarce-fans');
+  const { endorsementSyncVersion } = useViewerEndorsement('scarce-fans');
 
   const fanIdsKey = fanIds.join('\n');
   const requestKey = open
@@ -111,12 +115,14 @@ export function ScarceFansSheet({
     return n === 1 ? '1 fan' : `${n} fans`;
   }, [fanCount, fanIds.length]);
 
-  const accounts =
-    !open || fanIds.length === 0
-      ? []
-      : fetched?.key === requestKey
-        ? fetched.accounts
-        : null;
+  const accounts = useMemo(() => {
+    if (!open || fanIds.length === 0) return [];
+    if (fetched?.key !== requestKey) return null;
+    return overlayViewerEndorsedOnAccounts(
+      fetched.accounts,
+      getGlobalViewerEndorsementLedger()
+    );
+  }, [endorsementSyncVersion, fanIds.length, fetched, open, requestKey]);
   const loadError =
     Boolean(open) && fetched?.key === requestKey && fetched.error;
   const showSkeleton = open && fanIds.length > 0 && accounts === null;

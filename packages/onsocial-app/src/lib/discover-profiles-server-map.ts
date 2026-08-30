@@ -22,6 +22,9 @@ export async function mapDiscoverPageToResponse(
   const viewerEndorsementIssuerSet = new Set(
     page.viewer?.endorsementIssuers ?? []
   );
+  const viewerEndorsementTargetSet = new Set(
+    page.viewer?.endorsementTargets ?? []
+  );
 
   let moodIds: Partial<Record<string, PageMoodId>> = {};
   const accountIds = page.profiles.map((row) => row.accountId);
@@ -59,6 +62,7 @@ export async function mapDiscoverPageToResponse(
       viewerStanding: Boolean(outgoing),
       theyStandWithViewer: viewerIncomingSet.has(row.accountId),
       targetEndorsedViewer: viewerEndorsementIssuerSet.has(row.accountId),
+      viewerEndorsed: viewerEndorsementTargetSet.has(row.accountId),
       standingSince: outgoing?.since ?? null,
       standingBlockTimestamp: outgoing?.blockTimestamp ?? null,
     };

@@ -55,6 +55,7 @@ export interface StandingAccountSummary {
   viewerStanding?: boolean;
   theyStandWithViewer?: boolean;
   targetEndorsedViewer?: boolean;
+  viewerEndorsed?: boolean;
   moodId?: PageMoodId;
   /** Server-enriched when peer is a DAO org. */
   isDao?: boolean;

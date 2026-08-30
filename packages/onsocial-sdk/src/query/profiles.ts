@@ -44,6 +44,7 @@ export interface ProfileDiscoverViewerContext {
   outgoing: ProfileDiscoverStandingRow[];
   incomingAccountIds: string[];
   endorsementIssuers: string[];
+  endorsementTargets: string[];
 }
 
 export interface ProfileDiscoverPageOptions {
@@ -306,6 +307,7 @@ export class ProfilesQuery {
           outgoing: [],
           incomingAccountIds: [],
           endorsementIssuers: [],
+          endorsementTargets: [],
         },
       };
     }
@@ -553,6 +555,7 @@ export class ProfilesQuery {
         outgoing: [],
         incomingAccountIds: [],
         endorsementIssuers: [],
+        endorsementTargets: [],
       };
     }
 
@@ -566,6 +569,7 @@ export class ProfilesQuery {
       }>;
       viewerIncoming: Array<{ accountId: string }>;
       viewerEndorsements: Array<{ issuer: string }>;
+      viewerOutgoingEndorsements: Array<{ target: string }>;
     }>({
       query: `query ProfileDiscoverViewerContext($viewer: String!, $pageAccountIds: [String!]!) {
         viewerOutgoing: standingsCurrent(
@@ -593,6 +597,15 @@ export class ProfilesQuery {
         ) {
           issuer
         }
+        viewerOutgoingEndorsements: endorsementsCurrent(
+          where: {
+            issuer: {_eq: $viewer},
+            target: {_in: $pageAccountIds},
+            operation: {_eq: "set"}
+          }
+        ) {
+          target
+        }
       }`,
       variables: { viewer: viewerAccountId, pageAccountIds: targets },
     });
@@ -605,6 +618,11 @@ export class ProfilesQuery {
       endorsementIssuers: (res.data?.viewerEndorsements ?? []).map(
         (row) => row.issuer
       ),
+      endorsementTargets: [
+        ...new Set(
+          (res.data?.viewerOutgoingEndorsements ?? []).map((row) => row.target)
+        ),
+      ],
     };
   }
 }

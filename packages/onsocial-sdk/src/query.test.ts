@@ -411,6 +411,7 @@ describe('QueryModule', () => {
               ],
               viewerIncoming: [{ accountId: 'carol.near' }],
               viewerEndorsements: [{ issuer: 'carol.near' }],
+              viewerOutgoingEndorsements: [{ target: 'carol.near' }],
             },
           };
         }
@@ -451,6 +452,7 @@ describe('QueryModule', () => {
       });
       expect(page.viewer?.incomingAccountIds).toContain('carol.near');
       expect(page.viewer?.endorsementIssuers).toEqual(['carol.near']);
+      expect(page.viewer?.endorsementTargets).toEqual(['carol.near']);
       expect(fetch).toHaveBeenCalledTimes(2);
       const contextBody = JSON.parse(
         String((fetch.mock.calls[1]?.[1] as RequestInit | undefined)?.body)
@@ -458,6 +460,9 @@ describe('QueryModule', () => {
       expect(contextBody.query).toContain('ProfileDiscoverViewerContext');
       expect(contextBody.query).toContain(
         'viewerEndorsements: endorsementsCurrent'
+      );
+      expect(contextBody.query).toContain(
+        'viewerOutgoingEndorsements: endorsementsCurrent'
       );
     });
 
@@ -474,6 +479,7 @@ describe('QueryModule', () => {
         outgoing: [],
         incomingAccountIds: [],
         endorsementIssuers: [],
+        endorsementTargets: [],
       });
       expect(fetch).toHaveBeenCalledTimes(1);
     });
@@ -2579,6 +2585,26 @@ describe('QueryModule', () => {
         issuer: 'bob.near',
         target: 'alice.near',
       });
+    });
+
+    it('targetsAmong returns unique endorsed targets', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          endorsementsCurrent: [
+            { target: 'alice.near' },
+            { target: 'carol.near' },
+            { target: 'alice.near' },
+          ],
+        },
+      });
+      await expect(
+        os.query.endorsements.targetsAmong('bob.near', [
+          'alice.near',
+          'carol.near',
+        ])
+      ).resolves.toEqual(['alice.near', 'carol.near']);
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('EndorsementTargetsAmong');
     });
 
     it('preview batches counts and both lists in one round-trip', async () => {
