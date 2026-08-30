@@ -32555,11 +32555,40 @@ a.os-surface-row {
   }
 
   .endorsements-endorse-cta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
     flex-shrink: 0;
+    gap: 0.2rem;
   }
 
   .endorsements-endorse-cta .os-sheet-action {
     min-width: 5.5rem;
+  }
+
+  .endorsements-add-topic {
+    border: none;
+    background: transparent;
+    padding: 0 0.15rem;
+    color: rgb(var(--fg-rgb) / 0.48);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+  }
+
+  .endorsements-add-topic:hover,
+  .endorsements-add-topic:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.78);
+  }
+
+  .endorsements-add-topic:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+    border-radius: 0.25rem;
   }
 
   .endorsement-list {

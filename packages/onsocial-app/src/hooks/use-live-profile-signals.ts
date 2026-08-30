@@ -28,6 +28,7 @@ export function useLiveProfileSignals(
     apiViewerStanding,
     theyStandWithViewer,
     apiViewerEndorsed,
+    apiViewerEndorsementTopics,
     isLoading: relationshipLoading,
     viewerStanding,
     isLoading,
@@ -82,6 +83,7 @@ export function useLiveProfileSignals(
         given: baseSignals.endorsementsGivenCount,
       },
       apiViewerEndorsed,
+      apiViewerEndorsementTopics,
       ledger: getGlobalViewerEndorsementLedger(),
       relationshipKnown: isSelf || !relationshipLoading,
     });
@@ -97,6 +99,7 @@ export function useLiveProfileSignals(
   }, [
     accountId,
     apiViewerEndorsed,
+    apiViewerEndorsementTopics,
     apiViewerStanding,
     baseSignals,
     isSelf,

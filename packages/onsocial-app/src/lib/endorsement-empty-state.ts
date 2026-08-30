@@ -10,19 +10,22 @@ export function buildEndorsementEmptyState({
   mode,
   isSelf,
   displayName,
+  viewerEndorsed = false,
 }: {
   mode: EndorsementsMode;
   isSelf: boolean;
   displayName: string;
+  viewerEndorsed?: boolean;
 }): EndorsementPanelEmptyState {
   if (mode === 'received') {
     return {
       primary: isSelf
         ? 'No endorsements yet.'
         : `No endorsements for ${displayName} yet.`,
-      secondary: isSelf
-        ? undefined
-        : 'Be the first to put your name behind them.',
+      secondary:
+        isSelf || viewerEndorsed
+          ? undefined
+          : 'Be the first to put your name behind them.',
       showDiscover: false,
     };
   }

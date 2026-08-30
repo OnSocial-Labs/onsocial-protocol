@@ -20,6 +20,11 @@ export type ViewerEndorsementDraft = {
 export type ViewerEndorsementLedgerEntry = {
   /** Normalized topic keys. Empty = confirmed unendorsed until API agrees. */
   topics: string[];
+  /**
+   * Last known API topic set for this target when the override was created.
+   * Empty when the viewer originated the vouch before the indexer saw it.
+   */
+  apiTopics: string[];
   latest?: ViewerEndorsementDraft;
   snapshot?: EndorsementListSnapshot;
 };
@@ -124,6 +129,7 @@ export function recordViewerEndorse(
 
   ledger.set(key, {
     topics: uniqueTopics(topics),
+    apiTopics: previous?.apiTopics ?? [],
     snapshot: options?.snapshot ?? previous?.snapshot,
     latest: options?.draft ?? previous?.latest,
   });
@@ -137,12 +143,12 @@ export function recordViewerEndorseRemove(
   const key = resolveLedgerWriteKey(ledger, targetAccountId);
   const previous = ledger.get(key);
   const removedTopic = normalizeEndorsementLedgerTopic(topic);
-  const topics = (previous?.topics ?? []).filter(
-    (item) => item !== removedTopic
-  );
+  const currentTopics = previous?.topics ?? [removedTopic];
+  const topics = currentTopics.filter((item) => item !== removedTopic);
 
   ledger.set(key, {
     topics,
+    apiTopics: previous?.apiTopics ?? (previous ? [] : [removedTopic]),
     snapshot: previous?.snapshot,
     latest: previous?.latest,
   });
@@ -219,12 +225,25 @@ export function reconcileEndorsementListFromApi(
   return changed;
 }
 
-/** Live portfolio / endorsements-toolbar counts until read APIs reconcile. */
+function topicDelta(
+  entry: ViewerEndorsementLedgerEntry,
+  apiTopics: string[]
+): number {
+  return (
+    entry.topics.length -
+    uniqueTopics(apiTopics.map((topic) => normalizeEndorsementLedgerTopic(topic)))
+      .length
+  );
+}
+
+/** Live portfolio / overlay counts — topic rows, matching the list. */
 export function derivePortfolioEndorsementCounts({
   pageAccountId,
   viewerAccountId,
   counts,
   apiViewerEndorsed,
+  apiViewerEndorsementTopics,
+  viewerItems,
   ledger,
   relationshipKnown = true,
 }: {
@@ -232,6 +251,8 @@ export function derivePortfolioEndorsementCounts({
   viewerAccountId: string | null;
   counts: PortfolioEndorsementCounts;
   apiViewerEndorsed: boolean;
+  apiViewerEndorsementTopics?: string[];
+  viewerItems?: Array<{ issuer: string; target: string; topic?: string | null }>;
   ledger: ViewerEndorsementLedger;
   relationshipKnown?: boolean;
 }): PortfolioEndorsementCounts {
@@ -248,8 +269,15 @@ export function derivePortfolioEndorsementCounts({
   let { received, given } = counts;
 
   if (pageId === viewerId) {
-    for (const [, entry] of ledger) {
-      given += entryIsEndorsed(entry) ? 1 : -1;
+    for (const [targetAccountId, entry] of ledger) {
+      const fromList = viewerItems
+        ? topicsFromEndorsementItems(
+            viewerItems,
+            viewerAccountId,
+            targetAccountId
+          )
+        : null;
+      given += topicDelta(entry, fromList ?? entry.apiTopics);
     }
     return {
       received: clampCount(received),
@@ -262,12 +290,14 @@ export function derivePortfolioEndorsementCounts({
   }
 
   const entry = findLedgerEntry(ledger, pageAccountId);
-  const effectiveEndorsed = entry ? entryIsEndorsed(entry) : apiViewerEndorsed;
-  if (effectiveEndorsed === apiViewerEndorsed) {
+  if (!entry) {
     return counts;
   }
 
-  received += effectiveEndorsed ? 1 : -1;
+  const apiTopics =
+    apiViewerEndorsementTopics ??
+    (apiViewerEndorsed ? entry.apiTopics : []);
+  received += topicDelta(entry, apiTopics);
   return {
     received: clampCount(received),
     given: clampCount(given),

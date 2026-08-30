@@ -47,7 +47,7 @@ describe('derivePortfolioEndorsementCounts', () => {
     ).toEqual({ received: 11, given: 5 });
   });
 
-  it('does not bump again for a second topic on the same peer', () => {
+  it('bumps received once per topic so chips match the list', () => {
     const ledger: ViewerEndorsementLedger = new Map();
     recordViewerEndorse(ledger, 'alice.testnet', 'design');
     recordViewerEndorse(ledger, 'alice.testnet', 'product');
@@ -58,9 +58,27 @@ describe('derivePortfolioEndorsementCounts', () => {
         viewerAccountId: 'bob.testnet',
         counts: base,
         apiViewerEndorsed: false,
+        apiViewerEndorsementTopics: [],
         ledger,
       })
-    ).toEqual({ received: 11, given: 5 });
+    ).toEqual({ received: 12, given: 5 });
+  });
+
+  it('only adds the missing topic when the API already has one', () => {
+    const ledger: ViewerEndorsementLedger = new Map();
+    recordViewerEndorse(ledger, 'alice.testnet', 'design');
+    recordViewerEndorse(ledger, 'alice.testnet', 'product');
+
+    expect(
+      derivePortfolioEndorsementCounts({
+        pageAccountId: 'alice.testnet',
+        viewerAccountId: 'bob.testnet',
+        counts: { received: 11, given: 5 },
+        apiViewerEndorsed: true,
+        apiViewerEndorsementTopics: ['design'],
+        ledger,
+      })
+    ).toEqual({ received: 12, given: 5 });
   });
 
   it('does not bump when moving a topic on an already-endorsed peer', () => {
@@ -76,6 +94,7 @@ describe('derivePortfolioEndorsementCounts', () => {
         viewerAccountId: 'bob.testnet',
         counts: { received: 11, given: 5 },
         apiViewerEndorsed: true,
+        apiViewerEndorsementTopics: ['design'],
         ledger,
       })
     ).toEqual({ received: 11, given: 5 });
@@ -92,12 +111,13 @@ describe('derivePortfolioEndorsementCounts', () => {
         viewerAccountId: 'bob.testnet',
         counts: { received: 11, given: 5 },
         apiViewerEndorsed: true,
+        apiViewerEndorsementTopics: ['design'],
         ledger,
       })
     ).toEqual({ received: 10, given: 5 });
   });
 
-  it('adjusts given on own portfolio from unique peers', () => {
+  it('adjusts given on own portfolio by topic rows', () => {
     const ledger: ViewerEndorsementLedger = new Map();
     recordViewerEndorse(ledger, 'alice.testnet', 'design');
     recordViewerEndorse(ledger, 'alice.testnet', 'product');
@@ -111,7 +131,7 @@ describe('derivePortfolioEndorsementCounts', () => {
         apiViewerEndorsed: false,
         ledger,
       })
-    ).toEqual({ received: 10, given: 7 });
+    ).toEqual({ received: 10, given: 8 });
   });
 
   it('does not double-adjust after API reconcile clears the ledger', () => {

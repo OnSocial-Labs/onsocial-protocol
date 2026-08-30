@@ -15,6 +15,20 @@ describe('buildEndorsementEmptyState', () => {
     });
   });
 
+  it('drops the first-vouch invite after the viewer already endorsed', () => {
+    expect(
+      buildEndorsementEmptyState({
+        mode: 'received',
+        isSelf: false,
+        displayName: 'Alice',
+        viewerEndorsed: true,
+      })
+    ).toEqual({
+      primary: 'No endorsements for Alice yet.',
+      showDiscover: false,
+    });
+  });
+
   it('invites a visitor to vouch on an empty received list', () => {
     expect(
       buildEndorsementEmptyState({

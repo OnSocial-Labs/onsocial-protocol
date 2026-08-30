@@ -131,8 +131,12 @@ export function EndorsementsPanel({
   initial = null,
 }: EndorsementsPanelProps) {
   const { accountId: viewerAccountId, isConnected, connect } = useAppWallet();
-  const { apiViewerEndorsed, isLoading: relationshipLoading } =
-    useViewerRelationship(accountId);
+  const {
+    viewerEndorsed,
+    apiViewerEndorsed,
+    apiViewerEndorsementTopics,
+    isLoading: relationshipLoading,
+  } = useViewerRelationship(accountId);
   const {
     endorsementSyncVersion,
     deriveEndorsementItems,
@@ -162,6 +166,7 @@ export function EndorsementsPanel({
     mode,
     isSelf,
     displayName: label,
+    viewerEndorsed,
   });
 
   const load = useCallback(
@@ -241,6 +246,8 @@ export function EndorsementsPanel({
     viewerAccountId: viewerAccountId ?? null,
     counts: data?.counts ?? { received: 0, given: 0 },
     apiViewerEndorsed,
+    apiViewerEndorsementTopics,
+    viewerItems: [...(data?.received ?? []), ...(data?.given ?? [])],
     ledger: getGlobalViewerEndorsementLedger(),
     relationshipKnown: isSelf || !relationshipLoading,
   });
@@ -313,6 +320,16 @@ export function EndorsementsPanel({
       targetAccountId: accountId,
       targetName: profileName,
       targetAvatarUrl: avatarUrl,
+      intent: viewerEndorsed ? 'auto' : 'create',
+      existing: null,
+    });
+  }
+
+  function handleAddTopic() {
+    openCompose({
+      targetAccountId: accountId,
+      targetName: profileName,
+      targetAvatarUrl: avatarUrl,
       intent: 'create',
       existing: null,
     });
@@ -375,14 +392,27 @@ export function EndorsementsPanel({
         </div>
 
         {!isSelf ? (
-          <OsSheetActions
-            layout="row-compact"
-            className="endorsements-endorse-cta"
-          >
-            <OsSheetAction type="button" ready onClick={handleEndorseClick}>
-              {isConnected ? 'Endorse' : 'Connect'}
-            </OsSheetAction>
-          </OsSheetActions>
+          <div className="endorsements-endorse-cta">
+            <OsSheetActions layout="row-compact">
+              <OsSheetAction type="button" ready onClick={handleEndorseClick}>
+                {!isConnected
+                  ? 'Connect'
+                  : viewerEndorsed
+                    ? 'Endorsed'
+                    : 'Endorse'}
+              </OsSheetAction>
+            </OsSheetActions>
+            {isConnected && viewerEndorsed ? (
+              <button
+                type="button"
+                className="endorsements-add-topic"
+                onClick={handleAddTopic}
+                aria-label={`Add another endorsement for ${label}`}
+              >
+                Add topic
+              </button>
+            ) : null}
+          </div>
         ) : null}
       </div>
 

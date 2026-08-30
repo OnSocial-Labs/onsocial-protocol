@@ -118,6 +118,7 @@ export function useViewerRelationship(pageAccountId: string) {
       theyStandWithViewer: false,
       viewerEndorsed: false,
       apiViewerEndorsed: false,
+      apiViewerEndorsementTopics: [] as string[],
       isLoading: false,
     };
   }
@@ -147,6 +148,8 @@ export function useViewerRelationship(pageAccountId: string) {
       apiEndorsed
     ),
     apiViewerEndorsed: apiEndorsed,
+    apiViewerEndorsementTopics:
+      matchedRelationship?.viewerEndorsementTopics ?? [],
     isLoading: matchedRelationship == null,
   };
 }
