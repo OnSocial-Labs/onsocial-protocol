@@ -477,7 +477,7 @@ export function AccountActionList({
       ? [
           {
             label: 'Tokens',
-            hint: 'Create a fungible token under your account',
+            hint: 'Create under your name',
             onClick: onOpenTokens,
           },
         ]

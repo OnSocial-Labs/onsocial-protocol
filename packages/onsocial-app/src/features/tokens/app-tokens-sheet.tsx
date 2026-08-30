@@ -67,15 +67,15 @@ export function AppTokensSheet({
         onClose={requestClose}
         onClosed={handleClosed}
         label="Tokens"
-        copy="Fungible tokens under your account"
-        closeAriaLabel="Close tokens"
+        copy={`@${accountId}`}
+        closeAriaLabel="Close"
         backdropLabel="Close tokens"
         zIndex={SHEET_Z.facts}
         panelClassName="account-storage-panel os-sheet-cap-standard"
         bodyClassName="account-storage-body"
         {...(panelStyle ? { panelStyle } : {})}
       >
-        <div className="app-tokens-sheet">
+        <div className="app-storage-sheet">
           {tokens.length === 0 ? (
             <p className="token-create-note">No tokens yet.</p>
           ) : (

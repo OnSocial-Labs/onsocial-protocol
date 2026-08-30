@@ -40,7 +40,7 @@ export function TokenCreateStepThread({
           ? 'Token is live'
           : phase === 'error'
             ? 'Batch stopped'
-            : 'One batch · later steps wait if one fails';
+            : 'One signature';
 
   return (
     <ol className="token-create-step-thread" aria-label={label}>

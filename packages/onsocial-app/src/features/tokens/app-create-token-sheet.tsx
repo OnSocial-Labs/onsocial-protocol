@@ -31,7 +31,6 @@ import {
 } from '@/lib/app-create-token';
 import { sendCreateUserTokenTransaction } from '@/lib/app-create-token-transactions';
 import { FT_CREATE_FUND_NEAR } from '@/lib/app-ft-template-config';
-import { nearAccountSuffixHint } from '@/lib/app-near-account';
 import { SHEET_Z } from '@/lib/sheet-z';
 import type { TokenCreatePhase } from '@/lib/token-create-steps';
 import {
@@ -102,6 +101,22 @@ export function AppCreateTokenSheet({
   const supplySmallest = parseFtSupplySmallest(supply);
   const accountTaken = accountStatus === 'found';
   const accountChecking = accountStatus === 'checking';
+  const accountFieldClass = accountTaken
+    ? 'is-taken'
+    : accountChecking
+      ? 'is-checking'
+      : contractId && !accountError
+        ? 'is-available'
+        : undefined;
+  const accountLead = accountTaken
+    ? 'Taken'
+    : accountChecking
+      ? 'Checking'
+      : accountError && !parentError
+        ? accountError
+        : contractId
+          ? 'Available'
+          : 'Your account';
 
   const canSubmit =
     isConnected &&
@@ -286,15 +301,18 @@ export function AppCreateTokenSheet({
       onClose={requestClose}
       onClosed={handleClosed}
       label="Create token"
-      copy={`One batch · ${FT_CREATE_FUND_NEAR} NEAR · ${nearAccountSuffixHint()}`}
-      closeAriaLabel="Close create token"
+      copy={`${FT_CREATE_FUND_NEAR} NEAR`}
+      closeAriaLabel="Close"
       backdropLabel="Close create token"
       zIndex={SHEET_Z.nested}
       panelClassName="account-storage-panel os-sheet-cap-tall"
       bodyClassName="account-storage-body"
       {...(panelStyle ? { panelStyle } : {})}
     >
-      <form className="token-create-form" onSubmit={(event) => void handleSubmit(event)}>
+      <form
+        className="app-storage-sheet token-create-form"
+        onSubmit={(event) => void handleSubmit(event)}
+      >
         {templateReady === false ? (
           <p className="token-create-note is-warn" role="status">
             {templateDetail}
@@ -363,25 +381,28 @@ export function AppCreateTokenSheet({
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
-            className={osFieldBorderedClassName}
+            aria-invalid={accountTaken}
+            className={`${osFieldBorderedClassName}${
+              accountFieldClass ? ` ${accountFieldClass}` : ''
+            }`}
           />
-          <small>
-            {accountTaken
-              ? 'Taken — pick another name'
-              : accountChecking
-                ? 'Checking…'
-                : contractId || 'name.you'}
+          <small className={accountFieldClass}>
+            {accountLead}
+            {contractId ? ` · ${contractId}` : ''}
           </small>
         </label>
 
-        <label className="token-create-lock">
+        <label className="dao-create-toggle">
           <input
             type="checkbox"
             checked={renounceOwner}
             onChange={(event) => setRenounceOwner(event.target.checked)}
             disabled={pending}
           />
-          <span>Lock admin in this batch</span>
+          <span>
+            Lock admin
+            <small>Name and icon stay as they are.</small>
+          </span>
         </label>
 
         <TokenCreateStepThread phase={phase} includeLock={renounceOwner} />
