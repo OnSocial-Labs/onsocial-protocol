@@ -10,6 +10,7 @@ describe('pushNotificationVerb', () => {
     expect(pushNotificationVerb('reply')).toBe('replied to your post');
     expect(pushNotificationVerb('repost')).toBe('reposted your post');
     expect(pushNotificationVerb('standing_new')).toBe('stood with you');
+    expect(pushNotificationVerb('endorsement_new')).toBe('endorsed you');
     expect(pushNotificationVerb('dm')).toBe('sent a private message');
   });
 
@@ -36,6 +37,17 @@ describe('pushNotificationVerb', () => {
 });
 
 describe('pushNotificationUrl', () => {
+  it('deep-links endorsement to received overlay', () => {
+    expect(
+      pushNotificationUrl({
+        notification_type: 'endorsement_new',
+        actor: 'alice.near',
+        recipient: 'bob.near',
+        context: { targetAccount: 'bob.near' },
+      })
+    ).toBe('/@bob.near/endorsements');
+  });
+
   it('deep-links DMs to messages', () => {
     expect(
       pushNotificationUrl({

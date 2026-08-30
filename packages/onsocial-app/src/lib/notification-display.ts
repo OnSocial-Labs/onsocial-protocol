@@ -12,7 +12,11 @@ import {
 } from '@/lib/app-routes';
 import { parsePostText } from '@/lib/post-display';
 import { formatSocialCompact } from '@/lib/format-social-balance';
-import { portfolioBoostPath, portfolioPath } from '@/lib/overlay-routes';
+import {
+  overlayPath,
+  portfolioBoostPath,
+  portfolioPath,
+} from '@/lib/overlay-routes';
 import { postThreadPath } from '@/lib/post-routes';
 
 /**
@@ -330,6 +334,8 @@ export function notificationVerb(
       return 'mentioned you';
     case 'standing_new':
       return 'stood with you';
+    case 'endorsement_new':
+      return 'endorsed you';
     case 'dm':
       return 'sent a private message';
     case 'group_invite':
@@ -449,6 +455,14 @@ export function notificationHref(
   }
 
   if (type === 'standing_new') {
+    if (actor) return portfolioPath(actor);
+  }
+
+  if (type === 'endorsement_new') {
+    const target =
+      textField(context, 'targetAccount') ??
+      (notification.recipient?.trim() || null);
+    if (target) return overlayPath(target, 'endorsements');
     if (actor) return portfolioPath(actor);
   }
 
