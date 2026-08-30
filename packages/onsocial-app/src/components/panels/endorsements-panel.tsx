@@ -21,13 +21,19 @@ import {
   EndorsementSupportSheet,
   type EndorsementSupportTarget,
 } from '@/components/panels/endorsement-support-sheet';
+import { DiscoverProfilesLink } from '@/components/panels/standing-discover-link';
 import { Divider, OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
+import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { accountIdsEqual } from '@/lib/account-match';
+import { buildEndorsementEmptyState } from '@/lib/endorsement-empty-state';
 import { parseEndorsementMediaRef } from '@/lib/endorsement-media';
 import { displayName } from '@/lib/profile-display';
 import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
+import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
+import { derivePortfolioEndorsementCounts } from '@/lib/viewer-endorsement-ledger';
 import type { ResolvedMood } from '@/lib/moods/types';
 
 interface EndorsementsPanelProps {
@@ -125,6 +131,14 @@ export function EndorsementsPanel({
   initial = null,
 }: EndorsementsPanelProps) {
   const { accountId: viewerAccountId, isConnected, connect } = useAppWallet();
+  const { apiViewerEndorsed, isLoading: relationshipLoading } =
+    useViewerRelationship(accountId);
+  const {
+    endorsementSyncVersion,
+    deriveEndorsementItems,
+    reconcileEndorsementListFromFetch,
+    shouldFreshFetchEndorsementListFor,
+  } = useViewerEndorsement(accountId);
   const [mode, setMode] = useState<EndorsementsMode>('received');
   const [data, setData] = useState<EndorsementsPanelResponse | null>(
     () => initial
@@ -144,6 +158,11 @@ export function EndorsementsPanel({
   const isSelf =
     Boolean(viewerAccountId) && accountIdsEqual(viewerAccountId!, accountId);
   const label = displayName(accountId, profileName ?? undefined);
+  const emptyState = buildEndorsementEmptyState({
+    mode,
+    isSelf,
+    displayName: label,
+  });
 
   const load = useCallback(
     async (opts?: { soft?: boolean }) => {
@@ -154,6 +173,10 @@ export function EndorsementsPanel({
       setError(null);
       try {
         const next = await fetchEndorsementsBundle(accountId);
+        reconcileEndorsementListFromFetch(
+          [...next.received, ...next.given],
+          viewerAccountId ?? null
+        );
         setData(next);
       } catch (cause) {
         if (!soft) {
@@ -167,21 +190,63 @@ export function EndorsementsPanel({
         setLoading(false);
       }
     },
-    [accountId]
+    [accountId, reconcileEndorsementListFromFetch, viewerAccountId]
   );
 
   useEffect(() => {
     void load({ soft: Boolean(initial) });
   }, [accountId, initial, load]);
 
-  const items =
+  useEffect(() => {
+    if (
+      !shouldFreshFetchEndorsementListFor(
+        accountId,
+        viewerAccountId ?? null,
+        mode
+      )
+    ) {
+      return;
+    }
+    const timers = [2_000, 5_000].map((delay) =>
+      window.setTimeout(() => {
+        void load({ soft: true });
+      }, delay)
+    );
+    return () => {
+      for (const timer of timers) window.clearTimeout(timer);
+    };
+  }, [
+    accountId,
+    endorsementSyncVersion,
+    load,
+    mode,
+    shouldFreshFetchEndorsementListFor,
+    viewerAccountId,
+  ]);
+
+  const apiItems =
     mode === 'received' ? (data?.received ?? []) : (data?.given ?? []);
+  const derivedList = deriveEndorsementItems(
+    apiItems,
+    mode,
+    viewerAccountId ?? null
+  );
+  const items = derivedList.items;
   const hasMore =
     mode === 'received'
       ? Boolean(data?.receivedHasMore)
       : Boolean(data?.givenHasMore);
-  const receivedCount = data?.counts.received ?? 0;
-  const givenCount = data?.counts.given ?? 0;
+  const adjustedCounts = derivePortfolioEndorsementCounts({
+    pageAccountId: accountId,
+    viewerAccountId: viewerAccountId ?? null,
+    counts: data?.counts ?? { received: 0, given: 0 },
+    apiViewerEndorsed,
+    ledger: getGlobalViewerEndorsementLedger(),
+    relationshipKnown: isSelf || !relationshipLoading,
+  });
+  void endorsementSyncVersion;
+  const receivedCount = adjustedCounts.received;
+  const givenCount = adjustedCounts.given;
 
   const loadMore = useCallback(async () => {
     if (!data || loading || loadingMore || !hasMore) return;
@@ -190,8 +255,9 @@ export function EndorsementsPanel({
       const page = await fetchEndorsementsModePage(
         accountId,
         mode,
-        items.length
+        apiItems.length
       );
+      reconcileEndorsementListFromFetch(page.items, viewerAccountId ?? null);
       setData((prev) => {
         if (!prev) return prev;
         return mode === 'received'
@@ -213,7 +279,17 @@ export function EndorsementsPanel({
     } finally {
       setLoadingMore(false);
     }
-  }, [accountId, data, hasMore, items.length, loading, loadingMore, mode]);
+  }, [
+    accountId,
+    apiItems.length,
+    data,
+    hasMore,
+    loading,
+    loadingMore,
+    mode,
+    reconcileEndorsementListFromFetch,
+    viewerAccountId,
+  ]);
 
   useInfiniteScrollSentinel({
     sentinelRef: loadMoreRef,
@@ -324,17 +400,24 @@ export function EndorsementsPanel({
           </button>
         </div>
       ) : items.length === 0 ? (
-        <div className="endorsements-empty">
-          <p className="endorsements-empty-copy">
-            {mode === 'received'
-              ? `No endorsements for ${label} yet.`
-              : `${label} hasn’t endorsed anyone yet.`}
-          </p>
-          {!isSelf && mode === 'received' ? (
-            <p className="endorsements-empty-hint">
-              Be the first to put your name behind them.
-            </p>
-          ) : null}
+        <div className="standing-panel-empty-block">
+          <div className="standing-panel-empty-state">
+            <p className="standing-panel-empty-primary">{emptyState.primary}</p>
+            {emptyState.secondary ? (
+              <p className="standing-panel-empty-secondary">
+                {emptyState.secondary}
+              </p>
+            ) : null}
+            {emptyState.showDiscover ? (
+              <div className="standing-panel-empty-actions">
+                <DiscoverProfilesLink
+                  accountId={accountId}
+                  tab="profiles"
+                  ariaLabel="Discover profiles to endorse"
+                />
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : (
         <div className="standing-list endorsement-list">

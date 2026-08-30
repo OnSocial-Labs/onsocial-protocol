@@ -11,6 +11,12 @@ import {
   subscribeGlobalViewerStandingLedger,
 } from '@/lib/viewer-standing-global';
 import { derivePortfolioStandingCounts } from '@/lib/viewer-standing-ledger';
+import {
+  getGlobalViewerEndorsementLedger,
+  getGlobalViewerEndorsementLedgerVersion,
+  subscribeGlobalViewerEndorsementLedger,
+} from '@/lib/viewer-endorsement-global';
+import { derivePortfolioEndorsementCounts } from '@/lib/viewer-endorsement-ledger';
 
 /** Portfolio face metrics — ledger-adjusted until indexer catches up. */
 export function useLiveProfileSignals(
@@ -21,18 +27,30 @@ export function useLiveProfileSignals(
   const {
     apiViewerStanding,
     theyStandWithViewer,
+    apiViewerEndorsed,
     isLoading: relationshipLoading,
     viewerStanding,
     isLoading,
   } = useViewerRelationship(accountId);
   const [ledgerVersion, setLedgerVersion] = useState(
-    getGlobalViewerStandingLedgerVersion
+    () =>
+      getGlobalViewerStandingLedgerVersion() +
+      getGlobalViewerEndorsementLedgerVersion()
   );
 
   useEffect(() => {
-    return subscribeGlobalViewerStandingLedger(() => {
-      setLedgerVersion(getGlobalViewerStandingLedgerVersion());
-    });
+    const bump = () => {
+      setLedgerVersion(
+        getGlobalViewerStandingLedgerVersion() +
+          getGlobalViewerEndorsementLedgerVersion()
+      );
+    };
+    const unsubStanding = subscribeGlobalViewerStandingLedger(bump);
+    const unsubEndorse = subscribeGlobalViewerEndorsementLedger(bump);
+    return () => {
+      unsubStanding();
+      unsubEndorse();
+    };
   }, []);
 
   const isSelf = Boolean(
@@ -56,14 +74,29 @@ export function useLiveProfileSignals(
       relationshipKnown: isSelf || !relationshipLoading,
     });
 
+    const endorsementCounts = derivePortfolioEndorsementCounts({
+      pageAccountId: accountId,
+      viewerAccountId: viewerAccountId ?? null,
+      counts: {
+        received: baseSignals.endorsementsReceivedCount,
+        given: baseSignals.endorsementsGivenCount,
+      },
+      apiViewerEndorsed,
+      ledger: getGlobalViewerEndorsementLedger(),
+      relationshipKnown: isSelf || !relationshipLoading,
+    });
+
     return {
       ...baseSignals,
       standingCount: adjusted.incoming,
       standingWithCount: adjusted.outgoing,
       mutualStandingCount: adjusted.mutual,
+      endorsementsReceivedCount: endorsementCounts.received,
+      endorsementsGivenCount: endorsementCounts.given,
     };
   }, [
     accountId,
+    apiViewerEndorsed,
     apiViewerStanding,
     baseSignals,
     isSelf,

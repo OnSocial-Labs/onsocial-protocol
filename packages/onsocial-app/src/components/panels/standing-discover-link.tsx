@@ -54,19 +54,18 @@ function DiscoverNavLink({
   );
 }
 
-export function StandingDiscoverLink({
+export function DiscoverProfilesLink({
+  accountId,
+  tab = 'profiles',
   variant = 'accent',
-  closeOverlay: _closeOverlay = false,
+  ariaLabel = 'Discover profiles',
 }: {
+  accountId: string;
+  tab?: 'profiles' | 'daos';
   variant?: 'accent' | 'chrome';
-  /** @deprecated Discover from standing is always hard full-page nav. */
-  closeOverlay?: boolean;
+  ariaLabel?: string;
 }) {
-  const { accountId, isDaoSubject } = useStandingPanel();
-  const href = discoverPath(accountId, {
-    tab: isDaoSubject ? 'daos' : 'profiles',
-  });
-  const ariaLabel = discoverLabel(isDaoSubject);
+  const href = discoverPath(accountId, { tab });
 
   if (variant === 'chrome') {
     return (
@@ -90,5 +89,24 @@ export function StandingDiscoverLink({
       <UserPlusFillIcon className="standing-discover-icon" aria-hidden />
       <span className="standing-discover-label">Discover</span>
     </DiscoverNavLink>
+  );
+}
+
+export function StandingDiscoverLink({
+  variant = 'accent',
+  closeOverlay: _closeOverlay = false,
+}: {
+  variant?: 'accent' | 'chrome';
+  /** @deprecated Discover from standing is always hard full-page nav. */
+  closeOverlay?: boolean;
+}) {
+  const { accountId, isDaoSubject } = useStandingPanel();
+  return (
+    <DiscoverProfilesLink
+      accountId={accountId}
+      tab={isDaoSubject ? 'daos' : 'profiles'}
+      variant={variant}
+      ariaLabel={discoverLabel(isDaoSubject)}
+    />
   );
 }

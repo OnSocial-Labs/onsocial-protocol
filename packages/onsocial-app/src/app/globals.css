@@ -5327,6 +5327,16 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
+  .portfolio-identity-gesture--endorse.is-endorsed {
+    background: transparent;
+  }
+
+  .portfolio-identity-gesture--endorse.is-endorsed:hover:not(:disabled),
+  .portfolio-identity-gesture--endorse.is-endorsed:focus-visible:not(:disabled) {
+    background: rgb(var(--fg-rgb) / 0.05);
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
   .portfolio-identity-gesture:disabled {
     cursor: default;
     opacity: 1;
@@ -5345,6 +5355,10 @@ a.os-surface-row {
 
   .portfolio-identity-gesture--stand .standing-toggle-dot {
     background: var(--signal-standing);
+  }
+
+  .portfolio-identity-gesture--endorse .endorse-toggle-dot {
+    background: var(--signal-endorse, #dab872);
   }
 
   /*

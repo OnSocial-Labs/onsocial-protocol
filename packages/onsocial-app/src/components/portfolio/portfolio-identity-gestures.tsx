@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ProtocolMotionArrow } from '@onsocial/ui';
+import { EndorseToggle } from '@/components/ui/endorse-toggle';
 import { StandingToggle } from '@/components/ui/standing-toggle';
 import { PortfolioOwnerPayoutMarks } from '@/components/portfolio/portfolio-owner-payout-marks';
 import { EndorseComposeSheet } from '@/components/panels/endorse-compose-sheet';
@@ -11,6 +12,7 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerMute } from '@/hooks/use-viewer-mute';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
+import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { accountIdsEqual } from '@/lib/account-match';
 import { displayName } from '@/lib/profile-display';
@@ -101,16 +103,18 @@ function PortfolioIdentityGesturesVisitor({
   incomingStandingCount = 0,
 }: PortfolioIdentityGesturesProps) {
   const { setTxResult } = useAppTransactionFeedback();
-  const { viewerStanding, theyStandWithViewer, isLoading } =
+  const { viewerStanding, theyStandWithViewer, viewerEndorsed, isLoading } =
     useViewerRelationship(pageAccountId);
   const { updateStanding, isStandingPendingForTarget } =
     useViewerStanding(pageAccountId);
+  const { isEndorsePendingForTarget } = useViewerEndorsement(pageAccountId);
   const { isMuting } = useViewerMute();
   const [supportOpen, setSupportOpen] = useState(false);
   const [endorseOpen, setEndorseOpen] = useState(false);
   const [messageOpen, setMessageOpen] = useState(false);
 
   const pending = isStandingPendingForTarget(pageAccountId);
+  const endorsePending = isEndorsePendingForTarget(pageAccountId);
   const label = displayName(pageAccountId, profileName ?? undefined);
   const blockEitherWay = isBlockEitherWay(pageAccountId);
   const viewerMuted = isMuting(pageAccountId) || isViewerMuting(pageAccountId);
@@ -200,14 +204,21 @@ function PortfolioIdentityGesturesVisitor({
 
               <button
                 type="button"
-                className="portfolio-identity-gesture portfolio-identity-gesture--endorse group"
+                className={`portfolio-identity-gesture portfolio-identity-gesture--endorse group${
+                  viewerEndorsed ? ' is-endorsed' : ''
+                }`}
+                disabled={endorsePending}
                 onClick={() => setEndorseOpen(true)}
-                aria-label={`Endorse ${label}`}
+                aria-label={
+                  viewerEndorsed
+                    ? `Edit endorsement for ${label}`
+                    : `Endorse ${label}`
+                }
               >
-                <span className="signal-group signal-group-endorse" aria-hidden>
-                  <ProtocolMotionArrow className="signal-metric-arrow" />
-                </span>
-                Endorse
+                <EndorseToggle
+                  active={viewerEndorsed}
+                  pending={endorsePending}
+                />
               </button>
             </>
           ) : null}

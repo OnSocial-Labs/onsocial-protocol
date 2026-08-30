@@ -25,6 +25,7 @@ import {
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import { creditAppPlatformSocialReward } from '@/lib/app-platform-rewards';
@@ -92,20 +93,24 @@ export function EndorseComposeSheet({
   open,
   pageAccountId,
   profileName = null,
-  avatarUrl: _avatarUrl = null,
+  avatarUrl = null,
   mood = null,
   intent = 'auto',
   existing = null,
   onOpenChange,
   onSuccess,
 }: EndorseComposeSheetProps) {
-  void _avatarUrl;
   const titleId = useId();
   const mediaInputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { accountId, isConnected, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { setTxResult } = useAppTransactionFeedback();
+  const {
+    confirmEndorse,
+    confirmEndorseRemove,
+    setEndorsePendingForTarget,
+  } = useViewerEndorsement(pageAccountId);
   const [closing, setClosing] = useState(false);
   const [topic, setTopic] = useState('');
   const [note, setNote] = useState('');
@@ -385,6 +390,7 @@ export function EndorseComposeSheet({
     const submitMedia = resolveSubmitMedia();
 
     setPending(true);
+    setEndorsePendingForTarget(pageAccountId, true);
     try {
       const { client, session } = await getClient();
       // When editing, always pass previousTopic ('' = general path) so topic
@@ -423,6 +429,21 @@ export function EndorseComposeSheet({
         });
       }
 
+      confirmEndorse(pageAccountId, normalizedTopic ?? '', {
+        ...(isEditing
+          ? { previousTopic: normalizeEndorsementTopic(baselineTopic) ?? '' }
+          : {}),
+        snapshot: {
+          accountId: pageAccountId,
+          name: profileName,
+          avatarUrl,
+        },
+        draft: {
+          topic: normalizedTopic ?? '',
+          note: trimmedNote || null,
+          id: endorsementId,
+        },
+      });
       onSuccess?.();
       finishClose();
     } catch (error) {
@@ -440,6 +461,7 @@ export function EndorseComposeSheet({
       });
     } finally {
       setPending(false);
+      setEndorsePendingForTarget(pageAccountId, false);
     }
   }
 
@@ -447,6 +469,7 @@ export function EndorseComposeSheet({
     if (!isEditing || !isConnected || isSelf) return;
     setFieldError(null);
     setRemoving(true);
+    setEndorsePendingForTarget(pageAccountId, true);
     try {
       const { client } = await getClient();
       const topicForRemove = normalizeEndorsementTopic(baselineTopic);
@@ -454,6 +477,7 @@ export function EndorseComposeSheet({
         ...(topicForRemove ? { topic: topicForRemove } : {}),
         wait: true,
       });
+      confirmEndorseRemove(pageAccountId, topicForRemove ?? '');
       onSuccess?.();
       finishClose();
     } catch (error) {
@@ -467,6 +491,7 @@ export function EndorseComposeSheet({
       });
     } finally {
       setRemoving(false);
+      setEndorsePendingForTarget(pageAccountId, false);
     }
   }
 

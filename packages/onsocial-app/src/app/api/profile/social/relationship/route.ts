@@ -42,15 +42,26 @@ export async function GET(request: NextRequest) {
       viewerAccountId,
       viewerStanding: false,
       theyStandWithViewer: false,
+      viewerEndorsed: false,
+      viewerEndorsementTopics: [],
     });
   }
 
   try {
     const os = createAppOnSocialClient();
-    const [viewerStanding, theyStandWithViewer] = await Promise.all([
-      os.standings.viewerStandsWith(viewerAccountId, accountId),
-      os.standings.viewerStandsWith(accountId, viewerAccountId),
-    ]);
+    const [viewerStanding, theyStandWithViewer, endorsementRows] =
+      await Promise.all([
+        os.standings.viewerStandsWith(viewerAccountId, accountId),
+        os.standings.viewerStandsWith(accountId, viewerAccountId),
+        os.endorsements
+          .listFromViewerToTarget(viewerAccountId, accountId, {
+            limit: 8,
+          })
+          .catch(() => []),
+      ]);
+    const viewerEndorsementTopics = endorsementRows.map(
+      (row) => row.topic ?? ''
+    );
 
     return NextResponse.json(
       {
@@ -58,6 +69,8 @@ export async function GET(request: NextRequest) {
         viewerAccountId,
         viewerStanding,
         theyStandWithViewer,
+        viewerEndorsed: endorsementRows.length > 0,
+        viewerEndorsementTopics,
       },
       { headers: { 'Cache-Control': 'no-store' } }
     );

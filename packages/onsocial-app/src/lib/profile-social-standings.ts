@@ -103,7 +103,12 @@ export function mergeStandingAccounts(
 export async function fetchViewerStandingRelationship(
   pageAccountId: string,
   viewerAccountId: string
-): Promise<{ viewerStanding: boolean; theyStandWithViewer: boolean }> {
+): Promise<{
+  viewerStanding: boolean;
+  theyStandWithViewer: boolean;
+  viewerEndorsed: boolean;
+  viewerEndorsementTopics: string[];
+}> {
   const search = new URLSearchParams({
     accountId: pageAccountId,
     viewerAccountId,
@@ -117,6 +122,8 @@ export async function fetchViewerStandingRelationship(
     | ({
         viewerStanding?: boolean;
         theyStandWithViewer?: boolean;
+        viewerEndorsed?: boolean;
+        viewerEndorsementTopics?: string[];
         error?: string;
         detail?: string;
       })
@@ -133,6 +140,12 @@ export async function fetchViewerStandingRelationship(
   return {
     viewerStanding: Boolean(body?.viewerStanding),
     theyStandWithViewer: Boolean(body?.theyStandWithViewer),
+    viewerEndorsed: Boolean(body?.viewerEndorsed),
+    viewerEndorsementTopics: Array.isArray(body?.viewerEndorsementTopics)
+      ? body.viewerEndorsementTopics.filter(
+          (topic): topic is string => typeof topic === 'string'
+        )
+      : [],
   };
 }
 
