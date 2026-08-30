@@ -301,7 +301,7 @@ export function postSnippetFromValue(value: string | null): string | null {
 export function shouldNotifyEndorsementSet(
   priorOperation: string | null | undefined
 ): boolean {
-  return normalizeText(priorOperation) !== 'set';
+  return normalizeText(priorOperation ?? null) !== 'set';
 }
 
 export async function lookupPriorEndorsementOperation(
