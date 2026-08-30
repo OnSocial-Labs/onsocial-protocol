@@ -13,6 +13,7 @@ import { AppProfileEditorSheet } from '@/components/wallet/app-profile-editor-sh
 import { AppSocialSwapSheet } from '@/components/wallet/app-social-swap-sheet';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { MuteBlockListsSheet } from '@/components/wallet/mute-block-lists-sheet';
+import { AppTokensSheet } from '@/features/tokens/app-tokens-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
 import { usePortfolioCustomize } from '@/contexts/portfolio-customize-context';
@@ -66,6 +67,7 @@ export function AppAccountSheet({
   const [editorOpen, setEditorOpen] = useState(false);
   const [storageOpen, setStorageOpen] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
+  const [tokensOpen, setTokensOpen] = useState(false);
   const [muteBlockOpen, setMuteBlockOpen] = useState(false);
   const [storageRefreshKey, setStorageRefreshKey] = useState(0);
   const [editorSession, setEditorSession] = useState(0);
@@ -116,6 +118,7 @@ export function AppAccountSheet({
   const editorSheetOpen = editorOpen;
   const storageSheetOpen = storageOpen && open;
   const swapSheetOpen = swapOpen && open;
+  const tokensSheetOpen = tokensOpen && open;
   const platformStorage = usePlatformStorageSummary(
     accountId,
     sheetOpen,
@@ -145,6 +148,7 @@ export function AppAccountSheet({
     setClosing(false);
     setStorageOpen(false);
     setSwapOpen(false);
+    setTokensOpen(false);
     setMuteBlockOpen(false);
     if (editorOpenRef.current) {
       return;
@@ -195,6 +199,14 @@ export function AppAccountSheet({
 
   const handleOpenSwap = useCallback(() => {
     setSwapOpen(true);
+  }, []);
+
+  const handleOpenTokens = useCallback(() => {
+    setTokensOpen(true);
+  }, []);
+
+  const handleTokensBack = useCallback(() => {
+    setTokensOpen(false);
   }, []);
 
   const handleStorageBack = useCallback(() => {
@@ -311,6 +323,7 @@ export function AppAccountSheet({
             onEditProfile={handleEditProfile}
             onCustomize={isOwnerOnPage ? handleCustomize : undefined}
             onMutedBlocked={handleMutedBlocked}
+            onOpenTokens={handleOpenTokens}
             safeMode={safeMode}
             onToggleSafeMode={toggleSafeMode}
           />
@@ -348,6 +361,13 @@ export function AppAccountSheet({
         open={swapSheetOpen}
         panelStyle={accountPanelStyle}
         onClose={handleSwapBack}
+      />
+
+      <AppTokensSheet
+        open={tokensSheetOpen}
+        accountId={accountId}
+        panelStyle={accountPanelStyle}
+        onClose={handleTokensBack}
       />
 
       <MuteBlockListsSheet

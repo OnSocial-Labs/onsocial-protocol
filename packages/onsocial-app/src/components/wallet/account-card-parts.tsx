@@ -435,6 +435,7 @@ interface AccountActionListProps {
   onEditProfile: () => void;
   onCustomize?: () => void;
   onMutedBlocked?: () => void;
+  onOpenTokens?: () => void;
   safeMode?: boolean;
   onToggleSafeMode?: () => void;
 }
@@ -447,6 +448,7 @@ export function AccountActionList({
   onEditProfile,
   onCustomize,
   onMutedBlocked,
+  onOpenTokens,
   safeMode,
   onToggleSafeMode,
 }: AccountActionListProps) {
@@ -471,6 +473,15 @@ export function AccountActionList({
       hint: 'Name, photo, location, bio, links',
       onClick: onEditProfile,
     },
+    ...(onOpenTokens
+      ? [
+          {
+            label: 'Tokens',
+            hint: 'Create a fungible token under your account',
+            onClick: onOpenTokens,
+          },
+        ]
+      : []),
     ...(showCustomize
       ? [
           {
