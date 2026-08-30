@@ -32577,9 +32577,14 @@ a.os-surface-row {
     cursor: pointer;
   }
 
-  .endorsements-add-topic:hover,
-  .endorsements-add-topic:focus-visible {
+  .endorsements-add-topic:hover:not(:disabled),
+  .endorsements-add-topic:focus-visible:not(:disabled) {
     color: rgb(var(--fg-rgb) / 0.78);
+  }
+
+  .endorsements-add-topic:disabled {
+    cursor: default;
+    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .endorsements-add-topic:focus-visible {
