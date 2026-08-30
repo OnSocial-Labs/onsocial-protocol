@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import {
   OsHugSheet,
   OsSheetAction,
@@ -41,10 +41,11 @@ export function AppTokensSheet({
     }
   }
 
-  const tokens = useMemo(
-    () => listUserCreatedTokens(accountId),
-    [accountId, listTick]
-  );
+  const [tokens, setTokens] = useState<UserCreatedTokenRecord[]>([]);
+
+  useEffect(() => {
+    setTokens(listUserCreatedTokens(accountId));
+  }, [accountId, listTick]);
 
   const requestClose = useCallback(() => {
     setCreateOpen(false);

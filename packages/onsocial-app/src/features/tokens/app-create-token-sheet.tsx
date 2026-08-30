@@ -251,8 +251,8 @@ export function AppCreateTokenSheet({
           cause instanceof Error ? cause.message : txToastError.tokenCreateFailed;
         setError(message);
         setTxResult({
-          status: 'error',
-          message: txToastError.tokenCreateFailed,
+          type: 'error',
+          msg: txToastError.tokenCreateFailed,
         });
       } finally {
         setPending(false);
