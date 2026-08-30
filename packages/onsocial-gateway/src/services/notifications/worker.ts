@@ -297,6 +297,46 @@ export function postSnippetFromValue(value: string | null): string | null {
   }
 }
 
+/** Same-path set after set is an edit. First set and re-add after remove notify. */
+export function shouldNotifyEndorsementSet(
+  priorOperation: string | null | undefined
+): boolean {
+  return normalizeText(priorOperation) !== 'set';
+}
+
+export async function lookupPriorEndorsementOperation(
+  client: Client,
+  row: Pick<
+    DataUpdateRow,
+    'id' | 'account_id' | 'author' | 'path' | 'block_height'
+  >
+): Promise<string | null> {
+  const path = normalizeText(row.path);
+  const accountId = normalizeText(row.account_id) ?? normalizeText(row.author);
+  if (!path || !accountId) {
+    return null;
+  }
+
+  const result = await client.query<{ operation: string | null }>(
+    `
+      SELECT operation
+      FROM data_updates
+      WHERE data_type = 'endorsement'
+        AND account_id = $1
+        AND path = $2
+        AND (
+          block_height < $3
+          OR (block_height = $3 AND id < $4)
+        )
+      ORDER BY block_height DESC, id DESC
+      LIMIT 1
+    `,
+    [accountId, path, row.block_height ?? 0, row.id]
+  );
+
+  return normalizeText(result.rows[0]?.operation ?? null);
+}
+
 function endorsementFieldsFromValue(value: string | null): {
   topic: string | null;
   note: string | null;
@@ -343,7 +383,8 @@ function extractReactionTargetPath(path: string | null): string | null {
 }
 
 export function mapDataUpdateNotifications(
-  row: DataUpdateRow
+  row: DataUpdateRow,
+  options?: { priorEndorsementOperation?: string | null }
 ): NotificationInsert[] {
   const operation = normalizeText(row.operation);
   const actor = normalizeAccountId(row.author ?? row.account_id);
@@ -452,6 +493,10 @@ export function mapDataUpdateNotifications(
   }
 
   if (dataType === 'endorsement') {
+    if (!shouldNotifyEndorsementSet(options?.priorEndorsementOperation)) {
+      return notifications;
+    }
+
     const fields = endorsementFieldsFromValue(row.value);
     const snippet = fields.note ?? fields.topic;
     const endorsement = buildNotification(row, {
@@ -1035,8 +1080,20 @@ export class NotificationWorker {
     row: Record<string, unknown>
   ): Promise<NotificationInsert[]> {
     switch (sourceTable) {
-      case 'data_updates':
-        return mapDataUpdateNotifications(row as unknown as DataUpdateRow);
+      case 'data_updates': {
+        const dataRow = row as unknown as DataUpdateRow;
+        if (
+          normalizeText(dataRow.data_type) === 'endorsement' &&
+          normalizeText(dataRow.operation) === 'set'
+        ) {
+          const priorEndorsementOperation =
+            await lookupPriorEndorsementOperation(this.client, dataRow);
+          return mapDataUpdateNotifications(dataRow, {
+            priorEndorsementOperation,
+          });
+        }
+        return mapDataUpdateNotifications(dataRow);
+      }
       case 'group_updates': {
         const groupRow = row as unknown as GroupUpdateRow;
         const notifications = [...mapGroupInviteNotification(groupRow)];

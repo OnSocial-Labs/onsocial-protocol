@@ -9,7 +9,9 @@ import {
   mapGroupProposalNotifications,
   mapRewardsEventNotifications,
   mapScarcesEventNotifications,
+  lookupPriorEndorsementOperation,
   postSnippetFromValue,
+  shouldNotifyEndorsementSet,
 } from '../../src/services/notifications/worker.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -248,6 +250,56 @@ describe('mapDataUpdateNotifications', () => {
       note: 'Shipped it.',
       snippet: 'Shipped it.',
     });
+  });
+
+  it('skips endorsement_new when the same path was already set', () => {
+    expect(shouldNotifyEndorsementSet('set')).toBe(false);
+    expect(shouldNotifyEndorsementSet('remove')).toBe(true);
+    expect(shouldNotifyEndorsementSet(null)).toBe(true);
+
+    const edit = mapDataUpdateNotifications(
+      makeDataUpdate({
+        id: 'du-4b',
+        data_type: 'endorsement',
+        path: 'alice.testnet/endorsement/bob.testnet/design',
+        value: '{"v":1,"topic":"design","note":"Edited note."}',
+        target_account: 'bob.testnet',
+      }),
+      { priorEndorsementOperation: 'set' }
+    );
+    expect(edit).toHaveLength(0);
+
+    const readd = mapDataUpdateNotifications(
+      makeDataUpdate({
+        id: 'du-4c',
+        data_type: 'endorsement',
+        path: 'alice.testnet/endorsement/bob.testnet/design',
+        value: '{"v":1,"topic":"design","note":"Back again."}',
+        target_account: 'bob.testnet',
+      }),
+      { priorEndorsementOperation: 'remove' }
+    );
+    expect(readd).toHaveLength(1);
+    expect(readd[0]?.notificationType).toBe('endorsement_new');
+  });
+
+  it('looks up the prior endorsement operation on the same path', async () => {
+    const query = vi.fn(async () => ({ rows: [{ operation: 'set' }] }));
+    const prior = await lookupPriorEndorsementOperation(
+      { query } as unknown as Client,
+      {
+        id: 'du-4b',
+        account_id: 'alice.testnet',
+        author: 'alice.testnet',
+        path: 'alice.testnet/endorsement/bob.testnet/design',
+        block_height: 110,
+      }
+    );
+    expect(prior).toBe('set');
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('data_type = \'endorsement\''),
+      ['alice.testnet', 'alice.testnet/endorsement/bob.testnet/design', 110, 'du-4b']
+    );
   });
 });
 
@@ -592,6 +644,21 @@ describe('self-notification suppression', () => {
         author: 'alice.testnet',
         target_account: 'alice.testnet',
         path: 'alice/standing/alice.testnet',
+        parent_path: null,
+        parent_author: null,
+      })
+    );
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('suppresses endorsement notification when user endorses self', () => {
+    const notifications = mapDataUpdateNotifications(
+      makeDataUpdate({
+        data_type: 'endorsement',
+        author: 'alice.testnet',
+        target_account: 'alice.testnet',
+        path: 'alice.testnet/endorsement/alice.testnet/design',
+        value: '{"v":1,"topic":"design"}',
         parent_path: null,
         parent_author: null,
       })
