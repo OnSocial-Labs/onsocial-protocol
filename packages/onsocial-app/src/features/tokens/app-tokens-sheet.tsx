@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useState, type CSSProperties } from 'react';
 import {
   OsHugSheet,
   OsSheetAction,
@@ -30,7 +30,10 @@ export function AppTokensSheet({
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const [createOpen, setCreateOpen] = useState(false);
-  const [listTick, setListTick] = useState(0);
+  const [tokens, setTokens] = useState<UserCreatedTokenRecord[]>(() =>
+    listUserCreatedTokens(accountId)
+  );
+  const [tokensAccountId, setTokensAccountId] = useState(accountId);
 
   const sheetOpen = open && !closing;
   if (open !== wasOpen) {
@@ -38,14 +41,13 @@ export function AppTokensSheet({
     if (open) {
       setClosing(false);
       setCreateOpen(false);
+      setTokens(listUserCreatedTokens(accountId));
     }
   }
-
-  const [tokens, setTokens] = useState<UserCreatedTokenRecord[]>([]);
-
-  useEffect(() => {
+  if (tokensAccountId !== accountId) {
+    setTokensAccountId(accountId);
     setTokens(listUserCreatedTokens(accountId));
-  }, [accountId, listTick]);
+  }
 
   const requestClose = useCallback(() => {
     setCreateOpen(false);
@@ -112,7 +114,7 @@ export function AppTokensSheet({
         open={createOpen && open}
         panelStyle={panelStyle}
         onClose={() => setCreateOpen(false)}
-        onCreated={() => setListTick((current) => current + 1)}
+        onCreated={() => setTokens(listUserCreatedTokens(accountId))}
       />
     </>
   );
