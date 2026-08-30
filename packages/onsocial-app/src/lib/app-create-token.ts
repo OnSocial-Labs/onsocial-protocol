@@ -92,6 +92,11 @@ export function parseFtSupplySmallest(input: string): string | null {
   }
 }
 
+/** On-chain icon lives in metadata — keep the data URL tiny. */
+export const FT_ICON_PX = 64;
+export const FT_ICON_MAX_DATA_URL = 12_000;
+export const FT_ICON_ACCEPT = 'image/png,image/jpeg,image/webp';
+
 /** Compact data-URL icon from ticker (keeps deploy state small). */
 export function defaultFtIconDataUrl(symbol: string): string {
   const letters = (symbol.trim() || 'FT')
@@ -100,4 +105,12 @@ export function defaultFtIconDataUrl(symbol: string): string {
     .replace(/[^A-Z0-9]/g, '·');
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#111"/><text x="32" y="38" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" font-weight="700" fill="#fff">${letters}</text></svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+export function getFtIconError(dataUrl: string): string {
+  const trimmed = dataUrl.trim();
+  if (!trimmed) return 'Add an icon.';
+  if (!trimmed.startsWith('data:image/')) return 'Use a PNG or JPEG.';
+  if (trimmed.length > FT_ICON_MAX_DATA_URL) return 'Use a smaller image.';
+  return '';
 }

@@ -3,6 +3,8 @@ import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import {
   buildFtContractAccountId,
   defaultFtIconDataUrl,
+  FT_ICON_MAX_DATA_URL,
+  getFtIconError,
   getFtContractAccountError,
   getFtParentAccountError,
   getFtSubaccountLabelError,
@@ -59,6 +61,15 @@ describe('app-create-token', () => {
     const icon = defaultFtIconDataUrl('ab');
     expect(icon.startsWith('data:image/svg+xml,')).toBe(true);
     expect(icon.length).toBeLessThan(800);
+    expect(getFtIconError(icon)).toBe('');
+  });
+
+  it('rejects icons that will not fit on-chain', () => {
+    expect(getFtIconError('')).toMatch(/icon/i);
+    expect(getFtIconError('https://cdn.example/icon.png')).toMatch(/png/i);
+    expect(
+      getFtIconError(`data:image/png;base64,${'A'.repeat(FT_ICON_MAX_DATA_URL)}`)
+    ).toMatch(/smaller/i);
   });
 
   it('does not silently resolve an unpublished SOCIAL fallback', () => {

@@ -4,6 +4,7 @@ export interface UserCreatedTokenRecord {
   symbol: string;
   createdAt: number;
   renounced: boolean;
+  icon?: string;
 }
 
 const STORAGE_PREFIX = 'onsocial.app.user-tokens.';

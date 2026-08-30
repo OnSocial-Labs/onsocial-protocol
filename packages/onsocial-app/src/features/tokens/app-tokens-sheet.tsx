@@ -7,6 +7,7 @@ import {
   OsSheetActions,
   OsSurfaceRow,
   OsSurfaceRowList,
+  TokenIcon,
 } from '@onsocial/ui';
 import { AppCreateTokenSheet } from '@/features/tokens/app-create-token-sheet';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/app-config';
@@ -90,6 +91,13 @@ export function AppTokensSheet({
                   description={`${token.symbol} · ${token.contractId}${
                     token.renounced ? ' · locked' : ''
                   }`}
+                  leading={
+                    <TokenIcon
+                      src={token.icon}
+                      label={token.symbol}
+                      size="md"
+                    />
+                  }
                   href={`${ACTIVE_NEAR_EXPLORER_URL}/address/${token.contractId}`}
                   external
                   trailing="external"

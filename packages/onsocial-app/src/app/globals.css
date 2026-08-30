@@ -37191,6 +37191,52 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   background: transparent;
 }
 
+.token-create-name-row {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.65rem;
+}
+
+.token-create-name-row .guild-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.token-create-icon-pick {
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 1px solid rgb(var(--fg-rgb) / 0.12);
+  border-radius: 0.85rem;
+  background: rgb(var(--fg-rgb) / 0.04);
+  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.1);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.token-create-icon-pick:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.token-create-icon-pick .os-token-icon,
+.token-create-icon-pick .app-token-icon {
+  width: 100%;
+  height: 100%;
+  border-radius: 0.85rem;
+}
+
+.token-create-icon-input {
+  position: absolute;
+  width: 0.1px;
+  height: 0.1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .token-create-note {
   margin: 0;
   font-size: 0.78rem;

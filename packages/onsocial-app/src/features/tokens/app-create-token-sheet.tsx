@@ -4,7 +4,9 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
+  type ChangeEvent,
   type CSSProperties,
   type FormEvent,
 } from 'react';
@@ -12,6 +14,7 @@ import {
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
+  TokenIcon,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { TokenCreateStepThread } from '@/features/tokens/token-create-step-thread';
@@ -21,15 +24,18 @@ import { useNearAccountStatus } from '@/hooks/use-near-account-status';
 import {
   buildFtContractAccountId,
   defaultFtIconDataUrl,
+  FT_ICON_ACCEPT,
   FT_NAME_MAX,
   FT_SUBACCOUNT_MAX,
   FT_SYMBOL_MAX,
   getFtContractAccountError,
+  getFtIconError,
   getFtParentAccountError,
   normalizeFtSubaccountLabel,
   parseFtSupplySmallest,
 } from '@/lib/app-create-token';
 import { sendCreateUserTokenTransaction } from '@/lib/app-create-token-transactions';
+import { prepareFtIconPngDataUrl } from '@/lib/prepare-ft-icon-png';
 import { FT_CREATE_FUND_NEAR } from '@/lib/app-ft-template-config';
 import { SHEET_Z } from '@/lib/sheet-z';
 import type { TokenCreatePhase } from '@/lib/token-create-steps';
@@ -66,7 +72,9 @@ export function AppCreateTokenSheet({
   const [subaccount, setSubaccount] = useState('');
   const [subaccountTouched, setSubaccountTouched] = useState(false);
   const [renounceOwner, setRenounceOwner] = useState(false);
+  const [customIcon, setCustomIcon] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const iconInputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<TokenCreatePhase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [templateReady, setTemplateReady] = useState<boolean | null>(null);
@@ -130,6 +138,9 @@ export function AppCreateTokenSheet({
   const waitingTemplate = templateReady === null && formReady;
   const canSubmit = formReady && !pending && templateReady === true;
 
+  const autoIcon = defaultFtIconDataUrl(symbol || name || 'FT');
+  const icon = customIcon ?? autoIcon;
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -167,6 +178,7 @@ export function AppCreateTokenSheet({
     setSubaccount('');
     setSubaccountTouched(false);
     setRenounceOwner(false);
+    setCustomIcon(null);
     setPending(false);
     setPhase('idle');
     setError(null);
@@ -180,6 +192,24 @@ export function AppCreateTokenSheet({
     setClosing(false);
     onClose();
   }, [onClose]);
+
+  const handleIconChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+      try {
+        const dataUrl = await prepareFtIconPngDataUrl(file);
+        setCustomIcon(dataUrl);
+        setError(null);
+      } catch (cause) {
+        setError(
+          cause instanceof Error ? cause.message : 'Use a smaller image.'
+        );
+      }
+    },
+    []
+  );
 
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -220,6 +250,11 @@ export function AppCreateTokenSheet({
         setError(`Symbol must be ${FT_SYMBOL_MAX} characters or fewer.`);
         return;
       }
+      const iconError = getFtIconError(icon);
+      if (iconError) {
+        setError(iconError);
+        return;
+      }
 
       setPending(true);
       setPhase('signing');
@@ -231,7 +266,7 @@ export function AppCreateTokenSheet({
             name: tokenName,
             symbol: tokenSymbol,
             totalSupply: supplySmallest,
-            icon: defaultFtIconDataUrl(tokenSymbol),
+            icon,
             renounceOwner,
           }
         );
@@ -249,6 +284,7 @@ export function AppCreateTokenSheet({
             symbol: tokenSymbol,
             createdAt: Date.now(),
             renounced: renounceOwner,
+            icon,
           });
           setPhase('success');
           onCreated?.();
@@ -280,6 +316,7 @@ export function AppCreateTokenSheet({
       connect,
       contractId,
       getSigningWallet,
+      icon,
       isConnected,
       name,
       onCreated,
@@ -324,19 +361,40 @@ export function AppCreateTokenSheet({
           </p>
         ) : null}
 
-        <label className="guild-field" htmlFor={fieldId('name')}>
-          <span>Name</span>
-          <input
-            id={fieldId('name')}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Cool Token"
-            maxLength={FT_NAME_MAX}
+        <div className="token-create-name-row">
+          <button
+            type="button"
+            className="token-create-icon-pick"
             disabled={pending}
-            autoComplete="off"
-            className={osFieldBorderedClassName}
+            aria-label="Choose icon"
+            onClick={() => iconInputRef.current?.click()}
+          >
+            <TokenIcon src={icon} label={symbol || name || 'FT'} size="md" />
+          </button>
+          <input
+            ref={iconInputRef}
+            type="file"
+            accept={FT_ICON_ACCEPT}
+            className="token-create-icon-input"
+            tabIndex={-1}
+            aria-hidden
+            disabled={pending}
+            onChange={(event) => void handleIconChange(event)}
           />
-        </label>
+          <label className="guild-field" htmlFor={fieldId('name')}>
+            <span>Name</span>
+            <input
+              id={fieldId('name')}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Cool Token"
+              maxLength={FT_NAME_MAX}
+              disabled={pending}
+              autoComplete="off"
+              className={osFieldBorderedClassName}
+            />
+          </label>
+        </div>
 
         <label className="guild-field" htmlFor={fieldId('symbol')}>
           <span>Symbol</span>
