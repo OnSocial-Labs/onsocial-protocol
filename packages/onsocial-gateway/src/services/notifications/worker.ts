@@ -17,6 +17,7 @@ const SOURCE_TABLES = [
   'rewards_events',
   'boost_events',
   'scarces_events',
+  'social_spend_events',
   'app_notification_events',
 ] as const;
 
@@ -134,6 +135,24 @@ interface ScarcesEventRow {
   bid_amount: string | null;
   app_id: string | null;
   scarce_contract_id: string | null;
+}
+
+interface SocialSpendEventRow {
+  id: string;
+  block_height: string | number | null;
+  block_timestamp: string | number | null;
+  receipt_id: string | null;
+  account_id: string | null;
+  event_type: string | null;
+  success: boolean | null;
+  spender_id: string | null;
+  amount: string | null;
+  app_id: string | null;
+  action: string | null;
+  target_type: string | null;
+  target_id: string | null;
+  recipient_id: string | null;
+  metadata: string | null;
 }
 
 interface AppNotificationEventRow {
@@ -794,6 +813,16 @@ function getSelectSql(sourceTable: SourceTable): string {
         ORDER BY block_height ASC, id ASC
         LIMIT $3
       `;
+    case 'social_spend_events':
+      return `
+        SELECT id, block_height, block_timestamp, receipt_id, account_id, event_type, success,
+               spender_id, amount, app_id, action, target_type, target_id, recipient_id,
+               metadata
+        FROM social_spend_events
+        WHERE (block_height > $1 OR (block_height = $1 AND id > $2))
+        ORDER BY block_height ASC, id ASC
+        LIMIT $3
+      `;
     case 'app_notification_events':
       return `
         SELECT id, sequence AS block_height, created_at, owner_account_id, app_id,
@@ -915,6 +944,66 @@ export function mapBoostEventNotifications(
 ): NotificationInsert[] {
   // Own boost taps — toast + boost sheet already confirmed. Activity is inbound only.
   return [];
+}
+
+function endorsementSupportFieldsFromMetadata(metadata: string | null): {
+  issuer: string | null;
+  topic: string | null;
+} {
+  if (!metadata?.trim()) return { issuer: null, topic: null };
+  try {
+    const parsed = JSON.parse(metadata) as {
+      issuer?: unknown;
+      topic?: unknown;
+    };
+    const issuer =
+      typeof parsed.issuer === 'string' && parsed.issuer.trim()
+        ? parsed.issuer.trim()
+        : null;
+    const topic =
+      typeof parsed.topic === 'string' && parsed.topic.trim()
+        ? parsed.topic.trim()
+        : null;
+    return { issuer, topic };
+  } catch {
+    return { issuer: null, topic: null };
+  }
+}
+
+/**
+ * Inbound backing of a vouch. Spender → endorsement target.
+ * Own support and failed spends stay off Activity (toast already confirmed).
+ */
+export function mapSocialSpendNotifications(
+  row: SocialSpendEventRow
+): NotificationInsert[] {
+  if (row.success === false) {
+    return [];
+  }
+  if (normalizeText(row.event_type) !== 'SOCIAL_SPENT') {
+    return [];
+  }
+  if (normalizeText(row.action) !== 'support_endorsement') {
+    return [];
+  }
+
+  const fields = endorsementSupportFieldsFromMetadata(row.metadata);
+  const notification = buildNotification(row, {
+    recipient: row.recipient_id ?? '',
+    actor: row.spender_id ?? row.account_id ?? '',
+    appId: 'default',
+    notificationType: 'endorsement_supported',
+    sourceContract: 'social-spend',
+    context: {
+      amount: normalizeText(row.amount),
+      targetId: normalizeText(row.target_id),
+      targetAccount: normalizeText(row.recipient_id),
+      issuer: fields.issuer,
+      topic: fields.topic,
+    },
+  });
+
+  return notification ? [notification] : [];
 }
 
 export class NotificationWorker {
@@ -1114,6 +1203,8 @@ export class NotificationWorker {
         return mapBoostEventNotifications(row as unknown as BoostEventRow);
       case 'scarces_events':
         return mapScarcesEventNotifications(row as unknown as ScarcesEventRow);
+      case 'social_spend_events':
+        return mapSocialSpendNotifications(row as unknown as SocialSpendEventRow);
       case 'app_notification_events':
         return mapAppNotificationEventNotifications(
           row as unknown as AppNotificationEventRow

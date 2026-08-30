@@ -369,6 +369,8 @@ export function pushNotificationVerb(
       return 'stood with you';
     case 'endorsement_new':
       return 'endorsed you';
+    case 'endorsement_supported':
+      return 'supported your endorsement';
     case 'dm':
       return 'sent a private message';
     case 'group_invite':
@@ -483,7 +485,7 @@ export function pushNotificationUrl(row: {
     return '/groups';
   }
 
-  if (type === 'endorsement_new') {
+  if (type === 'endorsement_new' || type === 'endorsement_supported') {
     const target =
       textField(context, 'targetAccount') ?? (row.recipient?.trim() || null);
     if (target) {

@@ -30,6 +30,9 @@ describe('notification display', () => {
   it('maps verbs', () => {
     expect(notificationVerb('standing_new')).toBe('stood with you');
     expect(notificationVerb('endorsement_new')).toBe('endorsed you');
+    expect(notificationVerb('endorsement_supported')).toBe(
+      'supported your endorsement'
+    );
     expect(notificationVerb('dm')).toBe('sent a private message');
     expect(notificationVerb('boost_locked')).toBe('your boost is locked');
     expect(notificationVerb('reward_credited')).toBe('SOCIAL credited');
@@ -95,6 +98,15 @@ describe('notification display', () => {
       notificationHref({
         type: 'endorsement_new',
         actor: 'bob.testnet',
+        recipient: 'alice.testnet',
+        context: { targetAccount: 'alice.testnet' },
+      })
+    ).toBe('/@alice.testnet/endorsements');
+
+    expect(
+      notificationHref({
+        type: 'endorsement_supported',
+        actor: 'carol.testnet',
         recipient: 'alice.testnet',
         context: { targetAccount: 'alice.testnet' },
       })
@@ -254,6 +266,18 @@ describe('notification display', () => {
       placeGroupId: null,
       placeCollectionId: null,
       snippet: 'design',
+    });
+    expect(
+      notificationDetail({
+        type: 'endorsement_supported',
+        context: { amount: '12000000000000000000' },
+      })
+    ).toEqual({
+      verb: 'supported your endorsement',
+      placeAccountId: null,
+      placeGroupId: null,
+      placeCollectionId: null,
+      snippet: '12.00 SOCIAL',
     });
     expect(
       notificationDetail({
@@ -553,5 +577,6 @@ describe('notification display', () => {
     expect(excluded).not.toContain('follow');
     expect(excluded).not.toContain('standing_new');
     expect(excluded).not.toContain('endorsement_new');
+    expect(excluded).not.toContain('endorsement_supported');
   });
 });

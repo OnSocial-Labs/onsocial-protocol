@@ -336,6 +336,8 @@ export function notificationVerb(
       return 'stood with you';
     case 'endorsement_new':
       return 'endorsed you';
+    case 'endorsement_supported':
+      return 'supported your endorsement';
     case 'dm':
       return 'sent a private message';
     case 'group_invite':
@@ -458,7 +460,7 @@ export function notificationHref(
     if (actor) return portfolioPath(actor);
   }
 
-  if (type === 'endorsement_new') {
+  if (type === 'endorsement_new' || type === 'endorsement_supported') {
     const target =
       textField(context, 'targetAccount') ??
       (notification.recipient?.trim() || null);
@@ -554,6 +556,7 @@ export function notificationDetail(
   } else if (
     type === 'scarces_sold' ||
     type === 'scarces_offer' ||
+    type === 'endorsement_supported' ||
     type.startsWith('boost_') ||
     type.startsWith('reward_')
   ) {

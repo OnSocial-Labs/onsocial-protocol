@@ -11,6 +11,9 @@ describe('pushNotificationVerb', () => {
     expect(pushNotificationVerb('repost')).toBe('reposted your post');
     expect(pushNotificationVerb('standing_new')).toBe('stood with you');
     expect(pushNotificationVerb('endorsement_new')).toBe('endorsed you');
+    expect(pushNotificationVerb('endorsement_supported')).toBe(
+      'supported your endorsement'
+    );
     expect(pushNotificationVerb('dm')).toBe('sent a private message');
   });
 
@@ -42,6 +45,14 @@ describe('pushNotificationUrl', () => {
       pushNotificationUrl({
         notification_type: 'endorsement_new',
         actor: 'alice.near',
+        recipient: 'bob.near',
+        context: { targetAccount: 'bob.near' },
+      })
+    ).toBe('/@bob.near/endorsements');
+    expect(
+      pushNotificationUrl({
+        notification_type: 'endorsement_supported',
+        actor: 'carol.near',
         recipient: 'bob.near',
         context: { targetAccount: 'bob.near' },
       })

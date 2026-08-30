@@ -10,6 +10,7 @@ export const NOTIFICATION_TYPES = [
   'mention',
   'standing_new',
   'endorsement_new',
+  'endorsement_supported',
   'reward_credited',
   'reward_claimed',
   'boost_locked',

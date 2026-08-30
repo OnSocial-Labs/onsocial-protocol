@@ -9,6 +9,7 @@ import {
   mapGroupProposalNotifications,
   mapRewardsEventNotifications,
   mapScarcesEventNotifications,
+  mapSocialSpendNotifications,
   lookupPriorEndorsementOperation,
   postSnippetFromValue,
   shouldNotifyEndorsementSet,
@@ -305,6 +306,61 @@ describe('mapDataUpdateNotifications', () => {
         'du-4b',
       ]
     );
+  });
+});
+
+describe('mapSocialSpendNotifications', () => {
+  function makeSpend(
+    overrides: Partial<Parameters<typeof mapSocialSpendNotifications>[0]> = {}
+  ): Parameters<typeof mapSocialSpendNotifications>[0] {
+    return {
+      id: 'ss-1',
+      block_height: 200,
+      block_timestamp: '1730000004000000000',
+      receipt_id: 'rcpt-ss-1',
+      account_id: 'carol.testnet',
+      event_type: 'SOCIAL_SPENT',
+      success: true,
+      spender_id: 'carol.testnet',
+      amount: '12000000000000000000',
+      app_id: 'onpage',
+      action: 'support_endorsement',
+      target_type: 'endorsement',
+      target_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+      recipient_id: 'bob.testnet',
+      metadata: '{"issuer":"alice.testnet","topic":"design"}',
+      ...overrides,
+    };
+  }
+
+  it('maps support_endorsement to the endorsement target', () => {
+    const notifications = mapSocialSpendNotifications(makeSpend());
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]?.notificationType).toBe('endorsement_supported');
+    expect(notifications[0]?.recipient).toBe('bob.testnet');
+    expect(notifications[0]?.actor).toBe('carol.testnet');
+    expect(notifications[0]?.appId).toBe('default');
+    expect(notifications[0]?.context).toMatchObject({
+      amount: '12000000000000000000',
+      targetId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+      targetAccount: 'bob.testnet',
+      issuer: 'alice.testnet',
+      topic: 'design',
+    });
+  });
+
+  it('skips other spend actions, failed transfers, and self-support', () => {
+    expect(
+      mapSocialSpendNotifications(makeSpend({ action: 'support_profile' }))
+    ).toHaveLength(0);
+    expect(
+      mapSocialSpendNotifications(makeSpend({ success: false }))
+    ).toHaveLength(0);
+    expect(
+      mapSocialSpendNotifications(
+        makeSpend({ spender_id: 'bob.testnet', recipient_id: 'bob.testnet' })
+      )
+    ).toHaveLength(0);
   });
 });
 
