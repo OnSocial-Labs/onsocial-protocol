@@ -28,6 +28,7 @@ import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel'
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { accountIdsEqual } from '@/lib/account-match';
+import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { buildEndorsementEmptyState } from '@/lib/endorsement-empty-state';
 import { parseEndorsementMediaRef } from '@/lib/endorsement-media';
 import { displayName } from '@/lib/profile-display';
@@ -139,10 +140,13 @@ export function EndorsementsPanel({
   } = useViewerRelationship(accountId);
   const {
     endorsementSyncVersion,
+    isEndorsePendingForTarget,
     deriveEndorsementItems,
     reconcileEndorsementListFromFetch,
     shouldFreshFetchEndorsementListFor,
   } = useViewerEndorsement(accountId);
+  const endorsePending = isEndorsePendingForTarget(accountId);
+  const endorseBlocked = isBlockEitherWay(accountId);
   const [mode, setMode] = useState<EndorsementsMode>('received');
   const [data, setData] = useState<EndorsementsPanelResponse | null>(
     () => initial
@@ -316,6 +320,7 @@ export function EndorsementsPanel({
   }
 
   function handleEndorseClick() {
+    if (endorseBlocked || endorsePending) return;
     openCompose({
       targetAccountId: accountId,
       targetName: profileName,
@@ -326,6 +331,7 @@ export function EndorsementsPanel({
   }
 
   function handleAddTopic() {
+    if (endorseBlocked || endorsePending) return;
     openCompose({
       targetAccountId: accountId,
       targetName: profileName,
@@ -394,7 +400,16 @@ export function EndorsementsPanel({
         {!isSelf ? (
           <div className="endorsements-endorse-cta">
             <OsSheetActions layout="row-compact">
-              <OsSheetAction type="button" ready onClick={handleEndorseClick}>
+              <OsSheetAction
+                type="button"
+                ready={!endorseBlocked}
+                disabled={endorseBlocked}
+                pending={endorsePending}
+                pendingLabel={
+                  viewerEndorsed ? 'Updating…' : 'Endorsing…'
+                }
+                onClick={handleEndorseClick}
+              >
                 {!isConnected
                   ? 'Connect'
                   : viewerEndorsed
@@ -402,11 +417,12 @@ export function EndorsementsPanel({
                     : 'Endorse'}
               </OsSheetAction>
             </OsSheetActions>
-            {isConnected && viewerEndorsed ? (
+            {isConnected && viewerEndorsed && !endorseBlocked ? (
               <button
                 type="button"
                 className="endorsements-add-topic"
                 onClick={handleAddTopic}
+                disabled={endorsePending}
                 aria-label={`Add another endorsement for ${label}`}
               >
                 Add topic

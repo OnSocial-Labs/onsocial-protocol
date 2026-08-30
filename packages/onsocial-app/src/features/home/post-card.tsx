@@ -17,6 +17,7 @@ import {
   HeartFillIcon,
   HeartIcon,
   MessageRoundIcon,
+  ProtocolMotionArrow,
   MultiplyIcon,
   ProfileAvatar,
   PulsingDots,
@@ -423,13 +424,22 @@ function PostCardMenu({
       items.push({
         id: 'endorse',
         label: endorseLabel,
-        disabled: endorsePending || isLoading,
-        leading: viewerEndorsed ? (
-          <FireBFillIcon className="os-action-drawer-icon" aria-hidden />
-        ) : (
-          <FireBIcon className="os-action-drawer-icon" aria-hidden />
+        disabled:
+          endorsePending || isLoading || isBlockEitherWay(accountId),
+        leading: (
+          <span className="signal-group signal-group-endorse" aria-hidden>
+            <ProtocolMotionArrow className="os-action-drawer-icon" />
+          </span>
         ),
         onSelect: () => {
+          if (isBlockEitherWay(accountId)) {
+            setTxResult({
+              type: 'error',
+              msg: 'Endorsement is unavailable while a block is in place.',
+            });
+            requestClose();
+            return;
+          }
           setEndorseOpen(true);
           requestClose();
         },
