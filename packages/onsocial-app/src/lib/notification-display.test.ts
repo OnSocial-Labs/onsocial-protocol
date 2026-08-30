@@ -29,6 +29,7 @@ describe('notification display', () => {
 
   it('maps verbs', () => {
     expect(notificationVerb('standing_new')).toBe('stood with you');
+    expect(notificationVerb('endorsement_new')).toBe('endorsed you');
     expect(notificationVerb('dm')).toBe('sent a private message');
     expect(notificationVerb('boost_locked')).toBe('your boost is locked');
     expect(notificationVerb('reward_credited')).toBe('SOCIAL credited');
@@ -89,6 +90,15 @@ describe('notification display', () => {
         context: {},
       })
     ).toBe('/@bob.testnet');
+
+    expect(
+      notificationHref({
+        type: 'endorsement_new',
+        actor: 'bob.testnet',
+        recipient: 'alice.testnet',
+        context: { targetAccount: 'alice.testnet' },
+      })
+    ).toBe('/@alice.testnet/endorsements');
 
     expect(
       notificationHref({
@@ -174,6 +184,13 @@ describe('notification display', () => {
         createdAt,
       })
     ).toBe('stood with you · 5m ago');
+    expect(
+      notificationDescription({
+        type: 'endorsement_new',
+        context: { snippet: 'Shipped it.' },
+        createdAt,
+      })
+    ).toBe('endorsed you · Shipped it. · 5m ago');
     expect(formatNotificationTime(createdAt).label).toBe('5m ago');
 
     expect(
@@ -225,6 +242,18 @@ describe('notification display', () => {
       placeGroupId: null,
       placeCollectionId: null,
       snippet: null,
+    });
+    expect(
+      notificationDetail({
+        type: 'endorsement_new',
+        context: { snippet: 'design' },
+      })
+    ).toEqual({
+      verb: 'endorsed you',
+      placeAccountId: null,
+      placeGroupId: null,
+      placeCollectionId: null,
+      snippet: 'design',
     });
     expect(
       notificationDetail({
@@ -523,5 +552,6 @@ describe('notification display', () => {
     expect(excluded).not.toContain('reward_credited');
     expect(excluded).not.toContain('follow');
     expect(excluded).not.toContain('standing_new');
+    expect(excluded).not.toContain('endorsement_new');
   });
 });

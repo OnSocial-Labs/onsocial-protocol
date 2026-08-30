@@ -297,6 +297,27 @@ export function postSnippetFromValue(value: string | null): string | null {
   }
 }
 
+function endorsementFieldsFromValue(value: string | null): {
+  topic: string | null;
+  note: string | null;
+} {
+  if (!value?.trim()) return { topic: null, note: null };
+  try {
+    const parsed = JSON.parse(value) as { topic?: unknown; note?: unknown };
+    const topic =
+      typeof parsed.topic === 'string' && parsed.topic.trim()
+        ? parsed.topic.trim()
+        : null;
+    const note =
+      typeof parsed.note === 'string' && parsed.note.trim()
+        ? parsed.note.trim()
+        : null;
+    return { topic, note };
+  } catch {
+    return { topic: null, note: null };
+  }
+}
+
 function parseMentions(value: string | null): string[] {
   if (!value) return [];
   try {
@@ -427,6 +448,28 @@ export function mapDataUpdateNotifications(
 
     if (standing) {
       notifications.push(standing);
+    }
+  }
+
+  if (dataType === 'endorsement') {
+    const fields = endorsementFieldsFromValue(row.value);
+    const snippet = fields.note ?? fields.topic;
+    const endorsement = buildNotification(row, {
+      recipient: row.target_account ?? '',
+      actor,
+      notificationType: 'endorsement_new',
+      sourceContract: 'core',
+      context: {
+        path: normalizeText(row.path),
+        targetAccount: normalizeText(row.target_account),
+        topic: fields.topic,
+        note: fields.note,
+        snippet,
+      },
+    });
+
+    if (endorsement) {
+      notifications.push(endorsement);
     }
   }
 

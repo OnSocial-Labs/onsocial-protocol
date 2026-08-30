@@ -367,6 +367,8 @@ export function pushNotificationVerb(
       return 'mentioned you';
     case 'standing_new':
       return 'stood with you';
+    case 'endorsement_new':
+      return 'endorsed you';
     case 'dm':
       return 'sent a private message';
     case 'group_invite':
@@ -479,6 +481,14 @@ export function pushNotificationUrl(row: {
         : `/groups/${encodeURIComponent(groupId)}`;
     }
     return '/groups';
+  }
+
+  if (type === 'endorsement_new') {
+    const target =
+      textField(context, 'targetAccount') ?? (row.recipient?.trim() || null);
+    if (target) {
+      return `/@${encodeURIComponent(target)}/endorsements`;
+    }
   }
 
   if (type === 'profile_anniversary') {

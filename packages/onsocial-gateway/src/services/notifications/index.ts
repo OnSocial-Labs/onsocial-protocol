@@ -9,6 +9,7 @@ export const NOTIFICATION_TYPES = [
   'reaction',
   'mention',
   'standing_new',
+  'endorsement_new',
   'reward_credited',
   'reward_claimed',
   'boost_locked',

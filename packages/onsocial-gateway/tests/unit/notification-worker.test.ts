@@ -215,6 +215,39 @@ describe('mapDataUpdateNotifications', () => {
     expect(reactionNotifications[0]?.recipient).toBe('bob.testnet');
     expect(standingNotifications).toHaveLength(1);
     expect(standingNotifications[0]?.notificationType).toBe('standing_new');
+
+    const endorsementNotifications = mapDataUpdateNotifications({
+      id: 'du-4',
+      block_height: 104,
+      block_timestamp: '1730000003000000000',
+      receipt_id: 'rcpt-4',
+      operation: 'set',
+      author: 'alice.testnet',
+      path: 'alice.testnet/endorsement/bob.testnet/design',
+      value: '{"v":1,"since":1,"topic":"design","note":"Shipped it."}',
+      account_id: 'alice.testnet',
+      data_type: 'endorsement',
+      data_id: null,
+      group_id: null,
+      target_account: 'bob.testnet',
+      parent_path: null,
+      parent_author: null,
+      ref_path: null,
+      ref_author: null,
+      extra_data: null,
+    });
+
+    expect(endorsementNotifications).toHaveLength(1);
+    expect(endorsementNotifications[0]?.notificationType).toBe(
+      'endorsement_new'
+    );
+    expect(endorsementNotifications[0]?.recipient).toBe('bob.testnet');
+    expect(endorsementNotifications[0]?.context).toMatchObject({
+      targetAccount: 'bob.testnet',
+      topic: 'design',
+      note: 'Shipped it.',
+      snippet: 'Shipped it.',
+    });
   });
 });
 
