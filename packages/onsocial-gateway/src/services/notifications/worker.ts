@@ -1204,7 +1204,9 @@ export class NotificationWorker {
       case 'scarces_events':
         return mapScarcesEventNotifications(row as unknown as ScarcesEventRow);
       case 'social_spend_events':
-        return mapSocialSpendNotifications(row as unknown as SocialSpendEventRow);
+        return mapSocialSpendNotifications(
+          row as unknown as SocialSpendEventRow
+        );
       case 'app_notification_events':
         return mapAppNotificationEventNotifications(
           row as unknown as AppNotificationEventRow
