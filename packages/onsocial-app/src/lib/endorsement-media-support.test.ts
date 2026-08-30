@@ -6,6 +6,7 @@ import {
 import {
   parseEndorsementMediaRef,
   resolveEndorsementDisplayMediaUrl,
+  resolveEndorsementOptimisticDraftMedia,
 } from '@/lib/endorsement-media';
 
 describe('resolveEndorsementSpendTargetId', () => {
@@ -79,5 +80,44 @@ describe('endorsement media helpers', () => {
   it('rejects incomplete media refs', () => {
     expect(parseEndorsementMediaRef({ cid: 'x' })).toBeNull();
     expect(parseEndorsementMediaRef(null)).toBeNull();
+  });
+
+  it('keeps a new file preview on the optimistic draft', () => {
+    const file = new File(['x'], 'shot.jpg', { type: 'image/jpeg' });
+    const draft = resolveEndorsementOptimisticDraftMedia({
+      mediaRemoved: false,
+      mediaFile: file,
+      existingMedia: { cid: 'old', mime: 'image/jpeg' },
+      existingMediaUrl: 'https://cdn.example/old.jpg',
+    });
+    expect(draft.media).toBeNull();
+    expect(draft.mediaUrl).toMatch(/^blob:/);
+    URL.revokeObjectURL(draft.mediaUrl!);
+  });
+
+  it('keeps existing media when no new file is attached', () => {
+    const existing = { cid: 'old', mime: 'image/jpeg' as const };
+    expect(
+      resolveEndorsementOptimisticDraftMedia({
+        mediaRemoved: false,
+        mediaFile: null,
+        existingMedia: existing,
+        existingMediaUrl: 'https://cdn.example/old.jpg',
+      })
+    ).toEqual({
+      media: existing,
+      mediaUrl: 'https://cdn.example/old.jpg',
+    });
+  });
+
+  it('clears media when the viewer removed it', () => {
+    expect(
+      resolveEndorsementOptimisticDraftMedia({
+        mediaRemoved: true,
+        mediaFile: new File(['x'], 'shot.jpg', { type: 'image/jpeg' }),
+        existingMedia: { cid: 'old', mime: 'image/jpeg' },
+        existingMediaUrl: 'https://cdn.example/old.jpg',
+      })
+    ).toEqual({ media: null, mediaUrl: null });
   });
 });

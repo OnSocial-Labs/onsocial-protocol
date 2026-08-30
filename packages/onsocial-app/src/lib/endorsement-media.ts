@@ -70,6 +70,33 @@ export function resolveEndorsementDisplayMediaUrl(
   return resolveEndorsementMediaUrl(parseEndorsementMediaRef(item.media), network);
 }
 
+/**
+ * Ledger draft after a confirmed upsert. New files get their own object URL
+ * so the sheet can revoke its preview without blanking the injected row.
+ */
+export function resolveEndorsementOptimisticDraftMedia(input: {
+  mediaRemoved: boolean;
+  mediaFile: File | null;
+  existingMedia: MediaRef | null;
+  existingMediaUrl: string | null;
+}): { media: MediaRef | null; mediaUrl: string | null } {
+  if (input.mediaRemoved) {
+    return { media: null, mediaUrl: null };
+  }
+  if (input.mediaFile) {
+    return {
+      media: null,
+      mediaUrl: URL.createObjectURL(input.mediaFile),
+    };
+  }
+  return {
+    media: input.existingMedia,
+    mediaUrl:
+      input.existingMediaUrl ??
+      resolveEndorsementDisplayMediaUrl({ media: input.existingMedia }),
+  };
+}
+
 function readVideoDurationSeconds(file: File): Promise<number> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);

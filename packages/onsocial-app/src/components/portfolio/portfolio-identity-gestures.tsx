@@ -207,8 +207,17 @@ function PortfolioIdentityGesturesVisitor({
                 className={`portfolio-identity-gesture portfolio-identity-gesture--endorse group${
                   viewerEndorsed ? ' is-endorsed' : ''
                 }`}
-                disabled={endorsePending}
-                onClick={() => setEndorseOpen(true)}
+                disabled={endorsePending || blockEitherWay}
+                onClick={() => {
+                  if (blockEitherWay) {
+                    setTxResult({
+                      type: 'error',
+                      msg: 'Endorsement is unavailable while a block is in place.',
+                    });
+                    return;
+                  }
+                  setEndorseOpen(true);
+                }}
                 aria-label={
                   viewerEndorsed
                     ? `Edit endorsement for ${label}`

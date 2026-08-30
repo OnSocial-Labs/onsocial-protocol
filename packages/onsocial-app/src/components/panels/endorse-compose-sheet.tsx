@@ -37,6 +37,7 @@ import {
   ENDORSEMENT_VIDEO_MAX_SECONDS,
   parseEndorsementMediaRef,
   resolveEndorsementDisplayMediaUrl,
+  resolveEndorsementOptimisticDraftMedia,
   validateEndorsementMediaFile,
 } from '@/lib/endorsement-media';
 import type { EndorseExistingDraft } from '@/lib/endorsements-panel-data';
@@ -453,11 +454,12 @@ export function EndorseComposeSheet({
           topic: normalizedTopic ?? '',
           note: trimmedNote || null,
           id: endorsementId,
-          media: mediaRemoved ? null : existingMedia,
-          mediaUrl: mediaRemoved
-            ? null
-            : (existingMediaUrl ??
-              resolveEndorsementDisplayMediaUrl({ media: existingMedia })),
+          ...resolveEndorsementOptimisticDraftMedia({
+            mediaRemoved,
+            mediaFile,
+            existingMedia,
+            existingMediaUrl,
+          }),
         },
       });
       onSuccess?.();
