@@ -477,7 +477,7 @@ export function AccountActionList({
       ? [
           {
             label: 'Tokens',
-            hint: 'Create under your name',
+            hint: 'Name, symbol, supply',
             onClick: onOpenTokens,
           },
         ]

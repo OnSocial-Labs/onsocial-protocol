@@ -118,10 +118,8 @@ export function AppCreateTokenSheet({
           ? 'Available'
           : 'Your account';
 
-  const canSubmit =
+  const formReady =
     isConnected &&
-    !pending &&
-    templateReady === true &&
     !parentError &&
     name.trim().length >= 2 &&
     symbol.trim().length >= 1 &&
@@ -129,6 +127,8 @@ export function AppCreateTokenSheet({
     !accountError &&
     !accountTaken &&
     !accountChecking;
+  const waitingTemplate = templateReady === null && formReady;
+  const canSubmit = formReady && !pending && templateReady === true;
 
   useEffect(() => {
     if (!open) return;
@@ -333,6 +333,7 @@ export function AppCreateTokenSheet({
             placeholder="Cool Token"
             maxLength={FT_NAME_MAX}
             disabled={pending}
+            autoComplete="off"
             className={osFieldBorderedClassName}
           />
         </label>
@@ -342,13 +343,14 @@ export function AppCreateTokenSheet({
           <input
             id={fieldId('symbol')}
             value={symbol}
-            onChange={(event) => setSymbol(event.target.value)}
+            onChange={(event) => setSymbol(event.target.value.toUpperCase())}
             placeholder="COOL"
             maxLength={FT_SYMBOL_MAX}
             disabled={pending}
             autoCapitalize="characters"
             autoCorrect="off"
             spellCheck={false}
+            autoComplete="off"
             className={osFieldBorderedClassName}
           />
         </label>
@@ -363,7 +365,7 @@ export function AppCreateTokenSheet({
             disabled={pending}
             className={osFieldBorderedClassName}
           />
-          <small>Minted to you · 18 decimals</small>
+          <small>Minted to you</small>
         </label>
 
         <label className="guild-field" htmlFor={fieldId('id')}>
@@ -381,6 +383,7 @@ export function AppCreateTokenSheet({
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
+            autoComplete="off"
             aria-invalid={accountTaken}
             className={`${osFieldBorderedClassName}${
               accountFieldClass ? ` ${accountFieldClass}` : ''
@@ -417,9 +420,15 @@ export function AppCreateTokenSheet({
           <OsSheetAction
             type="submit"
             ready={canSubmit}
-            pending={pending}
-            pendingLabel={phase === 'confirming' ? 'Confirming…' : 'Signing…'}
-            disabled={pending || !canSubmit}
+            pending={pending || waitingTemplate}
+            pendingLabel={
+              waitingTemplate
+                ? 'Checking…'
+                : phase === 'confirming'
+                  ? 'Confirming…'
+                  : 'Signing…'
+            }
+            disabled={pending || waitingTemplate || !canSubmit}
           >
             Create
           </OsSheetAction>

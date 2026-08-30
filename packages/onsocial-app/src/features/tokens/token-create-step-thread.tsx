@@ -35,11 +35,11 @@ export function TokenCreateStepThread({
     phase === 'signing'
       ? 'Sign in your wallet'
       : phase === 'confirming'
-        ? 'Confirming the batch'
+        ? 'Confirming…'
         : phase === 'success'
           ? 'Token is live'
           : phase === 'error'
-            ? 'Batch stopped'
+            ? 'Couldn’t create'
             : 'One signature';
 
   return (
