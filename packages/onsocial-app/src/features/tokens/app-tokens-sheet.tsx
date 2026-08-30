@@ -77,7 +77,7 @@ export function AppTokensSheet({
       >
         <div className="app-storage-sheet">
           {tokens.length === 0 ? (
-            <p className="token-create-note">No tokens yet.</p>
+            <p className="app-storage-meta">No tokens yet.</p>
           ) : (
             <OsSurfaceRowList
               className="app-tokens-list"
