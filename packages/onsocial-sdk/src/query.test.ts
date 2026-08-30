@@ -1627,6 +1627,49 @@ describe('QueryModule', () => {
     });
   });
 
+  describe('threads.repostersByPath()', () => {
+    it('lists reposters of a post newest first', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          reposts: [
+            {
+              repostAuthor: 'carol.near',
+              repostId: 'r1',
+              groupId: null,
+              blockTimestamp: 1720000000000000000,
+            },
+            {
+              repostAuthor: 'dan.near',
+              repostId: 'r2',
+              blockTimestamp: 1710000000000000000,
+            },
+          ],
+        },
+      });
+
+      const rows = await os.query.threads.repostersByPath('alice.near/post/p1');
+
+      expect(rows).toEqual([
+        {
+          accountId: 'carol.near',
+          repostId: 'r1',
+          groupId: null,
+          blockTimestamp: 1720000000000000000,
+        },
+        {
+          accountId: 'dan.near',
+          repostId: 'r2',
+          groupId: null,
+          blockTimestamp: 1710000000000000000,
+        },
+      ]);
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('reposts');
+      expect(body.variables.refPath).toBe('alice.near/post/p1');
+    });
+  });
+
   describe('threads.countsByPaths()', () => {
     it('reads flat count views for all paths in one query', async () => {
       const { os, fetch } = makeOs({

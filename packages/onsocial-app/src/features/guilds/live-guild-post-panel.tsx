@@ -17,7 +17,10 @@ import {
 } from '@/contexts/compose-launcher-context';
 import { OsWriteDockReplyChip } from '@/components/os/os-write-dock';
 import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
-import { writeDockDraftKey, WRITE_DOCK_ADD_REPLY_PLACEHOLDER } from '@/lib/os-write-dock';
+import {
+  writeDockDraftKey,
+  WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
+} from '@/lib/os-write-dock';
 import {
   clearWriteDockDraft,
   writeDockDraftFromComposer,
@@ -25,6 +28,9 @@ import {
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
+import { ThreadDiscoverPeek } from '@/features/home/thread-discover-peek';
+import { ThreadRepliesSortButton } from '@/features/home/thread-replies-sort';
+import { ThreadViewQuotesRow } from '@/features/home/thread-view-quotes-row';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import { postMetaFromText } from '@/features/home/post-mentions';
 import { placesMetaFromComposer } from '@/lib/post-place';
@@ -73,6 +79,12 @@ import {
   collectRelationTargetAccountIds,
 } from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { postQuotesPath } from '@/lib/post-routes';
+import { resolveThreadLayout } from '@/lib/thread-layout';
+import {
+  sortThreadReplyRows,
+  type ThreadReplySort,
+} from '@/lib/thread-reply-sort';
 import {
   setGuildMembershipActionPending,
   useGuildMembershipActionPending,
@@ -153,6 +165,7 @@ export function LiveGuildPostPanel({
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const threadLayout = resolveThreadLayout(searchParams);
   const mediaUnmuted = searchParams.get('media') === 'unmute';
   const mediaResumeIndex = readPostMediaUnmuteIndex(searchParams);
   const confirmLeaveTimerRef = useRef<number | null>(null);
@@ -211,6 +224,7 @@ export function LiveGuildPostPanel({
   const [modalError, setModalError] = useState<string | null>(null);
   const [activeThreadTab, setActiveThreadTab] = useState<ThreadTab>('replies');
   const [threadTabTouched, setThreadTabTouched] = useState(false);
+  const [replySort, setReplySort] = useState<ThreadReplySort>('relevant');
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
     () => new Set()
   );
@@ -344,6 +358,16 @@ export function LiveGuildPostPanel({
     {
       onError: (message) => setTxResult({ type: 'error', msg: message }),
     }
+  );
+
+  // Indexer quote total — the loaded page is capped at THREAD_QUOTE_PAGE_SIZE.
+  const rootEngagement = conversation.root
+    ? engagement[postKey(conversation.root)]
+    : undefined;
+  const quoteTotal = Math.max(rootEngagement?.quoteCount ?? 0, quotes.length);
+  const sortedReplyRows = useMemo(
+    () => sortThreadReplyRows(replyRows, replySort, engagement),
+    [replyRows, replySort, engagement]
   );
 
   const refresh = useCallback(
@@ -516,7 +540,7 @@ export function LiveGuildPostPanel({
   }, [rootPath]);
 
   useEffect(() => {
-    if (threadTabTouched) return;
+    if (threadLayout !== 'tabs' || threadTabTouched) return;
     if (
       activeThreadTab === 'replies' &&
       replyCount === 0 &&
@@ -524,7 +548,13 @@ export function LiveGuildPostPanel({
     ) {
       setActiveThreadTab('quotes');
     }
-  }, [activeThreadTab, quotes.length, replyCount, threadTabTouched]);
+  }, [
+    activeThreadTab,
+    quotes.length,
+    replyCount,
+    threadLayout,
+    threadTabTouched,
+  ]);
 
   useEffect(() => {
     const timers = reconcileTimersRef.current;
@@ -815,8 +845,7 @@ export function LiveGuildPostPanel({
   const expandReply = (post: PostRow, payload: WriteDockSubmit) => {
     const channel = post.channel ?? threadChannel;
     if (accountId && !canPostInChannel(channel)) return;
-    const draftKey =
-      threadDraftKey ?? writeDockDraftKey('post', postKey(post));
+    const draftKey = threadDraftKey ?? writeDockDraftKey('post', postKey(post));
     const seed = writeDockExpandSeed(draftKey, payload);
     setModalSeed({ text: seed.initialText, files: seed.initialFiles });
     openComposerModal('reply')(post);
@@ -1126,6 +1155,132 @@ export function LiveGuildPostPanel({
     </div>
   );
 
+  const replyListRows = sortedReplyRows.map((row, index) => {
+    if (row.kind === 'more') {
+      return (
+        <ThreadFoldButton
+          key={`more-${row.branchKey}`}
+          onClick={() =>
+            setExpandedBranches((current) =>
+              new Set(current).add(row.branchKey)
+            )
+          }
+        >
+          {row.hiddenCount === 1
+            ? 'Show 1 more reply'
+            : `Show ${row.hiddenCount} more replies`}
+        </ThreadFoldButton>
+      );
+    }
+
+    const next = sortedReplyRows[index + 1];
+    const connectedToNext =
+      next !== undefined &&
+      (next.kind === 'more' ||
+        (next.kind === 'post' && next.connectedToPrevious));
+    const itemClassName = [
+      'post-thread-item',
+      row.connectedToPrevious
+        ? 'post-thread-item--up post-thread-item--cont'
+        : '',
+      connectedToNext ? 'post-thread-item--down' : '',
+      threadFocus.isHighlighted(row.post)
+        ? 'post-thread-item--focus-reply'
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    return (
+      <div key={postKey(row.post)}>
+        {index > 0 && !row.connectedToPrevious ? (
+          <Divider variant="item" className="post-row-divider" />
+        ) : null}
+        <div
+          className={itemClassName}
+          data-thread-focus-reply={row.post.postId}
+          data-thread-focus-key={postKey(row.post)}
+        >
+          <PostCard
+            post={row.post}
+            authorProfile={postAuthorProfiles[row.post.accountId]}
+            actionHref={guildPostPath(
+              groupId,
+              row.post.accountId,
+              row.post.postId
+            )}
+            // Position under the root already says "reply".
+            showRelationBadge={false}
+            className={
+              row.connectedToPrevious ? 'post-card--chain-cont' : undefined
+            }
+            engagement={engagement[postKey(row.post)]}
+            reactionPending={isReactionPending(row.post)}
+            savePending={isSavePending(row.post)}
+            sharePending={isSharePending(row.post)}
+            onToggleReaction={toggleReaction}
+            onToggleSave={toggleSave}
+            onAmplifyConfirmed={confirmAmplify}
+            onReply={replyHandler}
+            onExpandReply={expandReply}
+            onQuote={quoteHandler}
+            onRepost={repostHandler}
+            onUndoRepost={undoRepostHandler}
+            pollTally={pollTallyFor(row.post)}
+            pollVotePending={isPollVotePending(row.post)}
+            onPollVote={(post, optionIndex) => {
+              void castVote(post, optionIndex);
+            }}
+          />
+        </div>
+      </div>
+    );
+  });
+
+  const quoteListRows = quotes.map((quote, index) => {
+    const quoted = resolveQuotedInset(quote, quotedPosts, conversation.root);
+    return (
+      <div key={postKey(quote)}>
+        <Divider
+          variant="item"
+          className={
+            index > 0
+              ? 'post-row-divider'
+              : 'post-row-divider post-row-divider--leading-hidden'
+          }
+        />
+        <PostCard
+          post={quote}
+          authorProfile={postAuthorProfiles[quote.accountId]}
+          actionHref={guildPostPath(groupId, quote.accountId, quote.postId)}
+          showRelationBadge={false}
+          quotedPost={quoted}
+          quotedAuthorProfile={
+            quoted ? postAuthorProfiles[quoted.accountId] : undefined
+          }
+          quotedHref={quotedHrefFor(quoted)}
+          engagement={engagement[postKey(quote)]}
+          reactionPending={isReactionPending(quote)}
+          savePending={isSavePending(quote)}
+          sharePending={isSharePending(quote)}
+          onToggleReaction={toggleReaction}
+          onToggleSave={toggleSave}
+          onAmplifyConfirmed={confirmAmplify}
+          onReply={replyHandler}
+          onExpandReply={expandReply}
+          onQuote={quoteHandler}
+          onRepost={repostHandler}
+          onUndoRepost={undoRepostHandler}
+          pollTally={pollTallyFor(quote)}
+          pollVotePending={isPollVotePending(quote)}
+          onPollVote={(post, optionIndex) => {
+            void castVote(post, optionIndex);
+          }}
+        />
+      </div>
+    );
+  });
+
   return (
     <OsAppScreen
       title={guildDisplayName(guildName, groupId)}
@@ -1289,237 +1444,140 @@ export function LiveGuildPostPanel({
 
             <Divider variant="detail" />
 
-            <div className="guild-thread-chrome">
-              <div
-                className="guild-thread-tabs"
-                role="tablist"
-                aria-label="Discussion content"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  id="guild-thread-tab-replies"
-                  aria-controls="guild-thread-panel"
-                  aria-selected={activeThreadTab === 'replies'}
-                  className={
-                    activeThreadTab === 'replies' ? 'is-active' : undefined
-                  }
-                  onClick={() => {
-                    setThreadTabTouched(true);
-                    setActiveThreadTab('replies');
-                  }}
+            {threadLayout === 'tabs' ? (
+              <div className="guild-thread-chrome">
+                <div
+                  className="guild-thread-tabs"
+                  role="tablist"
+                  aria-label="Discussion content"
                 >
-                  Replies
-                  <span className="guild-thread-tab-count">{replyCount}</span>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  id="guild-thread-tab-quotes"
-                  aria-controls="guild-thread-panel"
-                  aria-selected={activeThreadTab === 'quotes'}
-                  className={
-                    activeThreadTab === 'quotes' ? 'is-active' : undefined
-                  }
-                  onClick={() => {
-                    setThreadTabTouched(true);
-                    setActiveThreadTab('quotes');
-                  }}
-                >
-                  Quotes
-                  <span className="guild-thread-tab-count">
-                    {quotes.length}
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            <div
-              id="guild-thread-panel"
-              className="guild-connected-stack"
-              role="tabpanel"
-              aria-labelledby={
-                activeThreadTab === 'replies'
-                  ? 'guild-thread-tab-replies'
-                  : 'guild-thread-tab-quotes'
-              }
-            >
-              {activeThreadTab === 'replies' ? (
-                replyRows.length > 0 ? (
-                  replyRows.map((row, index) => {
-                    if (row.kind === 'more') {
-                      return (
-                        <ThreadFoldButton
-                          key={`more-${row.branchKey}`}
-                          onClick={() =>
-                            setExpandedBranches((current) =>
-                              new Set(current).add(row.branchKey)
-                            )
-                          }
-                        >
-                          {row.hiddenCount === 1
-                            ? 'Show 1 more reply'
-                            : `Show ${row.hiddenCount} more replies`}
-                        </ThreadFoldButton>
-                      );
+                  <button
+                    type="button"
+                    role="tab"
+                    id="guild-thread-tab-replies"
+                    aria-controls="guild-thread-panel"
+                    aria-selected={activeThreadTab === 'replies'}
+                    className={
+                      activeThreadTab === 'replies' ? 'is-active' : undefined
                     }
-
-                    const next = replyRows[index + 1];
-                    const connectedToNext =
-                      next !== undefined &&
-                      (next.kind === 'more' ||
-                        (next.kind === 'post' && next.connectedToPrevious));
-                    const itemClassName = [
-                      'post-thread-item',
-                      row.connectedToPrevious
-                        ? 'post-thread-item--up post-thread-item--cont'
-                        : '',
-                      connectedToNext ? 'post-thread-item--down' : '',
-                      threadFocus.isHighlighted(row.post)
-                        ? 'post-thread-item--focus-reply'
-                        : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ');
-
-                    return (
-                      <div key={postKey(row.post)}>
-                        {index > 0 && !row.connectedToPrevious ? (
-                          <Divider
-                            variant="item"
-                            className="post-row-divider"
-                          />
-                        ) : null}
-                        <div
-                          className={itemClassName}
-                          data-thread-focus-reply={row.post.postId}
-                          data-thread-focus-key={postKey(row.post)}
-                        >
-                          <PostCard
-                            post={row.post}
-                            authorProfile={
-                              postAuthorProfiles[row.post.accountId]
-                            }
-                            actionHref={guildPostPath(
-                              groupId,
-                              row.post.accountId,
-                              row.post.postId
-                            )}
-                            // Position under the root already says "reply".
-                            showRelationBadge={false}
-                            className={
-                              row.connectedToPrevious
-                                ? 'post-card--chain-cont'
-                                : undefined
-                            }
-                            engagement={engagement[postKey(row.post)]}
-                            reactionPending={isReactionPending(row.post)}
-                            savePending={isSavePending(row.post)}
-                            sharePending={isSharePending(row.post)}
-                            onToggleReaction={toggleReaction}
-                            onToggleSave={toggleSave}
-                            onAmplifyConfirmed={confirmAmplify}
-                            onReply={replyHandler}
-                            onExpandReply={expandReply}
-                            onQuote={quoteHandler}
-                            onRepost={repostHandler}
-                            onUndoRepost={undoRepostHandler}
-                            pollTally={pollTallyFor(row.post)}
-                            pollVotePending={isPollVotePending(row.post)}
-                            onPollVote={(post, optionIndex) => {
-                              void castVote(post, optionIndex);
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })
+                    onClick={() => {
+                      setThreadTabTouched(true);
+                      setActiveThreadTab('replies');
+                    }}
+                  >
+                    Replies
+                    <span className="guild-thread-tab-count">{replyCount}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    id="guild-thread-tab-quotes"
+                    aria-controls="guild-thread-panel"
+                    aria-selected={activeThreadTab === 'quotes'}
+                    className={
+                      activeThreadTab === 'quotes' ? 'is-active' : undefined
+                    }
+                    onClick={() => {
+                      setThreadTabTouched(true);
+                      setActiveThreadTab('quotes');
+                    }}
+                  >
+                    Quotes
+                    <span className="guild-thread-tab-count">
+                      {quotes.length}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            ) : replyListRows.length > 0 || quoteTotal > 0 ? (
+              <div className="thread-controls-row">
+                {replyListRows.length > 0 ? (
+                  <ThreadRepliesSortButton
+                    sort={replySort}
+                    onChange={setReplySort}
+                  />
                 ) : (
-                  <div className="guild-state-card">No replies yet.</div>
-                )
-              ) : quotes.length > 0 ? (
-                quotes.map((quote, index) => {
-                  const quoted = resolveQuotedInset(
-                    quote,
-                    quotedPosts,
-                    conversation.root
-                  );
-                  return (
-                    <div key={postKey(quote)}>
-                      <Divider
-                        variant="item"
-                        className={
-                          index > 0
-                            ? 'post-row-divider'
-                            : 'post-row-divider post-row-divider--leading-hidden'
-                        }
-                      />
-                      <PostCard
-                        post={quote}
-                        authorProfile={postAuthorProfiles[quote.accountId]}
-                        actionHref={guildPostPath(
-                          groupId,
-                          quote.accountId,
-                          quote.postId
-                        )}
-                        showRelationBadge={false}
-                        quotedPost={quoted}
-                        quotedAuthorProfile={
-                          quoted
-                            ? postAuthorProfiles[quoted.accountId]
-                            : undefined
-                        }
-                        quotedHref={quotedHrefFor(quoted)}
-                        engagement={engagement[postKey(quote)]}
-                        reactionPending={isReactionPending(quote)}
-                        savePending={isSavePending(quote)}
-                        sharePending={isSharePending(quote)}
-                        onToggleReaction={toggleReaction}
-                        onToggleSave={toggleSave}
-                        onAmplifyConfirmed={confirmAmplify}
-                        onReply={replyHandler}
-                        onExpandReply={expandReply}
-                        onQuote={quoteHandler}
-                        onRepost={repostHandler}
-                        onUndoRepost={undoRepostHandler}
-                        pollTally={pollTallyFor(quote)}
-                        pollVotePending={isPollVotePending(quote)}
-                        onPollVote={(post, optionIndex) => {
-                          void castVote(post, optionIndex);
-                        }}
-                      />
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="guild-state-card">No quotes yet.</div>
-              )}
+                  <span className="thread-controls-spacer" aria-hidden />
+                )}
+                {quoteTotal > 0 && conversation.root ? (
+                  <ThreadViewQuotesRow
+                    href={postQuotesPath(conversation.root)}
+                    quoteCount={quoteTotal}
+                  />
+                ) : null}
+              </div>
+            ) : null}
 
-              {(activeThreadTab === 'replies' && hasMoreReplies) ||
-              (activeThreadTab === 'quotes' && hasMoreQuotes) ? (
-                <button
-                  type="button"
-                  className="guild-load-more"
-                  disabled={loadingMore}
-                  onClick={() => void loadMore(activeThreadTab)}
-                >
-                  {loadingMore
-                    ? 'Loading…'
-                    : activeThreadTab === 'replies'
-                      ? 'Show more replies'
-                      : 'Show more quotes'}
-                </button>
-              ) : null}
-            </div>
+            {threadLayout === 'tabs' ? (
+              <div
+                id="guild-thread-panel"
+                className="guild-connected-stack"
+                role="tabpanel"
+                aria-labelledby={
+                  activeThreadTab === 'replies'
+                    ? 'guild-thread-tab-replies'
+                    : 'guild-thread-tab-quotes'
+                }
+              >
+                {activeThreadTab === 'replies' ? (
+                  replyListRows.length > 0 ? (
+                    replyListRows
+                  ) : (
+                    <div className="guild-state-card">No replies yet.</div>
+                  )
+                ) : quoteListRows.length > 0 ? (
+                  quoteListRows
+                ) : (
+                  <div className="guild-state-card">No quotes yet.</div>
+                )}
+
+                {(activeThreadTab === 'replies' && hasMoreReplies) ||
+                (activeThreadTab === 'quotes' && hasMoreQuotes) ? (
+                  <button
+                    type="button"
+                    className="guild-load-more"
+                    disabled={loadingMore}
+                    onClick={() => void loadMore(activeThreadTab)}
+                  >
+                    {loadingMore
+                      ? 'Loading…'
+                      : activeThreadTab === 'replies'
+                        ? 'Show more replies'
+                        : 'Show more quotes'}
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="guild-connected-stack">
+                {replyListRows.length > 0 ? (
+                  replyListRows
+                ) : quoteTotal === 0 ? (
+                  <ThreadDiscoverPeek
+                    author={author}
+                    excludePostId={postId}
+                    authorProfiles={postAuthorProfiles}
+                  />
+                ) : null}
+
+                {hasMoreReplies ? (
+                  <button
+                    type="button"
+                    className="guild-load-more"
+                    disabled={loadingMore}
+                    onClick={() => void loadMore('replies')}
+                  >
+                    {loadingMore ? 'Loading…' : 'Show more replies'}
+                  </button>
+                ) : null}
+              </div>
+            )}
           </section>
         ) : null}
       </div>
       {modalTarget ? (
         <GuildComposerSheet
           key={`${postKey(modalTarget)}:${modalSeed.files
-            .map(
-              (file) => `${file.name}:${file.size}:${file.lastModified}`
-            )
+            .map((file) => `${file.name}:${file.size}:${file.lastModified}`)
             .join('|')}`}
           open
           target={modalTarget}

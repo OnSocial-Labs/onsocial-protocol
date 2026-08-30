@@ -30,6 +30,20 @@ export function postThreadPath(post: {
   return personalPostPath(post.accountId, post.postId);
 }
 
+/** Quotes + reposts screen for a personal post thread. */
+export function personalPostQuotesPath(author: string, postId: string): string {
+  return `${personalPostPath(author, postId)}/quotes`;
+}
+
+/** Quotes + reposts screen for any post row — guild or personal. */
+export function postQuotesPath(post: {
+  accountId: string;
+  postId: string;
+  groupId?: string | null;
+}): string {
+  return `${postThreadPath(post)}/quotes`;
+}
+
 /** Query param: scroll + highlight a reply on thread landing. */
 export const THREAD_FOCUS_REPLY_QUERY = 'reply';
 

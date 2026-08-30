@@ -68,6 +68,14 @@ function mapQuote(q: QuoteRow): PostRow {
 
 export type ThreadEdge = 'reply' | 'quote';
 
+/** One repost of a post — who and when (repost shells carry no value). */
+export interface ReposterRow {
+  accountId: string;
+  repostId: string;
+  groupId?: string | null;
+  blockTimestamp: number;
+}
+
 export interface ThreadNode {
   /** The reply or quote post represented by this node. */
   post: PostRow;
@@ -318,6 +326,49 @@ export class ThreadsQuery {
     opts: { limit?: number; offset?: number; order?: 'asc' | 'desc' } = {}
   ): Promise<PostRow[]> {
     return (await this._quotesPageByPath(refPath, opts)).items;
+  }
+
+  /**
+   * Accounts that reposted a post, newest first (repost shells, no value).
+   *
+   * ```ts
+   * const reposters = await os.query.threads.repostersByPath('alice.near/post/1');
+   * ```
+   */
+  async repostersByPath(
+    refPath: string,
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<ReposterRow[]> {
+    const res = await this._q.graphql<{
+      reposts: Array<{
+        repostAuthor: string;
+        repostId: string;
+        groupId?: string | null;
+        blockTimestamp: number;
+      }>;
+    }>({
+      query: `query RepostersByPath($refPath: String!, $limit: Int!, $offset: Int!) {
+        reposts(
+          where: {refPath: {_eq: $refPath}},
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{blockTimestamp: DESC}]
+        ) {
+          repostAuthor repostId groupId blockTimestamp
+        }
+      }`,
+      variables: {
+        refPath,
+        limit: positiveInt(opts.limit, DEFAULT_THREAD_LIMIT),
+        offset: nonNegativeInt(opts.offset, 0),
+      },
+    });
+    return (res.data?.reposts ?? []).map((row) => ({
+      accountId: row.repostAuthor,
+      repostId: row.repostId,
+      groupId: row.groupId ?? null,
+      blockTimestamp: row.blockTimestamp,
+    }));
   }
 
   /**

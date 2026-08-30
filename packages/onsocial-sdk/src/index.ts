@@ -188,6 +188,7 @@ export type {
   GroupBannedRow,
   ThreadCounts,
   ViewerRepostRow,
+  ReposterRow,
   ThreadEdge,
   ThreadNode,
   ThreadTree,

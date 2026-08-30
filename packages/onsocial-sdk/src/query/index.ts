@@ -89,6 +89,7 @@ export type {
 export type {
   ThreadCounts,
   ViewerRepostRow,
+  ReposterRow,
   ThreadEdge,
   ThreadNode,
   ThreadTree,

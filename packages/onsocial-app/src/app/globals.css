@@ -144,7 +144,8 @@
 }
 
 /* Wrappers stay flush; the nav-search shell owns its own padding. */
-.os-app-screen-heading [data-sheet-initial-focus-skip]:not(.os-app-chrome-nav-search),
+.os-app-screen-heading
+  [data-sheet-initial-focus-skip]:not(.os-app-chrome-nav-search),
 .os-app-screen-heading .dao-proposals-header-search-wrap {
   padding: 0;
 }
@@ -2378,7 +2379,8 @@ a.os-surface-row {
   color: rgb(var(--fg-rgb) / 0.4);
 }
 
-.post-card-scarce-buy--secondary:hover:not(:disabled) .post-card-scarce-buy-main,
+.post-card-scarce-buy--secondary:hover:not(:disabled)
+  .post-card-scarce-buy-main,
 .post-card-scarce-buy--secondary:focus-visible .post-card-scarce-buy-main,
 .post-card-scarce-link:hover,
 .post-card-scarce-link:focus-visible {
@@ -2871,7 +2873,8 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.92);
     box-shadow: var(
       --os-focus-ring,
-      0 0 0 2px color-mix(in srgb, var(--protocol-blue, #60a5fa) 35%, transparent)
+      0 0 0 2px
+        color-mix(in srgb, var(--protocol-blue, #60a5fa) 35%, transparent)
     );
   }
 
@@ -6854,7 +6857,9 @@ a.os-surface-row {
    * Person portfolio — gov/treasury credentials with @handle, not the display name.
    * Muted at rest; protocol color on hover/focus.
    */
-  .portfolio-identity:not([data-entity='dao']) .portfolio-handle-marks .protocol-identity-mark {
+  .portfolio-identity:not([data-entity='dao'])
+    .portfolio-handle-marks
+    .protocol-identity-mark {
     font-size: 0.95em;
   }
 
@@ -7574,9 +7579,8 @@ a.os-surface-row {
     outline: none;
   }
 
-  .leaderboard-slide .os-app-screen-toolbar:has(
-      .leaderboard-track-rail.is-scroll-hidden
-    ) {
+  .leaderboard-slide
+    .os-app-screen-toolbar:has(.leaderboard-track-rail.is-scroll-hidden) {
     margin-top: 0;
   }
 
@@ -9146,7 +9150,8 @@ a.os-surface-row {
     background: transparent;
   }
 
-  .os-app-screen[data-glass-chrome='true'] .os-app-screen-header.is-elevated::before {
+  .os-app-screen[data-glass-chrome='true']
+    .os-app-screen-header.is-elevated::before {
     opacity: 1;
   }
 
@@ -10259,7 +10264,8 @@ a.os-surface-row {
     min-width: 2.75rem;
   }
 
-  .portfolio-summon.is-writing.has-dock-back-stacked .portfolio-summon-account-column {
+  .portfolio-summon.is-writing.has-dock-back-stacked
+    .portfolio-summon-account-column {
     display: grid;
     grid-template-rows: minmax(2.75rem, 1fr) 2.75rem;
     align-items: start;
@@ -10315,9 +10321,9 @@ a.os-surface-row {
     padding-top: 0.35rem;
   }
 
-  .portfolio-summon.is-writing.is-compose-expanded:not(.has-dock-back-stacked):not(
-      .has-dock-back
-    )
+  .portfolio-summon.is-writing.is-compose-expanded:not(
+      .has-dock-back-stacked
+    ):not(.has-dock-back)
     .portfolio-summon-account {
     align-self: flex-start;
     padding-top: 0.45rem;
@@ -10329,7 +10335,9 @@ a.os-surface-row {
       display: none;
     }
 
-    .portfolio-summon:has(.portfolio-summon-back) .portfolio-summon-activity + .portfolio-summon-divider {
+    .portfolio-summon:has(.portfolio-summon-back)
+      .portfolio-summon-activity
+      + .portfolio-summon-divider {
       display: none;
     }
   }
@@ -10742,7 +10750,9 @@ a.os-surface-row {
   /* Idle single-line — lock first row to avatar cap height (Message / Add a reply…). */
   .os-write-dock:not(.is-expanded):not(.is-compose-open) .os-write-dock-field {
     align-items: flex-start;
-    padding-top: calc((2.75rem - var(--portfolio-summon-avatar-size, 1.35rem)) / 2);
+    padding-top: calc(
+      (2.75rem - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
+    );
   }
 
   .os-write-dock.is-expanded .os-write-dock-field {
@@ -10794,7 +10804,8 @@ a.os-surface-row {
   }
 
   /* Quick reply — three full rows, then in-field scroll (no mid-line clip). */
-  .os-write-dock:has(.os-write-dock-reply).is-compose-open .os-write-dock-input {
+  .os-write-dock:has(.os-write-dock-reply).is-compose-open
+    .os-write-dock-input {
     max-height: calc(
       var(--os-write-dock-line-height) * var(--os-write-dock-reply-max-lines)
     );
@@ -10919,8 +10930,7 @@ a.os-surface-row {
     display: block;
     width: 0.95rem;
     height: 0.95rem;
-    border: 2px solid
-      color-mix(in srgb, var(--protocol-green) 22%, transparent);
+    border: 2px solid color-mix(in srgb, var(--protocol-green) 22%, transparent);
     border-top-color: var(--protocol-green-ink, var(--protocol-green));
     border-radius: 50%;
     animation: os-write-dock-send-spin 0.7s linear infinite;
@@ -11510,7 +11520,8 @@ a.os-surface-row {
   }
 
   .page-joined-facts-panel[data-tone='mood-thread'] .glass-sheet-header-eyebrow,
-  .page-joined-facts-panel[data-tone='mood-thread'] .os-sheet-facts-section-title {
+  .page-joined-facts-panel[data-tone='mood-thread']
+    .os-sheet-facts-section-title {
     color: color-mix(
       in srgb,
       var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55)))
@@ -25052,8 +25063,7 @@ a.os-surface-row {
     gap: 0.65rem;
     min-width: 0;
     padding: var(--os-screen-body-pad-top, 0.15rem)
-      var(--os-screen-body-pad-x, 1rem)
-      var(--os-screen-body-pad-bottom, 1.5rem);
+      var(--os-screen-body-pad-x, 1rem) var(--os-screen-body-pad-bottom, 1.5rem);
   }
 
   /*
@@ -30252,7 +30262,11 @@ a.os-surface-row {
   }
 
   .post-thread-item--focus-reply {
-    --thread-rail-color: color-mix(in srgb, var(--protocol-green) 55%, transparent);
+    --thread-rail-color: color-mix(
+      in srgb,
+      var(--protocol-green) 55%,
+      transparent
+    );
   }
 
   .post-thread-item--focus-reply .post-card {
@@ -30263,7 +30277,8 @@ a.os-surface-row {
   @keyframes thread-reply-focus-pulse {
     0%,
     14% {
-      box-shadow: 0 0 0 2px color-mix(in srgb, var(--protocol-green) 42%, transparent);
+      box-shadow: 0 0 0 2px
+        color-mix(in srgb, var(--protocol-green) 42%, transparent);
     }
 
     100% {
@@ -30274,7 +30289,8 @@ a.os-surface-row {
   @media (prefers-reduced-motion: reduce) {
     .post-thread-item--focus-reply .post-card {
       animation: none;
-      box-shadow: 0 0 0 2px color-mix(in srgb, var(--protocol-green) 42%, transparent);
+      box-shadow: 0 0 0 2px
+        color-mix(in srgb, var(--protocol-green) 42%, transparent);
     }
   }
 
@@ -30440,9 +30456,7 @@ a.os-surface-row {
     overflow: hidden;
   }
 
-  .guild-composer-sheet-panel
-    .os-app-screen--embedded
-    .os-app-screen-body {
+  .guild-composer-sheet-panel .os-app-screen--embedded .os-app-screen-body {
     /* Match post thread: chrome clearance on scroller, inset on page root. */
     padding-bottom: 0;
   }
@@ -30489,8 +30503,7 @@ a.os-surface-row {
     flex-direction: column;
     gap: 0.75rem;
     padding: var(--os-screen-body-pad-top, 0.15rem)
-      var(--os-screen-body-pad-x, 1rem)
-      0.85rem;
+      var(--os-screen-body-pad-x, 1rem) 0.85rem;
   }
 
   .guild-composer-sheet-form .post-card-quote-inset {
@@ -31473,6 +31486,138 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0;
+  }
+
+  /*
+   * Flow layout (default): one controls row under the divider — `Replies ▾`
+   * sort left, `View quotes ›` right. Quiet chrome: muted ink, fg on hover.
+   */
+  .thread-controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin: 0.1rem 0 0.35rem;
+  }
+
+  .thread-controls-spacer {
+    flex: 0 0 auto;
+  }
+
+  .thread-replies-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0.45rem 0.15rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.5);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    transition: color 160ms ease;
+  }
+
+  .thread-replies-sort:hover,
+  .thread-replies-sort:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.85);
+    outline: none;
+  }
+
+  .thread-replies-sort-chevron {
+    width: 0.8rem;
+    height: 0.8rem;
+    flex-shrink: 0;
+    color: rgb(var(--fg-rgb) / 0.35);
+  }
+
+  .thread-view-quotes {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0.45rem 0.15rem;
+    border-radius: 0.5rem;
+    color: rgb(var(--fg-rgb) / 0.5);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+
+  .thread-view-quotes:hover,
+  .thread-view-quotes:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.85);
+    outline: none;
+  }
+
+  .thread-view-quotes-icon {
+    width: 0.85rem;
+    height: 0.85rem;
+    flex-shrink: 0;
+  }
+
+  .thread-view-quotes-count {
+    min-width: 1.1rem;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.08);
+    color: rgb(var(--fg-rgb) / 0.55);
+    font-size: 0.62rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    padding: 0.18rem 0.32rem;
+    text-align: center;
+  }
+
+  .thread-view-quotes-chevron {
+    width: 0.8rem;
+    height: 0.8rem;
+    margin-left: auto;
+    flex-shrink: 0;
+    color: rgb(var(--fg-rgb) / 0.35);
+  }
+
+  .thread-discover-peek {
+    margin-top: 0.35rem;
+  }
+
+  .thread-discover-peek-title {
+    margin: 0.55rem 0 0.15rem;
+    padding: 0 0.15rem;
+    color: rgb(var(--fg-rgb) / 0.42);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  /* Quotes screen — reposter rows (Bluesky-style people list). */
+  .post-quotes-repost-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.15rem;
+    border-radius: 0.5rem;
+    color: inherit;
+    text-decoration: none;
+    transition: background 160ms ease;
+  }
+
+  .post-quotes-repost-row:hover,
+  .post-quotes-repost-row:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.04);
+    outline: none;
+  }
+
+  .post-quotes-repost-row-icon {
+    width: 0.85rem;
+    height: 0.85rem;
+    margin-left: auto;
+    flex-shrink: 0;
+    color: rgb(var(--fg-rgb) / 0.35);
   }
 
   /* In-flow below hero; pins under elevated immersive chrome (no remount). */
@@ -32906,7 +33051,9 @@ a.os-surface-row {
   height: 1.15rem;
 }
 
-.os-dock-pill.portfolio-summon.is-writing.has-dock-back:not(.has-dock-back-stacked)
+.os-dock-pill.portfolio-summon.is-writing.has-dock-back:not(
+    .has-dock-back-stacked
+  )
   .portfolio-summon-account {
   width: 2.75rem;
   min-width: 2.75rem;
@@ -32922,7 +33069,9 @@ a.os-surface-row {
 .os-dock-pill.portfolio-summon.is-writing.has-dock-back-stacked
   .os-write-dock.is-compose-open.is-expanded
   .os-write-dock-field {
-  padding-top: calc((2.75rem - var(--portfolio-summon-avatar-size, 1.35rem)) / 2);
+  padding-top: calc(
+    (2.75rem - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
+  );
 }
 
 /* Write dock footer — unlayered so tool/send sizing beats layered dock rules. */
@@ -35011,7 +35160,9 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   align-self: stretch;
 }
 
-.protocol-task-form .guild-field.protocol-compose-amount .profile-support-token-unit {
+.protocol-task-form
+  .guild-field.protocol-compose-amount
+  .profile-support-token-unit {
   min-height: 0;
   font-size: 0.78rem;
   font-weight: 500;
@@ -35023,11 +35174,15 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   height: 1rem;
 }
 
-.protocol-task-form .guild-field.protocol-compose-amount .os-amount-field-meta-row {
+.protocol-task-form
+  .guild-field.protocol-compose-amount
+  .os-amount-field-meta-row {
   width: 100%;
 }
 
-.protocol-task-form .guild-field.protocol-compose-amount .profile-support-balance,
+.protocol-task-form
+  .guild-field.protocol-compose-amount
+  .profile-support-balance,
 .protocol-task-form .guild-field.protocol-compose-amount .os-amount-field-meta {
   white-space: normal;
   text-align: right;
@@ -35040,7 +35195,10 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   min-height: 5.5rem;
 }
 
-.protocol-task-form .protocol-compose-description .protocol-compose-description-shell > textarea {
+.protocol-task-form
+  .protocol-compose-description
+  .protocol-compose-description-shell
+  > textarea {
   resize: none;
   min-height: 3.85rem;
 }
@@ -35058,9 +35216,15 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   padding-bottom: var(--os-field-pad-y, 0.65rem);
 }
 
-.protocol-compose-description .protocol-compose-description-shell > textarea.has-counter,
-.protocol-compose-description .protocol-compose-description-shell > textarea.is-under-min,
-.protocol-compose-description .protocol-compose-description-shell > textarea.is-invalid-chars,
+.protocol-compose-description
+  .protocol-compose-description-shell
+  > textarea.has-counter,
+.protocol-compose-description
+  .protocol-compose-description-shell
+  > textarea.is-under-min,
+.protocol-compose-description
+  .protocol-compose-description-shell
+  > textarea.is-invalid-chars,
 .protocol-compose-description:focus-within
   .protocol-compose-description-shell
   > textarea {
@@ -36617,10 +36781,10 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   z-index: 85;
 }
 
-.os-app-screen:has(.messages-panel[data-keyboard='open'])
-  .os-app-screen-body {
+.os-app-screen:has(.messages-panel[data-keyboard='open']) .os-app-screen-body {
   padding-bottom: calc(
-    var(--messages-keyboard-lift, 0px) + var(--portfolio-dock-clearance, 4.75rem)
+    var(--messages-keyboard-lift, 0px) +
+      var(--portfolio-dock-clearance, 4.75rem)
   );
 }
 
@@ -36631,7 +36795,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   z-index: 85;
 }
 
-.os-app-screen:has(.drop-create-form[data-keyboard='open']) .os-app-screen-body {
+.os-app-screen:has(.drop-create-form[data-keyboard='open'])
+  .os-app-screen-body {
   padding-bottom: calc(
     var(--drop-create-keyboard-lift, 0px) + 3.25rem +
       env(safe-area-inset-bottom, 0px)
