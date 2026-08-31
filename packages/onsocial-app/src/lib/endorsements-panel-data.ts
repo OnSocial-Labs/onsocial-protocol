@@ -10,6 +10,8 @@ export type EndorsementPanelItem = EndorsementListItem & {
   targetName: string | null;
   targetAvatarUrl: string | null;
   mediaUrl: string | null;
+  /** Batch-loaded from social-spend; omit when the row is ledger-injected. */
+  supporterCount?: number;
 };
 
 export interface EndorsementsPanelResponse {

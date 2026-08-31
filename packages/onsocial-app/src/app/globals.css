@@ -32707,6 +32707,18 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
+  .endorsements-load-more-error {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    padding-bottom: 0.2rem;
+  }
+
+  .endorsements-load-more-error .endorsements-loading-more {
+    padding-bottom: 0;
+  }
+
   .endorsement-row-shimmer-name {
     width: 42%;
     height: 0.72rem;

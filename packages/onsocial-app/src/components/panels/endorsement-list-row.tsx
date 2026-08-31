@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { StandingIdentity, standingIdentityLabel } from '@onsocial/ui';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
@@ -14,11 +13,7 @@ import {
   resolveEndorsementDisplayMediaUrl,
 } from '@/lib/endorsement-media';
 import { portfolioPath } from '@/lib/overlay-routes';
-import {
-  fetchEndorsementSupportStats,
-  isEndorsementSpendTargetId,
-  resolveEndorsementSpendTargetId,
-} from '@/lib/social-spend-endorsement';
+import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
 
 interface EndorsementListRowProps {
   item: EndorsementPanelItem;
@@ -69,24 +64,7 @@ export function EndorsementListRow({
     target: item.target,
     topic: item.topic,
   });
-  const [supporterCount, setSupporterCount] = useState(0);
-
-  useEffect(() => {
-    if (!spendTargetId || !isEndorsementSpendTargetId(spendTargetId)) {
-      return;
-    }
-    let cancelled = false;
-    void fetchEndorsementSupportStats(spendTargetId)
-      .then((stats) => {
-        if (!cancelled) setSupporterCount(stats.supporterCount);
-      })
-      .catch(() => {
-        if (!cancelled) setSupporterCount(0);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [spendTargetId]);
+  const supporterCount = item.supporterCount ?? 0;
 
   const showSupport =
     canSupport &&

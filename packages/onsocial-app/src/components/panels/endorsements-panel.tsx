@@ -23,6 +23,7 @@ import {
 } from '@/components/panels/endorsement-support-sheet';
 import { DiscoverProfilesLink } from '@/components/panels/standing-discover-link';
 import { Divider, OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
@@ -137,6 +138,7 @@ export function EndorsementsPanel({
   initialMode = 'received',
 }: EndorsementsPanelProps) {
   const { accountId: viewerAccountId, isConnected, connect } = useAppWallet();
+  const { setTxResult } = useAppTransactionFeedback();
   const {
     viewerEndorsed,
     apiViewerEndorsed,
@@ -158,6 +160,7 @@ export function EndorsementsPanel({
   );
   const [loading, setLoading] = useState(() => !initial);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeSession, setComposeSession] = useState<ComposeSession | null>(
@@ -219,6 +222,7 @@ export function EndorsementsPanel({
     (next: EndorsementsMode) => {
       if (next === mode) return;
       setMode(next);
+      setLoadMoreError(null);
       replaceBrowserUrl(endorsementsPath(accountId, { mode: next }));
     },
     [accountId, mode]
@@ -280,6 +284,7 @@ export function EndorsementsPanel({
   const loadMore = useCallback(async () => {
     if (!data || loading || loadingMore || !hasMore) return;
     setLoadingMore(true);
+    setLoadMoreError(null);
     try {
       const page = await fetchEndorsementsModePage(
         accountId,
@@ -303,8 +308,12 @@ export function EndorsementsPanel({
               givenHasMore: page.hasMore,
             };
       });
-    } catch {
-      /* Keep prior list; user can retry by scrolling again. */
+    } catch (cause) {
+      setLoadMoreError(
+        cause instanceof Error
+          ? cause.message
+          : 'Could not load more endorsements.'
+      );
     } finally {
       setLoadingMore(false);
     }
@@ -322,7 +331,13 @@ export function EndorsementsPanel({
 
   useInfiniteScrollSentinel({
     sentinelRef: loadMoreRef,
-    enabled: hasMore && !loading && !loadingMore && !error && items.length > 0,
+    enabled:
+      hasMore &&
+      !loading &&
+      !loadingMore &&
+      !error &&
+      !loadMoreError &&
+      items.length > 0,
     onIntersect: () => {
       void loadMore();
     },
@@ -338,7 +353,14 @@ export function EndorsementsPanel({
   }
 
   function handleEndorseClick() {
-    if (endorseBlocked || endorsePending) return;
+    if (endorsePending) return;
+    if (endorseBlocked) {
+      setTxResult({
+        type: 'error',
+        msg: 'Endorsement is unavailable while a block is in place.',
+      });
+      return;
+    }
     openCompose({
       targetAccountId: accountId,
       targetName: profileName,
@@ -349,7 +371,14 @@ export function EndorsementsPanel({
   }
 
   function handleAddTopic() {
-    if (endorseBlocked || endorsePending) return;
+    if (endorsePending) return;
+    if (endorseBlocked) {
+      setTxResult({
+        type: 'error',
+        msg: 'Endorsement is unavailable while a block is in place.',
+      });
+      return;
+    }
     openCompose({
       targetAccountId: accountId,
       targetName: profileName,
@@ -425,7 +454,7 @@ export function EndorsementsPanel({
               <OsSheetAction
                 type="button"
                 ready={!endorseBlocked}
-                disabled={endorseBlocked}
+                disabled={endorsePending}
                 pending={endorsePending}
                 pendingLabel={
                   viewerEndorsed ? 'Updating…' : 'Endorsing…'
@@ -550,6 +579,17 @@ export function EndorsementsPanel({
           <div ref={loadMoreRef} className="endorsements-load-more" />
           {loadingMore ? (
             <p className="endorsements-loading-more">Loading more…</p>
+          ) : loadMoreError ? (
+            <div className="endorsements-load-more-error">
+              <p className="endorsements-loading-more">{loadMoreError}</p>
+              <button
+                type="button"
+                className="endorsements-retry"
+                onClick={() => void loadMore()}
+              >
+                Retry
+              </button>
+            </div>
           ) : null}
         </div>
       )}
