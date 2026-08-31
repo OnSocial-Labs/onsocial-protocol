@@ -34,7 +34,8 @@ export function tokenCreateSteps(includeLock: boolean): TokenCreateStep[] {
 
 /**
  * Honest batch progress: one in-flight circle while the single tx is
- * pending. NEAR does not report live per-action pulses.
+ * pending. NEAR does not report live per-action pulses — and on error the
+ * whole batch reverted, so no step is marked failed individually.
  */
 export function resolveTokenCreateStepStates(
   phase: TokenCreatePhase,
@@ -46,15 +47,10 @@ export function resolveTokenCreateStepStates(
       return { ...step, state: 'done' };
     }
     if (phase === 'error') {
-      return {
-        ...step,
-        state: index === 0 ? 'failed' : 'idle',
-      };
+      // Atomic batch: nothing committed — no per-step blame.
+      return { ...step, state: 'idle' };
     }
-    if (
-      (phase === 'signing' || phase === 'confirming') &&
-      index === 0
-    ) {
+    if ((phase === 'signing' || phase === 'confirming') && index === 0) {
       return { ...step, state: 'spinning' };
     }
     return { ...step, state: 'idle' };

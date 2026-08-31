@@ -484,6 +484,12 @@ export function LiveGuildPanel({
   );
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
   seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
+  // Repost rows render (and act on) the original post — engagement and poll
+  // tallies both key on the original, so both hooks need the expanded list.
+  const engagementPosts = useMemo(
+    () => withRepostOriginals(feedPosts, quotedPosts),
+    [feedPosts, quotedPosts]
+  );
   const {
     engagement,
     toggleReaction,
@@ -495,19 +501,12 @@ export function LiveGuildPanel({
     confirmAmplify,
     confirmRepost,
     confirmUnrepost,
-  } = usePostEngagement(
-    // Repost rows render (and act on) the original post — fetch its stats too.
-    useMemo(
-      () => withRepostOriginals(feedPosts, quotedPosts),
-      [feedPosts, quotedPosts]
-    ),
-    {
-      initial: initial?.engagement ?? null,
-      onError: (message) => setTxResult({ type: 'error', msg: message }),
-    }
-  );
+  } = usePostEngagement(engagementPosts, {
+    initial: initial?.engagement ?? null,
+    onError: (message) => setTxResult({ type: 'error', msg: message }),
+  });
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
-    feedPosts,
+    engagementPosts,
     {
       onError: (message) => setTxResult({ type: 'error', msg: message }),
     }
@@ -1606,8 +1605,7 @@ export function LiveGuildPanel({
   const { startReply, clearReply } = useFeedReplyWriteDock({
     enabled: Boolean(canCompose),
     sheetOpen: Boolean(composer),
-    authorNameFor: (accountId) =>
-      postAuthorProfiles[accountId]?.displayName,
+    authorNameFor: (accountId) => postAuthorProfiles[accountId]?.displayName,
     onExpand: openFullReply,
     onConfirmed: (reply) => {
       setLocalPosts((current) => {

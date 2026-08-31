@@ -27,16 +27,17 @@ import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useQuotedPosts } from '@/hooks/use-quoted-posts';
 import type { AmplifySuccessDetail } from '@/lib/amplify-heat';
 import { coalesceFeedThreads } from '@/lib/feed-threads';
-import { withRepostOriginals, collectRelationTargetAccountIds } from '@/lib/post-relation';
+import {
+  withRepostOriginals,
+  collectRelationTargetAccountIds,
+} from '@/lib/post-relation';
 
 interface PersonalFeedListProps {
   posts: PostRow[];
   onReply?: (post: PostRow) => void;
   onExpandReply?: (post: PostRow, draft: WriteDockSubmit) => void;
   onQuote?: (post: PostRow) => void;
-  onRepost?: (
-    post: PostRow
-  ) => void | Promise<PersonalPostSubmitResult | void>;
+  onRepost?: (post: PostRow) => void | Promise<PersonalPostSubmitResult | void>;
   onUndoRepost?: (
     post: PostRow,
     viewerRepost: { postId: string; groupId?: string | null }
@@ -118,6 +119,12 @@ export function PersonalFeedList({
 
   const postAuthorProfiles = usePostAuthorProfiles(authorIds);
   const guildNameById = useGuildDisplayNames(guildIds);
+  // Repost rows render (and act on) the original post — engagement and poll
+  // tallies both key on the original, so both hooks need the expanded list.
+  const engagementPosts = useMemo(
+    () => withRepostOriginals(posts, quotedPosts),
+    [posts, quotedPosts]
+  );
   const {
     engagement,
     toggleReaction,
@@ -130,17 +137,16 @@ export function PersonalFeedList({
     confirmRepost,
     confirmUnrepost,
     confirmReply,
-  } = usePostEngagement(
-    // Repost rows render (and act on) the original post — fetch its stats too.
-    useMemo(() => withRepostOriginals(posts, quotedPosts), [posts, quotedPosts]),
+  } = usePostEngagement(engagementPosts, {
+    initial: initialEngagement,
+    onError: onEngagementError,
+  });
+  const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
+    engagementPosts,
     {
-      initial: initialEngagement,
       onError: onEngagementError,
     }
   );
-  const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(posts, {
-    onError: onEngagementError,
-  });
 
   useEffect(() => {
     return subscribePersonalReplyConfirmed(({ parent }) => {
@@ -152,82 +158,84 @@ export function PersonalFeedList({
 
   return (
     <div className={className ?? 'home-feed-list'}>
-      {feedBlocks.map(({ posts, standingPeek, standingCoilTail }, blockIndex) => (
-        <div key={postKey(posts[0]!)}>
-          <Divider
-            variant="item"
-            className={
-              blockIndex > 0
-                ? 'post-row-divider'
-                : 'post-row-divider post-row-divider--leading-hidden'
-            }
-          />
-          <FeedThreadBlock
-            block={posts}
-            standingPeek={standingPeek}
-            standingCoilTail={standingCoilTail}
-            postAuthorProfiles={postAuthorProfiles}
-            quotedPosts={quotedPosts}
-            engagement={engagement}
-            isReactionPending={isReactionPending}
-            isSavePending={isSavePending}
-            isSharePending={isSharePending}
-            onToggleReaction={toggleReaction}
-            onToggleSave={toggleSave}
-            onAmplifyConfirmed={(post, detail: PostAmplifySuccessDetail) => {
-              const previous = engagement[postKey(post)];
-              confirmAmplify(post);
-              onAmplified?.(post, {
-                ...detail,
-                isRepeatFromViewer: Boolean(previous?.viewerAmplified),
-              });
-            }}
-            pollTallyFor={pollTallyFor}
-            isPollVotePending={isPollVotePending}
-            onPollVote={(post, optionIndex) => {
-              void castVote(post, optionIndex);
-            }}
-            onReply={onReply}
-            onExpandReply={onExpandReply}
-            onQuote={onQuote}
-            onRepost={
-              onRepost
-                ? (post) => {
-                    void withSharePending(post, async () => {
-                      const result = await onRepost(post);
-                      if (result?.confirmed && result.optimisticPost) {
-                        confirmRepost(post, {
-                          postId: result.optimisticPost.postId,
-                          groupId: result.optimisticPost.groupId,
-                        });
-                      }
-                      return result;
-                    });
-                  }
-                : undefined
-            }
-            onUndoRepost={
-              onUndoRepost
-                ? (post) => {
-                    const viewer = engagement[postKey(post)];
-                    const viewerRepostId = viewer?.viewerRepostId;
-                    if (!viewerRepostId) return;
-                    void withSharePending(post, async () => {
-                      const result = await onUndoRepost(post, {
-                        postId: viewerRepostId,
-                        groupId: viewer.viewerRepostGroupId,
+      {feedBlocks.map(
+        ({ posts, standingPeek, standingCoilTail }, blockIndex) => (
+          <div key={postKey(posts[0]!)}>
+            <Divider
+              variant="item"
+              className={
+                blockIndex > 0
+                  ? 'post-row-divider'
+                  : 'post-row-divider post-row-divider--leading-hidden'
+              }
+            />
+            <FeedThreadBlock
+              block={posts}
+              standingPeek={standingPeek}
+              standingCoilTail={standingCoilTail}
+              postAuthorProfiles={postAuthorProfiles}
+              quotedPosts={quotedPosts}
+              engagement={engagement}
+              isReactionPending={isReactionPending}
+              isSavePending={isSavePending}
+              isSharePending={isSharePending}
+              onToggleReaction={toggleReaction}
+              onToggleSave={toggleSave}
+              onAmplifyConfirmed={(post, detail: PostAmplifySuccessDetail) => {
+                const previous = engagement[postKey(post)];
+                confirmAmplify(post);
+                onAmplified?.(post, {
+                  ...detail,
+                  isRepeatFromViewer: Boolean(previous?.viewerAmplified),
+                });
+              }}
+              pollTallyFor={pollTallyFor}
+              isPollVotePending={isPollVotePending}
+              onPollVote={(post, optionIndex) => {
+                void castVote(post, optionIndex);
+              }}
+              onReply={onReply}
+              onExpandReply={onExpandReply}
+              onQuote={onQuote}
+              onRepost={
+                onRepost
+                  ? (post) => {
+                      void withSharePending(post, async () => {
+                        const result = await onRepost(post);
+                        if (result?.confirmed && result.optimisticPost) {
+                          confirmRepost(post, {
+                            postId: result.optimisticPost.postId,
+                            groupId: result.optimisticPost.groupId,
+                          });
+                        }
+                        return result;
                       });
-                      if (result?.confirmed) confirmUnrepost(post);
-                      return result;
-                    });
-                  }
-                : undefined
-            }
-            showGuildAttribution={showGuildAttribution}
-            guildNameById={guildNameById}
-          />
-        </div>
-      ))}
+                    }
+                  : undefined
+              }
+              onUndoRepost={
+                onUndoRepost
+                  ? (post) => {
+                      const viewer = engagement[postKey(post)];
+                      const viewerRepostId = viewer?.viewerRepostId;
+                      if (!viewerRepostId) return;
+                      void withSharePending(post, async () => {
+                        const result = await onUndoRepost(post, {
+                          postId: viewerRepostId,
+                          groupId: viewer.viewerRepostGroupId,
+                        });
+                        if (result?.confirmed) confirmUnrepost(post);
+                        return result;
+                      });
+                    }
+                  : undefined
+              }
+              showGuildAttribution={showGuildAttribution}
+              guildNameById={guildNameById}
+            />
+          </div>
+        )
+      )}
     </div>
   );
 }

@@ -10,7 +10,11 @@ import {
   getFtContractAccountError,
   getFtParentAccountError,
   getFtSubaccountLabelError,
+  getFtSupplyError,
+  normalizeFtName,
   normalizeFtSubaccountLabel,
+  normalizeFtSupplyInput,
+  normalizeFtSymbol,
   parseFtSupplySmallest,
 } from '@/lib/app-create-token';
 import { resolveFtTemplateIdentifier } from '@/lib/app-ft-template-config';
@@ -59,6 +63,28 @@ describe('app-create-token', () => {
     expect(parseFtSupplySmallest('')).toBeNull();
   });
 
+  it('sanitizes symbols to uppercase alphanumerics', () => {
+    expect(normalizeFtSymbol('cool')).toBe('COOL');
+    expect(normalizeFtSymbol('c o🚀l')).toBe('COL');
+    expect(normalizeFtSymbol('$cool!')).toBe('COOL');
+    expect(normalizeFtSymbol('')).toBe('');
+  });
+
+  it('sanitizes names and supply while typing', () => {
+    expect(normalizeFtName('Cool\x07Token')).toBe('CoolToken');
+    expect(normalizeFtSupplyInput('1000000')).toBe('1000000');
+    expect(normalizeFtSupplyInput('abc12x3')).toBe('123');
+    expect(normalizeFtSupplyInput('10000000000000000')).toBe('1000000000000000');
+  });
+
+  it('caps supply below the u128 overflow line with specific copy', () => {
+    expect(getFtSupplyError('1000000')).toBe('');
+    expect(getFtSupplyError('0')).toMatch(/greater than zero/i);
+    expect(getFtSupplyError('abc')).toMatch(/greater than zero/i);
+    // 10 quadrillion tokens > 1 quadrillion cap.
+    expect(getFtSupplyError('10000000000000000')).toMatch(/too large/i);
+  });
+
   it('builds a small default icon', () => {
     const icon = defaultFtIconDataUrl('ab');
     expect(icon.startsWith('data:image/svg+xml,')).toBe(true);
@@ -70,7 +96,9 @@ describe('app-create-token', () => {
     expect(getFtIconError('')).toMatch(/icon/i);
     expect(getFtIconError('https://cdn.example/icon.png')).toMatch(/png/i);
     expect(
-      getFtIconError(`data:image/png;base64,${'A'.repeat(FT_ICON_MAX_DATA_URL)}`)
+      getFtIconError(
+        `data:image/png;base64,${'A'.repeat(FT_ICON_MAX_DATA_URL)}`
+      )
     ).toMatch(/smaller/i);
   });
 
@@ -98,15 +126,18 @@ describe('token create step thread', () => {
     ]);
   });
 
-  it('fills every step on success and marks the first failed on error', () => {
+  it('fills every step on success and blames none on error (atomic batch)', () => {
     expect(
       resolveTokenCreateStepStates('success', false).every(
         (step) => step.state === 'done'
       )
     ).toBe(true);
-    expect(resolveTokenCreateStepStates('error', false)[0]?.state).toBe(
-      'failed'
-    );
+    // Atomic revert — no per-step failure marker.
+    expect(
+      resolveTokenCreateStepStates('error', false).every(
+        (step) => step.state === 'idle'
+      )
+    ).toBe(true);
   });
 
   it('omits lock unless the creator chose it', () => {

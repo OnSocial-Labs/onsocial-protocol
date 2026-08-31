@@ -37243,6 +37243,31 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   pointer-events: none;
 }
 
+.token-create-contract-id {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgb(var(--fg-rgb) / 0.12);
+  border-radius: 0.85rem;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: rgb(var(--fg-rgb) / 0.82);
+  background: rgb(var(--fg-rgb) / 0.04);
+  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+  word-break: break-all;
+}
+
+.token-create-contract-id.is-available {
+  box-shadow: inset 0 1px 0 var(--protocol-green);
+}
+
+.token-create-contract-id.is-taken {
+  box-shadow: inset 0 1px 0 var(--protocol-red);
+}
+
+.token-create-contract-id.is-checking {
+  opacity: 0.72;
+}
+
 .token-create-note {
   margin: 0;
   font-size: 0.78rem;

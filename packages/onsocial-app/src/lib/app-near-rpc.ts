@@ -8,6 +8,7 @@ import {
   createConfiguredNearRpc,
   resolveNearRpcBffEndpoint,
   type NearRpc,
+  type NearRpcResponse,
 } from '@onsocial/rpc';
 
 const NEAR_DECIMALS = 24;
@@ -63,6 +64,23 @@ async function nearRpcCall<T>(method: string, params: unknown): Promise<T> {
     throw new Error('NEAR RPC returned no result');
   }
   return response.result;
+}
+
+function isNearUnknownAccountError(
+  error: NonNullable<NearRpcResponse['error']>
+): boolean {
+  if (error.cause?.name === 'UNKNOWN_ACCOUNT') return true;
+  const blob = [
+    error.message,
+    typeof error.data === 'string' ? error.data : '',
+  ]
+    .join(' ')
+    .toLowerCase();
+  return (
+    blob.includes('does not exist') ||
+    blob.includes('unknown account') ||
+    blob.includes('account not found')
+  );
 }
 
 function maxYocto(value: bigint): string {
@@ -154,11 +172,23 @@ export function getSpendableNearBalance(account: NearAccountView | null): string
 export async function viewAccount(
   accountId: string
 ): Promise<NearAccountView | null> {
-  return nearRpcCall<NearAccountView>('query', {
+  const response = await getRpc().call<NearAccountView>('query', {
     request_type: 'view_account',
     finality: 'final',
     account_id: accountId,
   });
+  if (response.error) {
+    if (isNearUnknownAccountError(response.error)) return null;
+    const data =
+      typeof response.error.data === 'string' ? response.error.data : '';
+    throw new Error(
+      data ? `${response.error.message}: ${data}` : response.error.message
+    );
+  }
+  if (response.result === undefined) {
+    throw new Error('NEAR RPC returned no result');
+  }
+  return response.result;
 }
 
 /** Normalize `ft_balance_of` view output (string or NEAR U128 `{ "0": "…" }`). */

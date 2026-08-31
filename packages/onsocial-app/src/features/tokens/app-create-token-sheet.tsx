@@ -11,9 +11,13 @@ import {
   type FormEvent,
 } from 'react';
 import {
+  InfoDrawer,
+  InformationCircleIcon,
   OsHugSheet,
+  OsIconAction,
   OsSheetAction,
   OsSheetActions,
+  SheetCloseButton,
   TokenIcon,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
@@ -26,12 +30,15 @@ import {
   defaultFtIconDataUrl,
   FT_ICON_ACCEPT,
   FT_NAME_MAX,
-  FT_SUBACCOUNT_MAX,
   FT_SYMBOL_MAX,
   getFtContractAccountError,
   getFtIconError,
   getFtParentAccountError,
+  getFtSupplyError,
+  normalizeFtName,
   normalizeFtSubaccountLabel,
+  normalizeFtSupplyInput,
+  normalizeFtSymbol,
   parseFtSupplySmallest,
 } from '@/lib/app-create-token';
 import { sendCreateUserTokenTransaction } from '@/lib/app-create-token-transactions';
@@ -51,6 +58,11 @@ function fieldId(name: string) {
   return `token-create-${name}`;
 }
 
+const TOKEN_CREATE_INFO_TITLE = 'Creator token';
+const TOKEN_CREATE_INFO_SUMMARY = `${FT_CREATE_FUND_NEAR} NEAR · your own token under your wallet.`;
+const TOKEN_CREATE_INFO_DETAIL =
+  'Name, symbol, and supply are permanent. Contract id comes from the name — e.g. cool.you.testnet. One batch: create account, fund, deploy contract, mint to you. You can change the icon later. Lock admin freezes name and icon forever.';
+
 export function AppCreateTokenSheet({
   open,
   panelStyle,
@@ -69,11 +81,10 @@ export function AppCreateTokenSheet({
   const [name, setName] = useState('');
   const [symbol, setSymbol] = useState('');
   const [supply, setSupply] = useState('1000000');
-  const [subaccount, setSubaccount] = useState('');
-  const [subaccountTouched, setSubaccountTouched] = useState(false);
   const [renounceOwner, setRenounceOwner] = useState(false);
   const [customIcon, setCustomIcon] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const iconInputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<TokenCreatePhase>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -86,12 +97,10 @@ export function AppCreateTokenSheet({
     if (open) setClosing(false);
   }
 
-  const derivedSubaccount = useMemo(() => {
-    if (subaccountTouched) {
-      return normalizeFtSubaccountLabel(subaccount);
-    }
-    return normalizeFtSubaccountLabel(symbol || name);
-  }, [subaccount, symbol, name, subaccountTouched]);
+  const derivedSubaccount = useMemo(
+    () => normalizeFtSubaccountLabel(name || symbol),
+    [name, symbol]
+  );
 
   const contractId = useMemo(
     () =>
@@ -107,24 +116,30 @@ export function AppCreateTokenSheet({
     parentError || accountError ? '' : contractId
   );
   const supplySmallest = parseFtSupplySmallest(supply);
+  const supplyError = getFtSupplyError(supply);
+  // Fail closed: Available + submit only after the probe confirms the id is
+  // not on-chain ('missing'). A failed/uncertain probe stays 'checking'.
   const accountTaken = accountStatus === 'found';
-  const accountChecking = accountStatus === 'checking';
+  const accountAvailable = accountStatus === 'missing';
+  const accountChecking =
+    accountStatus === 'checking' ||
+    (accountStatus === 'idle' && Boolean(contractId) && !accountError);
   const accountFieldClass = accountTaken
     ? 'is-taken'
-    : accountChecking
-      ? 'is-checking'
-      : contractId && !accountError
-        ? 'is-available'
+    : accountAvailable
+      ? 'is-available'
+      : accountChecking
+        ? 'is-checking'
         : undefined;
   const accountLead = accountTaken
     ? 'Taken'
-    : accountChecking
-      ? 'Checking'
+    : accountAvailable
+      ? 'Available'
       : accountError && !parentError
         ? accountError
-        : contractId
-          ? 'Available'
-          : 'Your account';
+        : accountChecking
+          ? 'Checking'
+          : 'Under your wallet';
 
   const formReady =
     isConnected &&
@@ -132,9 +147,9 @@ export function AppCreateTokenSheet({
     name.trim().length >= 2 &&
     symbol.trim().length >= 1 &&
     Boolean(supplySmallest) &&
+    !supplyError &&
     !accountError &&
-    !accountTaken &&
-    !accountChecking;
+    accountAvailable;
   const waitingTemplate = templateReady === null && formReady;
   const canSubmit = formReady && !pending && templateReady === true;
 
@@ -170,13 +185,14 @@ export function AppCreateTokenSheet({
     };
   }, [open]);
 
+  // Reset on OPEN, not close: an async submit can settle after the sheet
+  // closes (token still remembered on-chain), and reopening must never show
+  // a stale success/error phase from that completion.
   useEffect(() => {
-    if (open) return;
+    if (!open) return;
     setName('');
     setSymbol('');
     setSupply('1000000');
-    setSubaccount('');
-    setSubaccountTouched(false);
     setRenounceOwner(false);
     setCustomIcon(null);
     setPending(false);
@@ -187,6 +203,9 @@ export function AppCreateTokenSheet({
   const requestClose = useCallback(() => {
     setClosing(true);
   }, []);
+
+  const openRef = useRef(open);
+  openRef.current = open;
 
   const handleClosed = useCallback(() => {
     setClosing(false);
@@ -233,11 +252,15 @@ export function AppCreateTokenSheet({
         return;
       }
       if (accountTaken) {
-        setError('That account already exists — pick another name.');
+        setError('That name is taken — try another.');
         return;
       }
-      if (!supplySmallest) {
-        setError('Enter a total supply greater than zero.');
+      if (!accountAvailable) {
+        setError('Still checking that account — try again in a moment.');
+        return;
+      }
+      if (!supplySmallest || supplyError) {
+        setError(supplyError || 'Enter a total supply greater than zero.');
         return;
       }
       const tokenName = name.trim();
@@ -286,6 +309,9 @@ export function AppCreateTokenSheet({
             renounced: renounceOwner,
             icon,
           });
+          // Sheet may have closed mid-flight — the token is still remembered,
+          // but don't drive UI (phase / close) for a sheet that is gone.
+          if (!openRef.current) return;
           setPhase('success');
           onCreated?.();
           requestClose();
@@ -299,7 +325,9 @@ export function AppCreateTokenSheet({
           return;
         }
         const message =
-          cause instanceof Error ? cause.message : txToastError.tokenCreateFailed;
+          cause instanceof Error
+            ? cause.message
+            : txToastError.tokenCreateFailed;
         setError(message);
         setTxResult({
           type: 'error',
@@ -310,6 +338,7 @@ export function AppCreateTokenSheet({
       }
     },
     [
+      accountAvailable,
       accountError,
       accountId,
       accountTaken,
@@ -325,6 +354,7 @@ export function AppCreateTokenSheet({
       requestClose,
       setTxResult,
       supplySmallest,
+      supplyError,
       symbol,
       templateDetail,
       templateReady,
@@ -333,19 +363,35 @@ export function AppCreateTokenSheet({
   );
 
   return (
-    <OsHugSheet
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleClosed}
-      label="Create token"
-      copy={`${FT_CREATE_FUND_NEAR} NEAR`}
-      closeAriaLabel="Close"
-      backdropLabel="Close create token"
-      zIndex={SHEET_Z.nested}
-      panelClassName="account-storage-panel os-sheet-cap-tall"
-      bodyClassName="account-storage-body"
-      {...(panelStyle ? { panelStyle } : {})}
-    >
+    <>
+      <OsHugSheet
+        open={sheetOpen}
+        onClose={requestClose}
+        onClosed={handleClosed}
+        label="Create token"
+        copy={`Your creator token · ${FT_CREATE_FUND_NEAR} NEAR`}
+        closeAriaLabel="Close"
+        backdropLabel="Close create token"
+        zIndex={SHEET_Z.nested}
+        panelClassName="account-storage-panel os-sheet-cap-tall"
+        bodyClassName="account-storage-body"
+        headerActions={
+          <div className="standing-sheet-actions">
+            <OsIconAction
+              ariaLabel="About creator tokens"
+              onClick={() => setInfoOpen(true)}
+              disabled={pending}
+            >
+              <InformationCircleIcon
+                className="glass-sheet-close-icon"
+                aria-hidden
+              />
+            </OsIconAction>
+            <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
+          </div>
+        }
+        {...(panelStyle ? { panelStyle } : {})}
+      >
       <form
         className="app-storage-sheet token-create-form"
         onSubmit={(event) => void handleSubmit(event)}
@@ -386,7 +432,9 @@ export function AppCreateTokenSheet({
             <input
               id={fieldId('name')}
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) =>
+                setName(normalizeFtName(event.target.value))
+              }
               placeholder="Cool Token"
               maxLength={FT_NAME_MAX}
               disabled={pending}
@@ -401,7 +449,9 @@ export function AppCreateTokenSheet({
           <input
             id={fieldId('symbol')}
             value={symbol}
-            onChange={(event) => setSymbol(event.target.value.toUpperCase())}
+            onChange={(event) =>
+              setSymbol(normalizeFtSymbol(event.target.value))
+            }
             placeholder="COOL"
             maxLength={FT_SYMBOL_MAX}
             disabled={pending}
@@ -418,40 +468,30 @@ export function AppCreateTokenSheet({
           <input
             id={fieldId('supply')}
             value={supply}
-            onChange={(event) => setSupply(event.target.value)}
-            inputMode="decimal"
+            onChange={(event) =>
+              setSupply(normalizeFtSupplyInput(event.target.value))
+            }
+            inputMode="numeric"
             disabled={pending}
             className={osFieldBorderedClassName}
           />
-          <small>Minted to you</small>
+          <small>{supply.trim() ? 'Minted to you' : 'Enter total supply'}</small>
         </label>
 
-        <label className="guild-field" htmlFor={fieldId('id')}>
-          <span>Account</span>
-          <input
-            id={fieldId('id')}
-            value={subaccountTouched ? subaccount : derivedSubaccount}
-            onChange={(event) => {
-              setSubaccountTouched(true);
-              setSubaccount(event.target.value);
-            }}
-            placeholder="cool"
-            maxLength={FT_SUBACCOUNT_MAX}
-            disabled={pending}
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            autoComplete="off"
-            aria-invalid={accountTaken}
-            className={`${osFieldBorderedClassName}${
+        <div className="guild-field" role="status">
+          <span>Contract</span>
+          <p
+            className={`token-create-contract-id dao-create-mono${
               accountFieldClass ? ` ${accountFieldClass}` : ''
             }`}
-          />
-          <small className={accountFieldClass}>
-            {accountLead}
-            {contractId ? ` · ${contractId}` : ''}
-          </small>
-        </label>
+          >
+            {contractId ||
+              (accountId
+                ? `${derivedSubaccount || '…'}.${accountId}`
+                : '…')}
+          </p>
+          <small className={accountFieldClass}>{accountLead}</small>
+        </div>
 
         <label className="dao-create-toggle">
           <input
@@ -462,11 +502,13 @@ export function AppCreateTokenSheet({
           />
           <span>
             Lock admin
-            <small>Name and icon stay as they are.</small>
+            <small>Freeze name and icon forever.</small>
           </span>
         </label>
 
-        <TokenCreateStepThread phase={phase} includeLock={renounceOwner} />
+        {phase !== 'idle' ? (
+          <TokenCreateStepThread phase={phase} includeLock={renounceOwner} />
+        ) : null}
 
         {error ? (
           <p className="token-create-note is-warn" role="alert">
@@ -492,6 +534,15 @@ export function AppCreateTokenSheet({
           </OsSheetAction>
         </OsSheetActions>
       </form>
-    </OsHugSheet>
+      </OsHugSheet>
+      <InfoDrawer
+        open={infoOpen}
+        onClose={() => setInfoOpen(false)}
+        title={TOKEN_CREATE_INFO_TITLE}
+        summary={TOKEN_CREATE_INFO_SUMMARY}
+        detail={TOKEN_CREATE_INFO_DETAIL}
+        zIndex={SHEET_Z.nestedConfirm}
+      />
+    </>
   );
 }

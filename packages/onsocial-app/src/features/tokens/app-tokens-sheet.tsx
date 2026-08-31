@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import {
   OsHugSheet,
   OsSheetAction,
@@ -14,6 +14,7 @@ import { AppManageTokenSheet } from '@/features/tokens/app-manage-token-sheet';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
   listUserCreatedTokens,
+  reconcileUserCreatedTokens,
   type UserCreatedTokenRecord,
 } from '@/lib/user-created-tokens';
 
@@ -31,8 +32,9 @@ export function AppTokensSheet({
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const [createOpen, setCreateOpen] = useState(false);
-  const [manageToken, setManageToken] =
-    useState<UserCreatedTokenRecord | null>(null);
+  const [manageToken, setManageToken] = useState<UserCreatedTokenRecord | null>(
+    null
+  );
   const [tokens, setTokens] = useState<UserCreatedTokenRecord[]>(() =>
     listUserCreatedTokens(accountId)
   );
@@ -52,6 +54,19 @@ export function AppTokensSheet({
     setTokensAccountId(accountId);
     setTokens(listUserCreatedTokens(accountId));
   }
+
+  // Self-heal the local ledger against the chain when the sheet opens —
+  // drops tokens whose contract is gone, refreshes renamed/reiconed ones.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void reconcileUserCreatedTokens(accountId).then((next) => {
+      if (!cancelled) setTokens(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, accountId]);
 
   const requestClose = useCallback(() => {
     setCreateOpen(false);

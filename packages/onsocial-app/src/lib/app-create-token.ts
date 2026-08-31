@@ -1,3 +1,4 @@
+import { normalizeAmountInput } from '@onsocial/ui';
 import {
   isNearNamedAccountComplete,
   isValidNearAccountId,
@@ -90,6 +91,48 @@ export function parseFtSupplySmallest(input: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** 1 quadrillion tokens — generous cap that keeps smallest units inside u128. */
+export const FT_SUPPLY_MAX_TOKENS = 1_000_000_000_000_000n;
+
+/**
+ * Supply validation with specific copy. Over-cap supplies would panic the
+ * contract's U128 arg parse on-chain — catch them at the form instead.
+ */
+export function getFtSupplyError(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+  const smallest = parseFtSupplySmallest(trimmed);
+  if (!smallest) return 'Enter a total supply greater than zero.';
+  try {
+    const cap = FT_SUPPLY_MAX_TOKENS * 10n ** BigInt(FT_TOKEN_DECIMALS);
+    if (BigInt(smallest) > cap) return 'Supply is too large.';
+  } catch {
+    return 'Enter a valid supply.';
+  }
+  return '';
+}
+
+/** Tickers are uppercase letters/numbers only — no emoji, spaces, punctuation. */
+export function normalizeFtSymbol(value: string): string {
+  return value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, FT_SYMBOL_MAX);
+}
+
+/** Display name — strip control chars; spaces and unicode stay. */
+export function normalizeFtName(value: string): string {
+  return value.replace(/[\u0000-\u001F\u007F]/g, '').slice(0, FT_NAME_MAX);
+}
+
+/** Whole-token supply while typing — digits only, capped below u128 overflow. */
+export function normalizeFtSupplyInput(value: string): string {
+  const digits = normalizeAmountInput(value, 0);
+  if (!digits) return '';
+  const maxDigits = String(FT_SUPPLY_MAX_TOKENS).length;
+  return digits.length > maxDigits ? digits.slice(0, maxDigits) : digits;
 }
 
 /** On-chain icon lives in metadata — keep the data URL tiny. */
