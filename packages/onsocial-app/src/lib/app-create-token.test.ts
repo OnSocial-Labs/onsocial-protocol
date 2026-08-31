@@ -17,7 +17,10 @@ import {
   normalizeFtSymbol,
   parseFtSupplySmallest,
 } from '@/lib/app-create-token';
-import { resolveFtTemplateIdentifier } from '@/lib/app-ft-template-config';
+import {
+  resolveFtTemplateIdentifier,
+  TESTNET_FT_TEMPLATE_CODE_HASH,
+} from '@/lib/app-ft-template-config';
 import { resolveTokenCreateStepStates } from '@/lib/token-create-steps';
 
 const NAMED_PARENT =
@@ -109,8 +112,16 @@ describe('app-create-token', () => {
     expect(isFtAdminFor(NAMED_PARENT, 'other.testnet')).toBe(false);
   });
 
-  it('does not silently resolve an unpublished SOCIAL fallback', () => {
-    expect(resolveFtTemplateIdentifier()).toBeNull();
+  it('uses the onsocial.testnet hash-mode publish on testnet, not SOCIAL', () => {
+    if (ACTIVE_NEAR_NETWORK !== 'testnet') {
+      expect(resolveFtTemplateIdentifier()).toBeNull();
+      return;
+    }
+    expect(resolveFtTemplateIdentifier()).toEqual({
+      kind: 'codeHash',
+      codeHash: TESTNET_FT_TEMPLATE_CODE_HASH,
+    });
+    expect(TESTNET_FT_TEMPLATE_CODE_HASH).not.toMatch(/token\.onsocial/);
   });
 });
 
