@@ -9,12 +9,15 @@ import {
   OsSurfaceRowList,
   TokenIcon,
 } from '@onsocial/ui';
+import { AppAddTokenSheet } from '@/features/tokens/app-add-token-sheet';
 import { AppCreateTokenSheet } from '@/features/tokens/app-create-token-sheet';
 import { AppManageTokenSheet } from '@/features/tokens/app-manage-token-sheet';
+import { fetchDiscoveredCreatorTokens } from '@/lib/fetch-discovered-tokens';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
   listUserCreatedTokens,
   reconcileUserCreatedTokens,
+  rememberDiscoveredTokens,
   type UserCreatedTokenRecord,
 } from '@/lib/user-created-tokens';
 
@@ -32,6 +35,8 @@ export function AppTokensSheet({
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const [createOpen, setCreateOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
   const [manageToken, setManageToken] = useState<UserCreatedTokenRecord | null>(
     null
   );
@@ -46,8 +51,10 @@ export function AppTokensSheet({
     if (open) {
       setClosing(false);
       setCreateOpen(false);
+      setAddOpen(false);
       setManageToken(null);
       setTokens(listUserCreatedTokens(accountId));
+      setDiscovering(true);
     }
   }
   if (tokensAccountId !== accountId) {
@@ -55,14 +62,26 @@ export function AppTokensSheet({
     setTokens(listUserCreatedTokens(accountId));
   }
 
-  // Self-heal the local ledger against the chain when the sheet opens —
-  // drops tokens whose contract is gone, refreshes renamed/reiconed ones.
+  // Self-heal the local ledger, then recover tokens they already created.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    void reconcileUserCreatedTokens(accountId).then((next) => {
-      if (!cancelled) setTokens(next);
-    });
+    void reconcileUserCreatedTokens(accountId)
+      .then(async (reconciled) => {
+        if (!cancelled) setTokens(reconciled);
+        const discovered = await fetchDiscoveredCreatorTokens(accountId).catch(
+          () => []
+        );
+        if (cancelled) return;
+        if (discovered.length === 0) {
+          setTokens(listUserCreatedTokens(accountId));
+          return;
+        }
+        setTokens(rememberDiscoveredTokens(accountId, discovered));
+      })
+      .finally(() => {
+        if (!cancelled) setDiscovering(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -70,6 +89,7 @@ export function AppTokensSheet({
 
   const requestClose = useCallback(() => {
     setCreateOpen(false);
+    setAddOpen(false);
     setManageToken(null);
     setClosing(true);
   }, []);
@@ -77,6 +97,7 @@ export function AppTokensSheet({
   const handleClosed = useCallback(() => {
     setClosing(false);
     setCreateOpen(false);
+    setAddOpen(false);
     setManageToken(null);
     onClose();
   }, [onClose]);
@@ -98,7 +119,11 @@ export function AppTokensSheet({
       >
         <div className="app-storage-sheet">
           {tokens.length === 0 ? (
-            <p className="app-storage-meta">No tokens yet.</p>
+            <p className="app-storage-meta">
+              {discovering
+                ? 'Looking for tokens you already have.'
+                : 'No tokens yet.'}
+            </p>
           ) : (
             <OsSurfaceRowList
               className="app-tokens-list"
@@ -125,6 +150,15 @@ export function AppTokensSheet({
             </OsSurfaceRowList>
           )}
 
+          <OsSurfaceRowList aria-label="Add">
+            <OsSurfaceRow
+              label="Add existing"
+              description="A token you already have"
+              trailing="navigate"
+              onClick={() => setAddOpen(true)}
+            />
+          </OsSurfaceRowList>
+
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
             <OsSheetAction
               type="button"
@@ -142,6 +176,14 @@ export function AppTokensSheet({
         panelStyle={panelStyle}
         onClose={() => setCreateOpen(false)}
         onCreated={() => setTokens(listUserCreatedTokens(accountId))}
+      />
+
+      <AppAddTokenSheet
+        open={addOpen && open}
+        accountId={accountId}
+        panelStyle={panelStyle}
+        onClose={() => setAddOpen(false)}
+        onAdded={() => setTokens(listUserCreatedTokens(accountId))}
       />
 
       <AppManageTokenSheet

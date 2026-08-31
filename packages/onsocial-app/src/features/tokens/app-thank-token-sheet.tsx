@@ -34,6 +34,7 @@ import {
   normalizeThankRecipientId,
   normalizeThankRecipientIds,
   parseThankAmountSmallest,
+  resolveThankDecimals,
   resolveThankStorageDeposit,
   THANK_TOKEN_RECIPIENT_CAP,
   thankTotalSmallest,
@@ -138,8 +139,9 @@ export function AppThankTokenSheet({
     onClose();
   }, [onClose]);
 
-  const amountError = getThankAmountError(amount);
-  const amountSmallest = parseThankAmountSmallest(amount);
+  const decimals = resolveThankDecimals(token?.decimals);
+  const amountError = getThankAmountError(amount, decimals);
+  const amountSmallest = parseThankAmountSmallest(amount, decimals);
   const recipients = normalizeThankRecipientIds(selected, accountId);
   const recipientError = getThankRecipientError(selected, accountId);
   const pending = phase !== 'idle';
@@ -274,7 +276,7 @@ export function AppThankTokenSheet({
   const balanceLabel =
     balanceSmallest == null
       ? null
-      : `${formatThankAmount(balanceSmallest.toString())} ${token.symbol}`;
+      : `${formatThankAmount(balanceSmallest.toString(), decimals)} ${token.symbol}`;
 
   return (
     <OsHugSheet

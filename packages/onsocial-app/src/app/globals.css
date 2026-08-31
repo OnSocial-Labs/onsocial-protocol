@@ -24100,6 +24100,12 @@ a.os-surface-row {
     font-weight: 600;
   }
 
+  /* Add-existing: account exists. Not create's green "id is free". */
+  .guild-field small.is-found {
+    color: rgb(var(--fg-rgb) / 0.72);
+    font-weight: 600;
+  }
+
   .guild-field small.is-taken {
     color: var(--protocol-red);
     font-weight: 600;
@@ -24129,6 +24135,12 @@ a.os-surface-row {
   .token-create-form .guild-field > input.is-available:focus {
     background: transparent;
     box-shadow: inset 0 1px 0 var(--protocol-green);
+  }
+
+  .token-create-form .guild-field > input.is-found,
+  .token-create-form .guild-field > input.is-found:focus {
+    background: transparent;
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.28);
   }
 
   .drop-create-form .guild-field > input.is-taken,

@@ -8,6 +8,8 @@ export interface UserCreatedTokenRecord {
   createdAt: number;
   renounced: boolean;
   icon?: string;
+  /** NEP-141 decimals. Creator template is 18; added tokens may differ. */
+  decimals?: number;
 }
 
 const STORAGE_PREFIX = 'onsocial.app.user-tokens.';
@@ -58,11 +60,54 @@ export function rememberUserCreatedToken(
   record: UserCreatedTokenRecord
 ): void {
   if (typeof window === 'undefined' || !accountId.trim()) return;
-  const existing = listUserCreatedTokens(accountId).filter(
-    (row) => row.contractId !== record.contractId
-  );
-  existing.unshift(record);
-  writeUserCreatedTokens(accountId, existing);
+  const existing = listUserCreatedTokens(accountId);
+  const prior = existing.find((row) => row.contractId === record.contractId);
+  const nextRecord = {
+    ...prior,
+    ...record,
+    createdAt: prior?.createdAt ?? record.createdAt,
+  };
+  writeUserCreatedTokens(accountId, [
+    nextRecord,
+    ...existing.filter((row) => row.contractId !== record.contractId),
+  ]);
+}
+
+/** Merge recovered tokens without jumping existing rows to the top. */
+export function rememberDiscoveredTokens(
+  accountId: string,
+  records: UserCreatedTokenRecord[]
+): UserCreatedTokenRecord[] {
+  if (typeof window === 'undefined' || !accountId.trim()) {
+    return [];
+  }
+  const current = listUserCreatedTokens(accountId);
+  const byId = new Map(current.map((row) => [row.contractId, row]));
+  for (const record of records) {
+    const prior = byId.get(record.contractId);
+    byId.set(record.contractId, {
+      ...prior,
+      ...record,
+      createdAt: prior?.createdAt ?? record.createdAt,
+    });
+  }
+  const next: UserCreatedTokenRecord[] = [];
+  const seen = new Set<string>();
+  for (const row of current) {
+    const merged = byId.get(row.contractId);
+    if (!merged) continue;
+    next.push(merged);
+    seen.add(row.contractId);
+  }
+  for (const record of records) {
+    if (seen.has(record.contractId)) continue;
+    const merged = byId.get(record.contractId);
+    if (!merged) continue;
+    next.push(merged);
+    seen.add(record.contractId);
+  }
+  writeUserCreatedTokens(accountId, next);
+  return next;
 }
 
 export function patchUserCreatedToken(
@@ -81,6 +126,7 @@ interface FtMetadataView {
   symbol?: string;
   name?: string;
   icon?: string | null;
+  decimals?: number;
 }
 
 /**
@@ -117,6 +163,10 @@ export async function reconcileUserCreatedTokens(
         name: metadata.name?.trim() || record.name,
         symbol: metadata.symbol?.trim() || record.symbol,
         icon: metadata.icon ?? record.icon,
+        decimals:
+          typeof metadata.decimals === 'number'
+            ? metadata.decimals
+            : record.decimals,
       };
     })
   );
