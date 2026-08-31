@@ -13,6 +13,7 @@ import {
   isThankStorageRegistered,
   normalizeThankRecipientIds,
   parseThankAmountSmallest,
+  resolveThankDecimals,
   resolveThankStorageDeposit,
   thankStorageNearYocto,
   thankTotalSmallest,
@@ -56,6 +57,16 @@ describe('app-thank-token', () => {
     expect(getThankAmountError('')).toBe('');
     expect(getThankAmountError('0')).toMatch(/greater than zero/i);
     expect(formatThankAmount('1500000000000000000')).toBe('1.5');
+  });
+
+  it('uses stored decimals for recovered tokens', () => {
+    expect(resolveThankDecimals(6)).toBe(6);
+    expect(resolveThankDecimals(undefined)).toBe(18);
+    expect(resolveThankDecimals(-1)).toBe(18);
+    expect(parseThankAmountSmallest('1', 6)).toBe('1000000');
+    expect(parseThankAmountSmallest('1.5', 6)).toBe('1500000');
+    expect(formatThankAmount('1500000', 6)).toBe('1.5');
+    expect(getThankAmountError('0', 6)).toMatch(/greater than zero/i);
   });
 
   it('requires a stander and caps the batch', () => {

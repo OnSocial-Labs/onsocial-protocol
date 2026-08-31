@@ -3,8 +3,8 @@ import {
   isValidNearAccountId,
   normalizeNearAccountId,
 } from '@/lib/app-near-account';
-import { parseFtSupplySmallest } from '@/lib/app-create-token';
 import { FT_TOKEN_DECIMALS } from '@/lib/app-ft-template-config';
+import { tokenAmountToSmallestUnit } from '@/lib/app-near-rpc';
 
 /** One signature stays under the 300 TGas prepaid cap. */
 export const THANK_TOKEN_RECIPIENT_CAP = 10;
@@ -59,14 +59,44 @@ export function toggleThankRecipient(
   return { next: [...current, id], blocked: false };
 }
 
-export function parseThankAmountSmallest(input: string): string | null {
-  return parseFtSupplySmallest(input);
+/** Creator template is 18; recovered / added tokens keep their NEP-141 decimals. */
+export function resolveThankDecimals(decimals?: number | null): number {
+  if (
+    typeof decimals === 'number' &&
+    Number.isInteger(decimals) &&
+    decimals >= 0 &&
+    decimals <= 24
+  ) {
+    return decimals;
+  }
+  return FT_TOKEN_DECIMALS;
 }
 
-export function getThankAmountError(input: string): string {
+export function parseThankAmountSmallest(
+  input: string,
+  decimals: number = FT_TOKEN_DECIMALS
+): string | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  try {
+    const smallest = tokenAmountToSmallestUnit(
+      trimmed,
+      resolveThankDecimals(decimals)
+    );
+    if (!smallest || smallest === '0') return null;
+    return smallest;
+  } catch {
+    return null;
+  }
+}
+
+export function getThankAmountError(
+  input: string,
+  decimals: number = FT_TOKEN_DECIMALS
+): string {
   const trimmed = input.trim();
   if (!trimmed) return '';
-  const smallest = parseThankAmountSmallest(trimmed);
+  const smallest = parseThankAmountSmallest(trimmed, decimals);
   if (!smallest) return 'Enter an amount greater than zero.';
   return '';
 }
@@ -149,16 +179,18 @@ export function getThankNearError(
   return 'Need a little NEAR for new wallets.';
 }
 
-export function formatThankAmount(smallest: string): string {
+export function formatThankAmount(
+  smallest: string,
+  decimals: number = FT_TOKEN_DECIMALS
+): string {
   const raw = smallest.trim();
   if (!raw || raw === '0') return '0';
+  const places = resolveThankDecimals(decimals);
   try {
     const digits = BigInt(raw).toString();
-    const padded = digits.padStart(FT_TOKEN_DECIMALS + 1, '0');
-    const whole = padded.slice(0, padded.length - FT_TOKEN_DECIMALS) || '0';
-    const frac = padded
-      .slice(padded.length - FT_TOKEN_DECIMALS)
-      .replace(/0+$/, '');
+    const padded = digits.padStart(places + 1, '0');
+    const whole = padded.slice(0, padded.length - places) || '0';
+    const frac = padded.slice(padded.length - places).replace(/0+$/, '');
     return frac ? `${whole}.${frac}` : whole;
   } catch {
     return '0';
