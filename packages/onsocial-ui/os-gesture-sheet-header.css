@@ -7,7 +7,7 @@
  * Panel classes from {@link OsGestureSheet}:
  *   .os-gesture-sheet-panel         — signal fallbacks + body opacity
  *   .os-gesture-sheet-panel--tall   — Support / scarce / protocol max-height
- *   .os-gesture-sheet-body          — form inset + safe-area (overrides hug body)
+ *   .os-gesture-sheet-body          — same inset as `.os-hug-sheet-body`
  * Legacy panel aliases were removed — the app keeps
  * `.profile-support-sheet-*` as app-owned classes.
  */
@@ -43,9 +43,8 @@
 }
 
 /**
- * Gesture form body inset — same column as hug (`1.15rem`) with safe-area
- * bottom for Support / Endorse / commerce. Overrides `.os-hug-sheet-body`
- * when both classes are on the GlassSheet body (OsGestureSheet).
+ * Gesture form body — same inset as `.os-hug-sheet-body` (kept so
+ * OsGestureSheet can tag form sheets; padding matches the shared hug standard).
  */
 .os-gesture-sheet-body {
   padding: 0.2rem 1.15rem calc(1.1rem + env(safe-area-inset-bottom, 0px));

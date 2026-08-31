@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { cn } from './cn.js';
 import { ProfileAvatar } from './profile-avatar.js';
 import {
+  standingIdentityAccountCopy,
   standingIdentityLabel,
   type StandingIdentityShowHandle,
 } from './standing-identity.js';
@@ -74,7 +75,9 @@ export function OsChromeSubject({
         <span className="os-chrome-subject__name">{nameLine}</span>
         {handleVisible
           ? (handleSlot ?? (
-              <span className="os-chrome-subject__handle">@{handle}</span>
+              <span className="os-chrome-subject__handle">
+                {standingIdentityAccountCopy(handle)}
+              </span>
             ))
           : null}
       </span>

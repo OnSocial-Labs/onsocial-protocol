@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import {
+  OsChoiceSheetFooter,
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
@@ -105,6 +106,23 @@ export function DropStartConfirmSheet({
       showClose={!closeLocked}
       zIndex={SHEET_Z.nestedConfirm}
       bodyClassName="drop-start-confirm-body"
+      footer={
+        <OsChoiceSheetFooter>
+          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+            <OsSheetAction
+              type="button"
+              variant="primary"
+              ready={primaryReady}
+              pending={primaryPending}
+              pendingLabel={primaryLabel}
+              disabled={primaryPending}
+              onClick={onConfirm}
+            >
+              {primaryLabel}
+            </OsSheetAction>
+          </OsSheetActions>
+        </OsChoiceSheetFooter>
+      }
     >
       {status ? <p className="drop-start-confirm-summary">{status}</p> : null}
       {showRows ? (
@@ -120,19 +138,6 @@ export function DropStartConfirmSheet({
       {note && showRows ? (
         <p className="drop-start-confirm-note">{note}</p>
       ) : null}
-      <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-        <OsSheetAction
-          type="button"
-          variant="primary"
-          ready={primaryReady}
-          pending={primaryPending}
-          pendingLabel={primaryLabel}
-          disabled={primaryPending}
-          onClick={onConfirm}
-        >
-          {primaryLabel}
-        </OsSheetAction>
-      </OsSheetActions>
     </OsHugSheet>
   );
 }

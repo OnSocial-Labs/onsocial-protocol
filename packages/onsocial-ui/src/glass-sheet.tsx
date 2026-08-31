@@ -955,13 +955,13 @@ export function SheetHeader({
             <h2 id={titleId} className="glass-sheet-header-title">
               {title}
             </h2>
+            {subtitle ? (
+              <p className="glass-sheet-header-subtitle">{subtitle}</p>
+            ) : null}
           </div>
           {titleAccessory}
           {closeControl}
         </div>
-        {subtitle ? (
-          <p className="glass-sheet-header-subtitle">{subtitle}</p>
-        ) : null}
       </div>
     </header>
   );

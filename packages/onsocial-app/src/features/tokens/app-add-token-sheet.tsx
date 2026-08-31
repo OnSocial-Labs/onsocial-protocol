@@ -2,11 +2,13 @@
 
 import {
   useCallback,
+  useId,
   useState,
   type CSSProperties,
   type FormEvent,
 } from 'react';
 import {
+  OsChoiceSheetFooter,
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
@@ -54,6 +56,7 @@ export function AppAddTokenSheet({
   const [contractId, setContractId] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const formId = useId();
 
   const sheetOpen = open && !closing;
   if (open !== wasOpen) {
@@ -158,16 +161,33 @@ export function AppAddTokenSheet({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
+      chrome="choice"
       label="Add"
       copy="Token you already have"
       closeAriaLabel="Close"
       backdropLabel="Close add token"
       zIndex={SHEET_Z.nested}
       panelClassName="account-storage-panel os-sheet-cap-standard"
-      bodyClassName="account-storage-body"
       {...(panelStyle ? { panelStyle } : {})}
+      footer={
+        <OsChoiceSheetFooter>
+          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+            <OsSheetAction
+              type="submit"
+              form={formId}
+              ready={canSubmit}
+              pending={pending}
+              pendingLabel="Checking…"
+              disabled={!canSubmit}
+            >
+              Add
+            </OsSheetAction>
+          </OsSheetActions>
+        </OsChoiceSheetFooter>
+      }
     >
       <form
+        id={formId}
         className="app-storage-sheet token-create-form"
         onSubmit={(event) => void handleSubmit(event)}
       >
@@ -197,18 +217,6 @@ export function AppAddTokenSheet({
             {error}
           </p>
         ) : null}
-
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="submit"
-            ready={canSubmit}
-            pending={pending}
-            pendingLabel="Checking…"
-            disabled={!canSubmit}
-          >
-            Add
-          </OsSheetAction>
-        </OsSheetActions>
       </form>
     </OsHugSheet>
   );

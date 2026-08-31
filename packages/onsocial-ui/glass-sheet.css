@@ -150,13 +150,13 @@
 }
 
 /*
- * Default hug body inset — same 1.15rem column as SheetHeader.
- * OsHugSheet and OsGestureSheet apply `.os-hug-sheet-body`; raw GlassSheet
- * hosts should add `osHugSheetBodyClassName`. Flush / safe-area / keyboard
- * bodies override padding on their bodyClassName (app CSS loads later).
+ * Default hug body inset — same column + safe-area bottom as
+ * `.os-gesture-sheet-body` (Support / Endorse / commerce). OsHugSheet and
+ * OsGestureSheet apply this; raw GlassSheet hosts should add
+ * `osHugSheetBodyClassName`. Flush / keyboard bodies override via bodyClassName.
  */
 .os-hug-sheet-body {
-  padding: 0.15rem 1.15rem 1.35rem;
+  padding: 0.2rem 1.15rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
 }
 
 /* Frost behind content — blur clipped to the sheet frame (not the viewport). */
@@ -488,9 +488,15 @@
 }
 
 .glass-sheet-header-subtitle {
-  margin: 0.2rem 0 0;
-  font-size: 0.78rem;
-  color: rgb(var(--fg-rgb) / 0.58);
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  color: rgb(var(--fg-rgb) / 0.42);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Flat sheet header icons — close (Mage ×), discover link, etc. No pill chrome. */

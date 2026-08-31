@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { SheetCloseButton } from './glass-sheet.js';
+import { standingIdentityAccountCopy } from './standing-identity.js';
 
 export type GestureSheetSignal =
   | 'reputation'
@@ -44,7 +45,9 @@ export function GestureSheetHeader({
   whisper = null,
 }: GestureSheetHeaderProps) {
   const person = personName.trim();
-  const handleLabel = handle.trim();
+  const handleLine = handle.trim()
+    ? standingIdentityAccountCopy(handle)
+    : '';
 
   return (
     <div className="standing-sheet-header gesture-sheet-header">
@@ -68,8 +71,8 @@ export function GestureSheetHeader({
               </>
             ) : null}
           </p>
-          {handleLabel ? (
-            <p className="gesture-sheet-handle">@{handleLabel}</p>
+          {handleLine ? (
+            <p className="gesture-sheet-handle">{handleLine}</p>
           ) : null}
           {whisper ? <p className="gesture-sheet-whisper">{whisper}</p> : null}
         </div>

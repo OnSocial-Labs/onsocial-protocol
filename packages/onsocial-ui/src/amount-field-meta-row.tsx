@@ -33,8 +33,6 @@ export function AmountFieldMetaRow({
      * (storage withdraw with nothing withdrawable).
      */
     available?: boolean;
-    /** Blue tint — storage withdraw Max. */
-    variant?: 'default' | 'action';
   };
   meta?: ReactNode;
   disabled?: boolean;
@@ -95,11 +93,7 @@ export function AmountFieldMetaRow({
         >
           <button
             type="button"
-            className={cn(
-              'os-surface-chip',
-              max!.variant === 'action' && 'os-amount-field-preset-action',
-              max!.variant === 'action' && 'app-storage-preset--action'
-            )}
+            className="os-surface-chip"
             disabled={maxDisabled}
             onClick={max!.onClick}
           >

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   StandingIdentity,
+  standingIdentityAccountCopy,
   standingIdentityLabel,
 } from './standing-identity.js';
 
@@ -19,6 +20,23 @@ describe('standingIdentityLabel', () => {
       label: 'Alice',
       handle: 'alice.near',
     });
+  });
+});
+
+describe('standingIdentityAccountCopy', () => {
+  it('returns quiet @handle for sheet copy', () => {
+    expect(standingIdentityAccountCopy('berrysamba.testnet')).toBe(
+      '@berrysamba.testnet'
+    );
+  });
+
+  it('trims and keeps network suffix', () => {
+    expect(standingIdentityAccountCopy('  alice.near  ')).toBe('@alice.near');
+  });
+
+  it('returns empty for blank account', () => {
+    expect(standingIdentityAccountCopy('')).toBe('');
+    expect(standingIdentityAccountCopy('   ')).toBe('');
   });
 });
 

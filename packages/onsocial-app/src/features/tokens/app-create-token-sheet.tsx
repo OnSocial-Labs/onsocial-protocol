@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -13,6 +14,7 @@ import {
 import {
   InfoDrawer,
   InformationCircleIcon,
+  OsChoiceSheetFooter,
   OsHugSheet,
   OsIconAction,
   OsSheetAction,
@@ -76,6 +78,7 @@ export function AppCreateTokenSheet({
 }) {
   const { isConnected, connect, getSigningWallet, accountId } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const formId = useId();
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const [name, setName] = useState('');
@@ -369,13 +372,13 @@ export function AppCreateTokenSheet({
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleClosed}
+        chrome="choice"
         label="Create token"
         copy={`Your creator token · ${FT_CREATE_FUND_NEAR} NEAR`}
         closeAriaLabel="Close"
         backdropLabel="Close create token"
         zIndex={SHEET_Z.nested}
         panelClassName="account-storage-panel os-sheet-cap-tall"
-        bodyClassName="account-storage-body"
         headerActions={
           <div className="standing-sheet-actions">
             <OsIconAction
@@ -392,8 +395,31 @@ export function AppCreateTokenSheet({
           </div>
         }
         {...(panelStyle ? { panelStyle } : {})}
+        footer={
+          <OsChoiceSheetFooter>
+            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+              <OsSheetAction
+                type="submit"
+                form={formId}
+                ready={canSubmit}
+                pending={pending || waitingTemplate}
+                pendingLabel={
+                  waitingTemplate
+                    ? 'Checking…'
+                    : phase === 'confirming'
+                      ? 'Confirming…'
+                      : 'Signing…'
+                }
+                disabled={pending || waitingTemplate || !canSubmit}
+              >
+                Create
+              </OsSheetAction>
+            </OsSheetActions>
+          </OsChoiceSheetFooter>
+        }
       >
       <form
+        id={formId}
         className="app-storage-sheet token-create-form"
         onSubmit={(event) => void handleSubmit(event)}
       >
@@ -516,24 +542,6 @@ export function AppCreateTokenSheet({
             {error}
           </p>
         ) : null}
-
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="submit"
-            ready={canSubmit}
-            pending={pending || waitingTemplate}
-            pendingLabel={
-              waitingTemplate
-                ? 'Checking…'
-                : phase === 'confirming'
-                  ? 'Confirming…'
-                  : 'Signing…'
-            }
-            disabled={pending || waitingTemplate || !canSubmit}
-          >
-            Create
-          </OsSheetAction>
-        </OsSheetActions>
       </form>
       </OsHugSheet>
       <InfoDrawer

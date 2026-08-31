@@ -21,6 +21,15 @@ export function standingIdentityLabel(
 }
 
 /**
+ * Quiet `@handle` for hug / action sheet `copy` under a feature title
+ * (Storage, Creator tokens, …). Same handle rules as {@link standingIdentityLabel}.
+ */
+export function standingIdentityAccountCopy(accountId: string): string {
+  const { handle } = standingIdentityLabel(accountId);
+  return handle ? `@${handle}` : '';
+}
+
+/**
  * Avatar + name + optional @handle cluster for standing-row chrome.
  * Parent owns `.standing-row` / `.standing-row-main` / aside / hit link.
  * Pair with `os-standing-identity.css`.
@@ -77,7 +86,9 @@ export function StandingIdentity({
             {nameTrailing}
           </span>
           {handleVisible ? (
-            <span className="standing-row-handle">@{handle}</span>
+            <span className="standing-row-handle">
+              {standingIdentityAccountCopy(handle)}
+            </span>
           ) : null}
         </span>
         {children}

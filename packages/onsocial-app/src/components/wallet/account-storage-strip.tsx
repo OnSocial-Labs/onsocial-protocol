@@ -35,7 +35,7 @@ function StorageOpenButton({
   );
 }
 
-/** Compact storage bar — same grid as Activity row (label · bar · ratio · Open). */
+/** Flat storage column inside the wallet panel (no nested card). */
 export function AccountStorageStrip({
   loading,
   error,
@@ -46,18 +46,26 @@ export function AccountStorageStrip({
   if (loading) {
     return (
       <div
-        className="account-wallet-storage-strip"
+        className="account-wallet-metric-cell"
         role="status"
         aria-busy="true"
         aria-label="Loading storage"
       >
-        <div className="account-wallet-metric-row">
+        <div className="account-wallet-metric-cell-head">
           <span className="account-wallet-metric-label">
             {PLATFORM_STORAGE_MENU_LABEL}
           </span>
-          <span className="account-wallet-progress-track is-loading" aria-hidden />
           <span className="account-wallet-ratio is-loading" aria-hidden />
-          <span className="account-wallet-metric-action is-loading" aria-hidden />
+        </div>
+        <div className="account-wallet-metric-cell-track">
+          <span
+            className="account-wallet-progress-track is-loading"
+            aria-hidden
+          />
+          <span
+            className="account-wallet-metric-action is-loading"
+            aria-hidden
+          />
         </div>
       </div>
     );
@@ -65,12 +73,14 @@ export function AccountStorageStrip({
 
   if (error || !summary) {
     return (
-      <div className="account-wallet-storage-strip">
-        <div className="account-wallet-metric-row">
+      <div className="account-wallet-metric-cell">
+        <div className="account-wallet-metric-cell-head">
           <span className="account-wallet-metric-label">
             {PLATFORM_STORAGE_MENU_LABEL}
           </span>
-          <span className="account-wallet-metric-status account-wallet-metric-status--fill">
+        </div>
+        <div className="account-wallet-metric-cell-track">
+          <span className="account-wallet-metric-status">
             {error ?? 'Unavailable'}
           </span>
           <StorageOpenButton
@@ -84,12 +94,14 @@ export function AccountStorageStrip({
 
   if (summary.phase === 'inactive') {
     return (
-      <div className="account-wallet-storage-strip">
-        <div className="account-wallet-metric-row">
+      <div className="account-wallet-metric-cell">
+        <div className="account-wallet-metric-cell-head">
           <span className="account-wallet-metric-label">
             {PLATFORM_STORAGE_MENU_LABEL}
           </span>
-          <span className="account-wallet-metric-status account-wallet-metric-status--fill">
+        </div>
+        <div className="account-wallet-metric-cell-track">
+          <span className="account-wallet-metric-status">
             activates on first save
           </span>
           <StorageOpenButton
@@ -114,20 +126,29 @@ export function AccountStorageStrip({
     summary.maxBufferBytes
   );
   const metaLabel = `${formatCompactBytes(summary.storedBytes)} covered · refills +${formatCompactBytes(summary.dailyRefillBytes)}/day`;
+  const progressAriaLabel = `${ratioAriaLabel}. ${metaLabel}`;
 
   return (
-    <div className="account-wallet-storage-strip">
-      <div className="account-wallet-metric-row">
+    <div className="account-wallet-metric-cell">
+      <div className="account-wallet-metric-cell-head">
         <span className="account-wallet-metric-label">
           {PLATFORM_STORAGE_MENU_LABEL}
         </span>
+        <span
+          className={`account-wallet-ratio${empty || summary.phase === 'exhausted' ? ' is-low' : low ? ' is-low' : ''}`}
+          aria-hidden
+        >
+          {ratioLabel}
+        </span>
+      </div>
+      <div className="account-wallet-metric-cell-track">
         <div
           className="account-wallet-progress-slot"
           role="progressbar"
           aria-valuenow={summary.availableBytes}
           aria-valuemin={0}
           aria-valuemax={summary.maxBufferBytes}
-          aria-label={ratioAriaLabel}
+          aria-label={progressAriaLabel}
         >
           <span className="account-wallet-progress-track">
             <span
@@ -136,12 +157,6 @@ export function AccountStorageStrip({
             />
           </span>
         </div>
-        <span
-          className={`account-wallet-ratio${empty || summary.phase === 'exhausted' ? ' is-low' : low ? ' is-low' : ''}`}
-          aria-hidden
-        >
-          {ratioLabel}
-        </span>
         <StorageOpenButton
           highlighted={manageHighlighted}
           onClick={onOpenManage}

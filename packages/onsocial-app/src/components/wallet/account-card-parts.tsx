@@ -2,16 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Divider,
   ExternalLinkIcon,
   LogoutIcon,
-  OsSurfaceRow,
-  OsSurfaceRowList,
   PulsingDots,
   QuestionMarkCircleIcon,
   RepeatIcon,
   SearchIcon,
-  type OsSurfaceRowLinkProps,
 } from '@onsocial/ui';
 import Link from 'next/link';
 import { APP_DISCOVER_PATH } from '@/lib/app-routes';
@@ -40,18 +36,6 @@ import { useAppSocialBalance } from '@/contexts/app-social-balance-context';
 import type { PlatformStorageSummary } from '@/lib/platform-storage-display';
 import { storageManageIsHighlighted } from '@/lib/user-storage-display';
 
-function AccountSurfaceRowLink({
-  href,
-  className,
-  onClick,
-  children,
-}: OsSurfaceRowLinkProps) {
-  return (
-    <Link href={href} className={className} onClick={onClick}>
-      {children}
-    </Link>
-  );
-}
 interface AccountSessionChipProps {
   isBootstrapping: boolean;
   onResume: () => void;
@@ -77,7 +61,7 @@ interface AccountClaimMetricRowProps {
   showCaption?: boolean;
 }
 
-/** Compact claim bar + ratio + pill — shared by wallet zone and rewards rules sheet. */
+/** Half-drawer claim cell — label · ratio · bar · Collect. */
 export function AccountClaimMetricRow({
   showCaption = true,
 }: AccountClaimMetricRowProps) {
@@ -104,28 +88,40 @@ export function AccountClaimMetricRow({
   const hintIsCredit = Boolean(sheetCreditHint);
 
   return (
-    <>
-      <div className="account-wallet-metric-row">
-        {rewardsLoading ? (
-          <>
+    <div className="account-wallet-metric-cell">
+      {rewardsLoading ? (
+        <>
+          <div className="account-wallet-metric-cell-head">
             <span className="account-wallet-metric-label">
               {APP_ACTIVITY_METRIC_LABEL}
             </span>
+            <span className="account-wallet-ratio is-loading" aria-hidden />
+          </div>
+          <div className="account-wallet-metric-cell-track">
             <span
               className="account-wallet-progress-track is-loading"
               aria-hidden
             />
-            <span className="account-wallet-ratio is-loading" aria-hidden />
             <span
               className="account-wallet-metric-action is-loading"
               aria-hidden
             />
-          </>
-        ) : (
-          <>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="account-wallet-metric-cell-head">
             <span className="account-wallet-metric-label">
               {APP_ACTIVITY_METRIC_LABEL}
             </span>
+            <span
+              className={`account-wallet-ratio${canClaim ? ' is-ready' : ''}`}
+              aria-hidden
+            >
+              {ratioLabel}
+            </span>
+          </div>
+          <div className="account-wallet-metric-cell-track">
             <div
               className="account-wallet-progress-slot"
               role="progressbar"
@@ -135,7 +131,9 @@ export function AccountClaimMetricRow({
               aria-label={
                 canClaim
                   ? `${ratioLabel} SOCIAL ready to collect`
-                  : `${ratioLabel} SOCIAL stacked`
+                  : hintLine
+                    ? `${ratioLabel} SOCIAL stacked. ${hintLine}`
+                    : `${ratioLabel} SOCIAL stacked`
               }
             >
               <span
@@ -148,12 +146,6 @@ export function AccountClaimMetricRow({
                 />
               </span>
             </div>
-            <span
-              className={`account-wallet-ratio${canClaim ? ' is-ready' : ''}`}
-              aria-hidden
-            >
-              {ratioLabel}
-            </span>
             {claiming ? (
               <button
                 type="button"
@@ -179,9 +171,9 @@ export function AccountClaimMetricRow({
                 {APP_COLLECT_ACTION_LABEL}
               </button>
             )}
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
 
       {showCaption && hintLine ? (
         <p
@@ -191,7 +183,7 @@ export function AccountClaimMetricRow({
           {hintLine}
         </p>
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -317,13 +309,10 @@ export function AccountWalletZone({
         </div>
       </div>
 
-      <AccountClaimMetricRow showCaption={!hintLine} />
+      <div className="account-wallet-metrics">
+        <AccountClaimMetricRow showCaption={!hintLine} />
 
-      {hintLine ? <p className="account-wallet-caption">{hintLine}</p> : null}
-
-      {onOpenStorage ? (
-        <>
-          <Divider variant="detail" className="account-wallet-zone-divider" />
+        {onOpenStorage ? (
           <AccountStorageStrip
             loading={platformStorageLoading}
             error={platformStorageError}
@@ -331,41 +320,56 @@ export function AccountWalletZone({
             manageHighlighted={storageHighlighted}
             onOpenManage={onOpenStorage}
           />
-        </>
-      ) : null}
+        ) : null}
+      </div>
+
+      {hintLine ? <p className="account-wallet-caption">{hintLine}</p> : null}
 
       <AppSocialHelpCard open={socialHelpOpen} onClose={closeSocialHelp} />
     </section>
   );
 }
 
-interface AccountActionRowProps {
+interface AccountActionChipProps {
   label: string;
   hint?: string;
   href?: string;
-  external?: boolean;
   onClick?: () => void;
-  showArrow?: boolean;
 }
 
-function AccountActionRow({
-  label,
-  hint,
-  href,
-  external,
-  onClick,
-  showArrow = true,
-}: AccountActionRowProps) {
+function AccountActionChip({ label, hint, href, onClick }: AccountActionChipProps) {
+  const className = 'account-action-chip';
+  const body = (
+    <>
+      <span className="account-action-chip-label">{label}</span>
+      {hint ? (
+        <span className="account-action-chip-hint">{hint}</span>
+      ) : null}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className={className}
+        aria-label={hint ? `${label}. ${hint}` : label}
+        onClick={onClick}
+      >
+        {body}
+      </Link>
+    );
+  }
+
   return (
-    <OsSurfaceRow
-      label={label}
-      description={hint}
-      href={href}
-      external={external}
+    <button
+      type="button"
+      className={className}
+      aria-label={hint ? `${label}. ${hint}` : label}
       onClick={onClick}
-      trailing={showArrow ? 'navigate' : 'external'}
-      linkComponent={AccountSurfaceRowLink}
-    />
+    >
+      {body}
+    </button>
   );
 }
 
@@ -437,7 +441,7 @@ interface AccountActionListProps {
   onToggleSafeMode?: () => void;
 }
 
-/** Primary account actions — compact list rows (tertiary links live in AccountShortcutDock). */
+/** Half-drawer actions — chip grid + slim toggles (dock stays separate). */
 export function AccountActionList({
   accountId,
   isOwnerOnPage,
@@ -464,7 +468,7 @@ export function AccountActionList({
   const showPushToggle =
     pushSupported && pushConfigured && pushPermission !== 'denied';
 
-  const rows: AccountActionRowProps[] = [
+  const chips: AccountActionChipProps[] = [
     {
       label: 'Edit profile',
       hint: 'Name, photo, location, bio, links',
@@ -473,7 +477,7 @@ export function AccountActionList({
     ...(onOpenTokens
       ? [
           {
-            label: 'Tokens',
+            label: 'Creator tokens',
             hint: 'Name, symbol, supply',
             onClick: onOpenTokens,
           },
@@ -501,6 +505,7 @@ export function AccountActionList({
       ? [
           {
             label: 'Go to my page',
+            hint: 'Open your portfolio',
             href: portfolioPath(accountId),
             onClick: onClose,
           },
@@ -522,64 +527,68 @@ export function AccountActionList({
   ];
 
   return (
-    <OsSurfaceRowList
-      className="account-action-list"
-      aria-label="Account actions"
-    >
-      {rows.map((row) => (
-        <AccountActionRow key={row.label} {...row} />
-      ))}
-      {showPushToggle ? (
-        <button
-          type="button"
-          className="os-surface-row account-safe-mode-row"
-          role="switch"
-          aria-checked={pushEnabled}
-          disabled={pushBusy}
-          onClick={() => {
-            if (pushEnabled) {
-              void disablePush();
-            } else {
-              void enablePush();
-            }
-          }}
-        >
-          <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Push alerts</span>
-            <span className="os-surface-row-description">
-              {pushBusy
-                ? 'Updating…'
-                : pushEnabled
-                  ? 'Activity alerts on this device'
-                  : 'Get Activity alerts on this device'}
-            </span>
-          </span>
-          <span
-            className={`account-safe-mode-switch${pushEnabled ? ' is-on' : ''}`}
-            aria-hidden
-          />
-        </button>
+    <div className="account-action-stack">
+      <nav className="account-action-grid" aria-label="Account actions">
+        {chips.map((chip) => (
+          <AccountActionChip key={chip.label} {...chip} />
+        ))}
+      </nav>
+
+      {showPushToggle || (onToggleSafeMode != null && safeMode != null) ? (
+        <div className="account-action-toggles">
+          {showPushToggle ? (
+            <button
+              type="button"
+              className="account-action-toggle"
+              role="switch"
+              aria-checked={pushEnabled}
+              disabled={pushBusy}
+              onClick={() => {
+                if (pushEnabled) {
+                  void disablePush();
+                } else {
+                  void enablePush();
+                }
+              }}
+            >
+              <span className="account-action-toggle-copy">
+                <span className="account-action-toggle-label">Push alerts</span>
+                <span className="account-action-toggle-hint">
+                  {pushBusy
+                    ? 'Updating…'
+                    : pushEnabled
+                      ? 'Activity alerts on this device'
+                      : 'Get Activity alerts on this device'}
+                </span>
+              </span>
+              <span
+                className={`account-safe-mode-switch${pushEnabled ? ' is-on' : ''}`}
+                aria-hidden
+              />
+            </button>
+          ) : null}
+          {onToggleSafeMode != null && safeMode != null ? (
+            <button
+              type="button"
+              className="account-action-toggle"
+              role="switch"
+              aria-checked={safeMode}
+              onClick={onToggleSafeMode}
+            >
+              <span className="account-action-toggle-copy">
+                <span className="account-action-toggle-label">Safe mode</span>
+                <span className="account-action-toggle-hint">
+                  Hide NSFW and content warnings until you reveal them
+                </span>
+              </span>
+              <span
+                className={`account-safe-mode-switch${safeMode ? ' is-on' : ''}`}
+                aria-hidden
+              />
+            </button>
+          ) : null}
+        </div>
       ) : null}
-      {onToggleSafeMode != null && safeMode != null ? (
-        <button
-          type="button"
-          className="os-surface-row account-safe-mode-row"
-          role="switch"
-          aria-checked={safeMode}
-          onClick={onToggleSafeMode}
-        >
-          <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Safe mode</span>
-            <span className="os-surface-row-description">
-              Hide NSFW and content warnings until you reveal them
-            </span>
-          </span>
-          <span
-            className={`account-safe-mode-switch${safeMode ? ' is-on' : ''}`}
-            aria-hidden
-          />
-        </button>
-      ) : null}
-    </OsSurfaceRowList>
+    </div>
   );
 }

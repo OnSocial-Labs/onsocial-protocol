@@ -2,16 +2,18 @@
 
 import { useCallback, useEffect, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
-import { OsChromeSubject, osChromeSubjectClassName } from '@onsocial/ui';
+import {
+  OsChromeSubject,
+  osChromeSubjectClassName,
+  standingIdentityAccountCopy,
+} from '@onsocial/ui';
 import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { portfolioPath } from '@/lib/overlay-routes';
-import {
-  accountDrawerPrimaryLabel,
-} from '@/lib/profile-display';
+import { accountDrawerPrimaryLabel } from '@/lib/profile-display';
 
 function AccountDrawerHandleCopy({ accountId }: { accountId: string }) {
   const [copied, setCopied] = useState(false);
-  const handleLabel = `@${accountId}`;
+  const handleLabel = standingIdentityAccountCopy(accountId);
 
   useEffect(() => {
     if (!copied) {
@@ -36,7 +38,9 @@ function AccountDrawerHandleCopy({ accountId }: { accountId: string }) {
   return (
     <button
       type="button"
-      className={`account-drawer-handle-button${copied ? ' is-copied' : ''}`}
+      className={`os-chrome-subject__handle account-drawer-handle-button${
+        copied ? ' is-copied' : ''
+      }`}
       onClick={handleCopy}
       title={accountId}
       aria-label={copied ? 'Address copied' : `Copy ${handleLabel}`}

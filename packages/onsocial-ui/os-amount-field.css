@@ -126,11 +126,6 @@
   gap: 0.35rem;
 }
 
-.os-amount-field-preset-action,
-.app-storage-preset--action {
-  color: var(--protocol-blue);
-}
-
 .os-amount-field-max-placeholder,
 .app-storage-max-placeholder {
   font: inherit;

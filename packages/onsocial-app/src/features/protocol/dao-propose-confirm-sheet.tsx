@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  OsChoiceSheetFooter,
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
@@ -78,45 +79,49 @@ export function DaoProposeConfirmSheet({
       closeAriaLabel={discardLabel}
       backdropLabel={discardLabel}
       zIndex={zIndex}
+      footer={
+        <OsChoiceSheetFooter>
+          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+            <OsSheetAction
+              type="button"
+              variant="danger"
+              ready={!pending}
+              disabled={pending}
+              onClick={onDiscard}
+            >
+              {discardLabel}
+            </OsSheetAction>
+            {gate.needsStake && onStake ? (
+              <OsSheetAction
+                type="button"
+                variant="primary"
+                ready={!pending && !loading}
+                disabled={pending || loading}
+                pending={pending}
+                onClick={onStake}
+              >
+                {stakeLabel}
+              </OsSheetAction>
+            ) : (
+              <OsSheetAction
+                type="button"
+                variant="primary"
+                ready={!pending && gate.canSubmit}
+                disabled={pending || loading || !gate.canSubmit}
+                pending={pending}
+                pendingLabel="Submitting…"
+                onClick={onPropose}
+              >
+                {proposeLabel}
+              </OsSheetAction>
+            )}
+          </OsSheetActions>
+        </OsChoiceSheetFooter>
+      }
     >
       <div className={osActionDrawerConfirmClassName}>
         <p className={osActionDrawerConfirmBodyClassName}>{body}</p>
         <p className={osActionDrawerConfirmBodyClassName}>{detail}</p>
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="button"
-            variant="danger"
-            ready={!pending}
-            disabled={pending}
-            onClick={onDiscard}
-          >
-            {discardLabel}
-          </OsSheetAction>
-          {gate.needsStake && onStake ? (
-            <OsSheetAction
-              type="button"
-              variant="primary"
-              ready={!pending && !loading}
-              disabled={pending || loading}
-              pending={pending}
-              onClick={onStake}
-            >
-              {stakeLabel}
-            </OsSheetAction>
-          ) : (
-            <OsSheetAction
-              type="button"
-              variant="primary"
-              ready={!pending && gate.canSubmit}
-              disabled={pending || loading || !gate.canSubmit}
-              pending={pending}
-              pendingLabel="Submitting…"
-              onClick={onPropose}
-            >
-              {proposeLabel}
-            </OsSheetAction>
-          )}
-        </OsSheetActions>
       </div>
     </OsHugSheet>
   );

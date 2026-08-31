@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Divider, GlassSheet, useScrollLock } from '@onsocial/ui';
+import { GlassSheet, osHugSheetBodyClassName, useScrollLock } from '@onsocial/ui';
 import {
   AccountActionList,
   AccountSessionChip,
@@ -283,7 +283,7 @@ export function AppAccountSheet({
         backdropLabel="Close"
         panelClassName={`account-drawer-panel os-sheet-cap-standard${pageMoodPanelClass}`}
         panelStyle={accountPanelStyle}
-        bodyClassName="account-card-body"
+        bodyClassName={osHugSheetBodyClassName}
         bodyRef={bodyRef}
         header={
           <>
@@ -313,8 +313,6 @@ export function AppAccountSheet({
             platformStorageError={platformStorage.error}
             platformStorageSummary={platformStorage.summary}
           />
-
-          <Divider variant="section" className="account-card-section-divider" />
 
           <AccountActionList
             accountId={accountId}

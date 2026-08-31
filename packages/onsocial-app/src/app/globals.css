@@ -13232,11 +13232,13 @@ a.os-surface-row {
 
   .account-drawer-header {
     gap: 0;
+    /* Same 1.15rem column as `.glass-sheet-header` / `.os-hug-sheet-body`. */
+    padding: 0 1.15rem 0.75rem;
   }
 
   .account-drawer-subject-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 0.65rem;
     min-width: 0;
@@ -13255,25 +13257,9 @@ a.os-surface-row {
     background: transparent;
     padding: 0;
     font: inherit;
-    font-size: 0.72rem;
-    line-height: 1.2;
-    color: rgb(var(--fg-rgb) / 0.48);
+    text-align: left;
     cursor: pointer;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     transition: color 160ms ease;
-  }
-
-  .account-drawer-handle {
-    margin: 0;
-    max-width: 100%;
-    font-size: 0.72rem;
-    line-height: 1.2;
-    color: rgb(var(--fg-rgb) / 0.48);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .account-drawer-handle-button:hover,
@@ -13309,17 +13295,11 @@ a.os-surface-row {
     }
   }
 
-  .account-card-body {
-    padding: 0 max(1rem, env(safe-area-inset-right, 0px))
-      calc(0.5rem + env(safe-area-inset-bottom, 0px))
-      max(1rem, env(safe-area-inset-left, 0px));
-  }
-
   .account-card {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    padding: 0 0 0.1rem;
+    gap: 0.65rem;
+    padding: 0;
   }
 
   @media (min-width: 640px) {
@@ -13331,7 +13311,7 @@ a.os-surface-row {
 
   @media (max-height: 42rem) {
     .account-card {
-      gap: 0.4rem;
+      gap: 0.5rem;
     }
   }
 
@@ -13358,8 +13338,8 @@ a.os-surface-row {
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 0.32rem;
-    padding: 0.52rem 0.62rem;
+    gap: 0.5rem;
+    padding: 0.55rem 0.65rem;
     overflow: hidden;
     isolation: isolate;
     background:
@@ -13367,11 +13347,11 @@ a.os-surface-row {
         circle at 14% 0%,
         color-mix(
             in srgb,
-            var(--glass-sheet-accent, var(--protocol-blue)) 16%,
+            var(--glass-sheet-accent, var(--protocol-blue)) 14%,
             transparent
           )
           0,
-        transparent 36%
+        transparent 34%
       ),
       var(--os-surface-fill);
     box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.055);
@@ -13403,44 +13383,87 @@ a.os-surface-row {
 
   @media (max-height: 42rem) {
     .account-card-wallet-zone {
-      gap: 0.26rem;
+      gap: 0.4rem;
       padding: 0.45rem 0.55rem;
     }
   }
 
-  .account-wallet-zone-divider {
-    flex-shrink: 0;
-    margin: 0.06rem 0 0;
+  .account-wallet-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem 0.75rem;
+    padding-top: 0.2rem;
+    border-top: 1px solid rgb(var(--fg-rgb) / 0.06);
   }
 
-  .account-card-section-divider {
-    flex-shrink: 0;
-    margin: 0;
+  .account-wallet-metrics:has(> :only-child) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .account-action-toggles:has(> :only-child) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .account-wallet-metric-cell {
+    display: flex;
+    min-width: 0;
+    height: 100%;
+    flex-direction: column;
+    gap: 0.28rem;
+    padding: 0;
+    background: transparent;
+  }
+
+  /* Reserve caption lane so Activity | Storage stay equal height. */
+  .account-wallet-metric-cell::after {
+    content: '';
+    display: block;
+    flex: 0 0 auto;
+    min-height: 1.15rem;
+  }
+
+  .account-wallet-metric-cell:has(> .account-wallet-caption)::after {
+    display: none;
+  }
+
+  .account-wallet-metric-cell-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .account-wallet-metric-cell-track {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
   }
 
   .account-wallet-balance-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.4rem;
-    min-height: 1.35rem;
+    gap: 0.35rem;
+    min-height: 1.25rem;
   }
 
   .account-wallet-balance-accessories {
     display: inline-flex;
     flex-shrink: 0;
     align-items: center;
-    gap: 0.28rem;
+    gap: 0.22rem;
   }
 
   .account-wallet-accessory {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.55rem;
-    height: 1.55rem;
+    width: 1.4rem;
+    height: 1.4rem;
     border: 0;
-    border-radius: 0.45rem;
+    border-radius: 0.4rem;
     background: transparent;
     color: rgb(var(--fg-rgb) / 0.48);
     cursor: pointer;
@@ -13471,20 +13494,11 @@ a.os-surface-row {
     color: var(--protocol-green);
   }
 
-  .account-wallet-metric-row {
-    display: grid;
-    grid-template-columns: 3.2rem minmax(0, 1fr) 2.85rem auto;
-    align-items: center;
-    gap: 0.35rem;
-    min-height: 1.35rem;
-  }
-
   .account-wallet-metric-label {
-    grid-column: 1;
     flex-shrink: 0;
-    font-size: 0.58rem;
+    font-size: 0.54rem;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.42);
   }
@@ -13497,7 +13511,8 @@ a.os-surface-row {
 
   .account-wallet-metric-status {
     min-width: 0;
-    font-size: 0.62rem;
+    flex: 1 1 auto;
+    font-size: 0.58rem;
     line-height: 1.2;
     color: rgb(var(--fg-rgb) / 0.45);
   }
@@ -13507,41 +13522,36 @@ a.os-surface-row {
   }
 
   .account-wallet-progress-slot {
-    grid-column: 2;
     display: flex;
+    flex: 1 1 auto;
     min-width: 0;
-    min-height: 1rem;
+    min-height: 0.85rem;
     align-items: center;
   }
 
   .account-wallet-progress-track {
     display: flex;
     width: 100%;
-    min-height: 0.25rem;
+    min-height: 0.22rem;
     overflow: hidden;
     border-radius: 9999px;
     background: rgb(var(--fg-rgb) / 0.08);
   }
 
-  .account-wallet-metric-row > .account-wallet-progress-track.is-loading {
-    grid-column: 2;
-    min-height: 0.25rem;
+  .account-wallet-progress-track.is-loading {
+    min-height: 0.22rem;
     animation: account-card-pulse 1.2s ease-in-out infinite;
   }
 
-  .account-wallet-metric-row > .account-wallet-ratio.is-loading {
-    grid-column: 3;
-  }
-
   .account-wallet-metric-action {
-    grid-column: 4;
-    justify-self: end;
-    min-width: 2.9rem;
+    flex: 0 0 auto;
+    min-width: 2.75rem;
     text-align: center;
   }
 
   .account-wallet-metric-action.is-loading {
     display: block;
+    width: 2.75rem;
     height: 1.15rem;
     border-radius: 9999px;
     border: 0;
@@ -13561,7 +13571,7 @@ a.os-surface-row {
 
   .account-wallet-progress-fill {
     display: block;
-    height: 0.25rem;
+    height: 0.22rem;
     border-radius: inherit;
     background: rgb(var(--fg-rgb) / 0.28);
     transition: width 300ms ease;
@@ -13608,10 +13618,9 @@ a.os-surface-row {
   }
 
   .account-wallet-ratio {
-    grid-column: 3;
     flex-shrink: 0;
-    width: 2.85rem;
-    font-size: 0.56rem;
+    max-width: 100%;
+    font-size: 0.54rem;
     font-weight: 500;
     letter-spacing: -0.01em;
     text-align: right;
@@ -13629,8 +13638,8 @@ a.os-surface-row {
   }
 
   .account-wallet-ratio.is-loading {
-    width: 2.5rem;
-    height: 0.65rem;
+    width: 2rem;
+    height: 0.55rem;
     border-radius: 0.25rem;
     background: rgb(var(--fg-rgb) / 0.08);
     animation: account-card-pulse 1.2s ease-in-out infinite;
@@ -13638,8 +13647,8 @@ a.os-surface-row {
 
   .account-wallet-caption {
     margin: 0;
-    font-size: 0.6rem;
-    line-height: 1.2;
+    font-size: 0.58rem;
+    line-height: 1.15;
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
@@ -13660,39 +13669,146 @@ a.os-surface-row {
     animation: account-card-pulse 1.2s ease-in-out infinite;
   }
 
-  .account-wallet-caption-spacer {
-    display: none;
-  }
-
-  .account-wallet-storage-strip {
-    display: flex;
-    flex-direction: column;
-    gap: 0.12rem;
-  }
-
   .account-shortcut-dock {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.28rem;
+    gap: 0.35rem;
     margin-top: 0;
   }
 
+  .account-card .account-shortcut-dock .os-surface-tile {
+    min-height: 1.85rem;
+  }
+
   .account-shortcut-dock-icon {
-    width: 0.95rem;
-    height: 0.95rem;
+    width: 0.9rem;
+    height: 0.9rem;
   }
 
-  .account-card .account-action-list.os-surface-row-list {
-    gap: 0.28rem;
+  .account-action-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 
-  .account-card .account-action-list .os-surface-row {
-    padding: 0.48rem 0.62rem;
-    gap: 0.75rem;
+  .account-action-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
   }
 
-  .account-card .account-action-list .os-surface-row-copy {
-    gap: 0.1rem;
+  .account-action-chip.os-surface-chip,
+  .account-action-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.08rem;
+    width: 100%;
+    min-height: 2.35rem;
+    margin: 0;
+    padding: 0.32rem 0.5rem;
+    border: 0;
+    border-radius: var(--os-surface-radius-row, 0.85rem);
+    background: var(--os-surface-fill);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .account-action-chip:hover,
+  .account-action-chip:focus-visible {
+    background: var(--os-surface-fill-hover);
+    outline: none;
+  }
+
+  .account-action-chip-label {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .account-action-chip-hint {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.58rem;
+    line-height: 1.2;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .account-action-toggles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+
+  .account-action-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    min-width: 0;
+    min-height: 2.35rem;
+    margin: 0;
+    padding: 0.32rem 0.5rem;
+    border: 0;
+    border-radius: var(--os-surface-radius-row, 0.85rem);
+    background: var(--os-surface-fill);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .account-action-toggle:not(:disabled):hover,
+  .account-action-toggle:not(:disabled):focus-visible {
+    background: var(--os-surface-fill-hover);
+    outline: none;
+  }
+
+  .account-action-toggle:not(:disabled):active {
+    background: var(--os-surface-fill-active);
+  }
+
+  .account-action-toggle:disabled {
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
+    cursor: default;
+  }
+
+  .account-action-toggle-copy {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.08rem;
+  }
+
+  .account-action-toggle-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .account-action-toggle-hint {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.58rem;
+    line-height: 1.2;
+    color: rgb(var(--fg-rgb) / 0.45);
   }
 
   .account-safe-mode-row {
@@ -13710,8 +13826,8 @@ a.os-surface-row {
   .account-safe-mode-switch {
     position: relative;
     flex-shrink: 0;
-    width: 2.4rem;
-    height: 1.35rem;
+    width: 2.15rem;
+    height: 1.2rem;
     border-radius: 9999px;
     background: rgb(var(--fg-rgb) / 0.16);
     transition: background 160ms ease;
@@ -13720,10 +13836,10 @@ a.os-surface-row {
   .account-safe-mode-switch::after {
     content: '';
     position: absolute;
-    top: 0.15rem;
-    left: 0.15rem;
-    width: 1.05rem;
-    height: 1.05rem;
+    top: 0.12rem;
+    left: 0.12rem;
+    width: 0.96rem;
+    height: 0.96rem;
     border-radius: 9999px;
     background: rgb(var(--bg-rgb) / 0.96);
     box-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
@@ -13735,16 +13851,16 @@ a.os-surface-row {
   }
 
   .account-safe-mode-switch.is-on::after {
-    transform: translateX(1.05rem);
+    transform: translateX(0.95rem);
   }
 
   .account-card .os-surface-row-label {
-    font-size: 0.8rem;
+    font-size: 0.76rem;
   }
 
   .account-card .os-surface-row-description {
-    font-size: 0.68rem;
-    line-height: 1.3;
+    font-size: 0.62rem;
+    line-height: 1.25;
   }
 
   .account-card-wallet-zone-head,
@@ -13834,7 +13950,7 @@ a.os-surface-row {
     position: relative;
     display: inline-block;
     min-width: 0;
-    font-size: 1.12rem;
+    font-size: 1.02rem;
     font-weight: 600;
     letter-spacing: -0.03em;
     color: rgb(var(--fg-rgb) / 0.96);
@@ -13857,7 +13973,7 @@ a.os-surface-row {
 
   @media (max-height: 42rem) {
     .account-card-balance-value {
-      font-size: 1.02rem;
+      font-size: 0.95rem;
     }
 
     .account-card-balance-value.is-loading::after {
@@ -13866,7 +13982,7 @@ a.os-surface-row {
   }
 
   .account-card-balance-unit {
-    font-size: 0.62rem;
+    font-size: 0.58rem;
     font-weight: 500;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -13912,15 +14028,11 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
-  .account-storage-body {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
-  }
-
   .app-storage-sheet {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    padding: 0.85rem 1rem 1rem;
+    gap: 0.65rem;
+    padding: 0;
   }
 
   .app-storage-section {
@@ -13930,8 +14042,8 @@ a.os-surface-row {
   }
 
   .app-storage-readout.is-loading {
-    height: 3.5rem;
-    border-radius: 0.75rem;
+    height: 3rem;
+    border-radius: var(--os-surface-radius-row, 0.85rem);
     background: rgb(var(--fg-rgb) / 0.06);
     animation: account-card-pulse 1.2s ease-in-out infinite;
   }
@@ -13939,11 +14051,11 @@ a.os-surface-row {
   .app-storage-readout {
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
-    padding: 0.65rem 0.7rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.075);
-    border-radius: 0.9rem;
-    background: rgb(var(--fg-rgb) / 0.035);
+    gap: 0.22rem;
+    padding: 0.5rem 0.62rem;
+    border: 0;
+    border-radius: var(--os-surface-radius-row, 0.85rem);
+    background: var(--os-surface-fill);
     box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.055);
   }
 
@@ -13951,17 +14063,17 @@ a.os-surface-row {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .app-storage-balance-row {
     display: flex;
     align-items: baseline;
-    gap: 0.35rem;
+    gap: 0.3rem;
   }
 
   .app-storage-balance-value {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 600;
     letter-spacing: -0.03em;
     color: rgb(var(--fg-rgb) / 0.94);
@@ -13975,9 +14087,9 @@ a.os-surface-row {
 
   .app-storage-meta {
     margin: 0;
-    font-size: 0.68rem;
-    line-height: 1.35;
-    color: rgb(var(--fg-rgb) / 0.48);
+    font-size: 0.62rem;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.45);
   }
 
   .app-storage-meta.is-low {
@@ -13985,14 +14097,14 @@ a.os-surface-row {
   }
 
   .app-storage-meta--secondary {
-    color: rgb(var(--fg-rgb) / 0.4);
+    color: rgb(var(--fg-rgb) / 0.38);
   }
 
   .app-storage-hint {
     margin: 0;
-    min-height: 2.5rem;
-    font-size: 0.68rem;
-    line-height: 1.35;
+    min-height: 0;
+    font-size: 0.62rem;
+    line-height: 1.3;
     color: rgb(var(--fg-rgb) / 0.42);
   }
 
@@ -14002,15 +14114,15 @@ a.os-surface-row {
 
   .app-storage-error {
     margin: 0;
-    font-size: 0.72rem;
-    line-height: 1.35;
+    font-size: 0.62rem;
+    line-height: 1.25;
     color: var(--protocol-red);
   }
 
   .app-storage-mode-toggle {
     display: flex;
-    gap: 0.25rem;
-    padding: 0.2rem;
+    gap: 0.22rem;
+    padding: 0.18rem;
     border-radius: 9999px;
     background: rgb(var(--fg-rgb) / 0.05);
   }
@@ -14022,9 +14134,9 @@ a.os-surface-row {
     background: transparent;
     color: rgb(var(--fg-rgb) / 0.55);
     font: inherit;
-    font-size: 0.68rem;
+    font-size: 0.65rem;
     font-weight: 600;
-    padding: 0.35rem 0.65rem;
+    padding: 0.32rem 0.55rem;
     cursor: pointer;
     transition:
       background 160ms ease,
@@ -14043,21 +14155,21 @@ a.os-surface-row {
   }
 
   .app-storage-mode-divider {
-    margin: -0.1rem 0;
+    margin: 0;
   }
 
   .app-storage-form {
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
+    gap: 0.65rem;
   }
 
   .account-wallet-get-social.os-surface-chip {
     flex-shrink: 0;
-    min-width: 2.4rem;
-    min-height: 1.35rem;
-    padding: 0.16rem 0.5rem;
-    font-size: 0.62rem;
+    min-width: 2.2rem;
+    min-height: 1.25rem;
+    padding: 0.12rem 0.42rem;
+    font-size: 0.58rem;
     font-weight: 650;
     letter-spacing: 0.02em;
   }
@@ -14343,27 +14455,27 @@ a.os-surface-row {
   .app-storage-grants {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
-    padding: 0.65rem 0.7rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 0.9rem;
+    gap: 0.28rem;
+    padding: 0.5rem 0.62rem;
+    border: 0;
+    border-radius: var(--os-surface-radius-row, 0.85rem);
     background:
       radial-gradient(
         circle at 16% 0%,
         color-mix(
           in srgb,
-          var(--mood-accent, var(--protocol-blue)) 12%,
+          var(--mood-accent, var(--protocol-blue)) 10%,
           transparent
         ),
-        transparent 46%
+        transparent 42%
       ),
-      rgb(var(--fg-rgb) / 0.035);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+      var(--os-surface-fill);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.055);
   }
 
   .app-storage-share-card.is-loading,
   .app-storage-grants.is-loading {
-    min-height: 3rem;
+    min-height: 2.5rem;
     justify-content: center;
   }
 
@@ -14377,7 +14489,7 @@ a.os-surface-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .app-storage-share-link {
@@ -14425,7 +14537,7 @@ a.os-surface-row {
   }
 
   .app-storage-share-available .app-storage-byte {
-    font-size: 1.18rem;
+    font-size: 0.95rem;
     line-height: 1;
     color: rgb(var(--fg-rgb) / 0.9);
     letter-spacing: -0.03em;
@@ -14433,7 +14545,7 @@ a.os-surface-row {
 
   .app-storage-share-available > span:last-child {
     color: rgb(var(--fg-rgb) / 0.42);
-    font-size: 0.64rem;
+    font-size: 0.58rem;
     font-weight: 600;
   }
 
@@ -14473,12 +14585,12 @@ a.os-surface-row {
   .app-storage-share-split-controls {
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
+    gap: 0.65rem;
   }
 
   .app-storage-share-fund,
   .app-storage-share-flow {
-    padding-top: 0.2rem;
+    padding-top: 0.15rem;
   }
 
   .app-storage-recipient-row {
@@ -14597,18 +14709,19 @@ a.os-surface-row {
   .app-storage-context-strip {
     display: flex;
     flex-direction: column;
-    gap: 0.28rem;
-    padding: 0.55rem 0.65rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.065);
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.025);
+    gap: 0.22rem;
+    padding: 0.4rem 0 0;
+    border: 0;
+    border-top: 1px solid rgb(var(--fg-rgb) / 0.06);
+    border-radius: 0;
+    background: transparent;
   }
 
   .app-storage-context-row {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 0.75rem;
+    gap: 0.5rem;
     margin: 0;
     color: rgb(var(--fg-rgb) / 0.42);
     font-size: 0.62rem;
@@ -14619,12 +14732,12 @@ a.os-surface-row {
     flex-shrink: 0;
     font-weight: 650;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.05em;
   }
 
   .app-storage-context-row > strong {
     min-width: 0;
-    color: rgb(var(--fg-rgb) / 0.58);
+    color: rgb(var(--fg-rgb) / 0.55);
     font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
     font-weight: 550;
     text-align: right;
@@ -33704,92 +33817,6 @@ button.scarce-clip-cover-expand:focus-visible {
     0 1px 2px rgb(0 0 0 / 0.14);
 }
 
-/* Muted & blocked management sheet */
-.mute-block-lists-tabs {
-  display: flex;
-  gap: 0.35rem;
-  padding: 0 1rem 0.5rem;
-}
-
-.mute-block-lists-tab {
-  flex: 1;
-  border: 0;
-  border-radius: 0.65rem;
-  padding: 0.45rem 0.6rem;
-  font: inherit;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: rgb(var(--fg-rgb) / 0.55);
-  background: rgb(var(--fg-rgb) / 0.06);
-  cursor: pointer;
-}
-
-.mute-block-lists-tab.is-active {
-  color: rgb(var(--fg-rgb) / 0.92);
-  background: rgb(var(--fg-rgb) / 0.12);
-}
-
-.mute-block-lists-hint {
-  margin: 0;
-  padding: 0 1.1rem 0.65rem;
-  font-size: 0.78rem;
-  line-height: 1.35;
-  color: rgb(var(--fg-rgb) / 0.48);
-}
-
-.mute-block-lists-empty {
-  margin: 0;
-  padding: 0.5rem 1.1rem 1.35rem;
-  font-size: 0.86rem;
-  color: rgb(var(--fg-rgb) / 0.5);
-}
-
-.mute-block-lists-rows {
-  list-style: none;
-  margin: 0;
-  padding: 0 0.55rem 1rem;
-  display: grid;
-  gap: 0.25rem;
-}
-
-.mute-block-lists-row {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  border: 0;
-  border-radius: 0.75rem;
-  padding: 0.55rem 0.55rem;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.mute-block-lists-row:hover {
-  background: rgb(var(--fg-rgb) / 0.06);
-}
-
-.mute-block-lists-row-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.mute-block-lists-row-label {
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-.mute-block-lists-row-handle {
-  font-size: 0.76rem;
-  color: rgb(var(--fg-rgb) / 0.5);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* —— Protocol (DAO governance / treasury) —— */
 .protocol-page {

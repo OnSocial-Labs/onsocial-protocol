@@ -1,7 +1,12 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { OsHugSheet, ProfileAvatar } from '@onsocial/ui';
+import {
+  OsHugSheet,
+  OsSurfaceRow,
+  OsSurfaceRowList,
+  ProfileAvatar,
+} from '@onsocial/ui';
 import {
   ActionDrawer,
   type ActionDrawerItem,
@@ -29,6 +34,7 @@ type ListKind = 'muted' | 'blocked';
 
 /**
  * Manage muted (off-chain) and blocked (on-chain) accounts.
+ * Hug sheet — content-sized when empty; same shell as storage / tokens.
  */
 export function MuteBlockListsSheet({
   open,
@@ -176,73 +182,73 @@ export function MuteBlockListsSheet({
         closeAriaLabel="Close muted and blocked"
         backdropLabel="Close muted and blocked"
         zIndex={SHEET_Z.list}
-        sizing="full"
+        panelClassName="account-storage-panel os-sheet-cap-standard"
         titleId="mute-block-lists-title"
       >
-        <div className="mute-block-lists-tabs" role="tablist" aria-label="List">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={kind === 'muted'}
-            className={`mute-block-lists-tab${kind === 'muted' ? ' is-active' : ''}`}
-            onClick={() => setKind('muted')}
+        <div className="app-storage-sheet">
+          <div
+            className="app-storage-mode-toggle"
+            role="tablist"
+            aria-label="List"
           >
-            Muted
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={kind === 'blocked'}
-            className={`mute-block-lists-tab${kind === 'blocked' ? ' is-active' : ''}`}
-            onClick={() => setKind('blocked')}
-          >
-            Blocked
-          </button>
-        </div>
-        <p className="mute-block-lists-hint">
-          {kind === 'muted' ? MUTE_LIST_HINT : BLOCK_LIST_HINT}
-        </p>
-        {accounts.length === 0 ? (
-          <p className="mute-block-lists-empty">
-            {kind === 'muted' ? 'No muted accounts.' : 'No blocked accounts.'}
+            <button
+              type="button"
+              role="tab"
+              aria-selected={kind === 'muted'}
+              className={`app-storage-mode${kind === 'muted' ? ' is-active' : ''}`}
+              onClick={() => setKind('muted')}
+            >
+              Muted
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={kind === 'blocked'}
+              className={`app-storage-mode${kind === 'blocked' ? ' is-active' : ''}`}
+              onClick={() => setKind('blocked')}
+            >
+              Blocked
+            </button>
+          </div>
+
+          <p className="app-storage-hint app-storage-hint--compact">
+            {kind === 'muted' ? MUTE_LIST_HINT : BLOCK_LIST_HINT}
           </p>
-        ) : (
-          <ul
-            className="mute-block-lists-rows"
-            aria-label={
-              kind === 'muted' ? 'Muted accounts' : 'Blocked accounts'
-            }
-          >
-            {accounts.map((accountId) => {
-              const profile = profiles[accountId];
-              const name = displayName(accountId, profile?.displayName);
-              const handle = fallbackLabel(accountId);
-              return (
-                <li key={accountId}>
-                  <button
-                    type="button"
-                    className="mute-block-lists-row"
+
+          {accounts.length === 0 ? (
+            <p className="app-storage-meta">
+              {kind === 'muted' ? 'No muted accounts.' : 'No blocked accounts.'}
+            </p>
+          ) : (
+            <OsSurfaceRowList
+              aria-label={
+                kind === 'muted' ? 'Muted accounts' : 'Blocked accounts'
+              }
+            >
+              {accounts.map((accountId) => {
+                const profile = profiles[accountId];
+                const name = displayName(accountId, profile?.displayName);
+                const handle = fallbackLabel(accountId);
+                return (
+                  <OsSurfaceRow
+                    key={accountId}
+                    label={name}
+                    description={name !== handle ? `@${handle}` : undefined}
+                    leading={
+                      <ProfileAvatar
+                        src={profile?.avatarUrl ?? undefined}
+                        fallbackInitial={name.slice(0, 1)}
+                        size="sm"
+                      />
+                    }
+                    trailing="navigate"
                     onClick={() => setRowMenuAccountId(accountId)}
-                  >
-                    <ProfileAvatar
-                      src={profile?.avatarUrl ?? undefined}
-                      fallbackInitial={name.slice(0, 1)}
-                      size="sm"
-                    />
-                    <span className="mute-block-lists-row-copy">
-                      <span className="mute-block-lists-row-label">{name}</span>
-                      {name !== handle ? (
-                        <span className="mute-block-lists-row-handle">
-                          @{handle}
-                        </span>
-                      ) : null}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                  />
+                );
+              })}
+            </OsSurfaceRowList>
+          )}
+        </div>
       </OsHugSheet>
       <ActionDrawer
         open={Boolean(rowMenuAccountId)}

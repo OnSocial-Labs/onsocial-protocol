@@ -1,14 +1,23 @@
 'use client';
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import {
-  OsHugSheet,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from 'react';
+import {
+  OsChoiceSheetFooter,
   OsSheetAction,
   OsSheetActions,
-  OsSurfaceRow,
-  OsSurfaceRowList,
   TokenIcon,
+  standingIdentityAccountCopy,
 } from '@onsocial/ui';
+import {
+  ActionDrawer,
+  type ActionDrawerItem,
+} from '@/components/ui/action-drawer';
 import { AppAddTokenSheet } from '@/features/tokens/app-add-token-sheet';
 import { AppCreateTokenSheet } from '@/features/tokens/app-create-token-sheet';
 import { AppManageTokenSheet } from '@/features/tokens/app-manage-token-sheet';
@@ -102,74 +111,67 @@ export function AppTokensSheet({
     onClose();
   }, [onClose]);
 
+  const items = useMemo<ActionDrawerItem[]>(() => {
+    const tokenItems: ActionDrawerItem[] = tokens.map((token) => ({
+      id: token.contractId,
+      label: token.name,
+      description: `${token.symbol} · ${token.contractId}${
+        token.renounced ? ' · locked' : ''
+      }`,
+      leading: (
+        <TokenIcon src={token.icon} label={token.symbol} size="md" />
+      ),
+      onSelect: () => setManageToken(token),
+    }));
+
+    return [
+      ...tokenItems,
+      {
+        id: 'add-existing',
+        label: 'Add existing',
+        description: 'A token you already have',
+        onSelect: () => setAddOpen(true),
+      },
+    ];
+  }, [tokens]);
+
+  const emptyHint =
+    tokens.length === 0
+      ? discovering
+        ? 'Looking for creator tokens you already have.'
+        : 'No creator tokens yet.'
+      : undefined;
+
   return (
     <>
-      <OsHugSheet
+      <ActionDrawer
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleClosed}
-        label="Tokens"
-        copy={`@${accountId}`}
+        label="Creator tokens"
+        copy={standingIdentityAccountCopy(accountId)}
         closeAriaLabel="Close"
-        backdropLabel="Close tokens"
+        listAriaLabel="Creator tokens"
         zIndex={SHEET_Z.facts}
-        panelClassName="account-storage-panel os-sheet-cap-standard"
-        bodyClassName="account-storage-body"
+        panelClassName="os-sheet-cap-standard"
+        items={items}
+        hint={emptyHint}
         {...(panelStyle ? { panelStyle } : {})}
-      >
-        <div className="app-storage-sheet">
-          {tokens.length === 0 ? (
-            <p className="app-storage-meta">
-              {discovering
-                ? 'Looking for tokens you already have.'
-                : 'No tokens yet.'}
-            </p>
-          ) : (
-            <OsSurfaceRowList
-              className="app-tokens-list"
-              aria-label="Your tokens"
-            >
-              {tokens.map((token: UserCreatedTokenRecord) => (
-                <OsSurfaceRow
-                  key={token.contractId}
-                  label={token.name}
-                  description={`${token.symbol} · ${token.contractId}${
-                    token.renounced ? ' · locked' : ''
-                  }`}
-                  leading={
-                    <TokenIcon
-                      src={token.icon}
-                      label={token.symbol}
-                      size="md"
-                    />
-                  }
-                  trailing="navigate"
-                  onClick={() => setManageToken(token)}
-                />
-              ))}
-            </OsSurfaceRowList>
-          )}
-
-          <OsSurfaceRowList aria-label="Add">
-            <OsSurfaceRow
-              label="Add existing"
-              description="A token you already have"
-              trailing="navigate"
-              onClick={() => setAddOpen(true)}
-            />
-          </OsSurfaceRowList>
-
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetAction
-              type="button"
-              ready
-              onClick={() => setCreateOpen(true)}
-            >
-              Create
-            </OsSheetAction>
-          </OsSheetActions>
-        </div>
-      </OsHugSheet>
+        footer={
+          <OsChoiceSheetFooter>
+            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+              <OsSheetAction
+                type="button"
+                variant="primary"
+                ready
+                onClick={() => setCreateOpen(true)}
+              >
+                Create
+              </OsSheetAction>
+            </OsSheetActions>
+          </OsChoiceSheetFooter>
+        }
+      />
 
       <AppCreateTokenSheet
         open={createOpen && open}

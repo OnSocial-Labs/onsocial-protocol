@@ -20,6 +20,7 @@ import { osChoiceChipClassName } from './os-choice-tokens.js';
 export {
   osChoiceChipClassName,
   osChoiceSheetBodyClassName,
+  osChoiceSheetFooterClassName,
   osChoiceSheetPanelClassName,
 } from './os-choice-tokens.js';
 

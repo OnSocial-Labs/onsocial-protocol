@@ -830,7 +830,6 @@ export function GuildGroupStorageSheet({
       peekRatio={GLASS_SHEET_PEEK_RATIO}
       headerClassName="account-storage-header"
       panelClassName="account-storage-panel os-sheet-cap-tall"
-      bodyClassName="account-storage-body"
     >
       <div className="app-storage-sheet">
         <div className="app-storage-share-panel">

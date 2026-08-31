@@ -14,6 +14,7 @@ import {
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
+  standingIdentityAccountCopy,
 } from '@onsocial/ui';
 import { AmountField } from '@onsocial/ui';
 import { AppStorageSharePanel } from '@/components/wallet/app-storage-share-panel';
@@ -93,9 +94,9 @@ function UserStorageReadout({ summary }: { summary: UserStorageSummary }) {
   }
 
   return (
-    <div className="app-storage-readout">
+    <div className="app-storage-readout os-surface-panel">
       <div className="app-storage-readout-head">
-        <span className="account-card-wallet-label">{USER_STORAGE_LABEL}</span>
+        <span className="account-wallet-metric-label">{USER_STORAGE_LABEL}</span>
         <div className="app-storage-balance-row">
           <span className={`app-storage-balance-value${low ? ' is-low' : ''}`}>
             {balanceLabel}
@@ -346,14 +347,13 @@ export function AppStorageSheet({
         onClose={requestClose}
         onClosed={handleSheetClosed}
         label="Storage"
-        copy={`@${accountId}`}
+        copy={standingIdentityAccountCopy(accountId)}
         closeAriaLabel="Close"
         backdropLabel="Close storage"
         zIndex={SHEET_Z.facts}
         titleId="app-storage-sheet-title"
         headerClassName="account-storage-header"
         panelClassName={`account-storage-panel os-sheet-cap-tall${pageMoodId ? ' account-storage-panel--page-mood' : ''}`}
-        bodyClassName="account-storage-body"
         {...(panelStyle ? { panelStyle } : {})}
       >
         <div className="app-storage-sheet">
@@ -450,7 +450,6 @@ export function AppStorageSheet({
                                 yoctoToNear(withdrawableYocto.toString())
                               ),
                             available: canWithdraw,
-                            variant: 'action',
                           }
                         : undefined
                     }
@@ -506,7 +505,9 @@ export function AppStorageSheet({
                     </OsSheetAction>
                   </OsSheetActions>
 
-                  <p className="app-storage-hint">{actionHint}</p>
+                  <p className="app-storage-hint app-storage-hint--compact">
+                    {actionHint}
+                  </p>
                 </form>
               </>
             )}

@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import { OsSheetAction } from './os-sheet-action.js';
 import { OsSheetActions } from './os-sheet-actions.js';
+import { OsChoiceSheetFooter } from './os-choice-sheet-footer.js';
 import { OsHugSheet } from './os-hug-sheet.js';
 
 export interface InfoDrawerProps {
@@ -54,19 +55,23 @@ export function InfoDrawer({
       zIndex={zIndex}
       chrome="choice"
       bodyClassName="os-info-drawer-body"
+      footer={
+        <OsChoiceSheetFooter>
+          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+            <OsSheetAction
+              type="button"
+              variant="primary"
+              ready
+              onClick={requestClose}
+            >
+              {gotItLabel}
+            </OsSheetAction>
+          </OsSheetActions>
+        </OsChoiceSheetFooter>
+      }
     >
       <p className="os-info-drawer-summary">{summary}</p>
       <p className="os-info-drawer-detail">{detail}</p>
-      <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-        <OsSheetAction
-          type="button"
-          variant="primary"
-          ready
-          onClick={requestClose}
-        >
-          {gotItLabel}
-        </OsSheetAction>
-      </OsSheetActions>
     </OsHugSheet>
   );
 }

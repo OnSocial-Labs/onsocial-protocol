@@ -216,12 +216,16 @@ export {
   ChoiceDrawerMenu,
   osChoiceChipClassName,
   osChoiceSheetBodyClassName,
+  osChoiceSheetFooterClassName,
   osChoiceSheetPanelClassName,
   type ChoiceDrawerFieldProps,
   type ChoiceDrawerMenuProps,
   type ChoiceDrawerProps,
   type ChoiceOption,
 } from './choice-drawer.js';
+export {
+  OsChoiceSheetFooter,
+} from './os-choice-sheet-footer.js';
 export {
   ActionDrawer,
   osActionDrawerConfirmBodyClassName,
@@ -295,6 +299,7 @@ export {
 export {
   StandingIdentity,
   standingIdentityLabel,
+  standingIdentityAccountCopy,
   type StandingIdentityShowHandle,
 } from './standing-identity.js';
 export {

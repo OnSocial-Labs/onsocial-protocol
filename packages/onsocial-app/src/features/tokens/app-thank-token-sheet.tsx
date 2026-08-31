@@ -289,7 +289,6 @@ export function AppThankTokenSheet({
       backdropLabel="Close thank"
       zIndex={SHEET_Z.nestedConfirm}
       panelClassName="account-storage-panel os-sheet-cap-tall"
-      bodyClassName="account-storage-body"
       {...(panelStyle ? { panelStyle } : {})}
     >
       <form

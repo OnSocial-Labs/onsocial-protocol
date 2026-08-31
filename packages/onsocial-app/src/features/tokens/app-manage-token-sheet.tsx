@@ -218,7 +218,6 @@ export function AppManageTokenSheet({
         backdropLabel="Close token"
         zIndex={SHEET_Z.nested}
         panelClassName="account-storage-panel os-sheet-cap-standard"
-        bodyClassName="account-storage-body"
         {...(panelStyle ? { panelStyle } : {})}
       >
         <div className="app-storage-sheet token-create-form">

@@ -48,7 +48,6 @@ export function AppSocialSwapSheet({
       backdropLabel="Close Get SOCIAL"
       zIndex={SHEET_Z.facts}
       panelClassName="account-storage-panel os-sheet-cap-tall"
-      bodyClassName="account-storage-body"
       {...(panelStyle ? { panelStyle } : {})}
     >
       <div className="app-storage-sheet">

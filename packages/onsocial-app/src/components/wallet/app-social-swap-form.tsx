@@ -265,7 +265,6 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
           max={{
             onClick: swap.setMaxAmount,
             disabled: !swap.maxAmount || swap.maxAmount === '0',
-            variant: 'action',
           }}
           meta={
             inputBalanceLabel != null
