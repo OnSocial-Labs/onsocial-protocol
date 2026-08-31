@@ -52,30 +52,34 @@ export function EndorsementSupportersSheet({
   refreshKey = 0,
 }: EndorsementSupportersSheetProps) {
   const [closing, setClosing] = useState(false);
-  const [supporters, setSupporters] = useState<AppEndorsementSupporter[] | null>(
-    null
-  );
-  const [error, setError] = useState<string | null>(null);
+  const requestKey =
+    open && endorsementId ? `${endorsementId}:${refreshKey}` : '';
+  const [fetched, setFetched] = useState<{
+    key: string;
+    supporters: AppEndorsementSupporter[];
+    error: string | null;
+  } | null>(null);
   const sheetOpen = open && !closing && Boolean(endorsementId);
 
   useEffect(() => {
-    if (!open || !endorsementId) {
-      return;
-    }
+    if (!open || !endorsementId) return;
+    const key = `${endorsementId}:${refreshKey}`;
     let cancelled = false;
-    setError(null);
-    setSupporters(null);
     void fetchEndorsementSupporters(endorsementId)
-      .then((rows) => {
+      .then((supporters) => {
         if (cancelled) return;
-        setSupporters(rows);
+        setFetched({ key, supporters, error: null });
       })
       .catch((cause) => {
         if (cancelled) return;
-        setError(
-          cause instanceof Error ? cause.message : 'Could not load supporters.'
-        );
-        setSupporters([]);
+        setFetched({
+          key,
+          supporters: [],
+          error:
+            cause instanceof Error
+              ? cause.message
+              : 'Could not load supporters.',
+        });
       });
     return () => {
       cancelled = true;
@@ -88,10 +92,13 @@ export function EndorsementSupportersSheet({
 
   const handleClosed = useCallback(() => {
     setClosing(false);
-    setSupporters(null);
-    setError(null);
+    setFetched(null);
     onOpenChange(false);
   }, [onOpenChange]);
+
+  const ready = fetched?.key === requestKey;
+  const supporters = ready ? fetched.supporters : null;
+  const error = ready ? fetched.error : null;
 
   return (
     <OsHugSheet
