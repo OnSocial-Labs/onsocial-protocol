@@ -37355,3 +37355,12 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.55);
   text-align: center;
 }
+
+.token-thank-list {
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.token-thank-list .os-surface-row.is-active {
+  background: rgb(var(--fg-rgb) / 0.08);
+}

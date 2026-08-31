@@ -16,6 +16,7 @@ import {
   OsSurfaceRowList,
   TokenIcon,
 } from '@onsocial/ui';
+import { AppThankTokenSheet } from '@/features/tokens/app-thank-token-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/app-config';
@@ -64,6 +65,7 @@ export function AppManageTokenSheet({
   const [icon, setIcon] = useState(token?.icon ?? '');
   const [canAdmin, setCanAdmin] = useState(!token?.renounced);
   const [pending, setPending] = useState<'icon' | 'lock' | null>(null);
+  const [thankOpen, setThankOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const iconInputRef = useRef<HTMLInputElement>(null);
 
@@ -75,6 +77,7 @@ export function AppManageTokenSheet({
       setIcon(token?.icon ?? '');
       setCanAdmin(!token?.renounced);
       setPending(null);
+      setThankOpen(false);
       setError(null);
     }
   }
@@ -88,7 +91,9 @@ export function AppManageTokenSheet({
         const admin = isFtAdminFor(owner, accountId);
         setCanAdmin(admin);
         if (!admin) {
-          patchUserCreatedToken(accountId, token.contractId, { renounced: true });
+          patchUserCreatedToken(accountId, token.contractId, {
+            renounced: true,
+          });
         }
       })
       .catch(() => {
@@ -100,6 +105,7 @@ export function AppManageTokenSheet({
   }, [accountId, open, token]);
 
   const requestClose = useCallback(() => {
+    setThankOpen(false);
     setClosing(true);
   }, []);
 
@@ -201,78 +207,101 @@ export function AppManageTokenSheet({
   if (!token) return null;
 
   return (
-    <OsHugSheet
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleClosed}
-      label={token.name}
-      copy={token.symbol}
-      closeAriaLabel="Close"
-      backdropLabel="Close token"
-      zIndex={SHEET_Z.nested}
-      panelClassName="account-storage-panel os-sheet-cap-standard"
-      bodyClassName="account-storage-body"
-      {...(panelStyle ? { panelStyle } : {})}
-    >
-      <div className="app-storage-sheet token-create-form">
-        <div className="token-create-name-row">
-          <button
-            type="button"
-            className="token-create-icon-pick"
-            disabled={!canAdmin || pending !== null}
-            aria-label={canAdmin ? 'Choose icon' : 'Icon locked'}
-            onClick={() => iconInputRef.current?.click()}
-          >
-            <TokenIcon src={icon || token.icon} label={token.symbol} size="md" />
-          </button>
-          <input
-            ref={iconInputRef}
-            type="file"
-            accept={FT_ICON_ACCEPT}
-            className="token-create-icon-input"
-            tabIndex={-1}
-            aria-hidden
-            disabled={!canAdmin || pending !== null}
-            onChange={(event) => void handleIconChange(event)}
-          />
-          <p className="app-storage-meta token-manage-id">{token.contractId}</p>
-        </div>
-
-        {canAdmin ? null : (
-          <p className="app-storage-meta">Admin is locked.</p>
-        )}
-
-        {error ? (
-          <p className="token-create-note is-warn" role="alert">
-            {error}
-          </p>
-        ) : null}
-
-        <OsSurfaceRowList aria-label="Token">
-          <OsSurfaceRow
-            label="Nearblocks"
-            description={token.contractId}
-            href={`${ACTIVE_NEAR_EXPLORER_URL}/address/${token.contractId}`}
-            external
-            trailing="external"
-          />
-        </OsSurfaceRowList>
-
-        {canAdmin ? (
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetAction
+    <>
+      <OsHugSheet
+        open={sheetOpen}
+        onClose={requestClose}
+        onClosed={handleClosed}
+        label={token.name}
+        copy={token.symbol}
+        closeAriaLabel="Close"
+        backdropLabel="Close token"
+        zIndex={SHEET_Z.nested}
+        panelClassName="account-storage-panel os-sheet-cap-standard"
+        bodyClassName="account-storage-body"
+        {...(panelStyle ? { panelStyle } : {})}
+      >
+        <div className="app-storage-sheet token-create-form">
+          <div className="token-create-name-row">
+            <button
               type="button"
-              ready={pending === null}
-              pending={pending === 'lock'}
-              pendingLabel="Signing…"
-              disabled={pending !== null}
-              onClick={() => void handleLock()}
+              className="token-create-icon-pick"
+              disabled={!canAdmin || pending !== null}
+              aria-label={canAdmin ? 'Choose icon' : 'Icon locked'}
+              onClick={() => iconInputRef.current?.click()}
             >
-              Lock admin
-            </OsSheetAction>
-          </OsSheetActions>
-        ) : null}
-      </div>
-    </OsHugSheet>
+              <TokenIcon
+                src={icon || token.icon}
+                label={token.symbol}
+                size="md"
+              />
+            </button>
+            <input
+              ref={iconInputRef}
+              type="file"
+              accept={FT_ICON_ACCEPT}
+              className="token-create-icon-input"
+              tabIndex={-1}
+              aria-hidden
+              disabled={!canAdmin || pending !== null}
+              onChange={(event) => void handleIconChange(event)}
+            />
+            <p className="app-storage-meta token-manage-id">
+              {token.contractId}
+            </p>
+          </div>
+
+          {canAdmin ? null : (
+            <p className="app-storage-meta">Admin is locked.</p>
+          )}
+
+          {error ? (
+            <p className="token-create-note is-warn" role="alert">
+              {error}
+            </p>
+          ) : null}
+
+          <OsSurfaceRowList aria-label="Token">
+            <OsSurfaceRow
+              label="Thank"
+              description="People who stand with you"
+              trailing="navigate"
+              disabled={pending !== null}
+              onClick={() => setThankOpen(true)}
+            />
+            <OsSurfaceRow
+              label="Nearblocks"
+              description={token.contractId}
+              href={`${ACTIVE_NEAR_EXPLORER_URL}/address/${token.contractId}`}
+              external
+              trailing="external"
+            />
+          </OsSurfaceRowList>
+
+          {canAdmin ? (
+            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+              <OsSheetAction
+                type="button"
+                ready={pending === null}
+                pending={pending === 'lock'}
+                pendingLabel="Signing…"
+                disabled={pending !== null}
+                onClick={() => void handleLock()}
+              >
+                Lock admin
+              </OsSheetAction>
+            </OsSheetActions>
+          ) : null}
+        </div>
+      </OsHugSheet>
+
+      <AppThankTokenSheet
+        open={thankOpen && open}
+        token={token}
+        accountId={accountId}
+        panelStyle={panelStyle}
+        onClose={() => setThankOpen(false)}
+      />
+    </>
   );
 }
