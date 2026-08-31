@@ -54,6 +54,7 @@ export function AppTokensSheet({
       setAddOpen(false);
       setManageToken(null);
       setTokens(listUserCreatedTokens(accountId));
+      setDiscovering(true);
     }
   }
   if (tokensAccountId !== accountId) {
@@ -65,7 +66,6 @@ export function AppTokensSheet({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setDiscovering(true);
     void reconcileUserCreatedTokens(accountId)
       .then(async (reconciled) => {
         if (!cancelled) setTokens(reconciled);
