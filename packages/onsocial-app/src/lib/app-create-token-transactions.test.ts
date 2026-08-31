@@ -95,8 +95,39 @@ describe('sendCreateUserTokenTransaction', () => {
     expect(actions[4]!.params?.methodName).toBe('renounce_owner');
   });
 
-  it('throws when the template is not configured', async () => {
+  it('uses the published testnet hash when env is empty', async () => {
+    vi.stubEnv('NEXT_PUBLIC_NEAR_NETWORK', 'testnet');
     vi.stubEnv('NEXT_PUBLIC_FT_TEMPLATE_CODE_HASH', '');
+    vi.stubEnv('NEXT_PUBLIC_FT_TEMPLATE_GLOBAL_ACCOUNT', '');
+    vi.resetModules();
+    const { sendCreateUserTokenTransaction } = await import(
+      '@/lib/app-create-token-transactions'
+    );
+    const { TESTNET_FT_TEMPLATE_CODE_HASH } = await import(
+      '@/lib/app-ft-template-config'
+    );
+    const { calls, wallet } = mockWallet();
+
+    await sendCreateUserTokenTransaction(
+      async () => ({ wallet: wallet as never, accountId: 'alice.testnet' }),
+      {
+        contractId: 'cool.alice.testnet',
+        name: 'Cool Token',
+        symbol: 'COOL',
+        totalSupply: '1000000000000000000',
+        icon: 'data:image/svg+xml,x',
+      }
+    );
+
+    expect(calls[0]!.actions[2]!.params).toEqual({
+      contractIdentifier: { codeHash: TESTNET_FT_TEMPLATE_CODE_HASH },
+    });
+  });
+
+  it('throws when the template is not configured', async () => {
+    vi.stubEnv('NEXT_PUBLIC_NEAR_NETWORK', 'mainnet');
+    vi.stubEnv('NEXT_PUBLIC_FT_TEMPLATE_CODE_HASH', '');
+    vi.stubEnv('NEXT_PUBLIC_FT_TEMPLATE_GLOBAL_ACCOUNT', '');
     vi.resetModules();
     const { sendCreateUserTokenTransaction } = await import(
       '@/lib/app-create-token-transactions'
