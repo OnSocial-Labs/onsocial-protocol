@@ -8,6 +8,9 @@ import {
   parsePortfolioSheetParam,
   portfolioBoostPath,
   portfolioCollectiblesPath,
+  endorsementsPath,
+  parsePortfolioEndorsementFocus,
+  portfolioEndorsementPath,
   homeRallyPath,
   portfolioRallyPath,
   portfolioFeedPath,
@@ -62,6 +65,88 @@ describe('portfolioFeedPath', () => {
     expect(portfolioFeedPath('alice.testnet')).toBe(
       '/@alice.testnet#portfolio-feed'
     );
+  });
+});
+
+describe('endorsementsPath', () => {
+  it('defaults to the received rail (bare overlay URL)', () => {
+    expect(endorsementsPath('alice.testnet')).toBe(
+      '/@alice.testnet/endorsements'
+    );
+    expect(endorsementsPath('alice.testnet', { mode: 'received' })).toBe(
+      '/@alice.testnet/endorsements'
+    );
+  });
+
+  it('deep-links the given rail', () => {
+    expect(endorsementsPath('alice.testnet', { mode: 'given' })).toBe(
+      '/@alice.testnet/endorsements?mode=given'
+    );
+    expect(endorsementsPath('alice.testnet', { mode: 'GIVEN' })).toBe(
+      '/@alice.testnet/endorsements?mode=given'
+    );
+  });
+
+  it('ignores unknown modes', () => {
+    expect(endorsementsPath('alice.testnet', { mode: 'mutual' })).toBe(
+      '/@alice.testnet/endorsements'
+    );
+  });
+});
+
+describe('portfolioEndorsementPath', () => {
+  it('deep-links a legacy spend id on the recipient face', () => {
+    expect(
+      portfolioEndorsementPath('alice.testnet', {
+        id: 'legacy:bob.testnet:alice.testnet:design',
+      })
+    ).toBe(
+      '/@alice.testnet?endorsement=legacy%3Abob.testnet%3Aalice.testnet%3Adesign'
+    );
+  });
+
+  it('adds issuer when the spend id is a UUID', () => {
+    expect(
+      portfolioEndorsementPath('alice.testnet', {
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        issuer: 'bob.testnet',
+        topic: 'design',
+      })
+    ).toBe(
+      '/@alice.testnet?endorsement=550e8400-e29b-41d4-a716-446655440000&issuer=bob.testnet'
+    );
+  });
+
+  it('falls back to issuer + topic when there is no spend id', () => {
+    expect(
+      portfolioEndorsementPath('alice.testnet', {
+        issuer: 'bob.testnet',
+        topic: 'design',
+      })
+    ).toBe('/@alice.testnet?issuer=bob.testnet&topic=design');
+  });
+});
+
+describe('parsePortfolioEndorsementFocus', () => {
+  it('reads endorsement / issuer / topic query keys', () => {
+    const params = new URLSearchParams(
+      'endorsement=legacy:bob.testnet:alice.testnet:design'
+    );
+    expect(parsePortfolioEndorsementFocus(params)).toEqual({
+      id: 'legacy:bob.testnet:alice.testnet:design',
+      issuer: null,
+      topic: null,
+    });
+    expect(
+      parsePortfolioEndorsementFocus(
+        new URLSearchParams('issuer=bob.testnet&topic=design')
+      )
+    ).toEqual({
+      id: null,
+      issuer: 'bob.testnet',
+      topic: 'design',
+    });
+    expect(parsePortfolioEndorsementFocus(new URLSearchParams('q=hi'))).toBeNull();
   });
 });
 

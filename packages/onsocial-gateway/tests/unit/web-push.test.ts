@@ -41,7 +41,7 @@ describe('pushNotificationVerb', () => {
 });
 
 describe('pushNotificationUrl', () => {
-  it('deep-links endorsement to received overlay', () => {
+  it('deep-links endorsement to the recipient face focus', () => {
     expect(
       pushNotificationUrl({
         notification_type: 'endorsement_new',
@@ -49,15 +49,19 @@ describe('pushNotificationUrl', () => {
         recipient: 'bob.near',
         context: { targetAccount: 'bob.near' },
       })
-    ).toBe('/@bob.near/endorsements');
+    ).toBe('/@bob.near?issuer=alice.near');
     expect(
       pushNotificationUrl({
         notification_type: 'endorsement_supported',
         actor: 'carol.near',
         recipient: 'bob.near',
-        context: { targetAccount: 'bob.near' },
+        context: {
+          targetAccount: 'bob.near',
+          targetId: 'legacy:alice.near:bob.near:design',
+          issuer: 'alice.near',
+        },
       })
-    ).toBe('/@bob.near/endorsements');
+    ).toBe('/@bob.near?endorsement=legacy%3Aalice.near%3Abob.near%3Adesign');
   });
 
   it('deep-links DMs to messages', () => {

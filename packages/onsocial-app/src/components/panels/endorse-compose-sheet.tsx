@@ -78,6 +78,7 @@ export interface EndorseComposeSheetProps {
   existing?: EndorseExistingDraft | null;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  zIndex?: number;
 }
 
 function mediaFingerprint(media: MediaRef | null): string {
@@ -101,6 +102,7 @@ export function EndorseComposeSheet({
   existing = null,
   onOpenChange,
   onSuccess,
+  zIndex = SHEET_Z.gesture,
 }: EndorseComposeSheetProps) {
   const titleId = useId();
   const mediaInputId = useId();
@@ -539,7 +541,7 @@ export function EndorseComposeSheet({
         size="compact"
         bodyClassName="profile-support-sheet-body"
         titleId={titleId}
-        zIndex={SHEET_Z.gesture}
+        zIndex={zIndex}
       >
         <div className="endorse-compose-form">
           <label className="endorse-compose-field">
@@ -635,7 +637,7 @@ export function EndorseComposeSheet({
                 ) : (
                   <img
                     src={previewMediaUrl}
-                    alt=""
+                    alt={existingMedia?.alt?.trim() || 'Endorsement media'}
                     className="endorse-compose-media-el"
                   />
                 )}

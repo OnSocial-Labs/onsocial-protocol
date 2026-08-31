@@ -247,6 +247,63 @@ export function aggregateEndorsementSupportRows(rows: SocialSpendEventRow[]): {
   };
 }
 
+const EMPTY_ENDORSEMENT_SUPPORT_SUMMARY: EndorsementSupportSummaryResult = {
+  totalAmountYocto: '0',
+  spendCount: 0,
+  supporterCount: 0,
+  previewSupporters: [],
+};
+
+function toEndorsementSupportSummary(
+  aggregated: ReturnType<typeof aggregateEndorsementSupportRows>,
+  previewLimit: number
+): EndorsementSupportSummaryResult {
+  return {
+    totalAmountYocto: aggregated.totalAmountYocto,
+    spendCount: aggregated.spendCount,
+    supporterCount: aggregated.supporters.length,
+    previewSupporters: aggregated.supporters
+      .slice(0, Math.max(0, previewLimit))
+      .map(({ accountId, totalAmountYocto }) => ({
+        accountId,
+        totalAmountYocto,
+      })),
+  };
+}
+
+/** Group spend rows by endorsement target id (case-insensitive). */
+export function endorsementSupportSummariesFromRows(
+  endorsementIds: string[],
+  rows: SocialSpendEventRow[],
+  previewLimit = 3
+): Record<string, EndorsementSupportSummaryResult> {
+  const originals = new Map<string, string>();
+  const buckets = new Map<string, SocialSpendEventRow[]>();
+  for (const raw of endorsementIds) {
+    const id = raw.trim();
+    if (!id) continue;
+    const key = id.toLowerCase();
+    if (!originals.has(key)) originals.set(key, id);
+    if (!buckets.has(key)) buckets.set(key, []);
+  }
+  for (const row of rows) {
+    const targetId = row.targetId?.trim();
+    if (!targetId) continue;
+    const bucket = buckets.get(targetId.toLowerCase());
+    if (bucket) bucket.push(row);
+  }
+
+  const summaries: Record<string, EndorsementSupportSummaryResult> = {};
+  for (const [key, original] of originals) {
+    const bucket = buckets.get(key) ?? [];
+    summaries[original] = toEndorsementSupportSummary(
+      aggregateEndorsementSupportRows(bucket),
+      previewLimit
+    );
+  }
+  return summaries;
+}
+
 export class SocialSpendQuery {
   constructor(private _q: QueryModule) {}
 
@@ -449,28 +506,40 @@ export class SocialSpendQuery {
     return empty;
   }
 
+  async endorsementSupportSummaries(
+    endorsementIds: string[],
+    opts: { limit?: number; previewLimit?: number } = {}
+  ): Promise<Record<string, EndorsementSupportSummaryResult>> {
+    const unique = [
+      ...new Set(
+        endorsementIds.map((id) => id.trim()).filter((id) => id.length > 0)
+      ),
+    ];
+    if (unique.length === 0) return {};
+
+    const rows = await this.events({
+      targetType: 'endorsement',
+      targetIds: unique,
+      action: 'support_endorsement',
+      eventType: SOCIAL_SPEND_EVENT_TYPES.SOCIAL_SPENT,
+      success: true,
+      limit: opts.limit ?? Math.min(2_000, Math.max(500, unique.length * 40)),
+    });
+    return endorsementSupportSummariesFromRows(
+      unique,
+      rows,
+      opts.previewLimit ?? 3
+    );
+  }
+
   async endorsementSupportSummary(
     endorsementId: string,
     opts: { limit?: number; previewLimit?: number } = {}
   ): Promise<EndorsementSupportSummaryResult> {
-    const rows = await this.targetActivity('endorsement', endorsementId, {
-      action: 'support_endorsement',
-      limit: opts.limit ?? 500,
-    });
-    const aggregated = aggregateEndorsementSupportRows(rows);
-    const previewLimit = Math.max(0, opts.previewLimit ?? 3);
-
-    return {
-      totalAmountYocto: aggregated.totalAmountYocto,
-      spendCount: aggregated.spendCount,
-      supporterCount: aggregated.supporters.length,
-      previewSupporters: aggregated.supporters
-        .slice(0, previewLimit)
-        .map(({ accountId, totalAmountYocto }) => ({
-          accountId,
-          totalAmountYocto,
-        })),
-    };
+    const id = endorsementId.trim();
+    if (!id) return { ...EMPTY_ENDORSEMENT_SUPPORT_SUMMARY };
+    const summaries = await this.endorsementSupportSummaries([id], opts);
+    return summaries[id] ?? { ...EMPTY_ENDORSEMENT_SUPPORT_SUMMARY };
   }
 
   async endorsementSupporters(

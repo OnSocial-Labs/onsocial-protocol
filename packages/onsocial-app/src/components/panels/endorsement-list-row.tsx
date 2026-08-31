@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { StandingIdentity, standingIdentityLabel } from '@onsocial/ui';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
@@ -14,11 +13,7 @@ import {
   resolveEndorsementDisplayMediaUrl,
 } from '@/lib/endorsement-media';
 import { portfolioPath } from '@/lib/overlay-routes';
-import {
-  fetchEndorsementSupportStats,
-  isEndorsementSpendTargetId,
-  resolveEndorsementSpendTargetId,
-} from '@/lib/social-spend-endorsement';
+import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
 
 interface EndorsementListRowProps {
   item: EndorsementPanelItem;
@@ -32,6 +27,8 @@ interface EndorsementListRowProps {
   /** When set, show Support for SOCIAL spend on this vouch. */
   canSupport?: boolean;
   onSupport?: () => void;
+  /** Open the shareable focus sheet (row tap). */
+  onOpen?: () => void;
 }
 
 /**
@@ -47,6 +44,7 @@ export function EndorsementListRow({
   onEdit,
   canSupport = false,
   onSupport,
+  onOpen,
 }: EndorsementListRowProps) {
   const otherAccountId = mode === 'received' ? item.issuer : item.target;
   const otherName =
@@ -69,24 +67,7 @@ export function EndorsementListRow({
     target: item.target,
     topic: item.topic,
   });
-  const [supporterCount, setSupporterCount] = useState(0);
-
-  useEffect(() => {
-    if (!spendTargetId || !isEndorsementSpendTargetId(spendTargetId)) {
-      return;
-    }
-    let cancelled = false;
-    void fetchEndorsementSupportStats(spendTargetId)
-      .then((stats) => {
-        if (!cancelled) setSupporterCount(stats.supporterCount);
-      })
-      .catch(() => {
-        if (!cancelled) setSupporterCount(0);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [spendTargetId]);
+  const supporterCount = item.supporterCount ?? 0;
 
   const showSupport =
     canSupport &&
@@ -98,12 +79,25 @@ export function EndorsementListRow({
   return (
     <article className="standing-row endorsement-standing-row">
       <div className="standing-row-main">
-        <Link
-          href={portfolioPath(otherAccountId)}
-          className="standing-row-hit"
-          scroll={false}
-          aria-label={`View ${label}'s profile`}
-        />
+        {onOpen ? (
+          <button
+            type="button"
+            className="standing-row-hit"
+            aria-label={
+              mode === 'received'
+                ? `Open endorsement from ${label}`
+                : `Open endorsement for ${label}`
+            }
+            onClick={onOpen}
+          />
+        ) : (
+          <Link
+            href={portfolioPath(otherAccountId)}
+            className="standing-row-hit"
+            scroll={false}
+            aria-label={`View ${label}'s profile`}
+          />
+        )}
         <StandingIdentity
           accountId={otherAccountId}
           profileName={otherName}
@@ -126,15 +120,21 @@ export function EndorsementListRow({
                 <video
                   src={mediaUrl}
                   className="endorsement-row-media-el"
+                  autoPlay
                   muted
                   playsInline
                   loop
                   preload="metadata"
+                  aria-label={
+                    topic
+                      ? `Endorsement video for ${topic}`
+                      : 'Endorsement video'
+                  }
                 />
               ) : (
                 <img
                   src={mediaUrl}
-                  alt=""
+                  alt={media?.alt?.trim() || ''}
                   className="endorsement-row-media-el"
                   loading="lazy"
                   decoding="async"
@@ -146,7 +146,7 @@ export function EndorsementListRow({
             {mode === 'received' ? 'Endorsed' : 'Gave'}
             {time ? ` · ${time}` : ''}
             {supporterCount > 0
-              ? ` · ${supporterCount} support${supporterCount === 1 ? '' : 's'}`
+              ? ` · ${supporterCount} supporter${supporterCount === 1 ? '' : 's'}`
               : ''}
             <span className="sr-only">
               {' '}

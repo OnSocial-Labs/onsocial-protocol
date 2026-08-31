@@ -390,7 +390,7 @@ function PostCardMenu({
         ? 'Updating…'
         : 'Endorsing…'
       : viewerEndorsed
-        ? 'Endorsed'
+        ? 'Edit endorsement'
         : 'Endorse';
 
   const muted = isMuting(accountId);
@@ -424,8 +424,7 @@ function PostCardMenu({
       items.push({
         id: 'endorse',
         label: endorseLabel,
-        disabled:
-          endorsePending || isLoading || isBlockEitherWay(accountId),
+        disabled: endorsePending || isLoading,
         leading: (
           <span className="signal-group signal-group-endorse" aria-hidden>
             <ProtocolMotionArrow className="os-action-drawer-icon" />

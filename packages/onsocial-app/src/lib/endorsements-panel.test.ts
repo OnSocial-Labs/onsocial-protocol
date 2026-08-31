@@ -58,8 +58,10 @@ describe('endorsements panel payload shape', () => {
       targetName: 'Bob',
       targetAvatarUrl: null,
       mediaUrl: 'https://cdn.testnet.onsocial.id/ipfs/bafy',
+      supporterCount: 3,
     };
     expect(item.mediaUrl).toContain('bafy');
+    expect(item.supporterCount).toBe(3);
   });
 });
 

@@ -12,6 +12,13 @@ import {
   resolveEndorsementDisplayMediaUrl,
 } from '@/lib/endorsement-media';
 import { createAppOnSocialClient } from '@/lib/profile-social-server';
+import {
+  endorsementFocusMatchesPage,
+  expandEndorsementFocus,
+  matchEndorsementFocusItem,
+} from '@/lib/endorsement-focus';
+import type { PortfolioEndorsementFocus } from '@/lib/overlay-routes';
+import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
 
 function profileMap(rows: ProfileSearchRow[]): Map<string, ProfileSearchRow> {
   return new Map(rows.map((row) => [row.accountId, row]));
@@ -61,6 +68,54 @@ async function enrichList(
   return items.map((item) => enrichEndorsementItem(item, map, resolveUrl));
 }
 
+async function attachEndorsementSupportCounts(
+  items: EndorsementPanelItem[]
+): Promise<EndorsementPanelItem[]> {
+  if (items.length === 0) return items;
+  const ids = [
+    ...new Set(
+      items
+        .map((item) =>
+          resolveEndorsementSpendTargetId({
+            id: typeof item.id === 'string' ? item.id : null,
+            issuer: item.issuer,
+            target: item.target,
+            topic: item.topic,
+          })
+        )
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+  if (ids.length === 0) return items;
+
+  try {
+    const os = createAppOnSocialClient();
+    const summaries = await os.query.socialSpend.endorsementSupportSummaries(
+      ids,
+      { previewLimit: 0 }
+    );
+    const byKey = new Map(
+      Object.entries(summaries).map(([id, summary]) => [
+        id.toLowerCase(),
+        summary.supporterCount,
+      ])
+    );
+    return items.map((item) => {
+      const spendId = resolveEndorsementSpendTargetId({
+        id: typeof item.id === 'string' ? item.id : null,
+        issuer: item.issuer,
+        target: item.target,
+        topic: item.topic,
+      });
+      if (!spendId) return item;
+      const supporterCount = byKey.get(spendId.toLowerCase());
+      return supporterCount == null ? item : { ...item, supporterCount };
+    });
+  } catch {
+    return items;
+  }
+}
+
 /** SSR endorsements shell — counts + both rails (enriched). */
 export const loadEndorsementsPageData = cache(
   async (accountId: string): Promise<EndorsementsPanelResponse | null> => {
@@ -89,11 +144,19 @@ export const loadEndorsementsPageData = cache(
           : []
       );
       const mediaUrl = (cid: string) => os.storage.url(cid);
+      const [received, given] = await Promise.all([
+        enrichList(receivedItems, profiles, mediaUrl),
+        enrichList(givenItems, profiles, mediaUrl),
+      ]);
+      const withSupport = await attachEndorsementSupportCounts([
+        ...received,
+        ...given,
+      ]);
       return {
         accountId: id,
         counts,
-        received: await enrichList(receivedItems, profiles, mediaUrl),
-        given: await enrichList(givenItems, profiles, mediaUrl),
+        received: withSupport.slice(0, received.length),
+        given: withSupport.slice(received.length),
         receivedHasMore: receivedItems.length >= ENDORSEMENTS_PAGE_SIZE,
         givenHasMore: givenItems.length >= ENDORSEMENTS_PAGE_SIZE,
       };
@@ -124,7 +187,9 @@ export async function loadEndorsementsModePage(
         ? os.endorsements.listReceived(id, { limit, offset })
         : os.endorsements.listGiven(id, { limit, offset }),
     ]);
-    const enriched = await enrichList(items);
+    const enriched = await attachEndorsementSupportCounts(
+      await enrichList(items)
+    );
     const hasMore = items.length >= limit;
     return {
       accountId: id,
@@ -145,4 +210,31 @@ export function parseEndorsementsMode(
   const trimmed = value?.trim().toLowerCase();
   if (trimmed === 'received' || trimmed === 'given') return trimmed;
   return null;
+}
+
+/** One vouch for the face focus sheet (`?endorsement=` / issuer + topic). */
+export async function loadEndorsementFocus(
+  pageAccountId: string,
+  focus: PortfolioEndorsementFocus
+): Promise<EndorsementPanelItem | null> {
+  const id = pageAccountId.trim();
+  if (!id || !endorsementFocusMatchesPage(id, focus)) return null;
+
+  const expanded = expandEndorsementFocus(focus);
+  try {
+    const os = createAppOnSocialClient();
+    const rows = expanded.issuer
+      ? await os.endorsements.listFromViewerToTarget(expanded.issuer, id, {
+          limit: 20,
+        })
+      : await os.endorsements.listReceived(id, { limit: 48 });
+    const matched = matchEndorsementFocusItem(rows, focus);
+    if (!matched) return null;
+    const [item] = await attachEndorsementSupportCounts(
+      await enrichList([matched])
+    );
+    return item ?? null;
+  } catch {
+    return null;
+  }
 }

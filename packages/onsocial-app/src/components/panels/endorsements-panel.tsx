@@ -17,12 +17,14 @@ import {
   EndorsementListRow,
   EndorsementListSkeleton,
 } from '@/components/panels/endorsement-list-row';
+import { EndorsementFocusSheet } from '@/components/panels/endorsement-focus-sheet';
 import {
   EndorsementSupportSheet,
   type EndorsementSupportTarget,
 } from '@/components/panels/endorsement-support-sheet';
 import { DiscoverProfilesLink } from '@/components/panels/standing-discover-link';
 import { Divider, OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
@@ -31,8 +33,12 @@ import { accountIdsEqual } from '@/lib/account-match';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { buildEndorsementEmptyState } from '@/lib/endorsement-empty-state';
 import { parseEndorsementMediaRef } from '@/lib/endorsement-media';
+import { matchEndorsementFocusItem } from '@/lib/endorsement-focus';
+import { endorsementsPath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
+import { replaceBrowserUrl } from '@/lib/sync-browser-url-query';
 import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
 import { derivePortfolioEndorsementCounts } from '@/lib/viewer-endorsement-ledger';
 import type { ResolvedMood } from '@/lib/moods/types';
@@ -43,6 +49,8 @@ interface EndorsementsPanelProps {
   avatarUrl?: string | null;
   mood?: ResolvedMood | null;
   initial?: EndorsementsPanelResponse | null;
+  /** Soft-nav `?mode=given` from face signals / shared overlay URLs. */
+  initialMode?: EndorsementsMode;
 }
 
 type ComposeSession = {
@@ -130,8 +138,10 @@ export function EndorsementsPanel({
   avatarUrl = null,
   mood = null,
   initial = null,
+  initialMode = 'received',
 }: EndorsementsPanelProps) {
   const { accountId: viewerAccountId, isConnected, connect } = useAppWallet();
+  const { setTxResult } = useAppTransactionFeedback();
   const {
     viewerEndorsed,
     apiViewerEndorsed,
@@ -147,12 +157,13 @@ export function EndorsementsPanel({
   } = useViewerEndorsement(accountId);
   const endorsePending = isEndorsePendingForTarget(accountId);
   const endorseBlocked = isBlockEitherWay(accountId);
-  const [mode, setMode] = useState<EndorsementsMode>('received');
+  const [mode, setMode] = useState<EndorsementsMode>(initialMode);
   const [data, setData] = useState<EndorsementsPanelResponse | null>(
     () => initial
   );
   const [loading, setLoading] = useState(() => !initial);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeSession, setComposeSession] = useState<ComposeSession | null>(
@@ -161,6 +172,8 @@ export function EndorsementsPanel({
   const [supportOpen, setSupportOpen] = useState(false);
   const [supportTarget, setSupportTarget] =
     useState<EndorsementSupportTarget | null>(null);
+  const [focusOpen, setFocusOpen] = useState(false);
+  const [focusItem, setFocusItem] = useState<EndorsementPanelItem | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const isSelf =
@@ -205,6 +218,20 @@ export function EndorsementsPanel({
   useEffect(() => {
     void load({ soft: Boolean(initial) });
   }, [accountId, initial, load]);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
+
+  const selectMode = useCallback(
+    (next: EndorsementsMode) => {
+      if (next === mode) return;
+      setMode(next);
+      setLoadMoreError(null);
+      replaceBrowserUrl(endorsementsPath(accountId, { mode: next }));
+    },
+    [accountId, mode]
+  );
 
   useEffect(() => {
     if (
@@ -259,9 +286,23 @@ export function EndorsementsPanel({
   const receivedCount = adjustedCounts.received;
   const givenCount = adjustedCounts.given;
 
+  useEffect(() => {
+    if (!focusOpen || !focusItem) return;
+    const next = matchEndorsementFocusItem(
+      [...(data?.received ?? []), ...(data?.given ?? [])],
+      {
+        id: typeof focusItem.id === 'string' ? focusItem.id : null,
+        issuer: focusItem.issuer,
+        topic: focusItem.topic ?? null,
+      }
+    );
+    if (next && next !== focusItem) setFocusItem(next);
+  }, [data, focusItem, focusOpen]);
+
   const loadMore = useCallback(async () => {
     if (!data || loading || loadingMore || !hasMore) return;
     setLoadingMore(true);
+    setLoadMoreError(null);
     try {
       const page = await fetchEndorsementsModePage(
         accountId,
@@ -285,8 +326,12 @@ export function EndorsementsPanel({
               givenHasMore: page.hasMore,
             };
       });
-    } catch {
-      /* Keep prior list; user can retry by scrolling again. */
+    } catch (cause) {
+      setLoadMoreError(
+        cause instanceof Error
+          ? cause.message
+          : 'Could not load more endorsements.'
+      );
     } finally {
       setLoadingMore(false);
     }
@@ -304,7 +349,13 @@ export function EndorsementsPanel({
 
   useInfiniteScrollSentinel({
     sentinelRef: loadMoreRef,
-    enabled: hasMore && !loading && !loadingMore && !error && items.length > 0,
+    enabled:
+      hasMore &&
+      !loading &&
+      !loadingMore &&
+      !error &&
+      !loadMoreError &&
+      items.length > 0,
     onIntersect: () => {
       void loadMore();
     },
@@ -320,7 +371,14 @@ export function EndorsementsPanel({
   }
 
   function handleEndorseClick() {
-    if (endorseBlocked || endorsePending) return;
+    if (endorsePending) return;
+    if (endorseBlocked) {
+      setTxResult({
+        type: 'error',
+        msg: 'Endorsement is unavailable while a block is in place.',
+      });
+      return;
+    }
     openCompose({
       targetAccountId: accountId,
       targetName: profileName,
@@ -331,7 +389,14 @@ export function EndorsementsPanel({
   }
 
   function handleAddTopic() {
-    if (endorseBlocked || endorsePending) return;
+    if (endorsePending) return;
+    if (endorseBlocked) {
+      setTxResult({
+        type: 'error',
+        msg: 'Endorsement is unavailable while a block is in place.',
+      });
+      return;
+    }
     openCompose({
       targetAccountId: accountId,
       targetName: profileName,
@@ -374,11 +439,13 @@ export function EndorsementsPanel({
           <button
             type="button"
             role="tab"
+            id="endorsements-tab-received"
+            aria-controls="endorsements-panel-received"
             aria-selected={mode === 'received'}
             className={`endorsements-mode-chip${
               mode === 'received' ? ' is-selected' : ''
             }`}
-            onClick={() => setMode('received')}
+            onClick={() => selectMode('received')}
           >
             Received
             <span className="endorsements-mode-count">{receivedCount}</span>
@@ -386,11 +453,13 @@ export function EndorsementsPanel({
           <button
             type="button"
             role="tab"
+            id="endorsements-tab-given"
+            aria-controls="endorsements-panel-given"
             aria-selected={mode === 'given'}
             className={`endorsements-mode-chip${
               mode === 'given' ? ' is-selected' : ''
             }`}
-            onClick={() => setMode('given')}
+            onClick={() => selectMode('given')}
           >
             Given
             <span className="endorsements-mode-count">{givenCount}</span>
@@ -403,7 +472,7 @@ export function EndorsementsPanel({
               <OsSheetAction
                 type="button"
                 ready={!endorseBlocked}
-                disabled={endorseBlocked}
+                disabled={endorsePending}
                 pending={endorsePending}
                 pendingLabel={
                   viewerEndorsed ? 'Updating…' : 'Endorsing…'
@@ -413,7 +482,7 @@ export function EndorsementsPanel({
                 {!isConnected
                   ? 'Connect'
                   : viewerEndorsed
-                    ? 'Endorsed'
+                    ? 'Edit'
                     : 'Endorse'}
               </OsSheetAction>
             </OsSheetActions>
@@ -435,7 +504,12 @@ export function EndorsementsPanel({
       {loading ? (
         <EndorsementListSkeleton />
       ) : error ? (
-        <div className="endorsements-empty">
+        <div
+          className="endorsements-empty"
+          role="tabpanel"
+          id={`endorsements-panel-${mode}`}
+          aria-labelledby={`endorsements-tab-${mode}`}
+        >
           <p className="endorsements-empty-copy">{error}</p>
           <button
             type="button"
@@ -446,7 +520,12 @@ export function EndorsementsPanel({
           </button>
         </div>
       ) : items.length === 0 ? (
-        <div className="standing-panel-empty-block">
+        <div
+          className="standing-panel-empty-block"
+          role="tabpanel"
+          id={`endorsements-panel-${mode}`}
+          aria-labelledby={`endorsements-tab-${mode}`}
+        >
           <div className="standing-panel-empty-state">
             <p className="standing-panel-empty-primary">{emptyState.primary}</p>
             {emptyState.secondary ? (
@@ -466,7 +545,12 @@ export function EndorsementsPanel({
           </div>
         </div>
       ) : (
-        <div className="standing-list endorsement-list">
+        <div
+          className="standing-list endorsement-list"
+          role="tabpanel"
+          id={`endorsements-panel-${mode}`}
+          aria-labelledby={`endorsements-tab-${mode}`}
+        >
           {items.map((item, index) => {
             const viewerOwns =
               Boolean(viewerAccountId) &&
@@ -506,6 +590,10 @@ export function EndorsementsPanel({
                   }
                   canSupport={canSupport}
                   onSupport={() => openSupport(item)}
+                  onOpen={() => {
+                    setFocusItem(item);
+                    setFocusOpen(true);
+                  }}
                 />
               </div>
             );
@@ -513,6 +601,17 @@ export function EndorsementsPanel({
           <div ref={loadMoreRef} className="endorsements-load-more" />
           {loadingMore ? (
             <p className="endorsements-loading-more">Loading more…</p>
+          ) : loadMoreError ? (
+            <div className="endorsements-load-more-error">
+              <p className="endorsements-loading-more">{loadMoreError}</p>
+              <button
+                type="button"
+                className="endorsements-retry"
+                onClick={() => void loadMore()}
+              >
+                Retry
+              </button>
+            </div>
           ) : null}
         </div>
       )}
@@ -533,6 +632,19 @@ export function EndorsementsPanel({
         onOpenChange={(next) => {
           setComposeOpen(next);
           if (!next) setComposeSession(null);
+        }}
+        onSuccess={() => void load({ soft: true })}
+      />
+
+      <EndorsementFocusSheet
+        open={focusOpen}
+        item={focusItem}
+        pageAccountId={accountId}
+        mood={mood}
+        zIndex={SHEET_Z.nested}
+        onOpenChange={(next) => {
+          setFocusOpen(next);
+          if (!next) setFocusItem(null);
         }}
         onSuccess={() => void load({ soft: true })}
       />

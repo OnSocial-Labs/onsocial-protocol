@@ -102,7 +102,32 @@ describe('notification display', () => {
         recipient: 'alice.testnet',
         context: { targetAccount: 'alice.testnet' },
       })
-    ).toBe('/@alice.testnet/endorsements');
+    ).toBe('/@alice.testnet?issuer=bob.testnet');
+
+    expect(
+      notificationHref({
+        type: 'endorsement_new',
+        actor: 'bob.testnet',
+        recipient: 'alice.testnet',
+        context: { targetAccount: 'alice.testnet', topic: 'design' },
+      })
+    ).toBe('/@alice.testnet?issuer=bob.testnet&topic=design');
+
+    expect(
+      notificationHref({
+        type: 'endorsement_supported',
+        actor: 'carol.testnet',
+        recipient: 'alice.testnet',
+        context: {
+          targetAccount: 'alice.testnet',
+          targetId: 'legacy:bob.testnet:alice.testnet:design',
+          issuer: 'bob.testnet',
+          topic: 'design',
+        },
+      })
+    ).toBe(
+      '/@alice.testnet?endorsement=legacy%3Abob.testnet%3Aalice.testnet%3Adesign'
+    );
 
     expect(
       notificationHref({
@@ -111,7 +136,7 @@ describe('notification display', () => {
         recipient: 'alice.testnet',
         context: { targetAccount: 'alice.testnet' },
       })
-    ).toBe('/@alice.testnet/endorsements');
+    ).toBe('/@alice.testnet');
 
     expect(
       notificationHref({

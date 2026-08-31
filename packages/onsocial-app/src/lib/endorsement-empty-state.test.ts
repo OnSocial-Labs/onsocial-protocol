@@ -15,7 +15,7 @@ describe('buildEndorsementEmptyState', () => {
     });
   });
 
-  it('drops the first-vouch invite after the viewer already endorsed', () => {
+  it('explains indexer lag when the viewer already endorsed an empty list', () => {
     expect(
       buildEndorsementEmptyState({
         mode: 'received',
@@ -24,7 +24,8 @@ describe('buildEndorsementEmptyState', () => {
         viewerEndorsed: true,
       })
     ).toEqual({
-      primary: 'No endorsements for Alice yet.',
+      primary: 'Your vouch is landing.',
+      secondary: 'It will show in this list in a moment.',
       showDiscover: false,
     });
   });

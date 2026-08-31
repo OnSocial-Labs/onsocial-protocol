@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   aggregateEndorsementSupportRows,
+  endorsementSupportSummariesFromRows,
   parseLegacyEndorsementSpendTargetId,
   type SocialSpendEventRow,
 } from './social-spend.js';
@@ -96,5 +97,39 @@ describe('aggregateEndorsementSupportRows', () => {
         totalAmountYocto: '150',
       }),
     ]);
+  });
+});
+
+describe('endorsementSupportSummariesFromRows', () => {
+  it('buckets support by endorsement id and fills zeros', () => {
+    const summaries = endorsementSupportSummariesFromRows(
+      ['legacy:alice.near:bob.near:dev', 'legacy:carol.near:bob.near:design'],
+      [
+        supportRow({
+          spenderId: 'dana.near',
+          amount: '100',
+          targetId: 'legacy:alice.near:bob.near:dev',
+        }),
+        supportRow({
+          spenderId: 'erin.near',
+          amount: '50',
+          targetId: 'legacy:alice.near:bob.near:dev',
+        }),
+      ],
+      1
+    );
+
+    expect(summaries['legacy:alice.near:bob.near:dev']).toEqual({
+      totalAmountYocto: '150',
+      spendCount: 2,
+      supporterCount: 2,
+      previewSupporters: [expect.objectContaining({ accountId: 'dana.near' })],
+    });
+    expect(summaries['legacy:carol.near:bob.near:design']).toEqual({
+      totalAmountYocto: '0',
+      spendCount: 0,
+      supporterCount: 0,
+      previewSupporters: [],
+    });
   });
 });

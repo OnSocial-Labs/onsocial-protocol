@@ -207,7 +207,7 @@ function PortfolioIdentityGesturesVisitor({
                 className={`portfolio-identity-gesture portfolio-identity-gesture--endorse group${
                   viewerEndorsed ? ' is-endorsed' : ''
                 }`}
-                disabled={endorsePending || blockEitherWay}
+                disabled={endorsePending}
                 onClick={() => {
                   if (blockEitherWay) {
                     setTxResult({
