@@ -45,9 +45,7 @@ export function GestureSheetHeader({
   whisper = null,
 }: GestureSheetHeaderProps) {
   const person = personName.trim();
-  const handleLine = handle.trim()
-    ? standingIdentityAccountCopy(handle)
-    : '';
+  const handleLine = handle.trim() ? standingIdentityAccountCopy(handle) : '';
 
   return (
     <div className="standing-sheet-header gesture-sheet-header">

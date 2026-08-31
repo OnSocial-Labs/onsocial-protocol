@@ -18,6 +18,8 @@ export function OsChoiceSheetFooter({
   className?: string;
 }) {
   return (
-    <div className={cn(osChoiceSheetFooterClassName, className)}>{children}</div>
+    <div className={cn(osChoiceSheetFooterClassName, className)}>
+      {children}
+    </div>
   );
 }
