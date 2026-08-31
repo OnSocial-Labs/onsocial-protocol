@@ -13318,8 +13318,8 @@ a.os-surface-row {
   .account-card {
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
-    padding: 0 0 0.15rem;
+    gap: 0.5rem;
+    padding: 0 0 0.1rem;
   }
 
   @media (min-width: 640px) {
@@ -13331,7 +13331,7 @@ a.os-surface-row {
 
   @media (max-height: 42rem) {
     .account-card {
-      gap: 0.55rem;
+      gap: 0.4rem;
     }
   }
 
@@ -13358,8 +13358,8 @@ a.os-surface-row {
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
-    padding: 0.62rem 0.72rem;
+    gap: 0.32rem;
+    padding: 0.52rem 0.62rem;
     overflow: hidden;
     isolation: isolate;
     background:
@@ -13367,11 +13367,11 @@ a.os-surface-row {
         circle at 14% 0%,
         color-mix(
             in srgb,
-            var(--glass-sheet-accent, var(--protocol-blue)) 18%,
+            var(--glass-sheet-accent, var(--protocol-blue)) 16%,
             transparent
           )
           0,
-        transparent 38%
+        transparent 36%
       ),
       var(--os-surface-fill);
     box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.055);
@@ -13403,44 +13403,44 @@ a.os-surface-row {
 
   @media (max-height: 42rem) {
     .account-card-wallet-zone {
-      gap: 0.32rem;
-      padding: 0.55rem 0.65rem;
+      gap: 0.26rem;
+      padding: 0.45rem 0.55rem;
     }
   }
 
   .account-wallet-zone-divider {
     flex-shrink: 0;
-    margin: 0.1rem 0 0.05rem;
+    margin: 0.06rem 0 0;
   }
 
   .account-card-section-divider {
     flex-shrink: 0;
-    margin: 0.05rem 0;
+    margin: 0;
   }
 
   .account-wallet-balance-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
-    min-height: 1.5rem;
+    gap: 0.4rem;
+    min-height: 1.35rem;
   }
 
   .account-wallet-balance-accessories {
     display: inline-flex;
     flex-shrink: 0;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.28rem;
   }
 
   .account-wallet-accessory {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.75rem;
-    height: 1.75rem;
+    width: 1.55rem;
+    height: 1.55rem;
     border: 0;
-    border-radius: 0.5rem;
+    border-radius: 0.45rem;
     background: transparent;
     color: rgb(var(--fg-rgb) / 0.48);
     cursor: pointer;
@@ -13473,10 +13473,10 @@ a.os-surface-row {
 
   .account-wallet-metric-row {
     display: grid;
-    grid-template-columns: 3.35rem minmax(0, 1fr) 3rem auto;
+    grid-template-columns: 3.2rem minmax(0, 1fr) 2.85rem auto;
     align-items: center;
-    gap: 0.45rem;
-    min-height: 1.5rem;
+    gap: 0.35rem;
+    min-height: 1.35rem;
   }
 
   .account-wallet-metric-label {
@@ -13536,7 +13536,7 @@ a.os-surface-row {
   .account-wallet-metric-action {
     grid-column: 4;
     justify-self: end;
-    min-width: 3.2rem;
+    min-width: 2.9rem;
     text-align: center;
   }
 
@@ -13610,8 +13610,8 @@ a.os-surface-row {
   .account-wallet-ratio {
     grid-column: 3;
     flex-shrink: 0;
-    width: 3rem;
-    font-size: 0.58rem;
+    width: 2.85rem;
+    font-size: 0.56rem;
     font-weight: 500;
     letter-spacing: -0.01em;
     text-align: right;
@@ -13638,9 +13638,8 @@ a.os-surface-row {
 
   .account-wallet-caption {
     margin: 0;
-    min-height: 0.85rem;
-    font-size: 0.62rem;
-    line-height: 1.25;
+    font-size: 0.6rem;
+    line-height: 1.2;
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
@@ -13649,7 +13648,7 @@ a.os-surface-row {
   }
 
   .account-wallet-caption.is-empty {
-    visibility: hidden;
+    display: none;
   }
 
   .account-wallet-caption.is-loading {
@@ -13662,29 +13661,38 @@ a.os-surface-row {
   }
 
   .account-wallet-caption-spacer {
-    visibility: hidden;
+    display: none;
   }
 
   .account-wallet-storage-strip {
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
+    gap: 0.12rem;
   }
 
   .account-shortcut-dock {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.35rem;
-    margin-top: 0.1rem;
+    gap: 0.28rem;
+    margin-top: 0;
   }
 
   .account-shortcut-dock-icon {
-    width: 1rem;
-    height: 1rem;
+    width: 0.95rem;
+    height: 0.95rem;
   }
 
   .account-card .account-action-list.os-surface-row-list {
-    gap: 0.35rem;
+    gap: 0.28rem;
+  }
+
+  .account-card .account-action-list .os-surface-row {
+    padding: 0.48rem 0.62rem;
+    gap: 0.75rem;
+  }
+
+  .account-card .account-action-list .os-surface-row-copy {
+    gap: 0.1rem;
   }
 
   .account-safe-mode-row {
@@ -13731,12 +13739,12 @@ a.os-surface-row {
   }
 
   .account-card .os-surface-row-label {
-    font-size: 0.82rem;
+    font-size: 0.8rem;
   }
 
   .account-card .os-surface-row-description {
-    font-size: 0.72rem;
-    line-height: 1.35;
+    font-size: 0.68rem;
+    line-height: 1.3;
   }
 
   .account-card-wallet-zone-head,
@@ -13800,15 +13808,16 @@ a.os-surface-row {
   .account-card-balance-copy {
     display: flex;
     min-width: 0;
-    flex-direction: column;
-    gap: 0.08rem;
-    min-height: 1.35rem;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.45rem;
   }
 
   .account-card-balance-kicker {
     font-size: 0.56rem;
     font-weight: 700;
-    letter-spacing: 0.11em;
+    letter-spacing: 0.1em;
     line-height: 1;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.38);
@@ -13818,14 +13827,14 @@ a.os-surface-row {
     display: inline-flex;
     min-width: 0;
     align-items: baseline;
-    gap: 0.35rem;
+    gap: 0.3rem;
   }
 
   .account-card-balance-value {
     position: relative;
     display: inline-block;
-    min-width: 4.75rem;
-    font-size: 1.28rem;
+    min-width: 0;
+    font-size: 1.12rem;
     font-weight: 600;
     letter-spacing: -0.03em;
     color: rgb(var(--fg-rgb) / 0.96);
@@ -13848,7 +13857,7 @@ a.os-surface-row {
 
   @media (max-height: 42rem) {
     .account-card-balance-value {
-      font-size: 1.15rem;
+      font-size: 1.02rem;
     }
 
     .account-card-balance-value.is-loading::after {
@@ -13857,7 +13866,7 @@ a.os-surface-row {
   }
 
   .account-card-balance-unit {
-    font-size: 0.68rem;
+    font-size: 0.62rem;
     font-weight: 500;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -14043,29 +14052,14 @@ a.os-surface-row {
     gap: 0.55rem;
   }
 
-  .account-wallet-get-social {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  .account-wallet-get-social.os-surface-chip {
     flex-shrink: 0;
-    min-height: 1.75rem;
-    padding: 0 0.45rem;
-    border: 0;
-    border-radius: 0.5rem;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.52);
-    font: inherit;
-    font-size: 0.68rem;
+    min-width: 2.4rem;
+    min-height: 1.35rem;
+    padding: 0.16rem 0.5rem;
+    font-size: 0.62rem;
     font-weight: 650;
     letter-spacing: 0.02em;
-    cursor: pointer;
-    transition: color 160ms ease;
-  }
-
-  .account-wallet-get-social:hover,
-  .account-wallet-get-social:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.88);
-    outline: none;
   }
 
   .app-swap-form {

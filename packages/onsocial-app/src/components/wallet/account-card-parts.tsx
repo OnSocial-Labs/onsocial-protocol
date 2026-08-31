@@ -183,15 +183,12 @@ export function AccountClaimMetricRow({
         )}
       </div>
 
-      {showCaption ? (
+      {showCaption && hintLine ? (
         <p
-          className={`account-wallet-caption${
-            hintLine ? (hintIsCredit ? ' is-credit' : '') : ' is-empty'
-          }`}
+          className={`account-wallet-caption${hintIsCredit ? ' is-credit' : ''}`}
           aria-live={hintIsCredit ? 'polite' : undefined}
-          aria-hidden={hintLine ? undefined : true}
         >
-          {hintLine ?? '\u00a0'}
+          {hintLine}
         </p>
       ) : null}
     </>
@@ -289,10 +286,15 @@ export function AccountWalletZone({
         </div>
 
         <div className="account-wallet-balance-accessories">
+          {canClaim ? (
+            <span className="account-wallet-earning-ready">
+              {APP_COLLECT_READY_BADGE}
+            </span>
+          ) : null}
           {onOpenSwap ? (
             <button
               type="button"
-              className="account-wallet-get-social"
+              className="account-wallet-get-social os-surface-chip"
               onClick={onOpenSwap}
               aria-label="Get SOCIAL"
             >
@@ -312,11 +314,6 @@ export function AccountWalletZone({
               className="account-wallet-accessory-icon"
             />
           </button>
-          {canClaim ? (
-            <span className="account-wallet-earning-ready">
-              {APP_COLLECT_READY_BADGE}
-            </span>
-          ) : null}
         </div>
       </div>
 

@@ -59,9 +59,6 @@ export function AccountStorageStrip({
           <span className="account-wallet-ratio is-loading" aria-hidden />
           <span className="account-wallet-metric-action is-loading" aria-hidden />
         </div>
-        <p className="account-wallet-caption is-empty" aria-hidden>
-          {'\u00a0'}
-        </p>
       </div>
     );
   }
@@ -81,9 +78,6 @@ export function AccountStorageStrip({
             onClick={onOpenManage}
           />
         </div>
-        <p className="account-wallet-caption is-empty" aria-hidden>
-          {'\u00a0'}
-        </p>
       </div>
     );
   }
@@ -103,9 +97,6 @@ export function AccountStorageStrip({
             onClick={onOpenManage}
           />
         </div>
-        <p className="account-wallet-caption is-empty" aria-hidden>
-          {'\u00a0'}
-        </p>
       </div>
     );
   }
