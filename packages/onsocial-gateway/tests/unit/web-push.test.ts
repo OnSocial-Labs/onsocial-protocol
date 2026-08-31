@@ -61,9 +61,7 @@ describe('pushNotificationUrl', () => {
           issuer: 'alice.near',
         },
       })
-    ).toBe(
-      '/@bob.near?endorsement=legacy%3Aalice.near%3Abob.near%3Adesign'
-    );
+    ).toBe('/@bob.near?endorsement=legacy%3Aalice.near%3Abob.near%3Adesign');
   });
 
   it('deep-links DMs to messages', () => {

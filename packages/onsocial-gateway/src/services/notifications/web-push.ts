@@ -494,9 +494,7 @@ export function pushNotificationUrl(row: {
       const topic = textField(context, 'topic');
       const id = textField(context, 'targetId');
       const issuer =
-        type === 'endorsement_new'
-          ? actor
-          : textField(context, 'issuer');
+        type === 'endorsement_new' ? actor : textField(context, 'issuer');
       const params = new URLSearchParams();
       if (id) params.set('endorsement', id);
       const needsIssuer =
