@@ -131,7 +131,7 @@ export async function discoverCreatorTokens(
   ]);
 
   const rows = await Promise.all(
-    candidates.map(async (contractId) => {
+    candidates.map(async (contractId): Promise<UserCreatedTokenRecord | null> => {
       const [metadata, ownerId] = await Promise.all([
         tryReadFtTokenMetadata(contractId),
         readTokenOwner(contractId),
@@ -146,15 +146,18 @@ export async function discoverCreatorTokens(
       ) {
         return null;
       }
-      return {
+      const record: UserCreatedTokenRecord = {
         contractId,
         name: metadata.name,
         symbol: metadata.symbol,
         createdAt: Date.now(),
         renounced: ownerId == null || ownerId.toLowerCase() === 'system',
-        icon: metadata.icon ?? undefined,
         decimals: metadata.decimals,
-      } satisfies UserCreatedTokenRecord;
+      };
+      if (metadata.icon) {
+        record.icon = metadata.icon;
+      }
+      return record;
     })
   );
 
