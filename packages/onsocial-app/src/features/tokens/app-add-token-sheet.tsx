@@ -30,10 +30,7 @@ import {
   rememberUserCreatedToken,
   type UserCreatedTokenRecord,
 } from '@/lib/user-created-tokens';
-import {
-  useNearAccountStatus,
-  nearAccountStatusClass,
-} from '@/hooks/use-near-account-status';
+import { useNearAccountStatus } from '@/hooks/use-near-account-status';
 
 function fieldId(name: string) {
   return `token-add-${name}`;
@@ -72,16 +69,16 @@ export function AppAddTokenSheet({
   const normalized = normalizeTokenContractId(contractId);
   const accountError = getAddTokenAccountError(contractId);
   const accountStatus = useNearAccountStatus(accountError ? '' : normalized);
-  const accountTaken = accountStatus === 'found';
+  const accountFound = accountStatus === 'found';
   const accountChecking = accountStatus === 'checking';
-  const accountFieldClass = accountTaken
-    ? 'is-available'
+  const accountFieldClass = accountFound
+    ? 'is-found'
     : accountChecking
       ? 'is-checking'
       : accountError || accountStatus === 'missing'
         ? 'is-taken'
-        : nearAccountStatusClass(accountStatus);
-  const accountLead = accountTaken
+        : undefined;
+  const accountLead = accountFound
     ? 'Found'
     : accountChecking
       ? 'Checking'
@@ -91,7 +88,7 @@ export function AppAddTokenSheet({
 
   const canSubmit =
     isAddTokenAccountReady(contractId) &&
-    accountTaken &&
+    accountFound &&
     !pending &&
     !accountChecking;
 
