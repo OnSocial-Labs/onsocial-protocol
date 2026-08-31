@@ -32755,6 +32755,52 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
+  .endorsement-focus-supporters {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-variant-numeric: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: rgb(var(--fg-rgb) / 0.22);
+    text-underline-offset: 0.12em;
+  }
+
+  .endorsement-focus-supporters:hover,
+  .endorsement-focus-supporters:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.82);
+    text-decoration-color: rgb(var(--fg-rgb) / 0.4);
+    outline: none;
+  }
+
+  .endorsement-supporters-sheet-body {
+    padding-bottom: 0.4rem;
+  }
+
+  .endorsement-supporter-row .standing-row-aside {
+    min-width: 4.5rem;
+    gap: 0.18rem;
+  }
+
+  .endorsement-supporters-amount {
+    font-size: 0.74rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    color: var(--protocol-green);
+    text-align: right;
+  }
+
+  .endorsement-supporters-empty {
+    margin: 0;
+    padding: 0.4rem 0.05rem 0.15rem;
+    font-size: 0.78rem;
+    color: rgb(var(--fg-rgb) / 0.5);
+  }
+
   .endorsement-focus-actions {
     display: flex;
     flex-wrap: wrap;

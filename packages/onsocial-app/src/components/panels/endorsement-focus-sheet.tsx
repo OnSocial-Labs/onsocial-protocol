@@ -17,6 +17,7 @@ import {
   EndorsementSupportSheet,
   type EndorsementSupportTarget,
 } from '@/components/panels/endorsement-support-sheet';
+import { EndorsementSupportersSheet } from '@/components/panels/endorsement-supporters-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
@@ -78,6 +79,8 @@ export function EndorsementFocusSheet({
   const [supportOpen, setSupportOpen] = useState(false);
   const [supportTarget, setSupportTarget] =
     useState<EndorsementSupportTarget | null>(null);
+  const [supportersOpen, setSupportersOpen] = useState(false);
+  const [supportersRefreshKey, setSupportersRefreshKey] = useState(0);
 
   const sheetOpen = open && !closing && Boolean(item);
   const issuerAccountId = item?.issuer ?? '';
@@ -139,6 +142,7 @@ export function EndorsementFocusSheet({
     setComposeExisting(null);
     setSupportOpen(false);
     setSupportTarget(null);
+    setSupportersOpen(false);
     onOpenChange(false);
   }, [onOpenChange]);
 
@@ -268,9 +272,21 @@ export function EndorsementFocusSheet({
             <p className="endorsement-focus-meta">
               Endorsed
               {time ? ` · ${time}` : ''}
-              {supporterCount > 0
-                ? ` · ${supporterCount} supporter${supporterCount === 1 ? '' : 's'}`
-                : ''}
+              {supporterCount > 0 && spendTargetId ? (
+                <>
+                  {' · '}
+                  <button
+                    type="button"
+                    className="endorsement-focus-supporters"
+                    onClick={() => setSupportersOpen(true)}
+                  >
+                    {supporterCount} supporter
+                    {supporterCount === 1 ? '' : 's'}
+                  </button>
+                </>
+              ) : supporterCount > 0 ? (
+                ` · ${supporterCount} supporter${supporterCount === 1 ? '' : 's'}`
+              ) : null}
             </p>
 
             <div className="endorsement-focus-actions">
@@ -334,7 +350,19 @@ export function EndorsementFocusSheet({
           setSupportOpen(next);
           if (!next) setSupportTarget(null);
         }}
-        onSuccess={onSuccess}
+        onSuccess={() => {
+          setSupportersRefreshKey((key) => key + 1);
+          onSuccess?.();
+        }}
+      />
+
+      <EndorsementSupportersSheet
+        open={supportersOpen}
+        endorsementId={spendTargetId}
+        copy={topic || null}
+        zIndex={nestedZ}
+        refreshKey={supportersRefreshKey}
+        onOpenChange={setSupportersOpen}
       />
     </>
   );
