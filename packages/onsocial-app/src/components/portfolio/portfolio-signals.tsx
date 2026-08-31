@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ProtocolMotionArrow } from '@onsocial/ui';
-import { overlayPath } from '@/lib/overlay-routes';
+import { endorsementsPath, overlayPath } from '@/lib/overlay-routes';
 import { standingPath } from '@/lib/profile-social-standings';
 import { formatCount } from '@/lib/profile-display';
 import type { ProfileSignals } from '@/lib/profile-signals';
@@ -126,7 +126,7 @@ export function PortfolioSignals({
           <div className="signal-group signal-group-endorse">
         <Link
           className={metricClassName()}
-          href={overlayPath(accountId, 'endorsements')}
+          href={endorsementsPath(accountId)}
           scroll={false}
           aria-label={`${signals.endorsementsReceivedCount} endorsements received`}
         >
@@ -142,7 +142,7 @@ export function PortfolioSignals({
         </span>
         <Link
           className={metricClassName()}
-          href={overlayPath(accountId, 'endorsements')}
+          href={endorsementsPath(accountId, { mode: 'given' })}
           scroll={false}
           aria-label={`${signals.endorsementsGivenCount} endorsements given`}
         >

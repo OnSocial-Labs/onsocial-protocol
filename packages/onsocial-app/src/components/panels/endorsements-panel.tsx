@@ -31,8 +31,10 @@ import { accountIdsEqual } from '@/lib/account-match';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { buildEndorsementEmptyState } from '@/lib/endorsement-empty-state';
 import { parseEndorsementMediaRef } from '@/lib/endorsement-media';
+import { endorsementsPath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
 import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
+import { replaceBrowserUrl } from '@/lib/sync-browser-url-query';
 import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
 import { derivePortfolioEndorsementCounts } from '@/lib/viewer-endorsement-ledger';
 import type { ResolvedMood } from '@/lib/moods/types';
@@ -43,6 +45,8 @@ interface EndorsementsPanelProps {
   avatarUrl?: string | null;
   mood?: ResolvedMood | null;
   initial?: EndorsementsPanelResponse | null;
+  /** Soft-nav `?mode=given` from face signals / shared overlay URLs. */
+  initialMode?: EndorsementsMode;
 }
 
 type ComposeSession = {
@@ -130,6 +134,7 @@ export function EndorsementsPanel({
   avatarUrl = null,
   mood = null,
   initial = null,
+  initialMode = 'received',
 }: EndorsementsPanelProps) {
   const { accountId: viewerAccountId, isConnected, connect } = useAppWallet();
   const {
@@ -147,7 +152,7 @@ export function EndorsementsPanel({
   } = useViewerEndorsement(accountId);
   const endorsePending = isEndorsePendingForTarget(accountId);
   const endorseBlocked = isBlockEitherWay(accountId);
-  const [mode, setMode] = useState<EndorsementsMode>('received');
+  const [mode, setMode] = useState<EndorsementsMode>(initialMode);
   const [data, setData] = useState<EndorsementsPanelResponse | null>(
     () => initial
   );
@@ -205,6 +210,19 @@ export function EndorsementsPanel({
   useEffect(() => {
     void load({ soft: Boolean(initial) });
   }, [accountId, initial, load]);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
+
+  const selectMode = useCallback(
+    (next: EndorsementsMode) => {
+      if (next === mode) return;
+      setMode(next);
+      replaceBrowserUrl(endorsementsPath(accountId, { mode: next }));
+    },
+    [accountId, mode]
+  );
 
   useEffect(() => {
     if (
@@ -374,11 +392,13 @@ export function EndorsementsPanel({
           <button
             type="button"
             role="tab"
+            id="endorsements-tab-received"
+            aria-controls="endorsements-panel-received"
             aria-selected={mode === 'received'}
             className={`endorsements-mode-chip${
               mode === 'received' ? ' is-selected' : ''
             }`}
-            onClick={() => setMode('received')}
+            onClick={() => selectMode('received')}
           >
             Received
             <span className="endorsements-mode-count">{receivedCount}</span>
@@ -386,11 +406,13 @@ export function EndorsementsPanel({
           <button
             type="button"
             role="tab"
+            id="endorsements-tab-given"
+            aria-controls="endorsements-panel-given"
             aria-selected={mode === 'given'}
             className={`endorsements-mode-chip${
               mode === 'given' ? ' is-selected' : ''
             }`}
-            onClick={() => setMode('given')}
+            onClick={() => selectMode('given')}
           >
             Given
             <span className="endorsements-mode-count">{givenCount}</span>
@@ -413,7 +435,7 @@ export function EndorsementsPanel({
                 {!isConnected
                   ? 'Connect'
                   : viewerEndorsed
-                    ? 'Endorsed'
+                    ? 'Edit'
                     : 'Endorse'}
               </OsSheetAction>
             </OsSheetActions>
@@ -435,7 +457,12 @@ export function EndorsementsPanel({
       {loading ? (
         <EndorsementListSkeleton />
       ) : error ? (
-        <div className="endorsements-empty">
+        <div
+          className="endorsements-empty"
+          role="tabpanel"
+          id={`endorsements-panel-${mode}`}
+          aria-labelledby={`endorsements-tab-${mode}`}
+        >
           <p className="endorsements-empty-copy">{error}</p>
           <button
             type="button"
@@ -446,7 +473,12 @@ export function EndorsementsPanel({
           </button>
         </div>
       ) : items.length === 0 ? (
-        <div className="standing-panel-empty-block">
+        <div
+          className="standing-panel-empty-block"
+          role="tabpanel"
+          id={`endorsements-panel-${mode}`}
+          aria-labelledby={`endorsements-tab-${mode}`}
+        >
           <div className="standing-panel-empty-state">
             <p className="standing-panel-empty-primary">{emptyState.primary}</p>
             {emptyState.secondary ? (
@@ -466,7 +498,12 @@ export function EndorsementsPanel({
           </div>
         </div>
       ) : (
-        <div className="standing-list endorsement-list">
+        <div
+          className="standing-list endorsement-list"
+          role="tabpanel"
+          id={`endorsements-panel-${mode}`}
+          aria-labelledby={`endorsements-tab-${mode}`}
+        >
           {items.map((item, index) => {
             const viewerOwns =
               Boolean(viewerAccountId) &&

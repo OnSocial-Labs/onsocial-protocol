@@ -635,7 +635,7 @@ export function EndorseComposeSheet({
                 ) : (
                   <img
                     src={previewMediaUrl}
-                    alt=""
+                    alt={existingMedia?.alt?.trim() || 'Endorsement media'}
                     className="endorse-compose-media-el"
                   />
                 )}

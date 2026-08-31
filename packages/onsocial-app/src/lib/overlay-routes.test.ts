@@ -8,6 +8,7 @@ import {
   parsePortfolioSheetParam,
   portfolioBoostPath,
   portfolioCollectiblesPath,
+  endorsementsPath,
   homeRallyPath,
   portfolioRallyPath,
   portfolioFeedPath,
@@ -61,6 +62,32 @@ describe('portfolioFeedPath', () => {
   it('deep-links the page drawer via the one-shot feed anchor', () => {
     expect(portfolioFeedPath('alice.testnet')).toBe(
       '/@alice.testnet#portfolio-feed'
+    );
+  });
+});
+
+describe('endorsementsPath', () => {
+  it('defaults to the received rail (bare overlay URL)', () => {
+    expect(endorsementsPath('alice.testnet')).toBe(
+      '/@alice.testnet/endorsements'
+    );
+    expect(endorsementsPath('alice.testnet', { mode: 'received' })).toBe(
+      '/@alice.testnet/endorsements'
+    );
+  });
+
+  it('deep-links the given rail', () => {
+    expect(endorsementsPath('alice.testnet', { mode: 'given' })).toBe(
+      '/@alice.testnet/endorsements?mode=given'
+    );
+    expect(endorsementsPath('alice.testnet', { mode: 'GIVEN' })).toBe(
+      '/@alice.testnet/endorsements?mode=given'
+    );
+  });
+
+  it('ignores unknown modes', () => {
+    expect(endorsementsPath('alice.testnet', { mode: 'mutual' })).toBe(
+      '/@alice.testnet/endorsements'
     );
   });
 });

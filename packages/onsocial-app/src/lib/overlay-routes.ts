@@ -71,6 +71,20 @@ export function overlayPath(accountId: string, panel: OverlayPanel): string {
   return `${portfolioPath(accountId)}/${panel}`;
 }
 
+/**
+ * Endorsements overlay. Received is the default (bare URL). Given is
+ * `?mode=given` so face signals can land on the matching rail — same idea as
+ * `/standing/incoming` vs `/standing/outgoing`.
+ */
+export function endorsementsPath(
+  accountId: string,
+  options?: { mode?: 'received' | 'given' | string | null }
+): string {
+  const base = overlayPath(accountId, 'endorsements');
+  const mode = (options?.mode ?? '').toString().trim().toLowerCase();
+  return mode === 'given' ? `${base}?mode=given` : base;
+}
+
 /** Held catalog for an account — Launch See all + OS vault when connected. */
 export function portfolioCollectiblesPath(
   accountId: string,

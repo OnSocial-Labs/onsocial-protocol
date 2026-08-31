@@ -390,7 +390,7 @@ function PostCardMenu({
         ? 'Updating…'
         : 'Endorsing…'
       : viewerEndorsed
-        ? 'Endorsed'
+        ? 'Edit endorsement'
         : 'Endorse';
 
   const muted = isMuting(accountId);

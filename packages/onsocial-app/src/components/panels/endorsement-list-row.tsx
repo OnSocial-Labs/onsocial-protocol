@@ -126,15 +126,21 @@ export function EndorsementListRow({
                 <video
                   src={mediaUrl}
                   className="endorsement-row-media-el"
+                  autoPlay
                   muted
                   playsInline
                   loop
                   preload="metadata"
+                  aria-label={
+                    topic
+                      ? `Endorsement video for ${topic}`
+                      : 'Endorsement video'
+                  }
                 />
               ) : (
                 <img
                   src={mediaUrl}
-                  alt=""
+                  alt={media?.alt?.trim() || ''}
                   className="endorsement-row-media-el"
                   loading="lazy"
                   decoding="async"
@@ -146,7 +152,7 @@ export function EndorsementListRow({
             {mode === 'received' ? 'Endorsed' : 'Gave'}
             {time ? ` · ${time}` : ''}
             {supporterCount > 0
-              ? ` · ${supporterCount} support${supporterCount === 1 ? '' : 's'}`
+              ? ` · ${supporterCount} supporter${supporterCount === 1 ? '' : 's'}`
               : ''}
             <span className="sr-only">
               {' '}
