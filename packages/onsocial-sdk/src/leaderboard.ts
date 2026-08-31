@@ -19,7 +19,7 @@ export function leaderboardTrackSubtitle(track: LeaderboardTrack): string {
     case 'reputation':
       return 'All-time weighted score';
     case 'influence':
-      return 'All-time effective boost';
+      return 'Locked SOCIAL × time';
     case 'earners':
       return 'All-time SOCIAL earned';
   }
@@ -41,7 +41,7 @@ export function leaderboardPrimaryUnit(track: LeaderboardTrack): string {
 export function leaderboardTrackHint(track: LeaderboardTrack): string | null {
   switch (track) {
     case 'influence':
-      return 'Ranked by effective boost — locked SOCIAL × lock length.';
+      return 'More locked, longer term — higher influence.';
     case 'reputation':
     case 'earners':
       return null;
@@ -71,7 +71,7 @@ export function leaderboardShareCopy(track: LeaderboardTrack): {
     case 'influence':
       return {
         title: 'OnSocial influence leaderboard',
-        text: 'See who leads on effective boost — locked SOCIAL × lock length.',
+        text: 'See who leads on influence — locked SOCIAL × lock length.',
       };
     case 'earners':
       return {

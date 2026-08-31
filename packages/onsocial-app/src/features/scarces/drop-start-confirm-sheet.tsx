@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import {
-  OsChoiceSheetFooter,
+  OsSheetFooter,
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
@@ -107,7 +107,7 @@ export function DropStartConfirmSheet({
       zIndex={SHEET_Z.nestedConfirm}
       bodyClassName="drop-start-confirm-body"
       footer={
-        <OsChoiceSheetFooter>
+        <OsSheetFooter>
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
             <OsSheetAction
               type="button"
@@ -121,7 +121,7 @@ export function DropStartConfirmSheet({
               {primaryLabel}
             </OsSheetAction>
           </OsSheetActions>
-        </OsChoiceSheetFooter>
+        </OsSheetFooter>
       }
     >
       {status ? <p className="drop-start-confirm-summary">{status}</p> : null}

@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import {
   OsSheetAction,
   OsSheetActions,
+  OsSheetFooter,
 } from '@onsocial/ui';
 
 export interface CommerceSheetFooterSecondary {
@@ -101,7 +102,7 @@ export function useSyncCommerceSheetFooter(
   }, [onChange]);
 }
 
-/** Pinned GlassSheet footer dock for scarce commerce primary actions. */
+/** Pinned GlassSheet footer for scarce / Support commerce primary actions. */
 export function CommerceSheetFooter({
   formId,
   keyboardOpen,
@@ -112,11 +113,7 @@ export function CommerceSheetFooter({
   const primaryType = state.primaryType ?? 'submit';
 
   return (
-    <div
-      className={`profile-support-sheet-footer${
-        keyboardOpen ? ' is-keyboard-open' : ''
-      }`}
-    >
+    <OsSheetFooter keyboardOpen={keyboardOpen}>
       <div
         className={
           state.leading
@@ -165,6 +162,6 @@ export function CommerceSheetFooter({
           ) : null}
         </OsSheetActions>
       </div>
-    </div>
+    </OsSheetFooter>
   );
 }

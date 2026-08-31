@@ -53,40 +53,18 @@ interface PortfolioCustomizeProps {
 const AVATAR_OPTIONS: Array<{
   id: PageAvatarMode;
   label: string;
-  description: string;
 }> = [
-  {
-    id: 'standard',
-    label: 'Card',
-    description: 'Classic banner with your avatar in front.',
-  },
-  {
-    id: 'cover',
-    label: 'Cover',
-    description: 'A bold hero built from your avatar.',
-  },
+  { id: 'standard', label: 'Card' },
+  { id: 'cover', label: 'Cover' },
 ];
 
 const HERO_SOURCE_OPTIONS: Array<{
   id: PageHeroSource;
   label: string;
-  description: string;
 }> = [
-  {
-    id: 'banner',
-    label: 'Banner',
-    description: 'Use your profile banner at the top.',
-  },
-  {
-    id: 'avatar',
-    label: 'Avatar',
-    description: 'Use your avatar as the top hero.',
-  },
-  {
-    id: 'none',
-    label: 'Minimal',
-    description: 'Let the mood carry the page.',
-  },
+  { id: 'banner', label: 'Banner' },
+  { id: 'avatar', label: 'Avatar' },
+  { id: 'none', label: 'Minimal' },
 ];
 
 export function PortfolioCustomize({
@@ -103,11 +81,8 @@ export function PortfolioCustomize({
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const {
-    committedAvatarMode,
-    committedHeroSource,
     effectiveAvatarMode,
     effectiveHeroSource,
-    isPreviewingLayout,
     isPreviewingHeroSource,
     setPreviewAvatarMode,
     setPreviewHeroSource,
@@ -140,6 +115,12 @@ export function PortfolioCustomize({
   const isApplying = isApplyingFace || isApplyingMedia || isApplyingTint;
   const error = faceError ?? mediaError ?? tintError;
   const isCoverLayout = effectiveAvatarMode === 'cover';
+  const controlsLocked =
+    needsConnect ||
+    Boolean(
+      walletAccountId && !accountIdsEqual(walletAccountId, pageAccountId)
+    );
+  const controlsDisabled = isApplying || controlsLocked;
   const signaturePreset = APP_PREMIUM_MOOD_PRESETS.signature;
   const signatureUnlocked = isPageMoodUnlocked(
     { moodUnlocks: config.moodUnlocks },
@@ -324,13 +305,12 @@ export function PortfolioCustomize({
         zIndex={SHEET_Z.facts}
         ariaLabelledBy="customize-sheet-title"
         backdropLabel="Close customize"
-        panelClassName="customize-sheet-panel os-sheet-cap-tall"
-        bodyClassName="customize-sheet-body"
+        panelClassName="customize-sheet-panel os-sheet-cap-standard"
+        bodyClassName="customize-sheet-body os-hug-sheet-body"
         header={
           <SheetHeader
             titleId="customize-sheet-title"
             title="Customize"
-            subtitle="Tune mood, layout, and media for this page."
             onClose={() => setOpen(false)}
             closeAriaLabel="Close customize"
           />
@@ -366,16 +346,13 @@ export function PortfolioCustomize({
 
         <div className="customize-sheet-section">
           <p className="customize-sheet-label">Mood</p>
-          <p className="customize-sheet-copy">
-            Choose the page atmosphere. Preview it, then save.
-          </p>
           <div className="os-surface-row-list">
             <button
               type="button"
               data-mood={moodPageId}
               className="mood-sheet-item customize-mood-option is-active is-selectable"
               style={mood.cssVars as CSSProperties}
-              disabled={isApplying}
+              disabled={controlsDisabled}
               onClick={openMoodSheet}
             >
               <span className="os-surface-row-badge">Change</span>
@@ -392,9 +369,6 @@ export function PortfolioCustomize({
             <Divider variant="section" className="customize-sheet-divider" />
             <div className="customize-sheet-section">
               <p className="customize-sheet-label">Ink hue</p>
-              <p className="customize-sheet-copy">
-                Tune your signature accent. It stays with this mood.
-              </p>
               <label className="customize-hue-control">
                 <span className="customize-hue-preview" aria-hidden>
                   <span
@@ -411,7 +385,7 @@ export function PortfolioCustomize({
                   max={359}
                   step={1}
                   value={draftSignatureHue}
-                  disabled={isApplying}
+                  disabled={controlsDisabled}
                   aria-valuetext={`${Math.round(draftSignatureHue)} degrees`}
                   onChange={(event) =>
                     handleSignatureHueInput(Number(event.target.value))
@@ -434,89 +408,62 @@ export function PortfolioCustomize({
         <Divider variant="section" className="customize-sheet-divider" />
         <div className="customize-sheet-section">
           <p className="customize-sheet-label">Layout</p>
-          <div className="os-surface-row-list">
-            {AVATAR_OPTIONS.map((option) => {
-              const isSelected = option.id === effectiveAvatarMode;
-              const isSaved = option.id === committedAvatarMode;
-
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  className={`os-surface-row${isSelected ? ' is-active' : ''}`}
-                  disabled={isApplying}
-                  aria-current={isSelected ? 'true' : undefined}
-                  onClick={() => handlePreview(option.id)}
-                >
-                  <span className="os-surface-row-copy">
-                    <span className="os-surface-row-label">{option.label}</span>
-                    <span className="os-surface-row-description">
-                      {option.description}
-                    </span>
-                  </span>
-                  {isSelected && isPreviewingLayout && !isSaved ? (
-                    <span className="os-surface-row-badge">Preview</span>
-                  ) : isSaved ? (
-                    <span className="os-surface-row-badge">Saved</span>
-                  ) : isSelected ? (
-                    <span className="os-surface-row-badge">Active</span>
-                  ) : null}
-                </button>
-              );
-            })}
+          <div
+            className="app-storage-mode-toggle"
+            role="group"
+            aria-label="Layout"
+          >
+            {AVATAR_OPTIONS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={`app-storage-mode${
+                  option.id === effectiveAvatarMode ? ' is-active' : ''
+                }`}
+                disabled={controlsDisabled}
+                aria-pressed={option.id === effectiveAvatarMode}
+                onClick={() => handlePreview(option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
         </div>
 
         <Divider variant="section" className="customize-sheet-divider" />
         <div className="customize-sheet-section">
-          <p className="customize-sheet-label">Hero source</p>
+          <p className="customize-sheet-label">Hero</p>
           {isCoverLayout ? (
-            <p className="customize-sheet-copy">
-              Cover layout always uses your avatar as the hero.
+            <p className="customize-sheet-copy customize-sheet-copy--inline">
+              Cover uses your avatar.
             </p>
           ) : (
-            <div className="os-surface-row-list">
-              {HERO_SOURCE_OPTIONS.map((option) => {
-                const isSelected = option.id === effectiveHeroSource;
-                const isSaved = option.id === committedHeroSource;
-
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    className={`os-surface-row${isSelected ? ' is-active' : ''}`}
-                    disabled={isApplying}
-                    aria-current={isSelected ? 'true' : undefined}
-                    onClick={() => handleHeroSourcePreview(option.id)}
-                  >
-                    <span className="os-surface-row-copy">
-                      <span className="os-surface-row-label">
-                        {option.label}
-                      </span>
-                      <span className="os-surface-row-description">
-                        {option.description}
-                      </span>
-                    </span>
-                    {isSelected && isPreviewingHeroSource && !isSaved ? (
-                      <span className="os-surface-row-badge">Preview</span>
-                    ) : isSaved ? (
-                      <span className="os-surface-row-badge">Saved</span>
-                    ) : isSelected ? (
-                      <span className="os-surface-row-badge">Active</span>
-                    ) : null}
-                  </button>
-                );
-              })}
+            <div
+              className="app-storage-mode-toggle"
+              role="group"
+              aria-label="Hero source"
+            >
+              {HERO_SOURCE_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`app-storage-mode${
+                    option.id === effectiveHeroSource ? ' is-active' : ''
+                  }`}
+                  disabled={controlsDisabled}
+                  aria-pressed={option.id === effectiveHeroSource}
+                  onClick={() => handleHeroSourcePreview(option.id)}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
           )}
         </div>
 
         <Divider variant="section" className="customize-sheet-divider" />
         <div className="customize-sheet-section">
-          <p className="customize-sheet-label">Profile media</p>
-          <p className="customize-sheet-copy">
-            Update the avatar and banner used across layouts.
-          </p>
+          <p className="customize-sheet-label">Media</p>
           <div className="profile-editor-media-compact-row">
             <div
               className={`profile-editor-media-host profile-editor-media-host--compact-avatar profile-editor-media-host--circle${avatarUrl ? ' has-media' : ''}`}
@@ -524,7 +471,7 @@ export function PortfolioCustomize({
               <button
                 type="button"
                 className="profile-editor-media-backdrop"
-                disabled={isApplying}
+                disabled={controlsDisabled}
                 aria-label="Upload avatar"
                 onClick={() => avatarInputRef.current?.click()}
               >
@@ -561,7 +508,7 @@ export function PortfolioCustomize({
                 <button
                   type="button"
                   className="profile-editor-media-backdrop"
-                  disabled={isApplying}
+                  disabled={controlsDisabled}
                   aria-label="Upload banner"
                   onClick={() => bannerInputRef.current?.click()}
                 >
@@ -610,7 +557,7 @@ export function PortfolioCustomize({
             type="file"
             accept="image/*"
             className="customize-media-input"
-            disabled={isApplying}
+            disabled={controlsDisabled}
             onChange={(event) => {
               const file = event.target.files?.[0] ?? null;
               void handleAvatarUpload(file);
@@ -622,7 +569,7 @@ export function PortfolioCustomize({
             type="file"
             accept="image/*,video/mp4,video/webm"
             className="customize-media-input"
-            disabled={isApplying}
+            disabled={controlsDisabled}
             onChange={(event) => {
               const file = event.target.files?.[0] ?? null;
               void handleBannerUpload(file);

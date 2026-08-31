@@ -1041,8 +1041,7 @@ export function PortfolioBoostSheet({
       ) : (
         <div className="portfolio-boost-view">
           <p className="portfolio-boost-intro">
-            Lock SOCIAL to grow your influence. Rewards accrue every second —
-            collect anytime.
+            Longer commitments — more of the activity that drips back.
           </p>
 
           <div
@@ -1090,11 +1089,7 @@ export function PortfolioBoostSheet({
               )}{' '}
               · Unlocks {previewUnlockDateLabel(commitOption.months)}
             </p>
-          ) : (
-            <p className="portfolio-boost-note">
-              Longer commitments earn a bigger influence bonus.
-            </p>
-          )}
+          ) : null}
 
           {fieldError || amountError ? (
             <p className="profile-support-error" role="alert">

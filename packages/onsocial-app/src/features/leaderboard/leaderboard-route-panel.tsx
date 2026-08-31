@@ -13,7 +13,7 @@ import {
 import type { LeaderboardTrack } from '@/lib/leaderboard';
 
 /**
- * First-class `/leaderboard` destination — same slide-over as chart entries.
+ * First-class `/leaderboard` destination — same appear page sheet as chart entries.
  * Underlay registers the OS portal host; close restores history.
  */
 export function LeaderboardRoutePanel() {
@@ -53,9 +53,9 @@ export function LeaderboardRoutePanel() {
     <>
       <OsAppScreen
         title="Leaderboard"
-        subtitle="Protocol rankings"
         leading={null}
         glassChrome
+        compactChrome
       >
         <p className="leaderboard-route-underlay">
           Protocol reputation, influence, and earners.

@@ -233,13 +233,9 @@
 }
 
 /*
- * Frosted CTA in GlassSheet footer — same 1.15rem column as hug body.
- * Body trims bottom so safe-area lives on the footer only.
+ * Legacy class name — padding lives on `.os-sheet-footer` (glass-sheet.css).
+ * Choice panels still trim body when any GlassSheet footer is present.
  */
-.os-choice-sheet-footer {
-  padding: 0.35rem 1.15rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
-}
-
 .glass-sheet-panel.os-choice-sheet-panel:has(> .glass-sheet-footer:not(:empty))
   .os-hug-sheet-body {
   padding-bottom: 0.35rem;

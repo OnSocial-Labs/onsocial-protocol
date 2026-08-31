@@ -8,7 +8,7 @@ import {
   type FormEvent,
 } from 'react';
 import {
-  OsChoiceSheetFooter,
+  OsSheetFooter,
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
@@ -170,7 +170,7 @@ export function AppAddTokenSheet({
       panelClassName="account-storage-panel os-sheet-cap-standard"
       {...(panelStyle ? { panelStyle } : {})}
       footer={
-        <OsChoiceSheetFooter>
+        <OsSheetFooter>
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
             <OsSheetAction
               type="submit"
@@ -183,7 +183,7 @@ export function AppAddTokenSheet({
               Add
             </OsSheetAction>
           </OsSheetActions>
-        </OsChoiceSheetFooter>
+        </OsSheetFooter>
       }
     >
       <form

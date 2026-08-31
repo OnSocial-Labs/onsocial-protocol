@@ -86,14 +86,12 @@ describe('leaderboard helpers', () => {
     expect(leaderboardTrackSubtitle('reputation')).toBe(
       'All-time weighted score'
     );
-    expect(leaderboardTrackSubtitle('influence')).toBe(
-      'All-time effective boost'
-    );
+    expect(leaderboardTrackSubtitle('influence')).toBe('Locked SOCIAL × time');
     expect(leaderboardTrackSubtitle('earners')).toBe('All-time SOCIAL earned');
     expect(leaderboardPrimaryUnit('influence')).toBe('Boost');
     expect(leaderboardPrimaryUnit('earners')).toBe('SOCIAL');
     expect(leaderboardPrimaryUnit('reputation')).toBe('Score');
-    expect(leaderboardTrackHint('influence')).toMatch(/locked SOCIAL/);
+    expect(leaderboardTrackHint('influence')).toMatch(/influence/i);
     expect(leaderboardTrackHint('earners')).toBeNull();
   });
 

@@ -9,6 +9,12 @@ import {
 } from 'react';
 import { OsGestureSheet } from '@onsocial/ui';
 import { EndorsementSupportForm } from '@/components/panels/endorsement-support-form';
+import {
+  CommerceSheetFooter,
+  commerceFooterStatesEqual,
+  type CommerceSheetFooterState,
+} from '@/features/scarces/commerce-sheet-footer';
+import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { humanizeEndorsementTopic } from '@/lib/endorsement-display';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
@@ -47,9 +53,12 @@ export function EndorsementSupportSheet({
   zIndex = SHEET_Z.facts,
 }: EndorsementSupportSheetProps) {
   const titleId = useId();
+  const formId = useId();
   const [closing, setClosing] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const [wasOpen, setWasOpen] = useState(open);
+  const [footerState, setFooterState] =
+    useState<CommerceSheetFooterState | null>(null);
   const sheetOpen = open && !closing && Boolean(target);
   const recipientAccountId = target?.recipientAccountId ?? '';
   const name = displayName(
@@ -66,17 +75,26 @@ export function EndorsementSupportSheet({
     Boolean(recipientAccountId) && (open || closing)
   );
   const effectiveMood = mood ?? fetchedMood;
-  const panelStyle = useMemo(
+  const { panelStyle: keyboardPanelStyle, keyboardOpen } =
+    useCommerceSheetKeyboard(sheetOpen);
+  const moodPanelStyle = useMemo(
     () =>
       effectiveMood
         ? (supportSheetPanelStyle(effectiveMood.cssVars) as CSSProperties)
         : undefined,
     [effectiveMood]
   );
+  const panelStyle = useMemo(() => {
+    if (!moodPanelStyle && !keyboardPanelStyle) return undefined;
+    return { ...moodPanelStyle, ...keyboardPanelStyle };
+  }, [keyboardPanelStyle, moodPanelStyle]);
 
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setFormKey((key) => key + 1);
+    if (open) {
+      setFormKey((key) => key + 1);
+      setFooterState(null);
+    }
   }
 
   const requestClose = useCallback(() => {
@@ -85,8 +103,18 @@ export function EndorsementSupportSheet({
 
   const handleSheetClosed = useCallback(() => {
     setClosing(false);
+    setFooterState(null);
     onOpenChange(false);
   }, [onOpenChange]);
+
+  const handleFooterStateChange = useCallback(
+    (state: CommerceSheetFooterState | null) => {
+      setFooterState((prev) =>
+        commerceFooterStatesEqual(prev, state) ? prev : state
+      );
+    },
+    []
+  );
 
   return (
     <OsGestureSheet
@@ -101,19 +129,33 @@ export function EndorsementSupportSheet({
       closeAriaLabel="Close endorsement support"
       backdropLabel="Close endorsement support"
       moodId={effectiveMood?.id}
+      size="tall"
+      keyboardOpen={keyboardOpen}
       panelStyle={panelStyle}
+      panelClassName="profile-support-sheet-panel"
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
       zIndex={zIndex}
+      footer={
+        footerState?.visible ? (
+          <CommerceSheetFooter
+            formId={formId}
+            keyboardOpen={keyboardOpen}
+            state={footerState}
+          />
+        ) : undefined
+      }
     >
       {target ? (
         <EndorsementSupportForm
           key={formKey}
+          formId={formId}
           endorsementId={target.endorsementId}
           recipientAccountId={target.recipientAccountId}
           recipientName={target.recipientName}
           issuer={target.issuer}
           topic={target.topic}
+          onFooterStateChange={handleFooterStateChange}
           onSuccess={() => {
             onSuccess?.();
             requestClose();

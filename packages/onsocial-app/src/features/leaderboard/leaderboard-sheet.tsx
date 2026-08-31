@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * In-app protocol leaderboard (slide-over).
+ * In-app protocol leaderboard (appear page sheet — same shell as create post).
  *
- * Reuses @onsocial/ui StandingIdentity + standing-row chrome and OsSlideOverScreen.
+ * Reuses @onsocial/ui StandingIdentity + standing-row chrome and OsPageSheet.
  * Rank / pct bars / viewer pin stay host-local — no second UI consumer yet.
  * Period/Δ needs indexer history — not faked here.
  */
@@ -11,6 +11,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -21,18 +22,21 @@ import Link from 'next/link';
 import {
   Divider,
   FireFillIcon,
+  MultiplyIcon,
   OsHugSheet,
   OsIconAction,
+  OsPageSheet,
   SheetCloseButton,
   StandingIdentity,
   osIconActionGlyphClassName,
 } from '@onsocial/ui';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { OsAppScreen } from '@/components/app/os-app-screen';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { StandingListLoadMoreFooter } from '@/components/panels/standing-list-load-more-footer';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
+import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
 import { PortfolioBoostSheet } from '@/features/boost/portfolio-boost-sheet';
 import { useBoostPosition } from '@/features/boost/use-boost-position';
 import { ReputationBreakdownFacts } from '@/features/leaderboard/reputation-breakdown-facts';
@@ -67,6 +71,11 @@ import {
   type LeaderboardTrackCache,
   type ReputationEntry,
 } from '@/lib/leaderboard';
+import {
+  pageContentDrawerPanelStyle,
+  portfolioMoodShellStyle,
+  resolvePortfolioMood,
+} from '@/lib/moods/resolve';
 import { portfolioPath } from '@/lib/overlay-routes';
 
 const INFLUENCE_HINT_SESSION_KEY = 'leaderboard-influence-hint-seen';
@@ -554,11 +563,29 @@ export function LeaderboardSheet({
   onRowNavigate?: () => void;
 }) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
+  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const [internalTrack, setInternalTrack] =
     useState<LeaderboardTrack>(initialTrack);
   const track = trackProp ?? internalTrack;
   const sheetOpen = open && !closing;
+  const { moodId: fetchedMoodId, style: fetchedMoodStyle } =
+    useViewerWalletMoodVars(
+      viewerAccountId ?? '',
+      undefined,
+      sheetOpen && Boolean(viewerAccountId)
+    );
+  const fallbackMood = useMemo(() => resolvePortfolioMood({}), []);
+  const viewerMoodId =
+    fetchedMoodId ?? (viewerAccountId ? fallbackMood.id : null);
+  const viewerMoodStyle = useMemo(() => {
+    if (fetchedMoodStyle) return fetchedMoodStyle;
+    if (!viewerAccountId) return undefined;
+    return {
+      ...portfolioMoodShellStyle(fallbackMood.cssVars),
+      ...pageContentDrawerPanelStyle(fallbackMood.cssVars),
+    } as CSSProperties;
+  }, [fallbackMood.cssVars, fetchedMoodStyle, viewerAccountId]);
   const [boostOpen, setBoostOpen] = useState(false);
   const [influenceHintSeen, setInfluenceHintSeen] = useState(readInfluenceHintSeen);
 
@@ -852,159 +879,194 @@ export function LeaderboardSheet({
 
   return (
     <>
-      <OsSlideOverScreen
+      <OsPageSheet
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleClosed}
-        title="Leaderboard"
-        heading={
-          <>
-            <h1 className="os-app-screen-title">Leaderboard</h1>
-            <p className="os-app-screen-subtitle leaderboard-sheet-subline">
-              <span className="leaderboard-sheet-subline-metric">
-                {leaderboardTrackSubtitle(track)}
-              </span>
-              {youLineText ? (
-                viewerInListRow ? (
-                  <button
-                    type="button"
-                    className="leaderboard-sheet-subline-you is-jump"
-                    onClick={scrollToViewer}
-                  >
-                    {youLineText}
-                  </button>
-                ) : (
-                  <span className="leaderboard-sheet-subline-you">
-                    {youLineText}
-                  </span>
-                )
-              ) : null}
-            </p>
-          </>
-        }
+        surface="page"
+        presentation="appear"
         zIndex={LEADERBOARD_Z}
-        closeAriaLabel="Back from leaderboard"
-        className="leaderboard-slide"
-        scrollRootRef={scrollRootRef}
-        actions={
-          showBoostAction ? (
-            <div className="standing-sheet-actions standing-sheet-actions--payout">
-              <OsIconAction
-                ariaLabel={boostAriaLabel}
-                onClick={() => setBoostOpen(true)}
-              >
-                <FireFillIcon
-                  className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
-                  aria-hidden
-                />
-              </OsIconAction>
-            </div>
+        ariaLabelledBy={titleId}
+        backdropLabel="Close leaderboard"
+        moodId={viewerMoodId ?? undefined}
+        moodStyle={viewerMoodStyle}
+        panelClassName="leaderboard-page-sheet"
+        bodyClassName="leaderboard-page-body"
+        header={null}
+        footer={
+          stickyFooter ? (
+            <div className="leaderboard-page-footer">{stickyFooter}</div>
           ) : null
         }
-        toolbar={
-          <div className="leaderboard-toolbar">
-            <div
-              className={`os-app-chrome-rail leaderboard-track-rail${
-                trackRailHidden ? ' is-scroll-hidden' : ''
-              }`}
-            >
-              <div
-                className="leaderboard-track-row"
-                role="tablist"
-                aria-label="Leaderboard tracks"
-              >
-                {LEADERBOARD_TRACKS.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={track === item.id}
-                    className={`leaderboard-track-seg${
-                      track === item.id ? ' is-selected' : ''
-                    }`}
-                    onClick={() => {
-                      if (item.id === track) return;
-                      setError(null);
-                      setViewerPinned(false);
-                      setFactsEntry(null);
-                      scrolledForKeyRef.current = '';
-                      setTrack(item.id);
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {trackHint ? (
-              <p className="leaderboard-track-hint">{trackHint}</p>
-            ) : null}
-          </div>
-        }
-        contentClassName="leaderboard-sheet-content"
-        footer={stickyFooter}
       >
-        {error ? (
-          <p className="leaderboard-sheet-empty">{error}</p>
-        ) : showSkeleton ? (
-          <ProfileSocialListSkeleton count={6} rowVariant="leaderboard" />
-        ) : empty ? (
-          <p className="leaderboard-sheet-empty">{empty}</p>
-        ) : (
-          <>
-            {track === 'influence' && rows ? (
-              <InfluenceRows
-                rows={rows as InfluenceEntry[]}
-                profiles={profiles}
-                onNavigate={handleRowNavigate}
-                viewerAccountId={viewerAccountId}
-                viewerRowRef={viewerRowRef}
-              />
-            ) : track === 'reputation' && rows ? (
-              <ReputationRows
-                rows={rows as ReputationEntry[]}
-                profiles={profiles}
-                onNavigate={handleRowNavigate}
-                viewerAccountId={viewerAccountId}
-                viewerRowRef={viewerRowRef}
-                onOpenFacts={setFactsEntry}
-              />
-            ) : track === 'earners' && rows ? (
-              <EarnerRows
-                rows={rows as EarnerEntry[]}
-                profiles={profiles}
-                onNavigate={handleRowNavigate}
-                viewerAccountId={viewerAccountId}
-                viewerRowRef={viewerRowRef}
-              />
-            ) : (
+        <OsAppScreen
+          title="Leaderboard"
+          glassChrome
+          embedded
+          scrollRootRef={scrollRootRef}
+          moodId={viewerMoodId}
+          moodStyle={viewerMoodStyle}
+          leading={null}
+          heading={
+            <>
+              <h1 id={titleId} className="os-app-screen-title">
+                Leaderboard
+              </h1>
+              <p className="os-app-screen-subtitle leaderboard-sheet-subline">
+                <span className="leaderboard-sheet-subline-metric">
+                  {leaderboardTrackSubtitle(track)}
+                </span>
+                {youLineText ? (
+                  viewerInListRow ? (
+                    <button
+                      type="button"
+                      className="leaderboard-sheet-subline-you is-jump"
+                      onClick={scrollToViewer}
+                    >
+                      {youLineText}
+                    </button>
+                  ) : (
+                    <span className="leaderboard-sheet-subline-you">
+                      {youLineText}
+                    </span>
+                  )
+                ) : null}
+              </p>
+            </>
+          }
+          actions={
+            <div className="standing-sheet-actions standing-sheet-actions--payout">
+              {showBoostAction ? (
+                <OsIconAction
+                  ariaLabel={boostAriaLabel}
+                  onClick={() => setBoostOpen(true)}
+                >
+                  <FireFillIcon
+                    className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
+                    aria-hidden
+                  />
+                </OsIconAction>
+              ) : null}
+              <OsIconAction
+                ariaLabel="Close leaderboard"
+                onClick={requestClose}
+              >
+                <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
+              </OsIconAction>
+            </div>
+          }
+          toolbar={
+            <div className="leaderboard-toolbar">
+              <div
+                className={`os-app-chrome-rail leaderboard-track-rail${
+                  trackRailHidden ? ' is-scroll-hidden' : ''
+                }`}
+              >
+                <div
+                  className="app-storage-mode-toggle leaderboard-track-row"
+                  data-track={track}
+                  role="tablist"
+                  aria-label="Leaderboard tracks"
+                >
+                  {LEADERBOARD_TRACKS.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={track === item.id}
+                      className={`app-storage-mode${
+                        track === item.id ? ' is-active' : ''
+                      }`}
+                      onClick={() => {
+                        if (item.id === track) return;
+                        setError(null);
+                        setViewerPinned(false);
+                        setFactsEntry(null);
+                        scrolledForKeyRef.current = '';
+                        setTrack(item.id);
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {trackHint ? (
+                <p className="leaderboard-track-hint">{trackHint}</p>
+              ) : null}
+            </div>
+          }
+        >
+          <div className="leaderboard-sheet-content">
+            {error ? (
+              <p className="leaderboard-sheet-empty">{error}</p>
+            ) : showSkeleton ? (
               <ProfileSocialListSkeleton count={6} rowVariant="leaderboard" />
+            ) : empty ? (
+              <p className="leaderboard-sheet-empty">{empty}</p>
+            ) : (
+              <>
+                {track === 'influence' && rows ? (
+                  <InfluenceRows
+                    rows={rows as InfluenceEntry[]}
+                    profiles={profiles}
+                    onNavigate={handleRowNavigate}
+                    viewerAccountId={viewerAccountId}
+                    viewerRowRef={viewerRowRef}
+                  />
+                ) : track === 'reputation' && rows ? (
+                  <ReputationRows
+                    rows={rows as ReputationEntry[]}
+                    profiles={profiles}
+                    onNavigate={handleRowNavigate}
+                    viewerAccountId={viewerAccountId}
+                    viewerRowRef={viewerRowRef}
+                    onOpenFacts={setFactsEntry}
+                  />
+                ) : track === 'earners' && rows ? (
+                  <EarnerRows
+                    rows={rows as EarnerEntry[]}
+                    profiles={profiles}
+                    onNavigate={handleRowNavigate}
+                    viewerAccountId={viewerAccountId}
+                    viewerRowRef={viewerRowRef}
+                  />
+                ) : (
+                  <ProfileSocialListSkeleton
+                    count={6}
+                    rowVariant="leaderboard"
+                  />
+                )}
+                <StandingListLoadMoreFooter
+                  loadMoreSentinelRef={loadMoreSentinelRef}
+                  isLoadingMore={loadingMore}
+                  showSentinel={hasMore}
+                  skeletonRowVariant="leaderboard"
+                  resultsSummary={
+                    hasMore
+                      ? null
+                      : rows && rows.length > LEADERBOARD_PAGE_SIZE
+                        ? `Showing top ${rows.length}`
+                        : null
+                  }
+                />
+                {!isConnected ? (
+                  <p className="leaderboard-sheet-footnote">
+                    Connect a wallet to see your rank on this board.
+                  </p>
+                ) : track === 'earners' &&
+                  isConnected &&
+                  !shareViewer &&
+                  board ? (
+                  <p className="leaderboard-sheet-footnote">
+                    No SOCIAL earned yet — you won&apos;t appear on this board.
+                  </p>
+                ) : null}
+              </>
             )}
-            <StandingListLoadMoreFooter
-              loadMoreSentinelRef={loadMoreSentinelRef}
-              isLoadingMore={loadingMore}
-              showSentinel={hasMore}
-              skeletonRowVariant="leaderboard"
-              resultsSummary={
-                hasMore
-                  ? null
-                  : rows && rows.length > LEADERBOARD_PAGE_SIZE
-                    ? `Showing top ${rows.length}`
-                    : null
-              }
-            />
-            {!isConnected ? (
-              <p className="leaderboard-sheet-footnote">
-                Connect a wallet to see your rank on this board.
-              </p>
-            ) : track === 'earners' && isConnected && !shareViewer && board ? (
-              <p className="leaderboard-sheet-footnote">
-                No SOCIAL earned yet — you won&apos;t appear on this board.
-              </p>
-            ) : null}
-          </>
-        )}
-      </OsSlideOverScreen>
+          </div>
+        </OsAppScreen>
+      </OsPageSheet>
 
       <LeaderboardReputationPeek
         open={factsEntry != null}

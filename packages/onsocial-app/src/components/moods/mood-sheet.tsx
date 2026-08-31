@@ -146,16 +146,14 @@ export function MoodSheet({
       zIndex={SHEET_Z.list}
       ariaLabelledBy="mood-sheet-title"
       backdropLabel="Close moods"
-      panelClassName="mood-sheet-panel os-sheet-cap-tall"
-      bodyClassName="mood-sheet-body"
+      panelClassName="mood-sheet-panel os-sheet-cap-standard"
+      bodyClassName="mood-sheet-body os-hug-sheet-body"
       header={
         <SheetHeader
           titleId="mood-sheet-title"
           title={proposeOnly ? 'Propose mood' : 'Moods'}
           subtitle={
-            proposeOnly
-              ? 'Preview a mood, then propose it for council approval.'
-              : 'Choose a page mood. We preview it first, then you save it.'
+            proposeOnly ? 'Preview, then propose for council.' : undefined
           }
           onClose={onClose}
           closeAriaLabel="Close moods"

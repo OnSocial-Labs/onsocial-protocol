@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  OsChoiceSheetFooter,
+  OsSheetFooter,
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
@@ -80,7 +80,7 @@ export function DaoProposeConfirmSheet({
       backdropLabel={discardLabel}
       zIndex={zIndex}
       footer={
-        <OsChoiceSheetFooter>
+        <OsSheetFooter>
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
             <OsSheetAction
               type="button"
@@ -116,7 +116,7 @@ export function DaoProposeConfirmSheet({
               </OsSheetAction>
             )}
           </OsSheetActions>
-        </OsChoiceSheetFooter>
+        </OsSheetFooter>
       }
     >
       <div className={osActionDrawerConfirmClassName}>

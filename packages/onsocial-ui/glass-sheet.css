@@ -25,6 +25,29 @@
 }
 
 /*
+ * Shared resting CTA footer inset — choice (Info / Create) and commerce
+ * (Support / Buy) match when the keyboard is closed. Commerce only trims
+ * bottom via `--os-sheet-footer-pad-bottom-keyboard` when lifted.
+ */
+:root {
+  --os-sheet-footer-pad-top: 0.45rem;
+  --os-sheet-footer-pad-inline: 1.15rem;
+  --os-sheet-footer-pad-bottom: calc(
+    0.55rem + env(safe-area-inset-bottom, 0px)
+  );
+  --os-sheet-footer-pad-bottom-keyboard: 0.45rem;
+}
+
+.os-sheet-footer {
+  padding: var(--os-sheet-footer-pad-top)
+    var(--os-sheet-footer-pad-inline) var(--os-sheet-footer-pad-bottom);
+}
+
+.os-sheet-footer.is-keyboard-open {
+  padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard);
+}
+
+/*
  * Nested in an OS column host. Expand 1px so frost/scrim covers the full OS
  * page including the soft hairline lip. Own the outer phone radius on the
  * blur layers so top-corner crescents aren’t left unblurred.
@@ -150,13 +173,11 @@
 }
 
 /*
- * Default hug body inset — same column + safe-area bottom as
- * `.os-gesture-sheet-body` (Support / Endorse / commerce). OsHugSheet and
- * OsGestureSheet apply this; raw GlassSheet hosts should add
- * `osHugSheetBodyClassName`. Flush / keyboard bodies override via bodyClassName.
+ * Default hug body inset — same 1.15rem column as SheetHeader; bottom matches
+ * `.os-sheet-footer` resting clearance (`--os-sheet-footer-pad-bottom`).
  */
 .os-hug-sheet-body {
-  padding: 0.2rem 1.15rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
+  padding: 0.2rem 1.15rem var(--os-sheet-footer-pad-bottom);
 }
 
 /* Frost behind content — blur clipped to the sheet frame (not the viewport). */

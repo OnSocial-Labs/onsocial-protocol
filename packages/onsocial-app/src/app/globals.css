@@ -287,9 +287,7 @@
   --glass-header-scrim-height: min(5rem, 24%);
 }
 
-.glass-sheet-panel.portfolio-support-collect-info-panel:has(
-    .profile-support-sheet-footer
-  )
+.glass-sheet-panel.portfolio-support-collect-info-panel:has(.os-sheet-footer)
   .portfolio-support-collect-info-body {
   padding-bottom: 0.35rem;
 }
@@ -322,6 +320,15 @@
   overflow: hidden;
 }
 
+.glass-sheet-panel.leaderboard-page-sheet > .glass-sheet-body.leaderboard-page-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 0;
+  overflow: hidden;
+}
+
 .glass-sheet-panel.guild-composer-sheet-panel .os-app-screen--embedded {
   flex: 1 1 auto;
   width: 100%;
@@ -333,7 +340,25 @@
   -webkit-backdrop-filter: none;
 }
 
+.glass-sheet-panel.leaderboard-page-sheet .os-app-screen--embedded {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .glass-sheet-panel.guild-composer-sheet-panel
+  .os-app-screen--embedded
+  .os-app-screen-column {
+  max-width: none;
+  height: 100%;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet
   .os-app-screen--embedded
   .os-app-screen-column {
   max-width: none;
@@ -1261,12 +1286,12 @@
   content: '';
   display: block;
   height: 1px;
-  margin: 0 0.9rem 1rem;
+  margin: 0 0 0.65rem;
   background-image: var(--divider-h-section);
 }
 
 .mood-sheet-panel .mood-sheet-section-list > li + li {
-  margin-top: 0.5rem;
+  margin-top: 0.35rem;
 }
 
 .mood-sheet-panel .mood-sheet-item {
@@ -1275,7 +1300,7 @@
   z-index: 1;
   overflow: hidden;
   opacity: 1;
-  padding: 0.78rem 0.85rem;
+  padding: 0.55rem 0.7rem;
   transition:
     background 160ms ease,
     box-shadow 450ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -7541,16 +7566,15 @@ a.os-surface-row {
     margin-inline-start: auto;
   }
 
-  /* Same social-list inset as Standing / Endorsements — must target
-     `.os-slide-over-content.…` so the pad survives CSS minify. */
-  .leaderboard-slide .os-slide-over-content.leaderboard-sheet-content {
+  /* Same social-list inset as Standing / Endorsements. */
+  .leaderboard-sheet-content {
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
     padding: 0.1rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
   }
 
-  .leaderboard-slide .os-app-screen-toolbar {
+  .leaderboard-page-sheet .os-app-screen-toolbar {
     margin-bottom: -0.15rem;
   }
 
@@ -7593,7 +7617,7 @@ a.os-surface-row {
     outline: none;
   }
 
-  .leaderboard-slide
+  .leaderboard-page-sheet
     .os-app-screen-toolbar:has(.leaderboard-track-rail.is-scroll-hidden) {
     margin-top: 0;
   }
@@ -7609,41 +7633,21 @@ a.os-surface-row {
   }
 
   .leaderboard-track-row {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.2rem;
     width: 100%;
-    padding: 0.18rem;
-    border-radius: 0.85rem;
-    background: var(--os-surface-fill);
+    --lb-track: var(--signal-reputation);
   }
 
-  .leaderboard-track-seg {
-    appearance: none;
-    border: 0;
-    border-radius: 0.7rem;
-    background: transparent;
-    color: var(--os-surface-muted);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.72rem;
-    font-weight: 550;
-    letter-spacing: -0.01em;
-    line-height: 1.35;
-    padding: 0.38rem 0.35rem;
-    text-align: center;
-    white-space: nowrap;
+  .leaderboard-track-row[data-track='influence'] {
+    --lb-track: var(--signal-standing);
   }
 
-  .leaderboard-track-seg:hover,
-  .leaderboard-track-seg:focus-visible {
-    color: var(--os-surface-emphasis);
-    outline: none;
+  .leaderboard-track-row[data-track='earners'] {
+    --lb-track: var(--signal-endorse);
   }
 
-  .leaderboard-track-seg.is-selected {
-    background: var(--os-surface-elevated);
-    color: rgb(var(--fg-rgb) / 0.94);
+  .leaderboard-track-row .app-storage-mode.is-active {
+    background: color-mix(in srgb, var(--lb-track) 22%, transparent);
+    color: var(--lb-track);
   }
 
   .leaderboard-track-hint {
@@ -7655,12 +7659,12 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
-  .leaderboard-slide .leaderboard-row-main {
+  .leaderboard-page-sheet .leaderboard-row-main {
     align-items: center;
     gap: 0.55rem;
   }
 
-  .leaderboard-slide .leaderboard-row .standing-row-avatar-slot {
+  .leaderboard-page-sheet .leaderboard-row .standing-row-avatar-slot {
     margin-top: 0;
   }
 
@@ -7726,21 +7730,24 @@ a.os-surface-row {
     color: color-mix(in srgb, var(--lb-track) 90%, transparent);
   }
 
-  .leaderboard-slide[data-screen-footer='true'] {
+  .leaderboard-page-sheet:has(.leaderboard-page-footer) {
     --os-screen-footer-band: 5.75rem;
   }
 
-  .leaderboard-slide .os-slide-over-footer-inner {
+  .leaderboard-page-footer {
     position: relative;
     isolation: isolate;
     display: flex;
     flex-direction: column;
     gap: 0;
-    padding-top: 0;
-    padding-bottom: calc(0.45rem + env(safe-area-inset-bottom, 0px));
+    width: 100%;
+    max-width: 36rem;
+    margin-inline: auto;
+    padding: 0 var(--os-screen-body-pad-x, 1rem)
+      calc(0.45rem + env(safe-area-inset-bottom, 0px));
   }
 
-  .leaderboard-slide .os-slide-over-footer-inner::before {
+  .leaderboard-page-footer::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -7748,12 +7755,11 @@ a.os-surface-row {
     z-index: 0;
     pointer-events: none;
     border-top: 0;
-    /* Same frost as elevated `.os-app-screen-header::before` (glass chrome). */
     background: rgb(var(--bg-rgb) / 0.72);
     backdrop-filter: blur(20px) saturate(1.3);
   }
 
-  .leaderboard-slide .os-slide-over-footer-inner > .leaderboard-footer-divider {
+  .leaderboard-page-footer > .leaderboard-footer-divider {
     position: relative;
     z-index: 2;
     flex-shrink: 0;
@@ -7761,14 +7767,14 @@ a.os-surface-row {
     margin-inline: calc(-1 * var(--os-screen-body-pad-x, 1rem));
   }
 
-  .leaderboard-slide .os-slide-over-footer-inner > .leaderboard-viewer-footer {
+  .leaderboard-page-footer > .leaderboard-viewer-footer {
     position: relative;
     z-index: 1;
     padding-top: 0.35rem;
   }
 
   @media (prefers-reduced-transparency: reduce) {
-    .leaderboard-slide .os-slide-over-footer-inner::before {
+    .leaderboard-page-footer::before {
       background: rgb(var(--bg-rgb) / 0.94);
       backdrop-filter: none;
     }
@@ -8385,7 +8391,7 @@ a.os-surface-row {
   .mood-sheet-list {
     list-style: none;
     margin: 0;
-    padding: 0.7rem;
+    padding: 0.15rem 0 0.35rem;
   }
 
   .mood-sheet-section {
@@ -8393,8 +8399,8 @@ a.os-surface-row {
   }
 
   .mood-sheet-section + .mood-sheet-section {
-    margin-top: 0.82rem;
-    padding-top: 0.25rem;
+    margin-top: 0.55rem;
+    padding-top: 0.15rem;
     border-top: 1px solid rgb(var(--fg-rgb) / 0.06);
   }
 
@@ -8641,8 +8647,8 @@ a.os-surface-row {
   }
 
   .mood-sheet-item-tagline {
-    font-size: 0.73rem;
-    line-height: 1.35;
+    font-size: 0.68rem;
+    line-height: 1.3;
     color: var(--mood-muted);
   }
 
@@ -8671,7 +8677,7 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    padding: 0 1rem 0.75rem;
+    padding: 0.35rem 0 0.65rem;
   }
 
   .mood-sheet-primary {
@@ -8699,6 +8705,9 @@ a.os-surface-row {
   }
 
   .customize-sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
@@ -8741,8 +8750,13 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    padding: 1rem;
+    padding: 0.55rem 0 0.85rem;
     border-bottom: 0;
+  }
+
+  .customize-sheet-status,
+  .customize-sheet-error {
+    padding: 0;
   }
 
   .customize-sheet-primary {
@@ -8777,14 +8791,23 @@ a.os-surface-row {
 
   .customize-sheet-status,
   .customize-sheet-error {
-    padding: 0 1rem;
+    padding: 0;
   }
 
   .customize-sheet-section {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.82rem 1rem;
+    gap: 0.4rem;
+    padding: 0.55rem 0;
+  }
+
+  .customize-sheet-body > .customize-sheet-divider {
+    width: 100%;
+    margin-inline: 0;
+  }
+
+  .customize-sheet-copy--inline {
+    margin-top: 0;
   }
 
   .customize-sheet-divider {
@@ -9419,6 +9442,11 @@ a.os-surface-row {
   .os-app-screen-nav-row:has(.os-app-screen-subtitle) .os-app-screen-heading {
     padding-top: 0.42rem;
     justify-content: flex-start;
+  }
+
+  /* Keep trailing icons on the title line when a subtitle is present. */
+  .os-app-screen-nav-row:has(.os-app-screen-subtitle) .os-app-screen-actions {
+    padding-top: 0.42rem;
   }
 
   .os-app-screen-title {
@@ -23953,12 +23981,11 @@ a.os-surface-row {
   }
 
   /* Mint drawer footer — keep qty + Mint on one row (same as page used to). */
-  .profile-support-sheet-footer .collection-mint-row {
+  .os-sheet-footer .collection-mint-row {
     width: 100%;
   }
 
-  .profile-support-sheet-footer
-    .collection-mint-actions.os-sheet-actions--stack {
+  .os-sheet-footer .collection-mint-actions.os-sheet-actions--stack {
     width: auto;
     flex: 1 1 auto;
     min-width: 0;
@@ -24689,6 +24716,12 @@ a.os-surface-row {
   .frame:has(> .os-launcher-root) {
     overflow: hidden;
     overflow-clip-margin: 1px;
+  }
+
+  /* Glass underlay chrome can stack above a portaled slide (absolute + z-index). */
+  .app-surface:has(> .os-slide-over) > .os-app-screen-column > .os-app-screen-header {
+    visibility: hidden;
+    pointer-events: none;
   }
 
   /* GlassSheet / hug drawers — clip for the whole mount (incl. exit), not only
@@ -33199,22 +33232,13 @@ a.os-surface-row {
 
   /* Body inset: UI `.os-gesture-sheet-body`. Host class kept for footer/keyboard. */
 
-  .profile-support-sheet-panel:has(.profile-support-sheet-footer)
+  .profile-support-sheet-panel:has(.os-sheet-footer)
     .profile-support-sheet-body {
-    padding-bottom: 1.1rem;
+    /* Footer owns safe-area — same trim as choice panels. */
+    padding-bottom: 0.35rem;
   }
 
-  /*
-   * Commerce dock — pinned GlassSheet footer (composer keyboard pattern).
-   * Safe-area when keyboard closed; trim when panel is lifted.
-   */
-  .profile-support-sheet-footer {
-    padding: 0.45rem 1.15rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
-  }
-
-  .profile-support-sheet-footer.is-keyboard-open {
-    padding-bottom: 0.45rem;
-  }
+  /* Commerce row layout — inset/keyboard on UI `.os-sheet-footer`. */
 
   .commerce-sheet-footer-row {
     display: flex;

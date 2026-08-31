@@ -14,7 +14,7 @@ import {
   osActionDrawerConfirmBodyClassName,
   osActionDrawerConfirmClassName,
 } from './action-drawer.js';
-import { OsChoiceSheetFooter } from './os-choice-sheet-footer.js';
+import { OsSheetFooter } from './os-sheet-footer.js';
 import { OsHugSheet } from './os-hug-sheet.js';
 
 /**
@@ -155,7 +155,7 @@ export function DiscardConfirmSheet({
       backdropLabel={keepEditingLabel}
       zIndex={zIndex}
       footer={
-        <OsChoiceSheetFooter>
+        <OsSheetFooter>
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
             <OsSheetAction
               type="button"
@@ -174,7 +174,7 @@ export function DiscardConfirmSheet({
               {keepEditingLabel}
             </OsSheetAction>
           </OsSheetActions>
-        </OsChoiceSheetFooter>
+        </OsSheetFooter>
       }
     >
       <div className={osActionDrawerConfirmClassName}>

@@ -43,11 +43,10 @@
 }
 
 /**
- * Gesture form body — same inset as `.os-hug-sheet-body` (kept so
- * OsGestureSheet can tag form sheets; padding matches the shared hug standard).
+ * Gesture form body — same inset as `.os-hug-sheet-body` (bottom = footer pad).
  */
 .os-gesture-sheet-body {
-  padding: 0.2rem 1.15rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
+  padding: 0.2rem 1.15rem var(--os-sheet-footer-pad-bottom);
 }
 
 .gesture-sheet-header {

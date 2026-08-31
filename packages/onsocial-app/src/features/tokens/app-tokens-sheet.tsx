@@ -8,7 +8,7 @@ import {
   type CSSProperties,
 } from 'react';
 import {
-  OsChoiceSheetFooter,
+  OsSheetFooter,
   OsSheetAction,
   OsSheetActions,
   TokenIcon,
@@ -158,7 +158,7 @@ export function AppTokensSheet({
         hint={emptyHint}
         {...(panelStyle ? { panelStyle } : {})}
         footer={
-          <OsChoiceSheetFooter>
+          <OsSheetFooter>
             <OsSheetActions layout="stack" tone="frosted-primary" borderless>
               <OsSheetAction
                 type="button"
@@ -169,7 +169,7 @@ export function AppTokensSheet({
                 Create
               </OsSheetAction>
             </OsSheetActions>
-          </OsChoiceSheetFooter>
+          </OsSheetFooter>
         }
       />
 

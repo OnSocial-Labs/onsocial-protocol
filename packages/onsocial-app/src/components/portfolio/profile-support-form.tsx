@@ -1,17 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  AmountField,
-  AmountFieldMetaRow,
-  OsSheetAction,
-  OsSheetActions,
-  TokenIcon,
-} from '@onsocial/ui';
+import { AmountField, AmountFieldMetaRow, TokenIcon } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useSocialTokenIcon } from '@/hooks/use-social-token-icon';
+import {
+  useSyncCommerceSheetFooter,
+  type CommerceSheetFooterState,
+} from '@/features/scarces/commerce-sheet-footer';
 import { accountIdsEqual } from '@/lib/account-match';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
@@ -63,6 +61,10 @@ function extractTxHash(value: unknown): string | undefined {
 interface ProfileSupportFormProps {
   pageAccountId: string;
   profileName?: string | null;
+  /** Associates footer submit with this form. */
+  formId?: string;
+  /** Publishes pinned commerce footer state (Buy / Boost pattern). */
+  onFooterStateChange?: (state: CommerceSheetFooterState | null) => void;
   /** Called after a confirmed support spend (sheet can close). */
   onSuccess?: () => void;
 }
@@ -84,6 +86,8 @@ async function fetchWalletBalanceYocto(accountId: string): Promise<bigint> {
 export function ProfileSupportForm({
   pageAccountId,
   profileName = null,
+  formId,
+  onFooterStateChange,
   onSuccess,
 }: ProfileSupportFormProps) {
   const { accountId, isConnected, connect } = useAppWallet();
@@ -214,6 +218,20 @@ export function ProfileSupportForm({
     parsedYocto != null &&
     !amountError;
 
+  const footerState = useMemo((): CommerceSheetFooterState | null => {
+    if (isSelf) return null;
+    return {
+      visible: true,
+      primaryLabel: isConnected ? 'Support' : 'Connect wallet',
+      primaryPendingLabel: 'Sending…',
+      canSubmit: isConnected ? canSubmit : true,
+      pending,
+      disabled: pending || (isConnected && !canSubmit),
+    };
+  }, [canSubmit, isConnected, isSelf, pending]);
+
+  useSyncCommerceSheetFooter(footerState, onFooterStateChange);
+
   async function handleSubmit() {
     setFieldError(null);
 
@@ -314,6 +332,7 @@ export function ProfileSupportForm({
 
   return (
     <form
+      id={formId}
       className="profile-support-form"
       onSubmit={(event) => {
         event.preventDefault();
@@ -389,18 +408,6 @@ export function ProfileSupportForm({
       ) : !isConnected ? (
         <p className="profile-support-hint">Connect to send SOCIAL.</p>
       ) : null}
-
-      <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-        <OsSheetAction
-          type="submit"
-          ready={isConnected ? canSubmit : true}
-          pending={pending}
-          pendingLabel="Sending…"
-          disabled={pending || (isConnected && !canSubmit)}
-        >
-          {isConnected ? 'Support' : 'Connect wallet'}
-        </OsSheetAction>
-      </OsSheetActions>
     </form>
   );
 }

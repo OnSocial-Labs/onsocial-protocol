@@ -14,7 +14,7 @@ import {
 import {
   InfoDrawer,
   InformationCircleIcon,
-  OsChoiceSheetFooter,
+  OsSheetFooter,
   OsHugSheet,
   OsIconAction,
   OsSheetAction,
@@ -396,7 +396,7 @@ export function AppCreateTokenSheet({
         }
         {...(panelStyle ? { panelStyle } : {})}
         footer={
-          <OsChoiceSheetFooter>
+          <OsSheetFooter>
             <OsSheetActions layout="stack" tone="frosted-primary" borderless>
               <OsSheetAction
                 type="submit"
@@ -415,7 +415,7 @@ export function AppCreateTokenSheet({
                 Create
               </OsSheetAction>
             </OsSheetActions>
-          </OsChoiceSheetFooter>
+          </OsSheetFooter>
         }
       >
       <form
