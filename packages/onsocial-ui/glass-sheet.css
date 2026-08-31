@@ -39,8 +39,8 @@
 }
 
 .os-sheet-footer {
-  padding: var(--os-sheet-footer-pad-top)
-    var(--os-sheet-footer-pad-inline) var(--os-sheet-footer-pad-bottom);
+  padding: var(--os-sheet-footer-pad-top) var(--os-sheet-footer-pad-inline)
+    var(--os-sheet-footer-pad-bottom);
 }
 
 .os-sheet-footer.is-keyboard-open {

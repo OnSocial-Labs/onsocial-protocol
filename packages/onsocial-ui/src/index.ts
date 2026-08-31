@@ -222,10 +222,7 @@ export {
   type ChoiceDrawerProps,
   type ChoiceOption,
 } from './choice-drawer.js';
-export {
-  OsSheetFooter,
-  osSheetFooterClassName,
-} from './os-sheet-footer.js';
+export { OsSheetFooter, osSheetFooterClassName } from './os-sheet-footer.js';
 export {
   ActionDrawer,
   osActionDrawerConfirmBodyClassName,
