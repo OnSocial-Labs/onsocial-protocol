@@ -132,6 +132,36 @@ interface OnChainFtMetadata {
   decimals?: number;
 }
 
+/** `ft_metadata` when the account is actually a NEP-141. Null otherwise. */
+export async function tryReadFtTokenMetadata(
+  contractId: string
+): Promise<FtTokenMetadata | null> {
+  const id = contractId.trim().toLowerCase();
+  const metadata = await viewNearContract<OnChainFtMetadata>(
+    id,
+    'ft_metadata',
+    {}
+  ).catch(() => null);
+  const symbol = metadata?.symbol?.trim() ?? '';
+  const name = metadata?.name?.trim() ?? '';
+  if (!symbol && !name) {
+    return null;
+  }
+  let icon = resolveFtTokenIcon(id, metadata?.icon ?? null);
+  if (!icon) {
+    icon = await fetchFallbackTokenIcon(id);
+  }
+  return {
+    symbol: symbol || (id.split('.')[0] || id).toUpperCase(),
+    name: name || id,
+    icon,
+    decimals:
+      typeof metadata?.decimals === 'number' && metadata.decimals >= 0
+        ? metadata.decimals
+        : 18,
+  };
+}
+
 /** On-chain `ft_metadata` with icon fallback for indexed treasury rows. */
 export async function readFtTokenMetadata(
   contractId: string

@@ -308,6 +308,7 @@ export function AppCreateTokenSheet({
             createdAt: Date.now(),
             renounced: renounceOwner,
             icon,
+            decimals: 18,
           });
           // Sheet may have closed mid-flight — the token is still remembered,
           // but don't drive UI (phase / close) for a sheet that is gone.
