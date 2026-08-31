@@ -103,10 +103,7 @@ describe('aggregateEndorsementSupportRows', () => {
 describe('endorsementSupportSummariesFromRows', () => {
   it('buckets support by endorsement id and fills zeros', () => {
     const summaries = endorsementSupportSummariesFromRows(
-      [
-        'legacy:alice.near:bob.near:dev',
-        'legacy:carol.near:bob.near:design',
-      ],
+      ['legacy:alice.near:bob.near:dev', 'legacy:carol.near:bob.near:design'],
       [
         supportRow({
           spenderId: 'dana.near',
@@ -126,9 +123,7 @@ describe('endorsementSupportSummariesFromRows', () => {
       totalAmountYocto: '150',
       spendCount: 2,
       supporterCount: 2,
-      previewSupporters: [
-        expect.objectContaining({ accountId: 'dana.near' }),
-      ],
+      previewSupporters: [expect.objectContaining({ accountId: 'dana.near' })],
     });
     expect(summaries['legacy:carol.near:bob.near:design']).toEqual({
       totalAmountYocto: '0',
