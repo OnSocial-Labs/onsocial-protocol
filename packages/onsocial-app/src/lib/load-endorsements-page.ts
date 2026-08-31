@@ -12,6 +12,12 @@ import {
   resolveEndorsementDisplayMediaUrl,
 } from '@/lib/endorsement-media';
 import { createAppOnSocialClient } from '@/lib/profile-social-server';
+import {
+  endorsementFocusMatchesPage,
+  expandEndorsementFocus,
+  matchEndorsementFocusItem,
+} from '@/lib/endorsement-focus';
+import type { PortfolioEndorsementFocus } from '@/lib/overlay-routes';
 import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
 
 function profileMap(rows: ProfileSearchRow[]): Map<string, ProfileSearchRow> {
@@ -204,4 +210,31 @@ export function parseEndorsementsMode(
   const trimmed = value?.trim().toLowerCase();
   if (trimmed === 'received' || trimmed === 'given') return trimmed;
   return null;
+}
+
+/** One vouch for the face focus sheet (`?endorsement=` / issuer + topic). */
+export async function loadEndorsementFocus(
+  pageAccountId: string,
+  focus: PortfolioEndorsementFocus
+): Promise<EndorsementPanelItem | null> {
+  const id = pageAccountId.trim();
+  if (!id || !endorsementFocusMatchesPage(id, focus)) return null;
+
+  const expanded = expandEndorsementFocus(focus);
+  try {
+    const os = createAppOnSocialClient();
+    const rows = expanded.issuer
+      ? await os.endorsements.listFromViewerToTarget(expanded.issuer, id, {
+          limit: 20,
+        })
+      : await os.endorsements.listReceived(id, { limit: 48 });
+    const matched = matchEndorsementFocusItem(rows, focus);
+    if (!matched) return null;
+    const [item] = await attachEndorsementSupportCounts(
+      await enrichList([matched])
+    );
+    return item ?? null;
+  } catch {
+    return null;
+  }
 }

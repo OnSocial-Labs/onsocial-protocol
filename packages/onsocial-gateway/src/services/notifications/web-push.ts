@@ -491,7 +491,24 @@ export function pushNotificationUrl(row: {
     const target =
       textField(context, 'targetAccount') ?? (row.recipient?.trim() || null);
     if (target) {
-      return `/@${encodeURIComponent(target)}/endorsements`;
+      const topic = textField(context, 'topic');
+      const id = textField(context, 'targetId');
+      const issuer =
+        type === 'endorsement_new'
+          ? actor
+          : textField(context, 'issuer');
+      const params = new URLSearchParams();
+      if (id) params.set('endorsement', id);
+      const needsIssuer =
+        Boolean(issuer) &&
+        (!id ||
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+            id
+          ));
+      if (needsIssuer && issuer) params.set('issuer', issuer);
+      if (topic && !id) params.set('topic', topic);
+      const qs = params.toString();
+      return `/@${encodeURIComponent(target)}${qs ? `?${qs}` : ''}`;
     }
   }
 

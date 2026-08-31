@@ -13,8 +13,8 @@ import {
 import { parsePostText } from '@/lib/post-display';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import {
-  overlayPath,
   portfolioBoostPath,
+  portfolioEndorsementPath,
   portfolioPath,
 } from '@/lib/overlay-routes';
 import { postThreadPath } from '@/lib/post-routes';
@@ -466,7 +466,16 @@ export function notificationHref(
     const target =
       textField(context, 'targetAccount') ??
       (notification.recipient?.trim() || null);
-    if (target) return overlayPath(target, 'endorsements');
+    const topic = textField(context, 'topic');
+    const id = textField(context, 'targetId');
+    const issuer =
+      type === 'endorsement_new'
+        ? actor
+        : (textField(context, 'issuer') ?? null);
+    if (target && (id || issuer)) {
+      return portfolioEndorsementPath(target, { id, issuer, topic });
+    }
+    if (target) return portfolioPath(target);
     if (actor) return portfolioPath(actor);
   }
 

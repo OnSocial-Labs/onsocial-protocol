@@ -30,6 +30,7 @@ interface EndorsementSupportSheetProps {
   mood?: ResolvedMood | null;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  zIndex?: number;
 }
 
 /**
@@ -43,6 +44,7 @@ export function EndorsementSupportSheet({
   mood = null,
   onOpenChange,
   onSuccess,
+  zIndex = SHEET_Z.facts,
 }: EndorsementSupportSheetProps) {
   const titleId = useId();
   const [closing, setClosing] = useState(false);
@@ -102,7 +104,7 @@ export function EndorsementSupportSheet({
       panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
-      zIndex={SHEET_Z.facts}
+      zIndex={zIndex}
     >
       {target ? (
         <EndorsementSupportForm

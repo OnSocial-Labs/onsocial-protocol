@@ -12,6 +12,9 @@ import {
   type DiscoverTab,
 } from '@/features/discover/discover-tabs';
 
+const ENDORSEMENT_FOCUS_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export const OVERLAY_PANELS = [
   'discover',
   'endorsements',
@@ -83,6 +86,51 @@ export function endorsementsPath(
   const base = overlayPath(accountId, 'endorsements');
   const mode = (options?.mode ?? '').toString().trim().toLowerCase();
   return mode === 'given' ? `${base}?mode=given` : base;
+}
+
+/**
+ * Shareable endorsement focus on the person face — same idea as
+ * `/@dao?proposal=12`. List stays the overlay peek; this query opens a sheet.
+ */
+export const ENDORSEMENT_FOCUS_PARAM = 'endorsement';
+export const ENDORSEMENT_ISSUER_PARAM = 'issuer';
+export const ENDORSEMENT_TOPIC_PARAM = 'topic';
+
+export type PortfolioEndorsementFocus = {
+  id: string | null;
+  issuer: string | null;
+  topic: string | null;
+};
+
+export function parsePortfolioEndorsementFocus(searchParams: {
+  get(name: string): string | null;
+}): PortfolioEndorsementFocus | null {
+  const id = searchParams.get(ENDORSEMENT_FOCUS_PARAM)?.trim() || null;
+  const issuer = searchParams.get(ENDORSEMENT_ISSUER_PARAM)?.trim() || null;
+  const topic = searchParams.get(ENDORSEMENT_TOPIC_PARAM)?.trim() || null;
+  if (!id && !issuer) return null;
+  return { id, issuer, topic };
+}
+
+/** Face URL that opens the endorsement focus sheet. */
+export function portfolioEndorsementPath(
+  accountId: string,
+  options?: {
+    id?: string | null;
+    issuer?: string | null;
+    topic?: string | null;
+  }
+): string {
+  const params = new URLSearchParams();
+  const id = options?.id?.trim() || '';
+  const issuer = options?.issuer?.trim() || '';
+  const topic = options?.topic?.trim() || '';
+  if (id) params.set(ENDORSEMENT_FOCUS_PARAM, id);
+  const needsIssuer = Boolean(issuer) && (!id || ENDORSEMENT_FOCUS_UUID_PATTERN.test(id));
+  if (needsIssuer) params.set(ENDORSEMENT_ISSUER_PARAM, issuer);
+  if (topic && !id) params.set(ENDORSEMENT_TOPIC_PARAM, topic);
+  const qs = params.toString();
+  return qs ? `${portfolioPath(accountId)}?${qs}` : portfolioPath(accountId);
 }
 
 /** Held catalog for an account — Launch See all + OS vault when connected. */

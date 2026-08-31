@@ -27,6 +27,8 @@ interface EndorsementListRowProps {
   /** When set, show Support for SOCIAL spend on this vouch. */
   canSupport?: boolean;
   onSupport?: () => void;
+  /** Open the shareable focus sheet (row tap). */
+  onOpen?: () => void;
 }
 
 /**
@@ -42,6 +44,7 @@ export function EndorsementListRow({
   onEdit,
   canSupport = false,
   onSupport,
+  onOpen,
 }: EndorsementListRowProps) {
   const otherAccountId = mode === 'received' ? item.issuer : item.target;
   const otherName =
@@ -76,12 +79,25 @@ export function EndorsementListRow({
   return (
     <article className="standing-row endorsement-standing-row">
       <div className="standing-row-main">
-        <Link
-          href={portfolioPath(otherAccountId)}
-          className="standing-row-hit"
-          scroll={false}
-          aria-label={`View ${label}'s profile`}
-        />
+        {onOpen ? (
+          <button
+            type="button"
+            className="standing-row-hit"
+            aria-label={
+              mode === 'received'
+                ? `Open endorsement from ${label}`
+                : `Open endorsement for ${label}`
+            }
+            onClick={onOpen}
+          />
+        ) : (
+          <Link
+            href={portfolioPath(otherAccountId)}
+            className="standing-row-hit"
+            scroll={false}
+            aria-label={`View ${label}'s profile`}
+          />
+        )}
         <StandingIdentity
           accountId={otherAccountId}
           profileName={otherName}

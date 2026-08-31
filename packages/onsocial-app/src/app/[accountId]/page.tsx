@@ -14,6 +14,7 @@ import {
 import { PortfolioActivateStrip } from '@/components/portfolio/portfolio-activate-strip';
 import { PortfolioDaoOrgChrome } from '@/components/portfolio/portfolio-dao-org-chrome';
 import { PortfolioDeferredShelf } from '@/components/portfolio/portfolio-deferred-shelf';
+import { PortfolioEndorsementFocusHost } from '@/components/portfolio/portfolio-endorsement-focus-host';
 import { PortfolioIdentity } from '@/components/portfolio/portfolio-identity';
 import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
 import { PortfolioShellRoot } from '@/components/portfolio/portfolio-shell-root';
@@ -172,6 +173,10 @@ export default async function AccountPage({
           kindLabel={daoEntity.kindLabel}
           incomingStandingCount={daoIncomingStanding}
         />
+
+        {daoEntity.isDao ? null : (
+          <PortfolioEndorsementFocusHost accountId={accountId} mood={mood} />
+        )}
 
         {daoEntity.isDao ? null : (
           <PortfolioActivateStrip

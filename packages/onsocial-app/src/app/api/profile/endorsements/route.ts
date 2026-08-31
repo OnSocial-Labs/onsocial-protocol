@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  loadEndorsementFocus,
   loadEndorsementsModePage,
   loadEndorsementsPageData,
   parseEndorsementsMode,
 } from '@/lib/load-endorsements-page';
 import { ENDORSEMENTS_PAGE_SIZE } from '@/lib/endorsements-panel-data';
+import { parsePortfolioEndorsementFocus } from '@/lib/overlay-routes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,6 +40,12 @@ export async function GET(request: NextRequest) {
       },
       { status: 400 }
     );
+  }
+
+  const focus = parsePortfolioEndorsementFocus(request.nextUrl.searchParams);
+  if (focus) {
+    const item = await loadEndorsementFocus(accountId, focus);
+    return NextResponse.json({ accountId, item });
   }
 
   const mode = parseEndorsementsMode(

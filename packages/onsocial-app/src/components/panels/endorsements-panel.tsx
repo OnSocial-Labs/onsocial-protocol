@@ -17,6 +17,7 @@ import {
   EndorsementListRow,
   EndorsementListSkeleton,
 } from '@/components/panels/endorsement-list-row';
+import { EndorsementFocusSheet } from '@/components/panels/endorsement-focus-sheet';
 import {
   EndorsementSupportSheet,
   type EndorsementSupportTarget,
@@ -32,8 +33,10 @@ import { accountIdsEqual } from '@/lib/account-match';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { buildEndorsementEmptyState } from '@/lib/endorsement-empty-state';
 import { parseEndorsementMediaRef } from '@/lib/endorsement-media';
+import { matchEndorsementFocusItem } from '@/lib/endorsement-focus';
 import { endorsementsPath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
 import { replaceBrowserUrl } from '@/lib/sync-browser-url-query';
 import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
@@ -169,6 +172,8 @@ export function EndorsementsPanel({
   const [supportOpen, setSupportOpen] = useState(false);
   const [supportTarget, setSupportTarget] =
     useState<EndorsementSupportTarget | null>(null);
+  const [focusOpen, setFocusOpen] = useState(false);
+  const [focusItem, setFocusItem] = useState<EndorsementPanelItem | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const isSelf =
@@ -280,6 +285,19 @@ export function EndorsementsPanel({
   void endorsementSyncVersion;
   const receivedCount = adjustedCounts.received;
   const givenCount = adjustedCounts.given;
+
+  useEffect(() => {
+    if (!focusOpen || !focusItem) return;
+    const next = matchEndorsementFocusItem(
+      [...(data?.received ?? []), ...(data?.given ?? [])],
+      {
+        id: typeof focusItem.id === 'string' ? focusItem.id : null,
+        issuer: focusItem.issuer,
+        topic: focusItem.topic ?? null,
+      }
+    );
+    if (next && next !== focusItem) setFocusItem(next);
+  }, [data, focusItem, focusOpen]);
 
   const loadMore = useCallback(async () => {
     if (!data || loading || loadingMore || !hasMore) return;
@@ -572,6 +590,10 @@ export function EndorsementsPanel({
                   }
                   canSupport={canSupport}
                   onSupport={() => openSupport(item)}
+                  onOpen={() => {
+                    setFocusItem(item);
+                    setFocusOpen(true);
+                  }}
                 />
               </div>
             );
@@ -610,6 +632,19 @@ export function EndorsementsPanel({
         onOpenChange={(next) => {
           setComposeOpen(next);
           if (!next) setComposeSession(null);
+        }}
+        onSuccess={() => void load({ soft: true })}
+      />
+
+      <EndorsementFocusSheet
+        open={focusOpen}
+        item={focusItem}
+        pageAccountId={accountId}
+        mood={mood}
+        zIndex={SHEET_Z.nested}
+        onOpenChange={(next) => {
+          setFocusOpen(next);
+          if (!next) setFocusItem(null);
         }}
         onSuccess={() => void load({ soft: true })}
       />
