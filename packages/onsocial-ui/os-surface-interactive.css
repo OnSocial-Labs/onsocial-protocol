@@ -57,17 +57,10 @@
      * Share-pool mood wash — always defined. Uses real --mood-accent (not
      * chrome / glass grip — those are lightened and read as a white wash).
      */
-    --os-surface-mood-accent: var(
-      --mood-accent,
-      var(--protocol-blue, #60a5fa)
-    );
+    --os-surface-mood-accent: var(--mood-accent, var(--protocol-blue, #60a5fa));
     --os-surface-mood-wash: radial-gradient(
       circle at 16% 0%,
-      color-mix(
-        in srgb,
-        var(--os-surface-mood-accent) 10%,
-        transparent
-      ),
+      color-mix(in srgb, var(--os-surface-mood-accent) 10%, transparent),
       transparent 42%
     );
   }
