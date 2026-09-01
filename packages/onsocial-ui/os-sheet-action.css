@@ -206,9 +206,11 @@
  * Armed primary — solid inverted. The one solid object on the frosted
  * sheet: opposite polarity to the glass on every theme, so it can never
  * wash out. 0.92 leaves 8% ambient transmission; hover goes fully solid.
+ * Pending does NOT share this — dots stay on the quiet dormant surface.
  */
-.os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
-.os-sheet-action--primary.is-pending:disabled:not(.is-succeeded) {
+.os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):not(
+    .is-pending
+  ) {
   border-color: transparent;
   background: var(--os-action-solid);
   color: var(--os-action-solid-ink);
@@ -216,7 +218,9 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):not(
+      .is-pending
+    ):hover {
     background: var(--os-action-solid-hover);
     box-shadow: 0 10px 28px -8px var(--os-action-lift-hover);
   }
@@ -236,7 +240,17 @@
   cursor: default;
 }
 
+/*
+ * Pending — HTML-disabled + dots, but quieter than armed. Same surface as
+ * dormant so the pulse carries the “in progress” signal without a solid block.
+ */
 .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded) {
+  border-color: rgb(var(--fg-rgb) / 0.12);
+  background: var(--os-action-fill-dormant);
+  color: var(--os-action-ink-chrome);
+  box-shadow: none;
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
   cursor: progress;
 }
 
@@ -307,6 +321,9 @@
 .os-sheet-action--ghost.is-pending:disabled:not(.is-succeeded) {
   cursor: progress;
   opacity: 1;
+  background: var(--os-surface-fill-quiet, rgb(var(--fg-rgb) / 0.035));
+  color: var(--os-action-ink-chrome);
+  box-shadow: none;
 }
 
 /*
@@ -320,8 +337,9 @@
   cursor: default;
 }
 
-.os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded),
-.os-sheet-action--danger.is-pending:disabled:not(.is-succeeded) {
+.os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded):not(
+    .is-pending
+  ) {
   border-color: color-mix(
     in srgb,
     var(--protocol-red) 24%,
@@ -337,7 +355,9 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded):hover {
+  .os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded):not(
+      .is-pending
+    ):hover {
     border-color: color-mix(in srgb, var(--protocol-red) 42%, transparent);
     background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
     color: var(--protocol-red-ink, var(--protocol-red));
@@ -348,14 +368,14 @@
   }
 }
 
-.os-sheet-action--danger.is-ready:not(:disabled):focus-visible {
+.os-sheet-action--danger.is-ready:not(:disabled):not(.is-pending):focus-visible {
   box-shadow: var(
     --os-focus-ring-danger,
     0 0 0 2px color-mix(in srgb, var(--protocol-red, #f25c5c) 35%, transparent)
   );
 }
 
-.os-sheet-action--danger.is-ready:not(:disabled):active {
+.os-sheet-action--danger.is-ready:not(:disabled):not(.is-pending):active {
   transform: scale(0.985);
 }
 
@@ -369,7 +389,20 @@
   cursor: default;
 }
 
+/* Pending danger — quiet red wash, not the armed ready face. */
 .os-sheet-action--danger.is-pending:disabled:not(.is-succeeded) {
+  border-color: color-mix(
+    in srgb,
+    var(--protocol-red) 14%,
+    var(--os-action-border)
+  );
+  background: color-mix(in srgb, var(--protocol-red) 3%, transparent);
+  color: color-mix(
+    in srgb,
+    var(--protocol-red-ink, var(--protocol-red)) 62%,
+    rgb(var(--fg-rgb) / 0.48)
+  );
+  box-shadow: none;
   cursor: progress;
   opacity: 1;
 }
@@ -385,8 +418,9 @@
   cursor: default;
 }
 
-.os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-succeeded),
-.os-sheet-action--dismiss.is-pending:disabled:not(.is-succeeded) {
+.os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-succeeded):not(
+    .is-pending
+  ) {
   border-color: transparent;
   background: rgb(var(--fg-rgb) / 0.06);
   color: var(--os-action-ink-armed);
@@ -396,7 +430,7 @@
   -webkit-backdrop-filter: none;
 }
 
-.os-sheet-action--dismiss.is-ready:not(:disabled):focus-visible {
+.os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-pending):focus-visible {
   border-color: transparent;
   background: rgb(var(--fg-rgb) / 0.09);
   color: var(--os-action-ink-armed);
@@ -406,7 +440,9 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-succeeded):hover {
+  .os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-succeeded):not(
+      .is-pending
+    ):hover {
     border-color: transparent;
     background: rgb(var(--fg-rgb) / 0.09);
     color: var(--os-action-ink-armed);
@@ -432,6 +468,10 @@
 }
 
 .os-sheet-action--dismiss.is-pending:disabled:not(.is-succeeded) {
+  border-color: transparent;
+  background: rgb(var(--fg-rgb) / 0.04);
+  color: var(--os-action-ink-chrome);
+  box-shadow: none;
   cursor: progress;
   opacity: 1;
 }
@@ -662,15 +702,23 @@
 }
 
 .os-sheet-actions.os-sheet-actions--borderless
-  .os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded),
+  .os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded):not(
+    .is-pending
+  ),
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded):not(
+    .is-pending
+  ) {
+  background: color-mix(in srgb, var(--protocol-red) 5%, transparent);
+  color: color-mix(in srgb, var(--protocol-red) 78%, rgb(var(--fg-rgb) / 0.52));
+}
+
 .os-sheet-actions.os-sheet-actions--borderless
   .os-sheet-action--danger.is-pending:disabled:not(.is-succeeded),
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
-  .os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded),
-.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
   .os-sheet-action--danger.is-pending:disabled:not(.is-succeeded) {
-  background: color-mix(in srgb, var(--protocol-red) 5%, transparent);
-  color: color-mix(in srgb, var(--protocol-red) 78%, rgb(var(--fg-rgb) / 0.52));
+  background: color-mix(in srgb, var(--protocol-red) 3%, transparent);
+  color: color-mix(in srgb, var(--protocol-red) 62%, rgb(var(--fg-rgb) / 0.48));
 }
 
 .os-sheet-actions.os-sheet-actions--borderless
@@ -697,15 +745,25 @@
 
 /* Borderless dismiss — chip wash + fg mark (never danger red). */
 .os-sheet-actions.os-sheet-actions--borderless
-  .os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-succeeded),
+  .os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-succeeded):not(
+    .is-pending
+  ),
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-succeeded):not(
+    .is-pending
+  ) {
+  background: rgb(var(--fg-rgb) / 0.06);
+  color: var(--os-action-ink-armed);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .os-sheet-actions.os-sheet-actions--borderless
   .os-sheet-action--dismiss.is-pending:disabled:not(.is-succeeded),
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
-  .os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-succeeded),
-.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
   .os-sheet-action--dismiss.is-pending:disabled:not(.is-succeeded) {
-  background: rgb(var(--fg-rgb) / 0.06);
-  color: var(--os-action-ink-armed);
+  background: rgb(var(--fg-rgb) / 0.04);
+  color: var(--os-action-ink-chrome);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -734,19 +792,29 @@
 
 /*
  * Borderless primary — armed keeps the solid inverted fill (the borderless
- * strip above removes the frame + lift); dormant wears the surface-fill
- * step with icon-strength ink.
+ * strip above removes the frame + lift); pending wears the quiet dormant
+ * surface so dots stay subtle; dormant wears surface-fill + chrome ink.
  */
 .os-sheet-actions.os-sheet-actions--borderless
-  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):not(
+    .is-pending
+  ),
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):not(
+    .is-pending
+  ) {
+  background: var(--os-action-solid);
+  color: var(--os-action-solid-ink);
+}
+
 .os-sheet-actions.os-sheet-actions--borderless
   .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
-  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
-.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
   .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded) {
-  background: var(--os-action-solid);
-  color: var(--os-action-solid-ink);
+  background: var(--os-action-fill-dormant);
+  color: var(--os-action-ink-chrome);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
 }
 
 .os-sheet-actions.os-sheet-actions--borderless

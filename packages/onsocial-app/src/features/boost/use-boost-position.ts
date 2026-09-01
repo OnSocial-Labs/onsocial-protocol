@@ -34,11 +34,22 @@ export interface BoostPosition {
   ratePerSecondYocto: bigint;
   canUnlock: boolean;
   refresh: () => Promise<void>;
+  /** Freeze the live tick at the current displayed amount (confirming claim). */
+  pauseLiveCounter: () => void;
+  /** Resume ticks after a cancelled / failed claim without forcing a drop. */
+  resumeLiveCounter: () => void;
   /**
    * After collect / unlock — pause accrual and let the next snapshot reset
    * the counter downward (portal post-claim behavior).
    */
   resetLiveCounterAfterClaim: () => void;
+  /**
+   * Collect celebration hold — optimistically zero the counter and defer
+   * snapshot applies until {@link endPostClaimHold} (same paint as chip clear).
+   */
+  beginPostClaimHold: () => void;
+  /** Apply the latest snapshot with decrease allowed, then resume ticks. */
+  endPostClaimHold: () => void;
 }
 
 /**
@@ -66,6 +77,9 @@ export function useBoostPosition(
   const livePausedRef = useRef(false);
   const allowDecreaseRef = useRef(false);
   const postClaimRefreshPendingRef = useRef(false);
+  /** Defer counter applies while the collect celebration chip is up. */
+  const postClaimHoldRef = useRef(false);
+  const latestSnapshotRef = useRef<BoostRewardsLiveSnapshot | null>(null);
   const lastAppliedAsOfRef = useRef<number | null>(null);
   const tabHiddenAtRef = useRef<number | null>(null);
 
@@ -114,33 +128,55 @@ export function useBoostPosition(
       ]);
       if (seq !== requestSeqRef.current) return;
 
+      latestSnapshotRef.current = nextSnapshot;
+      postClaimRefreshPendingRef.current = false;
+
+      setAccount(nextAccount);
+      setLockStatus(nextLockStatus);
+      setSnapshot(nextSnapshot);
+
+      // Celebration hold: keep optimistic 0 until endPostClaimHold batches
+      // with the chip clear — avoids a stale pre-claim flash on reveal.
+      if (postClaimHoldRef.current) {
+        return;
+      }
+
       // Initial load or post-claim: take chain. Soft refresh: never drop.
       const allowDecrease =
         allowDecreaseRef.current || liveAnchorRef.current == null;
-      postClaimRefreshPendingRef.current = false;
       allowDecreaseRef.current = false;
       livePausedRef.current = false;
 
       // Anchor before `loaded` so the sheet never paints 0 → real amount.
       applySnapshotToCounter(nextSnapshot, { allowDecrease });
-
-      setAccount(nextAccount);
-      setLockStatus(nextLockStatus);
-      setSnapshot(nextSnapshot);
     } catch {
       if (seq !== requestSeqRef.current) return;
       setAccount(null);
       setLockStatus(null);
       setSnapshot(null);
-      setClaimableYoctoValue(0n);
-      setRatePerSecondYocto(0n);
-      liveAnchorRef.current = null;
-      lastAppliedAsOfRef.current = null;
+      latestSnapshotRef.current = null;
+      if (!postClaimHoldRef.current) {
+        setClaimableYoctoValue(0n);
+        setRatePerSecondYocto(0n);
+        liveAnchorRef.current = null;
+        lastAppliedAsOfRef.current = null;
+      }
       postClaimRefreshPendingRef.current = false;
     } finally {
       if (seq === requestSeqRef.current) setLoaded(true);
     }
   }, [accountId, applySnapshotToCounter, setClaimableYoctoValue]);
+
+  const pauseLiveCounter = useCallback(() => {
+    livePausedRef.current = true;
+  }, []);
+
+  const resumeLiveCounter = useCallback(() => {
+    if (postClaimRefreshPendingRef.current || postClaimHoldRef.current) {
+      return;
+    }
+    livePausedRef.current = false;
+  }, []);
 
   const resetLiveCounterAfterClaim = useCallback(() => {
     livePausedRef.current = true;
@@ -148,10 +184,38 @@ export function useBoostPosition(
     postClaimRefreshPendingRef.current = true;
   }, []);
 
+  const beginPostClaimHold = useCallback(() => {
+    const priorRate = liveAnchorRef.current?.ratePerSecondYocto ?? 0n;
+    livePausedRef.current = true;
+    allowDecreaseRef.current = true;
+    postClaimRefreshPendingRef.current = true;
+    postClaimHoldRef.current = true;
+    liveAnchorRef.current = {
+      baseYocto: 0n,
+      clientMs: Date.now(),
+      ratePerSecondYocto: priorRate,
+    };
+    setClaimableYoctoValue(0n);
+  }, [setClaimableYoctoValue]);
+
+  const endPostClaimHold = useCallback(() => {
+    if (!postClaimHoldRef.current) return;
+    postClaimHoldRef.current = false;
+    postClaimRefreshPendingRef.current = false;
+    const next = latestSnapshotRef.current;
+    if (next) {
+      applySnapshotToCounter(next, { allowDecrease: true });
+    } else {
+      allowDecreaseRef.current = false;
+    }
+    livePausedRef.current = false;
+  }, [applySnapshotToCounter]);
+
   useEffect(() => {
     setAccount(null);
     setLockStatus(null);
     setSnapshot(null);
+    latestSnapshotRef.current = null;
     setLoaded(false);
     setClaimableYoctoValue(0n);
     setRatePerSecondYocto(0n);
@@ -160,6 +224,7 @@ export function useBoostPosition(
     livePausedRef.current = false;
     allowDecreaseRef.current = false;
     postClaimRefreshPendingRef.current = false;
+    postClaimHoldRef.current = false;
     tabHiddenAtRef.current = null;
     void refresh();
   }, [refresh, setClaimableYoctoValue]);
@@ -167,6 +232,7 @@ export function useBoostPosition(
   // Periodic / focus resync only — refresh() applies its own snapshot.
   useEffect(() => {
     if (!snapshot) return;
+    if (postClaimHoldRef.current) return;
     if (lastAppliedAsOfRef.current === snapshot.as_of_timestamp_ns) return;
     if (allowDecreaseRef.current && postClaimRefreshPendingRef.current) {
       return;
@@ -186,6 +252,7 @@ export function useBoostPosition(
     const resync = () => {
       void fetchBoostRewardsLiveSnapshot(accountId)
         .then((next) => {
+          latestSnapshotRef.current = next;
           setSnapshot(next);
         })
         .catch(() => {});
@@ -252,6 +319,10 @@ export function useBoostPosition(
     ratePerSecondYocto,
     canUnlock,
     refresh,
+    pauseLiveCounter,
+    resumeLiveCounter,
     resetLiveCounterAfterClaim,
+    beginPostClaimHold,
+    endPostClaimHold,
   };
 }

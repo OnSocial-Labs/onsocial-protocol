@@ -21,7 +21,8 @@ export interface OsSheetActionStateInput {
 
 /**
  * Shared state machine for every variant: ghost is always armed, pill
- * variants gate on `ready`; pending/succeeded disable and win over ready.
+ * variants gate on `ready`; pending disables clicks but stays visually quiet
+ * (dormant surface + dots — not the armed solid). Succeeded also disables.
  * `active` is the aria-pressed toggle state — orthogonal to arming.
  */
 export function resolveOsSheetActionState({

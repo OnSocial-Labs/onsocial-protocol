@@ -14,7 +14,9 @@ import {
   type Ref,
 } from 'react';
 import {
-  AmountFieldMetaRow,  GlassSheet,
+  AmountFieldMetaRow,
+  GiftFillIcon,
+  GlassSheet,
   TokenIcon,
   osGestureSheetBodyClassName,
   useScrollLock,
@@ -88,6 +90,14 @@ type BoostTxAction = 'commit' | 'collect' | 'unlock' | 'renew' | 'extend';
 
 const LIVE_COUNTER_FRACTION_DIGITS = 4;
 const BOOST_MODE_SWAP_MS = 180;
+/**
+ * Chip motion is 1.75s / 1.15s in CSS. Hold the +amount state a beat longer
+ * so reveal fades in on the post-claim counter (portal boost timings).
+ */
+const BOOST_COLLECT_CELEBRATION_HOLD_MS = 2100;
+const BOOST_COLLECT_CELEBRATION_HOLD_REDUCED_MS = 1400;
+
+type BoostClaimCelebration = { id: number; amountYocto: bigint };
 
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined') return false;
@@ -238,7 +248,14 @@ function BoostSheetLoadingSkeleton() {
  * Live counter — portal `LiveClaimableAmount` pattern: mono digits, each
  * fraction digit in a fixed 1ch slot so ticks never reflow.
  */
-function BoostLiveClaimableAmount({ valueYocto }: { valueYocto: bigint }) {
+function BoostLiveClaimableAmount({
+  valueYocto,
+  celebrating = false,
+}: {
+  valueYocto: bigint;
+  /** Soft blur under the floating +amount chip (portal collect beat). */
+  celebrating?: boolean;
+}) {
   const { whole, fraction, full } = formatYoctoSocialParts(
     valueYocto,
     LIVE_COUNTER_FRACTION_DIGITS
@@ -246,8 +263,9 @@ function BoostLiveClaimableAmount({ valueYocto }: { valueYocto: bigint }) {
 
   return (
     <p
-      className="portfolio-boost-collect-amount"
+      className={`portfolio-boost-collect-amount${celebrating ? ' is-celebrating' : ''}`}
       aria-label={`${full} SOCIAL ready to collect`}
+      aria-hidden={celebrating || undefined}
     >
       <span className="portfolio-boost-collect-amount-inner" aria-hidden>
         <span className="portfolio-boost-collect-whole">{whole}</span>
@@ -357,9 +375,19 @@ export function PortfolioBoostSheet({
 
   const [mode, setMode] = useState<BoostSheetMode>('collect');
   const modeSlotRef = useRef<BoostModeSlotHandle>(null);
-  const [pendingAction, setPendingAction] = useState<BoostTxAction | null>(
+  /** Button pulsing dots — wallet signing only; toast owns chain confirm. */
+  const [signingAction, setSigningAction] = useState<BoostTxAction | null>(
     null
   );
+  /** Disables sibling controls while any boost tx is in flight. */
+  const [txBusy, setTxBusy] = useState(false);
+  /** Portal-style +amount chip after a confirmed collect. */
+  const [claimCelebration, setClaimCelebration] =
+    useState<BoostClaimCelebration | null>(null);
+  const claimCelebrationTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const claimCelebrationIdRef = useRef(0);
   const [amountInput, setAmountInput] = useState('');
   const [selectedMonths, setSelectedMonths] = useState<BoostLockPeriod>(
     BOOST_DEFAULT_LOCK_MONTHS
@@ -369,6 +397,59 @@ export function PortfolioBoostSheet({
   );
   const [balanceYocto, setBalanceYocto] = useState<bigint | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const claimableYoctoRef = useRef(0n);
+
+  const {
+    account,
+    lockStatus,
+    loaded,
+    hasPosition,
+    lockedYocto,
+    claimableYocto,
+    ratePerSecondYocto,
+    canUnlock,
+    refresh,
+    resetLiveCounterAfterClaim,
+    beginPostClaimHold,
+    endPostClaimHold,
+  } = position;
+
+  claimableYoctoRef.current = claimableYocto;
+
+  const clearClaimCelebration = useCallback(() => {
+    if (claimCelebrationTimeoutRef.current) {
+      clearTimeout(claimCelebrationTimeoutRef.current);
+      claimCelebrationTimeoutRef.current = null;
+    }
+    endPostClaimHold();
+    setClaimCelebration(null);
+  }, [endPostClaimHold]);
+
+  const revealAfterCollectCelebration = useCallback(() => {
+    // Same turn as chip clear — React batches so reveal never paints stale.
+    endPostClaimHold();
+    setClaimCelebration(null);
+    claimCelebrationTimeoutRef.current = null;
+  }, [endPostClaimHold]);
+
+  const triggerClaimCelebration = useCallback(
+    (amountYocto: bigint) => {
+      if (amountYocto <= 0n) return;
+      if (claimCelebrationTimeoutRef.current) {
+        clearTimeout(claimCelebrationTimeoutRef.current);
+      }
+      const id = ++claimCelebrationIdRef.current;
+      setClaimCelebration({ id, amountYocto });
+      const holdMs = prefersReducedMotion()
+        ? BOOST_COLLECT_CELEBRATION_HOLD_REDUCED_MS
+        : BOOST_COLLECT_CELEBRATION_HOLD_MS;
+      claimCelebrationTimeoutRef.current = setTimeout(() => {
+        if (claimCelebrationIdRef.current !== id) return;
+        revealAfterCollectCelebration();
+      }, holdMs);
+    },
+    [revealAfterCollectCelebration]
+  );
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -377,8 +458,28 @@ export function PortfolioBoostSheet({
       setAmountInput('');
       setExtendMonths(null);
       setFieldError(null);
+      setClaimCelebration(null);
+      setSigningAction(null);
+      setTxBusy(false);
+      if (claimCelebrationTimeoutRef.current) {
+        clearTimeout(claimCelebrationTimeoutRef.current);
+        claimCelebrationTimeoutRef.current = null;
+      }
     }
   }
+
+  useEffect(() => {
+    if (!open) return;
+    endPostClaimHold();
+  }, [open, endPostClaimHold]);
+
+  useEffect(() => {
+    return () => {
+      if (claimCelebrationTimeoutRef.current) {
+        clearTimeout(claimCelebrationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useScrollLock(open || closing);
 
@@ -403,19 +504,6 @@ export function PortfolioBoostSheet({
     setClosing(false);
     onOpenChange(false);
   }, [onOpenChange]);
-
-  const {
-    account,
-    lockStatus,
-    loaded,
-    hasPosition,
-    lockedYocto,
-    claimableYocto,
-    ratePerSecondYocto,
-    canUnlock,
-    refresh,
-    resetLiveCounterAfterClaim,
-  } = position;
 
   const currentLockMonths = resolveCurrentLockMonths(account, lockStatus);
   const currentOption = lockPeriodOption(currentLockMonths);
@@ -505,11 +593,15 @@ export function PortfolioBoostSheet({
     confirmingMessage: string;
     successMessage: string;
     failureMessage: string;
+    /** Post-claim counter reset / collect celebration (collect / unlock). */
+    freezeClaimable?: boolean;
     onConfirmed?: () => void | Promise<void>;
   }) {
-    if (pendingAction) return;
+    if (signingAction || txBusy) return;
     setFieldError(null);
-    setPendingAction(input.action);
+    setSigningAction(input.action);
+    setTxBusy(true);
+    const freezeClaimable = Boolean(input.freezeClaimable);
     try {
       const { accountId: signingAccountId, wallet } = await getClient();
       const payment = await wallet.signAndSendTransaction({
@@ -520,6 +612,8 @@ export function PortfolioBoostSheet({
           { type: 'FunctionCall' as const, params: input.functionCall },
         ],
       });
+      // Wallet returned — clear button dots so toast owns confirming.
+      setSigningAction(null);
       const txHashes = extractNearTransactionHashes(payment);
       const confirmed = await trackTransaction({
         txHashes,
@@ -527,11 +621,36 @@ export function PortfolioBoostSheet({
         successMessage: input.successMessage,
         failureMessage: input.failureMessage,
       });
+      // Counter keeps dripping until celebration / post-claim reset.
       if (confirmed) {
+        const celebrateAmount = claimableYoctoRef.current;
+        const celebrateCollect =
+          input.action === 'collect' && celebrateAmount > 0n;
+        if (celebrateCollect) {
+          // Freeze + zero under the chip only when the animation starts.
+          beginPostClaimHold();
+          triggerClaimCelebration(celebrateAmount);
+        } else if (freezeClaimable) {
+          resetLiveCounterAfterClaim();
+        }
         await input.onConfirmed?.();
         await refresh();
+        if (celebrateCollect) {
+          // RPC can lag — portal retries while the chip is up.
+          window.setTimeout(() => {
+            void refresh();
+          }, 1500);
+          window.setTimeout(() => {
+            void refresh();
+          }, 4000);
+        }
+      } else if (freezeClaimable) {
+        clearClaimCelebration();
       }
     } catch (cause) {
+      if (freezeClaimable) {
+        clearClaimCelebration();
+      }
       if (!isWalletUserCancellation(cause)) {
         setTxResult({
           type: 'error',
@@ -539,7 +658,8 @@ export function PortfolioBoostSheet({
         });
       }
     } finally {
-      setPendingAction(null);
+      setSigningAction(null);
+      setTxBusy(false);
     }
   }
 
@@ -595,8 +715,8 @@ export function PortfolioBoostSheet({
       confirmingMessage: txToastConfirming.collectingBoost,
       successMessage: txToastSuccess.boostCollected,
       failureMessage: txToastError.collectBoostFailed,
+      freezeClaimable: true,
       onConfirmed: async () => {
-        resetLiveCounterAfterClaim();
         await Promise.all([
           refreshAppSocialBalanceAfterClaim(),
           refreshWalletBalance(),
@@ -618,8 +738,8 @@ export function PortfolioBoostSheet({
       confirmingMessage: txToastConfirming.releasingBoost,
       successMessage: txToastSuccess.boostReleased,
       failureMessage: txToastError.releaseBoostFailed,
+      freezeClaimable: true,
       onConfirmed: async () => {
-        resetLiveCounterAfterClaim();
         await Promise.all([
           refreshAppSocialBalanceAfterClaim(),
           refreshWalletBalance(),
@@ -674,7 +794,7 @@ export function PortfolioBoostSheet({
   }
 
   function switchMode(next: BoostSheetMode) {
-    if (pendingAction || next === mode) return;
+    if (txBusy || next === mode) return;
     modeSlotRef.current?.prepareSwap();
     setFieldError(null);
     setAmountInput('');
@@ -682,7 +802,9 @@ export function PortfolioBoostSheet({
     setMode(next);
   }
 
-  const txPending = pendingAction != null;
+  const collectCelebrating = claimCelebration != null;
+  const displayClaimableYocto =
+    claimCelebration?.amountYocto ?? claimableYocto;
 
   const modeChips: { id: BoostSheetMode; label: string }[] = [
     { id: 'collect', label: 'Collect' },
@@ -713,9 +835,11 @@ export function PortfolioBoostSheet({
         visible: true,
         primaryLabel: 'Commit',
         primaryPendingLabel: 'Committing…',
-        canSubmit: amountReady && !txPending,
-        pending: pendingAction === 'commit',
-        disabled: txPending || !amountReady,
+        canSubmit:
+          amountReady && (signingAction === 'commit' || !txBusy),
+        pending: signingAction === 'commit',
+        disabled:
+          (txBusy && signingAction !== 'commit') || !amountReady,
         primaryType: 'button',
         onPrimaryClick: handleCommit,
       };
@@ -726,9 +850,9 @@ export function PortfolioBoostSheet({
         visible: true,
         primaryLabel: 'Renew',
         primaryPendingLabel: 'Renewing…',
-        canSubmit: !txPending,
-        pending: pendingAction === 'renew',
-        disabled: txPending,
+        canSubmit: signingAction === 'renew' || !txBusy,
+        pending: signingAction === 'renew',
+        disabled: txBusy && signingAction !== 'renew',
         primaryType: 'button',
         onPrimaryClick: handleRenew,
       };
@@ -745,9 +869,11 @@ export function PortfolioBoostSheet({
         visible: true,
         primaryLabel: extendLabel,
         primaryPendingLabel: 'Extending…',
-        canSubmit: canExtend && !txPending,
-        pending: pendingAction === 'extend',
-        disabled: txPending || !canExtend,
+        canSubmit:
+          canExtend && (signingAction === 'extend' || !txBusy),
+        pending: signingAction === 'extend',
+        disabled:
+          (txBusy && signingAction !== 'extend') || !canExtend,
         primaryType: 'button',
         onPrimaryClick: handleExtend,
       };
@@ -758,9 +884,9 @@ export function PortfolioBoostSheet({
         visible: true,
         primaryLabel: 'Unlock + collect',
         primaryPendingLabel: 'Releasing…',
-        canSubmit: !txPending,
-        pending: pendingAction === 'unlock',
-        disabled: txPending,
+        canSubmit: signingAction === 'unlock' || !txBusy,
+        pending: signingAction === 'unlock',
+        disabled: txBusy && signingAction !== 'unlock',
         primaryType: 'button',
         onPrimaryClick: handleUnlock,
       };
@@ -771,9 +897,11 @@ export function PortfolioBoostSheet({
         visible: true,
         primaryLabel: 'Increase',
         primaryPendingLabel: 'Committing…',
-        canSubmit: amountReady && !txPending,
-        pending: pendingAction === 'commit',
-        disabled: txPending || !amountReady,
+        canSubmit:
+          amountReady && (signingAction === 'commit' || !txBusy),
+        pending: signingAction === 'commit',
+        disabled:
+          (txBusy && signingAction !== 'commit') || !amountReady,
         primaryType: 'button',
         onPrimaryClick: handleCommit,
       };
@@ -783,9 +911,15 @@ export function PortfolioBoostSheet({
       visible: true,
       primaryLabel: 'Collect',
       primaryPendingLabel: 'Collecting…',
-      canSubmit: claimableYocto >= BOOST_CLAIM_DUST_YOCTO && !txPending,
-      pending: pendingAction === 'collect',
-      disabled: txPending || claimableYocto < BOOST_CLAIM_DUST_YOCTO,
+      canSubmit:
+        claimableYocto >= BOOST_CLAIM_DUST_YOCTO &&
+        !collectCelebrating &&
+        (signingAction === 'collect' || !txBusy),
+      pending: signingAction === 'collect',
+      disabled:
+        collectCelebrating ||
+        (txBusy && signingAction !== 'collect') ||
+        claimableYocto < BOOST_CLAIM_DUST_YOCTO,
       primaryType: 'button',
       onPrimaryClick: handleCollect,
     };
@@ -879,18 +1013,56 @@ export function PortfolioBoostSheet({
       ) : hasPosition && account ? (
         <div className="portfolio-boost-view">
           <section className="portfolio-boost-collect" aria-live="off">
-            <p className="portfolio-payout-sheet-eyebrow">Ready to collect</p>
-            <BoostLiveClaimableAmount valueYocto={claimableYocto} />
-            {ratePerSecondYocto > 0n ? (
-              <p className="portfolio-boost-collect-rate">
-                +
-                {formatYoctoSocialFixed(
-                  ratePerSecondYocto,
-                  LIVE_COUNTER_FRACTION_DIGITS
-                )}
-                /sec
-              </p>
+            {claimCelebration ? (
+              <div
+                key={claimCelebration.id}
+                className="portfolio-boost-collect-celebration"
+                aria-live="polite"
+              >
+                <span
+                  className="portfolio-boost-collect-celebration-sweep"
+                  aria-hidden
+                />
+                <span className="portfolio-boost-collect-celebration-chip">
+                  <GiftFillIcon
+                    className="portfolio-boost-collect-celebration-icon"
+                    aria-hidden
+                  />
+                  +
+                  {formatYoctoSocialFixed(
+                    claimCelebration.amountYocto,
+                    LIVE_COUNTER_FRACTION_DIGITS
+                  )}
+                </span>
+              </div>
             ) : null}
+            <div
+              className={`portfolio-boost-collect-body${
+                collectCelebrating ? ' is-celebrating' : ''
+              }`}
+              aria-hidden={collectCelebrating || undefined}
+            >
+              <p className="portfolio-payout-sheet-eyebrow">Ready to collect</p>
+              <BoostLiveClaimableAmount
+                valueYocto={displayClaimableYocto}
+                celebrating={collectCelebrating}
+              />
+              {ratePerSecondYocto > 0n || collectCelebrating ? (
+                <p
+                  className={`portfolio-boost-collect-rate${
+                    collectCelebrating ? ' is-celebrating' : ''
+                  }`}
+                  aria-hidden={collectCelebrating || undefined}
+                >
+                  +
+                  {formatYoctoSocialFixed(
+                    ratePerSecondYocto,
+                    LIVE_COUNTER_FRACTION_DIGITS
+                  )}
+                  /sec
+                </p>
+              ) : null}
+            </div>
           </section>
 
           <div
@@ -906,7 +1078,7 @@ export function PortfolioBoostSheet({
                   mode === chip.id ? ' is-selected' : ''
                 }`}
                 aria-pressed={mode === chip.id}
-                disabled={txPending}
+                disabled={txBusy}
                 onClick={() => switchMode(chip.id)}
               >
                 {chip.label}
@@ -928,7 +1100,7 @@ export function PortfolioBoostSheet({
                 onMax={applyMaxAmount}
                 balanceYocto={balanceYocto}
                 tokenIconSrc={socialIcon}
-                disabled={txPending}
+                disabled={txBusy}
               />
             ) : null}
 
@@ -972,7 +1144,7 @@ export function PortfolioBoostSheet({
                         extendMonths === option.months ? ' is-selected' : ''
                       }`}
                       aria-pressed={extendMonths === option.months}
-                      disabled={txPending}
+                      disabled={txBusy}
                       onClick={() =>
                         setExtendMonths((current) =>
                           current === option.months ? null : option.months
@@ -1061,7 +1233,7 @@ export function PortfolioBoostSheet({
                 className={`os-surface-chip${
                   selectedMonths === option.months ? ' is-selected' : ''
                 }`}
-                disabled={txPending}
+                disabled={txBusy}
                 onClick={() => setSelectedMonths(option.months)}
               >
                 {option.short}
@@ -1078,7 +1250,7 @@ export function PortfolioBoostSheet({
             onMax={applyMaxAmount}
             balanceYocto={balanceYocto}
             tokenIconSrc={socialIcon}
-            disabled={txPending}
+            disabled={txBusy}
           />
 
           {amountReady ? (

@@ -5490,12 +5490,36 @@ a.os-surface-row {
   }
 
   .portfolio-boost-collect {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.15rem;
     padding: 0.35rem 0 0.1rem;
     text-align: center;
+    overflow: hidden;
+    min-height: 5.25rem;
+  }
+
+  .portfolio-boost-collect-body {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    transition:
+      opacity 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+      filter 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .portfolio-boost-collect-body.is-celebrating {
+    opacity: 0;
+    transform: scale(0.98);
+    filter: blur(4px);
+    pointer-events: none;
+    transition-duration: 0.32s;
+    transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
   }
 
   .portfolio-boost-collect-amount {
@@ -5506,6 +5530,153 @@ a.os-surface-row {
     letter-spacing: -0.03em;
     line-height: 1.15;
     font-variant-numeric: tabular-nums;
+  }
+
+  .portfolio-boost-collect-celebration {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .portfolio-boost-collect-celebration-sweep {
+    position: absolute;
+    inset-inline: 1.25rem;
+    top: 42%;
+    height: 1px;
+    transform-origin: left center;
+    background: linear-gradient(
+      to right,
+      transparent,
+      color-mix(
+        in srgb,
+        var(
+          --mood-accent-chrome,
+          var(--mood-accent, var(--signal-reputation, #22c55e))
+        )
+          85%,
+        transparent
+      ),
+      transparent
+    );
+    animation: portfolio-boost-collect-sweep 1.18s cubic-bezier(0.22, 1, 0.36, 1)
+      both;
+  }
+
+  .portfolio-boost-collect-celebration-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    border: 1px solid
+      color-mix(
+        in srgb,
+        var(
+          --mood-accent-chrome,
+          var(--mood-accent, var(--signal-reputation, #22c55e))
+        )
+          35%,
+        transparent
+      );
+    background: rgb(var(--bg-rgb) / 0.95);
+    padding: 0.35rem 0.75rem;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(
+      --mood-accent-chrome,
+      var(--mood-accent, var(--signal-reputation, #16a34a))
+    );
+    box-shadow: 0 18px 44px -28px
+      color-mix(
+        in srgb,
+        var(
+          --mood-accent-chrome,
+          var(--mood-accent, var(--signal-reputation, #22c55e))
+        )
+          55%,
+        transparent
+      );
+    backdrop-filter: blur(10px);
+    animation: portfolio-boost-collect-chip 1.75s cubic-bezier(0.22, 1, 0.36, 1)
+      both;
+  }
+
+  .portfolio-boost-collect-celebration-icon {
+    width: 0.75rem;
+    height: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  @keyframes portfolio-boost-collect-sweep {
+    0% {
+      opacity: 0;
+      transform: scaleX(0);
+    }
+    35% {
+      opacity: 0.8;
+      transform: scaleX(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes portfolio-boost-collect-chip {
+    0% {
+      opacity: 0;
+      transform: translateY(0.75rem) scale(0.96);
+    }
+    18% {
+      opacity: 1;
+      transform: translateY(-0.15rem) scale(1.02);
+    }
+    72% {
+      opacity: 1;
+      transform: translateY(-1.35rem) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-2.1rem) scale(0.98);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portfolio-boost-collect-body {
+      transition-duration: 0.18s;
+      filter: none;
+    }
+
+    .portfolio-boost-collect-body.is-celebrating {
+      filter: none;
+      transform: none;
+    }
+
+    .portfolio-boost-collect-celebration-sweep {
+      display: none;
+    }
+
+    .portfolio-boost-collect-celebration-chip {
+      animation-duration: 1.15s;
+      animation-name: portfolio-boost-collect-chip-reduced;
+    }
+
+    @keyframes portfolio-boost-collect-chip-reduced {
+      0%,
+      100% {
+        opacity: 0;
+      }
+      15%,
+      75% {
+        opacity: 1;
+      }
+    }
   }
 
   /*
@@ -5519,6 +5690,7 @@ a.os-surface-row {
     flex-wrap: nowrap;
     align-items: baseline;
     white-space: nowrap;
+    transform-origin: 50% 55%;
   }
 
   .portfolio-boost-collect-whole {
@@ -5558,6 +5730,10 @@ a.os-surface-row {
     font-size: 0.72rem;
     font-variant-numeric: tabular-nums;
     color: rgb(var(--fg-rgb) / 0.5);
+  }
+
+  .portfolio-boost-collect-rate.is-celebrating {
+    visibility: hidden;
   }
 
   .portfolio-boost-mode-row {
