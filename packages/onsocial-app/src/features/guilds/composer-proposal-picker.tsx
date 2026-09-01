@@ -13,6 +13,13 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 const MAX_GUILDS = 8;
 const PROPOSALS_PER_GUILD = 12;
 
+/** Guild composer stays on that guild. Public loads memberships. */
+export function proposalPickerScope(
+  groupId?: string | null
+): 'guild' | 'memberships' {
+  return groupId?.trim() ? 'guild' : 'memberships';
+}
+
 type PickerProposal = ComposerProposalDraft & {
   pickerKey: string;
   description?: string;
@@ -61,16 +68,16 @@ async function loadAttachableProposals(args: {
   };
 
   const scopedGroupId = args.groupId?.trim() || '';
-  if (scopedGroupId) {
+  if (proposalPickerScope(scopedGroupId) === 'guild') {
     try {
       const rows = await client.groups.listProposals(scopedGroupId, {
         limit: 40,
       });
       addRows(scopedGroupId, args.groupName ?? null, rows);
     } catch {
-      // Guild list optional when memberships also load.
+      // Empty picker if this guild's proposals will not load.
     }
-    if (byKey.size > 0) return [...byKey.values()];
+    return [...byKey.values()];
   }
 
   try {
@@ -82,9 +89,6 @@ async function loadAttachableProposals(args: {
       memberships.map(async (row) => {
         const groupId = row.groupId?.trim();
         if (!groupId) return;
-        if (scopedGroupId && groupId === scopedGroupId && byKey.size > 0) {
-          return;
-        }
         try {
           const rows = await client.groups.listProposals(groupId, {
             limit: PROPOSALS_PER_GUILD,
@@ -211,8 +215,9 @@ export function ComposerProposalPicker({
         {
           value: '__empty__',
           label: 'Nothing to tag yet',
-          description:
-            'Open a guild proposal — then it shows up here to post.',
+          description: groupId?.trim()
+            ? 'This guild has no open proposals to tag.'
+            : 'Open a guild proposal — then it shows up here to post.',
           disabled: true,
         },
       ];
@@ -222,7 +227,7 @@ export function ComposerProposalPicker({
       label: row.title,
       ...(row.description ? { description: row.description } : {}),
     }));
-  }, [open, accountId, loading, errored, errorFor, proposals]);
+  }, [open, accountId, groupId, loading, errored, errorFor, proposals]);
 
   return (
     <ChoiceDrawer

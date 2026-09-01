@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolveComposerAttach } from '@/features/guilds/composer-post-attach';
+import {
+  guildAttachWriteFields,
+  resolveComposerAttach,
+} from '@/features/guilds/composer-post-attach';
 
 describe('resolveComposerAttach', () => {
   it('prefers a Drop over a proposal when both are present', () => {
@@ -63,5 +66,33 @@ describe('resolveComposerAttach', () => {
       },
     });
     expect(attach.bodyText).toBe('please vote');
+  });
+
+  it('keeps attach kind on guild writes and fills room kind otherwise', () => {
+    const drop = resolveComposerAttach({
+      text: '',
+      drop: {
+        collectionId: 'drop-1',
+        title: 'Night',
+        mediumKind: 'audio',
+      },
+    });
+    expect(guildAttachWriteFields(drop, 'discussion').kind).toBe('audio');
+
+    const proposal = resolveComposerAttach({
+      text: '',
+      proposal: {
+        groupId: 'builders.near',
+        proposalId: '12',
+        title: 'Invite alice.near',
+      },
+    });
+    expect(guildAttachWriteFields(proposal, 'discussion').kind).toBe(
+      'discussion'
+    );
+    expect(proposal.valueFields).toMatchObject({
+      embeds: [{ kind: 'proposal', proposalId: '12' }],
+    });
+    expect(proposal.writeFields.kind).toBeUndefined();
   });
 });

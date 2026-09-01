@@ -54,6 +54,11 @@ export function resolveComposerAttach(input: {
       ? proposalSnapshotExtra(proposal)
       : undefined;
   const embed = poll ?? commerceEmbed ?? proposalEmbed ?? null;
+  const kind = poll ? ('poll' as const) : dropKind;
+  const valueFields = {
+    ...(embed ? { embeds: [embed] } : {}),
+    ...(extra ? { x: extra } : {}),
+  };
 
   return {
     bodyText,
@@ -63,12 +68,25 @@ export function resolveComposerAttach(input: {
     commerceEmbed,
     proposalEmbed,
     extra,
-    kind: poll ? 'poll' : dropKind,
+    kind,
     hasAttach: Boolean(embed),
+    valueFields,
     writeFields: {
-      ...(embed ? { embeds: [embed] } : {}),
-      ...(extra ? { x: extra } : {}),
-      ...(poll ? { kind: 'poll' as const } : dropKind ? { kind: dropKind } : {}),
+      ...valueFields,
+      ...(kind ? { kind } : {}),
     },
+  };
+}
+
+/** Guild writes keep room/media kind when the attach has none (text / proposal). */
+export function guildAttachWriteFields(
+  attach: ReturnType<typeof resolveComposerAttach>,
+  fallbackKind: string | undefined
+) {
+  return {
+    ...attach.writeFields,
+    ...(!attach.writeFields.kind && fallbackKind
+      ? { kind: fallbackKind }
+      : {}),
   };
 }
