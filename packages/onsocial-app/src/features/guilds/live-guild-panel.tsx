@@ -392,7 +392,10 @@ export function LiveGuildPanel({
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadMoreInFlightRef = useRef(false);
-  const guildRequestIdRef = useRef(0);
+  const groupIdRef = useRef(groupId);
+  groupIdRef.current = groupId;
+  const guildShellRequestIdRef = useRef(0);
+  const guildFeedRequestIdRef = useRef(0);
   const lastHydratedFeedKeysRef = useRef('');
   const selectedFeedFilterIdRef = useRef(selectedFeedFilterId);
   selectedFeedFilterIdRef.current = selectedFeedFilterId;
@@ -606,7 +609,7 @@ export function LiveGuildPanel({
 
   const refreshFeed = useCallback(
     async (opts?: { silent?: boolean }) => {
-      const requestId = ++guildRequestIdRef.current;
+      const requestId = ++guildFeedRequestIdRef.current;
       const filterId = selectedFeedSpace?.id ?? 'all';
       if (!opts?.silent) setIsFeedRefreshing(true);
       setError(null);
@@ -620,7 +623,12 @@ export function LiveGuildPanel({
               limit: 20,
             })
           : client.query.groups.feed({ groupId, limit: 20 }));
-        if (guildRequestIdRef.current !== requestId) return;
+        if (
+          guildFeedRequestIdRef.current !== requestId ||
+          groupIdRef.current !== groupId
+        ) {
+          return;
+        }
 
         const fetchedPosts = feedResult.items ?? [];
         const hasMore = feedResult.nextOffset !== undefined;
@@ -643,7 +651,12 @@ export function LiveGuildPanel({
         }));
         setHasMorePosts(hasMore);
       } catch (cause) {
-        if (guildRequestIdRef.current !== requestId) return;
+        if (
+          guildFeedRequestIdRef.current !== requestId ||
+          groupIdRef.current !== groupId
+        ) {
+          return;
+        }
         setState((current) => ({
           ...current,
           feedError:
@@ -652,7 +665,10 @@ export function LiveGuildPanel({
               : 'Could not load guild posts.',
         }));
       } finally {
-        if (guildRequestIdRef.current === requestId) {
+        if (
+          guildFeedRequestIdRef.current === requestId &&
+          groupIdRef.current === groupId
+        ) {
           setIsFeedRefreshing(false);
         }
       }
@@ -666,6 +682,7 @@ export function LiveGuildPanel({
       normalizedConfig: GuildConfigSnapshot
     ) => {
       if (!accountId) {
+        if (groupIdRef.current !== groupId) return;
         setAllowlistSpaceIds(new Set());
         setState((current) => ({
           ...current,
@@ -683,7 +700,7 @@ export function LiveGuildPanel({
           groupId,
           accountId
         );
-        if (membership) {
+        if (membership && groupIdRef.current === groupId) {
           writeGuildMembershipCache(accountId, groupId, {
             isMember: true,
             joinPending: false,
@@ -692,6 +709,7 @@ export function LiveGuildPanel({
       } catch {
         // Cache hint is best-effort.
       }
+      if (groupIdRef.current !== groupId) return;
 
       const resolved = await resolveGuildViewerAccess(
         client,
@@ -704,6 +722,7 @@ export function LiveGuildPanel({
       );
       const viewerState = resolved?.viewer ?? null;
       const moderationState = resolved?.moderation ?? null;
+      if (groupIdRef.current !== groupId) return;
 
       if (viewerState?.isMember) {
         try {
@@ -721,6 +740,7 @@ export function LiveGuildPanel({
       } else {
         setAllowlistSpaceIds(new Set());
       }
+      if (groupIdRef.current !== groupId) return;
 
       setState((current) => ({
         ...current,
@@ -762,6 +782,7 @@ export function LiveGuildPanel({
     if (!structureHydratedRef.current) {
       try {
         const rawConfig = await client.groups.getConfig(groupId);
+        if (groupIdRef.current !== groupId) return;
         if (rawConfig) {
           const fromRpc = normalizeGuildConfig(groupId, rawConfig);
           structureHydratedRef.current = true;
@@ -811,7 +832,7 @@ export function LiveGuildPanel({
 
   /** Client navigation / cold load — indexer shell first, then ACL. */
   const refreshShell = useCallback(async () => {
-    const requestId = ++guildRequestIdRef.current;
+    const requestId = ++guildShellRequestIdRef.current;
     setError(null);
     const client = createReadOnlyOnSocialClient();
 
@@ -834,7 +855,12 @@ export function LiveGuildPanel({
         .catch(() => new Map<string, number>()),
       client.query.groups.postCountFor(groupId).catch(() => null),
     ]);
-    if (guildRequestIdRef.current !== requestId) return false;
+    if (
+      guildShellRequestIdRef.current !== requestId ||
+      groupIdRef.current !== groupId
+    ) {
+      return false;
+    }
 
     const indexed = indexedRows[0] ?? null;
     if (indexed) {
@@ -895,7 +921,12 @@ export function LiveGuildPanel({
 
     try {
       const rawConfig = await client.groups.getConfig(groupId);
-      if (guildRequestIdRef.current !== requestId) return false;
+      if (
+        guildShellRequestIdRef.current !== requestId ||
+        groupIdRef.current !== groupId
+      ) {
+        return false;
+      }
       if (rawConfig) {
         normalizedConfig = normalizeGuildConfig(groupId, rawConfig);
         structureHydratedRef.current = true;
@@ -910,33 +941,35 @@ export function LiveGuildPanel({
           topics: normalizedConfig.topics,
         };
         writeGuildShellCache(groupId, shellEntry);
-        setShellPreview(shellEntry);
-        setState((current) => {
-          const members = reconcileGuildMemberRoster(
-            current.members,
-            readGuildOwnerId(rawConfig)
-          );
+        const cachedPage = readGuildPageCache(groupId);
+        if (cachedPage) {
           writeGuildPageCache(groupId, {
-            config: normalizedConfig!,
+            ...cachedPage,
+            config: normalizedConfig,
             shell: shellEntry,
-            stats: current.stats,
-            indexedMemberCount: current.indexedMemberCount,
-            members,
-            postCount: current.postCount,
             structureResolved: true,
           });
-          return {
-            ...current,
-            config: normalizedConfig!,
-            members,
-          };
-        });
+        }
+        setShellPreview(shellEntry);
+        setState((current) => ({
+          ...current,
+          config: normalizedConfig!,
+          members: reconcileGuildMemberRoster(
+            current.members,
+            readGuildOwnerId(rawConfig)
+          ),
+        }));
         setLoadState('ready');
       }
     } catch {
       // Indexer shell may already be enough.
     }
-    if (guildRequestIdRef.current !== requestId) return false;
+    if (
+      guildShellRequestIdRef.current !== requestId ||
+      groupIdRef.current !== groupId
+    ) {
+      return false;
+    }
 
     if (!normalizedConfig && !indexed) {
       setState({
@@ -966,7 +999,12 @@ export function LiveGuildPanel({
     void client.groups
       .getStats(groupId)
       .then((stats) => {
-        if (guildRequestIdRef.current !== requestId) return;
+        if (
+          guildShellRequestIdRef.current !== requestId ||
+          groupIdRef.current !== groupId
+        ) {
+          return;
+        }
         setState((current) => ({ ...current, stats }));
       })
       .catch(() => {});
@@ -1004,15 +1042,16 @@ export function LiveGuildPanel({
 
   useEffect(() => {
     clearStructureRetryTimers();
-    guildRequestIdRef.current += 1;
+    guildShellRequestIdRef.current += 1;
+    guildFeedRequestIdRef.current += 1;
     lastHydratedFeedKeysRef.current = '';
     setHeaderElevated(false);
     setLocalPosts([]);
     setAllowlistSpaceIds(new Set());
 
-    // Parent always pairs `initial` with this groupId. Accept every seed —
-    // client hops reused the first guild's SSR ref and wiped the new page.
-    if (initial) {
+    // Parent pairs `initial` with this groupId; still require the id so a
+    // stale seed cannot paint the wrong guild.
+    if (initial && initial.groupId === groupId) {
       persistGuildPageCache(groupId, pageCacheFromInitial(initial), {
         filterId: 'all',
         posts: initial.posts,
@@ -1170,7 +1209,7 @@ export function LiveGuildPanel({
           posts: optimistic,
           feedError: null,
         }));
-        setHasMorePosts(false);
+        setHasMorePosts(Boolean(allFeed?.hasMore));
         void refreshFeed({ silent: true });
         return;
       }

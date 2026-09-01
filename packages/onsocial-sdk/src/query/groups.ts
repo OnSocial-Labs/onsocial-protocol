@@ -82,6 +82,15 @@ function isGroupTopicsUnavailableError(error: unknown): boolean {
   );
 }
 
+function isGroupMemberCountsUnavailableError(error: unknown): boolean {
+  if (!(error instanceof GraphQLValidationError)) return false;
+  const hay =
+    `${error.message} ${error.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
+  return (
+    hay.includes('groupmembercounts') || hay.includes('group_member_counts')
+  );
+}
+
 export interface GroupMembershipCurrentRow {
   groupId: string;
   memberId: string;
@@ -364,34 +373,38 @@ export class GroupsQuery {
     for (const groupId of unique) counts.set(groupId, 0);
 
     try {
-      const res = await this._q.graphql<{
-        groupMemberCounts: {
-          groupId?: string | null;
-          memberCount?: number | null;
-        }[];
-      }>({
-        query: `query GroupMemberCounts($ids: [String!]!) {
-          groupMemberCounts(where: { groupId: { _in: $ids } }) {
-            groupId
-            memberCount
-          }
-        }`,
-        variables: { ids: unique },
-      });
-      for (const row of res.data?.groupMemberCounts ?? []) {
-        const groupId = row.groupId?.trim();
-        if (!groupId || !counts.has(groupId)) continue;
-        const n = row.memberCount;
-        counts.set(
-          groupId,
-          typeof n === 'number' && Number.isFinite(n)
-            ? Math.max(0, Math.floor(n))
-            : 0
-        );
+      const chunkSize = 100;
+      for (let offset = 0; offset < unique.length; offset += chunkSize) {
+        const chunk = unique.slice(offset, offset + chunkSize);
+        const res = await this._q.graphql<{
+          groupMemberCounts: {
+            groupId?: string | null;
+            memberCount?: number | null;
+          }[];
+        }>({
+          query: `query GroupMemberCounts($ids: [String!]!, $limit: Int!) {
+            groupMemberCounts(where: { groupId: { _in: $ids } }, limit: $limit) {
+              groupId
+              memberCount
+            }
+          }`,
+          variables: { ids: chunk, limit: chunk.length },
+        });
+        for (const row of res.data?.groupMemberCounts ?? []) {
+          const groupId = row.groupId?.trim();
+          if (!groupId || !counts.has(groupId)) continue;
+          const n = row.memberCount;
+          counts.set(
+            groupId,
+            typeof n === 'number' && Number.isFinite(n)
+              ? Math.max(0, Math.floor(n))
+              : 0
+          );
+        }
       }
       return counts;
-    } catch {
-      // Older Hasura without the rollup view — fall back to roster aggregates.
+    } catch (error) {
+      if (!isGroupMemberCountsUnavailableError(error)) throw error;
     }
 
     const chunkSize = 25;

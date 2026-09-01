@@ -1275,6 +1275,7 @@ describe('QueryModule', () => {
       expect(body.query).not.toContain('groupMembersCurrentAggregate');
       expect(body.variables).toMatchObject({
         ids: ['dao', 'rebels'],
+        limit: 2,
       });
     });
 
@@ -1288,6 +1289,49 @@ describe('QueryModule', () => {
       const counts = await os.query.groups.memberCountsFor(['dao', 'empty']);
       expect(counts.get('dao')).toBe(3);
       expect(counts.get('empty')).toBe(0);
+    });
+
+    it('falls back to roster aggregates only when the rollup field is missing', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('groupMemberCounts')) {
+          return {
+            data: null,
+            errors: [
+              {
+                message:
+                  'field "groupMemberCounts" not found in type: \'query_root\'',
+                extensions: { code: 'validation-failed' },
+              },
+            ],
+          };
+        }
+        return {
+          data: {
+            g0: { aggregate: { count: 9 } },
+          },
+        };
+      });
+
+      const counts = await os.query.groups.memberCountsFor(['dao']);
+      expect(counts.get('dao')).toBe(9);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(String(JSON.parse(fetch.mock.calls[1][1].body).query)).toContain(
+        'groupMembersCurrentAggregate'
+      );
+    });
+
+    it('does not fall back to roster aggregates on transport errors', async () => {
+      const fetch = vi.fn().mockRejectedValue(new Error('network down'));
+      const os = new OnSocial({
+        gatewayUrl: 'https://g.test',
+        fetch,
+        apiKey: 'test-key',
+      });
+      await expect(os.query.groups.memberCountsFor(['dao'])).rejects.toThrow(
+        /network down/
+      );
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it('browses by member count via groups_by_member_count', async () => {
