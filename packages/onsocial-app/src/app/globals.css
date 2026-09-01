@@ -2034,14 +2034,44 @@ a.os-surface-row {
 
   /* Mood-scoped signal hues — protocol base blended with mood accent (SDK presets). */
   .portfolio-frame[data-mood],
+  .portfolio-os-layer[data-mood],
   .os-app-screen.os-app-screen--mood,
   .glass-sheet-panel[data-mood],
-  .os-page-sheet-panel[data-mood] {
+  .os-page-sheet-panel[data-mood],
+  .profile-support-sheet-panel {
     --mood-accent-chrome: var(--mood-accent);
+    /*
+     * Identity ink — theme-safe accent for chrome (row hover / wash).
+     * Light remaps --mood-accent-chrome toward --mood-light-ink; this follows.
+     * Do not paint verbs or selected chips with --mood-ink.
+     */
+    --mood-ink: var(--mood-accent-chrome, var(--mood-accent));
+    --os-surface-row-hover: color-mix(in srgb, var(--mood-ink) 6%, transparent);
+    --os-surface-fill-hover-soft: color-mix(
+      in srgb,
+      var(--mood-ink) 7%,
+      transparent
+    );
+    --os-surface-fill-hover: color-mix(
+      in srgb,
+      var(--mood-ink) 9%,
+      transparent
+    );
     --signal-standing: var(--mood-signal-standing);
     --signal-solidarity: var(--mood-signal-solidarity);
     --signal-endorse: var(--mood-signal-endorse);
     --signal-reputation: var(--mood-signal-reputation);
+    --os-chip-selected-ink: var(--signal-reputation);
+    --os-chip-selected-fill: color-mix(
+      in srgb,
+      var(--signal-reputation) 14%,
+      transparent
+    );
+    --os-chip-selected-fill-hover: color-mix(
+      in srgb,
+      var(--signal-reputation) 20%,
+      transparent
+    );
   }
 
   /*
@@ -2057,7 +2087,8 @@ a.os-surface-row {
   :root[data-theme='light'] .portfolio-os-layer[data-mood],
   :root[data-theme='light'] .os-app-screen.os-app-screen--mood,
   :root[data-theme='light'] .glass-sheet-panel[data-mood],
-  :root[data-theme='light'] .os-page-sheet-panel[data-mood] {
+  :root[data-theme='light'] .os-page-sheet-panel[data-mood],
+  :root[data-theme='light'] .profile-support-sheet-panel {
     --mood-accent-chrome: color-mix(
       in srgb,
       var(--mood-accent) var(--mood-light-tone),
@@ -2122,7 +2153,8 @@ a.os-surface-row {
     :root:not([data-theme='dark']) .portfolio-os-layer[data-mood],
     :root:not([data-theme='dark']) .os-app-screen.os-app-screen--mood,
     :root:not([data-theme='dark']) .glass-sheet-panel[data-mood],
-    :root:not([data-theme='dark']) .os-page-sheet-panel[data-mood] {
+    :root:not([data-theme='dark']) .os-page-sheet-panel[data-mood],
+    :root:not([data-theme='dark']) .profile-support-sheet-panel {
       --mood-accent-chrome: color-mix(
         in srgb,
         var(--mood-accent) var(--mood-light-tone),
@@ -2386,6 +2418,30 @@ a.os-surface-row {
 .post-card-scarce-buy:hover:not(:disabled) .post-card-scarce-buy-main,
 .post-card-scarce-buy:focus-visible .post-card-scarce-buy-main {
   color: var(--protocol-green, #00ec97);
+}
+
+/*
+ * Mood commerce — Mint / Buy / Bid + List/Sell hover follow reputation.
+ * Like / boost stay hard protocol; love / player stay protocol green.
+ */
+:is(
+    .os-app-screen.os-app-screen--mood,
+    .os-page-sheet-panel[data-mood],
+    .glass-sheet-panel[data-mood],
+    .portfolio-os-layer[data-mood],
+    .portfolio-frame[data-mood]
+  )
+  :is(
+    .post-card-scarce-buy-main,
+    .post-card-scarce-buy:hover:not(:disabled) .post-card-scarce-buy-main,
+    .post-card-scarce-buy:focus-visible .post-card-scarce-buy-main,
+    .post-card-scarce-buy--secondary:hover:not(:disabled)
+      .post-card-scarce-buy-main,
+    .post-card-scarce-buy--secondary:focus-visible .post-card-scarce-buy-main,
+    .post-card-scarce-link:hover,
+    .post-card-scarce-link:focus-visible
+  ) {
+  color: var(--signal-reputation, var(--protocol-green, #00ec97));
 }
 
 .post-card-scarce-buy--secondary .post-card-scarce-buy-main,
@@ -9864,7 +9920,10 @@ a.os-surface-row {
     padding: 0.28rem 0.6rem;
     border-radius: 999px;
     background: rgb(var(--fg-rgb) / 0.05);
-    color: var(--protocol-green-ink, var(--protocol-green));
+    color: var(
+      --signal-reputation,
+      var(--protocol-green-ink, var(--protocol-green))
+    );
     font-size: 0.8rem;
     font-weight: 600;
     line-height: 1;
@@ -9877,7 +9936,10 @@ a.os-surface-row {
   .discover-trending-chip:hover,
   .discover-trending-chip:focus-visible {
     background: rgb(var(--fg-rgb) / 0.09);
-    color: var(--protocol-green-ink, var(--protocol-green-hover));
+    color: var(
+      --signal-reputation,
+      var(--protocol-green-ink, var(--protocol-green-hover))
+    );
     outline: none;
   }
 
@@ -9900,7 +9962,8 @@ a.os-surface-row {
   .discover-trending-chip .discover-trending-chip-count {
     color: color-mix(
       in srgb,
-      var(--protocol-green-ink, var(--protocol-green)) 55%,
+      var(--signal-reputation, var(--protocol-green-ink, var(--protocol-green)))
+        55%,
       rgb(var(--fg-rgb))
     );
   }
@@ -10121,8 +10184,8 @@ a.os-surface-row {
   }
 
   /*
-   * Browse variant — wrapping green-ink chips for Discover community tabs
-   * (guild topics / hub categories). Same chip system, tinted recipe.
+   * Browse variant — wrapping reputation chips for Discover community tabs
+   * (guild topics / hub categories). Same chip system as trending, tinted recipe.
    */
   .discover-tab-bar--browse {
     margin: 0.15rem 0 0.55rem;
@@ -10138,7 +10201,10 @@ a.os-surface-row {
     gap: 0.35rem;
     padding: 0.28rem 0.6rem;
     background: rgb(var(--fg-rgb) / 0.05);
-    color: var(--protocol-green-ink, var(--protocol-green));
+    color: var(
+      --signal-reputation,
+      var(--protocol-green-ink, var(--protocol-green))
+    );
     font-size: 0.8rem;
     font-weight: 600;
     line-height: 1;
@@ -10150,7 +10216,10 @@ a.os-surface-row {
   .discover-tab-bar--browse button:hover,
   .discover-tab-bar--browse button:focus-visible {
     background: rgb(var(--fg-rgb) / 0.09);
-    color: var(--protocol-green-ink, var(--protocol-green-hover));
+    color: var(
+      --signal-reputation,
+      var(--protocol-green-ink, var(--protocol-green-hover))
+    );
   }
 
   .discover-tab-bar--browse button.is-active,
@@ -18703,6 +18772,39 @@ a.os-surface-row {
     color: var(--protocol-amber);
   }
 
+  /*
+   * Mood surfaces — post verbs stay distinct (not one --mood-ink).
+   * Reply = standing, quote = reputation. Like stays crimson; boost stays amber.
+   */
+  :is(
+      .os-app-screen.os-app-screen--mood,
+      .os-page-sheet-panel[data-mood],
+      .glass-sheet-panel[data-mood],
+      .portfolio-os-layer[data-mood],
+      .portfolio-frame[data-mood]
+    )
+    :is(
+      .post-card-stat--reply:hover:not(:disabled),
+      .post-card-stat--reply:focus-visible
+    ) {
+    color: var(--signal-standing, var(--protocol-blue));
+  }
+
+  :is(
+      .os-app-screen.os-app-screen--mood,
+      .os-page-sheet-panel[data-mood],
+      .glass-sheet-panel[data-mood],
+      .portfolio-os-layer[data-mood],
+      .portfolio-frame[data-mood]
+    )
+    :is(
+      .post-card-stat--quote:hover:not(:disabled),
+      .post-card-stat--quote:focus-visible,
+      .post-card-stat--quote.is-active
+    ) {
+    color: var(--signal-reputation, var(--protocol-green));
+  }
+
   .post-card-scarce-cta {
     display: flex;
     align-items: baseline;
@@ -18897,8 +18999,8 @@ a.os-surface-row {
   }
 
   /*
-   * List / Sell — same chrome as Drop · Hub · Market (muted, green on hover).
-   * Money verbs (Mint / Buy / Bid) stay protocol-green primary.
+   * List / Sell — same chrome as Drop · Hub · Market (muted, reputation on hover).
+   * Money verbs (Mint / Buy / Bid) follow --signal-reputation on mood surfaces.
    */
   .post-card-scarce-buy--secondary .post-card-scarce-buy-main {
     font-weight: 600;
@@ -25629,12 +25731,20 @@ a.os-surface-row {
 
   .drop-cover-seat:hover:not(:disabled),
   .drop-cover-seat:focus-visible {
-    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.5);
+    border-color: color-mix(
+      in srgb,
+      var(--os-chip-selected-ink) 50%,
+      transparent
+    );
     outline: none;
   }
 
   .drop-cover-seat.is-selected {
-    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.9);
+    border-color: color-mix(
+      in srgb,
+      var(--os-chip-selected-ink) 90%,
+      transparent
+    );
   }
 
   /* One-artwork thumb — same seat tile, zoom instead of cover-pick. */
@@ -26250,8 +26360,8 @@ a.os-surface-row {
 
   /* Fill-only selection — no inset ring (matches app-access-option chips). */
   .drop-cal-chip.is-selected {
-    background: color-mix(in srgb, var(--protocol-green) 16%, transparent);
-    color: var(--protocol-green);
+    background: var(--os-chip-selected-fill);
+    color: var(--os-chip-selected-ink);
     font-weight: 700;
   }
 
@@ -26309,8 +26419,8 @@ a.os-surface-row {
   }
 
   .drop-cal-day.is-selected {
-    background: color-mix(in srgb, var(--protocol-green) 16%, transparent);
-    color: var(--protocol-green);
+    background: var(--os-chip-selected-fill);
+    color: var(--os-chip-selected-ink);
     font-weight: 700;
     box-shadow: none;
     opacity: 1;
@@ -26677,12 +26787,20 @@ a.os-surface-row {
 
   .gen-trait-tile-hit:hover:not(:disabled),
   .gen-trait-tile-hit:focus-visible {
-    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.5);
+    border-color: color-mix(
+      in srgb,
+      var(--os-chip-selected-ink) 50%,
+      transparent
+    );
     outline: none;
   }
 
   .gen-trait-tile.is-selected .gen-trait-tile-hit {
-    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.9);
+    border-color: color-mix(
+      in srgb,
+      var(--os-chip-selected-ink) 90%,
+      transparent
+    );
   }
 
   .gen-trait-tile-hit:disabled {
@@ -26855,18 +26973,14 @@ a.os-surface-row {
   }
 
   .app-access-option.is-selected {
-    background: color-mix(in srgb, var(--protocol-green) 14%, transparent);
-    color: var(--protocol-green);
+    background: var(--os-chip-selected-fill);
+    color: var(--os-chip-selected-ink);
   }
 
   .app-access-option.is-selected:hover:not(:disabled),
   .app-access-option.is-selected:focus-visible:not(:disabled) {
-    background: color-mix(
-      in srgb,
-      var(--protocol-green-hover) 20%,
-      transparent
-    );
-    color: var(--protocol-green-hover);
+    background: var(--os-chip-selected-fill-hover);
+    color: var(--os-chip-selected-ink);
   }
 
   .app-access-option:disabled {
@@ -33734,32 +33848,6 @@ a.os-surface-row {
   }
 }
 
-/*
- * Support presets — page owner's mood reputation signal.
- * Unlayered on purpose: @onsocial/ui os-surface-interactive.css is imported
- * unlayered, so a layered override would always lose the cascade to the base
- * .os-surface-chip.is-selected rule regardless of specificity.
- */
-.profile-support-presets .os-surface-chip.is-selected {
-  background: color-mix(
-    in srgb,
-    var(--mood-signal-reputation, var(--signal-reputation)) 14%,
-    transparent
-  );
-  color: var(--mood-signal-reputation, var(--signal-reputation));
-}
-
-.profile-support-presets .os-surface-chip.is-selected:not(:disabled):hover,
-.profile-support-presets
-  .os-surface-chip.is-selected:not(:disabled):focus-visible {
-  background: color-mix(
-    in srgb,
-    var(--mood-signal-reputation, var(--signal-reputation)) 22%,
-    transparent
-  );
-  color: var(--mood-signal-reputation, var(--signal-reputation));
-}
-
 /* Account dock key — orange attention (logout uses is-danger). Unlayered twin. */
 .account-shortcut-dock .os-surface-tile.is-attention {
   background: color-mix(in srgb, var(--protocol-amber) 8%, transparent);
@@ -33789,34 +33877,6 @@ a.os-surface-row {
 .account-drawer-panel .os-surface-panel,
 .account-storage-panel .os-surface-panel {
   background: var(--os-surface-fill);
-}
-
-/*
- * Boost drawer chips — same standing tint as the portfolio flame mark.
- * Mode row + period picker; selected only. Unlayered for the same reason.
- */
-.portfolio-boost-mode-row .os-surface-chip.is-selected,
-.portfolio-boost-periods .os-surface-chip.is-selected {
-  background: color-mix(
-    in srgb,
-    var(--mood-signal-standing, var(--signal-standing, #5ecf9a)) 14%,
-    transparent
-  );
-  color: var(--mood-signal-standing, var(--signal-standing, #5ecf9a));
-}
-
-.portfolio-boost-mode-row .os-surface-chip.is-selected:not(:disabled):hover,
-.portfolio-boost-mode-row
-  .os-surface-chip.is-selected:not(:disabled):focus-visible,
-.portfolio-boost-periods .os-surface-chip.is-selected:not(:disabled):hover,
-.portfolio-boost-periods
-  .os-surface-chip.is-selected:not(:disabled):focus-visible {
-  background: color-mix(
-    in srgb,
-    var(--mood-signal-standing, var(--signal-standing, #5ecf9a)) 22%,
-    transparent
-  );
-  color: var(--mood-signal-standing, var(--signal-standing, #5ecf9a));
 }
 
 /*
