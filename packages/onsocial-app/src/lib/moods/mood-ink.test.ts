@@ -40,6 +40,30 @@ describe('mood ink chrome', () => {
     );
   });
 
+  it('hand-rolled selected pills consume the same remappable tokens', () => {
+    expect(globalsCss).toMatch(
+      /\.drop-cal-chip\.is-selected \{\s*background: var\(--os-chip-selected-fill\);\s*color: var\(--os-chip-selected-ink\);/
+    );
+    expect(globalsCss).toMatch(
+      /\.drop-cal-day\.is-selected \{\s*background: var\(--os-chip-selected-fill\);\s*color: var\(--os-chip-selected-ink\);/
+    );
+    expect(globalsCss).toMatch(
+      /\.app-access-option\.is-selected \{\s*background: var\(--os-chip-selected-fill\);\s*color: var\(--os-chip-selected-ink\);/
+    );
+    expect(globalsCss).toContain(
+      'border-color: color-mix(\n      in srgb,\n      var(--os-chip-selected-ink) 90%'
+    );
+  });
+
+  it('discover trending chips follow --signal-reputation like browse topics', () => {
+    expect(globalsCss).toMatch(
+      /\.discover-trending-chip \{\s*[\s\S]*?color: var\(\s*--signal-reputation/
+    );
+    expect(globalsCss).toMatch(
+      /\.discover-tab-bar--browse button \{\s*[\s\S]*?color: var\(\s*--signal-reputation/
+    );
+  });
+
   it('keeps like crimson and love / player protocol green', () => {
     expect(globalsCss).toMatch(
       /\.post-card-react\.is-active \{\s*color: var\(--protocol-red\);/

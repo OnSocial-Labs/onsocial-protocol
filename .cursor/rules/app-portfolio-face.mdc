@@ -92,11 +92,12 @@ Light bumps bg mix so the wash reads closer to dark (light presets are subtler o
 - List + drawer row hover (`--os-surface-row-hover` / `--os-surface-fill-hover` remapped)
 - Buy / sell / list verbs
 - Selected chips (`--os-chip-selected-ink` remapped) — create-drop, wallet, Support, Boost, any `os-surface-chip.is-selected`
+- Hand-rolled selected pills that consume the same tokens — create-drop calendar (`.drop-cal-chip` / `.drop-cal-day`), app-access options, cover-seat / gen-trait selection rings
 
 **Follow `--signal-reputation` (mood-blended green, not ink):**
 
 - `#` / `@` / `$` / links / Show more
-- Discover browse topic chips
+- Discover browse topic chips + trending chips
 
 **Stay protocol (not mood):**
 

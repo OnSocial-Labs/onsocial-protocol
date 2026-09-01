@@ -9920,7 +9920,10 @@ a.os-surface-row {
     padding: 0.28rem 0.6rem;
     border-radius: 999px;
     background: rgb(var(--fg-rgb) / 0.05);
-    color: var(--protocol-green-ink, var(--protocol-green));
+    color: var(
+      --signal-reputation,
+      var(--protocol-green-ink, var(--protocol-green))
+    );
     font-size: 0.8rem;
     font-weight: 600;
     line-height: 1;
@@ -9933,7 +9936,10 @@ a.os-surface-row {
   .discover-trending-chip:hover,
   .discover-trending-chip:focus-visible {
     background: rgb(var(--fg-rgb) / 0.09);
-    color: var(--protocol-green-ink, var(--protocol-green-hover));
+    color: var(
+      --signal-reputation,
+      var(--protocol-green-ink, var(--protocol-green-hover))
+    );
     outline: none;
   }
 
@@ -9956,7 +9962,8 @@ a.os-surface-row {
   .discover-trending-chip .discover-trending-chip-count {
     color: color-mix(
       in srgb,
-      var(--protocol-green-ink, var(--protocol-green)) 55%,
+      var(--signal-reputation, var(--protocol-green-ink, var(--protocol-green)))
+        55%,
       rgb(var(--fg-rgb))
     );
   }
@@ -10177,8 +10184,8 @@ a.os-surface-row {
   }
 
   /*
-   * Browse variant — wrapping green-ink chips for Discover community tabs
-   * (guild topics / hub categories). Same chip system, tinted recipe.
+   * Browse variant — wrapping reputation chips for Discover community tabs
+   * (guild topics / hub categories). Same chip system as trending, tinted recipe.
    */
   .discover-tab-bar--browse {
     margin: 0.15rem 0 0.55rem;
@@ -18985,8 +18992,8 @@ a.os-surface-row {
   }
 
   /*
-   * List / Sell — same chrome as Drop · Hub · Market (muted, green on hover).
-   * Money verbs (Mint / Buy / Bid) stay protocol-green primary.
+   * List / Sell — same chrome as Drop · Hub · Market (muted, mood-ink on hover).
+   * Money verbs (Mint / Buy / Bid) follow --mood-ink on mood surfaces.
    */
   .post-card-scarce-buy--secondary .post-card-scarce-buy-main {
     font-weight: 600;
@@ -25719,12 +25726,20 @@ a.os-surface-row {
 
   .drop-cover-seat:hover:not(:disabled),
   .drop-cover-seat:focus-visible {
-    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.5);
+    border-color: color-mix(
+      in srgb,
+      var(--os-chip-selected-ink) 50%,
+      transparent
+    );
     outline: none;
   }
 
   .drop-cover-seat.is-selected {
-    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.9);
+    border-color: color-mix(
+      in srgb,
+      var(--os-chip-selected-ink) 90%,
+      transparent
+    );
   }
 
   /* One-artwork thumb — same seat tile, zoom instead of cover-pick. */
@@ -26340,8 +26355,8 @@ a.os-surface-row {
 
   /* Fill-only selection — no inset ring (matches app-access-option chips). */
   .drop-cal-chip.is-selected {
-    background: color-mix(in srgb, var(--protocol-green) 16%, transparent);
-    color: var(--protocol-green);
+    background: var(--os-chip-selected-fill);
+    color: var(--os-chip-selected-ink);
     font-weight: 700;
   }
 
@@ -26399,8 +26414,8 @@ a.os-surface-row {
   }
 
   .drop-cal-day.is-selected {
-    background: color-mix(in srgb, var(--protocol-green) 16%, transparent);
-    color: var(--protocol-green);
+    background: var(--os-chip-selected-fill);
+    color: var(--os-chip-selected-ink);
     font-weight: 700;
     box-shadow: none;
     opacity: 1;
@@ -26767,12 +26782,20 @@ a.os-surface-row {
 
   .gen-trait-tile-hit:hover:not(:disabled),
   .gen-trait-tile-hit:focus-visible {
-    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.5);
+    border-color: color-mix(
+      in srgb,
+      var(--os-chip-selected-ink) 50%,
+      transparent
+    );
     outline: none;
   }
 
   .gen-trait-tile.is-selected .gen-trait-tile-hit {
-    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.9);
+    border-color: color-mix(
+      in srgb,
+      var(--os-chip-selected-ink) 90%,
+      transparent
+    );
   }
 
   .gen-trait-tile-hit:disabled {
@@ -26945,18 +26968,14 @@ a.os-surface-row {
   }
 
   .app-access-option.is-selected {
-    background: color-mix(in srgb, var(--protocol-green) 14%, transparent);
-    color: var(--protocol-green);
+    background: var(--os-chip-selected-fill);
+    color: var(--os-chip-selected-ink);
   }
 
   .app-access-option.is-selected:hover:not(:disabled),
   .app-access-option.is-selected:focus-visible:not(:disabled) {
-    background: color-mix(
-      in srgb,
-      var(--protocol-green-hover) 20%,
-      transparent
-    );
-    color: var(--protocol-green-hover);
+    background: var(--os-chip-selected-fill-hover);
+    color: var(--os-chip-selected-ink);
   }
 
   .app-access-option:disabled {
