@@ -368,7 +368,9 @@
   }
 }
 
-.os-sheet-action--danger.is-ready:not(:disabled):not(.is-pending):focus-visible {
+.os-sheet-action--danger.is-ready:not(:disabled):not(
+    .is-pending
+  ):focus-visible {
   box-shadow: var(
     --os-focus-ring-danger,
     0 0 0 2px color-mix(in srgb, var(--protocol-red, #f25c5c) 35%, transparent)
@@ -430,7 +432,9 @@
   -webkit-backdrop-filter: none;
 }
 
-.os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-pending):focus-visible {
+.os-sheet-action--dismiss.is-ready:not(:disabled):not(
+    .is-pending
+  ):focus-visible {
   border-color: transparent;
   background: rgb(var(--fg-rgb) / 0.09);
   color: var(--os-action-ink-armed);
