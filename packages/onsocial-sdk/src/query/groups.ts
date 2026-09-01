@@ -82,6 +82,15 @@ function isGroupTopicsUnavailableError(error: unknown): boolean {
   );
 }
 
+function isGroupMemberCountsUnavailableError(error: unknown): boolean {
+  if (!(error instanceof GraphQLValidationError)) return false;
+  const hay =
+    `${error.message} ${error.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
+  return (
+    hay.includes('groupmembercounts') || hay.includes('group_member_counts')
+  );
+}
+
 export interface GroupMembershipCurrentRow {
   groupId: string;
   memberId: string;
@@ -352,7 +361,8 @@ export class GroupsQuery {
   }
 
   /**
-   * Member counts for many guilds in one GraphQL round-trip (indexed roster).
+   * Member counts for many guilds in one GraphQL round-trip.
+   * Prefers `group_member_counts` (pre-aggregated) over N roster aggregates.
    */
   async memberCountsFor(groupIds: string[]): Promise<Map<string, number>> {
     const unique = [
@@ -360,6 +370,42 @@ export class GroupsQuery {
     ];
     const counts = new Map<string, number>();
     if (unique.length === 0) return counts;
+    for (const groupId of unique) counts.set(groupId, 0);
+
+    try {
+      const chunkSize = 100;
+      for (let offset = 0; offset < unique.length; offset += chunkSize) {
+        const chunk = unique.slice(offset, offset + chunkSize);
+        const res = await this._q.graphql<{
+          groupMemberCounts: {
+            groupId?: string | null;
+            memberCount?: number | null;
+          }[];
+        }>({
+          query: `query GroupMemberCounts($ids: [String!]!, $limit: Int!) {
+            groupMemberCounts(where: { groupId: { _in: $ids } }, limit: $limit) {
+              groupId
+              memberCount
+            }
+          }`,
+          variables: { ids: chunk, limit: chunk.length },
+        });
+        for (const row of res.data?.groupMemberCounts ?? []) {
+          const groupId = row.groupId?.trim();
+          if (!groupId || !counts.has(groupId)) continue;
+          const n = row.memberCount;
+          counts.set(
+            groupId,
+            typeof n === 'number' && Number.isFinite(n)
+              ? Math.max(0, Math.floor(n))
+              : 0
+          );
+        }
+      }
+      return counts;
+    } catch (error) {
+      if (!isGroupMemberCountsUnavailableError(error)) throw error;
+    }
 
     const chunkSize = 25;
     for (let offset = 0; offset < unique.length; offset += chunkSize) {
@@ -381,7 +427,7 @@ export class GroupsQuery {
       const res = await this._q.graphql<
         Record<string, { aggregate?: { count?: number | null } | null }>
       >({
-        query: `query GroupMemberCounts(${variableDecl}) { ${aliasFields} }`,
+        query: `query GroupMemberCountsFallback(${variableDecl}) { ${aliasFields} }`,
         variables,
       });
 

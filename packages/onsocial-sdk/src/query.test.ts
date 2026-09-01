@@ -1256,11 +1256,13 @@ describe('QueryModule', () => {
       });
     });
 
-    it('loads member counts for many guilds in one query', async () => {
+    it('loads member counts for many guilds from group_member_counts', async () => {
       const { os, fetch } = makeOs({
         data: {
-          g0: { aggregate: { count: 3 } },
-          g1: { aggregate: { count: 12 } },
+          groupMemberCounts: [
+            { groupId: 'dao', memberCount: 3 },
+            { groupId: 'rebels', memberCount: 12 },
+          ],
         },
       });
 
@@ -1269,13 +1271,67 @@ describe('QueryModule', () => {
       expect(counts.get('rebels')).toBe(12);
 
       const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('groupMembersCurrentAggregate');
-      expect(body.query).toContain('g0:');
-      expect(body.query).toContain('g1:');
+      expect(body.query).toContain('groupMemberCounts');
+      expect(body.query).not.toContain('groupMembersCurrentAggregate');
       expect(body.variables).toMatchObject({
-        id0: 'dao',
-        id1: 'rebels',
+        ids: ['dao', 'rebels'],
+        limit: 2,
       });
+    });
+
+    it('defaults missing group_member_counts rows to zero', async () => {
+      const { os } = makeOs({
+        data: {
+          groupMemberCounts: [{ groupId: 'dao', memberCount: 3 }],
+        },
+      });
+
+      const counts = await os.query.groups.memberCountsFor(['dao', 'empty']);
+      expect(counts.get('dao')).toBe(3);
+      expect(counts.get('empty')).toBe(0);
+    });
+
+    it('falls back to roster aggregates only when the rollup field is missing', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('groupMemberCounts')) {
+          return {
+            data: null,
+            errors: [
+              {
+                message:
+                  'field "groupMemberCounts" not found in type: \'query_root\'',
+                extensions: { code: 'validation-failed' },
+              },
+            ],
+          };
+        }
+        return {
+          data: {
+            g0: { aggregate: { count: 9 } },
+          },
+        };
+      });
+
+      const counts = await os.query.groups.memberCountsFor(['dao']);
+      expect(counts.get('dao')).toBe(9);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(String(JSON.parse(fetch.mock.calls[1][1].body).query)).toContain(
+        'groupMembersCurrentAggregate'
+      );
+    });
+
+    it('does not fall back to roster aggregates on transport errors', async () => {
+      const fetch = vi.fn().mockRejectedValue(new Error('network down'));
+      const os = new OnSocial({
+        gatewayUrl: 'https://g.test',
+        fetch,
+        apiKey: 'test-key',
+      });
+      await expect(os.query.groups.memberCountsFor(['dao'])).rejects.toThrow(
+        /network down/
+      );
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it('browses by member count via groups_by_member_count', async () => {

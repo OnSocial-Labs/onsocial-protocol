@@ -13,6 +13,7 @@ import type { GuildShellCacheEntry } from '@/lib/guild-shell-cache';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 
 export type GuildPageData = {
+  groupId: string;
   config: GuildConfigSnapshot;
   shell: GuildShellCacheEntry;
   posts: PostRow[];
@@ -77,6 +78,7 @@ export const loadGuildPageData = cache(
       ]);
 
       return {
+        groupId: id,
         config,
         shell,
         posts,
@@ -85,9 +87,7 @@ export const loadGuildPageData = cache(
         indexedMemberCount,
         members,
         postCount:
-          postCountResult.status === 'fulfilled'
-            ? postCountResult.value
-            : null,
+          postCountResult.status === 'fulfilled' ? postCountResult.value : null,
         structureResolved: false,
         engagement,
         scarceEmbeds,
