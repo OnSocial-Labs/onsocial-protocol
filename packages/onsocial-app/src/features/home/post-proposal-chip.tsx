@@ -1,17 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { BoxCheckIcon } from '@onsocial/ui';
 import { guildProposalPath } from '@/features/guilds/guilds-data';
 import {
   mergeProposalPaint,
   proposalChipKindLine,
-  proposalRefKey,
 } from '@/features/guilds/proposal-indexer-events';
 import {
   getCachedProposalPaint,
   hydrateProposalPaints,
+  subscribeProposalPaintCache,
 } from '@/lib/proposal-paint-hydrate';
 import type {
   PostProposalEmbed,
@@ -29,6 +29,14 @@ export function postProposalHref(
   return guildProposalPath(groupId, proposalId);
 }
 
+function readCachedPaint(
+  groupId: string,
+  proposalId: string
+): ProposalPaintSnapshot | null {
+  if (!groupId || !proposalId) return null;
+  return getCachedProposalPaint(groupId, proposalId) ?? null;
+}
+
 export function useLiveProposalPaint(
   embed: PostProposalEmbed | null,
   snapshot: ProposalPaintSnapshot | null
@@ -36,33 +44,19 @@ export function useLiveProposalPaint(
   const groupId = embed?.groupId?.trim() || snapshot?.groupId?.trim() || '';
   const proposalId =
     embed?.proposalId?.trim() || snapshot?.proposalId?.trim() || '';
-  const [live, setLive] = useState<ProposalPaintSnapshot | null>(() => {
-    if (!groupId || !proposalId) return null;
-    return getCachedProposalPaint(groupId, proposalId) ?? null;
-  });
+
+  const live = useSyncExternalStore(
+    subscribeProposalPaintCache,
+    () => readCachedPaint(groupId, proposalId),
+    () => null
+  );
 
   useEffect(() => {
-    if (!groupId || !proposalId) {
-      setLive(null);
-      return;
-    }
-    const cached = getCachedProposalPaint(groupId, proposalId);
-    if (cached !== undefined) {
-      setLive(cached);
-      return;
-    }
-    let cancelled = false;
-    void hydrateProposalPaints([{ groupId, proposalId }])
-      .then((map) => {
-        if (cancelled) return;
-        setLive(map.get(proposalRefKey(groupId, proposalId)) ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) setLive(null);
-      });
-    return () => {
-      cancelled = true;
-    };
+    if (!groupId || !proposalId) return;
+    if (getCachedProposalPaint(groupId, proposalId) !== undefined) return;
+    void hydrateProposalPaints([{ groupId, proposalId }]).catch(() => {
+      // Snapshot chip stays up if the indexer miss-fires.
+    });
   }, [groupId, proposalId]);
 
   return mergeProposalPaint(snapshot, live);

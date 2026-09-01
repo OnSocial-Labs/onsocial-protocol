@@ -12,6 +12,18 @@ export type ProposalPaintRef = {
 };
 
 const cache = new Map<string, ProposalPaintSnapshot | null>();
+const listeners = new Set<() => void>();
+
+function emitProposalPaintCache() {
+  for (const listener of listeners) listener();
+}
+
+export function subscribeProposalPaintCache(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
 
 type Waiter = {
   refs: ProposalPaintRef[];
@@ -104,6 +116,7 @@ function scheduleFlush() {
     void fetchProposalPaints([...unique.values()])
       .then((fetched) => {
         for (const [key, paint] of fetched) cache.set(key, paint);
+        if (fetched.size > 0) emitProposalPaintCache();
         for (const waiter of waiters) {
           const map = new Map<string, ProposalPaintSnapshot | null>();
           for (const ref of waiter.refs) {
