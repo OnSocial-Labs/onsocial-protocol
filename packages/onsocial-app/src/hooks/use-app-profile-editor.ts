@@ -7,7 +7,6 @@ import {
   type MaterialisedProfile,
   type PageConfig,
 } from '@onsocial/sdk';
-import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { creditAppPlatformReward } from '@/lib/app-platform-rewards';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -86,7 +85,6 @@ export function useAppProfileEditor(
   enabled: boolean
 ) {
   const router = useRouter();
-  const { hasSocialSession, isBootstrappingSession, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const [snapshot, setSnapshot] = useState<ProfileEditorSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
@@ -312,9 +310,6 @@ export function useAppProfileEditor(
     loadError,
     loadProfile,
     saveProfile,
-    hasSocialSession,
-    isBootstrappingSession,
-    connect,
     linksFromSnapshot: profileLinksInputFromRecord(snapshot?.links),
   };
 }

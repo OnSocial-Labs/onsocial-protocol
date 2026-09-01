@@ -449,6 +449,8 @@ export interface BootstrapSessionInput
   sessionKey?: GeneratedSessionKey;
   /** Skip the on-chain AddKey tx when the key was already added at sign-in. */
   skipAddKey?: boolean;
+  /** Wallet grant outcome (for explorer links / confirmation tracking). */
+  onGrantResult?: (result: unknown) => void;
 }
 
 export type PersistSessionFromKeyInput = Omit<
@@ -552,7 +554,10 @@ export async function bootstrapSession(
     gasTgas: input.grantGasTgas,
     includeAddKey: !input.skipAddKey,
   });
-  await input.wallet.signAndSendTransactions({ transactions });
+  const grantResult = await input.wallet.signAndSendTransactions({
+    transactions,
+  });
+  input.onGrantResult?.(grantResult);
 
   const contractId =
     input.contractId ?? resolveContractId(input.network, input.contract);
@@ -654,7 +659,9 @@ export interface RevokeSessionInput {
 }
 
 /** Revokes a session key and clears any stored metadata. */
-export async function revokeSession(input: RevokeSessionInput): Promise<void> {
+export async function revokeSession(
+  input: RevokeSessionInput
+): Promise<unknown> {
   const accountId = input.accountId ?? (await input.wallet.accountId());
   const { coreActions } = buildSessionRevoke({
     publicKey: input.publicKey,
@@ -683,9 +690,12 @@ export async function revokeSession(input: RevokeSessionInput): Promise<void> {
     });
   }
 
-  await input.wallet.signAndSendTransactions({ transactions: txs });
+  const result = await input.wallet.signAndSendTransactions({
+    transactions: txs,
+  });
 
   if (input.store) {
     await input.store.delete(sessionId(accountId, input.contract, input.path));
   }
+  return result;
 }

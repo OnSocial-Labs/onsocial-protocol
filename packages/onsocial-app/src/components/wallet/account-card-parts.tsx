@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ExternalLinkIcon,
+  KeyIcon,
   LogoutIcon,
   PulsingDots,
   QuestionMarkCircleIcon,
@@ -35,27 +36,6 @@ import { useAppRewardsOptional } from '@/contexts/app-rewards-context';
 import { useAppSocialBalance } from '@/contexts/app-social-balance-context';
 import type { PlatformStorageSummary } from '@/lib/platform-storage-display';
 import { storageManageIsHighlighted } from '@/lib/user-storage-display';
-
-interface AccountSessionChipProps {
-  isBootstrapping: boolean;
-  onResume: () => void;
-}
-
-export function AccountSessionChip({
-  isBootstrapping,
-  onResume,
-}: AccountSessionChipProps) {
-  return (
-    <button
-      type="button"
-      className="account-card-session-chip"
-      onClick={onResume}
-      disabled={isBootstrapping}
-    >
-      {isBootstrapping ? 'Resuming session…' : 'Resume OnSocial session'}
-    </button>
-  );
-}
 
 interface AccountClaimMetricRowProps {
   showCaption?: boolean;
@@ -376,14 +356,19 @@ function AccountActionChip({ label, hint, href, onClick }: AccountActionChipProp
 interface AccountShortcutDockProps {
   accountId: string;
   onClose: () => void;
+  onOpenAccess: () => void;
+  /** Orange `is-attention` tile when session is missing / expired. */
+  accessNeeded?: boolean;
   onSwitchWallet: () => void;
   onDisconnect: () => void;
 }
 
-/** Tertiary shortcuts — discover, explorer, switch wallet, log out. */
+/** Tertiary shortcuts — discover, explorer, keys, switch, log out. */
 export function AccountShortcutDock({
   accountId,
   onClose,
+  onOpenAccess,
+  accessNeeded = false,
   onSwitchWallet,
   onDisconnect,
 }: AccountShortcutDockProps) {
@@ -409,6 +394,16 @@ export function AccountShortcutDock({
       >
         <ExternalLinkIcon aria-hidden className="account-shortcut-dock-icon" />
       </a>
+      <button
+        type="button"
+        className={`os-surface-tile account-shortcut-dock-button${
+          accessNeeded ? ' is-attention' : ''
+        }`}
+        onClick={onOpenAccess}
+        aria-label={accessNeeded ? 'App access — allow' : 'App access'}
+      >
+        <KeyIcon aria-hidden className="account-shortcut-dock-icon" />
+      </button>
       <button
         type="button"
         className="os-surface-tile account-shortcut-dock-button"

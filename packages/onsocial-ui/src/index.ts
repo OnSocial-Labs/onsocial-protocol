@@ -124,6 +124,7 @@ export {
   MapMarkerIcon,
   InformationCircleIcon,
   LinkIcon,
+  KeyIcon,
   LogoutIcon,
   MessageIcon,
   MessageRoundIcon,

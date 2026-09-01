@@ -8,7 +8,6 @@ import {
   ensureAppGatewayAuth,
   getCachedAppGatewayAuth,
 } from '@/lib/app-gateway-auth';
-import { APP_SOCIAL_SESSION_MISSING_MESSAGE } from '@/lib/app-social-session';
 import {
   deriveMutedAccountIds,
   recordViewerMute,
@@ -42,7 +41,7 @@ export function useViewerMute(options: UseViewerMuteOptions = {}) {
     hasSocialSession,
     accountId: viewerAccountId,
   } = useAppWallet();
-  const { getClient } = useAppOnSocialClient();
+  const { getClient, getAuthedClient } = useAppOnSocialClient();
   const ledgerRef = useRef(getGlobalViewerMuteLedger());
   const [muteSyncVersion, setMuteSyncVersion] = useState(
     getGlobalViewerMuteLedgerVersion
@@ -142,16 +141,7 @@ export function useViewerMute(options: UseViewerMuteOptions = {}) {
 
       setGlobalMutePending(target, true);
       try {
-        const { client, session, wallet, accountId } = await getClient();
-        if (!session) {
-          throw new Error(APP_SOCIAL_SESSION_MISSING_MESSAGE);
-        }
-        const token = await ensureAppGatewayAuth({
-          accountId,
-          wallet,
-          session,
-        });
-        client.auth.setToken(token);
+        const { client } = await getAuthedClient();
         if (shouldMute) {
           await client.mutes.add(target);
         } else {
@@ -166,7 +156,13 @@ export function useViewerMute(options: UseViewerMuteOptions = {}) {
         setGlobalMutePending(target, false);
       }
     },
-    [bumpMuteSync, getClient, isConnected, softRetryRefresh, viewerAccountId]
+    [
+      bumpMuteSync,
+      getAuthedClient,
+      isConnected,
+      softRetryRefresh,
+      viewerAccountId,
+    ]
   );
 
   const mutedAccountIds = deriveMutedAccountIds(

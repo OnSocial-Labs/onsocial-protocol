@@ -14,6 +14,8 @@ import type { NearWalletBase } from '@hot-labs/near-connect';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import {
   bootstrapAppSocialSession,
+  getAppSocialSessionLifecycle,
+  renewAppSocialSession,
   restoreAppSocialSession,
 } from '@/lib/app-social-session';
 import { clearAppGatewayAuth } from '@/lib/app-gateway-auth';
@@ -34,8 +36,19 @@ interface AppWalletContextType {
   hasSocialSession: boolean;
   isBootstrappingSession: boolean;
   connect: () => Promise<void>;
-  /** Re-run session bootstrap for the connected account (no wallet picker). */
-  resumeSocialSession: () => Promise<boolean>;
+  /**
+   * Restore / renew / bootstrap the OnSocial session.
+   * - `renewIfExpired` (default true): reuse the same key after the 90-day TTL
+   * - `bootstrapIfMissing` (default true): AddKey when no session exists
+   * Quiet drawer auto-restore should pass both false so Remove access cannot
+   * immediately re-open the wallet.
+   */
+  resumeSocialSession: (options?: {
+    renewIfExpired?: boolean;
+    bootstrapIfMissing?: boolean;
+  }) => Promise<boolean>;
+  /** Drop local session flags after an on-chain revoke (or forced clear). */
+  clearSocialSessionLocal: () => void;
   switchWallet: () => Promise<void>;
   disconnect: () => Promise<void>;
   getSigningWallet: () => Promise<SigningWallet>;
@@ -92,6 +105,7 @@ const AppWalletContext = createContext<AppWalletContextType>({
   isBootstrappingSession: false,
   connect: async () => {},
   resumeSocialSession: async () => false,
+  clearSocialSessionLocal: () => {},
   switchWallet: async () => {},
   disconnect: async () => {},
   getSigningWallet: async () => {
@@ -160,6 +174,28 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  /** Page-load / reconnect — restore only, never open AddKey. */
+  const restoreSocialSessionQuietly = useCallback(
+    async (nextAccountId: string): Promise<boolean> => {
+      try {
+        const session = await restoreAppSocialSession(nextAccountId);
+        const ready = Boolean(session);
+        setHasSocialSession(ready);
+        if (ready) {
+          invalidateAppSocialSessionCache();
+        }
+        return ready;
+      } catch (error) {
+        if (!isWalletUserCancellation(error)) {
+          console.warn('OnSocial session restore failed', error);
+        }
+        setHasSocialSession(false);
+        return false;
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     const connector = new NearConnector({
       network,
@@ -177,9 +213,9 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       setAccountId(nextAccountId);
       writeStoredWalletAccountId(nextAccountId);
       if (nextAccountId) {
-        // Skip nested bootstrap while AddKey connect is already in flight.
+        // Explicit connect/Allow owns AddKey. Sign-in from refresh must not.
         if (bootstrappingAccountRef.current === nextAccountId) return;
-        void ensureSocialSession(nextAccountId);
+        void restoreSocialSessionQuietly(nextAccountId);
       } else {
         setHasSocialSession(false);
       }
@@ -208,7 +244,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           setAccountId(nextAccountId);
           writeStoredWalletAccountId(nextAccountId);
           if (nextAccountId) {
-            void ensureSocialSession(nextAccountId);
+            void restoreSocialSessionQuietly(nextAccountId);
           }
         }
       } catch {
@@ -222,26 +258,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       connector.removeAllListeners();
     };
-  }, [ensureSocialSession, network]);
-
-  const resumeSocialSession = useCallback(async (): Promise<boolean> => {
-    const nextAccountId = accountId ?? readStoredWalletAccountId();
-    if (!nextAccountId) return false;
-    try {
-      // Fast path: local session still valid — avoid reopening the wallet.
-      if (await restoreAppSocialSession(nextAccountId)) {
-        setHasSocialSession(true);
-        invalidateAppSocialSessionCache();
-        return true;
-      }
-    } catch (error) {
-      if (!isWalletUserCancellation(error)) {
-        console.warn('OnSocial session restore failed', error);
-      }
-      // Fall through to full bootstrap (AddKey) when restore cannot verify.
-    }
-    return ensureSocialSession(nextAccountId);
-  }, [accountId, ensureSocialSession]);
+  }, [ensureSocialSession, network, restoreSocialSessionQuietly]);
 
   const connect = useCallback(async () => {
     const connector = connectorRef.current;
@@ -364,6 +381,12 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     clearAppGatewayAuth(previousAccountId);
   }, [accountId]);
 
+  const clearSocialSessionLocal = useCallback(() => {
+    setHasSocialSession(false);
+    invalidateAppSocialSessionCache();
+    clearAppGatewayAuth(accountId);
+  }, [accountId]);
+
   const getSigningWallet = useCallback(async (): Promise<SigningWallet> => {
     const connector = connectorRef.current;
     if (!connector) {
@@ -405,6 +428,69 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     return { wallet: connectedWallet, accountId: resolvedAccountId };
   }, [accountId, network]);
 
+  const resumeSocialSession = useCallback(
+    async (options?: {
+      renewIfExpired?: boolean;
+      bootstrapIfMissing?: boolean;
+    }): Promise<boolean> => {
+      const renewIfExpired = options?.renewIfExpired !== false;
+      const bootstrapIfMissing = options?.bootstrapIfMissing !== false;
+      const nextAccountId = accountId ?? readStoredWalletAccountId();
+      if (!nextAccountId) return false;
+      try {
+        // Fast path: local session still valid — avoid reopening the wallet.
+        if (await restoreAppSocialSession(nextAccountId)) {
+          setHasSocialSession(true);
+          invalidateAppSocialSessionCache();
+          return true;
+        }
+      } catch (error) {
+        if (!isWalletUserCancellation(error)) {
+          console.warn('OnSocial session restore failed', error);
+        }
+        // Fall through when restore cannot verify.
+      }
+
+      if (renewIfExpired) {
+        try {
+          if (
+            (await getAppSocialSessionLifecycle(nextAccountId)) === 'expired'
+          ) {
+            setIsBootstrappingSession(true);
+            try {
+              const { wallet, accountId: signerId } = await getSigningWallet();
+              const renew = await renewAppSocialSession({
+                accountId: signerId,
+                wallet,
+              });
+              setHasSocialSession(renew.ready);
+              if (renew.ready) {
+                invalidateAppSocialSessionCache();
+              }
+              return renew.ready;
+            } finally {
+              setIsBootstrappingSession(false);
+            }
+          }
+        } catch (error) {
+          if (!isWalletUserCancellation(error)) {
+            console.warn('OnSocial session renew failed', error);
+          }
+          setHasSocialSession(false);
+          return false;
+        }
+      }
+
+      if (!bootstrapIfMissing) {
+        setHasSocialSession(false);
+        return false;
+      }
+
+      return ensureSocialSession(nextAccountId);
+    },
+    [accountId, ensureSocialSession, getSigningWallet]
+  );
+
   return (
     <AppWalletContext.Provider
       value={{
@@ -415,6 +501,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         isBootstrappingSession,
         connect,
         resumeSocialSession,
+        clearSocialSessionLocal,
         switchWallet,
         disconnect,
         getSigningWallet,

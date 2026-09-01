@@ -248,6 +248,24 @@
   color: var(--protocol-red-ink, var(--protocol-red));
 }
 
+/* Orange attention — same recipe as is-danger, amber instead of red. */
+.os-surface-tile.is-attention {
+  background: color-mix(in srgb, var(--protocol-amber) 8%, transparent);
+  color: var(--protocol-amber-ink, var(--protocol-amber));
+}
+
+.os-surface-tile.is-attention:not(:disabled):hover,
+.os-surface-tile.is-attention:not(:disabled):focus-visible {
+  background: color-mix(in srgb, var(--protocol-amber) 14%, transparent);
+  color: var(--protocol-amber-ink, var(--protocol-amber));
+  outline: none;
+}
+
+.os-surface-tile.is-attention:not(:disabled):active {
+  background: color-mix(in srgb, var(--protocol-amber) 18%, transparent);
+  color: var(--protocol-amber-ink, var(--protocol-amber));
+}
+
 .os-surface-chip {
   flex-shrink: 0;
   border-radius: 9999px;

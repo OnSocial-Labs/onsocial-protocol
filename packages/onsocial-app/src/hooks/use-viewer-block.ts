@@ -6,7 +6,6 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { canonicalAccountId } from '@/lib/account-match';
-import { APP_SOCIAL_SESSION_MISSING_MESSAGE } from '@/lib/app-social-session';
 import {
   deriveBlockedAccountIds,
   recordViewerBlock,
@@ -141,10 +140,7 @@ export function useViewerBlock(options: UseViewerBlockOptions = {}) {
 
       setGlobalBlockPending(target, true);
       try {
-        const { client, session } = await getClient();
-        if (!session) {
-          throw new Error(APP_SOCIAL_SESSION_MISSING_MESSAGE);
-        }
+        const { client } = await getClient();
 
         // Blocking clears the viewer's outbound stand so "no stands either way"
         // is true from this account without waiting on the other party.

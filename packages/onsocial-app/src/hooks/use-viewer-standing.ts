@@ -7,7 +7,6 @@ import {
   creditAppPlatformReward,
   creditAppPlatformSocialReward,
 } from '@/lib/app-platform-rewards';
-import { APP_SOCIAL_SESSION_MISSING_MESSAGE } from '@/lib/app-social-session';
 import type {
   StandingAccountSummary,
   StanceDetailKind,
@@ -121,9 +120,6 @@ export function useViewerStanding(listAccountId: string) {
 
       try {
         const { client, session } = await getClient();
-        if (!session) {
-          throw new Error(APP_SOCIAL_SESSION_MISSING_MESSAGE);
-        }
 
         const snapshot: StandingListSnapshot = {
           accountId: targetAccount.accountId,
@@ -137,7 +133,7 @@ export function useViewerStanding(listAccountId: string) {
           const response = await client.standings.add(targetAccount.accountId, {
             wait: true,
           });
-          if (viewerAccountId) {
+          if (viewerAccountId && session) {
             const proof = { txHash: response.txHash ?? '' };
             creditAppPlatformSocialReward({
               accountId: viewerAccountId,

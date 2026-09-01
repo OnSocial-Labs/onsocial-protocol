@@ -13552,25 +13552,6 @@ a.os-surface-row {
     }
   }
 
-  .account-card-session-chip {
-    align-self: flex-start;
-    border: 1px solid color-mix(in srgb, var(--protocol-amber) 42%, transparent);
-    border-radius: 9999px;
-    background: color-mix(in srgb, var(--protocol-amber) 10%, transparent);
-    color: color-mix(in srgb, var(--protocol-amber) 88%, rgb(var(--fg-rgb)));
-    font: inherit;
-    font-size: 0.72rem;
-    font-weight: 500;
-    padding: 0.35rem 0.75rem;
-    cursor: pointer;
-  }
-
-  .account-card-session-chip:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
   .account-card-wallet-zone {
     position: relative;
     display: flex;
@@ -13908,7 +13889,7 @@ a.os-surface-row {
 
   .account-shortcut-dock {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.35rem;
     margin-top: 0;
   }
@@ -14270,6 +14251,45 @@ a.os-surface-row {
     flex-direction: column;
     gap: 0.65rem;
     padding: 0;
+  }
+
+  .app-access-status-pill {
+    flex-shrink: 0;
+    align-self: center;
+    padding: 0.12rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: rgb(var(--fg-rgb) / 0.55);
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .app-access-status-pill.is-active {
+    color: color-mix(in srgb, var(--protocol-green, #22c55e) 88%, transparent);
+    background: color-mix(
+      in srgb,
+      var(--protocol-green, #22c55e) 16%,
+      transparent
+    );
+  }
+
+  .app-access-status-pill.is-expired {
+    color: color-mix(in srgb, var(--protocol-amber, #f5a524) 90%, transparent);
+    background: color-mix(
+      in srgb,
+      var(--protocol-amber, #f5a524) 16%,
+      transparent
+    );
+  }
+
+  .app-access-status-key {
+    margin: 0;
+    font-size: 0.62rem;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.4);
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    word-break: break-all;
   }
 
   .app-storage-section {
@@ -16292,21 +16312,6 @@ a.os-surface-row {
       -webkit-backdrop-filter: none;
       background: rgb(0 0 0 / 0.52);
     }
-  }
-
-  .account-editor-session-hint {
-    margin: 0;
-    font-size: 0.72rem;
-    line-height: 1.4;
-    color: color-mix(in srgb, var(--protocol-amber) 82%, rgb(var(--fg-rgb)));
-  }
-
-  .account-editor-session-actions {
-    width: 100%;
-  }
-
-  .account-editor-session-actions .os-sheet-action--primary {
-    min-width: 5.5rem;
   }
 
   .account-editor-tag-hint {
@@ -33784,6 +33789,25 @@ a.os-surface-row {
     transparent
   );
   color: var(--mood-signal-reputation, var(--signal-reputation));
+}
+
+/* Account dock key — orange attention (logout uses is-danger). Unlayered twin. */
+.account-shortcut-dock .os-surface-tile.is-attention {
+  background: color-mix(in srgb, var(--protocol-amber) 8%, transparent);
+  color: var(--protocol-amber-ink, var(--protocol-amber));
+}
+
+.account-shortcut-dock .os-surface-tile.is-attention:not(:disabled):hover,
+.account-shortcut-dock
+  .os-surface-tile.is-attention:not(:disabled):focus-visible {
+  background: color-mix(in srgb, var(--protocol-amber) 14%, transparent);
+  color: var(--protocol-amber-ink, var(--protocol-amber));
+  outline: none;
+}
+
+.account-shortcut-dock .os-surface-tile.is-attention:not(:disabled):active {
+  background: color-mix(in srgb, var(--protocol-amber) 18%, transparent);
+  color: var(--protocol-amber-ink, var(--protocol-amber));
 }
 
 /*

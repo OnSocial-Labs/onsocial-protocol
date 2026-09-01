@@ -23,7 +23,12 @@ function extractTxHash(value: unknown): string | undefined {
 
 /**
  * Browser OnSocial client for page writes.
- * Prefer attaching a social session (delegate relay). Pass wallet only as fallback.
+ *
+ * Prefer attaching a social session (delegate relay). When `wallet` is passed
+ * (no session), `defaultBroadcast` is wallet mode so core writes still work
+ * after the user removed App access — one wallet confirm per action.
+ * Call sites should use `useAppOnSocialClient().getClient()` and not re-gate
+ * on session for core contract actions.
  */
 export function createAppOnSocialClient(
   accountId: string,

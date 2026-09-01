@@ -88,6 +88,9 @@ export const txToastConfirming = {
   blockingAccount: 'Confirming block…',
   unblockingAccount: 'Confirming unblock…',
   grantingCommunityApp: 'Confirming access…',
+  allowingAppAccess: 'Confirming access…',
+  renewingAppAccess: 'Confirming renewal…',
+  removingAppAccess: 'Confirming removal…',
 } as const;
 
 export const txToastPending = {
@@ -248,6 +251,9 @@ export const txToastSuccess = {
   accountMuted: 'Account muted.',
   accountUnmuted: 'Account unmuted.',
   communityAppGranted: 'App can write.',
+  appAccessRemoved: 'App access removed.',
+  appAccessAllowed: 'App access allowed.',
+  appAccessRenewed: 'App access renewed.',
 } as const;
 
 export const txToastError = {
@@ -353,6 +359,8 @@ export const txToastError = {
   muteAccountFailed: 'Could not mute account.',
   unmuteAccountFailed: 'Could not unmute account.',
   communityAppGrantFailed: 'Could not grant app access.',
+  removeAppAccessFailed: 'Could not remove app access.',
+  allowAppAccessFailed: 'Could not allow app access.',
 } as const;
 
 /** Governance / partners — formal one-liners for DAO act_proposal flows. */

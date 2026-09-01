@@ -138,9 +138,6 @@ export function AppProfileEditorSheet({
     loadError,
     loadProfile,
     saveProfile,
-    hasSocialSession,
-    isBootstrappingSession,
-    connect,
     linksFromSnapshot,
   } = useAppProfileEditor(accountId, open);
   const { moodId: viewerMoodId, style: viewerMoodStyle } =
@@ -299,10 +296,8 @@ export function AppProfileEditorSheet({
   );
   const canSubmit =
     Boolean(snapshot) &&
-    hasSocialSession &&
     nameReady &&
     !saving &&
-    !isBootstrappingSession &&
     !hasInvalidLinks &&
     isDirty;
 
@@ -350,8 +345,7 @@ export function AppProfileEditorSheet({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!snapshot || !nameReady || saving || !hasSocialSession) {
-      if (!hasSocialSession) void connect();
+    if (!snapshot || !nameReady || saving) {
       return;
     }
 
@@ -423,40 +417,18 @@ export function AppProfileEditorSheet({
 
   const footer = (
     <div className="profile-edit-sheet-footer">
-      {formReady && !hasSocialSession ? (
-        <div className="os-commit-actions account-editor-session-actions">
-          <button
-            type="button"
-            className="os-commit-cancel"
-            disabled={isBootstrappingSession}
-            onClick={() => void connect()}
-          >
-            {isBootstrappingSession ? 'Resuming…' : 'Resume'}
-          </button>
-          <OsSheetActions
-            layout="row-compact"
-            tone="frosted-primary"
-            borderless
-          >
-            <OsSheetAction type="submit" form={formId} disabled>
-              {submitLabel}
-            </OsSheetAction>
-          </OsSheetActions>
-        </div>
-      ) : (
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type={formReady ? 'submit' : 'button'}
-            form={formReady ? formId : undefined}
-            ready={formReady && canSubmit}
-            pending={formReady && saving}
-            pendingLabel="Saving…"
-            disabled={!formReady || !canSubmit}
-          >
-            {submitLabel}
-          </OsSheetAction>
-        </OsSheetActions>
-      )}
+      <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+        <OsSheetAction
+          type={formReady ? 'submit' : 'button'}
+          form={formReady ? formId : undefined}
+          ready={formReady && canSubmit}
+          pending={formReady && saving}
+          pendingLabel="Saving…"
+          disabled={!formReady || !canSubmit}
+        >
+          {submitLabel}
+        </OsSheetAction>
+      </OsSheetActions>
     </div>
   );
 

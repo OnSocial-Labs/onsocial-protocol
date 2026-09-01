@@ -29,6 +29,7 @@ import {
   MapMarkerIcon,
   InformationCircleIcon,
   LinkIcon,
+  KeyIcon,
   LogoutIcon,
   MessageIcon,
   MessageRoundIcon,
@@ -95,6 +96,7 @@ describe('mage stroke icons', () => {
     expect(typeof ScaleUpIcon).toBe('function');
     expect(typeof GiftIcon).toBe('function');
     expect(typeof GlobeIcon).toBe('function');
+    expect(typeof KeyIcon).toBe('function');
     expect(typeof LogoutIcon).toBe('function');
     expect(typeof UserIcon).toBe('function');
     expect(typeof UserMinusIcon).toBe('function');

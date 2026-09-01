@@ -4,11 +4,11 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { GlassSheet, osHugSheetBodyClassName, useScrollLock } from '@onsocial/ui';
 import {
   AccountActionList,
-  AccountSessionChip,
   AccountShortcutDock,
   AccountWalletZone,
 } from '@/components/wallet/account-card-parts';
 import { AccountDrawerChrome } from '@/components/wallet/account-drawer-chrome';
+import { AppAccessSheet } from '@/components/wallet/app-access-sheet';
 import { AppProfileEditorSheet } from '@/components/wallet/app-profile-editor-sheet';
 import { AppSocialSwapSheet } from '@/components/wallet/app-social-swap-sheet';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
@@ -69,6 +69,7 @@ export function AppAccountSheet({
   const [swapOpen, setSwapOpen] = useState(false);
   const [tokensOpen, setTokensOpen] = useState(false);
   const [muteBlockOpen, setMuteBlockOpen] = useState(false);
+  const [accessOpen, setAccessOpen] = useState(false);
   const [storageRefreshKey, setStorageRefreshKey] = useState(0);
   const [editorSession, setEditorSession] = useState(0);
   const [identityOverrides, setIdentityOverrides] = useState<
@@ -97,7 +98,10 @@ export function AppAccountSheet({
     }
     if (autoResumeAttemptedRef.current === accountId) return;
     autoResumeAttemptedRef.current = accountId;
-    void resumeSocialSession();
+    void resumeSocialSession({
+      renewIfExpired: false,
+      bootstrapIfMissing: false,
+    });
   }, [
     sheetOpen,
     accountId,
@@ -150,6 +154,7 @@ export function AppAccountSheet({
     setSwapOpen(false);
     setTokensOpen(false);
     setMuteBlockOpen(false);
+    setAccessOpen(false);
     if (editorOpenRef.current) {
       return;
     }
@@ -294,17 +299,11 @@ export function AppAccountSheet({
               accountId={accountId}
               profileName={profileName}
               avatarUrl={avatarUrl}
-            />          </>
+            />
+          </>
         }
       >
         <div className="account-card">
-          {!hasSocialSession ? (
-            <AccountSessionChip
-              isBootstrapping={isBootstrappingSession}
-              onResume={() => void resumeSocialSession()}
-            />
-          ) : null}
-
           <AccountWalletZone
             enabled={sheetOpen}
             onOpenStorage={handleOpenStorage}
@@ -329,6 +328,8 @@ export function AppAccountSheet({
           <AccountShortcutDock
             accountId={accountId}
             onClose={requestClose}
+            onOpenAccess={() => setAccessOpen(true)}
+            accessNeeded={!hasSocialSession}
             onSwitchWallet={() => void handleSwitchWallet()}
             onDisconnect={() => void handleDisconnect()}
           />
@@ -371,6 +372,12 @@ export function AppAccountSheet({
       <MuteBlockListsSheet
         open={muteBlockOpen && open}
         onClose={() => setMuteBlockOpen(false)}
+      />
+
+      <AppAccessSheet
+        open={accessOpen && open}
+        accountId={accountId}
+        onClose={() => setAccessOpen(false)}
       />
     </>
   );
