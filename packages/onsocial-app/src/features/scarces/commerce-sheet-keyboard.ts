@@ -32,8 +32,9 @@ export function commerceSheetKeyboardPanelStyle(
 /**
  * Keyboard lift + viewer mood for portaled commerce sheets.
  * `panelStyle` merges mood + keyboard (Buy / Sell / Bid / Offer / List).
- * Host-mood sheets (Support / Boost) should use `keyboardStyle` only so
- * viewer dock vars do not overwrite the face.
+ * Host-mood sheets (Support / Boost) use `keyboardStyle` only so viewer
+ * dock vars do not overwrite the face. Color remap is `[data-mood]` —
+ * pass `moodId` on the sheet; do not add a feature class for hue.
  */
 export function useCommerceSheetKeyboard(sheetOpen: boolean) {
   const viewport = useVisualViewportSheetMetrics(sheetOpen);

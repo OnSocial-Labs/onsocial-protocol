@@ -7,8 +7,6 @@
  * Panel classes from {@link OsGestureSheet}:
  *   .os-gesture-sheet-panel         — signal fallbacks + body opacity
  *   .os-gesture-sheet-panel--tall   — Support / scarce / protocol max-height
- *   .os-gesture-sheet-panel--commerce — marker only; verbs + amount chips
- *     follow --signal-reputation (do not re-lock to --protocol-green)
  *   .os-gesture-sheet-body          — same inset as `.os-hug-sheet-body`
  * Legacy panel aliases were removed — the app keeps
  * `.profile-support-sheet-*` as app-owned classes.

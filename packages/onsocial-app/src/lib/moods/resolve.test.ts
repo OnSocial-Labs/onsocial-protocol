@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PROTOCOL_COLORS } from '@onsocial/sdk';
 import { MOOD_PRESETS } from './presets';
-import { moodDrawerThreadVars, moodPresetPreviewVars, moodSheetItemPreviewVars, moodSheetPanelStyle, moodSheetRowInlineStyle, moodSheetRowPreviewVars, pageContentDrawerPanelStyle, portfolioMoodShellStyle, resolvePortfolioMood, resolvePortfolioMoodForId, resolvePortfolioMoodForPreview } from './resolve';
+import { moodDrawerThreadVars, moodPresetPreviewVars, moodSheetItemPreviewVars, moodSheetPanelStyle, moodSheetRowInlineStyle, moodSheetRowPreviewVars, pageContentDrawerPanelStyle, portalMoodSignalStyle, portfolioMoodShellStyle, resolvePortfolioMood, resolvePortfolioMoodForId, resolvePortfolioMoodForPreview, supportSheetPanelStyle } from './resolve';
 import { PREMIUM_MOOD_PRESETS } from './presets';
 
 describe('resolvePortfolioMood', () => {
@@ -243,6 +243,23 @@ describe('moodPresetPreviewVars', () => {
     expect(creativeShell['--mood-accent']).toBe(MOOD_PRESETS.creative.theme.accent);
     expect(leadShell['--mood-bg-preset-mix']).toBeUndefined();
     expect(leadShell['--mood-banner-active']).toContain('gradient');
+  });
+
+  it('portal signal style stamps concrete hues and reputation rgb', () => {
+    const mood = resolvePortfolioMood({ mood: { id: 'creative' } });
+    const signals = portalMoodSignalStyle(mood.cssVars);
+    const support = supportSheetPanelStyle(mood.cssVars);
+    const shell = portfolioMoodShellStyle(mood.cssVars);
+    const reputation = mood.cssVars['--mood-signal-reputation'];
+
+    expect(reputation).toMatch(/^rgb\(/);
+    expect(signals['--signal-reputation']).toBe(reputation);
+    expect(signals['--signal-reputation-rgb']).toMatch(/^\d+ \d+ \d+$/);
+    expect(support).toEqual(signals);
+    expect(shell['--signal-reputation']).toBe(reputation);
+    expect(shell['--signal-reputation-rgb']).toBe(
+      signals['--signal-reputation-rgb']
+    );
   });
 });
 

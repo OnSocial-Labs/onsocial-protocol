@@ -5,7 +5,6 @@ import {
   OsGestureSheet,
   OsSheetAction,
   OsSheetActions,
-  osGestureSheetPanelCommerceClassName,
 } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -137,7 +136,6 @@ export function ScarceOffersSheet({
       backdropLabel="Close offers"
       moodId={moodId ?? undefined}
       panelStyle={panelStyle}
-      panelClassName={osGestureSheetPanelCommerceClassName}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
       zIndex={SHEET_Z.gesture}

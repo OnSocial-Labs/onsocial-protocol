@@ -2037,9 +2037,7 @@ a.os-surface-row {
   .portfolio-os-layer[data-mood],
   .os-app-screen.os-app-screen--mood,
   .glass-sheet-panel[data-mood],
-  .os-page-sheet-panel[data-mood],
-  .profile-support-sheet-panel,
-  .os-gesture-sheet-panel--commerce {
+  .os-page-sheet-panel[data-mood] {
     --mood-accent-chrome: var(--mood-accent);
     /*
      * Identity ink — theme-safe accent for chrome (row hover / wash).
@@ -2058,10 +2056,13 @@ a.os-surface-row {
       var(--mood-ink) 9%,
       transparent
     );
-    --signal-standing: var(--mood-signal-standing);
-    --signal-solidarity: var(--mood-signal-solidarity);
-    --signal-endorse: var(--mood-signal-endorse);
-    --signal-reputation: var(--mood-signal-reputation);
+    --signal-standing: var(--mood-signal-standing, #5ecf9a);
+    --signal-solidarity: var(--mood-signal-solidarity, #38bdf8);
+    --signal-endorse: var(--mood-signal-endorse, #dab872);
+    --signal-reputation: var(
+      --mood-signal-reputation,
+      var(--protocol-green)
+    );
     --os-chip-selected-ink: var(--signal-reputation);
     --os-chip-selected-fill: color-mix(
       in srgb,
@@ -2088,9 +2089,7 @@ a.os-surface-row {
   :root[data-theme='light'] .portfolio-os-layer[data-mood],
   :root[data-theme='light'] .os-app-screen.os-app-screen--mood,
   :root[data-theme='light'] .glass-sheet-panel[data-mood],
-  :root[data-theme='light'] .os-page-sheet-panel[data-mood],
-  :root[data-theme='light'] .profile-support-sheet-panel,
-  :root[data-theme='light'] .os-gesture-sheet-panel--commerce {
+  :root[data-theme='light'] .os-page-sheet-panel[data-mood] {
     --mood-accent-chrome: color-mix(
       in srgb,
       var(--mood-accent) var(--mood-light-tone),
@@ -2118,34 +2117,6 @@ a.os-surface-row {
     );
   }
 
-  /* Support / editor sheets portal outside the frame — same light-tone remap. */
-  :root[data-theme='light'] .profile-support-sheet-panel,
-  :root[data-theme='light'] .portfolio-support-collect-info-panel,
-  :root[data-theme='light'] .account-editor-panel--page-mood,
-  :root[data-theme='light'] .os-gesture-sheet-panel--commerce {
-    --signal-standing: color-mix(
-      in srgb,
-      var(--mood-signal-standing, #5ecf9a) var(--mood-light-tone),
-      var(--mood-light-ink)
-    );
-    --signal-solidarity: color-mix(
-      in srgb,
-      var(--mood-signal-solidarity, #38bdf8) var(--mood-light-tone),
-      var(--mood-light-ink)
-    );
-    --signal-endorse: color-mix(
-      in srgb,
-      var(--mood-signal-endorse, #dab872) var(--mood-light-tone),
-      var(--mood-light-ink)
-    );
-    --signal-reputation: color-mix(
-      in srgb,
-      var(--mood-signal-reputation, var(--protocol-green))
-        var(--mood-light-tone),
-      var(--mood-light-ink)
-    );
-  }
-
   @media (prefers-color-scheme: light) {
     :root:not([data-theme='dark']) {
       --mood-light-tone: 68%;
@@ -2156,9 +2127,7 @@ a.os-surface-row {
     :root:not([data-theme='dark']) .portfolio-os-layer[data-mood],
     :root:not([data-theme='dark']) .os-app-screen.os-app-screen--mood,
     :root:not([data-theme='dark']) .glass-sheet-panel[data-mood],
-    :root:not([data-theme='dark']) .os-page-sheet-panel[data-mood],
-    :root:not([data-theme='dark']) .profile-support-sheet-panel,
-    :root:not([data-theme='dark']) .os-gesture-sheet-panel--commerce {
+    :root:not([data-theme='dark']) .os-page-sheet-panel[data-mood] {
       --mood-accent-chrome: color-mix(
         in srgb,
         var(--mood-accent) var(--mood-light-tone),
@@ -2182,33 +2151,6 @@ a.os-surface-row {
       --signal-reputation: color-mix(
         in srgb,
         var(--mood-signal-reputation) var(--mood-light-tone),
-        var(--mood-light-ink)
-      );
-    }
-
-    :root:not([data-theme='dark']) .profile-support-sheet-panel,
-    :root:not([data-theme='dark']) .portfolio-support-collect-info-panel,
-    :root:not([data-theme='dark']) .account-editor-panel--page-mood,
-    :root:not([data-theme='dark']) .os-gesture-sheet-panel--commerce {
-      --signal-standing: color-mix(
-        in srgb,
-        var(--mood-signal-standing, #5ecf9a) var(--mood-light-tone),
-        var(--mood-light-ink)
-      );
-      --signal-solidarity: color-mix(
-        in srgb,
-        var(--mood-signal-solidarity, #38bdf8) var(--mood-light-tone),
-        var(--mood-light-ink)
-      );
-      --signal-endorse: color-mix(
-        in srgb,
-        var(--mood-signal-endorse, #dab872) var(--mood-light-tone),
-        var(--mood-light-ink)
-      );
-      --signal-reputation: color-mix(
-        in srgb,
-        var(--mood-signal-reputation, var(--protocol-green))
-          var(--mood-light-tone),
         var(--mood-light-ink)
       );
     }

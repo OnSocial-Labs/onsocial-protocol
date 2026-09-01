@@ -17,6 +17,10 @@ const gestureSheetTs = readFileSync(
   join(here, '../../../../onsocial-ui/src/os-gesture-sheet.tsx'),
   'utf8'
 );
+const buySheetTs = readFileSync(
+  join(here, '../../features/scarces/scarce-buy-sheet.tsx'),
+  'utf8'
+);
 const resolveTs = readFileSync(join(here, 'resolve.ts'), 'utf8');
 
 describe('mood chrome map', () => {
@@ -82,16 +86,17 @@ describe('mood chrome map', () => {
     );
   });
 
-  it('lets commerce sheets and amount chips follow mood reputation', () => {
+  it('remaps chips on [data-mood]; commerce sheets pass moodId', () => {
     expect(globalsCss).toMatch(
-      /\.os-gesture-sheet-panel--commerce \{\s*[\s\S]*?--os-chip-selected-ink: var\(--signal-reputation\);/
+      /\.glass-sheet-panel\[data-mood\],\s*\n\s*\.os-page-sheet-panel\[data-mood\] \{\s*[\s\S]*?--os-chip-selected-ink: var\(--signal-reputation\);/
     );
-    expect(gestureHeaderCss).not.toMatch(
-      /\.os-gesture-sheet-panel--commerce\s*\{/
+    expect(globalsCss).not.toContain('os-gesture-sheet-panel--commerce');
+    expect(gestureHeaderCss).not.toContain('os-gesture-sheet-panel--commerce');
+    expect(gestureSheetTs).not.toContain(
+      'osGestureSheetPanelCommerceClassName'
     );
-    expect(gestureSheetTs).toContain(
-      'Do not re-lock this class to `--protocol-green`'
-    );
+    expect(buySheetTs).toContain('moodId={moodId}');
+    expect(buySheetTs).not.toContain('osGestureSheetPanelCommerceClassName');
   });
 
   it('keeps love / player on hard protocol green', () => {
