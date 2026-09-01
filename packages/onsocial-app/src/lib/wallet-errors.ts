@@ -28,3 +28,23 @@ export function formatStandingActionError(error: unknown): string {
   }
   return message;
 }
+
+/**
+ * Create-token uses UseGlobalContract. Some wallet executors still reject
+ * that action type before the tx hits the chain.
+ */
+export function formatCreateTokenWalletError(
+  error: unknown,
+  fallback: string
+): string {
+  const message =
+    error instanceof Error
+      ? error.message.trim()
+      : typeof error === 'string'
+        ? error.trim()
+        : '';
+  if (/invalid action(\s+type)?/i.test(message)) {
+    return 'Wallet rejected the deploy step. Update your wallet and try again.';
+  }
+  return message || fallback;
+}

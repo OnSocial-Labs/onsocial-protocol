@@ -12,11 +12,7 @@ import {
 import { cn } from './cn.js';
 import { Divider } from './divider.js';
 import { OsIconAction } from './os-icon-action.js';
-import {
-  ChevronDownIcon,
-  MultiplyIcon,
-  SearchIcon,
-} from './mage-stroke-icons.js';
+import { MultiplyIcon, SearchIcon } from './mage-stroke-icons.js';
 import { SearchField } from './search-field.js';
 
 export const osAppChromeNavSearchClassName = 'os-app-chrome-nav-search';
@@ -47,9 +43,9 @@ function useMobileViewport() {
 }
 
 /**
- * Compact nav-row search. Mobile: one stable shell (same box, padding, slots).
- * Focus only swaps leading mark→Done and fades the pill fill — the bar does
- * not remount or resize. Desktop stays SearchField.
+ * Compact nav-row filter search. Mobile: stable shell; focus only fades the
+ * pill fill. Clear (`X`) when there is text — no Done chevron / mode exit.
+ * Desktop uses SearchField.
  */
 export function OsAppChromeNavSearch({
   value,
@@ -88,12 +84,6 @@ export function OsAppChromeNavSearch({
     },
     [onActiveChange]
   );
-
-  const dismissSearch = useCallback(() => {
-    onValueChange('');
-    setActive(false);
-    inputRef.current?.blur();
-  }, [onValueChange, setActive]);
 
   const handleFocus = useCallback<FocusEventHandler<HTMLInputElement>>(
     (event) => {
@@ -154,33 +144,15 @@ export function OsAppChromeNavSearch({
     >
       <div className="os-app-chrome-nav-search-leading">
         <span className="os-app-chrome-nav-search-glyph">
-          {searchActive ? (
-            <OsIconAction
-              className="os-app-chrome-nav-search-done"
-              ariaLabel="Done"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={dismissSearch}
-            >
-              <ChevronDownIcon
-                className="os-app-chrome-nav-search-done-icon"
-                aria-hidden
-              />
-            </OsIconAction>
-          ) : (
-            (leadingIcon ?? (
-              <SearchIcon className="search-field-icon" aria-hidden />
-            ))
+          {leadingIcon ?? (
+            <SearchIcon className="search-field-icon" aria-hidden />
           )}
         </span>
         {branded ? (
           <Divider
             orientation="vertical"
             variant="detail"
-            className={cn(
-              'search-field-divider',
-              'self-center',
-              searchActive && 'os-app-chrome-nav-search-divider-hide'
-            )}
+            className={cn('search-field-divider', 'self-center')}
           />
         ) : null}
       </div>

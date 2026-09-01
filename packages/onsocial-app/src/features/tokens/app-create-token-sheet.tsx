@@ -12,6 +12,7 @@ import {
   type FormEvent,
 } from 'react';
 import {
+  AmountField,
   InfoDrawer,
   InformationCircleIcon,
   OsSheetFooter,
@@ -54,7 +55,10 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { rememberUserCreatedToken } from '@/lib/user-created-tokens';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  formatCreateTokenWalletError,
+  isWalletUserCancellation,
+} from '@/lib/wallet-errors';
 
 function fieldId(name: string) {
   return `token-create-${name}`;
@@ -63,7 +67,7 @@ function fieldId(name: string) {
 const TOKEN_CREATE_INFO_TITLE = 'Creator token';
 const TOKEN_CREATE_INFO_SUMMARY = `${FT_CREATE_FUND_NEAR} NEAR · your own token under your wallet.`;
 const TOKEN_CREATE_INFO_DETAIL =
-  'Name, symbol, and supply are permanent. Contract id comes from the name — e.g. cool.you.testnet. One batch: create account, fund, deploy contract, mint to you. You can change the icon later. Lock admin freezes name and icon forever.';
+  'Name, symbol, and supply are permanent. Contract id comes from the name — e.g. cool.you.testnet. One batch: create account, fund, deploy contract, mint to you. You can change the icon later until you lock admin — that ends all admin control.';
 
 export function AppCreateTokenSheet({
   open,
@@ -328,11 +332,9 @@ export function AppCreateTokenSheet({
           setPhase('idle');
           return;
         }
-        const message =
-          cause instanceof Error
-            ? cause.message
-            : txToastError.tokenCreateFailed;
-        setError(message);
+        setError(
+          formatCreateTokenWalletError(cause, txToastError.tokenCreateFailed)
+        );
         setTxResult({
           type: 'error',
           msg: txToastError.tokenCreateFailed,
@@ -490,20 +492,27 @@ export function AppCreateTokenSheet({
           />
         </label>
 
-        <label className="guild-field" htmlFor={fieldId('supply')}>
-          <span>Supply</span>
-          <input
+        <div className="guild-field">
+          <span id={fieldId('supply-label')}>Supply</span>
+          <AmountField
             id={fieldId('supply')}
+            aria-label="Total supply"
             value={supply}
-            onChange={(event) =>
-              setSupply(normalizeFtSupplyInput(event.target.value))
-            }
-            inputMode="numeric"
+            onValueChange={(raw) => setSupply(normalizeFtSupplyInput(raw))}
+            maxDecimals={0}
+            unit={symbol.trim() || 'tokens'}
+            placeholder="1000000"
             disabled={pending}
-            className={osFieldBorderedClassName}
+            invalid={Boolean(supply.trim() && supplyError)}
           />
-          <small>{supply.trim() ? 'Minted to you' : 'Enter total supply'}</small>
-        </label>
+          <small>
+            {supplyError
+              ? supplyError
+              : supply.trim()
+                ? 'Minted to you'
+                : 'Enter total supply'}
+          </small>
+        </div>
 
         <div className="guild-field" role="status">
           <span>Contract</span>
@@ -529,7 +538,7 @@ export function AppCreateTokenSheet({
           />
           <span>
             Lock admin
-            <small>Freeze name and icon forever.</small>
+            <small>Freeze icon, ownership, and reference.</small>
           </span>
         </label>
 

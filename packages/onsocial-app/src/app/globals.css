@@ -5263,6 +5263,19 @@ a.os-surface-row {
   .portfolio-identity-gestures {
     /* Same arrow size token as `.portfolio-signals` so face arrows match metrics. */
     --signals-arrow-size: clamp(0.5625rem, 2.6cqi, 0.625rem);
+    container-type: inline-size;
+    container-name: portfolio-gestures;
+    width: 100%;
+    max-width: var(--portfolio-content-width);
+    /* Fluid rhythm — matches signals strip so amounts stay one readable row. */
+    --gestures-font-size: clamp(0.54rem, 2.4cqi, 0.62rem);
+    --gestures-pad-x: clamp(0.28rem, 1.8cqi, 0.55rem);
+    --gestures-gap: clamp(0.12rem, 0.9cqi, 0.22rem);
+    --gestures-payout-gap: clamp(0.18rem, 1.2cqi, 0.32rem);
+    --gestures-sep-width: clamp(0.45rem, 2.2cqi, 0.85rem);
+    --gestures-row-height: clamp(1.4rem, 6cqi, 1.65rem);
+    --gestures-row-gap: clamp(0.08rem, 1cqi, 0.18rem);
+    --payout-mark-size: clamp(0.8125rem, 3.6cqi, 1rem);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -5270,22 +5283,40 @@ a.os-surface-row {
     margin-top: 0.4rem;
   }
 
+  @supports not (width: 1cqi) {
+    .portfolio-identity-gestures {
+      --signals-arrow-size: 0.59375rem;
+      --gestures-font-size: 0.62rem;
+      --gestures-pad-x: 0.55rem;
+      --gestures-gap: 0.22rem;
+      --gestures-payout-gap: 0.32rem;
+      --gestures-sep-width: 0.85rem;
+      --gestures-row-height: 1.65rem;
+      --gestures-row-gap: 0.14rem;
+      --payout-mark-size: 1rem;
+    }
+  }
+
   .portfolio-identity-gesture-row {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 0;
+    width: fit-content;
+    max-width: 100%;
+    margin-inline: auto;
+    gap: var(--gestures-row-gap) 0;
   }
 
   .portfolio-identity-gesture-sep {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 0.85rem;
-    height: 1.65rem;
+    flex-shrink: 0;
+    width: var(--gestures-sep-width, 0.85rem);
+    height: var(--gestures-row-height, 1.65rem);
     color: rgb(var(--fg-rgb) / 0.22);
-    font-size: 0.62rem;
+    font-size: var(--gestures-font-size, 0.62rem);
     font-weight: 500;
     line-height: 1;
     user-select: none;
@@ -5302,15 +5333,15 @@ a.os-surface-row {
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    gap: 0.22rem;
+    gap: var(--gestures-gap, 0.22rem);
     min-width: 0;
-    height: 1.65rem;
-    padding: 0 0.55rem;
+    height: var(--gestures-row-height, 1.65rem);
+    padding: 0 var(--gestures-pad-x, 0.55rem);
     border: 1px solid transparent;
     border-radius: 9999px;
     background: transparent;
     color: rgb(var(--fg-rgb) / 0.72);
-    font-size: 0.62rem;
+    font-size: var(--gestures-font-size, 0.62rem);
     font-weight: 600;
     letter-spacing: 0.01em;
     line-height: 1;
@@ -5862,10 +5893,11 @@ a.os-surface-row {
    * Owner payouts — same pill rhythm as Stand · Endorse · Support.
    * Colour from `.signal-group-*` (same as strip / mood glass overrides).
    * Amount stays gesture text color; marks inherit the signal hue.
+   * May shrink slightly on narrow face widths; row wraps as last resort.
    */
   .portfolio-identity-gesture--payout {
-    --payout-mark-size: 1rem;
-    gap: 0.32rem;
+    flex-shrink: 1;
+    gap: var(--gestures-payout-gap, 0.32rem);
   }
 
   /* Beat gesture text color so marks stay on the signal strip hues. */
@@ -5886,8 +5918,8 @@ a.os-surface-row {
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    width: var(--payout-mark-size);
-    height: var(--payout-mark-size);
+    width: var(--payout-mark-size, 1rem);
+    height: var(--payout-mark-size, 1rem);
     color: inherit;
     transform-origin: 50% 60%;
   }
@@ -6112,6 +6144,7 @@ a.os-surface-row {
   }
 
   .portfolio-payout-mark-amount {
+    min-width: 0;
     font: inherit;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;

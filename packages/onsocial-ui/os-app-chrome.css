@@ -376,24 +376,6 @@
   opacity: 1;
 }
 
-/* Done sits in the same 1.5rem glyph box as the mark — not a 2.25rem hit pad. */
-.os-app-chrome-nav-search-done.glass-sheet-icon-action {
-  min-width: 1.5rem;
-  min-height: 1.5rem;
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
-.os-app-chrome-nav-search-done-icon {
-  display: block;
-  width: 1.25rem;
-  height: 1.25rem;
-}
-
-.os-app-chrome-nav-search-divider-hide {
-  visibility: hidden;
-}
-
 .os-app-chrome-nav-search .glass-sheet-icon-action {
   flex-shrink: 0;
   min-width: 2.25rem;
