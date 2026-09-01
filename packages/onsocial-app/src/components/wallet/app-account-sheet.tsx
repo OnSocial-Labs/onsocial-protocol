@@ -358,6 +358,7 @@ export function AppAccountSheet({
 
       <AppSocialSwapSheet
         open={swapSheetOpen}
+        pageMoodId={pageMoodId}
         panelStyle={accountPanelStyle}
         onClose={handleSwapBack}
       />
@@ -365,18 +366,23 @@ export function AppAccountSheet({
       <AppTokensSheet
         open={tokensSheetOpen}
         accountId={accountId}
+        pageMoodId={pageMoodId}
         panelStyle={accountPanelStyle}
         onClose={handleTokensBack}
       />
 
       <MuteBlockListsSheet
         open={muteBlockOpen && open}
+        pageMoodId={pageMoodId}
+        panelStyle={accountPanelStyle}
         onClose={() => setMuteBlockOpen(false)}
       />
 
       <AppAccessSheet
         open={accessOpen && open}
         accountId={accountId}
+        pageMoodId={pageMoodId}
+        panelStyle={accountPanelStyle}
         onClose={() => setAccessOpen(false)}
       />
     </>

@@ -33,11 +33,13 @@ import {
 export function AppTokensSheet({
   open,
   accountId,
+  pageMoodId = null,
   panelStyle,
   onClose,
 }: {
   open: boolean;
   accountId: string;
+  pageMoodId?: string | null;
   panelStyle?: CSSProperties;
   onClose: () => void;
 }) {
@@ -153,7 +155,7 @@ export function AppTokensSheet({
         closeAriaLabel="Close"
         listAriaLabel="Creator tokens"
         zIndex={SHEET_Z.facts}
-        panelClassName="os-sheet-cap-standard"
+        panelClassName={`account-storage-panel os-sheet-cap-standard${pageMoodId ? ' account-storage-panel--page-mood' : ''}`}
         items={items}
         hint={emptyHint}
         {...(panelStyle ? { panelStyle } : {})}

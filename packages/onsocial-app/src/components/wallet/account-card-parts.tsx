@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
+  Divider,
   ExternalLinkIcon,
   KeyIcon,
   LogoutIcon,
@@ -288,6 +289,8 @@ export function AccountWalletZone({
           </button>
         </div>
       </div>
+
+      <Divider variant="detail" className="account-wallet-metrics-divider" />
 
       <div className="account-wallet-metrics">
         <AccountClaimMetricRow showCaption={!hintLine} />

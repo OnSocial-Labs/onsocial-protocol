@@ -151,6 +151,7 @@ function StorageContextStrip({
 
   return (
     <div className="app-storage-context-strip" aria-label="Storage context">
+      <Divider variant="detail" className="app-storage-context-divider" />
       {rows.map((row) => (
         <p key={row.label} className="app-storage-context-row">
           <span>{row.label}</span>

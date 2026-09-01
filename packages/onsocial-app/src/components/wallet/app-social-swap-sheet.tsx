@@ -7,6 +7,7 @@ import { SHEET_Z } from '@/lib/sheet-z';
 
 interface AppSocialSwapSheetProps {
   open: boolean;
+  pageMoodId?: string | null;
   panelStyle?: CSSProperties;
   onClose: () => void;
   onClosed?: () => void;
@@ -15,6 +16,7 @@ interface AppSocialSwapSheetProps {
 /** Nested Get SOCIAL sheet — Rhea swap aligned with storage drawer chrome. */
 export function AppSocialSwapSheet({
   open,
+  pageMoodId = null,
   panelStyle,
   onClose,
   onClosed,
@@ -47,7 +49,7 @@ export function AppSocialSwapSheet({
       closeAriaLabel="Close Get SOCIAL"
       backdropLabel="Close Get SOCIAL"
       zIndex={SHEET_Z.facts}
-      panelClassName="account-storage-panel os-sheet-cap-tall"
+      panelClassName={`account-storage-panel os-sheet-cap-tall${pageMoodId ? ' account-storage-panel--page-mood' : ''}`}
       {...(panelStyle ? { panelStyle } : {})}
     >
       <div className="app-storage-sheet">

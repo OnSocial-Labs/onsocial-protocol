@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import {
   OsHugSheet,
   OsSheetAction,
@@ -30,6 +30,8 @@ interface AppAccessSheetProps {
   open: boolean;
   accountId: string;
   onClose: () => void;
+  pageMoodId?: string | null;
+  panelStyle?: CSSProperties;
 }
 
 function shortenSessionKey(publicKey: string): string {
@@ -46,6 +48,8 @@ export function AppAccessSheet({
   open,
   accountId,
   onClose,
+  pageMoodId = null,
+  panelStyle,
 }: AppAccessSheetProps) {
   const {
     hasSocialSession,
@@ -252,7 +256,8 @@ export function AppAccessSheet({
       zIndex={SHEET_Z.facts}
       titleId="app-access-sheet-title"
       headerClassName="account-storage-header"
-      panelClassName="account-storage-panel os-sheet-cap-standard"
+      panelClassName={`account-storage-panel os-sheet-cap-standard${pageMoodId ? ' account-storage-panel--page-mood' : ''}`}
+      {...(panelStyle ? { panelStyle } : {})}
     >
       <div className="app-storage-sheet">
         <section className="app-storage-readout os-surface-panel">

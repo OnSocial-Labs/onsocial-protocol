@@ -13560,18 +13560,7 @@ a.os-surface-row {
     padding: 0.55rem 0.65rem;
     overflow: hidden;
     isolation: isolate;
-    background:
-      radial-gradient(
-        circle at 14% 0%,
-        color-mix(
-            in srgb,
-            var(--glass-sheet-accent, var(--protocol-blue)) 14%,
-            transparent
-          )
-          0,
-        transparent 34%
-      ),
-      var(--os-surface-fill);
+    /* Mood wash: unlayered block near file end (beats .os-surface-panel). */
     box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.055);
   }
 
@@ -13610,8 +13599,10 @@ a.os-surface-row {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.55rem 0.75rem;
-    padding-top: 0.2rem;
-    border-top: 1px solid rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .account-wallet-metrics-divider {
+    margin: 0.05rem 0 0;
   }
 
   .account-wallet-metrics:has(> :only-child) {
@@ -14544,8 +14535,10 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
-    padding-top: 0.45rem;
-    border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .app-swap-quote-details-divider {
+    margin: 0.15rem 0 0.35rem;
   }
 
   .app-swap-detail-row {
@@ -14716,17 +14709,7 @@ a.os-surface-row {
     padding: 0.5rem 0.62rem;
     border: 0;
     border-radius: var(--os-surface-radius-row, 0.85rem);
-    background:
-      radial-gradient(
-        circle at 16% 0%,
-        color-mix(
-          in srgb,
-          var(--mood-accent, var(--protocol-blue)) 10%,
-          transparent
-        ),
-        transparent 42%
-      ),
-      var(--os-surface-fill);
+    background: var(--os-surface-fill);
     box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.055);
   }
 
@@ -14967,11 +14950,14 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.22rem;
-    padding: 0.4rem 0 0;
+    padding: 0.15rem 0 0;
     border: 0;
-    border-top: 1px solid rgb(var(--fg-rgb) / 0.06);
     border-radius: 0;
     background: transparent;
+  }
+
+  .app-storage-context-divider {
+    margin: 0 0 0.25rem;
   }
 
   .app-storage-context-row {
@@ -33808,6 +33794,18 @@ a.os-surface-row {
 .account-shortcut-dock .os-surface-tile.is-attention:not(:disabled):active {
   background: color-mix(in srgb, var(--protocol-amber) 18%, transparent);
   color: var(--protocol-amber-ink, var(--protocol-amber));
+}
+
+/*
+ * Wallet / storage section cards — plain fill. Mood lives on drawer chrome
+ * (grip + wallet top hairline only). Unlayered to beat .os-surface-panel.
+ */
+.app-storage-readout,
+.app-storage-share-card,
+.app-storage-grants,
+.account-drawer-panel .os-surface-panel,
+.account-storage-panel .os-surface-panel {
+  background: var(--os-surface-fill);
 }
 
 /*

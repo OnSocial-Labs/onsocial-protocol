@@ -19,9 +19,12 @@
  *   --os-catalog-cover            Market / Drops / apps catalog cover (mobile)
  *   --os-catalog-cover-sm         catalog cover on sm+ viewports
  *   --os-catalog-cover-radius     catalog cover corner radius
+ *   --os-surface-mood-accent      mood / protocol-blue for section washes
+ *   --os-surface-mood-wash        soft radial (Share pool formula) — always defined
  *
  * Component tiers:
  *   os-surface-panel  — static inset card (wallet block, grouped metrics)
+ *   os-surface-panel--mood — same panel + Share-pool mood wash (opt-in)
  *   os-surface-row    — full-width list row (Edit profile, customize options)
  *   os-surface-tile   — square icon cell (shortcut dock)
  *   os-surface-chip   — compact inline action / amount preset (Collect, Open, 1 / 5 / 10)
@@ -50,6 +53,23 @@
     --os-catalog-cover: 4.85rem;
     --os-catalog-cover-sm: 5.5rem;
     --os-catalog-cover-radius: 0.75rem;
+    /*
+     * Share-pool mood wash — always defined. Uses real --mood-accent (not
+     * chrome / glass grip — those are lightened and read as a white wash).
+     */
+    --os-surface-mood-accent: var(
+      --mood-accent,
+      var(--protocol-blue, #60a5fa)
+    );
+    --os-surface-mood-wash: radial-gradient(
+      circle at 16% 0%,
+      color-mix(
+        in srgb,
+        var(--os-surface-mood-accent) 10%,
+        transparent
+      ),
+      transparent 42%
+    );
   }
 }
 
@@ -57,6 +77,25 @@
   border: 0;
   border-radius: var(--os-surface-radius-row);
   background: var(--os-surface-fill);
+}
+
+/**
+ * Opt-in section wash — same formula as Share pool.
+ * Inline gradient (not --os-surface-mood-wash) so tools don't strip the 10% mix.
+ * Uses --mood-accent only — never chrome / glass grip.
+ */
+.os-surface-panel--mood {
+  background:
+    radial-gradient(
+      circle at 16% 0%,
+      color-mix(
+        in srgb,
+        var(--mood-accent, var(--protocol-blue, #60a5fa)) 10%,
+        transparent
+      ),
+      transparent 42%
+    ),
+    var(--os-surface-fill);
 }
 
 .os-surface-row,

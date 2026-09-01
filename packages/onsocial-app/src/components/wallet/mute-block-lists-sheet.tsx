@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type CSSProperties } from 'react';
 import {
   OsHugSheet,
   OsSurfaceRow,
@@ -28,6 +28,8 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 interface MuteBlockListsSheetProps {
   open: boolean;
   onClose: () => void;
+  pageMoodId?: string | null;
+  panelStyle?: CSSProperties;
 }
 
 type ListKind = 'muted' | 'blocked';
@@ -39,6 +41,8 @@ type ListKind = 'muted' | 'blocked';
 export function MuteBlockListsSheet({
   open,
   onClose,
+  pageMoodId = null,
+  panelStyle,
 }: MuteBlockListsSheetProps) {
   const { setTxResult } = useAppTransactionFeedback();
   const {
@@ -182,7 +186,8 @@ export function MuteBlockListsSheet({
         closeAriaLabel="Close muted and blocked"
         backdropLabel="Close muted and blocked"
         zIndex={SHEET_Z.list}
-        panelClassName="account-storage-panel os-sheet-cap-standard"
+        panelClassName={`account-storage-panel os-sheet-cap-standard${pageMoodId ? ' account-storage-panel--page-mood' : ''}`}
+        {...(panelStyle ? { panelStyle } : {})}
         titleId="mute-block-lists-title"
       >
         <div className="app-storage-sheet">

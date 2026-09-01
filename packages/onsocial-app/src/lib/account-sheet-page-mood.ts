@@ -10,16 +10,24 @@ export function accountSheetPageMoodPanel(
   }
 
   const vars = moodStyle as Record<string, string> | undefined;
-  const accent =
+  // Real mood color for washes — not chrome (chrome is lightened and reads white).
+  const moodAccent =
+    vars?.['--mood-preset-accent'] ?? vars?.['--mood-accent'] ?? null;
+  const chromeAccent =
     vars?.['--mood-accent-chrome'] ??
-    vars?.['--mood-preset-accent'] ??
-    vars?.['--mood-accent'];
+    moodAccent ??
+    'var(--mood-accent-chrome, rgb(var(--fg-rgb) / 0.55))';
 
   return {
     panelClassSuffix: ' account-sheet-panel--page-mood',
     panelStyle: {
-      '--glass-sheet-accent':
-        accent ?? 'var(--mood-accent-chrome, rgb(var(--fg-rgb) / 0.55))',
+      ...(moodAccent
+        ? {
+            '--mood-accent': moodAccent,
+            '--mood-preset-accent': moodAccent,
+          }
+        : null),
+      '--glass-sheet-accent': chromeAccent,
     } as CSSProperties,
   };
 }

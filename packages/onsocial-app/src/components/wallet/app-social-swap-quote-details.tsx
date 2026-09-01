@@ -1,5 +1,6 @@
 'use client';
 
+import { Divider } from '@onsocial/ui';
 import {
   formatPriceImpactLabel,
   formatRouteFeeLabel,
@@ -60,6 +61,7 @@ export function AppSocialSwapQuoteDetails({
           </span>
         ) : null}
       </div>
+      <Divider variant="detail" className="app-swap-quote-details-divider" />
       <div className="app-swap-quote-details-body">
         <DetailRow
           label="Price impact"
