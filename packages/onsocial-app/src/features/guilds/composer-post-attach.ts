@@ -23,9 +23,10 @@ export function resolveComposerAttach(input: {
   drop?: ComposerDropDraft | null;
   proposal?: ComposerProposalDraft | null;
 }) {
-  const drop = isDropComposeDraftReady(input.drop) ? input.drop : null;
-  const proposal =
-    !drop && isProposalComposeDraftReady(input.proposal)
+  const drop: ComposerDropDraft | null =
+    input.drop && isDropComposeDraftReady(input.drop) ? input.drop : null;
+  const proposal: ComposerProposalDraft | null =
+    !drop && input.proposal && isProposalComposeDraftReady(input.proposal)
       ? input.proposal
       : null;
   const poll =

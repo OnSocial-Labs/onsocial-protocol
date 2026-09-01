@@ -8,6 +8,7 @@ import { inheritedGuildReplyFeedMeta } from '@/features/guilds/guild-post-feed-m
 import type {
   ComposerDropDraft,
   ComposerMode,
+  ComposerProposalDraft,
   ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
 import { assertCanReplyToGuildPost } from '@/features/home/assert-can-reply-to-guild-post';
@@ -19,7 +20,6 @@ import {
   dropSnapshotExtra,
 } from '@/features/scarces/drop-post-payload';
 import { resolveComposerAttach } from '@/features/guilds/composer-post-attach';
-import type { ComposerProposalDraft } from '@/features/guilds/guild-composer-sheet';
 import {
   applyMediaKindOverride,
   buildOptimisticMediaEntries,
@@ -229,8 +229,6 @@ export async function submitPersonalPost(args: {
   }
 
   const pollEmbed = attach.pollEmbed;
-  const commerceEmbed = attach.commerceEmbed;
-  const dropKind = dropPostKind(drop);
   const bodyText = attach.bodyText;
   const contentLabels = normalizeComposerContentLabels(payload);
 
@@ -330,8 +328,8 @@ export async function submitPersonalPost(args: {
       mode,
       target,
       pollEmbed,
-      drop,
-      proposal,
+      drop: drop ?? null,
+      proposal: proposal ?? null,
       files: files.length ? files : undefined,
       places: payload.places,
       contentLabels,

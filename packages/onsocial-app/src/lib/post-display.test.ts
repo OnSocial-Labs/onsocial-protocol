@@ -5,7 +5,6 @@ import {
   formatRelativePostTimestamp,
   parseDropPaintSnapshot,
   parsePostCollectionEmbed,
-  parsePostPollEmbed,
   parsePostProposalEmbed,
   parsePostText,
   parseProposalPaintSnapshot,
