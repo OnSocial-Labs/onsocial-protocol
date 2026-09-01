@@ -2043,7 +2043,7 @@ a.os-surface-row {
     /*
      * Identity ink — theme-safe accent for chrome (icons, hovers, verbs).
      * Light remaps --mood-accent-chrome toward --mood-light-ink; this follows.
-     * Like / love / player progress stay hard protocol hues — not this token.
+     * Like / love / player / chip ready-success stay hard protocol hues.
      */
     --mood-ink: var(--mood-accent-chrome, var(--mood-accent));
     --os-surface-row-hover: color-mix(in srgb, var(--mood-ink) 6%, transparent);
@@ -2055,6 +2055,17 @@ a.os-surface-row {
     --os-surface-fill-hover: color-mix(
       in srgb,
       var(--mood-ink) 9%,
+      transparent
+    );
+    --os-chip-selected-ink: var(--mood-ink);
+    --os-chip-selected-fill: color-mix(
+      in srgb,
+      var(--mood-ink) 14%,
+      transparent
+    );
+    --os-chip-selected-fill-hover: color-mix(
+      in srgb,
+      var(--mood-ink) 20%,
       transparent
     );
     --signal-standing: var(--mood-signal-standing);
@@ -10183,7 +10194,10 @@ a.os-surface-row {
     gap: 0.35rem;
     padding: 0.28rem 0.6rem;
     background: rgb(var(--fg-rgb) / 0.05);
-    color: var(--protocol-green-ink, var(--protocol-green));
+    color: var(
+      --signal-reputation,
+      var(--protocol-green-ink, var(--protocol-green))
+    );
     font-size: 0.8rem;
     font-weight: 600;
     line-height: 1;
@@ -10195,7 +10209,10 @@ a.os-surface-row {
   .discover-tab-bar--browse button:hover,
   .discover-tab-bar--browse button:focus-visible {
     background: rgb(var(--fg-rgb) / 0.09);
-    color: var(--protocol-green-ink, var(--protocol-green-hover));
+    color: var(
+      --signal-reputation,
+      var(--protocol-green-ink, var(--protocol-green-hover))
+    );
   }
 
   .discover-tab-bar--browse button.is-active,
@@ -33807,32 +33824,6 @@ a.os-surface-row {
   }
 }
 
-/*
- * Support presets — page owner's mood reputation signal.
- * Unlayered on purpose: @onsocial/ui os-surface-interactive.css is imported
- * unlayered, so a layered override would always lose the cascade to the base
- * .os-surface-chip.is-selected rule regardless of specificity.
- */
-.profile-support-presets .os-surface-chip.is-selected {
-  background: color-mix(
-    in srgb,
-    var(--mood-signal-reputation, var(--signal-reputation)) 14%,
-    transparent
-  );
-  color: var(--mood-signal-reputation, var(--signal-reputation));
-}
-
-.profile-support-presets .os-surface-chip.is-selected:not(:disabled):hover,
-.profile-support-presets
-  .os-surface-chip.is-selected:not(:disabled):focus-visible {
-  background: color-mix(
-    in srgb,
-    var(--mood-signal-reputation, var(--signal-reputation)) 22%,
-    transparent
-  );
-  color: var(--mood-signal-reputation, var(--signal-reputation));
-}
-
 /* Account dock key — orange attention (logout uses is-danger). Unlayered twin. */
 .account-shortcut-dock .os-surface-tile.is-attention {
   background: color-mix(in srgb, var(--protocol-amber) 8%, transparent);
@@ -33862,34 +33853,6 @@ a.os-surface-row {
 .account-drawer-panel .os-surface-panel,
 .account-storage-panel .os-surface-panel {
   background: var(--os-surface-fill);
-}
-
-/*
- * Boost drawer chips — same standing tint as the portfolio flame mark.
- * Mode row + period picker; selected only. Unlayered for the same reason.
- */
-.portfolio-boost-mode-row .os-surface-chip.is-selected,
-.portfolio-boost-periods .os-surface-chip.is-selected {
-  background: color-mix(
-    in srgb,
-    var(--mood-signal-standing, var(--signal-standing, #5ecf9a)) 14%,
-    transparent
-  );
-  color: var(--mood-signal-standing, var(--signal-standing, #5ecf9a));
-}
-
-.portfolio-boost-mode-row .os-surface-chip.is-selected:not(:disabled):hover,
-.portfolio-boost-mode-row
-  .os-surface-chip.is-selected:not(:disabled):focus-visible,
-.portfolio-boost-periods .os-surface-chip.is-selected:not(:disabled):hover,
-.portfolio-boost-periods
-  .os-surface-chip.is-selected:not(:disabled):focus-visible {
-  background: color-mix(
-    in srgb,
-    var(--mood-signal-standing, var(--signal-standing, #5ecf9a)) 22%,
-    transparent
-  );
-  color: var(--mood-signal-standing, var(--signal-standing, #5ecf9a));
 }
 
 /*

@@ -5,6 +5,10 @@ import { describe, expect, it } from 'vitest';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const globalsCss = readFileSync(join(here, '../../app/globals.css'), 'utf8');
+const surfaceCss = readFileSync(
+  join(here, '../../../../onsocial-ui/os-surface-interactive.css'),
+  'utf8'
+);
 
 describe('mood ink chrome', () => {
   it('defines --mood-ink on mood surfaces as chrome alias', () => {
@@ -14,6 +18,7 @@ describe('mood ink chrome', () => {
     expect(globalsCss).toContain(
       '--os-surface-row-hover: color-mix(in srgb, var(--mood-ink) 6%, transparent);'
     );
+    expect(globalsCss).toContain('--os-chip-selected-ink: var(--mood-ink);');
   });
 
   it('tints reply / quote / boost with --mood-ink', () => {
@@ -22,6 +27,16 @@ describe('mood ink chrome', () => {
     expect(globalsCss).toContain('.post-card-amplify.is-active');
     expect(globalsCss).toMatch(
       /Mood identity chrome[\s\S]*color: var\(--mood-ink/
+    );
+  });
+
+  it('selected chips consume remappable tokens; ready stays protocol green', () => {
+    expect(surfaceCss).toContain('color: var(--os-chip-selected-ink);');
+    expect(surfaceCss).toContain(
+      '--os-chip-selected-ink: var(--protocol-green-ink, var(--protocol-green));'
+    );
+    expect(surfaceCss).toMatch(
+      /\.os-surface-chip\.is-ready \{\s*[\s\S]*?color: var\(--protocol-green-ink/
     );
   });
 
