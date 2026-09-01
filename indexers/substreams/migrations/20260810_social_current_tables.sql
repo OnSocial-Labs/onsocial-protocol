@@ -49,6 +49,12 @@ CREATE TABLE IF NOT EXISTS posts_current (
 );
 CREATE INDEX IF NOT EXISTS idx_posts_current_block ON posts_current(block_height DESC);
 CREATE INDEX IF NOT EXISTS idx_posts_current_group ON posts_current(group_id) WHERE group_id IS NOT NULL AND group_id != '';
+CREATE INDEX IF NOT EXISTS idx_posts_current_group_feed
+  ON posts_current (group_id, is_group_content, block_height DESC)
+  WHERE group_id IS NOT NULL AND group_id != '';
+CREATE INDEX IF NOT EXISTS idx_posts_current_group_channel
+  ON posts_current (group_id, channel, is_group_content, block_height DESC)
+  WHERE group_id IS NOT NULL AND group_id != '' AND channel IS NOT NULL AND channel != '';
 CREATE INDEX IF NOT EXISTS idx_posts_current_parent ON posts_current(parent_path) WHERE parent_path IS NOT NULL AND parent_path != '';
 CREATE INDEX IF NOT EXISTS idx_posts_current_ref ON posts_current(ref_path) WHERE ref_path IS NOT NULL AND ref_path != '';
 

@@ -1256,11 +1256,13 @@ describe('QueryModule', () => {
       });
     });
 
-    it('loads member counts for many guilds in one query', async () => {
+    it('loads member counts for many guilds from group_member_counts', async () => {
       const { os, fetch } = makeOs({
         data: {
-          g0: { aggregate: { count: 3 } },
-          g1: { aggregate: { count: 12 } },
+          groupMemberCounts: [
+            { groupId: 'dao', memberCount: 3 },
+            { groupId: 'rebels', memberCount: 12 },
+          ],
         },
       });
 
@@ -1269,13 +1271,23 @@ describe('QueryModule', () => {
       expect(counts.get('rebels')).toBe(12);
 
       const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('groupMembersCurrentAggregate');
-      expect(body.query).toContain('g0:');
-      expect(body.query).toContain('g1:');
+      expect(body.query).toContain('groupMemberCounts');
+      expect(body.query).not.toContain('groupMembersCurrentAggregate');
       expect(body.variables).toMatchObject({
-        id0: 'dao',
-        id1: 'rebels',
+        ids: ['dao', 'rebels'],
       });
+    });
+
+    it('defaults missing group_member_counts rows to zero', async () => {
+      const { os } = makeOs({
+        data: {
+          groupMemberCounts: [{ groupId: 'dao', memberCount: 3 }],
+        },
+      });
+
+      const counts = await os.query.groups.memberCountsFor(['dao', 'empty']);
+      expect(counts.get('dao')).toBe(3);
+      expect(counts.get('empty')).toBe(0);
     });
 
     it('browses by member count via groups_by_member_count', async () => {
