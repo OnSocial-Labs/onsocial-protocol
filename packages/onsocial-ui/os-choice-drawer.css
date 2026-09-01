@@ -116,7 +116,7 @@
 
 .os-choice-sheet-option:hover,
 .os-choice-sheet-option:focus-visible {
-  background: rgb(var(--fg-rgb) / 0.06);
+  background: var(--os-surface-fill-hover, rgb(var(--fg-rgb) / 0.06));
 }
 
 .os-choice-sheet-option.is-selected {

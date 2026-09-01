@@ -165,7 +165,8 @@ export function DaoCreateSheet({
   const [closing, setClosing] = useState(false);
 
   const sheetOpen = open && !closing;
-  const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
+  const { panelStyle, keyboardOpen, moodId } =
+    useCommerceSheetKeyboard(sheetOpen);
 
   const resetForm = useCallback(() => {
     setName('');
@@ -476,6 +477,7 @@ export function DaoCreateSheet({
         closeAriaLabel="Close create DAO"
         backdropLabel="Close create DAO"
         keyboardOpen={keyboardOpen}
+        moodId={moodId}
         panelStyle={panelStyle}
         bodyClassName="profile-support-sheet-body protocol-task-sheet-body"
         titleId={titleId}

@@ -159,43 +159,51 @@ export function pageContentDrawerPanelStyle(
   return style;
 }
 
+const PORTAL_SIGNAL_RUNTIME = [
+  ['--mood-signal-standing', '--signal-standing', '--signal-standing-rgb'],
+  [
+    '--mood-signal-solidarity',
+    '--signal-solidarity',
+    '--signal-solidarity-rgb',
+  ],
+  ['--mood-signal-endorse', '--signal-endorse', '--signal-endorse-rgb'],
+  [
+    '--mood-signal-reputation',
+    '--signal-reputation',
+    '--signal-reputation-rgb',
+  ],
+] as const;
+
 /**
- * Face gesture sheets (Support / Endorse) — carry page mood signal hues so
- * verb + presets match the face arrows, even though the sheet portals outside
- * the frame.
+ * Portaled sheets need concrete signal hues + rgb() companions.
+ * `--mood-signal-*` stay for CSS remap; `--signal-*` / `--signal-*-rgb`
+ * cover leftover `rgb(var(--signal-*-rgb))` borders.
  */
-export function supportSheetPanelStyle(
+export function portalMoodSignalStyle(
   cssVars: Record<string, string>
 ): Record<string, string> {
   const style: Record<string, string> = {};
 
-  const signalKeys = [
-    '--mood-signal-standing',
-    '--mood-signal-solidarity',
-    '--mood-signal-endorse',
-    '--mood-signal-reputation',
-  ] as const;
-
-  for (const key of signalKeys) {
-    const value = cssVars[key];
-    if (value) style[key] = value;
-  }
-
-  const standing = cssVars['--mood-signal-standing'];
-  const solidarity = cssVars['--mood-signal-solidarity'];
-  const endorse = cssVars['--mood-signal-endorse'];
-  const reputation = cssVars['--mood-signal-reputation'];
-
-  if (standing) style['--signal-standing'] = standing;
-  if (solidarity) style['--signal-solidarity'] = solidarity;
-  if (endorse) style['--signal-endorse'] = endorse;
-  if (reputation) {
-    style['--signal-reputation'] = reputation;
-    const rgb = cssColorToSpaceSeparatedRgb(reputation);
-    if (rgb) style['--signal-reputation-rgb'] = rgb;
+  for (const [moodKey, signalKey, rgbKey] of PORTAL_SIGNAL_RUNTIME) {
+    const value = cssVars[moodKey];
+    if (!value) continue;
+    style[moodKey] = value;
+    style[signalKey] = value;
+    const rgb = cssColorToSpaceSeparatedRgb(value);
+    if (rgb) style[rgbKey] = rgb;
   }
 
   return style;
+}
+
+/**
+ * Face gesture sheets (Support / Endorse) — signal hues only so verb +
+ * presets match the face arrows without a full shell wash.
+ */
+export function supportSheetPanelStyle(
+  cssVars: Record<string, string>
+): Record<string, string> {
+  return portalMoodSignalStyle(cssVars);
 }
 
 /** `rgb(0 236 151)` / `rgb(0, 236, 151)` → `0 236 151` for `rgb(var(--x) / a)`. */
@@ -234,7 +242,10 @@ export function portfolioMoodShellStyle(
   const surface = cssVars['--mood-surface'];
   const banner = cssVars['--mood-banner'];
 
-  const style: Record<string, string> = { ...cssVars };
+  const style: Record<string, string> = {
+    ...cssVars,
+    ...portalMoodSignalStyle(cssVars),
+  };
 
   if (accent) {
     style['--mood-accent'] = accent;

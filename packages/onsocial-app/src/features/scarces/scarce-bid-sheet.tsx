@@ -2,7 +2,7 @@
 
 import { useCallback, useId, useState } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
-import { OsGestureSheet, osGestureSheetPanelCommerceClassName } from '@onsocial/ui';
+import { OsGestureSheet } from '@onsocial/ui';
 import {
   CommerceSheetFooter,
   commerceFooterStatesEqual,
@@ -72,7 +72,8 @@ export function ScarceBidSheet({
     (post != null || listing != null || embed != null) &&
     Boolean(sellerId) &&
     Boolean(listing?.tokenId ?? embed?.tokenId);
-  const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
+  const { panelStyle, keyboardOpen, moodId } =
+    useCommerceSheetKeyboard(sheetOpen);
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -110,8 +111,8 @@ export function ScarceBidSheet({
       closeAriaLabel="Close bid scarce"
       backdropLabel="Close bid scarce"
       keyboardOpen={keyboardOpen}
+      moodId={moodId}
       panelStyle={panelStyle}
-      panelClassName={osGestureSheetPanelCommerceClassName}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
       zIndex={zIndex}

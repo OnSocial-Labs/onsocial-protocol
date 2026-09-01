@@ -21,13 +21,6 @@ export const osGestureSheetPanelClassName = 'os-gesture-sheet-panel';
 /** Tall commerce / Support / Protocol cap — alias of former profile-support panel. */
 export const osGestureSheetPanelTallClassName = 'os-gesture-sheet-panel--tall';
 
-/**
- * Scarce Buy / Sell / Bid / Offer / List — money actions stay protocol green
- * even when viewer mood remaps `--signal-reputation`.
- */
-export const osGestureSheetPanelCommerceClassName =
-  'os-gesture-sheet-panel--commerce';
-
 export const osGestureSheetBodyClassName = 'os-gesture-sheet-body';
 
 export type OsGestureSheetSize = 'tall' | 'compact';

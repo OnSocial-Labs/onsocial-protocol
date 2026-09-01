@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, type CSSProperties } from 'react';
+import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import {
   useVisualViewportSheetMetrics,
   type VisualViewportSheetMetrics,
@@ -28,12 +29,30 @@ export function commerceSheetKeyboardPanelStyle(
   };
 }
 
+/**
+ * Keyboard lift + viewer mood for portaled commerce sheets.
+ * `panelStyle` merges mood + keyboard (Buy / Sell / Bid / Offer / List).
+ * Host-mood sheets (Support / Boost) use `keyboardStyle` only so viewer
+ * dock vars do not overwrite the face. Color remap is `[data-mood]` —
+ * pass `moodId` on the sheet; do not add a feature class for hue.
+ */
 export function useCommerceSheetKeyboard(sheetOpen: boolean) {
   const viewport = useVisualViewportSheetMetrics(sheetOpen);
-  const panelStyle = useMemo(
+  const { moodId, style: moodStyle } = useViewerDockMood();
+  const keyboardStyle = useMemo(
     () => commerceSheetKeyboardPanelStyle(viewport),
     [viewport]
   );
+  const panelStyle = useMemo(() => {
+    if (!moodStyle && !keyboardStyle) return undefined;
+    return { ...moodStyle, ...keyboardStyle };
+  }, [keyboardStyle, moodStyle]);
   const keyboardOpen = viewport.isMobile && viewport.lift > 0;
-  return { viewport, panelStyle, keyboardOpen };
+  return {
+    viewport,
+    panelStyle,
+    keyboardStyle,
+    keyboardOpen,
+    moodId: moodId ?? undefined,
+  };
 }

@@ -45,7 +45,8 @@ export function ProtocolTaskSheet({
   const titleId = useId();
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
-  const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
+  const { panelStyle, keyboardOpen, moodId } =
+    useCommerceSheetKeyboard(sheetOpen);
 
   const requestClose = useCallback(() => {
     setClosing(true);
@@ -68,6 +69,7 @@ export function ProtocolTaskSheet({
       closeAriaLabel={closeAriaLabel}
       backdropLabel={backdropLabel}
       keyboardOpen={keyboardOpen}
+      moodId={moodId}
       panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body protocol-task-sheet-body"
       titleId={titleId}

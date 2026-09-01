@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useId, useState } from 'react';
-import { OsGestureSheet, osGestureSheetPanelCommerceClassName } from '@onsocial/ui';
+import { OsGestureSheet } from '@onsocial/ui';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
 import {
   CommerceSheetFooter,
@@ -49,7 +49,8 @@ export function ScarceSellSheet({
   const [footerState, setFooterState] =
     useState<CommerceSheetFooterState>(SELL_FOOTER_SEED);
   const sheetOpen = open && !closing && item != null;
-  const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
+  const { panelStyle, keyboardOpen, moodId } =
+    useCommerceSheetKeyboard(sheetOpen);
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -91,8 +92,8 @@ export function ScarceSellSheet({
       closeAriaLabel="Close sell scarce"
       backdropLabel="Close sell scarce"
       keyboardOpen={keyboardOpen}
+      moodId={moodId}
       panelStyle={panelStyle}
-      panelClassName={osGestureSheetPanelCommerceClassName}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
       zIndex={SHEET_Z.gesture}

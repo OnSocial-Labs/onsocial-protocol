@@ -359,15 +359,14 @@ export function PortfolioBoostSheet({
   const sheetOpen = open && !closing;
   const moodPreview = usePortfolioMoodPreviewOptional();
   const mood = moodPreview?.effectiveMood ?? null;
-  const { panelStyle: keyboardPanelStyle, keyboardOpen } =
-    useCommerceSheetKeyboard(sheetOpen);
+  const { keyboardStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
   const panelStyle = useMemo((): CSSProperties | undefined => {
     const moodStyle = mood
       ? (supportSheetPanelStyle(mood.cssVars) as CSSProperties)
       : undefined;
-    if (!moodStyle && !keyboardPanelStyle) return undefined;
-    return { ...moodStyle, ...keyboardPanelStyle };
-  }, [keyboardPanelStyle, mood]);
+    if (!moodStyle && !keyboardStyle) return undefined;
+    return { ...moodStyle, ...keyboardStyle };
+  }, [keyboardStyle, mood]);
 
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();

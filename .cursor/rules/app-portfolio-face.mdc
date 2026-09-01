@@ -82,6 +82,32 @@ Portfolio wash mixes — **same on picker cards, live shell, home, and create-po
 
 Light bumps bg mix so the wash reads closer to dark (light presets are subtler on white). Title uses the mood accent (Gold keeps foil); tagline stays muted. Row type stays compact — do not inherit portfolio face name scale / ornaments.
 
+### Mood ink vs signals vs protocol lock
+
+`--mood-ink` is identity chrome only (aliases `--mood-accent-chrome`). Do not paint verbs or selected chips with it.
+
+**Ink (viewer on OS screens, host on the face):**
+
+- List + drawer row hover (`--os-surface-row-hover` / `--os-surface-fill-hover` remapped)
+
+**Signals (mood-blended; Protocol mood = originals):**
+
+- Reply hover — `--signal-standing`
+- Quote hover / quoted — `--signal-reputation`
+- Support arrow, `#` / `@` / `$` / links / Show more — `--signal-reputation`
+- Discover browse + trending chips — `--signal-reputation`
+- List / Buy / Sell / Bid / Mint — `--signal-reputation` (feed verbs and Buy / Sell / Bid / Offer / List sheets). Portaled sheets pass `moodId` + portal signal style; remap lives on `[data-mood]`.
+- Selected chips / amount presets (`--os-chip-selected-*` remapped to reputation) — wallet, Support SOCIAL, Buy/List NEAR, Boost, create-drop, calendar, access pills
+- Received Support totals (collect list, endorsement supporters) — `--signal-reputation`
+- Endorse + endorse compose chips — `--signal-endorse`
+
+**Stay protocol (not mood):**
+
+- Like (heart) — `--protocol-red`
+- Boost / amplify icon — `--protocol-amber`
+- Love (clip) / player progress — `--protocol-green`
+- Save / copied / chip `is-ready` / `is-succeeded` — `--protocol-green`
+
 ### Reuse on posts / slide-overs / sheets
 
 `OsAppScreen` / `OsSlideOverScreen` apply connected viewer mood by default — do not re-thread `moodId`/`moodStyle` on every panel.
