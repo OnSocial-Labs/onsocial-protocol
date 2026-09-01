@@ -86,6 +86,18 @@ describe('mood chrome map', () => {
     );
   });
 
+  it('paints received Support amounts with reputation, not hard green', () => {
+    expect(globalsCss).toContain(
+      '.portfolio-support-collect-info-amount {'
+    );
+    expect(globalsCss).toMatch(
+      /\.portfolio-support-collect-info-amount \{[\s\S]*?color: var\(--signal-reputation, var\(--protocol-green\)\);/
+    );
+    expect(globalsCss).toMatch(
+      /\.endorsement-supporters-amount \{[\s\S]*?color: var\(--signal-reputation, var\(--protocol-green\)\);/
+    );
+  });
+
   it('remaps chips on [data-mood]; commerce sheets pass moodId', () => {
     expect(globalsCss).toMatch(
       /\.glass-sheet-panel\[data-mood\],\s*\n\s*\.os-page-sheet-panel\[data-mood\] \{\s*[\s\S]*?--os-chip-selected-ink: var\(--signal-reputation\);/

@@ -6506,7 +6506,7 @@ a.os-surface-row {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     line-height: 1.2;
-    color: var(--protocol-green);
+    color: var(--signal-reputation, var(--protocol-green));
     text-align: right;
   }
 
@@ -33173,7 +33173,7 @@ a.os-surface-row {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     line-height: 1.2;
-    color: var(--protocol-green);
+    color: var(--signal-reputation, var(--protocol-green));
     text-align: right;
   }
 

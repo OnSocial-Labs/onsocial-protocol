@@ -97,7 +97,8 @@ Light bumps bg mix so the wash reads closer to dark (light presets are subtler o
 - Support arrow, `#` / `@` / `$` / links / Show more — `--signal-reputation`
 - Discover browse + trending chips — `--signal-reputation`
 - List / Buy / Sell / Bid / Mint — `--signal-reputation` (feed verbs and Buy / Sell / Bid / Offer / List sheets). Portaled sheets pass `moodId` + portal signal style; remap lives on `[data-mood]`.
-- Selected chips / amount presets (`--os-chip-selected-*` remapped to reputation) — wallet, Support, Boost, commerce amounts, create-drop, calendar, access pills
+- Selected chips / amount presets (`--os-chip-selected-*` remapped to reputation) — wallet, Support SOCIAL, Buy/List NEAR, Boost, create-drop, calendar, access pills
+- Received Support totals (collect list, endorsement supporters) — `--signal-reputation`
 - Endorse + endorse compose chips — `--signal-endorse`
 
 **Stay protocol (not mood):**
