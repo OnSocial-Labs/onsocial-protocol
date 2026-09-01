@@ -10895,7 +10895,8 @@ a.os-surface-row {
     position: relative;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    /* Top-stack — growing lines must not shove the first line (flex-end did). */
+    justify-content: flex-start;
     align-self: stretch;
     --os-write-dock-line-height: var(--portfolio-summon-avatar-size, 1.35rem);
     --os-write-dock-compose-max-lines: 4;
@@ -10903,7 +10904,7 @@ a.os-surface-row {
   }
 
   .os-write-dock.is-expanded {
-    justify-content: flex-end;
+    justify-content: flex-start;
   }
 
   .os-write-dock-above {
@@ -10964,24 +10965,22 @@ a.os-surface-row {
   .os-write-dock-field {
     flex: 1 1 auto;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     min-width: 0;
     min-height: 2.75rem;
     padding: 0 0.45rem 0 0.4rem;
-    transition: padding 220ms ease;
-  }
-
-  /* Idle single-line — lock first row to avatar cap height (Message / Add a reply…). */
-  .os-write-dock:not(.is-expanded):not(.is-compose-open) .os-write-dock-field {
-    align-items: flex-start;
+    /* Lock first line to avatar center forever — never re-center as rows add. */
     padding-top: calc(
       (2.75rem - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
     );
   }
 
   .os-write-dock.is-expanded .os-write-dock-field {
-    align-items: flex-end;
-    padding: 0.45rem 0.55rem 0.4rem 0.45rem;
+    align-items: flex-start;
+    padding: 0 0.55rem 0.4rem 0.45rem;
+    padding-top: calc(
+      (2.75rem - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
+    );
   }
 
   .os-write-dock-input {
@@ -11020,6 +11019,9 @@ a.os-surface-row {
     outline: none;
   }
 
+  /* Unlock multi-line as soon as tools/compose are up (reply chip counts). */
+  .os-write-dock.is-tools-open .os-write-dock-input,
+  .os-write-dock.is-compose-open .os-write-dock-input,
   .os-write-dock.is-expanded .os-write-dock-input {
     max-height: calc(
       var(--os-write-dock-line-height) * var(--os-write-dock-compose-max-lines)
@@ -11028,6 +11030,7 @@ a.os-surface-row {
   }
 
   /* Quick reply — three full rows, then in-field scroll (no mid-line clip). */
+  .os-write-dock.is-tools-open:has(.os-write-dock-reply) .os-write-dock-input,
   .os-write-dock:has(.os-write-dock-reply).is-compose-open
     .os-write-dock-input {
     max-height: calc(
@@ -11322,21 +11325,27 @@ a.os-surface-row {
 
   /* Compose open — text row on top, pen-style toolbar footer below. */
   .os-write-dock.is-compose-open {
-    justify-content: flex-end;
+    justify-content: flex-start;
   }
 
   .os-write-dock.is-compose-open .os-write-dock-bar {
     min-height: 2.75rem;
   }
 
-  /* Pin first typed line to avatar row — not flex-end above the footer. */
+  /* Same first-line pad as idle — don’t change padding when rows wrap. */
   .os-write-dock.is-compose-open .os-write-dock-field {
     align-items: flex-start;
-    padding: 0.35rem 0.55rem 0.3rem 0.45rem;
+    padding: 0 0.55rem 0.3rem 0.45rem;
+    padding-top: calc(
+      (2.75rem - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
+    );
   }
 
   .os-write-dock.is-compose-open.is-expanded .os-write-dock-field {
-    padding: 0.45rem 0.55rem 0.38rem 0.45rem;
+    padding: 0 0.55rem 0.38rem 0.45rem;
+    padding-top: calc(
+      (2.75rem - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
+    );
   }
 
   .os-write-dock.is-compose-open .os-write-dock-footer {
@@ -33519,6 +33528,12 @@ a.os-surface-row {
 .os-dock-pill.portfolio-summon.is-writing {
   --os-write-dock-radius: 1.375rem;
   border-radius: var(--os-write-dock-radius) !important;
+}
+
+/* Beat layered/`sr-only` — native file chrome must never inflate the dock. */
+.os-write-dock-file-input,
+.os-write-dock input[type='file'] {
+  display: none !important;
 }
 
 /* Feed / home quick reply — same avatar cell + hover as post thread write dock. */

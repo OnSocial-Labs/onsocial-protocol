@@ -3,6 +3,7 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type FormEvent,
@@ -225,25 +226,33 @@ export function OsWriteDock({
     });
   }, [registerWriteFocus]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = textRef.current;
     if (!el) return;
     const tallChrome = hasErrorChrome || keyboardOpen;
-    el.style.height = '0px';
-    el.style.maxHeight = 'none';
-    const scrollHeight = el.scrollHeight;
-    el.style.maxHeight = '';
     const rootFontSize = parseFloat(
       getComputedStyle(document.documentElement).fontSize || '16'
     );
     const linePx = writeDockInputLineHeightPx(rootFontSize);
     const maxLines = writeDockInputMaxLines(hasReplyChrome);
-    const wrapped = scrollHeight > linePx + 1;
-    // Reply chip lives in the row above — only morph the dock for keyboard/error,
-    // not when the field wraps to a second line.
-    const dockExpanded = tallChrome || (wrapped && !hasReplyChrome);
-    setIsTall(dockExpanded);
-    el.style.height = `${writeDockInputHeightPx(scrollHeight, maxLines, rootFontSize)}px`;
+    const maxPx = linePx * maxLines;
+    // Measure uncapped, then apply height + max so rows actually grow
+    // (CSS max-height can stay at 1 line if compose-open lags a frame).
+    el.style.height = '0px';
+    el.style.maxHeight = 'none';
+    const scrollHeight = el.scrollHeight;
+    const nextHeight = writeDockInputHeightPx(
+      scrollHeight,
+      maxLines,
+      rootFontSize
+    );
+    el.style.maxHeight = `${maxPx}px`;
+    el.style.height = `${nextHeight}px`;
+    el.style.overflowY = nextHeight >= maxPx ? 'auto' : 'hidden';
+    // Growing lines must keep first-line + avatar fixed — never morph on wrap.
+    // `is-expanded` is keyboard / error chrome only (same steadiness as reply).
+    const dockExpanded = tallChrome;
+    setIsTall((current) => (current === dockExpanded ? current : dockExpanded));
   }, [hasErrorChrome, hasReplyChrome, keyboardOpen, text]);
 
   const removeMediaAt = (index: number) => {
@@ -396,19 +405,25 @@ export function OsWriteDock({
         </div>
       ) : null}
 
+      {/* Outside the bar flex — `hidden` + display:none (WebKit paints
+          "No file chosen" through sr-only and inflates the dock). */}
+      <input
+        ref={fileInputRef}
+        id={`${fieldId}-media`}
+        type="file"
+        accept={accept}
+        className="os-write-dock-file-input"
+        hidden
+        tabIndex={-1}
+        aria-hidden
+        multiple
+        disabled={disabled || pending || mediaAtMax}
+        onChange={(event) => {
+          void attachMediaFiles(event.target.files);
+        }}
+      />
+
       <div className="os-write-dock-bar">
-        <input
-          ref={fileInputRef}
-          id={`${fieldId}-media`}
-          type="file"
-          accept={accept}
-          className="sr-only"
-          multiple
-          disabled={disabled || pending || mediaAtMax}
-          onChange={(event) => {
-            void attachMediaFiles(event.target.files);
-          }}
-        />
         <div className="os-write-dock-field">
           <textarea
             ref={textRef}

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
-import { Divider } from '@onsocial/ui';
 import { PostCard, postKey } from '@/features/home/post-card';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
@@ -10,6 +9,7 @@ import {
   EMPTY_POST_ENGAGEMENT,
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
+import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { postThreadPath } from '@/lib/post-routes';
@@ -29,6 +29,7 @@ interface ThreadDiscoverPeekProps {
  * Empty-thread tail: one quiet post instead of "No replies yet." chrome.
  * Author's latest root first; falls back to a global recent post. Renders
  * nothing until a peek resolves — no skeleton, no layout shift.
+ * Parent thread panels already draw the detail Divider above this section.
  */
 export function ThreadDiscoverPeek({
   author,
@@ -67,6 +68,8 @@ export function ThreadDiscoverPeek({
 
   const profileIds = peek ? [peek.post.accountId] : [];
   const fetchedProfiles = usePostAuthorProfiles(profileIds);
+  const onEngagementError = (message: string) =>
+    setTxResult({ type: 'error', msg: message });
   const {
     engagement,
     toggleReaction,
@@ -74,8 +77,12 @@ export function ThreadDiscoverPeek({
     isReactionPending,
     isSavePending,
   } = usePostEngagement(peek ? [peek.post] : [], {
-    onError: (message) => setTxResult({ type: 'error', msg: message }),
+    onError: onEngagementError,
   });
+  const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
+    peek ? [peek.post] : [],
+    { onError: onEngagementError }
+  );
 
   if (!peek) return null;
 
@@ -86,7 +93,6 @@ export function ThreadDiscoverPeek({
 
   return (
     <section className="thread-discover-peek">
-      <Divider variant="detail" />
       <h2 className="thread-discover-peek-title">
         {peek.own ? `More from ${name}` : 'Discover'}
       </h2>
@@ -100,6 +106,11 @@ export function ThreadDiscoverPeek({
         savePending={isSavePending(post)}
         onToggleReaction={toggleReaction}
         onToggleSave={toggleSave}
+        pollTally={pollTallyFor(post)}
+        pollVotePending={isPollVotePending(post)}
+        onPollVote={(row, optionIndex) => {
+          void castVote(row, optionIndex);
+        }}
       />
     </section>
   );
