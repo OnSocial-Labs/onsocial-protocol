@@ -9,7 +9,8 @@
  * Selected #/$ (.is-active): 500
  * Desktop (fine pointer): underline on hover / focus-visible — color unchanged
  * Touch: no hover chrome (avoids sticky :hover after tap)
- * Commerce / buy-sell stay hard protocol green elsewhere — not these tokens.
+ * Commerce / buy-sell on mood surfaces use --mood-ink (globals). Love +
+ * player progress stay hard protocol green.
  *
  * Composer textarea + backdrop stay 300 in globals so the caret aligns.
  * Thread fold uses the same 300 / AA as Show more; compact label size.
@@ -149,14 +150,14 @@ button.post-thread-more:not(.post-thread-more--coil-tail) {
 
 @media (hover: hover) and (pointer: fine) {
   :is(
-      .os-hashtag,
-      .os-mention,
-      .os-ticker,
-      .os-link,
-      .post-thread-more,
-      button.post-card-show-more,
-      .post-card .post-card-show-more
-    ):is(:hover, :focus-visible) {
+    .os-hashtag,
+    .os-mention,
+    .os-ticker,
+    .os-link,
+    .post-thread-more,
+    button.post-card-show-more,
+    .post-card .post-card-show-more
+  ):is(:hover, :focus-visible) {
     color: var(--protocol-green-ink, var(--protocol-green));
     text-decoration: underline;
     text-underline-offset: 0.12em;

@@ -320,7 +320,8 @@
   overflow: hidden;
 }
 
-.glass-sheet-panel.leaderboard-page-sheet > .glass-sheet-body.leaderboard-page-body {
+.glass-sheet-panel.leaderboard-page-sheet
+  > .glass-sheet-body.leaderboard-page-body {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -2034,10 +2035,28 @@ a.os-surface-row {
 
   /* Mood-scoped signal hues — protocol base blended with mood accent (SDK presets). */
   .portfolio-frame[data-mood],
+  .portfolio-os-layer[data-mood],
   .os-app-screen.os-app-screen--mood,
   .glass-sheet-panel[data-mood],
   .os-page-sheet-panel[data-mood] {
     --mood-accent-chrome: var(--mood-accent);
+    /*
+     * Identity ink — theme-safe accent for chrome (icons, hovers, verbs).
+     * Light remaps --mood-accent-chrome toward --mood-light-ink; this follows.
+     * Like / love / player progress stay hard protocol hues — not this token.
+     */
+    --mood-ink: var(--mood-accent-chrome, var(--mood-accent));
+    --os-surface-row-hover: color-mix(in srgb, var(--mood-ink) 6%, transparent);
+    --os-surface-fill-hover-soft: color-mix(
+      in srgb,
+      var(--mood-ink) 7%,
+      transparent
+    );
+    --os-surface-fill-hover: color-mix(
+      in srgb,
+      var(--mood-ink) 9%,
+      transparent
+    );
     --signal-standing: var(--mood-signal-standing);
     --signal-solidarity: var(--mood-signal-solidarity);
     --signal-endorse: var(--mood-signal-endorse);
@@ -2404,6 +2423,30 @@ a.os-surface-row {
 .post-card-scarce-buy:disabled .post-card-scarce-buy-main,
 .post-card-scarce-buy:disabled .post-card-scarce-buy-meta {
   color: rgb(var(--fg-rgb) / 0.26);
+}
+
+/*
+ * Mood commerce — Mint / Buy / Bid + List/Sell hover follow --mood-ink.
+ * Love + player progress stay hard protocol green (clip CSS, not these).
+ */
+:is(
+    .os-app-screen.os-app-screen--mood,
+    .os-page-sheet-panel[data-mood],
+    .glass-sheet-panel[data-mood],
+    .portfolio-os-layer[data-mood],
+    .portfolio-frame[data-mood]
+  )
+  :is(
+    .post-card-scarce-buy-main,
+    .post-card-scarce-buy:hover:not(:disabled) .post-card-scarce-buy-main,
+    .post-card-scarce-buy:focus-visible .post-card-scarce-buy-main,
+    .post-card-scarce-buy--secondary:hover:not(:disabled)
+      .post-card-scarce-buy-main,
+    .post-card-scarce-buy--secondary:focus-visible .post-card-scarce-buy-main,
+    .post-card-scarce-link:hover,
+    .post-card-scarce-link:focus-visible
+  ) {
+  color: var(--mood-ink, var(--protocol-green, #00ec97));
 }
 
 /* Unlayered — beats `.os-gesture-sheet-body` hug inset + default `a` color. */
@@ -5367,7 +5410,9 @@ a.os-surface-row {
   }
 
   .portfolio-identity-gesture--endorse.is-endorsed:hover:not(:disabled),
-  .portfolio-identity-gesture--endorse.is-endorsed:focus-visible:not(:disabled) {
+  .portfolio-identity-gesture--endorse.is-endorsed:focus-visible:not(
+      :disabled
+    ) {
     background: rgb(var(--fg-rgb) / 0.05);
     color: rgb(var(--fg-rgb) / 0.92);
   }
@@ -5533,16 +5578,16 @@ a.os-surface-row {
       color-mix(
         in srgb,
         var(
-          --mood-accent-chrome,
-          var(--mood-accent, var(--signal-reputation, #22c55e))
-        )
+            --mood-accent-chrome,
+            var(--mood-accent, var(--signal-reputation, #22c55e))
+          )
           85%,
         transparent
       ),
       transparent
     );
-    animation: portfolio-boost-collect-sweep 1.18s cubic-bezier(0.22, 1, 0.36, 1)
-      both;
+    animation: portfolio-boost-collect-sweep 1.18s
+      cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   .portfolio-boost-collect-celebration-chip {
@@ -5554,9 +5599,9 @@ a.os-surface-row {
       color-mix(
         in srgb,
         var(
-          --mood-accent-chrome,
-          var(--mood-accent, var(--signal-reputation, #22c55e))
-        )
+            --mood-accent-chrome,
+            var(--mood-accent, var(--signal-reputation, #22c55e))
+          )
           35%,
         transparent
       );
@@ -5575,9 +5620,9 @@ a.os-surface-row {
       color-mix(
         in srgb,
         var(
-          --mood-accent-chrome,
-          var(--mood-accent, var(--signal-reputation, #22c55e))
-        )
+            --mood-accent-chrome,
+            var(--mood-accent, var(--signal-reputation, #22c55e))
+          )
           55%,
         transparent
       );
@@ -18703,6 +18748,32 @@ a.os-surface-row {
     color: var(--protocol-amber);
   }
 
+  /*
+   * Mood identity chrome — reply / quote / boost follow --mood-ink.
+   * Like stays crimson; save / love / player stay protocol green.
+   */
+  :is(
+      .os-app-screen.os-app-screen--mood,
+      .os-page-sheet-panel[data-mood],
+      .glass-sheet-panel[data-mood],
+      .portfolio-os-layer[data-mood],
+      .portfolio-frame[data-mood]
+    )
+    :is(
+      .post-card-stat--reply:hover:not(:disabled),
+      .post-card-stat--reply:focus-visible,
+      .post-card-stat--quote:hover:not(:disabled),
+      .post-card-stat--quote:focus-visible,
+      .post-card-stat--quote.is-active,
+      .post-card-stat--amplify:hover:not(:disabled),
+      .post-card-stat--amplify:focus-visible,
+      .post-card-amplify:hover:not(:disabled),
+      .post-card-amplify:focus-visible,
+      .post-card-amplify.is-active
+    ) {
+    color: var(--mood-ink, var(--mood-accent-chrome, var(--mood-accent)));
+  }
+
   .post-card-scarce-cta {
     display: flex;
     align-items: baseline;
@@ -24901,7 +24972,9 @@ a.os-surface-row {
   }
 
   /* Glass underlay chrome can stack above a portaled slide (absolute + z-index). */
-  .app-surface:has(> .os-slide-over) > .os-app-screen-column > .os-app-screen-header {
+  .app-surface:has(> .os-slide-over)
+    > .os-app-screen-column
+    > .os-app-screen-header {
     visibility: hidden;
     pointer-events: none;
   }
@@ -34054,7 +34127,6 @@ button.scarce-clip-cover-expand:focus-visible {
     0 0 0 1.5px rgb(255 255 255 / 0.55),
     0 1px 2px rgb(0 0 0 / 0.14);
 }
-
 
 /* —— Protocol (DAO governance / treasury) —— */
 .protocol-page {

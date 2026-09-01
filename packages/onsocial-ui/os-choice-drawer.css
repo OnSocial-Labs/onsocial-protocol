@@ -116,11 +116,12 @@
 
 .os-choice-sheet-option:hover,
 .os-choice-sheet-option:focus-visible {
-  background: rgb(var(--fg-rgb) / 0.06);
+  /* Surface hover token — mood scopes remap this to --mood-ink wash. */
+  background: var(--os-surface-fill-hover, rgb(var(--fg-rgb) / 0.06));
 }
 
 .os-choice-sheet-option.is-selected {
-  background: rgb(var(--fg-rgb) / 0.08);
+  background: var(--os-surface-fill-hover, rgb(var(--fg-rgb) / 0.08));
 }
 
 .os-choice-sheet-option:disabled {

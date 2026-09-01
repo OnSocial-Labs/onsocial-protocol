@@ -46,7 +46,9 @@ export function moodPresetPreviewVars(
 }
 
 /** Accent-only vars for list-row mood hints (discover, standings previews). */
-export function moodDiscoverHintVars(moodId: PageMoodId): Record<string, string> {
+export function moodDiscoverHintVars(
+  moodId: PageMoodId
+): Record<string, string> {
   const preset = moodPresetForId(moodId);
   return {
     '--mood-preset-accent': preset.theme.accent,
@@ -107,6 +109,8 @@ export function moodSheetRowPreviewVars(
 /**
  * Concrete per-row accent for the mood picker.
  * `@property --mood-accent` inherits from the sheet — set row accent inline instead.
+ * App chrome identity ink is CSS `--mood-ink` (alias of `--mood-accent-chrome`)
+ * so light theme can nudge it; do not set `--mood-ink` inline.
  */
 export function moodSheetRowInlineStyle(
   vars: Record<string, string>,

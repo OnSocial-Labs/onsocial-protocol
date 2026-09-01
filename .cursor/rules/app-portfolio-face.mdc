@@ -82,6 +82,23 @@ Portfolio wash mixes — **same on picker cards, live shell, home, and create-po
 
 Light bumps bg mix so the wash reads closer to dark (light presets are subtler on white). Title uses the mood accent (Gold keeps foil); tagline stays muted. Row type stays compact — do not inherit portfolio face name scale / ornaments.
 
+### Mood ink vs protocol green
+
+`--mood-ink` is the identity color for chrome. It aliases `--mood-accent-chrome` (light-nudged toward `--mood-light-ink`). Do not invent per-control mood colors — set mood on the surface and consume `--mood-ink`.
+
+**Follow `--mood-ink` (viewer on OS screens, host on the face):**
+
+- Reply / quote / boost hover + active
+- List + drawer row hover (`--os-surface-row-hover` / `--os-surface-fill-hover` remapped)
+- Buy / sell / list verbs
+
+**Stay protocol (not mood):**
+
+- Like (heart) — `--protocol-red`
+- Love (clip) — `--protocol-green`
+- Player progress — `--protocol-green`
+- Save / copied — `--protocol-green`
+
 ### Reuse on posts / slide-overs / sheets
 
 `OsAppScreen` / `OsSlideOverScreen` apply connected viewer mood by default — do not re-thread `moodId`/`moodStyle` on every panel.
