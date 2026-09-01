@@ -6,7 +6,9 @@ import {
   parseDropPaintSnapshot,
   parsePostCollectionEmbed,
   parsePostPollEmbed,
+  parsePostProposalEmbed,
   parsePostText,
+  parseProposalPaintSnapshot,
   postFeedPreviewLimit,
   postPreviewNeedsExpand,
   postTimestampIso,
@@ -61,6 +63,72 @@ describe('parsePostCollectionEmbed', () => {
         })
       )
     ).toBeNull();
+  });
+});
+
+describe('parsePostProposalEmbed', () => {
+  it('reads proposal embeds from schema v1 bodies', () => {
+    expect(
+      parsePostProposalEmbed(
+        JSON.stringify({
+          v: 1,
+          text: 'vote this',
+          embeds: [
+            {
+              kind: 'proposal',
+              groupId: 'builders.near',
+              proposalId: '12',
+            },
+          ],
+        })
+      )
+    ).toEqual({
+      kind: 'proposal',
+      groupId: 'builders.near',
+      proposalId: '12',
+    });
+  });
+
+  it('returns null when proposalId is missing', () => {
+    expect(
+      parsePostProposalEmbed(
+        JSON.stringify({
+          v: 1,
+          text: 'x',
+          embeds: [{ kind: 'proposal', groupId: 'builders.near' }],
+        })
+      )
+    ).toBeNull();
+  });
+});
+
+describe('parseProposalPaintSnapshot', () => {
+  it('reads x.onsocial.proposal paint fields', () => {
+    expect(
+      parseProposalPaintSnapshot(
+        JSON.stringify({
+          v: 1,
+          text: '',
+          x: {
+            onsocial: {
+              proposal: {
+                groupId: 'builders.near',
+                proposalId: '12',
+                title: 'Invite alice.near',
+                kind: 'Role',
+                groupName: 'Builders',
+              },
+            },
+          },
+        })
+      )
+    ).toEqual({
+      groupId: 'builders.near',
+      proposalId: '12',
+      title: 'Invite alice.near',
+      kind: 'Role',
+      groupName: 'Builders',
+    });
   });
 });
 

@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { OnSocial } from '@onsocial/sdk';
 import type { GuildSpace } from '@/features/guilds/guild-structure';
-import { submitGuildDropPost } from '@/features/scarces/submit-guild-drop-post';
+import {
+  submitGuildDropPost,
+  submitGuildRootPost,
+} from '@/features/scarces/submit-guild-drop-post';
 
 const space: GuildSpace = {
   id: 'general',
@@ -96,5 +99,53 @@ describe('submitGuildDropPost', () => {
     });
     expect(result.optimisticPost?.value).toContain('"contentWarning":"Spoilers"');
     expect(result.optimisticPost?.value).toContain('"nsfw":true');
+  });
+
+  it('posts a proposal embed into the guild room', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'guild-proposal-tx' });
+    const client = {
+      groups: { post },
+    } as unknown as OnSocial;
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitGuildRootPost({
+      client,
+      accountId: 'alice.testnet',
+      groupId: 'builders',
+      space,
+      payload: {
+        text: 'please vote',
+        proposal: {
+          groupId: 'builders',
+          proposalId: '12',
+          title: 'Invite alice.near',
+          kind: 'Role',
+        },
+      },
+      trackTransaction,
+    });
+
+    expect(post).toHaveBeenCalledOnce();
+    const [, postData] = post.mock.calls[0]!;
+    expect(postData).toMatchObject({
+      text: 'please vote',
+      embeds: [
+        {
+          kind: 'proposal',
+          groupId: 'builders',
+          proposalId: '12',
+        },
+      ],
+      x: {
+        onsocial: {
+          proposal: expect.objectContaining({
+            title: 'Invite alice.near',
+            kind: 'Role',
+          }),
+        },
+      },
+    });
+    expect(result.confirmed).toBe(true);
+    expect(result.optimisticPost?.value).toContain('"kind":"proposal"');
   });
 });

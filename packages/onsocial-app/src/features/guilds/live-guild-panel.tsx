@@ -23,6 +23,7 @@ import {
   submitPersonalRepost,
   submitPersonalUnrepost,
 } from '@/features/home/submit-personal-post';
+import { resolveComposerAttach } from '@/features/guilds/composer-post-attach';
 import {
   useRegisterComposeAction,
   type WriteDockSubmit,
@@ -152,13 +153,7 @@ import {
   useGuildMembershipActionPending,
 } from '@/lib/guild-membership-action-pending';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
-import {
-  commerceEmbedFromDraft,
-  dropPostKind,
-  dropSnapshotExtra,
-  resolvedDropPostText,
-} from '@/features/scarces/drop-post-payload';
-import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
+import { dropPostKind } from '@/features/scarces/drop-post-payload';
 import { subscribeGuildPostConfirmed } from '@/features/scarces/submit-guild-drop-post';
 import { hydrateScarceEmbedsForPosts } from '@/lib/feed-paint-hydrate';
 import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
@@ -234,10 +229,12 @@ export function LiveGuildPanel({
   groupId,
   initial = null,
   initialSheet = null,
+  initialProposalId = null,
 }: {
   groupId: string;
   initial?: GuildPageData | null;
   initialSheet?: GuildShareSheetId | null;
+  initialProposalId?: string | null;
 }) {
   const router = useRouter();
   const {
@@ -1602,11 +1599,17 @@ export function LiveGuildPanel({
     const { mode, target } = composer;
     const text = payload.text.trim();
     const files = payload.files ?? [];
-    const drop =
-      mode === 'post' && isDropComposeDraftReady(payload.drop)
-        ? payload.drop!
-        : null;
-    if (!text && !files.length && !drop) return;
+    const attach =
+      mode === 'post'
+        ? resolveComposerAttach({
+            text,
+            poll: payload.poll,
+            drop: payload.drop,
+            proposal: payload.proposal,
+          })
+        : resolveComposerAttach({ text });
+    const drop = attach.drop;
+    if (!text && !files.length && !attach.hasAttach) return;
     if (mode !== 'post' && !target) return;
 
     if (mode !== 'post' && target) {
@@ -1622,20 +1625,10 @@ export function LiveGuildPanel({
       return;
     }
 
-    const pollEmbed =
-      mode === 'post' && payload.poll && !drop
-        ? {
-            kind: 'poll' as const,
-            question: text,
-            options: payload.poll.options,
-            ...(payload.poll.durationMs != null
-              ? { closesAt: Date.now() + payload.poll.durationMs }
-              : {}),
-          }
-        : null;
-    const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
+    const pollEmbed = attach.pollEmbed;
+    const commerceEmbed = attach.commerceEmbed;
     const dropKind = dropPostKind(drop);
-    const bodyText = resolvedDropPostText(text, drop);
+    const bodyText = attach.bodyText;
     const contentLabels = normalizeComposerContentLabels(payload);
 
     setModalError(null);
@@ -1648,7 +1641,7 @@ export function LiveGuildPanel({
         ? buildOptimisticMediaEntries(files)
         : undefined;
       const mediaKind =
-        !pollEmbed && !drop && files.length
+        !pollEmbed && !drop && !attach.proposalEmbed && files.length
           ? mediaKindFromFile(files[0]!)
           : undefined;
       const tagPayload = {
@@ -1672,13 +1665,19 @@ export function LiveGuildPanel({
             timestamp: Date.now(),
             ...tagPayload,
             ...(pollEmbed
-              ? { embeds: [pollEmbed] }
+              ? { embeds: [pollEmbed], kind: 'poll' }
               : commerceEmbed
                 ? {
                     embeds: [commerceEmbed],
-                    x: dropSnapshotExtra(drop!),
+                    x: attach.extra,
                     kind: dropKind ?? composerSpace.kind,
                   }
+                : attach.proposalEmbed
+                  ? {
+                      embeds: [attach.proposalEmbed],
+                      x: attach.extra,
+                      kind: composerSpace.kind,
+                    }
                 : mediaKind
                   ? { kind: mediaKind }
                   : { kind: composerSpace.kind }),
@@ -1772,9 +1771,14 @@ export function LiveGuildPanel({
                 : commerceEmbed
                   ? {
                       embeds: [commerceEmbed],
-                      x: dropSnapshotExtra(drop!),
+                      x: attach.extra,
                     }
-                  : {}),
+                  : attach.proposalEmbed
+                    ? {
+                        embeds: [attach.proposalEmbed],
+                        x: attach.extra,
+                      }
+                    : {}),
               ...(media ? { media } : {}),
               ...contentLabels,
             }),
@@ -2342,6 +2346,7 @@ export function LiveGuildPanel({
             composer.mode === 'post' && config && postableSpaces.length > 0
               ? {
                   kind: 'guild' as const,
+                  groupId,
                   name: config.name,
                   channels: postableSpaces.map((space) => ({
                     id: space.id,
@@ -2415,6 +2420,7 @@ export function LiveGuildPanel({
           accountId={accountId}
           isMember={viewer?.isMember ?? false}
           memberDriven={config.memberDriven}
+          focusProposalId={initialProposalId}
           onClose={() => openManageSheet(null)}
           onOpenRequests={
             viewer?.isMember ? () => openManageSheet('requests') : undefined

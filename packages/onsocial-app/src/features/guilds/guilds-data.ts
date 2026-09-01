@@ -409,6 +409,20 @@ export function guildSheetPath(
   return `${guildPath(groupId)}?sheet=${sheet}`;
 }
 
+export function parseGuildProposalParam(
+  raw: string | null | undefined
+): string | null {
+  const value = (raw ?? '').trim();
+  return value || null;
+}
+
+export function guildProposalPath(
+  groupId: string,
+  proposalId: string
+): string {
+  return `${guildSheetPath(groupId, 'proposals')}&proposal=${encodeURIComponent(proposalId)}`;
+}
+
 export function guildSectionPath(groupId: string, section: string): string {
   return `${guildPath(groupId)}/${section}`;
 }

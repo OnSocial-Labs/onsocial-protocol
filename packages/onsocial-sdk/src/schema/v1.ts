@@ -138,7 +138,13 @@ export type Embed =
       /** Holder edition when posting a specific seat / token. */
       tokenId?: string;
     }
-  | { kind: 'poll'; question: string; options: string[]; closesAt?: number };
+  | { kind: 'poll'; question: string; options: string[]; closesAt?: number }
+  | {
+      kind: 'proposal';
+      /** OnSocial group that holds the proposal. */
+      groupId: string;
+      proposalId: string;
+    };
 
 // ── Reactions ──────────────────────────────────────────────────────────────
 
@@ -363,8 +369,8 @@ export function inferKind(input: {
   if (mimes.some((m) => m.startsWith('audio/'))) return 'audio';
   if (media.length > 0) return 'image';
 
-  // Collection (Drop) embeds are not links — fall through to text/longform
-  // unless the caller passed an explicit PostKind (handled above).
+  // Collection (Drop) and proposal embeds are not links — fall through to
+  // text/longform unless the caller passed an explicit PostKind (above).
   const hasLinkEmbed = embeds.some((e) => e && e.kind === 'link');
   const text = input.text ?? '';
   if (hasLinkEmbed && text.trim().length < 40) return 'link';
@@ -493,9 +499,18 @@ export function validatePostV1(post: unknown): string | null {
         e.kind !== 'link' &&
         e.kind !== 'token' &&
         e.kind !== 'collection' &&
-        e.kind !== 'poll'
+        e.kind !== 'poll' &&
+        e.kind !== 'proposal'
       ) {
         return `post.embeds[*].kind unknown: ${e.kind}`;
+      }
+      if (e.kind === 'proposal') {
+        if (!isStr(e.groupId) || !e.groupId.trim()) {
+          return 'post.embeds[*].proposal.groupId required';
+        }
+        if (!isStr(e.proposalId) || !e.proposalId.trim()) {
+          return 'post.embeds[*].proposal.proposalId required';
+        }
       }
       if (e.kind === 'collection') {
         if (!isStr(e.chain) || !e.chain.trim()) {

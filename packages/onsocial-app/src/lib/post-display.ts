@@ -192,6 +192,107 @@ export function parsePostTokenEmbed(value: string): PostTokenEmbed | null {
   return null;
 }
 
+/** Proposal embed stored on post JSON (`embeds[].kind === 'proposal'`). */
+export interface PostProposalEmbed {
+  kind: 'proposal';
+  groupId: string;
+  proposalId: string;
+}
+
+export function parsePostProposalEmbed(
+  value: string
+): PostProposalEmbed | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = JSON.parse(trimmed) as { embeds?: unknown };
+    if (!Array.isArray(parsed.embeds)) return null;
+
+    for (const entry of parsed.embeds) {
+      if (!entry || typeof entry !== 'object') continue;
+      const embed = entry as Record<string, unknown>;
+      if (embed.kind !== 'proposal') continue;
+      if (typeof embed.groupId !== 'string' || !embed.groupId.trim()) continue;
+      if (typeof embed.proposalId !== 'string' || !embed.proposalId.trim()) {
+        continue;
+      }
+      return {
+        kind: 'proposal',
+        groupId: embed.groupId.trim(),
+        proposalId: embed.proposalId.trim(),
+      };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+/** Optional first-paint snapshot under `x.onsocial.proposal`. */
+export interface ProposalPaintSnapshot {
+  groupId?: string;
+  proposalId?: string;
+  title?: string;
+  kind?: string;
+  status?: string;
+  groupName?: string;
+}
+
+export function parseProposalPaintSnapshot(
+  value: string
+): ProposalPaintSnapshot | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = JSON.parse(trimmed) as {
+      x?: { onsocial?: { proposal?: unknown } };
+    };
+    const proposal = parsed.x?.onsocial?.proposal;
+    if (!proposal || typeof proposal !== 'object' || Array.isArray(proposal)) {
+      return null;
+    }
+    const record = proposal as Record<string, unknown>;
+    const groupId =
+      typeof record.groupId === 'string' && record.groupId.trim()
+        ? record.groupId.trim()
+        : undefined;
+    const proposalId =
+      typeof record.proposalId === 'string' && record.proposalId.trim()
+        ? record.proposalId.trim()
+        : undefined;
+    if (!groupId && !proposalId) return null;
+    const title =
+      typeof record.title === 'string' && record.title.trim()
+        ? record.title.trim()
+        : undefined;
+    const kind =
+      typeof record.kind === 'string' && record.kind.trim()
+        ? record.kind.trim()
+        : undefined;
+    const status =
+      typeof record.status === 'string' && record.status.trim()
+        ? record.status.trim()
+        : undefined;
+    const groupName =
+      typeof record.groupName === 'string' && record.groupName.trim()
+        ? record.groupName.trim()
+        : undefined;
+    return {
+      ...(groupId ? { groupId } : {}),
+      ...(proposalId ? { proposalId } : {}),
+      ...(title ? { title } : {}),
+      ...(kind ? { kind } : {}),
+      ...(status ? { status } : {}),
+      ...(groupName ? { groupName } : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Optional first-paint snapshot under `x.onsocial.drop`. */
 export interface DropPaintSnapshot {
   /** Present for Drop announces; omitted for token-only (`s:`) resales. */

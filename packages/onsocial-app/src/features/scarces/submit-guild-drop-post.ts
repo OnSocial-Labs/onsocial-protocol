@@ -10,13 +10,8 @@ import {
 } from '@/features/guilds/guild-structure';
 import { postMetaFromText } from '@/features/home/post-mentions';
 import { placesMetaFromComposer } from '@/lib/post-place';
-import {
-  commerceEmbedFromDraft,
-  dropPostKind,
-  dropSnapshotExtra,
-  resolvedDropPostText,
-} from '@/features/scarces/drop-post-payload';
-import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
+import { dropPostKind } from '@/features/scarces/drop-post-payload';
+import { resolveComposerAttach } from '@/features/guilds/composer-post-attach';
 import {
   buildOptimisticMediaEntries,
   mediaKindFromFile,
@@ -59,26 +54,21 @@ export async function submitGuildRootPost(args: {
     args;
   const text = payload.text.trim();
   const files = payload.files ?? [];
-  const drop = isDropComposeDraftReady(payload.drop) ? payload.drop! : null;
-  if (!text && !files.length && !drop) {
+  const attach = resolveComposerAttach({
+    text,
+    poll: payload.poll,
+    drop: payload.drop,
+    proposal: payload.proposal,
+  });
+  const drop = attach.drop;
+  if (!text && !files.length && !attach.hasAttach) {
     return { confirmed: false, optimisticPost: null, groupId };
   }
 
-  const pollEmbed =
-    payload.poll && !drop
-      ? {
-          kind: 'poll' as const,
-          question: text,
-          options: payload.poll.options,
-          ...(payload.poll.durationMs != null
-            ? { closesAt: Date.now() + payload.poll.durationMs }
-            : {}),
-        }
-      : null;
-
-  const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
+  const pollEmbed = attach.pollEmbed;
+  const commerceEmbed = attach.commerceEmbed;
   const dropKind = dropPostKind(drop);
-  const bodyText = resolvedDropPostText(text, drop);
+  const bodyText = attach.bodyText;
   const contentLabels = normalizeComposerContentLabels(payload);
   const newPostId = Date.now().toString();
   const tags = {
@@ -87,7 +77,7 @@ export async function submitGuildRootPost(args: {
   };
   const channel = guildSpaceFeedChannel(space);
   const mediaKind =
-    !pollEmbed && !drop && files.length
+    !pollEmbed && !drop && !attach.proposalEmbed && files.length
       ? mediaKindFromFile(files[0]!)
       : undefined;
   const filePayload = files.length ? { files } : {};
@@ -103,13 +93,19 @@ export async function submitGuildRootPost(args: {
       timestamp: Date.now(),
       ...tags,
       ...(pollEmbed
-        ? { embeds: [pollEmbed] }
+        ? { embeds: [pollEmbed], kind: 'poll' }
         : commerceEmbed
           ? {
               embeds: [commerceEmbed],
-              x: dropSnapshotExtra(drop!),
+              x: attach.extra,
               kind: dropKind ?? space.kind,
             }
+          : attach.proposalEmbed
+            ? {
+                embeds: [attach.proposalEmbed],
+                x: attach.extra,
+                kind: space.kind,
+              }
           : mediaKind
             ? { kind: mediaKind }
             : { kind: space.kind }),
@@ -142,8 +138,10 @@ export async function submitGuildRootPost(args: {
         ? { embeds: [pollEmbed] }
         : commerceEmbed
           ? { embeds: [commerceEmbed] }
-          : {}),
-      ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
+          : attach.proposalEmbed
+            ? { embeds: [attach.proposalEmbed] }
+            : {}),
+      ...(attach.extra ? { x: attach.extra } : {}),
       ...(media ? { media } : {}),
       ...contentLabels,
     }),

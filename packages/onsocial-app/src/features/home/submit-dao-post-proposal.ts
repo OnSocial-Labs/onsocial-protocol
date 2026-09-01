@@ -9,12 +9,7 @@ import { buildDaoPostProposalPayload } from '@/features/protocol/dao-post-propos
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
 import { postMetaFromText } from '@/features/home/post-mentions';
 import { placesMetaFromComposer } from '@/lib/post-place';
-import {
-  commerceEmbedFromDraft,
-  dropPostKind,
-  dropSnapshotExtra,
-  resolvedDropPostText,
-} from '@/features/scarces/drop-post-payload';
+import { resolveComposerAttach } from '@/features/guilds/composer-post-attach';
 import { normalizeComposerContentLabels } from '@/lib/post-content-labels';
 import {
   txToastGovError,
@@ -45,29 +40,17 @@ export async function submitDaoPostProposal(args: {
   const { client, daoAccountId, daoLabel, accountId, wallet, payload } = args;
   const text = payload.text.trim();
   const files = payload.files ?? [];
-  const drop =
-    payload.drop?.collectionId?.trim() || payload.drop?.tokenId?.trim()
-      ? payload.drop
-      : null;
-  if (!text && !files.length && !drop) {
+  const attach = resolveComposerAttach({
+    text,
+    poll: payload.poll,
+    drop: payload.drop,
+    proposal: payload.proposal,
+  });
+  if (!text && !files.length && !attach.hasAttach) {
     return { confirmed: false, postId: null };
   }
 
-  const pollEmbed =
-    payload.poll && !drop
-      ? {
-          kind: 'poll' as const,
-          question: text,
-          options: payload.poll.options,
-          ...(payload.poll.durationMs != null
-            ? { closesAt: Date.now() + payload.poll.durationMs }
-            : {}),
-        }
-      : null;
-
-  const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
-  const dropKind = dropPostKind(drop);
-  const bodyText = resolvedDropPostText(text, drop);
+  const bodyText = attach.bodyText;
   const contentLabels = normalizeComposerContentLabels(payload);
   const tags = {
     ...postMetaFromText(bodyText),
@@ -80,13 +63,7 @@ export async function submitDaoPostProposal(args: {
     text: bodyText,
     timestamp: now,
     ...tags,
-    ...(pollEmbed
-      ? { embeds: [pollEmbed] }
-      : commerceEmbed
-        ? { embeds: [commerceEmbed] }
-        : {}),
-    ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
-    ...(dropKind ? { kind: dropKind } : {}),
+    ...attach.writeFields,
     ...contentLabels,
     ...(files.length ? { files } : {}),
   };

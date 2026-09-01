@@ -12,6 +12,7 @@ import {
 } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import {
+  BoxCheckIcon,
   ChartVerticalFillIcon,
   ChartVerticalIcon,
   ImageFillIcon,
@@ -50,6 +51,7 @@ import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { ComposerHashtagTextarea } from '@/features/guilds/composer-hashtag-textarea';
 import { ComposerDropPicker } from '@/features/guilds/composer-drop-picker';
+import { ComposerProposalPicker } from '@/features/guilds/composer-proposal-picker';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
@@ -111,10 +113,21 @@ export interface ComposerDropDraft {
   sourcePostPath?: string | null;
 }
 
+/** Open guild proposal tagged on a post (“Tag a proposal”). */
+export interface ComposerProposalDraft {
+  groupId: string;
+  proposalId: string;
+  title: string;
+  kind?: string | null;
+  status?: string | null;
+  groupName?: string | null;
+}
+
 export interface ComposerSubmit {
   text: string;
   poll?: ComposerPollDraft;
   drop?: ComposerDropDraft;
+  proposal?: ComposerProposalDraft;
   /** Attached image/video files (uploaded by SDK on write). */
   files?: File[];
   /** Optional place slug(s) — PostV1 `places` (city / venue / event). */
@@ -154,6 +167,8 @@ const MAX_POLL_OPTIONS = 4;
 export type ComposerDestination =
   | {
       kind: 'guild';
+      /** Group id for proposal tagging and room writes. */
+      groupId?: string;
       name: string;
       channels: { id: string; title: string }[];
       selectedChannelId: string;
@@ -337,6 +352,8 @@ export function ComposerSheet({
   const [dropDraft, setDropDraft] = useState<ComposerDropDraft | null>(() =>
     open ? initialDrop : null
   );
+  const [proposalDraft, setProposalDraft] =
+    useState<ComposerProposalDraft | null>(null);
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [mediaPreviews, setMediaPreviews] = useState<
     { url: string; mime: string }[]
@@ -348,6 +365,7 @@ export function ComposerSheet({
   const [placeOpen, setPlaceOpen] = useState(false);
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [dropPickerOpen, setDropPickerOpen] = useState(false);
+  const [proposalPickerOpen, setProposalPickerOpen] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -357,11 +375,27 @@ export function ComposerSheet({
   const [appliedMediaSeedKey, setAppliedMediaSeedKey] = useState('');
   const warningInputRef = useRef<HTMLInputElement>(null);
   const viewport = useVisualViewportSheetMetrics(open);
-  const canUsePoll = mode === 'post' && !dropDraft;
-  const canUseMedia = !pollEnabled && !dropDraft;
+  const canUsePoll = mode === 'post' && !dropDraft && !proposalDraft;
+  const canUseMedia = !pollEnabled && !dropDraft && !proposalDraft;
   const canUseDrop =
-    mode === 'post' && !pollEnabled && mediaFiles.length === 0;
+    mode === 'post' &&
+    !pollEnabled &&
+    !proposalDraft &&
+    mediaFiles.length === 0;
+  const canUseProposal =
+    mode === 'post' && !pollEnabled && !dropDraft && mediaFiles.length === 0;
   const canUsePlace = mode === 'post';
+  const proposalGroupId =
+    destination?.kind === 'guild'
+      ? destination.groupId?.trim() ||
+        (feedTargets?.selectedId && feedTargets.selectedId !== 'personal'
+          ? feedTargets.selectedId
+          : '')
+      : feedTargets?.selectedId && feedTargets.selectedId !== 'personal'
+        ? feedTargets.selectedId
+        : '';
+  const proposalGroupName =
+    destination?.kind === 'guild' ? destination.name : null;
 
   const viewerName = accountId
     ? displayName(accountId, viewerShell?.displayName)
@@ -389,6 +423,7 @@ export function ComposerSheet({
       setPollOptions(['', '']);
       setPollDurationMs(undefined);
       setDropDraft(initialDrop);
+      setProposalDraft(null);
       setAppliedMediaSeedKey(initialMediaSeedKey);
       setMediaFiles([...initialFiles]);
       setMediaPreviews(postMediaPreviewEntriesFromFiles(initialFiles));
@@ -399,6 +434,7 @@ export function ComposerSheet({
       setPlaceOpen(false);
       setLabelsOpen(false);
       setDropPickerOpen(false);
+      setProposalPickerOpen(false);
     } else {
       setAppliedMediaSeedKey('');
     }
@@ -462,7 +498,8 @@ export function ComposerSheet({
     event.preventDefault();
     const trimmed = text.trim();
     if (pending || !pollReady) return;
-    if (!trimmed && mediaFiles.length === 0 && !dropDraft) return;
+    if (!trimmed && mediaFiles.length === 0 && !dropDraft && !proposalDraft)
+      return;
     if (trimmed.length > POST_TEXT_MAX_LENGTH) {
       setMediaError(
         `Posts can be at most ${POST_TEXT_MAX_LENGTH.toLocaleString()} characters.`
@@ -477,7 +514,11 @@ export function ComposerSheet({
     onSubmit({
       text:
         trimmed ||
-        (mediaFiles.length > 0 || dropDraft ? (dropDraft ? '' : ' ') : ''),
+        (mediaFiles.length > 0 || dropDraft || proposalDraft
+          ? dropDraft || proposalDraft
+            ? ''
+            : ' '
+          : ''),
       ...(canUsePoll && pollEnabled
         ? {
             poll: {
@@ -487,6 +528,7 @@ export function ComposerSheet({
           }
         : {}),
       ...(dropDraft ? { drop: dropDraft } : {}),
+      ...(proposalDraft ? { proposal: proposalDraft } : {}),
       ...(mediaFiles.length > 0 ? { files: mediaFiles } : {}),
       ...(placeSlug ? { places: [placeSlug] } : {}),
       ...labels,
@@ -550,12 +592,14 @@ export function ComposerSheet({
       revokeComposerPreviewFiles(mediaFiles);
       setMediaError(null);
       setDropDraft(null);
+      setProposalDraft(null);
       return true;
     });
   };
 
   const selectDrop = (drop: ComposerDropDraft) => {
     setDropDraft(drop);
+    setProposalDraft(null);
     setPollEnabled(false);
     setPollOptions(['', '']);
     setPollDurationMs(undefined);
@@ -564,6 +608,21 @@ export function ComposerSheet({
     setMediaPreviews([]);
     setMediaError(null);
     setDropPickerOpen(false);
+    setProposalPickerOpen(false);
+  };
+
+  const selectProposal = (proposal: ComposerProposalDraft) => {
+    setProposalDraft(proposal);
+    setDropDraft(null);
+    setPollEnabled(false);
+    setPollOptions(['', '']);
+    setPollDurationMs(undefined);
+    revokeComposerPreviewFiles(mediaFiles);
+    setMediaFiles([]);
+    setMediaPreviews([]);
+    setMediaError(null);
+    setDropPickerOpen(false);
+    setProposalPickerOpen(false);
   };
 
   const removeMediaAt = (index: number) => {
@@ -645,7 +704,10 @@ export function ComposerSheet({
   const showTextCount = textLength > 0;
 
   const canPost =
-    (Boolean(text.trim()) || mediaFiles.length > 0 || Boolean(dropDraft)) &&
+    (Boolean(text.trim()) ||
+      mediaFiles.length > 0 ||
+      Boolean(dropDraft) ||
+      Boolean(proposalDraft)) &&
     !pending &&
     pollReady &&
     !textOverLimit;
@@ -886,6 +948,34 @@ export function ComposerSheet({
                 </div>
               )}
             </div>
+          </div>
+        ) : null}
+        {proposalDraft ? (
+          <div
+            className="guild-composer-proposal-preview"
+            aria-label={`Tagged proposal: ${proposalDraft.title}`}
+          >
+            <span className="guild-composer-proposal-preview-kind">
+              {proposalDraft.kind?.trim() || 'Proposal'}
+            </span>
+            <span className="guild-composer-proposal-preview-title">
+              {proposalDraft.title}
+            </span>
+            {proposalDraft.groupName?.trim() ? (
+              <span className="guild-composer-proposal-preview-guild">
+                {proposalDraft.groupName.trim()}
+              </span>
+            ) : null}
+            {!pending ? (
+              <button
+                type="button"
+                className="post-media-remove"
+                aria-label="Remove proposal"
+                onClick={() => setProposalDraft(null)}
+              >
+                ×
+              </button>
+            ) : null}
           </div>
         ) : null}
         {canUsePoll && pollEnabled ? (
@@ -1148,6 +1238,46 @@ export function ComposerSheet({
               <button
                 type="button"
                 className={`guild-composer-tool${
+                  proposalDraft ? ' is-active' : ''
+                }`}
+                disabled={!canUseProposal || pending}
+                title={
+                  canUseProposal
+                    ? proposalDraft
+                      ? 'Change proposal'
+                      : 'Tag a proposal'
+                    : pollEnabled
+                      ? 'Remove poll to tag a proposal'
+                      : dropDraft
+                        ? 'Remove Drop to tag a proposal'
+                        : mediaFiles.length > 0
+                          ? 'Remove photos to tag a proposal'
+                          : 'Proposals are for new posts'
+                }
+                aria-label={
+                  canUseProposal
+                    ? proposalDraft
+                      ? 'Change proposal'
+                      : 'Tag a proposal'
+                    : pollEnabled
+                      ? 'Remove poll to tag a proposal'
+                      : dropDraft
+                        ? 'Remove Drop to tag a proposal'
+                        : mediaFiles.length > 0
+                          ? 'Remove photos to tag a proposal'
+                          : 'Proposals are for new posts'
+                }
+                aria-pressed={Boolean(proposalDraft)}
+                onClick={() => {
+                  if (!canUseProposal || pending) return;
+                  setProposalPickerOpen(true);
+                }}
+              >
+                <BoxCheckIcon className="guild-composer-tool-icon" />
+              </button>
+              <button
+                type="button"
+                className={`guild-composer-tool${
                   placeOpen ? ' is-active' : ''
                 }`}
                 disabled={!canUsePlace || pending}
@@ -1328,6 +1458,21 @@ export function ComposerSheet({
         dropDraft?.tokenId?.trim() || dropDraft?.collectionId?.trim() || null
       }
       onSelect={selectDrop}
+      zIndex={COMPOSER_NEST_Z}
+    />
+    <ComposerProposalPicker
+      open={proposalPickerOpen && open}
+      enabled={open && mode === 'post'}
+      onClose={() => setProposalPickerOpen(false)}
+      accountId={accountId}
+      groupId={proposalGroupId || null}
+      groupName={proposalGroupName}
+      selectedProposalKey={
+        proposalDraft
+          ? `${proposalDraft.groupId}:${proposalDraft.proposalId}`
+          : null
+      }
+      onSelect={selectProposal}
       zIndex={COMPOSER_NEST_Z}
     />
     <OsHugSheet

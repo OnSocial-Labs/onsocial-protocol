@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   guildPath,
+  guildProposalPath,
   guildSheetPath,
+  parseGuildProposalParam,
   parseGuildSheetParam,
 } from '@/features/guilds/guilds-data';
 
@@ -23,5 +25,10 @@ describe('guild share sheet paths', () => {
     expect(guildSheetPath('a/b', 'members')).toBe(
       '/groups/a%2Fb?sheet=members'
     );
+    expect(guildProposalPath('rebels.near', '12')).toBe(
+      '/groups/rebels.near?sheet=proposals&proposal=12'
+    );
+    expect(parseGuildProposalParam(' 12 ')).toBe('12');
+    expect(parseGuildProposalParam('')).toBeNull();
   });
 });

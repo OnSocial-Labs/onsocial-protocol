@@ -458,6 +458,49 @@ describe('inferKind', () => {
       })
     ).toBe('poll');
   });
+  it('does not treat proposal embeds as link', () => {
+    expect(
+      inferKind({
+        text: 'vote this',
+        embeds: [
+          {
+            kind: 'proposal',
+            groupId: 'builders.near',
+            proposalId: '12',
+          },
+        ],
+      })
+    ).toBe('text');
+  });
+  it('validates proposal embeds', () => {
+    expect(
+      validatePostV1({
+        v: 1,
+        text: 'vote this',
+        timestamp: 1,
+        embeds: [
+          {
+            kind: 'proposal',
+            groupId: 'builders.near',
+            proposalId: '12',
+          },
+        ],
+      })
+    ).toBeNull();
+    expect(
+      validatePostV1({
+        v: 1,
+        text: 'vote this',
+        timestamp: 1,
+        embeds: [
+          {
+            kind: 'proposal',
+            groupId: 'builders.near',
+          },
+        ],
+      })
+    ).toBe('post.embeds[*].proposal.proposalId required');
+  });
   it('does not treat collection embeds as link', () => {
     expect(
       inferKind({

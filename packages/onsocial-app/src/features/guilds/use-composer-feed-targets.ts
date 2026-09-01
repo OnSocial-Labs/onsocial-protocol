@@ -152,6 +152,7 @@ export function useComposerFeedTargets(args: {
     targetId !== COMPOSER_PERSONAL_TARGET
       ? {
           kind: 'guild' as const,
+          groupId: targetId,
           name: guildName || targetId,
           channels: guildSpaces.map((space) => ({
             id: space.id,

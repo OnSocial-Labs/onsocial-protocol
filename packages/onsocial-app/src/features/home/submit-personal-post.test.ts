@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   parsePostCollectionEmbed,
   parsePostPollEmbed,
+  parsePostProposalEmbed,
+  parseProposalPaintSnapshot,
 } from '@/lib/post-display';
 import {
   submitPersonalPost,
@@ -89,6 +91,51 @@ describe('submitPersonalPost', () => {
     );
     expect(collection?.collectionId).toBe('drop-1');
     expect(collection?.tokenId).toBe('drop-1:2');
+  });
+
+  it('creates a proposal tag post with embed + paint', async () => {
+    const create = vi.fn().mockResolvedValue({ txHash: 'proposal-tx' });
+    const client = mockClient({ create });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'post',
+      target: null,
+      payload: {
+        text: '',
+        proposal: {
+          groupId: 'builders.near',
+          proposalId: '12',
+          title: 'Invite alice.near',
+          kind: 'Role',
+          groupName: 'Builders',
+        },
+      },
+      trackTransaction,
+    });
+
+    expect(create).toHaveBeenCalledOnce();
+    const [postData] = create.mock.calls[0]!;
+    expect(postData.text).toBe('Invite alice.near');
+    expect(postData.embeds?.[0]).toEqual({
+      kind: 'proposal',
+      groupId: 'builders.near',
+      proposalId: '12',
+    });
+    expect(postData.x?.onsocial?.proposal).toMatchObject({
+      title: 'Invite alice.near',
+      groupName: 'Builders',
+    });
+    expect(parsePostProposalEmbed(result.optimisticPost!.value)).toEqual({
+      kind: 'proposal',
+      groupId: 'builders.near',
+      proposalId: '12',
+    });
+    expect(parseProposalPaintSnapshot(result.optimisticPost!.value)).toMatchObject({
+      title: 'Invite alice.near',
+    });
   });
 
   it('creates a poll post with embed + optimistic kind', async () => {

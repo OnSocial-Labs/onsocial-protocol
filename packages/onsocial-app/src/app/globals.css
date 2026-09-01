@@ -17281,6 +17281,7 @@ a.os-surface-row {
   .post-card--openable .os-ticker,
   .post-card--openable .os-link,
   .post-card--openable .post-card-guild,
+  .post-card--openable .post-card-proposal,
   .post-card--openable .post-card-scarce-buy,
   .post-card--openable .scarce-post-preview {
     pointer-events: auto;
@@ -17737,6 +17738,93 @@ a.os-surface-row {
     font-size: 0.68rem;
     font-weight: 550;
     line-height: 1.2;
+  }
+
+  .post-card-proposal {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    margin-top: 0.5rem;
+    padding: 0.58rem 0.7rem;
+    border-radius: 0.85rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    background: rgb(var(--fg-rgb) / 0.04);
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .post-card-proposal:hover,
+  .post-card-proposal:focus-visible {
+    border-color: rgb(var(--fg-rgb) / 0.18);
+    background: rgb(var(--fg-rgb) / 0.07);
+    outline: none;
+  }
+
+  .post-card-proposal-icon {
+    flex: 0 0 auto;
+    width: 1rem;
+    height: 1rem;
+    margin-top: 0.08rem;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .post-card-proposal-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.08rem;
+  }
+
+  .post-card-proposal-kind {
+    font-size: 0.62rem;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .post-card-proposal-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .post-card-proposal-guild {
+    font-size: 0.72rem;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .guild-composer-proposal-preview {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.55rem;
+    margin-top: 0.55rem;
+    padding: 0.62rem 2rem 0.62rem 0.75rem;
+    border-radius: 0.85rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    background: rgb(var(--fg-rgb) / 0.04);
+  }
+
+  .guild-composer-proposal-preview-kind {
+    font-size: 0.62rem;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .guild-composer-proposal-preview-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+
+  .guild-composer-proposal-preview-guild {
+    font-size: 0.72rem;
+    color: rgb(var(--fg-rgb) / 0.48);
   }
 
   /*

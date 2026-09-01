@@ -40,6 +40,8 @@ interface GuildProposalsSheetProps {
   onClose: () => void;
   onOpenRequests?: () => void;
   onResolved?: () => void;
+  /** Deep-link from a feed tag — pin this proposal to the top when present. */
+  focusProposalId?: string | null;
 }
 
 function bumpTallyForVote(
@@ -65,6 +67,7 @@ export function GuildProposalsSheet({
   onClose,
   onOpenRequests,
   onResolved,
+  focusProposalId = null,
 }: GuildProposalsSheetProps) {
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction } = useAppTransactionFeedback();
@@ -290,6 +293,25 @@ export function GuildProposalsSheet({
     }
   };
 
+  const focusedActiveProposals = useMemo(() => {
+    const focusId = focusProposalId?.trim();
+    if (!focusId) return proposals;
+    const index = proposals.findIndex((row) => row.id === focusId);
+    if (index <= 0) return proposals;
+    return [proposals[index]!, ...proposals.filter((row) => row.id !== focusId)];
+  }, [focusProposalId, proposals]);
+
+  const focusedResolvedProposals = useMemo(() => {
+    const focusId = focusProposalId?.trim();
+    if (!focusId) return resolvedProposals;
+    const index = resolvedProposals.findIndex((row) => row.id === focusId);
+    if (index <= 0) return resolvedProposals;
+    return [
+      resolvedProposals[index]!,
+      ...resolvedProposals.filter((row) => row.id !== focusId),
+    ];
+  }, [focusProposalId, resolvedProposals]);
+
   const joinRequestCount = listActiveJoinRequestProposals(allProposals).length;
   const canVote = memberDriven && isMember;
   const profileIds = useMemo(() => {
@@ -382,9 +404,9 @@ export function GuildProposalsSheet({
           </p>
         ) : null}
 
-        {loadState === 'ready' && proposals.length > 0 ? (
+        {loadState === 'ready' && focusedActiveProposals.length > 0 ? (
           <OsProposalCardList className="guild-proposal-list">
-            {proposals.map((proposal) => (
+            {focusedActiveProposals.map((proposal) => (
               <GuildProposalCard
                 key={proposal.id}
                 proposal={proposal}
@@ -408,7 +430,7 @@ export function GuildProposalsSheet({
             />
             <p className="guild-proposals-section-label">Recently resolved</p>
             <OsProposalCardList className="guild-proposal-list guild-proposal-list--resolved">
-              {resolvedProposals.map((proposal) => (
+              {focusedResolvedProposals.map((proposal) => (
                 <GuildProposalCard
                   key={proposal.id}
                   proposal={proposal}

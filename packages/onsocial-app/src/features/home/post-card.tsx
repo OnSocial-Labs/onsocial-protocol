@@ -64,6 +64,7 @@ import {
   cancelPostScarceListing,
 } from '@/features/scarces/cancel-post-scarce';
 import { PostScarceCta } from '@/features/scarces/post-scarce-cta';
+import { PostProposalChip } from '@/features/home/post-proposal-chip';
 import {
   fetchOwnedScarceByTokenId,
   fetchOwnedScarceForCollection,
@@ -121,8 +122,10 @@ import {
   parseDropPaintSnapshot,
   parsePostCollectionEmbed,
   parsePostPollEmbed,
+  parsePostProposalEmbed,
   parsePostText,
   parsePostTokenEmbed,
+  parseProposalPaintSnapshot,
   postFeedPreviewLimit,
   postKey,
   postPreviewNeedsExpand,
@@ -1583,6 +1586,8 @@ export function PostCard({
   const text = parsePostText(post.value);
   const labels = parsePostContentLabels(post.value);
   const poll = parsePostPollEmbed(post.value);
+  const proposalEmbed = parsePostProposalEmbed(post.value);
+  const proposalPaint = parseProposalPaintSnapshot(post.value);
   const dropPaint = parseDropPaintSnapshot(post.value);
   const mediaItems = parsePostMedia(post.value);
   const hasMedia = mediaItems.length > 0;
@@ -1764,6 +1769,7 @@ export function PostCard({
             expandDisabled={mediaFocused}
             hideText={
               (Boolean(poll) && text === poll?.question) ||
+              (Boolean(proposalPaint?.title) && text === proposalPaint?.title) ||
               (mediaItems.length > 0 && !text.trim()) ||
               (isRepostRefType(post.refType) && !text.trim())
             }
@@ -1779,6 +1785,9 @@ export function PostCard({
                   : undefined
               }
             />
+          ) : null}
+          {!isRepostShell && (proposalEmbed || proposalPaint) ? (
+            <PostProposalChip embed={proposalEmbed} paint={proposalPaint} />
           ) : null}
           {mediaItems.length > 0 ? (
             <PostMediaStrip

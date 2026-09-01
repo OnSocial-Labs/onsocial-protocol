@@ -17,9 +17,9 @@ import {
   commerceEmbedFromDraft,
   dropPostKind,
   dropSnapshotExtra,
-  resolvedDropPostText,
 } from '@/features/scarces/drop-post-payload';
-import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
+import { resolveComposerAttach } from '@/features/guilds/composer-post-attach';
+import type { ComposerProposalDraft } from '@/features/guilds/guild-composer-sheet';
 import {
   applyMediaKindOverride,
   buildOptimisticMediaEntries,
@@ -85,6 +85,7 @@ function buildOptimisticPost(args: {
     closesAt?: number;
   } | null;
   drop: ComposerDropDraft | null;
+  proposal?: ComposerProposalDraft | null;
   files?: File[];
   places?: string[];
   contentLabels?: PostContentLabels;
@@ -97,15 +98,25 @@ function buildOptimisticPost(args: {
     target,
     pollEmbed,
     drop,
+    proposal,
     files,
     places,
     contentLabels,
   } = args;
   const media = files?.length ? buildOptimisticMediaEntries(files) : undefined;
+  const attach = resolveComposerAttach({
+    text,
+    poll: pollEmbed
+      ? { options: pollEmbed.options, durationMs: undefined }
+      : null,
+    drop,
+    proposal,
+  });
   const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
+  const proposalEmbed = attach.proposalEmbed;
   const dropKind = dropPostKind(drop);
   const mediaKind =
-    !pollEmbed && !drop && files?.length
+    !pollEmbed && !drop && !proposal && files?.length
       ? mediaKindFromFile(files[0]!)
       : undefined;
   const base: PostRow = {
@@ -120,8 +131,14 @@ function buildOptimisticPost(args: {
         ? { embeds: [pollEmbed] }
         : commerceEmbed
           ? { embeds: [commerceEmbed] }
+          : proposalEmbed
+            ? { embeds: [proposalEmbed] }
+            : {}),
+      ...(drop
+        ? { x: dropSnapshotExtra(drop) }
+        : attach.extra
+          ? { x: attach.extra }
           : {}),
-      ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
       ...(media ? { media } : {}),
       ...contentLabels,
     }),
@@ -193,32 +210,28 @@ export async function submitPersonalPost(args: {
   const { client, accountId, mode, target, payload, trackTransaction } = args;
   const text = payload.text.trim();
   const files = payload.files ?? [];
-  const drop =
-    mode === 'post' && payload.drop?.collectionId?.trim()
-      ? payload.drop
-      : null;
-  if (!text && !files.length && !drop) {
+  const attach =
+    mode === 'post'
+      ? resolveComposerAttach({
+          text,
+          poll: payload.poll,
+          drop: payload.drop,
+          proposal: payload.proposal,
+        })
+      : resolveComposerAttach({ text });
+  const drop = attach.drop;
+  const proposal = attach.proposal;
+  if (!text && !files.length && !attach.hasAttach) {
     return { confirmed: false, optimisticPost: null };
   }
   if (mode !== 'post' && !target) {
     return { confirmed: false, optimisticPost: null };
   }
 
-  const pollEmbed =
-    mode === 'post' && payload.poll && !drop
-      ? {
-          kind: 'poll' as const,
-          question: text,
-          options: payload.poll.options,
-          ...(payload.poll.durationMs != null
-            ? { closesAt: Date.now() + payload.poll.durationMs }
-            : {}),
-        }
-      : null;
-
-  const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
+  const pollEmbed = attach.pollEmbed;
+  const commerceEmbed = attach.commerceEmbed;
   const dropKind = dropPostKind(drop);
-  const bodyText = resolvedDropPostText(text, drop);
+  const bodyText = attach.bodyText;
   const contentLabels = normalizeComposerContentLabels(payload);
 
   const newPostId = Date.now().toString();
@@ -235,13 +248,7 @@ export async function submitPersonalPost(args: {
         text: bodyText,
         timestamp: Date.now(),
         ...tags,
-        ...(pollEmbed
-          ? { embeds: [pollEmbed] }
-          : commerceEmbed
-            ? { embeds: [commerceEmbed] }
-            : {}),
-        ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
-        ...(dropKind ? { kind: dropKind } : {}),
+        ...attach.writeFields,
         ...contentLabels,
         ...filePayload,
       },
@@ -324,6 +331,7 @@ export async function submitPersonalPost(args: {
       target,
       pollEmbed,
       drop,
+      proposal,
       files: files.length ? files : undefined,
       places: payload.places,
       contentLabels,
