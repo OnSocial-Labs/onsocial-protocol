@@ -8,10 +8,13 @@ import {
   guildProposalPresentation,
   partitionGuildGovernanceProposals,
 } from '@/features/guilds/guild-proposal-display';
+import {
+  openPickerDraftsFromEvents,
+  type ProposalIndexerEvent,
+} from '@/features/guilds/proposal-indexer-events';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 
 const MAX_GUILDS = 8;
-const PROPOSALS_PER_GUILD = 12;
 
 /** Guild composer stays on that guild. Public loads memberships. */
 export function proposalPickerScope(
@@ -85,20 +88,41 @@ async function loadAttachableProposals(args: {
       limit: MAX_GUILDS,
     });
     const memberships = (page.items ?? []).slice(0, MAX_GUILDS);
-    await Promise.all(
-      memberships.map(async (row) => {
-        const groupId = row.groupId?.trim();
-        if (!groupId) return;
-        try {
-          const rows = await client.groups.listProposals(groupId, {
-            limit: PROPOSALS_PER_GUILD,
-          });
-          addRows(groupId, row.groupName?.trim() || groupId, rows);
-        } catch {
-          // Skip a guild that will not return proposals.
+    const groupNames = new Map<string, string>();
+    const groupIds: string[] = [];
+    for (const row of memberships) {
+      const groupId = row.groupId?.trim();
+      if (!groupId) continue;
+      groupIds.push(groupId);
+      groupNames.set(groupId, row.groupName?.trim() || groupId);
+    }
+    if (groupIds.length === 0) return [];
+
+    const res = await client.query.graphql<{
+      groupUpdates: ProposalIndexerEvent[];
+    }>({
+      query: `query MembershipOpenProposals($groupIds: [String!]!, $ops: [String!]!, $limit: Int!) {
+        groupUpdates(
+          where: { groupId: {_in: $groupIds}, operation: {_in: $ops} },
+          limit: $limit,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          operation
+          groupId
+          proposalId
+          title
+          proposalType
+          status
         }
-      })
-    );
+      }`,
+      variables: {
+        groupIds,
+        ops: ['proposal_created', 'proposal_status_updated'],
+        limit: Math.min(200, groupIds.length * 24),
+      },
+    });
+
+    return openPickerDraftsFromEvents(res.data?.groupUpdates ?? [], groupNames);
   } catch {
     // Memberships optional.
   }

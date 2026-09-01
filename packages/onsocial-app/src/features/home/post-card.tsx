@@ -64,7 +64,10 @@ import {
   cancelPostScarceListing,
 } from '@/features/scarces/cancel-post-scarce';
 import { PostScarceCta } from '@/features/scarces/post-scarce-cta';
-import { PostProposalChip } from '@/features/home/post-proposal-chip';
+import {
+  PostProposalChip,
+  useLiveProposalPaint,
+} from '@/features/home/post-proposal-chip';
 import {
   fetchOwnedScarceByTokenId,
   fetchOwnedScarceForCollection,
@@ -1587,7 +1590,10 @@ export function PostCard({
   const labels = parsePostContentLabels(post.value);
   const poll = parsePostPollEmbed(post.value);
   const proposalEmbed = parsePostProposalEmbed(post.value);
-  const proposalPaint = parseProposalPaintSnapshot(post.value);
+  const proposalPaint = useLiveProposalPaint(
+    proposalEmbed,
+    parseProposalPaintSnapshot(post.value)
+  );
   const dropPaint = parseDropPaintSnapshot(post.value);
   const mediaItems = parsePostMedia(post.value);
   const hasMedia = mediaItems.length > 0;

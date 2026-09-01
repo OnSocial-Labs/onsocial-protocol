@@ -420,7 +420,7 @@ export function guildProposalPresentation(
   const customTitle = proposal.title?.trim();
   if (customTitle && !isChainGeneratedCopy(customTitle)) {
     return {
-      kind: proposalTypeKind(proposal.type),
+      kind: guildProposalKindFromType(proposal.type),
       kindTone: proposalKindTone(proposal.type),
       headline: customTitle,
       targetAccountId:
@@ -437,7 +437,7 @@ export function guildProposalPresentation(
   }
 
   return {
-    kind: proposalTypeKind(proposal.type),
+    kind: guildProposalKindFromType(proposal.type),
     kindTone: proposalKindTone(proposal.type),
     headline: guildProposalFallbackTitle(proposal),
     targetAccountId:
@@ -451,7 +451,7 @@ export function guildProposalPresentation(
   };
 }
 
-function proposalTypeKind(type: string): string {
+export function guildProposalKindFromType(type: string): string {
   switch (type) {
     case 'permission_change':
       return 'Role';
@@ -652,6 +652,25 @@ export function guildProposalOutcome(
 
 export function isTerminalGuildProposalStatus(status: string): boolean {
   return status !== 'active';
+}
+
+/** One-word chip / picker status. Snapshot or live indexer status. */
+export function guildProposalStatusChipLabel(
+  status: string | null | undefined
+): string | null {
+  switch (status?.trim()) {
+    case 'active':
+      return 'Open';
+    case 'executed':
+    case 'executed_skipped':
+      return 'Approved';
+    case 'rejected':
+      return 'Not passed';
+    case 'cancelled':
+      return 'Cancelled';
+    default:
+      return null;
+  }
 }
 
 export function partitionGuildGovernanceProposals(proposals: Proposal[]): {

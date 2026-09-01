@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  composerToolLocks,
   guildAttachWriteFields,
   resolveComposerAttach,
 } from '@/features/guilds/composer-post-attach';
@@ -96,3 +97,39 @@ describe('resolveComposerAttach', () => {
     expect(proposal.writeFields.kind).toBeUndefined();
   });
 });
+
+describe('composerToolLocks', () => {
+  it('allows photo and proposal together', () => {
+    expect(
+      composerToolLocks({
+        mode: 'post',
+        pollEnabled: false,
+        hasDrop: false,
+        hasProposal: true,
+        mediaCount: 2,
+      })
+    ).toMatchObject({
+      canUseMedia: true,
+      canUseProposal: true,
+      canUsePoll: false,
+      canUseDrop: false,
+    });
+  });
+
+  it('keeps poll and Drop exclusive with a proposal', () => {
+    expect(
+      composerToolLocks({
+        mode: 'post',
+        pollEnabled: true,
+        hasDrop: false,
+        hasProposal: false,
+        mediaCount: 0,
+      })
+    ).toMatchObject({
+      canUseProposal: false,
+      canUseMedia: false,
+      canUseDrop: false,
+    });
+  });
+});
+

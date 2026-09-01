@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { postProposalHref } from '@/features/home/post-proposal-chip';
+import { proposalChipKindLine } from '@/features/guilds/proposal-indexer-events';
 
 describe('postProposalHref', () => {
   it('builds a guild proposals deep link from the embed', () => {
@@ -27,3 +28,10 @@ describe('postProposalHref', () => {
     ).toBeNull();
   });
 });
+
+describe('proposal chip copy', () => {
+  it('shows live status on the kind line', () => {
+    expect(proposalChipKindLine('Role', 'rejected')).toBe('Role · Not passed');
+  });
+});
+

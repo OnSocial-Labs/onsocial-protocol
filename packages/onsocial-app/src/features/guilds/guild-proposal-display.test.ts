@@ -6,6 +6,8 @@ import {
   guildProposalTitle,
   guildProposalOutcome,
   guildProposalVoteProgress,
+  guildProposalKindFromType,
+  guildProposalStatusChipLabel,
   guildViewerVoteLabel,
   parseVotingPeriodNs,
   partitionGuildGovernanceProposals,
@@ -246,5 +248,13 @@ describe('guild-proposal-display', () => {
       active: [rows[0]],
       resolved: [rows[1]],
     });
+  });
+
+  it('maps type and status for feed chips', () => {
+    expect(guildProposalKindFromType('member_invite')).toBe('Invite');
+    expect(guildProposalKindFromType('custom_proposal')).toBe('Proposal');
+    expect(guildProposalStatusChipLabel('active')).toBe('Open');
+    expect(guildProposalStatusChipLabel('executed_skipped')).toBe('Approved');
+    expect(guildProposalStatusChipLabel('cancelled')).toBe('Cancelled');
   });
 });

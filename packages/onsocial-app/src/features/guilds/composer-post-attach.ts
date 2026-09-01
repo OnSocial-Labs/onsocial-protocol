@@ -78,6 +78,27 @@ export function resolveComposerAttach(input: {
   };
 }
 
+/** Toolbar locks. Photo can sit next to a proposal tag; poll and Drop cannot. */
+export function composerToolLocks(input: {
+  mode: string;
+  pollEnabled: boolean;
+  hasDrop: boolean;
+  hasProposal: boolean;
+  mediaCount: number;
+}) {
+  const isPost = input.mode === 'post';
+  return {
+    canUsePoll: isPost && !input.hasDrop && !input.hasProposal,
+    canUseMedia: !input.pollEnabled && !input.hasDrop,
+    canUseDrop:
+      isPost &&
+      !input.pollEnabled &&
+      !input.hasProposal &&
+      input.mediaCount === 0,
+    canUseProposal: isPost && !input.pollEnabled && !input.hasDrop,
+  };
+}
+
 /** Guild writes keep room/media kind when the attach has none (text / proposal). */
 export function guildAttachWriteFields(
   attach: ReturnType<typeof resolveComposerAttach>,

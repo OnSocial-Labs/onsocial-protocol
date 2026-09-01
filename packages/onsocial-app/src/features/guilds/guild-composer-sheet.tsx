@@ -52,6 +52,7 @@ import { PostRichText } from '@/features/home/post-rich-text';
 import { ComposerHashtagTextarea } from '@/features/guilds/composer-hashtag-textarea';
 import { ComposerDropPicker } from '@/features/guilds/composer-drop-picker';
 import { ComposerProposalPicker } from '@/features/guilds/composer-proposal-picker';
+import { composerToolLocks } from '@/features/guilds/composer-post-attach';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
@@ -375,15 +376,14 @@ export function ComposerSheet({
   const [appliedMediaSeedKey, setAppliedMediaSeedKey] = useState('');
   const warningInputRef = useRef<HTMLInputElement>(null);
   const viewport = useVisualViewportSheetMetrics(open);
-  const canUsePoll = mode === 'post' && !dropDraft && !proposalDraft;
-  const canUseMedia = !pollEnabled && !dropDraft && !proposalDraft;
-  const canUseDrop =
-    mode === 'post' &&
-    !pollEnabled &&
-    !proposalDraft &&
-    mediaFiles.length === 0;
-  const canUseProposal =
-    mode === 'post' && !pollEnabled && !dropDraft && mediaFiles.length === 0;
+  const { canUsePoll, canUseMedia, canUseDrop, canUseProposal } =
+    composerToolLocks({
+      mode,
+      pollEnabled,
+      hasDrop: Boolean(dropDraft),
+      hasProposal: Boolean(proposalDraft),
+      mediaCount: mediaFiles.length,
+    });
   const canUsePlace = mode === 'post';
   const proposalGroupId =
     destination?.kind === 'guild'
@@ -1177,14 +1177,22 @@ export function ComposerSheet({
                     ? pollEnabled
                       ? 'Remove poll'
                       : 'Add poll'
-                    : 'Polls are for new posts'
+                    : dropDraft
+                      ? 'Remove Drop to add a poll'
+                      : proposalDraft
+                        ? 'Remove proposal to add a poll'
+                        : 'Polls are for new posts'
                 }
                 aria-label={
                   canUsePoll
                     ? pollEnabled
                       ? 'Remove poll'
                       : 'Add poll'
-                    : 'Polls are for new posts'
+                    : dropDraft
+                      ? 'Remove Drop to add a poll'
+                      : proposalDraft
+                        ? 'Remove proposal to add a poll'
+                        : 'Polls are for new posts'
                 }
                 aria-pressed={pollEnabled}
                 onClick={togglePoll}
@@ -1208,9 +1216,11 @@ export function ComposerSheet({
                       : 'Post a Drop'
                     : pollEnabled
                       ? 'Remove poll to post a Drop'
-                      : mediaFiles.length > 0
-                        ? 'Remove photos to post a Drop'
-                        : 'Drops are for new posts'
+                      : proposalDraft
+                        ? 'Remove proposal to post a Drop'
+                        : mediaFiles.length > 0
+                          ? 'Remove photos to post a Drop'
+                          : 'Drops are for new posts'
                 }
                 aria-label={
                   canUseDrop
@@ -1219,9 +1229,11 @@ export function ComposerSheet({
                       : 'Post a Drop'
                     : pollEnabled
                       ? 'Remove poll to post a Drop'
-                      : mediaFiles.length > 0
-                        ? 'Remove photos to post a Drop'
-                        : 'Drops are for new posts'
+                      : proposalDraft
+                        ? 'Remove proposal to post a Drop'
+                        : mediaFiles.length > 0
+                          ? 'Remove photos to post a Drop'
+                          : 'Drops are for new posts'
                 }
                 aria-pressed={Boolean(dropDraft)}
                 onClick={() => {
@@ -1250,9 +1262,7 @@ export function ComposerSheet({
                       ? 'Remove poll to tag a proposal'
                       : dropDraft
                         ? 'Remove Drop to tag a proposal'
-                        : mediaFiles.length > 0
-                          ? 'Remove photos to tag a proposal'
-                          : 'Proposals are for new posts'
+                        : 'Proposals are for new posts'
                 }
                 aria-label={
                   canUseProposal
@@ -1263,9 +1273,7 @@ export function ComposerSheet({
                       ? 'Remove poll to tag a proposal'
                       : dropDraft
                         ? 'Remove Drop to tag a proposal'
-                        : mediaFiles.length > 0
-                          ? 'Remove photos to tag a proposal'
-                          : 'Proposals are for new posts'
+                        : 'Proposals are for new posts'
                 }
                 aria-pressed={Boolean(proposalDraft)}
                 onClick={() => {
