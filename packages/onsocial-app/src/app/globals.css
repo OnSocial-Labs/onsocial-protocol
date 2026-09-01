@@ -1659,17 +1659,7 @@ a.os-surface-row {
       transparent
     )
   );
-  --os-dock-fill-hover: color-mix(
-    in srgb,
-    var(--os-dock-fill) 62%,
-    color-mix(
-      in srgb,
-      var(--mood-accent-chrome, var(--mood-accent)) 24%,
-      transparent
-    )
-  );
   --os-dock-shadow: var(--os-chrome-elev-shadow);
-  --os-dock-shadow-hover: var(--os-chrome-elev-shadow-hover);
   --os-dock-lip: inset 0 1px 0
     color-mix(
       in srgb,
@@ -1699,7 +1689,6 @@ a.os-surface-row {
   .portfolio-summon-dock[data-mood]:not([data-mood='glass']) .os-dock-pill {
     --os-dock-fill: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.96));
     --os-dock-shadow: var(--os-chrome-elev-shadow);
-    --os-dock-shadow-hover: var(--os-chrome-elev-shadow-hover);
   }
 }
 
@@ -3638,7 +3627,6 @@ a.os-surface-row {
     --mood-accent: rgb(200 218 238);
     --glass-summon-bg: rgb(255 255 255 / 0.16);
     --glass-summon-border: rgb(255 255 255 / 0.22);
-    --glass-summon-hover-bg: rgb(255 255 255 / 0.22);
     --glass-summon-lip: inset 0 1px 0 rgb(255 255 255 / 0.24);
     --glass-summon-grip: rgb(220 232 245);
     --glass-summon-hint: rgb(160 175 195);
@@ -3717,7 +3705,6 @@ a.os-surface-row {
     --mood-accent: rgb(75 85 100);
     --glass-summon-bg: rgb(255 255 255 / 0.68);
     --glass-summon-border: rgb(17 19 24 / 0.1);
-    --glass-summon-hover-bg: rgb(255 255 255 / 0.8);
     --glass-summon-lip: inset 0 1px 0 rgb(255 255 255 / 0.98);
     --glass-summon-grip: rgb(75 85 100);
     --glass-summon-hint: rgb(80 90 105);
@@ -3778,7 +3765,6 @@ a.os-surface-row {
       --mood-accent: rgb(75 85 100);
       --glass-summon-bg: rgb(255 255 255 / 0.68);
       --glass-summon-border: rgb(17 19 24 / 0.1);
-      --glass-summon-hover-bg: rgb(255 255 255 / 0.8);
       --glass-summon-lip: inset 0 1px 0 rgb(255 255 255 / 0.98);
       --glass-summon-grip: rgb(75 85 100);
       --glass-summon-hint: rgb(80 90 105);
@@ -4165,13 +4151,7 @@ a.os-surface-row {
       rgb(var(--bg-rgb) / 0.72) 62%,
       var(--glass-summon-bg)
     );
-    --os-dock-fill-hover: color-mix(
-      in srgb,
-      rgb(var(--bg-rgb) / 0.72) 52%,
-      var(--glass-summon-hover-bg)
-    );
     --os-dock-shadow: var(--os-chrome-elev-shadow);
-    --os-dock-shadow-hover: var(--os-chrome-elev-shadow-hover);
     --os-dock-lip: var(--glass-summon-lip);
   }
 
@@ -4187,7 +4167,6 @@ a.os-surface-row {
   @media (prefers-reduced-transparency: reduce) {
     .portfolio-summon-dock[data-mood='glass'] .os-dock-pill {
       --os-dock-shadow: var(--os-chrome-elev-shadow);
-      --os-dock-shadow-hover: var(--os-chrome-elev-shadow-hover);
     }
   }
 
@@ -9751,13 +9730,7 @@ a.os-surface-row {
    */
   .os-app-screen:not(.os-app-screen--mood) .os-dock-pill {
     --os-dock-fill: rgb(var(--bg-rgb) / 0.72);
-    --os-dock-fill-hover: color-mix(
-      in srgb,
-      rgb(var(--bg-rgb) / 0.72) 88%,
-      rgb(var(--fg-rgb) / 0.08)
-    );
     --os-dock-shadow: var(--os-chrome-elev-shadow);
-    --os-dock-shadow-hover: var(--os-chrome-elev-shadow-hover);
     --os-dock-lip: inset 0 1px 0 rgb(var(--fg-rgb) / 0.1);
   }
 
@@ -33657,11 +33630,6 @@ a.os-surface-row {
 .os-dock-pill.portfolio-summon::before {
   background: var(--os-dock-fill);
   backdrop-filter: blur(20px) saturate(1.3);
-}
-
-.os-dock-pill.portfolio-summon:hover::before {
-  background: var(--os-dock-fill-hover);
-  box-shadow: var(--os-dock-shadow-hover), var(--os-dock-lip);
 }
 
 @media (prefers-reduced-transparency: reduce) {

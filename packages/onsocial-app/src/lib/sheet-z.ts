@@ -5,7 +5,8 @@
  *
  * UI-package defaults that coincide with this scale: GlassSheet 50,
  * OsGestureSheet 56, OsHugSheet / ActionDrawer 60, DISCARD_CONFIRM_Z 96.
- * The OS summon launcher sits at 46 (os-launcher.css) — below every sheet.
+ * The OS summon launcher sits at 49 (os-launcher.css) — above pageDrawer (48)
+ * so it can open over the keep-dock page sheet, below overlayHost 50+.
  */
 export const SHEET_Z = {
   /** Page content drawer, under the overlay host. */
