@@ -47,7 +47,8 @@ export function ScarceOfferSheet({
     useState<CommerceSheetFooterState | null>(null);
   const ownerId = listing?.ownerId ?? '';
   const sheetOpen = open && !closing && listing != null && Boolean(ownerId);
-  const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
+  const { panelStyle, keyboardOpen, moodId } =
+    useCommerceSheetKeyboard(sheetOpen);
   const name = ownerId
     ? displayName(ownerId, listing?.ownerName ?? undefined)
     : '';
@@ -89,6 +90,7 @@ export function ScarceOfferSheet({
       closeAriaLabel="Close offer scarce"
       backdropLabel="Close offer scarce"
       keyboardOpen={keyboardOpen}
+      moodId={moodId}
       panelStyle={panelStyle}
       panelClassName={osGestureSheetPanelCommerceClassName}
       bodyClassName="profile-support-sheet-body"

@@ -95,7 +95,8 @@ export function ScarceBuySheet({
     !closing &&
     (post != null || listing != null || embed != null) &&
     Boolean(sellerId);
-  const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
+  const { panelStyle, keyboardOpen, moodId } =
+    useCommerceSheetKeyboard(sheetOpen);
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -159,6 +160,7 @@ export function ScarceBuySheet({
       closeAriaLabel={closeLabel}
       backdropLabel={closeLabel}
       keyboardOpen={keyboardOpen}
+      moodId={moodId}
       panelStyle={panelStyle}
       panelClassName={osGestureSheetPanelCommerceClassName}
       bodyClassName="profile-support-sheet-body"

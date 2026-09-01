@@ -9,6 +9,7 @@ import {
 } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
 import {
@@ -54,6 +55,7 @@ export function ScarceOffersSheet({
   const [loading, setLoading] = useState(false);
   const [acceptingBuyer, setAcceptingBuyer] = useState<string | null>(null);
   const sheetOpen = open && !closing && item != null;
+  const { moodId, style: panelStyle } = useViewerDockMood();
   const accountId = item?.ownerId || '';
   const name = accountId ? displayName(accountId) : '';
   const handle = accountId ? fallbackLabel(accountId) : '';
@@ -133,6 +135,8 @@ export function ScarceOffersSheet({
       whisper="Accept the best offer to sell this scarce."
       closeAriaLabel="Close offers"
       backdropLabel="Close offers"
+      moodId={moodId ?? undefined}
+      panelStyle={panelStyle}
       panelClassName={osGestureSheetPanelCommerceClassName}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}

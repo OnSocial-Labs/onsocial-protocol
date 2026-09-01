@@ -75,8 +75,7 @@ export function EndorsementSupportSheet({
     Boolean(recipientAccountId) && (open || closing)
   );
   const effectiveMood = mood ?? fetchedMood;
-  const { panelStyle: keyboardPanelStyle, keyboardOpen } =
-    useCommerceSheetKeyboard(sheetOpen);
+  const { keyboardStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
   const moodPanelStyle = useMemo(
     () =>
       effectiveMood
@@ -85,9 +84,9 @@ export function EndorsementSupportSheet({
     [effectiveMood]
   );
   const panelStyle = useMemo(() => {
-    if (!moodPanelStyle && !keyboardPanelStyle) return undefined;
-    return { ...moodPanelStyle, ...keyboardPanelStyle };
-  }, [keyboardPanelStyle, moodPanelStyle]);
+    if (!moodPanelStyle && !keyboardStyle) return undefined;
+    return { ...moodPanelStyle, ...keyboardStyle };
+  }, [keyboardStyle, moodPanelStyle]);
 
   if (open !== wasOpen) {
     setWasOpen(open);

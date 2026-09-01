@@ -22,8 +22,9 @@ export const osGestureSheetPanelClassName = 'os-gesture-sheet-panel';
 export const osGestureSheetPanelTallClassName = 'os-gesture-sheet-panel--tall';
 
 /**
- * Scarce Buy / Sell / Bid / Offer / List — money actions stay protocol green
- * even when viewer mood remaps `--signal-reputation`.
+ * Scarce Buy / Sell / Bid / Offer / List marker — verbs + amount chips
+ * follow `--signal-reputation` (mood-blended). Love / player stay
+ * protocol green in clip CSS. Do not re-lock this class to `--protocol-green`.
  */
 export const osGestureSheetPanelCommerceClassName =
   'os-gesture-sheet-panel--commerce';

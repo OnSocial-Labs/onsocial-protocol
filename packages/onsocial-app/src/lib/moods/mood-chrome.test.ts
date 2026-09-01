@@ -9,6 +9,14 @@ const surfaceCss = readFileSync(
   join(here, '../../../../onsocial-ui/os-surface-interactive.css'),
   'utf8'
 );
+const gestureHeaderCss = readFileSync(
+  join(here, '../../../../onsocial-ui/os-gesture-sheet-header.css'),
+  'utf8'
+);
+const gestureSheetTs = readFileSync(
+  join(here, '../../../../onsocial-ui/src/os-gesture-sheet.tsx'),
+  'utf8'
+);
 const resolveTs = readFileSync(join(here, 'resolve.ts'), 'utf8');
 
 describe('mood chrome map', () => {
@@ -71,6 +79,18 @@ describe('mood chrome map', () => {
     );
     expect(globalsCss).toMatch(
       /\.discover-tab-bar--browse button \{\s*[\s\S]*?color: var\(\s*--signal-reputation/
+    );
+  });
+
+  it('lets commerce sheets and amount chips follow mood reputation', () => {
+    expect(globalsCss).toMatch(
+      /\.os-gesture-sheet-panel--commerce \{\s*[\s\S]*?--os-chip-selected-ink: var\(--signal-reputation\);/
+    );
+    expect(gestureHeaderCss).not.toMatch(
+      /\.os-gesture-sheet-panel--commerce\s*\{/
+    );
+    expect(gestureSheetTs).toContain(
+      'Do not re-lock this class to `--protocol-green`'
     );
   });
 

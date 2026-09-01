@@ -43,7 +43,8 @@ export function ScarceListSheet({
   const [footerState, setFooterState] =
     useState<CommerceSheetFooterState | null>(null);
   const sheetOpen = open && !closing && post != null;
-  const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
+  const { panelStyle, keyboardOpen, moodId } =
+    useCommerceSheetKeyboard(sheetOpen);
   const name = post ? displayName(post.accountId, authorName ?? undefined) : '';
   const handle = post ? fallbackLabel(post.accountId) : '';
 
@@ -82,6 +83,7 @@ export function ScarceListSheet({
       closeAriaLabel="Close list scarce"
       backdropLabel="Close list scarce"
       keyboardOpen={keyboardOpen}
+      moodId={moodId}
       panelStyle={panelStyle}
       panelClassName={osGestureSheetPanelCommerceClassName}
       bodyClassName="profile-support-sheet-body"
