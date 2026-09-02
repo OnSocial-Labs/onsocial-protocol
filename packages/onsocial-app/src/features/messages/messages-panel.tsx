@@ -61,6 +61,7 @@ import {
 } from '@/lib/dm/thread-archive';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
+import { DmBubbleText } from '@/features/messages/dm-bubble-text';
 import { DmMediaBubble } from '@/features/messages/dm-media-bubble';
 import { DmRecoveryCodeSheet } from '@/features/messages/dm-recovery-code-sheet';
 import { inboxPreviewFromDecrypted } from '@/features/messages/dm-inbox-preview';
@@ -1725,7 +1726,11 @@ export function MessagesPanel() {
                           ) : null}
                           {text != null ? (
                             text ? (
-                              <p>{text}</p>
+                              isDmDecryptFailureText(text) ? (
+                                <p>{text}</p>
+                              ) : (
+                                <DmBubbleText text={text} />
+                              )
                             ) : null
                           ) : (
                             <p>…</p>
