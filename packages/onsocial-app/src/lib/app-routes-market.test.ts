@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { shouldSeedMarketDefaultBrowse } from '@/lib/load-market-page';
 import {
   marketPath,
   parseMarketSortParam,
@@ -26,6 +27,24 @@ describe('marketPath', () => {
   it('encodes kind and sort', () => {
     expect(marketPath({ kind: 'audio', sort: 'ending' })).toBe(
       '/market?kind=audio&sort=ending'
+    );
+  });
+});
+
+describe('shouldSeedMarketDefaultBrowse', () => {
+  it('seeds only the unfiltered newest catalog', () => {
+    expect(shouldSeedMarketDefaultBrowse({})).toBe(true);
+    expect(shouldSeedMarketDefaultBrowse({ sort: 'newest' })).toBe(true);
+  });
+
+  it('skips SSR seed when the URL already narrows discovery', () => {
+    expect(shouldSeedMarketDefaultBrowse({ kind: 'ticket' })).toBe(false);
+    expect(shouldSeedMarketDefaultBrowse({ sort: 'ending' })).toBe(false);
+    expect(shouldSeedMarketDefaultBrowse({ creator: 'alice.near' })).toBe(
+      false
+    );
+    expect(shouldSeedMarketDefaultBrowse({ audioFormat: 'podcast' })).toBe(
+      false
     );
   });
 });

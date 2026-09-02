@@ -1,71 +1,93 @@
 import { expect, test } from '@playwright/test';
 import {
   clickTab,
-  clickTabAndWaitUrl,
+  closeMarketFilter,
   expectChoiceMenuVisible,
-  expectSearchVisible,
+  expectMarketChrome,
+  expectMarketFilterSummary,
+  expectMediumSelected,
   expectTabSelected,
   expectTabVisible,
   gotoApp,
+  marketListSkeleton,
+  marketListingResults,
+  openMarketFilter,
+  pickMediumAndWaitUrl,
+  tab,
   tablist,
 } from './helpers';
 
 /**
- * Smoke for Market discovery chrome — listing type, medium rail, deep-links.
- * Does not assert live indexer row content (network-dependent).
+ * Market load + layout — listing-type rail, Filter drawer (medium / format),
+ * sort, deep-links. Does not assert live indexer row titles (network-dependent).
  */
 test.describe('market discovery', () => {
+  test('paints search, listing-type rail, filter, and sort', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/market');
+    await expectMarketChrome(page);
+    await expect(
+      page.getByRole('button', { name: /Open filter menu, Filter/ })
+    ).toBeVisible();
+  });
+
   test('loads catalog chrome and switches medium + format', async ({
     page,
   }) => {
     await gotoApp(page, '/market');
+    await expectMarketChrome(page);
 
-    await expectSearchVisible(page, 'Search Market listings');
+    await openMarketFilter(page);
+    await expectMediumSelected(page, 'All');
+    await pickMediumAndWaitUrl(page, 'Audio', /kind=audio/);
+    await expectMediumSelected(page, 'Audio');
 
-    await expectTabVisible(page, 'Listing type', 'All');
-    await expectTabVisible(page, 'Listing type', 'Auctions');
-
-    await expectTabVisible(page, 'Listing medium', 'Audio');
-    await expectTabVisible(page, 'Listing medium', 'Thoughts');
-    await expectTabVisible(page, 'Listing medium', 'Tickets');
-
-    await clickTabAndWaitUrl(page, 'Listing medium', 'Audio', /kind=audio/);
     await expectTabVisible(page, 'Release format', 'Album');
     await expectTabVisible(page, 'Release format', 'Podcast');
-
-    await clickTabAndWaitUrl(
-      page,
-      'Release format',
-      'Podcast',
-      /audioFormat=podcast/
-    );
+    await tab(page, 'Release format', 'Podcast').click();
+    await page.waitForURL(/audioFormat=podcast/);
     await expectTabSelected(page, 'Release format', 'Podcast');
+    await closeMarketFilter(page);
+    await expectMarketFilterSummary(page, /Audio/);
   });
 
   test('deep-links medium and audio format from the URL', async ({ page }) => {
     await gotoApp(page, '/market?kind=audio&audioFormat=podcast');
-    await expectTabSelected(page, 'Listing medium', 'Audio');
-    await expectTabSelected(page, 'Release format', 'Podcast');
+    await expectMarketChrome(page);
+    await expectMarketFilterSummary(page, /Audio/);
+    await expectMarketFilterSummary(page, /Podcast/);
   });
 
   test('deep-links tickets medium without seeding unfiltered rows', async ({
     page,
   }) => {
     await gotoApp(page, '/market?kind=ticket');
-    await expectTabSelected(page, 'Listing medium', 'Tickets');
+    await expectMarketChrome(page);
+    await expectMarketFilterSummary(page, 'Tickets');
+
+    // Discovery URLs skip the default All seed. Ready paint is either the
+    // narrowed empty copy or ticket rows — not an All catalog under Tickets.
+    const emptyTickets = page.getByText(/Nothing in Tickets right now/);
+    const ticketRow = marketListingResults(page).locator('.market-listing-row');
+    await expect(emptyTickets.or(ticketRow.first())).toBeVisible();
+    await expect(marketListSkeleton(page)).toHaveCount(0);
   });
 
   test('deep-links thoughts medium for primary post-mints', async ({
     page,
   }) => {
     await gotoApp(page, '/market?kind=thought');
-    await expectTabSelected(page, 'Listing medium', 'Thoughts');
+    await expectMarketChrome(page);
+    await expectMarketFilterSummary(page, 'Thoughts');
+    const emptyThoughts = page.getByText(/Nothing in Thoughts right now/);
+    const thoughtRow = marketListingResults(page).locator('.market-listing-row');
+    await expect(emptyThoughts.or(thoughtRow.first())).toBeVisible();
   });
 
   test('deep-links ending soon sort onto Auctions', async ({ page }) => {
     await gotoApp(page, '/market?sort=ending');
     await expectTabSelected(page, 'Listing type', 'Auctions');
-    // ChoiceDrawerMenu a11y name is "Open sort menu"; visible label is Ending soon.
     await expectChoiceMenuVisible(page, 'Sort', {
       containsText: 'Ending soon',
     });
