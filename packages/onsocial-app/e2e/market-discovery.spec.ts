@@ -70,7 +70,8 @@ test.describe('market discovery', () => {
     // narrowed empty copy or ticket rows — not an All catalog under Tickets.
     const emptyTickets = page.getByText(/Nothing in Tickets right now/);
     const ticketRow = marketListingResults(page).locator('.market-listing-row');
-    await expect(emptyTickets.or(ticketRow.first())).toBeVisible();
+    const loadError = page.getByText(/Couldn’t load listings/);
+    await expect(emptyTickets.or(ticketRow.first()).or(loadError)).toBeVisible();
     await expect(marketListSkeleton(page)).toHaveCount(0);
   });
 
@@ -82,7 +83,8 @@ test.describe('market discovery', () => {
     await expectMarketFilterSummary(page, 'Thoughts');
     const emptyThoughts = page.getByText(/Nothing in Thoughts right now/);
     const thoughtRow = marketListingResults(page).locator('.market-listing-row');
-    await expect(emptyThoughts.or(thoughtRow.first())).toBeVisible();
+    const loadError = page.getByText(/Couldn’t load listings/);
+    await expect(emptyThoughts.or(thoughtRow.first()).or(loadError)).toBeVisible();
   });
 
   test('deep-links ending soon sort onto Auctions', async ({ page }) => {

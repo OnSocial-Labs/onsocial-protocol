@@ -13,7 +13,8 @@ export function marketFilterTrigger(page: Page): Locator {
 
 export async function expectMarketChrome(page: Page): Promise<void> {
   await expectSearchVisible(page, 'Search Market listings');
-  // Loading shells also use .market-page — toolbar is the ready chrome.
+  // Loading shells also use .market-page without a toolbar. The rail lives in
+  // the screen chrome, not inside `.market-page`.
   await expect(page.locator('.market-listing-toolbar')).toBeVisible({
     timeout: E2E_CHROME_TIMEOUT_MS,
   });
@@ -23,6 +24,17 @@ export async function expectMarketChrome(page: Page): Promise<void> {
     timeout: E2E_CHROME_TIMEOUT_MS,
   });
   await expectChoiceMenuVisible(page, 'Sort');
+  await expect(
+    page
+      .locator('#market-listing-results .market-listing-row')
+      .first()
+      .or(page.getByText(/Couldn’t load listings/))
+      .or(page.getByText(/Nothing in /))
+      .or(page.getByText(/Nothing listed yet/))
+      .or(page.getByText(/No matches for these filters/))
+      .or(page.getByText(/No live listings/))
+      .or(page.getByText(/No active listings/))
+  ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
 }
 
 export async function expectMarketFilterSummary(

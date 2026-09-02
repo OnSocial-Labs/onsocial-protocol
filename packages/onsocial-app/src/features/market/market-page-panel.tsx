@@ -1272,7 +1272,9 @@ export function MarketPagePanel({
       : salesRows.slice(0, RECENT_SALES_PREVIEW);
   const hiddenSalesCount = Math.max(0, salesRows.length - visibleSales.length);
 
-  const showListingToolbar = status !== 'error' && !showEmptyBrowse;
+  // Keep chrome on catalog error so Retry is not the only control, and so
+  // loading → error does not yank Filter / Sort / listing type.
+  const showListingToolbar = !showEmptyBrowse;
   const showOwnedSection =
     Boolean(viewerAccountId) &&
     owned.length > 0 &&
@@ -1373,7 +1375,7 @@ export function MarketPagePanel({
         ) : undefined
       }
     >
-      <div className="market-page">
+      <div className="market-page" data-market-panel>
         {creatorFilter ? (
           <div className="market-creator-filter">
             <Link
