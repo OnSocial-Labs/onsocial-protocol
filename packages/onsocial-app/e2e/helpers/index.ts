@@ -41,3 +41,7 @@ export {
   pickMediumAndWaitUrl,
 } from './market';
 export { clickDropsSortAndWaitUrl, expectDropsChrome } from './drops';
+export {
+  clickCollectiblesKindAndWaitUrl,
+  expectCollectiblesChrome,
+} from './collectibles-vault';

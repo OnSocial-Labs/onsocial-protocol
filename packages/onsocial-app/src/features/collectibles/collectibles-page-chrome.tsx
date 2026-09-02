@@ -1,25 +1,43 @@
 'use client';
 
-import { OsAppChromeToolbarRail, StarsCFillIcon } from '@onsocial/ui';
+import {
+  ChevronDownIcon,
+  OsAppChromeToolbarRail,
+  StarsCFillIcon,
+  osFloatingPanelTriggerChevronClassName,
+  osFloatingPanelTriggerClassName,
+  osFloatingPanelTriggerLabelClassName,
+  osFloatingPanelTriggerMetaClassName,
+} from '@onsocial/ui';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { OsChipRail } from '@/components/os/os-chip-rail';
-import { useCollectiblesPanelChrome } from '@/features/collectibles/collectibles-panel-context';
-import { MarketFilterMenu } from '@/features/market/market-filter-menu';
-import { MARKET_MEDIUM_FILTERS } from '@/features/market/market-medium';
+import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
+import {
+  MarketFilterMenu,
+  marketFilterTriggerLabel,
+} from '@/features/market/market-filter-menu';
+import {
+  MARKET_MEDIUM_FILTERS,
+  type MarketMediumFilter,
+} from '@/features/market/market-medium';
+import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 
 /** Search field with Collectibles icon — same heading slot as Market. */
-export function CollectiblesSearchHeading() {
-  const { searchQuery, setSearchQuery, showDiscoveryChrome } =
-    useCollectiblesPanelChrome();
-
-  if (!showDiscoveryChrome) {
-    return null;
-  }
-
+export function CollectiblesSearchHeading({
+  query = '',
+  onQueryChange,
+  interactive = true,
+}: {
+  query?: string;
+  onQueryChange?: (value: string) => void;
+  interactive?: boolean;
+}) {
   return (
     <OsAppChromeNavSearch
-      value={searchQuery}
-      onValueChange={setSearchQuery}
+      value={query}
+      onValueChange={
+        interactive && onQueryChange ? onQueryChange : () => undefined
+      }
       placeholder="Search collectibles"
       clearAriaLabel="Clear search"
       ariaLabel="Search collectibles"
@@ -29,31 +47,56 @@ export function CollectiblesSearchHeading() {
   );
 }
 
-/** Kind rail + Filter drawer — format/genres live in the sheet (Market parity). */
-export function CollectiblesFilterToolbar() {
-  const {
-    setScrollTuckPinned,
-    showDiscoveryChrome,
-    mediumFilter,
-    setMediumFilter,
-    facetMedium,
+/**
+ * Kind rail + Filter drawer. Live menus on the ready panel; inert clone on
+ * the loading shell so chrome height does not jump.
+ */
+export function CollectiblesFilterToolbar({
+  medium,
+  audioFormat,
+  selectedFacets,
+  inert = false,
+  ready = false,
+  onMediumChange,
+  onAudioFormatChange,
+  onFacetsChange,
+  onClear,
+  onMenuOpenChange,
+}: {
+  medium: MarketMediumFilter;
+  audioFormat: MarketAudioFormatFilter;
+  selectedFacets: string[];
+  inert?: boolean;
+  ready?: boolean;
+  onMediumChange?: (medium: MarketMediumFilter) => void;
+  onAudioFormatChange?: (format: MarketAudioFormatFilter) => void;
+  onFacetsChange?: (facets: string[]) => void;
+  onClear?: () => void;
+  onMenuOpenChange?: (open: boolean) => void;
+}) {
+  const facetMedium = normalizeDropFacetMedium(medium);
+  const filterLabel = marketFilterTriggerLabel({
+    medium,
+    audioFormat,
     selectedFacets,
-    audioFormatFilter,
-    replaceDiscoveryParams,
-  } = useCollectiblesPanelChrome();
-
-  if (!showDiscoveryChrome) {
-    return null;
-  }
+    facetMedium,
+  });
 
   return (
-    <OsAppChromeToolbarRail className="market-listing-toolbar collectibles-filter-toolbar">
+    <OsAppChromeToolbarRail
+      className="market-listing-toolbar collectibles-filter-toolbar"
+      data-collectibles-ready={ready ? '' : undefined}
+      data-collectibles-loading={inert ? '' : undefined}
+      aria-hidden={inert || undefined}
+      style={inert ? { pointerEvents: 'none' } : undefined}
+    >
       <div className="market-listing-filter-stack">
         <OsChipRail
           className="market-listing-filters"
           ariaLabel="Collectible kind"
-          value={mediumFilter}
-          onValueChange={setMediumFilter}
+          value={medium}
+          onValueChange={onMediumChange ?? (() => undefined)}
+          disabled={inert}
           tabIdFor={(id) => `collectibles-kind-tab-${id}`}
           ariaControls="collectibles-results"
           items={MARKET_MEDIUM_FILTERS.map((tab) => ({
@@ -62,19 +105,40 @@ export function CollectiblesFilterToolbar() {
           }))}
         />
       </div>
-      <MarketFilterMenu
-        medium={mediumFilter}
-        onMediumChange={setMediumFilter}
-        facetMedium={facetMedium}
-        audioFormat={audioFormatFilter}
-        selectedFacets={selectedFacets}
-        onAudioFormatChange={(format) =>
-          replaceDiscoveryParams({ audioFormat: format })
-        }
-        onFacetsChange={(facets) => replaceDiscoveryParams({ facets })}
-        onClear={() => setMediumFilter('all')}
-        onOpenChange={setScrollTuckPinned}
-      />
+      {inert ? (
+        <div className="standing-view-menu market-listing-sort-menu">
+          <button
+            type="button"
+            className={osFloatingPanelTriggerClassName}
+            disabled
+            aria-haspopup="dialog"
+            aria-expanded={false}
+            aria-label={`Open filter menu, ${filterLabel}`}
+          >
+            <span className={osFloatingPanelTriggerLabelClassName}>
+              {filterLabel}
+            </span>
+            <span className={osFloatingPanelTriggerMetaClassName}>
+              <ChevronDownIcon
+                className={osFloatingPanelTriggerChevronClassName}
+                aria-hidden
+              />
+            </span>
+          </button>
+        </div>
+      ) : (
+        <MarketFilterMenu
+          medium={medium}
+          onMediumChange={onMediumChange ?? (() => undefined)}
+          facetMedium={facetMedium}
+          audioFormat={audioFormat}
+          selectedFacets={selectedFacets}
+          onAudioFormatChange={onAudioFormatChange ?? (() => undefined)}
+          onFacetsChange={onFacetsChange ?? (() => undefined)}
+          onClear={onClear ?? (() => undefined)}
+          onOpenChange={onMenuOpenChange}
+        />
+      )}
     </OsAppChromeToolbarRail>
   );
 }
