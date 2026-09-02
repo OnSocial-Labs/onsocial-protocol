@@ -14,9 +14,21 @@ export interface DataRow {
   accountId: string;
   dataType?: string;
   dataId: string;
+  /** Path after `apps/<appId>/`. Empty at the app root; omitted on non-apps rows. */
+  appRelpath?: string;
   blockHeight: number;
   blockTimestamp: number;
   operation: string;
+}
+
+/** Escape `\`, `%`, and `_` so user input is literal in a SQL LIKE pattern. */
+export function escapeLike(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+}
+
+/** Trim and strip leading/trailing slashes from an apps/ relative prefix. */
+export function normalizeAppPrefix(prefix: string): string {
+  return prefix.trim().replace(/^\/+|\/+$/g, '');
 }
 
 export class RawQuery {
@@ -191,5 +203,68 @@ export class RawQuery {
       },
     });
     return res.data?.dataUpdates ?? [];
+  }
+
+  /**
+   * List latest rows under `apps/<appId>/<prefix>/…` across accounts.
+   *
+   * Queries `appsCurrent` (latest row per full path, already scoped to
+   * `data_type = apps`). Prefix matching is slash-bounded so `lot` does
+   * not match `lottery`.
+   *
+   * ```ts
+   * const folder = await os.query.raw.byAppPrefix('acme-track', 'lot');
+   * const profiles = await os.query.raw.byAppPrefix('dating', 'profile', {
+   *   accountId: 'alice.near',
+   *   limit: 25,
+   * });
+   * ```
+   *
+   * An empty prefix lists every latest row for that appId (same scope as
+   * {@link byAppId}, but latest-per-path).
+   */
+  async byAppPrefix(
+    appId: string,
+    prefix: string,
+    opts: { accountId?: string; limit?: number; offset?: number } = {}
+  ): Promise<DataRow[]> {
+    const limit = opts.limit ?? 50;
+    const offset = opts.offset ?? 0;
+    const normalized = normalizeAppPrefix(prefix);
+    const conditions = [`{dataId: {_eq: $appId}}`];
+    if (normalized) {
+      conditions.push(
+        `{_or: [{appRelpath: {_eq: $prefix}}, {appRelpath: {_like: $prefixLike}}]}`
+      );
+    }
+    if (opts.accountId) conditions.push(`{accountId: {_eq: $accountId}}`);
+    const where =
+      conditions.length === 1
+        ? conditions[0]
+        : `{_and: [${conditions.join(', ')}]}`;
+
+    const res = await this._q.graphql<{ appsCurrent: DataRow[] }>({
+      query: `query DataByAppPrefix($appId: String!${
+        normalized ? ', $prefix: String!, $prefixLike: String!' : ''
+      }${opts.accountId ? ', $accountId: String!' : ''}) {
+        appsCurrent(where: ${where}, limit: ${limit}, offset: ${offset}, orderBy: [{blockHeight: DESC}]) {
+          path value accountId dataId appRelpath blockHeight blockTimestamp operation
+        }
+      }`,
+      variables: {
+        appId,
+        ...(normalized
+          ? {
+              prefix: normalized,
+              prefixLike: `${escapeLike(normalized)}/%`,
+            }
+          : {}),
+        ...(opts.accountId ? { accountId: opts.accountId } : {}),
+      },
+    });
+    return (res.data?.appsCurrent ?? []).map((row) => ({
+      ...row,
+      dataType: row.dataType ?? APP_DATA_TYPE,
+    }));
   }
 }
