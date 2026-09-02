@@ -9,10 +9,6 @@ import {
   StarMovingFillIcon,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -47,7 +43,6 @@ import {
   fetchMarketSales,
   fetchOwnedScarcesPage,
   excludeOwnedNativeListings,
-  formatMarketRelativeTime,
   invalidateLiveListingsCache,
   isPrimaryThoughtListing,
   listingCreatorAccountId,
@@ -213,13 +208,9 @@ function sourcePostCoords(
 export function MarketPagePanel({
   seedQuery = EMPTY_MARKET_PAGE_QUERY,
   seedPromise = null,
-  initialListings = null,
-  initialSales = null,
 }: {
   seedQuery?: MarketPageQuery;
   seedPromise?: Promise<MarketPageData | null> | null;
-  initialListings?: MarketListingsPage | null;
-  initialSales?: MarketSaleItem[] | null;
 } = {}) {
   const { accountId: viewerAccountId, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
@@ -234,37 +225,12 @@ export function MarketPagePanel({
   const audioFormatFilter = query.audioFormat;
   const urlSort = query.sort;
   const [retryKey, setRetryKey] = useState(0);
-  const canSeedBrowse =
-    initialListings != null &&
-    marketBrowseParamsKey({
-      listingFilter: listingFilterFromSort(urlSort),
-      sort: urlSort,
-      creator: creatorFilter,
-      app: appFilter,
-      kind: mediumFilter,
-      facets: selectedFacets,
-      audioFormat: audioFormatFilter,
-    }) === seedKey;
-  const [listingsState, setListingsState] = useState<ListingsState>(() =>
-    canSeedBrowse && initialListings
-      ? {
-          paramsKey: seedKey,
-          items: initialListings.items.filter(
-            (item) =>
-              mediumFilter !== 'all' || !isPrimaryThoughtListing(item)
-          ),
-          nextOffset: initialListings.nextOffset,
-          hasMore: initialListings.hasMore,
-          failed: false,
-        }
-      : EMPTY_LISTINGS
-  );
+  const [listingsState, setListingsState] =
+    useState<ListingsState>(EMPTY_LISTINGS);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [catalogRefreshing, setCatalogRefreshing] = useState(false);
-  const [sales, setSales] = useState<MarketSaleItem[] | null>(
-    () => initialSales
-  );
+  const [sales, setSales] = useState<MarketSaleItem[] | null>(null);
   const [ownedState, setOwnedState] = useState<OwnedState>(EMPTY_OWNED);
   const [ownedLoadingMore, setOwnedLoadingMore] = useState(false);
   const [buyListing, setBuyListing] = useState<ScarceBuyListing | null>(null);
@@ -302,8 +268,6 @@ export function MarketPagePanel({
   const listingsSentinelRef = useRef<HTMLDivElement | null>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   // Soft SSR already seeded default browse — skip one duplicate keyed query.
-  const ssrSeedSkipRef = useRef(canSeedBrowse);
-  const ssrSalesSkipRef = useRef(initialSales != null);
   /** Bumped on each first-page fetch so in-flight loadMore cannot append stale pages. */
   const listingsFetchGenRef = useRef(0);
   const catalogCacheRef = useRef<Map<string, MarketCatalogCacheEntry>>(
@@ -434,11 +398,6 @@ export function MarketPagePanel({
   // First catalog page. Cache hits paint instantly then soft-revalidate.
   // Misses keep the last rows under a quiet refresh — skeleton only if empty.
   useEffect(() => {
-    if (ssrSeedSkipRef.current && listingsParamsKey === seedKey) {
-      ssrSeedSkipRef.current = false;
-      return;
-    }
-    ssrSeedSkipRef.current = false;
     const gen = ++listingsFetchGenRef.current;
     setLoadingMore(false);
     setLoadMoreFailed(false);
@@ -687,11 +646,6 @@ export function MarketPagePanel({
   }, [listingsState.items]);
 
   useEffect(() => {
-    if (ssrSalesSkipRef.current && retryKey === 0) {
-      ssrSalesSkipRef.current = false;
-      return;
-    }
-    ssrSalesSkipRef.current = false;
     let cancelled = false;
     setSalesExpanded(false);
     fetchMarketSales().then(
