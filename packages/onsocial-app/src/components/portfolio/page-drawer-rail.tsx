@@ -33,19 +33,15 @@ export function PageDrawerRailPanels({
   createdPeeks,
   holdings,
 }: PageDrawerRailPanelsProps) {
-  if (isProfileFeedTab(tab)) {
-    return (
-      <ProfileFeedClient
-        accountId={pageAccountId}
-        postCount={postCount}
-        tab={tab}
-      />
-    );
-  }
-
   return (
     <div className="page-drawer-sections">
-      {tab === 'scarces' ? (
+      {isProfileFeedTab(tab) ? (
+        <ProfileFeedClient
+          accountId={pageAccountId}
+          postCount={postCount}
+          tab={tab}
+        />
+      ) : tab === 'scarces' ? (
         <PageDrawerScarcesPanel
           pageAccountId={pageAccountId}
           profileName={profileName}
@@ -53,14 +49,12 @@ export function PageDrawerRailPanels({
           storeShelf={storeShelf}
           createdPeeks={createdPeeks}
         />
-      ) : null}
-
-      {tab === 'collection' ? (
+      ) : (
         <PageDrawerCollectionList
           pageAccountId={pageAccountId}
           initialHoldings={holdings}
         />
-      ) : null}
+      )}
 
       <div className="page-drawer-scroll-end" aria-hidden />
     </div>
