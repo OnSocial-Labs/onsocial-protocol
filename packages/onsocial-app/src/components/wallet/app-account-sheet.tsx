@@ -288,6 +288,7 @@ export function AppAccountSheet({
         backdropLabel="Close"
         panelClassName={`account-drawer-panel os-sheet-cap-standard${pageMoodPanelClass}`}
         panelStyle={accountPanelStyle}
+        moodId={pageMoodId ?? undefined}
         bodyClassName={osHugSheetBodyClassName}
         bodyRef={bodyRef}
         header={

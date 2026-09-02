@@ -2045,17 +2045,10 @@ a.os-surface-row {
      * Do not paint verbs or selected chips with --mood-ink.
      */
     --mood-ink: var(--mood-accent-chrome, var(--mood-accent));
-    --os-surface-row-hover: color-mix(in srgb, var(--mood-ink) 6%, transparent);
-    --os-surface-fill-hover-soft: color-mix(
-      in srgb,
-      var(--mood-ink) 7%,
-      transparent
-    );
-    --os-surface-fill-hover: color-mix(
-      in srgb,
-      var(--mood-ink) 9%,
-      transparent
-    );
+    /* Protocol grey hovers — mood lives in page bg, not the wash. */
+    --os-surface-row-hover: rgb(var(--fg-rgb) / 0.03);
+    --os-surface-fill-hover-soft: rgb(var(--fg-rgb) / 0.05);
+    --os-surface-fill-hover: rgb(var(--fg-rgb) / 0.07);
     --signal-standing: var(--mood-signal-standing, #5ecf9a);
     --signal-solidarity: var(--mood-signal-solidarity, #38bdf8);
     --signal-endorse: var(--mood-signal-endorse, #dab872);
@@ -13923,6 +13916,7 @@ a.os-surface-row {
     text-align: left;
     text-decoration: none;
     cursor: pointer;
+    transition: background 160ms ease;
   }
 
   .account-action-chip:hover,
@@ -13930,6 +13924,8 @@ a.os-surface-row {
     background: var(--os-surface-fill-hover);
     outline: none;
   }
+
+  /* Wallet control hover — unlayered block at file end (beats os-surface-interactive). */
 
   .account-action-chip-label {
     min-width: 0;
@@ -13973,6 +13969,7 @@ a.os-surface-row {
     color: inherit;
     font: inherit;
     cursor: pointer;
+    transition: background 160ms ease;
   }
 
   .account-action-toggle:not(:disabled):hover,
@@ -13980,6 +13977,8 @@ a.os-surface-row {
     background: var(--os-surface-fill-hover);
     outline: none;
   }
+
+  /* Mood wallet toggles — protocol grey hover only (see mood wallet block above). */
 
   .account-action-toggle:not(:disabled):active {
     background: var(--os-surface-fill-active);
@@ -33812,6 +33811,73 @@ a.os-surface-row {
 .account-shortcut-dock .os-surface-tile.is-attention:not(:disabled):active {
   background: color-mix(in srgb, var(--protocol-amber) 18%, transparent);
   color: var(--protocol-amber-ink, var(--protocol-amber));
+}
+
+/*
+ * Wallet drawer — protocol grey hover on every in-card control (incl. shortcut dock).
+ * Unlayered so it beats @onsocial/ui os-surface-interactive (mood --os-surface-fill-hover).
+ */
+.account-drawer-panel .account-card
+  .account-action-chip:is(:hover, :focus-visible),
+.account-drawer-panel .account-card
+  .account-action-toggle:not(:disabled):is(:hover, :focus-visible),
+.account-drawer-panel .account-card
+  .account-shortcut-dock
+  .os-surface-tile:not(.is-danger):not(.is-attention):not(:disabled):is(
+    :hover,
+    :focus-visible
+  ),
+.account-drawer-panel .account-card
+  .os-surface-chip:not(.is-ready):not(.is-selected):not(.is-accent):not(
+    .is-succeeded
+  ):not(:disabled):is(:hover, :focus-visible) {
+  background: rgb(var(--fg-rgb) / 0.07);
+}
+
+/*
+ * Mood content lists — neutral hover, no background transition (entry mood flash).
+ * Unlayered beats os-surface-interactive background transitions.
+ */
+:is(
+    .portfolio-frame[data-mood],
+    .portfolio-os-layer[data-mood],
+    .os-app-screen.os-app-screen--mood,
+    .glass-sheet-panel[data-mood],
+    .os-page-sheet-panel[data-mood]
+  )
+  :is(
+    .market-listing-row,
+    .market-sale-row,
+    .collectibles-holding-row,
+    .drops-discovery-row,
+    .drops-creator-row,
+    .post-card--openable,
+    .post-card-link,
+    .post-card-open,
+    .os-surface-row,
+    .os-surface-tile,
+    .os-surface-chip
+  ) {
+  transition:
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+:is(
+    .portfolio-frame[data-mood],
+    .portfolio-os-layer[data-mood],
+    .os-app-screen.os-app-screen--mood,
+    .glass-sheet-panel[data-mood],
+    .os-page-sheet-panel[data-mood]
+  )
+  :is(
+    .market-listing-row,
+    .market-sale-row,
+    .collectibles-holding-row,
+    .drops-discovery-row,
+    .drops-creator-row
+  ):is(:hover, :focus-within) {
+  background: rgb(var(--fg-rgb) / 0.03);
 }
 
 /*

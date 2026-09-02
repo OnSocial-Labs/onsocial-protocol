@@ -24,12 +24,27 @@ const buySheetTs = readFileSync(
 const resolveTs = readFileSync(join(here, 'resolve.ts'), 'utf8');
 
 describe('mood chrome map', () => {
-  it('defines --mood-ink for identity hover wash, not verbs', () => {
+  it('defines --mood-ink for identity chrome, not row hover tint', () => {
     expect(globalsCss).toContain(
       '--mood-ink: var(--mood-accent-chrome, var(--mood-accent));'
     );
     expect(globalsCss).toContain(
-      '--os-surface-row-hover: color-mix(in srgb, var(--mood-ink) 6%, transparent);'
+      '--os-surface-row-hover: rgb(var(--fg-rgb) / 0.03);'
+    );
+    expect(globalsCss).toMatch(
+      /Mood content lists — neutral hover, no background transition/
+    );
+    expect(globalsCss).not.toContain('--os-content-frost-hover:');
+    expect(globalsCss).not.toContain('--os-mood-hover-fill:');
+    expect(globalsCss).not.toContain('--post-frost-a');
+    expect(globalsCss).toMatch(
+      /\.post-card--openable:hover[\s\S]*?rgb\(var\(--fg-rgb\) \/ 0\.03\)/
+    );
+    expect(globalsCss).toMatch(
+      /Wallet drawer — protocol grey hover on every in-card control/
+    );
+    expect(globalsCss).toMatch(
+      /\.account-drawer-panel \.account-card[\s\S]*?account-shortcut-dock/
     );
     expect(resolveTs).not.toContain("'--mood-ink'");
   });
