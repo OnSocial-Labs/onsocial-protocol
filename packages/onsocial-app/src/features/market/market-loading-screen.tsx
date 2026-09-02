@@ -1,6 +1,3 @@
-'use client';
-
-import { useLayoutEffect, useState } from 'react';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { APP_HOME_PATH } from '@/lib/app-routes';
 import {
@@ -14,29 +11,16 @@ import {
 } from '@/features/market/market-listing-toolbar';
 import {
   EMPTY_MARKET_PAGE_QUERY,
-  parseMarketPageQueryFromSearch,
   type MarketPageQuery,
 } from '@/lib/load-market-page';
 
-/** Full Market shell for route `loading.tsx` + Suspense — same chrome as ready. */
+/** Full Market shell for route `loading.tsx` — same chrome geometry as ready. */
 export function MarketLoadingScreen({
-  query,
+  query = EMPTY_MARKET_PAGE_QUERY,
 }: {
   query?: MarketPageQuery;
 } = {}) {
-  const [resolved, setResolved] = useState<MarketPageQuery>(
-    () => query ?? EMPTY_MARKET_PAGE_QUERY
-  );
-
-  useLayoutEffect(() => {
-    if (query) {
-      setResolved(query);
-      return;
-    }
-    setResolved(parseMarketPageQueryFromSearch(window.location.search));
-  }, [query]);
-
-  const toolbar = marketToolbarFromQuery(resolved);
+  const toolbar = marketToolbarFromQuery(query);
 
   return (
     <OsAppScreen
