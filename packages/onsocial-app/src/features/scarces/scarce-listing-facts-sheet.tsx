@@ -35,6 +35,7 @@ import { portfolioPath } from '@/lib/overlay-routes';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
 import { fallbackLabel } from '@/lib/profile-display';
+import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 
 const SCARCES_CONTRACT =
   ACTIVE_NEAR_NETWORK === 'mainnet'
@@ -137,6 +138,7 @@ export function ScarceListingFactsSheet({
 }) {
   const [closing, setClosing] = useState(false);
   const [nowMs] = useState(() => Date.now());
+  const { moodId, style: moodStyle } = useViewerDockMood();
   const sheetOpen = open && !closing;
 
   const requestClose = useCallback(() => {
@@ -235,6 +237,8 @@ export function ScarceListingFactsSheet({
       closeAriaLabel="Close scarce facts"
       backdropLabel="Close scarce facts"
       zIndex={zIndex}
+      moodId={moodId ?? undefined}
+      panelStyle={moodStyle}
       panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
     >

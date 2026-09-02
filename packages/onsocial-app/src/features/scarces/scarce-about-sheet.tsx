@@ -15,6 +15,7 @@ import {
 } from '@/features/scarces/access-ends-facts';
 import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 
 export type ScarceAboutEvent = {
   eventStartsAtMs?: number | null;
@@ -48,6 +49,7 @@ export function ScarceAboutSheet({
 }) {
   const [closing, setClosing] = useState(false);
   const [nowMs] = useState(() => Date.now());
+  const { moodId, style: moodStyle } = useViewerDockMood();
   const sheetOpen = open && !closing;
   const trimmed = body.trim();
   const headerTitle = title?.trim() || 'About';
@@ -97,6 +99,8 @@ export function ScarceAboutSheet({
       closeAriaLabel="Close about"
       backdropLabel="Close about"
       zIndex={zIndex}
+      moodId={moodId ?? undefined}
+      panelStyle={moodStyle}
       panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
     >

@@ -21,6 +21,14 @@ const buySheetTs = readFileSync(
   join(here, '../../features/scarces/scarce-buy-sheet.tsx'),
   'utf8'
 );
+const aboutSheetTs = readFileSync(
+  join(here, '../../features/scarces/scarce-about-sheet.tsx'),
+  'utf8'
+);
+const listingFactsTs = readFileSync(
+  join(here, '../../features/scarces/scarce-listing-facts-sheet.tsx'),
+  'utf8'
+);
 const resolveTs = readFileSync(join(here, 'resolve.ts'), 'utf8');
 
 describe('mood chrome map', () => {
@@ -99,6 +107,22 @@ describe('mood chrome map', () => {
     expect(globalsCss).toMatch(
       /\.discover-tab-bar--browse button \{\s*[\s\S]*?color: var\(\s*--signal-reputation/
     );
+  });
+
+  it('remaps leftover source / provenance greens on mood, not identity facts', () => {
+    expect(globalsCss).toContain('.scarce-provenance-original-link,');
+    expect(globalsCss).toContain(
+      '.guild-facts-link.scarce-facts-source-link,'
+    );
+    expect(globalsCss).toContain('.scarce-provenance-more,');
+    expect(globalsCss).toMatch(
+      /Source \/ provenance greens[\s\S]*?\.scarce-provenance-original-link,[\s\S]*?color: var\(--signal-reputation/
+    );
+    expect(globalsCss).toContain(
+      'Fact-sheet identity links (creator / hub / explorer) stay inherited fg.'
+    );
+    expect(aboutSheetTs).toContain('moodId={moodId ?? undefined}');
+    expect(listingFactsTs).toContain('moodId={moodId ?? undefined}');
   });
 
   it('paints received Support amounts with reputation, not hard green', () => {
