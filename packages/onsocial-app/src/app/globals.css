@@ -299,11 +299,13 @@
   height: min(95dvh, 54rem);
   max-height: min(95dvh, 54rem);
   --glass-header-scrim-height: min(6.5rem, 24%);
+  /* Same 1rem column as Home / Market — sheet is not inside .os-app-screen. */
+  --os-screen-body-pad-x: 1rem;
 }
 
 /* Single scroller = sheet body. Content scrolls under the floating pill. */
 .glass-sheet-panel.page-drawer-panel > .glass-sheet-body.page-drawer-body {
-  padding: 0.1rem 1.15rem 0;
+  padding: 0.1rem var(--os-screen-body-pad-x, 1rem) 0;
 }
 
 /*
@@ -11549,7 +11551,7 @@ a.os-surface-row {
     flex-shrink: 0;
     flex-direction: column;
     gap: 0.28rem;
-    padding: 0.05rem 1.15rem 0.4rem;
+    padding: 0.05rem var(--os-screen-body-pad-x, 1rem) 0.4rem;
   }
 
   .page-drawer-chrome-row {

@@ -177,51 +177,50 @@ export function ProfileFeedClient({
     return posts.filter((post) => parsePostMedia(post.value).length > 0);
   }, [posts, tab]);
 
+  const emptyTitle = tab
+    ? FEED_TAB_EMPTY[tab]
+    : total > 0
+      ? `${total} indexed`
+      : 'No posts yet';
+  const emptyHint = tab
+    ? isOwner
+      ? FEED_TAB_OWNER_HINT[tab]
+      : 'Nothing here yet.'
+    : total > 0
+      ? 'Indexed posts could not be loaded right now.'
+      : isOwner
+        ? 'Nothing published yet. Use the pen to post.'
+        : 'Nothing published yet.';
+
   if (visiblePosts.length === 0) {
     // Don't claim "No replies yet" while the section fetch is in flight.
     if (tab && pendingTab === tab) {
       return (
-        <div className="panel-body">
+        <>
           <PostRowSkeleton rows={3} />
           {sheet}
-        </div>
+        </>
       );
     }
     return (
-      <div className="panel-body">
+      <>
         {/* Tabs already name the section — lead line only on the legacy page. */}
         {!tab ? (
           <p className="panel-lead">
             Public posts from <strong>@{accountId}</strong>.
           </p>
         ) : null}
-        <div className="panel-placeholder">
-          <span className="panel-placeholder-label">
-            {tab
-              ? FEED_TAB_EMPTY[tab]
-              : total > 0
-                ? `${total} indexed`
-                : 'No posts yet'}
-          </span>
-          <p>
-            {tab
-              ? isOwner
-                ? FEED_TAB_OWNER_HINT[tab]
-                : 'Nothing here yet.'
-              : total > 0
-                ? 'Indexed posts could not be loaded right now.'
-                : isOwner
-                  ? 'Nothing published yet. Use the pen to post.'
-                  : 'Nothing published yet.'}
-          </p>
+        <div className="home-feed-state">
+          <span>{emptyTitle}</span>
+          <span>{emptyHint}</span>
         </div>
         {sheet}
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="panel-body">
+    <>
       {!tab ? (
         <p className="panel-lead">
           Public posts from <strong>@{accountId}</strong>
@@ -236,9 +235,9 @@ export function ProfileFeedClient({
         onQuote={quoteHandler}
         onRepost={repostHandler}
         onUndoRepost={undoRepostHandler}
-        className="home-feed-list profile-feed-list"
+        className="home-feed-list"
       />
       {sheet}
-    </div>
+    </>
   );
 }
