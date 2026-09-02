@@ -247,6 +247,8 @@ export function MarketPagePanel({
     listingFilterFromSort(urlSort)
   );
   const [listingSort, setListingSort] = useState<MarketListingSort>(() => urlSort);
+  const [listingQuery, setListingQuery] = useState('');
+  const [salesExpanded, setSalesExpanded] = useState(false);
   useEffect(() => {
     setQuery(seedQuery);
     setListingSort((current) =>
@@ -256,8 +258,6 @@ export function MarketPagePanel({
       setListingFilter('auctions');
     }
   }, [seedKey, seedQuery]);
-  const [listingQuery, setListingQuery] = useState('');
-  const [salesExpanded, setSalesExpanded] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [offerByToken, setOfferByToken] = useState<
@@ -267,7 +267,6 @@ export function MarketPagePanel({
   const [offersRevision, setOffersRevision] = useState(0);
   const listingsSentinelRef = useRef<HTMLDivElement | null>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
-  // Soft SSR already seeded default browse — skip one duplicate keyed query.
   /** Bumped on each first-page fetch so in-flight loadMore cannot append stale pages. */
   const listingsFetchGenRef = useRef(0);
   const catalogCacheRef = useRef<Map<string, MarketCatalogCacheEntry>>(
@@ -475,9 +474,6 @@ export function MarketPagePanel({
         if (cancelled || gen !== listingsFetchGenRef.current) return;
         if (data) {
           applyPage(data.listings);
-          if (!creatorFilter && !appFilter) {
-            setSales(data.sales);
-          }
           return;
         }
         void runClientFetch();
@@ -648,18 +644,40 @@ export function MarketPagePanel({
   useEffect(() => {
     let cancelled = false;
     setSalesExpanded(false);
-    fetchMarketSales().then(
-      (rows) => {
-        if (!cancelled) setSales(rows);
-      },
-      () => {
-        if (!cancelled) setSales([]);
-      }
-    );
+
+    const applySales = (rows: MarketSaleItem[]) => {
+      if (!cancelled) setSales(rows);
+    };
+    const applyEmpty = () => {
+      if (!cancelled) setSales([]);
+    };
+
+    // Seller / app browse hides Recent sales — don't fetch a list we never show.
+    if (creatorFilter || appFilter) {
+      applyEmpty();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    // First paint: the page seed already includes sales for the open catalog.
+    if (retryKey === 0 && seedPromise) {
+      void seedPromise.then((data) => {
+        if (cancelled) return;
+        if (data) {
+          applySales(data.sales);
+          return;
+        }
+        fetchMarketSales().then(applySales, applyEmpty);
+      }, applyEmpty);
+    } else {
+      fetchMarketSales().then(applySales, applyEmpty);
+    }
+
     return () => {
       cancelled = true;
     };
-  }, [retryKey]);
+  }, [retryKey, seedPromise, creatorFilter, appFilter]);
 
   // “Yours” loads independently so a slow RPC vault never blocks browse.
   useEffect(() => {
