@@ -482,7 +482,25 @@ const { data } = await os.query.graphql<{
   variables: { t: 'review' },
 });
 
-// 5. Batch your custom writes alongside built-in actions in one relayed tx.
+// 5. Reserved `apps/<appId>/…` folder — indexed as `data_type = apps`
+//    and `data_id = appId`. `byAppPrefix` lists one folder across accounts
+//    from the `appsCurrent` latest-per-path view (no per-app SQL view).
+import { paths } from '@onsocial/sdk/advanced';
+
+await os.social.set(
+  paths.app('acme-track', 'review', 'item-001'),
+  JSON.stringify({ rating: 5 })
+);
+const appRows = await os.query.raw.byAppId('acme-track');
+const folder = await os.query.raw.byAppPrefix('acme-track', 'review');
+const fives = await os.query.raw.byAppPrefix('acme-track', 'review', {
+  contains: { rating: 5 },
+});
+const anyFives = await os.query.raw.byAppJsonContains('acme-track', {
+  rating: 5,
+});
+
+// 6. Batch your custom writes alongside built-in actions in one relayed tx.
 import { buildCoreSetAction, buildPostAction } from '@onsocial/sdk/advanced';
 
 await os.raw.execute([
@@ -493,7 +511,7 @@ await os.raw.execute([
 ]);
 ```
 
-Substreams indexes every `Action::Set` write into the raw `data_updates` table keyed by `data_type` — no schema migration needed for your custom namespace to become queryable. Typed Hasura views (for SQL joins, derived counts, leaderboards over your shape) are an opt-in process: open a PR adding a view file and a substream module entry. The raw read path works from the moment your first write lands on chain.
+Substreams indexes every `Action::Set` write into the raw `data_updates` table keyed by `data_type` — no schema migration needed for your custom first-segment namespace to become queryable. Writes under `apps/<appId>/…` also get an indexed `app_relpath` so `byAppPrefix` can list any folder without a leading-wildcard scan. Pass `contains` to filter that folder on JSON (GIN-backed); live `set` rows are the default (`includeDeleted: true` keeps tombstones). Typed Hasura views (for SQL joins, derived counts, leaderboards over your shape) stay opt-in: open a PR adding a view file and a substream module entry. This apps-folder index is the generic path; you do not need a per-app view to list `{account}/apps/<anyAppId>/<anyFolder>/…`.
 
 ## Notes
 

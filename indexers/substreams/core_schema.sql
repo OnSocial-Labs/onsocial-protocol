@@ -207,6 +207,34 @@ CREATE INDEX IF NOT EXISTS idx_data_updates_value_json_gin
   ON data_updates USING gin (value_json jsonb_path_ops)
   WHERE value_json IS NOT NULL;
 
+-- Relative path under apps/<appId>/… for prefix lists (byAppPrefix).
+-- NULL unless data_type = 'apps'. Empty string at the app root.
+ALTER TABLE data_updates ADD COLUMN IF NOT EXISTS app_relpath TEXT
+  GENERATED ALWAYS AS (
+    CASE
+      WHEN data_type = 'apps' AND data_id IS NOT NULL AND data_id <> ''
+       AND position(('/apps/' || data_id || '/') in path) > 0
+      THEN substring(
+        path from
+        position(('/apps/' || data_id || '/') in path)
+        + char_length('/apps/' || data_id || '/')
+      )
+      WHEN data_type = 'apps' AND data_id IS NOT NULL AND data_id <> ''
+       AND (
+         path = split_part(path, '/', 1) || '/apps/' || data_id
+         OR path = split_part(path, '/', 1) || '/apps/' || data_id || '/'
+       )
+      THEN ''
+      ELSE NULL
+    END
+  ) STORED;
+CREATE INDEX IF NOT EXISTS idx_data_updates_app_relpath
+  ON data_updates (data_id, app_relpath text_pattern_ops)
+  WHERE data_type = 'apps' AND app_relpath IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_data_updates_apps_id_block
+  ON data_updates (data_id, block_height DESC)
+  WHERE data_type = 'apps';
+
 ALTER TABLE data_updates ADD COLUMN IF NOT EXISTS actor_id TEXT;
 ALTER TABLE data_updates ADD COLUMN IF NOT EXISTS payer_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_data_updates_actor_id ON data_updates(actor_id) WHERE actor_id IS NOT NULL AND actor_id != '';

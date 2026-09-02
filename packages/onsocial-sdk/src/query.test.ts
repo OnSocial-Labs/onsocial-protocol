@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { OnSocial } from './client.js';
+import { escapeLike, normalizeAppPrefix } from './query/raw.js';
 
 // ── Stub fetch ─────────────────────────────────────────────────────────────
 
@@ -4657,6 +4658,126 @@ describe('QueryModule', () => {
         appId: 'acme-track',
         contains: { status: 'shipped' },
       });
+    });
+
+    it('byAppPrefix filters appsCurrent by appId and slash-bounded prefix', async () => {
+      const { os, fetch } = makeOs({ data: { appsCurrent: [] } });
+      await os.query.raw.byAppPrefix('acme-track', 'lot');
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/appsCurrent\(/);
+      expect(body.query).toMatch(/dataId: \{\s*_eq: \$appId/);
+      expect(body.query).toMatch(/_or:/);
+      expect(body.query).toMatch(/appRelpath: \{\s*_eq: \$prefix/);
+      expect(body.query).toMatch(/appRelpath: \{\s*_like: \$prefixLike/);
+      expect(body.query).toMatch(/operation: \{\s*_eq: "set"/);
+      expect(body.variables).toEqual({
+        appId: 'acme-track',
+        prefix: 'lot',
+        prefixLike: 'lot/%',
+      });
+    });
+
+    it('byAppPrefix normalizes trailing slashes', async () => {
+      const { os, fetch } = makeOs({ data: { appsCurrent: [] } });
+      await os.query.raw.byAppPrefix('acme-track', 'lot/');
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        appId: 'acme-track',
+        prefix: 'lot',
+        prefixLike: 'lot/%',
+      });
+    });
+
+    it('byAppPrefix escapes LIKE wildcards in the prefix', async () => {
+      const { os, fetch } = makeOs({ data: { appsCurrent: [] } });
+      await os.query.raw.byAppPrefix('acme-track', 'lot_100%');
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        appId: 'acme-track',
+        prefix: 'lot_100%',
+        prefixLike: 'lot\\_100\\%/%',
+      });
+    });
+
+    it('byAppPrefix forwards accountId, limit, and offset', async () => {
+      const { os, fetch } = makeOs({ data: { appsCurrent: [] } });
+      await os.query.raw.byAppPrefix('acme-track', 'lot', {
+        accountId: 'alice.near',
+        limit: 10,
+        offset: 5,
+      });
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/accountId: \{\s*_eq: \$accountId/);
+      expect(body.query).toMatch(/limit: 10/);
+      expect(body.query).toMatch(/offset: 5/);
+      expect(body.variables).toMatchObject({
+        appId: 'acme-track',
+        accountId: 'alice.near',
+        prefix: 'lot',
+      });
+    });
+
+    it('byAppPrefix with an empty prefix omits the relpath predicate', async () => {
+      const { os, fetch } = makeOs({ data: { appsCurrent: [] } });
+      await os.query.raw.byAppPrefix('acme-track', '');
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/appsCurrent\(/);
+      expect(body.query).toMatch(/dataId: \{\s*_eq: \$appId/);
+      expect(body.query).not.toMatch(/appRelpath:\s*\{/);
+      expect(body.query).not.toMatch(/\$prefix/);
+      expect(body.query).toMatch(/appRelpath/);
+      expect(body.query).toMatch(/operation: \{\s*_eq: "set"/);
+      expect(body.variables).toEqual({ appId: 'acme-track' });
+    });
+
+    it('byAppPrefix contains adds a JSONB filter on the folder', async () => {
+      const { os, fetch } = makeOs({ data: { appsCurrent: [] } });
+      await os.query.raw.byAppPrefix('acme-track', 'lot', {
+        contains: { status: 'open' },
+      });
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/valueJson: \{\s*_contains: \$contains/);
+      expect(body.query).toMatch(/appRelpath: \{\s*_eq: \$prefix/);
+      expect(body.variables).toMatchObject({
+        appId: 'acme-track',
+        prefix: 'lot',
+        contains: { status: 'open' },
+      });
+    });
+
+    it('byAppPrefix includeDeleted keeps tombstones', async () => {
+      const { os, fetch } = makeOs({ data: { appsCurrent: [] } });
+      await os.query.raw.byAppPrefix('acme-track', 'lot', {
+        includeDeleted: true,
+      });
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).not.toMatch(/operation:\s*\{/);
+      expect(body.variables).toEqual({
+        appId: 'acme-track',
+        prefix: 'lot',
+        prefixLike: 'lot/%',
+      });
+    });
+
+    it('escapeLike treats backslash, percent, and underscore as literals', () => {
+      expect(escapeLike('lot_100%')).toBe('lot\\_100\\%');
+      expect(escapeLike('a\\b%c_d')).toBe('a\\\\b\\%c\\_d');
+      expect(normalizeAppPrefix(' /lot/foo/ ')).toBe('lot/foo');
+      expect(normalizeAppPrefix('/')).toBe('');
     });
   });
 });

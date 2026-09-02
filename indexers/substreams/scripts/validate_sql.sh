@@ -98,7 +98,7 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
         exit 1
       fi
 
-      for view_name in posts_feed standing_counts thread_reply_counts quote_counts repost_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation scarces_token_owners scarces_app_stats scarces_app_stats_hot scarces_collections_trade_stats group_member_counts groups_by_member_count scarce_album_love_fans scarce_album_love_fan_ids scarce_collection_love_fans scarce_collection_love_fan_ids; do
+      for view_name in apps_current posts_feed standing_counts thread_reply_counts quote_counts repost_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation scarces_token_owners scarces_app_stats scarces_app_stats_hot scarces_collections_trade_stats group_member_counts groups_by_member_count scarce_album_love_fans scarce_album_love_fan_ids scarce_collection_love_fans scarce_collection_love_fan_ids; do
         exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
           SELECT to_regclass('"'"'public.${view_name}'"'"') IS NOT NULL;
         ")"
@@ -143,6 +143,59 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
 
       validate_guild_view_columns "$db"
       validate_posts_current_root "$db"
+      validate_apps_relpath "$db"
+    }
+
+    validate_apps_relpath() {
+      db="$1"
+      exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = '"'"'public'"'"'
+            AND table_name = '"'"'data_updates'"'"'
+            AND column_name = '"'"'app_relpath'"'"'
+        );
+      ")"
+      if [ "$exists" != "t" ]; then
+        echo "error: expected data_updates.app_relpath in $db" >&2
+        exit 1
+      fi
+
+      for index_name in idx_data_updates_app_relpath idx_data_updates_apps_id_block; do
+        idx_exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT to_regclass('"'"'public.${index_name}'"'"') IS NOT NULL;
+        ")"
+        if [ "$idx_exists" != "t" ]; then
+          echo "error: expected index public.${index_name} in $db" >&2
+          exit 1
+        fi
+      done
+
+      apply_sql "$db" /work/tests/fixtures/apps_relpath_check.sql
+      relpaths="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atf /work/tests/fixtures/apps_relpath_assert.sql)"
+      expected_relpaths="apps-relpath-fixture-1=lot/lot_123
+apps-relpath-fixture-2=
+apps-relpath-fixture-3=
+apps-relpath-fixture-4=<null>
+apps-relpath-fixture-5=lottery/x"
+      if [ "$relpaths" != "$expected_relpaths" ]; then
+        echo "error: unexpected app_relpath values in $db" >&2
+        echo "  expected: $expected_relpaths" >&2
+        echo "  actual:   ${relpaths:-missing}" >&2
+        exit 1
+      fi
+
+      prefix_count="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT COUNT(*)
+        FROM apps_current
+        WHERE data_id = '"'"'acme-track'"'"'
+          AND (app_relpath = '"'"'lot'"'"' OR app_relpath LIKE '"'"'lot/%'"'"');
+      ")"
+      if [ "$prefix_count" != "1" ]; then
+        echo "error: expected apps_current prefix 'lot' to match 1 row in $db, found ${prefix_count:-missing}" >&2
+        exit 1
+      fi
     }
 
     validate_posts_current_root() {

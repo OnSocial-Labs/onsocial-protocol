@@ -14,6 +14,7 @@ import {
   buildAttestationSetData,
   buildEndorsementSetData,
 } from '../../src/builders/index.js';
+import { paths } from '../../src/advanced/paths.js';
 
 const INDEXED_ACCOUNT = 'onsocial.testnet';
 
@@ -236,6 +237,117 @@ describe('query', () => {
     }, 55_000);
   });
 
+  describe('raw app namespace', () => {
+    const appId = `apptest-${testId()}`;
+    const lotId = testId();
+    const productId = testId();
+    let appPrefixReady = false;
+
+    beforeAll(async () => {
+      await os.social.set(
+        paths.app(appId, 'lot', lotId),
+        JSON.stringify({ id: lotId, v: 1 })
+      );
+      await os.social.set(
+        paths.app(appId, 'product', productId),
+        JSON.stringify({ id: 'p', v: 1 })
+      );
+      appPrefixReady = await indexerHasAppsCurrent(os);
+    });
+
+    it('byAppPrefix returns one folder and not a sibling', async () => {
+      if (!appPrefixReady) {
+        console.warn(
+          'skipping byAppPrefix: appsCurrent/appRelpath is not on this indexer'
+        );
+        return;
+      }
+
+      const lots = await confirmIndexed(
+        async () => {
+          const rows = await os.query.raw.byAppPrefix(appId, 'lot', {
+            accountId: ACCOUNT_ID,
+            limit: 20,
+          });
+          return rows.find((r) => r.appRelpath === `lot/${lotId}`) ?? null;
+        },
+        'query raw.byAppPrefix',
+        { timeoutMs: 45_000, intervalMs: 2_000 }
+      );
+
+      expect(lots?.accountId).toBe(ACCOUNT_ID);
+      expect(lots?.dataId).toBe(appId);
+      expect(lots?.dataType).toBe('apps');
+      expect(lots?.appRelpath).toBe(`lot/${lotId}`);
+
+      const productHit = (
+        await os.query.raw.byAppPrefix(appId, 'lot', {
+          accountId: ACCOUNT_ID,
+          limit: 20,
+        })
+      ).find((r) => r.appRelpath === `product/${productId}`);
+      expect(productHit).toBeUndefined();
+    }, 55_000);
+
+    it('byAppId returns both app folders', async () => {
+      const rows = await confirmIndexed(
+        async () => {
+          const found = await os.query.raw.byAppId(appId, {
+            accountId: ACCOUNT_ID,
+            limit: 20,
+          });
+          const hasLot = found.some((r) => r.path.endsWith(`/lot/${lotId}`));
+          const hasProduct = found.some((r) =>
+            r.path.endsWith(`/product/${productId}`)
+          );
+          return hasLot && hasProduct ? found : null;
+        },
+        'query raw.byAppId',
+        { timeoutMs: 45_000, intervalMs: 2_000 }
+      );
+
+      expect(rows.some((r) => r.path.endsWith(`/lot/${lotId}`))).toBe(true);
+      expect(rows.some((r) => r.path.endsWith(`/product/${productId}`))).toBe(
+        true
+      );
+    }, 55_000);
+
+    it('byAppJsonContains still matches the folder row', async () => {
+      const matched = await confirmIndexed(
+        async () => {
+          const rows = await os.query.raw.byAppJsonContains(
+            appId,
+            { id: lotId },
+            { accountId: ACCOUNT_ID, limit: 10 }
+          );
+          return rows.find((r) => r.path.endsWith(`/lot/${lotId}`)) ?? null;
+        },
+        'query raw.byAppJsonContains',
+        { timeoutMs: 45_000, intervalMs: 2_000 }
+      );
+
+      expect(matched?.dataId).toBe(appId);
+      expect(JSON.parse(matched!.value)).toMatchObject({ id: lotId, v: 1 });
+    }, 55_000);
+
+    it('byPath still resolves a full apps/ path', async () => {
+      const row = await confirmIndexed(
+        async () => {
+          const r = await os.query.raw.byPath(
+            `${ACCOUNT_ID}/${paths.app(appId, 'lot', lotId)}`
+          );
+          return r ?? null;
+        },
+        'query raw.byPath apps',
+        { timeoutMs: 45_000, intervalMs: 2_000 }
+      );
+
+      expect(row?.path).toBe(`${ACCOUNT_ID}/${paths.app(appId, 'lot', lotId)}`);
+      expect(row?.dataType).toBe('apps');
+      expect(row?.dataId).toBe(appId);
+    }, 55_000);
+  });
+
   describe('graph summaries', () => {
     it('should return inbound edge counts for a known account', async () => {
       const rows = await confirmIndexed(
@@ -283,3 +395,22 @@ describe('query', () => {
     });
   });
 });
+
+/** True when Hasura exposes appsCurrent.appRelpath (new apps folder index). */
+async function indexerHasAppsCurrent(client: OnSocial): Promise<boolean> {
+  try {
+    const res = await client.query.graphql<{
+      appsCurrent?: Array<{ appRelpath?: string | null }>;
+    }>({
+      query: `query AppPrefixProbe {
+        appsCurrent(limit: 1) { path appRelpath dataId }
+      }`,
+    });
+    return (
+      Array.isArray(res.data?.appsCurrent) &&
+      !(res.errors && res.errors.length > 0)
+    );
+  } catch {
+    return false;
+  }
+}

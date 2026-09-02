@@ -127,6 +127,29 @@ WHERE data_type = 'page'
 ORDER BY account_id, data_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- 1c. apps_current — latest row per full path under apps/<appId>/…
+--     Keeps tombstones (latest operation may be delete).
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW apps_current AS
+SELECT DISTINCT ON (path)
+  path,
+  account_id,
+  data_id,
+  app_relpath,
+  value,
+  value_json,
+  operation,
+  block_height,
+  block_timestamp,
+  receipt_id,
+  author,
+  actor_id
+FROM data_updates
+WHERE data_type = 'apps'
+ORDER BY path, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- 2. posts_current — sink-maintained TABLE (see core_schema.sql / combined_schema.sql)
 -- ────────────────────────────────────────────────────────────────────────────
 
