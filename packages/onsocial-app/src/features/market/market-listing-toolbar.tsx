@@ -13,13 +13,11 @@ import type { MarketAudioFormatFilter } from '@/features/market/market-audio-for
 import { MarketFilterMenu, marketFilterTriggerLabel } from '@/features/market/market-filter-menu';
 import {
   MARKET_LISTING_FILTERS,
-  listingFilterFromSort,
   type MarketListingFilter,
 } from '@/features/market/market-listing-filter';
 import { MarketListingSortMenu } from '@/features/market/market-listing-sort-menu';
 import type { MarketListingSort } from '@/features/market/market-listings';
 import type { MarketMediumFilter } from '@/features/market/market-medium';
-import type { MarketPageQuery } from '@/lib/load-market-page';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 
 const SORT_LABELS: Record<MarketListingSort, string> = {
@@ -28,24 +26,6 @@ const SORT_LABELS: Record<MarketListingSort, string> = {
   'price-desc': 'Price ↓',
   ending: 'Ending soon',
 };
-
-export function marketToolbarFromQuery(query: MarketPageQuery): {
-  listingFilter: MarketListingFilter;
-  listingSort: MarketListingSort;
-  medium: MarketMediumFilter;
-  audioFormat: MarketAudioFormatFilter;
-  selectedFacets: string[];
-  facetMedium: ReturnType<typeof normalizeDropFacetMedium>;
-} {
-  return {
-    listingFilter: listingFilterFromSort(query.sort),
-    listingSort: query.sort,
-    medium: query.kind,
-    audioFormat: query.audioFormat,
-    selectedFacets: query.facets,
-    facetMedium: normalizeDropFacetMedium(query.kind),
-  };
-}
 
 /**
  * Listing-type + Filter + Sort rail. Live menus on the ready panel; inert

@@ -5,14 +5,13 @@ import {
   MarketSearchHeading,
 } from '@/features/market/market-heading';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
-import {
-  MarketListingToolbar,
-  marketToolbarFromQuery,
-} from '@/features/market/market-listing-toolbar';
+import { MarketListingToolbar } from '@/features/market/market-listing-toolbar';
 import {
   EMPTY_MARKET_PAGE_QUERY,
+  marketToolbarFromQuery,
   type MarketPageQuery,
 } from '@/lib/load-market-page';
+import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 
 /** Full Market shell for route `loading.tsx` — same chrome geometry as ready. */
 export function MarketLoadingScreen({
@@ -21,6 +20,7 @@ export function MarketLoadingScreen({
   query?: MarketPageQuery;
 } = {}) {
   const toolbar = marketToolbarFromQuery(query);
+  const facetMedium = normalizeDropFacetMedium(toolbar.kind);
 
   return (
     <OsAppScreen
@@ -38,10 +38,10 @@ export function MarketLoadingScreen({
           inert
           listingFilter={toolbar.listingFilter}
           listingSort={toolbar.listingSort}
-          medium={toolbar.medium}
+          medium={toolbar.kind}
           audioFormat={toolbar.audioFormat}
-          selectedFacets={toolbar.selectedFacets}
-          facetMedium={toolbar.facetMedium}
+          selectedFacets={toolbar.facets}
+          facetMedium={facetMedium}
         />
       }
     >

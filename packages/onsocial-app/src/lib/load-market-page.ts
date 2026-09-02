@@ -141,6 +141,22 @@ export function marketQueryPath(query: MarketPageQuery): string {
   return qs ? `${APP_MARKET_PATH}?${qs}` : APP_MARKET_PATH;
 }
 
+export function marketToolbarFromQuery(query: MarketPageQuery): {
+  listingFilter: ReturnType<typeof listingFilterFromSort>;
+  listingSort: MarketSortParam;
+  kind: MarketMediumFilter;
+  audioFormat: MarketAudioFormatFilter;
+  facets: string[];
+} {
+  return {
+    listingFilter: listingFilterFromSort(query.sort),
+    listingSort: query.sort,
+    kind: query.kind,
+    audioFormat: query.audioFormat,
+    facets: query.facets,
+  };
+}
+
 export function marketSeedParamsKey(query: MarketPageQuery): string {
   return marketBrowseParamsKey({
     listingFilter: listingFilterFromSort(query.sort),
