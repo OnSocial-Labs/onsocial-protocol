@@ -88,6 +88,7 @@ interface StandingPanelContextValue {
   isDaoSubject: boolean;
   query: string;
   setQuery: Dispatch<SetStateAction<string>>;
+  searchSettled: boolean;
   viewerAccountId: string | null;
   isConnected: boolean;
   filteredAccounts: StandingAccountSummary[];
@@ -223,6 +224,15 @@ export function StandingPanelProvider({
       hasStandingCounts(initialCounts)
   );
   const [query, setQuery] = useState(initialQuery);
+  const trimmedSearch = query.trim();
+  const [settledSearch, setSettledSearch] = useState(trimmedSearch);
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setSettledSearch(trimmedSearch);
+    }, 220);
+    return () => window.clearTimeout(id);
+  }, [trimmedSearch]);
+  const searchSettled = !trimmedSearch || settledSearch === trimmedSearch;
   const [activeKind, setActiveKind] = useState(
     isDaoSubject ? 'incoming' : kind
   );
@@ -808,6 +818,7 @@ export function StandingPanelProvider({
   // Never blank painted rows while the wallet hydrates — soft-refresh instead.
   const showListSkeleton =
     !hasListRows &&
+    !trimmedSearch &&
     (walletLoading ||
       (!listBootstrapReady && isLoading) ||
       (!listBootstrapReady && !relationshipSynced));
@@ -844,6 +855,7 @@ export function StandingPanelProvider({
       isDaoSubject,
       query,
       setQuery,
+      searchSettled,
       viewerAccountId: viewerAccountId ?? null,
       isConnected,
       filteredAccounts,
@@ -893,6 +905,7 @@ export function StandingPanelProvider({
       profileDisplayName,
       query,
       retryLoad,
+      searchSettled,
       shellVariant,
       showDiscoverLink,
       showListSkeleton,

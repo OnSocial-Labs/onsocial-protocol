@@ -72,8 +72,7 @@ function mergeGuildCards(
  * Browse chips: used primary topics (curated + custom), omit empty.
  */
 export function DiscoverGuildsPanel() {
-  const { query, clearSearch, initialGuilds, scrollRootRef } =
-    useDiscoverPanel();
+  const { query, initialGuilds, scrollRootRef } = useDiscoverPanel();
   const { accountId } = useAppWallet();
   const searchQuery = discoverPeopleSearchQuery(query);
 
@@ -244,7 +243,8 @@ export function DiscoverGuildsPanel() {
     return () => window.clearTimeout(timer);
   }, [accountId, searchQuery]);
 
-  const activeSearchResults = searchQuery ? searchResults : null;
+  const activeSearchResults =
+    searchQuery && !searchPending ? searchResults : null;
 
   const visibleGuilds = useMemo(() => {
     const base = browseGuilds ?? [];
@@ -266,7 +266,6 @@ export function DiscoverGuildsPanel() {
   }, [activeSearchResults, activeTopicFilter, browseGuilds, searchQuery]);
 
   const showSkeleton = browseGuilds == null && pending;
-  const showSearchBusy = Boolean(searchQuery) && searchPending;
   const isSearchEmpty =
     Boolean(searchQuery) &&
     !searchPending &&
@@ -314,73 +313,65 @@ export function DiscoverGuildsPanel() {
 
       {error ? <ListLoadError message={error} onRetry={retry} /> : null}
 
-      {showSkeleton || showSearchBusy ? (
-        <p className="launcher-home-empty">
-          {showSearchBusy ? 'Searching guilds…' : 'Loading guilds…'}
-        </p>
+      {showSkeleton ? (
+        <p className="launcher-home-empty">Loading guilds…</p>
       ) : null}
 
       {!error &&
       !showSkeleton &&
-      !showSearchBusy &&
-      visibleGuilds.length === 0 ? (
+      visibleGuilds.length === 0 &&
+      (!searchQuery || isSearchEmpty) ? (
         <div className="standing-panel-empty-block">
           <div className="standing-panel-empty-state">
             <p className="standing-panel-empty-primary">
               {isSearchEmpty
-                ? 'No guilds match that search.'
+                ? 'No matches.'
                 : isTopicEmpty
                   ? 'No guilds in this topic yet.'
                   : 'No public guilds yet.'}
             </p>
-            <p className="standing-panel-empty-secondary">
-              {isSearchEmpty
-                ? 'Try another name, topic, or guild ID.'
-                : isTopicEmpty
+            {isSearchEmpty ? null : (
+              <p className="standing-panel-empty-secondary">
+                {isTopicEmpty
                   ? 'Pick All or another topic.'
                   : 'Create one in Guilds, or join by URL.'}
-            </p>
-          </div>
-          <div className="standing-panel-empty-actions">
-            {isSearchEmpty ? (
-              <button
-                type="button"
-                className="standing-panel-empty-action"
-                onClick={clearSearch}
-              >
-                Clear search
-              </button>
-            ) : isTopicEmpty ? (
-              <button
-                type="button"
-                className="standing-panel-empty-action"
-                onClick={() => setTopicFilter('all')}
-              >
-                Show all guilds
-              </button>
-            ) : (
-              <>
-                <Link
-                  className="standing-panel-empty-action"
-                  href={`${APP_GROUPS_PATH}/create`}
-                  scroll={false}
-                >
-                  Create a guild
-                </Link>
-                <Link
-                  className="standing-panel-empty-action"
-                  href={APP_GROUPS_PATH}
-                  scroll={false}
-                >
-                  Open Guilds
-                </Link>
-              </>
+              </p>
             )}
           </div>
+          {isSearchEmpty ? null : (
+            <div className="standing-panel-empty-actions">
+              {isTopicEmpty ? (
+                <button
+                  type="button"
+                  className="standing-panel-empty-action"
+                  onClick={() => setTopicFilter('all')}
+                >
+                  Show all guilds
+                </button>
+              ) : (
+                <>
+                  <Link
+                    className="standing-panel-empty-action"
+                    href={`${APP_GROUPS_PATH}/create`}
+                    scroll={false}
+                  >
+                    Create a guild
+                  </Link>
+                  <Link
+                    className="standing-panel-empty-action"
+                    href={APP_GROUPS_PATH}
+                    scroll={false}
+                  >
+                    Open Guilds
+                  </Link>
+                </>
+              )}
+            </div>
+          )}
         </div>
       ) : null}
 
-      {!showSkeleton && !showSearchBusy && visibleGuilds.length > 0 ? (
+      {!showSkeleton && visibleGuilds.length > 0 ? (
         <div className="community-summary-card-grid">
           {visibleGuilds.map((guild) => (
             <GuildSummaryCard

@@ -169,6 +169,15 @@ export function CollectiblesPagePanel({
 
   const loadKey = ownerAccountId ? `${ownerAccountId}:${retryKey}` : null;
   const trimmedSearch = searchQuery.trim();
+  const [settledSearch, setSettledSearch] = useState(trimmedSearch);
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setSettledSearch(trimmedSearch);
+    }, SEARCH_URL_DEBOUNCE_MS);
+    return () => {
+      window.clearTimeout(id);
+    };
+  }, [trimmedSearch]);
 
   useEffect(() => {
     setPageQuery(seedQuery);
@@ -477,6 +486,7 @@ export function CollectiblesPagePanel({
   const emptySearch =
     vaultItems.length > 0 &&
     trimmedSearch.length > 0 &&
+    settledSearch === trimmedSearch &&
     filtered.length === 0 &&
     !holdings.hasMore &&
     !loadingMore;
@@ -604,20 +614,7 @@ export function CollectiblesPagePanel({
       ) : null}
 
       {emptySearch ? (
-        <div className="market-page-empty">
-          <p className="market-page-empty-copy">
-            No collectibles match “{trimmedSearch}”.
-          </p>
-          <div className="collectibles-empty-actions">
-            <button
-              type="button"
-              className="page-drawer-section-action"
-              onClick={() => setSearchQuery('')}
-            >
-              Clear search
-            </button>
-          </div>
-        </div>
+        <p className="market-page-status">No matches.</p>
       ) : null}
 
       {emptyFilter ? (

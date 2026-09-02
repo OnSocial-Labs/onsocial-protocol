@@ -1075,6 +1075,77 @@ fn active_listing_normalizes_legacy_music_medium() {
 }
 
 #[test]
+fn active_listing_list_native_parses_object_extra_kind() {
+    let mut tables = Tables::new();
+    let event = ScarcesEvent {
+        id: "r-0-SCARCE_UPDATE-list_native".into(),
+        block_height: 10,
+        block_timestamp: 100,
+        receipt_id: "r".into(),
+        event_type: "SCARCE_UPDATE".into(),
+        operation: "list_native".into(),
+        author: "seller.near".into(),
+        owner_id: "seller.near".into(),
+        token_id: "s:thought".into(),
+        price: "1".into(),
+        extra_data: r#"{"token_id":"s:thought","price":"1","title":"What's up","extra":{"kind":"thought","sourcePost":{"path":"test03.onsocial.testnet/post/1"}}}"#.into(),
+        ..Default::default()
+    };
+    apply_active_listing(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "native:s:thought",
+            "medium_kind"
+        ),
+        Some("thought")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "native:s:thought",
+            "source_post_path"
+        ),
+        Some("test03.onsocial.testnet/post/1")
+    );
+}
+
+#[test]
+fn active_listing_list_native_infers_thought_from_source_post() {
+    let mut tables = Tables::new();
+    let event = ScarcesEvent {
+        id: "r-0-SCARCE_UPDATE-list_native".into(),
+        block_height: 10,
+        block_timestamp: 100,
+        receipt_id: "r".into(),
+        event_type: "SCARCE_UPDATE".into(),
+        operation: "list_native".into(),
+        author: "seller.near".into(),
+        owner_id: "seller.near".into(),
+        token_id: "s:1".into(),
+        price: "1".into(),
+        extra_data: r#"{"token_id":"s:1","price":"1","extra":"{\"sourcePost\":{\"path\":\"alice.near/post/9\"}}"}"#.into(),
+        ..Default::default()
+    };
+    apply_active_listing(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "native:s:1",
+            "medium_kind"
+        ),
+        Some("thought")
+    );
+}
+
+#[test]
 fn active_listing_create_without_app_id_leaves_column_unset() {
     let mut tables = Tables::new();
     let event = ScarcesEvent {

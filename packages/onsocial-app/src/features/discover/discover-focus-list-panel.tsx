@@ -98,13 +98,11 @@ export function DiscoverFocusListPanel({
     };
   }, [filterPrefix, kind]);
 
-  const showColdSkeleton = loading && rows.length === 0;
+  const showColdSkeleton = loading && rows.length === 0 && !filterPrefix;
   const isRefreshing = loading && rows.length > 0;
 
   const emptyPrimary = filterPrefix
-    ? kind === 'ticker'
-      ? `No tickers matching $${filterPrefix.toUpperCase()}.`
-      : `No topics matching #${filterPrefix}.`
+    ? 'No matches.'
     : kind === 'ticker'
       ? 'No trending tickers yet.'
       : 'No trending topics yet.';
@@ -146,9 +144,11 @@ export function DiscoverFocusListPanel({
       {!loading && !error && rows.length === 0 ? (
         <div className="standing-panel-empty-state">
           <p className="standing-panel-empty-primary">{emptyPrimary}</p>
-          <p className="standing-panel-empty-secondary">
-            Open one to see matching posts in Home.
-          </p>
+          {filterPrefix ? null : (
+            <p className="standing-panel-empty-secondary">
+              Open one to see matching posts in Home.
+            </p>
+          )}
         </div>
       ) : null}
 

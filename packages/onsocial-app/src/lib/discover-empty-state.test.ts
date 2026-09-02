@@ -13,11 +13,10 @@ describe('buildDiscoverSearchEmptyPrimary', () => {
 });
 
 describe('buildDiscoverEmptyState', () => {
-  it('includes recovery actions for search misses', () => {
+  it('keeps search misses quiet — field X clears', () => {
     expect(buildDiscoverEmptyState('alice')).toEqual({
-      primary: 'No matches for "alice" on the graph.',
-      secondary: 'Try another name or account.',
-      showClearSearch: true,
+      primary: 'No matches.',
+      showClearSearch: false,
     });
   });
 
@@ -32,7 +31,7 @@ describe('buildDiscoverEmptyState', () => {
     expect(buildDiscoverEmptyState('#near')).toEqual({
       primary: 'Press Enter or pick a suggestion to open this in Home.',
       secondary: 'Topics and tickers live in the Home feed.',
-      showClearSearch: true,
+      showClearSearch: false,
     });
   });
 });

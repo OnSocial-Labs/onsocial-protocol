@@ -4,6 +4,7 @@ import {
   formatMarketRelativeTime,
   hasUnresolvedTitleTemplate,
   isPrimaryThoughtListing,
+  resolveListingMediumKind,
   resolveTokenDisplayTitle,
   sortMarketListings,
   type MarketListingItem,
@@ -78,6 +79,32 @@ describe('excludeOwnedNativeListings', () => {
     expect(
       excludeOwnedNativeListings(listings, new Set(['s:1', 's:2']))
     ).toEqual([listings[0], listings[3]]);
+  });
+});
+
+describe('resolveListingMediumKind', () => {
+  it('prefers the indexer column so resales keep the mint stamp', () => {
+    expect(
+      resolveListingMediumKind({
+        mediumKind: 'thought',
+        extraJson: null,
+      })
+    ).toBe('thought');
+    expect(
+      resolveListingMediumKind({
+        mediumKind: 'music',
+        extraJson: '{"kind":"art"}',
+      })
+    ).toBe('audio');
+  });
+
+  it('falls back to extra.kind when the column is empty', () => {
+    expect(
+      resolveListingMediumKind({
+        mediumKind: null,
+        extraJson: '{"kind":"thought"}',
+      })
+    ).toBe('thought');
   });
 });
 

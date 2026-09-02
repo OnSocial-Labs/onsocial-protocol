@@ -119,6 +119,8 @@ const RECENT_SALES_PREVIEW = 8;
 const LISTINGS_PAGE_SIZE = 40;
 /** Debounce before a search keystroke becomes an indexer query. */
 const SEARCH_DEBOUNCE_MS = 300;
+/** Mute last rows only if the live check is still in flight — skip flicker on fast hits. */
+const CATALOG_REFRESH_MUTE_MS = 160;
 /** Keep recent catalog pages so flipping back is instant. */
 const CATALOG_CACHE_TTL_MS = 90_000;
 const CATALOG_CACHE_MAX_ENTRIES = 12;
@@ -194,6 +196,21 @@ function dedupeListings(items: MarketListingItem[]): MarketListingItem[] {
   const byKey = new Map<string, MarketListingItem>();
   for (const item of items) byKey.set(marketListingRowKey(item), item);
   return [...byKey.values()];
+}
+
+function catalogPageMatches(
+  current: ListingsState,
+  page: MarketListingsPage,
+  paramsKey: string
+): boolean {
+  if (current.paramsKey !== paramsKey) return false;
+  if (current.hasMore !== page.hasMore) return false;
+  if (current.nextOffset !== page.nextOffset) return false;
+  if (current.items.length !== page.items.length) return false;
+  return current.items.every(
+    (item, index) =>
+      marketListingRowKey(item) === marketListingRowKey(page.items[index]!)
+  );
 }
 
 function sourcePostCoords(
@@ -272,13 +289,23 @@ export function MarketPagePanel({
   const catalogCacheRef = useRef<Map<string, MarketCatalogCacheEntry>>(
     new Map()
   );
+  /** Last non-search catalog — restore instantly when the field X clears a miss. */
+  const lastBrowseCatalogRef = useRef<Omit<
+    MarketCatalogCacheEntry,
+    'at'
+  > | null>(null);
   const normalizedListingQuery = listingQuery.trim().toLowerCase();
   const searching = normalizedListingQuery.length > 0;
 
   // Debounced indexer search; client filter covers the typing gap below.
+  // Clearing the field flushes immediately so browse listings do not wait.
   const [debouncedQuery, setDebouncedQuery] = useState('');
   useEffect(() => {
     const trimmed = listingQuery.trim();
+    if (!trimmed) {
+      setDebouncedQuery((current) => (current === '' ? current : ''));
+      return;
+    }
     const id = window.setTimeout(() => {
       setDebouncedQuery(trimmed);
     }, SEARCH_DEBOUNCE_MS);
@@ -362,6 +389,59 @@ export function MarketPagePanel({
     appFilter,
     discoveryParamsKey,
   });
+  const browseListingsParamsKey = marketBrowseParamsKey({
+    retryKey,
+    listingFilter,
+    sort: listingSort,
+    search: '',
+    creator: creatorFilter,
+    app: appFilter,
+    kind: mediumFilter,
+    facets: selectedFacets,
+    audioFormat: audioFormatFilter,
+  });
+  const browseCatalogCacheKey = marketCatalogCacheKey({
+    listingFilter,
+    listingSort,
+    search: '',
+    creatorFilter,
+    appFilter,
+    discoveryParamsKey,
+  });
+
+  const rememberBrowseCatalog = useCallback(
+    (entry: Omit<MarketCatalogCacheEntry, 'at'>) => {
+      lastBrowseCatalogRef.current = {
+        items: entry.items,
+        nextOffset: entry.nextOffset,
+        hasMore: entry.hasMore,
+      };
+    },
+    []
+  );
+
+  const handleListingQueryChange = useCallback(
+    (next: string) => {
+      setListingQuery(next);
+      if (next.trim()) return;
+      setDebouncedQuery('');
+      const cached = catalogCacheRef.current.get(browseCatalogCacheKey);
+      const snap =
+        cached != null && Date.now() - cached.at < CATALOG_CACHE_TTL_MS
+          ? cached
+          : lastBrowseCatalogRef.current;
+      if (!snap) return;
+      setListingsState({
+        paramsKey: browseListingsParamsKey,
+        items: snap.items,
+        nextOffset: snap.nextOffset,
+        hasMore: snap.hasMore,
+        failed: false,
+      });
+      setCatalogRefreshing(false);
+    },
+    [browseCatalogCacheKey, browseListingsParamsKey]
+  );
 
   const clearNarrowFilter = useCallback(() => {
     replaceQuery({
@@ -394,8 +474,8 @@ export function MarketPagePanel({
     [query, replaceQuery]
   );
 
-  // First catalog page. Cache hits paint instantly then soft-revalidate.
-  // Misses keep the last rows under a quiet refresh — skeleton only if empty.
+  // First catalog page. Last rows stay up (muted if the check is slow);
+  // live page replaces them. Skeleton only when we have nothing to show.
   useEffect(() => {
     const gen = ++listingsFetchGenRef.current;
     setLoadingMore(false);
@@ -407,8 +487,13 @@ export function MarketPagePanel({
       : catalogCacheRef.current.get(catalogCacheKey);
     const cacheFresh =
       cached != null && Date.now() - cached.at < CATALOG_CACHE_TTL_MS;
+    const browseSnap = lastBrowseCatalogRef.current;
 
+    let paintedRows = false;
     if (cacheFresh && cached) {
+      if (!debouncedQuery) {
+        rememberBrowseCatalog(cached);
+      }
       setListingsState({
         paramsKey: listingsParamsKey,
         items: cached.items,
@@ -416,10 +501,40 @@ export function MarketPagePanel({
         hasMore: cached.hasMore,
         failed: false,
       });
+      paintedRows = cached.items.length > 0;
+    } else if (!debouncedQuery && browseSnap && browseSnap.items.length > 0) {
+      setListingsState((current) =>
+        current.items.length > 0
+          ? current
+          : {
+              paramsKey: listingsParamsKey,
+              items: browseSnap.items,
+              nextOffset: browseSnap.nextOffset,
+              hasMore: browseSnap.hasMore,
+              failed: false,
+            }
+      );
+      paintedRows = true;
     }
-    setCatalogRefreshing(true);
 
     let cancelled = false;
+    let muteTimer: number | null = null;
+    const finishRefresh = () => {
+      if (muteTimer != null) {
+        window.clearTimeout(muteTimer);
+        muteTimer = null;
+      }
+      setCatalogRefreshing(false);
+    };
+
+    if (paintedRows) {
+      setCatalogRefreshing(false);
+      muteTimer = window.setTimeout(() => {
+        if (!cancelled) setCatalogRefreshing(true);
+      }, CATALOG_REFRESH_MUTE_MS);
+    } else {
+      setCatalogRefreshing(true);
+    }
 
     const applyPage = (page: MarketListingsPage) => {
       if (cancelled || gen !== listingsFetchGenRef.current) return;
@@ -428,19 +543,31 @@ export function MarketPagePanel({
         nextOffset: page.nextOffset,
         hasMore: page.hasMore,
       });
-      setListingsState({
-        paramsKey: listingsParamsKey,
-        items: page.items,
-        nextOffset: page.nextOffset,
-        hasMore: page.hasMore,
-        failed: false,
+      if (!debouncedQuery) {
+        rememberBrowseCatalog({
+          items: page.items,
+          nextOffset: page.nextOffset,
+          hasMore: page.hasMore,
+        });
+      }
+      setListingsState((current) => {
+        if (catalogPageMatches(current, page, listingsParamsKey)) {
+          return current.failed ? { ...current, failed: false } : current;
+        }
+        return {
+          paramsKey: listingsParamsKey,
+          items: page.items,
+          nextOffset: page.nextOffset,
+          hasMore: page.hasMore,
+          failed: false,
+        };
       });
-      setCatalogRefreshing(false);
+      finishRefresh();
     };
 
     const applyFail = () => {
       if (cancelled || gen !== listingsFetchGenRef.current) return;
-      setCatalogRefreshing(false);
+      finishRefresh();
       if (cacheFresh && cached) return;
       setListingsState((current) => ({
         ...current,
@@ -486,6 +613,9 @@ export function MarketPagePanel({
 
     return () => {
       cancelled = true;
+      if (muteTimer != null) {
+        window.clearTimeout(muteTimer);
+      }
     };
   }, [
     listingsParamsKey,
@@ -502,6 +632,7 @@ export function MarketPagePanel({
     seedPromise,
     seedKey,
     writeCatalogCache,
+    rememberBrowseCatalog,
   ]);
 
   const listingsReady = listingsState.paramsKey === listingsParamsKey;
@@ -1174,12 +1305,25 @@ export function MarketPagePanel({
     mediumFilter === 'all' &&
     browseListings.length === 0 &&
     owned.length === 0;
+  const searchSettled =
+    searching &&
+    listingQuery.trim() === debouncedQuery &&
+    listingsReady &&
+    !catalogRefreshing &&
+    !loadingMore;
+  const showEmptySearch =
+    status === 'ready' &&
+    searchSettled &&
+    !listingsFailed &&
+    discoveryFilteredListings.length === 0 &&
+    !listingsState.hasMore;
   const showEmptyFilter =
     status === 'ready' &&
     listingsReady &&
     !listingsFailed &&
     !showEmptyBrowse &&
     clientDiscoveryFilterActive &&
+    !searching &&
     discoveryFilteredListings.length === 0 &&
     !listingsState.hasMore &&
     !loadingMore;
@@ -1195,6 +1339,7 @@ export function MarketPagePanel({
   const showListSkeleton =
     listingsState.items.length === 0 &&
     !listingsFailed &&
+    !searching &&
     (status === 'loading' || !listingsReady || catalogRefreshing);
   const showOwnedSection =
     Boolean(viewerAccountId) &&
@@ -1252,7 +1397,7 @@ export function MarketPagePanel({
       heading={
         <MarketSearchHeading
           listingQuery={listingQuery}
-          onListingQueryChange={setListingQuery}
+          onListingQueryChange={handleListingQueryChange}
         />
       }
       actions={<MarketHeadingActions />}
@@ -1371,20 +1516,13 @@ export function MarketPagePanel({
           </p>
         ) : null}
 
+        {showEmptySearch ? (
+          <p className="market-page-status">No matches.</p>
+        ) : null}
+
         {showEmptyFilter ? (
           <p className="market-page-status">
-            {searching ? (
-              <>
-                No listings match “{listingQuery.trim()}”.{' '}
-                <button
-                  type="button"
-                  className="market-page-retry"
-                  onClick={() => setListingQuery('')}
-                >
-                  Clear search
-                </button>
-              </>
-            ) : facetOrFormatActive ? (
+            {facetOrFormatActive ? (
               <>
                 No matches for these filters.{' '}
                 <button
@@ -1516,6 +1654,7 @@ export function MarketPagePanel({
         </section>
 
         {clientDiscoveryFilterActive &&
+        !searching &&
         listingsState.hasMore &&
         discoveryFilteredListings.length === 0 &&
         !showEmptyFilter ? (

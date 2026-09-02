@@ -539,11 +539,7 @@ function EmptyDropsStatus({
 }) {
   const mediumLabel = dropMediumLabel(medium);
   if (query.trim()) {
-    return (
-      <p className="market-page-status">
-        No drops match “{query.trim()}”. Try another tab or clear search.
-      </p>
-    );
+    return <p className="market-page-status">No matches.</p>;
   }
   if (mediumLabel) {
     return (
@@ -1153,7 +1149,8 @@ export function DropsPagePanel({
 
   const showCreators =
     sort === 'new' && creators.length > 0 && !searching && !audioFormat;
-  const showCatalogSkeleton = loading && items.length === 0 && !failed;
+  const showCatalogSkeleton =
+    loading && items.length === 0 && !failed && !searching;
   const catalogRefreshing = refreshing && items.length > 0;
 
   const renderRow = (item: DropDiscoveryItem, opts?: { featured?: boolean }) => (
@@ -1324,7 +1321,9 @@ export function DropsPagePanel({
               </p>
             ) : showCatalogSkeleton ? (
               <MarketListSkeleton rows={5} />
-            ) : visibleItems.length === 0 && !loading ? (
+            ) : visibleItems.length === 0 &&
+              !loading &&
+              (!searching || needle === debouncedQuery.toLowerCase()) ? (
               <EmptyDropsStatus sort={sort} query={query} medium={medium} />
             ) : (
               <>

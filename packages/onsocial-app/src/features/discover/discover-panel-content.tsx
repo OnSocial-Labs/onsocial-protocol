@@ -23,6 +23,7 @@ export function DiscoverPanelContent() {
     actionError,
     emptyState,
     isSearchEmpty,
+    searchSettled,
     tab,
     setTab,
     topicFilterPrefix,
@@ -85,6 +86,7 @@ export function DiscoverPanelContent() {
             {showListSkeleton ? (
               <ProfileSocialListSkeleton rowVariant="discover" />
             ) : listAccounts.length === 0 ? (
+              !isSearchEmpty || searchSettled ? (
               <div
                 className={`standing-panel-empty-block${
                   isSearchEmpty ? ' is-search' : ''
@@ -112,6 +114,7 @@ export function DiscoverPanelContent() {
                   ) : null}
                 </div>
               </div>
+              ) : null
             ) : (
               <ProfileSocialList
                 accounts={listAccounts}

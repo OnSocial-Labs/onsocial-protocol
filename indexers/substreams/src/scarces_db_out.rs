@@ -188,8 +188,61 @@ fn json_bool(data: &Value, key: &str) -> Option<bool> {
 }
 
 fn parse_extra_blob(data: &Value) -> Option<Value> {
-    let raw = json_str(data, "extra")?;
-    serde_json::from_str(&raw).ok()
+    match data.get("extra")? {
+        Value::String(raw) => serde_json::from_str(raw).ok(),
+        Value::Object(_) => Some(data.get("extra")?.clone()),
+        _ => None,
+    }
+}
+
+fn extra_json_blob(data: &Value) -> Option<String> {
+    match data.get("extra")? {
+        Value::String(raw) => Some(raw.clone()),
+        obj if obj.is_object() => serde_json::to_string(obj).ok(),
+        _ => None,
+    }
+}
+
+fn extra_has_source_post(extra: &Value) -> bool {
+    extra.get("sourcePost").is_some()
+        || json_str(extra, "postPath").is_some()
+        || json_str(extra, "sourcePostPath").is_some()
+}
+
+fn extra_playable_mime_prefix(extra: &Value, prefix: &str) -> bool {
+    let Some(Value::Array(items)) = extra.get("playable") else {
+        return false;
+    };
+    items.iter().any(|item| {
+        json_str(item, "mime")
+            .map(|mime| mime.to_ascii_lowercase().starts_with(prefix))
+            .unwrap_or(false)
+    })
+}
+
+/// Mint stamp (`extra.kind`), else infer from a source post like from-post mint.
+fn infer_listing_medium_kind(extra: &Value) -> Option<String> {
+    if let Some(kind) = medium_kind_from_extra(extra) {
+        return Some(kind);
+    }
+    if !extra_has_source_post(extra) {
+        return None;
+    }
+    if extra_playable_mime_prefix(extra, "video/") {
+        return Some("video".into());
+    }
+    if extra_playable_mime_prefix(extra, "audio/") {
+        return Some("audio".into());
+    }
+    if extra.get("mediaCid").and_then(|v| v.as_str()).is_some()
+        || extra
+            .get("mediaCids")
+            .and_then(|v| v.as_array())
+            .is_some_and(|items| !items.is_empty())
+    {
+        return Some("art".into());
+    }
+    Some("thought".into())
 }
 
 fn source_post_path(data: &Value) -> Option<String> {
@@ -288,11 +341,11 @@ fn set_browse_meta(tables: &mut Tables, key: &str, data: &Value) {
     if let Some(bg) = card_bg(data) {
         row.set("card_bg", bg);
     }
-    if let Some(extra) = json_str(data, "extra") {
+    if let Some(extra) = extra_json_blob(data) {
         row.set("extra_json", extra);
     }
     if let Some(extra) = parse_extra_blob(data) {
-        if let Some(medium) = medium_kind_from_extra(&extra) {
+        if let Some(medium) = infer_listing_medium_kind(&extra) {
             row.set("medium_kind", medium);
         }
         if let Some(format) = audio_format_from_extra(&extra) {

@@ -21,15 +21,14 @@ export function buildDiscoverEmptyState(query: string): DiscoverPanelEmptyState 
     return {
       primary: 'Press Enter or pick a suggestion to open this in Home.',
       secondary: 'Topics and tickers live in the Home feed.',
-      showClearSearch: true,
+      showClearSearch: false,
     };
   }
 
   if (trimmedQuery) {
     return {
-      primary: buildDiscoverSearchEmptyPrimary(trimmedQuery),
-      secondary: 'Try another name or account.',
-      showClearSearch: true,
+      primary: 'No matches.',
+      showClearSearch: false,
     };
   }
 

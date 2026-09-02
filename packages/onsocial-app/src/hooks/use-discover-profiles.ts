@@ -532,11 +532,14 @@ export function useDiscoverProfiles(
   const hasListRows = profiles.length > 0;
 
   const showConnectHint = !walletLoading && !isConnected;
+  const searching = isDiscoverPeopleSearchActive(query);
+  const searchSettled = !searching || !isLoading;
   const showListSkeleton =
-    walletLoading ||
-    (!listBootstrapReady && isLoading && !hasListRows) ||
-    (!listBootstrapReady && !relationshipSynced && !hasListRows);
-  const isSearchEmpty = isDiscoverPeopleSearchActive(query);
+    !searching &&
+    (walletLoading ||
+      (!listBootstrapReady && isLoading && !hasListRows) ||
+      (!listBootstrapReady && !relationshipSynced && !hasListRows));
+  const isSearchEmpty = searching;
   const listKey = normalizedQuery || '__all__';
 
   const clearSearch = useCallback(() => {
@@ -619,6 +622,7 @@ export function useDiscoverProfiles(
     subtitle,
     emptyState,
     isSearchEmpty,
+    searchSettled,
     showListSkeleton,
     isListRefreshing,
     isLoadingMore,

@@ -14,7 +14,7 @@ import { APP_DAOS_PATH, daosCreateHref } from '@/lib/app-routes';
  * Discover → DAOs — factory catalog find. Create / My DAOs live in the DAOs app.
  */
 export function DiscoverDaosPanel() {
-  const { query, clearSearch } = useDiscoverPanel();
+  const { query } = useDiscoverPanel();
   const catalogQuery = discoverPeopleSearchQuery(query);
   const {
     entries,
@@ -32,7 +32,7 @@ export function DiscoverDaosPanel() {
     query: catalogQuery,
   });
 
-  const showSkeleton = rows == null && pending;
+  const showSkeleton = rows == null && pending && catalogQuery.length === 0;
   const isSearchEmpty =
     catalogQuery.length > 0 && entries.length === 0 && !pending && rows != null;
 
@@ -63,21 +63,16 @@ export function DiscoverDaosPanel() {
             error
               ? null
               : isSearchEmpty
-                ? 'No DAOs match. Try a full account id — unknown DAOs resolve live when get_config succeeds.'
-                : 'No DAOs listed yet.'
+                ? 'No matches.'
+                : catalogQuery.length > 0
+                  ? null
+                  : 'No DAOs listed yet.'
           }
         />
       )}
 
       {isSearchEmpty ? (
         <div className="standing-panel-empty-actions">
-          <button
-            type="button"
-            className="standing-panel-empty-action"
-            onClick={clearSearch}
-          >
-            Clear search
-          </button>
           <Link
             className="standing-panel-empty-action"
             href={APP_DAOS_PATH}

@@ -93,10 +93,7 @@ export function GuildMembersRoster({
         return { primary: 'No banned members', secondary: null };
       }
       if (query.trim()) {
-        return {
-          primary: 'No matching bans',
-          secondary: 'Try a different name or handle.',
-        };
+        return { primary: 'No matches.', secondary: null };
       }
       return { primary: 'No banned members', secondary: null };
     }
@@ -104,10 +101,7 @@ export function GuildMembersRoster({
       return { primary: 'No members yet', secondary: null };
     }
     if (query.trim()) {
-      return {
-        primary: 'No matching members',
-        secondary: 'Try a different name or handle.',
-      };
+      return { primary: 'No matches.', secondary: null };
     }
     if (roleFilter !== 'all') {
       const tierLabel =

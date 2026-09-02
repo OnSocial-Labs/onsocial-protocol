@@ -455,6 +455,21 @@ export function mediumKindFromExtraJson(
   return mediumKindFromExtra(parseExtra(extraJson ?? null));
 }
 
+/**
+ * Discovery medium for a catalog row. Prefer the indexer column (resales
+ * keep the mint stamp there) and fall back to NEP-177 extra.
+ */
+export function resolveListingMediumKind(row: {
+  mediumKind?: string | null;
+  extraJson?: string | null;
+}): string | undefined {
+  return (
+    normalizeMediumKind(row.mediumKind) ??
+    normalizeMediumKind(mediumKindFromExtraJson(row.extraJson)) ??
+    undefined
+  );
+}
+
 /** Audio format + facets stamped on NEP-177 `extra` for discovery filters. */
 function discoveryFieldsFromExtra(
   extra: Record<string, unknown> | null,
@@ -1938,7 +1953,7 @@ function listingFromActiveRow(
         ? ('Ask' as const)
         : undefined;
 
-  const mediumKind = mediumKindFromExtraJson(row.extraJson);
+  const mediumKind = resolveListingMediumKind(row);
   const extra = parseExtra(row.extraJson ?? null);
   const playableCount = playablesFromExtra(extra).length;
   const discovery = discoveryFieldsFromExtra(extra, playableCount);

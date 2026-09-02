@@ -51,14 +51,8 @@ export function buildStandingEmptyState({
 
   if (trimmedQuery) {
     return {
-      primary: buildStandingSearchEmptyPrimary(
-        kind,
-        isSelf,
-        displayName,
-        trimmedQuery
-      ),
-      secondary: 'Try another name or handle.',
-      showClearSearch: true,
+      primary: 'No matches.',
+      showClearSearch: false,
       showDiscover: showDiscoverLink,
     };
   }

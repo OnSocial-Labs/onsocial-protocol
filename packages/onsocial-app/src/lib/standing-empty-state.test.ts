@@ -33,7 +33,7 @@ describe('buildStandingSearchEmptyPrimary', () => {
 });
 
 describe('buildStandingEmptyState', () => {
-  it('includes recovery actions for search misses', () => {
+  it('keeps search misses quiet — field X clears', () => {
     expect(
       buildStandingEmptyState({
         kind: 'outgoing',
@@ -43,9 +43,8 @@ describe('buildStandingEmptyState', () => {
         showDiscoverLink: true,
       })
     ).toEqual({
-      primary: 'No matches for "alice" in who you stand with.',
-      secondary: 'Try another name or handle.',
-      showClearSearch: true,
+      primary: 'No matches.',
+      showClearSearch: false,
       showDiscover: true,
     });
   });

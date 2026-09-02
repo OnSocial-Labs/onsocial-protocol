@@ -28618,11 +28618,15 @@ a.os-surface-row {
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
+    align-items: stretch;
     justify-content: flex-start;
     gap: 0.24rem;
     min-width: 4.5rem;
     padding-top: 0.05rem;
+  }
+
+  .market-listing-action-col .market-listing-action.os-sheet-actions--row-compact {
+    width: 100%;
   }
 
   .market-listing-meta,

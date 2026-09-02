@@ -393,11 +393,12 @@ export function DiscoverTrendingPanel({
           <p className="standing-panel-empty-primary">
             {filterNeedle ? 'No matches.' : 'Nothing trending yet.'}
           </p>
-          <p className="standing-panel-empty-secondary">
-            {filterNeedle
-              ? 'Try another search, or open Profiles, DAOs, Guilds, Hubs, Topics, or Tickers.'
-              : 'Open Profiles, DAOs, Guilds, Hubs, Topics, or Tickers to browse the graph.'}
-          </p>
+          {filterNeedle ? null : (
+            <p className="standing-panel-empty-secondary">
+              Open Profiles, DAOs, Guilds, Hubs, Topics, or Tickers to browse
+              the graph.
+            </p>
+          )}
         </div>
       ) : null}
 

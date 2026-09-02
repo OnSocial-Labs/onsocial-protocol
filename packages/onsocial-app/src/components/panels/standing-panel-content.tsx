@@ -18,6 +18,7 @@ export function StandingPanelContent() {
   const {
     kind,
     query,
+    searchSettled,
     viewerAccountId,
     isConnected,
     filteredAccounts,
@@ -70,6 +71,7 @@ export function StandingPanelContent() {
         {showListSkeleton ? (
           <ProfileSocialListSkeleton />
         ) : listAccounts.length === 0 ? (
+          !query.trim() || searchSettled ? (
           <div
             className={`standing-panel-empty-block${
               isSearchEmpty ? ' is-search' : ''
@@ -100,6 +102,7 @@ export function StandingPanelContent() {
               ) : null}
             </div>
           </div>
+          ) : null
         ) : (
           <ProfileSocialList
             accounts={listAccounts}

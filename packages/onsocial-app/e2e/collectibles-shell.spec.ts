@@ -132,13 +132,11 @@ test.describe('collectibles shell', () => {
     await searchField(page, 'Search collectibles').fill('zzznone');
     await page.waitForURL(/[?&]q=zzznone/);
     await expect(page.locator('.market-listing-list--skeleton')).toHaveCount(0);
-    await expect(
-      page.getByText('No collectibles match “zzznone”.')
-    ).toBeVisible();
-    const clearSearch = page
-      .locator('.collectibles-page .market-page-empty')
-      .getByRole('button', { name: 'Clear search' });
-    await expect(clearSearch).toHaveClass(PILL_ACTION);
+    await expect(page.getByText('No matches.')).toBeVisible();
+    const clearSearch = searchField(page, 'Search collectibles').getByRole(
+      'button',
+      { name: 'Clear search' }
+    );
     await expectEmptySitsUnderChrome(page);
     await page.screenshot({
       path: `${testInfo.outputDir}/collectibles-empty-search.png`,

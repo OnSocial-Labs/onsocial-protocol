@@ -182,7 +182,7 @@ export function CollectionDoorLogSheet({
             : 'No check-ins yet. Passes admitted at the door show up here.'}
         </p>
       ) : visible.length === 0 ? (
-        <p className="collection-door-log-empty">No matches for that search.</p>
+        <p className="collection-door-log-empty">No matches.</p>
       ) : (
         <div className="standing-list collection-door-log-list">
           {visible.map((entry, index) => {

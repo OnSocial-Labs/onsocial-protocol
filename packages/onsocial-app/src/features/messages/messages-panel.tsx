@@ -1529,7 +1529,7 @@ export function MessagesPanel() {
               <>
                 {filteredThreads.length === 0 ? (
                   <OsAppChromePageStatus>
-                    No conversations match.
+                    No matches.
                   </OsAppChromePageStatus>
                 ) : (
                   <>

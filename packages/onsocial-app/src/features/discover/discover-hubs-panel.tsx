@@ -91,7 +91,7 @@ function ScarcePeekSection({
  * Browse chips: used categories (curated + custom), omit empty.
  */
 export function DiscoverHubsPanel() {
-  const { query, clearSearch } = useDiscoverPanel();
+  const { query } = useDiscoverPanel();
   const searchQuery = discoverPeopleSearchQuery(query);
   const [apps, setApps] = useState<AppView[] | null>(null);
   const [categoryFilter, setCategoryFilter] =
@@ -270,51 +270,48 @@ export function DiscoverHubsPanel() {
         <p className="launcher-home-empty">Loading hubs…</p>
       ) : null}
 
-      {!showSkeleton && apps != null && apps.length === 0 ? (
+      {!showSkeleton &&
+      apps != null &&
+      apps.length === 0 &&
+      (!searchQuery || isSearchEmpty) ? (
         <div className="standing-panel-empty-block">
           <div className="standing-panel-empty-state">
             <p className="standing-panel-empty-primary">
               {isSearchEmpty
-                ? 'No hubs match that search.'
+                ? 'No matches.'
                 : isCategoryEmpty
                   ? 'No hubs in this category yet.'
                   : 'No hubs listed yet.'}
             </p>
-            <p className="standing-panel-empty-secondary">
-              {isSearchEmpty
-                ? 'Try another name or hub id.'
-                : isCategoryEmpty
+            {isSearchEmpty ? null : (
+              <p className="standing-panel-empty-secondary">
+                {isCategoryEmpty
                   ? 'Pick All or another category.'
                   : 'Open a hub in the Hubs app.'}
-            </p>
-          </div>
-          <div className="standing-panel-empty-actions">
-            {isSearchEmpty ? (
-              <button
-                type="button"
-                className="standing-panel-empty-action"
-                onClick={clearSearch}
-              >
-                Clear search
-              </button>
-            ) : isCategoryEmpty ? (
-              <button
-                type="button"
-                className="standing-panel-empty-action"
-                onClick={() => setCategoryFilter('all')}
-              >
-                Show all hubs
-              </button>
-            ) : (
-              <Link
-                className="standing-panel-empty-action"
-                href={APP_APP_CREATE_PATH}
-                scroll={false}
-              >
-                Open a hub
-              </Link>
+              </p>
             )}
           </div>
+          {isSearchEmpty ? null : (
+            <div className="standing-panel-empty-actions">
+              {isCategoryEmpty ? (
+                <button
+                  type="button"
+                  className="standing-panel-empty-action"
+                  onClick={() => setCategoryFilter('all')}
+                >
+                  Show all hubs
+                </button>
+              ) : (
+                <Link
+                  className="standing-panel-empty-action"
+                  href={APP_APP_CREATE_PATH}
+                  scroll={false}
+                >
+                  Open a hub
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       ) : null}
 

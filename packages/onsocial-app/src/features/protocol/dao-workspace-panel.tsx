@@ -1714,7 +1714,7 @@ export function DaoWorkspacePanel({
       filteredApplications.length === 0 ? (
         <p className="protocol-empty">
           {searchQuery
-            ? `No matches for “${searchQuery}”.`
+            ? 'No matches.'
             : familyFilter !== 'all'
               ? `No ${statusFilter === 'all' ? '' : statusFilter === 'open' ? 'open ' : `${statusFilter} `}${PROTOCOL_FEED_FAMILY_OPTIONS.find((o) => o.id === familyFilter)?.label.toLowerCase() ?? familyFilter} proposals.`
               : statusFilter === 'all'
