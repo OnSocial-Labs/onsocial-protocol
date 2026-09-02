@@ -672,7 +672,10 @@ export function DropsPagePanel({
 
   useEffect(() => {
     setPageQuery(seedQuery);
-  }, [seedKey, seedQuery]);
+    // Key-only: a new seedQuery object with the same URL must not wipe an
+    // optimistic sort / medium hop before router.replace lands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seedKey gates URL sync
+  }, [seedKey]);
 
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');

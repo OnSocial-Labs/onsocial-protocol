@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test';
 import {
   clickTab,
-  clickTabAndWaitUrl,
   closeMarketFilter,
   expectDropsChrome,
   expectMarketFilterSummary,
@@ -31,7 +30,10 @@ test.describe('drops discovery', () => {
     await gotoApp(page, '/drops');
     await expectDropsChrome(page);
 
-    await clickTabAndWaitUrl(page, 'Drop sort', 'Upcoming', /sort=upcoming/);
+    await clickTab(page, 'Drop sort', 'Upcoming');
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get('sort'))
+      .toBe('upcoming');
     await expectTabSelected(page, 'Drop sort', 'Upcoming');
     await expect(page.locator('[data-drops-ready]')).toHaveCount(1);
     await expect(page.locator('[data-drops-loading]')).toHaveCount(0);
