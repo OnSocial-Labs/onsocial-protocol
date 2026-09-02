@@ -73,6 +73,14 @@ describe('ProfilesModule.get', () => {
       },
       {
         accountId: 'a.near',
+        field: 'kind',
+        value: 'org',
+        blockHeight: 121,
+        blockTimestamp: 1210,
+        operation: 'set',
+      },
+      {
+        accountId: 'a.near',
         field: 'avatar',
         value: 'ipfs://bafyAvatar',
         blockHeight: 105,
@@ -147,6 +155,7 @@ describe('ProfilesModule.get', () => {
       v: 1,
       name: 'Alice',
       bio: 'Builder',
+      kind: 'org',
       avatar: 'ipfs://bafyAvatar',
       banner: 'ipfs://bafyBanner',
       links: { twitter: '@alice', github: 'alice' },
@@ -187,6 +196,25 @@ describe('ProfilesModule.get', () => {
     expect(p).not.toBeNull();
     expect(p!.name).toBe('Alice');
     expect(p!.bio).toBeUndefined();
+  });
+
+  it('keeps unknown kind values in extra', async () => {
+    const p = await new ProfilesModule(
+      makeSocial().mod,
+      makeQuery([
+        {
+          accountId: 'a.near',
+          field: 'kind',
+          value: 'business',
+          blockHeight: 100,
+          blockTimestamp: 1000,
+          operation: 'set',
+        },
+      ]),
+      makeStorage()
+    ).get('a.near');
+    expect(p!.kind).toBeUndefined();
+    expect(p!.extra.kind).toBe('business');
   });
 
   it('falls back to extra when links is invalid JSON', async () => {

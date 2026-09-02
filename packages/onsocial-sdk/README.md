@@ -175,7 +175,7 @@ await os.auth.startOnSocialHandoff({
 ### Profiles & posts
 
 ```ts
-await os.profiles.update({ name: 'Alice', bio: 'Builder' });
+await os.profiles.update({ name: 'Alice', bio: 'Builder', kind: 'person' });
 
 await os.posts.create({ text: 'Hello OnSocial', tags: ['intro'] });
 ```

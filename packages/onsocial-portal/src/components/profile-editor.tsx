@@ -4,11 +4,15 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
+  PROFILE_KIND_OPTIONS,
   PROFILE_LOCATION_MAX,
   normalizeProfileLocationInput,
+  profileAvatarShapeFromKind,
+  profileKindFromMaterialised,
   profileLocationFromMaterialised,
   sanitizeProfileLocationDraft,
   type MaterialisedProfile,
+  type ProfileKind,
 } from '@onsocial/sdk';
 import {
   OsSheetAction,
@@ -113,6 +117,10 @@ function getInitialLocation(profile: MaterialisedProfile | null): string {
   return profileLocationFromMaterialised(profile);
 }
 
+function getInitialKind(profile: MaterialisedProfile | null): ProfileKind {
+  return profileKindFromMaterialised(profile) ?? 'person';
+}
+
 export function ProfileEditor({
   open,
   accountId,
@@ -131,6 +139,7 @@ export function ProfileEditor({
   const bannerInputRef = useRef<HTMLInputElement | null>(null);
   const [name, setName] = useState(getInitialName(profile));
   const [location, setLocation] = useState(getInitialLocation(profile));
+  const [kind, setKind] = useState<ProfileKind>(() => getInitialKind(profile));
   const [bio, setBio] = useState(getInitialBio(profile));
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
     profileLinksInputFromRecord(profile?.links)
@@ -197,6 +206,9 @@ export function ProfileEditor({
     ) {
       return true;
     }
+    if (kind !== getInitialKind(profile)) {
+      return true;
+    }
     if (bio.trim() !== getInitialBio(profile).trim()) {
       return true;
     }
@@ -215,6 +227,7 @@ export function ProfileEditor({
     bannerUrl,
     bio,
     initialLinks,
+    kind,
     links,
     location,
     name,
@@ -329,6 +342,7 @@ export function ProfileEditor({
       await onSave({
         name,
         location: normalizeProfileLocationInput(location) || null,
+        kind,
         bio,
         avatar: avatarRemoved ? null : (avatar ?? undefined),
         banner: bannerRemoved ? null : (banner ?? undefined),
@@ -479,24 +493,35 @@ export function ProfileEditor({
                           >
                             <div
                               className={cn(
-                                'profile-editor-media-host profile-editor-media-host--avatar profile-editor-media-host--squircle',
+                                'profile-editor-media-host profile-editor-media-host--avatar',
+                                profileAvatarShapeFromKind(kind) !== 'circle' &&
+                                  'profile-editor-media-host--squircle',
                                 profileIdentityAvatarSizeClass,
                                 displayAvatarUrl && 'has-media'
                               )}
+                              data-profile-kind={kind}
                             >
                               <button
                                 type="button"
                                 onClick={() => fileInputRef.current?.click()}
                                 className={cn(
-                                  'profile-editor-media-backdrop relative flex cursor-pointer items-center justify-center overflow-hidden rounded-2xl !border-[3px] !border-background bg-background text-muted-foreground shadow-lg',
-                                  profileIdentityAvatarSizeClass
+                                  'profile-editor-media-backdrop relative flex cursor-pointer items-center justify-center overflow-hidden !border-[3px] !border-background bg-background text-muted-foreground shadow-lg',
+                                  profileIdentityAvatarSizeClass,
+                                  kind === 'person' && 'rounded-full',
+                                  kind === 'org' && 'rounded-2xl',
+                                  kind === 'dao' && 'rounded-[1rem]'
                                 )}
                                 aria-label="Choose avatar"
                               >
                                 {!displayAvatarUrl ? (
                                   <span
                                     aria-hidden
-                                    className="profile-editor-media-empty-fill rounded-[13px]"
+                                    className={cn(
+                                      'profile-editor-media-empty-fill',
+                                      kind === 'person' && 'rounded-full',
+                                      kind === 'org' && 'rounded-[13px]',
+                                      kind === 'dao' && 'rounded-[0.85rem]'
+                                    )}
                                   />
                                 ) : null}
                                 {displayAvatarUrl ? (
@@ -508,7 +533,10 @@ export function ProfileEditor({
                                 ) : null}
                                 <span
                                   className={cn(
-                                    'profile-editor-media-overlay rounded-[13px]',
+                                    'profile-editor-media-overlay',
+                                    kind === 'person' && 'rounded-full',
+                                    kind === 'org' && 'rounded-[13px]',
+                                    kind === 'dao' && 'rounded-[0.85rem]',
                                     displayAvatarUrl && 'has-media'
                                   )}
                                   aria-hidden
@@ -556,6 +584,33 @@ export function ProfileEditor({
                           <p className="min-w-0 truncate portal-type-body-sm text-muted-foreground/55">
                             {accountId ? `@${accountId}` : 'Wallet'}
                           </p>
+                          <div
+                            className="flex flex-wrap gap-1.5 pt-1"
+                            role="radiogroup"
+                            aria-label="Account type"
+                          >
+                            {PROFILE_KIND_OPTIONS.map((option) => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                role="radio"
+                                aria-checked={kind === option.value}
+                                disabled={isSaving}
+                                onClick={() => {
+                                  setKind(option.value);
+                                  markDirty();
+                                }}
+                                className={cn(
+                                  'rounded-full px-2.5 py-1 portal-type-caption transition-colors',
+                                  kind === option.value
+                                    ? 'bg-foreground/10 text-foreground'
+                                    : 'text-muted-foreground/70 hover:bg-foreground/5'
+                                )}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
                           <label htmlFor="profile-location" className="sr-only">
                             Location
                           </label>

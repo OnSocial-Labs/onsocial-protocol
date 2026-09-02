@@ -1,7 +1,9 @@
 import { cache } from 'react';
 import {
+  profileKindFromMaterialised,
   profileLocationFromMaterialised,
   type MaterialisedProfile,
+  type ProfileKind,
   type ResolvedProfileMedia,
 } from '@onsocial/sdk';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
@@ -12,6 +14,8 @@ export interface AppProfileShell {
   name: string | null;
   /** Coarse “based in” label (city / region). Not GPS. */
   location: string | null;
+  /** Optional face kind. Omit / person is an individual. */
+  kind: ProfileKind | null;
   bio: string | null;
   avatarUrl: string | null;
   bannerUrl: string | null;
@@ -35,10 +39,12 @@ export const loadProfileShell = cache(
       }
 
       const location = profileLocationFromMaterialised(profile);
+      const kind = profileKindFromMaterialised(profile) ?? null;
       return {
         accountId,
         name: profile.name ?? null,
         location: location || null,
+        kind,
         bio: profile.bio ?? null,
         avatarUrl: os.profiles.avatarUrl(profile),
         bannerUrl: os.profiles.bannerUrl(profile),

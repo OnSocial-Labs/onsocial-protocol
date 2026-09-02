@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  normalizeProfileKindInput,
   normalizeProfileLocationInput,
   type MaterialisedProfile,
   type PageConfig,
+  type ProfileKind,
 } from '@onsocial/sdk';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { creditAppPlatformReward } from '@/lib/app-platform-rewards';
@@ -31,6 +33,7 @@ export interface ProfileEditorSnapshot {
   hasProfile: boolean;
   name: string;
   location: string;
+  kind: ProfileKind | null;
   bio: string;
   avatarUrl: string | null;
   bannerUrl: string | null;
@@ -42,6 +45,7 @@ export interface ProfileEditorSnapshot {
 export interface ProfileEditorSaveInput {
   name: string;
   location: string;
+  kind: ProfileKind;
   bio: string;
   avatar: File | null;
   banner: File | null;
@@ -57,6 +61,7 @@ export interface ProfileEditorSaveInput {
 export interface ProfileEditorSaveResult {
   name: string;
   location: string;
+  kind: ProfileKind;
   bio: string;
   avatarUrl: string | null;
   bannerUrl: string | null;
@@ -162,11 +167,13 @@ export function useAppProfileEditor(
         nextNotes,
         snapshotNow.pageConfig?.linkNotes
       );
+      const kind = normalizeProfileKindInput(input.kind) ?? 'person';
       const contentDirty = isProfileEditorContentDirty({
         snapshot: snapshotNow,
         linksFromSnapshot: profileLinksInputFromRecord(snapshotNow.links),
         name,
         location,
+        kind,
         bio: input.bio,
         links: input.links,
         avatarFile: input.avatar,
@@ -179,6 +186,7 @@ export function useAppProfileEditor(
         return {
           name,
           location,
+          kind,
           bio: input.bio.trim(),
           avatarUrl: snapshotNow.avatarUrl,
           bannerUrl: snapshotNow.bannerUrl,
@@ -200,9 +208,7 @@ export function useAppProfileEditor(
           input.currentLinks ?? undefined
         );
         if (normalizedLinks.onsocial) {
-          const exists = await probeNearAccountExists(
-            normalizedLinks.onsocial
-          );
+          const exists = await probeNearAccountExists(normalizedLinks.onsocial);
           if (!exists) {
             throw new Error(
               'OnSocial link account was not found on this network'
@@ -221,6 +227,7 @@ export function useAppProfileEditor(
             name,
             bio: input.bio.trim(),
             location: location || null,
+            kind,
           };
 
           if (input.avatar) {
@@ -238,7 +245,9 @@ export function useAppProfileEditor(
           }
 
           // Bio save also writes hashtags/tickers/mentions via SDK extract-on-save.
-          const response = await client.profiles.update(payload, { wait: true });
+          const response = await client.profiles.update(payload, {
+            wait: true,
+          });
           txHash = response.txHash ?? null;
           if (session) {
             creditAppPlatformReward({
@@ -251,7 +260,8 @@ export function useAppProfileEditor(
         }
 
         if (notesDirty) {
-          const current = await fetchPageConfigFromBrowserProxy(signingAccountId);
+          const current =
+            await fetchPageConfigFromBrowserProxy(signingAccountId);
           const notes = sanitizeLinkNotes(nextNotes);
           const next: PageConfig = {
             ...((snapshotNow.pageConfig ?? {}) as PageConfig),
@@ -284,6 +294,7 @@ export function useAppProfileEditor(
         return {
           name,
           location,
+          kind,
           bio: input.bio.trim(),
           avatarUrl,
           bannerUrl,

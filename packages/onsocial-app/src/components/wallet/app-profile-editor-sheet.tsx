@@ -16,8 +16,11 @@ import {
   type FormEvent,
 } from 'react';
 import {
+  PROFILE_KIND_OPTIONS,
   PROFILE_LOCATION_MAX,
+  profileAvatarShapeFromKind,
   sanitizeProfileLocationDraft,
+  type ProfileKind,
 } from '@onsocial/sdk';
 import {
   DiscardConfirmSheet,
@@ -145,6 +148,7 @@ export function AppProfileEditorSheet({
 
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
+  const [kind, setKind] = useState<ProfileKind>('person');
   const [bio, setBio] = useState('');
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
     profileLinksInputFromRecord(null)
@@ -169,6 +173,7 @@ export function AppProfileEditorSheet({
     setSeedKey(readyKey);
     setName(snapshot.name);
     setLocation(snapshot.location);
+    setKind(snapshot.kind ?? 'person');
     setBio(snapshot.bio);
     setLinks(linksFromSnapshot);
     setLinkNotes(sanitizeLinkNotes(snapshot.pageConfig?.linkNotes));
@@ -222,6 +227,7 @@ export function AppProfileEditorSheet({
       linksFromSnapshot,
       name,
       location,
+      kind,
       bio,
       links,
       linkNotes,
@@ -236,6 +242,7 @@ export function AppProfileEditorSheet({
     bannerFile,
     bannerRemoved,
     bio,
+    kind,
     links,
     linkNotes,
     linksFromSnapshot,
@@ -295,11 +302,7 @@ export function AppProfileEditorSheet({
     displayName(accountId, name.trim() || undefined)
   );
   const canSubmit =
-    Boolean(snapshot) &&
-    nameReady &&
-    !saving &&
-    !hasInvalidLinks &&
-    isDirty;
+    Boolean(snapshot) && nameReady && !saving && !hasInvalidLinks && isDirty;
 
   const updateLink = (key: keyof ProfileLinksInput, value: string) => {
     setLinks((current) => ({ ...current, [key]: value }));
@@ -359,6 +362,7 @@ export function AppProfileEditorSheet({
       const result = await saveProfile({
         name,
         location,
+        kind,
         bio,
         avatar: avatarFile,
         banner: bannerFile,
@@ -537,6 +541,8 @@ export function AppProfileEditorSheet({
                           className={`account-editor-avatar profile-editor-media-host profile-editor-media-host--avatar${
                             displayAvatarUrl ? ' has-media' : ''
                           }`}
+                          data-profile-kind={kind}
+                          data-avatar-shape={profileAvatarShapeFromKind(kind)}
                         >
                           <button
                             type="button"
@@ -608,6 +614,27 @@ export function AppProfileEditorSheet({
                         <p className="profile-handle account-editor-handle">
                           @{handleLabel}
                         </p>
+                        <div
+                          className="account-editor-kind"
+                          role="radiogroup"
+                          aria-label="Account type"
+                        >
+                          {PROFILE_KIND_OPTIONS.map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              role="radio"
+                              aria-checked={kind === option.value}
+                              className={`os-surface-chip${
+                                kind === option.value ? ' is-selected' : ''
+                              }`}
+                              disabled={saving}
+                              onClick={() => setKind(option.value)}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
                         <label
                           htmlFor="profile-editor-location"
                           className="sr-only"
@@ -629,7 +656,9 @@ export function AppProfileEditorSheet({
                             )
                           }
                           onBlur={() => {
-                            const trimmed = location.trim().replace(/\s+/g, ' ');
+                            const trimmed = location
+                              .trim()
+                              .replace(/\s+/g, ' ');
                             if (trimmed !== location) setLocation(trimmed);
                           }}
                         />

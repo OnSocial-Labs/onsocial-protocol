@@ -1,16 +1,23 @@
 'use client';
 
 import type { CSSProperties, ReactNode } from 'react';
+import type { ProfileKind } from '@onsocial/sdk';
 import { PortfolioHeroTop } from '@/components/portfolio/portfolio-hero-top';
 import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
 import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
-import type { PageAvatarMode, PublicPageConfig, ResolvedPageHero } from '@/lib/page-data';
+import type {
+  PageAvatarMode,
+  PublicPageConfig,
+  ResolvedPageHero,
+} from '@/lib/page-data';
 import { resolvePageFace } from '@/lib/page-face';
 import type { ResolvedMood } from '@/lib/moods/types';
 
 interface PortfolioShellProps {
   pageAccountId: string;
   isDao?: boolean;
+  /** Optional `profile/kind` for avatar geometry on the frame. */
+  profileKind?: ProfileKind | null;
   mood: ResolvedMood;
   config: PublicPageConfig;
   avatarMode?: PageAvatarMode;
@@ -24,6 +31,7 @@ interface PortfolioShellProps {
 export function PortfolioShell({
   pageAccountId,
   isDao = false,
+  profileKind = null,
   mood,
   config,
   avatarMode = 'standard',
@@ -51,6 +59,7 @@ export function PortfolioShell({
       className="frame app-surface portfolio-frame"
       data-page-account={pageAccountId}
       data-entity={isDao ? 'dao' : undefined}
+      data-profile-kind={profileKind ?? (isDao ? 'dao' : 'person')}
       data-mood={mood.id}
       data-mood-preview={isPreviewingMood ? 'true' : undefined}
       data-has-banner={hasBanner ? 'true' : undefined}
@@ -81,7 +90,9 @@ export function PortfolioShell({
           ) : null}
         </div>
 
-        <div className="portfolio-hero portfolio-hero--strip-overlap">{children}</div>
+        <div className="portfolio-hero portfolio-hero--strip-overlap">
+          {children}
+        </div>
       </div>
     </main>
   );

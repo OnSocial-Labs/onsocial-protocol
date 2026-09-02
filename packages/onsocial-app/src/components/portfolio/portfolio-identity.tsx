@@ -9,6 +9,11 @@ import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
 import {
+  profileKindFaceLabel,
+  resolveDisplayProfileKind,
+  type ProfileKind,
+} from '@onsocial/sdk';
+import {
   displayName,
   initials,
   portfolioHandleForMood,
@@ -25,6 +30,8 @@ interface PortfolioIdentityProps {
   mood: ResolvedMood;
   /** DAO org face — square crest + quiet kind chrome. */
   isDao?: boolean;
+  /** Optional `profile/kind`. Omit / person is an individual. */
+  profileKind?: ProfileKind | null;
   kindLabel?: string | null;
   incomingStandingCount?: number;
 }
@@ -38,11 +45,14 @@ export function PortfolioIdentity({
   avatarUrl,
   mood: savedMood,
   isDao = false,
+  profileKind = null,
   kindLabel = null,
   incomingStandingCount = 0,
 }: PortfolioIdentityProps) {
   const moodPreview = usePortfolioMoodPreviewOptional();
   const mood = moodPreview?.effectiveMood ?? savedMood;
+  const displayKind = resolveDisplayProfileKind(profileKind, isDao);
+  const profileKindLabel = profileKindFaceLabel(displayKind);
 
   const titleLabel = displayName(accountId, profileName ?? undefined);
   const summary = tagline?.trim() || bio?.trim();
@@ -58,6 +68,7 @@ export function PortfolioIdentity({
     <section
       className="portfolio-identity animate-rise-in"
       data-entity={isDao ? 'dao' : undefined}
+      data-profile-kind={displayKind}
     >
       {avatarUrl ? (
         <img alt={titleLabel} className="portfolio-avatar" src={avatarUrl} />
@@ -72,6 +83,8 @@ export function PortfolioIdentity({
           <PortfolioDaoKindSwitch accountId={accountId} />
         ) : isDao && kindLabel ? (
           <p className="portfolio-entity-kind">{kindLabel}</p>
+        ) : profileKindLabel ? (
+          <p className="portfolio-entity-kind">{profileKindLabel}</p>
         ) : null}
         <div className="portfolio-name-row">
           <h1 className="portfolio-name">{titleLabel}</h1>

@@ -84,6 +84,14 @@ export {
   normalizeProfileLocationInput,
   profileLocationFromMaterialised,
   sanitizeProfileLocationDraft,
+  PROFILE_KINDS,
+  PROFILE_KIND_OPTIONS,
+  normalizeProfileKindInput,
+  parseProfileKind,
+  profileAvatarShapeFromKind,
+  profileKindFaceLabel,
+  profileKindFromMaterialised,
+  resolveDisplayProfileKind,
   splitRichText,
   normalizeAutolinkUrl,
   autolinkDisplayHost,
@@ -118,6 +126,7 @@ export type {
   AttestationBuildInput,
   AttestationSignatureInput,
   ProfileBioMeta,
+  ProfileAvatarShape,
   RichTextSegment,
 } from '../builders/index.js';
 

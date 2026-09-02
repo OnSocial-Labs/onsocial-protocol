@@ -6729,6 +6729,28 @@ a.os-surface-row {
     border-radius: 1rem;
   }
 
+  /* profile/kind wins over the DAO heuristic when explicitly set. */
+  .portfolio-frame[data-profile-kind='person'] .portfolio-avatar,
+  .portfolio-frame[data-profile-kind='person'] .portfolio-avatar-fallback,
+  .portfolio-identity[data-profile-kind='person'] .portfolio-avatar,
+  .portfolio-identity[data-profile-kind='person'] .portfolio-avatar-fallback {
+    border-radius: 50%;
+  }
+
+  .portfolio-frame[data-profile-kind='org'] .portfolio-avatar,
+  .portfolio-frame[data-profile-kind='org'] .portfolio-avatar-fallback,
+  .portfolio-identity[data-profile-kind='org'] .portfolio-avatar,
+  .portfolio-identity[data-profile-kind='org'] .portfolio-avatar-fallback {
+    border-radius: 1.5rem;
+  }
+
+  .portfolio-frame[data-profile-kind='dao'] .portfolio-avatar,
+  .portfolio-frame[data-profile-kind='dao'] .portfolio-avatar-fallback,
+  .portfolio-identity[data-profile-kind='dao'] .portfolio-avatar,
+  .portfolio-identity[data-profile-kind='dao'] .portfolio-avatar-fallback {
+    border-radius: 1rem;
+  }
+
   .portfolio-entity-kind {
     margin: 0 0 0.2rem;
     font-size: 0.72rem;
@@ -15563,6 +15585,22 @@ a.os-surface-row {
     );
     box-shadow: 0 0 0 3px
       var(--account-editor-avatar-ring, var(--mood-bg, var(--bg)));
+    pointer-events: auto;
+  }
+
+  .account-editor-avatar[data-profile-kind='org'] {
+    border-radius: 1.5rem;
+  }
+
+  .account-editor-avatar[data-profile-kind='dao'] {
+    border-radius: 1rem;
+  }
+
+  .account-editor-kind {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem;
     pointer-events: auto;
   }
 

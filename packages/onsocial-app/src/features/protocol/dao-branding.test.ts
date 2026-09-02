@@ -89,6 +89,7 @@ describe('dao branding', () => {
         accountId: 'demo.sputnik-dao.near',
         name: 'Profile Name',
         location: null,
+        kind: null,
         bio: 'Profile bio',
         avatarUrl: 'https://cdn.example/a.png',
         bannerUrl: 'https://cdn.example/b.png',
@@ -143,6 +144,7 @@ describe('dao branding', () => {
         accountId: 'demo.sputnik-dao.near',
         name: null,
         location: null,
+        kind: null,
         bio: '   ',
         avatarUrl: 'https://cdn.example/a.png',
         bannerUrl: null,
@@ -164,9 +166,7 @@ describe('dao branding', () => {
   });
 
   it('builds dao portfolio paths', () => {
-    expect(daoPath('Demo.Sputnik-Dao.Near')).toBe(
-      '/@demo.sputnik-dao.near'
-    );
+    expect(daoPath('Demo.Sputnik-Dao.Near')).toBe('/@demo.sputnik-dao.near');
     expect(resolveDaoEntityKind('orphan.sputnik-dao.near')).toBe('community');
   });
 });

@@ -1,0 +1,117 @@
+import { describe, expect, it } from 'vitest';
+import { buildProfileSetData } from './profile.js';
+import {
+  PROFILE_KIND_OPTIONS,
+  normalizeProfileKindInput,
+  parseProfileKind,
+  profileAvatarShapeFromKind,
+  profileKindFaceLabel,
+  profileKindFromMaterialised,
+  resolveDisplayProfileKind,
+} from './profile-kind.js';
+
+describe('parseProfileKind', () => {
+  it('accepts the three v1 kinds, case-insensitive', () => {
+    expect(parseProfileKind('person')).toBe('person');
+    expect(parseProfileKind('ORG')).toBe('org');
+    expect(parseProfileKind(' Dao ')).toBe('dao');
+  });
+
+  it('rejects unknown values', () => {
+    expect(parseProfileKind('business')).toBeUndefined();
+    expect(parseProfileKind('')).toBeUndefined();
+    expect(parseProfileKind(null)).toBeUndefined();
+    expect(parseProfileKind(1)).toBeUndefined();
+  });
+});
+
+describe('normalizeProfileKindInput', () => {
+  it('returns null for empty or invalid input', () => {
+    expect(normalizeProfileKindInput('')).toBeNull();
+    expect(normalizeProfileKindInput('team')).toBeNull();
+    expect(normalizeProfileKindInput(null)).toBeNull();
+  });
+
+  it('keeps valid kinds', () => {
+    expect(normalizeProfileKindInput('org')).toBe('org');
+  });
+});
+
+describe('profileKindFromMaterialised', () => {
+  it('prefers reserved kind over extra', () => {
+    expect(
+      profileKindFromMaterialised({
+        kind: 'org',
+        extra: { kind: 'dao' },
+      })
+    ).toBe('org');
+  });
+
+  it('falls back to extra.kind', () => {
+    expect(profileKindFromMaterialised({ extra: { kind: 'dao' } })).toBe('dao');
+  });
+
+  it('returns undefined when missing', () => {
+    expect(profileKindFromMaterialised(null)).toBeUndefined();
+    expect(profileKindFromMaterialised({ extra: {} })).toBeUndefined();
+  });
+});
+
+describe('resolveDisplayProfileKind', () => {
+  it('treats omit as person', () => {
+    expect(resolveDisplayProfileKind()).toBe('person');
+    expect(resolveDisplayProfileKind(undefined, false)).toBe('person');
+  });
+
+  it('uses DAO heuristic only when kind is omitted', () => {
+    expect(resolveDisplayProfileKind(undefined, true)).toBe('dao');
+    expect(resolveDisplayProfileKind('person', true)).toBe('person');
+    expect(resolveDisplayProfileKind('org', true)).toBe('org');
+  });
+});
+
+describe('profileAvatarShapeFromKind + face label', () => {
+  it('maps person / omit → circle, org → squircle, dao → square', () => {
+    expect(profileAvatarShapeFromKind()).toBe('circle');
+    expect(profileAvatarShapeFromKind('person')).toBe('circle');
+    expect(profileAvatarShapeFromKind('org')).toBe('squircle');
+    expect(profileAvatarShapeFromKind('dao')).toBe('square');
+  });
+
+  it('labels org and dao only', () => {
+    expect(profileKindFaceLabel('person')).toBeNull();
+    expect(profileKindFaceLabel('org')).toBe('Organization');
+    expect(profileKindFaceLabel('dao')).toBe('DAO');
+  });
+
+  it('exposes editor options', () => {
+    expect(PROFILE_KIND_OPTIONS.map((option) => option.value)).toEqual([
+      'person',
+      'org',
+      'dao',
+    ]);
+  });
+});
+
+describe('buildProfileSetData kind', () => {
+  it('writes profile/kind as a plain string', () => {
+    expect(buildProfileSetData({ kind: 'org' })).toEqual({
+      'profile/v': '1',
+      'profile/kind': 'org',
+    });
+  });
+
+  it('tombstones kind with null', () => {
+    expect(buildProfileSetData({ kind: null })).toEqual({
+      'profile/v': '1',
+      'profile/kind': null,
+    });
+  });
+
+  it('does not write kind when omitted', () => {
+    expect(buildProfileSetData({ name: 'Alice' })).toEqual({
+      'profile/v': '1',
+      'profile/name': 'Alice',
+    });
+  });
+});

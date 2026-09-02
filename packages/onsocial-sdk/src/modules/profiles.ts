@@ -21,7 +21,9 @@
 import type { SocialModule } from './social.js';
 import type { QueryModule } from '../query/index.js';
 import type { StorageProvider } from '../storage/provider.js';
+import type { ProfileKind } from '../schema/v1.js';
 import type { ProfileData, RelayResponse } from '../types.js';
+import { parseProfileKind } from '../builders/profile-kind.js';
 import {
   resolveProfileMediaField,
   type ResolvedProfileMedia,
@@ -43,6 +45,8 @@ export interface MaterialisedProfile {
   bio?: string;
   /** Coarse public “based in” label (city / region). Not GPS. */
   location?: string;
+  /** Optional face kind (`profile/kind`). Omit / person is an individual. */
+  kind?: ProfileKind;
   /** Raw `ipfs://<cid>` or URL string as stored on chain. */
   avatar?: string;
   /** Raw `ipfs://<cid>` or URL string as stored on chain. */
@@ -63,7 +67,15 @@ export interface MaterialisedProfile {
   extra: Record<string, string>;
 }
 
-const RESERVED = new Set(['v', 'name', 'bio', 'location', 'avatar', 'banner']);
+const RESERVED = new Set([
+  'v',
+  'name',
+  'bio',
+  'location',
+  'kind',
+  'avatar',
+  'banner',
+]);
 const JSON_FIELDS = new Set([
   'links',
   'tags',
@@ -117,7 +129,11 @@ function rowsToProfile(
     } else if (f === 'name') out.name = row.value;
     else if (f === 'bio') out.bio = row.value;
     else if (f === 'location') out.location = row.value;
-    else if (f === 'avatar') out.avatar = row.value;
+    else if (f === 'kind') {
+      const parsed = parseProfileKind(row.value);
+      if (parsed) out.kind = parsed;
+      else out.extra.kind = row.value;
+    } else if (f === 'avatar') out.avatar = row.value;
     else if (f === 'banner') out.banner = row.value;
     else if (JSON_FIELDS.has(f)) {
       const parsed = tryParseJson(row.value);

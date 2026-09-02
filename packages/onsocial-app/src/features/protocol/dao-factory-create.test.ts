@@ -114,6 +114,7 @@ describe('dao-social-profile', () => {
     };
     expect(args.request.action.type).toBe('set');
     expect(args.request.action.data['profile/name']).toBe('Builder Guild');
+    expect(args.request.action.data['profile/kind']).toBe('dao');
     expect(args.request.action.data['profile/avatar']).toBe('ipfs://crest');
     expect(args.request.action.data['profile/links']).toContain('website');
   });

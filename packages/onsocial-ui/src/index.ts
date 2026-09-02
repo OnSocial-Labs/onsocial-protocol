@@ -482,8 +482,10 @@ export {
   ProfileAvatar,
   profileAvatarClassName,
   profileAvatarSizeClassName,
+  profileAvatarShapeClassName,
   type ProfileAvatarProps,
   type ProfileAvatarSize,
+  type ProfileAvatarShape,
 } from './profile-avatar.js';
 export {
   TokenIcon,

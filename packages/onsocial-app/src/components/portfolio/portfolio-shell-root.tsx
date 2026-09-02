@@ -38,6 +38,7 @@ import type {
 } from '@/lib/page-data';
 import type { ProfileGuildSummary } from '@/lib/profile-guilds';
 import type { PageDrawerMeta } from '@/lib/page-drawer-meta';
+import type { ProfileKind } from '@onsocial/sdk';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { resolvePageFace } from '@/lib/page-face';
@@ -52,6 +53,8 @@ interface PortfolioShellRootProps {
   pageAccountId: string;
   /** DAO org public face — square crest via data-entity on frame. */
   isDao?: boolean;
+  /** Optional `profile/kind` for avatar geometry. */
+  profileKind?: ProfileKind | null;
   avatarMedia?: ResolvedPageHero | null;
   bannerMedia?: ResolvedPageHero | null;
   committedAvatarMode: PageAvatarMode;
@@ -77,6 +80,7 @@ function PortfolioShellPreviewBridge({
   mood: committedMood,
   pageAccountId,
   isDao = false,
+  profileKind = null,
   avatarMedia,
   bannerMedia,
   config,
@@ -125,6 +129,7 @@ function PortfolioShellPreviewBridge({
           <PortfolioShell
             pageAccountId={pageAccountId}
             isDao={isDao}
+            profileKind={profileKind}
             mood={effectiveMood}
             config={previewConfig}
             avatarMode={effectiveAvatarMode}
@@ -145,7 +150,9 @@ function PortfolioShellPreviewBridge({
             data-mood-preview={isPreviewingMood ? 'true' : undefined}
             data-has-banner={hasBanner ? 'true' : undefined}
             data-mood-only={hasBanner ? undefined : 'true'}
-            style={portfolioMoodShellStyle(effectiveMood.cssVars) as CSSProperties}
+            style={
+              portfolioMoodShellStyle(effectiveMood.cssVars) as CSSProperties
+            }
           >
             <PortfolioCustomize
               pageAccountId={pageAccountId}

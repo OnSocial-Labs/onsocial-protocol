@@ -1,3 +1,4 @@
+import type { ProfileKind } from '@onsocial/sdk';
 import type { ProfileEditorSnapshot } from '@/hooks/use-app-profile-editor';
 import { linkNotesEqual, pruneLinkNotes } from '@/lib/page-launch-config';
 import {
@@ -10,6 +11,7 @@ export function isProfileEditorContentDirty(input: {
   linksFromSnapshot: ProfileLinksInput;
   name: string;
   location: string;
+  kind: ProfileKind;
   bio: string;
   links: ProfileLinksInput;
   avatarFile: File | null;
@@ -37,13 +39,18 @@ export function isProfileEditorContentDirty(input: {
     return true;
   }
 
+  if (input.kind !== (input.snapshot.kind ?? 'person')) {
+    return true;
+  }
+
   if (input.bio.trim() !== input.snapshot.bio.trim()) {
     return true;
   }
 
   for (const field of PROFILE_LINK_EDITOR_FIELDS) {
     if (
-      input.links[field.key].trim() !== input.linksFromSnapshot[field.key].trim()
+      input.links[field.key].trim() !==
+      input.linksFromSnapshot[field.key].trim()
     ) {
       return true;
     }
@@ -57,6 +64,7 @@ export function isProfileEditorDirty(input: {
   linksFromSnapshot: ProfileLinksInput;
   name: string;
   location: string;
+  kind: ProfileKind;
   bio: string;
   links: ProfileLinksInput;
   linkNotes: Record<string, string>;

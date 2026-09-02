@@ -76,6 +76,7 @@ function profileShellFromBundle(
     accountId,
     name: profile.name?.trim() || null,
     location: null,
+    kind: null,
     bio: profile.bio?.trim() || null,
     avatarUrl,
     bannerUrl,
@@ -139,9 +140,7 @@ async function resolvePortfolioDaoContext(
   ]);
 
   const profile =
-    resolvedProfileShell ??
-    profileShellFromBundle(id, bundle.profile) ??
-    null;
+    resolvedProfileShell ?? profileShellFromBundle(id, bundle.profile) ?? null;
 
   const catalogRow = bundle.dao;
   const isDao = isHeuristicDaoAccountId(normalized) || Boolean(catalogRow);

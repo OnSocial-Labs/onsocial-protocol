@@ -12,6 +12,7 @@ function baseSnapshot(
     hasProfile: true,
     name: 'Alice',
     location: 'Lisbon',
+    kind: null,
     bio: 'Builder',
     avatarUrl: 'https://cdn.example/avatar.png',
     bannerUrl: 'https://cdn.example/banner.png',
@@ -32,6 +33,7 @@ function dirtyInput(
     linksFromSnapshot,
     name: snapshot.name,
     location: snapshot.location,
+    kind: snapshot.kind ?? 'person',
     bio: snapshot.bio,
     links: linksFromSnapshot,
     linkNotes: sanitizeLinkNotes(snapshot.pageConfig.linkNotes),
@@ -94,6 +96,20 @@ describe('isProfileEditorDirty', () => {
     expect(
       isProfileEditorDirty(dirtyInput(snapshot, { location: 'Tokyo' }))
     ).toBe(true);
+  });
+
+  it('is dirty when kind changes from omitted person to org', () => {
+    const snapshot = baseSnapshot();
+    expect(isProfileEditorDirty(dirtyInput(snapshot, { kind: 'org' }))).toBe(
+      true
+    );
+  });
+
+  it('is clean when kind stays person and snapshot omitted kind', () => {
+    const snapshot = baseSnapshot({ kind: null });
+    expect(isProfileEditorDirty(dirtyInput(snapshot, { kind: 'person' }))).toBe(
+      false
+    );
   });
 
   it('is dirty when a link title changes', () => {

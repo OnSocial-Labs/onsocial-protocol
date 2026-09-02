@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   profileAvatarClassName,
+  profileAvatarShapeClassName,
   profileAvatarSizeClassName,
 } from './profile-avatar.js';
 
@@ -9,6 +10,18 @@ describe('profileAvatarSizeClassName', () => {
     expect(profileAvatarSizeClassName('sm')).toBe('profile-avatar--sm');
     expect(profileAvatarSizeClassName('md')).toBe('profile-avatar--md');
     expect(profileAvatarSizeClassName('lg')).toBe('profile-avatar--lg');
+  });
+});
+
+describe('profileAvatarShapeClassName', () => {
+  it('keeps circle as the default look', () => {
+    expect(profileAvatarShapeClassName('circle')).toBeUndefined();
+    expect(profileAvatarShapeClassName('squircle')).toBe(
+      'profile-avatar--squircle'
+    );
+    expect(profileAvatarShapeClassName('square')).toBe(
+      'profile-avatar--square'
+    );
   });
 });
 

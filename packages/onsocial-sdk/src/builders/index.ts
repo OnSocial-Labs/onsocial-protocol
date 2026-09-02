@@ -23,6 +23,17 @@ export {
   sanitizeProfileLocationDraft,
 } from './profile-location.js';
 export {
+  PROFILE_KINDS,
+  PROFILE_KIND_OPTIONS,
+  normalizeProfileKindInput,
+  parseProfileKind,
+  profileAvatarShapeFromKind,
+  profileKindFaceLabel,
+  profileKindFromMaterialised,
+  resolveDisplayProfileKind,
+} from './profile-kind.js';
+export type { ProfileAvatarShape, ProfileKind } from './profile-kind.js';
+export {
   autolinkDisplayHost,
   isAutolinkableHostname,
   normalizeAutolinkUrl,
