@@ -37081,8 +37081,18 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   line-height: 1.4;
 }
 
-.messages-bubble p {
+.messages-bubble p,
+.messages-bubble-text {
   margin: 0;
+}
+
+.messages-bubble-text {
+  overflow-wrap: anywhere;
+}
+
+/* Host labels wrap in the 78% bubble — feed chips stay nowrap. */
+.messages-bubble-text .os-link {
+  white-space: normal;
 }
 
 .messages-bubble.is-mine {
