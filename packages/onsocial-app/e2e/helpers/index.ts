@@ -40,3 +40,4 @@ export {
   openMarketFilter,
   pickMediumAndWaitUrl,
 } from './market';
+export { clickDropsSortAndWaitUrl, expectDropsChrome } from './drops';

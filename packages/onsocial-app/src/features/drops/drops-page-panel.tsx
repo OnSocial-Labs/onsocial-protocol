@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { OsSheetAction, OsSheetActions, OsAppChromeToolbarRail } from '@onsocial/ui';
+import { useRouter } from 'next/navigation';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { DropRowFans } from '@/components/drops/drop-row-fans';
@@ -16,6 +16,10 @@ import {
 } from '@/features/drops/drops-heading';
 import { DropsDiscoveryRowMenu } from '@/features/drops/drops-discovery-row-menu';
 import {
+  DROPS_BASE_SORTS,
+  DropsListingToolbar,
+} from '@/features/drops/drops-listing-toolbar';
+import {
   DROPS_PAGE_SIZE,
   dropsItemMatchesQuery,
   fetchCreatorLeaders,
@@ -25,14 +29,11 @@ import {
   softFillDropFanRosters,
   upcomingBucket,
   type CreatorLeaderRow,
-  type DropAudioFormatFilter,
   type DropDiscoveryItem,
   type DropsSort,
   type UpcomingBucket,
 } from '@/features/drops/drops-data';
-import { OsChipRail } from '@/components/os/os-chip-rail';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
-import { MarketFilterMenu } from '@/features/market/market-filter-menu';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
   MARKET_MEDIUM_FILTERS,
@@ -43,7 +44,6 @@ import {
   fetchAllowlistRemaining,
   isCollectionMintable,
 } from '@/features/scarces/collections-data';
-import { parseAudioFormat, normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 import {
   ScarceBuySheet,
   type ScarceBuyListing,
@@ -56,15 +56,17 @@ import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_DROP_CREATE_PATH,
   APP_MARKET_PATH,
-  DROPS_SORT_PARAM,
-  MARKET_AUDIO_FORMAT_PARAM,
-  MARKET_KIND_PARAM,
   collectionPath,
   dropsPath,
   parseDropsMediumParam,
-  parseDropsSortParam,
-  type DropsMediumParam,
 } from '@/lib/app-routes';
+import {
+  EMPTY_DROPS_PAGE_QUERY,
+  dropsQueryPath,
+  dropsSeedParamsKey,
+  type DropsPageData,
+  type DropsPageQuery,
+} from '@/lib/load-drops-page';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 
@@ -99,16 +101,6 @@ function dropsCatalogCacheKey(opts: {
     viewerPart,
   ].join('|');
 }
-
-const BASE_SORTS: ReadonlyArray<{ id: DropsSort; label: string }> = [
-  { id: 'live', label: 'Live' },
-  { id: 'closing', label: 'Closing' },
-  { id: 'upcoming', label: 'Upcoming' },
-  { id: 'new', label: 'New' },
-  { id: 'loved', label: 'Loved' },
-  { id: 'traded', label: 'Traded' },
-  { id: 'finished', label: 'Finished' },
-];
 
 const UPCOMING_SECTIONS: ReadonlyArray<{
   id: UpcomingBucket;
@@ -639,34 +631,16 @@ function EmptyDropsStatus({
   return <p className="market-page-status">No drops yet.</p>;
 }
 
-function toPanelMedium(value: DropsMediumParam): MarketMediumFilter {
-  return value;
-}
-
 export function DropsPagePanel({
-  initialSort = 'live',
-  initialMedium = 'all',
-  initialAudioFormat = null,
-  initialItems = [],
-  initialHasMore,
-  initialFetchFailed = false,
-  initialCreators = [],
+  seedQuery = EMPTY_DROPS_PAGE_QUERY,
+  seedPromise = null,
   initialNowMs,
 }: {
-  initialSort?: DropsSort;
-  /** From SSR / `?kind=` — Tickets = `ticket`. */
-  initialMedium?: DropsMediumParam;
-  /** From SSR / `?audioFormat=` when medium is audio. */
-  initialAudioFormat?: DropAudioFormatFilter | null;
-  initialItems?: DropDiscoveryItem[];
-  /** From SSR `fetchDropsPage`; defaults to a full-page guess. */
-  initialHasMore?: boolean;
-  /** True when the RSC seed request failed (not merely empty). */
-  initialFetchFailed?: boolean;
-  initialCreators?: CreatorLeaderRow[];
+  seedQuery?: DropsPageQuery;
+  seedPromise?: Promise<DropsPageData | null> | null;
   /** SSR clock — keeps relative times / Featured stable across hydrate. */
   initialNowMs?: number;
-}) {
+} = {}) {
   const { accountId, isConnected, connect } = useAppWallet();
   const router = useRouter();
   const openDropCreate = useCallback(() => {
@@ -676,18 +650,14 @@ export function DropsPagePanel({
     isConnected && accountId?.trim() ? openDropCreate : null,
     'drop'
   );
-  const searchParams = useSearchParams();
-  const urlSort = parseDropsSortParam(searchParams.get(DROPS_SORT_PARAM));
-  const urlMedium = parseDropsMediumParam(searchParams.get(MARKET_KIND_PARAM));
-  const urlAudioFormat =
-    urlMedium === 'audio'
-      ? parseAudioFormat(searchParams.get(MARKET_AUDIO_FORMAT_PARAM))
-      : null;
+  const seedKey = dropsSeedParamsKey(seedQuery);
+  const [pageQuery, setPageQuery] = useState<DropsPageQuery>(seedQuery);
+  const sort = pageQuery.sort;
+  const medium: MarketMediumFilter = pageQuery.kind;
+  const audioFormat: MarketAudioFormatFilter = pageQuery.audioFormat;
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const [nowMs, setNowMs] = useState(
-    () => initialNowMs ?? Date.now()
-  );
+  const [nowMs, setNowMs] = useState(() => initialNowMs ?? Date.now());
 
   useEffect(() => {
     setNowMs(Date.now());
@@ -696,43 +666,33 @@ export function DropsPagePanel({
   }, []);
 
   const sorts = useMemo(() => {
-    if (!isConnected) return BASE_SORTS;
-    return [...BASE_SORTS, { id: 'saved' as const, label: 'Saved' }];
+    if (!isConnected) return DROPS_BASE_SORTS;
+    return [...DROPS_BASE_SORTS, { id: 'saved' as const, label: 'Saved' }];
   }, [isConnected]);
 
-  const [sort, setSort] = useState<DropsSort>(() =>
-    searchParams.get(DROPS_SORT_PARAM) ? urlSort : initialSort
-  );
-  const [medium, setMedium] = useState<MarketMediumFilter>(() =>
-    searchParams.get(MARKET_KIND_PARAM)
-      ? toPanelMedium(urlMedium)
-      : toPanelMedium(initialMedium)
-  );
-  const [audioFormat, setAudioFormat] = useState<MarketAudioFormatFilter>(() =>
-    searchParams.get(MARKET_AUDIO_FORMAT_PARAM)
-      ? urlAudioFormat
-      : initialAudioFormat
-  );
+  useEffect(() => {
+    setPageQuery(seedQuery);
+    // Key-only: a new seedQuery object with the same URL must not wipe an
+    // optimistic sort / medium hop before router.replace lands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seedKey gates URL sync
+  }, [seedKey]);
+
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [items, setItems] = useState(initialItems);
-  const [creators, setCreators] = useState(initialCreators);
-  const [offset, setOffset] = useState(initialItems.length);
-  const [hasMore, setHasMore] = useState(
-    () => initialHasMore ?? initialItems.length >= DROPS_PAGE_SIZE
-  );
-  const [loading, setLoading] = useState(
-    () => initialSort === 'saved' || initialFetchFailed
-  );
+  const [items, setItems] = useState<DropDiscoveryItem[]>([]);
+  const [creators, setCreators] = useState<CreatorLeaderRow[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [failed, setFailed] = useState(initialFetchFailed);
+  const [failed, setFailed] = useState(false);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [activeCatalogKey, setActiveCatalogKey] = useState(() =>
     dropsCatalogCacheKey({
-      sort: initialSort,
-      medium: initialMedium,
-      audioFormat: initialAudioFormat,
+      sort: seedQuery.sort,
+      medium: seedQuery.kind,
+      audioFormat: seedQuery.audioFormat,
       search: '',
       viewer: '',
     })
@@ -740,33 +700,11 @@ export function DropsPagePanel({
   const catalogCacheRef = useRef<Map<string, CatalogCacheEntry>>(new Map());
   const reloadGenRef = useRef(0);
   const fanFillAttemptedRef = useRef<Set<string>>(new Set());
-  const catalogSeededRef = useRef(false);
-  if (!catalogSeededRef.current) {
-    catalogSeededRef.current = true;
-    if (!initialFetchFailed) {
-      catalogCacheRef.current.set(
-        dropsCatalogCacheKey({
-          sort: initialSort,
-          medium: initialMedium,
-          audioFormat: initialAudioFormat,
-          search: '',
-          viewer: '',
-        }),
-        {
-          items: initialItems,
-          hasMore: initialHasMore ?? initialItems.length >= DROPS_PAGE_SIZE,
-          creators: initialCreators,
-          at: Date.now(),
-        }
-      );
-    }
-  }
   const [allowlistById, setAllowlistById] = useState<
     Record<string, number | null>
   >({});
   const [playItem, setPlayItem] = useState<DropDiscoveryItem | null>(null);
   const [mintItem, setMintItem] = useState<DropDiscoveryItem | null>(null);
-  const facetMedium = normalizeDropFacetMedium(medium);
 
   const collectionIds = useMemo(
     () => items.map((item) => item.collectionId),
@@ -787,23 +725,12 @@ export function DropsPagePanel({
     return () => window.clearTimeout(handle);
   }, [query]);
 
-  const discoveryPath = useCallback(
-    (next: {
-      sort?: DropsSort;
-      medium?: MarketMediumFilter;
-      audioFormat?: MarketAudioFormatFilter;
-    }) =>
-      dropsPath({
-        sort: next.sort ?? sort,
-        kind: next.medium ?? medium,
-        audioFormat:
-          (next.medium ?? medium) === 'audio'
-            ? (next.audioFormat !== undefined
-                ? next.audioFormat
-                : audioFormat)
-            : null,
-      }),
-    [audioFormat, medium, sort]
+  const replacePageQuery = useCallback(
+    (next: DropsPageQuery) => {
+      setPageQuery(next);
+      router.replace(dropsQueryPath(next), { scroll: false });
+    },
+    [router]
   );
 
   const selectSort = useCallback(
@@ -812,54 +739,37 @@ export function DropsPagePanel({
         void connect();
         return;
       }
-      setSort(next);
-      router.replace(discoveryPath({ sort: next }), { scroll: false });
+      replacePageQuery({ ...pageQuery, sort: next });
     },
-    [connect, discoveryPath, isConnected, router]
+    [connect, isConnected, pageQuery, replacePageQuery]
   );
 
   const selectMedium = useCallback(
     (next: MarketMediumFilter) => {
-      const nextFormat = next === 'audio' ? audioFormat : null;
-      setMedium(next);
-      if (next !== 'audio') setAudioFormat(null);
-      router.replace(
-        discoveryPath({ medium: next, audioFormat: nextFormat }),
-        { scroll: false }
-      );
+      const kind = parseDropsMediumParam(next);
+      replacePageQuery({
+        ...pageQuery,
+        kind,
+        audioFormat: kind === 'audio' ? pageQuery.audioFormat : null,
+      });
     },
-    [audioFormat, discoveryPath, router]
+    [pageQuery, replacePageQuery]
   );
 
   const selectAudioFormat = useCallback(
     (next: MarketAudioFormatFilter) => {
-      setAudioFormat(next);
-      router.replace(discoveryPath({ audioFormat: next }), { scroll: false });
+      replacePageQuery({
+        ...pageQuery,
+        audioFormat: next,
+      });
     },
-    [discoveryPath, router]
+    [pageQuery, replacePageQuery]
   );
 
   useEffect(() => {
-    if (urlSort === 'saved' && !isConnected) {
-      setSort((current) => (current === 'live' ? current : 'live'));
-      if (searchParams.get(DROPS_SORT_PARAM)) {
-        router.replace(discoveryPath({ sort: 'live' }), { scroll: false });
-      }
-      return;
-    }
-    setSort((current) => (current === urlSort ? current : urlSort));
-  }, [urlSort, isConnected, router, searchParams, discoveryPath]);
-
-  useEffect(() => {
-    const next = toPanelMedium(urlMedium);
-    setMedium((current) => (current === next ? current : next));
-  }, [urlMedium]);
-
-  useEffect(() => {
-    setAudioFormat((current) =>
-      current === urlAudioFormat ? current : urlAudioFormat
-    );
-  }, [urlAudioFormat]);
+    if (pageQuery.sort !== 'saved' || isConnected) return;
+    replacePageQuery({ ...pageQuery, sort: 'live' });
+  }, [isConnected, pageQuery, replacePageQuery]);
 
   const patchCatalogCache = useCallback(
     (
@@ -945,6 +855,32 @@ export function DropsPagePanel({
           setHasMore(false);
           return;
         }
+        const nextKey = dropsSeedParamsKey({
+          sort: nextSort,
+          kind: parseDropsMediumParam(nextMedium),
+          audioFormat: nextFormat,
+        });
+        const useSeed =
+          Boolean(seedPromise) &&
+          !nextSearch &&
+          nextKey === seedKey;
+        if (useSeed && seedPromise) {
+          const data = await seedPromise;
+          if (gen !== reloadGenRef.current) return;
+          if (data) {
+            writeCatalogCache(cacheKey, {
+              items: data.items,
+              hasMore: data.hasMore,
+              creators: data.creators,
+              at: Date.now(),
+            });
+            setItems(data.items);
+            setOffset(data.items.length);
+            setHasMore(data.hasMore);
+            setCreators(data.creators);
+            return;
+          }
+        }
         const [page, leaders] = await Promise.all([
           fetchDropsPage({
             sort: nextSort,
@@ -984,33 +920,16 @@ export function DropsPagePanel({
         }
       }
     },
-    [accountId, writeCatalogCache]
+    [accountId, seedKey, seedPromise, writeCatalogCache]
   );
 
   useEffect(() => {
-    // Trust a successful SSR seed (incl. empty) for the matching catalog —
-    // avoids cold-load double-fetch + refreshing flash / Featured blink.
-    if (
-      reloadKey === 0 &&
-      !initialFetchFailed &&
-      sort === initialSort &&
-      sort !== 'saved' &&
-      medium === toPanelMedium(initialMedium) &&
-      audioFormat === initialAudioFormat &&
-      !debouncedQuery
-    ) {
-      return;
-    }
     void reload(sort, medium, debouncedQuery, audioFormat);
   }, [
     sort,
     medium,
     audioFormat,
     debouncedQuery,
-    initialSort,
-    initialMedium,
-    initialAudioFormat,
-    initialFetchFailed,
     reload,
     reloadKey,
     accountId,
@@ -1329,32 +1248,18 @@ export function DropsPagePanel({
       }
       actions={<DropsHeadingActions />}
       toolbar={
-        <OsAppChromeToolbarRail className="market-listing-toolbar">
-          <div className="market-listing-filter-stack">
-            <OsChipRail
-              className="market-listing-filters"
-              ariaLabel="Drop sort"
-              value={sort}
-              onValueChange={selectSort}
-              items={sorts.map((entry) => ({
-                id: entry.id,
-                label: entry.label,
-              }))}
-            />
-          </div>
-          <MarketFilterMenu
-            medium={medium}
-            onMediumChange={selectMedium}
-            facetMedium={facetMedium}
-            audioFormat={audioFormat}
-            selectedFacets={[]}
-            onAudioFormatChange={selectAudioFormat}
-            onFacetsChange={() => undefined}
-            onClear={() => selectMedium('all')}
-            onOpenChange={setFilterMenuOpen}
-            showFacets={false}
-          />
-        </OsAppChromeToolbarRail>
+        <DropsListingToolbar
+          ready
+          sort={sort}
+          medium={medium}
+          audioFormat={audioFormat}
+          showSaved={isConnected}
+          onSortChange={selectSort}
+          onMediumChange={selectMedium}
+          onAudioFormatChange={selectAudioFormat}
+          onClear={() => selectMedium('all')}
+          onMenuOpenChange={setFilterMenuOpen}
+        />
       }
     >
       <div className="drops-screen-body">

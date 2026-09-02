@@ -8,6 +8,12 @@ import {
   parseDropsMediumParam,
   parseDropsSortParam,
 } from '@/lib/app-routes';
+import {
+  EMPTY_DROPS_PAGE_QUERY,
+  dropsQueryPath,
+  dropsSeedParamsKey,
+  parseDropsPageQuery,
+} from '@/lib/load-drops-page';
 
 describe('dropsPath', () => {
   it('returns bare /drops for default live', () => {
@@ -76,5 +82,42 @@ describe('parseDropsMediumParam', () => {
     expect(parseDropsMediumParam('music')).toBe('audio');
     expect(parseDropsMediumParam('coupon')).toBe('all');
     expect(parseDropsMediumParam(null)).toBe('all');
+  });
+});
+
+describe('parseDropsPageQuery', () => {
+  it('defaults to Live / All', () => {
+    expect(parseDropsPageQuery({})).toEqual(EMPTY_DROPS_PAGE_QUERY);
+  });
+
+  it('reads discovery URL params', () => {
+    const query = parseDropsPageQuery({
+      sort: 'upcoming',
+      kind: 'audio',
+      audioFormat: 'podcast',
+    });
+    expect(query).toEqual({
+      sort: 'upcoming',
+      kind: 'audio',
+      audioFormat: 'podcast',
+    });
+    expect(dropsQueryPath(query)).toBe(
+      '/drops?sort=upcoming&kind=audio&audioFormat=podcast'
+    );
+  });
+
+  it('seeds saved onto a distinct key and omits it from the default path', () => {
+    const saved = parseDropsPageQuery({ sort: 'saved' });
+    expect(dropsSeedParamsKey(saved)).toBe('0|saved|all|||');
+    expect(dropsQueryPath(EMPTY_DROPS_PAGE_QUERY)).toBe('/drops');
+    expect(dropsQueryPath(parseDropsPageQuery({ sort: 'closing' }))).toBe(
+      '/drops?sort=closing'
+    );
+  });
+
+  it('drops audio format when medium is not audio', () => {
+    expect(
+      parseDropsPageQuery({ kind: 'ticket', audioFormat: 'album' })
+    ).toMatchObject({ kind: 'ticket', audioFormat: null });
   });
 });
