@@ -342,9 +342,7 @@ describe('query', () => {
         { timeoutMs: 45_000, intervalMs: 2_000 }
       );
 
-      expect(row?.path).toBe(
-        `${ACCOUNT_ID}/${paths.app(appId, 'lot', lotId)}`
-      );
+      expect(row?.path).toBe(`${ACCOUNT_ID}/${paths.app(appId, 'lot', lotId)}`);
       expect(row?.dataType).toBe('apps');
       expect(row?.dataId).toBe(appId);
     }, 55_000);
