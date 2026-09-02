@@ -1,20 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
   MultiplyIcon,
-  OsAppChromeToolbarRail,
   ShopFillIcon,
   StarMovingFillIcon,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { OsChipRail } from '@/components/os/os-chip-rail';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -24,13 +18,24 @@ import {
 } from '@/features/market/market-heading';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { MarketListingRow } from '@/features/market/market-listing-row';
-import { MarketListingSortMenu } from '@/features/market/market-listing-sort-menu';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
-import { MarketFilterMenu } from '@/features/market/market-filter-menu';
+import {
+  listingFilterFromSort,
+  type MarketListingFilter,
+} from '@/features/market/market-listing-filter';
+import { MarketListingToolbar } from '@/features/market/market-listing-toolbar';
 import {
   MARKET_MEDIUM_FILTERS,
   type MarketMediumFilter,
-} from '@/features/market/market-medium-menu';
+} from '@/features/market/market-medium';
+import {
+  EMPTY_MARKET_PAGE_QUERY,
+  marketBrowseParamsKey,
+  marketQueryPath,
+  marketSeedParamsKey,
+  type MarketPageData,
+  type MarketPageQuery,
+} from '@/lib/load-market-page';
 import {
   auctionExpiresAtMs,
   collectionIdFromTokenId,
@@ -38,7 +43,6 @@ import {
   fetchMarketSales,
   fetchOwnedScarcesPage,
   excludeOwnedNativeListings,
-  formatMarketRelativeTime,
   invalidateLiveListingsCache,
   isPrimaryThoughtListing,
   listingCreatorAccountId,
@@ -85,26 +89,9 @@ import {
 import { ScarceOffersSheet } from '@/features/scarces/scarce-offers-sheet';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
-import {
-  normalizeDropFacetMedium,
-  normalizeDropFacets,
-  parseAudioFormat,
-} from '@/features/scarces/drop-facets';
+import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 import { accountIdsEqual } from '@/lib/account-match';
-import {
-  APP_HOME_PATH,
-  APP_MARKET_PATH,
-  MARKET_CREATOR_PARAM,
-  MARKET_APP_PARAM,
-  MARKET_KIND_PARAM,
-  MARKET_FACETS_PARAM,
-  MARKET_AUDIO_FORMAT_PARAM,
-  MARKET_SORT_PARAM,
-  marketFacetsParamValue,
-  parseMarketFacetsParam,
-  parseMarketSortParam,
-  appPath,
-} from '@/lib/app-routes';
+import { APP_HOME_PATH, appPath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import {
@@ -124,23 +111,6 @@ function listingMatchesQuery(item: MarketListingItem, query: string): boolean {
 }
 
 type LoadStatus = 'loading' | 'ready' | 'error';
-type ListingFilter = 'all' | 'fixed' | 'auctions';
-
-const LISTING_FILTERS: { id: ListingFilter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'fixed', label: 'Fixed' },
-  { id: 'auctions', label: 'Auctions' },
-];
-
-function parseMediumFilter(raw: string | null): MarketMediumFilter {
-  const value = raw?.trim().toLowerCase() ?? '';
-  // Legacy query `?kind=music` → audio.
-  const normalized = value === 'music' ? 'audio' : value;
-  const known = MARKET_MEDIUM_FILTERS.find(
-    (entry) => entry.id !== 'all' && entry.id === normalized
-  );
-  return known ? known.id : 'all';
-}
 
 /** Initial Recent sales rows; expand shows the rest of the fetched window. */
 const RECENT_SALES_PREVIEW = 8;
@@ -162,7 +132,7 @@ type MarketCatalogCacheEntry = {
 
 /** Cache key omits retry — Retry always bypasses the map. */
 function marketCatalogCacheKey(opts: {
-  listingFilter: ListingFilter;
+  listingFilter: MarketListingFilter;
   listingSort: MarketListingSort;
   search: string;
   creatorFilter: string;
@@ -197,27 +167,6 @@ const EMPTY_LISTINGS: ListingsState = {
   failed: false,
 };
 
-/**
- * Soft-retain rows only when solely the listing-type tab changes — the client
- * can refilter Auctions/Fixed. Discovery / search / sort / seller changes must
- * clear to skeleton so the previous catalog does not flash.
- *
- * Key shape: retry|filter|sort|query|creator|app|medium|facets|audioFormat
- */
-function shouldClearListingsForParams(
-  prevKey: string | null,
-  nextKey: string
-): boolean {
-  if (prevKey == null || prevKey === nextKey) return false;
-  const prev = prevKey.split('|');
-  const next = nextKey.split('|');
-  for (let i = 0; i < Math.max(prev.length, next.length); i++) {
-    if (i === 1) continue;
-    if ((prev[i] ?? '') !== (next[i] ?? '')) return true;
-  }
-  return false;
-}
-
 /** Newest-first pages of wallet-owned scarces (RPC, capped). */
 interface OwnedState {
   items: OwnedScarceItem[];
@@ -234,7 +183,7 @@ const EMPTY_OWNED: OwnedState = {
 };
 
 function filterToKinds(
-  filter: ListingFilter
+  filter: MarketListingFilter
 ): ('lazy' | 'native' | 'auction')[] | undefined {
   if (filter === 'auctions') return ['auction'];
   if (filter === 'fixed') return ['lazy', 'native'];
@@ -256,71 +205,32 @@ function sourcePostCoords(
   return { author: match[1], postId: match[2] };
 }
 
-/** Default browse key: retry 0 · all · newest · no search/creator/app/discovery. */
-const DEFAULT_LISTINGS_PARAMS_KEY = '0|all|newest||||all||';
-
 export function MarketPagePanel({
-  initialListings = null,
-  initialSales = null,
+  seedQuery = EMPTY_MARKET_PAGE_QUERY,
+  seedPromise = null,
 }: {
-  initialListings?: MarketListingsPage | null;
-  initialSales?: MarketSaleItem[] | null;
+  seedQuery?: MarketPageQuery;
+  seedPromise?: Promise<MarketPageData | null> | null;
 } = {}) {
   const { accountId: viewerAccountId, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const creatorFilter =
-    searchParams.get(MARKET_CREATOR_PARAM)?.trim().toLowerCase() ?? '';
-  const appFilter = searchParams.get(MARKET_APP_PARAM)?.trim() ?? '';
-  const mediumFilter = parseMediumFilter(searchParams.get(MARKET_KIND_PARAM));
+  const seedKey = marketSeedParamsKey(seedQuery);
+  const [query, setQuery] = useState<MarketPageQuery>(seedQuery);
+  const creatorFilter = query.creator;
+  const appFilter = query.app;
+  const mediumFilter = query.kind;
   const facetMedium = normalizeDropFacetMedium(mediumFilter);
-  const facetsParam = searchParams.get(MARKET_FACETS_PARAM);
-  const selectedFacets = useMemo(
-    () =>
-      facetMedium
-        ? normalizeDropFacets(
-            parseMarketFacetsParam(facetsParam),
-            facetMedium
-          )
-        : [],
-    [facetMedium, facetsParam]
-  );
-  const audioFormatFilter: MarketAudioFormatFilter =
-    facetMedium === 'audio'
-      ? parseAudioFormat(searchParams.get(MARKET_AUDIO_FORMAT_PARAM))
-      : null;
-  const urlSort = parseMarketSortParam(searchParams.get(MARKET_SORT_PARAM));
+  const selectedFacets = query.facets;
+  const audioFormatFilter = query.audioFormat;
+  const urlSort = query.sort;
   const [retryKey, setRetryKey] = useState(0);
-  // Seed only the default unfiltered browse; URL discovery/seller/sort narrows refetch.
-  const canSeedDefaultBrowse =
-    initialListings != null &&
-    !creatorFilter &&
-    !appFilter &&
-    mediumFilter === 'all' &&
-    selectedFacets.length === 0 &&
-    !audioFormatFilter &&
-    urlSort === 'newest';
-  const [listingsState, setListingsState] = useState<ListingsState>(() =>
-    canSeedDefaultBrowse
-      ? {
-          paramsKey: DEFAULT_LISTINGS_PARAMS_KEY,
-          // All browse hides primary thought post-mints (Thoughts chip shows them).
-          items: initialListings.items.filter(
-            (item) => !isPrimaryThoughtListing(item)
-          ),
-          nextOffset: initialListings.nextOffset,
-          hasMore: initialListings.hasMore,
-          failed: false,
-        }
-      : EMPTY_LISTINGS
-  );
+  const [listingsState, setListingsState] =
+    useState<ListingsState>(EMPTY_LISTINGS);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [catalogRefreshing, setCatalogRefreshing] = useState(false);
-  const [sales, setSales] = useState<MarketSaleItem[] | null>(
-    () => initialSales
-  );
+  const [sales, setSales] = useState<MarketSaleItem[] | null>(null);
   const [ownedState, setOwnedState] = useState<OwnedState>(EMPTY_OWNED);
   const [ownedLoadingMore, setOwnedLoadingMore] = useState(false);
   const [buyListing, setBuyListing] = useState<ScarceBuyListing | null>(null);
@@ -333,12 +243,21 @@ export function MarketPagePanel({
   const [cancelRowKey, setCancelRowKey] = useState<string | null>(null);
   const [delistTokenId, setDelistTokenId] = useState<string | null>(null);
   const [settleTokenId, setSettleTokenId] = useState<string | null>(null);
-  const [listingFilter, setListingFilter] = useState<ListingFilter>(() =>
-    urlSort === 'ending' ? 'auctions' : 'all'
+  const [listingFilter, setListingFilter] = useState<MarketListingFilter>(() =>
+    listingFilterFromSort(urlSort)
   );
   const [listingSort, setListingSort] = useState<MarketListingSort>(() => urlSort);
   const [listingQuery, setListingQuery] = useState('');
   const [salesExpanded, setSalesExpanded] = useState(false);
+  useEffect(() => {
+    setQuery(seedQuery);
+    setListingSort((current) =>
+      current === seedQuery.sort ? current : seedQuery.sort
+    );
+    if (seedQuery.sort === 'ending') {
+      setListingFilter('auctions');
+    }
+  }, [seedKey, seedQuery]);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [offerByToken, setOfferByToken] = useState<
@@ -348,9 +267,6 @@ export function MarketPagePanel({
   const [offersRevision, setOffersRevision] = useState(0);
   const listingsSentinelRef = useRef<HTMLDivElement | null>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
-  // Soft SSR already seeded default browse — skip one duplicate keyed query.
-  const ssrDefaultBrowseSkipRef = useRef(canSeedDefaultBrowse);
-  const ssrSalesSkipRef = useRef(initialSales != null);
   /** Bumped on each first-page fetch so in-flight loadMore cannot append stale pages. */
   const listingsFetchGenRef = useRef(0);
   const catalogCacheRef = useRef<Map<string, MarketCatalogCacheEntry>>(
@@ -385,21 +301,23 @@ export function MarketPagePanel({
     []
   );
 
+  const replaceQuery = useCallback(
+    (next: MarketPageQuery) => {
+      setQuery(next);
+      router.replace(marketQueryPath(next), { scroll: false });
+    },
+    [router]
+  );
+
   const replaceSortInUrl = useCallback(
     (nextSort: MarketListingSort) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (nextSort === 'newest') params.delete(MARKET_SORT_PARAM);
-      else params.set(MARKET_SORT_PARAM, nextSort);
-      const qs = params.toString();
-      router.replace(qs ? `${APP_MARKET_PATH}?${qs}` : APP_MARKET_PATH, {
-        scroll: false,
-      });
+      replaceQuery({ ...query, sort: nextSort });
     },
-    [router, searchParams]
+    [query, replaceQuery]
   );
 
   const setFilter = useCallback(
-    (next: ListingFilter) => {
+    (next: MarketListingFilter) => {
       setListingFilter(next);
       if (next === 'fixed') {
         setListingSort((current) => {
@@ -424,17 +342,18 @@ export function MarketPagePanel({
     [replaceSortInUrl]
   );
 
-  // Keep local sort in sync when the URL changes (back/forward).
-  useEffect(() => {
-    const next = parseMarketSortParam(searchParams.get(MARKET_SORT_PARAM));
-    setListingSort((current) => (current === next ? current : next));
-    if (next === 'ending') {
-      setListingFilter('auctions');
-    }
-  }, [searchParams]);
-
   const discoveryParamsKey = `${mediumFilter}|${selectedFacets.join(',')}|${audioFormatFilter ?? ''}`;
-  const listingsParamsKey = `${retryKey}|${listingFilter}|${listingSort}|${debouncedQuery.toLowerCase()}|${creatorFilter}|${appFilter}|${discoveryParamsKey}`;
+  const listingsParamsKey = marketBrowseParamsKey({
+    retryKey,
+    listingFilter,
+    sort: listingSort,
+    search: debouncedQuery,
+    creator: creatorFilter,
+    app: appFilter,
+    kind: mediumFilter,
+    facets: selectedFacets,
+    audioFormat: audioFormatFilter,
+  });
   const catalogCacheKey = marketCatalogCacheKey({
     listingFilter,
     listingSort,
@@ -445,62 +364,39 @@ export function MarketPagePanel({
   });
 
   const clearNarrowFilter = useCallback(() => {
-    router.replace(APP_MARKET_PATH, { scroll: false });
-  }, [router]);
+    replaceQuery({
+      ...EMPTY_MARKET_PAGE_QUERY,
+      sort: query.sort,
+    });
+  }, [query.sort, replaceQuery]);
 
   const setMediumFilter = useCallback(
     (next: MarketMediumFilter) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (next === 'all') {
-        params.delete(MARKET_KIND_PARAM);
-      } else {
-        params.set(MARKET_KIND_PARAM, next);
-      }
-      params.delete(MARKET_FACETS_PARAM);
-      params.delete(MARKET_AUDIO_FORMAT_PARAM);
-      const qs = params.toString();
-      router.replace(qs ? `${APP_MARKET_PATH}?${qs}` : APP_MARKET_PATH, {
-        scroll: false,
+      replaceQuery({
+        ...query,
+        kind: next,
+        facets: [],
+        audioFormat: null,
       });
     },
-    [router, searchParams]
+    [query, replaceQuery]
   );
 
   const replaceDiscoveryParams = useCallback(
     (next: { facets?: string[]; audioFormat?: MarketAudioFormatFilter }) => {
-      const params = new URLSearchParams(searchParams.toString());
-      const facets = next.facets !== undefined ? next.facets : selectedFacets;
-      const audioFormat =
-        next.audioFormat !== undefined ? next.audioFormat : audioFormatFilter;
-      const facetsValue = marketFacetsParamValue(facets);
-      if (facetsValue) params.set(MARKET_FACETS_PARAM, facetsValue);
-      else params.delete(MARKET_FACETS_PARAM);
-      if (audioFormat) params.set(MARKET_AUDIO_FORMAT_PARAM, audioFormat);
-      else params.delete(MARKET_AUDIO_FORMAT_PARAM);
-      const qs = params.toString();
-      router.replace(qs ? `${APP_MARKET_PATH}?${qs}` : APP_MARKET_PATH, {
-        scroll: false,
+      replaceQuery({
+        ...query,
+        facets: next.facets !== undefined ? next.facets : query.facets,
+        audioFormat:
+          next.audioFormat !== undefined ? next.audioFormat : query.audioFormat,
       });
     },
-    [router, searchParams, selectedFacets, audioFormatFilter]
+    [query, replaceQuery]
   );
 
-  // First catalog page. Soft-retain listing-type tab flips; cache hits paint
-  // instantly then soft-revalidate; misses clear to skeleton.
+  // First catalog page. Cache hits paint instantly then soft-revalidate.
+  // Misses keep the last rows under a quiet refresh — skeleton only if empty.
   useEffect(() => {
-    if (
-      ssrDefaultBrowseSkipRef.current &&
-      listingsParamsKey === DEFAULT_LISTINGS_PARAMS_KEY
-    ) {
-      ssrDefaultBrowseSkipRef.current = false;
-      writeCatalogCache(catalogCacheKey, {
-        items: listingsState.items,
-        nextOffset: listingsState.nextOffset,
-        hasMore: listingsState.hasMore,
-      });
-      return;
-    }
-    ssrDefaultBrowseSkipRef.current = false;
     const gen = ++listingsFetchGenRef.current;
     setLoadingMore(false);
     setLoadMoreFailed(false);
@@ -520,69 +416,74 @@ export function MarketPagePanel({
         hasMore: cached.hasMore,
         failed: false,
       });
-      setCatalogRefreshing(true);
-    } else {
-      setCatalogRefreshing(false);
-      setListingsState((current) => {
-        if (current.paramsKey === listingsParamsKey) return current;
-        if (
-          !shouldClearListingsForParams(current.paramsKey, listingsParamsKey)
-        ) {
-          return current;
-        }
-        return EMPTY_LISTINGS;
-      });
     }
+    setCatalogRefreshing(true);
 
     let cancelled = false;
-    // Ending sort always queries auctions, even mid-tab transition.
-    const kinds =
-      listingSort === 'ending'
-        ? (['auction'] as const)
-        : filterToKinds(listingFilter);
-    fetchMarketListings({
-      limit: LISTINGS_PAGE_SIZE,
-      ...(kinds ? { kinds: [...kinds] } : {}),
-      ...(debouncedQuery ? { search: debouncedQuery } : {}),
-      ...(creatorFilter ? { sellerId: creatorFilter } : {}),
-      ...(appFilter ? { appId: appFilter } : {}),
-      ...(mediumFilter !== 'all' ? { mediumKind: mediumFilter } : {}),
-      ...(selectedFacets.length ? { facets: selectedFacets } : {}),
-      ...(audioFormatFilter ? { audioFormat: audioFormatFilter } : {}),
-      ...(mediumFilter === 'all' ? { excludePrimaryThoughts: true } : {}),
-      sort: listingSort,
-    }).then(
-      (page) => {
+
+    const applyPage = (page: MarketListingsPage) => {
+      if (cancelled || gen !== listingsFetchGenRef.current) return;
+      writeCatalogCache(catalogCacheKey, {
+        items: page.items,
+        nextOffset: page.nextOffset,
+        hasMore: page.hasMore,
+      });
+      setListingsState({
+        paramsKey: listingsParamsKey,
+        items: page.items,
+        nextOffset: page.nextOffset,
+        hasMore: page.hasMore,
+        failed: false,
+      });
+      setCatalogRefreshing(false);
+    };
+
+    const applyFail = () => {
+      if (cancelled || gen !== listingsFetchGenRef.current) return;
+      setCatalogRefreshing(false);
+      if (cacheFresh && cached) return;
+      setListingsState((current) => ({
+        ...current,
+        paramsKey: listingsParamsKey,
+        failed: current.items.length === 0,
+      }));
+    };
+
+    const runClientFetch = () => {
+      const kinds =
+        listingSort === 'ending'
+          ? (['auction'] as const)
+          : filterToKinds(listingFilter);
+      return fetchMarketListings({
+        limit: LISTINGS_PAGE_SIZE,
+        ...(kinds ? { kinds: [...kinds] } : {}),
+        ...(debouncedQuery ? { search: debouncedQuery } : {}),
+        ...(creatorFilter ? { sellerId: creatorFilter } : {}),
+        ...(appFilter ? { appId: appFilter } : {}),
+        ...(mediumFilter !== 'all' ? { mediumKind: mediumFilter } : {}),
+        ...(selectedFacets.length ? { facets: selectedFacets } : {}),
+        ...(audioFormatFilter ? { audioFormat: audioFormatFilter } : {}),
+        ...(mediumFilter === 'all' ? { excludePrimaryThoughts: true } : {}),
+        sort: listingSort,
+      }).then(applyPage, applyFail);
+    };
+
+    const useSeed = Boolean(seedPromise) && listingsParamsKey === seedKey;
+    if (useSeed && seedPromise) {
+      void seedPromise.then((data) => {
         if (cancelled || gen !== listingsFetchGenRef.current) return;
-        writeCatalogCache(catalogCacheKey, {
-          items: page.items,
-          nextOffset: page.nextOffset,
-          hasMore: page.hasMore,
-        });
-        setListingsState({
-          paramsKey: listingsParamsKey,
-          items: page.items,
-          nextOffset: page.nextOffset,
-          hasMore: page.hasMore,
-          failed: false,
-        });
-        setCatalogRefreshing(false);
-      },
-      () => {
-        if (cancelled || gen !== listingsFetchGenRef.current) return;
-        setCatalogRefreshing(false);
-        if (cacheFresh && cached) {
-          // Keep painted cache; soft-revalidate failed quietly.
-          setCatalogRefreshing(false);
+        if (data) {
+          applyPage(data.listings);
           return;
         }
-        setListingsState({
-          ...EMPTY_LISTINGS,
-          paramsKey: listingsParamsKey,
-          failed: true,
-        });
-      }
-    );
+        void runClientFetch();
+      }, () => {
+        void runClientFetch();
+      });
+    } else {
+      void runClientFetch();
+    }
+
     return () => {
       cancelled = true;
     };
@@ -598,6 +499,8 @@ export function MarketPagePanel({
     selectedFacets,
     audioFormatFilter,
     retryKey,
+    seedPromise,
+    seedKey,
     writeCatalogCache,
   ]);
 
@@ -739,25 +642,42 @@ export function MarketPagePanel({
   }, [listingsState.items]);
 
   useEffect(() => {
-    if (ssrSalesSkipRef.current && retryKey === 0) {
-      ssrSalesSkipRef.current = false;
-      return;
-    }
-    ssrSalesSkipRef.current = false;
     let cancelled = false;
     setSalesExpanded(false);
-    fetchMarketSales().then(
-      (rows) => {
-        if (!cancelled) setSales(rows);
-      },
-      () => {
-        if (!cancelled) setSales([]);
-      }
-    );
+
+    const applySales = (rows: MarketSaleItem[]) => {
+      if (!cancelled) setSales(rows);
+    };
+    const applyEmpty = () => {
+      if (!cancelled) setSales([]);
+    };
+
+    // Seller / app browse hides Recent sales — don't fetch a list we never show.
+    if (creatorFilter || appFilter) {
+      applyEmpty();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    // First paint: the page seed already includes sales for the open catalog.
+    if (retryKey === 0 && seedPromise) {
+      void seedPromise.then((data) => {
+        if (cancelled) return;
+        if (data) {
+          applySales(data.sales);
+          return;
+        }
+        fetchMarketSales().then(applySales, applyEmpty);
+      }, applyEmpty);
+    } else {
+      fetchMarketSales().then(applySales, applyEmpty);
+    }
+
     return () => {
       cancelled = true;
     };
-  }, [retryKey]);
+  }, [retryKey, seedPromise, creatorFilter, appFilter]);
 
   // “Yours” loads independently so a slow RPC vault never blocks browse.
   useEffect(() => {
@@ -1272,7 +1192,10 @@ export function MarketPagePanel({
       : salesRows.slice(0, RECENT_SALES_PREVIEW);
   const hiddenSalesCount = Math.max(0, salesRows.length - visibleSales.length);
 
-  const showListingToolbar = status !== 'error' && !showEmptyBrowse;
+  const showListSkeleton =
+    listingsState.items.length === 0 &&
+    !listingsFailed &&
+    (status === 'loading' || !listingsReady || catalogRefreshing);
   const showOwnedSection =
     Boolean(viewerAccountId) &&
     owned.length > 0 &&
@@ -1334,46 +1257,27 @@ export function MarketPagePanel({
       }
       actions={<MarketHeadingActions />}
       toolbar={
-        showListingToolbar ? (
-          <OsAppChromeToolbarRail className="market-listing-toolbar">
-            <div className="market-listing-filter-stack">
-              <OsChipRail
-                className="market-listing-filters"
-                ariaLabel="Listing type"
-                value={listingFilter}
-                onValueChange={setFilter}
-                tabIdFor={(id) => `market-listing-tab-${id}`}
-                ariaControls="market-listing-results"
-                items={LISTING_FILTERS.map((tab) => ({
-                  id: tab.id,
-                  label: tab.label,
-                }))}
-              />
-            </div>
-            <MarketFilterMenu
-              medium={mediumFilter}
-              onMediumChange={setMediumFilter}
-              facetMedium={facetMedium}
-              audioFormat={audioFormatFilter}
-              selectedFacets={selectedFacets}
-              onAudioFormatChange={(format) =>
-                replaceDiscoveryParams({ audioFormat: format })
-              }
-              onFacetsChange={(facets) => replaceDiscoveryParams({ facets })}
-              onClear={() => setMediumFilter('all')}
-              onOpenChange={setSortMenuOpen}
-            />
-            <MarketListingSortMenu
-              sort={listingSort}
-              onSortChange={setSort}
-              endingDisabled={listingFilter === 'fixed'}
-              onOpenChange={setSortMenuOpen}
-            />
-          </OsAppChromeToolbarRail>
-        ) : undefined
+        <MarketListingToolbar
+          ready
+          listingFilter={listingFilter}
+          listingSort={listingSort}
+          medium={mediumFilter}
+          audioFormat={audioFormatFilter}
+          selectedFacets={selectedFacets}
+          facetMedium={facetMedium}
+          onListingFilterChange={setFilter}
+          onSortChange={setSort}
+          onMediumChange={setMediumFilter}
+          onAudioFormatChange={(format) =>
+            replaceDiscoveryParams({ audioFormat: format })
+          }
+          onFacetsChange={(facets) => replaceDiscoveryParams({ facets })}
+          onClear={() => setMediumFilter('all')}
+          onMenuOpenChange={setSortMenuOpen}
+        />
       }
     >
-      <div className="market-page">
+      <div className="market-page" data-market-panel>
         {creatorFilter ? (
           <div className="market-creator-filter">
             <Link
@@ -1422,7 +1326,7 @@ export function MarketPagePanel({
           </div>
         ) : null}
 
-        {status === 'loading' ? (
+        {showListSkeleton ? (
           <div className="market-section" aria-busy="true" aria-live="polite">
             <p className="sr-only">Loading listings…</p>
             <MarketListSkeleton rows={5} />

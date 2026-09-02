@@ -28,3 +28,15 @@ export {
   tab,
   tablist,
 } from './tabs';
+export {
+  closeMarketFilter,
+  expectMarketChrome,
+  expectMarketFilterSummary,
+  expectMediumSelected,
+  marketFilterTrigger,
+  marketListSkeleton,
+  marketListingResults,
+  mediumOption,
+  openMarketFilter,
+  pickMediumAndWaitUrl,
+} from './market';
