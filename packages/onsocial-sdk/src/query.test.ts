@@ -4732,8 +4732,9 @@ describe('QueryModule', () => {
       );
       expect(body.query).toMatch(/appsCurrent\(/);
       expect(body.query).toMatch(/dataId: \{\s*_eq: \$appId/);
-      expect(body.query).not.toMatch(/appRelpath/);
+      expect(body.query).not.toMatch(/appRelpath:\s*\{/);
       expect(body.query).not.toMatch(/\$prefix/);
+      expect(body.query).toMatch(/appRelpath/);
       expect(body.variables).toEqual({ appId: 'acme-track' });
     });
 
