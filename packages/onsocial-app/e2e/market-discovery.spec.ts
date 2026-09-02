@@ -50,6 +50,8 @@ test.describe('market discovery', () => {
     await expectTabSelected(page, 'Release format', 'Podcast');
     await closeMarketFilter(page);
     await expectMarketFilterSummary(page, /Audio/);
+    await expect(page.locator('[data-market-ready]')).toHaveCount(1);
+    await expect(page.locator('[data-market-loading]')).toHaveCount(0);
   });
 
   test('deep-links medium and audio format from the URL', async ({ page }) => {
@@ -66,8 +68,8 @@ test.describe('market discovery', () => {
     await expectMarketChrome(page);
     await expectMarketFilterSummary(page, 'Tickets');
 
-    // Discovery URLs skip the default All seed. Ready paint is either the
-    // narrowed empty copy or ticket rows — not an All catalog under Tickets.
+    // SSR seed matches ?kind=ticket. Ready paint is ticket rows, empty copy,
+    // or Retry — not an All catalog under Tickets.
     const emptyTickets = page.getByText(/Nothing in Tickets right now/);
     const ticketRow = marketListingResults(page).locator('.market-listing-row');
     const loadError = page.getByText(/Couldn’t load listings/);
@@ -89,6 +91,7 @@ test.describe('market discovery', () => {
 
   test('deep-links ending soon sort onto Auctions', async ({ page }) => {
     await gotoApp(page, '/market?sort=ending');
+    await expectMarketChrome(page);
     await expectTabSelected(page, 'Listing type', 'Auctions');
     await expectChoiceMenuVisible(page, 'Sort', {
       containsText: 'Ending soon',
@@ -97,6 +100,7 @@ test.describe('market discovery', () => {
 
   test('listing-type tab stays selected after flip', async ({ page }) => {
     await gotoApp(page, '/market');
+    await expectMarketChrome(page);
     await expectTabVisible(page, 'Listing type', 'All');
 
     await clickTab(page, 'Listing type', 'Auctions');

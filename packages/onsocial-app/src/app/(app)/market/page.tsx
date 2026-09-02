@@ -1,10 +1,8 @@
-import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { MarketLoadingScreen } from '@/features/market/market-loading-screen';
 import { MarketPagePanel } from '@/features/market/market-page-panel';
 import {
   loadMarketPageData,
-  shouldSeedMarketDefaultBrowse,
+  parseMarketPageQuery,
 } from '@/lib/load-market-page';
 import {
   MARKET_APP_PARAM,
@@ -37,7 +35,7 @@ function firstParam(value: string | string[] | undefined): string {
 
 export default async function MarketPage({ searchParams }: MarketPageProps) {
   const resolved = (await searchParams) ?? {};
-  const seedDefault = shouldSeedMarketDefaultBrowse({
+  const query = parseMarketPageQuery({
     kind: firstParam(resolved[MARKET_KIND_PARAM]),
     creator: firstParam(resolved[MARKET_CREATOR_PARAM]),
     app: firstParam(resolved[MARKET_APP_PARAM]),
@@ -45,14 +43,9 @@ export default async function MarketPage({ searchParams }: MarketPageProps) {
     audioFormat: firstParam(resolved[MARKET_AUDIO_FORMAT_PARAM]),
     sort: firstParam(resolved[MARKET_SORT_PARAM]),
   });
-  const initial = seedDefault ? await loadMarketPageData() : null;
+  // Do not await the catalog here — that remounts the shell via loading.tsx
+  // on every filter replace. The panel consumes the promise in the list slot.
+  const seedPromise = loadMarketPageData(query);
 
-  return (
-    <Suspense fallback={<MarketLoadingScreen />}>
-      <MarketPagePanel
-        initialListings={initial?.listings ?? null}
-        initialSales={initial?.sales ?? null}
-      />
-    </Suspense>
-  );
+  return <MarketPagePanel seedQuery={query} seedPromise={seedPromise} />;
 }

@@ -34,6 +34,18 @@ export const MARKET_MEDIUM_FILTERS: ReadonlyArray<{
   { id: 'custom', label: 'Custom' },
 ];
 
+/** URL `?kind=` → medium filter. Legacy `music` reads as audio. */
+export function parseMarketMediumFilter(
+  raw: string | null | undefined
+): MarketMediumFilter {
+  const value = raw?.trim().toLowerCase() ?? '';
+  const normalized = value === 'music' ? 'audio' : value;
+  const known = MARKET_MEDIUM_FILTERS.find(
+    (entry) => entry.id !== 'all' && entry.id === normalized
+  );
+  return known ? known.id : 'all';
+}
+
 /**
  * Playable-audio scarce kind. Writes are `audio` only; `music` remains a
  * temporary read alias for the one testnet drop until it is recreated.

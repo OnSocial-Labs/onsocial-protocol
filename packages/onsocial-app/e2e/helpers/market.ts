@@ -13,11 +13,12 @@ export function marketFilterTrigger(page: Page): Locator {
 
 export async function expectMarketChrome(page: Page): Promise<void> {
   await expectSearchVisible(page, 'Search Market listings');
-  // Loading shells also use .market-page without a toolbar. The rail lives in
-  // the screen chrome, not inside `.market-page`.
-  await expect(page.locator('.market-listing-toolbar')).toBeVisible({
+  // Loading shells now include an inert toolbar. Ready chrome is tagged.
+  await expect(page.locator('[data-market-ready]')).toBeVisible({
     timeout: E2E_CHROME_TIMEOUT_MS,
   });
+  await expect(page.locator('[data-market-ready]')).toHaveCount(1);
+  await expect(page.locator('[data-market-loading]')).toHaveCount(0);
   await expectTabVisible(page, 'Listing type', 'All');
   await expectTabVisible(page, 'Listing type', 'Auctions');
   await expect(marketFilterTrigger(page)).toBeVisible({
