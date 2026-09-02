@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import {
-  clickTab,
+  clickDropsSortAndWaitUrl,
   closeMarketFilter,
   expectDropsChrome,
   expectMarketFilterSummary,
@@ -30,11 +30,7 @@ test.describe('drops discovery', () => {
     await gotoApp(page, '/drops');
     await expectDropsChrome(page);
 
-    await clickTab(page, 'Drop sort', 'Upcoming');
-    await expect
-      .poll(() => new URL(page.url()).searchParams.get('sort'))
-      .toBe('upcoming');
-    await expectTabSelected(page, 'Drop sort', 'Upcoming');
+    await clickDropsSortAndWaitUrl(page, 'Upcoming', 'upcoming');
     await expect(page.locator('[data-drops-ready]')).toHaveCount(1);
     await expect(page.locator('[data-drops-loading]')).toHaveCount(0);
 
@@ -75,14 +71,8 @@ test.describe('drops discovery', () => {
     await expectDropsChrome(page);
     await expectTabVisible(page, 'Drop sort', 'Live');
 
-    await clickTab(page, 'Drop sort', 'New');
-    await expect
-      .poll(() => new URL(page.url()).searchParams.get('sort'))
-      .toBe('new');
-    await clickTab(page, 'Drop sort', 'Live');
-    await expect
-      .poll(() => new URL(page.url()).searchParams.has('sort'))
-      .toBe(false);
+    await clickDropsSortAndWaitUrl(page, 'New', 'new');
+    await clickDropsSortAndWaitUrl(page, 'Live', null);
 
     await expectDropsChrome(page);
     await expectTabSelected(page, 'Drop sort', 'Live');
