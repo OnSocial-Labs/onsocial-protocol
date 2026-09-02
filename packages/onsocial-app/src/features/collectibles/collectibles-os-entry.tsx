@@ -4,30 +4,36 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { CollectiblesPagePanel } from '@/features/collectibles/collectibles-page-panel';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
+import {
+  EMPTY_COLLECTIBLES_PAGE_QUERY,
+  collectiblesQueryPath,
+  collectiblesSeedParamsKey,
+  type CollectiblesPageData,
+  type CollectiblesPageQuery,
+} from '@/lib/load-collectibles-page';
 
 /**
  * OS Collectibles entry — when connected, soft-redirect to `/@you/collectibles`
- * so Launch See all and the launcher share one held catalog.
+ * so Launch See all and the launcher share one held catalog. Connected app-shell
+ * tiles already point at the vault; this covers bookmarks and `/collectibles?kind=`.
  */
 export function CollectiblesOsEntry({
-  initialAccountId = null,
-  initialHoldings = null,
+  seedQuery = EMPTY_COLLECTIBLES_PAGE_QUERY,
+  seedPromise = null,
 }: {
-  initialAccountId?: string | null;
-  initialHoldings?: {
-    items: import('@/features/market/market-listings').OwnedScarceItem[];
-    nextFromEnd: number;
-    hasMore: boolean;
-  } | null;
+  seedQuery?: CollectiblesPageQuery;
+  seedPromise?: Promise<CollectiblesPageData> | null;
 }) {
   const { accountId, isConnected } = useAppWallet();
   const router = useRouter();
+  const seedKey = collectiblesSeedParamsKey(seedQuery);
 
   useEffect(() => {
     if (!isConnected || !accountId) return;
-    router.replace(portfolioCollectiblesPath(accountId));
-  }, [isConnected, accountId, router]);
+    router.replace(collectiblesQueryPath(accountId, seedQuery));
+    // Key-only: preserve the discovery query without looping on a new object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seedKey gates redirect
+  }, [isConnected, accountId, router, seedKey]);
 
   if (isConnected && accountId) {
     return null;
@@ -35,8 +41,8 @@ export function CollectiblesOsEntry({
 
   return (
     <CollectiblesPagePanel
-      initialAccountId={initialAccountId}
-      initialHoldings={initialHoldings}
+      seedQuery={seedQuery}
+      seedPromise={seedPromise}
     />
   );
 }

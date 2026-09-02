@@ -131,8 +131,9 @@ describe('collectibles os apps', () => {
     const disconnected = appShellOsApps(null).map((app) => app.id);
     expect(disconnected).not.toContain('collectibles');
 
-    const connected = appShellOsApps('alice.near').map((app) => app.id);
-    const marketIdx = connected.indexOf('market');
-    expect(connected[marketIdx + 1]).toBe('collectibles');
+    const connected = appShellOsApps('alice.near');
+    const marketIdx = connected.findIndex((app) => app.id === 'market');
+    expect(connected[marketIdx + 1]?.id).toBe('collectibles');
+    expect(connected[marketIdx + 1]?.href).toBe('/@alice.near/collectibles');
   });
 });

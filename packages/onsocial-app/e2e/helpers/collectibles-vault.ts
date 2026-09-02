@@ -1,4 +1,11 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { E2E_CHROME_TIMEOUT_MS } from './navigation';
+import {
+  expectSearchVisible,
+  expectTabSelected,
+  expectTabVisible,
+} from './tabs';
+import { marketFilterTrigger } from './market';
 
 const TWO_NEAR_YOCTO = '2000000000000000000000000';
 
@@ -185,3 +192,42 @@ export async function stubCollectiblesVaultGraph(page: Page): Promise<void> {
 }
 
 export const COLLECTIBLES_VAULT_OWNER = VAULT_OWNER;
+
+export function collectiblesReadyRail(page: Page) {
+  return page.locator('[data-collectibles-ready]');
+}
+
+export async function expectCollectiblesChrome(page: Page): Promise<void> {
+  await expectSearchVisible(page, 'Search collectibles');
+  await expect(collectiblesReadyRail(page)).toBeVisible({
+    timeout: E2E_CHROME_TIMEOUT_MS,
+  });
+  await expect(collectiblesReadyRail(page)).toHaveCount(1);
+  await expect(page.locator('[data-collectibles-loading]')).toHaveCount(0);
+  await expectTabVisible(page, 'Collectible kind', 'All');
+  await expectTabVisible(page, 'Collectible kind', 'Memberships');
+  await expect(
+    collectiblesReadyRail(page).getByRole('tab', { name: 'All' })
+  ).toBeEnabled({ timeout: E2E_CHROME_TIMEOUT_MS });
+  await expect(marketFilterTrigger(page)).toBeVisible({
+    timeout: E2E_CHROME_TIMEOUT_MS,
+  });
+}
+
+/** Click a kind chip on the ready rail — retries until the URL matches. */
+export async function clickCollectiblesKindAndWaitUrl(
+  page: Page,
+  name: string,
+  kind: string | null
+): Promise<void> {
+  const chip = collectiblesReadyRail(page).getByRole('tab', { name });
+  await expect(async () => {
+    await chip.click();
+    expect(new URL(page.url()).searchParams.get('kind')).toBe(kind);
+  }).toPass({ timeout: E2E_CHROME_TIMEOUT_MS });
+  if (kind == null) {
+    await expectTabSelected(page, 'Collectible kind', 'All');
+    return;
+  }
+  await expectTabSelected(page, 'Collectible kind', name);
+}

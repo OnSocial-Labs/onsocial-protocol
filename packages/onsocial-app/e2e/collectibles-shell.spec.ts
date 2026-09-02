@@ -1,12 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
   COLLECTIBLES_VAULT_OWNER,
+  clickCollectiblesKindAndWaitUrl,
+  expectCollectiblesChrome,
   stubCollectiblesVaultGraph,
 } from './helpers/collectibles-vault';
 import {
   expectSearchHidden,
   expectSearchVisible,
-  expectTabVisible,
+  expectTabSelected,
   gotoApp,
   searchField,
 } from './helpers';
@@ -41,6 +43,8 @@ test.describe('collectibles shell', () => {
     await expectEmptySitsUnderChrome(page);
     await expectSearchHidden(page, 'Search collectibles');
     await expect(page.getByRole('tablist', { name: KIND_RAIL })).toHaveCount(0);
+    await expect(page.locator('[data-collectibles-ready]')).toHaveCount(0);
+    await expect(page.locator('[data-collectibles-loading]')).toHaveCount(0);
   });
 
   test('hides discovery chrome on an empty visitor vault', async ({ page }) => {
@@ -55,6 +59,8 @@ test.describe('collectibles shell', () => {
     await expectEmptySitsUnderChrome(page);
     await expectSearchHidden(page, 'Search collectibles');
     await expect(page.getByRole('tablist', { name: KIND_RAIL })).toHaveCount(0);
+    await expect(page.locator('[data-collectibles-ready]')).toHaveCount(0);
+    await expect(page.locator('[data-collectibles-loading]')).toHaveCount(0);
   });
 
   test('populated vault shows rows, wraps kind chips, and persists search', async ({
@@ -70,9 +76,7 @@ test.describe('collectibles shell', () => {
     await expect(page.getByText('Night Drive').first()).toBeVisible({
       timeout: 30_000,
     });
-    await expectSearchVisible(page, 'Search collectibles');
-    await expectTabVisible(page, KIND_RAIL, 'All');
-    await expectTabVisible(page, KIND_RAIL, 'Memberships');
+    await expectCollectiblesChrome(page);
 
     const memberships = page.getByRole('tab', { name: 'Memberships' });
     await expect(memberships).toHaveText('Memberships');
@@ -119,6 +123,8 @@ test.describe('collectibles shell', () => {
 
     await searchField(page, 'Search collectibles').fill('chapter');
     await page.waitForURL(/[?&]q=chapter/);
+    await expect(page.locator('[data-collectibles-ready]')).toHaveCount(1);
+    await expect(page.locator('[data-collectibles-loading]')).toHaveCount(0);
     await expect(page.locator('.market-listing-list--skeleton')).toHaveCount(0);
     await expect(nightRow).toHaveCount(0);
     await expect(chapterRow).toBeVisible();
@@ -141,8 +147,11 @@ test.describe('collectibles shell', () => {
     await clearSearch.click();
     await page.waitForURL((url) => !url.searchParams.has('q'));
     await expect(nightRow).toBeVisible();
+    await expectCollectiblesChrome(page);
 
-    await page.getByRole('tab', { name: 'Memberships' }).click();
+    await clickCollectiblesKindAndWaitUrl(page, 'Memberships', 'membership');
+    await expect(page.locator('[data-collectibles-ready]')).toHaveCount(1);
+    await expect(page.locator('[data-collectibles-loading]')).toHaveCount(0);
     await expect(
       page.getByText('No memberships held.')
     ).toBeVisible();
@@ -154,7 +163,29 @@ test.describe('collectibles shell', () => {
       fullPage: true,
     });
     await showAll.click();
+    await page.waitForURL((url) => !url.searchParams.has('kind'));
     await expect(nightRow).toBeVisible();
     await expect(chapterRow).toBeVisible();
+    await expectCollectiblesChrome(page);
+  });
+
+  test('deep-links kind from the URL without stacking loading chrome', async ({
+    page,
+  }) => {
+    await stubCollectiblesVaultGraph(page);
+    await gotoApp(
+      page,
+      `/@${COLLECTIBLES_VAULT_OWNER}/collectibles?kind=audio`
+    );
+
+    await expect(page.getByText('Night Drive').first()).toBeVisible({
+      timeout: 30_000,
+    });
+    await expectCollectiblesChrome(page);
+    await expectTabSelected(page, KIND_RAIL, 'Audio');
+    await expectSearchVisible(page, 'Search collectibles');
+    await expect(
+      page.locator('.collectibles-holding-row').filter({ hasText: 'Chapter One' })
+    ).toHaveCount(0);
   });
 });

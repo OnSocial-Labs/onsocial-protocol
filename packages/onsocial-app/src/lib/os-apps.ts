@@ -394,9 +394,13 @@ export function appShellOsApps(accountId: string | null): OsAppLink[] {
 
   if (accountId) {
     // Vault sits after Market — own & use, separate from create/sell.
+    // Point at `/@you/collectibles` so Market → Collectibles skips the OS bounce.
     const marketIdx = apps.findIndex((app) => app.id === 'market');
     const insertAt = marketIdx >= 0 ? marketIdx + 1 : apps.length;
-    apps.splice(insertAt, 0, COLLECTIBLES_APP);
+    apps.splice(insertAt, 0, {
+      ...COLLECTIBLES_APP,
+      href: portfolioCollectiblesPath(accountId),
+    });
     apps.push({ id: 'page', label: 'Page', kind: 'open-page' });
   }
 

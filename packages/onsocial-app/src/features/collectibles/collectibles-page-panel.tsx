@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { CollectiblesHeaderActions } from '@/features/collectibles/collectibles-header-actions';
@@ -12,10 +12,6 @@ import {
   CollectiblesSearchHeading,
 } from '@/features/collectibles/collectibles-page-chrome';
 import {
-  CollectiblesPanelChromeProvider,
-  type CollectiblesPanelChromeContextValue,
-} from '@/features/collectibles/collectibles-panel-context';
-import {
   OWNED_MAX_TOKENS,
   fetchOwnedScarcesPage,
   type OwnedScarceItem,
@@ -24,11 +20,7 @@ import {
   peekOwnedVaultPage,
   putOwnedVaultPage,
 } from '@/features/market/owned-vault-cache';
-import {
-  normalizeDropFacetMedium,
-  normalizeDropFacets,
-  parseAudioFormat,
-} from '@/features/scarces/drop-facets';
+import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
@@ -37,23 +29,23 @@ import {
 } from '@/features/market/market-medium';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
-  APP_COLLECTIBLES_PATH,
   APP_DROP_CREATE_PATH,
   APP_HOME_PATH,
   APP_MARKET_PATH,
-  COLLECTIBLES_SEARCH_PARAM,
-  MARKET_KIND_PARAM,
-  MARKET_FACETS_PARAM,
-  MARKET_AUDIO_FORMAT_PARAM,
-  marketFacetsParamValue,
-  parseMarketFacetsParam,
 } from '@/lib/app-routes';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
   listOfflineAlbums,
   offlineAlbumToHoldingPeek,
 } from '@/lib/collectibles-offline';
-import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
+import {
+  EMPTY_COLLECTIBLES_PAGE_QUERY,
+  collectiblesQueryPath,
+  collectiblesSeedParamsKey,
+  type CollectiblesPageData,
+  type CollectiblesPageQuery,
+} from '@/lib/load-collectibles-page';
+import { portfolioPath } from '@/lib/overlay-routes';
 import {
   filterHoldingsByMedium,
   groupHoldingsForRail,
@@ -61,6 +53,9 @@ import {
   toPortfolioHoldingPeek,
   type PortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
+
+/** Debounce search URL writes so seed-key sync does not wipe in-progress typing. */
+const SEARCH_URL_DEBOUNCE_MS = 200;
 
 type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -81,16 +76,6 @@ const EMPTY_HOLDINGS: HoldingsState = {
   failed: false,
 };
 
-const EMPTY_FACETS: string[] = [];
-
-function parseMediumFilter(raw: string | null): MarketMediumFilter {
-  const value = raw?.trim().toLowerCase() ?? '';
-  const known = MARKET_MEDIUM_FILTERS.find(
-    (entry) => entry.id !== 'all' && entry.id === value
-  );
-  return known ? known.id : 'all';
-}
-
 function holdingsStateFromItems(
   items: OwnedScarceItem[],
   nextFromEnd: number,
@@ -109,8 +94,8 @@ function holdingsStateFromItems(
 export function CollectiblesPagePanel({
   /** Account whose holdings to show. Portfolio routes pass this; OS vault omits. */
   pageAccountId = null,
-  initialAccountId = null,
-  initialHoldings = null,
+  seedQuery = EMPTY_COLLECTIBLES_PAGE_QUERY,
+  seedPromise = null,
   /**
    * Portfolio PanelPage vault — merged search header + scroll-fold filters.
    * OS `/collectibles` uses `os` until connected, then redirects to portfolio.
@@ -119,12 +104,8 @@ export function CollectiblesPagePanel({
   embedded = false,
 }: {
   pageAccountId?: string | null;
-  initialAccountId?: string | null;
-  initialHoldings?: {
-    items: OwnedScarceItem[];
-    nextFromEnd: number;
-    hasMore: boolean;
-  } | null;
+  seedQuery?: CollectiblesPageQuery;
+  seedPromise?: Promise<CollectiblesPageData> | null;
   /** @deprecated Use `shell="portfolio"` */
   embedded?: boolean;
   shell?: 'portfolio' | 'os';
@@ -132,25 +113,15 @@ export function CollectiblesPagePanel({
   const resolvedShell = embedded ? 'portfolio' : shell;
   const { accountId: viewerAccountId, isConnected, connect } = useAppWallet();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const urlSearch = searchParams.get(COLLECTIBLES_SEARCH_PARAM) ?? '';
-  const searchQuery = urlSearch;
-  const mediumFilter = parseMediumFilter(searchParams.get(MARKET_KIND_PARAM));
+  const seedKey = collectiblesSeedParamsKey(seedQuery);
+  const [pageQuery, setPageQuery] = useState<CollectiblesPageQuery>(seedQuery);
+  const searchQuery = pageQuery.q;
+  const mediumFilter = pageQuery.kind;
   const facetMedium = normalizeDropFacetMedium(mediumFilter);
-  const facetsParam = searchParams.get(MARKET_FACETS_PARAM);
-  const selectedFacets = useMemo(
-    () =>
-      facetMedium
-        ? normalizeDropFacets(parseMarketFacetsParam(facetsParam), facetMedium)
-        : EMPTY_FACETS,
-    [facetMedium, facetsParam]
-  );
-  const audioFormatFilter: MarketAudioFormatFilter =
-    facetMedium === 'audio'
-      ? parseAudioFormat(searchParams.get(MARKET_AUDIO_FORMAT_PARAM))
-      : null;
+  const selectedFacets = pageQuery.facets;
+  const audioFormatFilter: MarketAudioFormatFilter = pageQuery.audioFormat;
   const urlDiscoveryActive =
-    urlSearch.trim().length > 0 ||
+    searchQuery.trim().length > 0 ||
     mediumFilter !== 'all' ||
     selectedFacets.length > 0 ||
     Boolean(audioFormatFilter);
@@ -160,28 +131,12 @@ export function CollectiblesPagePanel({
     Boolean(ownerAccountId) &&
     Boolean(viewerAccountId) &&
     accountIdsEqual(ownerAccountId!, viewerAccountId!);
-  const listBasePath = pageAccountId
-    ? portfolioCollectiblesPath(pageAccountId)
-    : APP_COLLECTIBLES_PATH;
 
   const [retryKey, setRetryKey] = useState(0);
   const [holdings, setHoldings] = useState<HoldingsState>(() => {
-    const account = ownerAccountId ?? initialAccountId;
+    const account = ownerAccountId;
     if (!account) return EMPTY_HOLDINGS;
     const loadKey = `${account}:0`;
-    if (
-      initialHoldings &&
-      initialAccountId &&
-      initialAccountId === account
-    ) {
-      putOwnedVaultPage(account, initialHoldings);
-      return holdingsStateFromItems(
-        initialHoldings.items,
-        initialHoldings.nextFromEnd,
-        initialHoldings.hasMore,
-        loadKey
-      );
-    }
     const cached = peekOwnedVaultPage(account);
     if (cached) {
       return holdingsStateFromItems(
@@ -202,52 +157,82 @@ export function CollectiblesPagePanel({
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const [scrollTuckPinned, setScrollTuckPinned] = useState(false);
   const holdingsRef = useRef(holdings);
+  const pageQueryRef = useRef(pageQuery);
+  const searchReplaceTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     holdingsRef.current = holdings;
+  });
+  useEffect(() => {
+    pageQueryRef.current = pageQuery;
   });
 
   const loadKey = ownerAccountId ? `${ownerAccountId}:${retryKey}` : null;
   const trimmedSearch = searchQuery.trim();
 
-  const replaceListParams = useCallback(
-    (mutate: (params: URLSearchParams) => void) => {
-      const params = new URLSearchParams(searchParams.toString());
-      mutate(params);
-      const qs = params.toString();
-      router.replace(qs ? `${listBasePath}?${qs}` : listBasePath, {
+  useEffect(() => {
+    setPageQuery(seedQuery);
+    // Key-only: a new seedQuery object with the same URL must not wipe an
+    // optimistic kind / search hop before router.replace lands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seedKey gates URL sync
+  }, [seedKey]);
+
+  const replacePageQuery = useCallback(
+    (next: CollectiblesPageQuery) => {
+      if (searchReplaceTimerRef.current != null) {
+        window.clearTimeout(searchReplaceTimerRef.current);
+        searchReplaceTimerRef.current = null;
+      }
+      pageQueryRef.current = next;
+      setPageQuery(next);
+      router.replace(collectiblesQueryPath(pageAccountId, next), {
         scroll: false,
       });
     },
-    [router, searchParams, listBasePath]
+    [router, pageAccountId]
   );
 
   const setSearchQuery = useCallback(
     (next: string) => {
       const trimmed = next.trim();
-      const current = urlSearch.trim();
-      if (trimmed === current) return;
-      replaceListParams((params) => {
-        if (trimmed) params.set(COLLECTIBLES_SEARCH_PARAM, trimmed);
-        else params.delete(COLLECTIBLES_SEARCH_PARAM);
+      setPageQuery((prev) => {
+        if (prev.q === trimmed) return prev;
+        const updated = { ...prev, q: trimmed };
+        pageQueryRef.current = updated;
+        return updated;
       });
+      if (searchReplaceTimerRef.current != null) {
+        window.clearTimeout(searchReplaceTimerRef.current);
+      }
+      searchReplaceTimerRef.current = window.setTimeout(() => {
+        searchReplaceTimerRef.current = null;
+        router.replace(
+          collectiblesQueryPath(pageAccountId, pageQueryRef.current),
+          { scroll: false }
+        );
+      }, SEARCH_URL_DEBOUNCE_MS);
     },
-    [replaceListParams, urlSearch]
+    [router, pageAccountId]
   );
+
+  useEffect(() => {
+    return () => {
+      if (searchReplaceTimerRef.current != null) {
+        window.clearTimeout(searchReplaceTimerRef.current);
+      }
+    };
+  }, []);
 
   const setMediumFilter = useCallback(
     (next: MarketMediumFilter) => {
-      replaceListParams((params) => {
-        if (next === 'all') {
-          params.delete(MARKET_KIND_PARAM);
-        } else {
-          params.set(MARKET_KIND_PARAM, next);
-        }
-        params.delete(MARKET_FACETS_PARAM);
-        params.delete(MARKET_AUDIO_FORMAT_PARAM);
+      replacePageQuery({
+        ...pageQuery,
+        kind: next,
+        facets: [],
+        audioFormat: null,
       });
     },
-    [replaceListParams]
+    [replacePageQuery, pageQuery]
   );
 
   const replaceDiscoveryParams = useCallback(
@@ -255,19 +240,16 @@ export function CollectiblesPagePanel({
       facets?: string[];
       audioFormat?: MarketAudioFormatFilter;
     }) => {
-      const facets =
-        next.facets !== undefined ? next.facets : selectedFacets;
-      const audioFormat =
-        next.audioFormat !== undefined ? next.audioFormat : audioFormatFilter;
-      replaceListParams((params) => {
-        const facetsValue = marketFacetsParamValue(facets);
-        if (facetsValue) params.set(MARKET_FACETS_PARAM, facetsValue);
-        else params.delete(MARKET_FACETS_PARAM);
-        if (audioFormat) params.set(MARKET_AUDIO_FORMAT_PARAM, audioFormat);
-        else params.delete(MARKET_AUDIO_FORMAT_PARAM);
+      replacePageQuery({
+        ...pageQuery,
+        facets: next.facets !== undefined ? next.facets : selectedFacets,
+        audioFormat:
+          next.audioFormat !== undefined
+            ? next.audioFormat
+            : audioFormatFilter,
       });
     },
-    [replaceListParams, selectedFacets, audioFormatFilter]
+    [replacePageQuery, pageQuery, selectedFacets, audioFormatFilter]
   );
 
   useEffect(() => {
@@ -286,21 +268,45 @@ export function CollectiblesPagePanel({
     }
 
     let cancelled = false;
-    void fetchOwnedScarcesPage(ownerAccountId, {
-      pageSize: urlDiscoveryActive ? OWNED_MAX_TOKENS : undefined,
-      bypassCache: urlDiscoveryActive,
-    })
-      .then((page) => {
+    const applyPage = (
+      items: OwnedScarceItem[],
+      nextFromEnd: number,
+      hasMore: boolean
+    ) => {
+      if (cancelled) return;
+      setHoldings(
+        holdingsStateFromItems(items, nextFromEnd, hasMore, loadKey)
+      );
+    };
+
+    void (async () => {
+      if (seedPromise && retryKey === 0) {
+        const data = await seedPromise;
         if (cancelled) return;
-        setHoldings({
-          items: page.items.map(toPortfolioHoldingPeek),
-          nextFromEnd: page.nextFromEnd,
-          hasMore: page.hasMore,
-          loadKey,
-          failed: false,
+        if (
+          data.holdings &&
+          data.holdings.items.length > 0 &&
+          data.accountId &&
+          data.accountId === ownerAccountId
+        ) {
+          putOwnedVaultPage(ownerAccountId, data.holdings);
+          applyPage(
+            data.holdings.items,
+            data.holdings.nextFromEnd,
+            data.holdings.hasMore
+          );
+          if (!urlDiscoveryActive || !data.holdings.hasMore) return;
+        }
+      }
+
+      try {
+        const page = await fetchOwnedScarcesPage(ownerAccountId, {
+          pageSize: urlDiscoveryActive ? OWNED_MAX_TOKENS : undefined,
+          bypassCache: urlDiscoveryActive,
         });
-      })
-      .catch(() => {
+        if (cancelled) return;
+        applyPage(page.items, page.nextFromEnd, page.hasMore);
+      } catch {
         if (cancelled) return;
         setHoldings((prev) => {
           if (
@@ -315,12 +321,13 @@ export function CollectiblesPagePanel({
             failed: true,
           };
         });
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [ownerAccountId, loadKey, urlDiscoveryActive]);
+  }, [ownerAccountId, loadKey, urlDiscoveryActive, seedPromise, retryKey]);
 
   useEffect(() => {
     if (!isSelf) {
@@ -458,12 +465,15 @@ export function CollectiblesPagePanel({
     (!isConnected || !viewerAccountId) &&
     !usingOfflineLibrary;
   const hasVaultItems = vaultItems.length > 0;
-  const showDiscoveryChrome = hasVaultItems && !showConnectPrompt;
   const emptyVault =
     !usingOfflineLibrary &&
     status === 'ready' &&
     Boolean(ownerAccountId) &&
     holdings.items.length === 0;
+  const showDiscoveryChrome =
+    !showConnectPrompt &&
+    !emptyVault &&
+    (hasVaultItems || Boolean(pageAccountId) || urlDiscoveryActive);
   const emptySearch =
     vaultItems.length > 0 &&
     trimmedSearch.length > 0 &&
@@ -510,38 +520,6 @@ export function CollectiblesPagePanel({
     enabled: showLoadMore && !clientDiscoveryFilterActive,
     onIntersect: loadMore,
   });
-
-  const chromeValue = useMemo<CollectiblesPanelChromeContextValue>(
-    () => ({
-      pageAccountId: ownerAccountId,
-      scrollRootRef,
-      scrollTuckPinned,
-      setScrollTuckPinned,
-      searchQuery,
-      setSearchQuery,
-      showDiscoveryChrome,
-      mediumFilter,
-      setMediumFilter,
-      facetMedium,
-      selectedFacets,
-      audioFormatFilter,
-      replaceDiscoveryParams,
-    }),
-    [
-      ownerAccountId,
-      scrollTuckPinned,
-      setScrollTuckPinned,
-      searchQuery,
-      setSearchQuery,
-      showDiscoveryChrome,
-      mediumFilter,
-      setMediumFilter,
-      facetMedium,
-      selectedFacets,
-      audioFormatFilter,
-      replaceDiscoveryParams,
-    ]
-  );
 
   const body = (
     <div className="market-page collectibles-page">
@@ -708,27 +686,44 @@ export function CollectiblesPagePanel({
   const dockBackHref = portfolioBackHref ?? APP_HOME_PATH;
 
   return (
-    <CollectiblesPanelChromeProvider value={chromeValue}>
-      <OsAppScreen
-        title="Collectibles"
-        compactChrome
-        scrollTuck="search"
-        scrollTuckPinned={scrollTuckPinned}
-        dockBack
-        leading={null}
-        backFallbackHref={dockBackHref}
-        glassChrome
-        scrollRootRef={scrollRootRef}
-        actions={<CollectiblesHeaderActions pageAccountId={ownerAccountId} />}
-        heading={
-          showDiscoveryChrome ? <CollectiblesSearchHeading /> : undefined
-        }
-        toolbar={
-          showDiscoveryChrome ? <CollectiblesFilterToolbar /> : undefined
-        }
-      >
-        {body}
-      </OsAppScreen>
-    </CollectiblesPanelChromeProvider>
+    <OsAppScreen
+      title="Collectibles"
+      compactChrome
+      scrollTuck="search"
+      scrollTuckPinned={scrollTuckPinned}
+      dockBack
+      leading={null}
+      backFallbackHref={dockBackHref}
+      glassChrome
+      scrollRootRef={scrollRootRef}
+      actions={<CollectiblesHeaderActions pageAccountId={ownerAccountId} />}
+      heading={
+        showDiscoveryChrome ? (
+          <CollectiblesSearchHeading
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+          />
+        ) : undefined
+      }
+      toolbar={
+        showDiscoveryChrome ? (
+          <CollectiblesFilterToolbar
+            ready
+            medium={mediumFilter}
+            audioFormat={audioFormatFilter}
+            selectedFacets={selectedFacets}
+            onMediumChange={setMediumFilter}
+            onAudioFormatChange={(format) =>
+              replaceDiscoveryParams({ audioFormat: format })
+            }
+            onFacetsChange={(facets) => replaceDiscoveryParams({ facets })}
+            onClear={() => setMediumFilter('all')}
+            onMenuOpenChange={setScrollTuckPinned}
+          />
+        ) : undefined
+      }
+    >
+      {body}
+    </OsAppScreen>
   );
 }
