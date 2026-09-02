@@ -4671,6 +4671,7 @@ describe('QueryModule', () => {
       expect(body.query).toMatch(/_or:/);
       expect(body.query).toMatch(/appRelpath: \{\s*_eq: \$prefix/);
       expect(body.query).toMatch(/appRelpath: \{\s*_like: \$prefixLike/);
+      expect(body.query).toMatch(/operation: \{\s*_eq: "set"/);
       expect(body.variables).toEqual({
         appId: 'acme-track',
         prefix: 'lot',
@@ -4735,7 +4736,41 @@ describe('QueryModule', () => {
       expect(body.query).not.toMatch(/appRelpath:\s*\{/);
       expect(body.query).not.toMatch(/\$prefix/);
       expect(body.query).toMatch(/appRelpath/);
+      expect(body.query).toMatch(/operation: \{\s*_eq: "set"/);
       expect(body.variables).toEqual({ appId: 'acme-track' });
+    });
+
+    it('byAppPrefix contains adds a JSONB filter on the folder', async () => {
+      const { os, fetch } = makeOs({ data: { appsCurrent: [] } });
+      await os.query.raw.byAppPrefix('acme-track', 'lot', {
+        contains: { status: 'open' },
+      });
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/valueJson: \{\s*_contains: \$contains/);
+      expect(body.query).toMatch(/appRelpath: \{\s*_eq: \$prefix/);
+      expect(body.variables).toMatchObject({
+        appId: 'acme-track',
+        prefix: 'lot',
+        contains: { status: 'open' },
+      });
+    });
+
+    it('byAppPrefix includeDeleted keeps tombstones', async () => {
+      const { os, fetch } = makeOs({ data: { appsCurrent: [] } });
+      await os.query.raw.byAppPrefix('acme-track', 'lot', {
+        includeDeleted: true,
+      });
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).not.toMatch(/operation:\s*\{/);
+      expect(body.variables).toEqual({
+        appId: 'acme-track',
+        prefix: 'lot',
+        prefixLike: 'lot/%',
+      });
     });
 
     it('escapeLike treats backslash, percent, and underscore as literals', () => {

@@ -37,7 +37,7 @@
 //   os.query.socialSpend.seasonActivity('season0')
 //   os.query.raw.byType('vegancert')
 //   os.query.raw.byAppId('acme-track')
-//   os.query.raw.byAppPrefix('acme-track', 'lot')
+//   os.query.raw.byAppPrefix('acme-track', 'lot', { contains: { status: 'open' } })
 //
 // For unindexed or one-off queries, drop down to `os.query.graphql<T>(...)`.
 // ---------------------------------------------------------------------------
@@ -75,7 +75,7 @@ import { PagesQuery } from './pages.js';
 
 export { GraphQLValidationError } from './_shared.js';
 export { APP_DATA_TYPE, escapeLike, normalizeAppPrefix } from './raw.js';
-export type { DataRow } from './raw.js';
+export type { AppPrefixOpts, DataRow } from './raw.js';
 export type {
   PostRow,
   ReactionRow,
