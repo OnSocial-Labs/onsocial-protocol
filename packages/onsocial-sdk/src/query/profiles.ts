@@ -5,7 +5,10 @@
 
 import type { QueryModule } from './index.js';
 import type { StandingListItem } from './standings.js';
-import { parseProfileKind, type ProfileKind } from '../builders/profile-kind.js';
+import {
+  parseProfileKind,
+  type ProfileKind,
+} from '../builders/profile-kind.js';
 
 export interface ProfileSearchRow {
   accountId: string;

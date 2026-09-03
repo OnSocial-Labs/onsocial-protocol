@@ -84,7 +84,9 @@ export function profileAvatarShapeForFace(
   kind?: ProfileKind | null,
   fallbackDao = false
 ): ProfileAvatarShape {
-  return profileAvatarShapeFromKind(resolveDisplayProfileKind(kind, fallbackDao));
+  return profileAvatarShapeFromKind(
+    resolveDisplayProfileKind(kind, fallbackDao)
+  );
 }
 
 /** Quiet face copy. Person / omit → no label. Org uses the location-style line. */

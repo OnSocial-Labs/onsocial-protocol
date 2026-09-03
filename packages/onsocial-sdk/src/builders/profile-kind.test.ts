@@ -77,11 +77,13 @@ describe('profileAvatarShapeFromKind + face label', () => {
     expect(profileAvatarShapeFromKind('person')).toBe('circle');
     expect(profileAvatarShapeFromKind('org')).toBe('squircle');
     expect(profileAvatarShapeFromKind('dao')).toBe('square');
-    expect(new Set([
-      profileAvatarShapeFromKind('person'),
-      profileAvatarShapeFromKind('org'),
-      profileAvatarShapeFromKind('dao'),
-    ]).size).toBe(3);
+    expect(
+      new Set([
+        profileAvatarShapeFromKind('person'),
+        profileAvatarShapeFromKind('org'),
+        profileAvatarShapeFromKind('dao'),
+      ]).size
+    ).toBe(3);
   });
 
   it('uses DAO fallback only when kind is omitted', () => {
