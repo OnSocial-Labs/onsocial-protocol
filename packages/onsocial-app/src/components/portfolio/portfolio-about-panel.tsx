@@ -53,7 +53,10 @@ export function PortfolioAboutPanel({
       data-profile-kind={displayKind}
       data-testid="portfolio-about-panel"
     >
-      <header className="portfolio-about-identity">
+      <header
+        className="portfolio-about-identity"
+        data-profile-kind={displayKind}
+      >
         {avatarUrl ? (
           <img alt={titleLabel} className="portfolio-avatar" src={avatarUrl} />
         ) : (

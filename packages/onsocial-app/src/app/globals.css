@@ -7447,7 +7447,7 @@ a.os-surface-row {
   }
 
   .portfolio-about-link {
-    margin: 0.12rem 0 0;
+    margin: 0.28rem 0 0;
     font-size: 0.8125rem;
     font-weight: 600;
     letter-spacing: 0.01em;
@@ -7497,20 +7497,35 @@ a.os-surface-row {
     height: var(--portfolio-avatar-size);
   }
 
+  .portfolio-about[data-profile-kind='person'] .portfolio-avatar,
+  .portfolio-about[data-profile-kind='person'] .portfolio-avatar-fallback,
   .portfolio-about-identity[data-profile-kind='person'] .portfolio-avatar,
   .portfolio-about-identity[data-profile-kind='person']
     .portfolio-avatar-fallback {
     border-radius: 50%;
   }
 
+  .portfolio-about[data-profile-kind='org'] .portfolio-avatar,
+  .portfolio-about[data-profile-kind='org'] .portfolio-avatar-fallback,
   .portfolio-about-identity[data-profile-kind='org'] .portfolio-avatar,
   .portfolio-about-identity[data-profile-kind='org'] .portfolio-avatar-fallback {
     border-radius: 1.05rem;
   }
 
+  .portfolio-about[data-profile-kind='dao'] .portfolio-avatar,
+  .portfolio-about[data-profile-kind='dao'] .portfolio-avatar-fallback,
   .portfolio-about-identity[data-profile-kind='dao'] .portfolio-avatar,
   .portfolio-about-identity[data-profile-kind='dao'] .portfolio-avatar-fallback {
     border-radius: 0.7rem;
+  }
+
+  /* Place chrome stays a quiet eyebrow — the person is the title. */
+  .os-app-screen:has(.portfolio-about) .os-app-screen-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.42);
   }
 
   .portfolio-about-copy {
