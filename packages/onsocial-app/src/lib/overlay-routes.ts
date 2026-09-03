@@ -17,6 +17,7 @@ const ENDORSEMENT_FOCUS_UUID_PATTERN =
 
 export const OVERLAY_PANELS = [
   'discover',
+  'about',
   'endorsements',
   'feed',
   'standing',
@@ -148,6 +149,11 @@ export function portfolioCollectiblesPath(
   return qs ? `${base}?${qs}` : base;
 }
 
+/** Shareable About page — overlay on soft nav, full page on hard refresh. */
+export function aboutPath(accountId: string): string {
+  return overlayPath(accountId, 'about');
+}
+
 /** Discover hub href. Contextual entries can deep-link a tab (e.g. Profiles). */
 export function discoverPath(
   accountId: string,
@@ -168,6 +174,7 @@ export function discoverPath(
 
 export const OVERLAY_PANEL_LABELS: Record<OverlayPanel, string> = {
   discover: 'Discover',
+  about: 'About',
   endorsements: 'Endorsements',
   feed: 'Feed',
   standing: 'Standing',
@@ -242,9 +249,9 @@ export function isFullPagePanelLayout(segments: readonly string[]): boolean {
  * Feed opens the portfolio page drawer (`#portfolio-feed` one-shot signal);
  * hard refresh on `/feed` redirects to that anchor.
  *
- * Discover and an individual post stay real pages on hard refresh (full-page
- * `children`, no glass). Collectibles vault is always PanelPage — drawer
- * Collection tab is preview-only.
+ * Discover, About, and an individual post stay real pages on hard refresh
+ * (full-page `children`, no glass). Collectibles vault is always PanelPage —
+ * drawer Collection tab is preview-only.
  */
 export function shouldOpenPortfolioGlassOverlay(
   pathname: string,

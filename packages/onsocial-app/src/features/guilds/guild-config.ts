@@ -311,8 +311,8 @@ export function guildTopicLabel(topic: string | null | undefined): string | null
 export const GUILD_MAX_NAME_LENGTH = 64;
 
 /**
- * Guild description — longer than profile bio (180), short enough for a
- * 2-line hero clamp with “more”. UI-enforced; contract stores free-form string.
+ * Guild description — short enough for a 2-line hero clamp with “more”.
+ * UI-enforced; contract stores free-form string.
  */
 export const GUILD_MAX_DESCRIPTION_LENGTH = 240;
 

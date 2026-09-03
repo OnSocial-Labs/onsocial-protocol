@@ -3,12 +3,12 @@
 import { useEffect } from 'react';
 import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kind-switch';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
+import { PortfolioFaceBio } from '@/components/portfolio/portfolio-face-bio';
 import { PortfolioIdentityTopics } from '@/components/portfolio/portfolio-identity-topics';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
 import { PortfolioHiringLine } from '@/components/portfolio/portfolio-hiring-line';
 import { PortfolioOrgKindMark } from '@/components/portfolio/portfolio-org-kind-mark';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
-import { PostRichText } from '@/features/home/post-rich-text';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
@@ -24,6 +24,7 @@ import {
   initials,
   portfolioHandleForMood,
 } from '@/lib/profile-display';
+import { profileAboutHasMoreThanFace } from '@/lib/profile-bio-face';
 import type { ResolvedMood } from '@/lib/moods/types';
 
 interface PortfolioIdentityProps {
@@ -33,6 +34,8 @@ interface PortfolioIdentityProps {
   /** User-curated org line next to the building mark. */
   industry?: string | null;
   bio?: string | null;
+  /** Full `profile/bio` (and dao fallback) — About, not the face tagline. */
+  aboutBio?: string | null;
   /** Curated identity topics (`profile/tags`). */
   tags?: string[] | null;
   tagline?: string;
@@ -53,6 +56,7 @@ export function PortfolioIdentity({
   location,
   industry = null,
   bio,
+  aboutBio = null,
   tags = null,
   tagline,
   avatarUrl,
@@ -69,8 +73,12 @@ export function PortfolioIdentity({
   const profileKindLabel = profileKindFaceLabel(displayKind);
 
   const titleLabel = displayName(accountId, profileName ?? undefined);
-  const summary = tagline?.trim() || bio?.trim();
+  const summary = tagline?.trim() || bio?.trim() || '';
   const locationLabel = location?.trim() || null;
+  const showAbout = profileAboutHasMoreThanFace({
+    faceText: summary,
+    aboutText: aboutBio,
+  });
   const handleLabel = portfolioHandleForMood(accountId, mood.id);
 
   useEffect(() => {
@@ -140,9 +148,11 @@ export function PortfolioIdentity({
           </p>
         ) : null}
         {summary ? (
-          <p className="portfolio-bio">
-            <PostRichText text={summary} emptyFallback="" showLinkIcon />
-          </p>
+          <PortfolioFaceBio
+            accountId={accountId}
+            text={summary}
+            forceAbout={showAbout}
+          />
         ) : null}
         <PortfolioIdentityGestures
           pageAccountId={accountId}

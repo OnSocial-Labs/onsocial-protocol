@@ -61,6 +61,11 @@ import {
   pruneLinkNotes,
   sanitizeLinkNotes,
 } from '@/lib/page-launch-config';
+import {
+  PROFILE_BIO_LIMIT_WARN,
+  PROFILE_BIO_MAX,
+  profileBioHasLineOverflow,
+} from '@/lib/profile-bio-face';
 import { displayName, fallbackLabel, initials } from '@/lib/profile-display';
 import type { ResolvedPageHero } from '@/lib/page-data';
 import {
@@ -76,9 +81,7 @@ import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 
 const MOBILE_MAX_WIDTH_PX = 767;
 const PROFILE_NAME_MAX = 50;
-const PROFILE_BIO_MAX = 180;
 const PROFILE_NAME_LIMIT_WARN = 40;
-const PROFILE_BIO_LIMIT_WARN = 150;
 
 const PROFILE_BANNER_ACCEPT =
   'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm';
@@ -820,6 +823,11 @@ export function AppProfileEditorSheet({
                             if (trimmed !== bio) setBio(trimmed);
                           }}
                         />
+                        {profileBioHasLineOverflow(bio) ? (
+                          <p className="account-editor-about-hint">
+                            First four lines show on your page. More in About.
+                          </p>
+                        ) : null}
                         {nameNearLimit || bioNearLimit ? (
                           <p
                             className="account-editor-limits is-near-limit"

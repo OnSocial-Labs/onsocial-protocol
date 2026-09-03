@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  aboutPath,
   discoverPath,
   isFullPagePanelLayout,
   isOverlayInterceptActive,
@@ -150,6 +151,12 @@ describe('parsePortfolioEndorsementFocus', () => {
   });
 });
 
+describe('aboutPath', () => {
+  it('builds the shareable About route', () => {
+    expect(aboutPath('alice.testnet')).toBe('/@alice.testnet/about');
+  });
+});
+
 describe('discoverPath', () => {
   it('defaults to bare discover (Moving)', () => {
     expect(discoverPath('alice.testnet')).toBe('/@alice.testnet/discover');
@@ -207,6 +214,7 @@ describe('parseOverlayPanelKey', () => {
 
   it('parses other overlay panels', () => {
     expect(parseOverlayPanelKey('/@alice.testnet/discover')).toBe('discover');
+    expect(parseOverlayPanelKey('/@alice.testnet/about')).toBe('about');
     expect(parseOverlayPanelKey('/@alice.testnet/discover?q=test')).toBe(
       'discover'
     );
@@ -231,6 +239,7 @@ describe('parseOverlayPanelKey', () => {
 describe('isPortfolioOverlayPath', () => {
   it('matches overlay drawer paths', () => {
     expect(isPortfolioOverlayPath('/@alice.testnet/discover')).toBe(true);
+    expect(isPortfolioOverlayPath('/@alice.testnet/about')).toBe(true);
   });
 
   it('does not match full-page panel routes', () => {
@@ -262,6 +271,7 @@ describe('isFullPagePanelLayout', () => {
   it('is true for full-page panel routes', () => {
     expect(isFullPagePanelLayout(['standing', 'incoming'])).toBe(true);
     expect(isFullPagePanelLayout(['discover'])).toBe(true);
+    expect(isFullPagePanelLayout(['about'])).toBe(true);
     expect(isFullPagePanelLayout(['feed'])).toBe(true);
     expect(isFullPagePanelLayout(['collectibles'])).toBe(true);
     expect(isFullPagePanelLayout(['posts', 'abc'])).toBe(true);
@@ -276,6 +286,9 @@ describe('shouldOpenPortfolioGlassOverlay', () => {
     expect(shouldOpenPortfolioGlassOverlay('/@alice.testnet/discover', [])).toBe(
       true
     );
+    expect(shouldOpenPortfolioGlassOverlay('/@alice.testnet/about', [])).toBe(
+      true
+    );
   });
 
   it('does not open on hard refresh full-page panel URLs', () => {
@@ -287,6 +300,9 @@ describe('shouldOpenPortfolioGlassOverlay', () => {
     ).toBe(false);
     expect(
       shouldOpenPortfolioGlassOverlay('/@alice.testnet/discover', ['discover'])
+    ).toBe(false);
+    expect(
+      shouldOpenPortfolioGlassOverlay('/@alice.testnet/about', ['about'])
     ).toBe(false);
   });
 
@@ -325,6 +341,11 @@ describe('resolveOverlayPanelChrome', () => {
   });
 
   it('uses panel labels for simple overlay panels', () => {
+    expect(resolveOverlayPanelChrome('about')).toEqual({
+      ariaTitle: 'About',
+      title: 'About',
+      expectsToolbar: false,
+    });
     expect(resolveOverlayPanelChrome('endorsements')).toEqual({
       ariaTitle: 'Endorsements',
       title: 'Endorsements',

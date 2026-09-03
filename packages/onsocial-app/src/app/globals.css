@@ -7431,11 +7431,167 @@ a.os-surface-row {
     font-size: 0.875rem;
     line-height: 1.5;
     text-wrap: pretty;
+    white-space: pre-wrap;
     /* Portal parity: bio = text-muted-foreground, mood-tinted via --mood-muted. */
     color: var(--mood-muted, hsl(var(--muted-foreground)));
     font-weight: 500;
-    /* Full bio — matches editor (no line clamp). */
     overflow-wrap: anywhere;
+  }
+
+  /* Face — first four lines. Overflow opens About. */
+  .portfolio-bio--face {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    overflow: hidden;
+  }
+
+  .portfolio-about-link {
+    margin: 0.12rem 0 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.62);
+    text-decoration: none;
+  }
+
+  .portfolio-about-link:hover,
+  .portfolio-about-link:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
+  }
+
+  .portfolio-about-link:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+    border-radius: 0.2rem;
+  }
+
+  .portfolio-about {
+    display: flex;
+    flex-direction: column;
+    gap: 1.35rem;
+    width: 100%;
+    max-width: 36rem;
+    margin: 0.15rem auto 2rem;
+    padding: 0 0.15rem;
+  }
+
+  .portfolio-about-identity {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    width: 100%;
+    --portfolio-avatar-size: 3.5rem;
+  }
+
+  .portfolio-about-identity .portfolio-avatar,
+  .portfolio-about-identity .portfolio-avatar-fallback {
+    width: var(--portfolio-avatar-size);
+    height: var(--portfolio-avatar-size);
+  }
+
+  .portfolio-about-identity[data-profile-kind='person'] .portfolio-avatar,
+  .portfolio-about-identity[data-profile-kind='person']
+    .portfolio-avatar-fallback {
+    border-radius: 50%;
+  }
+
+  .portfolio-about-identity[data-profile-kind='org'] .portfolio-avatar,
+  .portfolio-about-identity[data-profile-kind='org'] .portfolio-avatar-fallback {
+    border-radius: 1.05rem;
+  }
+
+  .portfolio-about-identity[data-profile-kind='dao'] .portfolio-avatar,
+  .portfolio-about-identity[data-profile-kind='dao'] .portfolio-avatar-fallback {
+    border-radius: 0.7rem;
+  }
+
+  .portfolio-about-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.18rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .portfolio-about-copy .portfolio-entity-kind {
+    margin: 0;
+  }
+
+  .portfolio-about-name-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.3em 0.4em;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .portfolio-about-name {
+    margin: 0;
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+    font-size: 1.2rem;
+    font-weight: 650;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  .portfolio-about-handle-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.32em;
+    margin: 0;
+    min-width: 0;
+    font-size: 0.82rem;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+  }
+
+  .portfolio-about-copy .portfolio-topics {
+    justify-content: flex-start;
+    text-align: left;
+    max-width: 100%;
+  }
+
+  .portfolio-about-bio.portfolio-bio {
+    margin: 0;
+    max-width: 36rem;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    font-weight: 500;
+  }
+
+  .os-app-screen--mood .portfolio-about-name,
+  .glass-sheet-panel .portfolio-about-name {
+    font-family: var(
+      --mood-font-display,
+      var(--font-space-grotesk),
+      system-ui,
+      sans-serif
+    );
+  }
+
+  .os-app-screen--mood .portfolio-about-bio,
+  .os-app-screen--mood .portfolio-about-copy .portfolio-handle,
+  .os-app-screen--mood .portfolio-about-copy .portfolio-topics,
+  .glass-sheet-panel .portfolio-about-bio,
+  .glass-sheet-panel .portfolio-about-copy .portfolio-handle,
+  .glass-sheet-panel .portfolio-about-copy .portfolio-topics {
+    font-family: var(
+      --mood-font-body,
+      var(--font-space-grotesk),
+      system-ui,
+      sans-serif
+    );
   }
 
   .portfolio-frame[data-mood] .portfolio-bio,
@@ -12770,6 +12926,11 @@ a.os-surface-row {
     animation: overlay-panel-crossfade 180ms ease-out;
   }
 
+  .overlay-panel-outlet .portfolio-about {
+    padding: 0.2rem 1.15rem 1.75rem;
+    margin-bottom: 0;
+  }
+
   @keyframes overlay-panel-crossfade {
     from {
       opacity: 0.72;
@@ -16077,6 +16238,16 @@ a.os-surface-row {
     text-wrap: pretty;
     color: rgb(var(--fg-rgb) / 0.55);
     outline: none;
+  }
+
+  .account-editor-about-hint {
+    margin: 0.28rem 0 0;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.35;
+    text-align: center;
+    color: rgb(var(--fg-rgb) / 0.38);
   }
 
   .account-editor-bio-shell {
