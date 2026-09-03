@@ -18,11 +18,13 @@ const IDLE_PLACEHOLDER = 'Search';
  */
 export function DiscoverOmniSearchField({ className }: { className?: string }) {
   const router = useRouter();
-  const { query, setQuery, tab } = useDiscoverPanel();
+  const { query, setQuery, tab, face } = useDiscoverPanel();
   const [focused, setFocused] = useState(false);
+  const hiringRoles = tab === 'profiles' && face === 'hiring';
 
-  const focusPlaceholder =
-    tab === 'daos'
+  const focusPlaceholder = hiringRoles
+    ? 'Role title'
+    : tab === 'daos'
       ? 'DAO account or name'
       : tab === 'guilds'
         ? 'Search guilds'
@@ -31,8 +33,9 @@ export function DiscoverOmniSearchField({ className }: { className?: string }) {
           : // Moving + Profiles (+ topics/tickers) share one omni hint.
             'People, #topics, $tickers';
   const searchPlaceholder = focused ? focusPlaceholder : IDLE_PLACEHOLDER;
-  const searchAriaLabel =
-    tab === 'daos'
+  const searchAriaLabel = hiringRoles
+    ? 'Search open roles'
+    : tab === 'daos'
       ? 'Search DAOs'
       : tab === 'guilds'
         ? 'Search guilds'

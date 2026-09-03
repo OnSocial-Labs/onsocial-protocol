@@ -550,11 +550,13 @@ export function useDiscoverProfiles(
       shownCount: profiles.length,
       hasMore,
       query,
+      face,
       discoverableTotal,
       indexedProfileTotal,
     });
   }, [
     discoverableTotal,
+    face,
     hasMore,
     indexedProfileTotal,
     isLoading,

@@ -25,6 +25,17 @@ describe('buildDiscoverListSummary', () => {
     ).toBe('Showing 24 matching profiles');
   });
 
+  it('names hiring title matches as orgs', () => {
+    expect(
+      buildDiscoverListSummary({
+        shownCount: 3,
+        hasMore: false,
+        query: 'nurse',
+        face: 'hiring',
+      })
+    ).toBe('3 matching orgs');
+  });
+
   it('formats discoverable totals when browsing the graph', () => {
     expect(
       buildDiscoverListSummary({

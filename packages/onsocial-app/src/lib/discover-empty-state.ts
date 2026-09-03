@@ -31,6 +31,14 @@ export function buildDiscoverEmptyState(
   }
 
   if (trimmedQuery) {
+    if (face === 'hiring') {
+      return {
+        primary: industry
+          ? `No roles matching in ${industry}.`
+          : 'No matching roles.',
+        showClearSearch: false,
+      };
+    }
     return {
       primary: 'No matches.',
       showClearSearch: false,

@@ -1,3 +1,4 @@
+import type { DiscoverFaceFilter } from '@onsocial/sdk';
 import { formatDiscoverTabCount } from '@/lib/discover-tab-lead';
 
 function formatDiscoverCount(count: number): string {
@@ -18,12 +19,14 @@ export function buildDiscoverListSummary({
   shownCount,
   hasMore,
   query,
+  face = 'all',
   discoverableTotal,
   indexedProfileTotal,
 }: {
   shownCount: number;
   hasMore: boolean;
   query: string;
+  face?: DiscoverFaceFilter;
   discoverableTotal?: number | null;
   indexedProfileTotal?: number | null;
 }): string | null {
@@ -33,6 +36,11 @@ export function buildDiscoverListSummary({
   const trimmedQuery = query.trim();
 
   if (trimmedQuery) {
+    if (face === 'hiring') {
+      return hasMore
+        ? `Showing ${shown} matching orgs`
+        : `${shown} matching org${shownCount === 1 ? '' : 's'}`;
+    }
     return hasMore
       ? `Showing ${shown} matching profiles`
       : `${shown} matching profile${shownCount === 1 ? '' : 's'}`;
