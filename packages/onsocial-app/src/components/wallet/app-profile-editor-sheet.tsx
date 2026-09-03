@@ -20,6 +20,7 @@ import {
   PROFILE_INDUSTRY_MAX,
   PROFILE_LOCATION_MAX,
   editorFaceKind,
+  profileAvatarShapeFromKind,
   isProfileIndustryWriteIn,
   isProfileIndustryWriteInMode,
   matchProfileIndustryOption,
