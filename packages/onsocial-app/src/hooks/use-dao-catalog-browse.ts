@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 import { daoDirectoryEntryFromCatalog } from '@/features/protocol/dao-directory';
 import {
   fetchDaoCatalog,
@@ -21,8 +28,9 @@ export function useDaoCatalogBrowse(opts: {
   /** Live search string (account id or name); debounced inside the hook. */
   query: string;
   debounceMs?: number;
+  scrollRootRef?: RefObject<Element | null>;
 }) {
-  const { enabled, query, debounceMs = 220 } = opts;
+  const { enabled, query, debounceMs = 220, scrollRootRef } = opts;
   const [activeQuery, setActiveQuery] = useState(query);
   const [rows, setRows] = useState<DaoCatalogEntry[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -130,6 +138,7 @@ export function useDaoCatalogBrowse(opts: {
   }, [hasMore, pending]);
 
   useInfiniteScrollSentinel({
+    scrollRootRef,
     sentinelRef: loadMoreRef,
     enabled: enabled && hasMore && !pending,
     onIntersect: loadMore,

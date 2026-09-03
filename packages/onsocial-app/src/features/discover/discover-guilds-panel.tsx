@@ -391,14 +391,12 @@ export function DiscoverGuildsPanel() {
             className="protocol-feed-sentinel"
             aria-hidden
           />
-          <button
-            type="button"
-            className="daos-discover-more"
-            disabled={moreLoading}
-            onClick={() => void loadMore()}
-          >
-            {moreLoading ? 'Loading…' : 'Load more'}
-          </button>
+          {moreLoading ? (
+            <DiscoverCommunityListSkeleton
+              label="Loading more guilds…"
+              count={2}
+            />
+          ) : null}
         </div>
       ) : null}
     </div>

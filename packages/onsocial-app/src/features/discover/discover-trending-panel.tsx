@@ -16,6 +16,7 @@ import {
   DiscoverTrendingProfilesSectionSkeleton,
 } from '@/features/discover/discover-loading-skeleton';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
+import { OsAppChromePageStatus } from '@onsocial/ui';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
 import { discoverTrendingLead } from '@/lib/discover-tab-lead';
@@ -172,8 +173,8 @@ export function DiscoverTrendingPanel({
   onOpenTab: (tab: DiscoverTab) => void;
   initial?: DiscoverTrendingSeed | null;
 }) {
-  const { query } = useDiscoverPanel();
-  const { accountId: viewerAccountId, isConnected, connect } = useAppWallet();
+  const { query, showConnectHint } = useDiscoverPanel();
+  const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { updateStanding, isStandingPendingForTarget } =
     useViewerStanding('discover');
   const { endorsementSyncVersion } = useViewerEndorsement('discover');
@@ -628,17 +629,10 @@ export function DiscoverTrendingPanel({
             </button>
           </div>
 
-          {!isConnected ? (
-            <p className="discover-connect-hint">
-              <button
-                type="button"
-                className="discover-connect-hint-action"
-                onClick={() => void connect()}
-              >
-                Connect wallet
-              </button>{' '}
-              to stand with profiles.
-            </p>
+          {showConnectHint ? (
+            <OsAppChromePageStatus className="discover-connect-hint">
+              Connect to stand with profiles.
+            </OsAppChromePageStatus>
           ) : null}
 
           {actionError ? (

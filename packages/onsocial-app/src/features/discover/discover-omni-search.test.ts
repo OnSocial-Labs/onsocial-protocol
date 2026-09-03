@@ -3,6 +3,8 @@ import {
   classifyDiscoverSearch,
   discoverOmniTargetHref,
   discoverPeopleSearchQuery,
+  discoverSearchAriaLabel,
+  discoverSearchFocusHint,
   isDiscoverPeopleSearchActive,
   isDiscoverTopicDraft,
   showDiscoverTrendingStrip,
@@ -60,5 +62,24 @@ describe('discover omni query helpers', () => {
     expect(showDiscoverTrendingStrip('')).toBe(true);
     expect(showDiscoverTrendingStrip('#near')).toBe(false);
     expect(showDiscoverTrendingStrip('alice')).toBe(false);
+  });
+});
+
+describe('discover search focus hint', () => {
+  it('names the surface without repeating Search', () => {
+    expect(discoverSearchFocusHint('daos')).toBe('DAOs');
+    expect(discoverSearchFocusHint('guilds')).toBe('Guilds');
+    expect(discoverSearchFocusHint('hubs')).toBe('Hubs');
+    expect(discoverSearchFocusHint('profiles', 'hiring')).toBe('Role title');
+    expect(discoverSearchFocusHint('trending')).toBe(
+      'People, #topics, $tickers'
+    );
+  });
+
+  it('keeps aria labels as search actions', () => {
+    expect(discoverSearchAriaLabel('daos')).toBe('Search DAOs');
+    expect(discoverSearchAriaLabel('profiles', 'hiring')).toBe(
+      'Search open roles'
+    );
   });
 });

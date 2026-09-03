@@ -15,7 +15,7 @@ import { APP_DAOS_PATH, daosCreateHref } from '@/lib/app-routes';
  * Discover → DAOs — factory catalog find. Create / My DAOs live in the DAOs app.
  */
 export function DiscoverDaosPanel() {
-  const { query } = useDiscoverPanel();
+  const { query, scrollRootRef } = useDiscoverPanel();
   const catalogQuery = discoverPeopleSearchQuery(query);
   const {
     entries,
@@ -25,12 +25,12 @@ export function DiscoverDaosPanel() {
     syncing,
     total,
     hasMore,
-    loadMore,
     loadMoreRef,
     retry,
   } = useDaoCatalogBrowse({
     enabled: true,
     query: catalogQuery,
+    scrollRootRef,
   });
 
   const showSkeleton = rows == null && pending;
@@ -87,14 +87,12 @@ export function DiscoverDaosPanel() {
             className="protocol-feed-sentinel"
             aria-hidden
           />
-          <button
-            type="button"
-            className="daos-discover-more"
-            disabled={pending}
-            onClick={loadMore}
-          >
-            {pending ? 'Loading…' : 'Load more'}
-          </button>
+          {pending && rows != null ? (
+            <DiscoverCommunityListSkeleton
+              label="Loading more DAOs…"
+              count={2}
+            />
+          ) : null}
         </div>
       ) : null}
     </div>
