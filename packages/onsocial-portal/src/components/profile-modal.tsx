@@ -17,9 +17,15 @@ import { ProfileAccountAvatar } from '@/components/profile-account-avatar';
 import { ProfileSocialLinkIcons } from '@/components/profile-link-icons';
 import { ProfileBioRichText } from '@/components/profile-bio-rich-text';
 import {
+  profileIndustryFromMaterialised,
+  profileKindFromMaterialised,
   profileLocationFromMaterialised,
+  profileOrgLineLabel,
+  resolveDisplayProfileKind,
   type MaterialisedProfile,
 } from '@onsocial/sdk';
+import { BuildingTreeIcon } from '@onsocial/ui';
+import { isHeuristicDaoAccountId } from '@/lib/profile-avatar-shape';
 import type { PortalProfileShell } from '@/lib/portal-profile-server';
 import { useProfile } from '@/contexts/profile-context';
 import type {
@@ -1021,6 +1027,14 @@ export function ProfileModal({
   const title = displayName(profile, accountId);
   const bio = profile?.bio?.trim();
   const location = profileLocationFromMaterialised(profile) || null;
+  const displayKind = resolveDisplayProfileKind(
+    profileKindFromMaterialised(profile),
+    isHeuristicDaoAccountId(accountId)
+  );
+  const industryLine =
+    displayKind === 'org'
+      ? profileOrgLineLabel(profileIndustryFromMaterialised(profile))
+      : null;
   const profileLinks = profileLinkDisplayItems(profile?.links);
   const profileLinksFooter =
     profileLinks.length > 0 ? (
@@ -1628,6 +1642,15 @@ export function ProfileModal({
                   <p className="min-w-0 truncate portal-type-body-sm text-muted-foreground/55">
                     @{accountId}
                   </p>
+                  {industryLine ? (
+                    <p className="flex min-w-0 items-center gap-1.5 portal-type-body-sm text-muted-foreground/45">
+                      <BuildingTreeIcon
+                        className="h-3.5 w-3.5 shrink-0 text-muted-foreground/55"
+                        aria-hidden
+                      />
+                      <span className="truncate">{industryLine}</span>
+                    </p>
+                  ) : null}
                   {location ? (
                     <p className="min-w-0 truncate portal-type-body-sm text-muted-foreground/45">
                       {location}
