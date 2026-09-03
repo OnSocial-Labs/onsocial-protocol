@@ -103,6 +103,18 @@ export function excludeRecommendedFromList<T extends { accountId: string }>(
   );
 }
 
+/** Grow-only min-height so excluding Recommended ids does not collapse the list. */
+export function nextDiscoverListMinHeight(
+  previousPx: number | null | undefined,
+  measuredPx: number
+): number | null {
+  if (!Number.isFinite(measuredPx) || measuredPx <= 0) {
+    return previousPx ?? null;
+  }
+  if (previousPx == null || previousPx <= 0) return measuredPx;
+  return Math.max(previousPx, measuredPx);
+}
+
 export function filterRecommendedPeek(
   rows: ProfileListAccount[],
   face: DiscoverFaceFilter = 'all',
