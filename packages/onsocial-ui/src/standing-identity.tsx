@@ -2,7 +2,11 @@
 
 import type { ReactNode } from 'react';
 import { cn } from './cn.js';
-import { ProfileAvatar, type ProfileAvatarSize } from './profile-avatar.js';
+import {
+  ProfileAvatar,
+  type ProfileAvatarShape,
+  type ProfileAvatarSize,
+} from './profile-avatar.js';
 
 export type StandingIdentityShowHandle = boolean | 'when-named';
 
@@ -39,6 +43,7 @@ export function StandingIdentity({
   profileName,
   avatarUrl,
   size = 'lg',
+  shape = 'circle',
   showHandle = 'when-named',
   copyLeading,
   nameTrailing,
@@ -52,6 +57,7 @@ export function StandingIdentity({
   profileName?: string | null;
   avatarUrl?: string | null;
   size?: ProfileAvatarSize;
+  shape?: ProfileAvatarShape;
   showHandle?: StandingIdentityShowHandle;
   /** Before `.standing-row-head` inside `.standing-row-copy` (relationship signals). */
   copyLeading?: ReactNode;
@@ -75,6 +81,7 @@ export function StandingIdentity({
         src={avatarUrl ?? null}
         fallbackInitial={name || accountId}
         size={size}
+        shape={shape}
         className={avatarClassName}
         shellLoading={shellLoading}
       />

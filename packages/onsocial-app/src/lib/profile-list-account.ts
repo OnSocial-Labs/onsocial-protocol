@@ -1,4 +1,4 @@
-import type { PageMoodId } from '@onsocial/sdk';
+import type { PageMoodId, ProfileKind } from '@onsocial/sdk';
 import type { DiscoverProfileSummary } from '@/lib/discover-profiles';
 import { isStandingAccountDisplayReady } from '@/lib/profile-list-display';
 import type { StandingAccountSummary } from '@/lib/profile-social-standings';
@@ -25,6 +25,7 @@ export interface ProfileListAccount {
   rowHydrated?: boolean;
   /** Server/client hint that this peer is a DAO org. */
   isDao?: boolean;
+  kind?: ProfileKind | null;
 }
 
 export function standingAccountToProfileListAccount(
@@ -49,6 +50,7 @@ export function standingAccountToProfileListAccount(
     standingBlockTimestamp: account.standingBlockTimestamp,
     rowHydrated: isStandingAccountDisplayReady(account),
     isDao: account.isDao,
+    kind: account.kind,
   };
 }
 
@@ -72,6 +74,7 @@ export function discoverProfileToProfileListAccount(
     moodId: profile.moodId,
     standingSince: profile.standingSince,
     standingBlockTimestamp: profile.standingBlockTimestamp,
+    kind: profile.kind,
   };
 }
 
@@ -96,5 +99,6 @@ export function profileListAccountToStandingSummary(
     standingSince: account.standingSince,
     standingBlockTimestamp: account.standingBlockTimestamp,
     isDao: account.isDao,
+    kind: account.kind,
   };
 }

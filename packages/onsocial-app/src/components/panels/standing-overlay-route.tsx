@@ -2,6 +2,7 @@
 
 import { usePortfolioProfileSeed } from '@/contexts/portfolio-profile-seed-context';
 import { displayName as resolveDisplayName } from '@/lib/profile-display';
+import type { ProfileKind } from '@onsocial/sdk';
 import type { StandingInitialList } from '@/lib/load-standing-list-page';
 import type { StanceDetailKind } from '@/lib/profile-social-standings';
 import { StandingOverlaySheet } from '@/components/panels/standing-panel';
@@ -12,6 +13,7 @@ export function StandingOverlayRoute({
   initialQuery,
   displayName: serverDisplayName,
   avatarUrl: serverAvatarUrl,
+  profileKind: serverProfileKind = null,
   initialCounts: serverCounts,
   initialList = null,
   isDaoSubject = false,
@@ -21,6 +23,7 @@ export function StandingOverlayRoute({
   initialQuery: string;
   displayName?: string;
   avatarUrl?: string | null;
+  profileKind?: ProfileKind | null;
   initialCounts?: {
     incoming: number;
     outgoing: number;
@@ -39,6 +42,7 @@ export function StandingOverlayRoute({
       initialQuery={initialQuery}
       displayName={serverDisplayName ?? seed?.displayName ?? fallbackName}
       avatarUrl={serverAvatarUrl ?? seed?.avatarUrl ?? null}
+      profileKind={serverProfileKind}
       initialCounts={
         serverCounts ??
         seed?.counts ?? { incoming: 0, outgoing: 0, mutual: 0 }

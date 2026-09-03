@@ -12,6 +12,8 @@ function baseSnapshot(
     hasProfile: true,
     name: 'Alice',
     location: 'Lisbon',
+    industry: '',
+    kind: null,
     bio: 'Builder',
     avatarUrl: 'https://cdn.example/avatar.png',
     bannerUrl: 'https://cdn.example/banner.png',
@@ -25,13 +27,15 @@ function baseSnapshot(
 function dirtyInput(
   snapshot: ProfileEditorSnapshot,
   overrides: Partial<Parameters<typeof isProfileEditorDirty>[0]> = {}
-) {
+): Parameters<typeof isProfileEditorDirty>[0] {
   const linksFromSnapshot = profileLinksInputFromRecord(snapshot.links);
   return {
     snapshot,
     linksFromSnapshot,
     name: snapshot.name,
     location: snapshot.location,
+    industry: snapshot.industry,
+    kind: snapshot.kind === 'org' ? 'org' : 'person',
     bio: snapshot.bio,
     links: linksFromSnapshot,
     linkNotes: sanitizeLinkNotes(snapshot.pageConfig.linkNotes),
@@ -93,6 +97,29 @@ describe('isProfileEditorDirty', () => {
     const snapshot = baseSnapshot();
     expect(
       isProfileEditorDirty(dirtyInput(snapshot, { location: 'Tokyo' }))
+    ).toBe(true);
+  });
+
+  it('is dirty when kind changes from omitted person to org', () => {
+    const snapshot = baseSnapshot();
+    expect(isProfileEditorDirty(dirtyInput(snapshot, { kind: 'org' }))).toBe(
+      true
+    );
+  });
+
+  it('is clean when kind stays person and snapshot omitted kind', () => {
+    const snapshot = baseSnapshot({ kind: null });
+    expect(isProfileEditorDirty(dirtyInput(snapshot, { kind: 'person' }))).toBe(
+      false
+    );
+  });
+
+  it('is dirty when org industry changes', () => {
+    const snapshot = baseSnapshot({ kind: 'org', industry: 'Music' });
+    expect(
+      isProfileEditorDirty(
+        dirtyInput(snapshot, { kind: 'org', industry: 'Film' })
+      )
     ).toBe(true);
   });
 

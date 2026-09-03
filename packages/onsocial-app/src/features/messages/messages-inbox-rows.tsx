@@ -2,7 +2,10 @@
 
 import { Fragment, type ReactNode } from 'react';
 import type { DmThreadSummary } from '@onsocial/sdk';
-import { Divider, StandingIdentity } from '@onsocial/ui';
+import {
+  Divider,
+} from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import {
   formatAbsoluteDmTime,
   formatRelativeDmTime,

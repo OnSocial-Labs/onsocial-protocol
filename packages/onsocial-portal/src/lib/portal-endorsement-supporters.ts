@@ -1,4 +1,4 @@
-import type { MaterialisedProfile } from '@onsocial/sdk';
+import type { MaterialisedProfile, ProfileKind } from '@onsocial/sdk';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
 import {
   isProfileSearchQuery,
@@ -12,6 +12,7 @@ export interface PortalEndorsementSupporterSummary {
   name: string | null;
   bio: string | null;
   avatarUrl: string | null;
+  kind?: ProfileKind | null;
   totalAmountYocto: string;
   spendCount: number;
   latestSupportAt: number | null;
@@ -68,6 +69,7 @@ export async function loadPortalEndorsementSupporters(
       name: profile?.name ?? null,
       bio: profile?.bio ?? null,
       avatarUrl: os.profiles.avatarUrl(materialised),
+      kind: materialised?.kind ?? profile?.kind ?? null,
       totalAmountYocto: row.totalAmountYocto,
       spendCount: row.spendCount,
       latestSupportAt: row.latestSupportAt,

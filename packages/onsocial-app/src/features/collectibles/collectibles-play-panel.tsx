@@ -7,9 +7,9 @@ import {
   InformationCircleIcon,
   OsSheetAction,
   OsSheetActions,
-  ProfileAvatar,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -545,7 +545,8 @@ export function CollectiblesPlayPanel({
                 tabIndex={creatorDisplayName ? -1 : undefined}
                 aria-hidden={creatorDisplayName ? true : undefined}
               >
-                <ProfileAvatar
+                <AccountAvatar
+                  accountId={view.creatorId}
                   src={creatorAvatarUrl}
                   fallbackInitial={
                     creatorDisplayName || fallbackLabel(view.creatorId)

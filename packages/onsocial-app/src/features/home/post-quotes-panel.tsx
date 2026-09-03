@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { PostRow, ReposterRow } from '@onsocial/sdk';
-import { Divider, ProfileAvatar, RepeatIcon } from '@onsocial/ui';
+import { Divider, RepeatIcon } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
@@ -343,7 +344,9 @@ export function PostQuotesPanel({
                         className="post-quotes-repost-row"
                         scroll={false}
                       >
-                        <ProfileAvatar
+                        <AccountAvatar
+                          accountId={row.accountId}
+                          kind={profile?.kind}
                           src={profile?.avatarUrl ?? null}
                           fallbackInitial={name}
                           size="lg"

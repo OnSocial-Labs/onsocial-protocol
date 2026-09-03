@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { cn } from './cn.js';
-import { ProfileAvatar } from './profile-avatar.js';
+import { ProfileAvatar, type ProfileAvatarShape } from './profile-avatar.js';
 import {
   standingIdentityAccountCopy,
   standingIdentityLabel,
@@ -30,6 +30,7 @@ export function OsChromeSubject({
   title,
   onClick,
   shellLoading = false,
+  shape = 'circle',
   className,
   avatarClassName,
   /** Omit root — parent supplies `osChromeSubjectClassName` (e.g. Next.js Link). */
@@ -49,6 +50,7 @@ export function OsChromeSubject({
   title?: string;
   onClick?: () => void;
   shellLoading?: boolean;
+  shape?: ProfileAvatarShape;
   className?: string;
   avatarClassName?: string;
   unstyled?: boolean;
@@ -68,6 +70,7 @@ export function OsChromeSubject({
         src={avatarUrl ?? null}
         fallbackInitial={fallbackInitial}
         size="md"
+        shape={shape}
         shellLoading={shellLoading}
         className={cn('os-chrome-subject__avatar', avatarClassName)}
       />

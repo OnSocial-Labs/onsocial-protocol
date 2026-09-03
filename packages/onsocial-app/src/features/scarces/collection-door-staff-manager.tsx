@@ -5,7 +5,6 @@ import {
   Divider,
   MultiplyIcon,
   OsHugSheet,
-  ProfileAvatar,
   SearchField,
   UserPlusIcon,
 } from '@onsocial/ui';
@@ -13,7 +12,8 @@ import {
   OsSheetAction,
   OsSheetActions,
 } from '@onsocial/ui';
-import { StandingIdentity } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -427,7 +427,9 @@ export function CollectionDoorStaffManager({
                   return (
                     <li key={account} className="collection-allowlist-chip">
                       <span className="collection-allowlist-chip-main">
-                        <ProfileAvatar
+                        <AccountAvatar
+                          accountId={account}
+                          kind={face?.kind}
                           src={face?.avatarUrl ?? snap?.avatarUrl ?? null}
                           fallbackInitial={name}
                           size="sm"

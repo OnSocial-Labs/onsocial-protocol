@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Divider, StandingIdentity } from '@onsocial/ui';
+import {
+  Divider,
+} from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';

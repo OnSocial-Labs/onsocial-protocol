@@ -89,6 +89,7 @@ export async function loadProfileListAccounts(
         accountId,
         displayName: name || accountId,
         avatarUrl,
+        kind: row?.kind,
       });
     }
     return {
@@ -107,6 +108,7 @@ export async function loadProfileListAccounts(
       targetEndorsedViewer: endorsementIssuers.has(accountId),
       viewerEndorsed: endorsementTargets.has(accountId),
       rowHydrated: true,
+      kind: row?.kind ?? null,
     } satisfies ProfileListAccount;
   });
 }

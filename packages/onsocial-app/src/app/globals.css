@@ -6740,11 +6740,25 @@ a.os-surface-row {
     object-fit: cover;
   }
 
-  /* DAO org crest — squareish (1rem). */
-  .portfolio-frame[data-entity='dao'] .portfolio-avatar,
-  .portfolio-frame[data-entity='dao'] .portfolio-avatar-fallback,
-  .portfolio-identity[data-entity='dao'] .portfolio-avatar,
-  .portfolio-identity[data-entity='dao'] .portfolio-avatar-fallback {
+  /* Face geometry from profile/kind only. Heuristic DAOs stamp kind=dao on the frame. */
+  .portfolio-frame[data-profile-kind='person'] .portfolio-avatar,
+  .portfolio-frame[data-profile-kind='person'] .portfolio-avatar-fallback,
+  .portfolio-identity[data-profile-kind='person'] .portfolio-avatar,
+  .portfolio-identity[data-profile-kind='person'] .portfolio-avatar-fallback {
+    border-radius: 50%;
+  }
+
+  .portfolio-frame[data-profile-kind='org'] .portfolio-avatar,
+  .portfolio-frame[data-profile-kind='org'] .portfolio-avatar-fallback,
+  .portfolio-identity[data-profile-kind='org'] .portfolio-avatar,
+  .portfolio-identity[data-profile-kind='org'] .portfolio-avatar-fallback {
+    border-radius: 1.5rem;
+  }
+
+  .portfolio-frame[data-profile-kind='dao'] .portfolio-avatar,
+  .portfolio-frame[data-profile-kind='dao'] .portfolio-avatar-fallback,
+  .portfolio-identity[data-profile-kind='dao'] .portfolio-avatar,
+  .portfolio-identity[data-profile-kind='dao'] .portfolio-avatar-fallback {
     border-radius: 1rem;
   }
 
@@ -7111,28 +7125,20 @@ a.os-surface-row {
    * Person portfolio — gov/treasury credentials with @handle, not the display name.
    * Muted at rest; protocol color on hover/focus.
    */
-  .portfolio-identity:not([data-entity='dao'])
-    .portfolio-handle-marks
-    .protocol-identity-mark {
+  .portfolio-identity .portfolio-handle-marks .protocol-identity-mark {
     font-size: 0.95em;
   }
 
-  .portfolio-identity:not([data-entity='dao'])
-    .portfolio-handle-marks
-    .protocol-identity-mark--governance,
-  .portfolio-identity:not([data-entity='dao'])
-    .portfolio-handle-marks
-    .protocol-identity-mark--treasury,
-  .portfolio-identity:not([data-entity='dao'])
-    .portfolio-handle-marks
-    .protocol-identity-mark--proposer {
+  .portfolio-identity .portfolio-handle-marks .protocol-identity-mark--governance,
+  .portfolio-identity .portfolio-handle-marks .protocol-identity-mark--treasury,
+  .portfolio-identity .portfolio-handle-marks .protocol-identity-mark--proposer {
     color: rgb(var(--fg-rgb) / 0.36);
   }
 
-  .portfolio-identity:not([data-entity='dao'])
+  .portfolio-identity
     .portfolio-handle-marks
     .protocol-identity-mark--governance:hover,
-  .portfolio-identity:not([data-entity='dao'])
+  .portfolio-identity
     .portfolio-handle-marks
     .protocol-identity-mark--governance:focus-visible {
     color: color-mix(
@@ -7142,10 +7148,10 @@ a.os-surface-row {
     );
   }
 
-  .portfolio-identity:not([data-entity='dao'])
+  .portfolio-identity
     .portfolio-handle-marks
     .protocol-identity-mark--treasury:hover,
-  .portfolio-identity:not([data-entity='dao'])
+  .portfolio-identity
     .portfolio-handle-marks
     .protocol-identity-mark--treasury:focus-visible {
     color: color-mix(
@@ -7155,10 +7161,10 @@ a.os-surface-row {
     );
   }
 
-  .portfolio-identity:not([data-entity='dao'])
+  .portfolio-identity
     .portfolio-handle-marks
     .protocol-identity-mark--proposer:hover,
-  .portfolio-identity:not([data-entity='dao'])
+  .portfolio-identity
     .portfolio-handle-marks
     .protocol-identity-mark--proposer:focus-visible {
     color: color-mix(
@@ -15602,6 +15608,22 @@ a.os-surface-row {
     pointer-events: auto;
   }
 
+  .account-editor-avatar[data-profile-kind='org'] {
+    border-radius: 1.5rem;
+  }
+
+  .account-editor-avatar[data-profile-kind='dao'] {
+    border-radius: 1rem;
+  }
+
+  .account-editor-kind {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem;
+    pointer-events: auto;
+  }
+
   /* Card + banner — profile grey border (live portfolio Card). */
   .account-editor-cover-stage.has-media .account-editor-avatar {
     box-sizing: border-box;
@@ -15694,6 +15716,26 @@ a.os-surface-row {
     max-width: min(100%, 20rem);
     margin: 0.15rem auto 0;
     color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .account-editor-industry-trigger,
+  .account-editor-industry-mark {
+    pointer-events: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .account-editor-industry-trigger:disabled,
+  .account-editor-industry-mark:disabled {
+    cursor: default;
+  }
+
+  .account-editor-industry-trigger .account-editor-location.is-placeholder {
+    color: rgb(var(--fg-rgb) / 0.32);
   }
 
   .account-editor-location {
@@ -36832,35 +36874,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 .dao-directory-list {
   display: flex;
   flex-direction: column;
-}
-
-.dao-directory-row .dao-directory-crest.profile-avatar,
-.dao-directory-crest.profile-avatar {
-  border-radius: 0.85rem;
-}
-
-.dao-directory-meta {
-  display: block;
-  margin-top: 0.12rem;
-  font-size: 0.78rem;
-  line-height: 1.35;
-  color: rgb(var(--fg-rgb) / 0.55);
-}
-
-.dao-directory-aside {
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.dao-directory-kind {
-  font-size: 0.68rem;
-  font-weight: 650;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: rgb(var(--fg-rgb) / 0.42);
-  text-align: right;
-  max-width: 6.5rem;
-  line-height: 1.25;
 }
 
 .daos-discover-open {

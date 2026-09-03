@@ -13,9 +13,9 @@ import {
   OsSheetActions,
   OsSurfaceRow,
   OsSurfaceRowList,
-  ProfileAvatar,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -336,7 +336,9 @@ export function AppThankTokenSheet({
                   }
                   description={stander.accountId}
                   leading={
-                    <ProfileAvatar
+                    <AccountAvatar
+                      accountId={stander.accountId}
+                      kind={stander.kind}
                       src={stander.avatarUrl}
                       fallbackInitial={(
                         stander.name?.trim() || stander.accountId

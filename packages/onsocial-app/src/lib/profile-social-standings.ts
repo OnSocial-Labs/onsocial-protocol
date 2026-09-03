@@ -1,4 +1,4 @@
-import type { PageMoodId } from '@onsocial/sdk';
+import type { PageMoodId, ProfileKind } from '@onsocial/sdk';
 import {
   isProfileSearchQuery,
   normalizeProfileSearchQuery,
@@ -45,6 +45,7 @@ export interface StandingAccountSummary {
   name: string | null;
   bio?: string | null;
   avatarUrl: string | null;
+  kind?: ProfileKind | null;
   standingSince?: number | null;
   standingBlockTimestamp?: number | null;
   standingCount?: number;

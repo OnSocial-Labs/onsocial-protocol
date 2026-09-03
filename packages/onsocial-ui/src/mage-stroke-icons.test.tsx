@@ -25,6 +25,7 @@ import {
   BookmarkIcon,
   Box3dIcon,
   BoxCheckIcon,
+  BuildingTreeIcon,
   ImageIcon,
   MapMarkerIcon,
   InformationCircleIcon,
@@ -80,6 +81,7 @@ describe('mage stroke icons', () => {
     expect(typeof BookmarkIcon).toBe('function');
     expect(typeof Box3dIcon).toBe('function');
     expect(typeof BoxCheckIcon).toBe('function');
+    expect(typeof BuildingTreeIcon).toBe('function');
     expect(typeof ImageIcon).toBe('function');
     expect(typeof MapMarkerIcon).toBe('function');
     expect(typeof InformationCircleIcon).toBe('function');

@@ -2,7 +2,11 @@
 
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
-import { Divider, OsHugSheet, StandingIdentity } from '@onsocial/ui';
+import {
+  Divider,
+  OsHugSheet,
+} from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { PROTOCOL_TASK_SHEET_Z } from '@/features/protocol/protocol-sheet-z';
 import type {

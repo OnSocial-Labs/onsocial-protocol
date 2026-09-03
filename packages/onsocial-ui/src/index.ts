@@ -100,6 +100,7 @@ export {
   BookmarkIcon,
   Box3dIcon,
   BoxCheckIcon,
+  BuildingTreeIcon,
   CameraIcon,
   ChartVerticalIcon,
   CheckIcon,
@@ -482,8 +483,10 @@ export {
   ProfileAvatar,
   profileAvatarClassName,
   profileAvatarSizeClassName,
+  profileAvatarShapeClassName,
   type ProfileAvatarProps,
   type ProfileAvatarSize,
+  type ProfileAvatarShape,
 } from './profile-avatar.js';
 export {
   TokenIcon,

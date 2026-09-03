@@ -1,12 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { parseProfileKind, type ProfileKind } from '@onsocial/sdk';
 import { accountIdsEqual, canonicalAccountId } from '@/lib/account-match';
 import { usePortfolioProfileSeed } from '@/contexts/portfolio-profile-seed-context';
 
 interface ViewerProfileShell {
   displayName?: string;
   avatarUrl: string | null;
+  kind?: ProfileKind | null;
 }
 
 type FetchedShellState = {
@@ -31,6 +33,7 @@ function readViewerShellCache(accountId: string): ViewerProfileShell | null {
       accountId?: string;
       displayName?: string;
       avatarUrl?: string | null;
+      kind?: string | null;
     };
 
     if (
@@ -43,6 +46,7 @@ function readViewerShellCache(accountId: string): ViewerProfileShell | null {
     return {
       displayName: parsed.displayName,
       avatarUrl: parsed.avatarUrl ?? null,
+      kind: parseProfileKind(parsed.kind) ?? null,
     };
   } catch {
     return null;
@@ -64,6 +68,7 @@ function writeViewerShellCache(
         accountId: canonicalAccountId(accountId),
         displayName: shell.displayName,
         avatarUrl: shell.avatarUrl,
+        kind: shell.kind ?? null,
       })
     );
   } catch {
@@ -108,6 +113,7 @@ export function useViewerProfileShell(accountId: string | null | undefined) {
           const shell = {
             displayName: body.displayName,
             avatarUrl: body.avatarUrl ?? null,
+            kind: parseProfileKind(body.kind) ?? null,
           };
 
           setFetchedState({
@@ -141,6 +147,8 @@ export function useViewerProfileShell(accountId: string | null | undefined) {
             patch.avatarUrl !== undefined
               ? patch.avatarUrl
               : (shell?.avatarUrl ?? null),
+          kind:
+            patch.kind !== undefined ? patch.kind : (shell?.kind ?? null),
         };
 
         const nextAccountId = normalizedAccountId ?? current?.accountId ?? '';
@@ -180,10 +188,12 @@ export function useViewerProfileShell(accountId: string | null | undefined) {
       ? {
           displayName: seededName ?? fetched?.displayName ?? cachedShell?.displayName,
           avatarUrl: seededAvatar ?? fetched?.avatarUrl ?? cachedShell?.avatarUrl ?? null,
+          kind: fetched?.kind ?? cachedShell?.kind ?? null,
         }
       : {
           displayName: fetched?.displayName ?? cachedShell?.displayName,
           avatarUrl: fetched?.avatarUrl ?? cachedShell?.avatarUrl ?? null,
+          kind: fetched?.kind ?? cachedShell?.kind ?? null,
         };
 
   const fetchSettled = fetchSettledFor === normalizedAccountId;
@@ -196,6 +206,7 @@ export function useViewerProfileShell(accountId: string | null | undefined) {
   return {
     displayName: resolvedShell.displayName,
     avatarUrl: resolvedShell.avatarUrl,
+    kind: resolvedShell.kind ?? null,
     isLoading,
     patchShell,
   };

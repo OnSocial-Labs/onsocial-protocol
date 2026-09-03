@@ -1,8 +1,8 @@
 'use client';
 
-import { User } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { ProfileAccountAvatar } from '@/components/profile-account-avatar';
 import { profileSocialStandingButtonClass } from '@/components/ui/profile-action-pill';
 import {
   ProfileSocialStandingPending,
@@ -29,29 +29,6 @@ import { cn } from '@/lib/utils';
 
 function accountLabel(account: StandingAccountSummary): string {
   return account.name?.trim() || cleanHandle(account.accountId);
-}
-
-function AccountAvatar({
-  avatarUrl,
-  className,
-}: {
-  avatarUrl: string | null;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        'flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/50 bg-muted/30 text-muted-foreground',
-        className
-      )}
-    >
-      {avatarUrl ? (
-        <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-      ) : (
-        <User className="h-4 w-4" strokeWidth={2} />
-      )}
-    </div>
-  );
 }
 
 function EmptyState({
@@ -136,8 +113,10 @@ export function StandingList({
                 pageLayout={pageLayout}
                 onNavigate={onSelectAccount}
               >
-                <AccountAvatar
+                <ProfileAccountAvatar
+                  accountId={account.accountId}
                   avatarUrl={account.avatarUrl}
+                  kind={account.kind}
                   className="mt-0.5 h-9 w-9 transition-shadow group-hover:ring-1 group-hover:ring-foreground/15"
                 />
                 <span className="min-w-0 flex-1">

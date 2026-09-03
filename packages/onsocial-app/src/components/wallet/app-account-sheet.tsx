@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { ProfileKind } from '@onsocial/sdk';
 import { GlassSheet, osHugSheetBodyClassName, useScrollLock } from '@onsocial/ui';
 import {
   AccountActionList,
@@ -227,7 +228,7 @@ export function AppAccountSheet({
   }, []);
 
   const handleProfileSaved = useCallback(
-    (result: { name: string; avatarUrl: string | null }) => {
+    (result: { name: string; avatarUrl: string | null; kind?: ProfileKind | null }) => {
       if (!accountId) {
         return;
       }
@@ -246,6 +247,7 @@ export function AppAccountSheet({
       viewerShell?.patchShell({
         displayName: result.name,
         avatarUrl: result.avatarUrl,
+        kind: result.kind,
       });
       setStorageRefreshKey((current) => current + 1);
     },
@@ -300,6 +302,7 @@ export function AppAccountSheet({
               accountId={accountId}
               profileName={profileName}
               avatarUrl={avatarUrl}
+              kind={viewerShell?.kind}
             />
           </>
         }

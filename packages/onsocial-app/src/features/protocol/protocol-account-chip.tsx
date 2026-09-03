@@ -4,10 +4,10 @@ import Link from 'next/link';
 import {
   Box3dIcon,
   formatNearAccountFallbackTitle,
-  ProfileAvatar,
   UserIcon,
   type GovernanceAccountSubjectKind,
 } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { protocolAccountHue } from '@/features/protocol/protocol-account-hue';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { fallbackLabel } from '@/lib/profile-display';
@@ -52,7 +52,8 @@ export function ProtocolAccountChip({
     subjectKind === 'infrastructure' ? Box3dIcon : UserIcon;
 
   const avatar = socialProfile ? (
-    <ProfileAvatar
+    <AccountAvatar
+      accountId={accountId}
       src={avatarUrl ?? null}
       fallbackInitial={profileName || accountId}
       size="sm"

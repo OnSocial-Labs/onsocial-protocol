@@ -5,7 +5,6 @@ import { useCallback, useState } from 'react';
 import {
   Divider,
   OsHugSheet,
-  ProfileAvatar,
   ProtocolMotionArrow,
 } from '@onsocial/ui';
 import {
@@ -21,6 +20,7 @@ import {
   type AppStatsView,
   type AppView,
 } from '@/features/scarces/apps-data';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { hubCategoryLabel } from '@/features/scarces/hub-categories';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { portfolioPath } from '@/lib/overlay-routes';
@@ -287,7 +287,9 @@ export function HubCreatorsSheet({
                 className="hub-people-row"
                 onClick={requestClose}
               >
-                <ProfileAvatar
+                <AccountAvatar
+                  accountId={person.accountId}
+                  kind={profile?.kind}
                   src={profile?.avatarUrl ?? null}
                   fallbackInitial={
                     profile?.displayName ?? person.accountId

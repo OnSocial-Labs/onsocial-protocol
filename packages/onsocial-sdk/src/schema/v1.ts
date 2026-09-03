@@ -31,12 +31,22 @@ export interface MediaRef {
 
 // ── Profile ─────────────────────────────────────────────────────────────────
 
+/** Optional account presentation on `profile/kind`. Omit / `person` is an individual. */
+export const PROFILE_KINDS = ['person', 'org', 'dao'] as const;
+export type ProfileKind = (typeof PROFILE_KINDS)[number];
+
 export interface ProfileV1 {
   v: 1;
   /** Lowercase short name, `[a-z0-9_]{1,32}`. Optional but recommended. */
   handle?: string;
   displayName?: string;
   bio?: string;
+  /**
+   * Optional face kind on the same `profile/` object.
+   * Omit or `person` → individual. `org` → organization. `dao` → DAO.
+   * Unknown renderers ignore this field.
+   */
+  kind?: ProfileKind;
   avatar?: MediaRef;
   banner?: MediaRef;
   links?: ProfileLink[];
@@ -427,6 +437,11 @@ export function validateProfileV1(p: unknown): string | null {
   }
   if (p.lang !== undefined && (!isStr(p.lang) || !BCP47_RE.test(p.lang))) {
     return 'profile.lang must be a BCP-47 tag';
+  }
+  if (p.kind !== undefined) {
+    if (!isStr(p.kind) || !PROFILE_KINDS.includes(p.kind as ProfileKind)) {
+      return 'profile.kind must be "person", "org", or "dao"';
+    }
   }
   return validateExtensions(p.x);
 }

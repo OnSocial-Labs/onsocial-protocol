@@ -47,11 +47,12 @@ export function buildDaoSocialProfileProposalPayload(
 
   const profile: {
     name: string;
+    kind: 'dao';
     bio?: string;
     avatar?: string;
     banner?: string;
     links?: Record<string, string>;
-  } = { name };
+  } = { name, kind: 'dao' };
 
   const bio = draft.bio?.trim();
   if (bio) profile.bio = bio;

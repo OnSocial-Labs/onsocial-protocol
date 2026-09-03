@@ -4,7 +4,11 @@
 // ---------------------------------------------------------------------------
 
 import type { QueryModule } from './index.js';
-import type { ProfileSearchRow } from './profiles.js';
+import {
+  applyProfileSearchKinds,
+  profileKindsFromCurrentRows,
+  type ProfileSearchRow,
+} from './profiles.js';
 
 export interface StandingListItem {
   accountId: string;
@@ -807,7 +811,10 @@ export class StandingsQuery {
 
     const viewer = viewerAccountId?.trim();
     if (!viewer) {
-      const res = await this._q.graphql<{ profileSearch: ProfileSearchRow[] }>({
+      const res = await this._q.graphql<{
+        profileSearch: ProfileSearchRow[];
+        profileKinds: Array<{ accountId: string; value: string }>;
+      }>({
         query: `query StandingPeerProfiles($ids: [String!]!, $limit: Int!) {
           profileSearch(where: {accountId: {_in: $ids}}, limit: $limit) {
             accountId name bio avatar banner
@@ -816,11 +823,20 @@ export class StandingsQuery {
             firstProfileTimestamp
             lastProfileBlock lastProfileTimestamp lastActivityBlock
           }
+          profileKinds: profilesCurrent(
+            where: {accountId: {_in: $ids}, field: {_eq: "kind"}}
+            limit: $limit
+          ) {
+            accountId value
+          }
         }`,
         variables: { ids: peers, limit: peers.length },
       });
       return {
-        profiles: res.data?.profileSearch ?? [],
+        profiles: applyProfileSearchKinds(
+          res.data?.profileSearch ?? [],
+          profileKindsFromCurrentRows(res.data?.profileKinds)
+        ),
         viewerOutgoingPeerIds: [],
         viewerIncomingPeerIds: [],
       };
@@ -828,6 +844,7 @@ export class StandingsQuery {
 
     const res = await this._q.graphql<{
       profileSearch: ProfileSearchRow[];
+      profileKinds: Array<{ accountId: string; value: string }>;
       viewerOutgoing: Array<{ targetAccount: string }>;
       viewerIncoming: Array<{ accountId: string }>;
     }>({
@@ -838,6 +855,12 @@ export class StandingsQuery {
           endorsementsReceivedCount endorsementsGivenCount
           firstProfileTimestamp
           lastProfileBlock lastProfileTimestamp lastActivityBlock
+        }
+        profileKinds: profilesCurrent(
+          where: {accountId: {_in: $peerIds}, field: {_eq: "kind"}}
+          limit: $limit
+        ) {
+          accountId value
         }
         viewerOutgoing: standingsCurrent(
           where: {accountId: {_eq: $viewer}, targetAccount: {_in: $peerIds}}
@@ -854,7 +877,10 @@ export class StandingsQuery {
     });
 
     return {
-      profiles: res.data?.profileSearch ?? [],
+      profiles: applyProfileSearchKinds(
+        res.data?.profileSearch ?? [],
+        profileKindsFromCurrentRows(res.data?.profileKinds)
+      ),
       viewerOutgoingPeerIds: (res.data?.viewerOutgoing ?? []).map(
         (row) => row.targetAccount
       ),

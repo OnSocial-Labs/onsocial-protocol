@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, type RefObject } from 'react';
-import { Divider, osFieldBorderedClassName, ProfileAvatar } from '@onsocial/ui';
+import { Divider, osFieldBorderedClassName } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import {
   fetchCollectionCreatorFace,
   type CollectionCreatorFace,
@@ -225,7 +226,8 @@ export function TicketDoorWorkbench({
           >
             {ownerId ? (
               <div className="ticket-door-preview-holder">
-                <ProfileAvatar
+                <AccountAvatar
+                  accountId={ownerId}
                   src={holderFaceForOwner?.avatarUrl ?? null}
                   fallbackInitial={holderDisplay || ownerId}
                   size="md"

@@ -139,6 +139,7 @@ export default async function AccountPage({
         mood={mood}
         pageAccountId={accountId}
         isDao={daoEntity.isDao}
+        profileKind={shell?.kind ?? null}
         avatarMedia={shell?.avatarMedia ?? null}
         bannerMedia={shell?.bannerMedia ?? null}
         committedAvatarMode={committedAvatarMode}
@@ -165,11 +166,13 @@ export default async function AccountPage({
           accountId={accountId}
           profileName={shell?.name ?? daoPage?.branding.name}
           location={shell?.location}
+          industry={shell?.industry}
           bio={portfolioBio}
           tagline={tagline}
           avatarUrl={shell?.avatarUrl ?? daoPage?.branding.avatarUrl}
           mood={mood}
           isDao={daoEntity.isDao}
+          profileKind={shell?.kind ?? null}
           kindLabel={daoEntity.kindLabel}
           incomingStandingCount={daoIncomingStanding}
         />

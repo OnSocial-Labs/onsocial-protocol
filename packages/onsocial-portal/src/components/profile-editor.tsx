@@ -4,16 +4,33 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
+  PROFILE_FACE_KIND_OPTIONS,
+  PROFILE_INDUSTRY_MAX,
   PROFILE_LOCATION_MAX,
+  editorFaceKind,
+  isProfileIndustryWriteIn,
+  isProfileIndustryWriteInMode,
+  matchProfileIndustryOption,
+  normalizeProfileIndustryInput,
   normalizeProfileLocationInput,
+  profileAvatarShapeFromKind,
+  profileIndustryChoiceOptions,
+  profileIndustryDrawerValue,
+  profileIndustryFromMaterialised,
+  profileKindFromMaterialised,
   profileLocationFromMaterialised,
+  sanitizeProfileIndustryDraft,
   sanitizeProfileLocationDraft,
   type MaterialisedProfile,
+  type ProfileKind,
 } from '@onsocial/sdk';
 import {
+  BuildingTreeIcon,
+  ChoiceDrawer,
   OsSheetAction,
   OsSheetActions,
   ProfileEditorMediaToolbar,
+  type ChoiceOption,
 } from '@onsocial/ui';
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
@@ -113,6 +130,18 @@ function getInitialLocation(profile: MaterialisedProfile | null): string {
   return profileLocationFromMaterialised(profile);
 }
 
+function getInitialIndustry(profile: MaterialisedProfile | null): string {
+  return profileIndustryFromMaterialised(profile);
+}
+
+function getInitialKind(profile: MaterialisedProfile | null): ProfileKind {
+  return editorFaceKind(profileKindFromMaterialised(profile));
+}
+
+const PROFILE_INDUSTRY_CHOICES: ChoiceOption<string>[] =
+  profileIndustryChoiceOptions();
+const PORTAL_INDUSTRY_DRAWER_Z = 2147483647;
+
 export function ProfileEditor({
   open,
   accountId,
@@ -129,8 +158,15 @@ export function ProfileEditor({
   const reduceMotion = useReducedMotion();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const bannerInputRef = useRef<HTMLInputElement | null>(null);
+  const industryInputRef = useRef<HTMLInputElement | null>(null);
   const [name, setName] = useState(getInitialName(profile));
   const [location, setLocation] = useState(getInitialLocation(profile));
+  const [industry, setIndustry] = useState(getInitialIndustry(profile));
+  const [industryWriteIn, setIndustryWriteIn] = useState(() =>
+    isProfileIndustryWriteInMode(getInitialIndustry(profile))
+  );
+  const [industryDrawerOpen, setIndustryDrawerOpen] = useState(false);
+  const [kind, setKind] = useState<ProfileKind>(() => getInitialKind(profile));
   const [bio, setBio] = useState(getInitialBio(profile));
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
     profileLinksInputFromRecord(profile?.links)
@@ -197,6 +233,15 @@ export function ProfileEditor({
     ) {
       return true;
     }
+    if (kind !== getInitialKind(profile)) {
+      return true;
+    }
+    if (
+      (kind === 'org' ? normalizeProfileIndustryInput(industry) : '') !==
+      (getInitialKind(profile) === 'org' ? getInitialIndustry(profile) : '')
+    ) {
+      return true;
+    }
     if (bio.trim() !== getInitialBio(profile).trim()) {
       return true;
     }
@@ -215,6 +260,8 @@ export function ProfileEditor({
     bannerUrl,
     bio,
     initialLinks,
+    industry,
+    kind,
     links,
     location,
     name,
@@ -329,6 +376,11 @@ export function ProfileEditor({
       await onSave({
         name,
         location: normalizeProfileLocationInput(location) || null,
+        industry:
+          kind === 'org'
+            ? normalizeProfileIndustryInput(industry) || null
+            : null,
+        kind: kind === 'org' ? 'org' : null,
         bio,
         avatar: avatarRemoved ? null : (avatar ?? undefined),
         banner: bannerRemoved ? null : (banner ?? undefined),
@@ -479,24 +531,35 @@ export function ProfileEditor({
                           >
                             <div
                               className={cn(
-                                'profile-editor-media-host profile-editor-media-host--avatar profile-editor-media-host--squircle',
+                                'profile-editor-media-host profile-editor-media-host--avatar',
+                                profileAvatarShapeFromKind(kind) !== 'circle' &&
+                                  'profile-editor-media-host--squircle',
                                 profileIdentityAvatarSizeClass,
                                 displayAvatarUrl && 'has-media'
                               )}
+                              data-profile-kind={kind}
                             >
                               <button
                                 type="button"
                                 onClick={() => fileInputRef.current?.click()}
                                 className={cn(
-                                  'profile-editor-media-backdrop relative flex cursor-pointer items-center justify-center overflow-hidden rounded-2xl !border-[3px] !border-background bg-background text-muted-foreground shadow-lg',
-                                  profileIdentityAvatarSizeClass
+                                  'profile-editor-media-backdrop relative flex cursor-pointer items-center justify-center overflow-hidden !border-[3px] !border-background bg-background text-muted-foreground shadow-lg',
+                                  profileIdentityAvatarSizeClass,
+                                  kind === 'person' && 'rounded-full',
+                                  kind === 'org' && 'rounded-2xl',
+                                  kind === 'dao' && 'rounded-[1rem]'
                                 )}
                                 aria-label="Choose avatar"
                               >
                                 {!displayAvatarUrl ? (
                                   <span
                                     aria-hidden
-                                    className="profile-editor-media-empty-fill rounded-[13px]"
+                                    className={cn(
+                                      'profile-editor-media-empty-fill',
+                                      kind === 'person' && 'rounded-full',
+                                      kind === 'org' && 'rounded-[13px]',
+                                      kind === 'dao' && 'rounded-[0.85rem]'
+                                    )}
                                   />
                                 ) : null}
                                 {displayAvatarUrl ? (
@@ -508,7 +571,10 @@ export function ProfileEditor({
                                 ) : null}
                                 <span
                                   className={cn(
-                                    'profile-editor-media-overlay rounded-[13px]',
+                                    'profile-editor-media-overlay',
+                                    kind === 'person' && 'rounded-full',
+                                    kind === 'org' && 'rounded-[13px]',
+                                    kind === 'dao' && 'rounded-[0.85rem]',
                                     displayAvatarUrl && 'has-media'
                                   )}
                                   aria-hidden
@@ -556,6 +622,140 @@ export function ProfileEditor({
                           <p className="min-w-0 truncate portal-type-body-sm text-muted-foreground/55">
                             {accountId ? `@${accountId}` : 'Wallet'}
                           </p>
+                          <div
+                            className="flex flex-wrap gap-1.5 pt-1"
+                            role="radiogroup"
+                            aria-label="Account type"
+                          >
+                            {PROFILE_FACE_KIND_OPTIONS.map((option) => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                role="radio"
+                                aria-checked={kind === option.value}
+                                disabled={isSaving}
+                                onClick={() => {
+                                  setKind(option.value);
+                                  if (option.value !== 'org') {
+                                    setIndustry('');
+                                    setIndustryWriteIn(false);
+                                    setIndustryDrawerOpen(false);
+                                  }
+                                  markDirty();
+                                }}
+                                className={cn(
+                                  'rounded-full px-2.5 py-1 portal-type-caption transition-colors',
+                                  kind === option.value
+                                    ? 'bg-foreground/10 text-foreground'
+                                    : 'text-muted-foreground/70 hover:bg-foreground/5'
+                                )}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                          {kind === 'org' ? (
+                            <>
+                              {industryWriteIn ? (
+                                <label
+                                  htmlFor="profile-industry"
+                                  className="mt-1 flex items-center gap-1.5"
+                                >
+                                  <span className="sr-only">Industry</span>
+                                  <button
+                                    type="button"
+                                    disabled={isSaving}
+                                    aria-label="Choose industry"
+                                    className="shrink-0 text-muted-foreground/55"
+                                    onClick={() => setIndustryDrawerOpen(true)}
+                                  >
+                                    <BuildingTreeIcon
+                                      className="h-3.5 w-3.5"
+                                      aria-hidden
+                                    />
+                                  </button>
+                                  <input
+                                    ref={industryInputRef}
+                                    id="profile-industry"
+                                    value={industry}
+                                    onChange={(event) => {
+                                      setIndustry(
+                                        sanitizeProfileIndustryDraft(
+                                          event.target.value
+                                        )
+                                      );
+                                      markDirty();
+                                    }}
+                                    onBlur={() => {
+                                      const trimmed =
+                                        normalizeProfileIndustryInput(industry);
+                                      if (trimmed !== industry)
+                                        setIndustry(trimmed);
+                                      if (
+                                        !trimmed ||
+                                        matchProfileIndustryOption(trimmed)
+                                      ) {
+                                        setIndustryWriteIn(false);
+                                      }
+                                    }}
+                                    maxLength={PROFILE_INDUSTRY_MAX}
+                                    autoComplete="organization-title"
+                                    placeholder="Industry"
+                                    className="w-full bg-transparent portal-type-body-sm text-muted-foreground/70 outline-none placeholder:text-muted-foreground/35"
+                                  />
+                                </label>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={isSaving}
+                                  aria-haspopup="dialog"
+                                  aria-expanded={industryDrawerOpen}
+                                  className="mt-1 flex w-full items-center gap-1.5 text-left"
+                                  onClick={() => setIndustryDrawerOpen(true)}
+                                >
+                                  <BuildingTreeIcon
+                                    className="h-3.5 w-3.5 shrink-0 text-muted-foreground/55"
+                                    aria-hidden
+                                  />
+                                  <span
+                                    className={`portal-type-body-sm ${
+                                      industry
+                                        ? 'text-muted-foreground/70'
+                                        : 'text-muted-foreground/35'
+                                    }`}
+                                  >
+                                    {industry || 'Industry'}
+                                  </span>
+                                </button>
+                              )}
+                              <ChoiceDrawer
+                                open={industryDrawerOpen}
+                                onClose={() => setIndustryDrawerOpen(false)}
+                                label="Industry"
+                                copy="Optional. Skip to stay Organization."
+                                value={profileIndustryDrawerValue(industry)}
+                                options={PROFILE_INDUSTRY_CHOICES}
+                                onChange={(next) => {
+                                  if (isProfileIndustryWriteIn(next)) {
+                                    setIndustryWriteIn(true);
+                                    if (matchProfileIndustryOption(industry)) {
+                                      setIndustry('');
+                                    }
+                                    markDirty();
+                                    window.setTimeout(
+                                      () => industryInputRef.current?.focus(),
+                                      0
+                                    );
+                                    return;
+                                  }
+                                  setIndustryWriteIn(false);
+                                  setIndustry(next);
+                                  markDirty();
+                                }}
+                                zIndex={PORTAL_INDUSTRY_DRAWER_Z}
+                              />
+                            </>
+                          ) : null}
                           <label htmlFor="profile-location" className="sr-only">
                             Location
                           </label>

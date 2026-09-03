@@ -5,8 +5,8 @@ import {
   OsHugSheet,
   OsSurfaceRow,
   OsSurfaceRowList,
-  ProfileAvatar,
 } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import {
   ActionDrawer,
   type ActionDrawerItem,
@@ -240,7 +240,9 @@ export function MuteBlockListsSheet({
                     label={name}
                     description={name !== handle ? `@${handle}` : undefined}
                     leading={
-                      <ProfileAvatar
+                      <AccountAvatar
+                        accountId={accountId}
+                        kind={profile?.kind}
                         src={profile?.avatarUrl ?? undefined}
                         fallbackInitial={name.slice(0, 1)}
                         size="sm"

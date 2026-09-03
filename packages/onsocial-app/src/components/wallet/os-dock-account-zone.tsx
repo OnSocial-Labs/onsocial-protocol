@@ -1,6 +1,6 @@
 'use client';
 
-import { ProfileAvatar } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useAppAccountSheet } from '@/contexts/app-account-sheet-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
@@ -23,7 +23,7 @@ export function OsDockAccountZone({ pageAccountId }: OsDockAccountZoneProps) {
     if (isLoading) {
       return (
         <span className="portfolio-summon-account" aria-hidden>
-          <ProfileAvatar size="sm" shellLoading />
+          <AccountAvatar size="sm" shellLoading />
         </span>
       );
     }
@@ -56,7 +56,9 @@ export function OsDockAccountZone({ pageAccountId }: OsDockAccountZoneProps) {
         openAccountSheet({ pageAccountId });
       }}
     >
-      <ProfileAvatar
+      <AccountAvatar
+        accountId={accountId}
+        kind={viewerShell?.kind}
         src={avatarUrl}
         fallbackInitial={label}
         shellLoading={shellLoading}

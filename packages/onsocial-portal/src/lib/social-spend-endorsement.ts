@@ -1,3 +1,4 @@
+import type { ProfileKind } from '@onsocial/sdk';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import type { SigningWallet } from '@/lib/portal-social-session';
 import {
@@ -207,6 +208,7 @@ export interface EndorsementSupporterSummary {
   name: string | null;
   bio: string | null;
   avatarUrl: string | null;
+  kind?: ProfileKind | null;
   totalAmountYocto: string;
   spendCount: number;
   latestSupportAt: number | null;

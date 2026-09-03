@@ -51,6 +51,7 @@ import {
   type PortfolioStandingCounts,
 } from '@/lib/viewer-standing-ledger';
 import { getGlobalViewerStandingLedger } from '@/lib/viewer-standing-global';
+import { parseProfileKind, type ProfileKind } from '@onsocial/sdk';
 
 export type StandingShellVariant = 'overlay';
 
@@ -58,6 +59,8 @@ export interface StandingPanelProviderProps {
   accountId: string;
   displayName: string;
   avatarUrl?: string | null;
+  /** Face kind for the subject avatar. Separate from standing tab `kind`. */
+  profileKind?: ProfileKind | null;
   kind: StanceDetailKind;
   initialCounts: {
     incoming: number;
@@ -80,6 +83,7 @@ interface StandingPanelContextValue {
   accountId: string;
   displayName: string;
   avatarUrl: string | null;
+  profileKind: ProfileKind | null;
   shellVariant: StandingShellVariant;
   showDiscoverLink: boolean;
   kind: StanceDetailKind;
@@ -155,6 +159,7 @@ function hasSsrProfileMeta(
 async function fetchProfileShellClient(accountId: string): Promise<{
   displayName?: string;
   avatarUrl?: string | null;
+  kind?: string | null;
 } | null> {
   const response = await fetch(
     `/api/profile/shell?accountId=${encodeURIComponent(accountId)}`,
@@ -166,6 +171,7 @@ async function fetchProfileShellClient(accountId: string): Promise<{
   return (await response.json().catch(() => null)) as {
     displayName?: string;
     avatarUrl?: string | null;
+    kind?: string | null;
   } | null;
 }
 
@@ -173,6 +179,7 @@ export function StandingPanelProvider({
   accountId,
   displayName,
   avatarUrl = null,
+  profileKind = null,
   kind,
   initialCounts,
   initialQuery = '',
@@ -210,6 +217,9 @@ export function StandingPanelProvider({
   );
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(
     () => portfolioSeed?.avatarUrl ?? avatarUrl ?? null
+  );
+  const [subjectProfileKind, setSubjectProfileKind] = useState<ProfileKind | null>(
+    () => parseProfileKind(profileKind) ?? null
   );
   const [metaLoaded, setMetaLoaded] = useState(
     () =>
@@ -264,6 +274,11 @@ export function StandingPanelProvider({
   }, [initialQuery]);
 
   useEffect(() => {
+    const next = parseProfileKind(profileKind) ?? null;
+    setSubjectProfileKind(next);
+  }, [profileKind]);
+
+  useEffect(() => {
     if (isDaoSubject) {
       setActiveKind('incoming');
       return;
@@ -298,6 +313,9 @@ export function StandingPanelProvider({
         }
         if (body && 'avatarUrl' in body) {
           setProfileAvatarUrl(body.avatarUrl ?? null);
+        }
+        if (body && 'kind' in body) {
+          setSubjectProfileKind(parseProfileKind(body.kind) ?? null);
         }
       })
       .finally(() => {
@@ -847,6 +865,7 @@ export function StandingPanelProvider({
       accountId,
       displayName: profileDisplayName,
       avatarUrl: profileAvatarUrl,
+      profileKind: subjectProfileKind,
       shellVariant,
       showDiscoverLink,
       kind: activeKind,
@@ -903,6 +922,7 @@ export function StandingPanelProvider({
       navigateKind,
       profileAvatarUrl,
       profileDisplayName,
+      subjectProfileKind,
       query,
       retryLoad,
       searchSettled,

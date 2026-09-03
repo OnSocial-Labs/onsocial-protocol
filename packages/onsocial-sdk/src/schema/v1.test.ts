@@ -58,9 +58,17 @@ describe('ProfileV1', () => {
       tickers: ['social'],
       mentions: ['bob.testnet'],
       lang: 'en',
+      kind: 'org',
       x: { dating: { orientation: 'queer' } },
     });
     expect(validateProfileV1(p)).toBeNull();
+  });
+
+  it('accepts each profile kind and rejects unknown kinds', () => {
+    expect(validateProfileV1(profileV1({ kind: 'person' }))).toBeNull();
+    expect(validateProfileV1(profileV1({ kind: 'org' }))).toBeNull();
+    expect(validateProfileV1(profileV1({ kind: 'dao' }))).toBeNull();
+    expect(() => profileV1({ kind: 'business' as never })).toThrow(/kind/);
   });
 
   it('rejects bad profile hashtags and tickers', () => {

@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import {
-  OsChromeSubject,
   osChromeSubjectClassName,
   standingIdentityAccountCopy,
 } from '@onsocial/ui';
+import type { ProfileKind } from '@onsocial/sdk';
+import { OsChromeSubject } from '@/components/profile/os-chrome-subject';
 import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { accountDrawerPrimaryLabel } from '@/lib/profile-display';
@@ -58,6 +59,7 @@ export function AccountDrawerChrome({
   accountId,
   profileName,
   avatarUrl,
+  kind,
 }: {
   titleId: string;
   srTitle: string;
@@ -65,6 +67,7 @@ export function AccountDrawerChrome({
   accountId: string;
   profileName?: string;
   avatarUrl?: string | null;
+  kind?: ProfileKind | null;
 }) {
   const primaryLabel = accountDrawerPrimaryLabel(accountId, profileName);
 
@@ -92,6 +95,7 @@ export function AccountDrawerChrome({
           accountId={accountId}
           profileName={profileName}
           avatarUrl={avatarUrl}
+          kind={kind}
           primaryLabel={primaryLabel}
           showHandle
           handleSlot={<AccountDrawerHandleCopy accountId={accountId} />}

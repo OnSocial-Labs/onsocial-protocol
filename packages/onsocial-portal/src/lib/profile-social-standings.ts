@@ -1,3 +1,4 @@
+import type { ProfileKind } from '@onsocial/sdk';
 import { PROFILE_SEARCH_MIN_QUERY_LENGTH } from '@/lib/profile-account-search';
 
 export type StanceDetailKind = 'incoming' | 'outgoing' | 'mutual';
@@ -7,6 +8,7 @@ export interface StandingAccountSummary {
   name: string | null;
   bio?: string | null;
   avatarUrl: string | null;
+  kind?: ProfileKind | null;
   standingSince?: number | null;
   standingBlockTimestamp?: number | null;
   standingCount?: number;

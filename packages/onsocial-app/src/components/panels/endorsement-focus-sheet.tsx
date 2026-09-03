@@ -8,7 +8,11 @@ import {
   type CSSProperties,
 } from 'react';
 import Link from 'next/link';
-import { OsGestureSheet, ShareIcon, StandingIdentity } from '@onsocial/ui';
+import {
+  OsGestureSheet,
+  ShareIcon,
+} from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import {
   EndorseComposeSheet,
   type EndorseComposeIntent,

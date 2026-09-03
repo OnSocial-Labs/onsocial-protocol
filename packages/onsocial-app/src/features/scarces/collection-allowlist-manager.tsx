@@ -16,7 +16,6 @@ import {
   MultiplyIcon,
   OsFieldRemove,
   OsHugSheet,
-  ProfileAvatar,
   SearchField,
   UserPlusIcon,
   osFieldBorderedClassName,
@@ -26,7 +25,8 @@ import {
   OsSheetAction,
   OsSheetActions,
 } from '@onsocial/ui';
-import { StandingIdentity } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -1141,7 +1141,8 @@ function CollectionAllowlistSheet({
                       }
                       onClick={() => setEditingAccountId(face.accountId)}
                     >
-                      <ProfileAvatar
+                      <AccountAvatar
+                        accountId={face.accountId}
                         src={face.avatarUrl}
                         fallbackInitial={face.name}
                         size="sm"
@@ -1271,7 +1272,9 @@ function CollectionAllowlistSheet({
                           }
                           onClick={() => openOnListEdit(accountId)}
                         >
-                          <ProfileAvatar
+                          <AccountAvatar
+                            accountId={accountId}
+                            kind={profile?.kind}
                             src={profile?.avatarUrl ?? null}
                             fallbackInitial={name}
                             size="sm"

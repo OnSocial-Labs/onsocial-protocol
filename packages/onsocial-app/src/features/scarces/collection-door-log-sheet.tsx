@@ -7,9 +7,9 @@ import {
   OsIconAction,
   RefreshIcon,
   SearchField,
-  StandingIdentity,
   standingIdentityLabel,
 } from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { CollectionActivitySkeleton } from '@/features/scarces/collection-page-skeleton';
 import {

@@ -6,10 +6,10 @@ import {
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
-  ProfileAvatar,
   SearchField,
 } from '@onsocial/ui';
-import { StandingIdentity } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -226,7 +226,9 @@ export function GuildAddMemberSheet({
             >
               {selected ? (
                 <>
-                  <ProfileAvatar
+                  <AccountAvatar
+                    accountId={selected.accountId}
+                    kind={selected.kind}
                     src={selected.avatarUrl}
                     fallbackInitial={selectedName}
                     size="sm"

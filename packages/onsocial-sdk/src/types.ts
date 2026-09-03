@@ -2,6 +2,8 @@
 // OnSocial SDK — shared types
 // ---------------------------------------------------------------------------
 
+import type { ProfileKind } from './schema/v1.js';
+
 /** NEAR network identifier. */
 export type Network = 'mainnet' | 'testnet';
 
@@ -262,6 +264,16 @@ export interface ProfileData {
    * Prefer post `places[]` for event/venue tags.
    */
   location?: string | null;
+  /**
+   * User-curated org line (`profile/industry`). Shown next to the org mark.
+   * Pass `null` to clear. Ignored when kind is not `org`.
+   */
+  industry?: string | null;
+  /**
+   * Optional face kind on the same `profile/` object (`profile/kind`).
+   * Omit / `person` is an individual. Pass `null` to clear.
+   */
+  kind?: ProfileKind | null;
   /**
    * Profile avatar. Accepts a CID/URL string, OR a `File`/`Blob` which the
    * SDK uploads to IPFS via the gateway and replaces with `ipfs://<cid>`

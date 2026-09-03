@@ -27,9 +27,9 @@ import {
   OsIconAction,
   OsPageSheet,
   SheetCloseButton,
-  StandingIdentity,
   osIconActionGlyphClassName,
 } from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { StandingListLoadMoreFooter } from '@/components/panels/standing-list-load-more-footer';

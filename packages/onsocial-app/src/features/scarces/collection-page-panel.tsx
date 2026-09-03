@@ -9,7 +9,6 @@ import {
   HeartFillIcon,
   HeartIcon,
   InformationCircleIcon,
-  ProfileAvatar,
   BookmarkFillIcon,
   BookmarkIcon,
   ScaleUpIcon,
@@ -18,6 +17,7 @@ import {
   ShopFillIcon,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -899,7 +899,8 @@ export function CollectionPagePanel({
                 tabIndex={resolvedCreatorName ? -1 : undefined}
                 aria-hidden={resolvedCreatorName ? true : undefined}
               >
-                <ProfileAvatar
+                <AccountAvatar
+                  accountId={view.creatorId}
                   src={resolvedCreatorAvatar}
                   fallbackInitial={
                     resolvedCreatorName || fallbackLabel(view.creatorId)

@@ -3,10 +3,8 @@
 import Link from 'next/link';
 import type { GroupMemberRow } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
-import {
-  StandingIdentity,
-  standingIdentityLabel,
-} from '@onsocial/ui';
+import { standingIdentityLabel } from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { GuildMemberRoleBadge } from '@/features/guilds/guild-member-role-badge';
 import { guildMemberRoleBucket } from '@/features/guilds/guild-member-filter';
 import { GuildMemberRowMenu } from '@/features/guilds/guild-member-row-menu';

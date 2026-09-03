@@ -4,11 +4,19 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { cn } from './cn.js';
 
 export type ProfileAvatarSize = 'sm' | 'md' | 'lg';
+export type ProfileAvatarShape = 'circle' | 'squircle' | 'square';
 
 export const profileAvatarClassName = 'profile-avatar';
 
 export function profileAvatarSizeClassName(size: ProfileAvatarSize): string {
   return `profile-avatar--${size}`;
+}
+
+export function profileAvatarShapeClassName(
+  shape: ProfileAvatarShape
+): string | undefined {
+  if (shape === 'circle') return undefined;
+  return `profile-avatar--${shape}`;
 }
 
 export interface ProfileAvatarProps {
@@ -17,6 +25,8 @@ export interface ProfileAvatarProps {
   /** Profile shell fetch in progress — show shimmer, not initials. */
   shellLoading?: boolean;
   size?: ProfileAvatarSize;
+  /** Omit / circle keeps today’s look for renderers that do not know kind. */
+  shape?: ProfileAvatarShape;
   className?: string;
 }
 
@@ -36,6 +46,7 @@ export function ProfileAvatar({
   fallbackInitial,
   shellLoading = false,
   size = 'md',
+  shape = 'circle',
   className,
 }: ProfileAvatarProps) {
   const imgRef = useRef<HTMLImageElement>(null);
@@ -74,6 +85,7 @@ export function ProfileAvatar({
       className={cn(
         profileAvatarClassName,
         profileAvatarSizeClassName(size),
+        profileAvatarShapeClassName(shape),
         showShimmer && 'is-media-loading',
         showShellLoading && 'is-shell-loading',
         mediaLoaded && 'is-loaded',

@@ -19,7 +19,6 @@ import {
   MessageRoundIcon,
   ProtocolMotionArrow,
   MultiplyIcon,
-  ProfileAvatar,
   PulsingDots,
   RepeatIcon,
   ShareIcon,
@@ -29,6 +28,7 @@ import {
   UserPlusIcon,
   UsersFillIcon,
 } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import {
   ActionDrawer,
   type ActionDrawerItem,
@@ -679,7 +679,9 @@ export function QuotedPostInset({
       <Divider orientation="vertical" variant="detail" />
       <div className="post-card-quote-inset-content">
         <span className="post-card-quote-inset-head">
-          <ProfileAvatar
+          <AccountAvatar
+            accountId={post.accountId}
+            kind={authorProfile?.kind}
             src={authorProfile?.avatarUrl ?? null}
             fallbackInitial={name}
             size="sm"
@@ -1703,7 +1705,9 @@ export function PostCard({
         scroll={false}
         aria-label={`View ${name}'s profile`}
       >
-        <ProfileAvatar
+        <AccountAvatar
+          accountId={post.accountId}
+          kind={authorProfile?.kind}
           src={authorProfile?.avatarUrl ?? null}
           fallbackInitial={name}
           size="lg"

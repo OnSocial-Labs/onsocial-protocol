@@ -4,11 +4,18 @@ import { useEffect } from 'react';
 import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kind-switch';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
+import { PortfolioOrgKindMark } from '@/components/portfolio/portfolio-org-kind-mark';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
+import {
+  profileKindFaceLabel,
+  profileOrgLineLabel,
+  resolveDisplayProfileKind,
+  type ProfileKind,
+} from '@onsocial/sdk';
 import {
   displayName,
   initials,
@@ -20,12 +27,16 @@ interface PortfolioIdentityProps {
   accountId: string;
   profileName?: string | null;
   location?: string | null;
+  /** User-curated org line next to the building mark. */
+  industry?: string | null;
   bio?: string | null;
   tagline?: string;
   avatarUrl?: string | null;
   mood: ResolvedMood;
   /** DAO org face — square crest + quiet kind chrome. */
   isDao?: boolean;
+  /** Optional `profile/kind`. Omit / person is an individual. */
+  profileKind?: ProfileKind | null;
   kindLabel?: string | null;
   incomingStandingCount?: number;
 }
@@ -34,16 +45,20 @@ export function PortfolioIdentity({
   accountId,
   profileName,
   location,
+  industry = null,
   bio,
   tagline,
   avatarUrl,
   mood: savedMood,
   isDao = false,
+  profileKind = null,
   kindLabel = null,
   incomingStandingCount = 0,
 }: PortfolioIdentityProps) {
   const moodPreview = usePortfolioMoodPreviewOptional();
   const mood = moodPreview?.effectiveMood ?? savedMood;
+  const displayKind = resolveDisplayProfileKind(profileKind, isDao);
+  const profileKindLabel = profileKindFaceLabel(displayKind);
 
   const titleLabel = displayName(accountId, profileName ?? undefined);
   const summary = tagline?.trim() || bio?.trim();
@@ -58,7 +73,7 @@ export function PortfolioIdentity({
   return (
     <section
       className="portfolio-identity animate-rise-in"
-      data-entity={isDao ? 'dao' : undefined}
+      data-profile-kind={displayKind}
     >
       {avatarUrl ? (
         <img alt={titleLabel} className="portfolio-avatar" src={avatarUrl} />
@@ -69,10 +84,14 @@ export function PortfolioIdentity({
       )}
 
       <div className="portfolio-identity-copy">
-        {isDao && isProtocolFacePairDao(accountId) ? (
+        {displayKind !== 'org' &&
+        isDao &&
+        isProtocolFacePairDao(accountId) ? (
           <PortfolioDaoKindSwitch accountId={accountId} />
-        ) : isDao && kindLabel ? (
+        ) : displayKind !== 'org' && isDao && kindLabel ? (
           <p className="portfolio-entity-kind">{kindLabel}</p>
+        ) : displayKind === 'dao' && profileKindLabel ? (
+          <p className="portfolio-entity-kind">{profileKindLabel}</p>
         ) : null}
         <div className="portfolio-name-row">
           <h1 className="portfolio-name">{titleLabel}</h1>
@@ -92,6 +111,12 @@ export function PortfolioIdentity({
             </span>
           ) : null}
         </p>
+        {displayKind === 'org' ? (
+          <p className="portfolio-location" data-profile-kind-line="org">
+            <PortfolioOrgKindMark />
+            <span>{profileOrgLineLabel(industry)}</span>
+          </p>
+        ) : null}
         {locationLabel ? (
           <p className="portfolio-location">
             <PortfolioLocationMark />

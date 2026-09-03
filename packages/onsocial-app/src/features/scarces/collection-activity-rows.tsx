@@ -2,10 +2,8 @@
 
 import Link from 'next/link';
 import { Divider } from '@onsocial/ui';
-import {
-  StandingIdentity,
-  standingIdentityLabel,
-} from '@onsocial/ui';
+import { standingIdentityLabel } from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { portfolioPath } from '@/lib/overlay-routes';
 

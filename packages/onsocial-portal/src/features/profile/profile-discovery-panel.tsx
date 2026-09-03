@@ -11,8 +11,8 @@ import {
 } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { User } from 'lucide-react';
 import type { MaterialisedProfile } from '@onsocial/sdk';
+import { ProfileAccountAvatar } from '@/components/profile-account-avatar';
 import { profileSocialStandingButtonClass } from '@/components/ui/profile-action-pill';
 import {
   ProfileSocialStandingPending,
@@ -261,29 +261,6 @@ async function fetchProfileDiscovery(
   }
 
   throw lastError ?? new Error('Profile discovery failed (429)');
-}
-
-function ProfileAvatar({
-  avatarUrl,
-  className,
-}: {
-  avatarUrl: string | null;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        'flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/50 bg-muted/30 text-muted-foreground',
-        className
-      )}
-    >
-      {avatarUrl ? (
-        <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-      ) : (
-        <User className="h-4 w-4" />
-      )}
-    </div>
-  );
 }
 
 export { ProfileDiscoverySearchRail } from '@/features/profile/profile-list-search-bar';
@@ -664,8 +641,10 @@ export function ProfileDiscoveryPanel({
                       pageLayout={pageLayout}
                       onSelectAccount={onSelectAccount}
                     >
-                      <ProfileAvatar
+                      <ProfileAccountAvatar
+                        accountId={result.accountId}
                         avatarUrl={result.avatarUrl}
+                        kind={result.profile?.kind}
                         className="mt-0.5 h-9 w-9 transition-shadow group-hover:ring-1 group-hover:ring-foreground/15"
                       />
                       <span className="min-w-0 flex-1">
