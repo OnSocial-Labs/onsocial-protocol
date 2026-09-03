@@ -4,17 +4,23 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
-  PROFILE_KIND_OPTIONS,
+  PROFILE_FACE_KIND_OPTIONS,
+  PROFILE_INDUSTRY_MAX,
   PROFILE_LOCATION_MAX,
+  editorFaceKind,
+  normalizeProfileIndustryInput,
   normalizeProfileLocationInput,
   profileAvatarShapeFromKind,
+  profileIndustryFromMaterialised,
   profileKindFromMaterialised,
   profileLocationFromMaterialised,
+  sanitizeProfileIndustryDraft,
   sanitizeProfileLocationDraft,
   type MaterialisedProfile,
   type ProfileKind,
 } from '@onsocial/sdk';
 import {
+  BuildingTreeIcon,
   OsSheetAction,
   OsSheetActions,
   ProfileEditorMediaToolbar,
@@ -117,8 +123,12 @@ function getInitialLocation(profile: MaterialisedProfile | null): string {
   return profileLocationFromMaterialised(profile);
 }
 
+function getInitialIndustry(profile: MaterialisedProfile | null): string {
+  return profileIndustryFromMaterialised(profile);
+}
+
 function getInitialKind(profile: MaterialisedProfile | null): ProfileKind {
-  return profileKindFromMaterialised(profile) ?? 'person';
+  return editorFaceKind(profileKindFromMaterialised(profile));
 }
 
 export function ProfileEditor({
@@ -139,6 +149,7 @@ export function ProfileEditor({
   const bannerInputRef = useRef<HTMLInputElement | null>(null);
   const [name, setName] = useState(getInitialName(profile));
   const [location, setLocation] = useState(getInitialLocation(profile));
+  const [industry, setIndustry] = useState(getInitialIndustry(profile));
   const [kind, setKind] = useState<ProfileKind>(() => getInitialKind(profile));
   const [bio, setBio] = useState(getInitialBio(profile));
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
@@ -209,6 +220,14 @@ export function ProfileEditor({
     if (kind !== getInitialKind(profile)) {
       return true;
     }
+    if (
+      (kind === 'org'
+        ? normalizeProfileIndustryInput(industry)
+        : '') !==
+      (getInitialKind(profile) === 'org' ? getInitialIndustry(profile) : '')
+    ) {
+      return true;
+    }
     if (bio.trim() !== getInitialBio(profile).trim()) {
       return true;
     }
@@ -227,6 +246,7 @@ export function ProfileEditor({
     bannerUrl,
     bio,
     initialLinks,
+    industry,
     kind,
     links,
     location,
@@ -342,7 +362,11 @@ export function ProfileEditor({
       await onSave({
         name,
         location: normalizeProfileLocationInput(location) || null,
-        kind,
+        industry:
+          kind === 'org'
+            ? normalizeProfileIndustryInput(industry) || null
+            : null,
+        kind: kind === 'org' ? 'org' : null,
         bio,
         avatar: avatarRemoved ? null : (avatar ?? undefined),
         banner: bannerRemoved ? null : (banner ?? undefined),
@@ -589,7 +613,7 @@ export function ProfileEditor({
                             role="radiogroup"
                             aria-label="Account type"
                           >
-                            {PROFILE_KIND_OPTIONS.map((option) => (
+                            {PROFILE_FACE_KIND_OPTIONS.map((option) => (
                               <button
                                 key={option.value}
                                 type="button"
@@ -598,6 +622,7 @@ export function ProfileEditor({
                                 disabled={isSaving}
                                 onClick={() => {
                                   setKind(option.value);
+                                  if (option.value !== 'org') setIndustry('');
                                   markDirty();
                                 }}
                                 className={cn(
@@ -611,6 +636,40 @@ export function ProfileEditor({
                               </button>
                             ))}
                           </div>
+                          {kind === 'org' ? (
+                            <label
+                              htmlFor="profile-industry"
+                              className="mt-1 flex items-center gap-1.5"
+                            >
+                              <span className="sr-only">Industry</span>
+                              <BuildingTreeIcon
+                                className="h-3.5 w-3.5 shrink-0 text-muted-foreground/55"
+                                aria-hidden
+                              />
+                              <input
+                                id="profile-industry"
+                                value={industry}
+                                onChange={(event) => {
+                                  setIndustry(
+                                    sanitizeProfileIndustryDraft(
+                                      event.target.value
+                                    )
+                                  );
+                                  markDirty();
+                                }}
+                                onBlur={() => {
+                                  const trimmed =
+                                    normalizeProfileIndustryInput(industry);
+                                  if (trimmed !== industry)
+                                    setIndustry(trimmed);
+                                }}
+                                maxLength={PROFILE_INDUSTRY_MAX}
+                                autoComplete="organization-title"
+                                placeholder="Industry"
+                                className="w-full bg-transparent portal-type-body-sm text-muted-foreground/70 outline-none placeholder:text-muted-foreground/35"
+                              />
+                            </label>
+                          ) : null}
                           <label htmlFor="profile-location" className="sr-only">
                             Location
                           </label>

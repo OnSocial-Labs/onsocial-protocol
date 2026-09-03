@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  normalizeProfileKindInput,
+  editorFaceKind,
+  normalizeProfileIndustryInput,
   normalizeProfileLocationInput,
   type MaterialisedProfile,
   type PageConfig,
@@ -33,6 +34,7 @@ export interface ProfileEditorSnapshot {
   hasProfile: boolean;
   name: string;
   location: string;
+  industry: string;
   kind: ProfileKind | null;
   bio: string;
   avatarUrl: string | null;
@@ -45,6 +47,7 @@ export interface ProfileEditorSnapshot {
 export interface ProfileEditorSaveInput {
   name: string;
   location: string;
+  industry: string;
   kind: ProfileKind;
   bio: string;
   avatar: File | null;
@@ -61,6 +64,7 @@ export interface ProfileEditorSaveInput {
 export interface ProfileEditorSaveResult {
   name: string;
   location: string;
+  industry: string;
   kind: ProfileKind;
   bio: string;
   avatarUrl: string | null;
@@ -157,6 +161,11 @@ export function useAppProfileEditor(
       }
 
       const location = normalizeProfileLocationInput(input.location);
+      const faceKind = editorFaceKind(input.kind);
+      const industry =
+        faceKind === 'org'
+          ? normalizeProfileIndustryInput(input.industry)
+          : '';
       const snapshotNow = snapshot;
       if (!snapshotNow || snapshotNow.accountId !== accountId) {
         throw new Error('Could not load profile.');
@@ -167,13 +176,13 @@ export function useAppProfileEditor(
         nextNotes,
         snapshotNow.pageConfig?.linkNotes
       );
-      const kind = normalizeProfileKindInput(input.kind) ?? 'person';
       const contentDirty = isProfileEditorContentDirty({
         snapshot: snapshotNow,
         linksFromSnapshot: profileLinksInputFromRecord(snapshotNow.links),
         name,
         location,
-        kind,
+        industry,
+        kind: faceKind,
         bio: input.bio,
         links: input.links,
         avatarFile: input.avatar,
@@ -186,7 +195,8 @@ export function useAppProfileEditor(
         return {
           name,
           location,
-          kind,
+          industry,
+          kind: faceKind,
           bio: input.bio.trim(),
           avatarUrl: snapshotNow.avatarUrl,
           bannerUrl: snapshotNow.bannerUrl,
@@ -227,7 +237,8 @@ export function useAppProfileEditor(
             name,
             bio: input.bio.trim(),
             location: location || null,
-            kind,
+            kind: faceKind === 'org' ? 'org' : null,
+            industry: faceKind === 'org' ? industry || null : null,
           };
 
           if (input.avatar) {
@@ -294,7 +305,8 @@ export function useAppProfileEditor(
         return {
           name,
           location,
-          kind,
+          industry,
+          kind: faceKind,
           bio: input.bio.trim(),
           avatarUrl,
           bannerUrl,

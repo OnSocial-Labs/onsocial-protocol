@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import {
+  profileIndustryFromMaterialised,
   profileKindFromMaterialised,
   profileLocationFromMaterialised,
   type MaterialisedProfile,
@@ -14,6 +15,8 @@ export interface AppProfileShell {
   name: string | null;
   /** Coarse “based in” label (city / region). Not GPS. */
   location: string | null;
+  /** User-curated org line. */
+  industry: string | null;
   /** Optional face kind. Omit / person is an individual. */
   kind: ProfileKind | null;
   bio: string | null;
@@ -39,11 +42,13 @@ export const loadProfileShell = cache(
       }
 
       const location = profileLocationFromMaterialised(profile);
+      const industry = profileIndustryFromMaterialised(profile);
       const kind = profileKindFromMaterialised(profile) ?? null;
       return {
         accountId,
         name: profile.name ?? null,
         location: location || null,
+        industry: industry || null,
         kind,
         bio: profile.bio ?? null,
         avatarUrl: os.profiles.avatarUrl(profile),

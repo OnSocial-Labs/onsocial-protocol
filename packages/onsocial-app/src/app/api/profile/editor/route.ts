@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
       hasProfile: Boolean(shell?.name?.trim()),
       name: shell?.name ?? '',
       location: shell?.location ?? '',
+      industry: shell?.industry ?? '',
       kind: shell?.kind ?? null,
       bio: shell?.bio ?? '',
       avatarUrl: shell?.avatarUrl ?? null,

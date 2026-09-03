@@ -76,6 +76,7 @@ function profileShellFromBundle(
     accountId,
     name: profile.name?.trim() || null,
     location: null,
+    industry: null,
     kind: null,
     bio: profile.bio?.trim() || null,
     avatarUrl,

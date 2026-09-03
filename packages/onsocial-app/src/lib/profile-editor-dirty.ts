@@ -11,6 +11,7 @@ export function isProfileEditorContentDirty(input: {
   linksFromSnapshot: ProfileLinksInput;
   name: string;
   location: string;
+  industry: string;
   kind: ProfileKind;
   bio: string;
   links: ProfileLinksInput;
@@ -39,7 +40,16 @@ export function isProfileEditorContentDirty(input: {
     return true;
   }
 
-  if (input.kind !== (input.snapshot.kind ?? 'person')) {
+  if (input.kind !== (input.snapshot.kind === 'org' ? 'org' : 'person')) {
+    return true;
+  }
+
+  if (
+    (input.kind === 'org' ? input.industry.trim() : '') !==
+    (input.snapshot.kind === 'org'
+      ? (input.snapshot.industry ?? '').trim()
+      : '')
+  ) {
     return true;
   }
 
@@ -64,6 +74,7 @@ export function isProfileEditorDirty(input: {
   linksFromSnapshot: ProfileLinksInput;
   name: string;
   location: string;
+  industry: string;
   kind: ProfileKind;
   bio: string;
   links: ProfileLinksInput;

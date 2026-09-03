@@ -12,6 +12,7 @@ import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
 import {
   profileKindFaceLabel,
+  profileOrgLineLabel,
   resolveDisplayProfileKind,
   type ProfileKind,
 } from '@onsocial/sdk';
@@ -26,6 +27,8 @@ interface PortfolioIdentityProps {
   accountId: string;
   profileName?: string | null;
   location?: string | null;
+  /** User-curated org line next to the building mark. */
+  industry?: string | null;
   bio?: string | null;
   tagline?: string;
   avatarUrl?: string | null;
@@ -42,6 +45,7 @@ export function PortfolioIdentity({
   accountId,
   profileName,
   location,
+  industry = null,
   bio,
   tagline,
   avatarUrl,
@@ -107,10 +111,10 @@ export function PortfolioIdentity({
             </span>
           ) : null}
         </p>
-        {displayKind === 'org' && profileKindLabel ? (
+        {displayKind === 'org' ? (
           <p className="portfolio-location" data-profile-kind-line="org">
             <PortfolioOrgKindMark />
-            <span>{profileKindLabel}</span>
+            <span>{profileOrgLineLabel(industry)}</span>
           </p>
         ) : null}
         {locationLabel ? (

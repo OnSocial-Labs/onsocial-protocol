@@ -16,9 +16,12 @@ import {
   type FormEvent,
 } from 'react';
 import {
-  PROFILE_KIND_OPTIONS,
+  PROFILE_FACE_KIND_OPTIONS,
+  PROFILE_INDUSTRY_MAX,
   PROFILE_LOCATION_MAX,
+  editorFaceKind,
   profileAvatarShapeFromKind,
+  sanitizeProfileIndustryDraft,
   sanitizeProfileLocationDraft,
   type ProfileKind,
 } from '@onsocial/sdk';
@@ -31,6 +34,7 @@ import {
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
+import { PortfolioOrgKindMark } from '@/components/portfolio/portfolio-org-kind-mark';
 import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
@@ -149,6 +153,7 @@ export function AppProfileEditorSheet({
 
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
+  const [industry, setIndustry] = useState('');
   const [kind, setKind] = useState<ProfileKind>('person');
   const [bio, setBio] = useState('');
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
@@ -174,7 +179,8 @@ export function AppProfileEditorSheet({
     setSeedKey(readyKey);
     setName(snapshot.name);
     setLocation(snapshot.location);
-    setKind(snapshot.kind ?? 'person');
+    setIndustry(snapshot.industry ?? '');
+    setKind(editorFaceKind(snapshot.kind));
     setBio(snapshot.bio);
     setLinks(linksFromSnapshot);
     setLinkNotes(sanitizeLinkNotes(snapshot.pageConfig?.linkNotes));
@@ -228,6 +234,7 @@ export function AppProfileEditorSheet({
       linksFromSnapshot,
       name,
       location,
+      industry,
       kind,
       bio,
       links,
@@ -243,6 +250,7 @@ export function AppProfileEditorSheet({
     bannerFile,
     bannerRemoved,
     bio,
+    industry,
     kind,
     links,
     linkNotes,
@@ -363,6 +371,7 @@ export function AppProfileEditorSheet({
       const result = await saveProfile({
         name,
         location,
+        industry,
         kind,
         bio,
         avatar: avatarFile,
@@ -620,7 +629,7 @@ export function AppProfileEditorSheet({
                           role="radiogroup"
                           aria-label="Account type"
                         >
-                          {PROFILE_KIND_OPTIONS.map((option) => (
+                          {PROFILE_FACE_KIND_OPTIONS.map((option) => (
                             <button
                               key={option.value}
                               type="button"
@@ -630,12 +639,47 @@ export function AppProfileEditorSheet({
                                 kind === option.value ? ' is-selected' : ''
                               }`}
                               disabled={saving}
-                              onClick={() => setKind(option.value)}
+                              onClick={() => {
+                                setKind(option.value);
+                                if (option.value !== 'org') setIndustry('');
+                              }}
                             >
                               {option.label}
                             </button>
                           ))}
                         </div>
+                        {kind === 'org' ? (
+                          <label
+                            className="account-editor-location-row"
+                            htmlFor="profile-editor-industry"
+                          >
+                            <span className="sr-only">Industry</span>
+                            <PortfolioOrgKindMark />
+                            <input
+                              id="profile-editor-industry"
+                              className="account-editor-location"
+                              value={industry}
+                              maxLength={PROFILE_INDUSTRY_MAX}
+                              autoComplete="organization-title"
+                              placeholder="Industry"
+                              disabled={saving}
+                              onFocus={scrollFieldIntoView}
+                              onChange={(event) =>
+                                setIndustry(
+                                  sanitizeProfileIndustryDraft(
+                                    event.target.value
+                                  )
+                                )
+                              }
+                              onBlur={() => {
+                                const trimmed = industry
+                                  .trim()
+                                  .replace(/\s+/g, ' ');
+                                if (trimmed !== industry) setIndustry(trimmed);
+                              }}
+                            />
+                          </label>
+                        ) : null}
                         <label
                           className="account-editor-location-row"
                           htmlFor="profile-editor-location"

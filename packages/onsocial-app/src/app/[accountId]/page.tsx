@@ -166,6 +166,7 @@ export default async function AccountPage({
           accountId={accountId}
           profileName={shell?.name ?? daoPage?.branding.name}
           location={shell?.location}
+          industry={shell?.industry}
           bio={portfolioBio}
           tagline={tagline}
           avatarUrl={shell?.avatarUrl ?? daoPage?.branding.avatarUrl}

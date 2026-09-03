@@ -14,9 +14,9 @@ describe('portalAccountAvatarShape', () => {
     );
   });
 
-  it('lets explicit org win over a DAO heuristic', () => {
+  it('keeps a heuristic DAO square even if kind says org', () => {
     expect(portalAccountAvatarShape('demo.sputnik-dao.near', 'org')).toBe(
-      'squircle'
+      'square'
     );
   });
 

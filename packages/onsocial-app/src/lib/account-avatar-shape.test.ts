@@ -8,9 +8,9 @@ describe('accountAvatarShape', () => {
     expect(accountAvatarShape('gov.sputnik-dao.near', 'dao')).toBe('square');
   });
 
-  it('lets explicit org win over a DAO heuristic', () => {
+  it('keeps a DAO workspace square even if kind says org', () => {
     expect(accountAvatarShape('governance.onsocial.testnet', 'org', true)).toBe(
-      'squircle'
+      'square'
     );
   });
 
