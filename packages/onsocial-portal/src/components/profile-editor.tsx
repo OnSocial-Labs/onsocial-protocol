@@ -221,9 +221,7 @@ export function ProfileEditor({
       return true;
     }
     if (
-      (kind === 'org'
-        ? normalizeProfileIndustryInput(industry)
-        : '') !==
+      (kind === 'org' ? normalizeProfileIndustryInput(industry) : '') !==
       (getInitialKind(profile) === 'org' ? getInitialIndustry(profile) : '')
     ) {
       return true;
