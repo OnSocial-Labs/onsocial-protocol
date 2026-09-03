@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
-import { displayName, normalizeProfileTags } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 import { fetchPublicPageData, resolvePageAvatarMode } from '@/lib/page-data';
 import type { PageDrawerMeta } from '@/lib/page-drawer-meta';
 import { readPageHeroSourceExplicit } from '@/lib/page-face';
@@ -116,7 +116,7 @@ export default async function AccountPage({
     signals?.postCount ?? 0,
     data.stats.postCount ?? 0
   );
-  const drawerTags = normalizeProfileTags(shell?.tags);
+  const identityTopics = shell?.tags ?? [];
   // Cheap SSR seed — joined/updated/scarce meta hydrates from the shelf.
   const drawerMeta: PageDrawerMeta = {
     name,
@@ -127,7 +127,7 @@ export default async function AccountPage({
     guildCount: data.stats.groupCount ?? 0,
     scarceMintCount: 0,
     daoRoleLabels: [],
-    tags: drawerTags,
+    tags: identityTopics,
   };
   const daoIncomingStanding = daoEntity.isDao
     ? (signals?.standingCount ?? data.stats.standingCount ?? 0)
@@ -166,7 +166,7 @@ export default async function AccountPage({
           <PortfolioDeferredShelf
             accountId={accountId}
             drawerName={name}
-            drawerTags={drawerTags}
+            drawerTags={identityTopics}
             guildCountHint={data.stats.groupCount ?? 0}
             postCountHint={postCount}
           />
@@ -178,6 +178,7 @@ export default async function AccountPage({
           location={shell?.location}
           industry={shell?.industry}
           bio={portfolioBio}
+          tags={identityTopics}
           tagline={tagline}
           avatarUrl={shell?.avatarUrl ?? daoPage?.branding.avatarUrl}
           mood={mood}

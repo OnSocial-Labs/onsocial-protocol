@@ -47,6 +47,7 @@ import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
+import { ProfileTopicsEditor } from '@/components/wallet/profile-topics-editor';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import {
@@ -170,6 +171,7 @@ export function AppProfileEditorSheet({
   const [industryDrawerOpen, setIndustryDrawerOpen] = useState(false);
   const [kind, setKind] = useState<ProfileKind>('person');
   const [bio, setBio] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
     profileLinksInputFromRecord(null)
   );
@@ -198,6 +200,7 @@ export function AppProfileEditorSheet({
     setIndustryDrawerOpen(false);
     setKind(editorFaceKind(snapshot.kind));
     setBio(snapshot.bio);
+    setTags(snapshot.tags ?? []);
     setLinks(linksFromSnapshot);
     setLinkNotes(sanitizeLinkNotes(snapshot.pageConfig?.linkNotes));
     setLinkFieldErrors({});
@@ -254,6 +257,7 @@ export function AppProfileEditorSheet({
       kind,
       bio,
       links,
+      tags,
       linkNotes,
       avatarFile,
       bannerFile,
@@ -269,6 +273,7 @@ export function AppProfileEditorSheet({
     industry,
     kind,
     links,
+    tags,
     linkNotes,
     linksFromSnapshot,
     location,
@@ -401,6 +406,7 @@ export function AppProfileEditorSheet({
         industry,
         kind,
         bio,
+        tags,
         avatar: avatarFile,
         banner: bannerFile,
         removeAvatar: avatarRemoved,
@@ -651,6 +657,11 @@ export function AppProfileEditorSheet({
                         <p className="profile-handle account-editor-handle">
                           @{handleLabel}
                         </p>
+                        <ProfileTopicsEditor
+                          tags={tags}
+                          onChange={setTags}
+                          disabled={saving}
+                        />
                         <div
                           className="account-editor-kind"
                           role="radiogroup"

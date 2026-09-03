@@ -21,6 +21,7 @@ import {
 } from '@/lib/page-launch-config';
 import { isProfileEditorContentDirty } from '@/lib/profile-editor-dirty';
 import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
+import { normalizeProfileEditorTags } from '@/lib/profile-tag-editor';
 import {
   normalizeProfileLinksInput,
   profileLinksInputFromRecord,
@@ -42,6 +43,7 @@ export interface ProfileEditorSnapshot {
   bannerMedia: ResolvedPageHero | null;
   links: MaterialisedProfile['links'];
   pageConfig: PublicPageConfig;
+  tags: string[];
 }
 
 export interface ProfileEditorSaveInput {
@@ -59,6 +61,7 @@ export interface ProfileEditorSaveInput {
   hasCurrentLinks: boolean;
   hasLinkInput: boolean;
   linkNotes: Record<string, string>;
+  tags: string[];
 }
 
 export interface ProfileEditorSaveResult {
@@ -130,6 +133,9 @@ export function useAppProfileEditor(
       setSnapshot({
         ...(body as ProfileEditorSnapshot),
         pageConfig: (body as ProfileEditorSnapshot).pageConfig ?? {},
+        tags: Array.isArray((body as ProfileEditorSnapshot).tags)
+          ? (body as ProfileEditorSnapshot).tags
+          : [],
       });
     } catch (err) {
       setSnapshot(null);
@@ -185,6 +191,7 @@ export function useAppProfileEditor(
         kind: faceKind,
         bio: input.bio,
         links: input.links,
+        tags: input.tags,
         avatarFile: input.avatar,
         bannerFile: input.banner,
         avatarRemoved: input.removeAvatar,
@@ -254,6 +261,7 @@ export function useAppProfileEditor(
           if (shouldSaveLinks) {
             payload.links = normalizedLinks;
           }
+          payload.tags = normalizeProfileEditorTags(input.tags);
 
           // Bio save also writes hashtags/tickers/mentions via SDK extract-on-save.
           const response = await client.profiles.update(payload, {

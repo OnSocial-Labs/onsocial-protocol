@@ -5,6 +5,7 @@ import {
   PROFILE_LINK_EDITOR_FIELDS,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
+import { profileEditorTagsEqual } from '@/lib/profile-tag-editor';
 
 export function isProfileEditorContentDirty(input: {
   snapshot: ProfileEditorSnapshot;
@@ -15,6 +16,7 @@ export function isProfileEditorContentDirty(input: {
   kind: ProfileKind;
   bio: string;
   links: ProfileLinksInput;
+  tags: string[];
   avatarFile: File | null;
   bannerFile: File | null;
   avatarRemoved: boolean;
@@ -57,6 +59,10 @@ export function isProfileEditorContentDirty(input: {
     return true;
   }
 
+  if (!profileEditorTagsEqual(input.tags, input.snapshot.tags)) {
+    return true;
+  }
+
   for (const field of PROFILE_LINK_EDITOR_FIELDS) {
     if (
       input.links[field.key].trim() !==
@@ -78,6 +84,7 @@ export function isProfileEditorDirty(input: {
   kind: ProfileKind;
   bio: string;
   links: ProfileLinksInput;
+  tags: string[];
   linkNotes: Record<string, string>;
   avatarFile: File | null;
   bannerFile: File | null;

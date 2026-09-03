@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kind-switch';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
+import { PortfolioIdentityTopics } from '@/components/portfolio/portfolio-identity-topics';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
 import { PortfolioHiringLine } from '@/components/portfolio/portfolio-hiring-line';
 import { PortfolioOrgKindMark } from '@/components/portfolio/portfolio-org-kind-mark';
@@ -32,6 +33,8 @@ interface PortfolioIdentityProps {
   /** User-curated org line next to the building mark. */
   industry?: string | null;
   bio?: string | null;
+  /** Curated identity topics (`profile/tags`). */
+  tags?: string[] | null;
   tagline?: string;
   avatarUrl?: string | null;
   mood: ResolvedMood;
@@ -50,6 +53,7 @@ export function PortfolioIdentity({
   location,
   industry = null,
   bio,
+  tags = null,
   tagline,
   avatarUrl,
   mood: savedMood,
@@ -115,6 +119,7 @@ export function PortfolioIdentity({
             </span>
           ) : null}
         </p>
+        <PortfolioIdentityTopics tags={tags} />
         {displayKind === 'org' ? (
           <p className="portfolio-location" data-profile-kind-line="org">
             <PortfolioOrgKindMark />

@@ -8,6 +8,7 @@ import {
   type ResolvedProfileMedia,
 } from '@onsocial/sdk';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
+import { profileIdentityTopics } from '@/lib/profile-identity-topics';
 
 /** Indexed profile shell for SSR — mirrors Portal's `loadPortalProfileShell`. */
 export interface AppProfileShell {
@@ -25,7 +26,7 @@ export interface AppProfileShell {
   avatarMedia: ResolvedProfileMedia | null;
   bannerMedia: ResolvedProfileMedia | null;
   links: MaterialisedProfile['links'];
-  /** Freeform tags kept for schema interop; app UI does not surface them. */
+  /** Curated identity topics (`profile/tags`). Independent of bio `#`. */
   tags: string[];
   hashtags: string[];
   tickers: string[];
@@ -56,7 +57,7 @@ export const loadProfileShell = cache(
         avatarMedia: os.profiles.avatarMedia(profile),
         bannerMedia: os.profiles.bannerMedia(profile),
         links: profile.links,
-        tags: profile.tags ?? [],
+        tags: profileIdentityTopics(profile.tags),
         hashtags: profile.hashtags ?? [],
         tickers: profile.tickers ?? [],
         mentions: profile.mentions ?? [],
