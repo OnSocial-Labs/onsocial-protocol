@@ -21,10 +21,8 @@ import {
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { PortfolioPayoutKindFilters } from '@/components/portfolio/portfolio-payout-kind-filters';
-import {
-  StandingIdentity,
-  standingIdentityLabel,
-} from '@onsocial/ui';
+import { standingIdentityLabel } from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {

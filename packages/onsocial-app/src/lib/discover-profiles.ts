@@ -1,4 +1,4 @@
-import type { PageMoodId } from '@onsocial/sdk';
+import type { PageMoodId, ProfileKind } from '@onsocial/sdk';
 import {
   discoverProfileToProfileListAccount as toProfileListAccount,
   profileListAccountToStandingSummary,
@@ -9,6 +9,7 @@ export interface DiscoverProfileSummary {
   name: string | null;
   bio: string | null;
   avatarUrl: string | null;
+  kind?: ProfileKind | null;
   standingCount: number;
   standingWithCount: number;
   mutualStandingCount: number;

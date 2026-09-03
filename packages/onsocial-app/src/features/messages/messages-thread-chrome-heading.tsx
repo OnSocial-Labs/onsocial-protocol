@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { OsChromeSubject, osChromeSubjectClassName } from '@onsocial/ui';
+import { osChromeSubjectClassName } from '@onsocial/ui';
+import { OsChromeSubject } from '@/components/profile/os-chrome-subject';
 import { messagesThreadChromeTitle } from '@/features/messages/messages-thread-chrome';
 import {
   customDisplayName,

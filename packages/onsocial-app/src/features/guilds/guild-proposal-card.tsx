@@ -11,7 +11,6 @@ import {
   OsProposalCardStripMain,
   OsSheetAction,
   OsSheetActions,
-  ProfileAvatar,
   osProposalCardActionsClassName,
   osSheetActionExpandedClassName,
   osSheetFloatingPanelCopyClassName,
@@ -24,6 +23,7 @@ import {
   guildProposalVoteProgress,
   guildViewerVoteLabel,
 } from '@/features/guilds/guild-proposal-display';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
   formatPostTimestamp,
@@ -177,7 +177,9 @@ export function GuildProposalCard({
               className="guild-proposal-card-avatar-link"
               scroll={false}
             >
-              <ProfileAvatar
+              <AccountAvatar
+                accountId={targetAccountId}
+                kind={targetProfile?.kind}
                 src={targetProfile?.avatarUrl ?? null}
                 fallbackInitial={targetDisplayName!}
                 shellLoading={!targetProfile}
@@ -231,7 +233,9 @@ export function GuildProposalCard({
             className="guild-proposal-card-proposer"
             scroll={false}
           >
-            <ProfileAvatar
+            <AccountAvatar
+              accountId={proposerAccountId}
+              kind={proposerProfile?.kind}
               src={proposerProfile?.avatarUrl ?? null}
               fallbackInitial={proposerDisplayName!}
               shellLoading={!proposerProfile}

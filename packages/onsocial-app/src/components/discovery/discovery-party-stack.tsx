@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ProfileAvatar } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
@@ -36,7 +36,8 @@ export function DiscoveryPartyStack({
         aria-hidden={nameIsCustom ? true : undefined}
         aria-label={nameIsCustom ? undefined : `Creator @${handle}`}
       >
-        <ProfileAvatar
+        <AccountAvatar
+          accountId={accountId}
           src={avatarUrl}
           size="sm"
           fallbackInitial={handle.slice(0, 1)}

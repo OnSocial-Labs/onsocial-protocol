@@ -7,10 +7,8 @@ import {
   OsSheetAction,
   OsSheetActions,
 } from '@onsocial/ui';
-import {
-  StandingIdentity,
-  standingIdentityLabel,
-} from '@onsocial/ui';
+import { standingIdentityLabel } from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { GuildMemberRoleBadge } from '@/features/guilds/guild-member-role-badge';
 import { guildMemberRoleBucket } from '@/features/guilds/guild-member-filter';

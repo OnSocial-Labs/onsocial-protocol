@@ -1,11 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ProfileAvatar,
-  resolveOsGlassPanelFilter,
-} from '@onsocial/ui';
+import { resolveOsGlassPanelFilter } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   fetchCollectionCreatorFace,
@@ -324,7 +322,8 @@ export function TicketShowPassSheet({
                 }`}
               >
                 {ownerId ? (
-                  <ProfileAvatar
+                  <AccountAvatar
+                    accountId={ownerId}
                     src={holderFaceForOwner?.avatarUrl ?? null}
                     fallbackInitial={holderDisplay || ownerId}
                     size="sm"

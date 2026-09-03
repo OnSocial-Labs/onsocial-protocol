@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { ProfileKind } from '@onsocial/sdk';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
@@ -8,6 +9,7 @@ export interface PostAuthorProfile {
   accountId: string;
   displayName: string;
   avatarUrl: string | null;
+  kind?: ProfileKind | null;
 }
 
 const profileCache = new Map<string, PostAuthorProfile | null>();
@@ -16,12 +18,13 @@ const batchInFlight = new Map<string, Promise<Record<string, PostAuthorProfile>>
 function toPostAuthorProfile(
   accountId: string,
   name?: string | null,
-  avatar?: string | null
+  avatar?: string | null,
+  kind?: ProfileKind | null
 ): PostAuthorProfile | null {
   const displayName = name?.trim() ?? '';
   const avatarUrl = resolveProfileMediaUrl(avatar);
-  if (!displayName && !avatarUrl) return null;
-  return { accountId, displayName, avatarUrl };
+  if (!displayName && !avatarUrl && !kind) return null;
+  return { accountId, displayName, avatarUrl, kind: kind ?? null };
 }
 
 function readCachedProfiles(
@@ -52,6 +55,7 @@ function mergeProfileRecords(
       accountId,
       displayName: profile.displayName || previous?.displayName || '',
       avatarUrl: profile.avatarUrl || previous?.avatarUrl || null,
+      kind: profile.kind ?? previous?.kind ?? null,
     };
   }
   return out;
@@ -60,7 +64,7 @@ function mergeProfileRecords(
 export function seedPostAuthorProfile(profile: PostAuthorProfile): void {
   const displayName = profile.displayName.trim();
   const avatarUrl = profile.avatarUrl ?? null;
-  if (!displayName && !avatarUrl) return;
+  if (!displayName && !avatarUrl && !profile.kind) return;
   const existing = profileCache.get(profile.accountId);
   // Never downgrade — Hot re-sort / reconcile can reseed name-only rows
   // and would wipe avatars that already loaded.
@@ -68,7 +72,14 @@ export function seedPostAuthorProfile(profile: PostAuthorProfile): void {
     accountId: profile.accountId,
     displayName: displayName || existing?.displayName || '',
     avatarUrl: avatarUrl || existing?.avatarUrl || null,
+    kind: profile.kind ?? existing?.kind ?? null,
   });
+}
+
+export function peekPostAuthorKind(
+  accountId: string
+): ProfileKind | null | undefined {
+  return profileCache.get(accountId)?.kind;
 }
 
 export function seedPostAuthorProfiles(profiles: PostAuthorProfile[]): void {
@@ -134,7 +145,7 @@ async function fetchPostAuthorProfilesBatch(
     for (const accountId of missing) {
       const row = byId.get(accountId);
       const profile = row
-        ? toPostAuthorProfile(accountId, row.name, row.avatar)
+        ? toPostAuthorProfile(accountId, row.name, row.avatar, row.kind)
         : null;
       if (profile) {
         seedPostAuthorProfile(profile);

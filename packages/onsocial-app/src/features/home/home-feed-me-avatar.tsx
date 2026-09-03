@@ -1,6 +1,6 @@
 'use client';
 
-import { ProfileAvatar } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useAppAccountSheet } from '@/contexts/app-account-sheet-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
@@ -19,7 +19,7 @@ export function HomeFeedMeAvatar() {
     if (isLoading) {
       return (
         <span className="home-feed-me-avatar" aria-hidden>
-          <ProfileAvatar size="sm" shellLoading />
+          <AccountAvatar size="sm" shellLoading />
         </span>
       );
     }
@@ -48,7 +48,9 @@ export function HomeFeedMeAvatar() {
       title={`@${label}`}
       onClick={() => openAccountSheet()}
     >
-      <ProfileAvatar
+      <AccountAvatar
+        accountId={accountId}
+        kind={viewerShell?.kind}
         src={avatarUrl}
         fallbackInitial={label}
         shellLoading={shellLoading}

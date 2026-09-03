@@ -2,21 +2,31 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { ProfileAvatar } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { useStandingPanel } from '@/components/panels/standing-panel-context';
+import type { ProfileKind } from '@onsocial/sdk';
 
 function SubjectAvatar({
+  accountId,
   avatarUrl,
   fallbackInitial,
+  kind,
+  isDao,
   shellLoading = false,
 }: {
+  accountId?: string | null;
   avatarUrl: string | null;
   fallbackInitial?: string;
+  kind?: ProfileKind | null;
+  isDao?: boolean;
   shellLoading?: boolean;
 }) {
   return (
-    <ProfileAvatar
+    <AccountAvatar
+      accountId={accountId}
+      kind={kind}
+      isDao={isDao}
       src={avatarUrl}
       fallbackInitial={fallbackInitial}
       shellLoading={shellLoading}
@@ -46,7 +56,7 @@ export function StandingSheetSubjectAvatar({
 function SubjectSkeletonBody() {
   return (
     <div className="standing-sheet-subject standing-sheet-subject--skeleton">
-      <ProfileAvatar size="md" shellLoading />
+      <AccountAvatar size="md" shellLoading />
       <span className="standing-sheet-subject-copy">
         <span className="standing-row-shimmer standing-row-shimmer-line standing-sheet-subject-shimmer-name" />
       </span>
@@ -80,8 +90,15 @@ export function StandingSheetSubject({
   leading?: ReactNode;
   trailing?: ReactNode;
 }) {
-  const { accountId, displayName, avatarUrl, isSelf, showSubjectSkeleton } =
-    useStandingPanel();
+  const {
+    accountId,
+    displayName,
+    avatarUrl,
+    profileKind,
+    isDaoSubject,
+    isSelf,
+    showSubjectSkeleton,
+  } = useStandingPanel();
   const label = isSelf ? 'You' : displayName;
 
   if (showSubjectSkeleton) {
@@ -98,7 +115,12 @@ export function StandingSheetSubject({
         className="standing-sheet-subject"
         aria-label={`${label} portfolio`}
       >
-        <SubjectAvatar avatarUrl={avatarUrl} />
+        <SubjectAvatar
+          accountId={accountId}
+          avatarUrl={avatarUrl}
+          kind={profileKind}
+          isDao={isDaoSubject}
+        />
         <span className="standing-sheet-subject-copy">
           <span className="standing-sheet-subject-name">{label}</span>
         </span>

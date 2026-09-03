@@ -2,6 +2,7 @@ import type {
   MaterialisedProfile,
   OnSocial,
   PageMoodId,
+  ProfileKind,
   ProfileSearchRow,
 } from '@onsocial/sdk';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
@@ -20,6 +21,7 @@ export interface StandingAccountSummary {
   name: string | null;
   bio: string | null;
   avatarUrl: string | null;
+  kind: ProfileKind | null;
   standingSince: number | null;
   standingBlockTimestamp: number | null;
   standingCount: number;
@@ -60,6 +62,7 @@ function profileSearchRowToMaterialised(row: ProfileSearchRow): MaterialisedProf
     bio: row.bio ?? undefined,
     avatar: row.avatar ?? undefined,
     banner: row.banner ?? undefined,
+    kind: row.kind,
     extra: {},
   };
 }
@@ -100,6 +103,7 @@ function mapStandingRowsToSummaries(
           bio: profile.bio ?? undefined,
           avatar: profile.avatar ?? undefined,
           banner: profile.banner ?? undefined,
+          kind: profile.kind,
           extra: {},
         }
       : null;
@@ -109,6 +113,7 @@ function mapStandingRowsToSummaries(
       name: profile?.name ?? null,
       bio: profile?.bio ?? null,
       avatarUrl: os.profiles.avatarUrl(materialisedProfile),
+      kind: profile?.kind ?? null,
       standingSince: row.since,
       standingBlockTimestamp: row.blockTimestamp,
       standingCount: stats?.standingCount ?? 0,

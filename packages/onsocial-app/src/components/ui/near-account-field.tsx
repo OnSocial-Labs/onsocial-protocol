@@ -1,6 +1,7 @@
 'use client';
 
-import { OsAccountField, ProfileAvatar } from '@onsocial/ui';
+import { OsAccountField } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import type { NearAccountStatus } from '@/hooks/use-near-account-status';
 import {
   normalizeNearAccountId,
@@ -55,7 +56,9 @@ export function NearAccountField({
       statusClass={statusClass}
       aria-invalid={ariaInvalid}
       leading={
-        <ProfileAvatar
+        <AccountAvatar
+          accountId={found ? normalized : null}
+          kind={profile?.kind}
           src={found ? (profile?.avatarUrl ?? null) : null}
           fallbackInitial={
             found ? profile?.displayName || normalized : undefined

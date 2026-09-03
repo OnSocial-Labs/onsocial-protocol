@@ -7,12 +7,12 @@ import {
   MultiplyIcon,
   OsFieldRemove,
   OsHugSheet,
-  ProfileAvatar,
   SearchField,
   UserPlusIcon,
 } from '@onsocial/ui';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
-import { StandingIdentity } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import {
   equalizeRoyaltyShares,
   formatRoyaltyPercent,
@@ -320,7 +320,8 @@ export function ScarceRoyaltySplitSheet({
                         aria-label={`Edit @${fallbackLabel(share.accountId)}, ${share.percent}%`}
                         onClick={() => openEdit(share.accountId)}
                       >
-                        <ProfileAvatar
+                        <AccountAvatar
+                          accountId={share.accountId}
                           src={face.avatarUrl}
                           fallbackInitial={face.name}
                           size="sm"

@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Divider, OsHugSheet, StandingIdentity } from '@onsocial/ui';
+import {
+  Divider,
+  OsHugSheet,
+} from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { EndorsementListSkeleton } from '@/components/panels/endorsement-list-row';
 import type { AppEndorsementSupporter } from '@/lib/app-endorsement-supporters';
 import { formatEndorsementTime } from '@/lib/endorsement-display';

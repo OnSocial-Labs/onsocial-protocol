@@ -23,7 +23,6 @@ import {
   OsHugSheet,
   OsIconAction,
   OsPageSheet,
-  ProfileAvatar,
   StarsCFillIcon,
   StarsCIcon,
   osFieldBorderedClassName,
@@ -36,6 +35,7 @@ import {
   OsSheetAction,
   OsSheetActions,
 } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
 import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
@@ -245,7 +245,9 @@ function ReplyTargetPreview({
 
   return (
     <div className="guild-composer-reply-target">
-      <ProfileAvatar
+      <AccountAvatar
+        accountId={post.accountId}
+        kind={authorProfile?.kind}
         src={authorProfile?.avatarUrl ?? null}
         fallbackInitial={name}
         size="lg"
@@ -817,7 +819,9 @@ export function ComposerSheet({
         showDestinationMenus ? ' has-destination-menus' : ''
       }`}
     >
-      <ProfileAvatar
+      <AccountAvatar
+        accountId={accountId}
+        kind={viewerShell?.kind}
         src={viewerShell?.avatarUrl ?? null}
         fallbackInitial={viewerName}
         size="lg"

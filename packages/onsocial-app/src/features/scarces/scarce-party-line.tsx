@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ProfileAvatar } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import {
   arePostAuthorProfilesResolved,
   usePostAuthorProfiles,
@@ -12,7 +12,7 @@ import { displayName, fallbackLabel } from '@/lib/profile-display';
 function PartyFaceSkeleton() {
   return (
     <>
-      <ProfileAvatar
+      <AccountAvatar
         size="sm"
         shellLoading
         className="scarce-buy-party-avatar"
@@ -67,7 +67,9 @@ export function ScarcePartyLine({
     <PartyFaceSkeleton />
   ) : (
     <>
-      <ProfileAvatar
+      <AccountAvatar
+        accountId={id}
+        kind={profile?.kind}
         src={src}
         size="sm"
         fallbackInitial={handle}

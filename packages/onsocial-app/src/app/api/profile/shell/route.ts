@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
       accountId,
       displayName: displayName(accountId, shell?.name ?? undefined),
       avatarUrl: shell?.avatarUrl ?? null,
+      kind: shell?.kind ?? null,
     });
   } catch {
     return NextResponse.json(

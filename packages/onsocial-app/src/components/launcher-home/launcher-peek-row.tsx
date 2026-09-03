@@ -1,7 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { Divider, RepeatIcon, StandingIdentity, standingIdentityLabel } from '@onsocial/ui';
+import {
+  Divider,
+  RepeatIcon,
+  standingIdentityLabel,
+} from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import type { ReactNode } from 'react';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import type { PostRelationContext } from '@/lib/post-relation';

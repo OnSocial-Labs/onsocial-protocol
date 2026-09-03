@@ -7,9 +7,9 @@ import {
   OsIconAction,
   SettingsIcon,
   ShopFillIcon,
-  StandingIdentity,
   standingIdentityLabel,
 } from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import type { CollectionView } from '@/features/scarces/collections-data';

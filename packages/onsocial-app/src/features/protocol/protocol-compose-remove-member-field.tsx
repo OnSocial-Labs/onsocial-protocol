@@ -1,11 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
-import {
-  ChoiceDrawerField,
-  ProfileAvatar,
-  type ChoiceOption,
-} from '@onsocial/ui';
+import { ChoiceDrawerField, type ChoiceOption } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { normalizeNearAccountId } from '@/lib/app-near-account';
 
@@ -63,7 +60,9 @@ export function ProtocolComposeRemoveMemberField({
               ? normalized
               : undefined,
           leading: (
-            <ProfileAvatar
+            <AccountAvatar
+              accountId={normalized}
+              kind={profile?.kind}
               src={profile?.avatarUrl ?? null}
               fallbackInitial={profile?.displayName || normalized}
               size="sm"
@@ -76,7 +75,9 @@ export function ProtocolComposeRemoveMemberField({
   );
 
   const chipLeading = normalizedMemberId ? (
-    <ProfileAvatar
+    <AccountAvatar
+      accountId={normalizedMemberId}
+      kind={selectedProfile?.kind}
       src={selectedProfile?.avatarUrl ?? null}
       fallbackInitial={selectedProfile?.displayName || normalizedMemberId}
       size="sm"

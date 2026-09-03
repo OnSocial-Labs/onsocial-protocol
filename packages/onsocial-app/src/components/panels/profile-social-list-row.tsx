@@ -1,11 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Divider, ProtocolMotionArrow } from '@onsocial/ui';
-import {
-  StandingIdentity,
-  standingIdentityLabel,
-} from '@onsocial/ui';
+import { Divider, ProtocolMotionArrow, standingIdentityLabel } from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { StandingRelationshipSignal } from '@/components/ui/standing-relationship-signal';
 import { StandingToggle } from '@/components/ui/standing-toggle';
 import { PostRichText } from '@/features/home/post-rich-text';
@@ -304,11 +301,9 @@ export function ProfileSocialListRow({
           accountId={account.accountId}
           profileName={account.name}
           avatarUrl={account.avatarUrl}
-          avatarClassName={
-            isDaoTarget
-              ? 'standing-row-avatar-slot dao-directory-crest'
-              : 'standing-row-avatar-slot'
-          }
+          kind={account.kind}
+          isDao={isDaoTarget}
+          avatarClassName="standing-row-avatar-slot"
           copyLeading={
             showRelationshipSignals ? (
               <div className="standing-row-signals">

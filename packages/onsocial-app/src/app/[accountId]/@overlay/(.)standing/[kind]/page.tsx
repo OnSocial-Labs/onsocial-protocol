@@ -56,6 +56,7 @@ export default async function StandingKindOverlay({
         initialQuery={initialQuery}
         displayName={name}
         avatarUrl={shell?.avatarUrl ?? null}
+        profileKind={shell?.kind ?? null}
         initialCounts={{
           incoming: signals?.standingCount ?? 0,
           outgoing: signals?.standingWithCount ?? 0,

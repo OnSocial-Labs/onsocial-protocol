@@ -8,11 +8,11 @@ import {
   HomeFillIcon,
   InformationCircleFillIcon,
   ShopFillIcon,
-  StandingIdentity,
   StarsCFillIcon,
   UsersFillIcon,
   standingIdentityLabel,
 } from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import type { Notification } from '@onsocial/sdk';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import {

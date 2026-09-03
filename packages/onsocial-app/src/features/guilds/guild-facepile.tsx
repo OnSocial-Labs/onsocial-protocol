@@ -1,6 +1,6 @@
 'use client';
 
-import { ProfileAvatar } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 
 /** Default overlapped avatar slots — keep in sync with `.guild-facepile-avatars--slots`. */
@@ -96,8 +96,10 @@ export function GuildFacepile({
                 />
               ))
             : ids.map((memberId) => (
-                <ProfileAvatar
+                <AccountAvatar
                   key={memberId}
+                  accountId={memberId}
+                  kind={profiles[memberId]?.kind}
                   src={profiles[memberId]?.avatarUrl ?? null}
                   fallbackInitial={
                     profiles[memberId]?.displayName ?? memberId

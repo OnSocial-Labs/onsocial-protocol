@@ -1,7 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { StandingIdentity, standingIdentityLabel } from '@onsocial/ui';
+import {
+  standingIdentityLabel,
+} from '@onsocial/ui';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import type { EndorsementPanelItem } from '@/lib/endorsements-panel-data';
 import {
