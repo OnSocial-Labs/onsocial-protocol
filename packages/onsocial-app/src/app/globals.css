@@ -36872,35 +36872,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   flex-direction: column;
 }
 
-.dao-directory-row .dao-directory-crest.profile-avatar,
-.dao-directory-crest.profile-avatar {
-  border-radius: 0.85rem;
-}
-
-.dao-directory-meta {
-  display: block;
-  margin-top: 0.12rem;
-  font-size: 0.78rem;
-  line-height: 1.35;
-  color: rgb(var(--fg-rgb) / 0.55);
-}
-
-.dao-directory-aside {
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.dao-directory-kind {
-  font-size: 0.68rem;
-  font-weight: 650;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: rgb(var(--fg-rgb) / 0.42);
-  text-align: right;
-  max-width: 6.5rem;
-  line-height: 1.25;
-}
-
 .daos-discover-open {
   display: flex;
   flex-direction: column;
