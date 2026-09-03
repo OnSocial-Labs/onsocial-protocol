@@ -11,6 +11,7 @@ import {
   fetchMostTradedScarcePeeks,
   type DiscoverScarcePeek,
 } from '@/features/discover/discover-scarce-peeks';
+import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about';
 import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import {
@@ -51,6 +52,7 @@ export type DiscoverTrendingSeed = {
   profiles: ProfileListAccount[];
   hubs: DiscoverTrendingHub[];
   posts: PostRow[];
+  talkedAbout: PostRow[];
   dropsTraded: DiscoverScarcePeek[];
   dropsLoved: DiscoverScarcePeek[];
   proposals: GovernanceEventRow[];
@@ -104,6 +106,7 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
       profiles,
       hubs,
       posts,
+      talkedAbout,
       dropsTraded,
       dropsLoved,
       proposals,
@@ -126,6 +129,7 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
       loadActivePosters(os),
       rankHubPeeks(os, { peekLimit: SECTION_LIMIT }),
       loadHotPosts(os),
+      fetchTalkedAboutPosts(os, SECTION_LIMIT),
       fetchMostTradedScarcePeeks(os, SECTION_LIMIT),
       fetchMostLovedScarcePeeks(os, SECTION_LIMIT),
       os.query.governance
@@ -142,6 +146,7 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
       profiles,
       hubs,
       posts,
+      talkedAbout,
       dropsTraded,
       dropsLoved,
       proposals,

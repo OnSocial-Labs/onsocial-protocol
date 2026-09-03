@@ -43,3 +43,65 @@ export function orderProfileSearchByPosterIds(
 ): ProfileSearchRow[] {
   return orderRowsByAccountIds(rows, ids);
 }
+
+export type MovingPostRef = { author: string; postId: string };
+
+export function movingPostRefKey(ref: MovingPostRef): string {
+  return `${ref.author}\0${ref.postId}`;
+}
+
+/** Parent thread of a reply (`parentAuthor` + last `/post/{id}` in the path). */
+export function parentPostRefFromReply(
+  reply: Pick<PostRow, 'parentAuthor' | 'parentPath'>
+): MovingPostRef | null {
+  const path = reply.parentPath?.trim() ?? '';
+  const marker = '/post/';
+  const index = path.lastIndexOf(marker);
+  const postId = index >= 0 ? path.slice(index + marker.length).trim() : '';
+  const author =
+    reply.parentAuthor?.trim() ||
+    (index > 0 ? path.slice(0, index).split('/')[0]?.trim() : '');
+  if (!author || !postId) return null;
+  return { author, postId };
+}
+
+/**
+ * Distinct parent threads in reply order — Moving Talked about is
+ * what just got a reply, not lifetime comment counts.
+ */
+export function talkedAboutParentRefs(
+  replies: Array<Pick<PostRow, 'parentAuthor' | 'parentPath'>>,
+  limit = 6
+): MovingPostRef[] {
+  const seen = new Set<string>();
+  const out: MovingPostRef[] = [];
+  for (const reply of replies) {
+    const ref = parentPostRefFromReply(reply);
+    if (!ref) continue;
+    const key = movingPostRefKey(ref);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(ref);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+export function orderPostsByRefs(
+  rows: PostRow[],
+  refs: MovingPostRef[]
+): PostRow[] {
+  const byKey = new Map(
+    rows.map((row) => [movingPostRefKey(rowToRef(row)), row])
+  );
+  const out: PostRow[] = [];
+  for (const ref of refs) {
+    const row = byKey.get(movingPostRefKey(ref));
+    if (row) out.push(row);
+  }
+  return out;
+}
+
+function rowToRef(row: PostRow): MovingPostRef {
+  return { author: row.accountId, postId: row.postId };
+}

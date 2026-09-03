@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   orderRowsByAccountIds,
+  parentPostRefFromReply,
   postHasAmplifyHeat,
   recentPosterIds,
   selectHotPosts,
+  talkedAboutParentRefs,
 } from './discover-moving';
 import type { PostRow } from '@onsocial/sdk';
 
@@ -63,5 +65,37 @@ describe('discover-moving', () => {
         ['alice.near', 'cara.near', 'bob.near']
       ).map((row) => row.accountId)
     ).toEqual(['alice.near', 'bob.near']);
+  });
+
+  it('reads the parent thread off a reply', () => {
+    expect(
+      parentPostRefFromReply({
+        parentAuthor: 'alice.near',
+        parentPath: 'alice.near/post/root-1',
+      })
+    ).toEqual({ author: 'alice.near', postId: 'root-1' });
+    expect(
+      parentPostRefFromReply({
+        parentAuthor: 'alice.near',
+        parentPath: 'alice.near/groups/dao/content/post/g1',
+      })
+    ).toEqual({ author: 'alice.near', postId: 'g1' });
+  });
+
+  it('lists talked-about threads once, newest reply first', () => {
+    expect(
+      talkedAboutParentRefs(
+        [
+          { parentAuthor: 'alice.near', parentPath: 'alice.near/post/a' },
+          { parentAuthor: 'bob.near', parentPath: 'bob.near/post/b' },
+          { parentAuthor: 'alice.near', parentPath: 'alice.near/post/a' },
+          { parentAuthor: 'cara.near', parentPath: 'cara.near/post/c' },
+        ],
+        2
+      )
+    ).toEqual([
+      { author: 'alice.near', postId: 'a' },
+      { author: 'bob.near', postId: 'b' },
+    ]);
   });
 });

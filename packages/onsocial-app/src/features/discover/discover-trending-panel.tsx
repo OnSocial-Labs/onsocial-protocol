@@ -64,6 +64,7 @@ import {
   type DiscoverScarcePeek,
 } from '@/features/discover/discover-scarce-peeks';
 import { rankHubPeeks } from '@/features/discover/discover-community-ranking';
+import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about';
 import {
   orderProfileSearchByPosterIds,
   recentPosterIds,
@@ -74,6 +75,46 @@ import { postThreadPath } from '@/lib/post-routes';
 
 const SECTION_LIMIT = 6;
 const ACTIVE_POST_POOL = 24;
+
+function MovingPostPeekSection({
+  heading,
+  rows,
+}: {
+  heading: string;
+  rows: PostRow[] | null;
+}) {
+  if (rows === null) {
+    return <DiscoverTrendingGuildsSectionSkeleton />;
+  }
+  if (rows.length === 0) return null;
+  return (
+    <section className="discover-trending-section" aria-label={heading}>
+      <div className="discover-trending-section-head">
+        <h2 className="discover-trending-heading">{heading}</h2>
+        <Link href={APP_HOME_PATH} className="discover-trending-see-all">
+          See all
+        </Link>
+      </div>
+      <ul className="discover-focus-rows">
+        {rows.slice(0, SECTION_LIMIT).map((post) => {
+          const excerpt = formatPostPeekExcerpt(post.value, {
+            kind: post.kind,
+            postId: post.postId,
+          });
+          const author = post.authorName?.trim() || post.accountId;
+          return (
+            <li key={`${heading}-${post.accountId}-${post.postId}`}>
+              <Link href={postThreadPath(post)} className="discover-focus-row">
+                <span className="discover-focus-row-label">{excerpt}</span>
+                <span className="discover-focus-row-meta">{author}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
 
 function ScarcePeekSection({
   heading,
@@ -118,7 +159,7 @@ function ScarcePeekSection({
 }
 
 /**
- * Default Discover landing: what's moving — heat, recency, drops, people.
+ * Default Discover landing: what's moving — heat, talk, recency, drops, people.
  * Face / hiring chips live on Profiles — this page is a peek, not a filter.
  * Sections paint independently as each query settles.
  */
@@ -153,6 +194,9 @@ export function DiscoverTrendingPanel({
   const [posts, setPosts] = useState<PostRow[] | null>(
     () => initial?.posts ?? null
   );
+  const [talkedAbout, setTalkedAbout] = useState<PostRow[] | null>(
+    () => initial?.talkedAbout ?? null
+  );
   const [dropsTraded, setDropsTraded] = useState<DiscoverScarcePeek[] | null>(
     () => initial?.dropsTraded ?? null
   );
@@ -176,6 +220,7 @@ export function DiscoverTrendingPanel({
         initial.profiles.length > 0 ||
         initial.hubs.length > 0 ||
         (initial.posts?.length ?? 0) > 0 ||
+        (initial.talkedAbout?.length ?? 0) > 0 ||
         (initial.dropsTraded?.length ?? 0) > 0 ||
         (initial.dropsLoved?.length ?? 0) > 0 ||
         (initial.proposals?.length ?? 0) > 0)
@@ -192,6 +237,7 @@ export function DiscoverTrendingPanel({
       setPlaces(null);
       setHubs(null);
       setPosts(null);
+      setTalkedAbout(null);
       setDropsTraded(null);
       setDropsLoved(null);
       setProposals(null);
@@ -207,6 +253,12 @@ export function DiscoverTrendingPanel({
       .catch(() => {
         if (!cancelled && !soft) setPosts([]);
       });
+
+    void fetchTalkedAboutPosts(client, SECTION_LIMIT).then((rows) => {
+      if (cancelled) return;
+      setTalkedAbout(rows);
+      hasPaintedRef.current = true;
+    });
 
     void client.query.tickers
       .trending({ limit: SECTION_LIMIT, sort: 'recent' })
@@ -397,6 +449,11 @@ export function DiscoverTrendingPanel({
     () => (posts == null ? null : filterTrendingPosts(posts, query)),
     [posts, query]
   );
+  const visibleTalkedAbout = useMemo(
+    () =>
+      talkedAbout == null ? null : filterTrendingPosts(talkedAbout, query),
+    [query, talkedAbout]
+  );
   const visibleDropsTraded = useMemo(
     () =>
       dropsTraded == null ? null : filterTrendingDrops(dropsTraded, query),
@@ -419,6 +476,7 @@ export function DiscoverTrendingPanel({
     visibleProfiles !== null &&
     visibleHubs !== null &&
     visiblePosts !== null &&
+    visibleTalkedAbout !== null &&
     visibleDropsTraded !== null &&
     visibleDropsLoved !== null &&
     visibleProposals !== null;
@@ -430,6 +488,7 @@ export function DiscoverTrendingPanel({
     visibleProfiles.length === 0 &&
     visibleHubs.length === 0 &&
     visiblePosts.length === 0 &&
+    visibleTalkedAbout.length === 0 &&
     visibleDropsTraded.length === 0 &&
     visibleDropsLoved.length === 0 &&
     visibleProposals.length === 0;
@@ -440,6 +499,7 @@ export function DiscoverTrendingPanel({
     visibleProfiles === null ||
     visibleHubs === null ||
     visiblePosts === null ||
+    visibleTalkedAbout === null ||
     visibleDropsTraded === null ||
     visibleDropsLoved === null ||
     visibleProposals === null;
@@ -469,38 +529,11 @@ export function DiscoverTrendingPanel({
         </div>
       ) : null}
 
-      {visiblePosts === null ? (
-        <DiscoverTrendingGuildsSectionSkeleton />
-      ) : visiblePosts.length > 0 ? (
-        <section className="discover-trending-section">
-          <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">Hot posts</h2>
-            <Link href={APP_HOME_PATH} className="discover-trending-see-all">
-              See all
-            </Link>
-          </div>
-          <ul className="discover-focus-rows">
-            {visiblePosts.slice(0, SECTION_LIMIT).map((post) => {
-              const excerpt = formatPostPeekExcerpt(post.value, {
-                kind: post.kind,
-                postId: post.postId,
-              });
-              const author = post.authorName?.trim() || post.accountId;
-              return (
-                <li key={`${post.accountId}-${post.postId}`}>
-                  <Link
-                    href={postThreadPath(post)}
-                    className="discover-focus-row"
-                  >
-                    <span className="discover-focus-row-label">{excerpt}</span>
-                    <span className="discover-focus-row-meta">{author}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ) : null}
+      <MovingPostPeekSection heading="Hot posts" rows={visiblePosts} />
+      <MovingPostPeekSection
+        heading="Talked about"
+        rows={visibleTalkedAbout}
+      />
 
       {visibleTopics === null ? (
         <DiscoverTrendingChipSectionSkeleton />
