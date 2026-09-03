@@ -58,18 +58,22 @@ import {
   filterTrendingTickers,
   filterTrendingTopics,
 } from '@/lib/discover-trending-filter';
-import { fetchAppsDirectory } from '@/features/scarces/apps-data';
 import {
   fetchMostLovedScarcePeeks,
   fetchMostTradedScarcePeeks,
   type DiscoverScarcePeek,
 } from '@/features/discover/discover-scarce-peeks';
 import { rankHubPeeks } from '@/features/discover/discover-community-ranking';
+import {
+  orderProfileSearchByPosterIds,
+  recentPosterIds,
+  selectHotPosts,
+} from '@/lib/discover-moving';
 import { formatPostPeekExcerpt } from '@/lib/post-display';
 import { postThreadPath } from '@/lib/post-routes';
 
 const SECTION_LIMIT = 6;
-const COMMUNITY_RANK_POOL = 32;
+const ACTIVE_POST_POOL = 24;
 
 function ScarcePeekSection({
   heading,
@@ -197,7 +201,7 @@ export function DiscoverTrendingPanel({
       .recent({ limit: SECTION_LIMIT, sort: 'hot', section: 'posts' })
       .then((page) => {
         if (cancelled) return;
-        setPosts(page.items);
+        setPosts(selectHotPosts(page.items, SECTION_LIMIT));
         hasPaintedRef.current = true;
       })
       .catch(() => {
@@ -237,20 +241,7 @@ export function DiscoverTrendingPanel({
         if (!cancelled && !soft) setPlaces([]);
       });
 
-    void rankHubPeeks(client, {
-      peekLimit: SECTION_LIMIT,
-      fetchRecentFallback: async () => {
-        const page = await fetchAppsDirectory({
-          limit: COMMUNITY_RANK_POOL,
-          hideTest: true,
-          sort: 'recent',
-        });
-        return page.apps.map((app) => ({
-          appId: app.appId,
-          title: app.title?.trim() || null,
-        }));
-      },
-    })
+    void rankHubPeeks(client, { peekLimit: SECTION_LIMIT })
       .then((rows) => {
         if (cancelled) return;
         setHubs(rows);
@@ -292,20 +283,20 @@ export function DiscoverTrendingPanel({
     let cancelled = false;
     const soft = hasPaintedRef.current;
     const client = createReadOnlyOnSocialClient();
-    void client.query.profiles
-      .discoverPage({
-        limit: SECTION_LIMIT,
-        order: 'activity',
-        viewerAccountId: viewerKey ?? undefined,
+    void client.query.feed
+      .recent({ limit: ACTIVE_POST_POOL, section: 'posts' })
+      .then(async (page) => {
+        const ids = recentPosterIds(page.items, SECTION_LIMIT);
+        if (ids.length === 0) return [];
+        const rows = await client.query.profiles.statsForAccounts(ids);
+        return discoverPageToProfileListAccounts(client, {
+          profiles: orderProfileSearchByPosterIds(rows, ids),
+          viewer: null,
+        });
       })
-      .then((page) => {
+      .then((next) => {
         if (cancelled) return;
-        setProfiles(
-          discoverPageToProfileListAccounts(client, page).slice(
-            0,
-            SECTION_LIMIT
-          )
-        );
+        setProfiles(next);
         hasPaintedRef.current = true;
       })
       .catch(() => {
@@ -533,9 +524,6 @@ export function DiscoverTrendingPanel({
                 className="discover-trending-chip"
               >
                 #{item.hashtag}
-                <span className="discover-trending-chip-count">
-                  {item.postCount}
-                </span>
               </Link>
             ))}
           </div>
@@ -564,9 +552,6 @@ export function DiscoverTrendingPanel({
                 className="discover-trending-chip discover-trending-chip--ticker"
               >
                 {formatTickerDisplay(item.ticker)}
-                <span className="discover-trending-chip-count">
-                  {item.postCount}
-                </span>
               </Link>
             ))}
           </div>
@@ -588,9 +573,6 @@ export function DiscoverTrendingPanel({
                 className="discover-trending-chip"
               >
                 {placeLabel(item.place) ?? item.place}
-                <span className="discover-trending-chip-count">
-                  {item.postCount}
-                </span>
               </Link>
             ))}
           </div>
@@ -701,14 +683,7 @@ export function DiscoverTrendingPanel({
       ) : visibleProposals.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">Open proposals</h2>
-            <button
-              type="button"
-              className="discover-trending-see-all"
-              onClick={() => onOpenTab('daos')}
-            >
-              See all
-            </button>
+            <h2 className="discover-trending-heading">New proposals</h2>
           </div>
           <ul className="discover-focus-rows">
             {visibleProposals.slice(0, SECTION_LIMIT).map((row) => {

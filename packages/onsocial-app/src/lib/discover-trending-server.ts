@@ -11,20 +11,19 @@ import {
   fetchMostTradedScarcePeeks,
   type DiscoverScarcePeek,
 } from '@/features/discover/discover-scarce-peeks';
-import { fetchAppsDirectory } from '@/features/scarces/apps-data';
-import {
-  discoverProfileToProfileListAccount,
-  type DiscoverProfileSummary,
-} from '@/lib/discover-profiles';
+import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
-import { mapDiscoverPageToResponse } from '@/lib/discover-profiles-server-map';
+import {
+  orderProfileSearchByPosterIds,
+  recentPosterIds,
+  selectHotPosts,
+} from '@/lib/discover-moving';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
 
 /** Enough for Topics/Tickers tabs; movement peeks slice after ranking. */
 const TAB_CHIP_LIMIT = 24;
 const SECTION_LIMIT = 6;
-/** Wider pool when falling back to recent hubs. */
-const COMMUNITY_RANK_POOL = 32;
+const ACTIVE_POST_POOL = 24;
 
 export type DiscoverTrendingGuild = {
   groupId: string;
@@ -57,25 +56,6 @@ export type DiscoverTrendingSeed = {
   proposals: GovernanceEventRow[];
 };
 
-async function loadMovingHubs(
-  os: ReturnType<typeof createServerOnSocialClient>
-): Promise<DiscoverTrendingHub[]> {
-  return rankHubPeeks(os, {
-    peekLimit: SECTION_LIMIT,
-    fetchRecentFallback: async () => {
-      const page = await fetchAppsDirectory({
-        limit: COMMUNITY_RANK_POOL,
-        hideTest: true,
-        sort: 'recent',
-      });
-      return page.apps.map((app) => ({
-        appId: app.appId,
-        title: app.title?.trim() || null,
-      }));
-    },
-  });
-}
-
 async function loadHotPosts(
   os: ReturnType<typeof createServerOnSocialClient>
 ): Promise<PostRow[]> {
@@ -85,7 +65,27 @@ async function loadHotPosts(
       sort: 'hot',
       section: 'posts',
     });
-    return page.items;
+    return selectHotPosts(page.items, SECTION_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+async function loadActivePosters(
+  os: ReturnType<typeof createServerOnSocialClient>
+): Promise<ProfileListAccount[]> {
+  try {
+    const page = await os.query.feed.recent({
+      limit: ACTIVE_POST_POOL,
+      section: 'posts',
+    });
+    const ids = recentPosterIds(page.items, SECTION_LIMIT);
+    if (ids.length === 0) return [];
+    const rows = await os.query.profiles.statsForAccounts(ids);
+    return discoverPageToProfileListAccounts(os, {
+      profiles: orderProfileSearchByPosterIds(rows, ids),
+      viewer: null,
+    });
   } catch {
     return [];
   }
@@ -101,7 +101,7 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
       movingTickers,
       movingTopics,
       places,
-      profilesPage,
+      profiles,
       hubs,
       posts,
       dropsTraded,
@@ -123,13 +123,8 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
       os.query.places
         .trending({ limit: SECTION_LIMIT, sort: 'recent' })
         .catch(() => [] as PlaceCount[]),
-      os.query.profiles
-        .discoverPage({ limit: SECTION_LIMIT, order: 'activity' })
-        .then((page) =>
-          mapDiscoverPageToResponse(os, page, '', SECTION_LIMIT, 0)
-        )
-        .catch(() => null),
-      loadMovingHubs(os),
+      loadActivePosters(os),
+      rankHubPeeks(os, { peekLimit: SECTION_LIMIT }),
       loadHotPosts(os),
       fetchMostTradedScarcePeeks(os, SECTION_LIMIT),
       fetchMostLovedScarcePeeks(os, SECTION_LIMIT),
@@ -137,10 +132,6 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
         .recentProposals({ limit: SECTION_LIMIT })
         .catch(() => [] as GovernanceEventRow[]),
     ]);
-
-    const profiles = (profilesPage?.profiles ?? ([] as DiscoverProfileSummary[]))
-      .slice(0, SECTION_LIMIT)
-      .map(discoverProfileToProfileListAccount);
 
     return {
       tickers,

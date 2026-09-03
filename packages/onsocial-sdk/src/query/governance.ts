@@ -232,7 +232,8 @@ export class GovernanceQuery {
   }
 
   /**
-   * Newest `proposal_created` events across every group — Discover Moving peek.
+   * Newest `proposal_created` events across every group — Discover Moving
+   * “New proposals” peek (created recently, not filtered to still-open).
    *
    * ```ts
    * const open = await os.query.governance.recentProposals({ limit: 6 });
