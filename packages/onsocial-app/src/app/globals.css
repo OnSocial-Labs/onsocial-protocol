@@ -10340,13 +10340,20 @@ a.os-surface-row {
   .discover-face-filter-rail {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-start;
-    column-gap: 0.4rem;
+    align-items: center;
+    gap: 0.4rem;
     margin: 0.15rem 0 0.55rem;
   }
 
+  .discover-face-filter-rail .discover-tab-bar,
   .discover-face-filter-rail .discover-tab-bar--browse {
     margin: 0;
+    width: auto;
+    flex: 0 1 auto;
+  }
+
+  .discover-face-filter-rail .discover-tab-bar-scroller {
+    width: auto;
   }
 
   .discover-focus-list {
