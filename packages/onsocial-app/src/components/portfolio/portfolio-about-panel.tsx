@@ -3,11 +3,7 @@
 import { PortfolioIdentityTopics } from '@/components/portfolio/portfolio-identity-topics';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
-import {
-  displayName,
-  initials,
-  portfolioHandleForMood,
-} from '@/lib/profile-display';
+import { displayName, portfolioHandleForMood } from '@/lib/profile-display';
 import { resolveDisplayProfileKind, type ProfileKind } from '@onsocial/sdk';
 import type { ResolvedMood } from '@/lib/moods/types';
 
@@ -22,7 +18,10 @@ export type PortfolioAboutPanelProps = {
   profileKind?: ProfileKind | null;
 };
 
-/** Top-flush portrait + identity + full bio. Same body for overlay and page. */
+/**
+ * Lookbook page — same OnSocial name / handle / topics as the face,
+ * composed as a print + type, not a banner or a kind-shaped chip.
+ */
 export function PortfolioAboutPanel({
   accountId,
   profileName,
@@ -37,25 +36,20 @@ export function PortfolioAboutPanel({
   const titleLabel = displayName(accountId, profileName ?? undefined);
   const handleLabel = portfolioHandleForMood(accountId, mood.id);
   const aboutBio = bio?.trim() || '';
+  const printUrl = avatarUrl?.trim() || '';
 
   return (
     <article
       className="portfolio-about"
       data-profile-kind={displayKind}
+      data-has-print={printUrl ? 'true' : 'false'}
       data-testid="portfolio-about-panel"
     >
-      <div className="portfolio-about-portrait">
-        {avatarUrl ? (
-          <img alt="" className="portfolio-about-shot" src={avatarUrl} />
-        ) : (
-          <div
-            className="portfolio-about-shot portfolio-about-shot-fallback"
-            aria-hidden
-          >
-            {initials(titleLabel)}
-          </div>
-        )}
-      </div>
+      {printUrl ? (
+        <div className="portfolio-about-print">
+          <img alt="" className="portfolio-about-shot" src={printUrl} />
+        </div>
+      ) : null}
       <header className="portfolio-about-identity">
         <div className="portfolio-about-name-row">
           <h1 className="portfolio-about-name">{titleLabel}</h1>

@@ -7477,85 +7477,52 @@ a.os-surface-row {
   }
 
   .portfolio-about {
+    --portfolio-about-inset: max(1.25rem, env(safe-area-inset-left, 0px));
     display: flex;
     flex-direction: column;
-    gap: 1.35rem;
+    gap: 1.55rem;
     width: 100%;
     max-width: 36rem;
     margin: 0 auto 2rem;
-    padding: 0 0 2.5rem;
+    padding: max(1.55rem, calc(env(safe-area-inset-top, 0px) + 0.9rem))
+      max(1.25rem, env(safe-area-inset-right, 0px)) 2.75rem
+      var(--portfolio-about-inset);
   }
 
-  /* Full page — no “About” chrome. Portrait starts at the top. */
+  /* Full page — no “About” chrome. The page is the person. */
   .os-app-screen:has(.portfolio-about) .os-app-screen-header {
     padding: 0;
     min-height: 0;
   }
 
-  .os-app-screen:has(.portfolio-about) .os-app-screen-body {
-    padding-top: 0;
-  }
-
-  .portfolio-about-portrait {
-    position: relative;
+  /* Print on the page — only when a real photograph exists. */
+  .portfolio-about-print {
     width: 100%;
-    aspect-ratio: 1;
-    max-height: min(28rem, 58vh);
+    aspect-ratio: 4 / 5;
+    max-height: min(26rem, 52vh);
     overflow: hidden;
-    border-radius: 0 0 1.35rem 1.35rem;
-    background: rgb(var(--fg-rgb) / 0.05);
+    border-radius: 1.2rem;
+    background: rgb(var(--fg-rgb) / 0.04);
     box-shadow:
-      0 28px 56px rgb(15 18 24 / 0.16),
-      0 8px 20px rgb(15 18 24 / 0.07);
+      0 1px 0 rgb(255 255 255 / 0.28) inset,
+      0 22px 44px rgb(15 18 24 / 0.12),
+      0 6px 14px rgb(15 18 24 / 0.05);
   }
 
-  .portfolio-about-portrait::after {
-    content: '';
-    position: absolute;
-    inset: auto 0 0;
-    height: 34%;
-    pointer-events: none;
-    background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--bg-rgb) / 0.22)
-    );
-  }
-
-  .portfolio-about-shot,
-  .portfolio-about-shot-fallback {
+  .portfolio-about-shot {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: 0;
-  }
-
-  .portfolio-about-shot-fallback {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--font-space-grotesk), system-ui, sans-serif;
-    font-size: clamp(2.4rem, 12vw, 3.6rem);
-    font-weight: 650;
-    letter-spacing: -0.06em;
-    color: rgb(var(--fg-rgb) / 0.38);
-    background: linear-gradient(
-      180deg,
-      rgb(var(--fg-rgb) / 0.07),
-      rgb(var(--fg-rgb) / 0.03)
-    );
   }
 
   .portfolio-about-identity {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.18rem;
+    gap: var(--portfolio-identity-gap, 0.28rem);
     width: 100%;
     min-width: 0;
-    padding: 0.15rem max(1.25rem, env(safe-area-inset-right, 0px)) 0
-      max(1.25rem, env(safe-area-inset-left, 0px));
   }
 
   .portfolio-about-name-row {
@@ -7569,10 +7536,15 @@ a.os-surface-row {
 
   .portfolio-about-name {
     margin: 0;
-    font-family: var(--font-space-grotesk), system-ui, sans-serif;
-    font-size: clamp(1.7rem, 5.4vw, 2.1rem);
-    font-weight: 650;
-    letter-spacing: -0.05em;
+    font-family: var(
+      --mood-font-display,
+      var(--font-space-grotesk),
+      system-ui,
+      sans-serif
+    );
+    font-size: clamp(1.85rem, 6vw, 2.35rem);
+    font-weight: var(--mood-display-weight, 600);
+    letter-spacing: var(--mood-display-tracking, -0.04em);
     line-height: 1.08;
     text-wrap: balance;
   }
@@ -7584,44 +7556,42 @@ a.os-surface-row {
     gap: 0.32em;
     margin: 0;
     min-width: 0;
-    font-size: 0.8rem;
-    letter-spacing: 0.015em;
-    line-height: 1.3;
-    color: rgb(var(--fg-rgb) / 0.52);
+    font-size: 0.82rem;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+    color: var(--portfolio-meta-color, rgb(var(--fg-rgb) / 0.52));
   }
 
   .portfolio-about-identity .portfolio-topics {
     justify-content: flex-start;
     text-align: left;
     max-width: 100%;
-    margin-top: 0.32rem;
-    font-size: 0.84rem;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    color: rgb(var(--fg-rgb) / 0.58);
+    margin-top: 0.08rem;
+    font-size: 0.94rem;
+    color: var(--portfolio-meta-color, rgb(var(--fg-rgb) / 0.58));
   }
 
   .portfolio-about-bio.portfolio-bio {
-    margin: 0;
+    margin: 0.15rem 0 0;
     max-width: 36rem;
-    padding: 0 max(1.25rem, env(safe-area-inset-right, 0px)) 0
-      max(1.25rem, env(safe-area-inset-left, 0px));
     font-size: 1.05rem;
     line-height: 1.7;
     font-weight: 500;
-    color: rgb(var(--fg-rgb) / 0.78);
   }
 
   /*
-   * Reserved media band — photos later (max 3). Wide / pair / trio in the
-   * same column. Do not mount an empty placeholder.
+   * Reserved media band — photos later (max 3). Same print language.
+   * Do not mount an empty placeholder.
    */
   .portfolio-about-media {
     display: grid;
-    gap: 0.4rem;
+    gap: 0.45rem;
     width: 100%;
-    border-radius: 0.95rem;
+    border-radius: 1.2rem;
     overflow: hidden;
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.28) inset,
+      0 18px 36px rgb(15 18 24 / 0.1);
   }
 
   .portfolio-about-media[data-count='1'] {
@@ -13026,9 +12996,9 @@ a.os-surface-row {
   }
 
   .overlay-panel-outlet .portfolio-about {
-    padding: 0 0 1.85rem;
-    margin: -3.05rem 0 0;
-    gap: 1.25rem;
+    padding: 0.2rem 1.25rem 1.85rem;
+    margin: 0;
+    gap: 1.45rem;
   }
 
 
