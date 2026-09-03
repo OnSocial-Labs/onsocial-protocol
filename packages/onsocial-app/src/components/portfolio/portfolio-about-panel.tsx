@@ -22,7 +22,7 @@ export type PortfolioAboutPanelProps = {
   profileKind?: ProfileKind | null;
 };
 
-/** Compact identity + full bio. Same body for overlay and the shareable page. */
+/** Top-flush portrait + identity + full bio. Same body for overlay and page. */
 export function PortfolioAboutPanel({
   accountId,
   profileName,
@@ -44,39 +44,34 @@ export function PortfolioAboutPanel({
       data-profile-kind={displayKind}
       data-testid="portfolio-about-panel"
     >
-      <header
-        className="portfolio-about-identity"
-        data-profile-kind={displayKind}
-      >
+      <div className="portfolio-about-portrait">
         {avatarUrl ? (
-          <img alt="" className="portfolio-avatar" src={avatarUrl} />
+          <img alt="" className="portfolio-about-shot" src={avatarUrl} />
         ) : (
           <div
-            className="portfolio-avatar portfolio-avatar-fallback"
+            className="portfolio-about-shot portfolio-about-shot-fallback"
             aria-hidden
           >
             {initials(titleLabel)}
           </div>
         )}
-        <div className="portfolio-about-copy">
-          <div className="portfolio-about-name-row">
-            <h1 className="portfolio-about-name">{titleLabel}</h1>
-            {isDao ? (
-              <ProtocolNameTrailing accountId={accountId} isDao />
-            ) : null}
-          </div>
-          <p className="portfolio-about-handle-row">
-            <span
-              className={`portfolio-handle${mood.id === 'terminal' ? ' portfolio-handle--terminal' : ''}`}
-            >
-              {handleLabel}
-            </span>
-            {!isDao ? (
-              <ProtocolNameTrailing accountId={accountId} isDao={false} />
-            ) : null}
-          </p>
-          <PortfolioIdentityTopics tags={tags} />
+      </div>
+      <header className="portfolio-about-identity">
+        <div className="portfolio-about-name-row">
+          <h1 className="portfolio-about-name">{titleLabel}</h1>
+          {isDao ? <ProtocolNameTrailing accountId={accountId} isDao /> : null}
         </div>
+        <p className="portfolio-about-handle-row">
+          <span
+            className={`portfolio-handle${mood.id === 'terminal' ? ' portfolio-handle--terminal' : ''}`}
+          >
+            {handleLabel}
+          </span>
+          {!isDao ? (
+            <ProtocolNameTrailing accountId={accountId} isDao={false} />
+          ) : null}
+        </p>
+        <PortfolioIdentityTopics tags={tags} />
       </header>
       {aboutBio ? (
         <p className="portfolio-bio portfolio-about-bio">
