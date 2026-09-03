@@ -1106,7 +1106,10 @@ SELECT
       COALESCE(rs.reputation, 0) * COALESCE(rs.confidence_score, 0)
     )::NUMERIC,
     4
-  )                                                           AS discover_score
+  )                                                           AS discover_score,
+  ps.kind,
+  ps.industry,
+  ps.open_jobs_count
 FROM profile_search ps
 LEFT JOIN reputation_scores rs ON rs.account_id = ps.account_id;
 
