@@ -44,12 +44,19 @@ export function DiscoverRecommendedPeek({
     () =>
       getGlobalViewerMuteLedgerVersion() + getGlobalViewerBlockLedgerVersion()
   );
-  const [hydrated, setHydrated] = useState<ProfileListAccount[] | null>(null);
+  const [hydrated, setHydrated] = useState<{
+    viewerId: string;
+    rows: ProfileListAccount[];
+  } | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const enabled =
     isConnected &&
     Boolean(viewerAccountId) &&
     !isDiscoverPeopleSearchActive(query);
+  const rowsForViewer =
+    hydrated && viewerAccountId && hydrated.viewerId === viewerAccountId
+      ? hydrated.rows
+      : null;
 
   useEffect(() => {
     const bump = () => {
@@ -66,16 +73,13 @@ export function DiscoverRecommendedPeek({
   }, []);
 
   useEffect(() => {
-    if (!enabled || !viewerAccountId) {
-      setHydrated(null);
-      return;
-    }
+    if (!enabled || !viewerAccountId) return;
 
     let cancelled = false;
     const client = createReadOnlyOnSocialClient();
     void fetchStandingRecommendations(client, viewerAccountId).then((rows) => {
       if (cancelled) return;
-      setHydrated(rows);
+      setHydrated({ viewerId: viewerAccountId, rows });
     });
     return () => {
       cancelled = true;
@@ -83,10 +87,12 @@ export function DiscoverRecommendedPeek({
   }, [enabled, viewerAccountId]);
 
   const visible = useMemo(() => {
-    if (!enabled || hydrated == null) return [];
+    void endorsementSyncVersion;
+    void muteBlockSyncVersion;
+    if (!enabled || rowsForViewer == null) return [];
     return filterRecommendedPeek(
       overlayViewerEndorsedOnAccounts(
-        filterHiddenAuthors(hydrated),
+        filterHiddenAuthors(rowsForViewer),
         getGlobalViewerEndorsementLedger()
       ),
       face,
@@ -96,9 +102,9 @@ export function DiscoverRecommendedPeek({
     enabled,
     endorsementSyncVersion,
     face,
-    hydrated,
     industry,
     muteBlockSyncVersion,
+    rowsForViewer,
   ]);
 
   useEffect(() => {
@@ -138,9 +144,14 @@ export function DiscoverRecommendedPeek({
           }
           if (shouldStand) {
             setHydrated((current) =>
-              (current ?? []).filter(
-                (row) => row.accountId !== account.accountId
-              )
+              current == null
+                ? current
+                : {
+                    viewerId: current.viewerId,
+                    rows: current.rows.filter(
+                      (row) => row.accountId !== account.accountId
+                    ),
+                  }
             );
           }
           void handleUpdateStanding(account, shouldStand);
