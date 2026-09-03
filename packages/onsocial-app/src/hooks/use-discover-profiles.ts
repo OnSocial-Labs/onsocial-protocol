@@ -163,9 +163,11 @@ export function useDiscoverProfiles(
       searchParams.get('q')
     )
   );
-  const [tab, setTabState] = useState<DiscoverTab>(() =>
-    parseDiscoverTab(searchParams.get(DISCOVER_TAB_QUERY_KEY))
-  );
+  const [tab, setTabState] = useState<DiscoverTab>(() => {
+    const parsed = parseDiscoverTab(searchParams.get(DISCOVER_TAB_QUERY_KEY));
+    const urlQuery = restoreDiscoverQueryFromUrl(parsed, searchParams.get('q'));
+    return discoverTabForQueryDraft(urlQuery, parsed);
+  });
   const [face, setFaceState] = useState<DiscoverFaceFilter>(
     () =>
       parseDiscoverProfileFilters({

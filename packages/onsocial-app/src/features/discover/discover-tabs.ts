@@ -26,9 +26,7 @@ export const DISCOVER_TAB_QUERY_KEY = 'tab';
  * Parse `?tab=`. Defaults to trending.
  * Legacy `people` maps to profiles.
  */
-export function parseDiscoverTab(
-  raw: string | null | undefined
-): DiscoverTab {
+export function parseDiscoverTab(raw: string | null | undefined): DiscoverTab {
   const value = (raw ?? '').trim().toLowerCase();
   if (
     value === 'topics' ||
@@ -84,8 +82,9 @@ export function appDiscoverTabHref(tab: DiscoverTab): string {
 }
 
 /**
- * When the user types `#` / `$`, switch to the matching tab.
- * Bare text stays on the current tab and filters that tab's content.
+ * One search box, one destination:
+ * `#` → Topics, `$` → Tickers, bare text on Trending → Profiles.
+ * Other tabs keep the typed query and filter in place.
  */
 export function discoverTabForQueryDraft(
   raw: string,
@@ -94,6 +93,7 @@ export function discoverTabForQueryDraft(
   const trimmed = raw.trim();
   if (trimmed.startsWith('$')) return 'tickers';
   if (trimmed.startsWith('#')) return 'topics';
+  if (trimmed && current === 'trending') return 'profiles';
   return current;
 }
 

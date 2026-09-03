@@ -50,12 +50,14 @@ describe('discover-tabs', () => {
     expect(params.get('tab')).toBe('profiles');
   });
 
-  it('switches tab from # / $ drafts only', () => {
+  it('routes omni drafts to the tab that can answer them', () => {
     expect(discoverTabForQueryDraft('#near', 'trending')).toBe('topics');
     expect(discoverTabForQueryDraft('$SOCIAL', 'trending')).toBe('tickers');
-    expect(discoverTabForQueryDraft('alice', 'trending')).toBe('trending');
+    expect(discoverTabForQueryDraft('alice', 'trending')).toBe('profiles');
     expect(discoverTabForQueryDraft('alice', 'profiles')).toBe('profiles');
+    expect(discoverTabForQueryDraft('alice', 'daos')).toBe('daos');
     expect(discoverTabForQueryDraft('alice', 'topics')).toBe('topics');
+    expect(discoverTabForQueryDraft('', 'trending')).toBe('trending');
   });
 
   it('strips prefixes for topic/ticker filters', () => {

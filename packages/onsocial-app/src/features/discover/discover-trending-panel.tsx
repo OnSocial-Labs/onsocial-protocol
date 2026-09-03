@@ -9,14 +9,10 @@ import {
   DiscoverTrendingGuildsSectionSkeleton,
   DiscoverTrendingProfilesSectionSkeleton,
 } from '@/features/discover/discover-loading-skeleton';
-import { DiscoverFaceFilterRail } from '@/features/discover/discover-face-filter-rail';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
-import {
-  discoverTrendingLead,
-  discoverTrendingProfilesHeading,
-} from '@/lib/discover-tab-lead';
+import { discoverTrendingLead } from '@/lib/discover-tab-lead';
 import { homeHashtagPath } from '@/features/home/home-hashtag-search';
 import { homePlacePath, placeLabel } from '@/lib/post-place';
 import {
@@ -66,9 +62,8 @@ const SECTION_LIMIT = 6;
 const COMMUNITY_RANK_POOL = 32;
 
 /**
- * Default Discover landing: mixed trending sections. Profiles use the same
- * social list rows as the Profiles tab (avatar, standing count, Stand).
- * Community peeks: DAOs → Guilds → Hubs. Scarce rankings live on Hubs tab.
+ * Default Discover landing: what's moving, then people, then communities.
+ * Face / hiring chips live on Profiles — this page is a peek, not a filter.
  * Sections paint independently as each query settles.
  */
 export function DiscoverTrendingPanel({
@@ -78,7 +73,7 @@ export function DiscoverTrendingPanel({
   onOpenTab: (tab: DiscoverTab) => void;
   initial?: DiscoverTrendingSeed | null;
 }) {
-  const { query, face, industry } = useDiscoverPanel();
+  const { query } = useDiscoverPanel();
   const { accountId: viewerAccountId, isConnected, connect } = useAppWallet();
   const { updateStanding, isStandingPendingForTarget } =
     useViewerStanding('discover');
@@ -236,10 +231,7 @@ export function DiscoverTrendingPanel({
   useEffect(() => {
     let cancelled = false;
     const soft = hasPaintedRef.current;
-    void fetchDiscoverProfiles('', viewerKey, 0, undefined, {
-      face,
-      industry,
-    })
+    void fetchDiscoverProfiles('', viewerKey, 0)
       .then((page) => {
         if (cancelled) return;
         setProfiles(
@@ -255,7 +247,7 @@ export function DiscoverTrendingPanel({
     return () => {
       cancelled = true;
     };
-  }, [face, industry, viewerKey]);
+  }, [viewerKey]);
 
   const isStandingPending = useCallback(
     (targetAccountId: string) =>
@@ -334,10 +326,10 @@ export function DiscoverTrendingPanel({
       profiles == null
         ? null
         : overlayViewerEndorsedOnAccounts(
-            filterTrendingProfiles(profiles, query, face, industry),
+            filterTrendingProfiles(profiles, query),
             getGlobalViewerEndorsementLedger()
           ),
-    [endorsementSyncVersion, face, industry, profiles, query]
+    [endorsementSyncVersion, profiles, query]
   );
   const visibleDaos = useMemo(
     () => (daos == null ? null : filterTrendingDaos(daos, query)),
@@ -387,7 +379,6 @@ export function DiscoverTrendingPanel({
       aria-busy={anyLoading || undefined}
     >
       <DiscoverTabLead>{discoverTrendingLead()}</DiscoverTabLead>
-      <DiscoverFaceFilterRail />
 
       {anyLoading ? <p className="sr-only">Loading trending…</p> : null}
 
@@ -398,8 +389,7 @@ export function DiscoverTrendingPanel({
           </p>
           {filterNeedle ? null : (
             <p className="standing-panel-empty-secondary">
-              Open Profiles, DAOs, Guilds, Hubs, Topics, or Tickers to browse
-              the graph.
+              Open Profiles, Guilds, Hubs, DAOs, Topics, or Tickers to browse.
             </p>
           )}
         </div>
@@ -496,9 +486,7 @@ export function DiscoverTrendingPanel({
       ) : visibleProfiles.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">
-              {discoverTrendingProfilesHeading(face, industry)}
-            </h2>
+            <h2 className="discover-trending-heading">Standing out</h2>
             <button
               type="button"
               className="discover-trending-see-all"
@@ -550,40 +538,6 @@ export function DiscoverTrendingPanel({
             isLoadingMore={false}
             showLoadMoreSentinel={false}
           />
-        </section>
-      ) : null}
-
-      {visibleDaos === null ? (
-        <DiscoverTrendingGuildsSectionSkeleton />
-      ) : visibleDaos.length > 0 ? (
-        <section className="discover-trending-section">
-          <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">DAOs</h2>
-            <button
-              type="button"
-              className="discover-trending-see-all"
-              onClick={() => onOpenTab('daos')}
-            >
-              See all
-            </button>
-          </div>
-          <ul className="discover-focus-rows">
-            {visibleDaos.map((dao) => {
-              const label = resolveDaoDirectoryName(dao.daoAccountId, {
-                name: dao.name,
-              });
-              return (
-                <li key={dao.daoAccountId}>
-                  <Link
-                    href={daoPath(dao.daoAccountId)}
-                    className="discover-focus-row"
-                  >
-                    <span className="discover-focus-row-label">{label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
         </section>
       ) : null}
 
@@ -642,6 +596,40 @@ export function DiscoverTrendingPanel({
                 </Link>
               </li>
             ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {visibleDaos === null ? (
+        <DiscoverTrendingGuildsSectionSkeleton />
+      ) : visibleDaos.length > 0 ? (
+        <section className="discover-trending-section">
+          <div className="discover-trending-section-head">
+            <h2 className="discover-trending-heading">Featured DAOs</h2>
+            <button
+              type="button"
+              className="discover-trending-see-all"
+              onClick={() => onOpenTab('daos')}
+            >
+              See all
+            </button>
+          </div>
+          <ul className="discover-focus-rows">
+            {visibleDaos.map((dao) => {
+              const label = resolveDaoDirectoryName(dao.daoAccountId, {
+                name: dao.name,
+              });
+              return (
+                <li key={dao.daoAccountId}>
+                  <Link
+                    href={daoPath(dao.daoAccountId)}
+                    className="discover-focus-row"
+                  >
+                    <span className="discover-focus-row-label">{label}</span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}
