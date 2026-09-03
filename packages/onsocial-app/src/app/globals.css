@@ -7774,9 +7774,6 @@ a.os-surface-row {
   }
 
   .portfolio-about-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35em;
     margin: 0;
     padding: 0 0 0 1.2em;
     max-width: 40rem;
@@ -7784,11 +7781,18 @@ a.os-surface-row {
     line-height: 1.72;
     font-weight: 400;
     color: var(--portfolio-about-ink);
+    list-style-type: disc;
+    list-style-position: outside;
   }
 
   .portfolio-about-list li {
+    display: list-item;
     padding-left: 0.15em;
     overflow-wrap: anywhere;
+  }
+
+  .portfolio-about-list li + li {
+    margin-top: 0.35em;
   }
 
   @container portfolio-about (min-width: 40rem) {
@@ -16586,7 +16590,18 @@ a.os-surface-row {
   }
 
   .account-editor-bio-italic {
+    font-family: Georgia, 'Times New Roman', serif;
     font-style: italic;
+    font-weight: 500;
+  }
+
+  .account-editor-bio-italic em {
+    font-style: italic;
+    font-weight: 500;
+  }
+
+  .account-editor-bio-list {
+    font-size: 0.95rem;
     font-weight: 650;
   }
 

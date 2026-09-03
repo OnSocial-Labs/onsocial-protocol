@@ -232,11 +232,11 @@ export function ProfileBioRichTextarea({
           }}
           onClick={applyItalic}
         >
-          I
+          <em>I</em>
         </button>
         <button
           type="button"
-          className={`account-editor-bio-tool${listActive ? ' is-active' : ''}`}
+          className={`account-editor-bio-tool account-editor-bio-list${listActive ? ' is-active' : ''}`}
           aria-label="List"
           aria-pressed={listActive}
           onMouseDown={(event) => {
