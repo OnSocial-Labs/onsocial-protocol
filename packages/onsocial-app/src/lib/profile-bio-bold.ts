@@ -1,4 +1,4 @@
-/** Bio stores `**bold**`. Only B — no italic, lists, or headings. */
+/** Bio stores `**bold**`. Italic, lists, and headings live in profile-bio-rich. */
 
 export type ProfileBioBoldRange = {
   wrapStart: number;

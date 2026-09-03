@@ -14,6 +14,15 @@ import {
   splitProfileBioBoldEditorRuns,
   toggleProfileBioBold,
 } from '@/lib/profile-bio-bold';
+import {
+  isProfileBioRangeHeading,
+  isProfileBioRangeItalic,
+  isProfileBioRangeList,
+  splitProfileBioItalicEditorRuns,
+  toggleProfileBioHeading,
+  toggleProfileBioItalic,
+  toggleProfileBioList,
+} from '@/lib/profile-bio-rich';
 
 function mergeRefs<T>(...refs: Array<Ref<T> | undefined>) {
   return (node: T | null) => {
@@ -36,11 +45,58 @@ function BioBackdropText({ value }: { value: string }) {
             </span>
           );
         }
-        if (run.kind === 'bold') {
+        return (
+          <BioBackdropItalic
+            key={`i-${index}`}
+            value={run.value}
+            bold={run.kind === 'bold'}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+function BioBackdropItalic({
+  value,
+  bold,
+}: {
+  value: string;
+  bold: boolean;
+}) {
+  return (
+    <>
+      {splitProfileBioItalicEditorRuns(value).map((run, index) => {
+        if (run.kind === 'mark') {
+          return (
+            <span key={`m-${index}`} className="account-editor-bio-mark">
+              {run.value}
+            </span>
+          );
+        }
+        const italic = run.kind === 'italic';
+        if (bold && italic) {
+          return (
+            <strong
+              key={`bi-${index}`}
+              className="account-editor-bio-bold-run account-editor-bio-italic-run"
+            >
+              <em>{run.value}</em>
+            </strong>
+          );
+        }
+        if (bold) {
           return (
             <strong key={`b-${index}`} className="account-editor-bio-bold-run">
               {run.value}
             </strong>
+          );
+        }
+        if (italic) {
+          return (
+            <em key={`em-${index}`} className="account-editor-bio-italic-run">
+              {run.value}
+            </em>
           );
         }
         return <span key={`p-${index}`}>{run.value}</span>;
@@ -52,7 +108,7 @@ function BioBackdropText({ value }: { value: string }) {
 /**
  * Profile bio field with live # / $ / @ / url color via a mirrored backdrop
  * (same idea as the post composer, without mention suggestions).
- * B on the field chrome stores `**bold**`.
+ * B / I / list / heading on the field chrome store marks in the string.
  */
 export function ProfileBioRichTextarea({
   value,
@@ -82,6 +138,21 @@ export function ProfileBioRichTextarea({
     selection.start,
     selection.end
   );
+  const italicActive = isProfileBioRangeItalic(
+    value,
+    selection.start,
+    selection.end
+  );
+  const headingActive = isProfileBioRangeHeading(
+    value,
+    selection.start,
+    selection.end
+  );
+  const listActive = isProfileBioRangeList(
+    value,
+    selection.start,
+    selection.end
+  );
 
   const syncSelection = (el: HTMLTextAreaElement | null) => {
     if (!el) return;
@@ -95,11 +166,9 @@ export function ProfileBioRichTextarea({
     backdrop.scrollTop = el.scrollTop;
   }, [value]);
 
-  const applyBold = () => {
-    const el = localRef.current;
-    const start = el?.selectionStart ?? selection.start;
-    const end = el?.selectionEnd ?? selection.end;
-    const next = toggleProfileBioBold(value, start, end, maxLength);
+  const applyEdit = (
+    next: { text: string; start: number; end: number }
+  ) => {
     onChange(next.text);
     requestAnimationFrame(() => {
       const field = localRef.current;
@@ -110,12 +179,40 @@ export function ProfileBioRichTextarea({
     });
   };
 
+  const applyBold = () => {
+    const el = localRef.current;
+    const start = el?.selectionStart ?? selection.start;
+    const end = el?.selectionEnd ?? selection.end;
+    applyEdit(toggleProfileBioBold(value, start, end, maxLength));
+  };
+
+  const applyItalic = () => {
+    const el = localRef.current;
+    const start = el?.selectionStart ?? selection.start;
+    const end = el?.selectionEnd ?? selection.end;
+    applyEdit(toggleProfileBioItalic(value, start, end, maxLength));
+  };
+
+  const applyHeading = () => {
+    const el = localRef.current;
+    const start = el?.selectionStart ?? selection.start;
+    const end = el?.selectionEnd ?? selection.end;
+    applyEdit(toggleProfileBioHeading(value, start, end, maxLength));
+  };
+
+  const applyList = () => {
+    const el = localRef.current;
+    const start = el?.selectionStart ?? selection.start;
+    const end = el?.selectionEnd ?? selection.end;
+    applyEdit(toggleProfileBioList(value, start, end, maxLength));
+  };
+
   return (
     <div className="account-editor-bio-shell">
       <div className="account-editor-bio-chrome">
         <button
           type="button"
-          className={`account-editor-bio-bold${boldActive ? ' is-active' : ''}`}
+          className={`account-editor-bio-tool account-editor-bio-bold${boldActive ? ' is-active' : ''}`}
           aria-label="Bold"
           aria-pressed={boldActive}
           onMouseDown={(event) => {
@@ -124,6 +221,42 @@ export function ProfileBioRichTextarea({
           onClick={applyBold}
         >
           B
+        </button>
+        <button
+          type="button"
+          className={`account-editor-bio-tool account-editor-bio-italic${italicActive ? ' is-active' : ''}`}
+          aria-label="Italic"
+          aria-pressed={italicActive}
+          onMouseDown={(event) => {
+            event.preventDefault();
+          }}
+          onClick={applyItalic}
+        >
+          I
+        </button>
+        <button
+          type="button"
+          className={`account-editor-bio-tool${listActive ? ' is-active' : ''}`}
+          aria-label="List"
+          aria-pressed={listActive}
+          onMouseDown={(event) => {
+            event.preventDefault();
+          }}
+          onClick={applyList}
+        >
+          •
+        </button>
+        <button
+          type="button"
+          className={`account-editor-bio-tool${headingActive ? ' is-active' : ''}`}
+          aria-label="Heading"
+          aria-pressed={headingActive}
+          onMouseDown={(event) => {
+            event.preventDefault();
+          }}
+          onClick={applyHeading}
+        >
+          H
         </button>
       </div>
       <div className="account-editor-bio-field">
@@ -185,12 +318,26 @@ export function ProfileBioRichTextarea({
             syncSelection(event.currentTarget);
           }}
           onKeyDown={(event) => {
-            if (
-              (event.metaKey || event.ctrlKey) &&
-              event.key.toLowerCase() === 'b'
-            ) {
+            if (!(event.metaKey || event.ctrlKey)) return;
+            const key = event.key.toLowerCase();
+            if (key === 'b') {
               event.preventDefault();
               applyBold();
+              return;
+            }
+            if (key === 'i') {
+              event.preventDefault();
+              applyItalic();
+              return;
+            }
+            if (event.altKey && key === '1') {
+              event.preventDefault();
+              applyHeading();
+              return;
+            }
+            if (event.shiftKey && (key === '8' || event.key === '*')) {
+              event.preventDefault();
+              applyList();
             }
           }}
           onKeyUp={(event) => {

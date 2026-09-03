@@ -112,6 +112,9 @@ describe('post-mentions', () => {
       },
       { type: 'text', value: ' not a hashtag' },
     ]);
+    expect(splitPostRichText('# Title stays prose')).toEqual([
+      { type: 'text', value: '# Title stays prose' },
+    ]);
   });
 
   it('formats autolink host labels', () => {

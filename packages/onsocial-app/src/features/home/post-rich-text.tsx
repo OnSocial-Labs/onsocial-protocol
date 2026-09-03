@@ -12,7 +12,7 @@ import {
   homeTickerPath,
 } from '@/features/home/home-ticker-search';
 import { splitPostRichText } from '@/features/home/post-rich-segments';
-import { splitProfileBioBoldDisplayRuns } from '@/lib/profile-bio-bold';
+import { splitProfileBioInlineDisplayRuns } from '@/lib/profile-bio-rich';
 import { portfolioPath } from '@/lib/overlay-routes';
 
 /** Post / quote / bio body with hashtag + ticker + @mention + url highlights. */
@@ -36,13 +36,21 @@ export function PostRichText({
         if (segment.type === 'text') {
           return (
             <span key={`t-${index}`}>
-              {splitProfileBioBoldDisplayRuns(segment.value).map(
-                (run, runIndex) =>
-                  run.bold ? (
-                    <strong key={`b-${runIndex}`}>{run.value}</strong>
+              {splitProfileBioInlineDisplayRuns(segment.value).map(
+                (run, runIndex) => {
+                  const inner = run.italic ? (
+                    <em key={`i-${runIndex}`}>{run.value}</em>
                   ) : (
-                    <span key={`p-${runIndex}`}>{run.value}</span>
-                  )
+                    run.value
+                  );
+                  if (run.bold) {
+                    return <strong key={`b-${runIndex}`}>{inner}</strong>;
+                  }
+                  if (run.italic) {
+                    return inner;
+                  }
+                  return <span key={`p-${runIndex}`}>{run.value}</span>;
+                }
               )}
             </span>
           );

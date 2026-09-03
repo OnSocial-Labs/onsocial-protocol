@@ -71,6 +71,27 @@ export function profileAboutPhotoRefsEqual(
   return left.every((ref, index) => ref === right[index]);
 }
 
+export function moveProfileAboutPhoto<T>(
+  photos: T[],
+  from: number,
+  to: number
+): T[] {
+  if (
+    from === to ||
+    from < 0 ||
+    to < 0 ||
+    from >= photos.length ||
+    to >= photos.length
+  ) {
+    return photos;
+  }
+  const next = photos.slice();
+  const [item] = next.splice(from, 1);
+  if (item === undefined) return photos;
+  next.splice(to, 0, item);
+  return next;
+}
+
 export function isProfileAboutPhotoFile(file: File | null | undefined): boolean {
   if (!file) return false;
   return PHOTO_ACCEPT.has(file.type);

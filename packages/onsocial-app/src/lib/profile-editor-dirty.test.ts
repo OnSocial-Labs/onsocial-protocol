@@ -148,6 +148,25 @@ describe('isProfileEditorDirty', () => {
     ).toBe(true);
   });
 
+  it('is dirty when About photos are reordered', () => {
+    const snapshot = baseSnapshot({
+      photos: [
+        { ref: 'ipfs://one', url: 'https://cdn.example/one.jpg' },
+        { ref: 'ipfs://two', url: 'https://cdn.example/two.jpg' },
+      ],
+    });
+    expect(
+      isProfileEditorDirty(
+        dirtyInput(snapshot, {
+          photos: [
+            { ref: 'ipfs://two', url: 'https://cdn.example/two.jpg' },
+            { ref: 'ipfs://one', url: 'https://cdn.example/one.jpg' },
+          ],
+        })
+      )
+    ).toBe(true);
+  });
+
   it('is dirty when a link title changes', () => {
     const snapshot = baseSnapshot({
       pageConfig: { linkNotes: { website: 'Home' } },

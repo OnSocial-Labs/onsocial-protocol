@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   PROFILE_ABOUT_PHOTOS_MAX,
+  moveProfileAboutPhoto,
   parseProfileAboutPhotoRefs,
   profileAboutPhotoRefsEqual,
   profileAboutPhotosFromStored,
@@ -57,5 +58,25 @@ describe('profileAboutPhotoRefsEqual', () => {
   it('compares order and values', () => {
     expect(profileAboutPhotoRefsEqual(['a', 'b'], ['a', 'b'])).toBe(true);
     expect(profileAboutPhotoRefsEqual(['a', 'b'], ['b', 'a'])).toBe(false);
+  });
+});
+
+describe('moveProfileAboutPhoto', () => {
+  it('moves an item and keeps the rest in order', () => {
+    expect(moveProfileAboutPhoto(['a', 'b', 'c'], 0, 2)).toEqual([
+      'b',
+      'c',
+      'a',
+    ]);
+    expect(moveProfileAboutPhoto(['a', 'b', 'c'], 2, 0)).toEqual([
+      'c',
+      'a',
+      'b',
+    ]);
+    expect(moveProfileAboutPhoto(['a', 'b', 'c'], 1, 1)).toEqual([
+      'a',
+      'b',
+      'c',
+    ]);
   });
 });

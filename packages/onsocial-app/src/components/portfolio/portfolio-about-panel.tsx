@@ -4,10 +4,8 @@ import { PortfolioIdentityTopics } from '@/components/portfolio/portfolio-identi
 import { PostRichText } from '@/features/home/post-rich-text';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { displayName, portfolioHandleForMood } from '@/lib/profile-display';
-import {
-  portfolioAboutPrintUrl,
-  profileAboutEssayBlocks,
-} from '@/lib/profile-bio-face';
+import { portfolioAboutPrintUrl } from '@/lib/profile-bio-face';
+import { profileAboutBlocks } from '@/lib/profile-bio-rich';
 import {
   profileAboutPhotoUrls,
   type ProfileAboutPhoto,
@@ -45,7 +43,7 @@ export function PortfolioAboutPanel({
   const displayKind = resolveDisplayProfileKind(profileKind, isDao);
   const titleLabel = displayName(accountId, profileName ?? undefined);
   const handleLabel = portfolioHandleForMood(accountId, mood.id);
-  const essayBlocks = profileAboutEssayBlocks(bio ?? '');
+  const essayBlocks = profileAboutBlocks(bio ?? '');
   const printUrl = portfolioAboutPrintUrl(avatarUrl);
   const gallery = profileAboutPhotoUrls(photos);
 
@@ -91,14 +89,52 @@ export function PortfolioAboutPanel({
           ) : null}
           {essayBlocks.length > 0 ? (
             <div className="portfolio-about-essay">
-              {essayBlocks.map((block, index) => (
-                <p
-                  key={`${index}-${block.slice(0, 24)}`}
-                  className="portfolio-about-bio"
-                >
-                  <PostRichText text={block} emptyFallback="" showLinkIcon />
-                </p>
-              ))}
+              {essayBlocks.map((block, index) => {
+                if (block.type === 'heading') {
+                  return (
+                    <h2
+                      key={`${index}-${block.text.slice(0, 24)}`}
+                      className="portfolio-about-heading"
+                    >
+                      <PostRichText
+                        text={block.text}
+                        emptyFallback=""
+                        showLinkIcon
+                      />
+                    </h2>
+                  );
+                }
+                if (block.type === 'list') {
+                  return (
+                    <ul
+                      key={`${index}-${block.items[0]?.slice(0, 24) ?? 'list'}`}
+                      className="portfolio-about-list"
+                    >
+                      {block.items.map((item, itemIndex) => (
+                        <li key={`${itemIndex}-${item.slice(0, 24)}`}>
+                          <PostRichText
+                            text={item}
+                            emptyFallback=""
+                            showLinkIcon
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  );
+                }
+                return (
+                  <p
+                    key={`${index}-${block.text.slice(0, 24)}`}
+                    className="portfolio-about-bio"
+                  >
+                    <PostRichText
+                      text={block.text}
+                      emptyFallback=""
+                      showLinkIcon
+                    />
+                  </p>
+                );
+              })}
             </div>
           ) : null}
         </div>
