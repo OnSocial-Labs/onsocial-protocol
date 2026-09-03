@@ -1,3 +1,5 @@
+import type { DiscoverFaceFilter } from '@onsocial/sdk';
+
 /** Compact counts for Discover tab lead lines. */
 export function formatDiscoverTabCount(count: number): string {
   const numericCount = Number(count);
@@ -16,8 +18,15 @@ export function formatDiscoverTabCount(count: number): string {
  */
 export function discoverProfilesLead(
   discoverableTotal: number | null | undefined,
-  _query?: string
+  _query?: string,
+  face: DiscoverFaceFilter = 'all',
+  industry = ''
 ): string {
+  const sector = industry.trim();
+  if (face === 'hiring') return sector ? `Hiring · ${sector}` : 'Hiring';
+  if (face === 'orgs') return sector ? `Orgs · ${sector}` : 'Orgs';
+  if (face === 'people') return 'People';
+  if (sector) return `Profiles · ${sector}`;
   if (typeof discoverableTotal === 'number' && discoverableTotal > 0) {
     return `${formatDiscoverTabCount(discoverableTotal)} profiles`;
   }
@@ -64,4 +73,17 @@ export function discoverTickersLead(filterPrefix: string): string {
 
 export function discoverTrendingLead(): string {
   return "What's moving";
+}
+
+/** Profiles peek heading on Trending — names the face / industry filter. */
+export function discoverTrendingProfilesHeading(
+  face: DiscoverFaceFilter = 'all',
+  industry = ''
+): string {
+  const sector = industry.trim();
+  if (face === 'hiring') return sector ? `Hiring · ${sector}` : 'Hiring';
+  if (face === 'orgs') return sector ? `Orgs · ${sector}` : 'Orgs';
+  if (face === 'people') return 'People';
+  if (sector) return `Standing out · ${sector}`;
+  return 'Standing out';
 }

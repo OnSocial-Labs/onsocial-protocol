@@ -354,7 +354,7 @@ describe('QueryModule', () => {
 
       await expect(
         os.query.profiles.search({ query: 'alice', limit: 10 })
-      ).resolves.toEqual(rows);
+      ).resolves.toEqual([{ ...rows[0], industry: null, openJobsCount: 0 }]);
       const body = JSON.parse(
         String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
       ) as { variables: Record<string, unknown>; query: string };
@@ -366,6 +366,74 @@ describe('QueryModule', () => {
       expect(body.query).toContain('profileDiscover');
       expect(body.query).toContain('discoverScore');
       expect(body.query).toContain('searchText');
+    });
+
+    it('filters discover by person/org, industry, and hiring', async () => {
+      const { os, fetch } = makeOs({ data: { profileDiscover: [] } });
+      await os.query.profiles.search({
+        kind: 'org',
+        industry: 'Healthcare',
+        hiring: true,
+      });
+      const body = JSON.parse(
+        String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
+      ) as { variables: Record<string, unknown>; query: string };
+      expect(body.query).toContain('kind: {_eq: "org"}');
+      expect(body.query).toContain('industry: {_eq: $industry}');
+      expect(body.query).toContain('openJobsCount: {_gt: 0}');
+      expect(body.variables.industry).toBe('Healthcare');
+      expect(body.query).not.toContain('searchText');
+    });
+
+    it('treats omitted kind as person when filtering people', async () => {
+      const { os, fetch } = makeOs({ data: { profileDiscover: [] } });
+      await os.query.profiles.search({ kind: 'person' });
+      const body = JSON.parse(
+        String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
+      ) as { query: string };
+      expect(body.query).toContain(
+        '{_or: [{kind: {_eq: "person"}}, {kind: {_isNull: true}}]}'
+      );
+    });
+
+    it('searches open jobs by text, industry, and org', async () => {
+      const row = {
+        orgAccountId: 'studio.near',
+        jobId: 'j-1',
+        title: 'Designer',
+        description: 'Brand',
+        url: 'https://studio.example/apply',
+        ends: 1_800_000_000_000,
+        since: 1_700_000_000_000,
+        orgName: 'Studio',
+        orgKind: 'org',
+        orgIndustry: 'Fashion',
+        orgAvatar: null,
+        blockHeight: 1,
+        blockTimestamp: 2,
+      };
+      const { os, fetch } = makeOs({ data: { jobsSearch: [row] } });
+      await expect(
+        os.query.jobs.search({
+          query: 'design',
+          industry: 'Fashion',
+          orgAccountId: 'studio.near',
+        })
+      ).resolves.toEqual([
+        {
+          ...row,
+          searchText: null,
+        },
+      ]);
+      const body = JSON.parse(
+        String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
+      ) as { variables: Record<string, unknown>; query: string };
+      expect(body.query).toContain('jobsSearch');
+      expect(body.variables).toMatchObject({
+        pattern: '%design%',
+        industry: 'Fashion',
+        orgAccountId: 'studio.near',
+      });
     });
 
     it('discoverPage without viewer uses search (one round-trip)', async () => {
@@ -390,7 +458,9 @@ describe('QueryModule', () => {
       const { os, fetch } = makeOs({ data: { profileDiscover: rows } });
 
       const page = await os.query.profiles.discoverPage({ limit: 10 });
-      expect(page.profiles).toEqual(rows);
+      expect(page.profiles).toEqual([
+        { ...rows[0], industry: null, openJobsCount: 0 },
+      ]);
       expect(page.viewer).toBeNull();
       expect(fetch).toHaveBeenCalledTimes(1);
     });

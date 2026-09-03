@@ -9,9 +9,14 @@ import {
 describe('discoverListCacheKey', () => {
   it('includes query and viewer context', () => {
     expect(discoverListCacheKey('alice', 'viewer.near')).toBe(
-      'discover:alice:viewer.near'
+      'discover:alice:viewer.near:all:__any__'
     );
-    expect(discoverListCacheKey('', null)).toBe('discover:__all__:__anon__');
+    expect(discoverListCacheKey('', null)).toBe(
+      'discover:__all__:__anon__:all:__any__'
+    );
+    expect(discoverListCacheKey('', null, 'hiring', 'Healthcare')).toBe(
+      'discover:__all__:__anon__:hiring:Healthcare'
+    );
   });
 });
 

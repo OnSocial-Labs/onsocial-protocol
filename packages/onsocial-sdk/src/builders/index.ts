@@ -30,6 +30,7 @@ export {
   isProfileIndustryWriteInMode,
   matchProfileIndustryOption,
   normalizeProfileIndustryInput,
+  discoverIndustryChoiceOptions,
   profileIndustryChoiceOptions,
   profileIndustryDrawerValue,
   profileIndustryFromMaterialised,
@@ -88,6 +89,26 @@ export { buildReactionSetData, buildReactionRemoveData } from './reaction.js';
 export { buildSaveSetData, buildSaveRemoveData } from './save.js';
 export type { SaveBuildInput } from './save.js';
 
+export {
+  JOB_DESCRIPTION_MAX,
+  JOB_TITLE_MAX,
+  JOB_URL_MAX,
+  buildJobRemoveData,
+  buildJobSetData,
+  createJobId,
+  formatJobEndsLabel,
+  hiringLineAriaLabel,
+  hiringLineLabel,
+  isJobOpen,
+  jobDateInputFromEnds,
+  jobEndsFromDateInput,
+  jobPath,
+  normalizeJobDescription,
+  normalizeJobTitle,
+  normalizeJobUrl,
+  todayDateInput,
+} from './jobs.js';
+export type { JobBuildInput } from './jobs.js';
 export {
   buildEndorsementSetData,
   buildEndorsementRemoveData,

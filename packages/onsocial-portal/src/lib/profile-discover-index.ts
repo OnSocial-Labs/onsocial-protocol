@@ -1,8 +1,10 @@
 import type {
+  DiscoverFaceFilter,
   ProfileDiscoverPageResult,
   ProfileDiscoverStandingRow,
   ProfileDiscoverViewerContext,
 } from '@onsocial/sdk';
+import { discoverFaceSearchOptions } from '@onsocial/sdk';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
 
 export type DiscoverStandingRow = ProfileDiscoverStandingRow;
@@ -13,7 +15,8 @@ export async function loadDiscoverIndexPage(
   query: string,
   limit: number,
   offset: number,
-  viewerAccountId: string | null
+  viewerAccountId: string | null,
+  filters: { face?: DiscoverFaceFilter; industry?: string } = {}
 ): Promise<ProfileDiscoverPageResult> {
   const os = createPortalServerOnSocialClient();
   return os.query.profiles.discoverPage({
@@ -21,5 +24,6 @@ export async function loadDiscoverIndexPage(
     limit,
     offset,
     ...(viewerAccountId ? { viewerAccountId } : {}),
+    ...discoverFaceSearchOptions(filters.face ?? 'all', filters.industry),
   });
 }

@@ -1,3 +1,4 @@
+import type { DiscoverFaceFilter } from '@onsocial/sdk';
 import type { DiscoverProfileSummary } from '@/lib/discover-profiles';
 
 export interface DiscoverListCacheEntry {
@@ -10,10 +11,13 @@ const discoverListCache = new Map<string, DiscoverListCacheEntry>();
 
 export function discoverListCacheKey(
   searchQuery: string,
-  viewerAccountId: string | null
+  viewerAccountId: string | null,
+  face: DiscoverFaceFilter = 'all',
+  industry = ''
 ): string {
   const viewerKey = viewerAccountId ?? '__anon__';
-  return `discover:${searchQuery || '__all__'}:${viewerKey}`;
+  const industryKey = industry.trim() || '__any__';
+  return `discover:${searchQuery || '__all__'}:${viewerKey}:${face}:${industryKey}`;
 }
 
 export function readDiscoverListCache(

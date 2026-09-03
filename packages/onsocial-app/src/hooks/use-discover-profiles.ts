@@ -40,9 +40,12 @@ import {
   buildDiscoverListSummary,
   formatDiscoverSubtitle,
 } from '@/lib/discover-list-summary';
+import type { DiscoverFaceFilter } from '@onsocial/sdk';
 import {
+  applyDiscoverFilterParams,
   discoverProfileToProfileListAccount,
   fetchDiscoverProfiles,
+  parseDiscoverProfileFilters,
   type DiscoverProfileSummary,
   type DiscoverProfilesResponse,
 } from '@/lib/discover-profiles';
@@ -58,9 +61,7 @@ import {
   writeDiscoverListCache,
 } from '@/lib/discover-list-cache';
 import { replaceBrowserQueryUrl } from '@/lib/sync-browser-url-query';
-import {
-  overlayViewerEndorsedOnAccounts,
-} from '@/lib/viewer-endorsement-ledger';
+import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
 import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
 
 function discoverUrlQueryValue(query: string, tab: DiscoverTab): string {
@@ -165,6 +166,20 @@ export function useDiscoverProfiles(
   const [tab, setTabState] = useState<DiscoverTab>(() =>
     parseDiscoverTab(searchParams.get(DISCOVER_TAB_QUERY_KEY))
   );
+  const [face, setFaceState] = useState<DiscoverFaceFilter>(
+    () =>
+      parseDiscoverProfileFilters({
+        face: searchParams.get('face'),
+        industry: searchParams.get('industry'),
+      }).face ?? 'all'
+  );
+  const [industry, setIndustryState] = useState(
+    () =>
+      parseDiscoverProfileFilters({
+        face: searchParams.get('face'),
+        industry: searchParams.get('industry'),
+      }).industry ?? ''
+  );
   const [profiles, setProfiles] = useState<DiscoverProfileSummary[]>(
     () => initialPage?.profiles ?? []
   );
@@ -195,6 +210,17 @@ export function useDiscoverProfiles(
 
   const setTab = useCallback((next: DiscoverTab) => {
     setTabState(next);
+  }, []);
+
+  const setFace = useCallback((next: DiscoverFaceFilter) => {
+    setFaceState(next);
+    if (next === 'people') {
+      setIndustryState('');
+    }
+  }, []);
+
+  const setIndustry = useCallback((next: string) => {
+    setIndustryState(next.trim());
   }, []);
 
   const setQuery = useCallback((value: string) => {
@@ -262,9 +288,10 @@ export function useDiscoverProfiles(
       params.delete('q');
     }
     applyDiscoverTabParam(params, tab);
+    applyDiscoverFilterParams(params, face, industry);
 
     replaceBrowserQueryUrl(pathname, params);
-  }, [pathname, tab, urlQueryValue]);
+  }, [face, industry, pathname, tab, urlQueryValue]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -272,6 +299,12 @@ export function useDiscoverProfiles(
       const nextTab = parseDiscoverTab(params.get(DISCOVER_TAB_QUERY_KEY));
       setTabState(nextTab);
       setQueryState(restoreDiscoverQueryFromUrl(nextTab, params.get('q')));
+      const restored = parseDiscoverProfileFilters({
+        face: params.get('face'),
+        industry: params.get('industry'),
+      });
+      setFaceState(restored.face ?? 'all');
+      setIndustryState(restored.industry ?? '');
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -311,7 +344,8 @@ export function useDiscoverProfiles(
           normalizedQuery,
           viewerKey,
           offset,
-          controller.signal
+          controller.signal,
+          { face, industry }
         );
         if (loadIdRef.current !== loadId) return;
 
@@ -320,7 +354,7 @@ export function useDiscoverProfiles(
             ? mergeDiscoverProfiles(current, response.profiles)
             : response.profiles;
           writeDiscoverListCache(
-            discoverListCacheKey(normalizedQuery, viewerKey),
+            discoverListCacheKey(normalizedQuery, viewerKey, face, industry),
             {
               viewerAccountId: viewerKey,
               profiles: merged,
@@ -353,7 +387,7 @@ export function useDiscoverProfiles(
         }
       }
     },
-    [normalizedQuery, viewerAccountId, viewerKey]
+    [face, industry, normalizedQuery, viewerAccountId, viewerKey]
   );
 
   useEffect(() => {
@@ -374,10 +408,17 @@ export function useDiscoverProfiles(
     const controller = new AbortController();
     pageAbortRef.current = controller;
 
-    const cacheKey = discoverListCacheKey(normalizedQuery, viewerKey);
+    const cacheKey = discoverListCacheKey(
+      normalizedQuery,
+      viewerKey,
+      face,
+      industry
+    );
     const canUseInitialPage =
       initialPage != null &&
-      normalizedQuery === normalizeProfileSearchQuery(initialPage.query);
+      normalizedQuery === normalizeProfileSearchQuery(initialPage.query) &&
+      (initialPage.face ?? 'all') === face &&
+      (initialPage.industry ?? '') === industry;
     const bootstrap = canUseInitialPage
       ? {
           viewerAccountId: null,
@@ -422,7 +463,8 @@ export function useDiscoverProfiles(
         normalizedQuery,
         viewerKey,
         0,
-        controller.signal
+        controller.signal,
+        { face, industry }
       )
         .then((response) => {
           if (loadIdRef.current !== loadId) return;
@@ -458,6 +500,8 @@ export function useDiscoverProfiles(
       controller.abort();
     };
   }, [
+    face,
+    industry,
     initialPage,
     normalizedQuery,
     reloadNonce,
@@ -521,13 +565,18 @@ export function useDiscoverProfiles(
     [discoverableTotal]
   );
 
-  const emptyState = useMemo(() => buildDiscoverEmptyState(query), [query]);
+  const emptyState = useMemo(
+    () => buildDiscoverEmptyState(query, face, industry),
+    [face, industry, query]
+  );
 
   const listBootstrapReady = useMemo(
     () =>
       initialPage != null &&
-      normalizedQuery === normalizeProfileSearchQuery(initialPage.query),
-    [initialPage, normalizedQuery]
+      normalizedQuery === normalizeProfileSearchQuery(initialPage.query) &&
+      (initialPage.face ?? 'all') === face &&
+      (initialPage.industry ?? '') === industry,
+    [face, industry, initialPage, normalizedQuery]
   );
   const hasListRows = profiles.length > 0;
 
@@ -540,7 +589,7 @@ export function useDiscoverProfiles(
       (!listBootstrapReady && isLoading && !hasListRows) ||
       (!listBootstrapReady && !relationshipSynced && !hasListRows));
   const isSearchEmpty = searching;
-  const listKey = normalizedQuery || '__all__';
+  const listKey = `${normalizedQuery || '__all__'}:${face}:${industry || '__any__'}`;
 
   const clearSearch = useCallback(() => {
     setQueryState('');
@@ -609,6 +658,10 @@ export function useDiscoverProfiles(
     setQuery,
     tab,
     setTab,
+    face,
+    setFace,
+    industry,
+    setIndustry,
     topicFilterPrefix,
     discoverableTotal,
     listAccounts,

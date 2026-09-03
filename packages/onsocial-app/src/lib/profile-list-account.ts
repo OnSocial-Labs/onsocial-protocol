@@ -26,6 +26,8 @@ export interface ProfileListAccount {
   /** Server/client hint that this peer is a DAO org. */
   isDao?: boolean;
   kind?: ProfileKind | null;
+  industry?: string | null;
+  openJobsCount?: number;
 }
 
 export function standingAccountToProfileListAccount(
@@ -75,6 +77,8 @@ export function discoverProfileToProfileListAccount(
     standingSince: profile.standingSince,
     standingBlockTimestamp: profile.standingBlockTimestamp,
     kind: profile.kind,
+    industry: profile.industry,
+    openJobsCount: profile.openJobsCount,
   };
 }
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   EndorsementRecord,
+  JobBuildInput,
   MaterialisedProfile,
   ProfileData,
   RelayResponse,
@@ -975,6 +976,34 @@ export function useProfileState() {
     }
   }, [accountId, getSigningWallet, isConnected]);
 
+  const createJob = useCallback(
+    async (
+      input: JobBuildInput
+    ): Promise<{ jobId: string; result: RelayResponse }> => {
+      if (!accountId || !isConnected) {
+        throw new Error('Connect your wallet before posting a role.');
+      }
+      const os = createClient();
+      const session = await getSocialSession();
+      os.attachSession(session);
+      return os.jobs.create(input);
+    },
+    [accountId, createClient, getSocialSession, isConnected]
+  );
+
+  const removeJob = useCallback(
+    async (jobId: string): Promise<RelayResponse> => {
+      if (!accountId || !isConnected) {
+        throw new Error('Connect your wallet before removing a role.');
+      }
+      const os = createClient();
+      const session = await getSocialSession();
+      os.attachSession(session);
+      return os.jobs.remove(jobId);
+    },
+    [accountId, createClient, getSocialSession, isConnected]
+  );
+
   const removeEndorsement = useCallback(
     async (targetAccount: string, topic?: string): Promise<RelayResponse> => {
       if (!accountId || !isConnected) {
@@ -1038,6 +1067,8 @@ export function useProfileState() {
     deriveStandingListAccounts,
     reconcileStandingListFromFetch,
     shouldFreshFetchStandingListFor,
+    createJob,
+    removeJob,
     endorse,
     removeEndorsement,
     supportProfile,

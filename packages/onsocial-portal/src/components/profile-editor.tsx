@@ -69,6 +69,7 @@ import {
   isWalletCancellationMessage,
 } from '@/lib/wallet-errors';
 import { cn } from '@/lib/utils';
+import { ProfileJobsEditor } from '@/components/profile-jobs-editor';
 
 /** Same-origin server probe — mirrors app `probeNearAccountExists`. */
 async function probeNearAccountExists(accountId: string): Promise<boolean> {
@@ -754,6 +755,13 @@ export function ProfileEditor({
                                 }}
                                 zIndex={PORTAL_INDUSTRY_DRAWER_Z}
                               />
+                              {accountId ? (
+                                <ProfileJobsEditor
+                                  accountId={accountId}
+                                  disabled={isSaving || isAuthorizingSession}
+                                  onToast={setActionToast}
+                                />
+                              ) : null}
                             </>
                           ) : null}
                           <label htmlFor="profile-location" className="sr-only">

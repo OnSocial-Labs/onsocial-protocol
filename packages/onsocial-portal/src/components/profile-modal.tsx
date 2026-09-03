@@ -25,6 +25,7 @@ import {
   type MaterialisedProfile,
 } from '@onsocial/sdk';
 import { BuildingTreeIcon } from '@onsocial/ui';
+import { ProfileHiringLine } from '@/components/profile-hiring-line';
 import { isHeuristicDaoAccountId } from '@/lib/profile-avatar-shape';
 import type { PortalProfileShell } from '@/lib/portal-profile-server';
 import { useProfile } from '@/contexts/profile-context';
@@ -1650,6 +1651,9 @@ export function ProfileModal({
                       />
                       <span className="truncate">{industryLine}</span>
                     </p>
+                  ) : null}
+                  {displayKind === 'org' ? (
+                    <ProfileHiringLine accountId={accountId} orgName={title} />
                   ) : null}
                   {location ? (
                     <p className="min-w-0 truncate portal-type-body-sm text-muted-foreground/45">

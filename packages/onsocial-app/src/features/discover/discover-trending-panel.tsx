@@ -9,10 +9,14 @@ import {
   DiscoverTrendingGuildsSectionSkeleton,
   DiscoverTrendingProfilesSectionSkeleton,
 } from '@/features/discover/discover-loading-skeleton';
+import { DiscoverFaceFilterRail } from '@/features/discover/discover-face-filter-rail';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
-import { discoverTrendingLead } from '@/lib/discover-tab-lead';
+import {
+  discoverTrendingLead,
+  discoverTrendingProfilesHeading,
+} from '@/lib/discover-tab-lead';
 import { homeHashtagPath } from '@/features/home/home-hashtag-search';
 import { homePlacePath, placeLabel } from '@/lib/post-place';
 import {
@@ -24,11 +28,7 @@ import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-globa
 import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
-import {
-  APP_GROUPS_PATH,
-  appPath,
-  daoPath,
-} from '@/lib/app-routes';
+import { APP_GROUPS_PATH, appPath, daoPath } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   discoverProfileToProfileListAccount,
@@ -78,12 +78,8 @@ export function DiscoverTrendingPanel({
   onOpenTab: (tab: DiscoverTab) => void;
   initial?: DiscoverTrendingSeed | null;
 }) {
-  const { query } = useDiscoverPanel();
-  const {
-    accountId: viewerAccountId,
-    isConnected,
-    connect,
-  } = useAppWallet();
+  const { query, face, industry } = useDiscoverPanel();
+  const { accountId: viewerAccountId, isConnected, connect } = useAppWallet();
   const { updateStanding, isStandingPendingForTarget } =
     useViewerStanding('discover');
   const { endorsementSyncVersion } = useViewerEndorsement('discover');
@@ -176,20 +172,6 @@ export function DiscoverTrendingPanel({
         if (!cancelled && !soft) setPlaces([]);
       });
 
-    void fetchDiscoverProfiles('', viewerKey, 0)
-      .then((page) => {
-        if (cancelled) return;
-        setProfiles(
-          (page?.profiles ?? [])
-            .slice(0, SECTION_LIMIT)
-            .map(discoverProfileToProfileListAccount)
-        );
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) setProfiles([]);
-      });
-
     void rankGuildPeeks(client, {
       browseLimit: COMMUNITY_RANK_POOL,
       peekLimit: SECTION_LIMIT,
@@ -251,6 +233,30 @@ export function DiscoverTrendingPanel({
     };
   }, [viewerKey]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const soft = hasPaintedRef.current;
+    void fetchDiscoverProfiles('', viewerKey, 0, undefined, {
+      face,
+      industry,
+    })
+      .then((page) => {
+        if (cancelled) return;
+        setProfiles(
+          (page?.profiles ?? [])
+            .slice(0, SECTION_LIMIT)
+            .map(discoverProfileToProfileListAccount)
+        );
+        hasPaintedRef.current = true;
+      })
+      .catch(() => {
+        if (!cancelled && !soft) setProfiles([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [face, industry, viewerKey]);
+
   const isStandingPending = useCallback(
     (targetAccountId: string) =>
       pendingStandingIds.has(targetAccountId) ||
@@ -297,9 +303,7 @@ export function DiscoverTrendingPanel({
         );
       } catch (error) {
         setActionError(
-          error instanceof Error
-            ? error.message
-            : 'Could not update standing.'
+          error instanceof Error ? error.message : 'Could not update standing.'
         );
       } finally {
         setPendingStandingIds((prev) => {
@@ -330,10 +334,10 @@ export function DiscoverTrendingPanel({
       profiles == null
         ? null
         : overlayViewerEndorsedOnAccounts(
-            filterTrendingProfiles(profiles, query),
+            filterTrendingProfiles(profiles, query, face, industry),
             getGlobalViewerEndorsementLedger()
           ),
-    [endorsementSyncVersion, profiles, query]
+    [endorsementSyncVersion, face, industry, profiles, query]
   );
   const visibleDaos = useMemo(
     () => (daos == null ? null : filterTrendingDaos(daos, query)),
@@ -383,10 +387,9 @@ export function DiscoverTrendingPanel({
       aria-busy={anyLoading || undefined}
     >
       <DiscoverTabLead>{discoverTrendingLead()}</DiscoverTabLead>
+      <DiscoverFaceFilterRail />
 
-      {anyLoading ? (
-        <p className="sr-only">Loading trending…</p>
-      ) : null}
+      {anyLoading ? <p className="sr-only">Loading trending…</p> : null}
 
       {empty ? (
         <div className="standing-panel-empty-state">
@@ -493,7 +496,9 @@ export function DiscoverTrendingPanel({
       ) : visibleProfiles.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">Standing out</h2>
+            <h2 className="discover-trending-heading">
+              {discoverTrendingProfilesHeading(face, industry)}
+            </h2>
             <button
               type="button"
               className="discover-trending-see-all"

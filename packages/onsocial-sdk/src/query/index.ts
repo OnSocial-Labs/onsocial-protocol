@@ -72,6 +72,7 @@ import { BoostQuery } from './boost.js';
 import { SocialSpendQuery } from './social-spend.js';
 import { RawQuery } from './raw.js';
 import { PagesQuery } from './pages.js';
+import { JobsQuery } from './jobs.js';
 
 export { GraphQLValidationError } from './_shared.js';
 export { APP_DATA_TYPE, escapeLike, normalizeAppPrefix } from './raw.js';
@@ -109,12 +110,18 @@ export type {
   GraphEdgeRow,
 } from './graph.js';
 export type {
+  DiscoverFaceFilter,
+  DiscoverFaceKind,
   ProfileDiscoverPageOptions,
   ProfileDiscoverPageResult,
   ProfileDiscoverStandingRow,
   ProfileDiscoverViewerContext,
   ProfileSearchOptions,
   ProfileSearchRow,
+} from './profiles.js';
+export {
+  discoverFaceSearchOptions,
+  parseDiscoverFaceFilter,
 } from './profiles.js';
 export type {
   EdgeCount,
@@ -172,6 +179,7 @@ export type {
 } from './social-spend.js';
 export type { SocialSpendEventType } from './social-spend-events.js';
 export type { PageCurrentRow } from './pages.js';
+export type { JobSearchOptions, JobSearchRow } from './jobs.js';
 export type {
   GroupCurrentRow,
   GroupMembershipCurrentRow,
@@ -208,6 +216,7 @@ export class QueryModule {
   readonly boost: BoostQuery;
   readonly socialSpend: SocialSpendQuery;
   readonly pages: PagesQuery;
+  readonly jobs: JobsQuery;
   readonly raw: RawQuery;
 
   constructor(http: HttpClient) {
@@ -236,6 +245,7 @@ export class QueryModule {
     this.boost = new BoostQuery(this);
     this.socialSpend = new SocialSpendQuery(this);
     this.pages = new PagesQuery(this);
+    this.jobs = new JobsQuery(this);
     this.raw = new RawQuery(this);
   }
 

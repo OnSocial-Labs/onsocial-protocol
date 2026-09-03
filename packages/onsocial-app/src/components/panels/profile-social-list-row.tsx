@@ -1,7 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { Divider, ProtocolMotionArrow, standingIdentityLabel } from '@onsocial/ui';
+import {
+  Divider,
+  ProtocolMotionArrow,
+  standingIdentityLabel,
+} from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { StandingRelationshipSignal } from '@/components/ui/standing-relationship-signal';
 import { StandingToggle } from '@/components/ui/standing-toggle';
@@ -10,6 +14,7 @@ import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing
 import { portfolioPath } from '@/lib/overlay-routes';
 import { daoPath } from '@/lib/app-routes';
 import { isDaoStandingTarget } from '@/lib/dao-standing-account';
+import { hiringLineLabel } from '@/lib/profile-jobs';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
 import { isProfileListAccountDisplayReady } from '@/lib/profile-list-display';
 import { standingTimeMeta } from '@/lib/standing-list-meta';
@@ -268,9 +273,12 @@ export function ProfileSocialListRow({
     showSolidarityBadge && viewerStandsWithAccount && theyStandWithViewer;
   const showEndorsedYou =
     relationshipKnown && Boolean(account.targetEndorsedViewer);
-  const showEndorsedThem =
-    relationshipKnown && Boolean(account.viewerEndorsed);
+  const showEndorsedThem = relationshipKnown && Boolean(account.viewerEndorsed);
   const bio = account.bio?.trim();
+  const hiringHint =
+    (account.openJobsCount ?? 0) > 0
+      ? hiringLineLabel(account.openJobsCount ?? 0)
+      : null;
   const timeMeta = isResolvingViewerRelationship
     ? null
     : resolveStandingTimeMeta(account, standingTimeMode);
@@ -350,20 +358,24 @@ export function ProfileSocialListRow({
               <PostRichText text={bio} emptyFallback="" showLinkIcon />
             </span>
           ) : null}
+          {hiringHint ? (
+            <span className="standing-row-bio standing-row-hiring">
+              {hiringHint}
+            </span>
+          ) : null}
           <ProfileRowMetrics account={account} isDao={isDaoTarget} />
         </StandingIdentity>
       </div>
 
       <div
         className={`standing-row-aside${
-          !timeMeta && !(canUpdateStanding && onUpdateStanding) ? ' is-empty' : ''
+          !timeMeta && !(canUpdateStanding && onUpdateStanding)
+            ? ' is-empty'
+            : ''
         }`}
       >
         {timeMeta ? (
-          <span
-            className="standing-row-time"
-            aria-label={timeMeta.description}
-          >
+          <span className="standing-row-time" aria-label={timeMeta.description}>
             {timeMeta.label}
           </span>
         ) : null}

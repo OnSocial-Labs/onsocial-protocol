@@ -48,6 +48,7 @@ export {
   isProfileIndustryWriteInMode,
   matchProfileIndustryOption,
   normalizeProfileIndustryInput,
+  discoverIndustryChoiceOptions,
   profileIndustryChoiceOptions,
   profileIndustryDrawerValue,
   profileIndustryFromMaterialised,
@@ -80,6 +81,23 @@ export {
   buildStandingSetData,
   buildSaveSetData,
   buildSaveRemoveData,
+  JOB_DESCRIPTION_MAX,
+  JOB_TITLE_MAX,
+  JOB_URL_MAX,
+  buildJobRemoveData,
+  buildJobSetData,
+  createJobId,
+  formatJobEndsLabel,
+  hiringLineAriaLabel,
+  hiringLineLabel,
+  isJobOpen,
+  jobDateInputFromEnds,
+  jobEndsFromDateInput,
+  jobPath,
+  normalizeJobDescription,
+  normalizeJobTitle,
+  normalizeJobUrl,
+  todayDateInput,
   buildEndorsementSetData,
   buildEndorsementRemoveData,
   normalizeEndorsementTopic,
@@ -89,6 +107,7 @@ export {
 export type {
   SaveBuildInput,
   EndorsementBuildInput,
+  JobBuildInput,
   AttestationBuildInput,
   AttestationSignatureInput,
   ProfileBioMeta,
@@ -350,10 +369,18 @@ export type {
   ProfileDiscoverPageResult,
   ProfileDiscoverStandingRow,
   ProfileDiscoverViewerContext,
+  DiscoverFaceFilter,
+  DiscoverFaceKind,
+  ProfileSearchOptions,
   ProfileSearchRow,
   ProfileSocialPreviewOptions,
   ProfileSocialPreviewResult,
 } from './query/profiles.js';
+export {
+  discoverFaceSearchOptions,
+  parseDiscoverFaceFilter,
+} from './query/profiles.js';
+export type { JobSearchOptions, JobSearchRow } from './query/jobs.js';
 export type { ProtocolPulse, ProtocolTotals } from './query/stats.js';
 export { ReactionsModule } from './modules/reactions.js';
 export type {

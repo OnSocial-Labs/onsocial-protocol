@@ -18,6 +18,8 @@ export const txToastPending = {
   withdrawingStorage: 'Withdrawing storage…',
   fundingSharePool: 'Funding share pool…',
   sharingStorage: 'Sharing storage…',
+  postingRole: 'Posting role…',
+  removingRole: 'Removing role…',
 } as const;
 
 export const txToastSuccess = {
@@ -38,6 +40,8 @@ export const txToastSuccess = {
   onTheBoard: "You're on the board.",
   offTheBoard: 'Removed from the board.',
   listingSaved: 'Listing saved.',
+  rolePosted: 'Role posted.',
+  roleRemoved: 'Role removed.',
 } as const;
 
 /** Wallet connect / OnSocial session key setup. */
@@ -67,6 +71,8 @@ export const txToastError = {
   sharePoolFundFailed: 'Could not fund share pool.',
   storageShareFailed: 'Could not share storage.',
   listingFailed: 'Could not update the listing.',
+  rolePostFailed: 'Could not post role.',
+  roleRemoveFailed: 'Could not remove role.',
   genericFailed: 'Transaction did not go through.',
 } as const;
 

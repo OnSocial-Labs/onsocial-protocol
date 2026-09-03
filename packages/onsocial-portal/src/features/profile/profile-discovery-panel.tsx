@@ -11,7 +11,13 @@ import {
 } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import type { MaterialisedProfile } from '@onsocial/sdk';
+import {
+  discoverIndustryChoiceOptions,
+  parseDiscoverFaceFilter,
+  type DiscoverFaceFilter,
+  type MaterialisedProfile,
+} from '@onsocial/sdk';
+import { ChoiceDrawer, type ChoiceOption } from '@onsocial/ui';
 import { ProfileAccountAvatar } from '@/components/profile-account-avatar';
 import { profileSocialStandingButtonClass } from '@/components/ui/profile-action-pill';
 import {
@@ -34,6 +40,10 @@ import {
   profileListResultRowClass,
 } from '@/features/profile/profile-list-row';
 import { fadeMotion } from '@/lib/motion';
+import {
+  discoverProfilesEmptyLabel,
+  hiringLineLabel,
+} from '@/lib/profile-jobs';
 import { getPortalProfileUrl } from '@/lib/portal-config';
 import { useProfile } from '@/contexts/profile-context';
 import { cn } from '@/lib/utils';
@@ -42,6 +52,8 @@ export interface ProfileDiscoverResult {
   accountId: string;
   profile: MaterialisedProfile | null;
   avatarUrl: string | null;
+  industry?: string | null;
+  openJobsCount?: number;
   standingCount: number;
   standingWithCount: number;
   mutualStandingCount: number;
@@ -211,11 +223,21 @@ function isDiscoverRateLimitResponse(
   return /HTTP 429|rate limit|busy/i.test(message);
 }
 
+const DISCOVER_FACE_CHIPS: Array<{ id: DiscoverFaceFilter; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'people', label: 'People' },
+  { id: 'orgs', label: 'Orgs' },
+  { id: 'hiring', label: 'Hiring' },
+];
+const DISCOVER_INDUSTRY_CHOICES: ChoiceOption<string>[] =
+  discoverIndustryChoiceOptions();
+
 async function fetchProfileDiscovery(
   query: string,
   viewerAccountId: string | null,
   offset: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  filters: { face?: DiscoverFaceFilter; industry?: string } = {}
 ): Promise<ProfileDiscoverResponse> {
   const search = new URLSearchParams({
     limit: String(DISCOVERY_PAGE_SIZE),
@@ -223,6 +245,11 @@ async function fetchProfileDiscovery(
   });
   if (query.trim()) search.set('q', query.trim());
   if (viewerAccountId) search.set('viewerAccountId', viewerAccountId);
+  const face = parseDiscoverFaceFilter(filters.face);
+  if (face !== 'all') search.set('face', face);
+  if (face !== 'people' && filters.industry?.trim()) {
+    search.set('industry', filters.industry.trim());
+  }
 
   const url = `/api/profile/discover?${search.toString()}`;
   let lastError: Error | null = null;
@@ -293,6 +320,9 @@ export function ProfileDiscoveryPanel({
   const [internalQuery, setInternalQuery] = useState('');
   const query = queryProp ?? internalQuery;
   const setQuery = onQueryChange ?? setInternalQuery;
+  const [face, setFace] = useState<DiscoverFaceFilter>('all');
+  const [industry, setIndustry] = useState('');
+  const [industryOpen, setIndustryOpen] = useState(false);
   const [results, setResults] = useState<ProfileDiscoverResult[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -402,7 +432,13 @@ export function ProfileDiscoveryPanel({
         setError(null);
         setHasMore(false);
 
-        void fetchProfileDiscovery(query, viewerAccountId, 0, controller.signal)
+        void fetchProfileDiscovery(
+          query,
+          viewerAccountId,
+          0,
+          controller.signal,
+          { face, industry }
+        )
           .then((response) => {
             if (latestLoadRef.current !== loadId) return;
             setResults(response.results);
@@ -426,7 +462,7 @@ export function ProfileDiscoveryPanel({
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [active, query, viewerAccountId]);
+  }, [active, face, industry, query, viewerAccountId]);
 
   const loadMoreAbortRef = useRef<AbortController | null>(null);
 
@@ -447,7 +483,8 @@ export function ProfileDiscoveryPanel({
         query,
         viewerAccountId,
         offset,
-        controller.signal
+        controller.signal,
+        { face, industry }
       );
       if (latestLoadRef.current !== loadId) return;
       setResults((current) => mergeDiscoverResults(current, response.results));
@@ -464,6 +501,8 @@ export function ProfileDiscoveryPanel({
     hasMore,
     isLoading,
     isLoadingMore,
+    face,
+    industry,
     query,
     results.length,
     viewerAccountId,
@@ -501,11 +540,10 @@ export function ProfileDiscoveryPanel({
     containedScroll,
   ]);
 
-  const emptyLabel = useMemo(() => {
-    if (isLoading) return 'Finding profiles...';
-    if (trimmedQuery) return 'No matching profiles yet.';
-    return 'No profiles found yet.';
-  }, [isLoading, trimmedQuery]);
+  const emptyLabel = useMemo(
+    () => discoverProfilesEmptyLabel(isLoading, trimmedQuery, face, industry),
+    [face, industry, isLoading, trimmedQuery]
+  );
 
   const handleStanding = async (
     result: ProfileDiscoverResult,
@@ -573,6 +611,58 @@ export function ProfileDiscoveryPanel({
             autoFocus={autoFocusSearch}
             maxLength={80}
             clearAriaLabel="Clear profile search"
+          />
+          <div
+            className="mt-3 flex flex-wrap gap-2"
+            role="group"
+            aria-label="Filter profiles"
+          >
+            {DISCOVER_FACE_CHIPS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={face === item.id}
+                className={cn(
+                  'rounded-full px-2.5 py-1 portal-type-body-sm',
+                  face === item.id
+                    ? 'bg-foreground text-background'
+                    : 'bg-muted/40 text-muted-foreground'
+                )}
+                onClick={() => {
+                  setFace(item.id);
+                  if (item.id === 'people') setIndustry('');
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+            {face !== 'people' ? (
+              <button
+                type="button"
+                aria-pressed={Boolean(industry)}
+                aria-haspopup="dialog"
+                aria-expanded={industryOpen}
+                className={cn(
+                  'rounded-full px-2.5 py-1 portal-type-body-sm',
+                  industry
+                    ? 'bg-foreground text-background'
+                    : 'bg-muted/40 text-muted-foreground'
+                )}
+                onClick={() => setIndustryOpen(true)}
+              >
+                {industry || 'Industry'}
+              </button>
+            ) : null}
+          </div>
+          <ChoiceDrawer
+            open={industryOpen}
+            onClose={() => setIndustryOpen(false)}
+            label="Industry"
+            copy="Optional. Same sectors as org profiles."
+            value={industry}
+            options={DISCOVER_INDUSTRY_CHOICES}
+            onChange={setIndustry}
+            zIndex={2147483647}
           />
         </div>
       ) : null}
@@ -682,6 +772,11 @@ export function ProfileDiscoveryPanel({
                         </span>
                         {bio ? (
                           <span className={profileListBioClass}>{bio}</span>
+                        ) : null}
+                        {(result.openJobsCount ?? 0) > 0 ? (
+                          <span className={profileListBioClass}>
+                            {hiringLineLabel(result.openJobsCount ?? 0)}
+                          </span>
                         ) : null}
                         <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 portal-type-label text-muted-foreground/65">
                           <span

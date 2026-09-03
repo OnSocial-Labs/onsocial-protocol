@@ -160,3 +160,18 @@ export function profileIndustryChoiceOptions(): ProfileIndustryChoice[] {
     },
   ];
 }
+
+/** Discover industry filter — curated sectors only (exact `_eq` match). */
+export function discoverIndustryChoiceOptions(): ProfileIndustryChoice[] {
+  return [
+    {
+      value: '',
+      label: 'Any industry',
+    },
+    ...PROFILE_INDUSTRY_OPTIONS.map((option) => ({
+      value: option.value,
+      label: option.label,
+      section: option.section,
+    })),
+  ];
+}

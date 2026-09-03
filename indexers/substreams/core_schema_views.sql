@@ -746,6 +746,28 @@ FROM standings_current
 GROUP BY account_id;
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- 6a. jobs_current — latest hiring listing per (org, job id)
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE INDEX IF NOT EXISTS idx_data_updates_jobs_dedup
+  ON data_updates(account_id, data_id, block_height DESC)
+  WHERE data_type = 'jobs';
+
+CREATE OR REPLACE VIEW jobs_current AS
+SELECT DISTINCT ON (account_id, data_id)
+  account_id,
+  data_id                      AS job_id,
+  path,
+  value,
+  value_json,
+  block_height,
+  block_timestamp,
+  operation
+FROM data_updates
+WHERE data_type = 'jobs'
+ORDER BY account_id, data_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- 6b. profile_search — one row per profile for discovery/search
 -- ────────────────────────────────────────────────────────────────────────────
 
@@ -764,13 +786,25 @@ WITH active_profile_fields AS (
 profile_rows AS (
   SELECT
     account_id,
-    MAX(value) FILTER (WHERE field = 'name')   AS name,
-    MAX(value) FILTER (WHERE field = 'bio')    AS bio,
-    MAX(value) FILTER (WHERE field = 'avatar') AS avatar,
-    MAX(value) FILTER (WHERE field = 'banner') AS banner,
-    MAX(block_height)                          AS last_profile_block,
-    MAX(block_timestamp)                       AS last_profile_timestamp
+    MAX(value) FILTER (WHERE field = 'name')      AS name,
+    MAX(value) FILTER (WHERE field = 'bio')       AS bio,
+    MAX(value) FILTER (WHERE field = 'avatar')    AS avatar,
+    MAX(value) FILTER (WHERE field = 'banner')    AS banner,
+    MAX(value) FILTER (WHERE field = 'kind')      AS kind,
+    MAX(value) FILTER (WHERE field = 'industry')  AS industry,
+    MAX(block_height)                             AS last_profile_block,
+    MAX(block_timestamp)                          AS last_profile_timestamp
   FROM active_profile_fields
+  GROUP BY account_id
+),
+open_job_counts AS (
+  SELECT
+    account_id,
+    COUNT(*) AS open_jobs_count
+  FROM jobs_current
+  WHERE operation = 'set'
+    AND COALESCE(NULLIF(value_json ->> 'ends', '')::numeric, 0)
+      >= (EXTRACT(EPOCH FROM NOW()) * 1000)
   GROUP BY account_id
 ),
 profile_since AS (
@@ -845,11 +879,14 @@ SELECT
     COALESCE(erc.last_endorsement_block, 0),
     COALESCE(egc.last_endorsement_block, 0)
   ) AS last_activity_block,
-  LOWER(CONCAT_WS(' ', p.account_id, p.name, p.bio)) AS search_text,
+  LOWER(CONCAT_WS(' ', p.account_id, p.name, p.bio, p.industry)) AS search_text,
   COALESCE(msc.mutual_standing_count, 0)      AS mutual_standing_count,
   COALESCE(erc.endorsements_received_count, 0) AS endorsements_received_count,
   COALESCE(egc.endorsements_given_count, 0)   AS endorsements_given_count,
-  ps.first_profile_timestamp
+  ps.first_profile_timestamp,
+  p.kind,
+  p.industry,
+  COALESCE(ojc.open_jobs_count, 0)            AS open_jobs_count
 FROM profile_rows p
 LEFT JOIN profile_since ps ON ps.account_id = p.account_id
 LEFT JOIN standing_counts sc ON sc.account_id = p.account_id
@@ -857,10 +894,60 @@ LEFT JOIN standing_out_counts soc ON soc.account_id = p.account_id
 LEFT JOIN mutual_standing_counts msc ON msc.account_id = p.account_id
 LEFT JOIN endorsement_received_counts erc ON erc.account_id = p.account_id
 LEFT JOIN endorsement_given_counts egc ON egc.account_id = p.account_id
+LEFT JOIN open_job_counts ojc ON ojc.account_id = p.account_id
 WHERE p.name IS NOT NULL
    OR p.bio IS NOT NULL
    OR p.avatar IS NOT NULL
    OR p.banner IS NOT NULL;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 6b2. jobs_search — open roles joined to the org face
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW jobs_search AS
+WITH org_faces AS (
+  SELECT
+    account_id,
+    MAX(value) FILTER (WHERE field = 'name')      AS name,
+    MAX(value) FILTER (WHERE field = 'kind')      AS kind,
+    MAX(value) FILTER (WHERE field = 'industry')  AS industry,
+    MAX(value) FILTER (WHERE field = 'avatar')    AS avatar
+  FROM profiles_current
+  WHERE operation = 'set'
+    AND value IS NOT NULL
+    AND field IN ('name', 'kind', 'industry', 'avatar')
+  GROUP BY account_id
+)
+SELECT
+  j.account_id                                              AS org_account_id,
+  j.job_id,
+  j.path,
+  COALESCE(j.value_json ->> 'title', '')                    AS title,
+  NULLIF(j.value_json ->> 'description', '')                AS description,
+  NULLIF(j.value_json ->> 'url', '')                        AS url,
+  NULLIF(j.value_json ->> 'ends', '')::bigint               AS ends,
+  NULLIF(j.value_json ->> 'since', '')::bigint              AS since,
+  p.name                                                    AS org_name,
+  p.kind                                                    AS org_kind,
+  p.industry                                                AS org_industry,
+  p.avatar                                                  AS org_avatar,
+  LOWER(
+    CONCAT_WS(
+      ' ',
+      j.account_id,
+      p.name,
+      j.value_json ->> 'title',
+      j.value_json ->> 'description',
+      p.industry
+    )
+  )                                                         AS search_text,
+  j.block_height,
+  j.block_timestamp
+FROM jobs_current j
+LEFT JOIN org_faces p ON p.account_id = j.account_id
+WHERE j.operation = 'set'
+  AND COALESCE(NULLIF(j.value_json ->> 'ends', '')::numeric, 0)
+    >= (EXTRACT(EPOCH FROM NOW()) * 1000);
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 6c. post_amplify_heat — stub (0 heat). Real formula in

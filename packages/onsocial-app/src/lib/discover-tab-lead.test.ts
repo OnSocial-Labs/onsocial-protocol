@@ -5,6 +5,7 @@ import {
   discoverProfilesLead,
   discoverTopicsLead,
   discoverTrendingLead,
+  discoverTrendingProfilesHeading,
 } from './discover-tab-lead';
 
 describe('discoverProfilesLead', () => {
@@ -19,6 +20,14 @@ describe('discoverProfilesLead', () => {
   it('falls back without total', () => {
     expect(discoverProfilesLead(null, '')).toBe('Profiles');
   });
+
+  it('names face and industry filters', () => {
+    expect(discoverProfilesLead(12_500, '', 'hiring', 'Healthcare')).toBe(
+      'Hiring · Healthcare'
+    );
+    expect(discoverProfilesLead(12_500, '', 'orgs')).toBe('Orgs');
+    expect(discoverProfilesLead(12_500, '', 'people')).toBe('People');
+  });
 });
 
 describe('discoverDaosLead', () => {
@@ -27,9 +36,7 @@ describe('discoverDaosLead', () => {
   });
 
   it('keeps the count while filtering', () => {
-    expect(discoverDaosLead(5310, 'community', false)).toBe(
-      '5,310 NEAR DAOs'
-    );
+    expect(discoverDaosLead(5310, 'community', false)).toBe('5,310 NEAR DAOs');
   });
 
   it('shows syncing copy', () => {
@@ -52,5 +59,15 @@ describe('discoverTopicsLead', () => {
 describe('discoverTrendingLead', () => {
   it('is social and brand-free', () => {
     expect(discoverTrendingLead()).toBe("What's moving");
+  });
+});
+
+describe('discoverTrendingProfilesHeading', () => {
+  it('keeps the peek name until a face or industry is on', () => {
+    expect(discoverTrendingProfilesHeading()).toBe('Standing out');
+    expect(discoverTrendingProfilesHeading('hiring', 'Healthcare')).toBe(
+      'Hiring · Healthcare'
+    );
+    expect(discoverTrendingProfilesHeading('people')).toBe('People');
   });
 });

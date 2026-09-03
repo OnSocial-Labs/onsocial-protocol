@@ -11,6 +11,7 @@ import { DiscoverFocusListPanel } from '@/features/discover/discover-focus-list-
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { DiscoverTrendingPanel } from '@/features/discover/discover-trending-panel';
+import { DiscoverFaceFilterRail } from '@/features/discover/discover-face-filter-rail';
 import { discoverProfilesLead } from '@/lib/discover-tab-lead';
 
 export function DiscoverPanelContent() {
@@ -28,6 +29,8 @@ export function DiscoverPanelContent() {
     setTab,
     topicFilterPrefix,
     query,
+    face,
+    industry,
     discoverableTotal,
     showListSkeleton,
     isListRefreshing,
@@ -56,8 +59,9 @@ export function DiscoverPanelContent() {
       {tab === 'profiles' ? (
         <>
           <DiscoverTabLead>
-            {discoverProfilesLead(discoverableTotal, query)}
+            {discoverProfilesLead(discoverableTotal, query, face, industry)}
           </DiscoverTabLead>
+          <DiscoverFaceFilterRail />
 
           {showConnectHint ? (
             <OsAppChromePageStatus className="discover-connect-hint">

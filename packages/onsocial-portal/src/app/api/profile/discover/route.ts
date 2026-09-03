@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { MaterialisedProfile, ProfileKind } from '@onsocial/sdk';
+import {
+  parseDiscoverFaceFilter,
+  type MaterialisedProfile,
+} from '@onsocial/sdk';
 import { loadDiscoverIndexPage } from '@/lib/profile-discover-index';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
 import {
@@ -14,6 +17,8 @@ interface ProfileDiscoverResult {
   accountId: string;
   profile: MaterialisedProfile | null;
   avatarUrl: string | null;
+  industry: string | null;
+  openJobsCount: number;
   standingCount: number;
   standingWithCount: number;
   mutualStandingCount: number;
@@ -73,11 +78,23 @@ export async function GET(request: NextRequest) {
   const limit = getLimit(request);
   const offset = getOffset(request);
   const viewerAccountId = getViewerAccountId(request);
+  const face = parseDiscoverFaceFilter(
+    request.nextUrl.searchParams.get('face')
+  );
+  const industry =
+    face === 'people'
+      ? ''
+      : (request.nextUrl.searchParams.get('industry') ?? '')
+          .trim()
+          .slice(0, 64);
 
   try {
     const os = createPortalServerOnSocialClient();
     const { profiles: profileRows, viewer } = await withRateLimitRetry(() =>
-      loadDiscoverIndexPage(query, limit, offset, viewerAccountId)
+      loadDiscoverIndexPage(query, limit, offset, viewerAccountId, {
+        face,
+        industry,
+      })
     );
 
     const viewerOutgoingSet = new Set(
@@ -91,16 +108,6 @@ export async function GET(request: NextRequest) {
       viewer?.endorsementIssuers ?? []
     );
 
-    const accountIds = profileRows.map((row) => row.accountId);
-    let kinds: Partial<Record<string, ProfileKind>> = {};
-    if (accountIds.length > 0) {
-      try {
-        kinds = await os.query.profiles.kindsForAccounts(accountIds);
-      } catch {
-        // Kind is optional presentation.
-      }
-    }
-
     const results = profileRows.map((row) => {
       const profile: MaterialisedProfile = {
         accountId: row.accountId,
@@ -108,7 +115,7 @@ export async function GET(request: NextRequest) {
         bio: row.bio ?? undefined,
         avatar: row.avatar ?? undefined,
         banner: row.banner ?? undefined,
-        kind: kinds[row.accountId] ?? row.kind,
+        kind: row.kind,
         lastUpdatedHeight: row.lastProfileBlock,
         lastUpdatedAt: row.lastProfileTimestamp,
         extra: {},
@@ -118,6 +125,8 @@ export async function GET(request: NextRequest) {
         accountId: row.accountId,
         profile,
         avatarUrl: os.profiles.avatarUrl(profile),
+        industry: row.industry ?? null,
+        openJobsCount: row.openJobsCount ?? 0,
         standingCount: row.standingCount,
         standingWithCount: row.standingWithCount,
         mutualStandingCount: row.mutualStandingCount,
