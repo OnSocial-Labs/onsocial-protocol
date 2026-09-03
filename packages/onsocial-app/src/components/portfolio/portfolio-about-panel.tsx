@@ -8,11 +8,7 @@ import {
   initials,
   portfolioHandleForMood,
 } from '@/lib/profile-display';
-import {
-  profileKindFaceLabel,
-  resolveDisplayProfileKind,
-  type ProfileKind,
-} from '@onsocial/sdk';
+import { resolveDisplayProfileKind, type ProfileKind } from '@onsocial/sdk';
 import type { ResolvedMood } from '@/lib/moods/types';
 
 export type PortfolioAboutPanelProps = {
@@ -24,7 +20,6 @@ export type PortfolioAboutPanelProps = {
   mood: ResolvedMood;
   isDao?: boolean;
   profileKind?: ProfileKind | null;
-  kindLabel?: string | null;
 };
 
 /** Compact identity + full bio. Same body for overlay and the shareable page. */
@@ -37,15 +32,11 @@ export function PortfolioAboutPanel({
   mood,
   isDao = false,
   profileKind = null,
-  kindLabel = null,
 }: PortfolioAboutPanelProps) {
   const displayKind = resolveDisplayProfileKind(profileKind, isDao);
-  const profileKindLabel = profileKindFaceLabel(displayKind);
   const titleLabel = displayName(accountId, profileName ?? undefined);
   const handleLabel = portfolioHandleForMood(accountId, mood.id);
   const aboutBio = bio?.trim() || '';
-  const entityKind =
-    displayKind === 'dao' ? profileKindLabel || kindLabel : null;
 
   return (
     <article
@@ -58,18 +49,18 @@ export function PortfolioAboutPanel({
         data-profile-kind={displayKind}
       >
         {avatarUrl ? (
-          <img alt={titleLabel} className="portfolio-avatar" src={avatarUrl} />
+          <img alt="" className="portfolio-avatar" src={avatarUrl} />
         ) : (
-          <div className="portfolio-avatar portfolio-avatar-fallback">
+          <div
+            className="portfolio-avatar portfolio-avatar-fallback"
+            aria-hidden
+          >
             {initials(titleLabel)}
           </div>
         )}
         <div className="portfolio-about-copy">
-          {entityKind ? (
-            <p className="portfolio-entity-kind">{entityKind}</p>
-          ) : null}
           <div className="portfolio-about-name-row">
-            <p className="portfolio-about-name">{titleLabel}</p>
+            <h1 className="portfolio-about-name">{titleLabel}</h1>
             {isDao ? (
               <ProtocolNameTrailing accountId={accountId} isDao />
             ) : null}

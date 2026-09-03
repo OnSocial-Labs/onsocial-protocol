@@ -324,7 +324,8 @@
   overflow: hidden;
 }
 
-.glass-sheet-panel.leaderboard-page-sheet > .glass-sheet-body.leaderboard-page-body {
+.glass-sheet-panel.leaderboard-page-sheet
+  > .glass-sheet-body.leaderboard-page-body {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -2056,10 +2057,7 @@ a.os-surface-row {
     --signal-standing: var(--mood-signal-standing, #5ecf9a);
     --signal-solidarity: var(--mood-signal-solidarity, #38bdf8);
     --signal-endorse: var(--mood-signal-endorse, #dab872);
-    --signal-reputation: var(
-      --mood-signal-reputation,
-      var(--protocol-green)
-    );
+    --signal-reputation: var(--mood-signal-reputation, var(--protocol-green));
     --os-chip-selected-ink: var(--signal-reputation);
     --os-chip-selected-fill: color-mix(
       in srgb,
@@ -5393,7 +5391,9 @@ a.os-surface-row {
   }
 
   .portfolio-identity-gesture--endorse.is-endorsed:hover:not(:disabled),
-  .portfolio-identity-gesture--endorse.is-endorsed:focus-visible:not(:disabled) {
+  .portfolio-identity-gesture--endorse.is-endorsed:focus-visible:not(
+      :disabled
+    ) {
     background: rgb(var(--fg-rgb) / 0.05);
     color: rgb(var(--fg-rgb) / 0.92);
   }
@@ -5559,16 +5559,16 @@ a.os-surface-row {
       color-mix(
         in srgb,
         var(
-          --mood-accent-chrome,
-          var(--mood-accent, var(--signal-reputation, #22c55e))
-        )
+            --mood-accent-chrome,
+            var(--mood-accent, var(--signal-reputation, #22c55e))
+          )
           85%,
         transparent
       ),
       transparent
     );
-    animation: portfolio-boost-collect-sweep 1.18s cubic-bezier(0.22, 1, 0.36, 1)
-      both;
+    animation: portfolio-boost-collect-sweep 1.18s
+      cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   .portfolio-boost-collect-celebration-chip {
@@ -5580,9 +5580,9 @@ a.os-surface-row {
       color-mix(
         in srgb,
         var(
-          --mood-accent-chrome,
-          var(--mood-accent, var(--signal-reputation, #22c55e))
-        )
+            --mood-accent-chrome,
+            var(--mood-accent, var(--signal-reputation, #22c55e))
+          )
           35%,
         transparent
       );
@@ -5601,9 +5601,9 @@ a.os-surface-row {
       color-mix(
         in srgb,
         var(
-          --mood-accent-chrome,
-          var(--mood-accent, var(--signal-reputation, #22c55e))
-        )
+            --mood-accent-chrome,
+            var(--mood-accent, var(--signal-reputation, #22c55e))
+          )
           55%,
         transparent
       );
@@ -7242,9 +7242,13 @@ a.os-surface-row {
     font-size: 0.95em;
   }
 
-  .portfolio-identity .portfolio-handle-marks .protocol-identity-mark--governance,
+  .portfolio-identity
+    .portfolio-handle-marks
+    .protocol-identity-mark--governance,
   .portfolio-identity .portfolio-handle-marks .protocol-identity-mark--treasury,
-  .portfolio-identity .portfolio-handle-marks .protocol-identity-mark--proposer {
+  .portfolio-identity
+    .portfolio-handle-marks
+    .protocol-identity-mark--proposer {
     color: rgb(var(--fg-rgb) / 0.36);
   }
 
@@ -7475,26 +7479,47 @@ a.os-surface-row {
   .portfolio-about {
     display: flex;
     flex-direction: column;
-    gap: 1.35rem;
+    gap: 1.85rem;
     width: 100%;
     max-width: 36rem;
-    margin: 0.15rem auto 2rem;
-    padding: 0.85rem max(1.15rem, env(safe-area-inset-right, 0px)) 2rem
-      max(1.15rem, env(safe-area-inset-left, 0px));
+    margin: 0 auto 2rem;
+    padding: 1.15rem max(1.25rem, env(safe-area-inset-right, 0px)) 2.5rem
+      max(1.25rem, env(safe-area-inset-left, 0px));
+  }
+
+  /* Full page — no “About” chrome. Header collapses to the notch. */
+  .os-app-screen:has(.portfolio-about) .os-app-screen-header {
+    padding: env(safe-area-inset-top, 0px) 0 0;
+    min-height: 0;
+  }
+
+  .os-app-screen:has(.portfolio-about) .portfolio-about {
+    padding-top: max(
+      1.65rem,
+      calc(env(safe-area-inset-top, 0px) * 0.15 + 1.65rem)
+    );
   }
 
   .portfolio-about-identity {
     display: flex;
-    align-items: flex-start;
-    gap: 0.85rem;
+    align-items: center;
+    gap: 1.1rem;
     width: 100%;
-    --portfolio-avatar-size: 3.5rem;
+    --portfolio-avatar-size: 4.5rem;
+  }
+
+  @media (min-width: 40rem) {
+    .portfolio-about-identity {
+      gap: 1.25rem;
+      --portfolio-avatar-size: 5rem;
+    }
   }
 
   .portfolio-about-identity .portfolio-avatar,
   .portfolio-about-identity .portfolio-avatar-fallback {
     width: var(--portfolio-avatar-size);
     height: var(--portfolio-avatar-size);
+    flex-shrink: 0;
   }
 
   .portfolio-about[data-profile-kind='person'] .portfolio-avatar,
@@ -7508,37 +7533,26 @@ a.os-surface-row {
   .portfolio-about[data-profile-kind='org'] .portfolio-avatar,
   .portfolio-about[data-profile-kind='org'] .portfolio-avatar-fallback,
   .portfolio-about-identity[data-profile-kind='org'] .portfolio-avatar,
-  .portfolio-about-identity[data-profile-kind='org'] .portfolio-avatar-fallback {
-    border-radius: 1.05rem;
+  .portfolio-about-identity[data-profile-kind='org']
+    .portfolio-avatar-fallback {
+    border-radius: 1.15rem;
   }
 
   .portfolio-about[data-profile-kind='dao'] .portfolio-avatar,
   .portfolio-about[data-profile-kind='dao'] .portfolio-avatar-fallback,
   .portfolio-about-identity[data-profile-kind='dao'] .portfolio-avatar,
-  .portfolio-about-identity[data-profile-kind='dao'] .portfolio-avatar-fallback {
-    border-radius: 0.7rem;
-  }
-
-  /* Place chrome stays a quiet eyebrow — the person is the title. */
-  .os-app-screen:has(.portfolio-about) .os-app-screen-title {
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.42);
+  .portfolio-about-identity[data-profile-kind='dao']
+    .portfolio-avatar-fallback {
+    border-radius: 0.75rem;
   }
 
   .portfolio-about-copy {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.18rem;
+    gap: 0.16rem;
     min-width: 0;
     flex: 1;
-  }
-
-  .portfolio-about-copy .portfolio-entity-kind {
-    margin: 0;
   }
 
   .portfolio-about-name-row {
@@ -7553,10 +7567,10 @@ a.os-surface-row {
   .portfolio-about-name {
     margin: 0;
     font-family: var(--font-space-grotesk), system-ui, sans-serif;
-    font-size: 1.2rem;
+    font-size: clamp(1.45rem, 4.4vw, 1.75rem);
     font-weight: 650;
-    letter-spacing: -0.03em;
-    line-height: 1.2;
+    letter-spacing: -0.045em;
+    line-height: 1.12;
     text-wrap: balance;
   }
 
@@ -7567,23 +7581,74 @@ a.os-surface-row {
     gap: 0.32em;
     margin: 0;
     min-width: 0;
-    font-size: 0.82rem;
-    letter-spacing: 0.02em;
-    line-height: 1.25;
+    font-size: 0.8rem;
+    letter-spacing: 0.015em;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.52);
   }
 
   .portfolio-about-copy .portfolio-topics {
     justify-content: flex-start;
     text-align: left;
     max-width: 100%;
+    margin-top: 0.28rem;
+    font-size: 0.84rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: rgb(var(--fg-rgb) / 0.58);
   }
 
   .portfolio-about-bio.portfolio-bio {
     margin: 0;
     max-width: 36rem;
-    font-size: 0.95rem;
-    line-height: 1.65;
-    font-weight: 500;
+    font-size: 1.02rem;
+    line-height: 1.7;
+    font-weight: 400;
+  }
+
+  /*
+   * Reserved media band — photos later (max 3). Wide / pair / trio in the
+   * same column. Do not mount an empty placeholder.
+   */
+  .portfolio-about-media {
+    display: grid;
+    gap: 0.4rem;
+    width: 100%;
+    border-radius: 0.95rem;
+    overflow: hidden;
+  }
+
+  .portfolio-about-media[data-count='1'] {
+    grid-template-columns: 1fr;
+  }
+
+  .portfolio-about-media[data-count='2'] {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .portfolio-about-media[data-count='3'] {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .portfolio-about-media[data-count='3'] > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .portfolio-about-media img,
+  .portfolio-about-media video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: rgb(var(--fg-rgb) / 0.04);
+  }
+
+  .portfolio-about-media[data-count='1'] img,
+  .portfolio-about-media[data-count='1'] video,
+  .portfolio-about-media[data-count='3'] > :first-child img,
+  .portfolio-about-media[data-count='3'] > :first-child video {
+    aspect-ratio: 16 / 9;
   }
 
   .os-app-screen--mood .portfolio-about-name,
@@ -12942,9 +13007,19 @@ a.os-surface-row {
     animation: overlay-panel-crossfade 180ms ease-out;
   }
 
+  .glass-sheet-header--quiet {
+    padding-bottom: 0.1rem;
+  }
+
+  .glass-sheet-header-title-row--quiet {
+    justify-content: flex-end;
+    align-items: center;
+  }
+
   .overlay-panel-outlet .portfolio-about {
-    padding: 0.2rem 1.15rem 1.75rem;
+    padding: 0.05rem 1.25rem 1.85rem;
     margin-bottom: 0;
+    gap: 1.55rem;
   }
 
   @keyframes overlay-panel-crossfade {
@@ -25553,7 +25628,9 @@ a.os-surface-row {
   }
 
   /* Glass underlay chrome can stack above a portaled slide (absolute + z-index). */
-  .app-surface:has(> .os-slide-over) > .os-app-screen-column > .os-app-screen-header {
+  .app-surface:has(> .os-slide-over)
+    > .os-app-screen-column
+    > .os-app-screen-header {
     visibility: hidden;
     pointer-events: none;
   }
@@ -29217,7 +29294,8 @@ a.os-surface-row {
     padding-top: 0.05rem;
   }
 
-  .market-listing-action-col .market-listing-action.os-sheet-actions--row-compact {
+  .market-listing-action-col
+    .market-listing-action.os-sheet-actions--row-compact {
     width: 100%;
   }
 
@@ -34458,17 +34536,21 @@ a.os-surface-row {
  * Wallet drawer — protocol grey hover on every in-card control (incl. shortcut dock).
  * Unlayered so it beats @onsocial/ui os-surface-interactive (mood --os-surface-fill-hover).
  */
-.account-drawer-panel .account-card
+.account-drawer-panel
+  .account-card
   .account-action-chip:is(:hover, :focus-visible),
-.account-drawer-panel .account-card
+.account-drawer-panel
+  .account-card
   .account-action-toggle:not(:disabled):is(:hover, :focus-visible),
-.account-drawer-panel .account-card
+.account-drawer-panel
+  .account-card
   .account-shortcut-dock
   .os-surface-tile:not(.is-danger):not(.is-attention):not(:disabled):is(
     :hover,
     :focus-visible
   ),
-.account-drawer-panel .account-card
+.account-drawer-panel
+  .account-card
   .os-surface-chip:not(.is-ready):not(.is-selected):not(.is-accent):not(
     .is-succeeded
   ):not(:disabled):is(:hover, :focus-visible) {
@@ -34768,7 +34850,6 @@ button.scarce-clip-cover-expand:focus-visible {
     0 0 0 1.5px rgb(255 255 255 / 0.55),
     0 1px 2px rgb(0 0 0 / 0.14);
 }
-
 
 /* —— Protocol (DAO governance / treasury) —— */
 .protocol-page {

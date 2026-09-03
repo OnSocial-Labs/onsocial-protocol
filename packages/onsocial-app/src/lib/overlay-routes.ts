@@ -272,6 +272,8 @@ export function shouldOpenPortfolioGlassOverlay(
 export interface OverlayPanelChromeHint {
   ariaTitle: string;
   title?: string;
+  /** Close only — the panel body is the title (About). */
+  hideTitle?: boolean;
   expectsToolbar: boolean;
 }
 
@@ -289,6 +291,10 @@ export function resolveOverlayPanelChrome(
 
   if (panelKey === 'discover') {
     return { ariaTitle: 'Discover', expectsToolbar: true };
+  }
+
+  if (panelKey === 'about') {
+    return { ariaTitle: 'About', hideTitle: true, expectsToolbar: false };
   }
 
   // `feed` never reaches glass chrome — it redirects into the page drawer.

@@ -12,12 +12,15 @@ import { SheetCloseButton } from '@onsocial/ui';
 export function OverlayPanelChrome({
   ariaTitle,
   title,
+  hideTitle = false,
   toolbar,
   headerActions,
   scrollBodyRef,
 }: {
   ariaTitle: string;
   title?: string;
+  /** Close only — no visual title (About is the person). */
+  hideTitle?: boolean;
   toolbar?: ReactNode;
   /** Icon actions before close — same cluster as Standing / Boost. */
   headerActions?: ReactNode;
@@ -49,6 +52,18 @@ export function OverlayPanelChrome({
       </h2>
       {toolbar}
     </>
+  ) : hideTitle ? (
+    <header className="glass-sheet-header glass-sheet-header--quiet">
+      <h2 id="overlay-title" className="sr-only">
+        {ariaTitle}
+      </h2>
+      <div className="glass-sheet-header-title-row glass-sheet-header-title-row--quiet">
+        <div className="standing-sheet-actions standing-sheet-actions--payout">
+          {headerActions}
+          {closeControl}
+        </div>
+      </div>
+    </header>
   ) : (
     <header className="glass-sheet-header">
       <div className="glass-sheet-header-copy">

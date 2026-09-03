@@ -18,7 +18,7 @@ export default async function AboutOverlayRoute({
 
   return (
     <OverlayInterceptRoot>
-      <SimpleOverlayPanel ariaTitle={title} title={title}>
+      <SimpleOverlayPanel ariaTitle={title} hideTitle>
         <PortfolioAboutPanel {...panel} />
       </SimpleOverlayPanel>
     </OverlayInterceptRoot>

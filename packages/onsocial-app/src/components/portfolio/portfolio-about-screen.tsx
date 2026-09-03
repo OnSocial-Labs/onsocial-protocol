@@ -8,7 +8,10 @@ import {
 import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
 import { portfolioPath } from '@/lib/overlay-routes';
 
-/** Hard-refresh / shared About — no banner, dock leave back to the face. */
+/**
+ * Hard-refresh / shared About — no banner, no “About” chrome.
+ * Dock leave goes back to the face. The person is the title.
+ */
 export function PortfolioAboutScreen(props: PortfolioAboutPanelProps) {
   const { accountId, mood } = props;
 
@@ -16,7 +19,7 @@ export function PortfolioAboutScreen(props: PortfolioAboutPanelProps) {
     <OsAppScreen
       title="About"
       compactChrome
-      glassChrome
+      leading={null}
       dockBack
       backFallbackHref={portfolioPath(accountId)}
       moodId={mood.id}

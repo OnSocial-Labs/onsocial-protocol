@@ -58,7 +58,6 @@ export const loadPortfolioAboutForAccount = cache(
         mood,
         isDao: daoEntity.isDao,
         profileKind: shell?.kind ?? null,
-        kindLabel: daoEntity.kindLabel,
       },
     };
   }

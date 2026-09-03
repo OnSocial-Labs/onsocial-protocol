@@ -343,7 +343,7 @@ describe('resolveOverlayPanelChrome', () => {
   it('uses panel labels for simple overlay panels', () => {
     expect(resolveOverlayPanelChrome('about')).toEqual({
       ariaTitle: 'About',
-      title: 'About',
+      hideTitle: true,
       expectsToolbar: false,
     });
     expect(resolveOverlayPanelChrome('endorsements')).toEqual({
