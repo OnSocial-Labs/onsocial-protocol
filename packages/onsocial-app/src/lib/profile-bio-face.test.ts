@@ -56,6 +56,18 @@ describe('profileAboutHasMoreThanFace', () => {
     ).toBe(true);
   });
 
+  it('shows About when a single block would wrap past four face lines', () => {
+    const about = 'OnSocial is a place for people who make things with other people. '.repeat(
+      4
+    );
+    expect(
+      profileAboutHasMoreThanFace({
+        faceText: about,
+        aboutText: about,
+      })
+    ).toBe(true);
+  });
+
   it('shows About when the bio has more than four lines', () => {
     const about = ['a', 'b', 'c', 'd', 'e'].join('\n');
     expect(

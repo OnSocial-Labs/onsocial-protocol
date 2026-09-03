@@ -30,6 +30,16 @@ export function profileBioHasLineOverflow(
   return profileBioLines(text.trimEnd()).length > maxLines;
 }
 
+/** ~four wrapped lines at the face bio measure (20rem / 0.875rem). */
+const FACE_BIO_WRAP_CHARS = 160;
+
+export function profileBioLikelyWrapsPastFace(text: string): boolean {
+  const face = profileBioFace(text);
+  if (!face) return false;
+  if (profileBioHasLineOverflow(text)) return true;
+  return face.replace(/\n/g, ' ').length > FACE_BIO_WRAP_CHARS;
+}
+
 /**
  * About has more than the face shows: a longer bio, a tagline hiding bio,
  * or more than four stored lines.
@@ -44,7 +54,7 @@ export function profileAboutHasMoreThanFace(opts: {
   const face = opts.faceText?.trim() ?? '';
   if (!face) return true;
   if (about !== face) return true;
-  return profileBioHasLineOverflow(about);
+  return profileBioLikelyWrapsPastFace(about);
 }
 
 /** Full About body — never `page/main` tagline. */

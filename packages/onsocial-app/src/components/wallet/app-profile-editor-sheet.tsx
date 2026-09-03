@@ -64,7 +64,7 @@ import {
 import {
   PROFILE_BIO_LIMIT_WARN,
   PROFILE_BIO_MAX,
-  profileBioHasLineOverflow,
+  profileAboutHasMoreThanFace,
 } from '@/lib/profile-bio-face';
 import { displayName, fallbackLabel, initials } from '@/lib/profile-display';
 import type { ResolvedPageHero } from '@/lib/page-data';
@@ -823,7 +823,10 @@ export function AppProfileEditorSheet({
                             if (trimmed !== bio) setBio(trimmed);
                           }}
                         />
-                        {profileBioHasLineOverflow(bio) ? (
+                        {profileAboutHasMoreThanFace({
+                          faceText: bio,
+                          aboutText: bio,
+                        }) ? (
                           <p className="account-editor-about-hint">
                             First four lines show on your page. More in About.
                           </p>

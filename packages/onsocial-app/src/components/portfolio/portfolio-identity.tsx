@@ -151,7 +151,7 @@ export function PortfolioIdentity({
           <PortfolioFaceBio
             accountId={accountId}
             text={summary}
-            forceAbout={showAbout}
+            showAbout={showAbout}
           />
         ) : null}
         <PortfolioIdentityGestures
