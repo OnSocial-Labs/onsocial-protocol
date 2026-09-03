@@ -15,4 +15,14 @@ describe('discover tab scroll', () => {
     expect(rememberDiscoverTabScroll({}, 'guilds', -12)).toEqual({});
     expect(readDiscoverTabScroll({ hubs: Number.NaN }, 'hubs')).toBe(0);
   });
+
+  it('keeps each tab offset when another tab is stored', () => {
+    const stored = rememberDiscoverTabScroll(
+      rememberDiscoverTabScroll({}, 'daos', 800),
+      'profiles',
+      120
+    );
+    expect(readDiscoverTabScroll(stored, 'daos')).toBe(800);
+    expect(readDiscoverTabScroll(stored, 'profiles')).toBe(120);
+  });
 });

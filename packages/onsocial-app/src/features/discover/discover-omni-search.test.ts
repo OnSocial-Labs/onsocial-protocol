@@ -78,6 +78,8 @@ describe('discover search focus hint', () => {
 
   it('keeps aria labels as search actions', () => {
     expect(discoverSearchAriaLabel('daos')).toBe('Search DAOs');
+    expect(discoverSearchAriaLabel('guilds')).toBe('Search Guilds');
+    expect(discoverSearchAriaLabel('hubs')).toBe('Search Hubs');
     expect(discoverSearchAriaLabel('profiles', 'hiring')).toBe(
       'Search open roles'
     );

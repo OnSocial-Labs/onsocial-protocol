@@ -19,12 +19,6 @@ import {
   excludeRecommendedFromList,
   nextDiscoverListMinHeight,
 } from '@/lib/discover-recommended';
-import {
-  readDiscoverTabScroll,
-  readElementScrollTop,
-  rememberDiscoverTabScroll,
-  writeElementScrollTop,
-} from '@/lib/discover-tab-scroll';
 import { discoverProfilesLead } from '@/lib/discover-tab-lead';
 
 export function DiscoverPanelContent() {
@@ -70,7 +64,6 @@ export function DiscoverPanelContent() {
     isStandingPendingForTarget,
     handleUpdateStanding,
     initialTrending,
-    scrollRootRef,
   } = useDiscoverPanel();
   const [visitedTabs, setVisitedTabs] = useState(
     () => new Set<DiscoverTab>([tab])
@@ -78,40 +71,6 @@ export function DiscoverPanelContent() {
   if (!visitedTabs.has(tab)) {
     setVisitedTabs(new Set([...visitedTabs, tab]));
   }
-  const tabScrollRef = useRef<Partial<Record<DiscoverTab, number>>>({});
-  const tabScrollFilterRef = useRef(`${query}\0${face}\0${industry}`);
-  const prevTabRef = useRef(tab);
-
-  useLayoutEffect(() => {
-    const filterKey = `${query}\0${face}\0${industry}`;
-    const filterChanged = tabScrollFilterRef.current !== filterKey;
-    if (filterChanged) {
-      tabScrollFilterRef.current = filterKey;
-      tabScrollRef.current = {};
-    }
-    const root = scrollRootRef?.current ?? null;
-    if (!root) {
-      prevTabRef.current = tab;
-      return;
-    }
-    if (filterChanged) {
-      prevTabRef.current = tab;
-      writeElementScrollTop(root, 0);
-      return;
-    }
-    const previousTab = prevTabRef.current;
-    if (previousTab === tab) return;
-    tabScrollRef.current = rememberDiscoverTabScroll(
-      tabScrollRef.current,
-      previousTab,
-      readElementScrollTop(root)
-    );
-    prevTabRef.current = tab;
-    writeElementScrollTop(
-      root,
-      readDiscoverTabScroll(tabScrollRef.current, tab)
-    );
-  }, [face, industry, query, scrollRootRef, tab]);
   const listSlotRef = useRef<HTMLDivElement>(null);
   const [listSlotReserve, setListSlotReserve] = useState<{
     key: string;

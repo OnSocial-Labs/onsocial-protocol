@@ -35,3 +35,18 @@ export function writeElementScrollTop(
   if (!(element instanceof HTMLElement)) return;
   element.scrollTop = scrollTop;
 }
+
+/** Write now and once after paint — chrome tuck / height sync can reset scrollTop. */
+export function scheduleDiscoverTabScrollRestore(
+  element: Element | null | undefined,
+  scrollTop: number
+): () => void {
+  writeElementScrollTop(element, scrollTop);
+  if (typeof requestAnimationFrame !== 'function') {
+    return () => {};
+  }
+  const frame = requestAnimationFrame(() => {
+    writeElementScrollTop(element, scrollTop);
+  });
+  return () => cancelAnimationFrame(frame);
+}

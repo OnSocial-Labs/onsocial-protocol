@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -40,6 +41,13 @@ import {
   buildDiscoverListSummary,
   formatDiscoverSubtitle,
 } from '@/lib/discover-list-summary';
+import {
+  readDiscoverTabScroll,
+  readElementScrollTop,
+  rememberDiscoverTabScroll,
+  scheduleDiscoverTabScrollRestore,
+  type DiscoverTabScrollMap,
+} from '@/lib/discover-tab-scroll';
 import type { DiscoverFaceFilter } from '@onsocial/sdk';
 import {
   applyDiscoverFilterParams,
@@ -210,9 +218,32 @@ export function useDiscoverProfiles(
   const topicFilterPrefix = discoverTopicFilterPrefix(query, tab);
   const urlQueryValue = discoverUrlQueryValue(query, tab);
 
-  const setTab = useCallback((next: DiscoverTab) => {
-    setTabState(next);
-  }, []);
+  const tabScrollRef = useRef<DiscoverTabScrollMap>({});
+  const setTab = useCallback(
+    (next: DiscoverTab) => {
+      setTabState((current) => {
+        if (current === next) return current;
+        tabScrollRef.current = rememberDiscoverTabScroll(
+          tabScrollRef.current,
+          current,
+          readElementScrollTop(scrollRootRef?.current)
+        );
+        return next;
+      });
+    },
+    [scrollRootRef]
+  );
+
+  useLayoutEffect(() => {
+    return scheduleDiscoverTabScrollRestore(
+      scrollRootRef?.current,
+      readDiscoverTabScroll(tabScrollRef.current, tab)
+    );
+  }, [scrollRootRef, tab]);
+
+  useEffect(() => {
+    tabScrollRef.current = {};
+  }, [face, industry, normalizedQuery]);
 
   const setFace = useCallback((next: DiscoverFaceFilter) => {
     setFaceState(next);

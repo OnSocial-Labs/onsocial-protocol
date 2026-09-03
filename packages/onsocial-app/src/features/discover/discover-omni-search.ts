@@ -92,7 +92,7 @@ export function discoverSearchAriaLabel(
 ): string {
   if (tab === 'profiles' && face === 'hiring') return 'Search open roles';
   if (tab === 'daos') return 'Search DAOs';
-  if (tab === 'guilds') return 'Search guilds';
-  if (tab === 'hubs') return 'Search hubs';
+  if (tab === 'guilds') return 'Search Guilds';
+  if (tab === 'hubs') return 'Search Hubs';
   return 'Search people, topics, and tickers';
 }
