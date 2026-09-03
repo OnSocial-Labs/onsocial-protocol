@@ -19,7 +19,10 @@ import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import { OsAppChromePageStatus } from '@onsocial/ui';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
-import { discoverTrendingLead } from '@/lib/discover-tab-lead';
+import {
+  DISCOVER_CONNECT_HINT,
+  discoverTrendingLead,
+} from '@/lib/discover-tab-lead';
 import { homeHashtagPath } from '@/features/home/home-hashtag-search';
 import { homePlacePath, placeLabel } from '@/lib/post-place';
 import {
@@ -631,7 +634,7 @@ export function DiscoverTrendingPanel({
 
           {showConnectHint ? (
             <OsAppChromePageStatus className="discover-connect-hint">
-              Connect to stand with profiles.
+              {DISCOVER_CONNECT_HINT}
             </OsAppChromePageStatus>
           ) : null}
 

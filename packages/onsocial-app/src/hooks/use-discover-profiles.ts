@@ -219,19 +219,23 @@ export function useDiscoverProfiles(
   const urlQueryValue = discoverUrlQueryValue(query, tab);
 
   const tabScrollRef = useRef<DiscoverTabScrollMap>({});
-  const setTab = useCallback(
-    (next: DiscoverTab) => {
-      setTabState((current) => {
-        if (current === next) return current;
-        tabScrollRef.current = rememberDiscoverTabScroll(
-          tabScrollRef.current,
-          current,
-          readElementScrollTop(scrollRootRef?.current)
-        );
-        return next;
-      });
+  const commitTab = useCallback(
+    (current: DiscoverTab, next: DiscoverTab): DiscoverTab => {
+      if (current === next) return current;
+      tabScrollRef.current = rememberDiscoverTabScroll(
+        tabScrollRef.current,
+        current,
+        readElementScrollTop(scrollRootRef?.current)
+      );
+      return next;
     },
     [scrollRootRef]
+  );
+  const setTab = useCallback(
+    (next: DiscoverTab) => {
+      setTabState((current) => commitTab(current, next));
+    },
+    [commitTab]
   );
 
   useLayoutEffect(() => {
@@ -256,10 +260,15 @@ export function useDiscoverProfiles(
     setIndustryState(next.trim());
   }, []);
 
-  const setQuery = useCallback((value: string) => {
-    setQueryState(value);
-    setTabState((current) => discoverTabForQueryDraft(value, current));
-  }, []);
+  const setQuery = useCallback(
+    (value: string) => {
+      setQueryState(value);
+      setTabState((current) =>
+        commitTab(current, discoverTabForQueryDraft(value, current))
+      );
+    },
+    [commitTab]
+  );
 
   const mergedPendingStandingIds = useMemo(() => {
     void standingSyncVersion;

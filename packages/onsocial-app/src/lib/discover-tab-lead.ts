@@ -76,6 +76,9 @@ export function discoverTrendingLead(): string {
   return "What's moving";
 }
 
+/** Quiet stand hint — Profiles list and Moving Active share this line. */
+export const DISCOVER_CONNECT_HINT = 'Connect to stand with profiles.';
+
 /** Profiles peek heading on Moving — names the face / industry filter. */
 export function discoverTrendingProfilesHeading(
   face: DiscoverFaceFilter = 'all',

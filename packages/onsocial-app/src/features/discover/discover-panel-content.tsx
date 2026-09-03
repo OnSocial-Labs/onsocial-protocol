@@ -19,7 +19,10 @@ import {
   excludeRecommendedFromList,
   nextDiscoverListMinHeight,
 } from '@/lib/discover-recommended';
-import { discoverProfilesLead } from '@/lib/discover-tab-lead';
+import {
+  DISCOVER_CONNECT_HINT,
+  discoverProfilesLead,
+} from '@/lib/discover-tab-lead';
 
 export function DiscoverPanelContent() {
   const [recommendedShownIds, setRecommendedShownIds] = useState<string[]>([]);
@@ -132,7 +135,7 @@ export function DiscoverPanelContent() {
 
           {showConnectHint ? (
             <OsAppChromePageStatus className="discover-connect-hint">
-              Connect to stand with profiles.
+              {DISCOVER_CONNECT_HINT}
             </OsAppChromePageStatus>
           ) : null}
 
