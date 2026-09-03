@@ -7480,6 +7480,8 @@ a.os-surface-row {
     --portfolio-about-inset: max(1.5rem, env(safe-area-inset-left, 0px));
     --portfolio-about-ink: rgb(var(--fg-rgb) / 0.9);
     --portfolio-about-quiet: var(--mood-muted, rgb(var(--fg-rgb) / 0.5));
+    container-type: inline-size;
+    container-name: portfolio-about;
     display: flex;
     flex-direction: column;
     gap: 2.15rem;
@@ -7550,12 +7552,17 @@ a.os-surface-row {
       system-ui,
       sans-serif
     );
-    font-size: clamp(2.2rem, 7vw, 3.05rem);
+    font-size: clamp(2.15rem, 9cqi, 2.85rem);
     font-weight: var(--mood-display-weight, 600);
     letter-spacing: var(--mood-display-tracking, -0.046em);
     line-height: 1.04;
     color: rgb(var(--fg-rgb));
     text-wrap: balance;
+  }
+
+  .portfolio-about-name .protocol-identity-mark {
+    margin-inline-start: 0.32em;
+    vertical-align: 0.12em;
   }
 
   .portfolio-about-handle-row {
@@ -7613,28 +7620,22 @@ a.os-surface-row {
     overflow-wrap: anywhere;
   }
 
-  @media (min-width: 768px) {
-    .portfolio-about {
-      padding-top: max(3.1rem, calc(env(safe-area-inset-top, 0px) + 2.1rem));
-      gap: 2.45rem;
-    }
-
-    .portfolio-about[data-has-print='true']:has(.portfolio-about-essay)
-      .portfolio-about-stage {
+  @container portfolio-about (min-width: 40rem) {
+    .portfolio-about-stage:has(.portfolio-about-print):has(
+        .portfolio-about-essay
+      ) {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 16.75rem;
       gap: 2.5rem 2.85rem;
       align-items: start;
     }
 
-    .portfolio-about[data-has-print='true']:has(.portfolio-about-essay)
-      .portfolio-about-print {
+    .portfolio-about-stage:has(.portfolio-about-essay) .portfolio-about-print {
       order: 2;
       width: 16.75rem;
     }
 
-    .portfolio-about[data-has-print='true']:has(.portfolio-about-essay)
-      .portfolio-about-essay {
+    .portfolio-about-stage:has(.portfolio-about-print) .portfolio-about-essay {
       order: 1;
     }
   }

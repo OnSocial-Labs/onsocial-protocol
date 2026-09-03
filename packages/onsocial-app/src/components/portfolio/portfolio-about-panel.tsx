@@ -51,8 +51,12 @@ export function PortfolioAboutPanel({
     >
       <header className="portfolio-about-masthead">
         <div className="portfolio-about-name-row">
-          <h1 className="portfolio-about-name">{titleLabel}</h1>
-          {isDao ? <ProtocolNameTrailing accountId={accountId} isDao /> : null}
+          <h1 className="portfolio-about-name">
+            {titleLabel}
+            {isDao ? (
+              <ProtocolNameTrailing accountId={accountId} isDao />
+            ) : null}
+          </h1>
         </div>
         <p className="portfolio-about-handle-row">
           <span
