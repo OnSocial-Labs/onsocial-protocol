@@ -109,7 +109,9 @@ export function ProfileAboutPhotosEditor({
     if (!drag) return;
     const over = indexFromPoint(event.clientX, event.clientY);
     if (over === null || over === drag.from) return;
-    onChange(moveProfileAboutPhoto(photosRef.current, drag.from, over));
+    const next = moveProfileAboutPhoto(photosRef.current, drag.from, over);
+    photosRef.current = next;
+    onChange(next);
     drag.from = over;
     setDragFrom(over);
   };
