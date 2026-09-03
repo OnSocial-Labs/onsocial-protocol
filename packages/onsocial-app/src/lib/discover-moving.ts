@@ -1,7 +1,52 @@
 import type { PostRow, ProfileSearchRow } from '@onsocial/sdk';
 
+/** Any non-empty Moving peek — first paint can skip skeletons. */
+export function isMovingLandingPainted(
+  seed:
+    | {
+        movingTickers?: readonly unknown[] | null;
+        movingTopics?: readonly unknown[] | null;
+        places?: readonly unknown[] | null;
+        profiles?: readonly unknown[] | null;
+        hubs?: readonly unknown[] | null;
+        posts?: readonly unknown[] | null;
+        talkedAbout?: readonly unknown[] | null;
+        dropsTraded?: readonly unknown[] | null;
+        dropsLoved?: readonly unknown[] | null;
+        proposals?: readonly unknown[] | null;
+      }
+    | null
+    | undefined
+): boolean {
+  if (!seed) return false;
+  return (
+    (seed.movingTickers?.length ?? 0) > 0 ||
+    (seed.movingTopics?.length ?? 0) > 0 ||
+    (seed.places?.length ?? 0) > 0 ||
+    (seed.profiles?.length ?? 0) > 0 ||
+    (seed.hubs?.length ?? 0) > 0 ||
+    (seed.posts?.length ?? 0) > 0 ||
+    (seed.talkedAbout?.length ?? 0) > 0 ||
+    (seed.dropsTraded?.length ?? 0) > 0 ||
+    (seed.dropsLoved?.length ?? 0) > 0 ||
+    (seed.proposals?.length ?? 0) > 0
+  );
+}
+
+/** Empty SSR seed stays pending so Moving reserves skeletons instead of jumping in. */
+export function movingSectionFromSeed<T>(
+  rows: T[] | null | undefined,
+  painted: boolean
+): T[] | null {
+  if (painted) return rows ?? [];
+  if (Array.isArray(rows) && rows.length > 0) return rows;
+  return null;
+}
+
 /** True when Home Hot would rank this post above a cold chrono fallback. */
-export function postHasAmplifyHeat(post: Pick<PostRow, 'amplifyHeat'>): boolean {
+export function postHasAmplifyHeat(
+  post: Pick<PostRow, 'amplifyHeat'>
+): boolean {
   return Number(post.amplifyHeat) > 0;
 }
 

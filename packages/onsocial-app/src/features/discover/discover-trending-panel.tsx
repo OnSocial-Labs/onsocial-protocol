@@ -66,6 +66,8 @@ import {
 import { rankHubPeeks } from '@/features/discover/discover-community-ranking';
 import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about';
 import {
+  isMovingLandingPainted,
+  movingSectionFromSeed,
   orderProfileSearchByPosterIds,
   recentPosterIds,
   selectHotPosts,
@@ -161,7 +163,7 @@ function ScarcePeekSection({
 /**
  * Default Discover landing: what's moving — heat, talk, recency, drops, people.
  * Face / hiring chips live on Profiles — this page is a peek, not a filter.
- * Sections paint independently as each query settles.
+ * Sections settle independently; an empty first seed keeps skeletons reserved.
  */
 export function DiscoverTrendingPanel({
   onOpenTab,
@@ -175,36 +177,37 @@ export function DiscoverTrendingPanel({
   const { updateStanding, isStandingPendingForTarget } =
     useViewerStanding('discover');
   const { endorsementSyncVersion } = useViewerEndorsement('discover');
+  const paintedSeed = isMovingLandingPainted(initial);
 
-  const [tickers, setTickers] = useState<TickerCount[] | null>(
-    () => initial?.movingTickers ?? null
+  const [tickers, setTickers] = useState<TickerCount[] | null>(() =>
+    movingSectionFromSeed(initial?.movingTickers, paintedSeed)
   );
-  const [topics, setTopics] = useState<HashtagCount[] | null>(
-    () => initial?.movingTopics ?? null
+  const [topics, setTopics] = useState<HashtagCount[] | null>(() =>
+    movingSectionFromSeed(initial?.movingTopics, paintedSeed)
   );
-  const [places, setPlaces] = useState<PlaceCount[] | null>(
-    () => initial?.places ?? null
+  const [places, setPlaces] = useState<PlaceCount[] | null>(() =>
+    movingSectionFromSeed(initial?.places, paintedSeed)
   );
-  const [profiles, setProfiles] = useState<ProfileListAccount[] | null>(
-    () => initial?.profiles ?? null
+  const [profiles, setProfiles] = useState<ProfileListAccount[] | null>(() =>
+    movingSectionFromSeed(initial?.profiles, paintedSeed)
   );
-  const [hubs, setHubs] = useState<DiscoverTrendingHub[] | null>(
-    () => initial?.hubs ?? null
+  const [hubs, setHubs] = useState<DiscoverTrendingHub[] | null>(() =>
+    movingSectionFromSeed(initial?.hubs, paintedSeed)
   );
-  const [posts, setPosts] = useState<PostRow[] | null>(
-    () => initial?.posts ?? null
+  const [posts, setPosts] = useState<PostRow[] | null>(() =>
+    movingSectionFromSeed(initial?.posts, paintedSeed)
   );
-  const [talkedAbout, setTalkedAbout] = useState<PostRow[] | null>(
-    () => initial?.talkedAbout ?? null
+  const [talkedAbout, setTalkedAbout] = useState<PostRow[] | null>(() =>
+    movingSectionFromSeed(initial?.talkedAbout, paintedSeed)
   );
   const [dropsTraded, setDropsTraded] = useState<DiscoverScarcePeek[] | null>(
-    () => initial?.dropsTraded ?? null
+    () => movingSectionFromSeed(initial?.dropsTraded, paintedSeed)
   );
   const [dropsLoved, setDropsLoved] = useState<DiscoverScarcePeek[] | null>(
-    () => initial?.dropsLoved ?? null
+    () => movingSectionFromSeed(initial?.dropsLoved, paintedSeed)
   );
-  const [proposals, setProposals] = useState<GovernanceEventRow[] | null>(
-    () => initial?.proposals ?? null
+  const [proposals, setProposals] = useState<GovernanceEventRow[] | null>(() =>
+    movingSectionFromSeed(initial?.proposals, paintedSeed)
   );
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingStandingIds, setPendingStandingIds] = useState<Set<string>>(
@@ -212,19 +215,7 @@ export function DiscoverTrendingPanel({
   );
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const viewerKey = viewerAccountId ?? null;
-  const hasPaintedRef = useRef(
-    initial != null &&
-      ((initial.movingTickers?.length ?? 0) > 0 ||
-        (initial.movingTopics?.length ?? 0) > 0 ||
-        (initial.places?.length ?? 0) > 0 ||
-        initial.profiles.length > 0 ||
-        initial.hubs.length > 0 ||
-        (initial.posts?.length ?? 0) > 0 ||
-        (initial.talkedAbout?.length ?? 0) > 0 ||
-        (initial.dropsTraded?.length ?? 0) > 0 ||
-        (initial.dropsLoved?.length ?? 0) > 0 ||
-        (initial.proposals?.length ?? 0) > 0)
-  );
+  const hasPaintedRef = useRef(paintedSeed);
 
   useEffect(() => {
     let cancelled = false;
@@ -514,7 +505,9 @@ export function DiscoverTrendingPanel({
     >
       <DiscoverTabLead>{discoverTrendingLead()}</DiscoverTabLead>
 
-      {anyLoading ? <p className="sr-only">Loading what&apos;s moving…</p> : null}
+      {anyLoading ? (
+        <p className="sr-only">Loading what&apos;s moving…</p>
+      ) : null}
 
       {empty ? (
         <div className="standing-panel-empty-state">
@@ -530,10 +523,7 @@ export function DiscoverTrendingPanel({
       ) : null}
 
       <MovingPostPeekSection heading="Hot posts" rows={visiblePosts} />
-      <MovingPostPeekSection
-        heading="Talked about"
-        rows={visibleTalkedAbout}
-      />
+      <MovingPostPeekSection heading="Talked about" rows={visibleTalkedAbout} />
 
       {visibleTopics === null ? (
         <DiscoverTrendingChipSectionSkeleton />
@@ -722,7 +712,8 @@ export function DiscoverTrendingPanel({
             {visibleProposals.slice(0, SECTION_LIMIT).map((row) => {
               const href = discoverProposalHref(row);
               const title = row.title?.trim() || 'Proposal';
-              const meta = row.groupId?.trim() || row.proposalType?.trim() || '';
+              const meta =
+                row.groupId?.trim() || row.proposalType?.trim() || '';
               if (!href) return null;
               return (
                 <li

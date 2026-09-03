@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isMovingLandingPainted,
+  movingSectionFromSeed,
   orderRowsByAccountIds,
   parentPostRefFromReply,
   postHasAmplifyHeat,
@@ -58,10 +60,7 @@ describe('discover-moving', () => {
   it('reorders profile rows to match poster ids', () => {
     expect(
       orderRowsByAccountIds(
-        [
-          { accountId: 'bob.near' },
-          { accountId: 'alice.near' },
-        ],
+        [{ accountId: 'bob.near' }, { accountId: 'alice.near' }],
         ['alice.near', 'cara.near', 'bob.near']
       ).map((row) => row.accountId)
     ).toEqual(['alice.near', 'bob.near']);
@@ -97,5 +96,31 @@ describe('discover-moving', () => {
       { author: 'alice.near', postId: 'a' },
       { author: 'bob.near', postId: 'b' },
     ]);
+  });
+});
+
+describe('moving landing paint', () => {
+  it('treats an empty SSR seed as still loading', () => {
+    expect(
+      isMovingLandingPainted({
+        movingTickers: [],
+        movingTopics: [],
+        places: [],
+        profiles: [],
+        hubs: [],
+        posts: [],
+        talkedAbout: [],
+        dropsTraded: [],
+        dropsLoved: [],
+        proposals: [],
+      })
+    ).toBe(false);
+    expect(movingSectionFromSeed([], false)).toBeNull();
+    expect(movingSectionFromSeed([{ id: '1' }], false)).toEqual([{ id: '1' }]);
+  });
+
+  it('keeps a painted seed, including empty sections', () => {
+    expect(isMovingLandingPainted({ posts: [post('a.near', '1')] })).toBe(true);
+    expect(movingSectionFromSeed([], true)).toEqual([]);
   });
 });

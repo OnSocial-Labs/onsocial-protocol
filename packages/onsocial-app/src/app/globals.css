@@ -9972,6 +9972,22 @@ a.os-surface-row {
     margin-bottom: 1.1rem;
   }
 
+  .discover-recommended-peek--pending {
+    min-height: 16.5rem;
+  }
+
+  .discover-trending-section--chip-skeleton {
+    min-height: 4.55rem;
+  }
+
+  .discover-trending-section--focus-skeleton {
+    min-height: 10.5rem;
+  }
+
+  .discover-trending-section--profile-skeleton {
+    min-height: 16.5rem;
+  }
+
   .discover-trending-section-head {
     display: flex;
     align-items: baseline;
