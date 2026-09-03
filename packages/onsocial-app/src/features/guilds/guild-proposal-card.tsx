@@ -179,7 +179,6 @@ export function GuildProposalCard({
             >
               <AccountAvatar
                 accountId={targetAccountId}
-                kind={targetProfile?.kind}
                 src={targetProfile?.avatarUrl ?? null}
                 fallbackInitial={targetDisplayName!}
                 shellLoading={!targetProfile}
@@ -235,7 +234,6 @@ export function GuildProposalCard({
           >
             <AccountAvatar
               accountId={proposerAccountId}
-              kind={proposerProfile?.kind}
               src={proposerProfile?.avatarUrl ?? null}
               fallbackInitial={proposerDisplayName!}
               shellLoading={!proposerProfile}
