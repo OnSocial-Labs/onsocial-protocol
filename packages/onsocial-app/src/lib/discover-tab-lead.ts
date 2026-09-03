@@ -13,8 +13,9 @@ export function formatDiscoverTabCount(count: number): string {
 }
 
 /**
- * Lead lines name the section / count. Do not echo the query — it's already
- * in the search field.
+ * One hint line per Discover tab. Names the section / count / active filter.
+ * Do not echo the query — it's already in the search field. Lists, chips,
+ * and peeks render only when they have something to show.
  */
 export function discoverProfilesLead(
   discoverableTotal: number | null | undefined,

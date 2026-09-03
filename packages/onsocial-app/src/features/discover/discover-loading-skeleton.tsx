@@ -68,6 +68,38 @@ export function DiscoverTrendingGuildsSectionSkeleton() {
   );
 }
 
+/** DAO / guild / hub directory placeholders — same row language as the cards. */
+export function DiscoverCommunityListSkeleton({
+  label,
+  count = 4,
+}: {
+  label: string;
+  count?: number;
+}) {
+  return (
+    <div
+      className="community-summary-card-grid discover-community-list-skeleton"
+      aria-hidden
+    >
+      <p className="sr-only">{label}</p>
+      {Array.from({ length: count }, (_, index) => (
+        <div
+          key={index}
+          className="community-summary-card community-summary-card--grid community-summary-card--skeleton"
+        >
+          <span className="community-summary-media">
+            <span className="standing-row-shimmer community-summary-cover-shimmer" />
+          </span>
+          <span className="community-summary-body">
+            <span className="standing-row-shimmer standing-row-shimmer-line" />
+            <span className="standing-row-shimmer standing-row-shimmer-line-sm" />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Topic / ticker list placeholders. */
 export function DiscoverFocusListSkeleton({ rows = 8 }: { rows?: number }) {
   return (

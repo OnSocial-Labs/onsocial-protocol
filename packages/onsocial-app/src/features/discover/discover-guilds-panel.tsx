@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsChipRail } from '@/components/os/os-chip-rail';
+import { DiscoverCommunityListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-search';
@@ -314,7 +315,7 @@ export function DiscoverGuildsPanel() {
       {error ? <ListLoadError message={error} onRetry={retry} /> : null}
 
       {showSkeleton ? (
-        <p className="launcher-home-empty">Loading guilds…</p>
+        <DiscoverCommunityListSkeleton label="Loading guilds…" />
       ) : null}
 
       {!error &&
