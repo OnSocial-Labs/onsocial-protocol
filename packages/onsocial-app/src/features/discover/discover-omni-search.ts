@@ -1,3 +1,5 @@
+import type { DiscoverFaceFilter } from '@onsocial/sdk';
+import type { DiscoverTab } from '@/features/discover/discover-tabs';
 import {
   homeHashtagPath,
   parseHashtagCommit,
@@ -70,4 +72,27 @@ export function classifyDiscoverSearch(raw: string): DiscoverSearchIntent {
 export function discoverOmniTargetHref(raw: string): string | null {
   const intent = classifyDiscoverSearch(raw);
   return intent.kind === 'people' ? null : intent.href;
+}
+
+/** Focus placeholder — names the surface. Idle stays `Search`. */
+export function discoverSearchFocusHint(
+  tab: DiscoverTab,
+  face: DiscoverFaceFilter = 'all'
+): string {
+  if (tab === 'profiles' && face === 'hiring') return 'Role title';
+  if (tab === 'daos') return 'DAOs';
+  if (tab === 'guilds') return 'Guilds';
+  if (tab === 'hubs') return 'Hubs';
+  return 'People, #topics, $tickers';
+}
+
+export function discoverSearchAriaLabel(
+  tab: DiscoverTab,
+  face: DiscoverFaceFilter = 'all'
+): string {
+  if (tab === 'profiles' && face === 'hiring') return 'Search open roles';
+  if (tab === 'daos') return 'Search DAOs';
+  if (tab === 'guilds') return 'Search Guilds';
+  if (tab === 'hubs') return 'Search Hubs';
+  return 'Search people, topics, and tickers';
 }

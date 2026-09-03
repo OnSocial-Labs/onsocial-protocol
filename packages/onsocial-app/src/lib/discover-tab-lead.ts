@@ -13,8 +13,9 @@ export function formatDiscoverTabCount(count: number): string {
 }
 
 /**
- * Lead lines name the section / count. Do not echo the query — it's already
- * in the search field.
+ * One hint line per Discover tab. Names the section / count / active filter.
+ * Do not echo the query — it's already in the search field. Lists, chips,
+ * and peeks render only when they have something to show.
  */
 export function discoverProfilesLead(
   discoverableTotal: number | null | undefined,
@@ -75,7 +76,10 @@ export function discoverTrendingLead(): string {
   return "What's moving";
 }
 
-/** Profiles peek heading on Trending — names the face / industry filter. */
+/** Quiet stand hint — Profiles list and Moving Active share this line. */
+export const DISCOVER_CONNECT_HINT = 'Connect to stand with profiles.';
+
+/** Profiles peek heading on Moving — names the face / industry filter. */
 export function discoverTrendingProfilesHeading(
   face: DiscoverFaceFilter = 'all',
   industry = ''
@@ -84,6 +88,6 @@ export function discoverTrendingProfilesHeading(
   if (face === 'hiring') return sector ? `Hiring · ${sector}` : 'Hiring';
   if (face === 'orgs') return sector ? `Orgs · ${sector}` : 'Orgs';
   if (face === 'people') return 'People';
-  if (sector) return `Standing out · ${sector}`;
-  return 'Standing out';
+  if (sector) return `Active · ${sector}`;
+  return 'Active';
 }

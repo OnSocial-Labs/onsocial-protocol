@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -40,6 +41,13 @@ import {
   buildDiscoverListSummary,
   formatDiscoverSubtitle,
 } from '@/lib/discover-list-summary';
+import {
+  readDiscoverTabScroll,
+  readElementScrollTop,
+  rememberDiscoverTabScroll,
+  scheduleDiscoverTabScrollRestore,
+  type DiscoverTabScrollMap,
+} from '@/lib/discover-tab-scroll';
 import type { DiscoverFaceFilter } from '@onsocial/sdk';
 import {
   applyDiscoverFilterParams,
@@ -163,9 +171,11 @@ export function useDiscoverProfiles(
       searchParams.get('q')
     )
   );
-  const [tab, setTabState] = useState<DiscoverTab>(() =>
-    parseDiscoverTab(searchParams.get(DISCOVER_TAB_QUERY_KEY))
-  );
+  const [tab, setTabState] = useState<DiscoverTab>(() => {
+    const parsed = parseDiscoverTab(searchParams.get(DISCOVER_TAB_QUERY_KEY));
+    const urlQuery = restoreDiscoverQueryFromUrl(parsed, searchParams.get('q'));
+    return discoverTabForQueryDraft(urlQuery, parsed);
+  });
   const [face, setFaceState] = useState<DiscoverFaceFilter>(
     () =>
       parseDiscoverProfileFilters({
@@ -208,9 +218,36 @@ export function useDiscoverProfiles(
   const topicFilterPrefix = discoverTopicFilterPrefix(query, tab);
   const urlQueryValue = discoverUrlQueryValue(query, tab);
 
-  const setTab = useCallback((next: DiscoverTab) => {
-    setTabState(next);
-  }, []);
+  const tabScrollRef = useRef<DiscoverTabScrollMap>({});
+  const commitTab = useCallback(
+    (current: DiscoverTab, next: DiscoverTab): DiscoverTab => {
+      if (current === next) return current;
+      tabScrollRef.current = rememberDiscoverTabScroll(
+        tabScrollRef.current,
+        current,
+        readElementScrollTop(scrollRootRef?.current)
+      );
+      return next;
+    },
+    [scrollRootRef]
+  );
+  const setTab = useCallback(
+    (next: DiscoverTab) => {
+      setTabState((current) => commitTab(current, next));
+    },
+    [commitTab]
+  );
+
+  useLayoutEffect(() => {
+    return scheduleDiscoverTabScrollRestore(
+      scrollRootRef?.current,
+      readDiscoverTabScroll(tabScrollRef.current, tab)
+    );
+  }, [scrollRootRef, tab]);
+
+  useEffect(() => {
+    tabScrollRef.current = {};
+  }, [face, industry, normalizedQuery]);
 
   const setFace = useCallback((next: DiscoverFaceFilter) => {
     setFaceState(next);
@@ -223,10 +260,15 @@ export function useDiscoverProfiles(
     setIndustryState(next.trim());
   }, []);
 
-  const setQuery = useCallback((value: string) => {
-    setQueryState(value);
-    setTabState((current) => discoverTabForQueryDraft(value, current));
-  }, []);
+  const setQuery = useCallback(
+    (value: string) => {
+      setQueryState(value);
+      setTabState((current) =>
+        commitTab(current, discoverTabForQueryDraft(value, current))
+      );
+    },
+    [commitTab]
+  );
 
   const mergedPendingStandingIds = useMemo(() => {
     void standingSyncVersion;
@@ -548,11 +590,13 @@ export function useDiscoverProfiles(
       shownCount: profiles.length,
       hasMore,
       query,
+      face,
       discoverableTotal,
       indexedProfileTotal,
     });
   }, [
     discoverableTotal,
+    face,
     hasMore,
     indexedProfileTotal,
     isLoading,

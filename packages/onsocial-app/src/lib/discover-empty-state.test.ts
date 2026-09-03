@@ -38,6 +38,17 @@ describe('buildDiscoverEmptyState', () => {
     });
   });
 
+  it('names hiring title misses in the selected industry', () => {
+    expect(buildDiscoverEmptyState('nurse', 'hiring', 'Healthcare')).toEqual({
+      primary: 'No roles matching in Healthcare.',
+      showClearSearch: false,
+    });
+    expect(buildDiscoverEmptyState('nurse', 'hiring')).toEqual({
+      primary: 'No matching roles.',
+      showClearSearch: false,
+    });
+  });
+
   it('guides topic drafts to Home instead of people search misses', () => {
     expect(buildDiscoverEmptyState('#near')).toEqual({
       primary: 'Press Enter or pick a suggestion to open this in Home.',

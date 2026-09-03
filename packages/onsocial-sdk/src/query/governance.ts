@@ -232,6 +232,33 @@ export class GovernanceQuery {
   }
 
   /**
+   * Newest `proposal_created` events across every group — Discover Moving
+   * “New proposals” peek (created recently, not filtered to still-open).
+   *
+   * ```ts
+   * const open = await os.query.governance.recentProposals({ limit: 6 });
+   * ```
+   */
+  async recentProposals(
+    opts: { limit?: number } = {}
+  ): Promise<GovernanceEventRow[]> {
+    const limit = Math.min(Math.max(opts.limit ?? 8, 1), 24);
+    const res = await this._q.graphql<{
+      groupUpdates: GovernanceEventRow[];
+    }>({
+      query: `query RecentProposals($ops: [String!]!, $limit: Int!) {
+        groupUpdates(
+          where: { operation: {_in: $ops} },
+          limit: $limit,
+          orderBy: [{blockHeight: DESC}]
+        ) { ${GOVERNANCE_EVENT_FIELDS} }
+      }`,
+      variables: { ops: PROPOSAL_CREATED_OPS, limit },
+    });
+    return res.data?.groupUpdates ?? [];
+  }
+
+  /**
    * All proposals authored by an account (across every group), newest first.
    *
    * ```ts

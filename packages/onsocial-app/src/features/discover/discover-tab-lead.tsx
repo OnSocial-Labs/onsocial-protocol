@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { DiscoverCommunityHandoff } from '@/features/discover/discover-community-handoff';
 
-/** Shared first line (+ optional app handoff) under Discover tab chips. */
+/** One hint line under the tab chips. App handoffs sit on this row. */
 export function DiscoverTabLead({
   children,
   links,

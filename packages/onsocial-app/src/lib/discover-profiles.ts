@@ -2,12 +2,16 @@ import {
   discoverFaceSearchOptions,
   parseDiscoverFaceFilter,
   type DiscoverFaceFilter,
+  type OnSocial,
   type PageMoodId,
+  type ProfileDiscoverPageResult,
   type ProfileKind,
+  type MaterialisedProfile,
 } from '@onsocial/sdk';
 import {
   discoverProfileToProfileListAccount as toProfileListAccount,
   profileListAccountToStandingSummary,
+  type ProfileListAccount,
 } from '@/lib/profile-list-account';
 
 export interface DiscoverProfileSummary {
@@ -114,6 +118,56 @@ export async function fetchDiscoverProfiles(
   }
 
   return (await response.json()) as DiscoverProfilesResponse;
+}
+
+export function discoverPageToProfileListAccounts(
+  os: OnSocial,
+  page: ProfileDiscoverPageResult
+): ProfileListAccount[] {
+  const viewerOutgoingByTarget = new Map(
+    (page.viewer?.outgoing ?? []).map((row) => [row.targetAccount, row])
+  );
+  const viewerIncomingSet = new Set(page.viewer?.incomingAccountIds ?? []);
+  const viewerEndorsementIssuerSet = new Set(
+    page.viewer?.endorsementIssuers ?? []
+  );
+  const viewerEndorsementTargetSet = new Set(
+    page.viewer?.endorsementTargets ?? []
+  );
+
+  return page.profiles.map((row) => {
+    const profile: MaterialisedProfile = {
+      accountId: row.accountId,
+      name: row.name ?? undefined,
+      bio: row.bio ?? undefined,
+      avatar: row.avatar ?? undefined,
+      banner: row.banner ?? undefined,
+      kind: row.kind,
+      extra: {},
+    };
+    const outgoing = viewerOutgoingByTarget.get(row.accountId);
+    return toProfileListAccount({
+      accountId: row.accountId,
+      name: row.name ?? null,
+      bio: row.bio ?? null,
+      avatarUrl: os.profiles.avatarUrl(profile),
+      kind: profile.kind ?? null,
+      industry: row.industry ?? null,
+      openJobsCount: row.openJobsCount ?? 0,
+      standingCount: row.standingCount,
+      standingWithCount: row.standingWithCount,
+      mutualStandingCount: row.mutualStandingCount,
+      endorsementsReceivedCount: row.endorsementsReceivedCount,
+      endorsementsGivenCount: row.endorsementsGivenCount,
+      moodId: 'protocol',
+      viewerStanding: Boolean(outgoing),
+      theyStandWithViewer: viewerIncomingSet.has(row.accountId),
+      targetEndorsedViewer: viewerEndorsementIssuerSet.has(row.accountId),
+      viewerEndorsed: viewerEndorsementTargetSet.has(row.accountId),
+      standingSince: outgoing?.since ?? null,
+      standingBlockTimestamp: outgoing?.blockTimestamp ?? null,
+    });
+  });
 }
 
 export { toProfileListAccount as discoverProfileToProfileListAccount };

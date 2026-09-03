@@ -36,8 +36,8 @@ export function DiscoverFocusListPanel({
   /** SSR trending seed when the filter is empty. */
   initialRows?: Array<HashtagCount | TickerCount> | null;
 }) {
-  const [rows, setRows] = useState<Array<HashtagCount | TickerCount>>(
-    () => (!filterPrefix && initialRows ? initialRows : [])
+  const [rows, setRows] = useState<Array<HashtagCount | TickerCount>>(() =>
+    !filterPrefix && initialRows ? initialRows : []
   );
   const [loading, setLoading] = useState(
     () => !(!filterPrefix && initialRows != null)
@@ -50,47 +50,50 @@ export function DiscoverFocusListPanel({
   useEffect(() => {
     let cancelled = false;
     const soft = !filterPrefix && hasPaintedRef.current;
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        if (!soft) {
-          setLoading(true);
-        }
-        setError(null);
-        try {
-          const client = createReadOnlyOnSocialClient();
-          const next =
-            kind === 'ticker'
-              ? filterPrefix
-                ? await client.query.tickers.search(filterPrefix, {
-                    limit: LIST_LIMIT,
-                  })
-                : await client.query.tickers.trending({ limit: LIST_LIMIT })
-              : filterPrefix
-                ? await client.query.hashtags.search(filterPrefix, {
-                    limit: LIST_LIMIT,
-                  })
-                : await client.query.hashtags.trending({ limit: LIST_LIMIT });
-          if (!cancelled) {
-            setRows(next);
-            hasPaintedRef.current = next.length > 0 && !filterPrefix;
-          }
-        } catch (cause) {
-          if (cancelled) return;
+    const timer = window.setTimeout(
+      () => {
+        void (async () => {
           if (!soft) {
-            setRows([]);
-            setError(
-              cause instanceof Error
-                ? cause.message
-                : kind === 'ticker'
-                  ? 'Could not load tickers.'
-                  : 'Could not load topics.'
-            );
+            setLoading(true);
           }
-        } finally {
-          if (!cancelled) setLoading(false);
-        }
-      })();
-    }, filterPrefix ? 220 : 0);
+          setError(null);
+          try {
+            const client = createReadOnlyOnSocialClient();
+            const next =
+              kind === 'ticker'
+                ? filterPrefix
+                  ? await client.query.tickers.search(filterPrefix, {
+                      limit: LIST_LIMIT,
+                    })
+                  : await client.query.tickers.trending({ limit: LIST_LIMIT })
+                : filterPrefix
+                  ? await client.query.hashtags.search(filterPrefix, {
+                      limit: LIST_LIMIT,
+                    })
+                  : await client.query.hashtags.trending({ limit: LIST_LIMIT });
+            if (!cancelled) {
+              setRows(next);
+              hasPaintedRef.current = next.length > 0 && !filterPrefix;
+            }
+          } catch (cause) {
+            if (cancelled) return;
+            if (!soft) {
+              setRows([]);
+              setError(
+                cause instanceof Error
+                  ? cause.message
+                  : kind === 'ticker'
+                    ? 'Could not load tickers.'
+                    : 'Could not load topics.'
+              );
+            }
+          } finally {
+            if (!cancelled) setLoading(false);
+          }
+        })();
+      },
+      filterPrefix ? 220 : 0
+    );
 
     return () => {
       cancelled = true;
@@ -106,13 +109,6 @@ export function DiscoverFocusListPanel({
     : kind === 'ticker'
       ? 'No trending tickers yet.'
       : 'No trending topics yet.';
-
-  const sectionHeading =
-    filterPrefix && !error && rows.length > 0
-      ? kind === 'ticker'
-        ? 'Matching tickers'
-        : 'Matching topics'
-      : null;
 
   return (
     <div
@@ -158,9 +154,6 @@ export function DiscoverFocusListPanel({
             isRefreshing ? ' is-refreshing' : ''
           }`}
         >
-          {sectionHeading ? (
-            <h2 className="discover-trending-heading">{sectionHeading}</h2>
-          ) : null}
           <ul className="discover-focus-rows">
             {rows.map((row) => {
               if (kind === 'ticker') {

@@ -5,6 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CommunityDiscoverRow } from '@/components/community-cards';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsChipRail } from '@/components/os/os-chip-rail';
+import {
+  DiscoverCommunityListSkeleton,
+  DiscoverTrendingGuildsSectionSkeleton,
+} from '@/features/discover/discover-loading-skeleton';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import {
   fetchMostLovedScarcePeeks,
@@ -149,29 +153,32 @@ export function DiscoverHubsPanel() {
       }
     });
 
-    const timer = window.setTimeout(() => {
-      void fetchAppsDirectory({
-        limit: APPS_PAGE_SIZE,
-        query: searchQuery || undefined,
-        category: activeCategoryFilter,
-        hideTest: true,
-        sort: 'recent',
-      })
-        .then((page) => {
-          if (cancelled || requestId !== requestIdRef.current) return;
-          setApps(page.apps);
-          setPending(false);
-          setError(null);
+    const timer = window.setTimeout(
+      () => {
+        void fetchAppsDirectory({
+          limit: APPS_PAGE_SIZE,
+          query: searchQuery || undefined,
+          category: activeCategoryFilter,
+          hideTest: true,
+          sort: 'recent',
         })
-        .catch((cause) => {
-          if (cancelled || requestId !== requestIdRef.current) return;
-          setPending(false);
-          setApps([]);
-          setError(
-            cause instanceof Error ? cause.message : 'Could not load hubs.'
-          );
-        });
-    }, searchQuery ? 220 : 0);
+          .then((page) => {
+            if (cancelled || requestId !== requestIdRef.current) return;
+            setApps(page.apps);
+            setPending(false);
+            setError(null);
+          })
+          .catch((cause) => {
+            if (cancelled || requestId !== requestIdRef.current) return;
+            setPending(false);
+            setApps([]);
+            setError(
+              cause instanceof Error ? cause.message : 'Could not load hubs.'
+            );
+          });
+      },
+      searchQuery ? 220 : 0
+    );
 
     return () => {
       cancelled = true;
@@ -244,30 +251,26 @@ export function DiscoverHubsPanel() {
       {error ? <ListLoadError message={error} onRetry={retry} /> : null}
 
       {showScarcePeeks ? (
-        <>
-          {mostTraded === null ? (
-            <p className="launcher-home-empty">Loading most traded…</p>
-          ) : (
+        mostTraded === null || mostLoved === null ? (
+          <DiscoverTrendingGuildsSectionSkeleton />
+        ) : (
+          <>
             <ScarcePeekSection
               heading="Most traded"
               seeAllHref={dropsPath({ sort: 'traded' })}
               rows={mostTraded}
             />
-          )}
-          {mostLoved === null ? (
-            <p className="launcher-home-empty">Loading most loved…</p>
-          ) : (
             <ScarcePeekSection
               heading="Most loved"
               seeAllHref={dropsPath({ sort: 'loved' })}
               rows={mostLoved}
             />
-          )}
-        </>
+          </>
+        )
       ) : null}
 
       {showSkeleton ? (
-        <p className="launcher-home-empty">Loading hubs…</p>
+        <DiscoverCommunityListSkeleton label="Loading hubs…" />
       ) : null}
 
       {!showSkeleton &&

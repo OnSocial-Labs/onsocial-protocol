@@ -170,17 +170,12 @@ async function queryHubStatsTable(
 }
 
 /**
- * Hubs ranked by 30d trade volume (`scarces_app_stats_hot`), then lifetime
- * stats, then recent directory when views are unavailable.
+ * Hubs with 30d trade volume (`scarces_app_stats_hot`). Empty when that
+ * view has no rows — do not fall back to lifetime stats or the directory.
  */
 export async function rankHubPeeks(
   client: OnSocial,
-  opts: {
-    peekLimit?: number;
-    fetchRecentFallback: () => Promise<
-      Array<{ appId: string; title: string | null }>
-    >;
-  }
+  opts: { peekLimit?: number } = {}
 ): Promise<RankedHubPeek[]> {
   const peekLimit = opts.peekLimit ?? 6;
   const fetchLimit = Math.max(peekLimit * 2, 12);
@@ -189,24 +184,16 @@ export async function rankHubPeeks(
   try {
     ranks = await queryHubStatsTable(client, 'scarcesAppStatsHot', fetchLimit);
   } catch {
-    ranks = [];
-  }
-  if (ranks.length === 0) {
-    try {
-      ranks = await queryHubStatsTable(client, 'scarcesAppStats', fetchLimit);
-    } catch {
-      ranks = [];
-    }
+    return [];
   }
 
+  const ids = ranks
+    .map((row) => row.appId?.trim())
+    .filter((id): id is string => Boolean(id));
+  if (ids.length === 0) return [];
+
+  let titleById = new Map<string, string | null>();
   try {
-    const ids = ranks
-      .map((row) => row.appId?.trim())
-      .filter((id): id is string => Boolean(id));
-    if (ids.length === 0) {
-      return (await opts.fetchRecentFallback()).slice(0, peekLimit);
-    }
-
     const appsRes = await client.query.graphql<{
       scarcesApps: Array<{
         appId: string;
@@ -221,24 +208,25 @@ export async function rankHubPeeks(
       }`,
       variables: { ids, limit: ids.length },
     });
-    const titleById = new Map<string, string | null>();
-    for (const row of appsRes.data?.scarcesApps ?? []) {
-      titleById.set(row.appId, hubTitleFromMetadata(row.metadata, row.appId));
-    }
-
-    const out: RankedHubPeek[] = [];
-    for (const id of ids) {
-      out.push({
-        appId: id,
-        title: titleById.get(id) ?? id,
-      });
-      if (out.length >= peekLimit) break;
-    }
-    if (out.length > 0) return out;
+    titleById = new Map(
+      (appsRes.data?.scarcesApps ?? []).map((row) => [
+        row.appId,
+        hubTitleFromMetadata(row.metadata, row.appId),
+      ])
+    );
   } catch {
-    // fall through
+    titleById = new Map();
   }
-  return (await opts.fetchRecentFallback()).slice(0, peekLimit);
+
+  const out: RankedHubPeek[] = [];
+  for (const id of ids) {
+    out.push({
+      appId: id,
+      title: titleById.get(id) ?? id,
+    });
+    if (out.length >= peekLimit) break;
+  }
+  return out;
 }
 
 function hubTitleFromMetadata(

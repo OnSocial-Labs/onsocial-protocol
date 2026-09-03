@@ -3,6 +3,7 @@ import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
 import { DiscoverOverlaySheet } from '@/features/discover/discover-panel';
 import { parseDiscoverProfileFilters } from '@/lib/discover-profiles';
 import { loadDiscoverProfilesPage } from '@/lib/discover-profiles-server';
+import { loadDiscoverTrendingSeed } from '@/lib/discover-trending-server';
 import { resolveAccountId } from '@/lib/resolve-account';
 
 type DiscoverOverlayRouteProps = {
@@ -27,24 +28,31 @@ export default async function DiscoverOverlayRoute({
       ? resolvedSearchParams.q[0]
       : resolvedSearchParams?.q
   );
-  const initialPage = await loadDiscoverProfilesPage(
-    initialQuery,
-    null,
-    0,
-    24,
-    parseDiscoverProfileFilters({
-      face: Array.isArray(resolvedSearchParams?.face)
-        ? resolvedSearchParams.face[0]
-        : resolvedSearchParams?.face,
-      industry: Array.isArray(resolvedSearchParams?.industry)
-        ? resolvedSearchParams.industry[0]
-        : resolvedSearchParams?.industry,
-    })
-  ).catch(() => null);
+  const [initialPage, initialTrending] = await Promise.all([
+    loadDiscoverProfilesPage(
+      initialQuery,
+      null,
+      0,
+      24,
+      parseDiscoverProfileFilters({
+        face: Array.isArray(resolvedSearchParams?.face)
+          ? resolvedSearchParams.face[0]
+          : resolvedSearchParams?.face,
+        industry: Array.isArray(resolvedSearchParams?.industry)
+          ? resolvedSearchParams.industry[0]
+          : resolvedSearchParams?.industry,
+      })
+    ).catch(() => null),
+    loadDiscoverTrendingSeed(),
+  ]);
 
   return (
     <OverlayInterceptRoot>
-      <DiscoverOverlaySheet accountId={accountId} initialPage={initialPage} />
+      <DiscoverOverlaySheet
+        accountId={accountId}
+        initialPage={initialPage}
+        initialTrending={initialTrending}
+      />
     </OverlayInterceptRoot>
   );
 }

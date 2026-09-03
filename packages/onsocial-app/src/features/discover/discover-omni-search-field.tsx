@@ -4,44 +4,29 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useState, type FormEvent } from 'react';
 import { OnSocialMark } from '@onsocial/ui';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
-import { classifyDiscoverSearch } from '@/features/discover/discover-omni-search';
+import {
+  classifyDiscoverSearch,
+  discoverSearchAriaLabel,
+  discoverSearchFocusHint,
+} from '@/features/discover/discover-omni-search';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 
 const IDLE_PLACEHOLDER = 'Search';
 
 /**
- * Discover omni search — typing filters the active tab. Explicit `#topic` /
- * `$ticker` switches to Topics/Tickers (and Enter opens the Home focus feed).
- * Idle hint is short; focused hint names what you can search.
+ * Discover omni search — typing filters the active tab. Bare text on
+ * Moving opens Profiles. `#topic` / `$ticker` switch those tabs
+ * (Enter opens the Home focus feed). Idle hint is short; focused hint
+ * names what you can search.
  */
-export function DiscoverOmniSearchField({
-  className,
-}: {
-  className?: string;
-}) {
+export function DiscoverOmniSearchField({ className }: { className?: string }) {
   const router = useRouter();
-  const { query, setQuery, tab } = useDiscoverPanel();
+  const { query, setQuery, tab, face } = useDiscoverPanel();
   const [focused, setFocused] = useState(false);
-
-  const focusPlaceholder =
-    tab === 'daos'
-      ? 'DAO account or name'
-      : tab === 'guilds'
-        ? 'Search guilds'
-        : tab === 'hubs'
-          ? 'Search hubs'
-          : // Trending + Profiles (+ topics/tickers) share one omni hint.
-            'People, #topics, $tickers';
+  const focusPlaceholder = discoverSearchFocusHint(tab, face);
   const searchPlaceholder = focused ? focusPlaceholder : IDLE_PLACEHOLDER;
-  const searchAriaLabel =
-    tab === 'daos'
-      ? 'Search DAOs'
-      : tab === 'guilds'
-        ? 'Search guilds'
-        : tab === 'hubs'
-          ? 'Search hubs'
-          : 'Search people, topics, and tickers';
+  const searchAriaLabel = discoverSearchAriaLabel(tab, face);
 
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {

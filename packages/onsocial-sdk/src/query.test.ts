@@ -396,6 +396,16 @@ describe('QueryModule', () => {
       );
     });
 
+    it('orders discover by last activity when requested', async () => {
+      const { os, fetch } = makeOs({ data: { profileDiscover: [] } });
+      await os.query.profiles.search({ order: 'activity', limit: 6 });
+      const body = JSON.parse(
+        String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
+      ) as { query: string };
+      expect(body.query).toContain('{lastActivityBlock: DESC}');
+      expect(body.query).not.toContain('{discoverScore: DESC}');
+    });
+
     it('searches open jobs by text, industry, and org', async () => {
       const row = {
         orgAccountId: 'studio.near',
@@ -3071,11 +3081,38 @@ describe('QueryModule', () => {
 
       const body = JSON.parse(fetch.mock.calls[0][1].body);
       expect(body.query).toContain('postCount: DESC');
+      expect(body.query).not.toContain('lastBlock: DESC');
+    });
+
+    it('orders by lastBlock when sort is recent', async () => {
+      const { os, fetch } = makeOs({ data: { hashtagCounts: [] } });
+      await os.query.hashtags.trending({ limit: 6, sort: 'recent' });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('lastBlock: DESC');
+      expect(body.query).toContain('postCount: DESC');
     });
 
     it('returns empty array when no hashtags', async () => {
       const { os } = makeOs({ data: { hashtagCounts: [] } });
       expect(await os.query.hashtags.trending()).toEqual([]);
+    });
+  });
+
+  describe('getTrendingTickers()', () => {
+    it('orders by lastBlock when sort is recent', async () => {
+      const { os, fetch } = makeOs({ data: { tickerCounts: [] } });
+      await os.query.tickers.trending({ limit: 6, sort: 'recent' });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('lastBlock: DESC');
+    });
+  });
+
+  describe('getTrendingPlaces()', () => {
+    it('orders by lastBlock when sort is recent', async () => {
+      const { os, fetch } = makeOs({ data: { placeCounts: [] } });
+      await os.query.places.trending({ limit: 6, sort: 'recent' });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('lastBlock: DESC');
     });
   });
 
@@ -3507,6 +3544,25 @@ describe('QueryModule', () => {
         groupId: 'dao',
       });
       expect(body.query).toMatch(/groupId: \{_eq: \$groupId\}/);
+    });
+
+    it('recentProposals lists newest proposal_created across groups', async () => {
+      const { os, fetch } = makeOs({
+        data: { groupUpdates: [sampleProposal] },
+      });
+      const rows = await os.query.governance.recentProposals({ limit: 6 });
+      expect(rows).toEqual([sampleProposal]);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({
+        ops: ['proposal_created'],
+        limit: 6,
+      });
+      expect(body.query).toMatch(/operation: \{_in: \$ops\}/);
+      expect(body.query).not.toMatch(/groupId:/);
+      expect(body.query).toMatch(/orderBy: \[\{blockHeight: DESC\}\]/);
     });
 
     it('proposalStatusUpdates filters by status when given', async () => {

@@ -9968,6 +9968,42 @@ a.os-surface-row {
     gap: 0.45rem;
   }
 
+  .discover-recommended-peek {
+    margin-bottom: 1.1rem;
+  }
+
+  .discover-recommended-peek--pending {
+    min-height: 16.5rem;
+  }
+
+  .discover-trending-section--chip-skeleton {
+    min-height: 4.55rem;
+  }
+
+  .discover-trending-section--focus-skeleton {
+    min-height: 10.5rem;
+  }
+
+  .discover-trending-section--profile-skeleton {
+    min-height: 16.5rem;
+  }
+
+  .discover-community-list-skeleton {
+    min-height: 16.5rem;
+  }
+
+  .community-summary-card--skeleton {
+    pointer-events: none;
+  }
+
+  .community-summary-cover-shimmer {
+    display: block;
+    width: 100%;
+    min-height: 3.85rem;
+    height: 100%;
+    border-radius: var(--os-catalog-cover-radius, 0.75rem);
+  }
+
   .discover-trending-section-head {
     display: flex;
     align-items: baseline;

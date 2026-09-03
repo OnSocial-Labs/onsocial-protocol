@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DISCOVER_CONNECT_HINT,
   discoverDaosLead,
   discoverGuildsLead,
   discoverProfilesLead,
@@ -64,10 +65,16 @@ describe('discoverTrendingLead', () => {
 
 describe('discoverTrendingProfilesHeading', () => {
   it('keeps the peek name until a face or industry is on', () => {
-    expect(discoverTrendingProfilesHeading()).toBe('Standing out');
+    expect(discoverTrendingProfilesHeading()).toBe('Active');
     expect(discoverTrendingProfilesHeading('hiring', 'Healthcare')).toBe(
       'Hiring · Healthcare'
     );
     expect(discoverTrendingProfilesHeading('people')).toBe('People');
+  });
+});
+
+describe('DISCOVER_CONNECT_HINT', () => {
+  it('is the quiet stand line, not a wallet CTA', () => {
+    expect(DISCOVER_CONNECT_HINT).toBe('Connect to stand with profiles.');
   });
 });
