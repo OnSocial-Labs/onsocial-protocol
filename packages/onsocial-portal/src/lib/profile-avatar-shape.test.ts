@@ -15,9 +15,9 @@ describe('portalAccountAvatarShape', () => {
   });
 
   it('lets explicit org win over a DAO heuristic', () => {
-    expect(
-      portalAccountAvatarShape('demo.sputnik-dao.near', 'org')
-    ).toBe('squircle');
+    expect(portalAccountAvatarShape('demo.sputnik-dao.near', 'org')).toBe(
+      'squircle'
+    );
   });
 
   it('uses the DAO heuristic when kind is omitted', () => {
