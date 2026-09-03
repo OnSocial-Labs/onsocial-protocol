@@ -3765,6 +3765,26 @@ describe('QueryModule', () => {
       });
     });
 
+    it('activeListings supports tokenIds filter', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesActiveListings: [] } });
+      await os.query.scarces.activeListings({
+        tokenIds: ['s:1', 's:2'],
+        kinds: ['native', 'auction'],
+        limit: 2,
+      });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/tokenId: \{_in: \$tokenIds\}/);
+      expect(body.variables).toEqual({
+        limit: 2,
+        offset: 0,
+        tokenIds: ['s:1', 's:2'],
+        kinds: ['native', 'auction'],
+      });
+    });
+
     it('activeListings supports kinds / search / sellerId filters', async () => {
       const { os, fetch } = makeOs({ data: { scarcesActiveListings: [] } });
       await os.query.scarces.activeListings({

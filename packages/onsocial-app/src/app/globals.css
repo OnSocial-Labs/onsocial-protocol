@@ -83,6 +83,8 @@
   flex-shrink: 0;
   color: rgb(var(--fg-rgb) / 0.94);
   -webkit-text-fill-color: rgb(var(--fg-rgb) / 0.94);
+  font-size: 0.88rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   opacity: 1;
 }
@@ -2495,6 +2497,22 @@ a.os-surface-row {
   gap: 0.06rem;
   /* Name + handle — reserve both lines before profile name arrives. */
   min-height: calc(0.82rem * 1.25 + 0.06rem + 0.68rem * 1.2);
+}
+
+.scarce-buy-party-skel-name {
+  display: block;
+  height: 0.72rem;
+  width: 7.25rem;
+  max-width: 70%;
+  border-radius: 0.25rem;
+}
+
+.scarce-buy-party-skel-handle {
+  display: block;
+  height: 0.52rem;
+  width: 5.5rem;
+  max-width: 55%;
+  border-radius: 0.25rem;
 }
 
 .scarce-buy-party-name,
@@ -6275,6 +6293,7 @@ a.os-surface-row {
 
   .portfolio-listing-action-cta {
     flex: 0 0 auto;
+    width: 100%;
   }
 
   .portfolio-listing-action-cta .os-sheet-action {
@@ -7150,14 +7169,31 @@ a.os-surface-row {
   }
 
   .portfolio-location {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.28em;
     margin: 0.2rem 0 0;
     max-width: min(100%, 20rem);
     font-size: 0.78rem;
     letter-spacing: 0.01em;
     line-height: 1.35;
+    text-align: center;
     color: var(--portfolio-meta-color);
     opacity: 0.82;
+  }
+
+  .portfolio-location > span {
+    min-width: 0;
     overflow-wrap: anywhere;
+  }
+
+  .portfolio-location-mark {
+    flex: none;
+    display: block;
+    width: 0.85em;
+    height: 0.85em;
+    color: inherit;
   }
 
   .portfolio-bio {
@@ -15649,20 +15685,33 @@ a.os-surface-row {
     font-family: var(--font-space-grotesk), system-ui, sans-serif;
   }
 
-  .account-editor-location {
-    display: block;
+  .account-editor-location-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.28em;
     width: 100%;
     max-width: min(100%, 20rem);
     margin: 0.15rem auto 0;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .account-editor-location {
+    display: block;
+    width: auto;
+    min-width: 5.5em;
+    max-width: calc(100% - 1.15em);
+    field-sizing: content;
+    margin: 0;
     padding: 0;
     border: 0;
     background: transparent;
-    text-align: center;
+    text-align: start;
     font-family: var(--font-space-grotesk), system-ui, sans-serif;
     font-size: 0.78rem;
     line-height: 1.35;
     letter-spacing: 0.01em;
-    color: rgb(var(--fg-rgb) / 0.48);
+    color: inherit;
     outline: none;
   }
 
@@ -20943,6 +20992,10 @@ a.os-surface-row {
     gap: 0.35rem;
   }
 
+  .scarce-bid-history > .scarce-bid-history-list:first-child {
+    margin-top: 0;
+  }
+
   .scarce-bid-history-row {
     display: flex;
     align-items: center;
@@ -20955,15 +21008,37 @@ a.os-surface-row {
     flex-shrink: 0;
   }
 
-  .scarce-offer-row {
-    align-items: center;
-  }
-
-  .scarce-offer-copy {
+  .scarce-buy-summary > .scarce-offer-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+  }
+
+  .scarce-offer-pick {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.2rem 0;
+  }
+
+  .scarce-offer-pick .scarce-buy-author-line {
+    flex: 1 1 auto;
     min-width: 0;
+    margin: 0;
+  }
+
+  .scarce-offer-pick .scarce-buy-price,
+  .scarce-offer-amount-chip {
+    flex-shrink: 0;
+  }
+
+  .scarce-offer-amount-chip {
+    font-variant-numeric: tabular-nums;
   }
 
   .scarce-buy-summary {
@@ -33517,6 +33592,39 @@ a.os-surface-row {
   .commerce-sheet-footer-actions {
     flex: 1;
     min-width: 0;
+  }
+
+  .commerce-sheet-action-skel {
+    pointer-events: none;
+    cursor: default;
+  }
+
+  .commerce-sheet-action-skel-bar {
+    display: block;
+    width: 6.75rem;
+    height: 0.7rem;
+    border-radius: 999px;
+  }
+
+  .commerce-sheet-field-skel {
+    min-height: 3.1rem;
+    align-items: center;
+    padding: 0.85rem 1rem;
+  }
+
+  .commerce-sheet-field-skel-bar {
+    display: block;
+    width: 4.5rem;
+    height: 0.85rem;
+    border-radius: 0.25rem;
+  }
+
+  .scarce-buy-price-skel {
+    display: inline-block;
+    height: 0.85rem;
+    width: 7.5rem;
+    vertical-align: middle;
+    border-radius: 0.25rem;
   }
 
   .profile-support-sheet-panel.is-keyboard-open .profile-support-sheet-body {

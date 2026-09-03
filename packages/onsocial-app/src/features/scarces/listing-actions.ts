@@ -7,6 +7,7 @@ import {
   resolveScarceMediaUrl,
   resolveTokenDisplayTitle,
 } from '@/features/market/market-listings';
+import { fetchOfferSummariesByTokenIds } from '@/features/scarces/scarce-offers';
 import { fetchScarceAuctionView } from '@/features/scarces/scarce-auction';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -44,6 +45,9 @@ export interface ListingActionItem {
   ended: boolean;
   reserveMet?: boolean;
   sourcePostPath?: string;
+  /** Open token offers — native listed rows only. */
+  offerCount?: number;
+  highestOfferNear?: string | null;
 }
 
 export interface ListingActionsPage {
@@ -131,10 +135,27 @@ export function listingActionRowMeta(item: ListingActionItem): string {
   if (item.priceNear) {
     bits.push(`${item.priceNear} NEAR`);
   }
+  if (listingActionHasOffers(item) && item.highestOfferNear) {
+    bits.push(
+      item.offerCount === 1
+        ? `Offer ${item.highestOfferNear} NEAR`
+        : `${item.offerCount} offers · top ${item.highestOfferNear} NEAR`
+    );
+  }
   if (item.kind === 'collect_win' && item.reserveMet === false) {
     bits.push('reserve unmet');
   }
   return bits.join(' · ');
+}
+
+/** Native listed rows that can accept an open token offer. */
+export function listingActionHasOffers(item: ListingActionItem): boolean {
+  return (
+    (item.kind === 'delist' || item.kind === 'cancel_auction') &&
+    Boolean(item.tokenId?.trim()) &&
+    (item.offerCount ?? 0) > 0 &&
+    Boolean(item.highestOfferNear?.trim())
+  );
 }
 
 /** True when the Market auction detail sheet can open for this row. */
@@ -146,12 +167,16 @@ export function listingActionOpensBidSheet(kind: ListingActionKind): boolean {
   );
 }
 
-/** Fixed / lazy listings open the Buy sheet (public listing view). */
+/** Fixed / lazy listings — row tap opens the Buy sheet (listing view). */
 export function listingActionOpensBuySheet(kind: ListingActionKind): boolean {
   return kind === 'delist' || kind === 'cancel_lazy';
 }
 
-/** Destructive manage CTAs — same two-press confirm as Market Delist. */
+/**
+ * Destructive manage CTAs.
+ * Market Yours: two-press on the row.
+ * Time Listings: hug confirm — Discard (danger) + primary, same as Propose.
+ */
 export function listingActionNeedsConfirm(kind: ListingActionKind): boolean {
   return (
     kind === 'delist' || kind === 'cancel_auction' || kind === 'cancel_lazy'
@@ -174,6 +199,12 @@ export function listingActionConfirmLabel(kind: ListingActionKind): string {
 function listingEnded(expiresAtNs: number | null, nowMs: number): boolean {
   const endsAtMs = auctionExpiresAtMs(expiresAtNs);
   return endsAtMs != null && endsAtMs <= nowMs;
+}
+
+function compactNear(near: string): string {
+  const n = Number.parseFloat(near);
+  if (!Number.isFinite(n)) return near.trim();
+  return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
 function priceNearFromYocto(raw: string | null | undefined): string | null {
@@ -379,6 +410,29 @@ export async function fetchListingActions(
     );
   }
 
+  const nativeTokenIds = [
+    ...new Set(
+      [...byId.values()]
+        .filter(
+          (item) =>
+            (item.kind === 'delist' || item.kind === 'cancel_auction') &&
+            Boolean(item.tokenId?.trim())
+        )
+        .map((item) => item.tokenId!.trim())
+    ),
+  ];
+  if (nativeTokenIds.length > 0) {
+    const summaries = await fetchOfferSummariesByTokenIds(nativeTokenIds);
+    for (const item of byId.values()) {
+      const tokenId = item.tokenId?.trim();
+      if (!tokenId) continue;
+      const summary = summaries.get(tokenId);
+      if (!summary || summary.offerCount <= 0) continue;
+      item.offerCount = summary.offerCount;
+      item.highestOfferNear = compactNear(summary.highestAmountNear);
+    }
+  }
+
   const priority: Record<ListingActionKind, number> = {
     collect_win: 0,
     complete_sale: 1,
@@ -422,6 +476,57 @@ export function listingActionPendingLabel(kind: ListingActionKind): string {
       return 'Canceling…';
     case 'delist':
       return 'Delisting…';
+  }
+}
+
+/** Title + body for the Time Listings confirm drawer. */
+export function listingManageConfirmCopy(item: ListingActionItem): {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  discardLabel: string;
+  pendingLabel: string;
+} {
+  const name = item.title.trim() || 'this scarce';
+  const discardLabel = 'Discard';
+  switch (item.kind) {
+    case 'delist':
+      return {
+        title: `Delist ${name}?`,
+        body: listingActionHasOffers(item)
+          ? 'This takes it off the market. Open offers stay — you can still accept them.'
+          : 'This takes it off the market. You can list it again anytime.',
+        confirmLabel: 'Delist',
+        discardLabel,
+        pendingLabel: listingActionPendingLabel(item.kind),
+      };
+    case 'cancel_lazy':
+      return {
+        title: `Cancel ${name}?`,
+        body: 'This takes the edition off the market. You can list it again anytime.',
+        confirmLabel: 'Cancel listing',
+        discardLabel,
+        pendingLabel: listingActionPendingLabel(item.kind),
+      };
+    case 'cancel_auction':
+      return {
+        title: `Cancel ${name}?`,
+        body:
+          item.bidCount > 0
+            ? 'Bids will be returned. This takes it off the market.'
+            : 'This takes the auction off the market.',
+        confirmLabel: 'Cancel auction',
+        discardLabel,
+        pendingLabel: listingActionPendingLabel(item.kind),
+      };
+    default:
+      return {
+        title: `${listingActionPrimaryLabel(item.kind)} ${name}?`,
+        body: '',
+        confirmLabel: listingActionPrimaryLabel(item.kind),
+        discardLabel,
+        pendingLabel: listingActionPendingLabel(item.kind),
+      };
   }
 }
 

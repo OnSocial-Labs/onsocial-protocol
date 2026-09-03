@@ -27,6 +27,7 @@ import {
   useDiscardConfirm,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
 import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
@@ -609,30 +610,33 @@ export function AppProfileEditorSheet({
                           @{handleLabel}
                         </p>
                         <label
+                          className="account-editor-location-row"
                           htmlFor="profile-editor-location"
-                          className="sr-only"
                         >
-                          Location
+                          <span className="sr-only">Location</span>
+                          <PortfolioLocationMark />
+                          <input
+                            id="profile-editor-location"
+                            className="account-editor-location"
+                            value={location}
+                            maxLength={PROFILE_LOCATION_MAX}
+                            autoComplete="address-level2"
+                            placeholder="Based in"
+                            disabled={saving}
+                            onFocus={scrollFieldIntoView}
+                            onChange={(event) =>
+                              setLocation(
+                                sanitizeProfileLocationDraft(event.target.value)
+                              )
+                            }
+                            onBlur={() => {
+                              const trimmed = location
+                                .trim()
+                                .replace(/\s+/g, ' ');
+                              if (trimmed !== location) setLocation(trimmed);
+                            }}
+                          />
                         </label>
-                        <input
-                          id="profile-editor-location"
-                          className="account-editor-location"
-                          value={location}
-                          maxLength={PROFILE_LOCATION_MAX}
-                          autoComplete="address-level2"
-                          placeholder="Based in"
-                          disabled={saving}
-                          onFocus={scrollFieldIntoView}
-                          onChange={(event) =>
-                            setLocation(
-                              sanitizeProfileLocationDraft(event.target.value)
-                            )
-                          }
-                          onBlur={() => {
-                            const trimmed = location.trim().replace(/\s+/g, ' ');
-                            if (trimmed !== location) setLocation(trimmed);
-                          }}
-                        />
                         <label htmlFor="profile-editor-bio" className="sr-only">
                           Bio
                         </label>

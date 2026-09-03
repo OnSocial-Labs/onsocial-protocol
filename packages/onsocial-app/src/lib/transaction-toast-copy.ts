@@ -305,6 +305,7 @@ export const txToastError = {
   buyScarceNowFailed: 'Could not buy now.',
   settleScarceAuctionFailed: 'Could not settle auction.',
   makeScarceOfferFailed: 'Could not make offer.',
+  scarceOfferBookFull: 'This scarce already has 10 offers.',
   acceptScarceOfferFailed: 'Could not accept offer.',
   cancelScarceOfferFailed: 'Could not cancel offer.',
   cancelScarceListingFailed: 'Could not cancel listing.',

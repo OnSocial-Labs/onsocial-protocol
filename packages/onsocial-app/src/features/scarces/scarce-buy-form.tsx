@@ -22,6 +22,11 @@ import {
   executeListingAction,
   type ListingActionItem,
 } from '@/features/scarces/listing-actions';
+import {
+  fetchOfferFromBuyer,
+  viewerOfferCta,
+  viewerOfferCtaLabel,
+} from '@/features/scarces/scarce-offers';
 import { ScarceBuyFactsMeta } from '@/features/scarces/scarce-buy-facts-meta';
 import { supplyUnitForMediumKind } from '@/features/scarces/drop-templates';
 import {
@@ -36,8 +41,12 @@ import {
 import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
+import { resolveScarcePartyIds } from '@/features/scarces/scarce-party-ids';
 import { ScarcePostPreview } from '@/features/scarces/scarce-post-preview';
-import { ScarceProvenanceCopy, isScarceOriginalSelf } from '@/features/scarces/scarce-provenance-copy';
+import {
+  ScarceProvenanceCopy,
+  isScarceOriginalSelf,
+} from '@/features/scarces/scarce-provenance-copy';
 import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
 import { fetchScarceRoyaltyMap } from '@/features/scarces/scarce-royalty-fetch';
 import { ScarceTraits } from '@/features/scarces/scarce-traits';
@@ -46,6 +55,7 @@ import {
   LazyListingNotFoundError,
   resolveLazyListingDepositYocto,
 } from '@/features/scarces/scarces-wallet-client';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { accountIdsEqual } from '@/lib/account-match';
 import { nearToYocto } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
@@ -86,6 +96,8 @@ interface ScarceBuyFormProps {
     sourcePostPath?: string;
     postHref?: string | null;
     listedAtMs?: number;
+    /** Known viewer offer — Buy paints Update offer on first paint. */
+    viewerOfferNear?: string | null;
     playable?: ScarcePlayableMedia;
     playables?: ScarcePlayableMedia[];
     alreadyOwnsEdition?: boolean;
@@ -96,7 +108,7 @@ interface ScarceBuyFormProps {
   authorName?: string | null;
   onSuccess?: (detail: ScarceBuySuccessDetail) => void;
   /** Secondary path for fixed-price resales — opens offer sheet. */
-  onMakeOffer?: () => void;
+  onMakeOffer?: (detail?: { amountNear?: string | null }) => void;
   /** Viewer already owns an edition — Mint/Buy another. */
   alreadyOwnsEdition?: boolean;
   onFooterStateChange?: (state: CommerceSheetFooterState | null) => void;
@@ -200,15 +212,8 @@ export function ScarceBuyForm({
   const [mintPriceNear, setMintPriceNear] = useState<string | null>(null);
   const [royalty, setRoyalty] = useState<Record<string, number> | null>(null);
   const [factsOpen, setFactsOpen] = useState(false);
-  const [artistAvatarUrl, setArtistAvatarUrl] = useState<string | null>(null);
-  const [artistProfileName, setArtistProfileName] = useState<string | null>(
-    null
-  );
-  const [sellerAvatarUrl, setSellerAvatarUrl] = useState<string | null>(null);
-  const [sellerProfileName, setSellerProfileName] = useState<string | null>(
-    null
-  );
   const [hydratedArtistId, setHydratedArtistId] = useState<string | null>(null);
+  const [artistHydrateSettled, setArtistHydrateSettled] = useState(false);
   const [hydratedEvent, setHydratedEvent] = useState<{
     eventStartsAtMs: number | null;
     eventEndsAtMs: number | null;
@@ -217,6 +222,12 @@ export function ScarceBuyForm({
     kind: string | null;
     description: string | null;
   } | null>(null);
+  const [openOfferNear, setOpenOfferNear] = useState<string | null>(
+    () => listing?.viewerOfferNear?.trim() || null
+  );
+  const [offerReady, setOfferReady] = useState(() =>
+    Boolean(listing?.viewerOfferNear?.trim())
+  );
 
   const status = listing?.status ?? embed?.status ?? 'none';
   const listingId = listing?.listingId ?? embed?.listingId;
@@ -254,31 +265,41 @@ export function ScarceBuyForm({
   // Provenance author — not post.accountId (often the listing poster / seller).
   const artistFromPost =
     authorFromSourcePostPath(resolvedSourcePostPath) || undefined;
-  // Prefer mint creator; fall back to seller so Author never blanks the sheet.
-  // Hydrate upgrades Author on resales → Seller line appears when distinct.
-  const artistId =
-    artistFromListing ||
-    artistFromPost ||
-    hydratedArtistId ||
-    sellerId;
-  const showDistinctSeller =
-    Boolean(sellerId) &&
-    Boolean(artistId) &&
-    !accountIdsEqual(sellerId!, artistId!);
+  const knownArtistId = artistFromListing || artistFromPost || null;
+  const parties = resolveScarcePartyIds({
+    sellerId,
+    knownArtistId,
+    hydratedArtistId,
+    artistReady: Boolean(knownArtistId) || artistHydrateSettled,
+  });
+  const artistId = parties.artistId;
+  const showDistinctSeller = parties.showDistinctSeller;
+  const artistFace = usePostAuthorProfiles(artistId?.trim() ? [artistId] : []);
+  const artistProfileName =
+    (artistId === post?.accountId ? authorName : null) ||
+    (artistId ? artistFace[artistId]?.displayName : null) ||
+    null;
+  const artistAvatarUrl = artistId
+    ? (artistFace[artistId]?.avatarUrl ?? null)
+    : null;
 
   useEffect(() => {
     const id = collectionId?.trim();
+    const needArtist = !artistFromListing && !artistFromPost;
     if (!id) {
       setHydratedArtistId(null);
       setHydratedEvent(null);
+      setArtistHydrateSettled(true);
       return;
     }
+    if (needArtist) setArtistHydrateSettled(false);
+    else setArtistHydrateSettled(true);
     let cancelled = false;
     void (async () => {
       try {
         const view = await fetchCollectionPreferIndexer(id);
         if (cancelled) return;
-        if (!artistFromListing && !artistFromPost) {
+        if (needArtist) {
           setHydratedArtistId(view?.creatorId?.trim() || null);
         }
         setHydratedEvent(
@@ -295,11 +316,11 @@ export function ScarceBuyForm({
         );
       } catch {
         if (!cancelled) {
-          if (!artistFromListing && !artistFromPost) {
-            setHydratedArtistId(null);
-          }
+          if (needArtist) setHydratedArtistId(null);
           setHydratedEvent(null);
         }
+      } finally {
+        if (!cancelled && needArtist) setArtistHydrateSettled(true);
       }
     })();
     return () => {
@@ -312,70 +333,6 @@ export function ScarceBuyForm({
       setHydratedArtistId(null);
     }
   }, [artistFromListing, artistFromPost]);
-
-  useEffect(() => {
-    const accountId = artistId?.trim();
-    if (!accountId) {
-      setArtistAvatarUrl(null);
-      setArtistProfileName(null);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const client = createReadOnlyOnSocialClient();
-        const profile = await client.profiles.get(accountId);
-        if (cancelled) return;
-        const media = profile ? client.profiles.avatarMedia(profile) : null;
-        const faceUrl =
-          media?.kind === 'image'
-            ? media.url
-            : (media?.poster ?? client.profiles.avatarUrl(profile) ?? null);
-        setArtistAvatarUrl(faceUrl);
-        setArtistProfileName(profile?.name?.trim() || null);
-      } catch {
-        if (!cancelled) {
-          setArtistAvatarUrl(null);
-          setArtistProfileName(null);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [artistId]);
-
-  useEffect(() => {
-    if (!showDistinctSeller || !sellerId?.trim()) {
-      setSellerAvatarUrl(null);
-      setSellerProfileName(null);
-      return;
-    }
-    const accountId = sellerId.trim();
-    let cancelled = false;
-    void (async () => {
-      try {
-        const client = createReadOnlyOnSocialClient();
-        const profile = await client.profiles.get(accountId);
-        if (cancelled) return;
-        const media = profile ? client.profiles.avatarMedia(profile) : null;
-        const faceUrl =
-          media?.kind === 'image'
-            ? media.url
-            : (media?.poster ?? client.profiles.avatarUrl(profile) ?? null);
-        setSellerAvatarUrl(faceUrl);
-        setSellerProfileName(profile?.name?.trim() || null);
-      } catch {
-        if (!cancelled) {
-          setSellerAvatarUrl(null);
-          setSellerProfileName(null);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [showDistinctSeller, sellerId]);
 
   useEffect(() => {
     const needsDescription = !listing?.description?.trim();
@@ -476,10 +433,33 @@ export function ScarceBuyForm({
   const isDropBuy = status === 'drop' && Boolean(collectionId);
   const isMarketBuy = status === 'listed' && Boolean(tokenId);
   const isPrimaryMint = isLazyBuy || isDropBuy;
+
+  useEffect(() => {
+    if (!viewerAccountId || !tokenId || !isMarketBuy || isOwnListing) {
+      setOpenOfferNear(listing?.viewerOfferNear?.trim() || null);
+      setOfferReady(true);
+      return;
+    }
+    let cancelled = false;
+    if (!listing?.viewerOfferNear?.trim()) setOfferReady(false);
+    void fetchOfferFromBuyer(tokenId, viewerAccountId).then((offer) => {
+      if (cancelled) return;
+      setOpenOfferNear(offer?.amountNear?.trim() || null);
+      setOfferReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    viewerAccountId,
+    tokenId,
+    isMarketBuy,
+    isOwnListing,
+    listing?.viewerOfferNear,
+  ]);
   const isBuyable = !isOwnListing && (isLazyBuy || isDropBuy || isMarketBuy);
   /** Own fixed / lazy listing — Delist or Cancel in the footer (not primary drops). */
-  const canManageOwnListing =
-    isOwnListing && (isMarketBuy || isLazyBuy);
+  const canManageOwnListing = isOwnListing && (isMarketBuy || isLazyBuy);
   const ownManageKind: ListingActionItem['kind'] | null = isMarketBuy
     ? 'delist'
     : isLazyBuy
@@ -498,8 +478,7 @@ export function ScarceBuyForm({
   const mintQty = showMintQty ? quantity : 1;
   const totalPriceNear = scalePriceNear(priceNear, mintQty);
   const isPaidMint =
-    Boolean(totalPriceNear?.trim()) &&
-    Number.parseFloat(totalPriceNear!) > 0;
+    Boolean(totalPriceNear?.trim()) && Number.parseFloat(totalPriceNear!) > 0;
   const primaryActionLabel = isPrimaryMint
     ? alreadyOwnsEdition
       ? 'Mint another'
@@ -507,12 +486,20 @@ export function ScarceBuyForm({
     : alreadyOwnsEdition
       ? 'Buy another'
       : 'Buy';
-  const primaryLabelWithPrice =
-    isConnected && isDropBuy && isPaidMint
-      ? `${primaryActionLabel} · ${formatPriceNear(totalPriceNear)}`
-      : isConnected
-        ? primaryActionLabel
-        : 'Connect wallet';
+  const isPaidAsk =
+    Boolean(priceNear?.trim()) && Number.parseFloat(priceNear!) > 0;
+  const footerPriceNear = isDropBuy
+    ? totalPriceNear
+    : isMarketBuy
+      ? priceNear
+      : undefined;
+  const showFooterPrice =
+    isConnected && ((isDropBuy && isPaidMint) || (isMarketBuy && isPaidAsk));
+  const primaryLabelWithPrice = showFooterPrice
+    ? `${primaryActionLabel} · ${formatPriceNear(footerPriceNear)}`
+    : isConnected
+      ? primaryActionLabel
+      : 'Connect wallet';
 
   const canSubmit = isConnected && !pending && isBuyable;
 
@@ -633,6 +620,8 @@ export function ScarceBuyForm({
       };
     }
     if (isOwnListing) return null;
+    const offerCta = viewerOfferCta(offerReady, Boolean(openOfferNear));
+    const showOfferCta = Boolean(isMarketBuy && onMakeOffer && isConnected);
     return {
       visible: true,
       primaryLabel: primaryLabelWithPrice,
@@ -653,12 +642,13 @@ export function ScarceBuyForm({
           onChange={setQuantity}
         />
       ) : null,
+      secondaryLoading: showOfferCta && !offerCta,
       secondary:
-        isMarketBuy && onMakeOffer && isConnected
+        showOfferCta && offerCta
           ? {
-              label: 'Make an offer',
+              label: viewerOfferCtaLabel(offerCta, 'buy'),
               disabled: pending,
-              onClick: onMakeOffer,
+              onClick: () => onMakeOffer?.({ amountNear: openOfferNear }),
             }
           : null,
     };
@@ -668,6 +658,8 @@ export function ScarceBuyForm({
     clearDelistConfirm,
     confirmDelist,
     handleManageOwnListing,
+    openOfferNear,
+    offerReady,
     isConnected,
     isOwnListing,
     isPrimaryMint,
@@ -688,9 +680,7 @@ export function ScarceBuyForm({
       title,
       kind: isPrimaryMint ? 'mint' : 'resale',
       askNear: priceNear ?? null,
-      mintPriceNear: isPrimaryMint
-        ? (priceNear ?? null)
-        : mintPriceNear,
+      mintPriceNear: isPrimaryMint ? (priceNear ?? null) : mintPriceNear,
       mintedAtMs,
       listedAtMs: listing?.listedAtMs ?? null,
       copies: copies ?? null,
@@ -708,8 +698,7 @@ export function ScarceBuyForm({
       eventEndsAtMs: hydratedEvent?.eventEndsAtMs ?? null,
       place: hydratedEvent?.place ?? null,
       accessEndsAtMs: hydratedEvent?.accessEndsAtMs ?? null,
-      description:
-        resolvedDescription ?? hydratedEvent?.description ?? null,
+      description: resolvedDescription ?? hydratedEvent?.description ?? null,
     };
   }, [
     title,
@@ -902,160 +891,156 @@ export function ScarceBuyForm({
 
   return (
     <>
-    <form
-      id={formId}
-      className="profile-support-form"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void handleSubmit();
-      }}
-    >
-      {/* Same cover plane as Market — post preview is list/compose only. */}
-      {resolvedPlayable ? (
-        <ScarceClipPlayer
-          key={resolvedPlayable.url}
-          clip={resolvedPlayable}
-          {...(resolvedPlayables?.length ? { tracks: resolvedPlayables } : {})}
-          poster={resolvedMediaUrl}
-          commerce
-          {...(collectionId
-            ? {
-                persist: {
-                  collectionId,
-                  title,
-                },
-                creatorId: artistId ?? sellerId,
-              }
-            : {})}
-        />
-      ) : resolvedMediaUrl ? (
-        <ScarceBuyCover src={resolvedMediaUrl} label={title} />
-      ) : post ? (
-        <ScarcePostPreview
-          post={post}
-          creatorDisplayName={artistProfileName ?? authorName}
-          creatorAvatarUrl={artistAvatarUrl}
-          mediaUrl={resolvedMediaUrl}
-          disableLiveSvg
-          cardBg={embed?.cardBg ?? listing?.cardBg}
-        />
-      ) : null}
+      <form
+        id={formId}
+        className="profile-support-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void handleSubmit();
+        }}
+      >
+        {/* Same cover plane as Market — post preview is list/compose only. */}
+        {resolvedPlayable ? (
+          <ScarceClipPlayer
+            key={resolvedPlayable.url}
+            clip={resolvedPlayable}
+            {...(resolvedPlayables?.length
+              ? { tracks: resolvedPlayables }
+              : {})}
+            poster={resolvedMediaUrl}
+            commerce
+            {...(collectionId
+              ? {
+                  persist: {
+                    collectionId,
+                    title,
+                  },
+                  creatorId: artistId ?? sellerId,
+                }
+              : {})}
+          />
+        ) : resolvedMediaUrl ? (
+          <ScarceBuyCover src={resolvedMediaUrl} label={title} />
+        ) : post ? (
+          <ScarcePostPreview
+            post={post}
+            creatorDisplayName={artistProfileName ?? authorName}
+            creatorAvatarUrl={artistAvatarUrl}
+            mediaUrl={resolvedMediaUrl}
+            disableLiveSvg
+            cardBg={embed?.cardBg ?? listing?.cardBg}
+          />
+        ) : null}
 
-      <div className="scarce-buy-summary">
-        <p className="scarce-buy-title">{title}</p>
-        {artistId ? (
-          <ScarcePartyLine
-            label="Author"
-            accountId={artistId}
-            displayNameValue={
-              artistId === post?.accountId
-                ? (authorName ?? artistProfileName)
-                : artistProfileName
-            }
-            avatarUrl={artistAvatarUrl}
-          />
-        ) : null}
-        {showDistinctSeller && sellerId ? (
-          <ScarcePartyLine
-            label="Seller"
-            accountId={sellerId}
-            displayNameValue={sellerProfileName}
-            avatarUrl={sellerAvatarUrl}
-          />
-        ) : null}
-        <p className="scarce-buy-price">
-          {formatPriceNear(isDropBuy ? totalPriceNear : priceNear)}
-        </p>
-        {copies != null && copies > 1 ? (
-          <p className="profile-support-hint">
-            {remaining != null && remaining < copies
-              ? `${remaining} of ${copies} left`
-              : `${copies} ${supplyUnit}`}
+        <div className="scarce-buy-summary">
+          <p className="scarce-buy-title">{title}</p>
+          {parties.artistPending ? (
+            <ScarcePartyLine label="Author" pending />
+          ) : artistId ? (
+            <ScarcePartyLine
+              label="Author"
+              accountId={artistId}
+              displayNameValue={artistProfileName}
+              avatarUrl={artistAvatarUrl}
+            />
+          ) : null}
+          {showDistinctSeller && sellerId ? (
+            <ScarcePartyLine label="Seller" accountId={sellerId} />
+          ) : null}
+          <p className="scarce-buy-price">
+            {isMarketBuy && priceNear
+              ? `Ask · ${formatPriceNear(priceNear)}`
+              : formatPriceNear(isDropBuy ? totalPriceNear : priceNear)}
           </p>
-        ) : null}
-        {(() => {
-          const listedLabel = listing?.listedAtMs
-            ? formatMarketRelativeTime(listing.listedAtMs)
-            : '';
-          const mintedLabel = mintedAtMs
-            ? formatMarketRelativeTime(mintedAtMs)
-            : '';
-          const mintPriceLabel =
-            !isPrimaryMint && mintPriceNear
-              ? formatPriceNear(mintPriceNear)
-              : isPrimaryMint && priceNear
+          {openOfferNear ? (
+            <p className="profile-support-hint">
+              Your offer · {formatPriceNear(openOfferNear)}
+            </p>
+          ) : null}
+          {copies != null && copies > 1 ? (
+            <p className="profile-support-hint">
+              {remaining != null && remaining < copies
+                ? `${remaining} of ${copies} left`
+                : `${copies} ${supplyUnit}`}
+            </p>
+          ) : null}
+          {(() => {
+            const listedLabel = listing?.listedAtMs
+              ? formatMarketRelativeTime(listing.listedAtMs)
+              : '';
+            const mintedLabel = mintedAtMs
+              ? formatMarketRelativeTime(mintedAtMs)
+              : '';
+            if (isPrimaryMint) {
+              const mintPriceLabel = priceNear
                 ? formatPriceNear(priceNear)
                 : '';
-          if (isPrimaryMint) {
+              return (
+                <ScarceBuyFactsMeta
+                  parts={
+                    mintPriceLabel ? ['Mint', mintPriceLabel] : ['Primary mint']
+                  }
+                  onOpenFacts={() => setFactsOpen(true)}
+                />
+              );
+            }
+            const parts = [
+              listedLabel ? `Listed ${listedLabel}` : null,
+              mintedLabel ? `Minted ${mintedLabel}` : null,
+            ].filter((part): part is string => Boolean(part));
             return (
               <ScarceBuyFactsMeta
-                parts={
-                  mintPriceLabel
-                    ? ['Mint', mintPriceLabel]
-                    : ['Primary mint']
-                }
+                parts={parts.length > 0 ? parts : ['Resale']}
                 onOpenFacts={() => setFactsOpen(true)}
               />
             );
+          })()}
+        </div>
+
+        <ScarceProvenanceCopy
+          title={title}
+          description={resolvedDescription}
+          post={post}
+          postHref={listing?.postHref}
+          sourcePostPath={resolvedSourcePostPath ?? listing?.sourcePostPath}
+          hideOriginalLink={isScarceOriginalSelf(
+            post,
+            resolvedSourcePostPath ?? listing?.sourcePostPath,
+            listing?.postHref
+          )}
+          event={
+            hydratedEvent
+              ? {
+                  eventStartsAtMs: hydratedEvent.eventStartsAtMs,
+                  eventEndsAtMs: hydratedEvent.eventEndsAtMs,
+                  place: hydratedEvent.place,
+                  accessEndsAtMs: hydratedEvent.accessEndsAtMs,
+                  kind: hydratedEvent.kind,
+                }
+              : null
           }
-          const parts = [
-            listedLabel ? `Listed ${listedLabel}` : null,
-            mintedLabel ? `Minted ${mintedLabel}` : null,
-            mintPriceLabel || null,
-          ].filter((part): part is string => Boolean(part));
-          return (
-            <ScarceBuyFactsMeta
-              parts={parts.length > 0 ? parts : ['Resale']}
-              onOpenFacts={() => setFactsOpen(true)}
-            />
-          );
-        })()}
-      </div>
+        />
 
-      <ScarceProvenanceCopy
-        title={title}
-        description={resolvedDescription}
-        post={post}
-        postHref={listing?.postHref}
-        sourcePostPath={resolvedSourcePostPath ?? listing?.sourcePostPath}
-        hideOriginalLink={isScarceOriginalSelf(
-          post,
-          resolvedSourcePostPath ?? listing?.sourcePostPath,
-          listing?.postHref
-        )}
-        event={
-          hydratedEvent
-            ? {
-                eventStartsAtMs: hydratedEvent.eventStartsAtMs,
-                eventEndsAtMs: hydratedEvent.eventEndsAtMs,
-                place: hydratedEvent.place,
-                accessEndsAtMs: hydratedEvent.accessEndsAtMs,
-                kind: hydratedEvent.kind,
-              }
-            : null
-        }
-      />
+        {status !== 'lazy_listing' ? <ScarceTraits tokenId={tokenId} /> : null}
 
-      {status !== 'lazy_listing' ? <ScarceTraits tokenId={tokenId} /> : null}
-
-      {fieldError ? (
-        <p className="profile-support-error" role="alert">
-          {fieldError}
-        </p>
-      ) : isOwnListing ? null : !isConnected ? (
-        <p className="profile-support-hint">
-          {isPrimaryMint
-            ? 'Connect to mint this scarce.'
-            : 'Connect to buy this scarce.'}
-        </p>
-      ) : !isBuyable ? (
-        <p className="profile-support-hint">
-          {status === 'lazy_listing' || status === 'listed'
-            ? 'Listing isn’t ready yet…'
-            : 'This scarce isn’t for sale.'}
-        </p>
-      ) : null}
-    </form>
+        {fieldError ? (
+          <p className="profile-support-error" role="alert">
+            {fieldError}
+          </p>
+        ) : isOwnListing ? null : !isConnected ? (
+          <p className="profile-support-hint">
+            {isPrimaryMint
+              ? 'Connect to mint this scarce.'
+              : 'Connect to buy this scarce.'}
+          </p>
+        ) : !isBuyable ? (
+          <p className="profile-support-hint">
+            {status === 'lazy_listing' || status === 'listed'
+              ? 'Listing isn’t ready yet…'
+              : 'This scarce isn’t for sale.'}
+          </p>
+        ) : null}
+      </form>
       <ScarceListingFactsSheet
         open={factsOpen}
         onClose={() => setFactsOpen(false)}

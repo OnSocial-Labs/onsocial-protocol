@@ -38,8 +38,13 @@ import {
 } from '@/features/scarces/scarce-embed-ledger';
 import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
+import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
+import { resolveScarcePartyIds } from '@/features/scarces/scarce-party-ids';
 import { ScarcePostPreview } from '@/features/scarces/scarce-post-preview';
-import { ScarceProvenanceCopy, isScarceOriginalSelf } from '@/features/scarces/scarce-provenance-copy';
+import {
+  ScarceProvenanceCopy,
+  isScarceOriginalSelf,
+} from '@/features/scarces/scarce-provenance-copy';
 import { fetchScarceRoyaltyMap } from '@/features/scarces/scarce-royalty-fetch';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
@@ -56,9 +61,7 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
-import {
-  collectionIdFromTokenId,
-} from '@/features/market/market-listings';
+import { collectionIdFromTokenId } from '@/features/market/market-listings';
 const NEAR_INPUT_DECIMALS = 4;
 
 export interface ScarceBidSuccessDetail {
@@ -77,6 +80,7 @@ interface ScarceBidFormProps {
     description?: string;
     mediaUrl?: string | null;
     sellerId: string;
+    artistId?: string;
     priceNear?: string;
     sourcePostPath?: string;
     postHref?: string | null;
@@ -87,6 +91,14 @@ interface ScarceBidFormProps {
   authorName?: string | null;
   onSuccess?: (detail: ScarceBidSuccessDetail) => void;
   onFooterStateChange?: (state: CommerceSheetFooterState | null) => void;
+}
+
+function authorFromSourcePostPath(
+  path: string | null | undefined
+): string | undefined {
+  if (!path?.trim()) return undefined;
+  const match = path.trim().match(/^(.+)\/post\/(.+)$/);
+  return match?.[1]?.trim() || undefined;
 }
 
 function titleFromPost(post: PostRow | null | undefined): string | null {
@@ -183,6 +195,8 @@ export function ScarceBidForm({
     kind: string | null;
     description: string | null;
   } | null>(null);
+  const [hydratedArtistId, setHydratedArtistId] = useState<string | null>(null);
+  const [artistHydrateSettled, setArtistHydrateSettled] = useState(false);
 
   const tokenId = listing?.tokenId ?? embed?.tokenId ?? '';
   const collectionId =
@@ -206,6 +220,18 @@ export function ScarceBidForm({
   const resolvedPlayable = listing?.playable ?? hydratedPlayable;
   const resolvedPlayables =
     listing?.playables ?? hydratedPlayables ?? undefined;
+  const knownArtistId =
+    listing?.artistId?.trim() ||
+    authorFromSourcePostPath(resolvedSourcePostPath) ||
+    null;
+  const parties = resolveScarcePartyIds({
+    sellerId,
+    knownArtistId,
+    hydratedArtistId,
+    artistReady: Boolean(knownArtistId) || artistHydrateSettled,
+  });
+  const artistId = parties.artistId;
+  const showDistinctSeller = parties.showDistinctSeller;
   const isOwnAuction =
     Boolean(viewerAccountId) &&
     Boolean(sellerId) &&
@@ -233,15 +259,23 @@ export function ScarceBidForm({
 
   useEffect(() => {
     const id = collectionId?.trim();
+    const needArtist = !listing?.artistId?.trim();
     if (!id) {
+      setHydratedArtistId(null);
       setHydratedEvent(null);
+      setArtistHydrateSettled(true);
       return;
     }
+    if (needArtist) setArtistHydrateSettled(false);
+    else setArtistHydrateSettled(true);
     let cancelled = false;
     void (async () => {
       try {
         const view = await fetchCollectionPreferIndexer(id);
         if (cancelled) return;
+        if (needArtist) {
+          setHydratedArtistId(view?.creatorId?.trim() || null);
+        }
         setHydratedEvent(
           view
             ? {
@@ -255,13 +289,18 @@ export function ScarceBidForm({
             : null
         );
       } catch {
-        if (!cancelled) setHydratedEvent(null);
+        if (!cancelled) {
+          if (needArtist) setHydratedArtistId(null);
+          setHydratedEvent(null);
+        }
+      } finally {
+        if (!cancelled && needArtist) setArtistHydrateSettled(true);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [collectionId]);
+  }, [collectionId, listing?.artistId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -614,6 +653,17 @@ export function ScarceBidForm({
   }
 
   const footerState = useMemo((): CommerceSheetFooterState | null => {
+    if (auctionLoading && !isOwnAuction) {
+      return {
+        visible: true,
+        primaryLoading: true,
+        primaryLabel: 'Bid',
+        primaryPendingLabel: 'Bidding…',
+        canSubmit: false,
+        pending: false,
+        disabled: true,
+      };
+    }
     const visible = ended || (!isOwnAuction && Boolean(auction));
     if (!visible) return null;
 
@@ -683,6 +733,7 @@ export function ScarceBidForm({
     normalizedAmount,
     pending,
     tokenId,
+    auctionLoading,
   ]);
 
   useSyncCommerceSheetFooter(footerState, onFooterStateChange);
@@ -696,9 +747,7 @@ export function ScarceBidForm({
       mintedAtMs,
       listedAtMs: listing?.listedAtMs ?? null,
       mediumKind: embed?.mediumKind ?? null,
-      authorId:
-        post?.accountId ??
-        (resolvedSourcePostPath?.match(/^(.+)\/post\//)?.[1] ?? null),
+      authorId: artistId ?? null,
       sellerId: sellerId ?? null,
       sourcePostPath: resolvedSourcePostPath,
       postHref: listing?.postHref ?? null,
@@ -709,8 +758,7 @@ export function ScarceBidForm({
       eventEndsAtMs: hydratedEvent?.eventEndsAtMs ?? null,
       place: hydratedEvent?.place ?? null,
       accessEndsAtMs: hydratedEvent?.accessEndsAtMs ?? null,
-      description:
-        resolvedDescription ?? hydratedEvent?.description ?? null,
+      description: resolvedDescription ?? hydratedEvent?.description ?? null,
     };
   }, [
     title,
@@ -722,8 +770,8 @@ export function ScarceBidForm({
     mintPriceNear,
     mintedAtMs,
     embed?.mediumKind,
-    post?.accountId,
     resolvedSourcePostPath,
+    artistId,
     sellerId,
     tokenId,
     collectionId,
@@ -734,188 +782,203 @@ export function ScarceBidForm({
 
   return (
     <>
-    <form
-      id={formId}
-      className="profile-support-form"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void handleSubmit();
-      }}
-    >
-      {/* Same cover plane as Market — post preview only when no scarce media. */}
-      {resolvedPlayable ? (
-        <ScarceClipPlayer
-          key={resolvedPlayable.url}
-          clip={resolvedPlayable}
-          {...(resolvedPlayables?.length
-            ? { tracks: resolvedPlayables }
-            : {})}
-          poster={resolvedMediaUrl}
-          commerce
-          {...(collectionId
-            ? {
-                persist: {
-                  collectionId,
-                  title,
-                },
-                creatorId: sellerId,
-              }
-            : {})}
-        />
-      ) : resolvedMediaUrl ? (
-        <ScarceBuyCover src={resolvedMediaUrl} label={title} />
-      ) : post ? (
-        <ScarcePostPreview
-          post={post}
-          creatorDisplayName={authorName}
-          mediaUrl={resolvedMediaUrl}
-          disableLiveSvg
-          cardBg={embed?.cardBg}
-        />
-      ) : null}
-
-      <div className="scarce-buy-summary">
-        <p className="scarce-buy-title">{title}</p>
-        <p className="scarce-buy-price">
-          {auctionLoading
-            ? 'Loading auction…'
-            : ended
-              ? auction?.reserveMet
-                ? `Ended · ${formatNearLabel(highNear)}`
-                : 'Ended · reserve not met'
-              : highNear
-                ? `High bid · ${formatNearLabel(highNear)}`
-                : minNear
-                  ? `Reserve · ${formatNearLabel(minNear)}`
-                  : 'Auction'}
-        </p>
-        {!ended && !auctionLoading ? (
-          <p className="profile-support-hint scarce-buy-meta">
-            {[
-              countdown
-                ? countdown === 'Ended'
-                  ? 'Ended'
-                  : `Ends ${countdown}`
-                : auction?.expiresAtNs == null
-                  ? 'Starts on first bid'
-                  : null,
-              stepNear ? `Step ${formatNearShort(stepNear)}` : null,
-              buyNow && !bidMeetsBuyNow && !minMeetsBuyNow
-                ? `Buy now ${formatNearShort(buyNow)}`
-                : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-            {stepNear || (buyNow && !bidMeetsBuyNow && !minMeetsBuyNow)
-              ? ' NEAR'
-              : ''}
-          </p>
-        ) : null}
-        {(() => {
-          const listedLabel = listing?.listedAtMs
-            ? formatMarketRelativeTime(listing.listedAtMs)
-            : '';
-          const mintedLabel = mintedAtMs
-            ? formatMarketRelativeTime(mintedAtMs)
-            : '';
-          const mintPriceLabel = mintPriceNear
-            ? `${formatNearShort(mintPriceNear)} NEAR`
-            : '';
-          const parts = [
-            listedLabel ? `Listed ${listedLabel}` : null,
-            mintedLabel ? `Minted ${mintedLabel}` : null,
-            mintPriceLabel || null,
-          ].filter((part): part is string => Boolean(part));
-          return (
-            <ScarceBuyFactsMeta
-              parts={parts.length > 0 ? parts : ['Auction']}
-              onOpenFacts={() => setFactsOpen(true)}
-            />
-          );
-        })()}
-      </div>
-
-      <ScarceProvenanceCopy
-        title={title}
-        description={resolvedDescription}
-        post={post}
-        postHref={listing?.postHref}
-        sourcePostPath={resolvedSourcePostPath ?? listing?.sourcePostPath}
-        hideOriginalLink={isScarceOriginalSelf(
-          post,
-          resolvedSourcePostPath ?? listing?.sourcePostPath,
-          listing?.postHref
-        )}
-        event={
-          hydratedEvent
-            ? {
-                eventStartsAtMs: hydratedEvent.eventStartsAtMs,
-                eventEndsAtMs: hydratedEvent.eventEndsAtMs,
-                place: hydratedEvent.place,
-                accessEndsAtMs: hydratedEvent.accessEndsAtMs,
-                kind: hydratedEvent.kind,
-              }
-            : null
-        }
-      />
-
-      {bidHistory.length > 0 ? (
-        <div className="scarce-bid-history" aria-label="Bids this auction">
-          <p className="scarce-mood-picker-label">This auction</p>
-          <ul className="scarce-bid-history-list">
-            {bidHistory.map((row, index) => {
-              const amountNear = bidRowAmountNear(row);
-              const amount = amountNear ? formatNearLabel(amountNear) : '—';
-              const bidder = row.bidder || row.buyerId || row.author;
-              return (
-                <li
-                  key={`${row.blockTimestamp}:${bidder}:${index}`}
-                  className="scarce-bid-history-row"
-                >
-                  <span className="scarce-bid-history-bidder">
-                    @{fallbackLabel(bidder)}
-                  </span>
-                  <span className="scarce-bid-history-amount">{amount}</span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : !auctionLoading && !ended ? (
-        <p className="profile-support-hint">No bids yet this auction.</p>
-      ) : null}
-
-      {!isOwnAuction && auction && !ended ? (
-        <>
-          <AmountField
-            value={amountInput}
-            onValueChange={applyAmountInput}
-            maxDecimals={NEAR_INPUT_DECIMALS}
-            onFocus={onAmountFocus}
-            placeholder={minNear ?? '0'}
-            aria-label="Bid in NEAR"
-            invalid={Boolean(fieldError)}
-            unit="NEAR"
-            disabled={Boolean(pending) || auctionLoading}
+      <form
+        id={formId}
+        className="profile-support-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void handleSubmit();
+        }}
+      >
+        {/* Same cover plane as Market — post preview only when no scarce media. */}
+        {resolvedPlayable ? (
+          <ScarceClipPlayer
+            key={resolvedPlayable.url}
+            clip={resolvedPlayable}
+            {...(resolvedPlayables?.length
+              ? { tracks: resolvedPlayables }
+              : {})}
+            poster={resolvedMediaUrl}
+            commerce
+            {...(collectionId
+              ? {
+                  persist: {
+                    collectionId,
+                    title,
+                  },
+                  creatorId: sellerId,
+                }
+              : {})}
           />
-          {bidMeetsBuyNow && !minMeetsBuyNow ? (
-            <p className="profile-support-hint">
-              Meets Buy now — you win immediately.
+        ) : resolvedMediaUrl ? (
+          <ScarceBuyCover src={resolvedMediaUrl} label={title} />
+        ) : post ? (
+          <ScarcePostPreview
+            post={post}
+            creatorDisplayName={authorName}
+            mediaUrl={resolvedMediaUrl}
+            disableLiveSvg
+            cardBg={embed?.cardBg}
+          />
+        ) : null}
+
+        <div className="scarce-buy-summary">
+          <p className="scarce-buy-title">{title}</p>
+          {parties.artistPending ? (
+            <ScarcePartyLine label="Author" pending />
+          ) : artistId ? (
+            <ScarcePartyLine label="Author" accountId={artistId} />
+          ) : null}
+          {showDistinctSeller && sellerId ? (
+            <ScarcePartyLine label="Seller" accountId={sellerId} />
+          ) : null}
+          <p className="scarce-buy-price">
+            {auctionLoading ? (
+              <span
+                className="standing-row-shimmer scarce-buy-price-skel"
+                aria-hidden
+              />
+            ) : ended ? (
+              auction?.reserveMet ? (
+                `Ended · ${formatNearLabel(highNear)}`
+              ) : (
+                'Ended · reserve not met'
+              )
+            ) : highNear ? (
+              `High bid · ${formatNearLabel(highNear)}`
+            ) : minNear ? (
+              `Reserve · ${formatNearLabel(minNear)}`
+            ) : (
+              'Auction'
+            )}
+          </p>
+          {!ended && !auctionLoading ? (
+            <p className="profile-support-hint scarce-buy-meta">
+              {[
+                countdown
+                  ? countdown === 'Ended'
+                    ? 'Ended'
+                    : `Ends ${countdown}`
+                  : auction?.expiresAtNs == null
+                    ? 'Starts on first bid'
+                    : null,
+                stepNear ? `Step ${formatNearShort(stepNear)}` : null,
+                buyNow && !bidMeetsBuyNow && !minMeetsBuyNow
+                  ? `Buy now ${formatNearShort(buyNow)}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              {stepNear || (buyNow && !bidMeetsBuyNow && !minMeetsBuyNow)
+                ? ' NEAR'
+                : ''}
             </p>
           ) : null}
-        </>
-      ) : null}
+          {(() => {
+            const listedLabel = listing?.listedAtMs
+              ? formatMarketRelativeTime(listing.listedAtMs)
+              : '';
+            const mintedLabel = mintedAtMs
+              ? formatMarketRelativeTime(mintedAtMs)
+              : '';
+            const mintPriceLabel = mintPriceNear
+              ? `${formatNearShort(mintPriceNear)} NEAR`
+              : '';
+            const parts = [
+              listedLabel ? `Listed ${listedLabel}` : null,
+              mintedLabel ? `Minted ${mintedLabel}` : null,
+              mintPriceLabel || null,
+            ].filter((part): part is string => Boolean(part));
+            return (
+              <ScarceBuyFactsMeta
+                parts={parts.length > 0 ? parts : ['Auction']}
+                onOpenFacts={() => setFactsOpen(true)}
+              />
+            );
+          })()}
+        </div>
 
-      {fieldError ? (
-        <p className="profile-support-error" role="alert">
-          {fieldError}
-        </p>
-      ) : isOwnAuction && !ended ? (
-        <p className="profile-support-hint">Your auction.</p>
-      ) : !isConnected && !ended ? (
-        <p className="profile-support-hint">Connect to bid.</p>
-      ) : null}
-    </form>
+        <ScarceProvenanceCopy
+          title={title}
+          description={resolvedDescription}
+          post={post}
+          postHref={listing?.postHref}
+          sourcePostPath={resolvedSourcePostPath ?? listing?.sourcePostPath}
+          hideOriginalLink={isScarceOriginalSelf(
+            post,
+            resolvedSourcePostPath ?? listing?.sourcePostPath,
+            listing?.postHref
+          )}
+          event={
+            hydratedEvent
+              ? {
+                  eventStartsAtMs: hydratedEvent.eventStartsAtMs,
+                  eventEndsAtMs: hydratedEvent.eventEndsAtMs,
+                  place: hydratedEvent.place,
+                  accessEndsAtMs: hydratedEvent.accessEndsAtMs,
+                  kind: hydratedEvent.kind,
+                }
+              : null
+          }
+        />
+
+        {bidHistory.length > 0 ? (
+          <div className="scarce-bid-history" aria-label="Bids this auction">
+            <p className="scarce-mood-picker-label">This auction</p>
+            <ul className="scarce-bid-history-list">
+              {bidHistory.map((row, index) => {
+                const amountNear = bidRowAmountNear(row);
+                const amount = amountNear ? formatNearLabel(amountNear) : '—';
+                const bidder = row.bidder || row.buyerId || row.author;
+                return (
+                  <li
+                    key={`${row.blockTimestamp}:${bidder}:${index}`}
+                    className="scarce-bid-history-row"
+                  >
+                    <span className="scarce-bid-history-bidder">
+                      @{fallbackLabel(bidder)}
+                    </span>
+                    <span className="scarce-bid-history-amount">{amount}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : !auctionLoading && !ended ? (
+          <p className="profile-support-hint">No bids yet this auction.</p>
+        ) : null}
+
+        {!isOwnAuction && auction && !ended ? (
+          <>
+            <AmountField
+              value={amountInput}
+              onValueChange={applyAmountInput}
+              maxDecimals={NEAR_INPUT_DECIMALS}
+              onFocus={onAmountFocus}
+              placeholder={minNear ?? '0'}
+              aria-label="Bid in NEAR"
+              invalid={Boolean(fieldError)}
+              unit="NEAR"
+              disabled={Boolean(pending) || auctionLoading}
+            />
+            {bidMeetsBuyNow && !minMeetsBuyNow ? (
+              <p className="profile-support-hint">
+                Meets Buy now — you win immediately.
+              </p>
+            ) : null}
+          </>
+        ) : null}
+
+        {fieldError ? (
+          <p className="profile-support-error" role="alert">
+            {fieldError}
+          </p>
+        ) : isOwnAuction && !ended ? (
+          <p className="profile-support-hint">Your auction.</p>
+        ) : !isConnected && !ended ? (
+          <p className="profile-support-hint">Connect to bid.</p>
+        ) : null}
+      </form>
       <ScarceListingFactsSheet
         open={factsOpen}
         onClose={() => setFactsOpen(false)}

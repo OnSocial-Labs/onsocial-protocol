@@ -1,11 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
-import {
-  OsSheetAction,
-  OsSheetActions,
-  OsSheetFooter,
-} from '@onsocial/ui';
+import { OsSheetAction, OsSheetActions, OsSheetFooter } from '@onsocial/ui';
 
 export interface CommerceSheetFooterSecondary {
   label: string;
@@ -30,10 +26,27 @@ export interface CommerceSheetFooterState {
   /** Clears two-press confirm when the CTA blurs. */
   onPrimaryBlur?: () => void;
   secondary?: CommerceSheetFooterSecondary | null;
+  /**
+   * Data still loading — shimmer the slot instead of a guessed verb
+   * (Make offer → Update offer). Not wallet pending (dots).
+   */
+  primaryLoading?: boolean;
+  secondaryLoading?: boolean;
   /** Optional control beside primary (e.g. mint qty stepper). */
   leading?: ReactNode;
   /** Equality key when `leading` identity changes (e.g. `qty:2`). */
   leadingKey?: string;
+}
+
+function CommerceActionSkeleton({ variant }: { variant: 'primary' | 'ghost' }) {
+  return (
+    <span
+      className={`os-sheet-action os-sheet-action--${variant} commerce-sheet-action-skel`}
+      aria-hidden
+    >
+      <span className="standing-row-shimmer commerce-sheet-action-skel-bar" />
+    </span>
+  );
 }
 
 interface CommerceSheetFooterProps {
@@ -58,7 +71,9 @@ export function commerceFooterStatesEqual(
     a.disabled !== b.disabled ||
     a.primaryType !== b.primaryType ||
     a.primaryVariant !== b.primaryVariant ||
-    a.leadingKey !== b.leadingKey
+    a.leadingKey !== b.leadingKey ||
+    Boolean(a.primaryLoading) !== Boolean(b.primaryLoading) ||
+    Boolean(a.secondaryLoading) !== Boolean(b.secondaryLoading)
   ) {
     return false;
   }
@@ -116,9 +131,7 @@ export function CommerceSheetFooter({
     <OsSheetFooter keyboardOpen={keyboardOpen}>
       <div
         className={
-          state.leading
-            ? 'collection-mint-row'
-            : 'commerce-sheet-footer-row'
+          state.leading ? 'collection-mint-row' : 'commerce-sheet-footer-row'
         }
       >
         {state.leading ? (
@@ -128,26 +141,32 @@ export function CommerceSheetFooter({
           layout="stack"
           tone="frosted-primary"
           borderless
-          className={
-            state.leading ? 'collection-mint-actions' : undefined
-          }
+          className={state.leading ? 'collection-mint-actions' : undefined}
         >
-          <OsSheetAction
-            type={primaryType}
-            form={primaryType === 'submit' ? formId : undefined}
-            variant={state.primaryVariant ?? 'primary'}
-            ready={state.canSubmit}
-            pending={state.pending}
-            pendingLabel={state.primaryPendingLabel}
-            disabled={state.disabled ?? false}
-            onClick={
-              primaryType === 'button' ? state.onPrimaryClick : undefined
-            }
-            onBlur={state.onPrimaryBlur}
-          >
-            {state.primaryLabel}
-          </OsSheetAction>
-          {state.secondary ? (
+          {state.primaryLoading ? (
+            <CommerceActionSkeleton
+              variant={state.primaryVariant === 'ghost' ? 'ghost' : 'primary'}
+            />
+          ) : (
+            <OsSheetAction
+              type={primaryType}
+              form={primaryType === 'submit' ? formId : undefined}
+              variant={state.primaryVariant ?? 'primary'}
+              ready={state.canSubmit}
+              pending={state.pending}
+              pendingLabel={state.primaryPendingLabel}
+              disabled={state.disabled ?? false}
+              onClick={
+                primaryType === 'button' ? state.onPrimaryClick : undefined
+              }
+              onBlur={state.onPrimaryBlur}
+            >
+              {state.primaryLabel}
+            </OsSheetAction>
+          )}
+          {state.secondaryLoading ? (
+            <CommerceActionSkeleton variant="ghost" />
+          ) : state.secondary ? (
             <OsSheetAction
               type="button"
               variant="ghost"

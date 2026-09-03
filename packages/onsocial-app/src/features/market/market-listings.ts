@@ -617,6 +617,49 @@ export function excludeOwnedNativeListings(
   );
 }
 
+/** Native / auction rows the viewer is selling — Yours before the vault returns. */
+export function ownedListedItemsFromViewerListings(
+  listings: MarketListingItem[],
+  viewerAccountId: string | null | undefined
+): OwnedScarceItem[] {
+  const viewer = viewerAccountId?.trim() ?? '';
+  if (!viewer) return [];
+  const out: OwnedScarceItem[] = [];
+  const seen = new Set<string>();
+  for (const item of listings) {
+    if (item.kind !== 'native' && item.kind !== 'auction') continue;
+    const tokenId = item.tokenId?.trim();
+    if (!tokenId || seen.has(tokenId)) continue;
+    if (!accountIdsEqualSafe(item.creatorId, viewer)) continue;
+    seen.add(tokenId);
+    out.push({
+      tokenId,
+      title: item.title,
+      ownerId: viewer,
+      listingKind: item.kind === 'auction' ? 'auction' : 'fixed',
+      ...(item.mediaUrl ? { mediaUrl: item.mediaUrl } : {}),
+      ...(item.collectionId ? { collectionId: item.collectionId } : {}),
+      ...(item.mediumKind ? { mediumKind: item.mediumKind } : {}),
+      ...(item.priceNear ? { listedPriceNear: item.priceNear } : {}),
+      ...(item.bidCount != null ? { bidCount: item.bidCount } : {}),
+      ...(item.expiresAtNs != null ? { expiresAtNs: item.expiresAtNs } : {}),
+      ...(item.sourcePostPath ? { sourcePostPath: item.sourcePostPath } : {}),
+      ...(item.postHref ? { postHref: item.postHref } : {}),
+    });
+  }
+  return out;
+}
+
+/** Vault wins on overlap; catalog-only listed rows stay until the vault catches up. */
+export function mergeOwnedYoursItems(
+  vault: OwnedScarceItem[],
+  catalogListed: OwnedScarceItem[]
+): OwnedScarceItem[] {
+  const vaultIds = new Set(vault.map((row) => row.tokenId));
+  const extra = catalogListed.filter((row) => !vaultIds.has(row.tokenId));
+  return extra.length === 0 ? vault : [...extra, ...vault];
+}
+
 /**
  * Primary post-mint (lazy + thought). Default Market All hides these so the
  * catalog stays drops + secondary; open the Thoughts medium to mint them.

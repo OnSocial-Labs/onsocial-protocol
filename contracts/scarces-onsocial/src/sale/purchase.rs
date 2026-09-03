@@ -368,6 +368,7 @@ impl Contract {
         };
 
         self.release_storage_waterfall(&seller_id, bytes_freed, listing_app_id.as_deref());
+        self.refund_remaining_token_offers(&token_id);
 
         let current_contract = env::current_account_id();
         events::emit_scarce_purchase(&events::ScarcePurchase {

@@ -3,6 +3,7 @@ import {
   listingActionAgeLabel,
   listingActionConfirmLabel,
   listingActionEyebrow,
+  listingActionHasOffers,
   listingActionNeedsConfirm,
   listingActionOpensBidSheet,
   listingActionOpensBuySheet,
@@ -11,6 +12,7 @@ import {
   listingActionRowMeta,
   listingActionSectionTitle,
   listingActionTimeLabel,
+  listingManageConfirmCopy,
   type ListingActionItem,
 } from '@/features/scarces/listing-actions';
 
@@ -29,6 +31,31 @@ function base(
 }
 
 describe('listing action copy', () => {
+  it('surfaces offers only on native listed rows', () => {
+    expect(
+      listingActionHasOffers(
+        base({
+          id: 'delist:s:1',
+          kind: 'delist',
+          tokenId: 's:1',
+          offerCount: 1,
+          highestOfferNear: '0.5',
+        })
+      )
+    ).toBe(true);
+    expect(
+      listingActionHasOffers(
+        base({
+          id: 'cancel_lazy:ll:1',
+          kind: 'cancel_lazy',
+          listingId: 'll:1',
+          offerCount: 1,
+          highestOfferNear: '0.5',
+        })
+      )
+    ).toBe(false);
+  });
+
   it('opens bid sheet for settle and cancel auction', () => {
     expect(listingActionOpensBidSheet('collect_win')).toBe(true);
     expect(listingActionOpensBidSheet('complete_sale')).toBe(true);
@@ -49,6 +76,31 @@ describe('listing action copy', () => {
     expect(listingActionNeedsConfirm('collect_win')).toBe(false);
     expect(listingActionConfirmLabel('delist')).toBe('Delist?');
     expect(listingActionConfirmLabel('cancel_lazy')).toBe('Cancel?');
+  });
+
+  it('uses a short danger confirm for Time Listings delist', () => {
+    const listed = base({
+      id: 'delist:s:1',
+      kind: 'delist',
+      title: "What's up #OnSocial",
+      tokenId: 's:1',
+    });
+    expect(listingManageConfirmCopy(listed)).toEqual({
+      title: "Delist What's up #OnSocial?",
+      body: 'This takes it off the market. You can list it again anytime.',
+      confirmLabel: 'Delist',
+      discardLabel: 'Discard',
+      pendingLabel: 'Delisting…',
+    });
+    expect(
+      listingManageConfirmCopy({
+        ...listed,
+        offerCount: 2,
+        highestOfferNear: '0.5',
+      }).body
+    ).toBe(
+      'This takes it off the market. Open offers stay — you can still accept them.'
+    );
   });
 
   it('keeps primary CTAs short', () => {
@@ -104,6 +156,30 @@ describe('listing action copy', () => {
         })
       )
     ).toBe('Fixed · 0.5 NEAR');
+
+    expect(
+      listingActionRowMeta(
+        base({
+          id: 'delist:s:3',
+          kind: 'delist',
+          tokenId: 's:3',
+          offerCount: 1,
+          highestOfferNear: '0.5',
+        })
+      )
+    ).toBe('Fixed · 0.5 NEAR · Offer 0.5 NEAR');
+
+    expect(
+      listingActionRowMeta(
+        base({
+          id: 'delist:s:4',
+          kind: 'delist',
+          tokenId: 's:4',
+          offerCount: 2,
+          highestOfferNear: '1',
+        })
+      )
+    ).toBe('Fixed · 0.5 NEAR · 2 offers · top 1 NEAR');
   });
 
   it('formats compact age and legacy Ended / Listed labels', () => {

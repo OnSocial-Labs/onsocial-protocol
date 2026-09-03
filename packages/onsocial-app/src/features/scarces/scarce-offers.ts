@@ -23,12 +23,31 @@ export interface TokenOfferSummary {
   highestAmountNear: string;
 }
 
-/** Viewer’s open token offer for Market “Your offers”. */
+/** Viewer’s open token offer. Market “Your offers” is delisted-only. */
 export interface MyOpenTokenOffer {
   tokenId: string;
   amountYocto: string;
   amountNear: string;
   expiresAtNs: number | null;
+}
+
+/** Null until the viewer’s offer query has settled — never guess Make vs Update. */
+export type ViewerOfferCta = 'make' | 'update';
+
+export function viewerOfferCta(
+  ready: boolean,
+  hasOpenOffer: boolean
+): ViewerOfferCta | null {
+  if (!ready) return null;
+  return hasOpenOffer ? 'update' : 'make';
+}
+
+export function viewerOfferCtaLabel(
+  cta: ViewerOfferCta,
+  surface: 'buy' | 'offer' = 'offer'
+): string {
+  if (cta === 'update') return 'Update offer';
+  return surface === 'buy' ? 'Make an offer' : 'Make offer';
 }
 
 function u128Field(raw: unknown): string | null {
@@ -222,7 +241,7 @@ function summarizeOffersForToken(
  */
 export async function fetchOfferSummariesByTokenIds(
   tokenIds: string[]
-): Promise<Map<string, TokenOfferSummary>> {
+): Promise<Map<string, TokenOfferSummary> | null> {
   const unique = [...new Set(tokenIds.map((id) => id.trim()).filter(Boolean))];
   const out = new Map<string, TokenOfferSummary>();
   if (unique.length === 0) return out;
@@ -256,16 +275,17 @@ export async function fetchOfferSummariesByTokenIds(
       const summary = summarizeOffersForToken(tokenId, offers);
       if (summary) out.set(tokenId, summary);
     }
+    return out;
   } catch {
-    // Soft-fail — Market still works without offer badges.
+    // Keep the last badges — a catalog blip must not flash Offers away.
+    return null;
   }
-  return out;
 }
 
 /** Open token offers placed by the viewer (catalog). */
 export async function fetchMyOpenTokenOffers(
   buyerId: string
-): Promise<MyOpenTokenOffer[]> {
+): Promise<MyOpenTokenOffer[] | null> {
   const buyer = buyerId.trim();
   if (!buyer) return [];
   try {
@@ -292,6 +312,55 @@ export async function fetchMyOpenTokenOffers(
         return 0;
       });
   } catch {
-    return [];
+    return null;
+  }
+}
+
+/** Bids that still have a live listing use Buy / Bid — not this inbox. */
+export function offersWithoutLiveListing(
+  offers: MyOpenTokenOffer[],
+  liveListingTokenIds: ReadonlySet<string>
+): MyOpenTokenOffer[] {
+  return offers.filter((offer) => !liveListingTokenIds.has(offer.tokenId));
+}
+
+/** Native / auction listings still on the book for these tokens. */
+export async function fetchLiveListingTokenIds(
+  tokenIds: string[]
+): Promise<Set<string> | null> {
+  const unique = [...new Set(tokenIds.map((id) => id.trim()).filter(Boolean))];
+  if (unique.length === 0) return new Set();
+  try {
+    const client = createReadOnlyOnSocialClient();
+    const rows = await client.query.scarces.activeListings({
+      tokenIds: unique,
+      kinds: ['native', 'auction'],
+      limit: unique.length,
+    });
+    const out = new Set<string>();
+    for (const row of rows) {
+      const tokenId = row.tokenId?.trim();
+      if (tokenId) out.add(tokenId);
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchTokenOwnerId(
+  tokenId: string
+): Promise<string | null> {
+  const id = tokenId.trim();
+  if (!id) return null;
+  try {
+    const raw = await viewNearContract<{ owner_id?: string } | null>(
+      SCARCES_CONTRACT,
+      'nft_token',
+      { token_id: id }
+    );
+    return raw?.owner_id?.trim() || null;
+  } catch {
+    return null;
   }
 }

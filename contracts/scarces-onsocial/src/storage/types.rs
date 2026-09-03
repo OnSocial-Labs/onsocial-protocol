@@ -41,6 +41,7 @@ pub enum StorageKey {
     ApprovedNftContracts,
     SaleCreatedAt,
     CollectionSeatPool,
+    TokenOfferCounts,
 }
 
 #[near(serializers = [borsh, json])]
