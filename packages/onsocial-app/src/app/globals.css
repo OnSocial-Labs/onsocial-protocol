@@ -7479,7 +7479,8 @@ a.os-surface-row {
     width: 100%;
     max-width: 36rem;
     margin: 0.15rem auto 2rem;
-    padding: 0 0.15rem;
+    padding: 0.85rem max(1.15rem, env(safe-area-inset-right, 0px)) 2rem
+      max(1.15rem, env(safe-area-inset-left, 0px));
   }
 
   .portfolio-about-identity {
