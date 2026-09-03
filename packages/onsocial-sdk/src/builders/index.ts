@@ -27,6 +27,7 @@ export {
   PROFILE_KIND_OPTIONS,
   normalizeProfileKindInput,
   parseProfileKind,
+  profileAvatarShapeForFace,
   profileAvatarShapeFromKind,
   profileKindFaceLabel,
   profileKindFromMaterialised,

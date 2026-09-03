@@ -67,12 +67,24 @@ export function resolveDisplayProfileKind(
   return fallbackDao ? 'dao' : 'person';
 }
 
+/**
+ * Three distinct face geometries:
+ * person / omit → circle, org → squircle, dao → square-ish.
+ */
 export function profileAvatarShapeFromKind(
   kind?: ProfileKind | null
 ): ProfileAvatarShape {
   if (kind === 'org') return 'squircle';
   if (kind === 'dao') return 'square';
   return 'circle';
+}
+
+/** Shape for a face: explicit kind wins; omitted kind can fall back to DAO. */
+export function profileAvatarShapeForFace(
+  kind?: ProfileKind | null,
+  fallbackDao = false
+): ProfileAvatarShape {
+  return profileAvatarShapeFromKind(resolveDisplayProfileKind(kind, fallbackDao));
 }
 
 /** Quiet face copy. Person / omit → no label. Org uses the location-style line. */

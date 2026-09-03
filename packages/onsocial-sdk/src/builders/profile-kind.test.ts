@@ -4,6 +4,7 @@ import {
   PROFILE_KIND_OPTIONS,
   normalizeProfileKindInput,
   parseProfileKind,
+  profileAvatarShapeForFace,
   profileAvatarShapeFromKind,
   profileKindFaceLabel,
   profileKindFromMaterialised,
@@ -76,6 +77,17 @@ describe('profileAvatarShapeFromKind + face label', () => {
     expect(profileAvatarShapeFromKind('person')).toBe('circle');
     expect(profileAvatarShapeFromKind('org')).toBe('squircle');
     expect(profileAvatarShapeFromKind('dao')).toBe('square');
+    expect(new Set([
+      profileAvatarShapeFromKind('person'),
+      profileAvatarShapeFromKind('org'),
+      profileAvatarShapeFromKind('dao'),
+    ]).size).toBe(3);
+  });
+
+  it('uses DAO fallback only when kind is omitted', () => {
+    expect(profileAvatarShapeForFace(undefined, true)).toBe('square');
+    expect(profileAvatarShapeForFace('org', true)).toBe('squircle');
+    expect(profileAvatarShapeForFace('person', true)).toBe('circle');
   });
 
   it('labels org and dao only', () => {

@@ -5,6 +5,7 @@
 
 import type { QueryModule } from './index.js';
 import type { StandingListItem } from './standings.js';
+import { parseProfileKind, type ProfileKind } from '../builders/profile-kind.js';
 
 export interface ProfileSearchRow {
   accountId: string;
@@ -12,6 +13,8 @@ export interface ProfileSearchRow {
   bio: string | null;
   avatar: string | null;
   banner: string | null;
+  /** Optional `profile/kind` from profiles_current. */
+  kind?: ProfileKind;
   standingCount: number;
   standingWithCount: number;
   mutualStandingCount: number;
@@ -104,6 +107,37 @@ const PROFILE_DISCOVER_FIELDS = `
   discoverScore reputation confidenceScore
 `;
 
+const PROFILE_KINDS_SELECTION = `
+  profileKinds: profilesCurrent(
+    where: {accountId: {_in: $ids}, field: {_eq: "kind"}}
+    limit: $limit
+  ) {
+    accountId value
+  }
+`;
+
+export function profileKindsFromCurrentRows(
+  rows: Array<{ accountId: string; value: string }> | null | undefined
+): Record<string, ProfileKind> {
+  const out: Record<string, ProfileKind> = {};
+  for (const row of rows ?? []) {
+    const parsed = parseProfileKind(row.value);
+    if (parsed) out[row.accountId] = parsed;
+  }
+  return out;
+}
+
+export function applyProfileSearchKinds<T extends { accountId: string }>(
+  rows: T[],
+  kinds: Record<string, ProfileKind>
+): T[] {
+  if (Object.keys(kinds).length === 0) return rows;
+  return rows.map((row) => {
+    const kind = kinds[row.accountId];
+    return kind ? { ...row, kind } : row;
+  });
+}
+
 function mapDiscoverRows(
   rows: Array<
     ProfileSearchRow & {
@@ -185,7 +219,10 @@ export class ProfilesQuery {
    * ```
    */
   async lookup(accountId: string): Promise<ProfileSearchRow | null> {
-    const res = await this._q.graphql<{ profileSearch: ProfileSearchRow[] }>({
+    const res = await this._q.graphql<{
+      profileSearch: ProfileSearchRow[];
+      profileKinds: Array<{ accountId: string; value: string }>;
+    }>({
       query: `query ProfileLookup($id: String!) {
         profileSearch(where: {accountId: {_eq: $id}}, limit: 1) {
           accountId name bio avatar banner
@@ -194,28 +231,66 @@ export class ProfilesQuery {
           firstProfileTimestamp
           lastProfileBlock lastProfileTimestamp lastActivityBlock
         }
+        profileKinds: profilesCurrent(
+          where: {accountId: {_eq: $id}, field: {_eq: "kind"}}
+          limit: 1
+        ) {
+          accountId value
+        }
       }`,
       variables: { id: accountId },
     });
-    return res.data?.profileSearch?.[0] ?? null;
+    const row = res.data?.profileSearch?.[0];
+    if (!row) return null;
+    return applyProfileSearchKinds(
+      [row],
+      profileKindsFromCurrentRows(res.data?.profileKinds)
+    )[0];
   }
 
   /**
    * Batch profile search stats for graph list enrichment.
    */
+  /**
+   * Batch `profile/kind` from `profiles_current` (not on profile_search yet).
+   */
+  async kindsForAccounts(
+    accountIds: string[]
+  ): Promise<Record<string, ProfileKind>> {
+    const ids = [...new Set(accountIds.map((id) => id.trim()).filter(Boolean))];
+    if (ids.length === 0) return {};
+
+    const res = await this._q.graphql<{
+      profileKinds: Array<{ accountId: string; value: string }>;
+    }>({
+      query: `query ProfileKinds($ids: [String!]!, $limit: Int!) {
+        ${PROFILE_KINDS_SELECTION}
+      }`,
+      variables: { ids, limit: ids.length },
+    });
+    return profileKindsFromCurrentRows(res.data?.profileKinds);
+  }
+
   async statsForAccounts(accountIds: string[]): Promise<ProfileSearchRow[]> {
     const ids = [...new Set(accountIds.map((id) => id.trim()).filter(Boolean))];
     if (ids.length === 0) return [];
 
-    const res = await this._q.graphql<{ profileSearch: ProfileSearchRow[] }>({
+    const res = await this._q.graphql<{
+      profileSearch: ProfileSearchRow[];
+      profileKinds: Array<{ accountId: string; value: string }>;
+    }>({
       query: `query ProfileStatsBatch($ids: [String!]!, $limit: Int!) {
         profileSearch(where: {accountId: {_in: $ids}}, limit: $limit) {
           ${PROFILE_SEARCH_FIELDS}
         }
+        ${PROFILE_KINDS_SELECTION}
       }`,
       variables: { ids, limit: ids.length },
     });
-    return res.data?.profileSearch ?? [];
+    return applyProfileSearchKinds(
+      res.data?.profileSearch ?? [],
+      profileKindsFromCurrentRows(res.data?.profileKinds)
+    );
   }
 
   /**
