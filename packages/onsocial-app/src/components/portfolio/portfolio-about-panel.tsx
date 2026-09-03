@@ -3,11 +3,11 @@
 import { PortfolioIdentityTopics } from '@/components/portfolio/portfolio-identity-topics';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
+import { displayName, portfolioHandleForMood } from '@/lib/profile-display';
 import {
-  displayName,
-  initials,
-  portfolioHandleForMood,
-} from '@/lib/profile-display';
+  portfolioAboutPrintUrl,
+  profileAboutEssayBlocks,
+} from '@/lib/profile-bio-face';
 import { resolveDisplayProfileKind, type ProfileKind } from '@onsocial/sdk';
 import type { ResolvedMood } from '@/lib/moods/types';
 
@@ -23,8 +23,8 @@ export type PortfolioAboutPanelProps = {
 };
 
 /**
- * Lookbook page — same OnSocial name / handle / topics as the face,
- * composed as a print + type, not a banner or a kind-shaped chip.
+ * Professional About — a written page, not a bigger face.
+ * Masthead + essay for everyone; a real print only when a photo exists.
  */
 export function PortfolioAboutPanel({
   accountId,
@@ -39,8 +39,8 @@ export function PortfolioAboutPanel({
   const displayKind = resolveDisplayProfileKind(profileKind, isDao);
   const titleLabel = displayName(accountId, profileName ?? undefined);
   const handleLabel = portfolioHandleForMood(accountId, mood.id);
-  const aboutBio = bio?.trim() || '';
-  const printUrl = avatarUrl?.trim() || '';
+  const essayBlocks = profileAboutEssayBlocks(bio ?? '');
+  const printUrl = portfolioAboutPrintUrl(avatarUrl);
 
   return (
     <article
@@ -49,19 +49,7 @@ export function PortfolioAboutPanel({
       data-has-print={printUrl ? 'true' : 'false'}
       data-testid="portfolio-about-panel"
     >
-      <div className="portfolio-about-print">
-        {printUrl ? (
-          <img alt="" className="portfolio-about-shot" src={printUrl} />
-        ) : (
-          <div
-            className="portfolio-about-shot portfolio-about-shot-fallback"
-            aria-hidden
-          >
-            {initials(titleLabel)}
-          </div>
-        )}
-      </div>
-      <header className="portfolio-about-identity">
+      <header className="portfolio-about-masthead">
         <div className="portfolio-about-name-row">
           <h1 className="portfolio-about-name">{titleLabel}</h1>
           {isDao ? <ProtocolNameTrailing accountId={accountId} isDao /> : null}
@@ -78,10 +66,30 @@ export function PortfolioAboutPanel({
         </p>
         <PortfolioIdentityTopics tags={tags} />
       </header>
-      {aboutBio ? (
-        <p className="portfolio-bio portfolio-about-bio">
-          <PostRichText text={aboutBio} emptyFallback="" showLinkIcon />
-        </p>
+      {printUrl || essayBlocks.length > 0 ? (
+        <div className="portfolio-about-stage">
+          {printUrl ? (
+            <figure className="portfolio-about-print">
+              <img
+                alt={titleLabel}
+                className="portfolio-about-shot"
+                src={printUrl}
+              />
+            </figure>
+          ) : null}
+          {essayBlocks.length > 0 ? (
+            <div className="portfolio-about-essay">
+              {essayBlocks.map((block, index) => (
+                <p
+                  key={`${index}-${block.slice(0, 24)}`}
+                  className="portfolio-about-bio"
+                >
+                  <PostRichText text={block} emptyFallback="" showLinkIcon />
+                </p>
+              ))}
+            </div>
+          ) : null}
+        </div>
       ) : null}
     </article>
   );

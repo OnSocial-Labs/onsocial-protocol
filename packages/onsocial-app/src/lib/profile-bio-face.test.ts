@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   PROFILE_BIO_FACE_LINES,
+  portfolioAboutPrintUrl,
+  profileAboutEssayBlocks,
   profileAboutHasMoreThanFace,
   profileBioFace,
   profileBioHasLineOverflow,
@@ -111,5 +113,27 @@ describe('resolvePortfolioAboutBio', () => {
         daoPurpose: null,
       })
     ).toBeNull();
+  });
+});
+
+describe('profileAboutEssayBlocks', () => {
+  it('splits the About essay on blank lines', () => {
+    expect(
+      profileAboutEssayBlocks('First graph.\n\nSecond graph.\nStill second.')
+    ).toEqual(['First graph.', 'Second graph.\nStill second.']);
+  });
+
+  it('drops empty blocks', () => {
+    expect(profileAboutEssayBlocks('\n\nOnly one.\n\n\n')).toEqual(['Only one.']);
+  });
+});
+
+describe('portfolioAboutPrintUrl', () => {
+  it('keeps a real photo and drops empty plates', () => {
+    expect(portfolioAboutPrintUrl(' https://cdn.example/a.jpg ')).toBe(
+      'https://cdn.example/a.jpg'
+    );
+    expect(portfolioAboutPrintUrl('')).toBeNull();
+    expect(portfolioAboutPrintUrl(null)).toBeNull();
   });
 });
