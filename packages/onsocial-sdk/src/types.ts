@@ -289,6 +289,11 @@ export interface ProfileData {
   links?: Record<string, string>;
   /** Freeform tags for third-party apps; OnSocial prefers bio-derived tokens. */
   tags?: string[];
+  /**
+   * About gallery (`profile/photos`). Up to 3 `ipfs://` / URL strings.
+   * Pass `null` or `[]` to clear.
+   */
+  photos?: string[] | null;
   /** Lowercase hashtags from bio (`#near` → `near`). Written when `bio` updates. */
   hashtags?: string[];
   /** Lowercase tickers from bio (`$SOCIAL` → `social`). Written when `bio` updates. */

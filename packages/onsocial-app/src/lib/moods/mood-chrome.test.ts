@@ -52,7 +52,7 @@ describe('mood chrome map', () => {
       /Wallet drawer — protocol grey hover on every in-card control/
     );
     expect(globalsCss).toMatch(
-      /\.account-drawer-panel \.account-card[\s\S]*?account-shortcut-dock/
+      /\.account-drawer-panel[\s\S]*?\.account-card[\s\S]*?account-shortcut-dock/
     );
     expect(resolveTs).not.toContain("'--mood-ink'");
   });

@@ -12,6 +12,7 @@ import {
   homeTickerPath,
 } from '@/features/home/home-ticker-search';
 import { splitPostRichText } from '@/features/home/post-rich-segments';
+import { splitProfileBioInlineDisplayRuns } from '@/lib/profile-bio-rich';
 import { portfolioPath } from '@/lib/overlay-routes';
 
 /** Post / quote / bio body with hashtag + ticker + @mention + url highlights. */
@@ -20,10 +21,13 @@ export function PostRichText({
   emptyFallback = '…',
   /** Bio / portfolio: Mage link icon. Posts: plain blue host label. */
   showLinkIcon = false,
+  /** Bio only — posts and DMs stay hashtag / mention / url. */
+  inlineMarks = false,
 }: {
   text: string;
   emptyFallback?: string;
   showLinkIcon?: boolean;
+  inlineMarks?: boolean;
 }) {
   const activeFocus = useHomeActiveFocus();
 
@@ -33,7 +37,29 @@ export function PostRichText({
     <>
       {splitPostRichText(text).map((segment, index) => {
         if (segment.type === 'text') {
-          return <span key={`t-${index}`}>{segment.value}</span>;
+          if (!inlineMarks) {
+            return <span key={`t-${index}`}>{segment.value}</span>;
+          }
+          return (
+            <span key={`t-${index}`}>
+              {splitProfileBioInlineDisplayRuns(segment.value).map(
+                (run, runIndex) => {
+                  const inner = run.italic ? (
+                    <em key={`i-${runIndex}`}>{run.value}</em>
+                  ) : (
+                    run.value
+                  );
+                  if (run.bold) {
+                    return <strong key={`b-${runIndex}`}>{inner}</strong>;
+                  }
+                  if (run.italic) {
+                    return inner;
+                  }
+                  return <span key={`p-${runIndex}`}>{run.value}</span>;
+                }
+              )}
+            </span>
+          );
         }
 
         if (segment.type === 'url') {

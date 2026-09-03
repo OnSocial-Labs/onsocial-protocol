@@ -48,6 +48,10 @@ import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { ProfileTopicsEditor } from '@/components/wallet/profile-topics-editor';
+import {
+  ProfileAboutPhotosEditor,
+  type ProfileAboutPhotoDraft,
+} from '@/components/wallet/profile-about-photos-editor';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import {
@@ -61,6 +65,11 @@ import {
   pruneLinkNotes,
   sanitizeLinkNotes,
 } from '@/lib/page-launch-config';
+import {
+  PROFILE_BIO_LIMIT_WARN,
+  PROFILE_BIO_MAX,
+  profileAboutHasMoreThanFace,
+} from '@/lib/profile-bio-face';
 import { displayName, fallbackLabel, initials } from '@/lib/profile-display';
 import type { ResolvedPageHero } from '@/lib/page-data';
 import {
@@ -76,9 +85,7 @@ import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 
 const MOBILE_MAX_WIDTH_PX = 767;
 const PROFILE_NAME_MAX = 50;
-const PROFILE_BIO_MAX = 180;
 const PROFILE_NAME_LIMIT_WARN = 40;
-const PROFILE_BIO_LIMIT_WARN = 150;
 
 const PROFILE_BANNER_ACCEPT =
   'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm';
@@ -172,6 +179,7 @@ export function AppProfileEditorSheet({
   const [kind, setKind] = useState<ProfileKind>('person');
   const [bio, setBio] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<ProfileAboutPhotoDraft[]>([]);
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
     profileLinksInputFromRecord(null)
   );
@@ -201,6 +209,7 @@ export function AppProfileEditorSheet({
     setKind(editorFaceKind(snapshot.kind));
     setBio(snapshot.bio);
     setTags(snapshot.tags ?? []);
+    setPhotos(snapshot.photos ?? []);
     setLinks(linksFromSnapshot);
     setLinkNotes(sanitizeLinkNotes(snapshot.pageConfig?.linkNotes));
     setLinkFieldErrors({});
@@ -258,6 +267,8 @@ export function AppProfileEditorSheet({
       bio,
       links,
       tags,
+      photos,
+      photoFiles: photos.map((photo) => photo.file ?? null),
       linkNotes,
       avatarFile,
       bannerFile,
@@ -274,6 +285,7 @@ export function AppProfileEditorSheet({
     kind,
     links,
     tags,
+    photos,
     linkNotes,
     linksFromSnapshot,
     location,
@@ -407,6 +419,8 @@ export function AppProfileEditorSheet({
         kind,
         bio,
         tags,
+        photos,
+        photoFiles: photos.map((photo) => photo.file ?? null),
         avatar: avatarFile,
         banner: bannerFile,
         removeAvatar: avatarRemoved,
@@ -819,6 +833,19 @@ export function AppProfileEditorSheet({
                             const trimmed = bio.trim();
                             if (trimmed !== bio) setBio(trimmed);
                           }}
+                        />
+                        {profileAboutHasMoreThanFace({
+                          faceText: bio,
+                          aboutText: bio,
+                        }) ? (
+                          <p className="account-editor-about-hint">
+                            First four lines show on your page. More in About.
+                          </p>
+                        ) : null}
+                        <ProfileAboutPhotosEditor
+                          photos={photos}
+                          onChange={setPhotos}
+                          disabled={saving}
                         />
                         {nameNearLimit || bioNearLimit ? (
                           <p

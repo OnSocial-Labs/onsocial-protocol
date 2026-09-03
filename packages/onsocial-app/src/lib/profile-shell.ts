@@ -9,6 +9,10 @@ import {
 } from '@onsocial/sdk';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import { profileIdentityTopics } from '@/lib/profile-identity-topics';
+import {
+  profileAboutPhotosFromStored,
+  type ProfileAboutPhoto,
+} from '@/lib/profile-about-photos';
 
 /** Indexed profile shell for SSR — mirrors Portal's `loadPortalProfileShell`. */
 export interface AppProfileShell {
@@ -28,6 +32,8 @@ export interface AppProfileShell {
   links: MaterialisedProfile['links'];
   /** Curated identity topics (`profile/tags`). Independent of bio `#`. */
   tags: string[];
+  /** About gallery (`profile/photos`) — resolved URLs, max 3. */
+  photos: ProfileAboutPhoto[];
   hashtags: string[];
   tickers: string[];
   mentions: string[];
@@ -58,6 +64,10 @@ export const loadProfileShell = cache(
         bannerMedia: os.profiles.bannerMedia(profile),
         links: profile.links,
         tags: profileIdentityTopics(profile.tags),
+        photos: profileAboutPhotosFromStored(
+          profile.photos,
+          profile.extra.photos
+        ),
         hashtags: profile.hashtags ?? [],
         tickers: profile.tickers ?? [],
         mentions: profile.mentions ?? [],

@@ -58,6 +58,13 @@ describe('shouldMountPortfolioGlassHost', () => {
         overlaySlotMode: 'intercept',
       })
     ).toBe(false);
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/about',
+        layoutSegments: ['about'],
+        overlaySlotMode: 'idle',
+      })
+    ).toBe(false);
   });
 
   it('does not mount on portfolio root', () => {

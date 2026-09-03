@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   editorFaceKind,
+  formatProfileMediaRef,
   normalizeProfileIndustryInput,
   normalizeProfileLocationInput,
   type MaterialisedProfile,
@@ -21,6 +22,11 @@ import {
 } from '@/lib/page-launch-config';
 import { isProfileEditorContentDirty } from '@/lib/profile-editor-dirty';
 import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
+import {
+  parseProfileAboutPhotoRefs,
+  profileAboutPhotoRefsEqual,
+  type ProfileAboutPhoto,
+} from '@/lib/profile-about-photos';
 import { normalizeProfileEditorTags } from '@/lib/profile-tag-editor';
 import {
   normalizeProfileLinksInput,
@@ -44,6 +50,7 @@ export interface ProfileEditorSnapshot {
   links: MaterialisedProfile['links'];
   pageConfig: PublicPageConfig;
   tags: string[];
+  photos: ProfileAboutPhoto[];
 }
 
 export interface ProfileEditorSaveInput {
@@ -62,6 +69,8 @@ export interface ProfileEditorSaveInput {
   hasLinkInput: boolean;
   linkNotes: Record<string, string>;
   tags: string[];
+  photos: ProfileAboutPhoto[];
+  photoFiles: Array<File | null>;
 }
 
 export interface ProfileEditorSaveResult {
@@ -136,6 +145,9 @@ export function useAppProfileEditor(
         tags: Array.isArray((body as ProfileEditorSnapshot).tags)
           ? (body as ProfileEditorSnapshot).tags
           : [],
+        photos: Array.isArray((body as ProfileEditorSnapshot).photos)
+          ? (body as ProfileEditorSnapshot).photos
+          : [],
       });
     } catch (err) {
       setSnapshot(null);
@@ -192,6 +204,8 @@ export function useAppProfileEditor(
         bio: input.bio,
         links: input.links,
         tags: input.tags,
+        photos: input.photos,
+        photoFiles: input.photoFiles,
         avatarFile: input.avatar,
         bannerFile: input.banner,
         avatarRemoved: input.removeAvatar,
@@ -262,6 +276,22 @@ export function useAppProfileEditor(
             payload.links = normalizedLinks;
           }
           payload.tags = normalizeProfileEditorTags(input.tags);
+
+          const nextPhotoRefs: string[] = [];
+          for (let index = 0; index < input.photos.length; index += 1) {
+            const file = input.photoFiles[index];
+            if (file) {
+              const uploaded = await client.storage.upload(file);
+              nextPhotoRefs.push(formatProfileMediaRef(uploaded));
+              continue;
+            }
+            const ref = input.photos[index]?.ref?.trim();
+            if (ref) nextPhotoRefs.push(ref);
+          }
+          const savedPhotoRefs = snapshotNow.photos.map((photo) => photo.ref);
+          if (!profileAboutPhotoRefsEqual(nextPhotoRefs, savedPhotoRefs)) {
+            payload.photos = parseProfileAboutPhotoRefs(nextPhotoRefs);
+          }
 
           // Bio save also writes hashtags/tickers/mentions via SDK extract-on-save.
           const response = await client.profiles.update(payload, {

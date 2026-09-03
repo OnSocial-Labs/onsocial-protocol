@@ -20,6 +20,7 @@ const PROFILE_RESERVED_FIELDS = [
   'banner',
   'links',
   'tags',
+  'photos',
   'hashtags',
   'tickers',
   'mentions',
@@ -67,6 +68,17 @@ export function buildProfileSetData(profile: ProfileData): SocialSetData {
   }
   if (profile.tags !== undefined) {
     data['profile/tags'] = encodeProfileField(profile.tags);
+  }
+  if (profile.photos !== undefined) {
+    if (profile.photos === null) {
+      data['profile/photos'] = null;
+    } else {
+      const photos = profile.photos
+        .map((item) => (typeof item === 'string' ? item.trim() : ''))
+        .filter(Boolean)
+        .slice(0, 3);
+      data['profile/photos'] = encodeProfileField(photos);
+    }
   }
 
   // When bio is written, derive indexed token arrays (explicit overrides win).
