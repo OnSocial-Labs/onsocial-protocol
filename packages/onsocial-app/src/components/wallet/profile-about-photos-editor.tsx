@@ -1,6 +1,12 @@
 'use client';
 
-import { useRef, useState, type ChangeEvent, type PointerEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type PointerEvent,
+} from 'react';
 import { MultiplyIcon } from '@onsocial/ui';
 import {
   PROFILE_ABOUT_PHOTOS_MAX,
@@ -34,7 +40,10 @@ export function ProfileAboutPhotosEditor({
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const atMax = photos.length >= PROFILE_ABOUT_PHOTOS_MAX;
   const canReorder = !disabled && photos.length > 1;
-  photosRef.current = photos;
+
+  useEffect(() => {
+    photosRef.current = photos;
+  }, [photos]);
 
   const handleAdd = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
