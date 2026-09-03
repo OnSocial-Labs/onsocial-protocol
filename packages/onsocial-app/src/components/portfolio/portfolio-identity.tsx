@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kind-switch';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
+import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
@@ -105,7 +106,10 @@ export function PortfolioIdentity({
           ) : null}
         </p>
         {locationLabel ? (
-          <p className="portfolio-location">{locationLabel}</p>
+          <p className="portfolio-location">
+            <PortfolioLocationMark />
+            <span>{locationLabel}</span>
+          </p>
         ) : null}
         {summary ? (
           <p className="portfolio-bio">

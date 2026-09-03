@@ -233,6 +233,7 @@ impl Contract {
                 result.app_pool_amount,
                 result.app_id.as_deref(),
             );
+            self.refund_remaining_token_offers(token_id);
         } else {
             if let Some(bidder) = winner {
                 if winning_bid > 0 {

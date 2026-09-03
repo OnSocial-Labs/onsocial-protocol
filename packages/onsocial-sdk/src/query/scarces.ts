@@ -685,6 +685,8 @@ export class ScarcesQuery {
       kind?: 'lazy' | 'native' | 'auction' | string;
       /** Multi-kind filter, e.g. `['lazy', 'native']` for fixed-price. */
       kinds?: ('lazy' | 'native' | 'auction' | string)[];
+      /** Native / auction rows for these token ids (`tokenId: {_in}`). */
+      tokenIds?: string[];
       /** Only listings from this seller account. */
       sellerId?: string;
       /** Only listings published under this app / store slug. */
@@ -723,6 +725,11 @@ export class ScarcesQuery {
       params.push('$kinds: [String!]!');
       variables.kinds = opts.kinds;
       where.push('kind: {_in: $kinds}');
+    }
+    if (opts.tokenIds?.length) {
+      params.push('$tokenIds: [String!]!');
+      variables.tokenIds = opts.tokenIds;
+      where.push('tokenId: {_in: $tokenIds}');
     }
     if (opts.sellerId) {
       params.push('$sellerId: String!');

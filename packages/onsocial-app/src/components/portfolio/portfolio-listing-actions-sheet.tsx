@@ -14,20 +14,26 @@ import {
   OsIconAction,
   OsSheetAction,
   OsSheetActions,
+  OsSheetFooter,
   SheetCloseButton,
   ShopFillIcon,
   TimeFillIcon,
+  osActionDrawerConfirmBodyClassName,
+  osActionDrawerConfirmClassName,
   osIconActionGlyphClassName,
 } from '@onsocial/ui';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { collectionIdFromTokenId } from '@/features/market/market-listings';
+import {
+  collectionIdFromTokenId,
+  type OwnedScarceItem,
+} from '@/features/market/market-listings';
 import {
   executeListingAction,
   fetchListingActions,
-  listingActionConfirmLabel,
+  listingActionHasOffers,
   listingActionNeedsConfirm,
   listingActionOpensBidSheet,
   listingActionOpensBuySheet,
@@ -36,6 +42,7 @@ import {
   listingActionRowMeta,
   listingActionSectionTitle,
   listingActionTimeLabel,
+  listingManageConfirmCopy,
   type ListingActionItem,
   type ListingActionKind,
 } from '@/features/scarces/listing-actions';
@@ -47,6 +54,7 @@ import {
   ScarceBuySheet,
   type ScarceBuyListing,
 } from '@/features/scarces/scarce-buy-sheet';
+import { ScarceOffersSheet } from '@/features/scarces/scarce-offers-sheet';
 import { APP_MARKET_PATH } from '@/lib/app-routes';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
@@ -55,8 +63,6 @@ import { SHEET_Z } from '@/lib/sheet-z';
 import { txToastError } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
-/** Match Market owned-row Delist arm window. */
-const CONFIRM_LEAVE_MS = 4_000;
 /** Skip refetch when face/cache seed is newer than this. */
 const LISTINGS_SEED_FRESH_MS = 30_000;
 
@@ -132,23 +138,51 @@ function buyListingFromAction(item: ListingActionItem): ScarceBuyListing | null 
   return null;
 }
 
+function ownedScarceFromAction(item: ListingActionItem): OwnedScarceItem | null {
+  const tokenId = item.tokenId?.trim();
+  if (!tokenId || !listingActionHasOffers(item)) return null;
+  const collectionId = collectionIdFromTokenId(tokenId);
+  const postHref = postHrefFromSourcePath(item.sourcePostPath);
+  return {
+    tokenId,
+    title: item.title,
+    ownerId: item.sellerId,
+    listingKind: item.kind === 'cancel_auction' ? 'auction' : 'fixed',
+    ...(item.mediaUrl ? { mediaUrl: item.mediaUrl } : {}),
+    ...(collectionId ? { collectionId } : {}),
+    ...(item.priceNear ? { listedPriceNear: item.priceNear } : {}),
+    ...(item.bidCount ? { bidCount: item.bidCount } : {}),
+    ...(item.expiresAtNs != null ? { expiresAtNs: item.expiresAtNs } : {}),
+    ...(item.sourcePostPath ? { sourcePostPath: item.sourcePostPath } : {}),
+    ...(postHref ? { postHref } : {}),
+  };
+}
+
 function ActionRow({
   item,
   pending,
-  confirming,
   onAction,
   onOpenDetail,
-  onClearConfirm,
+  onOpenOffers,
+  onOpenConfirm,
 }: {
   item: ListingActionItem;
   pending: boolean;
-  confirming: boolean;
   onAction: (item: ListingActionItem) => void;
   onOpenDetail: (item: ListingActionItem) => void;
-  onClearConfirm: () => void;
+  onOpenOffers: (item: ListingActionItem) => void;
+  onOpenConfirm: (item: ListingActionItem) => void;
 }) {
   const meta = listingActionRowMeta(item);
   const time = listingActionTimeLabel(item);
+  const showOffers = listingActionHasOffers(item);
+  const opensConfirm = listingActionNeedsConfirm(item.kind);
+  const offersLabel = (item.offerCount ?? 0) > 1 ? 'Offers' : 'Offer';
+  const offersAriaLabel = item.highestOfferNear?.trim()
+    ? (item.offerCount ?? 0) > 1
+      ? `Offers, top ${item.highestOfferNear} NEAR`
+      : `Offer ${item.highestOfferNear} NEAR`
+    : offersLabel;
   const seller =
     item.kind === 'collect_win' ? `@${fallbackLabel(item.sellerId)}` : null;
   const opensDetail =
@@ -204,6 +238,26 @@ function ActionRow({
             {time}
           </span>
         ) : null}
+        {showOffers ? (
+          <OsSheetActions
+            layout="row-compact"
+            tone="frosted-primary"
+            size="sm"
+            borderless
+            className="market-listing-action portfolio-listing-action-cta"
+          >
+            <OsSheetAction
+              type="button"
+              variant="primary"
+              ready={!pending}
+              disabled={pending}
+              aria-label={offersAriaLabel}
+              onClick={() => onOpenOffers(item)}
+            >
+              {offersLabel}
+            </OsSheetAction>
+          </OsSheetActions>
+        ) : null}
         <OsSheetActions
           layout="row-compact"
           tone="frosted-primary"
@@ -213,7 +267,7 @@ function ActionRow({
         >
           <OsSheetAction
             type="button"
-            variant={confirming ? 'danger' : 'primary'}
+            variant={showOffers ? 'ghost' : 'primary'}
             ready={!pending}
             pending={pending}
             pendingLabel={listingActionPendingLabel(item.kind)}
@@ -221,16 +275,13 @@ function ActionRow({
             aria-label={
               pending
                 ? listingActionPendingLabel(item.kind)
-                : confirming
-                  ? `Confirm ${listingActionPrimaryLabel(item.kind).toLowerCase()}`
-                  : listingActionPrimaryLabel(item.kind)
+                : listingActionPrimaryLabel(item.kind)
             }
-            onClick={() => onAction(item)}
-            onBlur={confirming ? onClearConfirm : undefined}
+            onClick={() =>
+              opensConfirm ? onOpenConfirm(item) : onAction(item)
+            }
           >
-            {confirming
-              ? listingActionConfirmLabel(item.kind)
-              : listingActionPrimaryLabel(item.kind)}
+            {listingActionPrimaryLabel(item.kind)}
           </OsSheetAction>
         </OsSheetActions>
       </div>
@@ -283,8 +334,9 @@ function groupItems(items: ListingActionItem[]): {
 }
 
 /**
- * Owner drawer — quiet header, standing-style time above CTA, Market buy/bid
- * sheets for the live listing; two-press Delist/Cancel like Market.
+ * Owner drawer — quiet header, standing-style time above CTA. Row tap opens
+ * the Market buy/bid sheet; Delist / Cancel open the Propose-style confirm
+ * (Discard + primary).
  */
 export function PortfolioListingActionsSheet({
   open,
@@ -304,11 +356,13 @@ export function PortfolioListingActionsSheet({
     fetchedAt: number;
   } | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [confirmId, setConfirmId] = useState<string | null>(null);
-  const confirmTimerRef = useRef<number | null>(null);
+  const [confirmItem, setConfirmItem] = useState<ListingActionItem | null>(
+    null
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [bidListing, setBidListing] = useState<ScarceBidListing | null>(null);
   const [buyListing, setBuyListing] = useState<ScarceBuyListing | null>(null);
+  const [offersItem, setOffersItem] = useState<OwnedScarceItem | null>(null);
   const [focusActionId, setFocusActionId] = useState<string | null>(null);
   const sheetOpen = open && !closing;
   const moodPreview = usePortfolioMoodPreviewOptional();
@@ -316,34 +370,6 @@ export function PortfolioListingActionsSheet({
   const panelStyle = mood
     ? (supportSheetPanelStyle(mood.cssVars) as CSSProperties)
     : undefined;
-
-  const clearConfirm = useCallback(() => {
-    if (confirmTimerRef.current != null) {
-      window.clearTimeout(confirmTimerRef.current);
-      confirmTimerRef.current = null;
-    }
-    setConfirmId(null);
-  }, []);
-
-  const armConfirm = useCallback(
-    (actionId: string) => {
-      clearConfirm();
-      setConfirmId(actionId);
-      confirmTimerRef.current = window.setTimeout(() => {
-        confirmTimerRef.current = null;
-        setConfirmId(null);
-      }, CONFIRM_LEAVE_MS);
-    },
-    [clearConfirm]
-  );
-
-  useEffect(() => {
-    return () => {
-      if (confirmTimerRef.current != null) {
-        window.clearTimeout(confirmTimerRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -373,7 +399,7 @@ export function PortfolioListingActionsSheet({
     setBidListing(null);
     setBuyListing(null);
     setFocusActionId(null);
-    clearConfirm();
+    setConfirmItem(null);
 
     const fresh =
       warm != null &&
@@ -406,17 +432,18 @@ export function PortfolioListingActionsSheet({
     };
     // initialItems only seeds paint — omit from deps so parent refresh doesn’t remount mid-open.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- open/accountId gate
-  }, [open, accountId, clearConfirm]);
+  }, [open, accountId]);
 
   const requestClose = useCallback(() => {
+    setConfirmItem(null);
     setClosing(true);
   }, []);
 
   const handleSheetClosed = useCallback(() => {
     setClosing(false);
-    clearConfirm();
+    setConfirmItem(null);
     onOpenChange(false);
-  }, [clearConfirm, onOpenChange]);
+  }, [onOpenChange]);
 
   const removeAction = useCallback(
     (actionId: string) => {
@@ -434,7 +461,6 @@ export function PortfolioListingActionsSheet({
   );
 
   const handleOpenDetail = useCallback((item: ListingActionItem) => {
-    clearConfirm();
     if (listingActionOpensBuySheet(item.kind)) {
       const listing = buyListingFromAction(item);
       if (!listing) return;
@@ -446,7 +472,7 @@ export function PortfolioListingActionsSheet({
     if (!listing) return;
     setFocusActionId(item.id);
     setBidListing(listing);
-  }, [clearConfirm]);
+  }, []);
 
   const handleBidSettled = useCallback(() => {
     const actionId = focusActionId;
@@ -455,16 +481,43 @@ export function PortfolioListingActionsSheet({
     if (actionId) removeAction(actionId);
   }, [focusActionId, removeAction]);
 
+  const handleBuyManaged = useCallback(() => {
+    const actionId = focusActionId;
+    setBuyListing(null);
+    setFocusActionId(null);
+    if (actionId) removeAction(actionId);
+  }, [focusActionId, removeAction]);
+
+  const handleOpenOffers = useCallback((item: ListingActionItem) => {
+    const owned = ownedScarceFromAction(item);
+    if (!owned) return;
+    setFocusActionId(item.id);
+    setOffersItem(owned);
+  }, []);
+
+  const handleOfferAccepted = useCallback(() => {
+    const actionId = focusActionId;
+    setOffersItem(null);
+    setFocusActionId(null);
+    if (actionId) removeAction(actionId);
+  }, [focusActionId, removeAction]);
+
+  const handleOpenConfirm = useCallback((item: ListingActionItem) => {
+    setBuyListing(null);
+    setBidListing(null);
+    setOffersItem(null);
+    setFocusActionId(null);
+    setConfirmItem(item);
+  }, []);
+
+  const closeConfirm = useCallback(() => {
+    if (pendingId) return;
+    setConfirmItem(null);
+  }, [pendingId]);
+
   const handleAction = useCallback(
     async (item: ListingActionItem) => {
       if (pendingId) return;
-      if (listingActionNeedsConfirm(item.kind)) {
-        if (confirmId !== item.id) {
-          armConfirm(item.id);
-          return;
-        }
-        clearConfirm();
-      }
       setPendingId(item.id);
       try {
         const { accountId: signer, wallet } = await getSigningWallet();
@@ -475,6 +528,7 @@ export function PortfolioListingActionsSheet({
           trackTransaction,
         });
         if (!confirmed) return;
+        setConfirmItem(null);
         removeAction(item.id);
       } catch (cause) {
         if (isWalletUserCancellation(cause)) return;
@@ -490,9 +544,6 @@ export function PortfolioListingActionsSheet({
       }
     },
     [
-      armConfirm,
-      clearConfirm,
-      confirmId,
       getSigningWallet,
       pendingId,
       removeAction,
@@ -502,6 +553,9 @@ export function PortfolioListingActionsSheet({
   );
 
   const sections = items ? groupItems(items) : [];
+  const confirmCopy = confirmItem
+    ? listingManageConfirmCopy(confirmItem)
+    : null;
   // Count lives on the face mark (the clickable control). Don't repeat
   // "N need attention" as inert header copy — reads like a dead button.
   const subtitle =
@@ -570,14 +624,12 @@ export function PortfolioListingActionsSheet({
                       <ActionRow
                         item={item}
                         pending={pendingId === item.id}
-                        confirming={
-                          confirmId === item.id && pendingId !== item.id
-                        }
                         onAction={(row) => {
                           void handleAction(row);
                         }}
                         onOpenDetail={handleOpenDetail}
-                        onClearConfirm={clearConfirm}
+                        onOpenOffers={handleOpenOffers}
+                        onOpenConfirm={handleOpenConfirm}
                       />
                     </div>
                   ))}
@@ -612,7 +664,69 @@ export function PortfolioListingActionsSheet({
             setFocusActionId(null);
           }
         }}
+        onPurchased={handleBuyManaged}
       />
+
+      <ScarceOffersSheet
+        open={offersItem != null}
+        item={offersItem}
+        zIndex={SHEET_Z.list}
+        onOpenChange={(open) => {
+          if (!open) {
+            setOffersItem(null);
+            setFocusActionId(null);
+          }
+        }}
+        onAccepted={handleOfferAccepted}
+      />
+
+      <OsHugSheet
+        open={confirmItem != null && confirmCopy != null}
+        onClose={closeConfirm}
+        chrome="choice"
+        label={confirmCopy?.title ?? 'Confirm'}
+        closeAriaLabel={confirmCopy?.discardLabel ?? 'Discard'}
+        backdropLabel={confirmCopy?.discardLabel ?? 'Discard'}
+        zIndex={SHEET_Z.nestedConfirm}
+        footer={
+          confirmItem && confirmCopy ? (
+            <OsSheetFooter>
+              <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+                <OsSheetAction
+                  type="button"
+                  variant="danger"
+                  ready={pendingId !== confirmItem.id}
+                  disabled={pendingId === confirmItem.id}
+                  onClick={closeConfirm}
+                >
+                  {confirmCopy.discardLabel}
+                </OsSheetAction>
+                <OsSheetAction
+                  type="button"
+                  variant="primary"
+                  ready={pendingId !== confirmItem.id}
+                  disabled={pendingId === confirmItem.id}
+                  pending={pendingId === confirmItem.id}
+                  pendingLabel={confirmCopy.pendingLabel}
+                  onClick={() => {
+                    void handleAction(confirmItem);
+                  }}
+                >
+                  {confirmCopy.confirmLabel}
+                </OsSheetAction>
+              </OsSheetActions>
+            </OsSheetFooter>
+          ) : undefined
+        }
+      >
+        {confirmCopy ? (
+          <div className={osActionDrawerConfirmClassName}>
+            <p className={osActionDrawerConfirmBodyClassName}>
+              {confirmCopy.body}
+            </p>
+          </div>
+        ) : null}
+      </OsHugSheet>
     </>
   );
 }

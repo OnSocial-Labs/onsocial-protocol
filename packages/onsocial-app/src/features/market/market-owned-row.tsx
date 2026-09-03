@@ -70,10 +70,12 @@ export function MarketOwnedRow({
   // reads like a parallel primary action.
   const hasOffers = offerCount > 0 && Boolean(highestOfferNear?.trim());
   const showOffers = Boolean(onOffers) && hasOffers;
-  const offersLabel =
-    offerCount > 1
-      ? `Offers · ${formatPriceNear(highestOfferNear!)}`
-      : `Offer · ${formatPriceNear(highestOfferNear!)}`;
+  const offersLabel = offerCount > 1 ? 'Offers' : 'Offer';
+  const offersAriaLabel = highestOfferNear?.trim()
+    ? offerCount > 1
+      ? `Offers, top ${formatPriceNear(highestOfferNear)} NEAR`
+      : `Offer ${formatPriceNear(highestOfferNear)} NEAR`
+    : offersLabel;
   const [confirmTokenId, setConfirmTokenId] = useState<string | null>(null);
   const confirmTimerRef = useRef<number | null>(null);
   const confirmingDelist =
@@ -97,6 +99,7 @@ export function MarketOwnedRow({
   const showPostCompose =
     listed &&
     Boolean(item.collectionId?.trim() || item.tokenId?.trim());
+  const showListedAction = needsSettle || !listed || !auctionHasBids;
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
   const showThumb = Boolean(item.mediaUrl) && brokenMediaUrl !== item.mediaUrl;
 
@@ -205,78 +208,89 @@ export function MarketOwnedRow({
         </p>
       </div>
       <div className="market-listing-action-col">
-        <OsSheetActions
-          layout="row-compact"
-          tone="frosted-primary"
-          size="sm"
-          borderless
-          className="market-listing-action"
-        >
-          {showOffers ? (
+        {showOffers ? (
+          <OsSheetActions
+            layout="row-compact"
+            tone="frosted-primary"
+            size="sm"
+            borderless
+            className="market-listing-action"
+          >
             <OsSheetAction
               type="button"
               variant="primary"
               ready
+              aria-label={offersAriaLabel}
               onClick={() => onOffers?.(item)}
             >
               {offersLabel}
             </OsSheetAction>
-          ) : null}
-          {needsSettle ? (
-            <OsSheetAction
-              type="button"
-              variant={showOffers ? 'ghost' : 'primary'}
-              ready={!settlePending}
-              pending={settlePending}
-              pendingLabel="Settling…"
-              onClick={() => onSettle?.(item)}
-            >
-              Complete
-            </OsSheetAction>
-          ) : listed && !auctionHasBids ? (
-            <OsSheetAction
-              type="button"
-              variant={
-                confirmingDelist ? 'danger' : showOffers ? 'ghost' : 'primary'
-              }
-              ready={!delistPending}
-              pending={delistPending}
-              pendingLabel={auction ? 'Canceling…' : 'Delisting…'}
-              aria-label={
-                delistPending
-                  ? auction
-                    ? 'Canceling auction'
-                    : 'Delisting'
-                  : confirmingDelist
+          </OsSheetActions>
+        ) : null}
+        {showListedAction ? (
+          <OsSheetActions
+            layout="row-compact"
+            tone="frosted-primary"
+            size="sm"
+            borderless
+            className="market-listing-action"
+          >
+            {needsSettle ? (
+              <OsSheetAction
+                type="button"
+                variant={showOffers ? 'ghost' : 'primary'}
+                ready={!settlePending}
+                pending={settlePending}
+                pendingLabel="Settling…"
+                onClick={() => onSettle?.(item)}
+              >
+                Complete
+              </OsSheetAction>
+            ) : listed ? (
+              <OsSheetAction
+                type="button"
+                variant={
+                  confirmingDelist ? 'danger' : showOffers ? 'ghost' : 'primary'
+                }
+                ready={!delistPending}
+                pending={delistPending}
+                pendingLabel={auction ? 'Canceling…' : 'Delisting…'}
+                aria-label={
+                  delistPending
                     ? auction
-                      ? 'Confirm cancel auction'
-                      : 'Confirm delist'
-                    : auction
-                      ? 'Cancel auction'
-                      : 'Delist'
-              }
-              onClick={handleDelistClick}
-              onBlur={confirmingDelist ? clearConfirm : undefined}
-            >
-              {confirmingDelist
-                ? auction
-                  ? 'Cancel?'
-                  : 'Delist?'
-                : auction
-                  ? 'Cancel auction'
-                  : 'Delist'}
-            </OsSheetAction>
-          ) : listed && auctionHasBids ? null : (
-            <OsSheetAction
-              type="button"
-              variant={showOffers ? 'ghost' : 'primary'}
-              ready
-              onClick={() => onSell(item)}
-            >
-              Sell
-            </OsSheetAction>
-          )}
-        </OsSheetActions>
+                      ? 'Canceling auction'
+                      : 'Delisting'
+                    : confirmingDelist
+                      ? auction
+                        ? 'Confirm cancel auction'
+                        : 'Confirm delist'
+                      : auction
+                        ? 'Cancel auction'
+                        : 'Delist'
+                }
+                onClick={handleDelistClick}
+                onBlur={confirmingDelist ? clearConfirm : undefined}
+              >
+                {confirmingDelist
+                  ? auction
+                    ? 'Cancel?'
+                    : 'Delist?'
+                  : auction
+                    ? 'Cancel auction'
+                    : 'Delist'}
+              </OsSheetAction>
+            ) : (
+              <OsSheetAction
+                type="button"
+                variant={showOffers ? 'ghost' : 'primary'}
+                ready
+                onClick={() => onSell(item)}
+              >
+                Sell
+              </OsSheetAction>
+            )}
+          </OsSheetActions>
+        ) : null}
         {showPostCompose ? (
           <OsSheetActions
             layout="row-compact"

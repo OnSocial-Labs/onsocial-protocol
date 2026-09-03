@@ -23,6 +23,7 @@ export interface ScarceBidListing {
   mediaUrl?: string | null;
   sellerId: string;
   sellerName?: string | null;
+  artistId?: string;
   priceNear?: string;
   sourcePostPath?: string;
   postHref?: string | null;

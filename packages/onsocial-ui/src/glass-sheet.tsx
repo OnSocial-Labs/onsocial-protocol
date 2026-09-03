@@ -185,6 +185,27 @@ export function glassSheetBackdropFilterStyle(
   };
 }
 
+/** Highest visible glass sheet — nested Escape should not dismiss the parent. */
+export function isTopmostVisibleGlassSheet(root: HTMLElement): boolean {
+  const roots = Array.from(
+    root.ownerDocument.querySelectorAll<HTMLElement>(
+      '.glass-sheet-root.is-visible'
+    )
+  );
+  if (roots.length === 0) return true;
+  let top: HTMLElement | null = null;
+  let topZ = Number.NEGATIVE_INFINITY;
+  for (const el of roots) {
+    const z = Number.parseFloat(el.style.zIndex || getComputedStyle(el).zIndex);
+    const zValue = Number.isFinite(z) ? z : 0;
+    if (zValue >= topZ) {
+      topZ = zValue;
+      top = el;
+    }
+  }
+  return top === root;
+}
+
 /** Static scrim blur for custom sheets (e.g. OS launcher). */
 export function resolveGlassScrimBackdropFilter(options?: {
   reduceTransparency?: boolean;
@@ -420,9 +441,13 @@ function useSheetGesture(
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
+      if (event.key !== 'Escape') return;
+      const root =
+        panelRef.current?.closest<HTMLElement>('.glass-sheet-root') ?? null;
+      if (!root || !isTopmostVisibleGlassSheet(root)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      onClose();
     };
 
     window.addEventListener('keydown', handleKeyDown);

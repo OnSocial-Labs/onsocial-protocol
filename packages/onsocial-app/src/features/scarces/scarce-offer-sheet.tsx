@@ -22,6 +22,7 @@ export interface ScarceOfferListing {
   ownerId: string;
   ownerName?: string | null;
   askNear?: string;
+  existingAmountNear?: string;
 }
 
 interface ScarceOfferSheetProps {
@@ -29,6 +30,8 @@ interface ScarceOfferSheetProps {
   listing: ScarceOfferListing | null;
   onOpenChange: (open: boolean) => void;
   onOffered?: (detail: ScarceOfferSuccessDetail) => void;
+  /** Stack above Buy when updating from that sheet. */
+  zIndex?: number;
 }
 
 /** Sheet for making a NEAR offer on a native scarce. */
@@ -37,6 +40,7 @@ export function ScarceOfferSheet({
   listing,
   onOpenChange,
   onOffered,
+  zIndex = SHEET_Z.gesture,
 }: ScarceOfferSheetProps) {
   const titleId = useId();
   const formId = useId();
@@ -94,7 +98,7 @@ export function ScarceOfferSheet({
       panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
-      zIndex={SHEET_Z.gesture}
+      zIndex={zIndex}
       footer={
         footerState?.visible ? (
           <CommerceSheetFooter
@@ -115,6 +119,7 @@ export function ScarceOfferSheet({
             mediaUrl: listing.mediaUrl,
             ownerId: listing.ownerId,
             askNear: listing.askNear,
+            existingAmountNear: listing.existingAmountNear,
           }}
           onFooterStateChange={handleFooterStateChange}
           onSuccess={(detail) => {

@@ -4,10 +4,13 @@ import {
   formatMarketRelativeTime,
   hasUnresolvedTitleTemplate,
   isPrimaryThoughtListing,
+  mergeOwnedYoursItems,
+  ownedListedItemsFromViewerListings,
   resolveListingMediumKind,
   resolveTokenDisplayTitle,
   sortMarketListings,
   type MarketListingItem,
+  type OwnedScarceItem,
 } from '@/features/market/market-listings';
 
 const baseListing: Omit<MarketListingItem, 'kind' | 'tokenId'> = {
@@ -79,6 +82,69 @@ describe('excludeOwnedNativeListings', () => {
     expect(
       excludeOwnedNativeListings(listings, new Set(['s:1', 's:2']))
     ).toEqual([listings[0], listings[3]]);
+  });
+});
+
+describe('ownedListedItemsFromViewerListings', () => {
+  it('lifts the viewer’s native and auction rows so Yours can paint before the vault', () => {
+    const listings: MarketListingItem[] = [
+      { ...baseListing, kind: 'lazy', listingId: 'll:1' },
+      { ...baseListing, kind: 'native', tokenId: 's:1' },
+      {
+        ...baseListing,
+        kind: 'auction',
+        tokenId: 's:2',
+        creatorId: 'other.testnet',
+      },
+    ];
+    const yours = ownedListedItemsFromViewerListings(
+      listings,
+      'seller.testnet'
+    );
+    expect(yours).toEqual([
+      expect.objectContaining({
+        tokenId: 's:1',
+        listingKind: 'fixed',
+        listedPriceNear: '1',
+      }),
+    ]);
+    expect(
+      excludeOwnedNativeListings(
+        listings,
+        new Set(yours.map((row) => row.tokenId))
+      )
+    ).toEqual([listings[0], listings[2]]);
+  });
+});
+
+describe('mergeOwnedYoursItems', () => {
+  it('keeps catalog-only listed rows until the vault includes them', () => {
+    const catalog: OwnedScarceItem[] = [
+      {
+        tokenId: 's:1',
+        title: 'Listed',
+        ownerId: 'seller.testnet',
+        listingKind: 'fixed',
+        listedPriceNear: '1',
+      },
+    ];
+    const vault: OwnedScarceItem[] = [
+      {
+        tokenId: 's:9',
+        title: 'Unlisted',
+        ownerId: 'seller.testnet',
+        listingKind: null,
+      },
+    ];
+    expect(mergeOwnedYoursItems(vault, catalog).map((row) => row.tokenId)).toEqual(
+      ['s:1', 's:9']
+    );
+    expect(
+      mergeOwnedYoursItems(
+        [{ ...catalog[0]!, title: 'Vault wins' }, ...vault],
+        catalog
+      )[0]?.title
+    ).toBe('Vault wins');
   });
 });
 

@@ -19,13 +19,12 @@ import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-dat
 import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
+import { resolveScarcePartyIds } from '@/features/scarces/scarce-party-ids';
 import { ScarceProvenanceCopy } from '@/features/scarces/scarce-provenance-copy';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
-import { accountIdsEqual } from '@/lib/account-match';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
-import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
 import {
   txToastConfirming,
@@ -105,6 +104,7 @@ export function ScarceSellForm({
     postHrefFromSourcePath(item.sourcePostPath) ||
     null;
   const [hydratedArtistId, setHydratedArtistId] = useState<string | null>(null);
+  const [artistHydrateSettled, setArtistHydrateSettled] = useState(false);
   const [hydratedEvent, setHydratedEvent] = useState<{
     eventStartsAtMs: number | null;
     eventEndsAtMs: number | null;
@@ -112,14 +112,6 @@ export function ScarceSellForm({
     accessEndsAtMs: number | null;
     kind: string | null;
   } | null>(null);
-  const [authorProfileName, setAuthorProfileName] = useState<string | null>(
-    null
-  );
-  const [authorAvatarUrl, setAuthorAvatarUrl] = useState<string | null>(null);
-  const [sellerProfileName, setSellerProfileName] = useState<string | null>(
-    null
-  );
-  const [sellerAvatarUrl, setSellerAvatarUrl] = useState<string | null>(null);
   const [hydratedPlayable, setHydratedPlayable] =
     useState<ScarcePlayableMedia | null>(null);
   const [hydratedPlayables, setHydratedPlayables] = useState<
@@ -131,17 +123,21 @@ export function ScarceSellForm({
 
   useEffect(() => {
     const id = collectionId?.trim();
+    const needArtist = !authorFromPost;
     if (!id) {
       setHydratedArtistId(null);
       setHydratedEvent(null);
+      setArtistHydrateSettled(true);
       return;
     }
+    if (needArtist) setArtistHydrateSettled(false);
+    else setArtistHydrateSettled(true);
     let cancelled = false;
     void (async () => {
       try {
         const view = await fetchCollectionPreferIndexer(id);
         if (cancelled) return;
-        if (!authorFromPost) {
+        if (needArtist) {
           setHydratedArtistId(view?.creatorId?.trim() || null);
         }
         setHydratedEvent(
@@ -157,9 +153,11 @@ export function ScarceSellForm({
         );
       } catch {
         if (!cancelled) {
-          if (!authorFromPost) setHydratedArtistId(null);
+          if (needArtist) setHydratedArtistId(null);
           setHydratedEvent(null);
         }
+      } finally {
+        if (!cancelled && needArtist) setArtistHydrateSettled(true);
       }
     })();
     return () => {
@@ -171,70 +169,14 @@ export function ScarceSellForm({
     if (authorFromPost) setHydratedArtistId(null);
   }, [authorFromPost]);
 
-  // Fall back to seller so party lines never blank while creator hydrates.
-  const authorId = authorFromPost || hydratedArtistId || sellerId;
-  const showDistinctSeller =
-    Boolean(sellerId) &&
-    Boolean(authorId) &&
-    !accountIdsEqual(sellerId!, authorId!);
-
-  useEffect(() => {
-    const author = authorId?.trim();
-    if (!author) {
-      setAuthorProfileName(null);
-      setAuthorAvatarUrl(null);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const client = createReadOnlyOnSocialClient();
-        const profile = await client.profiles.get(author);
-        if (cancelled) return;
-        setAuthorProfileName(profile?.name?.trim() || null);
-        setAuthorAvatarUrl(
-          profile ? client.profiles.avatarUrl(profile) : null
-        );
-      } catch {
-        if (!cancelled) {
-          setAuthorProfileName(null);
-          setAuthorAvatarUrl(null);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [authorId]);
-
-  useEffect(() => {
-    if (!showDistinctSeller || !sellerId?.trim()) {
-      setSellerProfileName(null);
-      setSellerAvatarUrl(null);
-      return;
-    }
-    const accountId = sellerId.trim();
-    let cancelled = false;
-    void (async () => {
-      try {
-        const client = createReadOnlyOnSocialClient();
-        const profile = await client.profiles.get(accountId);
-        if (cancelled) return;
-        setSellerProfileName(profile?.name?.trim() || null);
-        setSellerAvatarUrl(
-          profile ? client.profiles.avatarUrl(profile) : null
-        );
-      } catch {
-        if (!cancelled) {
-          setSellerProfileName(null);
-          setSellerAvatarUrl(null);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [showDistinctSeller, sellerId]);
+  const parties = resolveScarcePartyIds({
+    sellerId,
+    knownArtistId: authorFromPost,
+    hydratedArtistId,
+    artistReady: Boolean(authorFromPost) || artistHydrateSettled,
+  });
+  const authorId = parties.artistId;
+  const showDistinctSeller = parties.showDistinctSeller;
 
   useEffect(() => {
     if (item.playable && item.playables?.length) return;
@@ -430,8 +372,7 @@ export function ScarceSellForm({
   const title = item.title?.trim() || 'Scarce';
   const mediaUrl = item.mediaUrl?.trim() || null;
   const resolvedPlayable = item.playable ?? hydratedPlayable;
-  const resolvedPlayables =
-    item.playables ?? hydratedPlayables ?? undefined;
+  const resolvedPlayables = item.playables ?? hydratedPlayables ?? undefined;
 
   return (
     <form
@@ -447,9 +388,7 @@ export function ScarceSellForm({
         <ScarceClipPlayer
           key={resolvedPlayable.url}
           clip={resolvedPlayable}
-          {...(resolvedPlayables?.length
-            ? { tracks: resolvedPlayables }
-            : {})}
+          {...(resolvedPlayables?.length ? { tracks: resolvedPlayables } : {})}
           poster={mediaUrl}
           commerce
           {...(collectionId
@@ -468,21 +407,13 @@ export function ScarceSellForm({
 
       <div className="scarce-buy-summary">
         <p className="scarce-buy-title">{title}</p>
-        {authorId ? (
-          <ScarcePartyLine
-            label="Author"
-            accountId={authorId}
-            displayNameValue={authorProfileName}
-            avatarUrl={authorAvatarUrl}
-          />
+        {parties.artistPending ? (
+          <ScarcePartyLine label="Author" pending />
+        ) : authorId ? (
+          <ScarcePartyLine label="Author" accountId={authorId} />
         ) : null}
         {showDistinctSeller && sellerId ? (
-          <ScarcePartyLine
-            label="Seller"
-            accountId={sellerId}
-            displayNameValue={sellerProfileName}
-            avatarUrl={sellerAvatarUrl}
-          />
+          <ScarcePartyLine label="Seller" accountId={sellerId} />
         ) : null}
       </div>
 

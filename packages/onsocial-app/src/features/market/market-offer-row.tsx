@@ -13,7 +13,7 @@ interface MarketOfferRowProps {
   onManage: () => void;
 }
 
-/** Open-offer row on Market — extracted from the fat page panel. */
+/** Delisted-token offer — Buy is gone, so this is the update path. */
 export function MarketOfferRow({
   title,
   mediaUrl,
@@ -45,7 +45,7 @@ export function MarketOfferRow({
           <span className="market-listing-price">
             Offer · {priceNear} NEAR
           </span>
-          <span className="market-listing-own"> · Open</span>
+          <span className="market-listing-own"> · Not listed</span>
         </p>
       </div>
       <OsSheetActions
@@ -56,7 +56,7 @@ export function MarketOfferRow({
         className="market-listing-action"
       >
         <OsSheetAction type="button" variant="primary" ready onClick={onManage}>
-          Manage
+          Update offer
         </OsSheetAction>
       </OsSheetActions>
     </div>

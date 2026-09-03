@@ -1,13 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  MultiplyIcon,
-  ShopFillIcon,
-  StarMovingFillIcon,
-} from '@onsocial/ui';
+import { MultiplyIcon, ShopFillIcon, StarMovingFillIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -43,10 +39,13 @@ import {
   fetchMarketSales,
   fetchOwnedScarcesPage,
   excludeOwnedNativeListings,
+  mergeOwnedYoursItems,
+  ownedListedItemsFromViewerListings,
   invalidateLiveListingsCache,
   isPrimaryThoughtListing,
   listingCreatorAccountId,
   marketListingRowKey,
+  fetchScarceTokenMeta,
   viewerOwnsRelatedEdition,
   type MarketListingItem,
   type MarketListingsPage,
@@ -54,7 +53,10 @@ import {
   type MarketSaleItem,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
-import { invalidateOwnedVaultCache } from '@/features/market/owned-vault-cache';
+import {
+  invalidateOwnedVaultCache,
+  peekOwnedVaultPage,
+} from '@/features/market/owned-vault-cache';
 import { MarketOfferRow } from '@/features/market/market-offer-row';
 import { MarketOwnedRow } from '@/features/market/market-owned-row';
 import { MarketSaleRow } from '@/features/market/market-sale-row';
@@ -80,13 +82,18 @@ import {
   ScarceOfferSheet,
   type ScarceOfferListing,
 } from '@/features/scarces/scarce-offer-sheet';
+import type { ScarceOfferSuccessDetail } from '@/features/scarces/scarce-offer-form';
 import {
+  fetchLiveListingTokenIds,
   fetchMyOpenTokenOffers,
   fetchOfferSummariesByTokenIds,
+  fetchTokenOwnerId,
+  offersWithoutLiveListing,
   type MyOpenTokenOffer,
   type TokenOfferSummary,
 } from '@/features/scarces/scarce-offers';
 import { ScarceOffersSheet } from '@/features/scarces/scarce-offers-sheet';
+import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
@@ -94,6 +101,7 @@ import { accountIdsEqual } from '@/lib/account-match';
 import { APP_HOME_PATH, appPath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastConfirming,
   txToastError,
@@ -263,7 +271,9 @@ export function MarketPagePanel({
   const [listingFilter, setListingFilter] = useState<MarketListingFilter>(() =>
     listingFilterFromSort(urlSort)
   );
-  const [listingSort, setListingSort] = useState<MarketListingSort>(() => urlSort);
+  const [listingSort, setListingSort] = useState<MarketListingSort>(
+    () => urlSort
+  );
   const [listingQuery, setListingQuery] = useState('');
   const [salesExpanded, setSalesExpanded] = useState(false);
   useEffect(() => {
@@ -281,6 +291,13 @@ export function MarketPagePanel({
     Map<string, TokenOfferSummary>
   >(() => new Map());
   const [myOffers, setMyOffers] = useState<MyOpenTokenOffer[]>([]);
+  const [offerLiveTokenIds, setOfferLiveTokenIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [offerLiveReady, setOfferLiveReady] = useState(false);
+  const [offerTokenMeta, setOfferTokenMeta] = useState<
+    Map<string, { title: string; mediaUrl?: string | null }>
+  >(() => new Map());
   const [offersRevision, setOffersRevision] = useState(0);
   const listingsSentinelRef = useRef<HTMLDivElement | null>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
@@ -597,16 +614,19 @@ export function MarketPagePanel({
 
     const useSeed = Boolean(seedPromise) && listingsParamsKey === seedKey;
     if (useSeed && seedPromise) {
-      void seedPromise.then((data) => {
-        if (cancelled || gen !== listingsFetchGenRef.current) return;
-        if (data) {
-          applyPage(data.listings);
-          return;
+      void seedPromise.then(
+        (data) => {
+          if (cancelled || gen !== listingsFetchGenRef.current) return;
+          if (data) {
+            applyPage(data.listings);
+            return;
+          }
+          void runClientFetch();
+        },
+        () => {
+          void runClientFetch();
         }
-        void runClientFetch();
-      }, () => {
-        void runClientFetch();
-      });
+      );
     } else {
       void runClientFetch();
     }
@@ -811,14 +831,26 @@ export function MarketPagePanel({
   }, [retryKey, seedPromise, creatorFilter, appFilter]);
 
   // “Yours” loads independently so a slow RPC vault never blocks browse.
+  // Keep the last page up while refetching — blanking it puts own listings
+  // back in the catalog with Offers / Manage for a frame.
   useEffect(() => {
     let cancelled = false;
-    setOwnedState(EMPTY_OWNED);
     if (!viewerAccountId) {
       setOwnedState({ ...EMPTY_OWNED, loaded: true });
       return;
     }
-    fetchOwnedScarcesPage(viewerAccountId).then(
+    const cached = peekOwnedVaultPage(viewerAccountId);
+    if (cached) {
+      setOwnedState({
+        items: cached.items,
+        nextFromEnd: cached.nextFromEnd,
+        hasMore: cached.hasMore,
+        loaded: true,
+      });
+    }
+    fetchOwnedScarcesPage(viewerAccountId, {
+      bypassCache: retryKey > 0,
+    }).then(
       (page) => {
         if (cancelled) return;
         setOwnedState({
@@ -829,7 +861,13 @@ export function MarketPagePanel({
         });
       },
       () => {
-        if (!cancelled) setOwnedState({ ...EMPTY_OWNED, loaded: true });
+        if (!cancelled) {
+          setOwnedState((current) =>
+            current.items.length > 0
+              ? { ...current, loaded: true }
+              : { ...EMPTY_OWNED, loaded: true }
+          );
+        }
       }
     );
     return () => {
@@ -871,7 +909,14 @@ export function MarketPagePanel({
         ? 'error'
         : 'ready';
   const listings = listingsState.items;
-  const owned = ownedState.items;
+  const owned = useMemo(
+    () =>
+      mergeOwnedYoursItems(
+        ownedState.items,
+        ownedListedItemsFromViewerListings(listings, viewerAccountId)
+      ),
+    [listings, ownedState.items, viewerAccountId]
+  );
   const salesRows = sales ?? [];
   const ownedTokenIdSet = new Set(owned.map((item) => item.tokenId));
   // Default All = drops + secondary. Primary thought post-mints live under Thoughts.
@@ -882,27 +927,86 @@ export function MarketPagePanel({
     ownedTokenIdSet
   );
 
+  const listedTokenIdsForOffers = useMemo(() => {
+    const ids = new Set(offerLiveTokenIds);
+    for (const item of listings) {
+      const tokenId = item.tokenId?.trim();
+      if (tokenId && (item.kind === 'native' || item.kind === 'auction')) {
+        ids.add(tokenId);
+      }
+    }
+    return ids;
+  }, [listings, offerLiveTokenIds]);
+  const manageOffers = offersWithoutLiveListing(
+    myOffers,
+    listedTokenIdsForOffers
+  );
+
   useEffect(() => {
     if (status !== 'ready') return;
-    let cancelled = false;
     const tokenIds = [
       ...owned.map((item) => item.tokenId),
       ...listings.map((item) => item.tokenId?.trim() ?? '').filter(Boolean),
     ];
-    void Promise.all([
-      fetchOfferSummariesByTokenIds(tokenIds),
-      viewerAccountId
-        ? fetchMyOpenTokenOffers(viewerAccountId)
-        : Promise.resolve([] as MyOpenTokenOffer[]),
-    ]).then(([summaries, mine]) => {
-      if (cancelled) return;
+    if (tokenIds.length === 0) return;
+    let cancelled = false;
+    void fetchOfferSummariesByTokenIds(tokenIds).then((summaries) => {
+      if (cancelled || summaries == null) return;
       setOfferByToken(summaries);
-      setMyOffers(mine);
     });
     return () => {
       cancelled = true;
     };
-  }, [retryKey, viewerAccountId, offersRevision, status, owned, listings]);
+  }, [retryKey, offersRevision, status, owned, listings]);
+
+  useEffect(() => {
+    if (!viewerAccountId) {
+      setMyOffers([]);
+      setOfferLiveTokenIds(new Set());
+      setOfferLiveReady(false);
+      return;
+    }
+    let cancelled = false;
+    setOfferLiveReady(false);
+    void (async () => {
+      const mine = await fetchMyOpenTokenOffers(viewerAccountId);
+      if (cancelled || mine == null) return;
+      setMyOffers(mine);
+      const live = await fetchLiveListingTokenIds(
+        mine.map((offer) => offer.tokenId)
+      );
+      if (cancelled) return;
+      setOfferLiveTokenIds(live ?? new Set());
+      setOfferLiveReady(true);
+      const listed = live ?? new Set<string>();
+      const orphans = offersWithoutLiveListing(mine, listed);
+      const metaEntries = await Promise.all(
+        orphans.map(async (offer) => {
+          const meta = await fetchScarceTokenMeta(offer.tokenId);
+          if (!meta?.title && !meta?.mediaUrl) return null;
+          return [
+            offer.tokenId,
+            {
+              title: meta.title?.trim() || `Scarce · ${offer.tokenId}`,
+              mediaUrl: meta.mediaUrl,
+            },
+          ] as const;
+        })
+      );
+      if (cancelled) return;
+      const next = new Map<
+        string,
+        { title: string; mediaUrl?: string | null }
+      >();
+      for (const entry of metaEntries) {
+        if (entry) next.set(entry[0], entry[1]);
+      }
+      if (next.size > 0) setOfferTokenMeta(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [retryKey, viewerAccountId, offersRevision]);
 
   // Server pages arrive filtered + sorted; the client passes only re-apply
   // the same rules so stale items behave while a params change is in flight.
@@ -967,6 +1071,9 @@ export function MarketPagePanel({
         item.collectionId?.trim() ||
         (item.tokenId ? collectionIdFromTokenId(item.tokenId) : null) ||
         undefined;
+      const viewerOfferNear = item.tokenId
+        ? myOffers.find((offer) => offer.tokenId === item.tokenId)?.amountNear
+        : undefined;
       // Own live listings aren't buyable; ended own auctions open settle.
       if (isOwn && !auctionEnded) {
         return;
@@ -981,6 +1088,7 @@ export function MarketPagePanel({
           mediaUrl: item.mediaUrl,
           sellerId: item.creatorId,
           priceNear: item.priceNear,
+          ...(item.artistId?.trim() ? { artistId: item.artistId.trim() } : {}),
           ...(item.sourcePostPath
             ? { sourcePostPath: item.sourcePostPath }
             : {}),
@@ -1003,9 +1111,7 @@ export function MarketPagePanel({
           ...(item.description ? { description: item.description } : {}),
           mediaUrl: item.mediaUrl,
           creatorId: item.creatorId,
-          ...(listingCollectionId
-            ? { collectionId: listingCollectionId }
-            : {}),
+          ...(listingCollectionId ? { collectionId: listingCollectionId } : {}),
           ...(item.artistId?.trim() ? { artistId: item.artistId.trim() } : {}),
           ...(item.cardBg ? { cardBg: item.cardBg } : {}),
           ...(item.sourcePostPath
@@ -1018,6 +1124,7 @@ export function MarketPagePanel({
             ? { listedAtMs: item.blockTimestamp }
             : {}),
           alreadyOwnsEdition: alreadyOwns,
+          ...(viewerOfferNear ? { viewerOfferNear } : {}),
         });
         return;
       }
@@ -1030,9 +1137,7 @@ export function MarketPagePanel({
         ...(item.description ? { description: item.description } : {}),
         mediaUrl: item.mediaUrl,
         creatorId: item.creatorId,
-        ...(listingCollectionId
-          ? { collectionId: listingCollectionId }
-          : {}),
+        ...(listingCollectionId ? { collectionId: listingCollectionId } : {}),
         ...(item.artistId?.trim() ? { artistId: item.artistId.trim() } : {}),
         ...(item.cardBg ? { cardBg: item.cardBg } : {}),
         copies: item.copies,
@@ -1043,9 +1148,10 @@ export function MarketPagePanel({
         ...(item.playables?.length ? { playables: item.playables } : {}),
         ...(item.blockTimestamp > 0 ? { listedAtMs: item.blockTimestamp } : {}),
         alreadyOwnsEdition: alreadyOwns,
+        ...(viewerOfferNear ? { viewerOfferNear } : {}),
       });
     },
-    [viewerAccountId, owned]
+    [myOffers, owned, viewerAccountId]
   );
 
   const handlePurchased = useCallback(() => {
@@ -1094,9 +1200,19 @@ export function MarketPagePanel({
     [bidListing, viewerAccountId]
   );
 
-  const handleOffered = useCallback(() => {
+  const handleOffered = useCallback((detail?: ScarceOfferSuccessDetail) => {
     setOfferListing(null);
     setOffersRevision((value) => value + 1);
+    if (!detail?.tokenId) return;
+    setBuyListing((current) => {
+      if (!current || current.tokenId !== detail.tokenId) return current;
+      if (detail.canceled) {
+        return { ...current, viewerOfferNear: null };
+      }
+      const amount = detail.amountNear?.trim();
+      if (!amount) return current;
+      return { ...current, viewerOfferNear: amount };
+    });
   }, []);
 
   const handleListed = useCallback(() => {
@@ -1349,7 +1465,9 @@ export function MarketPagePanel({
     !appFilter;
   const showMyOffersSection =
     Boolean(viewerAccountId) &&
-    myOffers.length > 0 &&
+    listingsReady &&
+    offerLiveReady &&
+    manageOffers.length > 0 &&
     !searching &&
     !creatorFilter &&
     !appFilter;
@@ -1378,9 +1496,32 @@ export function MarketPagePanel({
       if (listingHit) {
         return { title: listingHit.title, mediaUrl: listingHit.mediaUrl };
       }
+      const meta = offerTokenMeta.get(tokenId);
+      if (meta) return meta;
       return { title: `Scarce · ${tokenId}` };
     },
-    [listings, owned]
+    [listings, offerTokenMeta, owned]
+  );
+
+  const handleManageOffer = useCallback(
+    async (offer: MyOpenTokenOffer) => {
+      const meta = titleForToken(offer.tokenId);
+      const listing = listings.find((row) => row.tokenId === offer.tokenId);
+      const ownerId =
+        listing?.creatorId?.trim() ||
+        (await fetchTokenOwnerId(offer.tokenId)) ||
+        '';
+      if (!ownerId) return;
+      setOfferListing({
+        tokenId: offer.tokenId,
+        title: meta.title,
+        mediaUrl: meta.mediaUrl,
+        ownerId,
+        existingAmountNear: offer.amountNear,
+        ...(listing?.priceNear ? { askNear: listing.priceNear } : {}),
+      });
+    },
+    [listings, titleForToken]
   );
 
   return (
@@ -1557,9 +1698,8 @@ export function MarketPagePanel({
               </>
             ) : (
               <>
-                Nothing in{' '}
-                {listingFilter === 'auctions' ? 'Auctions' : 'Fixed'} right
-                now.{' '}
+                Nothing in {listingFilter === 'auctions' ? 'Auctions' : 'Fixed'}{' '}
+                right now.{' '}
                 <button
                   type="button"
                   className="market-page-retry"
@@ -1748,7 +1888,7 @@ export function MarketPagePanel({
               Your offers
             </h2>
             <div className="market-listing-list" role="list">
-              {myOffers.map((offer) => {
+              {manageOffers.map((offer) => {
                 const meta = titleForToken(offer.tokenId);
                 return (
                   <MarketOfferRow
@@ -1758,18 +1898,7 @@ export function MarketPagePanel({
                     mediaUrl={meta.mediaUrl}
                     amountNear={offer.amountNear}
                     onManage={() => {
-                      const listingOwner =
-                        listings.find((row) => row.tokenId === offer.tokenId)
-                          ?.creatorId ?? '';
-                      setOfferListing({
-                        tokenId: offer.tokenId,
-                        title: meta.title,
-                        mediaUrl: meta.mediaUrl,
-                        ownerId: listingOwner || viewerAccountId || '',
-                        askNear: listings.find(
-                          (row) => row.tokenId === offer.tokenId
-                        )?.priceNear,
-                      });
+                      void handleManageOffer(offer);
                     }}
                   />
                 );
@@ -1822,15 +1951,17 @@ export function MarketPagePanel({
         onPurchased={handlePurchased}
         onMakeOffer={
           buyListing?.status === 'listed' && buyListing.tokenId
-            ? () => {
+            ? (detail) => {
                 const listing = buyListing;
-                setBuyListing(null);
                 setOfferListing({
                   tokenId: listing.tokenId!,
                   title: listing.title,
                   mediaUrl: listing.mediaUrl,
                   ownerId: listing.creatorId,
                   askNear: listing.priceNear,
+                  ...(detail?.amountNear
+                    ? { existingAmountNear: detail.amountNear }
+                    : {}),
                 });
               }
             : undefined
@@ -1849,6 +1980,9 @@ export function MarketPagePanel({
       <ScarceOfferSheet
         open={offerListing != null}
         listing={offerListing}
+        zIndex={
+          buyListing != null ? SCARCE_Z.nestedOverCommerce : SHEET_Z.gesture
+        }
         onOpenChange={(open) => {
           if (!open) setOfferListing(null);
         }}
@@ -1872,7 +2006,6 @@ export function MarketPagePanel({
           if (!open) setOffersItem(null);
         }}
         onAccepted={() => {
-          setOffersItem(null);
           setOffersRevision((value) => value + 1);
           setRetryKey((value) => value + 1);
         }}

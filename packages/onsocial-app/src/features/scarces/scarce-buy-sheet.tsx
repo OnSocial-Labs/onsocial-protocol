@@ -40,6 +40,8 @@ export interface ScarceBuyListing {
   postHref?: string | null;
   /** Catalog listed time (ms) — shown as “Listed …” on the buy sheet. */
   listedAtMs?: number;
+  /** Known viewer offer — Buy paints Update offer on first paint. */
+  viewerOfferNear?: string | null;
   /** Clip behind a video scarce — cover stays the still frame. */
   playable?: ScarcePlayableMedia;
   /** Album / multi-track playables; `playable` is the first. */
@@ -63,7 +65,7 @@ interface ScarceBuySheetProps {
   alreadyOwnsEdition?: boolean;
   onOpenChange: (open: boolean) => void;
   onPurchased?: (detail: ScarceBuySuccessDetail) => void;
-  onMakeOffer?: () => void;
+  onMakeOffer?: (detail?: { amountNear?: string | null }) => void;
   /** Stack above feed enlarge lightbox (z-index 80) when opened from player shell. */
   zIndex?: number;
 }
@@ -140,11 +142,12 @@ export function ScarceBuySheet({
     [onPurchased, requestClose]
   );
 
-  const handleMakeOffer = useCallback(() => {
-    if (!onMakeOffer) return;
-    onMakeOffer();
-    requestClose();
-  }, [onMakeOffer, requestClose]);
+  const handleMakeOffer = useCallback(
+    (detail?: { amountNear?: string | null }) => {
+      onMakeOffer?.(detail);
+    },
+    [onMakeOffer]
+  );
 
   const commerceStatus = listing?.status ?? embed?.status;
   const isMint = isPrimaryMintStatus(commerceStatus);
