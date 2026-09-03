@@ -6,6 +6,7 @@ import { SCHEMA_VERSION } from '../schema/v1.js';
 import type { ProfileData } from '../types.js';
 import type { SocialSetData } from './_shared.js';
 import { normalizeProfileKindInput } from './profile-kind.js';
+import { normalizeProfileIndustryInput } from './profile-industry.js';
 import { normalizeProfileLocationInput } from './profile-location.js';
 import { profileMetaFromBio } from './profile-meta.js';
 
@@ -13,6 +14,7 @@ const PROFILE_RESERVED_FIELDS = [
   'name',
   'bio',
   'location',
+  'industry',
   'kind',
   'avatar',
   'banner',
@@ -42,6 +44,16 @@ export function buildProfileSetData(profile: ProfileData): SocialSetData {
         String(profile.location)
       );
       data['profile/location'] = normalized || null;
+    }
+  }
+  if (profile.industry !== undefined) {
+    if (profile.industry === null) {
+      data['profile/industry'] = null;
+    } else {
+      const normalized = normalizeProfileIndustryInput(
+        String(profile.industry)
+      );
+      data['profile/industry'] = normalized || null;
     }
   }
   if (profile.kind !== undefined) {

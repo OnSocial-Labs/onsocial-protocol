@@ -19,6 +19,22 @@ export const PROFILE_KIND_OPTIONS: ReadonlyArray<{
   { value: 'dao', label: 'DAO' },
 ];
 
+/** Person editor chips — DAO is heuristic / workspace, not a profile pick. */
+export const PROFILE_FACE_KIND_OPTIONS: ReadonlyArray<{
+  value: Exclude<ProfileKind, 'dao'>;
+  label: string;
+}> = [
+  { value: 'person', label: 'Person' },
+  { value: 'org', label: 'Organization' },
+];
+
+/** Stored kind for the person/org editor. `dao` is not a self-serve pick. */
+export function editorFaceKind(
+  kind?: ProfileKind | null
+): Exclude<ProfileKind, 'dao'> {
+  return parseProfileKind(kind) === 'org' ? 'org' : 'person';
+}
+
 /** Parse a stored / editor value. Invalid or empty → undefined. */
 export function parseProfileKind(raw: unknown): ProfileKind | undefined {
   if (typeof raw !== 'string') return undefined;
@@ -55,16 +71,16 @@ export function profileKindFromMaterialised(
 }
 
 /**
- * Face presentation: omitted kind is an individual unless a DAO heuristic
- * fallback is supplied (legacy DAO accounts without `profile/kind`).
+ * Face presentation. Protocol / catalog DAO (`fallbackDao`) always wins —
+ * stored kind cannot override a DAO workspace. Everyone else is person
+ * unless they picked `org`.
  */
 export function resolveDisplayProfileKind(
   kind?: ProfileKind | null,
   fallbackDao = false
 ): ProfileKind {
-  const parsed = parseProfileKind(kind);
-  if (parsed) return parsed;
-  return fallbackDao ? 'dao' : 'person';
+  if (fallbackDao) return 'dao';
+  return parseProfileKind(kind) === 'org' ? 'org' : 'person';
 }
 
 /**
@@ -79,7 +95,7 @@ export function profileAvatarShapeFromKind(
   return 'circle';
 }
 
-/** Shape for a face: explicit kind wins; omitted kind can fall back to DAO. */
+/** Shape for a face. DAO workspace always squares; others follow person/org. */
 export function profileAvatarShapeForFace(
   kind?: ProfileKind | null,
   fallbackDao = false

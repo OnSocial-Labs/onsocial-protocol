@@ -23,8 +23,17 @@ export {
   sanitizeProfileLocationDraft,
 } from './profile-location.js';
 export {
+  PROFILE_INDUSTRY_MAX,
+  normalizeProfileIndustryInput,
+  profileIndustryFromMaterialised,
+  profileOrgLineLabel,
+  sanitizeProfileIndustryDraft,
+} from './profile-industry.js';
+export {
   PROFILE_KINDS,
+  PROFILE_FACE_KIND_OPTIONS,
   PROFILE_KIND_OPTIONS,
+  editorFaceKind,
   normalizeProfileKindInput,
   parseProfileKind,
   profileAvatarShapeForFace,

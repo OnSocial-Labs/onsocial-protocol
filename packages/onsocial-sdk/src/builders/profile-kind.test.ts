@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildProfileSetData } from './profile.js';
 import {
+  PROFILE_FACE_KIND_OPTIONS,
   PROFILE_KIND_OPTIONS,
+  editorFaceKind,
   normalizeProfileKindInput,
   parseProfileKind,
   profileAvatarShapeForFace,
@@ -64,10 +66,14 @@ describe('resolveDisplayProfileKind', () => {
     expect(resolveDisplayProfileKind(undefined, false)).toBe('person');
   });
 
-  it('uses DAO heuristic only when kind is omitted', () => {
+  it('lets the DAO workspace win over a stored kind', () => {
     expect(resolveDisplayProfileKind(undefined, true)).toBe('dao');
-    expect(resolveDisplayProfileKind('person', true)).toBe('person');
-    expect(resolveDisplayProfileKind('org', true)).toBe('org');
+    expect(resolveDisplayProfileKind('person', true)).toBe('dao');
+    expect(resolveDisplayProfileKind('org', true)).toBe('dao');
+  });
+
+  it('treats stored dao as person when the account is not a DAO workspace', () => {
+    expect(resolveDisplayProfileKind('dao')).toBe('person');
   });
 });
 
@@ -86,10 +92,10 @@ describe('profileAvatarShapeFromKind + face label', () => {
     ).toBe(3);
   });
 
-  it('uses DAO fallback only when kind is omitted', () => {
+  it('squares every DAO workspace face', () => {
     expect(profileAvatarShapeForFace(undefined, true)).toBe('square');
-    expect(profileAvatarShapeForFace('org', true)).toBe('squircle');
-    expect(profileAvatarShapeForFace('person', true)).toBe('circle');
+    expect(profileAvatarShapeForFace('org', true)).toBe('square');
+    expect(profileAvatarShapeForFace('person', true)).toBe('square');
   });
 
   it('labels org and dao only', () => {
@@ -98,12 +104,18 @@ describe('profileAvatarShapeFromKind + face label', () => {
     expect(profileKindFaceLabel('dao')).toBe('DAO');
   });
 
-  it('exposes editor options', () => {
+  it('exposes schema kinds and person/org editor chips', () => {
     expect(PROFILE_KIND_OPTIONS.map((option) => option.value)).toEqual([
       'person',
       'org',
       'dao',
     ]);
+    expect(PROFILE_FACE_KIND_OPTIONS.map((option) => option.value)).toEqual([
+      'person',
+      'org',
+    ]);
+    expect(editorFaceKind('dao')).toBe('person');
+    expect(editorFaceKind('org')).toBe('org');
   });
 });
 

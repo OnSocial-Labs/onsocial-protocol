@@ -45,6 +45,8 @@ export interface MaterialisedProfile {
   bio?: string;
   /** Coarse public “based in” label (city / region). Not GPS. */
   location?: string;
+  /** User-curated org line (`profile/industry`). */
+  industry?: string;
   /** Optional face kind (`profile/kind`). Omit / person is an individual. */
   kind?: ProfileKind;
   /** Raw `ipfs://<cid>` or URL string as stored on chain. */
@@ -72,6 +74,7 @@ const RESERVED = new Set([
   'name',
   'bio',
   'location',
+  'industry',
   'kind',
   'avatar',
   'banner',
@@ -129,6 +132,7 @@ function rowsToProfile(
     } else if (f === 'name') out.name = row.value;
     else if (f === 'bio') out.bio = row.value;
     else if (f === 'location') out.location = row.value;
+    else if (f === 'industry') out.industry = row.value;
     else if (f === 'kind') {
       const parsed = parseProfileKind(row.value);
       if (parsed) out.kind = parsed;

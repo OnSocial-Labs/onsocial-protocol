@@ -265,6 +265,11 @@ export interface ProfileData {
    */
   location?: string | null;
   /**
+   * User-curated org line (`profile/industry`). Shown next to the org mark.
+   * Pass `null` to clear. Ignored when kind is not `org`.
+   */
+  industry?: string | null;
+  /**
    * Optional face kind on the same `profile/` object (`profile/kind`).
    * Omit / `person` is an individual. Pass `null` to clear.
    */
