@@ -3,7 +3,11 @@
 import { PortfolioIdentityTopics } from '@/components/portfolio/portfolio-identity-topics';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
-import { displayName, portfolioHandleForMood } from '@/lib/profile-display';
+import {
+  displayName,
+  initials,
+  portfolioHandleForMood,
+} from '@/lib/profile-display';
 import { resolveDisplayProfileKind, type ProfileKind } from '@onsocial/sdk';
 import type { ResolvedMood } from '@/lib/moods/types';
 
@@ -45,11 +49,18 @@ export function PortfolioAboutPanel({
       data-has-print={printUrl ? 'true' : 'false'}
       data-testid="portfolio-about-panel"
     >
-      {printUrl ? (
-        <div className="portfolio-about-print">
+      <div className="portfolio-about-print">
+        {printUrl ? (
           <img alt="" className="portfolio-about-shot" src={printUrl} />
-        </div>
-      ) : null}
+        ) : (
+          <div
+            className="portfolio-about-shot portfolio-about-shot-fallback"
+            aria-hidden
+          >
+            {initials(titleLabel)}
+          </div>
+        )}
+      </div>
       <header className="portfolio-about-identity">
         <div className="portfolio-about-name-row">
           <h1 className="portfolio-about-name">{titleLabel}</h1>

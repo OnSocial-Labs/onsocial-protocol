@@ -12,6 +12,7 @@ import {
   homeTickerPath,
 } from '@/features/home/home-ticker-search';
 import { splitPostRichText } from '@/features/home/post-rich-segments';
+import { splitProfileBioBoldDisplayRuns } from '@/lib/profile-bio-bold';
 import { portfolioPath } from '@/lib/overlay-routes';
 
 /** Post / quote / bio body with hashtag + ticker + @mention + url highlights. */
@@ -33,7 +34,18 @@ export function PostRichText({
     <>
       {splitPostRichText(text).map((segment, index) => {
         if (segment.type === 'text') {
-          return <span key={`t-${index}`}>{segment.value}</span>;
+          return (
+            <span key={`t-${index}`}>
+              {splitProfileBioBoldDisplayRuns(segment.value).map(
+                (run, runIndex) =>
+                  run.bold ? (
+                    <strong key={`b-${runIndex}`}>{run.value}</strong>
+                  ) : (
+                    <span key={`p-${runIndex}`}>{run.value}</span>
+                  )
+              )}
+            </span>
+          );
         }
 
         if (segment.type === 'url') {

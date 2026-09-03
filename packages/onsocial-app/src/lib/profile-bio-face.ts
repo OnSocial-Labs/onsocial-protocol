@@ -1,7 +1,7 @@
 /** Face shows the first four lines of bio. The rest lives on About. */
 export const PROFILE_BIO_FACE_LINES = 4;
 
-/** App editor cap — paragraphs on About; chain stores a free-form string. */
+/** App editor cap — paragraphs + `**bold**` on About; chain stores a string. */
 export const PROFILE_BIO_MAX = 2000;
 
 export const PROFILE_BIO_LIMIT_WARN = 1900;
