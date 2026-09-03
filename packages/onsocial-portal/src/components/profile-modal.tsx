@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { HeartHandshake, PenLine, User } from 'lucide-react';
+import { ProfileAccountAvatar } from '@/components/profile-account-avatar';
 import { ProfileSocialLinkIcons } from '@/components/profile-link-icons';
 import { ProfileBioRichText } from '@/components/profile-bio-rich-text';
 import {
@@ -557,9 +558,11 @@ function ProfileStandingNetworkPreview({
     <span className={metricInnerClass}>
       <span className="flex items-center">
         {previewAccounts.map((account, index) => (
-          <AccountAvatar
+          <ProfileAccountAvatar
             key={account.accountId}
+            accountId={account.accountId}
             avatarUrl={account.avatarUrl}
+            kind={account.kind}
             className={cn('h-5 w-5 border-background', index > 0 && '-ml-1.5')}
           />
         ))}

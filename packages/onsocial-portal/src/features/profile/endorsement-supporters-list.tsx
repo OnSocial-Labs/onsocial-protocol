@@ -1,7 +1,7 @@
 'use client';
 
-import { User } from 'lucide-react';
 import { EndorsementSupportAmountSummary } from '@/components/endorsement-support-amount-summary';
+import { ProfileAccountAvatar } from '@/components/profile-account-avatar';
 import { RelationshipSignal } from '@/components/ui/relationship-signal';
 import {
   profileListBioClass,
@@ -12,33 +12,9 @@ import { cleanHandle, formatEndorsementTime } from '@/lib/endorsements';
 import { ProfileGraphRowLink } from '@/lib/profile-graph-link';
 import { formatSupportBalanceLabel } from '@/lib/social-spend-profile';
 import type { EndorsementSupporterSummary } from '@/lib/social-spend-endorsement';
-import { cn } from '@/lib/utils';
 
 function accountLabel(account: EndorsementSupporterSummary): string {
   return account.name?.trim() || cleanHandle(account.accountId);
-}
-
-function SupporterAvatar({
-  avatarUrl,
-  className,
-}: {
-  avatarUrl: string | null;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        'flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/50 bg-muted/30 text-muted-foreground',
-        className
-      )}
-    >
-      {avatarUrl ? (
-        <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-      ) : (
-        <User className="h-4 w-4" strokeWidth={2} />
-      )}
-    </div>
-  );
 }
 
 export function EndorsementSupportersList({
@@ -75,8 +51,10 @@ export function EndorsementSupportersList({
               onNavigate={onSelectAccount}
               className="w-full"
             >
-              <SupporterAvatar
+              <ProfileAccountAvatar
+                accountId={account.accountId}
                 avatarUrl={account.avatarUrl}
+                kind={account.kind}
                 className="mt-0.5 h-9 w-9"
               />
               <span className="min-w-0 flex-1">

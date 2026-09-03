@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { MaterialisedProfile } from '@onsocial/sdk';
+import type { MaterialisedProfile, ProfileKind } from '@onsocial/sdk';
 import { loadDiscoverIndexPage } from '@/lib/profile-discover-index';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
 import {
@@ -91,6 +91,16 @@ export async function GET(request: NextRequest) {
       viewer?.endorsementIssuers ?? []
     );
 
+    const accountIds = profileRows.map((row) => row.accountId);
+    let kinds: Partial<Record<string, ProfileKind>> = {};
+    if (accountIds.length > 0) {
+      try {
+        kinds = await os.query.profiles.kindsForAccounts(accountIds);
+      } catch {
+        // Kind is optional presentation.
+      }
+    }
+
     const results = profileRows.map((row) => {
       const profile: MaterialisedProfile = {
         accountId: row.accountId,
@@ -98,6 +108,7 @@ export async function GET(request: NextRequest) {
         bio: row.bio ?? undefined,
         avatar: row.avatar ?? undefined,
         banner: row.banner ?? undefined,
+        kind: kinds[row.accountId] ?? row.kind,
         lastUpdatedHeight: row.lastProfileBlock,
         lastUpdatedAt: row.lastProfileTimestamp,
         extra: {},

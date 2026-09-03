@@ -5,7 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Crown, Flame, RefreshCw, Shield, TrendingUp, Zap } from 'lucide-react';
 import { StandingIdentity } from '@onsocial/ui';
+import type { ProfileAvatarShape, ProfileKind } from '@onsocial/sdk';
 import { PageShell } from '@/components/layout/page-shell';
+import { portalAccountAvatarShape } from '@/lib/profile-avatar-shape';
 import { Button } from '@/components/ui/button';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { PortalBadge } from '@/components/ui/portal-badge';
@@ -75,9 +77,11 @@ const TRACKS: {
 function InfluenceRow({
   entry,
   leaderBoost,
+  shape,
 }: {
   entry: InfluenceEntry;
   leaderBoost: string;
+  shape: ProfileAvatarShape;
 }) {
   const pct = pctOfLeader(entry.effectiveBoost, leaderBoost);
   return (
@@ -93,6 +97,7 @@ function InfluenceRow({
           <StandingIdentity
             accountId={entry.accountId}
             size="sm"
+            shape={shape}
             showHandle={false}
             nameTrailing={
               <PortalBadge
@@ -126,9 +131,11 @@ function InfluenceRow({
 function ReputationRow({
   entry,
   leaderRep,
+  shape,
 }: {
   entry: ReputationEntry;
   leaderRep: string;
+  shape: ProfileAvatarShape;
 }) {
   const pct = pctOfLeader(entry.reputation, leaderRep);
   const tier = reputationTier(entry.rank);
@@ -145,6 +152,7 @@ function ReputationRow({
           <StandingIdentity
             accountId={entry.accountId}
             size="sm"
+            shape={shape}
             showHandle={false}
             nameTrailing={
               <PortalBadge accent={tier.accent} size="xs">
@@ -178,9 +186,11 @@ function ReputationRow({
 function EarnerRow({
   entry,
   leaderEarned,
+  shape,
 }: {
   entry: EarnerEntry;
   leaderEarned: string;
+  shape: ProfileAvatarShape;
 }) {
   const pct = pctOfLeader(entry.totalEarned, leaderEarned);
   const hasUnclaimed =
@@ -199,6 +209,7 @@ function EarnerRow({
             <StandingIdentity
               accountId={entry.accountId}
               size="sm"
+              shape={shape}
               showHandle={false}
               nameTrailing={
                 hasUnclaimed ? (
@@ -296,6 +307,9 @@ export default function BoostLeaderboardPage() {
   const [influenceData, setInfluenceData] = useState<InfluenceEntry[]>([]);
   const [reputationData, setReputationData] = useState<ReputationEntry[]>([]);
   const [earnerData, setEarnerData] = useState<EarnerEntry[]>([]);
+  const [accountKinds, setAccountKinds] = useState<
+    Partial<Record<string, ProfileKind>>
+  >({});
   const [boardLoading, setBoardLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -326,6 +340,21 @@ export default function BoostLeaderboardPage() {
       if (inf?.leaderboardBoost) setInfluenceData(inf.leaderboardBoost);
       if (rep?.reputationScores) setReputationData(rep.reputationScores);
       if (ear?.leaderboardRewards) setEarnerData(ear.leaderboardRewards);
+
+      const ids = [
+        ...new Set([
+          ...(inf?.leaderboardBoost ?? []).map((entry) => entry.accountId),
+          ...(rep?.reputationScores ?? []).map((entry) => entry.accountId),
+          ...(ear?.leaderboardRewards ?? []).map((entry) => entry.accountId),
+        ]),
+      ];
+      try {
+        setAccountKinds(
+          ids.length > 0 ? await os.query.profiles.kindsForAccounts(ids) : {}
+        );
+      } catch {
+        setAccountKinds({});
+      }
     } catch {
       // silently degrade
     } finally {
@@ -364,19 +393,43 @@ export default function BoostLeaderboardPage() {
       case 'influence': {
         const leader = influenceData[0]?.effectiveBoost ?? '1';
         return (trackData as InfluenceEntry[]).map((e) => (
-          <InfluenceRow key={e.accountId} entry={e} leaderBoost={leader} />
+          <InfluenceRow
+            key={e.accountId}
+            entry={e}
+            leaderBoost={leader}
+            shape={portalAccountAvatarShape(
+              e.accountId,
+              accountKinds[e.accountId]
+            )}
+          />
         ));
       }
       case 'reputation': {
         const leader = reputationData[0]?.reputation ?? '1';
         return (trackData as ReputationEntry[]).map((e) => (
-          <ReputationRow key={e.accountId} entry={e} leaderRep={leader} />
+          <ReputationRow
+            key={e.accountId}
+            entry={e}
+            leaderRep={leader}
+            shape={portalAccountAvatarShape(
+              e.accountId,
+              accountKinds[e.accountId]
+            )}
+          />
         ));
       }
       case 'earners': {
         const leader = earnerData[0]?.totalEarned ?? '1';
         return (trackData as EarnerEntry[]).map((e) => (
-          <EarnerRow key={e.accountId} entry={e} leaderEarned={leader} />
+          <EarnerRow
+            key={e.accountId}
+            entry={e}
+            leaderEarned={leader}
+            shape={portalAccountAvatarShape(
+              e.accountId,
+              accountKinds[e.accountId]
+            )}
+          />
         ));
       }
     }
