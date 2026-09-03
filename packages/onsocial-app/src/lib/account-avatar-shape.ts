@@ -5,7 +5,7 @@ import {
 } from '@onsocial/sdk';
 import { isDaoStandingTarget } from '@/lib/dao-standing-account';
 
-/** Person circle, org squircle, DAO square — explicit kind wins over DAO heuristic. */
+/** Person circle, org squircle, DAO square — DAO workspace always squares. */
 export function accountAvatarShape(
   accountId: string,
   kind?: ProfileKind | null,

@@ -19,7 +19,7 @@ export function isHeuristicDaoAccountId(
   return DAO_ACCOUNT_SUFFIXES.some((suffix) => id.endsWith(suffix));
 }
 
-/** Person circle, org squircle, DAO square — explicit kind wins. */
+/** Person circle, org squircle, DAO square — DAO workspace always squares. */
 export function portalAccountAvatarShape(
   accountId: string,
   kind?: ProfileKind | null
