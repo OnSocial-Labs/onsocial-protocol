@@ -21,6 +21,7 @@ function baseSnapshot(
     links: {},
     pageConfig: {},
     tags: [],
+    photos: [],
     ...overrides,
   };
 }
@@ -40,6 +41,8 @@ function dirtyInput(
     bio: snapshot.bio,
     links: linksFromSnapshot,
     tags: snapshot.tags,
+    photos: snapshot.photos,
+    photoFiles: [],
     linkNotes: sanitizeLinkNotes(snapshot.pageConfig.linkNotes),
     avatarFile: null,
     bannerFile: null,
@@ -129,6 +132,19 @@ describe('isProfileEditorDirty', () => {
     const snapshot = baseSnapshot({ tags: ['design'] });
     expect(
       isProfileEditorDirty(dirtyInput(snapshot, { tags: ['writing'] }))
+    ).toBe(true);
+  });
+
+  it('is dirty when About photos change', () => {
+    const snapshot = baseSnapshot({
+      photos: [{ ref: 'ipfs://one', url: 'https://cdn.example/one.jpg' }],
+    });
+    expect(
+      isProfileEditorDirty(
+        dirtyInput(snapshot, {
+          photos: [{ ref: 'ipfs://two', url: 'https://cdn.example/two.jpg' }],
+        })
+      )
     ).toBe(true);
   });
 

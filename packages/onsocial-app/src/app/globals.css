@@ -7227,6 +7227,100 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.4);
   }
 
+  .account-editor-about-photos {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    width: 100%;
+    margin-top: 0.55rem;
+  }
+
+  .account-editor-about-photos-label {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .account-editor-about-photos-list {
+    display: grid;
+    gap: 0.4rem;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .account-editor-about-photos-list[data-count='2'],
+  .account-editor-about-photos-list[data-count='3'] {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .account-editor-about-photos-list[data-count='3'] > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .account-editor-about-photos-list li {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0.65rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+  }
+
+  .account-editor-about-photos-list img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+  }
+
+  .account-editor-about-photos-list[data-count='1'] img,
+  .account-editor-about-photos-list[data-count='3'] > :first-child img {
+    aspect-ratio: 16 / 9;
+  }
+
+  .account-editor-about-photos-remove {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.55rem;
+    height: 1.55rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: rgb(15 18 24 / 0.55);
+    color: rgb(255 255 255 / 0.92);
+    cursor: pointer;
+  }
+
+  .account-editor-about-photos-remove svg {
+    width: 0.7rem;
+    height: 0.7rem;
+  }
+
+  .account-editor-about-photos-add {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: rgb(var(--fg-rgb) / 0.62);
+    cursor: pointer;
+  }
+
+  .account-editor-about-photos-add:hover,
+  .account-editor-about-photos-add:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+  }
+
   .portfolio-handle-marks {
     display: inline-flex;
     flex: 0 0 auto;
@@ -7640,19 +7734,14 @@ a.os-surface-row {
     }
   }
 
-  /*
-   * Reserved media band — photos later (max 3). Same print language.
-   * Do not mount an empty placeholder.
-   */
+  /* About gallery — 1 wide, 2 pair, 3 wide + pair. Same print language. */
   .portfolio-about-media {
     display: grid;
     gap: 0.45rem;
     width: 100%;
-    border-radius: 1.2rem;
+    border-radius: 0.75rem;
     overflow: hidden;
-    box-shadow:
-      0 1px 0 rgb(255 255 255 / 0.28) inset,
-      0 18px 36px rgb(15 18 24 / 0.1);
+    box-shadow: 0 14px 36px rgb(15 18 24 / 0.08);
   }
 
   .portfolio-about-media[data-count='1'] {

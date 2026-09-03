@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
       bannerMedia: shell?.bannerMedia ?? null,
       links: shell?.links ?? null,
       tags: shell?.tags ?? [],
+      photos: shell?.photos ?? [],
       pageConfig,
     });
   } catch {

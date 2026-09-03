@@ -88,6 +88,16 @@ describe('profileAboutHasMoreThanFace', () => {
       })
     ).toBe(false);
   });
+
+  it('shows About when photos exist even without a longer bio', () => {
+    expect(
+      profileAboutHasMoreThanFace({
+        faceText: 'Hello',
+        aboutText: 'Hello',
+        photoCount: 1,
+      })
+    ).toBe(true);
+  });
 });
 
 describe('resolvePortfolioAboutBio', () => {

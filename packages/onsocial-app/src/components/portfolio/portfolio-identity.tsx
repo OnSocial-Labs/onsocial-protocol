@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kind-switch';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
+import { PortfolioAboutLink } from '@/components/portfolio/portfolio-about-link';
 import { PortfolioFaceBio } from '@/components/portfolio/portfolio-face-bio';
 import { PortfolioIdentityTopics } from '@/components/portfolio/portfolio-identity-topics';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
@@ -38,6 +39,8 @@ interface PortfolioIdentityProps {
   aboutBio?: string | null;
   /** Curated identity topics (`profile/tags`). */
   tags?: string[] | null;
+  /** About gallery count — opens About even when the face bio is short. */
+  photoCount?: number;
   tagline?: string;
   avatarUrl?: string | null;
   mood: ResolvedMood;
@@ -58,6 +61,7 @@ export function PortfolioIdentity({
   bio,
   aboutBio = null,
   tags = null,
+  photoCount = 0,
   tagline,
   avatarUrl,
   mood: savedMood,
@@ -78,6 +82,7 @@ export function PortfolioIdentity({
   const showAbout = profileAboutHasMoreThanFace({
     faceText: summary,
     aboutText: aboutBio,
+    photoCount,
   });
   const handleLabel = portfolioHandleForMood(accountId, mood.id);
 
@@ -153,6 +158,8 @@ export function PortfolioIdentity({
             text={summary}
             showAbout={showAbout}
           />
+        ) : showAbout ? (
+          <PortfolioAboutLink accountId={accountId} />
         ) : null}
         <PortfolioIdentityGestures
           pageAccountId={accountId}

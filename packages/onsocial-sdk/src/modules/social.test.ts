@@ -33,6 +33,25 @@ describe('social set-data builders', () => {
     });
   });
 
+  it('encodes About photos and caps at three', () => {
+    expect(
+      buildProfileSetData({
+        photos: ['ipfs://one', 'ipfs://two', 'ipfs://three', 'ipfs://four'],
+      })
+    ).toEqual({
+      'profile/v': '1',
+      'profile/photos': JSON.stringify([
+        'ipfs://one',
+        'ipfs://two',
+        'ipfs://three',
+      ]),
+    });
+    expect(buildProfileSetData({ photos: null })).toEqual({
+      'profile/v': '1',
+      'profile/photos': null,
+    });
+  });
+
   it('derives hashtags tickers and mentions from bio', () => {
     expect(
       buildProfileSetData({

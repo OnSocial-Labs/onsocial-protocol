@@ -8,6 +8,10 @@ import {
   portfolioAboutPrintUrl,
   profileAboutEssayBlocks,
 } from '@/lib/profile-bio-face';
+import {
+  profileAboutPhotoUrls,
+  type ProfileAboutPhoto,
+} from '@/lib/profile-about-photos';
 import { resolveDisplayProfileKind, type ProfileKind } from '@onsocial/sdk';
 import type { ResolvedMood } from '@/lib/moods/types';
 
@@ -16,6 +20,7 @@ export type PortfolioAboutPanelProps = {
   profileName?: string | null;
   bio?: string | null;
   tags?: string[] | null;
+  photos?: ProfileAboutPhoto[] | null;
   avatarUrl?: string | null;
   mood: ResolvedMood;
   isDao?: boolean;
@@ -24,13 +29,14 @@ export type PortfolioAboutPanelProps = {
 
 /**
  * Professional About — a written page, not a bigger face.
- * Masthead + essay for everyone; a real print only when a photo exists.
+ * Masthead + essay for everyone; a real print and up to three photos.
  */
 export function PortfolioAboutPanel({
   accountId,
   profileName,
   bio,
   tags = null,
+  photos = null,
   avatarUrl,
   mood,
   isDao = false,
@@ -41,12 +47,14 @@ export function PortfolioAboutPanel({
   const handleLabel = portfolioHandleForMood(accountId, mood.id);
   const essayBlocks = profileAboutEssayBlocks(bio ?? '');
   const printUrl = portfolioAboutPrintUrl(avatarUrl);
+  const gallery = profileAboutPhotoUrls(photos);
 
   return (
     <article
       className="portfolio-about"
       data-profile-kind={displayKind}
       data-has-print={printUrl ? 'true' : 'false'}
+      data-has-photos={gallery.length > 0 ? 'true' : 'false'}
       data-testid="portfolio-about-panel"
     >
       <header className="portfolio-about-masthead">
@@ -93,6 +101,21 @@ export function PortfolioAboutPanel({
               ))}
             </div>
           ) : null}
+        </div>
+      ) : null}
+      {gallery.length > 0 ? (
+        <div
+          className="portfolio-about-media"
+          data-count={String(gallery.length)}
+        >
+          {gallery.map((src, index) => (
+            <img
+              key={`${src}-${index}`}
+              alt=""
+              className="portfolio-about-media-shot"
+              src={src}
+            />
+          ))}
         </div>
       ) : null}
     </article>

@@ -186,6 +186,7 @@ export default async function AccountPage({
           bio={portfolioBio}
           aboutBio={aboutBio}
           tags={identityTopics}
+          photoCount={shell?.photos.length ?? 0}
           tagline={tagline}
           avatarUrl={shell?.avatarUrl ?? daoPage?.branding.avatarUrl}
           mood={mood}

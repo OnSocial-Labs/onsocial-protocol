@@ -48,6 +48,10 @@ import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { ProfileTopicsEditor } from '@/components/wallet/profile-topics-editor';
+import {
+  ProfileAboutPhotosEditor,
+  type ProfileAboutPhotoDraft,
+} from '@/components/wallet/profile-about-photos-editor';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import {
@@ -175,6 +179,7 @@ export function AppProfileEditorSheet({
   const [kind, setKind] = useState<ProfileKind>('person');
   const [bio, setBio] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<ProfileAboutPhotoDraft[]>([]);
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
     profileLinksInputFromRecord(null)
   );
@@ -204,6 +209,7 @@ export function AppProfileEditorSheet({
     setKind(editorFaceKind(snapshot.kind));
     setBio(snapshot.bio);
     setTags(snapshot.tags ?? []);
+    setPhotos(snapshot.photos ?? []);
     setLinks(linksFromSnapshot);
     setLinkNotes(sanitizeLinkNotes(snapshot.pageConfig?.linkNotes));
     setLinkFieldErrors({});
@@ -261,6 +267,8 @@ export function AppProfileEditorSheet({
       bio,
       links,
       tags,
+      photos,
+      photoFiles: photos.map((photo) => photo.file ?? null),
       linkNotes,
       avatarFile,
       bannerFile,
@@ -277,6 +285,7 @@ export function AppProfileEditorSheet({
     kind,
     links,
     tags,
+    photos,
     linkNotes,
     linksFromSnapshot,
     location,
@@ -410,6 +419,8 @@ export function AppProfileEditorSheet({
         kind,
         bio,
         tags,
+        photos,
+        photoFiles: photos.map((photo) => photo.file ?? null),
         avatar: avatarFile,
         banner: bannerFile,
         removeAvatar: avatarRemoved,
@@ -831,6 +842,11 @@ export function AppProfileEditorSheet({
                             First four lines show on your page. More in About.
                           </p>
                         ) : null}
+                        <ProfileAboutPhotosEditor
+                          photos={photos}
+                          onChange={setPhotos}
+                          disabled={saving}
+                        />
                         {nameNearLimit || bioNearLimit ? (
                           <p
                             className="account-editor-limits is-near-limit"

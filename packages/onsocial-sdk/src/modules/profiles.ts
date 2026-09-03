@@ -55,6 +55,8 @@ export interface MaterialisedProfile {
   banner?: string;
   links?: Record<string, string>;
   tags?: string[];
+  /** About gallery refs (`profile/photos`) — `ipfs://` / URL strings. */
+  photos?: string[];
   /** Lowercase hashtags derived from bio (no `#`). */
   hashtags?: string[];
   /** Lowercase tickers derived from bio (no `$`). */
@@ -82,6 +84,7 @@ const RESERVED = new Set([
 const JSON_FIELDS = new Set([
   'links',
   'tags',
+  'photos',
   'hashtags',
   'tickers',
   'mentions',
@@ -145,6 +148,13 @@ function rowsToProfile(
         out.links = parsed as Record<string, string>;
       } else if (f === 'tags' && Array.isArray(parsed)) {
         out.tags = parsed as string[];
+      } else if (f === 'photos' && Array.isArray(parsed)) {
+        out.photos = parsed
+          .filter(
+            (item): item is string =>
+              typeof item === 'string' && item.trim().length > 0
+          )
+          .slice(0, 3);
       } else if (f === 'hashtags' && Array.isArray(parsed)) {
         out.hashtags = parsed as string[];
       } else if (f === 'tickers' && Array.isArray(parsed)) {

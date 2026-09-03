@@ -2,6 +2,10 @@ import type { ProfileKind } from '@onsocial/sdk';
 import type { ProfileEditorSnapshot } from '@/hooks/use-app-profile-editor';
 import { linkNotesEqual, pruneLinkNotes } from '@/lib/page-launch-config';
 import {
+  profileAboutPhotoRefsEqual,
+  type ProfileAboutPhoto,
+} from '@/lib/profile-about-photos';
+import {
   PROFILE_LINK_EDITOR_FIELDS,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
@@ -17,6 +21,8 @@ export function isProfileEditorContentDirty(input: {
   bio: string;
   links: ProfileLinksInput;
   tags: string[];
+  photos: ProfileAboutPhoto[];
+  photoFiles: Array<File | null>;
   avatarFile: File | null;
   bannerFile: File | null;
   avatarRemoved: boolean;
@@ -63,6 +69,19 @@ export function isProfileEditorContentDirty(input: {
     return true;
   }
 
+  if (input.photoFiles.some(Boolean)) {
+    return true;
+  }
+
+  if (
+    !profileAboutPhotoRefsEqual(
+      input.photos.map((photo) => photo.ref),
+      (input.snapshot.photos ?? []).map((photo) => photo.ref)
+    )
+  ) {
+    return true;
+  }
+
   for (const field of PROFILE_LINK_EDITOR_FIELDS) {
     if (
       input.links[field.key].trim() !==
@@ -85,6 +104,8 @@ export function isProfileEditorDirty(input: {
   bio: string;
   links: ProfileLinksInput;
   tags: string[];
+  photos: ProfileAboutPhoto[];
+  photoFiles: Array<File | null>;
   linkNotes: Record<string, string>;
   avatarFile: File | null;
   bannerFile: File | null;

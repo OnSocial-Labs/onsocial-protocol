@@ -47,7 +47,10 @@ export function profileBioLikelyWrapsPastFace(text: string): boolean {
 export function profileAboutHasMoreThanFace(opts: {
   faceText?: string | null;
   aboutText?: string | null;
+  photoCount?: number;
 }): boolean {
+  if ((opts.photoCount ?? 0) > 0) return true;
+
   const about = opts.aboutText?.trim() ?? '';
   if (!about) return false;
 
