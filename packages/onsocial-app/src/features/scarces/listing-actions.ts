@@ -423,13 +423,15 @@ export async function fetchListingActions(
   ];
   if (nativeTokenIds.length > 0) {
     const summaries = await fetchOfferSummariesByTokenIds(nativeTokenIds);
-    for (const item of byId.values()) {
-      const tokenId = item.tokenId?.trim();
-      if (!tokenId) continue;
-      const summary = summaries.get(tokenId);
-      if (!summary || summary.offerCount <= 0) continue;
-      item.offerCount = summary.offerCount;
-      item.highestOfferNear = compactNear(summary.highestAmountNear);
+    if (summaries) {
+      for (const item of byId.values()) {
+        const tokenId = item.tokenId?.trim();
+        if (!tokenId) continue;
+        const summary = summaries.get(tokenId);
+        if (!summary || summary.offerCount <= 0) continue;
+        item.offerCount = summary.offerCount;
+        item.highestOfferNear = compactNear(summary.highestAmountNear);
+      }
     }
   }
 
