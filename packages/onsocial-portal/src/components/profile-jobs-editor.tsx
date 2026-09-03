@@ -12,13 +12,6 @@ import {
 } from '@onsocial/sdk';
 import { OsHugSheet, osFieldBorderedClassName } from '@onsocial/ui';
 import { useProfile } from '@/contexts/profile-context';
-function collectRelayTxHashes(response: unknown): string[] {
-  if (!response || typeof response !== 'object') return [];
-  const value = response as Record<string, unknown>;
-  const direct = typeof value.txHash === 'string' ? value.txHash : null;
-  const hash = typeof value.hash === 'string' ? value.hash : null;
-  return [...new Set([direct, hash].filter(Boolean) as string[])];
-}
 import {
   txToastError,
   txToastPending,
@@ -27,18 +20,14 @@ import {
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import type { TransactionFeedback } from '@/components/ui/transaction-feedback-toast';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
+import { fetchOpenJobs, notifyJobsChanged } from '@/lib/profile-jobs';
 
-const JOBS_CHANGED_EVENT = 'onsocial:jobs-changed';
-
-async function fetchOpenJobs(accountId: string): Promise<JobSearchRow[]> {
-  const response = await fetch(
-    `/api/profile/jobs?accountId=${encodeURIComponent(accountId)}`
-  );
-  if (!response.ok) return [];
-  const body = (await response.json().catch(() => null)) as {
-    jobs?: JobSearchRow[];
-  } | null;
-  return Array.isArray(body?.jobs) ? body.jobs : [];
+function collectRelayTxHashes(response: unknown): string[] {
+  if (!response || typeof response !== 'object') return [];
+  const value = response as Record<string, unknown>;
+  const direct = typeof value.txHash === 'string' ? value.txHash : null;
+  const hash = typeof value.hash === 'string' ? value.hash : null;
+  return [...new Set([direct, hash].filter(Boolean) as string[])];
 }
 
 export function ProfileJobsEditor({
@@ -75,9 +64,7 @@ export function ProfileJobsEditor({
   }, [reload]);
 
   const notify = () => {
-    window.dispatchEvent(
-      new CustomEvent(JOBS_CHANGED_EVENT, { detail: { accountId } })
-    );
+    notifyJobsChanged(accountId);
   };
 
   const handleCreate = async () => {

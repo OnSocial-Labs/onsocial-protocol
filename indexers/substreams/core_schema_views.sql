@@ -905,6 +905,19 @@ WHERE p.name IS NOT NULL
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW jobs_search AS
+WITH org_faces AS (
+  SELECT
+    account_id,
+    MAX(value) FILTER (WHERE field = 'name')      AS name,
+    MAX(value) FILTER (WHERE field = 'kind')      AS kind,
+    MAX(value) FILTER (WHERE field = 'industry')  AS industry,
+    MAX(value) FILTER (WHERE field = 'avatar')    AS avatar
+  FROM profiles_current
+  WHERE operation = 'set'
+    AND value IS NOT NULL
+    AND field IN ('name', 'kind', 'industry', 'avatar')
+  GROUP BY account_id
+)
 SELECT
   j.account_id                                              AS org_account_id,
   j.job_id,
@@ -931,7 +944,7 @@ SELECT
   j.block_height,
   j.block_timestamp
 FROM jobs_current j
-LEFT JOIN profile_search p ON p.account_id = j.account_id
+LEFT JOIN org_faces p ON p.account_id = j.account_id
 WHERE j.operation = 'set'
   AND COALESCE(NULLIF(j.value_json ->> 'ends', '')::numeric, 0)
     >= (EXTRACT(EPOCH FROM NOW()) * 1000);

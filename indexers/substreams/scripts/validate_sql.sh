@@ -142,6 +142,7 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
       done
 
       validate_guild_view_columns "$db"
+      validate_profile_search_jobs_columns "$db"
       validate_posts_current_root "$db"
       validate_apps_relpath "$db"
     }
@@ -306,6 +307,40 @@ hello"
         echo "  actual:   ${pulse_ids:-missing}" >&2
         exit 1
       fi
+    }
+
+    validate_profile_search_jobs_columns() {
+      db="$1"
+      for column_name in kind industry open_jobs_count; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = '"'"'public'"'"'
+              AND table_name = '"'"'profile_search'"'"'
+              AND column_name = '"'"'${column_name}'"'"'
+          );
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected profile_search.${column_name} in $db" >&2
+          exit 1
+        fi
+      done
+      for column_name in org_account_id job_id org_industry ends; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = '"'"'public'"'"'
+              AND table_name = '"'"'jobs_search'"'"'
+              AND column_name = '"'"'${column_name}'"'"'
+          );
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected jobs_search.${column_name} in $db" >&2
+          exit 1
+        fi
+      done
     }
 
     validate_guild_view_columns() {

@@ -7,6 +7,7 @@ import { PortfolioHiringSheet } from '@/components/portfolio/portfolio-hiring-sh
 import {
   JOBS_CHANGED_EVENT,
   fetchOpenJobs,
+  hiringLineAriaLabel,
   hiringLineLabel,
 } from '@/lib/profile-jobs';
 
@@ -49,6 +50,9 @@ export function PortfolioHiringLine({
       <button
         type="button"
         className="portfolio-location portfolio-hiring"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={hiringLineAriaLabel(jobs.length)}
         onClick={() => setOpen(true)}
       >
         <PortfolioHiringMark />

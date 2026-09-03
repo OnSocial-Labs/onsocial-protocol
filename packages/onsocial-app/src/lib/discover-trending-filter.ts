@@ -6,7 +6,12 @@ import type {
   DiscoverTrendingHub,
 } from '@/lib/discover-trending-server';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
-import type { HashtagCount, PlaceCount, TickerCount } from '@onsocial/sdk';
+import type {
+  DiscoverFaceFilter,
+  HashtagCount,
+  PlaceCount,
+  TickerCount,
+} from '@onsocial/sdk';
 
 /** Case-insensitive substring match for Discover Trending peeks. */
 export function matchesDiscoverTrendingQuery(
@@ -29,9 +34,7 @@ export function filterTrendingTickers(
 ): TickerCount[] {
   const needle = discoverTrendingFilterQuery(query);
   if (!needle) return rows;
-  return rows.filter((row) =>
-    matchesDiscoverTrendingQuery(row.ticker, needle)
-  );
+  return rows.filter((row) => matchesDiscoverTrendingQuery(row.ticker, needle));
 }
 
 export function filterTrendingTopics(
@@ -62,17 +65,31 @@ export function filterTrendingPlaces(
 
 export function filterTrendingProfiles(
   rows: ProfileListAccount[],
-  query: string
+  query: string,
+  face: DiscoverFaceFilter = 'all',
+  industry = ''
 ): ProfileListAccount[] {
   const needle = discoverTrendingFilterQuery(query);
-  if (!needle) return rows;
+  const sector = face === 'people' ? '' : industry.trim().toLowerCase();
   return rows.filter((row) => {
+    if (face === 'people' && row.kind && row.kind !== 'person') return false;
+    if ((face === 'orgs' || face === 'hiring') && row.kind !== 'org') {
+      return false;
+    }
+    if (face === 'hiring' && !(row.openJobsCount && row.openJobsCount > 0)) {
+      return false;
+    }
+    if (sector && (row.industry ?? '').trim().toLowerCase() !== sector) {
+      return false;
+    }
+    if (!needle) return true;
     const name = row.name?.trim() || '';
-    const industry = row.industry?.trim() || '';
+    const industryText = row.industry?.trim() || '';
     return (
       matchesDiscoverTrendingQuery(row.accountId, needle) ||
       (name.length > 0 && matchesDiscoverTrendingQuery(name, needle)) ||
-      (industry.length > 0 && matchesDiscoverTrendingQuery(industry, needle))
+      (industryText.length > 0 &&
+        matchesDiscoverTrendingQuery(industryText, needle))
     );
   });
 }

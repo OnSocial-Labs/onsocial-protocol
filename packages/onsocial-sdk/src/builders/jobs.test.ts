@@ -3,6 +3,8 @@ import {
   buildJobRemoveData,
   buildJobSetData,
   createJobId,
+  hiringLineAriaLabel,
+  hiringLineLabel,
   isJobOpen,
   jobDateInputFromEnds,
   jobEndsFromDateInput,
@@ -57,5 +59,12 @@ describe('jobs builder', () => {
     expect(jobDateInputFromEnds(ends)).toBe('2026-09-03');
     expect(ends).toBeGreaterThan(jobEndsFromDateInput('2026-09-02'));
     expect(todayDateInput(Date.UTC(2026, 8, 3))).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('keeps a single open role labeled Hiring', () => {
+    expect(hiringLineLabel(1)).toBe('Hiring');
+    expect(hiringLineLabel(3)).toBe('Hiring · 3');
+    expect(hiringLineAriaLabel(1)).toBe('View open role');
+    expect(hiringLineAriaLabel(4)).toBe('View 4 open roles');
   });
 });

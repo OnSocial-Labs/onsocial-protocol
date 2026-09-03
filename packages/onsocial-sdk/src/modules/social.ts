@@ -135,6 +135,8 @@ export {
   buildJobSetData,
   createJobId,
   formatJobEndsLabel,
+  hiringLineAriaLabel,
+  hiringLineLabel,
   isJobOpen,
   jobDateInputFromEnds,
   jobEndsFromDateInput,

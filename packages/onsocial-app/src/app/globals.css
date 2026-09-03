@@ -10332,6 +10332,23 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.9);
   }
 
+  /*
+   * Discover face tabs + industry modifier share one wrapping chip row.
+   * Industry is a button (not a tab) so it can show selected without
+   * joining the All / People / Orgs / Hiring tablist.
+   */
+  .discover-face-filter-rail {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    column-gap: 0.4rem;
+    margin: 0.15rem 0 0.55rem;
+  }
+
+  .discover-face-filter-rail .discover-tab-bar--browse {
+    margin: 0;
+  }
+
   .discover-focus-list {
     min-height: 8rem;
   }
@@ -13506,6 +13523,10 @@ a.os-surface-row {
     font-size: 0.75rem;
     line-height: 1.45;
     color: hsl(var(--muted-foreground));
+  }
+
+  .standing-row-hiring {
+    color: rgb(var(--fg-rgb) / 0.42);
   }
 
   .standing-row-bio .os-hashtag,

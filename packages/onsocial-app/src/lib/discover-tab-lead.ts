@@ -74,3 +74,16 @@ export function discoverTickersLead(filterPrefix: string): string {
 export function discoverTrendingLead(): string {
   return "What's moving";
 }
+
+/** Profiles peek heading on Trending — names the face / industry filter. */
+export function discoverTrendingProfilesHeading(
+  face: DiscoverFaceFilter = 'all',
+  industry = ''
+): string {
+  const sector = industry.trim();
+  if (face === 'hiring') return sector ? `Hiring · ${sector}` : 'Hiring';
+  if (face === 'orgs') return sector ? `Orgs · ${sector}` : 'Orgs';
+  if (face === 'people') return 'People';
+  if (sector) return `Standing out · ${sector}`;
+  return 'Standing out';
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   discoverIndustryChoiceOptions,
   type DiscoverFaceFilter,
@@ -11,7 +11,7 @@ import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 const FACE_ITEMS: Array<{
-  id: DiscoverFaceFilter | 'industry';
+  id: DiscoverFaceFilter;
   label: string;
 }> = [
   { id: 'all', label: 'All' },
@@ -28,29 +28,37 @@ export function DiscoverFaceFilterRail() {
   const [industryOpen, setIndustryOpen] = useState(false);
   const showIndustry = face !== 'people';
 
-  const items = useMemo(() => {
-    const next = [...FACE_ITEMS];
-    if (showIndustry) {
-      next.push({ id: 'industry', label: industry || 'Industry' });
-    }
-    return next;
-  }, [industry, showIndustry]);
-
   return (
     <>
-      <OsChipRail
-        variant="browse"
-        ariaLabel="Filter profiles"
-        items={items}
-        value={face}
-        onValueChange={(next) => {
-          if (next === 'industry') {
-            setIndustryOpen(true);
-            return;
-          }
-          setFace(next);
-        }}
-      />
+      <div className="discover-face-filter-rail">
+        <OsChipRail
+          variant="browse"
+          ariaLabel="Filter profiles"
+          items={FACE_ITEMS}
+          value={face}
+          onValueChange={setFace}
+        />
+        {showIndustry ? (
+          <div
+            className="discover-tab-bar discover-tab-bar--browse"
+            role="group"
+            aria-label="Industry"
+          >
+            <div className="discover-tab-bar-scroller">
+              <button
+                type="button"
+                className={industry ? 'is-active' : undefined}
+                aria-pressed={Boolean(industry)}
+                aria-haspopup="dialog"
+                aria-expanded={industryOpen}
+                onClick={() => setIndustryOpen(true)}
+              >
+                {industry || 'Industry'}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
       {showIndustry ? (
         <ChoiceDrawer
           open={industryOpen}

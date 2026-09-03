@@ -1,5 +1,7 @@
 import type { JobSearchRow } from '@onsocial/sdk';
 
+export { hiringLineAriaLabel, hiringLineLabel } from '@onsocial/sdk';
+
 export const JOBS_CHANGED_EVENT = 'onsocial:jobs-changed';
 
 export function notifyJobsChanged(accountId: string): void {
@@ -20,9 +22,4 @@ export async function fetchOpenJobs(
     jobs?: JobSearchRow[];
   } | null;
   return Array.isArray(body?.jobs) ? body.jobs : [];
-}
-
-export function hiringLineLabel(count: number): string {
-  if (count <= 1) return 'Hiring';
-  return `Hiring · ${count}`;
 }

@@ -120,3 +120,13 @@ export function formatJobEndsLabel(ends: number): string {
 export function todayDateInput(now = Date.now()): string {
   return jobDateInputFromEnds(now);
 }
+
+/** Quiet org line: `Hiring` for one role, `Hiring · N` after that. */
+export function hiringLineLabel(count: number): string {
+  if (count <= 1) return 'Hiring';
+  return `Hiring · ${count}`;
+}
+
+export function hiringLineAriaLabel(count: number): string {
+  return count <= 1 ? 'View open role' : `View ${count} open roles`;
+}

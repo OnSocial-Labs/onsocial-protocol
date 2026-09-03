@@ -1,9 +1,4 @@
-import type {
-  MaterialisedProfile,
-  OnSocial,
-  PageMoodId,
-  ProfileKind,
-} from '@onsocial/sdk';
+import type { MaterialisedProfile, OnSocial, PageMoodId } from '@onsocial/sdk';
 import type {
   DiscoverProfileSummary,
   DiscoverProfilesResponse,
@@ -41,15 +36,6 @@ export async function mapDiscoverPageToResponse(
     }
   }
 
-  let kinds: Partial<Record<string, ProfileKind>> = {};
-  if (accountIds.length > 0) {
-    try {
-      kinds = await os.query.profiles.kindsForAccounts(accountIds);
-    } catch {
-      // Kind is optional presentation.
-    }
-  }
-
   const profiles: DiscoverProfileSummary[] = page.profiles.map((row) => {
     const profile: MaterialisedProfile = {
       accountId: row.accountId,
@@ -57,7 +43,7 @@ export async function mapDiscoverPageToResponse(
       bio: row.bio ?? undefined,
       avatar: row.avatar ?? undefined,
       banner: row.banner ?? undefined,
-      kind: kinds[row.accountId] ?? row.kind,
+      kind: row.kind,
       extra: {},
     };
 

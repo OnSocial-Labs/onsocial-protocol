@@ -40,6 +40,10 @@ import {
   profileListResultRowClass,
 } from '@/features/profile/profile-list-row';
 import { fadeMotion } from '@/lib/motion';
+import {
+  discoverProfilesEmptyLabel,
+  hiringLineLabel,
+} from '@/lib/profile-jobs';
 import { getPortalProfileUrl } from '@/lib/portal-config';
 import { useProfile } from '@/contexts/profile-context';
 import { cn } from '@/lib/utils';
@@ -48,6 +52,8 @@ export interface ProfileDiscoverResult {
   accountId: string;
   profile: MaterialisedProfile | null;
   avatarUrl: string | null;
+  industry?: string | null;
+  openJobsCount?: number;
   standingCount: number;
   standingWithCount: number;
   mutualStandingCount: number;
@@ -534,11 +540,10 @@ export function ProfileDiscoveryPanel({
     containedScroll,
   ]);
 
-  const emptyLabel = useMemo(() => {
-    if (isLoading) return 'Finding profiles...';
-    if (trimmedQuery) return 'No matching profiles yet.';
-    return 'No profiles found yet.';
-  }, [isLoading, trimmedQuery]);
+  const emptyLabel = useMemo(
+    () => discoverProfilesEmptyLabel(isLoading, trimmedQuery, face, industry),
+    [face, industry, isLoading, trimmedQuery]
+  );
 
   const handleStanding = async (
     result: ProfileDiscoverResult,
@@ -634,6 +639,9 @@ export function ProfileDiscoveryPanel({
             {face !== 'people' ? (
               <button
                 type="button"
+                aria-pressed={Boolean(industry)}
+                aria-haspopup="dialog"
+                aria-expanded={industryOpen}
                 className={cn(
                   'rounded-full px-2.5 py-1 portal-type-body-sm',
                   industry
@@ -764,6 +772,11 @@ export function ProfileDiscoveryPanel({
                         </span>
                         {bio ? (
                           <span className={profileListBioClass}>{bio}</span>
+                        ) : null}
+                        {(result.openJobsCount ?? 0) > 0 ? (
+                          <span className={profileListBioClass}>
+                            {hiringLineLabel(result.openJobsCount ?? 0)}
+                          </span>
                         ) : null}
                         <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 portal-type-label text-muted-foreground/65">
                           <span

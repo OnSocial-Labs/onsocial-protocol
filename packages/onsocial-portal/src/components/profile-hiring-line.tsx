@@ -3,19 +3,12 @@
 import { useEffect, useState } from 'react';
 import { formatJobEndsLabel, type JobSearchRow } from '@onsocial/sdk';
 import { OsHugSheet } from '@onsocial/ui';
-
-const JOBS_CHANGED_EVENT = 'onsocial:jobs-changed';
-
-async function fetchOpenJobs(accountId: string): Promise<JobSearchRow[]> {
-  const response = await fetch(
-    `/api/profile/jobs?accountId=${encodeURIComponent(accountId)}`
-  );
-  if (!response.ok) return [];
-  const body = (await response.json().catch(() => null)) as {
-    jobs?: JobSearchRow[];
-  } | null;
-  return Array.isArray(body?.jobs) ? body.jobs : [];
-}
+import {
+  JOBS_CHANGED_EVENT,
+  fetchOpenJobs,
+  hiringLineAriaLabel,
+  hiringLineLabel,
+} from '@/lib/profile-jobs';
 
 export function ProfileHiringLine({
   accountId,
@@ -51,11 +44,12 @@ export function ProfileHiringLine({
       <button
         type="button"
         className="flex min-w-0 items-center gap-1.5 portal-type-body-sm text-muted-foreground/45"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={hiringLineAriaLabel(jobs.length)}
         onClick={() => setOpen(true)}
       >
-        <span className="truncate">
-          {jobs.length === 1 ? 'Hiring' : `Hiring · ${jobs.length}`}
-        </span>
+        <span className="truncate">{hiringLineLabel(jobs.length)}</span>
       </button>
       <OsHugSheet
         open={open}
