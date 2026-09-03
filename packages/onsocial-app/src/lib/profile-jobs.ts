@@ -23,6 +23,6 @@ export async function fetchOpenJobs(
 }
 
 export function hiringLineLabel(count: number): string {
-  if (count <= 0) return 'Hiring';
+  if (count <= 1) return 'Hiring';
   return `Hiring · ${count}`;
 }
