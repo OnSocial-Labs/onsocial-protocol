@@ -3,6 +3,7 @@ import {
   PROFILE_ABOUT_PHOTOS_MAX,
   moveProfileAboutPhoto,
   parseProfileAboutPhotoRefs,
+  profileAboutPhotoKey,
   profileAboutPhotoRefsEqual,
   profileAboutPhotosFromStored,
 } from './profile-about-photos';
@@ -58,6 +59,15 @@ describe('profileAboutPhotoRefsEqual', () => {
   it('compares order and values', () => {
     expect(profileAboutPhotoRefsEqual(['a', 'b'], ['a', 'b'])).toBe(true);
     expect(profileAboutPhotoRefsEqual(['a', 'b'], ['b', 'a'])).toBe(false);
+  });
+});
+
+describe('profileAboutPhotoKey', () => {
+  it('prefers a stable client key over the slot index', () => {
+    expect(profileAboutPhotoKey({ ref: 'ipfs://a', key: 'keep' }, 2)).toBe(
+      'keep'
+    );
+    expect(profileAboutPhotoKey({ ref: 'ipfs://a' }, 2)).toBe('ipfs://a');
   });
 });
 

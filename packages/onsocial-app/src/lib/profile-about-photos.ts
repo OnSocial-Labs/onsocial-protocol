@@ -71,6 +71,13 @@ export function profileAboutPhotoRefsEqual(
   return left.every((ref, index) => ref === right[index]);
 }
 
+export function profileAboutPhotoKey(
+  photo: { ref: string; key?: string },
+  index: number
+): string {
+  return photo.key || photo.ref || `photo-${index}`;
+}
+
 export function moveProfileAboutPhoto<T>(
   photos: T[],
   from: number,

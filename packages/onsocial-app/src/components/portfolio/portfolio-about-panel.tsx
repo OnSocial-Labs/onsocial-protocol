@@ -1,7 +1,7 @@
 'use client';
 
+import { PortfolioBioBlocks } from '@/components/portfolio/portfolio-bio-blocks';
 import { PortfolioIdentityTopics } from '@/components/portfolio/portfolio-identity-topics';
-import { PostRichText } from '@/features/home/post-rich-text';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { displayName, portfolioHandleForMood } from '@/lib/profile-display';
 import { portfolioAboutPrintUrl } from '@/lib/profile-bio-face';
@@ -89,52 +89,7 @@ export function PortfolioAboutPanel({
           ) : null}
           {essayBlocks.length > 0 ? (
             <div className="portfolio-about-essay">
-              {essayBlocks.map((block, index) => {
-                if (block.type === 'heading') {
-                  return (
-                    <h2
-                      key={`${index}-${block.text.slice(0, 24)}`}
-                      className="portfolio-about-heading"
-                    >
-                      <PostRichText
-                        text={block.text}
-                        emptyFallback=""
-                        showLinkIcon
-                      />
-                    </h2>
-                  );
-                }
-                if (block.type === 'list') {
-                  return (
-                    <ul
-                      key={`${index}-${block.items[0]?.slice(0, 24) ?? 'list'}`}
-                      className="portfolio-about-list"
-                    >
-                      {block.items.map((item, itemIndex) => (
-                        <li key={`${itemIndex}-${item.slice(0, 24)}`}>
-                          <PostRichText
-                            text={item}
-                            emptyFallback=""
-                            showLinkIcon
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                  );
-                }
-                return (
-                  <p
-                    key={`${index}-${block.text.slice(0, 24)}`}
-                    className="portfolio-about-bio"
-                  >
-                    <PostRichText
-                      text={block.text}
-                      emptyFallback=""
-                      showLinkIcon
-                    />
-                  </p>
-                );
-              })}
+              <PortfolioBioBlocks text={bio ?? ''} />
             </div>
           ) : null}
         </div>

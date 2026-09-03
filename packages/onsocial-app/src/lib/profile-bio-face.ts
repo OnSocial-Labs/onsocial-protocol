@@ -74,14 +74,6 @@ export function resolvePortfolioAboutBio(opts: {
   );
 }
 
-/** About essay — blank lines become paragraphs. Single `\n` stays in the block. */
-export function profileAboutEssayBlocks(text: string): string[] {
-  return normalizeBioNewlines(text)
-    .split(/\n{2,}/)
-    .map((block) => block.trim())
-    .filter(Boolean);
-}
-
 /** Real print only — empty / initials plates stay on the face. */
 export function portfolioAboutPrintUrl(
   avatarUrl?: string | null

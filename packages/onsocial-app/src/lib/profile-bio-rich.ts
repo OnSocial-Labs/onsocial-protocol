@@ -1,14 +1,23 @@
 /** Bio marks: `**bold**`, `*italic*`, `# heading`, `- list`. `#near` stays a hashtag. */
 
-import { splitProfileBioBoldDisplayRuns } from '@/lib/profile-bio-bold';
-
-export type ProfileBioItalicRange = {
+export type ProfileBioMarkRange = {
   wrapStart: number;
   innerStart: number;
   innerEnd: number;
   wrapEnd: number;
 };
 
+export type ProfileBioMarkRun = {
+  kind: 'plain' | 'mark' | 'bold' | 'italic';
+  value: string;
+};
+
+export type ProfileBioBoldRange = ProfileBioMarkRange;
+export type ProfileBioBoldRun = {
+  kind: 'plain' | 'bold' | 'mark';
+  value: string;
+};
+export type ProfileBioItalicRange = ProfileBioMarkRange;
 export type ProfileBioItalicRun = {
   kind: 'plain' | 'italic' | 'mark';
   value: string;
@@ -25,24 +34,74 @@ export type ProfileBioInlineRun = {
   value: string;
 };
 
+const BOLD_TOKEN = '**';
+const ITALIC_TOKEN = '*';
+const BOLD_PAIR = /\*\*((?:(?!\*\*).)+?)\*\*/g;
 const ITALIC_PAIR = /(?<!\*)\*((?:(?!\*).)+?)\*(?!\*)/g;
 const HEADING_LINE_RE = /^#\s+\S/;
 const LIST_LINE_RE = /^-\s+/;
+const WORD_CHAR_RE = /[\p{L}\p{N}_]/u;
 
-export function profileBioItalicRanges(text: string): ProfileBioItalicRange[] {
-  const ranges: ProfileBioItalicRange[] = [];
-  const re = new RegExp(ITALIC_PAIR.source, 'g');
+export function profileBioWordBounds(
+  text: string,
+  index: number
+): { start: number; end: number } {
+  const caret = clampIndex(text, index);
+  let start = caret;
+  let end = caret;
+  while (start > 0 && WORD_CHAR_RE.test(text[start - 1] ?? '')) {
+    start -= 1;
+  }
+  while (end < text.length && WORD_CHAR_RE.test(text[end] ?? '')) {
+    end += 1;
+  }
+  return { start, end };
+}
+
+export function profileBioMarkRanges(
+  text: string,
+  pair: RegExp,
+  tokenLength: number
+): ProfileBioMarkRange[] {
+  const ranges: ProfileBioMarkRange[] = [];
+  const re = new RegExp(pair.source, 'g');
   let match: RegExpExecArray | null;
   while ((match = re.exec(text))) {
-    const inner = match[1];
+    const inner = match[1] ?? '';
     ranges.push({
       wrapStart: match.index,
-      innerStart: match.index + 1,
-      innerEnd: match.index + 1 + inner.length,
+      innerStart: match.index + tokenLength,
+      innerEnd: match.index + tokenLength + inner.length,
       wrapEnd: match.index + match[0].length,
     });
   }
   return ranges;
+}
+
+export function profileBioBoldRanges(text: string): ProfileBioBoldRange[] {
+  return profileBioMarkRanges(text, BOLD_PAIR, BOLD_TOKEN.length);
+}
+
+export function profileBioItalicRanges(text: string): ProfileBioItalicRange[] {
+  return profileBioMarkRanges(text, ITALIC_PAIR, ITALIC_TOKEN.length);
+}
+
+function isRangeInsideMark(
+  ranges: ProfileBioMarkRange[],
+  start: number,
+  end: number
+): boolean {
+  const from = Math.min(start, end);
+  const to = Math.max(start, end);
+  return ranges.some((range) => from >= range.innerStart && to <= range.innerEnd);
+}
+
+export function isProfileBioRangeBold(
+  text: string,
+  start: number,
+  end: number
+): boolean {
+  return isRangeInsideMark(profileBioBoldRanges(text), start, end);
 }
 
 export function isProfileBioRangeItalic(
@@ -50,35 +109,58 @@ export function isProfileBioRangeItalic(
   start: number,
   end: number
 ): boolean {
-  const from = Math.min(start, end);
-  const to = Math.max(start, end);
-  return profileBioItalicRanges(text).some(
-    (range) => from >= range.innerStart && to <= range.innerEnd
-  );
+  return isRangeInsideMark(profileBioItalicRanges(text), start, end);
 }
 
-/** Editor backdrop — keep `*` in the stream so the overlay stays aligned. */
-export function splitProfileBioItalicEditorRuns(
-  text: string
-): ProfileBioItalicRun[] {
+function splitMarkEditorRuns(
+  text: string,
+  pair: RegExp,
+  token: string,
+  markedKind: 'bold' | 'italic'
+): ProfileBioMarkRun[] {
   if (!text) return [];
-  const runs: ProfileBioItalicRun[] = [];
-  const re = new RegExp(ITALIC_PAIR.source, 'g');
+  const runs: ProfileBioMarkRun[] = [];
+  const re = new RegExp(pair.source, 'g');
   let last = 0;
   let match: RegExpExecArray | null;
   while ((match = re.exec(text))) {
     if (match.index > last) {
       runs.push({ kind: 'plain', value: text.slice(last, match.index) });
     }
-    runs.push({ kind: 'mark', value: '*' });
-    runs.push({ kind: 'italic', value: match[1] });
-    runs.push({ kind: 'mark', value: '*' });
+    runs.push({ kind: 'mark', value: token });
+    runs.push({ kind: markedKind, value: match[1] ?? '' });
+    runs.push({ kind: 'mark', value: token });
     last = match.index + match[0].length;
   }
   if (last < text.length) {
     runs.push({ kind: 'plain', value: text.slice(last) });
   }
   return runs;
+}
+
+export function splitProfileBioBoldEditorRuns(
+  text: string
+): ProfileBioBoldRun[] {
+  return splitMarkEditorRuns(text, BOLD_PAIR, BOLD_TOKEN, 'bold') as ProfileBioBoldRun[];
+}
+
+export function splitProfileBioItalicEditorRuns(
+  text: string
+): ProfileBioItalicRun[] {
+  return splitMarkEditorRuns(
+    text,
+    ITALIC_PAIR,
+    ITALIC_TOKEN,
+    'italic'
+  ) as ProfileBioItalicRun[];
+}
+
+export function splitProfileBioBoldDisplayRuns(
+  text: string
+): Array<{ bold: boolean; value: string }> {
+  return splitProfileBioBoldEditorRuns(text)
+    .filter((run) => run.kind !== 'mark')
+    .map((run) => ({ bold: run.kind === 'bold', value: run.value }));
 }
 
 export function splitProfileBioItalicDisplayRuns(
@@ -89,7 +171,6 @@ export function splitProfileBioItalicDisplayRuns(
     .map((run) => ({ italic: run.kind === 'italic', value: run.value }));
 }
 
-/** Public bio — hide markers, keep weight and slant. */
 export function splitProfileBioInlineDisplayRuns(
   text: string
 ): ProfileBioInlineRun[] {
@@ -106,15 +187,19 @@ export function splitProfileBioInlineDisplayRuns(
   return runs;
 }
 
-export function toggleProfileBioItalic(
+function toggleProfileBioMark(
   text: string,
   start: number,
   end: number,
-  maxLength = Number.POSITIVE_INFINITY
+  opts: {
+    token: string;
+    ranges: (value: string) => ProfileBioMarkRange[];
+    maxLength: number;
+  }
 ): { text: string; start: number; end: number } {
   const from = clampIndex(text, Math.min(start, end));
   const to = clampIndex(text, Math.max(start, end));
-  const covering = profileBioItalicRanges(text).find(
+  const covering = opts.ranges(text).find(
     (range) => from >= range.wrapStart && to <= range.wrapEnd
   );
 
@@ -122,34 +207,32 @@ export function toggleProfileBioItalic(
     const inner = text.slice(covering.innerStart, covering.innerEnd);
     const next =
       text.slice(0, covering.wrapStart) + inner + text.slice(covering.wrapEnd);
+    const tokenLength = opts.token.length;
     const shift = (index: number) => {
       if (index <= covering.wrapStart) return index;
       if (index <= covering.innerStart) return covering.wrapStart;
-      if (index <= covering.innerEnd) return index - 1;
+      if (index <= covering.innerEnd) return index - tokenLength;
       return covering.wrapStart + inner.length;
     };
     return { text: next, start: shift(from), end: shift(to) };
   }
 
   if (from === to) {
-    if (text.length + 2 > maxLength) {
+    const word = profileBioWordBounds(text, from);
+    if (word.start === word.end) {
       return { text, start: from, end: to };
     }
-    return {
-      text: `${text.slice(0, from)}**${text.slice(to)}`,
-      start: from + 1,
-      end: from + 1,
-    };
+    return toggleProfileBioMark(text, word.start, word.end, opts);
   }
 
   const selected = text.slice(from, to);
+  const token = opts.token;
   if (
-    selected.startsWith('*') &&
-    selected.endsWith('*') &&
-    selected.length > 2 &&
-    !selected.startsWith('**')
+    selected.startsWith(token) &&
+    selected.endsWith(token) &&
+    selected.length > token.length * 2
   ) {
-    const inner = selected.slice(1, -1);
+    const inner = selected.slice(token.length, selected.length - token.length);
     return {
       text: text.slice(0, from) + inner + text.slice(to),
       start: from,
@@ -157,15 +240,41 @@ export function toggleProfileBioItalic(
     };
   }
 
-  if (text.length + 2 > maxLength) {
+  if (text.length + token.length * 2 > opts.maxLength) {
     return { text, start: from, end: to };
   }
 
   return {
-    text: `${text.slice(0, from)}*${selected}*${text.slice(to)}`,
-    start: from + 1,
-    end: to + 1,
+    text: `${text.slice(0, from)}${token}${selected}${token}${text.slice(to)}`,
+    start: from + token.length,
+    end: to + token.length,
   };
+}
+
+export function toggleProfileBioBold(
+  text: string,
+  start: number,
+  end: number,
+  maxLength = Number.POSITIVE_INFINITY
+): { text: string; start: number; end: number } {
+  return toggleProfileBioMark(text, start, end, {
+    token: BOLD_TOKEN,
+    ranges: profileBioBoldRanges,
+    maxLength,
+  });
+}
+
+export function toggleProfileBioItalic(
+  text: string,
+  start: number,
+  end: number,
+  maxLength = Number.POSITIVE_INFINITY
+): { text: string; start: number; end: number } {
+  return toggleProfileBioMark(text, start, end, {
+    token: ITALIC_TOKEN,
+    ranges: profileBioItalicRanges,
+    maxLength,
+  });
 }
 
 export function isProfileBioHeadingLine(line: string): boolean {
@@ -174,6 +283,11 @@ export function isProfileBioHeadingLine(line: string): boolean {
 
 export function isProfileBioListLine(line: string): boolean {
   return LIST_LINE_RE.test(line);
+}
+
+/** `#near` / a lone `#` — Discover tags, not headings. */
+export function isProfileBioHashtagLine(line: string): boolean {
+  return line.startsWith('#') && !isProfileBioHeadingLine(line);
 }
 
 export function isProfileBioRangeHeading(
@@ -211,6 +325,7 @@ export function toggleProfileBioHeading(
   return toggleProfileBioLinePrefix(text, start, end, {
     isPrefixed: isProfileBioHeadingLine,
     prefix: '# ',
+    skip: isProfileBioHashtagLine,
     maxLength,
   });
 }
@@ -229,8 +344,9 @@ export function toggleProfileBioList(
 }
 
 /**
- * About blocks — `# Title` is a heading, `- item` is a list, `#near` stays prose.
- * Blank lines separate paragraphs; a heading or list also breaks the block.
+ * About / face blocks — `# Title` is a heading, `- item` is a list,
+ * `#near` stays prose. Blank lines separate paragraphs; a heading or list
+ * also breaks the block.
  */
 export function profileAboutBlocks(text: string): ProfileAboutBlock[] {
   const lines = text.replace(/\r\n/g, '\n').split('\n');
@@ -312,6 +428,7 @@ function toggleProfileBioLinePrefix(
   opts: {
     isPrefixed: (line: string) => boolean;
     prefix: string;
+    skip?: (line: string) => boolean;
     maxLength: number;
   }
 ): { text: string; start: number; end: number } {
@@ -322,15 +439,24 @@ function toggleProfileBioLinePrefix(
     return { text, start: from, end: to };
   }
 
-  const allPrefixed = spans.every((span) =>
+  const writable = spans.filter((span) => {
+    const line = text.slice(span.start, span.end);
+    return !opts.skip?.(line);
+  });
+  if (writable.length === 0) {
+    return { text, start: from, end: to };
+  }
+
+  const allPrefixed = writable.every((span) =>
     opts.isPrefixed(text.slice(span.start, span.end))
   );
   const prefixLength = opts.prefix.length;
 
   if (!allPrefixed) {
     const needed =
-      spans.filter((span) => !opts.isPrefixed(text.slice(span.start, span.end)))
-        .length * prefixLength;
+      writable.filter(
+        (span) => !opts.isPrefixed(text.slice(span.start, span.end))
+      ).length * prefixLength;
     if (text.length + needed > opts.maxLength) {
       return { text, start: from, end: to };
     }
@@ -340,7 +466,7 @@ function toggleProfileBioLinePrefix(
   let startShift = 0;
   let endShift = 0;
 
-  for (const span of [...spans].reverse()) {
+  for (const span of [...writable].reverse()) {
     const line = next.slice(span.start, span.end);
     if (allPrefixed) {
       const unwrapped = unwrapLinePrefix(line, opts.prefix);

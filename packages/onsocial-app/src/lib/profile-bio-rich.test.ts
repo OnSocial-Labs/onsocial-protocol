@@ -34,6 +34,22 @@ describe('toggleProfileBioItalic', () => {
       end: 10,
     });
   });
+
+  it('wraps the word under the caret when there is no selection', () => {
+    expect(toggleProfileBioItalic('hello there', 1, 1)).toEqual({
+      text: '*hello* there',
+      start: 1,
+      end: 6,
+    });
+  });
+
+  it('does not insert an empty nest between words', () => {
+    expect(toggleProfileBioItalic('hi ', 3, 3)).toEqual({
+      text: 'hi ',
+      start: 3,
+      end: 3,
+    });
+  });
 });
 
 describe('splitProfileBioInlineDisplayRuns', () => {
@@ -70,6 +86,19 @@ describe('toggleProfileBioHeading', () => {
   it('unwraps an existing heading', () => {
     expect(toggleProfileBioHeading('# Hello\nthere', 2, 2)).toEqual({
       text: 'Hello\nthere',
+      start: 0,
+      end: 0,
+    });
+  });
+
+  it('does not turn #near into a heading', () => {
+    expect(toggleProfileBioHeading('#near forever', 1, 1)).toEqual({
+      text: '#near forever',
+      start: 1,
+      end: 1,
+    });
+    expect(toggleProfileBioHeading('#', 0, 0)).toEqual({
+      text: '#',
       start: 0,
       end: 0,
     });

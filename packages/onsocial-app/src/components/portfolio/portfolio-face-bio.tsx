@@ -1,7 +1,8 @@
 'use client';
 
 import { PortfolioAboutLink } from '@/components/portfolio/portfolio-about-link';
-import { PostRichText } from '@/features/home/post-rich-text';
+import { PortfolioBioBlocks } from '@/components/portfolio/portfolio-bio-blocks';
+import { profileAboutBlocks } from '@/lib/profile-bio-rich';
 import { profileBioFace } from '@/lib/profile-bio-face';
 
 export function PortfolioFaceBio({
@@ -14,13 +15,13 @@ export function PortfolioFaceBio({
   showAbout?: boolean;
 }) {
   const faceText = profileBioFace(text);
-  if (!faceText) return null;
+  if (!faceText || profileAboutBlocks(faceText).length === 0) return null;
 
   return (
     <>
-      <p className="portfolio-bio portfolio-bio--face">
-        <PostRichText text={faceText} emptyFallback="" showLinkIcon />
-      </p>
+      <div className="portfolio-bio portfolio-bio--face">
+        <PortfolioBioBlocks text={faceText} headingAs="p" />
+      </div>
       {showAbout ? <PortfolioAboutLink accountId={accountId} /> : null}
     </>
   );

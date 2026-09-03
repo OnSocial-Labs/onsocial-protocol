@@ -7570,12 +7570,37 @@ a.os-surface-row {
     overflow-wrap: anywhere;
   }
 
-  /* Face — first four lines. Overflow opens About. */
+  /* Face — first four lines, same blocks as About. Overflow opens About. */
   .portfolio-bio--face {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 4;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+    max-height: calc(1.5em * 4);
     overflow: hidden;
+  }
+
+  .portfolio-bio--face .portfolio-about-heading,
+  .portfolio-bio--face .portfolio-about-bio,
+  .portfolio-bio--face .portfolio-about-list {
+    margin: 0;
+    max-width: none;
+    font-size: inherit;
+    line-height: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+  }
+
+  .portfolio-bio--face .portfolio-about-heading {
+    font-weight: 650;
+  }
+
+  .portfolio-bio--face .portfolio-about-list {
+    padding-left: 1.1em;
+  }
+
+  .portfolio-bio--face .portfolio-about-list li + li {
+    margin-top: 0.15em;
   }
 
   .portfolio-about-link {

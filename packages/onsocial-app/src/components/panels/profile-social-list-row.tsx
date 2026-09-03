@@ -355,7 +355,12 @@ export function ProfileSocialListRow({
         >
           {bio ? (
             <span className="standing-row-bio">
-              <PostRichText text={bio} emptyFallback="" showLinkIcon />
+              <PostRichText
+                text={bio}
+                emptyFallback=""
+                showLinkIcon
+                inlineMarks
+              />
             </span>
           ) : null}
           {hiringHint ? (

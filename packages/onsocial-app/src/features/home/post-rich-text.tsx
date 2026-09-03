@@ -21,10 +21,13 @@ export function PostRichText({
   emptyFallback = '…',
   /** Bio / portfolio: Mage link icon. Posts: plain blue host label. */
   showLinkIcon = false,
+  /** Bio only — posts and DMs stay hashtag / mention / url. */
+  inlineMarks = false,
 }: {
   text: string;
   emptyFallback?: string;
   showLinkIcon?: boolean;
+  inlineMarks?: boolean;
 }) {
   const activeFocus = useHomeActiveFocus();
 
@@ -34,6 +37,9 @@ export function PostRichText({
     <>
       {splitPostRichText(text).map((segment, index) => {
         if (segment.type === 'text') {
+          if (!inlineMarks) {
+            return <span key={`t-${index}`}>{segment.value}</span>;
+          }
           return (
             <span key={`t-${index}`}>
               {splitProfileBioInlineDisplayRuns(segment.value).map(

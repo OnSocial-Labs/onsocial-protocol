@@ -22,11 +22,19 @@ describe('toggleProfileBioBold', () => {
     });
   });
 
-  it('inserts a bold nest when there is no selection', () => {
+  it('wraps the word under the caret when there is no selection', () => {
+    expect(toggleProfileBioBold('hello there', 1, 1)).toEqual({
+      text: '**hello** there',
+      start: 2,
+      end: 7,
+    });
+  });
+
+  it('does not insert an empty nest between words', () => {
     expect(toggleProfileBioBold('hi ', 3, 3)).toEqual({
-      text: 'hi ****',
-      start: 5,
-      end: 5,
+      text: 'hi ',
+      start: 3,
+      end: 3,
     });
   });
 

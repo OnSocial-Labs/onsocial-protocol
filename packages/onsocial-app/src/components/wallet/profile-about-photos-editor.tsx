@@ -7,11 +7,13 @@ import {
   PROFILE_ABOUT_PHOTO_ACCEPT,
   isProfileAboutPhotoFile,
   moveProfileAboutPhoto,
+  profileAboutPhotoKey,
   type ProfileAboutPhoto,
 } from '@/lib/profile-about-photos';
 
 export type ProfileAboutPhotoDraft = ProfileAboutPhoto & {
   file?: File | null;
+  key?: string;
 };
 
 interface ProfileAboutPhotosEditorProps {
@@ -27,18 +29,27 @@ export function ProfileAboutPhotosEditor({
 }: ProfileAboutPhotosEditorProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const itemRefs = useRef<Array<HTMLLIElement | null>>([]);
-  const dragRef = useRef<{ from: number; over: number } | null>(null);
+  const photosRef = useRef(photos);
+  const dragRef = useRef<{ from: number } | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
-  const [dragOver, setDragOver] = useState<number | null>(null);
   const atMax = photos.length >= PROFILE_ABOUT_PHOTOS_MAX;
   const canReorder = !disabled && photos.length > 1;
+  photosRef.current = photos;
 
   const handleAdd = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     event.target.value = '';
     if (!file || disabled || atMax || !isProfileAboutPhotoFile(file)) return;
     const url = URL.createObjectURL(file);
-    onChange([...photos, { ref: `local:${file.name}`, url, file }]);
+    onChange([
+      ...photos,
+      {
+        key: `local:${crypto.randomUUID()}`,
+        ref: `local:${file.name}`,
+        url,
+        file,
+      },
+    ]);
   };
 
   const handleRemove = (index: number) => {
@@ -52,7 +63,7 @@ export function ProfileAboutPhotosEditor({
   };
 
   const indexFromPoint = (x: number, y: number): number | null => {
-    for (let index = 0; index < photos.length; index += 1) {
+    for (let index = 0; index < photosRef.current.length; index += 1) {
       const el = itemRefs.current[index];
       if (!el) continue;
       const rect = el.getBoundingClientRect();
@@ -69,12 +80,8 @@ export function ProfileAboutPhotosEditor({
   };
 
   const finishDrag = () => {
-    const drag = dragRef.current;
     dragRef.current = null;
     setDragFrom(null);
-    setDragOver(null);
-    if (!drag || drag.from === drag.over) return;
-    onChange(moveProfileAboutPhoto(photos, drag.from, drag.over));
   };
 
   const handleDragPointerDown = (
@@ -84,17 +91,18 @@ export function ProfileAboutPhotosEditor({
     if (!canReorder || event.button !== 0) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
-    dragRef.current = { from: index, over: index };
+    dragRef.current = { from: index };
     setDragFrom(index);
-    setDragOver(index);
   };
 
   const handleDragPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
-    if (!dragRef.current) return;
+    const drag = dragRef.current;
+    if (!drag) return;
     const over = indexFromPoint(event.clientX, event.clientY);
-    if (over === null || over === dragRef.current.over) return;
-    dragRef.current = { ...dragRef.current, over };
-    setDragOver(over);
+    if (over === null || over === drag.from) return;
+    onChange(moveProfileAboutPhoto(photosRef.current, drag.from, over));
+    drag.from = over;
+    setDragFrom(over);
   };
 
   return (
@@ -112,17 +120,11 @@ export function ProfileAboutPhotosEditor({
         >
           {photos.map((photo, index) => (
             <li
-              key={`${photo.ref}-${index}`}
+              key={profileAboutPhotoKey(photo, index)}
               ref={(node) => {
                 itemRefs.current[index] = node;
               }}
-              className={
-                dragFrom === index
-                  ? 'is-dragging'
-                  : dragOver === index
-                    ? 'is-drop-target'
-                    : undefined
-              }
+              className={dragFrom === index ? 'is-dragging' : undefined}
             >
               <img alt="" src={photo.url} draggable={false} />
               {canReorder ? (
