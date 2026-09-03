@@ -20,6 +20,7 @@ function baseSnapshot(
     bannerMedia: { kind: 'image', url: 'https://cdn.example/banner.png' },
     links: {},
     pageConfig: {},
+    tags: [],
     ...overrides,
   };
 }
@@ -38,6 +39,7 @@ function dirtyInput(
     kind: snapshot.kind === 'org' ? 'org' : 'person',
     bio: snapshot.bio,
     links: linksFromSnapshot,
+    tags: snapshot.tags,
     linkNotes: sanitizeLinkNotes(snapshot.pageConfig.linkNotes),
     avatarFile: null,
     bannerFile: null,
@@ -120,6 +122,13 @@ describe('isProfileEditorDirty', () => {
       isProfileEditorDirty(
         dirtyInput(snapshot, { kind: 'org', industry: 'Film' })
       )
+    ).toBe(true);
+  });
+
+  it('is dirty when identity topics change', () => {
+    const snapshot = baseSnapshot({ tags: ['design'] });
+    expect(
+      isProfileEditorDirty(dirtyInput(snapshot, { tags: ['writing'] }))
     ).toBe(true);
   });
 

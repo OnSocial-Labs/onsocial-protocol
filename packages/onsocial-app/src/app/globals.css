@@ -7114,6 +7114,119 @@ a.os-surface-row {
     line-height: inherit;
   }
 
+  .portfolio-topics {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.12rem 0.08rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-width: min(100%, 22rem);
+    font-size: 0.94rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.35;
+    text-align: center;
+    color: var(--portfolio-meta-color);
+  }
+
+  .portfolio-topics-item {
+    display: inline-flex;
+    align-items: baseline;
+    min-width: 0;
+  }
+
+  .portfolio-topics-sep {
+    margin: 0 0.28em 0 0.18em;
+    color: rgb(var(--fg-rgb) / 0.28);
+    font-weight: 400;
+  }
+
+  .portfolio-topics-link,
+  .portfolio-topics-label {
+    color: inherit;
+    text-decoration: none;
+    opacity: 0.88;
+  }
+
+  .portfolio-topics-link:hover,
+  .portfolio-topics-link:focus-visible {
+    opacity: 1;
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
+  }
+
+  .account-editor-topics {
+    width: 100%;
+    margin: 0.12rem 0 0;
+  }
+
+  .account-editor-topics-list.portfolio-topics {
+    margin-top: 0;
+  }
+
+  .account-editor-topics-draft {
+    display: inline-flex;
+    min-width: 0;
+  }
+
+  .account-editor-topics-input {
+    width: 7.5rem;
+    max-width: 100%;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: inherit;
+    letter-spacing: inherit;
+    text-align: center;
+    padding: 0;
+    opacity: 0.55;
+  }
+
+  .account-editor-topics-input:focus {
+    outline: none;
+    opacity: 0.92;
+  }
+
+  .account-editor-topics-input::placeholder {
+    color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .account-editor-topic-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    margin-left: 0.08rem;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.38);
+    cursor: pointer;
+  }
+
+  .account-editor-topic-remove:hover,
+  .account-editor-topic-remove:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.78);
+  }
+
+  .account-editor-topic-remove-icon {
+    width: 0.62rem;
+    height: 0.62rem;
+  }
+
+  .account-editor-topics-hint {
+    margin: 0.12rem 0 0;
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    color: rgb(var(--fg-rgb) / 0.4);
+  }
+
   .portfolio-handle-marks {
     display: inline-flex;
     flex: 0 0 auto;
@@ -7329,6 +7442,8 @@ a.os-surface-row {
   .profile-edit-slide[data-mood] .account-editor-bio,
   .portfolio-frame[data-mood] .portfolio-handle,
   .profile-edit-slide[data-mood] .account-editor-handle,
+  .portfolio-frame[data-mood] .portfolio-topics,
+  .profile-edit-slide[data-mood] .account-editor-topics,
   .portfolio-frame[data-mood] .portfolio-location,
   .profile-edit-slide[data-mood] .account-editor-location {
     font-family: var(--font-space-grotesk), system-ui, sans-serif;
