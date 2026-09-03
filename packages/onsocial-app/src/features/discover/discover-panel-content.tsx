@@ -160,7 +160,7 @@ export function DiscoverPanelContent() {
             >
               {showListSkeleton ? (
                 <ProfileSocialListSkeleton rowVariant="discover" />
-              ) : profilesForList.length === 0 ? (
+              ) : loadError ? null : profilesForList.length === 0 ? (
                 !hasRecommended && (!isSearchEmpty || searchSettled) ? (
                   <div
                     className={`standing-panel-empty-block${
