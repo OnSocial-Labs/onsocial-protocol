@@ -9968,6 +9968,10 @@ a.os-surface-row {
     gap: 0.45rem;
   }
 
+  .discover-recommended-peek {
+    margin-bottom: 1.1rem;
+  }
+
   .discover-trending-section-head {
     display: flex;
     align-items: baseline;

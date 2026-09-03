@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useMemo, useState } from 'react';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
@@ -10,11 +11,25 @@ import { DiscoverHubsPanel } from '@/features/discover/discover-hubs-panel';
 import { DiscoverFocusListPanel } from '@/features/discover/discover-focus-list-panel';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
+import { DiscoverRecommendedPeek } from '@/features/discover/discover-recommended-peek';
 import { DiscoverTrendingPanel } from '@/features/discover/discover-trending-panel';
 import { DiscoverFaceFilterRail } from '@/features/discover/discover-face-filter-rail';
+import { excludeRecommendedFromList } from '@/lib/discover-recommended';
 import { discoverProfilesLead } from '@/lib/discover-tab-lead';
 
 export function DiscoverPanelContent() {
+  const [recommendedShownIds, setRecommendedShownIds] = useState<string[]>([]);
+  const handleRecommendedShownIds = useCallback((ids: string[]) => {
+    setRecommendedShownIds((prev) => {
+      if (
+        prev.length === ids.length &&
+        prev.every((id, index) => id === ids[index])
+      ) {
+        return prev;
+      }
+      return ids;
+    });
+  }, []);
   const {
     listAccounts,
     viewerAccountId,
@@ -46,14 +61,16 @@ export function DiscoverPanelContent() {
     handleUpdateStanding,
     initialTrending,
   } = useDiscoverPanel();
+  const profilesForList = useMemo(
+    () => excludeRecommendedFromList(listAccounts, recommendedShownIds),
+    [listAccounts, recommendedShownIds]
+  );
+  const hasRecommended = recommendedShownIds.length > 0;
 
   return (
     <OsAppChromePage className="standing-panel discover-panel">
       {tab === 'trending' ? (
-        <DiscoverTrendingPanel
-          onOpenTab={setTab}
-          initial={initialTrending}
-        />
+        <DiscoverTrendingPanel onOpenTab={setTab} initial={initialTrending} />
       ) : null}
 
       {tab === 'profiles' ? (
@@ -87,50 +104,52 @@ export function DiscoverPanelContent() {
               isListRefreshing && !showListSkeleton ? ' is-refreshing' : ''
             }`}
           >
+            <DiscoverRecommendedPeek
+              onShownIdsChange={handleRecommendedShownIds}
+            />
+
             {showListSkeleton ? (
               <ProfileSocialListSkeleton rowVariant="discover" />
-            ) : listAccounts.length === 0 ? (
-              !isSearchEmpty || searchSettled ? (
-              <div
-                className={`standing-panel-empty-block${
-                  isSearchEmpty ? ' is-search' : ''
-                }`}
-              >
-                <div className="standing-panel-empty-state">
-                  <p className="standing-panel-empty-primary">
-                    {emptyState.primary}
-                  </p>
-                  {emptyState.secondary ? (
-                    <p className="standing-panel-empty-secondary">
-                      {emptyState.secondary}
+            ) : profilesForList.length === 0 ? (
+              !hasRecommended && (!isSearchEmpty || searchSettled) ? (
+                <div
+                  className={`standing-panel-empty-block${
+                    isSearchEmpty ? ' is-search' : ''
+                  }`}
+                >
+                  <div className="standing-panel-empty-state">
+                    <p className="standing-panel-empty-primary">
+                      {emptyState.primary}
                     </p>
-                  ) : null}
-                  {emptyState.showClearSearch ? (
-                    <div className="standing-panel-empty-actions">
-                      <button
-                        type="button"
-                        className="standing-panel-empty-action"
-                        onClick={clearSearch}
-                      >
-                        Clear search
-                      </button>
-                    </div>
-                  ) : null}
+                    {emptyState.secondary ? (
+                      <p className="standing-panel-empty-secondary">
+                        {emptyState.secondary}
+                      </p>
+                    ) : null}
+                    {emptyState.showClearSearch ? (
+                      <div className="standing-panel-empty-actions">
+                        <button
+                          type="button"
+                          className="standing-panel-empty-action"
+                          onClick={clearSearch}
+                        >
+                          Clear search
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
               ) : null
             ) : (
               <ProfileSocialList
-                accounts={listAccounts}
+                accounts={profilesForList}
                 listKey={listKey}
                 viewerAccountId={viewerAccountId}
                 showSolidarityBadge
                 standingTimeMode="viewer-only"
                 skeletonRowVariant="discover"
                 viewerRelationshipsLoading={
-                  isConnected &&
-                  Boolean(viewerAccountId) &&
-                  !relationshipSynced
+                  isConnected && Boolean(viewerAccountId) && !relationshipSynced
                 }
                 canUpdateStandingFor={(account) =>
                   isConnected &&
