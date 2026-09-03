@@ -8,9 +8,14 @@ import {
   PROFILE_INDUSTRY_MAX,
   PROFILE_LOCATION_MAX,
   editorFaceKind,
+  isProfileIndustryWriteIn,
+  isProfileIndustryWriteInMode,
+  matchProfileIndustryOption,
   normalizeProfileIndustryInput,
   normalizeProfileLocationInput,
   profileAvatarShapeFromKind,
+  profileIndustryChoiceOptions,
+  profileIndustryDrawerValue,
   profileIndustryFromMaterialised,
   profileKindFromMaterialised,
   profileLocationFromMaterialised,
@@ -21,9 +26,11 @@ import {
 } from '@onsocial/sdk';
 import {
   BuildingTreeIcon,
+  ChoiceDrawer,
   OsSheetAction,
   OsSheetActions,
   ProfileEditorMediaToolbar,
+  type ChoiceOption,
 } from '@onsocial/ui';
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
@@ -131,6 +138,10 @@ function getInitialKind(profile: MaterialisedProfile | null): ProfileKind {
   return editorFaceKind(profileKindFromMaterialised(profile));
 }
 
+const PROFILE_INDUSTRY_CHOICES: ChoiceOption<string>[] =
+  profileIndustryChoiceOptions();
+const PORTAL_INDUSTRY_DRAWER_Z = 2147483647;
+
 export function ProfileEditor({
   open,
   accountId,
@@ -147,9 +158,14 @@ export function ProfileEditor({
   const reduceMotion = useReducedMotion();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const bannerInputRef = useRef<HTMLInputElement | null>(null);
+  const industryInputRef = useRef<HTMLInputElement | null>(null);
   const [name, setName] = useState(getInitialName(profile));
   const [location, setLocation] = useState(getInitialLocation(profile));
   const [industry, setIndustry] = useState(getInitialIndustry(profile));
+  const [industryWriteIn, setIndustryWriteIn] = useState(() =>
+    isProfileIndustryWriteInMode(getInitialIndustry(profile))
+  );
+  const [industryDrawerOpen, setIndustryDrawerOpen] = useState(false);
   const [kind, setKind] = useState<ProfileKind>(() => getInitialKind(profile));
   const [bio, setBio] = useState(getInitialBio(profile));
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
@@ -620,7 +636,11 @@ export function ProfileEditor({
                                 disabled={isSaving}
                                 onClick={() => {
                                   setKind(option.value);
-                                  if (option.value !== 'org') setIndustry('');
+                                  if (option.value !== 'org') {
+                                    setIndustry('');
+                                    setIndustryWriteIn(false);
+                                    setIndustryDrawerOpen(false);
+                                  }
                                   markDirty();
                                 }}
                                 className={cn(
@@ -635,38 +655,106 @@ export function ProfileEditor({
                             ))}
                           </div>
                           {kind === 'org' ? (
-                            <label
-                              htmlFor="profile-industry"
-                              className="mt-1 flex items-center gap-1.5"
-                            >
-                              <span className="sr-only">Industry</span>
-                              <BuildingTreeIcon
-                                className="h-3.5 w-3.5 shrink-0 text-muted-foreground/55"
-                                aria-hidden
-                              />
-                              <input
-                                id="profile-industry"
-                                value={industry}
-                                onChange={(event) => {
-                                  setIndustry(
-                                    sanitizeProfileIndustryDraft(
-                                      event.target.value
-                                    )
-                                  );
+                            <>
+                              {industryWriteIn ? (
+                                <label
+                                  htmlFor="profile-industry"
+                                  className="mt-1 flex items-center gap-1.5"
+                                >
+                                  <span className="sr-only">Industry</span>
+                                  <button
+                                    type="button"
+                                    disabled={isSaving}
+                                    aria-label="Choose industry"
+                                    className="shrink-0 text-muted-foreground/55"
+                                    onClick={() => setIndustryDrawerOpen(true)}
+                                  >
+                                    <BuildingTreeIcon
+                                      className="h-3.5 w-3.5"
+                                      aria-hidden
+                                    />
+                                  </button>
+                                  <input
+                                    ref={industryInputRef}
+                                    id="profile-industry"
+                                    value={industry}
+                                    onChange={(event) => {
+                                      setIndustry(
+                                        sanitizeProfileIndustryDraft(
+                                          event.target.value
+                                        )
+                                      );
+                                      markDirty();
+                                    }}
+                                    onBlur={() => {
+                                      const trimmed =
+                                        normalizeProfileIndustryInput(industry);
+                                      if (trimmed !== industry)
+                                        setIndustry(trimmed);
+                                      if (
+                                        !trimmed ||
+                                        matchProfileIndustryOption(trimmed)
+                                      ) {
+                                        setIndustryWriteIn(false);
+                                      }
+                                    }}
+                                    maxLength={PROFILE_INDUSTRY_MAX}
+                                    autoComplete="organization-title"
+                                    placeholder="Industry"
+                                    className="w-full bg-transparent portal-type-body-sm text-muted-foreground/70 outline-none placeholder:text-muted-foreground/35"
+                                  />
+                                </label>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={isSaving}
+                                  aria-haspopup="dialog"
+                                  aria-expanded={industryDrawerOpen}
+                                  className="mt-1 flex w-full items-center gap-1.5 text-left"
+                                  onClick={() => setIndustryDrawerOpen(true)}
+                                >
+                                  <BuildingTreeIcon
+                                    className="h-3.5 w-3.5 shrink-0 text-muted-foreground/55"
+                                    aria-hidden
+                                  />
+                                  <span
+                                    className={`portal-type-body-sm ${
+                                      industry
+                                        ? 'text-muted-foreground/70'
+                                        : 'text-muted-foreground/35'
+                                    }`}
+                                  >
+                                    {industry || 'Industry'}
+                                  </span>
+                                </button>
+                              )}
+                              <ChoiceDrawer
+                                open={industryDrawerOpen}
+                                onClose={() => setIndustryDrawerOpen(false)}
+                                label="Industry"
+                                copy="Optional. Skip to stay Organization."
+                                value={profileIndustryDrawerValue(industry)}
+                                options={PROFILE_INDUSTRY_CHOICES}
+                                onChange={(next) => {
+                                  if (isProfileIndustryWriteIn(next)) {
+                                    setIndustryWriteIn(true);
+                                    if (matchProfileIndustryOption(industry)) {
+                                      setIndustry('');
+                                    }
+                                    markDirty();
+                                    window.setTimeout(
+                                      () => industryInputRef.current?.focus(),
+                                      0
+                                    );
+                                    return;
+                                  }
+                                  setIndustryWriteIn(false);
+                                  setIndustry(next);
                                   markDirty();
                                 }}
-                                onBlur={() => {
-                                  const trimmed =
-                                    normalizeProfileIndustryInput(industry);
-                                  if (trimmed !== industry)
-                                    setIndustry(trimmed);
-                                }}
-                                maxLength={PROFILE_INDUSTRY_MAX}
-                                autoComplete="organization-title"
-                                placeholder="Industry"
-                                className="w-full bg-transparent portal-type-body-sm text-muted-foreground/70 outline-none placeholder:text-muted-foreground/35"
+                                zIndex={PORTAL_INDUSTRY_DRAWER_Z}
                               />
-                            </label>
+                            </>
                           ) : null}
                           <label htmlFor="profile-location" className="sr-only">
                             Location

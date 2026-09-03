@@ -20,17 +20,23 @@ import {
   PROFILE_INDUSTRY_MAX,
   PROFILE_LOCATION_MAX,
   editorFaceKind,
-  profileAvatarShapeFromKind,
+  isProfileIndustryWriteIn,
+  isProfileIndustryWriteInMode,
+  matchProfileIndustryOption,
+  profileIndustryChoiceOptions,
+  profileIndustryDrawerValue,
   sanitizeProfileIndustryDraft,
   sanitizeProfileLocationDraft,
   type ProfileKind,
 } from '@onsocial/sdk';
 import {
+  ChoiceDrawer,
   DiscardConfirmSheet,
   OsSheetAction,
   OsSheetActions,
   ProfileEditorMediaToolbar,
   useDiscardConfirm,
+  type ChoiceOption,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
@@ -73,6 +79,9 @@ const PROFILE_BIO_LIMIT_WARN = 150;
 
 const PROFILE_BANNER_ACCEPT =
   'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm';
+
+const PROFILE_INDUSTRY_CHOICES: ChoiceOption<string>[] =
+  profileIndustryChoiceOptions();
 
 function useObjectUrl(file: File | null): string | null {
   const url = useMemo(() => {
@@ -138,6 +147,7 @@ export function AppProfileEditorSheet({
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const bioRef = useRef<HTMLTextAreaElement>(null);
+  const industryInputRef = useRef<HTMLInputElement>(null);
 
   const {
     snapshot,
@@ -154,6 +164,8 @@ export function AppProfileEditorSheet({
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [industry, setIndustry] = useState('');
+  const [industryWriteIn, setIndustryWriteIn] = useState(false);
+  const [industryDrawerOpen, setIndustryDrawerOpen] = useState(false);
   const [kind, setKind] = useState<ProfileKind>('person');
   const [bio, setBio] = useState('');
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
@@ -180,6 +192,8 @@ export function AppProfileEditorSheet({
     setName(snapshot.name);
     setLocation(snapshot.location);
     setIndustry(snapshot.industry ?? '');
+    setIndustryWriteIn(isProfileIndustryWriteInMode(snapshot.industry ?? ''));
+    setIndustryDrawerOpen(false);
     setKind(editorFaceKind(snapshot.kind));
     setBio(snapshot.bio);
     setLinks(linksFromSnapshot);
@@ -353,6 +367,17 @@ export function AppProfileEditorSheet({
       if (current[key] === message) return current;
       return { ...current, [key]: message };
     });
+  };
+
+  const handleIndustryChoice = (next: string) => {
+    if (isProfileIndustryWriteIn(next)) {
+      setIndustryWriteIn(true);
+      if (matchProfileIndustryOption(industry)) setIndustry('');
+      window.setTimeout(() => industryInputRef.current?.focus(), 0);
+      return;
+    }
+    setIndustryWriteIn(false);
+    setIndustry(next);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -641,7 +666,11 @@ export function AppProfileEditorSheet({
                               disabled={saving}
                               onClick={() => {
                                 setKind(option.value);
-                                if (option.value !== 'org') setIndustry('');
+                                if (option.value !== 'org') {
+                                  setIndustry('');
+                                  setIndustryWriteIn(false);
+                                  setIndustryDrawerOpen(false);
+                                }
                               }}
                             >
                               {option.label}
@@ -649,36 +678,84 @@ export function AppProfileEditorSheet({
                           ))}
                         </div>
                         {kind === 'org' ? (
-                          <label
-                            className="account-editor-location-row"
-                            htmlFor="profile-editor-industry"
-                          >
-                            <span className="sr-only">Industry</span>
-                            <PortfolioOrgKindMark />
-                            <input
-                              id="profile-editor-industry"
-                              className="account-editor-location"
-                              value={industry}
-                              maxLength={PROFILE_INDUSTRY_MAX}
-                              autoComplete="organization-title"
-                              placeholder="Industry"
-                              disabled={saving}
-                              onFocus={scrollFieldIntoView}
-                              onChange={(event) =>
-                                setIndustry(
-                                  sanitizeProfileIndustryDraft(
-                                    event.target.value
-                                  )
-                                )
-                              }
-                              onBlur={() => {
-                                const trimmed = industry
-                                  .trim()
-                                  .replace(/\s+/g, ' ');
-                                if (trimmed !== industry) setIndustry(trimmed);
-                              }}
+                          <>
+                            {industryWriteIn ? (
+                              <label
+                                className="account-editor-location-row"
+                                htmlFor="profile-editor-industry"
+                              >
+                                <span className="sr-only">Industry</span>
+                                <button
+                                  type="button"
+                                  className="account-editor-industry-mark"
+                                  disabled={saving}
+                                  aria-label="Choose industry"
+                                  onClick={() => setIndustryDrawerOpen(true)}
+                                >
+                                  <PortfolioOrgKindMark />
+                                </button>
+                                <input
+                                  ref={industryInputRef}
+                                  id="profile-editor-industry"
+                                  className="account-editor-location"
+                                  value={industry}
+                                  maxLength={PROFILE_INDUSTRY_MAX}
+                                  autoComplete="organization-title"
+                                  placeholder="Industry"
+                                  disabled={saving}
+                                  onFocus={scrollFieldIntoView}
+                                  onChange={(event) =>
+                                    setIndustry(
+                                      sanitizeProfileIndustryDraft(
+                                        event.target.value
+                                      )
+                                    )
+                                  }
+                                  onBlur={() => {
+                                    const trimmed = industry
+                                      .trim()
+                                      .replace(/\s+/g, ' ');
+                                    if (trimmed !== industry)
+                                      setIndustry(trimmed);
+                                    if (
+                                      !trimmed ||
+                                      matchProfileIndustryOption(trimmed)
+                                    ) {
+                                      setIndustryWriteIn(false);
+                                    }
+                                  }}
+                                />
+                              </label>
+                            ) : (
+                              <button
+                                type="button"
+                                className="account-editor-location-row account-editor-industry-trigger"
+                                disabled={saving}
+                                aria-haspopup="dialog"
+                                aria-expanded={industryDrawerOpen}
+                                onClick={() => setIndustryDrawerOpen(true)}
+                              >
+                                <PortfolioOrgKindMark />
+                                <span
+                                  className={`account-editor-location${
+                                    industry ? '' : ' is-placeholder'
+                                  }`}
+                                >
+                                  {industry || 'Industry'}
+                                </span>
+                              </button>
+                            )}
+                            <ChoiceDrawer
+                              open={industryDrawerOpen}
+                              onClose={() => setIndustryDrawerOpen(false)}
+                              label="Industry"
+                              copy="Optional. Skip to stay Organization."
+                              value={profileIndustryDrawerValue(industry)}
+                              options={PROFILE_INDUSTRY_CHOICES}
+                              onChange={handleIndustryChoice}
+                              zIndex={SHEET_Z.confirm}
                             />
-                          </label>
+                          </>
                         ) : null}
                         <label
                           className="account-editor-location-row"

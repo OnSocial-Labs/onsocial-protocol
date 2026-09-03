@@ -24,10 +24,22 @@ export {
 } from './profile-location.js';
 export {
   PROFILE_INDUSTRY_MAX,
+  PROFILE_INDUSTRY_OPTIONS,
+  PROFILE_INDUSTRY_WRITE_IN,
+  isProfileIndustryWriteIn,
+  isProfileIndustryWriteInMode,
+  matchProfileIndustryOption,
   normalizeProfileIndustryInput,
+  profileIndustryChoiceOptions,
+  profileIndustryDrawerValue,
   profileIndustryFromMaterialised,
   profileOrgLineLabel,
   sanitizeProfileIndustryDraft,
+} from './profile-industry.js';
+export type {
+  ProfileIndustryChoice,
+  ProfileIndustryOption,
+  ProfileIndustrySection,
 } from './profile-industry.js';
 export {
   PROFILE_KINDS,

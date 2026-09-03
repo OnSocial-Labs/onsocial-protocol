@@ -15718,6 +15718,26 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.48);
   }
 
+  .account-editor-industry-trigger,
+  .account-editor-industry-mark {
+    pointer-events: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .account-editor-industry-trigger:disabled,
+  .account-editor-industry-mark:disabled {
+    cursor: default;
+  }
+
+  .account-editor-industry-trigger .account-editor-location.is-placeholder {
+    color: rgb(var(--fg-rgb) / 0.32);
+  }
+
   .account-editor-location {
     display: block;
     width: auto;
