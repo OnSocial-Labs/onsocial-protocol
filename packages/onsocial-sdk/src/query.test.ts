@@ -354,9 +354,7 @@ describe('QueryModule', () => {
 
       await expect(
         os.query.profiles.search({ query: 'alice', limit: 10 })
-      ).resolves.toEqual([
-        { ...rows[0], industry: null, openJobsCount: 0 },
-      ]);
+      ).resolves.toEqual([{ ...rows[0], industry: null, openJobsCount: 0 }]);
       const body = JSON.parse(
         String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
       ) as { variables: Record<string, unknown>; query: string };

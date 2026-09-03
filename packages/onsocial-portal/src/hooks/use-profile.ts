@@ -977,7 +977,9 @@ export function useProfileState() {
   }, [accountId, getSigningWallet, isConnected]);
 
   const createJob = useCallback(
-    async (input: JobBuildInput): Promise<{ jobId: string; result: RelayResponse }> => {
+    async (
+      input: JobBuildInput
+    ): Promise<{ jobId: string; result: RelayResponse }> => {
       if (!accountId || !isConnected) {
         throw new Error('Connect your wallet before posting a role.');
       }

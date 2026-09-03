@@ -54,8 +54,7 @@ export function discoverFaceSearchOptions(
   face: DiscoverFaceFilter,
   industry?: string | null
 ): Pick<ProfileSearchOptions, 'kind' | 'industry' | 'hiring'> {
-  const sector =
-    face === 'people' ? undefined : industry?.trim() || undefined;
+  const sector = face === 'people' ? undefined : industry?.trim() || undefined;
   if (face === 'hiring') {
     return { kind: 'org', hiring: true, industry: sector };
   }
@@ -194,9 +193,7 @@ export function buildDiscoverWhere(opts: ProfileSearchOptions): {
   if (opts.kind === 'org') {
     clauses.push('{kind: {_eq: "org"}}');
   } else if (opts.kind === 'person') {
-    clauses.push(
-      '{_or: [{kind: {_eq: "person"}}, {kind: {_isNull: true}}]}'
-    );
+    clauses.push('{_or: [{kind: {_eq: "person"}}, {kind: {_isNull: true}}]}');
   }
   const industry = opts.industry?.trim();
   if (industry) {

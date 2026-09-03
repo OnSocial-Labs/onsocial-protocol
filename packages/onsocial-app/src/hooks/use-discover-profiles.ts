@@ -61,9 +61,7 @@ import {
   writeDiscoverListCache,
 } from '@/lib/discover-list-cache';
 import { replaceBrowserQueryUrl } from '@/lib/sync-browser-url-query';
-import {
-  overlayViewerEndorsedOnAccounts,
-} from '@/lib/viewer-endorsement-ledger';
+import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
 import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
 
 function discoverUrlQueryValue(query: string, tab: DiscoverTab): string {
@@ -168,17 +166,19 @@ export function useDiscoverProfiles(
   const [tab, setTabState] = useState<DiscoverTab>(() =>
     parseDiscoverTab(searchParams.get(DISCOVER_TAB_QUERY_KEY))
   );
-  const [face, setFaceState] = useState<DiscoverFaceFilter>(() =>
-    parseDiscoverProfileFilters({
-      face: searchParams.get('face'),
-      industry: searchParams.get('industry'),
-    }).face ?? 'all'
+  const [face, setFaceState] = useState<DiscoverFaceFilter>(
+    () =>
+      parseDiscoverProfileFilters({
+        face: searchParams.get('face'),
+        industry: searchParams.get('industry'),
+      }).face ?? 'all'
   );
-  const [industry, setIndustryState] = useState(() =>
-    parseDiscoverProfileFilters({
-      face: searchParams.get('face'),
-      industry: searchParams.get('industry'),
-    }).industry ?? ''
+  const [industry, setIndustryState] = useState(
+    () =>
+      parseDiscoverProfileFilters({
+        face: searchParams.get('face'),
+        industry: searchParams.get('industry'),
+      }).industry ?? ''
   );
   const [profiles, setProfiles] = useState<DiscoverProfileSummary[]>(
     () => initialPage?.profiles ?? []

@@ -1,10 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  formatJobEndsLabel,
-  type JobSearchRow,
-} from '@onsocial/sdk';
+import { formatJobEndsLabel, type JobSearchRow } from '@onsocial/sdk';
 import { OsHugSheet } from '@onsocial/ui';
 
 const JOBS_CHANGED_EVENT = 'onsocial:jobs-changed';

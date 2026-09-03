@@ -24,10 +24,7 @@ export class JobsModule {
     opts?: { wait?: boolean; jobId?: string }
   ): Promise<{ jobId: string; result: RelayResponse }> {
     const jobId = opts?.jobId?.trim() || createJobId();
-    const result = await this._social.set(
-      buildJobSetData(jobId, input),
-      opts
-    );
+    const result = await this._social.set(buildJobSetData(jobId, input), opts);
     return { jobId, result };
   }
 

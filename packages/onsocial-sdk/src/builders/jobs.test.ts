@@ -34,9 +34,9 @@ describe('jobs builder', () => {
   });
 
   it('rejects empty titles and drops bad apply URLs', () => {
-    expect(() =>
-      buildJobSetData('j-1', { title: '  ', ends: 1 })
-    ).toThrow(/title/i);
+    expect(() => buildJobSetData('j-1', { title: '  ', ends: 1 })).toThrow(
+      /title/i
+    );
     expect(normalizeJobTitle('  A'.repeat(50)).length).toBeLessThanOrEqual(80);
     expect(normalizeJobUrl('javascript:alert(1)')).toBe('');
     expect(normalizeJobUrl('http://insecure.example/x')).toBe('');

@@ -54,9 +54,7 @@ export function parseDiscoverProfileFilters(params: {
 }): DiscoverProfileFilters {
   const face = parseDiscoverFaceFilter(params.face);
   const industry =
-    face === 'people'
-      ? ''
-      : (params.industry ?? '').trim().slice(0, 64);
+    face === 'people' ? '' : (params.industry ?? '').trim().slice(0, 64);
   return {
     face,
     ...(industry ? { industry } : {}),
@@ -78,10 +76,7 @@ export function applyDiscoverFilterParams(
 export function discoverSearchOptionsFromFilters(
   filters: DiscoverProfileFilters = {}
 ) {
-  return discoverFaceSearchOptions(
-    filters.face ?? 'all',
-    filters.industry
-  );
+  return discoverFaceSearchOptions(filters.face ?? 'all', filters.industry);
 }
 
 export const DISCOVER_PAGE_SIZE = 24;

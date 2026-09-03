@@ -26,9 +26,7 @@ export async function GET(request: NextRequest) {
     const missingKey = detail.includes('ONSOCIAL_API_KEY');
     return NextResponse.json(
       {
-        error: missingKey
-          ? 'Server API key is not configured'
-          : 'Jobs failed',
+        error: missingKey ? 'Server API key is not configured' : 'Jobs failed',
         jobs: [],
       },
       { status: missingKey ? 503 : 502 }
