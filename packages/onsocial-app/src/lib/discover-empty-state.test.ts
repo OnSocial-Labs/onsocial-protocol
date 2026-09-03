@@ -27,6 +27,17 @@ describe('buildDiscoverEmptyState', () => {
     });
   });
 
+  it('names hiring and org empties', () => {
+    expect(buildDiscoverEmptyState('', 'hiring')).toEqual({
+      primary: 'No orgs hiring yet.',
+      showClearSearch: false,
+    });
+    expect(buildDiscoverEmptyState('', 'orgs', 'Healthcare')).toEqual({
+      primary: 'No organizations in Healthcare yet.',
+      showClearSearch: false,
+    });
+  });
+
   it('guides topic drafts to Home instead of people search misses', () => {
     expect(buildDiscoverEmptyState('#near')).toEqual({
       primary: 'Press Enter or pick a suggestion to open this in Home.',

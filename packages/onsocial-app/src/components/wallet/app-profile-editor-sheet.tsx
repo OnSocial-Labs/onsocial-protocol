@@ -42,6 +42,7 @@ import {
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
 import { PortfolioOrgKindMark } from '@/components/portfolio/portfolio-org-kind-mark';
+import { ProfileJobsEditor } from '@/components/profile/profile-jobs-editor';
 import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
@@ -756,6 +757,12 @@ export function AppProfileEditorSheet({
                               onChange={handleIndustryChoice}
                               zIndex={SHEET_Z.confirm}
                             />
+                            {snapshot?.accountId ? (
+                              <ProfileJobsEditor
+                                accountId={snapshot.accountId}
+                                disabled={saving}
+                              />
+                            ) : null}
                           </>
                         ) : null}
                         <label

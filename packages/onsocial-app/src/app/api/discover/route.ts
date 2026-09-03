@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { parseDiscoverProfileFilters } from '@/lib/discover-profiles';
 import { loadDiscoverProfilesPage } from '@/lib/discover-profiles-server';
 
 export const runtime = 'nodejs';
@@ -42,13 +43,18 @@ export async function GET(request: NextRequest) {
   const limit = getLimit(request);
   const offset = getOffset(request);
   const viewerAccountId = getViewerAccountId(request);
+  const filters = parseDiscoverProfileFilters({
+    face: request.nextUrl.searchParams.get('face'),
+    industry: request.nextUrl.searchParams.get('industry'),
+  });
 
   try {
     const response = await loadDiscoverProfilesPage(
       query,
       viewerAccountId,
       offset,
-      limit
+      limit,
+      filters
     );
 
     return NextResponse.json(response, {

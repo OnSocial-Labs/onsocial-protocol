@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { MaterialisedProfile, ProfileKind } from '@onsocial/sdk';
+import {
+  parseDiscoverFaceFilter,
+  type MaterialisedProfile,
+  type ProfileKind,
+} from '@onsocial/sdk';
 import { loadDiscoverIndexPage } from '@/lib/profile-discover-index';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
 import {
@@ -73,11 +77,19 @@ export async function GET(request: NextRequest) {
   const limit = getLimit(request);
   const offset = getOffset(request);
   const viewerAccountId = getViewerAccountId(request);
+  const face = parseDiscoverFaceFilter(request.nextUrl.searchParams.get('face'));
+  const industry =
+    face === 'people'
+      ? ''
+      : (request.nextUrl.searchParams.get('industry') ?? '').trim().slice(0, 64);
 
   try {
     const os = createPortalServerOnSocialClient();
     const { profiles: profileRows, viewer } = await withRateLimitRetry(() =>
-      loadDiscoverIndexPage(query, limit, offset, viewerAccountId)
+      loadDiscoverIndexPage(query, limit, offset, viewerAccountId, {
+        face,
+        industry,
+      })
     );
 
     const viewerOutgoingSet = new Set(

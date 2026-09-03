@@ -69,6 +69,8 @@ export async function mapDiscoverPageToResponse(
       bio: row.bio ?? null,
       avatarUrl: os.profiles.avatarUrl(profile),
       kind: profile.kind ?? null,
+      industry: row.industry ?? null,
+      openJobsCount: row.openJobsCount ?? 0,
       standingCount: row.standingCount,
       standingWithCount: row.standingWithCount,
       mutualStandingCount: row.mutualStandingCount,
@@ -86,6 +88,8 @@ export async function mapDiscoverPageToResponse(
 
   return {
     query,
+    face: 'all',
+    industry: '',
     limit,
     offset,
     hasMore: page.profiles.length === limit,

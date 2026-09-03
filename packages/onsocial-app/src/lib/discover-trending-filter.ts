@@ -68,9 +68,11 @@ export function filterTrendingProfiles(
   if (!needle) return rows;
   return rows.filter((row) => {
     const name = row.name?.trim() || '';
+    const industry = row.industry?.trim() || '';
     return (
       matchesDiscoverTrendingQuery(row.accountId, needle) ||
-      (name.length > 0 && matchesDiscoverTrendingQuery(name, needle))
+      (name.length > 0 && matchesDiscoverTrendingQuery(name, needle)) ||
+      (industry.length > 0 && matchesDiscoverTrendingQuery(industry, needle))
     );
   });
 }

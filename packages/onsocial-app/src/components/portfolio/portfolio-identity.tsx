@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kind-switch';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
+import { PortfolioHiringLine } from '@/components/portfolio/portfolio-hiring-line';
 import { PortfolioOrgKindMark } from '@/components/portfolio/portfolio-org-kind-mark';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { PostRichText } from '@/features/home/post-rich-text';
@@ -14,6 +15,7 @@ import {
   profileKindFaceLabel,
   profileOrgLineLabel,
   resolveDisplayProfileKind,
+  type JobSearchRow,
   type ProfileKind,
 } from '@onsocial/sdk';
 import {
@@ -39,6 +41,7 @@ interface PortfolioIdentityProps {
   profileKind?: ProfileKind | null;
   kindLabel?: string | null;
   incomingStandingCount?: number;
+  openJobs?: JobSearchRow[];
 }
 
 export function PortfolioIdentity({
@@ -54,6 +57,7 @@ export function PortfolioIdentity({
   profileKind = null,
   kindLabel = null,
   incomingStandingCount = 0,
+  openJobs = [],
 }: PortfolioIdentityProps) {
   const moodPreview = usePortfolioMoodPreviewOptional();
   const mood = moodPreview?.effectiveMood ?? savedMood;
@@ -116,6 +120,13 @@ export function PortfolioIdentity({
             <PortfolioOrgKindMark />
             <span>{profileOrgLineLabel(industry)}</span>
           </p>
+        ) : null}
+        {displayKind === 'org' ? (
+          <PortfolioHiringLine
+            accountId={accountId}
+            orgName={titleLabel}
+            initialJobs={openJobs}
+          />
         ) : null}
         {locationLabel ? (
           <p className="portfolio-location">

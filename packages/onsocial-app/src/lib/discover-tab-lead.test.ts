@@ -19,6 +19,14 @@ describe('discoverProfilesLead', () => {
   it('falls back without total', () => {
     expect(discoverProfilesLead(null, '')).toBe('Profiles');
   });
+
+  it('names face and industry filters', () => {
+    expect(discoverProfilesLead(12_500, '', 'hiring', 'Healthcare')).toBe(
+      'Hiring · Healthcare'
+    );
+    expect(discoverProfilesLead(12_500, '', 'orgs')).toBe('Orgs');
+    expect(discoverProfilesLead(12_500, '', 'people')).toBe('People');
+  });
 });
 
 describe('discoverDaosLead', () => {

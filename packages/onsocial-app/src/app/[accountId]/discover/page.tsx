@@ -1,5 +1,6 @@
 import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
 import { DiscoverPagePanel } from '@/features/discover/discover-page-panel';
+import { parseDiscoverProfileFilters } from '@/lib/discover-profiles';
 import { loadDiscoverProfilesPage } from '@/lib/discover-profiles-server';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { resolveAccountId } from '@/lib/resolve-account';
@@ -10,6 +11,8 @@ type DiscoverAccountPageProps = {
   }>;
   searchParams?: Promise<{
     q?: string | string[];
+    face?: string | string[];
+    industry?: string | string[];
   }>;
 };
 
@@ -24,9 +27,20 @@ export default async function DiscoverAccountPage({
       ? resolvedSearchParams.q[0]
       : resolvedSearchParams?.q
   );
-  const initialPage = await loadDiscoverProfilesPage(initialQuery, null, 0).catch(
-    () => null
-  );
+  const initialPage = await loadDiscoverProfilesPage(
+    initialQuery,
+    null,
+    0,
+    24,
+    parseDiscoverProfileFilters({
+      face: Array.isArray(resolvedSearchParams?.face)
+        ? resolvedSearchParams.face[0]
+        : resolvedSearchParams?.face,
+      industry: Array.isArray(resolvedSearchParams?.industry)
+        ? resolvedSearchParams.industry[0]
+        : resolvedSearchParams?.industry,
+    })
+  ).catch(() => null);
 
   return (
     <DiscoverPagePanel

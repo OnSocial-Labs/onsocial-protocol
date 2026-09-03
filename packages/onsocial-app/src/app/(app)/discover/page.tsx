@@ -4,6 +4,7 @@ import { parseDiscoverTab } from '@/features/discover/discover-tabs';
 import { DiscoverPagePanel } from '@/features/discover/discover-page-panel';
 import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
 import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
+import { parseDiscoverProfileFilters } from '@/lib/discover-profiles';
 import { loadDiscoverProfilesPage } from '@/lib/discover-profiles-server';
 import { loadDiscoverTrendingSeed } from '@/lib/discover-trending-server';
 import { loadGuildsIndexPage } from '@/lib/load-guilds-index-page';
@@ -17,6 +18,8 @@ type DiscoverPageProps = {
   searchParams?: Promise<{
     q?: string | string[];
     tab?: string | string[];
+    face?: string | string[];
+    industry?: string | string[];
   }>;
 };
 
@@ -47,7 +50,20 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
   const needsGuilds = tab === 'guilds';
   const [initialPage, initialTrending, initialGuilds] = await Promise.all([
     needsProfiles
-      ? loadDiscoverProfilesPage(initialQuery, null, 0).catch(() => null)
+      ? loadDiscoverProfilesPage(
+          initialQuery,
+          null,
+          0,
+          24,
+          parseDiscoverProfileFilters({
+            face: Array.isArray(resolvedSearchParams?.face)
+              ? resolvedSearchParams.face[0]
+              : resolvedSearchParams?.face,
+            industry: Array.isArray(resolvedSearchParams?.industry)
+              ? resolvedSearchParams.industry[0]
+              : resolvedSearchParams?.industry,
+          })
+        ).catch(() => null)
       : Promise.resolve(null),
     needsTrending ? loadDiscoverTrendingSeed() : Promise.resolve(null),
     needsGuilds

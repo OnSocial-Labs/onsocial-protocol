@@ -16,6 +16,7 @@ import { PortfolioDaoOrgChrome } from '@/components/portfolio/portfolio-dao-org-
 import { PortfolioDeferredShelf } from '@/components/portfolio/portfolio-deferred-shelf';
 import { PortfolioEndorsementFocusHost } from '@/components/portfolio/portfolio-endorsement-focus-host';
 import { PortfolioIdentity } from '@/components/portfolio/portfolio-identity';
+import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
 import { PortfolioShellRoot } from '@/components/portfolio/portfolio-shell-root';
 import { PortfolioProfileSeed } from '@/components/portfolio/portfolio-profile-seed';
@@ -85,12 +86,21 @@ export default async function AccountPage({
   // Hero-critical path only — drawer meta, guild rows, and peeks stream via
   // the deferred shelf Suspense boundary after first paint.
   const shellPromise = loadProfileShell(accountId);
-  const [shell, signals, daoContext] = await Promise.all([
+  const [shell, signals, daoContext, openJobs] = await Promise.all([
     shellPromise,
     fetchProfileSignals(accountId),
     shellPromise.then((profileShell) =>
       loadPortfolioDaoContextWithProfile(accountId, profileShell)
     ),
+    (async () => {
+      try {
+        return await createServerOnSocialClient().query.jobs.openForAccount(
+          accountId
+        );
+      } catch {
+        return [];
+      }
+    })(),
   ]);
   const { entity: daoEntity, page: daoPage } = daoContext;
   const portfolioBio = resolveDaoPortfolioSummary({
@@ -175,6 +185,7 @@ export default async function AccountPage({
           profileKind={shell?.kind ?? null}
           kindLabel={daoEntity.kindLabel}
           incomingStandingCount={daoIncomingStanding}
+          openJobs={openJobs}
         />
 
         {daoEntity.isDao ? null : (
