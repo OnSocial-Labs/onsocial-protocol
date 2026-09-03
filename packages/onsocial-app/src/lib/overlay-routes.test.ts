@@ -151,7 +151,7 @@ describe('parsePortfolioEndorsementFocus', () => {
 });
 
 describe('discoverPath', () => {
-  it('defaults to bare discover (Trending)', () => {
+  it('defaults to bare discover (Moving)', () => {
     expect(discoverPath('alice.testnet')).toBe('/@alice.testnet/discover');
   });
 

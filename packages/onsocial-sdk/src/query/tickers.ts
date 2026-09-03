@@ -10,17 +10,25 @@ export class TickersQuery {
   constructor(private _q: QueryModule) {}
 
   /**
-   * Trending tickers (most used, descending).
+   * Trending tickers. Default `count` is lifetime post count (Tickers tab).
+   * `recent` is last mention, then count (Discover Moving chips).
    *
    * ```ts
    * const tickers = await os.query.tickers.trending({ limit: 10 });
+   * const moving = await os.query.tickers.trending({ limit: 6, sort: 'recent' });
    * ```
    */
-  async trending(opts: { limit?: number } = {}): Promise<TickerCount[]> {
+  async trending(
+    opts: { limit?: number; sort?: 'count' | 'recent' } = {}
+  ): Promise<TickerCount[]> {
+    const orderBy =
+      opts.sort === 'recent'
+        ? '[{lastBlock: DESC}, {postCount: DESC}]'
+        : '[{postCount: DESC}]';
     const res = await this._q.graphql<{ tickerCounts: TickerCount[] }>({
       query: `query TrendingTickers($limit: Int!) {
         tickerCounts(
-          orderBy: [{postCount: DESC}],
+          orderBy: ${orderBy},
           limit: $limit
         ) {
           ticker postCount lastBlock

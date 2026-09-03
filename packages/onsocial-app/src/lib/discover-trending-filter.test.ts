@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  discoverProposalHref,
   discoverTrendingFilterQuery,
   filterTrendingDaos,
+  filterTrendingDrops,
   filterTrendingProfiles,
   filterTrendingTickers,
   filterTrendingTopics,
@@ -108,5 +110,35 @@ describe('discover trending filter', () => {
         'arts'
       ).map((row) => row.daoAccountId)
     ).toEqual(['arts.sputnik-dao.near']);
+  });
+
+  it('filters drops by title or hub', () => {
+    expect(
+      filterTrendingDrops(
+        [
+          { collectionId: 'c1', title: 'Night Market', appId: 'studio' },
+          { collectionId: 'c2', title: 'Quiet', appId: 'gallery' },
+        ],
+        'night'
+      ).map((row) => row.collectionId)
+    ).toEqual(['c1']);
+  });
+
+  it('links proposals to the DAO portfolio when numbered', () => {
+    expect(
+      discoverProposalHref({
+        groupId: 'arts.sputnik-dao.near',
+        sequenceNumber: 12,
+      })
+    ).toContain('proposal=12');
+    expect(
+      discoverProposalHref({
+        groupId: 'arts.sputnik-dao.near',
+        sequenceNumber: null,
+      })
+    ).toBe('/@arts.sputnik-dao.near');
+    expect(
+      discoverProposalHref({ groupId: null, sequenceNumber: 1 })
+    ).toBeNull();
   });
 });

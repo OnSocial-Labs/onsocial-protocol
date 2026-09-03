@@ -1,5 +1,5 @@
-/** Discover hub tabs — Trending is the default mixed landing.
- * Order: people / orgs / communities, then signals.
+/** Discover hub tabs — Moving (`trending`) is the default mixed landing.
+ * Order: movement, people / orgs / communities, then signals.
  */
 export type DiscoverTab =
   | 'trending'
@@ -45,7 +45,7 @@ export function parseDiscoverTab(raw: string | null | undefined): DiscoverTab {
 export function discoverTabLabel(tab: DiscoverTab): string {
   switch (tab) {
     case 'trending':
-      return 'Trending';
+      return 'Moving';
     case 'topics':
       return 'Topics';
     case 'tickers':
@@ -83,7 +83,7 @@ export function appDiscoverTabHref(tab: DiscoverTab): string {
 
 /**
  * One search box, one destination:
- * `#` → Topics, `$` → Tickers, bare text on Trending → Profiles.
+ * `#` → Topics, `$` → Tickers, bare text on Moving → Profiles.
  * Other tabs keep the typed query and filter in place.
  */
 export function discoverTabForQueryDraft(

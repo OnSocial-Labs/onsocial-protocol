@@ -1,3 +1,4 @@
+import type { DiscoverScarcePeek } from '@/features/discover/discover-scarce-peeks';
 import { placeLabel } from '@/lib/post-place';
 import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-search';
 import type {
@@ -5,15 +6,18 @@ import type {
   DiscoverTrendingGuild,
   DiscoverTrendingHub,
 } from '@/lib/discover-trending-server';
+import { daoPath, daoPortfolioPath } from '@/lib/app-routes';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
 import type {
   DiscoverFaceFilter,
+  GovernanceEventRow,
   HashtagCount,
   PlaceCount,
+  PostRow,
   TickerCount,
 } from '@onsocial/sdk';
 
-/** Case-insensitive substring match for Discover Trending peeks. */
+/** Case-insensitive substring match for Discover Moving peeks. */
 export function matchesDiscoverTrendingQuery(
   haystack: string,
   query: string
@@ -23,7 +27,7 @@ export function matchesDiscoverTrendingQuery(
   return haystack.toLowerCase().includes(needle);
 }
 
-/** Bare people query for Trending filters (`#`/`$` drafts → no filter). */
+/** Bare people query for Moving filters (`#`/`$` drafts → no filter). */
 export function discoverTrendingFilterQuery(raw: string): string {
   return discoverPeopleSearchQuery(raw);
 }
@@ -137,4 +141,64 @@ export function filterTrendingHubs(
       (title.length > 0 && matchesDiscoverTrendingQuery(title, needle))
     );
   });
+}
+
+export function filterTrendingPosts(rows: PostRow[], query: string): PostRow[] {
+  const needle = discoverTrendingFilterQuery(query);
+  if (!needle) return rows;
+  return rows.filter((row) => {
+    const name = row.authorName?.trim() || '';
+    return (
+      matchesDiscoverTrendingQuery(row.accountId, needle) ||
+      (name.length > 0 && matchesDiscoverTrendingQuery(name, needle)) ||
+      matchesDiscoverTrendingQuery(row.value, needle)
+    );
+  });
+}
+
+export function filterTrendingDrops(
+  rows: DiscoverScarcePeek[],
+  query: string
+): DiscoverScarcePeek[] {
+  const needle = discoverTrendingFilterQuery(query);
+  if (!needle) return rows;
+  return rows.filter((row) => {
+    const title = row.title?.trim() || '';
+    const appId = row.appId?.trim() || '';
+    return (
+      matchesDiscoverTrendingQuery(row.collectionId, needle) ||
+      (title.length > 0 && matchesDiscoverTrendingQuery(title, needle)) ||
+      (appId.length > 0 && matchesDiscoverTrendingQuery(appId, needle))
+    );
+  });
+}
+
+export function filterTrendingProposals(
+  rows: GovernanceEventRow[],
+  query: string
+): GovernanceEventRow[] {
+  const needle = discoverTrendingFilterQuery(query);
+  if (!needle) return rows;
+  return rows.filter((row) => {
+    const title = row.title?.trim() || '';
+    const groupId = row.groupId?.trim() || '';
+    return (
+      (title.length > 0 && matchesDiscoverTrendingQuery(title, needle)) ||
+      (groupId.length > 0 && matchesDiscoverTrendingQuery(groupId, needle))
+    );
+  });
+}
+
+/** Portfolio deep-link when we have a proposal number; else the DAO home. */
+export function discoverProposalHref(row: {
+  groupId: string | null;
+  sequenceNumber: number | null;
+}): string | null {
+  const groupId = row.groupId?.trim();
+  if (!groupId) return null;
+  const n = row.sequenceNumber;
+  if (typeof n === 'number' && Number.isInteger(n) && n >= 0) {
+    return daoPortfolioPath(groupId, { proposal: n });
+  }
+  return daoPath(groupId);
 }

@@ -18,14 +18,14 @@ test.describe('discover shell', () => {
 
     await expectSearchVisible(page, 'Search people, topics, and tickers');
 
-    await expectTabVisible(page, 'Discover', 'Trending');
+    await expectTabVisible(page, 'Discover', 'Moving');
     await expectTabVisible(page, 'Discover', 'Profiles');
     await expectTabVisible(page, 'Discover', 'DAOs');
     await expectTabVisible(page, 'Discover', 'Guilds');
     await expectTabVisible(page, 'Discover', 'Hubs');
     await expectTabVisible(page, 'Discover', 'Topics');
     await expectTabVisible(page, 'Discover', 'Tickers');
-    await expectTabSelected(page, 'Discover', 'Trending');
+    await expectTabSelected(page, 'Discover', 'Moving');
   });
 
   test('deep-links Profiles from ?tab=profiles', async ({ page }) => {
@@ -42,16 +42,16 @@ test.describe('discover shell', () => {
     await expectTabSelected(page, 'Discover', 'Topics');
   });
 
-  test('routes a people search from Trending to Profiles', async ({ page }) => {
+  test('routes a people search from Moving to Profiles', async ({ page }) => {
     await gotoApp(page, '/discover');
-    await expectTabSelected(page, 'Discover', 'Trending');
+    await expectTabSelected(page, 'Discover', 'Moving');
     await searchField(page, 'Search people, topics, and tickers').fill('alice');
     await expectTabSelected(page, 'Discover', 'Profiles');
   });
 
-  test('keeps face chips off the Trending landing', async ({ page }) => {
+  test('keeps face chips off the Moving landing', async ({ page }) => {
     await gotoApp(page, '/discover');
-    await expectTabSelected(page, 'Discover', 'Trending');
+    await expectTabSelected(page, 'Discover', 'Moving');
     await expect(
       page.getByRole('tablist', { name: 'Filter profiles' })
     ).toHaveCount(0);

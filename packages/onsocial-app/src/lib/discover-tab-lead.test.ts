@@ -64,7 +64,7 @@ describe('discoverTrendingLead', () => {
 
 describe('discoverTrendingProfilesHeading', () => {
   it('keeps the peek name until a face or industry is on', () => {
-    expect(discoverTrendingProfilesHeading()).toBe('Standing out');
+    expect(discoverTrendingProfilesHeading()).toBe('Active');
     expect(discoverTrendingProfilesHeading('hiring', 'Healthcare')).toBe(
       'Hiring · Healthcare'
     );

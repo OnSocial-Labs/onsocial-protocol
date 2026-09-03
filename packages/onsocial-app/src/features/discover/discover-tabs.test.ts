@@ -27,7 +27,7 @@ describe('discover-tabs', () => {
   });
 
   it('labels tabs', () => {
-    expect(discoverTabLabel('trending')).toBe('Trending');
+    expect(discoverTabLabel('trending')).toBe('Moving');
     expect(discoverTabLabel('profiles')).toBe('Profiles');
     expect(discoverTabLabel('daos')).toBe('DAOs');
     expect(discoverTabLabel('guilds')).toBe('Guilds');

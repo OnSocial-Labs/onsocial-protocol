@@ -10,17 +10,25 @@ export class PlacesQuery {
   constructor(private _q: QueryModule) {}
 
   /**
-   * Trending places (most used on posts, descending).
+   * Trending places. Default `count` is lifetime post count.
+   * `recent` is last mention, then count (Discover Moving chips).
    *
    * ```ts
    * const places = await os.query.places.trending({ limit: 10 });
+   * const moving = await os.query.places.trending({ limit: 6, sort: 'recent' });
    * ```
    */
-  async trending(opts: { limit?: number } = {}): Promise<PlaceCount[]> {
+  async trending(
+    opts: { limit?: number; sort?: 'count' | 'recent' } = {}
+  ): Promise<PlaceCount[]> {
+    const orderBy =
+      opts.sort === 'recent'
+        ? '[{lastBlock: DESC}, {postCount: DESC}]'
+        : '[{postCount: DESC}]';
     const res = await this._q.graphql<{ placeCounts: PlaceCount[] }>({
       query: `query TrendingPlaces($limit: Int!) {
         placeCounts(
-          orderBy: [{postCount: DESC}],
+          orderBy: ${orderBy},
           limit: $limit
         ) {
           place postCount lastBlock

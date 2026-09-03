@@ -2,7 +2,13 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { HashtagCount, PlaceCount, TickerCount } from '@onsocial/sdk';
+import type {
+  GovernanceEventRow,
+  HashtagCount,
+  PlaceCount,
+  PostRow,
+  TickerCount,
+} from '@onsocial/sdk';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
 import {
   DiscoverTrendingChipSectionSkeleton,
@@ -24,45 +30,91 @@ import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-globa
 import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
-import { APP_GROUPS_PATH, appPath, daoPath } from '@/lib/app-routes';
-import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
-  discoverProfileToProfileListAccount,
-  fetchDiscoverProfiles,
-} from '@/lib/discover-profiles';
+  APP_HOME_PATH,
+  appPath,
+  collectionPath,
+  dropsPath,
+} from '@/lib/app-routes';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
 import {
   profileListAccountToStandingSummary,
   type ProfileListAccount,
 } from '@/lib/profile-list-account';
 import type {
-  DiscoverTrendingDao,
-  DiscoverTrendingGuild,
   DiscoverTrendingHub,
   DiscoverTrendingSeed,
 } from '@/lib/discover-trending-server';
 import {
+  discoverProposalHref,
   discoverTrendingFilterQuery,
-  filterTrendingDaos,
-  filterTrendingGuilds,
+  filterTrendingDrops,
   filterTrendingHubs,
   filterTrendingPlaces,
+  filterTrendingPosts,
   filterTrendingProfiles,
+  filterTrendingProposals,
   filterTrendingTickers,
   filterTrendingTopics,
 } from '@/lib/discover-trending-filter';
-import { fetchDaoCatalog } from '@/features/protocol/dao-catalog-client';
-import { resolveDaoDirectoryName } from '@/features/protocol/dao-directory';
 import { fetchAppsDirectory } from '@/features/scarces/apps-data';
 import {
-  rankGuildPeeks,
-  rankHubPeeks,
-} from '@/features/discover/discover-community-ranking';
+  fetchMostLovedScarcePeeks,
+  fetchMostTradedScarcePeeks,
+  type DiscoverScarcePeek,
+} from '@/features/discover/discover-scarce-peeks';
+import { rankHubPeeks } from '@/features/discover/discover-community-ranking';
+import { formatPostPeekExcerpt } from '@/lib/post-display';
+import { postThreadPath } from '@/lib/post-routes';
 
 const SECTION_LIMIT = 6;
 const COMMUNITY_RANK_POOL = 32;
 
+function ScarcePeekSection({
+  heading,
+  seeAllHref,
+  rows,
+}: {
+  heading: string;
+  seeAllHref: string;
+  rows: DiscoverScarcePeek[] | null;
+}) {
+  if (rows === null) {
+    return <DiscoverTrendingGuildsSectionSkeleton />;
+  }
+  if (rows.length === 0) return null;
+  return (
+    <section className="discover-trending-section" aria-label={heading}>
+      <div className="discover-trending-section-head">
+        <h2 className="discover-trending-heading">{heading}</h2>
+        <Link href={seeAllHref} className="discover-trending-see-all">
+          See all
+        </Link>
+      </div>
+      <ul className="discover-focus-rows">
+        {rows.map((scarce) => (
+          <li key={`${heading}-${scarce.collectionId}`}>
+            <Link
+              href={collectionPath(scarce.collectionId)}
+              className="discover-focus-row"
+            >
+              <span className="discover-focus-row-label">
+                {scarce.title?.trim() || scarce.collectionId}
+              </span>
+              {scarce.appId ? (
+                <span className="discover-focus-row-meta">{scarce.appId}</span>
+              ) : null}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /**
- * Default Discover landing: what's moving, then people, then communities.
+ * Default Discover landing: what's moving — heat, recency, drops, people.
  * Face / hiring chips live on Profiles — this page is a peek, not a filter.
  * Sections paint independently as each query settles.
  */
@@ -80,10 +132,10 @@ export function DiscoverTrendingPanel({
   const { endorsementSyncVersion } = useViewerEndorsement('discover');
 
   const [tickers, setTickers] = useState<TickerCount[] | null>(
-    () => initial?.tickers ?? null
+    () => initial?.movingTickers ?? null
   );
   const [topics, setTopics] = useState<HashtagCount[] | null>(
-    () => initial?.topics ?? null
+    () => initial?.movingTopics ?? null
   );
   const [places, setPlaces] = useState<PlaceCount[] | null>(
     () => initial?.places ?? null
@@ -91,14 +143,20 @@ export function DiscoverTrendingPanel({
   const [profiles, setProfiles] = useState<ProfileListAccount[] | null>(
     () => initial?.profiles ?? null
   );
-  const [guilds, setGuilds] = useState<DiscoverTrendingGuild[] | null>(
-    () => initial?.guilds ?? null
-  );
-  const [daos, setDaos] = useState<DiscoverTrendingDao[] | null>(
-    () => initial?.daos ?? null
-  );
   const [hubs, setHubs] = useState<DiscoverTrendingHub[] | null>(
     () => initial?.hubs ?? null
+  );
+  const [posts, setPosts] = useState<PostRow[] | null>(
+    () => initial?.posts ?? null
+  );
+  const [dropsTraded, setDropsTraded] = useState<DiscoverScarcePeek[] | null>(
+    () => initial?.dropsTraded ?? null
+  );
+  const [dropsLoved, setDropsLoved] = useState<DiscoverScarcePeek[] | null>(
+    () => initial?.dropsLoved ?? null
+  );
+  const [proposals, setProposals] = useState<GovernanceEventRow[] | null>(
+    () => initial?.proposals ?? null
   );
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingStandingIds, setPendingStandingIds] = useState<Set<string>>(
@@ -106,16 +164,17 @@ export function DiscoverTrendingPanel({
   );
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const viewerKey = viewerAccountId ?? null;
-  // Soft-refresh whenever we already have painted rows (SSR or prior fetch).
   const hasPaintedRef = useRef(
     initial != null &&
-      (initial.tickers.length > 0 ||
-        initial.topics.length > 0 ||
+      ((initial.movingTickers?.length ?? 0) > 0 ||
+        (initial.movingTopics?.length ?? 0) > 0 ||
         (initial.places?.length ?? 0) > 0 ||
         initial.profiles.length > 0 ||
-        initial.guilds.length > 0 ||
-        initial.daos.length > 0 ||
-        initial.hubs.length > 0)
+        initial.hubs.length > 0 ||
+        (initial.posts?.length ?? 0) > 0 ||
+        (initial.dropsTraded?.length ?? 0) > 0 ||
+        (initial.dropsLoved?.length ?? 0) > 0 ||
+        (initial.proposals?.length ?? 0) > 0)
   );
 
   useEffect(() => {
@@ -123,19 +182,30 @@ export function DiscoverTrendingPanel({
     const client = createReadOnlyOnSocialClient();
     const soft = hasPaintedRef.current;
 
-    // Never blank a painted trending shell on wallet reconcile.
     if (!soft) {
       setTickers(null);
       setTopics(null);
       setPlaces(null);
-      setProfiles(null);
-      setGuilds(null);
-      setDaos(null);
       setHubs(null);
+      setPosts(null);
+      setDropsTraded(null);
+      setDropsLoved(null);
+      setProposals(null);
     }
 
+    void client.query.feed
+      .recent({ limit: SECTION_LIMIT, sort: 'hot', section: 'posts' })
+      .then((page) => {
+        if (cancelled) return;
+        setPosts(page.items);
+        hasPaintedRef.current = true;
+      })
+      .catch(() => {
+        if (!cancelled && !soft) setPosts([]);
+      });
+
     void client.query.tickers
-      .trending({ limit: SECTION_LIMIT })
+      .trending({ limit: SECTION_LIMIT, sort: 'recent' })
       .then((rows) => {
         if (cancelled) return;
         setTickers(rows);
@@ -146,7 +216,7 @@ export function DiscoverTrendingPanel({
       });
 
     void client.query.hashtags
-      .trending({ limit: SECTION_LIMIT })
+      .trending({ limit: SECTION_LIMIT, sort: 'recent' })
       .then((rows) => {
         if (cancelled) return;
         setTopics(rows);
@@ -157,7 +227,7 @@ export function DiscoverTrendingPanel({
       });
 
     void client.query.places
-      .trending({ limit: SECTION_LIMIT })
+      .trending({ limit: SECTION_LIMIT, sort: 'recent' })
       .then((rows) => {
         if (cancelled) return;
         setPlaces(rows);
@@ -165,39 +235,6 @@ export function DiscoverTrendingPanel({
       })
       .catch(() => {
         if (!cancelled && !soft) setPlaces([]);
-      });
-
-    void rankGuildPeeks(client, {
-      browseLimit: COMMUNITY_RANK_POOL,
-      peekLimit: SECTION_LIMIT,
-    })
-      .then((rows) => {
-        if (cancelled) return;
-        setGuilds(
-          rows.map((g) => ({
-            groupId: g.groupId,
-            groupName: g.groupName,
-          }))
-        );
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) setGuilds([]);
-      });
-
-    void fetchDaoCatalog({ limit: SECTION_LIMIT, offset: 0 })
-      .then((page) => {
-        if (cancelled) return;
-        setDaos(
-          page.daos.map((row) => ({
-            daoAccountId: row.daoAccountId,
-            name: row.name,
-          }))
-        );
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) setDaos([]);
       });
 
     void rankHubPeeks(client, {
@@ -223,6 +260,29 @@ export function DiscoverTrendingPanel({
         if (!cancelled && !soft) setHubs([]);
       });
 
+    void fetchMostTradedScarcePeeks(client, SECTION_LIMIT).then((rows) => {
+      if (cancelled) return;
+      setDropsTraded(rows);
+      hasPaintedRef.current = true;
+    });
+
+    void fetchMostLovedScarcePeeks(client, SECTION_LIMIT).then((rows) => {
+      if (cancelled) return;
+      setDropsLoved(rows);
+      hasPaintedRef.current = true;
+    });
+
+    void client.query.governance
+      .recentProposals({ limit: SECTION_LIMIT })
+      .then((rows) => {
+        if (cancelled) return;
+        setProposals(rows);
+        hasPaintedRef.current = true;
+      })
+      .catch(() => {
+        if (!cancelled && !soft) setProposals([]);
+      });
+
     return () => {
       cancelled = true;
     };
@@ -231,13 +291,20 @@ export function DiscoverTrendingPanel({
   useEffect(() => {
     let cancelled = false;
     const soft = hasPaintedRef.current;
-    void fetchDiscoverProfiles('', viewerKey, 0)
+    const client = createReadOnlyOnSocialClient();
+    void client.query.profiles
+      .discoverPage({
+        limit: SECTION_LIMIT,
+        order: 'activity',
+        viewerAccountId: viewerKey ?? undefined,
+      })
       .then((page) => {
         if (cancelled) return;
         setProfiles(
-          (page?.profiles ?? [])
-            .slice(0, SECTION_LIMIT)
-            .map(discoverProfileToProfileListAccount)
+          discoverPageToProfileListAccounts(client, page).slice(
+            0,
+            SECTION_LIMIT
+          )
         );
         hasPaintedRef.current = true;
       })
@@ -331,17 +398,27 @@ export function DiscoverTrendingPanel({
           ),
     [endorsementSyncVersion, profiles, query]
   );
-  const visibleDaos = useMemo(
-    () => (daos == null ? null : filterTrendingDaos(daos, query)),
-    [daos, query]
-  );
-  const visibleGuilds = useMemo(
-    () => (guilds == null ? null : filterTrendingGuilds(guilds, query)),
-    [guilds, query]
-  );
   const visibleHubs = useMemo(
     () => (hubs == null ? null : filterTrendingHubs(hubs, query)),
     [hubs, query]
+  );
+  const visiblePosts = useMemo(
+    () => (posts == null ? null : filterTrendingPosts(posts, query)),
+    [posts, query]
+  );
+  const visibleDropsTraded = useMemo(
+    () =>
+      dropsTraded == null ? null : filterTrendingDrops(dropsTraded, query),
+    [dropsTraded, query]
+  );
+  const visibleDropsLoved = useMemo(
+    () => (dropsLoved == null ? null : filterTrendingDrops(dropsLoved, query)),
+    [dropsLoved, query]
+  );
+  const visibleProposals = useMemo(
+    () =>
+      proposals == null ? null : filterTrendingProposals(proposals, query),
+    [proposals, query]
   );
 
   const allSettled =
@@ -349,26 +426,32 @@ export function DiscoverTrendingPanel({
     visibleTopics !== null &&
     visiblePlaces !== null &&
     visibleProfiles !== null &&
-    visibleGuilds !== null &&
-    visibleDaos !== null &&
-    visibleHubs !== null;
+    visibleHubs !== null &&
+    visiblePosts !== null &&
+    visibleDropsTraded !== null &&
+    visibleDropsLoved !== null &&
+    visibleProposals !== null;
   const empty =
     allSettled &&
     visibleTickers.length === 0 &&
     visibleTopics.length === 0 &&
     visiblePlaces.length === 0 &&
     visibleProfiles.length === 0 &&
-    visibleGuilds.length === 0 &&
-    visibleDaos.length === 0 &&
-    visibleHubs.length === 0;
+    visibleHubs.length === 0 &&
+    visiblePosts.length === 0 &&
+    visibleDropsTraded.length === 0 &&
+    visibleDropsLoved.length === 0 &&
+    visibleProposals.length === 0;
   const anyLoading =
     visibleTickers === null ||
     visibleTopics === null ||
     visiblePlaces === null ||
     visibleProfiles === null ||
-    visibleGuilds === null ||
-    visibleDaos === null ||
-    visibleHubs === null;
+    visibleHubs === null ||
+    visiblePosts === null ||
+    visibleDropsTraded === null ||
+    visibleDropsLoved === null ||
+    visibleProposals === null;
 
   return (
     <div
@@ -380,12 +463,12 @@ export function DiscoverTrendingPanel({
     >
       <DiscoverTabLead>{discoverTrendingLead()}</DiscoverTabLead>
 
-      {anyLoading ? <p className="sr-only">Loading trending…</p> : null}
+      {anyLoading ? <p className="sr-only">Loading what&apos;s moving…</p> : null}
 
       {empty ? (
         <div className="standing-panel-empty-state">
           <p className="standing-panel-empty-primary">
-            {filterNeedle ? 'No matches.' : 'Nothing trending yet.'}
+            {filterNeedle ? 'No matches.' : 'Nothing moving yet.'}
           </p>
           {filterNeedle ? null : (
             <p className="standing-panel-empty-secondary">
@@ -395,34 +478,36 @@ export function DiscoverTrendingPanel({
         </div>
       ) : null}
 
-      {visibleTickers === null ? (
-        <DiscoverTrendingChipSectionSkeleton />
-      ) : visibleTickers.length > 0 ? (
+      {visiblePosts === null ? (
+        <DiscoverTrendingGuildsSectionSkeleton />
+      ) : visiblePosts.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">Trending tickers</h2>
-            <button
-              type="button"
-              className="discover-trending-see-all"
-              onClick={() => onOpenTab('tickers')}
-            >
+            <h2 className="discover-trending-heading">Hot posts</h2>
+            <Link href={APP_HOME_PATH} className="discover-trending-see-all">
               See all
-            </button>
+            </Link>
           </div>
-          <div className="discover-trending-chips">
-            {visibleTickers.slice(0, 6).map((item) => (
-              <Link
-                key={`k-${item.ticker}`}
-                href={homeTickerPath(item.ticker)}
-                className="discover-trending-chip discover-trending-chip--ticker"
-              >
-                {formatTickerDisplay(item.ticker)}
-                <span className="discover-trending-chip-count">
-                  {item.postCount}
-                </span>
-              </Link>
-            ))}
-          </div>
+          <ul className="discover-focus-rows">
+            {visiblePosts.slice(0, SECTION_LIMIT).map((post) => {
+              const excerpt = formatPostPeekExcerpt(post.value, {
+                kind: post.kind,
+                postId: post.postId,
+              });
+              const author = post.authorName?.trim() || post.accountId;
+              return (
+                <li key={`${post.accountId}-${post.postId}`}>
+                  <Link
+                    href={postThreadPath(post)}
+                    className="discover-focus-row"
+                  >
+                    <span className="discover-focus-row-label">{excerpt}</span>
+                    <span className="discover-focus-row-meta">{author}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         </section>
       ) : null}
 
@@ -431,7 +516,7 @@ export function DiscoverTrendingPanel({
       ) : visibleTopics.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">Trending topics</h2>
+            <h2 className="discover-trending-heading">Topics</h2>
             <button
               type="button"
               className="discover-trending-see-all"
@@ -441,7 +526,7 @@ export function DiscoverTrendingPanel({
             </button>
           </div>
           <div className="discover-trending-chips">
-            {visibleTopics.slice(0, 6).map((item) => (
+            {visibleTopics.slice(0, SECTION_LIMIT).map((item) => (
               <Link
                 key={`h-${item.hashtag}`}
                 href={homeHashtagPath(item.hashtag)}
@@ -457,15 +542,46 @@ export function DiscoverTrendingPanel({
         </section>
       ) : null}
 
+      {visibleTickers === null ? (
+        <DiscoverTrendingChipSectionSkeleton />
+      ) : visibleTickers.length > 0 ? (
+        <section className="discover-trending-section">
+          <div className="discover-trending-section-head">
+            <h2 className="discover-trending-heading">Tickers</h2>
+            <button
+              type="button"
+              className="discover-trending-see-all"
+              onClick={() => onOpenTab('tickers')}
+            >
+              See all
+            </button>
+          </div>
+          <div className="discover-trending-chips">
+            {visibleTickers.slice(0, SECTION_LIMIT).map((item) => (
+              <Link
+                key={`k-${item.ticker}`}
+                href={homeTickerPath(item.ticker)}
+                className="discover-trending-chip discover-trending-chip--ticker"
+              >
+                {formatTickerDisplay(item.ticker)}
+                <span className="discover-trending-chip-count">
+                  {item.postCount}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {visiblePlaces === null ? (
         <DiscoverTrendingChipSectionSkeleton />
       ) : visiblePlaces.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">Trending places</h2>
+            <h2 className="discover-trending-heading">Places</h2>
           </div>
           <div className="discover-trending-chips">
-            {visiblePlaces.slice(0, 6).map((item) => (
+            {visiblePlaces.slice(0, SECTION_LIMIT).map((item) => (
               <Link
                 key={`p-${item.place}`}
                 href={homePlacePath(item.place)}
@@ -481,12 +597,23 @@ export function DiscoverTrendingPanel({
         </section>
       ) : null}
 
+      <ScarcePeekSection
+        heading="Most traded"
+        seeAllHref={dropsPath({ sort: 'traded' })}
+        rows={visibleDropsTraded}
+      />
+      <ScarcePeekSection
+        heading="Most loved"
+        seeAllHref={dropsPath({ sort: 'loved' })}
+        rows={visibleDropsLoved}
+      />
+
       {visibleProfiles === null ? (
         <DiscoverTrendingProfilesSectionSkeleton />
       ) : visibleProfiles.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">Standing out</h2>
+            <h2 className="discover-trending-heading">Active</h2>
             <button
               type="button"
               className="discover-trending-see-all"
@@ -541,43 +668,12 @@ export function DiscoverTrendingPanel({
         </section>
       ) : null}
 
-      {visibleGuilds === null ? (
-        <DiscoverTrendingGuildsSectionSkeleton />
-      ) : visibleGuilds.length > 0 ? (
-        <section className="discover-trending-section">
-          <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">Guilds</h2>
-            <button
-              type="button"
-              className="discover-trending-see-all"
-              onClick={() => onOpenTab('guilds')}
-            >
-              See all
-            </button>
-          </div>
-          <ul className="discover-focus-rows">
-            {visibleGuilds.map((guild) => (
-              <li key={guild.groupId}>
-                <Link
-                  href={`${APP_GROUPS_PATH}/${encodeURIComponent(guild.groupId)}`}
-                  className="discover-focus-row"
-                >
-                  <span className="discover-focus-row-label">
-                    {guild.groupName?.trim() || guild.groupId}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
       {visibleHubs === null ? (
         <DiscoverTrendingGuildsSectionSkeleton />
       ) : visibleHubs.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">Hubs</h2>
+            <h2 className="discover-trending-heading">Hot hubs</h2>
             <button
               type="button"
               className="discover-trending-see-all"
@@ -600,12 +696,12 @@ export function DiscoverTrendingPanel({
         </section>
       ) : null}
 
-      {visibleDaos === null ? (
+      {visibleProposals === null ? (
         <DiscoverTrendingGuildsSectionSkeleton />
-      ) : visibleDaos.length > 0 ? (
+      ) : visibleProposals.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">Featured DAOs</h2>
+            <h2 className="discover-trending-heading">Open proposals</h2>
             <button
               type="button"
               className="discover-trending-see-all"
@@ -615,17 +711,20 @@ export function DiscoverTrendingPanel({
             </button>
           </div>
           <ul className="discover-focus-rows">
-            {visibleDaos.map((dao) => {
-              const label = resolveDaoDirectoryName(dao.daoAccountId, {
-                name: dao.name,
-              });
+            {visibleProposals.slice(0, SECTION_LIMIT).map((row) => {
+              const href = discoverProposalHref(row);
+              const title = row.title?.trim() || 'Proposal';
+              const meta = row.groupId?.trim() || row.proposalType?.trim() || '';
+              if (!href) return null;
               return (
-                <li key={dao.daoAccountId}>
-                  <Link
-                    href={daoPath(dao.daoAccountId)}
-                    className="discover-focus-row"
-                  >
-                    <span className="discover-focus-row-label">{label}</span>
+                <li
+                  key={`${row.groupId ?? 'g'}-${row.proposalId ?? row.blockHeight}`}
+                >
+                  <Link href={href} className="discover-focus-row">
+                    <span className="discover-focus-row-label">{title}</span>
+                    {meta ? (
+                      <span className="discover-focus-row-meta">{meta}</span>
+                    ) : null}
                   </Link>
                 </li>
               );

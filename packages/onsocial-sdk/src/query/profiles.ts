@@ -75,6 +75,11 @@ export interface ProfileSearchOptions {
   kind?: DiscoverFaceKind;
   industry?: string;
   hiring?: boolean;
+  /**
+   * `discover` (default) — reputation × confidence, then standing, then activity.
+   * `activity` — last stand / endorse / profile write, then standing.
+   */
+  order?: 'discover' | 'activity';
 }
 
 export interface ProfileDiscoverStandingRow {
@@ -216,6 +221,13 @@ export function buildDiscoverWhere(opts: ProfileSearchOptions): {
     variableDecl: decls.length ? `, ${decls.join(', ')}` : '',
     variables,
   };
+}
+
+function discoverOrderByClause(order?: 'discover' | 'activity'): string {
+  if (order === 'activity') {
+    return '[{lastActivityBlock: DESC}, {standingCount: DESC}]';
+  }
+  return '[{discoverScore: DESC}, {standingCount: DESC}, {lastActivityBlock: DESC}]';
 }
 
 function mapDiscoverRows(
@@ -405,11 +417,7 @@ export class ProfilesQuery {
           ${filter}
           limit: $limit,
           offset: $offset,
-          orderBy: [
-            {discoverScore: DESC},
-            {standingCount: DESC},
-            {lastActivityBlock: DESC}
-          ]
+          orderBy: ${discoverOrderByClause(opts.order)}
         ) {
           ${PROFILE_DISCOVER_FIELDS}
         }
@@ -450,6 +458,7 @@ export class ProfilesQuery {
         kind: opts.kind,
         industry: opts.industry,
         hiring: opts.hiring,
+        order: opts.order,
         limit,
         offset,
       });
@@ -461,6 +470,7 @@ export class ProfilesQuery {
       kind: opts.kind,
       industry: opts.industry,
       hiring: opts.hiring,
+      order: opts.order,
       limit,
       offset,
     });

@@ -12,7 +12,7 @@ const IDLE_PLACEHOLDER = 'Search';
 
 /**
  * Discover omni search — typing filters the active tab. Bare text on
- * Trending opens Profiles. `#topic` / `$ticker` switch those tabs
+ * Moving opens Profiles. `#topic` / `$ticker` switch those tabs
  * (Enter opens the Home focus feed). Idle hint is short; focused hint
  * names what you can search.
  */
@@ -28,7 +28,7 @@ export function DiscoverOmniSearchField({ className }: { className?: string }) {
         ? 'Search guilds'
         : tab === 'hubs'
           ? 'Search hubs'
-          : // Trending + Profiles (+ topics/tickers) share one omni hint.
+          : // Moving + Profiles (+ topics/tickers) share one omni hint.
             'People, #topics, $tickers';
   const searchPlaceholder = focused ? focusPlaceholder : IDLE_PLACEHOLDER;
   const searchAriaLabel =

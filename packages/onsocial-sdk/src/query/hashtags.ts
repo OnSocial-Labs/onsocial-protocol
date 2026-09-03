@@ -10,17 +10,25 @@ export class HashtagsQuery {
   constructor(private _q: QueryModule) {}
 
   /**
-   * Trending hashtags (most used, descending).
+   * Trending hashtags. Default `count` is lifetime post count (Topics tab).
+   * `recent` is last mention, then count (Discover Moving chips).
    *
    * ```ts
    * const tags = await os.query.hashtags.trending({ limit: 10 });
+   * const moving = await os.query.hashtags.trending({ limit: 6, sort: 'recent' });
    * ```
    */
-  async trending(opts: { limit?: number } = {}): Promise<HashtagCount[]> {
+  async trending(
+    opts: { limit?: number; sort?: 'count' | 'recent' } = {}
+  ): Promise<HashtagCount[]> {
+    const orderBy =
+      opts.sort === 'recent'
+        ? '[{lastBlock: DESC}, {postCount: DESC}]'
+        : '[{postCount: DESC}]';
     const res = await this._q.graphql<{ hashtagCounts: HashtagCount[] }>({
       query: `query TrendingHashtags($limit: Int!) {
         hashtagCounts(
-          orderBy: [{postCount: DESC}],
+          orderBy: ${orderBy},
           limit: $limit
         ) {
           hashtag postCount lastBlock
