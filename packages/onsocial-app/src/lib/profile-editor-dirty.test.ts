@@ -27,7 +27,7 @@ function baseSnapshot(
 function dirtyInput(
   snapshot: ProfileEditorSnapshot,
   overrides: Partial<Parameters<typeof isProfileEditorDirty>[0]> = {}
-) {
+): Parameters<typeof isProfileEditorDirty>[0] {
   const linksFromSnapshot = profileLinksInputFromRecord(snapshot.links);
   return {
     snapshot,
