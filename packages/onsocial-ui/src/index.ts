@@ -100,6 +100,7 @@ export {
   BookmarkIcon,
   Box3dIcon,
   BoxCheckIcon,
+  BuildingTreeIcon,
   CameraIcon,
   ChartVerticalIcon,
   CheckIcon,

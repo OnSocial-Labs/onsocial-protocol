@@ -75,7 +75,7 @@ export function profileAvatarShapeFromKind(
   return 'circle';
 }
 
-/** Quiet portfolio eyebrow. Person / omit → no label. */
+/** Quiet face copy. Person / omit → no label. Org uses the location-style line. */
 export function profileKindFaceLabel(kind?: ProfileKind | null): string | null {
   if (kind === 'org') return 'Organization';
   if (kind === 'dao') return 'DAO';

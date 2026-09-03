@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kind-switch';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
+import { PortfolioOrgKindMark } from '@/components/portfolio/portfolio-org-kind-mark';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
@@ -80,11 +81,13 @@ export function PortfolioIdentity({
       )}
 
       <div className="portfolio-identity-copy">
-        {isDao && isProtocolFacePairDao(accountId) ? (
+        {displayKind !== 'org' &&
+        isDao &&
+        isProtocolFacePairDao(accountId) ? (
           <PortfolioDaoKindSwitch accountId={accountId} />
-        ) : isDao && kindLabel ? (
+        ) : displayKind !== 'org' && isDao && kindLabel ? (
           <p className="portfolio-entity-kind">{kindLabel}</p>
-        ) : profileKindLabel ? (
+        ) : displayKind === 'dao' && profileKindLabel ? (
           <p className="portfolio-entity-kind">{profileKindLabel}</p>
         ) : null}
         <div className="portfolio-name-row">
@@ -105,6 +108,12 @@ export function PortfolioIdentity({
             </span>
           ) : null}
         </p>
+        {displayKind === 'org' && profileKindLabel ? (
+          <p className="portfolio-location" data-profile-kind-line="org">
+            <PortfolioOrgKindMark />
+            <span>{profileKindLabel}</span>
+          </p>
+        ) : null}
         {locationLabel ? (
           <p className="portfolio-location">
             <PortfolioLocationMark />
