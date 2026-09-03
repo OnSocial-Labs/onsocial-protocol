@@ -1653,10 +1653,7 @@ export function ProfileModal({
                     </p>
                   ) : null}
                   {displayKind === 'org' ? (
-                    <ProfileHiringLine
-                      accountId={accountId}
-                      orgName={title}
-                    />
+                    <ProfileHiringLine accountId={accountId} orgName={title} />
                   ) : null}
                   {location ? (
                     <p className="min-w-0 truncate portal-type-body-sm text-muted-foreground/45">

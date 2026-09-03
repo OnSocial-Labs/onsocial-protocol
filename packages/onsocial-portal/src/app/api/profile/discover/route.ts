@@ -77,11 +77,15 @@ export async function GET(request: NextRequest) {
   const limit = getLimit(request);
   const offset = getOffset(request);
   const viewerAccountId = getViewerAccountId(request);
-  const face = parseDiscoverFaceFilter(request.nextUrl.searchParams.get('face'));
+  const face = parseDiscoverFaceFilter(
+    request.nextUrl.searchParams.get('face')
+  );
   const industry =
     face === 'people'
       ? ''
-      : (request.nextUrl.searchParams.get('industry') ?? '').trim().slice(0, 64);
+      : (request.nextUrl.searchParams.get('industry') ?? '')
+          .trim()
+          .slice(0, 64);
 
   try {
     const os = createPortalServerOnSocialClient();
