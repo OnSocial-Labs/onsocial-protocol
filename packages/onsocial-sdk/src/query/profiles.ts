@@ -16,8 +16,10 @@ export interface ProfileSearchRow {
   bio: string | null;
   avatar: string | null;
   banner: string | null;
-  /** Optional `profile/kind` from profiles_current. */
+  /** Optional `profile/kind` from profiles_current / profile_discover. */
   kind?: ProfileKind;
+  industry?: string | null;
+  openJobsCount?: number;
   standingCount: number;
   standingWithCount: number;
   mutualStandingCount: number;
@@ -33,10 +35,47 @@ export interface ProfileSearchRow {
   confidenceScore?: number;
 }
 
+export type DiscoverFaceKind = 'person' | 'org';
+
+/** Discover chip rail — not a new tab. Hiring implies orgs with open roles. */
+export type DiscoverFaceFilter = 'all' | 'people' | 'orgs' | 'hiring';
+
+export function parseDiscoverFaceFilter(
+  raw: string | null | undefined
+): DiscoverFaceFilter {
+  const value = (raw ?? '').trim().toLowerCase();
+  if (value === 'people' || value === 'person') return 'people';
+  if (value === 'orgs' || value === 'org') return 'orgs';
+  if (value === 'hiring') return 'hiring';
+  return 'all';
+}
+
+export function discoverFaceSearchOptions(
+  face: DiscoverFaceFilter,
+  industry?: string | null
+): Pick<ProfileSearchOptions, 'kind' | 'industry' | 'hiring'> {
+  const sector =
+    face === 'people' ? undefined : industry?.trim() || undefined;
+  if (face === 'hiring') {
+    return { kind: 'org', hiring: true, industry: sector };
+  }
+  if (face === 'orgs') {
+    return { kind: 'org', industry: sector };
+  }
+  if (face === 'people') {
+    return { kind: 'person' };
+  }
+  return sector ? { industry: sector } : {};
+}
+
 export interface ProfileSearchOptions {
   query?: string;
   limit?: number;
   offset?: number;
+  /** Person (omit / person) or Organization. DAO stays on the DAOs tab. */
+  kind?: DiscoverFaceKind;
+  industry?: string;
+  hiring?: boolean;
 }
 
 export interface ProfileDiscoverStandingRow {
@@ -53,10 +92,7 @@ export interface ProfileDiscoverViewerContext {
   endorsementTargets: string[];
 }
 
-export interface ProfileDiscoverPageOptions {
-  query?: string;
-  limit?: number;
-  offset?: number;
+export interface ProfileDiscoverPageOptions extends ProfileSearchOptions {
   /** When set, viewer graph context is batched for the returned profile page only. */
   viewerAccountId?: string;
 }
@@ -98,7 +134,7 @@ function parseStandingSince(raw: string | null | undefined): number | null {
 }
 
 const PROFILE_SEARCH_FIELDS = `
-  accountId name bio avatar banner
+  accountId name bio avatar banner kind industry openJobsCount
   standingCount standingWithCount mutualStandingCount
   endorsementsReceivedCount endorsementsGivenCount
   firstProfileTimestamp
@@ -141,17 +177,68 @@ export function applyProfileSearchKinds<T extends { accountId: string }>(
   });
 }
 
+export function buildDiscoverWhere(opts: ProfileSearchOptions): {
+  filter: string;
+  variableDecl: string;
+  variables: Record<string, unknown>;
+} {
+  const clauses: string[] = [];
+  const decls: string[] = [];
+  const variables: Record<string, unknown> = {};
+  const query = opts.query?.trim();
+  if (query) {
+    decls.push('$pattern: String!');
+    variables.pattern = `%${query}%`;
+    clauses.push('{searchText: {_ilike: $pattern}}');
+  }
+  if (opts.kind === 'org') {
+    clauses.push('{kind: {_eq: "org"}}');
+  } else if (opts.kind === 'person') {
+    clauses.push(
+      '{_or: [{kind: {_eq: "person"}}, {kind: {_isNull: true}}]}'
+    );
+  }
+  const industry = opts.industry?.trim();
+  if (industry) {
+    decls.push('$industry: String!');
+    variables.industry = industry;
+    clauses.push('{industry: {_eq: $industry}}');
+  }
+  if (opts.hiring) {
+    clauses.push('{openJobsCount: {_gt: 0}}');
+  }
+  if (clauses.length === 0) {
+    return { filter: '', variableDecl: '', variables };
+  }
+  const filter =
+    clauses.length === 1
+      ? `where: ${clauses[0]}, `
+      : `where: {_and: [${clauses.join(', ')}]}, `;
+  return {
+    filter,
+    variableDecl: decls.length ? `, ${decls.join(', ')}` : '',
+    variables,
+  };
+}
+
 function mapDiscoverRows(
   rows: Array<
     ProfileSearchRow & {
       discoverScore?: number | string | null;
       reputation?: number | string | null;
       confidenceScore?: number | string | null;
+      openJobsCount?: number | string | null;
     }
   >
 ): ProfileSearchRow[] {
   return rows.map((row) => ({
     ...row,
+    industry:
+      typeof row.industry === 'string' && row.industry.trim()
+        ? row.industry
+        : null,
+    openJobsCount:
+      row.openJobsCount == null ? 0 : Number(row.openJobsCount) || 0,
     discoverScore:
       row.discoverScore == null ? undefined : Number(row.discoverScore),
     reputation: row.reputation == null ? undefined : Number(row.reputation),
@@ -306,9 +393,7 @@ export class ProfilesQuery {
    * ```
    */
   async search(opts: ProfileSearchOptions = {}): Promise<ProfileSearchRow[]> {
-    const query = opts.query?.trim();
-    const filter = query ? 'where: {searchText: {_ilike: $pattern}}, ' : '';
-    const variableDecl = query ? ', $pattern: String!' : '';
+    const { filter, variableDecl, variables } = buildDiscoverWhere(opts);
     const res = await this._q.graphql<{
       profileDiscover: Array<
         ProfileSearchRow & {
@@ -335,7 +420,7 @@ export class ProfilesQuery {
       variables: {
         limit: opts.limit ?? 20,
         offset: opts.offset ?? 0,
-        ...(query ? { pattern: `%${query}%` } : {}),
+        ...variables,
       },
     });
     return mapDiscoverRows(res.data?.profileDiscover ?? []);
@@ -365,6 +450,9 @@ export class ProfilesQuery {
     if (!viewerAccountId) {
       const profiles = await this.search({
         query: opts.query,
+        kind: opts.kind,
+        industry: opts.industry,
+        hiring: opts.hiring,
         limit,
         offset,
       });
@@ -373,6 +461,9 @@ export class ProfilesQuery {
 
     const profiles = await this.search({
       query: opts.query,
+      kind: opts.kind,
+      industry: opts.industry,
+      hiring: opts.hiring,
       limit,
       offset,
     });
