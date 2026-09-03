@@ -6740,15 +6740,7 @@ a.os-surface-row {
     object-fit: cover;
   }
 
-  /* DAO org crest — squareish (1rem). */
-  .portfolio-frame[data-entity='dao'] .portfolio-avatar,
-  .portfolio-frame[data-entity='dao'] .portfolio-avatar-fallback,
-  .portfolio-identity[data-entity='dao'] .portfolio-avatar,
-  .portfolio-identity[data-entity='dao'] .portfolio-avatar-fallback {
-    border-radius: 1rem;
-  }
-
-  /* profile/kind wins over the DAO heuristic when explicitly set. */
+  /* Face geometry from profile/kind only. Heuristic DAOs stamp kind=dao on the frame. */
   .portfolio-frame[data-profile-kind='person'] .portfolio-avatar,
   .portfolio-frame[data-profile-kind='person'] .portfolio-avatar-fallback,
   .portfolio-identity[data-profile-kind='person'] .portfolio-avatar,
@@ -7133,28 +7125,20 @@ a.os-surface-row {
    * Person portfolio — gov/treasury credentials with @handle, not the display name.
    * Muted at rest; protocol color on hover/focus.
    */
-  .portfolio-identity:not([data-entity='dao'])
-    .portfolio-handle-marks
-    .protocol-identity-mark {
+  .portfolio-identity .portfolio-handle-marks .protocol-identity-mark {
     font-size: 0.95em;
   }
 
-  .portfolio-identity:not([data-entity='dao'])
-    .portfolio-handle-marks
-    .protocol-identity-mark--governance,
-  .portfolio-identity:not([data-entity='dao'])
-    .portfolio-handle-marks
-    .protocol-identity-mark--treasury,
-  .portfolio-identity:not([data-entity='dao'])
-    .portfolio-handle-marks
-    .protocol-identity-mark--proposer {
+  .portfolio-identity .portfolio-handle-marks .protocol-identity-mark--governance,
+  .portfolio-identity .portfolio-handle-marks .protocol-identity-mark--treasury,
+  .portfolio-identity .portfolio-handle-marks .protocol-identity-mark--proposer {
     color: rgb(var(--fg-rgb) / 0.36);
   }
 
-  .portfolio-identity:not([data-entity='dao'])
+  .portfolio-identity
     .portfolio-handle-marks
     .protocol-identity-mark--governance:hover,
-  .portfolio-identity:not([data-entity='dao'])
+  .portfolio-identity
     .portfolio-handle-marks
     .protocol-identity-mark--governance:focus-visible {
     color: color-mix(
@@ -7164,10 +7148,10 @@ a.os-surface-row {
     );
   }
 
-  .portfolio-identity:not([data-entity='dao'])
+  .portfolio-identity
     .portfolio-handle-marks
     .protocol-identity-mark--treasury:hover,
-  .portfolio-identity:not([data-entity='dao'])
+  .portfolio-identity
     .portfolio-handle-marks
     .protocol-identity-mark--treasury:focus-visible {
     color: color-mix(
@@ -7177,10 +7161,10 @@ a.os-surface-row {
     );
   }
 
-  .portfolio-identity:not([data-entity='dao'])
+  .portfolio-identity
     .portfolio-handle-marks
     .protocol-identity-mark--proposer:hover,
-  .portfolio-identity:not([data-entity='dao'])
+  .portfolio-identity
     .portfolio-handle-marks
     .protocol-identity-mark--proposer:focus-visible {
     color: color-mix(

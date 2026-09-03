@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties, ReactNode } from 'react';
-import type { ProfileKind } from '@onsocial/sdk';
+import { resolveDisplayProfileKind, type ProfileKind } from '@onsocial/sdk';
 import { PortfolioHeroTop } from '@/components/portfolio/portfolio-hero-top';
 import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
 import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
@@ -58,8 +58,7 @@ export function PortfolioShell({
       ref={portalHostRef}
       className="frame app-surface portfolio-frame"
       data-page-account={pageAccountId}
-      data-entity={isDao ? 'dao' : undefined}
-      data-profile-kind={profileKind ?? (isDao ? 'dao' : 'person')}
+      data-profile-kind={resolveDisplayProfileKind(profileKind, isDao)}
       data-mood={mood.id}
       data-mood-preview={isPreviewingMood ? 'true' : undefined}
       data-has-banner={hasBanner ? 'true' : undefined}

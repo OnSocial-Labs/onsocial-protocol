@@ -69,7 +69,6 @@ export function PortfolioIdentity({
   return (
     <section
       className="portfolio-identity animate-rise-in"
-      data-entity={isDao ? 'dao' : undefined}
       data-profile-kind={displayKind}
     >
       {avatarUrl ? (

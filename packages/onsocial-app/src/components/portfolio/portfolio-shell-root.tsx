@@ -51,7 +51,7 @@ import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
 interface PortfolioShellRootProps {
   mood: ResolvedMood;
   pageAccountId: string;
-  /** DAO org public face — square crest via data-entity on frame. */
+  /** Protocol / catalog DAO workspace — tools and standing, not face CSS. */
   isDao?: boolean;
   /** Optional `profile/kind` for avatar geometry. */
   profileKind?: ProfileKind | null;
