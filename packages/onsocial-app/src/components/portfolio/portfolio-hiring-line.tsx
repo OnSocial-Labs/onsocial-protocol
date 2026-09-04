@@ -34,6 +34,11 @@ export function PortfolioHiringLine({
   const [open, setOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 
+  // Reset visitor preview when the owner editor closes (render-time adjust).
+  if (!open && previewOpen) {
+    setPreviewOpen(false);
+  }
+
   useEffect(() => {
     let cancelled = false;
     void fetchAccountJobs(accountId, { includeClosed: isOwner }).then(
@@ -57,10 +62,6 @@ export function PortfolioHiringLine({
     window.addEventListener(JOBS_CHANGED_EVENT, onChange);
     return () => window.removeEventListener(JOBS_CHANGED_EVENT, onChange);
   }, [accountId, isOwner]);
-
-  useEffect(() => {
-    if (!open) setPreviewOpen(false);
-  }, [open]);
 
   const openJobs = jobs.filter((job) => isJobOpen(job.ends));
   const closedCount = jobs.length - openJobs.length;

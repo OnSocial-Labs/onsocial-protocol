@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { formatJobClosesLabel, type JobSearchRow } from '@onsocial/sdk';
 import {
   Divider,
@@ -97,13 +97,15 @@ export function PortfolioHiringSheet({
   zIndex?: number;
 }) {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+
+  // Clear role detail when the list sheet closes (render-time adjust).
+  if (!open && selectedJobId !== null) {
+    setSelectedJobId(null);
+  }
+
   const selectedJob =
     jobs.find((job) => job.jobId === selectedJobId) ?? null;
   const detailOpen = Boolean(selectedJob);
-
-  useEffect(() => {
-    if (!open) setSelectedJobId(null);
-  }, [open]);
 
   return (
     <>
