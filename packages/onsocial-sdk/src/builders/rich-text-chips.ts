@@ -8,10 +8,7 @@ export const OS_RICH_CHIP_ATTR = 'data-os-chip';
 
 const ELEMENT_NODE = 1;
 
-const CHIP_CLASS: Record<
-  Exclude<RichTextSegment['type'], 'text'>,
-  string
-> = {
+const CHIP_CLASS: Record<Exclude<RichTextSegment['type'], 'text'>, string> = {
   hashtag: 'os-hashtag',
   ticker: 'os-ticker',
   mention: 'os-mention',
@@ -42,18 +39,16 @@ export function richTextSegmentsToChipHtml(text: string): string {
     .join('');
 }
 
+type QueryableParent = ParentNode & {
+  querySelectorAll?: (selectors: string) => NodeListOf<Element>;
+};
+
 /** Unwrap existing chip spans to plain text nodes. */
 export function unwrapRichTextChips(root: ParentNode): void {
   const chips: Element[] = [];
-  if (
-    typeof (root as ParentNode & { querySelectorAll?: Function })
-      .querySelectorAll === 'function'
-  ) {
-    const found = (
-      root as ParentNode & {
-        querySelectorAll: (s: string) => NodeListOf<Element>;
-      }
-    ).querySelectorAll(`[${OS_RICH_CHIP_ATTR}]`);
+  const queryable = root as QueryableParent;
+  if (typeof queryable.querySelectorAll === 'function') {
+    const found = queryable.querySelectorAll(`[${OS_RICH_CHIP_ATTR}]`);
     for (let i = 0; i < found.length; i += 1) {
       chips.push(found[i]!);
     }
@@ -65,10 +60,7 @@ export function unwrapRichTextChips(root: ParentNode): void {
     const parent = chip.parentNode;
     if (!parent) continue;
     const text = chip.textContent ?? '';
-    const doc =
-      typeof document !== 'undefined'
-        ? document
-        : chip.ownerDocument;
+    const doc = typeof document !== 'undefined' ? document : chip.ownerDocument;
     if (!doc) continue;
     parent.replaceChild(doc.createTextNode(text), chip);
   }
@@ -147,18 +139,22 @@ function countCaretUnits(node: Node): number {
 
 function caretUnitWalker(root: Node): TreeWalker | null {
   if (typeof document === 'undefined') return null;
-  return document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
-    acceptNode(node) {
-      if (node.nodeType === TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
-      if (
-        node.nodeType === ELEMENT_NODE &&
-        (node as Element).tagName.toLowerCase() === 'br'
-      ) {
-        return NodeFilter.FILTER_ACCEPT;
-      }
-      return NodeFilter.FILTER_SKIP;
-    },
-  });
+  return document.createTreeWalker(
+    root,
+    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+    {
+      acceptNode(node) {
+        if (node.nodeType === TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
+        if (
+          node.nodeType === ELEMENT_NODE &&
+          (node as Element).tagName.toLowerCase() === 'br'
+        ) {
+          return NodeFilter.FILTER_ACCEPT;
+        }
+        return NodeFilter.FILTER_SKIP;
+      },
+    }
+  );
 }
 
 /** Character offset from root start to (node, offset) — `<br>` counts as 1. */
