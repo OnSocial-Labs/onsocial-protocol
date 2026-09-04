@@ -500,7 +500,4 @@ export {
   searchFieldTrailing,
   type SearchFieldProps,
 } from './search-field.js';
-export {
-  OsRichTextField,
-  type OsRichTextTool,
-} from './os-rich-text-field.js';
+export { OsRichTextField, type OsRichTextTool } from './os-rich-text-field.js';

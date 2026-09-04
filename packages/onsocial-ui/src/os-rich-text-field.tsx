@@ -125,15 +125,11 @@ export function OsRichTextField({
       },
       handleDOMEvents: {
         focus: (_view, event) => {
-          onFocusRef.current?.(
-            event as unknown as FocusEvent<HTMLDivElement>
-          );
+          onFocusRef.current?.(event as unknown as FocusEvent<HTMLDivElement>);
           return false;
         },
         blur: (_view, event) => {
-          onBlurRef.current?.(
-            event as unknown as FocusEvent<HTMLDivElement>
-          );
+          onBlurRef.current?.(event as unknown as FocusEvent<HTMLDivElement>);
           return false;
         },
       },
