@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { loadMentionSuggestions } from '@/features/home/post-mention-suggestions';
+import {
+  loadMentionSuggestions,
+  MENTION_SUGGEST_LIMIT,
+} from '@/features/home/post-mention-suggestions';
 import type { OnSocial, ProfileSearchRow } from '@onsocial/sdk';
 
 function row(accountId: string, name: string | null = null): ProfileSearchRow {
@@ -57,9 +60,9 @@ describe('loadMentionSuggestions', () => {
     ]);
   });
 
-  it('filters standings and search by query and caps at 10', async () => {
+  it('filters standings and search by query and caps at the suggest limit', async () => {
     const standingIds = Array.from(
-      { length: 12 },
+      { length: MENTION_SUGGEST_LIMIT + 2 },
       (_, i) => `stand${i}.testnet`
     );
     const client = mockClient({
@@ -69,7 +72,7 @@ describe('loadMentionSuggestions', () => {
     });
 
     const rows = await loadMentionSuggestions(client, 'stand', 'alice.testnet');
-    expect(rows).toHaveLength(10);
+    expect(rows).toHaveLength(MENTION_SUGGEST_LIMIT);
     expect(rows.every((r) => r.accountId.startsWith('stand'))).toBe(true);
     expect(rows[0]?.accountId).toBe('stand0.testnet');
   });
