@@ -1,4 +1,5 @@
 import type { DiscoverFaceFilter } from '@onsocial/sdk';
+import { profileIdentityTopicLabel } from '@/lib/profile-identity-topics';
 
 /** Compact counts for Discover tab lead lines. */
 export function formatDiscoverTabCount(count: number): string {
@@ -21,9 +22,14 @@ export function discoverProfilesLead(
   discoverableTotal: number | null | undefined,
   _query?: string,
   face: DiscoverFaceFilter = 'all',
-  industry = ''
+  industry = '',
+  craft = ''
 ): string {
   const sector = industry.trim();
+  const craftLabel = craft.trim()
+    ? profileIdentityTopicLabel(craft.trim())
+    : '';
+  if (craftLabel) return `People · ${craftLabel}`;
   if (face === 'hiring') return sector ? `Hiring · ${sector}` : 'Hiring';
   if (face === 'orgs') return sector ? `Orgs · ${sector}` : 'Orgs';
   if (face === 'people') return 'People';

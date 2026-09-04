@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { formatJobEndsLabel, type JobSearchRow } from '@onsocial/sdk';
+import { formatJobClosesLabel, type JobSearchRow } from '@onsocial/sdk';
 import { OsHugSheet } from '@onsocial/ui';
 import {
   JOBS_CHANGED_EVENT,
@@ -69,19 +69,22 @@ export function ProfileHiringLine({
                   {job.description}
                 </p>
               ) : null}
-              <p className="portal-type-body-sm text-muted-foreground/55">
-                Ends {formatJobEndsLabel(job.ends)}
+              <p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 portal-type-body-sm text-muted-foreground/55">
+                <span>{formatJobClosesLabel(job.ends)}</span>
+                {job.url ? (
+                  <>
+                    <span aria-hidden>·</span>
+                    <a
+                      className="font-semibold text-foreground"
+                      href={job.url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Apply
+                    </a>
+                  </>
+                ) : null}
               </p>
-              {job.url ? (
-                <a
-                  className="w-fit font-semibold portal-type-body-sm"
-                  href={job.url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Apply
-                </a>
-              ) : null}
             </li>
           ))}
         </ul>

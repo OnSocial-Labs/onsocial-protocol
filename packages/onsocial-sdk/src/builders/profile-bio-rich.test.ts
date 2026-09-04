@@ -12,7 +12,7 @@ import {
   toggleProfileBioHeading,
   toggleProfileBioItalic,
   toggleProfileBioList,
-} from '@/lib/profile-bio-rich';
+} from './profile-bio-rich.js';
 
 describe('toggleProfileBioItalic', () => {
   it('wraps a selection', () => {
@@ -125,12 +125,21 @@ describe('toggleProfileBioList', () => {
       end: 7,
     });
   });
+
+  it('unwraps legacy dash list lines', () => {
+    expect(toggleProfileBioList('- one\n- two', 0, 11)).toEqual({
+      text: 'one\ntwo',
+      start: 0,
+      end: 7,
+    });
+  });
 });
 
 describe('heading and list active ranges', () => {
   it('reads the current line', () => {
     expect(isProfileBioRangeHeading('# Hello\nthere', 3, 3)).toBe(true);
     expect(isProfileBioRangeHeading('#near\nthere', 1, 1)).toBe(false);
+    expect(isProfileBioRangeList('• one\ntwo', 2, 2)).toBe(true);
     expect(isProfileBioRangeList('- one\ntwo', 2, 2)).toBe(true);
     expect(isProfileBioRangeList('one\ntwo', 1, 1)).toBe(false);
   });
@@ -166,6 +175,14 @@ describe('profileAboutBlocks', () => {
     ]);
   });
 
+  it('groups bullet lists', () => {
+    expect(profileAboutBlocks('Before\n• one\n• two\n\nAfter')).toEqual([
+      { type: 'paragraph', text: 'Before' },
+      { type: 'list', items: ['one', 'two'] },
+      { type: 'paragraph', text: 'After' },
+    ]);
+  });
+
   it('does not treat a lone hash or empty dash as structure', () => {
     expect(profileAboutBlocks('#\n- \nOnly one.')).toEqual([
       { type: 'paragraph', text: '#' },
@@ -179,6 +196,14 @@ describe('profileBioPlainPreview', () => {
     expect(
       profileBioPlainPreview('Ship **UI**.\n- React\n- *TS*')
     ).toBe('Ship UI. React TS');
+  });
+
+  it('can keep only the first block for list teasers', () => {
+    expect(
+      profileBioPlainPreview('Need engineering skills.\n\n• Typescript', {
+        maxBlocks: 1,
+      })
+    ).toBe('Need engineering skills.');
   });
 });
 
@@ -234,6 +259,7 @@ function element(tag: string, children: FakeNode[] = []): FakeNode {
   return node;
 }
 
+/** Minimal parser for HTML emitted by `profileBioMarkdownToHtml`. */
 function fragmentFromHtml(html: string): ParentNode {
   const root = element('div');
   let i = 0;
@@ -272,6 +298,7 @@ function fragmentFromHtml(html: string): ParentNode {
         continue;
       }
       if (html[i] === '<') {
+        // Unknown tag — skip conservatively.
         const end = html.indexOf('>', i);
         i = end === -1 ? html.length : end + 1;
         continue;
@@ -318,7 +345,7 @@ function fragmentFromHtml(html: string): ParentNode {
 describe('profileBio markdown html roundtrip', () => {
   it('roundtrips bold, italic, list, and heading', () => {
     const markdown =
-      '# Hello\n\nSee **bold** and *italic*.\n\n• one\n• two';
+      '# Hello\nSee **bold** and *italic*.\n• one\n• two';
     const html = profileBioMarkdownToHtml(markdown);
     expect(html).toBe(
       '<h3>Hello</h3><p>See <strong>bold</strong> and <em>italic</em>.</p><ul><li>one</li><li>two</li></ul>'
@@ -327,12 +354,17 @@ describe('profileBio markdown html roundtrip', () => {
   });
 
   it('keeps Enter / trailing line breaks', () => {
-    expect(
-      profileBioHtmlToMarkdown(fragmentFromHtml('<p>Hello</p><p><br></p>'))
-    ).toBe('Hello\n\n');
+    expect(profileBioHtmlToMarkdown(fragmentFromHtml('<p>Hello</p><p><br></p>'))).toBe(
+      'Hello\n'
+    );
     expect(profileBioMarkdownToHtml('Hello\n')).toContain('<p><br></p>');
     expect(
-      profileBioHtmlToMarkdown(fragmentFromHtml('<p>Hello<br></p>'))
-    ).toContain('\n');
+      profileBioHtmlToMarkdown(
+        fragmentFromHtml('<p>Hello<br></p>')
+      ).startsWith('Hello')
+    ).toBe(true);
+    expect(profileBioHtmlToMarkdown(fragmentFromHtml('<p>Hello<br></p>'))).toContain(
+      '\n'
+    );
   });
 });

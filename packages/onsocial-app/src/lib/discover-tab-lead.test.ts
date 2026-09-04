@@ -28,6 +28,9 @@ describe('discoverProfilesLead', () => {
     );
     expect(discoverProfilesLead(12_500, '', 'orgs')).toBe('Orgs');
     expect(discoverProfilesLead(12_500, '', 'people')).toBe('People');
+    expect(discoverProfilesLead(12_500, '', 'people', '', 'writer')).toBe(
+      'People · Writer'
+    );
   });
 });
 

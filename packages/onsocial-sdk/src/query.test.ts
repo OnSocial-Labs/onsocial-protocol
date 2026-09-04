@@ -446,6 +446,45 @@ describe('QueryModule', () => {
       });
     });
 
+    it('lists closed jobs for an account via jobsCurrent', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          jobsCurrent: [
+            {
+              accountId: 'studio.near',
+              jobId: 'j-old',
+              valueJson: {
+                title: 'Past role',
+                ends: 1_000,
+                description: 'Done',
+              },
+              blockHeight: 2,
+              blockTimestamp: 3,
+            },
+            {
+              accountId: 'studio.near',
+              jobId: 'j-open',
+              valueJson: {
+                title: 'Open role',
+                ends: Date.now() + 86_400_000,
+              },
+              blockHeight: 4,
+              blockTimestamp: 5,
+            },
+          ],
+        },
+      });
+      const jobs = await os.query.jobs.forAccount('studio.near', {
+        includeClosed: true,
+      });
+      expect(jobs.map((job) => job.jobId)).toEqual(['j-open', 'j-old']);
+      expect(jobs[1]?.title).toBe('Past role');
+      const body = JSON.parse(
+        String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
+      ) as { query: string };
+      expect(body.query).toContain('jobsCurrent');
+    });
+
     it('discoverPage without viewer uses search (one round-trip)', async () => {
       const rows = [
         {

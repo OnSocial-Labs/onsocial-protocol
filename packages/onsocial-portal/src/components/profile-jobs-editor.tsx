@@ -5,12 +5,21 @@ import {
   JOB_DESCRIPTION_MAX,
   JOB_TITLE_MAX,
   JOB_URL_MAX,
-  formatJobEndsLabel,
+  formatJobListingMetaLabel,
   jobEndsFromDateInput,
+  normalizeJobUrl,
   todayDateInput,
   type JobSearchRow,
 } from '@onsocial/sdk';
-import { OsHugSheet, osFieldBorderedClassName } from '@onsocial/ui';
+import {
+  DiscardConfirmSheet,
+  OsHugSheet,
+  OsRichTextField,
+  OsSheetAction,
+  OsSheetActions,
+  OsSheetFooter,
+  osFieldBorderedClassName,
+} from '@onsocial/ui';
 import { useProfile } from '@/contexts/profile-context';
 import {
   txToastError,
@@ -20,7 +29,7 @@ import {
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import type { TransactionFeedback } from '@/components/ui/transaction-feedback-toast';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
-import { fetchOpenJobs, notifyJobsChanged } from '@/lib/profile-jobs';
+import { fetchAccountJobs, notifyJobsChanged } from '@/lib/profile-jobs';
 
 function collectRelayTxHashes(response: unknown): string[] {
   if (!response || typeof response !== 'object') return [];
@@ -45,6 +54,7 @@ export function ProfileJobsEditor({
     useNearTransactionFeedback(accountId);
   const [jobs, setJobs] = useState<JobSearchRow[]>([]);
   const [formOpen, setFormOpen] = useState(false);
+  const [removeJobId, setRemoveJobId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [url, setUrl] = useState('');
@@ -56,7 +66,7 @@ export function ProfileJobsEditor({
   }, [onToast, txResult]);
 
   const reload = useCallback(async () => {
-    setJobs(await fetchOpenJobs(accountId));
+    setJobs(await fetchAccountJobs(accountId, { includeClosed: true }));
   }, [accountId]);
 
   useEffect(() => {
@@ -112,6 +122,7 @@ export function ProfileJobsEditor({
         failureMessage: txToastError.roleRemoveFailed,
       });
       if (confirmed) {
+        setRemoveJobId(null);
         notify();
         void reload();
       }
@@ -123,15 +134,20 @@ export function ProfileJobsEditor({
     }
   };
 
+  const applyUrlInvalid = url.trim().length > 0 && !normalizeJobUrl(url);
   const canSubmit =
-    title.trim().length > 0 && jobEndsFromDateInput(ends) > Date.now();
+    title.trim().length > 0 &&
+    jobEndsFromDateInput(ends) > Date.now() &&
+    !applyUrlInvalid;
+  const removeTitle =
+    jobs.find((job) => job.jobId === removeJobId)?.title?.trim() || 'this role';
 
   return (
     <div className="flex flex-col gap-2">
       <p className="portal-type-body-sm text-muted-foreground/55">Hiring</p>
       {jobs.length === 0 ? (
         <p className="portal-type-body-sm text-muted-foreground/35">
-          No open roles.
+          No roles yet.
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -143,14 +159,20 @@ export function ProfileJobsEditor({
               <div>
                 <p className="font-semibold portal-type-body-sm">{job.title}</p>
                 <p className="portal-type-body-sm text-muted-foreground/45">
-                  Ends {formatJobEndsLabel(job.ends)}
+                  {formatJobListingMetaLabel(job.ends)}
+                  {job.url ? (
+                    <>
+                      <span aria-hidden> · </span>
+                      <span title={job.url}>Apply link</span>
+                    </>
+                  ) : null}
                 </p>
               </div>
               <button
                 type="button"
                 className="portal-type-body-sm font-semibold"
                 disabled={disabled || busy}
-                onClick={() => void handleRemove(job.jobId)}
+                onClick={() => setRemoveJobId(job.jobId)}
               >
                 Remove
               </button>
@@ -175,12 +197,28 @@ export function ProfileJobsEditor({
           }
         }}
         label="New role"
-        copy="Title and end date required."
         closeAriaLabel="Close role form"
         backdropLabel="Close role form"
         zIndex={2147483647}
+        footer={
+          <OsSheetFooter>
+            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+              <OsSheetAction
+                type="submit"
+                form={formId}
+                ready={canSubmit && !busy}
+                pending={busy}
+                pendingLabel="Posting…"
+                disabled={!canSubmit || busy}
+              >
+                Post role
+              </OsSheetAction>
+            </OsSheetActions>
+          </OsSheetFooter>
+        }
       >
         <form
+          id={formId}
           className="flex flex-col gap-3"
           onSubmit={(event) => {
             event.preventDefault();
@@ -195,6 +233,7 @@ export function ProfileJobsEditor({
               value={title}
               maxLength={JOB_TITLE_MAX}
               disabled={busy}
+              placeholder="Front end dev"
               onChange={(event) => setTitle(event.target.value)}
             />
           </label>
@@ -203,18 +242,21 @@ export function ProfileJobsEditor({
             htmlFor={`${formId}-description`}
           >
             <span className="portal-type-body-sm">Description</span>
-            <textarea
-              id={`${formId}-description`}
-              className={osFieldBorderedClassName}
-              value={description}
-              maxLength={JOB_DESCRIPTION_MAX}
-              disabled={busy}
-              rows={3}
-              onChange={(event) => setDescription(event.target.value)}
-            />
+            <div className={osFieldBorderedClassName}>
+              <OsRichTextField
+                id={`${formId}-description`}
+                value={description}
+                maxLength={JOB_DESCRIPTION_MAX}
+                disabled={busy}
+                rows={3}
+                placeholder="What you’re hiring for"
+                tools={['bold', 'italic', 'list']}
+                onChange={setDescription}
+              />
+            </div>
           </label>
           <label className="flex flex-col gap-1" htmlFor={`${formId}-ends`}>
-            <span className="portal-type-body-sm">Ends</span>
+            <span className="portal-type-body-sm">Closes</span>
             <input
               id={`${formId}-ends`}
               className={osFieldBorderedClassName}
@@ -227,26 +269,48 @@ export function ProfileJobsEditor({
             />
           </label>
           <label className="flex flex-col gap-1" htmlFor={`${formId}-url`}>
-            <span className="portal-type-body-sm">Apply URL</span>
+            <span className="portal-type-body-sm">Apply link</span>
             <input
               id={`${formId}-url`}
-              className={osFieldBorderedClassName}
+              className={`${osFieldBorderedClassName}${
+                applyUrlInvalid ? ' is-invalid' : ''
+              }`}
               value={url}
               maxLength={JOB_URL_MAX}
               disabled={busy}
-              placeholder="https://"
+              inputMode="url"
+              autoComplete="url"
+              placeholder="company.com/careers"
+              aria-invalid={applyUrlInvalid || undefined}
+              aria-errormessage={
+                applyUrlInvalid ? `${formId}-url-error` : undefined
+              }
               onChange={(event) => setUrl(event.target.value)}
             />
+            {applyUrlInvalid ? (
+              <small
+                id={`${formId}-url-error`}
+                className="portal-type-body-sm text-destructive"
+              >
+                Invalid URL
+              </small>
+            ) : null}
           </label>
-          <button
-            type="submit"
-            className="w-fit portal-type-body-sm font-semibold"
-            disabled={busy || !canSubmit}
-          >
-            Post role
-          </button>
         </form>
       </OsHugSheet>
+      <DiscardConfirmSheet
+        open={removeJobId !== null}
+        title="Remove this role?"
+        body={`“${removeTitle}” leaves your hiring list.`}
+        discardLabel="Remove"
+        keepEditingLabel="Keep"
+        onDiscard={() => {
+          if (removeJobId && !busy) void handleRemove(removeJobId);
+        }}
+        onKeepEditing={() => {
+          if (!busy) setRemoveJobId(null);
+        }}
+      />
     </div>
   );
 }

@@ -11,10 +11,13 @@ export async function GET(request: NextRequest) {
   if (!accountId) {
     return NextResponse.json({ jobs: [] }, { status: 400 });
   }
+  const includeClosed =
+    request.nextUrl.searchParams.get('includeClosed') === '1' ||
+    request.nextUrl.searchParams.get('includeClosed') === 'true';
 
   try {
     const os = createPortalServerOnSocialClient();
-    const jobs = await os.query.jobs.openForAccount(accountId);
+    const jobs = await os.query.jobs.forAccount(accountId, { includeClosed });
     return NextResponse.json(
       { jobs },
       { headers: { 'Cache-Control': 'no-store' } }

@@ -52,19 +52,27 @@ export function parseDiscoverFaceFilter(
 
 export function discoverFaceSearchOptions(
   face: DiscoverFaceFilter,
-  industry?: string | null
-): Pick<ProfileSearchOptions, 'kind' | 'industry' | 'hiring'> {
+  industry?: string | null,
+  craft?: string | null
+): Pick<ProfileSearchOptions, 'kind' | 'industry' | 'hiring' | 'craft'> {
   const sector = face === 'people' ? undefined : industry?.trim() || undefined;
+  const craftTag = craft?.trim().toLowerCase() || undefined;
   if (face === 'hiring') {
     return { kind: 'org', hiring: true, industry: sector };
   }
   if (face === 'orgs') {
     return { kind: 'org', industry: sector };
   }
-  if (face === 'people') {
-    return { kind: 'person' };
+  if (face === 'people' || craftTag) {
+    return {
+      kind: 'person',
+      ...(craftTag ? { craft: craftTag } : {}),
+    };
   }
-  return sector ? { industry: sector } : {};
+  return {
+    ...(sector ? { industry: sector } : {}),
+    ...(craftTag ? { craft: craftTag } : {}),
+  };
 }
 
 export interface ProfileSearchOptions {
@@ -74,6 +82,10 @@ export interface ProfileSearchOptions {
   /** Person (omit / person) or Organization. DAO stays on the DAOs tab. */
   kind?: DiscoverFaceKind;
   industry?: string;
+  /** Curated About craft (`profile/tags`) — exact people facet. */
+  craft?: string;
+  /** Internal — account ids resolved from {@link craft}. */
+  accountIds?: string[];
   hiring?: boolean;
   /**
    * `discover` (default) — reputation × confidence, then standing, then activity.
@@ -205,6 +217,15 @@ export function buildDiscoverWhere(opts: ProfileSearchOptions): {
     decls.push('$industry: String!');
     variables.industry = industry;
     clauses.push('{industry: {_eq: $industry}}');
+  }
+  if (opts.accountIds) {
+    if (opts.accountIds.length === 0) {
+      clauses.push('{accountId: {_eq: "__none__"}}');
+    } else {
+      decls.push('$accountIds: [String!]!');
+      variables.accountIds = opts.accountIds;
+      clauses.push('{accountId: {_in: $accountIds}}');
+    }
   }
   if (opts.hiring) {
     clauses.push('{openJobsCount: {_gt: 0}}');
@@ -402,7 +423,16 @@ export class ProfilesQuery {
    * ```
    */
   async search(opts: ProfileSearchOptions = {}): Promise<ProfileSearchRow[]> {
-    const { filter, variableDecl, variables } = buildDiscoverWhere(opts);
+    const craft = opts.craft?.trim().toLowerCase();
+    let accountIds = opts.accountIds;
+    if (craft && !accountIds) {
+      accountIds = await this.accountIdsForCraft(craft);
+      if (accountIds.length === 0) return [];
+    }
+    const { filter, variableDecl, variables } = buildDiscoverWhere({
+      ...opts,
+      accountIds,
+    });
     const res = await this._q.graphql<{
       profileDiscover: Array<
         ProfileSearchRow & {
@@ -431,6 +461,64 @@ export class ProfilesQuery {
     return mapDiscoverRows(res.data?.profileDiscover ?? []);
   }
 
+  /** Accounts that list this curated About craft (`profile/tags`). */
+  async accountIdsForCraft(craft: string): Promise<string[]> {
+    const tag = craft.trim().toLowerCase();
+    if (!tag) return [];
+    const res = await this._q.graphql<{
+      profileTags: Array<{ accountId: string }>;
+    }>({
+      query: `query ProfileCraftAccounts($tag: String!) {
+        profileTags(where: {tag: {_eq: $tag}}, limit: 1000) {
+          accountId
+        }
+      }`,
+      variables: { tag },
+    });
+    return [
+      ...new Set((res.data?.profileTags ?? []).map((row) => row.accountId)),
+    ];
+  }
+
+  /**
+   * Popular About crafts by people count.
+   *
+   * ```ts
+   * const crafts = await os.query.profiles.craftCounts({ limit: 40, minCount: 2 });
+   * ```
+   */
+  async craftCounts(
+    opts: { limit?: number; minCount?: number } = {}
+  ): Promise<Array<{ tag: string; profileCount: number; lastBlock: number }>> {
+    const minCount = Math.max(1, opts.minCount ?? 1);
+    const res = await this._q.graphql<{
+      profileTagCounts: Array<{
+        tag: string;
+        profileCount: number | string;
+        lastBlock: number | string;
+      }>;
+    }>({
+      query: `query ProfileCraftCounts($limit: Int!, $minCount: Int!) {
+        profileTagCounts(
+          where: {profileCount: {_gte: $minCount}},
+          orderBy: [{profileCount: DESC}, {lastBlock: DESC}],
+          limit: $limit
+        ) {
+          tag profileCount lastBlock
+        }
+      }`,
+      variables: {
+        limit: opts.limit ?? 40,
+        minCount,
+      },
+    });
+    return (res.data?.profileTagCounts ?? []).map((row) => ({
+      tag: row.tag,
+      profileCount: Number(row.profileCount) || 0,
+      lastBlock: Number(row.lastBlock) || 0,
+    }));
+  }
+
   /**
    * Discover page — searchable profiles plus optional viewer graph context.
    * Without `viewerAccountId`, delegates to {@link search} (one round-trip).
@@ -457,6 +545,7 @@ export class ProfilesQuery {
         query: opts.query,
         kind: opts.kind,
         industry: opts.industry,
+        craft: opts.craft,
         hiring: opts.hiring,
         order: opts.order,
         limit,
@@ -469,6 +558,7 @@ export class ProfilesQuery {
       query: opts.query,
       kind: opts.kind,
       industry: opts.industry,
+      craft: opts.craft,
       hiring: opts.hiring,
       order: opts.order,
       limit,

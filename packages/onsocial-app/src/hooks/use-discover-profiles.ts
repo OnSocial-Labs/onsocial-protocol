@@ -181,6 +181,7 @@ export function useDiscoverProfiles(
       parseDiscoverProfileFilters({
         face: searchParams.get('face'),
         industry: searchParams.get('industry'),
+        craft: searchParams.get('craft'),
       }).face ?? 'all'
   );
   const [industry, setIndustryState] = useState(
@@ -188,7 +189,16 @@ export function useDiscoverProfiles(
       parseDiscoverProfileFilters({
         face: searchParams.get('face'),
         industry: searchParams.get('industry'),
+        craft: searchParams.get('craft'),
       }).industry ?? ''
+  );
+  const [craft, setCraftState] = useState(
+    () =>
+      parseDiscoverProfileFilters({
+        face: searchParams.get('face'),
+        industry: searchParams.get('industry'),
+        craft: searchParams.get('craft'),
+      }).craft ?? ''
   );
   const [profiles, setProfiles] = useState<DiscoverProfileSummary[]>(
     () => initialPage?.profiles ?? []
@@ -247,17 +257,30 @@ export function useDiscoverProfiles(
 
   useEffect(() => {
     tabScrollRef.current = {};
-  }, [face, industry, normalizedQuery]);
+  }, [face, industry, craft, normalizedQuery]);
 
   const setFace = useCallback((next: DiscoverFaceFilter) => {
     setFaceState(next);
     if (next === 'people') {
       setIndustryState('');
     }
+    if (next !== 'people') {
+      setCraftState('');
+    }
   }, []);
 
   const setIndustry = useCallback((next: string) => {
     setIndustryState(next.trim());
+    setCraftState('');
+  }, []);
+
+  const setCraft = useCallback((next: string) => {
+    const value = next.trim().toLowerCase();
+    setCraftState(value);
+    if (value) {
+      setFaceState('people');
+      setIndustryState('');
+    }
   }, []);
 
   const setQuery = useCallback(
@@ -330,10 +353,10 @@ export function useDiscoverProfiles(
       params.delete('q');
     }
     applyDiscoverTabParam(params, tab);
-    applyDiscoverFilterParams(params, face, industry);
+    applyDiscoverFilterParams(params, face, industry, craft);
 
     replaceBrowserQueryUrl(pathname, params);
-  }, [face, industry, pathname, tab, urlQueryValue]);
+  }, [craft, face, industry, pathname, tab, urlQueryValue]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -344,9 +367,11 @@ export function useDiscoverProfiles(
       const restored = parseDiscoverProfileFilters({
         face: params.get('face'),
         industry: params.get('industry'),
+        craft: params.get('craft'),
       });
       setFaceState(restored.face ?? 'all');
       setIndustryState(restored.industry ?? '');
+      setCraftState(restored.craft ?? '');
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -387,7 +412,7 @@ export function useDiscoverProfiles(
           viewerKey,
           offset,
           controller.signal,
-          { face, industry }
+          { face, industry, craft }
         );
         if (loadIdRef.current !== loadId) return;
 
@@ -396,7 +421,13 @@ export function useDiscoverProfiles(
             ? mergeDiscoverProfiles(current, response.profiles)
             : response.profiles;
           writeDiscoverListCache(
-            discoverListCacheKey(normalizedQuery, viewerKey, face, industry),
+            discoverListCacheKey(
+              normalizedQuery,
+              viewerKey,
+              face,
+              industry,
+              craft
+            ),
             {
               viewerAccountId: viewerKey,
               profiles: merged,
@@ -429,7 +460,7 @@ export function useDiscoverProfiles(
         }
       }
     },
-    [face, industry, normalizedQuery, viewerAccountId, viewerKey]
+    [craft, face, industry, normalizedQuery, viewerKey]
   );
 
   useEffect(() => {
@@ -454,13 +485,15 @@ export function useDiscoverProfiles(
       normalizedQuery,
       viewerKey,
       face,
-      industry
+      industry,
+      craft
     );
     const canUseInitialPage =
       initialPage != null &&
       normalizedQuery === normalizeProfileSearchQuery(initialPage.query) &&
       (initialPage.face ?? 'all') === face &&
-      (initialPage.industry ?? '') === industry;
+      (initialPage.industry ?? '') === industry &&
+      (initialPage.craft ?? '') === craft;
     const bootstrap = canUseInitialPage
       ? {
           viewerAccountId: null,
@@ -506,7 +539,7 @@ export function useDiscoverProfiles(
         viewerKey,
         0,
         controller.signal,
-        { face, industry }
+        { face, industry, craft }
       )
         .then((response) => {
           if (loadIdRef.current !== loadId) return;
@@ -542,6 +575,7 @@ export function useDiscoverProfiles(
       controller.abort();
     };
   }, [
+    craft,
     face,
     industry,
     initialPage,
@@ -610,8 +644,8 @@ export function useDiscoverProfiles(
   );
 
   const emptyState = useMemo(
-    () => buildDiscoverEmptyState(query, face, industry),
-    [face, industry, query]
+    () => buildDiscoverEmptyState(query, face, industry, craft),
+    [craft, face, industry, query]
   );
 
   const listBootstrapReady = useMemo(
@@ -619,8 +653,9 @@ export function useDiscoverProfiles(
       initialPage != null &&
       normalizedQuery === normalizeProfileSearchQuery(initialPage.query) &&
       (initialPage.face ?? 'all') === face &&
-      (initialPage.industry ?? '') === industry,
-    [face, industry, initialPage, normalizedQuery]
+      (initialPage.industry ?? '') === industry &&
+      (initialPage.craft ?? '') === craft,
+    [craft, face, industry, initialPage, normalizedQuery]
   );
   const hasListRows = profiles.length > 0;
 
@@ -633,7 +668,7 @@ export function useDiscoverProfiles(
       (!listBootstrapReady && isLoading && !hasListRows) ||
       (!listBootstrapReady && !relationshipSynced && !hasListRows));
   const isSearchEmpty = searching;
-  const listKey = `${normalizedQuery || '__all__'}:${face}:${industry || '__any__'}`;
+  const listKey = `${normalizedQuery || '__all__'}:${face}:${industry || '__any__'}:${craft || '__any__'}`;
 
   const clearSearch = useCallback(() => {
     setQueryState('');
@@ -706,6 +741,8 @@ export function useDiscoverProfiles(
     setFace,
     industry,
     setIndustry,
+    craft,
+    setCraft,
     topicFilterPrefix,
     discoverableTotal,
     listAccounts,

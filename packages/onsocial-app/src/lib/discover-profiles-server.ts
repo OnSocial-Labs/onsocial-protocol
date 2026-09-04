@@ -19,6 +19,7 @@ export async function loadDiscoverProfilesPage(
   const os = createServerOnSocialClient();
   const face = filters.face ?? 'all';
   const industry = filters.industry?.trim() ?? '';
+  const craft = filters.craft?.trim() ?? '';
   const needle = query.trim();
 
   if (face === 'hiring' && needle) {
@@ -37,7 +38,7 @@ export async function loadDiscoverProfilesPage(
         limit,
         offset
       );
-      return { ...mapped, face, industry, hasMore: hiring.hasMore };
+      return { ...mapped, face, industry, craft, hasMore: hiring.hasMore };
     } catch {
       // Fall through to profile discover if the jobs index is unavailable.
     }
@@ -58,5 +59,5 @@ export async function loadDiscoverProfilesPage(
     limit,
     offset
   );
-  return { ...mapped, face, industry };
+  return { ...mapped, face, industry, craft };
 }

@@ -1,4 +1,5 @@
 import {
+  PROFILE_INDUSTRY_MAX,
   discoverFaceSearchOptions,
   parseDiscoverFaceFilter,
   type DiscoverFaceFilter,
@@ -13,6 +14,28 @@ import {
   profileListAccountToStandingSummary,
   type ProfileListAccount,
 } from '@/lib/profile-list-account';
+import { PROFILE_EDITOR_MAX_TAG_LENGTH } from '@/lib/profile-tag-editor';
+
+export const PROFILE_CRAFT_MAX = PROFILE_EDITOR_MAX_TAG_LENGTH;
+
+export function normalizeDiscoverCraft(
+  raw: string | null | undefined
+): string {
+  return (raw ?? '')
+    .trim()
+    .replace(/^#+/, '')
+    .toLowerCase()
+    .slice(0, PROFILE_CRAFT_MAX);
+}
+
+/** People Discover filtered by About craft (`profile/tags`). */
+export function discoverCraftPath(slug: string): string {
+  const craft = normalizeDiscoverCraft(slug);
+  const params = new URLSearchParams();
+  params.set('face', 'people');
+  if (craft) params.set('craft', craft);
+  return `/discover?${params.toString()}`;
+}
 
 export interface DiscoverProfileSummary {
   accountId: string;
@@ -41,6 +64,7 @@ export interface DiscoverProfilesResponse {
   query: string;
   face: DiscoverFaceFilter;
   industry: string;
+  craft: string;
   limit: number;
   offset: number;
   hasMore: boolean;
@@ -50,37 +74,54 @@ export interface DiscoverProfilesResponse {
 export interface DiscoverProfileFilters {
   face?: DiscoverFaceFilter;
   industry?: string;
+  craft?: string;
 }
 
 export function parseDiscoverProfileFilters(params: {
   face?: string | null;
   industry?: string | null;
+  craft?: string | null;
 }): DiscoverProfileFilters {
-  const face = parseDiscoverFaceFilter(params.face);
+  const craft = normalizeDiscoverCraft(params.craft);
+  const face = craft
+    ? 'people'
+    : parseDiscoverFaceFilter(params.face);
   const industry =
-    face === 'people' ? '' : (params.industry ?? '').trim().slice(0, 64);
+    face === 'people'
+      ? ''
+      : (params.industry ?? '').trim().slice(0, PROFILE_INDUSTRY_MAX);
   return {
     face,
     ...(industry ? { industry } : {}),
+    ...(craft ? { craft } : {}),
   };
 }
 
 export function applyDiscoverFilterParams(
   params: URLSearchParams,
   face: DiscoverFaceFilter,
-  industry = ''
+  industry = '',
+  craft = ''
 ): void {
-  if (face === 'all') params.delete('face');
-  else params.set('face', face);
-  const sector = face === 'people' ? '' : industry.trim();
+  const craftTag = normalizeDiscoverCraft(craft);
+  const nextFace = craftTag ? 'people' : face;
+  if (nextFace === 'all') params.delete('face');
+  else params.set('face', nextFace);
+  const sector = nextFace === 'people' ? '' : industry.trim();
   if (sector) params.set('industry', sector);
   else params.delete('industry');
+  if (craftTag) params.set('craft', craftTag);
+  else params.delete('craft');
 }
 
 export function discoverSearchOptionsFromFilters(
   filters: DiscoverProfileFilters = {}
 ) {
-  return discoverFaceSearchOptions(filters.face ?? 'all', filters.industry);
+  return discoverFaceSearchOptions(
+    filters.face ?? 'all',
+    filters.industry,
+    filters.craft
+  );
 }
 
 export const DISCOVER_PAGE_SIZE = 24;
@@ -102,7 +143,8 @@ export async function fetchDiscoverProfiles(
   applyDiscoverFilterParams(
     params,
     filters.face ?? 'all',
-    filters.industry ?? ''
+    filters.industry ?? '',
+    filters.craft ?? ''
   );
   params.set('limit', String(DISCOVER_PAGE_SIZE));
   params.set('offset', String(offset));

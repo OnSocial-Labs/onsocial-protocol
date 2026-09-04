@@ -792,6 +792,7 @@ profile_rows AS (
     MAX(value) FILTER (WHERE field = 'banner')    AS banner,
     MAX(value) FILTER (WHERE field = 'kind')      AS kind,
     MAX(value) FILTER (WHERE field = 'industry')  AS industry,
+    MAX(value) FILTER (WHERE field = 'tags')      AS tags_json,
     MAX(block_height)                             AS last_profile_block,
     MAX(block_timestamp)                          AS last_profile_timestamp
   FROM active_profile_fields
@@ -879,7 +880,14 @@ SELECT
     COALESCE(erc.last_endorsement_block, 0),
     COALESCE(egc.last_endorsement_block, 0)
   ) AS last_activity_block,
-  LOWER(CONCAT_WS(' ', p.account_id, p.name, p.bio, p.industry)) AS search_text,
+  LOWER(CONCAT_WS(
+    ' ',
+    p.account_id,
+    p.name,
+    p.bio,
+    p.industry,
+    regexp_replace(COALESCE(p.tags_json, ''), '[][",]', ' ', 'g')
+  )) AS search_text,
   COALESCE(msc.mutual_standing_count, 0)      AS mutual_standing_count,
   COALESCE(erc.endorsements_received_count, 0) AS endorsements_received_count,
   COALESCE(egc.endorsements_given_count, 0)   AS endorsements_given_count,
@@ -1602,6 +1610,47 @@ WHERE p.field = 'hashtags'
     END
   ) = 'array'
   AND length(trim(ht.tag)) > 0;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 13d2. profile_tags — curated About crafts (`profile/tags`)
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW profile_tags AS
+SELECT
+  p.account_id,
+  lower(trim(tg.tag)) AS tag,
+  p.block_height,
+  p.block_timestamp
+FROM profiles_current p
+CROSS JOIN LATERAL jsonb_array_elements_text(
+  CASE
+    WHEN p.value ~ '^\[.*\]$' THEN p.value::jsonb
+    ELSE NULL
+  END
+) AS tg(tag)
+WHERE p.field = 'tags'
+  AND p.value IS NOT NULL
+  AND p.value != ''
+  AND p.value ~ '^\[.*\]$'
+  AND jsonb_typeof(
+    CASE
+      WHEN p.value ~ '^\[.*\]$' THEN p.value::jsonb
+      ELSE NULL
+    END
+  ) = 'array'
+  AND length(trim(tg.tag)) > 0;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 13d3. profile_tag_counts — people per About craft
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW profile_tag_counts AS
+SELECT
+  tag,
+  count(*)::int AS profile_count,
+  max(block_height) AS last_block
+FROM profile_tags
+GROUP BY tag;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 13e. profile_tickers — ticker-to-profile junction (bio-derived arrays)

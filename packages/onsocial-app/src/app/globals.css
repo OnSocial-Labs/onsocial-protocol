@@ -25,6 +25,7 @@
 @import '@onsocial/ui/os-app-chrome-page.css';
 @import '@onsocial/ui/os-sheet-facts.css';
 @import '@onsocial/ui/os-proposal-card.css';
+@import '@onsocial/ui/os-rich-text-field.css';
 @import './transaction-feedback-toast.css';
 /* After Tailwind — feed @#$ / Show more weights (see file comment). */
 @import './feed-meta.css';
@@ -7439,6 +7440,27 @@ a.os-surface-row {
     overflow-wrap: anywhere;
   }
 
+  .portfolio-org-meta {
+    flex-wrap: wrap;
+    gap: 0.12rem 0.08rem;
+    max-width: min(100%, 24rem);
+  }
+
+  .portfolio-org-meta-part {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28em;
+    min-width: 0;
+  }
+
+  .portfolio-org-meta-sep {
+    flex: none;
+    margin: 0 0.28em 0 0.18em;
+    color: rgb(var(--fg-rgb) / 0.28);
+    opacity: 1;
+    user-select: none;
+  }
+
   .portfolio-location-mark {
     flex: none;
     display: block;
@@ -7462,10 +7484,30 @@ a.os-surface-row {
     opacity: 1;
   }
 
+  button.portfolio-org-meta-hiring {
+    appearance: none;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+    color: color-mix(
+      in srgb,
+      var(--signal-reputation, var(--protocol-green, #00ec97)) 72%,
+      var(--portfolio-meta-color)
+    );
+    opacity: 1;
+  }
+
+  button.portfolio-org-meta-hiring:hover,
+  button.portfolio-org-meta-hiring:focus-visible {
+    color: var(--signal-reputation, var(--protocol-green, #00ec97));
+  }
+
   .portfolio-hiring-list {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -7474,7 +7516,37 @@ a.os-surface-row {
   .portfolio-hiring-item {
     display: flex;
     flex-direction: column;
-    gap: 0.28rem;
+    gap: 0;
+  }
+
+  .portfolio-hiring-row {
+    appearance: none;
+    width: calc(100% + 0.7rem);
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin: 0 -0.35rem;
+    padding: 0.7rem 0.35rem;
+    border: 0;
+    border-radius: 0.85rem;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 160ms ease;
+  }
+
+  .portfolio-hiring-row:hover,
+  .portfolio-hiring-row:focus-visible {
+    background: var(--os-surface-row-hover);
+    outline: none;
+  }
+
+  .portfolio-hiring-row:hover .portfolio-hiring-title,
+  .portfolio-hiring-row:focus-visible .portfolio-hiring-title {
+    color: var(--signal-reputation, var(--protocol-green, #00ec97));
   }
 
   .portfolio-hiring-title {
@@ -7483,6 +7555,7 @@ a.os-surface-row {
     font-weight: 600;
   }
 
+  .portfolio-hiring-teaser,
   .portfolio-hiring-copy,
   .portfolio-hiring-meta {
     margin: 0;
@@ -7491,11 +7564,98 @@ a.os-surface-row {
     color: var(--mood-muted, hsl(var(--muted-foreground)));
   }
 
+  .portfolio-hiring-teaser {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .portfolio-hiring-detail-copy {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    /* Sheet body — readable, not About-essay scale. */
+    font-size: 0.95rem;
+    line-height: 1.55;
+    font-weight: 400;
+    color: inherit;
+  }
+
+  .portfolio-hiring-detail-copy .portfolio-about-heading,
+  .portfolio-hiring-detail-copy .portfolio-about-bio,
+  .portfolio-hiring-detail-copy .portfolio-about-list {
+    margin: 0;
+    max-width: none;
+    text-align: left;
+    font-size: inherit;
+    line-height: inherit;
+    font-weight: inherit;
+    color: inherit;
+  }
+
+  .portfolio-hiring-detail-copy .portfolio-about-heading {
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .portfolio-hiring-detail-copy .portfolio-about-list {
+    padding-left: 1.1em;
+  }
+
+  .portfolio-hiring-detail-divider {
+    margin: 1rem 0 0.75rem;
+  }
+
+  .portfolio-hiring-detail-meta {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    text-align: left;
+    color: var(--mood-muted, hsl(var(--muted-foreground)));
+  }
+
+  .portfolio-hiring-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.12rem 0.08rem;
+  }
+
+  .portfolio-hiring-meta-sep {
+    margin: 0 0.28em 0 0.18em;
+    color: rgb(var(--fg-rgb) / 0.28);
+    user-select: none;
+  }
+
   .portfolio-hiring-apply {
     width: fit-content;
-    font-size: 0.82rem;
+    font-size: inherit;
     font-weight: 600;
     color: inherit;
+  }
+
+  .portfolio-hiring-apply-action .os-sheet-action__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .portfolio-hiring-apply-arrow {
+    width: 0.85rem;
+    height: 0.85rem;
+    /* Primary CTA — arrow reads as leave-app, not a quiet row glyph. */
+    opacity: 0.72;
+  }
+
+  .portfolio-hiring-apply-action:hover .portfolio-hiring-apply-arrow,
+  .portfolio-hiring-apply-action:focus-visible .portfolio-hiring-apply-arrow {
+    opacity: 1;
+  }
+
+  .portfolio-hiring-apply:hover,
+  .portfolio-hiring-apply:focus-visible {
+    color: var(--signal-reputation, var(--protocol-green, #00ec97));
   }
 
   .account-editor-jobs {
@@ -7506,12 +7666,150 @@ a.os-surface-row {
     text-align: left;
   }
 
+  .account-editor-jobs-sheet {
+    margin-top: 0;
+  }
+
+  .account-editor-hiring-list {
+    gap: 0;
+  }
+
+  .account-editor-hiring-list > .portfolio-hiring-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .account-editor-hiring-list > .portfolio-hiring-item > .divider-item {
+    margin: 0.65rem 0;
+  }
+
+  .account-editor-hiring-row {
+    appearance: none;
+    width: calc(100% + 0.7rem);
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+    margin: 0 -0.35rem;
+    padding: 0.55rem 0.35rem;
+    border: 0;
+    border-radius: 0.85rem;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 160ms ease;
+  }
+
+  .account-editor-hiring-row:hover,
+  .account-editor-hiring-row:focus-visible {
+    background: var(--os-surface-row-hover);
+    outline: none;
+  }
+
+  .account-editor-hiring-row:hover .portfolio-hiring-title,
+  .account-editor-hiring-row:focus-visible .portfolio-hiring-title {
+    color: var(--signal-reputation, var(--protocol-green, #00ec97));
+  }
+
+  .account-editor-hiring-row.is-closed .portfolio-hiring-title {
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .account-editor-hiring-row:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .account-editor-org-meta {
+    justify-content: center;
+    margin: 0.15rem auto 0;
+    text-align: center;
+  }
+
+  button.account-editor-org-meta-part {
+    appearance: none;
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    max-width: 100%;
+    transition: color 0.15s ease;
+  }
+
+  button.account-editor-org-meta-part:disabled,
+  .account-editor-org-meta button.portfolio-org-meta-hiring:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .account-editor-org-meta button.account-editor-org-meta-part:hover,
+  .account-editor-org-meta button.account-editor-org-meta-part:focus-visible,
+  .account-editor-org-meta button.portfolio-org-meta-hiring:hover,
+  .account-editor-org-meta button.portfolio-org-meta-hiring:focus-visible {
+    color: var(--signal-reputation, var(--protocol-green, #00ec97));
+  }
+
+  .account-editor-org-meta
+    button.account-editor-org-meta-part:hover
+    .account-editor-org-meta-placeholder,
+  .account-editor-org-meta
+    button.account-editor-org-meta-part:focus-visible
+    .account-editor-org-meta-placeholder {
+    color: inherit;
+  }
+
+  button.account-editor-org-meta-part:focus-visible,
+  .account-editor-org-meta button.portfolio-org-meta-hiring:focus-visible {
+    outline: none;
+  }
+
+  .account-editor-org-meta-placeholder {
+    color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .account-editor-org-meta-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .account-editor-org-meta-field .guild-field {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+
   .account-editor-jobs-label,
   .account-editor-jobs-empty,
   .account-editor-jobs-meta {
     margin: 0;
     font-size: 0.78rem;
     color: var(--mood-muted, hsl(var(--muted-foreground)));
+  }
+
+  .account-editor-jobs-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.12rem 0.08rem;
+  }
+
+  .account-editor-jobs-meta-sep {
+    margin: 0 0.28em 0 0.18em;
+    color: rgb(var(--fg-rgb) / 0.28);
+    user-select: none;
+  }
+
+  .account-editor-jobs-url {
+    font-weight: 500;
   }
 
   .account-editor-jobs-list {
@@ -7553,7 +7851,87 @@ a.os-surface-row {
   .account-editor-jobs-form {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.85rem;
+    padding-top: 0.15rem;
+  }
+
+  .account-editor-jobs-form .guild-field > small {
+    margin: 0.15rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    color: var(--mood-muted, hsl(var(--muted-foreground)));
+    opacity: 0.85;
+  }
+
+  .account-editor-jobs-form .guild-field > small.is-invalid {
+    color: var(--protocol-red, #ef4444);
+    opacity: 1;
+  }
+
+  .account-editor-jobs-form .os-field-bordered.is-invalid {
+    border-color: color-mix(
+      in srgb,
+      var(--protocol-red, #ef4444) 55%,
+      transparent
+    );
+  }
+
+  .account-editor-jobs-rich {
+    display: block;
+    padding: 0.55rem 0.7rem 0.65rem;
+  }
+
+  .account-editor-jobs-form .account-editor-jobs-bio.account-editor-bio-shell {
+    gap: 0.35rem;
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+  }
+
+  .account-editor-jobs-form .account-editor-jobs-bio .account-editor-bio-chrome {
+    justify-content: flex-start;
+  }
+
+  .account-editor-jobs-form .account-editor-jobs-bio .account-editor-bio,
+  .account-editor-jobs-form
+    .account-editor-jobs-bio
+    .account-editor-bio-backdrop,
+  .account-editor-jobs-form
+    .account-editor-jobs-bio
+    .account-editor-bio--wysiwyg {
+    max-width: none;
+    width: 100%;
+    margin-inline: 0;
+    min-height: calc(0.84rem * 1.45 * 4);
+    text-align: left;
+    overflow: auto;
+  }
+
+  .account-editor-jobs-form
+    .account-editor-jobs-bio
+    .account-editor-bio-backdrop {
+    text-align: left;
+  }
+
+  .account-editor-jobs-date {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .account-editor-jobs-date:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .account-editor-jobs-date-value {
+    color: inherit;
+  }
+
+  .account-editor-jobs-date-placeholder {
+    color: rgb(var(--fg-rgb) / 0.38);
   }
 
   .portfolio-bio {
@@ -16581,6 +16959,127 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.38);
   }
 
+  button.account-editor-about-hint-action {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-weight: 650;
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
+    cursor: pointer;
+  }
+
+  button.account-editor-about-hint-action:hover,
+  button.account-editor-about-hint-action:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.62);
+    outline: none;
+  }
+
+  button.account-editor-about-hint-action:disabled {
+    cursor: default;
+    opacity: 0.55;
+  }
+
+  .account-editor-about-trigger {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.12rem;
+    width: 100%;
+    max-width: min(100%, 20rem);
+    margin: 0.25rem auto 0;
+    padding: 0.65rem 0.75rem;
+    border: 0;
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    color: inherit;
+    cursor: pointer;
+    text-align: center;
+  }
+
+  .account-editor-about-trigger:hover,
+  .account-editor-about-trigger:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.07);
+  }
+
+  .account-editor-about-trigger:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+  }
+
+  .account-editor-about-trigger:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .account-editor-about-trigger-label {
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
+  .account-editor-about-trigger-meta {
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .profile-about-edit-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding-top: 0.35rem;
+  }
+
+  .profile-about-edit-face-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-width: min(100%, 20rem);
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .profile-about-edit-face-label {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .profile-about-edit-face-text {
+    margin: 0;
+    white-space: pre-wrap;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .profile-about-edit-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    align-items: center;
+  }
+
+  .profile-about-edit-section-label {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
   .account-editor-bio-shell {
     width: 100%;
     max-width: min(100%, 20rem);
@@ -16658,7 +17157,8 @@ a.os-surface-row {
   }
 
   .account-editor-bio-backdrop .account-editor-bio-mark {
-    color: rgb(var(--fg-rgb) / 0.28);
+    /* Marks stay in the string for caret sync — invisible in the box. */
+    color: transparent;
   }
 
   .account-editor-bio-field {
@@ -16711,6 +17211,63 @@ a.os-surface-row {
 
   .account-editor-bio:focus {
     color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .account-editor-bio--wysiwyg {
+    max-width: none;
+    overflow: visible;
+    resize: none;
+    white-space: pre-wrap;
+    outline: none;
+    cursor: text;
+    caret-color: rgb(var(--fg-rgb) / 0.72);
+    /* Hosts set .account-editor-bio { font-weight: 500 } — force 400 so Bold works. */
+    font-weight: 400 !important;
+  }
+
+  .account-editor-bio--wysiwyg strong,
+  .account-editor-bio--wysiwyg b {
+    font-weight: 700;
+  }
+
+  .account-editor-bio--wysiwyg em,
+  .account-editor-bio--wysiwyg i {
+    font-style: italic;
+  }
+
+  .account-editor-bio--wysiwyg ul {
+    margin: 0.15rem 0;
+    padding-left: 1.25rem;
+    list-style: disc;
+    text-align: left;
+  }
+
+  .account-editor-bio--wysiwyg ol {
+    margin: 0.15rem 0;
+    padding-left: 1.25rem;
+    list-style: decimal;
+    text-align: left;
+  }
+
+  .account-editor-bio--wysiwyg li {
+    margin: 0.05rem 0;
+  }
+
+  .account-editor-bio--wysiwyg h3 {
+    margin: 0.2rem 0;
+    font-size: 1em;
+    font-weight: 750;
+    line-height: inherit;
+  }
+
+  .account-editor-bio--wysiwyg p {
+    margin: 0;
+  }
+
+  .account-editor-bio--wysiwyg[data-placeholder]:empty:before {
+    content: attr(data-placeholder);
+    opacity: 0.32;
+    pointer-events: none;
   }
 
   .account-editor-limits {
@@ -25425,7 +25982,8 @@ a.os-surface-row {
   .hub-manage-form .guild-field,
   .guild-structure-add-custom .guild-field,
   .guild-structure-advanced .guild-field,
-  .token-create-form .guild-field {
+  .token-create-form .guild-field,
+  .account-editor-jobs-form .guild-field {
     padding: 0;
     gap: 0.4rem;
     border: 0;
@@ -26543,6 +27101,7 @@ a.os-surface-row {
   }
 
   .profile-edit-slide .account-editor-form-body {
+    gap: 1rem;
     padding-top: 0.72rem;
   }
 

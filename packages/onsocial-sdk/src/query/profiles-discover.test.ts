@@ -22,6 +22,10 @@ describe('discover face filters', () => {
     expect(discoverFaceSearchOptions('people', 'Healthcare')).toEqual({
       kind: 'person',
     });
+    expect(discoverFaceSearchOptions('people', null, 'writer')).toEqual({
+      kind: 'person',
+      craft: 'writer',
+    });
     expect(discoverFaceSearchOptions('all')).toEqual({});
   });
 
@@ -33,6 +37,13 @@ describe('discover face filters', () => {
     expect(hiring.filter).toContain('openJobsCount: {_gt: 0}');
     expect(hiring.variables.industry).toBe('Healthcare');
     expect(hiring.variableDecl).toContain('$industry');
+
+    const craft = buildDiscoverWhere({
+      kind: 'person',
+      accountIds: ['alice.near', 'bob.near'],
+    });
+    expect(craft.filter).toContain('accountId: {_in: $accountIds}');
+    expect(craft.variables.accountIds).toEqual(['alice.near', 'bob.near']);
 
     expect(buildDiscoverWhere({}).filter).toBe('');
   });

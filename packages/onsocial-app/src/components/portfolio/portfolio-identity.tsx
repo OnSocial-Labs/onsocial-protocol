@@ -5,17 +5,14 @@ import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kin
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { PortfolioAboutLink } from '@/components/portfolio/portfolio-about-link';
 import { PortfolioFaceBio } from '@/components/portfolio/portfolio-face-bio';
-import { PortfolioIdentityTopics } from '@/components/portfolio/portfolio-identity-topics';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
-import { PortfolioHiringLine } from '@/components/portfolio/portfolio-hiring-line';
-import { PortfolioOrgKindMark } from '@/components/portfolio/portfolio-org-kind-mark';
+import { PortfolioOrgMetaLine } from '@/components/portfolio/portfolio-org-meta-line';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
 import {
   profileKindFaceLabel,
-  profileOrgLineLabel,
   resolveDisplayProfileKind,
   type JobSearchRow,
   type ProfileKind,
@@ -26,6 +23,7 @@ import {
   portfolioHandleForMood,
 } from '@/lib/profile-display';
 import { profileAboutHasMoreThanFace } from '@/lib/profile-bio-face';
+import { profileIdentityTopics } from '@/lib/profile-identity-topics';
 import type { ResolvedMood } from '@/lib/moods/types';
 
 interface PortfolioIdentityProps {
@@ -37,7 +35,7 @@ interface PortfolioIdentityProps {
   bio?: string | null;
   /** Full `profile/bio` (and dao fallback) — About, not the face tagline. */
   aboutBio?: string | null;
-  /** Curated identity topics (`profile/tags`). */
+  /** Curated identity topics (`profile/tags`) — About / Launch only. */
   tags?: string[] | null;
   /** About gallery count — opens About even when the face bio is short. */
   photoCount?: number;
@@ -79,10 +77,12 @@ export function PortfolioIdentity({
   const titleLabel = displayName(accountId, profileName ?? undefined);
   const summary = tagline?.trim() || bio?.trim() || '';
   const locationLabel = location?.trim() || null;
+  const tagCount = profileIdentityTopics(tags).length;
   const showAbout = profileAboutHasMoreThanFace({
     faceText: summary,
     aboutText: aboutBio,
     photoCount,
+    tagCount,
   });
   const handleLabel = portfolioHandleForMood(accountId, mood.id);
 
@@ -132,21 +132,15 @@ export function PortfolioIdentity({
             </span>
           ) : null}
         </p>
-        <PortfolioIdentityTopics tags={tags} />
         {displayKind === 'org' ? (
-          <p className="portfolio-location" data-profile-kind-line="org">
-            <PortfolioOrgKindMark />
-            <span>{profileOrgLineLabel(industry)}</span>
-          </p>
-        ) : null}
-        {displayKind === 'org' ? (
-          <PortfolioHiringLine
+          <PortfolioOrgMetaLine
             accountId={accountId}
             orgName={titleLabel}
+            industry={industry}
+            location={locationLabel}
             initialJobs={openJobs}
           />
-        ) : null}
-        {locationLabel ? (
+        ) : locationLabel ? (
           <p className="portfolio-location">
             <PortfolioLocationMark />
             <span>{locationLabel}</span>

@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
   const filters = parseDiscoverProfileFilters({
     face: request.nextUrl.searchParams.get('face'),
     industry: request.nextUrl.searchParams.get('industry'),
+    craft: request.nextUrl.searchParams.get('craft'),
   });
 
   try {

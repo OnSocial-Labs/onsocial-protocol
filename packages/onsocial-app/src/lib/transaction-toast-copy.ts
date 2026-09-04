@@ -146,6 +146,7 @@ export const txToastPending = {
   unblockingAccount: 'Unblocking…',
   grantingCommunityApp: 'Granting app access…',
   postingRole: 'Posting role…',
+  savingRole: 'Saving role…',
   removingRole: 'Removing role…',
 } as const;
 
@@ -257,6 +258,7 @@ export const txToastSuccess = {
   appAccessAllowed: 'App access allowed.',
   appAccessRenewed: 'App access renewed.',
   rolePosted: 'Role posted.',
+  roleSaved: 'Role updated.',
   roleRemoved: 'Role removed.',
 } as const;
 
@@ -266,6 +268,7 @@ export const txToastError = {
   swapFailed: 'Could not get SOCIAL.',
   profileSaveFailed: 'Could not save profile.',
   rolePostFailed: 'Could not post role.',
+  roleSaveFailed: 'Could not update role.',
   roleRemoveFailed: 'Could not remove role.',
   profileOnSocialMissing: 'OnSocial account not found on this network.',
   moodSaveFailed: 'Could not save mood.',

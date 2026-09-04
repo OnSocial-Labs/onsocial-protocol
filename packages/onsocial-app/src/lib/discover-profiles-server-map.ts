@@ -76,6 +76,7 @@ export async function mapDiscoverPageToResponse(
     query,
     face: 'all',
     industry: '',
+    craft: '',
     limit,
     offset,
     hasMore: page.profiles.length === limit,

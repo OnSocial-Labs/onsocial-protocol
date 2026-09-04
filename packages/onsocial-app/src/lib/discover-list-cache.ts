@@ -13,11 +13,13 @@ export function discoverListCacheKey(
   searchQuery: string,
   viewerAccountId: string | null,
   face: DiscoverFaceFilter = 'all',
-  industry = ''
+  industry = '',
+  craft = ''
 ): string {
   const viewerKey = viewerAccountId ?? '__anon__';
   const industryKey = industry.trim() || '__any__';
-  return `discover:${searchQuery || '__all__'}:${viewerKey}:${face}:${industryKey}`;
+  const craftKey = craft.trim() || '__any__';
+  return `discover:${searchQuery || '__all__'}:${viewerKey}:${face}:${industryKey}:${craftKey}`;
 }
 
 export function readDiscoverListCache(

@@ -17,41 +17,28 @@ import {
 } from 'react';
 import {
   PROFILE_FACE_KIND_OPTIONS,
-  PROFILE_INDUSTRY_MAX,
   PROFILE_LOCATION_MAX,
   editorFaceKind,
   profileAvatarShapeFromKind,
-  isProfileIndustryWriteIn,
-  isProfileIndustryWriteInMode,
-  matchProfileIndustryOption,
-  profileIndustryChoiceOptions,
-  profileIndustryDrawerValue,
-  sanitizeProfileIndustryDraft,
   sanitizeProfileLocationDraft,
   type ProfileKind,
 } from '@onsocial/sdk';
 import {
-  ChoiceDrawer,
   DiscardConfirmSheet,
   OsSheetAction,
   OsSheetActions,
   ProfileEditorMediaToolbar,
   useDiscardConfirm,
-  type ChoiceOption,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
-import { PortfolioOrgKindMark } from '@/components/portfolio/portfolio-org-kind-mark';
-import { ProfileJobsEditor } from '@/components/profile/profile-jobs-editor';
 import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
+import { ProfileAboutEditorSheet } from '@/components/wallet/profile-about-editor-sheet';
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
-import { ProfileTopicsEditor } from '@/components/wallet/profile-topics-editor';
-import {
-  ProfileAboutPhotosEditor,
-  type ProfileAboutPhotoDraft,
-} from '@/components/wallet/profile-about-photos-editor';
+import { ProfileOrgMetaEditor } from '@/components/wallet/profile-org-meta-editor';
+import type { ProfileAboutPhotoDraft } from '@/components/wallet/profile-about-photos-editor';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import {
@@ -68,7 +55,10 @@ import {
 import {
   PROFILE_BIO_LIMIT_WARN,
   PROFILE_BIO_MAX,
+  joinProfileBioFaceAbout,
+  partitionFaceAboutInput,
   profileAboutHasMoreThanFace,
+  splitProfileBioFaceAbout,
 } from '@/lib/profile-bio-face';
 import { displayName, fallbackLabel, initials } from '@/lib/profile-display';
 import type { ResolvedPageHero } from '@/lib/page-data';
@@ -89,9 +79,6 @@ const PROFILE_NAME_LIMIT_WARN = 40;
 
 const PROFILE_BANNER_ACCEPT =
   'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm';
-
-const PROFILE_INDUSTRY_CHOICES: ChoiceOption<string>[] =
-  profileIndustryChoiceOptions();
 
 function useObjectUrl(file: File | null): string | null {
   const url = useMemo(() => {
@@ -156,8 +143,7 @@ export function AppProfileEditorSheet({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
-  const bioRef = useRef<HTMLTextAreaElement>(null);
-  const industryInputRef = useRef<HTMLInputElement>(null);
+  const bioRef = useRef<HTMLDivElement>(null);
 
   const {
     snapshot,
@@ -174,10 +160,12 @@ export function AppProfileEditorSheet({
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [industry, setIndustry] = useState('');
-  const [industryWriteIn, setIndustryWriteIn] = useState(false);
-  const [industryDrawerOpen, setIndustryDrawerOpen] = useState(false);
   const [kind, setKind] = useState<ProfileKind>('person');
-  const [bio, setBio] = useState('');
+  const [faceBio, setFaceBio] = useState('');
+  const [aboutBio, setAboutBio] = useState('');
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [faceSpillHint, setFaceSpillHint] = useState(false);
+  const faceSpillHintTimerRef = useRef<number | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [photos, setPhotos] = useState<ProfileAboutPhotoDraft[]>([]);
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
@@ -193,6 +181,11 @@ export function AppProfileEditorSheet({
   const [bannerRemoved, setBannerRemoved] = useState(false);
   const [seedKey, setSeedKey] = useState<string | null>(null);
 
+  const bio = useMemo(
+    () => joinProfileBioFaceAbout(faceBio, aboutBio),
+    [aboutBio, faceBio]
+  );
+
   const readyKey =
     snapshot && open
       ? `${accountId}:${sessionKey}:${snapshot.accountId}`
@@ -204,10 +197,13 @@ export function AppProfileEditorSheet({
     setName(snapshot.name);
     setLocation(snapshot.location);
     setIndustry(snapshot.industry ?? '');
-    setIndustryWriteIn(isProfileIndustryWriteInMode(snapshot.industry ?? ''));
-    setIndustryDrawerOpen(false);
     setKind(editorFaceKind(snapshot.kind));
-    setBio(snapshot.bio);
+    {
+      const split = splitProfileBioFaceAbout(snapshot.bio);
+      setFaceBio(split.face);
+      setAboutBio(split.about);
+    }
+    setAboutOpen(false);
     setTags(snapshot.tags ?? []);
     setPhotos(snapshot.photos ?? []);
     setLinks(linksFromSnapshot);
@@ -223,12 +219,47 @@ export function AppProfileEditorSheet({
     setSeedKey(null);
   }
 
+  useEffect(() => {
+    return () => {
+      if (faceSpillHintTimerRef.current != null) {
+        window.clearTimeout(faceSpillHintTimerRef.current);
+      }
+    };
+  }, []);
+
+  const showFaceSpillHint = useCallback(() => {
+    setFaceSpillHint(true);
+    if (faceSpillHintTimerRef.current != null) {
+      window.clearTimeout(faceSpillHintTimerRef.current);
+    }
+    faceSpillHintTimerRef.current = window.setTimeout(() => {
+      setFaceSpillHint(false);
+      faceSpillHintTimerRef.current = null;
+    }, 4500);
+  }, []);
+
+  const handleFaceBioChange = useCallback(
+    (next: string) => {
+      setAboutBio((prior) => {
+        const result = partitionFaceAboutInput(next, prior);
+        setFaceBio(result.face);
+        if (result.spilled) {
+          showFaceSpillHint();
+          return result.about;
+        }
+        return prior;
+      });
+    },
+    [showFaceSpillHint]
+  );
+
   useLayoutEffect(() => {
     const el = bioRef.current;
     if (!el) return;
-    el.style.height = '0px';
+    // Never collapse contenteditable height to 0 — Chrome jumps the caret to line 1.
+    el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
-  }, [bio]);
+  }, [faceBio]);
 
   useEffect(() => {
     if (!open || !snapshot) return;
@@ -313,12 +344,16 @@ export function AppProfileEditorSheet({
   });
 
   const handleBeforeClose = useCallback(() => {
+    if (aboutOpen) {
+      setAboutOpen(false);
+      return false;
+    }
     if (discardConfirmOpen) {
       keepEditing();
       return false;
     }
     return requestCloseOrConfirm();
-  }, [discardConfirmOpen, keepEditing, requestCloseOrConfirm]);
+  }, [aboutOpen, discardConfirmOpen, keepEditing, requestCloseOrConfirm]);
 
   const handleClosed = useCallback(() => {
     clearDiscardConfirm();
@@ -386,17 +421,6 @@ export function AppProfileEditorSheet({
       if (current[key] === message) return current;
       return { ...current, [key]: message };
     });
-  };
-
-  const handleIndustryChoice = (next: string) => {
-    if (isProfileIndustryWriteIn(next)) {
-      setIndustryWriteIn(true);
-      if (matchProfileIndustryOption(industry)) setIndustry('');
-      window.setTimeout(() => industryInputRef.current?.focus(), 0);
-      return;
-    }
-    setIndustryWriteIn(false);
-    setIndustry(next);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -671,11 +695,6 @@ export function AppProfileEditorSheet({
                         <p className="profile-handle account-editor-handle">
                           @{handleLabel}
                         </p>
-                        <ProfileTopicsEditor
-                          tags={tags}
-                          onChange={setTags}
-                          disabled={saving}
-                        />
                         <div
                           className="account-editor-kind"
                           role="radiogroup"
@@ -693,160 +712,88 @@ export function AppProfileEditorSheet({
                               disabled={saving}
                               onClick={() => {
                                 setKind(option.value);
-                                if (option.value !== 'org') {
-                                  setIndustry('');
-                                  setIndustryWriteIn(false);
-                                  setIndustryDrawerOpen(false);
-                                }
                               }}
                             >
                               {option.label}
                             </button>
                           ))}
                         </div>
-                        {kind === 'org' ? (
-                          <>
-                            {industryWriteIn ? (
-                              <label
-                                className="account-editor-location-row"
-                                htmlFor="profile-editor-industry"
-                              >
-                                <span className="sr-only">Industry</span>
-                                <button
-                                  type="button"
-                                  className="account-editor-industry-mark"
-                                  disabled={saving}
-                                  aria-label="Choose industry"
-                                  onClick={() => setIndustryDrawerOpen(true)}
-                                >
-                                  <PortfolioOrgKindMark />
-                                </button>
-                                <input
-                                  ref={industryInputRef}
-                                  id="profile-editor-industry"
-                                  className="account-editor-location"
-                                  value={industry}
-                                  maxLength={PROFILE_INDUSTRY_MAX}
-                                  autoComplete="organization-title"
-                                  placeholder="Industry"
-                                  disabled={saving}
-                                  onFocus={scrollFieldIntoView}
-                                  onChange={(event) =>
-                                    setIndustry(
-                                      sanitizeProfileIndustryDraft(
-                                        event.target.value
-                                      )
-                                    )
-                                  }
-                                  onBlur={() => {
-                                    const trimmed = industry
-                                      .trim()
-                                      .replace(/\s+/g, ' ');
-                                    if (trimmed !== industry)
-                                      setIndustry(trimmed);
-                                    if (
-                                      !trimmed ||
-                                      matchProfileIndustryOption(trimmed)
-                                    ) {
-                                      setIndustryWriteIn(false);
-                                    }
-                                  }}
-                                />
-                              </label>
-                            ) : (
-                              <button
-                                type="button"
-                                className="account-editor-location-row account-editor-industry-trigger"
-                                disabled={saving}
-                                aria-haspopup="dialog"
-                                aria-expanded={industryDrawerOpen}
-                                onClick={() => setIndustryDrawerOpen(true)}
-                              >
-                                <PortfolioOrgKindMark />
-                                <span
-                                  className={`account-editor-location${
-                                    industry ? '' : ' is-placeholder'
-                                  }`}
-                                >
-                                  {industry || 'Industry'}
-                                </span>
-                              </button>
-                            )}
-                            <ChoiceDrawer
-                              open={industryDrawerOpen}
-                              onClose={() => setIndustryDrawerOpen(false)}
-                              label="Industry"
-                              copy="Optional. Skip to stay Organization."
-                              value={profileIndustryDrawerValue(industry)}
-                              options={PROFILE_INDUSTRY_CHOICES}
-                              onChange={handleIndustryChoice}
-                              zIndex={SHEET_Z.confirm}
-                            />
-                            {snapshot?.accountId ? (
-                              <ProfileJobsEditor
-                                accountId={snapshot.accountId}
-                                disabled={saving}
-                              />
-                            ) : null}
-                          </>
-                        ) : null}
-                        <label
-                          className="account-editor-location-row"
-                          htmlFor="profile-editor-location"
-                        >
-                          <span className="sr-only">Location</span>
-                          <PortfolioLocationMark />
-                          <input
-                            id="profile-editor-location"
-                            className="account-editor-location"
-                            value={location}
-                            maxLength={PROFILE_LOCATION_MAX}
-                            autoComplete="address-level2"
-                            placeholder="Based in"
+                        {kind === 'org' && snapshot?.accountId ? (
+                          <ProfileOrgMetaEditor
+                            accountId={snapshot.accountId}
+                            industry={industry}
+                            onIndustryChange={setIndustry}
+                            location={location}
+                            onLocationChange={setLocation}
                             disabled={saving}
-                            onFocus={scrollFieldIntoView}
-                            onChange={(event) =>
-                              setLocation(
-                                sanitizeProfileLocationDraft(event.target.value)
-                              )
-                            }
-                            onBlur={() => {
-                              const trimmed = location
-                                .trim()
-                                .replace(/\s+/g, ' ');
-                              if (trimmed !== location) setLocation(trimmed);
-                            }}
                           />
-                        </label>
+                        ) : (
+                          <label
+                            className="account-editor-location-row"
+                            htmlFor="profile-editor-location"
+                          >
+                            <span className="sr-only">Location</span>
+                            <PortfolioLocationMark />
+                            <input
+                              id="profile-editor-location"
+                              className="account-editor-location"
+                              value={location}
+                              maxLength={PROFILE_LOCATION_MAX}
+                              autoComplete="address-level2"
+                              placeholder="Based in"
+                              disabled={saving}
+                              onFocus={scrollFieldIntoView}
+                              onChange={(event) =>
+                                setLocation(
+                                  sanitizeProfileLocationDraft(
+                                    event.target.value
+                                  )
+                                )
+                              }
+                              onBlur={() => {
+                                const trimmed = location
+                                  .trim()
+                                  .replace(/\s+/g, ' ');
+                                if (trimmed !== location) setLocation(trimmed);
+                              }}
+                            />
+                          </label>
+                        )}
                         <label htmlFor="profile-editor-bio" className="sr-only">
                           Bio
                         </label>
                         <ProfileBioRichTextarea
                           textareaRef={bioRef}
                           id="profile-editor-bio"
-                          value={bio}
+                          value={faceBio}
                           maxLength={PROFILE_BIO_MAX}
                           placeholder="Bio"
                           onFocus={scrollFieldIntoView}
-                          onChange={setBio}
+                          onChange={handleFaceBioChange}
                           onBlur={() => {
-                            const trimmed = bio.trim();
-                            if (trimmed !== bio) setBio(trimmed);
+                            // Keep trailing newlines from Enter; only trim spaces/tabs.
+                            const cleaned = faceBio.replace(/[ \t]+$/gm, '');
+                            if (cleaned !== faceBio) setFaceBio(cleaned);
                           }}
                         />
-                        {profileAboutHasMoreThanFace({
-                          faceText: bio,
-                          aboutText: bio,
-                        }) ? (
-                          <p className="account-editor-about-hint">
-                            First four lines show on your page. More in About.
-                          </p>
-                        ) : null}
-                        <ProfileAboutPhotosEditor
-                          photos={photos}
-                          onChange={setPhotos}
-                          disabled={saving}
-                        />
+                        <p className="account-editor-about-hint">
+                          {faceSpillHint ? (
+                            <>
+                              Rest moved to{' '}
+                              <button
+                                type="button"
+                                className="account-editor-about-hint-action"
+                                disabled={saving}
+                                onClick={() => setAboutOpen(true)}
+                              >
+                                About
+                              </button>
+                              .
+                            </>
+                          ) : (
+                            <>On your page. # for posts · crafts in About.</>
+                          )}
+                        </p>
                         {nameNearLimit || bioNearLimit ? (
                           <p
                             className="account-editor-limits is-near-limit"
@@ -888,6 +835,38 @@ export function AppProfileEditorSheet({
                   onClearFieldError={clearLinkFieldError}
                   onSetFieldError={setLinkFieldError}
                 />
+                <button
+                  type="button"
+                  className="account-editor-about-trigger"
+                  disabled={saving}
+                  aria-haspopup="dialog"
+                  aria-expanded={aboutOpen}
+                  onClick={() => setAboutOpen(true)}
+                >
+                  <span className="account-editor-about-trigger-label">
+                    About
+                  </span>
+                  <span className="account-editor-about-trigger-meta">
+                    {profileAboutHasMoreThanFace({
+                      faceText: faceBio,
+                      aboutText: bio,
+                      photoCount: photos.length,
+                      tagCount: tags.length,
+                    })
+                      ? [
+                          tags.length > 0
+                            ? `${tags.length} craft${tags.length === 1 ? '' : 's'}`
+                                    : null,
+                                  photos.length > 0
+                                    ? `${photos.length} photo${photos.length === 1 ? '' : 's'}`
+                                    : null,
+                                  aboutBio.trim() ? 'More bio' : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ') || 'Crafts, photos, more'
+                              : 'Crafts, photos, more'}
+                  </span>
+                </button>
               </div>
             </div>
 
@@ -929,6 +908,20 @@ export function AppProfileEditorSheet({
         open={discardConfirmOpen}
         onDiscard={discard}
         onKeepEditing={keepEditing}
+      />
+      <ProfileAboutEditorSheet
+        open={aboutOpen}
+        onClose={() => setAboutOpen(false)}
+        faceBio={faceBio}
+        aboutBio={aboutBio}
+        onAboutBioChange={setAboutBio}
+        tags={tags}
+        onTagsChange={setTags}
+        photos={photos}
+        onPhotosChange={setPhotos}
+        disabled={saving}
+        moodId={viewerMoodId}
+        moodStyle={viewerMoodStyle}
       />
     </>
   );

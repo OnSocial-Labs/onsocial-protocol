@@ -63,6 +63,57 @@ export {
   splitRichText,
   type RichTextSegment,
 } from './rich-text.js';
+export {
+  OS_RICH_CHIP_ATTR,
+  decorateRichTextChips,
+  getRichTextCaretOffset,
+  getRichTextSelectionOffsets,
+  richTextSegmentsToChipHtml,
+  setRichTextCaretOffset,
+  setRichTextSelectionOffsets,
+  unwrapRichTextChips,
+} from './rich-text-chips.js';
+
+export {
+  PROFILE_BIO_LIST_PREFIX,
+  continueProfileBioListOnEnter,
+  isProfileBioHashtagLine,
+  isProfileBioHeadingLine,
+  isProfileBioListLine,
+  isProfileBioRangeBold,
+  isProfileBioRangeHeading,
+  isProfileBioRangeItalic,
+  isProfileBioRangeList,
+  profileAboutBlocks,
+  profileBioBoldRanges,
+  profileBioHtmlToMarkdown,
+  profileBioItalicRanges,
+  profileBioLineSpansTouching,
+  profileBioMarkdownToHtml,
+  profileBioMarkRanges,
+  profileBioPlainPreview,
+  profileBioWordBounds,
+  splitProfileBioBoldDisplayRuns,
+  splitProfileBioBoldEditorRuns,
+  splitProfileBioInlineDisplayRuns,
+  splitProfileBioItalicDisplayRuns,
+  splitProfileBioItalicEditorRuns,
+  stripProfileBioListPrefix,
+  toggleProfileBioBold,
+  toggleProfileBioHeading,
+  toggleProfileBioItalic,
+  toggleProfileBioList,
+} from './profile-bio-rich.js';
+export type {
+  ProfileAboutBlock,
+  ProfileBioBoldRange,
+  ProfileBioBoldRun,
+  ProfileBioInlineRun,
+  ProfileBioItalicRange,
+  ProfileBioItalicRun,
+  ProfileBioMarkRange,
+  ProfileBioMarkRun,
+} from './profile-bio-rich.js';
 
 export {
   buildPostSetData,
@@ -97,6 +148,8 @@ export {
   buildJobSetData,
   createJobId,
   formatJobEndsLabel,
+  formatJobClosesLabel,
+  formatJobListingMetaLabel,
   hiringLineAriaLabel,
   hiringLineLabel,
   isJobOpen,
@@ -106,6 +159,7 @@ export {
   normalizeJobDescription,
   normalizeJobTitle,
   normalizeJobUrl,
+  sortAccountJobs,
   todayDateInput,
 } from './jobs.js';
 export type { JobBuildInput } from './jobs.js';

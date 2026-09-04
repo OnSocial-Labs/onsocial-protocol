@@ -1,5 +1,6 @@
 import type { DiscoverFaceFilter } from '@onsocial/sdk';
 import { isDiscoverTopicDraft } from '@/features/discover/discover-omni-search';
+import { profileIdentityTopicLabel } from '@/lib/profile-identity-topics';
 
 export interface DiscoverPanelEmptyState {
   primary: string;
@@ -18,14 +19,24 @@ export function buildDiscoverSearchEmptyPrimary(query: string): string {
 export function buildDiscoverEmptyState(
   query: string,
   face: DiscoverFaceFilter = 'all',
-  industry = ''
+  industry = '',
+  craft = ''
 ): DiscoverPanelEmptyState {
   const trimmedQuery = query.trim();
+  const craftSlug = craft.trim();
 
   if (isDiscoverTopicDraft(trimmedQuery)) {
     return {
       primary: 'Press Enter or pick a suggestion to open this in Home.',
       secondary: 'Topics and tickers live in the Home feed.',
+      showClearSearch: false,
+    };
+  }
+
+  if (craftSlug && !trimmedQuery) {
+    return {
+      primary: `No people tagged ${profileIdentityTopicLabel(craftSlug)} yet.`,
+      secondary: 'Crafts come from About on profiles.',
       showClearSearch: false,
     };
   }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildProfileSetData } from './profile.js';
 import {
+  PROFILE_INDUSTRY_MAX,
   PROFILE_INDUSTRY_OPTIONS,
   PROFILE_INDUSTRY_WRITE_IN,
   isProfileIndustryWriteIn,
@@ -40,7 +41,7 @@ describe('profile-industry', () => {
     const long = `${'A'.repeat(80)}  `;
     expect(buildProfileSetData({ industry: long })).toEqual({
       'profile/v': '1',
-      'profile/industry': 'A'.repeat(64),
+      'profile/industry': 'A'.repeat(PROFILE_INDUSTRY_MAX),
     });
     expect(buildProfileSetData({ industry: '  ' })).toEqual({
       'profile/v': '1',

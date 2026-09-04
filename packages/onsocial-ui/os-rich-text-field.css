@@ -1,0 +1,153 @@
+/**
+ * @onsocial/ui — TipTap rich text field chrome.
+ *
+ * Pair with `OsRichTextField`. Host apps may also style `.account-editor-bio-*`
+ * (OnPage / app profile editor). Portal should import this sheet.
+ */
+
+.account-editor-bio-shell {
+  width: 100%;
+  min-width: 0;
+}
+
+.account-editor-bio-chrome {
+  display: flex;
+  justify-content: flex-start;
+  gap: 0.12rem;
+  margin: 0 0 0.28rem;
+}
+
+.account-editor-bio-tool,
+.account-editor-bio-bold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.65rem;
+  height: 1.45rem;
+  padding: 0 0.35rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.42);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.account-editor-bio-italic {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.account-editor-bio-italic em {
+  font-style: italic;
+  font-weight: 500;
+}
+
+.account-editor-bio-list {
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.account-editor-bio-tool.is-active,
+.account-editor-bio-tool:hover,
+.account-editor-bio-tool:focus-visible,
+.account-editor-bio-bold.is-active,
+.account-editor-bio-bold:hover,
+.account-editor-bio-bold:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.82);
+  background: rgb(var(--fg-rgb) / 0.05);
+}
+
+.account-editor-bio-tool:focus-visible,
+.account-editor-bio-bold:focus-visible {
+  outline: none;
+  box-shadow: var(
+    --os-focus-ring,
+    0 0 0 2px color-mix(in srgb, var(--protocol-blue, #60a5fa) 35%, transparent)
+  );
+}
+
+.account-editor-bio-shell .tiptap,
+.account-editor-bio--wysiwyg.ProseMirror,
+.account-editor-bio--wysiwyg {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-height: calc(0.84rem * 1.45 * 2);
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  font-weight: 400;
+  font-style: normal;
+  cursor: text;
+  caret-color: currentColor;
+}
+
+.account-editor-bio--wysiwyg:focus,
+.account-editor-bio--wysiwyg.ProseMirror-focused {
+  outline: none;
+}
+
+.account-editor-bio--wysiwyg strong,
+.account-editor-bio--wysiwyg b {
+  font-weight: 700;
+}
+
+.account-editor-bio--wysiwyg em,
+.account-editor-bio--wysiwyg i {
+  font-style: italic;
+}
+
+.account-editor-bio--wysiwyg ul {
+  margin: 0.15rem 0;
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+
+.account-editor-bio--wysiwyg ol {
+  margin: 0.15rem 0;
+  padding-left: 1.25rem;
+  list-style: decimal;
+}
+
+.account-editor-bio--wysiwyg li {
+  margin: 0.05rem 0;
+}
+
+.account-editor-bio--wysiwyg h3 {
+  margin: 0.2rem 0;
+  font-size: 1em;
+  font-weight: 750;
+  line-height: inherit;
+}
+
+.account-editor-bio--wysiwyg p {
+  margin: 0;
+}
+
+.account-editor-bio--wysiwyg.ProseMirror-empty:before,
+.account-editor-bio--wysiwyg.is-editor-empty:before,
+.account-editor-bio--wysiwyg.is-empty:before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  opacity: 0.32;
+}
+
+.account-editor-bio--wysiwyg[contenteditable='false'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

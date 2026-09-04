@@ -638,7 +638,6 @@ export function ProfileEditor({
                                 onClick={() => {
                                   setKind(option.value);
                                   if (option.value !== 'org') {
-                                    setIndustry('');
                                     setIndustryWriteIn(false);
                                     setIndustryDrawerOpen(false);
                                   }

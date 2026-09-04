@@ -2,8 +2,8 @@
 // builders/profile-industry — org line (curated picker, freeform storage)
 // ---------------------------------------------------------------------------
 
-/** Max stored length for `profile/industry`. Same cap as location. */
-export const PROFILE_INDUSTRY_MAX = 64;
+/** Max stored length for `profile/industry`. Face meta — keep short for mobile. */
+export const PROFILE_INDUSTRY_MAX = 24;
 
 /** Drawer-only. Never written to `profile/industry`. */
 export const PROFILE_INDUSTRY_WRITE_IN = '__write_in__';

@@ -2,8 +2,8 @@
 // builders/profile-location — coarse public “based in” (city / region)
 // ---------------------------------------------------------------------------
 
-/** Max stored length for `profile/location`. Not GPS. */
-export const PROFILE_LOCATION_MAX = 64;
+/** Max stored length for `profile/location`. Face meta — city / short place. */
+export const PROFILE_LOCATION_MAX = 32;
 
 /** Trim + collapse whitespace; empty → ''. Strips control chars + caps. */
 export function normalizeProfileLocationInput(raw: string): string {

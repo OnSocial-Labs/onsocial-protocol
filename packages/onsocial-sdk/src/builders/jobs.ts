@@ -6,7 +6,8 @@ import { SCHEMA_VERSION } from '../schema/v1.js';
 import type { SocialSetData } from './_shared.js';
 
 export const JOB_TITLE_MAX = 80;
-export const JOB_DESCRIPTION_MAX = 280;
+/** Opener + short list — same marks as bio (`**` / `*` / `- `). */
+export const JOB_DESCRIPTION_MAX = 800;
 export const JOB_URL_MAX = 512;
 
 export interface JobBuildInput {
@@ -24,15 +25,28 @@ export function normalizeJobTitle(raw: string): string {
   return raw.replace(/\s+/g, ' ').trim().slice(0, JOB_TITLE_MAX);
 }
 
+/** Keep newlines for lists / paragraphs; collapse spaces within each line. */
 export function normalizeJobDescription(raw: string): string {
-  return raw.replace(/\s+/g, ' ').trim().slice(0, JOB_DESCRIPTION_MAX);
+  return raw
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[^\S\n]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^\n+/, '')
+    .replace(/\n+$/, '')
+    .slice(0, JOB_DESCRIPTION_MAX);
 }
 
 export function normalizeJobUrl(raw: string): string {
   const trimmed = raw.trim().slice(0, JOB_URL_MAX);
   if (!trimmed) return '';
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
   try {
-    const parsed = new URL(trimmed);
+    const parsed = new URL(candidate);
     if (parsed.protocol !== 'https:') {
       return '';
     }
@@ -115,6 +129,36 @@ export function formatJobEndsLabel(ends: number): string {
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+/** Visitor-facing close line — `Closes 6 Sept 2026`. */
+export function formatJobClosesLabel(ends: number): string {
+  const date = formatJobEndsLabel(ends);
+  return date ? `Closes ${date}` : '';
+}
+
+/** List meta — `Closes …` while open, `Closed …` after. */
+export function formatJobListingMetaLabel(
+  ends: number,
+  now = Date.now()
+): string {
+  const date = formatJobEndsLabel(ends);
+  if (!date) return '';
+  return isJobOpen(ends, now) ? `Closes ${date}` : `Closed ${date}`;
+}
+
+/** Open first (soonest), then closed (most recently ended). */
+export function sortAccountJobs(
+  jobs: Array<{ ends: number }>,
+  now = Date.now()
+): typeof jobs {
+  const open = jobs
+    .filter((job) => isJobOpen(job.ends, now))
+    .sort((a, b) => a.ends - b.ends);
+  const closed = jobs
+    .filter((job) => !isJobOpen(job.ends, now))
+    .sort((a, b) => b.ends - a.ends);
+  return [...open, ...closed];
 }
 
 export function todayDateInput(now = Date.now()): string {

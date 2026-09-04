@@ -38,4 +38,11 @@ export class JobsModule {
   async openFor(accountId: string): Promise<JobSearchRow[]> {
     return this._query.jobs.openForAccount(accountId);
   }
+
+  async forAccount(
+    accountId: string,
+    opts?: { limit?: number; includeClosed?: boolean }
+  ): Promise<JobSearchRow[]> {
+    return this._query.jobs.forAccount(accountId, opts);
+  }
 }

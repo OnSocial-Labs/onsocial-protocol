@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildProfileSetData } from './profile.js';
 import {
+  PROFILE_LOCATION_MAX,
   normalizeProfileLocationInput,
   profileLocationFromMaterialised,
   sanitizeProfileLocationDraft,
@@ -30,7 +31,7 @@ describe('profile-location', () => {
     const long = `${'A'.repeat(80)}  `;
     expect(buildProfileSetData({ location: long })).toEqual({
       'profile/v': '1',
-      'profile/location': 'A'.repeat(64),
+      'profile/location': 'A'.repeat(PROFILE_LOCATION_MAX),
     });
     expect(buildProfileSetData({ location: '  ' })).toEqual({
       'profile/v': '1',

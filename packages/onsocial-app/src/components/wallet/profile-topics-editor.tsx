@@ -108,8 +108,8 @@ export function ProfileTopicsEditor({
               className="account-editor-topics-input"
               value={draft}
               disabled={disabled}
-              placeholder={tags.length === 0 ? 'Writing, design…' : 'Add'}
-              aria-label="Add topic"
+              placeholder={tags.length === 0 ? 'Writer, designer…' : 'Add'}
+              aria-label="Add craft"
               maxLength={PROFILE_EDITOR_MAX_TAG_LENGTH}
               onFocus={scrollFieldIntoView}
               onChange={(event) => {

@@ -1,114 +1,15 @@
 'use client';
 
+import type { FocusEventHandler, Ref } from 'react';
 import {
-  useLayoutEffect,
-  useRef,
-  useState,
-  type FocusEventHandler,
-  type Ref,
-} from 'react';
-import { OsAutolinkChip } from '@/features/home/os-autolink-chip';
-import { splitPostRichText } from '@/features/home/post-rich-segments';
-import {
-  isProfileBioRangeBold,
-  splitProfileBioBoldEditorRuns,
-  toggleProfileBioBold,
-} from '@/lib/profile-bio-bold';
-import {
-  isProfileBioRangeHeading,
-  isProfileBioRangeItalic,
-  isProfileBioRangeList,
-  splitProfileBioItalicEditorRuns,
-  toggleProfileBioHeading,
-  toggleProfileBioItalic,
-  toggleProfileBioList,
-} from '@/lib/profile-bio-rich';
+  OsRichTextField,
+  type OsRichTextTool,
+} from '@onsocial/ui';
 
-function mergeRefs<T>(...refs: Array<Ref<T> | undefined>) {
-  return (node: T | null) => {
-    for (const ref of refs) {
-      if (!ref) continue;
-      if (typeof ref === 'function') ref(node);
-      else ref.current = node;
-    }
-  };
-}
-
-function BioBackdropText({ value }: { value: string }) {
-  return (
-    <>
-      {splitProfileBioBoldEditorRuns(value).map((run, index) => {
-        if (run.kind === 'mark') {
-          return (
-            <span key={`k-${index}`} className="account-editor-bio-mark">
-              {run.value}
-            </span>
-          );
-        }
-        return (
-          <BioBackdropItalic
-            key={`i-${index}`}
-            value={run.value}
-            bold={run.kind === 'bold'}
-          />
-        );
-      })}
-    </>
-  );
-}
-
-function BioBackdropItalic({
-  value,
-  bold,
-}: {
-  value: string;
-  bold: boolean;
-}) {
-  return (
-    <>
-      {splitProfileBioItalicEditorRuns(value).map((run, index) => {
-        if (run.kind === 'mark') {
-          return (
-            <span key={`m-${index}`} className="account-editor-bio-mark">
-              {run.value}
-            </span>
-          );
-        }
-        const italic = run.kind === 'italic';
-        if (bold && italic) {
-          return (
-            <strong
-              key={`bi-${index}`}
-              className="account-editor-bio-bold-run account-editor-bio-italic-run"
-            >
-              <em>{run.value}</em>
-            </strong>
-          );
-        }
-        if (bold) {
-          return (
-            <strong key={`b-${index}`} className="account-editor-bio-bold-run">
-              {run.value}
-            </strong>
-          );
-        }
-        if (italic) {
-          return (
-            <em key={`em-${index}`} className="account-editor-bio-italic-run">
-              {run.value}
-            </em>
-          );
-        }
-        return <span key={`p-${index}`}>{run.value}</span>;
-      })}
-    </>
-  );
-}
+export type ProfileBioRichTool = OsRichTextTool;
 
 /**
- * Profile bio field with live # / $ / @ / url color via a mirrored backdrop
- * (same idea as the post composer, without mention suggestions).
- * B / I / list / heading on the field chrome store marks in the string.
+ * Profile bio field — contenteditable WYSIWYG backed by markdown marks.
  */
 export function ProfileBioRichTextarea({
   value,
@@ -119,244 +20,39 @@ export function ProfileBioRichTextarea({
   placeholder,
   maxLength,
   textareaRef,
+  tools,
+  rows = 1,
+  className,
+  disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
-  onFocus?: FocusEventHandler<HTMLTextAreaElement>;
-  onBlur?: FocusEventHandler<HTMLTextAreaElement>;
+  onFocus?: FocusEventHandler<HTMLDivElement>;
+  onBlur?: FocusEventHandler<HTMLDivElement>;
   id?: string;
   placeholder?: string;
   maxLength?: number;
-  textareaRef?: Ref<HTMLTextAreaElement>;
+  /** @deprecated Prefer editor surface; kept for existing scroll-into-view refs. */
+  textareaRef?: Ref<HTMLDivElement>;
+  tools?: readonly ProfileBioRichTool[];
+  rows?: number;
+  className?: string;
+  disabled?: boolean;
 }) {
-  const localRef = useRef<HTMLTextAreaElement>(null);
-  const backdropRef = useRef<HTMLDivElement>(null);
-  const [selection, setSelection] = useState({ start: 0, end: 0 });
-  const segments = splitPostRichText(value);
-  const boldActive = isProfileBioRangeBold(
-    value,
-    selection.start,
-    selection.end
-  );
-  const italicActive = isProfileBioRangeItalic(
-    value,
-    selection.start,
-    selection.end
-  );
-  const headingActive = isProfileBioRangeHeading(
-    value,
-    selection.start,
-    selection.end
-  );
-  const listActive = isProfileBioRangeList(
-    value,
-    selection.start,
-    selection.end
-  );
-
-  const syncSelection = (el: HTMLTextAreaElement | null) => {
-    if (!el) return;
-    setSelection({ start: el.selectionStart, end: el.selectionEnd });
-  };
-
-  useLayoutEffect(() => {
-    const el = localRef.current;
-    const backdrop = backdropRef.current;
-    if (!el || !backdrop) return;
-    backdrop.scrollTop = el.scrollTop;
-  }, [value]);
-
-  const applyEdit = (
-    next: { text: string; start: number; end: number }
-  ) => {
-    onChange(next.text);
-    requestAnimationFrame(() => {
-      const field = localRef.current;
-      if (!field) return;
-      field.focus();
-      field.setSelectionRange(next.start, next.end);
-      setSelection({ start: next.start, end: next.end });
-    });
-  };
-
-  const applyBold = () => {
-    const el = localRef.current;
-    const start = el?.selectionStart ?? selection.start;
-    const end = el?.selectionEnd ?? selection.end;
-    applyEdit(toggleProfileBioBold(value, start, end, maxLength));
-  };
-
-  const applyItalic = () => {
-    const el = localRef.current;
-    const start = el?.selectionStart ?? selection.start;
-    const end = el?.selectionEnd ?? selection.end;
-    applyEdit(toggleProfileBioItalic(value, start, end, maxLength));
-  };
-
-  const applyHeading = () => {
-    const el = localRef.current;
-    const start = el?.selectionStart ?? selection.start;
-    const end = el?.selectionEnd ?? selection.end;
-    applyEdit(toggleProfileBioHeading(value, start, end, maxLength));
-  };
-
-  const applyList = () => {
-    const el = localRef.current;
-    const start = el?.selectionStart ?? selection.start;
-    const end = el?.selectionEnd ?? selection.end;
-    applyEdit(toggleProfileBioList(value, start, end, maxLength));
-  };
-
   return (
-    <div className="account-editor-bio-shell">
-      <div className="account-editor-bio-chrome">
-        <button
-          type="button"
-          className={`account-editor-bio-tool account-editor-bio-bold${boldActive ? ' is-active' : ''}`}
-          aria-label="Bold"
-          aria-pressed={boldActive}
-          onMouseDown={(event) => {
-            event.preventDefault();
-          }}
-          onClick={applyBold}
-        >
-          B
-        </button>
-        <button
-          type="button"
-          className={`account-editor-bio-tool account-editor-bio-italic${italicActive ? ' is-active' : ''}`}
-          aria-label="Italic"
-          aria-pressed={italicActive}
-          onMouseDown={(event) => {
-            event.preventDefault();
-          }}
-          onClick={applyItalic}
-        >
-          <em>I</em>
-        </button>
-        <button
-          type="button"
-          className={`account-editor-bio-tool account-editor-bio-list${listActive ? ' is-active' : ''}`}
-          aria-label="List"
-          aria-pressed={listActive}
-          onMouseDown={(event) => {
-            event.preventDefault();
-          }}
-          onClick={applyList}
-        >
-          •
-        </button>
-        <button
-          type="button"
-          className={`account-editor-bio-tool${headingActive ? ' is-active' : ''}`}
-          aria-label="Heading"
-          aria-pressed={headingActive}
-          onMouseDown={(event) => {
-            event.preventDefault();
-          }}
-          onClick={applyHeading}
-        >
-          H
-        </button>
-      </div>
-      <div className="account-editor-bio-field">
-        <div
-          ref={backdropRef}
-          className="account-editor-bio-backdrop"
-          aria-hidden
-        >
-          {segments.map((segment, index) => {
-            if (segment.type === 'hashtag') {
-              return (
-                <span key={`h-${index}`} className="os-hashtag">
-                  {segment.value}
-                </span>
-              );
-            }
-            if (segment.type === 'ticker') {
-              return (
-                <span key={`k-${index}`} className="os-ticker">
-                  {segment.value}
-                </span>
-              );
-            }
-            if (segment.type === 'mention') {
-              return (
-                <span key={`m-${index}`} className="os-mention">
-                  {segment.value}
-                </span>
-              );
-            }
-            if (segment.type === 'url') {
-              return (
-                <OsAutolinkChip
-                  key={`u-${index}`}
-                  href={segment.href}
-                  text={segment.value}
-                  variant="mirror"
-                />
-              );
-            }
-            return <BioBackdropText key={`t-${index}`} value={segment.value} />;
-          })}
-          {value.endsWith('\n') ? '\n' : null}
-        </div>
-        <textarea
-          ref={mergeRefs(localRef, textareaRef)}
-          id={id}
-          className="account-editor-bio is-rich-overlay"
-          value={value}
-          maxLength={maxLength}
-          rows={1}
-          placeholder={placeholder}
-          onFocus={onFocus}
-          onBlur={(event) => {
-            syncSelection(event.currentTarget);
-            onBlur?.(event);
-          }}
-          onSelect={(event) => {
-            syncSelection(event.currentTarget);
-          }}
-          onKeyDown={(event) => {
-            if (!(event.metaKey || event.ctrlKey)) return;
-            const key = event.key.toLowerCase();
-            if (key === 'b') {
-              event.preventDefault();
-              applyBold();
-              return;
-            }
-            if (key === 'i') {
-              event.preventDefault();
-              applyItalic();
-              return;
-            }
-            if (event.altKey && key === '1') {
-              event.preventDefault();
-              applyHeading();
-              return;
-            }
-            if (event.shiftKey && (key === '8' || event.key === '*')) {
-              event.preventDefault();
-              applyList();
-            }
-          }}
-          onKeyUp={(event) => {
-            syncSelection(event.currentTarget);
-          }}
-          onClick={(event) => {
-            syncSelection(event.currentTarget);
-          }}
-          onChange={(event) => {
-            onChange(event.target.value);
-            syncSelection(event.currentTarget);
-          }}
-          onScroll={(event) => {
-            if (backdropRef.current) {
-              backdropRef.current.scrollTop = event.currentTarget.scrollTop;
-            }
-          }}
-        />
-      </div>
-    </div>
+    <OsRichTextField
+      value={value}
+      onChange={onChange}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      id={id}
+      placeholder={placeholder}
+      maxLength={maxLength}
+      editorRef={textareaRef}
+      tools={tools}
+      rows={rows}
+      className={className}
+      disabled={disabled}
+    />
   );
 }

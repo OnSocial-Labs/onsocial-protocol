@@ -3,6 +3,7 @@
 // Accessed as `os.query.jobs.<method>()`.
 // ---------------------------------------------------------------------------
 
+import { sortAccountJobs } from '../builders/jobs.js';
 import type { QueryModule } from './index.js';
 
 const JOB_SEARCH_FIELDS = `
@@ -67,6 +68,57 @@ function mapJobRow(row: Record<string, unknown>): JobSearchRow {
   };
 }
 
+function parseValueJson(raw: unknown): Record<string, unknown> | null {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function mapJobsCurrentRow(
+  row: Record<string, unknown>,
+  orgAccountId: string
+): JobSearchRow | null {
+  const jobId = String(row.jobId ?? '').trim();
+  const value = parseValueJson(row.valueJson);
+  if (!jobId || !value) return null;
+  const title = String(value.title ?? '').trim();
+  const ends = asNumber(value.ends);
+  if (!title || !Number.isFinite(ends) || ends <= 0) return null;
+  const description =
+    typeof value.description === 'string' && value.description.trim()
+      ? value.description
+      : null;
+  const url =
+    typeof value.url === 'string' && value.url.trim() ? value.url : null;
+  return {
+    orgAccountId,
+    jobId,
+    title,
+    description,
+    url,
+    ends,
+    since: value.since == null ? null : asNumber(value.since),
+    orgName: null,
+    orgKind: null,
+    orgIndustry: null,
+    orgAvatar: null,
+    searchText: null,
+    blockHeight: asNumber(row.blockHeight),
+    blockTimestamp: asNumber(row.blockTimestamp),
+  };
+}
+
 export class JobsQuery {
   constructor(private _q: QueryModule) {}
 
@@ -117,6 +169,7 @@ export class JobsQuery {
     return (res.data?.jobsSearch ?? []).map(mapJobRow);
   }
 
+  /** Open roles only (`jobs_search` — closed rows are excluded in SQL). */
   async openForAccount(
     accountId: string,
     opts: { limit?: number } = {}
@@ -125,5 +178,51 @@ export class JobsQuery {
       orgAccountId: accountId,
       limit: opts.limit ?? 24,
     });
+  }
+
+  /**
+   * All set jobs for an org, including closed.
+   * Used by owner manage surfaces — public hiring stays on {@link openForAccount}.
+   */
+  async forAccount(
+    accountId: string,
+    opts: { limit?: number; includeClosed?: boolean } = {}
+  ): Promise<JobSearchRow[]> {
+    const id = accountId.trim();
+    if (!id) return [];
+    if (!opts.includeClosed) {
+      return this.openForAccount(id, { limit: opts.limit });
+    }
+
+    const limit = opts.limit ?? 48;
+    const res = await this._q.graphql<{
+      jobsCurrent: Array<Record<string, unknown>>;
+    }>({
+      query: `query JobsForAccount($accountId: String!, $limit: Int!) {
+        jobsCurrent(
+          where: {
+            _and: [
+              {accountId: {_eq: $accountId}},
+              {operation: {_eq: "set"}}
+            ]
+          }
+          limit: $limit
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          accountId
+          jobId
+          valueJson
+          blockHeight
+          blockTimestamp
+        }
+      }`,
+      variables: { accountId: id, limit },
+    });
+
+    const mapped = (res.data?.jobsCurrent ?? [])
+      .map((row) => mapJobsCurrentRow(row, id))
+      .filter((row): row is JobSearchRow => row != null);
+
+    return sortAccountJobs(mapped) as JobSearchRow[];
   }
 }
