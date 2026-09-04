@@ -9,14 +9,17 @@ import {
 describe('discoverListCacheKey', () => {
   it('includes query and viewer context', () => {
     expect(discoverListCacheKey('alice', 'viewer.near')).toBe(
-      'discover:alice:viewer.near:all:__any__'
+      'discover:alice:viewer.near:all:__any__:__any__'
     );
     expect(discoverListCacheKey('', null)).toBe(
-      'discover:__all__:__anon__:all:__any__'
+      'discover:__all__:__anon__:all:__any__:__any__'
     );
     expect(discoverListCacheKey('', null, 'hiring', 'Healthcare')).toBe(
-      'discover:__all__:__anon__:hiring:Healthcare'
+      'discover:__all__:__anon__:hiring:Healthcare:__any__'
     );
+    expect(
+      discoverListCacheKey('', null, 'all', 'Healthcare', 'Design')
+    ).toBe('discover:__all__:__anon__:all:Healthcare:Design');
   });
 });
 

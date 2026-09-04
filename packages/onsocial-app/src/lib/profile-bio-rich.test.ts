@@ -317,8 +317,7 @@ function fragmentFromHtml(html: string): ParentNode {
 
 describe('profileBio markdown html roundtrip', () => {
   it('roundtrips bold, italic, list, and heading', () => {
-    const markdown =
-      '# Hello\n\nSee **bold** and *italic*.\n\n• one\n• two';
+    const markdown = '# Hello\nSee **bold** and *italic*.\n• one\n• two';
     const html = profileBioMarkdownToHtml(markdown);
     expect(html).toBe(
       '<h3>Hello</h3><p>See <strong>bold</strong> and <em>italic</em>.</p><ul><li>one</li><li>two</li></ul>'
@@ -329,7 +328,7 @@ describe('profileBio markdown html roundtrip', () => {
   it('keeps Enter / trailing line breaks', () => {
     expect(
       profileBioHtmlToMarkdown(fragmentFromHtml('<p>Hello</p><p><br></p>'))
-    ).toBe('Hello\n\n');
+    ).toBe('Hello\n');
     expect(profileBioMarkdownToHtml('Hello\n')).toContain('<p><br></p>');
     expect(
       profileBioHtmlToMarkdown(fragmentFromHtml('<p>Hello<br></p>'))
