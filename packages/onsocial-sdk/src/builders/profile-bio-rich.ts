@@ -103,7 +103,9 @@ function isRangeInsideMark(
 ): boolean {
   const from = Math.min(start, end);
   const to = Math.max(start, end);
-  return ranges.some((range) => from >= range.innerStart && to <= range.innerEnd);
+  return ranges.some(
+    (range) => from >= range.innerStart && to <= range.innerEnd
+  );
 }
 
 export function isProfileBioRangeBold(
@@ -151,7 +153,12 @@ function splitMarkEditorRuns(
 export function splitProfileBioBoldEditorRuns(
   text: string
 ): ProfileBioBoldRun[] {
-  return splitMarkEditorRuns(text, BOLD_PAIR, BOLD_TOKEN, 'bold') as ProfileBioBoldRun[];
+  return splitMarkEditorRuns(
+    text,
+    BOLD_PAIR,
+    BOLD_TOKEN,
+    'bold'
+  ) as ProfileBioBoldRun[];
 }
 
 export function splitProfileBioItalicEditorRuns(
@@ -209,9 +216,9 @@ function toggleProfileBioMark(
 ): { text: string; start: number; end: number } {
   const from = clampIndex(text, Math.min(start, end));
   const to = clampIndex(text, Math.max(start, end));
-  const covering = opts.ranges(text).find(
-    (range) => from >= range.wrapStart && to <= range.wrapEnd
-  );
+  const covering = opts
+    .ranges(text)
+    .find((range) => from >= range.wrapStart && to <= range.wrapEnd);
 
   if (covering) {
     const inner = text.slice(covering.innerStart, covering.innerEnd);
@@ -322,7 +329,9 @@ export function isProfileBioRangeList(
   const spans = profileBioLineSpansTouching(text, start, end);
   return (
     spans.length > 0 &&
-    spans.every((span) => isProfileBioListLine(text.slice(span.start, span.end)))
+    spans.every((span) =>
+      isProfileBioListLine(text.slice(span.start, span.end))
+    )
   );
 }
 
@@ -762,7 +771,8 @@ function toggleProfileBioLinePrefix(
     }
 
     if (opts.isPrefixed(line)) continue;
-    next = next.slice(0, span.start) + opts.prefix + line + next.slice(span.end);
+    next =
+      next.slice(0, span.start) + opts.prefix + line + next.slice(span.end);
     if (from >= span.start) startShift += prefixLength;
     if (to >= span.start) endShift += prefixLength;
   }

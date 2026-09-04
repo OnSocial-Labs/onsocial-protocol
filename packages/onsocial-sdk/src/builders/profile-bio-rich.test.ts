@@ -166,13 +166,13 @@ describe('profileAboutBlocks', () => {
   });
 
   it('groups dash lists and still allows italic in items', () => {
-    expect(
-      profileAboutBlocks('Before\n- one *two*\n- three\n\nAfter')
-    ).toEqual([
-      { type: 'paragraph', text: 'Before' },
-      { type: 'list', items: ['one *two*', 'three'] },
-      { type: 'paragraph', text: 'After' },
-    ]);
+    expect(profileAboutBlocks('Before\n- one *two*\n- three\n\nAfter')).toEqual(
+      [
+        { type: 'paragraph', text: 'Before' },
+        { type: 'list', items: ['one *two*', 'three'] },
+        { type: 'paragraph', text: 'After' },
+      ]
+    );
   });
 
   it('groups bullet lists', () => {
@@ -193,9 +193,9 @@ describe('profileAboutBlocks', () => {
 
 describe('profileBioPlainPreview', () => {
   it('strips marks and flattens lists for one-line teasers', () => {
-    expect(
-      profileBioPlainPreview('Ship **UI**.\n- React\n- *TS*')
-    ).toBe('Ship UI. React TS');
+    expect(profileBioPlainPreview('Ship **UI**.\n- React\n- *TS*')).toBe(
+      'Ship UI. React TS'
+    );
   });
 
   it('can keep only the first block for list teasers', () => {
@@ -344,8 +344,7 @@ function fragmentFromHtml(html: string): ParentNode {
 
 describe('profileBio markdown html roundtrip', () => {
   it('roundtrips bold, italic, list, and heading', () => {
-    const markdown =
-      '# Hello\nSee **bold** and *italic*.\n• one\n• two';
+    const markdown = '# Hello\nSee **bold** and *italic*.\n• one\n• two';
     const html = profileBioMarkdownToHtml(markdown);
     expect(html).toBe(
       '<h3>Hello</h3><p>See <strong>bold</strong> and <em>italic</em>.</p><ul><li>one</li><li>two</li></ul>'
@@ -354,17 +353,17 @@ describe('profileBio markdown html roundtrip', () => {
   });
 
   it('keeps Enter / trailing line breaks', () => {
-    expect(profileBioHtmlToMarkdown(fragmentFromHtml('<p>Hello</p><p><br></p>'))).toBe(
-      'Hello\n'
-    );
+    expect(
+      profileBioHtmlToMarkdown(fragmentFromHtml('<p>Hello</p><p><br></p>'))
+    ).toBe('Hello\n');
     expect(profileBioMarkdownToHtml('Hello\n')).toContain('<p><br></p>');
     expect(
-      profileBioHtmlToMarkdown(
-        fragmentFromHtml('<p>Hello<br></p>')
-      ).startsWith('Hello')
+      profileBioHtmlToMarkdown(fragmentFromHtml('<p>Hello<br></p>')).startsWith(
+        'Hello'
+      )
     ).toBe(true);
-    expect(profileBioHtmlToMarkdown(fragmentFromHtml('<p>Hello<br></p>'))).toContain(
-      '\n'
-    );
+    expect(
+      profileBioHtmlToMarkdown(fragmentFromHtml('<p>Hello<br></p>'))
+    ).toContain('\n');
   });
 });
