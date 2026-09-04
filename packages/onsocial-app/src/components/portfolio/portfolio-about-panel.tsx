@@ -229,7 +229,7 @@ function AboutPrintStill({
 
   useLayoutEffect(() => {
     const node = imgRef.current;
-    if (node?.complete) setReady(true);
+    if (node?.complete) queueMicrotask(() => setReady(true));
   }, [still.url]);
 
   return (

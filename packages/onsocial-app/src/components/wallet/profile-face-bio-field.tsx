@@ -107,7 +107,7 @@ export function ProfileFaceBioField({
 
   useEffect(() => {
     if (mentionQuery === null || disabled) {
-      setSuggestions([]);
+      queueMicrotask(() => setSuggestions([]));
       return;
     }
 
