@@ -275,12 +275,13 @@ function main() {
   }
 
   for (const pkg of affected) {
-    const label =
-      pkg.reason === 'dependent'
-        ? ' (dependent)'
-        : pkg.reason === 'dependency'
-          ? ' (dependency)'
-          : '';
+    if (pkg.reason === 'dependency') {
+      // Unchanged upstream libs: build dist/ only (do not full-check).
+      console.log(`\n=== ${pkg.name} (dependency build) ===`);
+      run(`pnpm --filter ${pkg.name} run build`);
+      continue;
+    }
+    const label = pkg.reason === 'dependent' ? ' (dependent)' : '';
     console.log(`\n=== ${pkg.name}${label} ===`);
     run(pkg.command);
   }
