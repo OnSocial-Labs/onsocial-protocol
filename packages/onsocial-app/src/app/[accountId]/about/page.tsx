@@ -34,6 +34,6 @@ export async function generateMetadata({
 }
 
 export default async function PortfolioAboutPage({ params }: AboutPageProps) {
-  const { panel } = await loadPortfolioAboutPage(params);
-  return <PortfolioAboutScreen {...panel} />;
+  const { panel, mood } = await loadPortfolioAboutPage(params);
+  return <PortfolioAboutScreen mood={mood} {...panel} />;
 }

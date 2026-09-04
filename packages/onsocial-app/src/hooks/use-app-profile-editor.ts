@@ -6,9 +6,12 @@ import {
   editorFaceKind,
   formatProfileMediaRef,
   normalizeProfileIndustryInput,
+  normalizeProfileLeadInput,
+  normalizeProfileAboutAlign,
   normalizeProfileLocationInput,
   type MaterialisedProfile,
   type PageConfig,
+  type ProfileAboutAlign,
   type ProfileKind,
 } from '@onsocial/sdk';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -44,6 +47,12 @@ export interface ProfileEditorSnapshot {
   industry: string;
   kind: ProfileKind | null;
   bio: string;
+  /** About continuation (`profile/about`). */
+  about: string;
+  /** About lead above the film (`profile/lead`). */
+  lead: string;
+  /** More for About essay alignment (`profile/aboutAlign`). */
+  aboutAlign: ProfileAboutAlign;
   avatarUrl: string | null;
   bannerUrl: string | null;
   bannerMedia: ResolvedPageHero | null;
@@ -59,6 +68,9 @@ export interface ProfileEditorSaveInput {
   industry: string;
   kind: ProfileKind;
   bio: string;
+  about: string;
+  lead: string;
+  aboutAlign: ProfileAboutAlign;
   avatar: File | null;
   banner: File | null;
   removeAvatar: boolean;
@@ -79,6 +91,9 @@ export interface ProfileEditorSaveResult {
   industry: string;
   kind: ProfileKind;
   bio: string;
+  about: string;
+  lead: string;
+  aboutAlign: ProfileAboutAlign;
   avatarUrl: string | null;
   bannerUrl: string | null;
   bannerMedia: ResolvedPageHero | null;
@@ -148,6 +163,17 @@ export function useAppProfileEditor(
         photos: Array.isArray((body as ProfileEditorSnapshot).photos)
           ? (body as ProfileEditorSnapshot).photos
           : [],
+        about:
+          typeof (body as ProfileEditorSnapshot).about === 'string'
+            ? (body as ProfileEditorSnapshot).about
+            : '',
+        lead:
+          typeof (body as ProfileEditorSnapshot).lead === 'string'
+            ? (body as ProfileEditorSnapshot).lead
+            : '',
+        aboutAlign: normalizeProfileAboutAlign(
+          (body as ProfileEditorSnapshot).aboutAlign
+        ),
       });
     } catch (err) {
       setSnapshot(null);
@@ -179,6 +205,8 @@ export function useAppProfileEditor(
       }
 
       const location = normalizeProfileLocationInput(input.location);
+      const lead = normalizeProfileLeadInput(input.lead);
+      const aboutAlign = normalizeProfileAboutAlign(input.aboutAlign);
       const faceKind = editorFaceKind(input.kind);
       const industry =
         faceKind === 'org'
@@ -202,6 +230,9 @@ export function useAppProfileEditor(
         industry,
         kind: faceKind,
         bio: input.bio,
+        about: input.about,
+        lead,
+        aboutAlign,
         links: input.links,
         tags: input.tags,
         photos: input.photos,
@@ -219,6 +250,9 @@ export function useAppProfileEditor(
           industry,
           kind: faceKind,
           bio: input.bio.trim(),
+          about: input.about.trim(),
+          lead,
+          aboutAlign,
           avatarUrl: snapshotNow.avatarUrl,
           bannerUrl: snapshotNow.bannerUrl,
           bannerMedia: snapshotNow.bannerMedia,
@@ -257,6 +291,9 @@ export function useAppProfileEditor(
           const payload: Parameters<typeof client.profiles.update>[0] = {
             name,
             bio: input.bio.trim(),
+            about: input.about.trim() || null,
+            lead: lead || null,
+            aboutAlign,
             location: location || null,
             kind: faceKind === 'org' ? 'org' : null,
             industry: faceKind === 'org' ? industry || null : null,
@@ -346,6 +383,9 @@ export function useAppProfileEditor(
           industry,
           kind: faceKind,
           bio: input.bio.trim(),
+          about: input.about.trim(),
+          lead,
+          aboutAlign,
           avatarUrl,
           bannerUrl,
           bannerMedia,

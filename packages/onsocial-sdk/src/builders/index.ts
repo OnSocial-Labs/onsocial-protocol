@@ -17,6 +17,19 @@ export { applyFeedMeta } from './_shared.js';
 export { buildProfileSetData } from './profile.js';
 export { profileMetaFromBio, type ProfileBioMeta } from './profile-meta.js';
 export {
+  PROFILE_LEAD_MAX,
+  normalizeProfileLeadInput,
+  profileLeadFromMaterialised,
+  sanitizeProfileLeadDraft,
+} from './profile-lead.js';
+export {
+  PROFILE_ABOUT_ALIGN_DEFAULT,
+  PROFILE_ABOUT_ALIGN_OPTIONS,
+  normalizeProfileAboutAlign,
+  profileAboutAlignFromMaterialised,
+  type ProfileAboutAlign,
+} from './profile-about-align.js';
+export {
   PROFILE_LOCATION_MAX,
   normalizeProfileLocationInput,
   profileLocationFromMaterialised,

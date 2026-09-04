@@ -3,6 +3,7 @@ import {
 } from '@/features/home/home-hashtag-search';
 import { extractTickersFromText } from '@/features/home/home-ticker-search';
 import {
+  isNearNamedAccountComplete,
   isValidNearAccountId,
   normalizeNearAccountId,
 } from '@/lib/app-near-account';
@@ -23,13 +24,117 @@ export type ActiveMentionQuery = {
   query: string;
 };
 
+type MentionToken = {
+  start: number;
+  end: number;
+  value: string;
+  accountId: string;
+};
+
 /** Normalize a typed / extracted mention to a lowercase account id (no `@`). */
 export function normalizeMentionAccountId(raw: string): string {
   return normalizeNearAccountId(raw.replace(/^@+/, ''));
 }
 
+/** Shape-valid NEAR id (may still be incomplete while typing). */
 export function isValidMentionAccountId(accountId: string): boolean {
   return isValidNearAccountId(accountId);
+}
+
+/**
+ * True mention for highlight + link — named account on this network
+ * (`.testnet` / `.near` / `.tg`), not bare `@alice`.
+ */
+export function isCompleteMentionAccountId(accountId: string): boolean {
+  return isNearNamedAccountComplete(accountId);
+}
+
+function collectMentionTokens(text: string): MentionToken[] {
+  const tokens: MentionToken[] = [];
+  MENTION_IN_TEXT_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = MENTION_IN_TEXT_RE.exec(text)) !== null) {
+    const value = match[0]!;
+    const accountId = normalizeMentionAccountId(match[1]!);
+    tokens.push({
+      start: match.index,
+      end: match.index + value.length,
+      value,
+      accountId,
+    });
+  }
+  return tokens;
+}
+
+function removeTokenRanges(
+  text: string,
+  ranges: Array<{ start: number; end: number }>
+): string {
+  if (ranges.length === 0) return text;
+  const ordered = [...ranges].sort((a, b) => b.start - a.start);
+  let next = text;
+  for (const range of ordered) {
+    const before = next.slice(0, range.start);
+    const after = next.slice(range.end);
+    // Drop a single leftover space so "hi @bad there" → "hi there".
+    if (before.endsWith(' ') && after.startsWith(' ')) {
+      next = `${before}${after.slice(1)}`;
+    } else if (before.endsWith(' ') && after.length === 0) {
+      next = before.trimEnd();
+    } else {
+      next = `${before}${after}`;
+    }
+  }
+  return next;
+}
+
+/**
+ * Drop closed `@tokens` that are not complete named accounts.
+ * Leaves an in-progress `@query` at `caret` alone when provided.
+ */
+export function stripIncompleteMentions(
+  text: string,
+  caret?: number
+): string {
+  const active =
+    caret != null ? findActiveMentionQuery(text, caret) : null;
+  const bad = collectMentionTokens(text).filter((token) => {
+    if (active && token.start === active.start) return false;
+    return !isCompleteMentionAccountId(token.accountId);
+  });
+  return removeTokenRanges(
+    text,
+    bad.map((token) => ({ start: token.start, end: token.end }))
+  );
+}
+
+/**
+ * Keep only mentions that are complete + known-good (picker) or exist on-chain.
+ * Incomplete / missing accounts are removed from the string.
+ */
+export async function sanitizeMentionsInText(
+  text: string,
+  exists: (accountId: string) => Promise<boolean>,
+  trustedAccountIds?: ReadonlySet<string>
+): Promise<string> {
+  const withoutIncomplete = stripIncompleteMentions(text);
+  const tokens = collectMentionTokens(withoutIncomplete);
+  if (tokens.length === 0) return withoutIncomplete;
+
+  const remove: Array<{ start: number; end: number }> = [];
+  for (const token of tokens) {
+    if (trustedAccountIds?.has(token.accountId)) continue;
+    let ok = false;
+    try {
+      ok = await exists(token.accountId);
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      remove.push({ start: token.start, end: token.end });
+    }
+  }
+  return removeTokenRanges(withoutIncomplete, remove);
 }
 
 /**
@@ -42,7 +147,7 @@ export function extractMentionsFromText(text: string): string[] {
   let match: RegExpExecArray | null;
   while ((match = MENTION_IN_TEXT_RE.exec(text)) !== null) {
     const accountId = normalizeMentionAccountId(match[1]!);
-    if (!isValidMentionAccountId(accountId) || seen.has(accountId)) continue;
+    if (!isCompleteMentionAccountId(accountId) || seen.has(accountId)) continue;
     seen.add(accountId);
     found.push(accountId);
   }

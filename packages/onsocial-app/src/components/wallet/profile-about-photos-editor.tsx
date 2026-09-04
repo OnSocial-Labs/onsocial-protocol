@@ -118,11 +118,11 @@ export function ProfileAboutPhotosEditor({
 
   return (
     <div className="account-editor-about-photos">
-      <p className="account-editor-about-photos-label">Photos</p>
+      <p className="account-editor-about-photos-label">Print & film</p>
       <p className="account-editor-about-hint">
         {canReorder
-          ? 'Up to three on About. Drag to reorder.'
-          : 'Up to three on About. Wide, pair, or trio.'}
+          ? 'First is the print beside your name. Next are film. Drag to reorder. Three stills, not a gallery.'
+          : 'First is the print beside your name. Next are film. Up to three stills — not a gallery.'}
       </p>
       {photos.length > 0 ? (
         <ul

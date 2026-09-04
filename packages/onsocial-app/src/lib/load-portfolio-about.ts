@@ -6,6 +6,7 @@ import {
   type PortfolioDaoEntity,
 } from '@/lib/load-dao-page';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
+import type { ResolvedMood } from '@/lib/moods/types';
 import { fetchPublicPageData } from '@/lib/page-data';
 import { resolvePortfolioAboutBio } from '@/lib/profile-bio-face';
 import { displayName } from '@/lib/profile-display';
@@ -16,6 +17,7 @@ export type PortfolioAboutPageData = {
   accountId: string;
   titleLabel: string;
   aboutBio: string | null;
+  mood: ResolvedMood;
   panel: PortfolioAboutPanelProps;
   daoEntity: PortfolioDaoEntity;
 };
@@ -40,6 +42,7 @@ export const loadPortfolioAboutForAccount = cache(
     const titleLabel = displayName(accountId, profileName ?? undefined);
     const aboutBio = resolvePortfolioAboutBio({
       shellBio: shell?.bio,
+      shellAbout: shell?.about,
       daoDescription: daoPage?.branding.description,
       daoPurpose: daoPage?.configPurpose,
     });
@@ -48,15 +51,17 @@ export const loadPortfolioAboutForAccount = cache(
       accountId,
       titleLabel,
       aboutBio,
+      mood,
       daoEntity,
       panel: {
         accountId,
         profileName,
-        bio: aboutBio,
+        bio: shell?.bio ?? null,
+        about: shell?.about ?? null,
+        lead: shell?.lead ?? null,
+        aboutAlign: shell?.aboutAlign ?? 'left',
         tags: shell?.tags ?? [],
         photos: shell?.photos ?? [],
-        avatarUrl: shell?.avatarUrl ?? daoPage?.branding.avatarUrl ?? null,
-        mood,
         isDao: daoEntity.isDao,
         profileKind: shell?.kind ?? null,
       },

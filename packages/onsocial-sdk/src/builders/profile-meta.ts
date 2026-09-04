@@ -17,6 +17,20 @@ const HASHTAG_SLUG_RE = /^[a-z0-9_]{1,64}$/;
 const TICKER_SLUG_RE = /^[a-z][a-z0-9_]{0,15}$/;
 /** Minimal NEAR account id check (same spirit as app mention validation). */
 const NEAR_ACCOUNT_RE = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
+const MENTION_ROOT_SUFFIXES = ['.near', '.testnet', '.tg'] as const;
+
+function isIndexedMentionAccountId(accountId: string): boolean {
+  if (
+    !accountId ||
+    accountId.length < 2 ||
+    accountId.length > 64 ||
+    !NEAR_ACCOUNT_RE.test(accountId)
+  ) {
+    return false;
+  }
+  if (/^[a-f0-9]{64}$/.test(accountId)) return true;
+  return MENTION_ROOT_SUFFIXES.some((suffix) => accountId.endsWith(suffix));
+}
 
 export interface ProfileBioMeta {
   hashtags: string[];
@@ -49,13 +63,7 @@ function extractMentions(text: string): string[] {
   let match: RegExpExecArray | null;
   while ((match = MENTION_IN_TEXT_RE.exec(text)) !== null) {
     const accountId = match[1]!.toLowerCase().replace(/^@+/, '');
-    if (
-      !accountId ||
-      accountId.length < 2 ||
-      accountId.length > 64 ||
-      !NEAR_ACCOUNT_RE.test(accountId) ||
-      seen.has(accountId)
-    ) {
+    if (!isIndexedMentionAccountId(accountId) || seen.has(accountId)) {
       continue;
     }
     seen.add(accountId);

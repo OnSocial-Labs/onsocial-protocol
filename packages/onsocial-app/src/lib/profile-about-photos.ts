@@ -99,6 +99,30 @@ export function moveProfileAboutPhoto<T>(
   return next;
 }
 
+/** Swap two stills in place (click-to-swap in the About studio). */
+export function swapProfileAboutPhoto<T>(
+  photos: T[],
+  left: number,
+  right: number
+): T[] {
+  if (
+    left === right ||
+    left < 0 ||
+    right < 0 ||
+    left >= photos.length ||
+    right >= photos.length
+  ) {
+    return photos;
+  }
+  const next = photos.slice();
+  const a = next[left];
+  const b = next[right];
+  if (a === undefined || b === undefined) return photos;
+  next[left] = b;
+  next[right] = a;
+  return next;
+}
+
 export function isProfileAboutPhotoFile(file: File | null | undefined): boolean {
   if (!file) return false;
   return PHOTO_ACCEPT.has(file.type);

@@ -258,7 +258,26 @@ export interface ListKeysOptions {
 
 export interface ProfileData {
   name?: string;
+  /**
+   * Page / face bio (`profile/bio`). Short line shown on the portfolio face.
+   * Longer About copy belongs in `about` (`profile/about`).
+   */
   bio?: string;
+  /**
+   * About continuation (`profile/about`) — More for About under the film.
+   * Pass `null` to clear. Independent of `bio`.
+   */
+  about?: string | null;
+  /**
+   * Quiet About lead above the print (`profile/lead`).
+   * Short plain line — not an in-body heading. Pass `null` to clear.
+   */
+  lead?: string | null;
+  /**
+   * More for About essay alignment (`profile/aboutAlign`).
+   * `left` (default) | `center` | `justify`. Pass `null` to clear → left.
+   */
+  aboutAlign?: 'left' | 'center' | 'justify' | null;
   /**
    * Coarse public “based in” label (city / region). Not GPS.
    * Prefer post `places[]` for event/venue tags.
@@ -294,11 +313,11 @@ export interface ProfileData {
    * Pass `null` or `[]` to clear.
    */
   photos?: string[] | null;
-  /** Lowercase hashtags from bio (`#near` → `near`). Written when `bio` updates. */
+  /** Lowercase hashtags from bio/about (`#near` → `near`). Written when either updates. */
   hashtags?: string[];
-  /** Lowercase tickers from bio (`$SOCIAL` → `social`). Written when `bio` updates. */
+  /** Lowercase tickers from bio/about (`$SOCIAL` → `social`). Written when either updates. */
   tickers?: string[];
-  /** Account ids from bio (`@alice.near`). Written when `bio` updates. */
+  /** Account ids from bio/about (`@alice.near`). Written when either updates. */
   mentions?: string[];
   /**
    * Custom profile fields are written under `profile/<key>`. File-like values

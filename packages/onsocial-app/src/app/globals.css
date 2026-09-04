@@ -7164,8 +7164,56 @@ a.os-surface-row {
     margin: 0.12rem 0 0;
   }
 
+  .account-editor-topics-face {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.35rem 0.55rem;
+  }
+
   .account-editor-topics-list.portfolio-topics {
     margin-top: 0;
+    justify-content: center;
+  }
+
+  .account-editor-topics-trigger {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 550;
+    letter-spacing: 0.02em;
+    line-height: 1.35;
+    cursor: pointer;
+    opacity: 0.55;
+  }
+
+  .account-editor-topics-trigger.is-empty {
+    opacity: 0.42;
+  }
+
+  .account-editor-topics-trigger:hover,
+  .account-editor-topics-trigger:focus-visible {
+    opacity: 0.88;
+  }
+
+  .account-editor-topics-trigger:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+    border-radius: 0.25rem;
+  }
+
+  .account-editor-topics-trigger:disabled {
+    cursor: default;
+    opacity: 0.35;
   }
 
   .account-editor-topics-draft {
@@ -8008,41 +8056,186 @@ a.os-surface-row {
   }
 
   .portfolio-about {
-    --portfolio-about-inset: max(1.5rem, env(safe-area-inset-left, 0px));
+    /* Match OS screen body pad (--os-screen-body-pad-x: 1rem). */
+    --portfolio-about-inset: max(
+      var(--os-screen-body-pad-x, 1rem),
+      env(safe-area-inset-left, 0px)
+    );
     --portfolio-about-ink: rgb(var(--fg-rgb) / 0.9);
-    --portfolio-about-quiet: var(--mood-muted, rgb(var(--fg-rgb) / 0.5));
+    --portfolio-about-quiet: var(--mood-muted, rgb(var(--fg-rgb) / 0.46));
+    --portfolio-about-gap: 1.5rem;
     container-type: inline-size;
     container-name: portfolio-about;
     display: flex;
     flex-direction: column;
-    gap: 2.15rem;
+    gap: var(--portfolio-about-gap);
     width: 100%;
-    max-width: 40rem;
-    margin: 0 auto 2.5rem;
-    padding: max(2.4rem, calc(env(safe-area-inset-top, 0px) + 1.6rem))
-      max(1.5rem, env(safe-area-inset-right, 0px)) 3.25rem
+    max-width: 34rem;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow-x: clip;
+    margin: 0 auto 3.25rem;
+    padding: max(
+        1rem,
+        calc(
+          env(safe-area-inset-top, 0px) + var(--os-screen-body-pad-top, 0.15rem)
+        )
+      )
+      max(var(--os-screen-body-pad-x, 1rem), env(safe-area-inset-right, 0px))
+      calc(
+        var(--os-screen-body-pad-bottom, 1.5rem) + 2rem +
+          env(safe-area-inset-bottom, 0px)
+      )
       var(--portfolio-about-inset);
   }
 
   .portfolio-about[data-has-print='true'] {
-    max-width: 58rem;
+    max-width: 38rem;
   }
 
-  /* Full page — no “About” chrome. The page is the person. */
+  /* Full page — leave is dock back; no About chrome. */
   .os-app-screen:has(.portfolio-about) .os-app-screen-header {
     padding: 0;
     min-height: 0;
   }
 
-  /* Real photo only — never an initials monument. */
+  /*
+   * Studio spread — print | name → crafts. Same layout at every width.
+   * Type near print top (optical inset past the round); name wraps only when needed.
+   */
+  .portfolio-about-film-lead {
+    margin: 0;
+    max-width: 100%;
+    font-size: clamp(0.84rem, 3.4cqi, 1.05rem);
+    font-weight: 550;
+    letter-spacing: 0.01em;
+    line-height: 1.4;
+    text-align: center;
+    color: var(--portfolio-about-quiet);
+    text-wrap: pretty;
+    overflow-wrap: anywhere;
+  }
+
+  .portfolio-about-film-lead .portfolio-about-heading,
+  .portfolio-about-film-lead .portfolio-about-bio,
+  .portfolio-about-film-lead .portfolio-about-list {
+    margin: 0 auto;
+    max-width: 34ch;
+    font-size: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    line-height: inherit;
+    color: inherit;
+    text-align: center;
+  }
+
+  .portfolio-about-film-lead .portfolio-about-list {
+    display: inline-block;
+    text-align: start;
+  }
+
+  .portfolio-about-film-lead .portfolio-about-heading + .portfolio-about-bio,
+  .portfolio-about-film-lead .portfolio-about-bio + .portfolio-about-bio,
+  .portfolio-about-film-lead .portfolio-about-list + .portfolio-about-bio {
+    margin-top: 0.35em;
+  }
+
+  .portfolio-about-spread {
+    display: flex;
+    flex-direction: column;
+    gap: 1.05rem;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .portfolio-about[data-has-print='true'][data-has-type='true']
+    .portfolio-about-spread {
+    display: grid;
+    grid-template-columns: minmax(0, 34%) minmax(0, 1fr);
+    column-gap: clamp(0.55rem, 2.4cqi, 1.2rem);
+    row-gap: 0;
+    align-items: start;
+    overflow-x: clip;
+  }
+
+  .portfolio-about-type {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(0.35rem, 2cqi, 0.75rem);
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+    container-type: inline-size;
+    container-name: portfolio-about-type;
+    animation: portfolio-about-type-in var(--os-motion-chrome, 220ms)
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)) 80ms both;
+  }
+
+  .portfolio-about[data-has-print='true'] .portfolio-about-type {
+    justify-content: flex-start;
+    padding-top: clamp(0.2rem, 1.2cqi, 0.45rem);
+    padding-bottom: 0;
+  }
+
   .portfolio-about-print {
     margin: 0;
-    width: min(100%, 16.75rem);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     aspect-ratio: 4 / 5;
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
     overflow: hidden;
-    border-radius: 0.75rem;
+    border-radius: clamp(0.4rem, 2cqi, 0.7rem);
     background: rgb(var(--fg-rgb) / 0.04);
-    box-shadow: 0 14px 36px rgb(15 18 24 / 0.08);
+  }
+
+  .portfolio-about[data-profile-kind='org'] .portfolio-about-print {
+    border-radius: clamp(0.55rem, 2.6cqi, 0.95rem);
+  }
+
+  .portfolio-about[data-profile-kind='dao'] .portfolio-about-print {
+    border-radius: clamp(0.35rem, 1.8cqi, 0.55rem);
+  }
+
+  .portfolio-about-still-open {
+    appearance: none;
+    display: block;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: zoom-in;
+    border-radius: inherit;
+    color: inherit;
+    transition: opacity var(--os-motion-micro, 120ms) ease;
+  }
+
+  .portfolio-about-still-open:hover {
+    opacity: 0.92;
+  }
+
+  .portfolio-about-print .portfolio-about-still-open {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .portfolio-about-still-open:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+  }
+
+  .portfolio-about-still-open img {
+    pointer-events: none;
   }
 
   .portfolio-about-shot {
@@ -8050,6 +8243,175 @@ a.os-surface-row {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
+    opacity: 0;
+    transition: opacity var(--os-motion-chrome, 220ms)
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
+  }
+
+  .portfolio-about-shot.is-in {
+    opacity: 1;
+  }
+
+  .portfolio-about-masthead {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(0.48rem, 2.6cqi, 0.85rem);
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  /* Half-ish type column — enough fade to read as OS Divider, not a section rail. */
+  .portfolio-about-masthead-rule {
+    width: clamp(4.5rem, 52cqi, 8.5rem);
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .portfolio-about-name {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0;
+    font-family: var(
+      --mood-font-display,
+      var(--font-space-grotesk),
+      system-ui,
+      sans-serif
+    );
+    font-size: clamp(0.82rem, 11.5cqi, 1.85rem);
+    font-weight: var(--mood-display-weight, 600);
+    letter-spacing: var(--mood-display-tracking, -0.035em);
+    line-height: 0.95;
+    color: rgb(var(--fg-rgb));
+    /* One line when it fits; later words wrap under only when needed. */
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
+    hyphens: manual;
+    text-wrap: pretty;
+  }
+
+  /* Beside print: one soft · crafts line under the name. */
+  .portfolio-about[data-has-print='true']
+    .portfolio-about-masthead
+    .portfolio-topics {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: flex-start;
+    gap: 0.08rem 0;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    font-size: clamp(0.62rem, 5.4cqi, 0.8rem);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.35;
+    text-transform: none;
+    text-align: left;
+    color: var(--portfolio-about-quiet);
+  }
+
+  .portfolio-about[data-has-print='true']
+    .portfolio-about-masthead
+    .portfolio-topics-sep {
+    letter-spacing: 0;
+    text-transform: none;
+    margin: 0 0.38em 0 0.26em;
+    color: rgb(var(--fg-rgb) / 0.22);
+    font-weight: 400;
+  }
+
+  .portfolio-about[data-has-print='true']
+    .portfolio-about-masthead
+    .portfolio-topics-item {
+    display: inline-flex;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .portfolio-about[data-has-print='true']
+    .portfolio-about-masthead
+    .portfolio-topics-link,
+  .portfolio-about[data-has-print='true']
+    .portfolio-about-masthead
+    .portfolio-topics-label {
+    display: inline;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  /* No print: same quiet · line (page-width container). */
+  .portfolio-about:not([data-has-print='true'])
+    .portfolio-about-masthead
+    .portfolio-topics {
+    justify-content: flex-start;
+    text-align: left;
+    max-width: 100%;
+    margin: 0;
+    flex-wrap: wrap;
+    font-size: clamp(0.72rem, 2.8cqi, 0.84rem);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.35;
+    text-transform: none;
+    color: var(--portfolio-about-quiet);
+  }
+
+  .portfolio-about:not([data-has-print='true'])
+    .portfolio-about-masthead
+    .portfolio-topics-sep {
+    letter-spacing: 0;
+    text-transform: none;
+    margin: 0 0.42em 0 0.28em;
+    color: rgb(var(--fg-rgb) / 0.22);
+    font-weight: 400;
+  }
+
+  .portfolio-about:not([data-has-print='true']) .portfolio-about-name {
+    font-size: clamp(1.35rem, 7.5cqi, 2.05rem);
+  }
+
+  .portfolio-about-masthead .portfolio-topics-link,
+  .portfolio-about-masthead .portfolio-topics-label {
+    opacity: 0.92;
+    text-decoration: none;
+    transition:
+      color var(--os-motion-micro, 120ms) ease,
+      opacity var(--os-motion-micro, 120ms) ease;
+  }
+
+  .portfolio-about-masthead .portfolio-topics-link:hover,
+  .portfolio-about-masthead .portfolio-topics-link:focus-visible {
+    opacity: 1;
+    color: var(
+      --mood-accent-chrome,
+      var(--mood-accent, rgb(var(--fg-rgb) / 0.88))
+    );
+    text-decoration: none;
+  }
+
+  @container portfolio-about (min-width: 28rem) {
+    .portfolio-about[data-has-print='true'][data-has-type='true']
+      .portfolio-about-spread {
+      grid-template-columns: minmax(0, 36%) minmax(0, 1fr);
+      column-gap: 1.25rem;
+    }
+
+    .portfolio-about[data-has-print='true'] .portfolio-about-name {
+      font-size: clamp(1.05rem, 12cqi, 1.95rem);
+    }
+
+    .portfolio-about-lede .portfolio-about-bio,
+    .portfolio-about-lede .portfolio-about-heading,
+    .portfolio-about-lede .portfolio-about-list {
+      max-width: 34ch;
+    }
   }
 
   .portfolio-bio strong,
@@ -8066,94 +8428,62 @@ a.os-surface-row {
     font-style: italic;
   }
 
-  .portfolio-about-masthead {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.42rem;
-    width: 100%;
-    min-width: 0;
-  }
-
-  .portfolio-about-name-row {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.3em 0.4em;
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .portfolio-about-name {
-    margin: 0;
-    font-family: var(
-      --mood-font-display,
-      var(--font-space-grotesk),
-      system-ui,
-      sans-serif
-    );
-    font-size: clamp(2.15rem, 9cqi, 2.85rem);
-    font-weight: var(--mood-display-weight, 600);
-    letter-spacing: var(--mood-display-tracking, -0.046em);
-    line-height: 1.04;
-    color: rgb(var(--fg-rgb));
-    text-wrap: balance;
-  }
-
-  .portfolio-about-name .protocol-identity-mark {
-    margin-inline-start: 0.32em;
-    vertical-align: 0.12em;
-  }
-
-  .portfolio-about-handle-row {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.32em;
-    margin: 0;
-    min-width: 0;
-    font-size: 0.8125rem;
-    letter-spacing: 0.02em;
-    line-height: 1.3;
-    color: var(--portfolio-about-quiet);
-  }
-
-  .portfolio-about-handle-row .portfolio-handle {
-    color: inherit;
-  }
-
-  .portfolio-about-masthead .portfolio-topics {
-    justify-content: flex-start;
-    text-align: left;
-    max-width: 36rem;
-    margin-top: 0.06rem;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--portfolio-about-quiet);
-  }
-
-  .portfolio-about-stage {
-    display: flex;
-    flex-direction: column;
-    gap: 1.85rem;
-    width: 100%;
-    min-width: 0;
-  }
-
   .portfolio-about-essay {
     display: flex;
     flex-direction: column;
-    gap: 1.15em;
+    gap: 1.35em;
     min-width: 0;
-    max-width: 40rem;
+    max-width: 34rem;
+  }
+
+  .portfolio-about-lede {
+    gap: 0.85em;
+  }
+
+  .portfolio-about-rest {
+    --portfolio-about-ink: rgb(var(--fg-rgb) / 0.78);
+    max-width: none;
+    width: 100%;
+  }
+
+  .portfolio-about-rest[data-about-align='center'] .portfolio-about-bio,
+  .portfolio-about-rest[data-about-align='center'] .portfolio-about-heading,
+  .portfolio-about-rest[data-about-align='center'] .portfolio-about-list {
+    text-align: center;
+    margin-inline: auto;
+  }
+
+  .portfolio-about-rest[data-about-align='center'] .portfolio-about-list {
+    display: inline-block;
+    text-align: start;
+  }
+
+  .portfolio-about-rest[data-about-align='justify'] .portfolio-about-bio,
+  .portfolio-about-rest[data-about-align='justify'] .portfolio-about-heading,
+  .portfolio-about-rest[data-about-align='justify'] .portfolio-about-list {
+    text-align: justify;
+    text-align-last: start;
+  }
+
+  .portfolio-about-rest .portfolio-about-bio,
+  .portfolio-about-rest .portfolio-about-heading,
+  .portfolio-about-rest .portfolio-about-list {
+    max-width: 38rem;
+  }
+
+  .portfolio-about-lede .portfolio-about-bio {
+    font-size: 1.125rem;
+    line-height: 1.62;
+    letter-spacing: -0.01em;
   }
 
   .portfolio-about-bio {
     margin: 0;
-    max-width: 40rem;
-    font-size: 1.125rem;
-    line-height: 1.72;
+    max-width: 34rem;
+    font-size: 1.0625rem;
+    line-height: 1.78;
     font-weight: 400;
+    letter-spacing: -0.006em;
     color: var(--portfolio-about-ink);
     text-wrap: pretty;
     white-space: pre-wrap;
@@ -8161,12 +8491,12 @@ a.os-surface-row {
   }
 
   .portfolio-about-heading {
-    margin: 0.35em 0 0;
-    max-width: 40rem;
-    font-size: 1.35rem;
+    margin: 0.55em 0 0;
+    max-width: 34rem;
+    font-size: 1.18rem;
     line-height: 1.3;
     font-weight: 650;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.024em;
     color: var(--portfolio-about-ink);
     text-wrap: pretty;
     overflow-wrap: anywhere;
@@ -8178,10 +8508,10 @@ a.os-surface-row {
 
   .portfolio-about-list {
     margin: 0;
-    padding: 0 0 0 1.2em;
-    max-width: 40rem;
-    font-size: 1.125rem;
-    line-height: 1.72;
+    padding: 0 0 0 1.15em;
+    max-width: 34rem;
+    font-size: 1.0625rem;
+    line-height: 1.78;
     font-weight: 400;
     color: var(--portfolio-about-ink);
     list-style-type: disc;
@@ -8195,70 +8525,90 @@ a.os-surface-row {
   }
 
   .portfolio-about-list li + li {
-    margin-top: 0.35em;
+    margin-top: 0.4em;
   }
 
-  @container portfolio-about (min-width: 40rem) {
-    .portfolio-about-stage:has(.portfolio-about-print):has(
-        .portfolio-about-essay
-      ) {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 16.75rem;
-      gap: 2.5rem 2.85rem;
-      align-items: start;
-    }
-
-    .portfolio-about-stage:has(.portfolio-about-essay) .portfolio-about-print {
-      order: 2;
-      width: 16.75rem;
-    }
-
-    .portfolio-about-stage:has(.portfolio-about-print) .portfolio-about-essay {
-      order: 1;
-    }
-  }
-
-  /* About gallery — 1 wide, 2 pair, 3 wide + pair. Same print language. */
-  .portfolio-about-media {
+  /* Film — 1 full-width; 2 side-by-side. Cover + same radius as the print. */
+  .portfolio-about-film {
     display: grid;
     gap: 0.45rem;
     width: 100%;
-    border-radius: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    background: transparent;
+    border-radius: 0;
+  }
+
+  .portfolio-about-film[data-count='1'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .portfolio-about-film[data-count='2'] {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .portfolio-about-film > li {
+    min-width: 0;
     overflow: hidden;
-    box-shadow: 0 14px 36px rgb(15 18 24 / 0.08);
-  }
-
-  .portfolio-about-media[data-count='1'] {
-    grid-template-columns: 1fr;
-  }
-
-  .portfolio-about-media[data-count='2'] {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .portfolio-about-media[data-count='3'] {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .portfolio-about-media[data-count='3'] > :first-child {
-    grid-column: 1 / -1;
-  }
-
-  .portfolio-about-media img,
-  .portfolio-about-media video {
-    display: block;
-    width: 100%;
-    height: 100%;
-    aspect-ratio: 4 / 3;
-    object-fit: cover;
+    border-radius: 0.65rem;
     background: rgb(var(--fg-rgb) / 0.04);
   }
 
-  .portfolio-about-media[data-count='1'] img,
-  .portfolio-about-media[data-count='1'] video,
-  .portfolio-about-media[data-count='3'] > :first-child img,
-  .portfolio-about-media[data-count='3'] > :first-child video {
-    aspect-ratio: 16 / 9;
+  .portfolio-about[data-profile-kind='org'] .portfolio-about-film > li {
+    border-radius: 0.9rem;
+  }
+
+  .portfolio-about[data-profile-kind='dao'] .portfolio-about-film > li {
+    border-radius: 0.55rem;
+  }
+
+  .portfolio-about-film-open {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+  }
+
+  .portfolio-about-film-shot {
+    display: block;
+    width: 100%;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .portfolio-about-film[data-count='1'] .portfolio-about-film-shot {
+    aspect-ratio: 2 / 1;
+  }
+
+  .portfolio-about-closer {
+    margin: 0.15rem 0 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portfolio-about-type {
+      animation: none;
+    }
+
+    .portfolio-about-shot {
+      opacity: 1;
+      transition: none;
+    }
+
+    .portfolio-about-still-open {
+      transition: none;
+    }
+  }
+
+  @keyframes portfolio-about-type-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
   }
 
   .os-app-screen--mood .portfolio-about-name,
@@ -8271,6 +8621,8 @@ a.os-surface-row {
     );
   }
 
+  .os-app-screen--mood .portfolio-about-film-lead,
+  .glass-sheet-panel .portfolio-about-film-lead,
   .os-app-screen--mood .portfolio-about-bio,
   .os-app-screen--mood .portfolio-about-heading,
   .os-app-screen--mood .portfolio-about-list,
@@ -8340,6 +8692,60 @@ a.os-surface-row {
     line-height: var(--mood-body-leading, 1.55);
     max-width: min(100%, var(--mood-bio-max-width, 20rem));
     letter-spacing: var(--mood-body-tracking, normal);
+  }
+
+  /*
+   * About More essay — not face bio. Full live column, start-aligned.
+   * Must beat the mood bio max-width / centered face field above.
+   */
+  .profile-edit-slide
+    .account-editor-bio-shell--about
+    .account-editor-bio,
+  .profile-edit-slide
+    .account-editor-bio-shell--about
+    .account-editor-bio--wysiwyg,
+  .profile-edit-slide
+    .account-editor-bio-shell--about
+    .tiptap,
+  .profile-edit-slide
+    .account-editor-bio-shell--about
+    .ProseMirror {
+    max-width: none;
+    width: 100%;
+    margin-inline: 0;
+    text-align: start;
+    font-size: 1.0625rem;
+    line-height: 1.78;
+    font-weight: 400;
+    letter-spacing: -0.006em;
+    color: rgb(var(--fg-rgb) / 0.78);
+  }
+
+  /*
+   * About Lead — centered in the middle like live .portfolio-about-film-lead.
+   * Face-bio mood max-width left the field stuck on the left edge.
+   */
+  .profile-edit-slide
+    .account-editor-bio-shell--about-lead
+    .account-editor-bio,
+  .profile-edit-slide
+    .account-editor-bio-shell--about-lead
+    .account-editor-bio--wysiwyg,
+  .profile-edit-slide
+    .account-editor-bio-shell--about-lead
+    .tiptap,
+  .profile-edit-slide
+    .account-editor-bio-shell--about-lead
+    .ProseMirror {
+    max-width: 34ch;
+    width: 100%;
+    margin-inline: auto;
+    text-align: center;
+    font-size: clamp(0.84rem, 3.4cqi, 1.05rem);
+    line-height: 1.4;
+    font-weight: 550;
+    letter-spacing: 0.01em;
+    color: var(--mood-muted, rgb(var(--fg-rgb) / 0.46));
   }
 
   .portfolio-frame[data-mood] .portfolio-handle,
@@ -13621,22 +14027,17 @@ a.os-surface-row {
     animation: overlay-panel-crossfade 180ms ease-out;
   }
 
-  .glass-sheet-header--quiet {
-    position: relative;
-    z-index: 2;
-    padding-bottom: 0;
-    background: transparent;
+  .overlay-header-portal--flush {
+    min-height: 0;
+    height: 0;
+    padding: 0;
+    overflow: hidden;
+    pointer-events: none;
   }
 
-  .glass-sheet-header-title-row--quiet {
-    justify-content: flex-end;
-    align-items: center;
-  }
-
-  .overlay-panel-outlet .portfolio-about {
-    padding: 0.55rem 1.4rem 2.15rem;
-    margin: 0;
-    gap: 1.85rem;
+  /* About overlay = same studio page as hard-refresh `/about` (no header chrome). */
+  .glass-sheet-panel.portfolio-about-sheet-panel {
+    --glass-header-scrim-height: 0px;
   }
 
 
@@ -17040,6 +17441,94 @@ a.os-surface-row {
     padding-top: 0.35rem;
   }
 
+  .profile-about-edit-body--studio .profile-about-edit-section {
+    align-items: stretch;
+  }
+
+  .profile-about-edit-body--studio .profile-about-edit-section-label,
+  .profile-about-edit-body--studio .profile-about-edit-section-hint,
+  .profile-about-edit-body--studio .account-editor-limits {
+    text-align: start;
+    max-width: none;
+    margin-inline: 0;
+  }
+
+  .profile-about-edit-body--studio .account-editor-topics-face,
+  .profile-about-edit-body--studio .account-editor-topics-list.portfolio-topics,
+  .profile-about-edit-body--studio .account-editor-about-photos {
+    align-items: stretch;
+    justify-content: flex-start;
+    text-align: start;
+    margin-inline: 0;
+    max-width: none;
+    width: 100%;
+  }
+
+  .profile-about-edit-body--studio .account-editor-about-photos-label,
+  .profile-about-edit-body--studio .account-editor-about-hint {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .profile-about-edit-body--studio .account-editor-about-photos {
+    margin-top: 0;
+  }
+
+  .profile-about-edit-body--studio .account-editor-bio-shell,
+  .profile-about-edit-body--studio .account-editor-bio-shell--about,
+  .profile-about-edit-body--studio .account-editor-bio-shell--about-lead {
+    max-width: none;
+    margin-inline: 0;
+    width: 100%;
+  }
+
+  .profile-about-edit-body--studio .account-editor-bio-shell--about-lead {
+    text-align: center;
+  }
+
+  .profile-about-edit-body--studio
+    .account-editor-bio-shell--about-lead
+    .account-editor-bio,
+  .profile-about-edit-body--studio
+    .account-editor-bio-shell--about-lead
+    .account-editor-bio--wysiwyg {
+    text-align: center;
+    font-size: clamp(0.84rem, 3.4cqi, 1.05rem);
+    font-weight: 550;
+    letter-spacing: 0.01em;
+    line-height: 1.4;
+    color: var(--mood-muted, rgb(var(--fg-rgb) / 0.46));
+  }
+
+  .profile-about-edit-body--studio
+    .account-editor-bio-shell--about-lead
+    .account-editor-bio--wysiwyg
+    h3 {
+    margin: 0;
+    font-size: inherit;
+    font-weight: 650;
+    letter-spacing: inherit;
+    line-height: inherit;
+    color: inherit;
+  }
+
+  .profile-about-edit-section--lead .account-editor-limits {
+    text-align: center;
+  }
+
+  .profile-about-edit-lead {
+    box-sizing: border-box;
+    width: 100%;
+    text-align: start;
+  }
+
   .profile-about-edit-face-preview {
     display: flex;
     flex-direction: column;
@@ -17080,10 +17569,753 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.42);
   }
 
+  .profile-about-edit-section-hint {
+    margin: -0.15rem 0 0;
+    max-width: min(100%, 22rem);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    text-align: center;
+    color: rgb(var(--fg-rgb) / 0.4);
+  }
+
+  .profile-about-edit-lead {
+    box-sizing: border-box;
+    width: 100%;
+    text-align: start;
+  }
+
   .account-editor-bio-shell {
     width: 100%;
     max-width: min(100%, 20rem);
     margin-inline: auto;
+  }
+
+  .account-editor-bio-shell[data-layout='about'] {
+    max-width: none;
+    margin-inline: 0;
+  }
+
+  .account-editor-bio-shell[data-layout='about'] .account-editor-bio,
+  .account-editor-bio-shell[data-layout='about'] .account-editor-bio-backdrop {
+    max-width: none;
+    text-align: start;
+  }
+
+  .account-editor-bio-shell .composer-mention-suggest {
+    margin-top: 0.35rem;
+    text-align: start;
+  }
+
+  .profile-about-edit-section--story {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .profile-about-edit-section--story .profile-about-edit-section-label,
+  .profile-about-edit-section--story .account-editor-limits {
+    text-align: start;
+  }
+
+  /* B / I / • / H — pinned under About title for Lead + More. */
+  .profile-about-edit-slide
+    .os-app-screen-toolbar:has(.profile-about-edit-format-toolbar) {
+    padding-block: 0.2rem 0.45rem;
+  }
+
+  .profile-about-edit-format-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+    min-height: 1.45rem;
+  }
+
+  .profile-about-edit-format-tools {
+    display: flex;
+    justify-content: flex-start;
+    min-height: 1.45rem;
+  }
+
+  .profile-about-edit-align-tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.12rem;
+    margin-left: auto;
+  }
+
+  .profile-about-edit-format-toolbar .account-editor-bio-chrome,
+  .profile-about-edit-format-toolbar .account-editor-bio-chrome--portal {
+    justify-content: flex-start;
+    margin: 0;
+  }
+
+  .profile-about-edit-section--story .account-editor-bio-shell--about {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+    text-align: start;
+  }
+
+  /* Studio twin — same composition as live PortfolioAboutPanel. */
+  .profile-about-edit-studio.portfolio-about {
+    width: 100%;
+    max-width: 34rem;
+    margin-inline: auto;
+    margin-bottom: 1rem;
+    padding-top: 0.85rem;
+    padding-bottom: 1rem;
+  }
+
+  .profile-about-edit-studio.portfolio-about[data-has-print='true'] {
+    max-width: 38rem;
+  }
+
+  .profile-about-edit-studio .portfolio-about-print {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .profile-about-edit-studio .portfolio-about-print.is-dragging,
+  .profile-about-edit-film-item.is-dragging {
+    opacity: 0.55;
+  }
+
+  .profile-about-edit-studio .portfolio-about-print.is-selected,
+  .profile-about-edit-film-item.is-selected {
+    box-shadow: 0 0 0 2px rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .profile-about-edit-still-hit {
+    appearance: none;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .profile-about-edit-still-hit:disabled {
+    cursor: default;
+  }
+
+  .profile-about-edit-still-hit:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px
+      color-mix(in srgb, var(--protocol-blue) 45%, transparent);
+  }
+
+  .profile-about-edit-media-chrome {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .profile-about-edit-media-chrome .account-editor-about-photos-drag,
+  .profile-about-edit-media-chrome .account-editor-about-photos-remove {
+    pointer-events: auto;
+  }
+
+  /* Touch: keep controls reachable. Fine pointer: reveal on hover/focus/drag. */
+  @media (hover: hover) and (pointer: fine) {
+    .profile-about-edit-studio
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-drag,
+    .profile-about-edit-studio
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-remove {
+      opacity: 0;
+      transition: opacity 140ms ease;
+    }
+
+    .profile-about-edit-studio
+      .portfolio-about-print:hover
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-drag,
+    .profile-about-edit-studio
+      .portfolio-about-print:hover
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-remove,
+    .profile-about-edit-studio
+      .portfolio-about-print:focus-within
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-drag,
+    .profile-about-edit-studio
+      .portfolio-about-print:focus-within
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-remove,
+    .profile-about-edit-studio
+      .portfolio-about-print.is-dragging
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-drag,
+    .profile-about-edit-studio
+      .portfolio-about-print.is-dragging
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-remove,
+    .profile-about-edit-studio
+      .portfolio-about-print.is-selected
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-drag,
+    .profile-about-edit-studio
+      .portfolio-about-print.is-selected
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-remove,
+    .profile-about-edit-film-item:hover
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-drag,
+    .profile-about-edit-film-item:hover
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-remove,
+    .profile-about-edit-film-item:focus-within
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-drag,
+    .profile-about-edit-film-item:focus-within
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-remove,
+    .profile-about-edit-film-item.is-dragging
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-drag,
+    .profile-about-edit-film-item.is-dragging
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-remove,
+    .profile-about-edit-film-item.is-selected
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-drag,
+    .profile-about-edit-film-item.is-selected
+      .profile-about-edit-media-chrome
+      .account-editor-about-photos-remove {
+      opacity: 1;
+    }
+  }
+
+  .profile-about-edit-role {
+    position: absolute;
+    left: 0.45rem;
+    bottom: 0.4rem;
+    z-index: 2;
+    margin: 0;
+    padding: 0.12rem 0.38rem;
+    border-radius: 999px;
+    background: rgb(15 18 24 / 0.42);
+    color: rgb(255 255 255 / 0.88);
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+    font-size: 0.58rem;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 140ms ease;
+  }
+
+  .profile-about-edit-studio .portfolio-about-print:hover .profile-about-edit-role,
+  .profile-about-edit-studio
+    .portfolio-about-print:focus-within
+    .profile-about-edit-role,
+  .profile-about-edit-studio .portfolio-about-print.is-dragging .profile-about-edit-role,
+  .profile-about-edit-studio .portfolio-about-print.is-selected .profile-about-edit-role,
+  .profile-about-edit-film-item:hover .profile-about-edit-role,
+  .profile-about-edit-film-item:focus-within .profile-about-edit-role,
+  .profile-about-edit-film-item.is-dragging .profile-about-edit-role,
+  .profile-about-edit-film-item.is-selected .profile-about-edit-role {
+    opacity: 1;
+  }
+
+  .profile-about-edit-print-ghost,
+  .profile-about-edit-film-add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0;
+    padding: 0.75rem;
+    border: 1px dashed rgb(var(--fg-rgb) / 0.18);
+    background: rgb(var(--fg-rgb) / 0.025);
+    color: rgb(var(--fg-rgb) / 0.4);
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+  }
+
+  /* Collapsed (no print) — quiet text, not a forced print column. */
+  .profile-about-edit-print-ghost {
+    appearance: none;
+    width: auto;
+    max-width: max-content;
+    margin-top: 0.15rem;
+    padding: 0.1rem 0;
+    border: 0;
+    background: transparent;
+    color: var(--portfolio-about-quiet, rgb(var(--fg-rgb) / 0.42));
+    font-size: clamp(0.62rem, 5.4cqi, 0.8rem);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.35;
+    justify-content: flex-start;
+    opacity: 0.72;
+  }
+
+  .profile-about-edit-film-add {
+    border-radius: 0.65rem;
+  }
+
+  .profile-about-edit-film-add.is-solo {
+    aspect-ratio: 2 / 1;
+    min-height: 5.5rem;
+  }
+
+  .profile-about-edit-film-add.is-companion {
+    aspect-ratio: auto;
+    min-height: 2.75rem;
+    margin-top: -0.55rem;
+  }
+
+  .profile-about-edit-print-ghost:hover,
+  .profile-about-edit-print-ghost:focus-visible,
+  .profile-about-edit-film-add:hover,
+  .profile-about-edit-film-add:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.62);
+    opacity: 1;
+  }
+
+  .profile-about-edit-film-add:hover,
+  .profile-about-edit-film-add:focus-visible {
+    border-color: rgb(var(--fg-rgb) / 0.3);
+    background: rgb(var(--fg-rgb) / 0.045);
+  }
+
+  .profile-about-edit-print-ghost:focus-visible,
+  .profile-about-edit-film-add:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+    border-radius: 0.25rem;
+  }
+
+  .profile-about-edit-print-ghost:disabled,
+  .profile-about-edit-film-add:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .profile-about-edit-lead-ghost {
+    appearance: none;
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0.15rem 0.5rem;
+    border: 0;
+    background: transparent;
+    color: var(--portfolio-about-quiet, rgb(var(--fg-rgb) / 0.38));
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+    font-size: clamp(0.84rem, 3.4cqi, 1.05rem);
+    font-weight: 550;
+    letter-spacing: 0.01em;
+    line-height: 1.4;
+    text-align: center;
+    cursor: pointer;
+    opacity: 0.55;
+  }
+
+  .profile-about-edit-lead-ghost:hover,
+  .profile-about-edit-lead-ghost:focus-visible {
+    opacity: 0.88;
+  }
+
+  .profile-about-edit-lead-ghost:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+    border-radius: 0.25rem;
+  }
+
+  .profile-about-edit-lead-ghost:disabled {
+    cursor: default;
+    opacity: 0.35;
+  }
+
+  .account-editor-topics--masthead {
+    margin-top: 0;
+  }
+
+  .account-editor-topics--masthead .account-editor-topics-face {
+    justify-content: flex-start;
+  }
+
+  .account-editor-topics-masthead-trigger {
+    appearance: none;
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .account-editor-topics-masthead-trigger.is-empty {
+    color: var(--portfolio-about-quiet, rgb(var(--fg-rgb) / 0.42));
+    font-size: clamp(0.62rem, 5.4cqi, 0.8rem);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.35;
+    opacity: 0.72;
+  }
+
+  .account-editor-topics-masthead-trigger:hover,
+  .account-editor-topics-masthead-trigger:focus-visible {
+    opacity: 1;
+  }
+
+  .account-editor-topics-masthead-trigger:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+    border-radius: 0.25rem;
+  }
+
+  .account-editor-topics-masthead-trigger:disabled {
+    cursor: default;
+    opacity: 0.35;
+  }
+
+  .account-editor-topics-masthead-trigger
+    .account-editor-topics-list.portfolio-topics {
+    pointer-events: none;
+    margin: 0;
+    justify-content: flex-start;
+    text-align: start;
+  }
+
+  .profile-about-edit-studio .portfolio-about-masthead .account-editor-topics {
+    width: 100%;
+  }
+
+  .profile-about-edit-studio .portfolio-about-film-lead {
+    width: 100%;
+    text-align: center;
+  }
+
+  .profile-about-edit-studio
+    .portfolio-about-film-lead.profile-about-edit-section--lead {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .profile-about-edit-studio .account-editor-bio-shell--about-lead {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: none;
+    margin-inline: 0;
+    width: 100%;
+    text-align: center;
+  }
+
+  .profile-about-edit-studio
+    .account-editor-bio-shell--about-lead
+    .account-editor-bio,
+  .profile-about-edit-studio
+    .account-editor-bio-shell--about-lead
+    .account-editor-bio--wysiwyg,
+  .profile-about-edit-studio
+    .account-editor-bio-shell--about-lead
+    .tiptap,
+  .profile-about-edit-studio
+    .account-editor-bio-shell--about-lead
+    .ProseMirror {
+    width: 100% !important;
+    max-width: 34ch !important;
+    margin-inline: auto !important;
+    text-align: center !important;
+    font-size: clamp(0.84rem, 3.4cqi, 1.05rem) !important;
+    font-weight: 550 !important;
+    letter-spacing: 0.01em !important;
+    line-height: 1.4 !important;
+    color: var(--mood-muted, rgb(var(--fg-rgb) / 0.46));
+  }
+
+  .profile-about-edit-studio
+    .account-editor-bio-shell--about-lead
+    .account-editor-bio--wysiwyg
+    h3,
+  .profile-about-edit-studio
+    .account-editor-bio-shell--about-lead
+    .account-editor-bio--wysiwyg
+    p {
+    margin-inline: auto;
+    max-width: 34ch;
+    text-align: center;
+  }
+
+  .profile-about-edit-studio
+    .account-editor-bio-shell--about-lead
+    .account-editor-bio--wysiwyg
+    h3 {
+    margin-top: 0.35em;
+    font-size: 1.05em;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+    color: inherit;
+  }
+
+  .profile-about-edit-studio
+    .profile-about-edit-section--lead
+    .account-editor-limits {
+    text-align: center;
+  }
+
+  /* More for About — centered column, essay starts left (live portfolio-about-rest). */
+  .profile-about-edit-studio
+    .portfolio-about-rest.profile-about-edit-section--story {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    max-width: 38rem;
+    margin-inline: auto;
+    text-align: start;
+  }
+
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio-shell--about {
+    display: block;
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+    text-align: start;
+  }
+
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio-shell--about
+    .account-editor-bio,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio-shell--about
+    .account-editor-bio--wysiwyg,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio-shell--about
+    .tiptap,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio-shell--about
+    .ProseMirror {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    text-align: start !important;
+    font-size: 1.0625rem !important;
+    line-height: 1.78 !important;
+    font-weight: 400 !important;
+    letter-spacing: -0.006em !important;
+    color: rgb(var(--fg-rgb) / 0.78);
+    text-wrap: pretty;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .profile-about-edit-studio
+    .profile-about-edit-section--story[data-about-align='center']
+    .account-editor-bio-shell--about
+    .account-editor-bio,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story[data-about-align='center']
+    .account-editor-bio-shell--about
+    .account-editor-bio--wysiwyg,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story[data-about-align='center']
+    .account-editor-bio-shell--about
+    .tiptap,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story[data-about-align='center']
+    .account-editor-bio-shell--about
+    .ProseMirror,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story[data-about-align='center']
+    .account-editor-bio--wysiwyg
+    p,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story[data-about-align='center']
+    .account-editor-bio--wysiwyg
+    h3 {
+    text-align: center !important;
+  }
+
+  .profile-about-edit-studio
+    .profile-about-edit-section--story[data-about-align='justify']
+    .account-editor-bio-shell--about
+    .account-editor-bio,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story[data-about-align='justify']
+    .account-editor-bio-shell--about
+    .account-editor-bio--wysiwyg,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story[data-about-align='justify']
+    .account-editor-bio-shell--about
+    .tiptap,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story[data-about-align='justify']
+    .account-editor-bio-shell--about
+    .ProseMirror,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story[data-about-align='justify']
+    .account-editor-bio--wysiwyg
+    p,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story[data-about-align='justify']
+    .account-editor-bio--wysiwyg
+    h3 {
+    text-align: justify !important;
+    text-align-last: start;
+  }
+
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    strong,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    b {
+    font-weight: 700;
+  }
+
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    h3 {
+    margin: 0.55em 0 0;
+    max-width: none;
+    font-size: 1.18rem;
+    line-height: 1.3;
+    font-weight: 650;
+    letter-spacing: -0.024em;
+    color: inherit;
+    text-align: start;
+    text-wrap: pretty;
+    overflow-wrap: anywhere;
+  }
+
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    h3:first-child {
+    margin-top: 0;
+  }
+
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    p {
+    margin: 0;
+    text-align: start;
+  }
+
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    p
+    + p,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    ul
+    + p,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    h3
+    + p {
+    margin-top: 1.35em;
+  }
+
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    ul {
+    margin: 0;
+    padding: 0 0 0 1.15em;
+    max-width: none;
+    font-size: 1.0625rem;
+    line-height: 1.78;
+    font-weight: 400;
+    color: inherit;
+    list-style-type: disc;
+    list-style-position: outside;
+    text-align: start;
+  }
+
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    p
+    + ul,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    h3
+    + ul,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    ul
+    + ul {
+    margin-top: 1.35em;
+  }
+
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    li {
+    display: list-item;
+    margin: 0;
+    padding-left: 0.15em;
+    overflow-wrap: anywhere;
+    text-align: start;
+  }
+
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    li
+    + li {
+    margin-top: 0.4em;
+  }
+
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-limits {
+    text-align: start;
+    align-self: flex-start;
+  }
+
+  .profile-about-edit-film-item {
+    position: relative;
+    overflow: hidden;
   }
 
   .account-editor-bio-chrome {
@@ -26726,6 +27958,20 @@ a.os-surface-row {
   .feed-photo-slide .os-app-screen-body {
     display: flex;
     flex-direction: column;
+  }
+
+  .feed-photo-slide--quiet .os-app-screen-heading {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .feed-photo-slide--quiet .feed-photo-listen {
+    padding: 0.2rem 0.75rem max(0.75rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .feed-photo-slide--quiet .feed-photo-image {
+    border-radius: 0.28rem;
+    background: rgb(var(--fg-rgb) / 0.04);
   }
 
   .scarce-listen-slide .os-slide-over-content.scarce-listen-slide-body,

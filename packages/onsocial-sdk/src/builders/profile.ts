@@ -7,12 +7,16 @@ import type { ProfileData } from '../types.js';
 import type { SocialSetData } from './_shared.js';
 import { normalizeProfileKindInput } from './profile-kind.js';
 import { normalizeProfileIndustryInput } from './profile-industry.js';
+import { normalizeProfileLeadInput } from './profile-lead.js';
+import { normalizeProfileAboutAlign } from './profile-about-align.js';
 import { normalizeProfileLocationInput } from './profile-location.js';
 import { profileMetaFromBio } from './profile-meta.js';
 
 const PROFILE_RESERVED_FIELDS = [
   'name',
   'bio',
+  'about',
+  'lead',
   'location',
   'industry',
   'kind',
@@ -37,6 +41,27 @@ export function buildProfileSetData(profile: ProfileData): SocialSetData {
 
   if (profile.name !== undefined) data['profile/name'] = profile.name;
   if (profile.bio !== undefined) data['profile/bio'] = profile.bio;
+  if (profile.about !== undefined) {
+    data['profile/about'] = profile.about === null ? null : profile.about;
+  }
+  if (profile.lead !== undefined) {
+    if (profile.lead === null) {
+      data['profile/lead'] = null;
+    } else {
+      const normalized = normalizeProfileLeadInput(String(profile.lead));
+      data['profile/lead'] = normalized || null;
+    }
+  }
+  if (profile.aboutAlign !== undefined) {
+    if (profile.aboutAlign === null) {
+      data['profile/aboutAlign'] = null;
+    } else {
+      const normalized = normalizeProfileAboutAlign(profile.aboutAlign);
+      // Store only non-default so sparse profiles stay quiet.
+      data['profile/aboutAlign'] =
+        normalized === 'left' ? null : normalized;
+    }
+  }
   if (profile.location !== undefined) {
     if (profile.location === null) {
       data['profile/location'] = null;
@@ -81,9 +106,13 @@ export function buildProfileSetData(profile: ProfileData): SocialSetData {
     }
   }
 
-  // When bio is written, derive indexed token arrays (explicit overrides win).
-  if (profile.bio !== undefined) {
-    const derived = profileMetaFromBio(profile.bio);
+  // When bio and/or about is written, derive indexed tokens (explicit overrides win).
+  if (profile.bio !== undefined || profile.about !== undefined) {
+    const derived = profileMetaFromBio(
+      [profile.bio, profile.about === null ? '' : profile.about]
+        .filter((part): part is string => part !== undefined)
+        .join('\n')
+    );
     data['profile/hashtags'] = encodeProfileField(
       profile.hashtags !== undefined ? profile.hashtags : derived.hashtags
     );

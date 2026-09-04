@@ -1,6 +1,6 @@
 import type { OnSocial, ProfileSearchRow } from '@onsocial/sdk';
 
-export const MENTION_SUGGEST_LIMIT = 10;
+export const MENTION_SUGGEST_LIMIT = 8;
 /** Outgoing standing pool to rank / filter against the typed query. */
 const STANDING_MENTION_POOL = 40;
 

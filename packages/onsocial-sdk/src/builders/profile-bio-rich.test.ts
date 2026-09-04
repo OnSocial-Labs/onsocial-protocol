@@ -366,4 +366,14 @@ describe('profileBio markdown html roundtrip', () => {
       profileBioHtmlToMarkdown(fragmentFromHtml('<p>Hello<br></p>'))
     ).toContain('\n');
   });
+
+  it('collapses pasted empty paragraphs so the face field does not balloon', () => {
+    expect(
+      profileBioHtmlToMarkdown(
+        fragmentFromHtml(
+          '<p>Hello</p><p><br></p><p><br></p><p><br></p><p>World</p><p><br></p><p><br></p>'
+        )
+      )
+    ).toBe('Hello\n\nWorld\n');
+  });
 });

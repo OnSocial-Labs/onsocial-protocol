@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   PROFILE_BIO_FACE_LINES,
+  PROFILE_BIO_FACE_ABOUT_MARK,
   FACE_BIO_WRAP_CHARS,
+  clampFaceEditorInput,
   clampProfileBioFaceLines,
+  collapseProfileBioBlankLines,
   joinProfileBioFaceAbout,
   partitionFaceAboutInput,
   portfolioAboutPrintUrl,
@@ -11,8 +14,13 @@ import {
   profileBioHasLineOverflow,
   profileBioLines,
   resolvePortfolioAboutBio,
+  resolveStoredProfileFaceAbout,
   splitProfileBioFaceAbout,
 } from './profile-bio-face';
+
+function faceFlatLen(text: string): number {
+  return text.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim().length;
+}
 
 describe('profileBioLines', () => {
   it('splits on newlines and normalizes CRLF', () => {
@@ -44,66 +52,96 @@ describe('profileBioHasLineOverflow', () => {
 });
 
 describe('split/joinProfileBioFaceAbout', () => {
-  it('round-trips a multi-line bio', () => {
-    const bio = ['one', 'two', 'three', 'four', 'five', 'six'].join('\n');
-    const split = splitProfileBioFaceAbout(bio);
-    expect(split.face).toBe('one\ntwo\nthree\nfour');
-    expect(split.about).toBe('five\nsix');
-    expect(joinProfileBioFaceAbout(split.face, split.about)).toBe(bio);
+  it('round-trips a multi-line bio with an invisible mark', () => {
+    const face = 'one\ntwo\nthree\nfour';
+    const about = 'five\nsix';
+    const joined = joinProfileBioFaceAbout(face, about);
+    expect(joined).toContain(PROFILE_BIO_FACE_ABOUT_MARK);
+    expect(splitProfileBioFaceAbout(joined)).toEqual({ face, about });
   });
 
   it('clamps face edits to four lines', () => {
     expect(clampProfileBioFaceLines('a\nb\nc\nd\ne')).toBe('a\nb\nc\nd');
   });
 
-  it('joins a short face with about continuation', () => {
-    expect(joinProfileBioFaceAbout('Hello', 'More on About.')).toBe(
-      'Hello\nMore on About.'
+  it('keeps a short face out of the About continuation', () => {
+    const joined = joinProfileBioFaceAbout('Hello', 'More on About.\nEssay.');
+    expect(splitProfileBioFaceAbout(joined)).toEqual({
+      face: 'Hello',
+      about: 'More on About.\nEssay.',
+    });
+    expect(joined.includes('\n\n\n')).toBe(false);
+  });
+
+  it('round-trips an empty face with About-only copy', () => {
+    const joined = joinProfileBioFaceAbout('', '# Work\nThe essay.');
+    expect(splitProfileBioFaceAbout(joined)).toEqual({
+      face: '',
+      about: '# Work\nThe essay.',
+    });
+  });
+
+  it('reads legacy padded joins without opening a blank gap', () => {
+    expect(
+      splitProfileBioFaceAbout('Hello\n\n\n\nMore on About.\nEssay.')
+    ).toEqual({
+      face: 'Hello',
+      about: 'More on About.\nEssay.',
+    });
+  });
+});
+
+describe('clampFaceEditorInput', () => {
+  it('keeps in-budget text exact (no rewrite)', () => {
+    expect(clampFaceEditorInput('Builder in Lisbon.\n')).toBe(
+      'Builder in Lisbon.\n'
+    );
+  });
+
+  it('cuts a long paragraph to the face budget without needing About', () => {
+    const next =
+      'I’m an entrepreneur, builder and lifelong learner focused on creating technology that brings people together and turns ideas into meaningful action. I believe technology should feel human.';
+    const face = clampFaceEditorInput(next);
+    expect(faceFlatLen(face)).toBeLessThanOrEqual(FACE_BIO_WRAP_CHARS);
+    expect(face.length).toBeLessThan(next.length);
+  });
+
+  it('keeps the ~150 character entrepreneur sample', () => {
+    const sample =
+      "I'm an entrepreneur, builder and lifelong learner focused on creating technology that brings people together and turns ideas into meaningful action.";
+    expect(sample.length).toBeLessThanOrEqual(FACE_BIO_WRAP_CHARS);
+    expect(clampFaceEditorInput(sample)).toBe(sample);
+  });
+
+  it('clamps Enter towers by the soft line ceiling', () => {
+    expect(clampFaceEditorInput('Hello\n\n\n\n\nfrom paste.')).toBe(
+      'Hello\n\n\n'
     );
   });
 });
 
 describe('partitionFaceAboutInput', () => {
-  it('spills lines past the face budget into About', () => {
+  it('does not move face overflow into About', () => {
     const next = ['one', 'two', 'three', 'four', 'five', 'six'].join('\n');
-    const result = partitionFaceAboutInput(next, '');
+    const result = partitionFaceAboutInput(next, 'Already here.');
     expect(result.face).toBe('one\ntwo\nthree\nfour');
-    expect(result.about).toBe('five\nsix');
+    expect(result.about).toBe('Already here.');
     expect(result.spilled).toBe(true);
   });
 
-  it('spills a long single paragraph by wrap budget', () => {
-    const next =
-      'I’m an entrepreneur, builder and lifelong learner focused on creating technology that brings people together and turns ideas into meaningful action. I believe technology should feel human.';
-    const result = partitionFaceAboutInput(next, '');
-    expect(result.spilled).toBe(true);
-    expect(result.face.length).toBeLessThanOrEqual(FACE_BIO_WRAP_CHARS + 1);
-    expect(result.about.startsWith('I believe') || result.about.length > 0).toBe(
-      true
-    );
-    expect(result.face.includes(result.about.slice(0, 12))).toBe(false);
-  });
-
-  it('prepends spill ahead of existing About', () => {
-    const result = partitionFaceAboutInput(
-      ['a', 'b', 'c', 'd', 'e'].join('\n'),
-      'Already here.'
-    );
-    expect(result.face).toBe('a\nb\nc\nd');
-    expect(result.about).toBe('e\nAlready here.');
-  });
-
-  it('leaves a short face alone', () => {
+  it('leaves a short face and existing About alone', () => {
     const result = partitionFaceAboutInput('Builder in Lisbon.', 'Extra.');
     expect(result.face).toBe('Builder in Lisbon.');
     expect(result.about).toBe('Extra.');
     expect(result.spilled).toBe(false);
   });
+});
 
-  it('keeps trailing Enter newlines on a short face', () => {
-    const result = partitionFaceAboutInput('Hello\n\n', '');
-    expect(result.face).toBe('Hello\n\n');
-    expect(result.spilled).toBe(false);
+describe('collapseProfileBioBlankLines', () => {
+  it('drops leading blanks and caps runs at one empty line', () => {
+    expect(collapseProfileBioBlankLines('\n\nHi\n\n\n\nthere\n\n\n')).toBe(
+      'Hi\n\nthere\n\n'
+    );
   });
 });
 
@@ -167,29 +205,54 @@ describe('profileAboutHasMoreThanFace', () => {
     ).toBe(true);
   });
 
-  it('shows About when topics exist even without a longer bio', () => {
+  it('shows About when a lead exists', () => {
     expect(
       profileAboutHasMoreThanFace({
         faceText: 'Hello',
         aboutText: 'Hello',
-        tagCount: 2,
+        leadText: 'Our story',
       })
     ).toBe(true);
   });
 });
 
+describe('resolveStoredProfileFaceAbout', () => {
+  it('trusts split keys when about has content', () => {
+    expect(
+      resolveStoredProfileFaceAbout('Face only.', '# Work\nThe essay.')
+    ).toEqual({
+      face: 'Face only.',
+      about: '# Work\nThe essay.',
+    });
+  });
+
+  it('peels a legacy joined bio when about is empty', () => {
+    expect(
+      resolveStoredProfileFaceAbout(
+        'Hello\n\n\n\nMore on About.\nEssay.',
+        ''
+      )
+    ).toEqual({
+      face: 'Hello',
+      about: 'More on About.\nEssay.',
+    });
+  });
+});
+
 describe('resolvePortfolioAboutBio', () => {
-  it('prefers profile bio over dao purpose and skips empty tagline-like fallbacks', () => {
+  it('prefers profile face + about over dao purpose', () => {
     expect(
       resolvePortfolioAboutBio({
         shellBio: '  From the profile.  ',
+        shellAbout: 'More.',
         daoDescription: 'Catalog blurb',
         daoPurpose: 'Sputnik purpose',
       })
-    ).toBe('From the profile.');
+    ).toBe('From the profile.\nMore.');
     expect(
       resolvePortfolioAboutBio({
         shellBio: ' ',
+        shellAbout: null,
         daoDescription: null,
         daoPurpose: 'A purpose.',
       })
@@ -197,6 +260,7 @@ describe('resolvePortfolioAboutBio', () => {
     expect(
       resolvePortfolioAboutBio({
         shellBio: null,
+        shellAbout: null,
         daoDescription: null,
         daoPurpose: null,
       })

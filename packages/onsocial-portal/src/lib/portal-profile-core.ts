@@ -29,35 +29,50 @@ export interface PortalProfileCorePayload {
 const PROFILE_FIELDS_TO_DISPLAY = new Set([
   'name',
   'bio',
+  'about',
+  'lead',
+  'aboutAlign',
   'location',
   'industry',
   'kind',
   'avatar',
   'banner',
   'links',
+  'tags',
+  'photos',
 ]);
 
 const JOINED_PROFILE_FIELDS = new Set([
   'name',
   'bio',
+  'about',
+  'lead',
+  'aboutAlign',
   'location',
   'industry',
   'kind',
   'avatar',
   'banner',
   'links',
+  'tags',
+  'photos',
 ]);
 
 function profileFieldLabel(field: string): string {
   const labels: Record<string, string> = {
     name: 'Name',
     bio: 'Bio',
+    about: 'About',
+    lead: 'Lead',
+    aboutAlign: 'About align',
     location: 'Location',
     industry: 'Industry',
     kind: 'Kind',
     avatar: 'Avatar',
     banner: 'Banner',
     links: 'Links',
+    tags: 'Tags',
+    photos: 'Photos',
   };
 
   return (

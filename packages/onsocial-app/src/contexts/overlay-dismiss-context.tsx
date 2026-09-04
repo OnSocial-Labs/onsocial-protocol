@@ -24,6 +24,11 @@ export function useOverlayDismiss(): () => void {
   return context?.requestDismiss ?? (() => {});
 }
 
+/** Null outside the portfolio glass overlay — hard-refresh About is a real page. */
+export function useOverlayDismissIfMounted(): (() => void) | null {
+  return useContext(OverlayDismissContext)?.requestDismiss ?? null;
+}
+
 interface OverlayDismissProviderProps {
   accountId: string;
   children: (props: {

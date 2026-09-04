@@ -17,6 +17,10 @@
   margin: 0 0 0.28rem;
 }
 
+.account-editor-bio-chrome--portal {
+  margin: 0;
+}
+
 .account-editor-bio-tool,
 .account-editor-bio-bold {
   display: inline-flex;

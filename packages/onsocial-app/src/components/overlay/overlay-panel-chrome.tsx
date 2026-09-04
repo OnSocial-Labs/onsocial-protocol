@@ -19,7 +19,7 @@ export function OverlayPanelChrome({
 }: {
   ariaTitle: string;
   title?: string;
-  /** Close only — no visual title (About is the person). */
+  /** No visual header — page body is the title (About). */
   hideTitle?: boolean;
   toolbar?: ReactNode;
   /** Icon actions before close — same cluster as Standing / Boost. */
@@ -53,17 +53,9 @@ export function OverlayPanelChrome({
       {toolbar}
     </>
   ) : hideTitle ? (
-    <header className="glass-sheet-header glass-sheet-header--quiet">
-      <h2 id="overlay-title" className="sr-only">
-        {ariaTitle}
-      </h2>
-      <div className="glass-sheet-header-title-row glass-sheet-header-title-row--quiet">
-        <div className="standing-sheet-actions standing-sheet-actions--payout">
-          {headerActions}
-          {closeControl}
-        </div>
-      </div>
-    </header>
+    <h2 id="overlay-title" className="sr-only">
+      {ariaTitle}
+    </h2>
   ) : (
     <header className="glass-sheet-header">
       <div className="glass-sheet-header-copy">

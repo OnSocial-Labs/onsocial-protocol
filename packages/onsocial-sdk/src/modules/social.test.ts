@@ -66,6 +66,29 @@ describe('social set-data builders', () => {
     });
   });
 
+  it('writes profile/about and derives meta from bio + about', () => {
+    expect(
+      buildProfileSetData({
+        bio: 'Face line',
+        about: 'More #near with @bob.testnet',
+      })
+    ).toEqual({
+      'profile/v': '1',
+      'profile/bio': 'Face line',
+      'profile/about': 'More #near with @bob.testnet',
+      'profile/hashtags': JSON.stringify(['near']),
+      'profile/tickers': JSON.stringify([]),
+      'profile/mentions': JSON.stringify(['bob.testnet']),
+    });
+    expect(buildProfileSetData({ about: null })).toEqual({
+      'profile/v': '1',
+      'profile/about': null,
+      'profile/hashtags': JSON.stringify([]),
+      'profile/tickers': JSON.stringify([]),
+      'profile/mentions': JSON.stringify([]),
+    });
+  });
+
   it('allows explicit hashtag overrides when writing bio', () => {
     expect(
       buildProfileSetData({

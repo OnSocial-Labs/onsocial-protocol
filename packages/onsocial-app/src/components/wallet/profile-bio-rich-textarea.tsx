@@ -10,6 +10,9 @@ export type ProfileBioRichTool = OsRichTextTool;
 
 /**
  * Profile bio field — contenteditable WYSIWYG backed by markdown marks.
+ * Pass `tools={[]}` for face bio (no chrome; bold/italic still paste).
+ * About keeps the default toolbar (bold / italic / list / heading).
+ * Pass `chromePortal` to pin tools under the About sheet header.
  */
 export function ProfileBioRichTextarea({
   value,
@@ -21,6 +24,7 @@ export function ProfileBioRichTextarea({
   maxLength,
   textareaRef,
   tools,
+  chromePortal,
   rows = 1,
   className,
   disabled = false,
@@ -35,6 +39,7 @@ export function ProfileBioRichTextarea({
   /** @deprecated Prefer editor surface; kept for existing scroll-into-view refs. */
   textareaRef?: Ref<HTMLDivElement>;
   tools?: readonly ProfileBioRichTool[];
+  chromePortal?: HTMLElement | null;
   rows?: number;
   className?: string;
   disabled?: boolean;
@@ -50,6 +55,7 @@ export function ProfileBioRichTextarea({
       maxLength={maxLength}
       editorRef={textareaRef}
       tools={tools}
+      chromePortal={chromePortal}
       rows={rows}
       className={className}
       disabled={disabled}

@@ -802,13 +802,13 @@ export function ProfileEditor({
                             setBio(event.target.value);
                             markDirty();
                           }}
-                          maxLength={180}
+                          maxLength={160}
                           rows={2}
                           placeholder="Bio — use #topics, $tickers, @accounts…"
                           className="w-full resize-none bg-transparent portal-type-body leading-relaxed text-muted-foreground outline-none placeholder:text-muted-foreground/40"
                         />
                         <p className="mt-0.5 portal-type-caption tabular-nums text-muted-foreground/45">
-                          {characterCount}/180
+                          {characterCount}/160
                         </p>
                       </div>
                     </div>

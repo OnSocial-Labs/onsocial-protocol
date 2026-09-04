@@ -33,8 +33,10 @@ interface PortfolioIdentityProps {
   /** User-curated org line next to the building mark. */
   industry?: string | null;
   bio?: string | null;
-  /** Full `profile/bio` (and dao fallback) — About, not the face tagline. */
+  /** About continuation (`profile/about`) — opens About when longer than the face. */
   aboutBio?: string | null;
+  /** Quiet About lead (`profile/lead`) — opens About when set. */
+  lead?: string | null;
   /** Curated identity topics (`profile/tags`) — About / Launch only. */
   tags?: string[] | null;
   /** About gallery count — opens About even when the face bio is short. */
@@ -58,6 +60,7 @@ export function PortfolioIdentity({
   industry = null,
   bio,
   aboutBio = null,
+  lead = null,
   tags = null,
   photoCount = 0,
   tagline,
@@ -81,6 +84,7 @@ export function PortfolioIdentity({
   const showAbout = profileAboutHasMoreThanFace({
     faceText: summary,
     aboutText: aboutBio,
+    leadText: lead,
     photoCount,
     tagCount,
   });

@@ -22,6 +22,7 @@ describe('post-mentions', () => {
     expect(extractMentionsFromText('email user@host.com stays plain')).toEqual(
       []
     );
+    expect(extractMentionsFromText('bare @alice stays plain')).toEqual([]);
   });
 
   it('builds post meta with hashtags, tickers, and mentions', () => {

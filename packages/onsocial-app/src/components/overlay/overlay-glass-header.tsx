@@ -78,16 +78,9 @@ function OverlayHeaderFallback({
 
   if (hint.hideTitle) {
     return (
-      <header className="glass-sheet-header glass-sheet-header--quiet overlay-header-fallback">
-        <h2 id="overlay-title" className="sr-only">
-          {hint.ariaTitle}
-        </h2>
-        <div className="glass-sheet-header-title-row glass-sheet-header-title-row--quiet">
-          <div className="standing-sheet-actions standing-sheet-actions--payout">
-            {closeControl}
-          </div>
-        </div>
-      </header>
+      <h2 id="overlay-title" className="sr-only">
+        {hint.ariaTitle}
+      </h2>
     );
   }
 
@@ -118,7 +111,14 @@ export function OverlayGlassHeader({ panelKey }: { panelKey: string | null }) {
   const showFallback = hint != null && chrome == null;
 
   return (
-    <div ref={setHeaderPortal} className="overlay-header-portal">
+    <div
+      ref={setHeaderPortal}
+      className={
+        hint?.hideTitle
+          ? 'overlay-header-portal overlay-header-portal--flush'
+          : 'overlay-header-portal'
+      }
+    >
       {showFallback && panelKey != null ? (
         <OverlayHeaderFallback
           panelKey={panelKey}

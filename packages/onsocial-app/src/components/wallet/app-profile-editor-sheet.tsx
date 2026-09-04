@@ -9,7 +9,6 @@ import {
   useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -35,7 +34,7 @@ import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location
 import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
 import { ProfileAboutEditorSheet } from '@/components/wallet/profile-about-editor-sheet';
-import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
+import { ProfileFaceBioField } from '@/components/wallet/profile-face-bio-field';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { ProfileOrgMetaEditor } from '@/components/wallet/profile-org-meta-editor';
 import type { ProfileAboutPhotoDraft } from '@/components/wallet/profile-about-photos-editor';
@@ -53,12 +52,11 @@ import {
   sanitizeLinkNotes,
 } from '@/lib/page-launch-config';
 import {
-  PROFILE_BIO_LIMIT_WARN,
-  PROFILE_BIO_MAX,
-  joinProfileBioFaceAbout,
-  partitionFaceAboutInput,
+  FACE_BIO_LIMIT_WARN,
+  FACE_BIO_WRAP_CHARS,
+  clampFaceEditorInput,
+  clampProfileBioFace,
   profileAboutHasMoreThanFace,
-  splitProfileBioFaceAbout,
 } from '@/lib/profile-bio-face';
 import { displayName, fallbackLabel, initials } from '@/lib/profile-display';
 import type { ResolvedPageHero } from '@/lib/page-data';
@@ -143,7 +141,7 @@ export function AppProfileEditorSheet({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
-  const bioRef = useRef<HTMLDivElement>(null);
+  const bioRef = useRef<HTMLTextAreaElement>(null);
 
   const {
     snapshot,
@@ -163,9 +161,11 @@ export function AppProfileEditorSheet({
   const [kind, setKind] = useState<ProfileKind>('person');
   const [faceBio, setFaceBio] = useState('');
   const [aboutBio, setAboutBio] = useState('');
+  const [lead, setLead] = useState('');
+  const [aboutAlign, setAboutAlign] = useState<'left' | 'center' | 'justify'>(
+    'left'
+  );
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [faceSpillHint, setFaceSpillHint] = useState(false);
-  const faceSpillHintTimerRef = useRef<number | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [photos, setPhotos] = useState<ProfileAboutPhotoDraft[]>([]);
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
@@ -181,11 +181,6 @@ export function AppProfileEditorSheet({
   const [bannerRemoved, setBannerRemoved] = useState(false);
   const [seedKey, setSeedKey] = useState<string | null>(null);
 
-  const bio = useMemo(
-    () => joinProfileBioFaceAbout(faceBio, aboutBio),
-    [aboutBio, faceBio]
-  );
-
   const readyKey =
     snapshot && open
       ? `${accountId}:${sessionKey}:${snapshot.accountId}`
@@ -198,11 +193,10 @@ export function AppProfileEditorSheet({
     setLocation(snapshot.location);
     setIndustry(snapshot.industry ?? '');
     setKind(editorFaceKind(snapshot.kind));
-    {
-      const split = splitProfileBioFaceAbout(snapshot.bio);
-      setFaceBio(split.face);
-      setAboutBio(split.about);
-    }
+    setFaceBio(snapshot.bio);
+    setAboutBio(snapshot.about ?? '');
+    setLead(snapshot.lead ?? '');
+    setAboutAlign(snapshot.aboutAlign ?? 'left');
     setAboutOpen(false);
     setTags(snapshot.tags ?? []);
     setPhotos(snapshot.photos ?? []);
@@ -219,47 +213,10 @@ export function AppProfileEditorSheet({
     setSeedKey(null);
   }
 
-  useEffect(() => {
-    return () => {
-      if (faceSpillHintTimerRef.current != null) {
-        window.clearTimeout(faceSpillHintTimerRef.current);
-      }
-    };
+  const handleFaceBioChange = useCallback((next: string) => {
+    // Native maxLength is the hard stop; clamp only soft-caps Enter towers.
+    setFaceBio(clampFaceEditorInput(next.slice(0, FACE_BIO_WRAP_CHARS)));
   }, []);
-
-  const showFaceSpillHint = useCallback(() => {
-    setFaceSpillHint(true);
-    if (faceSpillHintTimerRef.current != null) {
-      window.clearTimeout(faceSpillHintTimerRef.current);
-    }
-    faceSpillHintTimerRef.current = window.setTimeout(() => {
-      setFaceSpillHint(false);
-      faceSpillHintTimerRef.current = null;
-    }, 4500);
-  }, []);
-
-  const handleFaceBioChange = useCallback(
-    (next: string) => {
-      setAboutBio((prior) => {
-        const result = partitionFaceAboutInput(next, prior);
-        setFaceBio(result.face);
-        if (result.spilled) {
-          showFaceSpillHint();
-          return result.about;
-        }
-        return prior;
-      });
-    },
-    [showFaceSpillHint]
-  );
-
-  useLayoutEffect(() => {
-    const el = bioRef.current;
-    if (!el) return;
-    // Never collapse contenteditable height to 0 — Chrome jumps the caret to line 1.
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [faceBio]);
 
   useEffect(() => {
     if (!open || !snapshot) return;
@@ -295,7 +252,10 @@ export function AppProfileEditorSheet({
       location,
       industry,
       kind,
-      bio,
+      bio: faceBio,
+      about: aboutBio,
+      lead,
+      aboutAlign,
       links,
       tags,
       photos,
@@ -311,7 +271,10 @@ export function AppProfileEditorSheet({
     avatarRemoved,
     bannerFile,
     bannerRemoved,
-    bio,
+    aboutBio,
+    lead,
+    aboutAlign,
+    faceBio,
     industry,
     kind,
     links,
@@ -372,7 +335,8 @@ export function AppProfileEditorSheet({
   );
   const hasLinkInput = Object.values(links).some((value) => value.trim());
   const nameNearLimit = name.length >= PROFILE_NAME_LIMIT_WARN;
-  const bioNearLimit = bio.trim().length >= PROFILE_BIO_LIMIT_WARN;
+  const faceBioLen = faceBio.replace(/\r\n/g, '\n').length;
+  const faceNearLimit = faceBioLen >= FACE_BIO_LIMIT_WARN;
   const submitLabel = snapshot?.hasProfile === false ? 'Create' : 'Save';
   const handleLabel = fallbackLabel(accountId);
   const avatarInitial = initials(
@@ -441,7 +405,10 @@ export function AppProfileEditorSheet({
         location,
         industry,
         kind,
-        bio,
+        bio: clampProfileBioFace(faceBio),
+        about: aboutBio.trim(),
+        lead: lead.trim(),
+        aboutAlign,
         tags,
         photos,
         photoFiles: photos.map((photo) => photo.file ?? null),
@@ -762,63 +729,49 @@ export function AppProfileEditorSheet({
                         <label htmlFor="profile-editor-bio" className="sr-only">
                           Bio
                         </label>
-                        <ProfileBioRichTextarea
+                        <ProfileFaceBioField
                           textareaRef={bioRef}
                           id="profile-editor-bio"
                           value={faceBio}
-                          maxLength={PROFILE_BIO_MAX}
+                          maxLength={FACE_BIO_WRAP_CHARS}
                           placeholder="Bio"
                           onFocus={scrollFieldIntoView}
                           onChange={handleFaceBioChange}
                           onBlur={() => {
-                            // Keep trailing newlines from Enter; only trim spaces/tabs.
                             const cleaned = faceBio.replace(/[ \t]+$/gm, '');
                             if (cleaned !== faceBio) setFaceBio(cleaned);
                           }}
                         />
                         <p className="account-editor-about-hint">
-                          {faceSpillHint ? (
-                            <>
-                              Rest moved to{' '}
-                              <button
-                                type="button"
-                                className="account-editor-about-hint-action"
-                                disabled={saving}
-                                onClick={() => setAboutOpen(true)}
-                              >
-                                About
-                              </button>
-                              .
-                            </>
-                          ) : (
-                            <>On your page. # for posts · crafts in About.</>
-                          )}
+                          Short line on your page. Type @ to mention people,
+                          orgs, and DAOs; # $ and links highlight like the live
+                          face. Edit About separately.
                         </p>
-                        {nameNearLimit || bioNearLimit ? (
-                          <p
-                            className="account-editor-limits is-near-limit"
-                            aria-live="polite"
-                          >
-                            {nameNearLimit ? (
-                              <span>
-                                {name.length}/{PROFILE_NAME_MAX}
-                              </span>
-                            ) : null}
-                            {nameNearLimit && bioNearLimit ? (
-                              <span
-                                className="account-editor-limits-sep"
-                                aria-hidden
-                              >
-                                ·
-                              </span>
-                            ) : null}
-                            {bioNearLimit ? (
-                              <span>
-                                {bio.trim().length}/{PROFILE_BIO_MAX}
-                              </span>
-                            ) : null}
-                          </p>
-                        ) : null}
+                        <p
+                          className={`account-editor-limits${
+                            nameNearLimit || faceNearLimit
+                              ? ' is-near-limit'
+                              : ''
+                          }`}
+                          aria-live="polite"
+                        >
+                          {nameNearLimit ? (
+                            <span>
+                              {name.length}/{PROFILE_NAME_MAX}
+                            </span>
+                          ) : null}
+                          {nameNearLimit ? (
+                            <span
+                              className="account-editor-limits-sep"
+                              aria-hidden
+                            >
+                              ·
+                            </span>
+                          ) : null}
+                          <span>
+                            {faceBioLen}/{FACE_BIO_WRAP_CHARS}
+                          </span>
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -849,22 +802,24 @@ export function AppProfileEditorSheet({
                   <span className="account-editor-about-trigger-meta">
                     {profileAboutHasMoreThanFace({
                       faceText: faceBio,
-                      aboutText: bio,
+                      aboutText: aboutBio,
+                      leadText: lead,
                       photoCount: photos.length,
                       tagCount: tags.length,
                     })
                       ? [
+                          lead.trim() ? 'Lead' : null,
                           tags.length > 0
                             ? `${tags.length} craft${tags.length === 1 ? '' : 's'}`
-                                    : null,
-                                  photos.length > 0
-                                    ? `${photos.length} photo${photos.length === 1 ? '' : 's'}`
-                                    : null,
-                                  aboutBio.trim() ? 'More bio' : null,
-                                ]
-                                  .filter(Boolean)
-                                  .join(' · ') || 'Crafts, photos, more'
-                              : 'Crafts, photos, more'}
+                            : null,
+                          photos.length > 0
+                            ? `${photos.length} photo${photos.length === 1 ? '' : 's'}`
+                            : null,
+                          aboutBio.trim() ? 'More bio' : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ') || 'Lead, crafts, photos, more'
+                      : 'Lead, crafts, photos, more'}
                   </span>
                 </button>
               </div>
@@ -912,7 +867,11 @@ export function AppProfileEditorSheet({
       <ProfileAboutEditorSheet
         open={aboutOpen}
         onClose={() => setAboutOpen(false)}
-        faceBio={faceBio}
+        profileName={name}
+        lead={lead}
+        onLeadChange={setLead}
+        aboutAlign={aboutAlign}
+        onAboutAlignChange={setAboutAlign}
         aboutBio={aboutBio}
         onAboutBioChange={setAboutBio}
         tags={tags}

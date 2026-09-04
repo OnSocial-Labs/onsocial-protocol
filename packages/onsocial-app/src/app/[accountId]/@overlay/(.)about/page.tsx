@@ -1,5 +1,6 @@
 import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-root';
 import { SimpleOverlayPanel } from '@/components/overlay/simple-overlay-panel';
+import { AboutOverlayLeave } from '@/components/portfolio/about-overlay-leave';
 import { PortfolioAboutPanel } from '@/components/portfolio/portfolio-about-panel';
 import { loadPortfolioAboutPage } from '@/lib/load-portfolio-about';
 import { panelLabel } from '@/lib/overlay-routes';
@@ -19,6 +20,7 @@ export default async function AboutOverlayRoute({
   return (
     <OverlayInterceptRoot>
       <SimpleOverlayPanel ariaTitle={title} hideTitle>
+        <AboutOverlayLeave accountId={panel.accountId} />
         <PortfolioAboutPanel {...panel} />
       </SimpleOverlayPanel>
     </OverlayInterceptRoot>

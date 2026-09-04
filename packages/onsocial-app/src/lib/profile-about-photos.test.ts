@@ -6,6 +6,7 @@ import {
   profileAboutPhotoKey,
   profileAboutPhotoRefsEqual,
   profileAboutPhotosFromStored,
+  swapProfileAboutPhoto,
 } from './profile-about-photos';
 
 describe('parseProfileAboutPhotoRefs', () => {
@@ -84,6 +85,21 @@ describe('moveProfileAboutPhoto', () => {
       'b',
     ]);
     expect(moveProfileAboutPhoto(['a', 'b', 'c'], 1, 1)).toEqual([
+      'a',
+      'b',
+      'c',
+    ]);
+  });
+});
+
+describe('swapProfileAboutPhoto', () => {
+  it('swaps two indices in place', () => {
+    expect(swapProfileAboutPhoto(['a', 'b', 'c'], 0, 2)).toEqual([
+      'c',
+      'b',
+      'a',
+    ]);
+    expect(swapProfileAboutPhoto(['a', 'b', 'c'], 1, 1)).toEqual([
       'a',
       'b',
       'c',

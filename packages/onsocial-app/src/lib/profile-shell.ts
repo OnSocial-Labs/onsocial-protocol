@@ -2,8 +2,11 @@ import { cache } from 'react';
 import {
   profileIndustryFromMaterialised,
   profileKindFromMaterialised,
+  profileLeadFromMaterialised,
+  profileAboutAlignFromMaterialised,
   profileLocationFromMaterialised,
   type MaterialisedProfile,
+  type ProfileAboutAlign,
   type ProfileKind,
   type ResolvedProfileMedia,
 } from '@onsocial/sdk';
@@ -13,6 +16,7 @@ import {
   profileAboutPhotosFromStored,
   type ProfileAboutPhoto,
 } from '@/lib/profile-about-photos';
+import { resolveStoredProfileFaceAbout } from '@/lib/profile-bio-face';
 
 /** Indexed profile shell for SSR — mirrors Portal's `loadPortalProfileShell`. */
 export interface AppProfileShell {
@@ -24,7 +28,14 @@ export interface AppProfileShell {
   industry: string | null;
   /** Optional face kind. Omit / person is an individual. */
   kind: ProfileKind | null;
+  /** Page / face bio (`profile/bio`), soft-migrated from legacy joins. */
   bio: string | null;
+  /** About continuation (`profile/about`). */
+  about: string | null;
+  /** Quiet About lead above the print (`profile/lead`). */
+  lead: string | null;
+  /** More for About essay alignment (`profile/aboutAlign`). */
+  aboutAlign: ProfileAboutAlign;
   avatarUrl: string | null;
   bannerUrl: string | null;
   avatarMedia: ResolvedProfileMedia | null;
@@ -51,13 +62,22 @@ export const loadProfileShell = cache(
       const location = profileLocationFromMaterialised(profile);
       const industry = profileIndustryFromMaterialised(profile);
       const kind = profileKindFromMaterialised(profile) ?? null;
+      const lead = profileLeadFromMaterialised(profile);
+      const aboutAlign = profileAboutAlignFromMaterialised(profile);
+      const { face, about } = resolveStoredProfileFaceAbout(
+        profile.bio,
+        profile.about
+      );
       return {
         accountId,
         name: profile.name ?? null,
         location: location || null,
         industry: industry || null,
         kind,
-        bio: profile.bio ?? null,
+        bio: face.trim() || null,
+        about: about.trim() || null,
+        lead: lead || null,
+        aboutAlign,
         avatarUrl: os.profiles.avatarUrl(profile),
         bannerUrl: os.profiles.bannerUrl(profile),
         avatarMedia: os.profiles.avatarMedia(profile),

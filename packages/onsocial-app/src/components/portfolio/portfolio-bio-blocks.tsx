@@ -1,22 +1,27 @@
 'use client';
 
 import { PostRichText } from '@/features/home/post-rich-text';
-import { profileAboutBlocks } from '@/lib/profile-bio-rich';
+import {
+  profileAboutBlocks,
+  type ProfileAboutBlock,
+} from '@/lib/profile-bio-rich';
 
 export function PortfolioBioBlocks({
-  text,
+  text = '',
+  blocks,
   headingAs = 'h2',
 }: {
-  text: string;
+  text?: string;
+  blocks?: ProfileAboutBlock[];
   headingAs?: 'h2' | 'p';
 }) {
-  const blocks = profileAboutBlocks(text);
-  if (blocks.length === 0) return null;
+  const resolved = blocks ?? profileAboutBlocks(text);
+  if (resolved.length === 0) return null;
   const HeadingTag = headingAs;
 
   return (
     <>
-      {blocks.map((block, index) => {
+      {resolved.map((block, index) => {
         if (block.type === 'heading') {
           return (
             <HeadingTag

@@ -16,11 +16,11 @@ describe('tryAddProfileEditorTag', () => {
     });
   });
 
-  it('reports max tags', () => {
-    const tags = Array.from({ length: 8 }, (_, index) => `tag${index}`);
+  it('reports max crafts', () => {
+    const tags = Array.from({ length: 3 }, (_, index) => `tag${index}`);
     expect(tryAddProfileEditorTag(tags, 'extra')).toEqual({
       tags,
-      hint: 'Max 8 tags',
+      hint: 'Max 3 crafts',
     });
   });
 });

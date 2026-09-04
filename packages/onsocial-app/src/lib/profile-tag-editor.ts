@@ -1,6 +1,6 @@
 import { normalizeProfileTags } from '@/lib/profile-display';
 
-export const PROFILE_EDITOR_MAX_TAGS = 8;
+export const PROFILE_EDITOR_MAX_TAGS = 3;
 export const PROFILE_EDITOR_MAX_TAG_LENGTH = 32;
 
 export function normalizeProfileEditorTagDraft(raw: string): string {
@@ -47,7 +47,7 @@ export function profileEditorTagsEqual(
   return normalizedLeft.every((tag, index) => tag === normalizedRight[index]);
 }
 
-export type ProfileEditorTagCommitHint = 'Already added' | 'Max 8 tags';
+export type ProfileEditorTagCommitHint = 'Already added' | 'Max 3 crafts';
 
 export function tryAddProfileEditorTag(
   tags: string[],
@@ -59,7 +59,7 @@ export function tryAddProfileEditorTag(
   }
 
   if (tags.length >= PROFILE_EDITOR_MAX_TAGS) {
-    return { tags, hint: 'Max 8 tags' };
+    return { tags, hint: 'Max 3 crafts' };
   }
 
   if (tags.includes(normalized)) {

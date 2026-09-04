@@ -22,6 +22,17 @@ describe('splitRichText', () => {
     ]);
   });
 
+  it('does not chip bare @handles without a named-account root', () => {
+    expect(splitRichText('hi @alice and @bob.testnet')).toEqual([
+      { type: 'text', value: 'hi @alice and ' },
+      {
+        type: 'mention',
+        value: '@bob.testnet',
+        accountId: 'bob.testnet',
+      },
+    ]);
+  });
+
   it('keeps url fragments from becoming hashtags', () => {
     expect(
       splitRichText('see https://onsocial.id/#topics not a hashtag')
@@ -63,6 +74,21 @@ describe('splitRichText', () => {
         href: 'https://onsocial.id/docs',
       },
       { type: 'text', value: '.' },
+    ]);
+  });
+
+  it('does not autolink a bare domain glued to more letters', () => {
+    expect(splitRichText('see onsocial.idand later')).toEqual([
+      { type: 'text', value: 'see onsocial.idand later' },
+    ]);
+    expect(splitRichText('see onsocial.id later')).toEqual([
+      { type: 'text', value: 'see ' },
+      {
+        type: 'url',
+        value: 'onsocial.id',
+        href: 'https://onsocial.id',
+      },
+      { type: 'text', value: ' later' },
     ]);
   });
 

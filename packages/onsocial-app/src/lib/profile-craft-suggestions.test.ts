@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   DISCOVER_CUSTOM_CRAFT_MIN_COUNT,
   PROFILE_CRAFT_SUGGESTIONS,
+  PROFILE_CRAFT_WRITE_IN,
   buildDiscoverCraftChoiceOptions,
+  buildProfileCraftEditorOptions,
+  profileCraftDrawerValue,
 } from './profile-craft-suggestions';
 
 describe('buildDiscoverCraftChoiceOptions', () => {
@@ -27,5 +30,32 @@ describe('buildDiscoverCraftChoiceOptions', () => {
     const writer = options.find((option) => option.value === 'writer');
     expect(writer?.description).toBe('12 people');
     expect(writer?.section).toBe('Crafts');
+  });
+});
+
+describe('buildProfileCraftEditorOptions', () => {
+  it('lists seeds, selected customs, and write-in', () => {
+    const options = buildProfileCraftEditorOptions(['writer', 'photographer']);
+    expect(options.some((option) => option.value === 'writer')).toBe(true);
+    expect(
+      options.find((option) => option.value === 'writer')?.description
+    ).toBe('Selected');
+    expect(
+      options.find((option) => option.value === 'photographer')
+    ).toMatchObject({
+      label: 'Photographer',
+      section: 'Yours',
+    });
+    expect(options.at(-1)).toMatchObject({
+      value: PROFILE_CRAFT_WRITE_IN,
+      label: 'Write your own',
+    });
+  });
+});
+
+describe('profileCraftDrawerValue', () => {
+  it('highlights the last selected craft', () => {
+    expect(profileCraftDrawerValue([])).toBe('');
+    expect(profileCraftDrawerValue(['writer', 'artist'])).toBe('artist');
   });
 });

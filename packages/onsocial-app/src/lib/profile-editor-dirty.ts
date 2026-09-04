@@ -1,4 +1,8 @@
-import type { ProfileKind } from '@onsocial/sdk';
+import {
+  normalizeProfileAboutAlign,
+  type ProfileAboutAlign,
+  type ProfileKind,
+} from '@onsocial/sdk';
 import type { ProfileEditorSnapshot } from '@/hooks/use-app-profile-editor';
 import { linkNotesEqual, pruneLinkNotes } from '@/lib/page-launch-config';
 import {
@@ -19,6 +23,9 @@ export function isProfileEditorContentDirty(input: {
   industry: string;
   kind: ProfileKind;
   bio: string;
+  about: string;
+  lead: string;
+  aboutAlign: ProfileAboutAlign;
   links: ProfileLinksInput;
   tags: string[];
   photos: ProfileAboutPhoto[];
@@ -65,6 +72,21 @@ export function isProfileEditorContentDirty(input: {
     return true;
   }
 
+  if (input.about.trim() !== (input.snapshot.about ?? '').trim()) {
+    return true;
+  }
+
+  if (input.lead.trim() !== (input.snapshot.lead ?? '').trim()) {
+    return true;
+  }
+
+  if (
+    normalizeProfileAboutAlign(input.aboutAlign) !==
+    normalizeProfileAboutAlign(input.snapshot.aboutAlign)
+  ) {
+    return true;
+  }
+
   if (!profileEditorTagsEqual(input.tags, input.snapshot.tags)) {
     return true;
   }
@@ -102,6 +124,9 @@ export function isProfileEditorDirty(input: {
   industry: string;
   kind: ProfileKind;
   bio: string;
+  about: string;
+  lead: string;
+  aboutAlign: ProfileAboutAlign;
   links: ProfileLinksInput;
   tags: string[];
   photos: ProfileAboutPhoto[];

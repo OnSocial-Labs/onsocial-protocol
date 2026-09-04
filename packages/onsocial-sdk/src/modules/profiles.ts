@@ -42,7 +42,14 @@ export interface MaterialisedProfile {
   /** Schema version (`profile/v`), parsed to a number when present. */
   v?: number;
   name?: string;
+  /** Page / face bio (`profile/bio`). */
   bio?: string;
+  /** About continuation (`profile/about`). */
+  about?: string;
+  /** Quiet About lead above the print (`profile/lead`). */
+  lead?: string;
+  /** More for About essay alignment (`profile/aboutAlign`). */
+  aboutAlign?: string;
   /** Coarse public “based in” label (city / region). Not GPS. */
   location?: string;
   /** User-curated org line (`profile/industry`). */
@@ -75,6 +82,10 @@ const RESERVED = new Set([
   'v',
   'name',
   'bio',
+  'about',
+  'lead',
+  'aboutAlign',
+  'kicker',
   'location',
   'industry',
   'kind',
@@ -134,7 +145,13 @@ function rowsToProfile(
       if (!Number.isNaN(n)) out.v = n;
     } else if (f === 'name') out.name = row.value;
     else if (f === 'bio') out.bio = row.value;
-    else if (f === 'location') out.location = row.value;
+    else if (f === 'about') out.about = row.value;
+    else if (f === 'lead') out.lead = row.value;
+    else if (f === 'aboutAlign') out.aboutAlign = row.value;
+    else if (f === 'kicker') {
+      // Short-lived early key — fold into lead when lead is unset.
+      if (!out.lead) out.lead = row.value;
+    } else if (f === 'location') out.location = row.value;
     else if (f === 'industry') out.industry = row.value;
     else if (f === 'kind') {
       const parsed = parseProfileKind(row.value);

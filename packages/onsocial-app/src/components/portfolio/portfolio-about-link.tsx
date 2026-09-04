@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { aboutPath } from '@/lib/overlay-routes';
+import { useOverlayDismissIfMounted } from '@/contexts/overlay-dismiss-context';
+import { aboutPath, portfolioFeedPath } from '@/lib/overlay-routes';
+import { requestPortfolioFeedReveal } from '@/lib/portfolio-feed-reveal';
 
 /** Quiet face overflow — only when About has more than the four-line clamp. */
 export function PortfolioAboutLink({ accountId }: { accountId: string }) {
@@ -12,6 +14,27 @@ export function PortfolioAboutLink({ accountId }: { accountId: string }) {
       scroll={false}
     >
       About
+    </Link>
+  );
+}
+
+/** About closer — leaves the essay for Launch (drawer on the face). */
+export function PortfolioAboutWorkLink({ accountId }: { accountId: string }) {
+  const dismissOverlay = useOverlayDismissIfMounted();
+
+  return (
+    <Link
+      href={portfolioFeedPath(accountId)}
+      className="portfolio-about-link"
+      scroll={false}
+      onClick={(event) => {
+        if (!dismissOverlay) return;
+        event.preventDefault();
+        dismissOverlay();
+        requestPortfolioFeedReveal();
+      }}
+    >
+      See work
     </Link>
   );
 }

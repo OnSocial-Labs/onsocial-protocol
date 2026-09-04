@@ -15,6 +15,9 @@ function baseSnapshot(
     industry: '',
     kind: null,
     bio: 'Builder',
+    about: '',
+    lead: '',
+    aboutAlign: 'left',
     avatarUrl: 'https://cdn.example/avatar.png',
     bannerUrl: 'https://cdn.example/banner.png',
     bannerMedia: { kind: 'image', url: 'https://cdn.example/banner.png' },
@@ -39,6 +42,9 @@ function dirtyInput(
     industry: snapshot.industry,
     kind: snapshot.kind === 'org' ? 'org' : 'person',
     bio: snapshot.bio,
+    about: snapshot.about,
+    lead: snapshot.lead,
+    aboutAlign: snapshot.aboutAlign,
     links: linksFromSnapshot,
     tags: snapshot.tags,
     photos: snapshot.photos,
@@ -95,6 +101,13 @@ describe('isProfileEditorDirty', () => {
     const snapshot = baseSnapshot();
     expect(
       isProfileEditorDirty(dirtyInput(snapshot, { bio: 'Building #near' }))
+    ).toBe(true);
+  });
+
+  it('is dirty when About continuation changes', () => {
+    const snapshot = baseSnapshot();
+    expect(
+      isProfileEditorDirty(dirtyInput(snapshot, { about: 'More on About.' }))
     ).toBe(true);
   });
 

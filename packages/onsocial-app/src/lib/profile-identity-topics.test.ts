@@ -12,9 +12,9 @@ describe('profileIdentityTopics', () => {
     ]);
   });
 
-  it('caps at eight and drops empties', () => {
+  it('caps at three and drops empties', () => {
     const tags = Array.from({ length: 10 }, (_, index) => `topic${index}`);
-    expect(profileIdentityTopics(tags)).toHaveLength(8);
+    expect(profileIdentityTopics(tags)).toHaveLength(3);
     expect(profileIdentityTopics(['', '  '])).toEqual([]);
   });
 });

@@ -40,7 +40,10 @@ export interface ProfileV1 {
   /** Lowercase short name, `[a-z0-9_]{1,32}`. Optional but recommended. */
   handle?: string;
   displayName?: string;
+  /** Page / face bio. Longer story lives in `about`. */
   bio?: string;
+  /** About continuation (`profile/about`). */
+  about?: string;
   /**
    * Optional face kind on the same `profile/` object.
    * Omit or `person` → individual. `org` → organization. `dao` → DAO.

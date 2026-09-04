@@ -13,13 +13,20 @@ const MENTION_IN_TEXT_RE =
 const SCHEMED_OR_WWW_URL_RE = /(?:https?:\/\/|www\.)[^\s<>"'`]+/gi;
 /**
  * Bare host.tld (/path…) — TLD allowlist (2+ letters). Skip .near / .testnet.
+ * Require a non-alnum boundary after the TLD/path so `onsocial.idand` stays plain.
  */
 const BARE_DOMAIN_URL_RE =
-  /(?<![@./\w])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:com|org|net|io|id|app|dev|xyz|co|me|ai|gg|tv|info|edu|gov|uk|us|ca|de|fr|jp|au|nl|se|ch)(?:\/[^\s<>"'`]*)?/gi;
+  /(?<![@./\w])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:com|org|net|io|id|app|dev|xyz|co|me|ai|gg|tv|info|edu|gov|uk|us|ca|de|fr|jp|au|nl|se|ch)(?:\/[^\s<>"'`]*)?(?![a-zA-Z0-9])/gi;
 const URL_TRAILING_PUNCT_RE = /[.,;:!?)\]}'"]+$/;
 
 /** NEAR account suffixes — never treat as website TLDs. */
 const BLOCKED_AUTOLINK_TLDS = new Set(['near', 'testnet']);
+
+/**
+ * Named-account roots we treat as real @mentions (linkable profiles).
+ * Bare `@alice` stays plain so we never chip a dead portfolio path.
+ */
+const MENTION_ROOT_SUFFIXES = ['.near', '.testnet', '.tg'] as const;
 
 const HASHTAG_SLUG_RE = /^[a-z0-9_]{1,64}$/;
 const TICKER_SLUG_RE = /^[a-z][a-z0-9_]{0,15}$/;
@@ -112,11 +119,16 @@ export function autolinkDisplayHost(href: string): string {
 }
 
 function isValidMentionAccountId(accountId: string): boolean {
-  return (
-    accountId.length >= 2 &&
-    accountId.length <= 64 &&
-    NEAR_ACCOUNT_RE.test(accountId)
-  );
+  if (
+    accountId.length < 2 ||
+    accountId.length > 64 ||
+    !NEAR_ACCOUNT_RE.test(accountId)
+  ) {
+    return false;
+  }
+  // Implicit hex accounts (no root suffix) — rare, still linkable.
+  if (/^[a-f0-9]{64}$/.test(accountId)) return true;
+  return MENTION_ROOT_SUFFIXES.some((suffix) => accountId.endsWith(suffix));
 }
 
 function collectUrlHits(text: string, hits: MatchHit[]): void {

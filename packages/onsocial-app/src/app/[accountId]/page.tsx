@@ -11,7 +11,6 @@ import {
   loadPortfolioDaoContextWithProfile,
   resolveDaoPortfolioSummary,
 } from '@/lib/load-dao-page';
-import { resolvePortfolioAboutBio } from '@/lib/profile-bio-face';
 import { PortfolioActivateStrip } from '@/components/portfolio/portfolio-activate-strip';
 import { PortfolioDaoOrgChrome } from '@/components/portfolio/portfolio-dao-org-chrome';
 import { PortfolioDeferredShelf } from '@/components/portfolio/portfolio-deferred-shelf';
@@ -109,11 +108,6 @@ export default async function AccountPage({
     shellBio: shell?.bio,
     daoPage,
   });
-  const aboutBio = resolvePortfolioAboutBio({
-    shellBio: shell?.bio,
-    daoDescription: daoPage?.branding.description,
-    daoPurpose: daoPage?.configPurpose,
-  });
   const name = displayName(
     accountId,
     shell?.name ?? daoPage?.branding.name ?? undefined
@@ -184,7 +178,8 @@ export default async function AccountPage({
           location={shell?.location}
           industry={shell?.industry}
           bio={portfolioBio}
-          aboutBio={aboutBio}
+          aboutBio={shell?.about ?? null}
+          lead={shell?.lead ?? null}
           tags={identityTopics}
           photoCount={shell?.photos.length ?? 0}
           tagline={tagline}

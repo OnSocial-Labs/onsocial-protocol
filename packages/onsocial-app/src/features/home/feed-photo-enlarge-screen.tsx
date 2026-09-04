@@ -40,17 +40,24 @@ export function FeedPhotoEnlargeScreen({
   onOpenChange,
   title,
   subtitle,
+  heading,
+  quiet = false,
   photos,
   initialIndex = 0,
   engagement = null,
+  closeAriaLabel,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   subtitle?: string | null;
+  heading?: ReactNode;
+  /** Hide the visual title — picture + × only (About stills). */
+  quiet?: boolean;
   photos: PostMediaItem[];
   initialIndex?: number;
   engagement?: ReactNode;
+  closeAriaLabel?: string;
 }) {
   const last = photos.length - 1;
   const [wasOpen, setWasOpen] = useState(open);
@@ -59,6 +66,11 @@ export function FeedPhotoEnlargeScreen({
   const skipSnapRef = useRef(false);
   const prevOpenRef = useRef(open);
   const indexRef = useRef(index);
+  const quietHeading = quiet ? <></> : heading;
+  const quietClose = closeAriaLabel ?? (quiet ? 'Close photo' : 'Back from photo');
+  const slideClass = quiet
+    ? 'feed-photo-slide feed-photo-slide--quiet'
+    : 'feed-photo-slide';
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -171,9 +183,10 @@ export function FeedPhotoEnlargeScreen({
       onClose={() => onOpenChange(false)}
       title={title}
       subtitle={subtitle?.trim() || undefined}
-      closeAriaLabel="Back from photo"
+      heading={quietHeading}
+      closeAriaLabel={quietClose}
       zIndex={SCARCE_Z.listenShell}
-      className="feed-photo-slide"
+      className={slideClass}
       contentClassName="feed-photo-slide-body"
     >
       <div className="feed-photo-listen">

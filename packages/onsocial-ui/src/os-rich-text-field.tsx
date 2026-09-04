@@ -7,6 +7,7 @@ import {
   type FocusEventHandler,
   type Ref,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import {
@@ -60,6 +61,12 @@ export function OsRichTextField({
   maxLength,
   editorRef,
   tools = DEFAULT_TOOLS,
+  /**
+   * Mount B / I / list / heading chrome into another node (e.g. sheet header
+   * toolbar) so formatting stays reachable while the body scrolls.
+   * `undefined` = inline chrome; `null` = waiting for host; element = portal.
+   */
+  chromePortal,
   rows = 1,
   className,
   disabled = false,
@@ -73,6 +80,7 @@ export function OsRichTextField({
   maxLength?: number;
   editorRef?: Ref<HTMLDivElement>;
   tools?: readonly OsRichTextTool[];
+  chromePortal?: HTMLElement | null;
   rows?: number;
   className?: string;
   disabled?: boolean;
@@ -92,6 +100,7 @@ export function OsRichTextField({
   const showItalic = tools.includes('italic');
   const showList = tools.includes('list');
   const showHeading = tools.includes('heading');
+  const showChrome = showBold || showItalic || showList || showHeading;
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -108,9 +117,10 @@ export function OsRichTextField({
         codeBlock: false,
         horizontalRule: false,
         strike: false,
-        // Keep bold/italic even if toolbar hides them (paste / shortcuts).
-        bold: showBold ? undefined : false,
-        italic: showItalic ? undefined : false,
+        // Marks stay on for paste / shortcuts even when the toolbar is hidden
+        // (face bio is plain field + marks, no chrome).
+        bold: undefined,
+        italic: undefined,
       }),
     ],
     content: markdownToEditorHtml(value),
@@ -123,6 +133,14 @@ export function OsRichTextField({
         ...(placeholder ? { 'data-placeholder': placeholder } : {}),
         style: `min-height: calc(0.84rem * 1.45 * ${Math.max(1, rows)})`,
       },
+      transformPastedHTML: (html) =>
+        html
+          .replace(/^(?:<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>\s*)+/i, '')
+          .replace(/(?:<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>\s*)+$/i, '')
+          .replace(
+            /(?:<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>\s*){2,}/gi,
+            '<p><br></p>'
+          ),
       handleDOMEvents: {
         focus: (_view, event) => {
           onFocusRef.current?.(event as unknown as FocusEvent<HTMLDivElement>);
@@ -135,11 +153,14 @@ export function OsRichTextField({
       },
     },
     onUpdate: ({ editor: current }) => {
-      const md = htmlToMarkdown(current.getHTML());
+      let md = htmlToMarkdown(current.getHTML());
       const limit = maxLengthRef.current;
       if (limit != null && md.length > limit) {
-        current.commands.undo();
-        return;
+        // Undo is unreliable (IME / history) — hard truncate and resync.
+        md = md.slice(0, limit);
+        current.commands.setContent(markdownToEditorHtml(md), {
+          emitUpdate: false,
+        });
       }
       lastEmittedRef.current = md;
       onChangeRef.current(md);
@@ -184,6 +205,81 @@ export function OsRichTextField({
     editor.view.focus();
   };
 
+  const chrome = showChrome ? (
+    <div
+      className={`account-editor-bio-chrome${
+        chromePortal ? ' account-editor-bio-chrome--portal' : ''
+      }`}
+    >
+      {showBold ? (
+        <button
+          type="button"
+          className={`account-editor-bio-tool account-editor-bio-bold${active?.bold ? ' is-active' : ''}`}
+          aria-label="Bold"
+          aria-pressed={Boolean(active?.bold)}
+          disabled={disabled || !editor}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() =>
+            runTool(() => editor!.chain().focus().toggleBold().run())
+          }
+        >
+          B
+        </button>
+      ) : null}
+      {showItalic ? (
+        <button
+          type="button"
+          className={`account-editor-bio-tool account-editor-bio-italic${active?.italic ? ' is-active' : ''}`}
+          aria-label="Italic"
+          aria-pressed={Boolean(active?.italic)}
+          disabled={disabled || !editor}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() =>
+            runTool(() => editor!.chain().focus().toggleItalic().run())
+          }
+        >
+          <em>I</em>
+        </button>
+      ) : null}
+      {showList ? (
+        <button
+          type="button"
+          className={`account-editor-bio-tool account-editor-bio-list${active?.list ? ' is-active' : ''}`}
+          aria-label="List"
+          aria-pressed={Boolean(active?.list)}
+          disabled={disabled || !editor}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() =>
+            runTool(() => editor!.chain().focus().toggleBulletList().run())
+          }
+        >
+          •
+        </button>
+      ) : null}
+      {showHeading ? (
+        <button
+          type="button"
+          className={`account-editor-bio-tool${active?.heading ? ' is-active' : ''}`}
+          aria-label="Heading"
+          aria-pressed={Boolean(active?.heading)}
+          disabled={disabled || !editor}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() =>
+            runTool(() =>
+              editor!.chain().focus().toggleHeading({ level: 3 }).run()
+            )
+          }
+        >
+          H
+        </button>
+      ) : null}
+    </div>
+  ) : null;
+
+  // `undefined` = inline chrome; `null` = waiting for portal host; element = portal.
+  const usePortalChrome = chromePortal !== undefined;
+  const portalHost = chromePortal ?? null;
+
   return (
     <div
       ref={shellRef}
@@ -192,71 +288,15 @@ export function OsRichTextField({
           ? `account-editor-bio-shell ${className}`
           : 'account-editor-bio-shell'
       }
+      data-chrome={showChrome && !usePortalChrome ? 'true' : 'false'}
     >
-      <div className="account-editor-bio-chrome">
-        {showBold ? (
-          <button
-            type="button"
-            className={`account-editor-bio-tool account-editor-bio-bold${active?.bold ? ' is-active' : ''}`}
-            aria-label="Bold"
-            aria-pressed={Boolean(active?.bold)}
-            disabled={disabled || !editor}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() =>
-              runTool(() => editor!.chain().focus().toggleBold().run())
-            }
-          >
-            B
-          </button>
-        ) : null}
-        {showItalic ? (
-          <button
-            type="button"
-            className={`account-editor-bio-tool account-editor-bio-italic${active?.italic ? ' is-active' : ''}`}
-            aria-label="Italic"
-            aria-pressed={Boolean(active?.italic)}
-            disabled={disabled || !editor}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() =>
-              runTool(() => editor!.chain().focus().toggleItalic().run())
-            }
-          >
-            <em>I</em>
-          </button>
-        ) : null}
-        {showList ? (
-          <button
-            type="button"
-            className={`account-editor-bio-tool account-editor-bio-list${active?.list ? ' is-active' : ''}`}
-            aria-label="List"
-            aria-pressed={Boolean(active?.list)}
-            disabled={disabled || !editor}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() =>
-              runTool(() => editor!.chain().focus().toggleBulletList().run())
-            }
-          >
-            •
-          </button>
-        ) : null}
-        {showHeading ? (
-          <button
-            type="button"
-            className={`account-editor-bio-tool${active?.heading ? ' is-active' : ''}`}
-            aria-label="Heading"
-            aria-pressed={Boolean(active?.heading)}
-            disabled={disabled || !editor}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() =>
-              runTool(() =>
-                editor!.chain().focus().toggleHeading({ level: 3 }).run()
-              )
-            }
-          >
-            H
-          </button>
-        ) : null}
-      </div>
+      {chrome
+        ? usePortalChrome
+          ? portalHost
+            ? createPortal(chrome, portalHost)
+            : null
+          : chrome
+        : null}
       <EditorContent editor={editor} />
     </div>
   );

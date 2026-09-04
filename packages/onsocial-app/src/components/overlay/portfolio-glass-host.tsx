@@ -129,7 +129,7 @@ function PortfolioGlassSheetFrame({
   }, [overlayPresent, requestDismiss, sheetOpen]);
 
   return (
-    <OsPageSheet
+        <OsPageSheet
       open={sheetOpen}
       onClose={requestDismiss}
       onClosed={onClosed}
@@ -140,6 +140,10 @@ function PortfolioGlassSheetFrame({
       ariaLabelledBy="overlay-title"
       backdropLabel="Close panel"
       bodyRef={scrollBodyRef}
+      keepDock={panelKey === 'about'}
+      panelClassName={
+        panelKey === 'about' ? 'portfolio-about-sheet-panel' : undefined
+      }
       header={<OverlayGlassHeader panelKey={panelKey} />}
       {...(faceMood.moodId ? { moodId: faceMood.moodId } : {})}
       {...(faceMood.style ? { moodStyle: faceMood.style } : {})}

@@ -636,6 +636,22 @@ function pushMarkdownBlock(blocks: string[], text: string) {
   blocks.push(cleaned);
 }
 
+/** Drop leading empties; keep at most one blank line between / after content. */
+function collapseEmptyMarkdownBlocks(blocks: string[]): string[] {
+  const out: string[] = [];
+  for (const block of blocks) {
+    const empty = !block.replace(/\n/g, '').trim();
+    if (empty) {
+      if (out.length === 0) continue;
+      if (out[out.length - 1] === '') continue;
+      out.push('');
+      continue;
+    }
+    out.push(block);
+  }
+  return out;
+}
+
 /** Contenteditable HTML → profile bio markdown. */
 export function profileBioHtmlToMarkdown(root: ParentNode): string {
   const blocks: string[] = [];
@@ -705,7 +721,9 @@ export function profileBioHtmlToMarkdown(root: ParentNode): string {
 
   // Single `\n` so each contenteditable block maps to one face line (Enter),
   // not a double-spaced paragraph gap that blows the 4-line face budget.
-  return blocks.join('\n');
+  // Collapse paste/Word empty paragraphs so the face field does not grow a
+  // screen of blank lines.
+  return collapseEmptyMarkdownBlocks(blocks).join('\n');
 }
 
 function toggleProfileBioLinePrefix(
