@@ -63,6 +63,10 @@ const PACKAGE_CHECKS = [
 const WORKSPACE_DEPENDENCIES = {
   '@onsocial/sdk': ['@onsocial/text-card'],
   '@onsocial/ui': ['@onsocial/sdk'],
+  'onsocial-backend': ['@onsocial/rpc'],
+  'onsocial-gateway': ['@onsocial/rpc', '@onsocial/text-card'],
+  '@onsocial/portal': ['@onsocial/sdk', '@onsocial/ui', '@onsocial/rpc'],
+  '@onsocial/app': ['@onsocial/sdk', '@onsocial/ui'],
 };
 
 // Monitored workspace packages that depend on other monitored packages.
