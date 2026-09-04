@@ -23,9 +23,9 @@ describe('normalizeProfileAboutAlign', () => {
 
 describe('profileAboutAlignFromMaterialised', () => {
   it('reads aboutAlign and soft-reads extra', () => {
-    expect(
-      profileAboutAlignFromMaterialised({ aboutAlign: 'center' })
-    ).toBe('center');
+    expect(profileAboutAlignFromMaterialised({ aboutAlign: 'center' })).toBe(
+      'center'
+    );
     expect(
       profileAboutAlignFromMaterialised({
         extra: { aboutAlign: 'justify' },

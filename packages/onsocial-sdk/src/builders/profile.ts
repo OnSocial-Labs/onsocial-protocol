@@ -58,8 +58,7 @@ export function buildProfileSetData(profile: ProfileData): SocialSetData {
     } else {
       const normalized = normalizeProfileAboutAlign(profile.aboutAlign);
       // Store only non-default so sparse profiles stay quiet.
-      data['profile/aboutAlign'] =
-        normalized === 'left' ? null : normalized;
+      data['profile/aboutAlign'] = normalized === 'left' ? null : normalized;
     }
   }
   if (profile.location !== undefined) {
