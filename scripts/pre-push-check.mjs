@@ -10,6 +10,7 @@
 import { execSync } from 'node:child_process';
 
 // Dependency order: libraries first, then services/apps that import them.
+// Keep @onsocial/sdk before @onsocial/ui — ui imports TipTap helpers from sdk.
 const PACKAGE_CHECKS = [
   {
     name: '@onsocial/rpc',
@@ -22,14 +23,14 @@ const PACKAGE_CHECKS = [
     command: 'pnpm --filter @onsocial/text-card run check',
   },
   {
-    name: '@onsocial/ui',
-    paths: ['packages/onsocial-ui/'],
-    command: 'pnpm --filter @onsocial/ui run check',
-  },
-  {
     name: '@onsocial/sdk',
     paths: ['packages/onsocial-sdk/'],
     command: 'pnpm --filter @onsocial/sdk run check',
+  },
+  {
+    name: '@onsocial/ui',
+    paths: ['packages/onsocial-ui/'],
+    command: 'pnpm --filter @onsocial/ui run check',
   },
   {
     name: 'onsocial-backend',
@@ -58,11 +59,17 @@ const PACKAGE_CHECKS = [
   },
 ];
 
+// Upstream workspace libs that must be built/checked before a package (dist is gitignored).
+const WORKSPACE_DEPENDENCIES = {
+  '@onsocial/sdk': ['@onsocial/text-card'],
+  '@onsocial/ui': ['@onsocial/sdk'],
+};
+
 // Monitored workspace packages that depend on other monitored packages.
 const WORKSPACE_DEPENDENTS = {
   '@onsocial/rpc': ['onsocial-backend', 'onsocial-gateway', '@onsocial/portal'],
   '@onsocial/text-card': ['@onsocial/sdk', 'onsocial-gateway'],
-  '@onsocial/sdk': ['@onsocial/portal', '@onsocial/app'],
+  '@onsocial/sdk': ['@onsocial/ui', '@onsocial/portal', '@onsocial/app'],
   '@onsocial/ui': ['@onsocial/portal', '@onsocial/app'],
 };
 
@@ -128,21 +135,17 @@ function shouldExpandDependents() {
   );
 }
 
-function expandWithDependents(changedPackageNames) {
-  if (!shouldExpandDependents()) {
-    return new Set(changedPackageNames);
-  }
-
-  const expanded = new Set(changedPackageNames);
+function expandClosure(seedNames, edges) {
+  const expanded = new Set(seedNames);
   let added = true;
 
   while (added) {
     added = false;
 
     for (const packageName of expanded) {
-      for (const dependent of WORKSPACE_DEPENDENTS[packageName] ?? []) {
-        if (!expanded.has(dependent)) {
-          expanded.add(dependent);
+      for (const related of edges[packageName] ?? []) {
+        if (!expanded.has(related)) {
+          expanded.add(related);
           added = true;
         }
       }
@@ -152,15 +155,37 @@ function expandWithDependents(changedPackageNames) {
   return expanded;
 }
 
+function expandWithDependents(changedPackageNames) {
+  if (!shouldExpandDependents()) {
+    return new Set(changedPackageNames);
+  }
+
+  return expandClosure(changedPackageNames, WORKSPACE_DEPENDENTS);
+}
+
+/** Always pull in upstream workspace libs so tsc can resolve gitignored dist/. */
+function expandWithDependencies(packageNames) {
+  return expandClosure(packageNames, WORKSPACE_DEPENDENCIES);
+}
+
 function getAffectedPackages(changedFiles) {
   const directlyChanged = getDirectlyChangedPackages(changedFiles);
-  const expandedNames = expandWithDependents(directlyChanged);
+  const withDependents = expandWithDependents(directlyChanged);
+  const expandedNames = expandWithDependencies(withDependents);
 
   return PACKAGE_CHECKS.filter((pkg) => expandedNames.has(pkg.name)).map(
-    (pkg) => ({
-      ...pkg,
-      reason: directlyChanged.has(pkg.name) ? 'changed' : 'dependent',
-    })
+    (pkg) => {
+      let reason = 'dependency';
+      if (directlyChanged.has(pkg.name)) {
+        reason = 'changed';
+      } else if (withDependents.has(pkg.name)) {
+        reason = 'dependent';
+      }
+      return {
+        ...pkg,
+        reason,
+      };
+    }
   );
 }
 
@@ -229,12 +254,18 @@ function main() {
   const dependents = affected
     .filter((pkg) => pkg.reason === 'dependent')
     .map((pkg) => pkg.name);
+  const dependencies = affected
+    .filter((pkg) => pkg.reason === 'dependency')
+    .map((pkg) => pkg.name);
 
   if (changed.length > 0) {
     console.log(`Changed packages: ${changed.join(', ')}`);
   }
   if (dependents.length > 0) {
     console.log(`Dependent packages: ${dependents.join(', ')}`);
+  }
+  if (dependencies.length > 0) {
+    console.log(`Dependency packages: ${dependencies.join(', ')}`);
   }
   if (checkSubstreamsSql) {
     console.log('Changed: indexers/substreams SQL schema / migrations');
@@ -244,7 +275,12 @@ function main() {
   }
 
   for (const pkg of affected) {
-    const label = pkg.reason === 'dependent' ? ' (dependent)' : '';
+    const label =
+      pkg.reason === 'dependent'
+        ? ' (dependent)'
+        : pkg.reason === 'dependency'
+          ? ' (dependency)'
+          : '';
     console.log(`\n=== ${pkg.name}${label} ===`);
     run(pkg.command);
   }
