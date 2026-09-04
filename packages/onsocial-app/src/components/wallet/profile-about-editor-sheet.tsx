@@ -50,7 +50,7 @@ export function ProfileAboutEditorSheet({
   moodStyle?: CSSProperties;
 }) {
   const formId = useId();
-  const aboutBioRef = useRef<HTMLTextAreaElement>(null);
+  const aboutBioRef = useRef<HTMLDivElement>(null);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
   const facePreview = profileBioFace(faceBio);
   const aboutLen = aboutBio.trim().length;
@@ -60,7 +60,8 @@ export function ProfileAboutEditorSheet({
     if (!open) return;
     const el = aboutBioRef.current;
     if (!el) return;
-    el.style.height = '0px';
+    // Never collapse contenteditable height to 0 — Chrome jumps the caret.
+    el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
   }, [aboutBio, open]);
 
