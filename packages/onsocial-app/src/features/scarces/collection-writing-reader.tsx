@@ -74,7 +74,7 @@ export function CollectionWritingReader({
     dragged: boolean;
   } | null>(null);
   const userScrollArmedRef = useRef(false);
-  const ignoreChromeTapUntilRef = useRef(0);
+  const ignoreChromeTapRef = useRef(false);
   const chromeTapTimerRef = useRef(0);
   const [dragDx, setDragDx] = useState(0);
   const [turnAnim, setTurnAnim] = useState<
@@ -288,7 +288,10 @@ export function CollectionWritingReader({
   };
 
   const turnFromGesture = (direction: 'next' | 'prev') => {
-    ignoreChromeTapUntilRef.current = Date.now() + 500;
+    ignoreChromeTapRef.current = true;
+    window.setTimeout(() => {
+      ignoreChromeTapRef.current = false;
+    }, 500);
     const { atStart, atEnd } = scrollEnds();
     if (chapterIsPdf && direction === 'next' && !atEnd) {
       bodyRef.current?.scrollBy({
@@ -367,10 +370,7 @@ export function CollectionWritingReader({
     }
     if (start.zone === 'chrome') {
       setDragDx(0);
-      if (
-        !start.dragged &&
-        Date.now() >= ignoreChromeTapUntilRef.current
-      ) {
+      if (!start.dragged && !ignoreChromeTapRef.current) {
         chromeTapTimerRef.current = window.setTimeout(() => {
           chromeTapTimerRef.current = 0;
           onChromeTap?.();
@@ -402,7 +402,7 @@ export function CollectionWritingReader({
     }
     if (!tap || tap.dragged || tap.zone !== 'chrome') return;
     if (turningRef.current) return;
-    if (Date.now() < ignoreChromeTapUntilRef.current) return;
+    if (ignoreChromeTapRef.current) return;
     if (window.getSelection()?.toString().trim()) return;
     onChromeTap?.();
   };
