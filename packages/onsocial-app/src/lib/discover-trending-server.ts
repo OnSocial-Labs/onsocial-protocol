@@ -45,6 +45,7 @@ export type DiscoverTrendingHub = {
   title: string | null;
   bannerUrl?: string | null;
   markUrl?: string | null;
+  lastActivityTimestamp?: number | null;
 };
 
 export type DiscoverTrendingSeed = {

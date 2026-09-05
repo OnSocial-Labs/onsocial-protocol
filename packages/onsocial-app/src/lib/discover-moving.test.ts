@@ -108,20 +108,20 @@ describe('discover-moving', () => {
       excludeMovingHubsAlreadySold(
         [
           { appId: 'radio.near', title: 'Night Radio' },
-          { appId: 'press.near', title: 'Quiet Press' },
+          { appId: 'other.near', title: 'Other hub' },
         ],
         [{ appId: 'radio.near', title: 'Dawn folio' }]
       ).map((row) => row.appId)
-    ).toEqual(['press.near']);
+    ).toEqual(['other.near']);
     expect(
       excludeMovingHubsAlreadySold(
         [
           { appId: 'radio.near', title: 'Night Radio' },
-          { appId: 'press.near', title: 'Quiet Press' },
+          { appId: 'other.near', title: 'Other hub' },
         ],
         [{ appId: null, title: 'Night Radio' }]
       ).map((row) => row.appId)
-    ).toEqual(['press.near']);
+    ).toEqual(['other.near']);
   });
 
   it('keeps the first post time per author', () => {

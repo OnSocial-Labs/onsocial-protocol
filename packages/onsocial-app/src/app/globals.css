@@ -11716,6 +11716,7 @@ a.os-surface-row {
 
   .discover-trending-chip {
     display: inline-flex;
+    max-width: 100%;
     align-items: center;
     gap: 0.35rem;
     padding: 0.28rem 0.6rem;
@@ -11755,12 +11756,21 @@ a.os-surface-row {
   }
 
   .discover-trending-chip-count {
+    flex-shrink: 0;
     font-size: 0.68rem;
     font-weight: 550;
     color: var(--os-surface-muted-strong);
   }
 
+  .discover-trending-chip-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .discover-trending-chip-time {
+    flex-shrink: 0;
     font-size: 0.68rem;
     font-weight: 550;
     color: rgb(var(--fg-rgb) / 0.45);
@@ -12104,8 +12114,12 @@ a.os-surface-row {
   }
 
   .discover-focus-row-label {
+    min-width: 0;
+    overflow: hidden;
     font-size: 0.9rem;
     font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .discover-focus-row--ticker .discover-focus-row-label {
@@ -12187,6 +12201,7 @@ a.os-surface-row {
 
   .discover-cover-peek-copy {
     display: flex;
+    flex: 1;
     min-width: 0;
     flex-direction: column;
     gap: 0.12rem;

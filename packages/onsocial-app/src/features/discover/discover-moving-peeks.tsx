@@ -11,7 +11,6 @@ import {
   DiscoverCoverPeekListSkeleton,
   DiscoverCoverPeekSectionSkeleton,
   DiscoverTrendingChipSectionSkeleton,
-  DiscoverTrendingGuildsSectionSkeleton,
 } from '@/features/discover/discover-loading-skeleton';
 import type { DiscoverScarcePeek } from '@/features/discover/discover-scarce-peeks';
 import { communityMonogram } from '@/components/community-cards/community-monogram';
@@ -238,7 +237,7 @@ export function MovingChipPeekSection({
                 : 'discover-trending-chip'
             }
           >
-            {item.label}
+            <span className="discover-trending-chip-label">{item.label}</span>
             {item.time ? (
               <span className="discover-trending-chip-time">{item.time}</span>
             ) : item.count != null && item.count > 0 ? (
@@ -334,6 +333,9 @@ export function MovingHubPeekSection({
       <ul className="discover-cover-peeks">
         {rows.map((hub) => {
           const title = hub.title?.trim() || hub.appId;
+          const time = hub.lastActivityTimestamp
+            ? formatRelativePostTimestamp(hub.lastActivityTimestamp)
+            : null;
           return (
             <li key={hub.appId}>
               <Link href={appPath(hub.appId)} className="discover-cover-peek">
@@ -344,6 +346,9 @@ export function MovingHubPeekSection({
                 />
                 <span className="discover-cover-peek-copy">
                   <span className="discover-cover-peek-title">{title}</span>
+                  {time ? (
+                    <span className="discover-cover-peek-meta">{time}</span>
+                  ) : null}
                 </span>
               </Link>
             </li>
@@ -372,23 +377,29 @@ export function MovingProposalPeekSection({
   }> | null;
 }) {
   if (rows === null) {
-    return <DiscoverTrendingGuildsSectionSkeleton />;
+    return <DiscoverCoverPeekSectionSkeleton showSeeAll />;
   }
   if (rows.length === 0) return null;
   return (
     <section className="discover-trending-section" aria-label={heading}>
       <MovingSectionHead heading={heading} seeAll={{ href: seeAllHref }} />
-      <ul className="discover-focus-rows">
+      <ul className="discover-cover-peeks">
         {rows.slice(0, SECTION_LIMIT).map((row) => {
           const status = movingProposalMeta(row);
           const meta = [status, row.timeLabel].filter(Boolean).join(' · ');
           return (
             <li key={row.key}>
-              <Link href={row.href} className="discover-focus-row">
-                <span className="discover-focus-row-label">{row.title}</span>
-                {meta ? (
-                  <span className="discover-focus-row-meta">{meta}</span>
-                ) : null}
+              <Link href={row.href} className="discover-cover-peek">
+                <MovingCoverThumb
+                  label={row.title}
+                  seedId={row.groupId ?? row.key}
+                />
+                <span className="discover-cover-peek-copy">
+                  <span className="discover-cover-peek-title">{row.title}</span>
+                  {meta ? (
+                    <span className="discover-cover-peek-meta">{meta}</span>
+                  ) : null}
+                </span>
               </Link>
             </li>
           );

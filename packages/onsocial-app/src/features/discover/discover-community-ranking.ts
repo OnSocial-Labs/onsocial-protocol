@@ -130,7 +130,16 @@ export type RankedHubPeek = {
   title: string | null;
   bannerUrl: string | null;
   markUrl: string | null;
+  lastActivityTimestamp: number | null;
 };
+
+/** Last hub activity from scarces app stats — same clock as posts when present. */
+export function hubActivityTimestamp(
+  value: number | string | null | undefined
+): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
 
 type HubStatsRow = {
   appId: string;
@@ -222,13 +231,16 @@ export async function rankHubPeeks(
   }
 
   const out: RankedHubPeek[] = [];
-  for (const id of ids) {
+  for (const rank of ranks) {
+    const id = rank.appId?.trim();
+    if (!id) continue;
     const peek = peekById.get(id) ?? hubPeekFromMetadata(null, id);
     out.push({
       appId: id,
       title: peek.title,
       bannerUrl: peek.bannerUrl,
       markUrl: peek.markUrl,
+      lastActivityTimestamp: hubActivityTimestamp(rank.lastActivityTimestamp),
     });
     if (out.length >= peekLimit) break;
   }

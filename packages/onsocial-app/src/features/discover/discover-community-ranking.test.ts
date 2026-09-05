@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   daoCatalogRankTier,
+  hubActivityTimestamp,
   hubPeekFromMetadata,
   isOnSocialDaoAccount,
   rankDaoCatalogEntries,
@@ -22,6 +23,12 @@ describe('hubPeekFromMetadata', () => {
       markUrl: 'https://cdn.example/mark.png',
       bannerUrl: 'https://cdn.example/banner.png',
     });
+  });
+
+  it('keeps a real last-activity time and drops empty clocks', () => {
+    expect(hubActivityTimestamp(1_700_000_000)).toBe(1_700_000_000);
+    expect(hubActivityTimestamp('0')).toBeNull();
+    expect(hubActivityTimestamp(null)).toBeNull();
   });
 
   it('falls back to the hub id without metadata', () => {
