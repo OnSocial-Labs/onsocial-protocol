@@ -23,8 +23,8 @@ function inlineSvgMarkup(svg: string): string {
 }
 
 /**
- * Writing reader — title lives on the jacket once. Close sits opposite it.
- * Progress stays in the slide toolbar.
+ * Writing reader — the page is the window. Title lives on the jacket once.
+ * Close sits opposite it. Progress is a hairline on the glass.
  */
 export function WritingReadSheet({
   open,
@@ -120,11 +120,15 @@ export function WritingReadSheet({
       onClose={onClose}
       title={name}
       hideNav
+      viewport
       closeAriaLabel="Back from reader"
       zIndex={SCARCE_Z.listenShell}
       className={`scarce-read-slide${chromeQuiet ? ' is-reading-quiet' : ''}`}
       contentClassName="scarce-read-slide-body"
-      toolbar={
+    >
+      <div
+        className={`scarce-writing-read${chromeQuiet ? ' is-chrome-quiet' : ''}`}
+      >
         <div
           className="scarce-writing-read-progress"
           role="progressbar"
@@ -139,11 +143,6 @@ export function WritingReadSheet({
             style={{ width: `${progressPct}%` }}
           />
         </div>
-      }
-    >
-      <div
-        className={`scarce-writing-read${chromeQuiet ? ' is-chrome-quiet' : ''}`}
-      >
         <div className="scarce-writing-read-hero">
           <div className="scarce-writing-read-mast">
             <div className="scarce-writing-read-art">

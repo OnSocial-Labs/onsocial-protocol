@@ -55,6 +55,11 @@ export interface OsSlideOverScreenProps {
    * Use when the sheet already has a title and close in the body.
    */
   hideNav?: boolean;
+  /**
+   * Mount on the window (`document.body`), not the OS phone card.
+   * Reading should use the glass — browser and PWA already have navigation.
+   */
+  viewport?: boolean;
   toolbar?: ReactNode;
   footer?: ReactNode;
   children: ReactNode;
@@ -97,6 +102,7 @@ export function OsSlideOverScreen({
   actions,
   heading,
   hideNav = false,
+  viewport = false,
   toolbar,
   footer,
   children,
@@ -228,7 +234,11 @@ export function OsSlideOverScreen({
   if (!mounted || !renderOpen) return null;
 
   const portalHost =
-    typeof document !== 'undefined' ? (registeredHost ?? document.body) : null;
+    typeof document !== 'undefined'
+      ? viewport || !registeredHost
+        ? document.body
+        : registeredHost
+      : null;
   if (!portalHost) return null;
 
   const rootStyle: CSSProperties = {
@@ -250,6 +260,7 @@ export function OsSlideOverScreen({
       data-screen-footer={hasFooter ? 'true' : undefined}
       data-os-slide-over="true"
       data-hide-nav={hideNav ? 'true' : undefined}
+      data-viewport={viewport ? 'true' : undefined}
       data-mood={hasMood ? resolvedMoodId! : undefined}
       role="dialog"
       aria-modal="true"
