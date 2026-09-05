@@ -9,7 +9,9 @@
  */
 
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useId,
   useLayoutEffect,
@@ -34,6 +36,13 @@ const getClientMountedSnapshot = () => true;
 const getServerMountedSnapshot = () => false;
 const SLIDE_MS = 280;
 
+const OsSlideOverCloseContext = createContext<(() => void) | null>(null);
+
+/** Same close as the slide × and Escape — use when the jacket owns the X. */
+export function useOsSlideOverClose(): (() => void) | null {
+  return useContext(OsSlideOverCloseContext);
+}
+
 export interface OsSlideOverScreenProps {
   open: boolean;
   onClose: () => void;
@@ -50,6 +59,16 @@ export interface OsSlideOverScreenProps {
   actions?: ReactNode;
   /** Replaces the default title/subtitle block (keep `title` for screen readers). */
   heading?: ReactNode;
+  /**
+   * Hide the nav row (close + title). Keep `title` for the dialog name.
+   * Use when the sheet already has a title and close in the body.
+   */
+  hideNav?: boolean;
+  /**
+   * Mount on the window (`document.body`), not the OS phone card.
+   * Reading should use the glass — browser and PWA already have navigation.
+   */
+  viewport?: boolean;
   toolbar?: ReactNode;
   footer?: ReactNode;
   children: ReactNode;
@@ -91,6 +110,8 @@ export function OsSlideOverScreen({
   subtitle,
   actions,
   heading,
+  hideNav = false,
+  viewport = false,
   toolbar,
   footer,
   children,
@@ -207,7 +228,7 @@ export function OsSlideOverScreen({
       body.removeEventListener('scroll', syncElevated);
       screen?.style.removeProperty('--os-screen-chrome-height');
     };
-  }, [renderOpen, toolbar, subtitle, heading]);
+  }, [renderOpen, toolbar, subtitle, heading, hideNav]);
 
   const setBodyRef = useCallback(
     (node: HTMLElement | null) => {
@@ -222,7 +243,11 @@ export function OsSlideOverScreen({
   if (!mounted || !renderOpen) return null;
 
   const portalHost =
-    typeof document !== 'undefined' ? (registeredHost ?? document.body) : null;
+    typeof document !== 'undefined'
+      ? viewport || !registeredHost
+        ? document.body
+        : registeredHost
+      : null;
   if (!portalHost) return null;
 
   const rootStyle: CSSProperties = {
@@ -232,6 +257,7 @@ export function OsSlideOverScreen({
   };
 
   return createPortal(
+    <OsSlideOverCloseContext.Provider value={requestClose}>
     <div
       className={`os-app-screen app-surface os-slide-over${
         entered && !closing ? ' is-open' : ''
@@ -243,6 +269,8 @@ export function OsSlideOverScreen({
       data-glass-chrome={immersiveHeader ? undefined : 'true'}
       data-screen-footer={hasFooter ? 'true' : undefined}
       data-os-slide-over="true"
+      data-hide-nav={hideNav ? 'true' : undefined}
+      data-viewport={viewport ? 'true' : undefined}
       data-mood={hasMood ? resolvedMoodId! : undefined}
       role="dialog"
       aria-modal="true"
@@ -256,40 +284,46 @@ export function OsSlideOverScreen({
             immersiveHeader ? '' : glassElevated ? ' is-elevated' : ''
           }`}
         >
-          <div className="os-app-screen-nav-row">
-            <OsIconAction
-              ariaLabel={closeAriaLabel}
-              disabled={closeDisabled}
-              onClick={requestClose}
-            >
-              <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
-            </OsIconAction>
-            <div className="os-app-screen-heading">
-              {heading ? (
-                <>
-                  <h1 id={titleId} className="sr-only">
-                    {title}
-                  </h1>
-                  {subtitle ? (
-                    <p className="sr-only">{subtitle}</p>
-                  ) : null}
-                  {heading}
-                </>
-              ) : (
-                <>
-                  <h1 id={titleId} className="os-app-screen-title">
-                    {title}
-                  </h1>
-                  {subtitle ? (
-                    <p className="os-app-screen-subtitle">{subtitle}</p>
-                  ) : null}
-                </>
-              )}
+          {hideNav ? (
+            <h1 id={titleId} className="sr-only">
+              {title}
+            </h1>
+          ) : (
+            <div className="os-app-screen-nav-row">
+              <OsIconAction
+                ariaLabel={closeAriaLabel}
+                disabled={closeDisabled}
+                onClick={requestClose}
+              >
+                <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
+              </OsIconAction>
+              <div className="os-app-screen-heading">
+                {heading ? (
+                  <>
+                    <h1 id={titleId} className="sr-only">
+                      {title}
+                    </h1>
+                    {subtitle ? (
+                      <p className="sr-only">{subtitle}</p>
+                    ) : null}
+                    {heading}
+                  </>
+                ) : (
+                  <>
+                    <h1 id={titleId} className="os-app-screen-title">
+                      {title}
+                    </h1>
+                    {subtitle ? (
+                      <p className="os-app-screen-subtitle">{subtitle}</p>
+                    ) : null}
+                  </>
+                )}
+              </div>
+              {actions ? (
+                <div className="os-app-screen-actions">{actions}</div>
+              ) : null}
             </div>
-            {actions ? (
-              <div className="os-app-screen-actions">{actions}</div>
-            ) : null}
-          </div>
+          )}
           {toolbar ? (
             <div className="os-app-screen-toolbar">{toolbar}</div>
           ) : null}
@@ -309,7 +343,8 @@ export function OsSlideOverScreen({
           </div>
         ) : null}
       </div>
-    </div>,
+    </div>
+    </OsSlideOverCloseContext.Provider>,
     portalHost
   );
 }

@@ -29,6 +29,7 @@
     "@ref-finance/ref-sdk": "^1.5.0",
     "fflate": "^0.8.3",
     "next": "^16.2.9",
+    "pdfjs-dist": "4.10.38",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-markdown": "^10.1.0",

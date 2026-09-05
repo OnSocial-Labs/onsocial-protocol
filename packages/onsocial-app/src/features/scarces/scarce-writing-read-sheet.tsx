@@ -7,7 +7,11 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { MultiplyIcon, OsIconAction } from '@onsocial/ui';
+import {
+  OsSlideOverScreen,
+  useOsSlideOverClose,
+} from '@/components/app/os-slide-over-screen';
 import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
 import type {
   ScarceReadableMedia,
@@ -21,9 +25,22 @@ function inlineSvgMarkup(svg: string): string {
   return svg.replace(/^<\?xml[^>]*>\s*/i, '');
 }
 
+function WritingReadClose() {
+  const requestClose = useOsSlideOverClose();
+  return (
+    <OsIconAction
+      className="scarce-writing-read-close"
+      ariaLabel="Back from reader"
+      onClick={() => requestClose?.()}
+    >
+      <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
+    </OsIconAction>
+  );
+}
+
 /**
- * Writing reader — same OsSlideOverScreen chrome as Listen / Pass.
- * Back lives in the OS nav row, clipped to the phone card.
+ * Writing reader — the page is the window. Title lives on the jacket once.
+ * Close sits opposite it. Progress is a hairline on the glass.
  */
 export function WritingReadSheet({
   open,
@@ -79,6 +96,11 @@ export function WritingReadSheet({
     setChromeQuiet(false);
   }, [clearQuietTimer]);
 
+  const onChromeTap = useCallback(() => {
+    clearQuietTimer();
+    setChromeQuiet((quiet) => !quiet);
+  }, [clearQuietTimer]);
+
   const onReadingProgress = useCallback((ratio: number) => {
     setScrollRatio(ratio);
   }, []);
@@ -113,12 +135,16 @@ export function WritingReadSheet({
       open={open}
       onClose={onClose}
       title={name}
-      subtitle="Read"
+      hideNav
+      viewport
       closeAriaLabel="Back from reader"
       zIndex={SCARCE_Z.listenShell}
-      className="scarce-read-slide"
+      className={`scarce-read-slide${chromeQuiet ? ' is-reading-quiet' : ''}`}
       contentClassName="scarce-read-slide-body"
-      toolbar={
+    >
+      <div
+        className={`scarce-writing-read${chromeQuiet ? ' is-chrome-quiet' : ''}`}
+      >
         <div
           className="scarce-writing-read-progress"
           role="progressbar"
@@ -126,42 +152,36 @@ export function WritingReadSheet({
           aria-valuemax={100}
           aria-valuenow={progressPct}
           aria-label="Reading progress"
+          onPointerDown={wakeChrome}
         >
           <span
             className="scarce-writing-read-progress-fill"
             style={{ width: `${progressPct}%` }}
           />
         </div>
-      }
-    >
-      <div
-        className={`scarce-writing-read${chromeQuiet ? ' is-chrome-quiet' : ''}`}
-        onPointerDownCapture={wakeChrome}
-      >
         <div className="scarce-writing-read-hero">
-          <div className="scarce-writing-read-art">
+          <div className="scarce-writing-read-mast">
             {inlineSvg && !rasterCover ? (
-              <div
-                className="scarce-writing-read-cover scarce-writing-read-cover--svg"
-                dangerouslySetInnerHTML={{ __html: inlineSvg }}
-              />
+              <div className="scarce-writing-read-art">
+                <div
+                  className="scarce-writing-read-cover scarce-writing-read-cover--svg"
+                  dangerouslySetInnerHTML={{ __html: inlineSvg }}
+                />
+              </div>
             ) : rasterCover ? (
-              <img
-                src={rasterCover}
-                alt=""
-                className="scarce-writing-read-cover"
-              />
-            ) : (
-              <div
-                className="scarce-writing-read-cover scarce-writing-read-cover--empty"
-                aria-hidden
-              />
-            )}
+              <div className="scarce-writing-read-art">
+                <img
+                  src={rasterCover}
+                  alt=""
+                  className="scarce-writing-read-cover"
+                />
+              </div>
+            ) : null}
+            <div className="scarce-writing-read-copy">
+              <p className="scarce-writing-read-title">{name}</p>
+            </div>
           </div>
-          <div className="scarce-writing-read-copy">
-            <p className="scarce-writing-read-eyebrow">Read</p>
-            <p className="scarce-writing-read-title">{name}</p>
-          </div>
+          <WritingReadClose />
         </div>
 
         <div className="scarce-writing-read-body">
@@ -177,6 +197,7 @@ export function WritingReadSheet({
               immersive
               onProgress={onReadingProgress}
               onScrollDelta={onReadingScroll}
+              onChromeTap={onChromeTap}
             />
           ) : (
             <p className="scarce-feed-medium-empty">

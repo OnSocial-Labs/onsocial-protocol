@@ -426,3 +426,212 @@ export function writeWritingScrollRatio(
     // ignore
   }
 }
+
+function clampUnit(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value));
+}
+
+/** Whole Issue / Book progress 0–1 (chapter index + work inside that chapter). */
+export function writingObjectProgress(opts: {
+  chapterIndex: number;
+  chapterCount: number;
+  chapterRatio?: number;
+}): number {
+  const count = Math.max(0, Math.floor(opts.chapterCount));
+  if (count <= 0) return 0;
+  const index = Math.min(
+    count - 1,
+    Math.max(0, Math.floor(opts.chapterIndex))
+  );
+  return (index + clampUnit(opts.chapterRatio ?? 0)) / count;
+}
+
+/** Progress inside a paged PDF (page index + work on that page). */
+export function writingPdfPageProgress(opts: {
+  pageIndex: number;
+  pageCount: number;
+  pageRatio?: number;
+}): number {
+  return writingObjectProgress({
+    chapterIndex: opts.pageIndex,
+    chapterCount: opts.pageCount,
+    chapterRatio: opts.pageRatio,
+  });
+}
+
+const SWIPE_MIN_PX = 56;
+const SWIPE_AXIS_BIAS = 1.35;
+const TURN_COMMIT_RATIO = 0.18;
+const TURN_EDGE_RATIO = 0.2;
+const TURN_RESIST = 0.22;
+const PINCH_MIN = 1;
+const PINCH_MAX = 2.25;
+
+/** Horizontal swipe that is not a vertical scroll. */
+export function writingSwipeDirection(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  opts?: { minPx?: number; axisBias?: number }
+): 'next' | 'prev' | null {
+  const minPx = opts?.minPx ?? SWIPE_MIN_PX;
+  const axisBias = opts?.axisBias ?? SWIPE_AXIS_BIAS;
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return null;
+  if (Math.abs(dx) < minPx) return null;
+  if (Math.abs(dx) < Math.abs(dy) * axisBias) return null;
+  return dx < 0 ? 'next' : 'prev';
+}
+
+/** Drag offset with end-of-book rubber-band. */
+export function writingRubberBandOffset(opts: {
+  dx: number;
+  width: number;
+  canPrev: boolean;
+  canNext: boolean;
+  resist?: number;
+}): number {
+  const width = Math.max(1, opts.width);
+  const resist = opts.resist ?? TURN_RESIST;
+  let dx = opts.dx;
+  if (!Number.isFinite(dx)) return 0;
+  if (dx > 0 && !opts.canPrev) dx *= resist;
+  if (dx < 0 && !opts.canNext) dx *= resist;
+  return Math.max(-width, Math.min(width, dx));
+}
+
+/** Commit a dragged turn once it clears the page threshold. */
+export function writingCommitTurn(opts: {
+  dx: number;
+  width: number;
+  minPx?: number;
+  commitRatio?: number;
+}): 'next' | 'prev' | null {
+  const width = Math.max(1, opts.width);
+  const minPx = opts.minPx ?? SWIPE_MIN_PX;
+  const need = Math.max(minPx, width * (opts.commitRatio ?? TURN_COMMIT_RATIO));
+  if (!Number.isFinite(opts.dx) || Math.abs(opts.dx) < need) return null;
+  return opts.dx < 0 ? 'next' : 'prev';
+}
+
+/** Classic reader: tap the left or right fifth to turn. */
+export function writingEdgeTap(opts: {
+  x: number;
+  width: number;
+  edgeRatio?: number;
+}): 'next' | 'prev' | null {
+  const width = Math.max(1, opts.width);
+  const x = opts.x;
+  if (!Number.isFinite(x)) return null;
+  const edge = width * (opts.edgeRatio ?? TURN_EDGE_RATIO);
+  if (x <= edge) return 'prev';
+  if (x >= width - edge) return 'next';
+  return null;
+}
+
+/** Jacket collapse or a chapter swap — not a finger on the page. */
+export function writingScrollIsLayoutSnap(opts: {
+  scrollHeight: number;
+  lastScrollHeight: number;
+  clientHeight: number;
+  lastClientHeight: number;
+}): boolean {
+  if (
+    !Number.isFinite(opts.scrollHeight) ||
+    !Number.isFinite(opts.clientHeight)
+  ) {
+    return true;
+  }
+  return (
+    opts.scrollHeight !== opts.lastScrollHeight ||
+    opts.clientHeight !== opts.lastClientHeight
+  );
+}
+
+/** Edge turns the page; the middle toggles chrome. */
+export function writingReaderTap(opts: {
+  x: number;
+  width: number;
+  edgeRatio?: number;
+}): 'next' | 'prev' | 'chrome' | null {
+  if (!Number.isFinite(opts.x) || !Number.isFinite(opts.width)) return null;
+  return writingEdgeTap(opts) ?? 'chrome';
+}
+
+/**
+ * One decision for a pointer that just lifted.
+ * Center tap → chrome. Edge tap or a committed drag → turn. Anything else → none.
+ */
+export function writingPointerRelease(opts: {
+  zone: 'next' | 'prev' | 'chrome' | null;
+  dragged: boolean;
+  dx: number;
+  width: number;
+  turning?: boolean;
+  selected?: boolean;
+}): 'chrome' | 'next' | 'prev' | null {
+  if (opts.turning || opts.selected || opts.zone == null) return null;
+  if (opts.zone === 'chrome') return opts.dragged ? null : 'chrome';
+  return (
+    writingCommitTurn({ dx: opts.dx, width: opts.width }) ??
+    (opts.dragged ? null : opts.zone)
+  );
+}
+
+/** 1-based PDF pages that stay painted around the visible leaf. */
+export function writingPdfNearPages(opts: {
+  visibleIndex: number;
+  pageCount: number;
+  span?: number;
+}): number[] {
+  const count = Math.max(0, Math.floor(opts.pageCount));
+  if (count <= 0) return [];
+  const span = Math.max(0, Math.floor(opts.span ?? 2));
+  const visible = Math.min(
+    count - 1,
+    Math.max(0, Math.floor(opts.visibleIndex))
+  );
+  const start = Math.max(0, visible - span);
+  const end = Math.min(count - 1, visible + span);
+  const pages: number[] = [];
+  for (let i = start; i <= end; i += 1) pages.push(i + 1);
+  return pages;
+}
+
+/** Which stacked PDF page is in view from scroll. */
+export function writingPdfVisiblePage(opts: {
+  scrollTop: number;
+  pageTops: number[];
+}): number {
+  const tops = opts.pageTops;
+  if (tops.length === 0) return 0;
+  const y = Number.isFinite(opts.scrollTop) ? opts.scrollTop : 0;
+  let index = 0;
+  for (let i = 0; i < tops.length; i += 1) {
+    if (y + 8 >= tops[i]!) index = i;
+  }
+  return index;
+}
+
+/** Pinch scale from two-finger distance. */
+export function writingPinchScale(opts: {
+  startDistance: number;
+  currentDistance: number;
+  startScale: number;
+  min?: number;
+  max?: number;
+}): number {
+  const start = opts.startDistance;
+  if (!Number.isFinite(start) || start <= 0) {
+    return clampRange(opts.startScale, opts.min ?? PINCH_MIN, opts.max ?? PINCH_MAX);
+  }
+  const next =
+    opts.startScale * (Number.isFinite(opts.currentDistance) ? opts.currentDistance / start : 1);
+  return clampRange(next, opts.min ?? PINCH_MIN, opts.max ?? PINCH_MAX);
+}
+
+function clampRange(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}

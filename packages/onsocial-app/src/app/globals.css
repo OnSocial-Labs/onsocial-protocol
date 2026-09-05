@@ -12242,6 +12242,7 @@ a.os-surface-row {
   body:has([data-os-slide-over='true'])
     .portfolio-os-layer
     > .portfolio-summon-dock,
+  body:has(.os-slide-over[data-viewport='true']) .portfolio-summon-dock,
   body:has(.glass-sheet-root:not([data-keep-dock='true']))
     .portfolio-os-layer
     > .portfolio-summon-dock,
@@ -12258,6 +12259,9 @@ a.os-surface-row {
   body:has([data-os-slide-over='true'])
     .portfolio-os-layer
     > .portfolio-summon-dock
+    .portfolio-summon,
+  body:has(.os-slide-over[data-viewport='true'])
+    .portfolio-summon-dock
     .portfolio-summon,
   body:has(.glass-sheet-root:not([data-keep-dock='true']))
     .portfolio-os-layer
@@ -25703,15 +25707,95 @@ a.os-surface-row {
     margin-top: -0.1rem;
   }
 
-  .collection-writing-pdf {
-    display: block;
+  .collection-writing-pdf-page {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
     width: 100%;
-    min-height: 22rem;
-    height: min(70vh, 36rem);
+    max-width: var(--writing-read-measure, 34rem);
+    margin-inline: auto;
+  }
+
+  .collection-writing-pdf-folio {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    width: 100%;
+    transform-origin: top center;
+    touch-action: pan-y;
+  }
+
+  .collection-writing-pdf-leaf {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 0.2rem;
+    background: #f4efe6;
+    box-shadow:
+      0 0 0 1px rgb(0 0 0 / 0.06),
+      0 0.55rem 1.4rem rgb(0 0 0 / 0.16);
+  }
+
+  .collection-writing-pdf-leaf-slot {
+    width: 100%;
+    min-height: 12rem;
+  }
+
+  .collection-writing-pdf-canvas {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    vertical-align: top;
+  }
+
+  .collection-writing-pdf-text {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    line-height: 1;
+    user-select: text;
+    -webkit-user-select: text;
+    caret-color: transparent;
+  }
+
+  .collection-writing-pdf-text,
+  .collection-writing-pdf-text :is(span, br) {
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    background: transparent !important;
+    text-shadow: none !important;
+  }
+
+  .collection-writing-pdf-text span {
+    position: absolute;
+    white-space: pre;
+    transform-origin: 0 0;
+    cursor: text;
+  }
+
+  .collection-writing-pdf-text ::selection {
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    background: rgb(0 100 255 / 0.28);
+  }
+
+  .collection-writing-pdf-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+  }
+
+  .collection-writing-pdf-count {
     margin: 0;
-    border: 0;
-    border-radius: 0.55rem;
-    background: rgb(var(--fg-rgb) / 0.04);
+    min-width: 4.5rem;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--fg-rgb) / 0.5);
   }
 
   .collection-writing-toc-kind {
@@ -25798,7 +25882,7 @@ a.os-surface-row {
   .collection-writing.is-immersive .collection-writing-tools {
     display: flex;
     align-items: flex-start;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 0.65rem;
     min-width: 0;
   }
@@ -25874,13 +25958,46 @@ a.os-surface-row {
     opacity: 0.72;
   }
 
+  .collection-writing-toc-downloads {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.2rem 0 0.1rem;
+    border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .collection-writing.is-immersive .collection-writing-toc-downloads
+    .collection-writing-downloads {
+    opacity: 1;
+    margin: 0;
+  }
+
+  .collection-writing-download-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .collection-writing-download-copy {
+    display: none;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .collection-writing-toc-downloads .collection-writing-download-copy {
+    display: inline;
+  }
+
   .collection-writing.is-immersive .collection-writing-body {
     flex: 1;
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;
-    padding: 0.15rem 0.1rem 1.25rem;
+    padding: 0.1rem 0.05rem 1.1rem;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    transition: transform 180ms ease, opacity 180ms ease;
   }
 
   .collection-writing.is-immersive .collection-writing-toc {
@@ -25982,13 +26099,17 @@ a.os-surface-row {
   }
 
   .scarce-writing-read-progress {
-    position: relative;
-    flex-shrink: 0;
+    position: fixed;
+    top: env(safe-area-inset-top, 0px);
+    left: 0;
+    right: 0;
+    z-index: 4;
     height: 0.12rem;
-    margin: 0 -0.15rem 0.15rem;
-    border-radius: 999px;
+    margin: 0;
+    border-radius: 0;
     background: rgb(var(--fg-rgb) / 0.08);
     overflow: hidden;
+    pointer-events: auto;
   }
 
   .scarce-writing-read-progress-fill {
@@ -26008,23 +26129,140 @@ a.os-surface-row {
   .scarce-writing-read-hero {
     display: flex;
     align-items: center;
-    gap: 0.9rem;
+    justify-content: space-between;
+    gap: 0.55rem;
     min-width: 0;
     transition:
       opacity 220ms ease,
       transform 220ms ease;
   }
 
+  .scarce-writing-read-mast {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .scarce-writing-read-close {
+    flex-shrink: 0;
+    align-self: flex-start;
+  }
+
+  .scarce-read-slide[data-hide-nav='true'] .os-app-screen-header {
+    position: absolute;
+    width: 0;
+    height: 0;
+    padding: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .scarce-read-slide[data-hide-nav='true'][data-glass-chrome='true']
+    .os-app-screen-body {
+    padding-top: 0;
+    scroll-padding-top: 0;
+  }
+
+  .os-slide-over.scarce-read-slide[data-viewport='true'] {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+  }
+
+  .collection-writing-body.is-turning-drag {
+    transition: none;
+  }
+
+  .collection-writing-body.is-turn-out-next,
+  .collection-writing-body.is-turn-out-prev,
+  .collection-writing-body.is-turn-in-next,
+  .collection-writing-body.is-turn-in-prev {
+    will-change: transform, opacity;
+  }
+
+  .collection-writing-body.is-turn-out-next {
+    animation: writing-turn-out-next 200ms ease forwards;
+  }
+
+  .collection-writing-body.is-turn-out-prev {
+    animation: writing-turn-out-prev 200ms ease forwards;
+  }
+
+  .collection-writing-body.is-turn-in-next {
+    animation: writing-turn-in-next 240ms ease;
+  }
+
+  .collection-writing-body.is-turn-in-prev {
+    animation: writing-turn-in-prev 240ms ease;
+  }
+
+  @keyframes writing-turn-out-next {
+    to {
+      transform: translateX(-18%);
+      opacity: 0.2;
+    }
+  }
+
+  @keyframes writing-turn-out-prev {
+    to {
+      transform: translateX(18%);
+      opacity: 0.2;
+    }
+  }
+
+  @keyframes writing-turn-in-next {
+    from {
+      transform: translateX(16%);
+      opacity: 0.2;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+
+  @keyframes writing-turn-in-prev {
+    from {
+      transform: translateX(-16%);
+      opacity: 0.2;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+
   .scarce-writing-read.is-chrome-quiet .scarce-writing-read-top,
   .scarce-writing-read.is-chrome-quiet .scarce-writing-read-hero,
   .scarce-writing-read.is-chrome-quiet .collection-writing-tools,
   .scarce-writing-read.is-chrome-quiet .collection-writing-nav,
+  .scarce-writing-read.is-chrome-quiet .collection-writing-pdf-nav,
+  .scarce-writing-read.is-chrome-quiet .collection-writing-pdf-count,
   .scarce-writing-read.is-chrome-quiet .scarce-writing-read-footer {
-    opacity: 0.22;
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
   }
 
-  .scarce-writing-read.is-chrome-quiet .scarce-writing-read-hero {
-    transform: translateY(-0.15rem);
+  .scarce-writing-read.is-chrome-quiet .scarce-writing-read-hero,
+  .scarce-writing-read.is-chrome-quiet .collection-writing-tools,
+  .scarce-writing-read.is-chrome-quiet .collection-writing-nav,
+  .scarce-writing-read.is-chrome-quiet .collection-writing-pdf-nav,
+  .scarce-writing-read.is-chrome-quiet .collection-writing-pdf-count {
+    height: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    transform: none;
   }
 
   .scarce-writing-read-art {
@@ -26033,12 +26271,12 @@ a.os-surface-row {
 
   .scarce-writing-read-cover {
     display: block;
-    width: 3.55rem;
-    height: 5.05rem;
-    border-radius: 0.42rem;
+    width: 2.2rem;
+    height: 3.15rem;
+    border-radius: 0.28rem;
     object-fit: cover;
     background: rgb(var(--fg-rgb) / 0.08);
-    box-shadow: 0 0.45rem 1.1rem rgb(0 0 0 / 0.18);
+    box-shadow: 0 0.2rem 0.55rem rgb(0 0 0 / 0.14);
   }
 
   .scarce-writing-read-cover--svg {
@@ -26077,7 +26315,7 @@ a.os-surface-row {
 
   .scarce-writing-read-title {
     margin: 0;
-    font-size: 1.2rem;
+    font-size: 1.08rem;
     font-weight: 700;
     line-height: 1.22;
     letter-spacing: -0.015em;
@@ -26107,9 +26345,14 @@ a.os-surface-row {
     .scarce-writing-read-hero,
     .scarce-writing-read-footer,
     .scarce-writing-read-progress-fill,
-    .scarce-writing-read.is-chrome-quiet .scarce-writing-read-hero {
+    .scarce-writing-read.is-chrome-quiet .scarce-writing-read-hero,
+    .collection-writing-body.is-turn-out-next,
+    .collection-writing-body.is-turn-out-prev,
+    .collection-writing-body.is-turn-in-next,
+    .collection-writing-body.is-turn-in-prev {
       transition: none;
       transform: none;
+      animation: none;
     }
   }
 
@@ -28507,18 +28750,22 @@ a.os-surface-row {
     --writing-read-measure: min(34rem, 100%);
     display: flex;
     flex-direction: column;
-    gap: 0.7rem;
+    gap: 0.5rem;
     width: min(100%, 44rem);
     max-height: none;
     height: 100%;
     margin: 0 auto;
-    padding: 0.55rem 1.1rem 0.85rem;
+    padding: calc(env(safe-area-inset-top, 0px) + 0.4rem) 0.9rem
+      max(0.55rem, env(safe-area-inset-bottom, 0px));
     min-height: 0;
     box-sizing: border-box;
   }
 
-  .scarce-read-slide .scarce-writing-read-progress {
-    margin: 0;
+  @media (min-width: 640px) {
+    .scarce-read-slide .scarce-writing-read {
+      width: min(100%, 42rem);
+      padding: 0.55rem 1.25rem 0.75rem;
+    }
   }
 
   .ticket-pass-slide .ticket-show-pass {

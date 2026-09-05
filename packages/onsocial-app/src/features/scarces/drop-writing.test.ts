@@ -19,8 +19,20 @@ import {
   readablesFromManifest,
   writingChaptersValid,
   writingContentUrl,
+  writingCommitTurn,
+  writingEdgeTap,
+  writingObjectProgress,
+  writingPdfPageProgress,
+  writingPdfNearPages,
+  writingPdfVisiblePage,
+  writingPinchScale,
+  writingPointerRelease,
+  writingScrollIsLayoutSnap,
+  writingReaderTap,
+  writingRubberBandOffset,
   writingReadingSectionLabel,
   writingScrollRatioStorageKey,
+  writingSwipeDirection,
   writeWritingChapterIndex,
   writeWritingScrollRatio,
 } from '@/features/scarces/drop-writing';
@@ -372,5 +384,261 @@ describe('writing read progress storage', () => {
   it('no-ops without an account', () => {
     writeWritingChapterIndex('drop-1', null, 1);
     expect(readWritingChapterIndex('drop-1', null)).toBe(0);
+  });
+});
+
+describe('writingObjectProgress', () => {
+  it('treats the book as one object', () => {
+    expect(
+      writingObjectProgress({
+        chapterIndex: 0,
+        chapterCount: 4,
+        chapterRatio: 0,
+      })
+    ).toBe(0);
+    expect(
+      writingObjectProgress({
+        chapterIndex: 1,
+        chapterCount: 4,
+        chapterRatio: 0.5,
+      })
+    ).toBe(0.375);
+    expect(
+      writingObjectProgress({
+        chapterIndex: 3,
+        chapterCount: 4,
+        chapterRatio: 1,
+      })
+    ).toBe(1);
+  });
+
+  it('clamps empty and overflow counts', () => {
+    expect(writingObjectProgress({ chapterIndex: 0, chapterCount: 0 })).toBe(
+      0
+    );
+    expect(
+      writingObjectProgress({
+        chapterIndex: 9,
+        chapterCount: 2,
+        chapterRatio: 2,
+      })
+    ).toBe(1);
+  });
+});
+
+describe('writingPdfPageProgress', () => {
+  it('maps page 1 of 10 at the start of the page to 0', () => {
+    expect(
+      writingPdfPageProgress({ pageIndex: 0, pageCount: 10, pageRatio: 0 })
+    ).toBe(0);
+    expect(
+      writingPdfPageProgress({ pageIndex: 9, pageCount: 10, pageRatio: 1 })
+    ).toBe(1);
+  });
+});
+
+describe('writingSwipeDirection', () => {
+  it('reads a clear horizontal swipe and ignores vertical scroll', () => {
+    expect(
+      writingSwipeDirection({ x: 120, y: 40 }, { x: 40, y: 44 })
+    ).toBe('next');
+    expect(
+      writingSwipeDirection({ x: 40, y: 40 }, { x: 120, y: 48 })
+    ).toBe('prev');
+    expect(
+      writingSwipeDirection({ x: 40, y: 40 }, { x: 48, y: 160 })
+    ).toBeNull();
+    expect(
+      writingSwipeDirection({ x: 40, y: 40 }, { x: 70, y: 42 })
+    ).toBeNull();
+  });
+});
+
+describe('writingRubberBandOffset', () => {
+  it('resists past the first and last page', () => {
+    expect(
+      writingRubberBandOffset({
+        dx: 100,
+        width: 300,
+        canPrev: false,
+        canNext: true,
+      })
+    ).toBe(22);
+    expect(
+      writingRubberBandOffset({
+        dx: -80,
+        width: 300,
+        canPrev: true,
+        canNext: true,
+      })
+    ).toBe(-80);
+  });
+});
+
+describe('writingCommitTurn', () => {
+  it('commits only after a real page drag', () => {
+    expect(writingCommitTurn({ dx: -40, width: 320 })).toBeNull();
+    expect(writingCommitTurn({ dx: -80, width: 320 })).toBe('next');
+    expect(writingCommitTurn({ dx: 80, width: 320 })).toBe('prev');
+  });
+});
+
+describe('writingEdgeTap', () => {
+  it('reads the left and right fifths', () => {
+    expect(writingEdgeTap({ x: 20, width: 320 })).toBe('prev');
+    expect(writingEdgeTap({ x: 300, width: 320 })).toBe('next');
+    expect(writingEdgeTap({ x: 160, width: 320 })).toBeNull();
+  });
+});
+
+describe('writingReaderTap', () => {
+  it('turns on the edges and wakes chrome in the middle', () => {
+    expect(writingReaderTap({ x: 20, width: 320 })).toBe('prev');
+    expect(writingReaderTap({ x: 300, width: 320 })).toBe('next');
+    expect(writingReaderTap({ x: 160, width: 320 })).toBe('chrome');
+    expect(writingReaderTap({ x: Number.NaN, width: 320 })).toBeNull();
+  });
+});
+
+describe('writingScrollIsLayoutSnap', () => {
+  it('ignores a box change and reports a still page', () => {
+    expect(
+      writingScrollIsLayoutSnap({
+        scrollHeight: 800,
+        lastScrollHeight: 800,
+        clientHeight: 400,
+        lastClientHeight: 500,
+      })
+    ).toBe(true);
+    expect(
+      writingScrollIsLayoutSnap({
+        scrollHeight: 900,
+        lastScrollHeight: 800,
+        clientHeight: 400,
+        lastClientHeight: 400,
+      })
+    ).toBe(true);
+    expect(
+      writingScrollIsLayoutSnap({
+        scrollHeight: 800,
+        lastScrollHeight: 800,
+        clientHeight: 400,
+        lastClientHeight: 400,
+      })
+    ).toBe(false);
+  });
+});
+
+describe('writingPointerRelease', () => {
+  it('toggles chrome on a still center tap', () => {
+    expect(
+      writingPointerRelease({
+        zone: 'chrome',
+        dragged: false,
+        dx: 0,
+        width: 320,
+      })
+    ).toBe('chrome');
+    expect(
+      writingPointerRelease({
+        zone: 'chrome',
+        dragged: true,
+        dx: 0,
+        width: 320,
+      })
+    ).toBeNull();
+  });
+
+  it('turns from an edge tap or a committed drag', () => {
+    expect(
+      writingPointerRelease({
+        zone: 'next',
+        dragged: false,
+        dx: 0,
+        width: 320,
+      })
+    ).toBe('next');
+    expect(
+      writingPointerRelease({
+        zone: 'next',
+        dragged: true,
+        dx: -80,
+        width: 320,
+      })
+    ).toBe('next');
+    expect(
+      writingPointerRelease({
+        zone: 'prev',
+        dragged: true,
+        dx: 20,
+        width: 320,
+      })
+    ).toBeNull();
+  });
+
+  it('ignores a lift during a turn or over a selection', () => {
+    expect(
+      writingPointerRelease({
+        zone: 'next',
+        dragged: false,
+        dx: 0,
+        width: 320,
+        turning: true,
+      })
+    ).toBeNull();
+    expect(
+      writingPointerRelease({
+        zone: 'chrome',
+        dragged: false,
+        dx: 0,
+        width: 320,
+        selected: true,
+      })
+    ).toBeNull();
+  });
+});
+
+describe('writingPdfNearPages', () => {
+  it('keeps a window around the visible leaf', () => {
+    expect(
+      writingPdfNearPages({ visibleIndex: 0, pageCount: 10, span: 2 })
+    ).toEqual([1, 2, 3]);
+    expect(
+      writingPdfNearPages({ visibleIndex: 4, pageCount: 10, span: 2 })
+    ).toEqual([3, 4, 5, 6, 7]);
+    expect(
+      writingPdfNearPages({ visibleIndex: 9, pageCount: 10, span: 2 })
+    ).toEqual([8, 9, 10]);
+    expect(writingPdfNearPages({ visibleIndex: 0, pageCount: 0 })).toEqual([]);
+  });
+});
+
+describe('writingPdfVisiblePage', () => {
+  it('picks the page whose top has passed', () => {
+    expect(
+      writingPdfVisiblePage({ scrollTop: 10, pageTops: [0, 400, 800] })
+    ).toBe(0);
+    expect(
+      writingPdfVisiblePage({ scrollTop: 410, pageTops: [0, 400, 800] })
+    ).toBe(1);
+  });
+});
+
+describe('writingPinchScale', () => {
+  it('scales from finger distance and clamps', () => {
+    expect(
+      writingPinchScale({
+        startDistance: 100,
+        currentDistance: 150,
+        startScale: 1,
+      })
+    ).toBe(1.5);
+    expect(
+      writingPinchScale({
+        startDistance: 100,
+        currentDistance: 400,
+        startScale: 1,
+      })
+    ).toBe(2.25);
   });
 });
