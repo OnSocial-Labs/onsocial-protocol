@@ -299,7 +299,7 @@ export function useAppProfileEditor(
             aboutAlign,
             location: location || null,
             ...(isDao
-              ? { industry: industry || null }
+              ? { kind: 'dao', industry: industry || null }
               : {
                   kind: faceKind === 'org' ? 'org' : null,
                   industry: faceKind === 'org' ? industry || null : null,

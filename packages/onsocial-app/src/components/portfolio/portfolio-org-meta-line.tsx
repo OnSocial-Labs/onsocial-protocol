@@ -1,9 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import type { JobSearchRow } from '@onsocial/sdk';
 import { PortfolioHiringLine } from '@/components/portfolio/portfolio-hiring-line';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
 import { PortfolioOrgKindMark } from '@/components/portfolio/portfolio-org-kind-mark';
+import { discoverIndustryPath } from '@/lib/discover-profiles';
 
 /** One quiet house meta row: industry · location · optional Hiring. */
 export function PortfolioOrgMetaLine({
@@ -27,7 +29,11 @@ export function PortfolioOrgMetaLine({
   kindLine?: 'org' | 'dao';
 }) {
   const locationLabel = location?.trim() || null;
-  const industryLabel = industry?.trim() || emptyIndustryLabel || null;
+  const setIndustry = industry?.trim() || null;
+  const industryLabel = setIndustry || emptyIndustryLabel || null;
+  const industryHref = setIndustry
+    ? discoverIndustryPath(setIndustry, kindLine)
+    : null;
 
   if (!industryLabel && !locationLabel && !showHiring) return null;
 
@@ -39,7 +45,17 @@ export function PortfolioOrgMetaLine({
       {industryLabel ? (
         <span className="portfolio-org-meta-part">
           {kindLine === 'org' ? <PortfolioOrgKindMark /> : null}
-          <span>{industryLabel}</span>
+          {industryHref ? (
+            <Link
+              href={industryHref}
+              className="portfolio-org-meta-industry"
+              scroll={false}
+            >
+              {industryLabel}
+            </Link>
+          ) : (
+            <span>{industryLabel}</span>
+          )}
         </span>
       ) : null}
       {industryLabel && locationLabel ? (

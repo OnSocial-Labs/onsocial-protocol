@@ -101,9 +101,9 @@ export function shouldShowPortfolioAboutName(): boolean {
 }
 
 /**
- * Quiet house-sector echo under the About name. Same visual slot as crafts.
- * Only the set industry — never the face “Organization” fallback, and never
- * a Discover door.
+ * Quiet house-sector line under the About name. Same visual slot as crafts.
+ * Only the set industry — never the face “Organization” fallback.
+ * Live About opens Orgs · industry or DAOs · industry, not Hiring.
  */
 export function resolvePortfolioAboutIndustryLabel(opts: {
   kind?: ProfileKind | null;

@@ -163,7 +163,10 @@ export function PortfolioAboutPanel({
                     />
                   ) : null}
                   {industryLabel ? (
-                    <PortfolioAboutIndustry industry={industryLabel} />
+                    <PortfolioAboutIndustry
+                      industry={industryLabel}
+                      kind={displayKind === 'dao' ? 'dao' : 'org'}
+                    />
                   ) : null}
                   {hasCrafts ? <PortfolioIdentityTopics tags={tags} /> : null}
                 </header>
