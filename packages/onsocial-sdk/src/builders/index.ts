@@ -66,6 +66,8 @@ export {
   profileAvatarShapeFromKind,
   profileKindFaceLabel,
   profileKindFromMaterialised,
+  profileKindShowsCrafts,
+  profileKindShowsIndustry,
   resolveDisplayProfileKind,
 } from './profile-kind.js';
 export type { ProfileAvatarShape, ProfileKind } from './profile-kind.js';

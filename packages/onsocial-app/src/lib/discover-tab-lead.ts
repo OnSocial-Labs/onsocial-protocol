@@ -32,6 +32,7 @@ export function discoverProfilesLead(
   if (craftLabel) return `People · ${craftLabel}`;
   if (face === 'hiring') return sector ? `Hiring · ${sector}` : 'Hiring';
   if (face === 'orgs') return sector ? `Orgs · ${sector}` : 'Orgs';
+  if (face === 'daos') return sector ? `DAOs · ${sector}` : 'DAOs';
   if (face === 'people') return 'People';
   if (sector) return `Profiles · ${sector}`;
   if (typeof discoverableTotal === 'number' && discoverableTotal > 0) {
@@ -93,6 +94,7 @@ export function discoverTrendingProfilesHeading(
   const sector = industry.trim();
   if (face === 'hiring') return sector ? `Hiring · ${sector}` : 'Hiring';
   if (face === 'orgs') return sector ? `Orgs · ${sector}` : 'Orgs';
+  if (face === 'daos') return sector ? `DAOs · ${sector}` : 'DAOs';
   if (face === 'people') return 'People';
   if (sector) return `Active · ${sector}`;
   return 'Active';

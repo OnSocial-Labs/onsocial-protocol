@@ -1,11 +1,43 @@
 'use client';
 
 import Link from 'next/link';
-import { discoverCraftPath } from '@/lib/discover-profiles';
+import {
+  discoverCraftPath,
+  discoverIndustryPath,
+} from '@/lib/discover-profiles';
 import {
   profileIdentityTopicLabel,
   profileIdentityTopics,
 } from '@/lib/profile-identity-topics';
+
+/** House sector on About — same slot as crafts, opens Orgs or DAOs Discover. */
+export function PortfolioAboutIndustry({
+  industry,
+  kind,
+}: {
+  industry?: string | null;
+  /** Omit on the editor twin — live About always passes org / dao. */
+  kind?: 'org' | 'dao' | null;
+}) {
+  const label = industry?.trim() || null;
+  if (!label) return null;
+
+  const href = kind ? discoverIndustryPath(label, kind) : null;
+
+  return (
+    <p className="portfolio-topics" aria-label="Industry">
+      <span className="portfolio-topics-item">
+        {href ? (
+          <Link href={href} className="portfolio-topics-link" scroll={false}>
+            {label}
+          </Link>
+        ) : (
+          <span className="portfolio-topics-label">{label}</span>
+        )}
+      </span>
+    </p>
+  );
+}
 
 /** Quiet craft line — taps open people Discover for that craft. */
 export function PortfolioIdentityTopics({ tags }: { tags?: unknown }) {

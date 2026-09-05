@@ -35,10 +35,10 @@ export interface ProfileSearchRow {
   confidenceScore?: number;
 }
 
-export type DiscoverFaceKind = 'person' | 'org';
+export type DiscoverFaceKind = 'person' | 'org' | 'dao';
 
 /** Discover chip rail — not a new tab. Hiring implies orgs with open roles. */
-export type DiscoverFaceFilter = 'all' | 'people' | 'orgs' | 'hiring';
+export type DiscoverFaceFilter = 'all' | 'people' | 'orgs' | 'daos' | 'hiring';
 
 export function parseDiscoverFaceFilter(
   raw: string | null | undefined
@@ -46,6 +46,7 @@ export function parseDiscoverFaceFilter(
   const value = (raw ?? '').trim().toLowerCase();
   if (value === 'people' || value === 'person') return 'people';
   if (value === 'orgs' || value === 'org') return 'orgs';
+  if (value === 'daos' || value === 'dao') return 'daos';
   if (value === 'hiring') return 'hiring';
   return 'all';
 }
@@ -63,6 +64,9 @@ export function discoverFaceSearchOptions(
   if (face === 'orgs') {
     return { kind: 'org', industry: sector };
   }
+  if (face === 'daos') {
+    return { kind: 'dao', industry: sector };
+  }
   if (face === 'people' || craftTag) {
     return {
       kind: 'person',
@@ -79,7 +83,7 @@ export interface ProfileSearchOptions {
   query?: string;
   limit?: number;
   offset?: number;
-  /** Person (omit / person) or Organization. DAO stays on the DAOs tab. */
+  /** Person, Organization, or DAO house. Factory NEAR DAOs stay on the DAOs tab. */
   kind?: DiscoverFaceKind;
   industry?: string;
   /** Curated About craft (`profile/tags`) — exact people facet. */
@@ -209,6 +213,8 @@ export function buildDiscoverWhere(opts: ProfileSearchOptions): {
   }
   if (opts.kind === 'org') {
     clauses.push('{kind: {_eq: "org"}}');
+  } else if (opts.kind === 'dao') {
+    clauses.push('{kind: {_eq: "dao"}}');
   } else if (opts.kind === 'person') {
     clauses.push('{_or: [{kind: {_eq: "person"}}, {kind: {_isNull: true}}]}');
   }

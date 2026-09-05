@@ -7509,6 +7509,18 @@ a.os-surface-row {
     user-select: none;
   }
 
+  a.portfolio-org-meta-industry {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  a.portfolio-org-meta-industry:hover,
+  a.portfolio-org-meta-industry:focus-visible {
+    opacity: 1;
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
+  }
+
   .portfolio-location-mark {
     flex: none;
     display: block;

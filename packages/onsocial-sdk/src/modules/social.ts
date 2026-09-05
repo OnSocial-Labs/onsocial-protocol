@@ -115,6 +115,8 @@ export {
   profileAvatarShapeFromKind,
   profileKindFaceLabel,
   profileKindFromMaterialised,
+  profileKindShowsCrafts,
+  profileKindShowsIndustry,
   resolveDisplayProfileKind,
   splitRichText,
   normalizeAutolinkUrl,

@@ -34,6 +34,8 @@ export function isProfileEditorContentDirty(input: {
   bannerFile: File | null;
   avatarRemoved: boolean;
   bannerRemoved: boolean;
+  /** Protocol DAO workspace — industry is a face field, kind is not a pick. */
+  isDao?: boolean;
 }): boolean {
   if (input.avatarFile || input.bannerFile) {
     return true;
@@ -59,11 +61,12 @@ export function isProfileEditorContentDirty(input: {
     return true;
   }
 
+  const storesIndustry = Boolean(input.isDao) || input.kind === 'org';
+  const snapshotStoresIndustry =
+    Boolean(input.isDao) || input.snapshot.kind === 'org';
   if (
-    (input.kind === 'org' ? input.industry.trim() : '') !==
-    (input.snapshot.kind === 'org'
-      ? (input.snapshot.industry ?? '').trim()
-      : '')
+    (storesIndustry ? input.industry.trim() : '') !==
+    (snapshotStoresIndustry ? (input.snapshot.industry ?? '').trim() : '')
   ) {
     return true;
   }
@@ -136,6 +139,7 @@ export function isProfileEditorDirty(input: {
   bannerFile: File | null;
   avatarRemoved: boolean;
   bannerRemoved: boolean;
+  isDao?: boolean;
 }): boolean {
   if (isProfileEditorContentDirty(input)) {
     return true;

@@ -27,6 +27,7 @@ describe('discoverProfilesLead', () => {
       'Hiring · Healthcare'
     );
     expect(discoverProfilesLead(12_500, '', 'orgs')).toBe('Orgs');
+    expect(discoverProfilesLead(12_500, '', 'daos', 'Film')).toBe('DAOs · Film');
     expect(discoverProfilesLead(12_500, '', 'people')).toBe('People');
     expect(discoverProfilesLead(12_500, '', 'people', '', 'writer')).toBe(
       'People · Writer'
