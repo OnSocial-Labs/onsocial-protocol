@@ -540,6 +540,26 @@ export function writingReaderTap(opts: {
   return writingEdgeTap(opts) ?? 'chrome';
 }
 
+/**
+ * One decision for a pointer that just lifted.
+ * Center tap → chrome. Edge tap or a committed drag → turn. Anything else → none.
+ */
+export function writingPointerRelease(opts: {
+  zone: 'next' | 'prev' | 'chrome' | null;
+  dragged: boolean;
+  dx: number;
+  width: number;
+  turning?: boolean;
+  selected?: boolean;
+}): 'chrome' | 'next' | 'prev' | null {
+  if (opts.turning || opts.selected || opts.zone == null) return null;
+  if (opts.zone === 'chrome') return opts.dragged ? null : 'chrome';
+  return (
+    writingCommitTurn({ dx: opts.dx, width: opts.width }) ??
+    (opts.dragged ? null : opts.zone)
+  );
+}
+
 /** 1-based PDF pages that stay painted around the visible leaf. */
 export function writingPdfNearPages(opts: {
   visibleIndex: number;

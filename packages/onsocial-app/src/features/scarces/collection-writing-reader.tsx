@@ -11,8 +11,8 @@ import {
   isWritingPdfMime,
   readWritingChapterIndex,
   readWritingScrollRatio,
-  writingCommitTurn,
   writingObjectProgress,
+  writingPointerRelease,
   writingReaderTap,
   writingRubberBandOffset,
   writeWritingChapterIndex,
@@ -61,21 +61,24 @@ export function CollectionWritingReader({
 
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTopRef = useRef(0);
-  const pointerRef = useRef<{
-    x: number;
-    y: number;
-    width: number;
+  const gestureRef = useRef<{
+    phase: 'idle' | 'held' | 'turning';
+    start: {
+      x: number;
+      y: number;
+      width: number;
+      zone: 'next' | 'prev' | 'chrome';
+    } | null;
     dragged: boolean;
-    zone: 'next' | 'prev' | 'chrome';
-  } | null>(null);
-  const turningRef = useRef(false);
-  const lastTapRef = useRef<{
-    zone: 'next' | 'prev' | 'chrome';
-    dragged: boolean;
-  } | null>(null);
-  const userScrollArmedRef = useRef(false);
-  const ignoreChromeTapRef = useRef(false);
-  const chromeTapTimerRef = useRef(0);
+    live: boolean;
+    pendingIndex: number | null;
+  }>({
+    phase: 'idle',
+    start: null,
+    dragged: false,
+    live: false,
+    pendingIndex: null,
+  });
   const [dragDx, setDragDx] = useState(0);
   const [turnAnim, setTurnAnim] = useState<
     null | 'out-next' | 'out-prev' | 'in-next' | 'in-prev'
@@ -162,7 +165,7 @@ export function CollectionWritingReader({
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const applyChapter = (nextIndex: number) => {
-    userScrollArmedRef.current = false;
+    gestureRef.current.live = false;
     setChapterIndex(nextIndex);
     setChapterRatio(0);
     setTocOpen(false);
@@ -171,28 +174,39 @@ export function CollectionWritingReader({
   };
 
   const goChapter = (nextIndex: number) => {
-    if (readables.length <= 0 || turningRef.current) return;
+    const gesture = gestureRef.current;
+    if (readables.length <= 0 || gesture.phase === 'turning') return;
     const next = Math.min(readables.length - 1, Math.max(0, nextIndex));
     if (next === safeIndex) {
       setDragDx(0);
       return;
     }
+    gesture.live = false;
     if (!immersive || prefersReducedMotion()) {
       applyChapter(next);
       return;
     }
     const dir = next > safeIndex ? 'next' : 'prev';
-    turningRef.current = true;
-    userScrollArmedRef.current = false;
+    gesture.phase = 'turning';
+    gesture.pendingIndex = next;
     setTurnAnim(dir === 'next' ? 'out-next' : 'out-prev');
-    window.setTimeout(() => {
+  };
+
+  const onTurnAnimationEnd = (event: React.AnimationEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return;
+    const name = event.animationName;
+    const gesture = gestureRef.current;
+    if (name.startsWith('writing-turn-out-') && gesture.pendingIndex != null) {
+      const next = gesture.pendingIndex;
       applyChapter(next);
-      setTurnAnim(dir === 'next' ? 'in-next' : 'in-prev');
-      window.setTimeout(() => {
-        setTurnAnim(null);
-        turningRef.current = false;
-      }, 240);
-    }, 200);
+      setTurnAnim(name.endsWith('next') ? 'in-next' : 'in-prev');
+      return;
+    }
+    if (name.startsWith('writing-turn-in-')) {
+      gesture.phase = 'idle';
+      gesture.pendingIndex = null;
+      setTurnAnim(null);
+    }
   };
 
   useEffect(() => {
@@ -232,7 +246,7 @@ export function CollectionWritingReader({
     const el = bodyRef.current;
     const apply = () => {
       const max = el.scrollHeight - el.clientHeight;
-      userScrollArmedRef.current = false;
+      gestureRef.current.live = false;
       if (max <= 0) {
         lastScrollTopRef.current = 0;
         if (!chapterIsPdf) setChapterRatio(1);
@@ -270,7 +284,7 @@ export function CollectionWritingReader({
     setChapterRatio(ratio);
     const delta = el.scrollTop - lastScrollTopRef.current;
     lastScrollTopRef.current = el.scrollTop;
-    if (!userScrollArmedRef.current) return;
+    if (!gestureRef.current.live) return;
     if (delta !== 0) onScrollDelta?.(delta);
   };
 
@@ -288,10 +302,7 @@ export function CollectionWritingReader({
   };
 
   const turnFromGesture = (direction: 'next' | 'prev') => {
-    ignoreChromeTapRef.current = true;
-    window.setTimeout(() => {
-      ignoreChromeTapRef.current = false;
-    }, 500);
+    gestureRef.current.live = false;
     const { atStart, atEnd } = scrollEnds();
     if (chapterIsPdf && direction === 'next' && !atEnd) {
       bodyRef.current?.scrollBy({
@@ -312,8 +323,8 @@ export function CollectionWritingReader({
   };
 
   const onBodyPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    lastTapRef.current = null;
-    if (turningRef.current) return;
+    const gesture = gestureRef.current;
+    if (gesture.phase === 'turning') return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     const target = event.target as HTMLElement | null;
     if (target?.closest('a, button, input, textarea, [role="button"]')) return;
@@ -323,25 +334,20 @@ export function CollectionWritingReader({
         x: event.clientX - event.currentTarget.getBoundingClientRect().left,
         width,
       }) ?? 'chrome';
-    pointerRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      width,
-      dragged: false,
-      zone,
-    };
-    lastTapRef.current = { zone, dragged: false };
+    gesture.phase = 'held';
+    gesture.dragged = false;
+    gesture.start = { x: event.clientX, y: event.clientY, width, zone };
   };
 
   const onBodyPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const start = pointerRef.current;
-    if (!start || turningRef.current) return;
+    const gesture = gestureRef.current;
+    const start = gesture.start;
+    if (!start || gesture.phase !== 'held') return;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-    start.dragged = true;
-    userScrollArmedRef.current = true;
-    if (lastTapRef.current) lastTapRef.current.dragged = true;
+    gesture.dragged = true;
+    gesture.live = true;
     if (start.zone === 'chrome') return;
     if (Math.abs(dx) < Math.abs(dy) * 1.15) return;
     try {
@@ -360,51 +366,29 @@ export function CollectionWritingReader({
   };
 
   const onBodyPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    const start = pointerRef.current;
-    pointerRef.current = null;
-    if (!start || turningRef.current) return;
-    const selection = window.getSelection()?.toString().trim();
-    if (selection) {
-      setDragDx(0);
-      return;
-    }
-    if (start.zone === 'chrome') {
-      setDragDx(0);
-      if (!start.dragged && !ignoreChromeTapRef.current) {
-        chromeTapTimerRef.current = window.setTimeout(() => {
-          chromeTapTimerRef.current = 0;
-          onChromeTap?.();
-        }, 0);
-      }
-      return;
-    }
-    const committed = writingCommitTurn({
+    const gesture = gestureRef.current;
+    const start = gesture.start;
+    gesture.start = null;
+    if (!start || gesture.phase !== 'held') return;
+    gesture.phase = 'idle';
+    const action = writingPointerRelease({
+      zone: start.zone,
+      dragged: gesture.dragged,
       dx: event.clientX - start.x,
       width: start.width,
+      selected: Boolean(window.getSelection()?.toString().trim()),
     });
-    if (committed) {
-      turnFromGesture(committed);
+    gesture.dragged = false;
+    if (action === 'chrome') {
+      setDragDx(0);
+      onChromeTap?.();
       return;
     }
-    if (!start.dragged) {
-      turnFromGesture(start.zone);
+    if (action === 'next' || action === 'prev') {
+      turnFromGesture(action);
       return;
     }
     setDragDx(0);
-  };
-
-  const onBodyClick = () => {
-    const tap = lastTapRef.current;
-    lastTapRef.current = null;
-    if (chromeTapTimerRef.current) {
-      window.clearTimeout(chromeTapTimerRef.current);
-      chromeTapTimerRef.current = 0;
-    }
-    if (!tap || tap.dragged || tap.zone !== 'chrome') return;
-    if (turningRef.current) return;
-    if (ignoreChromeTapRef.current) return;
-    if (window.getSelection()?.toString().trim()) return;
-    onChromeTap?.();
   };
 
   const downloads =
@@ -572,14 +556,17 @@ export function CollectionWritingReader({
             }
             onScroll={onBodyScroll}
             onWheel={() => {
-              userScrollArmedRef.current = true;
+              gestureRef.current.live = true;
             }}
             onPointerDown={onBodyPointerDown}
             onPointerMove={onBodyPointerMove}
             onPointerUp={onBodyPointerUp}
-            onClick={onBodyClick}
+            onAnimationEnd={onTurnAnimationEnd}
             onPointerCancel={() => {
-              pointerRef.current = null;
+              const gesture = gestureRef.current;
+              if (gesture.phase === 'held') gesture.phase = 'idle';
+              gesture.start = null;
+              gesture.dragged = false;
               setDragDx(0);
             }}
           >

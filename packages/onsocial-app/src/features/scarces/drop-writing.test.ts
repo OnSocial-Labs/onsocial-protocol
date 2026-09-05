@@ -26,6 +26,7 @@ import {
   writingPdfNearPages,
   writingPdfVisiblePage,
   writingPinchScale,
+  writingPointerRelease,
   writingReaderTap,
   writingRubberBandOffset,
   writingReadingSectionLabel,
@@ -495,6 +496,75 @@ describe('writingReaderTap', () => {
     expect(writingReaderTap({ x: 300, width: 320 })).toBe('next');
     expect(writingReaderTap({ x: 160, width: 320 })).toBe('chrome');
     expect(writingReaderTap({ x: Number.NaN, width: 320 })).toBeNull();
+  });
+});
+
+describe('writingPointerRelease', () => {
+  it('toggles chrome on a still center tap', () => {
+    expect(
+      writingPointerRelease({
+        zone: 'chrome',
+        dragged: false,
+        dx: 0,
+        width: 320,
+      })
+    ).toBe('chrome');
+    expect(
+      writingPointerRelease({
+        zone: 'chrome',
+        dragged: true,
+        dx: 0,
+        width: 320,
+      })
+    ).toBeNull();
+  });
+
+  it('turns from an edge tap or a committed drag', () => {
+    expect(
+      writingPointerRelease({
+        zone: 'next',
+        dragged: false,
+        dx: 0,
+        width: 320,
+      })
+    ).toBe('next');
+    expect(
+      writingPointerRelease({
+        zone: 'next',
+        dragged: true,
+        dx: -80,
+        width: 320,
+      })
+    ).toBe('next');
+    expect(
+      writingPointerRelease({
+        zone: 'prev',
+        dragged: true,
+        dx: 20,
+        width: 320,
+      })
+    ).toBeNull();
+  });
+
+  it('ignores a lift during a turn or over a selection', () => {
+    expect(
+      writingPointerRelease({
+        zone: 'next',
+        dragged: false,
+        dx: 0,
+        width: 320,
+        turning: true,
+      })
+    ).toBeNull();
+    expect(
+      writingPointerRelease({
+        zone: 'chrome',
+        dragged: false,
+        dx: 0,
+        width: 320,
+        selected: true,
+      })
+    ).toBeNull();
   });
 });
 
