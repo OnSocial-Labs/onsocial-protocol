@@ -20,6 +20,7 @@ import type { ProfileAboutPhoto } from '@/lib/profile-about-photos';
 import { profileIdentityTopics } from '@/lib/profile-identity-topics';
 import {
   normalizeProfileAboutAlign,
+  profileKindShowsCrafts,
   resolveDisplayProfileKind,
   type ProfileAboutAlign,
   type ProfileKind,
@@ -52,7 +53,7 @@ export type PortfolioAboutPanelProps = {
 };
 
 /**
- * About studio — print | name → crafts; lead; film; More for About.
+ * About studio — print | name → crafts (person); lead; film; More.
  * Overlay and hard `/about` share this panel.
  * Lead is its own field, centered above the 2nd–3rd stills.
  */
@@ -71,7 +72,9 @@ export function PortfolioAboutPanel({
   const displayKind = resolveDisplayProfileKind(profileKind, isDao);
   const essayAlign = normalizeProfileAboutAlign(aboutAlign);
   const titleLabel = displayName(accountId, profileName ?? undefined);
-  const hasCrafts = profileIdentityTopics(tags).length > 0;
+  const hasCrafts =
+    profileKindShowsCrafts(displayKind) &&
+    profileIdentityTopics(tags).length > 0;
   const { intro, rest } = useMemo(
     () => resolvePortfolioAboutCopy({ bio, about }),
     [about, bio]

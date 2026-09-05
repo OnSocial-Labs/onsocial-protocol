@@ -10,6 +10,8 @@ import {
   profileAvatarShapeFromKind,
   profileKindFaceLabel,
   profileKindFromMaterialised,
+  profileKindShowsCrafts,
+  profileKindShowsIndustry,
   resolveDisplayProfileKind,
 } from './profile-kind.js';
 
@@ -102,6 +104,16 @@ describe('profileAvatarShapeFromKind + face label', () => {
     expect(profileKindFaceLabel('person')).toBeNull();
     expect(profileKindFaceLabel('org')).toBe('Organization');
     expect(profileKindFaceLabel('dao')).toBe('DAO');
+  });
+
+  it('keeps crafts on person About and industry on house faces', () => {
+    expect(profileKindShowsCrafts('person')).toBe(true);
+    expect(profileKindShowsCrafts()).toBe(true);
+    expect(profileKindShowsCrafts('org')).toBe(false);
+    expect(profileKindShowsCrafts('dao')).toBe(false);
+    expect(profileKindShowsIndustry('org')).toBe(true);
+    expect(profileKindShowsIndustry('dao')).toBe(true);
+    expect(profileKindShowsIndustry('person')).toBe(false);
   });
 
   it('exposes schema kinds and person/org editor chips', () => {

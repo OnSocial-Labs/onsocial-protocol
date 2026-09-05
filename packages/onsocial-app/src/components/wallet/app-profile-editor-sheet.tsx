@@ -18,7 +18,7 @@ import {
   PROFILE_FACE_KIND_OPTIONS,
   PROFILE_LOCATION_MAX,
   editorFaceKind,
-  profileAvatarShapeFromKind,
+  profileAvatarShapeForFace,
   sanitizeProfileLocationDraft,
   type ProfileKind,
 } from '@onsocial/sdk';
@@ -67,6 +67,7 @@ import {
 } from '@/lib/profile-links';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { isDaoStandingTarget } from '@/lib/dao-standing-account';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { nearExplorerTxHref } from '@/lib/app-config';
 import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
@@ -154,6 +155,7 @@ export function AppProfileEditorSheet({
   } = useAppProfileEditor(accountId, open);
   const { moodId: viewerMoodId, style: viewerMoodStyle } =
     useViewerDockMood(pageAccountId);
+  const isDaoAccount = isDaoStandingTarget(accountId);
 
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
@@ -265,6 +267,7 @@ export function AppProfileEditorSheet({
       bannerFile,
       avatarRemoved,
       bannerRemoved,
+      isDao: isDaoAccount,
     });
   }, [
     avatarFile,
@@ -287,6 +290,7 @@ export function AppProfileEditorSheet({
     readyKey,
     seedKey,
     snapshot,
+    isDaoAccount,
   ]);
 
   const handleLeave = useCallback(() => {
@@ -421,6 +425,7 @@ export function AppProfileEditorSheet({
         hasCurrentLinks,
         hasLinkInput,
         linkNotes: pruneLinkNotes(linkNotes, links),
+        isDao: isDaoAccount,
       });
       onSaved(result);
       setTxResult({
@@ -589,8 +594,11 @@ export function AppProfileEditorSheet({
                           className={`account-editor-avatar profile-editor-media-host profile-editor-media-host--avatar${
                             displayAvatarUrl ? ' has-media' : ''
                           }`}
-                          data-profile-kind={kind}
-                          data-avatar-shape={profileAvatarShapeFromKind(kind)}
+                          data-profile-kind={isDaoAccount ? 'dao' : kind}
+                          data-avatar-shape={profileAvatarShapeForFace(
+                            kind,
+                            isDaoAccount
+                          )}
                         >
                           <button
                             type="button"
@@ -662,30 +670,33 @@ export function AppProfileEditorSheet({
                         <p className="profile-handle account-editor-handle">
                           @{handleLabel}
                         </p>
-                        <div
-                          className="account-editor-kind"
-                          role="radiogroup"
-                          aria-label="Account type"
-                        >
-                          {PROFILE_FACE_KIND_OPTIONS.map((option) => (
-                            <button
-                              key={option.value}
-                              type="button"
-                              role="radio"
-                              aria-checked={kind === option.value}
-                              className={`os-surface-chip${
-                                kind === option.value ? ' is-selected' : ''
-                              }`}
-                              disabled={saving}
-                              onClick={() => {
-                                setKind(option.value);
-                              }}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                        {kind === 'org' && snapshot?.accountId ? (
+                        {isDaoAccount ? null : (
+                          <div
+                            className="account-editor-kind"
+                            role="radiogroup"
+                            aria-label="Account type"
+                          >
+                            {PROFILE_FACE_KIND_OPTIONS.map((option) => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                role="radio"
+                                aria-checked={kind === option.value}
+                                className={`os-surface-chip${
+                                  kind === option.value ? ' is-selected' : ''
+                                }`}
+                                disabled={saving}
+                                onClick={() => {
+                                  setKind(option.value);
+                                }}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {(isDaoAccount || kind === 'org') &&
+                        snapshot?.accountId ? (
                           <ProfileOrgMetaEditor
                             accountId={snapshot.accountId}
                             industry={industry}
@@ -693,6 +704,15 @@ export function AppProfileEditorSheet({
                             location={location}
                             onLocationChange={setLocation}
                             disabled={saving}
+                            showHiring={!isDaoAccount}
+                            emptyIndustryLabel={
+                              isDaoAccount ? 'Industry' : 'Organization'
+                            }
+                            industryHint={
+                              isDaoAccount
+                                ? 'Optional. Shown on the face, not in Orgs.'
+                                : 'Optional. Skip to stay Organization.'
+                            }
                           />
                         ) : (
                           <label
@@ -805,11 +825,12 @@ export function AppProfileEditorSheet({
                       aboutText: aboutBio,
                       leadText: lead,
                       photoCount: photos.length,
-                      tagCount: tags.length,
+                      tagCount:
+                        !isDaoAccount && kind === 'person' ? tags.length : 0,
                     })
                       ? [
                           lead.trim() ? 'Lead' : null,
-                          tags.length > 0
+                          !isDaoAccount && kind === 'person' && tags.length > 0
                             ? `${tags.length} craft${tags.length === 1 ? '' : 's'}`
                             : null,
                           photos.length > 0
@@ -818,8 +839,13 @@ export function AppProfileEditorSheet({
                           aboutBio.trim() ? 'More bio' : null,
                         ]
                           .filter(Boolean)
-                          .join(' · ') || 'Lead, crafts, photos, more'
-                      : 'Lead, crafts, photos, more'}
+                          .join(' · ') ||
+                        (!isDaoAccount && kind === 'person'
+                          ? 'Lead, crafts, photos, more'
+                          : 'Lead, photos, more')
+                      : !isDaoAccount && kind === 'person'
+                        ? 'Lead, crafts, photos, more'
+                        : 'Lead, photos, more'}
                   </span>
                 </button>
               </div>
@@ -876,6 +902,7 @@ export function AppProfileEditorSheet({
         onAboutBioChange={setAboutBio}
         tags={tags}
         onTagsChange={setTags}
+        showCrafts={!isDaoAccount && kind === 'person'}
         photos={photos}
         onPhotosChange={setPhotos}
         disabled={saving}

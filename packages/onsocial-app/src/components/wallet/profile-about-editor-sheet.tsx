@@ -55,6 +55,7 @@ export function ProfileAboutEditorSheet({
   onAboutBioChange,
   tags,
   onTagsChange,
+  showCrafts = true,
   photos,
   onPhotosChange,
   disabled = false,
@@ -73,6 +74,8 @@ export function ProfileAboutEditorSheet({
   onAboutBioChange: (value: string) => void;
   tags: string[];
   onTagsChange: (tags: string[]) => void;
+  /** Person About only — org / DAO keep industry on the face. */
+  showCrafts?: boolean;
   photos: ProfileAboutPhotoDraft[];
   onPhotosChange: (photos: ProfileAboutPhotoDraft[]) => void;
   disabled?: boolean;
@@ -408,18 +411,20 @@ export function ProfileAboutEditorSheet({
               <div className="portfolio-about-type">
                 <header className="portfolio-about-masthead">
                   <h1 className="portfolio-about-name">{titleLabel}</h1>
-                  {tags.length > 0 ? (
+                  {showCrafts && tags.length > 0 ? (
                     <Divider
                       variant="detail"
                       className="portfolio-about-masthead-rule"
                     />
                   ) : null}
-                  <ProfileTopicsEditor
-                    variant="masthead"
-                    tags={tags}
-                    onChange={onTagsChange}
-                    disabled={disabled}
-                  />
+                  {showCrafts ? (
+                    <ProfileTopicsEditor
+                      variant="masthead"
+                      tags={tags}
+                      onChange={onTagsChange}
+                      disabled={disabled}
+                    />
+                  ) : null}
                 </header>
                 {!hasPrint ? (
                   <button

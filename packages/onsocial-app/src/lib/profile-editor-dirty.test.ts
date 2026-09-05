@@ -141,6 +141,15 @@ describe('isProfileEditorDirty', () => {
     ).toBe(true);
   });
 
+  it('is dirty when a DAO sets industry without changing kind', () => {
+    const snapshot = baseSnapshot({ kind: null, industry: '' });
+    expect(
+      isProfileEditorDirty(
+        dirtyInput(snapshot, { isDao: true, industry: 'Music' })
+      )
+    ).toBe(true);
+  });
+
   it('is dirty when identity topics change', () => {
     const snapshot = baseSnapshot({ tags: ['design'] });
     expect(

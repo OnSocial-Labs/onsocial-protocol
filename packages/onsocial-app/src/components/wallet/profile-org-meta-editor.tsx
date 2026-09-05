@@ -15,7 +15,6 @@ import {
   matchProfileIndustryOption,
   profileIndustryChoiceOptions,
   profileIndustryDrawerValue,
-  profileOrgLineLabel,
   sanitizeProfileIndustryDraft,
   sanitizeProfileLocationDraft,
 } from '@onsocial/sdk';
@@ -48,6 +47,9 @@ export function ProfileOrgMetaEditor({
   location,
   onLocationChange,
   disabled = false,
+  showHiring = true,
+  emptyIndustryLabel = 'Organization',
+  industryHint = 'Optional. Skip to stay Organization.',
 }: {
   accountId: string;
   industry: string;
@@ -55,6 +57,9 @@ export function ProfileOrgMetaEditor({
   location: string;
   onLocationChange: (value: string) => void;
   disabled?: boolean;
+  showHiring?: boolean;
+  emptyIndustryLabel?: string;
+  industryHint?: string;
 }) {
   const locationFormId = useId();
   const industryFormId = useId();
@@ -71,6 +76,7 @@ export function ProfileOrgMetaEditor({
   const [jobCount, setJobCount] = useState(0);
 
   useEffect(() => {
+    if (!showHiring) return;
     let cancelled = false;
     void fetchOpenJobs(accountId).then((jobs) => {
       if (!cancelled) setJobCount(jobs.length);
@@ -78,7 +84,7 @@ export function ProfileOrgMetaEditor({
     return () => {
       cancelled = true;
     };
-  }, [accountId]);
+  }, [accountId, showHiring]);
 
   useEffect(() => {
     const onChange = (event: Event) => {
@@ -95,7 +101,7 @@ export function ProfileOrgMetaEditor({
     window.setTimeout(() => industryInputRef.current?.focus(), 0);
   }, [industryWriteOpen]);
 
-  const industryLabel = profileOrgLineLabel(industry);
+  const industryLabel = industry.trim() || emptyIndustryLabel;
   const locationLabel = location.trim() || 'Location';
   const hiringLabel = hiringLineLabel(jobCount);
 
@@ -142,8 +148,8 @@ export function ProfileOrgMetaEditor({
           aria-label={`Industry, ${industryLabel}`}
           onClick={() => setIndustryOpen(true)}
         >
-          <PortfolioOrgKindMark />
-          <span
+          {showHiring ? <PortfolioOrgKindMark /> : null}
+          <span>
             className={
               industry.trim() ? undefined : 'account-editor-org-meta-placeholder'
             }
@@ -174,29 +180,33 @@ export function ProfileOrgMetaEditor({
             {locationLabel}
           </span>
         </button>
-        <span className="portfolio-org-meta-sep" aria-hidden>
-          ·
-        </span>
-        <button
-          type="button"
-          className="portfolio-org-meta-hiring"
-          disabled={disabled}
-          aria-haspopup="dialog"
-          aria-expanded={hiringOpen}
-          aria-label={
-            jobCount > 0 ? hiringLineAriaLabel(jobCount) : 'Manage hiring'
-          }
-          onClick={() => setHiringOpen(true)}
-        >
-          {hiringLabel}
-        </button>
+        {showHiring ? (
+          <>
+            <span className="portfolio-org-meta-sep" aria-hidden>
+              ·
+            </span>
+            <button
+              type="button"
+              className="portfolio-org-meta-hiring"
+              disabled={disabled}
+              aria-haspopup="dialog"
+              aria-expanded={hiringOpen}
+              aria-label={
+                jobCount > 0 ? hiringLineAriaLabel(jobCount) : 'Manage hiring'
+              }
+              onClick={() => setHiringOpen(true)}
+            >
+              {hiringLabel}
+            </button>
+          </>
+        ) : null}
       </div>
 
       <ChoiceDrawer
         open={industryOpen}
         onClose={() => setIndustryOpen(false)}
         label="Industry"
-        copy="Optional. Skip to stay Organization."
+        copy={industryHint}
         value={profileIndustryDrawerValue(industry)}
         options={PROFILE_INDUSTRY_CHOICES}
         onChange={handleIndustryChoice}
@@ -305,13 +315,15 @@ export function ProfileOrgMetaEditor({
         </div>
       </OsHugSheet>
 
-      <ProfileJobsEditor
-        accountId={accountId}
-        disabled={disabled}
-        sheetOnly
-        open={hiringOpen}
-        onOpenChange={setHiringOpen}
-      />
+      {showHiring ? (
+        <ProfileJobsEditor
+          accountId={accountId}
+          disabled={disabled}
+          sheetOnly
+          open={hiringOpen}
+          onOpenChange={setHiringOpen}
+        />
+      ) : null}
     </>
   );
 }
