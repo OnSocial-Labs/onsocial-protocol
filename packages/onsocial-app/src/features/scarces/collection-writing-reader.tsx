@@ -404,40 +404,52 @@ export function CollectionWritingReader({
     (canRead && chapter) || (canRead && bookPdf) ? (
       <div className="collection-writing-downloads">
         {canRead && chapter ? (
-          <MediaDownloadControl
-            className="collection-writing-download-control"
-            ariaLabel={
-              chapter.title?.trim()
+          <div className="collection-writing-download-row">
+            <MediaDownloadControl
+              className="collection-writing-download-control"
+              ariaLabel={
+                chapter.title?.trim()
+                  ? `Download ${chapter.title.trim()}`
+                  : 'Download chapter'
+              }
+              onDownload={(onProgressDownload) =>
+                downloadIpfsMedia({
+                  cid: chapter.cid,
+                  url: chapter.url,
+                  mime: chapter.mime,
+                  title: chapter.title,
+                  fallbackName: `chapter-${safeIndex + 1}`,
+                  onProgress: onProgressDownload,
+                })
+              }
+            />
+            <span className="collection-writing-download-copy" aria-hidden>
+              {chapter.title?.trim()
                 ? `Download ${chapter.title.trim()}`
-                : 'Download chapter'
-            }
-            onDownload={(onProgressDownload) =>
-              downloadIpfsMedia({
-                cid: chapter.cid,
-                url: chapter.url,
-                mime: chapter.mime,
-                title: chapter.title,
-                fallbackName: `chapter-${safeIndex + 1}`,
-                onProgress: onProgressDownload,
-              })
-            }
-          />
+                : 'Download chapter'}
+            </span>
+          </div>
         ) : null}
         {canRead && bookPdf ? (
-          <MediaDownloadControl
-            className="collection-writing-download-control"
-            ariaLabel="Download book PDF"
-            onDownload={(onProgressDownload) =>
-              downloadIpfsMedia({
-                cid: bookPdf.cid,
-                url: bookPdf.url,
-                mime: bookPdf.mime,
-                title: bookPdf.title,
-                fallbackName: 'book',
-                onProgress: onProgressDownload,
-              })
-            }
-          />
+          <div className="collection-writing-download-row">
+            <MediaDownloadControl
+              className="collection-writing-download-control"
+              ariaLabel="Download book PDF"
+              onDownload={(onProgressDownload) =>
+                downloadIpfsMedia({
+                  cid: bookPdf.cid,
+                  url: bookPdf.url,
+                  mime: bookPdf.mime,
+                  title: bookPdf.title,
+                  fallbackName: 'book',
+                  onProgress: onProgressDownload,
+                })
+              }
+            />
+            <span className="collection-writing-download-copy" aria-hidden>
+              Download book
+            </span>
+          </div>
         ) : null}
       </div>
     ) : null;
@@ -508,7 +520,7 @@ export function CollectionWritingReader({
     >
       {immersive ? (
         <div className="collection-writing-tools">
-          {isBook ? (
+          {isBook || downloads ? (
             <div className="collection-writing-toc-wrap">
               <button
                 type="button"
@@ -516,22 +528,37 @@ export function CollectionWritingReader({
                   tocOpen ? ' is-open' : ''
                 }`}
                 aria-expanded={tocOpen}
-                aria-label={`${safeIndex + 1} of ${readables.length}: ${chapterLabel}`}
+                aria-label={
+                  isBook
+                    ? `${safeIndex + 1} of ${readables.length}: ${chapterLabel}`
+                    : (pdfPageLabel ?? chapterLabel)
+                }
                 onClick={() => setTocOpen((open) => !open)}
               >
                 <span className="collection-writing-chapter-chip-meta">
-                  {safeIndex + 1} / {readables.length}
-                  {pdfPageLabel ? ` · ${pdfPageLabel}` : ''}
+                  {isBook
+                    ? `${safeIndex + 1} / ${readables.length}${
+                        pdfPageLabel ? ` · ${pdfPageLabel}` : ''
+                      }`
+                    : (pdfPageLabel ?? chapterLabel)}
                 </span>
               </button>
-              {tocOpen ? tocList : null}
+              {tocOpen ? (
+                <>
+                  {isBook ? tocList : null}
+                  {downloads ? (
+                    <div className="collection-writing-toc-downloads">
+                      {downloads}
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
             </div>
           ) : (
             <p className="collection-writing-article-label">
               {pdfPageLabel ?? chapterLabel}
             </p>
           )}
-          {downloads}
         </div>
       ) : (
         <div className="collection-writing-head">

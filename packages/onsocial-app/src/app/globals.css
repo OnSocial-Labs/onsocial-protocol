@@ -25882,7 +25882,7 @@ a.os-surface-row {
   .collection-writing.is-immersive .collection-writing-tools {
     display: flex;
     align-items: flex-start;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 0.65rem;
     min-width: 0;
   }
@@ -25956,6 +25956,37 @@ a.os-surface-row {
   .collection-writing.is-immersive .collection-writing-downloads {
     margin-top: 0.05rem;
     opacity: 0.72;
+  }
+
+  .collection-writing-toc-downloads {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.2rem 0 0.1rem;
+    border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .collection-writing.is-immersive .collection-writing-toc-downloads
+    .collection-writing-downloads {
+    opacity: 1;
+    margin: 0;
+  }
+
+  .collection-writing-download-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .collection-writing-download-copy {
+    display: none;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .collection-writing-toc-downloads .collection-writing-download-copy {
+    display: inline;
   }
 
   .collection-writing.is-immersive .collection-writing-body {

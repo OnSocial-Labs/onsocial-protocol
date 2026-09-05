@@ -161,25 +161,22 @@ export function WritingReadSheet({
         </div>
         <div className="scarce-writing-read-hero">
           <div className="scarce-writing-read-mast">
-            <div className="scarce-writing-read-art">
-              {inlineSvg && !rasterCover ? (
+            {inlineSvg && !rasterCover ? (
+              <div className="scarce-writing-read-art">
                 <div
                   className="scarce-writing-read-cover scarce-writing-read-cover--svg"
                   dangerouslySetInnerHTML={{ __html: inlineSvg }}
                 />
-              ) : rasterCover ? (
+              </div>
+            ) : rasterCover ? (
+              <div className="scarce-writing-read-art">
                 <img
                   src={rasterCover}
                   alt=""
                   className="scarce-writing-read-cover"
                 />
-              ) : (
-                <div
-                  className="scarce-writing-read-cover scarce-writing-read-cover--empty"
-                  aria-hidden
-                />
-              )}
-            </div>
+              </div>
+            ) : null}
             <div className="scarce-writing-read-copy">
               <p className="scarce-writing-read-title">{name}</p>
             </div>
