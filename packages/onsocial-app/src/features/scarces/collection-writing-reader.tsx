@@ -13,6 +13,7 @@ import {
   writeWritingChapterIndex,
   writeWritingScrollRatio,
   type ScarceReadableMedia,
+  type WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
 import { downloadIpfsMedia } from '@/lib/media-download';
 
@@ -37,7 +38,7 @@ export function CollectionWritingReader({
   accountId?: string | null;
   readables: ScarceReadableMedia[];
   bookPdf?: ScarceReadableMedia | null;
-  writingFormat?: 'article' | 'book' | null;
+  writingFormat?: WritingReleaseFormat | null;
   canRead: boolean;
   lockedHint: string;
   immersive?: boolean;
@@ -82,19 +83,24 @@ export function CollectionWritingReader({
   const chapterIsPdf = chapter
     ? isWritingPdfMime(chapter.mime, chapter.title)
     : false;
-  const chapterUrl = canRead ? (chapter?.url ?? null) : null;
+  const inlineText = canRead && chapter?.text != null ? chapter.text : null;
+  const chapterUrl =
+    canRead && inlineText == null ? (chapter?.url ?? null) : null;
   const chapterLabel =
     chapter?.title?.trim() ||
     (readables.length > 0 ? `Chapter ${safeIndex + 1}` : 'Manuscript');
   const body =
-    !chapterIsPdf &&
-    chapterUrl &&
-    fetchState.status === 'ok' &&
-    fetchState.url === chapterUrl
-      ? fetchState.text
-      : null;
+    !chapterIsPdf && inlineText != null
+      ? inlineText
+      : !chapterIsPdf &&
+          chapterUrl &&
+          fetchState.status === 'ok' &&
+          fetchState.url === chapterUrl
+        ? fetchState.text
+        : null;
   const loadError =
     !chapterIsPdf &&
+    inlineText == null &&
     chapterUrl &&
     fetchState.status === 'error' &&
     fetchState.url === chapterUrl
@@ -103,6 +109,7 @@ export function CollectionWritingReader({
   const loading =
     Boolean(chapterUrl) &&
     !chapterIsPdf &&
+    inlineText == null &&
     body == null &&
     loadError == null;
 
@@ -111,7 +118,7 @@ export function CollectionWritingReader({
   }, [collectionId, accountId, safeIndex]);
 
   useEffect(() => {
-    if (!chapterUrl || chapterIsPdf) return;
+    if (!chapterUrl || chapterIsPdf || chapterUrl.startsWith('post:')) return;
     let cancelled = false;
     const url = chapterUrl;
     void fetch(url)

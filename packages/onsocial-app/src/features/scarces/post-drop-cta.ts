@@ -63,6 +63,7 @@ export function postDropIsReadable(embed: PostScarceEmbed | null): boolean {
   const medium = (embed.mediumKind ?? '').trim().toLowerCase();
   return (
     medium === 'writing' ||
+    medium === 'issue' ||
     medium === 'article' ||
     medium === 'book' ||
     medium === 'text'

@@ -7,6 +7,7 @@ export function resolveScarceFeedMediumMode(
   if (key === 'audio' || key === 'music') return 'audio';
   if (
     key === 'writing' ||
+    key === 'issue' ||
     key === 'article' ||
     key === 'book' ||
     key === 'text'

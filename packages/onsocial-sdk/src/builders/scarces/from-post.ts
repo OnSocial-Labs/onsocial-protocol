@@ -22,9 +22,10 @@ export interface PlayableMediaRef {
 
 /**
  * Medium taxonomy written to `extra.kind` when minting/listing from a post.
- * Aligns with Market / Collectibles filters (`thought` / `art` / `audio` / `video`).
+ * Aligns with Market / Collectibles filters
+ * (`thought` / `art` / `audio` / `video` / `writing`).
  */
-export type PostScarceKind = 'thought' | 'art' | 'audio' | 'video';
+export type PostScarceKind = 'thought' | 'art' | 'audio' | 'video' | 'writing';
 
 /** Parsed projection of a post body — text + first usable media CID. */
 export interface ExtractedPost {
@@ -41,6 +42,11 @@ export interface ExtractedPost {
   playable: PlayableMediaRef[];
   /** Raw `media[]` entries as stored on chain (unfiltered). */
   media: Array<string | MediaRef>;
+  /**
+   * Titled Writing post (`x.onsocial.article.title`). When set, listing
+   * stamps `kind: writing` and uses this as the NFT title.
+   */
+  articleTitle?: string;
 }
 
 /** Treat as image when MIME is missing or starts with `image/`. */
@@ -52,6 +58,29 @@ function isImageMime(mime: string | undefined): boolean {
 function isPlayableMime(mime: string | undefined): boolean {
   if (!mime) return false;
   return /^(?:video|audio)\//i.test(mime);
+}
+
+/** Match app `ARTICLE_TITLE_MAX` — titled posts are articles, not thoughts. */
+const ARTICLE_TITLE_MAX = 80;
+
+function articleTitleFromParsed(
+  parsed: Record<string, unknown>
+): string | undefined {
+  const x = parsed.x;
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return undefined;
+  const onsocial = (x as Record<string, unknown>).onsocial;
+  if (!onsocial || typeof onsocial !== 'object' || Array.isArray(onsocial)) {
+    return undefined;
+  }
+  const article = (onsocial as Record<string, unknown>).article;
+  if (!article || typeof article !== 'object' || Array.isArray(article)) {
+    return undefined;
+  }
+  const raw = (article as Record<string, unknown>).title;
+  if (typeof raw !== 'string') return undefined;
+  const title = raw.replace(/\s+/g, ' ').trim();
+  if (!title) return undefined;
+  return title.slice(0, ARTICLE_TITLE_MAX);
 }
 
 /**
@@ -78,6 +107,7 @@ export function extractPostMedia(
   }
 
   const text = typeof parsed.text === 'string' ? parsed.text : '';
+  const articleTitle = articleTitleFromParsed(parsed);
   const rawMedia = Array.isArray(parsed.media)
     ? (parsed.media as Array<string | MediaRef>)
     : [];
@@ -100,17 +130,19 @@ export function extractPostMedia(
   }
   const result: ExtractedPost = { text, media: rawMedia, mediaCids, playable };
   if (mediaCids.length > 0) result.mediaCid = mediaCids[0];
+  if (articleTitle) result.articleTitle = articleTitle;
   return result;
 }
 
 /**
  * Infer Collectibles / Market medium for a post scarce.
  *
- * Priority: video clip → `video`, audio → `music`, still(s) → `art`,
- * otherwise `thought` (text-only social edition).
+ * Priority: video clip → `video`, audio → `audio`, titled article →
+ * `writing` (cover still stays a jacket), still(s) → `art`, otherwise
+ * `thought` (untitled text edition).
  */
 export function inferPostScarceKind(
-  extracted: Pick<ExtractedPost, 'mediaCids' | 'playable'>
+  extracted: Pick<ExtractedPost, 'mediaCids' | 'playable' | 'articleTitle'>
 ): PostScarceKind {
   const hasVideo = extracted.playable.some((entry) =>
     /^video\//i.test(entry.mime)
@@ -120,6 +152,7 @@ export function inferPostScarceKind(
     /^audio\//i.test(entry.mime)
   );
   if (hasAudio) return 'audio';
+  if (extracted.articleTitle?.trim()) return 'writing';
   if (extracted.mediaCids.length > 0) return 'art';
   return 'thought';
 }
