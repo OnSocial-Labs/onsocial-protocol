@@ -530,6 +530,25 @@ export function writingEdgeTap(opts: {
   return null;
 }
 
+/** Jacket collapse or a chapter swap — not a finger on the page. */
+export function writingScrollIsLayoutSnap(opts: {
+  scrollHeight: number;
+  lastScrollHeight: number;
+  clientHeight: number;
+  lastClientHeight: number;
+}): boolean {
+  if (
+    !Number.isFinite(opts.scrollHeight) ||
+    !Number.isFinite(opts.clientHeight)
+  ) {
+    return true;
+  }
+  return (
+    opts.scrollHeight !== opts.lastScrollHeight ||
+    opts.clientHeight !== opts.lastClientHeight
+  );
+}
+
 /** Edge turns the page; the middle toggles chrome. */
 export function writingReaderTap(opts: {
   x: number;

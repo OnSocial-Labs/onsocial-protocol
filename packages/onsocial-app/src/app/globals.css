@@ -12242,6 +12242,7 @@ a.os-surface-row {
   body:has([data-os-slide-over='true'])
     .portfolio-os-layer
     > .portfolio-summon-dock,
+  body:has(.os-slide-over[data-viewport='true']) .portfolio-summon-dock,
   body:has(.glass-sheet-root:not([data-keep-dock='true']))
     .portfolio-os-layer
     > .portfolio-summon-dock,
@@ -12258,6 +12259,9 @@ a.os-surface-row {
   body:has([data-os-slide-over='true'])
     .portfolio-os-layer
     > .portfolio-summon-dock
+    .portfolio-summon,
+  body:has(.os-slide-over[data-viewport='true'])
+    .portfolio-summon-dock
     .portfolio-summon,
   body:has(.glass-sheet-root:not([data-keep-dock='true']))
     .portfolio-os-layer

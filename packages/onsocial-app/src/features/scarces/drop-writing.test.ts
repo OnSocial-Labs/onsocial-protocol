@@ -27,6 +27,7 @@ import {
   writingPdfVisiblePage,
   writingPinchScale,
   writingPointerRelease,
+  writingScrollIsLayoutSnap,
   writingReaderTap,
   writingRubberBandOffset,
   writingReadingSectionLabel,
@@ -496,6 +497,35 @@ describe('writingReaderTap', () => {
     expect(writingReaderTap({ x: 300, width: 320 })).toBe('next');
     expect(writingReaderTap({ x: 160, width: 320 })).toBe('chrome');
     expect(writingReaderTap({ x: Number.NaN, width: 320 })).toBeNull();
+  });
+});
+
+describe('writingScrollIsLayoutSnap', () => {
+  it('ignores a box change and reports a still page', () => {
+    expect(
+      writingScrollIsLayoutSnap({
+        scrollHeight: 800,
+        lastScrollHeight: 800,
+        clientHeight: 400,
+        lastClientHeight: 500,
+      })
+    ).toBe(true);
+    expect(
+      writingScrollIsLayoutSnap({
+        scrollHeight: 900,
+        lastScrollHeight: 800,
+        clientHeight: 400,
+        lastClientHeight: 400,
+      })
+    ).toBe(true);
+    expect(
+      writingScrollIsLayoutSnap({
+        scrollHeight: 800,
+        lastScrollHeight: 800,
+        clientHeight: 400,
+        lastClientHeight: 400,
+      })
+    ).toBe(false);
   });
 });
 

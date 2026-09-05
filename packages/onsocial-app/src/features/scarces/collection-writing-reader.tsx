@@ -15,6 +15,7 @@ import {
   writingPointerRelease,
   writingReaderTap,
   writingRubberBandOffset,
+  writingScrollIsLayoutSnap,
   writeWritingChapterIndex,
   writeWritingScrollRatio,
   type ScarceReadableMedia,
@@ -61,6 +62,7 @@ export function CollectionWritingReader({
 
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTopRef = useRef(0);
+  const lastBoxRef = useRef({ scrollHeight: 0, clientHeight: 0 });
   const gestureRef = useRef<{
     phase: 'idle' | 'held' | 'turning';
     start: {
@@ -70,13 +72,11 @@ export function CollectionWritingReader({
       zone: 'next' | 'prev' | 'chrome';
     } | null;
     dragged: boolean;
-    live: boolean;
     pendingIndex: number | null;
   }>({
     phase: 'idle',
     start: null,
     dragged: false,
-    live: false,
     pendingIndex: null,
   });
   const [dragDx, setDragDx] = useState(0);
@@ -165,7 +165,6 @@ export function CollectionWritingReader({
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const applyChapter = (nextIndex: number) => {
-    gestureRef.current.live = false;
     setChapterIndex(nextIndex);
     setChapterRatio(0);
     setTocOpen(false);
@@ -181,7 +180,6 @@ export function CollectionWritingReader({
       setDragDx(0);
       return;
     }
-    gesture.live = false;
     if (!immersive || prefersReducedMotion()) {
       applyChapter(next);
       return;
@@ -246,7 +244,10 @@ export function CollectionWritingReader({
     const el = bodyRef.current;
     const apply = () => {
       const max = el.scrollHeight - el.clientHeight;
-      gestureRef.current.live = false;
+      lastBoxRef.current = {
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+      };
       if (max <= 0) {
         lastScrollTopRef.current = 0;
         if (!chapterIsPdf) setChapterRatio(1);
@@ -283,8 +284,18 @@ export function CollectionWritingReader({
     writeWritingScrollRatio(collectionId, accountId, safeIndex, ratio);
     setChapterRatio(ratio);
     const delta = el.scrollTop - lastScrollTopRef.current;
+    const snap = writingScrollIsLayoutSnap({
+      scrollHeight: el.scrollHeight,
+      lastScrollHeight: lastBoxRef.current.scrollHeight,
+      clientHeight: el.clientHeight,
+      lastClientHeight: lastBoxRef.current.clientHeight,
+    });
+    lastBoxRef.current = {
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+    };
     lastScrollTopRef.current = el.scrollTop;
-    if (!gestureRef.current.live) return;
+    if (snap) return;
     if (delta !== 0) onScrollDelta?.(delta);
   };
 
@@ -302,7 +313,6 @@ export function CollectionWritingReader({
   };
 
   const turnFromGesture = (direction: 'next' | 'prev') => {
-    gestureRef.current.live = false;
     const { atStart, atEnd } = scrollEnds();
     if (chapterIsPdf && direction === 'next' && !atEnd) {
       bodyRef.current?.scrollBy({
@@ -347,7 +357,6 @@ export function CollectionWritingReader({
     const dy = event.clientY - start.y;
     if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
     gesture.dragged = true;
-    gesture.live = true;
     if (start.zone === 'chrome') return;
     if (Math.abs(dx) < Math.abs(dy) * 1.15) return;
     try {
@@ -379,7 +388,6 @@ export function CollectionWritingReader({
       selected: Boolean(window.getSelection()?.toString().trim()),
     });
     gesture.dragged = false;
-    if (action) gesture.live = false;
     if (action === 'chrome') {
       setDragDx(0);
       onChromeTap?.();
@@ -508,13 +516,11 @@ export function CollectionWritingReader({
                   tocOpen ? ' is-open' : ''
                 }`}
                 aria-expanded={tocOpen}
+                aria-label={`${safeIndex + 1} of ${readables.length}: ${chapterLabel}`}
                 onClick={() => setTocOpen((open) => !open)}
               >
                 <span className="collection-writing-chapter-chip-meta">
                   {safeIndex + 1} / {readables.length}
-                </span>
-                <span className="collection-writing-chapter-chip-title">
-                  {chapterLabel}
                   {pdfPageLabel ? ` · ${pdfPageLabel}` : ''}
                 </span>
               </button>
@@ -556,9 +562,6 @@ export function CollectionWritingReader({
                 : undefined
             }
             onScroll={onBodyScroll}
-            onWheel={() => {
-              gestureRef.current.live = true;
-            }}
             onPointerDown={onBodyPointerDown}
             onPointerMove={onBodyPointerMove}
             onPointerUp={onBodyPointerUp}
@@ -608,7 +611,7 @@ export function CollectionWritingReader({
             ) : null}
           </div>
 
-          {isBook ? (
+          {isBook && !immersive ? (
             <div
               className="collection-writing-nav"
               role="group"

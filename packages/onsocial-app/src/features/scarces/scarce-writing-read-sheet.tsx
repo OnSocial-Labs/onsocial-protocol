@@ -8,7 +8,10 @@ import {
   type ReactNode,
 } from 'react';
 import { MultiplyIcon, OsIconAction } from '@onsocial/ui';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import {
+  OsSlideOverScreen,
+  useOsSlideOverClose,
+} from '@/components/app/os-slide-over-screen';
 import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
 import type {
   ScarceReadableMedia,
@@ -20,6 +23,19 @@ const CHROME_QUIET_MS = 900;
 
 function inlineSvgMarkup(svg: string): string {
   return svg.replace(/^<\?xml[^>]*>\s*/i, '');
+}
+
+function WritingReadClose() {
+  const requestClose = useOsSlideOverClose();
+  return (
+    <OsIconAction
+      className="scarce-writing-read-close"
+      ariaLabel="Back from reader"
+      onClick={() => requestClose?.()}
+    >
+      <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
+    </OsIconAction>
+  );
 }
 
 /**
@@ -168,13 +184,7 @@ export function WritingReadSheet({
               <p className="scarce-writing-read-title">{name}</p>
             </div>
           </div>
-          <OsIconAction
-            className="scarce-writing-read-close"
-            ariaLabel="Back from reader"
-            onClick={onClose}
-          >
-            <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
-          </OsIconAction>
+          <WritingReadClose />
         </div>
 
         <div className="scarce-writing-read-body">

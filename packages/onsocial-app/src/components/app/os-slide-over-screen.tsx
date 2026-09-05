@@ -9,7 +9,9 @@
  */
 
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useId,
   useLayoutEffect,
@@ -33,6 +35,13 @@ const clientMountedSubscribe = () => () => {};
 const getClientMountedSnapshot = () => true;
 const getServerMountedSnapshot = () => false;
 const SLIDE_MS = 280;
+
+const OsSlideOverCloseContext = createContext<(() => void) | null>(null);
+
+/** Same close as the slide × and Escape — use when the jacket owns the X. */
+export function useOsSlideOverClose(): (() => void) | null {
+  return useContext(OsSlideOverCloseContext);
+}
 
 export interface OsSlideOverScreenProps {
   open: boolean;
@@ -248,6 +257,7 @@ export function OsSlideOverScreen({
   };
 
   return createPortal(
+    <OsSlideOverCloseContext.Provider value={requestClose}>
     <div
       className={`os-app-screen app-surface os-slide-over${
         entered && !closing ? ' is-open' : ''
@@ -333,7 +343,8 @@ export function OsSlideOverScreen({
           </div>
         ) : null}
       </div>
-    </div>,
+    </div>
+    </OsSlideOverCloseContext.Provider>,
     portalHost
   );
 }
