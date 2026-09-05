@@ -8688,7 +8688,7 @@ a.os-surface-row {
 
   .portfolio-writing-card {
     display: grid;
-    grid-template-columns: minmax(0, 7.2rem) minmax(0, 1fr);
+    grid-template-columns: 7.2rem minmax(0, 1fr);
     gap: 0.9rem;
     align-items: start;
     margin: 0 -0.45rem;
@@ -8714,21 +8714,40 @@ a.os-surface-row {
     transform: scale(0.992);
   }
 
-  .portfolio-writing-cover {
+  .portfolio-writing-cover,
+  .portfolio-writing-article-cover {
+    position: relative;
     overflow: hidden;
-    border-radius: 0.7rem;
-    aspect-ratio: 4 / 5;
+    line-height: 0;
     background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .portfolio-writing-cover {
+    border-radius: 0.7rem;
+    aspect-ratio: 1 / 1;
   }
 
   .portfolio-writing-cover-photo,
   .portfolio-writing-cover-card,
-  .portfolio-writing-cover-card svg,
   .portfolio-writing-cover-fallback {
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
+  }
+
+  .portfolio-writing-cover-card svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .portfolio-writing-card-copy {
+    min-width: 0;
   }
 
   .portfolio-writing-card-title {
@@ -8747,12 +8766,18 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.58);
   }
 
-  .portfolio-writing-article-cover {
+  .portfolio-writing-card-excerpt {
+    display: -webkit-box;
     overflow: hidden;
-    width: min(100%, 22rem);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .portfolio-writing-article-cover {
+    width: 100%;
     margin: 0 0 1.2rem;
     border-radius: 0.85rem;
-    aspect-ratio: 4 / 5;
+    aspect-ratio: 3 / 2;
   }
 
   .portfolio-writing-essay {
