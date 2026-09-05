@@ -68,6 +68,7 @@ const ACTIVE_POST_POOL = 24;
 /**
  * Default Discover landing: what's moving — heat, talk, last sale, mention, people.
  * Lifetime Topics / Tickers / Most traded live on those tabs. This page is a peek.
+ * See all stays in Discover (Profiles, Hubs). No door to Home, Market, or Protocol.
  * Sections settle independently; an empty first seed keeps skeletons reserved.
  */
 export function DiscoverTrendingPanel({
