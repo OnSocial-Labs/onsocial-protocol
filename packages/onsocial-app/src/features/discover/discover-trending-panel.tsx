@@ -182,18 +182,22 @@ export function DiscoverTrendingPanel({
     () => (board == null ? null : filterTrendingDrops(board.justSold, query)),
     [board, query]
   );
+  const standingFromLedger = useMemo(() => {
+    const ids: string[] = [];
+    for (const [id, entry] of getGlobalViewerStandingLedger()) {
+      if (entry.standing && id.trim()) ids.push(id.trim());
+    }
+    return standingLedgerVersion >= 0 ? ids : ids;
+  }, [standingLedgerVersion]);
   const visibleProfiles = useMemo(() => {
     if (board == null) return null;
-    const ledgerIds: string[] = [];
-    for (const [id, entry] of getGlobalViewerStandingLedger()) {
-      if (entry.standing && id.trim()) ledgerIds.push(id.trim());
-    }
     return preferStandingPosters(
       filterMovingActive(board.profiles, query),
-      [...standingIds, ...ledgerIds],
+      [...standingIds, ...standingFromLedger],
       SECTION_LIMIT
     );
-  }, [board, query, standingIds, standingLedgerVersion]);
+  }, [board, query, standingFromLedger, standingIds]);
+  const mentionNow = useMemo(() => new Date(), [clockTick]);
   const postedMeta =
     board == null
       ? null
@@ -220,7 +224,7 @@ export function DiscoverTrendingPanel({
     ).map((item) => {
       const time =
         item.lastTimestamp > 0
-          ? formatRelativePostTimestamp(item.lastTimestamp)
+          ? formatRelativePostTimestamp(item.lastTimestamp, mentionNow)
           : undefined;
       if (item.kind === 'topic') {
         return {
@@ -246,7 +250,7 @@ export function DiscoverTrendingPanel({
         time,
       };
     });
-  }, [clockTick, visiblePlaces, visibleTickers, visibleTopics]);
+  }, [mentionNow, visiblePlaces, visibleTickers, visibleTopics]);
   const visibleProposals = useMemo(
     () =>
       board == null ? null : filterTrendingProposals(board.proposals, query),
