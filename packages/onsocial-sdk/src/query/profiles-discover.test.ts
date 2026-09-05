@@ -43,9 +43,7 @@ describe('discover face filters', () => {
     expect(hiring.variables.industry).toBe('Healthcare');
     expect(hiring.variableDecl).toContain('$industry');
 
-    const daos = buildDiscoverWhere(
-      discoverFaceSearchOptions('daos', 'Film')
-    );
+    const daos = buildDiscoverWhere(discoverFaceSearchOptions('daos', 'Film'));
     expect(daos.filter).toContain('kind: {_eq: "dao"}');
     expect(daos.filter).not.toContain('openJobsCount');
     expect(daos.variables.industry).toBe('Film');
