@@ -17,7 +17,7 @@ export async function generateMetadata({
   if (!article || !post) {
     return {
       title: `Writing · ${titleLabel}`,
-      description: `Articles by ${titleLabel}.`,
+      description: `Writing by ${titleLabel}.`,
       alternates: {
         canonical: `/@${encodeURIComponent(accountId)}/writing`,
       },

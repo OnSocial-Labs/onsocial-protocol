@@ -12,7 +12,7 @@ export async function generateMetadata({
   const { titleLabel, accountId } = await loadPortfolioWritingPage(params);
   return {
     title: `Writing · ${titleLabel}`,
-    description: `Articles by ${titleLabel}.`,
+    description: `Writing by ${titleLabel}.`,
     alternates: {
       canonical: `/@${encodeURIComponent(accountId)}/writing`,
     },
