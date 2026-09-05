@@ -462,6 +462,11 @@ export function writingPdfPageProgress(opts: {
 
 const SWIPE_MIN_PX = 56;
 const SWIPE_AXIS_BIAS = 1.35;
+const TURN_COMMIT_RATIO = 0.18;
+const TURN_EDGE_RATIO = 0.2;
+const TURN_RESIST = 0.22;
+const PINCH_MIN = 1;
+const PINCH_MAX = 2.25;
 
 /** Horizontal swipe that is not a vertical scroll. */
 export function writingSwipeDirection(
@@ -477,4 +482,87 @@ export function writingSwipeDirection(
   if (Math.abs(dx) < minPx) return null;
   if (Math.abs(dx) < Math.abs(dy) * axisBias) return null;
   return dx < 0 ? 'next' : 'prev';
+}
+
+/** Drag offset with end-of-book rubber-band. */
+export function writingRubberBandOffset(opts: {
+  dx: number;
+  width: number;
+  canPrev: boolean;
+  canNext: boolean;
+  resist?: number;
+}): number {
+  const width = Math.max(1, opts.width);
+  const resist = opts.resist ?? TURN_RESIST;
+  let dx = opts.dx;
+  if (!Number.isFinite(dx)) return 0;
+  if (dx > 0 && !opts.canPrev) dx *= resist;
+  if (dx < 0 && !opts.canNext) dx *= resist;
+  return Math.max(-width, Math.min(width, dx));
+}
+
+/** Commit a dragged turn once it clears the page threshold. */
+export function writingCommitTurn(opts: {
+  dx: number;
+  width: number;
+  minPx?: number;
+  commitRatio?: number;
+}): 'next' | 'prev' | null {
+  const width = Math.max(1, opts.width);
+  const minPx = opts.minPx ?? SWIPE_MIN_PX;
+  const need = Math.max(minPx, width * (opts.commitRatio ?? TURN_COMMIT_RATIO));
+  if (!Number.isFinite(opts.dx) || Math.abs(opts.dx) < need) return null;
+  return opts.dx < 0 ? 'next' : 'prev';
+}
+
+/** Classic reader: tap the left or right fifth to turn. */
+export function writingEdgeTap(opts: {
+  x: number;
+  width: number;
+  edgeRatio?: number;
+}): 'next' | 'prev' | null {
+  const width = Math.max(1, opts.width);
+  const x = opts.x;
+  if (!Number.isFinite(x)) return null;
+  const edge = width * (opts.edgeRatio ?? TURN_EDGE_RATIO);
+  if (x <= edge) return 'prev';
+  if (x >= width - edge) return 'next';
+  return null;
+}
+
+/** Which stacked PDF page is in view from scroll. */
+export function writingPdfVisiblePage(opts: {
+  scrollTop: number;
+  pageTops: number[];
+}): number {
+  const tops = opts.pageTops;
+  if (tops.length === 0) return 0;
+  const y = Number.isFinite(opts.scrollTop) ? opts.scrollTop : 0;
+  let index = 0;
+  for (let i = 0; i < tops.length; i += 1) {
+    if (y + 8 >= tops[i]!) index = i;
+  }
+  return index;
+}
+
+/** Pinch scale from two-finger distance. */
+export function writingPinchScale(opts: {
+  startDistance: number;
+  currentDistance: number;
+  startScale: number;
+  min?: number;
+  max?: number;
+}): number {
+  const start = opts.startDistance;
+  if (!Number.isFinite(start) || start <= 0) {
+    return clampRange(opts.startScale, opts.min ?? PINCH_MIN, opts.max ?? PINCH_MAX);
+  }
+  const next =
+    opts.startScale * (Number.isFinite(opts.currentDistance) ? opts.currentDistance / start : 1);
+  return clampRange(next, opts.min ?? PINCH_MIN, opts.max ?? PINCH_MAX);
+}
+
+function clampRange(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
 }

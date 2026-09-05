@@ -19,8 +19,13 @@ import {
   readablesFromManifest,
   writingChaptersValid,
   writingContentUrl,
+  writingCommitTurn,
+  writingEdgeTap,
   writingObjectProgress,
   writingPdfPageProgress,
+  writingPdfVisiblePage,
+  writingPinchScale,
+  writingRubberBandOffset,
   writingReadingSectionLabel,
   writingScrollRatioStorageKey,
   writingSwipeDirection,
@@ -442,5 +447,72 @@ describe('writingSwipeDirection', () => {
     expect(
       writingSwipeDirection({ x: 40, y: 40 }, { x: 70, y: 42 })
     ).toBeNull();
+  });
+});
+
+describe('writingRubberBandOffset', () => {
+  it('resists past the first and last page', () => {
+    expect(
+      writingRubberBandOffset({
+        dx: 100,
+        width: 300,
+        canPrev: false,
+        canNext: true,
+      })
+    ).toBe(22);
+    expect(
+      writingRubberBandOffset({
+        dx: -80,
+        width: 300,
+        canPrev: true,
+        canNext: true,
+      })
+    ).toBe(-80);
+  });
+});
+
+describe('writingCommitTurn', () => {
+  it('commits only after a real page drag', () => {
+    expect(writingCommitTurn({ dx: -40, width: 320 })).toBeNull();
+    expect(writingCommitTurn({ dx: -80, width: 320 })).toBe('next');
+    expect(writingCommitTurn({ dx: 80, width: 320 })).toBe('prev');
+  });
+});
+
+describe('writingEdgeTap', () => {
+  it('reads the left and right fifths', () => {
+    expect(writingEdgeTap({ x: 20, width: 320 })).toBe('prev');
+    expect(writingEdgeTap({ x: 300, width: 320 })).toBe('next');
+    expect(writingEdgeTap({ x: 160, width: 320 })).toBeNull();
+  });
+});
+
+describe('writingPdfVisiblePage', () => {
+  it('picks the page whose top has passed', () => {
+    expect(
+      writingPdfVisiblePage({ scrollTop: 10, pageTops: [0, 400, 800] })
+    ).toBe(0);
+    expect(
+      writingPdfVisiblePage({ scrollTop: 410, pageTops: [0, 400, 800] })
+    ).toBe(1);
+  });
+});
+
+describe('writingPinchScale', () => {
+  it('scales from finger distance and clamps', () => {
+    expect(
+      writingPinchScale({
+        startDistance: 100,
+        currentDistance: 150,
+        startScale: 1,
+      })
+    ).toBe(1.5);
+    expect(
+      writingPinchScale({
+        startDistance: 100,
+        currentDistance: 400,
+        startScale: 1,
+      })
+    ).toBe(2.25);
   });
 });

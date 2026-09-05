@@ -11,8 +11,10 @@ import {
   isWritingPdfMime,
   readWritingChapterIndex,
   readWritingScrollRatio,
+  writingCommitTurn,
+  writingEdgeTap,
   writingObjectProgress,
-  writingSwipeDirection,
+  writingRubberBandOffset,
   writeWritingChapterIndex,
   writeWritingScrollRatio,
   type ScarceReadableMedia,
@@ -56,8 +58,18 @@ export function CollectionWritingReader({
 
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTopRef = useRef(0);
-  const pointerRef = useRef<{ x: number; y: number } | null>(null);
-  const chapterRatioRef = useRef(0);
+  const pointerRef = useRef<{
+    x: number;
+    y: number;
+    width: number;
+    dragged: boolean;
+  } | null>(null);
+  const turningRef = useRef(false);
+  const [dragDx, setDragDx] = useState(0);
+  const [turnAnim, setTurnAnim] = useState<
+    null | 'out-next' | 'out-prev' | 'in-next' | 'in-prev'
+  >(null);
+  const [pdfPageLabel, setPdfPageLabel] = useState<string | null>(null);
   const [chapterIndex, setChapterIndex] = useState(() =>
     readWritingChapterIndex(collectionId, accountId)
   );
@@ -125,10 +137,6 @@ export function CollectionWritingReader({
   }, [collectionId, accountId, safeIndex]);
 
   useEffect(() => {
-    chapterRatioRef.current = chapterRatio;
-  }, [chapterRatio]);
-
-  useEffect(() => {
     onProgress?.(
       writingObjectProgress({
         chapterIndex: safeIndex,
@@ -138,13 +146,40 @@ export function CollectionWritingReader({
     );
   }, [chapterRatio, onProgress, readables.length, safeIndex]);
 
-  const goChapter = (nextIndex: number) => {
-    if (readables.length <= 0) return;
-    const next = Math.min(readables.length - 1, Math.max(0, nextIndex));
-    if (next === safeIndex) return;
-    setChapterIndex(next);
+  const prefersReducedMotion = () =>
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const applyChapter = (nextIndex: number) => {
+    setChapterIndex(nextIndex);
     setChapterRatio(0);
     setTocOpen(false);
+    setPdfPageLabel(null);
+    setDragDx(0);
+  };
+
+  const goChapter = (nextIndex: number) => {
+    if (readables.length <= 0 || turningRef.current) return;
+    const next = Math.min(readables.length - 1, Math.max(0, nextIndex));
+    if (next === safeIndex) {
+      setDragDx(0);
+      return;
+    }
+    if (!immersive || prefersReducedMotion()) {
+      applyChapter(next);
+      return;
+    }
+    const dir = next > safeIndex ? 'next' : 'prev';
+    turningRef.current = true;
+    setTurnAnim(dir === 'next' ? 'out-next' : 'out-prev');
+    window.setTimeout(() => {
+      applyChapter(next);
+      setTurnAnim(dir === 'next' ? 'in-next' : 'in-prev');
+      window.setTimeout(() => {
+        setTurnAnim(null);
+        turningRef.current = false;
+      }, 240);
+    }, 200);
   };
 
   useEffect(() => {
@@ -176,27 +211,28 @@ export function CollectionWritingReader({
     };
   }, [chapterUrl, chapterIsPdf]);
 
-  // Restore scroll after markdown paints.
+  // Restore scroll after markdown or the folio paints.
   useEffect(() => {
-    if (!body || !bodyRef.current) return;
+    if (!bodyRef.current) return;
+    if (!body && !chapterIsPdf) return;
     const ratio = readWritingScrollRatio(collectionId, accountId, safeIndex);
     const el = bodyRef.current;
     const apply = () => {
       const max = el.scrollHeight - el.clientHeight;
       if (max <= 0) {
         lastScrollTopRef.current = 0;
-        // Fully visible chapter — count it finished so the book bar stays honest.
-        setChapterRatio(1);
-        return;
+        if (!chapterIsPdf) setChapterRatio(1);
+        return false;
       }
       el.scrollTop = ratio * max;
       lastScrollTopRef.current = el.scrollTop;
       setChapterRatio(ratio);
+      return true;
     };
     apply();
     const frame = window.requestAnimationFrame(apply);
     return () => window.cancelAnimationFrame(frame);
-  }, [body, collectionId, accountId, safeIndex]);
+  }, [body, chapterIsPdf, collectionId, accountId, safeIndex]);
 
   // Prefetch next Markdown chapter (book only).
   useEffect(() => {
@@ -227,26 +263,94 @@ export function CollectionWritingReader({
     goChapter(index);
   };
 
+  const scrollEnds = () => {
+    const el = bodyRef.current;
+    if (!el) return { atStart: true, atEnd: true };
+    return {
+      atStart: el.scrollTop <= 2,
+      atEnd: el.scrollTop >= el.scrollHeight - el.clientHeight - 2,
+    };
+  };
+
+  const turnFromGesture = (direction: 'next' | 'prev') => {
+    const { atStart, atEnd } = scrollEnds();
+    if (chapterIsPdf && direction === 'next' && !atEnd) {
+      bodyRef.current?.scrollBy({
+        top: Math.round((bodyRef.current.clientHeight || 320) * 0.92),
+        behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+      });
+      return;
+    }
+    if (chapterIsPdf && direction === 'prev' && !atStart) {
+      bodyRef.current?.scrollBy({
+        top: -Math.round((bodyRef.current.clientHeight || 320) * 0.92),
+        behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+      });
+      return;
+    }
+    if (!isBook) return;
+    goChapter(direction === 'next' ? safeIndex + 1 : safeIndex - 1);
+  };
+
   const onBodyPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!isBook || chapterIsPdf) return;
+    if (turningRef.current) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
-    pointerRef.current = { x: event.clientX, y: event.clientY };
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('a, button, input, textarea, [role="button"]')) return;
+    pointerRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      width: bodyRef.current?.clientWidth || event.currentTarget.clientWidth,
+      dragged: false,
+    };
+  };
+
+  const onBodyPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const start = pointerRef.current;
+    if (!start || turningRef.current) return;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+    if (Math.abs(dx) < Math.abs(dy) * 1.15) return;
+    start.dragged = true;
+    setDragDx(
+      writingRubberBandOffset({
+        dx,
+        width: start.width,
+        canPrev: isBook ? safeIndex > 0 : false,
+        canNext: isBook ? safeIndex < readables.length - 1 : false,
+      })
+    );
   };
 
   const onBodyPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!isBook || chapterIsPdf) {
-      pointerRef.current = null;
-      return;
-    }
     const start = pointerRef.current;
     pointerRef.current = null;
-    if (!start) return;
-    const direction = writingSwipeDirection(start, {
-      x: event.clientX,
-      y: event.clientY,
+    if (!start || turningRef.current) return;
+    const selection = window.getSelection()?.toString().trim();
+    if (selection) {
+      setDragDx(0);
+      return;
+    }
+    const committed = writingCommitTurn({
+      dx: event.clientX - start.x,
+      width: start.width,
     });
-    if (direction === 'next') goChapter(safeIndex + 1);
-    if (direction === 'prev') goChapter(safeIndex - 1);
+    if (committed) {
+      turnFromGesture(committed);
+      return;
+    }
+    if (!start.dragged) {
+      const edge = writingEdgeTap({
+        x: event.clientX - event.currentTarget.getBoundingClientRect().left,
+        width: start.width,
+      });
+      if (edge) {
+        turnFromGesture(edge);
+        return;
+      }
+    }
+    setDragDx(0);
   };
 
   const downloads =
@@ -372,12 +476,15 @@ export function CollectionWritingReader({
                 </span>
                 <span className="collection-writing-chapter-chip-title">
                   {chapterLabel}
+                  {pdfPageLabel ? ` · ${pdfPageLabel}` : ''}
                 </span>
               </button>
               {tocOpen ? tocList : null}
             </div>
           ) : (
-            <p className="collection-writing-article-label">{chapterLabel}</p>
+            <p className="collection-writing-article-label">
+              {pdfPageLabel ?? chapterLabel}
+            </p>
           )}
           {downloads}
         </div>
@@ -401,12 +508,21 @@ export function CollectionWritingReader({
 
           <div
             ref={bodyRef}
-            className="collection-writing-body"
+            className={`collection-writing-body${
+              turnAnim ? ` is-turn-${turnAnim}` : ''
+            }${dragDx !== 0 && !turnAnim ? ' is-turning-drag' : ''}`}
+            style={
+              dragDx !== 0 && !turnAnim
+                ? { transform: `translateX(${dragDx}px)` }
+                : undefined
+            }
             onScroll={onBodyScroll}
             onPointerDown={onBodyPointerDown}
+            onPointerMove={onBodyPointerMove}
             onPointerUp={onBodyPointerUp}
             onPointerCancel={() => {
               pointerRef.current = null;
+              setDragDx(0);
             }}
           >
             {isBook && chapter ? (
@@ -425,27 +541,9 @@ export function CollectionWritingReader({
                   accountId,
                   safeIndex
                 )}
-                onProgress={(ratio) => {
-                  writeWritingScrollRatio(
-                    collectionId,
-                    accountId,
-                    safeIndex,
-                    ratio
-                  );
-                  const prev = chapterRatioRef.current;
-                  chapterRatioRef.current = ratio;
-                  setChapterRatio(ratio);
-                  if (ratio > prev + 0.002) onScrollDelta?.(8);
-                  else if (ratio < prev - 0.002) onScrollDelta?.(-8);
+                onVisiblePage={(pageIndex, pageCount) => {
+                  setPdfPageLabel(`${pageIndex + 1} / ${pageCount}`);
                 }}
-                onEdgeSwipe={
-                  isBook
-                    ? (direction) =>
-                        goChapter(
-                          direction === 'next' ? safeIndex + 1 : safeIndex - 1
-                        )
-                    : undefined
-                }
               />
             ) : null}
             {loading ? <CollectionWritingBodySkeleton /> : null}

@@ -116,7 +116,7 @@ export function WritingReadSheet({
       subtitle="Read"
       closeAriaLabel="Back from reader"
       zIndex={SCARCE_Z.listenShell}
-      className="scarce-read-slide"
+      className={`scarce-read-slide${chromeQuiet ? ' is-reading-quiet' : ''}`}
       contentClassName="scarce-read-slide-body"
       toolbar={
         <div
@@ -126,6 +126,7 @@ export function WritingReadSheet({
           aria-valuemax={100}
           aria-valuenow={progressPct}
           aria-label="Reading progress"
+          onPointerDown={wakeChrome}
         >
           <span
             className="scarce-writing-read-progress-fill"
