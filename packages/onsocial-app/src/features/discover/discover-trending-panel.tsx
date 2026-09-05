@@ -197,7 +197,10 @@ export function DiscoverTrendingPanel({
       SECTION_LIMIT
     );
   }, [board, query, standingFromLedger, standingIds]);
-  const mentionNow = useMemo(() => new Date(), [clockTick]);
+  const mentionNow = useMemo(
+    () => new Date(clockTick >= 0 ? Date.now() : Date.now()),
+    [clockTick]
+  );
   const postedMeta =
     board == null
       ? null
