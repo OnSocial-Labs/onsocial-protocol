@@ -6,6 +6,7 @@ import {
   STAKING_TREASURY_DAO_ACCOUNT,
 } from '@/lib/app-config';
 import type { DaoCatalogEntry } from '@/features/protocol/dao-catalog-client';
+import { resolveScarceMediaUrl } from '@/features/market/market-listings';
 
 /** Protocol / seeded faces we always want at the front of Discover peeks. */
 const PRIORITY_DAO_ACCOUNTS = new Set(
@@ -127,6 +128,8 @@ export async function rankGuildPeeks(
 export type RankedHubPeek = {
   appId: string;
   title: string | null;
+  bannerUrl: string | null;
+  markUrl: string | null;
 };
 
 type HubStatsRow = {
@@ -192,7 +195,7 @@ export async function rankHubPeeks(
     .filter((id): id is string => Boolean(id));
   if (ids.length === 0) return [];
 
-  let titleById = new Map<string, string | null>();
+  let peekById = new Map<string, ReturnType<typeof hubPeekFromMetadata>>();
   try {
     const appsRes = await client.query.graphql<{
       scarcesApps: Array<{
@@ -208,41 +211,64 @@ export async function rankHubPeeks(
       }`,
       variables: { ids, limit: ids.length },
     });
-    titleById = new Map(
+    peekById = new Map(
       (appsRes.data?.scarcesApps ?? []).map((row) => [
         row.appId,
-        hubTitleFromMetadata(row.metadata, row.appId),
+        hubPeekFromMetadata(row.metadata, row.appId),
       ])
     );
   } catch {
-    titleById = new Map();
+    peekById = new Map();
   }
 
   const out: RankedHubPeek[] = [];
   for (const id of ids) {
+    const peek = peekById.get(id) ?? hubPeekFromMetadata(null, id);
     out.push({
       appId: id,
-      title: titleById.get(id) ?? id,
+      title: peek.title,
+      bannerUrl: peek.bannerUrl,
+      markUrl: peek.markUrl,
     });
     if (out.length >= peekLimit) break;
   }
   return out;
 }
 
-function hubTitleFromMetadata(
+/** Hub name + cover from app metadata — same fields as the Hubs directory. */
+export function hubPeekFromMetadata(
   metadata: string | null | undefined,
-  fallback: string
-): string | null {
-  if (!metadata?.trim()) return fallback;
+  fallbackId: string
+): { title: string; bannerUrl: string | null; markUrl: string | null } {
+  const fallback = fallbackId.trim() || 'Hub';
+  if (!metadata?.trim()) {
+    return { title: fallback, bannerUrl: null, markUrl: null };
+  }
   try {
-    const parsed = JSON.parse(metadata) as { title?: unknown; name?: unknown };
+    const parsed = JSON.parse(metadata) as {
+      title?: unknown;
+      name?: unknown;
+      image?: unknown;
+      media?: unknown;
+      banner?: unknown;
+    };
     const title =
       (typeof parsed.name === 'string' && parsed.name.trim()) ||
       (typeof parsed.title === 'string' && parsed.title.trim()) ||
+      fallback;
+    const image =
+      (typeof parsed.image === 'string' && parsed.image.trim()) ||
+      (typeof parsed.media === 'string' && parsed.media.trim()) ||
       '';
-    return title || fallback;
+    const banner =
+      (typeof parsed.banner === 'string' && parsed.banner.trim()) || '';
+    return {
+      title,
+      markUrl: image ? resolveScarceMediaUrl(image) : null,
+      bannerUrl: banner ? resolveScarceMediaUrl(banner) : null,
+    };
   } catch {
-    return fallback;
+    return { title: fallback, bannerUrl: null, markUrl: null };
   }
 }
 

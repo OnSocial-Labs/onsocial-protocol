@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   isMovingLandingPainted,
+  justSoldCollectionRefs,
+  mergeMovingMentions,
+  movingChipCountLabel,
+  movingPostHeatLabel,
+  movingPostTalkLabel,
+  movingProposalMeta,
+  movingProposalStatusLabel,
+  movingScarceSignalLabel,
   movingSectionFromSeed,
   orderRowsByAccountIds,
   parentPostRefFromReply,
@@ -8,6 +16,8 @@ import {
   recentPosterIds,
   selectHotPosts,
   talkedAboutParentRefs,
+  talkedAboutReplies,
+  talkedAboutThreadHref,
 } from './discover-moving';
 import type { PostRow } from '@onsocial/sdk';
 
@@ -97,6 +107,107 @@ describe('discover-moving', () => {
       { author: 'bob.near', postId: 'b' },
     ]);
   });
+
+  it('keeps the first reply per parent, newest conversation first', () => {
+    const first = {
+      ...post('bob.near', 'r1'),
+      parentAuthor: 'alice.near',
+      parentPath: 'alice.near/post/a',
+    };
+    const second = {
+      ...post('cara.near', 'r2'),
+      parentAuthor: 'dana.near',
+      parentPath: 'dana.near/post/b',
+    };
+    const laterOnFirst = {
+      ...post('eve.near', 'r3'),
+      parentAuthor: 'alice.near',
+      parentPath: 'alice.near/post/a',
+    };
+    expect(
+      talkedAboutReplies([first, second, laterOnFirst], 2).map(
+        (row) => row.postId
+      )
+    ).toEqual(['r1', 'r2']);
+  });
+
+  it('opens the parent thread focused on the reply that moved it', () => {
+    expect(
+      talkedAboutThreadHref({
+        ...post('bob.near', 'r1'),
+        parentAuthor: 'alice.near',
+        parentPath: 'alice.near/post/root-1',
+      })
+    ).toBe('/@alice.near/posts/root-1?reply=r1');
+  });
+
+  it('keeps the newest sale per drop', () => {
+    expect(
+      justSoldCollectionRefs(
+        [
+          { collectionId: 'dawn', appId: 'radio.near', blockTimestamp: 30 },
+          { collectionId: 'dusk', appId: 'shop.near', blockTimestamp: 20 },
+          { collectionId: 'dawn', appId: 'radio.near', blockTimestamp: 10 },
+          { collectionId: '', blockTimestamp: 40 },
+        ],
+        2
+      )
+    ).toEqual([
+      { collectionId: 'dawn', appId: 'radio.near', lastSaleTimestamp: 30 },
+      { collectionId: 'dusk', appId: 'shop.near', lastSaleTimestamp: 20 },
+    ]);
+  });
+
+  it('mixes last-mentioned topics, tickers, and places without counts', () => {
+    expect(
+      mergeMovingMentions(
+        [
+          { hashtag: 'gm', lastBlock: 10 },
+          { hashtag: 'near', lastBlock: 30 },
+        ],
+        [{ ticker: 'social', lastBlock: 20 }],
+        [{ place: 'lisbon', lastBlock: 25 }],
+        3
+      )
+    ).toEqual([
+      { kind: 'topic', id: 'near', lastBlock: 30 },
+      { kind: 'place', id: 'lisbon', lastBlock: 25 },
+      { kind: 'ticker', id: 'social', lastBlock: 20 },
+    ]);
+  });
+});
+
+describe('moving peek labels', () => {
+  it('names heat and talk as different why-lines', () => {
+    expect(movingPostHeatLabel()).toBe('Hot');
+    expect(movingPostTalkLabel()).toBe('Talk');
+    expect(movingPostHeatLabel()).not.toBe(movingPostTalkLabel());
+  });
+
+  it('compacts chip counts', () => {
+    expect(movingChipCountLabel(12)).toBe('12');
+    expect(movingChipCountLabel(12500)).toBe('12.5K');
+  });
+
+  it('names drop signals as sold or fans', () => {
+    expect(movingScarceSignalLabel('traded', 1)).toBe('1 sold');
+    expect(movingScarceSignalLabel('traded', 12)).toBe('12 sold');
+    expect(movingScarceSignalLabel('loved', 1)).toBe('1 fan');
+    expect(movingScarceSignalLabel('loved', 8)).toBe('8 fans');
+    expect(movingScarceSignalLabel('loved', 0)).toBeNull();
+  });
+
+  it('keeps proposal status human', () => {
+    expect(movingProposalStatusLabel('InProgress')).toBe('In review');
+    expect(movingProposalStatusLabel('approved')).toBe('Approved');
+    expect(movingProposalStatusLabel('expired')).toBe('Expired');
+    expect(movingProposalMeta({ status: 'active', groupId: 'dao.near' })).toBe(
+      'In review'
+    );
+    expect(
+      movingProposalMeta({ status: null, proposalType: 'AddMember' })
+    ).toBe('AddMember');
+  });
 });
 
 describe('moving landing paint', () => {
@@ -110,8 +221,7 @@ describe('moving landing paint', () => {
         hubs: [],
         posts: [],
         talkedAbout: [],
-        dropsTraded: [],
-        dropsLoved: [],
+        justSold: [],
         proposals: [],
       })
     ).toBe(false);
