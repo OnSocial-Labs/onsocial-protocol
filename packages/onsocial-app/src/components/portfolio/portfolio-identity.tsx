@@ -33,7 +33,7 @@ interface PortfolioIdentityProps {
   /** User-curated org line next to the building mark. */
   industry?: string | null;
   bio?: string | null;
-  /** About continuation (`profile/about`) — opens About when longer than the face. */
+  /** About essay (`profile/about`) — opens About when set. */
   aboutBio?: string | null;
   /** Quiet About lead (`profile/lead`) — opens About when set. */
   lead?: string | null;
@@ -82,7 +82,6 @@ export function PortfolioIdentity({
   const locationLabel = location?.trim() || null;
   const tagCount = profileIdentityTopics(tags).length;
   const showAbout = profileAboutHasMoreThanFace({
-    faceText: summary,
     aboutText: aboutBio,
     leadText: lead,
     photoCount,

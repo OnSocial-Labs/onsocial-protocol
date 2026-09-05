@@ -801,7 +801,6 @@ export function AppProfileEditorSheet({
                   </span>
                   <span className="account-editor-about-trigger-meta">
                     {profileAboutHasMoreThanFace({
-                      faceText: faceBio,
                       aboutText: aboutBio,
                       leadText: lead,
                       photoCount: photos.length,
