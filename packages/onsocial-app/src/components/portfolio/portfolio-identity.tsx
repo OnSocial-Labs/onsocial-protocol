@@ -14,6 +14,7 @@ import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
 import {
   profileKindFaceLabel,
+  profileKindShowsCrafts,
   resolveDisplayProfileKind,
   type JobSearchRow,
   type ProfileKind,
@@ -38,7 +39,7 @@ interface PortfolioIdentityProps {
   aboutBio?: string | null;
   /** Quiet About lead (`profile/lead`) — opens About when set. */
   lead?: string | null;
-  /** Curated identity topics (`profile/tags`) — About / Launch only. */
+  /** Curated identity topics (`profile/tags`) — person About only. */
   tags?: string[] | null;
   /** About gallery count — opens About even when the face bio is short. */
   photoCount?: number;
@@ -81,7 +82,9 @@ export function PortfolioIdentity({
   const titleLabel = displayName(accountId, profileName ?? undefined);
   const summary = tagline?.trim() || bio?.trim() || '';
   const locationLabel = location?.trim() || null;
-  const tagCount = profileIdentityTopics(tags).length;
+  const tagCount = profileKindShowsCrafts(displayKind)
+    ? profileIdentityTopics(tags).length
+    : 0;
   const showAbout = profileAboutHasMoreThanFace({
     faceText: summary,
     aboutText: aboutBio,
@@ -144,6 +147,16 @@ export function PortfolioIdentity({
             industry={industry}
             location={locationLabel}
             initialJobs={openJobs}
+          />
+        ) : displayKind === 'dao' ? (
+          <PortfolioOrgMetaLine
+            accountId={accountId}
+            orgName={titleLabel}
+            industry={industry}
+            location={locationLabel}
+            showHiring={false}
+            emptyIndustryLabel={null}
+            kindLine="dao"
           />
         ) : locationLabel ? (
           <p className="portfolio-location">

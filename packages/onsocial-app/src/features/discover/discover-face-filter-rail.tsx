@@ -22,6 +22,7 @@ const FACE_ITEMS: Array<{
   { id: 'all', label: 'All' },
   { id: 'people', label: 'People' },
   { id: 'orgs', label: 'Orgs' },
+  { id: 'daos', label: 'DAOs' },
   { id: 'hiring', label: 'Hiring' },
 ];
 

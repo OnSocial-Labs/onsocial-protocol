@@ -102,6 +102,26 @@ describe('discover trending filter', () => {
     ).toEqual(['bob.near']);
 
     expect(
+      filterTrendingProfiles(
+        [
+          {
+            ...profiles[0],
+            kind: 'dao',
+            industry: 'Film',
+          },
+          {
+            ...profiles[1],
+            kind: 'org',
+            industry: 'Film',
+          },
+        ],
+        '',
+        'daos',
+        'Film'
+      ).map((row) => row.accountId)
+    ).toEqual(['alice.near']);
+
+    expect(
       filterTrendingDaos(
         [
           { daoAccountId: 'arts.sputnik-dao.near', name: 'Arts DAO' },
