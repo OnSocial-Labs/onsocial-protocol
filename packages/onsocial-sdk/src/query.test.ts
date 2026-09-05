@@ -4240,6 +4240,18 @@ describe('QueryModule', () => {
       });
     });
 
+    it('tokensByIds queries scarcesTokenOwners by token id', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesTokenOwners: [] } });
+      await os.query.scarces.tokensByIds(['s:1', 's:1', '']);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toContain('scarcesTokenOwners');
+      expect(body.query).toMatch(/tokenId: \{ _in: \$ids \}/);
+      expect(body.variables).toEqual({ ids: ['s:1'] });
+    });
+
     it('activeOffers queries scarcesActiveOffers by tokenId', async () => {
       const { os, fetch } = makeOs({ data: { scarcesActiveOffers: [] } });
       await os.query.scarces.activeOffers({ tokenId: 's:1', limit: 20 });

@@ -220,6 +220,30 @@ export type JustSoldRef = {
   lastSaleTimestamp: number;
 };
 
+/** Drop id on the event, or inside extraData when the column is empty. */
+export function collectionIdFromSaleEvent(sale: {
+  collectionId?: string | null;
+  extraData?: string | null;
+}): string {
+  const direct = sale.collectionId?.trim() ?? '';
+  if (direct) return direct;
+  const raw = sale.extraData?.trim() ?? '';
+  if (!raw) return '';
+  try {
+    const parsed = JSON.parse(raw) as {
+      collection_id?: unknown;
+      collectionId?: unknown;
+    };
+    const extra =
+      (typeof parsed.collection_id === 'string' && parsed.collection_id) ||
+      (typeof parsed.collectionId === 'string' && parsed.collectionId) ||
+      '';
+    return extra.trim();
+  } catch {
+    return '';
+  }
+}
+
 /**
  * First sale per drop, newest first — Moving Just sold is last sale,
  * not lifetime volume.
@@ -227,6 +251,7 @@ export type JustSoldRef = {
 export function justSoldCollectionRefs(
   sales: Array<{
     collectionId?: string | null;
+    extraData?: string | null;
     appId?: string | null;
     blockTimestamp?: number | null;
   }>,
@@ -235,7 +260,7 @@ export function justSoldCollectionRefs(
   const seen = new Set<string>();
   const out: JustSoldRef[] = [];
   for (const row of sales) {
-    const id = row.collectionId?.trim() ?? '';
+    const id = collectionIdFromSaleEvent(row);
     if (!id || seen.has(id)) continue;
     seen.add(id);
     out.push({

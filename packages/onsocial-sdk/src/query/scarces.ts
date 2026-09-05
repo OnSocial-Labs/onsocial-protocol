@@ -1638,4 +1638,26 @@ export class ScarcesQuery {
       nextOffset: items.length >= limit ? offset + limit : undefined,
     };
   }
+
+  /**
+   * Current owner rows for token ids (`scarces_token_owners`).
+   * Used to name a drop when a sale event has `tokenId` but no `collectionId`.
+   */
+  async tokensByIds(tokenIds: string[]): Promise<ScarcesOwnedTokenRow[]> {
+    const ids = [
+      ...new Set(tokenIds.map((id) => id.trim()).filter((id) => id.length > 0)),
+    ];
+    if (ids.length === 0) return [];
+    const res = await this._q.graphql<{
+      scarcesTokenOwners: ScarcesOwnedTokenRow[];
+    }>({
+      query: `query ScarcesTokensByIds($ids: [String!]!) {
+        scarcesTokenOwners(where: { tokenId: { _in: $ids } }) {
+          ${SCARCES_OWNED_TOKEN_FIELDS}
+        }
+      }`,
+      variables: { ids },
+    });
+    return res.data?.scarcesTokenOwners ?? [];
+  }
 }

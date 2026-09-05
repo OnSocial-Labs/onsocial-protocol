@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  collectionIdFromSaleEvent,
   isMovingLandingPainted,
   justSoldCollectionRefs,
   mergeMovingMentions,
@@ -155,6 +156,29 @@ describe('discover-moving', () => {
     ).toEqual([
       { collectionId: 'dawn', appId: 'radio.near', lastSaleTimestamp: 30 },
       { collectionId: 'dusk', appId: 'shop.near', lastSaleTimestamp: 20 },
+    ]);
+  });
+
+  it('reads a drop id from sale extraData when the column is empty', () => {
+    expect(
+      collectionIdFromSaleEvent({
+        collectionId: '',
+        extraData: '{"collection_id":"dawn","token_id":"s:1"}',
+      })
+    ).toBe('dawn');
+    expect(
+      justSoldCollectionRefs(
+        [
+          {
+            extraData: '{"collection_id":"dawn"}',
+            appId: 'radio.near',
+            blockTimestamp: 30,
+          },
+        ],
+        1
+      )
+    ).toEqual([
+      { collectionId: 'dawn', appId: 'radio.near', lastSaleTimestamp: 30 },
     ]);
   });
 

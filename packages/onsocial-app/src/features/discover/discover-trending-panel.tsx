@@ -37,7 +37,7 @@ import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-globa
 import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
-import { dropsPath, protocolPath } from '@/lib/app-routes';
+import { marketPath, protocolPath } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
 import {
@@ -470,7 +470,7 @@ export function DiscoverTrendingPanel({
       />
       <MovingCoverPeekSection
         heading="Just sold"
-        seeAllHref={dropsPath({ sort: 'traded' })}
+        seeAllHref={marketPath()}
         kind="sold"
         rows={visibleJustSold}
       />
