@@ -50,6 +50,11 @@ export interface OsSlideOverScreenProps {
   actions?: ReactNode;
   /** Replaces the default title/subtitle block (keep `title` for screen readers). */
   heading?: ReactNode;
+  /**
+   * Hide the nav row (close + title). Keep `title` for the dialog name.
+   * Use when the sheet already has a title and close in the body.
+   */
+  hideNav?: boolean;
   toolbar?: ReactNode;
   footer?: ReactNode;
   children: ReactNode;
@@ -91,6 +96,7 @@ export function OsSlideOverScreen({
   subtitle,
   actions,
   heading,
+  hideNav = false,
   toolbar,
   footer,
   children,
@@ -207,7 +213,7 @@ export function OsSlideOverScreen({
       body.removeEventListener('scroll', syncElevated);
       screen?.style.removeProperty('--os-screen-chrome-height');
     };
-  }, [renderOpen, toolbar, subtitle, heading]);
+  }, [renderOpen, toolbar, subtitle, heading, hideNav]);
 
   const setBodyRef = useCallback(
     (node: HTMLElement | null) => {
@@ -243,6 +249,7 @@ export function OsSlideOverScreen({
       data-glass-chrome={immersiveHeader ? undefined : 'true'}
       data-screen-footer={hasFooter ? 'true' : undefined}
       data-os-slide-over="true"
+      data-hide-nav={hideNav ? 'true' : undefined}
       data-mood={hasMood ? resolvedMoodId! : undefined}
       role="dialog"
       aria-modal="true"
@@ -256,40 +263,46 @@ export function OsSlideOverScreen({
             immersiveHeader ? '' : glassElevated ? ' is-elevated' : ''
           }`}
         >
-          <div className="os-app-screen-nav-row">
-            <OsIconAction
-              ariaLabel={closeAriaLabel}
-              disabled={closeDisabled}
-              onClick={requestClose}
-            >
-              <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
-            </OsIconAction>
-            <div className="os-app-screen-heading">
-              {heading ? (
-                <>
-                  <h1 id={titleId} className="sr-only">
-                    {title}
-                  </h1>
-                  {subtitle ? (
-                    <p className="sr-only">{subtitle}</p>
-                  ) : null}
-                  {heading}
-                </>
-              ) : (
-                <>
-                  <h1 id={titleId} className="os-app-screen-title">
-                    {title}
-                  </h1>
-                  {subtitle ? (
-                    <p className="os-app-screen-subtitle">{subtitle}</p>
-                  ) : null}
-                </>
-              )}
+          {hideNav ? (
+            <h1 id={titleId} className="sr-only">
+              {title}
+            </h1>
+          ) : (
+            <div className="os-app-screen-nav-row">
+              <OsIconAction
+                ariaLabel={closeAriaLabel}
+                disabled={closeDisabled}
+                onClick={requestClose}
+              >
+                <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
+              </OsIconAction>
+              <div className="os-app-screen-heading">
+                {heading ? (
+                  <>
+                    <h1 id={titleId} className="sr-only">
+                      {title}
+                    </h1>
+                    {subtitle ? (
+                      <p className="sr-only">{subtitle}</p>
+                    ) : null}
+                    {heading}
+                  </>
+                ) : (
+                  <>
+                    <h1 id={titleId} className="os-app-screen-title">
+                      {title}
+                    </h1>
+                    {subtitle ? (
+                      <p className="os-app-screen-subtitle">{subtitle}</p>
+                    ) : null}
+                  </>
+                )}
+              </div>
+              {actions ? (
+                <div className="os-app-screen-actions">{actions}</div>
+              ) : null}
             </div>
-            {actions ? (
-              <div className="os-app-screen-actions">{actions}</div>
-            ) : null}
-          </div>
+          )}
           {toolbar ? (
             <div className="os-app-screen-toolbar">{toolbar}</div>
           ) : null}

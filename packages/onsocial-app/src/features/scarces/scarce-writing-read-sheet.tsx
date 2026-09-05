@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { MultiplyIcon, OsIconAction } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
 import type {
@@ -22,8 +23,8 @@ function inlineSvgMarkup(svg: string): string {
 }
 
 /**
- * Writing reader — same OsSlideOverScreen chrome as Listen / Pass.
- * Back lives in the OS nav row, clipped to the phone card.
+ * Writing reader — title lives on the jacket once. Close sits opposite it.
+ * Progress stays in the slide toolbar.
  */
 export function WritingReadSheet({
   open,
@@ -118,7 +119,7 @@ export function WritingReadSheet({
       open={open}
       onClose={onClose}
       title={name}
-      subtitle="Read"
+      hideNav
       closeAriaLabel="Back from reader"
       zIndex={SCARCE_Z.listenShell}
       className={`scarce-read-slide${chromeQuiet ? ' is-reading-quiet' : ''}`}
@@ -144,29 +145,37 @@ export function WritingReadSheet({
         className={`scarce-writing-read${chromeQuiet ? ' is-chrome-quiet' : ''}`}
       >
         <div className="scarce-writing-read-hero">
-          <div className="scarce-writing-read-art">
-            {inlineSvg && !rasterCover ? (
-              <div
-                className="scarce-writing-read-cover scarce-writing-read-cover--svg"
-                dangerouslySetInnerHTML={{ __html: inlineSvg }}
-              />
-            ) : rasterCover ? (
-              <img
-                src={rasterCover}
-                alt=""
-                className="scarce-writing-read-cover"
-              />
-            ) : (
-              <div
-                className="scarce-writing-read-cover scarce-writing-read-cover--empty"
-                aria-hidden
-              />
-            )}
+          <div className="scarce-writing-read-mast">
+            <div className="scarce-writing-read-art">
+              {inlineSvg && !rasterCover ? (
+                <div
+                  className="scarce-writing-read-cover scarce-writing-read-cover--svg"
+                  dangerouslySetInnerHTML={{ __html: inlineSvg }}
+                />
+              ) : rasterCover ? (
+                <img
+                  src={rasterCover}
+                  alt=""
+                  className="scarce-writing-read-cover"
+                />
+              ) : (
+                <div
+                  className="scarce-writing-read-cover scarce-writing-read-cover--empty"
+                  aria-hidden
+                />
+              )}
+            </div>
+            <div className="scarce-writing-read-copy">
+              <p className="scarce-writing-read-title">{name}</p>
+            </div>
           </div>
-          <div className="scarce-writing-read-copy">
-            <p className="scarce-writing-read-eyebrow">Read</p>
-            <p className="scarce-writing-read-title">{name}</p>
-          </div>
+          <OsIconAction
+            className="scarce-writing-read-close"
+            ariaLabel="Back from reader"
+            onClick={onClose}
+          >
+            <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
+          </OsIconAction>
         </div>
 
         <div className="scarce-writing-read-body">
