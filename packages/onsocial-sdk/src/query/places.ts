@@ -40,6 +40,49 @@ export class PlacesQuery {
   }
 
   /**
+   * Last distinct place mentions, newest first — Moving Mentioned chips.
+   * Reads `postPlaces.blockTimestamp` (real time), not the count view.
+   */
+  async recentMentions(
+    opts: { limit?: number } = {}
+  ): Promise<PlaceCount[]> {
+    const limit = opts.limit ?? 6;
+    try {
+      const res = await this._q.graphql<{
+        postPlaces: Array<{
+          place: string;
+          blockHeight: number;
+          blockTimestamp: number;
+        }>;
+      }>({
+        query: `query RecentPlaceMentions($limit: Int!) {
+        postPlaces(orderBy: [{blockTimestamp: DESC}], limit: $limit) {
+          place blockHeight blockTimestamp
+        }
+      }`,
+        variables: { limit: Math.max(limit * 8, 24) },
+      });
+      const seen = new Set<string>();
+      const out: PlaceCount[] = [];
+      for (const row of res.data?.postPlaces ?? []) {
+        const place = row.place?.trim() ?? '';
+        if (!place || seen.has(place)) continue;
+        seen.add(place);
+        out.push({
+          place,
+          postCount: 0,
+          lastBlock: Number(row.blockHeight) || 0,
+          lastTimestamp: Number(row.blockTimestamp) || 0,
+        });
+        if (out.length >= limit) break;
+      }
+      return out;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Search places by prefix (for autocomplete).
    *
    * ```ts

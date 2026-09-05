@@ -214,6 +214,7 @@ export function MovingChipPeekSection({
         href: string;
         label: string;
         count?: number;
+        time?: string;
         ticker?: boolean;
       }>
     | null;
@@ -238,7 +239,9 @@ export function MovingChipPeekSection({
             }
           >
             {item.label}
-            {item.count != null && item.count > 0 ? (
+            {item.time ? (
+              <span className="discover-trending-chip-time">{item.time}</span>
+            ) : item.count != null && item.count > 0 ? (
               <span className="discover-trending-chip-count">
                 {movingChipCountLabel(item.count)}
               </span>

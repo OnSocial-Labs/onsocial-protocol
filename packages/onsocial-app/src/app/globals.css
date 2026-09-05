@@ -11760,6 +11760,12 @@ a.os-surface-row {
     color: var(--os-surface-muted-strong);
   }
 
+  .discover-trending-chip-time {
+    font-size: 0.68rem;
+    font-weight: 550;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
   .discover-trending-chip .discover-trending-chip-count {
     color: color-mix(
       in srgb,

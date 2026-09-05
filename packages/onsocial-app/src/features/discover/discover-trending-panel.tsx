@@ -52,6 +52,7 @@ import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about
 import {
   excludeMovingFacesAlreadyShown,
   excludeMovingHubsAlreadySold,
+  fetchMovingMentionRows,
   isMovingLandingPainted,
   mergeMovingMentions,
   movingActivePeeks,
@@ -138,37 +139,20 @@ export function DiscoverTrendingPanel({
       hasPaintedRef.current = true;
     });
 
-    void client.query.tickers
-      .trending({ limit: SECTION_LIMIT, sort: 'recent' })
+    void fetchMovingMentionRows(client.query, SECTION_LIMIT)
       .then((rows) => {
         if (cancelled) return;
-        setTickers(rows);
+        setTickers(rows.tickers);
+        setTopics(rows.topics);
+        setPlaces(rows.places);
         hasPaintedRef.current = true;
       })
       .catch(() => {
-        if (!cancelled && !soft) setTickers([]);
-      });
-
-    void client.query.hashtags
-      .trending({ limit: SECTION_LIMIT, sort: 'recent' })
-      .then((rows) => {
-        if (cancelled) return;
-        setTopics(rows);
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) setTopics([]);
-      });
-
-    void client.query.places
-      .trending({ limit: SECTION_LIMIT, sort: 'recent' })
-      .then((rows) => {
-        if (cancelled) return;
-        setPlaces(rows);
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) setPlaces([]);
+        if (!cancelled && !soft) {
+          setTickers([]);
+          setTopics([]);
+          setPlaces([]);
+        }
       });
 
     void rankHubPeeks(client, { peekLimit: SCAN_POOL })
@@ -280,11 +264,16 @@ export function DiscoverTrendingPanel({
       visibleTickers,
       visiblePlaces
     ).map((item) => {
+      const time =
+        item.lastTimestamp > 0
+          ? formatRelativePostTimestamp(item.lastTimestamp)
+          : undefined;
       if (item.kind === 'topic') {
         return {
           key: `h-${item.id}`,
           href: homeHashtagPath(item.id),
           label: `#${item.id}`,
+          time,
         };
       }
       if (item.kind === 'ticker') {
@@ -293,12 +282,14 @@ export function DiscoverTrendingPanel({
           href: homeTickerPath(item.id),
           label: formatTickerDisplay(item.id),
           ticker: true,
+          time,
         };
       }
       return {
         key: `p-${item.id}`,
         href: homePlacePath(item.id),
         label: placeLabel(item.id) ?? item.id,
+        time,
       };
     });
   }, [visiblePlaces, visibleTickers, visibleTopics]);

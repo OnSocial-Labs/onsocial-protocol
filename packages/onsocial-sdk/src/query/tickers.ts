@@ -40,6 +40,49 @@ export class TickersQuery {
   }
 
   /**
+   * Last distinct ticker mentions, newest first — Moving Mentioned chips.
+   * Reads `postTickers.blockTimestamp` (real time), not the count view.
+   */
+  async recentMentions(
+    opts: { limit?: number } = {}
+  ): Promise<TickerCount[]> {
+    const limit = opts.limit ?? 6;
+    try {
+      const res = await this._q.graphql<{
+        postTickers: Array<{
+          ticker: string;
+          blockHeight: number;
+          blockTimestamp: number;
+        }>;
+      }>({
+        query: `query RecentTickerMentions($limit: Int!) {
+        postTickers(orderBy: [{blockTimestamp: DESC}], limit: $limit) {
+          ticker blockHeight blockTimestamp
+        }
+      }`,
+        variables: { limit: Math.max(limit * 8, 24) },
+      });
+      const seen = new Set<string>();
+      const out: TickerCount[] = [];
+      for (const row of res.data?.postTickers ?? []) {
+        const ticker = row.ticker?.trim() ?? '';
+        if (!ticker || seen.has(ticker)) continue;
+        seen.add(ticker);
+        out.push({
+          ticker,
+          postCount: 0,
+          lastBlock: Number(row.blockHeight) || 0,
+          lastTimestamp: Number(row.blockTimestamp) || 0,
+        });
+        if (out.length >= limit) break;
+      }
+      return out;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Search tickers by prefix (for autocomplete).
    *
    * ```ts

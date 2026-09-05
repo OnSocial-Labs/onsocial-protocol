@@ -16,6 +16,7 @@ import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client'
 import {
   excludeMovingFacesAlreadyShown,
   excludeMovingHubsAlreadySold,
+  fetchMovingMentionRows,
   movingActivePeeks,
   orderProfileSearchByPosterIds,
   recentPosterIds,
@@ -105,9 +106,7 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
     const [
       tickers,
       topics,
-      movingTickers,
-      movingTopics,
-      places,
+      mentions,
       profiles,
       hubs,
       posts,
@@ -121,15 +120,7 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
       os.query.hashtags
         .trending({ limit: TAB_CHIP_LIMIT })
         .catch(() => [] as HashtagCount[]),
-      os.query.tickers
-        .trending({ limit: SECTION_LIMIT, sort: 'recent' })
-        .catch(() => [] as TickerCount[]),
-      os.query.hashtags
-        .trending({ limit: SECTION_LIMIT, sort: 'recent' })
-        .catch(() => [] as HashtagCount[]),
-      os.query.places
-        .trending({ limit: SECTION_LIMIT, sort: 'recent' })
-        .catch(() => [] as PlaceCount[]),
+      fetchMovingMentionRows(os.query, SECTION_LIMIT),
       loadActivePosters(os),
       rankHubPeeks(os, { peekLimit: SCAN_POOL }),
       loadHotPosts(os),
@@ -139,6 +130,7 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
         .recentProposals({ limit: SECTION_LIMIT })
         .catch(() => [] as GovernanceEventRow[]),
     ]);
+    const { tickers: movingTickers, topics: movingTopics, places } = mentions;
 
     return {
       tickers,

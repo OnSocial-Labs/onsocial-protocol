@@ -3,6 +3,7 @@ import {
   collectionIdFromSaleEvent,
   excludeMovingFacesAlreadyShown,
   excludeMovingHubsAlreadySold,
+  fetchMovingMentionRows,
   firstPosterTimestamps,
   isMovingLandingPainted,
   justSoldCollectionRefs,
@@ -292,10 +293,59 @@ describe('discover-moving', () => {
         3
       )
     ).toEqual([
-      { kind: 'topic', id: 'near', lastBlock: 30 },
-      { kind: 'place', id: 'lisbon', lastBlock: 25 },
-      { kind: 'ticker', id: 'social', lastBlock: 20 },
+      { kind: 'topic', id: 'near', lastBlock: 30, lastTimestamp: 0 },
+      { kind: 'place', id: 'lisbon', lastBlock: 25, lastTimestamp: 0 },
+      { kind: 'ticker', id: 'social', lastBlock: 20, lastTimestamp: 0 },
     ]);
+  });
+
+  it('orders Mentioned by real mention time when present', () => {
+    expect(
+      mergeMovingMentions(
+        [{ hashtag: 'old', lastBlock: 99, lastTimestamp: 10 }],
+        [{ ticker: 'social', lastBlock: 1, lastTimestamp: 50 }],
+        [{ place: 'lisbon', lastBlock: 2, lastTimestamp: 40 }],
+        3
+      )
+    ).toEqual([
+      { kind: 'ticker', id: 'social', lastBlock: 1, lastTimestamp: 50 },
+      { kind: 'place', id: 'lisbon', lastBlock: 2, lastTimestamp: 40 },
+      { kind: 'topic', id: 'old', lastBlock: 99, lastTimestamp: 10 },
+    ]);
+  });
+
+  it('falls back to last-block trending when mention stubs are empty', async () => {
+    const query = {
+      hashtags: {
+        recentMentions: async () => [],
+        trending: async () => [
+          { hashtag: 'gm', postCount: 4, lastBlock: 9 },
+        ],
+      },
+      tickers: {
+        recentMentions: async () => {
+          throw new Error('denied');
+        },
+        trending: async () => [
+          { ticker: 'social', postCount: 2, lastBlock: 8 },
+        ],
+      },
+      places: {
+        recentMentions: async () => [
+          { place: 'lisbon', postCount: 0, lastBlock: 3, lastTimestamp: 30 },
+        ],
+        trending: async () => {
+          throw new Error('should not run');
+        },
+      },
+    };
+    await expect(fetchMovingMentionRows(query, 6)).resolves.toEqual({
+      topics: [{ hashtag: 'gm', postCount: 4, lastBlock: 9 }],
+      tickers: [{ ticker: 'social', postCount: 2, lastBlock: 8 }],
+      places: [
+        { place: 'lisbon', postCount: 0, lastBlock: 3, lastTimestamp: 30 },
+      ],
+    });
   });
 });
 

@@ -289,16 +289,21 @@ export type MovingMention = {
   kind: MovingMentionKind;
   id: string;
   lastBlock: number;
+  lastTimestamp: number;
 };
 
 /**
  * Last-mention mix — no lifetime counts. Topics, tickers, and places
- * share one rail on Moving.
+ * share one rail on Moving. Prefer real mention time, then last block.
  */
 export function mergeMovingMentions(
-  topics: Array<Pick<HashtagCount, 'hashtag' | 'lastBlock'>>,
-  tickers: Array<Pick<TickerCount, 'ticker' | 'lastBlock'>>,
-  places: Array<Pick<PlaceCount, 'place' | 'lastBlock'>>,
+  topics: Array<
+    Pick<HashtagCount, 'hashtag' | 'lastBlock' | 'lastTimestamp'>
+  >,
+  tickers: Array<
+    Pick<TickerCount, 'ticker' | 'lastBlock' | 'lastTimestamp'>
+  >,
+  places: Array<Pick<PlaceCount, 'place' | 'lastBlock' | 'lastTimestamp'>>,
   limit = 6
 ): MovingMention[] {
   const rows: MovingMention[] = [
@@ -306,22 +311,74 @@ export function mergeMovingMentions(
       kind: 'topic' as const,
       id: row.hashtag,
       lastBlock: Number(row.lastBlock) || 0,
+      lastTimestamp: Number(row.lastTimestamp) || 0,
     })),
     ...tickers.map((row) => ({
       kind: 'ticker' as const,
       id: row.ticker,
       lastBlock: Number(row.lastBlock) || 0,
+      lastTimestamp: Number(row.lastTimestamp) || 0,
     })),
     ...places.map((row) => ({
       kind: 'place' as const,
       id: row.place,
       lastBlock: Number(row.lastBlock) || 0,
+      lastTimestamp: Number(row.lastTimestamp) || 0,
     })),
   ];
   rows.sort(
-    (a, b) => b.lastBlock - a.lastBlock || a.id.localeCompare(b.id)
+    (a, b) =>
+      b.lastTimestamp - a.lastTimestamp ||
+      b.lastBlock - a.lastBlock ||
+      a.id.localeCompare(b.id)
   );
   return rows.slice(0, limit);
+}
+
+type MentionQuery<T> = {
+  recentMentions: (opts?: { limit?: number }) => Promise<T[]>;
+  trending: (opts?: {
+    limit?: number;
+    sort?: 'count' | 'recent';
+  }) => Promise<T[]>;
+};
+
+async function mentionRowsOrRecent<T>(
+  source: MentionQuery<T>,
+  limit: number
+): Promise<T[]> {
+  try {
+    const recent = await source.recentMentions({ limit });
+    if (recent.length > 0) return recent;
+  } catch {
+    // Unfiltered junction orderBy can be denied; count view still works.
+  }
+  try {
+    return await source.trending({ limit, sort: 'recent' });
+  } catch {
+    return [];
+  }
+}
+
+/** Moving Mentioned: real times from stubs, last-block chips if that query is empty. */
+export async function fetchMovingMentionRows(
+  query: {
+    hashtags: MentionQuery<HashtagCount>;
+    tickers: MentionQuery<TickerCount>;
+    places: MentionQuery<PlaceCount>;
+  },
+  limit = 6
+): Promise<{
+  topics: HashtagCount[];
+  tickers: TickerCount[];
+  places: PlaceCount[];
+}> {
+  const [topics, tickers, places] = await Promise.all([
+    mentionRowsOrRecent(query.hashtags, limit),
+    mentionRowsOrRecent(query.tickers, limit),
+    mentionRowsOrRecent(query.places, limit),
+  ]);
+  return { topics, tickers, places };
 }
 
 export type JustSoldRef = {

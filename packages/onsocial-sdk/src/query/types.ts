@@ -26,6 +26,8 @@ export interface HashtagCount {
   hashtag: string;
   postCount: number;
   lastBlock: number;
+  /** Last mention time — set on `recentMentions`, not the count view. */
+  lastTimestamp?: number;
 }
 
 /** Row from `ticker_counts` view. */
@@ -33,6 +35,7 @@ export interface TickerCount {
   ticker: string;
   postCount: number;
   lastBlock: number;
+  lastTimestamp?: number;
 }
 
 /** Row from `place_counts` view. */
@@ -40,6 +43,7 @@ export interface PlaceCount {
   place: string;
   postCount: number;
   lastBlock: number;
+  lastTimestamp?: number;
 }
 
 export interface GroupConversation {
