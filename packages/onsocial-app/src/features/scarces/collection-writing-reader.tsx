@@ -6,10 +6,13 @@ import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import { MediaDownloadControl } from '@/components/ui/media-download-control';
 import { CollectionWritingBodySkeleton } from '@/features/scarces/collection-page-skeleton';
+import { CollectionWritingPdfPage } from '@/features/scarces/collection-writing-pdf-page';
 import {
   isWritingPdfMime,
   readWritingChapterIndex,
   readWritingScrollRatio,
+  writingObjectProgress,
+  writingSwipeDirection,
   writeWritingChapterIndex,
   writeWritingScrollRatio,
   type ScarceReadableMedia,
@@ -53,9 +56,11 @@ export function CollectionWritingReader({
 
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTopRef = useRef(0);
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const [chapterIndex, setChapterIndex] = useState(() =>
     readWritingChapterIndex(collectionId, accountId)
   );
+  const [chapterRatio, setChapterRatio] = useState(0);
   const [listKey, setListKey] = useState(() => readablesKey(readables));
   const [tocOpen, setTocOpen] = useState(false);
   const [fetchState, setFetchState] = useState<
@@ -68,6 +73,7 @@ export function CollectionWritingReader({
   if (nextKey !== listKey) {
     setListKey(nextKey);
     setChapterIndex(readWritingChapterIndex(collectionId, accountId));
+    setChapterRatio(0);
     setFetchState({ status: 'idle' });
     setTocOpen(false);
   }
@@ -118,6 +124,25 @@ export function CollectionWritingReader({
   }, [collectionId, accountId, safeIndex]);
 
   useEffect(() => {
+    onProgress?.(
+      writingObjectProgress({
+        chapterIndex: safeIndex,
+        chapterCount: readables.length,
+        chapterRatio,
+      })
+    );
+  }, [chapterRatio, onProgress, readables.length, safeIndex]);
+
+  const goChapter = (nextIndex: number) => {
+    if (readables.length <= 0) return;
+    const next = Math.min(readables.length - 1, Math.max(0, nextIndex));
+    if (next === safeIndex) return;
+    setChapterIndex(next);
+    setChapterRatio(0);
+    setTocOpen(false);
+  };
+
+  useEffect(() => {
     if (!chapterUrl || chapterIsPdf || chapterUrl.startsWith('post:')) return;
     let cancelled = false;
     const url = chapterUrl;
@@ -155,17 +180,18 @@ export function CollectionWritingReader({
       const max = el.scrollHeight - el.clientHeight;
       if (max <= 0) {
         lastScrollTopRef.current = 0;
-        onProgress?.(0);
+        // Fully visible chapter — count it finished so the book bar stays honest.
+        setChapterRatio(1);
         return;
       }
       el.scrollTop = ratio * max;
       lastScrollTopRef.current = el.scrollTop;
-      onProgress?.(ratio);
+      setChapterRatio(ratio);
     };
     apply();
     const frame = window.requestAnimationFrame(apply);
     return () => window.cancelAnimationFrame(frame);
-  }, [body, collectionId, accountId, safeIndex, onProgress]);
+  }, [body, collectionId, accountId, safeIndex]);
 
   // Prefetch next Markdown chapter (book only).
   useEffect(() => {
@@ -185,15 +211,36 @@ export function CollectionWritingReader({
     const max = el.scrollHeight - el.clientHeight;
     const ratio = max > 0 ? el.scrollTop / max : 0;
     writeWritingScrollRatio(collectionId, accountId, safeIndex, ratio);
-    onProgress?.(ratio);
+    setChapterRatio(ratio);
     const delta = el.scrollTop - lastScrollTopRef.current;
     lastScrollTopRef.current = el.scrollTop;
     if (delta !== 0) onScrollDelta?.(delta);
   };
 
   const selectChapter = (index: number) => {
-    setChapterIndex(index);
-    setTocOpen(false);
+    goChapter(index);
+  };
+
+  const onBodyPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isBook || chapterIsPdf) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    pointerRef.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const onBodyPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isBook || chapterIsPdf) {
+      pointerRef.current = null;
+      return;
+    }
+    const start = pointerRef.current;
+    pointerRef.current = null;
+    if (!start) return;
+    const direction = writingSwipeDirection(start, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+    if (direction === 'next') goChapter(safeIndex + 1);
+    if (direction === 'prev') goChapter(safeIndex - 1);
   };
 
   const downloads =
@@ -350,6 +397,11 @@ export function CollectionWritingReader({
             ref={bodyRef}
             className="collection-writing-body"
             onScroll={onBodyScroll}
+            onPointerDown={onBodyPointerDown}
+            onPointerUp={onBodyPointerUp}
+            onPointerCancel={() => {
+              pointerRef.current = null;
+            }}
           >
             {isBook && chapter ? (
               <h3 className="collection-writing-chapter-title">
@@ -357,12 +409,37 @@ export function CollectionWritingReader({
               </h3>
             ) : null}
             {chapterIsPdf && chapterUrl ? (
-              <iframe
-                className="collection-writing-pdf"
+              <CollectionWritingPdfPage
+                url={chapterUrl}
                 title={
                   chapter.title?.trim() || `PDF chapter ${safeIndex + 1}`
                 }
-                src={chapterUrl}
+                initialRatio={readWritingScrollRatio(
+                  collectionId,
+                  accountId,
+                  safeIndex
+                )}
+                onProgress={(ratio) => {
+                  writeWritingScrollRatio(
+                    collectionId,
+                    accountId,
+                    safeIndex,
+                    ratio
+                  );
+                  setChapterRatio((prev) => {
+                    if (ratio > prev + 0.002) onScrollDelta?.(8);
+                    else if (ratio < prev - 0.002) onScrollDelta?.(-8);
+                    return ratio;
+                  });
+                }}
+                onEdgeSwipe={
+                  isBook
+                    ? (direction) =>
+                        goChapter(
+                          direction === 'next' ? safeIndex + 1 : safeIndex - 1
+                        )
+                    : undefined
+                }
               />
             ) : null}
             {loading ? <CollectionWritingBodySkeleton /> : null}
@@ -391,7 +468,7 @@ export function CollectionWritingReader({
                 type="button"
                 className="os-surface-chip"
                 disabled={safeIndex <= 0}
-                onClick={() => setChapterIndex((i) => Math.max(0, i - 1))}
+                onClick={() => goChapter(safeIndex - 1)}
               >
                 Previous
               </button>
@@ -399,11 +476,7 @@ export function CollectionWritingReader({
                 type="button"
                 className="os-surface-chip"
                 disabled={safeIndex >= readables.length - 1}
-                onClick={() =>
-                  setChapterIndex((i) =>
-                    Math.min(readables.length - 1, i + 1)
-                  )
-                }
+                onClick={() => goChapter(safeIndex + 1)}
               >
                 Next
               </button>

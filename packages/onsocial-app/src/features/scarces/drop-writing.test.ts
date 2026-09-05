@@ -19,8 +19,11 @@ import {
   readablesFromManifest,
   writingChaptersValid,
   writingContentUrl,
+  writingObjectProgress,
+  writingPdfPageProgress,
   writingReadingSectionLabel,
   writingScrollRatioStorageKey,
+  writingSwipeDirection,
   writeWritingChapterIndex,
   writeWritingScrollRatio,
 } from '@/features/scarces/drop-writing';
@@ -372,5 +375,72 @@ describe('writing read progress storage', () => {
   it('no-ops without an account', () => {
     writeWritingChapterIndex('drop-1', null, 1);
     expect(readWritingChapterIndex('drop-1', null)).toBe(0);
+  });
+});
+
+describe('writingObjectProgress', () => {
+  it('treats the book as one object', () => {
+    expect(
+      writingObjectProgress({
+        chapterIndex: 0,
+        chapterCount: 4,
+        chapterRatio: 0,
+      })
+    ).toBe(0);
+    expect(
+      writingObjectProgress({
+        chapterIndex: 1,
+        chapterCount: 4,
+        chapterRatio: 0.5,
+      })
+    ).toBe(0.375);
+    expect(
+      writingObjectProgress({
+        chapterIndex: 3,
+        chapterCount: 4,
+        chapterRatio: 1,
+      })
+    ).toBe(1);
+  });
+
+  it('clamps empty and overflow counts', () => {
+    expect(writingObjectProgress({ chapterIndex: 0, chapterCount: 0 })).toBe(
+      0
+    );
+    expect(
+      writingObjectProgress({
+        chapterIndex: 9,
+        chapterCount: 2,
+        chapterRatio: 2,
+      })
+    ).toBe(1);
+  });
+});
+
+describe('writingPdfPageProgress', () => {
+  it('maps page 1 of 10 at the start of the page to 0', () => {
+    expect(
+      writingPdfPageProgress({ pageIndex: 0, pageCount: 10, pageRatio: 0 })
+    ).toBe(0);
+    expect(
+      writingPdfPageProgress({ pageIndex: 9, pageCount: 10, pageRatio: 1 })
+    ).toBe(1);
+  });
+});
+
+describe('writingSwipeDirection', () => {
+  it('reads a clear horizontal swipe and ignores vertical scroll', () => {
+    expect(
+      writingSwipeDirection({ x: 120, y: 40 }, { x: 40, y: 44 })
+    ).toBe('next');
+    expect(
+      writingSwipeDirection({ x: 40, y: 40 }, { x: 120, y: 48 })
+    ).toBe('prev');
+    expect(
+      writingSwipeDirection({ x: 40, y: 40 }, { x: 48, y: 160 })
+    ).toBeNull();
+    expect(
+      writingSwipeDirection({ x: 40, y: 40 }, { x: 70, y: 42 })
+    ).toBeNull();
   });
 });

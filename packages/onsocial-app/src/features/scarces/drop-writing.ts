@@ -426,3 +426,55 @@ export function writeWritingScrollRatio(
     // ignore
   }
 }
+
+function clampUnit(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value));
+}
+
+/** Whole Issue / Book progress 0–1 (chapter index + work inside that chapter). */
+export function writingObjectProgress(opts: {
+  chapterIndex: number;
+  chapterCount: number;
+  chapterRatio?: number;
+}): number {
+  const count = Math.max(0, Math.floor(opts.chapterCount));
+  if (count <= 0) return 0;
+  const index = Math.min(
+    count - 1,
+    Math.max(0, Math.floor(opts.chapterIndex))
+  );
+  return (index + clampUnit(opts.chapterRatio ?? 0)) / count;
+}
+
+/** Progress inside a paged PDF (page index + work on that page). */
+export function writingPdfPageProgress(opts: {
+  pageIndex: number;
+  pageCount: number;
+  pageRatio?: number;
+}): number {
+  return writingObjectProgress({
+    chapterIndex: opts.pageIndex,
+    chapterCount: opts.pageCount,
+    chapterRatio: opts.pageRatio,
+  });
+}
+
+const SWIPE_MIN_PX = 56;
+const SWIPE_AXIS_BIAS = 1.35;
+
+/** Horizontal swipe that is not a vertical scroll. */
+export function writingSwipeDirection(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  opts?: { minPx?: number; axisBias?: number }
+): 'next' | 'prev' | null {
+  const minPx = opts?.minPx ?? SWIPE_MIN_PX;
+  const axisBias = opts?.axisBias ?? SWIPE_AXIS_BIAS;
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return null;
+  if (Math.abs(dx) < minPx) return null;
+  if (Math.abs(dx) < Math.abs(dy) * axisBias) return null;
+  return dx < 0 ? 'next' : 'prev';
+}
