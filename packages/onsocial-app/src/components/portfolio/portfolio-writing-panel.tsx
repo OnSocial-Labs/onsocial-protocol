@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { PostRow } from '@onsocial/sdk';
 import { osFieldBorderedClassName } from '@onsocial/ui';
 import { PortfolioWritingCover } from '@/components/portfolio/portfolio-writing-cover';
+import { PostRichText } from '@/features/home/post-rich-text';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   articleCoverUrl,
@@ -96,7 +97,11 @@ export function PortfolioWritingPanel({
                       {article.title}
                     </h2>
                     <p className="portfolio-writing-card-excerpt">
-                      {articleExcerpt(post.value)}
+                      <PostRichText
+                        text={articleExcerpt(post.value)}
+                        inlineMarks
+                        emptyFallback=""
+                      />
                     </p>
                     <p className="portfolio-writing-card-meta">
                       {formatRelativePostTimestamp(post.blockTimestamp)}
