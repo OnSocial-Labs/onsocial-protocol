@@ -87,9 +87,9 @@ describe('discover-moving', () => {
   });
 
   it('drops Active faces already on Hot or Talked about', () => {
-    expect(movingSeenFaceIds([post('mira.near', 'h1')], [post('leo.near', 'r1')])).toEqual(
-      ['mira.near', 'leo.near']
-    );
+    expect(
+      movingSeenFaceIds([post('mira.near', 'h1')], [post('leo.near', 'r1')])
+    ).toEqual(['mira.near', 'leo.near']);
     expect(
       excludeMovingFacesAlreadyShown(
         [
@@ -125,13 +125,13 @@ describe('discover-moving', () => {
   });
 
   it('keeps the first post time per author', () => {
-    expect(
-      [...firstPosterTimestamps([
+    expect([
+      ...firstPosterTimestamps([
         { accountId: 'alice.near', blockTimestamp: 30 },
         { accountId: 'bob.near', blockTimestamp: 20 },
         { accountId: 'alice.near', blockTimestamp: 10 },
-      ])]
-    ).toEqual([
+      ]),
+    ]).toEqual([
       ['alice.near', 30],
       ['bob.near', 20],
     ]);
@@ -318,9 +318,7 @@ describe('discover-moving', () => {
     const query = {
       hashtags: {
         recentMentions: async () => [],
-        trending: async () => [
-          { hashtag: 'gm', postCount: 4, lastBlock: 9 },
-        ],
+        trending: async () => [{ hashtag: 'gm', postCount: 4, lastBlock: 9 }],
       },
       tickers: {
         recentMentions: async () => {

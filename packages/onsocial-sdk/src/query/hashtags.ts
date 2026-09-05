@@ -43,9 +43,7 @@ export class HashtagsQuery {
    * Last distinct hashtag mentions, newest first — Moving Mentioned chips.
    * Reads `postHashtags.blockTimestamp` (real time), not the count view.
    */
-  async recentMentions(
-    opts: { limit?: number } = {}
-  ): Promise<HashtagCount[]> {
+  async recentMentions(opts: { limit?: number } = {}): Promise<HashtagCount[]> {
     const limit = opts.limit ?? 6;
     try {
       const res = await this._q.graphql<{

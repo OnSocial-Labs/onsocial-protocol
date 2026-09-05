@@ -6,10 +6,7 @@ import type {
   TickerCount,
 } from '@onsocial/sdk';
 import { formatDiscoverTabCount } from '@/lib/discover-tab-lead';
-import {
-  appendThreadFocusReply,
-  postThreadPath,
-} from '@/lib/post-routes';
+import { appendThreadFocusReply, postThreadPath } from '@/lib/post-routes';
 
 /** Any non-empty Moving peek — first paint can skip skeletons. */
 export function isMovingLandingPainted(
@@ -171,7 +168,9 @@ export function excludeMovingHubsAlreadySold<
   sold: Array<{ appId?: string | null; title?: string | null }>
 ): T[] {
   const soldApps = new Set(
-    sold.map((row) => row.appId?.trim()).filter((id): id is string => Boolean(id))
+    sold
+      .map((row) => row.appId?.trim())
+      .filter((id): id is string => Boolean(id))
   );
   const soldTitles = new Set(
     sold
@@ -297,12 +296,8 @@ export type MovingMention = {
  * share one rail on Moving. Prefer real mention time, then last block.
  */
 export function mergeMovingMentions(
-  topics: Array<
-    Pick<HashtagCount, 'hashtag' | 'lastBlock' | 'lastTimestamp'>
-  >,
-  tickers: Array<
-    Pick<TickerCount, 'ticker' | 'lastBlock' | 'lastTimestamp'>
-  >,
+  topics: Array<Pick<HashtagCount, 'hashtag' | 'lastBlock' | 'lastTimestamp'>>,
+  tickers: Array<Pick<TickerCount, 'ticker' | 'lastBlock' | 'lastTimestamp'>>,
   places: Array<Pick<PlaceCount, 'place' | 'lastBlock' | 'lastTimestamp'>>,
   limit = 6
 ): MovingMention[] {

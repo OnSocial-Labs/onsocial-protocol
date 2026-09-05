@@ -3199,9 +3199,7 @@ describe('QueryModule', () => {
     it('recentMentions reads postPlaces by real timestamp', async () => {
       const { os, fetch } = makeOs({
         data: {
-          postPlaces: [
-            { place: 'lisbon', blockHeight: 5, blockTimestamp: 50 },
-          ],
+          postPlaces: [{ place: 'lisbon', blockHeight: 5, blockTimestamp: 50 }],
         },
       });
       expect(await os.query.places.recentMentions({ limit: 1 })).toEqual([

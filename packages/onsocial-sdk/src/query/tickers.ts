@@ -43,9 +43,7 @@ export class TickersQuery {
    * Last distinct ticker mentions, newest first — Moving Mentioned chips.
    * Reads `postTickers.blockTimestamp` (real time), not the count view.
    */
-  async recentMentions(
-    opts: { limit?: number } = {}
-  ): Promise<TickerCount[]> {
+  async recentMentions(opts: { limit?: number } = {}): Promise<TickerCount[]> {
     const limit = opts.limit ?? 6;
     try {
       const res = await this._q.graphql<{

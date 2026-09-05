@@ -43,9 +43,7 @@ export class PlacesQuery {
    * Last distinct place mentions, newest first — Moving Mentioned chips.
    * Reads `postPlaces.blockTimestamp` (real time), not the count view.
    */
-  async recentMentions(
-    opts: { limit?: number } = {}
-  ): Promise<PlaceCount[]> {
+  async recentMentions(opts: { limit?: number } = {}): Promise<PlaceCount[]> {
     const limit = opts.limit ?? 6;
     try {
       const res = await this._q.graphql<{
