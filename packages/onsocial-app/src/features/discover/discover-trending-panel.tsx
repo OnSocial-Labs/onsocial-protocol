@@ -50,7 +50,6 @@ import {
 } from '@/features/discover/discover-scarce-peeks';
 import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about';
 import {
-  excludeMovingFacesAlreadyShown,
   excludeMovingHubsAlreadySold,
   fetchMovingMentionRows,
   isMovingLandingPainted,
@@ -188,14 +187,14 @@ export function DiscoverTrendingPanel({
     void client.query.feed
       .recent({ limit: ACTIVE_POST_POOL, section: 'posts' })
       .then(async (page) => {
-        const ids = recentPosterIds(page.items, SCAN_POOL);
+        const ids = recentPosterIds(page.items, SECTION_LIMIT);
         if (ids.length === 0) return [];
         const rows = await client.query.profiles.statsForAccounts(ids);
         const accounts = await discoverPageToProfileListAccounts(client, {
           profiles: rows,
           viewer: null,
         });
-        return movingActivePeeks(accounts, page.items, SCAN_POOL);
+        return movingActivePeeks(accounts, page.items, SECTION_LIMIT);
       })
       .then((next) => {
         if (cancelled) return;
@@ -238,12 +237,8 @@ export function DiscoverTrendingPanel({
   );
   const visibleProfiles = useMemo(() => {
     if (profiles == null) return null;
-    return excludeMovingFacesAlreadyShown(
-      filterMovingActive(profiles, query),
-      visiblePosts ?? [],
-      visibleTalkedAbout ?? []
-    ).slice(0, SECTION_LIMIT);
-  }, [profiles, query, visiblePosts, visibleTalkedAbout]);
+    return filterMovingActive(profiles, query).slice(0, SECTION_LIMIT);
+  }, [profiles, query]);
   const visibleHubs = useMemo(() => {
     if (hubs == null) return null;
     return excludeMovingHubsAlreadySold(

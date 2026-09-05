@@ -14,7 +14,6 @@ import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about
 import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import {
-  excludeMovingFacesAlreadyShown,
   excludeMovingHubsAlreadySold,
   fetchMovingMentionRows,
   movingActivePeeks,
@@ -87,14 +86,14 @@ async function loadActivePosters(
       limit: ACTIVE_POST_POOL,
       section: 'posts',
     });
-    const ids = recentPosterIds(page.items, SCAN_POOL);
+    const ids = recentPosterIds(page.items, SECTION_LIMIT);
     if (ids.length === 0) return [];
     const rows = await os.query.profiles.statsForAccounts(ids);
     const accounts = await discoverPageToProfileListAccounts(os, {
       profiles: orderProfileSearchByPosterIds(rows, ids),
       viewer: null,
     });
-    return movingActivePeeks(accounts, page.items, SCAN_POOL);
+    return movingActivePeeks(accounts, page.items, SECTION_LIMIT);
   } catch {
     return [];
   }
@@ -139,11 +138,7 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
       movingTickers,
       movingTopics,
       places,
-      profiles: excludeMovingFacesAlreadyShown(
-        profiles,
-        posts,
-        talkedAbout
-      ).slice(0, SECTION_LIMIT),
+      profiles: profiles.slice(0, SECTION_LIMIT),
       hubs: excludeMovingHubsAlreadySold(hubs, justSold).slice(
         0,
         SECTION_LIMIT

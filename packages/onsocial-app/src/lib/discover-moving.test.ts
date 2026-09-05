@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   collectionIdFromSaleEvent,
-  excludeMovingFacesAlreadyShown,
   excludeMovingHubsAlreadySold,
   fetchMovingMentionRows,
   firstPosterTimestamps,
@@ -10,7 +9,6 @@ import {
   mergeMovingMentions,
   movingActivePeeks,
   movingChipCountLabel,
-  movingSeenFaceIds,
   movingProposalMeta,
   movingProposalStatusLabel,
   movingScarceSignalLabel,
@@ -86,21 +84,14 @@ describe('discover-moving', () => {
     ).toEqual(['bob.near', 'cara.near']);
   });
 
-  it('drops Active faces already on Hot or Talked about', () => {
+  it('keeps last posters on Active even when they also have a hot post', () => {
     expect(
-      movingSeenFaceIds([post('mira.near', 'h1')], [post('leo.near', 'r1')])
-    ).toEqual(['mira.near', 'leo.near']);
-    expect(
-      excludeMovingFacesAlreadyShown(
-        [
-          { accountId: 'mira.near' },
-          { accountId: 'sam.near' },
-          { accountId: 'leo.near' },
-        ],
-        [post('mira.near', 'h1')],
-        [post('leo.near', 'r1')]
+      movingActivePeeks(
+        [{ accountId: 'alice.near', name: 'Alice', avatarUrl: '/a.png' }],
+        [{ accountId: 'alice.near', blockTimestamp: 30 }],
+        6
       ).map((row) => row.accountId)
-    ).toEqual(['sam.near']);
+    ).toEqual(['alice.near']);
   });
 
   it('drops hubs already on Just sold', () => {

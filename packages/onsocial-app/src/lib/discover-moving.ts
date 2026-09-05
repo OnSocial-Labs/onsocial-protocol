@@ -136,30 +136,6 @@ export function movingActivePeeks(
   return out;
 }
 
-/** Faces already on Hot or Talked about — Active should fill other people. */
-export function movingSeenFaceIds(
-  posts: Array<Pick<PostRow, 'accountId'>>,
-  replies: Array<Pick<PostRow, 'accountId'>>
-): string[] {
-  return [
-    ...new Set(
-      [...posts, ...replies]
-        .map((row) => row.accountId.trim())
-        .filter((id) => id.length > 0)
-    ),
-  ];
-}
-
-export function excludeMovingFacesAlreadyShown<T extends { accountId: string }>(
-  faces: T[],
-  posts: Array<Pick<PostRow, 'accountId'>>,
-  replies: Array<Pick<PostRow, 'accountId'>>
-): T[] {
-  const skip = new Set(movingSeenFaceIds(posts, replies));
-  if (skip.size === 0) return faces;
-  return faces.filter((row) => !skip.has(row.accountId.trim()));
-}
-
 /** Hubs already represented by a Just sold drop — one object per scan. */
 export function excludeMovingHubsAlreadySold<
   T extends { appId: string; title?: string | null },
