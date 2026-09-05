@@ -175,6 +175,34 @@ function articleHashtags(value: string): string[] {
   }
 }
 
+/**
+ * Feed / discover card hit. Titled articles open the piece; the thread
+ * page (`detailLayout`) stays on the conversation.
+ */
+export function resolvePostCardOpenHref(opts: {
+  articleHref: string | null;
+  actionHref?: string | null;
+  detailLayout?: boolean;
+}): string | null {
+  if (opts.articleHref && !opts.detailLayout) return opts.articleHref;
+  return opts.actionHref ?? null;
+}
+
+/** Empty Writing shelf copy + whether the owner compose CTA can show. */
+export function resolveWritingEmptyState(opts: {
+  isOwner: boolean;
+  articleCount: number;
+  matchCount: number;
+  canCompose: boolean;
+}): 'owner-cta' | 'owner-copy' | 'visitor' | 'no-match' | null {
+  if (opts.matchCount > 0) return null;
+  if (opts.articleCount === 0) {
+    if (!opts.isOwner) return 'visitor';
+    return opts.canCompose ? 'owner-cta' : 'owner-copy';
+  }
+  return 'no-match';
+}
+
 export function articleMatchesQuery(
   post: Pick<PostRow, 'value'>,
   query: string

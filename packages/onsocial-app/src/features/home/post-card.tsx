@@ -113,6 +113,7 @@ import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
 import {
   articleTeaseSource,
   parseArticleSnapshot,
+  resolvePostCardOpenHref,
 } from '@/lib/article-post-payload';
 import {
   txToastConfirming,
@@ -1621,6 +1622,11 @@ export function PostCard({
   const articleHref = article
     ? writingArticlePath(post.accountId, post.postId)
     : null;
+  const openHref = resolvePostCardOpenHref({
+    articleHref,
+    actionHref,
+    detailLayout,
+  });
   const labels = parsePostContentLabels(post.value);
   const poll = parsePostPollEmbed(post.value);
   const dropPaint = parseDropPaintSnapshot(post.value);
@@ -1692,7 +1698,7 @@ export function PostCard({
       ? (authorProfiles?.[relationContext.handle]?.displayName ?? null)
       : null;
   const profileHref = portfolioPath(post.accountId);
-  const shareHref = actionHref ?? postThreadPath(post);
+  const shareHref = openHref ?? actionHref ?? postThreadPath(post);
   const guildId = post.groupId?.trim() || null;
   const guildLabel =
     showGuildAttribution && guildId ? guildName?.trim() || guildId : null;
@@ -1708,7 +1714,7 @@ export function PostCard({
   const cardClassName = [
     'post-card',
     // No rise-in here: feed skeletons morph in-place; translating up reads as content jump.
-    actionHref ? 'post-card--openable' : '',
+    openHref ? 'post-card--openable' : '',
     detailLayout ? 'post-card--detail' : '',
     repostedBy ? 'post-card--reposted' : '',
     className ?? '',
@@ -1718,12 +1724,14 @@ export function PostCard({
 
   return (
     <article className={cardClassName} ref={scarceEmbedMergedRef}>
-      {actionHref ? (
+      {openHref ? (
         <Link
-          href={actionHref}
+          href={openHref}
           className="post-card-hit"
           scroll={false}
-          aria-label="Open post"
+          aria-label={
+            articleHref && !detailLayout ? 'Read article' : 'Open post'
+          }
         />
       ) : null}
       {repostedBy && repostedByLabel ? (
@@ -1770,7 +1778,7 @@ export function PostCard({
               name={name}
               accountId={post.accountId}
               timestamp={detailLayout ? undefined : post.blockTimestamp}
-              timeHref={detailLayout ? undefined : actionHref}
+              timeHref={detailLayout ? undefined : (openHref ?? undefined)}
               authorHref={profileHref}
               layout={detailLayout ? 'stacked' : 'inline'}
               channel={
@@ -1844,17 +1852,11 @@ export function PostCard({
                         setPhotoOpen(true);
                         return;
                       }
-                      if (action.kind === 'thread' && actionHref) {
+                      if (action.kind === 'thread' && openHref) {
                         router.push(
                           action.unmute
-                            ? appendPostMediaUnmute(
-                                actionHref,
-                                action.mediaIndex
-                              )
-                            : appendPostMediaIndex(
-                                actionHref,
-                                action.mediaIndex
-                              )
+                            ? appendPostMediaUnmute(openHref, action.mediaIndex)
+                            : appendPostMediaIndex(openHref, action.mediaIndex)
                         );
                       }
                     }

@@ -10,10 +10,15 @@ import {
   normalizeArticleTitle,
   parseArticleSnapshot,
   resolveComposerArticle,
+  resolvePostCardOpenHref,
+  resolveWritingEmptyState,
   shouldShowWritingLink,
 } from './article-post-payload';
 
-function postValue(extra: Record<string, unknown>, text = 'Body of the piece.') {
+function postValue(
+  extra: Record<string, unknown>,
+  text = 'Body of the piece.'
+) {
   return JSON.stringify({
     v: 1,
     text,
@@ -116,24 +121,105 @@ describe('articleTeaseSource', () => {
 
 describe('shouldShowWritingLink', () => {
   it('shows for the owner even before articles load', () => {
-    expect(
-      shouldShowWritingLink({ isOwner: true, hasArticles: null })
-    ).toBe(true);
-    expect(
-      shouldShowWritingLink({ isOwner: true, hasArticles: false })
-    ).toBe(true);
+    expect(shouldShowWritingLink({ isOwner: true, hasArticles: null })).toBe(
+      true
+    );
+    expect(shouldShowWritingLink({ isOwner: true, hasArticles: false })).toBe(
+      true
+    );
   });
 
   it('shows for visitors only after an article exists', () => {
+    expect(shouldShowWritingLink({ isOwner: false, hasArticles: null })).toBe(
+      false
+    );
+    expect(shouldShowWritingLink({ isOwner: false, hasArticles: false })).toBe(
+      false
+    );
+    expect(shouldShowWritingLink({ isOwner: false, hasArticles: true })).toBe(
+      true
+    );
+  });
+});
+
+describe('resolvePostCardOpenHref', () => {
+  it('opens the article from the feed, not the thread', () => {
     expect(
-      shouldShowWritingLink({ isOwner: false, hasArticles: null })
-    ).toBe(false);
+      resolvePostCardOpenHref({
+        articleHref: '/@alice/writing/p1',
+        actionHref: '/@alice/post/p1',
+      })
+    ).toBe('/@alice/writing/p1');
+  });
+
+  it('keeps the thread URL on the detail page', () => {
     expect(
-      shouldShowWritingLink({ isOwner: false, hasArticles: false })
-    ).toBe(false);
+      resolvePostCardOpenHref({
+        articleHref: '/@alice/writing/p1',
+        actionHref: '/@alice/post/p1',
+        detailLayout: true,
+      })
+    ).toBe('/@alice/post/p1');
+  });
+
+  it('falls back to the thread for untitled posts', () => {
     expect(
-      shouldShowWritingLink({ isOwner: false, hasArticles: true })
-    ).toBe(true);
+      resolvePostCardOpenHref({
+        articleHref: null,
+        actionHref: '/@alice/post/p1',
+      })
+    ).toBe('/@alice/post/p1');
+  });
+});
+
+describe('resolveWritingEmptyState', () => {
+  it('shows the owner compose CTA when compose is available', () => {
+    expect(
+      resolveWritingEmptyState({
+        isOwner: true,
+        articleCount: 0,
+        matchCount: 0,
+        canCompose: true,
+      })
+    ).toBe('owner-cta');
+  });
+
+  it('keeps owner copy without a compose handler', () => {
+    expect(
+      resolveWritingEmptyState({
+        isOwner: true,
+        articleCount: 0,
+        matchCount: 0,
+        canCompose: false,
+      })
+    ).toBe('owner-copy');
+  });
+
+  it('stays quiet for visitors and search misses', () => {
+    expect(
+      resolveWritingEmptyState({
+        isOwner: false,
+        articleCount: 0,
+        matchCount: 0,
+        canCompose: false,
+      })
+    ).toBe('visitor');
+    expect(
+      resolveWritingEmptyState({
+        isOwner: true,
+        articleCount: 2,
+        matchCount: 0,
+        canCompose: true,
+      })
+    ).toBe('no-match');
+    expect(
+      resolveWritingEmptyState({
+        isOwner: true,
+        articleCount: 2,
+        matchCount: 1,
+        canCompose: true,
+      })
+    ).toBeNull();
   });
 });
 

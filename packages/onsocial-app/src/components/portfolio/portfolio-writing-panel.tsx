@@ -7,11 +7,13 @@ import { osFieldBorderedClassName } from '@onsocial/ui';
 import { PortfolioWritingCover } from '@/components/portfolio/portfolio-writing-cover';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useWritingComposeOpen } from '@/contexts/writing-compose-context';
 import {
   articleCoverUrl,
   articleExcerpt,
   articleMatchesQuery,
   parseArticleSnapshot,
+  resolveWritingEmptyState,
 } from '@/lib/article-post-payload';
 import { accountIdsEqual } from '@/lib/account-match';
 import { writingArticlePath } from '@/lib/overlay-routes';
@@ -32,12 +34,19 @@ export function PortfolioWritingPanel({
 }: PortfolioWritingPanelProps) {
   const { accountId: viewerId } = useAppWallet();
   const isOwner = Boolean(viewerId && accountIdsEqual(viewerId, accountId));
+  const openPost = useWritingComposeOpen();
   const [query, setQuery] = useState('');
 
   const rows = useMemo(
     () => articles.filter((post) => articleMatchesQuery(post, query)),
     [articles, query]
   );
+  const emptyState = resolveWritingEmptyState({
+    isOwner,
+    articleCount: articles.length,
+    matchCount: rows.length,
+    canCompose: Boolean(openPost),
+  });
 
   return (
     <article className="portfolio-writing">
@@ -59,14 +68,25 @@ export function PortfolioWritingPanel({
         ) : null}
       </header>
 
-      {rows.length === 0 ? (
-        <p className="portfolio-writing-empty">
-          {articles.length === 0
-            ? isOwner
+      {emptyState ? (
+        <div className="portfolio-writing-empty">
+          <p>
+            {emptyState === 'owner-cta' || emptyState === 'owner-copy'
               ? 'Add a title in compose to publish an article here.'
-              : 'No articles yet.'
-            : 'No matching articles.'}
-        </p>
+              : emptyState === 'visitor'
+                ? 'No articles yet.'
+                : 'No matching articles.'}
+          </p>
+          {emptyState === 'owner-cta' && openPost ? (
+            <button
+              type="button"
+              className="portfolio-writing-empty-action"
+              onClick={() => openPost()}
+            >
+              Write an article
+            </button>
+          ) : null}
+        </div>
       ) : (
         <ul className="portfolio-writing-list">
           {rows.map((post) => {

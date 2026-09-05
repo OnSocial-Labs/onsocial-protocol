@@ -8638,9 +8638,44 @@ a.os-surface-row {
   }
 
   .portfolio-writing-empty {
+    display: grid;
+    gap: 0.7rem;
+    justify-items: start;
     margin: 0.4rem 0 0;
     color: rgb(var(--fg-rgb) / 0.58);
     font-size: 0.95rem;
+  }
+
+  .portfolio-writing-empty p {
+    margin: 0;
+  }
+
+  .portfolio-writing-empty-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2rem;
+    padding: 0 0.75rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    border-radius: 9999px;
+    background: var(--os-surface-row-hover);
+    color: rgb(var(--fg-rgb) / 0.78);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      border-color 160ms ease,
+      background 160ms ease,
+      color 160ms ease;
+  }
+
+  .portfolio-writing-empty-action:hover,
+  .portfolio-writing-empty-action:focus-visible {
+    border-color: rgb(var(--fg-rgb) / 0.16);
+    background: var(--os-surface-fill-hover-soft);
+    color: rgb(var(--fg-rgb) / 0.92);
+    outline: none;
   }
 
   .portfolio-writing-list {

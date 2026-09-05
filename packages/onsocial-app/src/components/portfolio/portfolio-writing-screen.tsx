@@ -1,6 +1,7 @@
 'use client';
 
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { PortfolioPersonalComposer } from '@/components/portfolio/portfolio-personal-composer';
 import {
   PortfolioWritingPanel,
   type PortfolioWritingPanelProps,
@@ -27,6 +28,8 @@ export function PortfolioWritingScreen({
       moodId={mood.id}
       moodStyle={portfolioMoodShellStyle(mood.cssVars)}
     >
+      {/* Hard refresh has no face composer — register the title sheet here. */}
+      <PortfolioPersonalComposer pageAccountId={panel.accountId} />
       <PortfolioWritingPanel {...panel} />
     </OsAppScreen>
   );
