@@ -10,7 +10,11 @@ import {
   type CSSProperties,
   type FormEvent,
 } from 'react';
-import type { PostRow } from '@onsocial/sdk';
+import {
+  PROFILE_ABOUT_ALIGN_OPTIONS,
+  type PostRow,
+  type ProfileAboutAlign,
+} from '@onsocial/sdk';
 import {
   ChartVerticalFillIcon,
   ChartVerticalIcon,
@@ -44,6 +48,10 @@ import {
   portfolioMoodShellStyle,
   resolvePortfolioMood,
 } from '@/lib/moods/resolve';
+import {
+  ARTICLE_TITLE_MAX,
+  normalizeArticleTitle,
+} from '@/lib/article-post-payload';
 import { QuotedPostInset } from '@/features/home/post-card';
 import { PostMediaBlock } from '@/features/home/post-media';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
@@ -115,6 +123,8 @@ export interface ComposerSubmit {
   text: string;
   poll?: ComposerPollDraft;
   drop?: ComposerDropDraft;
+  /** Titled article — Writing shelf. Not used with poll or drop. */
+  article?: { title: string; align?: ProfileAboutAlign };
   /** Attached image/video files (uploaded by SDK on write). */
   files?: File[];
   /** Optional place slug(s) — PostV1 `places` (city / venue / event). */
@@ -348,6 +358,9 @@ export function ComposerSheet({
   const [nsfw, setNsfw] = useState(false);
   const [placeDraft, setPlaceDraft] = useState('');
   const [placeOpen, setPlaceOpen] = useState(false);
+  const [articleTitle, setArticleTitle] = useState('');
+  const [articleAlign, setArticleAlign] =
+    useState<ProfileAboutAlign>('left');
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [dropPickerOpen, setDropPickerOpen] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
@@ -359,10 +372,15 @@ export function ComposerSheet({
   const [appliedMediaSeedKey, setAppliedMediaSeedKey] = useState('');
   const warningInputRef = useRef<HTMLInputElement>(null);
   const viewport = useVisualViewportSheetMetrics(open);
-  const canUsePoll = mode === 'post' && !dropDraft;
+  const articleTitleTrimmed = Boolean(articleTitle.trim());
+  const canUseArticle = mode === 'post' && !dropDraft && !pollEnabled;
+  const canUsePoll = mode === 'post' && !dropDraft && !articleTitleTrimmed;
   const canUseMedia = !pollEnabled && !dropDraft;
   const canUseDrop =
-    mode === 'post' && !pollEnabled && mediaFiles.length === 0;
+    mode === 'post' &&
+    !pollEnabled &&
+    !articleTitleTrimmed &&
+    mediaFiles.length === 0;
   const canUsePlace = mode === 'post';
 
   const viewerName = accountId
@@ -399,6 +417,8 @@ export function ComposerSheet({
       setNsfw(false);
       setPlaceDraft('');
       setPlaceOpen(false);
+      setArticleTitle('');
+      setArticleAlign('left');
       setLabelsOpen(false);
       setDropPickerOpen(false);
     } else {
@@ -464,7 +484,10 @@ export function ComposerSheet({
     event.preventDefault();
     const trimmed = text.trim();
     if (pending || !pollReady) return;
-    if (!trimmed && mediaFiles.length === 0 && !dropDraft) return;
+    const article = canUseArticle
+      ? normalizeArticleTitle(articleTitle)
+      : null;
+    if (!trimmed && mediaFiles.length === 0 && !dropDraft && !article) return;
     if (trimmed.length > POST_TEXT_MAX_LENGTH) {
       setMediaError(
         `Posts can be at most ${POST_TEXT_MAX_LENGTH.toLocaleString()} characters.`
@@ -489,6 +512,14 @@ export function ComposerSheet({
           }
         : {}),
       ...(dropDraft ? { drop: dropDraft } : {}),
+      ...(article
+        ? {
+            article: {
+              title: article,
+              ...(articleAlign !== 'left' ? { align: articleAlign } : {}),
+            },
+          }
+        : {}),
       ...(mediaFiles.length > 0 ? { files: mediaFiles } : {}),
       ...(placeSlug ? { places: [placeSlug] } : {}),
       ...labels,
@@ -647,7 +678,10 @@ export function ComposerSheet({
   const showTextCount = textLength > 0;
 
   const canPost =
-    (Boolean(text.trim()) || mediaFiles.length > 0 || Boolean(dropDraft)) &&
+    (Boolean(text.trim()) ||
+      mediaFiles.length > 0 ||
+      Boolean(dropDraft) ||
+      articleTitleTrimmed) &&
     !pending &&
     pollReady &&
     !textOverLimit;
@@ -829,6 +863,53 @@ export function ComposerSheet({
       />
       <div className="guild-composer-row-copy">
         {identitySlot}
+        {canUseArticle ? (
+          <label className="guild-composer-article-field">
+            <span className="sr-only">Article title</span>
+            <input
+              type="text"
+              className={`${osFieldBorderedClassName} guild-composer-article-title`}
+              value={articleTitle}
+              maxLength={ARTICLE_TITLE_MAX}
+              disabled={pending}
+              autoComplete="off"
+              placeholder="Title (optional)"
+              aria-label="Article title"
+              onChange={(event) => setArticleTitle(event.target.value)}
+              onFocus={scrollFieldIntoView}
+            />
+          </label>
+        ) : null}
+        {canUseArticle && articleTitleTrimmed ? (
+          <div
+            className="guild-composer-article-align"
+            role="group"
+            aria-label="Article alignment"
+          >
+            {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={`account-editor-bio-tool profile-about-edit-align-tool${
+                  articleAlign === option ? ' is-active' : ''
+                }`}
+                aria-label={
+                  option === 'left'
+                    ? 'Align left'
+                    : option === 'center'
+                      ? 'Align center'
+                      : 'Justify'
+                }
+                aria-pressed={articleAlign === option}
+                disabled={pending}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setArticleAlign(option)}
+              >
+                {option === 'left' ? 'L' : option === 'center' ? 'C' : 'J'}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <ComposerHashtagTextarea
           textareaRef={textareaRef}
           placeholder={inputPlaceholder}
@@ -1091,14 +1172,18 @@ export function ComposerSheet({
                     ? pollEnabled
                       ? 'Remove poll'
                       : 'Add poll'
-                    : 'Polls are for new posts'
+                    : articleTitleTrimmed
+                      ? 'Clear the title to add a poll'
+                      : 'Polls are for new posts'
                 }
                 aria-label={
                   canUsePoll
                     ? pollEnabled
                       ? 'Remove poll'
                       : 'Add poll'
-                    : 'Polls are for new posts'
+                    : articleTitleTrimmed
+                      ? 'Clear the title to add a poll'
+                      : 'Polls are for new posts'
                 }
                 aria-pressed={pollEnabled}
                 onClick={togglePoll}
@@ -1122,6 +1207,8 @@ export function ComposerSheet({
                       : 'Post a Drop'
                     : pollEnabled
                       ? 'Remove poll to post a Drop'
+                      : articleTitleTrimmed
+                      ? 'Clear the title to post a Drop'
                       : mediaFiles.length > 0
                         ? 'Remove photos to post a Drop'
                         : 'Drops are for new posts'
@@ -1133,9 +1220,11 @@ export function ComposerSheet({
                       : 'Post a Drop'
                     : pollEnabled
                       ? 'Remove poll to post a Drop'
-                      : mediaFiles.length > 0
-                        ? 'Remove photos to post a Drop'
-                        : 'Drops are for new posts'
+                      : articleTitleTrimmed
+                        ? 'Clear the title to post a Drop'
+                        : mediaFiles.length > 0
+                          ? 'Remove photos to post a Drop'
+                          : 'Drops are for new posts'
                 }
                 aria-pressed={Boolean(dropDraft)}
                 onClick={() => {

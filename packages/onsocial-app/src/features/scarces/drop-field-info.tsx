@@ -34,9 +34,9 @@ const DROP_FIELD_INFO: Record<
   },
   format: {
     title: 'Format',
-    summary: 'Article is one file; Book is ordered Markdown chapters holders read in sequence.',
+    summary: 'Issue is one file; Book is ordered Markdown chapters holders read in sequence.',
     detail:
-      'Articles: Markdown (.md) for the in-app reader, or a single PDF. Books: Markdown chapters only, plus an optional whole-book PDF for download. Name files 01-title.md — the file name becomes the chapter title.',
+      'Issues: Markdown (.md) for the in-app reader, or a single PDF. Books: Markdown chapters only, plus an optional whole-book PDF for download. Name files 01-title.md — the file name becomes the chapter title.',
   },
   bookPdf: {
     title: 'Book PDF',

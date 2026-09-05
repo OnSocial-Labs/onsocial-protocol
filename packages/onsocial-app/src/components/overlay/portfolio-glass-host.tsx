@@ -140,9 +140,17 @@ function PortfolioGlassSheetFrame({
       ariaLabelledBy="overlay-title"
       backdropLabel="Close panel"
       bodyRef={scrollBodyRef}
-      keepDock={panelKey === 'about'}
+      keepDock={
+        panelKey === 'about' ||
+        panelKey === 'writing' ||
+        Boolean(panelKey?.startsWith('writing:'))
+      }
       panelClassName={
-        panelKey === 'about' ? 'portfolio-about-sheet-panel' : undefined
+        panelKey === 'about'
+          ? 'portfolio-about-sheet-panel'
+          : panelKey === 'writing' || panelKey?.startsWith('writing:')
+            ? 'portfolio-writing-sheet-panel'
+            : undefined
       }
       header={<OverlayGlassHeader panelKey={panelKey} />}
       {...(faceMood.moodId ? { moodId: faceMood.moodId } : {})}

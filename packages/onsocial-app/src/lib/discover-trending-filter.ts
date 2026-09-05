@@ -80,6 +80,9 @@ export function filterTrendingProfiles(
     if ((face === 'orgs' || face === 'hiring') && row.kind !== 'org') {
       return false;
     }
+    if (face === 'daos' && row.kind !== 'dao') {
+      return false;
+    }
     if (face === 'hiring' && !(row.openJobsCount && row.openJobsCount > 0)) {
       return false;
     }

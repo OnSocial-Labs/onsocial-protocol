@@ -10,8 +10,10 @@ import {
   isDropWritingChapterMime,
   isDropWritingMime,
   isLikelyIpfsCid,
+  parseSourcePostPath,
   parseWritingFormat,
   parseWritingManifest,
+  readableFromPostBody,
   readWritingChapterIndex,
   readWritingScrollRatio,
   readablesFromManifest,
@@ -50,9 +52,9 @@ describe('isDropWritingMime', () => {
 });
 
 describe('isDropWritingChapterMime', () => {
-  it('allows PDF chapters for articles only', () => {
+  it('allows PDF chapters for issues only', () => {
     expect(
-      isDropWritingChapterMime('application/pdf', 'essay.pdf', 'article')
+      isDropWritingChapterMime('application/pdf', 'essay.pdf', 'issue')
     ).toBe(true);
     expect(
       isDropWritingChapterMime('application/pdf', 'essay.pdf', 'book')
@@ -74,9 +76,9 @@ describe('chapterTitleFromFile', () => {
 });
 
 describe('writingChaptersValid', () => {
-  it('requires one file for article and 2–100 for book', () => {
-    expect(writingChaptersValid('article', 1)).toBe(true);
-    expect(writingChaptersValid('article', 2)).toBe(false);
+  it('requires one file for issue and 2–100 for book', () => {
+    expect(writingChaptersValid('issue', 1)).toBe(true);
+    expect(writingChaptersValid('issue', 2)).toBe(false);
     expect(writingChaptersValid('book', 1)).toBe(false);
     expect(writingChaptersValid('book', 2)).toBe(true);
     expect(writingChaptersValid('book', 50)).toBe(true);
@@ -87,9 +89,32 @@ describe('writingChaptersValid', () => {
 
 describe('parseWritingFormat', () => {
   it('parses known formats', () => {
-    expect(parseWritingFormat('article')).toBe('article');
+    expect(parseWritingFormat('issue')).toBe('issue');
     expect(parseWritingFormat('Book')).toBe('book');
+    expect(parseWritingFormat('article')).toBeNull();
     expect(parseWritingFormat('album')).toBeNull();
+  });
+});
+
+describe('readableFromPostBody', () => {
+  it('builds an inline chapter from a source post path', () => {
+    expect(
+      readableFromPostBody({
+        path: 'alice.near/post/9',
+        title: 'Night drive',
+        text: '  After midnight.  ',
+      })
+    ).toEqual({
+      url: 'post:alice.near/post/9',
+      mime: 'text/markdown',
+      title: 'Night drive',
+      text: 'After midnight.',
+    });
+    expect(parseSourcePostPath('alice.near/post/9')).toEqual({
+      author: 'alice.near',
+      postId: '9',
+    });
+    expect(readableFromPostBody({ path: 'alice.near/post/9', text: '  ' })).toBeNull();
   });
 });
 

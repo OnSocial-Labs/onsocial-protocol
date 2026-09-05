@@ -36,6 +36,10 @@ describe('buildDiscoverEmptyState', () => {
       primary: 'No organizations in Healthcare yet.',
       showClearSearch: false,
     });
+    expect(buildDiscoverEmptyState('', 'daos', 'Film')).toEqual({
+      primary: 'No DAOs in Film yet.',
+      showClearSearch: false,
+    });
   });
 
   it('names hiring title misses in the selected industry', () => {

@@ -105,6 +105,22 @@ describe('ScarcesModule.fromPost.mint', () => {
     });
   });
 
+  it('lists a titled article as writing with the article title', async () => {
+    const { mod, spies } = makeMod();
+    await mod.fromPost.mint({
+      ...ROW,
+      value: JSON.stringify({
+        text: 'Body of the piece after midnight.',
+        media: [{ cid: 'bafyCover', mime: 'image/png' }],
+        x: { onsocial: { article: { title: 'Night drive' } } },
+      }),
+    });
+    const [, , form] = spies.requestForm.mock.calls[0];
+    expect(form.get('title')).toBe('Night drive');
+    const extra = JSON.parse(form.get('extra') as string);
+    expect(extra.kind).toBe('writing');
+  });
+
   it('truncates long unbroken text to ~108 chars without trailing ellipsis', async () => {
     const { mod, spies } = makeMod();
     const longText = 'x'.repeat(200);

@@ -10,7 +10,8 @@ describe('discover face filters', () => {
     expect(parseDiscoverFaceFilter('people')).toBe('people');
     expect(parseDiscoverFaceFilter('org')).toBe('orgs');
     expect(parseDiscoverFaceFilter('hiring')).toBe('hiring');
-    expect(parseDiscoverFaceFilter('dao')).toBe('all');
+    expect(parseDiscoverFaceFilter('dao')).toBe('daos');
+    expect(parseDiscoverFaceFilter('daos')).toBe('daos');
   });
 
   it('maps hiring to org + open jobs', () => {
@@ -26,6 +27,10 @@ describe('discover face filters', () => {
       kind: 'person',
       craft: 'writer',
     });
+    expect(discoverFaceSearchOptions('daos', 'Film')).toEqual({
+      kind: 'dao',
+      industry: 'Film',
+    });
     expect(discoverFaceSearchOptions('all')).toEqual({});
   });
 
@@ -37,6 +42,11 @@ describe('discover face filters', () => {
     expect(hiring.filter).toContain('openJobsCount: {_gt: 0}');
     expect(hiring.variables.industry).toBe('Healthcare');
     expect(hiring.variableDecl).toContain('$industry');
+
+    const daos = buildDiscoverWhere(discoverFaceSearchOptions('daos', 'Film'));
+    expect(daos.filter).toContain('kind: {_eq: "dao"}');
+    expect(daos.filter).not.toContain('openJobsCount');
+    expect(daos.variables.industry).toBe('Film');
 
     const craft = buildDiscoverWhere({
       kind: 'person',

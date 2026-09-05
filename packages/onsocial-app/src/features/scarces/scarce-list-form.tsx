@@ -77,6 +77,7 @@ import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { parseArticleSnapshot } from '@/lib/article-post-payload';
 import { parsePostText } from '@/lib/post-display';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import {
@@ -391,14 +392,25 @@ export function ScarceListForm({
   const usesGeneratedCard = (!hasCoverImage && !coverFile) || usesPhotoCard;
 
   const mintBody = useMemo(() => parsePostText(post.value).trim(), [post]);
+  const articleTitle = useMemo(
+    () => parseArticleSnapshot(post.value)?.title ?? null,
+    [post]
+  );
   const mintTitle = useMemo(() => {
+    if (articleTitle) return articleTitle;
     if (!mintBody) return `Post ${post.postId}`;
     // Same rules as SDK `deriveTitle` / `CARD_TITLE_LIMITS` for the format.
     const maxCharacters = usesGeneratedCard
       ? CARD_FORMAT_REGISTRY[cardTheme.cardFormat].maxCharacters
       : MINT_TITLE_MAX;
     return deriveMintTitle(mintBody, maxCharacters) || `Post ${post.postId}`;
-  }, [mintBody, post.postId, usesGeneratedCard, cardTheme.cardFormat]);
+  }, [
+    articleTitle,
+    mintBody,
+    post.postId,
+    usesGeneratedCard,
+    cardTheme.cardFormat,
+  ]);
 
   // Mint-true PNG preview (same gateway builder as list). Keep the last
   // PNG on screen while the next one loads — never fall back to live SVG.
@@ -720,6 +732,7 @@ export function ScarceListForm({
           {
             collectionId,
             copies: editionCount,
+            title: mintTitle,
             ...royaltyOpts,
             ...(listAppId ? { appId: listAppId } : {}),
             ...mediaOpts,
@@ -743,6 +756,7 @@ export function ScarceListForm({
           priceNear,
           copies: editionCount,
           remaining: editionCount,
+          ...(articleTitle ? { mediumKind: 'writing' } : {}),
           ...(listAppId ? { appId: listAppId } : {}),
           ...(seriesId ? { seriesId } : {}),
           ...(seriesInput.trim() ? { seriesTitle: seriesInput.trim() } : {}),
@@ -757,6 +771,7 @@ export function ScarceListForm({
       // Quick Market ask — mint-on-purchase lazy listing (not a Drop).
       const response = await client.scarces.fromPost.list(post, priceNear, {
         copies: editionCount,
+        title: mintTitle,
         ...royaltyOpts,
         ...(listAppId ? { appId: listAppId } : {}),
         ...mediaOpts,
@@ -785,6 +800,7 @@ export function ScarceListForm({
         priceNear,
         copies: editionCount,
         remaining: editionCount,
+        ...(articleTitle ? { mediumKind: 'writing' } : {}),
         ...(listingId ? { listingId } : {}),
         ...(listAppId ? { appId: listAppId } : {}),
         ...(usesGeneratedCard ? { cardBg: cardTheme.cardBg as MoodKey } : {}),

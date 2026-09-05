@@ -132,7 +132,7 @@ function readRaw(): DropFormDraft | null {
       !parsed.draftAllowlist.every(isAllowlistEntry) ||
       (parsed.artMode !== 'single' && parsed.artMode !== 'variations') ||
       (parsed.musicFormat !== 'single' && parsed.musicFormat !== 'album') ||
-      (parsed.writingFormat !== 'article' && parsed.writingFormat !== 'book') ||
+      (parsed.writingFormat !== 'issue' && parsed.writingFormat !== 'book') ||
       !Array.isArray(parsed.facets) ||
       !parsed.facets.every((f) => typeof f === 'string') ||
       (parsed.variationSource !== 'upload' &&

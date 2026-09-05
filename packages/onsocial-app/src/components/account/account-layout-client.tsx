@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { PortfolioGlassHost } from '@/components/overlay/portfolio-glass-host';
 import { PortfolioProfileSeedProvider } from '@/contexts/portfolio-profile-seed-context';
+import { WritingComposeProvider } from '@/contexts/writing-compose-context';
 import { parseOverlayPanelKey } from '@/lib/overlay-routes';
 import { resolveOverlaySlotMode } from '@/lib/portfolio-glass-host';
 
@@ -23,16 +24,18 @@ export function AccountLayoutClient({
 
   return (
     <PortfolioProfileSeedProvider>
-      {children}
-      {feedInlineRedirect ? (
-        overlay
-      ) : (
-        <PortfolioGlassHost
-          accountId={accountId}
-          overlay={overlay}
-          overlaySlotMode={overlaySlotMode}
-        />
-      )}
+      <WritingComposeProvider>
+        {children}
+        {feedInlineRedirect ? (
+          overlay
+        ) : (
+          <PortfolioGlassHost
+            accountId={accountId}
+            overlay={overlay}
+            overlaySlotMode={overlaySlotMode}
+          />
+        )}
+      </WritingComposeProvider>
     </PortfolioProfileSeedProvider>
   );
 }

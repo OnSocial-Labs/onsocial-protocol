@@ -55,6 +55,7 @@ export function holdingsActionLabel(
   switch (key) {
     case 'writing':
     case 'book':
+    case 'issue':
       return 'Read';
     case 'video':
       return 'Watch';

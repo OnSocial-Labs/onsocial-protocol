@@ -38,6 +38,19 @@ export function discoverCraftPath(slug: string): string {
   return `/discover?${params.toString()}`;
 }
 
+/** House Discover — Orgs · industry or DAOs · industry, never Hiring. */
+export function discoverIndustryPath(
+  industry: string,
+  kind: 'org' | 'dao' = 'org'
+): string {
+  const sector = industry.trim().slice(0, PROFILE_INDUSTRY_MAX);
+  const params = new URLSearchParams();
+  params.set('tab', 'profiles');
+  params.set('face', kind === 'dao' ? 'daos' : 'orgs');
+  if (sector) params.set('industry', sector);
+  return `/discover?${params.toString()}`;
+}
+
 export interface DiscoverProfileSummary {
   accountId: string;
   name: string | null;

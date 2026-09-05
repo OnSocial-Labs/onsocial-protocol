@@ -8,8 +8,10 @@ import {
   DROP_WRITING_MAX_CHAPTERS,
   isLikelyIpfsCid,
   bookPdfFromManifest,
+  parseSourcePostPath,
   parseWritingFormat,
   parseWritingManifest,
+  readableFromPostBody,
   readablesFromManifest,
   writingContentUrl,
   type ScarceReadableMedia,
@@ -25,6 +27,8 @@ import {
   parseTicketEventFromExtra,
 } from '@/features/scarces/ticket-event-meta';
 import { createAppOnSocialClient } from '@/lib/create-app-onsocial-client';
+import { parseArticleSnapshot } from '@/lib/article-post-payload';
+import { parsePostText } from '@/lib/post-display';
 
 export type { ScarceReadableMedia, WritingReleaseFormat };
 
@@ -117,7 +121,7 @@ export interface CollectionView {
   readables: ScarceReadableMedia[];
   /** Optional whole-book PDF for holder download (manifest only — not a TOC chapter). */
   bookPdf: ScarceReadableMedia | null;
-  /** Article vs book when kind is writing. */
+  /** Issue vs book when kind is writing. Listed posts omit format. */
   writingFormat: WritingReleaseFormat | null;
   /** IPFS CID of onsocial.writing.v1 manifesto (preferred for books). */
   writingManifestCid: string | null;
@@ -668,7 +672,7 @@ export function toCollectionView(
       (template.readables && template.readables.length > 1
         ? 'book'
         : template.readables && template.readables.length === 1
-          ? 'article'
+          ? 'issue'
           : null),
     writingManifestCid: template.writingManifestCid ?? null,
     transferable: record.transferable !== false,
@@ -880,29 +884,70 @@ export async function hydrateWritingManifest(
   view: CollectionView
 ): Promise<CollectionView> {
   const cid = view.writingManifestCid?.trim();
-  if (!cid) return view;
+  if (!cid) return hydrateWritingFromSourcePost(view);
   const url =
     typeof window === 'undefined'
       ? resolveScarceMediaUrl(cid)
       : writingContentUrl(cid);
-  if (!url) return view;
+  if (!url) return hydrateWritingFromSourcePost(view);
   try {
     const response = await fetch(url);
-    if (!response.ok) return view;
+    if (!response.ok) return hydrateWritingFromSourcePost(view);
     const json: unknown = await response.json();
     const manifest = parseWritingManifest(json);
-    if (!manifest) return view;
+    if (!manifest) return hydrateWritingFromSourcePost(view);
     const bookPdf = bookPdfFromManifest(manifest);
     const readables = readablesFromManifest(manifest);
-    if (readables.length === 0 && !bookPdf) return view;
+    if (readables.length === 0 && !bookPdf) {
+      return hydrateWritingFromSourcePost(view);
+    }
     return {
       ...view,
       readables,
       bookPdf,
       writingFormat:
         view.writingFormat ??
-        (readables.length > 1 ? 'book' : bookPdf ? 'book' : 'article'),
+        (readables.length > 1 ? 'book' : bookPdf ? 'book' : 'issue'),
     };
+  } catch {
+    return hydrateWritingFromSourcePost(view);
+  }
+}
+
+/** Listed Writing post — one chapter from the source post body. */
+async function hydrateWritingFromSourcePost(
+  view: CollectionView
+): Promise<CollectionView> {
+  if (view.readables.length > 0 || view.bookPdf) return view;
+  if ((view.kind ?? '').trim().toLowerCase() !== 'writing') return view;
+  const path = view.sourcePostPath?.trim();
+  if (!path) return view;
+  const coords = parseSourcePostPath(path);
+  if (!coords) return view;
+  try {
+    const { createReadOnlyOnSocialClient } = await import(
+      '@/lib/create-readonly-onsocial-client'
+    );
+    const client = createReadOnlyOnSocialClient();
+    const entry = await client.social.getOne(
+      `post/${coords.postId}`,
+      coords.author
+    );
+    const raw = entry?.value;
+    const value =
+      typeof raw === 'string'
+        ? raw
+        : raw && typeof raw === 'object'
+          ? JSON.stringify(raw)
+          : '';
+    if (!value.trim()) return view;
+    const readable = readableFromPostBody({
+      path,
+      title: parseArticleSnapshot(value)?.title || view.title,
+      text: parsePostText(value),
+    });
+    if (!readable) return view;
+    return { ...view, readables: [readable] };
   } catch {
     return view;
   }

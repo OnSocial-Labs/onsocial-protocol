@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { parseArticleSnapshot } from '@/lib/article-post-payload';
 import {
   parsePostCollectionEmbed,
   parsePostPollEmbed,
@@ -123,6 +124,38 @@ describe('submitPersonalPost', () => {
     const poll = parsePostPollEmbed(result.optimisticPost!.value);
     expect(poll?.question).toBe('Favorite color?');
     expect(poll?.options).toEqual(['Red', 'Blue']);
+  });
+
+  it('creates a titled article with longform kind and metadata', async () => {
+    const create = vi.fn().mockResolvedValue({ txHash: 'article-tx' });
+    const client = mockClient({ create });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'post',
+      target: null,
+      payload: {
+        text: 'The river at night.',
+        article: { title: 'Night drive', align: 'justify' },
+      },
+      trackTransaction,
+    });
+
+    expect(create).toHaveBeenCalledOnce();
+    const [postData] = create.mock.calls[0]!;
+    expect(postData.kind).toBe('longform');
+    expect(postData.contentType).toBe('md');
+    expect(postData.x?.onsocial?.article).toEqual({
+      title: 'Night drive',
+      align: 'justify',
+    });
+    expect(result.optimisticPost?.kind).toBe('longform');
+    expect(parseArticleSnapshot(result.optimisticPost!.value)).toEqual({
+      title: 'Night drive',
+      align: 'justify',
+    });
   });
 
   it('replies on the personal path without guild checks', async () => {

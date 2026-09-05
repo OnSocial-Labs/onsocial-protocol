@@ -22,6 +22,7 @@ describe('holdingsActionLabel', () => {
   it('maps medium kinds to use actions', () => {
     expect(holdingsActionLabel('writing')).toBe('Read');
     expect(holdingsActionLabel('book')).toBe('Read');
+    expect(holdingsActionLabel('issue')).toBe('Read');
     expect(holdingsActionLabel('audio')).toBe('Play');
     expect(holdingsActionLabel('music')).toBe('Play');
     expect(holdingsActionLabel('video')).toBe('Watch');

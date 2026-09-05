@@ -270,7 +270,7 @@ export function CreateDropPanel() {
   /** Parallel to `trackFiles` — optional lyrics draft per track. */
   const [trackLyrics, setTrackLyrics] = useState<string[]>([]);
   const [writingFormat, setWritingFormat] =
-    useState<WritingReleaseFormat>('article');
+    useState<WritingReleaseFormat>('issue');
   const [facets, setFacets] = useState<string[]>([]);
   const [chapterFiles, setChapterFiles] = useState<File[]>([]);
   const [bookPdfFile, setBookPdfFile] = useState<File | null>(null);
@@ -438,7 +438,7 @@ export function CreateDropPanel() {
     setMusicFormat('single');
     setTrackFiles([]);
     setTrackLyrics([]);
-    setWritingFormat('article');
+    setWritingFormat('issue');
     setFacets([]);
     setChapterFiles([]);
     setBookPdfFile(null);
@@ -810,7 +810,7 @@ export function CreateDropPanel() {
       }
       if (next.id === 'writing') {
         setArtMode('single');
-        setWritingFormat('article');
+        setWritingFormat('issue');
         setBookPdfFile(null);
       } else {
         setBookPdfFile(null);
@@ -1107,7 +1107,7 @@ export function CreateDropPanel() {
       }
       setError(null);
       setChapterFiles((prev) => {
-        if (writingFormat === 'article') {
+        if (writingFormat === 'issue') {
           return picked.slice(0, 1);
         }
         return [...prev, ...picked].slice(0, DROP_WRITING_MAX_CHAPTERS);
@@ -1148,7 +1148,7 @@ export function CreateDropPanel() {
   const setWritingReleaseFormat = useCallback(
     (format: WritingReleaseFormat) => {
       setWritingFormat(format);
-      if (format === 'article') {
+      if (format === 'issue') {
         setChapterFiles((prev) => prev.slice(0, 1));
         setBookPdfFile(null);
       } else if (format === 'book') {
@@ -1455,7 +1455,7 @@ export function CreateDropPanel() {
         );
       }
     } else if (isWriting) {
-      kindParts.push(writingFormat === 'book' ? 'Book' : 'Article');
+      kindParts.push(writingFormat === 'book' ? 'Book' : 'Issue');
       const chapterCount =
         chapterFiles.length > 0
           ? chapterFiles.length
@@ -1681,8 +1681,8 @@ export function CreateDropPanel() {
       !writingChaptersValid(writingFormat, chapterFiles.length)
     ) {
       setError(
-        writingFormat === 'article'
-          ? 'Add a manuscript for this article.'
+        writingFormat === 'issue'
+          ? 'Add a file for this issue.'
           : `Add 2–${DROP_WRITING_MAX_CHAPTERS} chapters for a book.`
       );
       return;
@@ -2589,14 +2589,14 @@ export function CreateDropPanel() {
               <button
                 type="button"
                 role="radio"
-                aria-checked={writingFormat === 'article'}
+                aria-checked={writingFormat === 'issue'}
                 className={`app-access-option${
-                  writingFormat === 'article' ? ' is-selected' : ''
+                  writingFormat === 'issue' ? ' is-selected' : ''
                 }`}
                 disabled={pending}
-                onClick={() => setWritingReleaseFormat('article')}
+                onClick={() => setWritingReleaseFormat('issue')}
               >
-                Article
+                Issue
               </button>
               <button
                 type="button"
@@ -3073,8 +3073,8 @@ export function CreateDropPanel() {
         {isWriting ? (
           <div className="guild-field">
             <span>
-              {writingFormat === 'article'
-                ? 'Manuscript'
+              {writingFormat === 'issue'
+                ? 'Issue'
                 : `Chapters${
                     chapterFiles.length ? ` · ${chapterFiles.length}` : ''
                   }`}
@@ -3100,8 +3100,8 @@ export function CreateDropPanel() {
               className="app-storage-presets"
               role="group"
               aria-label={
-                writingFormat === 'article'
-                  ? 'Manuscript actions'
+                writingFormat === 'issue'
+                  ? 'Issue file actions'
                   : 'Chapter actions'
               }
             >
@@ -3110,17 +3110,17 @@ export function CreateDropPanel() {
                 className="os-surface-chip"
                 disabled={
                   pending ||
-                  (writingFormat === 'article' && chapterFiles.length >= 1) ||
+                  (writingFormat === 'issue' && chapterFiles.length >= 1) ||
                   (writingFormat === 'book' &&
                     chapterFiles.length >= DROP_WRITING_MAX_CHAPTERS)
                 }
                 onClick={() => chaptersInputRef.current?.click()}
               >
                 {chapterFiles.length === 0
-                  ? writingFormat === 'article'
+                  ? writingFormat === 'issue'
                     ? 'Add file'
                     : 'Add files'
-                  : writingFormat === 'article'
+                  : writingFormat === 'issue'
                     ? 'Replace file'
                     : 'Add more'}
               </button>
@@ -3139,7 +3139,7 @@ export function CreateDropPanel() {
               ) : null}
             </div>
             <small>
-              {writingFormat === 'article'
+              {writingFormat === 'issue'
                 ? '.md for the reader · PDF ok · ≤500 KB text / 20 MB PDF'
                 : `Drag title to reorder · 2–${DROP_WRITING_MAX_CHAPTERS} · .md for reading`}
             </small>

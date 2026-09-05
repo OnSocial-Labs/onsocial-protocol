@@ -201,14 +201,14 @@ describe('toCollectionView cover seat', () => {
         media: 'https://cdn.example/ipfs/bafycover',
         extra: JSON.stringify({
           kind: 'writing',
-          writingFormat: 'article',
+          writingFormat: 'issue',
           writingManifest: 'bafymanifestaaaaaaaaaaaaaaaaaaaa',
           chapterCount: 1,
         }),
       }),
     });
     expect(view?.kind).toBe('writing');
-    expect(view?.writingFormat).toBe('article');
+    expect(view?.writingFormat).toBe('issue');
     expect(view?.writingManifestCid).toBe('bafymanifestaaaaaaaaaaaaaaaaaaaa');
     expect(view?.readables).toEqual([]);
   });
