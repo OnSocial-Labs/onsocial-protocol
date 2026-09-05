@@ -112,17 +112,6 @@ export function DiscoverTrendingPanel({
     const client = createReadOnlyOnSocialClient();
     const soft = hasPaintedRef.current;
 
-    if (!soft) {
-      setTickers(null);
-      setTopics(null);
-      setPlaces(null);
-      setHubs(null);
-      setPosts(null);
-      setTalkedAbout(null);
-      setJustSold(null);
-      setProposals(null);
-    }
-
     void client.query.feed
       .recent({ limit: SECTION_LIMIT, sort: 'hot', section: 'posts' })
       .then((page) => {
