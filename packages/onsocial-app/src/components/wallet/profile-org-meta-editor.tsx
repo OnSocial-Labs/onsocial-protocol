@@ -149,7 +149,7 @@ export function ProfileOrgMetaEditor({
           onClick={() => setIndustryOpen(true)}
         >
           {showHiring ? <PortfolioOrgKindMark /> : null}
-          <span>
+          <span
             className={
               industry.trim() ? undefined : 'account-editor-org-meta-placeholder'
             }
