@@ -1,5 +1,15 @@
-import type { PostRow, ProfileSearchRow } from '@onsocial/sdk';
+import type {
+  HashtagCount,
+  PlaceCount,
+  PostRow,
+  ProfileSearchRow,
+  TickerCount,
+} from '@onsocial/sdk';
 import { formatDiscoverTabCount } from '@/lib/discover-tab-lead';
+import {
+  appendThreadFocusReply,
+  postThreadPath,
+} from '@/lib/post-routes';
 
 /** Any non-empty Moving peek — first paint can skip skeletons. */
 export function isMovingLandingPainted(
@@ -12,8 +22,6 @@ export function isMovingLandingPainted(
         hubs?: readonly unknown[] | null;
         posts?: readonly unknown[] | null;
         talkedAbout?: readonly unknown[] | null;
-        dropsTraded?: readonly unknown[] | null;
-        dropsLoved?: readonly unknown[] | null;
         proposals?: readonly unknown[] | null;
       }
     | null
@@ -28,8 +36,6 @@ export function isMovingLandingPainted(
     (seed.hubs?.length ?? 0) > 0 ||
     (seed.posts?.length ?? 0) > 0 ||
     (seed.talkedAbout?.length ?? 0) > 0 ||
-    (seed.dropsTraded?.length ?? 0) > 0 ||
-    (seed.dropsLoved?.length ?? 0) > 0 ||
     (seed.proposals?.length ?? 0) > 0
   );
 }
@@ -112,8 +118,8 @@ export function parentPostRefFromReply(
 }
 
 /**
- * Distinct parent threads in reply order — Moving Talked about is
- * what just got a reply, not lifetime comment counts.
+ * Distinct parent threads in reply order — used to open the thread
+ * the reply just moved.
  */
 export function talkedAboutParentRefs(
   replies: Array<Pick<PostRow, 'parentAuthor' | 'parentPath'>>,
@@ -131,6 +137,79 @@ export function talkedAboutParentRefs(
     if (out.length >= limit) break;
   }
   return out;
+}
+
+/**
+ * First reply per parent, newest conversation first — Moving Talked about
+ * is the reply that just landed, not the parent thread.
+ */
+export function talkedAboutReplies(replies: PostRow[], limit = 6): PostRow[] {
+  const seen = new Set<string>();
+  const out: PostRow[] = [];
+  for (const reply of replies) {
+    const ref = parentPostRefFromReply(reply);
+    if (!ref) continue;
+    const key = movingPostRefKey(ref);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(reply);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/** Parent thread, scrolled to the reply that moved it. */
+export function talkedAboutThreadHref(reply: PostRow): string {
+  const ref = parentPostRefFromReply(reply);
+  const thread = ref
+    ? postThreadPath({
+        accountId: ref.author,
+        postId: ref.postId,
+        groupId: reply.groupId,
+      })
+    : postThreadPath(reply);
+  return appendThreadFocusReply(thread, reply.postId);
+}
+
+export type MovingMentionKind = 'topic' | 'ticker' | 'place';
+
+export type MovingMention = {
+  kind: MovingMentionKind;
+  id: string;
+  lastBlock: number;
+};
+
+/**
+ * Last-mention mix — no lifetime counts. Topics, tickers, and places
+ * share one rail on Moving.
+ */
+export function mergeMovingMentions(
+  topics: Array<Pick<HashtagCount, 'hashtag' | 'lastBlock'>>,
+  tickers: Array<Pick<TickerCount, 'ticker' | 'lastBlock'>>,
+  places: Array<Pick<PlaceCount, 'place' | 'lastBlock'>>,
+  limit = 6
+): MovingMention[] {
+  const rows: MovingMention[] = [
+    ...topics.map((row) => ({
+      kind: 'topic' as const,
+      id: row.hashtag,
+      lastBlock: Number(row.lastBlock) || 0,
+    })),
+    ...tickers.map((row) => ({
+      kind: 'ticker' as const,
+      id: row.ticker,
+      lastBlock: Number(row.lastBlock) || 0,
+    })),
+    ...places.map((row) => ({
+      kind: 'place' as const,
+      id: row.place,
+      lastBlock: Number(row.lastBlock) || 0,
+    })),
+  ];
+  rows.sort(
+    (a, b) => b.lastBlock - a.lastBlock || a.id.localeCompare(b.id)
+  );
+  return rows.slice(0, limit);
 }
 
 export function orderPostsByRefs(

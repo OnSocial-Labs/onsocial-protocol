@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isMovingLandingPainted,
+  mergeMovingMentions,
   movingChipCountLabel,
   movingPostHeatLabel,
   movingPostTalkLabel,
@@ -14,6 +15,8 @@ import {
   recentPosterIds,
   selectHotPosts,
   talkedAboutParentRefs,
+  talkedAboutReplies,
+  talkedAboutThreadHref,
 } from './discover-moving';
 import type { PostRow } from '@onsocial/sdk';
 
@@ -103,6 +106,57 @@ describe('discover-moving', () => {
       { author: 'bob.near', postId: 'b' },
     ]);
   });
+
+  it('keeps the first reply per parent, newest conversation first', () => {
+    const first = {
+      ...post('bob.near', 'r1'),
+      parentAuthor: 'alice.near',
+      parentPath: 'alice.near/post/a',
+    };
+    const second = {
+      ...post('cara.near', 'r2'),
+      parentAuthor: 'dana.near',
+      parentPath: 'dana.near/post/b',
+    };
+    const laterOnFirst = {
+      ...post('eve.near', 'r3'),
+      parentAuthor: 'alice.near',
+      parentPath: 'alice.near/post/a',
+    };
+    expect(
+      talkedAboutReplies([first, second, laterOnFirst], 2).map(
+        (row) => row.postId
+      )
+    ).toEqual(['r1', 'r2']);
+  });
+
+  it('opens the parent thread focused on the reply that moved it', () => {
+    expect(
+      talkedAboutThreadHref({
+        ...post('bob.near', 'r1'),
+        parentAuthor: 'alice.near',
+        parentPath: 'alice.near/post/root-1',
+      })
+    ).toBe('/@alice.near/posts/root-1?reply=r1');
+  });
+
+  it('mixes last-mentioned topics, tickers, and places without counts', () => {
+    expect(
+      mergeMovingMentions(
+        [
+          { hashtag: 'gm', lastBlock: 10 },
+          { hashtag: 'near', lastBlock: 30 },
+        ],
+        [{ ticker: 'social', lastBlock: 20 }],
+        [{ place: 'lisbon', lastBlock: 25 }],
+        3
+      )
+    ).toEqual([
+      { kind: 'topic', id: 'near', lastBlock: 30 },
+      { kind: 'place', id: 'lisbon', lastBlock: 25 },
+      { kind: 'ticker', id: 'social', lastBlock: 20 },
+    ]);
+  });
 });
 
 describe('moving peek labels', () => {
@@ -149,8 +203,6 @@ describe('moving landing paint', () => {
         hubs: [],
         posts: [],
         talkedAbout: [],
-        dropsTraded: [],
-        dropsLoved: [],
         proposals: [],
       })
     ).toBe(false);

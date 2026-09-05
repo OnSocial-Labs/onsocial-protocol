@@ -26,6 +26,7 @@ import {
   movingPostTalkLabel,
   movingProposalMeta,
   movingScarceSignalLabel,
+  talkedAboutThreadHref,
 } from '@/lib/discover-moving';
 import {
   formatPostPeekExcerpt,
@@ -97,7 +98,9 @@ export function MovingPostPeekSection({
         {rows.slice(0, SECTION_LIMIT).map((post, index) => (
           <LauncherSocialPeekRow
             key={`${heading}-${post.accountId}-${post.postId}`}
-            href={postThreadPath(post)}
+            href={
+              why === 'talk' ? talkedAboutThreadHref(post) : postThreadPath(post)
+            }
             accountId={post.accountId}
             profileName={post.authorName}
             avatarUrl={post.authorAvatar}
@@ -127,7 +130,7 @@ export function MovingChipPeekSection({
         key: string;
         href: string;
         label: string;
-        count: number;
+        count?: number;
         ticker?: boolean;
       }>
     | null;
@@ -152,7 +155,7 @@ export function MovingChipPeekSection({
             }
           >
             {item.label}
-            {item.count > 0 ? (
+            {item.count != null && item.count > 0 ? (
               <span className="discover-trending-chip-count">
                 {movingChipCountLabel(item.count)}
               </span>

@@ -12,7 +12,6 @@ import { ProfileSocialList } from '@/components/panels/profile-social-list';
 import { DiscoverTrendingProfilesSectionSkeleton } from '@/features/discover/discover-loading-skeleton';
 import {
   MovingChipPeekSection,
-  MovingCoverPeekSection,
   MovingHubPeekSection,
   MovingPostPeekSection,
   MovingProposalPeekSection,
@@ -37,7 +36,7 @@ import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-globa
 import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
-import { APP_HOME_PATH, dropsPath, protocolPath } from '@/lib/app-routes';
+import { protocolPath } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
 import {
@@ -51,7 +50,6 @@ import type {
 import {
   discoverProposalHref,
   discoverTrendingFilterQuery,
-  filterTrendingDrops,
   filterTrendingHubs,
   filterTrendingPlaces,
   filterTrendingPosts,
@@ -60,15 +58,11 @@ import {
   filterTrendingTickers,
   filterTrendingTopics,
 } from '@/lib/discover-trending-filter';
-import {
-  fetchMostLovedScarcePeeks,
-  fetchMostTradedScarcePeeks,
-  type DiscoverScarcePeek,
-} from '@/features/discover/discover-scarce-peeks';
 import { rankHubPeeks } from '@/features/discover/discover-community-ranking';
 import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about';
 import {
   isMovingLandingPainted,
+  mergeMovingMentions,
   movingSectionFromSeed,
   orderProfileSearchByPosterIds,
   recentPosterIds,
@@ -80,8 +74,8 @@ const SECTION_LIMIT = 6;
 const ACTIVE_POST_POOL = 24;
 
 /**
- * Default Discover landing: what's moving — heat, talk, recency, drops, people.
- * Face / hiring chips live on Profiles — this page is a peek, not a filter.
+ * Default Discover landing: what's moving — heat, talk, last mention, people.
+ * Lifetime Topics / Tickers / Drops live on those tabs. This page is a peek.
  * Sections settle independently; an empty first seed keeps skeletons reserved.
  */
 export function DiscoverTrendingPanel({
@@ -119,12 +113,6 @@ export function DiscoverTrendingPanel({
   const [talkedAbout, setTalkedAbout] = useState<PostRow[] | null>(() =>
     movingSectionFromSeed(initial?.talkedAbout, paintedSeed)
   );
-  const [dropsTraded, setDropsTraded] = useState<DiscoverScarcePeek[] | null>(
-    () => movingSectionFromSeed(initial?.dropsTraded, paintedSeed)
-  );
-  const [dropsLoved, setDropsLoved] = useState<DiscoverScarcePeek[] | null>(
-    () => movingSectionFromSeed(initial?.dropsLoved, paintedSeed)
-  );
   const [proposals, setProposals] = useState<GovernanceEventRow[] | null>(() =>
     movingSectionFromSeed(initial?.proposals, paintedSeed)
   );
@@ -148,8 +136,6 @@ export function DiscoverTrendingPanel({
       setHubs(null);
       setPosts(null);
       setTalkedAbout(null);
-      setDropsTraded(null);
-      setDropsLoved(null);
       setProposals(null);
     }
 
@@ -212,18 +198,6 @@ export function DiscoverTrendingPanel({
       .catch(() => {
         if (!cancelled && !soft) setHubs([]);
       });
-
-    void fetchMostTradedScarcePeeks(client, SECTION_LIMIT).then((rows) => {
-      if (cancelled) return;
-      setDropsTraded(rows);
-      hasPaintedRef.current = true;
-    });
-
-    void fetchMostLovedScarcePeeks(client, SECTION_LIMIT).then((rows) => {
-      if (cancelled) return;
-      setDropsLoved(rows);
-      hasPaintedRef.current = true;
-    });
 
     void client.query.governance
       .recentProposals({ limit: SECTION_LIMIT })
@@ -364,15 +338,41 @@ export function DiscoverTrendingPanel({
       talkedAbout == null ? null : filterTrendingPosts(talkedAbout, query),
     [query, talkedAbout]
   );
-  const visibleDropsTraded = useMemo(
-    () =>
-      dropsTraded == null ? null : filterTrendingDrops(dropsTraded, query),
-    [dropsTraded, query]
-  );
-  const visibleDropsLoved = useMemo(
-    () => (dropsLoved == null ? null : filterTrendingDrops(dropsLoved, query)),
-    [dropsLoved, query]
-  );
+  const visibleMentions = useMemo(() => {
+    if (
+      visibleTopics == null ||
+      visibleTickers == null ||
+      visiblePlaces == null
+    ) {
+      return null;
+    }
+    return mergeMovingMentions(
+      visibleTopics,
+      visibleTickers,
+      visiblePlaces
+    ).map((item) => {
+      if (item.kind === 'topic') {
+        return {
+          key: `h-${item.id}`,
+          href: homeHashtagPath(item.id),
+          label: `#${item.id}`,
+        };
+      }
+      if (item.kind === 'ticker') {
+        return {
+          key: `k-${item.id}`,
+          href: homeTickerPath(item.id),
+          label: formatTickerDisplay(item.id),
+          ticker: true,
+        };
+      }
+      return {
+        key: `p-${item.id}`,
+        href: homePlacePath(item.id),
+        label: placeLabel(item.id) ?? item.id,
+      };
+    });
+  }, [visiblePlaces, visibleTickers, visibleTopics]);
   const visibleProposals = useMemo(
     () =>
       proposals == null ? null : filterTrendingProposals(proposals, query),
@@ -387,20 +387,15 @@ export function DiscoverTrendingPanel({
     visibleHubs !== null &&
     visiblePosts !== null &&
     visibleTalkedAbout !== null &&
-    visibleDropsTraded !== null &&
-    visibleDropsLoved !== null &&
+    visibleMentions !== null &&
     visibleProposals !== null;
   const empty =
     allSettled &&
-    visibleTickers.length === 0 &&
-    visibleTopics.length === 0 &&
-    visiblePlaces.length === 0 &&
+    visibleMentions.length === 0 &&
     visibleProfiles.length === 0 &&
     visibleHubs.length === 0 &&
     visiblePosts.length === 0 &&
     visibleTalkedAbout.length === 0 &&
-    visibleDropsTraded.length === 0 &&
-    visibleDropsLoved.length === 0 &&
     visibleProposals.length === 0;
   const anyLoading =
     visibleTickers === null ||
@@ -410,8 +405,7 @@ export function DiscoverTrendingPanel({
     visibleHubs === null ||
     visiblePosts === null ||
     visibleTalkedAbout === null ||
-    visibleDropsTraded === null ||
-    visibleDropsLoved === null ||
+    visibleMentions === null ||
     visibleProposals === null;
 
   return (
@@ -452,62 +446,7 @@ export function DiscoverTrendingPanel({
         rows={visibleTalkedAbout}
       />
 
-      <MovingChipPeekSection
-        heading="Topics"
-        seeAll={{ onClick: () => onOpenTab('topics') }}
-        rows={
-          visibleTopics == null
-            ? null
-            : visibleTopics.map((item) => ({
-                key: `h-${item.hashtag}`,
-                href: homeHashtagPath(item.hashtag),
-                label: `#${item.hashtag}`,
-                count: item.postCount,
-              }))
-        }
-      />
-      <MovingChipPeekSection
-        heading="Tickers"
-        seeAll={{ onClick: () => onOpenTab('tickers') }}
-        rows={
-          visibleTickers == null
-            ? null
-            : visibleTickers.map((item) => ({
-                key: `k-${item.ticker}`,
-                href: homeTickerPath(item.ticker),
-                label: formatTickerDisplay(item.ticker),
-                count: item.postCount,
-                ticker: true,
-              }))
-        }
-      />
-      <MovingChipPeekSection
-        heading="Places"
-        seeAll={{ href: APP_HOME_PATH }}
-        rows={
-          visiblePlaces == null
-            ? null
-            : visiblePlaces.map((item) => ({
-                key: `p-${item.place}`,
-                href: homePlacePath(item.place),
-                label: placeLabel(item.place) ?? item.place,
-                count: item.postCount,
-              }))
-        }
-      />
-
-      <MovingCoverPeekSection
-        heading="Most traded"
-        seeAllHref={dropsPath({ sort: 'traded' })}
-        kind="traded"
-        rows={visibleDropsTraded}
-      />
-      <MovingCoverPeekSection
-        heading="Most loved"
-        seeAllHref={dropsPath({ sort: 'loved' })}
-        kind="loved"
-        rows={visibleDropsLoved}
-      />
+      <MovingChipPeekSection heading="Mentioned" rows={visibleMentions} />
 
       {visibleProfiles === null ? (
         <DiscoverTrendingProfilesSectionSkeleton />
