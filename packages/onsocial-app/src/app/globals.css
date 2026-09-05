@@ -25739,7 +25739,8 @@ a.os-surface-row {
 
   .collection-writing-pdf-canvas {
     display: block;
-    width: 100%;
+    width: auto;
+    max-width: 100%;
     height: auto;
     vertical-align: top;
   }
@@ -25751,15 +25752,28 @@ a.os-surface-row {
     line-height: 1;
     user-select: text;
     -webkit-user-select: text;
+    caret-color: transparent;
+  }
+
+  .collection-writing-pdf-text,
+  .collection-writing-pdf-text :is(span, br) {
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    background: transparent !important;
+    text-shadow: none !important;
   }
 
   .collection-writing-pdf-text span {
-    color: transparent !important;
-    background: transparent !important;
     position: absolute;
     white-space: pre;
     transform-origin: 0 0;
     cursor: text;
+  }
+
+  .collection-writing-pdf-text ::selection {
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    background: rgb(0 100 255 / 0.28);
   }
 
   .collection-writing-pdf-nav {

@@ -69,6 +69,13 @@ export function CollectionWritingReader({
     zone: 'next' | 'prev' | 'chrome';
   } | null>(null);
   const turningRef = useRef(false);
+  const lastTapRef = useRef<{
+    zone: 'next' | 'prev' | 'chrome';
+    dragged: boolean;
+  } | null>(null);
+  const userScrollArmedRef = useRef(false);
+  const ignoreChromeTapUntilRef = useRef(0);
+  const chromeTapTimerRef = useRef(0);
   const [dragDx, setDragDx] = useState(0);
   const [turnAnim, setTurnAnim] = useState<
     null | 'out-next' | 'out-prev' | 'in-next' | 'in-prev'
@@ -155,6 +162,7 @@ export function CollectionWritingReader({
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const applyChapter = (nextIndex: number) => {
+    userScrollArmedRef.current = false;
     setChapterIndex(nextIndex);
     setChapterRatio(0);
     setTocOpen(false);
@@ -175,6 +183,7 @@ export function CollectionWritingReader({
     }
     const dir = next > safeIndex ? 'next' : 'prev';
     turningRef.current = true;
+    userScrollArmedRef.current = false;
     setTurnAnim(dir === 'next' ? 'out-next' : 'out-prev');
     window.setTimeout(() => {
       applyChapter(next);
@@ -223,6 +232,7 @@ export function CollectionWritingReader({
     const el = bodyRef.current;
     const apply = () => {
       const max = el.scrollHeight - el.clientHeight;
+      userScrollArmedRef.current = false;
       if (max <= 0) {
         lastScrollTopRef.current = 0;
         if (!chapterIsPdf) setChapterRatio(1);
@@ -260,6 +270,7 @@ export function CollectionWritingReader({
     setChapterRatio(ratio);
     const delta = el.scrollTop - lastScrollTopRef.current;
     lastScrollTopRef.current = el.scrollTop;
+    if (!userScrollArmedRef.current) return;
     if (delta !== 0) onScrollDelta?.(delta);
   };
 
@@ -277,6 +288,7 @@ export function CollectionWritingReader({
   };
 
   const turnFromGesture = (direction: 'next' | 'prev') => {
+    ignoreChromeTapUntilRef.current = Date.now() + 500;
     const { atStart, atEnd } = scrollEnds();
     if (chapterIsPdf && direction === 'next' && !atEnd) {
       bodyRef.current?.scrollBy({
@@ -297,6 +309,7 @@ export function CollectionWritingReader({
   };
 
   const onBodyPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    lastTapRef.current = null;
     if (turningRef.current) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     const target = event.target as HTMLElement | null;
@@ -314,6 +327,7 @@ export function CollectionWritingReader({
       dragged: false,
       zone,
     };
+    lastTapRef.current = { zone, dragged: false };
   };
 
   const onBodyPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -323,6 +337,8 @@ export function CollectionWritingReader({
     const dy = event.clientY - start.y;
     if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
     start.dragged = true;
+    userScrollArmedRef.current = true;
+    if (lastTapRef.current) lastTapRef.current.dragged = true;
     if (start.zone === 'chrome') return;
     if (Math.abs(dx) < Math.abs(dy) * 1.15) return;
     try {
@@ -350,8 +366,16 @@ export function CollectionWritingReader({
       return;
     }
     if (start.zone === 'chrome') {
-      if (!start.dragged) onChromeTap?.();
       setDragDx(0);
+      if (
+        !start.dragged &&
+        Date.now() >= ignoreChromeTapUntilRef.current
+      ) {
+        chromeTapTimerRef.current = window.setTimeout(() => {
+          chromeTapTimerRef.current = 0;
+          onChromeTap?.();
+        }, 0);
+      }
       return;
     }
     const committed = writingCommitTurn({
@@ -367,6 +391,20 @@ export function CollectionWritingReader({
       return;
     }
     setDragDx(0);
+  };
+
+  const onBodyClick = () => {
+    const tap = lastTapRef.current;
+    lastTapRef.current = null;
+    if (chromeTapTimerRef.current) {
+      window.clearTimeout(chromeTapTimerRef.current);
+      chromeTapTimerRef.current = 0;
+    }
+    if (!tap || tap.dragged || tap.zone !== 'chrome') return;
+    if (turningRef.current) return;
+    if (Date.now() < ignoreChromeTapUntilRef.current) return;
+    if (window.getSelection()?.toString().trim()) return;
+    onChromeTap?.();
   };
 
   const downloads =
@@ -533,9 +571,13 @@ export function CollectionWritingReader({
                 : undefined
             }
             onScroll={onBodyScroll}
+            onWheel={() => {
+              userScrollArmedRef.current = true;
+            }}
             onPointerDown={onBodyPointerDown}
             onPointerMove={onBodyPointerMove}
             onPointerUp={onBodyPointerUp}
+            onClick={onBodyClick}
             onPointerCancel={() => {
               pointerRef.current = null;
               setDragDx(0);
