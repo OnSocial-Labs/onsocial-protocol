@@ -67,30 +67,28 @@ describe('movingBoardFromSeed', () => {
 
 describe('loadMovingBoard', () => {
   it('waits for every strip before returning one board', async () => {
-    const hot = deferred({
-      items: [
-        {
-          accountId: 'hot.near',
-          postId: '1',
-          value: '{}',
-          blockHeight: 1,
-          blockTimestamp: 1,
-          amplifyHeat: 2,
-        },
-      ],
-    });
-    const talked = deferred([]);
-    const sold = deferred([]);
-    const hubs = deferred([
-      {
-        appId: 'fresh.near',
-        title: 'Fresh',
-        bannerUrl: null,
-        markUrl: null,
-        lastActivityTimestamp: 90,
-      },
-    ]);
-    const proposals = deferred([]);
+    const hot = deferred<{
+      items: Array<{
+        accountId: string;
+        postId: string;
+        value: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        amplifyHeat: number;
+      }>;
+    }>();
+    const talked = deferred<unknown[]>();
+    const sold = deferred<unknown[]>();
+    const hubs = deferred<
+      Array<{
+        appId: string;
+        title: string;
+        bannerUrl: null;
+        markUrl: null;
+        lastActivityTimestamp: number;
+      }>
+    >();
+    const proposals = deferred<unknown[]>();
 
     fetchTalkedAboutPosts.mockReturnValue(talked.promise);
     fetchJustSoldScarcePeeks.mockReturnValue(sold.promise);
