@@ -1,13 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type {
-  GovernanceEventRow,
-  HashtagCount,
-  PlaceCount,
-  PostRow,
-  TickerCount,
-} from '@onsocial/sdk';
+import { useEffect, useMemo, useState } from 'react';
 import {
   MovingChipPeekSection,
   MovingCoverPeekSection,
@@ -25,11 +18,13 @@ import {
   homeTickerPath,
 } from '@/features/home/home-ticker-search';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
-import type {
-  DiscoverTrendingHub,
-  DiscoverTrendingSeed,
-} from '@/lib/discover-trending-server';
+import {
+  emptyMovingBoard,
+  loadMovingBoard,
+  movingBoardFromSeed,
+  type MovingBoard,
+} from '@/lib/discover-moving-board';
+import type { DiscoverTrendingSeed } from '@/lib/discover-trending-server';
 import {
   discoverProposalHref,
   discoverTrendingFilterQuery,
@@ -42,34 +37,20 @@ import {
   filterTrendingTickers,
   filterTrendingTopics,
 } from '@/lib/discover-trending-filter';
-import { rankHubPeeks } from '@/features/discover/discover-community-ranking';
-import {
-  fetchJustSoldScarcePeeks,
-  type DiscoverScarcePeek,
-} from '@/features/discover/discover-scarce-peeks';
-import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about';
 import {
   excludeMovingHubsAlreadySold,
-  fetchMovingMentionRows,
   isMovingLandingPainted,
   mergeMovingMentions,
-  movingActivePeeks,
-  movingSectionFromSeed,
-  recentPosterIds,
-  selectHotPosts,
-  type MovingActivePeek,
 } from '@/lib/discover-moving';
 import { formatRelativePostTimestamp } from '@/lib/post-display';
 
 const SECTION_LIMIT = 6;
-const SCAN_POOL = 12;
-const ACTIVE_POST_POOL = 24;
 
 /**
  * Default Discover landing: what's moving — heat, talk, last sale, mention, people.
  * Lifetime Topics / Tickers / Most traded live on those tabs. This page is a peek.
  * See all stays in Discover (Profiles, Hubs). No door to Home, Market, or Protocol.
- * Sections settle independently; an empty first seed keeps skeletons reserved.
+ * First paint is one board — skeletons until every strip is ready.
  */
 export function DiscoverTrendingPanel({
   onOpenTab,
@@ -80,172 +61,64 @@ export function DiscoverTrendingPanel({
 }) {
   const { query } = useDiscoverPanel();
   const paintedSeed = isMovingLandingPainted(initial);
-
-  const [tickers, setTickers] = useState<TickerCount[] | null>(() =>
-    movingSectionFromSeed(initial?.movingTickers, paintedSeed)
+  const [board, setBoard] = useState<MovingBoard | null>(() =>
+    paintedSeed ? movingBoardFromSeed(initial) : null
   );
-  const [topics, setTopics] = useState<HashtagCount[] | null>(() =>
-    movingSectionFromSeed(initial?.movingTopics, paintedSeed)
-  );
-  const [places, setPlaces] = useState<PlaceCount[] | null>(() =>
-    movingSectionFromSeed(initial?.places, paintedSeed)
-  );
-  const [profiles, setProfiles] = useState<MovingActivePeek[] | null>(() =>
-    movingSectionFromSeed(initial?.profiles, paintedSeed)
-  );
-  const [hubs, setHubs] = useState<DiscoverTrendingHub[] | null>(() =>
-    movingSectionFromSeed(initial?.hubs, paintedSeed)
-  );
-  const [posts, setPosts] = useState<PostRow[] | null>(() =>
-    movingSectionFromSeed(initial?.posts, paintedSeed)
-  );
-  const [talkedAbout, setTalkedAbout] = useState<PostRow[] | null>(() =>
-    movingSectionFromSeed(initial?.talkedAbout, paintedSeed)
-  );
-  const [justSold, setJustSold] = useState<DiscoverScarcePeek[] | null>(() =>
-    movingSectionFromSeed(initial?.justSold, paintedSeed)
-  );
-  const [proposals, setProposals] = useState<GovernanceEventRow[] | null>(() =>
-    movingSectionFromSeed(initial?.proposals, paintedSeed)
-  );
-  const hasPaintedRef = useRef(paintedSeed);
 
   useEffect(() => {
     let cancelled = false;
-    const client = createReadOnlyOnSocialClient();
-    const soft = hasPaintedRef.current;
-
-    void client.query.feed
-      .recent({ limit: SECTION_LIMIT, sort: 'hot', section: 'posts' })
-      .then((page) => {
-        if (cancelled) return;
-        setPosts(selectHotPosts(page.items, SECTION_LIMIT));
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) setPosts([]);
-      });
-
-    void fetchTalkedAboutPosts(client, SECTION_LIMIT).then((rows) => {
-      if (cancelled) return;
-      setTalkedAbout(rows);
-      hasPaintedRef.current = true;
-    });
-
-    void fetchJustSoldScarcePeeks(client, SECTION_LIMIT).then((rows) => {
-      if (cancelled) return;
-      setJustSold(rows);
-      hasPaintedRef.current = true;
-    });
-
-    void fetchMovingMentionRows(client.query, SECTION_LIMIT)
-      .then((rows) => {
-        if (cancelled) return;
-        setTickers(rows.tickers);
-        setTopics(rows.topics);
-        setPlaces(rows.places);
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) {
-          setTickers([]);
-          setTopics([]);
-          setPlaces([]);
-        }
-      });
-
-    void rankHubPeeks(client, { peekLimit: SCAN_POOL })
-      .then((rows) => {
-        if (cancelled) return;
-        setHubs(rows);
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) setHubs([]);
-      });
-
-    void client.query.governance
-      .recentProposals({ limit: SECTION_LIMIT })
-      .then((rows) => {
-        if (cancelled) return;
-        setProposals(rows);
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) setProposals([]);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    const soft = hasPaintedRef.current;
-    const client = createReadOnlyOnSocialClient();
-    void client.query.feed
-      .recent({ limit: ACTIVE_POST_POOL, section: 'posts' })
-      .then(async (page) => {
-        const ids = recentPosterIds(page.items, SECTION_LIMIT);
-        if (ids.length === 0) return [];
-        const rows = await client.query.profiles.statsForAccounts(ids);
-        const accounts = await discoverPageToProfileListAccounts(client, {
-          profiles: rows,
-          viewer: null,
-        });
-        return movingActivePeeks(accounts, page.items, SECTION_LIMIT);
-      })
+    const soft = paintedSeed;
+    void loadMovingBoard(createReadOnlyOnSocialClient())
       .then((next) => {
         if (cancelled) return;
-        setProfiles(next);
-        hasPaintedRef.current = true;
+        setBoard(next);
       })
       .catch(() => {
-        if (!cancelled && !soft) setProfiles([]);
+        if (cancelled || soft) return;
+        setBoard(emptyMovingBoard());
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [paintedSeed]);
 
   const filterNeedle = discoverTrendingFilterQuery(query);
   const visibleTickers = useMemo(
-    () => (tickers == null ? null : filterTrendingTickers(tickers, query)),
-    [query, tickers]
+    () => (board == null ? null : filterTrendingTickers(board.tickers, query)),
+    [board, query]
   );
   const visibleTopics = useMemo(
-    () => (topics == null ? null : filterTrendingTopics(topics, query)),
-    [query, topics]
+    () => (board == null ? null : filterTrendingTopics(board.topics, query)),
+    [board, query]
   );
   const visiblePlaces = useMemo(
-    () => (places == null ? null : filterTrendingPlaces(places, query)),
-    [places, query]
+    () => (board == null ? null : filterTrendingPlaces(board.places, query)),
+    [board, query]
   );
   const visiblePosts = useMemo(
-    () => (posts == null ? null : filterTrendingPosts(posts, query)),
-    [posts, query]
+    () => (board == null ? null : filterTrendingPosts(board.posts, query)),
+    [board, query]
   );
   const visibleTalkedAbout = useMemo(
     () =>
-      talkedAbout == null ? null : filterTrendingPosts(talkedAbout, query),
-    [query, talkedAbout]
+      board == null ? null : filterTrendingPosts(board.talkedAbout, query),
+    [board, query]
   );
   const visibleJustSold = useMemo(
-    () => (justSold == null ? null : filterTrendingDrops(justSold, query)),
-    [justSold, query]
+    () => (board == null ? null : filterTrendingDrops(board.justSold, query)),
+    [board, query]
   );
   const visibleProfiles = useMemo(() => {
-    if (profiles == null) return null;
-    return filterMovingActive(profiles, query).slice(0, SECTION_LIMIT);
-  }, [profiles, query]);
+    if (board == null) return null;
+    return filterMovingActive(board.profiles, query).slice(0, SECTION_LIMIT);
+  }, [board, query]);
   const visibleHubs = useMemo(() => {
-    if (hubs == null) return null;
+    if (board == null) return null;
     return excludeMovingHubsAlreadySold(
-      filterTrendingHubs(hubs, query),
+      filterTrendingHubs(board.hubs, query),
       visibleJustSold ?? []
     ).slice(0, SECTION_LIMIT);
-  }, [hubs, query, visibleJustSold]);
+  }, [board, query, visibleJustSold]);
   const visibleMentions = useMemo(() => {
     if (
       visibleTopics == null ||
@@ -290,41 +163,21 @@ export function DiscoverTrendingPanel({
   }, [visiblePlaces, visibleTickers, visibleTopics]);
   const visibleProposals = useMemo(
     () =>
-      proposals == null ? null : filterTrendingProposals(proposals, query),
-    [proposals, query]
+      board == null ? null : filterTrendingProposals(board.proposals, query),
+    [board, query]
   );
 
-  const allSettled =
-    visibleTickers !== null &&
-    visibleTopics !== null &&
-    visiblePlaces !== null &&
-    visibleProfiles !== null &&
-    visibleHubs !== null &&
-    visiblePosts !== null &&
-    visibleTalkedAbout !== null &&
-    visibleJustSold !== null &&
-    visibleMentions !== null &&
-    visibleProposals !== null;
+  const allSettled = board != null;
   const empty =
     allSettled &&
-    visibleMentions.length === 0 &&
-    visibleProfiles.length === 0 &&
-    visibleHubs.length === 0 &&
-    visiblePosts.length === 0 &&
-    visibleTalkedAbout.length === 0 &&
-    visibleJustSold.length === 0 &&
-    visibleProposals.length === 0;
-  const anyLoading =
-    visibleTickers === null ||
-    visibleTopics === null ||
-    visiblePlaces === null ||
-    visibleHubs === null ||
-    visiblePosts === null ||
-    visibleTalkedAbout === null ||
-    visibleJustSold === null ||
-    visibleMentions === null ||
-    visibleProfiles === null ||
-    visibleProposals === null;
+    (visibleMentions?.length ?? 0) === 0 &&
+    (visibleProfiles?.length ?? 0) === 0 &&
+    (visibleHubs?.length ?? 0) === 0 &&
+    (visiblePosts?.length ?? 0) === 0 &&
+    (visibleTalkedAbout?.length ?? 0) === 0 &&
+    (visibleJustSold?.length ?? 0) === 0 &&
+    (visibleProposals?.length ?? 0) === 0;
+  const anyLoading = board == null;
 
   return (
     <div

@@ -5,29 +5,13 @@ import type {
   PostRow,
   TickerCount,
 } from '@onsocial/sdk';
-import { rankHubPeeks } from '@/features/discover/discover-community-ranking';
-import {
-  fetchJustSoldScarcePeeks,
-  type DiscoverScarcePeek,
-} from '@/features/discover/discover-scarce-peeks';
-import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about';
-import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
+import { loadMovingBoard } from '@/lib/discover-moving-board';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
-import {
-  excludeMovingHubsAlreadySold,
-  fetchMovingMentionRows,
-  movingActivePeeks,
-  orderProfileSearchByPosterIds,
-  recentPosterIds,
-  selectHotPosts,
-  type MovingActivePeek,
-} from '@/lib/discover-moving';
+import type { MovingActivePeek } from '@/lib/discover-moving';
+import type { DiscoverScarcePeek } from '@/features/discover/discover-scarce-peeks';
 
 /** Enough for Topics/Tickers tabs; movement peeks slice after ranking. */
 const TAB_CHIP_LIMIT = 24;
-const SECTION_LIMIT = 6;
-const SCAN_POOL = 12;
-const ACTIVE_POST_POOL = 24;
 
 export type DiscoverTrendingGuild = {
   groupId: string;
@@ -63,90 +47,32 @@ export type DiscoverTrendingSeed = {
   proposals: GovernanceEventRow[];
 };
 
-async function loadHotPosts(
-  os: ReturnType<typeof createServerOnSocialClient>
-): Promise<PostRow[]> {
-  try {
-    const page = await os.query.feed.recent({
-      limit: SECTION_LIMIT,
-      sort: 'hot',
-      section: 'posts',
-    });
-    return selectHotPosts(page.items, SECTION_LIMIT);
-  } catch {
-    return [];
-  }
-}
-
-async function loadActivePosters(
-  os: ReturnType<typeof createServerOnSocialClient>
-): Promise<MovingActivePeek[]> {
-  try {
-    const page = await os.query.feed.recent({
-      limit: ACTIVE_POST_POOL,
-      section: 'posts',
-    });
-    const ids = recentPosterIds(page.items, SECTION_LIMIT);
-    if (ids.length === 0) return [];
-    const rows = await os.query.profiles.statsForAccounts(ids);
-    const accounts = await discoverPageToProfileListAccounts(os, {
-      profiles: orderProfileSearchByPosterIds(rows, ids),
-      viewer: null,
-    });
-    return movingActivePeeks(accounts, page.items, SECTION_LIMIT);
-  } catch {
-    return [];
-  }
-}
-
-/** Movement sections for Discover default tab SSR. */
+/** Movement sections for Discover default tab SSR — one board. */
 export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed | null> {
   try {
     const os = createServerOnSocialClient();
-    const [
-      tickers,
-      topics,
-      mentions,
-      profiles,
-      hubs,
-      posts,
-      talkedAbout,
-      justSold,
-      proposals,
-    ] = await Promise.all([
+    const [tickers, topics, board] = await Promise.all([
       os.query.tickers
         .trending({ limit: TAB_CHIP_LIMIT })
         .catch(() => [] as TickerCount[]),
       os.query.hashtags
         .trending({ limit: TAB_CHIP_LIMIT })
         .catch(() => [] as HashtagCount[]),
-      fetchMovingMentionRows(os.query, SECTION_LIMIT),
-      loadActivePosters(os),
-      rankHubPeeks(os, { peekLimit: SCAN_POOL }),
-      loadHotPosts(os),
-      fetchTalkedAboutPosts(os, SECTION_LIMIT),
-      fetchJustSoldScarcePeeks(os, SECTION_LIMIT),
-      os.query.governance
-        .recentProposals({ limit: SECTION_LIMIT })
-        .catch(() => [] as GovernanceEventRow[]),
+      loadMovingBoard(os),
     ]);
-    const { tickers: movingTickers, topics: movingTopics, places } = mentions;
 
     return {
       tickers,
       topics,
-      movingTickers,
-      movingTopics,
-      places,
-      profiles: profiles.slice(0, SECTION_LIMIT),
-      hubs: excludeMovingHubsAlreadySold(hubs, justSold).slice(
-        0,
-        SECTION_LIMIT
-      ),
-      posts,
-      talkedAbout,
-      justSold,
-      proposals,
+      movingTickers: board.tickers,
+      movingTopics: board.topics,
+      places: board.places,
+      profiles: board.profiles,
+      hubs: board.hubs,
+      posts: board.posts,
+      talkedAbout: board.talkedAbout,
+      justSold: board.justSold,
+      proposals: board.proposals,
     };
   } catch {
     return null;

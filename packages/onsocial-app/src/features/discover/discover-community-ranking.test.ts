@@ -1,10 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   daoCatalogRankTier,
   hubActivityTimestamp,
   hubPeekFromMetadata,
+  orderHubsByLastMove,
   isOnSocialDaoAccount,
   rankDaoCatalogEntries,
+  rankHubPeeks,
 } from '@/features/discover/discover-community-ranking';
 
 describe('hubPeekFromMetadata', () => {
@@ -29,6 +31,30 @@ describe('hubPeekFromMetadata', () => {
     expect(hubActivityTimestamp(1_700_000_000)).toBe(1_700_000_000);
     expect(hubActivityTimestamp('0')).toBeNull();
     expect(hubActivityTimestamp(null)).toBeNull();
+  });
+
+  it('orders hubs by last move, not volume, and drops idle rows', () => {
+    expect(
+      orderHubsByLastMove(
+        [
+          { appId: 'whale', lastActivityTimestamp: 10 },
+          { appId: 'fresh', lastActivityTimestamp: 90 },
+          { appId: 'idle', lastActivityTimestamp: 0 },
+        ],
+        6
+      ).map((row) => row.appId)
+    ).toEqual(['fresh', 'whale']);
+  });
+
+  it('asks scarcesAppStats by last activity, not 30-day volume', async () => {
+    const graphql = vi.fn().mockResolvedValue({ data: { scarcesAppStats: [] } });
+    await rankHubPeeks({ query: { graphql } } as never);
+    expect(graphql).toHaveBeenCalledTimes(1);
+    const query = String(graphql.mock.calls[0]?.[0]?.query ?? '');
+    expect(query).toContain('scarcesAppStats(');
+    expect(query).toContain('lastActivityTimestamp: DESC_NULLS_LAST');
+    expect(query).not.toContain('scarcesAppStatsHot');
+    expect(query).not.toContain('salesVolume');
   });
 
   it('falls back to the hub id without metadata', () => {
