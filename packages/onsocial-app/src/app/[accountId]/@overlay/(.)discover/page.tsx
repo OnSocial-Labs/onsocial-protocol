@@ -14,6 +14,7 @@ type DiscoverOverlayRouteProps = {
     q?: string | string[];
     face?: string | string[];
     industry?: string | string[];
+    craft?: string | string[];
   }>;
 };
 
@@ -41,6 +42,9 @@ export default async function DiscoverOverlayRoute({
         industry: Array.isArray(resolvedSearchParams?.industry)
           ? resolvedSearchParams.industry[0]
           : resolvedSearchParams?.industry,
+        craft: Array.isArray(resolvedSearchParams?.craft)
+          ? resolvedSearchParams.craft[0]
+          : resolvedSearchParams?.craft,
       })
     ).catch(() => null),
     loadDiscoverTrendingSeed(),

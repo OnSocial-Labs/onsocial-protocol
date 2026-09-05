@@ -32,6 +32,7 @@ export function normalizeDiscoverCraft(
 export function discoverCraftPath(slug: string): string {
   const craft = normalizeDiscoverCraft(slug);
   const params = new URLSearchParams();
+  params.set('tab', 'profiles');
   params.set('face', 'people');
   if (craft) params.set('craft', craft);
   return `/discover?${params.toString()}`;
