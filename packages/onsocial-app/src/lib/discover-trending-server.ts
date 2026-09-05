@@ -14,11 +14,12 @@ import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about
 import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import {
+  movingActivePeeks,
   orderProfileSearchByPosterIds,
   recentPosterIds,
   selectHotPosts,
+  type MovingActivePeek,
 } from '@/lib/discover-moving';
-import type { ProfileListAccount } from '@/lib/profile-list-account';
 
 /** Enough for Topics/Tickers tabs; movement peeks slice after ranking. */
 const TAB_CHIP_LIMIT = 24;
@@ -50,7 +51,7 @@ export type DiscoverTrendingSeed = {
   movingTickers: TickerCount[];
   movingTopics: HashtagCount[];
   places: PlaceCount[];
-  profiles: ProfileListAccount[];
+  profiles: MovingActivePeek[];
   hubs: DiscoverTrendingHub[];
   posts: PostRow[];
   talkedAbout: PostRow[];
@@ -75,7 +76,7 @@ async function loadHotPosts(
 
 async function loadActivePosters(
   os: ReturnType<typeof createServerOnSocialClient>
-): Promise<ProfileListAccount[]> {
+): Promise<MovingActivePeek[]> {
   try {
     const page = await os.query.feed.recent({
       limit: ACTIVE_POST_POOL,
@@ -84,10 +85,11 @@ async function loadActivePosters(
     const ids = recentPosterIds(page.items, SECTION_LIMIT);
     if (ids.length === 0) return [];
     const rows = await os.query.profiles.statsForAccounts(ids);
-    return discoverPageToProfileListAccounts(os, {
+    const accounts = await discoverPageToProfileListAccounts(os, {
       profiles: orderProfileSearchByPosterIds(rows, ids),
       viewer: null,
     });
+    return movingActivePeeks(accounts, page.items, SECTION_LIMIT);
   } catch {
     return [];
   }

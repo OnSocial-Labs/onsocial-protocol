@@ -65,7 +65,10 @@ export function selectHotPosts(items: PostRow[], limit = 6): PostRow[] {
 }
 
 /** Distinct authors in recency order — Moving Active is who just posted. */
-export function recentPosterIds(items: PostRow[], limit = 6): string[] {
+export function recentPosterIds(
+  items: Array<Pick<PostRow, 'accountId'>>,
+  limit = 6
+): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const row of items) {
@@ -74,6 +77,59 @@ export function recentPosterIds(items: PostRow[], limit = 6): string[] {
     seen.add(id);
     out.push(id);
     if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/** First (newest) post time per author — Active face rows. */
+export function firstPosterTimestamps(
+  items: Array<Pick<PostRow, 'accountId' | 'blockTimestamp'>>
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const row of items) {
+    const id = row.accountId.trim();
+    if (!id || out.has(id)) continue;
+    const ts = Number(row.blockTimestamp) || 0;
+    if (ts > 0) out.set(id, ts);
+  }
+  return out;
+}
+
+export type MovingActivePeek = {
+  accountId: string;
+  name: string | null;
+  avatarUrl: string | null;
+  lastPostTimestamp: number | null;
+};
+
+/** Face peeks for Active — same people as recentPosterIds, with last-post time. */
+export function movingActivePeeks(
+  accounts: Array<{
+    accountId: string;
+    name?: string | null;
+    avatarUrl?: string | null;
+  }>,
+  posts: Array<Pick<PostRow, 'accountId' | 'blockTimestamp'>>,
+  limit = 6
+): MovingActivePeek[] {
+  const times = firstPosterTimestamps(posts);
+  const byId = new Map(
+    accounts.map((row) => [row.accountId.trim(), row] as const)
+  );
+  const out: MovingActivePeek[] = [];
+  for (const id of recentPosterIds(posts, limit)) {
+    const account = byId.get(id);
+    if (!account) continue;
+    const lastPost = times.get(id);
+    out.push({
+      accountId: id,
+      name: account.name?.trim() || null,
+      avatarUrl: account.avatarUrl?.trim() || null,
+      lastPostTimestamp:
+        lastPost != null && Number.isFinite(lastPost) && lastPost > 0
+          ? lastPost
+          : null,
+    });
   }
   return out;
 }
@@ -290,16 +346,6 @@ export function orderPostsByRefs(
 
 function rowToRef(row: PostRow): MovingPostRef {
   return { author: row.accountId, postId: row.postId };
-}
-
-/** Why-line on Hot posts — heat, not chrono. */
-export function movingPostHeatLabel(): string {
-  return 'Hot';
-}
-
-/** Why-line on Talked about — a reply just landed. */
-export function movingPostTalkLabel(): string {
-  return 'Talk';
 }
 
 /** Compact count on Moving chips and drop signals. */

@@ -1,6 +1,7 @@
 import type { DiscoverScarcePeek } from '@/features/discover/discover-scarce-peeks';
 import { placeLabel } from '@/lib/post-place';
 import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-search';
+import type { MovingActivePeek } from '@/lib/discover-moving';
 import type {
   DiscoverTrendingDao,
   DiscoverTrendingGuild,
@@ -63,6 +64,22 @@ export function filterTrendingPlaces(
     return (
       matchesDiscoverTrendingQuery(row.place, needle) ||
       matchesDiscoverTrendingQuery(label, needle)
+    );
+  });
+}
+
+/** Moving Active — name or account, no face / industry lens. */
+export function filterMovingActive(
+  rows: MovingActivePeek[],
+  query: string
+): MovingActivePeek[] {
+  const needle = discoverTrendingFilterQuery(query);
+  if (!needle) return rows;
+  return rows.filter((row) => {
+    const name = row.name?.trim() || '';
+    return (
+      matchesDiscoverTrendingQuery(row.accountId, needle) ||
+      (name.length > 0 && matchesDiscoverTrendingQuery(name, needle))
     );
   });
 }

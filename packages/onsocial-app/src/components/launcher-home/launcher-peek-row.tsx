@@ -159,10 +159,10 @@ export function LauncherSocialPeekRow({
   accountId: string;
   profileName?: string | null;
   avatarUrl?: string | null;
-  contextLabel: string;
+  contextLabel?: string | null;
   timeLabel: string | null;
   timeTitle?: string | null;
-  excerpt: string;
+  excerpt?: string | null;
   relation?: PostRelationContext | null;
   repostAttribution?: string | null;
   relationTargetProfileName?: string | null;
@@ -174,7 +174,9 @@ export function LauncherSocialPeekRow({
     repostAttribution,
     relationTargetProfileName,
   });
-  const ariaLabel = [relationLead, label, contextLabel, excerpt, timeLabel]
+  const why = contextLabel?.trim() || '';
+  const line = excerpt?.trim() || '';
+  const ariaLabel = [relationLead, label, why || null, line || null, timeLabel]
     .filter(Boolean)
     .join(' · ');
 
@@ -213,8 +215,12 @@ export function LauncherSocialPeekRow({
               ) : null
             }
           >
-            <span className="launcher-home-peek-context">{contextLabel}</span>
-            <span className="launcher-home-peek-excerpt">{excerpt}</span>
+            {why ? (
+              <span className="launcher-home-peek-context">{why}</span>
+            ) : null}
+            {line ? (
+              <span className="launcher-home-peek-excerpt">{line}</span>
+            ) : null}
           </StandingIdentity>
         </div>
         {timeLabel ? (

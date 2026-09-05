@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   collectionIdFromSaleEvent,
+  firstPosterTimestamps,
   isMovingLandingPainted,
   justSoldCollectionRefs,
   mergeMovingMentions,
+  movingActivePeeks,
   movingChipCountLabel,
-  movingPostHeatLabel,
-  movingPostTalkLabel,
   movingProposalMeta,
   movingProposalStatusLabel,
   movingScarceSignalLabel,
@@ -66,6 +66,49 @@ describe('discover-moving', () => {
         2
       )
     ).toEqual(['alice.near', 'bob.near']);
+  });
+
+  it('keeps the first post time per author', () => {
+    expect(
+      [...firstPosterTimestamps([
+        { accountId: 'alice.near', blockTimestamp: 30 },
+        { accountId: 'bob.near', blockTimestamp: 20 },
+        { accountId: 'alice.near', blockTimestamp: 10 },
+      ])]
+    ).toEqual([
+      ['alice.near', 30],
+      ['bob.near', 20],
+    ]);
+  });
+
+  it('builds Active face peeks from posters and last-post time', () => {
+    expect(
+      movingActivePeeks(
+        [
+          { accountId: 'bob.near', name: 'Bob', avatarUrl: '/b.png' },
+          { accountId: 'alice.near', name: 'Alice', avatarUrl: '/a.png' },
+        ],
+        [
+          { accountId: 'alice.near', blockTimestamp: 30 },
+          { accountId: 'bob.near', blockTimestamp: 20 },
+          { accountId: 'alice.near', blockTimestamp: 10 },
+        ],
+        2
+      )
+    ).toEqual([
+      {
+        accountId: 'alice.near',
+        name: 'Alice',
+        avatarUrl: '/a.png',
+        lastPostTimestamp: 30,
+      },
+      {
+        accountId: 'bob.near',
+        name: 'Bob',
+        avatarUrl: '/b.png',
+        lastPostTimestamp: 20,
+      },
+    ]);
   });
 
   it('reorders profile rows to match poster ids', () => {
@@ -202,12 +245,6 @@ describe('discover-moving', () => {
 });
 
 describe('moving peek labels', () => {
-  it('names heat and talk as different why-lines', () => {
-    expect(movingPostHeatLabel()).toBe('Hot');
-    expect(movingPostTalkLabel()).toBe('Talk');
-    expect(movingPostHeatLabel()).not.toBe(movingPostTalkLabel());
-  });
-
   it('compacts chip counts', () => {
     expect(movingChipCountLabel(12)).toBe('12');
     expect(movingChipCountLabel(12500)).toBe('12.5K');
