@@ -8,6 +8,10 @@ import {
   guildSpaceFeedChannel,
   type GuildSpace,
 } from '@/features/guilds/guild-structure';
+import {
+  articleSnapshotExtra,
+  resolveComposerArticle,
+} from '@/lib/article-post-payload';
 import { postMetaFromText } from '@/features/home/post-mentions';
 import { placesMetaFromComposer } from '@/lib/post-place';
 import {
@@ -60,7 +64,11 @@ export async function submitGuildRootPost(args: {
   const text = payload.text.trim();
   const files = payload.files ?? [];
   const drop = isDropComposeDraftReady(payload.drop) ? payload.drop! : null;
-  if (!text && !files.length && !drop) {
+  const article = resolveComposerArticle(
+    payload.article,
+    Boolean(drop) || Boolean(payload.poll)
+  );
+  if (!text && !files.length && !drop && !article) {
     return { confirmed: false, optimisticPost: null, groupId };
   }
 
@@ -78,6 +86,7 @@ export async function submitGuildRootPost(args: {
 
   const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
   const dropKind = dropPostKind(drop);
+  const articleExtra = article ? articleSnapshotExtra(article) : undefined;
   const bodyText = resolvedDropPostText(text, drop);
   const contentLabels = normalizeComposerContentLabels(payload);
   const newPostId = Date.now().toString();
@@ -110,6 +119,12 @@ export async function submitGuildRootPost(args: {
               x: dropSnapshotExtra(drop!),
               kind: dropKind ?? space.kind,
             }
+          : articleExtra
+            ? {
+                x: articleExtra,
+                contentType: 'md' as const,
+                kind: 'longform',
+              }
           : mediaKind
             ? { kind: mediaKind }
             : { kind: space.kind }),
@@ -143,7 +158,11 @@ export async function submitGuildRootPost(args: {
         : commerceEmbed
           ? { embeds: [commerceEmbed] }
           : {}),
-      ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
+      ...(drop
+        ? { x: dropSnapshotExtra(drop) }
+        : articleExtra
+          ? { x: articleExtra, contentType: 'md' }
+          : {}),
       ...(media ? { media } : {}),
       ...contentLabels,
     }),
@@ -154,7 +173,9 @@ export async function submitGuildRootPost(args: {
     channel,
     kind: pollEmbed
       ? 'poll'
-      : (dropKind ?? mediaKind ?? space.kind),
+      : article
+        ? 'longform'
+        : (dropKind ?? mediaKind ?? space.kind),
   };
 
   return { confirmed: true, optimisticPost, groupId };

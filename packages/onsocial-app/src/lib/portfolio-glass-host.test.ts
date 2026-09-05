@@ -41,6 +41,13 @@ describe('shouldMountPortfolioGlassHost', () => {
         overlaySlotMode: 'idle',
       })
     ).toBe(true);
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/writing',
+        layoutSegments: [],
+        overlaySlotMode: 'idle',
+      })
+    ).toBe(true);
   });
 
   it('does not mount on hard refresh full-page panel routes', () => {
@@ -62,6 +69,13 @@ describe('shouldMountPortfolioGlassHost', () => {
       shouldMountPortfolioGlassHost({
         pathname: '/@alice.testnet/about',
         layoutSegments: ['about'],
+        overlaySlotMode: 'idle',
+      })
+    ).toBe(false);
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/writing',
+        layoutSegments: ['writing'],
         overlaySlotMode: 'idle',
       })
     ).toBe(false);

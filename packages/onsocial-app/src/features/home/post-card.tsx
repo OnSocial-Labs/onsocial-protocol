@@ -109,7 +109,8 @@ import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { parsePostContentLabels } from '@/lib/post-content-labels';
 import { accountIdsEqual } from '@/lib/account-match';
-import { portfolioPath } from '@/lib/overlay-routes';
+import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
+import { parseArticleSnapshot } from '@/lib/article-post-payload';
 import {
   txToastConfirming,
   txToastError,
@@ -1214,6 +1215,8 @@ function PostCardBody({
   hasMedia = false,
   /** Thread focus / detail — show full copy, no Show more. */
   expandDisabled = false,
+  articleTitle = null,
+  articleHref = null,
 }: {
   relationContext: PostRelationContext | null;
   relationTargetProfileName?: string | null;
@@ -1223,13 +1226,26 @@ function PostCardBody({
   hideText?: boolean;
   hasMedia?: boolean;
   expandDisabled?: boolean;
+  articleTitle?: string | null;
+  articleHref?: string | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const previewLimit = postFeedPreviewLimit(hasMedia);
+  const isArticle = Boolean(articleTitle && articleHref);
   const canExpand =
-    !expandDisabled && !hideText && postPreviewNeedsExpand(text, previewLimit);
-  const bodyText =
-    canExpand && !expanded ? truncatePostPreview(text, previewLimit) : text;
+    !isArticle &&
+    !expandDisabled &&
+    !hideText &&
+    postPreviewNeedsExpand(text, previewLimit);
+  const tease = isArticle
+    ? truncatePostPreview(text, previewLimit)
+    : canExpand && !expanded
+      ? truncatePostPreview(text, previewLimit)
+      : text;
+  const showArticleRead =
+    isArticle &&
+    Boolean(articleHref) &&
+    (postPreviewNeedsExpand(text, previewLimit) || Boolean(articleTitle));
 
   return (
     <>
@@ -1246,10 +1262,13 @@ function PostCardBody({
           ))}
         </div>
       ) : null}
-      {!hideText ? (
+      {articleTitle ? (
+        <p className="post-card-article-title">{articleTitle}</p>
+      ) : null}
+      {!hideText && tease.trim() ? (
         <div className="post-card-body-block">
           <p className="post-card-body">
-            <PostRichText text={bodyText} />
+            <PostRichText text={tease} inlineMarks={isArticle} />
           </p>
           {canExpand ? (
             <button
@@ -1265,6 +1284,27 @@ function PostCardBody({
               {expanded ? 'Show less' : 'Show more'}
             </button>
           ) : null}
+          {showArticleRead && articleHref ? (
+            <Link
+              href={articleHref}
+              className="post-card-show-more"
+              scroll={false}
+              onClick={(event) => event.stopPropagation()}
+            >
+              Read
+            </Link>
+          ) : null}
+        </div>
+      ) : showArticleRead && articleHref ? (
+        <div className="post-card-body-block">
+          <Link
+            href={articleHref}
+            className="post-card-show-more"
+            scroll={false}
+            onClick={(event) => event.stopPropagation()}
+          >
+            Read
+          </Link>
         </div>
       ) : null}
     </>
@@ -1583,6 +1623,10 @@ export function PostCard({
   }
 
   const text = parsePostText(post.value);
+  const article = parseArticleSnapshot(post.value);
+  const articleHref = article
+    ? writingArticlePath(post.accountId, post.postId)
+    : null;
   const labels = parsePostContentLabels(post.value);
   const poll = parsePostPollEmbed(post.value);
   const dropPaint = parseDropPaintSnapshot(post.value);
@@ -1768,9 +1812,11 @@ export function PostCard({
             expandDisabled={mediaFocused}
             hideText={
               (Boolean(poll) && text === poll?.question) ||
-              (mediaItems.length > 0 && !text.trim()) ||
-              (isRepostRefType(post.refType) && !text.trim())
+              (mediaItems.length > 0 && !text.trim() && !article) ||
+              (isRepostRefType(post.refType) && !text.trim() && !article)
             }
+            articleTitle={article?.title ?? null}
+            articleHref={articleHref}
           />
           {poll ? (
             <PostPollEmbedCard

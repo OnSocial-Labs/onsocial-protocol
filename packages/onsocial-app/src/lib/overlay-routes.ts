@@ -23,6 +23,7 @@ export const OVERLAY_PANELS = [
   'standing',
   'reputation',
   'collectibles',
+  'writing',
 ] as const;
 
 export type OverlayPanel = (typeof OVERLAY_PANELS)[number];
@@ -154,6 +155,16 @@ export function aboutPath(accountId: string): string {
   return overlayPath(accountId, 'about');
 }
 
+/** Author Writing shelf — titled longform posts. */
+export function writingPath(accountId: string): string {
+  return overlayPath(accountId, 'writing');
+}
+
+/** One article on the Writing shelf. */
+export function writingArticlePath(accountId: string, postId: string): string {
+  return `${writingPath(accountId)}/${encodeURIComponent(postId)}`;
+}
+
 /** Discover hub href. Contextual entries can deep-link a tab (e.g. Profiles). */
 export function discoverPath(
   accountId: string,
@@ -180,6 +191,7 @@ export const OVERLAY_PANEL_LABELS: Record<OverlayPanel, string> = {
   standing: 'Standing',
   reputation: 'Reputation',
   collectibles: 'Collectibles',
+  writing: 'Writing',
 };
 
 export function panelLabel(panel: OverlayPanel): string {
@@ -199,8 +211,20 @@ export function parseOverlayPanelKey(pathname: string): string | null {
     return 'standing:incoming';
   }
 
+  const writingArticle = pathname.match(/\/writing\/([^/?#]+)(?:\/|$|\?)/);
+  if (writingArticle?.[1]) {
+    try {
+      return `writing:${decodeURIComponent(writingArticle[1])}`;
+    } catch {
+      return `writing:${writingArticle[1]}`;
+    }
+  }
+  if (/\/writing(?:\/|$|\?)/.test(pathname)) {
+    return 'writing';
+  }
+
   for (const panel of OVERLAY_PANELS) {
-    if (panel === 'standing') {
+    if (panel === 'standing' || panel === 'writing') {
       continue;
     }
     if (new RegExp(`/${panel}(?:/|$|\\?)`).test(pathname)) {
@@ -295,6 +319,10 @@ export function resolveOverlayPanelChrome(
 
   if (panelKey === 'about') {
     return { ariaTitle: 'About', hideTitle: true, expectsToolbar: false };
+  }
+
+  if (panelKey === 'writing' || panelKey.startsWith('writing:')) {
+    return { ariaTitle: 'Writing', hideTitle: true, expectsToolbar: false };
   }
 
   // `feed` never reaches glass chrome — it redirects into the page drawer.

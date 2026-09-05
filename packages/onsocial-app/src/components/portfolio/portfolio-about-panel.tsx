@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { Divider } from '@onsocial/ui';
 import { PortfolioBioBlocks } from '@/components/portfolio/portfolio-bio-blocks';
 import { PortfolioAboutWorkLink } from '@/components/portfolio/portfolio-about-link';
+import { PortfolioWritingLink } from '@/components/portfolio/portfolio-writing-link';
 import { PortfolioIdentityTopics } from '@/components/portfolio/portfolio-identity-topics';
 import { displayName } from '@/lib/profile-display';
 import {
@@ -190,11 +191,10 @@ export function PortfolioAboutPanel({
         </div>
       ) : null}
 
-      {showWork ? (
-        <footer className="portfolio-about-closer">
-          <PortfolioAboutWorkLink accountId={accountId} />
-        </footer>
-      ) : null}
+      <footer className="portfolio-about-closer">
+        <PortfolioWritingLink accountId={accountId} />
+        {showWork ? <PortfolioAboutWorkLink accountId={accountId} /> : null}
+      </footer>
 
       {viewerPhotos.length > 0 ? (
         <FeedPhotoEnlargeScreen

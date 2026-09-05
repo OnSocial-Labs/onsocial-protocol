@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   aboutPath,
+  writingArticlePath,
+  writingPath,
   discoverPath,
   isFullPagePanelLayout,
   isOverlayInterceptActive,
@@ -157,6 +159,15 @@ describe('aboutPath', () => {
   });
 });
 
+describe('writingPath', () => {
+  it('builds the Writing shelf and article routes', () => {
+    expect(writingPath('alice.testnet')).toBe('/@alice.testnet/writing');
+    expect(writingArticlePath('alice.testnet', '42')).toBe(
+      '/@alice.testnet/writing/42'
+    );
+  });
+});
+
 describe('discoverPath', () => {
   it('defaults to bare discover (Moving)', () => {
     expect(discoverPath('alice.testnet')).toBe('/@alice.testnet/discover');
@@ -228,6 +239,10 @@ describe('parseOverlayPanelKey', () => {
     expect(parseOverlayPanelKey('/@alice.testnet/collectibles')).toBe(
       'collectibles'
     );
+    expect(parseOverlayPanelKey('/@alice.testnet/writing')).toBe('writing');
+    expect(parseOverlayPanelKey('/@alice.testnet/writing/42')).toBe(
+      'writing:42'
+    );
   });
 
   it('returns null for portfolio root and unrelated paths', () => {
@@ -240,6 +255,8 @@ describe('isPortfolioOverlayPath', () => {
   it('matches overlay drawer paths', () => {
     expect(isPortfolioOverlayPath('/@alice.testnet/discover')).toBe(true);
     expect(isPortfolioOverlayPath('/@alice.testnet/about')).toBe(true);
+    expect(isPortfolioOverlayPath('/@alice.testnet/writing')).toBe(true);
+    expect(isPortfolioOverlayPath('/@alice.testnet/writing/42')).toBe(true);
   });
 
   it('does not match full-page panel routes', () => {
@@ -272,6 +289,8 @@ describe('isFullPagePanelLayout', () => {
     expect(isFullPagePanelLayout(['standing', 'incoming'])).toBe(true);
     expect(isFullPagePanelLayout(['discover'])).toBe(true);
     expect(isFullPagePanelLayout(['about'])).toBe(true);
+    expect(isFullPagePanelLayout(['writing'])).toBe(true);
+    expect(isFullPagePanelLayout(['writing', '42'])).toBe(true);
     expect(isFullPagePanelLayout(['feed'])).toBe(true);
     expect(isFullPagePanelLayout(['collectibles'])).toBe(true);
     expect(isFullPagePanelLayout(['posts', 'abc'])).toBe(true);
@@ -289,6 +308,12 @@ describe('shouldOpenPortfolioGlassOverlay', () => {
     expect(shouldOpenPortfolioGlassOverlay('/@alice.testnet/about', [])).toBe(
       true
     );
+    expect(shouldOpenPortfolioGlassOverlay('/@alice.testnet/writing', [])).toBe(
+      true
+    );
+    expect(
+      shouldOpenPortfolioGlassOverlay('/@alice.testnet/writing/42', [])
+    ).toBe(true);
   });
 
   it('does not open on hard refresh full-page panel URLs', () => {
@@ -303,6 +328,15 @@ describe('shouldOpenPortfolioGlassOverlay', () => {
     ).toBe(false);
     expect(
       shouldOpenPortfolioGlassOverlay('/@alice.testnet/about', ['about'])
+    ).toBe(false);
+    expect(
+      shouldOpenPortfolioGlassOverlay('/@alice.testnet/writing', ['writing'])
+    ).toBe(false);
+    expect(
+      shouldOpenPortfolioGlassOverlay('/@alice.testnet/writing/42', [
+        'writing',
+        '42',
+      ])
     ).toBe(false);
   });
 
@@ -343,6 +377,16 @@ describe('resolveOverlayPanelChrome', () => {
   it('uses panel labels for simple overlay panels', () => {
     expect(resolveOverlayPanelChrome('about')).toEqual({
       ariaTitle: 'About',
+      hideTitle: true,
+      expectsToolbar: false,
+    });
+    expect(resolveOverlayPanelChrome('writing')).toEqual({
+      ariaTitle: 'Writing',
+      hideTitle: true,
+      expectsToolbar: false,
+    });
+    expect(resolveOverlayPanelChrome('writing:42')).toEqual({
+      ariaTitle: 'Writing',
       hideTitle: true,
       expectsToolbar: false,
     });

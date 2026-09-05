@@ -365,6 +365,21 @@ export function formatPostPeekExcerpt(
   value: string,
   options?: { kind?: string | null; postId?: string }
 ): string {
+  const articleTitle = (() => {
+    try {
+      const parsed = JSON.parse(value) as {
+        x?: { onsocial?: { article?: { title?: unknown } } };
+      };
+      const title = parsed.x?.onsocial?.article?.title;
+      return typeof title === 'string' ? title.trim() : '';
+    } catch {
+      return '';
+    }
+  })();
+  if (articleTitle) {
+    return truncatePostPreview(articleTitle, POST_PEEK_EXCERPT_CHARS);
+  }
+
   const text = parsePostText(value).trim();
   if (text) {
     return truncatePostPreview(text, POST_PEEK_EXCERPT_CHARS);
