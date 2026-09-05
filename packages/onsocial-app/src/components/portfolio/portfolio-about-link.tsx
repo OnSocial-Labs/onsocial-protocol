@@ -5,7 +5,7 @@ import { useOverlayDismissIfMounted } from '@/contexts/overlay-dismiss-context';
 import { aboutPath, portfolioFeedPath } from '@/lib/overlay-routes';
 import { requestPortfolioFeedReveal } from '@/lib/portfolio-feed-reveal';
 
-/** Quiet face overflow — only when About has more than the four-line clamp. */
+/** Quiet face door — only when the About room is set. */
 export function PortfolioAboutLink({ accountId }: { accountId: string }) {
   return (
     <Link

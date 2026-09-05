@@ -271,18 +271,12 @@ export function profileBioHasLineOverflow(
   return profileBioLines(text.trimEnd()).length > maxLines;
 }
 
-export function profileBioLikelyWrapsPastFace(text: string): boolean {
-  if (!text.trim()) return false;
-  if (profileBioHasLineOverflow(text)) return true;
-  return faceFlatLength(text) > FACE_BIO_WRAP_CHARS;
-}
-
 /**
- * About has more than the face shows: continuation copy, a tagline hiding bio,
- * wrap past the face budget, photos, crafts, or a quiet lead.
+ * Face link / editor hint — About room is set.
+ * Face bio is its own capped field and never opens About. Overflow / same-string
+ * compares were for the joined `profile/bio` era.
  */
 export function profileAboutHasMoreThanFace(opts: {
-  faceText?: string | null;
   aboutText?: string | null;
   /** Quiet About lead above the film. */
   leadText?: string | null;
@@ -293,14 +287,7 @@ export function profileAboutHasMoreThanFace(opts: {
   if ((opts.photoCount ?? 0) > 0) return true;
   if ((opts.tagCount ?? 0) > 0) return true;
   if (opts.leadText?.trim()) return true;
-
-  const about = opts.aboutText?.trim() ?? '';
-  if (!about) return false;
-
-  const face = opts.faceText?.trim() ?? '';
-  if (!face) return true;
-  if (about !== face) return true;
-  return profileBioLikelyWrapsPastFace(about);
+  return Boolean(opts.aboutText?.trim());
 }
 
 /** Full About body for meta — face + continuation, then dao fallbacks. */

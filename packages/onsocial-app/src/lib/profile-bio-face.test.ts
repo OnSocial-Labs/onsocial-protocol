@@ -146,60 +146,26 @@ describe('collapseProfileBioBlankLines', () => {
 });
 
 describe('profileAboutHasMoreThanFace', () => {
-  it('hides About when face and about are the same short bio', () => {
+  it('shows About when More for About is set, even if it matches the face', () => {
     expect(
       profileAboutHasMoreThanFace({
-        faceText: 'Builder in Lisbon.',
         aboutText: 'Builder in Lisbon.',
       })
-    ).toBe(false);
-  });
-
-  it('shows About when tagline hides a longer bio', () => {
-    expect(
-      profileAboutHasMoreThanFace({
-        faceText: 'Builder',
-        aboutText: 'Builder\n\nI write about cities and sound.',
-      })
     ).toBe(true);
   });
 
-  it('shows About when a single block would wrap past four face lines', () => {
-    const about = 'OnSocial is a place for people who make things with other people. '.repeat(
-      4
-    );
+  it('hides About when only the face bio is set', () => {
     expect(
       profileAboutHasMoreThanFace({
-        faceText: about,
-        aboutText: about,
-      })
-    ).toBe(true);
-  });
-
-  it('shows About when the bio has more than four lines', () => {
-    const about = ['a', 'b', 'c', 'd', 'e'].join('\n');
-    expect(
-      profileAboutHasMoreThanFace({
-        faceText: about,
-        aboutText: about,
-      })
-    ).toBe(true);
-  });
-
-  it('hides About when there is no about body', () => {
-    expect(
-      profileAboutHasMoreThanFace({
-        faceText: 'Hello',
         aboutText: '  ',
       })
     ).toBe(false);
   });
 
-  it('shows About when photos exist even without a longer bio', () => {
+  it('shows About when photos exist even without an essay', () => {
     expect(
       profileAboutHasMoreThanFace({
-        faceText: 'Hello',
-        aboutText: 'Hello',
+        aboutText: '',
         photoCount: 1,
       })
     ).toBe(true);
@@ -208,9 +174,17 @@ describe('profileAboutHasMoreThanFace', () => {
   it('shows About when a lead exists', () => {
     expect(
       profileAboutHasMoreThanFace({
-        faceText: 'Hello',
-        aboutText: 'Hello',
+        aboutText: '',
         leadText: 'Our story',
+      })
+    ).toBe(true);
+  });
+
+  it('shows About when crafts are set', () => {
+    expect(
+      profileAboutHasMoreThanFace({
+        aboutText: '',
+        tagCount: 2,
       })
     ).toBe(true);
   });
