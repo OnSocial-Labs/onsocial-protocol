@@ -40,7 +40,7 @@ export function PortfolioWritingCover({
         titleAlign: 'left',
       },
       provenance: {
-        issuedAt: issuedAt || Date.now(),
+        issuedAt: issuedAt > 0 ? issuedAt : 0,
         postId,
       },
     });
