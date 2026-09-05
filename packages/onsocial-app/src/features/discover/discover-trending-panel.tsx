@@ -24,7 +24,6 @@ import {
   formatTickerDisplay,
   homeTickerPath,
 } from '@/features/home/home-ticker-search';
-import { marketPath, protocolPath } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
 import type {
@@ -358,7 +357,6 @@ export function DiscoverTrendingPanel({
       />
       <MovingCoverPeekSection
         heading="Just sold"
-        seeAllHref={marketPath()}
         kind="sold"
         rows={visibleJustSold}
       />
@@ -379,7 +377,6 @@ export function DiscoverTrendingPanel({
 
       <MovingProposalPeekSection
         heading="New proposals"
-        seeAllHref={protocolPath()}
         rows={
           visibleProposals == null
             ? null

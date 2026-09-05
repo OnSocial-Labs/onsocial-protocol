@@ -15,11 +15,7 @@ import {
 import type { DiscoverScarcePeek } from '@/features/discover/discover-scarce-peeks';
 import { communityMonogram } from '@/components/community-cards/community-monogram';
 import { placeFallbackCoverStyle } from '@/components/community-cards/community-cover';
-import {
-  APP_HOME_PATH,
-  appPath,
-  collectionPath,
-} from '@/lib/app-routes';
+import { appPath, collectionPath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import type { DiscoverTrendingHub } from '@/lib/discover-trending-server';
 import {
@@ -113,11 +109,10 @@ export function MovingPostPeekSection({
   why: 'hot' | 'talk';
   rows: PostRow[] | null;
 }) {
-  const seeAll = why === 'hot' ? { href: APP_HOME_PATH } : null;
   if (rows === null) {
     return (
       <section className="discover-trending-section" aria-hidden>
-        <MovingPeekHeadSkeleton seeAll={Boolean(seeAll)} />
+        <MovingPeekHeadSkeleton />
         <LauncherSocialPeekSkeleton count={4} />
       </section>
     );
@@ -129,7 +124,7 @@ export function MovingPostPeekSection({
       aria-label={heading}
       data-why={why}
     >
-      <MovingSectionHead heading={heading} seeAll={seeAll} />
+      <MovingSectionHead heading={heading} />
       <LauncherSocialPeekList aria-label={heading}>
         {rows.slice(0, SECTION_LIMIT).map((post, index) => (
           <LauncherSocialPeekRow
@@ -267,7 +262,11 @@ export function MovingCoverPeekSection({
 }) {
   const resolvedSeeAll = seeAll ?? (seeAllHref ? { href: seeAllHref } : null);
   if (rows === null) {
-    return <DiscoverCoverPeekSectionSkeleton showSeeAll />;
+    return (
+      <DiscoverCoverPeekSectionSkeleton
+        showSeeAll={Boolean(resolvedSeeAll)}
+      />
+    );
   }
   if (rows.length === 0) return null;
   return (
@@ -365,7 +364,7 @@ export function MovingProposalPeekSection({
   rows,
 }: {
   heading: string;
-  seeAllHref: string;
+  seeAllHref?: string;
   rows: Array<{
     key: string;
     href: string;
@@ -376,13 +375,16 @@ export function MovingProposalPeekSection({
     timeLabel?: string | null;
   }> | null;
 }) {
+  const seeAll = seeAllHref ? { href: seeAllHref } : null;
   if (rows === null) {
-    return <DiscoverCoverPeekSectionSkeleton showSeeAll />;
+    return (
+      <DiscoverCoverPeekSectionSkeleton showSeeAll={Boolean(seeAll)} />
+    );
   }
   if (rows.length === 0) return null;
   return (
     <section className="discover-trending-section" aria-label={heading}>
-      <MovingSectionHead heading={heading} seeAll={{ href: seeAllHref }} />
+      <MovingSectionHead heading={heading} seeAll={seeAll} />
       <ul className="discover-cover-peeks">
         {rows.slice(0, SECTION_LIMIT).map((row) => {
           const status = movingProposalMeta(row);
