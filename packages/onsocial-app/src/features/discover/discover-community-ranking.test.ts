@@ -1,9 +1,37 @@
 import { describe, expect, it } from 'vitest';
 import {
   daoCatalogRankTier,
+  hubPeekFromMetadata,
   isOnSocialDaoAccount,
   rankDaoCatalogEntries,
 } from '@/features/discover/discover-community-ranking';
+
+describe('hubPeekFromMetadata', () => {
+  it('reads name, banner, and mark from hub metadata', () => {
+    expect(
+      hubPeekFromMetadata(
+        JSON.stringify({
+          name: 'Night Market',
+          image: 'https://cdn.example/mark.png',
+          banner: 'https://cdn.example/banner.png',
+        }),
+        'night'
+      )
+    ).toEqual({
+      title: 'Night Market',
+      markUrl: 'https://cdn.example/mark.png',
+      bannerUrl: 'https://cdn.example/banner.png',
+    });
+  });
+
+  it('falls back to the hub id without metadata', () => {
+    expect(hubPeekFromMetadata(null, 'studio')).toEqual({
+      title: 'studio',
+      bannerUrl: null,
+      markUrl: null,
+    });
+  });
+});
 
 describe('discover community ranking', () => {
   it('detects OnSocial-hosted DAO accounts', () => {

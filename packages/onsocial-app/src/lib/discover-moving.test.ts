@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   isMovingLandingPainted,
+  movingChipCountLabel,
+  movingPostHeatLabel,
+  movingPostTalkLabel,
+  movingProposalMeta,
+  movingProposalStatusLabel,
+  movingScarceSignalLabel,
   movingSectionFromSeed,
   orderRowsByAccountIds,
   parentPostRefFromReply,
@@ -96,6 +102,39 @@ describe('discover-moving', () => {
       { author: 'alice.near', postId: 'a' },
       { author: 'bob.near', postId: 'b' },
     ]);
+  });
+});
+
+describe('moving peek labels', () => {
+  it('names heat and talk as different why-lines', () => {
+    expect(movingPostHeatLabel()).toBe('Hot');
+    expect(movingPostTalkLabel()).toBe('Talk');
+    expect(movingPostHeatLabel()).not.toBe(movingPostTalkLabel());
+  });
+
+  it('compacts chip counts', () => {
+    expect(movingChipCountLabel(12)).toBe('12');
+    expect(movingChipCountLabel(12500)).toBe('12.5K');
+  });
+
+  it('names drop signals as sold or fans', () => {
+    expect(movingScarceSignalLabel('traded', 1)).toBe('1 sold');
+    expect(movingScarceSignalLabel('traded', 12)).toBe('12 sold');
+    expect(movingScarceSignalLabel('loved', 1)).toBe('1 fan');
+    expect(movingScarceSignalLabel('loved', 8)).toBe('8 fans');
+    expect(movingScarceSignalLabel('loved', 0)).toBeNull();
+  });
+
+  it('keeps proposal status human', () => {
+    expect(movingProposalStatusLabel('InProgress')).toBe('In review');
+    expect(movingProposalStatusLabel('approved')).toBe('Approved');
+    expect(movingProposalStatusLabel('expired')).toBe('Expired');
+    expect(movingProposalMeta({ status: 'active', groupId: 'dao.near' })).toBe(
+      'In review'
+    );
+    expect(
+      movingProposalMeta({ status: null, proposalType: 'AddMember' })
+    ).toBe('AddMember');
   });
 });
 

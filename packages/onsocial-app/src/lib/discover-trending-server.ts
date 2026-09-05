@@ -39,6 +39,8 @@ export type DiscoverTrendingDao = {
 export type DiscoverTrendingHub = {
   appId: string;
   title: string | null;
+  bannerUrl?: string | null;
+  markUrl?: string | null;
 };
 
 export type DiscoverTrendingSeed = {

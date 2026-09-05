@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   GovernanceEventRow,
@@ -10,11 +9,15 @@ import type {
   TickerCount,
 } from '@onsocial/sdk';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
+import { DiscoverTrendingProfilesSectionSkeleton } from '@/features/discover/discover-loading-skeleton';
 import {
-  DiscoverTrendingChipSectionSkeleton,
-  DiscoverTrendingGuildsSectionSkeleton,
-  DiscoverTrendingProfilesSectionSkeleton,
-} from '@/features/discover/discover-loading-skeleton';
+  MovingChipPeekSection,
+  MovingCoverPeekSection,
+  MovingHubPeekSection,
+  MovingPostPeekSection,
+  MovingProposalPeekSection,
+  MovingSectionHead,
+} from '@/features/discover/discover-moving-peeks';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import { OsAppChromePageStatus } from '@onsocial/ui';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
@@ -34,12 +37,7 @@ import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-globa
 import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
-import {
-  APP_HOME_PATH,
-  appPath,
-  collectionPath,
-  dropsPath,
-} from '@/lib/app-routes';
+import { APP_HOME_PATH, dropsPath, protocolPath } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
 import {
@@ -76,93 +74,10 @@ import {
   recentPosterIds,
   selectHotPosts,
 } from '@/lib/discover-moving';
-import { formatPostPeekExcerpt } from '@/lib/post-display';
-import { postThreadPath } from '@/lib/post-routes';
+import { formatRelativePostTimestamp } from '@/lib/post-display';
 
 const SECTION_LIMIT = 6;
 const ACTIVE_POST_POOL = 24;
-
-function MovingPostPeekSection({
-  heading,
-  rows,
-}: {
-  heading: string;
-  rows: PostRow[] | null;
-}) {
-  if (rows === null) {
-    return <DiscoverTrendingGuildsSectionSkeleton />;
-  }
-  if (rows.length === 0) return null;
-  return (
-    <section className="discover-trending-section" aria-label={heading}>
-      <div className="discover-trending-section-head">
-        <h2 className="discover-trending-heading">{heading}</h2>
-        <Link href={APP_HOME_PATH} className="discover-trending-see-all">
-          See all
-        </Link>
-      </div>
-      <ul className="discover-focus-rows">
-        {rows.slice(0, SECTION_LIMIT).map((post) => {
-          const excerpt = formatPostPeekExcerpt(post.value, {
-            kind: post.kind,
-            postId: post.postId,
-          });
-          const author = post.authorName?.trim() || post.accountId;
-          return (
-            <li key={`${heading}-${post.accountId}-${post.postId}`}>
-              <Link href={postThreadPath(post)} className="discover-focus-row">
-                <span className="discover-focus-row-label">{excerpt}</span>
-                <span className="discover-focus-row-meta">{author}</span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
-function ScarcePeekSection({
-  heading,
-  seeAllHref,
-  rows,
-}: {
-  heading: string;
-  seeAllHref: string;
-  rows: DiscoverScarcePeek[] | null;
-}) {
-  if (rows === null) {
-    return <DiscoverTrendingGuildsSectionSkeleton />;
-  }
-  if (rows.length === 0) return null;
-  return (
-    <section className="discover-trending-section" aria-label={heading}>
-      <div className="discover-trending-section-head">
-        <h2 className="discover-trending-heading">{heading}</h2>
-        <Link href={seeAllHref} className="discover-trending-see-all">
-          See all
-        </Link>
-      </div>
-      <ul className="discover-focus-rows">
-        {rows.map((scarce) => (
-          <li key={`${heading}-${scarce.collectionId}`}>
-            <Link
-              href={collectionPath(scarce.collectionId)}
-              className="discover-focus-row"
-            >
-              <span className="discover-focus-row-label">
-                {scarce.title?.trim() || scarce.collectionId}
-              </span>
-              {scarce.appId ? (
-                <span className="discover-focus-row-meta">{scarce.appId}</span>
-              ) : null}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
 
 /**
  * Default Discover landing: what's moving — heat, talk, recency, drops, people.
@@ -526,94 +441,71 @@ export function DiscoverTrendingPanel({
         </div>
       ) : null}
 
-      <MovingPostPeekSection heading="Hot posts" rows={visiblePosts} />
-      <MovingPostPeekSection heading="Talked about" rows={visibleTalkedAbout} />
+      <MovingPostPeekSection
+        heading="Hot posts"
+        why="hot"
+        rows={visiblePosts}
+      />
+      <MovingPostPeekSection
+        heading="Talked about"
+        why="talk"
+        rows={visibleTalkedAbout}
+      />
 
-      {visibleTopics === null ? (
-        <DiscoverTrendingChipSectionSkeleton />
-      ) : visibleTopics.length > 0 ? (
-        <section className="discover-trending-section">
-          <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">Topics</h2>
-            <button
-              type="button"
-              className="discover-trending-see-all"
-              onClick={() => onOpenTab('topics')}
-            >
-              See all
-            </button>
-          </div>
-          <div className="discover-trending-chips">
-            {visibleTopics.slice(0, SECTION_LIMIT).map((item) => (
-              <Link
-                key={`h-${item.hashtag}`}
-                href={homeHashtagPath(item.hashtag)}
-                className="discover-trending-chip"
-              >
-                #{item.hashtag}
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <MovingChipPeekSection
+        heading="Topics"
+        seeAll={{ onClick: () => onOpenTab('topics') }}
+        rows={
+          visibleTopics == null
+            ? null
+            : visibleTopics.map((item) => ({
+                key: `h-${item.hashtag}`,
+                href: homeHashtagPath(item.hashtag),
+                label: `#${item.hashtag}`,
+                count: item.postCount,
+              }))
+        }
+      />
+      <MovingChipPeekSection
+        heading="Tickers"
+        seeAll={{ onClick: () => onOpenTab('tickers') }}
+        rows={
+          visibleTickers == null
+            ? null
+            : visibleTickers.map((item) => ({
+                key: `k-${item.ticker}`,
+                href: homeTickerPath(item.ticker),
+                label: formatTickerDisplay(item.ticker),
+                count: item.postCount,
+                ticker: true,
+              }))
+        }
+      />
+      <MovingChipPeekSection
+        heading="Places"
+        seeAll={{ href: APP_HOME_PATH }}
+        rows={
+          visiblePlaces == null
+            ? null
+            : visiblePlaces.map((item) => ({
+                key: `p-${item.place}`,
+                href: homePlacePath(item.place),
+                label: placeLabel(item.place) ?? item.place,
+                count: item.postCount,
+              }))
+        }
+      />
 
-      {visibleTickers === null ? (
-        <DiscoverTrendingChipSectionSkeleton />
-      ) : visibleTickers.length > 0 ? (
-        <section className="discover-trending-section">
-          <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">Tickers</h2>
-            <button
-              type="button"
-              className="discover-trending-see-all"
-              onClick={() => onOpenTab('tickers')}
-            >
-              See all
-            </button>
-          </div>
-          <div className="discover-trending-chips">
-            {visibleTickers.slice(0, SECTION_LIMIT).map((item) => (
-              <Link
-                key={`k-${item.ticker}`}
-                href={homeTickerPath(item.ticker)}
-                className="discover-trending-chip discover-trending-chip--ticker"
-              >
-                {formatTickerDisplay(item.ticker)}
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {visiblePlaces === null ? (
-        <DiscoverTrendingChipSectionSkeleton />
-      ) : visiblePlaces.length > 0 ? (
-        <section className="discover-trending-section">
-          <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">Places</h2>
-          </div>
-          <div className="discover-trending-chips">
-            {visiblePlaces.slice(0, SECTION_LIMIT).map((item) => (
-              <Link
-                key={`p-${item.place}`}
-                href={homePlacePath(item.place)}
-                className="discover-trending-chip"
-              >
-                {placeLabel(item.place) ?? item.place}
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <ScarcePeekSection
+      <MovingCoverPeekSection
         heading="Most traded"
         seeAllHref={dropsPath({ sort: 'traded' })}
+        kind="traded"
         rows={visibleDropsTraded}
       />
-      <ScarcePeekSection
+      <MovingCoverPeekSection
         heading="Most loved"
         seeAllHref={dropsPath({ sort: 'loved' })}
+        kind="loved"
         rows={visibleDropsLoved}
       />
 
@@ -621,16 +513,10 @@ export function DiscoverTrendingPanel({
         <DiscoverTrendingProfilesSectionSkeleton />
       ) : visibleProfiles.length > 0 ? (
         <section className="discover-trending-section">
-          <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">Active</h2>
-            <button
-              type="button"
-              className="discover-trending-see-all"
-              onClick={() => onOpenTab('profiles')}
-            >
-              See all
-            </button>
-          </div>
+          <MovingSectionHead
+            heading="Active"
+            seeAll={{ onClick: () => onOpenTab('profiles') }}
+          />
 
           {showConnectHint ? (
             <OsAppChromePageStatus className="discover-connect-hint">
@@ -670,64 +556,35 @@ export function DiscoverTrendingPanel({
         </section>
       ) : null}
 
-      {visibleHubs === null ? (
-        <DiscoverTrendingGuildsSectionSkeleton />
-      ) : visibleHubs.length > 0 ? (
-        <section className="discover-trending-section">
-          <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">Hot hubs</h2>
-            <button
-              type="button"
-              className="discover-trending-see-all"
-              onClick={() => onOpenTab('hubs')}
-            >
-              See all
-            </button>
-          </div>
-          <ul className="discover-focus-rows">
-            {visibleHubs.map((hub) => (
-              <li key={hub.appId}>
-                <Link href={appPath(hub.appId)} className="discover-focus-row">
-                  <span className="discover-focus-row-label">
-                    {hub.title?.trim() || hub.appId}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <MovingHubPeekSection
+        heading="Hot hubs"
+        rows={visibleHubs}
+        onSeeAll={() => onOpenTab('hubs')}
+      />
 
-      {visibleProposals === null ? (
-        <DiscoverTrendingGuildsSectionSkeleton />
-      ) : visibleProposals.length > 0 ? (
-        <section className="discover-trending-section">
-          <div className="discover-trending-section-head">
-            <h2 className="discover-trending-heading">New proposals</h2>
-          </div>
-          <ul className="discover-focus-rows">
-            {visibleProposals.slice(0, SECTION_LIMIT).map((row) => {
-              const href = discoverProposalHref(row);
-              const title = row.title?.trim() || 'Proposal';
-              const meta =
-                row.groupId?.trim() || row.proposalType?.trim() || '';
-              if (!href) return null;
-              return (
-                <li
-                  key={`${row.groupId ?? 'g'}-${row.proposalId ?? row.blockHeight}`}
-                >
-                  <Link href={href} className="discover-focus-row">
-                    <span className="discover-focus-row-label">{title}</span>
-                    {meta ? (
-                      <span className="discover-focus-row-meta">{meta}</span>
-                    ) : null}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ) : null}
+      <MovingProposalPeekSection
+        heading="New proposals"
+        seeAllHref={protocolPath()}
+        rows={
+          visibleProposals == null
+            ? null
+            : visibleProposals.flatMap((row) => {
+                const href = discoverProposalHref(row);
+                if (!href) return [];
+                return [
+                  {
+                    key: `${row.groupId ?? 'g'}-${row.proposalId ?? row.blockHeight}`,
+                    href,
+                    title: row.title?.trim() || 'Proposal',
+                    status: row.status,
+                    proposalType: row.proposalType,
+                    groupId: row.groupId,
+                    timeLabel: formatRelativePostTimestamp(row.blockTimestamp),
+                  },
+                ];
+              })
+        }
+      />
     </div>
   );
 }

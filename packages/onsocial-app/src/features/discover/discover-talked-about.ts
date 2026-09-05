@@ -13,6 +13,7 @@ const POST_ROW_SELECTION = `
   accountId postId value blockHeight blockTimestamp receiptId
   parentPath parentAuthor parentType refPath refAuthor refType channel kind audiences
   groupId isGroupContent
+  authorName authorAvatar amplifyHeat
 `;
 
 async function fetchPostsByRefs(

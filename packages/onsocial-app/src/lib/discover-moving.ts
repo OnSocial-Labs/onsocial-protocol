@@ -1,4 +1,5 @@
 import type { PostRow, ProfileSearchRow } from '@onsocial/sdk';
+import { formatDiscoverTabCount } from '@/lib/discover-tab-lead';
 
 /** Any non-empty Moving peek — first paint can skip skeletons. */
 export function isMovingLandingPainted(
@@ -149,4 +150,63 @@ export function orderPostsByRefs(
 
 function rowToRef(row: PostRow): MovingPostRef {
   return { author: row.accountId, postId: row.postId };
+}
+
+/** Why-line on Hot posts — heat, not chrono. */
+export function movingPostHeatLabel(): string {
+  return 'Hot';
+}
+
+/** Why-line on Talked about — a reply just landed. */
+export function movingPostTalkLabel(): string {
+  return 'Talk';
+}
+
+/** Compact count on Moving chips and drop signals. */
+export function movingChipCountLabel(count: number): string {
+  return formatDiscoverTabCount(count);
+}
+
+/** Drop peek meta — sold vs fans, omitted when the rank has no number. */
+export function movingScarceSignalLabel(
+  kind: 'traded' | 'loved',
+  count: number | null | undefined
+): string | null {
+  const n = Number(count);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const compact = formatDiscoverTabCount(n);
+  if (kind === 'loved') return n === 1 ? '1 fan' : `${compact} fans`;
+  return n === 1 ? '1 sold' : `${compact} sold`;
+}
+
+/** Quiet proposal status — no chain jargon. */
+export function movingProposalStatusLabel(
+  status: string | null | undefined
+): string | null {
+  const raw = status?.trim();
+  if (!raw) return null;
+  const key = raw.toLowerCase().replace(/[\s_-]+/g, '');
+  if (key === 'inprogress' || key === 'active' || key === 'open') {
+    return 'In review';
+  }
+  if (key === 'approved' || key === 'accepted' || key === 'executed') {
+    return 'Approved';
+  }
+  if (key === 'rejected' || key === 'failed') return 'Rejected';
+  if (key === 'expired') return 'Expired';
+  return raw;
+}
+
+/** Proposal peek meta — status first, type only when status is empty. */
+export function movingProposalMeta(row: {
+  status?: string | null;
+  proposalType?: string | null;
+  groupId?: string | null;
+}): string {
+  return (
+    movingProposalStatusLabel(row.status) ||
+    row.proposalType?.trim() ||
+    row.groupId?.trim() ||
+    ''
+  );
 }

@@ -1,10 +1,13 @@
 import type { OnSocial } from '@onsocial/sdk';
+import { resolveScarceMediaUrl } from '@/features/market/market-listings';
 
 /** Network scarce peek row — most traded or most loved. */
 export type DiscoverScarcePeek = {
   collectionId: string;
   title: string | null;
   appId: string | null;
+  coverUrl?: string | null;
+  signalCount?: number | null;
 };
 
 const DEFAULT_LIMIT = 6;
@@ -12,7 +15,8 @@ const DEFAULT_LIMIT = 6;
 async function hydrateScarcePeeks(
   client: OnSocial,
   ids: string[],
-  appById: Map<string, string | null>
+  appById: Map<string, string | null>,
+  signalById: Map<string, number>
 ): Promise<DiscoverScarcePeek[]> {
   if (ids.length === 0) return [];
   const shells = await client.query.scarces
@@ -25,10 +29,14 @@ async function hydrateScarcePeeks(
   for (const id of ids) {
     const shell = byId.get(id);
     if (!shell) continue;
+    const signal = signalById.get(id);
     out.push({
       collectionId: shell.collectionId,
       title: shell.title?.trim() || null,
       appId: shell.appId?.trim() || appById.get(id) || null,
+      coverUrl: resolveScarceMediaUrl(shell.media),
+      signalCount:
+        signal != null && Number.isFinite(signal) && signal > 0 ? signal : null,
     });
   }
   return out;
@@ -48,7 +56,13 @@ export async function fetchMostTradedScarcePeeks(
     const appById = new Map(
       ranks.map((row) => [row.collectionId.trim(), row.appId] as const)
     );
-    return await hydrateScarcePeeks(client, ids, appById);
+    const signalById = new Map(
+      ranks.map((row) => [
+        row.collectionId.trim(),
+        Number(row.salesCount) || 0,
+      ] as const)
+    );
+    return await hydrateScarcePeeks(client, ids, appById, signalById);
   } catch {
     return [];
   }
@@ -60,7 +74,7 @@ export async function fetchMostLovedScarcePeeks(
   limit = DEFAULT_LIMIT
 ): Promise<DiscoverScarcePeek[]> {
   try {
-    let ranks: Array<{ collectionId: string }> = [];
+    let ranks: Array<{ collectionId: string; fanCount?: number }> = [];
     try {
       ranks = await client.query.scarces.collectionLoveFans({
         limit,
@@ -73,7 +87,13 @@ export async function fetchMostLovedScarcePeeks(
       });
     }
     const ids = ranks.map((row) => row.collectionId.trim()).filter(Boolean);
-    return await hydrateScarcePeeks(client, ids, new Map());
+    const signalById = new Map(
+      ranks.map((row) => [
+        row.collectionId.trim(),
+        Number(row.fanCount) || 0,
+      ] as const)
+    );
+    return await hydrateScarcePeeks(client, ids, new Map(), signalById);
   } catch {
     return [];
   }

@@ -12110,6 +12110,71 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
+  .discover-cover-peeks {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .discover-cover-peek {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 0;
+    padding: 0.35rem 0.35rem;
+    margin: 0 -0.35rem;
+    border-radius: 0.85rem;
+    color: inherit;
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+
+  .discover-cover-peek:hover,
+  .discover-cover-peek:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.05);
+    outline: none;
+  }
+
+  .discover-cover-peek-thumb.market-listing-thumb,
+  .discover-trending-panel .discover-cover-peek-thumb.market-listing-thumb {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .discover-cover-peek-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.12rem;
+  }
+
+  .discover-cover-peek-title {
+    overflow: hidden;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .discover-cover-peek-meta {
+    overflow: hidden;
+    font-size: 0.72rem;
+    font-weight: 550;
+    color: rgb(var(--fg-rgb) / 0.45);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .discover-trending-section[data-why='hot'] .launcher-home-peek-context {
+    color: var(
+      --signal-reputation,
+      var(--protocol-green-ink, var(--protocol-green))
+    );
+  }
+
   .discover-trending-shimmer-heading {
     display: block;
     width: 7.5rem;

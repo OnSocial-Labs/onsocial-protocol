@@ -9,6 +9,7 @@ import {
   DiscoverCommunityListSkeleton,
   DiscoverTrendingGuildsSectionSkeleton,
 } from '@/features/discover/discover-loading-skeleton';
+import { MovingCoverPeekSection } from '@/features/discover/discover-moving-peeks';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import {
   fetchMostLovedScarcePeeks,
@@ -35,7 +36,6 @@ import {
   APP_APP_CREATE_PATH,
   APP_APPS_PATH,
   appPath,
-  collectionPath,
   dropsPath,
 } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
@@ -49,45 +49,6 @@ function hubPrimaryCategory(app: AppView): string | null {
     return hubCategoryLabel(raw) ?? raw;
   }
   return hubCategoryLabel(app.category);
-}
-
-function ScarcePeekSection({
-  heading,
-  seeAllHref,
-  rows,
-}: {
-  heading: string;
-  seeAllHref: string;
-  rows: DiscoverScarcePeek[];
-}) {
-  if (rows.length === 0) return null;
-  return (
-    <section className="discover-trending-section" aria-label={heading}>
-      <div className="discover-trending-section-head">
-        <h2 className="discover-trending-heading">{heading}</h2>
-        <Link href={seeAllHref} className="discover-trending-see-all">
-          See all
-        </Link>
-      </div>
-      <ul className="discover-focus-rows">
-        {rows.map((scarce) => (
-          <li key={`${heading}-${scarce.collectionId}`}>
-            <Link
-              href={collectionPath(scarce.collectionId)}
-              className="discover-focus-row"
-            >
-              <span className="discover-focus-row-label">
-                {scarce.title?.trim() || scarce.collectionId}
-              </span>
-              {scarce.appId ? (
-                <span className="discover-focus-row-meta">{scarce.appId}</span>
-              ) : null}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
 }
 
 /**
@@ -255,14 +216,16 @@ export function DiscoverHubsPanel() {
           <DiscoverTrendingGuildsSectionSkeleton />
         ) : (
           <>
-            <ScarcePeekSection
+            <MovingCoverPeekSection
               heading="Most traded"
               seeAllHref={dropsPath({ sort: 'traded' })}
+              kind="traded"
               rows={mostTraded}
             />
-            <ScarcePeekSection
+            <MovingCoverPeekSection
               heading="Most loved"
               seeAllHref={dropsPath({ sort: 'loved' })}
+              kind="loved"
               rows={mostLoved}
             />
           </>
