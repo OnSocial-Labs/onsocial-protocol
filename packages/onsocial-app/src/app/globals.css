@@ -11616,7 +11616,7 @@ a.os-surface-row {
   .discover-trending-panel {
     display: flex;
     flex-direction: column;
-    gap: 1.1rem;
+    gap: 0.75rem;
     min-height: 8rem;
   }
 
@@ -11639,6 +11639,10 @@ a.os-surface-row {
   }
 
   .discover-trending-section--focus-skeleton {
+    min-height: 10.5rem;
+  }
+
+  .discover-trending-section--cover-skeleton {
     min-height: 10.5rem;
   }
 
@@ -11675,6 +11679,13 @@ a.os-surface-row {
     gap: 0.45rem;
   }
 
+  .discover-trending-heading-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
   .discover-trending-heading {
     margin: 0;
     font-size: 0.7rem;
@@ -11682,6 +11693,15 @@ a.os-surface-row {
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.5);
+  }
+
+  .discover-trending-meta {
+    margin: 0;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: rgb(var(--fg-rgb) / 0.42);
+    white-space: nowrap;
   }
 
   .discover-trending-see-all {
@@ -11712,6 +11732,7 @@ a.os-surface-row {
 
   .discover-trending-chip {
     display: inline-flex;
+    max-width: 100%;
     align-items: center;
     gap: 0.35rem;
     padding: 0.28rem 0.6rem;
@@ -11751,9 +11772,24 @@ a.os-surface-row {
   }
 
   .discover-trending-chip-count {
+    flex-shrink: 0;
     font-size: 0.68rem;
     font-weight: 550;
     color: var(--os-surface-muted-strong);
+  }
+
+  .discover-trending-chip-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .discover-trending-chip-time {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: 550;
+    color: rgb(var(--fg-rgb) / 0.45);
   }
 
   .discover-trending-chip .discover-trending-chip-count {
@@ -12094,8 +12130,12 @@ a.os-surface-row {
   }
 
   .discover-focus-row-label {
+    min-width: 0;
+    overflow: hidden;
     font-size: 0.9rem;
     font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .discover-focus-row--ticker .discover-focus-row-label {
@@ -12140,12 +12180,44 @@ a.os-surface-row {
 
   .discover-cover-peek-thumb.market-listing-thumb,
   .discover-trending-panel .discover-cover-peek-thumb.market-listing-thumb {
-    width: 2.75rem;
-    height: 2.75rem;
+    width: 3.5rem;
+    height: 3.5rem;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .discover-cover-peek-thumb--mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(
+        circle at var(--guild-fallback-spot-x, 40%)
+          var(--guild-fallback-spot-y, 30%),
+        color-mix(
+          in srgb,
+          var(--guild-fallback-accent, rgb(var(--fg-rgb) / 0.22)) 42%,
+          transparent
+        ),
+        transparent 58%
+      ),
+      linear-gradient(
+        145deg,
+        rgb(var(--fg-rgb) / 0.12),
+        rgb(var(--fg-rgb) / 0.04)
+      );
+  }
+
+  .discover-cover-peek-mark {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: rgb(var(--fg-rgb) / 0.72);
   }
 
   .discover-cover-peek-copy {
     display: flex;
+    flex: 1;
     min-width: 0;
     flex-direction: column;
     gap: 0.12rem;
@@ -12166,6 +12238,22 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .discover-cover-peek--skeleton {
+    pointer-events: none;
+  }
+
+  .discover-cover-shimmer-title {
+    display: block;
+    width: min(8.5rem, 55%);
+    height: 0.85rem;
+  }
+
+  .discover-cover-shimmer-meta {
+    display: block;
+    width: 2.4rem;
+    height: 0.65rem;
   }
 
   .discover-trending-section[data-why='hot'] .launcher-home-peek-context {

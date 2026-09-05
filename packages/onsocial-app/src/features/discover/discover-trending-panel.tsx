@@ -1,88 +1,71 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type {
-  GovernanceEventRow,
-  HashtagCount,
-  PlaceCount,
-  PostRow,
-  TickerCount,
-} from '@onsocial/sdk';
-import { ProfileSocialList } from '@/components/panels/profile-social-list';
-import { DiscoverTrendingProfilesSectionSkeleton } from '@/features/discover/discover-loading-skeleton';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MovingChipPeekSection,
   MovingCoverPeekSection,
+  MovingFacePeekSection,
   MovingHubPeekSection,
   MovingPostPeekSection,
   MovingProposalPeekSection,
-  MovingSectionHead,
 } from '@/features/discover/discover-moving-peeks';
-import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
-import { OsAppChromePageStatus } from '@onsocial/ui';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
-import {
-  DISCOVER_CONNECT_HINT,
-  discoverTrendingLead,
-} from '@/lib/discover-tab-lead';
 import { homeHashtagPath } from '@/features/home/home-hashtag-search';
 import { homePlacePath, placeLabel } from '@/lib/post-place';
 import {
   formatTickerDisplay,
   homeTickerPath,
 } from '@/features/home/home-ticker-search';
-import { useAppWallet } from '@/contexts/app-wallet-context';
-import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
-import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
-import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
-import { useViewerStanding } from '@/hooks/use-viewer-standing';
-import { dropsPath, protocolPath } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
 import {
-  profileListAccountToStandingSummary,
-  type ProfileListAccount,
-} from '@/lib/profile-list-account';
-import type {
-  DiscoverTrendingHub,
-  DiscoverTrendingSeed,
-} from '@/lib/discover-trending-server';
+  emptyMovingBoard,
+  loadMovingBoard,
+  movingBoardFromSeed,
+  type MovingBoard,
+} from '@/lib/discover-moving-board';
+import type { DiscoverTrendingSeed } from '@/lib/discover-trending-server';
 import {
   discoverProposalHref,
   discoverTrendingFilterQuery,
+  filterMovingActive,
   filterTrendingDrops,
   filterTrendingHubs,
   filterTrendingPlaces,
   filterTrendingPosts,
-  filterTrendingProfiles,
   filterTrendingProposals,
   filterTrendingTickers,
   filterTrendingTopics,
 } from '@/lib/discover-trending-filter';
-import { rankHubPeeks } from '@/features/discover/discover-community-ranking';
 import {
-  fetchJustSoldScarcePeeks,
-  type DiscoverScarcePeek,
-} from '@/features/discover/discover-scarce-peeks';
-import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about';
-import {
+  excludeMovingHubsAlreadySold,
   isMovingLandingPainted,
   mergeMovingMentions,
-  movingSectionFromSeed,
-  orderProfileSearchByPosterIds,
-  recentPosterIds,
-  selectHotPosts,
+  movingPostedCountLabel,
+  preferStandingPosters,
 } from '@/lib/discover-moving';
+import {
+  canRefreshMovingBoard,
+  MOVING_BOARD_POLL_MS,
+  MOVING_CLOCK_TICK_MS,
+} from '@/lib/discover-moving-live';
 import { formatRelativePostTimestamp } from '@/lib/post-display';
+import {
+  getGlobalViewerStandingLedger,
+  getGlobalViewerStandingLedgerVersion,
+  subscribeGlobalViewerStandingLedger,
+} from '@/lib/viewer-standing-global';
 
 const SECTION_LIMIT = 6;
-const ACTIVE_POST_POOL = 24;
 
 /**
  * Default Discover landing: what's moving — heat, talk, last sale, mention, people.
  * Lifetime Topics / Tickers / Most traded live on those tabs. This page is a peek.
- * Sections settle independently; an empty first seed keeps skeletons reserved.
+ * See all stays in Discover (Profiles, Hubs). No door to Home, Market, or Protocol.
+ * First paint is one board — skeletons until every strip is ready.
+ * While the tab stays open the board replaces as one room, clocks tick,
+ * and Active shows last-window scale. People you stand with who just
+ * posted rise first. No lifetime counts.
  */
 export function DiscoverTrendingPanel({
   onOpenTab,
@@ -91,273 +74,144 @@ export function DiscoverTrendingPanel({
   onOpenTab: (tab: DiscoverTab) => void;
   initial?: DiscoverTrendingSeed | null;
 }) {
-  const { query, showConnectHint } = useDiscoverPanel();
-  const { accountId: viewerAccountId, isConnected } = useAppWallet();
-  const { updateStanding, isStandingPendingForTarget } =
-    useViewerStanding('discover');
-  const { endorsementSyncVersion } = useViewerEndorsement('discover');
+  const { query, viewerAccountId } = useDiscoverPanel();
   const paintedSeed = isMovingLandingPainted(initial);
+  const [board, setBoard] = useState<MovingBoard | null>(() =>
+    paintedSeed ? movingBoardFromSeed(initial) : null
+  );
+  const [standingIds, setStandingIds] = useState<string[]>([]);
+  const [standingLedgerVersion, setStandingLedgerVersion] = useState(
+    getGlobalViewerStandingLedgerVersion
+  );
+  const [clockTick, setClockTick] = useState(0);
+  const inFlightRef = useRef(false);
 
-  const [tickers, setTickers] = useState<TickerCount[] | null>(() =>
-    movingSectionFromSeed(initial?.movingTickers, paintedSeed)
-  );
-  const [topics, setTopics] = useState<HashtagCount[] | null>(() =>
-    movingSectionFromSeed(initial?.movingTopics, paintedSeed)
-  );
-  const [places, setPlaces] = useState<PlaceCount[] | null>(() =>
-    movingSectionFromSeed(initial?.places, paintedSeed)
-  );
-  const [profiles, setProfiles] = useState<ProfileListAccount[] | null>(() =>
-    movingSectionFromSeed(initial?.profiles, paintedSeed)
-  );
-  const [hubs, setHubs] = useState<DiscoverTrendingHub[] | null>(() =>
-    movingSectionFromSeed(initial?.hubs, paintedSeed)
-  );
-  const [posts, setPosts] = useState<PostRow[] | null>(() =>
-    movingSectionFromSeed(initial?.posts, paintedSeed)
-  );
-  const [talkedAbout, setTalkedAbout] = useState<PostRow[] | null>(() =>
-    movingSectionFromSeed(initial?.talkedAbout, paintedSeed)
-  );
-  const [justSold, setJustSold] = useState<DiscoverScarcePeek[] | null>(() =>
-    movingSectionFromSeed(initial?.justSold, paintedSeed)
-  );
-  const [proposals, setProposals] = useState<GovernanceEventRow[] | null>(() =>
-    movingSectionFromSeed(initial?.proposals, paintedSeed)
-  );
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [pendingStandingIds, setPendingStandingIds] = useState<Set<string>>(
-    () => new Set()
-  );
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-  const viewerKey = viewerAccountId ?? null;
-  const hasPaintedRef = useRef(paintedSeed);
+  useEffect(() => {
+    return subscribeGlobalViewerStandingLedger(() => {
+      setStandingLedgerVersion(getGlobalViewerStandingLedgerVersion());
+    });
+  }, []);
+
+  useEffect(() => {
+    const tick = () => setClockTick((value) => value + 1);
+    const id = window.setInterval(tick, MOVING_CLOCK_TICK_MS);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    const client = createReadOnlyOnSocialClient();
-    const soft = hasPaintedRef.current;
+    const os = createReadOnlyOnSocialClient();
+    const viewer = viewerAccountId?.trim() || '';
 
-    if (!soft) {
-      setTickers(null);
-      setTopics(null);
-      setPlaces(null);
-      setHubs(null);
-      setPosts(null);
-      setTalkedAbout(null);
-      setJustSold(null);
-      setProposals(null);
-    }
-
-    void client.query.feed
-      .recent({ limit: SECTION_LIMIT, sort: 'hot', section: 'posts' })
-      .then((page) => {
-        if (cancelled) return;
-        setPosts(selectHotPosts(page.items, SECTION_LIMIT));
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) setPosts([]);
-      });
-
-    void fetchTalkedAboutPosts(client, SECTION_LIMIT).then((rows) => {
-      if (cancelled) return;
-      setTalkedAbout(rows);
-      hasPaintedRef.current = true;
-    });
-
-    void fetchJustSoldScarcePeeks(client, SECTION_LIMIT).then((rows) => {
-      if (cancelled) return;
-      setJustSold(rows);
-      hasPaintedRef.current = true;
-    });
-
-    void client.query.tickers
-      .trending({ limit: SECTION_LIMIT, sort: 'recent' })
-      .then((rows) => {
-        if (cancelled) return;
-        setTickers(rows);
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) setTickers([]);
-      });
-
-    void client.query.hashtags
-      .trending({ limit: SECTION_LIMIT, sort: 'recent' })
-      .then((rows) => {
-        if (cancelled) return;
-        setTopics(rows);
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) setTopics([]);
-      });
-
-    void client.query.places
-      .trending({ limit: SECTION_LIMIT, sort: 'recent' })
-      .then((rows) => {
-        if (cancelled) return;
-        setPlaces(rows);
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) setPlaces([]);
-      });
-
-    void rankHubPeeks(client, { peekLimit: SECTION_LIMIT })
-      .then((rows) => {
-        if (cancelled) return;
-        setHubs(rows);
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) setHubs([]);
-      });
-
-    void client.query.governance
-      .recentProposals({ limit: SECTION_LIMIT })
-      .then((rows) => {
-        if (cancelled) return;
-        setProposals(rows);
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) setProposals([]);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [viewerKey]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const soft = hasPaintedRef.current;
-    const client = createReadOnlyOnSocialClient();
-    void client.query.feed
-      .recent({ limit: ACTIVE_POST_POOL, section: 'posts' })
-      .then(async (page) => {
-        const ids = recentPosterIds(page.items, SECTION_LIMIT);
-        if (ids.length === 0) return [];
-        const rows = await client.query.profiles.statsForAccounts(ids);
-        return discoverPageToProfileListAccounts(client, {
-          profiles: orderProfileSearchByPosterIds(rows, ids),
-          viewer: null,
-        });
-      })
-      .then((next) => {
-        if (cancelled) return;
-        setProfiles(next);
-        hasPaintedRef.current = true;
-      })
-      .catch(() => {
-        if (!cancelled && !soft) setProfiles([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [viewerKey]);
-
-  const isStandingPending = useCallback(
-    (targetAccountId: string) =>
-      pendingStandingIds.has(targetAccountId) ||
-      isStandingPendingForTarget(targetAccountId),
-    [isStandingPendingForTarget, pendingStandingIds]
-  );
-
-  const handleUpdateStanding = useCallback(
-    async (account: ProfileListAccount, shouldStand: boolean) => {
-      if (isStandingPending(account.accountId)) return;
-
-      setActionError(null);
-      setPendingStandingIds((prev) => new Set(prev).add(account.accountId));
-
+    const loadStanding = async () => {
+      if (!viewer) return [] as string[];
       try {
-        await updateStanding(
-          profileListAccountToStandingSummary(account),
-          shouldStand
-        );
-        setProfiles((current) =>
-          (current ?? []).map((profile) =>
-            profile.accountId === account.accountId
-              ? {
-                  ...profile,
-                  viewerStanding: shouldStand,
-                  standingSince: shouldStand
-                    ? (profile.standingSince ?? Date.now())
-                    : null,
-                  standingBlockTimestamp: shouldStand
-                    ? (profile.standingBlockTimestamp ?? Date.now())
-                    : null,
-                  standingCount: Math.max(
-                    0,
-                    profile.standingCount +
-                      (shouldStand === profile.viewerStanding
-                        ? 0
-                        : shouldStand
-                          ? 1
-                          : -1)
-                  ),
-                }
-              : profile
-          )
-        );
-      } catch (error) {
-        setActionError(
-          error instanceof Error ? error.message : 'Could not update standing.'
-        );
-      } finally {
-        setPendingStandingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(account.accountId);
-          return next;
-        });
+        return await os.query.standings.outgoing(viewer, { limit: 48 });
+      } catch {
+        return [] as string[];
       }
-    },
-    [isStandingPending, updateStanding]
-  );
+    };
+
+    const refresh = async (soft: boolean, withStanding: boolean) => {
+      if (
+        cancelled ||
+        !canRefreshMovingBoard({
+          hidden:
+            typeof document !== 'undefined' &&
+            document.visibilityState === 'hidden',
+          inFlight: inFlightRef.current,
+        })
+      ) {
+        return;
+      }
+      inFlightRef.current = true;
+      try {
+        const [next, standing] = await Promise.all([
+          loadMovingBoard(os),
+          withStanding ? loadStanding() : Promise.resolve(null),
+        ]);
+        if (cancelled) return;
+        setBoard(next);
+        if (standing) setStandingIds(standing);
+      } catch {
+        if (cancelled || soft) return;
+        setBoard(emptyMovingBoard());
+      } finally {
+        inFlightRef.current = false;
+      }
+    };
+
+    void refresh(paintedSeed, true);
+    const intervalId = window.setInterval(() => {
+      void refresh(true, false);
+    }, MOVING_BOARD_POLL_MS);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void refresh(true, false);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [paintedSeed, viewerAccountId]);
 
   const filterNeedle = discoverTrendingFilterQuery(query);
   const visibleTickers = useMemo(
-    () => (tickers == null ? null : filterTrendingTickers(tickers, query)),
-    [query, tickers]
+    () => (board == null ? null : filterTrendingTickers(board.tickers, query)),
+    [board, query]
   );
   const visibleTopics = useMemo(
-    () => (topics == null ? null : filterTrendingTopics(topics, query)),
-    [query, topics]
+    () => (board == null ? null : filterTrendingTopics(board.topics, query)),
+    [board, query]
   );
   const visiblePlaces = useMemo(
-    () => (places == null ? null : filterTrendingPlaces(places, query)),
-    [places, query]
-  );
-  const visibleProfiles = useMemo(
-    () =>
-      profiles == null
-        ? null
-        : overlayViewerEndorsedOnAccounts(
-            filterTrendingProfiles(profiles, query),
-            getGlobalViewerEndorsementLedger()
-          ),
-    [endorsementSyncVersion, profiles, query]
-  );
-  const visibleHubs = useMemo(
-    () => (hubs == null ? null : filterTrendingHubs(hubs, query)),
-    [hubs, query]
+    () => (board == null ? null : filterTrendingPlaces(board.places, query)),
+    [board, query]
   );
   const visiblePosts = useMemo(
-    () => (posts == null ? null : filterTrendingPosts(posts, query)),
-    [posts, query]
+    () => (board == null ? null : filterTrendingPosts(board.posts, query)),
+    [board, query]
   );
   const visibleTalkedAbout = useMemo(
     () =>
-      talkedAbout == null ? null : filterTrendingPosts(talkedAbout, query),
-    [query, talkedAbout]
+      board == null ? null : filterTrendingPosts(board.talkedAbout, query),
+    [board, query]
   );
   const visibleJustSold = useMemo(
-    () => (justSold == null ? null : filterTrendingDrops(justSold, query)),
-    [justSold, query]
+    () => (board == null ? null : filterTrendingDrops(board.justSold, query)),
+    [board, query]
   );
+  const standingFromLedger = useMemo(() => {
+    const ids: string[] = [];
+    for (const [id, entry] of getGlobalViewerStandingLedger()) {
+      if (entry.standing && id.trim()) ids.push(id.trim());
+    }
+    return standingLedgerVersion >= 0 ? ids : ids;
+  }, [standingLedgerVersion]);
+  const visibleProfiles = useMemo(() => {
+    if (board == null) return null;
+    return preferStandingPosters(
+      filterMovingActive(board.profiles, query),
+      [...standingIds, ...standingFromLedger],
+      SECTION_LIMIT
+    );
+  }, [board, query, standingFromLedger, standingIds]);
+  const mentionNow = useMemo(
+    () => new Date(clockTick >= 0 ? Date.now() : Date.now()),
+    [clockTick]
+  );
+  const postedMeta =
+    board == null
+      ? null
+      : movingPostedCountLabel(board.postedCount, board.postedCapped);
+  const visibleHubs = useMemo(() => {
+    if (board == null) return null;
+    return excludeMovingHubsAlreadySold(
+      filterTrendingHubs(board.hubs, query),
+      visibleJustSold ?? []
+    ).slice(0, SECTION_LIMIT);
+  }, [board, query, visibleJustSold]);
   const visibleMentions = useMemo(() => {
     if (
       visibleTopics == null ||
@@ -371,11 +225,16 @@ export function DiscoverTrendingPanel({
       visibleTickers,
       visiblePlaces
     ).map((item) => {
+      const time =
+        item.lastTimestamp > 0
+          ? formatRelativePostTimestamp(item.lastTimestamp, mentionNow)
+          : undefined;
       if (item.kind === 'topic') {
         return {
           key: `h-${item.id}`,
           href: homeHashtagPath(item.id),
           label: `#${item.id}`,
+          time,
         };
       }
       if (item.kind === 'ticker') {
@@ -384,52 +243,34 @@ export function DiscoverTrendingPanel({
           href: homeTickerPath(item.id),
           label: formatTickerDisplay(item.id),
           ticker: true,
+          time,
         };
       }
       return {
         key: `p-${item.id}`,
         href: homePlacePath(item.id),
         label: placeLabel(item.id) ?? item.id,
+        time,
       };
     });
-  }, [visiblePlaces, visibleTickers, visibleTopics]);
+  }, [mentionNow, visiblePlaces, visibleTickers, visibleTopics]);
   const visibleProposals = useMemo(
     () =>
-      proposals == null ? null : filterTrendingProposals(proposals, query),
-    [proposals, query]
+      board == null ? null : filterTrendingProposals(board.proposals, query),
+    [board, query]
   );
 
-  const allSettled =
-    visibleTickers !== null &&
-    visibleTopics !== null &&
-    visiblePlaces !== null &&
-    visibleProfiles !== null &&
-    visibleHubs !== null &&
-    visiblePosts !== null &&
-    visibleTalkedAbout !== null &&
-    visibleJustSold !== null &&
-    visibleMentions !== null &&
-    visibleProposals !== null;
+  const allSettled = board != null;
   const empty =
     allSettled &&
-    visibleMentions.length === 0 &&
-    visibleProfiles.length === 0 &&
-    visibleHubs.length === 0 &&
-    visiblePosts.length === 0 &&
-    visibleTalkedAbout.length === 0 &&
-    visibleJustSold.length === 0 &&
-    visibleProposals.length === 0;
-  const anyLoading =
-    visibleTickers === null ||
-    visibleTopics === null ||
-    visiblePlaces === null ||
-    visibleProfiles === null ||
-    visibleHubs === null ||
-    visiblePosts === null ||
-    visibleTalkedAbout === null ||
-    visibleJustSold === null ||
-    visibleMentions === null ||
-    visibleProposals === null;
+    (visibleMentions?.length ?? 0) === 0 &&
+    (visibleProfiles?.length ?? 0) === 0 &&
+    (visibleHubs?.length ?? 0) === 0 &&
+    (visiblePosts?.length ?? 0) === 0 &&
+    (visibleTalkedAbout?.length ?? 0) === 0 &&
+    (visibleJustSold?.length ?? 0) === 0 &&
+    (visibleProposals?.length ?? 0) === 0;
+  const anyLoading = board == null;
 
   return (
     <div
@@ -439,8 +280,6 @@ export function DiscoverTrendingPanel({
       aria-labelledby="discover-tab-trending"
       aria-busy={anyLoading || undefined}
     >
-      <DiscoverTabLead>{discoverTrendingLead()}</DiscoverTabLead>
-
       {anyLoading ? (
         <p className="sr-only">Loading what&apos;s moving…</p>
       ) : null}
@@ -450,11 +289,6 @@ export function DiscoverTrendingPanel({
           <p className="standing-panel-empty-primary">
             {filterNeedle ? 'No matches.' : 'Nothing moving yet.'}
           </p>
-          {filterNeedle ? null : (
-            <p className="standing-panel-empty-secondary">
-              Open Profiles, Guilds, Hubs, DAOs, Topics, or Tickers to browse.
-            </p>
-          )}
         </div>
       ) : null}
 
@@ -470,59 +304,18 @@ export function DiscoverTrendingPanel({
       />
       <MovingCoverPeekSection
         heading="Just sold"
-        seeAllHref={dropsPath({ sort: 'traded' })}
         kind="sold"
         rows={visibleJustSold}
       />
 
       <MovingChipPeekSection heading="Mentioned" rows={visibleMentions} />
 
-      {visibleProfiles === null ? (
-        <DiscoverTrendingProfilesSectionSkeleton />
-      ) : visibleProfiles.length > 0 ? (
-        <section className="discover-trending-section">
-          <MovingSectionHead
-            heading="Active"
-            seeAll={{ onClick: () => onOpenTab('profiles') }}
-          />
-
-          {showConnectHint ? (
-            <OsAppChromePageStatus className="discover-connect-hint">
-              {DISCOVER_CONNECT_HINT}
-            </OsAppChromePageStatus>
-          ) : null}
-
-          {actionError ? (
-            <p className="standing-panel-error" role="alert">
-              {actionError}
-            </p>
-          ) : null}
-
-          <ProfileSocialList
-            accounts={visibleProfiles}
-            listKey="trending-profiles"
-            viewerAccountId={viewerKey}
-            showSolidarityBadge
-            standingTimeMode="viewer-only"
-            skeletonRowVariant="discover"
-            viewerRelationshipsLoading={false}
-            canUpdateStandingFor={(account) =>
-              isConnected &&
-              Boolean(viewerKey) &&
-              viewerKey !== account.accountId
-            }
-            isPendingFor={isStandingPending}
-            onUpdateStanding={(account, shouldStand) => {
-              if (!viewerKey || viewerKey === account.accountId) return;
-              void handleUpdateStanding(account, shouldStand);
-            }}
-            loadMoreSentinelRef={loadMoreRef}
-            footerSummary={null}
-            isLoadingMore={false}
-            showLoadMoreSentinel={false}
-          />
-        </section>
-      ) : null}
+      <MovingFacePeekSection
+        heading="Active"
+        rows={visibleProfiles}
+        meta={postedMeta}
+        onSeeAll={() => onOpenTab('profiles')}
+      />
 
       <MovingHubPeekSection
         heading="Hot hubs"
@@ -532,7 +325,6 @@ export function DiscoverTrendingPanel({
 
       <MovingProposalPeekSection
         heading="New proposals"
-        seeAllHref={protocolPath()}
         rows={
           visibleProposals == null
             ? null

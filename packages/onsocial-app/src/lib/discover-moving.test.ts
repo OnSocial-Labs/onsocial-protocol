@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  collectionIdFromSaleEvent,
+  excludeMovingHubsAlreadySold,
+  fetchMovingMentionRows,
+  firstPosterTimestamps,
   isMovingLandingPainted,
   justSoldCollectionRefs,
   mergeMovingMentions,
+  countRecentPosters,
+  movingActivePeeks,
   movingChipCountLabel,
-  movingPostHeatLabel,
-  movingPostTalkLabel,
+  movingPostedCountLabel,
+  preferStandingPosters,
   movingProposalMeta,
   movingProposalStatusLabel,
   movingScarceSignalLabel,
@@ -65,6 +71,125 @@ describe('discover-moving', () => {
         2
       )
     ).toEqual(['alice.near', 'bob.near']);
+  });
+
+  it('counts unique last-window posters', () => {
+    expect(
+      countRecentPosters([
+        post('alice.near', '1'),
+        post('bob.near', '2'),
+        post('alice.near', '3'),
+      ])
+    ).toBe(2);
+  });
+
+  it('labels last-window density, and caps when the scan is full', () => {
+    expect(movingPostedCountLabel(0, false)).toBe('');
+    expect(movingPostedCountLabel(1, false)).toBe('1 just posted');
+    expect(movingPostedCountLabel(18, false)).toBe('18 just posted');
+    expect(movingPostedCountLabel(18, true)).toBe('18+ just posted');
+  });
+
+  it('lifts people you stand with who also just posted', () => {
+    expect(
+      preferStandingPosters(
+        [
+          { accountId: 'ada.near' },
+          { accountId: 'ken.near' },
+          { accountId: 'mia.near' },
+        ],
+        ['ken.near'],
+        2
+      ).map((row) => row.accountId)
+    ).toEqual(['ken.near', 'ada.near']);
+  });
+
+  it('skips faces already on the scan when filling Active', () => {
+    expect(
+      recentPosterIds(
+        [
+          post('alice.near', '1'),
+          post('bob.near', '2'),
+          post('cara.near', '3'),
+        ],
+        2,
+        ['alice.near']
+      )
+    ).toEqual(['bob.near', 'cara.near']);
+  });
+
+  it('keeps last posters on Active even when they also have a hot post', () => {
+    expect(
+      movingActivePeeks(
+        [{ accountId: 'alice.near', name: 'Alice', avatarUrl: '/a.png' }],
+        [{ accountId: 'alice.near', blockTimestamp: 30 }],
+        6
+      ).map((row) => row.accountId)
+    ).toEqual(['alice.near']);
+  });
+
+  it('drops hubs already on Just sold', () => {
+    expect(
+      excludeMovingHubsAlreadySold(
+        [
+          { appId: 'radio.near', title: 'Night Radio' },
+          { appId: 'other.near', title: 'Other hub' },
+        ],
+        [{ appId: 'radio.near', title: 'Dawn folio' }]
+      ).map((row) => row.appId)
+    ).toEqual(['other.near']);
+    expect(
+      excludeMovingHubsAlreadySold(
+        [
+          { appId: 'radio.near', title: 'Night Radio' },
+          { appId: 'other.near', title: 'Other hub' },
+        ],
+        [{ appId: null, title: 'Night Radio' }]
+      ).map((row) => row.appId)
+    ).toEqual(['other.near']);
+  });
+
+  it('keeps the first post time per author', () => {
+    expect([
+      ...firstPosterTimestamps([
+        { accountId: 'alice.near', blockTimestamp: 30 },
+        { accountId: 'bob.near', blockTimestamp: 20 },
+        { accountId: 'alice.near', blockTimestamp: 10 },
+      ]),
+    ]).toEqual([
+      ['alice.near', 30],
+      ['bob.near', 20],
+    ]);
+  });
+
+  it('builds Active face peeks from posters and last-post time', () => {
+    expect(
+      movingActivePeeks(
+        [
+          { accountId: 'bob.near', name: 'Bob', avatarUrl: '/b.png' },
+          { accountId: 'alice.near', name: 'Alice', avatarUrl: '/a.png' },
+        ],
+        [
+          { accountId: 'alice.near', blockTimestamp: 30 },
+          { accountId: 'bob.near', blockTimestamp: 20 },
+          { accountId: 'alice.near', blockTimestamp: 10 },
+        ],
+        2
+      )
+    ).toEqual([
+      {
+        accountId: 'alice.near',
+        name: 'Alice',
+        avatarUrl: '/a.png',
+        lastPostTimestamp: 30,
+      },
+      {
+        accountId: 'bob.near',
+        name: 'Bob',
+        avatarUrl: '/b.png',
+        lastPostTimestamp: 20,
+      },
+    ]);
   });
 
   it('reorders profile rows to match poster ids', () => {
@@ -158,6 +283,29 @@ describe('discover-moving', () => {
     ]);
   });
 
+  it('reads a drop id from sale extraData when the column is empty', () => {
+    expect(
+      collectionIdFromSaleEvent({
+        collectionId: '',
+        extraData: '{"collection_id":"dawn","token_id":"s:1"}',
+      })
+    ).toBe('dawn');
+    expect(
+      justSoldCollectionRefs(
+        [
+          {
+            extraData: '{"collection_id":"dawn"}',
+            appId: 'radio.near',
+            blockTimestamp: 30,
+          },
+        ],
+        1
+      )
+    ).toEqual([
+      { collectionId: 'dawn', appId: 'radio.near', lastSaleTimestamp: 30 },
+    ]);
+  });
+
   it('mixes last-mentioned topics, tickers, and places without counts', () => {
     expect(
       mergeMovingMentions(
@@ -170,20 +318,61 @@ describe('discover-moving', () => {
         3
       )
     ).toEqual([
-      { kind: 'topic', id: 'near', lastBlock: 30 },
-      { kind: 'place', id: 'lisbon', lastBlock: 25 },
-      { kind: 'ticker', id: 'social', lastBlock: 20 },
+      { kind: 'topic', id: 'near', lastBlock: 30, lastTimestamp: 0 },
+      { kind: 'place', id: 'lisbon', lastBlock: 25, lastTimestamp: 0 },
+      { kind: 'ticker', id: 'social', lastBlock: 20, lastTimestamp: 0 },
     ]);
+  });
+
+  it('orders Mentioned by real mention time when present', () => {
+    expect(
+      mergeMovingMentions(
+        [{ hashtag: 'old', lastBlock: 99, lastTimestamp: 10 }],
+        [{ ticker: 'social', lastBlock: 1, lastTimestamp: 50 }],
+        [{ place: 'lisbon', lastBlock: 2, lastTimestamp: 40 }],
+        3
+      )
+    ).toEqual([
+      { kind: 'ticker', id: 'social', lastBlock: 1, lastTimestamp: 50 },
+      { kind: 'place', id: 'lisbon', lastBlock: 2, lastTimestamp: 40 },
+      { kind: 'topic', id: 'old', lastBlock: 99, lastTimestamp: 10 },
+    ]);
+  });
+
+  it('falls back to last-block trending when mention stubs are empty', async () => {
+    const query = {
+      hashtags: {
+        recentMentions: async () => [],
+        trending: async () => [{ hashtag: 'gm', postCount: 4, lastBlock: 9 }],
+      },
+      tickers: {
+        recentMentions: async () => {
+          throw new Error('denied');
+        },
+        trending: async () => [
+          { ticker: 'social', postCount: 2, lastBlock: 8 },
+        ],
+      },
+      places: {
+        recentMentions: async () => [
+          { place: 'lisbon', postCount: 0, lastBlock: 3, lastTimestamp: 30 },
+        ],
+        trending: async () => {
+          throw new Error('should not run');
+        },
+      },
+    };
+    await expect(fetchMovingMentionRows(query, 6)).resolves.toEqual({
+      topics: [{ hashtag: 'gm', postCount: 4, lastBlock: 9 }],
+      tickers: [{ ticker: 'social', postCount: 2, lastBlock: 8 }],
+      places: [
+        { place: 'lisbon', postCount: 0, lastBlock: 3, lastTimestamp: 30 },
+      ],
+    });
   });
 });
 
 describe('moving peek labels', () => {
-  it('names heat and talk as different why-lines', () => {
-    expect(movingPostHeatLabel()).toBe('Hot');
-    expect(movingPostTalkLabel()).toBe('Talk');
-    expect(movingPostHeatLabel()).not.toBe(movingPostTalkLabel());
-  });
-
   it('compacts chip counts', () => {
     expect(movingChipCountLabel(12)).toBe('12');
     expect(movingChipCountLabel(12500)).toBe('12.5K');

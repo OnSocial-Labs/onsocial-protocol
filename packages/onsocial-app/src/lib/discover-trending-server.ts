@@ -5,25 +5,13 @@ import type {
   PostRow,
   TickerCount,
 } from '@onsocial/sdk';
-import { rankHubPeeks } from '@/features/discover/discover-community-ranking';
-import {
-  fetchJustSoldScarcePeeks,
-  type DiscoverScarcePeek,
-} from '@/features/discover/discover-scarce-peeks';
-import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about';
-import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
+import { loadMovingBoard } from '@/lib/discover-moving-board';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
-import {
-  orderProfileSearchByPosterIds,
-  recentPosterIds,
-  selectHotPosts,
-} from '@/lib/discover-moving';
-import type { ProfileListAccount } from '@/lib/profile-list-account';
+import type { MovingActivePeek } from '@/lib/discover-moving';
+import type { DiscoverScarcePeek } from '@/features/discover/discover-scarce-peeks';
 
 /** Enough for Topics/Tickers tabs; movement peeks slice after ranking. */
 const TAB_CHIP_LIMIT = 24;
-const SECTION_LIMIT = 6;
-const ACTIVE_POST_POOL = 24;
 
 export type DiscoverTrendingGuild = {
   groupId: string;
@@ -40,6 +28,7 @@ export type DiscoverTrendingHub = {
   title: string | null;
   bannerUrl?: string | null;
   markUrl?: string | null;
+  lastActivityTimestamp?: number | null;
 };
 
 export type DiscoverTrendingSeed = {
@@ -50,103 +39,44 @@ export type DiscoverTrendingSeed = {
   movingTickers: TickerCount[];
   movingTopics: HashtagCount[];
   places: PlaceCount[];
-  profiles: ProfileListAccount[];
+  profiles: MovingActivePeek[];
   hubs: DiscoverTrendingHub[];
   posts: PostRow[];
   talkedAbout: PostRow[];
   justSold: DiscoverScarcePeek[];
   proposals: GovernanceEventRow[];
+  postedCount: number;
+  postedCapped: boolean;
 };
 
-async function loadHotPosts(
-  os: ReturnType<typeof createServerOnSocialClient>
-): Promise<PostRow[]> {
-  try {
-    const page = await os.query.feed.recent({
-      limit: SECTION_LIMIT,
-      sort: 'hot',
-      section: 'posts',
-    });
-    return selectHotPosts(page.items, SECTION_LIMIT);
-  } catch {
-    return [];
-  }
-}
-
-async function loadActivePosters(
-  os: ReturnType<typeof createServerOnSocialClient>
-): Promise<ProfileListAccount[]> {
-  try {
-    const page = await os.query.feed.recent({
-      limit: ACTIVE_POST_POOL,
-      section: 'posts',
-    });
-    const ids = recentPosterIds(page.items, SECTION_LIMIT);
-    if (ids.length === 0) return [];
-    const rows = await os.query.profiles.statsForAccounts(ids);
-    return discoverPageToProfileListAccounts(os, {
-      profiles: orderProfileSearchByPosterIds(rows, ids),
-      viewer: null,
-    });
-  } catch {
-    return [];
-  }
-}
-
-/** Movement sections for Discover default tab SSR. */
+/** Movement sections for Discover default tab SSR — one board. */
 export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed | null> {
   try {
     const os = createServerOnSocialClient();
-    const [
-      tickers,
-      topics,
-      movingTickers,
-      movingTopics,
-      places,
-      profiles,
-      hubs,
-      posts,
-      talkedAbout,
-      justSold,
-      proposals,
-    ] = await Promise.all([
+    const [tickers, topics, board] = await Promise.all([
       os.query.tickers
         .trending({ limit: TAB_CHIP_LIMIT })
         .catch(() => [] as TickerCount[]),
       os.query.hashtags
         .trending({ limit: TAB_CHIP_LIMIT })
         .catch(() => [] as HashtagCount[]),
-      os.query.tickers
-        .trending({ limit: SECTION_LIMIT, sort: 'recent' })
-        .catch(() => [] as TickerCount[]),
-      os.query.hashtags
-        .trending({ limit: SECTION_LIMIT, sort: 'recent' })
-        .catch(() => [] as HashtagCount[]),
-      os.query.places
-        .trending({ limit: SECTION_LIMIT, sort: 'recent' })
-        .catch(() => [] as PlaceCount[]),
-      loadActivePosters(os),
-      rankHubPeeks(os, { peekLimit: SECTION_LIMIT }),
-      loadHotPosts(os),
-      fetchTalkedAboutPosts(os, SECTION_LIMIT),
-      fetchJustSoldScarcePeeks(os, SECTION_LIMIT),
-      os.query.governance
-        .recentProposals({ limit: SECTION_LIMIT })
-        .catch(() => [] as GovernanceEventRow[]),
+      loadMovingBoard(os),
     ]);
 
     return {
       tickers,
       topics,
-      movingTickers,
-      movingTopics,
-      places,
-      profiles,
-      hubs,
-      posts,
-      talkedAbout,
-      justSold,
-      proposals,
+      movingTickers: board.tickers,
+      movingTopics: board.topics,
+      places: board.places,
+      profiles: board.profiles,
+      hubs: board.hubs,
+      posts: board.posts,
+      talkedAbout: board.talkedAbout,
+      justSold: board.justSold,
+      proposals: board.proposals,
+      postedCount: board.postedCount,
+      postedCapped: board.postedCapped,
     };
   } catch {
     return null;

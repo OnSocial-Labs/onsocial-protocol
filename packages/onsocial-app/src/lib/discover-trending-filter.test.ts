@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   discoverProposalHref,
   discoverTrendingFilterQuery,
+  filterMovingActive,
   filterTrendingDaos,
   filterTrendingDrops,
   filterTrendingProfiles,
@@ -44,6 +45,28 @@ describe('discover trending filter', () => {
         'nea'
       ).map((row) => row.hashtag)
     ).toEqual(['near']);
+  });
+
+  it('filters Moving Active by name or account', () => {
+    expect(
+      filterMovingActive(
+        [
+          {
+            accountId: 'alice.near',
+            name: 'Alice',
+            avatarUrl: null,
+            lastPostTimestamp: 10,
+          },
+          {
+            accountId: 'bob.near',
+            name: 'Green Ghost',
+            avatarUrl: null,
+            lastPostTimestamp: 20,
+          },
+        ],
+        'green'
+      ).map((row) => row.accountId)
+    ).toEqual(['bob.near']);
   });
 
   it('filters profiles and daos by id or name', () => {

@@ -2,7 +2,11 @@
 
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 
-export function DiscoverTrendingChipSectionSkeleton() {
+export function DiscoverTrendingChipSectionSkeleton({
+  showSeeAll = false,
+}: {
+  showSeeAll?: boolean;
+} = {}) {
   return (
     <section
       className="discover-trending-section discover-trending-section--chip-skeleton"
@@ -10,7 +14,9 @@ export function DiscoverTrendingChipSectionSkeleton() {
     >
       <div className="discover-trending-section-head">
         <span className="standing-row-shimmer standing-row-shimmer-line discover-trending-shimmer-heading" />
-        <span className="standing-row-shimmer standing-row-shimmer-line discover-trending-shimmer-see-all" />
+        {showSeeAll ? (
+          <span className="standing-row-shimmer standing-row-shimmer-line discover-trending-shimmer-see-all" />
+        ) : null}
       </div>
       <div className="discover-trending-chips">
         {Array.from({ length: 5 }, (_, index) => (
@@ -97,6 +103,55 @@ export function DiscoverCommunityListSkeleton({
         </div>
       ))}
     </div>
+  );
+}
+
+/** Just sold / hub object-row placeholders — cover, not a focus list. */
+export function DiscoverCoverPeekSectionSkeleton({
+  showSeeAll = true,
+  count = 4,
+}: {
+  showSeeAll?: boolean;
+  count?: number;
+} = {}) {
+  return (
+    <section
+      className="discover-trending-section discover-trending-section--cover-skeleton"
+      aria-hidden
+    >
+      <div className="discover-trending-section-head">
+        <span className="standing-row-shimmer standing-row-shimmer-line discover-trending-shimmer-heading" />
+        {showSeeAll ? (
+          <span className="standing-row-shimmer standing-row-shimmer-line discover-trending-shimmer-see-all" />
+        ) : null}
+      </div>
+      <DiscoverCoverPeekListSkeleton count={count} />
+    </section>
+  );
+}
+
+export function DiscoverCoverPeekListSkeleton({
+  count = 4,
+}: {
+  count?: number;
+}) {
+  return (
+    <ul className="discover-cover-peeks" aria-hidden>
+      {Array.from({ length: count }, (_, index) => (
+        <li
+          key={index}
+          className="discover-cover-peek discover-cover-peek--skeleton"
+        >
+          <span className="discover-cover-peek-thumb market-listing-thumb">
+            <span className="standing-row-shimmer market-listing-thumb-fallback" />
+          </span>
+          <span className="discover-cover-peek-copy">
+            <span className="standing-row-shimmer standing-row-shimmer-line discover-cover-shimmer-title" />
+            <span className="standing-row-shimmer standing-row-shimmer-line-sm discover-cover-shimmer-meta" />
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

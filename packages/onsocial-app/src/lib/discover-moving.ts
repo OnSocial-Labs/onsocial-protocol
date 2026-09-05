@@ -5,11 +5,9 @@ import type {
   ProfileSearchRow,
   TickerCount,
 } from '@onsocial/sdk';
+import { accountIdsEqual } from '@/lib/account-match';
 import { formatDiscoverTabCount } from '@/lib/discover-tab-lead';
-import {
-  appendThreadFocusReply,
-  postThreadPath,
-} from '@/lib/post-routes';
+import { appendThreadFocusReply, postThreadPath } from '@/lib/post-routes';
 
 /** Any non-empty Moving peek — first paint can skip skeletons. */
 export function isMovingLandingPainted(
@@ -64,18 +62,143 @@ export function selectHotPosts(items: PostRow[], limit = 6): PostRow[] {
   return items.filter(postHasAmplifyHeat).slice(0, limit);
 }
 
+/** Unique last-window posters — scale of the room, not a lifetime count. */
+export function countRecentPosters(
+  items: Array<Pick<PostRow, 'accountId'>>
+): number {
+  return recentPosterIds(items, items.length).length;
+}
+
+/** Active density — last-window posters, `+` when the scan is full. */
+export function movingPostedCountLabel(
+  count: number,
+  capped: boolean
+): string {
+  if (count <= 0) return '';
+  if (count === 1 && !capped) return '1 just posted';
+  return capped ? `${count}+ just posted` : `${count} just posted`;
+}
+
+/**
+ * People you stand with who also just posted, then the rest of the room.
+ * Still last-action — does not invent faces who have not posted.
+ */
+export function preferStandingPosters<T extends { accountId: string }>(
+  rows: readonly T[],
+  standingIds: Iterable<string>,
+  limit = 6
+): T[] {
+  const stand = [...standingIds].map((id) => id.trim()).filter(Boolean);
+  if (stand.length === 0) return rows.slice(0, limit);
+  const mine: T[] = [];
+  const rest: T[] = [];
+  for (const row of rows) {
+    if (stand.some((id) => accountIdsEqual(row.accountId, id))) mine.push(row);
+    else rest.push(row);
+  }
+  return [...mine, ...rest].slice(0, limit);
+}
+
 /** Distinct authors in recency order — Moving Active is who just posted. */
-export function recentPosterIds(items: PostRow[], limit = 6): string[] {
+export function recentPosterIds(
+  items: Array<Pick<PostRow, 'accountId'>>,
+  limit = 6,
+  exclude?: Iterable<string>
+): string[] {
+  const skip = new Set(
+    [...(exclude ?? [])].map((id) => id.trim()).filter(Boolean)
+  );
   const seen = new Set<string>();
   const out: string[] = [];
   for (const row of items) {
     const id = row.accountId.trim();
-    if (!id || seen.has(id)) continue;
+    if (!id || seen.has(id) || skip.has(id)) continue;
     seen.add(id);
     out.push(id);
     if (out.length >= limit) break;
   }
   return out;
+}
+
+/** First (newest) post time per author — Active face rows. */
+export function firstPosterTimestamps(
+  items: Array<Pick<PostRow, 'accountId' | 'blockTimestamp'>>
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const row of items) {
+    const id = row.accountId.trim();
+    if (!id || out.has(id)) continue;
+    const ts = Number(row.blockTimestamp) || 0;
+    if (ts > 0) out.set(id, ts);
+  }
+  return out;
+}
+
+export type MovingActivePeek = {
+  accountId: string;
+  name: string | null;
+  avatarUrl: string | null;
+  lastPostTimestamp: number | null;
+};
+
+/** Face peeks for Active — same people as recentPosterIds, with last-post time. */
+export function movingActivePeeks(
+  accounts: Array<{
+    accountId: string;
+    name?: string | null;
+    avatarUrl?: string | null;
+  }>,
+  posts: Array<Pick<PostRow, 'accountId' | 'blockTimestamp'>>,
+  limit = 6,
+  exclude?: Iterable<string>
+): MovingActivePeek[] {
+  const times = firstPosterTimestamps(posts);
+  const byId = new Map(
+    accounts.map((row) => [row.accountId.trim(), row] as const)
+  );
+  const out: MovingActivePeek[] = [];
+  for (const id of recentPosterIds(posts, limit, exclude)) {
+    const account = byId.get(id);
+    if (!account) continue;
+    const lastPost = times.get(id);
+    out.push({
+      accountId: id,
+      name: account.name?.trim() || null,
+      avatarUrl: account.avatarUrl?.trim() || null,
+      lastPostTimestamp:
+        lastPost != null && Number.isFinite(lastPost) && lastPost > 0
+          ? lastPost
+          : null,
+    });
+  }
+  return out;
+}
+
+/** Hubs already represented by a Just sold drop — one object per scan. */
+export function excludeMovingHubsAlreadySold<
+  T extends { appId: string; title?: string | null },
+>(
+  hubs: T[],
+  sold: Array<{ appId?: string | null; title?: string | null }>
+): T[] {
+  const soldApps = new Set(
+    sold
+      .map((row) => row.appId?.trim())
+      .filter((id): id is string => Boolean(id))
+  );
+  const soldTitles = new Set(
+    sold
+      .map((row) => row.title?.trim().toLowerCase())
+      .filter((title): title is string => Boolean(title))
+  );
+  if (soldApps.size === 0 && soldTitles.size === 0) return hubs;
+  return hubs.filter((hub) => {
+    const appId = hub.appId.trim();
+    const title = hub.title?.trim().toLowerCase() || '';
+    if (appId && soldApps.has(appId)) return false;
+    if (title && soldTitles.has(title)) return false;
+    return true;
+  });
 }
 
 export function orderRowsByAccountIds<T extends { accountId: string }>(
@@ -179,16 +302,17 @@ export type MovingMention = {
   kind: MovingMentionKind;
   id: string;
   lastBlock: number;
+  lastTimestamp: number;
 };
 
 /**
  * Last-mention mix — no lifetime counts. Topics, tickers, and places
- * share one rail on Moving.
+ * share one rail on Moving. Prefer real mention time, then last block.
  */
 export function mergeMovingMentions(
-  topics: Array<Pick<HashtagCount, 'hashtag' | 'lastBlock'>>,
-  tickers: Array<Pick<TickerCount, 'ticker' | 'lastBlock'>>,
-  places: Array<Pick<PlaceCount, 'place' | 'lastBlock'>>,
+  topics: Array<Pick<HashtagCount, 'hashtag' | 'lastBlock' | 'lastTimestamp'>>,
+  tickers: Array<Pick<TickerCount, 'ticker' | 'lastBlock' | 'lastTimestamp'>>,
+  places: Array<Pick<PlaceCount, 'place' | 'lastBlock' | 'lastTimestamp'>>,
   limit = 6
 ): MovingMention[] {
   const rows: MovingMention[] = [
@@ -196,22 +320,74 @@ export function mergeMovingMentions(
       kind: 'topic' as const,
       id: row.hashtag,
       lastBlock: Number(row.lastBlock) || 0,
+      lastTimestamp: Number(row.lastTimestamp) || 0,
     })),
     ...tickers.map((row) => ({
       kind: 'ticker' as const,
       id: row.ticker,
       lastBlock: Number(row.lastBlock) || 0,
+      lastTimestamp: Number(row.lastTimestamp) || 0,
     })),
     ...places.map((row) => ({
       kind: 'place' as const,
       id: row.place,
       lastBlock: Number(row.lastBlock) || 0,
+      lastTimestamp: Number(row.lastTimestamp) || 0,
     })),
   ];
   rows.sort(
-    (a, b) => b.lastBlock - a.lastBlock || a.id.localeCompare(b.id)
+    (a, b) =>
+      b.lastTimestamp - a.lastTimestamp ||
+      b.lastBlock - a.lastBlock ||
+      a.id.localeCompare(b.id)
   );
   return rows.slice(0, limit);
+}
+
+type MentionQuery<T> = {
+  recentMentions: (opts?: { limit?: number }) => Promise<T[]>;
+  trending: (opts?: {
+    limit?: number;
+    sort?: 'count' | 'recent';
+  }) => Promise<T[]>;
+};
+
+async function mentionRowsOrRecent<T>(
+  source: MentionQuery<T>,
+  limit: number
+): Promise<T[]> {
+  try {
+    const recent = await source.recentMentions({ limit });
+    if (recent.length > 0) return recent;
+  } catch {
+    // Unfiltered junction orderBy can be denied; count view still works.
+  }
+  try {
+    return await source.trending({ limit, sort: 'recent' });
+  } catch {
+    return [];
+  }
+}
+
+/** Moving Mentioned: real times from stubs, last-block chips if that query is empty. */
+export async function fetchMovingMentionRows(
+  query: {
+    hashtags: MentionQuery<HashtagCount>;
+    tickers: MentionQuery<TickerCount>;
+    places: MentionQuery<PlaceCount>;
+  },
+  limit = 6
+): Promise<{
+  topics: HashtagCount[];
+  tickers: TickerCount[];
+  places: PlaceCount[];
+}> {
+  const [topics, tickers, places] = await Promise.all([
+    mentionRowsOrRecent(query.hashtags, limit),
+    mentionRowsOrRecent(query.tickers, limit),
+    mentionRowsOrRecent(query.places, limit),
+  ]);
+  return { topics, tickers, places };
 }
 
 export type JustSoldRef = {
@@ -220,6 +396,30 @@ export type JustSoldRef = {
   lastSaleTimestamp: number;
 };
 
+/** Drop id on the event, or inside extraData when the column is empty. */
+export function collectionIdFromSaleEvent(sale: {
+  collectionId?: string | null;
+  extraData?: string | null;
+}): string {
+  const direct = sale.collectionId?.trim() ?? '';
+  if (direct) return direct;
+  const raw = sale.extraData?.trim() ?? '';
+  if (!raw) return '';
+  try {
+    const parsed = JSON.parse(raw) as {
+      collection_id?: unknown;
+      collectionId?: unknown;
+    };
+    const extra =
+      (typeof parsed.collection_id === 'string' && parsed.collection_id) ||
+      (typeof parsed.collectionId === 'string' && parsed.collectionId) ||
+      '';
+    return extra.trim();
+  } catch {
+    return '';
+  }
+}
+
 /**
  * First sale per drop, newest first — Moving Just sold is last sale,
  * not lifetime volume.
@@ -227,6 +427,7 @@ export type JustSoldRef = {
 export function justSoldCollectionRefs(
   sales: Array<{
     collectionId?: string | null;
+    extraData?: string | null;
     appId?: string | null;
     blockTimestamp?: number | null;
   }>,
@@ -235,7 +436,7 @@ export function justSoldCollectionRefs(
   const seen = new Set<string>();
   const out: JustSoldRef[] = [];
   for (const row of sales) {
-    const id = row.collectionId?.trim() ?? '';
+    const id = collectionIdFromSaleEvent(row);
     if (!id || seen.has(id)) continue;
     seen.add(id);
     out.push({
@@ -265,16 +466,6 @@ export function orderPostsByRefs(
 
 function rowToRef(row: PostRow): MovingPostRef {
   return { author: row.accountId, postId: row.postId };
-}
-
-/** Why-line on Hot posts — heat, not chrono. */
-export function movingPostHeatLabel(): string {
-  return 'Hot';
-}
-
-/** Why-line on Talked about — a reply just landed. */
-export function movingPostTalkLabel(): string {
-  return 'Talk';
 }
 
 /** Compact count on Moving chips and drop signals. */

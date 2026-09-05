@@ -3131,6 +3131,33 @@ describe('QueryModule', () => {
       expect(body.query).toContain('postCount: DESC');
     });
 
+    it('recentMentions reads postHashtags by real timestamp', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          postHashtags: [
+            { hashtag: 'near', blockHeight: 30, blockTimestamp: 300 },
+            { hashtag: 'near', blockHeight: 20, blockTimestamp: 200 },
+            { hashtag: 'gm', blockHeight: 10, blockTimestamp: 100 },
+          ],
+        },
+      });
+      expect(await os.query.hashtags.recentMentions({ limit: 2 })).toEqual([
+        { hashtag: 'near', postCount: 0, lastBlock: 30, lastTimestamp: 300 },
+        { hashtag: 'gm', postCount: 0, lastBlock: 10, lastTimestamp: 100 },
+      ]);
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('postHashtags');
+      expect(body.query).toContain('blockTimestamp: DESC');
+    });
+
+    it('recentMentions returns empty when the junction query is denied', async () => {
+      const { os } = makeOs({
+        data: null,
+        errors: [{ message: "field 'postHashtags' not found" }],
+      });
+      expect(await os.query.hashtags.recentMentions({ limit: 2 })).toEqual([]);
+    });
+
     it('returns empty array when no hashtags', async () => {
       const { os } = makeOs({ data: { hashtagCounts: [] } });
       expect(await os.query.hashtags.trending()).toEqual([]);
@@ -3144,6 +3171,21 @@ describe('QueryModule', () => {
       const body = JSON.parse(fetch.mock.calls[0][1].body);
       expect(body.query).toContain('lastBlock: DESC');
     });
+
+    it('recentMentions reads postTickers by real timestamp', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          postTickers: [
+            { ticker: 'social', blockHeight: 9, blockTimestamp: 90 },
+          ],
+        },
+      });
+      expect(await os.query.tickers.recentMentions({ limit: 1 })).toEqual([
+        { ticker: 'social', postCount: 0, lastBlock: 9, lastTimestamp: 90 },
+      ]);
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('postTickers');
+    });
   });
 
   describe('getTrendingPlaces()', () => {
@@ -3152,6 +3194,19 @@ describe('QueryModule', () => {
       await os.query.places.trending({ limit: 6, sort: 'recent' });
       const body = JSON.parse(fetch.mock.calls[0][1].body);
       expect(body.query).toContain('lastBlock: DESC');
+    });
+
+    it('recentMentions reads postPlaces by real timestamp', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          postPlaces: [{ place: 'lisbon', blockHeight: 5, blockTimestamp: 50 }],
+        },
+      });
+      expect(await os.query.places.recentMentions({ limit: 1 })).toEqual([
+        { place: 'lisbon', postCount: 0, lastBlock: 5, lastTimestamp: 50 },
+      ]);
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('postPlaces');
     });
   });
 
@@ -4238,6 +4293,18 @@ describe('QueryModule', () => {
         limit: 24,
         offset: 0,
       });
+    });
+
+    it('tokensByIds queries scarcesTokenOwners by token id', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesTokenOwners: [] } });
+      await os.query.scarces.tokensByIds(['s:1', 's:1', '']);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toContain('scarcesTokenOwners');
+      expect(body.query).toMatch(/tokenId: \{ _in: \$ids \}/);
+      expect(body.variables).toEqual({ ids: ['s:1'] });
     });
 
     it('activeOffers queries scarcesActiveOffers by tokenId', async () => {

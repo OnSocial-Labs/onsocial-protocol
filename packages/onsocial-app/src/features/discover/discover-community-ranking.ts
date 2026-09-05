@@ -130,51 +130,60 @@ export type RankedHubPeek = {
   title: string | null;
   bannerUrl: string | null;
   markUrl: string | null;
+  lastActivityTimestamp: number | null;
 };
+
+/** Last hub activity from scarces app stats — same clock as posts when present. */
+export function hubActivityTimestamp(
+  value: number | string | null | undefined
+): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
 
 type HubStatsRow = {
   appId: string;
-  salesVolume: string | number | null;
   lastActivityTimestamp: number | string | null;
-  dropsTotal: number | string | null;
 };
 
-async function queryHubStatsTable(
+/** Last drop, mint, or sale — Moving Hot hubs, not 30d volume. */
+export function orderHubsByLastMove<
+  T extends { lastActivityTimestamp?: number | null },
+>(rows: T[], limit = 6): T[] {
+  return [...rows]
+    .filter((row) => (Number(row.lastActivityTimestamp) || 0) > 0)
+    .sort(
+      (a, b) =>
+        (Number(b.lastActivityTimestamp) || 0) -
+        (Number(a.lastActivityTimestamp) || 0)
+    )
+    .slice(0, limit);
+}
+
+async function queryHubsByLastMove(
   client: OnSocial,
-  table: 'scarcesAppStatsHot' | 'scarcesAppStats',
   limit: number
 ): Promise<HubStatsRow[]> {
   const res = await client.query.graphql<{
-    scarcesAppStatsHot?: HubStatsRow[];
     scarcesAppStats?: HubStatsRow[];
   }>({
-    query: `query RankedHubStats($limit: Int!) {
-      ${table}(
+    query: `query MovingHubStats($limit: Int!) {
+      scarcesAppStats(
         limit: $limit
-        orderBy: [
-          {salesVolume: DESC}
-          {lastActivityTimestamp: DESC_NULLS_LAST}
-          {dropsTotal: DESC}
-        ]
+        orderBy: [{ lastActivityTimestamp: DESC_NULLS_LAST }]
       ) {
         appId
-        salesVolume
         lastActivityTimestamp
-        dropsTotal
       }
     }`,
     variables: { limit },
   });
-  return (
-    (table === 'scarcesAppStatsHot'
-      ? res.data?.scarcesAppStatsHot
-      : res.data?.scarcesAppStats) ?? []
-  );
+  return res.data?.scarcesAppStats ?? [];
 }
 
 /**
- * Hubs with 30d trade volume (`scarces_app_stats_hot`). Empty when that
- * view has no rows — do not fall back to lifetime stats or the directory.
+ * Hubs that just moved — last drop, mint, or sale on `scarces_app_stats`.
+ * Not 30d volume (`scarces_app_stats_hot`). That stays on the Hubs tab.
  */
 export async function rankHubPeeks(
   client: OnSocial,
@@ -185,7 +194,7 @@ export async function rankHubPeeks(
 
   let ranks: HubStatsRow[] = [];
   try {
-    ranks = await queryHubStatsTable(client, 'scarcesAppStatsHot', fetchLimit);
+    ranks = await queryHubsByLastMove(client, fetchLimit);
   } catch {
     return [];
   }
@@ -221,18 +230,20 @@ export async function rankHubPeeks(
     peekById = new Map();
   }
 
-  const out: RankedHubPeek[] = [];
-  for (const id of ids) {
+  const mapped: RankedHubPeek[] = [];
+  for (const rank of ranks) {
+    const id = rank.appId?.trim();
+    if (!id) continue;
     const peek = peekById.get(id) ?? hubPeekFromMetadata(null, id);
-    out.push({
+    mapped.push({
       appId: id,
       title: peek.title,
       bannerUrl: peek.bannerUrl,
       markUrl: peek.markUrl,
+      lastActivityTimestamp: hubActivityTimestamp(rank.lastActivityTimestamp),
     });
-    if (out.length >= peekLimit) break;
   }
-  return out;
+  return orderHubsByLastMove(mapped, peekLimit);
 }
 
 /** Hub name + cover from app metadata — same fields as the Hubs directory. */

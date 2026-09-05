@@ -40,6 +40,47 @@ export class HashtagsQuery {
   }
 
   /**
+   * Last distinct hashtag mentions, newest first — Moving Mentioned chips.
+   * Reads `postHashtags.blockTimestamp` (real time), not the count view.
+   */
+  async recentMentions(opts: { limit?: number } = {}): Promise<HashtagCount[]> {
+    const limit = opts.limit ?? 6;
+    try {
+      const res = await this._q.graphql<{
+        postHashtags: Array<{
+          hashtag: string;
+          blockHeight: number;
+          blockTimestamp: number;
+        }>;
+      }>({
+        query: `query RecentHashtagMentions($limit: Int!) {
+        postHashtags(orderBy: [{blockTimestamp: DESC}], limit: $limit) {
+          hashtag blockHeight blockTimestamp
+        }
+      }`,
+        variables: { limit: Math.max(limit * 8, 24) },
+      });
+      const seen = new Set<string>();
+      const out: HashtagCount[] = [];
+      for (const row of res.data?.postHashtags ?? []) {
+        const hashtag = row.hashtag?.trim() ?? '';
+        if (!hashtag || seen.has(hashtag)) continue;
+        seen.add(hashtag);
+        out.push({
+          hashtag,
+          postCount: 0,
+          lastBlock: Number(row.blockHeight) || 0,
+          lastTimestamp: Number(row.blockTimestamp) || 0,
+        });
+        if (out.length >= limit) break;
+      }
+      return out;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Search hashtags by prefix (for autocomplete).
    *
    * ```ts
