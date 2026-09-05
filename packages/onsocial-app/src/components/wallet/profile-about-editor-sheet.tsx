@@ -2,7 +2,7 @@
 
 /**
  * About workspace — visual twin of the live About page:
- * print | name → crafts; lead; film; More.
+ * print | name → crafts (person) or industry (org / DAO); lead; film; More.
  * Lead + More share B / I / • / H under the title.
  */
 
@@ -25,6 +25,7 @@ import {
   type ProfileAboutAlign,
 } from '@onsocial/sdk';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { PortfolioAboutIndustry } from '@/components/portfolio/portfolio-identity-topics';
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { ProfileTopicsEditor } from '@/components/wallet/profile-topics-editor';
 import type { ProfileAboutPhotoDraft } from '@/components/wallet/profile-about-photos-editor';
@@ -56,6 +57,7 @@ export function ProfileAboutEditorSheet({
   tags,
   onTagsChange,
   showCrafts = true,
+  industry = null,
   photos,
   onPhotosChange,
   disabled = false,
@@ -74,8 +76,10 @@ export function ProfileAboutEditorSheet({
   onAboutBioChange: (value: string) => void;
   tags: string[];
   onTagsChange: (tags: string[]) => void;
-  /** Person About only — org / DAO keep industry on the face. */
+  /** Person About only — org / DAO keep leftover tags off About. */
   showCrafts?: boolean;
+  /** House sector — read-only echo under the name for org / DAO. */
+  industry?: string | null;
   photos: ProfileAboutPhotoDraft[];
   onPhotosChange: (photos: ProfileAboutPhotoDraft[]) => void;
   disabled?: boolean;
@@ -102,6 +106,9 @@ export function ProfileAboutEditorSheet({
   const aboutNearLimit = aboutLen >= PROFILE_BIO_LIMIT_WARN;
   const leadNearLimit = leadLen >= Math.floor(PROFILE_LEAD_MAX * 0.85);
   const titleLabel = profileName.trim() || 'Name';
+  const industryLabel = !showCrafts ? industry?.trim() || null : null;
+  const hasMastheadLine =
+    Boolean(industryLabel) || (showCrafts && tags.length > 0);
   const print = photos[0] ?? null;
   const film = photos.slice(1);
   const atMax = photos.length >= PROFILE_ABOUT_PHOTOS_MAX;
@@ -411,11 +418,14 @@ export function ProfileAboutEditorSheet({
               <div className="portfolio-about-type">
                 <header className="portfolio-about-masthead">
                   <h1 className="portfolio-about-name">{titleLabel}</h1>
-                  {showCrafts && tags.length > 0 ? (
+                  {hasMastheadLine ? (
                     <Divider
                       variant="detail"
                       className="portfolio-about-masthead-rule"
                     />
+                  ) : null}
+                  {industryLabel ? (
+                    <PortfolioAboutIndustry industry={industryLabel} />
                   ) : null}
                   {showCrafts ? (
                     <ProfileTopicsEditor

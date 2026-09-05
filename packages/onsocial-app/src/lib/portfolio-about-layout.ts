@@ -3,6 +3,10 @@ import {
   profileAboutBlocks,
   type ProfileAboutBlock,
 } from '@/lib/profile-bio-rich';
+import {
+  profileKindShowsIndustry,
+  type ProfileKind,
+} from '@onsocial/sdk';
 
 export type PortfolioAboutStill = {
   url: string;
@@ -89,11 +93,24 @@ export function shouldShowPortfolioAboutWork(opts: {
 
 /**
  * Studio masthead always carries the name — overlay and hard-refresh alike.
- * Face already showed it once; here it’s a quiet lockup — name, then crafts —
- * not a second hero.
+ * Face already showed it once; here it’s a quiet lockup — name, then crafts
+ * (person) or industry (org / DAO) — not a second hero.
  */
 export function shouldShowPortfolioAboutName(): boolean {
   return true;
+}
+
+/**
+ * Quiet house-sector echo under the About name. Same visual slot as crafts.
+ * Only the set industry — never the face “Organization” fallback, and never
+ * a Discover door.
+ */
+export function resolvePortfolioAboutIndustryLabel(opts: {
+  kind?: ProfileKind | null;
+  industry?: string | null;
+}): string | null {
+  if (!profileKindShowsIndustry(opts.kind)) return null;
+  return opts.industry?.trim() || null;
 }
 
 /**

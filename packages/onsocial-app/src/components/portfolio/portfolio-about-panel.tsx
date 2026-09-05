@@ -5,11 +5,15 @@ import dynamic from 'next/dynamic';
 import { Divider } from '@onsocial/ui';
 import { PortfolioBioBlocks } from '@/components/portfolio/portfolio-bio-blocks';
 import { PortfolioAboutWorkLink } from '@/components/portfolio/portfolio-about-link';
-import { PortfolioIdentityTopics } from '@/components/portfolio/portfolio-identity-topics';
+import {
+  PortfolioAboutIndustry,
+  PortfolioIdentityTopics,
+} from '@/components/portfolio/portfolio-identity-topics';
 import { displayName } from '@/lib/profile-display';
 import {
   resolvePortfolioAboutCopy,
   resolvePortfolioAboutFilmLead,
+  resolvePortfolioAboutIndustryLabel,
   resolvePortfolioAboutStills,
   shouldShowPortfolioAboutFaceLede,
   shouldShowPortfolioAboutName,
@@ -50,10 +54,13 @@ export type PortfolioAboutPanelProps = {
   photos?: ProfileAboutPhoto[] | null;
   isDao?: boolean;
   profileKind?: ProfileKind | null;
+  /** House sector — echoed under the About name for org / DAO. */
+  industry?: string | null;
 };
 
 /**
- * About studio — print | name → crafts (person); lead; film; More.
+ * About studio — print | name → crafts (person) or industry (org / DAO);
+ * lead; film; More.
  * Overlay and hard `/about` share this panel.
  * Lead is its own field, centered above the 2nd–3rd stills.
  */
@@ -68,6 +75,7 @@ export function PortfolioAboutPanel({
   photos = null,
   isDao = false,
   profileKind = null,
+  industry = null,
 }: PortfolioAboutPanelProps) {
   const displayKind = resolveDisplayProfileKind(profileKind, isDao);
   const essayAlign = normalizeProfileAboutAlign(aboutAlign);
@@ -75,6 +83,11 @@ export function PortfolioAboutPanel({
   const hasCrafts =
     profileKindShowsCrafts(displayKind) &&
     profileIdentityTopics(tags).length > 0;
+  const industryLabel = resolvePortfolioAboutIndustryLabel({
+    kind: displayKind,
+    industry,
+  });
+  const hasMastheadLine = hasCrafts || Boolean(industryLabel);
   const { intro, rest } = useMemo(
     () => resolvePortfolioAboutCopy({ bio, about }),
     [about, bio]
@@ -101,7 +114,7 @@ export function PortfolioAboutPanel({
   });
   const showIntro = showFaceLede && intro.length > 0;
   const showName = shouldShowPortfolioAboutName();
-  const showMasthead = showName || hasCrafts;
+  const showMasthead = showName || hasMastheadLine;
   const showType = showMasthead || showIntro;
   const hasEssay = showIntro || rest.length > 0 || Boolean(filmLead);
   const showWork = shouldShowPortfolioAboutWork({
@@ -143,13 +156,16 @@ export function PortfolioAboutPanel({
                   {showName ? (
                     <h1 className="portfolio-about-name">{titleLabel}</h1>
                   ) : null}
-                  {showName && hasCrafts ? (
+                  {showName && hasMastheadLine ? (
                     <Divider
                       variant="detail"
                       className="portfolio-about-masthead-rule"
                     />
                   ) : null}
-                  <PortfolioIdentityTopics tags={tags} />
+                  {industryLabel ? (
+                    <PortfolioAboutIndustry industry={industryLabel} />
+                  ) : null}
+                  {hasCrafts ? <PortfolioIdentityTopics tags={tags} /> : null}
                 </header>
               ) : null}
               {showIntro ? (

@@ -112,12 +112,12 @@ export function profileKindFaceLabel(kind?: ProfileKind | null): string | null {
   return null;
 }
 
-/** Crafts are a person About line. Org and DAO keep industry on the face. */
+/** Crafts are a person About line. Org and DAO keep leftover tags off About. */
 export function profileKindShowsCrafts(kind?: ProfileKind | null): boolean {
   return kind !== 'org' && kind !== 'dao';
 }
 
-/** Industry is a house fact — org face, and DAO face when set. */
+/** Industry is a house fact — org / DAO face, echoed under the About name. */
 export function profileKindShowsIndustry(kind?: ProfileKind | null): boolean {
   return kind === 'org' || kind === 'dao';
 }

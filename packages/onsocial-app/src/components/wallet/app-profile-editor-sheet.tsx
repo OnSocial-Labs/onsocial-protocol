@@ -903,6 +903,7 @@ export function AppProfileEditorSheet({
         tags={tags}
         onTagsChange={setTags}
         showCrafts={!isDaoAccount && kind === 'person'}
+        industry={industry}
         photos={photos}
         onPhotosChange={setPhotos}
         disabled={saving}

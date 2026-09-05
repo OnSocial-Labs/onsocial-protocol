@@ -64,6 +64,7 @@ export const loadPortfolioAboutForAccount = cache(
         photos: shell?.photos ?? [],
         isDao: daoEntity.isDao,
         profileKind: shell?.kind ?? null,
+        industry: shell?.industry ?? null,
       },
     };
   }

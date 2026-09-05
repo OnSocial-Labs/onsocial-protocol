@@ -7,6 +7,24 @@ import {
   profileIdentityTopics,
 } from '@/lib/profile-identity-topics';
 
+/** Quiet house sector on About — echo of the face industry, not a door. */
+export function PortfolioAboutIndustry({
+  industry,
+}: {
+  industry?: string | null;
+}) {
+  const label = industry?.trim() || null;
+  if (!label) return null;
+
+  return (
+    <p className="portfolio-topics" aria-label="Industry">
+      <span className="portfolio-topics-item">
+        <span className="portfolio-topics-label">{label}</span>
+      </span>
+    </p>
+  );
+}
+
 /** Quiet craft line — taps open people Discover for that craft. */
 export function PortfolioIdentityTopics({ tags }: { tags?: unknown }) {
   const topics = profileIdentityTopics(tags);
