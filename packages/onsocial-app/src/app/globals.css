@@ -8061,6 +8061,10 @@ a.os-surface-row {
       var(--os-screen-body-pad-x, 1rem),
       env(safe-area-inset-left, 0px)
     );
+    --portfolio-about-pad-right: max(
+      var(--os-screen-body-pad-x, 1rem),
+      env(safe-area-inset-right, 0px)
+    );
     --portfolio-about-ink: rgb(var(--fg-rgb) / 0.9);
     --portfolio-about-quiet: var(--mood-muted, rgb(var(--fg-rgb) / 0.46));
     --portfolio-about-gap: 1.5rem;
@@ -8081,7 +8085,7 @@ a.os-surface-row {
           env(safe-area-inset-top, 0px) + var(--os-screen-body-pad-top, 0.15rem)
         )
       )
-      max(var(--os-screen-body-pad-x, 1rem), env(safe-area-inset-right, 0px))
+      var(--portfolio-about-pad-right)
       calc(
         var(--os-screen-body-pad-bottom, 1.5rem) + 2rem +
           env(safe-area-inset-bottom, 0px)
@@ -8089,8 +8093,28 @@ a.os-surface-row {
       var(--portfolio-about-inset);
   }
 
+  /*
+   * Bookmark print: flush top only — side inset stays like before.
+   * Edge-bleed film: drop side inset so the second still meets the screen;
+   * text + print keep the inset themselves.
+   */
   .portfolio-about[data-has-print='true'] {
     max-width: 38rem;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .portfolio-about[data-has-film='true'] {
+    padding-left: 0;
+    padding-right: 0;
+    overflow-x: visible;
+  }
+
+  .portfolio-about[data-has-film='true'] .portfolio-about-spread,
+  .portfolio-about[data-has-film='true'] .portfolio-about-film-lead,
+  .portfolio-about[data-has-film='true'] .portfolio-about-essay,
+  .portfolio-about[data-has-film='true'] .portfolio-about-closer {
+    padding-inline: var(--portfolio-about-inset) var(--portfolio-about-pad-right);
+    box-sizing: border-box;
   }
 
   /* Full page — leave is dock back; no About chrome. */
@@ -8100,8 +8124,8 @@ a.os-surface-row {
   }
 
   /*
-   * Studio spread — print | name → crafts. Same layout at every width.
-   * Type near print top (optical inset past the round); name wraps only when needed.
+   * Studio spread — square bookmark print | name → crafts.
+   * Print flushes top (side inset kept); type sits beside.
    */
   .portfolio-about-film-lead {
     margin: 0;
@@ -8156,7 +8180,7 @@ a.os-surface-row {
     column-gap: clamp(0.55rem, 2.4cqi, 1.2rem);
     row-gap: 0;
     align-items: start;
-    overflow-x: clip;
+    overflow-x: visible;
   }
 
   .portfolio-about-type {
@@ -8175,30 +8199,28 @@ a.os-surface-row {
 
   .portfolio-about[data-has-print='true'] .portfolio-about-type {
     justify-content: flex-start;
-    padding-top: clamp(0.2rem, 1.2cqi, 0.45rem);
+    padding-top: clamp(0.35rem, 2cqi, 0.75rem);
     padding-bottom: 0;
   }
 
+  /* Square bookmark — flush top + left edge, sharp corners. */
   .portfolio-about-print {
     margin: 0;
     width: 100%;
     max-width: 100%;
     min-width: 0;
-    aspect-ratio: 4 / 5;
+    aspect-ratio: 1 / 1;
     display: flex;
     align-items: stretch;
     justify-content: stretch;
     overflow: hidden;
-    border-radius: clamp(0.4rem, 2cqi, 0.7rem);
+    border-radius: 0;
     background: rgb(var(--fg-rgb) / 0.04);
   }
 
-  .portfolio-about[data-profile-kind='org'] .portfolio-about-print {
-    border-radius: clamp(0.55rem, 2.6cqi, 0.95rem);
-  }
-
+  .portfolio-about[data-profile-kind='org'] .portfolio-about-print,
   .portfolio-about[data-profile-kind='dao'] .portfolio-about-print {
-    border-radius: clamp(0.35rem, 1.8cqi, 0.55rem);
+    border-radius: 0;
   }
 
   .portfolio-about-still-open {
@@ -8528,10 +8550,10 @@ a.os-surface-row {
     margin-top: 0.4em;
   }
 
-  /* Film — 1 full-width; 2 side-by-side. Cover + same radius as the print. */
+  /* Film — edge-to-edge, sharp. Lean band solo (2.5:1); pair stays 3:2. */
   .portfolio-about-film {
     display: grid;
-    gap: 0.45rem;
+    gap: 0;
     width: 100%;
     margin: 0;
     padding: 0;
@@ -8551,16 +8573,13 @@ a.os-surface-row {
   .portfolio-about-film > li {
     min-width: 0;
     overflow: hidden;
-    border-radius: 0.65rem;
+    border-radius: 0;
     background: rgb(var(--fg-rgb) / 0.04);
   }
 
-  .portfolio-about[data-profile-kind='org'] .portfolio-about-film > li {
-    border-radius: 0.9rem;
-  }
-
+  .portfolio-about[data-profile-kind='org'] .portfolio-about-film > li,
   .portfolio-about[data-profile-kind='dao'] .portfolio-about-film > li {
-    border-radius: 0.55rem;
+    border-radius: 0;
   }
 
   .portfolio-about-film-open {
@@ -8579,7 +8598,7 @@ a.os-surface-row {
   }
 
   .portfolio-about-film[data-count='1'] .portfolio-about-film-shot {
-    aspect-ratio: 2 / 1;
+    aspect-ratio: 2.5 / 1;
   }
 
   .portfolio-about-closer {
