@@ -44,17 +44,19 @@ export function PortfolioWritingPanel({
       <header className="portfolio-writing-masthead">
         <p className="portfolio-writing-kicker">Writing</p>
         <h1 className="portfolio-writing-name">{titleLabel}</h1>
-        <label className="portfolio-writing-search">
-          <span className="sr-only">Search writing</span>
-          <input
-            type="search"
-            className={`${osFieldBorderedClassName} portfolio-writing-search-input`}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search titles…"
-            autoComplete="off"
-          />
-        </label>
+        {articles.length > 0 ? (
+          <label className="portfolio-writing-search">
+            <span className="sr-only">Search writing</span>
+            <input
+              type="search"
+              className={`${osFieldBorderedClassName} portfolio-writing-search-input`}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search titles…"
+              autoComplete="off"
+            />
+          </label>
+        ) : null}
       </header>
 
       {rows.length === 0 ? (

@@ -8656,8 +8656,27 @@ a.os-surface-row {
     grid-template-columns: minmax(0, 7.2rem) minmax(0, 1fr);
     gap: 0.9rem;
     align-items: start;
+    margin: 0 -0.45rem;
+    padding: 0.45rem;
+    border-radius: 0.85rem;
     color: inherit;
     text-decoration: none;
+    transition:
+      background-color 0.16s ease,
+      transform 0.16s ease;
+  }
+
+  .portfolio-writing-card:hover {
+    background: rgb(var(--fg-rgb) / 0.045);
+  }
+
+  .portfolio-writing-card:focus-visible {
+    outline: 2px solid rgb(var(--fg-rgb) / 0.28);
+    outline-offset: 2px;
+  }
+
+  .portfolio-writing-card:active {
+    transform: scale(0.992);
   }
 
   .portfolio-writing-cover {
@@ -8737,6 +8756,14 @@ a.os-surface-row {
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .portfolio-writing-card {
+      transition: none;
+    }
+
+    .portfolio-writing-card:active {
+      transform: none;
+    }
+
     .portfolio-about-type {
       animation: none;
     }

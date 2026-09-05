@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { isArticlePost } from '@/lib/article-post-payload';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
@@ -7,6 +7,7 @@ import { fetchPersonalPost } from '@/lib/fetch-personal-post';
 import { fetchPublicPageData } from '@/lib/page-data';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
+import { writingPath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
 import { loadProfileShell } from '@/lib/profile-shell';
 import { resolveAccountId } from '@/lib/resolve-account';
@@ -80,7 +81,7 @@ export async function loadPortfolioWritingArticlePage(
   );
   const postId = decodeURIComponent(resolved.postId ?? '').trim();
   if (!postId) {
-    notFound();
+    redirect(writingPath(accountId));
   }
 
   const [page, post] = await Promise.all([
@@ -96,7 +97,7 @@ export async function loadPortfolioWritingArticlePage(
   ]);
 
   if (!post || !isArticlePost(post)) {
-    notFound();
+    redirect(writingPath(accountId));
   }
 
   return { ...page, post };

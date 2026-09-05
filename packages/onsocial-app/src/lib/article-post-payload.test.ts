@@ -5,10 +5,12 @@ import {
   articleExcerpt,
   articleMatchesQuery,
   articleSnapshotExtra,
+  articleTeaseSource,
   isArticlePost,
   normalizeArticleTitle,
   parseArticleSnapshot,
   resolveComposerArticle,
+  shouldShowWritingLink,
 } from './article-post-payload';
 
 function postValue(extra: Record<string, unknown>, text = 'Body of the piece.') {
@@ -87,6 +89,54 @@ describe('resolveComposerArticle', () => {
   });
 });
 
+describe('articleTeaseSource', () => {
+  it('drops heading and list chrome and keeps inline marks', () => {
+    expect(
+      articleTeaseSource(
+        [
+          '# After midnight',
+          '',
+          'The highway *empties*. **Headlights** pick the rail.',
+          '',
+          '- First exit',
+          '- Second thought',
+        ].join('\n')
+      )
+    ).toBe(
+      'After midnight The highway *empties*. **Headlights** pick the rail. First exit Second thought'
+    );
+  });
+
+  it('leaves #near as a hashtag', () => {
+    expect(articleTeaseSource('Collecting #near tonight.')).toBe(
+      'Collecting #near tonight.'
+    );
+  });
+});
+
+describe('shouldShowWritingLink', () => {
+  it('shows for the owner even before articles load', () => {
+    expect(
+      shouldShowWritingLink({ isOwner: true, hasArticles: null })
+    ).toBe(true);
+    expect(
+      shouldShowWritingLink({ isOwner: true, hasArticles: false })
+    ).toBe(true);
+  });
+
+  it('shows for visitors only after an article exists', () => {
+    expect(
+      shouldShowWritingLink({ isOwner: false, hasArticles: null })
+    ).toBe(false);
+    expect(
+      shouldShowWritingLink({ isOwner: false, hasArticles: false })
+    ).toBe(false);
+    expect(
+      shouldShowWritingLink({ isOwner: false, hasArticles: true })
+    ).toBe(true);
+  });
+});
+
 describe('articleExcerpt and search', () => {
   it('uses stored excerpt when present', () => {
     expect(
@@ -100,6 +150,17 @@ describe('articleExcerpt and search', () => {
         })
       )
     ).toBe('A short tease.');
+  });
+
+  it('strips heading marks from a derived excerpt', () => {
+    expect(
+      articleExcerpt(
+        postValue(
+          { x: { onsocial: { article: { title: 'Night' } } } },
+          '# After midnight\nThe highway *empties*.'
+        )
+      )
+    ).toBe('After midnight The highway *empties*.');
   });
 
   it('matches title, body, and hashtags', () => {

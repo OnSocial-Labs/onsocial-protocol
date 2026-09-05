@@ -112,12 +112,50 @@ export function isArticlePost(post: Pick<PostRow, 'value'>): boolean {
   return parseArticleSnapshot(post.value) != null;
 }
 
+/**
+ * Collapse body into a one-line tease. Keep `*italic*` / `**bold**` for
+ * inline marks; drop heading and list chrome so `# After midnight` reads
+ * as a sentence, not source.
+ */
+export function articleTeaseSource(text: string): string {
+  return text
+    .split(/\r?\n/)
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return '';
+      const heading = trimmed.match(/^#{1,6}\s+(.+)$/);
+      if (heading?.[1]) return heading[1].trim();
+      const unordered = trimmed.match(/^[-*+]\s+(.+)$/);
+      if (unordered?.[1]) return unordered[1].trim();
+      const ordered = trimmed.match(/^\d+\.\s+(.+)$/);
+      if (ordered?.[1]) return ordered[1].trim();
+      return trimmed;
+    })
+    .filter(Boolean)
+    .join(' ');
+}
+
 export function articleExcerpt(value: string): string {
   const article = parseArticleSnapshot(value);
   if (article?.excerpt) {
-    return truncatePostPreview(article.excerpt, ARTICLE_EXCERPT_CHARS);
+    return truncatePostPreview(
+      articleTeaseSource(article.excerpt),
+      ARTICLE_EXCERPT_CHARS
+    );
   }
-  return truncatePostPreview(parsePostText(value), ARTICLE_EXCERPT_CHARS);
+  return truncatePostPreview(
+    articleTeaseSource(parsePostText(value)),
+    ARTICLE_EXCERPT_CHARS
+  );
+}
+
+/** Owner always sees Writing. Visitors only after at least one article. */
+export function shouldShowWritingLink(opts: {
+  isOwner: boolean;
+  hasArticles: boolean | null;
+}): boolean {
+  if (opts.isOwner) return true;
+  return opts.hasArticles === true;
 }
 
 export function articleCoverUrl(value: string): string | null {

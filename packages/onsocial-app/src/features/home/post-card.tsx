@@ -110,7 +110,10 @@ import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { parsePostContentLabels } from '@/lib/post-content-labels';
 import { accountIdsEqual } from '@/lib/account-match';
 import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
-import { parseArticleSnapshot } from '@/lib/article-post-payload';
+import {
+  articleTeaseSource,
+  parseArticleSnapshot,
+} from '@/lib/article-post-payload';
 import {
   txToastConfirming,
   txToastError,
@@ -126,6 +129,7 @@ import {
   parsePostTokenEmbed,
   postFeedPreviewLimit,
   postKey,
+  postKindBadge,
   postPreviewNeedsExpand,
   postTimestampIso,
   truncatePostPreview,
@@ -609,18 +613,8 @@ function postBadges(
   hasPollEmbed: boolean,
   _hasMediaStrip: boolean
 ): string[] {
-  const kind = post.kind;
-  // Media speaks for itself — never badge image/video/audio.
-  // Polls render their own card; skip the redundant "poll" pill.
-  const hideKind =
-    kind === 'text' ||
-    kind === 'image' ||
-    kind === 'video' ||
-    kind === 'audio' ||
-    (hasPollEmbed && kind === 'poll');
-  return [hideKind ? null : kind].filter(
-    (value): value is string => typeof value === 'string' && value.trim() !== ''
-  );
+  const badge = postKindBadge(post.kind, hasPollEmbed);
+  return badge ? [badge] : [];
 }
 
 export function QuotedPostInset({
@@ -1238,7 +1232,7 @@ function PostCardBody({
     !hideText &&
     postPreviewNeedsExpand(text, previewLimit);
   const tease = isArticle
-    ? truncatePostPreview(text, previewLimit)
+    ? truncatePostPreview(articleTeaseSource(text), previewLimit)
     : canExpand && !expanded
       ? truncatePostPreview(text, previewLimit)
       : text;

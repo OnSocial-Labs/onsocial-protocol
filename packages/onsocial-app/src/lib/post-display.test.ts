@@ -8,6 +8,7 @@ import {
   parsePostPollEmbed,
   parsePostText,
   postFeedPreviewLimit,
+  postKindBadge,
   postPreviewNeedsExpand,
   postTimestampIso,
   POST_FEED_PREVIEW_CHARS,
@@ -145,6 +146,21 @@ describe('post text preview', () => {
     expect(truncatePostPreview('a'.repeat(200), 120).length).toBe(121);
     expect(postPreviewNeedsExpand('a'.repeat(140), 140)).toBe(false);
     expect(postPreviewNeedsExpand('a'.repeat(141), 140)).toBe(true);
+  });
+});
+
+describe('postKindBadge', () => {
+  it('hides media, text, and longform', () => {
+    expect(postKindBadge('text')).toBeNull();
+    expect(postKindBadge('image')).toBeNull();
+    expect(postKindBadge('video')).toBeNull();
+    expect(postKindBadge('audio')).toBeNull();
+    expect(postKindBadge('longform')).toBeNull();
+  });
+
+  it('hides poll when the embed is already on the card', () => {
+    expect(postKindBadge('poll', true)).toBeNull();
+    expect(postKindBadge('poll', false)).toBe('poll');
   });
 });
 
