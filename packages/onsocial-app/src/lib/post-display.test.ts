@@ -8,6 +8,7 @@ import {
   parsePostPollEmbed,
   parsePostText,
   postFeedPreviewLimit,
+  postKindBadge,
   postPreviewNeedsExpand,
   postTimestampIso,
   POST_FEED_PREVIEW_CHARS,
@@ -148,8 +149,23 @@ describe('post text preview', () => {
   });
 });
 
+describe('postKindBadge', () => {
+  it('hides media, text, and longform', () => {
+    expect(postKindBadge('text')).toBeNull();
+    expect(postKindBadge('image')).toBeNull();
+    expect(postKindBadge('video')).toBeNull();
+    expect(postKindBadge('audio')).toBeNull();
+    expect(postKindBadge('longform')).toBeNull();
+  });
+
+  it('hides poll when the embed is already on the card', () => {
+    expect(postKindBadge('poll', true)).toBeNull();
+    expect(postKindBadge('poll', false)).toBe('poll');
+  });
+});
+
 describe('formatPostPeekExcerpt', () => {
-  it('prefers post text, then poll question, then drop title', () => {
+  it('prefers article title, then post text, poll, then drop title', () => {
     expect(
       formatPostPeekExcerpt(JSON.stringify({ v: 1, text: 'Hello guild' }))
     ).toBe('Hello guild');
@@ -182,6 +198,15 @@ describe('formatPostPeekExcerpt', () => {
         })
       )
     ).toBe('Night Drop');
+    expect(
+      formatPostPeekExcerpt(
+        JSON.stringify({
+          v: 1,
+          text: 'The river at night.',
+          x: { onsocial: { article: { title: 'Night drive' } } },
+        })
+      )
+    ).toBe('Night drive');
   });
 
   it('falls back to kind labels and post id', () => {

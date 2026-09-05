@@ -83,6 +83,7 @@ export interface ProfileEditorSaveInput {
   tags: string[];
   photos: ProfileAboutPhoto[];
   photoFiles: Array<File | null>;
+  isDao?: boolean;
 }
 
 export interface ProfileEditorSaveResult {
@@ -208,10 +209,11 @@ export function useAppProfileEditor(
       const lead = normalizeProfileLeadInput(input.lead);
       const aboutAlign = normalizeProfileAboutAlign(input.aboutAlign);
       const faceKind = editorFaceKind(input.kind);
-      const industry =
-        faceKind === 'org'
-          ? normalizeProfileIndustryInput(input.industry)
-          : '';
+      const isDao = Boolean(input.isDao);
+      const storesIndustry = isDao || faceKind === 'org';
+      const industry = storesIndustry
+        ? normalizeProfileIndustryInput(input.industry)
+        : '';
       const snapshotNow = snapshot;
       if (!snapshotNow || snapshotNow.accountId !== accountId) {
         throw new Error('Could not load profile.');
@@ -241,6 +243,7 @@ export function useAppProfileEditor(
         bannerFile: input.banner,
         avatarRemoved: input.removeAvatar,
         bannerRemoved: input.removeBanner,
+        isDao,
       });
 
       if (!contentDirty && !notesDirty) {
@@ -295,8 +298,12 @@ export function useAppProfileEditor(
             lead: lead || null,
             aboutAlign,
             location: location || null,
-            kind: faceKind === 'org' ? 'org' : null,
-            industry: faceKind === 'org' ? industry || null : null,
+            ...(isDao
+              ? { kind: 'dao', industry: industry || null }
+              : {
+                  kind: faceKind === 'org' ? 'org' : null,
+                  industry: faceKind === 'org' ? industry || null : null,
+                }),
           };
 
           if (input.avatar) {

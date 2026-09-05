@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   resolvePortfolioAboutCopy,
   resolvePortfolioAboutFilmLead,
+  resolvePortfolioAboutIndustryLabel,
   resolvePortfolioAboutStills,
   aboutStillAlt,
   shouldShowPortfolioAboutFaceLede,
@@ -148,6 +149,44 @@ describe('shouldShowPortfolioAboutWork', () => {
 describe('shouldShowPortfolioAboutName', () => {
   it('always shows the name on About', () => {
     expect(shouldShowPortfolioAboutName()).toBe(true);
+  });
+});
+
+describe('resolvePortfolioAboutIndustryLabel', () => {
+  it('echoes a set industry for org and DAO', () => {
+    expect(
+      resolvePortfolioAboutIndustryLabel({
+        kind: 'org',
+        industry: '  Music  ',
+      })
+    ).toBe('Music');
+    expect(
+      resolvePortfolioAboutIndustryLabel({
+        kind: 'dao',
+        industry: 'Film',
+      })
+    ).toBe('Film');
+  });
+
+  it('hides the Organization fallback and blank industry', () => {
+    expect(
+      resolvePortfolioAboutIndustryLabel({ kind: 'org', industry: '' })
+    ).toBeNull();
+    expect(
+      resolvePortfolioAboutIndustryLabel({ kind: 'dao', industry: '   ' })
+    ).toBeNull();
+    expect(
+      resolvePortfolioAboutIndustryLabel({ kind: 'org' })
+    ).toBeNull();
+  });
+
+  it('keeps industry off person About', () => {
+    expect(
+      resolvePortfolioAboutIndustryLabel({
+        kind: 'person',
+        industry: 'Music',
+      })
+    ).toBeNull();
   });
 });
 

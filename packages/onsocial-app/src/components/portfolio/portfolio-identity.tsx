@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kind-switch';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { PortfolioAboutLink } from '@/components/portfolio/portfolio-about-link';
+import { PortfolioWritingLink } from '@/components/portfolio/portfolio-writing-link';
 import { PortfolioFaceBio } from '@/components/portfolio/portfolio-face-bio';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
 import { PortfolioOrgMetaLine } from '@/components/portfolio/portfolio-org-meta-line';
@@ -13,6 +14,7 @@ import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
 import {
   profileKindFaceLabel,
+  profileKindShowsCrafts,
   resolveDisplayProfileKind,
   type JobSearchRow,
   type ProfileKind,
@@ -37,7 +39,7 @@ interface PortfolioIdentityProps {
   aboutBio?: string | null;
   /** Quiet About lead (`profile/lead`) — opens About when set. */
   lead?: string | null;
-  /** Curated identity topics (`profile/tags`) — About / Launch only. */
+  /** Curated identity topics (`profile/tags`) — person About only. */
   tags?: string[] | null;
   /** About gallery count — opens About even when the face bio is short. */
   photoCount?: number;
@@ -80,7 +82,9 @@ export function PortfolioIdentity({
   const titleLabel = displayName(accountId, profileName ?? undefined);
   const summary = tagline?.trim() || bio?.trim() || '';
   const locationLabel = location?.trim() || null;
-  const tagCount = profileIdentityTopics(tags).length;
+  const tagCount = profileKindShowsCrafts(displayKind)
+    ? profileIdentityTopics(tags).length
+    : 0;
   const showAbout = profileAboutHasMoreThanFace({
     aboutText: aboutBio,
     leadText: lead,
@@ -143,6 +147,16 @@ export function PortfolioIdentity({
             location={locationLabel}
             initialJobs={openJobs}
           />
+        ) : displayKind === 'dao' ? (
+          <PortfolioOrgMetaLine
+            accountId={accountId}
+            orgName={titleLabel}
+            industry={industry}
+            location={locationLabel}
+            showHiring={false}
+            emptyIndustryLabel={null}
+            kindLine="dao"
+          />
         ) : locationLabel ? (
           <p className="portfolio-location">
             <PortfolioLocationMark />
@@ -158,6 +172,7 @@ export function PortfolioIdentity({
         ) : showAbout ? (
           <PortfolioAboutLink accountId={accountId} />
         ) : null}
+        <PortfolioWritingLink accountId={accountId} />
         <PortfolioIdentityGestures
           pageAccountId={accountId}
           profileName={profileName}

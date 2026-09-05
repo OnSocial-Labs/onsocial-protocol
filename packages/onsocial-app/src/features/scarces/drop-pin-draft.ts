@@ -19,7 +19,7 @@ export type PinnedMusicDraft = {
 
 export type PinnedWritingDraft = {
   writingManifestCid: string;
-  writingFormat: 'article' | 'book';
+  writingFormat: 'issue' | 'book';
   chapterCount: number;
   coverCid: string;
   coverHash: string;
@@ -50,7 +50,7 @@ export type DropPinDraft =
     })
   | (DropPinDraftBase & {
       kind: 'writing';
-      writingFormat: 'article' | 'book';
+      writingFormat: 'issue' | 'book';
       pinned: PinnedWritingDraft;
     })
   | (DropPinDraftBase & {

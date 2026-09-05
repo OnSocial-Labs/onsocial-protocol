@@ -72,6 +72,14 @@ export function buildDiscoverEmptyState(
       showClearSearch: false,
     };
   }
+  if (face === 'daos') {
+    return {
+      primary: industry
+        ? `No DAOs in ${industry} yet.`
+        : 'No DAOs found.',
+      showClearSearch: false,
+    };
+  }
   if (face === 'people') {
     return {
       primary: 'No people found.',

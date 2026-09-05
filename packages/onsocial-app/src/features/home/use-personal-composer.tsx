@@ -368,7 +368,8 @@ export function usePersonalComposer({
       if (
         !payload.text.trim() &&
         !(payload.files?.length) &&
-        !isDropComposeDraftReady(payload.drop)
+        !isDropComposeDraftReady(payload.drop) &&
+        !payload.article?.title?.trim()
       ) {
         return;
       }

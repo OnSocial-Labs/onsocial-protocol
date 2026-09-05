@@ -7,6 +7,7 @@ describe('resolveScarceFeedMediumMode', () => {
     expect(resolveScarceFeedMediumMode('music')).toBe('audio');
     expect(resolveScarceFeedMediumMode('writing')).toBe('writing');
     expect(resolveScarceFeedMediumMode('article')).toBe('writing');
+    expect(resolveScarceFeedMediumMode('issue')).toBe('writing');
     expect(resolveScarceFeedMediumMode('book')).toBe('writing');
     expect(resolveScarceFeedMediumMode('art')).toBe('viewer');
     expect(resolveScarceFeedMediumMode('thought')).toBe('viewer');

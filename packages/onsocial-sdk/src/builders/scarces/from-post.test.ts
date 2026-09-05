@@ -152,4 +152,48 @@ describe('inferPostScarceKind', () => {
       })
     ).toBe('video');
   });
+
+  it('maps titled articles to writing even with a cover still', () => {
+    expect(
+      inferPostScarceKind({
+        mediaCids: ['bafyCover'],
+        playable: [],
+        articleTitle: 'Night drive',
+      })
+    ).toBe('writing');
+  });
+
+  it('keeps video ahead of a titled article', () => {
+    expect(
+      inferPostScarceKind({
+        mediaCids: [],
+        playable: [{ cid: 'bafyVid', mime: 'video/mp4' }],
+        articleTitle: 'Night drive',
+      })
+    ).toBe('video');
+  });
+});
+
+describe('extractPostMedia article title', () => {
+  it('reads x.onsocial.article.title', () => {
+    const out = extractPostMedia(
+      JSON.stringify({
+        text: 'Body of the piece.',
+        x: { onsocial: { article: { title: 'Night drive' } } },
+      })
+    );
+    expect(out.articleTitle).toBe('Night drive');
+    expect(inferPostScarceKind(out)).toBe('writing');
+  });
+
+  it('ignores empty article titles', () => {
+    const out = extractPostMedia(
+      JSON.stringify({
+        text: 'Untitled long post',
+        x: { onsocial: { article: { title: '  ' } } },
+      })
+    );
+    expect(out.articleTitle).toBeUndefined();
+    expect(inferPostScarceKind(out)).toBe('thought');
+  });
 });

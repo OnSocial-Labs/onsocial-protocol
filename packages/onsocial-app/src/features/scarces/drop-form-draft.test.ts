@@ -57,7 +57,7 @@ function baseDraft(
     draftAllowlist: [],
     artMode: 'single',
     musicFormat: 'single',
-    writingFormat: 'article',
+    writingFormat: 'issue',
     facets: [],
     variationSource: 'upload',
     variationsCid: '',
