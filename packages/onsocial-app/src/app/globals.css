@@ -11679,6 +11679,13 @@ a.os-surface-row {
     gap: 0.45rem;
   }
 
+  .discover-trending-heading-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
   .discover-trending-heading {
     margin: 0;
     font-size: 0.7rem;
@@ -11686,6 +11693,15 @@ a.os-surface-row {
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.5);
+  }
+
+  .discover-trending-meta {
+    margin: 0;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: rgb(var(--fg-rgb) / 0.42);
+    white-space: nowrap;
   }
 
   .discover-trending-see-all {

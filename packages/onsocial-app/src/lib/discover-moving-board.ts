@@ -17,6 +17,7 @@ import {
 import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about';
 import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
 import {
+  countRecentPosters,
   excludeMovingHubsAlreadySold,
   fetchMovingMentionRows,
   movingActivePeeks,
@@ -28,7 +29,9 @@ import {
 
 const SECTION_LIMIT = 6;
 const SCAN_POOL = 12;
-const ACTIVE_POST_POOL = 24;
+const HOT_SCAN_POOL = 18;
+const ACTIVE_POST_POOL = 48;
+const ACTIVE_HYDRATE = 12;
 
 /** One Moving board — every strip, ready to paint together. */
 export type MovingBoard = {
@@ -41,6 +44,10 @@ export type MovingBoard = {
   profiles: MovingActivePeek[];
   hubs: RankedHubPeek[];
   proposals: GovernanceEventRow[];
+  /** Unique posters in the last-window scan. */
+  postedCount: number;
+  /** True when the scan is full — more people may be moving. */
+  postedCapped: boolean;
 };
 
 export function emptyMovingBoard(): MovingBoard {
@@ -54,6 +61,8 @@ export function emptyMovingBoard(): MovingBoard {
     profiles: [],
     hubs: [],
     proposals: [],
+    postedCount: 0,
+    postedCapped: false,
   };
 }
 
@@ -75,11 +84,14 @@ export function movingBoardFromSeed(
           lastActivityTimestamp?: number | null;
         }> | null;
         proposals?: GovernanceEventRow[] | null;
+        postedCount?: number | null;
+        postedCapped?: boolean | null;
       }
     | null
     | undefined
 ): MovingBoard {
   if (!seed) return emptyMovingBoard();
+  const profiles = seed.profiles ?? [];
   return {
     posts: seed.posts ?? [],
     talkedAbout: seed.talkedAbout ?? [],
@@ -87,7 +99,7 @@ export function movingBoardFromSeed(
     tickers: seed.movingTickers ?? [],
     topics: seed.movingTopics ?? [],
     places: seed.places ?? [],
-    profiles: seed.profiles ?? [],
+    profiles,
     hubs: (seed.hubs ?? []).map((hub) => ({
       appId: hub.appId,
       title: hub.title,
@@ -96,32 +108,46 @@ export function movingBoardFromSeed(
       lastActivityTimestamp: hub.lastActivityTimestamp ?? null,
     })),
     proposals: seed.proposals ?? [],
+    postedCount: seed.postedCount ?? profiles.length,
+    postedCapped: Boolean(seed.postedCapped),
   };
 }
 
-async function loadActivePosters(os: OnSocial): Promise<MovingActivePeek[]> {
+async function loadActiveRoom(os: OnSocial): Promise<{
+  profiles: MovingActivePeek[];
+  postedCount: number;
+  postedCapped: boolean;
+}> {
   try {
     const page = await os.query.feed.recent({
       limit: ACTIVE_POST_POOL,
       section: 'posts',
     });
-    const ids = recentPosterIds(page.items, SECTION_LIMIT);
-    if (ids.length === 0) return [];
+    const postedCount = countRecentPosters(page.items);
+    const postedCapped = page.items.length >= ACTIVE_POST_POOL;
+    const ids = recentPosterIds(page.items, ACTIVE_HYDRATE);
+    if (ids.length === 0) {
+      return { profiles: [], postedCount, postedCapped };
+    }
     const rows = await os.query.profiles.statsForAccounts(ids);
     const accounts = await discoverPageToProfileListAccounts(os, {
       profiles: orderProfileSearchByPosterIds(rows, ids),
       viewer: null,
     });
-    return movingActivePeeks(accounts, page.items, SECTION_LIMIT);
+    return {
+      profiles: movingActivePeeks(accounts, page.items, ACTIVE_HYDRATE),
+      postedCount,
+      postedCapped,
+    };
   } catch {
-    return [];
+    return { profiles: [], postedCount: 0, postedCapped: false };
   }
 }
 
 async function loadHotPosts(os: OnSocial): Promise<PostRow[]> {
   try {
     const page = await os.query.feed.recent({
-      limit: SECTION_LIMIT,
+      limit: HOT_SCAN_POOL,
       sort: 'hot',
       section: 'posts',
     });
@@ -133,7 +159,7 @@ async function loadHotPosts(os: OnSocial): Promise<PostRow[]> {
 
 /** Fetch every Moving strip, then slice — caller paints once. */
 export async function loadMovingBoard(os: OnSocial): Promise<MovingBoard> {
-  const [posts, talkedAbout, justSold, mentions, hubs, proposals, profiles] =
+  const [posts, talkedAbout, justSold, mentions, hubs, proposals, active] =
     await Promise.all([
       loadHotPosts(os),
       fetchTalkedAboutPosts(os, SECTION_LIMIT),
@@ -145,7 +171,7 @@ export async function loadMovingBoard(os: OnSocial): Promise<MovingBoard> {
       os.query.governance
         .recentProposals({ limit: SECTION_LIMIT })
         .catch(() => [] as GovernanceEventRow[]),
-      loadActivePosters(os),
+      loadActiveRoom(os),
     ]);
 
   return {
@@ -155,8 +181,10 @@ export async function loadMovingBoard(os: OnSocial): Promise<MovingBoard> {
     tickers: mentions.tickers,
     topics: mentions.topics,
     places: mentions.places,
-    profiles: profiles.slice(0, SECTION_LIMIT),
+    profiles: active.profiles,
     hubs: excludeMovingHubsAlreadySold(hubs, justSold).slice(0, SECTION_LIMIT),
     proposals,
+    postedCount: active.postedCount,
+    postedCapped: active.postedCapped,
   };
 }

@@ -5,6 +5,7 @@ import type {
   ProfileSearchRow,
   TickerCount,
 } from '@onsocial/sdk';
+import { accountIdsEqual } from '@/lib/account-match';
 import { formatDiscoverTabCount } from '@/lib/discover-tab-lead';
 import { appendThreadFocusReply, postThreadPath } from '@/lib/post-routes';
 
@@ -59,6 +60,43 @@ export function postHasAmplifyHeat(
 /** Keep only posts with real amplify heat. Cold / chrono fallback stays off Moving. */
 export function selectHotPosts(items: PostRow[], limit = 6): PostRow[] {
   return items.filter(postHasAmplifyHeat).slice(0, limit);
+}
+
+/** Unique last-window posters — scale of the room, not a lifetime count. */
+export function countRecentPosters(
+  items: Array<Pick<PostRow, 'accountId'>>
+): number {
+  return recentPosterIds(items, items.length).length;
+}
+
+/** Active density — last-window posters, `+` when the scan is full. */
+export function movingPostedCountLabel(
+  count: number,
+  capped: boolean
+): string {
+  if (count <= 0) return '';
+  if (count === 1 && !capped) return '1 just posted';
+  return capped ? `${count}+ just posted` : `${count} just posted`;
+}
+
+/**
+ * People you stand with who also just posted, then the rest of the room.
+ * Still last-action — does not invent faces who have not posted.
+ */
+export function preferStandingPosters<T extends { accountId: string }>(
+  rows: readonly T[],
+  standingIds: Iterable<string>,
+  limit = 6
+): T[] {
+  const stand = [...standingIds].map((id) => id.trim()).filter(Boolean);
+  if (stand.length === 0) return rows.slice(0, limit);
+  const mine: T[] = [];
+  const rest: T[] = [];
+  for (const row of rows) {
+    if (stand.some((id) => accountIdsEqual(row.accountId, id))) mine.push(row);
+    else rest.push(row);
+  }
+  return [...mine, ...rest].slice(0, limit);
 }
 
 /** Distinct authors in recency order — Moving Active is who just posted. */

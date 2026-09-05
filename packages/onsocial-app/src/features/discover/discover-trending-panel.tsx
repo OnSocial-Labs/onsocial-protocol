@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MovingChipPeekSection,
   MovingCoverPeekSection,
@@ -41,8 +41,20 @@ import {
   excludeMovingHubsAlreadySold,
   isMovingLandingPainted,
   mergeMovingMentions,
+  movingPostedCountLabel,
+  preferStandingPosters,
 } from '@/lib/discover-moving';
+import {
+  canRefreshMovingBoard,
+  MOVING_BOARD_POLL_MS,
+  MOVING_CLOCK_TICK_MS,
+} from '@/lib/discover-moving-live';
 import { formatRelativePostTimestamp } from '@/lib/post-display';
+import {
+  getGlobalViewerStandingLedger,
+  getGlobalViewerStandingLedgerVersion,
+  subscribeGlobalViewerStandingLedger,
+} from '@/lib/viewer-standing-global';
 
 const SECTION_LIMIT = 6;
 
@@ -51,6 +63,9 @@ const SECTION_LIMIT = 6;
  * Lifetime Topics / Tickers / Most traded live on those tabs. This page is a peek.
  * See all stays in Discover (Profiles, Hubs). No door to Home, Market, or Protocol.
  * First paint is one board — skeletons until every strip is ready.
+ * While the tab stays open the board replaces as one room, clocks tick,
+ * and Active shows last-window scale. People you stand with who just
+ * posted rise first. No lifetime counts.
  */
 export function DiscoverTrendingPanel({
   onOpenTab,
@@ -59,28 +74,87 @@ export function DiscoverTrendingPanel({
   onOpenTab: (tab: DiscoverTab) => void;
   initial?: DiscoverTrendingSeed | null;
 }) {
-  const { query } = useDiscoverPanel();
+  const { query, viewerAccountId } = useDiscoverPanel();
   const paintedSeed = isMovingLandingPainted(initial);
   const [board, setBoard] = useState<MovingBoard | null>(() =>
     paintedSeed ? movingBoardFromSeed(initial) : null
   );
+  const [standingIds, setStandingIds] = useState<string[]>([]);
+  const [standingLedgerVersion, setStandingLedgerVersion] = useState(
+    getGlobalViewerStandingLedgerVersion
+  );
+  const [clockTick, setClockTick] = useState(0);
+  const inFlightRef = useRef(false);
+
+  useEffect(() => {
+    return subscribeGlobalViewerStandingLedger(() => {
+      setStandingLedgerVersion(getGlobalViewerStandingLedgerVersion());
+    });
+  }, []);
+
+  useEffect(() => {
+    const tick = () => setClockTick((value) => value + 1);
+    const id = window.setInterval(tick, MOVING_CLOCK_TICK_MS);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    const soft = paintedSeed;
-    void loadMovingBoard(createReadOnlyOnSocialClient())
-      .then((next) => {
+    const os = createReadOnlyOnSocialClient();
+    const viewer = viewerAccountId?.trim() || '';
+
+    const loadStanding = async () => {
+      if (!viewer) return [] as string[];
+      try {
+        return await os.query.standings.outgoing(viewer, { limit: 48 });
+      } catch {
+        return [] as string[];
+      }
+    };
+
+    const refresh = async (soft: boolean, withStanding: boolean) => {
+      if (
+        cancelled ||
+        !canRefreshMovingBoard({
+          hidden:
+            typeof document !== 'undefined' &&
+            document.visibilityState === 'hidden',
+          inFlight: inFlightRef.current,
+        })
+      ) {
+        return;
+      }
+      inFlightRef.current = true;
+      try {
+        const [next, standing] = await Promise.all([
+          loadMovingBoard(os),
+          withStanding ? loadStanding() : Promise.resolve(null),
+        ]);
         if (cancelled) return;
         setBoard(next);
-      })
-      .catch(() => {
+        if (standing) setStandingIds(standing);
+      } catch {
         if (cancelled || soft) return;
         setBoard(emptyMovingBoard());
-      });
+      } finally {
+        inFlightRef.current = false;
+      }
+    };
+
+    void refresh(paintedSeed, true);
+    const intervalId = window.setInterval(() => {
+      void refresh(true, false);
+    }, MOVING_BOARD_POLL_MS);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void refresh(true, false);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [paintedSeed]);
+  }, [paintedSeed, viewerAccountId]);
 
   const filterNeedle = discoverTrendingFilterQuery(query);
   const visibleTickers = useMemo(
@@ -110,8 +184,20 @@ export function DiscoverTrendingPanel({
   );
   const visibleProfiles = useMemo(() => {
     if (board == null) return null;
-    return filterMovingActive(board.profiles, query).slice(0, SECTION_LIMIT);
-  }, [board, query]);
+    const ledgerIds: string[] = [];
+    for (const [id, entry] of getGlobalViewerStandingLedger()) {
+      if (entry.standing && id.trim()) ledgerIds.push(id.trim());
+    }
+    return preferStandingPosters(
+      filterMovingActive(board.profiles, query),
+      [...standingIds, ...ledgerIds],
+      SECTION_LIMIT
+    );
+  }, [board, query, standingIds, standingLedgerVersion]);
+  const postedMeta =
+    board == null
+      ? null
+      : movingPostedCountLabel(board.postedCount, board.postedCapped);
   const visibleHubs = useMemo(() => {
     if (board == null) return null;
     return excludeMovingHubsAlreadySold(
@@ -160,7 +246,7 @@ export function DiscoverTrendingPanel({
         time,
       };
     });
-  }, [visiblePlaces, visibleTickers, visibleTopics]);
+  }, [clockTick, visiblePlaces, visibleTickers, visibleTopics]);
   const visibleProposals = useMemo(
     () =>
       board == null ? null : filterTrendingProposals(board.proposals, query),
@@ -220,6 +306,7 @@ export function DiscoverTrendingPanel({
       <MovingFacePeekSection
         heading="Active"
         rows={visibleProfiles}
+        meta={postedMeta}
         onSeeAll={() => onOpenTab('profiles')}
       />
 

@@ -36,14 +36,19 @@ const SECTION_LIMIT = 6;
 
 export function MovingSectionHead({
   heading,
+  meta,
   seeAll,
 }: {
   heading: string;
+  meta?: string | null;
   seeAll?: { href?: string; onClick?: () => void } | null;
 }) {
   return (
     <div className="discover-trending-section-head">
-      <h2 className="discover-trending-heading">{heading}</h2>
+      <div className="discover-trending-heading-row">
+        <h2 className="discover-trending-heading">{heading}</h2>
+        {meta ? <p className="discover-trending-meta">{meta}</p> : null}
+      </div>
       {seeAll?.href ? (
         <Link href={seeAll.href} className="discover-trending-see-all">
           See all
@@ -152,10 +157,12 @@ export function MovingPostPeekSection({
 export function MovingFacePeekSection({
   heading,
   rows,
+  meta,
   onSeeAll,
 }: {
   heading: string;
   rows: MovingActivePeek[] | null;
+  meta?: string | null;
   onSeeAll: () => void;
 }) {
   if (rows === null) {
@@ -169,7 +176,11 @@ export function MovingFacePeekSection({
   if (rows.length === 0) return null;
   return (
     <section className="discover-trending-section" aria-label={heading}>
-      <MovingSectionHead heading={heading} seeAll={{ onClick: onSeeAll }} />
+      <MovingSectionHead
+        heading={heading}
+        meta={meta}
+        seeAll={{ onClick: onSeeAll }}
+      />
       <LauncherSocialPeekList aria-label={heading}>
         {rows.slice(0, SECTION_LIMIT).map((person, index) => (
           <LauncherSocialPeekRow

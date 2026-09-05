@@ -62,6 +62,18 @@ describe('movingBoardFromSeed', () => {
       },
     ]);
     expect(board.talkedAbout).toEqual([]);
+    expect(board.postedCount).toBe(0);
+    expect(board.postedCapped).toBe(false);
+  });
+
+  it('keeps last-window poster scale from the seed', () => {
+    const board = movingBoardFromSeed({
+      profiles: [{ accountId: 'a.near', name: 'Ada', avatarUrl: null, lastPostTimestamp: 1 }],
+      postedCount: 18,
+      postedCapped: true,
+    });
+    expect(board.postedCount).toBe(18);
+    expect(board.postedCapped).toBe(true);
   });
 });
 
@@ -151,5 +163,62 @@ describe('loadMovingBoard', () => {
     expect(board.talkedAbout).toEqual([]);
     expect(board.justSold).toEqual([]);
     expect(board.proposals).toEqual([]);
+    expect(board.postedCount).toBe(0);
+    expect(board.postedCapped).toBe(false);
+  });
+
+  it('counts unique last-window posters on the board', async () => {
+    fetchTalkedAboutPosts.mockResolvedValue([]);
+    fetchJustSoldScarcePeeks.mockResolvedValue([]);
+    rankHubPeeks.mockResolvedValue([]);
+
+    const os = {
+      profiles: { avatarUrl: () => null },
+      query: {
+        feed: {
+          recent: (opts: { sort?: string }) =>
+            Promise.resolve({
+              items:
+                opts.sort === 'hot'
+                  ? []
+                  : [
+                      {
+                        accountId: 'ada.near',
+                        postId: '1',
+                        value: '{}',
+                        blockHeight: 1,
+                        blockTimestamp: 1,
+                      },
+                      {
+                        accountId: 'ken.near',
+                        postId: '2',
+                        value: '{}',
+                        blockHeight: 2,
+                        blockTimestamp: 2,
+                      },
+                      {
+                        accountId: 'ada.near',
+                        postId: '3',
+                        value: '{}',
+                        blockHeight: 3,
+                        blockTimestamp: 3,
+                      },
+                    ],
+            }),
+        },
+        profiles: {
+          statsForAccounts: async (ids: string[]) =>
+            ids.map((accountId) => ({ accountId })),
+        },
+        governance: { recentProposals: async () => [] },
+        hashtags: mentionSource([]),
+        tickers: mentionSource([]),
+        places: mentionSource([]),
+      },
+    };
+
+    const board = await loadMovingBoard(os as never);
+    expect(board.postedCount).toBe(2);
+    expect(board.postedCapped).toBe(false);
   });
 });

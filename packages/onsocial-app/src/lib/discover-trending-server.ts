@@ -45,6 +45,8 @@ export type DiscoverTrendingSeed = {
   talkedAbout: PostRow[];
   justSold: DiscoverScarcePeek[];
   proposals: GovernanceEventRow[];
+  postedCount: number;
+  postedCapped: boolean;
 };
 
 /** Movement sections for Discover default tab SSR — one board. */
@@ -73,6 +75,8 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
       talkedAbout: board.talkedAbout,
       justSold: board.justSold,
       proposals: board.proposals,
+      postedCount: board.postedCount,
+      postedCapped: board.postedCapped,
     };
   } catch {
     return null;

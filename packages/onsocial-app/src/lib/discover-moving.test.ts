@@ -7,8 +7,11 @@ import {
   isMovingLandingPainted,
   justSoldCollectionRefs,
   mergeMovingMentions,
+  countRecentPosters,
   movingActivePeeks,
   movingChipCountLabel,
+  movingPostedCountLabel,
+  preferStandingPosters,
   movingProposalMeta,
   movingProposalStatusLabel,
   movingScarceSignalLabel,
@@ -68,6 +71,37 @@ describe('discover-moving', () => {
         2
       )
     ).toEqual(['alice.near', 'bob.near']);
+  });
+
+  it('counts unique last-window posters', () => {
+    expect(
+      countRecentPosters([
+        post('alice.near', '1'),
+        post('bob.near', '2'),
+        post('alice.near', '3'),
+      ])
+    ).toBe(2);
+  });
+
+  it('labels last-window density, and caps when the scan is full', () => {
+    expect(movingPostedCountLabel(0, false)).toBe('');
+    expect(movingPostedCountLabel(1, false)).toBe('1 just posted');
+    expect(movingPostedCountLabel(18, false)).toBe('18 just posted');
+    expect(movingPostedCountLabel(18, true)).toBe('18+ just posted');
+  });
+
+  it('lifts people you stand with who also just posted', () => {
+    expect(
+      preferStandingPosters(
+        [
+          { accountId: 'ada.near' },
+          { accountId: 'ken.near' },
+          { accountId: 'mia.near' },
+        ],
+        ['ken.near'],
+        2
+      ).map((row) => row.accountId)
+    ).toEqual(['ken.near', 'ada.near']);
   });
 
   it('skips faces already on the scan when filling Active', () => {
