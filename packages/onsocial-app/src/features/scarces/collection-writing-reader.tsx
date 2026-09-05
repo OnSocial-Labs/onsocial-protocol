@@ -57,6 +57,7 @@ export function CollectionWritingReader({
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTopRef = useRef(0);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  const chapterRatioRef = useRef(0);
   const [chapterIndex, setChapterIndex] = useState(() =>
     readWritingChapterIndex(collectionId, accountId)
   );
@@ -70,21 +71,33 @@ export function CollectionWritingReader({
   >({ status: 'idle' });
 
   const nextKey = readablesKey(readables);
-  if (nextKey !== listKey) {
-    setListKey(nextKey);
-    setChapterIndex(readWritingChapterIndex(collectionId, accountId));
-    setChapterRatio(0);
-    setFetchState({ status: 'idle' });
-    setTocOpen(false);
-  }
-
   const safeIndex = Math.min(
     chapterIndex,
     Math.max(0, readables.length - 1)
   );
-  if (chapterIndex !== safeIndex && readables.length > 0) {
-    setChapterIndex(safeIndex);
-  }
+
+  useEffect(() => {
+    if (nextKey === listKey) {
+      if (chapterIndex !== safeIndex && readables.length > 0) {
+        setChapterIndex(safeIndex);
+      }
+      return;
+    }
+    setListKey(nextKey);
+    setChapterIndex(readWritingChapterIndex(collectionId, accountId));
+    chapterRatioRef.current = 0;
+    setChapterRatio(0);
+    setFetchState({ status: 'idle' });
+    setTocOpen(false);
+  }, [
+    accountId,
+    chapterIndex,
+    collectionId,
+    listKey,
+    nextKey,
+    readables.length,
+    safeIndex,
+  ]);
   const chapter = readables[safeIndex] ?? null;
   const chapterIsPdf = chapter
     ? isWritingPdfMime(chapter.mime, chapter.title)
@@ -138,6 +151,7 @@ export function CollectionWritingReader({
     const next = Math.min(readables.length - 1, Math.max(0, nextIndex));
     if (next === safeIndex) return;
     setChapterIndex(next);
+    chapterRatioRef.current = 0;
     setChapterRatio(0);
     setTocOpen(false);
   };
@@ -181,11 +195,13 @@ export function CollectionWritingReader({
       if (max <= 0) {
         lastScrollTopRef.current = 0;
         // Fully visible chapter — count it finished so the book bar stays honest.
+        chapterRatioRef.current = 1;
         setChapterRatio(1);
         return;
       }
       el.scrollTop = ratio * max;
       lastScrollTopRef.current = el.scrollTop;
+      chapterRatioRef.current = ratio;
       setChapterRatio(ratio);
     };
     apply();
@@ -198,6 +214,7 @@ export function CollectionWritingReader({
     if (!canRead || !isBook) return;
     const next = readables[safeIndex + 1];
     if (!next?.url || isWritingPdfMime(next.mime, next.title)) return;
+    if (!/^https?:/i.test(next.url) && !next.url.startsWith('/')) return;
     const controller = new AbortController();
     void fetch(next.url, { signal: controller.signal }).catch(() => {
       // best-effort
@@ -426,11 +443,11 @@ export function CollectionWritingReader({
                     safeIndex,
                     ratio
                   );
-                  setChapterRatio((prev) => {
-                    if (ratio > prev + 0.002) onScrollDelta?.(8);
-                    else if (ratio < prev - 0.002) onScrollDelta?.(-8);
-                    return ratio;
-                  });
+                  const prev = chapterRatioRef.current;
+                  chapterRatioRef.current = ratio;
+                  setChapterRatio(ratio);
+                  if (ratio > prev + 0.002) onScrollDelta?.(8);
+                  else if (ratio < prev - 0.002) onScrollDelta?.(-8);
                 }}
                 onEdgeSwipe={
                   isBook

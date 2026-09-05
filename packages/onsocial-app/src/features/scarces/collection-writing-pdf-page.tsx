@@ -47,6 +47,7 @@ export function CollectionWritingPdfPage({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const docRef = useRef<PDFDocumentProxy | null>(null);
   const renderGen = useRef(0);
+  const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const [pageCount, setPageCount] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
@@ -108,32 +109,43 @@ export function CollectionWritingPdfPage({
     let cancelled = false;
     const gen = ++renderGen.current;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
+    renderTaskRef.current?.cancel();
+    renderTaskRef.current = null;
 
     void doc.getPage(pageIndex + 1).then(async (page) => {
       if (cancelled || gen !== renderGen.current) return;
       const base = page.getViewport({ scale: 1 });
       const width = Math.max(1, paper.clientWidth);
-      const scale = width / base.width;
-      const viewport = page.getViewport({ scale: scale * dpr });
-      canvas.width = Math.floor(viewport.width);
-      canvas.height = Math.floor(viewport.height);
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${Math.floor(viewport.height / dpr)}px`;
-      const ctx = canvas.getContext('2d');
+      const viewport = page.getViewport({ scale: width / base.width });
+      canvas.width = Math.floor(viewport.width * dpr);
+      canvas.height = Math.floor(viewport.height * dpr);
+      canvas.style.width = `${Math.floor(viewport.width)}px`;
+      canvas.style.height = `${Math.floor(viewport.height)}px`;
+      const ctx = canvas.getContext('2d', { alpha: false });
       if (!ctx) return;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       const task = page.render({
         canvasContext: ctx,
         viewport,
+        transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
+        intent: 'display',
+        annotationMode: 0,
       });
+      renderTaskRef.current = task;
       try {
         await task.promise;
       } catch {
         // superseded render
+      } finally {
+        if (renderTaskRef.current === task) renderTaskRef.current = null;
       }
     });
 
     return () => {
       cancelled = true;
+      renderTaskRef.current?.cancel();
+      renderTaskRef.current = null;
     };
   }, [pageIndex, pageCount, status, url]);
 
@@ -197,6 +209,7 @@ export function CollectionWritingPdfPage({
         ) : null}
         {status === 'ok' ? (
           <canvas
+            key={`${url}-${pageIndex}`}
             ref={canvasRef}
             className="collection-writing-pdf-canvas"
             aria-label={title}
