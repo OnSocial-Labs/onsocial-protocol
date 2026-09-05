@@ -379,6 +379,7 @@ export function CollectionWritingReader({
       selected: Boolean(window.getSelection()?.toString().trim()),
     });
     gesture.dragged = false;
+    if (action) gesture.live = false;
     if (action === 'chrome') {
       setDragDx(0);
       onChromeTap?.();
