@@ -530,6 +530,36 @@ export function writingEdgeTap(opts: {
   return null;
 }
 
+/** Edge turns the page; the middle toggles chrome. */
+export function writingReaderTap(opts: {
+  x: number;
+  width: number;
+  edgeRatio?: number;
+}): 'next' | 'prev' | 'chrome' | null {
+  if (!Number.isFinite(opts.x) || !Number.isFinite(opts.width)) return null;
+  return writingEdgeTap(opts) ?? 'chrome';
+}
+
+/** 1-based PDF pages that stay painted around the visible leaf. */
+export function writingPdfNearPages(opts: {
+  visibleIndex: number;
+  pageCount: number;
+  span?: number;
+}): number[] {
+  const count = Math.max(0, Math.floor(opts.pageCount));
+  if (count <= 0) return [];
+  const span = Math.max(0, Math.floor(opts.span ?? 2));
+  const visible = Math.min(
+    count - 1,
+    Math.max(0, Math.floor(opts.visibleIndex))
+  );
+  const start = Math.max(0, visible - span);
+  const end = Math.min(count - 1, visible + span);
+  const pages: number[] = [];
+  for (let i = start; i <= end; i += 1) pages.push(i + 1);
+  return pages;
+}
+
 /** Which stacked PDF page is in view from scroll. */
 export function writingPdfVisiblePage(opts: {
   scrollTop: number;

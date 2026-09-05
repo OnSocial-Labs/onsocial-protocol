@@ -23,8 +23,10 @@ import {
   writingEdgeTap,
   writingObjectProgress,
   writingPdfPageProgress,
+  writingPdfNearPages,
   writingPdfVisiblePage,
   writingPinchScale,
+  writingReaderTap,
   writingRubberBandOffset,
   writingReadingSectionLabel,
   writingScrollRatioStorageKey,
@@ -484,6 +486,30 @@ describe('writingEdgeTap', () => {
     expect(writingEdgeTap({ x: 20, width: 320 })).toBe('prev');
     expect(writingEdgeTap({ x: 300, width: 320 })).toBe('next');
     expect(writingEdgeTap({ x: 160, width: 320 })).toBeNull();
+  });
+});
+
+describe('writingReaderTap', () => {
+  it('turns on the edges and wakes chrome in the middle', () => {
+    expect(writingReaderTap({ x: 20, width: 320 })).toBe('prev');
+    expect(writingReaderTap({ x: 300, width: 320 })).toBe('next');
+    expect(writingReaderTap({ x: 160, width: 320 })).toBe('chrome');
+    expect(writingReaderTap({ x: Number.NaN, width: 320 })).toBeNull();
+  });
+});
+
+describe('writingPdfNearPages', () => {
+  it('keeps a window around the visible leaf', () => {
+    expect(
+      writingPdfNearPages({ visibleIndex: 0, pageCount: 10, span: 2 })
+    ).toEqual([1, 2, 3]);
+    expect(
+      writingPdfNearPages({ visibleIndex: 4, pageCount: 10, span: 2 })
+    ).toEqual([3, 4, 5, 6, 7]);
+    expect(
+      writingPdfNearPages({ visibleIndex: 9, pageCount: 10, span: 2 })
+    ).toEqual([8, 9, 10]);
+    expect(writingPdfNearPages({ visibleIndex: 0, pageCount: 0 })).toEqual([]);
   });
 });
 

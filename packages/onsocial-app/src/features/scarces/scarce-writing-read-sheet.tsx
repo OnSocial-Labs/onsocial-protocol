@@ -79,6 +79,11 @@ export function WritingReadSheet({
     setChromeQuiet(false);
   }, [clearQuietTimer]);
 
+  const onChromeTap = useCallback(() => {
+    clearQuietTimer();
+    setChromeQuiet((quiet) => !quiet);
+  }, [clearQuietTimer]);
+
   const onReadingProgress = useCallback((ratio: number) => {
     setScrollRatio(ratio);
   }, []);
@@ -137,7 +142,6 @@ export function WritingReadSheet({
     >
       <div
         className={`scarce-writing-read${chromeQuiet ? ' is-chrome-quiet' : ''}`}
-        onPointerDownCapture={wakeChrome}
       >
         <div className="scarce-writing-read-hero">
           <div className="scarce-writing-read-art">
@@ -178,6 +182,7 @@ export function WritingReadSheet({
               immersive
               onProgress={onReadingProgress}
               onScrollDelta={onReadingScroll}
+              onChromeTap={onChromeTap}
             />
           ) : (
             <p className="scarce-feed-medium-empty">

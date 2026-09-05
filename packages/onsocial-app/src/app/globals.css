@@ -25754,7 +25754,8 @@ a.os-surface-row {
   }
 
   .collection-writing-pdf-text span {
-    color: transparent;
+    color: transparent !important;
+    background: transparent !important;
     position: absolute;
     white-space: pre;
     transform-origin: 0 0;

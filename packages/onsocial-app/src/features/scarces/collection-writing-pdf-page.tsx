@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CollectionWritingBodySkeleton } from '@/features/scarces/collection-page-skeleton';
 import {
+  writingPdfNearPages,
   writingPdfVisiblePage,
   writingPinchScale,
 } from '@/features/scarces/drop-writing';
@@ -157,7 +158,6 @@ export function CollectionWritingPdfPage({
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
   const [pageCount, setPageCount] = useState(0);
   const [pageWidth, setPageWidth] = useState(0);
-  const [near, setNear] = useState<Record<number, true>>({});
   const [zoom, setZoom] = useState(1);
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -167,7 +167,6 @@ export function CollectionWritingPdfPage({
     setLoadedUrl(url);
     setDoc(null);
     setPageCount(0);
-    setNear({});
     setZoom(1);
     setStatus('loading');
     setError(null);
@@ -218,29 +217,10 @@ export function CollectionWritingPdfPage({
     return () => observer.disconnect();
   }, [status]);
 
-  useEffect(() => {
-    const folio = folioRef.current;
-    if (!folio || status !== 'ok' || pageCount <= 0) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        setNear((current) => {
-          const next = { ...current };
-          for (const entry of entries) {
-            const raw = (entry.target as HTMLElement).dataset.page;
-            const page = Number.parseInt(raw ?? '', 10);
-            if (!Number.isSafeInteger(page) || page < 1) continue;
-            if (entry.isIntersecting) next[page] = true;
-          }
-          return next;
-        });
-      },
-      { root: folio.closest('.collection-writing-body'), rootMargin: '120% 0px' }
-    );
-    folio.querySelectorAll<HTMLElement>('[data-page]').forEach((node) => {
-      observer.observe(node);
-    });
-    return () => observer.disconnect();
-  }, [pageCount, status, pageWidth]);
+  const nearPages = useMemo(
+    () => new Set(writingPdfNearPages({ visibleIndex, pageCount })),
+    [pageCount, visibleIndex]
+  );
 
   useEffect(() => {
     if (status !== 'ok' || pageCount <= 0) return;
@@ -353,7 +333,7 @@ export function CollectionWritingPdfPage({
                 doc={doc}
                 pageNumber={index + 1}
                 width={pageWidth}
-                shouldRender={Boolean(near[index + 1]) || index === 0}
+                shouldRender={nearPages.has(index + 1)}
                 title={title}
               />
             ))

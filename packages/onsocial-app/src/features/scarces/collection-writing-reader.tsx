@@ -12,8 +12,8 @@ import {
   readWritingChapterIndex,
   readWritingScrollRatio,
   writingCommitTurn,
-  writingEdgeTap,
   writingObjectProgress,
+  writingReaderTap,
   writingRubberBandOffset,
   writeWritingChapterIndex,
   writeWritingScrollRatio,
@@ -38,6 +38,7 @@ export function CollectionWritingReader({
   immersive = false,
   onProgress,
   onScrollDelta,
+  onChromeTap,
 }: {
   collectionId: string;
   accountId?: string | null;
@@ -51,6 +52,8 @@ export function CollectionWritingReader({
   onProgress?: (ratio: number) => void;
   /** Signed scroll delta (px) for chrome fade. */
   onScrollDelta?: (deltaY: number) => void;
+  /** Center tap — show or hide jacket / OS chrome. */
+  onChromeTap?: () => void;
 }) {
   const isBook =
     writingFormat === 'book' ||
@@ -63,6 +66,7 @@ export function CollectionWritingReader({
     y: number;
     width: number;
     dragged: boolean;
+    zone: 'next' | 'prev' | 'chrome';
   } | null>(null);
   const turningRef = useRef(false);
   const [dragDx, setDragDx] = useState(0);
@@ -297,11 +301,18 @@ export function CollectionWritingReader({
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     const target = event.target as HTMLElement | null;
     if (target?.closest('a, button, input, textarea, [role="button"]')) return;
+    const width = bodyRef.current?.clientWidth || event.currentTarget.clientWidth;
+    const zone =
+      writingReaderTap({
+        x: event.clientX - event.currentTarget.getBoundingClientRect().left,
+        width,
+      }) ?? 'chrome';
     pointerRef.current = {
       x: event.clientX,
       y: event.clientY,
-      width: bodyRef.current?.clientWidth || event.currentTarget.clientWidth,
+      width,
       dragged: false,
+      zone,
     };
   };
 
@@ -311,8 +322,14 @@ export function CollectionWritingReader({
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-    if (Math.abs(dx) < Math.abs(dy) * 1.15) return;
     start.dragged = true;
+    if (start.zone === 'chrome') return;
+    if (Math.abs(dx) < Math.abs(dy) * 1.15) return;
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // capture is best-effort
+    }
     setDragDx(
       writingRubberBandOffset({
         dx,
@@ -332,6 +349,11 @@ export function CollectionWritingReader({
       setDragDx(0);
       return;
     }
+    if (start.zone === 'chrome') {
+      if (!start.dragged) onChromeTap?.();
+      setDragDx(0);
+      return;
+    }
     const committed = writingCommitTurn({
       dx: event.clientX - start.x,
       width: start.width,
@@ -341,14 +363,8 @@ export function CollectionWritingReader({
       return;
     }
     if (!start.dragged) {
-      const edge = writingEdgeTap({
-        x: event.clientX - event.currentTarget.getBoundingClientRect().left,
-        width: start.width,
-      });
-      if (edge) {
-        turnFromGesture(edge);
-        return;
-      }
+      turnFromGesture(start.zone);
+      return;
     }
     setDragDx(0);
   };
