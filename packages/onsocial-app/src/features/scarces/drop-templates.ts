@@ -65,9 +65,9 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     id: 'writing',
     label: 'Writing',
     helpTitle: 'Writing drop',
-    tagline: 'Capped copies of a book, essay, or poem.',
+    tagline: 'Capped copies of a book or issue.',
     hint:
-      'Good for ebooks, zines, and serialized essays. e.g. “Field Notes Vol. 1” — 100 copies with a cover image. Tradable by default; lock to holder in Advanced if you want.',
+      'Good for books, zines, and ebooks. Write a single essay on your Writing shelf and list it. e.g. “Field Notes Vol. 1” — 100 copies with a cover image. Tradable by default; lock to holder in Advanced if you want.',
     kind: 'writing',
     unit: 'copies',
     unitSingular: 'copy',

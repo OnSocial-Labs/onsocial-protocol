@@ -25,7 +25,7 @@ export function scarceRowFormatLabel(input: ScarceRowKindInput): string | null {
   }
   if (medium === 'writing') {
     if (input.writingFormat === 'book') return 'Book';
-    if (input.writingFormat === 'article') return 'Article';
+    if (input.writingFormat === 'issue') return 'Issue';
     return 'Writing';
   }
   if (!medium) return null;

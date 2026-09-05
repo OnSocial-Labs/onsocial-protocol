@@ -7,6 +7,10 @@ import type { NearWalletBase } from '@hot-labs/near-connect';
 import type { ComposerSubmit } from '@/features/guilds/guild-composer-sheet';
 import { buildDaoPostProposalPayload } from '@/features/protocol/dao-post-proposal';
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
+import {
+  articleSnapshotExtra,
+  resolveComposerArticle,
+} from '@/lib/article-post-payload';
 import { postMetaFromText } from '@/features/home/post-mentions';
 import { placesMetaFromComposer } from '@/lib/post-place';
 import {
@@ -49,7 +53,11 @@ export async function submitDaoPostProposal(args: {
     payload.drop?.collectionId?.trim() || payload.drop?.tokenId?.trim()
       ? payload.drop
       : null;
-  if (!text && !files.length && !drop) {
+  const article = resolveComposerArticle(
+    payload.article,
+    Boolean(drop) || Boolean(payload.poll)
+  );
+  if (!text && !files.length && !drop && !article) {
     return { confirmed: false, postId: null };
   }
 
@@ -85,8 +93,15 @@ export async function submitDaoPostProposal(args: {
       : commerceEmbed
         ? { embeds: [commerceEmbed] }
         : {}),
-    ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
-    ...(dropKind ? { kind: dropKind } : {}),
+    ...(drop
+      ? { x: dropSnapshotExtra(drop) }
+      : article
+        ? {
+            x: articleSnapshotExtra(article),
+            contentType: 'md' as const,
+          }
+        : {}),
+    ...(dropKind ? { kind: dropKind } : article ? { kind: 'longform' } : {}),
     ...contentLabels,
     ...(files.length ? { files } : {}),
   };

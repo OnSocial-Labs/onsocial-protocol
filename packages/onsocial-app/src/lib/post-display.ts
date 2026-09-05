@@ -365,6 +365,21 @@ export function formatPostPeekExcerpt(
   value: string,
   options?: { kind?: string | null; postId?: string }
 ): string {
+  const articleTitle = (() => {
+    try {
+      const parsed = JSON.parse(value) as {
+        x?: { onsocial?: { article?: { title?: unknown } } };
+      };
+      const title = parsed.x?.onsocial?.article?.title;
+      return typeof title === 'string' ? title.trim() : '';
+    } catch {
+      return '';
+    }
+  })();
+  if (articleTitle) {
+    return truncatePostPreview(articleTitle, POST_PEEK_EXCERPT_CHARS);
+  }
+
   const text = parsePostText(value).trim();
   if (text) {
     return truncatePostPreview(text, POST_PEEK_EXCERPT_CHARS);
@@ -406,4 +421,27 @@ export function postPreviewNeedsExpand(
   maxChars: number
 ): boolean {
   return normalizePostPreviewText(text).length > maxChars;
+}
+
+/**
+ * Kind pill on a feed card. Media speaks for itself; a titled article
+ * already has a title — do not stamp `longform`.
+ */
+export function postKindBadge(
+  kind: string | null | undefined,
+  hasPollEmbed = false
+): string | null {
+  const value = kind?.trim();
+  if (!value) return null;
+  if (
+    value === 'text' ||
+    value === 'image' ||
+    value === 'video' ||
+    value === 'audio' ||
+    value === 'longform'
+  ) {
+    return null;
+  }
+  if (hasPollEmbed && value === 'poll') return null;
+  return value;
 }

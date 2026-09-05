@@ -11,11 +11,14 @@ describe('scarceRowFormatLabel', () => {
     ).toBe('Single');
   });
 
-  it('maps writing medium and book/article formats', () => {
+  it('maps writing medium and book/issue formats', () => {
     expect(scarceRowFormatLabel({ mediumKind: 'writing' })).toBe('Writing');
     expect(
       scarceRowFormatLabel({ mediumKind: 'writing', writingFormat: 'book' })
     ).toBe('Book');
+    expect(
+      scarceRowFormatLabel({ mediumKind: 'writing', writingFormat: 'issue' })
+    ).toBe('Issue');
   });
 
   it('singularizes ticket and other filter labels', () => {

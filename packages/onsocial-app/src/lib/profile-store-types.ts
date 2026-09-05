@@ -57,7 +57,7 @@ export interface ProfileStoreDrop {
   /** NEP-177 `extra.kind` — Ticket, Audio, Writing, … */
   mediumKind?: string | null;
   audioFormat?: 'single' | 'album' | 'podcast' | null;
-  writingFormat?: 'article' | 'book' | null;
+  writingFormat?: 'issue' | 'book' | null;
   /** Clip on cover — show listen glyph (opens collection). */
   hasPlayable?: boolean;
   /** When the drop was created (ms) — relative time in action column. */

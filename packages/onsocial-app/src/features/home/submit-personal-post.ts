@@ -21,6 +21,10 @@ import {
 } from '@/features/scarces/drop-post-payload';
 import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
 import {
+  articleSnapshotExtra,
+  resolveComposerArticle,
+} from '@/lib/article-post-payload';
+import {
   applyMediaKindOverride,
   buildOptimisticMediaEntries,
   mediaKindFromFile,
@@ -85,6 +89,7 @@ function buildOptimisticPost(args: {
     closesAt?: number;
   } | null;
   drop: ComposerDropDraft | null;
+  article?: { title: string; align?: 'left' | 'center' | 'justify' } | null;
   files?: File[];
   places?: string[];
   contentLabels?: PostContentLabels;
@@ -97,6 +102,7 @@ function buildOptimisticPost(args: {
     target,
     pollEmbed,
     drop,
+    article,
     files,
     places,
     contentLabels,
@@ -104,8 +110,9 @@ function buildOptimisticPost(args: {
   const media = files?.length ? buildOptimisticMediaEntries(files) : undefined;
   const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
   const dropKind = dropPostKind(drop);
+  const articleExtra = article ? articleSnapshotExtra(article) : undefined;
   const mediaKind =
-    !pollEmbed && !drop && files?.length
+    !pollEmbed && !drop && !article && files?.length
       ? mediaKindFromFile(files[0]!)
       : undefined;
   const base: PostRow = {
@@ -121,7 +128,11 @@ function buildOptimisticPost(args: {
         : commerceEmbed
           ? { embeds: [commerceEmbed] }
           : {}),
-      ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
+      ...(drop
+        ? { x: dropSnapshotExtra(drop) }
+        : articleExtra
+          ? { x: articleExtra, contentType: 'md' }
+          : {}),
       ...(media ? { media } : {}),
       ...contentLabels,
     }),
@@ -137,6 +148,8 @@ function buildOptimisticPost(args: {
         ? { kind: 'poll' }
         : dropKind
           ? { kind: dropKind }
+          : article
+            ? { kind: 'longform' }
           : mediaKind
             ? { kind: mediaKind }
             : {}),
@@ -197,7 +210,11 @@ export async function submitPersonalPost(args: {
     mode === 'post' && payload.drop?.collectionId?.trim()
       ? payload.drop
       : null;
-  if (!text && !files.length && !drop) {
+  const article = resolveComposerArticle(
+    payload.article,
+    Boolean(drop) || Boolean(payload.poll)
+  );
+  if (!text && !files.length && !drop && !article) {
     return { confirmed: false, optimisticPost: null };
   }
   if (mode !== 'post' && !target) {
@@ -218,6 +235,7 @@ export async function submitPersonalPost(args: {
 
   const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
   const dropKind = dropPostKind(drop);
+  const articleExtra = article ? articleSnapshotExtra(article) : undefined;
   const bodyText = resolvedDropPostText(text, drop);
   const contentLabels = normalizeComposerContentLabels(payload);
 
@@ -240,8 +258,16 @@ export async function submitPersonalPost(args: {
           : commerceEmbed
             ? { embeds: [commerceEmbed] }
             : {}),
-        ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
-        ...(dropKind ? { kind: dropKind } : {}),
+        ...(drop
+          ? { x: dropSnapshotExtra(drop) }
+          : articleExtra
+            ? { x: articleExtra, contentType: 'md' as const }
+            : {}),
+        ...(dropKind
+          ? { kind: dropKind }
+          : article
+            ? { kind: 'longform' as const }
+            : {}),
         ...contentLabels,
         ...filePayload,
       },
@@ -324,6 +350,7 @@ export async function submitPersonalPost(args: {
       target,
       pollEmbed,
       drop,
+      article,
       files: files.length ? files : undefined,
       places: payload.places,
       contentLabels,

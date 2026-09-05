@@ -1,8 +1,9 @@
 /**
- * Writing drops — Article / Book manuscripts pinned as Markdown chapters
- * (Article may also use a single PDF). Books may attach one optional
+ * Writing drops — Issue / Book manuscripts pinned as Markdown chapters
+ * (Issue may also use a single PDF). Books may attach one optional
  * whole-book PDF for holder download (`bookPdf` on the manifesto — not a TOC chapter).
- * Manifesto format: `onsocial.writing.v1` (CID in metadata.extra).
+ * A titled Writing post listed from the shelf is `kind: writing` with no
+ * format (one chapter, no TOC). Manifesto format: `onsocial.writing.v1`.
  */
 
 /** Markdown / plain text chapter cap. */
@@ -27,7 +28,7 @@ const DROP_WRITING_CHAPTER_TEXT_MIMES = new Set([
   'text/plain',
 ]);
 
-export type WritingReleaseFormat = 'article' | 'book';
+export type WritingReleaseFormat = 'issue' | 'book';
 
 export interface ScarceReadableRef {
   cid: string;
@@ -42,6 +43,8 @@ export interface ScarceReadableMedia {
   title?: string;
   /** Raw IPFS CID when known (manifest / legacy). */
   cid?: string;
+  /** Inline chapter body (listed Writing post) — skip fetch when set. */
+  text?: string;
 }
 
 export interface WritingManifestV1 {
@@ -80,7 +83,7 @@ export function isDropWritingMime(mime: string, fileName?: string): boolean {
 
 /**
  * Chapter files for the reader TOC.
- * Book chapters are Markdown / plain text only; Article still allows a single PDF.
+ * Book chapters are Markdown / plain text only; Issue still allows a single PDF.
  */
 export function isDropWritingChapterMime(
   mime: string,
@@ -134,7 +137,7 @@ export function writingChaptersValid(
   format: WritingReleaseFormat,
   count: number
 ): boolean {
-  if (format === 'article') return count === 1;
+  if (format === 'issue') return count === 1;
   return count >= 2 && count <= DROP_WRITING_MAX_CHAPTERS;
 }
 
@@ -143,7 +146,7 @@ export function parseWritingFormat(
 ): WritingReleaseFormat | null {
   if (typeof raw !== 'string') return null;
   const key = raw.trim().toLowerCase();
-  if (key === 'article' || key === 'book') return key;
+  if (key === 'issue' || key === 'book') return key;
   return null;
 }
 
@@ -298,6 +301,37 @@ export function bookPdfFromManifest(
 }
 
 /** Section label on the collection page (tracks-style). */
+/** `author/post/{id}` on a listed Writing scarce. */
+export function parseSourcePostPath(
+  path: string
+): { author: string; postId: string } | null {
+  const trimmed = path.trim();
+  const match = trimmed.match(/^([^/]+)\/post\/([^/]+)$/);
+  if (!match?.[1] || !match[2]) return null;
+  return { author: match[1], postId: match[2] };
+}
+
+/** One-chapter readable from a titled Writing post (no manifesto). */
+export function readableFromPostBody(opts: {
+  path: string;
+  title?: string;
+  text: string;
+}): ScarceReadableMedia | null {
+  const text = opts.text.trim();
+  if (!text) return null;
+  const coords = parseSourcePostPath(opts.path);
+  const path = coords
+    ? `${coords.author}/post/${coords.postId}`
+    : opts.path.trim();
+  if (!path) return null;
+  return {
+    url: `post:${path}`,
+    mime: 'text/markdown',
+    ...(opts.title?.trim() ? { title: opts.title.trim() } : {}),
+    text,
+  };
+}
+
 export function writingReadingSectionLabel(chapterCount: number): string {
   const n = Number.isFinite(chapterCount) ? Math.max(0, Math.floor(chapterCount)) : 0;
   if (n <= 0) return 'Writing';

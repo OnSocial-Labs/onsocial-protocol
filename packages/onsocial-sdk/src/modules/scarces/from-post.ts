@@ -941,7 +941,9 @@ export class ScarcesFromPostApi {
       ? CARD_TITLE_LIMITS[opts.cardFormat]
       : TITLE_MAX;
     const title =
-      opts.title ?? (deriveTitle(text, autoTitleLimit) || `Post ${postId}`);
+      opts.title ??
+      extracted.articleTitle ??
+      (deriveTitle(text, autoTitleLimit) || `Post ${postId}`);
     // Only drop description when it would be byte-identical to the
     // title (true duplication). Anything else — even small differences
     // like a trailing tag or a second sentence — is signal worth
