@@ -12,6 +12,7 @@ import { ProfileSocialList } from '@/components/panels/profile-social-list';
 import { DiscoverTrendingProfilesSectionSkeleton } from '@/features/discover/discover-loading-skeleton';
 import {
   MovingChipPeekSection,
+  MovingCoverPeekSection,
   MovingHubPeekSection,
   MovingPostPeekSection,
   MovingProposalPeekSection,
@@ -36,7 +37,7 @@ import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-globa
 import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
-import { protocolPath } from '@/lib/app-routes';
+import { dropsPath, protocolPath } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
 import {
@@ -50,6 +51,7 @@ import type {
 import {
   discoverProposalHref,
   discoverTrendingFilterQuery,
+  filterTrendingDrops,
   filterTrendingHubs,
   filterTrendingPlaces,
   filterTrendingPosts,
@@ -59,6 +61,10 @@ import {
   filterTrendingTopics,
 } from '@/lib/discover-trending-filter';
 import { rankHubPeeks } from '@/features/discover/discover-community-ranking';
+import {
+  fetchJustSoldScarcePeeks,
+  type DiscoverScarcePeek,
+} from '@/features/discover/discover-scarce-peeks';
 import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about';
 import {
   isMovingLandingPainted,
@@ -74,8 +80,8 @@ const SECTION_LIMIT = 6;
 const ACTIVE_POST_POOL = 24;
 
 /**
- * Default Discover landing: what's moving — heat, talk, last mention, people.
- * Lifetime Topics / Tickers / Drops live on those tabs. This page is a peek.
+ * Default Discover landing: what's moving — heat, talk, last sale, mention, people.
+ * Lifetime Topics / Tickers / Most traded live on those tabs. This page is a peek.
  * Sections settle independently; an empty first seed keeps skeletons reserved.
  */
 export function DiscoverTrendingPanel({
@@ -113,6 +119,9 @@ export function DiscoverTrendingPanel({
   const [talkedAbout, setTalkedAbout] = useState<PostRow[] | null>(() =>
     movingSectionFromSeed(initial?.talkedAbout, paintedSeed)
   );
+  const [justSold, setJustSold] = useState<DiscoverScarcePeek[] | null>(() =>
+    movingSectionFromSeed(initial?.justSold, paintedSeed)
+  );
   const [proposals, setProposals] = useState<GovernanceEventRow[] | null>(() =>
     movingSectionFromSeed(initial?.proposals, paintedSeed)
   );
@@ -136,6 +145,7 @@ export function DiscoverTrendingPanel({
       setHubs(null);
       setPosts(null);
       setTalkedAbout(null);
+      setJustSold(null);
       setProposals(null);
     }
 
@@ -153,6 +163,12 @@ export function DiscoverTrendingPanel({
     void fetchTalkedAboutPosts(client, SECTION_LIMIT).then((rows) => {
       if (cancelled) return;
       setTalkedAbout(rows);
+      hasPaintedRef.current = true;
+    });
+
+    void fetchJustSoldScarcePeeks(client, SECTION_LIMIT).then((rows) => {
+      if (cancelled) return;
+      setJustSold(rows);
       hasPaintedRef.current = true;
     });
 
@@ -338,6 +354,10 @@ export function DiscoverTrendingPanel({
       talkedAbout == null ? null : filterTrendingPosts(talkedAbout, query),
     [query, talkedAbout]
   );
+  const visibleJustSold = useMemo(
+    () => (justSold == null ? null : filterTrendingDrops(justSold, query)),
+    [justSold, query]
+  );
   const visibleMentions = useMemo(() => {
     if (
       visibleTopics == null ||
@@ -387,6 +407,7 @@ export function DiscoverTrendingPanel({
     visibleHubs !== null &&
     visiblePosts !== null &&
     visibleTalkedAbout !== null &&
+    visibleJustSold !== null &&
     visibleMentions !== null &&
     visibleProposals !== null;
   const empty =
@@ -396,6 +417,7 @@ export function DiscoverTrendingPanel({
     visibleHubs.length === 0 &&
     visiblePosts.length === 0 &&
     visibleTalkedAbout.length === 0 &&
+    visibleJustSold.length === 0 &&
     visibleProposals.length === 0;
   const anyLoading =
     visibleTickers === null ||
@@ -405,6 +427,7 @@ export function DiscoverTrendingPanel({
     visibleHubs === null ||
     visiblePosts === null ||
     visibleTalkedAbout === null ||
+    visibleJustSold === null ||
     visibleMentions === null ||
     visibleProposals === null;
 
@@ -444,6 +467,12 @@ export function DiscoverTrendingPanel({
         heading="Talked about"
         why="talk"
         rows={visibleTalkedAbout}
+      />
+      <MovingCoverPeekSection
+        heading="Just sold"
+        seeAllHref={dropsPath({ sort: 'traded' })}
+        kind="sold"
+        rows={visibleJustSold}
       />
 
       <MovingChipPeekSection heading="Mentioned" rows={visibleMentions} />

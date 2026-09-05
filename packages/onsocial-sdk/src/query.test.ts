@@ -3856,6 +3856,48 @@ describe('QueryModule', () => {
       expect(body.query).toMatch(/buyerId: \{_eq: \$buyerId\}/);
     });
 
+    it('recentCollectionSales merges the trade-stats sale set, newest first', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesEvents: [] } });
+      await os.query.scarces.recentCollectionSales({ limit: 24 });
+
+      expect(fetch.mock.calls).toHaveLength(4);
+      const bodies = fetch.mock.calls.map((call) =>
+        JSON.parse((call[1] as RequestInit).body as string)
+      );
+      expect(bodies).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              eventType: 'SCARCE_UPDATE',
+              operation: ['purchase', 'auction_settled'],
+              limit: 24,
+            }),
+          }),
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              eventType: 'LAZY_LISTING_UPDATE',
+              operation: ['purchased'],
+              limit: 24,
+            }),
+          }),
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              eventType: 'COLLECTION_UPDATE',
+              operation: ['purchase'],
+              limit: 24,
+            }),
+          }),
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              eventType: 'OFFER_UPDATE',
+              operation: ['offer_accepted', 'collection_offer_accepted'],
+              limit: 24,
+            }),
+          }),
+        ])
+      );
+    });
+
     it('recentSales merges native purchases and lazy purchased', async () => {
       const { os, fetch } = makeOs({ data: { scarcesEvents: [] } });
       await os.query.scarces.recentSales({ limit: 12 });

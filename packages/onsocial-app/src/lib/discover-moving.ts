@@ -22,6 +22,7 @@ export function isMovingLandingPainted(
         hubs?: readonly unknown[] | null;
         posts?: readonly unknown[] | null;
         talkedAbout?: readonly unknown[] | null;
+        justSold?: readonly unknown[] | null;
         proposals?: readonly unknown[] | null;
       }
     | null
@@ -36,6 +37,7 @@ export function isMovingLandingPainted(
     (seed.hubs?.length ?? 0) > 0 ||
     (seed.posts?.length ?? 0) > 0 ||
     (seed.talkedAbout?.length ?? 0) > 0 ||
+    (seed.justSold?.length ?? 0) > 0 ||
     (seed.proposals?.length ?? 0) > 0
   );
 }
@@ -210,6 +212,40 @@ export function mergeMovingMentions(
     (a, b) => b.lastBlock - a.lastBlock || a.id.localeCompare(b.id)
   );
   return rows.slice(0, limit);
+}
+
+export type JustSoldRef = {
+  collectionId: string;
+  appId: string | null;
+  lastSaleTimestamp: number;
+};
+
+/**
+ * First sale per drop, newest first — Moving Just sold is last sale,
+ * not lifetime volume.
+ */
+export function justSoldCollectionRefs(
+  sales: Array<{
+    collectionId?: string | null;
+    appId?: string | null;
+    blockTimestamp?: number | null;
+  }>,
+  limit = 6
+): JustSoldRef[] {
+  const seen = new Set<string>();
+  const out: JustSoldRef[] = [];
+  for (const row of sales) {
+    const id = row.collectionId?.trim() ?? '';
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      collectionId: id,
+      appId: row.appId?.trim() || null,
+      lastSaleTimestamp: Number(row.blockTimestamp) || 0,
+    });
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 
 export function orderPostsByRefs(

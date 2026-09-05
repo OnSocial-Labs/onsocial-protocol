@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isMovingLandingPainted,
+  justSoldCollectionRefs,
   mergeMovingMentions,
   movingChipCountLabel,
   movingPostHeatLabel,
@@ -140,6 +141,23 @@ describe('discover-moving', () => {
     ).toBe('/@alice.near/posts/root-1?reply=r1');
   });
 
+  it('keeps the newest sale per drop', () => {
+    expect(
+      justSoldCollectionRefs(
+        [
+          { collectionId: 'dawn', appId: 'radio.near', blockTimestamp: 30 },
+          { collectionId: 'dusk', appId: 'shop.near', blockTimestamp: 20 },
+          { collectionId: 'dawn', appId: 'radio.near', blockTimestamp: 10 },
+          { collectionId: '', blockTimestamp: 40 },
+        ],
+        2
+      )
+    ).toEqual([
+      { collectionId: 'dawn', appId: 'radio.near', lastSaleTimestamp: 30 },
+      { collectionId: 'dusk', appId: 'shop.near', lastSaleTimestamp: 20 },
+    ]);
+  });
+
   it('mixes last-mentioned topics, tickers, and places without counts', () => {
     expect(
       mergeMovingMentions(
@@ -203,6 +221,7 @@ describe('moving landing paint', () => {
         hubs: [],
         posts: [],
         talkedAbout: [],
+        justSold: [],
         proposals: [],
       })
     ).toBe(false);

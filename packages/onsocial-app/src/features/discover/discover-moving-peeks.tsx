@@ -175,7 +175,7 @@ export function MovingCoverPeekSection({
 }: {
   heading: string;
   seeAllHref: string;
-  kind: 'traded' | 'loved';
+  kind: 'traded' | 'loved' | 'sold';
   rows: DiscoverScarcePeek[] | null;
 }) {
   if (rows === null) {
@@ -188,7 +188,12 @@ export function MovingCoverPeekSection({
       <ul className="discover-cover-peeks">
         {rows.map((scarce) => {
           const title = scarce.title?.trim() || scarce.collectionId;
-          const signal = movingScarceSignalLabel(kind, scarce.signalCount);
+          const signal =
+            kind === 'sold'
+              ? scarce.lastSaleTimestamp
+                ? formatRelativePostTimestamp(scarce.lastSaleTimestamp)
+                : null
+              : movingScarceSignalLabel(kind, scarce.signalCount);
           const meta = signal || scarce.appId?.trim() || null;
           return (
             <li key={`${heading}-${scarce.collectionId}`}>

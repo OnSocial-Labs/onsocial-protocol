@@ -617,6 +617,45 @@ export class ScarcesQuery {
   }
 
   /**
+   * Last sales across the same event set as `scarces_collections_trade_stats`,
+   * newest first. Reads `scarces_events` — not the lifetime volume rollup —
+   * so a sale shows as soon as the sink writes it.
+   */
+  async recentCollectionSales(
+    opts: { limit?: number } = {}
+  ): Promise<ScarcesEventRow[]> {
+    const limit = opts.limit ?? 24;
+    const [native, lazy, collection, offers] = await Promise.all([
+      this.events({
+        eventType: SCARCES_EVENT_TYPES.SCARCE,
+        operation: [...PURCHASE_OPS, ...AUCTION_SETTLE_OPS],
+        limit,
+      }),
+      this.events({
+        eventType: SCARCES_EVENT_TYPES.LAZY_LISTING,
+        operation: LAZY_PURCHASE_OPS,
+        limit,
+      }),
+      this.events({
+        eventType: SCARCES_EVENT_TYPES.COLLECTION,
+        operation: COLLECTION_PURCHASE_OPS,
+        limit,
+      }),
+      this.events({
+        eventType: SCARCES_EVENT_TYPES.OFFER,
+        operation: [...OFFER_ACCEPTED_OPS, 'collection_offer_accepted'],
+        limit,
+      }),
+    ]);
+    return [...native, ...lazy, ...collection, ...offers]
+      .sort(
+        (a, b) =>
+          b.blockTimestamp - a.blockTimestamp || b.blockHeight - a.blockHeight
+      )
+      .slice(0, limit);
+  }
+
+  /**
    * Creator payout events — primary lazy/collection purchases plus secondary
    * `royalty_paid` rows where `creatorId` matches. Newest first. Prefer
    * `creatorPayment` on each row when summing earnings.

@@ -333,6 +333,8 @@ CREATE INDEX IF NOT EXISTS idx_scarces_events_buyer ON scarces_events(buyer_id);
 CREATE INDEX IF NOT EXISTS idx_scarces_events_seller ON scarces_events(seller_id);
 CREATE INDEX IF NOT EXISTS idx_scarces_events_listing ON scarces_events(listing_id);
 CREATE INDEX IF NOT EXISTS idx_scarces_events_type_op ON scarces_events(event_type, operation);
+CREATE INDEX IF NOT EXISTS idx_scarces_events_type_op_block
+  ON scarces_events(event_type, operation, block_height DESC);
 CREATE INDEX IF NOT EXISTS idx_scarces_events_account ON scarces_events(account_id);
 CREATE INDEX IF NOT EXISTS idx_scarces_events_app ON scarces_events(app_id);
 CREATE INDEX IF NOT EXISTS idx_scarces_events_creator ON scarces_events(creator_id);

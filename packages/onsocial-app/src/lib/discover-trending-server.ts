@@ -6,6 +6,10 @@ import type {
   TickerCount,
 } from '@onsocial/sdk';
 import { rankHubPeeks } from '@/features/discover/discover-community-ranking';
+import {
+  fetchJustSoldScarcePeeks,
+  type DiscoverScarcePeek,
+} from '@/features/discover/discover-scarce-peeks';
 import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about';
 import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
@@ -50,6 +54,7 @@ export type DiscoverTrendingSeed = {
   hubs: DiscoverTrendingHub[];
   posts: PostRow[];
   talkedAbout: PostRow[];
+  justSold: DiscoverScarcePeek[];
   proposals: GovernanceEventRow[];
 };
 
@@ -102,6 +107,7 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
       hubs,
       posts,
       talkedAbout,
+      justSold,
       proposals,
     ] = await Promise.all([
       os.query.tickers
@@ -123,6 +129,7 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
       rankHubPeeks(os, { peekLimit: SECTION_LIMIT }),
       loadHotPosts(os),
       fetchTalkedAboutPosts(os, SECTION_LIMIT),
+      fetchJustSoldScarcePeeks(os, SECTION_LIMIT),
       os.query.governance
         .recentProposals({ limit: SECTION_LIMIT })
         .catch(() => [] as GovernanceEventRow[]),
@@ -138,6 +145,7 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
       hubs,
       posts,
       talkedAbout,
+      justSold,
       proposals,
     };
   } catch {
