@@ -71,33 +71,21 @@ export function CollectionWritingReader({
   >({ status: 'idle' });
 
   const nextKey = readablesKey(readables);
+  if (nextKey !== listKey) {
+    setListKey(nextKey);
+    setChapterIndex(readWritingChapterIndex(collectionId, accountId));
+    setChapterRatio(0);
+    setFetchState({ status: 'idle' });
+    setTocOpen(false);
+  }
+
   const safeIndex = Math.min(
     chapterIndex,
     Math.max(0, readables.length - 1)
   );
-
-  useEffect(() => {
-    if (nextKey === listKey) {
-      if (chapterIndex !== safeIndex && readables.length > 0) {
-        setChapterIndex(safeIndex);
-      }
-      return;
-    }
-    setListKey(nextKey);
-    setChapterIndex(readWritingChapterIndex(collectionId, accountId));
-    chapterRatioRef.current = 0;
-    setChapterRatio(0);
-    setFetchState({ status: 'idle' });
-    setTocOpen(false);
-  }, [
-    accountId,
-    chapterIndex,
-    collectionId,
-    listKey,
-    nextKey,
-    readables.length,
-    safeIndex,
-  ]);
+  if (chapterIndex !== safeIndex && readables.length > 0) {
+    setChapterIndex(safeIndex);
+  }
   const chapter = readables[safeIndex] ?? null;
   const chapterIsPdf = chapter
     ? isWritingPdfMime(chapter.mime, chapter.title)
@@ -137,6 +125,10 @@ export function CollectionWritingReader({
   }, [collectionId, accountId, safeIndex]);
 
   useEffect(() => {
+    chapterRatioRef.current = chapterRatio;
+  }, [chapterRatio]);
+
+  useEffect(() => {
     onProgress?.(
       writingObjectProgress({
         chapterIndex: safeIndex,
@@ -151,7 +143,6 @@ export function CollectionWritingReader({
     const next = Math.min(readables.length - 1, Math.max(0, nextIndex));
     if (next === safeIndex) return;
     setChapterIndex(next);
-    chapterRatioRef.current = 0;
     setChapterRatio(0);
     setTocOpen(false);
   };
@@ -195,13 +186,11 @@ export function CollectionWritingReader({
       if (max <= 0) {
         lastScrollTopRef.current = 0;
         // Fully visible chapter — count it finished so the book bar stays honest.
-        chapterRatioRef.current = 1;
         setChapterRatio(1);
         return;
       }
       el.scrollTop = ratio * max;
       lastScrollTopRef.current = el.scrollTop;
-      chapterRatioRef.current = ratio;
       setChapterRatio(ratio);
     };
     apply();
