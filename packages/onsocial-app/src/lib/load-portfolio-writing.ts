@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { isArticlePost } from '@/lib/article-post-payload';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
@@ -7,7 +7,6 @@ import { fetchPersonalPost } from '@/lib/fetch-personal-post';
 import { fetchPublicPageData } from '@/lib/page-data';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
-import { writingPath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
 import { loadProfileShell } from '@/lib/profile-shell';
 import { resolveAccountId } from '@/lib/resolve-account';
@@ -23,7 +22,7 @@ export type PortfolioWritingPageData = {
 };
 
 export type PortfolioWritingArticlePageData = PortfolioWritingPageData & {
-  post: PostRow;
+  post: PostRow | null;
 };
 
 export const fetchAccountArticles = cache(
@@ -80,13 +79,10 @@ export async function loadPortfolioWritingArticlePage(
     Promise.resolve({ accountId: resolved.accountId })
   );
   const postId = decodeURIComponent(resolved.postId ?? '').trim();
-  if (!postId) {
-    redirect(writingPath(accountId));
-  }
-
   const [page, post] = await Promise.all([
     loadPortfolioWritingForAccount(accountId),
     (async () => {
+      if (!postId) return null;
       try {
         const os = createServerOnSocialClient();
         return await fetchPersonalPost({ author: accountId, postId }, os);
@@ -96,9 +92,8 @@ export async function loadPortfolioWritingArticlePage(
     })(),
   ]);
 
-  if (!post || !isArticlePost(post)) {
-    redirect(writingPath(accountId));
-  }
-
-  return { ...page, post };
+  return {
+    ...page,
+    post: post && isArticlePost(post) ? post : null,
+  };
 }

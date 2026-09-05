@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { accountIdsEqual } from '@/lib/account-match';
-import { isArticlePost, shouldShowWritingLink } from '@/lib/article-post-payload';
+import {
+  isArticlePost,
+  shouldShowWritingLink,
+} from '@/lib/article-post-payload';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { writingPath } from '@/lib/overlay-routes';
 
@@ -15,17 +18,16 @@ function useAccountHasArticles(
   accountId: string,
   enabled: boolean
 ): boolean | null {
-  const [hasArticles, setHasArticles] = useState<boolean | null>(() =>
-    enabled ? (presenceCache.get(accountId) ?? null) : null
-  );
+  const cached = enabled ? (presenceCache.get(accountId) ?? null) : null;
+  const [fetched, setFetched] = useState<{
+    id: string;
+    value: boolean;
+  } | null>(null);
+  const resolved =
+    cached ?? (fetched?.id === accountId ? fetched.value : null);
 
   useEffect(() => {
-    if (!enabled) return;
-    const cached = presenceCache.get(accountId);
-    if (cached != null) {
-      setHasArticles(cached);
-      return;
-    }
+    if (!enabled || presenceCache.has(accountId)) return;
     let cancelled = false;
     const client = createReadOnlyOnSocialClient();
     void client.query.feed
@@ -37,17 +39,17 @@ function useAccountHasArticles(
       .then((page) => {
         const next = page.items.some(isArticlePost);
         presenceCache.set(accountId, next);
-        if (!cancelled) setHasArticles(next);
+        if (!cancelled) setFetched({ id: accountId, value: next });
       })
       .catch(() => {
-        if (!cancelled) setHasArticles(false);
+        if (!cancelled) setFetched({ id: accountId, value: false });
       });
     return () => {
       cancelled = true;
     };
   }, [accountId, enabled]);
 
-  return hasArticles;
+  return enabled ? resolved : null;
 }
 
 /** Face / About entry to the Writing shelf. Hidden for visitors with no articles. */
