@@ -50,6 +50,8 @@ import {
 } from '@/features/discover/discover-scarce-peeks';
 import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about';
 import {
+  excludeMovingFacesAlreadyShown,
+  excludeMovingHubsAlreadySold,
   isMovingLandingPainted,
   mergeMovingMentions,
   movingActivePeeks,
@@ -61,6 +63,7 @@ import {
 import { formatRelativePostTimestamp } from '@/lib/post-display';
 
 const SECTION_LIMIT = 6;
+const SCAN_POOL = 12;
 const ACTIVE_POST_POOL = 24;
 
 /**
@@ -168,7 +171,7 @@ export function DiscoverTrendingPanel({
         if (!cancelled && !soft) setPlaces([]);
       });
 
-    void rankHubPeeks(client, { peekLimit: SECTION_LIMIT })
+    void rankHubPeeks(client, { peekLimit: SCAN_POOL })
       .then((rows) => {
         if (cancelled) return;
         setHubs(rows);
@@ -201,14 +204,14 @@ export function DiscoverTrendingPanel({
     void client.query.feed
       .recent({ limit: ACTIVE_POST_POOL, section: 'posts' })
       .then(async (page) => {
-        const ids = recentPosterIds(page.items, SECTION_LIMIT);
+        const ids = recentPosterIds(page.items, SCAN_POOL);
         if (ids.length === 0) return [];
         const rows = await client.query.profiles.statsForAccounts(ids);
         const accounts = await discoverPageToProfileListAccounts(client, {
           profiles: rows,
           viewer: null,
         });
-        return movingActivePeeks(accounts, page.items, SECTION_LIMIT);
+        return movingActivePeeks(accounts, page.items, SCAN_POOL);
       })
       .then((next) => {
         if (cancelled) return;
@@ -236,14 +239,6 @@ export function DiscoverTrendingPanel({
     () => (places == null ? null : filterTrendingPlaces(places, query)),
     [places, query]
   );
-  const visibleProfiles = useMemo(
-    () => (profiles == null ? null : filterMovingActive(profiles, query)),
-    [profiles, query]
-  );
-  const visibleHubs = useMemo(
-    () => (hubs == null ? null : filterTrendingHubs(hubs, query)),
-    [hubs, query]
-  );
   const visiblePosts = useMemo(
     () => (posts == null ? null : filterTrendingPosts(posts, query)),
     [posts, query]
@@ -257,6 +252,21 @@ export function DiscoverTrendingPanel({
     () => (justSold == null ? null : filterTrendingDrops(justSold, query)),
     [justSold, query]
   );
+  const visibleProfiles = useMemo(() => {
+    if (profiles == null) return null;
+    return excludeMovingFacesAlreadyShown(
+      filterMovingActive(profiles, query),
+      visiblePosts ?? [],
+      visibleTalkedAbout ?? []
+    ).slice(0, SECTION_LIMIT);
+  }, [profiles, query, visiblePosts, visibleTalkedAbout]);
+  const visibleHubs = useMemo(() => {
+    if (hubs == null) return null;
+    return excludeMovingHubsAlreadySold(
+      filterTrendingHubs(hubs, query),
+      visibleJustSold ?? []
+    ).slice(0, SECTION_LIMIT);
+  }, [hubs, query, visibleJustSold]);
   const visibleMentions = useMemo(() => {
     if (
       visibleTopics == null ||

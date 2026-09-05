@@ -67,13 +67,17 @@ export function selectHotPosts(items: PostRow[], limit = 6): PostRow[] {
 /** Distinct authors in recency order — Moving Active is who just posted. */
 export function recentPosterIds(
   items: Array<Pick<PostRow, 'accountId'>>,
-  limit = 6
+  limit = 6,
+  exclude?: Iterable<string>
 ): string[] {
+  const skip = new Set(
+    [...(exclude ?? [])].map((id) => id.trim()).filter(Boolean)
+  );
   const seen = new Set<string>();
   const out: string[] = [];
   for (const row of items) {
     const id = row.accountId.trim();
-    if (!id || seen.has(id)) continue;
+    if (!id || seen.has(id) || skip.has(id)) continue;
     seen.add(id);
     out.push(id);
     if (out.length >= limit) break;
@@ -110,14 +114,15 @@ export function movingActivePeeks(
     avatarUrl?: string | null;
   }>,
   posts: Array<Pick<PostRow, 'accountId' | 'blockTimestamp'>>,
-  limit = 6
+  limit = 6,
+  exclude?: Iterable<string>
 ): MovingActivePeek[] {
   const times = firstPosterTimestamps(posts);
   const byId = new Map(
     accounts.map((row) => [row.accountId.trim(), row] as const)
   );
   const out: MovingActivePeek[] = [];
-  for (const id of recentPosterIds(posts, limit)) {
+  for (const id of recentPosterIds(posts, limit, exclude)) {
     const account = byId.get(id);
     if (!account) continue;
     const lastPost = times.get(id);
@@ -132,6 +137,55 @@ export function movingActivePeeks(
     });
   }
   return out;
+}
+
+/** Faces already on Hot or Talked about — Active should fill other people. */
+export function movingSeenFaceIds(
+  posts: Array<Pick<PostRow, 'accountId'>>,
+  replies: Array<Pick<PostRow, 'accountId'>>
+): string[] {
+  return [
+    ...new Set(
+      [...posts, ...replies]
+        .map((row) => row.accountId.trim())
+        .filter((id) => id.length > 0)
+    ),
+  ];
+}
+
+export function excludeMovingFacesAlreadyShown<T extends { accountId: string }>(
+  faces: T[],
+  posts: Array<Pick<PostRow, 'accountId'>>,
+  replies: Array<Pick<PostRow, 'accountId'>>
+): T[] {
+  const skip = new Set(movingSeenFaceIds(posts, replies));
+  if (skip.size === 0) return faces;
+  return faces.filter((row) => !skip.has(row.accountId.trim()));
+}
+
+/** Hubs already represented by a Just sold drop — one object per scan. */
+export function excludeMovingHubsAlreadySold<
+  T extends { appId: string; title?: string | null },
+>(
+  hubs: T[],
+  sold: Array<{ appId?: string | null; title?: string | null }>
+): T[] {
+  const soldApps = new Set(
+    sold.map((row) => row.appId?.trim()).filter((id): id is string => Boolean(id))
+  );
+  const soldTitles = new Set(
+    sold
+      .map((row) => row.title?.trim().toLowerCase())
+      .filter((title): title is string => Boolean(title))
+  );
+  if (soldApps.size === 0 && soldTitles.size === 0) return hubs;
+  return hubs.filter((hub) => {
+    const appId = hub.appId.trim();
+    const title = hub.title?.trim().toLowerCase() || '';
+    if (appId && soldApps.has(appId)) return false;
+    if (title && soldTitles.has(title)) return false;
+    return true;
+  });
 }
 
 export function orderRowsByAccountIds<T extends { accountId: string }>(

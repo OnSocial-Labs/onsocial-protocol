@@ -14,6 +14,8 @@ import {
   DiscoverTrendingGuildsSectionSkeleton,
 } from '@/features/discover/discover-loading-skeleton';
 import type { DiscoverScarcePeek } from '@/features/discover/discover-scarce-peeks';
+import { communityMonogram } from '@/components/community-cards/community-monogram';
+import { placeFallbackCoverStyle } from '@/components/community-cards/community-cover';
 import {
   APP_HOME_PATH,
   appPath,
@@ -61,6 +63,34 @@ export function MovingSectionHead({
         </button>
       ) : null}
     </div>
+  );
+}
+
+/** Always the full cover box — art when present, seeded mark when not. */
+function MovingCoverThumb({
+  src,
+  label,
+  seedId,
+}: {
+  src?: string | null;
+  label: string;
+  seedId: string;
+}) {
+  const art = src?.trim() || '';
+  if (art) {
+    return (
+      <span className="discover-cover-peek-thumb market-listing-thumb has-media">
+        <img src={art} alt="" />
+      </span>
+    );
+  }
+  return (
+    <span
+      className="discover-cover-peek-thumb market-listing-thumb discover-cover-peek-thumb--mark"
+      style={placeFallbackCoverStyle(seedId)}
+    >
+      <span className="discover-cover-peek-mark">{communityMonogram(label)}</span>
+    </span>
   );
 }
 
@@ -257,17 +287,11 @@ export function MovingCoverPeekSection({
                 href={collectionPath(scarce.collectionId)}
                 className="discover-cover-peek"
               >
-                <span
-                  className={`discover-cover-peek-thumb market-listing-thumb${
-                    scarce.coverUrl ? ' has-media' : ''
-                  }`}
-                >
-                  {scarce.coverUrl ? (
-                    <img src={scarce.coverUrl} alt="" />
-                  ) : (
-                    <span className="market-listing-thumb-fallback" />
-                  )}
-                </span>
+                <MovingCoverThumb
+                  src={scarce.coverUrl}
+                  label={title}
+                  seedId={scarce.collectionId}
+                />
                 <span className="discover-cover-peek-copy">
                   <span className="discover-cover-peek-title">{title}</span>
                   {meta ? (
@@ -310,17 +334,11 @@ export function MovingHubPeekSection({
           return (
             <li key={hub.appId}>
               <Link href={appPath(hub.appId)} className="discover-cover-peek">
-                <span
-                  className={`discover-cover-peek-thumb market-listing-thumb${
-                    hub.markUrl ? ' has-media' : ''
-                  }`}
-                >
-                  {hub.markUrl ? (
-                    <img src={hub.markUrl} alt="" />
-                  ) : (
-                    <span className="market-listing-thumb-fallback" />
-                  )}
-                </span>
+                <MovingCoverThumb
+                  src={hub.markUrl}
+                  label={title}
+                  seedId={hub.appId}
+                />
                 <span className="discover-cover-peek-copy">
                   <span className="discover-cover-peek-title">{title}</span>
                 </span>

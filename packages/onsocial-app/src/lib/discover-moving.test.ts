@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   collectionIdFromSaleEvent,
+  excludeMovingFacesAlreadyShown,
+  excludeMovingHubsAlreadySold,
   firstPosterTimestamps,
   isMovingLandingPainted,
   justSoldCollectionRefs,
   mergeMovingMentions,
   movingActivePeeks,
   movingChipCountLabel,
+  movingSeenFaceIds,
   movingProposalMeta,
   movingProposalStatusLabel,
   movingScarceSignalLabel,
@@ -66,6 +69,58 @@ describe('discover-moving', () => {
         2
       )
     ).toEqual(['alice.near', 'bob.near']);
+  });
+
+  it('skips faces already on the scan when filling Active', () => {
+    expect(
+      recentPosterIds(
+        [
+          post('alice.near', '1'),
+          post('bob.near', '2'),
+          post('cara.near', '3'),
+        ],
+        2,
+        ['alice.near']
+      )
+    ).toEqual(['bob.near', 'cara.near']);
+  });
+
+  it('drops Active faces already on Hot or Talked about', () => {
+    expect(movingSeenFaceIds([post('mira.near', 'h1')], [post('leo.near', 'r1')])).toEqual(
+      ['mira.near', 'leo.near']
+    );
+    expect(
+      excludeMovingFacesAlreadyShown(
+        [
+          { accountId: 'mira.near' },
+          { accountId: 'sam.near' },
+          { accountId: 'leo.near' },
+        ],
+        [post('mira.near', 'h1')],
+        [post('leo.near', 'r1')]
+      ).map((row) => row.accountId)
+    ).toEqual(['sam.near']);
+  });
+
+  it('drops hubs already on Just sold', () => {
+    expect(
+      excludeMovingHubsAlreadySold(
+        [
+          { appId: 'radio.near', title: 'Night Radio' },
+          { appId: 'press.near', title: 'Quiet Press' },
+        ],
+        [{ appId: 'radio.near', title: 'Dawn folio' }]
+      ).map((row) => row.appId)
+    ).toEqual(['press.near']);
+    expect(
+      excludeMovingHubsAlreadySold(
+        [
+          { appId: 'radio.near', title: 'Night Radio' },
+          { appId: 'press.near', title: 'Quiet Press' },
+        ],
+        [{ appId: null, title: 'Night Radio' }]
+      ).map((row) => row.appId)
+    ).toEqual(['press.near']);
   });
 
   it('keeps the first post time per author', () => {

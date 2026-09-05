@@ -12144,8 +12144,39 @@ a.os-surface-row {
 
   .discover-cover-peek-thumb.market-listing-thumb,
   .discover-trending-panel .discover-cover-peek-thumb.market-listing-thumb {
-    width: 2.75rem;
-    height: 2.75rem;
+    width: 3.5rem;
+    height: 3.5rem;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .discover-cover-peek-thumb--mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(
+        circle at var(--guild-fallback-spot-x, 40%)
+          var(--guild-fallback-spot-y, 30%),
+        color-mix(
+          in srgb,
+          var(--guild-fallback-accent, rgb(var(--fg-rgb) / 0.22)) 42%,
+          transparent
+        ),
+        transparent 58%
+      ),
+      linear-gradient(
+        145deg,
+        rgb(var(--fg-rgb) / 0.12),
+        rgb(var(--fg-rgb) / 0.04)
+      );
+  }
+
+  .discover-cover-peek-mark {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: rgb(var(--fg-rgb) / 0.72);
   }
 
   .discover-cover-peek-copy {

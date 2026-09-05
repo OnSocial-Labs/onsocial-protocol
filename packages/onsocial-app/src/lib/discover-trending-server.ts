@@ -14,6 +14,8 @@ import { fetchTalkedAboutPosts } from '@/features/discover/discover-talked-about
 import { discoverPageToProfileListAccounts } from '@/lib/discover-profiles';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import {
+  excludeMovingFacesAlreadyShown,
+  excludeMovingHubsAlreadySold,
   movingActivePeeks,
   orderProfileSearchByPosterIds,
   recentPosterIds,
@@ -24,6 +26,7 @@ import {
 /** Enough for Topics/Tickers tabs; movement peeks slice after ranking. */
 const TAB_CHIP_LIMIT = 24;
 const SECTION_LIMIT = 6;
+const SCAN_POOL = 12;
 const ACTIVE_POST_POOL = 24;
 
 export type DiscoverTrendingGuild = {
@@ -82,14 +85,14 @@ async function loadActivePosters(
       limit: ACTIVE_POST_POOL,
       section: 'posts',
     });
-    const ids = recentPosterIds(page.items, SECTION_LIMIT);
+    const ids = recentPosterIds(page.items, SCAN_POOL);
     if (ids.length === 0) return [];
     const rows = await os.query.profiles.statsForAccounts(ids);
     const accounts = await discoverPageToProfileListAccounts(os, {
       profiles: orderProfileSearchByPosterIds(rows, ids),
       viewer: null,
     });
-    return movingActivePeeks(accounts, page.items, SECTION_LIMIT);
+    return movingActivePeeks(accounts, page.items, SCAN_POOL);
   } catch {
     return [];
   }
@@ -128,7 +131,7 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
         .trending({ limit: SECTION_LIMIT, sort: 'recent' })
         .catch(() => [] as PlaceCount[]),
       loadActivePosters(os),
-      rankHubPeeks(os, { peekLimit: SECTION_LIMIT }),
+      rankHubPeeks(os, { peekLimit: SCAN_POOL }),
       loadHotPosts(os),
       fetchTalkedAboutPosts(os, SECTION_LIMIT),
       fetchJustSoldScarcePeeks(os, SECTION_LIMIT),
@@ -143,8 +146,15 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
       movingTickers,
       movingTopics,
       places,
-      profiles,
-      hubs,
+      profiles: excludeMovingFacesAlreadyShown(
+        profiles,
+        posts,
+        talkedAbout
+      ).slice(0, SECTION_LIMIT),
+      hubs: excludeMovingHubsAlreadySold(hubs, justSold).slice(
+        0,
+        SECTION_LIMIT
+      ),
       posts,
       talkedAbout,
       justSold,
