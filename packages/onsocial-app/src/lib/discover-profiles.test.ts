@@ -7,7 +7,27 @@ import {
   parseDiscoverProfileFilters,
 } from './discover-profiles';
 
+describe('discoverCraftPath', () => {
+  it('opens People Discover on the Profiles tab for that craft', () => {
+    expect(discoverCraftPath('live_music')).toBe(
+      '/discover?tab=profiles&face=people&craft=live_music'
+    );
+    expect(discoverCraftPath('#Writer')).toBe(
+      '/discover?tab=profiles&face=people&craft=writer'
+    );
+  });
+});
+
 describe('discover profile filters', () => {
+  it('parses a craft deep-link as People', () => {
+    expect(
+      parseDiscoverProfileFilters({
+        face: 'orgs',
+        craft: 'Live_Music',
+      })
+    ).toEqual({ face: 'people', craft: 'live_music' });
+  });
+
   it('parses face and industry from query params', () => {
     expect(
       parseDiscoverProfileFilters({
