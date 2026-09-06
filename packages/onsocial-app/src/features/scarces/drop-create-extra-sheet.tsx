@@ -47,7 +47,6 @@ export function DropCreateExtraSheet({
       onClosed={handleClosed}
       chrome="choice"
       label={title}
-      copy={hint}
       closeAriaLabel="Close"
       backdropLabel="Close"
       zIndex={SHEET_Z.list}
@@ -67,6 +66,9 @@ export function DropCreateExtraSheet({
         </OsSheetFooter>
       }
     >
+      {hint ? (
+        <p className="drop-create-extra-sheet-hint">{hint}</p>
+      ) : null}
       {children}
     </OsHugSheet>
   );
