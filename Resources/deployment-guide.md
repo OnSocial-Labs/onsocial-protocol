@@ -29,6 +29,8 @@ make test-all-contracts    # Run all tests
 
 Set `NETWORK` to `sandbox`, `testnet`, or `mainnet` in your commands.
 
+**Mainnet is not the product network yet.** Live contracts, missing accounts, deploy order, and Graph flip rules are locked in [mainnet-golive.md](mainnet-golive.md). Do not deploy `core` or flip clients to mainnet outside that plan.
+
 ### 4. Deploy Contract
 
 ```bash

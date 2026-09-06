@@ -4,6 +4,7 @@ Supplementary guides for developing and deploying OnSocial Protocol.
 
 ## Guides
 
+- **[Mainnet go-live](mainnet-golive.md)** — Locked plan. Mainnet is token + rewards + treasury until this says otherwise
 - **[Deployment Guide](deployment-guide.md)** — Deploy contracts with Docker
 - **[Make Targets](MAKE_TARGETS.md)** — Build, test, and utility targets
 

@@ -20,6 +20,7 @@ This project is in early development. The architecture and features are still ev
 
 - [NEAR Protocol Documentation](https://docs.near.org/)
 - [Project Resources & Guides](Resources/README.md)
+- [Mainnet go-live](Resources/mainnet-golive.md)
 - [Deployment Guide](Resources/deployment-guide.md)
 
 ## 💬 Questions & Community

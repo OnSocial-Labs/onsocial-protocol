@@ -124,6 +124,7 @@ examples/
 # Keep Resources documentation
 !Resources/MAKE_TARGETS.md
 !Resources/deployment-guide.md
+!Resources/mainnet-golive.md
 
 # Ignore contract internal docs
 contracts/**/*.md

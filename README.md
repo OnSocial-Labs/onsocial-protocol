@@ -77,6 +77,6 @@ Clients talk HTTP to the **gateway**. Indexed reads come from **Hasura/Postgres*
 
 ## Links
 
-[Contributing](CONTRIBUTING.md) · [Deployment](Resources/deployment-guide.md) · [Make targets](Resources/MAKE_TARGETS.md) · [Resources](Resources/README.md)
+[Contributing](CONTRIBUTING.md) · [Mainnet go-live](Resources/mainnet-golive.md) · [Deployment](Resources/deployment-guide.md) · [Make targets](Resources/MAKE_TARGETS.md) · [Resources](Resources/README.md)
 
 MIT — [LICENSE.md](LICENSE.md)
