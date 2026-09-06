@@ -1713,6 +1713,9 @@ export function MarketPagePanel({
           searchPlaceholder={
             shopMode ? marketCreatorSearchPlaceholder() : 'Search listings'
           }
+          searchAriaLabel={
+            shopMode ? marketCreatorSearchPlaceholder() : 'Search Market listings'
+          }
         />
       }
       actions={<MarketHeadingActions />}

@@ -17,6 +17,7 @@ interface MarketSearchHeadingProps {
   /** When false, search ignores input (loading shell). */
   interactive?: boolean;
   searchPlaceholder?: string;
+  searchAriaLabel?: string;
 }
 
 /** Search field only — same heading slot as Hubs. */
@@ -25,6 +26,7 @@ export function MarketSearchHeading({
   onListingQueryChange,
   interactive = true,
   searchPlaceholder = 'Search listings',
+  searchAriaLabel = 'Search Market listings',
 }: MarketSearchHeadingProps) {
   return (
     <OsAppChromeNavSearch
@@ -36,7 +38,7 @@ export function MarketSearchHeading({
       }
       placeholder={searchPlaceholder}
       clearAriaLabel="Clear search"
-      ariaLabel={searchPlaceholder}
+      ariaLabel={searchAriaLabel}
       idleClassName="discover-nav-search-field"
       leadingIcon={<ShopFillIcon className="search-field-icon" aria-hidden />}
     />
