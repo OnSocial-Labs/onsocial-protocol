@@ -456,16 +456,14 @@ export function filterHoldingsByMedium<
 export function holdingsMatchQuery(
   item: Pick<
     PortfolioHoldingPeek,
-    | 'title'
-    | 'kindLabel'
-    | 'actionLabel'
-    | 'tokenId'
-    | 'creatorId'
-    | 'collectionId'
-    | 'seriesId'
-    | 'seriesTitle'
-    | 'facets'
-  >,
+    'title' | 'kindLabel' | 'actionLabel' | 'tokenId'
+  > &
+    Partial<
+      Pick<
+        PortfolioHoldingPeek,
+        'creatorId' | 'collectionId' | 'seriesId' | 'seriesTitle' | 'facets'
+      >
+    >,
   query: string
 ): boolean {
   const q = query.trim().toLowerCase();

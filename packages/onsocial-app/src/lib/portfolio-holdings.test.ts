@@ -269,6 +269,7 @@ describe('holdingsMatchQuery', () => {
     actionLabel: 'Read',
     tokenId: 'quiet-hours:1',
     creatorId: 'alice.near',
+    collectionId: 'quiet-hours',
   };
 
   it('matches title, kind, action, token id, or creator', () => {
