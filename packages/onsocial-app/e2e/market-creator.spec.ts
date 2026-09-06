@@ -31,6 +31,12 @@ test.describe('market creator shop', () => {
     );
     await expect(page.getByPlaceholder('Search shop')).toBeVisible();
     await expect(page).toHaveTitle(/e2e\.market\.testnet.*Market/i);
+    await expect(page.getByRole('button', { name: /Open filter menu/ })).toHaveCount(
+      0
+    );
+    await expect(page.getByRole('button', { name: /Open sort menu/ })).toHaveCount(
+      0
+    );
   });
 
   test('SSR miss keeps the shop skeleton until drops settle', async ({
@@ -57,7 +63,11 @@ test.describe('market creator shop', () => {
     await expect(page.getByRole('link', { name: 'Open Quiet Print' })).toBeVisible();
     await expect(page.locator('[data-market-creator-group="live"]')).toBeVisible();
     await expect(page.locator('[data-market-creator-group="past"]')).toBeVisible();
+    await expect(page.getByText('Album · 2 NEAR')).toBeVisible();
+    await expect(page.getByText('Art · 2 NEAR')).toBeVisible();
+    await expect(page.getByText('Live ·')).toHaveCount(0);
     await expect(page.getByText('2 drops')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Open filter menu/ })).toBeVisible();
     await expect(page.locator('.app-drop-card')).toHaveCount(0);
     await expect(page.getByRole('tablist', { name: 'Listing type' })).toHaveCount(
       0

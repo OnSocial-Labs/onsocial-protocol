@@ -1720,25 +1720,27 @@ export function MarketPagePanel({
       }
       actions={<MarketHeadingActions />}
       toolbar={
-        <MarketListingToolbar
-          ready
-          listingFilter={shopListingFilter}
-          listingSort={listingSort}
-          medium={mediumFilter}
-          audioFormat={audioFormatFilter}
-          selectedFacets={selectedFacets}
-          facetMedium={facetMedium}
-          hideListingTypes={shopMode}
-          onListingFilterChange={setFilter}
-          onSortChange={setSort}
-          onMediumChange={setMediumFilter}
-          onAudioFormatChange={(format) =>
-            replaceDiscoveryParams({ audioFormat: format })
-          }
-          onFacetsChange={(facets) => replaceDiscoveryParams({ facets })}
-          onClear={() => setMediumFilter('all')}
-          onMenuOpenChange={setSortMenuOpen}
-        />
+        shopMode && (creatorEmpty || showListSkeleton) ? undefined : (
+          <MarketListingToolbar
+            ready
+            listingFilter={shopListingFilter}
+            listingSort={listingSort}
+            medium={mediumFilter}
+            audioFormat={audioFormatFilter}
+            selectedFacets={selectedFacets}
+            facetMedium={facetMedium}
+            hideListingTypes={shopMode}
+            onListingFilterChange={setFilter}
+            onSortChange={setSort}
+            onMediumChange={setMediumFilter}
+            onAudioFormatChange={(format) =>
+              replaceDiscoveryParams({ audioFormat: format })
+            }
+            onFacetsChange={(facets) => replaceDiscoveryParams({ facets })}
+            onClear={() => setMediumFilter('all')}
+            onMenuOpenChange={setSortMenuOpen}
+          />
+        )
       }
     >
       <div

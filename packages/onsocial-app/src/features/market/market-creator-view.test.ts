@@ -7,6 +7,7 @@ import {
   marketCreatorDocumentTitle,
   marketCreatorDropMatchesMedium,
   marketCreatorDropMatchesQuery,
+  marketCreatorDropMetaBits,
   marketCreatorBrowseLabel,
   marketCreatorEmptyCopy,
   marketCreatorScreenTitle,
@@ -110,6 +111,35 @@ describe('market creator view', () => {
     expect(
       marketCreatorShopActionLabel(drop({ collectionId: 'c', status: 'ended' }))
     ).toBe('Open');
+  });
+
+  it('uses house format labels and drops status when grouped', () => {
+    const night = drop({
+      collectionId: 'night',
+      title: 'Night Drive',
+      mediumKind: 'audio',
+      audioFormat: 'album',
+    });
+    expect(marketCreatorDropMetaBits(night)).toEqual([
+      'Live',
+      'Album',
+      '2 NEAR',
+    ]);
+    expect(marketCreatorDropMetaBits(night, { includeStatus: false })).toEqual([
+      'Album',
+      '2 NEAR',
+    ]);
+    expect(
+      marketCreatorDropMetaBits(
+        drop({
+          collectionId: 'quiet',
+          status: 'ended',
+          mediumKind: 'art',
+          priceNear: '0',
+        }),
+        { includeStatus: false }
+      )
+    ).toEqual(['Art', 'Free']);
   });
 
   it('groups live then past and matches shop search', () => {

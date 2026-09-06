@@ -2,32 +2,36 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
-import { collectionStatusLabel } from '@/features/scarces/collections-data';
 import {
+  OsSheetAction,
+  OsSheetActions,
+  osSheetActionClassName,
+} from '@onsocial/ui';
+import {
+  marketCreatorDropMetaBits,
   marketCreatorDropMintable,
   marketCreatorShopActionLabel,
 } from '@/features/market/market-creator-view';
 import { collectionPath } from '@/lib/app-routes';
+import { cn } from '@/lib/utils';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 
-/** Unlisted creator drop — same list row as Market listings. */
+/** Unlisted creator drop — same list row and action pill as Market listings. */
 export function MarketCreatorDropRow({
   drop,
   onMint,
+  showStatus = true,
 }: {
   drop: ProfileStoreDrop;
   onMint?: (drop: ProfileStoreDrop) => void;
+  showStatus?: boolean;
 }) {
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
   const showThumb = Boolean(drop.mediaUrl) && brokenMediaUrl !== drop.mediaUrl;
   const action = marketCreatorShopActionLabel(drop);
   const mintable = Boolean(onMint) && marketCreatorDropMintable(drop);
   const href = collectionPath(drop.collectionId);
-  const price =
-    drop.priceNear != null && drop.priceNear !== '0'
-      ? `${drop.priceNear} NEAR`
-      : 'Free';
+  const meta = marketCreatorDropMetaBits(drop, { includeStatus: showStatus });
 
   return (
     <div
@@ -59,24 +63,20 @@ export function MarketCreatorDropRow({
           <div className="market-listing-head">
             <p className="market-listing-title">{drop.title}</p>
           </div>
-          <p className="market-listing-meta">
-            <span>{collectionStatusLabel(drop.status)}</span>
-            {drop.mediumKind ? (
-              <span className="market-listing-own"> · {drop.mediumKind}</span>
-            ) : null}
-            <span> · {price}</span>
-          </p>
+          {meta.length > 0 ? (
+            <p className="market-listing-meta">{meta.join(' · ')}</p>
+          ) : null}
         </div>
       </Link>
       <div className="market-listing-action-col collectibles-holding-action-col">
-        {mintable ? (
-          <OsSheetActions
-            layout="row-compact"
-            tone="frosted-primary"
-            size="sm"
-            borderless
-            className="market-listing-action collectibles-holding-action"
-          >
+        <OsSheetActions
+          layout="row-compact"
+          tone="frosted-primary"
+          size="sm"
+          borderless
+          className="market-listing-action collectibles-holding-action"
+        >
+          {mintable ? (
             <OsSheetAction
               type="button"
               variant="primary"
@@ -86,17 +86,23 @@ export function MarketCreatorDropRow({
             >
               {action}
             </OsSheetAction>
-          </OsSheetActions>
-        ) : (
-          <Link
-            href={href}
-            scroll={false}
-            className="page-drawer-section-action collectibles-holding-action"
-            aria-label={`${action} ${drop.title}`}
-          >
-            {action}
-          </Link>
-        )}
+          ) : (
+            <Link
+              href={href}
+              scroll={false}
+              className={cn(
+                osSheetActionClassName,
+                'os-sheet-action--primary',
+                'is-ready'
+              )}
+              aria-label={`${action} ${drop.title}`}
+            >
+              <span className="os-sheet-action__shell">
+                <span className="os-sheet-action__label">{action}</span>
+              </span>
+            </Link>
+          )}
+        </OsSheetActions>
       </div>
     </div>
   );

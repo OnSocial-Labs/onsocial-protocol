@@ -82,6 +82,7 @@ export function MarketCreatorShop({
                     key={drop.collectionId}
                     drop={drop}
                     onMint={onMintDrop}
+                    showStatus={!showGroupLabels}
                   />
                 ))}
               </div>

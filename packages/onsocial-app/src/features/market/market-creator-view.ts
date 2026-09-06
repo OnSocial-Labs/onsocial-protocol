@@ -1,7 +1,9 @@
 import { collectionIdFromTokenId } from '@/features/market/market-listings';
+import { collectionStatusLabel } from '@/features/scarces/collections-data';
 import { APP_MARKET_PATH } from '@/lib/app-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
+import { scarceRowFormatLabel } from '@/lib/scarce-row-kind';
 
 export type MarketCreatorDropBucket = 'live' | 'upcoming' | 'past';
 
@@ -90,6 +92,31 @@ export function marketCreatorDropMintable(drop: ProfileStoreDrop): boolean {
 
 export function marketCreatorShopActionLabel(drop: ProfileStoreDrop): string {
   return marketCreatorDropMintable(drop) ? 'Mint' : 'Open';
+}
+
+export function marketCreatorDropPriceLabel(drop: ProfileStoreDrop): string {
+  return drop.priceNear != null && drop.priceNear !== '0'
+    ? `${drop.priceNear} NEAR`
+    : 'Free';
+}
+
+/** Deal line. Skip status when a Live / Upcoming / Past group already says it. */
+export function marketCreatorDropMetaBits(
+  drop: ProfileStoreDrop,
+  opts?: { includeStatus?: boolean }
+): string[] {
+  const bits: string[] = [];
+  if (opts?.includeStatus !== false) {
+    bits.push(collectionStatusLabel(drop.status));
+  }
+  const format = scarceRowFormatLabel({
+    mediumKind: drop.mediumKind,
+    audioFormat: drop.audioFormat ?? null,
+    writingFormat: drop.writingFormat ?? null,
+  });
+  if (format) bits.push(format);
+  bits.push(marketCreatorDropPriceLabel(drop));
+  return bits;
 }
 
 export function marketCreatorDropBucket(
