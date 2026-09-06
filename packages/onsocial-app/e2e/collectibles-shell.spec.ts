@@ -114,8 +114,8 @@ test.describe('collectibles shell', () => {
     await expect(
       chapterRow.getByRole('link', { name: /Read Chapter One/ })
     ).toBeVisible();
-    const aliceHeading = page.getByRole('button', { name: /alice\.near/ });
-    const bobHeading = page.getByRole('button', { name: /bob\.near/ });
+    const aliceHeading = page.locator('#collectibles-from-alice-near');
+    const bobHeading = page.locator('#collectibles-from-bob-near');
     await expect(aliceHeading).toBeVisible();
     await expect(aliceHeading).toContainText('3');
     await expect(bobHeading).toBeVisible();
@@ -248,6 +248,6 @@ test.describe('collectibles shell', () => {
     await expect(jump.first()).toBeVisible();
     await expect(jump.first().getByRole('option', { name: /finn\.near/ })).toBeVisible();
     await jump.first().getByRole('option', { name: /finn\.near/ }).click();
-    await expect(page.getByRole('button', { name: /finn\.near/ })).toBeInViewport();
+    await expect(page.locator('#collectibles-from-finn-near')).toBeInViewport();
   });
 });

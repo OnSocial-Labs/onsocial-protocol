@@ -41,6 +41,7 @@ function CreatorHeading({
 }) {
   const handle = creatorId ? fallbackLabel(creatorId) : 'Other';
   const name = face?.displayName?.trim() || handle;
+  const accessibleName = `${name}, ${dropCount}`;
   const inner = (
     <>
       {creatorId ? (
@@ -71,6 +72,7 @@ function CreatorHeading({
         className={className}
         onClick={onSelect}
         aria-pressed={selected}
+        aria-label={accessibleName}
       >
         {inner}
       </button>
@@ -98,6 +100,7 @@ function SeriesHeading({
   filterable: boolean;
   onSelect?: () => void;
 }) {
+  const accessibleName = `${title}, ${dropCount}`;
   const inner = (
     <>
       <span className="collectibles-library-heading-name">{title}</span>
@@ -119,6 +122,7 @@ function SeriesHeading({
         className={className}
         onClick={onSelect}
         aria-pressed={selected}
+        aria-label={accessibleName}
       >
         {inner}
       </button>
