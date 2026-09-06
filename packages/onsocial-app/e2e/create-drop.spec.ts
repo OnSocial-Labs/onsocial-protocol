@@ -70,11 +70,18 @@ test.describe('create drop', () => {
       page.locator('[data-drop-create-section="title"] #drop-create-title')
     ).toBeVisible();
     await expect(page.locator('.drop-create-stage')).toBeVisible();
+    await expect(page.locator('.drop-create-deal-line')).toBeVisible();
+    await expect(
+      page
+        .locator('[data-drop-create-section="deal"]')
+        .getByLabel('Total supply')
+    ).toBeVisible();
     await expect(
       page
         .locator('[data-drop-create-section="deal"]')
         .getByLabel('Price per edition in NEAR')
     ).toBeVisible();
+    await expect(page.locator('.drop-create-deal-sep')).toHaveText('·');
     await expect(page.getByRole('group', { name: 'Quick prices' })).toHaveCount(
       0
     );

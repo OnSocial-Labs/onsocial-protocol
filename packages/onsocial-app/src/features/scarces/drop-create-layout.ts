@@ -28,3 +28,14 @@ export function dropCreatePiecePickerClass(
     ? 'drop-cover-picker drop-studio-launch'
     : 'drop-cover-picker drop-create-piece';
 }
+
+/** Supply is a typed field on the deal line — not a studio/set note. */
+export function dropCreateDealShowsSupplyField({
+  isGeneratedSet,
+  isVariations,
+}: {
+  isGeneratedSet: boolean;
+  isVariations: boolean;
+}): boolean {
+  return !isGeneratedSet && !isVariations;
+}

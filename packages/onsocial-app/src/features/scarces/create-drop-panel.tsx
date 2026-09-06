@@ -128,6 +128,7 @@ import {
 } from '@/features/scarces/drop-form-draft';
 import {
   dropCreateBlurbOpen,
+  dropCreateDealShowsSupplyField,
   dropCreatePiecePickerClass,
   dropCreateScreenTitle,
 } from '@/features/scarces/drop-create-layout';
@@ -2341,6 +2342,10 @@ export function CreateDropPanel() {
   }, []);
 
   const blurbShown = dropCreateBlurbOpen(description, blurbOpen);
+  const dealShowsSupply = dropCreateDealShowsSupplyField({
+    isGeneratedSet,
+    isVariations,
+  });
 
   useEffect(() => {
     setCreateReady(true);
@@ -3212,59 +3217,51 @@ export function CreateDropPanel() {
         </div>
 
         <div className="drop-create-deal" data-drop-create-section="deal">
-          {isPinnedSet ? (
-            <div className="guild-field">
-              <DropFieldLabel
-                label="Supply"
-                infoKey="supplyPinned"
-                onOpenInfo={openFieldInfo}
-              />
-              <SuffixField
-                value={supplyInput}
-                onValueChange={(value) =>
-                  setSupplyInput(value.replace(/[^\d]/g, ''))
-                }
-                placeholder="1000"
-                aria-label="Total pieces in the pinned set"
-                suffix="pieces"
-                disabled={pending}
-              />
-            </div>
-          ) : isGeneratedSet ? (
-            <div className="guild-field">
-              <span className="sr-only">Supply</span>
-              <small>
-                Set in the studio — the piece count you generate becomes the
-                supply, 1 of each.
-              </small>
-            </div>
+          {isGeneratedSet ? (
+            <small>
+              Set in the studio — the piece count you generate becomes the
+              supply, 1 of each.
+            </small>
           ) : isVariations ? (
-            <div className="guild-field">
-              <span className="sr-only">Supply</span>
-              <small>
-                {variationFiles.length >= MIN_VARIATIONS
-                  ? `${variationFiles.length} pieces · 1 of each`
-                  : 'One piece per image — set by your upload.'}
-              </small>
-            </div>
-          ) : (
-            <div className="guild-field">
-              <span className="sr-only">Supply</span>
-              <SuffixField
-                value={supplyInput}
-                onValueChange={(value) =>
-                  setSupplyInput(value.replace(/[^\d]/g, ''))
-                }
-                placeholder="25"
-                aria-label="Total supply"
-                suffix={template.unit}
-                disabled={pending}
-              />
-            </div>
-          )}
-
-          <div className="guild-field">
-            <span className="sr-only">Price per {template.unitSingular}</span>
+            <small>
+              {variationFiles.length >= MIN_VARIATIONS
+                ? `${variationFiles.length} pieces · 1 of each`
+                : 'One piece per image — set by your upload.'}
+            </small>
+          ) : isPinnedSet ? (
+            <DropFieldLabel
+              label="Supply"
+              infoKey="supplyPinned"
+              onOpenInfo={openFieldInfo}
+            />
+          ) : null}
+          <div className="drop-create-deal-line">
+            {dealShowsSupply ? (
+              <>
+                <span className="sr-only">Supply</span>
+                <SuffixField
+                  value={supplyInput}
+                  onValueChange={(value) =>
+                    setSupplyInput(value.replace(/[^\d]/g, ''))
+                  }
+                  placeholder={isPinnedSet ? '1000' : '25'}
+                  aria-label={
+                    isPinnedSet
+                      ? 'Total pieces in the pinned set'
+                      : 'Total supply'
+                  }
+                  suffix={isPinnedSet ? 'pieces' : template.unit}
+                  chrome="soft"
+                  disabled={pending}
+                />
+                <span className="drop-create-deal-sep" aria-hidden>
+                  ·
+                </span>
+              </>
+            ) : null}
+            <span className="sr-only">
+              Price per {template.unitSingular}
+            </span>
             <AmountField
               value={priceInput}
               onValueChange={setPriceInput}
@@ -3272,6 +3269,7 @@ export function CreateDropPanel() {
               placeholder="1"
               aria-label={`Price per ${template.unitSingular} in NEAR`}
               unit="NEAR"
+              chrome="soft"
               disabled={pending}
             />
           </div>

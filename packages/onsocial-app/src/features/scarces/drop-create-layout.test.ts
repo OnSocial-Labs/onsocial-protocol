@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DROP_CREATE_SECTION_ORDER,
   dropCreateBlurbOpen,
+  dropCreateDealShowsSupplyField,
   dropCreatePiecePickerClass,
   dropCreateScreenTitle,
 } from '@/features/scarces/drop-create-layout';
@@ -44,5 +45,28 @@ describe('dropCreatePiecePickerClass', () => {
     expect(dropCreatePiecePickerClass('studio')).toBe(
       'drop-cover-picker drop-studio-launch'
     );
+  });
+});
+
+describe('dropCreateDealShowsSupplyField', () => {
+  it('keeps a typed supply except on generated or uploaded sets', () => {
+    expect(
+      dropCreateDealShowsSupplyField({
+        isGeneratedSet: false,
+        isVariations: false,
+      })
+    ).toBe(true);
+    expect(
+      dropCreateDealShowsSupplyField({
+        isGeneratedSet: true,
+        isVariations: true,
+      })
+    ).toBe(false);
+    expect(
+      dropCreateDealShowsSupplyField({
+        isGeneratedSet: false,
+        isVariations: true,
+      })
+    ).toBe(false);
   });
 });
