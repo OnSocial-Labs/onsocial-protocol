@@ -12,6 +12,11 @@ import {
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
+import {
+  fetchOwnedScarcesPage,
+  type OwnedScarceItem,
+} from '@/features/market/market-listings';
 import type { CollectionView } from '@/features/scarces/collections-data';
 import { groupSeriesDrops } from '@/features/scarces/series-catalog';
 import { SeriesEditSheet } from '@/features/scarces/series-edit-sheet';
@@ -20,10 +25,21 @@ import {
   seedSeriesBrandingCache,
   type SeriesBranding,
 } from '@/features/scarces/series-data';
+import {
+  heldCollectionIdSet,
+  ownedItemsInSeries,
+  peekHeldSeriesItems,
+  seriesPageBackHref,
+  seriesUseFirst,
+} from '@/features/scarces/series-page-view';
 import { StoreDropCard } from '@/features/scarces/store-catalog';
 import { accountIdsEqual } from '@/lib/account-match';
 import { APP_DROP_CREATE_PATH, marketCreatorPath } from '@/lib/app-routes';
-import { portfolioPath } from '@/lib/overlay-routes';
+import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
+import {
+  groupHoldingsForRail,
+  toPortfolioHoldingPeek,
+} from '@/lib/portfolio-holdings';
 
 interface SeriesPagePanelProps {
   creatorId: string;
@@ -37,7 +53,7 @@ interface SeriesPagePanelProps {
   drops: CollectionView[];
 }
 
-/** Public series page — brand-first catalog for a creator's drop line. */
+/** Public series page — use-first when held, shop catalog for visitors. */
 export function SeriesPagePanel({
   creatorId,
   seriesId,
@@ -50,6 +66,17 @@ export function SeriesPagePanel({
   const [branding, setBranding] = useState(initialBranding);
   const [editing, setEditing] = useState(false);
   const [nowMs] = useState(() => Date.now());
+  const collectionIds = useMemo(
+    () => drops.map((drop) => drop.collectionId).filter(Boolean),
+    [drops]
+  );
+  const holdMatch = useMemo(
+    () => ({ creatorId, seriesId, collectionIds }),
+    [collectionIds, creatorId, seriesId]
+  );
+  const [ownedInSeries, setOwnedInSeries] = useState<OwnedScarceItem[]>(() =>
+    peekHeldSeriesItems(accountId, holdMatch)
+  );
 
   useEffect(() => {
     seedSeriesBrandingCache(creatorId, seriesId, initialBranding);
@@ -67,14 +94,61 @@ export function SeriesPagePanel({
     };
   }, [creatorId, initialBranding, seriesId]);
 
+  useEffect(() => {
+    if (!accountId) {
+      queueMicrotask(() => setOwnedInSeries([]));
+      return;
+    }
+    const peeked = peekHeldSeriesItems(accountId, holdMatch);
+    if (peeked.length > 0) setOwnedInSeries(peeked);
+    let cancelled = false;
+    void fetchOwnedScarcesPage(accountId)
+      .then((page) => {
+        if (cancelled) return;
+        setOwnedInSeries(ownedItemsInSeries(page.items, holdMatch));
+      })
+      .catch(() => {
+        if (cancelled || peeked.length > 0) return;
+        setOwnedInSeries([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, holdMatch]);
+
   const isOwner = accountId != null && accountIdsEqual(accountId, creatorId);
+  const holdsEditionInSeries =
+    ownedInSeries.length > 0 ? true : accountId ? null : false;
+  const useFirst = seriesUseFirst({ isOwner, holdsEditionInSeries });
   const fallbackTitle = drops.find((drop) => drop.seriesTitle)?.seriesTitle;
   const title = branding?.title ?? fallbackTitle ?? seriesId;
   // Unbranded series inherit the creator's identity instead of a bare letter.
   const logoUrl = branding?.logoUrl ?? creatorAvatarUrl;
   const shopHref = marketCreatorPath(creatorId);
-  const dropCountLabel = `${drops.length} ${drops.length === 1 ? 'drop' : 'drops'}`;
-  const groups = useMemo(() => groupSeriesDrops(drops, nowMs), [drops, nowMs]);
+  const seriesBackHref = seriesPageBackHref({
+    useFirst,
+    viewerAccountId: accountId,
+    shopHref,
+  });
+  const vaultHref = accountId ? portfolioCollectiblesPath(accountId) : null;
+  const heldIds = useMemo(
+    () => heldCollectionIdSet(ownedInSeries),
+    [ownedInSeries]
+  );
+  const heldRows = useMemo(
+    () => groupHoldingsForRail(ownedInSeries.map(toPortfolioHoldingPeek)),
+    [ownedInSeries]
+  );
+  const storeDrops = useMemo(
+    () => drops.filter((drop) => !heldIds.has(drop.collectionId)),
+    [drops, heldIds]
+  );
+  const dropCount = drops.length > 0 ? drops.length : heldRows.length;
+  const dropCountLabel = `${dropCount} ${dropCount === 1 ? 'drop' : 'drops'}`;
+  const groups = useMemo(
+    () => groupSeriesDrops(storeDrops, nowMs),
+    [nowMs, storeDrops]
+  );
   const showSectionLabels = groups.length > 1;
   const creatorLabel = standingIdentityLabel(
     creatorId,
@@ -88,7 +162,7 @@ export function SeriesPagePanel({
       title={title}
       subtitle={dropCountLabel}
       dockBack
-      backFallbackHref={shopHref}
+      backFallbackHref={seriesBackHref}
       glassChrome
       actions={
         <>
@@ -108,7 +182,11 @@ export function SeriesPagePanel({
         </>
       }
     >
-      <div className="market-page series-page">
+      <div
+        className={`market-page series-page${useFirst ? ' is-use-first' : ''}`}
+        data-series-use-first={useFirst ? '' : undefined}
+        data-series-back={seriesBackHref}
+      >
         <header className="series-hero">
           <div className="series-hero-identity">
             <span className={`series-hero-logo${logoUrl ? ' has-media' : ''}`}>
@@ -155,9 +233,33 @@ export function SeriesPagePanel({
               Add a logo and story for this series
             </button>
           ) : null}
+          {useFirst && vaultHref ? (
+            <div className="series-use-actions">
+              <Link
+                href={vaultHref}
+                scroll={false}
+                className="collection-reading-open"
+              >
+                Open Collectibles
+              </Link>
+            </div>
+          ) : null}
         </header>
 
-        {drops.length > 0 ? (
+        {heldRows.length > 0 ? (
+          <div className="series-held-list market-listing-list" role="list">
+            {heldRows.map((item) => (
+              <CollectiblesHoldingRow
+                key={item.tokenId}
+                item={item}
+                editionCount={item.editionCount}
+                hideCreator
+              />
+            ))}
+          </div>
+        ) : null}
+
+        {storeDrops.length > 0 ? (
           <>
             <Divider variant="item" className="series-hero-divider" />
             <div className="series-catalog">
@@ -181,7 +283,9 @@ export function SeriesPagePanel({
               ))}
             </div>
           </>
-        ) : (
+        ) : null}
+
+        {storeDrops.length === 0 && heldRows.length === 0 ? (
           <div className="standing-panel-empty-block is-centered">
             <div className="standing-panel-empty-state">
               <p className="standing-panel-empty-primary">
@@ -203,7 +307,7 @@ export function SeriesPagePanel({
               ) : null}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       {isOwner ? (
