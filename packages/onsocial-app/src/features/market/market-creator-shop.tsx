@@ -26,7 +26,7 @@ export function MarketCreatorShop({
   const creatorLabel = standingIdentityLabel(creatorId, displayName).label;
 
   return (
-    <header className="market-creator-shop" data-market-creator-shop>
+    <header className="market-creator-shop">
       <div className="standing-row market-creator-shop-identity">
         <div className="standing-row-main">
           <Link

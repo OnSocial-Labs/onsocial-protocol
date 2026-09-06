@@ -12,9 +12,9 @@ test.describe('market creator shop', () => {
     await stubMarketCreatorShop(page, { drops: 'empty' });
     await gotoApp(page, SHOP_PATH);
 
-    await expect(page.locator('[data-market-creator-shop]')).toBeVisible({
-      timeout: E2E_CHROME_TIMEOUT_MS,
-    });
+    await expect(page.locator('[data-market-creator-shop]').first()).toBeVisible(
+      { timeout: E2E_CHROME_TIMEOUT_MS }
+    );
     await expect(
       page.getByRole('link', { name: `View @${CREATOR}'s profile` })
     ).toBeVisible();
@@ -34,9 +34,9 @@ test.describe('market creator shop', () => {
       catalogDelayMs: 2500,
     });
     await gotoApp(page, SHOP_PATH);
-    await expect(page.locator('[data-market-creator-shop]')).toBeVisible({
-      timeout: 8_000,
-    });
+    await expect(page.locator('[data-market-creator-shop]').first()).toBeVisible(
+      { timeout: 8_000 }
+    );
     await expect(page.locator('.market-listing-row--skeleton').first()).toBeVisible(
       { timeout: 8_000 }
     );

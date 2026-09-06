@@ -114,7 +114,6 @@ import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 import { APP_HOME_PATH, appPath } from '@/lib/app-routes';
 import {
   portfolioCollectiblesPath,
-  portfolioPath,
 } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
