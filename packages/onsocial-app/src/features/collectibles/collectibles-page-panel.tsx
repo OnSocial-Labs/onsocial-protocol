@@ -904,16 +904,10 @@ export function CollectiblesPagePanel({
           ownedByToken={ownedByToken}
           showCreatorHeadings={showCreatorHeadings}
           selectedCreator={creatorFilter}
-          selectedSeries={seriesFilter}
           creatorFaces={creatorFaces}
           onSelectCreator={(creatorKey) =>
             replaceDiscoveryParams({
               creator: creatorFilter === creatorKey ? null : creatorKey,
-            })
-          }
-          onSelectSeries={(seriesKey) =>
-            replaceDiscoveryParams({
-              series: seriesFilter === seriesKey ? null : seriesKey,
             })
           }
           renderOwnerMenu={

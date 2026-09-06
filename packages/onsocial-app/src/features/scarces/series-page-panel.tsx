@@ -17,7 +17,10 @@ import {
   fetchOwnedScarcesPage,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
-import type { CollectionView } from '@/features/scarces/collections-data';
+import {
+  fetchCollectionsByCreator,
+  type CollectionView,
+} from '@/features/scarces/collections-data';
 import { groupSeriesDrops } from '@/features/scarces/series-catalog';
 import { SeriesEditSheet } from '@/features/scarces/series-edit-sheet';
 import {
@@ -25,14 +28,17 @@ import {
   seedSeriesBrandingCache,
   type SeriesBranding,
 } from '@/features/scarces/series-data';
+import { SeriesPageSkeleton } from '@/features/scarces/series-page-skeleton';
 import {
   heldCollectionIdSet,
   ownedItemsInSeries,
   peekHeldSeriesItems,
+  seriesCatalogShell,
+  seriesDisplayTitle,
   seriesPageBackHref,
   seriesUseFirst,
 } from '@/features/scarces/series-page-view';
-import { StoreDropCard } from '@/features/scarces/store-catalog';
+import { SeriesShopRow } from '@/features/scarces/series-shop-row';
 import { accountIdsEqual } from '@/lib/account-match';
 import { APP_DROP_CREATE_PATH, marketCreatorPath } from '@/lib/app-routes';
 import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
@@ -66,9 +72,12 @@ export function SeriesPagePanel({
   const [branding, setBranding] = useState(initialBranding);
   const [editing, setEditing] = useState(false);
   const [nowMs] = useState(() => Date.now());
+  const ssrMiss = drops.length === 0;
+  const [catalog, setCatalog] = useState(drops);
+  const [catalogSettled, setCatalogSettled] = useState(!ssrMiss);
   const collectionIds = useMemo(
-    () => drops.map((drop) => drop.collectionId).filter(Boolean),
-    [drops]
+    () => catalog.map((drop) => drop.collectionId).filter(Boolean),
+    [catalog]
   );
   const holdMatch = useMemo(
     () => ({ creatorId, seriesId, collectionIds }),
@@ -115,6 +124,24 @@ export function SeriesPagePanel({
     };
   }, [accountId, holdKey, holdMatch]);
 
+  useEffect(() => {
+    if (!ssrMiss) return;
+    let cancelled = false;
+    void fetchCollectionsByCreator(creatorId, { limit: 48 })
+      .then((collections) => {
+        if (cancelled) return;
+        setCatalog(
+          collections.filter((view) => view.seriesId === seriesId)
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setCatalogSettled(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [creatorId, seriesId, ssrMiss]);
+
   const ownedInSeries =
     fetchedOwned?.key === holdKey
       ? fetchedOwned.items
@@ -123,8 +150,12 @@ export function SeriesPagePanel({
   const holdsEditionInSeries =
     ownedInSeries.length > 0 ? true : accountId ? null : false;
   const useFirst = seriesUseFirst({ isOwner, holdsEditionInSeries });
-  const fallbackTitle = drops.find((drop) => drop.seriesTitle)?.seriesTitle;
-  const title = branding?.title ?? fallbackTitle ?? seriesId;
+  const fallbackTitle = catalog.find((drop) => drop.seriesTitle)?.seriesTitle;
+  const title = seriesDisplayTitle({
+    brandingTitle: branding?.title,
+    dropSeriesTitle: fallbackTitle,
+    seriesId,
+  });
   // Unbranded series inherit the creator's identity instead of a bare letter.
   const logoUrl = branding?.logoUrl ?? creatorAvatarUrl;
   const shopHref = marketCreatorPath(creatorId);
@@ -143,10 +174,10 @@ export function SeriesPagePanel({
     [ownedInSeries]
   );
   const storeDrops = useMemo(
-    () => drops.filter((drop) => !heldIds.has(drop.collectionId)),
-    [drops, heldIds]
+    () => catalog.filter((drop) => !heldIds.has(drop.collectionId)),
+    [catalog, heldIds]
   );
-  const dropCount = drops.length > 0 ? drops.length : heldRows.length;
+  const dropCount = catalog.length > 0 ? catalog.length : heldRows.length;
   const dropCountLabel = `${dropCount} ${dropCount === 1 ? 'drop' : 'drops'}`;
   const groups = useMemo(
     () => groupSeriesDrops(storeDrops, nowMs),
@@ -159,6 +190,27 @@ export function SeriesPagePanel({
   ).label;
   const needsBrand =
     isOwner && !branding?.description?.trim() && !branding?.logo;
+  const catalogShell = seriesCatalogShell({
+    hasCatalog: catalog.length > 0,
+    hasHeld: heldRows.length > 0,
+    ssrMiss,
+    clientSettled: catalogSettled,
+  });
+
+  if (catalogShell === 'skeleton') {
+    return (
+      <OsAppScreen
+        title={title}
+        dockBack
+        backFallbackHref={seriesBackHref}
+        glassChrome
+      >
+        <div className="market-page">
+          <SeriesPageSkeleton />
+        </div>
+      </OsAppScreen>
+    );
+  }
 
   return (
     <OsAppScreen
@@ -275,13 +327,15 @@ export function SeriesPagePanel({
                   {showSectionLabels ? (
                     <p className="collection-section-label">{group.label}</p>
                   ) : null}
-                  <ul className="app-drop-list">
+                  <div className="market-listing-list" role="list">
                     {group.drops.map((drop) => (
-                      <li key={drop.collectionId}>
-                        <StoreDropCard view={drop} />
-                      </li>
+                      <SeriesShopRow
+                        key={drop.collectionId}
+                        view={drop}
+                        nowMs={nowMs}
+                      />
                     ))}
-                  </ul>
+                  </div>
                 </section>
               ))}
             </div>
@@ -319,7 +373,7 @@ export function SeriesPagePanel({
           creatorId={creatorId}
           seriesId={seriesId}
           branding={branding}
-          fallbackTitle={fallbackTitle ?? seriesId}
+          fallbackTitle={title}
           onClose={() => setEditing(false)}
           onSaved={setBranding}
         />

@@ -12,6 +12,47 @@ export type SeriesHoldMatch = {
   collectionIds: readonly string[];
 };
 
+/** Slug → title: `night-roads` → `Night Roads`. Leaves a real name alone. */
+export function humanizeSeriesId(seriesId: string): string {
+  const raw = seriesId.trim();
+  if (!raw) return raw;
+  if (/[\s]/.test(raw) && raw !== raw.toLowerCase()) return raw;
+  return raw
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/** Brand title, then stamped series title, then a humanized id. */
+export function seriesDisplayTitle(opts: {
+  brandingTitle?: string | null;
+  dropSeriesTitle?: string | null;
+  seriesId: string;
+}): string {
+  const branded = opts.brandingTitle?.trim();
+  if (branded) return branded;
+  const stamped = opts.dropSeriesTitle?.trim();
+  if (stamped) return stamped;
+  return humanizeSeriesId(opts.seriesId);
+}
+
+/** First paint after an SSR catalog miss — skeleton until the client settles. */
+export function seriesCatalogShell(opts: {
+  hasCatalog: boolean;
+  hasHeld: boolean;
+  ssrMiss: boolean;
+  clientSettled: boolean;
+}): 'ready' | 'skeleton' | 'empty' {
+  if (opts.hasCatalog || opts.hasHeld) return 'ready';
+  if (opts.ssrMiss && !opts.clientSettled) return 'skeleton';
+  return 'empty';
+}
+
+export function seriesShopActionLabel(status: string): string {
+  return status === 'live' ? 'Collect' : 'Open';
+}
+
 /** Creator or someone who holds an edition in this line. */
 export function seriesUseFirst(opts: {
   isOwner: boolean;

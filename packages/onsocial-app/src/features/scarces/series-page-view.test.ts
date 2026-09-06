@@ -5,10 +5,14 @@ import {
 } from '@/features/market/owned-vault-cache';
 import {
   heldCollectionIdSet,
+  humanizeSeriesId,
   ownedItemsInSeries,
   peekHeldSeriesItems,
   peekHoldsSeries,
+  seriesCatalogShell,
+  seriesDisplayTitle,
   seriesPageBackHref,
+  seriesShopActionLabel,
   seriesUseFirst,
 } from '@/features/scarces/series-page-view';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
@@ -31,6 +35,73 @@ const NIGHT_ROADS = {
 };
 
 describe('series page view', () => {
+  it('humanizes a slug and prefers brand then stamped title', () => {
+    expect(humanizeSeriesId('night-roads')).toBe('Night Roads');
+    expect(humanizeSeriesId('audit-series')).toBe('Audit Series');
+    expect(humanizeSeriesId('Ink Studies')).toBe('Ink Studies');
+    expect(
+      seriesDisplayTitle({
+        brandingTitle: 'Ink Studies',
+        dropSeriesTitle: 'Eggs',
+        seriesId: 'ink',
+      })
+    ).toBe('Ink Studies');
+    expect(
+      seriesDisplayTitle({
+        brandingTitle: null,
+        dropSeriesTitle: 'Eggs',
+        seriesId: 'eggs',
+      })
+    ).toBe('Eggs');
+    expect(
+      seriesDisplayTitle({
+        brandingTitle: null,
+        dropSeriesTitle: null,
+        seriesId: 'night-roads',
+      })
+    ).toBe('Night Roads');
+  });
+
+  it('keeps a skeleton on SSR miss until the client catalog settles', () => {
+    expect(
+      seriesCatalogShell({
+        hasCatalog: false,
+        hasHeld: false,
+        ssrMiss: true,
+        clientSettled: false,
+      })
+    ).toBe('skeleton');
+    expect(
+      seriesCatalogShell({
+        hasCatalog: true,
+        hasHeld: false,
+        ssrMiss: true,
+        clientSettled: true,
+      })
+    ).toBe('ready');
+    expect(
+      seriesCatalogShell({
+        hasCatalog: false,
+        hasHeld: true,
+        ssrMiss: true,
+        clientSettled: false,
+      })
+    ).toBe('ready');
+    expect(
+      seriesCatalogShell({
+        hasCatalog: false,
+        hasHeld: false,
+        ssrMiss: true,
+        clientSettled: true,
+      })
+    ).toBe('empty');
+  });
+
+  it('uses Collect on live shop rows and Open otherwise', () => {
+    expect(seriesShopActionLabel('live')).toBe('Collect');
+    expect(seriesShopActionLabel('ended')).toBe('Open');
+  });
+
   it('is use-first for owners and confirmed holders only', () => {
     expect(
       seriesUseFirst({ isOwner: true, holdsEditionInSeries: false })

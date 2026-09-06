@@ -14,6 +14,8 @@ describe('seriesPageDocumentTitle', () => {
         { seriesTitle: 'Eggs' } as CollectionView,
       ], 'eggs')
     ).toBe('Eggs');
-    expect(seriesPageDocumentTitle(null, [], 'raw-id')).toBe('raw-id');
+    expect(seriesPageDocumentTitle(null, [], 'night-roads')).toBe(
+      'Night Roads'
+    );
   });
 });

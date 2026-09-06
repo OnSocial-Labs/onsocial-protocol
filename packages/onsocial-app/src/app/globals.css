@@ -24733,6 +24733,7 @@ a.os-surface-row {
     text-align: left;
     color: var(--os-surface-muted);
     font: inherit;
+    text-decoration: none;
   }
 
   h2.collectibles-library-heading,
@@ -24811,12 +24812,15 @@ a.os-surface-row {
     border-radius: 0.35rem;
   }
 
-  button.collectibles-library-heading--action {
+  button.collectibles-library-heading--action,
+  a.collectibles-library-heading--action {
     cursor: pointer;
   }
 
   button.collectibles-library-heading--action:hover,
-  button.collectibles-library-heading--action:focus-visible {
+  button.collectibles-library-heading--action:focus-visible,
+  a.collectibles-library-heading--action:hover,
+  a.collectibles-library-heading--action:focus-visible {
     color: var(--os-surface-emphasis);
     outline: none;
   }
@@ -31019,6 +31023,9 @@ a.os-surface-row {
   }
 
   .series-hero-creator {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
     margin: 0;
     width: 100%;
   }
@@ -31070,8 +31077,44 @@ a.os-surface-row {
     gap: 0.45rem;
   }
 
-  .series-held-list {
+  .series-held-list,
+  .series-shop-row {
     min-width: 0;
+  }
+
+  .series-skeleton-logo {
+    width: 4.5rem;
+    height: 4.5rem;
+    border-radius: 1.15rem;
+    flex-shrink: 0;
+  }
+
+  .series-skeleton-title {
+    display: block;
+    width: 10rem;
+    height: 1.15rem;
+    border-radius: 999px;
+  }
+
+  .series-skeleton-line-sm {
+    display: block;
+    width: 4.5rem;
+    height: 0.7rem;
+    border-radius: 999px;
+  }
+
+  .series-skeleton-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+
+  .series-skeleton-creator-name {
+    display: block;
+    width: 8rem;
+    height: 0.85rem;
+    border-radius: 999px;
   }
 
   .series-catalog {
