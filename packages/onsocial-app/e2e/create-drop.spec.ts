@@ -146,6 +146,23 @@ test.describe('create drop', () => {
     await expect(
       page.getByRole('group', { name: 'Book PDF actions' })
     ).toHaveCount(0);
+    await expect(page.getByText('Drop ID', { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByText('Series (optional)', { exact: true })
+    ).toHaveCount(0);
+    await expect(page.locator('#drop-create-id')).toHaveCount(0);
+    await expect(page.locator('#drop-create-series')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Set a drop ID', exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Add to a series', exact: true })
+    ).toBeVisible();
+
+    await page
+      .getByRole('button', { name: 'Set a drop ID', exact: true })
+      .click();
+    await expect(page.locator('#drop-create-id')).toBeVisible();
 
     await page.locator('.drop-create-blurb-toggle').click({ force: true });
     await expect(page.locator('#drop-create-description')).toBeVisible();
@@ -166,5 +183,12 @@ test.describe('create drop', () => {
       'data-drop-create-series',
       'Audit Series'
     );
+    await page.getByRole('button', { name: 'Advanced', exact: true }).click();
+    await expect(page.locator('#drop-create-series')).toHaveValue(
+      'Audit Series'
+    );
+    await expect(
+      page.getByRole('button', { name: 'Add to a series', exact: true })
+    ).toHaveCount(0);
   });
 });

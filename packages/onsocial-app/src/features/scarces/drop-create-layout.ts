@@ -67,3 +67,24 @@ export function dropCreateAttachAction(kind: DropCreateAttachAction): string {
 export function dropCreateBookPdfPlacement(): 'advanced' {
   return 'advanced';
 }
+
+/** Optional Advanced extras wait — open when the maker asks, or a draft already has one. */
+export function dropCreateAdvancedExtraOpen(
+  value: string,
+  forcedOpen = false
+): boolean {
+  return forcedOpen || Boolean(value.trim());
+}
+
+export type DropCreateAdvancedExtra = 'dropId' | 'series';
+
+export function dropCreateAdvancedExtraAction(
+  kind: DropCreateAdvancedExtra
+): string {
+  switch (kind) {
+    case 'dropId':
+      return 'Set a drop ID';
+    case 'series':
+      return 'Add to a series';
+  }
+}

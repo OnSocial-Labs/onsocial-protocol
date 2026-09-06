@@ -127,6 +127,8 @@ import {
   saveDropFormDraft,
 } from '@/features/scarces/drop-form-draft';
 import {
+  dropCreateAdvancedExtraAction,
+  dropCreateAdvancedExtraOpen,
   dropCreateAttachAction,
   dropCreateBlurbOpen,
   dropCreateBookPdfPlacement,
@@ -268,8 +270,12 @@ export function CreateDropPanel() {
   const [allowlistSheetOpen, setAllowlistSheetOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [blurbOpen, setBlurbOpen] = useState(false);
+  const [dropIdOpen, setDropIdOpen] = useState(false);
+  const [seriesOpen, setSeriesOpen] = useState(false);
   const [createReady, setCreateReady] = useState(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const dropIdRef = useRef<HTMLInputElement>(null);
+  const seriesFieldRef = useRef<HTMLInputElement>(null);
   const [discardDraftOpen, setDiscardDraftOpen] = useState(false);
   const [artMode, setArtMode] = useState<DropArtMode>('single');
   const [musicFormat, setMusicFormat] = useState<MusicReleaseFormat>('single');
@@ -442,6 +448,8 @@ export function CreateDropPanel() {
     setDraftAllowlist([]);
     setShowAdvanced(false);
     setBlurbOpen(false);
+    setDropIdOpen(false);
+    setSeriesOpen(false);
     setArtMode('single');
     setMusicFormat('single');
     setTrackFiles([]);
@@ -2344,6 +2352,8 @@ export function CreateDropPanel() {
   }, []);
 
   const blurbShown = dropCreateBlurbOpen(description, blurbOpen);
+  const dropIdShown = dropCreateAdvancedExtraOpen(slug, dropIdOpen);
+  const seriesShown = dropCreateAdvancedExtraOpen(seriesName, seriesOpen);
   const dealShowsSupply = dropCreateDealShowsSupplyField({
     isGeneratedSet,
     isVariations,
@@ -2358,6 +2368,16 @@ export function CreateDropPanel() {
     if (!blurbOpen) return;
     descriptionRef.current?.focus();
   }, [blurbOpen]);
+
+  useEffect(() => {
+    if (!dropIdOpen) return;
+    dropIdRef.current?.focus();
+  }, [dropIdOpen]);
+
+  useEffect(() => {
+    if (!seriesOpen) return;
+    seriesFieldRef.current?.focus();
+  }, [seriesOpen]);
 
   return (
     <OsAppScreen
@@ -3386,47 +3406,72 @@ export function CreateDropPanel() {
                 />
               </div>
             ) : null}
-            <div className="guild-field">
-              <DropFieldLabel
-                label="Drop ID"
-                infoKey="dropId"
-                onOpenInfo={openFieldInfo}
-              />
-              <input
-                id={fieldId('id')}
-                value={slug}
-                onChange={(event) => setSlug(event.target.value)}
-                placeholder={
-                  derivedSlug ||
-                  (isWriting
-                    ? 'the-quiet-hours'
-                    : isAudio
-                      ? 'night-drive'
-                      : 'genesis-prints')
-                }
-                maxLength={32}
-                className={osFieldBorderedClassName}
-              />
-              {collectionId ? (
-                <small>Public link: {collectionPath(collectionId)}</small>
-              ) : null}
+            <div className="drop-create-advanced-extra">
+              {dropIdShown ? (
+                <label className="drop-create-advanced-field" htmlFor={fieldId('id')}>
+                  <span className="sr-only">Drop ID</span>
+                  <input
+                    id={fieldId('id')}
+                    ref={dropIdRef}
+                    value={slug}
+                    onChange={(event) => setSlug(event.target.value)}
+                    placeholder={
+                      derivedSlug ||
+                      (isWriting
+                        ? 'the-quiet-hours'
+                        : isAudio
+                          ? 'night-drive'
+                          : 'genesis-prints')
+                    }
+                    maxLength={32}
+                    className="drop-create-advanced-input"
+                  />
+                  {collectionId ? (
+                    <p className="drop-create-advanced-hint">
+                      Public link: {collectionPath(collectionId)}
+                    </p>
+                  ) : null}
+                </label>
+              ) : (
+                <button
+                  type="button"
+                  className="collection-allowlist-toggle drop-create-advanced-toggle"
+                  disabled={pending}
+                  onClick={() => setDropIdOpen(true)}
+                >
+                  {dropCreateAdvancedExtraAction('dropId')}
+                </button>
+              )}
             </div>
 
-            <div className="guild-field">
-              <DropFieldLabel
-                label="Series (optional)"
-                infoKey="series"
-                onOpenInfo={openFieldInfo}
-              />
-              <input
-                id={fieldId('series')}
-                value={seriesName}
-                onChange={(event) => setSeriesName(event.target.value)}
-                placeholder="Ink Studies"
-                maxLength={48}
-                disabled={pending}
-                className={osFieldBorderedClassName}
-              />
+            <div className="drop-create-advanced-extra">
+              {seriesShown ? (
+                <label
+                  className="drop-create-advanced-field"
+                  htmlFor={fieldId('series')}
+                >
+                  <span className="sr-only">Series</span>
+                  <input
+                    id={fieldId('series')}
+                    ref={seriesFieldRef}
+                    value={seriesName}
+                    onChange={(event) => setSeriesName(event.target.value)}
+                    placeholder="Ink Studies"
+                    maxLength={48}
+                    disabled={pending}
+                    className="drop-create-advanced-input"
+                  />
+                </label>
+              ) : (
+                <button
+                  type="button"
+                  className="collection-allowlist-toggle drop-create-advanced-toggle"
+                  disabled={pending}
+                  onClick={() => setSeriesOpen(true)}
+                >
+                  {dropCreateAdvancedExtraAction('series')}
+                </button>
+              )}
             </div>
 
             {createFacetMedium ? (

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   DROP_CREATE_SECTION_ORDER,
+  dropCreateAdvancedExtraAction,
+  dropCreateAdvancedExtraOpen,
   dropCreateAttachAction,
   dropCreateBlurbOpen,
   dropCreateBookPdfPlacement,
@@ -63,6 +65,22 @@ describe('dropCreateAttachAction', () => {
 describe('dropCreateBookPdfPlacement', () => {
   it('parks the optional PDF in Advanced, not on the first screen', () => {
     expect(dropCreateBookPdfPlacement()).toBe('advanced');
+  });
+});
+
+describe('dropCreateAdvancedExtraOpen', () => {
+  it('waits until the maker asks or a draft already has a value', () => {
+    expect(dropCreateAdvancedExtraOpen('')).toBe(false);
+    expect(dropCreateAdvancedExtraOpen('  ')).toBe(false);
+    expect(dropCreateAdvancedExtraOpen('Ink Studies')).toBe(true);
+    expect(dropCreateAdvancedExtraOpen('', true)).toBe(true);
+  });
+});
+
+describe('dropCreateAdvancedExtraAction', () => {
+  it('names Advanced extras like Add a blurb, not a form label', () => {
+    expect(dropCreateAdvancedExtraAction('dropId')).toBe('Set a drop ID');
+    expect(dropCreateAdvancedExtraAction('series')).toBe('Add to a series');
   });
 });
 
