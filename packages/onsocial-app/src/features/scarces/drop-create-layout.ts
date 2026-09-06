@@ -109,6 +109,15 @@ export function dropCreateAdvancedExtraAction(
   }
 }
 
+/** Ticket date-change pills name themselves — Yes / No does not. */
+export function dropCreateRenewalsChoice(
+  on: boolean,
+  opts: { isTicket?: boolean } = {}
+): string {
+  if (opts.isTicket) return on ? 'Flexible dates' : 'Fixed date';
+  return on ? 'Yes' : 'No';
+}
+
 /** Sale window waits — default is now / no end until the maker asks or sets one. */
 export function dropCreateSaleWindowOpen(
   startTime: string,

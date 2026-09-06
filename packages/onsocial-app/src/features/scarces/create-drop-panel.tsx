@@ -137,6 +137,7 @@ import {
   dropCreateFacetsAction,
   dropCreateFacetsOpen,
   dropCreatePiecePickerClass,
+  dropCreateRenewalsChoice,
   dropCreateRenewalsOpen,
   dropCreateRoyaltyOpen,
   dropCreateSaleRulesOpen,
@@ -3828,7 +3829,7 @@ export function CreateDropPanel() {
                       disabled={pending}
                       onClick={() => setRenewable(true)}
                     >
-                      Yes
+                      {dropCreateRenewalsChoice(true, { isTicket })}
                     </button>
                     <button
                       type="button"
@@ -3843,7 +3844,7 @@ export function CreateDropPanel() {
                         if (!isTicket) setAccessEnds('');
                       }}
                     >
-                      No
+                      {dropCreateRenewalsChoice(false, { isTicket })}
                     </button>
                   </div>
                   {!isTicket && (renewable || template.requiresAccessEnd) ? (

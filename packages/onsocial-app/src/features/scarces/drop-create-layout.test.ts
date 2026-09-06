@@ -11,6 +11,7 @@ import {
   dropCreateFacetsOpen,
   dropCreatePiecePickerClass,
   dropCreateAllowlistOpen,
+  dropCreateRenewalsChoice,
   dropCreateRenewalsOpen,
   dropCreateRoyaltyOpen,
   dropCreateSaleRulesOpen,
@@ -97,6 +98,19 @@ describe('dropCreateAdvancedExtraAction', () => {
     );
     expect(dropCreateAdvancedExtraAction('allowlist')).toBe('Add an allowlist');
     expect(dropCreateAdvancedExtraAction('place')).toBe('Add a place');
+  });
+});
+
+describe('dropCreateRenewalsChoice', () => {
+  it('names ticket date changes; other kinds keep Yes / No', () => {
+    expect(dropCreateRenewalsChoice(true)).toBe('Yes');
+    expect(dropCreateRenewalsChoice(false)).toBe('No');
+    expect(dropCreateRenewalsChoice(true, { isTicket: true })).toBe(
+      'Flexible dates'
+    );
+    expect(dropCreateRenewalsChoice(false, { isTicket: true })).toBe(
+      'Fixed date'
+    );
   });
 });
 
