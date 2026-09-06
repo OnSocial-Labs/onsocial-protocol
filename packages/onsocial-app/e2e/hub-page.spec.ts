@@ -1,10 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
 import { seedE2eWallet } from './helpers/collection-page';
-import {
-  COLLECTIBLES_VAULT_OWNER,
-  stubCollectiblesVaultGraph,
-} from './helpers/collectibles-vault';
+import { COLLECTIBLES_VAULT_OWNER } from './helpers/collectibles-vault';
 import {
   HUB_E2E_PATH,
   HUB_E2E_TITLE,
@@ -70,8 +67,7 @@ test.describe('hub page', () => {
     page,
   }) => {
     await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
-    await stubCollectiblesVaultGraph(page);
-    await stubHubPage(page, { rows: 'catalog' });
+    await stubHubPage(page, { rows: 'catalog', held: true });
     await gotoApp(page, HUB_E2E_PATH);
 
     const root = page.locator('.app-page');

@@ -83,16 +83,21 @@ const HUB_STATS = {
   lastActivityTimestamp: Date.now() * 1_000_000,
 };
 
+const HELD_OWNER = 'greenghost.onsocial.testnet';
+
 /** Browser GraphQL for hub catalog settle (SSR still misses in this env). */
 export async function stubHubPage(
   page: Page,
   opts?: {
     rows?: 'catalog' | 'empty';
     catalogDelayMs?: number;
+    /** Also stub owned tokens that match the hub catalog. */
+    held?: boolean;
   }
 ): Promise<void> {
   const rows = opts?.rows ?? 'empty';
   const catalogDelayMs = opts?.catalogDelayMs ?? 0;
+  const held = opts?.held === true;
   await page.route('**/api/onapi/graph/query', async (route) => {
     const raw = route.request().postData() ?? '';
     let query = '';
@@ -100,6 +105,64 @@ export async function stubHubPage(
       query = String((JSON.parse(raw) as { query?: string }).query ?? '');
     } catch {
       query = raw;
+    }
+
+    if (held && query.includes('ScarcesOwnedBy')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            scarcesTokenOwners: [
+              {
+                tokenId: 'night-drive:3',
+                ownerId: HELD_OWNER,
+                burned: false,
+                collectionId: 'night-drive',
+                appId: HUB_E2E_ID,
+                mintedBlockTimestamp: 1,
+                updatedBlockTimestamp: 3,
+              },
+              {
+                tokenId: 'dusk-run:1',
+                ownerId: HELD_OWNER,
+                burned: false,
+                collectionId: 'dusk-run',
+                appId: HUB_E2E_ID,
+                mintedBlockTimestamp: 1,
+                updatedBlockTimestamp: 4,
+              },
+            ],
+          },
+        }),
+      });
+      return;
+    }
+
+    if (held && query.includes('ScarcesCollectionsCurrentByIds')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            scarcesCollectionsCurrent: [
+              collectionRow({
+                collectionId: 'night-drive',
+                title: 'Night Drive',
+                kind: 'audio',
+                extra: { audioFormat: 'album' },
+              }),
+              collectionRow({
+                collectionId: 'dusk-run',
+                title: 'Dusk Run',
+                kind: 'audio',
+                extra: { audioFormat: 'single' },
+              }),
+            ],
+          },
+        }),
+      });
+      return;
     }
 
     if (query.includes('ScarcesAppRow')) {
