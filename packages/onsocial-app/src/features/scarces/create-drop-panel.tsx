@@ -43,7 +43,10 @@ import {
   CollectionAllowlistSheet,
   type AllowlistEntry,
 } from '@/features/scarces/collection-allowlist-manager';
-import { DropArtworkPreview } from '@/features/scarces/drop-artwork-preview';
+import {
+  DropArtworkPreview,
+  DropCreateCoverSafe,
+} from '@/features/scarces/drop-artwork-preview';
 import { DropVariationSetManager } from '@/features/scarces/drop-variation-set-manager';
 import { reorderByInsert } from '@/features/scarces/drop-track-order';
 import {
@@ -2955,6 +2958,7 @@ export function CreateDropPanel() {
                     label={
                       isAudio || isWriting ? 'Cover preview' : 'Artwork preview'
                     }
+                    disabled={pending}
                   />
                   <div
                     className="app-storage-presets"
@@ -3008,6 +3012,7 @@ export function CreateDropPanel() {
                     </strong>
                     <small>JPG, PNG, or WebP · ≤5 MB</small>
                   </span>
+                  <DropCreateCoverSafe />
                 </button>
               )
             ) : null}

@@ -31633,6 +31633,47 @@ a.os-surface-row {
     box-shadow: inset 0 0 0 1px rgb(var(--signal-reputation-rgb, 0 236 151) / 0.45);
   }
 
+  /* Center square wallets / player keep. Wings are drop-page only. */
+  .drop-create-form .drop-cover-picker.drop-create-piece .drop-cover-placeholder {
+    position: relative;
+    z-index: 2;
+  }
+
+  .drop-create-form .drop-cover-picker.drop-create-piece .drop-cover-safe {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    height: 100%;
+    aspect-ratio: 1 / 1;
+    width: auto;
+    transform: translateX(-50%);
+    pointer-events: none;
+    border-radius: 0.75rem;
+    box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / 0.2);
+  }
+
+  .drop-create-form .drop-cover-picker.drop-create-piece.has-media::before,
+  .drop-create-form .drop-cover-picker.drop-create-piece.has-media::after {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    bottom: 0;
+    width: 18.75%;
+    pointer-events: none;
+    background: rgb(var(--bg-rgb) / 0.42);
+  }
+
+  .drop-create-form .drop-cover-picker.drop-create-piece.has-media::before {
+    left: 0;
+  }
+
+  .drop-create-form .drop-cover-picker.drop-create-piece.has-media::after {
+    right: 0;
+  }
+
   .drop-create-title {
     display: block;
     min-width: 0;
