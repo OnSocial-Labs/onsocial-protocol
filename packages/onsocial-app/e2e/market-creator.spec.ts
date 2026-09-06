@@ -23,6 +23,9 @@ test.describe('market creator shop', () => {
     await expect(page.getByText('No drops or listings from')).toHaveCount(0);
     await expect(page.getByText('Nothing in this shop yet.')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Browse Market' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Browse Market' })).toHaveClass(
+      /os-sheet-action/
+    );
     await expect(
       page.getByRole('button', { name: 'Clear creator filter' })
     ).toHaveCount(0);

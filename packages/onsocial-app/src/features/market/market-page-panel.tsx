@@ -29,6 +29,7 @@ import {
   marketCreatorScreenTitle,
   marketCreatorSearchPlaceholder,
 } from '@/features/market/market-creator-view';
+import { MarketEmptyAction } from '@/features/market/market-empty-action';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { MarketListingRow } from '@/features/market/market-listing-row';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
@@ -1818,9 +1819,9 @@ export function MarketPagePanel({
               Nothing listed yet. List a scarce from a post, or sell one you own
               under Yours.
             </p>
-            <Link className="app-soon-link" href={APP_HOME_PATH}>
+            <MarketEmptyAction href={APP_HOME_PATH}>
               Back to Home
-            </Link>
+            </MarketEmptyAction>
           </div>
         ) : null}
 
@@ -1898,9 +1899,9 @@ export function MarketPagePanel({
             <p className="market-page-empty-copy">
               {marketCreatorEmptyCopy()}
             </p>
-            <Link className="app-soon-link" href={marketCreatorBackHref()}>
+            <MarketEmptyAction href={marketCreatorBackHref()}>
               {marketCreatorBrowseLabel()}
-            </Link>
+            </MarketEmptyAction>
           </div>
         ) : null}
 
