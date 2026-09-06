@@ -34597,7 +34597,7 @@ a.os-surface-row {
   .guild-composer-thread-item {
     position: relative;
     --thread-rail-x: 1.125rem;
-    --thread-pad-top: 0;
+    --thread-pad-top: 0px;
     --thread-avatar: 2.25rem;
     --thread-rail-gap: 0.2rem;
     --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
