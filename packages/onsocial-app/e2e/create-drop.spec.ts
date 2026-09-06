@@ -70,13 +70,8 @@ test.describe('create drop', () => {
     await expect(page.locator('.drop-create-piece')).toBeVisible();
     const pieceBox = await page.locator('.drop-create-piece').boundingBox();
     expect(pieceBox).toBeTruthy();
-    expect(pieceBox!.width / pieceBox!.height).toBeCloseTo(1.6, 1);
-    const safeBox = await page
-      .locator('.drop-create-piece .drop-cover-safe')
-      .boundingBox();
-    expect(safeBox).toBeTruthy();
-    expect(safeBox!.width / safeBox!.height).toBeCloseTo(1, 1);
-    expect(safeBox!.height).toBeCloseTo(pieceBox!.height, 1);
+    expect(pieceBox!.width / pieceBox!.height).toBeCloseTo(1, 1);
+    expect(pieceBox!.width).toBeLessThan(320);
     await expect(
       page.locator('[data-drop-create-section="title"] #drop-create-title')
     ).toBeVisible();
