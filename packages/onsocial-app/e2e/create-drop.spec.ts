@@ -34,9 +34,11 @@ test.describe('create drop', () => {
 
   test('orders work, title, deal, then description', async ({ page }) => {
     await gotoApp(page, '/market/create');
-    await expect(page.locator('.drop-create-form')).toBeVisible({
-      timeout: E2E_CHROME_TIMEOUT_MS,
-    });
+    await expect(page.locator('.drop-create-form')).toHaveAttribute(
+      'data-drop-create-ready',
+      '',
+      { timeout: E2E_CHROME_TIMEOUT_MS }
+    );
 
     const order = await page
       .locator('[data-drop-create-section]')

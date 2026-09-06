@@ -268,6 +268,7 @@ export function CreateDropPanel() {
   const [allowlistSheetOpen, setAllowlistSheetOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [blurbOpen, setBlurbOpen] = useState(false);
+  const [createReady, setCreateReady] = useState(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const [discardDraftOpen, setDiscardDraftOpen] = useState(false);
   const [artMode, setArtMode] = useState<DropArtMode>('single');
@@ -2345,6 +2346,10 @@ export function CreateDropPanel() {
   const blurbShown = dropCreateBlurbOpen(description, blurbOpen);
 
   useEffect(() => {
+    setCreateReady(true);
+  }, []);
+
+  useEffect(() => {
     if (!blurbOpen) return;
     descriptionRef.current?.focus();
   }, [blurbOpen]);
@@ -2496,6 +2501,7 @@ export function CreateDropPanel() {
         className="drop-create-form"
         data-drop-create-back={dropCreateBackHref(appId)}
         data-drop-create-series={seriesName.trim() || undefined}
+        data-drop-create-ready={createReady ? '' : undefined}
         data-keyboard={formKeyboardOpen ? 'open' : undefined}
         style={studioOpen ? { display: 'none' } : undefined}
         onFocusCapture={handleFormFocusCapture}
