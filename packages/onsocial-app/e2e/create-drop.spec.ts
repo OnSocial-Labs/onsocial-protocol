@@ -93,10 +93,7 @@ test.describe('create drop', () => {
     );
     await expect(page.locator('#drop-create-description')).toHaveCount(0);
 
-    await page.locator('.drop-create-blurb-toggle').click({ force: true });
-    await expect(page.locator('#drop-create-description')).toBeVisible();
-
-    await page.getByRole('button', { name: 'Audio', exact: true }).click();
+    await page.getByRole('tab', { name: 'Audio', exact: true }).click();
     await expect(page.locator('[data-drop-create-attach="audio"]')).toBeVisible();
     await expect(page.locator('.drop-create-attach-action')).toHaveText(
       'Add track'
@@ -114,7 +111,7 @@ test.describe('create drop', () => {
       'Add tracks'
     );
 
-    await page.getByRole('button', { name: 'Writing', exact: true }).click();
+    await page.getByRole('tab', { name: 'Writing', exact: true }).click();
     await expect(
       page.locator('[data-drop-create-attach="writing"]')
     ).toBeVisible();
@@ -124,6 +121,9 @@ test.describe('create drop', () => {
     await expect(
       page.getByRole('group', { name: 'Issue file actions' })
     ).toHaveCount(0);
+
+    await page.locator('.drop-create-blurb-toggle').click({ force: true });
+    await expect(page.locator('#drop-create-description')).toBeVisible();
   });
 
   test('hub bind leaves to that hub; series query still prefills', async ({
