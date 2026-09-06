@@ -129,6 +129,7 @@ import {
 import {
   dropCreateAttachAction,
   dropCreateBlurbOpen,
+  dropCreateBookPdfPlacement,
   dropCreateDealShowsSupplyField,
   dropCreatePiecePickerClass,
   dropCreateScreenTitle,
@@ -2347,6 +2348,7 @@ export function CreateDropPanel() {
     isGeneratedSet,
     isVariations,
   });
+  const bookPdfInAdvanced = dropCreateBookPdfPlacement() === 'advanced';
 
   useEffect(() => {
     setCreateReady(true);
@@ -3156,75 +3158,6 @@ export function CreateDropPanel() {
                 />
               </div>
             ) : null}
-            {isWriting && writingFormat === 'book' ? (
-              <div
-                className="drop-create-attach"
-                data-drop-create-attach="book-pdf"
-              >
-                {bookPdfFile ? (
-                  <p className="drop-create-attach-hint">{bookPdfFile.name}</p>
-                ) : pinnedWriting?.hasBookPdf ? (
-                  <p className="drop-pin-resume-detail">
-                    PDF pinned · ready to sign
-                  </p>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="collection-allowlist-toggle drop-create-attach-action"
-                      disabled={pending}
-                      onClick={() => bookPdfInputRef.current?.click()}
-                    >
-                      {dropCreateAttachAction('pdf')}
-                    </button>
-                    <p className="drop-create-attach-hint">
-                      Optional · holders download the full book · ≤20 MB
-                    </p>
-                  </>
-                )}
-                {bookPdfFile || pinnedWriting?.hasBookPdf ? (
-                  <div
-                    className="app-storage-presets"
-                    role="group"
-                    aria-label="Book PDF actions"
-                  >
-                    <button
-                      type="button"
-                      className="os-surface-chip"
-                      disabled={pending}
-                      onClick={() => bookPdfInputRef.current?.click()}
-                    >
-                      {bookPdfFile
-                        ? 'Replace'
-                        : dropCreateAttachAction('pdf')}
-                    </button>
-                    {bookPdfFile ? (
-                      <button
-                        type="button"
-                        className="os-surface-chip"
-                        disabled={pending}
-                        onClick={() => {
-                          setBookPdfFile(null);
-                          setError(null);
-                        }}
-                      >
-                        Clear
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-                <input
-                  ref={bookPdfInputRef}
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  className="scarce-cover-file-input"
-                  tabIndex={-1}
-                  aria-hidden
-                  disabled={pending}
-                  onChange={onBookPdfChange}
-                />
-              </div>
-            ) : null}
             {isVariations && variationSource === 'upload' ? (
               <input
                 ref={variationsInputRef}
@@ -3384,6 +3317,75 @@ export function CreateDropPanel() {
 
         {showAdvanced ? (
           <>
+            {isWriting && writingFormat === 'book' && bookPdfInAdvanced ? (
+              <div
+                className="drop-create-attach"
+                data-drop-create-attach="book-pdf"
+              >
+                {bookPdfFile ? (
+                  <p className="drop-create-attach-hint">{bookPdfFile.name}</p>
+                ) : pinnedWriting?.hasBookPdf ? (
+                  <p className="drop-pin-resume-detail">
+                    PDF pinned · ready to sign
+                  </p>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="collection-allowlist-toggle drop-create-attach-action"
+                      disabled={pending}
+                      onClick={() => bookPdfInputRef.current?.click()}
+                    >
+                      {dropCreateAttachAction('pdf')}
+                    </button>
+                    <p className="drop-create-attach-hint">
+                      Optional · holders download the full book · ≤20 MB
+                    </p>
+                  </>
+                )}
+                {bookPdfFile || pinnedWriting?.hasBookPdf ? (
+                  <div
+                    className="app-storage-presets"
+                    role="group"
+                    aria-label="Book PDF actions"
+                  >
+                    <button
+                      type="button"
+                      className="os-surface-chip"
+                      disabled={pending}
+                      onClick={() => bookPdfInputRef.current?.click()}
+                    >
+                      {bookPdfFile
+                        ? 'Replace'
+                        : dropCreateAttachAction('pdf')}
+                    </button>
+                    {bookPdfFile ? (
+                      <button
+                        type="button"
+                        className="os-surface-chip"
+                        disabled={pending}
+                        onClick={() => {
+                          setBookPdfFile(null);
+                          setError(null);
+                        }}
+                      >
+                        Clear
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+                <input
+                  ref={bookPdfInputRef}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  className="scarce-cover-file-input"
+                  tabIndex={-1}
+                  aria-hidden
+                  disabled={pending}
+                  onChange={onBookPdfChange}
+                />
+              </div>
+            ) : null}
             <div className="guild-field">
               <DropFieldLabel
                 label="Drop ID"

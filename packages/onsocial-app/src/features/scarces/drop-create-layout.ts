@@ -62,3 +62,8 @@ export function dropCreateAttachAction(kind: DropCreateAttachAction): string {
       return 'Add PDF';
   }
 }
+
+/** Optional whole-book PDF waits in Advanced. Chapters stay on the piece. */
+export function dropCreateBookPdfPlacement(): 'advanced' {
+  return 'advanced';
+}

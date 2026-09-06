@@ -3,6 +3,7 @@ import {
   DROP_CREATE_SECTION_ORDER,
   dropCreateAttachAction,
   dropCreateBlurbOpen,
+  dropCreateBookPdfPlacement,
   dropCreateDealShowsSupplyField,
   dropCreatePiecePickerClass,
   dropCreateScreenTitle,
@@ -56,6 +57,12 @@ describe('dropCreateAttachAction', () => {
     expect(dropCreateAttachAction('file')).toBe('Add file');
     expect(dropCreateAttachAction('files')).toBe('Add files');
     expect(dropCreateAttachAction('pdf')).toBe('Add PDF');
+  });
+});
+
+describe('dropCreateBookPdfPlacement', () => {
+  it('parks the optional PDF in Advanced, not on the first screen', () => {
+    expect(dropCreateBookPdfPlacement()).toBe('advanced');
   });
 });
 

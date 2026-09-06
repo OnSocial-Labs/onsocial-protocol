@@ -123,6 +123,17 @@ test.describe('create drop', () => {
     ).toHaveCount(0);
 
     await page.getByRole('radio', { name: 'Book' }).click();
+    await expect(page.locator('.drop-create-attach-action')).toHaveText(
+      'Add files'
+    );
+    await expect(page.locator('[data-drop-create-attach="book-pdf"]')).toHaveCount(
+      0
+    );
+    await expect(
+      page.getByRole('button', { name: 'Add PDF', exact: true })
+    ).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Advanced', exact: true }).click();
     await expect(
       page.locator('[data-drop-create-attach="book-pdf"]')
     ).toBeVisible();
