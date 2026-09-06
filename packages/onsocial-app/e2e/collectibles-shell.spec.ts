@@ -116,6 +116,7 @@ test.describe('collectibles shell', () => {
     const aliceHeading = page.locator('#collectibles-from-alice-near');
     const bobHeading = page.locator('#collectibles-from-bob-near');
     await expect(aliceHeading).toBeVisible();
+    await expect(aliceHeading).toContainText('Alice');
     await expect(aliceHeading).toContainText('3');
     await expect(bobHeading).toBeVisible();
     await expect(bobHeading).toContainText('1');
@@ -342,8 +343,8 @@ test.describe('collectibles shell', () => {
     });
     const jump = page.getByRole('listbox', { name: 'Jump to creator' });
     await expect(jump.first()).toBeVisible();
-    await expect(jump.first().getByRole('option', { name: /finn\.near/ })).toBeVisible();
-    await jump.first().getByRole('option', { name: /finn\.near/ }).click();
+    await expect(jump.first().getByRole('option', { name: 'Finn' })).toBeVisible();
+    await jump.first().getByRole('option', { name: 'Finn' }).click();
     await expect(page.locator('#collectibles-from-finn-near')).toBeInViewport();
   });
 });

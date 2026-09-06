@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
-import type { CollectionCreatorFace } from '@/features/scarces/collection-creator-face';
+import {
+  collectionCreatorNameLine,
+  type CollectionCreatorFace,
+} from '@/features/scarces/collection-creator-face';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
 import { seriesDisplayTitle } from '@/features/scarces/series-page-view';
 import { seriesPagePath } from '@/lib/app-routes';
-import { fallbackLabel } from '@/lib/profile-display';
 import {
   COLLECTIBLES_LIBRARY_JUMP_MIN,
   collectiblesLibraryHeadingId,
@@ -42,8 +44,9 @@ function CreatorHeading({
   filterable: boolean;
   onSelect?: () => void;
 }) {
-  const handle = creatorId ? fallbackLabel(creatorId) : 'Other';
-  const name = face?.displayName?.trim() || handle;
+  const name = creatorId
+    ? collectionCreatorNameLine(creatorId, face?.displayName)
+    : 'Other';
   const accessibleName = `${name}, ${dropCount}`;
   const inner = (
     <>
@@ -176,7 +179,10 @@ export function CollectiblesVaultLibrary({
                   ? creatorFaces?.get(creator.creatorId)
                   : undefined;
                 const label = creator.creatorId
-                  ? face?.displayName?.trim() || fallbackLabel(creator.creatorId)
+                  ? collectionCreatorNameLine(
+                      creator.creatorId,
+                      face?.displayName
+                    )
                   : 'Other';
                 return { id: creator.creatorKey, label };
               })}

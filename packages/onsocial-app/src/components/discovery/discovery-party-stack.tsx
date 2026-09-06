@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { AccountAvatar } from '@/components/profile/account-avatar';
+import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { fallbackLabel } from '@/lib/profile-display';
 
 /**
  * Creator party chrome for Market / Drops catalog rows —
- * avatar + “by Name” / @handle (same layout on both surfaces).
+ * avatar + “by Name” + @handle (same as the drop page).
  */
 export function DiscoveryPartyStack({
   accountId,
@@ -20,11 +21,7 @@ export function DiscoveryPartyStack({
 }) {
   const href = portfolioPath(accountId);
   const handle = fallbackLabel(accountId);
-  const label = displayName(accountId, profileDisplayName ?? undefined);
-  const nameIsCustom =
-    Boolean(label) &&
-    label.toLowerCase() !== handle.toLowerCase() &&
-    label.toLowerCase() !== accountId.trim().toLowerCase();
+  const name = collectionCreatorNameLine(accountId, profileDisplayName);
 
   return (
     <div className="drops-discovery-party">
@@ -32,31 +29,22 @@ export function DiscoveryPartyStack({
         href={href}
         scroll={false}
         className="drops-discovery-party-avatar-link"
-        tabIndex={nameIsCustom ? -1 : undefined}
-        aria-hidden={nameIsCustom ? true : undefined}
-        aria-label={nameIsCustom ? undefined : `Creator @${handle}`}
+        tabIndex={-1}
+        aria-hidden
       >
         <AccountAvatar
           accountId={accountId}
           src={avatarUrl}
           size="sm"
-          fallbackInitial={handle.slice(0, 1)}
+          fallbackInitial={name.slice(0, 1)}
           className="drops-discovery-party-avatar"
         />
       </Link>
       <div className="drops-discovery-party-stack">
-        {nameIsCustom ? (
-          <Link href={href} scroll={false} className="drops-discovery-by">
-            by {label}
-          </Link>
-        ) : (
-          <Link href={href} scroll={false} className="drops-discovery-by">
-            @{handle}
-          </Link>
-        )}
-        {nameIsCustom ? (
-          <span className="drops-discovery-sub">@{handle}</span>
-        ) : null}
+        <Link href={href} scroll={false} className="drops-discovery-by">
+          by {name}
+        </Link>
+        <span className="drops-discovery-sub">@{handle}</span>
       </div>
     </div>
   );

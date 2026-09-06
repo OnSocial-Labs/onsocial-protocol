@@ -8,6 +8,7 @@ import {
   groupMarketCreatorDrops,
   marketCreatorShopCountCopy,
 } from '@/features/market/market-creator-view';
+import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
 import { portfolioPath } from '@/lib/overlay-routes';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 
@@ -29,7 +30,8 @@ export function MarketCreatorShop({
   showDropLabel: boolean;
   onMintDrop: (drop: ProfileStoreDrop) => void;
 }) {
-  const creatorLabel = standingIdentityLabel(creatorId, displayName).label;
+  const creatorNameLine = collectionCreatorNameLine(creatorId, displayName);
+  const creatorLabel = standingIdentityLabel(creatorId, creatorNameLine).label;
   const groups = groupMarketCreatorDrops(drops);
   const showGroupLabels = groups.length > 1;
   const countCopy = marketCreatorShopCountCopy({
@@ -49,7 +51,7 @@ export function MarketCreatorShop({
           />
           <StandingIdentity
             accountId={creatorId}
-            profileName={displayName}
+            profileName={creatorNameLine}
             avatarUrl={avatarUrl}
             size="md"
             copyLeading={

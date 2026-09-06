@@ -18,7 +18,10 @@ import {
   fetchOwnedScarcesPage,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
-import type { CollectionCreatorFace } from '@/features/scarces/collection-creator-face';
+import {
+  collectionCreatorNameLine,
+  type CollectionCreatorFace,
+} from '@/features/scarces/collection-creator-face';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   invalidateOwnedVaultCache,
@@ -39,7 +42,6 @@ import {
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
 import { accountIdsEqual } from '@/lib/account-match';
-import { fallbackLabel } from '@/lib/profile-display';
 import {
   APP_DROP_CREATE_PATH,
   APP_HOME_PATH,
@@ -634,7 +636,7 @@ export function CollectiblesPagePanel({
   const displayNames = useMemo(() => {
     const map = new Map<string, string | null>();
     for (const [id, face] of creatorFaces) {
-      map.set(id, face.displayName);
+      map.set(id, collectionCreatorNameLine(id, face.displayName));
     }
     return map;
   }, [creatorFaces]);
@@ -654,8 +656,10 @@ export function CollectiblesPagePanel({
       label:
         entry.id === COLLECTIBLES_CREATOR_OTHER
           ? 'Other'
-          : creatorFaces.get(entry.id)?.displayName?.trim() ||
-            fallbackLabel(entry.label),
+          : collectionCreatorNameLine(
+              entry.id,
+              creatorFaces.get(entry.id)?.displayName
+            ),
     }));
   }, [inventorySource, creatorFaces]);
   const vaultSeries = useMemo(() => {
@@ -672,8 +676,10 @@ export function CollectiblesPagePanel({
         ? displayGroups.map((group) => ({
             id: group.creatorKey,
             label: group.creatorId
-              ? creatorFaces.get(group.creatorId)?.displayName?.trim() ||
-                fallbackLabel(group.creatorId)
+              ? collectionCreatorNameLine(
+                  group.creatorId,
+                  creatorFaces.get(group.creatorId)?.displayName
+                )
               : 'Other',
           }))
         : [],
