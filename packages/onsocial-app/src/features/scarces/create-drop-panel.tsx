@@ -140,7 +140,6 @@ import {
   dropCreatePerWalletSummary,
   dropCreatePiecePickerClass,
   dropCreateRenewalsChoice,
-  dropCreateRenewalsHint,
   dropCreateRenewalsSummary,
   dropCreateRoyaltySummary,
   dropCreateSaleWindowSummary,
@@ -148,7 +147,10 @@ import {
   dropCreateTransferableSummary,
   type DropCreateExtraSheetId,
 } from '@/features/scarces/drop-create-layout';
-import { DropCreateExtraRow } from '@/features/scarces/drop-create-extra-row';
+import {
+  DropCreateExtraList,
+  DropCreateExtraRow,
+} from '@/features/scarces/drop-create-extra-row';
 import { DropCreateExtraSheet } from '@/features/scarces/drop-create-extra-sheet';
 import {
   DropStartConfirmSheet,
@@ -3439,7 +3441,7 @@ export function CreateDropPanel() {
                 />
               </div>
             ) : null}
-            <div className="drop-create-extra-list">
+            <DropCreateExtraList>
               <DropCreateExtraRow
                 label={dropCreateExtraRowLabel('dropId')}
                 value={dropCreateDropIdSummary(slug)}
@@ -3490,8 +3492,13 @@ export function CreateDropPanel() {
                 <div
                   className="drop-create-extra-event"
                   role="group"
-                  aria-label="Event window"
+                  aria-label="Event"
                 >
+                  <DropFieldLabel
+                    label="Event"
+                    infoKey="eventWindow"
+                    onOpenInfo={openFieldInfo}
+                  />
                   <div className="drop-schedule-pair">
                     <div
                       className={`drop-schedule-cell${
@@ -3584,12 +3591,14 @@ export function CreateDropPanel() {
                   Boolean(accountId)
                 )}
                 disabled={pending}
+                infoKey="allowlist"
+                onOpenInfo={openFieldInfo}
                 onClick={() => {
                   if (!accountId) return;
                   setAllowlistSheetOpen(true);
                 }}
               />
-            </div>
+            </DropCreateExtraList>
           </>
         ) : null}
 
@@ -3639,11 +3648,6 @@ export function CreateDropPanel() {
                 facetLabel: facetRowLabel,
               })
             : ''
-        }
-        hint={
-          extraSheet === 'renewals'
-            ? dropCreateRenewalsHint(isTicket)
-            : undefined
         }
         onDone={() => setExtraSheet(null)}
       >
@@ -3869,7 +3873,7 @@ export function CreateDropPanel() {
             <div className="guild-field">
               <DropFieldLabel
                 label={isTicket ? 'Postpone' : 'Renewals'}
-                infoKey="renewable"
+                infoKey={isTicket ? 'postpone' : 'renewable'}
                 onOpenInfo={openFieldInfo}
               />
               <div

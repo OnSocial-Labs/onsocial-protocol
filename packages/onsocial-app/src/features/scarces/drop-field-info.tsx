@@ -17,6 +17,7 @@ export type DropFieldInfoKey =
   | 'eventWindow'
   | 'eventPlace'
   | 'transferable'
+  | 'postpone'
   | 'renewable'
   | 'accessEnds'
   | 'maxRedeems'
@@ -100,11 +101,17 @@ const DROP_FIELD_INFO: Record<
     detail:
       'Yes allows transfer and resale. Soulbound keeps the edition with the buyer.',
   },
-  renewable: {
+  postpone: {
     title: 'Postpone',
-    summary: 'Whether you can push the end date later (rain day / postpone).',
+    summary: 'Whether you can push the event end later if the show moves.',
     detail:
-      'On by default for tickets. Choose No if the end must stay fixed after mint. For coupons and memberships, optional Access ends sets a shared expiry.',
+      'On by default for tickets. Choose No if the end must stay fixed after mint. Event ends is the show — this only lets you push that end later.',
+  },
+  renewable: {
+    title: 'Renewals',
+    summary: 'Whether holders can renew this after it expires.',
+    detail:
+      'Used for coupons and memberships. Optional Access ends sets a shared expiry on every edition.',
   },
   accessEnds: {
     title: 'Access ends',

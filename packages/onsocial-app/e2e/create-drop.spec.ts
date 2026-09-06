@@ -177,6 +177,12 @@ test.describe('create drop', () => {
     await expect(
       page.getByRole('button', { name: 'Allowlist: Connect' })
     ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'About Allowlist' })
+    ).toBeVisible();
+    await expect(
+      page.locator('.drop-create-extra-list').getByRole('separator')
+    ).not.toHaveCount(0);
     await expect(page.locator('#drop-create-id')).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Set a drop ID', exact: true })
@@ -216,15 +222,21 @@ test.describe('create drop', () => {
     ).toBeVisible();
     await expect(page.getByText('Starts', { exact: true })).toBeVisible();
     await expect(page.getByText('Ends', { exact: true })).toBeVisible();
+    await expect(page.locator('.drop-create-extra-list')).toHaveCount(1);
+    await expect(
+      page.getByRole('button', { name: 'About Event' })
+    ).toBeVisible();
     await expect(page.getByText('Event window', { exact: true })).toHaveCount(
       0
     );
-    await expect(page.locator('.drop-create-extra-list')).toHaveCount(1);
     await expect(
       page.getByRole('button', { name: 'Transferable: Yes' })
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Place: None' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'About Allowlist' })
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Postpone: Yes' })
@@ -234,11 +246,11 @@ test.describe('create drop', () => {
     ).toHaveCount(0);
     await page.getByRole('button', { name: 'Postpone: Yes' }).click();
     await expect(
-      page.getByText('Can you push the event end later if the show moves?')
-    ).toBeVisible();
-    await expect(
       page.getByRole('button', { name: 'About Postpone' })
     ).toBeVisible();
+    await expect(
+      page.getByText('Can you push the event end later if the show moves?')
+    ).toHaveCount(0);
     await expect(
       page.getByRole('radio', { name: 'Yes', exact: true })
     ).toBeChecked();
@@ -251,6 +263,16 @@ test.describe('create drop', () => {
     ).toBeVisible();
 
     await page.getByRole('tab', { name: 'Coupons', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Renewals: Yes · set an end' })
+    ).toBeVisible();
+    await page
+      .getByRole('button', { name: 'Renewals: Yes · set an end' })
+      .click();
+    await expect(
+      page.getByRole('button', { name: 'About Renewals' })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'Renewals: Yes · set an end' })
     ).toBeVisible();
