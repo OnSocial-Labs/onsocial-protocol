@@ -25,6 +25,20 @@ function MageFillSvg({
   );
 }
 
+/** Mage `plus-circle-fill` — pressed add-next affordance. */
+export function PlusCircleFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 1.75A10.25 10.25 0 1 0 22.25 12A10.26 10.26 0 0 0 12 1.75m.75 6.25a.75.75 0 0 0-1.5 0v3.25H8a.75.75 0 0 0 0 1.5h3.25V16a.75.75 0 0 0 1.5 0v-3.25H16a.75.75 0 0 0 0-1.5h-3.25z"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}
+
 /** Mage bulk/fill paths for React 19. */
 export function UserPlusFillIcon(props: MageFillIconProps) {
   return (

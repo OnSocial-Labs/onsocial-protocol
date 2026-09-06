@@ -177,6 +177,7 @@ export const txToastSuccess = {
   guildRequestCanceled: 'Request canceled.',
   guildLeft: 'Guild left.',
   postPublished: 'Posted.',
+  threadPublished: 'Thread posted.',
   replyPublished: 'Reply posted.',
   viewThread: 'View thread',
   quotePublished: 'Quote posted.',
@@ -284,6 +285,8 @@ export const txToastError = {
   guildCreateFailed: 'Could not create guild.',
   guildMembershipFailed: 'Could not update guild membership.',
   postFailed: 'Could not publish post.',
+  threadPartial: (posted: number, total: number) =>
+    `Posted ${posted} of ${total}.`,
   replyFailed: 'Could not post reply.',
   quoteFailed: 'Could not post quote.',
   repostFailed: 'Could not repost.',

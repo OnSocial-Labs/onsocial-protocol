@@ -202,7 +202,11 @@ describe('submitPersonalPost', () => {
       trackTransaction,
     });
 
-    expect(result).toEqual({ confirmed: false, optimisticPost: null });
+    expect(result).toEqual({
+      confirmed: false,
+      optimisticPost: null,
+      txHashes: ['tx1'],
+    });
   });
 
   it('creates a media-only post with files + optimistic kind', async () => {
@@ -539,6 +543,73 @@ describe('submitPersonalRepost', () => {
     expect(result.optimisticPost?.refType).toBe('repost');
     expect(result.optimisticPost?.groupId).toBe('builders');
     expect(result.optimisticPost?.isGroupContent).toBe(true);
+  });
+
+  it('publishes a thread as root then self-reply', async () => {
+    const create = vi.fn().mockResolvedValue({ txHash: 'root-tx' });
+    const reply = vi.fn().mockResolvedValue({ txHash: 'reply-tx' });
+    const client = mockClient({ create, reply });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'post',
+      target: null,
+      payload: {
+        text: 'one',
+        thread: [{ text: 'two' }],
+      },
+      trackTransaction,
+    });
+
+    expect(create).toHaveBeenCalledOnce();
+    expect(reply).toHaveBeenCalledOnce();
+    expect(reply.mock.calls[0]?.[0]).toMatchObject({
+      author: 'alice.testnet',
+    });
+    expect(result.confirmed).toBe(true);
+    expect(result.postedCount).toBe(2);
+    expect(result.totalCount).toBe(2);
+    expect(result.optimisticPost?.value).toContain('one');
+    const silentCalls = trackTransaction.mock.calls.filter(
+      (call) => call[0]?.silent
+    );
+    expect(silentCalls.length).toBeGreaterThanOrEqual(2);
+    const finalToast = trackTransaction.mock.calls.at(-1)?.[0];
+    expect(finalToast?.successMessage).toBe('Thread posted.');
+    expect(finalToast?.silent).toBeUndefined();
+    expect(finalToast?.txHashes).toEqual([]);
+    expect(finalToast?.explorerHash).toBe('reply-tx');
+    expect(result.txHashes).toEqual(['reply-tx']);
+  });
+
+  it('says posted N of M when a later beat fails', async () => {
+    const create = vi.fn().mockResolvedValue({ txHash: 'root-tx' });
+    const reply = vi.fn().mockRejectedValue(new Error('nope'));
+    const client = mockClient({ create, reply });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'post',
+      target: null,
+      payload: {
+        text: 'one',
+        thread: [{ text: 'two' }],
+      },
+      trackTransaction,
+    });
+
+    expect(result.confirmed).toBe(false);
+    expect(result.postedCount).toBe(1);
+    expect(result.totalCount).toBe(2);
+    const lastToast = trackTransaction.mock.calls.at(-1)?.[0];
+    expect(lastToast?.toastKind).toBe('error');
+    expect(lastToast?.failureMessage).toBe('Posted 1 of 2.');
+    expect(lastToast?.explorerHash).toBe('root-tx');
+    expect(result.txHashes).toEqual(['root-tx']);
   });
 });
 

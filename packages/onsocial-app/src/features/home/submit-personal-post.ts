@@ -39,10 +39,14 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { appendThreadFocusReply, postThreadPath } from '@/lib/post-routes';
+import { splitComposerThread } from '@/lib/composer-thread';
 
 export interface PersonalPostSubmitResult {
   confirmed: boolean;
   optimisticPost: PostRow | null;
+  postedCount?: number;
+  totalCount?: number;
+  txHashes?: string[];
 }
 
 type TrackTransaction = (input: {
@@ -52,6 +56,9 @@ type TrackTransaction = (input: {
   failureMessage: string;
   actionHref?: string | null;
   actionLabel?: string | null;
+  silent?: boolean;
+  toastKind?: 'success' | 'error';
+  explorerHash?: string | null;
 }) => Promise<boolean>;
 
 function toastCopy(mode: ComposerMode) {
@@ -191,6 +198,81 @@ function buildOptimisticPost(args: {
   };
 }
 
+async function submitPersonalThread(args: {
+  client: OnSocial;
+  accountId: string;
+  beats: ComposerSubmit[];
+  trackTransaction: TrackTransaction;
+}): Promise<PersonalPostSubmitResult> {
+  const { client, accountId, beats, trackTransaction } = args;
+  const total = beats.length;
+  let posted = 0;
+  let parent: PostRow | null = null;
+  let first: PostRow | null = null;
+  let lastHashes: string[] = [];
+
+  for (let index = 0; index < beats.length; index += 1) {
+    const beat = beats[index]!;
+    let result: PersonalPostSubmitResult;
+    try {
+      result = await submitPersonalPost({
+        client,
+        accountId,
+        mode: parent ? 'reply' : 'post',
+        target: parent,
+        payload: beat,
+        trackTransaction,
+        silent: true,
+      });
+    } catch {
+      result = { confirmed: false, optimisticPost: null };
+    }
+    if (!result.confirmed || !result.optimisticPost) {
+      await trackTransaction({
+        txHashes: [],
+        explorerHash: lastHashes.at(-1) ?? null,
+        submittedMessage: txToastConfirming.posting,
+        successMessage:
+          posted > 0
+            ? txToastError.threadPartial(posted, total)
+            : txToastError.postFailed,
+        failureMessage:
+          posted > 0
+            ? txToastError.threadPartial(posted, total)
+            : txToastError.postFailed,
+        toastKind: 'error',
+      });
+      return {
+        confirmed: false,
+        optimisticPost: first,
+        postedCount: posted,
+        totalCount: total,
+        txHashes: lastHashes,
+      };
+    }
+    posted += 1;
+    lastHashes = result.txHashes?.length ? result.txHashes : lastHashes;
+    if (!first) first = result.optimisticPost;
+    parent = result.optimisticPost;
+  }
+
+  await trackTransaction({
+    txHashes: [],
+    explorerHash: lastHashes.at(-1) ?? null,
+    submittedMessage: txToastConfirming.posting,
+    successMessage: txToastSuccess.threadPublished,
+    failureMessage: txToastError.postFailed,
+  });
+
+  return {
+    confirmed: true,
+    optimisticPost: first,
+    postedCount: posted,
+    totalCount: total,
+    txHashes: lastHashes,
+  };
+}
+
 /**
  * Create / reply / quote outside the guild composer panels.
  * Replies and quotes to group posts stay on the group write path.
@@ -202,8 +284,19 @@ export async function submitPersonalPost(args: {
   target: PostRow | null;
   payload: ComposerSubmit;
   trackTransaction: TrackTransaction;
+  silent?: boolean;
 }): Promise<PersonalPostSubmitResult> {
   const { client, accountId, mode, target, payload, trackTransaction } = args;
+  const threadBeats =
+    mode === 'post' && !args.silent ? splitComposerThread(payload) : null;
+  if (threadBeats && threadBeats.length > 1) {
+    return submitPersonalThread({
+      client,
+      accountId,
+      beats: threadBeats,
+      trackTransaction,
+    });
+  }
   const text = payload.text.trim();
   const files = payload.files ?? [];
   const drop =
@@ -325,9 +418,11 @@ export async function submitPersonalPost(args: {
         : await client.posts.reply(ref, postData, newPostId);
   }
 
+  const txHashes = collectRelayTxHashes(response);
   const confirmed = await trackTransaction({
-    txHashes: collectRelayTxHashes(response),
+    txHashes,
     ...toastCopy(mode),
+    ...(args.silent ? { silent: true } : {}),
     ...(mode === 'reply' && target
       ? {
           actionHref: appendThreadFocusReply(postThreadPath(target), newPostId),
@@ -337,7 +432,7 @@ export async function submitPersonalPost(args: {
   });
 
   if (!confirmed) {
-    return { confirmed: false, optimisticPost: null };
+    return { confirmed: false, optimisticPost: null, txHashes };
   }
 
   return {
@@ -355,6 +450,7 @@ export async function submitPersonalPost(args: {
       places: payload.places,
       contentLabels,
     }),
+    txHashes,
   };
 }
 

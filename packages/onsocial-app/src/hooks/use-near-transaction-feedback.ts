@@ -17,6 +17,18 @@ type TrackNearTransactionParams = {
   onFailure?: (message: string) => void;
   actionHref?: string | null;
   actionLabel?: string | null;
+  /**
+   * Wait for chain without painting a toast. Used for middle beats in a
+   * compose thread so only the last (or partial) result speaks.
+   */
+  silent?: boolean;
+  /** When there are no hashes, paint this toast kind. Default success. */
+  toastKind?: 'success' | 'error';
+  /**
+   * Explorer link when `txHashes` is empty (already waited, or a result
+   * toast after a silent thread flush).
+   */
+  explorerHash?: string | null;
 };
 
 function resolveExplorerTxHash(hashes: string[]): string | null {
@@ -41,27 +53,43 @@ export function useNearTransactionFeedback(
       onFailure,
       actionHref,
       actionLabel,
+      silent = false,
+      toastKind = 'success',
+      explorerHash = null,
     }: TrackNearTransactionParams): Promise<boolean> => {
       const uniqueHashes = [...new Set(txHashes.filter(Boolean))];
       const explorerHref = nearExplorerTxHref(
-        resolveExplorerTxHash(uniqueHashes)
+        resolveExplorerTxHash(uniqueHashes) ?? explorerHash
       );
 
       if (!accountId) {
         const msg = 'Connect wallet to continue.';
-        setTxResult({ type: 'error', msg });
+        if (!silent) {
+          setTxResult({ type: 'error', msg });
+        }
         onFailure?.(msg);
         return false;
       }
 
       if (uniqueHashes.length === 0) {
-        setTxResult({
-          type: 'success',
-          msg: successMessage,
-          actionHref,
-          actionLabel,
-        });
-        return true;
+        if (!silent) {
+          setTxResult(
+            toastKind === 'error'
+              ? {
+                  type: 'error',
+                  msg: failureMessage ?? successMessage,
+                  explorerHref,
+                }
+              : {
+                  type: 'success',
+                  msg: successMessage,
+                  explorerHref,
+                  actionHref,
+                  actionLabel,
+                }
+          );
+        }
+        return toastKind !== 'error';
       }
 
       // No pending/blue toast — button stays pulsing until settle.
@@ -74,25 +102,31 @@ export function useNearTransactionFeedback(
         if (!result.ok) {
           const msg =
             result.errorMessage ?? failureMessage ?? 'Transaction failed.';
-          setTxResult({ type: 'error', msg, explorerHref });
+          if (!silent) {
+            setTxResult({ type: 'error', msg, explorerHref });
+          }
           onFailure?.(msg);
           return false;
         }
 
-        setTxResult({
-          type: 'success',
-          msg: successMessage,
-          explorerHref: actionHref ? null : explorerHref,
-          actionHref,
-          actionLabel,
-        });
+        if (!silent) {
+          setTxResult({
+            type: 'success',
+            msg: successMessage,
+            explorerHref: actionHref ? null : explorerHref,
+            actionHref,
+            actionLabel,
+          });
+        }
         return true;
       } catch (error) {
         const msg =
           error instanceof Error
             ? error.message
             : (failureMessage ?? 'Transaction failed.');
-        setTxResult({ type: 'error', msg, explorerHref });
+        if (!silent) {
+          setTxResult({ type: 'error', msg, explorerHref });
+        }
         onFailure?.(msg);
         return false;
       }

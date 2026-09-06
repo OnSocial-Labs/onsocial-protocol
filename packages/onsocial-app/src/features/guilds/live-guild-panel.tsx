@@ -108,7 +108,6 @@ import { withRepostOriginals } from '@/lib/post-relation';
 import {
   applyMediaKindOverride,
   buildOptimisticMediaEntries,
-  mediaKindFromFile,
   revokeDroppedOptimisticMedia,
 } from '@/lib/post-media';
 import { normalizeComposerContentLabels } from '@/lib/post-content-labels';
@@ -152,14 +151,11 @@ import {
   useGuildMembershipActionPending,
 } from '@/lib/guild-membership-action-pending';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
-import {
-  commerceEmbedFromDraft,
-  dropPostKind,
-  dropSnapshotExtra,
-  resolvedDropPostText,
-} from '@/features/scarces/drop-post-payload';
 import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
-import { subscribeGuildPostConfirmed } from '@/features/scarces/submit-guild-drop-post';
+import {
+  submitGuildRootPost,
+  subscribeGuildPostConfirmed,
+} from '@/features/scarces/submit-guild-drop-post';
 import { hydrateScarceEmbedsForPosts } from '@/lib/feed-paint-hydrate';
 import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import {
@@ -1606,7 +1602,7 @@ export function LiveGuildPanel({
       mode === 'post' && isDropComposeDraftReady(payload.drop)
         ? payload.drop!
         : null;
-    if (!text && !files.length && !drop) return;
+    if (!text && !files.length && !drop && !payload.thread?.length) return;
     if (mode !== 'post' && !target) return;
 
     if (mode !== 'post' && target) {
@@ -1622,109 +1618,78 @@ export function LiveGuildPanel({
       return;
     }
 
-    const pollEmbed =
-      mode === 'post' && payload.poll && !drop
-        ? {
-            kind: 'poll' as const,
-            question: text,
-            options: payload.poll.options,
-            ...(payload.poll.durationMs != null
-              ? { closesAt: Date.now() + payload.poll.durationMs }
-              : {}),
-          }
-        : null;
-    const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
-    const dropKind = dropPostKind(drop);
-    const bodyText = resolvedDropPostText(text, drop);
-    const contentLabels = normalizeComposerContentLabels(payload);
-
     setModalError(null);
     setModalPending(true);
     try {
-      const newPostId = Date.now().toString();
       const { client } = await getClient();
-      const filePayload = files.length ? { files } : {};
-      const media = files.length
-        ? buildOptimisticMediaEntries(files)
-        : undefined;
-      const mediaKind =
-        !pollEmbed && !drop && files.length
-          ? mediaKindFromFile(files[0]!)
-          : undefined;
-      const tagPayload = {
-        ...postMetaFromText(bodyText),
-        ...placesMetaFromComposer(payload.places),
-      };
-
-      let response: unknown;
       if (mode === 'post') {
         if (!composerSpace) {
           throw new Error('Choose a room before posting.');
         }
-        response = await client.groups.post(
+        const result = await submitGuildRootPost({
+          client,
+          accountId,
           groupId,
-          {
-            text: bodyText,
-            access: 'group',
-            groupId,
-            channel: guildSpaceFeedChannel(composerSpace),
-            audiences: [composerSpace.audience],
-            timestamp: Date.now(),
-            ...tagPayload,
-            ...(pollEmbed
-              ? { embeds: [pollEmbed] }
-              : commerceEmbed
-                ? {
-                    embeds: [commerceEmbed],
-                    x: dropSnapshotExtra(drop!),
-                    kind: dropKind ?? composerSpace.kind,
-                  }
-                : mediaKind
-                  ? { kind: mediaKind }
-                  : { kind: composerSpace.kind }),
-            ...contentLabels,
-            ...filePayload,
-          },
-          newPostId
-        );
-      } else {
-        const ref = {
-          author: target!.accountId,
-          groupId,
-          postId: target!.postId,
-        };
-        const feedMeta = applyMediaKindOverride(
-          inheritedGuildReplyFeedMeta(target!, {
-            fallbackChannel: composerSpace
-              ? guildSpaceFeedChannel(composerSpace)
-              : null,
-            fallbackKind: composerSpace?.kind ?? null,
-            fallbackAudiences: composerSpace
-              ? [composerSpace.audience]
-              : undefined,
-          }),
-          files
-        );
-        const postData = {
-          text,
-          access: 'group' as const,
-          groupId,
-          timestamp: Date.now(),
-          ...tagPayload,
-          ...feedMeta,
-          ...contentLabels,
-          ...filePayload,
-        };
-        response =
-          mode === 'quote'
-            ? await client.groups.quotePost(groupId, ref, postData, newPostId)
-            : await client.groups.replyToPost(
-                groupId,
-                ref,
-                postData,
-                newPostId
-              );
+          space: composerSpace,
+          payload,
+          trackTransaction,
+        });
+        if (result.optimisticPost) {
+          setLocalPosts((current) => [result.optimisticPost!, ...current]);
+          scheduleReconcile();
+        }
+        if (result.confirmed) {
+          setComposer(null);
+        }
+        return result;
       }
+
+      const contentLabels = normalizeComposerContentLabels(payload);
+      const newPostId = Date.now().toString();
+      const filePayload = files.length ? { files } : {};
+      const media = files.length
+        ? buildOptimisticMediaEntries(files)
+        : undefined;
+      const tagPayload = {
+        ...postMetaFromText(text),
+        ...placesMetaFromComposer(payload.places),
+      };
+      const ref = {
+        author: target!.accountId,
+        groupId,
+        postId: target!.postId,
+      };
+      const feedMeta = applyMediaKindOverride(
+        inheritedGuildReplyFeedMeta(target!, {
+          fallbackChannel: composerSpace
+            ? guildSpaceFeedChannel(composerSpace)
+            : null,
+          fallbackKind: composerSpace?.kind ?? null,
+          fallbackAudiences: composerSpace
+            ? [composerSpace.audience]
+            : undefined,
+        }),
+        files
+      );
+      const postData = {
+        text,
+        access: 'group' as const,
+        groupId,
+        timestamp: Date.now(),
+        ...tagPayload,
+        ...feedMeta,
+        ...contentLabels,
+        ...filePayload,
+      };
+      const response =
+        mode === 'quote'
+          ? await client.groups.quotePost(groupId, ref, postData, newPostId)
+          : await client.groups.replyToPost(
+              groupId,
+              ref,
+              postData,
+              newPostId
+            );
 
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
@@ -1743,38 +1708,14 @@ export function LiveGuildPanel({
       });
 
       if (confirmed) {
-        const replyFeedMeta =
-          mode === 'post' || !target
-            ? null
-            : applyMediaKindOverride(
-                inheritedGuildReplyFeedMeta(target, {
-                  fallbackChannel: composerSpace
-                    ? guildSpaceFeedChannel(composerSpace)
-                    : null,
-                  fallbackKind: composerSpace?.kind ?? null,
-                  fallbackAudiences: composerSpace
-                    ? [composerSpace.audience]
-                    : undefined,
-                }),
-                files
-              );
-        // Chain-confirmed; show at the top while the indexer catches up.
         setLocalPosts((current) => [
           {
             accountId,
             postId: newPostId,
             value: JSON.stringify({
               v: 1,
-              text: bodyText,
+              text,
               ...tagPayload,
-              ...(pollEmbed
-                ? { embeds: [pollEmbed] }
-                : commerceEmbed
-                  ? {
-                      embeds: [commerceEmbed],
-                      x: dropSnapshotExtra(drop!),
-                    }
-                  : {}),
               ...(media ? { media } : {}),
               ...contentLabels,
             }),
@@ -1782,26 +1723,19 @@ export function LiveGuildPanel({
             blockTimestamp: Date.now(),
             groupId,
             isGroupContent: true,
-            ...(mode === 'post' && composerSpace
+            ...(mode === 'quote'
               ? {
-                  channel: guildSpaceFeedChannel(composerSpace),
-                  kind: pollEmbed
-                    ? 'poll'
-                    : (dropKind ?? mediaKind ?? composerSpace.kind),
+                  refAuthor: target!.accountId,
+                  refPath: postContentPath(target!),
+                  refType: 'post',
+                  ...feedMeta,
                 }
-              : mode === 'quote'
-                ? {
-                    refAuthor: target!.accountId,
-                    refPath: postContentPath(target!),
-                    refType: 'post',
-                    ...replyFeedMeta,
-                  }
-                : {
-                    parentAuthor: target!.accountId,
-                    parentPath: postContentPath(target!),
-                    parentType: 'post',
-                    ...replyFeedMeta,
-                  }),
+              : {
+                  parentAuthor: target!.accountId,
+                  parentPath: postContentPath(target!),
+                  parentType: 'post',
+                  ...feedMeta,
+                }),
           },
           ...current,
         ]);
@@ -2364,7 +2298,7 @@ export function LiveGuildPanel({
             }
             setComposer(null);
           }}
-          onSubmit={(payload) => void submitFromModal(payload)}
+          onSubmit={submitFromModal}
         />
       ) : null}
       {accountId ? (

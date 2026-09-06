@@ -3,7 +3,6 @@
 import {
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -11,7 +10,6 @@ import {
   type FormEvent,
 } from 'react';
 import {
-  PROFILE_ABOUT_ALIGN_OPTIONS,
   type PostRow,
   type ProfileAboutAlign,
 } from '@onsocial/sdk';
@@ -23,10 +21,11 @@ import {
   MapMarkerFillIcon,
   MapMarkerIcon,
   MultiplyIcon,
-  OsFieldRemove,
   OsHugSheet,
   OsIconAction,
   OsPageSheet,
+  PlusCircleFillIcon,
+  PlusCircleIcon,
   StarsCFillIcon,
   StarsCIcon,
   osFieldBorderedClassName,
@@ -48,16 +47,14 @@ import {
   portfolioMoodShellStyle,
   resolvePortfolioMood,
 } from '@/lib/moods/resolve';
-import {
-  ARTICLE_TITLE_MAX,
-  normalizeArticleTitle,
-} from '@/lib/article-post-payload';
-import { QuotedPostInset } from '@/features/home/post-card';
-import { PostMediaBlock } from '@/features/home/post-media';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { PostRichText } from '@/features/home/post-rich-text';
-import { ComposerHashtagTextarea } from '@/features/guilds/composer-hashtag-textarea';
 import { ComposerDropPicker } from '@/features/guilds/composer-drop-picker';
+import {
+  COMPOSER_MIN_POLL_OPTIONS,
+  ComposerThreadBeat,
+  type ComposerSheetBeat,
+} from '@/features/guilds/composer-thread-beat';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
@@ -79,18 +76,46 @@ import {
   postMediaRevokeLocalPreviewUrl,
   validatePostMediaFile,
 } from '@/lib/post-media';
-import {
-  normalizeComposerContentLabels,
-  parsePostContentLabels,
-} from '@/lib/post-content-labels';
-import {
-  normalizePlaceSlug,
-  placeLabel,
-} from '@/lib/post-place';
+import { parsePostContentLabels } from '@/lib/post-content-labels';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
+import {
+  canAddComposerThreadBeat,
+  collapseTrailingEmptyComposerBeat,
+  threadPlusHint,
+  composerBeatHasContent,
+  composerBeatsToSubmit,
+  emptyComposerBeat,
+  keepUnsentComposerBeats,
+  removeComposerThreadBeat,
+  type ComposerBeat,
+} from '@/lib/composer-thread';
+
+type SheetBeat = ComposerSheetBeat;
+
+let sheetBeatSeq = 0;
+
+function nextSheetBeatId() {
+  sheetBeatSeq += 1;
+  return `beat-${sheetBeatSeq}`;
+}
+
+function emptySheetBeat(
+  seed?: Partial<Pick<ComposerBeat, 'text' | 'files' | 'drop'>>
+): SheetBeat {
+  const files = seed?.files ? [...seed.files] : [];
+  return {
+    ...emptyComposerBeat({ ...seed, files }),
+    id: nextSheetBeatId(),
+    previews: postMediaPreviewEntriesFromFiles(files),
+  };
+}
+
+function revokeSheetBeatPreviews(beat: SheetBeat) {
+  revokeComposerPreviewFiles(beat.files);
+}
 
 const COMPOSER_NEST_Z = scarceNestZIndex(SHEET_Z.list);
 
@@ -133,32 +158,24 @@ export interface ComposerSubmit {
   contentWarning?: string;
   /** Hard NSFW flag (PostV1 `nsfw`). */
   nsfw?: boolean;
+  /** Extra self-replies after this root. New personal posts only. */
+  thread?: ComposerSubmit[];
 }
+
+/** Result from a parent publish — used to keep unsent beats after a partial flush. */
+export type ComposerPublishResult = {
+  confirmed: boolean;
+  postedCount?: number;
+  totalCount?: number;
+};
 /** @deprecated Prefer `ComposerSubmit`. */
 export type GuildComposerSubmit = ComposerSubmit;
-
-const PLACEHOLDER: Record<ComposerMode, string> = {
-  post: 'Share something…',
-  reply: 'Post your reply',
-  quote: 'Add a comment',
-};
-
-const POLL_PLACEHOLDER = 'Ask a question…';
 
 const TITLE: Record<ComposerMode, string> = {
   post: 'New post',
   reply: 'Reply',
   quote: 'Quote',
 };
-
-const POLL_DURATION_OPTIONS = [
-  { label: '1d', ms: 86_400_000 },
-  { label: '3d', ms: 3 * 86_400_000 },
-  { label: '1w', ms: 7 * 86_400_000 },
-] as const;
-
-const MIN_POLL_OPTIONS = 2;
-const MAX_POLL_OPTIONS = 4;
 
 /** Where a new post lands — guild room or personal public feed. */
 export type ComposerDestination =
@@ -218,7 +235,9 @@ interface ComposerSheetProps {
   pending: boolean;
   error?: string | null;
   onClose: (draft?: { text: string; files: File[] }) => void;
-  onSubmit: (payload: ComposerSubmit) => void;
+  onSubmit: (
+    payload: ComposerSubmit
+  ) => void | Promise<void | ComposerPublishResult>;
 }
 
 function IdentityLine({
@@ -342,25 +361,16 @@ export function ComposerSheet({
   // Seed from props when the sheet mounts already open (DropComposeHost).
   // `wasOpen` starts false so the open transition below always applies
   // `initialDrop` / `initialText` on first paint.
-  const [text, setText] = useState(() => (open ? initialText : ''));
-  const [pollEnabled, setPollEnabled] = useState(false);
-  const [pollOptions, setPollOptions] = useState(['', '']);
-  const [pollDurationMs, setPollDurationMs] = useState<number | undefined>();
-  const [dropDraft, setDropDraft] = useState<ComposerDropDraft | null>(() =>
-    open ? initialDrop : null
-  );
-  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
-  const [mediaPreviews, setMediaPreviews] = useState<
-    { url: string; mime: string }[]
-  >([]);
+  const [beats, setBeats] = useState<SheetBeat[]>(() => [
+    emptySheetBeat(
+      open
+        ? { text: initialText, files: initialFiles, drop: initialDrop }
+        : undefined
+    ),
+  ]);
+  const [focusedBeat, setFocusedBeat] = useState(0);
+  const [plusPressed, setPlusPressed] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const [contentWarning, setContentWarning] = useState('');
-  const [nsfw, setNsfw] = useState(false);
-  const [placeDraft, setPlaceDraft] = useState('');
-  const [placeOpen, setPlaceOpen] = useState(false);
-  const [articleTitle, setArticleTitle] = useState('');
-  const [articleAlign, setArticleAlign] =
-    useState<ProfileAboutAlign>('left');
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [dropPickerOpen, setDropPickerOpen] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
@@ -372,8 +382,22 @@ export function ComposerSheet({
   const [appliedMediaSeedKey, setAppliedMediaSeedKey] = useState('');
   const warningInputRef = useRef<HTMLInputElement>(null);
   const viewport = useVisualViewportSheetMetrics(open);
+  const postingAsDao = authorTargets?.mode === 'dao';
+  const canComposeThread = mode === 'post' && !postingAsDao;
+  const safeFocus = Math.min(focusedBeat, Math.max(0, beats.length - 1));
+  const beat = beats[safeFocus] ?? emptySheetBeat();
+  const {
+    text,
+    pollEnabled,
+    drop: dropDraft,
+    files: mediaFiles,
+    previews: mediaPreviews,
+    contentWarning,
+    nsfw,
+    placeOpen,
+    articleTitle,
+  } = beat;
   const articleTitleTrimmed = Boolean(articleTitle.trim());
-  const canUseArticle = mode === 'post' && !dropDraft && !pollEnabled;
   const canUsePoll = mode === 'post' && !dropDraft && !articleTitleTrimmed;
   const canUseMedia = !pollEnabled && !dropDraft;
   const canUseDrop =
@@ -382,6 +406,40 @@ export function ComposerSheet({
     !articleTitleTrimmed &&
     mediaFiles.length === 0;
   const canUsePlace = mode === 'post';
+  const canAddThread = canComposeThread && canAddComposerThreadBeat(beats);
+
+  const patchBeat = (index: number, partial: Partial<SheetBeat>) => {
+    setBeats((current) => {
+      const target = Math.min(index, Math.max(0, current.length - 1));
+      return current.map((row, rowIndex) =>
+        rowIndex === target ? { ...row, ...partial } : row
+      );
+    });
+  };
+
+  const patchFocused = (partial: Partial<SheetBeat>) => {
+    patchBeat(focusedBeat, partial);
+  };
+
+  const focusBeat = (nextFocus: number) => {
+    const next = collapseTrailingEmptyComposerBeat(beats, nextFocus);
+    if (next.beats.length !== beats.length) {
+      const dropped = beats[beats.length - 1];
+      if (dropped) revokeSheetBeatPreviews(dropped);
+    }
+    setBeats(next.beats);
+    setFocusedBeat(next.focus);
+  };
+
+  const removeThreadBeat = (index: number) => {
+    if (pending || index <= 0) return;
+    const next = removeComposerThreadBeat(beats, index, safeFocus);
+    if (next.beats.length === beats.length) return;
+    const removed = beats[index];
+    if (removed) revokeSheetBeatPreviews(removed);
+    setBeats(next.beats);
+    setFocusedBeat(next.focus);
+  };
 
   const viewerName = accountId
     ? displayName(accountId, viewerShell?.displayName)
@@ -404,21 +462,20 @@ export function ComposerSheet({
     setWasOpen(open);
     if (open) {
       setFormKey((key) => key + 1);
-      setText(initialText);
-      setPollEnabled(false);
-      setPollOptions(['', '']);
-      setPollDurationMs(undefined);
-      setDropDraft(initialDrop);
+      setBeats((current) => {
+        for (const row of current) revokeSheetBeatPreviews(row);
+        return [
+          emptySheetBeat({
+            text: initialText,
+            files: initialFiles,
+            drop: initialDrop,
+          }),
+        ];
+      });
+      setFocusedBeat(0);
+      setPlusPressed(false);
       setAppliedMediaSeedKey(initialMediaSeedKey);
-      setMediaFiles([...initialFiles]);
-      setMediaPreviews(postMediaPreviewEntriesFromFiles(initialFiles));
       setMediaError(null);
-      setContentWarning('');
-      setNsfw(false);
-      setPlaceDraft('');
-      setPlaceOpen(false);
-      setArticleTitle('');
-      setArticleAlign('left');
       setLabelsOpen(false);
       setDropPickerOpen(false);
     } else {
@@ -426,8 +483,27 @@ export function ComposerSheet({
     }
   } else if (open && appliedMediaSeedKey !== initialMediaSeedKey) {
     setAppliedMediaSeedKey(initialMediaSeedKey);
-    setMediaFiles([...initialFiles]);
-    setMediaPreviews(postMediaPreviewEntriesFromFiles(initialFiles));
+    setBeats((current) => {
+      const [first, ...rest] = current;
+      if (!first) {
+        return [
+          emptySheetBeat({
+            text: initialText,
+            files: initialFiles,
+            drop: initialDrop,
+          }),
+        ];
+      }
+      revokeComposerPreviewFiles(first.files);
+      return [
+        {
+          ...first,
+          files: [...initialFiles],
+          previews: postMediaPreviewEntriesFromFiles(initialFiles),
+        },
+        ...rest,
+      ];
+    });
   }
 
   useEffect(() => {
@@ -442,15 +518,6 @@ export function ComposerSheet({
     }, 280);
     return () => window.clearTimeout(focusTimer);
   }, [open, mode, formKey]);
-
-  useLayoutEffect(() => {
-    const el = textareaRef.current;
-    if (!el || !open) return;
-    /* Grow with content; the slide body is the only scroller (no nested field scroll). */
-    el.style.height = '0px';
-    el.style.height = `${el.scrollHeight}px`;
-    el.style.overflowY = 'hidden';
-  }, [text, pollEnabled, formKey, open]);
 
   useEffect(() => {
     if (!open || !labelsOpen) return;
@@ -474,56 +541,49 @@ export function ComposerSheet({
     return () => window.clearTimeout(focusTimer);
   }, [open, placeOpen, formKey]);
 
-  const filledPollOptions = normalizePollOptions(pollOptions);
-  const pollReady =
-    !pollEnabled ||
-    (filledPollOptions.length >= MIN_POLL_OPTIONS &&
-      filledPollOptions.length === new Set(filledPollOptions).size);
-
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const trimmed = text.trim();
-    if (pending || !pollReady) return;
-    const article = canUseArticle
-      ? normalizeArticleTitle(articleTitle)
-      : null;
-    if (!trimmed && mediaFiles.length === 0 && !dropDraft && !article) return;
-    if (trimmed.length > POST_TEXT_MAX_LENGTH) {
+    if (pending) return;
+    const publishBeats = canComposeThread
+      ? beats.filter(composerBeatHasContent)
+      : [beat].filter(composerBeatHasContent);
+    if (publishBeats.length === 0) return;
+    if (publishBeats.some((row) => row.text.length > POST_TEXT_MAX_LENGTH)) {
       setMediaError(
         `Posts can be at most ${POST_TEXT_MAX_LENGTH.toLocaleString()} characters.`
       );
       return;
     }
-    const labels = normalizeComposerContentLabels({
-      contentWarning,
-      nsfw,
+    const pollRowsReady = publishBeats.every((row) => {
+      if (!row.pollEnabled) return true;
+      const options = normalizePollOptions(row.pollOptions);
+      return (
+        options.length >= COMPOSER_MIN_POLL_OPTIONS &&
+        options.length === new Set(options).size
+      );
     });
-    const placeSlug = normalizePlaceSlug(placeDraft);
-    onSubmit({
-      text:
-        trimmed ||
-        (mediaFiles.length > 0 || dropDraft ? (dropDraft ? '' : ' ') : ''),
-      ...(canUsePoll && pollEnabled
-        ? {
-            poll: {
-              options: filledPollOptions,
-              ...(pollDurationMs != null ? { durationMs: pollDurationMs } : {}),
-            },
-          }
-        : {}),
-      ...(dropDraft ? { drop: dropDraft } : {}),
-      ...(article
-        ? {
-            article: {
-              title: article,
-              ...(articleAlign !== 'left' ? { align: articleAlign } : {}),
-            },
-          }
-        : {}),
-      ...(mediaFiles.length > 0 ? { files: mediaFiles } : {}),
-      ...(placeSlug ? { places: [placeSlug] } : {}),
-      ...labels,
-    });
+    if (!pollRowsReady) return;
+    const payload = composerBeatsToSubmit(publishBeats);
+    if (!payload) return;
+    if (!payload.text.trim() && (payload.files?.length || payload.drop)) {
+      payload.text = payload.drop ? '' : ' ';
+    }
+    void (async () => {
+      const result = await onSubmit(payload);
+      if (!result || result.confirmed) return;
+      const posted = result.postedCount ?? 0;
+      const total = result.totalCount ?? 0;
+      if (posted <= 0 || posted >= total) return;
+      setBeats((current) => {
+        const leftover = keepUnsentComposerBeats(current, posted);
+        const leftoverIds = new Set(leftover.map((row) => row.id));
+        for (const row of current) {
+          if (!leftoverIds.has(row.id)) revokeSheetBeatPreviews(row);
+        }
+        return leftover;
+      });
+      setFocusedBeat(0);
+    })();
   };
 
   const panelStyle = useMemo((): CSSProperties | undefined => {
@@ -535,78 +595,60 @@ export function ComposerSheet({
 
   const requestClose = () => {
     if (pending) return;
-    onClose({ text, files: mediaFiles });
-  };
-
-  const updatePollOption = (index: number, value: string) => {
-    setPollOptions((current) =>
-      current.map((option, optionIndex) =>
-        optionIndex === index ? value : option
-      )
-    );
-  };
-
-  const addPollOption = () => {
-    setPollOptions((current) =>
-      current.length >= MAX_POLL_OPTIONS ? current : [...current, '']
-    );
-  };
-
-  const removePollOption = (index: number) => {
-    setPollOptions((current) => {
-      if (current.length <= MIN_POLL_OPTIONS) return current;
-      return current.filter((_, optionIndex) => optionIndex !== index);
-    });
+    const first = beats[0] ?? emptySheetBeat();
+    onClose({ text: first.text, files: first.files });
   };
 
   const togglePlace = () => {
     if (!canUsePlace || pending) return;
-    setPlaceOpen((current) => {
-      if (current) {
-        setPlaceDraft('');
-        return false;
-      }
-      return true;
-    });
+    if (placeOpen) {
+      patchFocused({ placeOpen: false, placeDraft: '' });
+      return;
+    }
+    patchFocused({ placeOpen: true });
   };
 
   const togglePoll = () => {
     if (!canUsePoll || pending) return;
-    setPollEnabled((current) => {
-      if (current) {
-        setPollOptions(['', '']);
-        setPollDurationMs(undefined);
-        return false;
-      }
-      setMediaFiles([]);
-      setMediaPreviews([]);
-      revokeComposerPreviewFiles(mediaFiles);
-      setMediaError(null);
-      setDropDraft(null);
-      return true;
+    if (pollEnabled) {
+      patchFocused({
+        pollEnabled: false,
+        pollOptions: ['', ''],
+        pollDurationMs: undefined,
+      });
+      return;
+    }
+    revokeComposerPreviewFiles(mediaFiles);
+    setMediaError(null);
+    patchFocused({
+      pollEnabled: true,
+      drop: null,
+      files: [],
+      previews: [],
     });
   };
 
   const selectDrop = (drop: ComposerDropDraft) => {
-    setDropDraft(drop);
-    setPollEnabled(false);
-    setPollOptions(['', '']);
-    setPollDurationMs(undefined);
     revokeComposerPreviewFiles(mediaFiles);
-    setMediaFiles([]);
-    setMediaPreviews([]);
     setMediaError(null);
     setDropPickerOpen(false);
+    patchFocused({
+      drop,
+      pollEnabled: false,
+      pollOptions: ['', ''],
+      pollDurationMs: undefined,
+      files: [],
+      previews: [],
+    });
   };
 
-  const removeMediaAt = (index: number) => {
-    setMediaFiles((current) => {
-      const removed = current[index];
-      if (removed) postMediaRevokeLocalPreviewUrl(removed);
-      return current.filter((_, i) => i !== index);
+  const addThreadBeat = () => {
+    if (!canAddThread || pending) return;
+    setBeats((current) => {
+      if (!canAddComposerThreadBeat(current)) return current;
+      return [...current, emptySheetBeat()];
     });
-    setMediaPreviews((current) => current.filter((_, i) => i !== index));
-    setMediaError(null);
+    setFocusedBeat(beats.length);
   };
 
   const attachMediaFiles = async (fileList: FileList | null) => {
@@ -651,15 +693,16 @@ export function ComposerSheet({
       return;
     }
 
-    setPollEnabled(false);
-    setPollOptions(['', '']);
-    setPollDurationMs(undefined);
-    setMediaFiles((current) =>
-      [...current, ...take].slice(0, POST_MEDIA_MAX_FILES)
-    );
-    setMediaPreviews((current) =>
-      [...current, ...takePreviews].slice(0, POST_MEDIA_MAX_FILES)
-    );
+    patchFocused({
+      pollEnabled: false,
+      pollOptions: ['', ''],
+      pollDurationMs: undefined,
+      files: [...mediaFiles, ...take].slice(0, POST_MEDIA_MAX_FILES),
+      previews: [...mediaPreviews, ...takePreviews].slice(
+        0,
+        POST_MEDIA_MAX_FILES
+      ),
+    });
     if (mediaInputRef.current) mediaInputRef.current.value = '';
 
     window.requestAnimationFrame(() => {
@@ -669,28 +712,32 @@ export function ComposerSheet({
     });
   };
 
-  const inputPlaceholder =
-    canUsePoll && pollEnabled ? POLL_PLACEHOLDER : PLACEHOLDER[mode];
-
   const textLength = text.length;
   const textRemaining = POST_TEXT_MAX_LENGTH - textLength;
   const textOverLimit = textLength > POST_TEXT_MAX_LENGTH;
   const showTextCount = textLength > 0;
 
+  const publishBeats = canComposeThread
+    ? beats.filter(composerBeatHasContent)
+    : [beat].filter(composerBeatHasContent);
+  const threadPollReady = publishBeats.every((row) => {
+    if (!row.pollEnabled) return true;
+    const options = normalizePollOptions(row.pollOptions);
+    return (
+      options.length >= COMPOSER_MIN_POLL_OPTIONS &&
+      options.length === new Set(options).size
+    );
+  });
   const canPost =
-    (Boolean(text.trim()) ||
-      mediaFiles.length > 0 ||
-      Boolean(dropDraft) ||
-      articleTitleTrimmed) &&
+    publishBeats.length > 0 &&
     !pending &&
-    pollReady &&
-    !textOverLimit;
+    threadPollReady &&
+    publishBeats.every((row) => row.text.length <= POST_TEXT_MAX_LENGTH);
 
   const showDestinationMenus =
     mode === 'post' &&
     (Boolean(feedTargets && feedTargets.options.length > 0) ||
       Boolean(authorTargets));
-  const postingAsDao = authorTargets?.mode === 'dao';
   const roomOptions: ChoiceOption<string>[] | null =
     mode === 'post' && destination?.kind === 'guild' && !postingAsDao
       ? destination.loading && destination.channels.length === 0
@@ -847,266 +894,43 @@ export function ComposerSheet({
     <IdentityLine name={viewerName} handle={accountId} />
   ) : null;
 
-  const selfBlock = (
-    <div
-      className={`guild-composer-self${
-        showDestinationMenus ? ' has-destination-menus' : ''
-      }`}
-    >
-      <AccountAvatar
+  const focusFieldOnBeat = (index: number) => {
+    if (index !== safeFocus) focusBeat(index);
+  };
+
+  const renderBeat = (row: SheetBeat, index: number) => {
+    const focused = index === safeFocus;
+    return (
+      <ComposerThreadBeat
+        row={row}
+        index={index}
+        mode={mode}
+        target={target}
+        targetAuthorProfile={targetAuthorProfile}
+        muted={canComposeThread && beats.length > 1 && !focused}
+        focused={focused}
+        pending={pending}
+        canComposeThread={canComposeThread}
+        beatCount={beats.length}
+        showDestinationMenus={showDestinationMenus}
+        identitySlot={identitySlot}
         accountId={accountId}
-        kind={viewerShell?.kind}
-        src={viewerShell?.avatarUrl ?? null}
-        fallbackInitial={viewerName}
-        size="lg"
-        className="guild-composer-row-avatar"
+        viewerKind={viewerShell?.kind}
+        viewerAvatarUrl={viewerShell?.avatarUrl}
+        viewerName={viewerName}
+        textareaRef={focused ? textareaRef : undefined}
+        mediaStripRef={focused ? mediaStripRef : undefined}
+        placeInputRef={focused ? placeInputRef : undefined}
+        priorityMentionAccounts={priorityMentionAccounts}
+        onPatch={(patch) => patchBeat(index, patch)}
+        onRemove={index > 0 ? () => removeThreadBeat(index) : undefined}
+        onFocusBeat={() => focusFieldOnBeat(index)}
+        onScrollField={scrollFieldIntoView}
+        onOpenLabels={() => setLabelsOpen(true)}
+        onMediaError={setMediaError}
       />
-      <div className="guild-composer-row-copy">
-        {identitySlot}
-        {canUseArticle ? (
-          <label className="guild-composer-article-field">
-            <span className="sr-only">Article title</span>
-            <input
-              type="text"
-              className={`${osFieldBorderedClassName} guild-composer-article-title`}
-              value={articleTitle}
-              maxLength={ARTICLE_TITLE_MAX}
-              disabled={pending}
-              autoComplete="off"
-              placeholder="Title (optional)"
-              aria-label="Article title"
-              onChange={(event) => setArticleTitle(event.target.value)}
-              onFocus={scrollFieldIntoView}
-            />
-          </label>
-        ) : null}
-        {canUseArticle && articleTitleTrimmed ? (
-          <div
-            className="guild-composer-article-align"
-            role="group"
-            aria-label="Article alignment"
-          >
-            {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => (
-              <button
-                key={option}
-                type="button"
-                className={`account-editor-bio-tool profile-about-edit-align-tool${
-                  articleAlign === option ? ' is-active' : ''
-                }`}
-                aria-label={
-                  option === 'left'
-                    ? 'Align left'
-                    : option === 'center'
-                      ? 'Align center'
-                      : 'Justify'
-                }
-                aria-pressed={articleAlign === option}
-                disabled={pending}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => setArticleAlign(option)}
-              >
-                {option === 'left' ? 'L' : option === 'center' ? 'C' : 'J'}
-              </button>
-            ))}
-          </div>
-        ) : null}
-        <ComposerHashtagTextarea
-          textareaRef={textareaRef}
-          placeholder={inputPlaceholder}
-          ariaLabel={inputPlaceholder}
-          value={text}
-          maxLength={POST_TEXT_MAX_LENGTH}
-          disabled={pending}
-          onChange={setText}
-          onFocus={scrollFieldIntoView}
-          priorityMentionAccounts={priorityMentionAccounts}
-        />
-        {mediaPreviews.length > 0 ? (
-          <div
-            ref={mediaStripRef}
-            className="guild-composer-media-preview"
-            role="list"
-            aria-label="Attached media"
-          >
-            {mediaPreviews.map((preview, index) => (
-              <div key={preview.url} role="listitem">
-                <PostMediaBlock
-                  item={{ url: preview.url, mime: preview.mime }}
-                  size="preview"
-                  onRemove={pending ? undefined : () => removeMediaAt(index)}
-                />
-              </div>
-            ))}
-          </div>
-        ) : null}
-        {dropDraft ? (
-          <div
-            className="guild-composer-media-preview"
-            role="list"
-            aria-label={`Attached Drop: ${dropDraft.title}`}
-          >
-            <div role="listitem">
-              {dropDraft.mediaUrl ? (
-                <PostMediaBlock
-                  item={{
-                    url: dropDraft.mediaUrl,
-                    mime: 'image/*',
-                  }}
-                  size="preview"
-                  onRemove={pending ? undefined : () => setDropDraft(null)}
-                />
-              ) : (
-                <div className="post-media-tile post-media-tile--preview guild-composer-drop-fallback-tile">
-                  <span className="guild-composer-drop-preview-fallback" />
-                  {!pending ? (
-                    <button
-                      type="button"
-                      className="post-media-remove"
-                      aria-label="Remove Drop"
-                      onClick={() => setDropDraft(null)}
-                    >
-                      ×
-                    </button>
-                  ) : null}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
-        {canUsePoll && pollEnabled ? (
-          <div className="guild-composer-poll">
-            <div className="guild-composer-poll-options">
-              {pollOptions.map((option, index) => (
-                <div
-                  key={`poll-option-${index}`}
-                  className="guild-composer-poll-row"
-                >
-                  <input
-                    className={`${osFieldBorderedClassName} guild-composer-poll-input`}
-                    value={option}
-                    maxLength={48}
-                    disabled={pending}
-                    placeholder={`Option ${index + 1}`}
-                    aria-label={`Poll option ${index + 1}`}
-                    onChange={(event) =>
-                      updatePollOption(index, event.target.value)
-                    }
-                    onFocus={scrollFieldIntoView}
-                  />
-                  {pollOptions.length > MIN_POLL_OPTIONS ? (
-                    <OsFieldRemove
-                      aria-label={`Remove option ${index + 1}`}
-                      ready={!pending}
-                      disabled={pending}
-                      onClick={() => removePollOption(index)}
-                    />
-                  ) : null}
-                </div>
-              ))}
-            </div>
-            {pollOptions.length < MAX_POLL_OPTIONS ? (
-              <button
-                type="button"
-                className="guild-composer-poll-add"
-                disabled={pending}
-                onClick={addPollOption}
-              >
-                Add option
-              </button>
-            ) : null}
-            <div
-              className="guild-composer-poll-duration"
-              role="group"
-              aria-label="Poll duration"
-            >
-              <button
-                type="button"
-                className={
-                  pollDurationMs == null
-                    ? 'guild-composer-poll-chip is-active'
-                    : 'guild-composer-poll-chip'
-                }
-                disabled={pending}
-                onClick={() => setPollDurationMs(undefined)}
-              >
-                Open
-              </button>
-              {POLL_DURATION_OPTIONS.map((option) => (
-                <button
-                  key={option.label}
-                  type="button"
-                  className={
-                    pollDurationMs === option.ms
-                      ? 'guild-composer-poll-chip is-active'
-                      : 'guild-composer-poll-chip'
-                  }
-                  disabled={pending}
-                  onClick={() => setPollDurationMs(option.ms)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-        {mode === 'quote' && target ? (
-          <QuotedPostInset post={target} authorProfile={targetAuthorProfile} />
-        ) : null}
-        {contentWarning.trim() || nsfw ? (
-          <div
-            className="guild-composer-label-chips"
-            role="group"
-            aria-label="Content labels"
-          >
-            {contentWarning.trim() ? (
-              <button
-                type="button"
-                className="guild-composer-label-chip"
-                disabled={pending}
-                onClick={() => setLabelsOpen(true)}
-              >
-                CW · {contentWarning.trim()}
-              </button>
-            ) : null}
-            {nsfw ? (
-              <button
-                type="button"
-                className="guild-composer-label-chip is-nsfw"
-                disabled={pending}
-                onClick={() => setLabelsOpen(true)}
-              >
-                NSFW
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-        {canUsePlace && placeOpen ? (
-          <label className="guild-composer-place-field">
-            <span className="sr-only">Place</span>
-            <input
-              ref={placeInputRef}
-              type="text"
-              className={`${osFieldBorderedClassName} guild-composer-place-input`}
-              value={placeDraft}
-              disabled={pending}
-              maxLength={64}
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="Lisbon, ETH Denver…"
-              aria-label="Place"
-              onChange={(event) => setPlaceDraft(event.target.value)}
-              onFocus={scrollFieldIntoView}
-            />
-            {normalizePlaceSlug(placeDraft) ? (
-              <span className="guild-composer-place-hint" aria-hidden>
-                {placeLabel(normalizePlaceSlug(placeDraft)!)}
-              </span>
-            ) : null}
-          </label>
-        ) : null}
-      </div>
-    </div>
-  );
+    );
+  };
 
   const showModeRail = mode !== 'post' && Boolean(onModeChange);
 
@@ -1267,6 +1091,31 @@ export function ComposerSheet({
                   <MapMarkerIcon className="guild-composer-tool-icon" />
                 )}
               </button>
+              {canComposeThread ? (
+                <button
+                  type="button"
+                  className={`guild-composer-tool${
+                    plusPressed ? ' is-active' : ''
+                  }`}
+                  disabled={!canAddThread || pending}
+                  title={threadPlusHint(beats)}
+                  aria-label="Add to thread"
+                  onPointerDown={() => {
+                    if (!canAddThread || pending) return;
+                    setPlusPressed(true);
+                  }}
+                  onPointerUp={() => setPlusPressed(false)}
+                  onPointerCancel={() => setPlusPressed(false)}
+                  onPointerLeave={() => setPlusPressed(false)}
+                  onClick={addThreadBeat}
+                >
+                  {plusPressed ? (
+                    <PlusCircleFillIcon className="guild-composer-tool-icon" />
+                  ) : (
+                    <PlusCircleIcon className="guild-composer-tool-icon" />
+                  )}
+                </button>
+              ) : null}
               <button
                 type="button"
                 className={`guild-composer-tool guild-composer-tool--cw${
@@ -1311,30 +1160,6 @@ export function ComposerSheet({
               >
                 {showTextCount ? textRemaining : '\u00a0'}
               </span>
-              <OsSheetActions
-                layout="row-compact"
-                tone="frosted-primary"
-                borderless
-                className="guild-composer-toolbar-post"
-              >
-                <OsSheetAction
-                  type="submit"
-                  form={formId}
-                  variant="primary"
-                  ready={canPost}
-                  pending={pending}
-                  pendingLabel={
-                    postingAsDao
-                      ? 'Proposing…'
-                      : mode === 'quote'
-                        ? 'Quoting…'
-                        : 'Posting…'
-                  }
-                  disabled={!canPost}
-                >
-                  {postingAsDao ? 'Propose' : mode === 'quote' ? 'Quote' : 'Post'}
-                </OsSheetAction>
-              </OsSheetActions>
             </div>
           </div>
         </div>
@@ -1373,6 +1198,32 @@ export function ComposerSheet({
           </OsIconAction>
         }
         heading={showModeRail ? modeChipRail : undefined}
+        actions={
+          <OsSheetActions
+            layout="row-compact"
+            tone="frosted-primary"
+            borderless
+            className="guild-composer-toolbar-post guild-composer-header-post"
+          >
+            <OsSheetAction
+              type="submit"
+              form={formId}
+              variant="primary"
+              ready={canPost}
+              pending={pending}
+              pendingLabel={
+                postingAsDao
+                  ? 'Proposing…'
+                  : mode === 'quote'
+                    ? 'Quoting…'
+                    : 'Posting…'
+              }
+              disabled={!canPost}
+            >
+              {postingAsDao ? 'Propose' : mode === 'quote' ? 'Quote' : 'Post'}
+            </OsSheetAction>
+          </OsSheetActions>
+        }
         moodId={viewerMoodId}
         moodStyle={viewerMoodStyle}
       >
@@ -1391,10 +1242,28 @@ export function ComposerSheet({
               post={target}
               authorProfile={targetAuthorProfile}
             />
-            {selfBlock}
+            {renderBeat(beats[0] ?? emptySheetBeat(), 0)}
+          </div>
+        ) : canComposeThread && beats.length > 1 ? (
+          <div className="guild-composer-thread" role="list" aria-label="Thread">
+            {beats.map((row, index) => (
+              <div
+                key={row.id}
+                role="listitem"
+                className={[
+                  'guild-composer-thread-item',
+                  index < beats.length - 1 ? 'is-down' : '',
+                  index > 0 ? 'is-up' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {renderBeat(row, index)}
+              </div>
+            ))}
           </div>
         ) : (
-          selfBlock
+          renderBeat(beats[0] ?? emptySheetBeat(), 0)
         )}
 
         <input
@@ -1446,7 +1315,9 @@ export function ComposerSheet({
           disabled={pending}
           placeholder="Warn people about…"
           aria-label="Content warning"
-          onChange={(event) => setContentWarning(event.target.value)}
+          onChange={(event) =>
+            patchFocused({ contentWarning: event.target.value })
+          }
           onFocus={scrollFieldIntoView}
         />
       </label>
@@ -1457,7 +1328,7 @@ export function ComposerSheet({
           checked={nsfw}
           disabled={pending}
           aria-checked={nsfw}
-          onChange={(event) => setNsfw(event.target.checked)}
+          onChange={(event) => patchFocused({ nsfw: event.target.checked })}
         />
         <span className="guild-composer-nsfw-switch-track" aria-hidden />
         <span className="guild-composer-nsfw-switch-copy">

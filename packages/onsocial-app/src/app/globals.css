@@ -34577,6 +34577,111 @@ a.os-surface-row {
     border-radius: 9999px;
   }
 
+  .os-app-screen-actions .guild-composer-header-post {
+    margin-left: 0;
+  }
+
+  /*
+   * Compose thread rail — same tokens as `.post-thread-item`, without the
+   * feed card's 1px transparent border (that border is why the feed rail
+   * sits at `--thread-rail-x` instead of `--thread-rail-x - 1px`).
+   * First beat keeps pad-top 0 so plus does not jump the opening post.
+   * Continuation uses feed `--cont` pad-top (0.42rem); down-rows use the
+   * feed card pad-bottom (0.68rem) so the rail has room between avatars.
+   */
+  .guild-composer-thread {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .guild-composer-thread-item {
+    position: relative;
+    --thread-rail-x: 1.125rem;
+    --thread-pad-top: 0px;
+    --thread-avatar: 2.25rem;
+    --thread-rail-gap: 0.2rem;
+    --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
+    padding-top: var(--thread-pad-top);
+  }
+
+  .guild-composer-thread-item.is-up {
+    --thread-pad-top: 0.42rem;
+  }
+
+  .guild-composer-thread-item.is-down {
+    padding-bottom: 0.68rem;
+  }
+
+  .guild-composer-thread-item.is-down::after,
+  .guild-composer-thread-item.is-up::before {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    left: calc(var(--thread-rail-x) - 1px);
+    width: 2px;
+    border-radius: 9999px;
+    background: var(--thread-rail-color);
+    pointer-events: none;
+  }
+
+  .guild-composer-thread-item.is-up::before {
+    top: 0;
+    height: calc(var(--thread-pad-top) - var(--thread-rail-gap));
+  }
+
+  .guild-composer-thread-item.is-down::after {
+    top: calc(
+      var(--thread-pad-top) + var(--thread-avatar) + var(--thread-rail-gap)
+    );
+    bottom: 0;
+  }
+
+  .guild-composer-self.is-muted {
+    cursor: pointer;
+  }
+
+  /* Mute the beat, not destination chrome — dest is thread-level on beat 1. */
+  .guild-composer-self.is-muted .guild-composer-row-avatar,
+  .guild-composer-self.is-muted .guild-composer-beat-body {
+    opacity: 0.42;
+  }
+
+  .guild-composer-self.has-remove .guild-composer-row-copy {
+    position: relative;
+    padding-right: 2.15rem;
+  }
+
+  .guild-composer-beat-remove {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
+  }
+
+  .guild-composer-muted-preview {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .guild-composer-muted-title,
+  .guild-composer-muted-text {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .guild-composer-muted-title {
+    font-weight: 650;
+    margin-bottom: 0.45rem;
+  }
+
+  .guild-composer-muted-text {
+    font-size: 0.92rem;
+    font-weight: 300;
+    line-height: 1.5;
+  }
+
   /* Reserved slot beside Post — no layout jump when typing starts. */
   .guild-composer-char-count {
     display: inline-flex;
@@ -34625,16 +34730,18 @@ a.os-surface-row {
   }
 
   .guild-composer-reply-target {
+    --thread-rail-x: 1.125rem;
+    --thread-avatar: 2.25rem;
+    --thread-rail-gap: 0.2rem;
     padding-bottom: 0.35rem;
   }
 
-  /* Line from below the target's lg (2.25rem) avatar down to 0.2rem above
-     your avatar in the next row — same 0.2rem rail gap as feed threads. */
+  /* Same compose-thread math: 2px rail centred on the lg avatar, 0.2rem gap. */
   .guild-composer-reply-target::after {
     content: '';
     position: absolute;
-    left: calc(1.125rem - 1px);
-    top: 2.45rem;
+    left: calc(var(--thread-rail-x) - 1px);
+    top: calc(var(--thread-avatar) + var(--thread-rail-gap));
     bottom: -0.35rem;
     width: 2px;
     border-radius: 9999px;

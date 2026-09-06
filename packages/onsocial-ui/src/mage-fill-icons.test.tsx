@@ -8,6 +8,7 @@ import {
   PreviousFillIcon,
   NextFillIcon,
   PlayCircleFillIcon,
+  PlusCircleFillIcon,
   UserFillIcon,
   UserMinusFillIcon,
   UserPlusFillIcon,
@@ -46,6 +47,7 @@ describe('mage fill icons', () => {
     expect(typeof PreviousFillIcon).toBe('function');
     expect(typeof NextFillIcon).toBe('function');
     expect(typeof PlayCircleFillIcon).toBe('function');
+    expect(typeof PlusCircleFillIcon).toBe('function');
     expect(typeof UserFillIcon).toBe('function');
     expect(typeof UserMinusFillIcon).toBe('function');
     expect(typeof UserPlusFillIcon).toBe('function');

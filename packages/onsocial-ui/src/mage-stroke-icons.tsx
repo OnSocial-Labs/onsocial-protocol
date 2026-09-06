@@ -1158,6 +1158,30 @@ export function PlusIcon(props: MageStrokeIconProps) {
   );
 }
 
+/** Mage `plus-circle` — add the next item in a sequence. */
+export function PlusCircleIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M12 21.5a9.5 9.5 0 1 0 0-19a9.5 9.5 0 0 0 0 19"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M12 8v8m4-4H8"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
 /** Mage `information-circle` — small facts / explain affordance. */
 export function InformationCircleIcon(props: MageStrokeIconProps) {
   return (

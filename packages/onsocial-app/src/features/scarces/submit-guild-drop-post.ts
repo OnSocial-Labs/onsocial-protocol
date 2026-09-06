@@ -31,18 +31,26 @@ import {
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
+import { splitComposerThread } from '@/lib/composer-thread';
+import { submitPersonalPost } from '@/features/home/submit-personal-post';
 
 type TrackTransaction = (input: {
   txHashes: string[];
   submittedMessage: string;
   successMessage: string;
   failureMessage: string;
+  silent?: boolean;
+  toastKind?: 'success' | 'error';
+  explorerHash?: string | null;
 }) => Promise<boolean>;
 
 export interface GuildRootPostSubmitResult {
   confirmed: boolean;
   optimisticPost: PostRow | null;
   groupId: string;
+  postedCount?: number;
+  totalCount?: number;
+  txHashes?: string[];
 }
 
 /** @deprecated Prefer GuildRootPostSubmitResult */
@@ -58,9 +66,89 @@ export async function submitGuildRootPost(args: {
   space: GuildSpace;
   payload: ComposerSubmit;
   trackTransaction: TrackTransaction;
+  silent?: boolean;
 }): Promise<GuildRootPostSubmitResult> {
   const { client, accountId, groupId, space, payload, trackTransaction } =
     args;
+  const threadBeats =
+    !args.silent ? splitComposerThread(payload) : null;
+  if (threadBeats && threadBeats.length > 1) {
+    const [root, ...rest] = threadBeats;
+    const first = await submitGuildRootPost({
+      client,
+      accountId,
+      groupId,
+      space,
+      payload: root!,
+      trackTransaction,
+      silent: true,
+    });
+    if (!first.confirmed || !first.optimisticPost) {
+      await trackTransaction({
+        txHashes: [],
+        explorerHash: first.txHashes?.at(-1) ?? null,
+        submittedMessage: txToastConfirming.postingToGuild,
+        successMessage: txToastError.guildPostFailed,
+        failureMessage: txToastError.guildPostFailed,
+        toastKind: 'error',
+      });
+      return first;
+    }
+    let parent = first.optimisticPost;
+    let posted = 1;
+    let lastHashes = first.txHashes ?? [];
+    const total = threadBeats.length;
+    for (const beat of rest) {
+      let next;
+      try {
+        next = await submitPersonalPost({
+          client,
+          accountId,
+          mode: 'reply',
+          target: parent,
+          payload: beat,
+          trackTransaction,
+          silent: true,
+        });
+      } catch {
+        next = { confirmed: false, optimisticPost: null };
+      }
+      if (!next.confirmed || !next.optimisticPost) {
+        await trackTransaction({
+          txHashes: [],
+          explorerHash: lastHashes.at(-1) ?? null,
+          submittedMessage: txToastConfirming.postingToGuild,
+          successMessage: txToastError.threadPartial(posted, total),
+          failureMessage: txToastError.threadPartial(posted, total),
+          toastKind: 'error',
+        });
+        return {
+          ...first,
+          confirmed: false,
+          postedCount: posted,
+          totalCount: total,
+          txHashes: lastHashes,
+        };
+      }
+      parent = next.optimisticPost;
+      posted += 1;
+      lastHashes = next.txHashes?.length ? next.txHashes : lastHashes;
+    }
+    await trackTransaction({
+      txHashes: [],
+      explorerHash: lastHashes.at(-1) ?? null,
+      submittedMessage: txToastConfirming.postingToGuild,
+      successMessage: txToastSuccess.threadPublished,
+      failureMessage: txToastError.guildPostFailed,
+    });
+    return {
+      ...first,
+      confirmed: true,
+      postedCount: posted,
+      totalCount: total,
+      txHashes: lastHashes,
+    };
+  }
   const text = payload.text.trim();
   const files = payload.files ?? [];
   const drop = isDropComposeDraftReady(payload.drop) ? payload.drop! : null;
@@ -134,15 +222,17 @@ export async function submitGuildRootPost(args: {
     newPostId
   );
 
+  const txHashes = collectRelayTxHashes(response);
   const confirmed = await trackTransaction({
-    txHashes: collectRelayTxHashes(response),
+    txHashes,
     submittedMessage: txToastConfirming.postingToGuild,
     successMessage: txToastSuccess.guildPostPublished,
     failureMessage: txToastError.guildPostFailed,
+    ...(args.silent ? { silent: true } : {}),
   });
 
   if (!confirmed) {
-    return { confirmed: false, optimisticPost: null, groupId };
+    return { confirmed: false, optimisticPost: null, groupId, txHashes };
   }
 
   const media = files.length ? buildOptimisticMediaEntries(files) : undefined;
@@ -178,7 +268,7 @@ export async function submitGuildRootPost(args: {
         : (dropKind ?? mediaKind ?? space.kind),
   };
 
-  return { confirmed: true, optimisticPost, groupId };
+  return { confirmed: true, optimisticPost, groupId, txHashes };
 }
 
 /**

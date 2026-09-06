@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { OnSocial } from '@onsocial/sdk';
 import type { GuildSpace } from '@/features/guilds/guild-structure';
-import { submitGuildDropPost } from '@/features/scarces/submit-guild-drop-post';
+import {
+  submitGuildDropPost,
+  submitGuildRootPost,
+} from '@/features/scarces/submit-guild-drop-post';
+
+vi.mock('@/features/home/assert-can-reply-to-guild-post', () => ({
+  assertCanReplyToGuildPost: vi.fn().mockResolvedValue(undefined),
+}));
 
 const space: GuildSpace = {
   id: 'general',
@@ -96,5 +103,67 @@ describe('submitGuildDropPost', () => {
     });
     expect(result.optimisticPost?.value).toContain('"contentWarning":"Spoilers"');
     expect(result.optimisticPost?.value).toContain('"nsfw":true');
+  });
+});
+
+describe('submitGuildRootPost thread', () => {
+  it('publishes a guild thread as room post then self-reply', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'guild-root-tx' });
+    const replyToPost = vi.fn().mockResolvedValue({ txHash: 'guild-reply-tx' });
+    const client = {
+      groups: { post, replyToPost },
+    } as unknown as OnSocial;
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitGuildRootPost({
+      client,
+      accountId: 'alice.testnet',
+      groupId: 'builders',
+      space,
+      payload: {
+        text: 'one',
+        thread: [{ text: 'two' }],
+      },
+      trackTransaction,
+    });
+
+    expect(post).toHaveBeenCalledOnce();
+    expect(replyToPost).toHaveBeenCalledOnce();
+    expect(result.confirmed).toBe(true);
+    expect(result.postedCount).toBe(2);
+    expect(result.optimisticPost?.value).toContain('one');
+    const finalToast = trackTransaction.mock.calls.at(-1)?.[0];
+    expect(finalToast?.successMessage).toBe('Thread posted.');
+    expect(finalToast?.explorerHash).toBe('guild-reply-tx');
+    expect(result.txHashes).toEqual(['guild-reply-tx']);
+  });
+
+  it('keeps the landed root when a later beat fails', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'guild-root-tx' });
+    const replyToPost = vi.fn().mockRejectedValue(new Error('nope'));
+    const client = {
+      groups: { post, replyToPost },
+    } as unknown as OnSocial;
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitGuildRootPost({
+      client,
+      accountId: 'alice.testnet',
+      groupId: 'builders',
+      space,
+      payload: {
+        text: 'one',
+        thread: [{ text: 'two' }],
+      },
+      trackTransaction,
+    });
+
+    expect(result.confirmed).toBe(false);
+    expect(result.postedCount).toBe(1);
+    expect(result.optimisticPost?.value).toContain('one');
+    const lastToast = trackTransaction.mock.calls.at(-1)?.[0];
+    expect(lastToast?.toastKind).toBe('error');
+    expect(lastToast?.failureMessage).toBe('Posted 1 of 2.');
+    expect(lastToast?.explorerHash).toBe('guild-root-tx');
   });
 });

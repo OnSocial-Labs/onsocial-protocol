@@ -166,15 +166,17 @@ export function DropComposeHost() {
             payload,
             trackTransaction,
           });
-          if (result.confirmed && result.optimisticPost) {
-            setOpenDraft(null);
-            clearDropComposeDraft();
+          if (result.optimisticPost) {
             dispatchGuildPostConfirmed({
               groupId: result.groupId,
               post: result.optimisticPost,
             });
           }
-          return;
+          if (result.confirmed) {
+            setOpenDraft(null);
+            clearDropComposeDraft();
+          }
+          return result;
         }
 
         const result = await submitPersonalPost({
@@ -185,11 +187,14 @@ export function DropComposeHost() {
           payload,
           trackTransaction,
         });
-        if (result.confirmed && result.optimisticPost) {
-          setOpenDraft(null);
-          clearDropComposeDraft();
+        if (result.optimisticPost) {
           dispatchPersonalPostConfirmed(result.optimisticPost);
         }
+        if (result.confirmed) {
+          setOpenDraft(null);
+          clearDropComposeDraft();
+        }
+        return result;
       } catch (cause) {
         if (isWalletUserCancellation(cause)) return;
         setError(
@@ -235,7 +240,7 @@ export function DropComposeHost() {
       }
       error={error}
       onClose={handleClose}
-      onSubmit={(payload) => void handleSubmit(payload)}
+      onSubmit={handleSubmit}
     />
   );
 }
