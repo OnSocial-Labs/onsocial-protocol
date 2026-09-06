@@ -19,6 +19,8 @@ export type DockBackRegistration = {
 interface DockChromeContextValue {
   dockBack: DockBackRegistration | null;
   setDockBack: (entry: DockBackRegistration | null) => void;
+  headerOwnsConnect: boolean;
+  setHeaderOwnsConnect: (owns: boolean) => void;
 }
 
 const DockChromeContext = createContext<DockChromeContextValue | null>(null);
@@ -34,9 +36,29 @@ export function resolveDockBackVisible({
   return Boolean(dockBack) && !launcherOpen;
 }
 
+/** Dock Connect hint waits when the header already owns Connect. */
+export function resolveDockConnectHintVisible({
+  headerOwnsConnect,
+  isConnected,
+}: {
+  headerOwnsConnect: boolean;
+  isConnected: boolean;
+}): boolean {
+  return !isConnected && !headerOwnsConnect;
+}
+
 export function DockChromeProvider({ children }: { children: ReactNode }) {
   const [dockBack, setDockBack] = useState<DockBackRegistration | null>(null);
-  const value = useMemo(() => ({ dockBack, setDockBack }), [dockBack]);
+  const [headerOwnsConnect, setHeaderOwnsConnect] = useState(false);
+  const value = useMemo(
+    () => ({
+      dockBack,
+      setDockBack,
+      headerOwnsConnect,
+      setHeaderOwnsConnect,
+    }),
+    [dockBack, headerOwnsConnect]
+  );
   return (
     <DockChromeContext.Provider value={value}>
       {children}
@@ -46,6 +68,10 @@ export function DockChromeProvider({ children }: { children: ReactNode }) {
 
 export function useDockBack(): DockBackRegistration | null {
   return useContext(DockChromeContext)?.dockBack ?? null;
+}
+
+export function useHeaderOwnsConnect(): boolean {
+  return useContext(DockChromeContext)?.headerOwnsConnect ?? false;
 }
 
 /** Register contextual back on the summon dock (clears on unmount). */
@@ -58,4 +84,16 @@ export function useRegisterDockBack(entry: DockBackRegistration | null) {
     setDockBack(entry);
     return () => setDockBack(null);
   }, [entry?.ariaLabel, entry?.fallbackHref, entry?.onBack, entry, setDockBack]);
+}
+
+/** Header already has Connect / Start drop — hide the dock Connect hint. */
+export function useRegisterHeaderOwnsConnect(owns: boolean) {
+  const context = useContext(DockChromeContext);
+  const setHeaderOwnsConnect = context?.setHeaderOwnsConnect;
+
+  useLayoutEffect(() => {
+    if (!setHeaderOwnsConnect) return;
+    setHeaderOwnsConnect(owns);
+    return () => setHeaderOwnsConnect(false);
+  }, [owns, setHeaderOwnsConnect]);
 }

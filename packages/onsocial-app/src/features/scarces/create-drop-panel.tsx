@@ -13,7 +13,6 @@ import {
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  AmountFieldMetaRow,
   DiscardConfirmSheet,
   OsSheetAction,
   OsSheetActions,
@@ -174,9 +173,6 @@ import {
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const NEAR_INPUT_DECIMALS = 5;
-const SUPPLY_PRESETS = [10, 25, 100, 500] as const;
-/** Same order as storage / list forms: amount first, numeric chips below. */
-const PRICE_PRESETS = ['0', '0.1', '1', '5'] as const;
 const MIN_SUPPLY = 1;
 const MAX_SUPPLY = 10_000;
 const MIN_VARIATIONS = 2;
@@ -2359,6 +2355,7 @@ export function CreateDropPanel() {
     <OsAppScreen
       title={dropCreateScreenTitle(studioOpen)}
       dockBack={!studioOpen}
+      headerOwnsConnect={!studioOpen}
       backFallbackHref={dropCreateBackHref(appId)}
       compactChrome
       glassChrome
@@ -3263,25 +3260,6 @@ export function CreateDropPanel() {
                 suffix={template.unit}
                 disabled={pending}
               />
-              <div
-                className="app-storage-presets"
-                role="group"
-                aria-label="Total supply"
-              >
-                {SUPPLY_PRESETS.map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    className={`os-surface-chip${
-                      supply === preset ? ' is-selected' : ''
-                    }`}
-                    disabled={pending}
-                    onClick={() => setSupplyInput(String(preset))}
-                  >
-                    {preset}
-                  </button>
-                ))}
-              </div>
             </div>
           )}
 
@@ -3294,13 +3272,6 @@ export function CreateDropPanel() {
               placeholder="1"
               aria-label={`Price per ${template.unitSingular} in NEAR`}
               unit="NEAR"
-              disabled={pending}
-            />
-            <AmountFieldMetaRow
-              presets={PRICE_PRESETS}
-              selectedValue={price}
-              onSelectPreset={setPriceInput}
-              presetsAriaLabel="Quick prices"
               disabled={pending}
             />
           </div>

@@ -27,6 +27,14 @@ test.describe('create drop', () => {
     );
     await expect(page.locator('.drop-kind-rail')).toBeVisible();
     await expect(page.locator('.market-listing-filters')).toHaveCount(0);
+    await expect(page.locator('.os-app-screen')).toHaveAttribute(
+      'data-header-owns-connect',
+      ''
+    );
+    await expect(page.locator('.portfolio-summon-hint--connect')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Connect', exact: true })
+    ).toHaveCount(1);
 
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await expect(page).toHaveURL(/\/drops(?:\?|$)/);
@@ -67,6 +75,12 @@ test.describe('create drop', () => {
         .locator('[data-drop-create-section="deal"]')
         .getByLabel('Price per edition in NEAR')
     ).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Quick prices' })).toHaveCount(
+      0
+    );
+    await expect(page.getByRole('group', { name: 'Total supply' })).toHaveCount(
+      0
+    );
     await expect(page.locator('.drop-create-blurb-toggle')).toHaveText(
       'Add a blurb'
     );
