@@ -116,6 +116,7 @@ test.describe('collectibles shell', () => {
     const aliceHeading = page.locator('#collectibles-from-alice-near');
     const bobHeading = page.locator('#collectibles-from-bob-near');
     await expect(aliceHeading).toBeVisible();
+    await expect(aliceHeading).toContainText('Alice');
     await expect(aliceHeading).toContainText('3');
     await expect(bobHeading).toBeVisible();
     await expect(bobHeading).toContainText('1');

@@ -33,6 +33,10 @@ test.describe('market live-first browse', () => {
     await expect(endedRow).toHaveCount(1);
     await expect(liveRow.getByRole('button', { name: /^Buy / })).toBeVisible();
     await expect(endedRow.getByRole('button', { name: /^Settle / })).toBeVisible();
+    await expect(liveRow.locator('.drops-discovery-by')).toHaveText('by E2e');
+    await expect(liveRow.locator('.drops-discovery-sub')).toHaveText(
+      '@e2e.market.testnet'
+    );
     await expect(liveRow.getByText('e2e-live-first Live Ask')).toBeVisible();
     await expect(endedRow.getByText('e2e-live-first Ended Lot')).toBeVisible();
 

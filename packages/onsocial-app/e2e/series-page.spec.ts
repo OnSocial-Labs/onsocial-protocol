@@ -46,6 +46,10 @@ test.describe('series page', () => {
     await expect(
       page.getByRole('link', { name: "View E2e's profile" })
     ).toBeVisible();
+    await expect(page.locator('.standing-row-name')).toHaveText('E2e');
+    await expect(page.locator('.standing-row-handle')).toHaveText(
+      '@e2e.series.testnet'
+    );
     await expect(
       page.getByRole('link', { name: 'Shop this creator' })
     ).toHaveAttribute('href', `/market?creator=${encodeURIComponent(CREATOR)}`);

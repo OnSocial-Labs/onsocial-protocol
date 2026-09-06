@@ -18,6 +18,10 @@ test.describe('market creator shop', () => {
     await expect(
       page.getByRole('link', { name: "View E2e's profile" })
     ).toBeVisible();
+    await expect(page.locator('.standing-row-name')).toHaveText('E2e');
+    await expect(page.locator('.standing-row-handle')).toHaveText(
+      '@e2e.market.testnet'
+    );
     await expect(page.getByText('From @', { exact: false })).toHaveCount(0);
     await expect(page.getByText('No live listings from')).toHaveCount(0);
     await expect(page.getByText('No drops or listings from')).toHaveCount(0);
