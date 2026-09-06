@@ -38,13 +38,17 @@ import {
 } from '@/features/scarces/collection-creator-face';
 import { CollectionOwnerManageMenu } from '@/features/scarces/collection-owner-manage-menu';
 import {
+  collectionCatalogShell,
   collectionDropBackHref,
   collectionShowCommerceMeter,
   collectionUseFirst,
   peekHoldsCollection,
   peekOwnedTokenForCollection,
 } from '@/features/scarces/collection-page-view';
-import { CollectionActivitySkeleton } from '@/features/scarces/collection-page-skeleton';
+import {
+  CollectionActivitySkeleton,
+  CollectionPageSkeleton,
+} from '@/features/scarces/collection-page-skeleton';
 import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
 import { VariationSetPeek } from '@/features/scarces/variation-set-peek';
 import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
@@ -180,7 +184,7 @@ export function CollectionPagePanel({
   const dropFanIds = dropLoves.fanIds.slice(0, 5);
   const dropFanProfiles = usePostAuthorProfiles(showDropLove ? dropFanIds : []);
   const [dropFansOpen, setDropFansOpen] = useState(false);
-  const [notFound, setNotFound] = useState(initial == null);
+  const [clientSettled, setClientSettled] = useState(initial != null);
   const [walletRemaining, setWalletRemaining] = useState<number | null>(null);
   /** null = not checked yet / N/A; number = remaining allowlist mints. */
   const [allowlistRemaining, setAllowlistRemaining] = useState<number | null>(
@@ -242,15 +246,17 @@ export function CollectionPagePanel({
   useEffect(() => {
     if (refreshKey === 0 && initial != null) return;
     let cancelled = false;
-    void fetchCollectionPreferIndexer(collectionId).then((next) => {
-      if (cancelled) return;
-      if (next) {
-        setView(next);
-        setNotFound(false);
-      } else if (!initial) {
-        setNotFound(true);
-      }
-    });
+    void fetchCollectionPreferIndexer(collectionId)
+      .then((next) => {
+        if (cancelled) return;
+        if (next) setView(next);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        if (refreshKey === 0 && initial == null) {
+          setClientSettled(true);
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -665,7 +671,25 @@ export function CollectionPagePanel({
     };
   }, [view, holdsEdition, maxQuantity]);
 
-  if (notFound || !view) {
+  const catalogShell = collectionCatalogShell({
+    hasView: view != null,
+    ssrMiss: initial == null,
+    clientSettled,
+  });
+  if (catalogShell === 'skeleton') {
+    return (
+      <OsAppScreen
+        title="Drop"
+        dockBack
+        backFallbackHref={APP_MARKET_PATH}
+        immersiveHeader
+      >
+        <div aria-hidden className="os-chrome-glass" />
+        <CollectionPageSkeleton />
+      </OsAppScreen>
+    );
+  }
+  if (catalogShell === 'unavailable' || !view) {
     return (
       <OsAppScreen title="Drop" dockBack backFallbackHref={APP_MARKET_PATH}>
         <div className="market-page">

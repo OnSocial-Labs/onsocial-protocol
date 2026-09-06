@@ -12,6 +12,32 @@ const HOLDER_BACK = `/@${COLLECTION_E2E_VIEWER}/collectibles`;
 const PILL_ACTION = /page-drawer-section-action/;
 
 test.describe('collection drop page', () => {
+  test('SSR catalog miss keeps the skeleton until the client fetch settles', async ({
+    page,
+  }) => {
+    await stubCollectionPageGraph(page, { catalogDelayMs: 2500 });
+    await gotoApp(page, '/collection/night-drive');
+    await expect(page.locator('[data-collection-page-skeleton]')).toBeVisible({
+      timeout: 8_000,
+    });
+    await expect(page.getByText("This drop isn’t available.")).toHaveCount(0);
+    await expect(page.locator('.collection-title')).toHaveText('Night Drive', {
+      timeout: 12_000,
+    });
+    await expect(page.locator('[data-collection-page-skeleton]')).toHaveCount(0);
+  });
+
+  test('unknown drop shows unavailable after the client fetch settles', async ({
+    page,
+  }) => {
+    await stubCollectionPageGraph(page);
+    await gotoApp(page, '/collection/no-such-drop');
+    await expect(page.getByText("This drop isn’t available.")).toBeVisible({
+      timeout: 12_000,
+    });
+    await expect(page.locator('[data-collection-page-skeleton]')).toHaveCount(0);
+  });
+
   test('visitor audio drop keeps commerce first', async ({ page }) => {
     await stubCollectionPageGraph(page);
     await gotoApp(page, '/collection/night-drive');
