@@ -60,7 +60,15 @@ interface ScarceClipPlayerProps {
    * When set (audio only), bind to the global Collectibles now-playing audio
    * so playback survives View drop / route changes.
    */
-  persist?: { collectionId: string; title: string } | null;
+  persist?: {
+    collectionId: string;
+    title: string;
+    creatorId?: string | null;
+    seriesId?: string | null;
+    seriesTitle?: string | null;
+    audioFormat?: 'single' | 'album' | 'podcast' | null;
+    facets?: string[];
+  } | null;
   /** Creator of the drop — enables song loves + album fan count. */
   creatorId?: string | null;
   /** Holder / creator can keep audio offline. `null` = still checking. */
@@ -766,6 +774,11 @@ export function ScarceClipPlayer({
       poster: poster?.trim() || null,
       track: { ...args.track, cid: args.cid, mime: args.mime },
       blob: args.blob,
+      creatorId: persist.creatorId,
+      seriesId: persist.seriesId,
+      seriesTitle: persist.seriesTitle,
+      audioFormat: persist.audioFormat,
+      facets: persist.facets,
     });
     setCachedCids((current) => new Set(current).add(args.cid));
   }

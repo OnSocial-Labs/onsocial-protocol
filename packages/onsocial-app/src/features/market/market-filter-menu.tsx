@@ -24,6 +24,10 @@ import {
   dropFacetSuggestionsForMedium,
   type DropFacetMedium,
 } from '@/features/scarces/drop-facets';
+import {
+  collectiblesLibraryHeadingId,
+  type CollectiblesLibrarySort,
+} from '@/lib/portfolio-holdings';
 
 const AUDIO_FORMAT_OPTIONS: ReadonlyArray<{
   id: MarketAudioFormatFilter;
@@ -61,6 +65,7 @@ export function marketFilterTriggerLabel(opts: {
   facetMedium: DropFacetMedium | null;
   creatorLabel?: string | null;
   seriesLabel?: string | null;
+  sort?: CollectiblesLibrarySort | null;
 }): string {
   const parts: string[] = [];
   if (opts.medium !== 'all') parts.push(mediumLabel(opts.medium));
@@ -77,6 +82,7 @@ export function marketFilterTriggerLabel(opts: {
   }
   if (opts.creatorLabel?.trim()) parts.push(opts.creatorLabel.trim());
   if (opts.seriesLabel?.trim()) parts.push(opts.seriesLabel.trim());
+  if (opts.sort === 'name') parts.push('A–Z');
   return parts.length > 0 ? parts.join(' · ') : 'Filter';
 }
 
@@ -102,6 +108,9 @@ export function MarketFilterMenu({
   selectedSeries = null,
   onCreatorChange,
   onSeriesChange,
+  sort = 'newest',
+  onSortChange,
+  jumpCreators = [],
 }: {
   medium: MarketMediumFilter;
   onMediumChange: (medium: MarketMediumFilter) => void;
@@ -122,6 +131,11 @@ export function MarketFilterMenu({
   selectedSeries?: string | null;
   onCreatorChange?: (creator: string | null) => void;
   onSeriesChange?: (series: string | null) => void;
+  /** Collectibles vault only. */
+  sort?: CollectiblesLibrarySort;
+  onSortChange?: (sort: CollectiblesLibrarySort) => void;
+  /** Visible creator groups — jump when the shelf has many From headings. */
+  jumpCreators?: VaultFilterChip[];
 }) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -141,13 +155,17 @@ export function MarketFilterMenu({
     facetMedium,
     creatorLabel: creatorLabel || null,
     seriesLabel: seriesLabel || null,
+    sort: onSortChange ? sort : null,
   });
   const narrowed =
     medium !== 'all' ||
     selectedFacets.length > 0 ||
     Boolean(audioFormat) ||
     Boolean(selectedCreator) ||
-    Boolean(selectedSeries);
+    Boolean(selectedSeries) ||
+    Boolean(onSortChange && sort === 'name');
+  const showSort = Boolean(onSortChange);
+  const showJump = jumpCreators.length > 0;
   const showVaultCreators = vaultCreators.length >= 2 && Boolean(onCreatorChange);
   const showVaultSeries = vaultSeries.length > 0 && Boolean(onSeriesChange);
   const suggestions = facetMedium
@@ -332,6 +350,51 @@ export function MarketFilterMenu({
                     label: entry.label,
                   })),
                 ]}
+              />
+            </section>
+          ) : null}
+
+          {showSort ? (
+            <section className="market-filter-sheet-block" aria-label="Sort">
+              <p className="os-choice-sheet-section-title">Sort</p>
+              <OsChipRail
+                selection="option"
+                className="market-filter-chip-row"
+                ariaLabel="Sort"
+                value={sort}
+                onValueChange={(next) =>
+                  onSortChange?.(next === 'name' ? 'name' : 'newest')
+                }
+                items={[
+                  { id: 'newest', label: 'Newest' },
+                  { id: 'name', label: 'A–Z' },
+                ]}
+              />
+            </section>
+          ) : null}
+
+          {showJump ? (
+            <section className="market-filter-sheet-block" aria-label="Jump to">
+              <p className="os-choice-sheet-section-title">Jump to</p>
+              <OsChipRail<string | null>
+                selection="option"
+                className="market-filter-chip-row"
+                scrollerClassName="market-filter-chip-wrap"
+                ariaLabel="Jump to creator"
+                value={null}
+                onValueChange={(id) => {
+                  if (!id) return;
+                  requestClose();
+                  window.requestAnimationFrame(() => {
+                    document
+                      .getElementById(collectiblesLibraryHeadingId('from', id))
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  });
+                }}
+                items={jumpCreators.map((entry) => ({
+                  id: entry.id,
+                  label: entry.label,
+                }))}
               />
             </section>
           ) : null}

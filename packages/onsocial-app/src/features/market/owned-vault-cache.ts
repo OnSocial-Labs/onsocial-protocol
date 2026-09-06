@@ -1,10 +1,12 @@
 import type { OwnedScarcesPage } from '@/features/market/market-listings';
+import type { CollectionCreatorFace } from '@/features/scarces/collection-creator-face';
 
 const TTL_MS = 30_000;
 
 type CacheEntry = {
   at: number;
   page: OwnedScarcesPage;
+  faces: Record<string, CollectionCreatorFace>;
 };
 
 const pageZeroByOwner = new Map<string, CacheEntry>();
@@ -28,14 +30,29 @@ export function peekOwnedVaultPage(
   return hit.page;
 }
 
+/** Faces stored with the last first-page write — revisit must not letter-morph. */
+export function peekOwnedVaultFaces(
+  accountId: string
+): Map<string, CollectionCreatorFace> {
+  const key = ownerKey(accountId);
+  if (!key) return new Map();
+  const hit = pageZeroByOwner.get(key);
+  if (!hit || Date.now() - hit.at > TTL_MS) return new Map();
+  return new Map(Object.entries(hit.faces));
+}
+
 /** Store first-page owned vault (caller only writes when `fromEnd === 0`). */
 export function putOwnedVaultPage(
   accountId: string,
-  page: OwnedScarcesPage
+  page: OwnedScarcesPage,
+  faces?: Record<string, CollectionCreatorFace>
 ): void {
   const key = ownerKey(accountId);
   if (!key) return;
-  pageZeroByOwner.set(key, { at: Date.now(), page });
+  const prev = pageZeroByOwner.get(key);
+  const nextFaces =
+    faces && Object.keys(faces).length > 0 ? faces : (prev?.faces ?? {});
+  pageZeroByOwner.set(key, { at: Date.now(), page, faces: nextFaces });
 }
 
 export function invalidateOwnedVaultCache(accountId?: string): void {

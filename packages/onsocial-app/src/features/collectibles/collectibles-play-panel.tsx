@@ -49,7 +49,7 @@ import {
   playablesFromOfflineAlbum,
 } from '@/lib/collectibles-offline';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { portfolioPath } from '@/lib/overlay-routes';
+import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 
 interface PlayLoadState {
@@ -66,7 +66,7 @@ function collectionViewFromOfflineAlbum(
 ): CollectionView {
   return {
     collectionId: album.collectionId,
-    creatorId: '',
+    creatorId: album.creatorId?.trim() || '',
     title: album.title,
     mediaUrl: album.poster,
     priceNear: null,
@@ -87,12 +87,13 @@ function collectionViewFromOfflineAlbum(
     appCommissionBps: null,
     kind: 'audio',
     audioFormat:
-      album.tracks.length >= 2
+      album.audioFormat ??
+      (album.tracks.length >= 2
         ? 'album'
         : album.tracks.length === 1
           ? 'single'
-          : null,
-    facets: [],
+          : null),
+    facets: album.facets ?? [],
     playables: playablesFromOfflineAlbum(album),
     readables: [],
     bookPdf: null,
@@ -103,8 +104,8 @@ function collectionViewFromOfflineAlbum(
     maxRedeems: null,
     isVariations: false,
     randomAssignment: false,
-    seriesId: null,
-    seriesTitle: null,
+    seriesId: album.seriesId?.trim() || null,
+    seriesTitle: album.seriesTitle?.trim() || null,
     eventStartsAtMs: null,
     eventEndsAtMs: null,
     place: null,
@@ -418,11 +419,15 @@ export function CollectiblesPlayPanel({
     };
   }, [handoffKey]);
 
+  const vaultBackHref = viewerAccountId
+    ? portfolioCollectiblesPath(viewerAccountId)
+    : APP_COLLECTIBLES_PATH;
+
   return (
     <OsAppScreen
       title={screenTitle}
       dockBack
-      backFallbackHref={APP_COLLECTIBLES_PATH}
+      backFallbackHref={vaultBackHref}
       immersiveHeader={immersive}
       headerElevated={immersive ? headerElevated : false}
       glassChrome={!immersive}
@@ -469,7 +474,7 @@ export function CollectiblesPlayPanel({
               </p>
               <Link
                 className="page-drawer-section-action"
-                href={APP_COLLECTIBLES_PATH}
+                href={vaultBackHref}
               >
                 Back to Collectibles
               </Link>
@@ -489,6 +494,11 @@ export function CollectiblesPlayPanel({
                 persist={{
                   collectionId: view.collectionId,
                   title: view.title,
+                  creatorId: view.creatorId,
+                  seriesId: view.seriesId,
+                  seriesTitle: view.seriesTitle,
+                  audioFormat: view.audioFormat,
+                  facets: view.facets,
                 }}
                 creatorId={offlinePlayback ? null : view.creatorId}
                 canKeepOffline={

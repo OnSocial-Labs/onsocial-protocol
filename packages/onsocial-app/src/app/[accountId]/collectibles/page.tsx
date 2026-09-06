@@ -1,4 +1,9 @@
+import { headers } from 'next/headers';
 import { CollectiblesPagePanel } from '@/features/collectibles/collectibles-page-panel';
+import {
+  COLLECTIBLES_HELD_KINDS_HEADER,
+  parseCollectiblesHeldKindsCookie,
+} from '@/lib/collectibles-held-kinds';
 import {
   COLLECTIBLES_SEARCH_PARAM,
   COLLECTIBLES_SERIES_PARAM,
@@ -6,6 +11,7 @@ import {
   MARKET_CREATOR_PARAM,
   MARKET_FACETS_PARAM,
   MARKET_KIND_PARAM,
+  MARKET_SORT_PARAM,
 } from '@/lib/app-routes';
 import {
   loadCollectiblesPageData,
@@ -24,6 +30,7 @@ type PanelRouteProps = {
     [MARKET_AUDIO_FORMAT_PARAM]?: string | string[];
     [MARKET_CREATOR_PARAM]?: string | string[];
     [COLLECTIBLES_SERIES_PARAM]?: string | string[];
+    [MARKET_SORT_PARAM]?: string | string[];
   }>;
 };
 
@@ -44,10 +51,15 @@ export default async function PortfolioCollectiblesPage({
     audioFormat: firstParam(resolved[MARKET_AUDIO_FORMAT_PARAM]),
     creator: firstParam(resolved[MARKET_CREATOR_PARAM]),
     series: firstParam(resolved[COLLECTIBLES_SERIES_PARAM]),
+    sort: firstParam(resolved[MARKET_SORT_PARAM]),
   });
   // Do not await holdings here — that remounts the shell via loading.tsx
   // on every kind / search replace. The panel consumes the promise.
   const seedPromise = loadCollectiblesPageData(accountId);
+  const heldKinds = parseCollectiblesHeldKindsCookie(
+    (await headers()).get(COLLECTIBLES_HELD_KINDS_HEADER),
+    accountId
+  );
 
   return (
     <CollectiblesPagePanel
@@ -55,6 +67,7 @@ export default async function PortfolioCollectiblesPage({
       pageAccountId={accountId}
       seedQuery={query}
       seedPromise={seedPromise}
+      seedHeldKinds={heldKinds}
     />
   );
 }

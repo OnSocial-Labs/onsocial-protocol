@@ -22,6 +22,11 @@ import {
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
+import {
+  COLLECTIBLES_LIBRARY_JUMP_MIN,
+  type CollectiblesLibrarySort,
+  vaultHeldKindFilters,
+} from '@/lib/portfolio-holdings';
 
 /** Search field with Collectibles icon — same heading slot as Market. */
 export function CollectiblesSearchHeading({
@@ -69,6 +74,10 @@ export function CollectiblesFilterToolbar({
   selectedSeries = null,
   onCreatorChange,
   onSeriesChange,
+  sort = 'newest',
+  onSortChange,
+  jumpCreators = [],
+  heldKinds,
 }: {
   medium: MarketMediumFilter;
   audioFormat: MarketAudioFormatFilter;
@@ -86,7 +95,25 @@ export function CollectiblesFilterToolbar({
   selectedSeries?: string | null;
   onCreatorChange?: (creator: string | null) => void;
   onSeriesChange?: (series: string | null) => void;
+  sort?: CollectiblesLibrarySort;
+  onSortChange?: (sort: CollectiblesLibrarySort) => void;
+  jumpCreators?: VaultFilterChip[];
+  /** All + kinds in this vault. Omit → All + the active URL kind. */
+  heldKinds?: MarketMediumFilter[];
 }) {
+  const allowKinds = new Set<MarketMediumFilter>(
+    heldKinds && heldKinds.length > 0
+      ? heldKinds
+      : vaultHeldKindFilters([], medium)
+  );
+  allowKinds.add('all');
+  allowKinds.add(medium);
+  const kindRailItems = MARKET_MEDIUM_FILTERS.filter((tab) =>
+    allowKinds.has(tab.id)
+  ).map((tab) => ({
+    id: tab.id,
+    label: tab.label,
+  }));
   const facetMedium = normalizeDropFacetMedium(medium);
   const creatorLabel =
     selectedCreator &&
@@ -103,6 +130,7 @@ export function CollectiblesFilterToolbar({
     facetMedium,
     creatorLabel: creatorLabel || null,
     seriesLabel: seriesLabel || null,
+    sort,
   });
 
   return (
@@ -122,10 +150,7 @@ export function CollectiblesFilterToolbar({
           disabled={inert}
           tabIdFor={(id) => `collectibles-kind-tab-${id}`}
           ariaControls="collectibles-results"
-          items={MARKET_MEDIUM_FILTERS.map((tab) => ({
-            id: tab.id,
-            label: tab.label,
-          }))}
+          items={kindRailItems}
         />
       </div>
       {inert ? (
@@ -166,6 +191,13 @@ export function CollectiblesFilterToolbar({
           selectedSeries={selectedSeries}
           onCreatorChange={onCreatorChange}
           onSeriesChange={onSeriesChange}
+          sort={sort}
+          onSortChange={onSortChange}
+          jumpCreators={
+            jumpCreators.length >= COLLECTIBLES_LIBRARY_JUMP_MIN
+              ? jumpCreators
+              : []
+          }
         />
       )}
     </OsAppChromeToolbarRail>

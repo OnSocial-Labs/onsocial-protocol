@@ -13,18 +13,26 @@ import {
   CollectiblesSearchHeading,
 } from '@/features/collectibles/collectibles-page-chrome';
 import {
-  OWNED_MAX_TOKENS,
+  VAULT_OWNED_MAX_TOKENS,
+  fetchOwnedScarcesAll,
   fetchOwnedScarcesPage,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
+import type { CollectionCreatorFace } from '@/features/scarces/collection-creator-face';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   invalidateOwnedVaultCache,
+  peekOwnedVaultFaces,
   peekOwnedVaultPage,
   putOwnedVaultPage,
 } from '@/features/market/owned-vault-cache';
+import {
+  rememberCollectiblesHeldKinds,
+  resolveCollectiblesHeldKinds,
+} from '@/lib/collectibles-held-kinds';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
-import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
+import { CollectiblesLibrarySkeleton } from '@/features/collectibles/collectibles-library-skeleton';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
   MARKET_MEDIUM_FILTERS,
@@ -52,11 +60,13 @@ import {
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
   COLLECTIBLES_CREATOR_OTHER,
+  COLLECTIBLES_LIBRARY_JUMP_MIN,
   filterHoldingsByMedium,
   groupHoldingsLibrary,
   holdingsMatchCreator,
   holdingsMatchQuery,
   holdingsMatchSeries,
+  sortHoldingsLibrary,
   toPortfolioHoldingPeek,
   vaultInventoryCreators,
   vaultInventorySeries,
@@ -108,6 +118,7 @@ export function CollectiblesPagePanel({
   pageAccountId = null,
   seedQuery = EMPTY_COLLECTIBLES_PAGE_QUERY,
   seedPromise = null,
+  seedHeldKinds = null,
   /**
    * Portfolio PanelPage vault — merged search header + scroll-fold filters.
    * OS `/collectibles` uses `os` until connected, then redirects to portfolio.
@@ -118,6 +129,8 @@ export function CollectiblesPagePanel({
   pageAccountId?: string | null;
   seedQuery?: CollectiblesPageQuery;
   seedPromise?: Promise<CollectiblesPageData> | null;
+  /** Last held kinds from the cookie — skeleton chrome before inventory. */
+  seedHeldKinds?: MarketMediumFilter[] | null;
   /** @deprecated Use `shell="portfolio"` */
   embedded?: boolean;
   shell?: 'portfolio' | 'os';
@@ -134,6 +147,7 @@ export function CollectiblesPagePanel({
   const audioFormatFilter: MarketAudioFormatFilter = pageQuery.audioFormat;
   const creatorFilter = pageQuery.creator;
   const seriesFilter = pageQuery.series;
+  const librarySort = pageQuery.sort;
   const urlDiscoveryActive =
     searchQuery.trim().length > 0 ||
     mediumFilter !== 'all' ||
@@ -169,6 +183,9 @@ export function CollectiblesPagePanel({
     PortfolioHoldingPeek[]
   >([]);
   const [offlineReady, setOfflineReady] = useState(false);
+  const [creatorFaces, setCreatorFaces] = useState<
+    Map<string, CollectionCreatorFace>
+  >(() => (ownerAccountId ? peekOwnedVaultFaces(ownerAccountId) : new Map()));
   const [sellItem, setSellItem] = useState<OwnedScarceItem | null>(null);
   const [sellOpen, setSellOpen] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
@@ -270,6 +287,7 @@ export function CollectiblesPagePanel({
       audioFormat: null,
       creator: null,
       series: null,
+      sort: 'newest',
     });
   }, [replacePageQuery, pageQuery]);
 
@@ -320,11 +338,49 @@ export function CollectiblesPagePanel({
     const applyPage = (
       items: OwnedScarceItem[],
       nextFromEnd: number,
-      hasMore: boolean
+      hasMore: boolean,
+      faces?: Map<string, CollectionCreatorFace>
     ) => {
       if (cancelled) return;
+      if (faces && faces.size > 0) {
+        setCreatorFaces((prev) => {
+          const next = new Map(prev);
+          for (const [id, face] of faces) next.set(id, face);
+          return next;
+        });
+      }
+      rememberCollectiblesHeldKinds(ownerAccountId, items);
+      putOwnedVaultPage(
+        ownerAccountId,
+        {
+          items,
+          nextFromEnd,
+          hasMore,
+        },
+        faces && faces.size > 0 ? Object.fromEntries(faces) : undefined
+      );
       setHoldings(
         holdingsStateFromItems(items, nextFromEnd, hasMore, loadKey)
+      );
+    };
+
+    const facesForItems = async (
+      items: OwnedScarceItem[]
+    ): Promise<Map<string, CollectionCreatorFace>> => {
+      const ids = [
+        ...new Set(
+          items
+            .map((item) => item.creatorId?.trim())
+            .filter((id): id is string => Boolean(id))
+        ),
+      ];
+      if (ids.length === 0) return new Map();
+      const { fetchCollectionCreatorFaces } = await import(
+        '@/features/scarces/collection-creator-face'
+      );
+      return fetchCollectionCreatorFaces(
+        createReadOnlyOnSocialClient(),
+        ids
       );
     };
 
@@ -338,23 +394,35 @@ export function CollectiblesPagePanel({
           data.accountId &&
           data.accountId === ownerAccountId
         ) {
-          putOwnedVaultPage(ownerAccountId, data.holdings);
+          const seedFaces = new Map(
+            Object.entries(data.creatorFaces ?? {})
+          );
+          const faces =
+            seedFaces.size > 0
+              ? seedFaces
+              : await facesForItems(data.holdings.items);
+          if (cancelled) return;
           applyPage(
             data.holdings.items,
             data.holdings.nextFromEnd,
-            data.holdings.hasMore
+            data.holdings.hasMore,
+            faces
           );
           if (!urlDiscoveryActive || !data.holdings.hasMore) return;
         }
       }
 
       try {
-        const page = await fetchOwnedScarcesPage(ownerAccountId, {
-          pageSize: urlDiscoveryActive ? OWNED_MAX_TOKENS : undefined,
-          bypassCache: urlDiscoveryActive,
-        });
+        const page = urlDiscoveryActive
+          ? await fetchOwnedScarcesAll(ownerAccountId, {
+              maxTokens: VAULT_OWNED_MAX_TOKENS,
+              bypassCache: true,
+            })
+          : await fetchOwnedScarcesPage(ownerAccountId);
         if (cancelled) return;
-        applyPage(page.items, page.nextFromEnd, page.hasMore);
+        const faces = await facesForItems(page.items);
+        if (cancelled) return;
+        applyPage(page.items, page.nextFromEnd, page.hasMore, faces);
       } catch {
         if (cancelled) return;
         setHoldings((prev) => {
@@ -511,9 +579,70 @@ export function CollectiblesPagePanel({
     trimmedSearch,
   ]);
 
+  const creatorIdsKey = useMemo(() => {
+    const ids = [
+      ...new Set(
+        vaultItems
+          .map((item) => item.creatorId?.trim())
+          .filter((id): id is string => Boolean(id))
+      ),
+    ].sort();
+    return ids.join('|');
+  }, [vaultItems]);
+
+  useEffect(() => {
+    if (!creatorIdsKey) {
+      setCreatorFaces(new Map());
+      return;
+    }
+    const ids = creatorIdsKey.split('|');
+    let cancelled = false;
+    void (async () => {
+      const missing = ids.filter((id) => !creatorFaces.has(id));
+      if (missing.length === 0) return;
+      const { fetchCollectionCreatorFaces } = await import(
+        '@/features/scarces/collection-creator-face'
+      );
+      const faces = await fetchCollectionCreatorFaces(
+        createReadOnlyOnSocialClient(),
+        missing
+      );
+      if (cancelled) return;
+      setCreatorFaces((prev) => {
+        const next = new Map(prev);
+        for (const [id, face] of faces) next.set(id, face);
+        if (ownerAccountId) {
+          const cached = peekOwnedVaultPage(ownerAccountId);
+          if (cached) {
+            putOwnedVaultPage(
+              ownerAccountId,
+              cached,
+              Object.fromEntries(next)
+            );
+          }
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Face map is read for a missing-id skip; holdings apply writes it first.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- creatorIdsKey gates fetch
+  }, [creatorIdsKey, ownerAccountId]);
+
+  const displayNames = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const [id, face] of creatorFaces) {
+      map.set(id, face.displayName);
+    }
+    return map;
+  }, [creatorFaces]);
+
   const displayGroups = useMemo(
-    () => groupHoldingsLibrary(filtered),
-    [filtered]
+    () =>
+      sortHoldingsLibrary(groupHoldingsLibrary(filtered), librarySort, displayNames),
+    [filtered, librarySort, displayNames]
   );
   const inventorySource = useMemo(
     () => filterHoldingsByMedium(vaultItems, mediumFilter),
@@ -525,16 +654,31 @@ export function CollectiblesPagePanel({
       label:
         entry.id === COLLECTIBLES_CREATOR_OTHER
           ? 'Other'
-          : `@${fallbackLabel(entry.label)}`,
+          : creatorFaces.get(entry.id)?.displayName?.trim() ||
+            fallbackLabel(entry.label),
     }));
-  }, [inventorySource]);
+  }, [inventorySource, creatorFaces]);
   const vaultSeries = useMemo(() => {
     return vaultInventorySeries(inventorySource).map((entry) => ({
       id: entry.id,
       label: entry.label,
     }));
   }, [inventorySource]);
-  const showCreatorHeadings = displayGroups.length > 1;
+  const showCreatorHeadings =
+    displayGroups.length > 1 || Boolean(creatorFilter);
+  const jumpCreators = useMemo(
+    () =>
+      displayGroups.length >= COLLECTIBLES_LIBRARY_JUMP_MIN
+        ? displayGroups.map((group) => ({
+            id: group.creatorKey,
+            label: group.creatorId
+              ? creatorFaces.get(group.creatorId)?.displayName?.trim() ||
+                fallbackLabel(group.creatorId)
+              : 'Other',
+          }))
+        : [],
+    [displayGroups, creatorFaces]
+  );
   const ownedByToken = useMemo(() => {
     const map = new Map<string, OwnedScarceItem>();
     for (const row of holdings.owned) {
@@ -625,9 +769,27 @@ export function CollectiblesPagePanel({
     onIntersect: loadMore,
   });
 
+  const portfolioBackHref =
+    resolvedShell === 'portfolio' && pageAccountId
+      ? portfolioPath(pageAccountId)
+      : null;
+  const dockBackHref = portfolioBackHref ?? APP_HOME_PATH;
+
   const body = (
-    <div className="market-page collectibles-page">
-      {showVaultSkeleton ? <MarketListSkeleton rows={6} /> : null}
+    <div
+      className="market-page collectibles-page"
+      data-collectibles-back={dockBackHref}
+    >
+      {showVaultSkeleton ? (
+        <section
+          className="market-section collectibles-library"
+          aria-busy="true"
+          aria-label="Collectibles"
+        >
+          <p className="sr-only">Loading collectibles…</p>
+          <CollectiblesLibrarySkeleton />
+        </section>
+      ) : null}
 
       {showConnectPrompt ? (
         <div className="market-page-empty">
@@ -741,11 +903,18 @@ export function CollectiblesPagePanel({
           groups={displayGroups}
           ownedByToken={ownedByToken}
           showCreatorHeadings={showCreatorHeadings}
+          selectedCreator={creatorFilter}
+          selectedSeries={seriesFilter}
+          creatorFaces={creatorFaces}
           onSelectCreator={(creatorKey) =>
-            replaceDiscoveryParams({ creator: creatorKey })
+            replaceDiscoveryParams({
+              creator: creatorFilter === creatorKey ? null : creatorKey,
+            })
           }
           onSelectSeries={(seriesKey) =>
-            replaceDiscoveryParams({ series: seriesKey })
+            replaceDiscoveryParams({
+              series: seriesFilter === seriesKey ? null : seriesKey,
+            })
           }
           renderOwnerMenu={
             isSelf
@@ -780,12 +949,6 @@ export function CollectiblesPagePanel({
     </div>
   );
 
-  const portfolioBackHref =
-    resolvedShell === 'portfolio' && pageAccountId
-      ? portfolioPath(pageAccountId)
-      : null;
-  const dockBackHref = portfolioBackHref ?? APP_HOME_PATH;
-
   return (
     <>
       <OsAppScreen
@@ -814,10 +977,21 @@ export function CollectiblesPagePanel({
               medium={mediumFilter}
               audioFormat={audioFormatFilter}
               selectedFacets={selectedFacets}
+              heldKinds={resolveCollectiblesHeldKinds({
+                items: vaultItems,
+                selected: mediumFilter,
+                accountId: ownerAccountId,
+                seedHeldKinds,
+              })}
               vaultCreators={vaultCreators}
               vaultSeries={vaultSeries}
               selectedCreator={creatorFilter}
               selectedSeries={seriesFilter}
+              sort={librarySort}
+              jumpCreators={jumpCreators}
+              onSortChange={(sort) =>
+                replacePageQuery({ ...pageQuery, sort })
+              }
               onMediumChange={setMediumFilter}
               onAudioFormatChange={(format) =>
                 replaceDiscoveryParams({ audioFormat: format })

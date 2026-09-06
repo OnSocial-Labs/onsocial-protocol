@@ -172,10 +172,20 @@
  */
 
 .os-app-chrome-rail.collectibles-filter-toolbar {
-  /* Vault kind rail wraps (Memberships, etc.) — stay one band, allow wrap inside. */
-  max-height: none;
+  /* Held-kinds rail is one row — scroll if a full collector overflows. */
   min-height: var(--os-app-chrome-rail-height, 2.35rem);
-  align-items: flex-start;
+  align-items: center;
+}
+
+/* Filter stays pinned on the right while the kind rail grows or scrolls. */
+.os-app-chrome-rail.collectibles-filter-toolbar > .market-listing-filter-stack {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.os-app-chrome-rail.collectibles-filter-toolbar > .market-listing-sort-menu {
+  margin-left: auto;
+  flex: 0 0 auto;
 }
 
 .os-app-screen:has(.market-listing-sort-menu-panel) .os-app-screen-header {
@@ -24376,11 +24386,10 @@ a.os-surface-row {
     justify-content: flex-start;
   }
 
-  /* Vault kind chips wrap — do not clip Memberships / Biography / Folk. */
+  /* Held-kinds rail — one row, scroll instead of wrapping the Market taxonomy. */
   .collectibles-filter-toolbar .discover-tab-bar,
   .collectibles-filter-toolbar .discover-tab-bar-scroller {
     min-width: 0;
-    width: 100%;
     max-width: 100%;
   }
 
@@ -24389,9 +24398,13 @@ a.os-surface-row {
   }
 
   .collectibles-filter-toolbar .discover-tab-bar-scroller {
-    flex-wrap: wrap;
-    overflow: visible;
-    row-gap: 0.2rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .collectibles-filter-toolbar .market-listing-sort-menu {
+    margin-left: auto;
+    flex: 0 0 auto;
   }
 
   /* Host audio must stay in the document (not display:none) for audible play. */
@@ -24703,29 +24716,99 @@ a.os-surface-row {
     gap: 0.7rem;
   }
 
+  .collectibles-library-jump {
+    margin: 0 0 0.15rem;
+  }
+
   .collectibles-library-heading,
   .collectibles-library-series-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: 100%;
     margin: 0;
-    padding: 0;
+    padding: 0.35rem 0;
     border: 0;
-    background: none;
+    background: hsl(var(--background));
     text-align: left;
     color: var(--os-surface-muted);
     font: inherit;
   }
 
-  .collectibles-library-heading {
+  h2.collectibles-library-heading,
+  button.collectibles-library-heading {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    font-size: 0.92rem;
+    font-weight: 650;
+    letter-spacing: 0;
+    text-transform: none;
+    color: rgb(var(--fg-rgb) / 0.82);
+  }
+
+  .collectibles-library-heading-face {
+    flex-shrink: 0;
+  }
+
+  .collectibles-library-heading-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-transform: none;
+  }
+
+  .collectibles-library-heading-count {
+    margin-left: auto;
+    flex-shrink: 0;
     font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--fg-rgb) / 0.46);
   }
 
   .collectibles-library-series-heading {
-    font-size: 0.82rem;
+    font-size: 0.84rem;
     font-weight: 600;
     letter-spacing: 0.01em;
     color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .collectibles-library-heading.is-selected,
+  .collectibles-library-series-heading.is-selected {
+    color: var(--os-surface-emphasis);
+  }
+
+  .collectibles-library-heading.is-selected .collectibles-library-heading-count,
+  .collectibles-library-series-heading.is-selected
+    .collectibles-library-heading-count {
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .collectibles-library-heading--skeleton,
+  .collectibles-library-series-heading--skeleton {
+    pointer-events: none;
+  }
+
+  .collectibles-library-heading-face--skeleton {
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 9999px;
+  }
+
+  .collectibles-library-heading-name-bone {
+    width: 7.25rem;
+    max-width: 42%;
+    height: 0.72rem;
+    border-radius: 0.35rem;
+  }
+
+  .collectibles-library-heading-count-bone {
+    width: 1.15rem;
+    height: 0.62rem;
+    margin-left: auto;
+    border-radius: 0.35rem;
   }
 
   button.collectibles-library-heading--action {

@@ -5,8 +5,10 @@ import {
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import {
+  MARKET_MEDIUM_FILTERS,
   isAudioMediumKind,
   marketMediumLabel,
+  parseMarketMediumFilter,
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -359,11 +361,75 @@ export function countLibraryDrops(
 ): number {
   let n = 0;
   for (const creator of groups) {
-    for (const series of creator.series) {
-      n += series.drops.length;
-    }
+    n += countLibraryCreatorDrops(creator);
   }
   return n;
+}
+
+export function countLibraryCreatorDrops(
+  group: CollectiblesLibraryCreatorGroup
+): number {
+  let n = 0;
+  for (const series of group.series) {
+    n += series.drops.length;
+  }
+  return n;
+}
+
+/** Vault shelf sort — newest keeps first-seen order; name is A–Z. */
+export type CollectiblesLibrarySort = 'newest' | 'name';
+
+/** Show a jump rail once the shelf has this many creators. */
+export const COLLECTIBLES_LIBRARY_JUMP_MIN = 6;
+
+export function collectiblesLibraryHeadingId(
+  prefix: string,
+  key: string
+): string {
+  return `collectibles-${prefix}-${key.replace(/[^a-zA-Z0-9_-]+/g, '-')}`;
+}
+
+export function libraryCreatorSortLabel(
+  group: Pick<CollectiblesLibraryCreatorGroup, 'creatorId'>,
+  displayName?: string | null
+): string {
+  if (!group.creatorId) return 'other';
+  const name = displayName?.trim();
+  return (name || group.creatorId).toLowerCase();
+}
+
+/**
+ * Newest = first-seen (current group order). Name = localeCompare on display
+ * name / handle; series A–Z with ungrouped last.
+ */
+export function sortHoldingsLibrary(
+  groups: CollectiblesLibraryCreatorGroup[],
+  sort: CollectiblesLibrarySort,
+  displayNames?: ReadonlyMap<string, string | null>
+): CollectiblesLibraryCreatorGroup[] {
+  if (sort !== 'name') return groups;
+  return groups
+    .map((creator) => ({
+      ...creator,
+      series: [...creator.series].sort((a, b) => {
+        if (!a.seriesKey && b.seriesKey) return 1;
+        if (a.seriesKey && !b.seriesKey) return -1;
+        const left = (a.seriesTitle ?? a.seriesKey ?? '').toLowerCase();
+        const right = (b.seriesTitle ?? b.seriesKey ?? '').toLowerCase();
+        return left.localeCompare(right);
+      }),
+    }))
+    .sort((a, b) => {
+      const left = libraryCreatorSortLabel(
+        a,
+        a.creatorId ? displayNames?.get(a.creatorId) ?? null : null
+      );
+      const right = libraryCreatorSortLabel(
+        b,
+        b.creatorId ? displayNames?.get(b.creatorId) ?? null : null
+      );
+      return left.localeCompare(right);
+    });
 }
 
 /** Keep headers; cut after `maxDrops` edition-collapsed rows. */
@@ -439,6 +505,26 @@ export function holdingsMatchSeries(
   const needle = series?.trim() || null;
   if (!needle) return true;
   return holdingsSeriesKey(item) === needle;
+}
+
+/**
+ * Page kind rail — All + kinds actually held, plus the active URL kind so a
+ * deep link stays on the rail even when that kind is empty. Full taxonomy
+ * stays in Filter. Order matches `MARKET_MEDIUM_FILTERS`.
+ */
+export function vaultHeldKindFilters(
+  items: ReadonlyArray<{ mediumKind?: string | null }>,
+  selected: MarketMediumFilter = 'all'
+): MarketMediumFilter[] {
+  const held = new Set<MarketMediumFilter>();
+  for (const item of items) {
+    const kind = parseMarketMediumFilter(item.mediumKind);
+    if (kind !== 'all') held.add(kind);
+  }
+  if (selected !== 'all') held.add(selected);
+  return MARKET_MEDIUM_FILTERS.map((entry) => entry.id).filter(
+    (id) => id === 'all' || held.has(id)
+  );
 }
 
 /** Kind-tab filter for the Collectibles hub (unknown kinds only appear in All). */

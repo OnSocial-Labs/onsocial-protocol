@@ -3,6 +3,7 @@ import {
   filterHoldingsByMedium,
   groupHoldingsForRail,
   groupHoldingsLibrary,
+  sortHoldingsLibrary,
   holdingsActionLabel,
   holdingsHrefForOwned,
   holdingsKindLabel,
@@ -11,6 +12,7 @@ import {
   holdingsMatchSeries,
   sliceLibraryGroups,
   toPortfolioHoldingPeek,
+  vaultHeldKindFilters,
   vaultInventoryCreators,
   vaultInventorySeries,
 } from '@/lib/portfolio-holdings';
@@ -400,6 +402,43 @@ describe('groupHoldingsLibrary', () => {
     expect(sliced.groups).toHaveLength(1);
     expect(sliced.groups[0]?.series[0]?.drops).toHaveLength(2);
   });
+
+  it('sorts creators A–Z by display name and keeps newest first-seen', () => {
+    const groups = groupHoldingsLibrary([
+      peek({
+        tokenId: 'z:1',
+        collectionId: 'z',
+        creatorId: 'zebra.near',
+        title: 'Z',
+      }),
+      peek({
+        tokenId: 'a:1',
+        collectionId: 'a',
+        creatorId: 'alice.near',
+        title: 'A',
+      }),
+    ]);
+    expect(groups.map((row) => row.creatorId)).toEqual([
+      'zebra.near',
+      'alice.near',
+    ]);
+    expect(
+      sortHoldingsLibrary(groups, 'newest').map((row) => row.creatorId)
+    ).toEqual(['zebra.near', 'alice.near']);
+    expect(
+      sortHoldingsLibrary(groups, 'name').map((row) => row.creatorId)
+    ).toEqual(['alice.near', 'zebra.near']);
+    expect(
+      sortHoldingsLibrary(
+        groups,
+        'name',
+        new Map([
+          ['alice.near', 'Zed'],
+          ['zebra.near', 'Able'],
+        ])
+      ).map((row) => row.creatorId)
+    ).toEqual(['zebra.near', 'alice.near']);
+  });
 });
 
 describe('vault inventory filters', () => {
@@ -469,5 +508,28 @@ describe('filterHoldingsByMedium', () => {
     expect(
       filterHoldingsByMedium(items, 'video').map((i) => i.tokenId)
     ).toEqual(['e']);
+  });
+});
+
+describe('vaultHeldKindFilters', () => {
+  it('is All only when the vault is empty', () => {
+    expect(vaultHeldKindFilters([])).toEqual(['all']);
+  });
+
+  it('keeps All plus held kinds in Market order and aliases music', () => {
+    expect(
+      vaultHeldKindFilters([
+        { mediumKind: 'ticket' },
+        { mediumKind: 'music' },
+        { mediumKind: 'writing' },
+        { mediumKind: null },
+      ])
+    ).toEqual(['all', 'writing', 'audio', 'ticket']);
+  });
+
+  it('keeps a deep-linked kind on the rail when nothing of that kind is held', () => {
+    expect(
+      vaultHeldKindFilters([{ mediumKind: 'audio' }], 'membership')
+    ).toEqual(['all', 'audio', 'membership']);
   });
 });

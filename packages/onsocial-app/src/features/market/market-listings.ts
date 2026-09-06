@@ -1320,6 +1320,10 @@ export async function fetchNativeMarketListings(
 export const OWNED_PAGE_SIZE = 24;
 /** Cap so a huge vault doesn’t stall Market; newest pages still load first. */
 export const OWNED_MAX_TOKENS = 300;
+/** Collectibles vault walk when search / filters need the full inventory. */
+export const VAULT_OWNED_MAX_TOKENS = 5000;
+/** Page size while walking the vault past the Market cap. */
+export const VAULT_OWNED_PAGE_SIZE = 100;
 
 /** One page of wallet-owned scarces for Market “Yours”. */
 export interface OwnedScarcesPage {
@@ -1561,15 +1565,16 @@ export async function fetchOwnedScarceForSourcePost(
  * One newest-first page of scarces owned by `accountId`, with listed price
  * when already for sale. Indexer-first (`ownedBy` + batch
  * `collectionsCurrentByIds`); RPC `nft_tokens_for_owner` only on Hasura
- * failure. `hasMore` stops at `OWNED_MAX_TOKENS`.
+ * failure. `hasMore` stops at `maxTokens` (Market default `OWNED_MAX_TOKENS`).
  */
 async function fetchOwnedScarcesPageFromIndexer(
   owner: string,
   fromEnd: number,
-  pageSize: number
+  pageSize: number,
+  maxTokens: number
 ): Promise<OwnedScarcesPage | null> {
   const client = createReadOnlyOnSocialClient();
-  const take = Math.min(pageSize, OWNED_MAX_TOKENS - fromEnd);
+  const take = Math.min(pageSize, maxTokens - fromEnd);
   if (take <= 0) {
     return { items: [], nextFromEnd: fromEnd, hasMore: false };
   }
@@ -1705,15 +1710,15 @@ async function fetchOwnedScarcesPageFromIndexer(
   return {
     items,
     nextFromEnd,
-    hasMore:
-      page.nextOffset != null && nextFromEnd < OWNED_MAX_TOKENS,
+    hasMore: page.nextOffset != null && nextFromEnd < maxTokens,
   };
 }
 
 async function fetchOwnedScarcesPageFromRpc(
   owner: string,
   fromEnd: number,
-  pageSize: number
+  pageSize: number,
+  maxTokens: number
 ): Promise<OwnedScarcesPage> {
   const empty: OwnedScarcesPage = {
     items: [],
@@ -1734,7 +1739,7 @@ async function fetchOwnedScarcesPageFromRpc(
   }
   if (!Number.isFinite(total) || total <= fromEnd) return empty;
 
-  const take = Math.min(pageSize, total - fromEnd, OWNED_MAX_TOKENS - fromEnd);
+  const take = Math.min(pageSize, total - fromEnd, maxTokens - fromEnd);
   const fromIndex = total - fromEnd - take;
 
   let tokens: ContractTokenRecord[] = [];
@@ -1758,8 +1763,7 @@ async function fetchOwnedScarcesPageFromRpc(
   return {
     items: ownedItemsFromTokens(tokens, owner, listedByToken),
     nextFromEnd,
-    hasMore:
-      fetched >= take && nextFromEnd < Math.min(total, OWNED_MAX_TOKENS),
+    hasMore: fetched >= take && nextFromEnd < Math.min(total, maxTokens),
   };
 }
 
@@ -1770,32 +1774,50 @@ export async function fetchOwnedScarcesPage(
     pageSize?: number;
     /** Skip shared first-page cache (force refresh). */
     bypassCache?: boolean;
+    /**
+     * Inventory ceiling. Market Yours keeps `OWNED_MAX_TOKENS`. Vault search /
+     * filters pass `VAULT_OWNED_MAX_TOKENS` so client-side match can see the
+     * rest of the wallet.
+     */
+    maxTokens?: number;
   } = {}
 ): Promise<OwnedScarcesPage> {
   const owner = accountId.trim();
   const fromEnd = Math.max(0, opts.fromEnd ?? 0);
   const pageSize = Math.max(1, opts.pageSize ?? OWNED_PAGE_SIZE);
+  const maxTokens = Math.max(1, opts.maxTokens ?? OWNED_MAX_TOKENS);
   const empty: OwnedScarcesPage = {
     items: [],
     nextFromEnd: fromEnd,
     hasMore: false,
   };
-  if (!owner || fromEnd >= OWNED_MAX_TOKENS) return empty;
+  if (!owner || fromEnd >= maxTokens) return empty;
 
-  if (fromEnd === 0 && !opts.bypassCache) {
+  const useSharedCache = maxTokens === OWNED_MAX_TOKENS;
+  if (fromEnd === 0 && !opts.bypassCache && useSharedCache) {
     const cached = peekOwnedVaultPage(owner);
     if (cached) return cached;
   }
 
   let page: OwnedScarcesPage | null = null;
   try {
-    page = await fetchOwnedScarcesPageFromIndexer(owner, fromEnd, pageSize);
+    page = await fetchOwnedScarcesPageFromIndexer(
+      owner,
+      fromEnd,
+      pageSize,
+      maxTokens
+    );
   } catch {
     // Hasura / OnAPI unavailable — fall through to RPC.
   }
   if (!page) {
     // Bound RPC degrade — same page size cap, no catalog walk.
-    page = await fetchOwnedScarcesPageFromRpc(owner, fromEnd, pageSize);
+    page = await fetchOwnedScarcesPageFromRpc(
+      owner,
+      fromEnd,
+      pageSize,
+      maxTokens
+    );
   }
 
   page = {
@@ -1803,10 +1825,45 @@ export async function fetchOwnedScarcesPage(
     items: await withResolvedOwnedPostHrefs(page.items),
   };
 
-  if (fromEnd === 0) {
+  if (fromEnd === 0 && useSharedCache) {
     putOwnedVaultPage(owner, page);
   }
   return page;
+}
+
+/**
+ * Walk owned tokens until the indexer/RPC is exhausted or `maxTokens`.
+ * Used by Collectibles when search / filters are on so matches past the
+ * Market 300-token cap are not dropped.
+ */
+export async function fetchOwnedScarcesAll(
+  accountId: string,
+  opts: {
+    maxTokens?: number;
+    pageSize?: number;
+    bypassCache?: boolean;
+  } = {}
+): Promise<OwnedScarcesPage> {
+  const maxTokens = Math.max(1, opts.maxTokens ?? VAULT_OWNED_MAX_TOKENS);
+  const pageSize = Math.max(1, opts.pageSize ?? VAULT_OWNED_PAGE_SIZE);
+  const items: OwnedScarceItem[] = [];
+  let fromEnd = 0;
+  let hasMore = true;
+  let nextFromEnd = 0;
+  while (hasMore && fromEnd < maxTokens) {
+    const page = await fetchOwnedScarcesPage(accountId, {
+      fromEnd,
+      pageSize,
+      maxTokens,
+      bypassCache: fromEnd === 0 ? opts.bypassCache : true,
+    });
+    items.push(...page.items);
+    nextFromEnd = page.nextFromEnd;
+    hasMore = page.hasMore;
+    fromEnd = page.nextFromEnd;
+    if (page.items.length === 0) break;
+  }
+  return { items, nextFromEnd, hasMore };
 }
 
 /**

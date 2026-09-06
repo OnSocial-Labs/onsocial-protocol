@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   EMPTY_COLLECTIBLES_PAGE_QUERY,
+  collectiblesAccountIdFromPathname,
   collectiblesQueryPath,
   collectiblesSeedParamsKey,
   parseCollectiblesPageQuery,
+  parseCollectiblesPageQueryFromSearch,
 } from '@/lib/load-collectibles-page';
 
 describe('parseCollectiblesPageQuery', () => {
@@ -60,5 +62,57 @@ describe('parseCollectiblesPageQuery', () => {
 
   it('aliases music to audio', () => {
     expect(parseCollectiblesPageQuery({ kind: 'music' }).kind).toBe('audio');
+  });
+
+  it('reads A–Z sort and omits newest from the path', () => {
+    expect(parseCollectiblesPageQuery({}).sort).toBe('newest');
+    expect(parseCollectiblesPageQuery({ sort: 'name' }).sort).toBe('name');
+    expect(parseCollectiblesPageQuery({ sort: 'price-asc' }).sort).toBe(
+      'newest'
+    );
+    expect(
+      collectiblesQueryPath(
+        'alice.near',
+        parseCollectiblesPageQuery({ sort: 'name' })
+      )
+    ).toBe('/@alice.near/collectibles?sort=name');
+    expect(
+      collectiblesQueryPath('alice.near', EMPTY_COLLECTIBLES_PAGE_QUERY)
+    ).toBe('/@alice.near/collectibles');
+  });
+});
+
+describe('parseCollectiblesPageQueryFromSearch', () => {
+  it('reads kind, sort, and search from a query string', () => {
+    const query = parseCollectiblesPageQueryFromSearch(
+      '?q=night&kind=audio&sort=name'
+    );
+    expect(query).toMatchObject({
+      q: 'night',
+      kind: 'audio',
+      sort: 'name',
+    });
+    expect(
+      parseCollectiblesPageQueryFromSearch(new URLSearchParams('kind=writing'))
+    ).toMatchObject({ kind: 'writing', sort: 'newest' });
+    expect(parseCollectiblesPageQueryFromSearch('')).toEqual(
+      EMPTY_COLLECTIBLES_PAGE_QUERY
+    );
+  });
+});
+
+describe('collectiblesAccountIdFromPathname', () => {
+  it('reads the portfolio vault owner and ignores OS / play', () => {
+    expect(collectiblesAccountIdFromPathname('/@alice.near/collectibles')).toBe(
+      'alice.near'
+    );
+    expect(
+      collectiblesAccountIdFromPathname('/@alice.near/collectibles/')
+    ).toBe('alice.near');
+    expect(collectiblesAccountIdFromPathname('/collectibles')).toBeNull();
+    expect(collectiblesAccountIdFromPathname('/collectibles/play')).toBeNull();
+    expect(
+      collectiblesAccountIdFromPathname('/@alice.near/collectibles/play')
+    ).toBeNull();
   });
 });

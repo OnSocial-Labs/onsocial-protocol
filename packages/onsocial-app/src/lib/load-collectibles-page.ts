@@ -2,6 +2,11 @@ import {
   fetchOwnedScarcesPage,
   type OwnedScarcesPage,
 } from '@/features/market/market-listings';
+import {
+  fetchCollectionCreatorFaces,
+  type CollectionCreatorFace,
+} from '@/features/scarces/collection-creator-face';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
   parseMarketMediumFilter,
@@ -20,15 +25,20 @@ import {
   MARKET_CREATOR_PARAM,
   MARKET_FACETS_PARAM,
   MARKET_KIND_PARAM,
+  MARKET_SORT_PARAM,
   marketFacetsParamValue,
   parseMarketFacetsParam,
 } from '@/lib/app-routes';
+import { normalizeAccountRoute } from '@/lib/account-route';
 import { overlayPath } from '@/lib/overlay-routes';
+import type { CollectiblesLibrarySort } from '@/lib/portfolio-holdings';
 
 export type CollectiblesPageData = {
   /** First owned page when a wallet account is known server-side. */
   holdings: OwnedScarcesPage | null;
   accountId: string | null;
+  /** Creator faces for the seed page — first ready paint is not a letter morph. */
+  creatorFaces?: Record<string, CollectionCreatorFace>;
 };
 
 /** Parsed Collectibles URL — SSR chrome seed and client query share this shape. */
@@ -41,6 +51,8 @@ export type CollectiblesPageQuery = {
   creator: string | null;
   /** Series id (or title key) from vault inventory. */
   series: string | null;
+  /** Newest (first-seen) or A–Z by creator name. */
+  sort: CollectiblesLibrarySort;
 };
 
 export const EMPTY_COLLECTIBLES_PAGE_QUERY: CollectiblesPageQuery = {
@@ -50,6 +62,7 @@ export const EMPTY_COLLECTIBLES_PAGE_QUERY: CollectiblesPageQuery = {
   audioFormat: null,
   creator: null,
   series: null,
+  sort: 'newest',
 };
 
 function parseVaultFilterId(raw: string | null | undefined): string | null {
@@ -64,6 +77,7 @@ export function parseCollectiblesPageQuery(params: {
   audioFormat?: string | null;
   creator?: string | null;
   series?: string | null;
+  sort?: string | null;
 }): CollectiblesPageQuery {
   const kind = parseMarketMediumFilter(params.kind);
   const facetMedium = normalizeDropFacetMedium(kind);
@@ -78,7 +92,38 @@ export function parseCollectiblesPageQuery(params: {
       facetMedium === 'audio' ? parseAudioFormat(params.audioFormat) : null,
     creator: parseVaultFilterId(params.creator),
     series: parseVaultFilterId(params.series),
+    sort: params.sort?.trim().toLowerCase() === 'name' ? 'name' : 'newest',
   };
+}
+
+/** Parse Collectibles discovery from `window.location.search` or a query string. */
+export function parseCollectiblesPageQueryFromSearch(
+  search: string | URLSearchParams
+): CollectiblesPageQuery {
+  const params =
+    typeof search === 'string'
+      ? new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+      : search;
+  return parseCollectiblesPageQuery({
+    q: params.get(COLLECTIBLES_SEARCH_PARAM),
+    kind: params.get(MARKET_KIND_PARAM),
+    facets: params.get(MARKET_FACETS_PARAM),
+    audioFormat: params.get(MARKET_AUDIO_FORMAT_PARAM),
+    creator: params.get(MARKET_CREATOR_PARAM),
+    series: params.get(COLLECTIBLES_SERIES_PARAM),
+    sort: params.get(MARKET_SORT_PARAM),
+  });
+}
+
+/**
+ * Portfolio vault account from `/@id/collectibles`. OS `/collectibles` has none.
+ */
+export function collectiblesAccountIdFromPathname(
+  pathname: string
+): string | null {
+  const match = pathname.match(/^\/(@[^/]+)\/collectibles\/?$/);
+  if (!match?.[1]) return null;
+  return normalizeAccountRoute(match[1]);
 }
 
 /** Path for the current vault query — omits default All / empty search. */
@@ -100,6 +145,7 @@ export function collectiblesQueryPath(
   }
   if (query.creator) params.set(MARKET_CREATOR_PARAM, query.creator);
   if (query.series) params.set(COLLECTIBLES_SERIES_PARAM, query.series);
+  if (query.sort === 'name') params.set(MARKET_SORT_PARAM, 'name');
   const qs = params.toString();
   return qs ? `${base}?${qs}` : base;
 }
@@ -111,6 +157,7 @@ export function collectiblesToolbarFromQuery(query: CollectiblesPageQuery): {
   audioFormat: MarketAudioFormatFilter;
   creator: string | null;
   series: string | null;
+  sort: CollectiblesLibrarySort;
 } {
   return {
     q: query.q,
@@ -119,6 +166,7 @@ export function collectiblesToolbarFromQuery(query: CollectiblesPageQuery): {
     audioFormat: query.audioFormat,
     creator: query.creator,
     series: query.series,
+    sort: query.sort,
   };
 }
 
@@ -130,6 +178,7 @@ export function collectiblesSeedParamsKey(query: CollectiblesPageQuery): string 
     query.audioFormat ?? '',
     query.creator ?? '',
     query.series ?? '',
+    query.sort,
   ].join('|');
 }
 
@@ -146,15 +195,33 @@ export async function loadCollectiblesPageData(
 ): Promise<CollectiblesPageData> {
   const owner = accountId?.trim() || null;
   if (!owner) {
-    return { holdings: null, accountId: null };
+    return { holdings: null, accountId: null, creatorFaces: {} };
   }
   try {
     const holdings = await fetchOwnedScarcesPage(owner, {
       pageSize: 24,
       bypassCache: true,
     });
-    return { holdings, accountId: owner };
+    const creatorIds = [
+      ...new Set(
+        holdings.items
+          .map((item) => item.creatorId?.trim())
+          .filter((id): id is string => Boolean(id))
+      ),
+    ];
+    const faces =
+      creatorIds.length > 0
+        ? await fetchCollectionCreatorFaces(
+            createReadOnlyOnSocialClient(),
+            creatorIds
+          )
+        : new Map();
+    return {
+      holdings,
+      accountId: owner,
+      creatorFaces: Object.fromEntries(faces),
+    };
   } catch {
-    return { holdings: null, accountId: owner };
+    return { holdings: null, accountId: owner, creatorFaces: {} };
   }
 }
