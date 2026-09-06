@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
   COLLECTIBLES_VAULT_OWNER,
-  clickCollectiblesKindAndWaitUrl,
   expectCollectiblesChrome,
+  pickCollectiblesKindFromFilter,
   stubCollectiblesVaultGraph,
   stubCollectiblesVaultManyCreators,
 } from './helpers/collectibles-vault';
@@ -65,7 +65,7 @@ test.describe('collectibles shell', () => {
     await expect(page.locator('[data-collectibles-loading]')).toHaveCount(0);
   });
 
-  test('populated vault shows rows, wraps kind chips, and persists search', async ({
+  test('populated vault shows a held-kinds rail and persists search', async ({
     page,
   }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -80,29 +80,28 @@ test.describe('collectibles shell', () => {
     });
     await expectCollectiblesChrome(page);
 
-    const memberships = page.getByRole('tab', { name: 'Memberships' });
-    await expect(memberships).toHaveText('Memberships');
-    const allBox = await page.getByRole('tab', { name: 'All' }).boundingBox();
-    const membershipsBox = await memberships.boundingBox();
+    const kindRail = page.getByRole('tablist', { name: KIND_RAIL });
+    await expect(kindRail.getByRole('tab', { name: 'Audio' })).toBeVisible();
+    await expect(kindRail.getByRole('tab', { name: 'Writing' })).toBeVisible();
+    await expect(kindRail.getByRole('tab', { name: 'Tickets' })).toBeVisible();
+    await expect(kindRail.getByRole('tab', { name: 'Memberships' })).toHaveCount(
+      0
+    );
+    const allBox = await kindRail.getByRole('tab', { name: 'All' }).boundingBox();
+    const ticketsBox = await kindRail
+      .getByRole('tab', { name: 'Tickets' })
+      .boundingBox();
     expect(allBox).toBeTruthy();
-    expect(membershipsBox).toBeTruthy();
-    expect(membershipsBox!.y).toBeGreaterThan(allBox!.y);
-    expect(membershipsBox!.width).toBeGreaterThan(48);
-    expect(
-      await memberships.evaluate(
-        (el) =>
-          (el as HTMLElement).scrollWidth <=
-          (el as HTMLElement).clientWidth + 1
-      )
-    ).toBe(true);
+    expect(ticketsBox).toBeTruthy();
+    expect(Math.abs(ticketsBox!.y - allBox!.y)).toBeLessThan(8);
 
     const nightRow = page.locator('.collectibles-holding-row').filter({
       hasText: 'Night Drive',
     });
     await expect(nightRow).toContainText('Audio');
     await expect(nightRow).toContainText('×2');
-    await expect(nightRow).toContainText('Listed');
-    await expect(nightRow).toContainText('2 NEAR');
+    await expect(nightRow).not.toContainText('Listed');
+    await expect(nightRow).not.toContainText('NEAR');
     await expect(nightRow).not.toContainText('@alice.near');
     await expect(nightRow.getByRole('link', { name: /Play Night Drive/ })).toBeVisible();
 
@@ -159,7 +158,7 @@ test.describe('collectibles shell', () => {
     await expect(nightRow).toBeVisible();
     await expectCollectiblesChrome(page);
 
-    await clickCollectiblesKindAndWaitUrl(page, 'Memberships', 'membership');
+    await pickCollectiblesKindFromFilter(page, 'Memberships', 'membership');
     await expect(page.locator('[data-collectibles-ready]')).toHaveCount(1);
     await expect(page.locator('[data-collectibles-loading]')).toHaveCount(0);
     await expect(
@@ -241,6 +240,12 @@ test.describe('collectibles shell', () => {
     await expectSearchVisible(page, 'Search collectibles');
     await expect(searchField(page, 'Search collectibles')).toHaveValue('night');
     await expectTabSelected(page, KIND_RAIL, 'Audio');
+    await expect(
+      page.getByRole('tablist', { name: KIND_RAIL }).getByRole('tab', {
+        name: 'Memberships',
+      })
+    ).toHaveCount(0);
+    await expect(page.locator('.market-listing-shimmer-time')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /A–Z/ })).toBeVisible();
     await expect(page.locator('[data-collectibles-back]')).toHaveAttribute(
       'data-collectibles-back',

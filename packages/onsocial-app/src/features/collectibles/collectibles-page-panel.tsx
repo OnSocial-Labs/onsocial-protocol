@@ -63,6 +63,7 @@ import {
   holdingsMatchSeries,
   sortHoldingsLibrary,
   toPortfolioHoldingPeek,
+  vaultHeldKindFilters,
   vaultInventoryCreators,
   vaultInventorySeries,
   type PortfolioHoldingPeek,
@@ -330,11 +331,39 @@ export function CollectiblesPagePanel({
     const applyPage = (
       items: OwnedScarceItem[],
       nextFromEnd: number,
-      hasMore: boolean
+      hasMore: boolean,
+      faces?: Map<string, CollectionCreatorFace>
     ) => {
       if (cancelled) return;
+      if (faces && faces.size > 0) {
+        setCreatorFaces((prev) => {
+          const next = new Map(prev);
+          for (const [id, face] of faces) next.set(id, face);
+          return next;
+        });
+      }
       setHoldings(
         holdingsStateFromItems(items, nextFromEnd, hasMore, loadKey)
+      );
+    };
+
+    const facesForItems = async (
+      items: OwnedScarceItem[]
+    ): Promise<Map<string, CollectionCreatorFace>> => {
+      const ids = [
+        ...new Set(
+          items
+            .map((item) => item.creatorId?.trim())
+            .filter((id): id is string => Boolean(id))
+        ),
+      ];
+      if (ids.length === 0) return new Map();
+      const { fetchCollectionCreatorFaces } = await import(
+        '@/features/scarces/collection-creator-face'
+      );
+      return fetchCollectionCreatorFaces(
+        createReadOnlyOnSocialClient(),
+        ids
       );
     };
 
@@ -349,10 +378,19 @@ export function CollectiblesPagePanel({
           data.accountId === ownerAccountId
         ) {
           putOwnedVaultPage(ownerAccountId, data.holdings);
+          const seedFaces = new Map(
+            Object.entries(data.creatorFaces ?? {})
+          );
+          const faces =
+            seedFaces.size > 0
+              ? seedFaces
+              : await facesForItems(data.holdings.items);
+          if (cancelled) return;
           applyPage(
             data.holdings.items,
             data.holdings.nextFromEnd,
-            data.holdings.hasMore
+            data.holdings.hasMore,
+            faces
           );
           if (!urlDiscoveryActive || !data.holdings.hasMore) return;
         }
@@ -366,7 +404,9 @@ export function CollectiblesPagePanel({
             })
           : await fetchOwnedScarcesPage(ownerAccountId);
         if (cancelled) return;
-        applyPage(page.items, page.nextFromEnd, page.hasMore);
+        const faces = await facesForItems(page.items);
+        if (cancelled) return;
+        applyPage(page.items, page.nextFromEnd, page.hasMore, faces);
       } catch {
         if (cancelled) return;
         setHoldings((prev) => {
@@ -542,19 +582,27 @@ export function CollectiblesPagePanel({
     const ids = creatorIdsKey.split('|');
     let cancelled = false;
     void (async () => {
+      const missing = ids.filter((id) => !creatorFaces.has(id));
+      if (missing.length === 0) return;
       const { fetchCollectionCreatorFaces } = await import(
         '@/features/scarces/collection-creator-face'
       );
       const faces = await fetchCollectionCreatorFaces(
         createReadOnlyOnSocialClient(),
-        ids
+        missing
       );
       if (cancelled) return;
-      setCreatorFaces(faces);
+      setCreatorFaces((prev) => {
+        const next = new Map(prev);
+        for (const [id, face] of faces) next.set(id, face);
+        return next;
+      });
     })();
     return () => {
       cancelled = true;
     };
+    // Face map is read for a missing-id skip; holdings apply writes it first.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- creatorIdsKey gates fetch
   }, [creatorIdsKey]);
 
   const displayNames = useMemo(() => {
@@ -903,6 +951,7 @@ export function CollectiblesPagePanel({
               medium={mediumFilter}
               audioFormat={audioFormatFilter}
               selectedFacets={selectedFacets}
+              heldKinds={vaultHeldKindFilters(vaultItems, mediumFilter)}
               vaultCreators={vaultCreators}
               vaultSeries={vaultSeries}
               selectedCreator={creatorFilter}

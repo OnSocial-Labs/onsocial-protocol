@@ -5,8 +5,10 @@ import {
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import {
+  MARKET_MEDIUM_FILTERS,
   isAudioMediumKind,
   marketMediumLabel,
+  parseMarketMediumFilter,
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -503,6 +505,26 @@ export function holdingsMatchSeries(
   const needle = series?.trim() || null;
   if (!needle) return true;
   return holdingsSeriesKey(item) === needle;
+}
+
+/**
+ * Page kind rail — All + kinds actually held, plus the active URL kind so a
+ * deep link stays on the rail even when that kind is empty. Full taxonomy
+ * stays in Filter. Order matches `MARKET_MEDIUM_FILTERS`.
+ */
+export function vaultHeldKindFilters(
+  items: ReadonlyArray<{ mediumKind: string | null | undefined }>,
+  selected: MarketMediumFilter = 'all'
+): MarketMediumFilter[] {
+  const held = new Set<MarketMediumFilter>();
+  for (const item of items) {
+    const kind = parseMarketMediumFilter(item.mediumKind);
+    if (kind !== 'all') held.add(kind);
+  }
+  if (selected !== 'all') held.add(selected);
+  return MARKET_MEDIUM_FILTERS.map((entry) => entry.id).filter(
+    (id) => id === 'all' || held.has(id)
+  );
 }
 
 /** Kind-tab filter for the Collectibles hub (unknown kinds only appear in All). */

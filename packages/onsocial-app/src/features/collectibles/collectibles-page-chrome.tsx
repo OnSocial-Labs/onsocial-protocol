@@ -25,6 +25,7 @@ import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 import {
   COLLECTIBLES_LIBRARY_JUMP_MIN,
   type CollectiblesLibrarySort,
+  vaultHeldKindFilters,
 } from '@/lib/portfolio-holdings';
 
 /** Search field with Collectibles icon — same heading slot as Market. */
@@ -76,6 +77,7 @@ export function CollectiblesFilterToolbar({
   sort = 'newest',
   onSortChange,
   jumpCreators = [],
+  heldKinds,
 }: {
   medium: MarketMediumFilter;
   audioFormat: MarketAudioFormatFilter;
@@ -96,7 +98,22 @@ export function CollectiblesFilterToolbar({
   sort?: CollectiblesLibrarySort;
   onSortChange?: (sort: CollectiblesLibrarySort) => void;
   jumpCreators?: VaultFilterChip[];
+  /** All + kinds in this vault. Omit → All + the active URL kind. */
+  heldKinds?: MarketMediumFilter[];
 }) {
+  const allowKinds = new Set<MarketMediumFilter>(
+    heldKinds && heldKinds.length > 0
+      ? heldKinds
+      : vaultHeldKindFilters([], medium)
+  );
+  allowKinds.add('all');
+  allowKinds.add(medium);
+  const kindRailItems = MARKET_MEDIUM_FILTERS.filter((tab) =>
+    allowKinds.has(tab.id)
+  ).map((tab) => ({
+    id: tab.id,
+    label: tab.label,
+  }));
   const facetMedium = normalizeDropFacetMedium(medium);
   const creatorLabel =
     selectedCreator &&
@@ -133,10 +150,7 @@ export function CollectiblesFilterToolbar({
           disabled={inert}
           tabIdFor={(id) => `collectibles-kind-tab-${id}`}
           ariaControls="collectibles-results"
-          items={MARKET_MEDIUM_FILTERS.map((tab) => ({
-            id: tab.id,
-            label: tab.label,
-          }))}
+          items={kindRailItems}
         />
       </div>
       {inert ? (

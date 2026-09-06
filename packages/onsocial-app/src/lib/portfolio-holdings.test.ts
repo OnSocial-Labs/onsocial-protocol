@@ -12,6 +12,7 @@ import {
   holdingsMatchSeries,
   sliceLibraryGroups,
   toPortfolioHoldingPeek,
+  vaultHeldKindFilters,
   vaultInventoryCreators,
   vaultInventorySeries,
 } from '@/lib/portfolio-holdings';
@@ -507,5 +508,28 @@ describe('filterHoldingsByMedium', () => {
     expect(
       filterHoldingsByMedium(items, 'video').map((i) => i.tokenId)
     ).toEqual(['e']);
+  });
+});
+
+describe('vaultHeldKindFilters', () => {
+  it('is All only when the vault is empty', () => {
+    expect(vaultHeldKindFilters([])).toEqual(['all']);
+  });
+
+  it('keeps All plus held kinds in Market order and aliases music', () => {
+    expect(
+      vaultHeldKindFilters([
+        { mediumKind: 'ticket' },
+        { mediumKind: 'music' },
+        { mediumKind: 'writing' },
+        { mediumKind: null },
+      ])
+    ).toEqual(['all', 'writing', 'audio', 'ticket']);
+  });
+
+  it('keeps a deep-linked kind on the rail when nothing of that kind is held', () => {
+    expect(
+      vaultHeldKindFilters([{ mediumKind: 'audio' }], 'membership')
+    ).toEqual(['all', 'audio', 'membership']);
   });
 });

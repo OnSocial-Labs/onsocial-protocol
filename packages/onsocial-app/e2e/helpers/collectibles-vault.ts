@@ -5,7 +5,7 @@ import {
   expectTabSelected,
   expectTabVisible,
 } from './tabs';
-import { marketFilterTrigger } from './market';
+import { marketFilterTrigger, openMarketFilter } from './market';
 
 const TWO_NEAR_YOCTO = '2000000000000000000000000';
 
@@ -321,7 +321,9 @@ export async function expectCollectiblesChrome(page: Page): Promise<void> {
   await expect(collectiblesReadyRail(page)).toHaveCount(1);
   await expect(page.locator('[data-collectibles-loading]')).toHaveCount(0);
   await expectTabVisible(page, 'Collectible kind', 'All');
-  await expectTabVisible(page, 'Collectible kind', 'Memberships');
+  await expect(
+    collectiblesReadyRail(page).getByRole('tab', { name: 'Memberships' })
+  ).toHaveCount(0);
   await expect(
     collectiblesReadyRail(page).getByRole('tab', { name: 'All' })
   ).toBeEnabled({ timeout: E2E_CHROME_TIMEOUT_MS });
@@ -346,4 +348,22 @@ export async function clickCollectiblesKindAndWaitUrl(
     return;
   }
   await expectTabSelected(page, 'Collectible kind', name);
+}
+
+/** Kind not on the held rail — pick it from Filter so the URL still updates. */
+export async function pickCollectiblesKindFromFilter(
+  page: Page,
+  name: string,
+  kind: string
+): Promise<void> {
+  await openMarketFilter(page);
+  await page
+    .getByRole('listbox', { name: 'Medium' })
+    .getByRole('option', { name })
+    .click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.waitForURL(
+    (url) => url.searchParams.get('kind') === kind,
+    { timeout: E2E_CHROME_TIMEOUT_MS }
+  );
 }

@@ -19,6 +19,7 @@ import {
   type CollectiblesPageQuery,
 } from '@/lib/load-collectibles-page';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { vaultHeldKindFilters } from '@/lib/portfolio-holdings';
 
 function subscribeNoop() {
   return () => undefined;
@@ -97,6 +98,7 @@ export function CollectiblesLoadingScreen({
           selectedCreator={toolbar.creator}
           selectedSeries={toolbar.series}
           sort={toolbar.sort}
+          heldKinds={vaultHeldKindFilters([], toolbar.kind)}
         />
       }
     >

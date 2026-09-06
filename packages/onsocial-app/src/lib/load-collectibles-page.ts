@@ -2,6 +2,11 @@ import {
   fetchOwnedScarcesPage,
   type OwnedScarcesPage,
 } from '@/features/market/market-listings';
+import {
+  fetchCollectionCreatorFaces,
+  type CollectionCreatorFace,
+} from '@/features/scarces/collection-creator-face';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
   parseMarketMediumFilter,
@@ -32,6 +37,8 @@ export type CollectiblesPageData = {
   /** First owned page when a wallet account is known server-side. */
   holdings: OwnedScarcesPage | null;
   accountId: string | null;
+  /** Creator faces for the seed page — first ready paint is not a letter morph. */
+  creatorFaces?: Record<string, CollectionCreatorFace>;
 };
 
 /** Parsed Collectibles URL — SSR chrome seed and client query share this shape. */
@@ -188,15 +195,33 @@ export async function loadCollectiblesPageData(
 ): Promise<CollectiblesPageData> {
   const owner = accountId?.trim() || null;
   if (!owner) {
-    return { holdings: null, accountId: null };
+    return { holdings: null, accountId: null, creatorFaces: {} };
   }
   try {
     const holdings = await fetchOwnedScarcesPage(owner, {
       pageSize: 24,
       bypassCache: true,
     });
-    return { holdings, accountId: owner };
+    const creatorIds = [
+      ...new Set(
+        holdings.items
+          .map((item) => item.creatorId?.trim())
+          .filter((id): id is string => Boolean(id))
+      ),
+    ];
+    const faces =
+      creatorIds.length > 0
+        ? await fetchCollectionCreatorFaces(
+            createReadOnlyOnSocialClient(),
+            creatorIds
+          )
+        : new Map();
+    return {
+      holdings,
+      accountId: owner,
+      creatorFaces: Object.fromEntries(faces),
+    };
   } catch {
-    return { holdings: null, accountId: owner };
+    return { holdings: null, accountId: owner, creatorFaces: {} };
   }
 }

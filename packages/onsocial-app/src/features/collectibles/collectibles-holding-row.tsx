@@ -15,12 +15,6 @@ interface CollectiblesHoldingRowProps {
   hideCreator?: boolean;
 }
 
-function formatListedNear(priceNear: string): string {
-  const n = Number.parseFloat(priceNear);
-  if (!Number.isFinite(n)) return priceNear;
-  return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
-}
-
 /** Owned scarce in the Collectibles vault — use-first CTA (Read / Play / …). */
 export function CollectiblesHoldingRow({
   item,
@@ -28,7 +22,6 @@ export function CollectiblesHoldingRow({
   ownerMenu = null,
   hideCreator = false,
 }: CollectiblesHoldingRowProps) {
-  const listedNear = item.listedPriceNear?.trim();
   const creatorId = item.creatorId?.trim() || null;
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
   const showThumb = Boolean(item.mediaUrl) && brokenMediaUrl !== item.mediaUrl;
@@ -72,13 +65,6 @@ export function CollectiblesHoldingRow({
               <span className="market-listing-own"> · ×{editionCount}</span>
             ) : item.editionSeat != null ? (
               <span className="market-listing-own"> · #{item.editionSeat}</span>
-            ) : null}
-            {listedNear ? (
-              <span className="market-listing-own">
-                {' · '}
-                {item.listingKind === 'auction' ? 'Reserve' : 'Listed'} ·{' '}
-                {formatListedNear(listedNear)} NEAR
-              </span>
             ) : null}
             {creatorId && !hideCreator ? (
               <span className="market-listing-own">

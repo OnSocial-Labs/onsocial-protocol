@@ -172,10 +172,9 @@
  */
 
 .os-app-chrome-rail.collectibles-filter-toolbar {
-  /* Vault kind rail wraps (Memberships, etc.) — stay one band, allow wrap inside. */
-  max-height: none;
+  /* Held-kinds rail is one row — scroll if a full collector overflows. */
   min-height: var(--os-app-chrome-rail-height, 2.35rem);
-  align-items: flex-start;
+  align-items: center;
 }
 
 .os-app-screen:has(.market-listing-sort-menu-panel) .os-app-screen-header {
@@ -24376,11 +24375,10 @@ a.os-surface-row {
     justify-content: flex-start;
   }
 
-  /* Vault kind chips wrap — do not clip Memberships / Biography / Folk. */
+  /* Held-kinds rail — one row, scroll instead of wrapping the Market taxonomy. */
   .collectibles-filter-toolbar .discover-tab-bar,
   .collectibles-filter-toolbar .discover-tab-bar-scroller {
     min-width: 0;
-    width: 100%;
     max-width: 100%;
   }
 
@@ -24389,9 +24387,8 @@ a.os-surface-row {
   }
 
   .collectibles-filter-toolbar .discover-tab-bar-scroller {
-    flex-wrap: wrap;
-    overflow: visible;
-    row-gap: 0.2rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
   }
 
   /* Host audio must stay in the document (not display:none) for audible play. */
