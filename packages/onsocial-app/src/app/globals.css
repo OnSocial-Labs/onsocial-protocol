@@ -31539,6 +31539,47 @@ a.os-surface-row {
     display: contents;
   }
 
+  /* Work + name are one object. Deal sits after. */
+  .drop-create-stage,
+  .drop-create-deal {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  .drop-create-title {
+    display: block;
+    min-width: 0;
+  }
+
+  .drop-create-form .drop-create-title-input {
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0.05rem 0 0.4rem;
+    font-size: 1.5rem;
+    font-weight: 650;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+    color: inherit;
+  }
+
+  .drop-create-form .drop-create-title-input::placeholder {
+    color: rgb(var(--fg-rgb) / 0.32);
+    font-weight: 600;
+  }
+
+  .drop-create-form .drop-create-title-input:focus {
+    outline: none;
+    box-shadow: inset 0 -1px 0 rgb(var(--fg-rgb) / 0.22);
+  }
+
+  .drop-create-blurb-toggle {
+    align-self: flex-start;
+  }
+
   /* Edge fade hints there are more template tabs off-screen (scrollbar is
      hidden on the shared rail). */
   .drop-template-toolbar .discover-tab-bar-scroller {

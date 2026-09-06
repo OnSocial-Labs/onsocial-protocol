@@ -53,14 +53,19 @@ test.describe('create drop', () => {
     await expect(
       page.locator('[data-drop-create-section="title"] #drop-create-title')
     ).toBeVisible();
+    await expect(page.locator('.drop-create-stage')).toBeVisible();
     await expect(
       page
         .locator('[data-drop-create-section="deal"]')
         .getByText('Price per edition')
     ).toBeVisible();
     await expect(
-      page.locator('[data-drop-create-section="description"] textarea')
+      page.getByRole('button', { name: 'Add a blurb' })
     ).toBeVisible();
+    await expect(page.locator('#drop-create-description')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Add a blurb' }).click();
+    await expect(page.locator('#drop-create-description')).toBeFocused();
   });
 
   test('hub bind leaves to that hub; series query still prefills', async ({

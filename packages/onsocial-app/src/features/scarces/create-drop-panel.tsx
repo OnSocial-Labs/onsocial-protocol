@@ -127,7 +127,10 @@ import {
   loadDropFormDraft,
   saveDropFormDraft,
 } from '@/features/scarces/drop-form-draft';
-import { dropCreateScreenTitle } from '@/features/scarces/drop-create-layout';
+import {
+  dropCreateBlurbOpen,
+  dropCreateScreenTitle,
+} from '@/features/scarces/drop-create-layout';
 import {
   DropStartConfirmSheet,
   type DropStartConfirmPhase,
@@ -264,6 +267,8 @@ export function CreateDropPanel() {
   const [draftAllowlist, setDraftAllowlist] = useState<AllowlistEntry[]>([]);
   const [allowlistSheetOpen, setAllowlistSheetOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [blurbOpen, setBlurbOpen] = useState(false);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const [discardDraftOpen, setDiscardDraftOpen] = useState(false);
   const [artMode, setArtMode] = useState<DropArtMode>('single');
   const [musicFormat, setMusicFormat] = useState<MusicReleaseFormat>('single');
@@ -435,6 +440,7 @@ export function CreateDropPanel() {
     setMaxRedeemsInput('');
     setDraftAllowlist([]);
     setShowAdvanced(false);
+    setBlurbOpen(false);
     setArtMode('single');
     setMusicFormat('single');
     setTrackFiles([]);
@@ -2336,6 +2342,13 @@ export function CreateDropPanel() {
     setFieldInfoKey(null);
   }, []);
 
+  const blurbShown = dropCreateBlurbOpen(description, blurbOpen);
+
+  useEffect(() => {
+    if (!blurbOpen) return;
+    descriptionRef.current?.focus();
+  }, [blurbOpen]);
+
   return (
     <OsAppScreen
       title={dropCreateScreenTitle(studioOpen)}
@@ -2498,211 +2511,432 @@ export function CreateDropPanel() {
           </div>
         ) : null}
 
-        <div className="drop-create-section" data-drop-create-section="work">
-          {isAudio ? (
-            <div className="guild-field">
-              <DropFieldLabel
-                label="Release"
-                infoKey="release"
-                onOpenInfo={openFieldInfo}
-              />
-              <div
-                className="app-access-options"
-                role="radiogroup"
-                aria-label="Release format"
-              >
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={musicFormat === 'single'}
-                  className={`app-access-option${
-                    musicFormat === 'single' ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setMusicReleaseFormat('single')}
+        <div className="drop-create-stage">
+          <div className="drop-create-section" data-drop-create-section="work">
+            {isAudio ? (
+              <div className="guild-field">
+                <DropFieldLabel
+                  label="Release"
+                  infoKey="release"
+                  onOpenInfo={openFieldInfo}
+                />
+                <div
+                  className="app-access-options"
+                  role="radiogroup"
+                  aria-label="Release format"
                 >
-                  Single
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={musicFormat === 'album'}
-                  className={`app-access-option${
-                    musicFormat === 'album' ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setMusicReleaseFormat('album')}
-                >
-                  Album
-                </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={musicFormat === 'single'}
+                    className={`app-access-option${
+                      musicFormat === 'single' ? ' is-selected' : ''
+                    }`}
+                    disabled={pending}
+                    onClick={() => setMusicReleaseFormat('single')}
+                  >
+                    Single
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={musicFormat === 'album'}
+                    className={`app-access-option${
+                      musicFormat === 'album' ? ' is-selected' : ''
+                    }`}
+                    disabled={pending}
+                    onClick={() => setMusicReleaseFormat('album')}
+                  >
+                    Album
+                  </button>
+                </div>
               </div>
-            </div>
-          ) : isWriting ? (
-            <div className="guild-field">
-              <DropFieldLabel
-                label="Format"
-                infoKey="format"
-                onOpenInfo={openFieldInfo}
-              />
-              <div
-                className="app-access-options"
-                role="radiogroup"
-                aria-label="Writing format"
-              >
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={writingFormat === 'issue'}
-                  className={`app-access-option${
-                    writingFormat === 'issue' ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setWritingReleaseFormat('issue')}
+            ) : isWriting ? (
+              <div className="guild-field">
+                <DropFieldLabel
+                  label="Format"
+                  infoKey="format"
+                  onOpenInfo={openFieldInfo}
+                />
+                <div
+                  className="app-access-options"
+                  role="radiogroup"
+                  aria-label="Writing format"
                 >
-                  Issue
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={writingFormat === 'book'}
-                  className={`app-access-option${
-                    writingFormat === 'book' ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setWritingReleaseFormat('book')}
-                >
-                  Book
-                </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={writingFormat === 'issue'}
+                    className={`app-access-option${
+                      writingFormat === 'issue' ? ' is-selected' : ''
+                    }`}
+                    disabled={pending}
+                    onClick={() => setWritingReleaseFormat('issue')}
+                  >
+                    Issue
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={writingFormat === 'book'}
+                    className={`app-access-option${
+                      writingFormat === 'book' ? ' is-selected' : ''
+                    }`}
+                    disabled={pending}
+                    onClick={() => setWritingReleaseFormat('book')}
+                  >
+                    Book
+                  </button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="guild-field">
-              <DropFieldLabel
-                label="Artwork"
-                infoKey="artwork"
-                onOpenInfo={openFieldInfo}
-              />
-              <div
-                className="app-access-options"
-                role="radiogroup"
-                aria-label="Artwork mode"
-              >
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={!isVariations}
-                  className={`app-access-option${
-                    !isVariations ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setArtMode('single')}
+            ) : (
+              <div className="guild-field">
+                <DropFieldLabel
+                  label="Artwork"
+                  infoKey="artwork"
+                  onOpenInfo={openFieldInfo}
+                />
+                <div
+                  className="app-access-options"
+                  role="radiogroup"
+                  aria-label="Artwork mode"
                 >
-                  One artwork
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={isVariations}
-                  className={`app-access-option${
-                    isVariations ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setArtMode('variations')}
-                >
-                  Set of variations
-                </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={!isVariations}
+                    className={`app-access-option${
+                      !isVariations ? ' is-selected' : ''
+                    }`}
+                    disabled={pending}
+                    onClick={() => setArtMode('single')}
+                  >
+                    One artwork
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={isVariations}
+                    className={`app-access-option${
+                      isVariations ? ' is-selected' : ''
+                    }`}
+                    disabled={pending}
+                    onClick={() => setArtMode('variations')}
+                  >
+                    Set of variations
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {isVariations ? (
-            <div className="guild-field">
-              <DropFieldLabel
-                label="Set source"
-                infoKey="setSource"
-                onOpenInfo={openFieldInfo}
-              />
-              <div
-                className="app-access-options"
-                role="radiogroup"
-                aria-label="Variation set source"
-              >
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={variationSource === 'upload'}
-                  className={`app-access-option${
-                    variationSource === 'upload' ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setVariationSource('upload')}
+            {isVariations ? (
+              <div className="guild-field">
+                <DropFieldLabel
+                  label="Set source"
+                  infoKey="setSource"
+                  onOpenInfo={openFieldInfo}
+                />
+                <div
+                  className="app-access-options"
+                  role="radiogroup"
+                  aria-label="Variation set source"
                 >
-                  Upload images
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={isGeneratedSet || isPinnedSet}
-                  className={`app-access-option${
-                    isGeneratedSet || isPinnedSet ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => {
-                    setVariationSource('generate');
-                    if (!generatedSetReady) setStudioOpen(true);
-                  }}
-                >
-                  Generate layers
-                </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={variationSource === 'upload'}
+                    className={`app-access-option${
+                      variationSource === 'upload' ? ' is-selected' : ''
+                    }`}
+                    disabled={pending}
+                    onClick={() => setVariationSource('upload')}
+                  >
+                    Upload images
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={isGeneratedSet || isPinnedSet}
+                    className={`app-access-option${
+                      isGeneratedSet || isPinnedSet ? ' is-selected' : ''
+                    }`}
+                    disabled={pending}
+                    onClick={() => {
+                      setVariationSource('generate');
+                      if (!generatedSetReady) setStudioOpen(true);
+                    }}
+                  >
+                    Generate layers
+                  </button>
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          {isGeneratedSet && !generatedSetReady ? (
-            <button
-              type="button"
-              className="drop-cover-picker drop-studio-launch"
-              onClick={() => setStudioOpen(true)}
-              disabled={pending}
-            >
-              <span className="drop-cover-placeholder">
-                <strong>
-                  {design?.working
-                    ? 'Generating your set…'
-                    : design && design.traits > 0
-                      ? 'Continue designing'
-                      : 'Design your set'}
-                </strong>
+            {isGeneratedSet && !generatedSetReady ? (
+              <button
+                type="button"
+                className="drop-cover-picker drop-studio-launch"
+                onClick={() => setStudioOpen(true)}
+                disabled={pending}
+              >
+                <span className="drop-cover-placeholder">
+                  <strong>
+                    {design?.working
+                      ? 'Generating your set…'
+                      : design && design.traits > 0
+                        ? 'Continue designing'
+                        : 'Design your set'}
+                  </strong>
+                  <small>
+                    {design?.working
+                      ? 'Open the studio to watch progress.'
+                      : design && design.traits > 0
+                        ? `${design.layers} ${design.layers === 1 ? 'layer' : 'layers'} · ${design.traits} trait ${design.traits === 1 ? 'image' : 'images'} so far`
+                        : 'Bring PNG or WebP layers — stack, generate, start the drop.'}
+                  </small>
+                </span>
+              </button>
+            ) : null}
+
+            {isVariations && variationSource === 'upload' ? (
+              variationFiles.length === 0 ? (
+                pinnedLargeSet ? (
+                  <div className="guild-field">
+                    <p className="drop-pin-resume-detail">
+                      {pinnedLargeSet.pieceCount} pieces pinned · ready to sign
+                    </p>
+                    <div
+                      className="app-storage-presets"
+                      role="group"
+                      aria-label="Set actions"
+                    >
+                      <button
+                        type="button"
+                        className="os-surface-chip"
+                        disabled={pending}
+                        onClick={() => openVariationPicker('replace')}
+                      >
+                        Replace set
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="drop-cover-picker drop-studio-launch"
+                    onClick={() => openVariationPicker('replace')}
+                    disabled={pending}
+                  >
+                    <span className="drop-cover-placeholder">
+                      <strong>Add your set</strong>
+                      <small>
+                        {MIN_VARIATIONS}–{MAX_SET_PIECES.toLocaleString()}{' '}
+                        images · same format · ≤5 MB each
+                      </small>
+                    </span>
+                  </button>
+                )
+              ) : (
+                <DropVariationSetManager
+                  previews={variationPreviews}
+                  totalCount={variationFiles.length}
+                  coverSeat={coverSeatValid ? coverSeat : 1}
+                  disabled={pending}
+                  sortable={!isLargeUpload}
+                  canAddMore={variationFiles.length < MAX_SET_PIECES}
+                  onRemove={removeVariationAt}
+                  onReorder={isLargeUpload ? undefined : reorderVariations}
+                  onSetCover={(seat) => setCoverSeatInput(String(seat))}
+                  onAddMore={() => openVariationPicker('append')}
+                  onReplace={() => openVariationPicker('replace')}
+                />
+              )
+            ) : null}
+
+            {isGeneratedSet && generatedSetReady && generatedNote ? (
+              <>
+                {generatedPreviews.length > 0 ? (
+                  <div
+                    className="gen-preview-grid"
+                    aria-label="Generated set previews"
+                  >
+                    {generatedPreviews.map((src, index) => (
+                      <img
+                        key={src}
+                        src={src}
+                        alt={`Generated piece ${index + 1}`}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+                <p className="drop-generated-note">{generatedNote}</p>
+                {generatedRarity ? (
+                  <ul className="collection-set-peek-rarity">
+                    {formatGenerativeRarityLines(generatedRarity).map(
+                      (line) => (
+                        <li key={line}>{line}</li>
+                      )
+                    )}
+                  </ul>
+                ) : null}
+                <div
+                  className="app-storage-presets"
+                  role="group"
+                  aria-label="Set actions"
+                >
+                  <button
+                    type="button"
+                    className="os-surface-chip"
+                    disabled={pending}
+                    onClick={() => setStudioOpen(true)}
+                  >
+                    Continue designing
+                  </button>
+                  <button
+                    type="button"
+                    className="os-surface-chip"
+                    disabled={pending}
+                    onClick={() => {
+                      builderRef.current?.reset();
+                      setVariationSource('generate');
+                      setVariationsCid('');
+                      setTraitsCid('');
+                      setGeneratedNote(null);
+                      setGeneratedRarity(null);
+                      setGeneratedPreviews((prev) => {
+                        prev.forEach((url) => URL.revokeObjectURL(url));
+                        return [];
+                      });
+                      setGenerateJobId(null);
+                      clearDropPinDraftIfKind(accountId, 'generate-job');
+                      setStudioOpen(true);
+                    }}
+                  >
+                    Replace set
+                  </button>
+                </div>
+              </>
+            ) : null}
+
+            {isPinnedSet || generatedSetReady || isLargeUpload ? (
+              <label className="guild-field" htmlFor={fieldId('cover-seat')}>
+                <span>Cover piece</span>
+                <SuffixField
+                  id={fieldId('cover-seat')}
+                  value={coverSeatInput}
+                  onValueChange={(value) =>
+                    setCoverSeatInput(value.replace(/[^\d]/g, ''))
+                  }
+                  placeholder="1"
+                  aria-label="Cover piece number"
+                  suffix={supplyValid ? `of ${supply}` : 'piece #'}
+                  disabled={pending}
+                />
                 <small>
-                  {design?.working
-                    ? 'Open the studio to watch progress.'
-                    : design && design.traits > 0
-                      ? `${design.layers} ${design.layers === 1 ? 'layer' : 'layers'} · ${design.traits} trait ${design.traits === 1 ? 'image' : 'images'} so far`
-                      : 'Bring PNG or WebP layers — stack, generate, start the drop.'}
+                  Hero piece in the packaging cover. Defaults to piece 1 — each
+                  mint still keeps its own artwork.
                 </small>
-              </span>
-            </button>
-          ) : null}
+              </label>
+            ) : null}
 
-          {isVariations && variationSource === 'upload' ? (
-            variationFiles.length === 0 ? (
-              pinnedLargeSet ? (
+            {isVariations && collageImages.length > 0 ? (
+              <DropCoverCollagePicker
+                images={collageImages}
+                coverSeat={coverSeatValid ? coverSeat : 1}
+                uniqueCount={supplyValid ? supply : collageImages.length}
+                title={title}
+                disabled={pending}
+                value={collage}
+                onChange={setCollage}
+              />
+            ) : null}
+
+            {isVariations && !isGeneratedSet && !traitsCid.trim() ? (
+              <div className="guild-field">
+                <span>Mint order</span>
+                <div
+                  className="app-access-options"
+                  role="radiogroup"
+                  aria-label="Mint order"
+                >
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={!randomAssign}
+                    className={`app-access-option${
+                      !randomAssign ? ' is-selected' : ''
+                    }`}
+                    disabled={pending}
+                    onClick={() => setRandomAssign(false)}
+                  >
+                    In order
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={randomAssign}
+                    className={`app-access-option${
+                      randomAssign ? ' is-selected' : ''
+                    }`}
+                    disabled={pending}
+                    onClick={() => setRandomAssign(true)}
+                  >
+                    Random
+                  </button>
+                </div>
+                <small>
+                  {randomAssign
+                    ? 'Each collector draws a random piece — rare pieces can’t be sniped by timing.'
+                    : 'Collectors receive the next piece in order (piece 1 first).'}
+                </small>
+              </div>
+            ) : null}
+
+            {!isVariations ? (
+              imagePreview ? (
                 <div className="guild-field">
-                  <p className="drop-pin-resume-detail">
-                    {pinnedLargeSet.pieceCount} pieces pinned · ready to sign
-                  </p>
+                  <DropArtworkPreview
+                    src={imagePreview}
+                    label={
+                      isAudio || isWriting ? 'Cover preview' : 'Artwork preview'
+                    }
+                  />
                   <div
                     className="app-storage-presets"
                     role="group"
-                    aria-label="Set actions"
+                    aria-label={
+                      isAudio || isWriting ? 'Cover actions' : 'Artwork actions'
+                    }
                   >
                     <button
                       type="button"
                       className="os-surface-chip"
                       disabled={pending}
-                      onClick={() => openVariationPicker('replace')}
+                      onClick={() => imageInputRef.current?.click()}
                     >
-                      Replace set
+                      Replace
+                    </button>
+                  </div>
+                </div>
+              ) : pinnedMusic || pinnedWriting ? (
+                <div className="guild-field">
+                  <p className="drop-pin-resume-detail">
+                    Cover pinned · re-add only if you need to replace it
+                  </p>
+                  <div
+                    className="app-storage-presets"
+                    role="group"
+                    aria-label={
+                      isAudio || isWriting ? 'Cover actions' : 'Artwork actions'
+                    }
+                  >
+                    <button
+                      type="button"
+                      className="os-surface-chip"
+                      disabled={pending}
+                      onClick={() => imageInputRef.current?.click()}
+                    >
+                      Replace cover
                     </button>
                   </div>
                 </div>
@@ -2710,505 +2944,290 @@ export function CreateDropPanel() {
                 <button
                   type="button"
                   className="drop-cover-picker drop-studio-launch"
-                  onClick={() => openVariationPicker('replace')}
+                  onClick={() => imageInputRef.current?.click()}
                   disabled={pending}
                 >
                   <span className="drop-cover-placeholder">
-                    <strong>Add your set</strong>
-                    <small>
-                      {MIN_VARIATIONS}–{MAX_SET_PIECES.toLocaleString()} images
-                      · same format · ≤5 MB each
-                    </small>
+                    <strong>
+                      {isAudio || isWriting ? 'Add cover' : 'Add artwork'}
+                    </strong>
+                    <small>JPG, PNG, or WebP · ≤5 MB</small>
                   </span>
                 </button>
               )
-            ) : (
-              <DropVariationSetManager
-                previews={variationPreviews}
-                totalCount={variationFiles.length}
-                coverSeat={coverSeatValid ? coverSeat : 1}
+            ) : null}
+            {!isVariations ? (
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="scarce-cover-file-input"
+                tabIndex={-1}
+                aria-hidden
                 disabled={pending}
-                sortable={!isLargeUpload}
-                canAddMore={variationFiles.length < MAX_SET_PIECES}
-                onRemove={removeVariationAt}
-                onReorder={isLargeUpload ? undefined : reorderVariations}
-                onSetCover={(seat) => setCoverSeatInput(String(seat))}
-                onAddMore={() => openVariationPicker('append')}
-                onReplace={() => openVariationPicker('replace')}
+                onChange={onImageChange}
               />
-            )
-          ) : null}
-
-          {isGeneratedSet && generatedSetReady && generatedNote ? (
-            <>
-              {generatedPreviews.length > 0 ? (
-                <div
-                  className="gen-preview-grid"
-                  aria-label="Generated set previews"
-                >
-                  {generatedPreviews.map((src, index) => (
-                    <img
-                      key={src}
-                      src={src}
-                      alt={`Generated piece ${index + 1}`}
-                    />
-                  ))}
-                </div>
-              ) : null}
-              <p className="drop-generated-note">{generatedNote}</p>
-              {generatedRarity ? (
-                <ul className="collection-set-peek-rarity">
-                  {formatGenerativeRarityLines(generatedRarity).map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ul>
-              ) : null}
-              <div
-                className="app-storage-presets"
-                role="group"
-                aria-label="Set actions"
-              >
-                <button
-                  type="button"
-                  className="os-surface-chip"
-                  disabled={pending}
-                  onClick={() => setStudioOpen(true)}
-                >
-                  Continue designing
-                </button>
-                <button
-                  type="button"
-                  className="os-surface-chip"
-                  disabled={pending}
-                  onClick={() => {
-                    builderRef.current?.reset();
-                    setVariationSource('generate');
-                    setVariationsCid('');
-                    setTraitsCid('');
-                    setGeneratedNote(null);
-                    setGeneratedRarity(null);
-                    setGeneratedPreviews((prev) => {
-                      prev.forEach((url) => URL.revokeObjectURL(url));
-                      return [];
-                    });
-                    setGenerateJobId(null);
-                    clearDropPinDraftIfKind(accountId, 'generate-job');
-                    setStudioOpen(true);
-                  }}
-                >
-                  Replace set
-                </button>
-              </div>
-            </>
-          ) : null}
-
-          {isPinnedSet || generatedSetReady || isLargeUpload ? (
-            <label className="guild-field" htmlFor={fieldId('cover-seat')}>
-              <span>Cover piece</span>
-              <SuffixField
-                id={fieldId('cover-seat')}
-                value={coverSeatInput}
-                onValueChange={(value) =>
-                  setCoverSeatInput(value.replace(/[^\d]/g, ''))
-                }
-                placeholder="1"
-                aria-label="Cover piece number"
-                suffix={supplyValid ? `of ${supply}` : 'piece #'}
-                disabled={pending}
-              />
-              <small>
-                Hero piece in the packaging cover. Defaults to piece 1 — each
-                mint still keeps its own artwork.
-              </small>
-            </label>
-          ) : null}
-
-          {isVariations && collageImages.length > 0 ? (
-            <DropCoverCollagePicker
-              images={collageImages}
-              coverSeat={coverSeatValid ? coverSeat : 1}
-              uniqueCount={supplyValid ? supply : collageImages.length}
-              title={title}
-              disabled={pending}
-              value={collage}
-              onChange={setCollage}
-            />
-          ) : null}
-
-          {isVariations && !isGeneratedSet && !traitsCid.trim() ? (
-            <div className="guild-field">
-              <span>Mint order</span>
-              <div
-                className="app-access-options"
-                role="radiogroup"
-                aria-label="Mint order"
-              >
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={!randomAssign}
-                  className={`app-access-option${
-                    !randomAssign ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setRandomAssign(false)}
-                >
-                  In order
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={randomAssign}
-                  className={`app-access-option${
-                    randomAssign ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setRandomAssign(true)}
-                >
-                  Random
-                </button>
-              </div>
-              <small>
-                {randomAssign
-                  ? 'Each collector draws a random piece — rare pieces can’t be sniped by timing.'
-                  : 'Collectors receive the next piece in order (piece 1 first).'}
-              </small>
-            </div>
-          ) : null}
-
-          {!isVariations ? (
-            imagePreview ? (
+            ) : null}
+            {isAudio ? (
               <div className="guild-field">
-                <DropArtworkPreview
-                  src={imagePreview}
-                  label={
-                    isAudio || isWriting ? 'Cover preview' : 'Artwork preview'
-                  }
-                />
-                <div
-                  className="app-storage-presets"
-                  role="group"
-                  aria-label={
-                    isAudio || isWriting ? 'Cover actions' : 'Artwork actions'
-                  }
-                >
-                  <button
-                    type="button"
-                    className="os-surface-chip"
-                    disabled={pending}
-                    onClick={() => imageInputRef.current?.click()}
-                  >
-                    Replace
-                  </button>
-                </div>
-              </div>
-            ) : pinnedMusic || pinnedWriting ? (
-              <div className="guild-field">
-                <p className="drop-pin-resume-detail">
-                  Cover pinned · re-add only if you need to replace it
-                </p>
-                <div
-                  className="app-storage-presets"
-                  role="group"
-                  aria-label={
-                    isAudio || isWriting ? 'Cover actions' : 'Artwork actions'
-                  }
-                >
-                  <button
-                    type="button"
-                    className="os-surface-chip"
-                    disabled={pending}
-                    onClick={() => imageInputRef.current?.click()}
-                  >
-                    Replace cover
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="drop-cover-picker drop-studio-launch"
-                onClick={() => imageInputRef.current?.click()}
-                disabled={pending}
-              >
-                <span className="drop-cover-placeholder">
-                  <strong>
-                    {isAudio || isWriting ? 'Add cover' : 'Add artwork'}
-                  </strong>
-                  <small>JPG, PNG, or WebP · ≤5 MB</small>
+                <span>
+                  {musicFormat === 'single'
+                    ? 'Track'
+                    : `Tracks${trackFiles.length ? ` · ${trackFiles.length}` : ''}`}
                 </span>
-              </button>
-            )
-          ) : null}
-          {!isVariations ? (
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="scarce-cover-file-input"
-              tabIndex={-1}
-              aria-hidden
-              disabled={pending}
-              onChange={onImageChange}
-            />
-          ) : null}
-          {isAudio ? (
-            <div className="guild-field">
-              <span>
-                {musicFormat === 'single'
-                  ? 'Track'
-                  : `Tracks${trackFiles.length ? ` · ${trackFiles.length}` : ''}`}
-              </span>
-              {trackFiles.length > 0 ? (
-                <DropTrackPreviewList
-                  files={trackFiles}
-                  lyrics={trackLyrics}
-                  disabled={pending}
-                  sortable={musicFormat === 'album'}
-                  onRemove={removeTrackAt}
-                  onReorder={reorderTracks}
-                  onLyricsChange={setTrackLyricsAt}
-                />
-              ) : pinnedMusic ? (
-                <p className="drop-pin-resume-detail">
-                  {pinnedMusic.playable.length}{' '}
-                  {pinnedMusic.playable.length === 1 ? 'track' : 'tracks'}{' '}
-                  pinned · ready to sign
-                </p>
-              ) : null}
-              <div
-                className="app-storage-presets"
-                role="group"
-                aria-label="Track actions"
-              >
-                <button
-                  type="button"
-                  className="os-surface-chip"
-                  disabled={
-                    pending ||
-                    (musicFormat === 'single' && trackFiles.length >= 1) ||
-                    (musicFormat === 'album' &&
-                      trackFiles.length >= DROP_AUDIO_MAX_TRACKS)
-                  }
-                  onClick={() => tracksInputRef.current?.click()}
-                >
-                  {trackFiles.length === 0
-                    ? musicFormat === 'single'
-                      ? 'Add track'
-                      : 'Add tracks'
-                    : musicFormat === 'single'
-                      ? 'Replace track'
-                      : 'Add more'}
-                </button>
                 {trackFiles.length > 0 ? (
+                  <DropTrackPreviewList
+                    files={trackFiles}
+                    lyrics={trackLyrics}
+                    disabled={pending}
+                    sortable={musicFormat === 'album'}
+                    onRemove={removeTrackAt}
+                    onReorder={reorderTracks}
+                    onLyricsChange={setTrackLyricsAt}
+                  />
+                ) : pinnedMusic ? (
+                  <p className="drop-pin-resume-detail">
+                    {pinnedMusic.playable.length}{' '}
+                    {pinnedMusic.playable.length === 1 ? 'track' : 'tracks'}{' '}
+                    pinned · ready to sign
+                  </p>
+                ) : null}
+                <div
+                  className="app-storage-presets"
+                  role="group"
+                  aria-label="Track actions"
+                >
                   <button
                     type="button"
                     className="os-surface-chip"
-                    disabled={pending}
-                    onClick={() => {
-                      setTrackFiles([]);
-                      setTrackLyrics([]);
-                      setError(null);
-                    }}
+                    disabled={
+                      pending ||
+                      (musicFormat === 'single' && trackFiles.length >= 1) ||
+                      (musicFormat === 'album' &&
+                        trackFiles.length >= DROP_AUDIO_MAX_TRACKS)
+                    }
+                    onClick={() => tracksInputRef.current?.click()}
                   >
-                    Clear
+                    {trackFiles.length === 0
+                      ? musicFormat === 'single'
+                        ? 'Add track'
+                        : 'Add tracks'
+                      : musicFormat === 'single'
+                        ? 'Replace track'
+                        : 'Add more'}
                   </button>
-                ) : null}
-              </div>
-              <small>
-                {musicFormat === 'single'
-                  ? 'Tap to preview · MP3, M4A, WAV, or similar · ≤20 MB'
-                  : `Drag to reorder · tap to preview · 2–${DROP_AUDIO_MAX_TRACKS} tracks · ≤20 MB each`}
-              </small>
-              <input
-                ref={tracksInputRef}
-                type="file"
-                accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.webm"
-                multiple={musicFormat === 'album'}
-                className="scarce-cover-file-input"
-                tabIndex={-1}
-                aria-hidden
-                disabled={pending}
-                onChange={onTracksChange}
-              />
-            </div>
-          ) : null}
-          {isWriting ? (
-            <div className="guild-field">
-              <span>
-                {writingFormat === 'issue'
-                  ? 'Issue'
-                  : `Chapters${
-                      chapterFiles.length ? ` · ${chapterFiles.length}` : ''
-                    }`}
-              </span>
-              {chapterFiles.length > 0 ? (
-                <DropChapterPreviewList
-                  files={chapterFiles}
+                  {trackFiles.length > 0 ? (
+                    <button
+                      type="button"
+                      className="os-surface-chip"
+                      disabled={pending}
+                      onClick={() => {
+                        setTrackFiles([]);
+                        setTrackLyrics([]);
+                        setError(null);
+                      }}
+                    >
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+                <small>
+                  {musicFormat === 'single'
+                    ? 'Tap to preview · MP3, M4A, WAV, or similar · ≤20 MB'
+                    : `Drag to reorder · tap to preview · 2–${DROP_AUDIO_MAX_TRACKS} tracks · ≤20 MB each`}
+                </small>
+                <input
+                  ref={tracksInputRef}
+                  type="file"
+                  accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.webm"
+                  multiple={musicFormat === 'album'}
+                  className="scarce-cover-file-input"
+                  tabIndex={-1}
+                  aria-hidden
                   disabled={pending}
-                  sortable={writingFormat === 'book'}
-                  onRemove={removeChapterAt}
-                  onReorder={reorderChapters}
+                  onChange={onTracksChange}
                 />
-              ) : pinnedWriting ? (
-                <p className="drop-pin-resume-detail">
-                  {pinnedWriting.writingFormat === 'book'
-                    ? `${pinnedWriting.chapterCount} ${
-                        pinnedWriting.chapterCount === 1
-                          ? 'chapter'
-                          : 'chapters'
-                      } pinned · ready to sign`
-                    : 'Manuscript pinned · ready to sign'}
-                </p>
-              ) : null}
-              <div
-                className="app-storage-presets"
-                role="group"
-                aria-label={
-                  writingFormat === 'issue'
-                    ? 'Issue file actions'
-                    : 'Chapter actions'
-                }
-              >
-                <button
-                  type="button"
-                  className="os-surface-chip"
-                  disabled={
-                    pending ||
-                    (writingFormat === 'issue' && chapterFiles.length >= 1) ||
-                    (writingFormat === 'book' &&
-                      chapterFiles.length >= DROP_WRITING_MAX_CHAPTERS)
-                  }
-                  onClick={() => chaptersInputRef.current?.click()}
-                >
-                  {chapterFiles.length === 0
-                    ? writingFormat === 'issue'
-                      ? 'Add file'
-                      : 'Add files'
-                    : writingFormat === 'issue'
-                      ? 'Replace file'
-                      : 'Add more'}
-                </button>
+              </div>
+            ) : null}
+            {isWriting ? (
+              <div className="guild-field">
+                <span>
+                  {writingFormat === 'issue'
+                    ? 'Issue'
+                    : `Chapters${
+                        chapterFiles.length ? ` · ${chapterFiles.length}` : ''
+                      }`}
+                </span>
                 {chapterFiles.length > 0 ? (
-                  <button
-                    type="button"
-                    className="os-surface-chip"
+                  <DropChapterPreviewList
+                    files={chapterFiles}
                     disabled={pending}
-                    onClick={() => {
-                      setChapterFiles([]);
-                      setError(null);
-                    }}
-                  >
-                    Clear
-                  </button>
+                    sortable={writingFormat === 'book'}
+                    onRemove={removeChapterAt}
+                    onReorder={reorderChapters}
+                  />
+                ) : pinnedWriting ? (
+                  <p className="drop-pin-resume-detail">
+                    {pinnedWriting.writingFormat === 'book'
+                      ? `${pinnedWriting.chapterCount} ${
+                          pinnedWriting.chapterCount === 1
+                            ? 'chapter'
+                            : 'chapters'
+                        } pinned · ready to sign`
+                      : 'Manuscript pinned · ready to sign'}
+                  </p>
                 ) : null}
-              </div>
-              <small>
-                {writingFormat === 'issue'
-                  ? '.md for the reader · PDF ok · ≤500 KB text / 20 MB PDF'
-                  : `Drag title to reorder · 2–${DROP_WRITING_MAX_CHAPTERS} · .md for reading`}
-              </small>
-              <input
-                ref={chaptersInputRef}
-                type="file"
-                accept={
-                  writingFormat === 'book'
-                    ? '.md,.markdown,.txt,text/markdown,text/plain'
-                    : '.md,.markdown,.txt,.pdf,text/markdown,text/plain,application/pdf'
-                }
-                multiple={writingFormat === 'book'}
-                className="scarce-cover-file-input"
-                tabIndex={-1}
-                aria-hidden
-                disabled={pending}
-                onChange={onChaptersChange}
-              />
-            </div>
-          ) : null}
-          {isWriting && writingFormat === 'book' ? (
-            <div className="guild-field">
-              <DropFieldLabel
-                label="Book PDF"
-                infoKey="bookPdf"
-                onOpenInfo={openFieldInfo}
-              />
-              {bookPdfFile ? <small>{bookPdfFile.name}</small> : null}
-              <div
-                className="app-storage-presets"
-                role="group"
-                aria-label="Book PDF actions"
-              >
-                <button
-                  type="button"
-                  className="os-surface-chip"
-                  disabled={pending}
-                  onClick={() => bookPdfInputRef.current?.click()}
+                <div
+                  className="app-storage-presets"
+                  role="group"
+                  aria-label={
+                    writingFormat === 'issue'
+                      ? 'Issue file actions'
+                      : 'Chapter actions'
+                  }
                 >
-                  {bookPdfFile ? 'Replace' : 'Add PDF'}
-                </button>
-                {bookPdfFile ? (
+                  <button
+                    type="button"
+                    className="os-surface-chip"
+                    disabled={
+                      pending ||
+                      (writingFormat === 'issue' && chapterFiles.length >= 1) ||
+                      (writingFormat === 'book' &&
+                        chapterFiles.length >= DROP_WRITING_MAX_CHAPTERS)
+                    }
+                    onClick={() => chaptersInputRef.current?.click()}
+                  >
+                    {chapterFiles.length === 0
+                      ? writingFormat === 'issue'
+                        ? 'Add file'
+                        : 'Add files'
+                      : writingFormat === 'issue'
+                        ? 'Replace file'
+                        : 'Add more'}
+                  </button>
+                  {chapterFiles.length > 0 ? (
+                    <button
+                      type="button"
+                      className="os-surface-chip"
+                      disabled={pending}
+                      onClick={() => {
+                        setChapterFiles([]);
+                        setError(null);
+                      }}
+                    >
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+                <small>
+                  {writingFormat === 'issue'
+                    ? '.md for the reader · PDF ok · ≤500 KB text / 20 MB PDF'
+                    : `Drag title to reorder · 2–${DROP_WRITING_MAX_CHAPTERS} · .md for reading`}
+                </small>
+                <input
+                  ref={chaptersInputRef}
+                  type="file"
+                  accept={
+                    writingFormat === 'book'
+                      ? '.md,.markdown,.txt,text/markdown,text/plain'
+                      : '.md,.markdown,.txt,.pdf,text/markdown,text/plain,application/pdf'
+                  }
+                  multiple={writingFormat === 'book'}
+                  className="scarce-cover-file-input"
+                  tabIndex={-1}
+                  aria-hidden
+                  disabled={pending}
+                  onChange={onChaptersChange}
+                />
+              </div>
+            ) : null}
+            {isWriting && writingFormat === 'book' ? (
+              <div className="guild-field">
+                <DropFieldLabel
+                  label="Book PDF"
+                  infoKey="bookPdf"
+                  onOpenInfo={openFieldInfo}
+                />
+                {bookPdfFile ? <small>{bookPdfFile.name}</small> : null}
+                <div
+                  className="app-storage-presets"
+                  role="group"
+                  aria-label="Book PDF actions"
+                >
                   <button
                     type="button"
                     className="os-surface-chip"
                     disabled={pending}
-                    onClick={() => {
-                      setBookPdfFile(null);
-                      setError(null);
-                    }}
+                    onClick={() => bookPdfInputRef.current?.click()}
                   >
-                    Clear
+                    {bookPdfFile ? 'Replace' : 'Add PDF'}
                   </button>
-                ) : null}
+                  {bookPdfFile ? (
+                    <button
+                      type="button"
+                      className="os-surface-chip"
+                      disabled={pending}
+                      onClick={() => {
+                        setBookPdfFile(null);
+                        setError(null);
+                      }}
+                    >
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+                <small>
+                  Optional · holders download the full book · ≤20 MB
+                </small>
+                <input
+                  ref={bookPdfInputRef}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  className="scarce-cover-file-input"
+                  tabIndex={-1}
+                  aria-hidden
+                  disabled={pending}
+                  onChange={onBookPdfChange}
+                />
               </div>
-              <small>Optional · holders download the full book · ≤20 MB</small>
+            ) : null}
+            {isVariations && variationSource === 'upload' ? (
               <input
-                ref={bookPdfInputRef}
+                ref={variationsInputRef}
                 type="file"
-                accept="application/pdf,.pdf"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
                 className="scarce-cover-file-input"
                 tabIndex={-1}
                 aria-hidden
                 disabled={pending}
-                onChange={onBookPdfChange}
+                onChange={onVariationsChange}
               />
-            </div>
-          ) : null}
-          {isVariations && variationSource === 'upload' ? (
-            <input
-              ref={variationsInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              className="scarce-cover-file-input"
-              tabIndex={-1}
-              aria-hidden
-              disabled={pending}
-              onChange={onVariationsChange}
-            />
-          ) : null}
+            ) : null}
+          </div>
+
+          <div className="drop-create-section" data-drop-create-section="title">
+            <label className="drop-create-title" htmlFor={fieldId('title')}>
+              <span className="sr-only">Title</span>
+              <input
+                id={fieldId('title')}
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder={
+                  isWriting
+                    ? 'The Quiet Hours'
+                    : isAudio
+                      ? 'Night Drive'
+                      : 'Genesis Prints'
+                }
+                maxLength={MAX_TITLE}
+                className="drop-create-title-input"
+              />
+            </label>
+          </div>
         </div>
 
-        <div className="drop-create-section" data-drop-create-section="title">
-          <label className="guild-field" htmlFor={fieldId('title')}>
-            <span>Title</span>
-            <input
-              id={fieldId('title')}
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder={
-                isWriting
-                  ? 'The Quiet Hours'
-                  : isAudio
-                    ? 'Night Drive'
-                    : 'Genesis Prints'
-              }
-              maxLength={MAX_TITLE}
-              className={osFieldBorderedClassName}
-            />
-          </label>
-        </div>
-
-        <div className="drop-create-section" data-drop-create-section="deal">
+        <div className="drop-create-deal" data-drop-create-section="deal">
           {isPinnedSet ? (
             <div className="guild-field">
               <DropFieldLabel
@@ -3304,28 +3323,40 @@ export function CreateDropPanel() {
           className="drop-create-section"
           data-drop-create-section="description"
         >
-          <div className="guild-field">
-            <DropFieldLabel
-              label="Description"
-              infoKey="description"
-              onOpenInfo={openFieldInfo}
-            />
-            <textarea
-              id={fieldId('description')}
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder={
-                isWriting
-                  ? 'Short public blurb — the manuscript uploads separately.'
-                  : 'What fans get and why it matters — shown on the drop page.'
-              }
-              maxLength={MAX_DESCRIPTION}
-              className={osFieldBorderedClassName}
-            />
-            <small>
-              {description.length}/{MAX_DESCRIPTION}
-            </small>
-          </div>
+          {blurbShown ? (
+            <div className="guild-field">
+              <DropFieldLabel
+                label="Description"
+                infoKey="description"
+                onOpenInfo={openFieldInfo}
+              />
+              <textarea
+                id={fieldId('description')}
+                ref={descriptionRef}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder={
+                  isWriting
+                    ? 'Short public blurb — the manuscript uploads separately.'
+                    : 'What fans get and why it matters — shown on the drop page.'
+                }
+                maxLength={MAX_DESCRIPTION}
+                className={osFieldBorderedClassName}
+              />
+              <small>
+                {description.length}/{MAX_DESCRIPTION}
+              </small>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="collection-allowlist-toggle drop-create-blurb-toggle"
+              disabled={pending}
+              onClick={() => setBlurbOpen(true)}
+            >
+              Add a blurb
+            </button>
+          )}
         </div>
 
         <div className="guild-field drop-advanced-toggle-row">

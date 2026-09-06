@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DROP_CREATE_SECTION_ORDER,
+  dropCreateBlurbOpen,
   dropCreateScreenTitle,
 } from '@/features/scarces/drop-create-layout';
 
@@ -19,5 +20,14 @@ describe('DROP_CREATE_SECTION_ORDER', () => {
       'deal',
       'description',
     ]);
+  });
+});
+
+describe('dropCreateBlurbOpen', () => {
+  it('waits until the maker asks or a draft already has copy', () => {
+    expect(dropCreateBlurbOpen('')).toBe(false);
+    expect(dropCreateBlurbOpen('  ')).toBe(false);
+    expect(dropCreateBlurbOpen('Fans get the print.')).toBe(true);
+    expect(dropCreateBlurbOpen('', true)).toBe(true);
   });
 });
