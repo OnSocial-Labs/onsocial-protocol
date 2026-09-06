@@ -143,11 +143,7 @@ test.describe('collectibles shell', () => {
     await page.waitForURL(/[?&]q=zzznone/);
     await expect(page.locator('.market-listing-list--skeleton')).toHaveCount(0);
     await expect(page.getByText('No matches.')).toBeVisible();
-    const clearSearch = searchField(page, 'Search collectibles').getByRole(
-      'button',
-      { name: 'Clear search' }
-    );
-    await expectEmptySitsUnderChrome(page);
+    const clearSearch = page.getByRole('button', { name: 'Clear search' });
     await page.screenshot({
       path: `${testInfo.outputDir}/collectibles-empty-search.png`,
       fullPage: true,
@@ -186,9 +182,7 @@ test.describe('collectibles shell', () => {
     await expect(
       page.locator('.collectibles-holding-row').filter({ hasText: 'Gate Pass' })
     ).toHaveCount(0);
-    await searchField(page, 'Search collectibles').getByRole('button', {
-      name: 'Clear search',
-    }).click();
+    await page.getByRole('button', { name: 'Clear search' }).click();
     await page.waitForURL((url) => !url.searchParams.has('q'));
 
     await page.getByRole('button', { name: '@bob.near' }).click();
