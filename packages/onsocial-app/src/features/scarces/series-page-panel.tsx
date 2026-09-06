@@ -74,9 +74,11 @@ export function SeriesPagePanel({
     () => ({ creatorId, seriesId, collectionIds }),
     [collectionIds, creatorId, seriesId]
   );
-  const [ownedInSeries, setOwnedInSeries] = useState<OwnedScarceItem[]>(() =>
-    peekHeldSeriesItems(accountId, holdMatch)
-  );
+  const holdKey = `${accountId ?? ''}:${creatorId}:${seriesId}:${collectionIds.join(',')}`;
+  const [fetchedOwned, setFetchedOwned] = useState<{
+    key: string;
+    items: OwnedScarceItem[];
+  } | null>(null);
 
   useEffect(() => {
     seedSeriesBrandingCache(creatorId, seriesId, initialBranding);
@@ -95,27 +97,28 @@ export function SeriesPagePanel({
   }, [creatorId, initialBranding, seriesId]);
 
   useEffect(() => {
-    if (!accountId) {
-      queueMicrotask(() => setOwnedInSeries([]));
-      return;
-    }
-    const peeked = peekHeldSeriesItems(accountId, holdMatch);
-    if (peeked.length > 0) setOwnedInSeries(peeked);
+    if (!accountId) return;
     let cancelled = false;
     void fetchOwnedScarcesPage(accountId)
       .then((page) => {
         if (cancelled) return;
-        setOwnedInSeries(ownedItemsInSeries(page.items, holdMatch));
+        setFetchedOwned({
+          key: holdKey,
+          items: ownedItemsInSeries(page.items, holdMatch),
+        });
       })
       .catch(() => {
-        if (cancelled || peeked.length > 0) return;
-        setOwnedInSeries([]);
+        /* Keep the vault peek — a failed owned fetch must not flash shop chrome. */
       });
     return () => {
       cancelled = true;
     };
-  }, [accountId, holdMatch]);
+  }, [accountId, holdKey, holdMatch]);
 
+  const ownedInSeries =
+    fetchedOwned?.key === holdKey
+      ? fetchedOwned.items
+      : peekHeldSeriesItems(accountId, holdMatch);
   const isOwner = accountId != null && accountIdsEqual(accountId, creatorId);
   const holdsEditionInSeries =
     ownedInSeries.length > 0 ? true : accountId ? null : false;
