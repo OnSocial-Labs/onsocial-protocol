@@ -3,6 +3,24 @@ import { APP_MARKET_PATH } from '@/lib/app-routes';
 import { collectionIdFromTokenId } from '@/features/market/market-listings';
 import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
 
+/** Art matches create-drop / wallets: inset 1×1. Audio is also square. */
+export function collectionCoverSquare(opts: {
+  kind?: string | null;
+  isAudio: boolean;
+}): boolean {
+  if (opts.isAudio) return true;
+  return (opts.kind ?? '').trim().toLowerCase() === 'art';
+}
+
+/** Art stays an inset square — no 16/10 immersive bleed. */
+export function collectionCoverImmersive(opts: {
+  hasMedia: boolean;
+  kind?: string | null;
+}): boolean {
+  if (!opts.hasMedia) return false;
+  return (opts.kind ?? '').trim().toLowerCase() !== 'art';
+}
+
 /** Holder or creator — Play / Read / Show pass first, commerce second. */
 export function collectionUseFirst(opts: {
   isOwner: boolean;

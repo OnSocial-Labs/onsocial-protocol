@@ -1,6 +1,6 @@
 import { DEFAULT_ROYALTY_BPS } from '@/features/scarces/scarce-royalty';
 
-/** Maker-page field order: the work, then the name, then the deal, then the blurb. */
+/** Maker-page field order: the work, then the name, then the deal, then description. */
 export const DROP_CREATE_SECTION_ORDER = [
   'work',
   'title',
@@ -14,8 +14,8 @@ export function dropCreateScreenTitle(studioOpen: boolean): string {
   return studioOpen ? 'Design your set' : 'New drop';
 }
 
-/** Blurb waits — open only when the maker asks, or when a draft already has one. */
-export function dropCreateBlurbOpen(
+/** Description waits — open only when the maker asks, or when a draft already has one. */
+export function dropCreateDescriptionOpen(
   description: string,
   forcedOpen = false
 ): boolean {
@@ -23,7 +23,7 @@ export function dropCreateBlurbOpen(
 }
 
 /** Same toggle voice as Advanced — Add / Edit / Hide. */
-export function dropCreateBlurbToggle(opts: {
+export function dropCreateDescriptionToggle(opts: {
   open: boolean;
   hasText: boolean;
 }): string {

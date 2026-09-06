@@ -4,8 +4,8 @@ import {
   dropCreateAdvancedExtraAction,
   dropCreateAdvancedExtraOpen,
   dropCreateAttachAction,
-  dropCreateBlurbOpen,
-  dropCreateBlurbToggle,
+  dropCreateDescriptionOpen,
+  dropCreateDescriptionToggle,
   dropCreateBookPdfPlacement,
   dropCreateDealShowsSupplyField,
   dropCreateFacetsAction,
@@ -42,7 +42,7 @@ describe('dropCreateScreenTitle', () => {
 });
 
 describe('DROP_CREATE_SECTION_ORDER', () => {
-  it('puts the work before the name, then the deal, then the blurb', () => {
+  it('puts the work before the name, then the deal, then description', () => {
     expect(DROP_CREATE_SECTION_ORDER).toEqual([
       'work',
       'title',
@@ -52,27 +52,27 @@ describe('DROP_CREATE_SECTION_ORDER', () => {
   });
 });
 
-describe('dropCreateBlurbOpen', () => {
+describe('dropCreateDescriptionOpen', () => {
   it('waits until the maker asks or a draft already has copy', () => {
-    expect(dropCreateBlurbOpen('')).toBe(false);
-    expect(dropCreateBlurbOpen('  ')).toBe(false);
-    expect(dropCreateBlurbOpen('Fans get the print.')).toBe(true);
-    expect(dropCreateBlurbOpen('', true)).toBe(true);
+    expect(dropCreateDescriptionOpen('')).toBe(false);
+    expect(dropCreateDescriptionOpen('  ')).toBe(false);
+    expect(dropCreateDescriptionOpen('Fans get the print.')).toBe(true);
+    expect(dropCreateDescriptionOpen('', true)).toBe(true);
   });
 });
 
-describe('dropCreateBlurbToggle', () => {
+describe('dropCreateDescriptionToggle', () => {
   it('says Add, Edit, or Hide — one name, Description', () => {
-    expect(dropCreateBlurbToggle({ open: false, hasText: false })).toBe(
+    expect(dropCreateDescriptionToggle({ open: false, hasText: false })).toBe(
       'Add a description'
     );
-    expect(dropCreateBlurbToggle({ open: false, hasText: true })).toBe(
+    expect(dropCreateDescriptionToggle({ open: false, hasText: true })).toBe(
       'Edit description'
     );
-    expect(dropCreateBlurbToggle({ open: true, hasText: false })).toBe(
+    expect(dropCreateDescriptionToggle({ open: true, hasText: false })).toBe(
       'Hide description'
     );
-    expect(dropCreateBlurbToggle({ open: true, hasText: true })).toBe(
+    expect(dropCreateDescriptionToggle({ open: true, hasText: true })).toBe(
       'Hide description'
     );
   });

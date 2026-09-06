@@ -72,6 +72,24 @@ test.describe('create drop', () => {
     expect(pieceBox).toBeTruthy();
     expect(pieceBox!.width / pieceBox!.height).toBeCloseTo(1, 1);
     expect(pieceBox!.width).toBeLessThan(320);
+    await expect(page.locator('.drop-kind-lede')).toHaveCount(0);
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    await page.locator('input.scarce-cover-file-input').setInputFiles({
+      name: 'art.png',
+      mimeType: 'image/png',
+      buffer: png,
+    });
+    await expect(page.locator('.drop-create-piece.has-media')).toBeVisible();
+    const filledBox = await page
+      .locator('.drop-create-piece.has-media')
+      .boundingBox();
+    expect(filledBox).toBeTruthy();
+    expect(filledBox!.width / filledBox!.height).toBeCloseTo(1, 1);
+    expect(filledBox!.width).toBeCloseTo(pieceBox!.width, 1);
+    await expect(page.locator('.drop-cover-seat-grid')).toHaveCount(0);
     await expect(
       page.locator('[data-drop-create-section="title"] #drop-create-title')
     ).toBeVisible();
@@ -94,7 +112,7 @@ test.describe('create drop', () => {
     await expect(page.getByRole('group', { name: 'Total supply' })).toHaveCount(
       0
     );
-    await expect(page.locator('.drop-create-blurb-toggle')).toHaveText(
+    await expect(page.locator('.drop-create-description-toggle')).toHaveText(
       'Add a description'
     );
     await expect(page.locator('#drop-create-description')).toHaveCount(0);
@@ -108,7 +126,7 @@ test.describe('create drop', () => {
     ).toBeVisible();
     await page.getByRole('button', { name: 'Hide description' }).click();
     await expect(page.locator('#drop-create-description')).toHaveCount(0);
-    await expect(page.locator('.drop-create-blurb-toggle')).toHaveText(
+    await expect(page.locator('.drop-create-description-toggle')).toHaveText(
       'Add a description'
     );
 
@@ -222,7 +240,7 @@ test.describe('create drop', () => {
       page.getByRole('button', { name: 'Drop ID: From title' })
     ).toBeVisible();
 
-    await page.locator('.drop-create-blurb-toggle').click({ force: true });
+    await page.locator('.drop-create-description-toggle').click({ force: true });
     await expect(page.locator('#drop-create-description')).toBeVisible();
   });
 
@@ -234,9 +252,7 @@ test.describe('create drop', () => {
       { timeout: E2E_CHROME_TIMEOUT_MS }
     );
     await page.getByRole('tab', { name: 'Tickets', exact: true }).click();
-    await expect(page.locator('.drop-kind-lede')).toHaveText(
-      /Event entry — one redeem per ticket/
-    );
+    await expect(page.locator('.drop-kind-lede')).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Hide advanced' })
     ).toBeVisible();

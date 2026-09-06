@@ -39,6 +39,8 @@ import {
 import { CollectionOwnerManageMenu } from '@/features/scarces/collection-owner-manage-menu';
 import {
   collectionCatalogShell,
+  collectionCoverImmersive,
+  collectionCoverSquare,
   collectionDropBackHref,
   collectionShowCommerceMeter,
   collectionUseFirst,
@@ -438,7 +440,12 @@ export function CollectionPagePanel({
 
   // Title handoff: elevate immersive nav once the drop name scrolls under it
   // — same recipe as guild / hub (no room-filter rail).
-  const handoffKey = hasImmersiveCover ? (view?.collectionId ?? null) : null;
+  const handoffKey = collectionCoverImmersive({
+    hasMedia: hasImmersiveCover,
+    kind: view?.kind,
+  })
+    ? (view?.collectionId ?? null)
+    : null;
   useEffect(() => {
     const scrollRoot = scrollRootRef.current;
     if (!scrollRoot || !handoffKey) return;
@@ -821,7 +828,14 @@ export function CollectionPagePanel({
     allowlistRemaining > 0
       ? allowlistRemaining
       : null;
-  const immersive = hasImmersiveCover;
+  const isSquareCover = collectionCoverSquare({
+    kind: view.kind,
+    isAudio,
+  });
+  const immersive = collectionCoverImmersive({
+    hasMedia: Boolean(view.mediaUrl || view.cardBg),
+    kind: view.kind,
+  });
   const createdRel =
     view.createdAtMs > 0 ? formatMarketRelativeTime(view.createdAtMs) : '';
   const showActivitySection =
@@ -902,7 +916,7 @@ export function CollectionPagePanel({
           ) : (
             <div
               className={`collection-cover${view.mediaUrl ? ' has-media' : ''}${
-                isAudio ? ' is-square' : ''
+                isSquareCover ? ' is-square' : ''
               }${isTextCardCover ? ' is-card' : ''}${
                 immersive ? ' is-immersive' : ''
               }${

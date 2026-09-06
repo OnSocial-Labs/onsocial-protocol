@@ -25132,7 +25132,7 @@ a.os-surface-row {
 
   .collection-cover.is-square:not(.is-immersive) {
     aspect-ratio: 1 / 1;
-    max-width: min(100%, 22rem);
+    max-width: min(100%, 15rem);
     margin-inline: auto;
   }
 
@@ -31545,7 +31545,7 @@ a.os-surface-row {
   .drop-create-deal {
     display: flex;
     flex-direction: column;
-    gap: 0.7rem;
+    gap: 0.5rem;
   }
 
   /* Supply · price as one spoken line. !important beats unlayered os-field. */
@@ -31667,7 +31667,7 @@ a.os-surface-row {
     box-shadow: inset 0 -1px 0 rgb(var(--fg-rgb) / 0.22);
   }
 
-  .drop-create-blurb-toggle {
+  .drop-create-description-toggle {
     align-self: flex-start;
   }
 
@@ -31690,7 +31690,7 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.48);
   }
 
-  /* Drop ID / Series wait like Add a blurb — not labeled form rows. */
+  /* Drop ID / Series wait like Add a description — not labeled form rows. */
   .drop-create-advanced-extra {
     display: flex;
     flex-direction: column;

@@ -130,8 +130,8 @@ import {
 import {
   dropCreateAllowlistSummary,
   dropCreateAttachAction,
-  dropCreateBlurbOpen,
-  dropCreateBlurbToggle,
+  dropCreateDescriptionOpen,
+  dropCreateDescriptionToggle,
   dropCreateBookPdfPlacement,
   dropCreateDealShowsSupplyField,
   dropCreateDropIdSummary,
@@ -288,7 +288,7 @@ export function CreateDropPanel() {
   const [draftAllowlist, setDraftAllowlist] = useState<AllowlistEntry[]>([]);
   const [allowlistSheetOpen, setAllowlistSheetOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [blurbOpen, setBlurbOpen] = useState(false);
+  const [descriptionOpen, setDescriptionOpen] = useState(false);
   const [extraSheet, setExtraSheet] = useState<DropCreateExtraSheetId | null>(
     null
   );
@@ -468,7 +468,7 @@ export function CreateDropPanel() {
     setMaxRedeemsInput('');
     setDraftAllowlist([]);
     setShowAdvanced(false);
-    setBlurbOpen(false);
+    setDescriptionOpen(false);
     setExtraSheet(null);
     setArtMode('single');
     setMusicFormat('single');
@@ -609,7 +609,7 @@ export function CreateDropPanel() {
         setSlug(formDraft.slug);
         setIdSuffix(formDraft.idSuffix);
         setDescription(formDraft.description);
-        setBlurbOpen(dropCreateBlurbOpen(formDraft.description));
+        setDescriptionOpen(dropCreateDescriptionOpen(formDraft.description));
         setSeriesName(formDraft.seriesName);
         setSupplyInput(formDraft.supplyInput);
         setPriceInput(formDraft.priceInput);
@@ -2373,8 +2373,8 @@ export function CreateDropPanel() {
     setFieldInfoKey(null);
   }, []);
 
-  const blurbHasText = Boolean(description.trim());
-  const blurbShown = blurbOpen;
+  const descriptionHasText = Boolean(description.trim());
+  const descriptionShown = descriptionOpen;
   const facetRowLabel = createFacetMedium
     ? dropFacetFieldLabel(createFacetMedium)
     : 'Style';
@@ -2403,9 +2403,9 @@ export function CreateDropPanel() {
   }, []);
 
   useEffect(() => {
-    if (!blurbOpen) return;
+    if (!descriptionOpen) return;
     descriptionRef.current?.focus();
-  }, [blurbOpen]);
+  }, [descriptionOpen]);
 
   useEffect(() => {
     if (extraSheet !== 'dropId') return;
@@ -2577,7 +2577,7 @@ export function CreateDropPanel() {
         onBlurCapture={handleFormBlurCapture}
         onSubmit={handleSubmit}
       >
-        <p className="drop-kind-lede" aria-live="polite">
+        <p className="sr-only" aria-live="polite">
           {template.tagline}
         </p>
         {needsWalletConfirm ? (
@@ -2955,6 +2955,7 @@ export function CreateDropPanel() {
                     label={
                       isAudio || isWriting ? 'Cover preview' : 'Artwork preview'
                     }
+                    disabled={pending}
                   />
                   <div
                     className="app-storage-presets"
@@ -3320,14 +3321,17 @@ export function CreateDropPanel() {
         >
           <button
             type="button"
-            className="collection-allowlist-toggle drop-create-blurb-toggle"
+            className="collection-allowlist-toggle drop-create-description-toggle"
             disabled={pending}
-            aria-expanded={blurbShown}
-            onClick={() => setBlurbOpen((open) => !open)}
+            aria-expanded={descriptionShown}
+            onClick={() => setDescriptionOpen((open) => !open)}
           >
-            {dropCreateBlurbToggle({ open: blurbShown, hasText: blurbHasText })}
+            {dropCreateDescriptionToggle({
+              open: descriptionShown,
+              hasText: descriptionHasText,
+            })}
           </button>
-          {blurbShown ? (
+          {descriptionShown ? (
             <div className="guild-field">
               <DropFieldLabel
                 label="Description"
