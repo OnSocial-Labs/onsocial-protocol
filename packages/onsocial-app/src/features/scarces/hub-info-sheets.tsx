@@ -20,6 +20,7 @@ import {
   type AppStatsView,
   type AppView,
 } from '@/features/scarces/apps-data';
+import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { hubCategoryLabel } from '@/features/scarces/hub-categories';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -28,7 +29,7 @@ import {
   formatCompactCount,
   formatPageDrawerJoinedFullLabel,
 } from '@/lib/page-drawer-meta';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { fallbackLabel } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 /**
@@ -52,7 +53,10 @@ export function HubFactsSheet({
   const sheetOpen = open && !closing;
   const ownerProfiles = usePostAuthorProfiles(open ? [app.ownerId] : []);
   const ownerProfile = ownerProfiles[app.ownerId];
-  const ownerLabel = ownerProfile?.displayName ?? displayName(app.ownerId);
+  const ownerLabel = collectionCreatorNameLine(
+    app.ownerId,
+    ownerProfile?.displayName
+  );
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -291,16 +295,19 @@ export function HubCreatorsSheet({
                   accountId={person.accountId}
                   kind={profile?.kind}
                   src={profile?.avatarUrl ?? null}
-                  fallbackInitial={
-                    profile?.displayName ?? person.accountId
-                  }
+                  fallbackInitial={collectionCreatorNameLine(
+                    person.accountId,
+                    profile?.displayName
+                  )}
                   size="sm"
                   className="hub-people-avatar"
                 />
                 <span className="hub-people-copy">
                   <span className="hub-people-name">
-                    {profile?.displayName?.trim() ||
-                      displayName(person.accountId)}
+                    {collectionCreatorNameLine(
+                      person.accountId,
+                      profile?.displayName
+                    )}
                   </span>
                   <span className="hub-people-handle">
                     @{fallbackLabel(person.accountId)}

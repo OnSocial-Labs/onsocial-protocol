@@ -1,7 +1,7 @@
 import { collectionIdFromTokenId } from '@/features/market/market-listings';
+import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
 import { collectionStatusLabel } from '@/features/scarces/collections-data';
 import { APP_MARKET_PATH } from '@/lib/app-routes';
-import { fallbackLabel } from '@/lib/profile-display';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 import { scarceRowFormatLabel } from '@/lib/scarce-row-kind';
 
@@ -36,10 +36,9 @@ export function marketCreatorScreenTitle(opts: {
   displayName?: string | null;
   creatorId: string;
 }): string {
-  const named = opts.displayName?.trim();
-  if (named) return named;
-  const handle = fallbackLabel(opts.creatorId);
-  return handle ? `@${handle}` : 'Shop';
+  const id = opts.creatorId.trim();
+  if (!id) return 'Shop';
+  return collectionCreatorNameLine(id, opts.displayName);
 }
 
 export function marketCreatorDocumentTitle(opts: {

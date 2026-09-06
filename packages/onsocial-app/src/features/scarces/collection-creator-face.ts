@@ -36,7 +36,9 @@ export function resolveCollectionCreatorFace(
 }
 
 /**
- * Drop / player name line — chosen name, else DAO-style local-part title.
+ * Commerce identity name — chosen name, else DAO-style local-part title.
+ * Used by drop / player, DiscoveryPartyStack, Collectibles headings,
+ * Hub facts/creators, Series / Market shop StandingIdentity, shop titles.
  * Handle stays the full account id (`@alice.near`).
  */
 export function collectionCreatorNameLine(

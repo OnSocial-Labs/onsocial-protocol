@@ -44,7 +44,7 @@ test.describe('series page', () => {
     ).toHaveCount(0);
 
     await expect(
-      page.getByRole('link', { name: `View @${CREATOR}'s profile` })
+      page.getByRole('link', { name: "View E2e's profile" })
     ).toBeVisible();
     await expect(
       page.getByRole('link', { name: 'Shop this creator' })

@@ -16,7 +16,7 @@ test.describe('market creator shop', () => {
       { timeout: E2E_CHROME_TIMEOUT_MS }
     );
     await expect(
-      page.getByRole('link', { name: `View @${CREATOR}'s profile` })
+      page.getByRole('link', { name: "View E2e's profile" })
     ).toBeVisible();
     await expect(page.getByText('From @', { exact: false })).toHaveCount(0);
     await expect(page.getByText('No live listings from')).toHaveCount(0);
@@ -33,7 +33,7 @@ test.describe('market creator shop', () => {
       0
     );
     await expect(page.getByPlaceholder('Search shop')).toBeVisible();
-    await expect(page).toHaveTitle(/e2e\.market\.testnet.*Market/i);
+    await expect(page).toHaveTitle(/E2e • Market/i);
     await expect(page.getByRole('button', { name: /Open filter menu/ })).toHaveCount(
       0
     );

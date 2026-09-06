@@ -51,13 +51,19 @@ describe('market creator view', () => {
         displayName: null,
         creatorId: 'e2e.market.testnet',
       })
-    ).toBe('@e2e.market.testnet');
+    ).toBe('E2e');
+    expect(
+      marketCreatorScreenTitle({
+        displayName: null,
+        creatorId: 'alice.near',
+      })
+    ).toBe('Alice');
     expect(
       marketCreatorDocumentTitle({
         displayName: null,
         creatorId: 'e2e.market.testnet',
       })
-    ).toBe('@e2e.market.testnet • Market');
+    ).toBe('E2e • Market');
     expect(marketCreatorBackHref()).toBe('/market');
     expect(marketCreatorEmptyCopy()).toBe('Nothing in this shop yet.');
     expect(marketCreatorBrowseLabel()).toBe('Browse Market');

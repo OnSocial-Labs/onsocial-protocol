@@ -342,8 +342,8 @@ test.describe('collectibles shell', () => {
     });
     const jump = page.getByRole('listbox', { name: 'Jump to creator' });
     await expect(jump.first()).toBeVisible();
-    await expect(jump.first().getByRole('option', { name: /finn\.near/ })).toBeVisible();
-    await jump.first().getByRole('option', { name: /finn\.near/ }).click();
+    await expect(jump.first().getByRole('option', { name: 'Finn' })).toBeVisible();
+    await jump.first().getByRole('option', { name: 'Finn' }).click();
     await expect(page.locator('#collectibles-from-finn-near')).toBeInViewport();
   });
 });

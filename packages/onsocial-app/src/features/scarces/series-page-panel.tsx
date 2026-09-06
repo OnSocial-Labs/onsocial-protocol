@@ -10,6 +10,7 @@ import {
   standingIdentityLabel,
 } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
+import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
@@ -184,10 +185,11 @@ export function SeriesPagePanel({
     [nowMs, storeDrops]
   );
   const showSectionLabels = groups.length > 1;
-  const creatorLabel = standingIdentityLabel(
+  const creatorNameLine = collectionCreatorNameLine(
     creatorId,
     creatorDisplayName
-  ).label;
+  );
+  const creatorLabel = standingIdentityLabel(creatorId, creatorNameLine).label;
   const needsBrand =
     isOwner && !branding?.description?.trim() && !branding?.logo;
   const catalogShell = seriesCatalogShell({
@@ -267,7 +269,7 @@ export function SeriesPagePanel({
               />
               <StandingIdentity
                 accountId={creatorId}
-                profileName={creatorDisplayName}
+                profileName={creatorNameLine}
                 avatarUrl={creatorAvatarUrl}
                 size="md"
                 copyLeading={
