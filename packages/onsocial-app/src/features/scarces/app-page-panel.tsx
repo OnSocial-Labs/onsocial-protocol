@@ -704,6 +704,7 @@ export function AppPagePanel({
                         key={drop.collectionId}
                         view={drop}
                         nowMs={nowMs}
+                        showCreator
                       />
                     ))}
                   </div>

@@ -14,6 +14,7 @@ import {
   seriesPageBackHref,
   seriesShopActionLabel,
   seriesUseFirst,
+  shopRowCreatorHandle,
 } from '@/features/scarces/series-page-view';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
 
@@ -100,6 +101,12 @@ describe('series page view', () => {
   it('uses Collect on live shop rows and Open otherwise', () => {
     expect(seriesShopActionLabel('live')).toBe('Collect');
     expect(seriesShopActionLabel('ended')).toBe('Open');
+  });
+
+  it('keeps the full named handle on shop rows', () => {
+    expect(shopRowCreatorHandle('alice.near')).toBe('@alice.near');
+    expect(shopRowCreatorHandle(' Bob.testnet ')).toBe('@Bob.testnet');
+    expect(shopRowCreatorHandle('')).toBe('');
   });
 
   it('is use-first for owners and confirmed holders only', () => {

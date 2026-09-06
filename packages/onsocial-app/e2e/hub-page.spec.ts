@@ -34,6 +34,12 @@ test.describe('hub page', () => {
     await expect(
       page.getByRole('link', { name: 'Open Quiet Print' })
     ).toBeVisible();
+    await expect(
+      page.locator('.series-shop-row').filter({ hasText: 'Night Drive' })
+    ).toContainText('@alice.near');
+    await expect(
+      page.locator('.series-shop-row').filter({ hasText: 'Quiet Print' })
+    ).toContainText('@bob.near');
     await expect(page.locator('.app-drop-card')).toHaveCount(0);
     await expect(page.getByRole('tab', { name: /Resale/ })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Open Market' })).toHaveCount(0);

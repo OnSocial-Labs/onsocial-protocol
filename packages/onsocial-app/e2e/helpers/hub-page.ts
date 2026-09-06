@@ -7,16 +7,19 @@ export const HUB_E2E_TITLE = 'Audit Hub';
 export const HUB_E2E_OWNER = 'alice.near';
 export const HUB_E2E_PATH = `/apps/${encodeURIComponent(HUB_E2E_ID)}`;
 
+export const HUB_E2E_CREATOR_B = 'bob.near';
+
 function collectionRow(opts: {
   collectionId: string;
   title: string;
   kind: string;
   extra?: Record<string, unknown>;
   endTime?: number | null;
+  creatorId?: string;
 }) {
   return {
     collectionId: opts.collectionId,
-    creatorId: HUB_E2E_OWNER,
+    creatorId: opts.creatorId ?? HUB_E2E_OWNER,
     appId: HUB_E2E_ID,
     price: TWO_NEAR_YOCTO,
     allowlistPrice: null,
@@ -211,6 +214,7 @@ export async function stubHubPage(
                 title: 'Quiet Print',
                 kind: 'art',
                 endTime: Date.now() - 86_400_000,
+                creatorId: HUB_E2E_CREATOR_B,
               }),
               collectionRow({
                 collectionId: 'dusk-run',
