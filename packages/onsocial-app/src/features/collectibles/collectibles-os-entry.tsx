@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { CollectiblesLoadingScreen } from '@/features/collectibles/collectibles-loading-screen';
 import { CollectiblesPagePanel } from '@/features/collectibles/collectibles-page-panel';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -13,9 +14,9 @@ import {
 } from '@/lib/load-collectibles-page';
 
 /**
- * OS Collectibles entry — when connected, soft-redirect to `/@you/collectibles`
- * so Launch See all and the launcher share one held catalog. Connected app-shell
- * tiles already point at the vault; this covers bookmarks and `/collectibles?kind=`.
+ * OS Collectibles entry — when connected, paint the vault loading shell and
+ * soft-redirect to `/@you/collectibles` so Launch See all and the launcher share
+ * one held catalog. Do not return null on that hop — that was a blank beat.
  */
 export function CollectiblesOsEntry({
   seedQuery = EMPTY_COLLECTIBLES_PAGE_QUERY,
@@ -36,7 +37,12 @@ export function CollectiblesOsEntry({
   }, [isConnected, accountId, router, seedKey]);
 
   if (isConnected && accountId) {
-    return null;
+    return (
+      <CollectiblesLoadingScreen
+        pageAccountId={accountId}
+        query={seedQuery}
+      />
+    );
   }
 
   return (

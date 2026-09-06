@@ -24773,6 +24773,31 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.62);
   }
 
+  .collectibles-library-heading--skeleton,
+  .collectibles-library-series-heading--skeleton {
+    pointer-events: none;
+  }
+
+  .collectibles-library-heading-face--skeleton {
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 9999px;
+  }
+
+  .collectibles-library-heading-name-bone {
+    width: 7.25rem;
+    max-width: 42%;
+    height: 0.72rem;
+    border-radius: 0.35rem;
+  }
+
+  .collectibles-library-heading-count-bone {
+    width: 1.15rem;
+    height: 0.62rem;
+    margin-left: auto;
+    border-radius: 0.35rem;
+  }
+
   button.collectibles-library-heading--action {
     cursor: pointer;
   }

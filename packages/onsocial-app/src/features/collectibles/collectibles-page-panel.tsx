@@ -27,7 +27,7 @@ import {
 } from '@/features/market/owned-vault-cache';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
-import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
+import { CollectiblesLibrarySkeleton } from '@/features/collectibles/collectibles-library-skeleton';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
   MARKET_MEDIUM_FILTERS,
@@ -695,9 +695,27 @@ export function CollectiblesPagePanel({
     onIntersect: loadMore,
   });
 
+  const portfolioBackHref =
+    resolvedShell === 'portfolio' && pageAccountId
+      ? portfolioPath(pageAccountId)
+      : null;
+  const dockBackHref = portfolioBackHref ?? APP_HOME_PATH;
+
   const body = (
-    <div className="market-page collectibles-page">
-      {showVaultSkeleton ? <MarketListSkeleton rows={6} /> : null}
+    <div
+      className="market-page collectibles-page"
+      data-collectibles-back={dockBackHref}
+    >
+      {showVaultSkeleton ? (
+        <section
+          className="market-section collectibles-library"
+          aria-busy="true"
+          aria-label="Collectibles"
+        >
+          <p className="sr-only">Loading collectibles…</p>
+          <CollectiblesLibrarySkeleton />
+        </section>
+      ) : null}
 
       {showConnectPrompt ? (
         <div className="market-page-empty">
@@ -856,12 +874,6 @@ export function CollectiblesPagePanel({
       ) : null}
     </div>
   );
-
-  const portfolioBackHref =
-    resolvedShell === 'portfolio' && pageAccountId
-      ? portfolioPath(pageAccountId)
-      : null;
-  const dockBackHref = portfolioBackHref ?? APP_HOME_PATH;
 
   return (
     <>

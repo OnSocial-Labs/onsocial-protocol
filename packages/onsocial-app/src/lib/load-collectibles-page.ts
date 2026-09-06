@@ -24,6 +24,7 @@ import {
   marketFacetsParamValue,
   parseMarketFacetsParam,
 } from '@/lib/app-routes';
+import { normalizeAccountRoute } from '@/lib/account-route';
 import { overlayPath } from '@/lib/overlay-routes';
 import type { CollectiblesLibrarySort } from '@/lib/portfolio-holdings';
 
@@ -86,6 +87,36 @@ export function parseCollectiblesPageQuery(params: {
     series: parseVaultFilterId(params.series),
     sort: params.sort?.trim().toLowerCase() === 'name' ? 'name' : 'newest',
   };
+}
+
+/** Parse Collectibles discovery from `window.location.search` or a query string. */
+export function parseCollectiblesPageQueryFromSearch(
+  search: string | URLSearchParams
+): CollectiblesPageQuery {
+  const params =
+    typeof search === 'string'
+      ? new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+      : search;
+  return parseCollectiblesPageQuery({
+    q: params.get(COLLECTIBLES_SEARCH_PARAM),
+    kind: params.get(MARKET_KIND_PARAM),
+    facets: params.get(MARKET_FACETS_PARAM),
+    audioFormat: params.get(MARKET_AUDIO_FORMAT_PARAM),
+    creator: params.get(MARKET_CREATOR_PARAM),
+    series: params.get(COLLECTIBLES_SERIES_PARAM),
+    sort: params.get(MARKET_SORT_PARAM),
+  });
+}
+
+/**
+ * Portfolio vault account from `/@id/collectibles`. OS `/collectibles` has none.
+ */
+export function collectiblesAccountIdFromPathname(
+  pathname: string
+): string | null {
+  const match = pathname.match(/^\/(@[^/]+)\/collectibles\/?$/);
+  if (!match?.[1]) return null;
+  return normalizeAccountRoute(match[1]);
 }
 
 /** Path for the current vault query — omits default All / empty search. */

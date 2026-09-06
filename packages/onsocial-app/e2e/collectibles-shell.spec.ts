@@ -215,6 +215,40 @@ test.describe('collectibles shell', () => {
     await expectCollectiblesChrome(page);
   });
 
+  test('opening a filtered vault paints a library skeleton and query chrome', async ({
+    page,
+  }) => {
+    await page.route('**/api/onapi/graph/query', async (route) => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 45_000);
+      });
+      await route.abort();
+    });
+    await gotoApp(
+      page,
+      `/@${COLLECTIBLES_VAULT_OWNER}/collectibles?kind=audio&sort=name&q=night`
+    );
+
+    const skeleton = page.locator('[data-collectibles-library-skeleton]');
+    await expect(skeleton).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.locator('.collectibles-library-heading--skeleton')
+    ).toHaveCount(2);
+    await expect(
+      page.locator('.collectibles-library-series-heading--skeleton')
+    ).toHaveCount(1);
+    await expect(page.locator('.market-listing-row--skeleton')).toHaveCount(6);
+    await expectSearchVisible(page, 'Search collectibles');
+    await expect(searchField(page, 'Search collectibles')).toHaveValue('night');
+    await expectTabSelected(page, KIND_RAIL, 'Audio');
+    await expect(page.getByRole('button', { name: /A–Z/ })).toBeVisible();
+    await expect(page.locator('[data-collectibles-back]')).toHaveAttribute(
+      'data-collectibles-back',
+      `/@${COLLECTIBLES_VAULT_OWNER}`
+    );
+    await page.unroute('**/api/onapi/graph/query');
+  });
+
   test('deep-links kind from the URL without stacking loading chrome', async ({
     page,
   }) => {
