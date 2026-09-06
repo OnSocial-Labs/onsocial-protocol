@@ -137,13 +137,15 @@ import {
   dropCreateExtraRowLabel,
   dropCreateFacetsSummary,
   dropCreateOptionalSummary,
+  dropCreatePerWalletSummary,
   dropCreatePiecePickerClass,
   dropCreateRenewalsChoice,
   dropCreateRenewalsHint,
   dropCreateRenewalsSummary,
   dropCreateRoyaltySummary,
-  dropCreateSaleRulesSummary,
+  dropCreateSaleWindowSummary,
   dropCreateScreenTitle,
+  dropCreateTransferableSummary,
   type DropCreateExtraSheetId,
 } from '@/features/scarces/drop-create-layout';
 import { DropCreateExtraRow } from '@/features/scarces/drop-create-extra-row';
@@ -2375,12 +2377,15 @@ export function CreateDropPanel() {
     isNone: (resolvedRoyaltyBps ?? royaltyBps) <= 0,
     splitCount: resolvedRoyaltyShares.length,
   });
-  const saleRowValue = dropCreateSaleRulesSummary({
-    opensLabel: startTime ? formatScheduleLabel(startTime) : 'Now',
-    closesLabel: endTime ? formatScheduleLabel(endTime) : 'no end',
+  const saleRowValue = dropCreateSaleWindowSummary(
+    startTime ? formatScheduleLabel(startTime) : 'Now',
+    endTime ? formatScheduleLabel(endTime) : 'no end'
+  );
+  const perWalletRowValue = dropCreatePerWalletSummary(
     maxPerWallet,
-    transferable,
-  });
+    template.unit
+  );
+  const transferableRowValue = dropCreateTransferableSummary(transferable);
   const dealShowsSupply = dropCreateDealShowsSupplyField({
     isGeneratedSet,
     isVariations,
@@ -3469,80 +3474,88 @@ export function CreateDropPanel() {
                 disabled={pending}
                 onClick={() => setExtraSheet('saleRules')}
               />
-            </div>
-
-            {isTicket ? (
-              <div className="drop-create-advanced-extra">
+              <DropCreateExtraRow
+                label={dropCreateExtraRowLabel('perWallet')}
+                value={perWalletRowValue}
+                disabled={pending}
+                onClick={() => setExtraSheet('saleRules')}
+              />
+              <DropCreateExtraRow
+                label={dropCreateExtraRowLabel('transferable')}
+                value={transferableRowValue}
+                disabled={pending}
+                onClick={() => setExtraSheet('saleRules')}
+              />
+              {isTicket ? (
                 <div
-                  className="drop-schedule-pair"
+                  className="drop-create-extra-event"
                   role="group"
                   aria-label="Event window"
                 >
-                  <div
-                    className={`drop-schedule-cell${
-                      eventStarts ? ' has-value' : ''
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      className="drop-schedule-cell-main"
-                      disabled={pending}
-                      onClick={() => setScheduleField('eventStarts')}
+                  <div className="drop-schedule-pair">
+                    <div
+                      className={`drop-schedule-cell${
+                        eventStarts ? ' has-value' : ''
+                      }`}
                     >
-                      <span className="drop-schedule-cell-label">Starts</span>
-                      <span className="drop-schedule-cell-value">
-                        {eventStarts
-                          ? formatScheduleLabel(eventStarts)
-                          : 'Optional'}
-                      </span>
-                    </button>
-                    {eventStarts ? (
                       <button
                         type="button"
-                        className="drop-schedule-cell-clear"
+                        className="drop-schedule-cell-main"
                         disabled={pending}
-                        aria-label="Clear event start"
-                        onClick={() => setEventStarts('')}
+                        onClick={() => setScheduleField('eventStarts')}
                       >
-                        ✕
+                        <span className="drop-schedule-cell-label">Starts</span>
+                        <span className="drop-schedule-cell-value">
+                          {eventStarts
+                            ? formatScheduleLabel(eventStarts)
+                            : 'Optional'}
+                        </span>
                       </button>
-                    ) : null}
-                  </div>
-                  <div
-                    className={`drop-schedule-cell${
-                      eventEnds ? ' has-value' : ''
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      className="drop-schedule-cell-main"
-                      disabled={pending}
-                      onClick={() => setScheduleField('eventEnds')}
+                      {eventStarts ? (
+                        <button
+                          type="button"
+                          className="drop-schedule-cell-clear"
+                          disabled={pending}
+                          aria-label="Clear event start"
+                          onClick={() => setEventStarts('')}
+                        >
+                          ✕
+                        </button>
+                      ) : null}
+                    </div>
+                    <div
+                      className={`drop-schedule-cell${
+                        eventEnds ? ' has-value' : ''
+                      }`}
                     >
-                      <span className="drop-schedule-cell-label">Ends</span>
-                      <span className="drop-schedule-cell-value">
-                        {eventEnds
-                          ? formatScheduleLabel(eventEnds)
-                          : 'Required'}
-                      </span>
-                    </button>
-                    {eventEnds ? (
                       <button
                         type="button"
-                        className="drop-schedule-cell-clear"
+                        className="drop-schedule-cell-main"
                         disabled={pending}
-                        aria-label="Clear event end"
-                        onClick={() => setEventEnds('')}
+                        onClick={() => setScheduleField('eventEnds')}
                       >
-                        ✕
+                        <span className="drop-schedule-cell-label">Ends</span>
+                        <span className="drop-schedule-cell-value">
+                          {eventEnds
+                            ? formatScheduleLabel(eventEnds)
+                            : 'Required'}
+                        </span>
                       </button>
-                    ) : null}
+                      {eventEnds ? (
+                        <button
+                          type="button"
+                          className="drop-schedule-cell-clear"
+                          disabled={pending}
+                          aria-label="Clear event end"
+                          onClick={() => setEventEnds('')}
+                        >
+                          ✕
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : null}
-
-            <div className="drop-create-extra-list">
+              ) : null}
               {isTicket ? (
                 <DropCreateExtraRow
                   label={dropCreateExtraRowLabel('place')}
@@ -3570,7 +3583,7 @@ export function CreateDropPanel() {
                   draftAllowlist.length,
                   Boolean(accountId)
                 )}
-                disabled={pending || !accountId}
+                disabled={pending}
                 onClick={() => {
                   if (!accountId) return;
                   setAllowlistSheetOpen(true);

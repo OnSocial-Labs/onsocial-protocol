@@ -31775,8 +31775,12 @@ a.os-surface-row {
     letter-spacing: -0.02em;
   }
 
-  .drop-create-extra-row + .drop-create-extra-row {
+  .drop-create-extra-list > * + * {
     box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .drop-create-extra-event {
+    padding: 0.55rem 0;
   }
 
   .drop-create-extra-row-value {

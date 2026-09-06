@@ -125,7 +125,7 @@ export type DropCreateExtraSheetId =
 
 /** Short row label — the value on the right is what they picked. */
 export function dropCreateExtraRowLabel(
-  kind: DropCreateExtraSheetId | 'allowlist',
+  kind: DropCreateExtraSheetId | 'allowlist' | 'perWallet' | 'transferable',
   opts: { isTicket?: boolean; facetLabel?: string } = {}
 ): string {
   switch (kind) {
@@ -139,6 +139,10 @@ export function dropCreateExtraRowLabel(
       return 'Royalty';
     case 'saleRules':
       return 'Sale';
+    case 'perWallet':
+      return 'Per wallet';
+    case 'transferable':
+      return 'Transferable';
     case 'renewals':
       return opts.isTicket ? 'Postpone' : 'Renewals';
     case 'allowlist':
@@ -199,6 +203,25 @@ export function dropCreateRenewalsSummary({
   return choice;
 }
 
+export function dropCreateSaleWindowSummary(
+  opensLabel: string,
+  closesLabel: string
+): string {
+  return `${opensLabel} · ${closesLabel}`;
+}
+
+export function dropCreatePerWalletSummary(
+  maxPerWallet: string,
+  unit: string
+): string {
+  const count = maxPerWallet.trim();
+  return count ? `${count} ${unit}` : 'No limit';
+}
+
+export function dropCreateTransferableSummary(transferable: boolean): string {
+  return transferable ? 'Yes' : 'Soulbound';
+}
+
 export function dropCreateSaleRulesSummary({
   opensLabel,
   closesLabel,
@@ -210,9 +233,11 @@ export function dropCreateSaleRulesSummary({
   maxPerWallet: string;
   transferable: boolean;
 }): string {
-  const parts = [`${opensLabel} · ${closesLabel}`];
-  if (maxPerWallet.trim()) parts.push(`${maxPerWallet.trim()} each`);
-  if (!transferable) parts.push('Soulbound');
+  const parts = [dropCreateSaleWindowSummary(opensLabel, closesLabel)];
+  if (maxPerWallet.trim()) {
+    parts.push(dropCreatePerWalletSummary(maxPerWallet, 'each'));
+  }
+  if (!transferable) parts.push(dropCreateTransferableSummary(false));
   return parts.join(' · ');
 }
 

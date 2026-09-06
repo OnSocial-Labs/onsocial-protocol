@@ -21,7 +21,10 @@ import {
   dropCreateRenewalsSummary,
   dropCreateRenewalsOpen,
   dropCreateRoyaltySummary,
+  dropCreatePerWalletSummary,
   dropCreateSaleRulesSummary,
+  dropCreateSaleWindowSummary,
+  dropCreateTransferableSummary,
   dropCreateRoyaltyOpen,
   dropCreateSaleRulesOpen,
   dropCreateSaleWindowOpen,
@@ -121,6 +124,8 @@ describe('dropCreateExtraRowLabel', () => {
   it('names the row, not a Set a… link', () => {
     expect(dropCreateExtraRowLabel('dropId')).toBe('Drop ID');
     expect(dropCreateExtraRowLabel('saleRules')).toBe('Sale');
+    expect(dropCreateExtraRowLabel('perWallet')).toBe('Per wallet');
+    expect(dropCreateExtraRowLabel('transferable')).toBe('Transferable');
     expect(dropCreateExtraRowLabel('renewals')).toBe('Renewals');
     expect(dropCreateExtraRowLabel('renewals', { isTicket: true })).toBe(
       'Postpone'
@@ -169,6 +174,11 @@ describe('dropCreate summaries', () => {
         accessEndsLabel: '8 Sep',
       })
     ).toBe('Yes · 8 Sep');
+    expect(dropCreateSaleWindowSummary('Now', 'no end')).toBe('Now · no end');
+    expect(dropCreatePerWalletSummary('', 'editions')).toBe('No limit');
+    expect(dropCreatePerWalletSummary('2', 'editions')).toBe('2 editions');
+    expect(dropCreateTransferableSummary(true)).toBe('Yes');
+    expect(dropCreateTransferableSummary(false)).toBe('Soulbound');
     expect(
       dropCreateSaleRulesSummary({
         opensLabel: 'Now',

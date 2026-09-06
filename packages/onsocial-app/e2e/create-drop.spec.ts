@@ -166,6 +166,12 @@ test.describe('create drop', () => {
       page.getByRole('button', { name: 'Sale: Now · no end' })
     ).toBeVisible();
     await expect(
+      page.getByRole('button', { name: 'Per wallet: No limit' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Transferable: Yes' })
+    ).toBeVisible();
+    await expect(
       page.getByRole('button', { name: 'Renewals: No' })
     ).toBeVisible();
     await expect(
@@ -213,6 +219,10 @@ test.describe('create drop', () => {
     await expect(page.getByText('Event window', { exact: true })).toHaveCount(
       0
     );
+    await expect(page.locator('.drop-create-extra-list')).toHaveCount(1);
+    await expect(
+      page.getByRole('button', { name: 'Transferable: Yes' })
+    ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Place: None' })
     ).toBeVisible();
@@ -245,7 +255,18 @@ test.describe('create drop', () => {
       page.getByRole('button', { name: 'Renewals: Yes · set an end' })
     ).toBeVisible();
     await expect(
+      page.getByRole('button', { name: 'Transferable: Yes' })
+    ).toBeVisible();
+    await expect(
       page.getByRole('button', { name: 'Allowlist: Connect' })
+    ).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Membership', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Transferable: Soulbound' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Renewals: Yes' })
     ).toBeVisible();
   });
 
@@ -318,6 +339,12 @@ test.describe('create drop', () => {
     await page.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'Sale: Now · no end' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Per wallet: No limit' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Transferable: Yes' })
     ).toBeVisible();
   });
 });
