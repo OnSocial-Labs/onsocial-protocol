@@ -2367,6 +2367,7 @@ export function CreateDropPanel() {
     royaltyBps,
     isCustomRoyalty,
     isSplit:
+      resolvedRoyaltyShares.length > 0 &&
       resolvedRoyaltyBps != null &&
       resolvedRoyaltyBps > 0 &&
       !royaltySplitIsDefault(resolvedRoyaltyShares, accountId ?? ''),
