@@ -27,6 +27,8 @@ import {
   OsHugSheet,
   OsIconAction,
   OsPageSheet,
+  PlusCircleFillIcon,
+  PlusCircleIcon,
   StarsCFillIcon,
   StarsCIcon,
   osFieldBorderedClassName,
@@ -48,10 +50,7 @@ import {
   portfolioMoodShellStyle,
   resolvePortfolioMood,
 } from '@/lib/moods/resolve';
-import {
-  ARTICLE_TITLE_MAX,
-  normalizeArticleTitle,
-} from '@/lib/article-post-payload';
+import { ARTICLE_TITLE_MAX } from '@/lib/article-post-payload';
 import { QuotedPostInset } from '@/features/home/post-card';
 import { PostMediaBlock } from '@/features/home/post-media';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
@@ -79,10 +78,7 @@ import {
   postMediaRevokeLocalPreviewUrl,
   validatePostMediaFile,
 } from '@/lib/post-media';
-import {
-  normalizeComposerContentLabels,
-  parsePostContentLabels,
-} from '@/lib/post-content-labels';
+import { parsePostContentLabels } from '@/lib/post-content-labels';
 import {
   normalizePlaceSlug,
   placeLabel,
@@ -91,6 +87,32 @@ import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
+import {
+  canAddComposerThreadBeat,
+  collapseTrailingEmptyComposerBeat,
+  composerBeatHasContent,
+  composerBeatsToSubmit,
+  emptyComposerBeat,
+  type ComposerBeat,
+} from '@/lib/composer-thread';
+
+type SheetBeat = ComposerBeat & {
+  previews: { url: string; mime: string }[];
+};
+
+function emptySheetBeat(
+  seed?: Partial<Pick<ComposerBeat, 'text' | 'files' | 'drop'>>
+): SheetBeat {
+  const files = seed?.files ? [...seed.files] : [];
+  return {
+    ...emptyComposerBeat({ ...seed, files }),
+    previews: postMediaPreviewEntriesFromFiles(files),
+  };
+}
+
+function revokeSheetBeatPreviews(beat: SheetBeat) {
+  revokeComposerPreviewFiles(beat.files);
+}
 
 const COMPOSER_NEST_Z = scarceNestZIndex(SHEET_Z.list);
 
@@ -133,6 +155,8 @@ export interface ComposerSubmit {
   contentWarning?: string;
   /** Hard NSFW flag (PostV1 `nsfw`). */
   nsfw?: boolean;
+  /** Extra self-replies after this root. New personal posts only. */
+  thread?: ComposerSubmit[];
 }
 /** @deprecated Prefer `ComposerSubmit`. */
 export type GuildComposerSubmit = ComposerSubmit;
@@ -342,25 +366,16 @@ export function ComposerSheet({
   // Seed from props when the sheet mounts already open (DropComposeHost).
   // `wasOpen` starts false so the open transition below always applies
   // `initialDrop` / `initialText` on first paint.
-  const [text, setText] = useState(() => (open ? initialText : ''));
-  const [pollEnabled, setPollEnabled] = useState(false);
-  const [pollOptions, setPollOptions] = useState(['', '']);
-  const [pollDurationMs, setPollDurationMs] = useState<number | undefined>();
-  const [dropDraft, setDropDraft] = useState<ComposerDropDraft | null>(() =>
-    open ? initialDrop : null
-  );
-  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
-  const [mediaPreviews, setMediaPreviews] = useState<
-    { url: string; mime: string }[]
-  >([]);
+  const [beats, setBeats] = useState<SheetBeat[]>(() => [
+    emptySheetBeat(
+      open
+        ? { text: initialText, files: initialFiles, drop: initialDrop }
+        : undefined
+    ),
+  ]);
+  const [focusedBeat, setFocusedBeat] = useState(0);
+  const [plusPressed, setPlusPressed] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const [contentWarning, setContentWarning] = useState('');
-  const [nsfw, setNsfw] = useState(false);
-  const [placeDraft, setPlaceDraft] = useState('');
-  const [placeOpen, setPlaceOpen] = useState(false);
-  const [articleTitle, setArticleTitle] = useState('');
-  const [articleAlign, setArticleAlign] =
-    useState<ProfileAboutAlign>('left');
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [dropPickerOpen, setDropPickerOpen] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
@@ -372,6 +387,25 @@ export function ComposerSheet({
   const [appliedMediaSeedKey, setAppliedMediaSeedKey] = useState('');
   const warningInputRef = useRef<HTMLInputElement>(null);
   const viewport = useVisualViewportSheetMetrics(open);
+  const postingAsDao = authorTargets?.mode === 'dao';
+  const canComposeThread = mode === 'post' && !postingAsDao;
+  const safeFocus = Math.min(focusedBeat, Math.max(0, beats.length - 1));
+  const beat = beats[safeFocus] ?? emptySheetBeat();
+  const {
+    text,
+    pollEnabled,
+    pollOptions,
+    pollDurationMs,
+    drop: dropDraft,
+    files: mediaFiles,
+    previews: mediaPreviews,
+    contentWarning,
+    nsfw,
+    placeDraft,
+    placeOpen,
+    articleTitle,
+    articleAlign,
+  } = beat;
   const articleTitleTrimmed = Boolean(articleTitle.trim());
   const canUseArticle = mode === 'post' && !dropDraft && !pollEnabled;
   const canUsePoll = mode === 'post' && !dropDraft && !articleTitleTrimmed;
@@ -382,6 +416,26 @@ export function ComposerSheet({
     !articleTitleTrimmed &&
     mediaFiles.length === 0;
   const canUsePlace = mode === 'post';
+  const canAddThread = canComposeThread && canAddComposerThreadBeat(beats);
+
+  const patchFocused = (partial: Partial<SheetBeat>) => {
+    setBeats((current) => {
+      const index = Math.min(focusedBeat, Math.max(0, current.length - 1));
+      return current.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, ...partial } : row
+      );
+    });
+  };
+
+  const focusBeat = (nextFocus: number) => {
+    const next = collapseTrailingEmptyComposerBeat(beats, nextFocus);
+    if (next.beats.length !== beats.length) {
+      const dropped = beats[beats.length - 1];
+      if (dropped) revokeSheetBeatPreviews(dropped);
+    }
+    setBeats(next.beats as SheetBeat[]);
+    setFocusedBeat(next.focus);
+  };
 
   const viewerName = accountId
     ? displayName(accountId, viewerShell?.displayName)
@@ -404,21 +458,20 @@ export function ComposerSheet({
     setWasOpen(open);
     if (open) {
       setFormKey((key) => key + 1);
-      setText(initialText);
-      setPollEnabled(false);
-      setPollOptions(['', '']);
-      setPollDurationMs(undefined);
-      setDropDraft(initialDrop);
+      setBeats((current) => {
+        for (const row of current) revokeSheetBeatPreviews(row);
+        return [
+          emptySheetBeat({
+            text: initialText,
+            files: initialFiles,
+            drop: initialDrop,
+          }),
+        ];
+      });
+      setFocusedBeat(0);
+      setPlusPressed(false);
       setAppliedMediaSeedKey(initialMediaSeedKey);
-      setMediaFiles([...initialFiles]);
-      setMediaPreviews(postMediaPreviewEntriesFromFiles(initialFiles));
       setMediaError(null);
-      setContentWarning('');
-      setNsfw(false);
-      setPlaceDraft('');
-      setPlaceOpen(false);
-      setArticleTitle('');
-      setArticleAlign('left');
       setLabelsOpen(false);
       setDropPickerOpen(false);
     } else {
@@ -426,8 +479,27 @@ export function ComposerSheet({
     }
   } else if (open && appliedMediaSeedKey !== initialMediaSeedKey) {
     setAppliedMediaSeedKey(initialMediaSeedKey);
-    setMediaFiles([...initialFiles]);
-    setMediaPreviews(postMediaPreviewEntriesFromFiles(initialFiles));
+    setBeats((current) => {
+      const [first, ...rest] = current;
+      if (!first) {
+        return [
+          emptySheetBeat({
+            text: initialText,
+            files: initialFiles,
+            drop: initialDrop,
+          }),
+        ];
+      }
+      revokeComposerPreviewFiles(first.files);
+      return [
+        {
+          ...first,
+          files: [...initialFiles],
+          previews: postMediaPreviewEntriesFromFiles(initialFiles),
+        },
+        ...rest,
+      ];
+    });
   }
 
   useEffect(() => {
@@ -450,7 +522,7 @@ export function ComposerSheet({
     el.style.height = '0px';
     el.style.height = `${el.scrollHeight}px`;
     el.style.overflowY = 'hidden';
-  }, [text, pollEnabled, formKey, open]);
+  }, [text, pollEnabled, formKey, open, focusedBeat]);
 
   useEffect(() => {
     if (!open || !labelsOpen) return;
@@ -474,56 +546,34 @@ export function ComposerSheet({
     return () => window.clearTimeout(focusTimer);
   }, [open, placeOpen, formKey]);
 
-  const filledPollOptions = normalizePollOptions(pollOptions);
-  const pollReady =
-    !pollEnabled ||
-    (filledPollOptions.length >= MIN_POLL_OPTIONS &&
-      filledPollOptions.length === new Set(filledPollOptions).size);
-
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const trimmed = text.trim();
-    if (pending || !pollReady) return;
-    const article = canUseArticle
-      ? normalizeArticleTitle(articleTitle)
-      : null;
-    if (!trimmed && mediaFiles.length === 0 && !dropDraft && !article) return;
-    if (trimmed.length > POST_TEXT_MAX_LENGTH) {
+    if (pending) return;
+    const publishBeats = canComposeThread
+      ? beats.filter(composerBeatHasContent)
+      : [beat].filter(composerBeatHasContent);
+    if (publishBeats.length === 0) return;
+    if (publishBeats.some((row) => row.text.length > POST_TEXT_MAX_LENGTH)) {
       setMediaError(
         `Posts can be at most ${POST_TEXT_MAX_LENGTH.toLocaleString()} characters.`
       );
       return;
     }
-    const labels = normalizeComposerContentLabels({
-      contentWarning,
-      nsfw,
+    const pollRowsReady = publishBeats.every((row) => {
+      if (!row.pollEnabled) return true;
+      const options = normalizePollOptions(row.pollOptions);
+      return (
+        options.length >= MIN_POLL_OPTIONS &&
+        options.length === new Set(options).size
+      );
     });
-    const placeSlug = normalizePlaceSlug(placeDraft);
-    onSubmit({
-      text:
-        trimmed ||
-        (mediaFiles.length > 0 || dropDraft ? (dropDraft ? '' : ' ') : ''),
-      ...(canUsePoll && pollEnabled
-        ? {
-            poll: {
-              options: filledPollOptions,
-              ...(pollDurationMs != null ? { durationMs: pollDurationMs } : {}),
-            },
-          }
-        : {}),
-      ...(dropDraft ? { drop: dropDraft } : {}),
-      ...(article
-        ? {
-            article: {
-              title: article,
-              ...(articleAlign !== 'left' ? { align: articleAlign } : {}),
-            },
-          }
-        : {}),
-      ...(mediaFiles.length > 0 ? { files: mediaFiles } : {}),
-      ...(placeSlug ? { places: [placeSlug] } : {}),
-      ...labels,
-    });
+    if (!pollRowsReady) return;
+    const payload = composerBeatsToSubmit(publishBeats);
+    if (!payload) return;
+    if (!payload.text.trim() && (payload.files?.length || payload.drop)) {
+      payload.text = payload.drop ? '' : ' ';
+    }
+    onSubmit(payload);
   };
 
   const panelStyle = useMemo((): CSSProperties | undefined => {
@@ -535,78 +585,90 @@ export function ComposerSheet({
 
   const requestClose = () => {
     if (pending) return;
-    onClose({ text, files: mediaFiles });
+    const first = beats[0] ?? emptySheetBeat();
+    onClose({ text: first.text, files: first.files });
   };
 
   const updatePollOption = (index: number, value: string) => {
-    setPollOptions((current) =>
-      current.map((option, optionIndex) =>
+    patchFocused({
+      pollOptions: pollOptions.map((option, optionIndex) =>
         optionIndex === index ? value : option
-      )
-    );
+      ),
+    });
   };
 
   const addPollOption = () => {
-    setPollOptions((current) =>
-      current.length >= MAX_POLL_OPTIONS ? current : [...current, '']
-    );
+    if (pollOptions.length >= MAX_POLL_OPTIONS) return;
+    patchFocused({ pollOptions: [...pollOptions, ''] });
   };
 
   const removePollOption = (index: number) => {
-    setPollOptions((current) => {
-      if (current.length <= MIN_POLL_OPTIONS) return current;
-      return current.filter((_, optionIndex) => optionIndex !== index);
+    if (pollOptions.length <= MIN_POLL_OPTIONS) return;
+    patchFocused({
+      pollOptions: pollOptions.filter((_, optionIndex) => optionIndex !== index),
     });
   };
 
   const togglePlace = () => {
     if (!canUsePlace || pending) return;
-    setPlaceOpen((current) => {
-      if (current) {
-        setPlaceDraft('');
-        return false;
-      }
-      return true;
-    });
+    if (placeOpen) {
+      patchFocused({ placeOpen: false, placeDraft: '' });
+      return;
+    }
+    patchFocused({ placeOpen: true });
   };
 
   const togglePoll = () => {
     if (!canUsePoll || pending) return;
-    setPollEnabled((current) => {
-      if (current) {
-        setPollOptions(['', '']);
-        setPollDurationMs(undefined);
-        return false;
-      }
-      setMediaFiles([]);
-      setMediaPreviews([]);
-      revokeComposerPreviewFiles(mediaFiles);
-      setMediaError(null);
-      setDropDraft(null);
-      return true;
+    if (pollEnabled) {
+      patchFocused({
+        pollEnabled: false,
+        pollOptions: ['', ''],
+        pollDurationMs: undefined,
+      });
+      return;
+    }
+    revokeComposerPreviewFiles(mediaFiles);
+    setMediaError(null);
+    patchFocused({
+      pollEnabled: true,
+      drop: null,
+      files: [],
+      previews: [],
     });
   };
 
   const selectDrop = (drop: ComposerDropDraft) => {
-    setDropDraft(drop);
-    setPollEnabled(false);
-    setPollOptions(['', '']);
-    setPollDurationMs(undefined);
     revokeComposerPreviewFiles(mediaFiles);
-    setMediaFiles([]);
-    setMediaPreviews([]);
     setMediaError(null);
     setDropPickerOpen(false);
+    patchFocused({
+      drop,
+      pollEnabled: false,
+      pollOptions: ['', ''],
+      pollDurationMs: undefined,
+      files: [],
+      previews: [],
+    });
   };
 
   const removeMediaAt = (index: number) => {
-    setMediaFiles((current) => {
-      const removed = current[index];
-      if (removed) postMediaRevokeLocalPreviewUrl(removed);
-      return current.filter((_, i) => i !== index);
-    });
-    setMediaPreviews((current) => current.filter((_, i) => i !== index));
+    const removed = mediaFiles[index];
+    if (removed) postMediaRevokeLocalPreviewUrl(removed);
     setMediaError(null);
+    patchFocused({
+      files: mediaFiles.filter((_, i) => i !== index),
+      previews: mediaPreviews.filter((_, i) => i !== index),
+    });
+  };
+
+  const addThreadBeat = () => {
+    if (!canAddThread || pending) return;
+    setBeats((current) => {
+      if (!canAddComposerThreadBeat(current)) return current;
+      return [...current, emptySheetBeat()];
+    });
+    setFocusedBeat(beats.length);
   };
 
   const attachMediaFiles = async (fileList: FileList | null) => {
@@ -651,15 +713,16 @@ export function ComposerSheet({
       return;
     }
 
-    setPollEnabled(false);
-    setPollOptions(['', '']);
-    setPollDurationMs(undefined);
-    setMediaFiles((current) =>
-      [...current, ...take].slice(0, POST_MEDIA_MAX_FILES)
-    );
-    setMediaPreviews((current) =>
-      [...current, ...takePreviews].slice(0, POST_MEDIA_MAX_FILES)
-    );
+    patchFocused({
+      pollEnabled: false,
+      pollOptions: ['', ''],
+      pollDurationMs: undefined,
+      files: [...mediaFiles, ...take].slice(0, POST_MEDIA_MAX_FILES),
+      previews: [...mediaPreviews, ...takePreviews].slice(
+        0,
+        POST_MEDIA_MAX_FILES
+      ),
+    });
     if (mediaInputRef.current) mediaInputRef.current.value = '';
 
     window.requestAnimationFrame(() => {
@@ -677,20 +740,27 @@ export function ComposerSheet({
   const textOverLimit = textLength > POST_TEXT_MAX_LENGTH;
   const showTextCount = textLength > 0;
 
+  const publishBeats = canComposeThread
+    ? beats.filter(composerBeatHasContent)
+    : [beat].filter(composerBeatHasContent);
+  const threadPollReady = publishBeats.every((row) => {
+    if (!row.pollEnabled) return true;
+    const options = normalizePollOptions(row.pollOptions);
+    return (
+      options.length >= MIN_POLL_OPTIONS &&
+      options.length === new Set(options).size
+    );
+  });
   const canPost =
-    (Boolean(text.trim()) ||
-      mediaFiles.length > 0 ||
-      Boolean(dropDraft) ||
-      articleTitleTrimmed) &&
+    publishBeats.length > 0 &&
     !pending &&
-    pollReady &&
-    !textOverLimit;
+    threadPollReady &&
+    publishBeats.every((row) => row.text.length <= POST_TEXT_MAX_LENGTH);
 
   const showDestinationMenus =
     mode === 'post' &&
     (Boolean(feedTargets && feedTargets.options.length > 0) ||
       Boolean(authorTargets));
-  const postingAsDao = authorTargets?.mode === 'dao';
   const roomOptions: ChoiceOption<string>[] | null =
     mode === 'post' && destination?.kind === 'guild' && !postingAsDao
       ? destination.loading && destination.channels.length === 0
@@ -847,6 +917,53 @@ export function ComposerSheet({
     <IdentityLine name={viewerName} handle={accountId} />
   ) : null;
 
+  const mutedBeatPreview = (row: SheetBeat, index: number) => {
+    const previewText = row.text.trim() || row.articleTitle.trim();
+    return (
+      <div
+        className="guild-composer-self is-muted"
+        role="button"
+        tabIndex={0}
+        aria-label={`Edit post ${index + 1}`}
+        onClick={() => focusBeat(index)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            focusBeat(index);
+          }
+        }}
+      >
+        <AccountAvatar
+          accountId={accountId}
+          kind={viewerShell?.kind}
+          src={viewerShell?.avatarUrl ?? null}
+          fallbackInitial={viewerName}
+          size="lg"
+          className="guild-composer-row-avatar"
+        />
+        <div className="guild-composer-row-copy">
+          {row.articleTitle.trim() ? (
+            <p className="guild-composer-muted-title">{row.articleTitle}</p>
+          ) : null}
+          <p className="guild-composer-muted-text">
+            {previewText || (row.files.length || row.drop ? 'Media' : '…')}
+          </p>
+          {row.previews.length > 0 ? (
+            <div className="guild-composer-media-preview" aria-hidden>
+              {row.previews.map((preview) => (
+                <PostMediaBlock
+                  key={preview.url}
+                  item={{ url: preview.url, mime: preview.mime }}
+                  size="preview"
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  };
+
   const selfBlock = (
     <div
       className={`guild-composer-self${
@@ -875,7 +992,9 @@ export function ComposerSheet({
               autoComplete="off"
               placeholder="Title (optional)"
               aria-label="Article title"
-              onChange={(event) => setArticleTitle(event.target.value)}
+              onChange={(event) =>
+                patchFocused({ articleTitle: event.target.value })
+              }
               onFocus={scrollFieldIntoView}
             />
           </label>
@@ -903,7 +1022,7 @@ export function ComposerSheet({
                 aria-pressed={articleAlign === option}
                 disabled={pending}
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={() => setArticleAlign(option)}
+                onClick={() => patchFocused({ articleAlign: option })}
               >
                 {option === 'left' ? 'L' : option === 'center' ? 'C' : 'J'}
               </button>
@@ -917,7 +1036,7 @@ export function ComposerSheet({
           value={text}
           maxLength={POST_TEXT_MAX_LENGTH}
           disabled={pending}
-          onChange={setText}
+          onChange={(value) => patchFocused({ text: value })}
           onFocus={scrollFieldIntoView}
           priorityMentionAccounts={priorityMentionAccounts}
         />
@@ -953,7 +1072,7 @@ export function ComposerSheet({
                     mime: 'image/*',
                   }}
                   size="preview"
-                  onRemove={pending ? undefined : () => setDropDraft(null)}
+                  onRemove={pending ? undefined : () => patchFocused({ drop: null })}
                 />
               ) : (
                 <div className="post-media-tile post-media-tile--preview guild-composer-drop-fallback-tile">
@@ -963,7 +1082,7 @@ export function ComposerSheet({
                       type="button"
                       className="post-media-remove"
                       aria-label="Remove Drop"
-                      onClick={() => setDropDraft(null)}
+                      onClick={() => patchFocused({ drop: null })}
                     >
                       ×
                     </button>
@@ -1027,7 +1146,7 @@ export function ComposerSheet({
                     : 'guild-composer-poll-chip'
                 }
                 disabled={pending}
-                onClick={() => setPollDurationMs(undefined)}
+                onClick={() => patchFocused({ pollDurationMs: undefined })}
               >
                 Open
               </button>
@@ -1041,7 +1160,7 @@ export function ComposerSheet({
                       : 'guild-composer-poll-chip'
                   }
                   disabled={pending}
-                  onClick={() => setPollDurationMs(option.ms)}
+                  onClick={() => patchFocused({ pollDurationMs: option.ms })}
                 >
                   {option.label}
                 </button>
@@ -1094,7 +1213,9 @@ export function ComposerSheet({
               spellCheck={false}
               placeholder="Lisbon, ETH Denver…"
               aria-label="Place"
-              onChange={(event) => setPlaceDraft(event.target.value)}
+              onChange={(event) =>
+                patchFocused({ placeDraft: event.target.value })
+              }
               onFocus={scrollFieldIntoView}
             />
             {normalizePlaceSlug(placeDraft) ? (
@@ -1267,6 +1388,35 @@ export function ComposerSheet({
                   <MapMarkerIcon className="guild-composer-tool-icon" />
                 )}
               </button>
+              {canComposeThread ? (
+                <button
+                  type="button"
+                  className={`guild-composer-tool${
+                    plusPressed ? ' is-active' : ''
+                  }`}
+                  disabled={!canAddThread || pending}
+                  title={
+                    canAddThread
+                      ? 'Add to thread'
+                      : 'Write this post first'
+                  }
+                  aria-label="Add to thread"
+                  onPointerDown={() => {
+                    if (!canAddThread || pending) return;
+                    setPlusPressed(true);
+                  }}
+                  onPointerUp={() => setPlusPressed(false)}
+                  onPointerCancel={() => setPlusPressed(false)}
+                  onPointerLeave={() => setPlusPressed(false)}
+                  onClick={addThreadBeat}
+                >
+                  {plusPressed ? (
+                    <PlusCircleFillIcon className="guild-composer-tool-icon" />
+                  ) : (
+                    <PlusCircleIcon className="guild-composer-tool-icon" />
+                  )}
+                </button>
+              ) : null}
               <button
                 type="button"
                 className={`guild-composer-tool guild-composer-tool--cw${
@@ -1311,30 +1461,6 @@ export function ComposerSheet({
               >
                 {showTextCount ? textRemaining : '\u00a0'}
               </span>
-              <OsSheetActions
-                layout="row-compact"
-                tone="frosted-primary"
-                borderless
-                className="guild-composer-toolbar-post"
-              >
-                <OsSheetAction
-                  type="submit"
-                  form={formId}
-                  variant="primary"
-                  ready={canPost}
-                  pending={pending}
-                  pendingLabel={
-                    postingAsDao
-                      ? 'Proposing…'
-                      : mode === 'quote'
-                        ? 'Quoting…'
-                        : 'Posting…'
-                  }
-                  disabled={!canPost}
-                >
-                  {postingAsDao ? 'Propose' : mode === 'quote' ? 'Quote' : 'Post'}
-                </OsSheetAction>
-              </OsSheetActions>
             </div>
           </div>
         </div>
@@ -1373,6 +1499,32 @@ export function ComposerSheet({
           </OsIconAction>
         }
         heading={showModeRail ? modeChipRail : undefined}
+        actions={
+          <OsSheetActions
+            layout="row-compact"
+            tone="frosted-primary"
+            borderless
+            className="guild-composer-toolbar-post guild-composer-header-post"
+          >
+            <OsSheetAction
+              type="submit"
+              form={formId}
+              variant="primary"
+              ready={canPost}
+              pending={pending}
+              pendingLabel={
+                postingAsDao
+                  ? 'Proposing…'
+                  : mode === 'quote'
+                    ? 'Quoting…'
+                    : 'Posting…'
+              }
+              disabled={!canPost}
+            >
+              {postingAsDao ? 'Propose' : mode === 'quote' ? 'Quote' : 'Post'}
+            </OsSheetAction>
+          </OsSheetActions>
+        }
         moodId={viewerMoodId}
         moodStyle={viewerMoodStyle}
       >
@@ -1392,6 +1544,26 @@ export function ComposerSheet({
               authorProfile={targetAuthorProfile}
             />
             {selfBlock}
+          </div>
+        ) : canComposeThread && beats.length > 1 ? (
+          <div className="guild-composer-thread" role="list" aria-label="Thread">
+            {beats.map((row, index) => (
+              <div
+                key={`beat-${index}`}
+                role="listitem"
+                className={[
+                  'guild-composer-thread-item',
+                  index < beats.length - 1 ? 'is-down' : '',
+                  index > 0 ? 'is-up' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {index === safeFocus
+                  ? selfBlock
+                  : mutedBeatPreview(row, index)}
+              </div>
+            ))}
           </div>
         ) : (
           selfBlock
@@ -1446,7 +1618,9 @@ export function ComposerSheet({
           disabled={pending}
           placeholder="Warn people about…"
           aria-label="Content warning"
-          onChange={(event) => setContentWarning(event.target.value)}
+          onChange={(event) =>
+            patchFocused({ contentWarning: event.target.value })
+          }
           onFocus={scrollFieldIntoView}
         />
       </label>
@@ -1457,7 +1631,7 @@ export function ComposerSheet({
           checked={nsfw}
           disabled={pending}
           aria-checked={nsfw}
-          onChange={(event) => setNsfw(event.target.checked)}
+          onChange={(event) => patchFocused({ nsfw: event.target.checked })}
         />
         <span className="guild-composer-nsfw-switch-track" aria-hidden />
         <span className="guild-composer-nsfw-switch-copy">

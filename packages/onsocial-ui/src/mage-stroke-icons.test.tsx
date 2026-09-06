@@ -36,6 +36,7 @@ import {
   MessageRoundIcon,
   MultiplyIcon,
   NoteTextIcon,
+  PlusCircleIcon,
   PlusIcon,
   QuestionMarkCircleIcon,
   RefreshIcon,
@@ -89,6 +90,7 @@ describe('mage stroke icons', () => {
     expect(typeof MessageIcon).toBe('function');
     expect(typeof MessageRoundIcon).toBe('function');
     expect(typeof NoteTextIcon).toBe('function');
+    expect(typeof PlusCircleIcon).toBe('function');
     expect(typeof PlusIcon).toBe('function');
     expect(typeof QuestionMarkCircleIcon).toBe('function');
     expect(typeof RefreshIcon).toBe('function');

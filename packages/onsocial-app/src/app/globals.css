@@ -34577,6 +34577,64 @@ a.os-surface-row {
     border-radius: 9999px;
   }
 
+  .os-app-screen-actions .guild-composer-header-post {
+    margin-left: 0;
+  }
+
+  .guild-composer-thread {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .guild-composer-thread-item {
+    position: relative;
+    --thread-rail-x: 1.125rem;
+    --thread-rail-gap: 0.2rem;
+    --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
+  }
+
+  .guild-composer-thread-item.is-down::after,
+  .guild-composer-thread-item.is-up::before {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    left: calc(var(--thread-rail-x) - 1px);
+    width: 2px;
+    border-radius: 9999px;
+    background: var(--thread-rail-color);
+    pointer-events: none;
+  }
+
+  .guild-composer-thread-item.is-up::before {
+    top: 0;
+    height: calc(0.68rem + 0.05rem - var(--thread-rail-gap));
+  }
+
+  .guild-composer-thread-item.is-down::after {
+    top: calc(0.68rem + 0.05rem + 2.25rem + var(--thread-rail-gap));
+    bottom: 0;
+  }
+
+  .guild-composer-self.is-muted {
+    opacity: 0.42;
+    cursor: pointer;
+  }
+
+  .guild-composer-muted-title,
+  .guild-composer-muted-text {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .guild-composer-muted-title {
+    font-weight: 650;
+  }
+
+  .guild-composer-muted-text {
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
   /* Reserved slot beside Post — no layout jump when typing starts. */
   .guild-composer-char-count {
     display: inline-flex;

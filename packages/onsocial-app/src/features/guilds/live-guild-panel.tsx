@@ -159,7 +159,10 @@ import {
   resolvedDropPostText,
 } from '@/features/scarces/drop-post-payload';
 import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
-import { subscribeGuildPostConfirmed } from '@/features/scarces/submit-guild-drop-post';
+import {
+  submitGuildRootPost,
+  subscribeGuildPostConfirmed,
+} from '@/features/scarces/submit-guild-drop-post';
 import { hydrateScarceEmbedsForPosts } from '@/lib/feed-paint-hydrate';
 import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import {
@@ -1606,7 +1609,7 @@ export function LiveGuildPanel({
       mode === 'post' && isDropComposeDraftReady(payload.drop)
         ? payload.drop!
         : null;
-    if (!text && !files.length && !drop) return;
+    if (!text && !files.length && !drop && !payload.thread?.length) return;
     if (mode !== 'post' && !target) return;
 
     if (mode !== 'post' && target) {
@@ -1641,8 +1644,27 @@ export function LiveGuildPanel({
     setModalError(null);
     setModalPending(true);
     try {
-      const newPostId = Date.now().toString();
       const { client } = await getClient();
+      if (mode === 'post' && payload.thread?.length) {
+        if (!composerSpace) {
+          throw new Error('Choose a room before posting.');
+        }
+        const result = await submitGuildRootPost({
+          client,
+          accountId,
+          groupId,
+          space: composerSpace,
+          payload,
+          trackTransaction,
+        });
+        if (result.confirmed && result.optimisticPost) {
+          setLocalPosts((current) => [result.optimisticPost!, ...current]);
+          scheduleReconcile();
+          setComposer(null);
+        }
+        return;
+      }
+      const newPostId = Date.now().toString();
       const filePayload = files.length ? { files } : {};
       const media = files.length
         ? buildOptimisticMediaEntries(files)
