@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import {
+  cn,
   OsSheetAction,
   OsSheetActions,
   osSheetActionClassName,
@@ -13,7 +14,6 @@ import {
   marketCreatorShopActionLabel,
 } from '@/features/market/market-creator-view';
 import { collectionPath } from '@/lib/app-routes';
-import { cn } from '@/lib/utils';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 
 /** Unlisted creator drop — same list row and action pill as Market listings. */
