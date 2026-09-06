@@ -7,6 +7,8 @@ import {
   dropCreateBlurbOpen,
   dropCreateBookPdfPlacement,
   dropCreateDealShowsSupplyField,
+  dropCreateFacetsAction,
+  dropCreateFacetsOpen,
   dropCreatePiecePickerClass,
   dropCreateScreenTitle,
 } from '@/features/scarces/drop-create-layout';
@@ -81,6 +83,26 @@ describe('dropCreateAdvancedExtraAction', () => {
   it('names Advanced extras like Add a blurb, not a form label', () => {
     expect(dropCreateAdvancedExtraAction('dropId')).toBe('Set a drop ID');
     expect(dropCreateAdvancedExtraAction('series')).toBe('Add to a series');
+  });
+});
+
+describe('dropCreateFacetsOpen', () => {
+  it('waits until the maker asks or a draft already picked chips', () => {
+    expect(dropCreateFacetsOpen([])).toBe(false);
+    expect(dropCreateFacetsOpen(['generative'])).toBe(true);
+    expect(dropCreateFacetsOpen([], true)).toBe(true);
+  });
+});
+
+describe('dropCreateFacetsAction', () => {
+  it('names the add-toggle from the field label', () => {
+    expect(dropCreateFacetsAction('Style')).toBe('Add a style');
+    expect(dropCreateFacetsAction('Genre')).toBe('Add a genre');
+    expect(dropCreateFacetsAction('Subject')).toBe('Add a subject');
+    expect(dropCreateFacetsAction('Occasion')).toBe('Add an occasion');
+    expect(dropCreateFacetsAction('Offer')).toBe('Add an offer');
+    expect(dropCreateFacetsAction('Access')).toBe('Add access');
+    expect(dropCreateFacetsAction('Theme')).toBe('Add a theme');
   });
 });
 

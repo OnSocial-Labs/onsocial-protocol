@@ -88,3 +88,20 @@ export function dropCreateAdvancedExtraAction(
       return 'Add to a series';
   }
 }
+
+/** Facet chips wait — open when the maker asks, or a draft already picked some. */
+export function dropCreateFacetsOpen(
+  facets: readonly string[],
+  forcedOpen = false
+): boolean {
+  return forcedOpen || facets.length > 0;
+}
+
+/** Add-toggle copy from the field label (Style → Add a style). */
+export function dropCreateFacetsAction(fieldLabel: string): string {
+  const word = fieldLabel.trim().toLowerCase();
+  if (!word) return 'Add a category';
+  if (word === 'access') return 'Add access';
+  if (word === 'occasion' || word === 'offer') return `Add an ${word}`;
+  return `Add a ${word}`;
+}

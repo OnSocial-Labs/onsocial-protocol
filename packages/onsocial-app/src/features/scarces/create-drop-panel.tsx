@@ -133,6 +133,8 @@ import {
   dropCreateBlurbOpen,
   dropCreateBookPdfPlacement,
   dropCreateDealShowsSupplyField,
+  dropCreateFacetsAction,
+  dropCreateFacetsOpen,
   dropCreatePiecePickerClass,
   dropCreateScreenTitle,
 } from '@/features/scarces/drop-create-layout';
@@ -272,6 +274,7 @@ export function CreateDropPanel() {
   const [blurbOpen, setBlurbOpen] = useState(false);
   const [dropIdOpen, setDropIdOpen] = useState(false);
   const [seriesOpen, setSeriesOpen] = useState(false);
+  const [facetsOpen, setFacetsOpen] = useState(false);
   const [createReady, setCreateReady] = useState(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const dropIdRef = useRef<HTMLInputElement>(null);
@@ -450,6 +453,7 @@ export function CreateDropPanel() {
     setBlurbOpen(false);
     setDropIdOpen(false);
     setSeriesOpen(false);
+    setFacetsOpen(false);
     setArtMode('single');
     setMusicFormat('single');
     setTrackFiles([]);
@@ -2354,6 +2358,7 @@ export function CreateDropPanel() {
   const blurbShown = dropCreateBlurbOpen(description, blurbOpen);
   const dropIdShown = dropCreateAdvancedExtraOpen(slug, dropIdOpen);
   const seriesShown = dropCreateAdvancedExtraOpen(seriesName, seriesOpen);
+  const facetsShown = dropCreateFacetsOpen(facets, facetsOpen);
   const dealShowsSupply = dropCreateDealShowsSupplyField({
     isGeneratedSet,
     isVariations,
@@ -3475,12 +3480,28 @@ export function CreateDropPanel() {
             </div>
 
             {createFacetMedium ? (
-              <DropFacetsEditor
-                medium={createFacetMedium}
-                facets={facets}
-                onChange={setFacets}
-                disabled={pending}
-              />
+              <div className="drop-create-advanced-extra">
+                {facetsShown ? (
+                  <DropFacetsEditor
+                    medium={createFacetMedium}
+                    facets={facets}
+                    onChange={setFacets}
+                    disabled={pending}
+                    hideLabel
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="collection-allowlist-toggle drop-create-advanced-toggle"
+                    disabled={pending}
+                    onClick={() => setFacetsOpen(true)}
+                  >
+                    {dropCreateFacetsAction(
+                      dropFacetFieldLabel(createFacetMedium)
+                    )}
+                  </button>
+                )}
+              </div>
             ) : null}
 
             <ScarceRoyaltyField
