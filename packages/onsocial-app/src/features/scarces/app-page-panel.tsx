@@ -52,6 +52,7 @@ import {
 } from '@/features/scarces/hub-manage-sheets';
 import { HubPageSkeleton } from '@/features/scarces/hub-page-skeleton';
 import {
+  hubActivityMeta,
   hubCatalogShell,
   hubPageBackHref,
   hubUseFirst,
@@ -499,12 +500,15 @@ export function AppPagePanel({
   }
 
   const creatorCount = rosterIds.length;
-  const hasActivity =
-    stats != null &&
-    (stats.dropsTotal > 0 ||
-      stats.mintedTotal > 0 ||
-      stats.salesCount > 0 ||
-      stats.liveListings > 0);
+  const activityMeta =
+    stats != null
+      ? hubActivityMeta({
+          dropsTotal: stats.dropsTotal,
+          mintedTotal: stats.mintedTotal,
+          uniqueHolders: stats.uniqueHolders,
+          volumeNearLabel: appVolumeNearLabel(stats.salesVolumeYocto),
+        })
+      : '';
 
   return (
     <OsAppScreen
@@ -638,28 +642,10 @@ export function AppPagePanel({
             </div>
           ) : null}
 
-          {stats && hasActivity && !useFirst ? (
-            <dl className="app-hub-stats" aria-label="Hub activity">
-              <div className="app-hub-stat">
-                <dt>Drops</dt>
-                <dd>{stats.dropsTotal}</dd>
-              </div>
-              <div className="app-hub-stat">
-                <dt>Minted</dt>
-                <dd>{stats.mintedTotal}</dd>
-              </div>
-              <div className="app-hub-stat">
-                <dt>Holders</dt>
-                <dd>{stats.uniqueHolders}</dd>
-              </div>
-              <div className="app-hub-stat">
-                <dt>Volume</dt>
-                <dd>
-                  {appVolumeNearLabel(stats.salesVolumeYocto)}
-                  <span className="app-hub-stat-unit"> NEAR</span>
-                </dd>
-              </div>
-            </dl>
+          {activityMeta && !useFirst ? (
+            <p className="series-hero-meta" aria-label="Hub activity">
+              {activityMeta}
+            </p>
           ) : null}
 
           {app.description ? (

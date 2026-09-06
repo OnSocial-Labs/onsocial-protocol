@@ -41,7 +41,9 @@ test.describe('hub page', () => {
       0
     );
     await expect(page.locator('a[href*="?app="]')).toHaveCount(0);
-    await expect(page.getByText('Volume', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText('4 drops · 12 minted · 6 holders · 4.0 NEAR')
+    ).toBeVisible();
   });
 
   test('SSR catalog miss keeps the skeleton until the client fetch settles', async ({
@@ -87,7 +89,9 @@ test.describe('hub page', () => {
       page.getByRole('link', { name: 'Open Quiet Print' })
     ).toBeVisible();
     await expect(page.getByText('No drops in this hub yet.')).toHaveCount(0);
-    await expect(page.getByText('Volume', { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByText('4 drops · 12 minted · 6 holders · 4.0 NEAR')
+    ).toHaveCount(0);
     await expect(page.locator('.app-drop-card')).toHaveCount(0);
   });
 
@@ -109,7 +113,9 @@ test.describe('hub page', () => {
     await expect(
       page.getByRole('link', { name: 'Open Collectibles' })
     ).toHaveCount(0);
-    await expect(page.getByText('Volume', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText('4 drops · 12 minted · 6 holders · 4.0 NEAR')
+    ).toBeVisible();
     await expect(
       page.getByRole('link', { name: 'Collect Night Drive' })
     ).toBeVisible();

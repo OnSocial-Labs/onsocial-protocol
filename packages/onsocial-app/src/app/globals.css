@@ -30773,50 +30773,6 @@ a.os-surface-row {
     padding-bottom: 0.15rem;
   }
 
-  /* Creator-facing rollup strip — indexer stats. */
-  .app-hub-stats {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.45rem;
-    margin: 0.1rem 0 0;
-  }
-
-  .app-hub-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-    padding: 0.55rem 0.65rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 0.9rem;
-    background: rgb(var(--fg-rgb) / 0.03);
-    min-width: 0;
-  }
-
-  .app-hub-stat dt {
-    margin: 0;
-    font-size: 0.66rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--os-surface-muted);
-  }
-
-  .app-hub-stat dd {
-    margin: 0;
-    font-size: 0.98rem;
-    font-weight: 700;
-    color: var(--os-surface-emphasis);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .app-hub-stat-unit {
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: var(--os-surface-muted-strong);
-  }
-
   /* Creators drawer roster rows. */
   .hub-people-list {
     list-style: none;

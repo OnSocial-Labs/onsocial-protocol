@@ -4,6 +4,7 @@ import {
   putOwnedVaultPage,
 } from '@/features/market/owned-vault-cache';
 import {
+  hubActivityMeta,
   hubCatalogShell,
   hubPageBackHref,
   hubUseFirst,
@@ -71,6 +72,33 @@ describe('hub page view', () => {
         clientSettled: false,
       })
     ).toBe('empty');
+  });
+
+  it('joins activity into a compact house meta line', () => {
+    expect(
+      hubActivityMeta({
+        dropsTotal: 4,
+        mintedTotal: 12,
+        uniqueHolders: 6,
+        volumeNearLabel: '4.0',
+      })
+    ).toBe('4 drops · 12 minted · 6 holders · 4.0 NEAR');
+    expect(
+      hubActivityMeta({
+        dropsTotal: 1,
+        mintedTotal: 0,
+        uniqueHolders: 1,
+        volumeNearLabel: '0',
+      })
+    ).toBe('1 drop · 1 holder');
+    expect(
+      hubActivityMeta({
+        dropsTotal: 0,
+        mintedTotal: 0,
+        uniqueHolders: 0,
+        volumeNearLabel: '0',
+      })
+    ).toBe('');
   });
 
   it('is use-first for confirmed holders only', () => {

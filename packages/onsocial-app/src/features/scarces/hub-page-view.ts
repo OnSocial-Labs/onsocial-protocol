@@ -30,6 +30,32 @@ export function hubUseFirst(opts: {
   return opts.holdsEditionInHub === true;
 }
 
+/** Compact activity line — house meta, not stat cards. */
+export function hubActivityMeta(opts: {
+  dropsTotal: number;
+  mintedTotal: number;
+  uniqueHolders: number;
+  volumeNearLabel: string;
+}): string {
+  const bits: string[] = [];
+  if (opts.dropsTotal > 0) {
+    bits.push(`${opts.dropsTotal} ${opts.dropsTotal === 1 ? 'drop' : 'drops'}`);
+  }
+  if (opts.mintedTotal > 0) {
+    bits.push(`${opts.mintedTotal} minted`);
+  }
+  if (opts.uniqueHolders > 0) {
+    bits.push(
+      `${opts.uniqueHolders} ${opts.uniqueHolders === 1 ? 'holder' : 'holders'}`
+    );
+  }
+  const volume = opts.volumeNearLabel.trim();
+  if (volume && volume !== '0') {
+    bits.push(`${volume} NEAR`);
+  }
+  return bits.join(' · ');
+}
+
 /** Holders go back to the vault; visitors stay on Hubs. */
 export function hubPageBackHref(opts: {
   useFirst: boolean;
