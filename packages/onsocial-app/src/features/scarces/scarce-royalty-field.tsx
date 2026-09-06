@@ -33,6 +33,7 @@ export function ScarceRoyaltyField({
   onRoyaltyBpsChange,
   onCustomRoyaltyChange,
   onCustomToggle,
+  hideLabel = false,
 }: {
   royaltyBps: number;
   isCustomRoyalty: boolean;
@@ -48,6 +49,8 @@ export function ScarceRoyaltyField({
   onRoyaltyBpsChange: (bps: number) => void;
   onCustomRoyaltyChange: (raw: string) => void;
   onCustomToggle: (custom: boolean) => void;
+  /** Hide the Resale royalty heading — create-drop waits behind Set a royalty. */
+  hideLabel?: boolean;
 }) {
   const customRoyaltyBps = parseCustomRoyaltyBps(customRoyaltyInput);
   const resolvedRoyaltyBps = isCustomRoyalty ? customRoyaltyBps : royaltyBps;
@@ -135,7 +138,9 @@ export function ScarceRoyaltyField({
 
   return (
     <div className="scarce-royalty-field">
-      <p className="scarce-mood-picker-label">Resale royalty</p>
+      {hideLabel ? null : (
+        <p className="scarce-mood-picker-label">Resale royalty</p>
+      )}
       <div
         className="app-storage-presets"
         role="group"

@@ -1,3 +1,5 @@
+import { DEFAULT_ROYALTY_BPS } from '@/features/scarces/scarce-royalty';
+
 /** Maker-page field order: the work, then the name, then the deal, then the blurb. */
 export const DROP_CREATE_SECTION_ORDER = [
   'work',
@@ -76,7 +78,7 @@ export function dropCreateAdvancedExtraOpen(
   return forcedOpen || Boolean(value.trim());
 }
 
-export type DropCreateAdvancedExtra = 'dropId' | 'series';
+export type DropCreateAdvancedExtra = 'dropId' | 'series' | 'royalty';
 
 export function dropCreateAdvancedExtraAction(
   kind: DropCreateAdvancedExtra
@@ -86,7 +88,29 @@ export function dropCreateAdvancedExtraAction(
       return 'Set a drop ID';
     case 'series':
       return 'Add to a series';
+    case 'royalty':
+      return 'Set a royalty';
   }
+}
+
+/** Royalty pills wait — default 10% stays unless the maker asks or changed it. */
+export function dropCreateRoyaltyOpen({
+  royaltyBps,
+  isCustomRoyalty,
+  isSplit = false,
+  forcedOpen = false,
+}: {
+  royaltyBps: number;
+  isCustomRoyalty: boolean;
+  isSplit?: boolean;
+  forcedOpen?: boolean;
+}): boolean {
+  return (
+    forcedOpen ||
+    isCustomRoyalty ||
+    isSplit ||
+    royaltyBps !== DEFAULT_ROYALTY_BPS
+  );
 }
 
 /** Facet chips wait — open when the maker asks, or a draft already picked some. */

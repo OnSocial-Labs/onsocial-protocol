@@ -163,6 +163,15 @@ test.describe('create drop', () => {
     ).toBeVisible();
     await expect(page.getByText('Subject', { exact: true })).toHaveCount(0);
     await expect(page.locator('.drop-facets-chip-row')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Set a royalty', exact: true })
+    ).toBeVisible();
+    await expect(page.getByText('Resale royalty', { exact: true })).toHaveCount(
+      0
+    );
+    await expect(
+      page.getByRole('group', { name: 'Resale royalty' })
+    ).toHaveCount(0);
 
     await page
       .getByRole('button', { name: 'Set a drop ID', exact: true })
@@ -202,5 +211,13 @@ test.describe('create drop', () => {
     await page.getByRole('button', { name: 'Add a style', exact: true }).click();
     await expect(page.locator('.drop-facets-chip-row')).toBeVisible();
     await expect(page.getByText('Style', { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Set a royalty', exact: true })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Set a royalty', exact: true }).click();
+    await expect(page.getByRole('group', { name: 'Resale royalty' })).toBeVisible();
+    await expect(page.getByText('Resale royalty', { exact: true })).toHaveCount(
+      0
+    );
   });
 });

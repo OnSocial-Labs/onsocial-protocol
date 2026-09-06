@@ -10,8 +10,10 @@ import {
   dropCreateFacetsAction,
   dropCreateFacetsOpen,
   dropCreatePiecePickerClass,
+  dropCreateRoyaltyOpen,
   dropCreateScreenTitle,
 } from '@/features/scarces/drop-create-layout';
+import { DEFAULT_ROYALTY_BPS } from '@/features/scarces/scarce-royalty';
 
 describe('dropCreateScreenTitle', () => {
   it('keeps New drop unless the studio is open', () => {
@@ -83,6 +85,44 @@ describe('dropCreateAdvancedExtraAction', () => {
   it('names Advanced extras like Add a blurb, not a form label', () => {
     expect(dropCreateAdvancedExtraAction('dropId')).toBe('Set a drop ID');
     expect(dropCreateAdvancedExtraAction('series')).toBe('Add to a series');
+    expect(dropCreateAdvancedExtraAction('royalty')).toBe('Set a royalty');
+  });
+});
+
+describe('dropCreateRoyaltyOpen', () => {
+  it('waits on the default 10% until the maker asks or changes it', () => {
+    expect(
+      dropCreateRoyaltyOpen({
+        royaltyBps: DEFAULT_ROYALTY_BPS,
+        isCustomRoyalty: false,
+      })
+    ).toBe(false);
+    expect(
+      dropCreateRoyaltyOpen({
+        royaltyBps: DEFAULT_ROYALTY_BPS,
+        isCustomRoyalty: false,
+        forcedOpen: true,
+      })
+    ).toBe(true);
+    expect(
+      dropCreateRoyaltyOpen({
+        royaltyBps: 0,
+        isCustomRoyalty: false,
+      })
+    ).toBe(true);
+    expect(
+      dropCreateRoyaltyOpen({
+        royaltyBps: DEFAULT_ROYALTY_BPS,
+        isCustomRoyalty: true,
+      })
+    ).toBe(true);
+    expect(
+      dropCreateRoyaltyOpen({
+        royaltyBps: DEFAULT_ROYALTY_BPS,
+        isCustomRoyalty: false,
+        isSplit: true,
+      })
+    ).toBe(true);
   });
 });
 

@@ -136,6 +136,7 @@ import {
   dropCreateFacetsAction,
   dropCreateFacetsOpen,
   dropCreatePiecePickerClass,
+  dropCreateRoyaltyOpen,
   dropCreateScreenTitle,
 } from '@/features/scarces/drop-create-layout';
 import {
@@ -158,6 +159,7 @@ import {
   defaultRoyaltyShares,
   formatRoyaltyPercent,
   parseCustomRoyaltyBps,
+  royaltySplitIsDefault,
   validateRoyaltyShares,
   type RoyaltySplitShare,
 } from '@/features/scarces/scarce-royalty';
@@ -275,6 +277,7 @@ export function CreateDropPanel() {
   const [dropIdOpen, setDropIdOpen] = useState(false);
   const [seriesOpen, setSeriesOpen] = useState(false);
   const [facetsOpen, setFacetsOpen] = useState(false);
+  const [royaltyOpen, setRoyaltyOpen] = useState(false);
   const [createReady, setCreateReady] = useState(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const dropIdRef = useRef<HTMLInputElement>(null);
@@ -454,6 +457,7 @@ export function CreateDropPanel() {
     setDropIdOpen(false);
     setSeriesOpen(false);
     setFacetsOpen(false);
+    setRoyaltyOpen(false);
     setArtMode('single');
     setMusicFormat('single');
     setTrackFiles([]);
@@ -2359,6 +2363,15 @@ export function CreateDropPanel() {
   const dropIdShown = dropCreateAdvancedExtraOpen(slug, dropIdOpen);
   const seriesShown = dropCreateAdvancedExtraOpen(seriesName, seriesOpen);
   const facetsShown = dropCreateFacetsOpen(facets, facetsOpen);
+  const royaltyShown = dropCreateRoyaltyOpen({
+    royaltyBps,
+    isCustomRoyalty,
+    isSplit:
+      resolvedRoyaltyBps != null &&
+      resolvedRoyaltyBps > 0 &&
+      !royaltySplitIsDefault(resolvedRoyaltyShares, accountId ?? ''),
+    forcedOpen: royaltyOpen,
+  });
   const dealShowsSupply = dropCreateDealShowsSupplyField({
     isGeneratedSet,
     isVariations,
@@ -3504,18 +3517,32 @@ export function CreateDropPanel() {
               </div>
             ) : null}
 
-            <ScarceRoyaltyField
-              royaltyBps={royaltyBps}
-              isCustomRoyalty={isCustomRoyalty}
-              customRoyaltyInput={customRoyaltyInput}
-              pending={pending}
-              primaryAccountId={accountId ?? ''}
-              shares={resolvedRoyaltyShares}
-              onSharesChange={setRoyaltyShares}
-              onRoyaltyBpsChange={setRoyaltyBps}
-              onCustomRoyaltyChange={setCustomRoyaltyInput}
-              onCustomToggle={setIsCustomRoyalty}
-            />
+            <div className="drop-create-advanced-extra">
+              {royaltyShown ? (
+                <ScarceRoyaltyField
+                  royaltyBps={royaltyBps}
+                  isCustomRoyalty={isCustomRoyalty}
+                  customRoyaltyInput={customRoyaltyInput}
+                  pending={pending}
+                  primaryAccountId={accountId ?? ''}
+                  shares={resolvedRoyaltyShares}
+                  onSharesChange={setRoyaltyShares}
+                  onRoyaltyBpsChange={setRoyaltyBps}
+                  onCustomRoyaltyChange={setCustomRoyaltyInput}
+                  onCustomToggle={setIsCustomRoyalty}
+                  hideLabel
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="collection-allowlist-toggle drop-create-advanced-toggle"
+                  disabled={pending}
+                  onClick={() => setRoyaltyOpen(true)}
+                >
+                  {dropCreateAdvancedExtraAction('royalty')}
+                </button>
+              )}
+            </div>
 
             {isTicket ? (
               <>
