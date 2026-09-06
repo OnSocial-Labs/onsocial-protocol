@@ -31765,8 +31765,7 @@ a.os-surface-row {
     cursor: pointer;
   }
 
-  .drop-create-extra-row:disabled,
-  .drop-create-extra-row-action:disabled {
+  .drop-create-extra-row:disabled {
     cursor: default;
     opacity: 0.5;
   }
@@ -31774,31 +31773,6 @@ a.os-surface-row {
   .drop-create-extra-row-label {
     font-weight: 600;
     letter-spacing: -0.02em;
-  }
-
-  .drop-create-extra-row--with-info {
-    cursor: default;
-  }
-
-  .drop-create-extra-row--with-info .drop-field-label-text {
-    font-size: inherit;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    color: inherit;
-  }
-
-  .drop-create-extra-row-action {
-    flex: 1;
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    font: inherit;
-    color: inherit;
-    cursor: pointer;
-    text-align: right;
   }
 
   .drop-create-extra-event {

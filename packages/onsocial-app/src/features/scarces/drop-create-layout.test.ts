@@ -13,6 +13,7 @@ import {
   dropCreateAllowlistOpen,
   dropCreateAllowlistSummary,
   dropCreateDropIdSummary,
+  dropCreateExtraHint,
   dropCreateExtraRowLabel,
   dropCreateFacetsSummary,
   dropCreateOptionalSummary,
@@ -140,6 +141,17 @@ describe('dropCreateRenewalsHint', () => {
   it('explains postpone for tickets', () => {
     expect(dropCreateRenewalsHint(true)).toMatch(/event end later/);
     expect(dropCreateRenewalsHint(false)).toMatch(/renew/);
+  });
+});
+
+describe('dropCreateExtraHint', () => {
+  it('is one line in the drawer, not a question', () => {
+    expect(dropCreateExtraHint('dropId')).toMatch(/from your title/);
+    expect(dropCreateExtraHint('event')).toMatch(/not the sale/);
+    expect(dropCreateExtraHint('renewals', { isTicket: true })).toBe(
+      dropCreateRenewalsHint(true)
+    );
+    expect(dropCreateExtraHint('saleRules')).toMatch(/mint/);
   });
 });
 

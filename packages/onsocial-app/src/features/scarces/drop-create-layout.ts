@@ -152,10 +152,37 @@ export function dropCreateExtraRowLabel(
   }
 }
 
+/** One quiet line in the extra drawer — not a second InfoDrawer. */
+export function dropCreateExtraHint(
+  kind: DropCreateExtraSheetId | 'event' | 'allowlist',
+  opts: { isTicket?: boolean } = {}
+): string {
+  switch (kind) {
+    case 'dropId':
+      return 'Filled from your title — edit only for a custom link.';
+    case 'series':
+      return 'Optional — group later drops under one name.';
+    case 'facets':
+      return 'Optional tags for discovery.';
+    case 'royalty':
+      return 'Creator cut on resales.';
+    case 'saleRules':
+      return 'When collectors can mint, and whether they can resell.';
+    case 'renewals':
+      return opts.isTicket
+        ? 'Push the event end later if the show moves.'
+        : 'Holders can renew after it expires.';
+    case 'place':
+      return 'Optional venue — city, festival, or room.';
+    case 'allowlist':
+      return 'Early mint. Needs Opens in Sale.';
+    case 'event':
+      return 'When the show runs — not the sale.';
+  }
+}
+
 export function dropCreateRenewalsHint(isTicket: boolean): string {
-  return isTicket
-    ? 'Can you push the event end later if the show moves?'
-    : 'Can holders renew this after it expires?';
+  return dropCreateExtraHint('renewals', { isTicket });
 }
 
 export function dropCreateDropIdSummary(slug: string): string {

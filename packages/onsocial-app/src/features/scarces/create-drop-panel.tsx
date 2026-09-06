@@ -137,6 +137,7 @@ import {
   dropCreateExtraRowLabel,
   dropCreateFacetsSummary,
   dropCreateOptionalSummary,
+  dropCreateExtraHint,
   dropCreatePerWalletSummary,
   dropCreatePiecePickerClass,
   dropCreateRenewalsChoice,
@@ -3494,11 +3495,10 @@ export function CreateDropPanel() {
                   role="group"
                   aria-label="Event"
                 >
-                  <DropFieldLabel
-                    label="Event"
-                    infoKey="eventWindow"
-                    onOpenInfo={openFieldInfo}
-                  />
+                  <span className="drop-create-extra-row-label">Event</span>
+                  <p className="drop-create-advanced-hint">
+                    {dropCreateExtraHint('event')}
+                  </p>
                   <div className="drop-schedule-pair">
                     <div
                       className={`drop-schedule-cell${
@@ -3591,8 +3591,6 @@ export function CreateDropPanel() {
                   Boolean(accountId)
                 )}
                 disabled={pending}
-                infoKey="allowlist"
-                onOpenInfo={openFieldInfo}
                 onClick={() => {
                   if (!accountId) return;
                   setAllowlistSheetOpen(true);
@@ -3649,15 +3647,16 @@ export function CreateDropPanel() {
               })
             : ''
         }
+        hint={
+          extraSheet && extraSheet !== 'royalty'
+            ? dropCreateExtraHint(extraSheet, { isTicket })
+            : undefined
+        }
         onDone={() => setExtraSheet(null)}
       >
         {extraSheet === 'dropId' ? (
           <div className="guild-field">
-            <DropFieldLabel
-              label="Drop ID"
-              infoKey="dropId"
-              onOpenInfo={openFieldInfo}
-            />
+            <span>Drop ID</span>
             <input
               id={fieldId('id')}
               ref={dropIdRef}
@@ -3681,11 +3680,7 @@ export function CreateDropPanel() {
         ) : null}
         {extraSheet === 'series' ? (
           <div className="guild-field">
-            <DropFieldLabel
-              label="Series"
-              infoKey="series"
-              onOpenInfo={openFieldInfo}
-            />
+            <span>Series</span>
             <input
               id={fieldId('series')}
               ref={seriesFieldRef}
@@ -3724,11 +3719,7 @@ export function CreateDropPanel() {
         {extraSheet === 'saleRules' ? (
           <div className="drop-create-sale-rules">
             <div className="guild-field">
-              <DropFieldLabel
-                label="Sale window"
-                infoKey="saleWindow"
-                onOpenInfo={openFieldInfo}
-              />
+              <span>Sale window</span>
               <div
                 className="drop-schedule-pair"
                 role="group"
@@ -3805,11 +3796,7 @@ export function CreateDropPanel() {
               />
             </label>
             <div className="guild-field">
-              <DropFieldLabel
-                label="Transferable"
-                infoKey="transferable"
-                onOpenInfo={openFieldInfo}
-              />
+              <span>Transferable</span>
               <div
                 className="app-access-options"
                 role="radiogroup"
@@ -3845,11 +3832,7 @@ export function CreateDropPanel() {
         ) : null}
         {extraSheet === 'place' ? (
           <label className="guild-field" htmlFor={fieldId('place')}>
-            <DropFieldLabel
-              label="Place"
-              infoKey="eventPlace"
-              onOpenInfo={openFieldInfo}
-            />
+            <span>Place</span>
             <input
               id={fieldId('place')}
               ref={placeFieldRef}
@@ -3871,11 +3854,7 @@ export function CreateDropPanel() {
         {extraSheet === 'renewals' ? (
           <div className="drop-create-renewals">
             <div className="guild-field">
-              <DropFieldLabel
-                label={isTicket ? 'Postpone' : 'Renewals'}
-                infoKey={isTicket ? 'postpone' : 'renewable'}
-                onOpenInfo={openFieldInfo}
-              />
+              <span>{isTicket ? 'Postpone' : 'Renewals'}</span>
               <div
                 className="app-access-options"
                 role="radiogroup"
@@ -3912,15 +3891,11 @@ export function CreateDropPanel() {
             </div>
             {!isTicket && (renewable || template.requiresAccessEnd) ? (
               <div className="guild-field">
-                <DropFieldLabel
-                  label={
-                    template.requiresAccessEnd
-                      ? 'Access ends'
-                      : 'Access ends (optional)'
-                  }
-                  infoKey="accessEnds"
-                  onOpenInfo={openFieldInfo}
-                />
+                <span>
+                  {template.requiresAccessEnd
+                    ? 'Access ends'
+                    : 'Access ends (optional)'}
+                </span>
                 <div
                   className={`drop-schedule-cell${
                     accessEnds ? ' has-value' : ''
@@ -3958,11 +3933,7 @@ export function CreateDropPanel() {
               </div>
             ) : null}
             <div className="guild-field">
-              <DropFieldLabel
-                label="Max redeems (optional)"
-                infoKey="maxRedeems"
-                onOpenInfo={openFieldInfo}
-              />
+              <span>Max redeems (optional)</span>
               <SuffixField
                 id={fieldId('max-redeems')}
                 value={maxRedeemsInput}

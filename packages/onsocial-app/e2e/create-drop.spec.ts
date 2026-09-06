@@ -179,7 +179,7 @@ test.describe('create drop', () => {
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'About Allowlist' })
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(
       page.locator('.drop-create-extra-list .divider-item')
     ).not.toHaveCount(0);
@@ -195,6 +195,9 @@ test.describe('create drop', () => {
     );
     await expect(
       page.getByRole('button', { name: 'About Drop ID' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByText('Filled from your title — edit only for a custom link.')
     ).toBeVisible();
     await page.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(page.locator('#drop-create-id')).toHaveCount(0);
@@ -223,8 +226,11 @@ test.describe('create drop', () => {
     await expect(page.getByText('Starts', { exact: true })).toBeVisible();
     await expect(page.getByText('Ends', { exact: true })).toBeVisible();
     await expect(page.locator('.drop-create-extra-list')).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'About Event' })).toHaveCount(
+      0
+    );
     await expect(
-      page.getByRole('button', { name: 'About Event' })
+      page.getByText('When the show runs — not the sale.')
     ).toBeVisible();
     await expect(page.getByText('Event window', { exact: true })).toHaveCount(
       0
@@ -237,7 +243,7 @@ test.describe('create drop', () => {
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'About Allowlist' })
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Postpone: Yes' })
     ).toBeVisible();
@@ -247,6 +253,9 @@ test.describe('create drop', () => {
     await page.getByRole('button', { name: 'Postpone: Yes' }).click();
     await expect(
       page.getByRole('button', { name: 'About Postpone' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByText('Push the event end later if the show moves.')
     ).toBeVisible();
     await expect(
       page.getByText('Can you push the event end later if the show moves?')
@@ -271,6 +280,9 @@ test.describe('create drop', () => {
       .click();
     await expect(
       page.getByRole('button', { name: 'About Renewals' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByText('Holders can renew after it expires.')
     ).toBeVisible();
     await page.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
@@ -320,6 +332,9 @@ test.describe('create drop', () => {
     );
     await expect(
       page.getByRole('button', { name: 'About Series' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByText('Optional — group later drops under one name.')
     ).toBeVisible();
     await page.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
@@ -346,6 +361,9 @@ test.describe('create drop', () => {
     await page.getByRole('button', { name: 'Sale: Now · no end' }).click();
     await expect(
       page.getByRole('button', { name: 'About Sale window' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByText('When collectors can mint, and whether they can resell.')
     ).toBeVisible();
     await expect(page.getByText('Opens', { exact: true })).toBeVisible();
     await expect(page.getByText('Closes', { exact: true })).toBeVisible();
@@ -354,7 +372,7 @@ test.describe('create drop', () => {
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'About Transferable' })
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(
       page.getByRole('radiogroup', { name: 'Transferable' })
     ).toBeVisible();
