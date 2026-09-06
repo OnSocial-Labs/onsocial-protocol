@@ -2482,6 +2482,7 @@ export function CreateDropPanel() {
         id={fieldId('form')}
         className="drop-create-form"
         data-drop-create-back={dropCreateBackHref(appId)}
+        data-drop-create-series={seriesName.trim() || undefined}
         data-keyboard={formKeyboardOpen ? 'open' : undefined}
         style={studioOpen ? { display: 'none' } : undefined}
         onFocusCapture={handleFormFocusCapture}

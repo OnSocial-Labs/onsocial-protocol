@@ -6,6 +6,14 @@ import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
  * Does not submit a drop.
  */
 test.describe('create drop', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.removeItem('onsocial.drop-form-draft.v1');
+      window.localStorage.removeItem('onsocial.drop-pin-draft.v2');
+      window.localStorage.removeItem('onsocial.drop-pin-draft.v1');
+    });
+  });
+
   test('titles New drop and leaves to Drops', async ({ page }) => {
     await gotoApp(page, '/market/create');
 
@@ -66,9 +74,8 @@ test.describe('create drop', () => {
       'data-drop-create-back',
       '/apps/e2e-hub'
     );
-
-    await page.getByRole('button', { name: 'Advanced' }).click();
-    await expect(page.locator('#drop-create-series')).toHaveValue(
+    await expect(page.locator('.drop-create-form')).toHaveAttribute(
+      'data-drop-create-series',
       'Audit Series'
     );
   });
