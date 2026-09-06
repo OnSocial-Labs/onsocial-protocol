@@ -4,6 +4,7 @@ import {
   putOwnedVaultPage,
 } from '@/features/market/owned-vault-cache';
 import {
+  collectionCatalogShell,
   collectionDropBackHref,
   collectionShowCommerceMeter,
   collectionUseFirst,
@@ -37,6 +38,37 @@ describe('collection page view', () => {
     expect(
       collectionShowCommerceMeter({ useFirst: true, canMintMore: true })
     ).toBe(true);
+  });
+
+  it('paints a skeleton on SSR miss until the client catalog settles', () => {
+    expect(
+      collectionCatalogShell({
+        hasView: false,
+        ssrMiss: true,
+        clientSettled: false,
+      })
+    ).toBe('skeleton');
+    expect(
+      collectionCatalogShell({
+        hasView: true,
+        ssrMiss: true,
+        clientSettled: true,
+      })
+    ).toBe('drop');
+    expect(
+      collectionCatalogShell({
+        hasView: false,
+        ssrMiss: true,
+        clientSettled: true,
+      })
+    ).toBe('unavailable');
+    expect(
+      collectionCatalogShell({
+        hasView: true,
+        ssrMiss: false,
+        clientSettled: false,
+      })
+    ).toBe('drop');
   });
 
   it('sends holders to Collectibles and visitors to Market', () => {

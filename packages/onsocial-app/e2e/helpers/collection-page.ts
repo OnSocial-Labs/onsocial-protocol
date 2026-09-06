@@ -126,10 +126,13 @@ export async function stubCollectionPageGraph(
     heldIds?: readonly StubCollectionId[];
     /** Force sold-out / closed so holder chrome can hide the mint meter. */
     endedIds?: readonly StubCollectionId[];
+    /** Hold ScarcesCollectionCurrent so the SSR-miss skeleton can be asserted. */
+    catalogDelayMs?: number;
   }
 ): Promise<void> {
   const held = new Set(opts?.heldIds ?? []);
   const ended = new Set(opts?.endedIds ?? []);
+  const catalogDelayMs = opts?.catalogDelayMs ?? 0;
   await page.route('**/api/onapi/graph/query', async (route) => {
     const raw = route.request().postData() ?? '';
     let query = '';
@@ -146,6 +149,9 @@ export async function stubCollectionPageGraph(
     }
 
     if (query.includes('ScarcesCollectionCurrent')) {
+      if (catalogDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, catalogDelayMs));
+      }
       const id = String(variables.collectionId ?? '') as StubCollectionId;
       const base = STUBS[id] ?? null;
       const row = base

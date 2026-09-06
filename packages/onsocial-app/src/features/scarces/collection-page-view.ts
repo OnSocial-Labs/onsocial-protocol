@@ -19,6 +19,17 @@ export function collectionShowCommerceMeter(opts: {
   return !opts.useFirst || opts.canMintMore;
 }
 
+/** First paint after an SSR catalog miss — skeleton until the client settles. */
+export function collectionCatalogShell(opts: {
+  hasView: boolean;
+  ssrMiss: boolean;
+  clientSettled: boolean;
+}): 'drop' | 'skeleton' | 'unavailable' {
+  if (opts.hasView) return 'drop';
+  if (opts.ssrMiss && !opts.clientSettled) return 'skeleton';
+  return 'unavailable';
+}
+
 /** Holders go back to the vault; visitors stay on Market. */
 export function collectionDropBackHref(opts: {
   useFirst: boolean;
