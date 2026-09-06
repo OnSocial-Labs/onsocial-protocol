@@ -3157,43 +3157,62 @@ export function CreateDropPanel() {
               </div>
             ) : null}
             {isWriting && writingFormat === 'book' ? (
-              <div className="guild-field">
-                <DropFieldLabel
-                  label="Book PDF"
-                  infoKey="bookPdf"
-                  onOpenInfo={openFieldInfo}
-                />
-                {bookPdfFile ? <small>{bookPdfFile.name}</small> : null}
-                <div
-                  className="app-storage-presets"
-                  role="group"
-                  aria-label="Book PDF actions"
-                >
-                  <button
-                    type="button"
-                    className="os-surface-chip"
-                    disabled={pending}
-                    onClick={() => bookPdfInputRef.current?.click()}
+              <div
+                className="drop-create-attach"
+                data-drop-create-attach="book-pdf"
+              >
+                {bookPdfFile ? (
+                  <p className="drop-create-attach-hint">{bookPdfFile.name}</p>
+                ) : pinnedWriting?.hasBookPdf ? (
+                  <p className="drop-pin-resume-detail">
+                    PDF pinned · ready to sign
+                  </p>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="collection-allowlist-toggle drop-create-attach-action"
+                      disabled={pending}
+                      onClick={() => bookPdfInputRef.current?.click()}
+                    >
+                      {dropCreateAttachAction('pdf')}
+                    </button>
+                    <p className="drop-create-attach-hint">
+                      Optional · holders download the full book · ≤20 MB
+                    </p>
+                  </>
+                )}
+                {bookPdfFile || pinnedWriting?.hasBookPdf ? (
+                  <div
+                    className="app-storage-presets"
+                    role="group"
+                    aria-label="Book PDF actions"
                   >
-                    {bookPdfFile ? 'Replace' : 'Add PDF'}
-                  </button>
-                  {bookPdfFile ? (
                     <button
                       type="button"
                       className="os-surface-chip"
                       disabled={pending}
-                      onClick={() => {
-                        setBookPdfFile(null);
-                        setError(null);
-                      }}
+                      onClick={() => bookPdfInputRef.current?.click()}
                     >
-                      Clear
+                      {bookPdfFile
+                        ? 'Replace'
+                        : dropCreateAttachAction('pdf')}
                     </button>
-                  ) : null}
-                </div>
-                <small>
-                  Optional · holders download the full book · ≤20 MB
-                </small>
+                    {bookPdfFile ? (
+                      <button
+                        type="button"
+                        className="os-surface-chip"
+                        disabled={pending}
+                        onClick={() => {
+                          setBookPdfFile(null);
+                          setError(null);
+                        }}
+                      >
+                        Clear
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
                 <input
                   ref={bookPdfInputRef}
                   type="file"

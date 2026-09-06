@@ -55,6 +55,7 @@ describe('dropCreateAttachAction', () => {
     expect(dropCreateAttachAction('tracks')).toBe('Add tracks');
     expect(dropCreateAttachAction('file')).toBe('Add file');
     expect(dropCreateAttachAction('files')).toBe('Add files');
+    expect(dropCreateAttachAction('pdf')).toBe('Add PDF');
   });
 });
 

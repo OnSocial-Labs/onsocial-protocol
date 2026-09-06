@@ -41,7 +41,12 @@ export function dropCreateDealShowsSupplyField({
 }
 
 /** Empty track / writing files sit on the piece — same voice as Add a blurb. */
-export type DropCreateAttachAction = 'track' | 'tracks' | 'file' | 'files';
+export type DropCreateAttachAction =
+  | 'track'
+  | 'tracks'
+  | 'file'
+  | 'files'
+  | 'pdf';
 
 export function dropCreateAttachAction(kind: DropCreateAttachAction): string {
   switch (kind) {
@@ -53,5 +58,7 @@ export function dropCreateAttachAction(kind: DropCreateAttachAction): string {
       return 'Add file';
     case 'files':
       return 'Add files';
+    case 'pdf':
+      return 'Add PDF';
   }
 }

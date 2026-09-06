@@ -122,6 +122,20 @@ test.describe('create drop', () => {
       page.getByRole('group', { name: 'Issue file actions' })
     ).toHaveCount(0);
 
+    await page.getByRole('radio', { name: 'Book' }).click();
+    await expect(
+      page.locator('[data-drop-create-attach="book-pdf"]')
+    ).toBeVisible();
+    await expect(
+      page.locator(
+        '[data-drop-create-attach="book-pdf"] .drop-create-attach-action'
+      )
+    ).toHaveText('Add PDF');
+    await expect(page.getByText('Book PDF', { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole('group', { name: 'Book PDF actions' })
+    ).toHaveCount(0);
+
     await page.locator('.drop-create-blurb-toggle').click({ force: true });
     await expect(page.locator('#drop-create-description')).toBeVisible();
   });
