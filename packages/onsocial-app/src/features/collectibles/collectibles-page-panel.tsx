@@ -7,6 +7,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { CollectiblesHeaderActions } from '@/features/collectibles/collectibles-header-actions';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
+import { CollectiblesHoldingRowMenu } from '@/features/collectibles/collectibles-holding-row-menu';
 import {
   CollectiblesFilterToolbar,
   CollectiblesSearchHeading,
@@ -17,9 +18,11 @@ import {
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import {
+  invalidateOwnedVaultCache,
   peekOwnedVaultPage,
   putOwnedVaultPage,
 } from '@/features/market/owned-vault-cache';
+import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
@@ -61,6 +64,7 @@ type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 interface HoldingsState {
   items: PortfolioHoldingPeek[];
+  owned: OwnedScarceItem[];
   nextFromEnd: number;
   hasMore: boolean;
   /** `${accountId}:${retryKey}` this payload belongs to. */
@@ -70,6 +74,7 @@ interface HoldingsState {
 
 const EMPTY_HOLDINGS: HoldingsState = {
   items: [],
+  owned: [],
   nextFromEnd: 0,
   hasMore: false,
   loadKey: null,
@@ -84,6 +89,7 @@ function holdingsStateFromItems(
 ): HoldingsState {
   return {
     items: items.map(toPortfolioHoldingPeek),
+    owned: items,
     nextFromEnd,
     hasMore,
     loadKey,
@@ -153,6 +159,8 @@ export function CollectiblesPagePanel({
     PortfolioHoldingPeek[]
   >([]);
   const [offlineReady, setOfflineReady] = useState(false);
+  const [sellItem, setSellItem] = useState<OwnedScarceItem | null>(null);
+  const [sellOpen, setSellOpen] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const [scrollTuckPinned, setScrollTuckPinned] = useState(false);
@@ -376,16 +384,24 @@ export function CollectiblesPagePanel({
       .then((page) => {
         setHoldings((prev) => {
           const seen = new Set(prev.items.map((item) => item.tokenId));
+          const ownedSeen = new Set(prev.owned.map((item) => item.tokenId));
           const nextItems = [...prev.items];
+          const nextOwned = [...prev.owned];
           for (const row of page.items) {
             const peek = toPortfolioHoldingPeek(row);
-            if (seen.has(peek.tokenId)) continue;
-            seen.add(peek.tokenId);
-            nextItems.push(peek);
+            if (!seen.has(peek.tokenId)) {
+              seen.add(peek.tokenId);
+              nextItems.push(peek);
+            }
+            if (!ownedSeen.has(row.tokenId)) {
+              ownedSeen.add(row.tokenId);
+              nextOwned.push(row);
+            }
           }
           return {
             ...prev,
             items: nextItems,
+            owned: nextOwned,
             nextFromEnd: page.nextFromEnd,
             hasMore: page.hasMore,
           };
@@ -457,6 +473,18 @@ export function CollectiblesPagePanel({
     () => groupHoldingsForRail(filtered),
     [filtered]
   );
+  const ownedByToken = useMemo(() => {
+    const map = new Map<string, OwnedScarceItem>();
+    for (const row of holdings.owned) {
+      map.set(row.tokenId, row);
+    }
+    return map;
+  }, [holdings.owned]);
+
+  const refreshOwned = useCallback(() => {
+    if (viewerAccountId) invalidateOwnedVaultCache(viewerAccountId);
+    setRetryKey((n) => n + 1);
+  }, [viewerAccountId]);
 
   const clientDiscoveryFilterActive =
     trimmedSearch.length > 0 ||
@@ -649,13 +677,28 @@ export function CollectiblesPagePanel({
             className="market-listing-list"
             role="list"
           >
-            {displayRows.map((item) => (
-              <CollectiblesHoldingRow
-                key={item.tokenId}
-                item={item}
-                editionCount={item.editionCount}
-              />
-            ))}
+            {displayRows.map((item) => {
+              const owned = ownedByToken.get(item.tokenId);
+              return (
+                <CollectiblesHoldingRow
+                  key={item.tokenId}
+                  item={item}
+                  editionCount={item.editionCount}
+                  ownerMenu={
+                    isSelf && owned ? (
+                      <CollectiblesHoldingRowMenu
+                        item={owned}
+                        onList={() => {
+                          setSellItem(owned);
+                          setSellOpen(true);
+                        }}
+                        onDelisted={refreshOwned}
+                      />
+                    ) : null
+                  }
+                />
+              );
+            })}
           </div>
         </section>
       ) : null}
@@ -683,44 +726,62 @@ export function CollectiblesPagePanel({
   const dockBackHref = portfolioBackHref ?? APP_HOME_PATH;
 
   return (
-    <OsAppScreen
-      title="Collectibles"
-      compactChrome
-      scrollTuck="search"
-      scrollTuckPinned={scrollTuckPinned}
-      dockBack
-      leading={null}
-      backFallbackHref={dockBackHref}
-      glassChrome
-      scrollRootRef={scrollRootRef}
-      actions={<CollectiblesHeaderActions pageAccountId={ownerAccountId} />}
-      heading={
-        showDiscoveryChrome ? (
-          <CollectiblesSearchHeading
-            query={searchQuery}
-            onQueryChange={setSearchQuery}
-          />
-        ) : undefined
-      }
-      toolbar={
-        showDiscoveryChrome ? (
-          <CollectiblesFilterToolbar
-            ready
-            medium={mediumFilter}
-            audioFormat={audioFormatFilter}
-            selectedFacets={selectedFacets}
-            onMediumChange={setMediumFilter}
-            onAudioFormatChange={(format) =>
-              replaceDiscoveryParams({ audioFormat: format })
-            }
-            onFacetsChange={(facets) => replaceDiscoveryParams({ facets })}
-            onClear={() => setMediumFilter('all')}
-            onMenuOpenChange={setScrollTuckPinned}
-          />
-        ) : undefined
-      }
-    >
-      {body}
-    </OsAppScreen>
+    <>
+      <OsAppScreen
+        title="Collectibles"
+        compactChrome
+        scrollTuck="search"
+        scrollTuckPinned={scrollTuckPinned}
+        dockBack
+        leading={null}
+        backFallbackHref={dockBackHref}
+        glassChrome
+        scrollRootRef={scrollRootRef}
+        actions={<CollectiblesHeaderActions pageAccountId={ownerAccountId} />}
+        heading={
+          showDiscoveryChrome ? (
+            <CollectiblesSearchHeading
+              query={searchQuery}
+              onQueryChange={setSearchQuery}
+            />
+          ) : undefined
+        }
+        toolbar={
+          showDiscoveryChrome ? (
+            <CollectiblesFilterToolbar
+              ready
+              medium={mediumFilter}
+              audioFormat={audioFormatFilter}
+              selectedFacets={selectedFacets}
+              onMediumChange={setMediumFilter}
+              onAudioFormatChange={(format) =>
+                replaceDiscoveryParams({ audioFormat: format })
+              }
+              onFacetsChange={(facets) => replaceDiscoveryParams({ facets })}
+              onClear={() => setMediumFilter('all')}
+              onMenuOpenChange={setScrollTuckPinned}
+            />
+          ) : undefined
+        }
+      >
+        {body}
+      </OsAppScreen>
+      {isSelf ? (
+        <ScarceSellSheet
+          open={sellOpen && sellItem != null}
+          item={sellItem}
+          sellerAccountId={viewerAccountId}
+          onOpenChange={(open) => {
+            setSellOpen(open);
+            if (!open) setSellItem(null);
+          }}
+          onListed={() => {
+            setSellOpen(false);
+            setSellItem(null);
+            refreshOwned();
+          }}
+        />
+      ) : null}
+    </>
   );
 }

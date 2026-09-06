@@ -275,7 +275,7 @@ export function isFullPagePanelLayout(segments: readonly string[]): boolean {
  *
  * Discover, About, and an individual post stay real pages on hard refresh
  * (full-page `children`, no glass). Collectibles vault is always PanelPage —
- * drawer Collection tab is preview-only.
+ * drawer Collectibles tab is preview-only.
  */
 export function shouldOpenPortfolioGlassOverlay(
   pathname: string,

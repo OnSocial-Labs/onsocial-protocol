@@ -47,8 +47,8 @@ function resolveCollectionSeeAllCopy(
 }
 
 /**
- * Collection tab — grouped use-first rows (Collectibles parity) and a vault
- * handoff when the preview is truncated or for search and filters.
+ * Collectibles tab — grouped use-first rows and a vault handoff when the
+ * preview is truncated or for search and filters.
  */
 export function PageDrawerCollectionList({
   pageAccountId,
@@ -157,7 +157,7 @@ export function PageDrawerCollectionList({
       <div className="page-drawer-section">
         <section className="market-section" aria-labelledby="page-drawer-collection">
           <h3 id="page-drawer-collection" className="market-section-title">
-            Collection
+            Collectibles
           </h3>
           {loading ? <MarketListSkeleton rows={3} /> : null}
           {!loading && previewRows.length > 0 ? (
