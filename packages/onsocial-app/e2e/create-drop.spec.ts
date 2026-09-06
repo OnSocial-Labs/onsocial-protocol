@@ -31,7 +31,9 @@ test.describe('create drop', () => {
       'data-header-owns-connect',
       ''
     );
-    await expect(page.locator('.portfolio-summon-hint--connect')).toHaveCount(0);
+    await expect(page.locator('.portfolio-summon-hint--connect')).toHaveCount(
+      0
+    );
     await expect(
       page.getByRole('button', { name: 'Connect', exact: true })
     ).toHaveCount(1);
@@ -94,7 +96,9 @@ test.describe('create drop', () => {
     await expect(page.locator('#drop-create-description')).toHaveCount(0);
 
     await page.getByRole('tab', { name: 'Audio', exact: true }).click();
-    await expect(page.locator('[data-drop-create-attach="audio"]')).toBeVisible();
+    await expect(
+      page.locator('[data-drop-create-attach="audio"]')
+    ).toBeVisible();
     await expect(page.locator('.drop-create-attach-action')).toHaveText(
       'Add track'
     );
@@ -103,9 +107,9 @@ test.describe('create drop', () => {
         .locator('[data-drop-create-section="work"]')
         .getByText('Track', { exact: true })
     ).toHaveCount(0);
-    await expect(page.getByRole('group', { name: 'Track actions' })).toHaveCount(
-      0
-    );
+    await expect(
+      page.getByRole('group', { name: 'Track actions' })
+    ).toHaveCount(0);
     await page.getByRole('radio', { name: 'Album' }).click();
     await expect(page.locator('.drop-create-attach-action')).toHaveText(
       'Add tracks'
@@ -126,9 +130,9 @@ test.describe('create drop', () => {
     await expect(page.locator('.drop-create-attach-action')).toHaveText(
       'Add files'
     );
-    await expect(page.locator('[data-drop-create-attach="book-pdf"]')).toHaveCount(
-      0
-    );
+    await expect(
+      page.locator('[data-drop-create-attach="book-pdf"]')
+    ).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Add PDF', exact: true })
     ).toHaveCount(0);
@@ -146,58 +150,45 @@ test.describe('create drop', () => {
     await expect(
       page.getByRole('group', { name: 'Book PDF actions' })
     ).toHaveCount(0);
-    await expect(page.getByText('Drop ID', { exact: true })).toHaveCount(0);
     await expect(
-      page.getByText('Series (optional)', { exact: true })
-    ).toHaveCount(0);
+      page.getByRole('button', { name: 'Drop ID: From title' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Series: None' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Subject: None' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Royalty: 10%' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Sale: Now · no end' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Renewals: No' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Allowlist: None' })
+    ).toBeVisible();
     await expect(page.locator('#drop-create-id')).toHaveCount(0);
-    await expect(page.locator('#drop-create-series')).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Set a drop ID', exact: true })
-    ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Add to a series', exact: true })
-    ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Add a subject', exact: true })
-    ).toBeVisible();
-    await expect(page.getByText('Subject', { exact: true })).toHaveCount(0);
-    await expect(page.locator('.drop-facets-chip-row')).toHaveCount(0);
-    await expect(
-      page.getByRole('button', { name: 'Set a royalty', exact: true })
-    ).toBeVisible();
-    await expect(page.getByText('Resale royalty', { exact: true })).toHaveCount(
-      0
-    );
-    await expect(
-      page.getByRole('group', { name: 'Resale royalty' })
-    ).toHaveCount(0);
-    await expect(
-      page.getByRole('button', { name: 'Set sale rules', exact: true })
-    ).toBeVisible();
-    await expect(page.getByText('Sale window', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('Opens', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('Closes', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('Max per wallet', { exact: true })).toHaveCount(
-      0
-    );
-    await expect(page.getByText('Transferable', { exact: true })).toHaveCount(0);
-    await expect(
-      page.getByRole('button', { name: 'Set renewals', exact: true })
-    ).toBeVisible();
-    await expect(page.getByText('Renewable', { exact: true })).toHaveCount(0);
-    await expect(
-      page.getByRole('button', { name: 'Add an allowlist', exact: true })
-    ).toBeVisible();
-    await expect(page.getByText('Allowlist', { exact: true })).toHaveCount(0);
-    await expect(
-      page.getByText('Max redeems (optional)', { exact: true })
     ).toHaveCount(0);
 
-    await page
-      .getByRole('button', { name: 'Set a drop ID', exact: true })
-      .click();
+    await page.getByRole('button', { name: 'Drop ID: From title' }).click();
     await expect(page.locator('#drop-create-id')).toBeVisible();
+    await expect(page.locator('#drop-create-id')).toHaveClass(
+      /os-field-bordered/
+    );
+    await expect(
+      page.getByRole('button', { name: 'About Drop ID' })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(page.locator('#drop-create-id')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Drop ID: From title' })
+    ).toBeVisible();
 
     await page.locator('.drop-create-blurb-toggle').click({ force: true });
     await expect(page.locator('#drop-create-description')).toBeVisible();
@@ -214,22 +205,40 @@ test.describe('create drop', () => {
     await expect(page.locator('.drop-kind-lede')).toHaveText(
       /Event entry — one redeem per ticket/
     );
-    await expect(page.getByRole('button', { name: 'Hide advanced' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Hide advanced' })
+    ).toBeVisible();
     await expect(page.getByText('Starts', { exact: true })).toBeVisible();
     await expect(page.getByText('Ends', { exact: true })).toBeVisible();
-    await expect(page.getByText('Event window', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Event window', { exact: true })).toHaveCount(
+      0
+    );
     await expect(
-      page.getByRole('button', { name: 'Add a place', exact: true })
+      page.getByRole('button', { name: 'Place: None' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Postpone: Yes' })
     ).toBeVisible();
     await expect(
       page.getByRole('radio', { name: 'Flexible dates', exact: true })
-    ).toBeChecked();
+    ).toHaveCount(0);
+    await page.getByRole('button', { name: 'Postpone: Yes' }).click();
     await expect(
-      page.getByRole('radio', { name: 'Fixed date', exact: true })
+      page.getByText('Can you push the event end later if the show moves?')
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Allow date changes', exact: true })
-    ).toHaveCount(0);
+      page.getByRole('button', { name: 'About Postpone' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('radio', { name: 'Yes', exact: true })
+    ).toBeChecked();
+    await expect(
+      page.getByRole('radio', { name: 'No', exact: true })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Postpone: Yes' })
+    ).toBeVisible();
   });
 
   test('hub bind leaves to that hub; series query still prefills', async ({
@@ -248,52 +257,55 @@ test.describe('create drop', () => {
       'Audit Series'
     );
     await page.getByRole('button', { name: 'Advanced', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Series: Audit Series' })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Series: Audit Series' }).click();
+    await expect(page.locator('#drop-create-series')).toHaveClass(
+      /os-field-bordered/
+    );
     await expect(page.locator('#drop-create-series')).toHaveValue(
       'Audit Series'
     );
     await expect(
-      page.getByRole('button', { name: 'Add to a series', exact: true })
-    ).toHaveCount(0);
-    await expect(
-      page.getByRole('button', { name: 'Add a style', exact: true })
+      page.getByRole('button', { name: 'About Series' })
     ).toBeVisible();
-    await expect(page.locator('.drop-facets-chip-row')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Add a style', exact: true }).click();
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Style: None' })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Style: None' }).click();
     await expect(page.locator('.drop-facets-chip-row')).toBeVisible();
-    await expect(page.getByText('Style', { exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
-      page.getByRole('button', { name: 'Set a royalty', exact: true })
+      page.getByRole('button', { name: 'Royalty: 10%' })
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Set a royalty', exact: true }).click();
-    await expect(page.getByRole('group', { name: 'Resale royalty' })).toBeVisible();
-    await expect(page.getByText('Resale royalty', { exact: true })).toHaveCount(
-      0
-    );
+    await page.getByRole('button', { name: 'Royalty: 10%' }).click();
     await expect(
-      page.getByRole('button', { name: 'Set sale rules', exact: true })
+      page.getByRole('group', { name: 'Resale royalty' })
     ).toBeVisible();
-    await page
-      .getByRole('button', { name: 'Set sale rules', exact: true })
-      .click();
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Sale: Now · no end' })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Sale: Now · no end' }).click();
+    await expect(
+      page.getByRole('button', { name: 'About Sale window' })
+    ).toBeVisible();
     await expect(page.getByText('Opens', { exact: true })).toBeVisible();
     await expect(page.getByText('Closes', { exact: true })).toBeVisible();
-    await expect(page.getByText('Now', { exact: true })).toBeVisible();
-    await expect(page.getByText('No end', { exact: true })).toBeVisible();
-    await expect(page.getByText('Sale window', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('Max per wallet', { exact: true })).toHaveCount(
-      0
-    );
+    await expect(
+      page.getByText('Max per wallet', { exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'About Transferable' })
+    ).toBeVisible();
     await expect(
       page.getByRole('radiogroup', { name: 'Transferable' })
     ).toBeVisible();
-    await expect(page.getByText('Transferable', { exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
-      page.getByRole('button', { name: 'Set renewals', exact: true })
+      page.getByRole('button', { name: 'Sale: Now · no end' })
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Set renewals', exact: true }).click();
-    await expect(
-      page.getByRole('radiogroup', { name: 'Renewable' })
-    ).toBeVisible();
-    await expect(page.getByText('Renewable', { exact: true })).toHaveCount(0);
   });
 });

@@ -93,7 +93,7 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     helpTitle: 'Ticket drop',
     tagline: 'Event entry — one redeem per ticket.',
     hint:
-      'Good for shows, meetups, and conferences. e.g. “Neartopia Night” — 200 tickets, event end after doors close. Enable Allow date changes for postponements; sale window is buy-only.',
+      'Good for shows, meetups, and conferences. e.g. “Neartopia Night” — 200 tickets, event end after doors close. Postpone stays on so you can push the end if the show moves; sale window is buy-only.',
     kind: 'ticket',
     unit: 'tickets',
     unitSingular: 'ticket',

@@ -101,7 +101,7 @@ const DROP_FIELD_INFO: Record<
       'Yes allows transfer and resale. Soulbound keeps the edition with the buyer.',
   },
   renewable: {
-    title: 'Allow date changes',
+    title: 'Postpone',
     summary: 'Whether you can push the end date later (rain day / postpone).',
     detail:
       'On by default for tickets. Choose No if the end must stay fixed after mint. For coupons and memberships, optional Access ends sets a shared expiry.',
@@ -159,10 +159,12 @@ export function DropFieldInfoDrawer({
   infoKey,
   open,
   onClose,
+  zIndex,
 }: {
   infoKey: DropFieldInfoKey | null;
   open: boolean;
   onClose: () => void;
+  zIndex?: number;
 }) {
   const content = infoKey ? DROP_FIELD_INFO[infoKey] : null;
   return (
@@ -172,6 +174,7 @@ export function DropFieldInfoDrawer({
       title={content?.title ?? ''}
       summary={content?.summary ?? ''}
       detail={content?.detail ?? ''}
+      zIndex={zIndex}
     />
   );
 }

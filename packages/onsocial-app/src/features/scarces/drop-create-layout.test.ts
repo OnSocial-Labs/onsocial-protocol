@@ -11,8 +11,16 @@ import {
   dropCreateFacetsOpen,
   dropCreatePiecePickerClass,
   dropCreateAllowlistOpen,
+  dropCreateAllowlistSummary,
+  dropCreateDropIdSummary,
+  dropCreateExtraRowLabel,
+  dropCreateFacetsSummary,
+  dropCreateOptionalSummary,
   dropCreateRenewalsChoice,
+  dropCreateRenewalsHint,
   dropCreateRenewalsOpen,
+  dropCreateRoyaltySummary,
+  dropCreateSaleRulesSummary,
   dropCreateRoyaltyOpen,
   dropCreateSaleRulesOpen,
   dropCreateSaleWindowOpen,
@@ -102,15 +110,58 @@ describe('dropCreateAdvancedExtraAction', () => {
 });
 
 describe('dropCreateRenewalsChoice', () => {
-  it('names ticket date changes; other kinds keep Yes / No', () => {
+  it('says Yes when they can postpone or renew', () => {
     expect(dropCreateRenewalsChoice(true)).toBe('Yes');
     expect(dropCreateRenewalsChoice(false)).toBe('No');
-    expect(dropCreateRenewalsChoice(true, { isTicket: true })).toBe(
-      'Flexible dates'
+  });
+});
+
+describe('dropCreateExtraRowLabel', () => {
+  it('names the row, not a Set a… link', () => {
+    expect(dropCreateExtraRowLabel('dropId')).toBe('Drop ID');
+    expect(dropCreateExtraRowLabel('saleRules')).toBe('Sale');
+    expect(dropCreateExtraRowLabel('renewals')).toBe('Renewals');
+    expect(dropCreateExtraRowLabel('renewals', { isTicket: true })).toBe(
+      'Postpone'
     );
-    expect(dropCreateRenewalsChoice(false, { isTicket: true })).toBe(
-      'Fixed date'
+    expect(dropCreateExtraRowLabel('facets', { facetLabel: 'Style' })).toBe(
+      'Style'
     );
+  });
+});
+
+describe('dropCreateRenewalsHint', () => {
+  it('explains postpone for tickets', () => {
+    expect(dropCreateRenewalsHint(true)).toMatch(/event end later/);
+    expect(dropCreateRenewalsHint(false)).toMatch(/renew/);
+  });
+});
+
+describe('dropCreate summaries', () => {
+  it('shows the picked value, or the default', () => {
+    expect(dropCreateDropIdSummary('')).toBe('From title');
+    expect(dropCreateDropIdSummary('ink-studies')).toBe('ink-studies');
+    expect(dropCreateOptionalSummary('')).toBe('None');
+    expect(dropCreateOptionalSummary('Ink Studies')).toBe('Ink Studies');
+    expect(dropCreateFacetsSummary([])).toBe('None');
+    expect(dropCreateFacetsSummary(['generative'])).toBe('generative');
+    expect(dropCreateAllowlistSummary(0)).toBe('None');
+    expect(dropCreateAllowlistSummary(2)).toBe('2 accounts');
+    expect(
+      dropCreateSaleRulesSummary({
+        opensLabel: 'Now',
+        closesLabel: 'no end',
+        maxPerWallet: '',
+        transferable: true,
+      })
+    ).toBe('Now · no end');
+    expect(
+      dropCreateRoyaltySummary({
+        percentLabel: '10%',
+        isNone: false,
+        splitCount: 1,
+      })
+    ).toBe('10%');
   });
 });
 

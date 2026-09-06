@@ -109,13 +109,97 @@ export function dropCreateAdvancedExtraAction(
   }
 }
 
-/** Ticket date-change pills name themselves — Yes / No does not. */
-export function dropCreateRenewalsChoice(
-  on: boolean,
-  opts: { isTicket?: boolean } = {}
-): string {
-  if (opts.isTicket) return on ? 'Flexible dates' : 'Fixed date';
+/** Postpone / renewals — Yes means you can push the end later. */
+export function dropCreateRenewalsChoice(on: boolean): string {
   return on ? 'Yes' : 'No';
+}
+
+export type DropCreateExtraSheetId =
+  | 'dropId'
+  | 'series'
+  | 'facets'
+  | 'royalty'
+  | 'saleRules'
+  | 'renewals'
+  | 'place';
+
+/** Short row label — the value on the right is what they picked. */
+export function dropCreateExtraRowLabel(
+  kind: DropCreateExtraSheetId | 'allowlist',
+  opts: { isTicket?: boolean; facetLabel?: string } = {}
+): string {
+  switch (kind) {
+    case 'dropId':
+      return 'Drop ID';
+    case 'series':
+      return 'Series';
+    case 'facets':
+      return opts.facetLabel?.trim() || 'Style';
+    case 'royalty':
+      return 'Royalty';
+    case 'saleRules':
+      return 'Sale';
+    case 'renewals':
+      return opts.isTicket ? 'Postpone' : 'Renewals';
+    case 'allowlist':
+      return 'Allowlist';
+    case 'place':
+      return 'Place';
+  }
+}
+
+export function dropCreateRenewalsHint(isTicket: boolean): string {
+  return isTicket
+    ? 'Can you push the event end later if the show moves?'
+    : 'Can holders renew this after it expires?';
+}
+
+export function dropCreateDropIdSummary(slug: string): string {
+  return slug.trim() || 'From title';
+}
+
+export function dropCreateOptionalSummary(value: string): string {
+  return value.trim() || 'None';
+}
+
+export function dropCreateFacetsSummary(facets: readonly string[]): string {
+  return facets.length > 0 ? facets.join(', ') : 'None';
+}
+
+export function dropCreateAllowlistSummary(count: number): string {
+  if (count <= 0) return 'None';
+  return count === 1 ? '1 account' : `${count} accounts`;
+}
+
+export function dropCreateSaleRulesSummary({
+  opensLabel,
+  closesLabel,
+  maxPerWallet,
+  transferable,
+}: {
+  opensLabel: string;
+  closesLabel: string;
+  maxPerWallet: string;
+  transferable: boolean;
+}): string {
+  const parts = [`${opensLabel} · ${closesLabel}`];
+  if (maxPerWallet.trim()) parts.push(`${maxPerWallet.trim()} each`);
+  if (!transferable) parts.push('Soulbound');
+  return parts.join(' · ');
+}
+
+export function dropCreateRoyaltySummary({
+  percentLabel,
+  isNone,
+  splitCount,
+}: {
+  percentLabel: string;
+  isNone: boolean;
+  splitCount: number;
+}): string {
+  if (isNone) return 'None';
+  if (splitCount > 1) return `${percentLabel} · ${splitCount} recipients`;
+  return percentLabel;
 }
 
 /** Sale window waits — default is now / no end until the maker asks or sets one. */

@@ -28104,6 +28104,7 @@ a.os-surface-row {
 
   /* Create / edit forms: plain label stacks — kill guild-field card chrome. */
   .drop-create-form .guild-field,
+  .drop-create-extra-sheet-body .guild-field,
   .drop-studio .guild-field,
   .guild-create-form .guild-field,
   .guild-edit-form .guild-field,
@@ -31739,6 +31740,66 @@ a.os-surface-row {
     flex-direction: column;
     align-items: stretch;
     gap: 0.65rem;
+  }
+
+  .drop-create-extra-list {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .drop-create-extra-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    margin: 0;
+    padding: 0.55rem 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .drop-create-extra-row:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+
+  .drop-create-extra-row-label {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .drop-create-extra-row + .drop-create-extra-row {
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .drop-create-extra-row-value {
+    min-width: 0;
+    color: rgb(var(--fg-rgb) / 0.48);
+    text-align: right;
+  }
+
+  .drop-create-extra-sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .drop-create-extra-sheet-body .guild-field > input {
+    width: 100%;
+  }
+
+  .drop-create-extra-sheet-hint {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.56);
   }
 
   /* Edge fade hints there are more template tabs off-screen (scrollbar is
