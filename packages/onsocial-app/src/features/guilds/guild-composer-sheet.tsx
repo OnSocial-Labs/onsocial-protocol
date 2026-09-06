@@ -413,20 +413,15 @@ export function ComposerSheet({
   const {
     text,
     pollEnabled,
-    pollOptions,
-    pollDurationMs,
     drop: dropDraft,
     files: mediaFiles,
     previews: mediaPreviews,
     contentWarning,
     nsfw,
-    placeDraft,
     placeOpen,
     articleTitle,
-    articleAlign,
   } = beat;
   const articleTitleTrimmed = Boolean(articleTitle.trim());
-  const canUseArticle = mode === 'post' && !dropDraft && !pollEnabled;
   const canUsePoll = mode === 'post' && !dropDraft && !articleTitleTrimmed;
   const canUseMedia = !pollEnabled && !dropDraft;
   const canUseDrop =
