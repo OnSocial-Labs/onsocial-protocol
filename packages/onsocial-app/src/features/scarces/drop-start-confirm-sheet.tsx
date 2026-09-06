@@ -33,8 +33,36 @@ interface DropStartConfirmSheetProps {
 
 /**
  * Start-drop confirm → upload → ready → wallet. One sheet morphs through
- * phases so pin/list never feel like two separate product steps.
+ * phases so pin/start never feel like two separate product steps.
  */
+
+export function dropStartConfirmCopy(
+  phase: DropStartConfirmPhase,
+  uploadLabel = 'Uploading…'
+): { title: string; status: string | null; primaryLabel: string } {
+  if (phase === 'uploading') {
+    return {
+      title: 'Uploading',
+      status: uploadLabel,
+      primaryLabel: uploadLabel,
+    };
+  }
+  if (phase === 'ready') {
+    return {
+      title: 'Ready to start',
+      status: 'Media ready — confirm in your wallet to start.',
+      primaryLabel: 'Confirm in wallet',
+    };
+  }
+  if (phase === 'listing') {
+    return {
+      title: 'Confirm in wallet',
+      status: 'Approve in your wallet…',
+      primaryLabel: 'Confirm in wallet',
+    };
+  }
+  return { title: 'Drop summary', status: null, primaryLabel: 'Start drop' };
+}
 export function DropStartConfirmSheet({
   open,
   phase,
@@ -64,31 +92,10 @@ export function DropStartConfirmSheet({
     onClose();
   }, [onClose]);
 
-  const title =
-    phase === 'uploading'
-      ? 'Uploading'
-      : phase === 'ready'
-        ? 'Ready to list'
-        : phase === 'listing'
-          ? 'Confirm in wallet'
-          : 'Drop summary';
-
-  /** Review needs no lede — the title is the brief. Status phases do. */
-  const status =
-    phase === 'uploading'
-      ? uploadLabel
-      : phase === 'ready'
-        ? 'Media ready — confirm in your wallet to list.'
-        : phase === 'listing'
-          ? 'Approve in your wallet…'
-          : null;
-
-  const primaryLabel =
-    phase === 'uploading'
-      ? uploadLabel
-      : phase === 'ready' || phase === 'listing'
-        ? 'Confirm in wallet'
-        : 'Start drop';
+  const { title, status, primaryLabel } = dropStartConfirmCopy(
+    phase,
+    uploadLabel
+  );
 
   const primaryPending = phase === 'uploading' || phase === 'listing';
   const primaryReady = phase === 'review' || phase === 'ready';

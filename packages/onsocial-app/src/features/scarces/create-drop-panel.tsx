@@ -155,6 +155,7 @@ import { finalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
 import {
   APP_MARKET_PATH,
+  DROP_CREATE_SERIES_PARAM,
   MARKET_APP_PARAM,
   appPath,
   collectionPath,
@@ -231,7 +232,7 @@ export function CreateDropPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const appId = searchParams.get(MARKET_APP_PARAM)?.trim() ?? '';
-  const seriesQuery = searchParams.get('series')?.trim() ?? '';
+  const seriesQuery = searchParams.get(DROP_CREATE_SERIES_PARAM)?.trim() ?? '';
   const { accountId, isConnected, isLoading, connect, getSigningWallet } =
     useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
@@ -1416,7 +1417,7 @@ export function CreateDropPanel() {
       const n = pinnedLargeSet.pieceCount;
       return `Pinned · ${n} ${n === 1 ? 'piece' : 'pieces'} · ready to sign`;
     }
-    return 'Media ready · confirm in wallet to list';
+    return 'Media ready · confirm in wallet to start';
   }, [
     isAudio,
     isWriting,

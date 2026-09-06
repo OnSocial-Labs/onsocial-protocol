@@ -41,7 +41,7 @@ import {
 } from '@/features/scarces/series-page-view';
 import { SeriesShopRow } from '@/features/scarces/series-shop-row';
 import { accountIdsEqual } from '@/lib/account-match';
-import { APP_DROP_CREATE_PATH, marketCreatorPath } from '@/lib/app-routes';
+import { dropCreatePath, marketCreatorPath } from '@/lib/app-routes';
 import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import {
   groupHoldingsForRail,
@@ -356,7 +356,7 @@ export function SeriesPagePanel({
                     Start the next drop in this line from Create.
                   </p>
                   <Link
-                    href={APP_DROP_CREATE_PATH}
+                    href={dropCreatePath({ series: title })}
                     className="page-drawer-section-action series-empty-create"
                     scroll={false}
                   >

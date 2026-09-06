@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  APP_DROP_CREATE_PATH,
   APP_MARKET_PATH,
   APP_SERIES_PATH,
+  dropCreatePath,
   seriesPagePath,
 } from '@/lib/app-routes';
 
@@ -18,5 +20,15 @@ describe('seriesPagePath', () => {
   it('falls back to Market when creator or series id is empty', () => {
     expect(seriesPagePath('', 'ink')).toBe(APP_MARKET_PATH);
     expect(seriesPagePath('alice.testnet', '  ')).toBe(APP_MARKET_PATH);
+  });
+});
+
+describe('dropCreatePath', () => {
+  it('stays on New drop and prefills a series name', () => {
+    expect(dropCreatePath()).toBe(APP_DROP_CREATE_PATH);
+    expect(dropCreatePath({ series: 'Night Roads' })).toBe(
+      `${APP_DROP_CREATE_PATH}?series=Night+Roads`
+    );
+    expect(dropCreatePath({ series: '  ' })).toBe(APP_DROP_CREATE_PATH);
   });
 });
