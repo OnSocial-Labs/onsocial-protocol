@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { MultiplyIcon, ShopFillIcon, StarMovingFillIcon } from '@onsocial/ui';
+import {
+  MultiplyIcon,
+  ProtocolMotionArrow,
+  ShopFillIcon,
+  StarMovingFillIcon,
+} from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -99,7 +104,10 @@ import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 import { accountIdsEqual } from '@/lib/account-match';
 import { APP_HOME_PATH, appPath } from '@/lib/app-routes';
-import { portfolioPath } from '@/lib/overlay-routes';
+import {
+  portfolioCollectiblesPath,
+  portfolioPath,
+} from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
@@ -1839,9 +1847,21 @@ export function MarketPagePanel({
 
         {showOwnedSection ? (
           <section className="market-section" aria-labelledby="market-yours">
-            <h2 id="market-yours" className="market-section-title">
-              Yours
-            </h2>
+            <div className="market-section-title-row">
+              <h2 id="market-yours" className="market-section-title">
+                Yours
+              </h2>
+              {viewerAccountId ? (
+                <Link
+                  href={portfolioCollectiblesPath(viewerAccountId)}
+                  scroll={false}
+                  className="page-drawer-section-action"
+                >
+                  Open Collectibles
+                  <ProtocolMotionArrow className="page-drawer-section-action-arrow" />
+                </Link>
+              ) : null}
+            </div>
             <div className="market-listing-list" role="list">
               {owned.map((item) => {
                 const offerSummary = offerByToken.get(item.tokenId);

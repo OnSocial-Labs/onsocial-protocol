@@ -172,7 +172,7 @@ export interface PortfolioRailItem {
 const PORTFOLIO_RAIL_ITEMS: readonly PortfolioRailItem[] = [
   ...FEED_TAB_ITEMS,
   { id: 'scarces', label: 'Scarces', Icon: StarsCIcon },
-  { id: 'collection', label: 'Collection', Icon: GiftIcon },
+  { id: 'collection', label: 'Collectibles', Icon: GiftIcon },
 ];
 
 /** Commerce tabs only render when the account has content behind them. */
@@ -189,7 +189,7 @@ export function resolvePortfolioRailItems(
   );
 }
 
-/** Sticky portfolio rail — feed sections + adaptive collection tabs. */
+/** Sticky portfolio rail — feed sections + Scarces / Collectibles. */
 export function PortfolioRailTabs({
   tab,
   onTabChange,
