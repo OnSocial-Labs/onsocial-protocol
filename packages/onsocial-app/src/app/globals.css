@@ -30773,16 +30773,6 @@ a.os-surface-row {
     padding-bottom: 0.15rem;
   }
 
-  /*
-   * Catalog tab rail inside the guild pin: margin becomes padding so the
-   * block totals --os-chrome-rail-block (0.28 + chip 1.53 + 0.35 = 2.16rem)
-   * and the chrome glass bottom edge docks flush with the chips.
-   */
-  .guild-feed-filter-pin .app-hub-catalog-tabs {
-    margin: 0;
-    padding: 0.28rem 0 0.35rem;
-  }
-
   /* Creator-facing rollup strip — indexer stats. */
   .app-hub-stats {
     display: grid;
@@ -30825,73 +30815,6 @@ a.os-surface-row {
     font-size: 0.7rem;
     font-weight: 600;
     color: var(--os-surface-muted-strong);
-  }
-
-  /* Drops catalog — spotlight + list. */
-  .app-drop-catalog {
-    display: flex;
-    flex-direction: column;
-    gap: 0.7rem;
-  }
-
-  .app-drop-spotlight {
-    display: flex;
-    flex-direction: column;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 1.1rem;
-    overflow: hidden;
-    background: rgb(var(--fg-rgb) / 0.03);
-    text-decoration: none;
-    color: inherit;
-  }
-
-  .app-drop-spotlight-media {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    aspect-ratio: 16 / 9;
-    background: rgb(var(--fg-rgb) / 0.06);
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--os-surface-muted-strong);
-  }
-
-  .app-drop-spotlight-media img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .app-drop-spotlight-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-    padding: 0.75rem 0.9rem 0.85rem;
-  }
-
-  .app-drop-spotlight-title {
-    font-size: 1.02rem;
-    font-weight: 700;
-    color: var(--os-surface-emphasis);
-  }
-
-  .app-drop-spotlight-progress {
-    display: block;
-    height: 0.35rem;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.08);
-    overflow: hidden;
-    margin: 0.15rem 0;
-  }
-
-  .app-drop-spotlight-progress-fill {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: var(--protocol-green);
   }
 
   /* Creators drawer roster rows. */
@@ -31210,71 +31133,6 @@ a.os-surface-row {
     width: 100%;
     height: 100%;
     object-fit: cover;
-  }
-
-  .app-drop-card {
-    display: grid;
-    grid-template-columns: 3.4rem minmax(0, 1fr);
-    gap: 0.7rem;
-    align-items: center;
-    text-decoration: none;
-    color: inherit;
-    padding: 0.45rem;
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.035);
-  }
-
-  .app-drop-card:hover,
-  .app-drop-card:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.06);
-  }
-
-  .app-drop-card-media {
-    width: 3.4rem;
-    height: 3.4rem;
-    border-radius: 0.7rem;
-    overflow: hidden;
-    display: grid;
-    place-items: center;
-    background: rgb(var(--fg-rgb) / 0.08);
-    font-weight: 700;
-    color: var(--os-surface-muted);
-  }
-
-  .app-drop-card-media img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .app-drop-card-body {
-    display: grid;
-    gap: 0.15rem;
-    min-width: 0;
-  }
-
-  .app-drop-card-title {
-    font-weight: 700;
-    font-size: 0.92rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .app-drop-card-meta {
-    color: var(--os-surface-muted);
-    font-size: 0.72rem;
-  }
-
-  .app-resale-panel {
-    display: grid;
-    gap: 0.65rem;
-  }
-
-  .app-page-note {
-    margin: 0;
-    font-size: 0.82rem;
-    color: var(--os-surface-muted);
   }
 
   .app-page-roster {
