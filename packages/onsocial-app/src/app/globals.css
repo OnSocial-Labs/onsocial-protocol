@@ -24722,7 +24722,8 @@ a.os-surface-row {
     font: inherit;
   }
 
-  .collectibles-library-heading {
+  h2.collectibles-library-heading,
+  button.collectibles-library-heading {
     position: sticky;
     top: 0;
     z-index: 2;
@@ -24742,6 +24743,7 @@ a.os-surface-row {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    text-transform: none;
   }
 
   .collectibles-library-heading-count {
