@@ -15,7 +15,9 @@ import {
 import {
   APP_COLLECTIBLES_PATH,
   COLLECTIBLES_SEARCH_PARAM,
+  COLLECTIBLES_SERIES_PARAM,
   MARKET_AUDIO_FORMAT_PARAM,
+  MARKET_CREATOR_PARAM,
   MARKET_FACETS_PARAM,
   MARKET_KIND_PARAM,
   marketFacetsParamValue,
@@ -35,6 +37,10 @@ export type CollectiblesPageQuery = {
   kind: MarketMediumFilter;
   facets: string[];
   audioFormat: MarketAudioFormatFilter;
+  /** Drop creator account, or `other` for holdings without a creator. */
+  creator: string | null;
+  /** Series id (or title key) from vault inventory. */
+  series: string | null;
 };
 
 export const EMPTY_COLLECTIBLES_PAGE_QUERY: CollectiblesPageQuery = {
@@ -42,13 +48,22 @@ export const EMPTY_COLLECTIBLES_PAGE_QUERY: CollectiblesPageQuery = {
   kind: 'all',
   facets: [],
   audioFormat: null,
+  creator: null,
+  series: null,
 };
+
+function parseVaultFilterId(raw: string | null | undefined): string | null {
+  const value = raw?.trim() || '';
+  return value || null;
+}
 
 export function parseCollectiblesPageQuery(params: {
   q?: string | null;
   kind?: string | null;
   facets?: string | null;
   audioFormat?: string | null;
+  creator?: string | null;
+  series?: string | null;
 }): CollectiblesPageQuery {
   const kind = parseMarketMediumFilter(params.kind);
   const facetMedium = normalizeDropFacetMedium(kind);
@@ -61,6 +76,8 @@ export function parseCollectiblesPageQuery(params: {
     facets,
     audioFormat:
       facetMedium === 'audio' ? parseAudioFormat(params.audioFormat) : null,
+    creator: parseVaultFilterId(params.creator),
+    series: parseVaultFilterId(params.series),
   };
 }
 
@@ -81,6 +98,8 @@ export function collectiblesQueryPath(
   if (query.audioFormat) {
     params.set(MARKET_AUDIO_FORMAT_PARAM, query.audioFormat);
   }
+  if (query.creator) params.set(MARKET_CREATOR_PARAM, query.creator);
+  if (query.series) params.set(COLLECTIBLES_SERIES_PARAM, query.series);
   const qs = params.toString();
   return qs ? `${base}?${qs}` : base;
 }
@@ -90,12 +109,16 @@ export function collectiblesToolbarFromQuery(query: CollectiblesPageQuery): {
   kind: MarketMediumFilter;
   facets: string[];
   audioFormat: MarketAudioFormatFilter;
+  creator: string | null;
+  series: string | null;
 } {
   return {
     q: query.q,
     kind: query.kind,
     facets: query.facets,
     audioFormat: query.audioFormat,
+    creator: query.creator,
+    series: query.series,
   };
 }
 
@@ -105,6 +128,8 @@ export function collectiblesSeedParamsKey(query: CollectiblesPageQuery): string 
     query.kind,
     query.facets.join(','),
     query.audioFormat ?? '',
+    query.creator ?? '',
+    query.series ?? '',
   ].join('|');
 }
 

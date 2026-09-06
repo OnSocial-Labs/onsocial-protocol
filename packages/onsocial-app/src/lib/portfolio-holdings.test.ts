@@ -2,11 +2,17 @@ import { describe, expect, it } from 'vitest';
 import {
   filterHoldingsByMedium,
   groupHoldingsForRail,
+  groupHoldingsLibrary,
   holdingsActionLabel,
   holdingsHrefForOwned,
   holdingsKindLabel,
+  holdingsMatchCreator,
   holdingsMatchQuery,
+  holdingsMatchSeries,
+  sliceLibraryGroups,
   toPortfolioHoldingPeek,
+  vaultInventoryCreators,
+  vaultInventorySeries,
 } from '@/lib/portfolio-holdings';
 import { collectionIdFromTokenId } from '@/features/market/market-listings';
 
@@ -273,6 +279,165 @@ describe('holdingsMatchQuery', () => {
     expect(holdingsMatchQuery(item, 'quiet-hours')).toBe(true);
     expect(holdingsMatchQuery(item, 'alice.near')).toBe(true);
     expect(holdingsMatchQuery(item, 'ticket')).toBe(false);
+  });
+
+  it('matches series, collection id, and facets', () => {
+    const item = {
+      title: 'Night Drive',
+      kindLabel: 'Audio',
+      actionLabel: 'Play',
+      tokenId: 'night-drive:1',
+      creatorId: 'alice.near',
+      collectionId: 'night-drive',
+      seriesId: 'night-roads',
+      seriesTitle: 'Night Roads',
+      facets: ['jazz'],
+    };
+    expect(holdingsMatchQuery(item, 'night roads')).toBe(true);
+    expect(holdingsMatchQuery(item, 'night-drive')).toBe(true);
+    expect(holdingsMatchQuery(item, 'jazz')).toBe(true);
+    expect(holdingsMatchQuery(item, 'metal')).toBe(false);
+  });
+});
+
+describe('groupHoldingsLibrary', () => {
+  function peek(
+    over: Partial<Parameters<typeof toPortfolioHoldingPeek>[0]> &
+      Pick<Parameters<typeof toPortfolioHoldingPeek>[0], 'tokenId'>
+  ) {
+    return toPortfolioHoldingPeek({
+      title: over.title ?? over.tokenId,
+      ownerId: 'holder.near',
+      listingKind: null,
+      ...over,
+    });
+  }
+
+  it('groups by creator then series and collapses editions', () => {
+    const groups = groupHoldingsLibrary([
+      peek({
+        tokenId: 'night-drive:1',
+        title: 'Night Drive',
+        collectionId: 'night-drive',
+        creatorId: 'alice.near',
+        seriesId: 'night-roads',
+        seriesTitle: 'Night Roads',
+        mediumKind: 'audio',
+      }),
+      peek({
+        tokenId: 'night-drive:2',
+        title: 'Night Drive',
+        collectionId: 'night-drive',
+        creatorId: 'alice.near',
+        seriesId: 'night-roads',
+        seriesTitle: 'Night Roads',
+        mediumKind: 'audio',
+      }),
+      peek({
+        tokenId: 'dusk-run:1',
+        title: 'Dusk Run',
+        collectionId: 'dusk-run',
+        creatorId: 'alice.near',
+        seriesId: 'night-roads',
+        seriesTitle: 'Night Roads',
+        mediumKind: 'audio',
+      }),
+      peek({
+        tokenId: 'chapter-one:4',
+        title: 'Chapter One',
+        collectionId: 'chapter-one',
+        creatorId: 'alice.near',
+        mediumKind: 'writing',
+      }),
+      peek({
+        tokenId: 'gate:2',
+        title: 'Gate Pass',
+        collectionId: 'gate',
+        creatorId: 'bob.near',
+        mediumKind: 'ticket',
+      }),
+    ]);
+
+    expect(groups).toHaveLength(2);
+    expect(groups[0]?.creatorId).toBe('alice.near');
+    expect(groups[0]?.series[0]).toMatchObject({
+      seriesKey: 'night-roads',
+      seriesTitle: 'Night Roads',
+    });
+    expect(groups[0]?.series[0]?.drops).toHaveLength(2);
+    expect(groups[0]?.series[0]?.drops[0]?.editionCount).toBe(2);
+    expect(groups[0]?.series[1]?.seriesKey).toBeNull();
+    expect(groups[0]?.series[1]?.drops[0]?.title).toBe('Chapter One');
+    expect(groups[1]?.creatorId).toBe('bob.near');
+    expect(groups[1]?.series[0]?.drops[0]?.title).toBe('Gate Pass');
+  });
+
+  it('slices preview rows without dropping headers', () => {
+    const groups = groupHoldingsLibrary([
+      peek({
+        tokenId: 'a:1',
+        collectionId: 'a',
+        creatorId: 'alice.near',
+        seriesId: 's',
+        seriesTitle: 'S',
+      }),
+      peek({
+        tokenId: 'b:1',
+        collectionId: 'b',
+        creatorId: 'alice.near',
+        seriesId: 's',
+        seriesTitle: 'S',
+      }),
+      peek({
+        tokenId: 'c:1',
+        collectionId: 'c',
+        creatorId: 'bob.near',
+      }),
+    ]);
+    const sliced = sliceLibraryGroups(groups, 2);
+    expect(sliced.truncated).toBe(true);
+    expect(sliced.groups).toHaveLength(1);
+    expect(sliced.groups[0]?.series[0]?.drops).toHaveLength(2);
+  });
+});
+
+describe('vault inventory filters', () => {
+  const items = [
+    toPortfolioHoldingPeek({
+      tokenId: 'a:1',
+      title: 'A',
+      ownerId: 'holder.near',
+      collectionId: 'a',
+      creatorId: 'alice.near',
+      seriesId: 'night-roads',
+      seriesTitle: 'Night Roads',
+      listingKind: null,
+    }),
+    toPortfolioHoldingPeek({
+      tokenId: 'b:1',
+      title: 'B',
+      ownerId: 'holder.near',
+      collectionId: 'b',
+      creatorId: 'bob.near',
+      listingKind: null,
+    }),
+  ];
+
+  it('lists creators and series from held drops', () => {
+    expect(vaultInventoryCreators(items).map((row) => row.id)).toEqual([
+      'alice.near',
+      'bob.near',
+    ]);
+    expect(vaultInventorySeries(items)).toEqual([
+      { id: 'night-roads', label: 'Night Roads', count: 1 },
+    ]);
+  });
+
+  it('matches creator and series filters', () => {
+    expect(holdingsMatchCreator(items[0]!, 'alice.near')).toBe(true);
+    expect(holdingsMatchCreator(items[1]!, 'alice.near')).toBe(false);
+    expect(holdingsMatchSeries(items[0]!, 'night-roads')).toBe(true);
+    expect(holdingsMatchSeries(items[1]!, 'night-roads')).toBe(false);
   });
 });
 

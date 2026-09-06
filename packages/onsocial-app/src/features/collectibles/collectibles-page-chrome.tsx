@@ -15,6 +15,7 @@ import type { MarketAudioFormatFilter } from '@/features/market/market-audio-for
 import {
   MarketFilterMenu,
   marketFilterTriggerLabel,
+  type VaultFilterChip,
 } from '@/features/market/market-filter-menu';
 import {
   MARKET_MEDIUM_FILTERS,
@@ -62,6 +63,12 @@ export function CollectiblesFilterToolbar({
   onFacetsChange,
   onClear,
   onMenuOpenChange,
+  vaultCreators = [],
+  vaultSeries = [],
+  selectedCreator = null,
+  selectedSeries = null,
+  onCreatorChange,
+  onSeriesChange,
 }: {
   medium: MarketMediumFilter;
   audioFormat: MarketAudioFormatFilter;
@@ -73,13 +80,29 @@ export function CollectiblesFilterToolbar({
   onFacetsChange?: (facets: string[]) => void;
   onClear?: () => void;
   onMenuOpenChange?: (open: boolean) => void;
+  vaultCreators?: VaultFilterChip[];
+  vaultSeries?: VaultFilterChip[];
+  selectedCreator?: string | null;
+  selectedSeries?: string | null;
+  onCreatorChange?: (creator: string | null) => void;
+  onSeriesChange?: (series: string | null) => void;
 }) {
   const facetMedium = normalizeDropFacetMedium(medium);
+  const creatorLabel =
+    selectedCreator &&
+    (vaultCreators.find((entry) => entry.id === selectedCreator)?.label ??
+      selectedCreator);
+  const seriesLabel =
+    selectedSeries &&
+    (vaultSeries.find((entry) => entry.id === selectedSeries)?.label ??
+      selectedSeries);
   const filterLabel = marketFilterTriggerLabel({
     medium,
     audioFormat,
     selectedFacets,
     facetMedium,
+    creatorLabel: creatorLabel || null,
+    seriesLabel: seriesLabel || null,
   });
 
   return (
@@ -137,6 +160,12 @@ export function CollectiblesFilterToolbar({
           onFacetsChange={onFacetsChange ?? (() => undefined)}
           onClear={onClear ?? (() => undefined)}
           onOpenChange={onMenuOpenChange}
+          vaultCreators={vaultCreators}
+          vaultSeries={vaultSeries}
+          selectedCreator={selectedCreator}
+          selectedSeries={selectedSeries}
+          onCreatorChange={onCreatorChange}
+          onSeriesChange={onSeriesChange}
         />
       )}
     </OsAppChromeToolbarRail>

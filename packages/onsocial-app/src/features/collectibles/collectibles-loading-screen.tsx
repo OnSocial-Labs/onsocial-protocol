@@ -37,6 +37,8 @@ export function CollectiblesLoadingScreen({
           medium={toolbar.kind}
           audioFormat={toolbar.audioFormat}
           selectedFacets={toolbar.facets}
+          selectedCreator={toolbar.creator}
+          selectedSeries={toolbar.series}
         />
       }
     >

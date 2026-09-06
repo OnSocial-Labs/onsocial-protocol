@@ -48,15 +48,22 @@ function facetLabel(medium: DropFacetMedium, facetId: string): string {
   return hit?.label ?? facetId;
 }
 
+export type VaultFilterChip = {
+  id: string;
+  label: string;
+};
+
 /** Trigger copy — "Filter" when open catalog; summary when narrowed. */
 export function marketFilterTriggerLabel(opts: {
   medium: MarketMediumFilter;
   audioFormat: MarketAudioFormatFilter;
   selectedFacets: string[];
   facetMedium: DropFacetMedium | null;
+  creatorLabel?: string | null;
+  seriesLabel?: string | null;
 }): string {
-  if (opts.medium === 'all') return 'Filter';
-  const parts = [mediumLabel(opts.medium)];
+  const parts: string[] = [];
+  if (opts.medium !== 'all') parts.push(mediumLabel(opts.medium));
   if (opts.audioFormat) {
     parts.push(
       AUDIO_FORMAT_OPTIONS.find((entry) => entry.id === opts.audioFormat)
@@ -68,7 +75,9 @@ export function marketFilterTriggerLabel(opts: {
   } else if (opts.selectedFacets.length > 1) {
     parts.push(String(opts.selectedFacets.length));
   }
-  return parts.join(' · ');
+  if (opts.creatorLabel?.trim()) parts.push(opts.creatorLabel.trim());
+  if (opts.seriesLabel?.trim()) parts.push(opts.seriesLabel.trim());
+  return parts.length > 0 ? parts.join(' · ') : 'Filter';
 }
 
 /**
@@ -87,6 +96,12 @@ export function MarketFilterMenu({
   onClear,
   onOpenChange,
   showFacets = true,
+  vaultCreators = [],
+  vaultSeries = [],
+  selectedCreator = null,
+  selectedSeries = null,
+  onCreatorChange,
+  onSeriesChange,
 }: {
   medium: MarketMediumFilter;
   onMediumChange: (medium: MarketMediumFilter) => void;
@@ -99,18 +114,42 @@ export function MarketFilterMenu({
   onOpenChange?: (open: boolean) => void;
   /** Drops catalog omits genre facets until indexer supports them. */
   showFacets?: boolean;
+  /** Creators actually held — Collectibles vault only. */
+  vaultCreators?: VaultFilterChip[];
+  /** Series actually held — Collectibles vault only. */
+  vaultSeries?: VaultFilterChip[];
+  selectedCreator?: string | null;
+  selectedSeries?: string | null;
+  onCreatorChange?: (creator: string | null) => void;
+  onSeriesChange?: (series: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
+  const creatorLabel =
+    selectedCreator &&
+    (vaultCreators.find((entry) => entry.id === selectedCreator)?.label ??
+      selectedCreator);
+  const seriesLabel =
+    selectedSeries &&
+    (vaultSeries.find((entry) => entry.id === selectedSeries)?.label ??
+      selectedSeries);
   const triggerLabel = marketFilterTriggerLabel({
     medium,
     audioFormat,
     selectedFacets,
     facetMedium,
+    creatorLabel: creatorLabel || null,
+    seriesLabel: seriesLabel || null,
   });
   const narrowed =
-    medium !== 'all' || selectedFacets.length > 0 || Boolean(audioFormat);
+    medium !== 'all' ||
+    selectedFacets.length > 0 ||
+    Boolean(audioFormat) ||
+    Boolean(selectedCreator) ||
+    Boolean(selectedSeries);
+  const showVaultCreators = vaultCreators.length >= 2 && Boolean(onCreatorChange);
+  const showVaultSeries = vaultSeries.length > 0 && Boolean(onSeriesChange);
   const suggestions = facetMedium
     ? dropFacetSuggestionsForMedium(facetMedium)
     : [];
@@ -251,6 +290,48 @@ export function MarketFilterMenu({
                   id: entry.id,
                   label: entry.label,
                 }))}
+              />
+            </section>
+          ) : null}
+
+          {showVaultCreators ? (
+            <section className="market-filter-sheet-block" aria-label="From">
+              <p className="os-choice-sheet-section-title">From</p>
+              <OsChipRail
+                selection="option"
+                className="market-filter-chip-row"
+                scrollerClassName="market-filter-chip-wrap"
+                ariaLabel="From"
+                value={selectedCreator}
+                onValueChange={(next) => onCreatorChange?.(next || null)}
+                items={[
+                  { id: null, label: 'All', key: 'all-creators' },
+                  ...vaultCreators.map((entry) => ({
+                    id: entry.id,
+                    label: entry.label,
+                  })),
+                ]}
+              />
+            </section>
+          ) : null}
+
+          {showVaultSeries ? (
+            <section className="market-filter-sheet-block" aria-label="Series">
+              <p className="os-choice-sheet-section-title">Series</p>
+              <OsChipRail
+                selection="option"
+                className="market-filter-chip-row"
+                scrollerClassName="market-filter-chip-wrap"
+                ariaLabel="Series"
+                value={selectedSeries}
+                onValueChange={(next) => onSeriesChange?.(next || null)}
+                items={[
+                  { id: null, label: 'All', key: 'all-series' },
+                  ...vaultSeries.map((entry) => ({
+                    id: entry.id,
+                    label: entry.label,
+                  })),
+                ]}
               />
             </section>
           ) : null}

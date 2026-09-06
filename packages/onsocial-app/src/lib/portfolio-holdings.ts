@@ -9,12 +9,16 @@ import {
   marketMediumLabel,
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
+import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_COLLECTIBLES_PATH,
   collectionPath,
   collectiblesPlayPath,
 } from '@/lib/app-routes';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
+
+/** Vault filter id when a holding has no drop creator. */
+export const COLLECTIBLES_CREATOR_OTHER = 'other';
 
 /** Max holdings cards in the portfolio Collectibles rail. */
 export const PAGE_DRAWER_HOLDINGS_PEEK = 6;
@@ -28,6 +32,10 @@ export interface PortfolioHoldingPeek {
   collectionId: string | null;
   /** Drop creator account when known. */
   creatorId?: string | null;
+  /** Series id when the drop is grouped under a series. */
+  seriesId?: string | null;
+  /** Series display title when stamped. */
+  seriesTitle?: string | null;
   /** Edition seat from `collectionId:n` tokens. */
   editionSeat?: number | null;
   mediumKind: string | null;
@@ -143,6 +151,10 @@ export function toPortfolioHoldingPeek(
     mediaUrl: item.mediaUrl ?? null,
     collectionId,
     ...(creatorId ? { creatorId } : {}),
+    ...(item.seriesId?.trim() ? { seriesId: item.seriesId.trim() } : {}),
+    ...(item.seriesTitle?.trim()
+      ? { seriesTitle: item.seriesTitle.trim() }
+      : {}),
     ...(editionSeat != null ? { editionSeat } : {}),
     mediumKind,
     ...(item.audioFormat !== undefined
@@ -244,6 +256,191 @@ export function groupHoldingsForRail(
   return [...byKey.values()];
 }
 
+export function holdingsCreatorKey(
+  creatorId?: string | null
+): string {
+  return creatorId?.trim() || COLLECTIBLES_CREATOR_OTHER;
+}
+
+export function holdingsSeriesKey(
+  item: Pick<PortfolioHoldingPeek, 'seriesId' | 'seriesTitle'>
+): string | null {
+  const id = item.seriesId?.trim();
+  if (id) return id;
+  const title = item.seriesTitle?.trim();
+  return title ? title.toLowerCase() : null;
+}
+
+export type CollectiblesLibraryDrop = PortfolioHoldingRailCard;
+
+export interface CollectiblesLibrarySeriesGroup {
+  /** Null when these drops are not in a series. */
+  seriesKey: string | null;
+  seriesId: string | null;
+  seriesTitle: string | null;
+  drops: CollectiblesLibraryDrop[];
+}
+
+export interface CollectiblesLibraryCreatorGroup {
+  creatorKey: string;
+  creatorId: string | null;
+  series: CollectiblesLibrarySeriesGroup[];
+}
+
+/**
+ * Library shelf: creator, then series, then edition-collapsed drops.
+ * Creators and series keep first-seen order (newest holdings first).
+ */
+export function groupHoldingsLibrary(
+  holdings: PortfolioHoldingPeek[]
+): CollectiblesLibraryCreatorGroup[] {
+  const rail = groupHoldingsForRail(holdings);
+  const creators = new Map<
+    string,
+    {
+      group: CollectiblesLibraryCreatorGroup;
+      seriesMap: Map<string, CollectiblesLibrarySeriesGroup>;
+      ungrouped: CollectiblesLibraryDrop[];
+    }
+  >();
+
+  for (const drop of rail) {
+    const creatorKey = holdingsCreatorKey(drop.creatorId);
+    let bucket = creators.get(creatorKey);
+    if (!bucket) {
+      bucket = {
+        group: {
+          creatorKey,
+          creatorId: drop.creatorId?.trim() || null,
+          series: [],
+        },
+        seriesMap: new Map(),
+        ungrouped: [],
+      };
+      creators.set(creatorKey, bucket);
+    }
+    const seriesKey = holdingsSeriesKey(drop);
+    if (seriesKey) {
+      let series = bucket.seriesMap.get(seriesKey);
+      if (!series) {
+        series = {
+          seriesKey,
+          seriesId: drop.seriesId?.trim() || null,
+          seriesTitle:
+            drop.seriesTitle?.trim() || drop.seriesId?.trim() || seriesKey,
+          drops: [],
+        };
+        bucket.seriesMap.set(seriesKey, series);
+        bucket.group.series.push(series);
+      }
+      series.drops.push(drop);
+    } else {
+      bucket.ungrouped.push(drop);
+    }
+  }
+
+  const result: CollectiblesLibraryCreatorGroup[] = [];
+  for (const bucket of creators.values()) {
+    if (bucket.ungrouped.length > 0) {
+      bucket.group.series.push({
+        seriesKey: null,
+        seriesId: null,
+        seriesTitle: null,
+        drops: bucket.ungrouped,
+      });
+    }
+    result.push(bucket.group);
+  }
+  return result;
+}
+
+export function countLibraryDrops(
+  groups: CollectiblesLibraryCreatorGroup[]
+): number {
+  let n = 0;
+  for (const creator of groups) {
+    for (const series of creator.series) {
+      n += series.drops.length;
+    }
+  }
+  return n;
+}
+
+/** Keep headers; cut after `maxDrops` edition-collapsed rows. */
+export function sliceLibraryGroups(
+  groups: CollectiblesLibraryCreatorGroup[],
+  maxDrops: number
+): { groups: CollectiblesLibraryCreatorGroup[]; truncated: boolean } {
+  const total = countLibraryDrops(groups);
+  if (total <= maxDrops) return { groups, truncated: false };
+  const out: CollectiblesLibraryCreatorGroup[] = [];
+  let left = maxDrops;
+  for (const creator of groups) {
+    if (left <= 0) break;
+    const seriesOut: CollectiblesLibrarySeriesGroup[] = [];
+    for (const series of creator.series) {
+      if (left <= 0) break;
+      const drops = series.drops.slice(0, left);
+      left -= drops.length;
+      seriesOut.push({ ...series, drops });
+    }
+    if (seriesOut.length > 0) {
+      out.push({ ...creator, series: seriesOut });
+    }
+  }
+  return { groups: out, truncated: true };
+}
+
+export function vaultInventoryCreators(
+  items: PortfolioHoldingPeek[]
+): { id: string; label: string; count: number }[] {
+  const map = new Map<string, { id: string; label: string; count: number }>();
+  for (const drop of groupHoldingsForRail(items)) {
+    const id = holdingsCreatorKey(drop.creatorId);
+    const label = drop.creatorId?.trim() || 'Other';
+    const cur = map.get(id);
+    if (cur) cur.count += 1;
+    else map.set(id, { id, label, count: 1 });
+  }
+  return [...map.values()];
+}
+
+export function vaultInventorySeries(
+  items: PortfolioHoldingPeek[]
+): { id: string; label: string; count: number }[] {
+  const map = new Map<string, { id: string; label: string; count: number }>();
+  for (const drop of groupHoldingsForRail(items)) {
+    const id = holdingsSeriesKey(drop);
+    if (!id) continue;
+    const label = drop.seriesTitle?.trim() || drop.seriesId?.trim() || id;
+    const cur = map.get(id);
+    if (cur) cur.count += 1;
+    else map.set(id, { id, label, count: 1 });
+  }
+  return [...map.values()];
+}
+
+export function holdingsMatchCreator(
+  item: Pick<PortfolioHoldingPeek, 'creatorId'>,
+  creator: string | null
+): boolean {
+  const needle = creator?.trim() || null;
+  if (!needle) return true;
+  if (needle === COLLECTIBLES_CREATOR_OTHER) {
+    return !item.creatorId?.trim();
+  }
+  return accountIdsEqual(item.creatorId ?? '', needle);
+}
+
+export function holdingsMatchSeries(
+  item: Pick<PortfolioHoldingPeek, 'seriesId' | 'seriesTitle'>,
+  series: string | null
+): boolean {
+  const needle = series?.trim() || null;
+  if (!needle) return true;
+  return holdingsSeriesKey(item) === needle;
+}
+
 /** Kind-tab filter for the Collectibles hub (unknown kinds only appear in All). */
 export function filterHoldingsByMedium<
   T extends { mediumKind: string | null },
@@ -259,7 +456,15 @@ export function filterHoldingsByMedium<
 export function holdingsMatchQuery(
   item: Pick<
     PortfolioHoldingPeek,
-    'title' | 'kindLabel' | 'actionLabel' | 'tokenId' | 'creatorId'
+    | 'title'
+    | 'kindLabel'
+    | 'actionLabel'
+    | 'tokenId'
+    | 'creatorId'
+    | 'collectionId'
+    | 'seriesId'
+    | 'seriesTitle'
+    | 'facets'
   >,
   query: string
 ): boolean {
@@ -271,6 +476,10 @@ export function holdingsMatchQuery(
     item.actionLabel,
     item.tokenId,
     item.creatorId,
+    item.collectionId,
+    item.seriesId,
+    item.seriesTitle,
+    ...(item.facets ?? []),
   ]
     .filter(Boolean)
     .join(' ')
