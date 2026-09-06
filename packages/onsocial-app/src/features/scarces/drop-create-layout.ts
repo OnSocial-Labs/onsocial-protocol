@@ -22,6 +22,15 @@ export function dropCreateBlurbOpen(
   return forcedOpen || Boolean(description.trim());
 }
 
+/** Same toggle voice as Advanced — Add / Edit / Hide. */
+export function dropCreateBlurbToggle(opts: {
+  open: boolean;
+  hasText: boolean;
+}): string {
+  if (opts.open) return 'Hide description';
+  return opts.hasText ? 'Edit description' : 'Add a description';
+}
+
 /** Empty artwork/cover sits on the piece. Studio stay a launch card. */
 export function dropCreatePiecePickerClass(
   kind: 'piece' | 'studio' = 'piece'
@@ -42,7 +51,7 @@ export function dropCreateDealShowsSupplyField({
   return !isGeneratedSet && !isVariations;
 }
 
-/** Empty track / writing files sit on the piece — same voice as Add a blurb. */
+/** Empty track / writing files sit on the piece — same voice as Add a description. */
 export type DropCreateAttachAction =
   | 'track'
   | 'tracks'

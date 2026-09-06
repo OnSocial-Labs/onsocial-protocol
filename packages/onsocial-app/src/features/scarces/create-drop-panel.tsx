@@ -131,6 +131,7 @@ import {
   dropCreateAllowlistSummary,
   dropCreateAttachAction,
   dropCreateBlurbOpen,
+  dropCreateBlurbToggle,
   dropCreateBookPdfPlacement,
   dropCreateDealShowsSupplyField,
   dropCreateDropIdSummary,
@@ -608,6 +609,7 @@ export function CreateDropPanel() {
         setSlug(formDraft.slug);
         setIdSuffix(formDraft.idSuffix);
         setDescription(formDraft.description);
+        setBlurbOpen(dropCreateBlurbOpen(formDraft.description));
         setSeriesName(formDraft.seriesName);
         setSupplyInput(formDraft.supplyInput);
         setPriceInput(formDraft.priceInput);
@@ -2371,7 +2373,8 @@ export function CreateDropPanel() {
     setFieldInfoKey(null);
   }, []);
 
-  const blurbShown = dropCreateBlurbOpen(description, blurbOpen);
+  const blurbHasText = Boolean(description.trim());
+  const blurbShown = blurbOpen;
   const facetRowLabel = createFacetMedium
     ? dropFacetFieldLabel(createFacetMedium)
     : 'Style';
@@ -3315,6 +3318,15 @@ export function CreateDropPanel() {
           className="drop-create-section"
           data-drop-create-section="description"
         >
+          <button
+            type="button"
+            className="collection-allowlist-toggle drop-create-blurb-toggle"
+            disabled={pending}
+            aria-expanded={blurbShown}
+            onClick={() => setBlurbOpen((open) => !open)}
+          >
+            {dropCreateBlurbToggle({ open: blurbShown, hasText: blurbHasText })}
+          </button>
           {blurbShown ? (
             <div className="guild-field">
               <DropFieldLabel
@@ -3329,7 +3341,7 @@ export function CreateDropPanel() {
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder={
                   isWriting
-                    ? 'Short public blurb — the manuscript uploads separately.'
+                    ? 'Short public description — the manuscript uploads separately.'
                     : 'What fans get and why it matters — shown on the drop page.'
                 }
                 maxLength={MAX_DESCRIPTION}
@@ -3339,16 +3351,7 @@ export function CreateDropPanel() {
                 {description.length}/{MAX_DESCRIPTION}
               </small>
             </div>
-          ) : (
-            <button
-              type="button"
-              className="collection-allowlist-toggle drop-create-blurb-toggle"
-              disabled={pending}
-              onClick={() => setBlurbOpen(true)}
-            >
-              Add a blurb
-            </button>
-          )}
+          ) : null}
         </div>
 
         <div className="guild-field drop-advanced-toggle-row">

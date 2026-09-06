@@ -31621,7 +31621,6 @@ a.os-surface-row {
 
   /* Empty artwork/cover is a stage, not a dashed form well. */
   .drop-create-form .drop-cover-picker.drop-create-piece {
-    aspect-ratio: 4 / 3;
     padding: 0;
     border: 0;
     background: rgb(var(--fg-rgb) / 0.05);

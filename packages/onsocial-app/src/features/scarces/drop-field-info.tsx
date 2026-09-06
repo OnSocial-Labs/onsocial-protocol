@@ -64,9 +64,9 @@ const DROP_FIELD_INFO: Record<
   },
   description: {
     title: 'Description',
-    summary: 'Short public blurb on the drop page.',
+    summary: 'Short public line on the drop page.',
     detail:
-      'Keep it brief. Writing manuscripts and media upload in their own fields — this is the drop page blurb only.',
+      'Keep it brief. Writing manuscripts and media upload in their own fields — this is the drop page description only.',
   },
   series: {
     title: 'Series',

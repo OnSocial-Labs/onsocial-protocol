@@ -68,6 +68,9 @@ test.describe('create drop', () => {
         .getByText('Artwork', { exact: true })
     ).toHaveCount(0);
     await expect(page.locator('.drop-create-piece')).toBeVisible();
+    const pieceBox = await page.locator('.drop-create-piece').boundingBox();
+    expect(pieceBox).toBeTruthy();
+    expect(pieceBox!.width / pieceBox!.height).toBeCloseTo(1.6, 1);
     await expect(
       page.locator('[data-drop-create-section="title"] #drop-create-title')
     ).toBeVisible();
@@ -91,9 +94,22 @@ test.describe('create drop', () => {
       0
     );
     await expect(page.locator('.drop-create-blurb-toggle')).toHaveText(
-      'Add a blurb'
+      'Add a description'
     );
     await expect(page.locator('#drop-create-description')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Add a description' }).click();
+    await expect(page.locator('#drop-create-description')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'About Description' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Hide description' })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Hide description' }).click();
+    await expect(page.locator('#drop-create-description')).toHaveCount(0);
+    await expect(page.locator('.drop-create-blurb-toggle')).toHaveText(
+      'Add a description'
+    );
 
     await page.getByRole('tab', { name: 'Audio', exact: true }).click();
     await expect(

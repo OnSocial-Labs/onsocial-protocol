@@ -5,6 +5,7 @@ import {
   dropCreateAdvancedExtraOpen,
   dropCreateAttachAction,
   dropCreateBlurbOpen,
+  dropCreateBlurbToggle,
   dropCreateBookPdfPlacement,
   dropCreateDealShowsSupplyField,
   dropCreateFacetsAction,
@@ -60,6 +61,23 @@ describe('dropCreateBlurbOpen', () => {
   });
 });
 
+describe('dropCreateBlurbToggle', () => {
+  it('says Add, Edit, or Hide — one name, Description', () => {
+    expect(dropCreateBlurbToggle({ open: false, hasText: false })).toBe(
+      'Add a description'
+    );
+    expect(dropCreateBlurbToggle({ open: false, hasText: true })).toBe(
+      'Edit description'
+    );
+    expect(dropCreateBlurbToggle({ open: true, hasText: false })).toBe(
+      'Hide description'
+    );
+    expect(dropCreateBlurbToggle({ open: true, hasText: true })).toBe(
+      'Hide description'
+    );
+  });
+});
+
 describe('dropCreatePiecePickerClass', () => {
   it('puts empty artwork on the piece, not a studio launch card', () => {
     expect(dropCreatePiecePickerClass()).toBe(
@@ -75,7 +93,7 @@ describe('dropCreatePiecePickerClass', () => {
 });
 
 describe('dropCreateAttachAction', () => {
-  it('names the empty attach like Add a blurb, not a form label', () => {
+  it('names the empty attach like Add a description, not a form label', () => {
     expect(dropCreateAttachAction('track')).toBe('Add track');
     expect(dropCreateAttachAction('tracks')).toBe('Add tracks');
     expect(dropCreateAttachAction('file')).toBe('Add file');
@@ -100,7 +118,7 @@ describe('dropCreateAdvancedExtraOpen', () => {
 });
 
 describe('dropCreateAdvancedExtraAction', () => {
-  it('names Advanced extras like Add a blurb, not a form label', () => {
+  it('names Advanced extras like Add a description, not a form label', () => {
     expect(dropCreateAdvancedExtraAction('dropId')).toBe('Set a drop ID');
     expect(dropCreateAdvancedExtraAction('series')).toBe('Add to a series');
     expect(dropCreateAdvancedExtraAction('royalty')).toBe('Set a royalty');
