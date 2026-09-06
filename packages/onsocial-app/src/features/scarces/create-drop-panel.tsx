@@ -3488,13 +3488,13 @@ export function CreateDropPanel() {
                 label={dropCreateExtraRowLabel('perWallet')}
                 value={perWalletRowValue}
                 disabled={pending}
-                onClick={() => setExtraSheet('saleRules')}
+                onClick={() => setExtraSheet('perWallet')}
               />
               <DropCreateExtraRow
                 label={dropCreateExtraRowLabel('transferable')}
                 value={transferableRowValue}
                 disabled={pending}
-                onClick={() => setExtraSheet('saleRules')}
+                onClick={() => setExtraSheet('transferable')}
               />
               {isTicket ? (
                 <div
@@ -3788,52 +3788,56 @@ export function CreateDropPanel() {
                 </div>
               </div>
             </div>
-            <label className="guild-field" htmlFor={fieldId('per-wallet')}>
-              <span>Max per wallet</span>
-              <SuffixField
-                id={fieldId('per-wallet')}
-                value={maxPerWallet}
-                onValueChange={(value) =>
-                  setMaxPerWallet(value.replace(/[^\d]/g, ''))
-                }
-                placeholder="No limit"
-                aria-label={`Max ${template.unit} per wallet`}
-                suffix={template.unit}
+          </div>
+        ) : null}
+        {extraSheet === 'perWallet' ? (
+          <label className="guild-field" htmlFor={fieldId('per-wallet')}>
+            <span>Max per wallet</span>
+            <SuffixField
+              id={fieldId('per-wallet')}
+              value={maxPerWallet}
+              onValueChange={(value) =>
+                setMaxPerWallet(value.replace(/[^\d]/g, ''))
+              }
+              placeholder="No limit"
+              aria-label={`Max ${template.unit} per wallet`}
+              suffix={template.unit}
+              disabled={pending}
+            />
+          </label>
+        ) : null}
+        {extraSheet === 'transferable' ? (
+          <div className="guild-field">
+            <span>Transferable</span>
+            <div
+              className="app-access-options"
+              role="radiogroup"
+              aria-label="Transferable"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={transferable}
+                className={`app-access-option${
+                  transferable ? ' is-selected' : ''
+                }`}
                 disabled={pending}
-              />
-            </label>
-            <div className="guild-field">
-              <span>Transferable</span>
-              <div
-                className="app-access-options"
-                role="radiogroup"
-                aria-label="Transferable"
+                onClick={() => setTransferable(true)}
               >
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={transferable}
-                  className={`app-access-option${
-                    transferable ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setTransferable(true)}
-                >
-                  Yes
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={!transferable}
-                  className={`app-access-option${
-                    !transferable ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setTransferable(false)}
-                >
-                  Soulbound
-                </button>
-              </div>
+                Yes
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!transferable}
+                className={`app-access-option${
+                  !transferable ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setTransferable(false)}
+              >
+                Soulbound
+              </button>
             </div>
           </div>
         ) : null}

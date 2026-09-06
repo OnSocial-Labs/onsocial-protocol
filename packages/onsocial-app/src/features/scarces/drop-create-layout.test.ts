@@ -169,7 +169,11 @@ describe('dropCreateExtraHint', () => {
     expect(dropCreateExtraHint('renewals', { isTicket: true })).toBe(
       dropCreateRenewalsHint(true)
     );
-    expect(dropCreateExtraHint('saleRules')).toMatch(/mint/);
+    expect(dropCreateExtraHint('saleRules')).toBe(
+      'When collectors can mint.'
+    );
+    expect(dropCreateExtraHint('perWallet')).toMatch(/one wallet/);
+    expect(dropCreateExtraHint('transferable')).toMatch(/Soulbound/);
   });
 });
 

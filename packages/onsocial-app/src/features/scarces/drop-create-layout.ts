@@ -129,6 +129,8 @@ export type DropCreateExtraSheetId =
   | 'facets'
   | 'royalty'
   | 'saleRules'
+  | 'perWallet'
+  | 'transferable'
   | 'renewals'
   | 'place';
 
@@ -176,7 +178,11 @@ export function dropCreateExtraHint(
     case 'royalty':
       return 'Creator cut on resales.';
     case 'saleRules':
-      return 'When collectors can mint, and whether they can resell.';
+      return 'When collectors can mint.';
+    case 'perWallet':
+      return 'Cap how many one wallet can collect.';
+    case 'transferable':
+      return 'Yes means they can resell. Soulbound stays with them.';
     case 'renewals':
       return opts.isTicket
         ? 'Push the event end later if the show moves.'

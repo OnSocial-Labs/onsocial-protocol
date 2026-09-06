@@ -1,10 +1,26 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
 
 /**
- * New drop maker chrome — title, dock leave, work-then-deal field order.
- * Does not submit a drop.
+ * New drop maker chrome. Does not submit a drop (no wallet).
  */
+const COVER_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64'
+);
+
+async function openCreateDrop(
+  page: Page,
+  path = '/market/create'
+): Promise<void> {
+  await gotoApp(page, path);
+  await expect(page.locator('.drop-create-form')).toHaveAttribute(
+    'data-drop-create-ready',
+    '',
+    { timeout: E2E_CHROME_TIMEOUT_MS }
+  );
+}
+
 test.describe('create drop', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
@@ -37,18 +53,16 @@ test.describe('create drop', () => {
     await expect(
       page.getByRole('button', { name: 'Connect', exact: true })
     ).toHaveCount(1);
+    await expect(
+      page.getByRole('button', { name: 'Start drop', exact: true })
+    ).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await expect(page).toHaveURL(/\/drops(?:\?|$)/);
   });
 
   test('orders work, title, deal, then description', async ({ page }) => {
-    await gotoApp(page, '/market/create');
-    await expect(page.locator('.drop-create-form')).toHaveAttribute(
-      'data-drop-create-ready',
-      '',
-      { timeout: E2E_CHROME_TIMEOUT_MS }
-    );
+    await openCreateDrop(page);
 
     const order = await page
       .locator('[data-drop-create-section]')
@@ -67,33 +81,10 @@ test.describe('create drop', () => {
         .locator('[data-drop-create-section="work"]')
         .getByText('Artwork', { exact: true })
     ).toHaveCount(0);
-    await expect(page.locator('.drop-create-piece')).toBeVisible();
-    const pieceBox = await page.locator('.drop-create-piece').boundingBox();
-    expect(pieceBox).toBeTruthy();
-    expect(pieceBox!.width / pieceBox!.height).toBeCloseTo(1, 1);
-    expect(pieceBox!.width).toBeLessThan(320);
     await expect(page.locator('.drop-kind-lede')).toHaveCount(0);
-    const png = Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-      'base64'
-    );
-    await page.locator('input.scarce-cover-file-input').setInputFiles({
-      name: 'art.png',
-      mimeType: 'image/png',
-      buffer: png,
-    });
-    await expect(page.locator('.drop-create-piece.has-media')).toBeVisible();
-    const filledBox = await page
-      .locator('.drop-create-piece.has-media')
-      .boundingBox();
-    expect(filledBox).toBeTruthy();
-    expect(filledBox!.width / filledBox!.height).toBeCloseTo(1, 1);
-    expect(filledBox!.width).toBeCloseTo(pieceBox!.width, 1);
-    await expect(page.locator('.drop-cover-seat-grid')).toHaveCount(0);
     await expect(
       page.locator('[data-drop-create-section="title"] #drop-create-title')
     ).toBeVisible();
-    await expect(page.locator('.drop-create-stage')).toBeVisible();
     await expect(page.locator('.drop-create-deal-line')).toBeVisible();
     await expect(
       page
@@ -112,6 +103,7 @@ test.describe('create drop', () => {
     await expect(page.getByRole('group', { name: 'Total supply' })).toHaveCount(
       0
     );
+
     await expect(page.locator('.drop-create-description-toggle')).toHaveText(
       'Add a description'
     );
@@ -121,14 +113,41 @@ test.describe('create drop', () => {
     await expect(
       page.getByRole('button', { name: 'About Description' })
     ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Hide description' })
-    ).toBeVisible();
+    await page.locator('#drop-create-description').fill('Short public line.');
     await page.getByRole('button', { name: 'Hide description' }).click();
     await expect(page.locator('#drop-create-description')).toHaveCount(0);
     await expect(page.locator('.drop-create-description-toggle')).toHaveText(
-      'Add a description'
+      'Edit description'
     );
+  });
+
+  test('keeps the artwork well square when a photo is picked', async ({
+    page,
+  }) => {
+    await openCreateDrop(page);
+    await expect(page.locator('.drop-create-piece')).toBeVisible();
+    const pieceBox = await page.locator('.drop-create-piece').boundingBox();
+    expect(pieceBox).toBeTruthy();
+    expect(pieceBox!.width / pieceBox!.height).toBeCloseTo(1, 1);
+    expect(pieceBox!.width).toBeLessThan(320);
+
+    await page.locator('input.scarce-cover-file-input').setInputFiles({
+      name: 'art.png',
+      mimeType: 'image/png',
+      buffer: COVER_PNG,
+    });
+    await expect(page.locator('.drop-create-piece.has-media')).toBeVisible();
+    const filledBox = await page
+      .locator('.drop-create-piece.has-media')
+      .boundingBox();
+    expect(filledBox).toBeTruthy();
+    expect(filledBox!.width / filledBox!.height).toBeCloseTo(1, 1);
+    expect(filledBox!.width).toBeCloseTo(pieceBox!.width, 1);
+    await expect(page.locator('.drop-cover-seat-grid')).toHaveCount(0);
+  });
+
+  test('names Audio and Writing attach on the piece', async ({ page }) => {
+    await openCreateDrop(page);
 
     await page.getByRole('tab', { name: 'Audio', exact: true }).click();
     await expect(
@@ -185,6 +204,12 @@ test.describe('create drop', () => {
     await expect(
       page.getByRole('group', { name: 'Book PDF actions' })
     ).toHaveCount(0);
+  });
+
+  test('opens Advanced extras in house-field sheets', async ({ page }) => {
+    await openCreateDrop(page);
+    await page.getByRole('button', { name: 'Advanced', exact: true }).click();
+
     await expect(
       page.getByRole('button', { name: 'Drop ID: From title' })
     ).toBeVisible();
@@ -192,7 +217,7 @@ test.describe('create drop', () => {
       page.getByRole('button', { name: 'Series: None' })
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Subject: None' })
+      page.getByRole('button', { name: 'Style: None' })
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Royalty: 10%' })
@@ -219,38 +244,75 @@ test.describe('create drop', () => {
       page.locator('.drop-create-extra-list .divider-item')
     ).not.toHaveCount(0);
     await expect(page.locator('#drop-create-id')).toHaveCount(0);
-    await expect(
-      page.getByRole('button', { name: 'Set a drop ID', exact: true })
-    ).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Drop ID: From title' }).click();
-    await expect(page.locator('#drop-create-id')).toBeVisible();
-    await expect(page.locator('#drop-create-id')).toHaveClass(
+    const dropId = page.getByRole('dialog', { name: 'Drop ID' });
+    await expect(dropId.locator('#drop-create-id')).toBeVisible();
+    await expect(dropId.locator('#drop-create-id')).toHaveClass(
       /os-field-bordered/
     );
     await expect(
-      page.getByRole('button', { name: 'About Drop ID' })
+      dropId.getByRole('button', { name: 'About Drop ID' })
     ).toHaveCount(0);
     await expect(
-      page.getByText('Filled from your title — edit only for a custom link.')
+      dropId.getByText('Filled from your title — edit only for a custom link.')
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Done', exact: true }).click();
+    await dropId.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(page.locator('#drop-create-id')).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Drop ID: From title' })
     ).toBeVisible();
-
-    await page.locator('.drop-create-description-toggle').click({ force: true });
-    await expect(page.locator('#drop-create-description')).toBeVisible();
   });
 
-  test('tickets name date-change pills in Advanced', async ({ page }) => {
-    await gotoApp(page, '/market/create');
-    await expect(page.locator('.drop-create-form')).toHaveAttribute(
-      'data-drop-create-ready',
-      '',
-      { timeout: E2E_CHROME_TIMEOUT_MS }
+  test('Sale sheet is the window, not per wallet or transferable', async ({
+    page,
+  }) => {
+    await openCreateDrop(page);
+    await page.getByRole('button', { name: 'Advanced', exact: true }).click();
+
+    await page.getByRole('button', { name: 'Sale: Now · no end' }).click();
+    const sale = page.getByRole('dialog', { name: 'Sale' });
+    await expect(sale.getByText('When collectors can mint.')).toBeVisible();
+    await expect(sale.getByText('Opens', { exact: true })).toBeVisible();
+    await expect(sale.getByText('Closes', { exact: true })).toBeVisible();
+    await expect(sale.getByText('Max per wallet', { exact: true })).toHaveCount(
+      0
     );
+    await expect(
+      sale.getByRole('radiogroup', { name: 'Transferable' })
+    ).toHaveCount(0);
+    await sale.getByRole('button', { name: 'Done', exact: true }).click();
+
+    await page.getByRole('button', { name: 'Per wallet: No limit' }).click();
+    const perWallet = page.getByRole('dialog', { name: 'Per wallet' });
+    await expect(
+      perWallet.getByText('Cap how many one wallet can collect.')
+    ).toBeVisible();
+    await expect(
+      perWallet.getByLabel('Max editions per wallet')
+    ).toBeVisible();
+    await expect(perWallet.getByText('Opens', { exact: true })).toHaveCount(0);
+    await perWallet.getByRole('button', { name: 'Done', exact: true }).click();
+
+    await page.getByRole('button', { name: 'Transferable: Yes' }).click();
+    const transferable = page.getByRole('dialog', { name: 'Transferable' });
+    await expect(
+      transferable.getByText('Yes means they can resell. Soulbound stays with them.')
+    ).toBeVisible();
+    await expect(
+      transferable.getByRole('radiogroup', { name: 'Transferable' })
+    ).toBeVisible();
+    await expect(transferable.getByText('Opens', { exact: true })).toHaveCount(
+      0
+    );
+    await transferable.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Transferable: Yes' })
+    ).toBeVisible();
+  });
+
+  test('tickets show Event and Postpone in Advanced', async ({ page }) => {
+    await openCreateDrop(page);
     await page.getByRole('tab', { name: 'Tickets', exact: true }).click();
     await expect(page.locator('.drop-kind-lede')).toHaveCount(0);
     await expect(
@@ -269,40 +331,39 @@ test.describe('create drop', () => {
       0
     );
     await expect(
-      page.getByRole('button', { name: 'Transferable: Yes' })
-    ).toBeVisible();
-    await expect(
       page.getByRole('button', { name: 'Place: None' })
     ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'About Allowlist' })
-    ).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Postpone: Yes' })
     ).toBeVisible();
     await expect(
       page.getByRole('radio', { name: 'Flexible dates', exact: true })
     ).toHaveCount(0);
+
     await page.getByRole('button', { name: 'Postpone: Yes' }).click();
+    const postpone = page.getByRole('dialog', { name: 'Postpone' });
     await expect(
-      page.getByRole('button', { name: 'About Postpone' })
+      postpone.getByRole('button', { name: 'About Postpone' })
     ).toHaveCount(0);
     await expect(
-      page.getByText('Push the event end later if the show moves.')
+      postpone.getByText('Push the event end later if the show moves.')
     ).toBeVisible();
     await expect(
-      page.getByText('Can you push the event end later if the show moves?')
-    ).toHaveCount(0);
-    await expect(
-      page.getByRole('radio', { name: 'Yes', exact: true })
+      postpone.getByRole('radio', { name: 'Yes', exact: true })
     ).toBeChecked();
     await expect(
-      page.getByRole('radio', { name: 'No', exact: true })
+      postpone.getByRole('radio', { name: 'No', exact: true })
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Done', exact: true }).click();
+    await postpone.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'Postpone: Yes' })
     ).toBeVisible();
+  });
+
+  test('coupons and membership tell the truth on renewals', async ({
+    page,
+  }) => {
+    await openCreateDrop(page);
 
     await page.getByRole('tab', { name: 'Coupons', exact: true }).click();
     await expect(
@@ -311,13 +372,14 @@ test.describe('create drop', () => {
     await page
       .getByRole('button', { name: 'Renewals: Yes · set an end' })
       .click();
+    const renewals = page.getByRole('dialog', { name: 'Renewals' });
     await expect(
-      page.getByRole('button', { name: 'About Renewals' })
+      renewals.getByRole('button', { name: 'About Renewals' })
     ).toHaveCount(0);
     await expect(
-      page.getByText('Holders can renew after it expires.')
+      renewals.getByText('Holders can renew after it expires.')
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Done', exact: true }).click();
+    await renewals.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'Renewals: Yes · set an end' })
     ).toBeVisible();
@@ -340,10 +402,10 @@ test.describe('create drop', () => {
   test('hub bind leaves to that hub; series query still prefills', async ({
     page,
   }) => {
-    await gotoApp(page, '/market/create?app=e2e-hub&series=Audit+Series');
+    await openCreateDrop(page, '/market/create?app=e2e-hub&series=Audit+Series');
     await expect(
       page.getByRole('heading', { level: 1, name: 'New drop' })
-    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    ).toBeVisible();
     await expect(page.locator('.drop-create-form')).toHaveAttribute(
       'data-drop-create-back',
       '/apps/e2e-hub'
@@ -357,67 +419,45 @@ test.describe('create drop', () => {
       page.getByRole('button', { name: 'Series: Audit Series' })
     ).toBeVisible();
     await page.getByRole('button', { name: 'Series: Audit Series' }).click();
-    await expect(page.locator('#drop-create-series')).toHaveClass(
+    const series = page.getByRole('dialog', { name: 'Series' });
+    await expect(series.locator('#drop-create-series')).toHaveClass(
       /os-field-bordered/
     );
-    await expect(page.locator('#drop-create-series')).toHaveValue(
+    await expect(series.locator('#drop-create-series')).toHaveValue(
       'Audit Series'
     );
     await expect(
-      page.getByRole('button', { name: 'About Series' })
+      series.getByRole('button', { name: 'About Series' })
     ).toHaveCount(0);
     await expect(
-      page.getByText('Optional — group later drops under one name.')
+      series.getByText('Optional — group later drops under one name.')
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Done', exact: true }).click();
-    await expect(
-      page.getByRole('button', { name: 'Style: None' })
-    ).toBeVisible();
+    await series.getByRole('button', { name: 'Done', exact: true }).click();
+  });
+
+  test('Art Advanced Style and Royalty stay their own sheets', async ({
+    page,
+  }) => {
+    await openCreateDrop(page);
+    await page.getByRole('button', { name: 'Advanced', exact: true }).click();
+
     await page.getByRole('button', { name: 'Style: None' }).click();
-    await expect(page.locator('.drop-facets-chip-row')).toBeVisible();
-    await page.getByRole('button', { name: 'Generative', exact: true }).click();
-    await page.getByRole('button', { name: 'Done', exact: true }).click();
+    const style = page.getByRole('dialog', { name: 'Style' });
+    await expect(style.locator('.drop-facets-chip-row')).toBeVisible();
+    await style.getByRole('button', { name: 'Generative', exact: true }).click();
+    await style.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'Style: Generative' })
     ).toBeVisible();
+
+    await page.getByRole('button', { name: 'Royalty: 10%' }).click();
+    const royalty = page.getByRole('dialog', { name: 'Royalty' });
+    await expect(
+      royalty.getByRole('group', { name: 'Resale royalty' })
+    ).toBeVisible();
+    await royalty.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'Royalty: 10%' })
-    ).toBeVisible();
-    await page.getByRole('button', { name: 'Royalty: 10%' }).click();
-    await expect(
-      page.getByRole('group', { name: 'Resale royalty' })
-    ).toBeVisible();
-    await page.getByRole('button', { name: 'Done', exact: true }).click();
-    await expect(
-      page.getByRole('button', { name: 'Sale: Now · no end' })
-    ).toBeVisible();
-    await page.getByRole('button', { name: 'Sale: Now · no end' }).click();
-    await expect(
-      page.getByRole('button', { name: 'About Sale window' })
-    ).toHaveCount(0);
-    await expect(
-      page.getByText('When collectors can mint, and whether they can resell.')
-    ).toBeVisible();
-    await expect(page.getByText('Opens', { exact: true })).toBeVisible();
-    await expect(page.getByText('Closes', { exact: true })).toBeVisible();
-    await expect(
-      page.getByText('Max per wallet', { exact: true })
-    ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'About Transferable' })
-    ).toHaveCount(0);
-    await expect(
-      page.getByRole('radiogroup', { name: 'Transferable' })
-    ).toBeVisible();
-    await page.getByRole('button', { name: 'Done', exact: true }).click();
-    await expect(
-      page.getByRole('button', { name: 'Sale: Now · no end' })
-    ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Per wallet: No limit' })
-    ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Transferable: Yes' })
     ).toBeVisible();
   });
 });
