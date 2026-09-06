@@ -9,8 +9,15 @@ import {
   CollectiblesFilterToolbar,
   CollectiblesSearchHeading,
 } from '@/features/collectibles/collectibles-page-chrome';
+import type { MarketMediumFilter } from '@/features/market/market-medium';
+import { peekOwnedVaultPage } from '@/features/market/owned-vault-cache';
 import { APP_HOME_PATH } from '@/lib/app-routes';
 import { normalizeAccountRoute } from '@/lib/account-route';
+import {
+  COLLECTIBLES_HELD_KINDS_COOKIE,
+  cookieValueFromCookieSource,
+  parseCollectiblesHeldKindsCookie,
+} from '@/lib/collectibles-held-kinds';
 import {
   EMPTY_COLLECTIBLES_PAGE_QUERY,
   collectiblesAccountIdFromPathname,
@@ -37,22 +44,37 @@ function emptySnapshot() {
   return '';
 }
 
+function documentCookieSnapshot() {
+  return document.cookie;
+}
+
 function routeAccountId(accountId: unknown): string {
   return typeof accountId === 'string'
     ? normalizeAccountRoute(accountId) ?? ''
     : '';
 }
 
+function heldKindsFromVaultCache(
+  accountId: string,
+  selected: MarketMediumFilter
+): MarketMediumFilter[] {
+  const page = peekOwnedVaultPage(accountId);
+  if (!page) return vaultHeldKindFilters([], selected);
+  return vaultHeldKindFilters(page.items, selected);
+}
+
 /**
  * Full vault shell for route `loading.tsx` and the connected OS hop.
- * Reads the URL on the client so `?kind=` / `?sort=` chrome matches ready.
+ * Server loading passes URL query + last held kinds so hard refresh matches ready.
  */
 export function CollectiblesLoadingScreen({
   pageAccountId: pageAccountIdProp,
   query: queryProp,
+  heldKinds: heldKindsProp,
 }: {
   pageAccountId?: string | null;
   query?: CollectiblesPageQuery;
+  heldKinds?: MarketMediumFilter[] | null;
 } = {}) {
   const params = useParams();
   const locationSearch = useSyncExternalStore(
@@ -63,6 +85,11 @@ export function CollectiblesLoadingScreen({
   const locationPathname = useSyncExternalStore(
     subscribeNoop,
     locationPathnameSnapshot,
+    emptySnapshot
+  );
+  const cookieSource = useSyncExternalStore(
+    subscribeNoop,
+    documentCookieSnapshot,
     emptySnapshot
   );
   const pageAccountId =
@@ -76,6 +103,33 @@ export function CollectiblesLoadingScreen({
       ? parseCollectiblesPageQueryFromSearch(locationSearch)
       : EMPTY_COLLECTIBLES_PAGE_QUERY);
   const toolbar = collectiblesToolbarFromQuery(query);
+  const cachedKinds = pageAccountId
+    ? heldKindsFromVaultCache(pageAccountId, toolbar.kind)
+    : vaultHeldKindFilters([], toolbar.kind);
+  const cookieKinds = pageAccountId
+    ? parseCollectiblesHeldKindsCookie(
+        cookieValueFromCookieSource(
+          cookieSource,
+          COLLECTIBLES_HELD_KINDS_COOKIE
+        ),
+        pageAccountId
+      )
+    : null;
+  const rememberedKinds =
+    heldKindsProp && heldKindsProp.length > 0
+      ? heldKindsProp
+      : cookieKinds && cookieKinds.length > 0
+        ? cookieKinds
+        : null;
+  const heldKinds =
+    rememberedKinds && rememberedKinds.length > 0
+      ? vaultHeldKindFilters(
+          rememberedKinds
+            .filter((id) => id !== 'all')
+            .map((mediumKind) => ({ mediumKind })),
+          toolbar.kind
+        )
+      : cachedKinds;
   const backHref = pageAccountId ? portfolioPath(pageAccountId) : APP_HOME_PATH;
 
   return (
@@ -98,7 +152,7 @@ export function CollectiblesLoadingScreen({
           selectedCreator={toolbar.creator}
           selectedSeries={toolbar.series}
           sort={toolbar.sort}
-          heldKinds={vaultHeldKindFilters([], toolbar.kind)}
+          heldKinds={heldKinds}
         />
       }
     >

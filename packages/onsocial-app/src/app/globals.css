@@ -177,6 +177,17 @@
   align-items: center;
 }
 
+/* Filter stays pinned on the right while the kind rail grows or scrolls. */
+.os-app-chrome-rail.collectibles-filter-toolbar > .market-listing-filter-stack {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.os-app-chrome-rail.collectibles-filter-toolbar > .market-listing-sort-menu {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
 .os-app-screen:has(.market-listing-sort-menu-panel) .os-app-screen-header {
   z-index: 40;
 }
@@ -24389,6 +24400,11 @@ a.os-surface-row {
   .collectibles-filter-toolbar .discover-tab-bar-scroller {
     flex-wrap: nowrap;
     overflow-x: auto;
+  }
+
+  .collectibles-filter-toolbar .market-listing-sort-menu {
+    margin-left: auto;
+    flex: 0 0 auto;
   }
 
   /* Host audio must stay in the document (not display:none) for audible play. */

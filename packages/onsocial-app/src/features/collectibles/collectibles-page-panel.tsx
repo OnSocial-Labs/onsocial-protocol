@@ -22,9 +22,11 @@ import type { CollectionCreatorFace } from '@/features/scarces/collection-creato
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   invalidateOwnedVaultCache,
+  peekOwnedVaultFaces,
   peekOwnedVaultPage,
   putOwnedVaultPage,
 } from '@/features/market/owned-vault-cache';
+import { rememberCollectiblesHeldKinds } from '@/lib/collectibles-held-kinds';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 import { CollectiblesLibrarySkeleton } from '@/features/collectibles/collectibles-library-skeleton';
@@ -178,7 +180,7 @@ export function CollectiblesPagePanel({
   const [offlineReady, setOfflineReady] = useState(false);
   const [creatorFaces, setCreatorFaces] = useState<
     Map<string, CollectionCreatorFace>
-  >(() => new Map());
+  >(() => (ownerAccountId ? peekOwnedVaultFaces(ownerAccountId) : new Map()));
   const [sellItem, setSellItem] = useState<OwnedScarceItem | null>(null);
   const [sellOpen, setSellOpen] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
@@ -342,6 +344,16 @@ export function CollectiblesPagePanel({
           return next;
         });
       }
+      rememberCollectiblesHeldKinds(ownerAccountId, items);
+      putOwnedVaultPage(
+        ownerAccountId,
+        {
+          items,
+          nextFromEnd,
+          hasMore,
+        },
+        faces && faces.size > 0 ? Object.fromEntries(faces) : undefined
+      );
       setHoldings(
         holdingsStateFromItems(items, nextFromEnd, hasMore, loadKey)
       );
@@ -377,7 +389,6 @@ export function CollectiblesPagePanel({
           data.accountId &&
           data.accountId === ownerAccountId
         ) {
-          putOwnedVaultPage(ownerAccountId, data.holdings);
           const seedFaces = new Map(
             Object.entries(data.creatorFaces ?? {})
           );
@@ -595,6 +606,16 @@ export function CollectiblesPagePanel({
       setCreatorFaces((prev) => {
         const next = new Map(prev);
         for (const [id, face] of faces) next.set(id, face);
+        if (ownerAccountId) {
+          const cached = peekOwnedVaultPage(ownerAccountId);
+          if (cached) {
+            putOwnedVaultPage(
+              ownerAccountId,
+              cached,
+              Object.fromEntries(next)
+            );
+          }
+        }
         return next;
       });
     })();
@@ -603,7 +624,7 @@ export function CollectiblesPagePanel({
     };
     // Face map is read for a missing-id skip; holdings apply writes it first.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- creatorIdsKey gates fetch
-  }, [creatorIdsKey]);
+  }, [creatorIdsKey, ownerAccountId]);
 
   const displayNames = useMemo(() => {
     const map = new Map<string, string | null>();

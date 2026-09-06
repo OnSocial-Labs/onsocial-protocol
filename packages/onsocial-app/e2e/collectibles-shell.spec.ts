@@ -13,7 +13,7 @@ import {
   gotoApp,
   searchField,
 } from './helpers';
-import { openMarketFilter } from './helpers/market';
+import { marketFilterTrigger, openMarketFilter } from './helpers/market';
 
 const KIND_RAIL = 'Collectible kind';
 const PILL_ACTION = /page-drawer-section-action/;
@@ -251,6 +251,54 @@ test.describe('collectibles shell', () => {
       'data-collectibles-back',
       `/@${COLLECTIBLES_VAULT_OWNER}`
     );
+    await page.unroute('**/api/onapi/graph/query');
+  });
+
+  test('hard refresh of a filtered vault keeps held-kinds chrome', async ({
+    page,
+  }) => {
+    await stubCollectiblesVaultGraph(page);
+    await gotoApp(
+      page,
+      `/@${COLLECTIBLES_VAULT_OWNER}/collectibles?kind=audio`
+    );
+    await expect(page.getByText('Night Drive').first()).toBeVisible({
+      timeout: 30_000,
+    });
+    await expectTabSelected(page, KIND_RAIL, 'Audio');
+    const readyRail = page.getByRole('tablist', { name: KIND_RAIL });
+    await expect(readyRail.getByRole('tab', { name: 'Writing' })).toBeVisible();
+    await expect(readyRail.getByRole('tab', { name: 'Tickets' })).toBeVisible();
+
+    const heldCookie = (await page.context().cookies()).find(
+      (cookie) => cookie.name === 'onsocial-collectibles-held'
+    );
+    expect(heldCookie?.value).toBeTruthy();
+    expect(decodeURIComponent(heldCookie!.value)).toMatch(/writing/);
+    expect(decodeURIComponent(heldCookie!.value)).toMatch(/audio/);
+    expect(decodeURIComponent(heldCookie!.value)).toMatch(/ticket/);
+
+    await page.unroute('**/api/onapi/graph/query');
+    await page.route('**/api/onapi/graph/query', async (route) => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 45_000);
+      });
+      await route.abort();
+    });
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+
+    const skeleton = page.locator('[data-collectibles-library-skeleton]');
+    await expect(skeleton).toBeVisible({ timeout: 15_000 });
+    await expectTabSelected(page, KIND_RAIL, 'Audio');
+    const loadingRail = page.getByRole('tablist', { name: KIND_RAIL });
+    await expect(loadingRail.getByRole('tab', { name: 'Writing' })).toBeVisible();
+    await expect(loadingRail.getByRole('tab', { name: 'Audio' })).toBeVisible();
+    await expect(loadingRail.getByRole('tab', { name: 'Tickets' })).toBeVisible();
+    await expect(
+      loadingRail.getByRole('tab', { name: 'Memberships' })
+    ).toHaveCount(0);
+    await expect(marketFilterTrigger(page)).toBeVisible();
     await page.unroute('**/api/onapi/graph/query');
   });
 
