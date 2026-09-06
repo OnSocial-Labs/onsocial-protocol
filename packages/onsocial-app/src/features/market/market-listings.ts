@@ -1098,6 +1098,16 @@ export function auctionExpiresAtMs(
   return expiresAtNs * 1000;
 }
 
+/** Auction whose clock has run out — Market paints Settle, not Bid. */
+export function isMarketListingEnded(
+  item: Pick<MarketListingItem, 'kind' | 'expiresAtNs'>,
+  nowMs: number
+): boolean {
+  if (item.kind !== 'auction') return false;
+  const endsAtMs = auctionExpiresAtMs(item.expiresAtNs);
+  return endsAtMs != null && endsAtMs <= nowMs;
+}
+
 export function sortMarketListings(
   items: MarketListingItem[],
   sort: MarketListingSort
