@@ -10,6 +10,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  Divider,
   InformationCircleIcon,
   OsIconAction,
   SettingsIcon,
@@ -20,7 +21,6 @@ import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import {
   appVolumeNearLabel,
   canCreateInApp,
-  creatorAccessLabel,
   creatorAccessShort,
   fetchApp,
   fetchAppIndexerRow,
@@ -30,9 +30,14 @@ import {
   type AppStatsView,
   type AppView,
 } from '@/features/scarces/apps-data';
+import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
 import { GuildDescriptionClamp } from '@/features/guilds/guild-description-clamp';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { guildCoverStyle } from '@/features/guilds/guild-visual';
+import {
+  fetchOwnedScarcesPage,
+  type OwnedScarceItem,
+} from '@/features/market/market-listings';
 import { hubCategoryLabel } from '@/features/scarces/hub-categories';
 import {
   HubCreatorsSheet,
@@ -45,6 +50,15 @@ import {
   HubTransferSheet,
   type HubManageSheetId,
 } from '@/features/scarces/hub-manage-sheets';
+import { HubPageSkeleton } from '@/features/scarces/hub-page-skeleton';
+import {
+  hubActivityMeta,
+  hubCatalogShell,
+  hubPageBackHref,
+  hubUseFirst,
+  ownedItemsInHub,
+  peekHeldHubItems,
+} from '@/features/scarces/hub-page-view';
 import { HubPublishAccessSheet } from '@/features/scarces/hub-publish-access-sheet';
 import { HubPublishRequestsSheet } from '@/features/scarces/hub-publish-requests-sheet';
 import { HubSettingsSheet } from '@/features/scarces/hub-settings-sheet';
@@ -52,12 +66,9 @@ import {
   fetchCollectionsByApp,
   type CollectionView,
 } from '@/features/scarces/collections-data';
-import {
-  StoreCatalogTabs,
-  StoreDropsList,
-  StoreResalePanel,
-  type StoreCatalogTab,
-} from '@/features/scarces/store-catalog';
+import { groupSeriesDrops } from '@/features/scarces/series-catalog';
+import { heldCollectionIdSet } from '@/features/scarces/series-page-view';
+import { SeriesShopRow } from '@/features/scarces/series-shop-row';
 import {
   fetchMyStorePublishDecision,
   fetchMyStorePublishRequest,
@@ -66,7 +77,6 @@ import {
   filterActionablePublishRequests,
   isStorePublishRequestRejected,
 } from '@/features/scarces/store-publish-requests';
-import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
   APP_APPS_PATH,
@@ -74,7 +84,11 @@ import {
   MARKET_APP_PARAM,
 } from '@/lib/app-routes';
 import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
-import { portfolioPath } from '@/lib/overlay-routes';
+import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
+import {
+  groupHoldingsForRail,
+  toPortfolioHoldingPeek,
+} from '@/lib/portfolio-holdings';
 import { fallbackLabel } from '@/lib/profile-display';
 import { formatProfileCount } from '@/lib/profile-social-standings';
 
@@ -105,14 +119,16 @@ export function AppPagePanel({
   const [stats, setStats] = useState<AppStatsView | null>(
     () => initialStats
   );
-  const [catalogTab, setCatalogTab] = useState<StoreCatalogTab>('drops');
+  const [nowMs] = useState(() => Date.now());
+  const ssrMiss = initialDrops == null || initialDrops.length === 0;
   const [drops, setDrops] = useState<CollectionView[]>(
     () => initialDrops ?? []
   );
-  const [dropsLoadedKey, setDropsLoadedKey] = useState<string | null>(() =>
-    initialDrops != null ? `${appId}:0` : null
-  );
-  const [dropsIndexerCatchUp, setDropsIndexerCatchUp] = useState(false);
+  const [catalogSettled, setCatalogSettled] = useState(!ssrMiss);
+  const [fetchedOwned, setFetchedOwned] = useState<{
+    key: string;
+    items: OwnedScarceItem[];
+  } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [publishAccessOpen, setPublishAccessOpen] = useState(false);
   const [publishAccessRefreshKey, setPublishAccessRefreshKey] = useState(0);
@@ -132,11 +148,16 @@ export function AppPagePanel({
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
   const dropsKey = `${appId}:${refreshKey}`;
-  const dropsLoading = dropsLoadedKey !== dropsKey;
   const hasApp = app != null;
-  // Auto-hide only while the tab rail is stuck under the elevated chrome —
-  // stay visible at the top of the page (same path as the bottom dock).
-  const catalogTabsHidden = useDockAutoHide(!headerElevated);
+  const collectionIds = useMemo(
+    () => drops.map((drop) => drop.collectionId).filter(Boolean),
+    [drops]
+  );
+  const holdMatch = useMemo(
+    () => ({ appId, collectionIds }),
+    [appId, collectionIds]
+  );
+  const holdKey = `${viewerAccountId ?? ''}:${appId}:${collectionIds.join(',')}`;
 
   // Indexer paints the hero first when the server had nothing cached.
   useEffect(() => {
@@ -198,33 +219,21 @@ export function AppPagePanel({
         const next = await fetchCollectionsByApp(appId, { limit: 48 });
         if (cancelled) return [];
         setDrops(next);
-        setDropsLoadedKey(dropsKey);
         return next;
       } catch {
         if (cancelled) return [];
         setDrops([]);
-        setDropsLoadedKey(dropsKey);
         return [];
       }
     }
 
     void load().then((next) => {
-      if (cancelled || next.length > 0) {
-        setDropsIndexerCatchUp(false);
-        return;
-      }
-      setDropsIndexerCatchUp(true);
-      INDEXER_SOFT_RETRY_MS.forEach((delay, index) => {
+      if (!cancelled) setCatalogSettled(true);
+      if (cancelled || next.length > 0) return;
+      INDEXER_SOFT_RETRY_MS.forEach((delay) => {
         timers.push(
           window.setTimeout(() => {
-            void load().then((retry) => {
-              if (cancelled) return;
-              if (retry.length > 0) {
-                setDropsIndexerCatchUp(false);
-              } else if (index === INDEXER_SOFT_RETRY_MS.length - 1) {
-                setDropsIndexerCatchUp(false);
-              }
-            });
+            void load();
           }, delay)
         );
       });
@@ -247,8 +256,6 @@ export function AppPagePanel({
       '.os-app-screen-header'
     );
     const screen = scrollRoot.closest<HTMLElement>('.os-app-screen') ?? null;
-    const railPin = scrollRoot.querySelector('.guild-feed-filter-pin');
-
     const syncElevated = () => {
       const scrolled = scrollRoot.scrollTop > 8;
       if (!heroTitle) {
@@ -270,20 +277,6 @@ export function AppPagePanel({
         screen?.style.setProperty('--title-handoff', String(t));
       }
 
-      // Rail reveal: the chrome glass starts at nav height and grows down to
-      // meet the catalog tabs over their final approach, docking flush.
-      if (railPin) {
-        const pinRect = railPin.getBoundingClientRect();
-        if (pinRect.height > 0) {
-          const approach = pinRect.height;
-          const p = Math.max(
-            0,
-            Math.min(1, (headerBottom + approach - pinRect.top) / approach)
-          );
-          screen?.style.setProperty('--os-rail-reveal', String(p));
-        }
-      }
-
       setHeaderElevated((current) => {
         if (current) {
           return scrolled && titleTop < headerBottom + 2;
@@ -299,7 +292,6 @@ export function AppPagePanel({
       scrollRoot.removeEventListener('scroll', syncElevated);
       window.removeEventListener('resize', syncElevated);
       screen?.style.removeProperty('--title-handoff');
-      screen?.style.removeProperty('--os-rail-reveal');
     };
   }, [hasApp]);
 
@@ -419,12 +411,69 @@ export function AppPagePanel({
     publishAccessRefreshKey,
   ]);
 
+  useEffect(() => {
+    if (!viewerAccountId) return;
+    let cancelled = false;
+    void fetchOwnedScarcesPage(viewerAccountId)
+      .then((page) => {
+        if (cancelled) return;
+        setFetchedOwned({
+          key: holdKey,
+          items: ownedItemsInHub(page.items, holdMatch),
+        });
+      })
+      .catch(() => {
+        /* Keep the vault peek — a failed owned fetch must not flash shop chrome. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewerAccountId, holdKey, holdMatch]);
+
+  const ownedInHub =
+    fetchedOwned?.key === holdKey
+      ? fetchedOwned.items
+      : peekHeldHubItems(viewerAccountId, holdMatch);
+  const holdsEditionInHub =
+    ownedInHub.length > 0 ? true : viewerAccountId ? null : false;
+  const useFirst = hubUseFirst({ holdsEditionInHub });
+  const hubBackHref = hubPageBackHref({
+    useFirst,
+    viewerAccountId,
+  });
+  const vaultHref = viewerAccountId
+    ? portfolioCollectiblesPath(viewerAccountId)
+    : null;
+  const heldIds = useMemo(
+    () => heldCollectionIdSet(ownedInHub),
+    [ownedInHub]
+  );
+  const heldRows = useMemo(
+    () => groupHoldingsForRail(ownedInHub.map(toPortfolioHoldingPeek)),
+    [ownedInHub]
+  );
+  const storeDrops = useMemo(
+    () => drops.filter((drop) => !heldIds.has(drop.collectionId)),
+    [drops, heldIds]
+  );
+  const groups = useMemo(
+    () => groupSeriesDrops(storeDrops, nowMs),
+    [nowMs, storeDrops]
+  );
+  const showSectionLabels = groups.length > 1;
+  const catalogShell = hubCatalogShell({
+    hasCatalog: drops.length > 0,
+    hasHeld: heldRows.length > 0,
+    ssrMiss,
+    clientSettled: catalogSettled,
+  });
+
   const showSettingsGear =
     authority && (owner || app?.creatorAccess === 'approval');
 
   if (notFound && !app) {
     return (
-      <OsAppScreen title="Hub" dockBack backFallbackHref={APP_APPS_PATH}>
+      <OsAppScreen title="Hub" dockBack backFallbackHref={hubBackHref}>
         <div className="market-page">
           <p className="market-page-status">
             This hub isn&rsquo;t available.{' '}
@@ -442,30 +491,30 @@ export function AppPagePanel({
       <OsAppScreen
         title="Hub"
         dockBack
-        backFallbackHref={APP_APPS_PATH}
+        backFallbackHref={hubBackHref}
         immersiveHeader
       >
-        <div className="app-page" aria-busy="true">
-          <div className="app-hub-cover guild-hero-cover--fallback" />
-          <p className="sr-only">Loading hub…</p>
-        </div>
+        <HubPageSkeleton />
       </OsAppScreen>
     );
   }
 
   const creatorCount = rosterIds.length;
-  const hasActivity =
-    stats != null &&
-    (stats.dropsTotal > 0 ||
-      stats.mintedTotal > 0 ||
-      stats.salesCount > 0 ||
-      stats.liveListings > 0);
+  const activityMeta =
+    stats != null
+      ? hubActivityMeta({
+          dropsTotal: stats.dropsTotal,
+          mintedTotal: stats.mintedTotal,
+          uniqueHolders: stats.uniqueHolders,
+          volumeNearLabel: appVolumeNearLabel(stats.salesVolumeYocto),
+        })
+      : '';
 
   return (
     <OsAppScreen
       title={app.title}
       dockBack
-      backFallbackHref={APP_APPS_PATH}
+      backFallbackHref={hubBackHref}
       actions={
         showSettingsGear ? (
           <OsIconAction
@@ -495,14 +544,15 @@ export function AppPagePanel({
       headerElevated={headerElevated}
       scrollRootRef={scrollRootRef}
     >
-      {/* Viewport-anchored chrome glass — nav + catalog rail frost as one pane. */}
       <div
         aria-hidden
-        className={`os-chrome-glass${headerElevated ? ' is-frosted' : ''}${
-          headerElevated && catalogTabsHidden ? ' is-rail-hidden' : ''
-        }`}
+        className={`os-chrome-glass${headerElevated ? ' is-frosted' : ''}`}
       />
-      <div className="app-page">
+      <div
+        className={`app-page${useFirst ? ' is-use-first' : ''}`}
+        data-hub-use-first={useFirst ? '' : undefined}
+        data-hub-back={hubBackHref}
+      >
         <section className="app-page-hero" aria-label="Hub profile">
           <div
             className={`app-hub-cover${
@@ -592,63 +642,101 @@ export function AppPagePanel({
             </div>
           ) : null}
 
-          {stats && hasActivity ? (
-            <dl className="app-hub-stats" aria-label="Hub activity">
-              <div className="app-hub-stat">
-                <dt>Drops</dt>
-                <dd>{stats.dropsTotal}</dd>
-              </div>
-              <div className="app-hub-stat">
-                <dt>Minted</dt>
-                <dd>{stats.mintedTotal}</dd>
-              </div>
-              <div className="app-hub-stat">
-                <dt>Holders</dt>
-                <dd>{stats.uniqueHolders}</dd>
-              </div>
-              <div className="app-hub-stat">
-                <dt>Volume</dt>
-                <dd>
-                  {appVolumeNearLabel(stats.salesVolumeYocto)}
-                  <span className="app-hub-stat-unit"> NEAR</span>
-                </dd>
-              </div>
-            </dl>
+          {activityMeta && !useFirst ? (
+            <p className="series-hero-meta" aria-label="Hub activity">
+              {activityMeta}
+            </p>
           ) : null}
 
           {app.description ? (
             <GuildDescriptionClamp text={app.description} />
           ) : null}
 
+          {useFirst && vaultHref ? (
+            <div className="series-use-actions">
+              <Link
+                href={vaultHref}
+                scroll={false}
+                className="collection-reading-open"
+              >
+                Open Collectibles
+              </Link>
+            </div>
+          ) : null}
+
         </section>
 
-        {!canCreate && isConnected && !canRequestPublish ? (
-          <p className="app-page-note">
-            {app.creatorAccess === 'invite_only'
-              ? 'Only hub staff can publish here. Ask the owner to add you as a moderator.'
-              : `${creatorAccessLabel(app.creatorAccess)}.`}
-          </p>
+        {catalogShell === 'skeleton' ? (
+          <HubPageSkeleton listOnly />
         ) : null}
 
-        <StoreCatalogTabs
-          tab={catalogTab}
-          onTabChange={setCatalogTab}
-          dropCount={dropsLoading ? null : drops.length}
-          pinned
-          scrollHidden={headerElevated && catalogTabsHidden}
-        />
+        {catalogShell === 'ready' && heldRows.length > 0 ? (
+          <div className="series-held-list market-listing-list" role="list">
+            {heldRows.map((item) => (
+              <CollectiblesHoldingRow
+                key={item.tokenId}
+                item={item}
+                editionCount={item.editionCount}
+                hideCreator
+              />
+            ))}
+          </div>
+        ) : null}
 
-        {catalogTab === 'drops' ? (
-          <StoreDropsList
-            drops={drops}
-            loading={dropsLoading && drops.length === 0}
-            indexerCatchUp={dropsIndexerCatchUp}
-            canCreate={canCreate}
-            spotlight
-          />
-        ) : (
-          <StoreResalePanel appId={app.appId} />
-        )}
+        {catalogShell === 'ready' && storeDrops.length > 0 ? (
+          <>
+            {heldRows.length > 0 ? (
+              <Divider variant="item" className="series-hero-divider" />
+            ) : null}
+            <div className="series-catalog">
+              {groups.map((group) => (
+                <section
+                  key={group.bucket}
+                  className="series-catalog-section"
+                  aria-label={group.label}
+                >
+                  {showSectionLabels ? (
+                    <p className="collection-section-label">{group.label}</p>
+                  ) : null}
+                  <div className="market-listing-list" role="list">
+                    {group.drops.map((drop) => (
+                      <SeriesShopRow
+                        key={drop.collectionId}
+                        view={drop}
+                        nowMs={nowMs}
+                        showCreator
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </>
+        ) : null}
+
+        {catalogShell === 'empty' ? (
+          <div className="standing-panel-empty-block is-centered">
+            <div className="standing-panel-empty-state">
+              <p className="standing-panel-empty-primary">
+                No drops in this hub yet.
+              </p>
+              {canCreate ? (
+                <>
+                  <p className="standing-panel-empty-secondary">
+                    Start the next drop here from Create.
+                  </p>
+                  <Link
+                    href={createHref}
+                    className="page-drawer-section-action series-empty-create"
+                    scroll={false}
+                  >
+                    Create a drop
+                  </Link>
+                </>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
 
       </div>
 

@@ -7,22 +7,31 @@ import {
   deriveCollectionStatus,
   type CollectionView,
 } from '@/features/scarces/collections-data';
-import { seriesShopActionLabel } from '@/features/scarces/series-page-view';
+import {
+  seriesShopActionLabel,
+  shopRowCreatorHandle,
+} from '@/features/scarces/series-page-view';
 import { collectionPath } from '@/lib/app-routes';
 
 /** Unheld series drop — same list row as the vault, shop CTA to the drop. */
 export function SeriesShopRow({
   view,
   nowMs,
+  showCreator = false,
 }: {
   view: CollectionView;
   nowMs?: number;
+  /** Hub catalogs are multi-creator; Series already has one maker in the hero. */
+  showCreator?: boolean;
 }) {
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
   const showThumb = Boolean(view.mediaUrl) && brokenMediaUrl !== view.mediaUrl;
   const status = deriveCollectionStatus(view, nowMs);
   const action = seriesShopActionLabel(status);
   const href = collectionPath(view.collectionId);
+  const creatorHandle = showCreator
+    ? shopRowCreatorHandle(view.creatorId)
+    : '';
   const price =
     view.priceNear != null && view.priceNear !== '0'
       ? `${view.priceNear} NEAR`
@@ -60,6 +69,12 @@ export function SeriesShopRow({
             <span>{collectionStatusLabel(status)}</span>
             {view.kind ? (
               <span className="market-listing-own"> · {view.kind}</span>
+            ) : null}
+            {creatorHandle ? (
+              <span className="market-listing-own">
+                {' · '}
+                {creatorHandle}
+              </span>
             ) : null}
             <span> · {price}</span>
             {supply ? <span> · {supply}</span> : null}
