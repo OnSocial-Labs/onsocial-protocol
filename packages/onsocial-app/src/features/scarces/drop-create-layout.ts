@@ -19,3 +19,12 @@ export function dropCreateBlurbOpen(
 ): boolean {
   return forcedOpen || Boolean(description.trim());
 }
+
+/** Empty artwork/cover sits on the piece. Studio stay a launch card. */
+export function dropCreatePiecePickerClass(
+  kind: 'piece' | 'studio' = 'piece'
+): string {
+  return kind === 'studio'
+    ? 'drop-cover-picker drop-studio-launch'
+    : 'drop-cover-picker drop-create-piece';
+}

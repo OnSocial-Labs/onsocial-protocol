@@ -53,13 +53,19 @@ test.describe('create drop', () => {
         .getByRole('radiogroup', { name: 'Artwork mode' })
     ).toBeVisible();
     await expect(
+      page
+        .locator('[data-drop-create-section="work"]')
+        .getByText('Artwork', { exact: true })
+    ).toHaveCount(0);
+    await expect(page.locator('.drop-create-piece')).toBeVisible();
+    await expect(
       page.locator('[data-drop-create-section="title"] #drop-create-title')
     ).toBeVisible();
     await expect(page.locator('.drop-create-stage')).toBeVisible();
     await expect(
       page
         .locator('[data-drop-create-section="deal"]')
-        .getByText('Price per edition')
+        .getByLabel('Price per edition in NEAR')
     ).toBeVisible();
     await expect(page.locator('.drop-create-blurb-toggle')).toHaveText(
       'Add a blurb'

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DROP_CREATE_SECTION_ORDER,
   dropCreateBlurbOpen,
+  dropCreatePiecePickerClass,
   dropCreateScreenTitle,
 } from '@/features/scarces/drop-create-layout';
 
@@ -29,5 +30,19 @@ describe('dropCreateBlurbOpen', () => {
     expect(dropCreateBlurbOpen('  ')).toBe(false);
     expect(dropCreateBlurbOpen('Fans get the print.')).toBe(true);
     expect(dropCreateBlurbOpen('', true)).toBe(true);
+  });
+});
+
+describe('dropCreatePiecePickerClass', () => {
+  it('puts empty artwork on the piece, not a studio launch card', () => {
+    expect(dropCreatePiecePickerClass()).toBe(
+      'drop-cover-picker drop-create-piece'
+    );
+    expect(dropCreatePiecePickerClass('piece')).toBe(
+      'drop-cover-picker drop-create-piece'
+    );
+    expect(dropCreatePiecePickerClass('studio')).toBe(
+      'drop-cover-picker drop-studio-launch'
+    );
   });
 });

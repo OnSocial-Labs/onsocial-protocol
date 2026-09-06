@@ -129,6 +129,7 @@ import {
 } from '@/features/scarces/drop-form-draft';
 import {
   dropCreateBlurbOpen,
+  dropCreatePiecePickerClass,
   dropCreateScreenTitle,
 } from '@/features/scarces/drop-create-layout';
 import {
@@ -2520,12 +2521,7 @@ export function CreateDropPanel() {
         <div className="drop-create-stage">
           <div className="drop-create-section" data-drop-create-section="work">
             {isAudio ? (
-              <div className="guild-field">
-                <DropFieldLabel
-                  label="Release"
-                  infoKey="release"
-                  onOpenInfo={openFieldInfo}
-                />
+              <div className="drop-create-mode">
                 <div
                   className="app-access-options"
                   role="radiogroup"
@@ -2558,12 +2554,7 @@ export function CreateDropPanel() {
                 </div>
               </div>
             ) : isWriting ? (
-              <div className="guild-field">
-                <DropFieldLabel
-                  label="Format"
-                  infoKey="format"
-                  onOpenInfo={openFieldInfo}
-                />
+              <div className="drop-create-mode">
                 <div
                   className="app-access-options"
                   role="radiogroup"
@@ -2596,12 +2587,7 @@ export function CreateDropPanel() {
                 </div>
               </div>
             ) : (
-              <div className="guild-field">
-                <DropFieldLabel
-                  label="Artwork"
-                  infoKey="artwork"
-                  onOpenInfo={openFieldInfo}
-                />
+              <div className="drop-create-mode">
                 <div
                   className="app-access-options"
                   role="radiogroup"
@@ -2636,12 +2622,7 @@ export function CreateDropPanel() {
             )}
 
             {isVariations ? (
-              <div className="guild-field">
-                <DropFieldLabel
-                  label="Set source"
-                  infoKey="setSource"
-                  onOpenInfo={openFieldInfo}
-                />
+              <div className="drop-create-mode">
                 <div
                   className="app-access-options"
                   role="radiogroup"
@@ -2681,7 +2662,7 @@ export function CreateDropPanel() {
             {isGeneratedSet && !generatedSetReady ? (
               <button
                 type="button"
-                className="drop-cover-picker drop-studio-launch"
+                className={dropCreatePiecePickerClass('studio')}
                 onClick={() => setStudioOpen(true)}
                 disabled={pending}
               >
@@ -2729,7 +2710,7 @@ export function CreateDropPanel() {
                 ) : (
                   <button
                     type="button"
-                    className="drop-cover-picker drop-studio-launch"
+                    className={dropCreatePiecePickerClass()}
                     onClick={() => openVariationPicker('replace')}
                     disabled={pending}
                   >
@@ -2949,7 +2930,7 @@ export function CreateDropPanel() {
               ) : (
                 <button
                   type="button"
-                  className="drop-cover-picker drop-studio-launch"
+                  className={dropCreatePiecePickerClass()}
                   onClick={() => imageInputRef.current?.click()}
                   disabled={pending}
                 >
@@ -3254,7 +3235,7 @@ export function CreateDropPanel() {
             </div>
           ) : isGeneratedSet ? (
             <div className="guild-field">
-              <span>Supply</span>
+              <span className="sr-only">Supply</span>
               <small>
                 Set in the studio — the piece count you generate becomes the
                 supply, 1 of each.
@@ -3262,7 +3243,7 @@ export function CreateDropPanel() {
             </div>
           ) : isVariations ? (
             <div className="guild-field">
-              <span>Supply</span>
+              <span className="sr-only">Supply</span>
               <small>
                 {variationFiles.length >= MIN_VARIATIONS
                   ? `${variationFiles.length} pieces · 1 of each`
@@ -3271,7 +3252,7 @@ export function CreateDropPanel() {
             </div>
           ) : (
             <div className="guild-field">
-              <span>Supply</span>
+              <span className="sr-only">Supply</span>
               <SuffixField
                 value={supplyInput}
                 onValueChange={(value) =>
@@ -3305,7 +3286,7 @@ export function CreateDropPanel() {
           )}
 
           <div className="guild-field">
-            <span>Price per {template.unitSingular}</span>
+            <span className="sr-only">Price per {template.unitSingular}</span>
             <AmountField
               value={priceInput}
               onValueChange={setPriceInput}
