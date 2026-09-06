@@ -31666,6 +31666,25 @@ a.os-surface-row {
     align-self: flex-start;
   }
 
+  /* Track / writing files sit on the piece — not a labeled form row. */
+  .drop-create-attach {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+  }
+
+  .drop-create-attach-action {
+    align-self: flex-start;
+  }
+
+  .drop-create-attach-hint {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
   /* Edge fade hints there are more template tabs off-screen (scrollbar is
      hidden on the shared rail). */
   .drop-template-toolbar .discover-tab-bar-scroller {

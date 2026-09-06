@@ -127,6 +127,7 @@ import {
   saveDropFormDraft,
 } from '@/features/scarces/drop-form-draft';
 import {
+  dropCreateAttachAction,
   dropCreateBlurbOpen,
   dropCreateDealShowsSupplyField,
   dropCreatePiecePickerClass,
@@ -2958,12 +2959,10 @@ export function CreateDropPanel() {
               />
             ) : null}
             {isAudio ? (
-              <div className="guild-field">
-                <span>
-                  {musicFormat === 'single'
-                    ? 'Track'
-                    : `Tracks${trackFiles.length ? ` · ${trackFiles.length}` : ''}`}
-                </span>
+              <div
+                className="drop-create-attach"
+                data-drop-create-attach="audio"
+              >
                 {trackFiles.length > 0 ? (
                   <DropTrackPreviewList
                     files={trackFiles}
@@ -2980,51 +2979,66 @@ export function CreateDropPanel() {
                     {pinnedMusic.playable.length === 1 ? 'track' : 'tracks'}{' '}
                     pinned · ready to sign
                   </p>
-                ) : null}
-                <div
-                  className="app-storage-presets"
-                  role="group"
-                  aria-label="Track actions"
-                >
-                  <button
-                    type="button"
-                    className="os-surface-chip"
-                    disabled={
-                      pending ||
-                      (musicFormat === 'single' && trackFiles.length >= 1) ||
-                      (musicFormat === 'album' &&
-                        trackFiles.length >= DROP_AUDIO_MAX_TRACKS)
-                    }
-                    onClick={() => tracksInputRef.current?.click()}
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="collection-allowlist-toggle drop-create-attach-action"
+                      disabled={pending}
+                      onClick={() => tracksInputRef.current?.click()}
+                    >
+                      {dropCreateAttachAction(
+                        musicFormat === 'single' ? 'track' : 'tracks'
+                      )}
+                    </button>
+                    <p className="drop-create-attach-hint">
+                      {musicFormat === 'single'
+                        ? 'Tap to preview · MP3, M4A, WAV, or similar · ≤20 MB'
+                        : `Drag to reorder · tap to preview · 2–${DROP_AUDIO_MAX_TRACKS} tracks · ≤20 MB each`}
+                    </p>
+                  </>
+                )}
+                {trackFiles.length > 0 || pinnedMusic ? (
+                  <div
+                    className="app-storage-presets"
+                    role="group"
+                    aria-label="Track actions"
                   >
-                    {trackFiles.length === 0
-                      ? musicFormat === 'single'
-                        ? 'Add track'
-                        : 'Add tracks'
-                      : musicFormat === 'single'
-                        ? 'Replace track'
-                        : 'Add more'}
-                  </button>
-                  {trackFiles.length > 0 ? (
                     <button
                       type="button"
                       className="os-surface-chip"
-                      disabled={pending}
-                      onClick={() => {
-                        setTrackFiles([]);
-                        setTrackLyrics([]);
-                        setError(null);
-                      }}
+                      disabled={
+                        pending ||
+                        (musicFormat === 'single' && trackFiles.length >= 1) ||
+                        (musicFormat === 'album' &&
+                          trackFiles.length >= DROP_AUDIO_MAX_TRACKS)
+                      }
+                      onClick={() => tracksInputRef.current?.click()}
                     >
-                      Clear
+                      {trackFiles.length === 0
+                        ? dropCreateAttachAction(
+                            musicFormat === 'single' ? 'track' : 'tracks'
+                          )
+                        : musicFormat === 'single'
+                          ? 'Replace track'
+                          : 'Add more'}
                     </button>
-                  ) : null}
-                </div>
-                <small>
-                  {musicFormat === 'single'
-                    ? 'Tap to preview · MP3, M4A, WAV, or similar · ≤20 MB'
-                    : `Drag to reorder · tap to preview · 2–${DROP_AUDIO_MAX_TRACKS} tracks · ≤20 MB each`}
-                </small>
+                    {trackFiles.length > 0 ? (
+                      <button
+                        type="button"
+                        className="os-surface-chip"
+                        disabled={pending}
+                        onClick={() => {
+                          setTrackFiles([]);
+                          setTrackLyrics([]);
+                          setError(null);
+                        }}
+                      >
+                        Clear
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
                 <input
                   ref={tracksInputRef}
                   type="file"
@@ -3039,14 +3053,10 @@ export function CreateDropPanel() {
               </div>
             ) : null}
             {isWriting ? (
-              <div className="guild-field">
-                <span>
-                  {writingFormat === 'issue'
-                    ? 'Issue'
-                    : `Chapters${
-                        chapterFiles.length ? ` · ${chapterFiles.length}` : ''
-                      }`}
-                </span>
+              <div
+                className="drop-create-attach"
+                data-drop-create-attach="writing"
+              >
                 {chapterFiles.length > 0 ? (
                   <DropChapterPreviewList
                     files={chapterFiles}
@@ -3065,54 +3075,70 @@ export function CreateDropPanel() {
                         } pinned · ready to sign`
                       : 'Manuscript pinned · ready to sign'}
                   </p>
-                ) : null}
-                <div
-                  className="app-storage-presets"
-                  role="group"
-                  aria-label={
-                    writingFormat === 'issue'
-                      ? 'Issue file actions'
-                      : 'Chapter actions'
-                  }
-                >
-                  <button
-                    type="button"
-                    className="os-surface-chip"
-                    disabled={
-                      pending ||
-                      (writingFormat === 'issue' && chapterFiles.length >= 1) ||
-                      (writingFormat === 'book' &&
-                        chapterFiles.length >= DROP_WRITING_MAX_CHAPTERS)
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="collection-allowlist-toggle drop-create-attach-action"
+                      disabled={pending}
+                      onClick={() => chaptersInputRef.current?.click()}
+                    >
+                      {dropCreateAttachAction(
+                        writingFormat === 'issue' ? 'file' : 'files'
+                      )}
+                    </button>
+                    <p className="drop-create-attach-hint">
+                      {writingFormat === 'issue'
+                        ? '.md for the reader · PDF ok · ≤500 KB text / 20 MB PDF'
+                        : `Drag title to reorder · 2–${DROP_WRITING_MAX_CHAPTERS} · .md for reading`}
+                    </p>
+                  </>
+                )}
+                {chapterFiles.length > 0 || pinnedWriting ? (
+                  <div
+                    className="app-storage-presets"
+                    role="group"
+                    aria-label={
+                      writingFormat === 'issue'
+                        ? 'Issue file actions'
+                        : 'Chapter actions'
                     }
-                    onClick={() => chaptersInputRef.current?.click()}
                   >
-                    {chapterFiles.length === 0
-                      ? writingFormat === 'issue'
-                        ? 'Add file'
-                        : 'Add files'
-                      : writingFormat === 'issue'
-                        ? 'Replace file'
-                        : 'Add more'}
-                  </button>
-                  {chapterFiles.length > 0 ? (
                     <button
                       type="button"
                       className="os-surface-chip"
-                      disabled={pending}
-                      onClick={() => {
-                        setChapterFiles([]);
-                        setError(null);
-                      }}
+                      disabled={
+                        pending ||
+                        (writingFormat === 'issue' &&
+                          chapterFiles.length >= 1) ||
+                        (writingFormat === 'book' &&
+                          chapterFiles.length >= DROP_WRITING_MAX_CHAPTERS)
+                      }
+                      onClick={() => chaptersInputRef.current?.click()}
                     >
-                      Clear
+                      {chapterFiles.length === 0
+                        ? dropCreateAttachAction(
+                            writingFormat === 'issue' ? 'file' : 'files'
+                          )
+                        : writingFormat === 'issue'
+                          ? 'Replace file'
+                          : 'Add more'}
                     </button>
-                  ) : null}
-                </div>
-                <small>
-                  {writingFormat === 'issue'
-                    ? '.md for the reader · PDF ok · ≤500 KB text / 20 MB PDF'
-                    : `Drag title to reorder · 2–${DROP_WRITING_MAX_CHAPTERS} · .md for reading`}
-                </small>
+                    {chapterFiles.length > 0 ? (
+                      <button
+                        type="button"
+                        className="os-surface-chip"
+                        disabled={pending}
+                        onClick={() => {
+                          setChapterFiles([]);
+                          setError(null);
+                        }}
+                      >
+                        Clear
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
                 <input
                   ref={chaptersInputRef}
                   type="file"

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DROP_CREATE_SECTION_ORDER,
+  dropCreateAttachAction,
   dropCreateBlurbOpen,
   dropCreateDealShowsSupplyField,
   dropCreatePiecePickerClass,
@@ -45,6 +46,15 @@ describe('dropCreatePiecePickerClass', () => {
     expect(dropCreatePiecePickerClass('studio')).toBe(
       'drop-cover-picker drop-studio-launch'
     );
+  });
+});
+
+describe('dropCreateAttachAction', () => {
+  it('names the empty attach like Add a blurb, not a form label', () => {
+    expect(dropCreateAttachAction('track')).toBe('Add track');
+    expect(dropCreateAttachAction('tracks')).toBe('Add tracks');
+    expect(dropCreateAttachAction('file')).toBe('Add file');
+    expect(dropCreateAttachAction('files')).toBe('Add files');
   });
 });
 

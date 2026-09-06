@@ -39,3 +39,19 @@ export function dropCreateDealShowsSupplyField({
 }): boolean {
   return !isGeneratedSet && !isVariations;
 }
+
+/** Empty track / writing files sit on the piece — same voice as Add a blurb. */
+export type DropCreateAttachAction = 'track' | 'tracks' | 'file' | 'files';
+
+export function dropCreateAttachAction(kind: DropCreateAttachAction): string {
+  switch (kind) {
+    case 'track':
+      return 'Add track';
+    case 'tracks':
+      return 'Add tracks';
+    case 'file':
+      return 'Add file';
+    case 'files':
+      return 'Add files';
+  }
+}
