@@ -157,6 +157,8 @@ export interface OwnedScarceItem {
    * Drop id when `tokenId` is `collectionId:edition` (not post `s:` scarces).
    */
   collectionId?: string | null;
+  /** Hub id from the owned-token row when the drop was minted under an app. */
+  appId?: string | null;
   /** Drop creator when known from the collection catalog. */
   creatorId?: string | null;
   /** Series id from collection `metadata.series` when the drop is in a series. */
@@ -1659,6 +1661,9 @@ async function fetchOwnedScarcesPageFromIndexer(
       mediaUrl: face?.mediaUrl ?? null,
       ownerId: row.ownerId?.trim() || owner,
       collectionId,
+      ...(row.appId?.trim() || catalog?.appId?.trim()
+        ? { appId: (row.appId?.trim() || catalog?.appId?.trim()) ?? null }
+        : {}),
       ...(catalog?.creatorId?.trim()
         ? { creatorId: catalog.creatorId.trim() }
         : {}),

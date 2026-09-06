@@ -21,7 +21,6 @@ import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import {
   appVolumeNearLabel,
   canCreateInApp,
-  creatorAccessLabel,
   creatorAccessShort,
   fetchApp,
   fetchAppIndexerRow,
@@ -436,10 +435,7 @@ export function AppPagePanel({
       : peekHeldHubItems(viewerAccountId, holdMatch);
   const holdsEditionInHub =
     ownedInHub.length > 0 ? true : viewerAccountId ? null : false;
-  const useFirst = hubUseFirst({
-    isAuthority: authority,
-    holdsEditionInHub,
-  });
+  const useFirst = hubUseFirst({ holdsEditionInHub });
   const hubBackHref = hubPageBackHref({
     useFirst,
     viewerAccountId,
@@ -683,14 +679,6 @@ export function AppPagePanel({
           ) : null}
 
         </section>
-
-        {!canCreate && isConnected && !canRequestPublish ? (
-          <p className="app-page-note">
-            {app.creatorAccess === 'invite_only'
-              ? 'Only hub staff can publish here. Ask the owner to add you as a moderator.'
-              : `${creatorAccessLabel(app.creatorAccess)}.`}
-          </p>
-        ) : null}
 
         {catalogShell === 'skeleton' ? (
           <HubPageSkeleton listOnly />

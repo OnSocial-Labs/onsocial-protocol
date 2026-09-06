@@ -93,11 +93,14 @@ export async function stubHubPage(
     catalogDelayMs?: number;
     /** Also stub owned tokens that match the hub catalog. */
     held?: boolean;
+    /** Indexer owner — staff chrome when this is the seeded wallet. */
+    ownerId?: string;
   }
 ): Promise<void> {
   const rows = opts?.rows ?? 'empty';
   const catalogDelayMs = opts?.catalogDelayMs ?? 0;
   const held = opts?.held === true;
+  const ownerId = opts?.ownerId?.trim() || HUB_E2E_OWNER;
   await page.route('**/api/onapi/graph/query', async (route) => {
     const raw = route.request().postData() ?? '';
     let query = '';
@@ -107,32 +110,34 @@ export async function stubHubPage(
       query = raw;
     }
 
-    if (held && query.includes('ScarcesOwnedBy')) {
+    if (query.includes('ScarcesOwnedBy') && (held || opts?.ownerId)) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           data: {
-            scarcesTokenOwners: [
-              {
-                tokenId: 'night-drive:3',
-                ownerId: HELD_OWNER,
-                burned: false,
-                collectionId: 'night-drive',
-                appId: HUB_E2E_ID,
-                mintedBlockTimestamp: 1,
-                updatedBlockTimestamp: 3,
-              },
-              {
-                tokenId: 'dusk-run:1',
-                ownerId: HELD_OWNER,
-                burned: false,
-                collectionId: 'dusk-run',
-                appId: HUB_E2E_ID,
-                mintedBlockTimestamp: 1,
-                updatedBlockTimestamp: 4,
-              },
-            ],
+            scarcesTokenOwners: held
+              ? [
+                  {
+                    tokenId: 'night-drive:3',
+                    ownerId: HELD_OWNER,
+                    burned: false,
+                    collectionId: 'night-drive',
+                    appId: HUB_E2E_ID,
+                    mintedBlockTimestamp: 1,
+                    updatedBlockTimestamp: 3,
+                  },
+                  {
+                    tokenId: 'dusk-run:1',
+                    ownerId: HELD_OWNER,
+                    burned: false,
+                    collectionId: 'dusk-run',
+                    appId: HUB_E2E_ID,
+                    mintedBlockTimestamp: 1,
+                    updatedBlockTimestamp: 4,
+                  },
+                ]
+              : [],
           },
         }),
       });
@@ -169,7 +174,9 @@ export async function stubHubPage(
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: { scarcesApps: [HUB_APP_ROW] } }),
+        body: JSON.stringify({
+          data: { scarcesApps: [{ ...HUB_APP_ROW, ownerId }] },
+        }),
       });
       return;
     }

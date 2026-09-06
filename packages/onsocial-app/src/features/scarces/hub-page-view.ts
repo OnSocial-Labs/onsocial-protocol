@@ -23,12 +23,11 @@ export function hubCatalogShell(opts: {
   return 'empty';
 }
 
-/** Staff or someone who holds an edition from this hub. */
+/** Holders only — staff keep create/settings without vault chrome. */
 export function hubUseFirst(opts: {
-  isAuthority: boolean;
   holdsEditionInHub: boolean | null;
 }): boolean {
-  return opts.isAuthority || opts.holdsEditionInHub === true;
+  return opts.holdsEditionInHub === true;
 }
 
 /** Holders go back to the vault; visitors stay on Hubs. */
@@ -50,18 +49,21 @@ function itemCollectionId(item: {
   );
 }
 
-/** Owned tokens that belong to this hub's catalog. */
+/** Owned tokens that belong to this hub (catalog id or stamped app). */
 export function ownedItemsInHub(
   items: readonly OwnedScarceItem[],
   match: HubHoldMatch
 ): OwnedScarceItem[] {
+  const appId = match.appId.trim().toLowerCase();
   const ids = new Set(
     match.collectionIds.map((id) => id.trim()).filter(Boolean)
   );
-  if (ids.size === 0) return [];
+  if (!appId && ids.size === 0) return [];
   return items.filter((item) => {
     const collectionId = itemCollectionId(item);
-    return Boolean(collectionId && ids.has(collectionId));
+    if (collectionId && ids.has(collectionId)) return true;
+    const itemApp = item.appId?.trim().toLowerCase();
+    return Boolean(appId && itemApp && itemApp === appId);
   });
 }
 

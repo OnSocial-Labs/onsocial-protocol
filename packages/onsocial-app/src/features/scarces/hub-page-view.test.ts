@@ -73,19 +73,10 @@ describe('hub page view', () => {
     ).toBe('empty');
   });
 
-  it('is use-first for hub staff and confirmed holders only', () => {
-    expect(
-      hubUseFirst({ isAuthority: true, holdsEditionInHub: false })
-    ).toBe(true);
-    expect(
-      hubUseFirst({ isAuthority: false, holdsEditionInHub: true })
-    ).toBe(true);
-    expect(
-      hubUseFirst({ isAuthority: false, holdsEditionInHub: null })
-    ).toBe(false);
-    expect(
-      hubUseFirst({ isAuthority: false, holdsEditionInHub: false })
-    ).toBe(false);
+  it('is use-first for confirmed holders only', () => {
+    expect(hubUseFirst({ holdsEditionInHub: true })).toBe(true);
+    expect(hubUseFirst({ holdsEditionInHub: null })).toBe(false);
+    expect(hubUseFirst({ holdsEditionInHub: false })).toBe(false);
   });
 
   it('sends holders to Collectibles and visitors to Hubs', () => {
@@ -109,7 +100,7 @@ describe('hub page view', () => {
     ).toBe('/apps');
   });
 
-  it('matches holdings by hub catalog id only', () => {
+  it('matches holdings by catalog id or stamped hub app id', () => {
     const items = [
       owned({
         tokenId: 'night-drive:3',
@@ -126,12 +117,22 @@ describe('hub page view', () => {
         collectionId: 'dusk-run',
         creatorId: 'Alice.near',
       }),
+      owned({
+        tokenId: 'hub-only:1',
+        collectionId: 'hub-only',
+        appId: 'E2E-HUB',
+      }),
     ];
     expect(ownedItemsInHub(items, AUDIT_HUB).map((item) => item.tokenId)).toEqual(
-      ['night-drive:3', 'dusk-run:1']
+      ['night-drive:3', 'dusk-run:1', 'hub-only:1']
     );
     expect(
-      ownedItemsInHub(items, { appId: 'e2e-hub', collectionIds: [] })
+      ownedItemsInHub(items, { appId: 'e2e-hub', collectionIds: [] }).map(
+        (item) => item.tokenId
+      )
+    ).toEqual(['hub-only:1']);
+    expect(
+      ownedItemsInHub(items, { appId: 'other-hub', collectionIds: [] })
     ).toEqual([]);
   });
 
@@ -143,6 +144,7 @@ describe('hub page view', () => {
           tokenId: 'night-drive:3',
           collectionId: 'night-drive',
           creatorId: 'alice.near',
+          appId: 'e2e-hub',
         }),
       ],
       nextFromEnd: 0,
@@ -163,6 +165,12 @@ describe('hub page view', () => {
     expect(
       peekHoldsHub('greenghost.onsocial.testnet', {
         appId: 'e2e-hub',
+        collectionIds: [],
+      })
+    ).toBe(true);
+    expect(
+      peekHoldsHub('greenghost.onsocial.testnet', {
+        appId: 'other-hub',
         collectionIds: ['other'],
       })
     ).toBe(false);
