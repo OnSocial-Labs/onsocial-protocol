@@ -1018,10 +1018,7 @@ export function CollectionPagePanel({
                 </div>
               </div>
             </div>
-            {useFirst &&
-            ((hasPlayables && listenOnPlayPage && holderPlayHref) ||
-              hasReadables ||
-              canShowPass) ? (
+            {useFirst ? (
               <div className="collection-use-actions">
                 {hasPlayables && listenOnPlayPage && holderPlayHref ? (
                   <div className="collection-reading-row">
