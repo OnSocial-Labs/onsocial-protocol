@@ -2,16 +2,27 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { collectionStatusLabel } from '@/features/scarces/collections-data';
-import { marketCreatorShopActionLabel } from '@/features/market/market-creator-view';
+import {
+  marketCreatorDropMintable,
+  marketCreatorShopActionLabel,
+} from '@/features/market/market-creator-view';
 import { collectionPath } from '@/lib/app-routes';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 
-/** Unlisted creator drop — same list row as Market listings, CTA to the drop. */
-export function MarketCreatorDropRow({ drop }: { drop: ProfileStoreDrop }) {
+/** Unlisted creator drop — same list row as Market listings. */
+export function MarketCreatorDropRow({
+  drop,
+  onMint,
+}: {
+  drop: ProfileStoreDrop;
+  onMint?: (drop: ProfileStoreDrop) => void;
+}) {
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
   const showThumb = Boolean(drop.mediaUrl) && brokenMediaUrl !== drop.mediaUrl;
-  const action = marketCreatorShopActionLabel(drop.status);
+  const action = marketCreatorShopActionLabel(drop);
+  const mintable = Boolean(onMint) && marketCreatorDropMintable(drop);
   const href = collectionPath(drop.collectionId);
   const price =
     drop.priceNear != null && drop.priceNear !== '0'
@@ -19,7 +30,11 @@ export function MarketCreatorDropRow({ drop }: { drop: ProfileStoreDrop }) {
       : 'Free';
 
   return (
-    <div className="market-listing-row market-creator-drop-row" role="listitem">
+    <div
+      className="market-listing-row market-creator-drop-row"
+      role="listitem"
+      data-market-creator-drop={drop.collectionId}
+    >
       <Link
         href={href}
         scroll={false}
@@ -54,14 +69,34 @@ export function MarketCreatorDropRow({ drop }: { drop: ProfileStoreDrop }) {
         </div>
       </Link>
       <div className="market-listing-action-col collectibles-holding-action-col">
-        <Link
-          href={href}
-          scroll={false}
-          className="page-drawer-section-action collectibles-holding-action"
-          aria-label={`${action} ${drop.title}`}
-        >
-          {action}
-        </Link>
+        {mintable ? (
+          <OsSheetActions
+            layout="row-compact"
+            tone="frosted-primary"
+            size="sm"
+            borderless
+            className="market-listing-action collectibles-holding-action"
+          >
+            <OsSheetAction
+              type="button"
+              variant="primary"
+              ready
+              aria-label={`${action} ${drop.title}`}
+              onClick={() => onMint?.(drop)}
+            >
+              {action}
+            </OsSheetAction>
+          </OsSheetActions>
+        ) : (
+          <Link
+            href={href}
+            scroll={false}
+            className="page-drawer-section-action collectibles-holding-action"
+            aria-label={`${action} ${drop.title}`}
+          >
+            {action}
+          </Link>
+        )}
       </div>
     </div>
   );

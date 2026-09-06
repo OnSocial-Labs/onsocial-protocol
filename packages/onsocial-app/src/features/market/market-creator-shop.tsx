@@ -1,9 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { MultiplyIcon, standingIdentityLabel } from '@onsocial/ui';
+import { standingIdentityLabel } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { MarketCreatorDropRow } from '@/features/market/market-creator-drop-row';
+import {
+  groupMarketCreatorDrops,
+  marketCreatorShopCountCopy,
+} from '@/features/market/market-creator-view';
 import { portfolioPath } from '@/lib/overlay-routes';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 
@@ -13,17 +17,25 @@ export function MarketCreatorShop({
   displayName = null,
   avatarUrl = null,
   drops,
+  listingCount,
   showDropLabel,
-  onClear,
+  onMintDrop,
 }: {
   creatorId: string;
   displayName?: string | null;
   avatarUrl?: string | null;
   drops: readonly ProfileStoreDrop[];
+  listingCount: number;
   showDropLabel: boolean;
-  onClear: () => void;
+  onMintDrop: (drop: ProfileStoreDrop) => void;
 }) {
   const creatorLabel = standingIdentityLabel(creatorId, displayName).label;
+  const groups = groupMarketCreatorDrops(drops);
+  const showGroupLabels = groups.length > 1;
+  const countCopy = marketCreatorShopCountCopy({
+    dropCount: drops.length,
+    listingCount,
+  });
 
   return (
     <header className="market-creator-shop">
@@ -43,27 +55,38 @@ export function MarketCreatorShop({
             copyLeading={
               <span className="market-creator-shop-role">Shop</span>
             }
-          />
+          >
+            {countCopy ? (
+              <span className="market-creator-shop-count">{countCopy}</span>
+            ) : null}
+          </StandingIdentity>
         </div>
-        <button
-          type="button"
-          className="market-creator-filter-clear"
-          onClick={onClear}
-          aria-label="Clear creator filter"
-        >
-          <MultiplyIcon aria-hidden />
-        </button>
       </div>
       {drops.length > 0 ? (
         <section className="market-creator-shop-drops" aria-label="Drops">
           {showDropLabel ? (
             <p className="collection-section-label">Drops</p>
           ) : null}
-          <div className="market-listing-list" role="list">
-            {drops.map((drop) => (
-              <MarketCreatorDropRow key={drop.collectionId} drop={drop} />
-            ))}
-          </div>
+          {groups.map((group) => (
+            <div
+              key={group.bucket}
+              className="market-creator-shop-group"
+              data-market-creator-group={group.bucket}
+            >
+              {showGroupLabels ? (
+                <p className="collection-section-label">{group.label}</p>
+              ) : null}
+              <div className="market-listing-list" role="list">
+                {group.drops.map((drop) => (
+                  <MarketCreatorDropRow
+                    key={drop.collectionId}
+                    drop={drop}
+                    onMint={onMintDrop}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
         </section>
       ) : null}
     </header>
