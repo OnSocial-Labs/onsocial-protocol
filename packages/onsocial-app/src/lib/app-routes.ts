@@ -222,6 +222,23 @@ export const COLLECTIBLES_SERIES_PARAM = 'series';
 /** Query key that pre-filters Market to one app / store. */
 export const MARKET_APP_PARAM = 'app';
 
+/** Query key that prefills Series on create-drop. */
+export const DROP_CREATE_SERIES_PARAM = 'series';
+
+/** New drop form. Optional hub bind and series name prefill. */
+export function dropCreatePath(opts?: {
+  appId?: string | null;
+  series?: string | null;
+}): string {
+  const params = new URLSearchParams();
+  const appId = opts?.appId?.trim();
+  const series = opts?.series?.trim();
+  if (appId) params.set(MARKET_APP_PARAM, appId);
+  if (series) params.set(DROP_CREATE_SERIES_PARAM, series.slice(0, 48));
+  const qs = params.toString();
+  return qs ? `${APP_DROP_CREATE_PATH}?${qs}` : APP_DROP_CREATE_PATH;
+}
+
 /** Query key for secondary discovery facets (CSV of genre / subject slugs). */
 export const MARKET_FACETS_PARAM = 'facets';
 

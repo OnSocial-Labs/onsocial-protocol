@@ -62,6 +62,18 @@ test.describe('series page', () => {
     );
   });
 
+  test('owner empty series starts a drop in this line', async ({ page }) => {
+    await seedE2eWallet(page, CREATOR);
+    await stubSeriesCreatorCatalog(page, { rows: 'empty' });
+    await gotoApp(page, SERIES_PATH);
+    const create = page.getByRole('link', { name: 'Create a drop' });
+    await expect(create).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(create).toHaveAttribute(
+      'href',
+      `/market/create?series=${encodeURIComponent(SERIES_TITLE)}`
+    );
+  });
+
   test('SSR catalog miss keeps the skeleton until the client fetch settles', async ({
     page,
   }) => {
