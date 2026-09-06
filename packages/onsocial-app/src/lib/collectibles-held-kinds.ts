@@ -1,5 +1,24 @@
-import type { MarketMediumFilter } from '@/features/market/market-medium';
-import { vaultHeldKindFilters } from '@/lib/portfolio-holdings';
+import {
+  MARKET_MEDIUM_FILTERS,
+  parseMarketMediumFilter,
+  type MarketMediumFilter,
+} from '@/features/market/market-medium';
+
+/** Edge-safe copy of `vaultHeldKindFilters` — middleware must not import SDK. */
+function heldKindFilters(
+  items: ReadonlyArray<{ mediumKind: string | null | undefined }>,
+  selected: MarketMediumFilter = 'all'
+): MarketMediumFilter[] {
+  const held = new Set<MarketMediumFilter>();
+  for (const item of items) {
+    const kind = parseMarketMediumFilter(item.mediumKind);
+    if (kind !== 'all') held.add(kind);
+  }
+  if (selected !== 'all') held.add(selected);
+  return MARKET_MEDIUM_FILTERS.map((entry) => entry.id).filter(
+    (id) => id === 'all' || held.has(id)
+  );
+}
 
 /** Last vault's held kinds — middleware copies this onto the loading shell. */
 export const COLLECTIBLES_HELD_KINDS_COOKIE = 'onsocial-collectibles-held';
@@ -39,7 +58,7 @@ export function parseCollectiblesHeldKindsCookie(
     .map((part) => part.trim())
     .filter(Boolean)
     .map((mediumKind) => ({ mediumKind }));
-  return vaultHeldKindFilters(mediums, 'all');
+  return heldKindFilters(mediums, 'all');
 }
 
 /** Cookie value for `name` from a `document.cookie` (or Cookie header) string. */
@@ -80,7 +99,7 @@ export function rememberCollectiblesHeldKinds(
 ): void {
   const owner = accountId.trim();
   if (!owner || typeof document === 'undefined') return;
-  const kinds = vaultHeldKindFilters(items, 'all');
+  const kinds = heldKindFilters(items, 'all');
   const value = encodeURIComponent(
     serializeCollectiblesHeldKinds(owner, kinds)
   );
