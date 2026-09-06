@@ -47,6 +47,7 @@ export function MarketListingToolbar({
   onFacetsChange,
   onClear,
   onMenuOpenChange,
+  hideListingTypes = false,
 }: {
   listingFilter: MarketListingFilter;
   listingSort: MarketListingSort;
@@ -63,6 +64,8 @@ export function MarketListingToolbar({
   onFacetsChange?: (facets: string[]) => void;
   onClear?: () => void;
   onMenuOpenChange?: (open: boolean) => void;
+  /** Creator shop — listing-type chips are browse chrome, not a shop door. */
+  hideListingTypes?: boolean;
 }) {
   const filterLabel = marketFilterTriggerLabel({
     medium,
@@ -79,21 +82,23 @@ export function MarketListingToolbar({
       aria-hidden={inert || undefined}
       style={inert ? { pointerEvents: 'none' } : undefined}
     >
-      <div className="market-listing-filter-stack">
-        <OsChipRail
-          className="market-listing-filters"
-          ariaLabel="Listing type"
-          value={listingFilter}
-          onValueChange={onListingFilterChange ?? (() => undefined)}
-          disabled={inert}
-          tabIdFor={(id) => `market-listing-tab-${id}`}
-          ariaControls="market-listing-results"
-          items={MARKET_LISTING_FILTERS.map((tab) => ({
-            id: tab.id,
-            label: tab.label,
-          }))}
-        />
-      </div>
+      {hideListingTypes ? null : (
+        <div className="market-listing-filter-stack">
+          <OsChipRail
+            className="market-listing-filters"
+            ariaLabel="Listing type"
+            value={listingFilter}
+            onValueChange={onListingFilterChange ?? (() => undefined)}
+            disabled={inert}
+            tabIdFor={(id) => `market-listing-tab-${id}`}
+            ariaControls="market-listing-results"
+            items={MARKET_LISTING_FILTERS.map((tab) => ({
+              id: tab.id,
+              label: tab.label,
+            }))}
+          />
+        </div>
+      )}
       {inert ? (
         <>
           <div className="standing-view-menu market-listing-sort-menu">

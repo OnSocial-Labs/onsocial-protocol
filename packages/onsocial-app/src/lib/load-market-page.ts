@@ -4,6 +4,9 @@ import {
   type MarketListingsPage,
   type MarketSaleItem,
 } from '@/features/market/market-listings';
+import { fetchCollectionsByCreator } from '@/features/scarces/collections-data';
+import { collectionToProfileStoreDrop } from '@/lib/profile-store-map';
+import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
   listingFilterFromSort,
@@ -36,6 +39,8 @@ import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client'
 export type MarketPageData = {
   listings: MarketListingsPage;
   sales: MarketSaleItem[];
+  /** Creator shop — primary drops. Empty on global Market. */
+  drops: ProfileStoreDrop[];
 };
 
 /** Parsed Market URL — SSR seed and client catalog key share this shape. */
@@ -180,7 +185,7 @@ export async function loadMarketPageData(
   try {
     const client = createServerOnSocialClient();
     const skipSales = Boolean(query.creator || query.app);
-    const [listings, sales] = await Promise.all([
+    const [listings, sales, collections] = await Promise.all([
       fetchMarketListings({
         limit: 40,
         sort: query.sort,
@@ -196,8 +201,15 @@ export async function loadMarketPageData(
       skipSales
         ? Promise.resolve([] as MarketSaleItem[])
         : fetchMarketSales({ limit: 20, client }),
+      query.creator
+        ? fetchCollectionsByCreator(query.creator, { limit: 48 })
+        : Promise.resolve([]),
     ]);
-    return { listings, sales };
+    return {
+      listings,
+      sales,
+      drops: collections.map(collectionToProfileStoreDrop),
+    };
   } catch {
     return null;
   }
