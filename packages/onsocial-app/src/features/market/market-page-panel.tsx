@@ -18,6 +18,7 @@ import {
   MarketSearchHeading,
 } from '@/features/market/market-heading';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
+import { partitionMarketListingsLiveFirst } from '@/features/market/market-listing-rank';
 import { MarketListingRow } from '@/features/market/market-listing-row';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
@@ -1032,6 +1033,10 @@ export function MarketPagePanel({
   // Medium / facets / audioFormat are server-filtered via activeListings.
   // Thought primaries are stripped client-side when medium is All (above).
   const discoveryFilteredListings = filteredListings;
+  const { live: liveBrowseListings, ended: endedBrowseListings } =
+    partitionMarketListingsLiveFirst(discoveryFilteredListings, nowMs);
+  const showEndedGroupLabel =
+    liveBrowseListings.length > 0 && endedBrowseListings.length > 0;
 
   const clientDiscoveryFilterActive =
     searching ||
@@ -1494,6 +1499,39 @@ export function MarketPagePanel({
     !listingsFailed &&
     discoveryFilteredListings.length === 0;
 
+  const renderBrowseListingRow = (item: MarketListingItem) => {
+    const rowKey = marketListingRowKey(item);
+    const offerSummary = item.tokenId
+      ? offerByToken.get(item.tokenId)
+      : undefined;
+    return (
+      <MarketListingRow
+        key={rowKey}
+        item={item}
+        nowMs={nowMs}
+        highestOfferNear={offerSummary?.highestAmountNear ?? null}
+        alreadyOwnsEdition={viewerOwnsRelatedEdition(item, owned)}
+        isOwnListing={(() => {
+          if (
+            !viewerAccountId ||
+            !accountIdsEqual(viewerAccountId, item.creatorId)
+          ) {
+            return false;
+          }
+          // Own ended auctions keep Bid/Settle; live own rows are Listed.
+          if (item.kind !== 'auction') return true;
+          const endsAtMs = auctionExpiresAtMs(item.expiresAtNs);
+          return endsAtMs == null || endsAtMs > Date.now();
+        })()}
+        cancelPending={cancelRowKey === rowKey}
+        onBuy={handleBuy}
+        onCancel={(row) => {
+          void handleCancel(row);
+        }}
+      />
+    );
+  };
+
   const titleForToken = useCallback(
     (tokenId: string): { title: string; mediaUrl?: string | null } => {
       const ownedHit = owned.find((row) => row.tokenId === tokenId);
@@ -1764,40 +1802,36 @@ export function MarketPagePanel({
                 : 'Listings'}
           </h2>
           {discoveryFilteredListings.length > 0 ? (
-            <div className="market-listing-list" role="list">
-              {discoveryFilteredListings.map((item) => {
-                const rowKey = marketListingRowKey(item);
-                const offerSummary = item.tokenId
-                  ? offerByToken.get(item.tokenId)
-                  : undefined;
-                return (
-                  <MarketListingRow
-                    key={rowKey}
-                    item={item}
-                    nowMs={nowMs}
-                    highestOfferNear={offerSummary?.highestAmountNear ?? null}
-                    alreadyOwnsEdition={viewerOwnsRelatedEdition(item, owned)}
-                    isOwnListing={(() => {
-                      if (
-                        !viewerAccountId ||
-                        !accountIdsEqual(viewerAccountId, item.creatorId)
-                      ) {
-                        return false;
-                      }
-                      // Own ended auctions keep Bid/Settle; live own rows are Listed.
-                      if (item.kind !== 'auction') return true;
-                      const endsAtMs = auctionExpiresAtMs(item.expiresAtNs);
-                      return endsAtMs == null || endsAtMs > Date.now();
-                    })()}
-                    cancelPending={cancelRowKey === rowKey}
-                    onBuy={handleBuy}
-                    onCancel={(row) => {
-                      void handleCancel(row);
-                    }}
-                  />
-                );
-              })}
-            </div>
+            <>
+              {liveBrowseListings.length > 0 ? (
+                <div
+                  className="market-listing-list"
+                  role="list"
+                  data-market-listing-group="live"
+                >
+                  {liveBrowseListings.map(renderBrowseListingRow)}
+                </div>
+              ) : null}
+              {endedBrowseListings.length > 0 ? (
+                <>
+                  {showEndedGroupLabel ? (
+                    <p
+                      className="collection-section-label"
+                      data-market-ended-label
+                    >
+                      Ended
+                    </p>
+                  ) : null}
+                  <div
+                    className="market-listing-list"
+                    role="list"
+                    data-market-listing-group="ended"
+                  >
+                    {endedBrowseListings.map(renderBrowseListingRow)}
+                  </div>
+                </>
+              ) : null}
+            </>
           ) : null}
         </section>
 
