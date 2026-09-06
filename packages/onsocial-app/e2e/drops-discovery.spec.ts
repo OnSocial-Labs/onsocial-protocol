@@ -26,6 +26,27 @@ test.describe('drops discovery', () => {
     ).toBeVisible();
   });
 
+  test('list uses Collect/Open house pills, not mint or featured chrome', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/drops');
+    await expectDropsChrome(page);
+    await expect(page.getByRole('heading', { name: 'Top earners' })).toHaveCount(
+      0
+    );
+    await expect(page.locator('.drops-discovery-row--featured')).toHaveCount(0);
+    await expect(page.getByText('Featured · Closing')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Mint / })).toHaveCount(0);
+    const shopPills = page.locator(
+      '.drops-discovery-row .page-drawer-section-action'
+    );
+    const rowCount = await page.locator('.drops-discovery-row').count();
+    if (rowCount > 0) {
+      await expect(shopPills.first()).toBeVisible();
+      await expect(shopPills.first()).toHaveText(/^(Collect|Open)$/);
+    }
+  });
+
   test('loads catalog chrome and switches sort + medium', async ({ page }) => {
     await gotoApp(page, '/drops');
     await expectDropsChrome(page);

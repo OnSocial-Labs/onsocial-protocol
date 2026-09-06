@@ -495,22 +495,6 @@ async function fetchClosingPage(
   return { items, hasMore };
 }
 
-/** Pick a single Live spotlight (closing first, else most minted). */
-export function pickFeaturedLiveDrop(
-  items: DropDiscoveryItem[],
-  nowMs = Date.now()
-): DropDiscoveryItem | null {
-  if (items.length === 0) return null;
-  const closing = items.find((item) => isDropClosing(item, nowMs));
-  if (closing) return closing;
-  let best: DropDiscoveryItem | null = null;
-  for (const item of items) {
-    if (item.mintedCount <= 0) continue;
-    if (!best || item.mintedCount > best.mintedCount) best = item;
-  }
-  return best;
-}
-
 export type UpcomingBucket = 'today' | 'week' | 'later';
 
 export function upcomingBucket(
@@ -968,32 +952,3 @@ export async function fetchDropsPage(
   };
 }
 
-export type CreatorLeaderRow = {
-  accountId: string;
-  itemsCreated: number;
-  itemsSold: number;
-  collectionsCreated: number;
-  revenueNear: string | null;
-};
-
-export async function fetchCreatorLeaders(
-  opts: { limit?: number; client?: OnSocial } = {}
-): Promise<CreatorLeaderRow[]> {
-  const client = opts.client ?? createReadOnlyOnSocialClient();
-  const rows = await client.query.scarces.activityLeaderboard({
-    limit: opts.limit ?? 12,
-    orderBy: 'revenue',
-  });
-  return rows
-    .filter((row) => row.accountId?.trim())
-    .map((row) => ({
-      accountId: row.accountId.trim(),
-      itemsCreated: row.itemsCreated ?? 0,
-      itemsSold: row.itemsSold ?? 0,
-      collectionsCreated: row.collectionsCreated ?? 0,
-      revenueNear:
-        row.revenueEarned && /^\d+$/.test(row.revenueEarned)
-          ? yoctoToNear(row.revenueEarned)
-          : null,
-    }));
-}

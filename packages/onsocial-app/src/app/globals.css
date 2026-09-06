@@ -31780,32 +31780,6 @@ a.os-surface-row {
     width: 100%;
   }
 
-  /* Upcoming — Opens {time} under time/⋮ (not a mint commit). */
-  .drops-discovery-opens-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 4.5rem;
-    min-height: 1.65rem;
-    padding: 0.28rem 0.62rem;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.07);
-    color: rgb(var(--fg-rgb) / 0.72);
-    font-size: 0.68rem;
-    font-weight: 600;
-    line-height: 1.15;
-    text-align: center;
-    text-decoration: none;
-    white-space: nowrap;
-  }
-
-  .drops-discovery-opens-pill:hover,
-  .drops-discovery-opens-pill:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.11);
-    color: rgb(var(--fg-rgb) / 0.88);
-    outline: none;
-  }
-
   .drops-discovery-row .market-listing-meta,
   .drops-discovery-row .market-listing-meta--price {
     text-decoration: none;
@@ -31989,25 +31963,6 @@ a.os-surface-row {
     transition: opacity 120ms ease;
   }
 
-  .drops-discovery-row.drops-discovery-row--featured {
-    position: relative;
-    margin-bottom: 0.65rem;
-    padding: 0.55rem 0.55rem 0.55rem 0.65rem;
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.04);
-    box-shadow: inset 3px 0 0 rgb(var(--fg-rgb) / 0.35);
-  }
-
-  .drops-discovery-featured-eyebrow {
-    display: block;
-    margin: 0 0 0.2rem;
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.72);
-  }
-
   .drops-upcoming-group + .drops-upcoming-group {
     margin-top: 1rem;
   }
@@ -32016,15 +31971,6 @@ a.os-surface-row {
     font-size: 0.8rem;
     opacity: 0.72;
     margin-bottom: 0.35rem;
-  }
-
-  .drops-creators-list {
-    list-style: none;
-  }
-
-  .drops-creator-row {
-    text-decoration: none;
-    color: inherit;
   }
 
   .market-section-title-row {

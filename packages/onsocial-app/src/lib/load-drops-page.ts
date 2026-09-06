@@ -1,8 +1,6 @@
 import {
   DROPS_PAGE_SIZE,
-  fetchCreatorLeaders,
   fetchDropsPage,
-  type CreatorLeaderRow,
   type DropAudioFormatFilter,
   type DropDiscoveryItem,
   type DropsSort,
@@ -19,7 +17,6 @@ import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client'
 export type DropsPageData = {
   items: DropDiscoveryItem[];
   hasMore: boolean;
-  creators: CreatorLeaderRow[];
 };
 
 /** Parsed Drops URL — SSR seed and client catalog key share this shape. */
@@ -110,22 +107,16 @@ export async function loadDropsPageData(
   if (query.sort === 'saved') return null;
   try {
     const client = createServerOnSocialClient();
-    const [page, creators] = await Promise.all([
-      fetchDropsPage({
-        sort: query.sort,
-        limit: DROPS_PAGE_SIZE,
-        mediumKind: query.kind === 'all' ? null : query.kind,
-        audioFormat: query.audioFormat,
-        client,
-      }),
-      query.sort === 'new'
-        ? fetchCreatorLeaders({ limit: 8, client })
-        : Promise.resolve([] as CreatorLeaderRow[]),
-    ]);
+    const page = await fetchDropsPage({
+      sort: query.sort,
+      limit: DROPS_PAGE_SIZE,
+      mediumKind: query.kind === 'all' ? null : query.kind,
+      audioFormat: query.audioFormat,
+      client,
+    });
     return {
       items: page.items,
       hasMore: page.hasMore,
-      creators,
     };
   } catch {
     return null;

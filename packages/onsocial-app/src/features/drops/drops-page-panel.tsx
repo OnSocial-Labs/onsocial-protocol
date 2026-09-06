@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { DropRowFans } from '@/components/drops/drop-row-fans';
@@ -22,17 +21,18 @@ import {
 import {
   DROPS_PAGE_SIZE,
   dropsItemMatchesQuery,
-  fetchCreatorLeaders,
   fetchDropsPage,
   isDropClosing,
-  pickFeaturedLiveDrop,
   softFillDropFanRosters,
   upcomingBucket,
-  type CreatorLeaderRow,
   type DropDiscoveryItem,
   type DropsSort,
   type UpcomingBucket,
 } from '@/features/drops/drops-data';
+import {
+  dropsShopActionLabel,
+  dropsShopMintable,
+} from '@/features/drops/drops-page-view';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
@@ -40,19 +40,11 @@ import {
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
-import {
-  fetchAllowlistRemaining,
-  isCollectionMintable,
-} from '@/features/scarces/collections-data';
-import {
-  ScarceBuySheet,
-  type ScarceBuyListing,
-} from '@/features/scarces/scarce-buy-sheet';
+import { fetchAllowlistRemaining } from '@/features/scarces/collections-data';
 import {
   ScarceFeedMediumSheet,
   resolveScarceFeedMediumMode,
 } from '@/features/scarces/scarce-feed-medium-sheet';
-import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_DROP_CREATE_PATH,
   APP_MARKET_PATH,
@@ -67,8 +59,6 @@ import {
   type DropsPageData,
   type DropsPageQuery,
 } from '@/lib/load-drops-page';
-import { portfolioPath } from '@/lib/overlay-routes';
-import { fallbackLabel } from '@/lib/profile-display';
 
 /** Debounce before search keystrokes hit the indexer (snappy, still typed). */
 const SEARCH_DEBOUNCE_MS = 200;
@@ -80,7 +70,6 @@ const CATALOG_CACHE_MAX_ENTRIES = 12;
 type CatalogCacheEntry = {
   items: DropDiscoveryItem[];
   hasMore: boolean;
-  creators: CreatorLeaderRow[];
   at: number;
 };
 
@@ -155,10 +144,6 @@ const DROP_MEDIUM_FILTERS: ReadonlyArray<{
   ).includes(entry.id)
 );
 
-function dropsCountLabel(count: number): string {
-  return count === 1 ? '1 drop' : `${count} drops`;
-}
-
 /** Release format from metadata (`extra.audioFormat`) — never invent song counts. */
 function dropRowFormatLabel(item: DropDiscoveryItem): string | null {
   const format = item.view?.audioFormat;
@@ -199,8 +184,11 @@ function dropRowMetaBits(
           : 'Allowlist'
       );
     } else if (item.startTimeMs == null) {
-      // Opens time lives on the action pill when set.
       parts.push('Upcoming');
+    }
+    if (item.startTimeMs != null) {
+      const opens = formatDropWindow(item.startTimeMs, 'opens', nowMs);
+      if (opens) parts.push(opens);
     }
     return {
       scarcity: parts.join(' · ') || null,
@@ -251,104 +239,26 @@ function dropRowMetaBits(
   return { scarcity: supply, format: formatLabel };
 }
 
-type DropRowCommerceAction =
-  | { kind: 'mint'; label: string }
-  | { kind: 'opens'; label: string }
-  | null;
-
-function dropToBuyListing(item: DropDiscoveryItem): ScarceBuyListing {
-  const playables = item.view?.playables ?? [];
-  return {
-    status: 'drop',
-    collectionId: item.collectionId,
-    priceNear: item.priceNear ?? '0',
-    title: item.title,
-    ...(item.description?.trim()
-      ? { description: item.description.trim() }
-      : {}),
-    mediaUrl: item.mediaUrl,
-    creatorId: item.creatorId,
-    ...(item.creatorDisplayName
-      ? { creatorName: item.creatorDisplayName }
-      : {}),
-    ...(item.totalSupply != null ? { copies: item.totalSupply } : {}),
-    ...(item.remaining != null ? { remaining: item.remaining } : {}),
-    ...(playables.length > 0
-      ? { playable: playables[0], playables }
-      : {}),
-  };
-}
-
-/** Mint drawer, or Opens {time} when a start is set and mint isn’t open yet. */
-function dropRowCommerceAction(
-  item: DropDiscoveryItem,
-  sort: DropsSort,
-  allowlistRemaining: number | null | undefined,
-  viewerId: string | null,
-  nowMs: number
-): DropRowCommerceAction {
-  if (sort === 'finished') return null;
-  if (viewerId && accountIdsEqual(viewerId, item.creatorId)) return null;
-
-  const status = item.status;
-  const soldOut =
-    status === 'sold_out' ||
-    (item.remaining != null && item.remaining <= 0);
-  if (
-    soldOut ||
-    status === 'ended' ||
-    status === 'cancelled' ||
-    status === 'paused'
-  ) {
-    return null;
-  }
-
-  const earlyMint =
-    status === 'upcoming' &&
-    item.hasAllowlist &&
-    allowlistRemaining != null &&
-    allowlistRemaining > 0;
-  if (earlyMint || (status != null && isCollectionMintable(status))) {
-    return { kind: 'mint', label: 'Mint' };
-  }
-
-  if (status === 'upcoming' || sort === 'upcoming') {
-    if (item.startTimeMs != null) {
-      const opens = formatDropWindow(item.startTimeMs, 'opens', nowMs);
-      if (opens) return { kind: 'opens', label: opens };
-    }
-    return { kind: 'opens', label: 'Upcoming' };
-  }
-
-  return null;
-}
-
 function DropRow({
   item,
   sort,
   allowlistRemaining,
-  featured = false,
   saved = false,
   savePending = false,
-  viewerId = null,
   nowMs,
   onToggleSave,
   onOwnerManaged,
   onPlay,
-  onMint,
 }: {
   item: DropDiscoveryItem;
   sort: DropsSort;
   allowlistRemaining?: number | null;
-  featured?: boolean;
   saved?: boolean;
   savePending?: boolean;
-  viewerId?: string | null;
   nowMs: number;
   onToggleSave: () => void;
   onOwnerManaged?: (change: 'paused' | 'resumed' | 'deleted') => void;
   onPlay?: () => void;
-  onMint: () => void;
 }) {
   const formatLabel = dropRowFormatLabel(item);
   const meta = dropRowMetaBits(
@@ -376,21 +286,16 @@ function DropRow({
   ) as string[];
   const fanCount =
     item.fanCount != null && item.fanCount > 0 ? item.fanCount : null;
-  const commerce = dropRowCommerceAction(
-    item,
-    sort,
-    allowlistRemaining,
-    viewerId,
-    nowMs
+  const action = dropsShopActionLabel(
+    dropsShopMintable({
+      status: item.status,
+      hasAllowlist: item.hasAllowlist,
+      allowlistRemaining,
+    })
   );
 
   return (
-    <div
-      className={`market-listing-row drops-discovery-row${
-        featured ? ' drops-discovery-row--featured' : ''
-      }`}
-      role="listitem"
-    >
+    <div className="market-listing-row drops-discovery-row" role="listitem">
       {item.hasPlayable && onPlay ? (
         <button
           type="button"
@@ -424,11 +329,6 @@ function DropRow({
         </Link>
       )}
       <div className="market-listing-copy drops-discovery-copy">
-        {featured ? (
-          <span className="drops-discovery-featured-eyebrow">
-            {isDropClosing(item, nowMs) ? 'Featured · Closing' : 'Featured'}
-          </span>
-        ) : null}
         <div className="market-listing-head drops-discovery-head">
           <Link
             href={href}
@@ -490,34 +390,14 @@ function DropRow({
             onOwnerManaged={onOwnerManaged}
           />
         </div>
-        {commerce?.kind === 'mint' ? (
-          <OsSheetActions
-            layout="row-compact"
-            tone="frosted-primary"
-            size="sm"
-            borderless
-            className="market-listing-action drops-discovery-action"
-          >
-            <OsSheetAction
-              type="button"
-              variant="primary"
-              ready
-              aria-label={`Mint ${item.title}`}
-              onClick={onMint}
-            >
-              {commerce.label}
-            </OsSheetAction>
-          </OsSheetActions>
-        ) : commerce?.kind === 'opens' ? (
-          <Link
-            href={href}
-            scroll={false}
-            className="drops-discovery-opens-pill"
-            aria-label={`${commerce.label} — open ${item.title}`}
-          >
-            {commerce.label}
-          </Link>
-        ) : null}
+        <Link
+          href={href}
+          scroll={false}
+          className="page-drawer-section-action collectibles-holding-action"
+          aria-label={`${action} ${item.title}`}
+        >
+          {action}
+        </Link>
       </div>
     </div>
   );
@@ -676,7 +556,6 @@ export function DropsPagePanel({
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [items, setItems] = useState<DropDiscoveryItem[]>([]);
-  const [creators, setCreators] = useState<CreatorLeaderRow[]>([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -700,15 +579,10 @@ export function DropsPagePanel({
     Record<string, number | null>
   >({});
   const [playItem, setPlayItem] = useState<DropDiscoveryItem | null>(null);
-  const [mintItem, setMintItem] = useState<DropDiscoveryItem | null>(null);
 
   const collectionIds = useMemo(
     () => items.map((item) => item.collectionId),
     [items]
-  );
-  const mintListing = useMemo(
-    () => (mintItem ? dropToBuyListing(mintItem) : null),
-    [mintItem]
   );
   const { viewerSaved, isSavePending, toggleSave } = useScarceCollectionSaves({
     collectionIds,
@@ -829,13 +703,11 @@ export function DropsPagePanel({
         setItems(cached.items);
         setOffset(cached.items.length);
         setHasMore(cached.hasMore);
-        setCreators(cached.creators);
         setLoading(false);
         setRefreshing(true);
       } else {
         // Cache miss: skeleton — do not show the previous tab's rows.
         setItems([]);
-        setCreators([]);
         setRefreshing(false);
         setLoading(true);
         setOffset(0);
@@ -847,7 +719,6 @@ export function DropsPagePanel({
         if (nextSort === 'saved' && !viewer) {
           if (gen !== reloadGenRef.current) return;
           setItems([]);
-          setCreators([]);
           setHasMore(false);
           return;
         }
@@ -867,47 +738,37 @@ export function DropsPagePanel({
             writeCatalogCache(cacheKey, {
               items: data.items,
               hasMore: data.hasMore,
-              creators: data.creators,
               at: Date.now(),
             });
             setItems(data.items);
             setOffset(data.items.length);
             setHasMore(data.hasMore);
-            setCreators(data.creators);
             return;
           }
         }
-        const [page, leaders] = await Promise.all([
-          fetchDropsPage({
-            sort: nextSort,
-            mediumKind: nextMedium === 'all' ? null : nextMedium,
-            search: nextSearch || null,
-            audioFormat: nextFormat,
-            limit: DROPS_PAGE_SIZE,
-            viewerAccountId: accountId,
-          }),
-          nextSort === 'new'
-            ? fetchCreatorLeaders({ limit: 8 })
-            : Promise.resolve([] as CreatorLeaderRow[]),
-        ]);
+        const page = await fetchDropsPage({
+          sort: nextSort,
+          mediumKind: nextMedium === 'all' ? null : nextMedium,
+          search: nextSearch || null,
+          audioFormat: nextFormat,
+          limit: DROPS_PAGE_SIZE,
+          viewerAccountId: accountId,
+        });
         if (gen !== reloadGenRef.current) return;
         writeCatalogCache(cacheKey, {
           items: page.items,
           hasMore: page.hasMore,
-          creators: leaders,
           at: Date.now(),
         });
         setItems(page.items);
         setOffset(page.items.length);
         setHasMore(page.hasMore);
-        setCreators(leaders);
       } catch {
         if (gen !== reloadGenRef.current) return;
         setFailed(true);
         if (!cacheFresh) {
           setItems([]);
           setHasMore(false);
-          setCreators([]);
         }
       } finally {
         if (gen === reloadGenRef.current) {
@@ -1118,22 +979,6 @@ export function DropsPagePanel({
       ? items
       : items.filter((item) => dropsItemMatchesQuery(item, needle));
 
-  const featured =
-    sort === 'live' &&
-    !searching &&
-    !audioFormat &&
-    medium === 'all' &&
-    !loading &&
-    !refreshing &&
-    visibleItems.length >= 2
-      ? pickFeaturedLiveDrop(visibleItems, nowMs)
-      : null;
-  const catalogItems = featured
-    ? visibleItems.filter(
-        (item) => item.collectionId !== featured.collectionId
-      )
-    : visibleItems;
-
   const upcomingGroups = useMemo(() => {
     if (sort !== 'upcoming') return null;
     const groups: Record<UpcomingBucket, DropDiscoveryItem[]> = {
@@ -1141,28 +986,24 @@ export function DropsPagePanel({
       week: [],
       later: [],
     };
-    for (const item of catalogItems) {
+    for (const item of visibleItems) {
       groups[upcomingBucket(item.startTimeMs, nowMs)].push(item);
     }
     return groups;
-  }, [sort, catalogItems, nowMs]);
+  }, [sort, visibleItems, nowMs]);
 
-  const showCreators =
-    sort === 'new' && creators.length > 0 && !searching && !audioFormat;
   const showCatalogSkeleton =
     loading && items.length === 0 && !failed && !searching;
   const catalogRefreshing = refreshing && items.length > 0;
 
-  const renderRow = (item: DropDiscoveryItem, opts?: { featured?: boolean }) => (
+  const renderRow = (item: DropDiscoveryItem) => (
     <DropRow
       key={item.collectionId}
       item={item}
       sort={sort}
-      featured={opts?.featured}
       allowlistRemaining={allowlistById[item.collectionId.trim()]}
       saved={viewerSaved(item.collectionId)}
       savePending={isSavePending(item.collectionId)}
-      viewerId={accountId}
       nowMs={nowMs}
       onToggleSave={() => {
         void toggleSave(item.collectionId);
@@ -1223,9 +1064,6 @@ export function DropsPagePanel({
             }
           : undefined
       }
-      onMint={() => {
-        setMintItem(item);
-      }}
     />
   );
 
@@ -1262,42 +1100,6 @@ export function DropsPagePanel({
       <div className="drops-screen-body">
         <div aria-hidden className="os-chrome-glass" />
         <div className="market-page-body drops-page-body">
-          {showCreators ? (
-            <section className="market-section" aria-labelledby="drops-earners">
-              <div className="market-section-title-row">
-                <h2 id="drops-earners" className="market-section-title">
-                  Top earners
-                </h2>
-              </div>
-              <ul className="market-listing-list drops-creators-list">
-                {creators.map((row) => (
-                  <li key={row.accountId}>
-                    <Link
-                      href={portfolioPath(row.accountId)}
-                      scroll={false}
-                      className="market-listing-row drops-creator-row"
-                    >
-                      <span className="market-listing-copy">
-                        <span className="market-listing-title">
-                          @{fallbackLabel(row.accountId)}
-                        </span>
-                        <span className="market-listing-meta">
-                          {dropsCountLabel(row.collectionsCreated)}
-                          {row.itemsSold > 0
-                            ? ` · ${row.itemsSold} sold`
-                            : ''}
-                          {row.revenueNear
-                            ? ` · ${row.revenueNear} Ⓝ earned`
-                            : ''}
-                        </span>
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
           <section
             className={`market-section${
               catalogRefreshing ? ' drops-catalog--refreshing' : ''
@@ -1327,11 +1129,6 @@ export function DropsPagePanel({
               <EmptyDropsStatus sort={sort} query={query} medium={medium} />
             ) : (
               <>
-                {featured ? (
-                  <div className="market-listing-list" role="list">
-                    {renderRow(featured, { featured: true })}
-                  </div>
-                ) : null}
                 {upcomingGroups ? (
                   UPCOMING_SECTIONS.map((section) => {
                     const rows = upcomingGroups[section.id];
@@ -1349,7 +1146,7 @@ export function DropsPagePanel({
                   })
                 ) : (
                   <div className="market-listing-list" role="list">
-                    {catalogItems.map((item) => renderRow(item))}
+                    {visibleItems.map((item) => renderRow(item))}
                   </div>
                 )}
               </>
@@ -1405,17 +1202,6 @@ export function DropsPagePanel({
             viewerAccountId={accountId}
           />
         ) : null}
-
-        <ScarceBuySheet
-          open={mintItem != null}
-          listing={mintListing}
-          onOpenChange={(open) => {
-            if (!open) setMintItem(null);
-          }}
-          onPurchased={() => {
-            setMintItem(null);
-          }}
-        />
       </div>
     </OsAppScreen>
   );
