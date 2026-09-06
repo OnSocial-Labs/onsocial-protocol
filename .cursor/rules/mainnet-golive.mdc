@@ -1,0 +1,21 @@
+---
+description: Locked mainnet go-live plan — token + rewards + treasury only
+alwaysApply: true
+---
+
+# Mainnet go-live (locked)
+
+Read [Resources/mainnet-golive.md](../../Resources/mainnet-golive.md) before any mainnet contract, Graph, relayer allowlist, or `NEAR_NETWORK=mainnet` change.
+
+**Label:** mainnet is token + rewards + treasury. Testnet is the product network.
+
+**Do not**
+
+- Flip app / portal / gateway to mainnet
+- Point public Graph or substreams at mainnet as if core exists
+- Deploy `core` (or any missing account) without following the runbook order
+- Retrack views or `reload_metadata` on the public Hasura engine
+- Allowlist a name that has no wasm
+- Treat UI shipping on `main` as mainnet social going live
+
+**When the chain changes:** update `Resources/mainnet-golive.md` and `scripts/check-mainnet-contracts.mjs` in the same change. Re-check with `node scripts/check-mainnet-contracts.mjs`.
