@@ -129,6 +129,7 @@ import {
 import {
   dropCreateAdvancedExtraAction,
   dropCreateAdvancedExtraOpen,
+  dropCreateAllowlistOpen,
   dropCreateAttachAction,
   dropCreateBlurbOpen,
   dropCreateBookPdfPlacement,
@@ -136,8 +137,9 @@ import {
   dropCreateFacetsAction,
   dropCreateFacetsOpen,
   dropCreatePiecePickerClass,
+  dropCreateRenewalsOpen,
   dropCreateRoyaltyOpen,
-  dropCreateSaleWindowOpen,
+  dropCreateSaleRulesOpen,
   dropCreateScreenTitle,
 } from '@/features/scarces/drop-create-layout';
 import {
@@ -279,7 +281,10 @@ export function CreateDropPanel() {
   const [seriesOpen, setSeriesOpen] = useState(false);
   const [facetsOpen, setFacetsOpen] = useState(false);
   const [royaltyOpen, setRoyaltyOpen] = useState(false);
-  const [saleWindowOpen, setSaleWindowOpen] = useState(false);
+  const [saleRulesOpen, setSaleRulesOpen] = useState(false);
+  const [renewalsOpen, setRenewalsOpen] = useState(false);
+  const [allowlistOpen, setAllowlistOpen] = useState(false);
+  const [placeOpen, setPlaceOpen] = useState(false);
   const [createReady, setCreateReady] = useState(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const dropIdRef = useRef<HTMLInputElement>(null);
@@ -460,7 +465,10 @@ export function CreateDropPanel() {
     setSeriesOpen(false);
     setFacetsOpen(false);
     setRoyaltyOpen(false);
-    setSaleWindowOpen(false);
+    setSaleRulesOpen(false);
+    setRenewalsOpen(false);
+    setAllowlistOpen(false);
+    setPlaceOpen(false);
     setArtMode('single');
     setMusicFormat('single');
     setTrackFiles([]);
@@ -830,6 +838,10 @@ export function CreateDropPanel() {
       }
       // Art / Writing / Audio close Advanced; ticket-like kinds keep essentials open.
       setShowAdvanced(Boolean(next.openAdvanced));
+      setSaleRulesOpen(false);
+      setRenewalsOpen(false);
+      setAllowlistOpen(false);
+      setPlaceOpen(false);
       setStudioOpen(false);
       if (next.id === 'audio') {
         setArtMode('single');
@@ -2376,11 +2388,25 @@ export function CreateDropPanel() {
       !royaltySplitIsDefault(resolvedRoyaltyShares, accountId ?? ''),
     forcedOpen: royaltyOpen,
   });
-  const saleWindowShown = dropCreateSaleWindowOpen(
+  const saleRulesShown = dropCreateSaleRulesOpen({
     startTime,
     endTime,
-    saleWindowOpen
+    maxPerWallet,
+    transferable,
+    forcedOpen: saleRulesOpen,
+  });
+  const renewalsShown = dropCreateRenewalsOpen({
+    renewable,
+    maxRedeems: maxRedeemsInput,
+    accessEnds,
+    requiresAccessEnd: Boolean(template.requiresAccessEnd),
+    forcedOpen: renewalsOpen,
+  });
+  const allowlistShown = dropCreateAllowlistOpen(
+    draftAllowlist.length,
+    allowlistOpen
   );
+  const placeShown = dropCreateAdvancedExtraOpen(placeDraft, placeOpen);
   const dealShowsSupply = dropCreateDealShowsSupplyField({
     isGeneratedSet,
     isVariations,
@@ -3554,7 +3580,11 @@ export function CreateDropPanel() {
             </div>
 
             <div className="drop-create-advanced-extra">
-              {saleWindowShown ? (
+              {saleRulesShown ? (
+                <div
+                  className="drop-create-sale-rules"
+                  data-drop-create-advanced="sale-rules"
+                >
                 <div
                   className="drop-schedule-pair"
                   role="group"
@@ -3615,27 +3645,68 @@ export function CreateDropPanel() {
                     ) : null}
                   </div>
                 </div>
+                  <SuffixField
+                    id={fieldId('per-wallet')}
+                    value={maxPerWallet}
+                    onValueChange={(value) =>
+                      setMaxPerWallet(value.replace(/[^\d]/g, ''))
+                    }
+                    placeholder="No limit"
+                    aria-label={`Max ${template.unit} per wallet`}
+                    suffix={template.unit}
+                    disabled={pending}
+                  />
+                  <div
+                    className="app-access-options"
+                    role="radiogroup"
+                    aria-label="Transferable"
+                  >
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={transferable}
+                      className={`app-access-option${
+                        transferable ? ' is-selected' : ''
+                      }`}
+                      disabled={pending}
+                      onClick={() => setTransferable(true)}
+                    >
+                      Yes
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={!transferable}
+                      className={`app-access-option${
+                        !transferable ? ' is-selected' : ''
+                      }`}
+                      disabled={pending}
+                      onClick={() => setTransferable(false)}
+                    >
+                      Soulbound
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <button
                   type="button"
                   className="collection-allowlist-toggle drop-create-advanced-toggle"
                   disabled={pending}
-                  onClick={() => setSaleWindowOpen(true)}
+                  onClick={() => setSaleRulesOpen(true)}
                 >
-                  {dropCreateAdvancedExtraAction('saleWindow')}
+                  {dropCreateAdvancedExtraAction('saleRules')}
                 </button>
               )}
             </div>
 
             {isTicket ? (
               <>
-                <div className="guild-field">
-                  <DropFieldLabel
-                    label="Event window"
-                    infoKey="eventWindow"
-                    onOpenInfo={openFieldInfo}
-                  />
-                  <div className="drop-schedule-pair">
+                <div className="drop-create-advanced-extra">
+                  <div
+                    className="drop-schedule-pair"
+                    role="group"
+                    aria-label="Event window"
+                  >
                     <div
                       className={`drop-schedule-cell${
                         eventStarts ? ' has-value' : ''
@@ -3699,228 +3770,187 @@ export function CreateDropPanel() {
                   </div>
                 </div>
 
-                <label className="guild-field" htmlFor={fieldId('place')}>
-                  <DropFieldLabel
-                    label="Place"
-                    infoKey="eventPlace"
-                    onOpenInfo={openFieldInfo}
-                  />
-                  <input
-                    id={fieldId('place')}
-                    className={osFieldBorderedClassName}
-                    value={placeDraft}
-                    disabled={pending}
-                    maxLength={64}
-                    placeholder="Lisbon, ETH Denver…"
-                    autoComplete="off"
-                    onChange={(event) => setPlaceDraft(event.target.value)}
-                  />
-                  {normalizePlaceSlug(placeDraft) ? (
-                    <span className="guild-composer-place-hint" aria-hidden>
-                      {placeLabel(normalizePlaceSlug(placeDraft)!)}
-                    </span>
-                  ) : null}
-                </label>
+                <div className="drop-create-advanced-extra">
+                  {placeShown ? (
+                    <label
+                      className="drop-create-advanced-field"
+                      htmlFor={fieldId('place')}
+                    >
+                      <span className="sr-only">Place</span>
+                      <input
+                        id={fieldId('place')}
+                        className="drop-create-advanced-input"
+                        value={placeDraft}
+                        disabled={pending}
+                        maxLength={64}
+                        placeholder="Lisbon, ETH Denver…"
+                        autoComplete="off"
+                        onChange={(event) => setPlaceDraft(event.target.value)}
+                      />
+                      {normalizePlaceSlug(placeDraft) ? (
+                        <span className="drop-create-advanced-hint" aria-hidden>
+                          {placeLabel(normalizePlaceSlug(placeDraft)!)}
+                        </span>
+                      ) : null}
+                    </label>
+                  ) : (
+                    <button
+                      type="button"
+                      className="collection-allowlist-toggle drop-create-advanced-toggle"
+                      disabled={pending}
+                      onClick={() => setPlaceOpen(true)}
+                    >
+                      {dropCreateAdvancedExtraAction('place')}
+                    </button>
+                  )}
+                </div>
               </>
             ) : null}
 
-            <label className="guild-field" htmlFor={fieldId('per-wallet')}>
-              <span>Max per wallet</span>
-              <SuffixField
-                id={fieldId('per-wallet')}
-                value={maxPerWallet}
-                onValueChange={(value) =>
-                  setMaxPerWallet(value.replace(/[^\d]/g, ''))
-                }
-                placeholder="No limit"
-                aria-label={`Max ${template.unit} per wallet`}
-                suffix={template.unit}
-                disabled={pending}
-              />
-            </label>
-
-            <div className="guild-field">
-              <DropFieldLabel
-                label="Transferable"
-                infoKey="transferable"
-                onOpenInfo={openFieldInfo}
-              />
-              <div
-                className="app-access-options"
-                role="radiogroup"
-                aria-label="Transferable"
-              >
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={transferable}
-                  className={`app-access-option${
-                    transferable ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setTransferable(true)}
-                >
-                  Yes
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={!transferable}
-                  className={`app-access-option${
-                    !transferable ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setTransferable(false)}
-                >
-                  Soulbound
-                </button>
-              </div>
-            </div>
-
-            <div className="guild-field">
-              <DropFieldLabel
-                label={isTicket ? 'Allow date changes' : 'Renewable'}
-                infoKey="renewable"
-                onOpenInfo={openFieldInfo}
-              />
-              <div
-                className="app-access-options"
-                role="radiogroup"
-                aria-label={isTicket ? 'Allow date changes' : 'Renewable'}
-              >
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={renewable}
-                  className={`app-access-option${
-                    renewable ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setRenewable(true)}
-                >
-                  Yes
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={!renewable}
-                  className={`app-access-option${
-                    !renewable ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => {
-                    setRenewable(false);
-                    if (!isTicket) setAccessEnds('');
-                  }}
-                >
-                  No
-                </button>
-              </div>
-            </div>
-
-            {!isTicket && (renewable || template.requiresAccessEnd) ? (
-              <div className="guild-field">
-                <DropFieldLabel
-                  label={
-                    template.requiresAccessEnd
-                      ? 'Access ends'
-                      : 'Access ends (optional)'
-                  }
-                  infoKey="accessEnds"
-                  onOpenInfo={openFieldInfo}
-                />
+            <div className="drop-create-advanced-extra">
+              {renewalsShown ? (
                 <div
-                  className={`drop-schedule-cell${
-                    accessEnds ? ' has-value' : ''
-                  }`}
+                  className="drop-create-renewals"
+                  data-drop-create-advanced="renewals"
                 >
-                  <button
-                    type="button"
-                    className="drop-schedule-cell-main"
-                    disabled={pending}
-                    onClick={() => setScheduleField('access')}
+                  <div
+                    className="app-access-options"
+                    role="radiogroup"
+                    aria-label={isTicket ? 'Allow date changes' : 'Renewable'}
                   >
-                    <span className="drop-schedule-cell-label">
-                      Access ends
-                    </span>
-                    <span className="drop-schedule-cell-value">
-                      {accessEnds
-                        ? formatScheduleLabel(accessEnds)
-                        : template.requiresAccessEnd
-                          ? 'Required'
-                          : 'No end'}
-                    </span>
-                  </button>
-                  {accessEnds ? (
                     <button
                       type="button"
-                      className="drop-schedule-cell-clear"
+                      role="radio"
+                      aria-checked={renewable}
+                      className={`app-access-option${
+                        renewable ? ' is-selected' : ''
+                      }`}
                       disabled={pending}
-                      aria-label="Clear access end"
-                      onClick={() => setAccessEnds('')}
+                      onClick={() => setRenewable(true)}
                     >
-                      ✕
+                      Yes
                     </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={!renewable}
+                      className={`app-access-option${
+                        !renewable ? ' is-selected' : ''
+                      }`}
+                      disabled={pending}
+                      onClick={() => {
+                        setRenewable(false);
+                        if (!isTicket) setAccessEnds('');
+                      }}
+                    >
+                      No
+                    </button>
+                  </div>
+                  {!isTicket && (renewable || template.requiresAccessEnd) ? (
+                    <div
+                      className={`drop-schedule-cell${
+                        accessEnds ? ' has-value' : ''
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        className="drop-schedule-cell-main"
+                        disabled={pending}
+                        onClick={() => setScheduleField('access')}
+                      >
+                        <span className="drop-schedule-cell-label">
+                          Access ends
+                        </span>
+                        <span className="drop-schedule-cell-value">
+                          {accessEnds
+                            ? formatScheduleLabel(accessEnds)
+                            : template.requiresAccessEnd
+                              ? 'Required'
+                              : 'No end'}
+                        </span>
+                      </button>
+                      {accessEnds ? (
+                        <button
+                          type="button"
+                          className="drop-schedule-cell-clear"
+                          disabled={pending}
+                          aria-label="Clear access end"
+                          onClick={() => setAccessEnds('')}
+                        >
+                          ✕
+                        </button>
+                      ) : null}
+                    </div>
                   ) : null}
+                  <SuffixField
+                    id={fieldId('max-redeems')}
+                    value={maxRedeemsInput}
+                    onValueChange={(value) =>
+                      setMaxRedeemsInput(value.replace(/[^\d]/g, ''))
+                    }
+                    placeholder="No limit"
+                    aria-label="Max redeems per edition"
+                    suffix="redeems"
+                    disabled={pending}
+                  />
                 </div>
-              </div>
-            ) : null}
-
-            <div className="guild-field">
-              <DropFieldLabel
-                label="Max redeems (optional)"
-                infoKey="maxRedeems"
-                onOpenInfo={openFieldInfo}
-              />
-              <SuffixField
-                id={fieldId('max-redeems')}
-                value={maxRedeemsInput}
-                onValueChange={(value) =>
-                  setMaxRedeemsInput(value.replace(/[^\d]/g, ''))
-                }
-                placeholder="No limit"
-                aria-label="Max redeems per edition"
-                suffix="redeems"
-                disabled={pending}
-              />
-            </div>
-
-            <div className="guild-field">
-              <DropFieldLabel
-                label="Allowlist"
-                infoKey="allowlist"
-                onOpenInfo={openFieldInfo}
-              />
-              <div className="app-storage-presets os-choice-chip-row">
+              ) : (
                 <button
                   type="button"
-                  className={`os-surface-chip os-choice-chip${
-                    allowlistSheetOpen || draftAllowlist.length > 0
-                      ? ' is-selected'
-                      : ''
-                  }`}
-                  disabled={pending || !accountId}
-                  aria-haspopup="dialog"
-                  aria-expanded={allowlistSheetOpen}
-                  aria-label={
-                    draftAllowlist.length > 0
-                      ? `Allowlist: ${draftAllowlist.length} accounts`
-                      : 'Allowlist: add accounts'
-                  }
+                  className="collection-allowlist-toggle drop-create-advanced-toggle"
+                  disabled={pending}
+                  onClick={() => setRenewalsOpen(true)}
+                >
+                  {dropCreateAdvancedExtraAction('renewals', { isTicket })}
+                </button>
+              )}
+            </div>
+
+            <div className="drop-create-advanced-extra">
+              {allowlistShown ? (
+                <div className="app-storage-presets os-choice-chip-row">
+                  <button
+                    type="button"
+                    className={`os-surface-chip os-choice-chip${
+                      allowlistSheetOpen || draftAllowlist.length > 0
+                        ? ' is-selected'
+                        : ''
+                    }`}
+                    disabled={pending || !accountId}
+                    aria-haspopup="dialog"
+                    aria-expanded={allowlistSheetOpen}
+                    aria-label={
+                      draftAllowlist.length > 0
+                        ? `Allowlist: ${draftAllowlist.length} accounts`
+                        : 'Allowlist: add accounts'
+                    }
+                    onClick={() => {
+                      if (!accountId) return;
+                      setAllowlistSheetOpen(true);
+                    }}
+                  >
+                    <span className="os-choice-chip-value">
+                      {draftAllowlist.length === 0
+                        ? 'None'
+                        : draftAllowlist.length === 1
+                          ? '1 account'
+                          : `${draftAllowlist.length} accounts`}
+                    </span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="collection-allowlist-toggle drop-create-advanced-toggle"
+                  disabled={pending}
                   onClick={() => {
-                    if (!accountId) return;
-                    setAllowlistSheetOpen(true);
+                    setAllowlistOpen(true);
+                    if (accountId) setAllowlistSheetOpen(true);
                   }}
                 >
-                  <span className="os-choice-chip-value">
-                    {draftAllowlist.length === 0
-                      ? 'None'
-                      : draftAllowlist.length === 1
-                        ? '1 account'
-                        : `${draftAllowlist.length} accounts`}
-                  </span>
+                  {dropCreateAdvancedExtraAction('allowlist')}
                 </button>
-              </div>
+              )}
             </div>
           </>
         ) : null}

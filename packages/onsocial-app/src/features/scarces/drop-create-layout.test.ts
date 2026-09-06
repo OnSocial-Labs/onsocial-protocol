@@ -10,7 +10,10 @@ import {
   dropCreateFacetsAction,
   dropCreateFacetsOpen,
   dropCreatePiecePickerClass,
+  dropCreateAllowlistOpen,
+  dropCreateRenewalsOpen,
   dropCreateRoyaltyOpen,
+  dropCreateSaleRulesOpen,
   dropCreateSaleWindowOpen,
   dropCreateScreenTitle,
 } from '@/features/scarces/drop-create-layout';
@@ -87,9 +90,13 @@ describe('dropCreateAdvancedExtraAction', () => {
     expect(dropCreateAdvancedExtraAction('dropId')).toBe('Set a drop ID');
     expect(dropCreateAdvancedExtraAction('series')).toBe('Add to a series');
     expect(dropCreateAdvancedExtraAction('royalty')).toBe('Set a royalty');
-    expect(dropCreateAdvancedExtraAction('saleWindow')).toBe(
-      'Set a sale window'
+    expect(dropCreateAdvancedExtraAction('saleRules')).toBe('Set sale rules');
+    expect(dropCreateAdvancedExtraAction('renewals')).toBe('Set renewals');
+    expect(dropCreateAdvancedExtraAction('renewals', { isTicket: true })).toBe(
+      'Allow date changes'
     );
+    expect(dropCreateAdvancedExtraAction('allowlist')).toBe('Add an allowlist');
+    expect(dropCreateAdvancedExtraAction('place')).toBe('Add a place');
   });
 });
 
@@ -100,6 +107,119 @@ describe('dropCreateSaleWindowOpen', () => {
     expect(dropCreateSaleWindowOpen('', '', true)).toBe(true);
     expect(dropCreateSaleWindowOpen('2026-09-08T10:00', '')).toBe(true);
     expect(dropCreateSaleWindowOpen('', '2026-09-09T18:00')).toBe(true);
+  });
+});
+
+describe('dropCreateSaleRulesOpen', () => {
+  it('waits on now / no cap / transferable until the maker asks or changes one', () => {
+    expect(
+      dropCreateSaleRulesOpen({
+        startTime: '',
+        endTime: '',
+        maxPerWallet: '',
+        transferable: true,
+      })
+    ).toBe(false);
+    expect(
+      dropCreateSaleRulesOpen({
+        startTime: '',
+        endTime: '',
+        maxPerWallet: '',
+        transferable: true,
+        forcedOpen: true,
+      })
+    ).toBe(true);
+    expect(
+      dropCreateSaleRulesOpen({
+        startTime: '2026-09-08T10:00',
+        endTime: '',
+        maxPerWallet: '',
+        transferable: true,
+      })
+    ).toBe(true);
+    expect(
+      dropCreateSaleRulesOpen({
+        startTime: '',
+        endTime: '',
+        maxPerWallet: '2',
+        transferable: true,
+      })
+    ).toBe(true);
+    expect(
+      dropCreateSaleRulesOpen({
+        startTime: '',
+        endTime: '',
+        maxPerWallet: '',
+        transferable: false,
+      })
+    ).toBe(true);
+    expect(
+      dropCreateSaleRulesOpen({
+        startTime: '',
+        endTime: '',
+        maxPerWallet: '',
+        transferable: false,
+        defaultTransferable: false,
+      })
+    ).toBe(false);
+  });
+});
+
+describe('dropCreateRenewalsOpen', () => {
+  it('waits on off / no cap until the maker asks or a kind needs them', () => {
+    expect(
+      dropCreateRenewalsOpen({
+        renewable: false,
+        maxRedeems: '',
+        accessEnds: '',
+      })
+    ).toBe(false);
+    expect(
+      dropCreateRenewalsOpen({
+        renewable: false,
+        maxRedeems: '',
+        accessEnds: '',
+        forcedOpen: true,
+      })
+    ).toBe(true);
+    expect(
+      dropCreateRenewalsOpen({
+        renewable: true,
+        maxRedeems: '',
+        accessEnds: '',
+      })
+    ).toBe(true);
+    expect(
+      dropCreateRenewalsOpen({
+        renewable: true,
+        defaultRenewable: true,
+        maxRedeems: '',
+        accessEnds: '',
+      })
+    ).toBe(false);
+    expect(
+      dropCreateRenewalsOpen({
+        renewable: false,
+        maxRedeems: '1',
+        accessEnds: '',
+      })
+    ).toBe(true);
+    expect(
+      dropCreateRenewalsOpen({
+        renewable: false,
+        maxRedeems: '',
+        accessEnds: '',
+        requiresAccessEnd: true,
+      })
+    ).toBe(true);
+  });
+});
+
+describe('dropCreateAllowlistOpen', () => {
+  it('waits until the maker asks or a draft already has accounts', () => {
+    expect(dropCreateAllowlistOpen(0)).toBe(false);
+    expect(dropCreateAllowlistOpen(1)).toBe(true);
+    expect(dropCreateAllowlistOpen(0, true)).toBe(true);
   });
 });
 

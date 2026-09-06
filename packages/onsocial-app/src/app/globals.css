@@ -31733,6 +31733,14 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.48);
   }
 
+  .drop-create-sale-rules,
+  .drop-create-renewals {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
   /* Edge fade hints there are more template tabs off-screen (scrollbar is
      hidden on the shared rail). */
   .drop-template-toolbar .discover-tab-bar-scroller {

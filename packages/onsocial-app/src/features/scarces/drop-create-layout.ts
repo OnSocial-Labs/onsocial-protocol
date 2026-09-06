@@ -82,10 +82,14 @@ export type DropCreateAdvancedExtra =
   | 'dropId'
   | 'series'
   | 'royalty'
-  | 'saleWindow';
+  | 'saleRules'
+  | 'renewals'
+  | 'allowlist'
+  | 'place';
 
 export function dropCreateAdvancedExtraAction(
-  kind: DropCreateAdvancedExtra
+  kind: DropCreateAdvancedExtra,
+  opts: { isTicket?: boolean } = {}
 ): string {
   switch (kind) {
     case 'dropId':
@@ -94,8 +98,14 @@ export function dropCreateAdvancedExtraAction(
       return 'Add to a series';
     case 'royalty':
       return 'Set a royalty';
-    case 'saleWindow':
-      return 'Set a sale window';
+    case 'saleRules':
+      return 'Set sale rules';
+    case 'renewals':
+      return opts.isTicket ? 'Allow date changes' : 'Set renewals';
+    case 'allowlist':
+      return 'Add an allowlist';
+    case 'place':
+      return 'Add a place';
   }
 }
 
@@ -106,6 +116,61 @@ export function dropCreateSaleWindowOpen(
   forcedOpen = false
 ): boolean {
   return forcedOpen || Boolean(startTime.trim() || endTime.trim());
+}
+
+/** Sale rules wait — window, wallet cap, and transfer stay default until asked. */
+export function dropCreateSaleRulesOpen({
+  startTime,
+  endTime,
+  maxPerWallet,
+  transferable,
+  defaultTransferable = true,
+  forcedOpen = false,
+}: {
+  startTime: string;
+  endTime: string;
+  maxPerWallet: string;
+  transferable: boolean;
+  defaultTransferable?: boolean;
+  forcedOpen?: boolean;
+}): boolean {
+  return (
+    dropCreateSaleWindowOpen(startTime, endTime, forcedOpen) ||
+    Boolean(maxPerWallet.trim()) ||
+    transferable !== defaultTransferable
+  );
+}
+
+/** Renewals wait — default off / no cap until the maker asks or a kind needs them. */
+export function dropCreateRenewalsOpen({
+  renewable,
+  defaultRenewable = false,
+  maxRedeems,
+  accessEnds,
+  requiresAccessEnd = false,
+  forcedOpen = false,
+}: {
+  renewable: boolean;
+  defaultRenewable?: boolean;
+  maxRedeems: string;
+  accessEnds: string;
+  requiresAccessEnd?: boolean;
+  forcedOpen?: boolean;
+}): boolean {
+  return (
+    forcedOpen ||
+    requiresAccessEnd ||
+    renewable !== defaultRenewable ||
+    Boolean(maxRedeems.trim() || accessEnds.trim())
+  );
+}
+
+/** Allowlist waits — open when the maker asks, or a draft already has accounts. */
+export function dropCreateAllowlistOpen(
+  accountCount: number,
+  forcedOpen = false
+): boolean {
+  return forcedOpen || accountCount > 0;
 }
 
 /** Royalty pills wait — default 10% stays unless the maker asks or changed it. */

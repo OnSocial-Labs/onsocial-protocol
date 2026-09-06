@@ -173,11 +173,26 @@ test.describe('create drop', () => {
       page.getByRole('group', { name: 'Resale royalty' })
     ).toHaveCount(0);
     await expect(
-      page.getByRole('button', { name: 'Set a sale window', exact: true })
+      page.getByRole('button', { name: 'Set sale rules', exact: true })
     ).toBeVisible();
     await expect(page.getByText('Sale window', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Opens', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Closes', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Max per wallet', { exact: true })).toHaveCount(
+      0
+    );
+    await expect(page.getByText('Transferable', { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Set renewals', exact: true })
+    ).toBeVisible();
+    await expect(page.getByText('Renewable', { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Add an allowlist', exact: true })
+    ).toBeVisible();
+    await expect(page.getByText('Allowlist', { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByText('Max redeems (optional)', { exact: true })
+    ).toHaveCount(0);
 
     await page
       .getByRole('button', { name: 'Set a drop ID', exact: true })
@@ -226,15 +241,26 @@ test.describe('create drop', () => {
       0
     );
     await expect(
-      page.getByRole('button', { name: 'Set a sale window', exact: true })
+      page.getByRole('button', { name: 'Set sale rules', exact: true })
     ).toBeVisible();
     await page
-      .getByRole('button', { name: 'Set a sale window', exact: true })
+      .getByRole('button', { name: 'Set sale rules', exact: true })
       .click();
     await expect(page.getByText('Opens', { exact: true })).toBeVisible();
     await expect(page.getByText('Closes', { exact: true })).toBeVisible();
     await expect(page.getByText('Now', { exact: true })).toBeVisible();
     await expect(page.getByText('No end', { exact: true })).toBeVisible();
     await expect(page.getByText('Sale window', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Max per wallet', { exact: true })).toHaveCount(
+      0
+    );
+    await expect(page.getByRole('group', { name: 'Transferable' })).toBeVisible();
+    await expect(page.getByText('Transferable', { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Set renewals', exact: true })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Set renewals', exact: true }).click();
+    await expect(page.getByRole('group', { name: 'Renewable' })).toBeVisible();
+    await expect(page.getByText('Renewable', { exact: true })).toHaveCount(0);
   });
 });
