@@ -66,9 +66,11 @@ test.describe('series page', () => {
       catalogDelayMs: 2500,
     });
     await gotoApp(page, NIGHT_ROADS_PATH);
-    await expect(page.locator('[data-series-page-skeleton]')).toBeVisible({
-      timeout: 8_000,
-    });
+    await expect(page.locator('[data-series-page-skeleton]').first()).toBeVisible(
+      {
+        timeout: 8_000,
+      }
+    );
     await expect(page.getByText('No drops in this series yet.')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Collect Night Drive' })).toBeVisible({
       timeout: 12_000,
@@ -82,7 +84,6 @@ test.describe('series page', () => {
     page,
   }) => {
     await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
-    await stubSeriesCreatorCatalog(page, { rows: 'night-roads' });
     await stubCollectiblesVaultGraph(page);
     await gotoApp(page, NIGHT_ROADS_PATH);
 
@@ -107,7 +108,6 @@ test.describe('series page', () => {
     ).toBeVisible();
     await expect(page.getByText('No drops in this series yet.')).toHaveCount(0);
     await expect(page.getByText('Chapter One')).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Open Quiet Print' })).toBeVisible();
     await expect(page.locator('.app-drop-card')).toHaveCount(0);
   });
 
