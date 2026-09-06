@@ -66,9 +66,7 @@ export function DropCreateExtraSheet({
         </OsSheetFooter>
       }
     >
-      {hint ? (
-        <p className="drop-create-extra-sheet-hint">{hint}</p>
-      ) : null}
+      {hint ? <p className="os-choice-sheet-hint">{hint}</p> : null}
       {children}
     </OsHugSheet>
   );

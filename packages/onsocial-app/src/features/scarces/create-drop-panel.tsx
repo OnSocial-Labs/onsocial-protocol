@@ -3724,69 +3724,60 @@ export function CreateDropPanel() {
           />
         ) : null}
         {extraSheet === 'saleRules' ? (
-          <div className="drop-create-sale-rules">
-            <div className="guild-field">
-              <span>Sale window</span>
-              <div
-                className="drop-schedule-pair"
-                role="group"
-                aria-label="Sale window"
+          <div
+            className="drop-schedule-pair"
+            role="group"
+            aria-label="Sale window"
+          >
+            <div
+              className={`drop-schedule-cell${startTime ? ' has-value' : ''}`}
+            >
+              <button
+                type="button"
+                className="drop-schedule-cell-main"
+                disabled={pending}
+                onClick={() => setScheduleField('opens')}
               >
-                <div
-                  className={`drop-schedule-cell${
-                    startTime ? ' has-value' : ''
-                  }`}
+                <span className="drop-schedule-cell-label">Opens</span>
+                <span className="drop-schedule-cell-value">
+                  {startTime ? formatScheduleLabel(startTime) : 'Now'}
+                </span>
+              </button>
+              {startTime ? (
+                <button
+                  type="button"
+                  className="drop-schedule-cell-clear"
+                  disabled={pending}
+                  aria-label="Clear open time"
+                  onClick={() => setStartTime('')}
                 >
-                  <button
-                    type="button"
-                    className="drop-schedule-cell-main"
-                    disabled={pending}
-                    onClick={() => setScheduleField('opens')}
-                  >
-                    <span className="drop-schedule-cell-label">Opens</span>
-                    <span className="drop-schedule-cell-value">
-                      {startTime ? formatScheduleLabel(startTime) : 'Now'}
-                    </span>
-                  </button>
-                  {startTime ? (
-                    <button
-                      type="button"
-                      className="drop-schedule-cell-clear"
-                      disabled={pending}
-                      aria-label="Clear open time"
-                      onClick={() => setStartTime('')}
-                    >
-                      ✕
-                    </button>
-                  ) : null}
-                </div>
-                <div
-                  className={`drop-schedule-cell${endTime ? ' has-value' : ''}`}
+                  ✕
+                </button>
+              ) : null}
+            </div>
+            <div className={`drop-schedule-cell${endTime ? ' has-value' : ''}`}>
+              <button
+                type="button"
+                className="drop-schedule-cell-main"
+                disabled={pending}
+                onClick={() => setScheduleField('closes')}
+              >
+                <span className="drop-schedule-cell-label">Closes</span>
+                <span className="drop-schedule-cell-value">
+                  {endTime ? formatScheduleLabel(endTime) : 'No end'}
+                </span>
+              </button>
+              {endTime ? (
+                <button
+                  type="button"
+                  className="drop-schedule-cell-clear"
+                  disabled={pending}
+                  aria-label="Clear close time"
+                  onClick={() => setEndTime('')}
                 >
-                  <button
-                    type="button"
-                    className="drop-schedule-cell-main"
-                    disabled={pending}
-                    onClick={() => setScheduleField('closes')}
-                  >
-                    <span className="drop-schedule-cell-label">Closes</span>
-                    <span className="drop-schedule-cell-value">
-                      {endTime ? formatScheduleLabel(endTime) : 'No end'}
-                    </span>
-                  </button>
-                  {endTime ? (
-                    <button
-                      type="button"
-                      className="drop-schedule-cell-clear"
-                      disabled={pending}
-                      aria-label="Clear close time"
-                      onClick={() => setEndTime('')}
-                    >
-                      ✕
-                    </button>
-                  ) : null}
-                </div>
-              </div>
+                  ✕
+                </button>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -3807,38 +3798,35 @@ export function CreateDropPanel() {
           </label>
         ) : null}
         {extraSheet === 'transferable' ? (
-          <div className="guild-field">
-            <span>Transferable</span>
-            <div
-              className="app-access-options"
-              role="radiogroup"
-              aria-label="Transferable"
+          <div
+            className="app-access-options"
+            role="radiogroup"
+            aria-label="Transferable"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={transferable}
+              className={`app-access-option${
+                transferable ? ' is-selected' : ''
+              }`}
+              disabled={pending}
+              onClick={() => setTransferable(true)}
             >
-              <button
-                type="button"
-                role="radio"
-                aria-checked={transferable}
-                className={`app-access-option${
-                  transferable ? ' is-selected' : ''
-                }`}
-                disabled={pending}
-                onClick={() => setTransferable(true)}
-              >
-                Yes
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={!transferable}
-                className={`app-access-option${
-                  !transferable ? ' is-selected' : ''
-                }`}
-                disabled={pending}
-                onClick={() => setTransferable(false)}
-              >
-                Soulbound
-              </button>
-            </div>
+              Yes
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={!transferable}
+              className={`app-access-option${
+                !transferable ? ' is-selected' : ''
+              }`}
+              disabled={pending}
+              onClick={() => setTransferable(false)}
+            >
+              Soulbound
+            </button>
           </div>
         ) : null}
         {extraSheet === 'place' ? (

@@ -31796,7 +31796,7 @@ a.os-surface-row {
   .drop-create-extra-sheet-body {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .drop-create-extra-sheet-body .guild-field > input {
