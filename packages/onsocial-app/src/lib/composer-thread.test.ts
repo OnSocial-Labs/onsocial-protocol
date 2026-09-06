@@ -12,7 +12,9 @@ import {
   composerSubmitHasContent,
   emptyComposerBeat,
   splitComposerThread,
+  COMPOSER_THREAD_MAX_BEATS,
   threadPartialCopy,
+  threadPlusHint,
 } from '@/lib/composer-thread';
 
 describe('composer thread', () => {
@@ -109,6 +111,22 @@ describe('composer thread', () => {
     expect(removed.beats.map((row) => row.text)).toEqual(['one', 'two']);
     expect(removed.focus).toBe(1);
     expect(removeComposerThreadBeat(beats, 0, 1).beats).toHaveLength(3);
+  });
+
+  it('stops plus at ten filled beats', () => {
+    const nine = Array.from({ length: 9 }, (_, index) =>
+      emptyComposerBeat({ text: `beat ${index + 1}` })
+    );
+    expect(canAddComposerThreadBeat(nine)).toBe(true);
+    expect(appendComposerThreadBeat(nine)).toHaveLength(10);
+    expect(threadPlusHint(nine)).toBe('Add to thread');
+
+    const ten = Array.from({ length: COMPOSER_THREAD_MAX_BEATS }, (_, index) =>
+      emptyComposerBeat({ text: `beat ${index + 1}` })
+    );
+    expect(canAddComposerThreadBeat(ten)).toBe(false);
+    expect(appendComposerThreadBeat(ten)).toHaveLength(10);
+    expect(threadPlusHint(ten)).toBe("That's the longest thread for now.");
   });
 
   it('keeps unsent filled beats after a partial flush', () => {

@@ -89,6 +89,7 @@ import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import {
   canAddComposerThreadBeat,
   collapseTrailingEmptyComposerBeat,
+  threadPlusHint,
   composerBeatHasContent,
   composerBeatsToSubmit,
   emptyComposerBeat,
@@ -1440,11 +1441,7 @@ export function ComposerSheet({
                     plusPressed ? ' is-active' : ''
                   }`}
                   disabled={!canAddThread || pending}
-                  title={
-                    canAddThread
-                      ? 'Add to thread'
-                      : 'Write this post first'
-                  }
+                  title={threadPlusHint(beats)}
                   aria-label="Add to thread"
                   onPointerDown={() => {
                     if (!canAddThread || pending) return;

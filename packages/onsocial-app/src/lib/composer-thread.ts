@@ -49,9 +49,25 @@ export function composerBeatHasContent(beat: ComposerBeat): boolean {
   );
 }
 
+/** One overlay flush. Each beat is its own post; past this the sheet and chain get heavy. */
+export const COMPOSER_THREAD_MAX_BEATS = 10;
+
+export function composerThreadAtMax(
+  beats: readonly ComposerBeat[]
+): boolean {
+  return beats.length >= COMPOSER_THREAD_MAX_BEATS;
+}
+
 export function canAddComposerThreadBeat(beats: readonly ComposerBeat[]): boolean {
+  if (composerThreadAtMax(beats)) return false;
   const last = beats[beats.length - 1];
   return Boolean(last && composerBeatHasContent(last));
+}
+
+export function threadPlusHint(beats: readonly ComposerBeat[]): string {
+  if (canAddComposerThreadBeat(beats)) return 'Add to thread';
+  if (composerThreadAtMax(beats)) return "That's the longest thread for now.";
+  return 'Write this post first';
 }
 
 export function appendComposerThreadBeat(
