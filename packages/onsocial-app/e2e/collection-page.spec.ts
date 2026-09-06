@@ -23,6 +23,12 @@ test.describe('collection drop page', () => {
     await expect(page.getByRole('link', { name: 'Play' })).toHaveCount(0);
     await expect(page.locator('.collection-tracks')).toBeVisible();
     await expect(page.getByText('2 tracks').first()).toBeVisible();
+    await expect(page.locator('.collection-meta-creator-name')).toHaveText(
+      'by Alice'
+    );
+    await expect(page.locator('.collection-meta-handle')).toHaveText(
+      '@alice.near'
+    );
   });
 
   test('visitor writing drop keeps Read locked under commerce', async ({

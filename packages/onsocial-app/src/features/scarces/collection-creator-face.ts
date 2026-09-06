@@ -1,4 +1,5 @@
 import type { OnSocial } from '@onsocial/sdk';
+import { formatNearAccountFallbackTitle } from '@onsocial/ui';
 import { fallbackLabel, resolveProfileMediaUrl } from '@/lib/profile-display';
 
 /** Creator chrome for drop / player — indexer profile + stats. */
@@ -32,6 +33,19 @@ export function resolveCollectionCreatorFace(
     avatarUrl,
     displayName: hasDisplayName ? rawName : null,
   };
+}
+
+/**
+ * Drop / player name line — chosen name, else DAO-style local-part title.
+ * Handle stays the full account id (`@alice.near`).
+ */
+export function collectionCreatorNameLine(
+  creatorId: string,
+  displayName?: string | null
+): string {
+  const custom = displayName?.trim();
+  if (custom) return custom;
+  return formatNearAccountFallbackTitle(creatorId);
 }
 
 /** Fetch creator face via any OnSocial client (server key or browser). */

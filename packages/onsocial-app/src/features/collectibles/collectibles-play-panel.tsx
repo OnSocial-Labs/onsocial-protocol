@@ -32,6 +32,7 @@ import {
 import { marketMediumLabel } from '@/features/market/market-medium';
 import { CollectiblesPlaySkeleton } from '@/features/collectibles/collectibles-play-skeleton';
 import {
+  collectionCreatorNameLine,
   fetchCollectionCreatorFace,
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
@@ -301,6 +302,10 @@ export function CollectiblesPlayPanel({
     load?.collectionId === collectionId ? load.creatorAvatarUrl : null;
   const creatorDisplayName =
     load?.collectionId === collectionId ? load.creatorDisplayName : null;
+  const creatorNameLine = collectionCreatorNameLine(
+    view?.creatorId ?? '',
+    creatorDisplayName
+  );
   const playables = view?.playables ?? [];
   const hasPlayables = playables.length > 0;
   const description = view?.description?.trim() ?? '';
@@ -552,43 +557,29 @@ export function CollectiblesPlayPanel({
                 href={portfolioPath(view.creatorId)}
                 scroll={false}
                 className="collection-meta-avatar-link"
-                tabIndex={creatorDisplayName ? -1 : undefined}
-                aria-hidden={creatorDisplayName ? true : undefined}
+                tabIndex={-1}
+                aria-hidden
               >
                 <AccountAvatar
                   accountId={view.creatorId}
                   src={creatorAvatarUrl}
-                  fallbackInitial={
-                    creatorDisplayName || fallbackLabel(view.creatorId)
-                  }
+                  fallbackInitial={creatorNameLine}
                   size="sm"
                   className="collection-meta-avatar"
                 />
               </Link>
               <div className="collection-meta-copy">
-                {creatorDisplayName ? (
-                  <Link
-                    href={portfolioPath(view.creatorId)}
-                    scroll={false}
-                    className="collection-meta-creator-name"
-                  >
-                    by {creatorDisplayName}
-                  </Link>
-                ) : null}
+                <Link
+                  href={portfolioPath(view.creatorId)}
+                  scroll={false}
+                  className="collection-meta-creator-name"
+                >
+                  by {creatorNameLine}
+                </Link>
                 <div className="collection-meta-sub">
-                  {creatorDisplayName ? (
-                    <span className="collection-meta-handle">
-                      @{fallbackLabel(view.creatorId)}
-                    </span>
-                  ) : (
-                    <Link
-                      href={portfolioPath(view.creatorId)}
-                      scroll={false}
-                      className="collection-meta-handle"
-                    >
-                      @{fallbackLabel(view.creatorId)}
-                    </Link>
-                  )}
+                  <span className="collection-meta-handle">
+                    @{fallbackLabel(view.creatorId)}
+                  </span>
                   {kindLabel ? (
                     <>
                       <span className="collection-meta-sep" aria-hidden>

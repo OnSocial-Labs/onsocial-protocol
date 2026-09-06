@@ -32,6 +32,7 @@ import {
   type CollectionActivityRow,
 } from '@/features/scarces/collection-activity-rows';
 import {
+  collectionCreatorNameLine,
   fetchCollectionCreatorFace,
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
@@ -609,7 +610,10 @@ export function CollectionPagePanel({
   const creatorShellLoading =
     Boolean(creatorId) && creatorResolvedKey !== creatorId;
   const resolvedCreatorAvatar = creatorShellLoading ? null : creatorAvatarUrl;
-  const resolvedCreatorName = creatorShellLoading ? null : creatorDisplayName;
+  const creatorNameLine = collectionCreatorNameLine(
+    creatorId,
+    creatorDisplayName
+  );
   const requestActivityClose = useCallback(() => {
     setActivityClosing(true);
   }, []);
@@ -936,15 +940,13 @@ export function CollectionPagePanel({
                 href={portfolioPath(view.creatorId)}
                 scroll={false}
                 className="collection-meta-avatar-link"
-                tabIndex={resolvedCreatorName ? -1 : undefined}
-                aria-hidden={resolvedCreatorName ? true : undefined}
+                tabIndex={creatorShellLoading ? undefined : -1}
+                aria-hidden={creatorShellLoading ? undefined : true}
               >
                 <AccountAvatar
                   accountId={view.creatorId}
                   src={resolvedCreatorAvatar}
-                  fallbackInitial={
-                    resolvedCreatorName || fallbackLabel(view.creatorId)
-                  }
+                  fallbackInitial={creatorNameLine}
                   shellLoading={creatorShellLoading}
                   size="sm"
                   className="collection-meta-avatar"
@@ -956,21 +958,17 @@ export function CollectionPagePanel({
                     className="standing-row-shimmer collection-skeleton-creator-name"
                     aria-hidden
                   />
-                ) : resolvedCreatorName ? (
+                ) : (
                   <Link
                     href={portfolioPath(view.creatorId)}
                     scroll={false}
                     className="collection-meta-creator-name"
                   >
-                    by {resolvedCreatorName}
+                    by {creatorNameLine}
                   </Link>
-                ) : null}
+                )}
                 <div className="collection-meta-sub">
-                  {resolvedCreatorName ? (
-                    <span className="collection-meta-handle">
-                      @{fallbackLabel(view.creatorId)}
-                    </span>
-                  ) : (
+                  {creatorShellLoading ? (
                     <Link
                       href={portfolioPath(view.creatorId)}
                       scroll={false}
@@ -978,6 +976,10 @@ export function CollectionPagePanel({
                     >
                       @{fallbackLabel(view.creatorId)}
                     </Link>
+                  ) : (
+                    <span className="collection-meta-handle">
+                      @{fallbackLabel(view.creatorId)}
+                    </span>
                   )}
                   {view.seriesId ? (
                     <>
