@@ -120,7 +120,12 @@ test.describe('collectibles shell', () => {
     await expect(bobHeading).toBeVisible();
     await expect(bobHeading).toContainText('1');
     await expect(aliceHeading).toHaveAttribute('aria-pressed', 'false');
-    await expect(page.getByRole('button', { name: /Night Roads/ })).toBeVisible();
+    const seriesLink = page.getByRole('link', { name: /Night Roads/ });
+    await expect(seriesLink).toBeVisible();
+    await expect(seriesLink).toHaveAttribute(
+      'href',
+      `/series/${encodeURIComponent('alice.near')}/night-roads`
+    );
     await expect(
       page.locator('.collectibles-holding-row').filter({ hasText: 'Dusk Run' })
     ).toBeVisible();

@@ -1,11 +1,14 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
 import type { CollectionCreatorFace } from '@/features/scarces/collection-creator-face';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
+import { seriesDisplayTitle } from '@/features/scarces/series-page-view';
+import { seriesPagePath } from '@/lib/app-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import {
   COLLECTIBLES_LIBRARY_JUMP_MIN,
@@ -89,16 +92,12 @@ function SeriesHeading({
   title,
   headingId,
   dropCount,
-  selected,
-  filterable,
-  onSelect,
+  href,
 }: {
   title: string;
   headingId: string;
   dropCount: number;
-  selected: boolean;
-  filterable: boolean;
-  onSelect?: () => void;
+  href?: string;
 }) {
   const accessibleName = `${title}, ${dropCount}`;
   const inner = (
@@ -109,23 +108,21 @@ function SeriesHeading({
   );
   const className = [
     'collectibles-library-series-heading',
-    filterable && onSelect ? 'collectibles-library-heading--action' : '',
-    selected ? 'is-selected' : '',
+    href ? 'collectibles-library-heading--action' : '',
   ]
     .filter(Boolean)
     .join(' ');
-  if (filterable && onSelect) {
+  if (href) {
     return (
-      <button
-        type="button"
+      <Link
         id={headingId}
+        href={href}
+        scroll={false}
         className={className}
-        onClick={onSelect}
-        aria-pressed={selected}
         aria-label={accessibleName}
       >
         {inner}
-      </button>
+      </Link>
     );
   }
   return (
@@ -142,9 +139,7 @@ export function CollectiblesVaultLibrary({
   showCreatorHeadings,
   renderOwnerMenu,
   onSelectCreator,
-  onSelectSeries,
   selectedCreator = null,
-  selectedSeries = null,
   creatorFaces,
   embedded = false,
 }: {
@@ -153,9 +148,7 @@ export function CollectiblesVaultLibrary({
   showCreatorHeadings: boolean;
   renderOwnerMenu?: (owned: OwnedScarceItem) => ReactNode;
   onSelectCreator?: (creatorKey: string) => void;
-  onSelectSeries?: (seriesKey: string) => void;
   selectedCreator?: string | null;
-  selectedSeries?: string | null;
   creatorFaces?: ReadonlyMap<string, CollectionCreatorFace>;
   /** Drawer preview — keep the parent Collectibles heading. */
   embedded?: boolean;
@@ -235,14 +228,18 @@ export function CollectiblesVaultLibrary({
                   >
                     {series.seriesTitle && seriesHeadingId ? (
                       <SeriesHeading
-                        title={series.seriesTitle}
+                        title={seriesDisplayTitle({
+                          dropSeriesTitle: series.seriesTitle,
+                          seriesId: series.seriesId ?? series.seriesKey ?? '',
+                        })}
                         headingId={seriesHeadingId}
                         dropCount={series.drops.length}
-                        selected={selectedSeries === series.seriesKey}
-                        filterable={Boolean(onSelectSeries)}
-                        onSelect={
-                          onSelectSeries && series.seriesKey
-                            ? () => onSelectSeries(series.seriesKey!)
+                        href={
+                          creator.creatorId && series.seriesId
+                            ? seriesPagePath(
+                                creator.creatorId,
+                                series.seriesId
+                              )
                             : undefined
                         }
                       />

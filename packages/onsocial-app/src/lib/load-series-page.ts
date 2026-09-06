@@ -7,6 +7,7 @@ import {
   fetchSeriesBrandingServer,
   type SeriesBranding,
 } from '@/features/scarces/series-data';
+import { seriesDisplayTitle } from '@/features/scarces/series-page-view';
 import {
   loadProfileShell,
   type AppProfileShell,
@@ -59,6 +60,9 @@ export function seriesPageDocumentTitle(
   drops: CollectionView[],
   seriesId: string
 ): string {
-  const fallbackTitle = drops.find((drop) => drop.seriesTitle)?.seriesTitle;
-  return branding?.title ?? fallbackTitle ?? seriesId;
+  return seriesDisplayTitle({
+    brandingTitle: branding?.title,
+    dropSeriesTitle: drops.find((drop) => drop.seriesTitle)?.seriesTitle,
+    seriesId,
+  });
 }
