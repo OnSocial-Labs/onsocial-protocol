@@ -181,7 +181,7 @@ test.describe('create drop', () => {
       page.getByRole('button', { name: 'About Allowlist' })
     ).toBeVisible();
     await expect(
-      page.locator('.drop-create-extra-list').getByRole('separator')
+      page.locator('.drop-create-extra-list .divider-item')
     ).not.toHaveCount(0);
     await expect(page.locator('#drop-create-id')).toHaveCount(0);
     await expect(
