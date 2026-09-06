@@ -20,10 +20,12 @@ import {
   MARKET_CREATOR_PARAM,
   MARKET_FACETS_PARAM,
   MARKET_KIND_PARAM,
+  MARKET_SORT_PARAM,
   marketFacetsParamValue,
   parseMarketFacetsParam,
 } from '@/lib/app-routes';
 import { overlayPath } from '@/lib/overlay-routes';
+import type { CollectiblesLibrarySort } from '@/lib/portfolio-holdings';
 
 export type CollectiblesPageData = {
   /** First owned page when a wallet account is known server-side. */
@@ -41,6 +43,8 @@ export type CollectiblesPageQuery = {
   creator: string | null;
   /** Series id (or title key) from vault inventory. */
   series: string | null;
+  /** Newest (first-seen) or A–Z by creator name. */
+  sort: CollectiblesLibrarySort;
 };
 
 export const EMPTY_COLLECTIBLES_PAGE_QUERY: CollectiblesPageQuery = {
@@ -50,6 +54,7 @@ export const EMPTY_COLLECTIBLES_PAGE_QUERY: CollectiblesPageQuery = {
   audioFormat: null,
   creator: null,
   series: null,
+  sort: 'newest',
 };
 
 function parseVaultFilterId(raw: string | null | undefined): string | null {
@@ -64,6 +69,7 @@ export function parseCollectiblesPageQuery(params: {
   audioFormat?: string | null;
   creator?: string | null;
   series?: string | null;
+  sort?: string | null;
 }): CollectiblesPageQuery {
   const kind = parseMarketMediumFilter(params.kind);
   const facetMedium = normalizeDropFacetMedium(kind);
@@ -78,6 +84,7 @@ export function parseCollectiblesPageQuery(params: {
       facetMedium === 'audio' ? parseAudioFormat(params.audioFormat) : null,
     creator: parseVaultFilterId(params.creator),
     series: parseVaultFilterId(params.series),
+    sort: params.sort?.trim().toLowerCase() === 'name' ? 'name' : 'newest',
   };
 }
 
@@ -100,6 +107,7 @@ export function collectiblesQueryPath(
   }
   if (query.creator) params.set(MARKET_CREATOR_PARAM, query.creator);
   if (query.series) params.set(COLLECTIBLES_SERIES_PARAM, query.series);
+  if (query.sort === 'name') params.set(MARKET_SORT_PARAM, 'name');
   const qs = params.toString();
   return qs ? `${base}?${qs}` : base;
 }
@@ -111,6 +119,7 @@ export function collectiblesToolbarFromQuery(query: CollectiblesPageQuery): {
   audioFormat: MarketAudioFormatFilter;
   creator: string | null;
   series: string | null;
+  sort: CollectiblesLibrarySort;
 } {
   return {
     q: query.q,
@@ -119,6 +128,7 @@ export function collectiblesToolbarFromQuery(query: CollectiblesPageQuery): {
     audioFormat: query.audioFormat,
     creator: query.creator,
     series: query.series,
+    sort: query.sort,
   };
 }
 
@@ -130,6 +140,7 @@ export function collectiblesSeedParamsKey(query: CollectiblesPageQuery): string 
     query.audioFormat ?? '',
     query.creator ?? '',
     query.series ?? '',
+    query.sort,
   ].join('|');
 }
 

@@ -88,6 +88,7 @@ import {
   COLLECTION_REDEEM_QUERY,
   collectionDoorPath,
   collectionRedeemPath,
+  collectiblesPlayPath,
   marketCreatorPath,
   seriesPagePath,
 } from '@/lib/app-routes';
@@ -708,6 +709,11 @@ export function CollectionPagePanel({
         : null;
   const playables = view.playables;
   const hasPlayables = playables.length > 0;
+  const holderPlayHref = hasPlayables
+    ? collectiblesPlayPath(view.collectionId)
+    : null;
+  const listenOnPlayPage =
+    Boolean(holderPlayHref) && (isOwner || holdsEdition === true);
   const sourceHref = postHrefFromSourcePath(view.sourcePostPath);
   const isAudio =
     hasPlayables || view.kind === 'audio' || view.kind === 'music';
@@ -813,7 +819,7 @@ export function CollectionPagePanel({
       ) : null}
       <div className="collection-page">
         <section className="collection-hero" aria-label="Drop cover">
-          {isAudio && hasPlayables ? (
+          {isAudio && hasPlayables && !listenOnPlayPage ? (
             <div
               className={`collection-music-hero${
                 immersive ? ' is-immersive' : ''
@@ -832,6 +838,11 @@ export function CollectionPagePanel({
                 persist={{
                   collectionId: view.collectionId,
                   title: view.title,
+                  creatorId: view.creatorId,
+                  seriesId: view.seriesId,
+                  seriesTitle: view.seriesTitle,
+                  audioFormat: view.audioFormat,
+                  facets: view.facets,
                 }}
                 creatorId={view.creatorId}
                 canKeepOffline={
@@ -851,13 +862,27 @@ export function CollectionPagePanel({
                 isAudio ? ' is-square' : ''
               }${isTextCardCover ? ' is-card' : ''}${
                 immersive ? ' is-immersive' : ''
-              }${hasReadables || canShowPass ? ' has-read' : ''}`}
+              }${
+                hasReadables || canShowPass || listenOnPlayPage ? ' has-read' : ''
+              }`}
               {...(view.cardBg && !view.mediaUrl
                 ? { style: { background: view.cardBg } }
                 : {})}
             >
               {view.mediaUrl ? <img src={view.mediaUrl} alt="" /> : null}
-              {hasReadables ? (
+              {listenOnPlayPage && holderPlayHref ? (
+                <Link
+                  className="scarce-clip-cover-expand collection-cover-read-expand"
+                  href={holderPlayHref}
+                  scroll={false}
+                  aria-label="Play"
+                >
+                  <ScaleUpIcon
+                    className="scarce-clip-cover-expand-icon"
+                    aria-hidden
+                  />
+                </Link>
+              ) : hasReadables ? (
                 <button
                   type="button"
                   className="scarce-clip-cover-expand collection-cover-read-expand"
@@ -1173,7 +1198,24 @@ export function CollectionPagePanel({
           />
         ) : null}
 
-        {hasPlayables ? (
+        {hasPlayables && listenOnPlayPage && holderPlayHref ? (
+          <section className="collection-tracks" aria-label="Tracks">
+            <div className="collection-reading-row">
+              <p className="collection-section-label">
+                {playables.length === 1
+                  ? '1 track'
+                  : `${playables.length} tracks`}
+              </p>
+              <Link
+                className="collection-reading-open"
+                href={holderPlayHref}
+                scroll={false}
+              >
+                Play
+              </Link>
+            </div>
+          </section>
+        ) : hasPlayables ? (
           <section className="collection-tracks" aria-label="Tracks">
             <p className="collection-section-label">
               {playables.length === 1
@@ -1193,6 +1235,11 @@ export function CollectionPagePanel({
               persist={{
                 collectionId: view.collectionId,
                 title: view.title,
+                creatorId: view.creatorId,
+                seriesId: view.seriesId,
+                seriesTitle: view.seriesTitle,
+                audioFormat: view.audioFormat,
+                facets: view.facets,
               }}
               creatorId={view.creatorId}
               canKeepOffline={

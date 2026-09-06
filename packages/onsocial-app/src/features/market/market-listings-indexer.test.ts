@@ -36,6 +36,7 @@ vi.mock('@/lib/post-routes', () => ({
 import {
   fetchLiveListingsForCreator,
   fetchMarketListings,
+  fetchOwnedScarcesAll,
   fetchOwnedScarcesPage,
   invalidateLiveListingsCache,
 } from '@/features/market/market-listings';
@@ -359,5 +360,80 @@ describe('indexer-first market listings', () => {
     );
     expect(page.items).toHaveLength(1);
     expect(page.items[0]?.tokenId).toBe('s:99');
+  });
+
+  it('stops hasMore at the Market cap unless maxTokens is raised', async () => {
+    ownedBy.mockResolvedValue({
+      items: Array.from({ length: 24 }, (_, index) => ({
+        tokenId: `drop-${index}:1`,
+        ownerId: 'bob.near',
+        burned: false,
+        collectionId: `drop-${index}`,
+        appId: null,
+        mintedBlockTimestamp: 1,
+        updatedBlockTimestamp: 2,
+      })),
+      nextOffset: 300,
+    });
+    collectionsCurrentByIds.mockResolvedValue([]);
+    activeListings.mockResolvedValue([]);
+
+    const capped = await fetchOwnedScarcesPage('bob.near', {
+      fromEnd: 276,
+      pageSize: 24,
+      bypassCache: true,
+    });
+    expect(capped.hasMore).toBe(false);
+
+    const vault = await fetchOwnedScarcesPage('bob.near', {
+      fromEnd: 276,
+      pageSize: 24,
+      maxTokens: 5000,
+      bypassCache: true,
+    });
+    expect(vault.hasMore).toBe(true);
+  });
+
+  it('fetchOwnedScarcesAll walks until the indexer is exhausted', async () => {
+    ownedBy
+      .mockResolvedValueOnce({
+        items: [
+          {
+            tokenId: 'a:1',
+            ownerId: 'bob.near',
+            burned: false,
+            collectionId: 'a',
+            appId: null,
+            mintedBlockTimestamp: 1,
+            updatedBlockTimestamp: 1,
+          },
+        ],
+        nextOffset: 1,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            tokenId: 'b:1',
+            ownerId: 'bob.near',
+            burned: false,
+            collectionId: 'b',
+            appId: null,
+            mintedBlockTimestamp: 1,
+            updatedBlockTimestamp: 1,
+          },
+        ],
+        nextOffset: undefined,
+      });
+    collectionsCurrentByIds.mockResolvedValue([]);
+    activeListings.mockResolvedValue([]);
+
+    const all = await fetchOwnedScarcesAll('bob.near', {
+      pageSize: 1,
+      maxTokens: 5000,
+      bypassCache: true,
+    });
+    expect(all.items.map((item) => item.tokenId)).toEqual(['a:1', 'b:1']);
+    expect(all.hasMore).toBe(false);
+    expect(ownedBy).toHaveBeenCalledTimes(2);
   });
 });

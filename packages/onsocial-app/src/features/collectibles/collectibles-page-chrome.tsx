@@ -22,6 +22,10 @@ import {
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
+import {
+  COLLECTIBLES_LIBRARY_JUMP_MIN,
+  type CollectiblesLibrarySort,
+} from '@/lib/portfolio-holdings';
 
 /** Search field with Collectibles icon — same heading slot as Market. */
 export function CollectiblesSearchHeading({
@@ -69,6 +73,9 @@ export function CollectiblesFilterToolbar({
   selectedSeries = null,
   onCreatorChange,
   onSeriesChange,
+  sort = 'newest',
+  onSortChange,
+  jumpCreators = [],
 }: {
   medium: MarketMediumFilter;
   audioFormat: MarketAudioFormatFilter;
@@ -86,6 +93,9 @@ export function CollectiblesFilterToolbar({
   selectedSeries?: string | null;
   onCreatorChange?: (creator: string | null) => void;
   onSeriesChange?: (series: string | null) => void;
+  sort?: CollectiblesLibrarySort;
+  onSortChange?: (sort: CollectiblesLibrarySort) => void;
+  jumpCreators?: VaultFilterChip[];
 }) {
   const facetMedium = normalizeDropFacetMedium(medium);
   const creatorLabel =
@@ -103,6 +113,7 @@ export function CollectiblesFilterToolbar({
     facetMedium,
     creatorLabel: creatorLabel || null,
     seriesLabel: seriesLabel || null,
+    sort,
   });
 
   return (
@@ -166,6 +177,13 @@ export function CollectiblesFilterToolbar({
           selectedSeries={selectedSeries}
           onCreatorChange={onCreatorChange}
           onSeriesChange={onSeriesChange}
+          sort={sort}
+          onSortChange={onSortChange}
+          jumpCreators={
+            jumpCreators.length >= COLLECTIBLES_LIBRARY_JUMP_MIN
+              ? jumpCreators
+              : []
+          }
         />
       )}
     </OsAppChromeToolbarRail>

@@ -231,6 +231,82 @@ export async function stubCollectiblesVaultGraph(page: Page): Promise<void> {
   });
 }
 
+/** Six creators so the vault jump rail appears. */
+export async function stubCollectiblesVaultManyCreators(
+  page: Page
+): Promise<void> {
+  const creators = [
+    'alice.near',
+    'bob.near',
+    'cara.near',
+    'drew.near',
+    'erin.near',
+    'finn.near',
+  ];
+  await page.route('**/api/onapi/graph/query', async (route) => {
+    const raw = route.request().postData() ?? '';
+    let query = '';
+    try {
+      query = String((JSON.parse(raw) as { query?: string }).query ?? '');
+    } catch {
+      query = raw;
+    }
+
+    if (query.includes('ScarcesOwnedBy')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            scarcesTokenOwners: creators.map((creatorId, index) => ({
+              tokenId: `drop-${index}:1`,
+              ownerId: VAULT_OWNER,
+              burned: false,
+              collectionId: `drop-${index}`,
+              appId: null,
+              mintedBlockTimestamp: 1,
+              updatedBlockTimestamp: index + 1,
+            })),
+          },
+        }),
+      });
+      return;
+    }
+
+    if (query.includes('ScarcesCollectionsCurrentByIds')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            scarcesCollectionsCurrent: creators.map((creatorId, index) =>
+              collectionRow({
+                collectionId: `drop-${index}`,
+                creatorId,
+                title: `Drop ${index + 1}`,
+                kind: 'audio',
+                extra: { audioFormat: 'single' },
+              })
+            ),
+          },
+        }),
+      });
+      return;
+    }
+
+    if (query.includes('ScarcesActiveListings')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { scarcesActiveListings: [] } }),
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+}
+
 export const COLLECTIBLES_VAULT_OWNER = VAULT_OWNER;
 
 export function collectiblesReadyRail(page: Page) {

@@ -61,4 +61,21 @@ describe('parseCollectiblesPageQuery', () => {
   it('aliases music to audio', () => {
     expect(parseCollectiblesPageQuery({ kind: 'music' }).kind).toBe('audio');
   });
+
+  it('reads A–Z sort and omits newest from the path', () => {
+    expect(parseCollectiblesPageQuery({}).sort).toBe('newest');
+    expect(parseCollectiblesPageQuery({ sort: 'name' }).sort).toBe('name');
+    expect(parseCollectiblesPageQuery({ sort: 'price-asc' }).sort).toBe(
+      'newest'
+    );
+    expect(
+      collectiblesQueryPath(
+        'alice.near',
+        parseCollectiblesPageQuery({ sort: 'name' })
+      )
+    ).toBe('/@alice.near/collectibles?sort=name');
+    expect(
+      collectiblesQueryPath('alice.near', EMPTY_COLLECTIBLES_PAGE_QUERY)
+    ).toBe('/@alice.near/collectibles');
+  });
 });

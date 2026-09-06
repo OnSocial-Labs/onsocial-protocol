@@ -21,10 +21,18 @@ export interface OfflineTrackMeta {
   lyrics?: string;
 }
 
-export interface OfflineAlbumManifest {
+export interface OfflineAlbumStamp {
   collectionId: string;
   title: string;
   poster: string | null;
+  creatorId?: string | null;
+  seriesId?: string | null;
+  seriesTitle?: string | null;
+  audioFormat?: 'single' | 'album' | 'podcast' | null;
+  facets?: string[];
+}
+
+export interface OfflineAlbumManifest extends OfflineAlbumStamp {
   tracks: OfflineTrackMeta[];
   updatedAt: number;
 }
@@ -74,23 +82,35 @@ export function playableToOfflineMeta(
   };
 }
 
+function pickStampField<T>(next: T | null | undefined, prev: T | null | undefined): T | undefined {
+  if (next != null && next !== '') return next;
+  if (prev != null && prev !== '') return prev;
+  return undefined;
+}
+
 export function mergeTrackIntoManifest(
   current: OfflineAlbumManifest | null,
-  album: {
-    collectionId: string;
-    title: string;
-    poster: string | null;
-  },
+  album: OfflineAlbumStamp,
   track: OfflineTrackMeta
 ): OfflineAlbumManifest {
   const tracks = current?.tracks.filter((entry) => entry.cid !== track.cid) ?? [];
   tracks.push(track);
+  const creatorId = pickStampField(album.creatorId, current?.creatorId);
+  const seriesId = pickStampField(album.seriesId, current?.seriesId);
+  const seriesTitle = pickStampField(album.seriesTitle, current?.seriesTitle);
+  const audioFormat = pickStampField(album.audioFormat, current?.audioFormat);
+  const facets = album.facets?.length ? album.facets : current?.facets;
   return {
     collectionId: album.collectionId,
     title: album.title,
     poster: album.poster,
     tracks,
     updatedAt: Date.now(),
+    ...(creatorId ? { creatorId } : {}),
+    ...(seriesId ? { seriesId } : {}),
+    ...(seriesTitle ? { seriesTitle } : {}),
+    ...(audioFormat ? { audioFormat } : {}),
+    ...(facets && facets.length > 0 ? { facets } : {}),
   };
 }
 
@@ -197,6 +217,11 @@ export async function rememberCachedTrack(opts: {
   poster: string | null;
   track: ScarcePlayableMedia;
   blob: Blob;
+  creatorId?: string | null;
+  seriesId?: string | null;
+  seriesTitle?: string | null;
+  audioFormat?: 'single' | 'album' | 'podcast' | null;
+  facets?: string[];
 }): Promise<void> {
   const meta = playableToOfflineMeta(opts.track);
   if (!meta) {
@@ -210,6 +235,11 @@ export async function rememberCachedTrack(opts: {
       collectionId: opts.collectionId,
       title: opts.title,
       poster: opts.poster,
+      creatorId: opts.creatorId,
+      seriesId: opts.seriesId,
+      seriesTitle: opts.seriesTitle,
+      audioFormat: opts.audioFormat,
+      facets: opts.facets,
     },
     meta
   );
@@ -278,8 +308,14 @@ export function offlineAlbumToHoldingPeek(
     title: album.title,
     mediaUrl: album.poster,
     collectionId: album.collectionId,
-    // Offline manifests omit facets/audioFormat; genre/format filters hide them.
     mediumKind: 'audio',
+    ...(album.creatorId?.trim() ? { creatorId: album.creatorId.trim() } : {}),
+    ...(album.seriesId?.trim() ? { seriesId: album.seriesId.trim() } : {}),
+    ...(album.seriesTitle?.trim()
+      ? { seriesTitle: album.seriesTitle.trim() }
+      : {}),
+    ...(album.audioFormat ? { audioFormat: album.audioFormat } : {}),
+    ...(album.facets && album.facets.length > 0 ? { facets: album.facets } : {}),
     href: collectiblesPlayPath(album.collectionId),
     actionLabel: 'Play',
     kindLabel: 'Downloaded',

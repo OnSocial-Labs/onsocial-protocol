@@ -4,6 +4,7 @@ import {
   clickCollectiblesKindAndWaitUrl,
   expectCollectiblesChrome,
   stubCollectiblesVaultGraph,
+  stubCollectiblesVaultManyCreators,
 } from './helpers/collectibles-vault';
 import {
   expectSearchHidden,
@@ -113,9 +114,14 @@ test.describe('collectibles shell', () => {
     await expect(
       chapterRow.getByRole('link', { name: /Read Chapter One/ })
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: '@alice.near' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '@bob.near' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Night Roads' })).toBeVisible();
+    const aliceHeading = page.getByRole('button', { name: /alice\.near/ });
+    const bobHeading = page.getByRole('button', { name: /bob\.near/ });
+    await expect(aliceHeading).toBeVisible();
+    await expect(aliceHeading).toContainText('3');
+    await expect(bobHeading).toBeVisible();
+    await expect(bobHeading).toContainText('1');
+    await expect(aliceHeading).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByRole('button', { name: /Night Roads/ })).toBeVisible();
     await expect(
       page.locator('.collectibles-holding-row').filter({ hasText: 'Dusk Run' })
     ).toBeVisible();
@@ -185,16 +191,26 @@ test.describe('collectibles shell', () => {
     await page.getByRole('button', { name: 'Clear search' }).click();
     await page.waitForURL((url) => !url.searchParams.has('q'));
 
-    await page.getByRole('button', { name: '@bob.near' }).click();
+    await bobHeading.click();
     await page.waitForURL(/[?&]creator=bob\.near/);
     await expect(
       page.locator('.collectibles-holding-row').filter({ hasText: 'Gate Pass' })
     ).toBeVisible();
     await expect(nightRow).toHaveCount(0);
+    await expect(bobHeading).toHaveAttribute('aria-pressed', 'true');
+    await openMarketFilter(page);
+    await expect(page.getByRole('option', { name: 'Newest' })).toBeVisible();
+    await page.getByRole('option', { name: 'A–Z' }).click();
+    await page.getByRole('button', { name: 'Done' }).click();
+    await page.waitForURL(/[?&]sort=name/);
+    await expect(page.getByRole('button', { name: /A–Z/ })).toBeVisible();
     await openMarketFilter(page);
     await page.getByRole('button', { name: 'Clear' }).click();
     await page.getByRole('button', { name: 'Done' }).click();
-    await page.waitForURL((url) => !url.searchParams.has('creator'));
+    await page.waitForURL(
+      (url) =>
+        !url.searchParams.has('creator') && !url.searchParams.has('sort')
+    );
     await expect(nightRow).toBeVisible();
     await expectCollectiblesChrome(page);
   });
@@ -217,5 +233,21 @@ test.describe('collectibles shell', () => {
     await expect(
       page.locator('.collectibles-holding-row').filter({ hasText: 'Chapter One' })
     ).toHaveCount(0);
+  });
+
+  test('shows a jump rail once six creators are on the shelf', async ({
+    page,
+  }) => {
+    await stubCollectiblesVaultManyCreators(page);
+    await gotoApp(page, `/@${COLLECTIBLES_VAULT_OWNER}/collectibles`);
+
+    await expect(page.getByText('Drop 1').first()).toBeVisible({
+      timeout: 30_000,
+    });
+    const jump = page.getByRole('listbox', { name: 'Jump to creator' });
+    await expect(jump.first()).toBeVisible();
+    await expect(jump.first().getByRole('option', { name: /finn\.near/ })).toBeVisible();
+    await jump.first().getByRole('option', { name: /finn\.near/ }).click();
+    await expect(page.getByRole('button', { name: /finn\.near/ })).toBeInViewport();
   });
 });

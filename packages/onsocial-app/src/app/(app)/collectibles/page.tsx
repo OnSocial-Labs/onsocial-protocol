@@ -7,6 +7,7 @@ import {
   MARKET_CREATOR_PARAM,
   MARKET_FACETS_PARAM,
   MARKET_KIND_PARAM,
+  MARKET_SORT_PARAM,
 } from '@/lib/app-routes';
 import {
   loadCollectiblesPageData,
@@ -26,6 +27,7 @@ type CollectiblesOsPageProps = {
     [MARKET_AUDIO_FORMAT_PARAM]?: string | string[];
     [MARKET_CREATOR_PARAM]?: string | string[];
     [COLLECTIBLES_SERIES_PARAM]?: string | string[];
+    [MARKET_SORT_PARAM]?: string | string[];
   }>;
 };
 
@@ -46,6 +48,7 @@ export default async function CollectiblesPage({
     audioFormat: firstParam(resolved[MARKET_AUDIO_FORMAT_PARAM]),
     creator: firstParam(resolved[MARKET_CREATOR_PARAM]),
     series: firstParam(resolved[COLLECTIBLES_SERIES_PARAM]),
+    sort: firstParam(resolved[MARKET_SORT_PARAM]),
   });
   const seedPromise = loadCollectiblesPageData(null);
 

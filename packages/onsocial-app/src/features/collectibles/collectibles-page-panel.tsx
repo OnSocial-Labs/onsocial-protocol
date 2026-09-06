@@ -13,10 +13,13 @@ import {
   CollectiblesSearchHeading,
 } from '@/features/collectibles/collectibles-page-chrome';
 import {
-  OWNED_MAX_TOKENS,
+  VAULT_OWNED_MAX_TOKENS,
+  fetchOwnedScarcesAll,
   fetchOwnedScarcesPage,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
+import type { CollectionCreatorFace } from '@/features/scarces/collection-creator-face';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   invalidateOwnedVaultCache,
   peekOwnedVaultPage,
@@ -52,11 +55,13 @@ import {
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
   COLLECTIBLES_CREATOR_OTHER,
+  COLLECTIBLES_LIBRARY_JUMP_MIN,
   filterHoldingsByMedium,
   groupHoldingsLibrary,
   holdingsMatchCreator,
   holdingsMatchQuery,
   holdingsMatchSeries,
+  sortHoldingsLibrary,
   toPortfolioHoldingPeek,
   vaultInventoryCreators,
   vaultInventorySeries,
@@ -134,6 +139,7 @@ export function CollectiblesPagePanel({
   const audioFormatFilter: MarketAudioFormatFilter = pageQuery.audioFormat;
   const creatorFilter = pageQuery.creator;
   const seriesFilter = pageQuery.series;
+  const librarySort = pageQuery.sort;
   const urlDiscoveryActive =
     searchQuery.trim().length > 0 ||
     mediumFilter !== 'all' ||
@@ -169,6 +175,9 @@ export function CollectiblesPagePanel({
     PortfolioHoldingPeek[]
   >([]);
   const [offlineReady, setOfflineReady] = useState(false);
+  const [creatorFaces, setCreatorFaces] = useState<
+    Map<string, CollectionCreatorFace>
+  >(() => new Map());
   const [sellItem, setSellItem] = useState<OwnedScarceItem | null>(null);
   const [sellOpen, setSellOpen] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
@@ -270,6 +279,7 @@ export function CollectiblesPagePanel({
       audioFormat: null,
       creator: null,
       series: null,
+      sort: 'newest',
     });
   }, [replacePageQuery, pageQuery]);
 
@@ -349,10 +359,12 @@ export function CollectiblesPagePanel({
       }
 
       try {
-        const page = await fetchOwnedScarcesPage(ownerAccountId, {
-          pageSize: urlDiscoveryActive ? OWNED_MAX_TOKENS : undefined,
-          bypassCache: urlDiscoveryActive,
-        });
+        const page = urlDiscoveryActive
+          ? await fetchOwnedScarcesAll(ownerAccountId, {
+              maxTokens: VAULT_OWNED_MAX_TOKENS,
+              bypassCache: true,
+            })
+          : await fetchOwnedScarcesPage(ownerAccountId);
         if (cancelled) return;
         applyPage(page.items, page.nextFromEnd, page.hasMore);
       } catch {
@@ -511,9 +523,52 @@ export function CollectiblesPagePanel({
     trimmedSearch,
   ]);
 
+  const creatorIdsKey = useMemo(() => {
+    const ids = [
+      ...new Set(
+        vaultItems
+          .map((item) => item.creatorId?.trim())
+          .filter((id): id is string => Boolean(id))
+      ),
+    ].sort();
+    return ids.join('|');
+  }, [vaultItems]);
+
+  useEffect(() => {
+    if (!creatorIdsKey) {
+      setCreatorFaces(new Map());
+      return;
+    }
+    const ids = creatorIdsKey.split('|');
+    let cancelled = false;
+    void (async () => {
+      const { fetchCollectionCreatorFaces } = await import(
+        '@/features/scarces/collection-creator-face'
+      );
+      const faces = await fetchCollectionCreatorFaces(
+        createReadOnlyOnSocialClient(),
+        ids
+      );
+      if (cancelled) return;
+      setCreatorFaces(faces);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [creatorIdsKey]);
+
+  const displayNames = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const [id, face] of creatorFaces) {
+      map.set(id, face.displayName);
+    }
+    return map;
+  }, [creatorFaces]);
+
   const displayGroups = useMemo(
-    () => groupHoldingsLibrary(filtered),
-    [filtered]
+    () =>
+      sortHoldingsLibrary(groupHoldingsLibrary(filtered), librarySort, displayNames),
+    [filtered, librarySort, displayNames]
   );
   const inventorySource = useMemo(
     () => filterHoldingsByMedium(vaultItems, mediumFilter),
@@ -525,16 +580,31 @@ export function CollectiblesPagePanel({
       label:
         entry.id === COLLECTIBLES_CREATOR_OTHER
           ? 'Other'
-          : `@${fallbackLabel(entry.label)}`,
+          : creatorFaces.get(entry.id)?.displayName?.trim() ||
+            fallbackLabel(entry.label),
     }));
-  }, [inventorySource]);
+  }, [inventorySource, creatorFaces]);
   const vaultSeries = useMemo(() => {
     return vaultInventorySeries(inventorySource).map((entry) => ({
       id: entry.id,
       label: entry.label,
     }));
   }, [inventorySource]);
-  const showCreatorHeadings = displayGroups.length > 1;
+  const showCreatorHeadings =
+    displayGroups.length > 1 || Boolean(creatorFilter);
+  const jumpCreators = useMemo(
+    () =>
+      displayGroups.length >= COLLECTIBLES_LIBRARY_JUMP_MIN
+        ? displayGroups.map((group) => ({
+            id: group.creatorKey,
+            label: group.creatorId
+              ? creatorFaces.get(group.creatorId)?.displayName?.trim() ||
+                fallbackLabel(group.creatorId)
+              : 'Other',
+          }))
+        : [],
+    [displayGroups, creatorFaces]
+  );
   const ownedByToken = useMemo(() => {
     const map = new Map<string, OwnedScarceItem>();
     for (const row of holdings.owned) {
@@ -741,11 +811,18 @@ export function CollectiblesPagePanel({
           groups={displayGroups}
           ownedByToken={ownedByToken}
           showCreatorHeadings={showCreatorHeadings}
+          selectedCreator={creatorFilter}
+          selectedSeries={seriesFilter}
+          creatorFaces={creatorFaces}
           onSelectCreator={(creatorKey) =>
-            replaceDiscoveryParams({ creator: creatorKey })
+            replaceDiscoveryParams({
+              creator: creatorFilter === creatorKey ? null : creatorKey,
+            })
           }
           onSelectSeries={(seriesKey) =>
-            replaceDiscoveryParams({ series: seriesKey })
+            replaceDiscoveryParams({
+              series: seriesFilter === seriesKey ? null : seriesKey,
+            })
           }
           renderOwnerMenu={
             isSelf
@@ -818,6 +895,11 @@ export function CollectiblesPagePanel({
               vaultSeries={vaultSeries}
               selectedCreator={creatorFilter}
               selectedSeries={seriesFilter}
+              sort={librarySort}
+              jumpCreators={jumpCreators}
+              onSortChange={(sort) =>
+                replacePageQuery({ ...pageQuery, sort })
+              }
               onMediumChange={setMediumFilter}
               onAudioFormatChange={(format) =>
                 replaceDiscoveryParams({ audioFormat: format })

@@ -3,6 +3,7 @@ import {
   filterHoldingsByMedium,
   groupHoldingsForRail,
   groupHoldingsLibrary,
+  sortHoldingsLibrary,
   holdingsActionLabel,
   holdingsHrefForOwned,
   holdingsKindLabel,
@@ -399,6 +400,43 @@ describe('groupHoldingsLibrary', () => {
     expect(sliced.truncated).toBe(true);
     expect(sliced.groups).toHaveLength(1);
     expect(sliced.groups[0]?.series[0]?.drops).toHaveLength(2);
+  });
+
+  it('sorts creators A–Z by display name and keeps newest first-seen', () => {
+    const groups = groupHoldingsLibrary([
+      peek({
+        tokenId: 'z:1',
+        collectionId: 'z',
+        creatorId: 'zebra.near',
+        title: 'Z',
+      }),
+      peek({
+        tokenId: 'a:1',
+        collectionId: 'a',
+        creatorId: 'alice.near',
+        title: 'A',
+      }),
+    ]);
+    expect(groups.map((row) => row.creatorId)).toEqual([
+      'zebra.near',
+      'alice.near',
+    ]);
+    expect(
+      sortHoldingsLibrary(groups, 'newest').map((row) => row.creatorId)
+    ).toEqual(['zebra.near', 'alice.near']);
+    expect(
+      sortHoldingsLibrary(groups, 'name').map((row) => row.creatorId)
+    ).toEqual(['alice.near', 'zebra.near']);
+    expect(
+      sortHoldingsLibrary(
+        groups,
+        'name',
+        new Map([
+          ['alice.near', 'Zed'],
+          ['zebra.near', 'Able'],
+        ])
+      ).map((row) => row.creatorId)
+    ).toEqual(['zebra.near', 'alice.near']);
   });
 });
 

@@ -39,6 +39,7 @@ export function CollectiblesLoadingScreen({
           selectedFacets={toolbar.facets}
           selectedCreator={toolbar.creator}
           selectedSeries={toolbar.series}
+          sort={toolbar.sort}
         />
       }
     >

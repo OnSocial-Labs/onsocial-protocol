@@ -64,6 +64,37 @@ describe('offline album library helpers', () => {
     expect(peek.actionLabel).toBe('Play');
     expect(peek.href).toContain('/collectibles/play');
     expect(peek.href).toContain('night-drive');
+    expect(peek.creatorId).toBeUndefined();
+  });
+
+  it('stamps creator series and format onto the vault peek', () => {
+    const album = mergeTrackIntoManifest(
+      null,
+      {
+        collectionId: 'night-drive',
+        title: 'Night Drive',
+        poster: '/art.jpg',
+        creatorId: 'alice.near',
+        seriesId: 'night-roads',
+        seriesTitle: 'Night Roads',
+        audioFormat: 'album',
+        facets: ['ambient'],
+      },
+      {
+        cid: 'bafkreigdabcdefghijklmnopqrstuvwx',
+        mime: 'audio/mpeg',
+        url: '/api/ipfs/bafkreigdabcdefghijklmnopqrstuvwx',
+        title: 'One',
+      }
+    );
+    const peek = offlineAlbumToHoldingPeek(album);
+    expect(peek).toMatchObject({
+      creatorId: 'alice.near',
+      seriesId: 'night-roads',
+      seriesTitle: 'Night Roads',
+      audioFormat: 'album',
+      facets: ['ambient'],
+    });
   });
 });
 

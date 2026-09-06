@@ -359,11 +359,75 @@ export function countLibraryDrops(
 ): number {
   let n = 0;
   for (const creator of groups) {
-    for (const series of creator.series) {
-      n += series.drops.length;
-    }
+    n += countLibraryCreatorDrops(creator);
   }
   return n;
+}
+
+export function countLibraryCreatorDrops(
+  group: CollectiblesLibraryCreatorGroup
+): number {
+  let n = 0;
+  for (const series of group.series) {
+    n += series.drops.length;
+  }
+  return n;
+}
+
+/** Vault shelf sort — newest keeps first-seen order; name is A–Z. */
+export type CollectiblesLibrarySort = 'newest' | 'name';
+
+/** Show a jump rail once the shelf has this many creators. */
+export const COLLECTIBLES_LIBRARY_JUMP_MIN = 6;
+
+export function collectiblesLibraryHeadingId(
+  prefix: string,
+  key: string
+): string {
+  return `collectibles-${prefix}-${key.replace(/[^a-zA-Z0-9_-]+/g, '-')}`;
+}
+
+export function libraryCreatorSortLabel(
+  group: Pick<CollectiblesLibraryCreatorGroup, 'creatorId'>,
+  displayName?: string | null
+): string {
+  if (!group.creatorId) return 'other';
+  const name = displayName?.trim();
+  return (name || group.creatorId).toLowerCase();
+}
+
+/**
+ * Newest = first-seen (current group order). Name = localeCompare on display
+ * name / handle; series A–Z with ungrouped last.
+ */
+export function sortHoldingsLibrary(
+  groups: CollectiblesLibraryCreatorGroup[],
+  sort: CollectiblesLibrarySort,
+  displayNames?: ReadonlyMap<string, string | null>
+): CollectiblesLibraryCreatorGroup[] {
+  if (sort !== 'name') return groups;
+  return groups
+    .map((creator) => ({
+      ...creator,
+      series: [...creator.series].sort((a, b) => {
+        if (!a.seriesKey && b.seriesKey) return 1;
+        if (a.seriesKey && !b.seriesKey) return -1;
+        const left = (a.seriesTitle ?? a.seriesKey ?? '').toLowerCase();
+        const right = (b.seriesTitle ?? b.seriesKey ?? '').toLowerCase();
+        return left.localeCompare(right);
+      }),
+    }))
+    .sort((a, b) => {
+      const left = libraryCreatorSortLabel(
+        a,
+        a.creatorId ? displayNames?.get(a.creatorId) ?? null : null
+      );
+      const right = libraryCreatorSortLabel(
+        b,
+        b.creatorId ? displayNames?.get(b.creatorId) ?? null : null
+      );
+      return left.localeCompare(right);
+    });
 }
 
 /** Keep headers; cut after `maxDrops` edition-collapsed rows. */
