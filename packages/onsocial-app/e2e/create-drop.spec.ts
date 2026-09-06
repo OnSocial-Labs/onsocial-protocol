@@ -254,13 +254,17 @@ test.describe('create drop', () => {
     await expect(page.getByText('Max per wallet', { exact: true })).toHaveCount(
       0
     );
-    await expect(page.getByRole('group', { name: 'Transferable' })).toBeVisible();
+    await expect(
+      page.getByRole('radiogroup', { name: 'Transferable' })
+    ).toBeVisible();
     await expect(page.getByText('Transferable', { exact: true })).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Set renewals', exact: true })
     ).toBeVisible();
     await page.getByRole('button', { name: 'Set renewals', exact: true }).click();
-    await expect(page.getByRole('group', { name: 'Renewable' })).toBeVisible();
+    await expect(
+      page.getByRole('radiogroup', { name: 'Renewable' })
+    ).toBeVisible();
     await expect(page.getByText('Renewable', { exact: true })).toHaveCount(0);
   });
 });
