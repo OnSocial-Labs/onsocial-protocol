@@ -568,6 +568,12 @@ export function appPath(appId: string): string {
   return `${APP_APPS_PATH}/${encodeURIComponent(id)}`;
 }
 
+/** Leave New drop — Hub when bound, otherwise the Drops catalog. */
+export function dropCreateBackHref(appId?: string | null): string {
+  const id = appId?.trim();
+  return id ? appPath(id) : APP_DROPS_PATH;
+}
+
 /** Public series page — a creator's ongoing drop series. */
 export function seriesPagePath(creatorId: string, seriesId: string): string {
   const creator = creatorId.trim();

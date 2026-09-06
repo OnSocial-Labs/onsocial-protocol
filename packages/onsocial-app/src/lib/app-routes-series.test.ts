@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  APP_APPS_PATH,
   APP_DROP_CREATE_PATH,
+  APP_DROPS_PATH,
   APP_MARKET_PATH,
   APP_SERIES_PATH,
+  dropCreateBackHref,
   dropCreatePath,
   seriesPagePath,
 } from '@/lib/app-routes';
@@ -30,5 +33,18 @@ describe('dropCreatePath', () => {
       `${APP_DROP_CREATE_PATH}?series=Night+Roads`
     );
     expect(dropCreatePath({ series: '  ' })).toBe(APP_DROP_CREATE_PATH);
+  });
+});
+
+describe('dropCreateBackHref', () => {
+  it('leaves to Drops unless a hub is bound', () => {
+    expect(dropCreateBackHref()).toBe(APP_DROPS_PATH);
+    expect(dropCreateBackHref('  ')).toBe(APP_DROPS_PATH);
+    expect(dropCreateBackHref('night-roads')).toBe(
+      `${APP_APPS_PATH}/night-roads`
+    );
+    expect(dropCreateBackHref('a b')).toBe(
+      `${APP_APPS_PATH}/${encodeURIComponent('a b')}`
+    );
   });
 });
