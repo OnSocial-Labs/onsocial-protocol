@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import {
   MultiplyIcon,
   ProtocolMotionArrow,
-  ShopFillIcon,
   StarMovingFillIcon,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -17,6 +16,11 @@ import {
   MarketHeadingActions,
   MarketSearchHeading,
 } from '@/features/market/market-heading';
+import { MarketCreatorShop } from '@/features/market/market-creator-shop';
+import {
+  listedCollectionIdSet,
+  marketCreatorCatalogShell,
+} from '@/features/market/market-creator-view';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { MarketListingRow } from '@/features/market/market-listing-row';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
@@ -101,8 +105,12 @@ import { ScarceOffersSheet } from '@/features/scarces/scarce-offers-sheet';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import { fetchCollectionsByCreator } from '@/features/scarces/collections-data';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 import { accountIdsEqual } from '@/lib/account-match';
+import { collectionToProfileStoreDrop } from '@/lib/profile-store-map';
+import { filterDropsNotListed } from '@/lib/profile-store-available';
+import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 import { APP_HOME_PATH, appPath } from '@/lib/app-routes';
 import {
   portfolioCollectiblesPath,
@@ -260,6 +268,14 @@ export function MarketPagePanel({
   const [retryKey, setRetryKey] = useState(0);
   const [listingsState, setListingsState] =
     useState<ListingsState>(EMPTY_LISTINGS);
+  const [creatorDrops, setCreatorDrops] = useState<ProfileStoreDrop[]>([]);
+  const [creatorDropsSettled, setCreatorDropsSettled] = useState(
+    !seedQuery.creator
+  );
+  const [creatorFace, setCreatorFace] = useState<{
+    displayName: string | null;
+    avatarUrl: string | null;
+  } | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [catalogRefreshing, setCatalogRefreshing] = useState(false);
@@ -838,6 +854,72 @@ export function MarketPagePanel({
     };
   }, [retryKey, seedPromise, creatorFilter, appFilter]);
 
+  useEffect(() => {
+    if (!creatorFilter) {
+      setCreatorDrops([]);
+      setCreatorDropsSettled(true);
+      setCreatorFace(null);
+      return;
+    }
+    let cancelled = false;
+    setCreatorDropsSettled(false);
+    const apply = (drops: ProfileStoreDrop[]) => {
+      if (cancelled) return;
+      setCreatorDrops(drops);
+      setCreatorDropsSettled(true);
+    };
+    const fetchClient = () =>
+      fetchCollectionsByCreator(creatorFilter, { limit: 48 })
+        .then((collections) =>
+          apply(collections.map(collectionToProfileStoreDrop))
+        )
+        .catch(() => apply([]));
+
+    if (retryKey === 0 && seedPromise && seedQuery.creator === creatorFilter) {
+      void seedPromise.then((data) => {
+        if (cancelled) return;
+        if (data?.drops && data.drops.length > 0) {
+          apply(data.drops);
+          return;
+        }
+        void fetchClient();
+      }, fetchClient);
+    } else {
+      void fetchClient();
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [creatorFilter, retryKey, seedPromise, seedQuery.creator]);
+
+  useEffect(() => {
+    if (!creatorFilter) return;
+    let cancelled = false;
+    void (async () => {
+      const { fetchCollectionCreatorFaces } = await import(
+        '@/features/scarces/collection-creator-face'
+      );
+      const { createReadOnlyOnSocialClient } = await import(
+        '@/lib/create-readonly-onsocial-client'
+      );
+      const faces = await fetchCollectionCreatorFaces(
+        createReadOnlyOnSocialClient(),
+        [creatorFilter]
+      );
+      if (cancelled) return;
+      const face = faces.get(creatorFilter);
+      if (face) {
+        setCreatorFace({
+          displayName: face.displayName ?? null,
+          avatarUrl: face.avatarUrl ?? null,
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [creatorFilter]);
+
   // “Yours” loads independently so a slow RPC vault never blocks browse.
   // Keep the last page up while refetching — blanking it puts own listings
   // back in the catalog with Offers / Manage for a frame.
@@ -1032,6 +1114,19 @@ export function MarketPagePanel({
   // Medium / facets / audioFormat are server-filtered via activeListings.
   // Thought primaries are stripped client-side when medium is All (above).
   const discoveryFilteredListings = filteredListings;
+  const shopDrops = useMemo(() => {
+    if (!creatorFilter) return [];
+    return filterDropsNotListed(
+      creatorDrops,
+      listedCollectionIdSet(discoveryFilteredListings)
+    );
+  }, [creatorDrops, creatorFilter, discoveryFilteredListings]);
+  const creatorShopShell = marketCreatorCatalogShell({
+    hasDrops: shopDrops.length > 0,
+    hasListings: discoveryFilteredListings.length > 0,
+    ssrMiss: Boolean(creatorFilter),
+    clientSettled: creatorDropsSettled && listingsReady,
+  });
 
   const clientDiscoveryFilterActive =
     searching ||
@@ -1461,10 +1556,12 @@ export function MarketPagePanel({
   const hiddenSalesCount = Math.max(0, salesRows.length - visibleSales.length);
 
   const showListSkeleton =
-    listingsState.items.length === 0 &&
-    !listingsFailed &&
-    !searching &&
-    (status === 'loading' || !listingsReady || catalogRefreshing);
+    creatorFilter
+      ? creatorShopShell === 'skeleton'
+      : listingsState.items.length === 0 &&
+        !listingsFailed &&
+        !searching &&
+        (status === 'loading' || !listingsReady || catalogRefreshing);
   const showOwnedSection =
     Boolean(viewerAccountId) &&
     owned.length > 0 &&
@@ -1483,10 +1580,9 @@ export function MarketPagePanel({
     salesRows.length > 0 && !searching && !creatorFilter && !appFilter;
   const creatorEmpty =
     Boolean(creatorFilter) &&
-    status === 'ready' &&
-    listingsReady &&
+    creatorShopShell === 'empty' &&
     !listingsFailed &&
-    discoveryFilteredListings.length === 0;
+    !searching;
   const appEmpty =
     Boolean(appFilter) &&
     status === 'ready' &&
@@ -1571,29 +1667,22 @@ export function MarketPagePanel({
         />
       }
     >
-      <div className="market-page" data-market-panel>
+      <div
+        className="market-page"
+        data-market-panel
+        data-market-creator-shop={creatorFilter ? '' : undefined}
+      >
         {creatorFilter ? (
-          <div className="market-creator-filter">
-            <Link
-              href={portfolioPath(creatorFilter)}
-              scroll={false}
-              className="market-creator-filter-handle"
-            >
-              <ShopFillIcon
-                className="market-creator-filter-icon"
-                aria-hidden
-              />
-              From @{fallbackLabel(creatorFilter)}
-            </Link>
-            <button
-              type="button"
-              className="market-creator-filter-clear"
-              onClick={clearNarrowFilter}
-              aria-label="Clear creator filter"
-            >
-              <MultiplyIcon aria-hidden />
-            </button>
-          </div>
+          <MarketCreatorShop
+            creatorId={creatorFilter}
+            displayName={creatorFace?.displayName}
+            avatarUrl={creatorFace?.avatarUrl}
+            drops={shopDrops}
+            showDropLabel={
+              shopDrops.length > 0 && discoveryFilteredListings.length > 0
+            }
+            onClear={clearNarrowFilter}
+          />
         ) : null}
 
         {appFilter ? (
@@ -1722,7 +1811,7 @@ export function MarketPagePanel({
 
         {creatorEmpty ? (
           <p className="market-page-status">
-            No live listings from @{fallbackLabel(creatorFilter)} right now.{' '}
+            No drops or listings from @{fallbackLabel(creatorFilter)} yet.{' '}
             <button
               type="button"
               className="market-page-retry"
@@ -1756,12 +1845,21 @@ export function MarketPagePanel({
           hidden={discoveryFilteredListings.length === 0}
           aria-busy={catalogRefreshing || undefined}
         >
-          <h2 id="market-new" className="sr-only">
-            {listingFilter === 'auctions'
-              ? 'Auctions'
-              : listingFilter === 'fixed'
-                ? 'Fixed price'
-                : 'Listings'}
+          <h2
+            id="market-new"
+            className={
+              creatorFilter && shopDrops.length > 0
+                ? 'collection-section-label'
+                : 'sr-only'
+            }
+          >
+            {creatorFilter && shopDrops.length > 0
+              ? 'For sale'
+              : listingFilter === 'auctions'
+                ? 'Auctions'
+                : listingFilter === 'fixed'
+                  ? 'Fixed price'
+                  : 'Listings'}
           </h2>
           {discoveryFilteredListings.length > 0 ? (
             <div className="market-listing-list" role="list">
