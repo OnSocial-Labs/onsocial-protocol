@@ -8,6 +8,7 @@ export function CollectionPageSkeleton() {
       className="collection-page collection-page--skeleton"
       aria-busy="true"
       aria-label="Loading drop"
+      data-collection-page-skeleton
     >
       <p className="sr-only">Loading drop…</p>
       <section className="collection-hero" aria-hidden>
@@ -25,6 +26,12 @@ export function CollectionPageSkeleton() {
             <div className="collection-meta-copy">
               <span className="standing-row-shimmer collection-skeleton-creator-name" />
               <span className="standing-row-shimmer collection-skeleton-line-sm" />
+            </div>
+          </div>
+          <div className="collection-use-actions" aria-hidden>
+            <div className="collection-reading-row">
+              <span className="standing-row-shimmer collection-skeleton-section-label" />
+              <span className="standing-row-shimmer collection-skeleton-use-pill" />
             </div>
           </div>
         </header>
@@ -56,12 +63,6 @@ export function CollectionPageSkeleton() {
             </div>
           ))}
         </div>
-      </section>
-
-      <section className="collection-skeleton-mint" aria-hidden>
-        <span className="standing-row-shimmer collection-skeleton-line" />
-        <span className="standing-row-shimmer collection-skeleton-progress" />
-        <span className="standing-row-shimmer collection-skeleton-mint-btn" />
       </section>
     </div>
   );
