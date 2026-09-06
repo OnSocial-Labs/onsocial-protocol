@@ -513,7 +513,7 @@ export function holdingsMatchSeries(
  * stays in Filter. Order matches `MARKET_MEDIUM_FILTERS`.
  */
 export function vaultHeldKindFilters(
-  items: ReadonlyArray<{ mediumKind: string | null | undefined }>,
+  items: ReadonlyArray<{ mediumKind?: string | null }>,
   selected: MarketMediumFilter = 'all'
 ): MarketMediumFilter[] {
   const held = new Set<MarketMediumFilter>();

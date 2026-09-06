@@ -256,7 +256,7 @@ test.describe('collectibles shell', () => {
 
   test('hard refresh of a filtered vault keeps held-kinds chrome', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await stubCollectiblesVaultGraph(page);
     await gotoApp(
       page,
@@ -299,6 +299,10 @@ test.describe('collectibles shell', () => {
       loadingRail.getByRole('tab', { name: 'Memberships' })
     ).toHaveCount(0);
     await expect(marketFilterTrigger(page)).toBeVisible();
+    await page.screenshot({
+      path: `${testInfo.outputDir}/collectibles-hard-refresh-held-kinds.png`,
+      fullPage: true,
+    });
     await page.unroute('**/api/onapi/graph/query');
   });
 

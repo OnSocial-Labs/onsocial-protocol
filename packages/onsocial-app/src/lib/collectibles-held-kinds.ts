@@ -6,7 +6,7 @@ import {
 
 /** Edge-safe copy of `vaultHeldKindFilters` — middleware must not import SDK. */
 function heldKindFilters(
-  items: ReadonlyArray<{ mediumKind: string | null | undefined }>,
+  items: ReadonlyArray<{ mediumKind?: string | null }>,
   selected: MarketMediumFilter = 'all'
 ): MarketMediumFilter[] {
   const held = new Set<MarketMediumFilter>();
@@ -95,7 +95,7 @@ export function collectiblesVaultAccountFromPathname(
 /** Persist held kinds so the next hard refresh paints the same one-row rail. */
 export function rememberCollectiblesHeldKinds(
   accountId: string,
-  items: ReadonlyArray<{ mediumKind: string | null | undefined }>
+  items: ReadonlyArray<{ mediumKind?: string | null }>
 ): void {
   const owner = accountId.trim();
   if (!owner || typeof document === 'undefined') return;
