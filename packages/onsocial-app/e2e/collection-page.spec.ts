@@ -16,7 +16,7 @@ test.describe('collection drop page', () => {
     await stubCollectionPageGraph(page);
     await gotoApp(page, '/collection/night-drive');
 
-    await expect(page.getByRole('heading', { name: 'Night Drive' })).toBeVisible({
+    await expect(page.locator('.collection-title')).toHaveText('Night Drive', {
       timeout: 30_000,
     });
     await expectCollectionVisitorChrome(page);
@@ -31,12 +31,12 @@ test.describe('collection drop page', () => {
     await stubCollectionPageGraph(page);
     await gotoApp(page, '/collection/chapter-one');
 
-    await expect(
-      page.getByRole('heading', { name: 'Chapter One' })
-    ).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('.collection-title')).toHaveText('Chapter One', {
+      timeout: 30_000,
+    });
     await expectCollectionVisitorChrome(page);
     await expect(page.locator('.collection-reading')).toBeVisible();
-    const read = page.getByRole('button', { name: 'Read' });
+    const read = page.getByRole('button', { name: 'Read', exact: true });
     await expect(read).toBeVisible();
     await expect(read).toHaveClass(/collection-reading-open/);
     await expect(read).not.toHaveClass(PILL_ACTION);
@@ -53,7 +53,7 @@ test.describe('collection drop page', () => {
     });
     await gotoApp(page, '/collection/night-drive');
 
-    await expect(page.getByRole('heading', { name: 'Night Drive' })).toBeVisible({
+    await expect(page.locator('.collection-title')).toHaveText('Night Drive', {
       timeout: 30_000,
     });
     await expectCollectionHolderChrome(page, HOLDER_BACK);
@@ -79,11 +79,11 @@ test.describe('collection drop page', () => {
     });
     await gotoApp(page, '/collection/chapter-one');
 
-    await expect(
-      page.getByRole('heading', { name: 'Chapter One' })
-    ).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('.collection-title')).toHaveText('Chapter One', {
+      timeout: 30_000,
+    });
     await expectCollectionHolderChrome(page, HOLDER_BACK);
-    const read = page.getByRole('button', { name: 'Read' });
+    const read = page.getByRole('button', { name: 'Read', exact: true });
     await expect(read).toHaveClass(PILL_ACTION);
     await expect(page.locator('.collection-writing-locked')).toHaveCount(0);
   });
@@ -95,9 +95,9 @@ test.describe('collection drop page', () => {
     await stubCollectionPageGraph(page, { heldIds: ['quiet-print'] });
     await gotoApp(page, '/collection/quiet-print');
 
-    await expect(
-      page.getByRole('heading', { name: 'Quiet Print' })
-    ).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('.collection-title')).toHaveText('Quiet Print', {
+      timeout: 30_000,
+    });
     await expectCollectionHolderChrome(page, HOLDER_BACK);
     await expect(page.getByRole('link', { name: 'Play' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Read' })).toHaveCount(0);
