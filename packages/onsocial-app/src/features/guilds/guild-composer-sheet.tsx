@@ -10,7 +10,6 @@ import {
   type FormEvent,
 } from 'react';
 import {
-  PROFILE_ABOUT_ALIGN_OPTIONS,
   type PostRow,
   type ProfileAboutAlign,
 } from '@onsocial/sdk';
@@ -22,7 +21,6 @@ import {
   MapMarkerFillIcon,
   MapMarkerIcon,
   MultiplyIcon,
-  OsFieldRemove,
   OsHugSheet,
   OsIconAction,
   OsPageSheet,
@@ -49,13 +47,14 @@ import {
   portfolioMoodShellStyle,
   resolvePortfolioMood,
 } from '@/lib/moods/resolve';
-import { ARTICLE_TITLE_MAX } from '@/lib/article-post-payload';
-import { QuotedPostInset } from '@/features/home/post-card';
-import { PostMediaBlock } from '@/features/home/post-media';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { PostRichText } from '@/features/home/post-rich-text';
-import { ComposerHashtagTextarea } from '@/features/guilds/composer-hashtag-textarea';
 import { ComposerDropPicker } from '@/features/guilds/composer-drop-picker';
+import {
+  COMPOSER_MIN_POLL_OPTIONS,
+  ComposerThreadBeat,
+  type ComposerSheetBeat,
+} from '@/features/guilds/composer-thread-beat';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
@@ -78,10 +77,6 @@ import {
   validatePostMediaFile,
 } from '@/lib/post-media';
 import { parsePostContentLabels } from '@/lib/post-content-labels';
-import {
-  normalizePlaceSlug,
-  placeLabel,
-} from '@/lib/post-place';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
@@ -98,10 +93,7 @@ import {
   type ComposerBeat,
 } from '@/lib/composer-thread';
 
-type SheetBeat = ComposerBeat & {
-  id: string;
-  previews: { url: string; mime: string }[];
-};
+type SheetBeat = ComposerSheetBeat;
 
 let sheetBeatSeq = 0;
 
@@ -179,28 +171,11 @@ export type ComposerPublishResult = {
 /** @deprecated Prefer `ComposerSubmit`. */
 export type GuildComposerSubmit = ComposerSubmit;
 
-const PLACEHOLDER: Record<ComposerMode, string> = {
-  post: 'Share something…',
-  reply: 'Post your reply',
-  quote: 'Add a comment',
-};
-
-const POLL_PLACEHOLDER = 'Ask a question…';
-
 const TITLE: Record<ComposerMode, string> = {
   post: 'New post',
   reply: 'Reply',
   quote: 'Quote',
 };
-
-const POLL_DURATION_OPTIONS = [
-  { label: '1d', ms: 86_400_000 },
-  { label: '3d', ms: 3 * 86_400_000 },
-  { label: '1w', ms: 7 * 86_400_000 },
-] as const;
-
-const MIN_POLL_OPTIONS = 2;
-const MAX_POLL_OPTIONS = 4;
 
 /** Where a new post lands — guild room or personal public feed. */
 export type ComposerDestination =
@@ -583,7 +558,7 @@ export function ComposerSheet({
       if (!row.pollEnabled) return true;
       const options = normalizePollOptions(row.pollOptions);
       return (
-        options.length >= MIN_POLL_OPTIONS &&
+        options.length >= COMPOSER_MIN_POLL_OPTIONS &&
         options.length === new Set(options).size
       );
     });
@@ -749,7 +724,7 @@ export function ComposerSheet({
     if (!row.pollEnabled) return true;
     const options = normalizePollOptions(row.pollOptions);
     return (
-      options.length >= MIN_POLL_OPTIONS &&
+      options.length >= COMPOSER_MIN_POLL_OPTIONS &&
       options.length === new Set(options).size
     );
   });
@@ -925,353 +900,35 @@ export function ComposerSheet({
 
   const renderBeat = (row: SheetBeat, index: number) => {
     const focused = index === safeFocus;
-    const muted = canComposeThread && beats.length > 1 && !focused;
-    const rowTitle = row.articleTitle.trim();
-    const rowCanArticle = mode === 'post' && !row.drop && !row.pollEnabled;
-    const rowCanPoll = mode === 'post' && !row.drop && !rowTitle;
-    const rowCanPlace = mode === 'post';
-    const beatPlaceholder = row.pollEnabled
-      ? POLL_PLACEHOLDER
-      : PLACEHOLDER[mode];
     return (
-    <div
-      className={`guild-composer-self${
-        index === 0 && showDestinationMenus ? ' has-destination-menus' : ''
-      }${muted ? ' is-muted' : ''}${
-        canComposeThread && index > 0 ? ' has-remove' : ''
-      }`}
-    >
-      <AccountAvatar
+      <ComposerThreadBeat
+        row={row}
+        index={index}
+        mode={mode}
+        target={target}
+        targetAuthorProfile={targetAuthorProfile}
+        muted={canComposeThread && beats.length > 1 && !focused}
+        focused={focused}
+        pending={pending}
+        canComposeThread={canComposeThread}
+        beatCount={beats.length}
+        showDestinationMenus={showDestinationMenus}
+        identitySlot={identitySlot}
         accountId={accountId}
-        kind={viewerShell?.kind}
-        src={viewerShell?.avatarUrl ?? null}
-        fallbackInitial={viewerName}
-        size="lg"
-        className="guild-composer-row-avatar"
+        viewerKind={viewerShell?.kind}
+        viewerAvatarUrl={viewerShell?.avatarUrl}
+        viewerName={viewerName}
+        textareaRef={focused ? textareaRef : undefined}
+        mediaStripRef={focused ? mediaStripRef : undefined}
+        placeInputRef={focused ? placeInputRef : undefined}
+        priorityMentionAccounts={priorityMentionAccounts}
+        onPatch={(patch) => patchBeat(index, patch)}
+        onRemove={index > 0 ? () => removeThreadBeat(index) : undefined}
+        onFocusBeat={() => focusFieldOnBeat(index)}
+        onScrollField={scrollFieldIntoView}
+        onOpenLabels={() => setLabelsOpen(true)}
+        onMediaError={setMediaError}
       />
-      <div className="guild-composer-row-copy">
-        {index === 0 ? identitySlot : null}
-        {canComposeThread && index > 0 ? (
-          <div className="guild-composer-beat-remove">
-            <OsFieldRemove
-              aria-label={`Remove post ${index + 1}`}
-              ready={!pending}
-              disabled={pending}
-              onClick={() => removeThreadBeat(index)}
-            />
-          </div>
-        ) : null}
-        <div className="guild-composer-beat-body">
-        {rowCanArticle ? (
-          <label className="guild-composer-article-field">
-            <span className="sr-only">Article title</span>
-            <input
-              type="text"
-              className={`${osFieldBorderedClassName} guild-composer-article-title`}
-              value={row.articleTitle}
-              maxLength={ARTICLE_TITLE_MAX}
-              disabled={pending}
-              autoComplete="off"
-              placeholder="Title (optional)"
-              aria-label="Article title"
-              onChange={(event) =>
-                patchBeat(index, { articleTitle: event.target.value })
-              }
-              onFocus={(event) => {
-                focusFieldOnBeat(index);
-                scrollFieldIntoView(event);
-              }}
-            />
-          </label>
-        ) : null}
-        {rowCanArticle && rowTitle ? (
-          <div
-            className="guild-composer-article-align"
-            role="group"
-            aria-label="Article alignment"
-          >
-            {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => (
-              <button
-                key={option}
-                type="button"
-                className={`account-editor-bio-tool profile-about-edit-align-tool${
-                  row.articleAlign === option ? ' is-active' : ''
-                }`}
-                aria-label={
-                  option === 'left'
-                    ? 'Align left'
-                    : option === 'center'
-                      ? 'Align center'
-                      : 'Justify'
-                }
-                aria-pressed={row.articleAlign === option}
-                disabled={pending}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  focusFieldOnBeat(index);
-                  patchBeat(index, { articleAlign: option });
-                }}
-              >
-                {option === 'left' ? 'L' : option === 'center' ? 'C' : 'J'}
-              </button>
-            ))}
-          </div>
-        ) : null}
-        <ComposerHashtagTextarea
-          textareaRef={focused ? textareaRef : undefined}
-          placeholder={beatPlaceholder}
-          ariaLabel={
-            canComposeThread && beats.length > 1
-              ? `Post ${index + 1}`
-              : beatPlaceholder
-          }
-          value={row.text}
-          maxLength={POST_TEXT_MAX_LENGTH}
-          disabled={pending}
-          onChange={(value) => patchBeat(index, { text: value })}
-          onFocus={(event) => {
-            focusFieldOnBeat(index);
-            scrollFieldIntoView(event);
-          }}
-          priorityMentionAccounts={priorityMentionAccounts}
-        />
-        {row.previews.length > 0 ? (
-          <div
-            ref={focused ? mediaStripRef : undefined}
-            className="guild-composer-media-preview"
-            role="list"
-            aria-label="Attached media"
-          >
-            {row.previews.map((preview, fileIndex) => (
-              <div key={preview.url} role="listitem">
-                <PostMediaBlock
-                  item={{ url: preview.url, mime: preview.mime }}
-                  size="preview"
-                  onRemove={
-                    pending
-                      ? undefined
-                      : () => {
-                          const removed = row.files[fileIndex];
-                          if (removed) postMediaRevokeLocalPreviewUrl(removed);
-                          setMediaError(null);
-                          patchBeat(index, {
-                            files: row.files.filter((_, i) => i !== fileIndex),
-                            previews: row.previews.filter(
-                              (_, i) => i !== fileIndex
-                            ),
-                          });
-                        }
-                  }
-                />
-              </div>
-            ))}
-          </div>
-        ) : null}
-        {row.drop ? (
-          <div
-            className="guild-composer-media-preview"
-            role="list"
-            aria-label={`Attached Drop: ${row.drop.title}`}
-          >
-            <div role="listitem">
-              {row.drop.mediaUrl ? (
-                <PostMediaBlock
-                  item={{
-                    url: row.drop.mediaUrl,
-                    mime: 'image/*',
-                  }}
-                  size="preview"
-                  onRemove={
-                    pending ? undefined : () => patchBeat(index, { drop: null })
-                  }
-                />
-              ) : (
-                <div className="post-media-tile post-media-tile--preview guild-composer-drop-fallback-tile">
-                  <span className="guild-composer-drop-preview-fallback" />
-                  {!pending ? (
-                    <button
-                      type="button"
-                      className="post-media-remove"
-                      aria-label="Remove Drop"
-                      onClick={() => patchBeat(index, { drop: null })}
-                    >
-                      ×
-                    </button>
-                  ) : null}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
-        {rowCanPoll && row.pollEnabled ? (
-          <div className="guild-composer-poll">
-            <div className="guild-composer-poll-options">
-              {row.pollOptions.map((option, optionIndex) => (
-                <div
-                  key={`poll-option-${optionIndex}`}
-                  className="guild-composer-poll-row"
-                >
-                  <input
-                    className={`${osFieldBorderedClassName} guild-composer-poll-input`}
-                    value={option}
-                    maxLength={48}
-                    disabled={pending}
-                    placeholder={`Option ${optionIndex + 1}`}
-                    aria-label={`Poll option ${optionIndex + 1}`}
-                    onChange={(event) =>
-                      patchBeat(index, {
-                        pollOptions: row.pollOptions.map((value, i) =>
-                          i === optionIndex ? event.target.value : value
-                        ),
-                      })
-                    }
-                    onFocus={(event) => {
-                      focusFieldOnBeat(index);
-                      scrollFieldIntoView(event);
-                    }}
-                  />
-                  {row.pollOptions.length > MIN_POLL_OPTIONS ? (
-                    <OsFieldRemove
-                      aria-label={`Remove option ${optionIndex + 1}`}
-                      ready={!pending}
-                      disabled={pending}
-                      onClick={() => {
-                        if (row.pollOptions.length <= MIN_POLL_OPTIONS) return;
-                        patchBeat(index, {
-                          pollOptions: row.pollOptions.filter(
-                            (_, i) => i !== optionIndex
-                          ),
-                        });
-                      }}
-                    />
-                  ) : null}
-                </div>
-              ))}
-            </div>
-            {row.pollOptions.length < MAX_POLL_OPTIONS ? (
-              <button
-                type="button"
-                className="guild-composer-poll-add"
-                disabled={pending}
-                onClick={() => {
-                  if (row.pollOptions.length >= MAX_POLL_OPTIONS) return;
-                  focusFieldOnBeat(index);
-                  patchBeat(index, {
-                    pollOptions: [...row.pollOptions, ''],
-                  });
-                }}
-              >
-                Add option
-              </button>
-            ) : null}
-            <div
-              className="guild-composer-poll-duration"
-              role="group"
-              aria-label="Poll duration"
-            >
-              <button
-                type="button"
-                className={
-                  row.pollDurationMs == null
-                    ? 'guild-composer-poll-chip is-active'
-                    : 'guild-composer-poll-chip'
-                }
-                disabled={pending}
-                onClick={() =>
-                  patchBeat(index, { pollDurationMs: undefined })
-                }
-              >
-                Open
-              </button>
-              {POLL_DURATION_OPTIONS.map((option) => (
-                <button
-                  key={option.label}
-                  type="button"
-                  className={
-                    row.pollDurationMs === option.ms
-                      ? 'guild-composer-poll-chip is-active'
-                      : 'guild-composer-poll-chip'
-                  }
-                  disabled={pending}
-                  onClick={() =>
-                    patchBeat(index, { pollDurationMs: option.ms })
-                  }
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-        {mode === 'quote' && target ? (
-          <QuotedPostInset post={target} authorProfile={targetAuthorProfile} />
-        ) : null}
-        {row.contentWarning.trim() || row.nsfw ? (
-          <div
-            className="guild-composer-label-chips"
-            role="group"
-            aria-label="Content labels"
-          >
-            {row.contentWarning.trim() ? (
-              <button
-                type="button"
-                className="guild-composer-label-chip"
-                disabled={pending}
-                onClick={() => {
-                  focusFieldOnBeat(index);
-                  setLabelsOpen(true);
-                }}
-              >
-                CW · {row.contentWarning.trim()}
-              </button>
-            ) : null}
-            {row.nsfw ? (
-              <button
-                type="button"
-                className="guild-composer-label-chip is-nsfw"
-                disabled={pending}
-                onClick={() => {
-                  focusFieldOnBeat(index);
-                  setLabelsOpen(true);
-                }}
-              >
-                NSFW
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-        {rowCanPlace && row.placeOpen ? (
-          <label className="guild-composer-place-field">
-            <span className="sr-only">Place</span>
-            <input
-              ref={focused ? placeInputRef : undefined}
-              type="text"
-              className={`${osFieldBorderedClassName} guild-composer-place-input`}
-              value={row.placeDraft}
-              disabled={pending}
-              maxLength={64}
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="Lisbon, ETH Denver…"
-              aria-label="Place"
-              onChange={(event) =>
-                patchBeat(index, { placeDraft: event.target.value })
-              }
-              onFocus={(event) => {
-                focusFieldOnBeat(index);
-                scrollFieldIntoView(event);
-              }}
-            />
-            {normalizePlaceSlug(row.placeDraft) ? (
-              <span className="guild-composer-place-hint" aria-hidden>
-                {placeLabel(normalizePlaceSlug(row.placeDraft)!)}
-              </span>
-            ) : null}
-          </label>
-        ) : null}
-        </div>
-      </div>
-    </div>
     );
   };
 

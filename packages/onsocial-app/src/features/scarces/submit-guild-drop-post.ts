@@ -41,6 +41,7 @@ type TrackTransaction = (input: {
   failureMessage: string;
   silent?: boolean;
   toastKind?: 'success' | 'error';
+  explorerHash?: string | null;
 }) => Promise<boolean>;
 
 export interface GuildRootPostSubmitResult {
@@ -49,6 +50,7 @@ export interface GuildRootPostSubmitResult {
   groupId: string;
   postedCount?: number;
   totalCount?: number;
+  txHashes?: string[];
 }
 
 /** @deprecated Prefer GuildRootPostSubmitResult */
@@ -84,6 +86,7 @@ export async function submitGuildRootPost(args: {
     if (!first.confirmed || !first.optimisticPost) {
       await trackTransaction({
         txHashes: [],
+        explorerHash: first.txHashes?.at(-1) ?? null,
         submittedMessage: txToastConfirming.postingToGuild,
         successMessage: txToastError.guildPostFailed,
         failureMessage: txToastError.guildPostFailed,
@@ -93,6 +96,7 @@ export async function submitGuildRootPost(args: {
     }
     let parent = first.optimisticPost;
     let posted = 1;
+    let lastHashes = first.txHashes ?? [];
     const total = threadBeats.length;
     for (const beat of rest) {
       let next;
@@ -112,6 +116,7 @@ export async function submitGuildRootPost(args: {
       if (!next.confirmed || !next.optimisticPost) {
         await trackTransaction({
           txHashes: [],
+          explorerHash: lastHashes.at(-1) ?? null,
           submittedMessage: txToastConfirming.postingToGuild,
           successMessage: txToastError.threadPartial(posted, total),
           failureMessage: txToastError.threadPartial(posted, total),
@@ -122,13 +127,16 @@ export async function submitGuildRootPost(args: {
           confirmed: false,
           postedCount: posted,
           totalCount: total,
+          txHashes: lastHashes,
         };
       }
       parent = next.optimisticPost;
       posted += 1;
+      lastHashes = next.txHashes?.length ? next.txHashes : lastHashes;
     }
     await trackTransaction({
       txHashes: [],
+      explorerHash: lastHashes.at(-1) ?? null,
       submittedMessage: txToastConfirming.postingToGuild,
       successMessage: txToastSuccess.threadPublished,
       failureMessage: txToastError.guildPostFailed,
@@ -138,6 +146,7 @@ export async function submitGuildRootPost(args: {
       confirmed: true,
       postedCount: posted,
       totalCount: total,
+      txHashes: lastHashes,
     };
   }
   const text = payload.text.trim();
@@ -213,8 +222,9 @@ export async function submitGuildRootPost(args: {
     newPostId
   );
 
+  const txHashes = collectRelayTxHashes(response);
   const confirmed = await trackTransaction({
-    txHashes: collectRelayTxHashes(response),
+    txHashes,
     submittedMessage: txToastConfirming.postingToGuild,
     successMessage: txToastSuccess.guildPostPublished,
     failureMessage: txToastError.guildPostFailed,
@@ -222,7 +232,7 @@ export async function submitGuildRootPost(args: {
   });
 
   if (!confirmed) {
-    return { confirmed: false, optimisticPost: null, groupId };
+    return { confirmed: false, optimisticPost: null, groupId, txHashes };
   }
 
   const media = files.length ? buildOptimisticMediaEntries(files) : undefined;
@@ -258,7 +268,7 @@ export async function submitGuildRootPost(args: {
         : (dropKind ?? mediaKind ?? space.kind),
   };
 
-  return { confirmed: true, optimisticPost, groupId };
+  return { confirmed: true, optimisticPost, groupId, txHashes };
 }
 
 /**

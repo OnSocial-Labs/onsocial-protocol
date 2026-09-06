@@ -202,7 +202,11 @@ describe('submitPersonalPost', () => {
       trackTransaction,
     });
 
-    expect(result).toEqual({ confirmed: false, optimisticPost: null });
+    expect(result).toEqual({
+      confirmed: false,
+      optimisticPost: null,
+      txHashes: ['tx1'],
+    });
   });
 
   it('creates a media-only post with files + optimistic kind', async () => {
@@ -575,6 +579,9 @@ describe('submitPersonalRepost', () => {
     const finalToast = trackTransaction.mock.calls.at(-1)?.[0];
     expect(finalToast?.successMessage).toBe('Thread posted.');
     expect(finalToast?.silent).toBeUndefined();
+    expect(finalToast?.txHashes).toEqual([]);
+    expect(finalToast?.explorerHash).toBe('reply-tx');
+    expect(result.txHashes).toEqual(['reply-tx']);
   });
 
   it('says posted N of M when a later beat fails', async () => {
@@ -601,6 +608,8 @@ describe('submitPersonalRepost', () => {
     const lastToast = trackTransaction.mock.calls.at(-1)?.[0];
     expect(lastToast?.toastKind).toBe('error');
     expect(lastToast?.failureMessage).toBe('Posted 1 of 2.');
+    expect(lastToast?.explorerHash).toBe('root-tx');
+    expect(result.txHashes).toEqual(['root-tx']);
   });
 });
 

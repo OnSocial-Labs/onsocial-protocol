@@ -24,6 +24,11 @@ type TrackNearTransactionParams = {
   silent?: boolean;
   /** When there are no hashes, paint this toast kind. Default success. */
   toastKind?: 'success' | 'error';
+  /**
+   * Explorer link when `txHashes` is empty (already waited, or a result
+   * toast after a silent thread flush).
+   */
+  explorerHash?: string | null;
 };
 
 function resolveExplorerTxHash(hashes: string[]): string | null {
@@ -50,10 +55,11 @@ export function useNearTransactionFeedback(
       actionLabel,
       silent = false,
       toastKind = 'success',
+      explorerHash = null,
     }: TrackNearTransactionParams): Promise<boolean> => {
       const uniqueHashes = [...new Set(txHashes.filter(Boolean))];
       const explorerHref = nearExplorerTxHref(
-        resolveExplorerTxHash(uniqueHashes)
+        resolveExplorerTxHash(uniqueHashes) ?? explorerHash
       );
 
       if (!accountId) {
@@ -69,10 +75,15 @@ export function useNearTransactionFeedback(
         if (!silent) {
           setTxResult(
             toastKind === 'error'
-              ? { type: 'error', msg: failureMessage ?? successMessage }
+              ? {
+                  type: 'error',
+                  msg: failureMessage ?? successMessage,
+                  explorerHref,
+                }
               : {
                   type: 'success',
                   msg: successMessage,
+                  explorerHref,
                   actionHref,
                   actionLabel,
                 }

@@ -46,6 +46,7 @@ export interface PersonalPostSubmitResult {
   optimisticPost: PostRow | null;
   postedCount?: number;
   totalCount?: number;
+  txHashes?: string[];
 }
 
 type TrackTransaction = (input: {
@@ -57,6 +58,7 @@ type TrackTransaction = (input: {
   actionLabel?: string | null;
   silent?: boolean;
   toastKind?: 'success' | 'error';
+  explorerHash?: string | null;
 }) => Promise<boolean>;
 
 function toastCopy(mode: ComposerMode) {
@@ -207,6 +209,7 @@ async function submitPersonalThread(args: {
   let posted = 0;
   let parent: PostRow | null = null;
   let first: PostRow | null = null;
+  let lastHashes: string[] = [];
 
   for (let index = 0; index < beats.length; index += 1) {
     const beat = beats[index]!;
@@ -227,6 +230,7 @@ async function submitPersonalThread(args: {
     if (!result.confirmed || !result.optimisticPost) {
       await trackTransaction({
         txHashes: [],
+        explorerHash: lastHashes.at(-1) ?? null,
         submittedMessage: txToastConfirming.posting,
         successMessage:
           posted > 0
@@ -243,15 +247,18 @@ async function submitPersonalThread(args: {
         optimisticPost: first,
         postedCount: posted,
         totalCount: total,
+        txHashes: lastHashes,
       };
     }
     posted += 1;
+    lastHashes = result.txHashes?.length ? result.txHashes : lastHashes;
     if (!first) first = result.optimisticPost;
     parent = result.optimisticPost;
   }
 
   await trackTransaction({
     txHashes: [],
+    explorerHash: lastHashes.at(-1) ?? null,
     submittedMessage: txToastConfirming.posting,
     successMessage: txToastSuccess.threadPublished,
     failureMessage: txToastError.postFailed,
@@ -262,6 +269,7 @@ async function submitPersonalThread(args: {
     optimisticPost: first,
     postedCount: posted,
     totalCount: total,
+    txHashes: lastHashes,
   };
 }
 
@@ -410,8 +418,9 @@ export async function submitPersonalPost(args: {
         : await client.posts.reply(ref, postData, newPostId);
   }
 
+  const txHashes = collectRelayTxHashes(response);
   const confirmed = await trackTransaction({
-    txHashes: collectRelayTxHashes(response),
+    txHashes,
     ...toastCopy(mode),
     ...(args.silent ? { silent: true } : {}),
     ...(mode === 'reply' && target
@@ -423,7 +432,7 @@ export async function submitPersonalPost(args: {
   });
 
   if (!confirmed) {
-    return { confirmed: false, optimisticPost: null };
+    return { confirmed: false, optimisticPost: null, txHashes };
   }
 
   return {
@@ -441,6 +450,7 @@ export async function submitPersonalPost(args: {
       places: payload.places,
       contentLabels,
     }),
+    txHashes,
   };
 }
 
