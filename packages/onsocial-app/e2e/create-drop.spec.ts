@@ -201,17 +201,25 @@ test.describe('create drop', () => {
 
     await page.locator('.drop-create-blurb-toggle').click({ force: true });
     await expect(page.locator('#drop-create-description')).toBeVisible();
+  });
 
+  test('tickets name date-change pills in Advanced', async ({ page }) => {
+    await gotoApp(page, '/market/create');
+    await expect(page.locator('.drop-create-form')).toHaveAttribute(
+      'data-drop-create-ready',
+      '',
+      { timeout: E2E_CHROME_TIMEOUT_MS }
+    );
     await page.getByRole('tab', { name: 'Tickets', exact: true }).click();
-    await expect(page.getByRole('group', { name: 'Event window' })).toBeVisible();
+    await expect(page.locator('.drop-kind-lede')).toHaveText(
+      /Event entry — one redeem per ticket/
+    );
+    await expect(page.getByRole('button', { name: 'Hide advanced' })).toBeVisible();
     await expect(page.getByText('Starts', { exact: true })).toBeVisible();
     await expect(page.getByText('Ends', { exact: true })).toBeVisible();
     await expect(page.getByText('Event window', { exact: true })).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Add a place', exact: true })
-    ).toBeVisible();
-    await expect(
-      page.getByRole('radiogroup', { name: 'Allow date changes' })
     ).toBeVisible();
     await expect(
       page.getByRole('radio', { name: 'Flexible dates', exact: true })
@@ -222,9 +230,6 @@ test.describe('create drop', () => {
     await expect(
       page.getByRole('button', { name: 'Allow date changes', exact: true })
     ).toHaveCount(0);
-    await expect(page.getByText('Allow date changes', { exact: true })).toHaveCount(
-      0
-    );
   });
 
   test('hub bind leaves to that hub; series query still prefills', async ({
