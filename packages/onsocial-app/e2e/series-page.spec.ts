@@ -70,7 +70,7 @@ test.describe('series page', () => {
     await expect(create).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect(create).toHaveAttribute(
       'href',
-      `/market/create?series=${encodeURIComponent(SERIES_TITLE)}`
+      '/market/create?series=Audit+Series'
     );
   });
 
