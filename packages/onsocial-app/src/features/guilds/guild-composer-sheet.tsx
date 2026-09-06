@@ -3,7 +3,6 @@
 import {
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -93,12 +92,22 @@ import {
   composerBeatHasContent,
   composerBeatsToSubmit,
   emptyComposerBeat,
+  keepUnsentComposerBeats,
+  removeComposerThreadBeat,
   type ComposerBeat,
 } from '@/lib/composer-thread';
 
 type SheetBeat = ComposerBeat & {
+  id: string;
   previews: { url: string; mime: string }[];
 };
+
+let sheetBeatSeq = 0;
+
+function nextSheetBeatId() {
+  sheetBeatSeq += 1;
+  return `beat-${sheetBeatSeq}`;
+}
 
 function emptySheetBeat(
   seed?: Partial<Pick<ComposerBeat, 'text' | 'files' | 'drop'>>
@@ -106,6 +115,7 @@ function emptySheetBeat(
   const files = seed?.files ? [...seed.files] : [];
   return {
     ...emptyComposerBeat({ ...seed, files }),
+    id: nextSheetBeatId(),
     previews: postMediaPreviewEntriesFromFiles(files),
   };
 }
@@ -158,6 +168,13 @@ export interface ComposerSubmit {
   /** Extra self-replies after this root. New personal posts only. */
   thread?: ComposerSubmit[];
 }
+
+/** Result from a parent publish — used to keep unsent beats after a partial flush. */
+export type ComposerPublishResult = {
+  confirmed: boolean;
+  postedCount?: number;
+  totalCount?: number;
+};
 /** @deprecated Prefer `ComposerSubmit`. */
 export type GuildComposerSubmit = ComposerSubmit;
 
@@ -242,7 +259,9 @@ interface ComposerSheetProps {
   pending: boolean;
   error?: string | null;
   onClose: (draft?: { text: string; files: File[] }) => void;
-  onSubmit: (payload: ComposerSubmit) => void;
+  onSubmit: (
+    payload: ComposerSubmit
+  ) => void | Promise<void | ComposerPublishResult>;
 }
 
 function IdentityLine({
@@ -418,13 +437,17 @@ export function ComposerSheet({
   const canUsePlace = mode === 'post';
   const canAddThread = canComposeThread && canAddComposerThreadBeat(beats);
 
-  const patchFocused = (partial: Partial<SheetBeat>) => {
+  const patchBeat = (index: number, partial: Partial<SheetBeat>) => {
     setBeats((current) => {
-      const index = Math.min(focusedBeat, Math.max(0, current.length - 1));
+      const target = Math.min(index, Math.max(0, current.length - 1));
       return current.map((row, rowIndex) =>
-        rowIndex === index ? { ...row, ...partial } : row
+        rowIndex === target ? { ...row, ...partial } : row
       );
     });
+  };
+
+  const patchFocused = (partial: Partial<SheetBeat>) => {
+    patchBeat(focusedBeat, partial);
   };
 
   const focusBeat = (nextFocus: number) => {
@@ -433,7 +456,17 @@ export function ComposerSheet({
       const dropped = beats[beats.length - 1];
       if (dropped) revokeSheetBeatPreviews(dropped);
     }
-    setBeats(next.beats as SheetBeat[]);
+    setBeats(next.beats);
+    setFocusedBeat(next.focus);
+  };
+
+  const removeThreadBeat = (index: number) => {
+    if (pending || index <= 0) return;
+    const next = removeComposerThreadBeat(beats, index, safeFocus);
+    if (next.beats.length === beats.length) return;
+    const removed = beats[index];
+    if (removed) revokeSheetBeatPreviews(removed);
+    setBeats(next.beats);
     setFocusedBeat(next.focus);
   };
 
@@ -515,15 +548,6 @@ export function ComposerSheet({
     return () => window.clearTimeout(focusTimer);
   }, [open, mode, formKey]);
 
-  useLayoutEffect(() => {
-    const el = textareaRef.current;
-    if (!el || !open) return;
-    /* Grow with content; the slide body is the only scroller (no nested field scroll). */
-    el.style.height = '0px';
-    el.style.height = `${el.scrollHeight}px`;
-    el.style.overflowY = 'hidden';
-  }, [text, pollEnabled, formKey, open, focusedBeat]);
-
   useEffect(() => {
     if (!open || !labelsOpen) return;
     const focusTimer = window.setTimeout(() => {
@@ -573,7 +597,22 @@ export function ComposerSheet({
     if (!payload.text.trim() && (payload.files?.length || payload.drop)) {
       payload.text = payload.drop ? '' : ' ';
     }
-    onSubmit(payload);
+    void (async () => {
+      const result = await onSubmit(payload);
+      if (!result || result.confirmed) return;
+      const posted = result.postedCount ?? 0;
+      const total = result.totalCount ?? 0;
+      if (posted <= 0 || posted >= total) return;
+      setBeats((current) => {
+        const leftover = keepUnsentComposerBeats(current, posted);
+        const leftoverIds = new Set(leftover.map((row) => row.id));
+        for (const row of current) {
+          if (!leftoverIds.has(row.id)) revokeSheetBeatPreviews(row);
+        }
+        return leftover;
+      });
+      setFocusedBeat(0);
+    })();
   };
 
   const panelStyle = useMemo((): CSSProperties | undefined => {
@@ -587,26 +626,6 @@ export function ComposerSheet({
     if (pending) return;
     const first = beats[0] ?? emptySheetBeat();
     onClose({ text: first.text, files: first.files });
-  };
-
-  const updatePollOption = (index: number, value: string) => {
-    patchFocused({
-      pollOptions: pollOptions.map((option, optionIndex) =>
-        optionIndex === index ? value : option
-      ),
-    });
-  };
-
-  const addPollOption = () => {
-    if (pollOptions.length >= MAX_POLL_OPTIONS) return;
-    patchFocused({ pollOptions: [...pollOptions, ''] });
-  };
-
-  const removePollOption = (index: number) => {
-    if (pollOptions.length <= MIN_POLL_OPTIONS) return;
-    patchFocused({
-      pollOptions: pollOptions.filter((_, optionIndex) => optionIndex !== index),
-    });
   };
 
   const togglePlace = () => {
@@ -649,16 +668,6 @@ export function ComposerSheet({
       pollDurationMs: undefined,
       files: [],
       previews: [],
-    });
-  };
-
-  const removeMediaAt = (index: number) => {
-    const removed = mediaFiles[index];
-    if (removed) postMediaRevokeLocalPreviewUrl(removed);
-    setMediaError(null);
-    patchFocused({
-      files: mediaFiles.filter((_, i) => i !== index),
-      previews: mediaPreviews.filter((_, i) => i !== index),
     });
   };
 
@@ -731,9 +740,6 @@ export function ComposerSheet({
       strip.scrollTo({ left: strip.scrollWidth, behavior: 'smooth' });
     });
   };
-
-  const inputPlaceholder =
-    canUsePoll && pollEnabled ? POLL_PLACEHOLDER : PLACEHOLDER[mode];
 
   const textLength = text.length;
   const textRemaining = POST_TEXT_MAX_LENGTH - textLength;
@@ -917,78 +923,26 @@ export function ComposerSheet({
     <IdentityLine name={viewerName} handle={accountId} />
   ) : null;
 
-  const mutedBeatPreview = (row: SheetBeat, index: number) => {
-    const title = row.articleTitle.trim();
-    const body = row.text.trim();
-    const hasMedia = row.files.length > 0 || Boolean(row.drop);
-    return (
-      <div
-        className={`guild-composer-self is-muted${
-          index === 0 && showDestinationMenus ? ' has-destination-menus' : ''
-        }`}
-        role="button"
-        tabIndex={0}
-        aria-label={`Edit post ${index + 1}`}
-        onClick={() => focusBeat(index)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            focusBeat(index);
-          }
-        }}
-      >
-        <AccountAvatar
-          accountId={accountId}
-          kind={viewerShell?.kind}
-          src={viewerShell?.avatarUrl ?? null}
-          fallbackInitial={viewerName}
-          size="lg"
-          className="guild-composer-row-avatar"
-        />
-        <div className="guild-composer-row-copy">
-          {index === 0 ? (
-            <div
-              className="guild-composer-thread-identity"
-              onClick={(event) => event.stopPropagation()}
-              onKeyDown={(event) => event.stopPropagation()}
-            >
-              {identitySlot}
-            </div>
-          ) : null}
-          <div className="guild-composer-muted-preview">
-            {title ? (
-              <p className="guild-composer-muted-title">{title}</p>
-            ) : null}
-            {body || !title ? (
-              <p className="guild-composer-muted-text">
-                {body || (hasMedia ? 'Media' : '…')}
-              </p>
-            ) : hasMedia ? (
-              <p className="guild-composer-muted-text">Media</p>
-            ) : null}
-            {row.previews.length > 0 ? (
-              <div className="guild-composer-media-preview" aria-hidden>
-                {row.previews.map((preview) => (
-                  <PostMediaBlock
-                    key={preview.url}
-                    item={{ url: preview.url, mime: preview.mime }}
-                    size="preview"
-                  />
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    );
+  const focusFieldOnBeat = (index: number) => {
+    if (index !== safeFocus) focusBeat(index);
   };
 
-  const selfBlock = (
+  const renderBeat = (row: SheetBeat, index: number) => {
+    const focused = index === safeFocus;
+    const muted = canComposeThread && beats.length > 1 && !focused;
+    const rowTitle = row.articleTitle.trim();
+    const rowCanArticle = mode === 'post' && !row.drop && !row.pollEnabled;
+    const rowCanPoll = mode === 'post' && !row.drop && !rowTitle;
+    const rowCanPlace = mode === 'post';
+    const beatPlaceholder = row.pollEnabled
+      ? POLL_PLACEHOLDER
+      : PLACEHOLDER[mode];
+    return (
     <div
       className={`guild-composer-self${
-        showDestinationMenus && safeFocus === 0
-          ? ' has-destination-menus'
-          : ''
+        index === 0 && showDestinationMenus ? ' has-destination-menus' : ''
+      }${muted ? ' is-muted' : ''}${
+        canComposeThread && index > 0 ? ' has-remove' : ''
       }`}
     >
       <AccountAvatar
@@ -1000,27 +954,41 @@ export function ComposerSheet({
         className="guild-composer-row-avatar"
       />
       <div className="guild-composer-row-copy">
-        {safeFocus === 0 ? identitySlot : null}
-        {canUseArticle ? (
+        {index === 0 ? identitySlot : null}
+        {canComposeThread && index > 0 ? (
+          <div className="guild-composer-beat-remove">
+            <OsFieldRemove
+              aria-label={`Remove post ${index + 1}`}
+              ready={!pending}
+              disabled={pending}
+              onClick={() => removeThreadBeat(index)}
+            />
+          </div>
+        ) : null}
+        <div className="guild-composer-beat-body">
+        {rowCanArticle ? (
           <label className="guild-composer-article-field">
             <span className="sr-only">Article title</span>
             <input
               type="text"
               className={`${osFieldBorderedClassName} guild-composer-article-title`}
-              value={articleTitle}
+              value={row.articleTitle}
               maxLength={ARTICLE_TITLE_MAX}
               disabled={pending}
               autoComplete="off"
               placeholder="Title (optional)"
               aria-label="Article title"
               onChange={(event) =>
-                patchFocused({ articleTitle: event.target.value })
+                patchBeat(index, { articleTitle: event.target.value })
               }
-              onFocus={scrollFieldIntoView}
+              onFocus={(event) => {
+                focusFieldOnBeat(index);
+                scrollFieldIntoView(event);
+              }}
             />
           </label>
         ) : null}
-        {canUseArticle && articleTitleTrimmed ? (
+        {rowCanArticle && rowTitle ? (
           <div
             className="guild-composer-article-align"
             role="group"
@@ -1031,7 +999,7 @@ export function ComposerSheet({
                 key={option}
                 type="button"
                 className={`account-editor-bio-tool profile-about-edit-align-tool${
-                  articleAlign === option ? ' is-active' : ''
+                  row.articleAlign === option ? ' is-active' : ''
                 }`}
                 aria-label={
                   option === 'left'
@@ -1040,10 +1008,13 @@ export function ComposerSheet({
                       ? 'Align center'
                       : 'Justify'
                 }
-                aria-pressed={articleAlign === option}
+                aria-pressed={row.articleAlign === option}
                 disabled={pending}
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={() => patchFocused({ articleAlign: option })}
+                onClick={() => {
+                  focusFieldOnBeat(index);
+                  patchBeat(index, { articleAlign: option });
+                }}
               >
                 {option === 'left' ? 'L' : option === 'center' ? 'C' : 'J'}
               </button>
@@ -1051,49 +1022,72 @@ export function ComposerSheet({
           </div>
         ) : null}
         <ComposerHashtagTextarea
-          textareaRef={textareaRef}
-          placeholder={inputPlaceholder}
-          ariaLabel={inputPlaceholder}
-          value={text}
+          textareaRef={focused ? textareaRef : undefined}
+          placeholder={beatPlaceholder}
+          ariaLabel={
+            canComposeThread && beats.length > 1
+              ? `Post ${index + 1}`
+              : beatPlaceholder
+          }
+          value={row.text}
           maxLength={POST_TEXT_MAX_LENGTH}
           disabled={pending}
-          onChange={(value) => patchFocused({ text: value })}
-          onFocus={scrollFieldIntoView}
+          onChange={(value) => patchBeat(index, { text: value })}
+          onFocus={(event) => {
+            focusFieldOnBeat(index);
+            scrollFieldIntoView(event);
+          }}
           priorityMentionAccounts={priorityMentionAccounts}
         />
-        {mediaPreviews.length > 0 ? (
+        {row.previews.length > 0 ? (
           <div
-            ref={mediaStripRef}
+            ref={focused ? mediaStripRef : undefined}
             className="guild-composer-media-preview"
             role="list"
             aria-label="Attached media"
           >
-            {mediaPreviews.map((preview, index) => (
+            {row.previews.map((preview, fileIndex) => (
               <div key={preview.url} role="listitem">
                 <PostMediaBlock
                   item={{ url: preview.url, mime: preview.mime }}
                   size="preview"
-                  onRemove={pending ? undefined : () => removeMediaAt(index)}
+                  onRemove={
+                    pending
+                      ? undefined
+                      : () => {
+                          const removed = row.files[fileIndex];
+                          if (removed) postMediaRevokeLocalPreviewUrl(removed);
+                          setMediaError(null);
+                          patchBeat(index, {
+                            files: row.files.filter((_, i) => i !== fileIndex),
+                            previews: row.previews.filter(
+                              (_, i) => i !== fileIndex
+                            ),
+                          });
+                        }
+                  }
                 />
               </div>
             ))}
           </div>
         ) : null}
-        {dropDraft ? (
+        {row.drop ? (
           <div
             className="guild-composer-media-preview"
             role="list"
-            aria-label={`Attached Drop: ${dropDraft.title}`}
+            aria-label={`Attached Drop: ${row.drop.title}`}
           >
             <div role="listitem">
-              {dropDraft.mediaUrl ? (
+              {row.drop.mediaUrl ? (
                 <PostMediaBlock
                   item={{
-                    url: dropDraft.mediaUrl,
+                    url: row.drop.mediaUrl,
                     mime: 'image/*',
                   }}
                   size="preview"
-                  onRemove={pending ? undefined : () => patchFocused({ drop: null })}
+                  onRemove={
+                    pending ? undefined : () => patchBeat(index, { drop: null })
+                  }
                 />
               ) : (
                 <div className="post-media-tile post-media-tile--preview guild-composer-drop-fallback-tile">
@@ -1103,7 +1097,7 @@ export function ComposerSheet({
                       type="button"
                       className="post-media-remove"
                       aria-label="Remove Drop"
-                      onClick={() => patchFocused({ drop: null })}
+                      onClick={() => patchBeat(index, { drop: null })}
                     >
                       ×
                     </button>
@@ -1113,12 +1107,12 @@ export function ComposerSheet({
             </div>
           </div>
         ) : null}
-        {canUsePoll && pollEnabled ? (
+        {rowCanPoll && row.pollEnabled ? (
           <div className="guild-composer-poll">
             <div className="guild-composer-poll-options">
-              {pollOptions.map((option, index) => (
+              {row.pollOptions.map((option, optionIndex) => (
                 <div
-                  key={`poll-option-${index}`}
+                  key={`poll-option-${optionIndex}`}
                   className="guild-composer-poll-row"
                 >
                   <input
@@ -1126,30 +1120,50 @@ export function ComposerSheet({
                     value={option}
                     maxLength={48}
                     disabled={pending}
-                    placeholder={`Option ${index + 1}`}
-                    aria-label={`Poll option ${index + 1}`}
+                    placeholder={`Option ${optionIndex + 1}`}
+                    aria-label={`Poll option ${optionIndex + 1}`}
                     onChange={(event) =>
-                      updatePollOption(index, event.target.value)
+                      patchBeat(index, {
+                        pollOptions: row.pollOptions.map((value, i) =>
+                          i === optionIndex ? event.target.value : value
+                        ),
+                      })
                     }
-                    onFocus={scrollFieldIntoView}
+                    onFocus={(event) => {
+                      focusFieldOnBeat(index);
+                      scrollFieldIntoView(event);
+                    }}
                   />
-                  {pollOptions.length > MIN_POLL_OPTIONS ? (
+                  {row.pollOptions.length > MIN_POLL_OPTIONS ? (
                     <OsFieldRemove
-                      aria-label={`Remove option ${index + 1}`}
+                      aria-label={`Remove option ${optionIndex + 1}`}
                       ready={!pending}
                       disabled={pending}
-                      onClick={() => removePollOption(index)}
+                      onClick={() => {
+                        if (row.pollOptions.length <= MIN_POLL_OPTIONS) return;
+                        patchBeat(index, {
+                          pollOptions: row.pollOptions.filter(
+                            (_, i) => i !== optionIndex
+                          ),
+                        });
+                      }}
                     />
                   ) : null}
                 </div>
               ))}
             </div>
-            {pollOptions.length < MAX_POLL_OPTIONS ? (
+            {row.pollOptions.length < MAX_POLL_OPTIONS ? (
               <button
                 type="button"
                 className="guild-composer-poll-add"
                 disabled={pending}
-                onClick={addPollOption}
+                onClick={() => {
+                  if (row.pollOptions.length >= MAX_POLL_OPTIONS) return;
+                  focusFieldOnBeat(index);
+                  patchBeat(index, {
+                    pollOptions: [...row.pollOptions, ''],
+                  });
+                }}
               >
                 Add option
               </button>
@@ -1162,12 +1176,14 @@ export function ComposerSheet({
               <button
                 type="button"
                 className={
-                  pollDurationMs == null
+                  row.pollDurationMs == null
                     ? 'guild-composer-poll-chip is-active'
                     : 'guild-composer-poll-chip'
                 }
                 disabled={pending}
-                onClick={() => patchFocused({ pollDurationMs: undefined })}
+                onClick={() =>
+                  patchBeat(index, { pollDurationMs: undefined })
+                }
               >
                 Open
               </button>
@@ -1176,12 +1192,14 @@ export function ComposerSheet({
                   key={option.label}
                   type="button"
                   className={
-                    pollDurationMs === option.ms
+                    row.pollDurationMs === option.ms
                       ? 'guild-composer-poll-chip is-active'
                       : 'guild-composer-poll-chip'
                   }
                   disabled={pending}
-                  onClick={() => patchFocused({ pollDurationMs: option.ms })}
+                  onClick={() =>
+                    patchBeat(index, { pollDurationMs: option.ms })
+                  }
                 >
                   {option.label}
                 </button>
@@ -1192,42 +1210,48 @@ export function ComposerSheet({
         {mode === 'quote' && target ? (
           <QuotedPostInset post={target} authorProfile={targetAuthorProfile} />
         ) : null}
-        {contentWarning.trim() || nsfw ? (
+        {row.contentWarning.trim() || row.nsfw ? (
           <div
             className="guild-composer-label-chips"
             role="group"
             aria-label="Content labels"
           >
-            {contentWarning.trim() ? (
+            {row.contentWarning.trim() ? (
               <button
                 type="button"
                 className="guild-composer-label-chip"
                 disabled={pending}
-                onClick={() => setLabelsOpen(true)}
+                onClick={() => {
+                  focusFieldOnBeat(index);
+                  setLabelsOpen(true);
+                }}
               >
-                CW · {contentWarning.trim()}
+                CW · {row.contentWarning.trim()}
               </button>
             ) : null}
-            {nsfw ? (
+            {row.nsfw ? (
               <button
                 type="button"
                 className="guild-composer-label-chip is-nsfw"
                 disabled={pending}
-                onClick={() => setLabelsOpen(true)}
+                onClick={() => {
+                  focusFieldOnBeat(index);
+                  setLabelsOpen(true);
+                }}
               >
                 NSFW
               </button>
             ) : null}
           </div>
         ) : null}
-        {canUsePlace && placeOpen ? (
+        {rowCanPlace && row.placeOpen ? (
           <label className="guild-composer-place-field">
             <span className="sr-only">Place</span>
             <input
-              ref={placeInputRef}
+              ref={focused ? placeInputRef : undefined}
               type="text"
               className={`${osFieldBorderedClassName} guild-composer-place-input`}
-              value={placeDraft}
+              value={row.placeDraft}
               disabled={pending}
               maxLength={64}
               autoComplete="off"
@@ -1235,20 +1259,25 @@ export function ComposerSheet({
               placeholder="Lisbon, ETH Denver…"
               aria-label="Place"
               onChange={(event) =>
-                patchFocused({ placeDraft: event.target.value })
+                patchBeat(index, { placeDraft: event.target.value })
               }
-              onFocus={scrollFieldIntoView}
+              onFocus={(event) => {
+                focusFieldOnBeat(index);
+                scrollFieldIntoView(event);
+              }}
             />
-            {normalizePlaceSlug(placeDraft) ? (
+            {normalizePlaceSlug(row.placeDraft) ? (
               <span className="guild-composer-place-hint" aria-hidden>
-                {placeLabel(normalizePlaceSlug(placeDraft)!)}
+                {placeLabel(normalizePlaceSlug(row.placeDraft)!)}
               </span>
             ) : null}
           </label>
         ) : null}
+        </div>
       </div>
     </div>
-  );
+    );
+  };
 
   const showModeRail = mode !== 'post' && Boolean(onModeChange);
 
@@ -1564,13 +1593,13 @@ export function ComposerSheet({
               post={target}
               authorProfile={targetAuthorProfile}
             />
-            {selfBlock}
+            {renderBeat(beats[0] ?? emptySheetBeat(), 0)}
           </div>
         ) : canComposeThread && beats.length > 1 ? (
           <div className="guild-composer-thread" role="list" aria-label="Thread">
             {beats.map((row, index) => (
               <div
-                key={`beat-${index}`}
+                key={row.id}
                 role="listitem"
                 className={[
                   'guild-composer-thread-item',
@@ -1580,14 +1609,12 @@ export function ComposerSheet({
                   .filter(Boolean)
                   .join(' ')}
               >
-                {index === safeFocus
-                  ? selfBlock
-                  : mutedBeatPreview(row, index)}
+                {renderBeat(row, index)}
               </div>
             ))}
           </div>
         ) : (
-          selfBlock
+          renderBeat(beats[0] ?? emptySheetBeat(), 0)
         )}
 
         <input

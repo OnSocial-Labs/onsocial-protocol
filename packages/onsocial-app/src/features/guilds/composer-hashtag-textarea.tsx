@@ -88,6 +88,14 @@ export function ComposerHashtagTextarea({
     backdrop.scrollTop = el.scrollTop;
   }, [value]);
 
+  useLayoutEffect(() => {
+    const el = localRef.current;
+    if (!el) return;
+    el.style.height = '0px';
+    el.style.height = `${el.scrollHeight}px`;
+    el.style.overflowY = 'hidden';
+  }, [value]);
+
   useEffect(() => {
     if (mentionQuery === null || disabled) {
       return;

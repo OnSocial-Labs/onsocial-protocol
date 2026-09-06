@@ -1657,12 +1657,14 @@ export function LiveGuildPanel({
           payload,
           trackTransaction,
         });
-        if (result.confirmed && result.optimisticPost) {
+        if (result.optimisticPost) {
           setLocalPosts((current) => [result.optimisticPost!, ...current]);
           scheduleReconcile();
+        }
+        if (result.confirmed) {
           setComposer(null);
         }
-        return;
+        return result;
       }
       const newPostId = Date.now().toString();
       const filePayload = files.length ? { files } : {};
@@ -2386,7 +2388,7 @@ export function LiveGuildPanel({
             }
             setComposer(null);
           }}
-          onSubmit={(payload) => void submitFromModal(payload)}
+          onSubmit={submitFromModal}
         />
       ) : null}
       {accountId ? (

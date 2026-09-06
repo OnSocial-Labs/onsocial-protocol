@@ -239,7 +239,7 @@ async function submitPersonalThread(args: {
         toastKind: 'error',
       });
       return {
-        confirmed: posted > 0,
+        confirmed: false,
         optimisticPost: first,
         postedCount: posted,
         totalCount: total,

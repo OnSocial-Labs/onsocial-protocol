@@ -34642,8 +34642,20 @@ a.os-surface-row {
 
   /* Mute the beat, not destination chrome — dest is thread-level on beat 1. */
   .guild-composer-self.is-muted .guild-composer-row-avatar,
-  .guild-composer-self.is-muted .guild-composer-muted-preview {
+  .guild-composer-self.is-muted .guild-composer-beat-body {
     opacity: 0.42;
+  }
+
+  .guild-composer-self.has-remove .guild-composer-row-copy {
+    position: relative;
+    padding-right: 2.15rem;
+  }
+
+  .guild-composer-beat-remove {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
   }
 
   .guild-composer-muted-preview {

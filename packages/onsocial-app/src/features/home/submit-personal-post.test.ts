@@ -595,7 +595,7 @@ describe('submitPersonalRepost', () => {
       trackTransaction,
     });
 
-    expect(result.confirmed).toBe(true);
+    expect(result.confirmed).toBe(false);
     expect(result.postedCount).toBe(1);
     expect(result.totalCount).toBe(2);
     const lastToast = trackTransaction.mock.calls.at(-1)?.[0];

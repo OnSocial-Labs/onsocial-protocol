@@ -62,10 +62,10 @@ export function appendComposerThreadBeat(
 }
 
 /** Drop a trailing empty beat when focus leaves it. */
-export function collapseTrailingEmptyComposerBeat(
-  beats: readonly ComposerBeat[],
+export function collapseTrailingEmptyComposerBeat<T extends ComposerBeat>(
+  beats: readonly T[],
   nextFocus: number
-): { beats: ComposerBeat[]; focus: number } {
+): { beats: T[]; focus: number } {
   if (beats.length < 2) {
     return { beats: [...beats], focus: Math.max(0, Math.min(nextFocus, beats.length - 1)) };
   }
@@ -78,6 +78,44 @@ export function collapseTrailingEmptyComposerBeat(
     beats: [...beats],
     focus: Math.max(0, Math.min(nextFocus, beats.length - 1)),
   };
+}
+
+/** Remove an extra beat. Beat 1 (index 0) cannot be removed. */
+export function removeComposerThreadBeat<T extends ComposerBeat>(
+  beats: readonly T[],
+  index: number,
+  focus: number
+): { beats: T[]; focus: number } {
+  if (index <= 0 || beats.length < 2 || index >= beats.length) {
+    return {
+      beats: [...beats],
+      focus: Math.max(0, Math.min(focus, beats.length - 1)),
+    };
+  }
+  const next = beats.filter((_, rowIndex) => rowIndex !== index);
+  const nextFocus =
+    focus === index ? index - 1 : focus > index ? focus - 1 : focus;
+  return {
+    beats: next,
+    focus: Math.max(0, Math.min(nextFocus, next.length - 1)),
+  };
+}
+
+/**
+ * After a partial flush, drop the filled beats that already landed.
+ * Empty extras stay so the composer can continue.
+ */
+export function keepUnsentComposerBeats<T extends ComposerBeat>(
+  beats: readonly T[],
+  postedCount: number
+): T[] {
+  if (postedCount <= 0) return [...beats];
+  const filledIndexes = beats.flatMap((beat, index) =>
+    composerBeatHasContent(beat) ? [index] : []
+  );
+  const posted = new Set(filledIndexes.slice(0, postedCount));
+  const remaining = beats.filter((_, index) => !posted.has(index));
+  return remaining.length > 0 ? remaining : beats.slice(0, 1);
 }
 
 export function collapseComposerThreadToFirst(

@@ -47,6 +47,8 @@ export interface GuildRootPostSubmitResult {
   confirmed: boolean;
   optimisticPost: PostRow | null;
   groupId: string;
+  postedCount?: number;
+  totalCount?: number;
 }
 
 /** @deprecated Prefer GuildRootPostSubmitResult */
@@ -115,7 +117,12 @@ export async function submitGuildRootPost(args: {
           failureMessage: txToastError.threadPartial(posted, total),
           toastKind: 'error',
         });
-        return { ...first, confirmed: true };
+        return {
+          ...first,
+          confirmed: false,
+          postedCount: posted,
+          totalCount: total,
+        };
       }
       parent = next.optimisticPost;
       posted += 1;
@@ -126,7 +133,12 @@ export async function submitGuildRootPost(args: {
       successMessage: txToastSuccess.threadPublished,
       failureMessage: txToastError.guildPostFailed,
     });
-    return first;
+    return {
+      ...first,
+      confirmed: true,
+      postedCount: posted,
+      totalCount: total,
+    };
   }
   const text = payload.text.trim();
   const files = payload.files ?? [];

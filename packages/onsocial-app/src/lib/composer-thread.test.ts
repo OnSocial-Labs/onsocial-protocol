@@ -5,6 +5,8 @@ import {
   canAddComposerThreadBeat,
   collapseComposerThreadToFirst,
   collapseTrailingEmptyComposerBeat,
+  keepUnsentComposerBeats,
+  removeComposerThreadBeat,
   composerBeatHasContent,
   composerBeatsToSubmit,
   composerSubmitHasContent,
@@ -95,5 +97,28 @@ describe('composer thread', () => {
 
   it('uses the locked partial copy', () => {
     expect(threadPartialCopy(2, 5)).toBe('Posted 2 of 5.');
+  });
+
+  it('removes an extra beat and focuses the previous', () => {
+    const beats = [
+      emptyComposerBeat({ text: 'one' }),
+      emptyComposerBeat({ text: 'two' }),
+      emptyComposerBeat({ text: 'three' }),
+    ];
+    const removed = removeComposerThreadBeat(beats, 2, 2);
+    expect(removed.beats.map((row) => row.text)).toEqual(['one', 'two']);
+    expect(removed.focus).toBe(1);
+    expect(removeComposerThreadBeat(beats, 0, 1).beats).toHaveLength(3);
+  });
+
+  it('keeps unsent filled beats after a partial flush', () => {
+    const beats = [
+      emptyComposerBeat({ text: 'one' }),
+      emptyComposerBeat({ text: 'two' }),
+      emptyComposerBeat(),
+      emptyComposerBeat({ text: 'three' }),
+    ];
+    const leftover = keepUnsentComposerBeats(beats, 2);
+    expect(leftover.map((row) => row.text)).toEqual(['', 'three']);
   });
 });

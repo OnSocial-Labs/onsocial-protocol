@@ -413,15 +413,17 @@ export function usePersonalComposer({
             payload,
             trackTransaction,
           });
-          if (result.confirmed && result.optimisticPost) {
+          if (result.optimisticPost) {
             dispatchGuildPostConfirmed({
               groupId: result.groupId,
               post: result.optimisticPost,
             });
             onConfirmed?.(result.optimisticPost);
+          }
+          if (result.confirmed) {
             resetComposerState();
           }
-          return;
+          return result;
         }
 
         const result = await submitPersonalPost({
@@ -432,7 +434,7 @@ export function usePersonalComposer({
           payload,
           trackTransaction,
         });
-        if (result.confirmed && result.optimisticPost) {
+        if (result.optimisticPost) {
           if (mode === 'reply' && target) {
             dispatchPersonalReplyConfirmed({
               parent: target,
@@ -442,8 +444,11 @@ export function usePersonalComposer({
             clearReply();
           }
           onConfirmed?.(result.optimisticPost);
+        }
+        if (result.confirmed) {
           resetComposerState();
         }
+        return result;
       } catch (cause) {
         if (isWalletUserCancellation(cause)) return;
         setError(
@@ -557,7 +562,7 @@ export function usePersonalComposer({
           }
           resetComposerState();
         }}
-        onSubmit={(payload) => void submit(payload)}
+        onSubmit={submit}
       />
       <DaoProposeConfirmSheet
         open={proposeConfirmOpen}
