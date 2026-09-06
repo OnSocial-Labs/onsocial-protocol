@@ -1017,8 +1017,9 @@ export function MarketPagePanel({
     };
   }, [retryKey, viewerAccountId, offersRevision]);
 
-  // Server pages arrive filtered + sorted; the client passes only re-apply
+  // Server pages arrive filtered + sorted; the client only re-applies
   // the same rules so stale items behave while a params change is in flight.
+  // All then sinks ended Settle after live Buy / Bid / Mint.
   const typedListings =
     listingFilter === 'auctions'
       ? browseListings.filter((item) => item.kind === 'auction')
