@@ -18,6 +18,7 @@ import {
   dropCreateOptionalSummary,
   dropCreateRenewalsChoice,
   dropCreateRenewalsHint,
+  dropCreateRenewalsSummary,
   dropCreateRenewalsOpen,
   dropCreateRoyaltySummary,
   dropCreateSaleRulesSummary,
@@ -145,8 +146,29 @@ describe('dropCreate summaries', () => {
     expect(dropCreateOptionalSummary('Ink Studies')).toBe('Ink Studies');
     expect(dropCreateFacetsSummary([])).toBe('None');
     expect(dropCreateFacetsSummary(['generative'])).toBe('generative');
+    expect(
+      dropCreateFacetsSummary(['generative'], (slug) =>
+        slug === 'generative' ? 'Generative' : null
+      )
+    ).toBe('Generative');
     expect(dropCreateAllowlistSummary(0)).toBe('None');
+    expect(dropCreateAllowlistSummary(0, false)).toBe('Connect');
     expect(dropCreateAllowlistSummary(2)).toBe('2 accounts');
+    expect(dropCreateRenewalsSummary({ on: true, isTicket: true })).toBe('Yes');
+    expect(dropCreateRenewalsSummary({ on: false })).toBe('No');
+    expect(
+      dropCreateRenewalsSummary({
+        on: true,
+        requiresAccessEnd: true,
+      })
+    ).toBe('Yes · set an end');
+    expect(
+      dropCreateRenewalsSummary({
+        on: true,
+        requiresAccessEnd: true,
+        accessEndsLabel: '8 Sep',
+      })
+    ).toBe('Yes · 8 Sep');
     expect(
       dropCreateSaleRulesSummary({
         opensLabel: 'Now',

@@ -169,7 +169,7 @@ test.describe('create drop', () => {
       page.getByRole('button', { name: 'Renewals: No' })
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Allowlist: None' })
+      page.getByRole('button', { name: 'Allowlist: Connect' })
     ).toBeVisible();
     await expect(page.locator('#drop-create-id')).toHaveCount(0);
     await expect(
@@ -239,6 +239,14 @@ test.describe('create drop', () => {
     await expect(
       page.getByRole('button', { name: 'Postpone: Yes' })
     ).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Coupons', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Renewals: Yes · set an end' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Allowlist: Connect' })
+    ).toBeVisible();
   });
 
   test('hub bind leaves to that hub; series query still prefills', async ({
@@ -276,7 +284,11 @@ test.describe('create drop', () => {
     ).toBeVisible();
     await page.getByRole('button', { name: 'Style: None' }).click();
     await expect(page.locator('.drop-facets-chip-row')).toBeVisible();
+    await page.getByRole('button', { name: 'Generative', exact: true }).click();
     await page.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Style: Generative' })
+    ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Royalty: 10%' })
     ).toBeVisible();

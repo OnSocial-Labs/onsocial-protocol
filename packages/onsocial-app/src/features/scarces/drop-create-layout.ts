@@ -162,13 +162,41 @@ export function dropCreateOptionalSummary(value: string): string {
   return value.trim() || 'None';
 }
 
-export function dropCreateFacetsSummary(facets: readonly string[]): string {
-  return facets.length > 0 ? facets.join(', ') : 'None';
+export function dropCreateFacetsSummary(
+  facets: readonly string[],
+  labelFor?: (slug: string) => string | null
+): string {
+  if (facets.length === 0) return 'None';
+  return facets.map((slug) => labelFor?.(slug)?.trim() || slug).join(' · ');
 }
 
-export function dropCreateAllowlistSummary(count: number): string {
+export function dropCreateAllowlistSummary(
+  count: number,
+  connected = true
+): string {
+  if (!connected) return 'Connect';
   if (count <= 0) return 'None';
   return count === 1 ? '1 account' : `${count} accounts`;
+}
+
+/** Renewals / Postpone row — say the expiry when the kind needs one. */
+export function dropCreateRenewalsSummary({
+  on,
+  isTicket = false,
+  accessEndsLabel = '',
+  requiresAccessEnd = false,
+}: {
+  on: boolean;
+  isTicket?: boolean;
+  accessEndsLabel?: string;
+  requiresAccessEnd?: boolean;
+}): string {
+  const choice = dropCreateRenewalsChoice(on);
+  if (isTicket) return choice;
+  const end = accessEndsLabel.trim();
+  if (end) return `${choice} · ${end}`;
+  if (requiresAccessEnd) return `${choice} · set an end`;
+  return choice;
 }
 
 export function dropCreateSaleRulesSummary({

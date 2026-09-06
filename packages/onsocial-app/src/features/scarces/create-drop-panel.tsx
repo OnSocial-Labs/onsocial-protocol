@@ -88,6 +88,7 @@ import { DropChapterPreviewList } from '@/features/scarces/drop-chapter-preview-
 import { DropFacetsEditor } from '@/features/scarces/drop-facets-editor';
 import {
   dropFacetFieldLabel,
+  dropFacetLabel,
   dropFacetsExtraFields,
   dropFacetsLabel,
   ensureGenerativeFacet,
@@ -139,6 +140,7 @@ import {
   dropCreatePiecePickerClass,
   dropCreateRenewalsChoice,
   dropCreateRenewalsHint,
+  dropCreateRenewalsSummary,
   dropCreateRoyaltySummary,
   dropCreateSaleRulesSummary,
   dropCreateScreenTitle,
@@ -3450,7 +3452,7 @@ export function CreateDropPanel() {
                   label={dropCreateExtraRowLabel('facets', {
                     facetLabel: facetRowLabel,
                   })}
-                  value={dropCreateFacetsSummary(facets)}
+                  value={dropCreateFacetsSummary(facets, dropFacetLabel)}
                   disabled={pending}
                   onClick={() => setExtraSheet('facets')}
                 />
@@ -3551,13 +3553,23 @@ export function CreateDropPanel() {
               ) : null}
               <DropCreateExtraRow
                 label={dropCreateExtraRowLabel('renewals', { isTicket })}
-                value={dropCreateRenewalsChoice(renewable)}
+                value={dropCreateRenewalsSummary({
+                  on: renewable,
+                  isTicket,
+                  accessEndsLabel: accessEnds
+                    ? formatScheduleLabel(accessEnds)
+                    : '',
+                  requiresAccessEnd: Boolean(template.requiresAccessEnd),
+                })}
                 disabled={pending}
                 onClick={() => setExtraSheet('renewals')}
               />
               <DropCreateExtraRow
                 label={dropCreateExtraRowLabel('allowlist')}
-                value={dropCreateAllowlistSummary(draftAllowlist.length)}
+                value={dropCreateAllowlistSummary(
+                  draftAllowlist.length,
+                  Boolean(accountId)
+                )}
                 disabled={pending || !accountId}
                 onClick={() => {
                   if (!accountId) return;
