@@ -78,7 +78,11 @@ export function dropCreateAdvancedExtraOpen(
   return forcedOpen || Boolean(value.trim());
 }
 
-export type DropCreateAdvancedExtra = 'dropId' | 'series' | 'royalty';
+export type DropCreateAdvancedExtra =
+  | 'dropId'
+  | 'series'
+  | 'royalty'
+  | 'saleWindow';
 
 export function dropCreateAdvancedExtraAction(
   kind: DropCreateAdvancedExtra
@@ -90,7 +94,18 @@ export function dropCreateAdvancedExtraAction(
       return 'Add to a series';
     case 'royalty':
       return 'Set a royalty';
+    case 'saleWindow':
+      return 'Set a sale window';
   }
+}
+
+/** Sale window waits — default is now / no end until the maker asks or sets one. */
+export function dropCreateSaleWindowOpen(
+  startTime: string,
+  endTime: string,
+  forcedOpen = false
+): boolean {
+  return forcedOpen || Boolean(startTime.trim() || endTime.trim());
 }
 
 /** Royalty pills wait — default 10% stays unless the maker asks or changed it. */

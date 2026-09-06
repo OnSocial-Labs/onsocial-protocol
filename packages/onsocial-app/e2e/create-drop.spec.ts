@@ -172,6 +172,12 @@ test.describe('create drop', () => {
     await expect(
       page.getByRole('group', { name: 'Resale royalty' })
     ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Set a sale window', exact: true })
+    ).toBeVisible();
+    await expect(page.getByText('Sale window', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Opens', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Closes', { exact: true })).toHaveCount(0);
 
     await page
       .getByRole('button', { name: 'Set a drop ID', exact: true })
@@ -219,5 +225,16 @@ test.describe('create drop', () => {
     await expect(page.getByText('Resale royalty', { exact: true })).toHaveCount(
       0
     );
+    await expect(
+      page.getByRole('button', { name: 'Set a sale window', exact: true })
+    ).toBeVisible();
+    await page
+      .getByRole('button', { name: 'Set a sale window', exact: true })
+      .click();
+    await expect(page.getByText('Opens', { exact: true })).toBeVisible();
+    await expect(page.getByText('Closes', { exact: true })).toBeVisible();
+    await expect(page.getByText('Now', { exact: true })).toBeVisible();
+    await expect(page.getByText('No end', { exact: true })).toBeVisible();
+    await expect(page.getByText('Sale window', { exact: true })).toHaveCount(0);
   });
 });

@@ -11,6 +11,7 @@ import {
   dropCreateFacetsOpen,
   dropCreatePiecePickerClass,
   dropCreateRoyaltyOpen,
+  dropCreateSaleWindowOpen,
   dropCreateScreenTitle,
 } from '@/features/scarces/drop-create-layout';
 import { DEFAULT_ROYALTY_BPS } from '@/features/scarces/scarce-royalty';
@@ -86,6 +87,19 @@ describe('dropCreateAdvancedExtraAction', () => {
     expect(dropCreateAdvancedExtraAction('dropId')).toBe('Set a drop ID');
     expect(dropCreateAdvancedExtraAction('series')).toBe('Add to a series');
     expect(dropCreateAdvancedExtraAction('royalty')).toBe('Set a royalty');
+    expect(dropCreateAdvancedExtraAction('saleWindow')).toBe(
+      'Set a sale window'
+    );
+  });
+});
+
+describe('dropCreateSaleWindowOpen', () => {
+  it('waits on now / no end until the maker asks or sets a time', () => {
+    expect(dropCreateSaleWindowOpen('', '')).toBe(false);
+    expect(dropCreateSaleWindowOpen('  ', '  ')).toBe(false);
+    expect(dropCreateSaleWindowOpen('', '', true)).toBe(true);
+    expect(dropCreateSaleWindowOpen('2026-09-08T10:00', '')).toBe(true);
+    expect(dropCreateSaleWindowOpen('', '2026-09-09T18:00')).toBe(true);
   });
 });
 

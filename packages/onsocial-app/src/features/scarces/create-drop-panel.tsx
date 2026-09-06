@@ -137,6 +137,7 @@ import {
   dropCreateFacetsOpen,
   dropCreatePiecePickerClass,
   dropCreateRoyaltyOpen,
+  dropCreateSaleWindowOpen,
   dropCreateScreenTitle,
 } from '@/features/scarces/drop-create-layout';
 import {
@@ -278,6 +279,7 @@ export function CreateDropPanel() {
   const [seriesOpen, setSeriesOpen] = useState(false);
   const [facetsOpen, setFacetsOpen] = useState(false);
   const [royaltyOpen, setRoyaltyOpen] = useState(false);
+  const [saleWindowOpen, setSaleWindowOpen] = useState(false);
   const [createReady, setCreateReady] = useState(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const dropIdRef = useRef<HTMLInputElement>(null);
@@ -458,6 +460,7 @@ export function CreateDropPanel() {
     setSeriesOpen(false);
     setFacetsOpen(false);
     setRoyaltyOpen(false);
+    setSaleWindowOpen(false);
     setArtMode('single');
     setMusicFormat('single');
     setTrackFiles([]);
@@ -2373,6 +2376,11 @@ export function CreateDropPanel() {
       !royaltySplitIsDefault(resolvedRoyaltyShares, accountId ?? ''),
     forcedOpen: royaltyOpen,
   });
+  const saleWindowShown = dropCreateSaleWindowOpen(
+    startTime,
+    endTime,
+    saleWindowOpen
+  );
   const dealShowsSupply = dropCreateDealShowsSupplyField({
     isGeneratedSet,
     isVariations,
@@ -3545,6 +3553,80 @@ export function CreateDropPanel() {
               )}
             </div>
 
+            <div className="drop-create-advanced-extra">
+              {saleWindowShown ? (
+                <div
+                  className="drop-schedule-pair"
+                  role="group"
+                  aria-label="Sale window"
+                >
+                  <div
+                    className={`drop-schedule-cell${
+                      startTime ? ' has-value' : ''
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      className="drop-schedule-cell-main"
+                      disabled={pending}
+                      onClick={() => setScheduleField('opens')}
+                    >
+                      <span className="drop-schedule-cell-label">Opens</span>
+                      <span className="drop-schedule-cell-value">
+                        {startTime ? formatScheduleLabel(startTime) : 'Now'}
+                      </span>
+                    </button>
+                    {startTime ? (
+                      <button
+                        type="button"
+                        className="drop-schedule-cell-clear"
+                        disabled={pending}
+                        aria-label="Clear open time"
+                        onClick={() => setStartTime('')}
+                      >
+                        ✕
+                      </button>
+                    ) : null}
+                  </div>
+                  <div
+                    className={`drop-schedule-cell${endTime ? ' has-value' : ''}`}
+                  >
+                    <button
+                      type="button"
+                      className="drop-schedule-cell-main"
+                      disabled={pending}
+                      onClick={() => setScheduleField('closes')}
+                    >
+                      <span className="drop-schedule-cell-label">Closes</span>
+                      <span className="drop-schedule-cell-value">
+                        {endTime ? formatScheduleLabel(endTime) : 'No end'}
+                      </span>
+                    </button>
+                    {endTime ? (
+                      <button
+                        type="button"
+                        className="drop-schedule-cell-clear"
+                        disabled={pending}
+                        aria-label="Clear close time"
+                        onClick={() => setEndTime('')}
+                      >
+                        ✕
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="collection-allowlist-toggle drop-create-advanced-toggle"
+                  disabled={pending}
+                  onClick={() => setSaleWindowOpen(true)}
+                >
+                  {dropCreateAdvancedExtraAction('saleWindow')}
+                </button>
+              )}
+            </div>
+
             {isTicket ? (
               <>
                 <div className="guild-field">
@@ -3641,70 +3723,6 @@ export function CreateDropPanel() {
                 </label>
               </>
             ) : null}
-
-            <div className="guild-field">
-              <DropFieldLabel
-                label="Sale window"
-                infoKey="saleWindow"
-                onOpenInfo={openFieldInfo}
-              />
-              <div className="drop-schedule-pair">
-                <div
-                  className={`drop-schedule-cell${
-                    startTime ? ' has-value' : ''
-                  }`}
-                >
-                  <button
-                    type="button"
-                    className="drop-schedule-cell-main"
-                    disabled={pending}
-                    onClick={() => setScheduleField('opens')}
-                  >
-                    <span className="drop-schedule-cell-label">Opens</span>
-                    <span className="drop-schedule-cell-value">
-                      {startTime ? formatScheduleLabel(startTime) : 'Now'}
-                    </span>
-                  </button>
-                  {startTime ? (
-                    <button
-                      type="button"
-                      className="drop-schedule-cell-clear"
-                      disabled={pending}
-                      aria-label="Clear open time"
-                      onClick={() => setStartTime('')}
-                    >
-                      ✕
-                    </button>
-                  ) : null}
-                </div>
-                <div
-                  className={`drop-schedule-cell${endTime ? ' has-value' : ''}`}
-                >
-                  <button
-                    type="button"
-                    className="drop-schedule-cell-main"
-                    disabled={pending}
-                    onClick={() => setScheduleField('closes')}
-                  >
-                    <span className="drop-schedule-cell-label">Closes</span>
-                    <span className="drop-schedule-cell-value">
-                      {endTime ? formatScheduleLabel(endTime) : 'No end'}
-                    </span>
-                  </button>
-                  {endTime ? (
-                    <button
-                      type="button"
-                      className="drop-schedule-cell-clear"
-                      disabled={pending}
-                      aria-label="Clear close time"
-                      onClick={() => setEndTime('')}
-                    >
-                      ✕
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            </div>
 
             <label className="guild-field" htmlFor={fieldId('per-wallet')}>
               <span>Max per wallet</span>
