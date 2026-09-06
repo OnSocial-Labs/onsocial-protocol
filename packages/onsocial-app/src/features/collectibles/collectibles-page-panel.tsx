@@ -26,7 +26,10 @@ import {
   peekOwnedVaultPage,
   putOwnedVaultPage,
 } from '@/features/market/owned-vault-cache';
-import { rememberCollectiblesHeldKinds } from '@/lib/collectibles-held-kinds';
+import {
+  rememberCollectiblesHeldKinds,
+  resolveCollectiblesHeldKinds,
+} from '@/lib/collectibles-held-kinds';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 import { CollectiblesLibrarySkeleton } from '@/features/collectibles/collectibles-library-skeleton';
@@ -65,7 +68,6 @@ import {
   holdingsMatchSeries,
   sortHoldingsLibrary,
   toPortfolioHoldingPeek,
-  vaultHeldKindFilters,
   vaultInventoryCreators,
   vaultInventorySeries,
   type PortfolioHoldingPeek,
@@ -116,6 +118,7 @@ export function CollectiblesPagePanel({
   pageAccountId = null,
   seedQuery = EMPTY_COLLECTIBLES_PAGE_QUERY,
   seedPromise = null,
+  seedHeldKinds = null,
   /**
    * Portfolio PanelPage vault — merged search header + scroll-fold filters.
    * OS `/collectibles` uses `os` until connected, then redirects to portfolio.
@@ -126,6 +129,8 @@ export function CollectiblesPagePanel({
   pageAccountId?: string | null;
   seedQuery?: CollectiblesPageQuery;
   seedPromise?: Promise<CollectiblesPageData> | null;
+  /** Last held kinds from the cookie — skeleton chrome before inventory. */
+  seedHeldKinds?: MarketMediumFilter[] | null;
   /** @deprecated Use `shell="portfolio"` */
   embedded?: boolean;
   shell?: 'portfolio' | 'os';
@@ -972,7 +977,12 @@ export function CollectiblesPagePanel({
               medium={mediumFilter}
               audioFormat={audioFormatFilter}
               selectedFacets={selectedFacets}
-              heldKinds={vaultHeldKindFilters(vaultItems, mediumFilter)}
+              heldKinds={resolveCollectiblesHeldKinds({
+                items: vaultItems,
+                selected: mediumFilter,
+                accountId: ownerAccountId,
+                seedHeldKinds,
+              })}
               vaultCreators={vaultCreators}
               vaultSeries={vaultSeries}
               selectedCreator={creatorFilter}

@@ -4,6 +4,7 @@ import {
   collectiblesVaultAccountFromPathname,
   cookieValueFromCookieSource,
   parseCollectiblesHeldKindsCookie,
+  resolveCollectiblesHeldKinds,
   serializeCollectiblesHeldKinds,
 } from '@/lib/collectibles-held-kinds';
 
@@ -41,6 +42,33 @@ describe('collectibles held-kinds cookie', () => {
         'alice.near'
       )
     ).toEqual(['all', 'writing', 'audio']);
+  });
+
+  it('uses remembered kinds until inventory arrives', () => {
+    const remembered = parseCollectiblesHeldKindsCookie(
+      serializeCollectiblesHeldKinds('alice.near', [
+        'all',
+        'writing',
+        'audio',
+      ]),
+      'alice.near'
+    );
+    expect(
+      resolveCollectiblesHeldKinds({
+        items: [],
+        selected: 'audio',
+        accountId: 'alice.near',
+        seedHeldKinds: remembered,
+      })
+    ).toEqual(['all', 'writing', 'audio']);
+    expect(
+      resolveCollectiblesHeldKinds({
+        items: [{ mediumKind: 'ticket' }],
+        selected: 'audio',
+        accountId: 'alice.near',
+        seedHeldKinds: remembered,
+      })
+    ).toEqual(['all', 'audio', 'ticket']);
   });
 
   it('parses the portfolio vault path and ignores play / OS', () => {

@@ -13,11 +13,7 @@ import type { MarketMediumFilter } from '@/features/market/market-medium';
 import { peekOwnedVaultPage } from '@/features/market/owned-vault-cache';
 import { APP_HOME_PATH } from '@/lib/app-routes';
 import { normalizeAccountRoute } from '@/lib/account-route';
-import {
-  COLLECTIBLES_HELD_KINDS_COOKIE,
-  cookieValueFromCookieSource,
-  parseCollectiblesHeldKindsCookie,
-} from '@/lib/collectibles-held-kinds';
+import { resolveCollectiblesHeldKinds } from '@/lib/collectibles-held-kinds';
 import {
   EMPTY_COLLECTIBLES_PAGE_QUERY,
   collectiblesAccountIdFromPathname,
@@ -26,7 +22,6 @@ import {
   type CollectiblesPageQuery,
 } from '@/lib/load-collectibles-page';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { vaultHeldKindFilters } from '@/lib/portfolio-holdings';
 
 function subscribeNoop() {
   return () => undefined;
@@ -52,15 +47,6 @@ function routeAccountId(accountId: unknown): string {
   return typeof accountId === 'string'
     ? normalizeAccountRoute(accountId) ?? ''
     : '';
-}
-
-function heldKindsFromVaultCache(
-  accountId: string,
-  selected: MarketMediumFilter
-): MarketMediumFilter[] {
-  const page = peekOwnedVaultPage(accountId);
-  if (!page) return vaultHeldKindFilters([], selected);
-  return vaultHeldKindFilters(page.items, selected);
 }
 
 /**
@@ -103,33 +89,16 @@ export function CollectiblesLoadingScreen({
       ? parseCollectiblesPageQueryFromSearch(locationSearch)
       : EMPTY_COLLECTIBLES_PAGE_QUERY);
   const toolbar = collectiblesToolbarFromQuery(query);
-  const cachedKinds = pageAccountId
-    ? heldKindsFromVaultCache(pageAccountId, toolbar.kind)
-    : vaultHeldKindFilters([], toolbar.kind);
-  const cookieKinds = pageAccountId
-    ? parseCollectiblesHeldKindsCookie(
-        cookieValueFromCookieSource(
-          cookieSource,
-          COLLECTIBLES_HELD_KINDS_COOKIE
-        ),
-        pageAccountId
-      )
-    : null;
-  const rememberedKinds =
-    heldKindsProp && heldKindsProp.length > 0
-      ? heldKindsProp
-      : cookieKinds && cookieKinds.length > 0
-        ? cookieKinds
-        : null;
-  const heldKinds =
-    rememberedKinds && rememberedKinds.length > 0
-      ? vaultHeldKindFilters(
-          rememberedKinds
-            .filter((id) => id !== 'all')
-            .map((mediumKind) => ({ mediumKind })),
-          toolbar.kind
-        )
-      : cachedKinds;
+  const cachedItems = pageAccountId
+    ? (peekOwnedVaultPage(pageAccountId)?.items ?? [])
+    : [];
+  const heldKinds = resolveCollectiblesHeldKinds({
+    items: cachedItems,
+    selected: toolbar.kind,
+    accountId: pageAccountId,
+    seedHeldKinds: heldKindsProp,
+    cookieSource,
+  });
   const backHref = pageAccountId ? portfolioPath(pageAccountId) : APP_HOME_PATH;
 
   return (

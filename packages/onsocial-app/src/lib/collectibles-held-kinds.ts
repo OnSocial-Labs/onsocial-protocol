@@ -92,6 +92,50 @@ export function collectiblesVaultAccountFromPathname(
   }
 }
 
+/** Rail while inventory is empty — seed / cookie, then URL kind only. */
+export function resolveCollectiblesHeldKinds({
+  items,
+  selected,
+  accountId,
+  seedHeldKinds,
+  cookieSource,
+}: {
+  items: ReadonlyArray<{ mediumKind?: string | null }>;
+  selected: MarketMediumFilter;
+  accountId?: string | null;
+  seedHeldKinds?: readonly MarketMediumFilter[] | null;
+  cookieSource?: string | null;
+}): MarketMediumFilter[] {
+  if (items.length > 0) return heldKindFilters(items, selected);
+  const fromSeed = heldKindsFromRemembered(seedHeldKinds, selected);
+  if (fromSeed) return fromSeed;
+  const fromCookie = parseCollectiblesHeldKindsCookie(
+    cookieValueFromCookieSource(
+      cookieSource ??
+        (typeof document === 'undefined' ? '' : document.cookie),
+      COLLECTIBLES_HELD_KINDS_COOKIE
+    ),
+    accountId ?? ''
+  );
+  return (
+    heldKindsFromRemembered(fromCookie, selected) ??
+    heldKindFilters(items, selected)
+  );
+}
+
+function heldKindsFromRemembered(
+  remembered: readonly MarketMediumFilter[] | null | undefined,
+  selected: MarketMediumFilter
+): MarketMediumFilter[] | null {
+  if (!remembered || remembered.length === 0) return null;
+  return heldKindFilters(
+    remembered
+      .filter((id) => id !== 'all')
+      .map((mediumKind) => ({ mediumKind })),
+    selected
+  );
+}
+
 /** Persist held kinds so the next hard refresh paints the same one-row rail. */
 export function rememberCollectiblesHeldKinds(
   accountId: string,
