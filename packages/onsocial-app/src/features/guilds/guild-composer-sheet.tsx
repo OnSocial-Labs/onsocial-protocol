@@ -918,10 +918,14 @@ export function ComposerSheet({
   ) : null;
 
   const mutedBeatPreview = (row: SheetBeat, index: number) => {
-    const previewText = row.text.trim() || row.articleTitle.trim();
+    const title = row.articleTitle.trim();
+    const body = row.text.trim();
+    const hasMedia = row.files.length > 0 || Boolean(row.drop);
     return (
       <div
-        className="guild-composer-self is-muted"
+        className={`guild-composer-self is-muted${
+          index === 0 && showDestinationMenus ? ' has-destination-menus' : ''
+        }`}
         role="button"
         tabIndex={0}
         aria-label={`Edit post ${index + 1}`}
@@ -942,23 +946,38 @@ export function ComposerSheet({
           className="guild-composer-row-avatar"
         />
         <div className="guild-composer-row-copy">
-          {row.articleTitle.trim() ? (
-            <p className="guild-composer-muted-title">{row.articleTitle}</p>
-          ) : null}
-          <p className="guild-composer-muted-text">
-            {previewText || (row.files.length || row.drop ? 'Media' : '…')}
-          </p>
-          {row.previews.length > 0 ? (
-            <div className="guild-composer-media-preview" aria-hidden>
-              {row.previews.map((preview) => (
-                <PostMediaBlock
-                  key={preview.url}
-                  item={{ url: preview.url, mime: preview.mime }}
-                  size="preview"
-                />
-              ))}
+          {index === 0 ? (
+            <div
+              className="guild-composer-thread-identity"
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              {identitySlot}
             </div>
           ) : null}
+          <div className="guild-composer-muted-preview">
+            {title ? (
+              <p className="guild-composer-muted-title">{title}</p>
+            ) : null}
+            {body || !title ? (
+              <p className="guild-composer-muted-text">
+                {body || (hasMedia ? 'Media' : '…')}
+              </p>
+            ) : hasMedia ? (
+              <p className="guild-composer-muted-text">Media</p>
+            ) : null}
+            {row.previews.length > 0 ? (
+              <div className="guild-composer-media-preview" aria-hidden>
+                {row.previews.map((preview) => (
+                  <PostMediaBlock
+                    key={preview.url}
+                    item={{ url: preview.url, mime: preview.mime }}
+                    size="preview"
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     );
@@ -967,7 +986,9 @@ export function ComposerSheet({
   const selfBlock = (
     <div
       className={`guild-composer-self${
-        showDestinationMenus ? ' has-destination-menus' : ''
+        showDestinationMenus && safeFocus === 0
+          ? ' has-destination-menus'
+          : ''
       }`}
     >
       <AccountAvatar
@@ -979,7 +1000,7 @@ export function ComposerSheet({
         className="guild-composer-row-avatar"
       />
       <div className="guild-composer-row-copy">
-        {identitySlot}
+        {safeFocus === 0 ? identitySlot : null}
         {canUseArticle ? (
           <label className="guild-composer-article-field">
             <span className="sr-only">Article title</span>
