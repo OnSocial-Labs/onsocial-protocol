@@ -32,10 +32,18 @@ import {
   type CollectionActivityRow,
 } from '@/features/scarces/collection-activity-rows';
 import {
+  collectionCreatorNameLine,
   fetchCollectionCreatorFace,
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
 import { CollectionOwnerManageMenu } from '@/features/scarces/collection-owner-manage-menu';
+import {
+  collectionDropBackHref,
+  collectionShowCommerceMeter,
+  collectionUseFirst,
+  peekHoldsCollection,
+  peekOwnedTokenForCollection,
+} from '@/features/scarces/collection-page-view';
 import { CollectionActivitySkeleton } from '@/features/scarces/collection-page-skeleton';
 import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
 import { VariationSetPeek } from '@/features/scarces/variation-set-peek';
@@ -97,7 +105,7 @@ import {
   formatFutureRelativeTime,
   formatMarketRelativeTime,
 } from '@/features/market/market-listings';
-import { portfolioPath } from '@/lib/overlay-routes';
+import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import { holdingsActionLabel } from '@/lib/portfolio-holdings';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
@@ -178,10 +186,14 @@ export function CollectionPagePanel({
   const [allowlistRemaining, setAllowlistRemaining] = useState<number | null>(
     null
   );
-  /** null = unchecked; true/false after ownership scan for writing reader. */
-  const [holdsEdition, setHoldsEdition] = useState<boolean | null>(null);
+  /** null = unchecked; true/false after ownership scan. Vault cache seeds hold. */
+  const [holdsEdition, setHoldsEdition] = useState<boolean | null>(() =>
+    peekHoldsCollection(viewerAccountId, collectionId) ? true : null
+  );
   /** Owned edition for Show pass when known. */
-  const [ownedPassTokenId, setOwnedPassTokenId] = useState<string | null>(null);
+  const [ownedPassTokenId, setOwnedPassTokenId] = useState<string | null>(() =>
+    peekOwnedTokenForCollection(viewerAccountId, collectionId)
+  );
   const [mintOpen, setMintOpen] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -279,30 +291,18 @@ export function CollectionPagePanel({
     }
     let cancelled = false;
     const passKind = isPassMediumKind(view?.kind);
-    const needsHoldCheck =
-      passKind ||
-      (view?.readables.length ?? 0) > 0 ||
-      Boolean(view?.writingManifestCid?.trim()) ||
-      (view?.playables.length ?? 0) > 0;
     void Promise.all([
       fetchWalletMintRemaining(collectionId, viewerAccountId),
       fetchAllowlistRemaining(collectionId, viewerAccountId),
-      needsHoldCheck
-        ? passKind
-          ? fetchOwnedCollectionTokenId(collectionId, viewerAccountId)
-          : fetchOwnsCollectionEdition(collectionId, viewerAccountId).then(
-              (owns) => (owns ? '__owned__' : null)
-            )
-        : Promise.resolve(null),
+      passKind
+        ? fetchOwnedCollectionTokenId(collectionId, viewerAccountId)
+        : fetchOwnsCollectionEdition(collectionId, viewerAccountId).then(
+            (owns) => (owns ? '__owned__' : null)
+          ),
     ]).then(([wallet, allowlist, ownedToken]) => {
       if (cancelled) return;
       setWalletRemaining(wallet);
       setAllowlistRemaining(allowlist);
-      if (!needsHoldCheck) {
-        setHoldsEdition(null);
-        setOwnedPassTokenId(null);
-        return;
-      }
       if (passKind) {
         const tokenId =
           typeof ownedToken === 'string' && ownedToken !== '__owned__'
@@ -323,9 +323,6 @@ export function CollectionPagePanel({
     viewerAccountId,
     refreshKey,
     view?.kind,
-    view?.readables.length,
-    view?.writingManifestCid,
-    view?.playables.length,
   ]);
 
   // Holdings "Read" deep-links with ?read=1 → open immersive reader once writing is present.
@@ -613,7 +610,10 @@ export function CollectionPagePanel({
   const creatorShellLoading =
     Boolean(creatorId) && creatorResolvedKey !== creatorId;
   const resolvedCreatorAvatar = creatorShellLoading ? null : creatorAvatarUrl;
-  const resolvedCreatorName = creatorShellLoading ? null : creatorDisplayName;
+  const creatorNameLine = collectionCreatorNameLine(
+    creatorId,
+    creatorDisplayName
+  );
   const requestActivityClose = useCallback(() => {
     setActivityClosing(true);
   }, []);
@@ -740,6 +740,21 @@ export function CollectionPagePanel({
   const canShowPass =
     isPassKind && holdsEdition === true && Boolean(ownedPassTokenId);
   const passActionLabel = holdingsActionLabel(mediumKind);
+  const useFirst = collectionUseFirst({ isOwner, holdsEdition });
+  const showCommerceMeter = collectionShowCommerceMeter({
+    useFirst,
+    canMintMore: showMintCompose,
+  });
+  const dropBackHref = collectionDropBackHref({
+    useFirst,
+    viewerAccountId,
+  });
+  const vaultHref = viewerAccountId
+    ? portfolioCollectiblesPath(viewerAccountId)
+    : null;
+  const useActionClass = useFirst
+    ? 'page-drawer-section-action collectibles-holding-action'
+    : 'collection-reading-open';
   const writingLockedHint = !isConnected
     ? 'Connect your wallet and Collect an edition to read.'
     : holdsEdition === null
@@ -794,7 +809,7 @@ export function CollectionPagePanel({
     <OsAppScreen
       title={view.title}
       dockBack
-      backFallbackHref={APP_MARKET_PATH}
+      backFallbackHref={dropBackHref}
       immersiveHeader={immersive}
       headerElevated={immersive ? headerElevated : false}
       scrollRootRef={scrollRootRef}
@@ -817,7 +832,11 @@ export function CollectionPagePanel({
           className={`os-chrome-glass${headerElevated ? ' is-frosted' : ''}`}
         />
       ) : null}
-      <div className="collection-page">
+      <div
+        className={`collection-page${useFirst ? ' is-use-first' : ''}`}
+        data-collection-use-first={useFirst ? '' : undefined}
+        data-collection-back={dropBackHref}
+      >
         <section className="collection-hero" aria-label="Drop cover">
           {isAudio && hasPlayables && !listenOnPlayPage ? (
             <div
@@ -921,15 +940,13 @@ export function CollectionPagePanel({
                 href={portfolioPath(view.creatorId)}
                 scroll={false}
                 className="collection-meta-avatar-link"
-                tabIndex={resolvedCreatorName ? -1 : undefined}
-                aria-hidden={resolvedCreatorName ? true : undefined}
+                tabIndex={creatorShellLoading ? undefined : -1}
+                aria-hidden={creatorShellLoading ? undefined : true}
               >
                 <AccountAvatar
                   accountId={view.creatorId}
                   src={resolvedCreatorAvatar}
-                  fallbackInitial={
-                    resolvedCreatorName || fallbackLabel(view.creatorId)
-                  }
+                  fallbackInitial={creatorNameLine}
                   shellLoading={creatorShellLoading}
                   size="sm"
                   className="collection-meta-avatar"
@@ -941,21 +958,17 @@ export function CollectionPagePanel({
                     className="standing-row-shimmer collection-skeleton-creator-name"
                     aria-hidden
                   />
-                ) : resolvedCreatorName ? (
+                ) : (
                   <Link
                     href={portfolioPath(view.creatorId)}
                     scroll={false}
                     className="collection-meta-creator-name"
                   >
-                    by {resolvedCreatorName}
+                    by {creatorNameLine}
                   </Link>
-                ) : null}
+                )}
                 <div className="collection-meta-sub">
-                  {resolvedCreatorName ? (
-                    <span className="collection-meta-handle">
-                      @{fallbackLabel(view.creatorId)}
-                    </span>
-                  ) : (
+                  {creatorShellLoading ? (
                     <Link
                       href={portfolioPath(view.creatorId)}
                       scroll={false}
@@ -963,6 +976,10 @@ export function CollectionPagePanel({
                     >
                       @{fallbackLabel(view.creatorId)}
                     </Link>
+                  ) : (
+                    <span className="collection-meta-handle">
+                      @{fallbackLabel(view.creatorId)}
+                    </span>
                   )}
                   {view.seriesId ? (
                     <>
@@ -1003,54 +1020,111 @@ export function CollectionPagePanel({
                 </div>
               </div>
             </div>
-            <div className="collection-product-row">
-              <div className="collection-product-line">
-                <span
-                  className={`collection-product-status ${statusTone(status)}`}
-                >
-                  {schedule ?? collectionStatusLabel(status)}
-                </span>
-                <span className="collection-meta-sep" aria-hidden>
-                  ·
-                </span>
-                <span className="collection-commerce-supply">
-                  {view.minted}/{view.totalSupply}
-                </span>
-                {view.priceNear &&
-                view.priceNear !== '0' &&
-                view.priceYocto !== '0' ? (
-                  <>
-                    <span className="collection-meta-sep" aria-hidden>
-                      ·
-                    </span>
-                    <span className="collection-product-price">
-                      {view.priceNear} NEAR
-                    </span>
-                  </>
+            {useFirst ? (
+              <div className="collection-use-actions">
+                {hasPlayables && listenOnPlayPage && holderPlayHref ? (
+                  <div className="collection-reading-row">
+                    <p className="collection-section-label">
+                      {playables.length === 1
+                        ? '1 track'
+                        : `${playables.length} tracks`}
+                    </p>
+                    <Link
+                      className={useActionClass}
+                      href={holderPlayHref}
+                      scroll={false}
+                    >
+                      Play
+                    </Link>
+                  </div>
                 ) : null}
-                {personalAllowlistLeft != null ? (
-                  <>
-                    <span className="collection-meta-sep" aria-hidden>
-                      ·
-                    </span>
-                    <span className="collection-commerce-chips">
-                      {personalAllowlistLeft === 1
-                        ? '1 left for you'
-                        : `${personalAllowlistLeft} left for you`}
-                    </span>
-                  </>
+                {hasReadables ? (
+                  <div className="collection-reading-row">
+                    <p className="collection-section-label">
+                      {writingReadingSectionLabel(readables.length)}
+                    </p>
+                    <button
+                      type="button"
+                      className={useActionClass}
+                      onClick={() => setWritingReadOpen(true)}
+                    >
+                      Read
+                    </button>
+                  </div>
                 ) : null}
-                {chipParts.length > 0 ? (
-                  <>
-                    <span className="collection-meta-sep" aria-hidden>
-                      ·
-                    </span>
-                    <span className="collection-commerce-chips">
-                      {chipParts.join(' · ')}
-                    </span>
-                  </>
+                {canShowPass ? (
+                  <div className="collection-reading-row">
+                    <p className="collection-section-label">Your pass</p>
+                    <button
+                      type="button"
+                      className={useActionClass}
+                      onClick={openOwnedPass}
+                    >
+                      {passActionLabel}
+                    </button>
+                  </div>
+                ) : null}
+                {vaultHref ? (
+                  <Link
+                    href={vaultHref}
+                    scroll={false}
+                    className="collection-reading-open"
+                  >
+                    Open Collectibles
+                  </Link>
                 ) : null}
               </div>
+            ) : null}
+            <div className="collection-product-row">
+              {showCommerceMeter ? (
+                <div className="collection-product-line">
+                  <span
+                    className={`collection-product-status ${statusTone(status)}`}
+                  >
+                    {schedule ?? collectionStatusLabel(status)}
+                  </span>
+                  <span className="collection-meta-sep" aria-hidden>
+                    ·
+                  </span>
+                  <span className="collection-commerce-supply">
+                    {view.minted}/{view.totalSupply}
+                  </span>
+                  {view.priceNear &&
+                  view.priceNear !== '0' &&
+                  view.priceYocto !== '0' ? (
+                    <>
+                      <span className="collection-meta-sep" aria-hidden>
+                        ·
+                      </span>
+                      <span className="collection-product-price">
+                        {view.priceNear} NEAR
+                      </span>
+                    </>
+                  ) : null}
+                  {personalAllowlistLeft != null ? (
+                    <>
+                      <span className="collection-meta-sep" aria-hidden>
+                        ·
+                      </span>
+                      <span className="collection-commerce-chips">
+                        {personalAllowlistLeft === 1
+                          ? '1 left for you'
+                          : `${personalAllowlistLeft} left for you`}
+                      </span>
+                    </>
+                  ) : null}
+                  {chipParts.length > 0 ? (
+                    <>
+                      <span className="collection-meta-sep" aria-hidden>
+                        ·
+                      </span>
+                      <span className="collection-commerce-chips">
+                        {chipParts.join(' · ')}
+                      </span>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="collection-commerce-share-row collection-commerce-share-row--viewer">
                 {showOwnerManage ? (
                   <CollectionOwnerManageMenu
@@ -1147,20 +1221,22 @@ export function CollectionPagePanel({
                 </button>
               </div>
             </div>
-            <div
-              className="collection-progress"
-              role="progressbar"
-              aria-valuenow={progressPct}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="Editions minted"
-            >
-              <Divider variant="detail" className="collection-progress-rule" />
-              <span
-                className="collection-progress-fill"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
+            {showCommerceMeter ? (
+              <div
+                className="collection-progress"
+                role="progressbar"
+                aria-valuenow={progressPct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Editions minted"
+              >
+                <Divider variant="detail" className="collection-progress-rule" />
+                <span
+                  className="collection-progress-fill"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            ) : null}
             {showDropLove && dropLoves.fanCount > 0 ? (
               <div className="collection-drop-fans">
                 <GuildFacepile
@@ -1175,7 +1251,7 @@ export function CollectionPagePanel({
                 />
               </div>
             ) : null}
-            {mintDisabledReason && !isOwner ? (
+            {showCommerceMeter && mintDisabledReason && !isOwner ? (
               <p className="collection-mint-hint">{mintDisabledReason}</p>
             ) : null}
             {aboutTeaserText ? (
@@ -1198,24 +1274,7 @@ export function CollectionPagePanel({
           />
         ) : null}
 
-        {hasPlayables && listenOnPlayPage && holderPlayHref ? (
-          <section className="collection-tracks" aria-label="Tracks">
-            <div className="collection-reading-row">
-              <p className="collection-section-label">
-                {playables.length === 1
-                  ? '1 track'
-                  : `${playables.length} tracks`}
-              </p>
-              <Link
-                className="collection-reading-open"
-                href={holderPlayHref}
-                scroll={false}
-              >
-                Play
-              </Link>
-            </div>
-          </section>
-        ) : hasPlayables ? (
+        {!useFirst && hasPlayables ? (
           <section className="collection-tracks" aria-label="Tracks">
             <p className="collection-section-label">
               {playables.length === 1
@@ -1255,7 +1314,7 @@ export function CollectionPagePanel({
           </section>
         ) : null}
 
-        {hasReadables ? (
+        {!useFirst && hasReadables ? (
           <section className="collection-reading" aria-label="Reading">
             <div className="collection-reading-row">
               <p className="collection-section-label">
@@ -1263,7 +1322,7 @@ export function CollectionPagePanel({
               </p>
               <button
                 type="button"
-                className="collection-reading-open"
+                className={useActionClass}
                 onClick={() => setWritingReadOpen(true)}
               >
                 Read
@@ -1272,21 +1331,6 @@ export function CollectionPagePanel({
             {!canReadWriting ? (
               <p className="collection-writing-locked">{writingLockedHint}</p>
             ) : null}
-          </section>
-        ) : null}
-
-        {canShowPass ? (
-          <section className="collection-reading" aria-label="Your pass">
-            <div className="collection-reading-row">
-              <p className="collection-section-label">Your pass</p>
-              <button
-                type="button"
-                className="collection-reading-open"
-                onClick={openOwnedPass}
-              >
-                {passActionLabel}
-              </button>
-            </div>
           </section>
         ) : null}
 

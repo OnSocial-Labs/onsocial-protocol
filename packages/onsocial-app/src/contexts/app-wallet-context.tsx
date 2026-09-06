@@ -21,6 +21,7 @@ import {
 import { clearAppGatewayAuth } from '@/lib/app-gateway-auth';
 import { invalidateAppSocialSessionCache } from '@/lib/app-social-session-cache';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { readE2eWalletAccountId } from '@/lib/e2e-wallet-account';
 
 const APP_WALLET_ACCOUNT_KEY = 'onsocial.app.wallet.accountId';
 
@@ -197,6 +198,13 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
+    const e2eAccount = readE2eWalletAccountId();
+    if (e2eAccount) {
+      setAccountId(e2eAccount);
+      setIsLoading(false);
+      return;
+    }
+
     const connector = new NearConnector({
       network,
       footerBranding: {

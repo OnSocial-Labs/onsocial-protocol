@@ -25894,12 +25894,31 @@ a.os-surface-row {
     margin-top: -0.15rem;
   }
 
+  .collection-use-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-top: 0.15rem;
+  }
+
   .collection-reading-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
     min-height: 1.45rem;
+  }
+
+  .collection-page.is-use-first .collection-reading-row {
+    min-height: 2rem;
+  }
+
+  .collection-skeleton-use-pill {
+    display: block;
+    width: 4.5rem;
+    height: 1.65rem;
+    border-radius: 9999px;
+    flex: 0 0 auto;
   }
 
   .collection-reading-row .collection-section-label {
