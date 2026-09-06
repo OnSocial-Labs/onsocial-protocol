@@ -3,6 +3,7 @@ import type { ScarcesCollectionCurrentRow } from '@onsocial/sdk';
 import {
   displayFromOwnedCollectionCatalog,
   editionSeatFromTokenId,
+  seriesFromOwnedBlobs,
 } from '@/features/market/market-listings';
 
 function catalog(
@@ -99,5 +100,22 @@ describe('displayFromOwnedCollectionCatalog', () => {
     expect(editionSeatFromTokenId('s:solo')).toBeNull();
     expect(face.mediaUrl).toBeNull();
     expect(face.title).toBe('Solo face');
+  });
+});
+
+describe('seriesFromOwnedBlobs', () => {
+  it('reads nested series from metadata then extra', () => {
+    expect(
+      seriesFromOwnedBlobs(
+        JSON.stringify({ series: { id: 'night-roads', title: 'Night Roads' } })
+      )
+    ).toEqual({ seriesId: 'night-roads', seriesTitle: 'Night Roads' });
+    expect(seriesFromOwnedBlobs({ series: 'legacy-id' })).toEqual({
+      seriesId: 'legacy-id',
+      seriesTitle: null,
+    });
+    expect(
+      seriesFromOwnedBlobs(null, { series: { id: 'from-extra', title: 'Extra' } })
+    ).toEqual({ seriesId: 'from-extra', seriesTitle: 'Extra' });
   });
 });

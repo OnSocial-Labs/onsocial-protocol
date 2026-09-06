@@ -216,6 +216,9 @@ export const APP_SERIES_PATH = '/series';
 /** Query key that pre-filters Market to one creator / seller. */
 export const MARKET_CREATOR_PARAM = 'creator';
 
+/** Query key that filters the Collectibles vault to one series. */
+export const COLLECTIBLES_SERIES_PARAM = 'series';
+
 /** Query key that pre-filters Market to one app / store. */
 export const MARKET_APP_PARAM = 'app';
 

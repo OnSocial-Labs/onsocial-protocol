@@ -24685,6 +24685,59 @@ a.os-surface-row {
     gap: 0.2rem;
   }
 
+  .collectibles-library-stack,
+  .collectibles-library {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .collectibles-library-creator,
+  .collectibles-library-series {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .collectibles-library-creator {
+    gap: 0.7rem;
+  }
+
+  .collectibles-library-heading,
+  .collectibles-library-series-heading {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    color: var(--os-surface-muted);
+    font: inherit;
+  }
+
+  .collectibles-library-heading {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .collectibles-library-series-heading {
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  button.collectibles-library-heading--action {
+    cursor: pointer;
+  }
+
+  button.collectibles-library-heading--action:hover,
+  button.collectibles-library-heading--action:focus-visible {
+    color: var(--os-surface-emphasis);
+    outline: none;
+  }
+
   a.collectibles-holding-action {
     flex-shrink: 0;
     min-width: 4.5rem;

@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ProtocolMotionArrow } from '@onsocial/ui';
-import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
 import { CollectiblesHoldingRowMenu } from '@/features/collectibles/collectibles-holding-row-menu';
+import { CollectiblesVaultLibrary } from '@/features/collectibles/collectibles-vault-library';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
   fetchOwnedScarcesPage,
@@ -16,8 +16,10 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { accountIdsEqual } from '@/lib/account-match';
 import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
 import {
-  groupHoldingsForRail,
+  countLibraryDrops,
+  groupHoldingsLibrary,
   PAGE_DRAWER_COLLECTION_PREVIEW_ROWS,
+  sliceLibraryGroups,
   toPortfolioHoldingPeek,
   type PortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
@@ -121,12 +123,12 @@ export function PageDrawerCollectionList({
     return map;
   }, [state.owned]);
 
-  const grouped = useMemo(
-    () => groupHoldingsForRail(state.items),
-    [state.items]
-  );
-  const previewRows = grouped.slice(0, PAGE_DRAWER_COLLECTION_PREVIEW_ROWS);
-  const previewTruncated = grouped.length > PAGE_DRAWER_COLLECTION_PREVIEW_ROWS;
+  const library = useMemo(() => {
+    const groups = groupHoldingsLibrary(state.items);
+    return sliceLibraryGroups(groups, PAGE_DRAWER_COLLECTION_PREVIEW_ROWS);
+  }, [state.items]);
+  const previewRows = countLibraryDrops(library.groups);
+  const previewTruncated = library.truncated;
   const seeAllHref = portfolioCollectiblesPath(pageAccountId);
   const showSeeAll = state.items.length > 0;
   const seeAllCopy = resolveCollectionSeeAllCopy(
@@ -160,31 +162,27 @@ export function PageDrawerCollectionList({
             Collectibles
           </h3>
           {loading ? <MarketListSkeleton rows={3} /> : null}
-          {!loading && previewRows.length > 0 ? (
-            <div className="market-listing-list" role="list">
-              {previewRows.map((item) => {
-                const owned = ownedByToken.get(item.tokenId);
-                return (
-                  <CollectiblesHoldingRow
-                    key={item.tokenId}
-                    item={item}
-                    editionCount={item.editionCount}
-                    ownerMenu={
-                      isSelf && owned ? (
-                        <CollectiblesHoldingRowMenu
-                          item={owned}
-                          onList={() => {
-                            setSellItem(owned);
-                            setSellOpen(true);
-                          }}
-                          onDelisted={refreshOwned}
-                        />
-                      ) : null
-                    }
-                  />
-                );
-              })}
-            </div>
+          {!loading && previewRows > 0 ? (
+            <CollectiblesVaultLibrary
+              embedded
+              groups={library.groups}
+              ownedByToken={ownedByToken}
+              showCreatorHeadings={library.groups.length > 1}
+              renderOwnerMenu={
+                isSelf
+                  ? (owned) => (
+                      <CollectiblesHoldingRowMenu
+                        item={owned}
+                        onList={() => {
+                          setSellItem(owned);
+                          setSellOpen(true);
+                        }}
+                        onDelisted={refreshOwned}
+                      />
+                    )
+                  : undefined
+              }
+            />
           ) : null}
           {!loading && showSeeAll ? (
             <Link

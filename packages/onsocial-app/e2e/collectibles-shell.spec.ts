@@ -12,6 +12,7 @@ import {
   gotoApp,
   searchField,
 } from './helpers';
+import { openMarketFilter } from './helpers/market';
 
 const KIND_RAIL = 'Collectible kind';
 const PILL_ACTION = /page-drawer-section-action/;
@@ -101,17 +102,26 @@ test.describe('collectibles shell', () => {
     await expect(nightRow).toContainText('×2');
     await expect(nightRow).toContainText('Listed');
     await expect(nightRow).toContainText('2 NEAR');
-    await expect(nightRow).toContainText('@alice.near');
+    await expect(nightRow).not.toContainText('@alice.near');
     await expect(nightRow.getByRole('link', { name: /Play Night Drive/ })).toBeVisible();
 
     const chapterRow = page.locator('.collectibles-holding-row').filter({
       hasText: 'Chapter One',
     });
     await expect(chapterRow).toContainText('#4');
-    await expect(chapterRow).toContainText('@alice.near');
+    await expect(chapterRow).not.toContainText('@alice.near');
     await expect(
       chapterRow.getByRole('link', { name: /Read Chapter One/ })
     ).toBeVisible();
+    await expect(page.getByRole('button', { name: '@alice.near' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '@bob.near' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Night Roads' })).toBeVisible();
+    await expect(
+      page.locator('.collectibles-holding-row').filter({ hasText: 'Dusk Run' })
+    ).toBeVisible();
+    await expect(
+      page.locator('.collectibles-holding-row').filter({ hasText: 'Gate Pass' })
+    ).toContainText('Tickets');
     await expect(
       page.getByRole('region', { name: 'Collectibles' })
     ).toBeVisible();
@@ -133,11 +143,7 @@ test.describe('collectibles shell', () => {
     await page.waitForURL(/[?&]q=zzznone/);
     await expect(page.locator('.market-listing-list--skeleton')).toHaveCount(0);
     await expect(page.getByText('No matches.')).toBeVisible();
-    const clearSearch = searchField(page, 'Search collectibles').getByRole(
-      'button',
-      { name: 'Clear search' }
-    );
-    await expectEmptySitsUnderChrome(page);
+    const clearSearch = page.getByRole('button', { name: 'Clear search' });
     await page.screenshot({
       path: `${testInfo.outputDir}/collectibles-empty-search.png`,
       fullPage: true,
@@ -164,6 +170,32 @@ test.describe('collectibles shell', () => {
     await page.waitForURL((url) => !url.searchParams.has('kind'));
     await expect(nightRow).toBeVisible();
     await expect(chapterRow).toBeVisible();
+    await expectCollectiblesChrome(page);
+
+    await searchField(page, 'Search collectibles').fill('night roads');
+    await page.waitForURL(/[?&]q=night(\+|%20)roads/);
+    await expect(nightRow).toBeVisible();
+    await expect(
+      page.locator('.collectibles-holding-row').filter({ hasText: 'Dusk Run' })
+    ).toBeVisible();
+    await expect(chapterRow).toHaveCount(0);
+    await expect(
+      page.locator('.collectibles-holding-row').filter({ hasText: 'Gate Pass' })
+    ).toHaveCount(0);
+    await page.getByRole('button', { name: 'Clear search' }).click();
+    await page.waitForURL((url) => !url.searchParams.has('q'));
+
+    await page.getByRole('button', { name: '@bob.near' }).click();
+    await page.waitForURL(/[?&]creator=bob\.near/);
+    await expect(
+      page.locator('.collectibles-holding-row').filter({ hasText: 'Gate Pass' })
+    ).toBeVisible();
+    await expect(nightRow).toHaveCount(0);
+    await openMarketFilter(page);
+    await page.getByRole('button', { name: 'Clear' }).click();
+    await page.getByRole('button', { name: 'Done' }).click();
+    await page.waitForURL((url) => !url.searchParams.has('creator'));
+    await expect(nightRow).toBeVisible();
     await expectCollectiblesChrome(page);
   });
 

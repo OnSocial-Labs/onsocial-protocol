@@ -1,7 +1,9 @@
 import { CollectiblesPagePanel } from '@/features/collectibles/collectibles-page-panel';
 import {
   COLLECTIBLES_SEARCH_PARAM,
+  COLLECTIBLES_SERIES_PARAM,
   MARKET_AUDIO_FORMAT_PARAM,
+  MARKET_CREATOR_PARAM,
   MARKET_FACETS_PARAM,
   MARKET_KIND_PARAM,
 } from '@/lib/app-routes';
@@ -20,6 +22,8 @@ type PanelRouteProps = {
     [MARKET_KIND_PARAM]?: string | string[];
     [MARKET_FACETS_PARAM]?: string | string[];
     [MARKET_AUDIO_FORMAT_PARAM]?: string | string[];
+    [MARKET_CREATOR_PARAM]?: string | string[];
+    [COLLECTIBLES_SERIES_PARAM]?: string | string[];
   }>;
 };
 
@@ -38,6 +42,8 @@ export default async function PortfolioCollectiblesPage({
     kind: firstParam(resolved[MARKET_KIND_PARAM]),
     facets: firstParam(resolved[MARKET_FACETS_PARAM]),
     audioFormat: firstParam(resolved[MARKET_AUDIO_FORMAT_PARAM]),
+    creator: firstParam(resolved[MARKET_CREATOR_PARAM]),
+    series: firstParam(resolved[COLLECTIBLES_SERIES_PARAM]),
   });
   // Do not await holdings here — that remounts the shell via loading.tsx
   // on every kind / search replace. The panel consumes the promise.

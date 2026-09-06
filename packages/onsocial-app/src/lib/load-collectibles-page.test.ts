@@ -27,6 +27,19 @@ describe('parseCollectiblesPageQuery', () => {
     );
   });
 
+  it('reads vault creator and series filters', () => {
+    const query = parseCollectiblesPageQuery({
+      creator: 'alice.near',
+      series: 'night-roads',
+    });
+    expect(query.creator).toBe('alice.near');
+    expect(query.series).toBe('night-roads');
+    expect(collectiblesSeedParamsKey(query)).toContain('alice.near');
+    expect(collectiblesQueryPath('bob.near', query)).toBe(
+      '/@bob.near/collectibles?creator=alice.near&series=night-roads'
+    );
+  });
+
   it('drops audio format when medium is not audio', () => {
     expect(
       parseCollectiblesPageQuery({ kind: 'writing', audioFormat: 'album' })

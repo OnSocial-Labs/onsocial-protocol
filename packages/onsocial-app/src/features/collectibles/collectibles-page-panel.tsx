@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { CollectiblesHeaderActions } from '@/features/collectibles/collectibles-header-actions';
-import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
 import { CollectiblesHoldingRowMenu } from '@/features/collectibles/collectibles-holding-row-menu';
+import { CollectiblesVaultLibrary } from '@/features/collectibles/collectibles-vault-library';
 import {
   CollectiblesFilterToolbar,
   CollectiblesSearchHeading,
@@ -31,6 +31,7 @@ import {
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
 import { accountIdsEqual } from '@/lib/account-match';
+import { fallbackLabel } from '@/lib/profile-display';
 import {
   APP_DROP_CREATE_PATH,
   APP_HOME_PATH,
@@ -50,10 +51,15 @@ import {
 } from '@/lib/load-collectibles-page';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
+  COLLECTIBLES_CREATOR_OTHER,
   filterHoldingsByMedium,
-  groupHoldingsForRail,
+  groupHoldingsLibrary,
+  holdingsMatchCreator,
   holdingsMatchQuery,
+  holdingsMatchSeries,
   toPortfolioHoldingPeek,
+  vaultInventoryCreators,
+  vaultInventorySeries,
   type PortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
 
@@ -126,11 +132,15 @@ export function CollectiblesPagePanel({
   const facetMedium = normalizeDropFacetMedium(mediumFilter);
   const selectedFacets = pageQuery.facets;
   const audioFormatFilter: MarketAudioFormatFilter = pageQuery.audioFormat;
+  const creatorFilter = pageQuery.creator;
+  const seriesFilter = pageQuery.series;
   const urlDiscoveryActive =
     searchQuery.trim().length > 0 ||
     mediumFilter !== 'all' ||
     selectedFacets.length > 0 ||
-    Boolean(audioFormatFilter);
+    Boolean(audioFormatFilter) ||
+    Boolean(creatorFilter) ||
+    Boolean(seriesFilter);
 
   const ownerAccountId = (pageAccountId ?? viewerAccountId)?.trim() || null;
   const isSelf =
@@ -252,10 +262,23 @@ export function CollectiblesPagePanel({
     [replacePageQuery, pageQuery]
   );
 
+  const clearDiscovery = useCallback(() => {
+    replacePageQuery({
+      ...pageQuery,
+      kind: 'all',
+      facets: [],
+      audioFormat: null,
+      creator: null,
+      series: null,
+    });
+  }, [replacePageQuery, pageQuery]);
+
   const replaceDiscoveryParams = useCallback(
     (next: {
       facets?: string[];
       audioFormat?: MarketAudioFormatFilter;
+      creator?: string | null;
+      series?: string | null;
     }) => {
       replacePageQuery({
         ...pageQuery,
@@ -264,9 +287,18 @@ export function CollectiblesPagePanel({
           next.audioFormat !== undefined
             ? next.audioFormat
             : audioFormatFilter,
+        creator: next.creator !== undefined ? next.creator : creatorFilter,
+        series: next.series !== undefined ? next.series : seriesFilter,
       });
     },
-    [replacePageQuery, pageQuery, selectedFacets, audioFormatFilter]
+    [
+      replacePageQuery,
+      pageQuery,
+      selectedFacets,
+      audioFormatFilter,
+      creatorFilter,
+      seriesFilter,
+    ]
   );
 
   useEffect(() => {
@@ -458,6 +490,14 @@ export function CollectiblesPagePanel({
         selectedFacets.some((facet) => item.facets?.includes(facet))
       );
     }
+    if (creatorFilter) {
+      byKind = byKind.filter((item) =>
+        holdingsMatchCreator(item, creatorFilter)
+      );
+    }
+    if (seriesFilter) {
+      byKind = byKind.filter((item) => holdingsMatchSeries(item, seriesFilter));
+    }
     if (!trimmedSearch) return byKind;
     return byKind.filter((item) => holdingsMatchQuery(item, trimmedSearch));
   }, [
@@ -466,13 +506,35 @@ export function CollectiblesPagePanel({
     facetMedium,
     audioFormatFilter,
     selectedFacets,
+    creatorFilter,
+    seriesFilter,
     trimmedSearch,
   ]);
 
-  const displayRows = useMemo(
-    () => groupHoldingsForRail(filtered),
+  const displayGroups = useMemo(
+    () => groupHoldingsLibrary(filtered),
     [filtered]
   );
+  const inventorySource = useMemo(
+    () => filterHoldingsByMedium(vaultItems, mediumFilter),
+    [vaultItems, mediumFilter]
+  );
+  const vaultCreators = useMemo(() => {
+    return vaultInventoryCreators(inventorySource).map((entry) => ({
+      id: entry.id,
+      label:
+        entry.id === COLLECTIBLES_CREATOR_OTHER
+          ? 'Other'
+          : `@${fallbackLabel(entry.label)}`,
+    }));
+  }, [inventorySource]);
+  const vaultSeries = useMemo(() => {
+    return vaultInventorySeries(inventorySource).map((entry) => ({
+      id: entry.id,
+      label: entry.label,
+    }));
+  }, [inventorySource]);
+  const showCreatorHeadings = displayGroups.length > 1;
   const ownedByToken = useMemo(() => {
     const map = new Map<string, OwnedScarceItem>();
     for (const row of holdings.owned) {
@@ -490,10 +552,14 @@ export function CollectiblesPagePanel({
     trimmedSearch.length > 0 ||
     mediumFilter !== 'all' ||
     (facetMedium != null &&
-      (selectedFacets.length > 0 || Boolean(audioFormatFilter)));
+      (selectedFacets.length > 0 || Boolean(audioFormatFilter))) ||
+    Boolean(creatorFilter) ||
+    Boolean(seriesFilter);
   const facetOrFormatActive =
-    facetMedium != null &&
-    (selectedFacets.length > 0 || Boolean(audioFormatFilter));
+    (facetMedium != null &&
+      (selectedFacets.length > 0 || Boolean(audioFormatFilter))) ||
+    Boolean(creatorFilter) ||
+    Boolean(seriesFilter);
 
   /** OS vault entry with no wallet — portfolio routes always have pageAccountId. */
   const showConnectPrompt =
@@ -658,7 +724,7 @@ export function CollectiblesPagePanel({
             <button
               type="button"
               className="page-drawer-section-action"
-              onClick={() => setMediumFilter('all')}
+              onClick={clearDiscovery}
             >
               Show all
             </button>
@@ -671,36 +737,31 @@ export function CollectiblesPagePanel({
       ) : null}
 
       {filtered.length > 0 && (status === 'ready' || usingOfflineLibrary) ? (
-        <section className="market-section" aria-label="Collectibles">
-          <div
-            id="collectibles-results"
-            className="market-listing-list"
-            role="list"
-          >
-            {displayRows.map((item) => {
-              const owned = ownedByToken.get(item.tokenId);
-              return (
-                <CollectiblesHoldingRow
-                  key={item.tokenId}
-                  item={item}
-                  editionCount={item.editionCount}
-                  ownerMenu={
-                    isSelf && owned ? (
-                      <CollectiblesHoldingRowMenu
-                        item={owned}
-                        onList={() => {
-                          setSellItem(owned);
-                          setSellOpen(true);
-                        }}
-                        onDelisted={refreshOwned}
-                      />
-                    ) : null
-                  }
-                />
-              );
-            })}
-          </div>
-        </section>
+        <CollectiblesVaultLibrary
+          groups={displayGroups}
+          ownedByToken={ownedByToken}
+          showCreatorHeadings={showCreatorHeadings}
+          onSelectCreator={(creatorKey) =>
+            replaceDiscoveryParams({ creator: creatorKey })
+          }
+          onSelectSeries={(seriesKey) =>
+            replaceDiscoveryParams({ series: seriesKey })
+          }
+          renderOwnerMenu={
+            isSelf
+              ? (owned) => (
+                  <CollectiblesHoldingRowMenu
+                    item={owned}
+                    onList={() => {
+                      setSellItem(owned);
+                      setSellOpen(true);
+                    }}
+                    onDelisted={refreshOwned}
+                  />
+                )
+              : undefined
+          }
+        />
       ) : null}
 
       {showLoadMore ? (
@@ -753,12 +814,18 @@ export function CollectiblesPagePanel({
               medium={mediumFilter}
               audioFormat={audioFormatFilter}
               selectedFacets={selectedFacets}
+              vaultCreators={vaultCreators}
+              vaultSeries={vaultSeries}
+              selectedCreator={creatorFilter}
+              selectedSeries={seriesFilter}
               onMediumChange={setMediumFilter}
               onAudioFormatChange={(format) =>
                 replaceDiscoveryParams({ audioFormat: format })
               }
               onFacetsChange={(facets) => replaceDiscoveryParams({ facets })}
-              onClear={() => setMediumFilter('all')}
+              onCreatorChange={(creator) => replaceDiscoveryParams({ creator })}
+              onSeriesChange={(series) => replaceDiscoveryParams({ series })}
+              onClear={clearDiscovery}
               onMenuOpenChange={setScrollTuckPinned}
             />
           ) : undefined

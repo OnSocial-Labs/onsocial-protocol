@@ -17,6 +17,7 @@ function collectionRow(opts: {
   title: string;
   kind: string;
   extra?: Record<string, unknown>;
+  series?: { id: string; title: string };
 }) {
   return {
     collectionId: opts.collectionId,
@@ -50,8 +51,14 @@ function collectionRow(opts: {
       title: opts.title,
       extra: JSON.stringify({ kind: opts.kind, ...opts.extra }),
     }),
-    metadata: null,
-    extraJson: JSON.stringify({ kind: opts.kind, ...opts.extra }),
+    metadata: opts.series
+      ? JSON.stringify({ series: opts.series })
+      : null,
+    extraJson: JSON.stringify({
+      kind: opts.kind,
+      ...opts.extra,
+      ...(opts.series ? { series: opts.series } : {}),
+    }),
     royaltyJson: null,
     createdBlockHeight: 1,
     createdBlockTimestamp: 1,
@@ -108,6 +115,24 @@ export async function stubCollectiblesVaultGraph(page: Page): Promise<void> {
                 mintedBlockTimestamp: 1,
                 updatedBlockTimestamp: 1,
               },
+              {
+                tokenId: 'dusk-run:1',
+                ownerId: VAULT_OWNER,
+                burned: false,
+                collectionId: 'dusk-run',
+                appId: null,
+                mintedBlockTimestamp: 1,
+                updatedBlockTimestamp: 4,
+              },
+              {
+                tokenId: 'gate-pass:2',
+                ownerId: VAULT_OWNER,
+                burned: false,
+                collectionId: 'gate-pass',
+                appId: null,
+                mintedBlockTimestamp: 1,
+                updatedBlockTimestamp: 5,
+              },
             ],
           },
         }),
@@ -128,12 +153,27 @@ export async function stubCollectiblesVaultGraph(page: Page): Promise<void> {
                 title: 'Night Drive',
                 kind: 'audio',
                 extra: { audioFormat: 'album' },
+                series: { id: 'night-roads', title: 'Night Roads' },
+              }),
+              collectionRow({
+                collectionId: 'dusk-run',
+                creatorId: 'alice.near',
+                title: 'Dusk Run',
+                kind: 'audio',
+                extra: { audioFormat: 'single' },
+                series: { id: 'night-roads', title: 'Night Roads' },
               }),
               collectionRow({
                 collectionId: 'chapter-one',
                 creatorId: 'alice.near',
                 title: 'Chapter One',
                 kind: 'writing',
+              }),
+              collectionRow({
+                collectionId: 'gate-pass',
+                creatorId: 'bob.near',
+                title: 'Gate Pass',
+                kind: 'ticket',
               }),
             ],
           },

@@ -11,6 +11,8 @@ interface CollectiblesHoldingRowProps {
   editionCount?: number;
   /** Owner-only manage menu — rendered beside the use CTA. */
   ownerMenu?: ReactNode;
+  /** Hide @creator when the row already sits under a creator heading. */
+  hideCreator?: boolean;
 }
 
 function formatListedNear(priceNear: string): string {
@@ -24,6 +26,7 @@ export function CollectiblesHoldingRow({
   item,
   editionCount = 1,
   ownerMenu = null,
+  hideCreator = false,
 }: CollectiblesHoldingRowProps) {
   const listedNear = item.listedPriceNear?.trim();
   const creatorId = item.creatorId?.trim() || null;
@@ -77,7 +80,7 @@ export function CollectiblesHoldingRow({
                 {formatListedNear(listedNear)} NEAR
               </span>
             ) : null}
-            {creatorId ? (
+            {creatorId && !hideCreator ? (
               <span className="market-listing-own">
                 {' · '}@{fallbackLabel(creatorId)}
               </span>

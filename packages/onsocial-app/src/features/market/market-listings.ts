@@ -159,6 +159,10 @@ export interface OwnedScarceItem {
   collectionId?: string | null;
   /** Drop creator when known from the collection catalog. */
   creatorId?: string | null;
+  /** Series id from collection `metadata.series` when the drop is in a series. */
+  seriesId?: string | null;
+  /** Series display title when stamped next to `series.id`. */
+  seriesTitle?: string | null;
   /** Medium taxonomy from metadata `extra.kind` when set. */
   mediumKind?: string | null;
   /** Audio release format from `extra.audioFormat` (or inferred). */
@@ -355,6 +359,65 @@ function parseExtra(extraData: string | null): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+export type OwnedSeriesRef = {
+  seriesId: string;
+  seriesTitle: string | null;
+};
+
+/**
+ * Series pointer from collection `metadata.series` or token `extra.series`.
+ * First blob that parses wins — catalog metadata, then extra.
+ */
+export function seriesFromOwnedBlobs(
+  ...blobs: Array<string | Record<string, unknown> | null | undefined>
+): OwnedSeriesRef | null {
+  for (const blob of blobs) {
+    const hit = seriesFromOneBlob(blob);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function seriesFromOneBlob(
+  blob: string | Record<string, unknown> | null | undefined
+): OwnedSeriesRef | null {
+  let rec: Record<string, unknown> | null = null;
+  if (typeof blob === 'string') {
+    const trimmed = blob.trim();
+    if (!trimmed) return null;
+    try {
+      rec = asRecord(JSON.parse(trimmed));
+    } catch {
+      return null;
+    }
+  } else {
+    rec = asRecord(blob);
+  }
+  if (!rec) return null;
+  const raw = rec.series;
+  if (typeof raw === 'string' && raw.trim()) {
+    return { seriesId: raw.trim(), seriesTitle: null };
+  }
+  const nested = asRecord(raw);
+  const id = typeof nested?.id === 'string' ? nested.id.trim() : '';
+  if (!id) return null;
+  const title =
+    typeof nested?.title === 'string' && nested.title.trim()
+      ? nested.title.trim()
+      : null;
+  return { seriesId: id, seriesTitle: title };
+}
+
+function ownedSeriesFields(
+  series: OwnedSeriesRef | null
+): Pick<OwnedScarceItem, 'seriesId' | 'seriesTitle'> {
+  if (!series) return {};
+  return {
+    seriesId: series.seriesId,
+    ...(series.seriesTitle ? { seriesTitle: series.seriesTitle } : {}),
+  };
 }
 
 function stringField(
@@ -1389,6 +1452,7 @@ function ownedItemsFromTokens(
         mediaUrl: resolveScarceMediaUrl(token.metadata?.media ?? null),
         ownerId: token.owner_id?.trim() || owner,
         collectionId,
+        ...ownedSeriesFields(seriesFromOwnedBlobs(extra)),
         mediumKind,
         ...discovery,
         listingKind: listed?.kind ?? null,
@@ -1583,6 +1647,9 @@ async function fetchOwnedScarcesPageFromIndexer(
       ...(catalog?.creatorId?.trim()
         ? { creatorId: catalog.creatorId.trim() }
         : {}),
+      ...ownedSeriesFields(
+        seriesFromOwnedBlobs(catalog?.metadata, extra, face?.extraJson)
+      ),
       mediumKind,
       ...discovery,
       listingKind: listed?.kind ?? null,
