@@ -30,8 +30,23 @@ export function scrollMobileFieldIntoView(element: HTMLElement | null) {
     }
   };
 
-  requestAnimationFrame(run);
+  window.requestAnimationFrame(run);
   window.setTimeout(run, KEYBOARD_SCROLL_RETRY_MS);
+}
+
+/** Focus a compose field and scroll it above the mobile keyboard. */
+export function focusComposerField(
+  field: HTMLTextAreaElement | HTMLInputElement | null
+) {
+  if (!field) return;
+  field.focus();
+  const end = field.value.length;
+  try {
+    field.setSelectionRange(end, end);
+  } catch {
+    /* Some fields reject setSelectionRange. */
+  }
+  scrollMobileFieldIntoView(field);
 }
 
 export function useMobileFieldFocusScroll<

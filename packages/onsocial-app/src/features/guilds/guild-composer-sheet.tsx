@@ -9,6 +9,7 @@ import {
   type CSSProperties,
   type FormEvent,
 } from 'react';
+import { flushSync } from 'react-dom';
 import {
   type PostRow,
   type ProfileAboutAlign,
@@ -59,6 +60,7 @@ import { OsChipRail } from '@/components/os/os-chip-rail';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
 import {
+  focusComposerField,
   scrollMobileFieldIntoView,
   useMobileFieldFocusScroll,
 } from '@/hooks/use-mobile-field-focus-scroll';
@@ -509,12 +511,7 @@ export function ComposerSheet({
   useEffect(() => {
     if (!open) return;
     const focusTimer = window.setTimeout(() => {
-      const field = textareaRef.current;
-      if (!field) return;
-      field.focus();
-      const end = field.value.length;
-      field.setSelectionRange(end, end);
-      scrollMobileFieldIntoView(field);
+      focusComposerField(textareaRef.current);
     }, 280);
     return () => window.clearTimeout(focusTimer);
   }, [open, mode, formKey]);
@@ -644,11 +641,15 @@ export function ComposerSheet({
 
   const addThreadBeat = () => {
     if (!canAddThread || pending) return;
-    setBeats((current) => {
-      if (!canAddComposerThreadBeat(current)) return current;
-      return [...current, emptySheetBeat()];
+    const nextIndex = beats.length;
+    flushSync(() => {
+      setBeats((current) => {
+        if (!canAddComposerThreadBeat(current)) return current;
+        return [...current, emptySheetBeat()];
+      });
+      setFocusedBeat(nextIndex);
     });
-    setFocusedBeat(beats.length);
+    focusComposerField(textareaRef.current);
   };
 
   const attachMediaFiles = async (fileList: FileList | null) => {
@@ -1100,6 +1101,10 @@ export function ComposerSheet({
                   disabled={!canAddThread || pending}
                   title={threadPlusHint(beats)}
                   aria-label="Add to thread"
+                  onMouseDown={(event) => {
+                    if (!canAddThread || pending) return;
+                    event.preventDefault();
+                  }}
                   onPointerDown={() => {
                     if (!canAddThread || pending) return;
                     setPlusPressed(true);
