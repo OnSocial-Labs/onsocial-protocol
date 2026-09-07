@@ -40688,6 +40688,89 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: var(--os-surface-muted-strong);
 }
 
+/* Compact guild-page mimic on Create guild. Banner, then badge beside the
+   name input — no logo overlap, no crest. Do not restyle .guild-hero. */
+.guild-look-preview {
+  position: relative;
+}
+
+.guild-look-preview-banner {
+  height: 5.25rem;
+  border-radius: 0.9rem;
+  overflow: hidden;
+  background: rgb(var(--fg-rgb) / 0.06);
+}
+
+.guild-look-preview-banner-hit {
+  width: 100%;
+  height: 100%;
+}
+
+.guild-look-preview-banner-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.guild-look-preview-banner-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: rgb(var(--fg-rgb) / 0.42);
+}
+
+.guild-create-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.guild-create-name-row input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.guild-look-preview-badge {
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.72rem;
+  background: rgb(var(--fg-rgb) / 0.06);
+}
+
+.guild-look-preview-badge-hit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.guild-look-preview-badge-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.guild-look-preview-badge-empty,
+.guild-field .guild-look-preview-badge-empty {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
 .dao-create-mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.92em;
@@ -41464,12 +41547,16 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   );
 }
 
-.os-app-screen[data-launcher='off']:has(.hub-create-form[data-keyboard='open'])
+.os-app-screen[data-launcher='off']:has(
+    :is(.hub-create-form, .guild-create-form)[data-keyboard='open']
+  )
   .os-app-screen-footer {
   bottom: var(--drop-create-keyboard-lift, 0px);
 }
 
-.os-app-screen[data-launcher='off']:has(.hub-create-form[data-keyboard='open'])
+.os-app-screen[data-launcher='off']:has(
+    :is(.hub-create-form, .guild-create-form)[data-keyboard='open']
+  )
   .os-app-screen-body {
   padding-bottom: calc(
     var(--drop-create-keyboard-lift, 0px) + var(--os-screen-footer-band)
