@@ -275,36 +275,53 @@ describe('writing manifesto', () => {
       mdFile('02-the-road.md'),
       mdFile('03-night.md'),
     ];
-    // Drag prologue to the end — same helper the chapter list uses.
-    const chapterFiles = reorderByInsert(picked, 0, 3);
-    expect(chapterFiles.map((f) => f.name)).toEqual([
-      '02-the-road.md',
+    // last → top, then a mid-list move — same helper the chapter list uses.
+    const lastToTop = reorderByInsert(picked, 2, 0);
+    expect(lastToTop.map((f) => f.name)).toEqual([
       '03-night.md',
+      '01-prologue.md',
+      '02-the-road.md',
+    ]);
+    const chapterFiles = reorderByInsert(lastToTop, 2, 1);
+    expect(chapterFiles.map((f) => f.name)).toEqual([
+      '03-night.md',
+      '02-the-road.md',
       '01-prologue.md',
     ]);
 
     // uploadMany returns one CID per file, same index order as the array.
     const uploaded = [
-      { cid: 'bafyroadchapteraaaaaaaaaaaaaaaaa' },
       { cid: 'bafynightchapteraaaaaaaaaaaaaaa' },
+      { cid: 'bafyroadchapteraaaaaaaaaaaaaaaaa' },
       { cid: 'bafyprologuechapteraaaaaaaaaaaa' },
     ];
     const chapters = chaptersFromPinnedFiles(chapterFiles, uploaded);
+    const bookPdf = bookPdfRefFromPinnedFile(pdfFile('print-edition.pdf'), {
+      cid: 'bafybookpdfaaaaaaaaaaaaaaaaaaaaa',
+    });
     const manifesto = buildWritingManifest({
       title: 'Novella',
       chapters,
+      ...(bookPdf ? { bookPdf } : {}),
     });
 
     expect(manifesto.chapters.map((c) => c.title)).toEqual([
-      'The road',
       'Night',
+      'The road',
       'Prologue',
     ]);
     expect(manifesto.chapters.map((c) => c.cid)).toEqual([
-      'bafyroadchapteraaaaaaaaaaaaaaaaa',
       'bafynightchapteraaaaaaaaaaaaaaa',
+      'bafyroadchapteraaaaaaaaaaaaaaaaa',
       'bafyprologuechapteraaaaaaaaaaaa',
     ]);
+    expect(manifesto.bookPdf?.cid).toBe('bafybookpdfaaaaaaaaaaaaaaaaaaaaa');
+    expect(readablesFromManifest(manifesto).map((c) => c.title)).toEqual([
+      'Night',
+      'The road',
+      'Prologue',
+    ]);
+    expect(readablesFromManifest(manifesto)).toHaveLength(3);
   });
 });
 

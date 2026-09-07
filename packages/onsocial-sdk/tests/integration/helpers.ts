@@ -13,6 +13,11 @@ import { fileURLToPath } from 'node:url';
 import { OnSocial } from '../../src/client.js';
 import { Session } from '../../src/advanced/session.js';
 import type { Network } from '../../src/types.js';
+import {
+  e2eKeypairForAccount,
+  loadE2eKeypair,
+  resolveE2eSignerAccount,
+} from '../../../../scripts/e2e-signers.mjs';
 
 // ── Environment ────────────────────────────────────────────────────────────
 
@@ -42,7 +47,10 @@ function resolveIntegrationNetwork(): Network {
 }
 
 function resolveAccountId(network: Network): string {
-  const accountId = process.env.ACCOUNT_ID ?? DEFAULT_ACCOUNT_IDS[network];
+  const accountId =
+    process.env.ACCOUNT_ID?.trim() ||
+    resolveE2eSignerAccount('primary') ||
+    DEFAULT_ACCOUNT_IDS[network];
   if (!accountId) {
     throw new Error(
       'ACCOUNT_ID is required when running SDK integration tests outside testnet'
@@ -55,6 +63,11 @@ export const INTEGRATION_NETWORK = resolveIntegrationNetwork();
 export const GATEWAY_URL =
   process.env.GATEWAY_URL || NETWORK_GATEWAY_URLS[INTEGRATION_NETWORK];
 export const ACCOUNT_ID = resolveAccountId(INTEGRATION_NETWORK);
+/** Second signer when a test needs a counterparty (buyer / grantee). */
+export const SECONDARY_ACCOUNT_ID =
+  process.env.SECONDARY_ACCOUNT_ID?.trim() ||
+  resolveE2eSignerAccount('counterparty') ||
+  'test02.onsocial.testnet';
 export const CREDS_FILE =
   process.env.CREDS_FILE ||
   path.join(
@@ -173,12 +186,38 @@ function base58Decode(s: string): Buffer {
   return Buffer.from(hex.length % 2 ? '0' + hex : hex, 'hex');
 }
 
+function keypairFromE2e(accountId: string) {
+  const fromEnv =
+    e2eKeypairForAccount(accountId) ??
+    (accountId === ACCOUNT_ID ? loadE2eKeypair('primary') : null);
+  if (!fromEnv) return null;
+  return {
+    secretKey: fromEnv.secretKey,
+    publicKey: fromEnv.publicKey,
+    accountId: fromEnv.accountId,
+  };
+}
+
 export function loadKeypair(credsFile: string) {
-  const creds = JSON.parse(fs.readFileSync(credsFile, 'utf8'));
-  const privRaw = creds.private_key.replace(/^ed25519:/, '');
-  const secretKey = base58Decode(privRaw);
-  const publicKey = creds.public_key as string;
-  return { secretKey, publicKey, accountId: creds.account_id as string };
+  if (fs.existsSync(credsFile)) {
+    const creds = JSON.parse(fs.readFileSync(credsFile, 'utf8'));
+    const privRaw = creds.private_key.replace(/^ed25519:/, '');
+    const secretKey = base58Decode(privRaw);
+    const publicKey = creds.public_key as string;
+    return { secretKey, publicKey, accountId: creds.account_id as string };
+  }
+  const accountFromName = path.basename(credsFile, '.json');
+  const fromEnv = keypairFromE2e(accountFromName);
+  if (fromEnv) return fromEnv;
+  throw new Error(
+    `Cannot load NEAR credentials from ${credsFile} or e2e signer env (E2E_SIGNER_* / TICKET_E2E_*)`
+  );
+}
+
+export function loadKeypairForAccount(accountId: string) {
+  const fromEnv = keypairFromE2e(accountId);
+  if (fromEnv) return fromEnv;
+  return loadKeypair(credsFileForAccount(accountId));
 }
 
 function nep413Hash(message: string, nonce: Buffer, recipient: string): Buffer {
@@ -331,11 +370,12 @@ async function fetchLatestBlockHeightFromRpc(): Promise<bigint> {
 /**
  * Attach a NEP-366 delegate signer to an integration client.
  *
- * The signer uses the account key from the local NEAR credentials file. That
- * keeps the test lane focused on the SDK -> SignedDelegateAction ->
- * `/relay/delegate` path without mutating the account's access-key set on each
- * run. Product tests for wallet onboarding still live in the unit coverage for
- * `bootstrapSession` and should be backed by a wallet/e2e suite separately.
+ * The signer uses the account key from env (E2E_SIGNER_* / TICKET_E2E_*) or
+ * the local NEAR credentials file. That keeps the test lane focused on the
+ * SDK -> SignedDelegateAction -> `/relay/delegate` path without mutating the
+ * account's access-key set on each run. Product tests for wallet onboarding
+ * still live in the unit coverage for `bootstrapSession` and should be backed
+ * by a wallet/e2e suite separately.
  */
 export async function attachCredentialDelegateSession(
   os: OnSocial,
@@ -345,16 +385,15 @@ export async function attachCredentialDelegateSession(
   if (os.session) return true;
 
   const required = opts.required ?? true;
-  const credsPath = credsFileForAccount(accountId);
-  if (!fs.existsSync(credsPath)) {
+  let keypair: ReturnType<typeof loadKeypair>;
+  try {
+    keypair = loadKeypairForAccount(accountId);
+  } catch (err) {
     if (!required) return false;
-    throw new Error(
-      `NEAR credentials are required for delegate integration tests: ${credsPath}`
-    );
+    throw err;
   }
 
   try {
-    const keypair = loadKeypair(credsPath);
     const nonce = await fetchAccessKeyNonce(accountId, keypair.publicKey);
     os.attachSession(
       new Session({
@@ -388,7 +427,7 @@ export async function attachCredentialDelegateSession(
 export async function getSessionClient(): Promise<OnSocial> {
   if (_sessionClient) return _sessionClient;
 
-  _keypair = loadKeypair(CREDS_FILE);
+  _keypair = loadKeypairForAccount(ACCOUNT_ID);
   const os = new OnSocial({
     gatewayUrl: GATEWAY_URL,
     network: INTEGRATION_NETWORK,
@@ -422,7 +461,7 @@ async function getSessionClientForAccount(
   const cached = _sessionClientsByAccount.get(accountId);
   if (cached) return cached;
 
-  const keypair = loadKeypair(credsFileForAccount(accountId));
+  const keypair = loadKeypairForAccount(accountId);
   const os = new OnSocial({
     gatewayUrl: GATEWAY_URL,
     network: INTEGRATION_NETWORK,
@@ -628,7 +667,7 @@ export async function cleanupApiKey(): Promise<void> {
 }
 
 export function getKeypair() {
-  if (!_keypair) _keypair = loadKeypair(CREDS_FILE);
+  if (!_keypair) _keypair = loadKeypairForAccount(ACCOUNT_ID);
   return _keypair;
 }
 

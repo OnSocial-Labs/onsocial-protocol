@@ -2,6 +2,7 @@
  * Shared Playwright helpers for @onsocial/app e2e smokes.
  * App-local only — not part of @onsocial/ui.
  */
+export { e2ePaintAccountId, resolveE2eSignerAccount } from './e2e-signers';
 export {
   closeStandingDrawer,
   E2E_CHROME_TIMEOUT_MS,

@@ -67,9 +67,8 @@ import {
   DROP_AUDIO_MAX_TRACKS,
   isDropAudioMime,
   musicTracksValid,
-  normalizeTrackLyrics,
+  playableFromPinnedFiles,
   sha256BlobBase64,
-  trackTitleFromFile,
   type MusicReleaseFormat,
 } from '@/features/scarces/drop-audio';
 import { DropTrackPreviewList } from '@/features/scarces/drop-track-preview-list';
@@ -1941,17 +1940,11 @@ export function CreateDropPanel() {
         try {
           const uploadClient = createAppOnSocialClient(uploaderAccountId);
           const uploaded = await uploadClient.storage.uploadMany(trackFiles);
-          const playable = uploaded.map((ref, index) => {
-            const file = trackFiles[index]!;
-            const trackTitle = trackTitleFromFile(file);
-            const lyrics = normalizeTrackLyrics(trackLyrics[index]);
-            return {
-              cid: ref.cid,
-              mime: file.type || 'audio/mpeg',
-              ...(trackTitle ? { title: trackTitle } : {}),
-              ...(lyrics ? { lyrics } : {}),
-            };
-          });
+          const playable = playableFromPinnedFiles(
+            trackFiles,
+            uploaded,
+            trackLyrics
+          );
           setUploadLabel('Uploading cover…');
           setPendingLabel('Uploading cover…');
           const cover = await uploadClient.storage.upload(imageFile!);

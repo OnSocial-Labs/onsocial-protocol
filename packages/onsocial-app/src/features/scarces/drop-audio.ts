@@ -67,3 +67,38 @@ export function normalizeTrackLyrics(
   if (trimmed.length <= maxChars) return trimmed;
   return trimmed.slice(0, maxChars);
 }
+
+export interface ScarcePlayableRef {
+  cid: string;
+  mime: string;
+  title?: string;
+  lyrics?: string;
+}
+
+/**
+ * Pair `uploadMany` results with the same-index track files / lyrics.
+ * Create UI order is `trackFiles` top→bottom; that order is what pins
+ * into `extra.playable`.
+ */
+export function playableFromPinnedFiles(
+  files: File[],
+  uploaded: ReadonlyArray<{ cid: string }>,
+  lyrics: ReadonlyArray<string | null | undefined> = []
+): ScarcePlayableRef[] {
+  const count = Math.min(files.length, uploaded.length);
+  const playable: ScarcePlayableRef[] = [];
+  for (let index = 0; index < count; index++) {
+    const file = files[index]!;
+    const cid = uploaded[index]!.cid.trim();
+    if (!cid) continue;
+    const title = trackTitleFromFile(file);
+    const line = normalizeTrackLyrics(lyrics[index]);
+    playable.push({
+      cid,
+      mime: file.type || 'audio/mpeg',
+      ...(title ? { title } : {}),
+      ...(line ? { lyrics: line } : {}),
+    });
+  }
+  return playable;
+}
