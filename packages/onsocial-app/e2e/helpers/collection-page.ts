@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { e2ePaintAccountId } from './e2e-signers';
 import { E2E_CHROME_TIMEOUT_MS } from './navigation';
 
 /** Keep in sync with `src/lib/e2e-wallet-account.ts`. */
@@ -208,7 +209,7 @@ export async function stubCollectionPageGraph(
 /** Seed a connected account without NearConnector (dev / Playwright only). */
 export async function seedE2eWallet(
   page: Page,
-  accountId = COLLECTION_E2E_VIEWER
+  accountId = e2ePaintAccountId(COLLECTION_E2E_VIEWER)
 ): Promise<void> {
   await page.addInitScript(
     ([key, account]) => {

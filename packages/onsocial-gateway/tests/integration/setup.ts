@@ -7,6 +7,12 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { KeyPair } from 'near-api-js';
 import tweetnacl_util from 'tweetnacl-util';
+import {
+  decodeNearKeypair,
+  loadE2eKeypair,
+  resolveE2eSignerAccount,
+  resolveE2eSignerPrivateKey,
+} from '../../../../scripts/e2e-signers.mjs';
 const { encodeBase64 } = tweetnacl_util;
 
 export const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4000';
@@ -17,9 +23,12 @@ export const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4000';
  * Loaded from ~/.near-credentials/testnet/ at runtime — never hardcoded.
  * Override the account via TEST_ACCOUNT_ID env var (default: test01.onsocial.testnet).
  * Or supply TEST_PUBLIC_KEY + TEST_PRIVATE_KEY directly (e.g. in CI).
+ * E2E_SIGNER_* / TICKET_E2E_ORGANIZER_* are the same general-purpose signers.
  */
 const TEST_ACCOUNT_ID =
-  process.env.TEST_ACCOUNT_ID || 'test01.onsocial.testnet';
+  process.env.TEST_ACCOUNT_ID ||
+  resolveE2eSignerAccount('primary') ||
+  'test01.onsocial.testnet';
 
 function loadCredentials(): { publicKey: string; privateKey: string } {
   // Prefer explicit env vars (for CI)
@@ -28,6 +37,15 @@ function loadCredentials(): { publicKey: string; privateKey: string } {
       publicKey: process.env.TEST_PUBLIC_KEY,
       privateKey: process.env.TEST_PRIVATE_KEY,
     };
+  }
+
+  const envPrivateKey =
+    process.env.TEST_PRIVATE_KEY || resolveE2eSignerPrivateKey('primary');
+  if (envPrivateKey) {
+    const fromEnv =
+      loadE2eKeypair('primary') ??
+      decodeNearKeypair(TEST_ACCOUNT_ID, envPrivateKey);
+    return { publicKey: fromEnv.publicKey, privateKey: envPrivateKey };
   }
 
   // Read from local NEAR credentials file

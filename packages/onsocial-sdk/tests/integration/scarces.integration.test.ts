@@ -3,7 +3,12 @@
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { getRelayedClient, ACCOUNT_ID, testId } from './helpers.js';
+import {
+  getRelayedClient,
+  ACCOUNT_ID,
+  SECONDARY_ACCOUNT_ID,
+  testId,
+} from './helpers.js';
 import type { OnSocial } from '../../src/client.js';
 
 describe('scarces', () => {
@@ -88,8 +93,7 @@ describe('scarces.apps — registration & moderation', () => {
   // method in this describe panics with "App pool not found" because nothing
   // was actually written. Scope the id under ACCOUNT_ID to satisfy ownership.
   const appId = `intapp${testId()}.${ACCOUNT_ID}`;
-  const moderatorId =
-    process.env.SECONDARY_ACCOUNT_ID ?? 'test02.onsocial.testnet';
+  const moderatorId = SECONDARY_ACCOUNT_ID;
 
   beforeAll(async () => {
     os = await getRelayedClient();
