@@ -152,6 +152,11 @@ test.describe('create app voice', () => {
     const footer = page.locator('.os-app-screen-footer');
     await expect(footer.getByRole('button', { name: 'Connect' })).toBeVisible();
     await expect(footer).toBeInViewport();
+    const footerGap = await footer.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      return Math.round(window.innerHeight - box.bottom);
+    });
+    expect(footerGap).toBeLessThan(16);
 
     await page
       .locator('.os-app-screen-actions')

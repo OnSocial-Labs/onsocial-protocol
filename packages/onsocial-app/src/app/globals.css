@@ -11120,6 +11120,19 @@ a.os-surface-row {
     );
   }
 
+  /* Open a hub — no launcher; same safe-edge pin as a hidden dock. */
+  .os-app-screen[data-launcher='off'][data-screen-footer='true']
+    .os-app-screen-footer {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .os-app-screen[data-launcher='off'][data-screen-footer='true']
+    .os-app-screen-body {
+    padding-bottom: calc(
+      env(safe-area-inset-bottom, 0px) + var(--os-screen-footer-band)
+    );
+  }
+
   .os-app-screen[data-screen-footer='true'] .collection-page {
     padding-bottom: 0.35rem;
   }

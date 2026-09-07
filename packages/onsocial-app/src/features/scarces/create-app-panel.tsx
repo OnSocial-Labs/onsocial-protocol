@@ -101,7 +101,7 @@ function isFormFieldTarget(target: EventTarget | null): boolean {
 
 export function CreateAppPanel() {
   const router = useRouter();
-  const { isConnected, isLoading, connect, getSigningWallet } = useAppWallet();
+  const { isConnected, connect, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -246,9 +246,8 @@ export function CreateAppPanel() {
         visible: true,
         primaryLabel: HUB_CREATE_CONNECT,
         primaryPendingLabel: 'Opening…',
-        canSubmit: !isLoading,
+        canSubmit: true,
         pending: false,
-        disabled: isLoading,
         primaryType: 'button',
         onPrimaryClick: () => {
           void connect();
@@ -264,7 +263,7 @@ export function CreateAppPanel() {
       disabled: !canSubmit,
       primaryType: 'submit',
     };
-  }, [isConnected, isLoading, connect, canSubmit, pending]);
+  }, [isConnected, connect, canSubmit, pending]);
 
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
