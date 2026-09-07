@@ -658,14 +658,24 @@ export function EndorseComposeSheet({
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                className="endorse-compose-media-attach"
-                disabled={busy || isSelf || discardConfirmOpen}
-                onClick={() => fileInputRef.current?.click()}
+              <OsSheetActions
+                layout="row-compact"
+                size="sm"
+                tone="frosted-primary"
+                borderless
+                className="endorse-compose-media-action"
               >
-                {mediaProcessing ? 'Checking media…' : 'Attach photo or video'}
-              </button>
+                <OsSheetAction
+                  type="button"
+                  variant="ghost"
+                  pending={mediaProcessing}
+                  pendingLabel="Checking media…"
+                  disabled={busy || isSelf || discardConfirmOpen}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Attach photo or video
+                </OsSheetAction>
+              </OsSheetActions>
             )}
             {!hasMediaAttachment ? (
               <p className="endorse-compose-media-hint">{mediaLimitsHint}</p>
