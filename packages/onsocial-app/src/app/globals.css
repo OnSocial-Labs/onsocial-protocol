@@ -41237,6 +41237,13 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.85rem;
 }
 
+.dm-compose-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
 .dm-compose-media {
   display: grid;
   gap: 0.35rem;
