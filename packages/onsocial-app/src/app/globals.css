@@ -40497,10 +40497,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.85rem;
 }
 
-.dao-create-form > .os-surface-chip {
-  align-self: flex-start;
-}
-
 .dao-create-form .guild-field textarea {
   min-height: 4.5rem;
   resize: none;

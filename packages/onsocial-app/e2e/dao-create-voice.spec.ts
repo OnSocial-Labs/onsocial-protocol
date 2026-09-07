@@ -25,12 +25,12 @@ test.describe('dao create voice', () => {
     await expect(
       sheet.getByRole('button', { name: 'Add a purpose', exact: true })
     ).toBeVisible();
-    const publish = sheet.getByRole('button', {
+    const publish = sheet.getByRole('switch', {
       name: 'Publish OnSocial profile',
       exact: true,
     });
     await expect(publish).toBeVisible();
-    await expect(publish).toHaveAttribute('aria-pressed', 'false');
+    await expect(publish).toHaveAttribute('aria-checked', 'false');
     await expect(
       sheet.getByRole('button', { name: 'Add cover', exact: true })
     ).toHaveClass(/os-write-dock-tool/);
