@@ -172,6 +172,15 @@ test.describe('collection drop page', () => {
     ).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Connect wallet')).toHaveCount(0);
     await expect(
+      page.locator('.os-app-screen[data-header-owns-connect]')
+    ).toBeVisible();
+    await expect(
+      page.locator('.portfolio-summon-hint--connect')
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Connect', exact: true })
+    ).toHaveCount(1);
+    await expect(
       page
         .locator('.ticket-door-page-actions')
         .getByRole('button', { name: 'Connect', exact: true })

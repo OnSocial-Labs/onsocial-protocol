@@ -23,7 +23,10 @@ import {
   type PassStaffVoice,
 } from '@/features/scarces/ticket-pass-payload';
 import { fetchIsCollectionRedeemer } from '@/features/scarces/ticket-redeemers';
-import { ticketStaffConnectHint } from '@/features/scarces/ticket-door-voice';
+import {
+  ticketStaffConnectHint,
+  ticketStaffFooterOwnsConnect,
+} from '@/features/scarces/ticket-door-voice';
 import { useTicketDoorAdmit } from '@/features/scarces/use-ticket-door-admit';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
@@ -194,6 +197,16 @@ export function TicketDoorPagePanel({
     : redeemVoice
       ? 'Redeem'
       : 'Admit';
+  const isPassDrop =
+    view != null &&
+    isPassMediumKind(view.kind) &&
+    view.maxRedeems != null &&
+    view.maxRedeems > 0;
+  const footerOwnsConnect = ticketStaffFooterOwnsConnect({
+    isPassDrop,
+    voiceMatches: kindVoice === voiceProp,
+    isConnected,
+  });
 
   let body: ReactNode;
   let footer: ReactNode = null;
@@ -217,7 +230,7 @@ export function TicketDoorPagePanel({
     );
   } else if (kindVoice !== voiceProp) {
     body = <DoorEmpty copy="Opening the right staff page…" />;
-  } else if (!isConnected) {
+  } else if (footerOwnsConnect) {
     body = (
       <DoorEmpty
         copy={ticketStaffConnectHint(voiceProp)}
@@ -343,6 +356,7 @@ export function TicketDoorPagePanel({
       dockBack
       backFallbackHref={dropHref}
       glassChrome
+      headerOwnsConnect={footerOwnsConnect}
       footer={footer}
       actions={
         view && canStaff && accessReady && isConnected ? (
