@@ -162,4 +162,17 @@ test.describe('collection drop page', () => {
       sheet.getByRole('button', { name: 'Connect', exact: true })
     ).toBeVisible();
   });
+
+  test('Admit door asks Connect, not Connect wallet', async ({ page }) => {
+    await stubCollectionPageGraph(page);
+    await gotoApp(page, '/collection/gate-pass/door');
+
+    await expect(
+      page.getByText('Connect to admit guests.', { exact: true })
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Connect wallet')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Connect', exact: true })
+    ).toBeVisible();
+  });
 });

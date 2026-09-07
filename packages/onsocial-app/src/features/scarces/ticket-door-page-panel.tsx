@@ -23,6 +23,7 @@ import {
   type PassStaffVoice,
 } from '@/features/scarces/ticket-pass-payload';
 import { fetchIsCollectionRedeemer } from '@/features/scarces/ticket-redeemers';
+import { ticketStaffConnectHint } from '@/features/scarces/ticket-door-voice';
 import { useTicketDoorAdmit } from '@/features/scarces/use-ticket-door-admit';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
@@ -219,11 +220,7 @@ export function TicketDoorPagePanel({
   } else if (!isConnected) {
     body = (
       <DoorEmpty
-        copy={
-          redeemVoice
-            ? 'Connect a staff wallet to redeem coupons.'
-            : 'Connect a door-staff wallet to admit guests.'
-        }
+        copy={ticketStaffConnectHint(voiceProp)}
       />
     );
     footer = (
@@ -238,7 +235,7 @@ export function TicketDoorPagePanel({
             disabled={isLoading}
             onClick={() => void connect()}
           >
-            Connect wallet
+            Connect
           </OsSheetAction>
         </OsSheetActions>
       </DoorFooter>

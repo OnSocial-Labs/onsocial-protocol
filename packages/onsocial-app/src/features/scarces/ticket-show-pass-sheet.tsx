@@ -6,6 +6,7 @@ import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
+  commercePartyLines,
   fetchCollectionCreatorFace,
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
@@ -19,6 +20,7 @@ import {
 } from '@/features/scarces/ticket-pass-payload';
 import { TicketPassQr } from '@/features/scarces/ticket-pass-qr';
 import { TicketClaimRefundAction } from '@/features/scarces/ticket-claim-refund-action';
+import { TICKET_PASS_CONNECT_LIVE } from '@/features/scarces/ticket-door-voice';
 import {
   fetchTicketTokenStatus,
   type TicketTokenStatus,
@@ -31,7 +33,6 @@ import {
   setCachedAppSocialSession,
 } from '@/lib/app-social-session-cache';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { fallbackLabel } from '@/lib/profile-display';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
 /**
@@ -175,7 +176,7 @@ export function TicketShowPassSheet({
       if (!viewer) {
         if (!cancelled) {
           setLivePayload(null);
-          setLiveError('Connect your wallet to show a live pass.');
+          setLiveError(TICKET_PASS_CONNECT_LIVE);
           setLiveReady(true);
         }
         return;
@@ -258,9 +259,9 @@ export function TicketShowPassSheet({
         : ' is-invalid'
     : '';
 
-  const holderHandle = ownerId ? fallbackLabel(ownerId) : '';
-  const holderDisplay = holderFaceForOwner?.displayName?.trim() || null;
-  const holderPrimary = holderDisplay || null;
+  const { name: holderName, handle: holderHandle } = ownerId
+    ? commercePartyLines(ownerId, holderFaceForOwner?.displayName)
+    : { name: '', handle: '' };
   const holderAccount = holderHandle ? `@${holderHandle}` : '';
   const qrHint = !liveReady
     ? 'Preparing live pass…'
@@ -325,16 +326,16 @@ export function TicketShowPassSheet({
                   <AccountAvatar
                     accountId={ownerId}
                     src={holderFaceForOwner?.avatarUrl ?? null}
-                    fallbackInitial={holderDisplay || ownerId}
+                    fallbackInitial={holderName || ownerId}
                     size="sm"
                     shellLoading={!holderReady}
                     className="ticket-show-pass-holder-avatar"
                   />
                 ) : null}
                 <div className="ticket-show-pass-identity-copy">
-                  {ownerId && holderPrimary ? (
+                  {ownerId && holderName ? (
                     <p className="ticket-show-pass-holder-name">
-                      {holderPrimary}
+                      {holderName}
                     </p>
                   ) : null}
                   {ownerId && holderAccount ? (
