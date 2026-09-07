@@ -34,11 +34,15 @@ test.describe('collectibles shell', () => {
     await gotoApp(page, '/collectibles');
 
     await expect(
-      page.getByText('Connect your wallet to open your Collectibles vault.')
+      page.getByText('Connect to open Collectibles.', { exact: true })
     ).toBeVisible();
+    await expect(page.getByText('Connect wallet')).toHaveCount(0);
     await expect(
       page.getByRole('main').getByRole('button', { name: 'Connect' })
-    ).toHaveClass(PILL_ACTION);
+    ).toHaveCount(0);
+    await expect(
+      page.locator('.portfolio-summon-hint--connect')
+    ).toHaveText('Connect');
     await expect(
       page.getByRole('main').getByRole('link', { name: 'Browse Market' })
     ).toHaveClass(PILL_ACTION);
