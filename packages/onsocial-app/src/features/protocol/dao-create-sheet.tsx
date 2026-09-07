@@ -678,26 +678,20 @@ export function DaoCreateSheet({
             </label>
           ) : null}
 
-          <div className="account-action-toggles">
-            <button
-              type="button"
-              className="account-action-toggle"
-              role="switch"
-              aria-checked={publishSocial}
-              disabled={pending || discardConfirmOpen}
-              onClick={() => setPublishSocial((on) => !on)}
-            >
-              <span className="account-action-toggle-copy">
-                <span className="account-action-toggle-label">
-                  {DAO_CREATE_PUBLISH}
-                </span>
-              </span>
-              <span
-                className={`account-safe-mode-switch${publishSocial ? ' is-on' : ''}`}
-                aria-hidden
-              />
-            </button>
-          </div>
+          <button
+            type="button"
+            className="dao-create-publish"
+            role="switch"
+            aria-checked={publishSocial}
+            disabled={pending || discardConfirmOpen}
+            onClick={() => setPublishSocial((on) => !on)}
+          >
+            <span>{DAO_CREATE_PUBLISH}</span>
+            <span
+              className={`account-safe-mode-switch${publishSocial ? ' is-on' : ''}`}
+              aria-hidden
+            />
+          </button>
 
           <button
             type="button"

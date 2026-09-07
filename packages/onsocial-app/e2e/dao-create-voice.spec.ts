@@ -31,6 +31,9 @@ test.describe('dao create voice', () => {
     });
     await expect(publish).toBeVisible();
     await expect(publish).toHaveAttribute('aria-checked', 'false');
+    await expect(publish).toHaveClass(/dao-create-publish/);
+    await expect(publish).not.toHaveClass(/account-action-toggle/);
+    await expect(sheet.locator('.os-surface-chip')).toHaveCount(0);
     await expect(
       sheet.getByRole('button', { name: 'Add cover', exact: true })
     ).toHaveClass(/os-write-dock-tool/);
