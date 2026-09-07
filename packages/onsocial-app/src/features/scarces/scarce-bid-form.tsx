@@ -669,7 +669,7 @@ export function ScarceBidForm({
 
     if (ended) {
       const settleLabel = !isConnected
-        ? 'Connect wallet'
+        ? 'Connect'
         : isHighestBidder && !isOwnAuction
           ? 'Collect'
           : isOwnAuction
@@ -700,7 +700,7 @@ export function ScarceBidForm({
         ? buyNowPath
           ? `Buy now · ${formatNearLabel(buyNow ?? normalizedAmount ?? minNear)}`
           : `Bid · ${bidAmountLabel}`
-        : 'Connect wallet',
+        : 'Connect',
       primaryPendingLabel: buyNowPath ? 'Buying…' : 'Bidding…',
       canSubmit: isConnected ? canBid : true,
       pending: pending === 'bid' || pending === 'buyNow',
@@ -825,9 +825,9 @@ export function ScarceBidForm({
         <div className="scarce-buy-summary">
           <p className="scarce-buy-title">{title}</p>
           {parties.artistPending ? (
-            <ScarcePartyLine label="Author" pending />
+            <ScarcePartyLine pending />
           ) : artistId ? (
-            <ScarcePartyLine label="Author" accountId={artistId} />
+            <ScarcePartyLine accountId={artistId} />
           ) : null}
           {showDistinctSeller && sellerId ? (
             <ScarcePartyLine label="Seller" accountId={sellerId} />

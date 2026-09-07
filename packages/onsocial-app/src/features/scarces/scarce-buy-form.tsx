@@ -28,6 +28,10 @@ import {
   viewerOfferCtaLabel,
 } from '@/features/scarces/scarce-offers';
 import { ScarceBuyFactsMeta } from '@/features/scarces/scarce-buy-facts-meta';
+import {
+  formatScarceBuyPrice,
+  scarceBuyDealParts,
+} from '@/features/scarces/scarce-buy-deal';
 import { supplyUnitForMediumKind } from '@/features/scarces/drop-templates';
 import {
   ScarceListingFactsSheet,
@@ -112,13 +116,6 @@ interface ScarceBuyFormProps {
   /** Viewer already owns an edition — Mint/Buy another. */
   alreadyOwnsEdition?: boolean;
   onFooterStateChange?: (state: CommerceSheetFooterState | null) => void;
-}
-
-function formatPriceNear(priceNear: string | undefined): string {
-  if (!priceNear?.trim()) return '—';
-  const n = Number.parseFloat(priceNear);
-  if (!Number.isFinite(n)) return priceNear.trim();
-  return `${n.toLocaleString('en-US', { maximumFractionDigits: 4 })} NEAR`;
 }
 
 function scalePriceNear(
@@ -496,10 +493,10 @@ export function ScarceBuyForm({
   const showFooterPrice =
     isConnected && ((isDropBuy && isPaidMint) || (isMarketBuy && isPaidAsk));
   const primaryLabelWithPrice = showFooterPrice
-    ? `${primaryActionLabel} · ${formatPriceNear(footerPriceNear)}`
+    ? `${primaryActionLabel} · ${formatScarceBuyPrice(footerPriceNear) || '—'}`
     : isConnected
       ? primaryActionLabel
-      : 'Connect wallet';
+      : 'Connect';
 
   const canSubmit = isConnected && !pending && isBuyable;
 
@@ -935,10 +932,9 @@ export function ScarceBuyForm({
         <div className="scarce-buy-summary">
           <p className="scarce-buy-title">{title}</p>
           {parties.artistPending ? (
-            <ScarcePartyLine label="Author" pending />
+            <ScarcePartyLine pending />
           ) : artistId ? (
             <ScarcePartyLine
-              label="Author"
               accountId={artistId}
               displayNameValue={artistProfileName}
               avatarUrl={artistAvatarUrl}
@@ -947,54 +943,27 @@ export function ScarceBuyForm({
           {showDistinctSeller && sellerId ? (
             <ScarcePartyLine label="Seller" accountId={sellerId} />
           ) : null}
-          <p className="scarce-buy-price">
-            {isMarketBuy && priceNear
-              ? `Ask · ${formatPriceNear(priceNear)}`
-              : formatPriceNear(isDropBuy ? totalPriceNear : priceNear)}
-          </p>
           {openOfferNear ? (
             <p className="profile-support-hint">
-              Your offer · {formatPriceNear(openOfferNear)}
+              Your offer · {formatScarceBuyPrice(openOfferNear)}
             </p>
           ) : null}
-          {copies != null && copies > 1 ? (
-            <p className="profile-support-hint">
-              {remaining != null && remaining < copies
-                ? `${remaining} of ${copies} left`
-                : `${copies} ${supplyUnit}`}
-            </p>
-          ) : null}
-          {(() => {
-            const listedLabel = listing?.listedAtMs
-              ? formatMarketRelativeTime(listing.listedAtMs)
-              : '';
-            const mintedLabel = mintedAtMs
-              ? formatMarketRelativeTime(mintedAtMs)
-              : '';
-            if (isPrimaryMint) {
-              const mintPriceLabel = priceNear
-                ? formatPriceNear(priceNear)
-                : '';
-              return (
-                <ScarceBuyFactsMeta
-                  parts={
-                    mintPriceLabel ? ['Mint', mintPriceLabel] : ['Primary mint']
-                  }
-                  onOpenFacts={() => setFactsOpen(true)}
-                />
-              );
-            }
-            const parts = [
-              listedLabel ? `Listed ${listedLabel}` : null,
-              mintedLabel ? `Minted ${mintedLabel}` : null,
-            ].filter((part): part is string => Boolean(part));
-            return (
-              <ScarceBuyFactsMeta
-                parts={parts.length > 0 ? parts : ['Resale']}
-                onOpenFacts={() => setFactsOpen(true)}
-              />
-            );
-          })()}
+          <ScarceBuyFactsMeta
+            parts={scarceBuyDealParts({
+              isPrimaryMint,
+              copies,
+              remaining,
+              unit: supplyUnit,
+              priceNear,
+              listedLabel: listing?.listedAtMs
+                ? `Listed ${formatMarketRelativeTime(listing.listedAtMs)}`
+                : null,
+              mintedLabel: mintedAtMs
+                ? `Minted ${formatMarketRelativeTime(mintedAtMs)}`
+                : null,
+            })}
+            onOpenFacts={() => setFactsOpen(true)}
+          />
         </div>
 
         <ScarceProvenanceCopy
@@ -1027,19 +996,13 @@ export function ScarceBuyForm({
           <p className="profile-support-error" role="alert">
             {fieldError}
           </p>
-        ) : isOwnListing ? null : !isConnected ? (
-          <p className="profile-support-hint">
-            {isPrimaryMint
-              ? 'Connect to mint this scarce.'
-              : 'Connect to buy this scarce.'}
-          </p>
-        ) : !isBuyable ? (
+        ) : isOwnListing || isBuyable || !isConnected ? null : (
           <p className="profile-support-hint">
             {status === 'lazy_listing' || status === 'listed'
               ? 'Listing isn’t ready yet…'
               : 'This scarce isn’t for sale.'}
           </p>
-        ) : null}
+        )}
       </form>
       <ScarceListingFactsSheet
         open={factsOpen}
