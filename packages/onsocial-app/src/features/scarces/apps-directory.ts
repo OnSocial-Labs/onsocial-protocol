@@ -1,4 +1,8 @@
-import type { AppView, CreatorAccess } from '@/features/scarces/apps-data';
+import {
+  creatorAccessShort,
+  type AppView,
+  type CreatorAccess,
+} from '@/features/scarces/apps-data';
 import type { HubCategoryFilter } from '@/features/scarces/hub-categories';
 
 export type AppsAccessFilter = 'all' | CreatorAccess;
@@ -11,9 +15,9 @@ export const APPS_ACCESS_FILTERS: ReadonlyArray<{
   label: string;
 }> = [
   { id: 'all', label: 'All' },
-  { id: 'open', label: 'Open' },
-  { id: 'approval', label: 'Approval' },
-  { id: 'invite_only', label: 'Staff' },
+  { id: 'open', label: creatorAccessShort('open') },
+  { id: 'approval', label: creatorAccessShort('approval') },
+  { id: 'invite_only', label: creatorAccessShort('invite_only') },
 ];
 
 export const APPS_SORT_OPTIONS: ReadonlyArray<{
