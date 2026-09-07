@@ -7,7 +7,7 @@
 use anyhow::Result;
 use near_workspaces::types::{Gas, KeyType, NearToken, SecretKey};
 use near_workspaces::{Account, Contract};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::utils::entry_value;
 
@@ -581,7 +581,10 @@ async fn test_every_core_execute_action_on_chain() -> Result<()> {
     let expired = get_entry(&contract, &format!("groups/govg/proposals/{expire_id}"))
         .await?
         .expect("expired proposal");
-    assert_eq!(expired.get("status").and_then(|v| v.as_str()), Some("expired"));
+    assert_eq!(
+        expired.get("status").and_then(|v| v.as_str()),
+        Some("expired")
+    );
 
     hit(
         &mut seen,
@@ -658,11 +661,7 @@ async fn test_storage_tip_transfers_balance_on_chain() -> Result<()> {
         .args_json(json!({ "account_id": alice.id() }))
         .await?
         .json()?;
-    let alice_before: u128 = before_alice["balance"]
-        .as_str()
-        .unwrap()
-        .parse()
-        .unwrap();
+    let alice_before: u128 = before_alice["balance"].as_str().unwrap().parse().unwrap();
 
     execute_admin(
         &contract,
@@ -695,8 +694,7 @@ async fn test_storage_tip_transfers_balance_on_chain() -> Result<()> {
     let bob_after: u128 = after_bob["balance"].as_str().unwrap().parse().unwrap();
     let tipped = alice_before.saturating_sub(alice_after);
     assert!(
-        tipped >= 1_000_000_000_000_000_000_000_000
-            && tipped <= 1_000_000_000_000_000_000_000_001,
+        tipped >= 1_000_000_000_000_000_000_000_000 && tipped <= 1_000_000_000_000_000_000_000_001,
         "alice should lose ~1 NEAR to the tip (lost {tipped})"
     );
     assert_eq!(bob_after, 1_000_000_000_000_000_000_000_000);

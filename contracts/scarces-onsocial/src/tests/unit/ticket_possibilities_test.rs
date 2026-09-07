@@ -279,12 +279,7 @@ fn ticket_non_renewable_cannot_postpone() {
     buy(&mut contract, T0_NS, 1);
     testing_env!(at(creator(), T0_NS).build());
     let err = contract
-        .renew_token(
-            &creator(),
-            &seat(1),
-            COL,
-            (T0_MS + 4 * DAY_MS) * NS_PER_MS,
-        )
+        .renew_token(&creator(), &seat(1), COL, (T0_MS + 4 * DAY_MS) * NS_PER_MS)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
     let err = contract

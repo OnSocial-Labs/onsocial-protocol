@@ -639,7 +639,8 @@ async fn test_every_execute_action_on_chain() -> Result<()> {
     )
     .await?;
 
-    let ticket_ids = nft_tokens_for_owner(&contract, &buyer.id().to_string(), None, Some(20)).await?;
+    let ticket_ids =
+        nft_tokens_for_owner(&contract, &buyer.id().to_string(), None, Some(20)).await?;
     let ticket = ticket_ids
         .iter()
         .find(|t| t.token_id.starts_with(&format!("{TICKET_COL}:")))
