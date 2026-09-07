@@ -232,6 +232,9 @@ test.describe('create drop', () => {
       page.getByRole('button', { name: 'Transferable: Yes' })
     ).toBeVisible();
     await expect(
+      page.getByRole('button', { name: 'Destroy: No' })
+    ).toBeVisible();
+    await expect(
       page.getByRole('button', { name: 'Renewals: No' })
     ).toBeVisible();
     await expect(
@@ -311,6 +314,31 @@ test.describe('create drop', () => {
     ).toBeVisible();
   });
 
+  test('Destroy defaults to No and can be turned on', async ({ page }) => {
+    await openCreateDrop(page);
+    await page.getByRole('button', { name: 'Advanced', exact: true }).click();
+
+    await expect(
+      page.getByRole('button', { name: 'Destroy: No' })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Destroy: No' }).click();
+    const destroy = page.getByRole('dialog', { name: 'Destroy' });
+    await expect(
+      destroy.getByText('No keeps the edition. Yes lets the holder destroy it.')
+    ).toBeVisible();
+    await expect(
+      destroy.getByRole('radiogroup', { name: 'Destroy' })
+    ).toBeVisible();
+    await expect(
+      destroy.getByRole('radio', { name: 'No', exact: true })
+    ).toBeChecked();
+    await destroy.getByRole('radio', { name: 'Yes', exact: true }).click();
+    await destroy.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Destroy: Yes' })
+    ).toBeVisible();
+  });
+
   test('tickets show Event and Postpone in Advanced', async ({ page }) => {
     await openCreateDrop(page);
     await page.getByRole('tab', { name: 'Tickets', exact: true }).click();
@@ -385,6 +413,9 @@ test.describe('create drop', () => {
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Transferable: Yes' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Destroy: No' })
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Allowlist: Connect' })

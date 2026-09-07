@@ -150,6 +150,11 @@ export function CollectionFactsSheet({
     : 'Shared artwork';
   const rightsParts = [
     view.transferable ? 'Transferable' : 'Soulbound',
+    view.burnable === true
+      ? 'Can destroy'
+      : view.burnable === false
+        ? "Can't destroy"
+        : null,
     view.renewable
       ? view.kind === 'ticket'
         ? 'Date changes'

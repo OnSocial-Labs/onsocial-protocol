@@ -42,6 +42,8 @@ export type DropFormDraft = {
   customRoyaltyInput: string;
   royaltyShares: RoyaltySplitShare[];
   transferable: boolean;
+  /** Holder can destroy. Product default is false; missing drafts stay false. */
+  burnable: boolean;
   renewable: boolean;
   maxRedeemsInput: string;
   draftAllowlist: AllowlistEntry[];
@@ -126,6 +128,7 @@ function readRaw(): DropFormDraft | null {
       !Array.isArray(parsed.royaltyShares) ||
       !parsed.royaltyShares.every(isRoyaltyShare) ||
       typeof parsed.transferable !== 'boolean' ||
+      (parsed.burnable != null && typeof parsed.burnable !== 'boolean') ||
       typeof parsed.renewable !== 'boolean' ||
       typeof parsed.maxRedeemsInput !== 'string' ||
       !Array.isArray(parsed.draftAllowlist) ||
@@ -151,7 +154,10 @@ function readRaw(): DropFormDraft | null {
       return null;
     }
     const generativeRarity = parseGenerativeRarity(parsed.generativeRarity);
-    const draft = parsed as DropFormDraft;
+    const draft = {
+      ...(parsed as DropFormDraft),
+      burnable: parsed.burnable === true,
+    };
     if (!generativeRarity) {
       delete draft.generativeRarity;
       return draft;
@@ -199,6 +205,7 @@ export function dropFormDraftHasContent(
     | 'royaltyBps'
     | 'isCustomRoyalty'
     | 'templateId'
+    | 'burnable'
   >
 ): boolean {
   if (draft.title.trim()) return true;
@@ -221,6 +228,7 @@ export function dropFormDraftHasContent(
   if (draft.isCustomRoyalty || draft.royaltyBps !== DEFAULT_ROYALTY_BPS)
     return true;
   if (draft.templateId !== 'art') return true;
+  if (draft.burnable) return true;
   return false;
 }
 

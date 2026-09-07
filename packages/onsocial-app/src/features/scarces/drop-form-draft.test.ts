@@ -52,6 +52,7 @@ function baseDraft(
     customRoyaltyInput: '',
     royaltyShares: [],
     transferable: true,
+    burnable: false,
     renewable: false,
     maxRedeemsInput: '',
     draftAllowlist: [],
@@ -101,6 +102,16 @@ describe('drop-form-draft', () => {
     saveDropFormDraft(baseDraft({ title: 'Old' }));
     vi.setSystemTime(1_000_000 + DROP_FORM_DRAFT_TTL_MS + 1);
     expect(loadDropFormDraft('alice.near')).toBeNull();
+  });
+
+  it('loads older drafts that omit burnable as No', () => {
+    const legacy = baseDraft({ title: 'Legacy' });
+    delete (legacy as { burnable?: boolean }).burnable;
+    window.localStorage.setItem(
+      'onsocial.drop-form-draft.v1',
+      JSON.stringify({ ...legacy, savedAt: Date.now() })
+    );
+    expect(loadDropFormDraft('alice.near')?.burnable).toBe(false);
   });
 
   it('clearDropFormDraft removes storage', () => {
