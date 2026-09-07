@@ -24,6 +24,10 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { rememberCommunityDao } from '@/features/protocol/dao-accounts';
 import { buildDaoBrandingMetadata } from '@/features/protocol/dao-branding';
 import {
+  DAO_CREATE_CONNECT_CTA,
+  DAO_CREATE_CONNECT_HINT,
+} from '@/features/protocol/dao-create-voice';
+import {
   buildDaoFactoryAccountId,
   DAO_FACTORY_NAME_MAX,
   DAO_FACTORY_PURPOSE_MAX,
@@ -257,7 +261,7 @@ export function DaoCreateSheet({
     if (!isConnected) {
       return {
         visible: true,
-        primaryLabel: 'Connect wallet',
+        primaryLabel: DAO_CREATE_CONNECT_CTA,
         primaryPendingLabel: 'Connecting…',
         canSubmit: true,
         pending: false,
@@ -730,6 +734,8 @@ export function DaoCreateSheet({
             <p className="dao-create-error" role="alert">
               {error}
             </p>
+          ) : !isConnected ? (
+            <p className="profile-support-hint">{DAO_CREATE_CONNECT_HINT}</p>
           ) : null}
         </form>
       </OsGestureSheet>
