@@ -40583,11 +40583,13 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.42);
 }
 
-.dao-look-preview-head {
+.dao-look-preview-face {
   position: relative;
   z-index: 1;
-  width: fit-content;
-  margin: -1.7rem auto 0;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: -1.7rem;
 }
 
 .dao-look-preview-crest {

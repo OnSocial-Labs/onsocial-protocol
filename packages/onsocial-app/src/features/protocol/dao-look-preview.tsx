@@ -73,7 +73,7 @@ export function DaoLookPreview({
           onRemove={coverUrl ? onRemoveCover : undefined}
         />
       </div>
-      <div className="dao-look-preview-head">
+      <div className="dao-look-preview-face">
         <div
           className={`dao-look-preview-crest profile-editor-media-host${
             crestUrl ? ' has-media' : ''
