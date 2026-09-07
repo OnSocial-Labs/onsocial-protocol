@@ -18,6 +18,11 @@ test.describe('create app voice', () => {
 
     await expect(page.getByText('Your commission', { exact: true })).toBeVisible();
     await expect(page.getByText('Category', { exact: true })).toBeVisible();
+    const categorySlider = page.locator('.hub-categories-editor .topic-chip-slider');
+    await expect(categorySlider).toBeVisible();
+    const sliderBox = await categorySlider.boundingBox();
+    expect(sliderBox).toBeTruthy();
+    expect(sliderBox!.height).toBeLessThan(48);
     await expect(
       page.getByText('Who can create drops', { exact: true })
     ).toBeVisible();

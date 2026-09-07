@@ -36562,8 +36562,9 @@ a.os-surface-row {
     width: 100%;
   }
 
-  .hub-categories-editor .app-storage-presets,
+  .hub-categories-editor .topic-chip-slider,
   .guild-tags-editor .topic-chip-slider {
+    display: flex;
     justify-content: flex-start;
     width: 100%;
     flex-wrap: nowrap;
@@ -36581,7 +36582,7 @@ a.os-surface-row {
     );
   }
 
-  .hub-categories-editor .app-storage-presets::-webkit-scrollbar,
+  .hub-categories-editor .topic-chip-slider::-webkit-scrollbar,
   .guild-tags-editor .topic-chip-slider::-webkit-scrollbar {
     display: none;
   }

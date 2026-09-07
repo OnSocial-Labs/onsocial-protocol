@@ -2,6 +2,7 @@
 
 /**
  * One horizontal slider row of suggestion chips (pick) for hub/guild topics.
+ * Do not add `app-storage-presets` — that class wraps and turns this into a cloud.
  */
 export function TopicSuggestionSlider({
   ariaLabel,
@@ -20,7 +21,7 @@ export function TopicSuggestionSlider({
 }) {
   return (
     <div
-      className="topic-chip-slider app-storage-presets"
+      className="topic-chip-slider"
       role="group"
       aria-label={ariaLabel}
     >
