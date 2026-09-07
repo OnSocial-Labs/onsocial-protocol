@@ -56,7 +56,7 @@ const GUILD_MIN_ID = 3;
 
 export function GuildCreatePanel() {
   const router = useRouter();
-  const { isConnected, isLoading, connect } = useAppWallet();
+  const { isConnected, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [name, setName] = useState('');
@@ -309,15 +309,6 @@ export function GuildCreatePanel() {
         {error ? <p className="guild-form-error">{error}</p> : null}
 
         <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          {!isConnected && !isLoading ? (
-            <OsSheetAction
-              type="button"
-              variant="ghost"
-              onClick={() => void connect()}
-            >
-              Connect wallet
-            </OsSheetAction>
-          ) : null}
           <OsSheetAction
             type="submit"
             ready={canSubmit}

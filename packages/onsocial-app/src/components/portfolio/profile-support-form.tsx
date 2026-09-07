@@ -7,6 +7,10 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useSocialTokenIcon } from '@/hooks/use-social-token-icon';
 import {
+  SUPPORT_CONNECT_HINT,
+  SUPPORT_GUILD_CONNECT_CTA,
+} from '@/features/guilds/support-guild-voice';
+import {
   useSyncCommerceSheetFooter,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
@@ -222,7 +226,7 @@ export function ProfileSupportForm({
     if (isSelf) return null;
     return {
       visible: true,
-      primaryLabel: isConnected ? 'Support' : 'Connect wallet',
+      primaryLabel: isConnected ? 'Support' : SUPPORT_GUILD_CONNECT_CTA,
       primaryPendingLabel: 'Sending…',
       canSubmit: isConnected ? canSubmit : true,
       pending,
@@ -406,7 +410,7 @@ export function ProfileSupportForm({
           {fieldError ?? amountError}
         </p>
       ) : !isConnected ? (
-        <p className="profile-support-hint">Connect to send SOCIAL.</p>
+        <p className="profile-support-hint">{SUPPORT_CONNECT_HINT}</p>
       ) : null}
     </form>
   );

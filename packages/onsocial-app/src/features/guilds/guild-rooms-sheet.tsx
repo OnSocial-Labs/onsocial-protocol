@@ -17,6 +17,7 @@ import {
   aggregateChannelsFromPosts,
   type DiscoveredChannelUsage,
 } from '@/features/guilds/guild-structure-discovery';
+import { SUPPORT_GUILD_CONNECT_CTA } from '@/features/guilds/support-guild-voice';
 import { GuildStructureSettingsSection } from '@/features/guilds/guild-structure-settings-section';
 import {
   cloneGuildStructure,
@@ -226,22 +227,24 @@ export function GuildRoomsSheet({
             {!isConnected && !walletLoading ? (
               <OsSheetAction
                 type="button"
-                variant="ghost"
+                variant="primary"
+                ready
                 onClick={() => void connect()}
               >
-                Connect wallet
+                {SUPPORT_GUILD_CONNECT_CTA}
               </OsSheetAction>
-            ) : null}
-            <OsSheetAction
-              type="button"
-              ready={isDirty && isConnected}
-              pending={pending}
-              pendingLabel={memberDriven ? 'Proposing…' : 'Saving…'}
-              disabled={!isDirty || pending || !isConnected}
-              onClick={() => void handleSave()}
-            >
-              {memberDriven ? 'Propose rooms' : 'Save rooms'}
-            </OsSheetAction>
+            ) : (
+              <OsSheetAction
+                type="button"
+                ready={isDirty && isConnected}
+                pending={pending}
+                pendingLabel={memberDriven ? 'Proposing…' : 'Saving…'}
+                disabled={!isDirty || pending || !isConnected}
+                onClick={() => void handleSave()}
+              >
+                {memberDriven ? 'Propose rooms' : 'Save rooms'}
+              </OsSheetAction>
+            )}
           </OsSheetActions>
         ) : undefined
       }

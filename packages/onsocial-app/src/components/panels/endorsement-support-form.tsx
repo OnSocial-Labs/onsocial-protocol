@@ -7,6 +7,10 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useSocialTokenIcon } from '@/hooks/use-social-token-icon';
 import {
+  SUPPORT_CONNECT_HINT,
+  SUPPORT_GUILD_CONNECT_CTA,
+} from '@/features/guilds/support-guild-voice';
+import {
   useSyncCommerceSheetFooter,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
@@ -231,7 +235,7 @@ export function EndorsementSupportForm({
     if (isSelf) return null;
     return {
       visible: true,
-      primaryLabel: isConnected ? 'Support endorsement' : 'Connect wallet',
+      primaryLabel: isConnected ? 'Support endorsement' : SUPPORT_GUILD_CONNECT_CTA,
       primaryPendingLabel: 'Sending…',
       canSubmit: isConnected ? canSubmit : true,
       pending,
@@ -430,7 +434,7 @@ export function EndorsementSupportForm({
           {fieldError ?? amountError}
         </p>
       ) : !isConnected ? (
-        <p className="profile-support-hint">Connect to send SOCIAL.</p>
+        <p className="profile-support-hint">{SUPPORT_CONNECT_HINT}</p>
       ) : null}
     </form>
   );
