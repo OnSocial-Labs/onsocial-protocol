@@ -45,4 +45,5 @@ pub mod unit {
     pub mod spending_protection_test;
     pub mod storage_deposit_test;
     pub mod ticket_lifecycle_test;
+    pub mod ticket_possibilities_test;
 }
