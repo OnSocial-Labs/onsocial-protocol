@@ -173,17 +173,15 @@ test.describe('collection drop page', () => {
     await expect(page.getByText('Connect wallet')).toHaveCount(0);
     await expect(
       page.locator('.os-app-screen[data-header-owns-connect]')
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(
-      page.locator('.portfolio-summon-hint--connect')
+      page.locator('.ticket-door-page-actions')
     ).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Connect', exact: true })
     ).toHaveCount(1);
     await expect(
-      page
-        .locator('.ticket-door-page-actions')
-        .getByRole('button', { name: 'Connect', exact: true })
-    ).toBeVisible();
+      page.locator('.portfolio-summon-hint--connect')
+    ).toHaveText('Connect');
   });
 });

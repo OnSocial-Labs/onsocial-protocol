@@ -23,10 +23,7 @@ import {
   type PassStaffVoice,
 } from '@/features/scarces/ticket-pass-payload';
 import { fetchIsCollectionRedeemer } from '@/features/scarces/ticket-redeemers';
-import {
-  ticketStaffConnectHint,
-  ticketStaffFooterOwnsConnect,
-} from '@/features/scarces/ticket-door-voice';
+import { ticketStaffConnectHint } from '@/features/scarces/ticket-door-voice';
 import { useTicketDoorAdmit } from '@/features/scarces/use-ticket-door-admit';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
@@ -81,7 +78,7 @@ export function TicketDoorPagePanel({
   voice: PassStaffVoice;
 }) {
   const router = useRouter();
-  const { accountId, isConnected, connect, isLoading } = useAppWallet();
+  const { accountId, isConnected } = useAppWallet();
   const [view, setView] = useState<CollectionView | null>(initial);
   const [redeemerCheck, setRedeemerCheck] = useState<{
     key: string;
@@ -197,17 +194,6 @@ export function TicketDoorPagePanel({
     : redeemVoice
       ? 'Redeem'
       : 'Admit';
-  const isPassDrop =
-    view != null &&
-    isPassMediumKind(view.kind) &&
-    view.maxRedeems != null &&
-    view.maxRedeems > 0;
-  const footerOwnsConnect = ticketStaffFooterOwnsConnect({
-    isPassDrop,
-    voiceMatches: kindVoice === voiceProp,
-    isConnected,
-  });
-
   let body: ReactNode;
   let footer: ReactNode = null;
 
@@ -230,29 +216,8 @@ export function TicketDoorPagePanel({
     );
   } else if (kindVoice !== voiceProp) {
     body = <DoorEmpty copy="Opening the right staff page…" />;
-  } else if (footerOwnsConnect) {
-    body = (
-      <DoorEmpty
-        copy={ticketStaffConnectHint(voiceProp)}
-      />
-    );
-    footer = (
-      <DoorFooter>
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="button"
-            variant="primary"
-            ready={!isLoading}
-            pending={isLoading}
-            pendingLabel="Connecting…"
-            disabled={isLoading}
-            onClick={() => void connect()}
-          >
-            Connect
-          </OsSheetAction>
-        </OsSheetActions>
-      </DoorFooter>
-    );
+  } else if (!isConnected) {
+    body = <DoorEmpty copy={ticketStaffConnectHint(voiceProp)} />;
   } else if (!accessReady) {
     body = (
       <DoorEmpty
@@ -356,7 +321,6 @@ export function TicketDoorPagePanel({
       dockBack
       backFallbackHref={dropHref}
       glassChrome
-      headerOwnsConnect={footerOwnsConnect}
       footer={footer}
       actions={
         view && canStaff && accessReady && isConnected ? (
