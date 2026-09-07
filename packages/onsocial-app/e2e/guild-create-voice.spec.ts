@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { gotoApp } from './helpers';
 
+const LOOK_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64'
+);
+
 test.describe('create guild voice', () => {
   test('is a task sheet with footer Connect, not Connect wallet', async ({
     page,
@@ -11,6 +16,23 @@ test.describe('create guild voice', () => {
     await expect(
       page.getByRole('heading', { name: 'Create guild' })
     ).toBeVisible();
+    await expect(page.locator('.guild-look-preview')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Add banner', exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Add badge', exact: true })
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add logo' })).toHaveCount(0);
+    await expect(page.getByText('Cover', { exact: true })).toHaveCount(0);
+    await expect(page.locator('.os-write-dock-tool')).toHaveCount(0);
+    const banner = page.locator('.guild-look-preview-banner');
+    const badge = page.locator('.guild-look-preview-badge');
+    const bannerBox = await banner.boundingBox();
+    const badgeBox = await badge.boundingBox();
+    expect(bannerBox).toBeTruthy();
+    expect(badgeBox).toBeTruthy();
+    expect(badgeBox!.y).toBeGreaterThan(bannerBox!.y + bannerBox!.height - 4);
     await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
     await expect(page.getByText('Connect wallet')).toHaveCount(0);
     await expect(
@@ -44,6 +66,58 @@ test.describe('create guild voice', () => {
     await expect(page.getByRole('radio', { name: 'Open' })).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Invite only' })).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Collaborative' })).toBeVisible();
+  });
+
+  test('previews banner and badge like the guild page', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, '/groups/create');
+
+    await expect(
+      page.getByRole('heading', { name: 'Create guild' })
+    ).toBeVisible();
+    const banner = page.locator('.guild-look-preview-banner');
+    const badge = page.locator('.guild-look-preview-badge');
+    await expect(banner).toBeVisible();
+    await expect(badge).toBeVisible();
+    const bannerBox = await banner.boundingBox();
+    const badgeBox = await badge.boundingBox();
+    expect(bannerBox).toBeTruthy();
+    expect(badgeBox).toBeTruthy();
+    expect(badgeBox!.y).toBeGreaterThan(bannerBox!.y + bannerBox!.height - 4);
+    expect(bannerBox!.height).toBeLessThan(110);
+
+    await page.locator('[data-guild-look-file="banner"]').setInputFiles({
+      name: 'banner.png',
+      mimeType: 'image/png',
+      buffer: LOOK_PNG,
+    });
+    await expect(
+      page.getByRole('button', { name: 'Change banner', exact: true })
+    ).toBeVisible();
+    await banner.hover();
+    await expect(page.getByRole('button', { name: 'Remove banner' })).toBeVisible();
+
+    await page.locator('[data-guild-look-file="badge"]').setInputFiles({
+      name: 'badge.png',
+      mimeType: 'image/png',
+      buffer: LOOK_PNG,
+    });
+    await expect(
+      page.getByRole('button', { name: 'Change badge', exact: true })
+    ).toBeVisible();
+    await badge.hover();
+    await expect(page.getByRole('button', { name: 'Remove badge' })).toBeVisible();
+
+    await banner.hover();
+    await page.getByRole('button', { name: 'Remove banner' }).click();
+    await expect(
+      page.getByRole('button', { name: 'Add banner', exact: true })
+    ).toBeVisible();
+    await badge.hover();
+    await page.getByRole('button', { name: 'Remove badge' }).click();
+    await expect(
+      page.getByRole('button', { name: 'Add badge', exact: true })
+    ).toBeVisible();
   });
 
   test('closes to Guilds', async ({ page }) => {

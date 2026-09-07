@@ -5,6 +5,7 @@ import {
   useMemo,
   useState,
   type CSSProperties,
+  type ChangeEvent,
   type FocusEvent,
   type FormEvent,
 } from 'react';
@@ -51,7 +52,10 @@ import {
   collectRelayTxHashes,
   normalizeGuildIdInput,
 } from '@/features/guilds/guilds-data';
+import { GuildLookPreview } from '@/features/guilds/guild-look-preview';
 import { GuildTagsEditor } from '@/features/guilds/guild-tags-editor';
+import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
+import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import { normalizeGuildEditorTags } from '@/features/guilds/guild-tag-editor';
 import {
   GUILD_MAX_DESCRIPTION_LENGTH,
@@ -92,6 +96,10 @@ export function GuildCreatePanel() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [description, setDescription] = useState('');
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [badgeFile, setBadgeFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [badgePreview, setBadgePreview] = useState<string | null>(null);
   const [accessGated, setAccessGated] = useState(false);
   const [memberDriven, setMemberDriven] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
@@ -110,6 +118,67 @@ export function GuildCreatePanel() {
     },
     []
   );
+
+  const onBadgeChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = '';
+    if (!file) return;
+    if (!isPostImageMime(file.type)) {
+      setError('Use a JPG, PNG, or WebP image for the badge.');
+      return;
+    }
+    if (file.size > POST_IMAGE_MAX_BYTES) {
+      setError('Badge must be 5 MB or smaller.');
+      return;
+    }
+    try {
+      const prepared = await prepareSquareOpaqueJpeg(file);
+      setError(null);
+      setBadgeFile(prepared);
+      setBadgePreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(prepared);
+      });
+    } catch {
+      setError('Could not prepare that badge image.');
+    }
+  };
+
+  const onBannerChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = '';
+    if (!file) return;
+    if (!isPostImageMime(file.type)) {
+      setError('Use a JPG, PNG, or WebP image for the banner.');
+      return;
+    }
+    if (file.size > POST_IMAGE_MAX_BYTES) {
+      setError('Banner must be 5 MB or smaller.');
+      return;
+    }
+    setError(null);
+    setBannerFile(file);
+    setBannerPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  };
+
+  const clearBadge = () => {
+    setBadgeFile(null);
+    setBadgePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  };
+
+  const clearBanner = () => {
+    setBannerFile(null);
+    setBannerPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  };
 
   const handleFormBlurCapture = useCallback(
     (event: FocusEvent<HTMLFormElement>) => {
@@ -214,6 +283,25 @@ export function GuildCreatePanel() {
     setPending(true);
     try {
       const { client } = await getClient();
+      const onsocial: Record<string, unknown> = {
+        structure: guildStructureForMetadata(DEFAULT_GUILD_STRUCTURE),
+      };
+      if (bannerFile) {
+        const uploaded = await client.storage.upload(bannerFile);
+        onsocial.banner = {
+          cid: uploaded.cid,
+          mime: uploaded.mime,
+          size: uploaded.size,
+        };
+      }
+      if (badgeFile) {
+        const uploaded = await client.storage.upload(badgeFile);
+        onsocial.badge = {
+          cid: uploaded.cid,
+          mime: uploaded.mime,
+          size: uploaded.size,
+        };
+      }
       const response = await client.groups.create(groupId, {
         v: 1,
         name: name.trim(),
@@ -221,11 +309,7 @@ export function GuildCreatePanel() {
         isPrivate: accessGated,
         memberDriven,
         topics: normalizeGuildEditorTags(tags),
-        x: {
-          onsocial: {
-            structure: guildStructureForMetadata(DEFAULT_GUILD_STRUCTURE),
-          },
-        },
+        x: { onsocial },
       });
       const txHashes = collectRelayTxHashes(response);
       const confirmed = await trackTransaction({
@@ -293,6 +377,19 @@ export function GuildCreatePanel() {
         onBlurCapture={handleFormBlurCapture}
         onSubmit={handleSubmit}
       >
+        <GuildLookPreview
+          bannerUrl={bannerPreview}
+          badgeUrl={badgePreview}
+          name={name}
+          disabled={pending}
+          onBannerChange={onBannerChange}
+          onBadgeChange={(event) => {
+            void onBadgeChange(event);
+          }}
+          onRemoveBanner={clearBanner}
+          onRemoveBadge={clearBadge}
+        />
+
         <label className="guild-field" htmlFor={fieldId('name')}>
           <span>Name</span>
           <input

@@ -13,3 +13,11 @@ export const GUILD_CREATE_CLOSE = 'Close';
 export const GUILD_CREATE_CONNECT = 'Connect';
 export const GUILD_CREATE_SUBMIT = 'Create guild';
 export const GUILD_CREATE_FORM_ID = 'guild-create-form';
+
+/** Guild page look — Banner + Badge beside the name. Not Logo. Not Cover. */
+export const GUILD_CREATE_ADD_BANNER = 'Add banner';
+export const GUILD_CREATE_ADD_BADGE = 'Add badge';
+export const GUILD_CREATE_CHANGE_BANNER = 'Change banner';
+export const GUILD_CREATE_CHANGE_BADGE = 'Change badge';
+export const GUILD_CREATE_REMOVE_BANNER = 'Remove banner';
+export const GUILD_CREATE_REMOVE_BADGE = 'Remove badge';
