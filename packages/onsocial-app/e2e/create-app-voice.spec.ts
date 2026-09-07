@@ -65,6 +65,13 @@ test.describe('create app voice', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, '/apps/create');
 
+    await expect(
+      page.getByRole('heading', { name: 'Open a hub' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Add banner', exact: true })
+    ).toBeVisible();
+    await page.locator('#app-create-name').click();
     const banner = page.locator('.hub-look-preview-banner');
     const logo = page.locator('.hub-look-preview-logo');
     await expect(banner).toBeVisible();
@@ -73,7 +80,7 @@ test.describe('create app voice', () => {
     const logoBox = await logo.boundingBox();
     expect(bannerBox).toBeTruthy();
     expect(logoBox).toBeTruthy();
-    expect(logoBox!.y).toBeLessThan(bannerBox!.y + bannerBox!.height);
+    expect(logoBox!.y).toBeLessThan(bannerBox!.y + bannerBox!.height - 8);
     expect(logoBox!.y + logoBox!.height).toBeGreaterThan(
       bannerBox!.y + bannerBox!.height
     );
