@@ -190,7 +190,7 @@ export function ScarceOffersSheet({
         ? canPickOffer
           ? `Accept · ${formatNearLabel(selectedOffer.amountNear)}`
           : 'Accept'
-        : 'Connect wallet',
+        : 'Connect',
       primaryPendingLabel: isConnected ? 'Accepting…' : 'Connecting…',
       canSubmit: !accepting,
       pending: accepting,

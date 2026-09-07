@@ -669,7 +669,7 @@ export function ScarceBidForm({
 
     if (ended) {
       const settleLabel = !isConnected
-        ? 'Connect wallet'
+        ? 'Connect'
         : isHighestBidder && !isOwnAuction
           ? 'Collect'
           : isOwnAuction
@@ -700,7 +700,7 @@ export function ScarceBidForm({
         ? buyNowPath
           ? `Buy now · ${formatNearLabel(buyNow ?? normalizedAmount ?? minNear)}`
           : `Bid · ${bidAmountLabel}`
-        : 'Connect wallet',
+        : 'Connect',
       primaryPendingLabel: buyNowPath ? 'Buying…' : 'Bidding…',
       canSubmit: isConnected ? canBid : true,
       pending: pending === 'bid' || pending === 'buyNow',

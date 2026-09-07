@@ -262,7 +262,7 @@ export function ScarceOfferForm({
         ? offerCta
           ? viewerOfferCtaLabel(offerCta, 'offer')
           : 'Make offer'
-        : 'Connect wallet',
+        : 'Connect',
       primaryPendingLabel: existing ? 'Updating…' : 'Offering…',
       canSubmit: isConnected ? canSubmit : true,
       pending: pending === 'make',
@@ -303,7 +303,7 @@ export function ScarceOfferForm({
         <p className="scarce-buy-title">{listing.title?.trim() || 'Scarce'}</p>
         {listing.askNear ? (
           <p className="scarce-buy-price">
-            Ask · {formatNearLabel(listing.askNear)}
+            {formatNearLabel(listing.askNear)}
           </p>
         ) : null}
         {existing && !loadingOffer ? (

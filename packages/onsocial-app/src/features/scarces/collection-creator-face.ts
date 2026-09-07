@@ -50,6 +50,21 @@ export function collectionCreatorNameLine(
   return formatNearAccountFallbackTitle(creatorId);
 }
 
+/**
+ * Commerce face: spoken name + full @id. Unset profile name still fills
+ * the name slot from the account local part (`Alice` / `@alice.near`).
+ */
+export function commercePartyLines(
+  accountId: string,
+  displayName?: string | null
+): { name: string; handle: string } {
+  const id = accountId.trim();
+  return {
+    name: collectionCreatorNameLine(id, displayName),
+    handle: fallbackLabel(id),
+  };
+}
+
 /** Fetch creator face via any OnSocial client (server key or browser). */
 export async function fetchCollectionCreatorFace(
   client: OnSocial,

@@ -624,7 +624,7 @@ export function ScarceListForm({
             ? 'Attach Drop'
             : 'Create Drop'
           : 'List on Market'
-        : 'Connect wallet',
+        : 'Connect',
       primaryPendingLabel: isDrop ? 'Creating Drop…' : 'Listing…',
       canSubmit: isConnected ? canSubmit : true,
       pending,

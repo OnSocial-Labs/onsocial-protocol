@@ -6,8 +6,8 @@ import {
   arePostAuthorProfilesResolved,
   usePostAuthorProfiles,
 } from '@/hooks/use-post-author-profiles';
+import { commercePartyLines } from '@/features/scarces/collection-creator-face';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
 
 function PartyFaceSkeleton() {
   return (
@@ -55,13 +55,12 @@ export function ScarcePartyLine({
   const src = avatarUrl?.trim() || profile?.avatarUrl || null;
   const profileName =
     displayNameValue?.trim() || profile?.displayName?.trim() || null;
-  const handle = wait ? '' : fallbackLabel(id);
-  const name = wait ? '' : displayName(id, profileName ?? undefined);
-  const nameIsCustom =
-    Boolean(name) && name.toLowerCase() !== handle.toLowerCase();
+  const { name, handle } = wait
+    ? { name: '', handle: '' }
+    : commercePartyLines(id, profileName);
   const role = label?.trim() || '';
   const shellLoading = !wait && !src && !shellResolved;
-  const showNameSkeleton = wait || (!profileName && !shellResolved);
+  const showNameSkeleton = wait;
 
   const face = showNameSkeleton ? (
     <PartyFaceSkeleton />
@@ -72,21 +71,14 @@ export function ScarcePartyLine({
         kind={profile?.kind}
         src={src}
         size="sm"
-        fallbackInitial={handle}
+        fallbackInitial={name}
         shellLoading={shellLoading}
         className="scarce-buy-party-avatar"
       />
       {/* Always two-line slot so profile hydrate doesn’t grow the hug sheet. */}
       <div className="scarce-buy-party-text">
-        <div className="scarce-buy-party-name">
-          {nameIsCustom ? name : `@${handle}`}
-        </div>
-        <div
-          className="scarce-buy-party-handle"
-          {...(nameIsCustom ? {} : { 'aria-hidden': true })}
-        >
-          {nameIsCustom ? `@${handle}` : '\u00a0'}
-        </div>
+        <div className="scarce-buy-party-name">{name}</div>
+        <div className="scarce-buy-party-handle">@{handle}</div>
       </div>
     </>
   );
