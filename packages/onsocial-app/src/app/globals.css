@@ -29125,6 +29125,25 @@ a.os-surface-row {
     }
   }
 
+  /* Locked Connect — same 1.15rem sheet inset as Collect. */
+  .scarce-read-slide .scarce-writing-read.is-connect-locked {
+    padding-inline: var(--os-sheet-footer-pad-inline);
+    padding-bottom: 0.55rem;
+  }
+
+  .scarce-read-slide .os-slide-over-footer-inner {
+    max-width: min(100%, 44rem);
+    width: 100%;
+    margin-inline: auto;
+    padding: 0;
+  }
+
+  @media (min-width: 640px) {
+    .scarce-read-slide .os-slide-over-footer-inner {
+      max-width: min(100%, 42rem);
+    }
+  }
+
   .ticket-pass-slide .ticket-show-pass {
     --pass-pad-t: 0.55rem;
     height: 100%;

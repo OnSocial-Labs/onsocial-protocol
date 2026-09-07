@@ -7,7 +7,13 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { MultiplyIcon, OsIconAction, OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import {
+  MultiplyIcon,
+  OsIconAction,
+  OsSheetAction,
+  OsSheetActions,
+  OsSheetFooter,
+} from '@onsocial/ui';
 import {
   OsSlideOverScreen,
   useOsSlideOverClose,
@@ -131,6 +137,24 @@ export function WritingReadSheet({
   const rasterCover = cover?.trim() || null;
   const hasWriting = readables.length > 0 || bookPdf != null;
   const progressPct = Math.round(Math.min(1, Math.max(0, scrollRatio)) * 100);
+  const connectLocked = !canRead && !isConnected;
+  const connectFooter = connectLocked ? (
+    <OsSheetFooter>
+      <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+        <OsSheetAction
+          type="button"
+          variant="primary"
+          ready={!isLoading}
+          pending={isLoading}
+          pendingLabel="Connecting…"
+          disabled={isLoading}
+          onClick={() => void connect()}
+        >
+          Connect
+        </OsSheetAction>
+      </OsSheetActions>
+    </OsSheetFooter>
+  ) : null;
 
   return (
     <OsSlideOverScreen
@@ -143,9 +167,12 @@ export function WritingReadSheet({
       zIndex={SCARCE_Z.listenShell}
       className={`scarce-read-slide${chromeQuiet ? ' is-reading-quiet' : ''}`}
       contentClassName="scarce-read-slide-body"
+      footer={connectFooter}
     >
       <div
-        className={`scarce-writing-read${chromeQuiet ? ' is-chrome-quiet' : ''}`}
+        className={`scarce-writing-read${
+          chromeQuiet ? ' is-chrome-quiet' : ''
+        }${connectLocked ? ' is-connect-locked' : ''}`}
       >
         <div
           className="scarce-writing-read-progress"
@@ -208,27 +235,7 @@ export function WritingReadSheet({
           )}
         </div>
 
-        {!canRead && !isConnected ? (
-          <div className="scarce-writing-read-footer">
-            <div className="collection-action-band">
-              <div className="commerce-sheet-footer-row">
-                <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-                  <OsSheetAction
-                    type="button"
-                    variant="primary"
-                    ready={!isLoading}
-                    pending={isLoading}
-                    pendingLabel="Connecting…"
-                    disabled={isLoading}
-                    onClick={() => void connect()}
-                  >
-                    Connect
-                  </OsSheetAction>
-                </OsSheetActions>
-              </div>
-            </div>
-          </div>
-        ) : footer ? (
+        {!connectLocked && footer ? (
           <div className="scarce-writing-read-footer">{footer}</div>
         ) : null}
       </div>
