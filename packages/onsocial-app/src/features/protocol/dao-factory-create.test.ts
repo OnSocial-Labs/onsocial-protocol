@@ -10,6 +10,9 @@ import {
   buildDaoFactoryInitArgs,
   buildDaoFactoryPolicy,
   DAO_FACTORY_VOTE_THRESHOLD,
+  daoCreateAttachNearLabel,
+  daoCreateAttachYocto,
+  daoCreateNearShortfallYocto,
   encodeDaoFactoryInitArgs,
   isValidDaoFactorySlug,
   normalizeDaoFactorySlug,
@@ -83,6 +86,21 @@ describe('dao-factory-create', () => {
       Buffer.from(encoded, 'base64').toString('utf8')
     ) as typeof init;
     expect(decoded).toEqual(init);
+  });
+
+  it('adds the baked 0.1 NEAR only when publish is on', () => {
+    expect(daoCreateAttachNearLabel(false)).toBe('6');
+    expect(daoCreateAttachNearLabel(true)).toBe('6.1');
+    expect(daoCreateAttachYocto(true) - daoCreateAttachYocto(false)).toBe(
+      BigInt(nearToYocto(SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR))
+    );
+    expect(
+      daoCreateNearShortfallYocto(daoCreateAttachYocto(false), false)
+    ).toBeNull();
+    expect(
+      daoCreateNearShortfallYocto(daoCreateAttachYocto(false), true)
+    ).toBe(BigInt(nearToYocto(SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR)));
+    expect(daoCreateNearShortfallYocto(null, true)).toBeNull();
   });
 });
 

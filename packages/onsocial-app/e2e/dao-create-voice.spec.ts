@@ -43,6 +43,24 @@ test.describe('dao create voice', () => {
     await expect(
       sheet.getByRole('button', { name: 'Connect', exact: true })
     ).toBeVisible();
+    await expect(
+      sheet.getByText('You start as council · ~6 NEAR', { exact: true })
+    ).toBeVisible();
+
+    await publish.click();
+    await expect(publish).toHaveAttribute('aria-checked', 'true');
+    await expect(
+      sheet.getByText('You start as council · ~6.1 NEAR', { exact: true })
+    ).toBeVisible();
+    await expect(sheet.getByText('Need ~')).toHaveCount(0);
+    await expect(sheet.getByText(/bond/i)).toHaveCount(0);
+    await expect(sheet.getByText(/gas/i)).toHaveCount(0);
+
+    await publish.click();
+    await expect(publish).toHaveAttribute('aria-checked', 'false');
+    await expect(
+      sheet.getByText('You start as council · ~6 NEAR', { exact: true })
+    ).toBeVisible();
 
     await sheet.getByRole('button', { name: 'Advanced', exact: true }).click();
     await expect(sheet.getByText('You get')).toBeVisible();
