@@ -1947,6 +1947,7 @@ export function LiveGuildPanel({
         {loadState === 'loading' ? (
           <div
             className="guild-loading"
+            data-guild-page-skeleton
             aria-busy="true"
             aria-label="Loading guild"
           >
@@ -2066,7 +2067,9 @@ export function LiveGuildPanel({
                     <img src={config.badgeUrl} alt="" />
                   </span>
                 ) : null}
-                <h2 ref={heroTitleRef}>{config.name}</h2>
+                <h2 ref={heroTitleRef}>
+                  {guildDisplayName(config.name, groupId)}
+                </h2>
               </div>
 
               <div className="guild-hero-meta">
