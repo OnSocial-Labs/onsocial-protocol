@@ -77,7 +77,6 @@ export function PostAmplifySheet({
       personName={party.name}
       handle={party.handle}
       signal="reputation"
-      whisper="DAO sets the SOCIAL split on-chain."
       closeAriaLabel="Close amplify"
       backdropLabel="Close amplify"
       moodId={authorMood?.id}
