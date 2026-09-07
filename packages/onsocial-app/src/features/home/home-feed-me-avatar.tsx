@@ -1,6 +1,7 @@
 'use client';
 
 import { AccountAvatar } from '@/components/profile/account-avatar';
+import { DOCK_CONNECT_CTA } from '@/components/wallet/dock-connect-voice';
 import { useAppAccountSheet } from '@/contexts/app-account-sheet-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
@@ -28,7 +29,7 @@ export function HomeFeedMeAvatar() {
       <button
         type="button"
         className="home-feed-me-avatar is-connect"
-        aria-label="Connect wallet"
+        aria-label={DOCK_CONNECT_CTA}
         onClick={() => void connect()}
       >
         <span className="app-wallet-connect-glyph" aria-hidden />
