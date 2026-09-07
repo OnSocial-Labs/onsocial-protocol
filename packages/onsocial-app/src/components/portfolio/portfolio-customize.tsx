@@ -21,6 +21,10 @@ import {
   resolvePageMoodId,
 } from '@onsocial/sdk';
 import { MoodSheet } from '@/components/moods/mood-sheet';
+import {
+  CUSTOMIZE_CONNECT_CTA,
+  CUSTOMIZE_CONNECT_HINT,
+} from '@/components/portfolio/customize-connect-voice';
 import { accountIdsEqual } from '@/lib/account-match';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { PREMIUM_MOOD_PRESETS as APP_PREMIUM_MOOD_PRESETS } from '@/lib/moods/presets';
@@ -318,15 +322,13 @@ export function PortfolioCustomize({
       >
         {needsConnect ? (
           <div className="customize-sheet-actions">
-            <p className="customize-sheet-copy">
-              Connect the wallet for @{pageAccountId} to customize this page.
-            </p>
+            <p className="customize-sheet-copy">{CUSTOMIZE_CONNECT_HINT}</p>
             <button
               type="button"
               className="customize-sheet-primary"
               onClick={connect}
             >
-              Connect wallet
+              {CUSTOMIZE_CONNECT_CTA}
             </button>
           </div>
         ) : null}
