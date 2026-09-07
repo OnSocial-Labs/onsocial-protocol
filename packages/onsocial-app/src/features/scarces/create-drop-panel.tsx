@@ -12,6 +12,7 @@ import {
   type FormEvent,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import './drop-create-spacing.css';
 import {
   DiscardConfirmSheet,
   OsSheetAction,
@@ -3358,7 +3359,8 @@ export function CreateDropPanel() {
           ) : null}
         </div>
 
-        <div className="guild-field drop-advanced-toggle-row">
+        <div className="drop-create-advanced">
+          <div className="guild-field drop-advanced-toggle-row">
           <button
             type="button"
             className="collection-allowlist-toggle"
@@ -3606,6 +3608,7 @@ export function CreateDropPanel() {
             </DropCreateExtraList>
           </>
         ) : null}
+        </div>
 
         {error ? (
           <p ref={errorRef} className="guild-form-error">
