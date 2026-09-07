@@ -82,6 +82,11 @@ export interface OsAppScreenProps {
    * Overlay-pinned above the summon dock so body content frosts underneath.
    */
   footer?: ReactNode;
+  /**
+   * Summon launcher. Task screens with a locked footer (Open a hub) turn
+   * this off so Close + the footer own leave and Connect.
+   */
+  launcher?: boolean;
   /** Scroll container for nested infinite lists (`.os-app-screen-body`). */
   scrollRootRef?: RefObject<HTMLElement | null>;
   /**
@@ -127,6 +132,7 @@ export function OsAppScreen({
   scrollTuckPinned = false,
   toolbar,
   footer,
+  launcher = true,
   scrollRootRef,
   glassScrollElevated = false,
   glassChromeAlwaysElevated = false,
@@ -239,6 +245,7 @@ export function OsAppScreen({
       data-header-owns-connect={headerOwnsConnect ? '' : undefined}
       data-scroll-tuck={scrollTuck}
       data-screen-footer={hasFooter ? 'true' : undefined}
+      data-launcher={launcher ? undefined : 'off'}
       data-mood={hasMood ? resolvedMoodId! : undefined}
       style={screenStyle}
     >
@@ -297,7 +304,7 @@ export function OsAppScreen({
           <div className="os-app-screen-footer">{footer}</div>
         ) : null}
       </div>
-      {embedded ? null : <AppShellLauncher />}
+      {embedded || !launcher ? null : <AppShellLauncher />}
     </div>
   );
 }

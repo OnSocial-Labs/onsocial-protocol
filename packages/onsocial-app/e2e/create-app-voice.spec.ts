@@ -42,7 +42,16 @@ test.describe('create app voice', () => {
     await expect(
       page.getByText('Who can create drops', { exact: true })
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Open hub' })).toBeVisible();
+    await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
+    await expect(
+      page.locator('.os-app-screen-actions').getByRole('button', { name: 'Close' })
+    ).toBeVisible();
+    await expect(page.getByText('Connect wallet')).toHaveCount(0);
+    await expect(
+      page
+        .locator('.os-app-screen-footer')
+        .getByRole('button', { name: /^(Connect|Open hub)$/ })
+    ).toBeVisible();
 
     await page.getByRole('button', { name: 'Add about', exact: true }).click();
     await expect(page.locator('#app-create-description')).toBeVisible();
@@ -131,25 +140,52 @@ test.describe('create app voice', () => {
     ).toBeVisible();
   });
 
-  test('tracks field focus so the dock can lift over the keyboard', async ({
+  test('locks Connect in the footer and closes to Hubs', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, '/apps/create');
+
+    await expect(
+      page.getByRole('heading', { name: 'Open a hub' })
+    ).toBeVisible();
+    await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
+    await expect(page.getByText('Connect wallet')).toHaveCount(0);
+    const footer = page.locator('.os-app-screen-footer');
+    await expect(footer.getByRole('button', { name: 'Connect' })).toBeVisible();
+    await expect(footer).toBeInViewport();
+
+    await page
+      .locator('.os-app-screen-actions')
+      .getByRole('button', { name: 'Close' })
+      .click();
+    await expect(page).toHaveURL(/\/apps\/?$/);
+    await expect(
+      page.getByRole('heading', { name: 'Open a hub' })
+    ).toHaveCount(0);
+  });
+
+  test('tracks field focus so the footer stays over the keyboard', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, '/apps/create');
 
-    const form = page.locator('.drop-create-form');
+    const form = page.locator('.hub-create-form');
+    const footer = page.locator('.os-app-screen-footer');
     await expect(
       page.getByRole('heading', { name: 'Open a hub' })
     ).toBeVisible();
     await expect(form).toBeVisible();
     await expect(form).not.toHaveAttribute('data-form-focused');
+    await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
 
     await page.locator('#app-create-name').click();
     await expect(form).toHaveAttribute('data-form-focused', '');
     await expect(page.locator('#app-create-name')).toBeInViewport();
+    await expect(footer).toBeInViewport();
 
     await page.locator('#app-create-commission').click();
     await expect(form).toHaveAttribute('data-form-focused', '');
     await expect(page.locator('#app-create-commission')).toBeInViewport();
+    await expect(footer).toBeInViewport();
   });
 });

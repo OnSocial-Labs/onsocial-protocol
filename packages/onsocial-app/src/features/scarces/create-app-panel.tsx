@@ -11,8 +11,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  OsSheetAction,
-  OsSheetActions,
+  MultiplyIcon,
   OsIconAction,
   QuestionMarkCircleFillIcon,
   osFieldBorderedClassName,
@@ -41,7 +40,17 @@ import {
   HUB_CREATE_HELP_TITLE,
 } from '@/features/scarces/hub-create-help-drawer';
 import { HubCategoriesEditor } from '@/features/scarces/hub-categories-editor';
-import { hubCreateAboutToggle } from '@/features/scarces/hub-create-voice';
+import {
+  CommerceSheetFooter,
+  type CommerceSheetFooterState,
+} from '@/features/scarces/commerce-sheet-footer';
+import {
+  HUB_CREATE_CLOSE,
+  HUB_CREATE_CONNECT,
+  HUB_CREATE_FORM_ID,
+  HUB_CREATE_SUBMIT,
+  hubCreateAboutToggle,
+} from '@/features/scarces/hub-create-voice';
 import { HubLookPreview } from '@/features/scarces/hub-look-preview';
 import { APP_APPS_PATH, appPath } from '@/lib/app-routes';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
@@ -231,6 +240,32 @@ export function CreateAppPanel() {
     idAvailability !== 'taken' &&
     idAvailability !== 'checking';
 
+  const footerState = useMemo((): CommerceSheetFooterState => {
+    if (!isConnected) {
+      return {
+        visible: true,
+        primaryLabel: HUB_CREATE_CONNECT,
+        primaryPendingLabel: 'Opening…',
+        canSubmit: !isLoading,
+        pending: false,
+        disabled: isLoading,
+        primaryType: 'button',
+        onPrimaryClick: () => {
+          void connect();
+        },
+      };
+    }
+    return {
+      visible: true,
+      primaryLabel: HUB_CREATE_SUBMIT,
+      primaryPendingLabel: 'Opening…',
+      canSubmit,
+      pending,
+      disabled: !canSubmit,
+      primaryType: 'submit',
+    };
+  }, [isConnected, isLoading, connect, canSubmit, pending]);
+
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -327,26 +362,41 @@ export function CreateAppPanel() {
   return (
     <OsAppScreen
       title="Open a hub"
-      dockBack
-      backFallbackHref={APP_APPS_PATH}
+      launcher={false}
       glassChrome
       style={screenStyle}
       actions={
-        <OsIconAction
-          ariaLabel={HUB_CREATE_HELP_TITLE}
-          aria-expanded={helpOpen}
-          aria-haspopup="dialog"
-          onClick={() => setHelpOpen(true)}
-        >
-          <QuestionMarkCircleFillIcon
-            aria-hidden
-            className="glass-sheet-close-icon"
-          />
-        </OsIconAction>
+        <>
+          <OsIconAction
+            ariaLabel={HUB_CREATE_HELP_TITLE}
+            aria-expanded={helpOpen}
+            aria-haspopup="dialog"
+            onClick={() => setHelpOpen(true)}
+          >
+            <QuestionMarkCircleFillIcon
+              aria-hidden
+              className="glass-sheet-close-icon"
+            />
+          </OsIconAction>
+          <OsIconAction
+            ariaLabel={HUB_CREATE_CLOSE}
+            onClick={() => router.push(APP_APPS_PATH)}
+          >
+            <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
+          </OsIconAction>
+        </>
+      }
+      footer={
+        <CommerceSheetFooter
+          formId={HUB_CREATE_FORM_ID}
+          keyboardOpen={formKeyboardOpen}
+          state={footerState}
+        />
       }
     >
       <form
-        className="drop-create-form"
+        id={HUB_CREATE_FORM_ID}
+        className="drop-create-form hub-create-form"
         data-form-focused={formFieldFocused ? '' : undefined}
         data-keyboard={formKeyboardOpen ? 'open' : undefined}
         onFocusCapture={handleFormFocusCapture}
@@ -515,27 +565,6 @@ export function CreateAppPanel() {
         </div>
 
         {error ? <p className="guild-form-error">{error}</p> : null}
-
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          {!isConnected && !isLoading ? (
-            <OsSheetAction
-              type="button"
-              variant="ghost"
-              onClick={() => void connect()}
-            >
-              Connect wallet
-            </OsSheetAction>
-          ) : null}
-          <OsSheetAction
-            type="submit"
-            ready={canSubmit}
-            pending={pending}
-            pendingLabel="Opening…"
-            disabled={!canSubmit}
-          >
-            Open hub
-          </OsSheetAction>
-        </OsSheetActions>
       </form>
       <HubCreateHelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />
     </OsAppScreen>

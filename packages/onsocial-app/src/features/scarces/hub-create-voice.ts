@@ -14,3 +14,7 @@ export const HUB_CREATE_CHANGE_BANNER = 'Change banner';
 export const HUB_CREATE_CHANGE_LOGO = 'Change logo';
 export const HUB_CREATE_REMOVE_BANNER = 'Remove banner';
 export const HUB_CREATE_REMOVE_LOGO = 'Remove logo';
+export const HUB_CREATE_CLOSE = 'Close';
+export const HUB_CREATE_CONNECT = 'Connect';
+export const HUB_CREATE_SUBMIT = 'Open hub';
+export const HUB_CREATE_FORM_ID = 'hub-create-form';

@@ -41438,6 +41438,31 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   );
 }
 
+/* Open a hub — no launcher; footer sits on the safe edge and rides the keys. */
+.os-app-screen[data-launcher='off'][data-screen-footer='true']
+  .os-app-screen-footer {
+  bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.os-app-screen[data-launcher='off'][data-screen-footer='true']
+  .os-app-screen-body {
+  padding-bottom: calc(
+    env(safe-area-inset-bottom, 0px) + var(--os-screen-footer-band)
+  );
+}
+
+.os-app-screen[data-launcher='off']:has(.hub-create-form[data-keyboard='open'])
+  .os-app-screen-footer {
+  bottom: var(--drop-create-keyboard-lift, 0px);
+}
+
+.os-app-screen[data-launcher='off']:has(.hub-create-form[data-keyboard='open'])
+  .os-app-screen-body {
+  padding-bottom: calc(
+    var(--drop-create-keyboard-lift, 0px) + var(--os-screen-footer-band)
+  );
+}
+
 /* New drop form — lift dock + scroll room while a field is focused (mobile). */
 .os-app-screen:has(.drop-create-form[data-keyboard='open'])
   > .portfolio-summon-dock {
