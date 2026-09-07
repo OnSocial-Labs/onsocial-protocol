@@ -67,7 +67,7 @@ export interface ComposeCreateCollectionRequest {
   allowlistPrice?: string;
   /** Is token transferable (default true) */
   transferable?: boolean;
-  /** Is token burnable (default true) */
+  /** Is token burnable (default false) */
   burnable?: boolean;
   /** Pre-uploaded IPFS CID — when set, gateway skips upload (BYO storage). */
   mediaCid?: string;

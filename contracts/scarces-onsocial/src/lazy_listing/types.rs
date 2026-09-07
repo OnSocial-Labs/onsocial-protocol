@@ -1,6 +1,6 @@
-use near_sdk::AccountId;
 use near_sdk::json_types::U128;
 use near_sdk::near;
+use near_sdk::AccountId;
 
 use crate::{ScarceOptions, TokenMetadata};
 
@@ -18,7 +18,7 @@ pub struct LazyListingRecord {
     pub app_id: Option<String>,
     #[serde(default = "crate::default_true")]
     pub transferable: bool,
-    #[serde(default = "crate::default_true")]
+    #[serde(default)]
     pub burnable: bool,
     #[serde(default)]
     pub expires_at: Option<u64>,

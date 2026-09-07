@@ -1,6 +1,6 @@
-use near_sdk::AccountId;
 use near_sdk::json_types::U128;
 use near_sdk::near;
+use near_sdk::AccountId;
 
 use crate::scarce::types::ScarceOptions;
 
@@ -58,7 +58,7 @@ pub struct LazyCollection {
     // Refund accounting invariant: excluded from refundable supply on cancellation.
     #[serde(default)]
     pub fully_redeemed_count: u32,
-    #[serde(default = "crate::default_true")]
+    #[serde(default)]
     pub burnable: bool,
     #[serde(default)]
     pub mint_mode: MintMode,
