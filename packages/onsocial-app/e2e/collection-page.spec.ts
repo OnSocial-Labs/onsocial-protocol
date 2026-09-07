@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoApp } from './helpers';
+import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
 import {
   COLLECTION_E2E_VIEWER,
   expectCollectionHolderChrome,
@@ -133,5 +133,30 @@ test.describe('collection drop page', () => {
     await expectCollectionHolderChrome(page, HOLDER_BACK);
     await expect(page.getByRole('link', { name: 'Play' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Read' })).toHaveCount(0);
+  });
+
+  test('Collect sheet speaks one deal, not a mint form', async ({ page }) => {
+    await stubCollectionPageGraph(page);
+    await gotoApp(page, '/collection/night-drive');
+    await expect(page.locator('.collection-title')).toHaveText('Night Drive', {
+      timeout: 30_000,
+    });
+
+    await page.getByRole('button', { name: 'Mint', exact: true }).click();
+    const sheet = page.getByRole('dialog', { name: 'Mint' });
+    await expect(sheet).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(sheet.getByText('Night Drive', { exact: true })).toBeVisible();
+    await expect(sheet.getByText('8 of 10 left')).toBeVisible();
+    await expect(sheet.getByText('2 NEAR', { exact: true })).toHaveCount(1);
+    await expect(sheet.getByText('Ask ·', { exact: false })).toHaveCount(0);
+    await expect(sheet.getByText('Primary mint', { exact: true })).toHaveCount(
+      0
+    );
+    await expect(sheet.getByText('Connect to mint this scarce.')).toHaveCount(
+      0
+    );
+    await expect(
+      sheet.getByRole('button', { name: 'Connect', exact: true })
+    ).toBeVisible();
   });
 });
