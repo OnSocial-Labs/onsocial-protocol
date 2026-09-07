@@ -36,6 +36,7 @@ import {
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 import { CollectiblesLibrarySkeleton } from '@/features/collectibles/collectibles-library-skeleton';
+import { COLLECTIBLES_CONNECT_HINT } from '@/features/collectibles/collectibles-vault-voice';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
   MARKET_MEDIUM_FILTERS,
@@ -138,7 +139,7 @@ export function CollectiblesPagePanel({
   shell?: 'portfolio' | 'os';
 } = {}) {
   const resolvedShell = embedded ? 'portfolio' : shell;
-  const { accountId: viewerAccountId, isConnected, connect } = useAppWallet();
+  const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const router = useRouter();
   const seedKey = collectiblesSeedParamsKey(seedQuery);
   const [pageQuery, setPageQuery] = useState<CollectiblesPageQuery>(seedQuery);
@@ -799,17 +800,8 @@ export function CollectiblesPagePanel({
 
       {showConnectPrompt ? (
         <div className="market-page-empty">
-          <p className="market-page-empty-copy">
-            Connect your wallet to open your Collectibles vault.
-          </p>
+          <p className="market-page-empty-copy">{COLLECTIBLES_CONNECT_HINT}</p>
           <div className="collectibles-empty-actions">
-            <button
-              type="button"
-              className="page-drawer-section-action"
-              onClick={() => void connect()}
-            >
-              Connect
-            </button>
             <Link className="page-drawer-section-action" href={APP_MARKET_PATH}>
               Browse Market
             </Link>
