@@ -105,9 +105,8 @@ describe('drop-form-draft', () => {
   });
 
   it('loads older drafts that omit burnable as No', () => {
-    const { burnable: _burnable, ...legacy } = baseDraft({
-      title: 'Legacy',
-    });
+    const legacy = baseDraft({ title: 'Legacy' });
+    delete (legacy as { burnable?: boolean }).burnable;
     window.localStorage.setItem(
       'onsocial.drop-form-draft.v1',
       JSON.stringify({ ...legacy, savedAt: Date.now() })
