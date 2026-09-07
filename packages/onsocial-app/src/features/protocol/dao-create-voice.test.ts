@@ -1,0 +1,44 @@
+import { describe, expect, it } from 'vitest';
+import {
+  DAO_CREATE_ADVANCED,
+  DAO_CREATE_ADVANCED_HIDE,
+  DAO_CREATE_CONNECT_CTA,
+  DAO_CREATE_CONNECT_HINT,
+  DAO_CREATE_PUBLISH,
+  daoCreatePurposeToggle,
+} from '@/features/protocol/dao-create-voice';
+
+describe('DAO create Connect voice', () => {
+  it('asks Connect, not Connect wallet', () => {
+    expect(DAO_CREATE_CONNECT_CTA).toBe('Connect');
+    expect(DAO_CREATE_CONNECT_CTA.toLowerCase()).not.toContain('wallet');
+  });
+
+  it('hints Connect to create a DAO', () => {
+    expect(DAO_CREATE_CONNECT_HINT).toBe('Connect to create a DAO.');
+    expect(DAO_CREATE_CONNECT_HINT.toLowerCase()).not.toContain('wallet');
+  });
+
+  it('parks extras behind Advanced', () => {
+    expect(DAO_CREATE_ADVANCED).toBe('Advanced');
+    expect(DAO_CREATE_ADVANCED_HIDE).toBe('Hide advanced');
+  });
+
+  it('offers Publish OnSocial profile on the same create step', () => {
+    expect(DAO_CREATE_PUBLISH).toBe('Publish OnSocial profile');
+    expect(DAO_CREATE_PUBLISH.toLowerCase()).not.toContain('call');
+    expect(DAO_CREATE_PUBLISH.toLowerCase()).not.toContain('bond');
+  });
+
+  it('waits purpose behind Add a purpose', () => {
+    expect(daoCreatePurposeToggle({ open: false, hasText: false })).toBe(
+      'Add a purpose'
+    );
+    expect(daoCreatePurposeToggle({ open: false, hasText: true })).toBe(
+      'Edit purpose'
+    );
+    expect(daoCreatePurposeToggle({ open: true, hasText: true })).toBe(
+      'Hide purpose'
+    );
+  });
+});
