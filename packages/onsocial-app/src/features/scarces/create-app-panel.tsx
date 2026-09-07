@@ -70,7 +70,7 @@ function pctToBps(pct: number): number {
 
 export function CreateAppPanel() {
   const router = useRouter();
-  const { isConnected, isLoading, connect, getSigningWallet } = useAppWallet();
+  const { isConnected, connect, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -339,15 +339,6 @@ export function CreateAppPanel() {
         {error ? <p className="guild-form-error">{error}</p> : null}
 
         <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          {!isConnected && !isLoading ? (
-            <OsSheetAction
-              type="button"
-              variant="ghost"
-              onClick={() => void connect()}
-            >
-              Connect wallet
-            </OsSheetAction>
-          ) : null}
           <OsSheetAction
             type="submit"
             ready={canSubmit}
