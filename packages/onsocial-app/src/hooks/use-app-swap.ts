@@ -15,6 +15,7 @@ import {
   humanizeSwapTransactionError,
   type AppSwapQuoteDetails,
 } from '@/lib/app-swap-quote';
+import { CONNECT_CONTINUE_ERROR } from '@/lib/app-connect-voice';
 import { evaluateAppSwapValidation } from '@/lib/app-swap-validation';
 import type { RefSwapTransaction } from '@/lib/ref-swap-types';
 import type { NearWalletBase } from '@hot-labs/near-connect';
@@ -334,7 +335,7 @@ export function useAppSwap(accountId: string | null) {
       throw new Error('Enter a valid amount.');
     }
     if (!accountId) {
-      throw new Error('Connect wallet to continue.');
+      throw new Error(CONNECT_CONTINUE_ERROR);
     }
     if (!APP_SWAP_ENABLED) {
       throw new Error('Swap is only available on mainnet.');
