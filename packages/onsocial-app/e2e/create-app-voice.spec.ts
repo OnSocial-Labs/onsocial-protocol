@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { gotoApp } from './helpers';
 
+const LOOK_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64'
+);
+
 test.describe('create app voice', () => {
   test('waits About behind Add about', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -9,6 +14,12 @@ test.describe('create app voice', () => {
     await expect(
       page.getByRole('heading', { name: 'Open a hub' })
     ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Add banner', exact: true })
+    ).toHaveClass(/os-write-dock-tool/);
+    await expect(
+      page.getByRole('button', { name: 'Add logo', exact: true })
+    ).toHaveClass(/os-write-dock-tool/);
     await expect(
       page.getByRole('button', { name: 'Add about', exact: true })
     ).toBeVisible();
@@ -44,6 +55,36 @@ test.describe('create app voice', () => {
     await expect(page.locator('#app-create-description')).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Edit about', exact: true })
+    ).toBeVisible();
+  });
+
+  test('picks banner and logo with the write-dock tools', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, '/apps/create');
+
+    await page.locator('[data-hub-create-file="banner"]').setInputFiles({
+      name: 'banner.png',
+      mimeType: 'image/png',
+      buffer: LOOK_PNG,
+    });
+    await expect(page.getByRole('button', { name: 'Remove banner' })).toBeVisible();
+    await expect(page.locator('.hub-create-media img').first()).toBeVisible();
+
+    await page.locator('[data-hub-create-file="logo"]').setInputFiles({
+      name: 'logo.png',
+      mimeType: 'image/png',
+      buffer: LOOK_PNG,
+    });
+    await expect(page.getByRole('button', { name: 'Remove logo' })).toBeVisible();
+    await expect(page.locator('.hub-create-media img')).toHaveCount(2);
+
+    await page.getByRole('button', { name: 'Remove banner' }).click();
+    await expect(
+      page.getByRole('button', { name: 'Add banner', exact: true })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Remove logo' }).click();
+    await expect(
+      page.getByRole('button', { name: 'Add logo', exact: true })
     ).toBeVisible();
   });
 

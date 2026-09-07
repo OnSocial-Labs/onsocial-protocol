@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { hubCreateAboutToggle } from '@/features/scarces/hub-create-voice';
+import {
+  HUB_CREATE_ADD_BANNER,
+  HUB_CREATE_ADD_LOGO,
+  hubCreateAboutToggle,
+} from '@/features/scarces/hub-create-voice';
 
 describe('hubCreateAboutToggle', () => {
   it('says Add, Edit, or Hide — one name, About', () => {
@@ -15,5 +19,10 @@ describe('hubCreateAboutToggle', () => {
     expect(hubCreateAboutToggle({ open: true, hasText: true })).toBe(
       'Hide about'
     );
+  });
+
+  it('names look tools Banner and Logo, not Cover or Crest', () => {
+    expect(HUB_CREATE_ADD_BANNER).toBe('Add banner');
+    expect(HUB_CREATE_ADD_LOGO).toBe('Add logo');
   });
 });

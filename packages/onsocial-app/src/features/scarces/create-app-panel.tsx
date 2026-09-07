@@ -3,13 +3,16 @@
 import {
   useCallback,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
+  type ChangeEvent,
   type FocusEvent,
   type FormEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  ImageIcon,
   OsSheetAction,
   OsSheetActions,
   OsIconAction,
@@ -40,8 +43,18 @@ import {
   HUB_CREATE_HELP_TITLE,
 } from '@/features/scarces/hub-create-help-drawer';
 import { HubCategoriesEditor } from '@/features/scarces/hub-categories-editor';
-import { hubCreateAboutToggle } from '@/features/scarces/hub-create-voice';
+import {
+  HUB_CREATE_ADD_BANNER,
+  HUB_CREATE_ADD_LOGO,
+  HUB_CREATE_BANNER_CAPTION,
+  HUB_CREATE_LOGO_CAPTION,
+  HUB_CREATE_REMOVE_BANNER,
+  HUB_CREATE_REMOVE_LOGO,
+  hubCreateAboutToggle,
+} from '@/features/scarces/hub-create-voice';
 import { APP_APPS_PATH, appPath } from '@/lib/app-routes';
+import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
+import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import { normalizeTopicList } from '@/lib/topic-slug';
 
 import {
@@ -95,6 +108,12 @@ export function CreateAppPanel() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [description, setDescription] = useState('');
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
   const [commissionInput, setCommissionInput] = useState('2.5');
   const [creatorAccess, setCreatorAccess] = useState<CreatorAccess>('open');
   const [categories, setCategories] = useState<string[]>([]);
@@ -129,6 +148,67 @@ export function CreateAppPanel() {
     },
     []
   );
+
+  const onLogoChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = '';
+    if (!file) return;
+    if (!isPostImageMime(file.type)) {
+      setError('Use a JPG, PNG, or WebP image for the logo.');
+      return;
+    }
+    if (file.size > POST_IMAGE_MAX_BYTES) {
+      setError('Logo must be 5 MB or smaller.');
+      return;
+    }
+    try {
+      const prepared = await prepareSquareOpaqueJpeg(file);
+      setError(null);
+      setLogoFile(prepared);
+      setLogoPreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(prepared);
+      });
+    } catch {
+      setError('Could not prepare that logo image.');
+    }
+  };
+
+  const onBannerChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = '';
+    if (!file) return;
+    if (!isPostImageMime(file.type)) {
+      setError('Use a JPG, PNG, or WebP image for the banner.');
+      return;
+    }
+    if (file.size > POST_IMAGE_MAX_BYTES) {
+      setError('Banner must be 5 MB or smaller.');
+      return;
+    }
+    setError(null);
+    setBannerFile(file);
+    setBannerPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  };
+
+  const clearLogo = () => {
+    setLogoFile(null);
+    setLogoPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  };
+
+  const clearBanner = () => {
+    setBannerFile(null);
+    setBannerPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  };
 
   const screenStyle = useMemo(
     () =>
@@ -185,16 +265,27 @@ export function CreateAppPanel() {
         return;
       }
 
-      const metadata = JSON.stringify({
-        name: name.trim(),
-        ...hubCategoriesMetadataFields(normalizedCategories),
-        ...(description.trim() ? { description: description.trim() } : {}),
-      });
-
       setPending(true);
       try {
         const { accountId, wallet } = await getSigningWallet();
         const client = createAppScarcesWalletClient(accountId, wallet);
+        let image: string | undefined;
+        let banner: string | undefined;
+        if (logoFile) {
+          const uploaded = await client.storage.upload(logoFile);
+          image = `ipfs://${uploaded.cid}`;
+        }
+        if (bannerFile) {
+          const uploaded = await client.storage.upload(bannerFile);
+          banner = `ipfs://${uploaded.cid}`;
+        }
+        const metadata = JSON.stringify({
+          name: name.trim(),
+          ...hubCategoriesMetadataFields(normalizedCategories),
+          ...(description.trim() ? { description: description.trim() } : {}),
+          ...(image ? { image } : {}),
+          ...(banner ? { banner } : {}),
+        });
         const response = await client.scarces.apps.register(derivedSlug, {
           primarySaleBps: pctToBps(commission),
           creatorAccess,
@@ -233,6 +324,8 @@ export function CreateAppPanel() {
       commission,
       name,
       description,
+      logoFile,
+      bannerFile,
       creatorAccess,
       categories,
       getSigningWallet,
@@ -271,6 +364,97 @@ export function CreateAppPanel() {
         onBlurCapture={handleFormBlurCapture}
         onSubmit={handleSubmit}
       >
+        <section className="dao-create-media hub-create-media" aria-label="Hub look">
+          {bannerPreview ? (
+            <div className="dao-create-media-preview">
+              <img
+                src={bannerPreview}
+                alt=""
+                className="dao-create-media-el dao-create-media-el--cover"
+              />
+              <button
+                type="button"
+                className="dao-create-media-remove"
+                disabled={pending}
+                onClick={clearBanner}
+              >
+                {HUB_CREATE_REMOVE_BANNER}
+              </button>
+            </div>
+          ) : (
+            <div className="dao-create-media-slot">
+              <button
+                type="button"
+                className="os-write-dock-tool"
+                aria-label={HUB_CREATE_ADD_BANNER}
+                disabled={pending}
+                onClick={() => bannerInputRef.current?.click()}
+              >
+                <ImageIcon className="os-write-dock-media-icon" aria-hidden />
+              </button>
+              <span className="dao-create-media-caption" aria-hidden>
+                {HUB_CREATE_BANNER_CAPTION}
+              </span>
+            </div>
+          )}
+          {logoPreview ? (
+            <div className="dao-create-media-preview">
+              <img
+                src={logoPreview}
+                alt=""
+                className="dao-create-media-el dao-create-media-el--crest"
+              />
+              <button
+                type="button"
+                className="dao-create-media-remove"
+                disabled={pending}
+                onClick={clearLogo}
+              >
+                {HUB_CREATE_REMOVE_LOGO}
+              </button>
+            </div>
+          ) : (
+            <div className="dao-create-media-slot">
+              <button
+                type="button"
+                className="os-write-dock-tool"
+                aria-label={HUB_CREATE_ADD_LOGO}
+                disabled={pending}
+                onClick={() => logoInputRef.current?.click()}
+              >
+                <ImageIcon className="os-write-dock-media-icon" aria-hidden />
+              </button>
+              <span className="dao-create-media-caption" aria-hidden>
+                {HUB_CREATE_LOGO_CAPTION}
+              </span>
+            </div>
+          )}
+          <input
+            ref={bannerInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            data-hub-create-file="banner"
+            className="account-editor-file-input"
+            tabIndex={-1}
+            aria-hidden
+            disabled={pending}
+            onChange={onBannerChange}
+          />
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            data-hub-create-file="logo"
+            className="account-editor-file-input"
+            tabIndex={-1}
+            aria-hidden
+            disabled={pending}
+            onChange={(event) => {
+              void onLogoChange(event);
+            }}
+          />
+        </section>
+
         <label className="guild-field" htmlFor={fieldId('name')}>
           <span>Name</span>
           <input
