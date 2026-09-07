@@ -20,11 +20,13 @@ test.describe('collection drop page', () => {
     await expect(page.locator('[data-collection-page-skeleton]')).toBeVisible({
       timeout: 8_000,
     });
-    await expect(page.getByText("This drop isn’t available.")).toHaveCount(0);
+    await expect(page.getByText('This drop isn’t available.')).toHaveCount(0);
     await expect(page.locator('.collection-title')).toHaveText('Night Drive', {
       timeout: 12_000,
     });
-    await expect(page.locator('[data-collection-page-skeleton]')).toHaveCount(0);
+    await expect(page.locator('[data-collection-page-skeleton]')).toHaveCount(
+      0
+    );
   });
 
   test('unknown drop shows unavailable after the client fetch settles', async ({
@@ -32,10 +34,12 @@ test.describe('collection drop page', () => {
   }) => {
     await stubCollectionPageGraph(page);
     await gotoApp(page, '/collection/no-such-drop');
-    await expect(page.getByText("This drop isn’t available.")).toBeVisible({
+    await expect(page.getByText('This drop isn’t available.')).toBeVisible({
       timeout: 12_000,
     });
-    await expect(page.locator('[data-collection-page-skeleton]')).toHaveCount(0);
+    await expect(page.locator('[data-collection-page-skeleton]')).toHaveCount(
+      0
+    );
   });
 
   test('visitor audio drop keeps commerce first', async ({ page }) => {
@@ -57,36 +61,62 @@ test.describe('collection drop page', () => {
     );
   });
 
-  test('visitor writing drop keeps Read locked under commerce', async ({
-    page,
-  }) => {
-    await stubCollectionPageGraph(page);
-    await gotoApp(page, '/collection/chapter-one');
+  test.describe('visitor writing at 390', () => {
+    test.use({ viewport: { width: 390, height: 844 } });
 
-    await expect(page.locator('.collection-title')).toHaveText('Chapter One', {
-      timeout: 30_000,
+    test('visitor writing drop keeps Read locked under commerce', async ({
+      page,
+    }) => {
+      await stubCollectionPageGraph(page);
+      await gotoApp(page, '/collection/chapter-one');
+
+      await expect(page.locator('.collection-title')).toHaveText(
+        'Chapter One',
+        {
+          timeout: 30_000,
+        }
+      );
+      await expectCollectionVisitorChrome(page);
+      await expect(page.locator('.collection-reading')).toBeVisible();
+      const read = page.getByRole('button', { name: 'Read', exact: true });
+      await expect(read).toBeVisible();
+      await expect(read).toHaveClass(/collection-reading-open/);
+      await expect(read).not.toHaveClass(PILL_ACTION);
+      await expect(
+        page.getByText('Connect to read.', { exact: true })
+      ).toBeVisible();
+      await read.click();
+      const sheet = page.locator('.scarce-read-slide');
+      const footerConnect = sheet
+        .locator('.os-sheet-footer')
+        .getByRole('button', { name: 'Connect', exact: true });
+      await expect(footerConnect).toBeVisible({
+        timeout: E2E_CHROME_TIMEOUT_MS,
+      });
+      await expect(page.getByText('Connect wallet')).toHaveCount(0);
+      await expect(page.getByText('Manuscript')).toHaveCount(0);
+      const insets = await sheet.evaluate((root) => {
+        const title = root.querySelector('.scarce-writing-read-title');
+        const button = root.querySelector('.os-sheet-footer button');
+        const readCol = root.querySelector('.scarce-writing-read');
+        const footer = root.querySelector('.os-sheet-footer');
+        if (!title || !button || !readCol || !footer) return null;
+        return {
+          viewport: window.innerWidth,
+          titleX: title.getBoundingClientRect().x,
+          buttonX: button.getBoundingClientRect().x,
+          readPad: Number.parseFloat(getComputedStyle(readCol).paddingLeft),
+          footerPad: Number.parseFloat(getComputedStyle(footer).paddingLeft),
+        };
+      });
+      expect(insets).toBeTruthy();
+      expect(insets?.viewport).toBe(390);
+      expect(
+        Math.abs((insets?.titleX ?? 0) - (insets?.buttonX ?? 0))
+      ).toBeLessThan(2);
+      expect(insets?.readPad).toBeCloseTo(18.4, 0);
+      expect(insets?.footerPad).toBeCloseTo(18.4, 0);
     });
-    await expectCollectionVisitorChrome(page);
-    await expect(page.locator('.collection-reading')).toBeVisible();
-    const read = page.getByRole('button', { name: 'Read', exact: true });
-    await expect(read).toBeVisible();
-    await expect(read).toHaveClass(/collection-reading-open/);
-    await expect(read).not.toHaveClass(PILL_ACTION);
-    await expect(page.getByText('Connect to read.', { exact: true })).toBeVisible();
-    await page.setViewportSize({ width: 390, height: 844 });
-    await read.click();
-    const sheet = page.locator('.scarce-read-slide');
-    const footerConnect = sheet
-      .locator('.os-sheet-footer')
-      .getByRole('button', { name: 'Connect', exact: true });
-    await expect(footerConnect).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
-    await expect(page.getByText('Connect wallet')).toHaveCount(0);
-    await expect(page.getByText('Manuscript')).toHaveCount(0);
-    const titleBox = await sheet.locator('.scarce-writing-read-title').boundingBox();
-    const connectBox = await footerConnect.boundingBox();
-    expect(titleBox).toBeTruthy();
-    expect(connectBox).toBeTruthy();
-    expect(Math.abs((titleBox?.x ?? 0) - (connectBox?.x ?? 0))).toBeLessThan(2);
   });
 
   test('held audio drop puts Play above the product row', async ({ page }) => {
@@ -186,14 +216,12 @@ test.describe('collection drop page', () => {
     await expect(
       page.locator('.os-app-screen[data-header-owns-connect]')
     ).toHaveCount(0);
-    await expect(
-      page.locator('.ticket-door-page-actions')
-    ).toHaveCount(0);
+    await expect(page.locator('.ticket-door-page-actions')).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Connect', exact: true })
     ).toHaveCount(1);
-    await expect(
-      page.locator('.portfolio-summon-hint--connect')
-    ).toHaveText('Connect');
+    await expect(page.locator('.portfolio-summon-hint--connect')).toHaveText(
+      'Connect'
+    );
   });
 });
