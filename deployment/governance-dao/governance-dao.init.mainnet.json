@@ -1,0 +1,28 @@
+{
+  "config": {
+    "name": "OnSocial Governance",
+    "purpose": "Governance DAO for OnSocial protocol upgrades, partners, and policy",
+    "metadata": ""
+  },
+  "policy": {
+    "roles": [
+      {
+        "name": "guardians",
+        "kind": {
+          "Group": ["onsocial.near"]
+        },
+        "permissions": ["*:*"],
+        "vote_policy": {}
+      }
+    ],
+    "default_vote_policy": {
+      "weight_kind": "RoleWeight",
+      "quorum": "0",
+      "threshold": [50, 100]
+    },
+    "proposal_bond": "100000000000000000000000",
+    "proposal_period": "604800000000000",
+    "bounty_bond": "1000000000000000000000000",
+    "bounty_forgiveness_period": "86400000000000"
+  }
+}

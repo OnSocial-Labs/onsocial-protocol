@@ -1,0 +1,36 @@
+{
+  "proposal": {
+    "description": "Treasury DAO: harden policy — council onsocial.near only, remove public Everyone, use 50/100 majority (add greenghost.near later)",
+    "kind": {
+      "ChangePolicy": {
+        "policy": {
+          "roles": [
+            {
+              "name": "council",
+              "kind": {
+                "Group": ["onsocial.near"]
+              },
+              "permissions": [
+                "*:AddProposal",
+                "*:VoteApprove",
+                "*:VoteReject",
+                "*:VoteRemove",
+                "*:Finalize"
+              ],
+              "vote_policy": {}
+            }
+          ],
+          "default_vote_policy": {
+            "weight_kind": "RoleWeight",
+            "quorum": "0",
+            "threshold": [50, 100]
+          },
+          "proposal_bond": "1000000000000000000000000",
+          "proposal_period": "604800000000000",
+          "bounty_bond": "1000000000000000000000000",
+          "bounty_forgiveness_period": "86400000000000"
+        }
+      }
+    }
+  }
+}
