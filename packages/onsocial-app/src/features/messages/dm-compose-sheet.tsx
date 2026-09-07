@@ -13,6 +13,7 @@ import {
 import { useRouter } from 'next/navigation';
 import {
   DiscardConfirmSheet,
+  ImageIcon,
   OsField,
   OsGestureSheet,
   OsSheetAction,
@@ -315,11 +316,12 @@ export function DmComposeSheet({
               ) : (
                 <button
                   type="button"
-                  className="dm-compose-media-attach"
+                  className="os-write-dock-tool"
+                  aria-label="Attach photo or video"
                   disabled={pending || discardConfirmOpen}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  Attach photo or video
+                  <ImageIcon className="os-write-dock-media-icon" aria-hidden />
                 </button>
               )}
             </div>

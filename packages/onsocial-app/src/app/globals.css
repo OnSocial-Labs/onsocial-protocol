@@ -37306,14 +37306,11 @@ a.os-surface-row {
     gap: 0.45rem;
   }
 
-  .endorse-compose-media-action {
+  .endorse-compose-media .os-write-dock-tool {
     align-self: flex-start;
-    width: auto;
-  }
-
-  .endorse-compose-media-action .os-sheet-action {
-    flex: 0 0 auto;
-    width: auto;
+    width: 2.35rem;
+    min-width: 2.35rem;
+    height: 2.35rem;
   }
 
   .endorse-compose-media-preview {
@@ -41249,7 +41246,13 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.35rem;
 }
 
-.dm-compose-media-attach,
+.dm-compose-media .os-write-dock-tool {
+  align-self: flex-start;
+  width: 2.35rem;
+  min-width: 2.35rem;
+  height: 2.35rem;
+}
+
 .dm-compose-media-remove {
   border: 0;
   background: transparent;

@@ -16,6 +16,7 @@ import {
 } from '@onsocial/sdk';
 import {
   DiscardConfirmSheet,
+  ImageIcon,
   OsGestureSheet,
   OsSheetAction,
   OsSheetActions,
@@ -658,28 +659,17 @@ export function EndorseComposeSheet({
                 </button>
               </div>
             ) : (
-              <OsSheetActions
-                layout="row-compact"
-                size="sm"
-                tone="frosted-primary"
-                borderless
-                className="endorse-compose-media-action"
+              <button
+                type="button"
+                className="os-write-dock-tool"
+                aria-label="Attach photo or video"
+                title={mediaLimitsHint}
+                disabled={busy || isSelf || discardConfirmOpen}
+                onClick={() => fileInputRef.current?.click()}
               >
-                <OsSheetAction
-                  type="button"
-                  variant="ghost"
-                  pending={mediaProcessing}
-                  pendingLabel="Checking media…"
-                  disabled={busy || isSelf || discardConfirmOpen}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  Attach photo or video
-                </OsSheetAction>
-              </OsSheetActions>
+                <ImageIcon className="os-write-dock-media-icon" aria-hidden />
+              </button>
             )}
-            {!hasMediaAttachment ? (
-              <p className="endorse-compose-media-hint">{mediaLimitsHint}</p>
-            ) : null}
           </div>
 
           {fieldError || mediaError ? (
