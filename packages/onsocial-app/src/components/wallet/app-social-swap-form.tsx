@@ -18,6 +18,10 @@ import {
 } from '@onsocial/ui';
 import { OsSheetAction } from '@onsocial/ui';
 import { AppSocialSwapQuoteDetails } from '@/components/wallet/app-social-swap-quote-details';
+import {
+  SWAP_CONNECT_CTA,
+  SWAP_CONNECT_HINT,
+} from '@/components/wallet/app-social-swap-voice';
 import { useAppSocialBalance } from '@/contexts/app-social-balance-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -187,7 +191,7 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
     );
   }
 
-  const primaryLabel = !isConnected ? 'Connect wallet' : 'Get SOCIAL';
+  const primaryLabel = !isConnected ? SWAP_CONNECT_CTA : 'Get SOCIAL';
   const primaryPending = !isConnected ? isWalletBootstrapping : swap.swapping;
   const primaryReady =
     (!isConnected && !isWalletBootstrapping) ||
@@ -306,7 +310,9 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
         ) : null}
       </div>
 
-      {swap.swapHint ? (
+      {!isConnected ? (
+        <p className="app-storage-hint app-swap-hint">{SWAP_CONNECT_HINT}</p>
+      ) : swap.swapHint ? (
         <p className="app-storage-hint app-swap-hint">
           {appSwapHintMessage(swap.swapHint)}
         </p>
