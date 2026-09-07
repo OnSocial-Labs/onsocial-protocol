@@ -5,6 +5,7 @@ import {
   DAO_CREATE_CONNECT_CTA,
   DAO_CREATE_CONNECT_HINT,
   DAO_CREATE_PUBLISH,
+  daoCreatePurposeToggle,
 } from '@/features/protocol/dao-create-voice';
 
 describe('DAO create Connect voice', () => {
@@ -21,8 +22,23 @@ describe('DAO create Connect voice', () => {
   it('parks extras behind Advanced', () => {
     expect(DAO_CREATE_ADVANCED).toBe('Advanced');
     expect(DAO_CREATE_ADVANCED_HIDE).toBe('Hide advanced');
+  });
+
+  it('offers Publish OnSocial profile on the same create step', () => {
     expect(DAO_CREATE_PUBLISH).toBe('Publish OnSocial profile');
     expect(DAO_CREATE_PUBLISH.toLowerCase()).not.toContain('call');
     expect(DAO_CREATE_PUBLISH.toLowerCase()).not.toContain('bond');
+  });
+
+  it('waits purpose behind Add a purpose', () => {
+    expect(daoCreatePurposeToggle({ open: false, hasText: false })).toBe(
+      'Add a purpose'
+    );
+    expect(daoCreatePurposeToggle({ open: false, hasText: true })).toBe(
+      'Edit purpose'
+    );
+    expect(daoCreatePurposeToggle({ open: true, hasText: true })).toBe(
+      'Hide purpose'
+    );
   });
 });

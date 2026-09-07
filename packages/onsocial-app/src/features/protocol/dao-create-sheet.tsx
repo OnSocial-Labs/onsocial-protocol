@@ -29,6 +29,7 @@ import {
   DAO_CREATE_CONNECT_CTA,
   DAO_CREATE_CONNECT_HINT,
   DAO_CREATE_PUBLISH,
+  daoCreatePurposeToggle,
 } from '@/features/protocol/dao-create-voice';
 import {
   buildDaoFactoryAccountId,
@@ -131,8 +132,8 @@ function useDaoFactorySlugAvailability(
 
 /**
  * Factory DAO create — tall gesture sheet from the DAOs directory header.
- * First screen is name, id, purpose, and quiet cover/crest. Policy, links,
- * and face publish wait in Advanced.
+ * First screen is name, id, quiet cover/crest, optional purpose, and
+ * Publish OnSocial profile. Policy and links wait in Advanced.
  */
 export function DaoCreateSheet({
   open,
@@ -162,6 +163,7 @@ export function DaoCreateSheet({
     Partial<Record<keyof ProfileLinksInput, string>>
   >({});
   const [linksOpen, setLinksOpen] = useState(false);
+  const [purposeOpen, setPurposeOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [publishSocial, setPublishSocial] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -184,6 +186,7 @@ export function DaoCreateSheet({
     setLinks(profileLinksInputFromRecord(null));
     setLinkErrors({});
     setLinksOpen(false);
+    setPurposeOpen(false);
     setShowAdvanced(false);
     setPublishSocial(false);
     setAvatarFile(null);
@@ -644,22 +647,46 @@ export function DaoCreateSheet({
             </small>
           </label>
 
-          <label className="guild-field" htmlFor={fieldId('purpose')}>
-            <span>Purpose</span>
-            <textarea
-              id={fieldId('purpose')}
-              value={purpose}
-              onChange={(event) => {
-                setPurpose(event.target.value);
-                setError(null);
-              }}
-              placeholder="Optional — what this DAO is for"
-              maxLength={DAO_FACTORY_PURPOSE_MAX}
-              rows={3}
-              disabled={pending || discardConfirmOpen}
-              className={osFieldBorderedClassName}
-            />
-          </label>
+          <button
+            type="button"
+            className="collection-allowlist-toggle"
+            aria-expanded={purposeOpen}
+            disabled={pending || discardConfirmOpen}
+            onClick={() => setPurposeOpen((open) => !open)}
+          >
+            {daoCreatePurposeToggle({
+              open: purposeOpen,
+              hasText: purpose.trim().length > 0,
+            })}
+          </button>
+          {purposeOpen ? (
+            <label className="guild-field" htmlFor={fieldId('purpose')}>
+              <span>Purpose</span>
+              <textarea
+                id={fieldId('purpose')}
+                value={purpose}
+                onChange={(event) => {
+                  setPurpose(event.target.value);
+                  setError(null);
+                }}
+                placeholder="Optional — what this DAO is for"
+                maxLength={DAO_FACTORY_PURPOSE_MAX}
+                rows={3}
+                disabled={pending || discardConfirmOpen}
+                className={osFieldBorderedClassName}
+              />
+            </label>
+          ) : null}
+
+          <button
+            type="button"
+            className={`os-surface-chip${publishSocial ? ' is-selected' : ''}`}
+            aria-pressed={publishSocial}
+            disabled={pending || discardConfirmOpen}
+            onClick={() => setPublishSocial((on) => !on)}
+          >
+            {DAO_CREATE_PUBLISH}
+          </button>
 
           <button
             type="button"
@@ -676,11 +703,9 @@ export function DaoCreateSheet({
               <div className="dao-create-facts" aria-label="What you get">
                 <p className="dao-create-facts-title">You get</p>
                 <ul className="dao-create-facts-list">
-                  <li>{policyFacts.council}</li>
                   <li>{policyFacts.publicPropose}</li>
                   <li>{policyFacts.vote}</li>
                   <li>{policyFacts.bond}</li>
-                  <li>{policyFacts.createDeposit}</li>
                 </ul>
               </div>
 
@@ -729,16 +754,6 @@ export function DaoCreateSheet({
                   />
                 ) : null}
               </div>
-
-              <label className="dao-create-toggle">
-                <input
-                  type="checkbox"
-                  checked={publishSocial}
-                  disabled={pending || discardConfirmOpen}
-                  onChange={(event) => setPublishSocial(event.target.checked)}
-                />
-                <span>{DAO_CREATE_PUBLISH}</span>
-              </label>
             </>
           ) : null}
 

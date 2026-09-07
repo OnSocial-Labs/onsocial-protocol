@@ -3,7 +3,6 @@ import {
   ACTIVE_NEAR_NETWORK,
   SPUTNIK_DAO_FACTORY,
   SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT,
-  SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT_NEAR,
   SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR,
 } from '@/lib/app-config';
 import {
@@ -166,20 +165,16 @@ export function buildDaoFactoryInitArgs(opts: {
   };
 }
 
-/** Short facts for the create sheet “You get” strip. */
+/** Advanced extras only — whisper already has council + create cost. */
 export function daoFactoryCreatePolicyFacts(): {
-  council: string;
   publicPropose: string;
   vote: string;
   bond: string;
-  createDeposit: string;
 } {
   return {
-    council: 'You start as council',
     publicPropose: 'Anyone can propose',
     vote: '50% majority',
     bond: `${SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR} NEAR proposal bond`,
-    createDeposit: `~${SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT_NEAR} NEAR to create`,
   };
 }
 

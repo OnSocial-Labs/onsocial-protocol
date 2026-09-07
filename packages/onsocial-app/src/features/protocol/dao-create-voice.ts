@@ -8,5 +8,14 @@ export const DAO_CREATE_CONNECT_HINT = 'Connect to create a DAO.';
 export const DAO_CREATE_ADVANCED = 'Advanced';
 export const DAO_CREATE_ADVANCED_HIDE = 'Hide advanced';
 
-/** Optional face publish — no Call / bond explainer. */
+/** Optional face publish — same create step, no Call / bond explainer. */
 export const DAO_CREATE_PUBLISH = 'Publish OnSocial profile';
+
+/** Same toggle voice as New drop description. */
+export function daoCreatePurposeToggle(opts: {
+  open: boolean;
+  hasText: boolean;
+}): string {
+  if (opts.open) return 'Hide purpose';
+  return opts.hasText ? 'Edit purpose' : 'Add a purpose';
+}

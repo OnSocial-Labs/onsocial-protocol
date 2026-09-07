@@ -21,7 +21,16 @@ test.describe('dao create voice', () => {
     );
     await expect(sheet.getByText('You get')).toHaveCount(0);
     await expect(sheet.getByText('Add links')).toHaveCount(0);
-    await expect(sheet.getByText('Publish OnSocial profile')).toHaveCount(0);
+    await expect(sheet.getByText('Purpose', { exact: true })).toHaveCount(0);
+    await expect(
+      sheet.getByRole('button', { name: 'Add a purpose', exact: true })
+    ).toBeVisible();
+    const publish = sheet.getByRole('button', {
+      name: 'Publish OnSocial profile',
+      exact: true,
+    });
+    await expect(publish).toBeVisible();
+    await expect(publish).toHaveAttribute('aria-pressed', 'false');
     await expect(
       sheet.getByRole('button', { name: 'Add cover', exact: true })
     ).toHaveClass(/os-write-dock-tool/);
@@ -35,7 +44,10 @@ test.describe('dao create voice', () => {
     await sheet.getByRole('button', { name: 'Advanced', exact: true }).click();
     await expect(sheet.getByText('You get')).toBeVisible();
     await expect(sheet.getByText('Add links')).toBeVisible();
-    await expect(sheet.getByText('Publish OnSocial profile')).toBeVisible();
+    await expect(
+      sheet.getByText('You start as council', { exact: true })
+    ).toHaveCount(0);
+    await expect(sheet.getByText('~6 NEAR to create')).toHaveCount(0);
     await expect(sheet.getByText('proposes a Call')).toHaveCount(0);
   });
 });
