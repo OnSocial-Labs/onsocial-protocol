@@ -5,7 +5,10 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AppShellLauncher } from '@/components/os/summon-launcher';
 import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
-import { useRegisterDockBack } from '@/contexts/dock-chrome-context';
+import {
+  useRegisterDockBack,
+  useRegisterHeaderOwnsConnect,
+} from '@/contexts/dock-chrome-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
@@ -63,6 +66,10 @@ export interface OsAppScreenProps {
   /** When set with `dockBack`, runs instead of history navigation (e.g. close thread). */
   onDockBack?: () => void;
   /**
+   * Header already has Connect / Start drop — hide the dock Connect hint.
+   */
+  headerOwnsConnect?: boolean;
+  /**
    * Scroll tuck on compact glass chrome. `search` — chips stay, search row slides
    * away under them; `toolbar` — legacy chip-rail hide (Home toolbar-only).
    */
@@ -115,6 +122,7 @@ export function OsAppScreen({
   nestedScrollChrome = false,
   dockBack = false,
   onDockBack,
+  headerOwnsConnect = false,
   scrollTuck,
   scrollTuckPinned = false,
   toolbar,
@@ -158,6 +166,7 @@ export function OsAppScreen({
     [backFallbackHref, dockBack, onDockBack]
   );
   useRegisterDockBack(dockBackEntry);
+  useRegisterHeaderOwnsConnect(headerOwnsConnect);
   const navBackInDock = dockBack && leading === undefined;
   const showNavRow =
     !compactChrome ||
@@ -227,6 +236,7 @@ export function OsAppScreen({
         glassMode && nestedScrollChrome ? 'true' : undefined
       }
       data-dock-back={dockBack ? 'true' : undefined}
+      data-header-owns-connect={headerOwnsConnect ? '' : undefined}
       data-scroll-tuck={scrollTuck}
       data-screen-footer={hasFooter ? 'true' : undefined}
       data-mood={hasMood ? resolvedMoodId! : undefined}

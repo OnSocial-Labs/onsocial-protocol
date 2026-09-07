@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolveDockBackVisible } from '@/contexts/dock-chrome-context';
+import {
+  resolveDockBackVisible,
+  resolveDockConnectHintVisible,
+} from '@/contexts/dock-chrome-context';
 
 describe('resolveDockBackVisible', () => {
   it('shows dock back when registered and idle', () => {
@@ -16,6 +19,29 @@ describe('resolveDockBackVisible', () => {
       resolveDockBackVisible({
         dockBack: { fallbackHref: '/home' },
         launcherOpen: true,
+      })
+    ).toBe(false);
+  });
+});
+
+describe('resolveDockConnectHintVisible', () => {
+  it('shows the dock hint only when disconnected and the header does not own Connect', () => {
+    expect(
+      resolveDockConnectHintVisible({
+        headerOwnsConnect: false,
+        isConnected: false,
+      })
+    ).toBe(true);
+    expect(
+      resolveDockConnectHintVisible({
+        headerOwnsConnect: true,
+        isConnected: false,
+      })
+    ).toBe(false);
+    expect(
+      resolveDockConnectHintVisible({
+        headerOwnsConnect: false,
+        isConnected: true,
       })
     ).toBe(false);
   });

@@ -5,6 +5,8 @@ import {
 } from '@/features/market/owned-vault-cache';
 import {
   collectionCatalogShell,
+  collectionCoverImmersive,
+  collectionCoverSquare,
   collectionDropBackHref,
   collectionShowCommerceMeter,
   collectionUseFirst,
@@ -13,6 +15,23 @@ import {
 } from '@/features/scarces/collection-page-view';
 
 describe('collection page view', () => {
+  it('keeps Art as an inset square, not a 16/10 bleed', () => {
+    expect(collectionCoverSquare({ kind: 'art', isAudio: false })).toBe(true);
+    expect(collectionCoverSquare({ kind: 'ticket', isAudio: false })).toBe(
+      false
+    );
+    expect(collectionCoverSquare({ kind: 'audio', isAudio: true })).toBe(true);
+    expect(collectionCoverImmersive({ hasMedia: true, kind: 'art' })).toBe(
+      false
+    );
+    expect(collectionCoverImmersive({ hasMedia: true, kind: 'ticket' })).toBe(
+      true
+    );
+    expect(collectionCoverImmersive({ hasMedia: false, kind: 'art' })).toBe(
+      false
+    );
+  });
+
   it('is use-first for owners and confirmed holders only', () => {
     expect(collectionUseFirst({ isOwner: true, holdsEdition: false })).toBe(
       true

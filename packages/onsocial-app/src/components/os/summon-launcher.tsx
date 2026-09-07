@@ -48,7 +48,9 @@ import {
 } from '@/contexts/compose-launcher-context';
 import {
   resolveDockBackVisible,
+  resolveDockConnectHintVisible,
   useDockBack,
+  useHeaderOwnsConnect,
 } from '@/contexts/dock-chrome-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
 import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
@@ -259,6 +261,11 @@ export function SummonLauncher({
 
   const compose = useComposeLauncher();
   const dockBack = useDockBack();
+  const headerOwnsConnect = useHeaderOwnsConnect();
+  const showDockConnectHint = resolveDockConnectHintVisible({
+    headerOwnsConnect,
+    isConnected,
+  });
   const writePinned = useWriteDockPinned();
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
@@ -490,7 +497,7 @@ export function SummonLauncher({
           data-mood={dockMoodId ?? undefined}
           style={dockMoodStyle}
         >
-          {!isConnected ? (
+          {showDockConnectHint ? (
             <button
               type="button"
               className="portfolio-summon-hint portfolio-summon-hint--connect"

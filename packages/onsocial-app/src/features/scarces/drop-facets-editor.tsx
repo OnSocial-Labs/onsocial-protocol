@@ -16,6 +16,8 @@ interface DropFacetsEditorProps {
   disabled?: boolean;
   /** Accessible name for the chip group. */
   label?: string;
+  /** Hide the Style-optional heading — create-drop waits behind Add a style. */
+  hideLabel?: boolean;
 }
 
 /**
@@ -28,6 +30,7 @@ export function DropFacetsEditor({
   onChange,
   disabled = false,
   label = dropFacetFieldLabel(medium),
+  hideLabel = false,
 }: DropFacetsEditorProps) {
   const suggestions = dropFacetSuggestionsForMedium(medium);
   const selected = normalizeDropFacets(facets, medium);
@@ -47,10 +50,12 @@ export function DropFacetsEditor({
 
   return (
     <div className="guild-field">
-      <span>
-        {label}
-        <span className="drop-facets-optional"> optional</span>
-      </span>
+      {hideLabel ? null : (
+        <span>
+          {label}
+          <span className="drop-facets-optional"> optional</span>
+        </span>
+      )}
       <div
         className="app-storage-presets drop-facets-chip-row"
         role="group"

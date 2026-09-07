@@ -25132,7 +25132,7 @@ a.os-surface-row {
 
   .collection-cover.is-square:not(.is-immersive) {
     aspect-ratio: 1 / 1;
-    max-width: min(100%, 22rem);
+    max-width: min(100%, 15rem);
     margin-inline: auto;
   }
 
@@ -28104,6 +28104,7 @@ a.os-surface-row {
 
   /* Create / edit forms: plain label stacks — kill guild-field card chrome. */
   .drop-create-form .guild-field,
+  .drop-create-extra-sheet-body .guild-field,
   .drop-studio .guild-field,
   .guild-create-form .guild-field,
   .guild-edit-form .guild-field,
@@ -31537,6 +31538,276 @@ a.os-surface-row {
 
   .drop-create-section {
     display: contents;
+  }
+
+  /* Work + name are one object. Deal sits after. */
+  .drop-create-stage,
+  .drop-create-deal {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Supply · price as one spoken line. !important beats unlayered os-field. */
+  .drop-create-deal-line {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: 0.15rem 0.35rem;
+    min-width: 0;
+  }
+
+  .drop-create-deal-sep {
+    color: rgb(var(--fg-rgb) / 0.32);
+    font-size: 1.15rem;
+    font-weight: 650;
+    line-height: 1.2;
+    padding-inline: 0.1rem;
+  }
+
+  .drop-create-form .drop-create-deal-line .suffix-field,
+  .drop-create-form .drop-create-deal-line .os-amount-field {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    padding: 0.05rem 0 0.2rem !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .drop-create-form .drop-create-deal-line .suffix-field-divider,
+  .drop-create-form .drop-create-deal-line .os-amount-field-divider {
+    display: none !important;
+  }
+
+  .drop-create-form .drop-create-deal-line .suffix-field-input,
+  .drop-create-form .drop-create-deal-line .os-amount-field-input {
+    width: 3.2ch !important;
+    flex: 0 0 auto !important;
+    padding: 0 !important;
+    font-size: 1.15rem !important;
+    font-weight: 650 !important;
+    letter-spacing: -0.02em !important;
+    line-height: 1.2 !important;
+    font-family: inherit !important;
+  }
+
+  .drop-create-form .drop-create-deal-line .os-amount-field-input {
+    width: 4.2ch !important;
+  }
+
+  .drop-create-form .drop-create-deal-line .suffix-field-input:focus,
+  .drop-create-form .drop-create-deal-line .os-amount-field-input:focus {
+    outline: none !important;
+    box-shadow: inset 0 -1px 0 rgb(var(--fg-rgb) / 0.22) !important;
+  }
+
+  .drop-create-form .drop-create-deal-line .suffix-field-unit,
+  .drop-create-form .drop-create-deal-line .os-amount-field-unit,
+  .drop-create-form .drop-create-deal-line .account-card-balance-unit {
+    font-size: 1.05rem !important;
+    font-weight: 600 !important;
+    color: rgb(var(--fg-rgb) / 0.48) !important;
+  }
+
+  /* Mode pills sit on the piece — no Artwork/(i) form label. */
+  .drop-create-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  /* Empty artwork/cover is a stage, not a dashed form well.
+   * 1×1 like wallets / player — capped so a square does not eat the screen. */
+  .drop-create-form .drop-cover-picker.drop-create-piece {
+    padding: 0;
+    border: 0;
+    background: rgb(var(--fg-rgb) / 0.05);
+    aspect-ratio: 1 / 1;
+    width: min(100%, 15rem);
+    max-width: 15rem;
+    margin-inline: auto;
+  }
+
+  .drop-create-form .drop-cover-picker.drop-create-piece:hover:not(:disabled),
+  .drop-create-form .drop-cover-picker.drop-create-piece:focus-visible {
+    border-color: transparent;
+    background: rgb(var(--fg-rgb) / 0.07);
+    box-shadow: inset 0 0 0 1px rgb(var(--signal-reputation-rgb, 0 236 151) / 0.45);
+  }
+
+  .drop-create-title {
+    display: block;
+    min-width: 0;
+  }
+
+  .drop-create-form .drop-create-title-input {
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0.05rem 0 0.4rem;
+    font-size: 1.5rem;
+    font-weight: 650;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+    color: inherit;
+  }
+
+  .drop-create-form .drop-create-title-input::placeholder {
+    color: rgb(var(--fg-rgb) / 0.32);
+    font-weight: 600;
+  }
+
+  .drop-create-form .drop-create-title-input:focus {
+    outline: none;
+    box-shadow: inset 0 -1px 0 rgb(var(--fg-rgb) / 0.22);
+  }
+
+  .drop-create-description-toggle {
+    align-self: flex-start;
+  }
+
+  /* Track / writing files sit on the piece — not a labeled form row. */
+  .drop-create-attach {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+  }
+
+  .drop-create-attach-action {
+    align-self: flex-start;
+  }
+
+  .drop-create-attach-hint {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  /* Drop ID / Series wait like Add a description — not labeled form rows. */
+  .drop-create-advanced-extra {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+  }
+
+  .drop-create-advanced-toggle {
+    align-self: flex-start;
+  }
+
+  .drop-create-advanced-field {
+    display: block;
+    min-width: 0;
+  }
+
+  .drop-create-form .drop-create-advanced-input {
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0.05rem 0 0.35rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+    color: inherit;
+  }
+
+  .drop-create-form .drop-create-advanced-input::placeholder {
+    color: rgb(var(--fg-rgb) / 0.32);
+    font-weight: 600;
+  }
+
+  .drop-create-form .drop-create-advanced-input:focus {
+    outline: none;
+    box-shadow: inset 0 -1px 0 rgb(var(--fg-rgb) / 0.22);
+  }
+
+  .drop-create-advanced-hint {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .drop-create-sale-rules,
+  .drop-create-renewals {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .drop-create-extra-list {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .drop-create-extra-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    margin: 0;
+    padding: 0.55rem 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .drop-create-extra-row:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+
+  .drop-create-extra-row-label {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .drop-create-extra-event {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+    padding: 0.55rem 0;
+  }
+
+  .drop-create-extra-row-value {
+    min-width: 0;
+    color: rgb(var(--fg-rgb) / 0.48);
+    text-align: right;
+  }
+
+  .drop-create-extra-sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .drop-create-extra-sheet-body .guild-field > input {
+    width: 100%;
+  }
+
+  .drop-create-extra-sheet-hint {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.56);
   }
 
   /* Edge fade hints there are more template tabs off-screen (scrollbar is
@@ -37259,6 +37530,57 @@ a.os-surface-row {
   .profile-support-error {
     color: var(--signal-error, var(--protocol-red));
   }
+}
+
+/*
+ * New drop deal line — unlayered so it beats imported os-field / os-amount-field
+ * (layered rules lose to those unlayered imports).
+ */
+.drop-create-form .drop-create-deal-line .suffix-field,
+.drop-create-form .drop-create-deal-line .os-amount-field {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  padding: 0.05rem 0 0.2rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.drop-create-form .drop-create-deal-line .suffix-field-divider,
+.drop-create-form .drop-create-deal-line .os-amount-field-divider {
+  display: none;
+}
+
+.drop-create-form .drop-create-deal-line .suffix-field-input,
+.drop-create-form .drop-create-deal-line .os-amount-field-input {
+  width: 3.2ch;
+  flex: 0 0 auto;
+  padding: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  font-family: inherit;
+}
+
+.drop-create-form .drop-create-deal-line .os-amount-field-input {
+  width: 4.2ch;
+}
+
+.drop-create-form .drop-create-deal-line .suffix-field-input:focus,
+.drop-create-form .drop-create-deal-line .os-amount-field-input:focus {
+  outline: none;
+  box-shadow: inset 0 -1px 0 rgb(var(--fg-rgb) / 0.22);
+}
+
+.drop-create-form .drop-create-deal-line .suffix-field-unit,
+.drop-create-form .drop-create-deal-line .os-amount-field-unit,
+.drop-create-form .drop-create-deal-line .account-card-balance-unit {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: rgb(var(--fg-rgb) / 0.48);
 }
 
 /*

@@ -17,6 +17,7 @@ export type DropFieldInfoKey =
   | 'eventWindow'
   | 'eventPlace'
   | 'transferable'
+  | 'postpone'
   | 'renewable'
   | 'accessEnds'
   | 'maxRedeems'
@@ -63,9 +64,9 @@ const DROP_FIELD_INFO: Record<
   },
   description: {
     title: 'Description',
-    summary: 'Short public blurb on the drop page.',
+    summary: 'Short public line on the drop page.',
     detail:
-      'Keep it brief. Writing manuscripts and media upload in their own fields — this is the drop page blurb only.',
+      'Keep it brief. Writing manuscripts and media upload in their own fields — this is the drop page description only.',
   },
   series: {
     title: 'Series',
@@ -100,11 +101,17 @@ const DROP_FIELD_INFO: Record<
     detail:
       'Yes allows transfer and resale. Soulbound keeps the edition with the buyer.',
   },
-  renewable: {
-    title: 'Allow date changes',
-    summary: 'Whether you can push the end date later (rain day / postpone).',
+  postpone: {
+    title: 'Postpone',
+    summary: 'Whether you can push the event end later if the show moves.',
     detail:
-      'On by default for tickets. Choose No if the end must stay fixed after mint. For coupons and memberships, optional Access ends sets a shared expiry.',
+      'On by default for tickets. Choose No if the end must stay fixed after mint. Event ends is the show — this only lets you push that end later.',
+  },
+  renewable: {
+    title: 'Renewals',
+    summary: 'Whether holders can renew this after it expires.',
+    detail:
+      'Used for coupons and memberships. Optional Access ends sets a shared expiry on every edition.',
   },
   accessEnds: {
     title: 'Access ends',
@@ -159,10 +166,12 @@ export function DropFieldInfoDrawer({
   infoKey,
   open,
   onClose,
+  zIndex,
 }: {
   infoKey: DropFieldInfoKey | null;
   open: boolean;
   onClose: () => void;
+  zIndex?: number;
 }) {
   const content = infoKey ? DROP_FIELD_INFO[infoKey] : null;
   return (
@@ -172,6 +181,7 @@ export function DropFieldInfoDrawer({
       title={content?.title ?? ''}
       summary={content?.summary ?? ''}
       detail={content?.detail ?? ''}
+      zIndex={zIndex}
     />
   );
 }

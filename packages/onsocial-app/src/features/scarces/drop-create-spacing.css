@@ -1,0 +1,8 @@
+/* Unlayered so it beats the leftover contents rule in layered globals.
+ * Sections stay one group — children must not inherit the form 1.15rem gap. */
+.drop-create-section,
+.drop-create-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}

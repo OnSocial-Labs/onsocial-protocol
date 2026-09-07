@@ -25,6 +25,7 @@ import {
   SheetCloseButton,
   useScrollLock,
 } from '@onsocial/ui';
+import { dropCreatePiecePickerClass } from '@/features/scarces/drop-create-layout';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 
 const clientMountedSubscribe = () => () => {};
@@ -368,18 +369,38 @@ export function DropSeatTile({
 
 interface DropArtworkPreviewProps {
   src: string;
-  /** Accessible name for the thumb + dialog. */
+  /** Accessible name for the stage + dialog. */
   label?: string;
+  disabled?: boolean;
 }
 
-/** Single-artwork create-drop thumb (seat size + zoom). */
+/** Same 1×1 well as empty — tap to zoom. */
 export function DropArtworkPreview({
   src,
   label = 'Artwork preview',
+  disabled,
 }: DropArtworkPreviewProps) {
+  const [zoomOpen, setZoomOpen] = useState(false);
+
   return (
-    <div className="drop-cover-seat-grid" aria-label={label}>
-      <DropSeatTile src={src} label={label} />
-    </div>
+    <>
+      <button
+        type="button"
+        className={`${dropCreatePiecePickerClass()} has-media`}
+        aria-label={label}
+        aria-haspopup="dialog"
+        aria-expanded={zoomOpen}
+        disabled={disabled}
+        onClick={() => setZoomOpen(true)}
+      >
+        <img src={src} alt="" />
+      </button>
+      <DropImageLightbox
+        open={zoomOpen}
+        src={src}
+        label={label}
+        onClose={() => setZoomOpen(false)}
+      />
+    </>
   );
 }
