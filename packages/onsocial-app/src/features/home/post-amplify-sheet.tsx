@@ -14,8 +14,8 @@ import {
   type PostAmplifySuccessDetail,
 } from '@/features/home/post-amplify-form';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
+import { commercePartyLines } from '@/features/scarces/collection-creator-face';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 interface PostAmplifySheetProps {
@@ -39,8 +39,9 @@ export function PostAmplifySheet({
   const [formKey, setFormKey] = useState(0);
   const [wasOpen, setWasOpen] = useState(open);
   const sheetOpen = open && !closing && post != null;
-  const name = post ? displayName(post.accountId, authorName ?? undefined) : '';
-  const handle = post ? fallbackLabel(post.accountId) : '';
+  const party = post
+    ? commercePartyLines(post.accountId, authorName)
+    : { name: '', handle: '' };
   const authorMood = usePageOwnerMood(
     post?.accountId,
     Boolean(open || closing)
@@ -73,10 +74,9 @@ export function PostAmplifySheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       verb="Amplify"
-      personName={name}
-      handle={handle}
+      personName={party.name}
+      handle={party.handle}
       signal="reputation"
-      whisper="DAO sets the SOCIAL split on-chain."
       closeAriaLabel="Close amplify"
       backdropLabel="Close amplify"
       moodId={authorMood?.id}

@@ -13,11 +13,15 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useSocialTokenIcon } from '@/hooks/use-social-token-icon';
+import {
+  AMPLIFY_CONNECT_CTA,
+  AMPLIFY_CONNECT_HINT,
+} from '@/features/home/amplify-voice';
+import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
 import { accountIdsEqual } from '@/lib/account-match';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { formatSocialCompact } from '@/lib/format-social-balance';
-import { displayName } from '@/lib/profile-display';
 import {
   BOOST_POST_MIN_YOCTO,
   BOOST_POST_PRESET_SOCIAL,
@@ -109,7 +113,7 @@ export function PostAmplifyForm({
 
   const isSelf =
     Boolean(accountId) && accountIdsEqual(accountId!, post.accountId);
-  const name = displayName(post.accountId, authorName ?? undefined);
+  const name = collectionCreatorNameLine(post.accountId, authorName);
   const minYocto = routing?.minAmountYocto ?? BOOST_POST_MIN_YOCTO;
   const amountHint = formatSpendAmountHint(minYocto);
   const presets = useMemo(
@@ -380,7 +384,7 @@ export function PostAmplifyForm({
           {fieldError ?? amountError}
         </p>
       ) : !isConnected ? (
-        <p className="profile-support-hint">Connect to amplify with SOCIAL.</p>
+        <p className="profile-support-hint">{AMPLIFY_CONNECT_HINT}</p>
       ) : null}
 
       <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -391,7 +395,7 @@ export function PostAmplifyForm({
           pendingLabel="Amplifying…"
           disabled={pending || (isConnected && !canSubmit)}
         >
-          {isConnected ? 'Amplify' : 'Connect wallet'}
+          {isConnected ? 'Amplify' : AMPLIFY_CONNECT_CTA}
         </OsSheetAction>
       </OsSheetActions>
     </form>
