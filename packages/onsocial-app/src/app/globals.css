@@ -40608,8 +40608,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 /* Compact hub-page mimic on Open a hub / Edit look. Unlayered so the overlap
    wins on the create form. Do not restyle .app-hub-cover. */
 .hub-look-preview {
+  /* In-flow logo; the form gap is the space down to Name. */
   position: relative;
-  padding-bottom: 2.15rem;
 }
 
 .hub-look-preview-banner {

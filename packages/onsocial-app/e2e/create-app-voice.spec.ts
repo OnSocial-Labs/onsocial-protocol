@@ -85,6 +85,15 @@ test.describe('create app voice', () => {
       bannerBox!.y + bannerBox!.height
     );
     expect(bannerBox!.height).toBeLessThan(110);
+    const nameLabel = page.locator('.guild-field', { has: page.locator('#app-create-name') });
+    const idLabel = page.locator('.guild-field', { has: page.locator('#app-create-id') });
+    const nameBox = await nameLabel.boundingBox();
+    const idBox = await idLabel.boundingBox();
+    expect(nameBox).toBeTruthy();
+    expect(idBox).toBeTruthy();
+    const logoToName = nameBox!.y - (logoBox!.y + logoBox!.height);
+    const nameToId = idBox!.y - (nameBox!.y + nameBox!.height);
+    expect(Math.abs(logoToName - nameToId)).toBeLessThan(6);
 
     await page.locator('[data-hub-look-file="banner"]').setInputFiles({
       name: 'banner.png',
