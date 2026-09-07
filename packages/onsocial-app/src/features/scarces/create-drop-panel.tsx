@@ -148,6 +148,8 @@ import {
   dropCreateSaleWindowSummary,
   dropCreateScreenTitle,
   dropCreateTransferableSummary,
+  dropCreateBurnableSummary,
+  DROP_CREATE_DEFAULT_BURNABLE,
   type DropCreateExtraSheetId,
 } from '@/features/scarces/drop-create-layout';
 import {
@@ -284,6 +286,7 @@ export function CreateDropPanel() {
   const [customRoyaltyInput, setCustomRoyaltyInput] = useState('');
   const [royaltyShares, setRoyaltyShares] = useState<RoyaltySplitShare[]>([]);
   const [transferable, setTransferable] = useState(true);
+  const [burnable, setBurnable] = useState(DROP_CREATE_DEFAULT_BURNABLE);
   const [renewable, setRenewable] = useState(false);
   const [maxRedeemsInput, setMaxRedeemsInput] = useState('');
   const [draftAllowlist, setDraftAllowlist] = useState<AllowlistEntry[]>([]);
@@ -465,6 +468,7 @@ export function CreateDropPanel() {
     setCustomRoyaltyInput('');
     setRoyaltyShares([]);
     setTransferable(true);
+    setBurnable(DROP_CREATE_DEFAULT_BURNABLE);
     setRenewable(false);
     setMaxRedeemsInput('');
     setDraftAllowlist([]);
@@ -626,6 +630,7 @@ export function CreateDropPanel() {
         setCustomRoyaltyInput(formDraft.customRoyaltyInput);
         setRoyaltyShares(formDraft.royaltyShares);
         setTransferable(formDraft.transferable);
+        setBurnable(formDraft.burnable);
         setRenewable(formDraft.renewable);
         setMaxRedeemsInput(formDraft.maxRedeemsInput);
         setDraftAllowlist(formDraft.draftAllowlist);
@@ -756,6 +761,7 @@ export function CreateDropPanel() {
         customRoyaltyInput,
         royaltyShares,
         transferable,
+        burnable,
         renewable,
         maxRedeemsInput,
         draftAllowlist,
@@ -796,6 +802,7 @@ export function CreateDropPanel() {
     customRoyaltyInput,
     royaltyShares,
     transferable,
+    burnable,
     renewable,
     maxRedeemsInput,
     draftAllowlist,
@@ -825,6 +832,7 @@ export function CreateDropPanel() {
       clearPins();
       setTemplateId(next.id);
       setFacets([]);
+      setBurnable(DROP_CREATE_DEFAULT_BURNABLE);
       if (next.presets) {
         setTransferable(next.presets.transferable);
         setRenewable(next.presets.renewable);
@@ -1542,6 +1550,10 @@ export function CreateDropPanel() {
         value: transferable ? 'Yes' : 'Soulbound',
       },
       {
+        label: 'Destroy',
+        value: dropCreateBurnableSummary(burnable),
+      },
+      {
         label: isTicket ? 'Postpone' : 'Renewals',
         value: dropCreateRenewalsChoice(renewable),
       },
@@ -1641,6 +1653,7 @@ export function CreateDropPanel() {
     appId,
     price,
     transferable,
+    burnable,
     renewable,
     resolvedRoyaltyBps,
     resolvedRoyaltyShares.length,
@@ -2218,6 +2231,7 @@ export function CreateDropPanel() {
               : {}),
             ...(isVariations && randomAssign ? { randomAssignment: true } : {}),
             transferable,
+            burnable,
             renewable,
             extra: {
               ...(template.kind ? { kind: template.kind } : {}),
@@ -2349,6 +2363,7 @@ export function CreateDropPanel() {
     traitsCid,
     randomAssign,
     transferable,
+    burnable,
     template,
     price,
     description,
@@ -2393,6 +2408,7 @@ export function CreateDropPanel() {
     template.unit
   );
   const transferableRowValue = dropCreateTransferableSummary(transferable);
+  const burnableRowValue = dropCreateBurnableSummary(burnable);
   const dealShowsSupply = dropCreateDealShowsSupplyField({
     isGeneratedSet,
     isVariations,
@@ -3498,6 +3514,12 @@ export function CreateDropPanel() {
                 disabled={pending}
                 onClick={() => setExtraSheet('transferable')}
               />
+              <DropCreateExtraRow
+                label={dropCreateExtraRowLabel('burnable')}
+                value={burnableRowValue}
+                disabled={pending}
+                onClick={() => setExtraSheet('burnable')}
+              />
               {isTicket ? (
                 <div
                   className="drop-create-extra-event"
@@ -3829,6 +3851,38 @@ export function CreateDropPanel() {
               onClick={() => setTransferable(false)}
             >
               Soulbound
+            </button>
+          </div>
+        ) : null}
+        {extraSheet === 'burnable' ? (
+          <div
+            className="app-access-options"
+            role="radiogroup"
+            aria-label="Destroy"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={!burnable}
+              className={`app-access-option${
+                !burnable ? ' is-selected' : ''
+              }`}
+              disabled={pending}
+              onClick={() => setBurnable(false)}
+            >
+              No
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={burnable}
+              className={`app-access-option${
+                burnable ? ' is-selected' : ''
+              }`}
+              disabled={pending}
+              onClick={() => setBurnable(true)}
+            >
+              Yes
             </button>
           </div>
         ) : null}

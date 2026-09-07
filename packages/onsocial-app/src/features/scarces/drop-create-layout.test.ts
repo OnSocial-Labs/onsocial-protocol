@@ -27,6 +27,7 @@ import {
   dropCreateSaleRulesSummary,
   dropCreateSaleWindowSummary,
   dropCreateTransferableSummary,
+  dropCreateBurnableSummary,
   dropCreateRoyaltyOpen,
   dropCreateSaleRulesOpen,
   dropCreateSaleWindowOpen,
@@ -129,6 +130,7 @@ describe('dropCreateAdvancedExtraAction', () => {
     );
     expect(dropCreateAdvancedExtraAction('allowlist')).toBe('Add an allowlist');
     expect(dropCreateAdvancedExtraAction('place')).toBe('Add a place');
+    expect(dropCreateAdvancedExtraAction('burnable')).toBe('Allow destroy');
   });
 });
 
@@ -145,6 +147,7 @@ describe('dropCreateExtraRowLabel', () => {
     expect(dropCreateExtraRowLabel('saleRules')).toBe('Sale');
     expect(dropCreateExtraRowLabel('perWallet')).toBe('Per wallet');
     expect(dropCreateExtraRowLabel('transferable')).toBe('Transferable');
+    expect(dropCreateExtraRowLabel('burnable')).toBe('Destroy');
     expect(dropCreateExtraRowLabel('renewals')).toBe('Renewals');
     expect(dropCreateExtraRowLabel('renewals', { isTicket: true })).toBe(
       'Postpone'
@@ -174,6 +177,7 @@ describe('dropCreateExtraHint', () => {
     );
     expect(dropCreateExtraHint('perWallet')).toMatch(/one wallet/);
     expect(dropCreateExtraHint('transferable')).toMatch(/Soulbound/);
+    expect(dropCreateExtraHint('burnable')).toMatch(/keeps the edition/);
   });
 });
 
@@ -213,6 +217,8 @@ describe('dropCreate summaries', () => {
     expect(dropCreatePerWalletSummary('2', 'editions')).toBe('2 editions');
     expect(dropCreateTransferableSummary(true)).toBe('Yes');
     expect(dropCreateTransferableSummary(false)).toBe('Soulbound');
+    expect(dropCreateBurnableSummary(false)).toBe('No');
+    expect(dropCreateBurnableSummary(true)).toBe('Yes');
     expect(
       dropCreateSaleRulesSummary({
         opensLabel: 'Now',

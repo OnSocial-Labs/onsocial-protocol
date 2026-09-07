@@ -268,4 +268,14 @@ describe('toCollectionView cover seat', () => {
     );
     expect(untimed?.hasAllowlist).toBe(false);
   });
+
+  it('reads burnable from the collection record and leaves catalog rows unknown', () => {
+    expect(toCollectionView(variationRecord({ burnable: false }))?.burnable).toBe(
+      false
+    );
+    expect(toCollectionView(variationRecord({ burnable: true }))?.burnable).toBe(
+      true
+    );
+    expect(toCollectionView(variationRecord())?.burnable).toBeNull();
+  });
 });

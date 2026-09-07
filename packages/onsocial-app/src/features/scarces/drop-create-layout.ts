@@ -94,7 +94,8 @@ export type DropCreateAdvancedExtra =
   | 'saleRules'
   | 'renewals'
   | 'allowlist'
-  | 'place';
+  | 'place'
+  | 'burnable';
 
 export function dropCreateAdvancedExtraAction(
   kind: DropCreateAdvancedExtra,
@@ -115,6 +116,8 @@ export function dropCreateAdvancedExtraAction(
       return 'Add an allowlist';
     case 'place':
       return 'Add a place';
+    case 'burnable':
+      return 'Allow destroy';
   }
 }
 
@@ -132,7 +135,8 @@ export type DropCreateExtraSheetId =
   | 'perWallet'
   | 'transferable'
   | 'renewals'
-  | 'place';
+  | 'place'
+  | 'burnable';
 
 /** Short row label — the value on the right is what they picked. */
 export function dropCreateExtraRowLabel(
@@ -160,6 +164,8 @@ export function dropCreateExtraRowLabel(
       return 'Allowlist';
     case 'place':
       return 'Place';
+    case 'burnable':
+      return 'Destroy';
   }
 }
 
@@ -193,6 +199,8 @@ export function dropCreateExtraHint(
       return 'Early mint. Needs Opens in Sale.';
     case 'event':
       return 'When the show runs — not the sale.';
+    case 'burnable':
+      return 'No keeps the edition. Yes lets the holder destroy it.';
   }
 }
 
@@ -263,6 +271,13 @@ export function dropCreatePerWalletSummary(
 export function dropCreateTransferableSummary(transferable: boolean): string {
   return transferable ? 'Yes' : 'Soulbound';
 }
+
+/** Destroy row — No is the product default (editions stay). */
+export function dropCreateBurnableSummary(burnable: boolean): string {
+  return burnable ? 'Yes' : 'No';
+}
+
+export const DROP_CREATE_DEFAULT_BURNABLE = false;
 
 export function dropCreateSaleRulesSummary({
   opensLabel,

@@ -65,6 +65,7 @@ export interface LazyCollectionRecord {
   /** Snapshot of hub primary-sale commission at create (`u16::MAX` = legacy). */
   app_commission_bps?: number | null;
   transferable?: boolean;
+  burnable?: boolean;
   renewable?: boolean;
   max_redeems?: number | null;
   metadata?: string | null;
@@ -126,6 +127,8 @@ export interface CollectionView {
   /** IPFS CID of onsocial.writing.v1 manifesto (preferred for books). */
   writingManifestCid: string | null;
   transferable: boolean;
+  /** Holder can destroy. Null/omitted when the catalog row does not carry the flag. */
+  burnable?: boolean | null;
   renewable: boolean;
   maxRedeems: number | null;
   /** True when every token resolves its own artwork (media has a seat placeholder). */
@@ -676,6 +679,7 @@ export function toCollectionView(
           : null),
     writingManifestCid: template.writingManifestCid ?? null,
     transferable: record.transferable !== false,
+    burnable: typeof record.burnable === 'boolean' ? record.burnable : null,
     renewable: Boolean(record.renewable),
     maxRedeems,
     isVariations: template.isVariations,
