@@ -11,7 +11,7 @@
 // 3. Unused balance is correctly refunded to user (signer)
 // 4. Multiple storage operations share the same attached balance
 
-use near_workspaces::types::{AccountId, Gas, NearToken};
+use near_workspaces::types::{Gas, NearToken};
 use serde_json::json;
 use std::path::Path;
 
