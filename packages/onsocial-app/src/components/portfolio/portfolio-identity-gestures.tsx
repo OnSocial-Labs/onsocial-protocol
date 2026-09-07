@@ -68,7 +68,14 @@ export function PortfolioIdentityGestures({
         </div>
       );
     }
-    return null;
+    if (isDao) return null;
+    return (
+      <PortfolioIdentityLoggedOutMessage
+        pageAccountId={pageAccountId}
+        profileName={profileName}
+        mood={mood}
+      />
+    );
   }
 
   if (isSelf) {
@@ -303,6 +310,38 @@ function PortfolioIdentityGesturesVisitor({
           onOpenChange={setEndorseOpen}
         />
       ) : null}
+    </div>
+  );
+}
+
+/** Logged-out face — Message opens the sheet; footer owns Connect. */
+function PortfolioIdentityLoggedOutMessage({
+  pageAccountId,
+  profileName,
+  mood = null,
+}: Pick<
+  PortfolioIdentityGesturesProps,
+  'pageAccountId' | 'profileName' | 'mood'
+>) {
+  const [messageOpen, setMessageOpen] = useState(false);
+
+  return (
+    <div className="portfolio-identity-gestures">
+      <button
+        type="button"
+        className="portfolio-identity-gesture portfolio-identity-gesture--message group"
+        onClick={() => setMessageOpen(true)}
+        aria-label="Message"
+      >
+        Message
+      </button>
+      <DmComposeSheet
+        open={messageOpen}
+        peerAccountId={pageAccountId}
+        peerName={profileName}
+        mood={mood}
+        onClose={() => setMessageOpen(false)}
+      />
     </div>
   );
 }

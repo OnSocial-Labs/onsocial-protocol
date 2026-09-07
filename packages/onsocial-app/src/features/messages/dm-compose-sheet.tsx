@@ -13,6 +13,7 @@ import {
 import { useRouter } from 'next/navigation';
 import {
   DiscardConfirmSheet,
+  ImageIcon,
   OsField,
   OsGestureSheet,
   OsSheetAction,
@@ -28,7 +29,12 @@ import { acknowledgeDmRecoveryCode, hasUnlockedDmKey } from '@/lib/dm/keys';
 import { messagesPath } from '@/lib/app-routes';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { commercePartyLines } from '@/features/scarces/collection-creator-face';
+import {
+  DM_CONNECT_CTA,
+  DM_CONNECT_HINT,
+} from '@/features/messages/dm-compose-voice';
+import { customDisplayName } from '@/lib/profile-display';
 import {
   isBlockEitherWay,
   isViewerMuting,
@@ -77,8 +83,10 @@ export function DmComposeSheet({
     accountId && keysTick >= 0 && hasUnlockedDmKey(accountId)
   );
 
-  const name = displayName(peerAccountId, peerName ?? undefined);
-  const handle = fallbackLabel(peerAccountId);
+  const { name, handle } = commercePartyLines(
+    peerAccountId,
+    customDisplayName(peerAccountId, peerName) || null
+  );
   const fetchedMood = usePageOwnerMood(
     peerAccountId,
     Boolean(peerAccountId) && (open || closing)
@@ -308,11 +316,12 @@ export function DmComposeSheet({
               ) : (
                 <button
                   type="button"
-                  className="dm-compose-media-attach"
+                  className="os-write-dock-tool"
+                  aria-label="Attach photo or video"
                   disabled={pending || discardConfirmOpen}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  Attach photo or video
+                  <ImageIcon className="os-write-dock-media-icon" aria-hidden />
                 </button>
               )}
             </div>
@@ -321,16 +330,18 @@ export function DmComposeSheet({
               <p className="dm-compose-error" role="alert">
                 {error}
               </p>
+            ) : !isConnected ? (
+              <p className="dm-compose-hint">{DM_CONNECT_HINT}</p>
             ) : null}
 
             <OsSheetActions layout="stack" tone="frosted-primary" borderless>
               <OsSheetAction
                 type="submit"
-                ready={canSend && !pending}
+                ready={(!isConnected || canSend) && !pending}
                 pending={pending}
                 pendingLabel="Sending…"
               >
-                {!isConnected ? 'Connect wallet' : 'Send'}
+                {!isConnected ? DM_CONNECT_CTA : 'Send'}
               </OsSheetAction>
             </OsSheetActions>
           </form>

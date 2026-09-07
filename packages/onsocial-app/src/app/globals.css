@@ -37306,14 +37306,11 @@ a.os-surface-row {
     gap: 0.45rem;
   }
 
-  .endorse-compose-media-action {
+  .endorse-compose-media .os-write-dock-tool {
     align-self: flex-start;
-    width: auto;
-  }
-
-  .endorse-compose-media-action .os-sheet-action {
-    flex: 0 0 auto;
-    width: auto;
+    width: 2.35rem;
+    min-width: 2.35rem;
+    height: 2.35rem;
   }
 
   .endorse-compose-media-preview {
@@ -37346,13 +37343,6 @@ a.os-surface-row {
 
   .endorse-compose-media-remove:hover:not(:disabled) {
     color: rgb(var(--fg-rgb) / 0.88);
-  }
-
-  .endorse-compose-media-hint {
-    margin: 0;
-    font-size: 0.68rem;
-    line-height: 1.35;
-    color: rgb(var(--fg-rgb) / 0.45);
   }
 
   .endorse-compose-add-note {
@@ -41237,12 +41227,25 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.85rem;
 }
 
+.dm-compose-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
 .dm-compose-media {
   display: grid;
   gap: 0.35rem;
 }
 
-.dm-compose-media-attach,
+.dm-compose-media .os-write-dock-tool {
+  align-self: flex-start;
+  width: 2.35rem;
+  min-width: 2.35rem;
+  height: 2.35rem;
+}
+
 .dm-compose-media-remove {
   border: 0;
   background: transparent;
