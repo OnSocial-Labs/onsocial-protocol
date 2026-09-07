@@ -23,5 +23,9 @@ test.describe('endorse compose voice', () => {
     await expect(
       sheet.getByRole('button', { name: 'Connect', exact: true })
     ).toBeVisible();
+    const attach = sheet.getByRole('button', { name: 'Attach photo or video' });
+    await expect(attach).toBeVisible();
+    await expect(attach).toHaveClass(/os-write-dock-tool/);
+    await expect(attach).toHaveText('');
   });
 });

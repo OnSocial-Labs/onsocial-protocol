@@ -37345,13 +37345,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.88);
   }
 
-  .endorse-compose-media-hint {
-    margin: 0;
-    font-size: 0.68rem;
-    line-height: 1.35;
-    color: rgb(var(--fg-rgb) / 0.45);
-  }
-
   .endorse-compose-add-note {
     align-self: flex-start;
     padding: 0.2rem 0;
