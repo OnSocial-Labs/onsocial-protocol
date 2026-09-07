@@ -41464,12 +41464,16 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   );
 }
 
-.os-app-screen[data-launcher='off']:has(.hub-create-form[data-keyboard='open'])
+.os-app-screen[data-launcher='off']:has(
+    :is(.hub-create-form, .guild-create-form)[data-keyboard='open']
+  )
   .os-app-screen-footer {
   bottom: var(--drop-create-keyboard-lift, 0px);
 }
 
-.os-app-screen[data-launcher='off']:has(.hub-create-form[data-keyboard='open'])
+.os-app-screen[data-launcher='off']:has(
+    :is(.hub-create-form, .guild-create-form)[data-keyboard='open']
+  )
   .os-app-screen-body {
   padding-bottom: calc(
     var(--drop-create-keyboard-lift, 0px) + var(--os-screen-footer-band)
