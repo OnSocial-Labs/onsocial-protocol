@@ -17,11 +17,11 @@ import {
   AMPLIFY_CONNECT_CTA,
   AMPLIFY_CONNECT_HINT,
 } from '@/features/home/amplify-voice';
+import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
 import { accountIdsEqual } from '@/lib/account-match';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { formatSocialCompact } from '@/lib/format-social-balance';
-import { displayName } from '@/lib/profile-display';
 import {
   BOOST_POST_MIN_YOCTO,
   BOOST_POST_PRESET_SOCIAL,
@@ -113,7 +113,7 @@ export function PostAmplifyForm({
 
   const isSelf =
     Boolean(accountId) && accountIdsEqual(accountId!, post.accountId);
-  const name = displayName(post.accountId, authorName ?? undefined);
+  const name = collectionCreatorNameLine(post.accountId, authorName);
   const minYocto = routing?.minAmountYocto ?? BOOST_POST_MIN_YOCTO;
   const amountHint = formatSpendAmountHint(minYocto);
   const presets = useMemo(
