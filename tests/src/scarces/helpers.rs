@@ -13,7 +13,7 @@ use anyhow::Result;
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::utils::get_wasm_path;
 
@@ -1515,6 +1515,27 @@ pub async fn renew_token(
             "token_id": token_id,
             "collection_id": collection_id,
             "new_expires_at": new_expires_at,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Rain-day postpone: rewrite the mint template `expires_at` (and `extra.eventEndsAt`).
+pub async fn update_collection_template_expiry(
+    contract: &Contract,
+    creator: &Account,
+    collection_id: &str,
+    expires_at_ms: u64,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        creator,
+        json!({
+            "type": "update_collection_template_expiry",
+            "collection_id": collection_id,
+            "expires_at_ms": expires_at_ms,
         }),
         deposit,
     )
