@@ -31,6 +31,7 @@ import {
   HUB_CREATE_HELP_TITLE,
 } from '@/features/scarces/hub-create-help-drawer';
 import { HubCategoriesEditor } from '@/features/scarces/hub-categories-editor';
+import { hubCreateAboutToggle } from '@/features/scarces/hub-create-voice';
 import { APP_APPS_PATH, appPath } from '@/lib/app-routes';
 import { normalizeTopicList } from '@/lib/topic-slug';
 
@@ -76,6 +77,7 @@ export function CreateAppPanel() {
   const [slug, setSlug] = useState('');
   const [slugTouched, setSlugTouched] = useState(false);
   const [description, setDescription] = useState('');
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [commissionInput, setCommissionInput] = useState('2.5');
   const [creatorAccess, setCreatorAccess] = useState<CreatorAccess>('open');
   const [categories, setCategories] = useState<string[]>([]);
@@ -247,22 +249,36 @@ export function CreateAppPanel() {
           </small>
         </label>
 
-        <label className="guild-field" htmlFor={fieldId('description')}>
-          <span>About</span>
-          <textarea
-            id={fieldId('description')}
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="What this hub publishes and who it's for."
-            maxLength={MAX_DESCRIPTION}
-            disabled={pending}
-            aria-describedby={fieldId('description-count')}
-            className={osFieldBorderedClassName}
-          />
-          <small id={fieldId('description-count')}>
-            {description.length}/{MAX_DESCRIPTION}
-          </small>
-        </label>
+        <button
+          type="button"
+          className="collection-allowlist-toggle"
+          aria-expanded={aboutOpen}
+          disabled={pending}
+          onClick={() => setAboutOpen((open) => !open)}
+        >
+          {hubCreateAboutToggle({
+            open: aboutOpen,
+            hasText: description.trim().length > 0,
+          })}
+        </button>
+        {aboutOpen ? (
+          <label className="guild-field" htmlFor={fieldId('description')}>
+            <span>About</span>
+            <textarea
+              id={fieldId('description')}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="What this hub publishes and who it's for."
+              maxLength={MAX_DESCRIPTION}
+              disabled={pending}
+              aria-describedby={fieldId('description-count')}
+              className={osFieldBorderedClassName}
+            />
+            <small id={fieldId('description-count')}>
+              {description.length}/{MAX_DESCRIPTION}
+            </small>
+          </label>
+        ) : null}
 
         <label className="guild-field" htmlFor={fieldId('commission')}>
           <span>Your commission</span>
