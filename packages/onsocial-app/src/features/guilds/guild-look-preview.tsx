@@ -15,28 +15,18 @@ const DEFAULT_ACCEPT = 'image/png,image/jpeg,image/webp';
 
 export function GuildLookPreview({
   bannerUrl,
-  badgeUrl,
-  name = '',
   disabled = false,
   accept = DEFAULT_ACCEPT,
   onBannerChange,
-  onBadgeChange,
   onRemoveBanner,
-  onRemoveBadge,
 }: {
   bannerUrl: string | null;
-  badgeUrl: string | null;
-  name?: string;
   disabled?: boolean;
   accept?: string;
   onBannerChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  onBadgeChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onRemoveBanner?: () => void;
-  onRemoveBadge?: () => void;
 }) {
   const bannerInputRef = useRef<HTMLInputElement>(null);
-  const badgeInputRef = useRef<HTMLInputElement>(null);
-  const trimmedName = name.trim();
 
   return (
     <section className="guild-look-preview" aria-label="Guild look">
@@ -72,43 +62,6 @@ export function GuildLookPreview({
           onRemove={bannerUrl ? onRemoveBanner : undefined}
         />
       </div>
-      <div className="guild-look-preview-title">
-        <div
-          className={`guild-look-preview-badge profile-editor-media-host profile-editor-media-host--squircle${
-            badgeUrl ? ' has-media' : ''
-          }`}
-        >
-          <button
-            type="button"
-            className="profile-editor-media-backdrop guild-look-preview-badge-hit"
-            aria-label={
-              badgeUrl ? GUILD_CREATE_CHANGE_BADGE : GUILD_CREATE_ADD_BADGE
-            }
-            disabled={disabled}
-            onClick={() => badgeInputRef.current?.click()}
-          >
-            {badgeUrl ? (
-              <img
-                src={badgeUrl}
-                alt=""
-                className="guild-look-preview-badge-image"
-              />
-            ) : (
-              <span className="guild-look-preview-badge-empty" aria-hidden>
-                {GUILD_CREATE_ADD_BADGE}
-              </span>
-            )}
-          </button>
-          <ProfileEditorMediaToolbar
-            layout="avatar"
-            removeLabel={badgeUrl ? GUILD_CREATE_REMOVE_BADGE : undefined}
-            onRemove={badgeUrl ? onRemoveBadge : undefined}
-          />
-        </div>
-        {trimmedName ? (
-          <p className="guild-look-preview-name">{trimmedName}</p>
-        ) : null}
-      </div>
       <input
         ref={bannerInputRef}
         type="file"
@@ -119,6 +72,58 @@ export function GuildLookPreview({
         aria-hidden
         disabled={disabled}
         onChange={onBannerChange}
+      />
+    </section>
+  );
+}
+
+/** Square mark that sits beside the name — same place as the guild page. */
+export function GuildBadgeWell({
+  badgeUrl,
+  disabled = false,
+  accept = DEFAULT_ACCEPT,
+  onBadgeChange,
+  onRemoveBadge,
+}: {
+  badgeUrl: string | null;
+  disabled?: boolean;
+  accept?: string;
+  onBadgeChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onRemoveBadge?: () => void;
+}) {
+  const badgeInputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div
+      className={`guild-look-preview-badge profile-editor-media-host profile-editor-media-host--squircle${
+        badgeUrl ? ' has-media' : ''
+      }`}
+    >
+      <button
+        type="button"
+        className="profile-editor-media-backdrop guild-look-preview-badge-hit"
+        aria-label={
+          badgeUrl ? GUILD_CREATE_CHANGE_BADGE : GUILD_CREATE_ADD_BADGE
+        }
+        disabled={disabled}
+        onClick={() => badgeInputRef.current?.click()}
+      >
+        {badgeUrl ? (
+          <img
+            src={badgeUrl}
+            alt=""
+            className="guild-look-preview-badge-image"
+          />
+        ) : (
+          <span className="guild-look-preview-badge-empty" aria-hidden>
+            +
+          </span>
+        )}
+      </button>
+      <ProfileEditorMediaToolbar
+        layout="avatar"
+        removeLabel={badgeUrl ? GUILD_CREATE_REMOVE_BADGE : undefined}
+        onRemove={badgeUrl ? onRemoveBadge : undefined}
       />
       <input
         ref={badgeInputRef}
@@ -131,6 +136,6 @@ export function GuildLookPreview({
         disabled={disabled}
         onChange={onBadgeChange}
       />
-    </section>
+    </div>
   );
 }

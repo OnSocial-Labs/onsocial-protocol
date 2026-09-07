@@ -52,7 +52,10 @@ import {
   collectRelayTxHashes,
   normalizeGuildIdInput,
 } from '@/features/guilds/guilds-data';
-import { GuildLookPreview } from '@/features/guilds/guild-look-preview';
+import {
+  GuildBadgeWell,
+  GuildLookPreview,
+} from '@/features/guilds/guild-look-preview';
 import { GuildTagsEditor } from '@/features/guilds/guild-tags-editor';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
@@ -379,34 +382,40 @@ export function GuildCreatePanel() {
       >
         <GuildLookPreview
           bannerUrl={bannerPreview}
-          badgeUrl={badgePreview}
-          name={name}
           disabled={pending}
           onBannerChange={onBannerChange}
-          onBadgeChange={(event) => {
-            void onBadgeChange(event);
-          }}
           onRemoveBanner={clearBanner}
-          onRemoveBadge={clearBadge}
         />
 
-        <label className="guild-field" htmlFor={fieldId('name')}>
-          <span>Name</span>
-          <input
-            id={fieldId('name')}
-            value={name}
-            onChange={(event) => {
-              setName(event.target.value);
-              // Name is source of truth — re-link ID after any name edit.
-              setSlugTouched(false);
-            }}
-            placeholder="Builder Room"
-            maxLength={GUILD_MAX_NAME_LENGTH}
-            disabled={pending}
-            onFocus={scrollFieldIntoView}
-            className={osFieldBorderedClassName}
-          />
-        </label>
+        <div className="guild-field">
+          <label htmlFor={fieldId('name')}>
+            <span>Name</span>
+          </label>
+          <div className="guild-create-name-row">
+            <GuildBadgeWell
+              badgeUrl={badgePreview}
+              disabled={pending}
+              onBadgeChange={(event) => {
+                void onBadgeChange(event);
+              }}
+              onRemoveBadge={clearBadge}
+            />
+            <input
+              id={fieldId('name')}
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value);
+                // Name is source of truth — re-link ID after any name edit.
+                setSlugTouched(false);
+              }}
+              placeholder="Builder Room"
+              maxLength={GUILD_MAX_NAME_LENGTH}
+              disabled={pending}
+              onFocus={scrollFieldIntoView}
+              className={osFieldBorderedClassName}
+            />
+          </div>
+        </div>
 
         <label className="guild-field" htmlFor={fieldId('id')}>
           <span>Guild ID</span>

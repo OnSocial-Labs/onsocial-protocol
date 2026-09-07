@@ -28,11 +28,24 @@ test.describe('create guild voice', () => {
     await expect(page.locator('.os-write-dock-tool')).toHaveCount(0);
     const banner = page.locator('.guild-look-preview-banner');
     const badge = page.locator('.guild-look-preview-badge');
+    const nameField = page.locator('#guild-create-name');
     const bannerBox = await banner.boundingBox();
     const badgeBox = await badge.boundingBox();
+    const nameBox = await nameField.boundingBox();
     expect(bannerBox).toBeTruthy();
     expect(badgeBox).toBeTruthy();
+    expect(nameBox).toBeTruthy();
     expect(badgeBox!.y).toBeGreaterThan(bannerBox!.y + bannerBox!.height - 4);
+    expect(
+      Math.abs(
+        badgeBox!.y +
+          badgeBox!.height / 2 -
+          (nameBox!.y + nameBox!.height / 2)
+      )
+    ).toBeLessThan(16);
+    await expect(page.locator('.guild-look-preview-badge-empty')).toHaveText(
+      '+'
+    );
     await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
     await expect(page.getByText('Connect wallet')).toHaveCount(0);
     await expect(
@@ -77,13 +90,23 @@ test.describe('create guild voice', () => {
     ).toBeVisible();
     const banner = page.locator('.guild-look-preview-banner');
     const badge = page.locator('.guild-look-preview-badge');
+    const nameField = page.locator('#guild-create-name');
     await expect(banner).toBeVisible();
     await expect(badge).toBeVisible();
     const bannerBox = await banner.boundingBox();
     const badgeBox = await badge.boundingBox();
+    const nameBox = await nameField.boundingBox();
     expect(bannerBox).toBeTruthy();
     expect(badgeBox).toBeTruthy();
+    expect(nameBox).toBeTruthy();
     expect(badgeBox!.y).toBeGreaterThan(bannerBox!.y + bannerBox!.height - 4);
+    expect(
+      Math.abs(
+        badgeBox!.y +
+          badgeBox!.height / 2 -
+          (nameBox!.y + nameBox!.height / 2)
+      )
+    ).toBeLessThan(16);
     expect(bannerBox!.height).toBeLessThan(110);
 
     await page.locator('[data-guild-look-file="banner"]').setInputFiles({

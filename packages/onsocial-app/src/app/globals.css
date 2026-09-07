@@ -40689,7 +40689,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 /* Compact guild-page mimic on Create guild. Banner, then badge beside the
-   name — no logo overlap, no crest. Do not restyle .guild-hero. */
+   name input — no logo overlap, no crest. Do not restyle .guild-hero. */
 .guild-look-preview {
   position: relative;
 }
@@ -40722,12 +40722,17 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.42);
 }
 
-.guild-look-preview-title {
+.guild-create-name-row {
   display: flex;
   align-items: center;
   gap: 0.55rem;
   min-width: 0;
-  margin-top: 0.55rem;
+}
+
+.guild-create-name-row input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
 }
 
 .guild-look-preview-badge {
@@ -40752,25 +40757,18 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   object-fit: cover;
 }
 
-.guild-look-preview-badge-empty {
-  padding: 0.15rem;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  text-align: center;
-  line-height: 1.15;
-  color: rgb(var(--fg-rgb) / 0.42);
-}
-
-.guild-look-preview-name {
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  font-size: 1.05rem;
-  font-weight: 750;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.guild-look-preview-badge-empty,
+.guild-field .guild-look-preview-badge-empty {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+  color: rgb(var(--fg-rgb) / 0.45);
 }
 
 .dao-create-mono {
