@@ -35,7 +35,7 @@ export function scarceBuyDealParts(opts: {
   isPrimaryMint: boolean;
   copies?: number | null;
   remaining?: number | null;
-  unit: string;
+  unit?: string;
   priceNear?: string | null;
   listedLabel?: string | null;
   mintedLabel?: string | null;
@@ -45,7 +45,7 @@ export function scarceBuyDealParts(opts: {
     const supply = scarceBuySupplyPart({
       copies: opts.copies,
       remaining: opts.remaining,
-      unit: opts.unit,
+      unit: opts.unit ?? 'editions',
     });
     return [supply, price].filter((part): part is string => Boolean(part));
   }
