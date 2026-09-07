@@ -29,3 +29,11 @@ export function daoCreatePurposeToggle(opts: {
   if (opts.open) return 'Hide purpose';
   return opts.hasText ? 'Edit purpose' : 'Add a purpose';
 }
+
+/** DAO portfolio look — Cover + Crest on the cover. Not Banner. Not Badge. */
+export const DAO_CREATE_ADD_COVER = 'Add cover';
+export const DAO_CREATE_ADD_CREST = 'Add crest';
+export const DAO_CREATE_CHANGE_COVER = 'Change cover';
+export const DAO_CREATE_CHANGE_CREST = 'Change crest';
+export const DAO_CREATE_REMOVE_COVER = 'Remove cover';
+export const DAO_CREATE_REMOVE_CREST = 'Remove crest';

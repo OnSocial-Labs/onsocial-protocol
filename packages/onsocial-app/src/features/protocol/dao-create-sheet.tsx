@@ -5,7 +5,6 @@ import {
   useEffect,
   useId,
   useMemo,
-  useRef,
   useState,
   type ChangeEvent,
   type FormEvent,
@@ -13,7 +12,6 @@ import {
 import { useRouter } from 'next/navigation';
 import {
   DiscardConfirmSheet,
-  ImageIcon,
   OsGestureSheet,
   osFieldBorderedClassName,
   useDiscardConfirm,
@@ -47,6 +45,7 @@ import {
   submitDaoFactoryCreate,
 } from '@/features/protocol/dao-factory-create';
 import { buildDaoSocialProfileProposalPayload } from '@/features/protocol/dao-social-profile';
+import { DaoLookPreview } from '@/features/protocol/dao-look-preview';
 import { rememberOptimisticMyDao } from '@/features/protocol/my-daos-optimistic';
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
 import { PROTOCOL_TASK_SHEET_Z } from '@/features/protocol/protocol-sheet-z';
@@ -135,8 +134,8 @@ function useDaoFactorySlugAvailability(
 
 /**
  * Factory DAO create — tall gesture sheet from the DAOs directory header.
- * First screen is name, id, quiet cover/crest, optional purpose, and
- * Publish OnSocial profile. Policy and links wait in Advanced.
+ * First screen is cover with overlapping crest, name, id, optional purpose,
+ * and Publish OnSocial profile. Policy and links wait in Advanced.
  */
 export function DaoCreateSheet({
   open,
@@ -148,8 +147,6 @@ export function DaoCreateSheet({
   const router = useRouter();
   const formId = useId();
   const titleId = useId();
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const bannerInputRef = useRef<HTMLInputElement>(null);
   const { accountId, isConnected, connect, getSigningWallet } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
@@ -525,94 +522,17 @@ export function DaoCreateSheet({
             void handleSubmit(event);
           }}
         >
-          <section className="dao-create-media" aria-label="DAO media">
-            {bannerPreview ? (
-              <div className="dao-create-media-preview">
-                <img
-                  src={bannerPreview}
-                  alt=""
-                  className="dao-create-media-el dao-create-media-el--cover"
-                />
-                <button
-                  type="button"
-                  className="dao-create-media-remove"
-                  disabled={pending || discardConfirmOpen}
-                  onClick={clearBanner}
-                >
-                  Remove cover
-                </button>
-              </div>
-            ) : (
-              <div className="dao-create-media-slot">
-                <button
-                  type="button"
-                  className="os-write-dock-tool"
-                  aria-label="Add cover"
-                  disabled={pending || discardConfirmOpen}
-                  onClick={() => bannerInputRef.current?.click()}
-                >
-                  <ImageIcon className="os-write-dock-media-icon" aria-hidden />
-                </button>
-                <span className="dao-create-media-caption" aria-hidden>
-                  Cover
-                </span>
-              </div>
-            )}
-            {avatarPreview ? (
-              <div className="dao-create-media-preview">
-                <img
-                  src={avatarPreview}
-                  alt=""
-                  className="dao-create-media-el dao-create-media-el--crest"
-                />
-                <button
-                  type="button"
-                  className="dao-create-media-remove"
-                  disabled={pending || discardConfirmOpen}
-                  onClick={clearAvatar}
-                >
-                  Remove crest
-                </button>
-              </div>
-            ) : (
-              <div className="dao-create-media-slot">
-                <button
-                  type="button"
-                  className="os-write-dock-tool"
-                  aria-label="Add crest"
-                  disabled={pending || discardConfirmOpen}
-                  onClick={() => avatarInputRef.current?.click()}
-                >
-                  <ImageIcon className="os-write-dock-media-icon" aria-hidden />
-                </button>
-                <span className="dao-create-media-caption" aria-hidden>
-                  Crest
-                </span>
-              </div>
-            )}
-            <input
-              ref={bannerInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              className="account-editor-file-input"
-              tabIndex={-1}
-              aria-hidden
-              disabled={pending || discardConfirmOpen}
-              onChange={onBannerChange}
-            />
-            <input
-              ref={avatarInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="account-editor-file-input"
-              tabIndex={-1}
-              aria-hidden
-              disabled={pending || discardConfirmOpen}
-              onChange={(event) => {
-                void onAvatarChange(event);
-              }}
-            />
-          </section>
+          <DaoLookPreview
+            coverUrl={bannerPreview}
+            crestUrl={avatarPreview}
+            disabled={pending || discardConfirmOpen}
+            onCoverChange={onBannerChange}
+            onCrestChange={(event) => {
+              void onAvatarChange(event);
+            }}
+            onRemoveCover={clearBanner}
+            onRemoveCrest={clearAvatar}
+          />
 
           <label className="guild-field" htmlFor={fieldId('name')}>
             <span>Name</span>
