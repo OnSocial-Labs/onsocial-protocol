@@ -37306,28 +37306,14 @@ a.os-surface-row {
     gap: 0.45rem;
   }
 
-  .endorse-compose-media-attach {
+  .endorse-compose-media-action {
     align-self: flex-start;
-    padding: 0.45rem 0.7rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 0.7rem;
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: rgb(var(--fg-rgb) / 0.78);
-    font: inherit;
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
+    width: auto;
   }
 
-  .endorse-compose-media-attach:hover:not(:disabled) {
-    background: rgb(var(--fg-rgb) / 0.06);
-    color: rgb(var(--fg-rgb) / 0.92);
-  }
-
-  .endorse-compose-media-attach:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: not-allowed;
+  .endorse-compose-media-action .os-sheet-action {
+    flex: 0 0 auto;
+    width: auto;
   }
 
   .endorse-compose-media-preview {

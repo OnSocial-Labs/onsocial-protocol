@@ -43,7 +43,12 @@ import {
 import type { EndorseExistingDraft } from '@/lib/endorsements-panel-data';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { commercePartyLines } from '@/features/scarces/collection-creator-face';
+import {
+  ENDORSE_CONNECT_CTA,
+  ENDORSE_CONNECT_HINT,
+} from '@/lib/endorse-compose-voice';
+import { customDisplayName } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { txToastError } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
@@ -138,8 +143,10 @@ export function EndorseComposeSheet({
   const [fieldError, setFieldError] = useState<string | null>(null);
 
   const sheetOpen = open && !closing;
-  const name = displayName(pageAccountId, profileName ?? undefined);
-  const handle = fallbackLabel(pageAccountId);
+  const { name, handle } = commercePartyLines(
+    pageAccountId,
+    customDisplayName(pageAccountId, profileName) || null
+  );
   const isSelf =
     Boolean(accountId) && accountIdsEqual(accountId!, pageAccountId);
   const fetchedMood = usePageOwnerMood(pageAccountId, open || closing);
@@ -517,7 +524,7 @@ export function EndorseComposeSheet({
 
   const verb = isEditing ? 'Edit endorsement' : 'Endorse';
   const primaryLabel = !isConnected
-    ? 'Connect wallet'
+    ? ENDORSE_CONNECT_CTA
     : isEditing
       ? dirty
         ? 'Save endorsement'
@@ -651,14 +658,24 @@ export function EndorseComposeSheet({
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                className="endorse-compose-media-attach"
-                disabled={busy || isSelf || discardConfirmOpen}
-                onClick={() => fileInputRef.current?.click()}
+              <OsSheetActions
+                layout="row-compact"
+                size="sm"
+                tone="frosted-primary"
+                borderless
+                className="endorse-compose-media-action"
               >
-                {mediaProcessing ? 'Checking media…' : 'Attach photo or video'}
-              </button>
+                <OsSheetAction
+                  type="button"
+                  variant="ghost"
+                  pending={mediaProcessing}
+                  pendingLabel="Checking media…"
+                  disabled={busy || isSelf || discardConfirmOpen}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Attach photo or video
+                </OsSheetAction>
+              </OsSheetActions>
             )}
             {!hasMediaAttachment ? (
               <p className="endorse-compose-media-hint">{mediaLimitsHint}</p>
@@ -672,9 +689,7 @@ export function EndorseComposeSheet({
           ) : isSelf ? (
             <p className="endorse-compose-hint">You can’t endorse yourself.</p>
           ) : !isConnected ? (
-            <p className="endorse-compose-hint">
-              Connect to put your name behind them.
-            </p>
+            <p className="endorse-compose-hint">{ENDORSE_CONNECT_HINT}</p>
           ) : loadingExisting ? (
             <p className="endorse-compose-hint">Loading your vouch…</p>
           ) : isEditing ? (

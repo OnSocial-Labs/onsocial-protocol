@@ -6,7 +6,6 @@ import {
   loadEndorsementsPageData,
   parseEndorsementsMode,
 } from '@/lib/load-endorsements-page';
-import { displayName } from '@/lib/profile-display';
 import { loadProfileShell } from '@/lib/profile-shell';
 import { resolveAccountId } from '@/lib/resolve-account';
 
@@ -34,14 +33,12 @@ export default async function EndorsementsOverlay({
     loadProfileShell(accountId),
     loadEndorsementsPageData(accountId),
   ]);
-  const profileName = displayName(accountId, shell?.name ?? undefined);
-
   return (
     <OverlayInterceptRoot>
       <SimpleOverlayPanel ariaTitle={title} title={title}>
         <EndorsementsPanel
           accountId={accountId}
-          profileName={profileName}
+          profileName={shell?.name ?? null}
           avatarUrl={shell?.avatarUrl ?? null}
           initial={initial}
           initialMode={initialMode}

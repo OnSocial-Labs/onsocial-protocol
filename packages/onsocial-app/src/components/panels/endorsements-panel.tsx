@@ -362,10 +362,6 @@ export function EndorsementsPanel({
   });
 
   function openCompose(session: ComposeSession) {
-    if (!isConnected) {
-      void connect();
-      return;
-    }
     setComposeSession(session);
     setComposeOpen(true);
   }
@@ -479,11 +475,7 @@ export function EndorsementsPanel({
                 }
                 onClick={handleEndorseClick}
               >
-                {!isConnected
-                  ? 'Connect'
-                  : viewerEndorsed
-                    ? 'Edit'
-                    : 'Endorse'}
+                {isConnected && viewerEndorsed ? 'Edit' : 'Endorse'}
               </OsSheetAction>
             </OsSheetActions>
             {isConnected && viewerEndorsed && !endorseBlocked ? (
