@@ -7,11 +7,12 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { MultiplyIcon, OsIconAction } from '@onsocial/ui';
+import { MultiplyIcon, OsIconAction, OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import {
   OsSlideOverScreen,
   useOsSlideOverClose,
 } from '@/components/app/os-slide-over-screen';
+import { useAppWallet } from '@/contexts/app-wallet-context';
 import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
 import type {
   ScarceReadableMedia,
@@ -71,6 +72,7 @@ export function WritingReadSheet({
   lockedHint: string;
   footer?: ReactNode;
 }) {
+  const { isConnected, connect, isLoading } = useAppWallet();
   const quietTimerRef = useRef<number | null>(null);
   const [wasOpen, setWasOpen] = useState(open);
   const [scrollRatio, setScrollRatio] = useState(0);
@@ -206,7 +208,27 @@ export function WritingReadSheet({
           )}
         </div>
 
-        {footer ? (
+        {!canRead && !isConnected ? (
+          <div className="scarce-writing-read-footer">
+            <div className="collection-action-band">
+              <div className="commerce-sheet-footer-row">
+                <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+                  <OsSheetAction
+                    type="button"
+                    variant="primary"
+                    ready={!isLoading}
+                    pending={isLoading}
+                    pendingLabel="Connecting…"
+                    disabled={isLoading}
+                    onClick={() => void connect()}
+                  >
+                    Connect
+                  </OsSheetAction>
+                </OsSheetActions>
+              </div>
+            </div>
+          </div>
+        ) : footer ? (
           <div className="scarce-writing-read-footer">{footer}</div>
         ) : null}
       </div>

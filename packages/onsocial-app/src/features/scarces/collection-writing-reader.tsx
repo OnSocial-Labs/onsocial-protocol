@@ -21,6 +21,7 @@ import {
   type ScarceReadableMedia,
   type WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
+import { writingUntitledLabel } from '@/features/scarces/writing-read-voice';
 import { downloadIpfsMedia } from '@/lib/media-download';
 
 function readablesKey(readables: ScarceReadableMedia[]): string {
@@ -121,7 +122,9 @@ export function CollectionWritingReader({
     canRead && inlineText == null ? (chapter?.url ?? null) : null;
   const chapterLabel =
     chapter?.title?.trim() ||
-    (readables.length > 0 ? `Chapter ${safeIndex + 1}` : 'Manuscript');
+    (readables.length > 0
+      ? `Chapter ${safeIndex + 1}`
+      : writingUntitledLabel());
   const body =
     !chapterIsPdf && inlineText != null
       ? inlineText
@@ -566,7 +569,7 @@ export function CollectionWritingReader({
             {isBook
               ? `${readables.length} chapters`
               : readables[0]?.title?.trim() ||
-                (chapterIsPdf ? 'PDF' : 'Manuscript')}
+                writingUntitledLabel({ isPdf: chapterIsPdf })}
           </p>
           {downloads}
         </div>

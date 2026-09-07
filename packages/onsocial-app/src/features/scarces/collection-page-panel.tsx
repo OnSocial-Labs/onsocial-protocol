@@ -77,6 +77,7 @@ import {
   canResumeDrop,
 } from '@/features/scarces/drop-owner-actions';
 import { writingReadingSectionLabel } from '@/features/scarces/drop-writing';
+import { writingReadLockedHint } from '@/features/scarces/writing-read-voice';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
@@ -786,11 +787,10 @@ export function CollectionPagePanel({
   const useActionClass = useFirst
     ? 'page-drawer-section-action collectibles-holding-action'
     : 'collection-reading-open';
-  const writingLockedHint = !isConnected
-    ? 'Connect your wallet and Collect an edition to read.'
-    : holdsEdition === null
-      ? 'Checking your edition…'
-      : 'Collect an edition to unlock the full text.';
+  const writingLockedHint = writingReadLockedHint({
+    isConnected,
+    holdsEdition,
+  });
   const openOwnedPass = () => {
     const tokenId = ownedPassTokenId?.trim();
     if (!tokenId) return;
