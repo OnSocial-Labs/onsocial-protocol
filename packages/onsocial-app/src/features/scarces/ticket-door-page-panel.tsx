@@ -23,6 +23,7 @@ import {
   type PassStaffVoice,
 } from '@/features/scarces/ticket-pass-payload';
 import { fetchIsCollectionRedeemer } from '@/features/scarces/ticket-redeemers';
+import { ticketStaffConnectHint } from '@/features/scarces/ticket-door-voice';
 import { useTicketDoorAdmit } from '@/features/scarces/use-ticket-door-admit';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
@@ -77,7 +78,7 @@ export function TicketDoorPagePanel({
   voice: PassStaffVoice;
 }) {
   const router = useRouter();
-  const { accountId, isConnected, connect, isLoading } = useAppWallet();
+  const { accountId, isConnected } = useAppWallet();
   const [view, setView] = useState<CollectionView | null>(initial);
   const [redeemerCheck, setRedeemerCheck] = useState<{
     key: string;
@@ -193,7 +194,6 @@ export function TicketDoorPagePanel({
     : redeemVoice
       ? 'Redeem'
       : 'Admit';
-
   let body: ReactNode;
   let footer: ReactNode = null;
 
@@ -217,32 +217,7 @@ export function TicketDoorPagePanel({
   } else if (kindVoice !== voiceProp) {
     body = <DoorEmpty copy="Opening the right staff page…" />;
   } else if (!isConnected) {
-    body = (
-      <DoorEmpty
-        copy={
-          redeemVoice
-            ? 'Connect a staff wallet to redeem coupons.'
-            : 'Connect a door-staff wallet to admit guests.'
-        }
-      />
-    );
-    footer = (
-      <DoorFooter>
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="button"
-            variant="primary"
-            ready={!isLoading}
-            pending={isLoading}
-            pendingLabel="Connecting…"
-            disabled={isLoading}
-            onClick={() => void connect()}
-          >
-            Connect wallet
-          </OsSheetAction>
-        </OsSheetActions>
-      </DoorFooter>
-    );
+    body = <DoorEmpty copy={ticketStaffConnectHint(voiceProp)} />;
   } else if (!accessReady) {
     body = (
       <DoorEmpty

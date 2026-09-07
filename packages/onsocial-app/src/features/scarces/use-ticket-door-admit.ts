@@ -14,6 +14,7 @@ import {
   ticketPassRemaining,
   type PassStaffVoice,
 } from '@/features/scarces/ticket-pass-payload';
+import { ticketStaffConnectError } from '@/features/scarces/ticket-door-voice';
 import {
   fetchTicketTokenStatus,
   type TicketTokenStatus,
@@ -276,9 +277,7 @@ export function useTicketDoorAdmit({
     if (!isConnected) {
       setTxResult({
         type: 'error',
-        msg: redeemVoice
-          ? 'Connect your wallet to redeem.'
-          : 'Connect your wallet to admit.',
+        msg: ticketStaffConnectError(voice),
       });
       return;
     }

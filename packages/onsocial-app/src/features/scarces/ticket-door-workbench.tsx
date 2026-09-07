@@ -4,6 +4,7 @@ import { useEffect, useState, type RefObject } from 'react';
 import { Divider, osFieldBorderedClassName } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import {
+  commercePartyLines,
   fetchCollectionCreatorFace,
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
@@ -15,7 +16,6 @@ import {
 } from '@/features/scarces/ticket-pass-payload';
 import type { TicketTokenStatus } from '@/features/scarces/ticket-token-status';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { fallbackLabel } from '@/lib/profile-display';
 
 /** Shared camera + paste + preview body for Door Admit and coupon Redeem. */
 export function TicketDoorWorkbench({
@@ -124,8 +124,9 @@ export function TicketDoorWorkbench({
               ? 'Start the camera or paste a live coupon code.'
               : 'Start the camera or paste a live Show pass code.';
 
-  const holderHandle = ownerId ? fallbackLabel(ownerId) : '';
-  const holderDisplay = holderFaceForOwner?.displayName?.trim() || null;
+  const { name: holderName, handle: holderHandle } = ownerId
+    ? commercePartyLines(ownerId, holderFaceForOwner?.displayName)
+    : { name: '', handle: '' };
   const holderAccount = holderHandle ? `@${holderHandle}` : '';
   const previewLabel = status?.title?.trim() || eventName;
   const originLine = status
@@ -229,15 +230,15 @@ export function TicketDoorWorkbench({
                 <AccountAvatar
                   accountId={ownerId}
                   src={holderFaceForOwner?.avatarUrl ?? null}
-                  fallbackInitial={holderDisplay || ownerId}
+                  fallbackInitial={holderName || ownerId}
                   size="md"
                   shellLoading={!holderReady}
                   className="ticket-door-preview-holder-avatar"
                 />
                 <div className="ticket-door-preview-holder-copy">
-                  {holderDisplay ? (
+                  {holderName ? (
                     <p className="ticket-door-preview-holder-name">
-                      {holderDisplay}
+                      {holderName}
                     </p>
                   ) : null}
                   {holderAccount ? (
