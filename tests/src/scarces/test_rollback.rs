@@ -555,7 +555,7 @@ async fn test_purchase_rollback_on_storage_failure() -> Result<()> {
     .into_result()?;
 
     // Buyer has NO storage deposit. The attached deposit covers the price
-    // but the waterfall bypasses Tiers 1 & 2 (FAKE_APP). The buyer's storage
+    // but the waterfall bypasses Tiers 1 & 2 (drained EMPTY_APP). The buyer's storage
     // balance is 0, and the tiny shortfall from pending_attached_balance won't
     // suffice because the buyer needs BOTH price AND storage from the same pool.
     let buyer = worker.dev_create_account().await?;
