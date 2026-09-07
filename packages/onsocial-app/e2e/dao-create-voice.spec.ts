@@ -59,6 +59,13 @@ test.describe('dao create voice', () => {
     expect(crestBox!.y + crestBox!.height).toBeGreaterThan(
       coverBox!.y + coverBox!.height
     );
+    expect(
+      Math.abs(
+        coverBox!.x +
+          coverBox!.width / 2 -
+          (crestBox!.x + crestBox!.width / 2)
+      )
+    ).toBeLessThan(12);
     expect(nameBox!.y).toBeGreaterThan(crestBox!.y + crestBox!.height - 4);
     await expect(
       sheet.getByRole('button', { name: 'Connect', exact: true })

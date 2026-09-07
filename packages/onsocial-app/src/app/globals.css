@@ -40587,8 +40587,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   position: relative;
   z-index: 1;
   width: fit-content;
-  margin-top: -1.7rem;
-  margin-left: 0.7rem;
+  margin: -1.7rem auto 0;
 }
 
 .dao-look-preview-crest {
