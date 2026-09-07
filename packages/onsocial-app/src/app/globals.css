@@ -40515,6 +40515,15 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   cursor: pointer;
 }
 
+.dao-create-form .dao-create-publish > span:first-child {
+  min-width: 0;
+}
+
+.dao-create-form .dao-create-publish .account-safe-mode-switch {
+  display: block;
+  flex-shrink: 0;
+}
+
 .dao-create-form .dao-create-publish:disabled {
   cursor: default;
   color: rgb(var(--fg-rgb) / 0.26);
