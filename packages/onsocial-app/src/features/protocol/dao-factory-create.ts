@@ -9,6 +9,7 @@ import {
   extractNearTransactionHashes,
   nearToYocto,
   viewAccount,
+  yoctoToNear,
 } from '@/lib/app-near-rpc';
 import { isValidNearAccountId } from '@/lib/app-near-account';
 import { encodeDaoConfigMetadata } from '@/features/protocol/dao-branding';
@@ -163,6 +164,28 @@ export function buildDaoFactoryInitArgs(opts: {
     },
     policy: buildDaoFactoryPolicy(council),
   };
+}
+
+/** Factory create attach, plus the baked 0.1 NEAR profile proposal when on. */
+export function daoCreateAttachYocto(publishSocial: boolean): bigint {
+  const create = BigInt(SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT);
+  if (!publishSocial) return create;
+  return create + BigInt(nearToYocto(SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR));
+}
+
+/** Human NEAR for the whisper deal line (`6` / `6.1`). */
+export function daoCreateAttachNearLabel(publishSocial: boolean): string {
+  return yoctoToNear(String(daoCreateAttachYocto(publishSocial)));
+}
+
+/** Spendable shortfall vs the attach we will send. Null if not short. */
+export function daoCreateNearShortfallYocto(
+  spendableYocto: bigint | null,
+  publishSocial: boolean
+): bigint | null {
+  if (spendableYocto == null) return null;
+  const need = daoCreateAttachYocto(publishSocial);
+  return spendableYocto < need ? need - spendableYocto : null;
 }
 
 /** Advanced extras only — whisper already has council + create cost. */

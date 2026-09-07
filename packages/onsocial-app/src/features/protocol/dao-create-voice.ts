@@ -4,6 +4,16 @@ export const DAO_CREATE_CONNECT_CTA = 'Connect';
 /** Create DAO sheet body — footer owns Connect. */
 export const DAO_CREATE_CONNECT_HINT = 'Connect to create a DAO.';
 
+/** Header deal line — attach amount only, no gas / bond. */
+export function daoCreateWhisper(nearLabel: string): string {
+  return `You start as council · ~${nearLabel} NEAR`;
+}
+
+/** Same hint slot as Connect — spendable short of the attach. */
+export function daoCreateNearShortHint(nearLabel: string): string {
+  return `Need ~${nearLabel} more NEAR.`;
+}
+
 /** Same toggle voice as New drop Advanced. */
 export const DAO_CREATE_ADVANCED = 'Advanced';
 export const DAO_CREATE_ADVANCED_HIDE = 'Hide advanced';

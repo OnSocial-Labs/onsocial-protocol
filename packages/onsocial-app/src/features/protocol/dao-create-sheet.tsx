@@ -29,13 +29,17 @@ import {
   DAO_CREATE_CONNECT_CTA,
   DAO_CREATE_CONNECT_HINT,
   DAO_CREATE_PUBLISH,
+  daoCreateNearShortHint,
   daoCreatePurposeToggle,
+  daoCreateWhisper,
 } from '@/features/protocol/dao-create-voice';
 import {
   buildDaoFactoryAccountId,
   DAO_FACTORY_NAME_MAX,
   DAO_FACTORY_PURPOSE_MAX,
   DAO_FACTORY_SLUG_MIN,
+  daoCreateAttachNearLabel,
+  daoCreateNearShortfallYocto,
   daoFactoryCreatePolicyFacts,
   isValidDaoFactorySlug,
   normalizeDaoFactorySlug,
@@ -52,15 +56,14 @@ import {
 } from '@/features/scarces/commerce-sheet-footer';
 import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import {
   entityIdAvailabilityClass,
   entityIdAvailabilityLead,
   type EntityIdAvailability,
 } from '@/hooks/use-entity-id-availability';
-import {
-  SPUTNIK_DAO_FACTORY,
-  SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT_NEAR,
-} from '@/lib/app-config';
+import { SPUTNIK_DAO_FACTORY } from '@/lib/app-config';
+import { yoctoToNear } from '@/lib/app-near-rpc';
 import { daoPath } from '@/lib/app-routes';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
@@ -177,6 +180,15 @@ export function DaoCreateSheet({
   const sheetOpen = open && !closing;
   const { panelStyle, keyboardOpen, moodId } =
     useCommerceSheetKeyboard(sheetOpen);
+  const walletNear = useWalletNearBalance(
+    accountId,
+    sheetOpen && isConnected
+  );
+  const nearShortfall = daoCreateNearShortfallYocto(
+    walletNear.balanceYocto,
+    publishSocial
+  );
+  const dealNearLabel = daoCreateAttachNearLabel(publishSocial);
 
   const resetForm = useCallback(() => {
     setName('');
@@ -255,13 +267,14 @@ export function DaoCreateSheet({
   );
   const idAvailabilityClass = entityIdAvailabilityClass(idAvailability);
 
-  const canSubmit =
+  const formReady =
     isValidDaoFactorySlug(resolvedSlug) &&
     name.trim().length >= 2 &&
     !pending &&
     idAvailability !== 'taken' &&
     idAvailability !== 'checking' &&
     Object.keys(profileLinkEditorFieldErrors(links)).length === 0;
+  const canSubmit = formReady && nearShortfall == null;
 
   const footerState = useMemo((): CommerceSheetFooterState | null => {
     if (!sheetOpen) return null;
@@ -368,7 +381,9 @@ export function DaoCreateSheet({
       return;
     }
 
-    if (!canSubmit) {
+    if (nearShortfall != null) return;
+
+    if (!formReady) {
       if (idAvailability === 'taken') {
         setError('That account id is taken — pick another.');
         return;
@@ -484,7 +499,7 @@ export function DaoCreateSheet({
         }}
         verb="Create DAO"
         signal="reputation"
-        whisper={`You start as council · ~${SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT_NEAR} NEAR`}
+        whisper={daoCreateWhisper(dealNearLabel)}
         closeAriaLabel="Close create DAO"
         backdropLabel="Close create DAO"
         keyboardOpen={keyboardOpen}
@@ -768,6 +783,10 @@ export function DaoCreateSheet({
             </p>
           ) : !isConnected ? (
             <p className="profile-support-hint">{DAO_CREATE_CONNECT_HINT}</p>
+          ) : nearShortfall != null ? (
+            <p className="profile-support-hint">
+              {daoCreateNearShortHint(yoctoToNear(String(nearShortfall)))}
+            </p>
           ) : null}
         </form>
       </OsGestureSheet>

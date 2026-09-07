@@ -5,7 +5,9 @@ import {
   DAO_CREATE_CONNECT_CTA,
   DAO_CREATE_CONNECT_HINT,
   DAO_CREATE_PUBLISH,
+  daoCreateNearShortHint,
   daoCreatePurposeToggle,
+  daoCreateWhisper,
 } from '@/features/protocol/dao-create-voice';
 
 describe('DAO create Connect voice', () => {
@@ -28,6 +30,17 @@ describe('DAO create Connect voice', () => {
     expect(DAO_CREATE_PUBLISH).toBe('Publish OnSocial profile');
     expect(DAO_CREATE_PUBLISH.toLowerCase()).not.toContain('call');
     expect(DAO_CREATE_PUBLISH.toLowerCase()).not.toContain('bond');
+  });
+
+  it('whispers the attach amount without gas or bond', () => {
+    expect(daoCreateWhisper('6')).toBe('You start as council · ~6 NEAR');
+    expect(daoCreateWhisper('6.1')).toBe('You start as council · ~6.1 NEAR');
+    expect(daoCreateWhisper('6').toLowerCase()).not.toContain('gas');
+    expect(daoCreateWhisper('6.1').toLowerCase()).not.toContain('bond');
+    expect(daoCreateNearShortHint('0.4')).toBe('Need ~0.4 more NEAR.');
+    expect(daoCreateNearShortHint('0.1').toLowerCase()).not.toContain('bond');
+    expect(daoCreateNearShortHint('0.1').toLowerCase()).not.toContain('gas');
+    expect(daoCreateNearShortHint('0.1').toLowerCase()).not.toContain('wallet');
   });
 
   it('waits purpose behind Add a purpose', () => {
