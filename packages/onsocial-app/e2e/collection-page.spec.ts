@@ -172,7 +172,9 @@ test.describe('collection drop page', () => {
     ).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Connect wallet')).toHaveCount(0);
     await expect(
-      page.getByRole('button', { name: 'Connect', exact: true })
+      page
+        .locator('.ticket-door-page-actions')
+        .getByRole('button', { name: 'Connect', exact: true })
     ).toBeVisible();
   });
 });
