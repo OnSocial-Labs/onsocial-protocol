@@ -18,6 +18,7 @@ import {
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { SUPPORT_GUILD_CONNECT_CTA } from '@/features/guilds/support-guild-voice';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -388,22 +389,24 @@ export function GuildEditSheet({
           {!isConnected && !walletLoading ? (
             <OsSheetAction
               type="button"
-              variant="ghost"
+              variant="primary"
+              ready
               onClick={() => void connect()}
             >
-              Connect wallet
+              {SUPPORT_GUILD_CONNECT_CTA}
             </OsSheetAction>
-          ) : null}
-          <OsSheetAction
-            type="submit"
-            form={formId}
-            ready={isDirty && isConnected}
-            pending={pending}
-            pendingLabel={memberDriven ? 'Proposing…' : 'Saving…'}
-            disabled={!isDirty || pending || !isConnected}
-          >
-            {memberDriven ? 'Propose changes' : 'Save changes'}
-          </OsSheetAction>
+          ) : (
+            <OsSheetAction
+              type="submit"
+              form={formId}
+              ready={isDirty && isConnected}
+              pending={pending}
+              pendingLabel={memberDriven ? 'Proposing…' : 'Saving…'}
+              disabled={!isDirty || pending || !isConnected}
+            >
+              {memberDriven ? 'Propose changes' : 'Save changes'}
+            </OsSheetAction>
+          )}
         </OsSheetActions>
       </div>
     ) : undefined;
