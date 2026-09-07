@@ -144,10 +144,16 @@ test.describe('create guild voice', () => {
 
     const form = page.locator('.guild-create-form');
     const footer = page.locator('.os-app-screen-footer');
+    await expect(
+      page.getByRole('heading', { name: 'Create guild' })
+    ).toBeVisible();
     await expect(form).toBeVisible();
     await expect(form).not.toHaveAttribute('data-form-focused');
 
-    await page.locator('#guild-create-name').focus();
+    const nameField = page.locator('#guild-create-name');
+    await nameField.scrollIntoViewIfNeeded();
+    await nameField.click();
+    await nameField.focus();
     await expect(form).toHaveAttribute('data-form-focused', '');
     await expect(page.locator('#guild-create-name')).toBeInViewport();
     await expect(footer).toBeInViewport();
