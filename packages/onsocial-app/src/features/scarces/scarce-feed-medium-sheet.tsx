@@ -16,6 +16,7 @@ import type {
 } from '@/features/scarces/drop-writing';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
+import { writingReadLockedHint } from '@/features/scarces/writing-read-voice';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { accountIdsEqual } from '@/lib/account-match';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
@@ -208,11 +209,10 @@ export function ScarceFeedMediumSheet({
   const name = title.trim() || 'Drop';
   const hasWriting = readables.length > 0 || bookPdf != null;
   const canReadWriting = isCreator || holdsEdition === true;
-  const writingLockedHint = !viewerAccountId?.trim()
-    ? 'Connect your wallet and Collect an edition to read.'
-    : holdsEdition === null
-      ? 'Checking your edition…'
-      : 'Collect an edition to unlock the full text.';
+  const writingLockedHint = writingReadLockedHint({
+    isConnected: Boolean(viewerAccountId?.trim()),
+    holdsEdition,
+  });
   const inlineSvg = coverSvg?.trim() ? inlineSvgMarkup(coverSvg.trim()) : null;
   const rasterCover = cover?.trim() || null;
   const postChrome =

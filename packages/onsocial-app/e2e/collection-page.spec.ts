@@ -72,9 +72,15 @@ test.describe('collection drop page', () => {
     await expect(read).toBeVisible();
     await expect(read).toHaveClass(/collection-reading-open/);
     await expect(read).not.toHaveClass(PILL_ACTION);
+    await expect(page.getByText('Connect to read.', { exact: true })).toBeVisible();
+    await read.click();
     await expect(
-      page.getByText('Connect your wallet and Collect an edition to read.')
-    ).toBeVisible();
+      page
+        .locator('.scarce-writing-read-footer')
+        .getByRole('button', { name: 'Connect', exact: true })
+    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(page.getByText('Connect wallet')).toHaveCount(0);
+    await expect(page.getByText('Manuscript')).toHaveCount(0);
   });
 
   test('held audio drop puts Play above the product row', async ({ page }) => {
