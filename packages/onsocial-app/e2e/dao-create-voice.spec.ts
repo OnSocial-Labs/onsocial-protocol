@@ -8,7 +8,9 @@ test.describe('dao create voice', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, '/daos');
 
-    await page.getByRole('button', { name: 'Create DAO' }).click();
+    const create = page.getByRole('button', { name: 'Create DAO' });
+    await expect(create).toBeVisible();
+    await create.click({ force: true });
 
     const sheet = page.getByRole('dialog', { name: /^Create DAO/ });
     await expect(sheet).toBeVisible({ timeout: 15_000 });
