@@ -24,20 +24,28 @@ async fn setup() -> Result<(
     Ok((worker, owner, contract))
 }
 
-/// Create a dev account with storage, register an app, return (account, app_id).
+/// Create a dev account with storage, register `app_id`, return (account, app_id).
+async fn setup_app_owner_named(
+    worker: &near_workspaces::Worker<near_workspaces::network::Sandbox>,
+    contract: &near_workspaces::Contract,
+    app_id: &str,
+) -> Result<(near_workspaces::Account, String)> {
+    let app_owner = worker.dev_create_account().await?;
+    storage_deposit(contract, &app_owner, None, DEPOSIT_LARGE)
+        .await?
+        .into_result()?;
+    register_app(contract, &app_owner, app_id, DEPOSIT_LARGE)
+        .await?
+        .into_result()?;
+    Ok((app_owner, app_id.to_string()))
+}
+
+/// Register the default test app slug (one per sandbox).
 async fn setup_app_owner(
     worker: &near_workspaces::Worker<near_workspaces::network::Sandbox>,
     contract: &near_workspaces::Contract,
 ) -> Result<(near_workspaces::Account, String)> {
-    let app_owner = worker.dev_create_account().await?;
-    let app_id = TEST_APP_ID.to_string();
-    storage_deposit(contract, &app_owner, None, DEPOSIT_LARGE)
-        .await?
-        .into_result()?;
-    register_app(contract, &app_owner, &app_id, DEPOSIT_LARGE)
-        .await?
-        .into_result()?;
-    Ok((app_owner, app_id))
+    setup_app_owner_named(worker, contract, TEST_APP_ID).await
 }
 
 // =============================================================================
@@ -310,8 +318,8 @@ async fn test_set_collection_app_metadata_non_owner_fails() -> Result<()> {
 #[tokio::test]
 async fn test_set_collection_app_metadata_wrong_app_fails() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
-    let (app_owner, app_id) = setup_app_owner(&worker, &contract).await?;
-    let (app_owner2, app_id2) = setup_app_owner(&worker, &contract).await?;
+    let (app_owner, app_id) = setup_app_owner_named(&worker, &contract, "app-one").await?;
+    let (app_owner2, app_id2) = setup_app_owner_named(&worker, &contract, "app-two").await?;
 
     // Create collection under app1
     create_collection_for_app(

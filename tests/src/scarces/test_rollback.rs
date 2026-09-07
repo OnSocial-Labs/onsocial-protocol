@@ -10,7 +10,7 @@
 // for free (storage unpaid).
 //
 // Strategy: bypass the 3-tier storage waterfall so that
-//   Tier 1 (App Pool) → skipped (nonexistent pool)
+//   Tier 1 (App Pool) → drained registered pool (create now requires the app)
 //   Tier 2 (Platform Pool) → skipped (app_id is Some)
 //   Tier 3 (User Balance) → fails (no balance, no pending deposit)
 // Then assert zero state leakage.
@@ -50,10 +50,36 @@ async fn user_with_storage(
     Ok(user)
 }
 
-/// A nonexistent app_id that bypasses Tier 1 (no pool) AND Tier 2 (app_id.is_some → skip platform).
-/// Only usable for actions where the contract doesn't validate pool existence upfront
-/// (create_collection, mint_from_collection, airdrop, allowlist).
-const FAKE_APP: &str = "nopool.testnet";
+/// Nonexistent app slug. `quick_mint` still rejects this before storage charge.
+/// Collection create now requires a real pool — use `register_empty_app` there.
+const FAKE_APP: &str = "nopool";
+
+/// Registered app with a drained pool: Tier 1 cannot pay, Tier 2 is skipped
+/// (`app_id` is Some), Tier 3 is the only remaining storage source.
+const EMPTY_APP: &str = "rollback-app";
+
+async fn register_empty_app(
+    contract: &near_workspaces::Contract,
+    owner: &near_workspaces::Account,
+) -> Result<()> {
+    register_app(contract, owner, EMPTY_APP, DEPOSIT_LARGE)
+        .await?
+        .into_result()?;
+    drain_app_pool(contract, owner).await
+}
+
+async fn drain_app_pool(
+    contract: &near_workspaces::Contract,
+    owner: &near_workspaces::Account,
+) -> Result<()> {
+    let pool = get_app_pool(contract, EMPTY_APP).await?.unwrap();
+    if pool.balance != "0" {
+        withdraw_app_pool(contract, owner, EMPTY_APP, &pool.balance, ONE_YOCTO)
+            .await?
+            .into_result()?;
+    }
+    Ok(())
+}
 
 /// Default collection metadata template.
 fn default_template() -> serde_json::Value {
@@ -327,7 +353,7 @@ async fn test_set_allowlist_rollback_drained_storage() -> Result<()> {
     let creator = user_with_storage(&worker, &contract).await?;
     let alice = worker.dev_create_account().await?;
 
-    // Create collection with FAKE_APP so allowlist waterfall skips tiers 1 & 2.
+    register_empty_app(&contract, &creator).await?;
     create_collection_for_app(
         &contract,
         &creator,
@@ -335,11 +361,12 @@ async fn test_set_allowlist_rollback_drained_storage() -> Result<()> {
         100,
         "1000000000000000000000000",
         default_template(),
-        FAKE_APP,
+        EMPTY_APP,
         DEPOSIT_LARGE,
     )
     .await?
     .into_result()?;
+    drain_app_pool(&contract, &creator).await?;
 
     // Drain creator storage.
     drain_storage(&contract, &creator).await?;
@@ -380,7 +407,7 @@ async fn test_mint_from_collection_rollback_drained_storage() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let creator = user_with_storage(&worker, &contract).await?;
 
-    // Create collection with FAKE_APP.
+    register_empty_app(&contract, &creator).await?;
     create_collection_for_app(
         &contract,
         &creator,
@@ -388,11 +415,12 @@ async fn test_mint_from_collection_rollback_drained_storage() -> Result<()> {
         100,
         "0",
         default_template(),
-        FAKE_APP,
+        EMPTY_APP,
         DEPOSIT_LARGE,
     )
     .await?
     .into_result()?;
+    drain_app_pool(&contract, &creator).await?;
 
     let progress_before = get_collection_progress(&contract, "mint-col").await?;
     let minted_before = progress_before.as_ref().map(|p| p.minted).unwrap_or(0);
@@ -444,7 +472,7 @@ async fn test_airdrop_rollback_drained_storage() -> Result<()> {
     let alice = worker.dev_create_account().await?;
     let bob = worker.dev_create_account().await?;
 
-    // Create collection with FAKE_APP.
+    register_empty_app(&contract, &creator).await?;
     create_collection_for_app(
         &contract,
         &creator,
@@ -452,11 +480,12 @@ async fn test_airdrop_rollback_drained_storage() -> Result<()> {
         100,
         "0",
         default_template(),
-        FAKE_APP,
+        EMPTY_APP,
         DEPOSIT_LARGE,
     )
     .await?
     .into_result()?;
+    drain_app_pool(&contract, &creator).await?;
 
     let progress_before = get_collection_progress(&contract, "air-col").await?;
     let minted_before = progress_before.as_ref().map(|p| p.minted).unwrap_or(0);
@@ -502,7 +531,7 @@ async fn test_airdrop_rollback_drained_storage() -> Result<()> {
 // 8. purchase_from_collection — rollback on route_primary_sale failure
 // =============================================================================
 // Note: route_primary_sale calls charge_storage_waterfall first. When the buyer
-// has no storage and the collection uses a non-existent app pool, the storage
+// has no storage and the collection uses a drained app pool, the storage
 // charge in route_primary_sale fails, triggering the purchase rollback.
 
 #[tokio::test]
@@ -511,6 +540,7 @@ async fn test_purchase_rollback_on_storage_failure() -> Result<()> {
 
     // Creator sets up a collection (with storage).
     let creator = user_with_storage(&worker, &contract).await?;
+    register_empty_app(&contract, &creator).await?;
     create_collection_for_app(
         &contract,
         &creator,
@@ -518,7 +548,7 @@ async fn test_purchase_rollback_on_storage_failure() -> Result<()> {
         100,
         "1000000000000000000000000", // 1 NEAR
         default_template(),
-        FAKE_APP,
+        EMPTY_APP,
         DEPOSIT_LARGE,
     )
     .await?
@@ -592,6 +622,7 @@ async fn test_collection_reusable_after_rollback() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let creator = user_with_storage(&worker, &contract).await?;
 
+    register_empty_app(&contract, &creator).await?;
     create_collection_for_app(
         &contract,
         &creator,
@@ -599,11 +630,12 @@ async fn test_collection_reusable_after_rollback() -> Result<()> {
         10,
         "0",
         default_template(),
-        FAKE_APP,
+        EMPTY_APP,
         DEPOSIT_LARGE,
     )
     .await?
     .into_result()?;
+    drain_app_pool(&contract, &creator).await?;
 
     // Drain storage.
     drain_storage(&contract, &creator).await?;
