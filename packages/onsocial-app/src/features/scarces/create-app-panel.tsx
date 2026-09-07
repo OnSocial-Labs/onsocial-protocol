@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useMemo, useState, type FormEvent } from 'react';
+import {
+  useCallback,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type FocusEvent,
+  type FormEvent,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import {
   OsSheetAction,
@@ -13,6 +20,8 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { SuffixField } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
+import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import {
   entityIdAvailabilityClass,
   entityIdAvailabilityLead,
@@ -69,6 +78,14 @@ function pctToBps(pct: number): number {
   return Math.round(pct * 100);
 }
 
+function isFormFieldTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  );
+}
+
 export function CreateAppPanel() {
   const router = useRouter();
   const { isConnected, isLoading, connect, getSigningWallet } = useAppWallet();
@@ -84,6 +101,44 @@ export function CreateAppPanel() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [formFieldFocused, setFormFieldFocused] = useState(false);
+  const scrollFieldIntoView = useMobileFieldFocusScroll();
+  const formViewport = useVisualViewportSheetMetrics(formFieldFocused);
+  const formKeyboardOpen =
+    formFieldFocused && formViewport.isMobile && formViewport.lift > 0;
+
+  const handleFormFocusCapture = useCallback(
+    (event: FocusEvent<HTMLFormElement>) => {
+      if (isFormFieldTarget(event.target)) setFormFieldFocused(true);
+    },
+    []
+  );
+
+  const handleFormBlurCapture = useCallback(
+    (event: FocusEvent<HTMLFormElement>) => {
+      const next = event.relatedTarget;
+      const form = event.currentTarget;
+      if (
+        next instanceof Node &&
+        form.contains(next) &&
+        isFormFieldTarget(next)
+      ) {
+        return;
+      }
+      setFormFieldFocused(false);
+    },
+    []
+  );
+
+  const screenStyle = useMemo(
+    () =>
+      ({
+        ['--drop-create-keyboard-lift' as string]: formKeyboardOpen
+          ? `${formViewport.lift}px`
+          : '0px',
+      }) as CSSProperties,
+    [formKeyboardOpen, formViewport.lift]
+  );
 
   const derivedSlug = useMemo(
     () => slugify(slugTouched ? slug || name : name),
@@ -193,6 +248,7 @@ export function CreateAppPanel() {
       dockBack
       backFallbackHref={APP_APPS_PATH}
       glassChrome
+      style={screenStyle}
       actions={
         <OsIconAction
           ariaLabel={HUB_CREATE_HELP_TITLE}
@@ -207,7 +263,14 @@ export function CreateAppPanel() {
         </OsIconAction>
       }
     >
-      <form className="drop-create-form" onSubmit={handleSubmit}>
+      <form
+        className="drop-create-form"
+        data-form-focused={formFieldFocused ? '' : undefined}
+        data-keyboard={formKeyboardOpen ? 'open' : undefined}
+        onFocusCapture={handleFormFocusCapture}
+        onBlurCapture={handleFormBlurCapture}
+        onSubmit={handleSubmit}
+      >
         <label className="guild-field" htmlFor={fieldId('name')}>
           <span>Name</span>
           <input
@@ -218,6 +281,7 @@ export function CreateAppPanel() {
               // Name is source of truth — re-link ID after any name edit.
               setSlugTouched(false);
             }}
+            onFocus={scrollFieldIntoView}
             placeholder="Midnight Records"
             maxLength={MAX_NAME}
             disabled={pending}
@@ -234,6 +298,7 @@ export function CreateAppPanel() {
               setSlugTouched(true);
               setSlug(event.target.value);
             }}
+            onFocus={scrollFieldIntoView}
             placeholder="midnight-records"
             maxLength={MAX_SLUG}
             disabled={pending}
@@ -268,6 +333,7 @@ export function CreateAppPanel() {
               id={fieldId('description')}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
+              onFocus={scrollFieldIntoView}
               placeholder="What this hub publishes and who it's for."
               maxLength={MAX_DESCRIPTION}
               disabled={pending}
@@ -308,6 +374,7 @@ export function CreateAppPanel() {
             onValueChange={(value) =>
               setCommissionInput(value.replace(/[^\d.]/g, ''))
             }
+            onFocus={scrollFieldIntoView}
             placeholder="2.5"
             aria-label="Commission percentage"
             suffix="% per sale"
