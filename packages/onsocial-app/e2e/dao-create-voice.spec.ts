@@ -7,7 +7,10 @@ test.describe('dao create voice', () => {
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, '/daos');
-
+    await expect(page.getByRole('heading', { name: 'DAOs' })).toBeVisible();
+    await page.evaluate(() => {
+      document.querySelectorAll('nextjs-portal').forEach((node) => node.remove());
+    });
     const create = page.getByRole('button', { name: 'Create DAO' });
     await expect(create).toBeVisible();
     await create.click({ force: true });
@@ -49,24 +52,25 @@ test.describe('dao create voice', () => {
     const cover = sheet.locator('.dao-look-preview-cover');
     const crest = sheet.locator('.dao-look-preview-crest');
     const nameField = sheet.locator('#dao-create-name');
-    const coverBox = await cover.boundingBox();
-    const crestBox = await crest.boundingBox();
-    const nameBox = await nameField.boundingBox();
-    expect(coverBox).toBeTruthy();
-    expect(crestBox).toBeTruthy();
-    expect(nameBox).toBeTruthy();
-    expect(crestBox!.y).toBeLessThan(coverBox!.y + coverBox!.height - 8);
-    expect(crestBox!.y + crestBox!.height).toBeGreaterThan(
-      coverBox!.y + coverBox!.height
-    );
-    expect(
-      Math.abs(
-        coverBox!.x +
-          coverBox!.width / 2 -
-          (crestBox!.x + crestBox!.width / 2)
-      )
-    ).toBeLessThan(12);
-    expect(nameBox!.y).toBeGreaterThan(crestBox!.y + crestBox!.height - 4);
+    await expect
+      .poll(async () => {
+        const coverBox = await cover.boundingBox();
+        const crestBox = await crest.boundingBox();
+        const nameBox = await nameField.boundingBox();
+        if (!coverBox || !crestBox || !nameBox) return 'missing';
+        const overlapsBottom =
+          crestBox.y < coverBox.y + coverBox.height - 8 &&
+          crestBox.y + crestBox.height > coverBox.y + coverBox.height;
+        const centered =
+          Math.abs(
+            coverBox.x +
+              coverBox.width / 2 -
+              (crestBox.x + crestBox.width / 2)
+          ) < 12;
+        const nameBelow = nameBox.y > crestBox.y + crestBox.height - 4;
+        return overlapsBottom && centered && nameBelow ? 'ready' : 'layout';
+      })
+      .toBe('ready');
     await expect(
       sheet.getByRole('button', { name: 'Connect', exact: true })
     ).toBeVisible();
