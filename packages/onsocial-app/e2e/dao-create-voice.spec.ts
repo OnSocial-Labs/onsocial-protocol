@@ -16,8 +16,26 @@ test.describe('dao create voice', () => {
       sheet.getByText('Connect to create a DAO.', { exact: true })
     ).toBeVisible();
     await expect(sheet.getByText('Connect wallet')).toHaveCount(0);
+    await expect(sheet.getByText('Deploys under the network factory')).toHaveCount(
+      0
+    );
+    await expect(sheet.getByText('You get')).toHaveCount(0);
+    await expect(sheet.getByText('Add links')).toHaveCount(0);
+    await expect(sheet.getByText('Publish OnSocial profile')).toHaveCount(0);
+    await expect(
+      sheet.getByRole('button', { name: 'Add cover', exact: true })
+    ).toHaveClass(/os-write-dock-tool/);
+    await expect(
+      sheet.getByRole('button', { name: 'Add crest', exact: true })
+    ).toHaveClass(/os-write-dock-tool/);
     await expect(
       sheet.getByRole('button', { name: 'Connect', exact: true })
     ).toBeVisible();
+
+    await sheet.getByRole('button', { name: 'Advanced', exact: true }).click();
+    await expect(sheet.getByText('You get')).toBeVisible();
+    await expect(sheet.getByText('Add links')).toBeVisible();
+    await expect(sheet.getByText('Publish OnSocial profile')).toBeVisible();
+    await expect(sheet.getByText('proposes a Call')).toHaveCount(0);
   });
 });

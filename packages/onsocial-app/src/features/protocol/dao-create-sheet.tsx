@@ -13,8 +13,8 @@ import {
 import { useRouter } from 'next/navigation';
 import {
   DiscardConfirmSheet,
+  ImageIcon,
   OsGestureSheet,
-  ProfileEditorMediaToolbar,
   osFieldBorderedClassName,
   useDiscardConfirm,
 } from '@onsocial/ui';
@@ -24,8 +24,11 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { rememberCommunityDao } from '@/features/protocol/dao-accounts';
 import { buildDaoBrandingMetadata } from '@/features/protocol/dao-branding';
 import {
+  DAO_CREATE_ADVANCED,
+  DAO_CREATE_ADVANCED_HIDE,
   DAO_CREATE_CONNECT_CTA,
   DAO_CREATE_CONNECT_HINT,
+  DAO_CREATE_PUBLISH,
 } from '@/features/protocol/dao-create-voice';
 import {
   buildDaoFactoryAccountId,
@@ -56,7 +59,6 @@ import {
 import {
   SPUTNIK_DAO_FACTORY,
   SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT_NEAR,
-  SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR,
 } from '@/lib/app-config';
 import { daoPath } from '@/lib/app-routes';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
@@ -129,7 +131,8 @@ function useDaoFactorySlugAvailability(
 
 /**
  * Factory DAO create — tall gesture sheet from the DAOs directory header.
- * Full starter policy (50/100, 0.1 Ⓝ bond) + optional branding / social publish.
+ * First screen is name, id, purpose, and quiet cover/crest. Policy, links,
+ * and face publish wait in Advanced.
  */
 export function DaoCreateSheet({
   open,
@@ -159,6 +162,7 @@ export function DaoCreateSheet({
     Partial<Record<keyof ProfileLinksInput, string>>
   >({});
   const [linksOpen, setLinksOpen] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [publishSocial, setPublishSocial] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -180,6 +184,7 @@ export function DaoCreateSheet({
     setLinks(profileLinksInputFromRecord(null));
     setLinkErrors({});
     setLinksOpen(false);
+    setShowAdvanced(false);
     setPublishSocial(false);
     setAvatarFile(null);
     setBannerFile(null);
@@ -211,7 +216,6 @@ export function DaoCreateSheet({
     avatarFile != null ||
     bannerFile != null ||
     publishSocial ||
-    linksOpen ||
     (slugTouched && slug.trim().length > 0) ||
     Object.values(links).some((value) => value.trim().length > 0);
 
@@ -356,6 +360,7 @@ export function DaoCreateSheet({
     if (Object.keys(nextLinkErrors).length > 0) {
       setLinkErrors(nextLinkErrors);
       setLinksOpen(true);
+      setShowAdvanced(true);
       setError('Fix the link fields before creating.');
       return;
     }
@@ -475,7 +480,6 @@ export function DaoCreateSheet({
           handleClosed();
         }}
         verb="Create DAO"
-        handle={SPUTNIK_DAO_FACTORY}
         signal="reputation"
         whisper={`You start as council · ~${SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT_NEAR} NEAR`}
         closeAriaLabel="Close create DAO"
@@ -503,70 +507,71 @@ export function DaoCreateSheet({
             void handleSubmit(event);
           }}
         >
-          <p className="dao-create-lede">
-            Deploys under the network factory. Account id is permanent — pick
-            carefully.
-          </p>
-
-          <section className="dao-create-hero" aria-label="DAO media">
-            <div
-              className={`account-editor-cover-stage dao-create-cover${bannerPreview ? ' has-media' : ''}`}
-            >
-              <div className="account-editor-banner-wrap">
-                <div
-                  className={`account-editor-banner-button profile-editor-media-host${bannerPreview ? ' has-media' : ''}`}
-                >
-                  <button
-                    type="button"
-                    className="profile-editor-media-backdrop account-editor-banner-backdrop"
-                    disabled={pending || discardConfirmOpen}
-                    onClick={() => bannerInputRef.current?.click()}
-                    aria-label={bannerPreview ? 'Change cover' : 'Add cover'}
-                  >
-                    {bannerPreview ? (
-                      <img
-                        src={bannerPreview}
-                        alt=""
-                        className="account-editor-banner-image"
-                      />
-                    ) : (
-                      <span className="dao-create-media-empty">Cover</span>
-                    )}
-                  </button>
-                  <ProfileEditorMediaToolbar
-                    layout="banner"
-                    removeLabel={bannerPreview ? 'Remove cover' : undefined}
-                    onRemove={bannerPreview ? clearBanner : undefined}
-                  />
-                </div>
-              </div>
-              <div className="dao-create-crest-row">
+          <section className="dao-create-media" aria-label="DAO media">
+            {bannerPreview ? (
+              <div className="dao-create-media-preview">
+                <img
+                  src={bannerPreview}
+                  alt=""
+                  className="dao-create-media-el dao-create-media-el--cover"
+                />
                 <button
                   type="button"
-                  className={`dao-create-crest-picker profile-editor-media-host profile-editor-media-host--squircle${avatarPreview ? ' has-media' : ''}`}
+                  className="dao-create-media-remove"
+                  disabled={pending || discardConfirmOpen}
+                  onClick={clearBanner}
+                >
+                  Remove cover
+                </button>
+              </div>
+            ) : (
+              <div className="dao-create-media-slot">
+                <button
+                  type="button"
+                  className="os-write-dock-tool"
+                  aria-label="Add cover"
+                  disabled={pending || discardConfirmOpen}
+                  onClick={() => bannerInputRef.current?.click()}
+                >
+                  <ImageIcon className="os-write-dock-media-icon" aria-hidden />
+                </button>
+                <span className="dao-create-media-caption" aria-hidden>
+                  Cover
+                </span>
+              </div>
+            )}
+            {avatarPreview ? (
+              <div className="dao-create-media-preview">
+                <img
+                  src={avatarPreview}
+                  alt=""
+                  className="dao-create-media-el dao-create-media-el--crest"
+                />
+                <button
+                  type="button"
+                  className="dao-create-media-remove"
+                  disabled={pending || discardConfirmOpen}
+                  onClick={clearAvatar}
+                >
+                  Remove crest
+                </button>
+              </div>
+            ) : (
+              <div className="dao-create-media-slot">
+                <button
+                  type="button"
+                  className="os-write-dock-tool"
+                  aria-label="Add crest"
                   disabled={pending || discardConfirmOpen}
                   onClick={() => avatarInputRef.current?.click()}
-                  aria-label={avatarPreview ? 'Change crest' : 'Add crest'}
                 >
-                  {avatarPreview ? (
-                    <img
-                      src={avatarPreview}
-                      alt=""
-                      className="dao-create-crest-image"
-                    />
-                  ) : (
-                    <span className="dao-create-media-empty">Crest</span>
-                  )}
+                  <ImageIcon className="os-write-dock-media-icon" aria-hidden />
                 </button>
-                {avatarPreview ? (
-                  <ProfileEditorMediaToolbar
-                    layout="avatar"
-                    removeLabel="Remove crest"
-                    onRemove={clearAvatar}
-                  />
-                ) : null}
+                <span className="dao-create-media-caption" aria-hidden>
+                  Crest
+                </span>
               </div>
-            </div>
+            )}
             <input
               ref={bannerInputRef}
               type="file"
@@ -656,79 +661,86 @@ export function DaoCreateSheet({
             />
           </label>
 
-          <div className="dao-create-facts" aria-label="What you get">
-            <p className="dao-create-facts-title">You get</p>
-            <ul className="dao-create-facts-list">
-              <li>{policyFacts.council}</li>
-              <li>{policyFacts.publicPropose}</li>
-              <li>{policyFacts.vote}</li>
-              <li>{policyFacts.bond}</li>
-              <li>{policyFacts.createDeposit}</li>
-            </ul>
-          </div>
+          <button
+            type="button"
+            className="collection-allowlist-toggle"
+            aria-expanded={showAdvanced}
+            disabled={pending || discardConfirmOpen}
+            onClick={() => setShowAdvanced((open) => !open)}
+          >
+            {showAdvanced ? DAO_CREATE_ADVANCED_HIDE : DAO_CREATE_ADVANCED}
+          </button>
 
-          <div className="dao-create-links">
-            <button
-              type="button"
-              className="dao-create-links-toggle"
-              aria-expanded={linksOpen}
-              disabled={pending || discardConfirmOpen}
-              onClick={() => setLinksOpen((open) => !open)}
-            >
-              {linksOpen ? 'Hide links' : 'Add links'}
-            </button>
-            {linksOpen ? (
-              <ProfileLinksEditor
-                links={links}
-                fieldErrors={linkErrors}
-                onUpdateLink={(key, value) => {
-                  setLinks((prev) => ({ ...prev, [key]: value }));
-                  setLinkErrors((prev) => {
-                    if (!prev[key]) return prev;
-                    const next = { ...prev };
-                    delete next[key];
-                    return next;
-                  });
-                }}
-                onClearFieldError={(key) => {
-                  setLinkErrors((prev) => {
-                    if (!prev[key]) return prev;
-                    const next = { ...prev };
-                    delete next[key];
-                    return next;
-                  });
-                }}
-                onSetFieldError={(key, nextError) => {
-                  setLinkErrors((prev) => {
-                    if (!nextError) {
-                      if (!prev[key]) return prev;
-                      const next = { ...prev };
-                      delete next[key];
-                      return next;
-                    }
-                    return { ...prev, [key]: nextError };
-                  });
-                }}
-              />
-            ) : null}
-          </div>
+          {showAdvanced ? (
+            <>
+              <div className="dao-create-facts" aria-label="What you get">
+                <p className="dao-create-facts-title">You get</p>
+                <ul className="dao-create-facts-list">
+                  <li>{policyFacts.council}</li>
+                  <li>{policyFacts.publicPropose}</li>
+                  <li>{policyFacts.vote}</li>
+                  <li>{policyFacts.bond}</li>
+                  <li>{policyFacts.createDeposit}</li>
+                </ul>
+              </div>
 
-          <label className="dao-create-toggle">
-            <input
-              type="checkbox"
-              checked={publishSocial}
-              disabled={pending || discardConfirmOpen}
-              onChange={(event) => setPublishSocial(event.target.checked)}
-            />
-            <span>
-              Also publish OnSocial profile
-              <small>
-                After create, proposes a Call so feeds see the same crest and
-                name. Approve on the DAO (~
-                {SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR} NEAR bond).
-              </small>
-            </span>
-          </label>
+              <div className="dao-create-links">
+                <button
+                  type="button"
+                  className="dao-create-links-toggle"
+                  aria-expanded={linksOpen}
+                  disabled={pending || discardConfirmOpen}
+                  onClick={() => setLinksOpen((open) => !open)}
+                >
+                  {linksOpen ? 'Hide links' : 'Add links'}
+                </button>
+                {linksOpen ? (
+                  <ProfileLinksEditor
+                    links={links}
+                    fieldErrors={linkErrors}
+                    onUpdateLink={(key, value) => {
+                      setLinks((prev) => ({ ...prev, [key]: value }));
+                      setLinkErrors((prev) => {
+                        if (!prev[key]) return prev;
+                        const next = { ...prev };
+                        delete next[key];
+                        return next;
+                      });
+                    }}
+                    onClearFieldError={(key) => {
+                      setLinkErrors((prev) => {
+                        if (!prev[key]) return prev;
+                        const next = { ...prev };
+                        delete next[key];
+                        return next;
+                      });
+                    }}
+                    onSetFieldError={(key, nextError) => {
+                      setLinkErrors((prev) => {
+                        if (!nextError) {
+                          if (!prev[key]) return prev;
+                          const next = { ...prev };
+                          delete next[key];
+                          return next;
+                        }
+                        return { ...prev, [key]: nextError };
+                      });
+                    }}
+                  />
+                ) : null}
+              </div>
+
+              <label className="dao-create-toggle">
+                <input
+                  type="checkbox"
+                  checked={publishSocial}
+                  disabled={pending || discardConfirmOpen}
+                  onChange={(event) => setPublishSocial(event.target.checked)}
+                />
+                <span>{DAO_CREATE_PUBLISH}</span>
+              </label>
+            </>
+          ) : null}
 
           {error ? (
             <p className="dao-create-error" role="alert">

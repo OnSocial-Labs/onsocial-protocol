@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DAO_CREATE_ADVANCED,
+  DAO_CREATE_ADVANCED_HIDE,
   DAO_CREATE_CONNECT_CTA,
   DAO_CREATE_CONNECT_HINT,
+  DAO_CREATE_PUBLISH,
 } from '@/features/protocol/dao-create-voice';
 
 describe('DAO create Connect voice', () => {
@@ -13,5 +16,13 @@ describe('DAO create Connect voice', () => {
   it('hints Connect to create a DAO', () => {
     expect(DAO_CREATE_CONNECT_HINT).toBe('Connect to create a DAO.');
     expect(DAO_CREATE_CONNECT_HINT.toLowerCase()).not.toContain('wallet');
+  });
+
+  it('parks extras behind Advanced', () => {
+    expect(DAO_CREATE_ADVANCED).toBe('Advanced');
+    expect(DAO_CREATE_ADVANCED_HIDE).toBe('Hide advanced');
+    expect(DAO_CREATE_PUBLISH).toBe('Publish OnSocial profile');
+    expect(DAO_CREATE_PUBLISH.toLowerCase()).not.toContain('call');
+    expect(DAO_CREATE_PUBLISH.toLowerCase()).not.toContain('bond');
   });
 });
