@@ -45,10 +45,7 @@ import {
   submitDaoFactoryCreate,
 } from '@/features/protocol/dao-factory-create';
 import { buildDaoSocialProfileProposalPayload } from '@/features/protocol/dao-social-profile';
-import {
-  DaoCrestWell,
-  DaoLookPreview,
-} from '@/features/protocol/dao-look-preview';
+import { DaoLookPreview } from '@/features/protocol/dao-look-preview';
 import { rememberOptimisticMyDao } from '@/features/protocol/my-daos-optimistic';
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
 import { PROTOCOL_TASK_SHEET_Z } from '@/features/protocol/protocol-sheet-z';
@@ -137,8 +134,8 @@ function useDaoFactorySlugAvailability(
 
 /**
  * Factory DAO create — tall gesture sheet from the DAOs directory header.
- * First screen is cover, name with crest, id, optional purpose, and
- * Publish OnSocial profile. Policy and links wait in Advanced.
+ * First screen is cover with overlapping crest, name, id, optional purpose,
+ * and Publish OnSocial profile. Policy and links wait in Advanced.
  */
 export function DaoCreateSheet({
   open,
@@ -527,40 +524,33 @@ export function DaoCreateSheet({
         >
           <DaoLookPreview
             coverUrl={bannerPreview}
+            crestUrl={avatarPreview}
             disabled={pending || discardConfirmOpen}
             onCoverChange={onBannerChange}
+            onCrestChange={(event) => {
+              void onAvatarChange(event);
+            }}
             onRemoveCover={clearBanner}
+            onRemoveCrest={clearAvatar}
           />
 
-          <div className="guild-field">
-            <label htmlFor={fieldId('name')}>
-              <span>Name</span>
-            </label>
-            <div className="dao-create-name-row">
-              <DaoCrestWell
-                crestUrl={avatarPreview}
-                disabled={pending || discardConfirmOpen}
-                onCrestChange={(event) => {
-                  void onAvatarChange(event);
-                }}
-                onRemoveCrest={clearAvatar}
-              />
-              <input
-                id={fieldId('name')}
-                value={name}
-                onChange={(event) => {
-                  setName(event.target.value);
-                  setSlugTouched(false);
-                  setError(null);
-                }}
-                placeholder="Builder Guild"
-                maxLength={DAO_FACTORY_NAME_MAX}
-                disabled={pending || discardConfirmOpen}
-                className={osFieldBorderedClassName}
-                autoComplete="off"
-              />
-            </div>
-          </div>
+          <label className="guild-field" htmlFor={fieldId('name')}>
+            <span>Name</span>
+            <input
+              id={fieldId('name')}
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value);
+                setSlugTouched(false);
+                setError(null);
+              }}
+              placeholder="Builder Guild"
+              maxLength={DAO_FACTORY_NAME_MAX}
+              disabled={pending || discardConfirmOpen}
+              className={osFieldBorderedClassName}
+              autoComplete="off"
+            />
+          </label>
 
           <label className="guild-field" htmlFor={fieldId('slug')}>
             <span>Account id</span>

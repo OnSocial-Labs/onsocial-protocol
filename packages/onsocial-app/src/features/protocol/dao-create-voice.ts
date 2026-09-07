@@ -30,7 +30,7 @@ export function daoCreatePurposeToggle(opts: {
   return opts.hasText ? 'Edit purpose' : 'Add a purpose';
 }
 
-/** DAO page look — Cover + Crest beside the name. Not Banner. Not Badge. */
+/** DAO portfolio look — Cover + Crest on the cover. Not Banner. Not Badge. */
 export const DAO_CREATE_ADD_COVER = 'Add cover';
 export const DAO_CREATE_ADD_CREST = 'Add crest';
 export const DAO_CREATE_CHANGE_COVER = 'Change cover';

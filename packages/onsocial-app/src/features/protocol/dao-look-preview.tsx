@@ -14,20 +14,30 @@ import {
 const COVER_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
 const CREST_ACCEPT = 'image/png,image/jpeg,image/webp';
 
+/** Compact portfolio-face mimic: cover, crest overlapping it. Not a guild badge. */
 export function DaoLookPreview({
   coverUrl,
+  crestUrl,
   disabled = false,
-  accept = COVER_ACCEPT,
+  coverAccept = COVER_ACCEPT,
+  crestAccept = CREST_ACCEPT,
   onCoverChange,
+  onCrestChange,
   onRemoveCover,
+  onRemoveCrest,
 }: {
   coverUrl: string | null;
+  crestUrl: string | null;
   disabled?: boolean;
-  accept?: string;
+  coverAccept?: string;
+  crestAccept?: string;
   onCoverChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onCrestChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onRemoveCover?: () => void;
+  onRemoveCrest?: () => void;
 }) {
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const crestInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <section className="dao-look-preview" aria-label="DAO look">
@@ -63,10 +73,44 @@ export function DaoLookPreview({
           onRemove={coverUrl ? onRemoveCover : undefined}
         />
       </div>
+      <div className="dao-look-preview-head">
+        <div
+          className={`dao-look-preview-crest profile-editor-media-host${
+            crestUrl ? ' has-media' : ''
+          }`}
+        >
+          <button
+            type="button"
+            className="profile-editor-media-backdrop dao-look-preview-crest-hit"
+            aria-label={
+              crestUrl ? DAO_CREATE_CHANGE_CREST : DAO_CREATE_ADD_CREST
+            }
+            disabled={disabled}
+            onClick={() => crestInputRef.current?.click()}
+          >
+            {crestUrl ? (
+              <img
+                src={crestUrl}
+                alt=""
+                className="dao-look-preview-crest-image"
+              />
+            ) : (
+              <span className="dao-look-preview-crest-empty" aria-hidden>
+                +
+              </span>
+            )}
+          </button>
+          <ProfileEditorMediaToolbar
+            layout="avatar"
+            removeLabel={crestUrl ? DAO_CREATE_REMOVE_CREST : undefined}
+            onRemove={crestUrl ? onRemoveCrest : undefined}
+          />
+        </div>
+      </div>
       <input
         ref={coverInputRef}
         type="file"
-        accept={accept}
+        accept={coverAccept}
         data-dao-look-file="cover"
         className="account-editor-file-input"
         tabIndex={-1}
@@ -74,62 +118,10 @@ export function DaoLookPreview({
         disabled={disabled}
         onChange={onCoverChange}
       />
-    </section>
-  );
-}
-
-/** Square mark that sits beside the name — same place as the DAO face. */
-export function DaoCrestWell({
-  crestUrl,
-  disabled = false,
-  accept = CREST_ACCEPT,
-  onCrestChange,
-  onRemoveCrest,
-}: {
-  crestUrl: string | null;
-  disabled?: boolean;
-  accept?: string;
-  onCrestChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  onRemoveCrest?: () => void;
-}) {
-  const crestInputRef = useRef<HTMLInputElement>(null);
-
-  return (
-    <div
-      className={`dao-look-preview-crest profile-editor-media-host${
-        crestUrl ? ' has-media' : ''
-      }`}
-    >
-      <button
-        type="button"
-        className="profile-editor-media-backdrop dao-look-preview-crest-hit"
-        aria-label={
-          crestUrl ? DAO_CREATE_CHANGE_CREST : DAO_CREATE_ADD_CREST
-        }
-        disabled={disabled}
-        onClick={() => crestInputRef.current?.click()}
-      >
-        {crestUrl ? (
-          <img
-            src={crestUrl}
-            alt=""
-            className="dao-look-preview-crest-image"
-          />
-        ) : (
-          <span className="dao-look-preview-crest-empty" aria-hidden>
-            +
-          </span>
-        )}
-      </button>
-      <ProfileEditorMediaToolbar
-        layout="avatar"
-        removeLabel={crestUrl ? DAO_CREATE_REMOVE_CREST : undefined}
-        onRemove={crestUrl ? onRemoveCrest : undefined}
-      />
       <input
         ref={crestInputRef}
         type="file"
-        accept={accept}
+        accept={crestAccept}
         data-dao-look-file="crest"
         className="account-editor-file-input"
         tabIndex={-1}
@@ -137,6 +129,6 @@ export function DaoCrestWell({
         disabled={disabled}
         onChange={onCrestChange}
       />
-    </div>
+    </section>
   );
 }
