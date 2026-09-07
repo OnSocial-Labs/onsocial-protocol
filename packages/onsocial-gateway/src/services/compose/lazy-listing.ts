@@ -58,7 +58,7 @@ export interface ComposeLazyListRequest {
   appId?: string;
   /** Is token transferable after purchase (default true) */
   transferable?: boolean;
-  /** Is token burnable (default true) */
+  /** Is token burnable (default false) */
   burnable?: boolean;
   /** Listing expiry (unix timestamp nanoseconds) */
   expiresAt?: number;

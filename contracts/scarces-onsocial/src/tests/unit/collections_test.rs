@@ -46,6 +46,33 @@ fn create_collection_happy_path() {
 }
 
 #[test]
+fn omitted_burnable_defaults_false() {
+    let config: CollectionConfig = near_sdk::serde_json::from_str(
+        r#"{
+            "collection_id": "locked",
+            "total_supply": 10,
+            "metadata_template": "{\"title\":\"T\"}",
+            "price_near": "0",
+            "transferable": true
+        }"#,
+    )
+    .unwrap();
+    assert!(!config.options.burnable);
+    assert!(config.options.transferable);
+
+    let listing: LazyListing = near_sdk::serde_json::from_str(
+        r#"{
+            "metadata": {"title":"Lazy"},
+            "price": "1000",
+            "transferable": true
+        }"#,
+    )
+    .unwrap();
+    assert!(!listing.options.burnable);
+    assert!(listing.options.transferable);
+}
+
+#[test]
 fn create_collection_emits_catalog_shell_fields() {
     let mut contract = new_contract();
     let mut config = minimal_config("shell-drop");

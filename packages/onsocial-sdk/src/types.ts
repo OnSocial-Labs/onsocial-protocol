@@ -547,6 +547,7 @@ export interface CollectionOptions {
   maxPerPurchase?: number;
   renewable?: boolean;
   transferable?: boolean;
+  /** Holder can destroy. Omitted → false on the contract. */
   burnable?: boolean;
   /** Max times each token may be redeemed (music / pass-style drops). */
   maxRedeems?: number;
@@ -676,6 +677,7 @@ export interface LazyListingOptions {
   extra?: Record<string, unknown>;
   appId?: string;
   transferable?: boolean;
+  /** Holder can destroy. Omitted → false on the contract. */
   burnable?: boolean;
   expiresAt?: string;
   /**

@@ -1,6 +1,6 @@
-use near_sdk::AccountId;
 use near_sdk::json_types::{Base64VecU8, U128};
 use near_sdk::near;
+use near_sdk::AccountId;
 
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
@@ -28,7 +28,7 @@ pub struct ScarceOptions {
     pub app_id: Option<String>,
     #[serde(default = "crate::default_true")]
     pub transferable: bool,
-    #[serde(default = "crate::default_true")]
+    #[serde(default)]
     pub burnable: bool,
 }
 
