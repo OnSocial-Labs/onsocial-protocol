@@ -34,12 +34,32 @@ test.describe('dao create voice', () => {
     await expect(publish).toHaveClass(/dao-create-publish/);
     await expect(publish).not.toHaveClass(/account-action-toggle/);
     await expect(sheet.locator('.os-surface-chip')).toHaveCount(0);
+    await expect(sheet.locator('.os-write-dock-tool')).toHaveCount(0);
+    await expect(sheet.locator('.dao-look-preview')).toBeVisible();
     await expect(
       sheet.getByRole('button', { name: 'Add cover', exact: true })
-    ).toHaveClass(/os-write-dock-tool/);
+    ).toBeVisible();
     await expect(
       sheet.getByRole('button', { name: 'Add crest', exact: true })
-    ).toHaveClass(/os-write-dock-tool/);
+    ).toBeVisible();
+    await expect(sheet.locator('.dao-look-preview-crest-empty')).toHaveText('+');
+    const cover = sheet.locator('.dao-look-preview-cover');
+    const crest = sheet.locator('.dao-look-preview-crest');
+    const nameField = sheet.locator('#dao-create-name');
+    const coverBox = await cover.boundingBox();
+    const crestBox = await crest.boundingBox();
+    const nameBox = await nameField.boundingBox();
+    expect(coverBox).toBeTruthy();
+    expect(crestBox).toBeTruthy();
+    expect(nameBox).toBeTruthy();
+    expect(crestBox!.y).toBeGreaterThan(coverBox!.y + coverBox!.height - 4);
+    expect(
+      Math.abs(
+        crestBox!.y +
+          crestBox!.height / 2 -
+          (nameBox!.y + nameBox!.height / 2)
+      )
+    ).toBeLessThan(16);
     await expect(
       sheet.getByRole('button', { name: 'Connect', exact: true })
     ).toBeVisible();
@@ -70,5 +90,59 @@ test.describe('dao create voice', () => {
     ).toHaveCount(0);
     await expect(sheet.getByText('~6 NEAR to create')).toHaveCount(0);
     await expect(sheet.getByText('proposes a Call')).toHaveCount(0);
+  });
+
+  test('previews cover and crest like the DAO face', async ({ page }) => {
+    const lookPng = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, '/daos');
+    await page.getByRole('button', { name: 'Create DAO' }).click();
+    const sheet = page.getByRole('dialog', { name: /^Create DAO/ });
+    await expect(sheet).toBeVisible({ timeout: 15_000 });
+
+    const cover = sheet.locator('.dao-look-preview-cover');
+    const crest = sheet.locator('.dao-look-preview-crest');
+    await expect(cover).toBeVisible();
+    await expect(crest).toBeVisible();
+
+    await sheet.locator('[data-dao-look-file="cover"]').setInputFiles({
+      name: 'cover.png',
+      mimeType: 'image/png',
+      buffer: lookPng,
+    });
+    await expect(
+      sheet.getByRole('button', { name: 'Change cover', exact: true })
+    ).toBeVisible();
+    await cover.hover();
+    await expect(
+      sheet.getByRole('button', { name: 'Remove cover' })
+    ).toBeVisible();
+
+    await sheet.locator('[data-dao-look-file="crest"]').setInputFiles({
+      name: 'crest.png',
+      mimeType: 'image/png',
+      buffer: lookPng,
+    });
+    await expect(
+      sheet.getByRole('button', { name: 'Change crest', exact: true })
+    ).toBeVisible();
+    await crest.hover();
+    await expect(
+      sheet.getByRole('button', { name: 'Remove crest' })
+    ).toBeVisible();
+
+    await cover.hover();
+    await sheet.getByRole('button', { name: 'Remove cover' }).click();
+    await expect(
+      sheet.getByRole('button', { name: 'Add cover', exact: true })
+    ).toBeVisible();
+    await crest.hover();
+    await sheet.getByRole('button', { name: 'Remove crest' }).click();
+    await expect(
+      sheet.getByRole('button', { name: 'Add crest', exact: true })
+    ).toBeVisible();
   });
 });

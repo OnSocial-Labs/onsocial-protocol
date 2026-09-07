@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DAO_CREATE_ADD_COVER,
+  DAO_CREATE_ADD_CREST,
   DAO_CREATE_ADVANCED,
   DAO_CREATE_ADVANCED_HIDE,
+  DAO_CREATE_CHANGE_COVER,
+  DAO_CREATE_CHANGE_CREST,
   DAO_CREATE_CONNECT_CTA,
   DAO_CREATE_CONNECT_HINT,
   DAO_CREATE_PUBLISH,
+  DAO_CREATE_REMOVE_COVER,
+  DAO_CREATE_REMOVE_CREST,
   daoCreateNearShortHint,
   daoCreatePurposeToggle,
   daoCreateWhisper,
@@ -41,6 +47,18 @@ describe('DAO create Connect voice', () => {
     expect(daoCreateNearShortHint('0.1').toLowerCase()).not.toContain('bond');
     expect(daoCreateNearShortHint('0.1').toLowerCase()).not.toContain('gas');
     expect(daoCreateNearShortHint('0.1').toLowerCase()).not.toContain('wallet');
+  });
+
+  it('names Cover and Crest, not Banner or Badge', () => {
+    expect(DAO_CREATE_ADD_COVER).toBe('Add cover');
+    expect(DAO_CREATE_ADD_CREST).toBe('Add crest');
+    expect(DAO_CREATE_CHANGE_COVER).toBe('Change cover');
+    expect(DAO_CREATE_CHANGE_CREST).toBe('Change crest');
+    expect(DAO_CREATE_REMOVE_COVER).toBe('Remove cover');
+    expect(DAO_CREATE_REMOVE_CREST).toBe('Remove crest');
+    expect(DAO_CREATE_ADD_COVER.toLowerCase()).not.toContain('banner');
+    expect(DAO_CREATE_ADD_CREST.toLowerCase()).not.toContain('badge');
+    expect(DAO_CREATE_ADD_CREST.toLowerCase()).not.toContain('logo');
   });
 
   it('waits purpose behind Add a purpose', () => {
