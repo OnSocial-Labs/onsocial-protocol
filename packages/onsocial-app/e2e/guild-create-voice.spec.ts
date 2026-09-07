@@ -49,7 +49,9 @@ test.describe('create guild voice', () => {
   test('closes to Guilds', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, '/groups/create');
-
+    await expect(
+      page.getByRole('heading', { name: 'Create guild' })
+    ).toBeVisible();
     await page
       .locator('.os-app-screen-actions')
       .getByRole('button', { name: 'Close' })
