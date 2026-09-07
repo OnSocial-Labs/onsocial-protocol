@@ -29,6 +29,10 @@ pub mod test_storage;
 
 pub mod test_refunds;
 
+pub mod test_ticket_lifecycle;
+
+pub mod test_execute_coverage;
+
 pub mod test_revocation;
 
 pub mod test_app_pools;

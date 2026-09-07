@@ -7,6 +7,8 @@ pub mod actions_group_tests;
 #[cfg(test)]
 pub mod contract_status_tests;
 #[cfg(test)]
+pub mod core_execute_coverage;
+#[cfg(test)]
 pub mod core_onsocial_tests;
 #[cfg(test)]
 pub mod governance_request_parsing_tests;
