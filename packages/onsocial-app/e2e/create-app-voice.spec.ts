@@ -42,6 +42,13 @@ test.describe('create app voice', () => {
     await expect(
       page.getByText('Who can create drops', { exact: true })
     ).toBeVisible();
+    const access = page.getByRole('radiogroup', { name: 'Who can create drops' });
+    await expect(access.getByRole('radio', { name: 'Anyone' })).toBeVisible();
+    await expect(access.getByRole('radio', { name: 'Approved' })).toBeVisible();
+    await expect(access.getByRole('radio', { name: 'House' })).toBeVisible();
+    await expect(access.getByRole('radio', { name: 'Staff' })).toHaveCount(0);
+    await expect(access.getByRole('radio', { name: 'Approval' })).toHaveCount(0);
+    await expect(page.getByText('Anyone can drop', { exact: true })).toBeVisible();
     await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
     await expect(
       page.locator('.os-app-screen-actions').getByRole('button', { name: 'Close' })

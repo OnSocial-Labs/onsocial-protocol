@@ -174,22 +174,22 @@ function toAppView(
 export function creatorAccessLabel(access: CreatorAccess): string {
   switch (access) {
     case 'open':
-      return 'Open to all creators';
+      return 'Anyone can drop';
     case 'approval':
       return 'Approved creators only';
     case 'invite_only':
-      return 'Only the owner and moderators can publish';
+      return 'Only the house can publish';
   }
 }
 
 export function creatorAccessShort(access: CreatorAccess): string {
   switch (access) {
     case 'open':
-      return 'Open';
+      return 'Anyone';
     case 'approval':
-      return 'Approval';
+      return 'Approved';
     case 'invite_only':
-      return 'Staff';
+      return 'House';
   }
 }
 

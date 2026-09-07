@@ -719,7 +719,7 @@ export function HubPeopleSheet({
           </div>
         ) : canManageCreators ? (
           <p className="hub-manage-hint">
-            Switch access to Approval to manage an approved-creators roster.
+            Switch access to Approved to manage an approved-creators roster.
           </p>
         ) : null}
 
