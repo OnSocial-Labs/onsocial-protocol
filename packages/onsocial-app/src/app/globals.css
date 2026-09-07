@@ -31522,11 +31522,21 @@ a.os-surface-row {
       max(1rem, env(safe-area-inset-left, 0px));
   }
 
-  /* Drop template pills under the create-drop header — same rail as Market. */
+  /* Drop template pills under the create-drop header. */
   .drop-template-toolbar {
     display: flex;
     min-width: 0;
     margin: 0;
+  }
+
+  .drop-kind-rail {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .drop-create-section {
+    display: contents;
   }
 
   /* Edge fade hints there are more template tabs off-screen (scrollbar is
