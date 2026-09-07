@@ -73,14 +73,20 @@ test.describe('collection drop page', () => {
     await expect(read).toHaveClass(/collection-reading-open/);
     await expect(read).not.toHaveClass(PILL_ACTION);
     await expect(page.getByText('Connect to read.', { exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
     await read.click();
-    await expect(
-      page
-        .locator('.scarce-writing-read-footer')
-        .getByRole('button', { name: 'Connect', exact: true })
-    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    const sheet = page.locator('.scarce-read-slide');
+    const footerConnect = sheet
+      .locator('.os-sheet-footer')
+      .getByRole('button', { name: 'Connect', exact: true });
+    await expect(footerConnect).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect(page.getByText('Connect wallet')).toHaveCount(0);
     await expect(page.getByText('Manuscript')).toHaveCount(0);
+    const titleBox = await sheet.locator('.scarce-writing-read-title').boundingBox();
+    const connectBox = await footerConnect.boundingBox();
+    expect(titleBox).toBeTruthy();
+    expect(connectBox).toBeTruthy();
+    expect(Math.abs((titleBox?.x ?? 0) - (connectBox?.x ?? 0))).toBeLessThan(2);
   });
 
   test('held audio drop puts Play above the product row', async ({ page }) => {
