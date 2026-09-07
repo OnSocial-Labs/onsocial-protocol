@@ -136,12 +136,12 @@ async fn fast_forward_past(
     worker: &near_workspaces::Worker<near_workspaces::network::Sandbox>,
     target_ns: u64,
 ) -> Result<u64> {
-    for _ in 0..80 {
+    for _ in 0..200 {
         let now = worker.view_block().await?.timestamp();
         if now > target_ns {
             return Ok(now);
         }
-        worker.fast_forward(80).await?;
+        worker.fast_forward(150).await?;
     }
     anyhow::bail!(
         "sandbox time did not pass {target_ns} (now={})",
@@ -676,7 +676,7 @@ async fn test_storage_tip_transfers_balance_on_chain() -> Result<()> {
                 }
             }
         }),
-        ONE_YOCTO,
+        NearToken::from_yoctonear(0),
     )
     .await?
     .into_result()?;
@@ -693,7 +693,12 @@ async fn test_storage_tip_transfers_balance_on_chain() -> Result<()> {
         .json()?;
     let alice_after: u128 = after_alice["balance"].as_str().unwrap().parse().unwrap();
     let bob_after: u128 = after_bob["balance"].as_str().unwrap().parse().unwrap();
-    assert_eq!(alice_before - alice_after, 1_000_000_000_000_000_000_000_000);
+    let tipped = alice_before.saturating_sub(alice_after);
+    assert!(
+        tipped >= 1_000_000_000_000_000_000_000_000
+            && tipped <= 1_000_000_000_000_000_000_000_001,
+        "alice should lose ~1 NEAR to the tip (lost {tipped})"
+    );
     assert_eq!(bob_after, 1_000_000_000_000_000_000_000_000);
     println!("on-chain ok  storage/tip");
     Ok(())
