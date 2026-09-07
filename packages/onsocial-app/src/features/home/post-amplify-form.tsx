@@ -13,6 +13,10 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useSocialTokenIcon } from '@/hooks/use-social-token-icon';
+import {
+  AMPLIFY_CONNECT_CTA,
+  AMPLIFY_CONNECT_HINT,
+} from '@/features/home/amplify-voice';
 import { accountIdsEqual } from '@/lib/account-match';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
@@ -380,7 +384,7 @@ export function PostAmplifyForm({
           {fieldError ?? amountError}
         </p>
       ) : !isConnected ? (
-        <p className="profile-support-hint">Connect to amplify with SOCIAL.</p>
+        <p className="profile-support-hint">{AMPLIFY_CONNECT_HINT}</p>
       ) : null}
 
       <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -391,7 +395,7 @@ export function PostAmplifyForm({
           pendingLabel="Amplifying…"
           disabled={pending || (isConnected && !canSubmit)}
         >
-          {isConnected ? 'Amplify' : 'Connect wallet'}
+          {isConnected ? 'Amplify' : AMPLIFY_CONNECT_CTA}
         </OsSheetAction>
       </OsSheetActions>
     </form>
