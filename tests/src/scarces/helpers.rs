@@ -1521,6 +1521,132 @@ pub async fn renew_token(
     .await
 }
 
+/// Door staff: add a redeemer.
+pub async fn add_redeemer(
+    contract: &Contract,
+    creator: &Account,
+    collection_id: &str,
+    account_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        creator,
+        json!({
+            "type": "add_redeemer",
+            "collection_id": collection_id,
+            "account_id": account_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Door staff: remove a redeemer.
+pub async fn remove_redeemer(
+    contract: &Contract,
+    creator: &Account,
+    collection_id: &str,
+    account_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        creator,
+        json!({
+            "type": "remove_redeemer",
+            "collection_id": collection_id,
+            "account_id": account_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Replace the redeemer roster (empty clears).
+pub async fn set_redeemers(
+    contract: &Contract,
+    creator: &Account,
+    collection_id: &str,
+    account_ids: Vec<String>,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        creator,
+        json!({
+            "type": "set_redeemers",
+            "collection_id": collection_id,
+            "account_ids": account_ids,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Approve a creator on an app pool.
+pub async fn add_approved_creator(
+    contract: &Contract,
+    caller: &Account,
+    app_id: &str,
+    account_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "add_approved_creator",
+            "app_id": app_id,
+            "account_id": account_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Approve several creators on an app pool.
+pub async fn add_approved_creators(
+    contract: &Contract,
+    caller: &Account,
+    app_id: &str,
+    account_ids: Vec<String>,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "add_approved_creators",
+            "app_id": app_id,
+            "account_ids": account_ids,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Remove an approved creator.
+pub async fn remove_approved_creator(
+    contract: &Contract,
+    caller: &Account,
+    app_id: &str,
+    account_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "remove_approved_creator",
+            "app_id": app_id,
+            "account_id": account_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
 /// Rain-day postpone: rewrite the mint template `expires_at` (and `extra.eventEndsAt`).
 pub async fn update_collection_template_expiry(
     contract: &Contract,
