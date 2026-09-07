@@ -14,12 +14,15 @@ test.describe('create app voice', () => {
     await expect(
       page.getByRole('heading', { name: 'Open a hub' })
     ).toBeVisible();
+    await expect(page.locator('.hub-look-preview')).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Add banner', exact: true })
-    ).toHaveClass(/os-write-dock-tool/);
+    ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Add logo', exact: true })
-    ).toHaveClass(/os-write-dock-tool/);
+    ).toBeVisible();
+    await expect(page.locator('.os-write-dock-tool')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Add link' })).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Add about', exact: true })
     ).toBeVisible();
@@ -58,30 +61,54 @@ test.describe('create app voice', () => {
     ).toBeVisible();
   });
 
-  test('picks banner and logo with the write-dock tools', async ({ page }) => {
+  test('previews banner and logo like the hub page', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, '/apps/create');
 
-    await page.locator('[data-hub-create-file="banner"]').setInputFiles({
+    const banner = page.locator('.hub-look-preview-banner');
+    const logo = page.locator('.hub-look-preview-logo');
+    await expect(banner).toBeVisible();
+    await expect(logo).toBeVisible();
+    const bannerBox = await banner.boundingBox();
+    const logoBox = await logo.boundingBox();
+    expect(bannerBox).toBeTruthy();
+    expect(logoBox).toBeTruthy();
+    expect(logoBox!.y).toBeLessThan(bannerBox!.y + bannerBox!.height);
+    expect(logoBox!.y + logoBox!.height).toBeGreaterThan(
+      bannerBox!.y + bannerBox!.height
+    );
+    expect(bannerBox!.height).toBeLessThan(110);
+
+    await page.locator('[data-hub-look-file="banner"]').setInputFiles({
       name: 'banner.png',
       mimeType: 'image/png',
       buffer: LOOK_PNG,
     });
+    await expect(
+      page.getByRole('button', { name: 'Change banner', exact: true })
+    ).toBeVisible();
+    await expect(page.locator('.hub-look-preview img').first()).toBeVisible();
+    await page.locator('.hub-look-preview-banner').hover();
     await expect(page.getByRole('button', { name: 'Remove banner' })).toBeVisible();
-    await expect(page.locator('.hub-create-media img').first()).toBeVisible();
 
-    await page.locator('[data-hub-create-file="logo"]').setInputFiles({
+    await page.locator('[data-hub-look-file="logo"]').setInputFiles({
       name: 'logo.png',
       mimeType: 'image/png',
       buffer: LOOK_PNG,
     });
+    await expect(
+      page.getByRole('button', { name: 'Change logo', exact: true })
+    ).toBeVisible();
+    await expect(page.locator('.hub-look-preview img')).toHaveCount(2);
+    await page.locator('.hub-look-preview-logo').hover();
     await expect(page.getByRole('button', { name: 'Remove logo' })).toBeVisible();
-    await expect(page.locator('.hub-create-media img')).toHaveCount(2);
 
+    await page.locator('.hub-look-preview-banner').hover();
     await page.getByRole('button', { name: 'Remove banner' }).click();
     await expect(
       page.getByRole('button', { name: 'Add banner', exact: true })
     ).toBeVisible();
+    await page.locator('.hub-look-preview-logo').hover();
     await page.getByRole('button', { name: 'Remove logo' }).click();
     await expect(
       page.getByRole('button', { name: 'Add logo', exact: true })

@@ -7,10 +7,10 @@ export function hubCreateAboutToggle(opts: {
   return opts.hasText ? 'Edit about' : 'Add about';
 }
 
-/** Same write-dock tools as Create DAO Cover/Crest — hub words match Edit look. */
+/** Hub page look — Banner / Logo, not Cover / Crest. */
 export const HUB_CREATE_ADD_BANNER = 'Add banner';
 export const HUB_CREATE_ADD_LOGO = 'Add logo';
+export const HUB_CREATE_CHANGE_BANNER = 'Change banner';
+export const HUB_CREATE_CHANGE_LOGO = 'Change logo';
 export const HUB_CREATE_REMOVE_BANNER = 'Remove banner';
 export const HUB_CREATE_REMOVE_LOGO = 'Remove logo';
-export const HUB_CREATE_BANNER_CAPTION = 'Banner';
-export const HUB_CREATE_LOGO_CAPTION = 'Logo';

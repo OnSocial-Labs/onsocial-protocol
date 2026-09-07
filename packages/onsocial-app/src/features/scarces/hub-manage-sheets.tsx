@@ -4,7 +4,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -12,7 +11,6 @@ import Link from 'next/link';
 import {
   DiscardConfirmSheet,
   osFieldBorderedClassName,
-  ProfileEditorMediaToolbar,
   useDiscardConfirm,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
@@ -34,6 +32,7 @@ import {
 } from '@/features/scarces/app-roster-parse';
 import { hubCategoriesMetadataFields } from '@/features/scarces/hub-categories';
 import { HubCategoriesEditor } from '@/features/scarces/hub-categories-editor';
+import { HubLookPreview } from '@/features/scarces/hub-look-preview';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import {
   nearAccountStatusClass,
@@ -162,8 +161,6 @@ export function HubLookSheet({
 }) {
   const withWallet = useHubManageWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
-  const logoInputRef = useRef<HTMLInputElement>(null);
-  const bannerInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(app.title);
   const [description, setDescription] = useState(app.description ?? '');
   const [categories, setCategories] = useState(app.categories);
@@ -308,112 +305,31 @@ export function HubLookSheet({
           void save();
         }}
       >
-        <div className="hub-look-media">
-          <div
-            className={`hub-look-banner-host profile-editor-media-host${
-              displayBannerUrl ? ' has-media' : ''
-            }`}
-          >
-            <button
-              type="button"
-              className={`drop-cover-picker hub-look-banner-picker${
-                displayBannerUrl ? ' has-media' : ''
-              }`}
-              disabled={pending}
-              onClick={() => bannerInputRef.current?.click()}
-              aria-label={displayBannerUrl ? 'Change banner' : 'Add banner'}
-            >
-              {displayBannerUrl ? (
-                <img src={displayBannerUrl} alt="" />
-              ) : (
-                <span className="drop-cover-placeholder">
-                  <strong>Add banner</strong>
-                  <small>Wide cover · JPG, PNG, or WebP</small>
-                </span>
-              )}
-            </button>
-            <ProfileEditorMediaToolbar
-              layout="banner"
-              removeLabel={displayBannerUrl ? 'Remove banner' : undefined}
-              onRemove={
-                displayBannerUrl
-                  ? () => {
-                      setBannerFile(null);
-                      setBannerRemoved(true);
-                    }
-                  : undefined
-              }
-            />
-          </div>
-
-          <div className="hub-look-logo-row">
-            <div
-              className={`hub-look-logo-host profile-editor-media-host profile-editor-media-host--avatar profile-editor-media-host--squircle${
-                displayLogoUrl ? ' has-media' : ''
-              }`}
-            >
-              <button
-                type="button"
-                className={`hub-logo-picker profile-editor-media-backdrop${
-                  displayLogoUrl ? ' has-media' : ''
-                }`}
-                disabled={pending}
-                onClick={() => logoInputRef.current?.click()}
-                aria-label={displayLogoUrl ? 'Change logo' : 'Add logo'}
-              >
-                {displayLogoUrl ? (
-                  <img src={displayLogoUrl} alt="" />
-                ) : (
-                  <span className="hub-logo-placeholder">Logo</span>
-                )}
-              </button>
-              <ProfileEditorMediaToolbar
-                layout="avatar"
-                removeLabel={displayLogoUrl ? 'Remove logo' : undefined}
-                onRemove={
-                  displayLogoUrl
-                    ? () => {
-                        setLogoFile(null);
-                        setLogoRemoved(true);
-                      }
-                    : undefined
-                }
-              />
-            </div>
-            <p className="hub-look-logo-hint">
-              Square mark shown on the hub page and in the directory.
-            </p>
-          </div>
-        </div>
-
-        <input
-          ref={bannerInputRef}
-          type="file"
-          accept={IMAGE_ACCEPT}
-          className="scarce-cover-file-input"
-          tabIndex={-1}
-          aria-hidden
+        <HubLookPreview
+          bannerUrl={displayBannerUrl}
+          logoUrl={displayLogoUrl}
+          name={name}
           disabled={pending}
-          onChange={(event) => {
+          accept={IMAGE_ACCEPT}
+          onBannerChange={(event) => {
             const file = event.target.files?.[0] ?? null;
             setBannerFile(file);
             if (file) setBannerRemoved(false);
             event.target.value = '';
           }}
-        />
-        <input
-          ref={logoInputRef}
-          type="file"
-          accept={IMAGE_ACCEPT}
-          className="scarce-cover-file-input"
-          tabIndex={-1}
-          aria-hidden
-          disabled={pending}
-          onChange={(event) => {
+          onLogoChange={(event) => {
             const file = event.target.files?.[0] ?? null;
             setLogoFile(file);
             if (file) setLogoRemoved(false);
             event.target.value = '';
+          }}
+          onRemoveBanner={() => {
+            setBannerFile(null);
+            setBannerRemoved(true);
+          }}
+          onRemoveLogo={() => {
+            setLogoFile(null);
+            setLogoRemoved(true);
           }}
         />
 
