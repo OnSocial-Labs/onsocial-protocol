@@ -7,6 +7,10 @@ import {
   type PageMoodId,
 } from '@onsocial/sdk';
 import { GlassSheet, SheetHeader, useScrollLock } from '@onsocial/ui';
+import {
+  MOOD_CONNECT_CTA,
+  moodConnectHint,
+} from '@/components/moods/mood-connect-voice';
 import { useApplyMood } from '@/hooks/use-apply-mood';
 import { useUnlockPremiumMood } from '@/hooks/use-unlock-premium-mood';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
@@ -162,17 +166,13 @@ export function MoodSheet({
     >
       {needsConnect ? (
         <div className="mood-sheet-actions">
-          <p className="mood-sheet-copy">
-            {isDao
-              ? 'Connect a council wallet with propose rights to set this DAO mood.'
-              : `Connect the wallet for @${pageAccountId} to apply a mood.`}
-          </p>
+          <p className="mood-sheet-copy">{moodConnectHint({ isDao })}</p>
           <button
             type="button"
             className="mood-sheet-primary"
             onClick={() => void connect()}
           >
-            Connect wallet
+            {MOOD_CONNECT_CTA}
           </button>
         </div>
       ) : null}
