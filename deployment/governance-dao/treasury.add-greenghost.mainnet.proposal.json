@@ -1,0 +1,23 @@
+{
+  "proposal": {
+    "description": "Treasury DAO: add greenghost.near to council (keep onsocial.near)",
+    "kind": {
+      "ChangePolicyAddOrUpdateRole": {
+        "role": {
+          "name": "council",
+          "kind": {
+            "Group": ["onsocial.near", "greenghost.near"]
+          },
+          "permissions": [
+            "*:AddProposal",
+            "*:VoteApprove",
+            "*:VoteReject",
+            "*:VoteRemove",
+            "*:Finalize"
+          ],
+          "vote_policy": {}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "proposal": {
+    "description": "Governance DAO: allow 500 SOCIAL delegated holders to propose calls, membership, and votes",
+    "kind": {
+      "ChangePolicyAddOrUpdateRole": {
+        "role": {
+          "name": "delegated_proposers",
+          "kind": {
+            "Member": "500000000000000000000"
+          },
+          "permissions": [
+            "call:AddProposal",
+            "add_member_to_role:AddProposal",
+            "remove_member_from_role:AddProposal",
+            "vote:AddProposal"
+          ],
+          "vote_policy": {}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "proposal": {
+    "description": "Treasury DAO: align delegated_proposers with live testnet — 500 SOCIAL, vote:AddProposal only (transfers stay council-propose)",
+    "kind": {
+      "ChangePolicyAddOrUpdateRole": {
+        "role": {
+          "name": "delegated_proposers",
+          "kind": {
+            "Member": "500000000000000000000"
+          },
+          "permissions": ["vote:AddProposal"],
+          "vote_policy": {}
+        }
+      }
+    }
+  }
+}

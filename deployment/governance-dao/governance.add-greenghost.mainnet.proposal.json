@@ -1,0 +1,17 @@
+{
+  "proposal": {
+    "description": "Governance DAO: add greenghost.near to guardians (keep onsocial.near)",
+    "kind": {
+      "ChangePolicyAddOrUpdateRole": {
+        "role": {
+          "name": "guardians",
+          "kind": {
+            "Group": ["onsocial.near", "greenghost.near"]
+          },
+          "permissions": ["*:*"],
+          "vote_policy": {}
+        }
+      }
+    }
+  }
+}
