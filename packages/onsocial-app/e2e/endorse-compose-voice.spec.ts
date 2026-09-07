@@ -10,7 +10,7 @@ test.describe('endorse compose voice', () => {
     await stubEndorseComposeApis(page);
     await openEndorseComposeLoggedOut(page);
 
-    const sheet = page.getByRole('dialog').filter({ hasText: 'Endorse' });
+    const sheet = page.getByRole('dialog', { name: /^Endorse / });
     await expect(sheet).toBeVisible({ timeout: 15_000 });
     const person = sheet.locator('.gesture-sheet-person');
     await expect(person).toBeVisible();
