@@ -99,9 +99,12 @@ test.describe('guild page', () => {
       page.getByRole('heading', { name: GUILD_E2E_TITLE }).first()
     ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await page.getByRole('button', { name: 'Guild facts' }).click();
-    await expect(page.getByRole('button', { name: 'Close guild facts' })).toBeVisible();
-    await expect(page.getByText('Anyone can join and post. Activity stays public.')).toBeVisible();
-    await expect(page.getByText(/1 member/)).toBeVisible();
+    const facts = page.getByRole('dialog', { name: GUILD_E2E_TITLE });
+    await expect(facts).toBeVisible();
+    await expect(
+      facts.getByText('Anyone can join and post. Activity stays public.')
+    ).toBeVisible();
+    await expect(facts.getByText(/1 member/)).toBeVisible();
   });
 
   test('re-tapping an active room opens room facts', async ({ page }) => {
@@ -116,18 +119,18 @@ test.describe('guild page', () => {
       page.getByRole('button', { name: 'General, room details' })
     ).toBeVisible();
     await page.getByRole('button', { name: 'General, room details' }).click();
-    await expect(page.getByRole('button', { name: 'Close room info' })).toBeVisible();
-    await expect(page.getByText('Everyone here')).toBeVisible();
+    const roomFacts = page.getByRole('dialog', { name: 'General' });
+    await expect(roomFacts).toBeVisible();
+    await expect(roomFacts.getByText('Everyone here')).toBeVisible();
   });
 
   test('members sheet deep link opens the roster', async ({ page }) => {
     await stubGuildPage(page);
     await gotoApp(page, `${GUILD_E2E_PATH}?sheet=members`);
 
-    await expect(page.getByRole('heading', { name: 'Members' })).toBeVisible({
-      timeout: E2E_CHROME_TIMEOUT_MS,
-    });
-    await expect(page.getByRole('button', { name: 'Close members' })).toBeVisible();
+    const members = page.getByRole('dialog', { name: 'Members' });
+    await expect(members).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(members.getByRole('heading', { name: 'Members' })).toBeVisible();
   });
 
   test('document title includes Guilds · OnSocial', async ({ page }) => {
