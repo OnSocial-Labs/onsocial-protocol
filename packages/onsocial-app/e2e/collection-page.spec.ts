@@ -146,6 +146,7 @@ test.describe('collection drop page', () => {
     const sheet = page.getByRole('dialog', { name: 'Mint' });
     await expect(sheet).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect(sheet.getByText('Night Drive', { exact: true })).toBeVisible();
+    await expect(sheet.getByText('Author', { exact: true })).toHaveCount(0);
     await expect(sheet.getByText('Alice', { exact: true })).toBeVisible();
     await expect(sheet.getByText('@alice.near')).toBeVisible();
     await expect(sheet.getByText('8 of 10 left')).toBeVisible();

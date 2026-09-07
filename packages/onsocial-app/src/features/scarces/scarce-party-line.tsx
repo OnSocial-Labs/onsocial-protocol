@@ -39,7 +39,7 @@ export function ScarcePartyLine({
   avatarUrl,
   pending = false,
 }: {
-  /** Role label (Author / Seller). Omit on offer rows. */
+  /** Role above the face (Seller). Omit for the maker — title already owns them. */
   label?: string | null;
   accountId?: string | null;
   displayNameValue?: string | null;

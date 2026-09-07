@@ -932,10 +932,9 @@ export function ScarceBuyForm({
         <div className="scarce-buy-summary">
           <p className="scarce-buy-title">{title}</p>
           {parties.artistPending ? (
-            <ScarcePartyLine label="Author" pending />
+            <ScarcePartyLine pending />
           ) : artistId ? (
             <ScarcePartyLine
-              label="Author"
               accountId={artistId}
               displayNameValue={artistProfileName}
               avatarUrl={artistAvatarUrl}

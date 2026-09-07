@@ -825,9 +825,9 @@ export function ScarceBidForm({
         <div className="scarce-buy-summary">
           <p className="scarce-buy-title">{title}</p>
           {parties.artistPending ? (
-            <ScarcePartyLine label="Author" pending />
+            <ScarcePartyLine pending />
           ) : artistId ? (
-            <ScarcePartyLine label="Author" accountId={artistId} />
+            <ScarcePartyLine accountId={artistId} />
           ) : null}
           {showDistinctSeller && sellerId ? (
             <ScarcePartyLine label="Seller" accountId={sellerId} />
