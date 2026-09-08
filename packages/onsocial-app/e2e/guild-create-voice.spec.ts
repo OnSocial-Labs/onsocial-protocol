@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoApp } from './helpers';
+import { gotoApp, setLookPreviewFile } from './helpers';
 
 const LOOK_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -109,25 +109,29 @@ test.describe('create guild voice', () => {
     ).toBeLessThan(16);
     expect(bannerBox!.height).toBeLessThan(110);
 
-    await page.locator('[data-guild-look-file="banner"]').setInputFiles({
-      name: 'banner.png',
-      mimeType: 'image/png',
-      buffer: LOOK_PNG,
-    });
-    await expect(
+    await setLookPreviewFile(
+      page,
+      '[data-guild-look-file="banner"]',
+      {
+        name: 'banner.png',
+        mimeType: 'image/png',
+        buffer: LOOK_PNG,
+      },
       page.getByRole('button', { name: 'Change banner', exact: true })
-    ).toBeVisible();
+    );
     await banner.hover();
     await expect(page.getByRole('button', { name: 'Remove banner' })).toBeVisible();
 
-    await page.locator('[data-guild-look-file="badge"]').setInputFiles({
-      name: 'badge.png',
-      mimeType: 'image/png',
-      buffer: LOOK_PNG,
-    });
-    await expect(
+    await setLookPreviewFile(
+      page,
+      '[data-guild-look-file="badge"]',
+      {
+        name: 'badge.png',
+        mimeType: 'image/png',
+        buffer: LOOK_PNG,
+      },
       page.getByRole('button', { name: 'Change badge', exact: true })
-    ).toBeVisible();
+    );
     await badge.hover();
     await expect(page.getByRole('button', { name: 'Remove badge' })).toBeVisible();
 

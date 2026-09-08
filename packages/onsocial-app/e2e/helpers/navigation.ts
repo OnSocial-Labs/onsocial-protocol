@@ -90,6 +90,38 @@ export async function dismissNextDevOverlay(page: Page): Promise<void> {
   });
 }
 
+type LookPreviewFile = {
+  name: string;
+  mimeType: string;
+  buffer: Buffer;
+};
+
+/**
+ * Hidden look-file inputs miss `change` while Next is compiling other routes.
+ * Dismiss the overlay and retry once if the confirm control never appears.
+ */
+export async function setLookPreviewFile(
+  page: Page,
+  input: Locator | string,
+  file: LookPreviewFile,
+  confirm: Locator
+): Promise<void> {
+  const fileInput = typeof input === 'string' ? page.locator(input) : input;
+  await expect(fileInput).toBeAttached();
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await dismissNextDevOverlay(page);
+    await fileInput.setInputFiles(file);
+    try {
+      await expect(confirm).toBeVisible({ timeout: 8_000 });
+      return;
+    } catch (error) {
+      if (attempt === 1) {
+        throw error;
+      }
+    }
+  }
+}
+
 async function softOpenPortfolioHref(page: Page, href: string): Promise<void> {
   const softNav = page
     .waitForResponse(

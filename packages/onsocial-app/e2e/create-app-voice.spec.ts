@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { dismissNextDevOverlay, gotoApp } from './helpers';
+import { dismissNextDevOverlay, gotoApp, setLookPreviewFile } from './helpers';
 
 const LOOK_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -116,26 +116,30 @@ test.describe('create app voice', () => {
     const nameToId = idBox!.y - (nameBox!.y + nameBox!.height);
     expect(Math.abs(logoToName - nameToId)).toBeLessThan(6);
 
-    await page.locator('[data-hub-look-file="banner"]').setInputFiles({
-      name: 'banner.png',
-      mimeType: 'image/png',
-      buffer: LOOK_PNG,
-    });
-    await expect(
+    await setLookPreviewFile(
+      page,
+      '[data-hub-look-file="banner"]',
+      {
+        name: 'banner.png',
+        mimeType: 'image/png',
+        buffer: LOOK_PNG,
+      },
       page.getByRole('button', { name: 'Change banner', exact: true })
-    ).toBeVisible();
+    );
     await expect(page.locator('.hub-look-preview img').first()).toBeVisible();
     await page.locator('.hub-look-preview-banner').hover();
     await expect(page.getByRole('button', { name: 'Remove banner' })).toBeVisible();
 
-    await page.locator('[data-hub-look-file="logo"]').setInputFiles({
-      name: 'logo.png',
-      mimeType: 'image/png',
-      buffer: LOOK_PNG,
-    });
-    await expect(
+    await setLookPreviewFile(
+      page,
+      '[data-hub-look-file="logo"]',
+      {
+        name: 'logo.png',
+        mimeType: 'image/png',
+        buffer: LOOK_PNG,
+      },
       page.getByRole('button', { name: 'Change logo', exact: true })
-    ).toBeVisible();
+    );
     await expect(page.locator('.hub-look-preview img')).toHaveCount(2);
     await page.locator('.hub-look-preview-logo').hover();
     await expect(page.getByRole('button', { name: 'Remove logo' })).toBeVisible();

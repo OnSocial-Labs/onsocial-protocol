@@ -12,6 +12,7 @@ export {
   E2E_CHROME_TIMEOUT_MS,
   dismissNextDevOverlay,
   expectConnectVoice,
+  setLookPreviewFile,
   expectGlassSheetHidden,
   expectGlassSheetVisible,
   expectPortfolioIdentityOrSkip,
