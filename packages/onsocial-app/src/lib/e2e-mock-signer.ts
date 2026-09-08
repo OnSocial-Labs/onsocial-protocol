@@ -95,5 +95,5 @@ export function createE2eMockWallet(accountId: string): NearWalletBase {
       }
       throw new Error(E2E_MOCK_SIGNER_ERROR);
     },
-  } as NearWalletBase;
+  } as unknown as NearWalletBase;
 }
