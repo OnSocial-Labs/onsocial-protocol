@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { GroupConversation, PostRow, ThreadNode } from '@onsocial/sdk';
+import type { PostRow } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -48,9 +48,6 @@ import {
 import {
   canViewerPostInChannel,
   guildSpaceFeedChannel,
-  parseGuildStructure,
-  type GuildStructureDocument,
-  type GuildViewerAccess,
 } from '@/features/guilds/guild-structure';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import {
@@ -63,8 +60,6 @@ import {
   guildPostPath,
   guildSheetPath,
 } from '@/features/guilds/guilds-data';
-import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access';
-import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-write';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
@@ -78,7 +73,6 @@ import {
   resolveQuotedInset,
   collectRelationTargetAccountIds,
 } from '@/lib/post-relation';
-import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { postQuotesPath } from '@/lib/post-routes';
 import { resolveThreadLayout } from '@/lib/thread-layout';
 import {
@@ -88,13 +82,16 @@ import {
 import { useGuildMembershipAction } from '@/features/guilds/use-guild-membership-action';
 import type { GuildMembershipOutcome } from '@/features/guilds/guild-membership-action';
 import {
-  readGuildMembershipCache,
-  writeGuildMembershipCache,
-} from '@/lib/guild-membership-cache';
+  GUILD_THREAD_LOAD_ERROR,
+  guildThreadLoadMoreFallback,
+  useGuildThreadData,
+  type GuildThreadLoadMoreError,
+  type GuildThreadTab,
+} from '@/features/guilds/use-guild-thread-data';
+import { readGuildMembershipCache } from '@/lib/guild-membership-cache';
 import {
   buildReplyRows,
   flattenTreePosts,
-  leafThreadNode,
   withoutIndexedPosts,
   type ThreadReplyRow,
 } from '@/lib/thread-display';
@@ -115,21 +112,6 @@ import {
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { playPostFocusVideo } from '@/hooks/use-post-list-video';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
-import {
-  THREAD_QUOTE_PAGE_SIZE,
-  THREAD_REPLY_PAGE_SIZE,
-  THREAD_REPLY_TREE_DEPTH,
-  THREAD_REPLY_TREE_MAX_NODES,
-} from '@/lib/load-personal-post-page';
-
-type LoadState = 'loading' | 'ready' | 'missing' | 'error';
-type ThreadTab = 'replies' | 'quotes';
-
-const REPLY_PAGE_SIZE = THREAD_REPLY_PAGE_SIZE;
-const QUOTE_PAGE_SIZE = THREAD_QUOTE_PAGE_SIZE;
-const REPLY_TREE_DEPTH = THREAD_REPLY_TREE_DEPTH;
-const REPLY_TREE_MAX_NODES = THREAD_REPLY_TREE_MAX_NODES;
-const RECONCILE_DELAYS_MS = [2_000, 5_000];
 
 interface LiveGuildPostPanelProps {
   groupId: string;
@@ -138,12 +120,50 @@ interface LiveGuildPostPanelProps {
   initial?: GuildPostPageData | null;
 }
 
-function groupPostContentPath(
-  postAuthor: string,
-  groupId: string,
-  targetPostId: string
-): string {
-  return `${postAuthor}/groups/${groupId}/content/post/${targetPostId}`;
+function GuildThreadLoadMoreFooter({
+  tab,
+  hasMore,
+  loadingMore,
+  loadMoreError,
+  idleLabel,
+  onLoadMore,
+}: {
+  tab: GuildThreadTab;
+  hasMore: boolean;
+  loadingMore: boolean;
+  loadMoreError: GuildThreadLoadMoreError | null;
+  idleLabel: string;
+  onLoadMore: (tab: GuildThreadTab) => void;
+}) {
+  if (loadMoreError?.tab === tab) {
+    const fallback = guildThreadLoadMoreFallback(tab);
+    return (
+      <div className="guild-state-card is-error">
+        <p>{fallback}</p>
+        {loadMoreError.message !== fallback ? (
+          <small>{loadMoreError.message}</small>
+        ) : null}
+        <button
+          className="guild-secondary-button"
+          type="button"
+          onClick={() => onLoadMore(tab)}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+  if (!hasMore) return null;
+  return (
+    <button
+      type="button"
+      className="guild-load-more"
+      disabled={loadingMore}
+      onClick={() => onLoadMore(tab)}
+    >
+      {loadingMore ? 'Loading…' : idleLabel}
+    </button>
+  );
 }
 
 export function LiveGuildPostPanel({
@@ -166,48 +186,43 @@ export function LiveGuildPostPanel({
   const threadLayout = resolveThreadLayout(searchParams);
   const mediaUnmuted = searchParams.get('media') === 'unmute';
   const mediaResumeIndex = readPostMediaUnmuteIndex(searchParams);
-  const [loadState, setLoadState] = useState<LoadState>(() =>
-    initial ? 'ready' : 'loading'
-  );
-  const [conversation, setConversation] = useState<GroupConversation>(() =>
-    initial
-      ? {
-          root: initial.root,
-          replies: initial.replies,
-          quotes: initial.quotes,
-        }
-      : { root: null, replies: [], quotes: [] }
-  );
-  const [replyTree, setReplyTree] = useState<ThreadNode[]>(
-    () => initial?.replyTree ?? []
-  );
-  const [localReplies, setLocalReplies] = useState<PostRow[]>([]);
-  const [localQuotes, setLocalQuotes] = useState<PostRow[]>([]);
-  const [guildStructure, setGuildStructure] =
-    useState<GuildStructureDocument | null>(null);
-  const [guildName, setGuildName] = useState<string | null>(
-    () => initial?.guildName ?? null
-  );
-  const [viewerAccess, setViewerAccess] = useState<GuildViewerAccess>({
-    isMember: false,
-    isOwner: false,
-    isAdmin: false,
-    canModerate: false,
+  const {
+    loadState,
+    error,
+    conversation,
+    replyTree,
+    localReplies,
+    setLocalReplies,
+    localQuotes,
+    setLocalQuotes,
+    guildStructure,
+    guildName,
+    viewerAccess,
+    isMember,
+    isBlacklisted,
+    accessGated,
+    memberDriven,
+    joinPending,
+    joinCancelReady,
+    pendingJoinProposalId,
+    viewerAccessResolved,
+    hasMoreReplies,
+    hasMoreQuotes,
+    loadingMore,
+    loadMoreError,
+    rootPath,
+    refresh,
+    loadMore,
+    scheduleReconcile,
+    applyMembershipOutcome,
+  } = useGuildThreadData({
+    groupId,
+    author,
+    postId,
+    initial,
+    accountId,
+    walletLoading,
   });
-  const [isMember, setIsMember] = useState(false);
-  const [isBlacklisted, setIsBlacklisted] = useState(false);
-  const [accessGated, setAccessGated] = useState(
-    () => initial?.accessGated ?? false
-  );
-  const [memberDriven, setMemberDriven] = useState(
-    () => initial?.memberDriven ?? false
-  );
-  const [joinPending, setJoinPending] = useState(false);
-  const [joinCancelReady, setJoinCancelReady] = useState(false);
-  const [pendingJoinProposalId, setPendingJoinProposalId] = useState<
-    string | null
-  >(null);
-  const [viewerAccessResolved, setViewerAccessResolved] = useState(false);
   const [modalTarget, setModalTarget] = useState<PostRow | null>(null);
   const [modalMode, setModalMode] = useState<GuildComposerMode>('quote');
   const [modalSeed, setModalSeed] = useState<{ text: string; files: File[] }>({
@@ -217,25 +232,14 @@ export function LiveGuildPostPanel({
   const [dockTarget, setDockTarget] = useState<PostRow | null>(null);
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
-  const [activeThreadTab, setActiveThreadTab] = useState<ThreadTab>('replies');
+  const [activeThreadTab, setActiveThreadTab] = useState<GuildThreadTab>(
+    'replies'
+  );
   const [threadTabTouched, setThreadTabTouched] = useState(false);
   const [replySort, setReplySort] = useState<ThreadReplySort>('relevant');
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
     () => new Set()
   );
-  const [hasMoreReplies, setHasMoreReplies] = useState(
-    () => initial?.hasMoreReplies ?? false
-  );
-  const [hasMoreQuotes, setHasMoreQuotes] = useState(
-    () => initial?.hasMoreQuotes ?? false
-  );
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const paginatedRef = useRef(false);
-  const reconcileTimersRef = useRef<number[]>([]);
-  const ssrSeedRef = useRef(Boolean(initial));
-
-  const rootPath = groupPostContentPath(author, groupId, postId);
   const channelTitleById = useMemo(() => {
     if (!guildStructure) return {};
     const titles: Record<string, string> = {};
@@ -365,170 +369,6 @@ export function LiveGuildPostPanel({
     [replyRows, replySort, engagement]
   );
 
-  const refresh = useCallback(
-    async (options: { background?: boolean } = {}) => {
-      if (!options.background) {
-        setLoadState('loading');
-        setError(null);
-      }
-
-      try {
-        const client = createReadOnlyOnSocialClient();
-        const postRef = { author, groupId, postId };
-        const [rootResult, quotesResult, treeResult, configResult] =
-          await Promise.allSettled([
-            client.query.groups.post(postRef),
-            client.query.groups.quotes(postRef, {
-              limit: QUOTE_PAGE_SIZE,
-              order: 'desc',
-            }),
-            client.query.groups.threadTree(postRef, {
-              depth: REPLY_TREE_DEPTH,
-              includeQuotes: false,
-              replyLimit: REPLY_PAGE_SIZE,
-              maxNodes: REPLY_TREE_MAX_NODES,
-            }),
-            client.groups.getConfig(groupId),
-          ]);
-
-        if (rootResult.status === 'rejected') {
-          throw rootResult.reason;
-        }
-
-        const root = rootResult.value;
-        // Soft refresh must not blank a painted SSR thread on a null miss.
-        if (options.background && !root) {
-          return;
-        }
-        const fetchedQuotes =
-          quotesResult.status === 'fulfilled' ? quotesResult.value : [];
-        const fetchedTree =
-          treeResult.status === 'fulfilled' ? treeResult.value.replies : [];
-        const fetchedTreePosts = flattenTreePosts(fetchedTree);
-
-        setLocalReplies((current) =>
-          withoutIndexedPosts(current, fetchedTreePosts)
-        );
-        setLocalQuotes((current) =>
-          withoutIndexedPosts(current, fetchedQuotes)
-        );
-
-        // Once the user paginated past the first page, a background
-        // first-page fetch would discard loaded pages — reconcile only.
-        if (!options.background || !paginatedRef.current) {
-          setConversation({
-            root,
-            replies: fetchedTree.map((node) => node.post),
-            quotes: fetchedQuotes,
-          });
-          setReplyTree(fetchedTree);
-          setHasMoreReplies(fetchedTree.length >= REPLY_PAGE_SIZE);
-          setHasMoreQuotes(fetchedQuotes.length >= QUOTE_PAGE_SIZE);
-        }
-
-        const rawConfig =
-          configResult.status === 'fulfilled' ? configResult.value : null;
-
-        if (rawConfig) {
-          setGuildStructure(parseGuildStructure(rawConfig));
-          const named =
-            typeof rawConfig.name === 'string' ? rawConfig.name : null;
-          setGuildName(named);
-          setMemberDriven(
-            rawConfig.member_driven === true || rawConfig.memberDriven === true
-          );
-        } else {
-          setGuildStructure(null);
-          setGuildName(null);
-          setMemberDriven(false);
-        }
-
-        // Thread/conversation first; compose affordances hydrate with viewer.
-        if (!options.background) {
-          setLoadState(root ? 'ready' : 'missing');
-        }
-
-        if (accountId && rawConfig) {
-          const structure = parseGuildStructure(rawConfig);
-          const gated =
-            rawConfig.is_private === true || rawConfig.isPrivate === true;
-          const memberDriven =
-            rawConfig.member_driven === true || rawConfig.memberDriven === true;
-          const { viewer } = await resolveGuildViewerAccess(
-            client,
-            groupId,
-            accountId,
-            {
-              memberDriven,
-              accessGated: gated,
-            }
-          );
-          const canWriteSpaceIds = await resolveViewerAllowlistSpaceIds(
-            client,
-            groupId,
-            accountId,
-            structure,
-            viewer
-          );
-          const pending =
-            Boolean(viewer.pendingJoinProposalId) ||
-            viewer.joinRequest?.status === 'pending';
-          setPendingJoinProposalId(viewer.pendingJoinProposalId ?? null);
-          setJoinCancelReady(pending);
-          setViewerAccess({ ...viewer, canWriteSpaceIds });
-          setIsMember(viewer.isMember);
-          setIsBlacklisted(viewer.isBlacklisted);
-          setAccessGated(gated);
-          setJoinPending(pending);
-          writeGuildMembershipCache(accountId, groupId, {
-            isMember: viewer.isMember,
-            joinPending: pending,
-          });
-          setViewerAccessResolved(true);
-        } else {
-          setViewerAccess({
-            isMember: false,
-            isOwner: false,
-            isAdmin: false,
-            canModerate: false,
-          });
-          setIsMember(false);
-          setIsBlacklisted(false);
-          setPendingJoinProposalId(null);
-          setJoinCancelReady(false);
-          setAccessGated(
-            rawConfig
-              ? rawConfig.is_private === true || rawConfig.isPrivate === true
-              : false
-          );
-          setJoinPending(false);
-          setViewerAccessResolved(true);
-        }
-      } catch (cause) {
-        if (options.background) return;
-        setLoadState('error');
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : 'Could not load guild thread.'
-        );
-      }
-    },
-    [accountId, author, groupId, postId]
-  );
-
-  useEffect(() => {
-    if (walletLoading) return;
-    setViewerAccessResolved(false);
-    // Soft reconcile after SSR — keep thread painted while ACL hydrates.
-    if (ssrSeedRef.current) {
-      ssrSeedRef.current = false;
-      void refresh({ background: true });
-      return;
-    }
-    void refresh();
-  }, [refresh, walletLoading]);
-
   useEffect(() => {
     setActiveThreadTab('replies');
     setThreadTabTouched(false);
@@ -552,82 +392,9 @@ export function LiveGuildPostPanel({
   ]);
 
   useEffect(() => {
-    const timers = reconcileTimersRef.current;
-    return () => {
-      for (const timer of timers) window.clearTimeout(timer);
-    };
-  }, []);
-
-  useEffect(() => {
     if (!mediaUnmuted) return;
     playPostFocusVideo(mediaResumeIndex);
   }, [mediaUnmuted, mediaResumeIndex, conversation.root?.postId]);
-
-  const scheduleReconcile = useCallback(() => {
-    for (const delay of RECONCILE_DELAYS_MS) {
-      reconcileTimersRef.current.push(
-        window.setTimeout(() => {
-          void refresh({ background: true });
-        }, delay)
-      );
-    }
-  }, [refresh]);
-
-  const loadMore = useCallback(
-    async (tab: ThreadTab) => {
-      if (loadingMore) return;
-      setLoadingMore(true);
-      try {
-        const client = createReadOnlyOnSocialClient();
-        if (tab === 'replies') {
-          const page = await client.query.threads.repliesByPath(rootPath, {
-            limit: REPLY_PAGE_SIZE,
-            offset: conversation.replies.length,
-          });
-          paginatedRef.current = true;
-          setConversation((current) => ({
-            ...current,
-            replies: [...current.replies, ...page],
-          }));
-          // Extra pages join as top-level rows; their own descendants
-          // arrive with the next full refresh.
-          setReplyTree((current) => [
-            ...current,
-            ...page.map((post) =>
-              leafThreadNode(
-                post,
-                groupPostContentPath(post.accountId, groupId, post.postId)
-              )
-            ),
-          ]);
-          setHasMoreReplies(page.length >= REPLY_PAGE_SIZE);
-        } else {
-          const page = await client.query.threads.quotesByPath(rootPath, {
-            limit: QUOTE_PAGE_SIZE,
-            offset: conversation.quotes.length,
-            order: 'desc',
-          });
-          paginatedRef.current = true;
-          setConversation((current) => ({
-            ...current,
-            quotes: [...current.quotes, ...page],
-          }));
-          setHasMoreQuotes(page.length >= QUOTE_PAGE_SIZE);
-        }
-      } catch {
-        // Keep the current list; the button stays available to retry.
-      } finally {
-        setLoadingMore(false);
-      }
-    },
-    [
-      conversation.quotes.length,
-      conversation.replies.length,
-      groupId,
-      loadingMore,
-      rootPath,
-    ]
-  );
 
   const threadChannel = conversation.root?.channel;
   const canPostInChannel = useCallback(
@@ -998,32 +765,10 @@ export function LiveGuildPostPanel({
 
   const handleMembershipConfirmed = useCallback(
     (outcome: GuildMembershipOutcome) => {
-      if (outcome === 'left') {
-        setIsMember(false);
-        setJoinPending(false);
-        setJoinCancelReady(false);
-        setPendingJoinProposalId(null);
-        setViewerAccess((current) => ({
-          ...current,
-          isMember: false,
-          isOwner: false,
-          isAdmin: false,
-          canModerate: false,
-        }));
-      } else if (outcome === 'canceled') {
-        setJoinPending(false);
-        setJoinCancelReady(false);
-        setPendingJoinProposalId(null);
-      } else if (outcome === 'requested') {
-        setJoinPending(true);
-        setJoinCancelReady(false);
-      } else {
-        setIsMember(true);
-        setJoinPending(false);
-      }
+      applyMembershipOutcome(outcome);
       void refresh({ background: true });
     },
-    [refresh]
+    [applyMembershipOutcome, refresh]
   );
 
   const handleOwnerManage = useCallback(() => {
@@ -1239,7 +984,7 @@ export function LiveGuildPostPanel({
 
         {loadState === 'error' ? (
           <section className="guild-state-card is-error">
-            <p>{error ?? 'Could not load guild thread.'}</p>
+            <p>{error ?? GUILD_THREAD_LOAD_ERROR}</p>
             <button
               className="guild-secondary-button"
               type="button"
@@ -1463,21 +1208,22 @@ export function LiveGuildPostPanel({
                   <div className="guild-state-card">No quotes yet.</div>
                 )}
 
-                {(activeThreadTab === 'replies' && hasMoreReplies) ||
-                (activeThreadTab === 'quotes' && hasMoreQuotes) ? (
-                  <button
-                    type="button"
-                    className="guild-load-more"
-                    disabled={loadingMore}
-                    onClick={() => void loadMore(activeThreadTab)}
-                  >
-                    {loadingMore
-                      ? 'Loading…'
-                      : activeThreadTab === 'replies'
-                        ? 'Show more replies'
-                        : 'Show more quotes'}
-                  </button>
-                ) : null}
+                <GuildThreadLoadMoreFooter
+                  tab={activeThreadTab}
+                  hasMore={
+                    activeThreadTab === 'replies'
+                      ? hasMoreReplies
+                      : hasMoreQuotes
+                  }
+                  loadingMore={loadingMore}
+                  loadMoreError={loadMoreError}
+                  idleLabel={
+                    activeThreadTab === 'replies'
+                      ? 'Show more replies'
+                      : 'Show more quotes'
+                  }
+                  onLoadMore={loadMore}
+                />
               </div>
             ) : (
               <div className="guild-connected-stack">
@@ -1491,16 +1237,14 @@ export function LiveGuildPostPanel({
                   />
                 ) : null}
 
-                {hasMoreReplies ? (
-                  <button
-                    type="button"
-                    className="guild-load-more"
-                    disabled={loadingMore}
-                    onClick={() => void loadMore('replies')}
-                  >
-                    {loadingMore ? 'Loading…' : 'Show more replies'}
-                  </button>
-                ) : null}
+                <GuildThreadLoadMoreFooter
+                  tab="replies"
+                  hasMore={hasMoreReplies}
+                  loadingMore={loadingMore}
+                  loadMoreError={loadMoreError}
+                  idleLabel="Show more replies"
+                  onLoadMore={loadMore}
+                />
               </div>
             )}
           </section>
