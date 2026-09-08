@@ -27,15 +27,33 @@ export async function gotoApp(
   });
 }
 
-/**
- * Portfolio soft-nav is SSR'd as plain anchors until hydration marks ready.
- */
-export async function waitForPortfolioClientReady(page: Page): Promise<void> {
+async function waitForPortfolioReadyFlag(
+  page: Page,
+  timeout: number
+): Promise<void> {
   await page.waitForFunction(
     () => document.body.dataset.portfolioClientReady === 'true',
     undefined,
-    { timeout: E2E_CHROME_TIMEOUT_MS }
+    { timeout }
   );
+}
+
+/**
+ * Portfolio soft-nav is SSR'd as plain anchors until hydration marks ready.
+ * First paint can miss the flag while Next is still compiling `/[accountId]` —
+ * dismiss the overlay and reload once if it never appears.
+ */
+export async function waitForPortfolioClientReady(page: Page): Promise<void> {
+  await dismissNextDevOverlay(page);
+  try {
+    await waitForPortfolioReadyFlag(page, 15_000);
+    return;
+  } catch {
+    await dismissNextDevOverlay(page);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await dismissNextDevOverlay(page);
+    await waitForPortfolioReadyFlag(page, E2E_CHROME_TIMEOUT_MS);
+  }
 }
 
 /**

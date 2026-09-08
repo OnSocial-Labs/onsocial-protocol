@@ -1,5 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
-import { gotoApp, waitForPortfolioClientReady } from './navigation';
+import {
+  dismissNextDevOverlay,
+  gotoApp,
+  waitForPortfolioClientReady,
+} from './navigation';
 
 export const DM_E2E_ACCOUNT = 'alice.testnet';
 
@@ -18,5 +22,6 @@ export async function openDmComposeLoggedOut(page: Page): Promise<void> {
   }
   await expect(identity).toBeVisible({ timeout: 10_000 });
 
+  await dismissNextDevOverlay(page);
   await page.getByRole('button', { name: 'Message', exact: true }).click();
 }

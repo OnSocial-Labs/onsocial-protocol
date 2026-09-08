@@ -1,5 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
-import { gotoApp, waitForPortfolioClientReady } from './navigation';
+import {
+  dismissNextDevOverlay,
+  gotoApp,
+  waitForPortfolioClientReady,
+} from './navigation';
 
 export const ENDORSE_E2E_ACCOUNT = 'alice.testnet';
 
@@ -66,10 +70,12 @@ export async function openEndorseComposeLoggedOut(page: Page): Promise<void> {
   }
   await expect(identity).toBeVisible({ timeout: 10_000 });
 
+  await dismissNextDevOverlay(page);
   await openEndorsementsOverlay(page);
 
   const panel = page.locator('.endorsements-panel');
   await panel.waitFor({ state: 'visible', timeout: 15_000 });
 
+  await dismissNextDevOverlay(page);
   await panel.getByRole('button', { name: 'Endorse', exact: true }).click();
 }
