@@ -50,7 +50,7 @@ import { inheritedGuildReplyFeedMeta } from '@/features/guilds/guild-post-feed-m
 import { FeedThreadBlock } from '@/features/guilds/feed-thread-block';
 import {
   collaborativeJoinNeedsStorage,
-  GUILD_COLLABORATIVE_JOIN_STORAGE_HINT,
+  guildMembershipStatusHint,
 } from '@/features/guilds/guild-config';
 import {
   GuildPageHero,
@@ -1082,11 +1082,10 @@ export function LiveGuildPanel({
               titleRef={heroTitleRef}
               showFacts
               onOpenFacts={() => setFactsSheetOpen(true)}
-              storageHint={
-                needsCollaborativeStorage
-                  ? GUILD_COLLABORATIVE_JOIN_STORAGE_HINT
-                  : null
-              }
+              statusHint={guildMembershipStatusHint({
+                isBlacklisted: effectiveIsBlacklisted,
+                needsStorage: needsCollaborativeStorage,
+              })}
               leading={
                 <GuildFacepile
                   memberIds={facepileIds}

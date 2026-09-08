@@ -18,6 +18,18 @@ export const GUILD_COLLABORATIVE_JOIN_STORAGE_MIN_YOCTO = 100_000_000_000_000_00
 export const GUILD_COLLABORATIVE_JOIN_STORAGE_HINT =
   'Collaborative guilds need ~0.1 NEAR storage to request membership.';
 
+export const GUILD_BANNED_HINT =
+  "This guild banned you. You can't join or post.";
+
+export function guildMembershipStatusHint(input: {
+  isBlacklisted: boolean;
+  needsStorage: boolean;
+}): string | null {
+  if (input.isBlacklisted) return GUILD_BANNED_HINT;
+  if (input.needsStorage) return GUILD_COLLABORATIVE_JOIN_STORAGE_HINT;
+  return null;
+}
+
 export function collaborativeJoinNeedsStorage(input: {
   memberDriven: boolean;
   isMember: boolean;

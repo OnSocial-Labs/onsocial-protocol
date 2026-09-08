@@ -7,6 +7,8 @@ export const GUILD_E2E_STORED_NAME = `${GUILD_E2E_TITLE} grp_md_perm_17798132740
 export const GUILD_E2E_OWNER = 'alice.near';
 export const GUILD_E2E_PATH = `/groups/${encodeURIComponent(GUILD_E2E_ID)}`;
 export const GUILD_E2E_EMPTY_FEED = 'No guild posts yet.';
+export const GUILD_E2E_BANNED_HINT =
+  "This guild banned you. You can't join or post.";
 
 const CREATED_AT_NS = 1_700_000_000_000_000_000;
 
@@ -97,12 +99,15 @@ export async function stubGuildPage(
     ownerId?: string;
     /** Seeded wallet is a member (not owner) when this is set. */
     memberId?: string;
+    /** Seeded wallet is banned (not a member) when this is set. */
+    bannedId?: string;
   }
 ): Promise<void> {
   const rows = opts?.rows ?? 'empty';
   const catalogDelayMs = opts?.catalogDelayMs ?? 0;
   const ownerId = opts?.ownerId?.trim() || GUILD_E2E_OWNER;
   const memberId = opts?.memberId?.trim() || null;
+  const bannedId = opts?.bannedId?.trim() || null;
   const missing = rows === 'missing';
 
   await page.route('**/api/onapi/graph/query', async (route) => {
@@ -158,7 +163,23 @@ export async function stubGuildPage(
     }
 
     if (query.includes('GroupBannedOf')) {
-      await route.fulfill(json({ data: { groupBlacklistCurrent: [] } }));
+      await route.fulfill(
+        json({
+          data: {
+            groupBlacklistCurrent:
+              !missing && bannedId
+                ? [
+                    {
+                      groupId: GUILD_E2E_ID,
+                      memberId: bannedId,
+                      blockHeight: 1,
+                      blockTimestamp: 1,
+                    },
+                  ]
+                : [],
+          },
+        })
+      );
       return;
     }
 
@@ -231,8 +252,10 @@ export async function stubGuildPage(
       url.searchParams.get('requesterId') ??
       '';
     const isOwnerViewer = Boolean(userId) && userId === ownerId;
+    const isBannedViewer = Boolean(userId) && bannedId != null && userId === bannedId;
     const isMemberViewer =
       Boolean(userId) &&
+      !isBannedViewer &&
       (userId === ownerId || (memberId != null && userId === memberId));
 
     if (path.endsWith('/data/group-config')) {
@@ -254,6 +277,10 @@ export async function stubGuildPage(
     }
     if (path.endsWith('/data/group-is-member')) {
       await route.fulfill(json(isMemberViewer));
+      return;
+    }
+    if (path.endsWith('/data/group-is-blacklisted')) {
+      await route.fulfill(json(isBannedViewer));
       return;
     }
     if (path.endsWith('/data/group-is-owner')) {

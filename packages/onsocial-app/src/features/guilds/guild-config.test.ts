@@ -8,7 +8,10 @@ import {
   normalizeGuildConfig,
   normalizeGuildTagList,
   normalizeGuildTagsInput,
+  GUILD_BANNED_HINT,
+  GUILD_COLLABORATIVE_JOIN_STORAGE_HINT,
   GUILD_MAX_TOPICS,
+  guildMembershipStatusHint,
 } from '@/features/guilds/guild-config';
 
 const row = {
@@ -163,5 +166,28 @@ describe('guild onsocial metadata merge', () => {
       mime: 'image/jpeg',
       size: 9,
     });
+  });
+});
+
+describe('guildMembershipStatusHint', () => {
+  it('explains a ban before a storage gate', () => {
+    expect(
+      guildMembershipStatusHint({
+        isBlacklisted: true,
+        needsStorage: true,
+      })
+    ).toBe(GUILD_BANNED_HINT);
+    expect(
+      guildMembershipStatusHint({
+        isBlacklisted: false,
+        needsStorage: true,
+      })
+    ).toBe(GUILD_COLLABORATIVE_JOIN_STORAGE_HINT);
+    expect(
+      guildMembershipStatusHint({
+        isBlacklisted: false,
+        needsStorage: false,
+      })
+    ).toBeNull();
   });
 });

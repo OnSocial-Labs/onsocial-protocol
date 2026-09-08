@@ -3,6 +3,7 @@ import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
 import { seedE2eWallet } from './helpers/collection-page';
 import { COLLECTIBLES_VAULT_OWNER } from './helpers/collectibles-vault';
 import {
+  GUILD_E2E_BANNED_HINT,
   GUILD_E2E_EMPTY_FEED,
   GUILD_E2E_PATH,
   GUILD_E2E_STORED_NAME,
@@ -84,6 +85,30 @@ test.describe('guild page', () => {
       0
     );
     await expect(page.getByRole('button', { name: 'Add room' })).toHaveCount(0);
+  });
+
+  test('banned viewer sees Banned and why, not Join', async ({ page }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await stubGuildPage(page, { bannedId: COLLECTIBLES_VAULT_OWNER });
+    await gotoApp(page, GUILD_E2E_PATH);
+
+    await expect(
+      page.getByRole('heading', { name: GUILD_E2E_TITLE }).first()
+    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    const membership = page.locator('.guild-hero-membership');
+    await expect(
+      membership.getByRole('button', { name: 'Banned' })
+    ).toBeDisabled();
+    await expect(membership.getByRole('button', { name: 'Join' })).toHaveCount(
+      0
+    );
+    await expect(page.getByText(GUILD_E2E_BANNED_HINT)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Guild menu' })).toHaveCount(
+      0
+    );
+    await expect(
+      page.getByRole('button', { name: 'Guild settings' })
+    ).toHaveCount(0);
   });
 
   test('owner keeps settings and add-room chrome', async ({ page }) => {

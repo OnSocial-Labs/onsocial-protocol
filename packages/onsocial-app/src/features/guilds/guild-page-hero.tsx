@@ -60,7 +60,7 @@ export function GuildPageHero({
   showFacts = false,
   onOpenFacts,
   membership = null,
-  storageHint = null,
+  statusHint = null,
 }: {
   groupId: string;
   look: GuildPageHeroLook;
@@ -69,7 +69,7 @@ export function GuildPageHero({
   showFacts?: boolean;
   onOpenFacts?: () => void;
   membership?: ReactNode;
-  storageHint?: string | null;
+  statusHint?: string | null;
 }) {
   return (
     <section className="guild-hero">
@@ -129,8 +129,8 @@ export function GuildPageHero({
         <GuildDescriptionClamp text={look.description} />
       ) : null}
 
-      {storageHint ? (
-        <p className="guild-storage-gate-copy">{storageHint}</p>
+      {statusHint ? (
+        <p className="guild-storage-gate-copy">{statusHint}</p>
       ) : null}
     </section>
   );
