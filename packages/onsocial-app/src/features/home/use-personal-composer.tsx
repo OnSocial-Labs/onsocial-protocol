@@ -24,6 +24,13 @@ import {
   type ComposerMode,
   type ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
+import type { ComposerBeat } from '@/lib/composer-thread';
+import {
+  clearComposerThreadDraft,
+  composerNewPostDraftKey,
+  readComposerThreadDraft,
+  writeComposerThreadDraft,
+} from '@/lib/composer-thread-draft';
 import {
   COMPOSER_AUTHOR_DAO,
   COMPOSER_AUTHOR_ME,
@@ -91,12 +98,16 @@ export function usePersonalComposer({
   const { withClient } = useOnSocialWriter();
   const { trackTransaction } = useAppTransactionFeedback();
   const moodPreview = usePortfolioMoodPreviewOptional();
+  const newPostDraftKey = composerNewPostDraftKey();
   const [composer, setComposer] = useState<{
     mode: ComposerMode;
     target: PostRow | null;
     initialText?: string;
     initialFiles?: File[];
     initialArticleMode?: boolean;
+    initialBeats?: ComposerBeat[];
+    /** Writing CTA — leave the new-post thread draft untouched on cancel. */
+    skipNewPostDraft?: boolean;
   } | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -218,12 +229,22 @@ export function usePersonalComposer({
     setPendingDaoPayload(null);
     resetGuildState();
     clearReply();
+    if (opts?.article) {
+      setComposer({
+        mode: 'post',
+        target: null,
+        initialArticleMode: true,
+        skipNewPostDraft: true,
+      });
+      return;
+    }
+    const draft = readComposerThreadDraft(newPostDraftKey);
     setComposer({
       mode: 'post',
       target: null,
-      initialArticleMode: Boolean(opts?.article),
+      ...(draft.length > 0 ? { initialBeats: draft } : {}),
     });
-  }, [clearReply, resetGuildState]);
+  }, [clearReply, newPostDraftKey, resetGuildState]);
 
   const openReply = startReply;
 
@@ -342,6 +363,7 @@ export function usePersonalComposer({
         trackTransaction,
       });
       if (result.confirmed) {
+        clearComposerThreadDraft(newPostDraftKey);
         setProposeConfirmOpen(false);
         setPendingDaoPayload(null);
         resetComposerState();
@@ -361,6 +383,7 @@ export function usePersonalComposer({
     getSigningWallet,
     pending,
     pendingDaoPayload,
+    newPostDraftKey,
     resetComposerState,
     selectedDaoId,
     trackTransaction,
@@ -428,6 +451,7 @@ export function usePersonalComposer({
             onConfirmed?.(post);
           }
           if (result.confirmed) {
+            clearComposerThreadDraft(newPostDraftKey);
             resetComposerState();
           }
           return result;
@@ -454,6 +478,9 @@ export function usePersonalComposer({
           onConfirmed?.(post);
         }
         if (result.confirmed) {
+          if (mode === 'post') {
+            clearComposerThreadDraft(newPostDraftKey);
+          }
           resetComposerState();
         }
         return result;
@@ -479,6 +506,7 @@ export function usePersonalComposer({
       composer,
       connect,
       guildLoading,
+      newPostDraftKey,
       isConnected,
       onConfirmed,
       pending,
@@ -504,6 +532,7 @@ export function usePersonalComposer({
         initialText={composer.initialText ?? ''}
         initialFiles={composer.initialFiles}
         initialArticleMode={composer.initialArticleMode}
+        initialBeats={composer.initialBeats}
         onModeChange={
           composer.target
             ? (mode) =>
@@ -563,7 +592,13 @@ export function usePersonalComposer({
         error={error}
         onClose={(draft) => {
           if (pending) return;
-          if (composer.mode === 'reply' && composer.target && draft) {
+          if (
+            composer.mode === 'post' &&
+            !composer.skipNewPostDraft &&
+            draft?.beats
+          ) {
+            writeComposerThreadDraft(newPostDraftKey, draft.beats);
+          } else if (composer.mode === 'reply' && composer.target && draft) {
             writeWriteDockDraft(
               writeDockDraftKey('post', postKey(composer.target)),
               writeDockDraftFromComposer(draft)

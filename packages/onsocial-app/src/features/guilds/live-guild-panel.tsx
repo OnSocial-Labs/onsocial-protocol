@@ -36,6 +36,13 @@ import {
   type GuildComposerMode,
   type GuildComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
+import type { ComposerBeat } from '@/lib/composer-thread';
+import {
+  clearComposerThreadDraft,
+  composerNewPostDraftKey,
+  readComposerThreadDraft,
+  writeComposerThreadDraft,
+} from '@/lib/composer-thread-draft';
 import {
   canPostToGuildSpace,
   canViewerPostInChannel,
@@ -201,11 +208,13 @@ export function LiveGuildPanel({
     walletLoading,
     selectedFeedFilterId,
   });
+  const newPostDraftKey = composerNewPostDraftKey(groupId);
   const [composer, setComposer] = useState<{
     mode: GuildComposerMode;
     target: PostRow | null;
     initialText?: string;
     initialFiles?: File[];
+    initialBeats?: ComposerBeat[];
   } | null>(null);
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -652,8 +661,13 @@ export function LiveGuildPanel({
 
   const openPostComposer = useCallback(() => {
     setModalError(null);
-    setComposer({ mode: 'post', target: null });
-  }, []);
+    const draft = readComposerThreadDraft(newPostDraftKey);
+    setComposer({
+      mode: 'post',
+      target: null,
+      ...(draft.length > 0 ? { initialBeats: draft } : {}),
+    });
+  }, [newPostDraftKey]);
 
   // Launcher pen is the only compose entry — no floating dock duplicate.
   useRegisterComposeAction(canCompose ? openPostComposer : null);
@@ -728,6 +742,7 @@ export function LiveGuildPanel({
           scheduleReconcile();
         }
         if (result.confirmed) {
+          clearComposerThreadDraft(newPostDraftKey);
           setComposer(null);
         }
         return result;
@@ -1275,6 +1290,7 @@ export function LiveGuildPanel({
           }
           initialText={composer.initialText ?? ''}
           initialFiles={composer.initialFiles}
+          initialBeats={composer.initialBeats}
           onModeChange={
             composer.target
               ? (mode) =>
@@ -1301,7 +1317,9 @@ export function LiveGuildPanel({
           error={modalError}
           onClose={(draft) => {
             if (modalPending) return;
-            if (composer.mode === 'reply' && composer.target && draft) {
+            if (composer.mode === 'post' && draft?.beats) {
+              writeComposerThreadDraft(newPostDraftKey, draft.beats);
+            } else if (composer.mode === 'reply' && composer.target && draft) {
               writeWriteDockDraft(
                 writeDockDraftKey('post', postKey(composer.target)),
                 writeDockDraftFromComposer(draft)

@@ -110,7 +110,7 @@ describe('composer thread', () => {
     expect(threadPartialCopy(2, 5)).toBe('Posted 2 of 5.');
   });
 
-  it('removes an extra beat and focuses the previous', () => {
+  it('removes a beat and keeps a valid focus', () => {
     const beats = [
       emptyComposerBeat({ text: 'one' }),
       emptyComposerBeat({ text: 'two' }),
@@ -119,7 +119,12 @@ describe('composer thread', () => {
     const removed = removeComposerThreadBeat(beats, 2, 2);
     expect(removed.beats.map((row) => row.text)).toEqual(['one', 'two']);
     expect(removed.focus).toBe(1);
-    expect(removeComposerThreadBeat(beats, 0, 1).beats).toHaveLength(3);
+    const opened = removeComposerThreadBeat(beats, 0, 0);
+    expect(opened.beats.map((row) => row.text)).toEqual(['two', 'three']);
+    expect(opened.focus).toBe(0);
+    expect(removeComposerThreadBeat(beats.slice(0, 1), 0, 0).beats).toHaveLength(
+      1
+    );
   });
 
   it('stops plus at ten filled beats', () => {
