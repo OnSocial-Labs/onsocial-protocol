@@ -1,0 +1,52 @@
+import type { Page } from '@playwright/test';
+import {
+  E2E_GRAPH_COOKIE,
+  parseE2eGraphCookie,
+  serializeE2eGraphCookie,
+  type E2eGraphCatalog,
+  type E2eGraphCookieValue,
+  type E2eGraphVault,
+} from '../../src/lib/e2e-graph-stubs';
+
+function e2eCookieUrl(): string {
+  return (
+    process.env.PLAYWRIGHT_TEST_BASE_URL ??
+    process.env.E2E_BASE_URL ??
+    `http://${process.env.E2E_HOST ?? 'localhost'}:${process.env.E2E_PORT ?? 3099}`
+  );
+}
+
+async function setE2eGraphCookie(
+  page: Page,
+  patch: E2eGraphCookieValue
+): Promise<void> {
+  const existing = (await page.context().cookies()).find(
+    (cookie) => cookie.name === E2E_GRAPH_COOKIE
+  );
+  const next = { ...parseE2eGraphCookie(existing?.value), ...patch };
+  const value = serializeE2eGraphCookie(next);
+  if (!value) return;
+  await page.context().addCookies([
+    {
+      name: E2E_GRAPH_COOKIE,
+      value,
+      url: e2eCookieUrl(),
+    },
+  ]);
+}
+
+/** Opt SSR + BFF into a catalog fixture. Omit for the SSR-miss skeleton test. */
+export async function setE2eGraphCatalog(
+  page: Page,
+  catalog: E2eGraphCatalog
+): Promise<void> {
+  await setE2eGraphCookie(page, { catalog });
+}
+
+/** Opt SSR + BFF into a vault fixture. Omit for library-skeleton tests. */
+export async function setE2eGraphVault(
+  page: Page,
+  vault: E2eGraphVault
+): Promise<void> {
+  await setE2eGraphCookie(page, { vault });
+}

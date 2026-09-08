@@ -5,6 +5,7 @@ import {
   COLLECTIBLES_VAULT_OWNER,
   stubCollectiblesVaultGraph,
 } from './helpers/collectibles-vault';
+import { setE2eGraphVault } from './helpers/e2e-graph';
 import {
   expectSeriesPageSettled,
   seriesPageRoot,
@@ -132,6 +133,7 @@ test.describe('series page', () => {
   }) => {
     await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
     await setE2eGraphCatalog(page, 'night-roads');
+    await setE2eGraphVault(page, 'default');
     await stubSeriesCreatorCatalog(page, { rows: 'night-roads' });
     await stubCollectiblesVaultGraph(page);
     await gotoApp(page, NIGHT_ROADS_PATH);
@@ -164,6 +166,7 @@ test.describe('series page', () => {
   test('Collectibles series heading opens this page', async ({ page }) => {
     await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
     await setE2eGraphCatalog(page, 'night-roads');
+    await setE2eGraphVault(page, 'default');
     await stubSeriesCreatorCatalog(page, { rows: 'night-roads' });
     await stubCollectiblesVaultGraph(page);
     await gotoApp(page, `/@${COLLECTIBLES_VAULT_OWNER}/collectibles`);
