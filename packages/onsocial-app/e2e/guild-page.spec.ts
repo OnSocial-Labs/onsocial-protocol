@@ -192,8 +192,12 @@ test.describe('guild page', () => {
     );
     const settings = page.getByRole('dialog', { name: 'Settings' });
     await expect(settings).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
-    await expect(settings.getByText('Edit guild')).toBeVisible();
-    await expect(settings.getByText('Rooms')).toBeVisible();
+    await expect(
+      settings.getByRole('button', { name: /Edit guild/ })
+    ).toBeVisible();
+    await expect(
+      settings.getByRole('button', { name: /Rooms and feed tabs/ })
+    ).toBeVisible();
   });
 
   test('document title includes Guilds · OnSocial', async ({ page }) => {
