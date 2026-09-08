@@ -80,7 +80,10 @@ export function customDisplayName(
  * Identity title — chosen name, else spoken local part (`Alice`).
  * Handle stays the full id (`@alice.testnet`) so the name line never repeats it.
  */
-export function displayName(accountId: string, profileName?: string): string {
+export function displayName(
+  accountId: string,
+  profileName?: string | null
+): string {
   return formatNearAccountDisplayName(accountId, profileName);
 }
 
