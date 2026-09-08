@@ -390,14 +390,34 @@ export function guildPath(groupId: string): string {
 }
 
 /** Shareable guild sheets opened on the home route (`?sheet=`). */
-export type GuildShareSheetId = 'proposals' | 'members' | 'requests';
+export type GuildShareSheetId =
+  | 'proposals'
+  | 'members'
+  | 'requests'
+  | 'settings';
+
+export type GuildManageShareSheetId = Exclude<GuildShareSheetId, 'settings'>;
 
 export function parseGuildSheetParam(
   raw: string | null | undefined
 ): GuildShareSheetId | null {
   const value = (raw ?? '').trim().toLowerCase();
-  if (value === 'proposals' || value === 'members' || value === 'requests') {
+  if (
+    value === 'proposals' ||
+    value === 'members' ||
+    value === 'requests' ||
+    value === 'settings'
+  ) {
     return value;
+  }
+  return null;
+}
+
+export function manageSheetFromShare(
+  sheet: GuildShareSheetId | null | undefined
+): GuildManageShareSheetId | null {
+  if (sheet === 'members' || sheet === 'proposals' || sheet === 'requests') {
+    return sheet;
   }
   return null;
 }
