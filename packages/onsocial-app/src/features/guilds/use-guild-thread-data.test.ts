@@ -4,6 +4,7 @@ import {
   conversationFromInitial,
   EMPTY_GUILD_THREAD_ACCESS,
   groupPostContentPath,
+  guildThreadDocumentCopy,
   GUILD_THREAD_LOAD_ERROR,
   GUILD_THREAD_LOAD_MORE_QUOTES_ERROR,
   GUILD_THREAD_LOAD_MORE_REPLIES_ERROR,
@@ -24,6 +25,21 @@ const initialThread = {
   memberDriven: false,
   accessGated: false,
 } as unknown as GuildPostPageData;
+
+describe('guildThreadDocumentCopy', () => {
+  it('cleans a stored id out of the thread document title', () => {
+    expect(
+      guildThreadDocumentCopy(
+        'Audit Guild grp_md_perm_1779813274071_ojf237',
+        'audit-guild'
+      )
+    ).toEqual({
+      name: 'Audit Guild',
+      title: 'Audit Guild Thread • OnSocial',
+      description: 'Threaded discussion in Audit Guild.',
+    });
+  });
+});
 
 describe('groupPostContentPath', () => {
   it('builds the indexed group post path', () => {

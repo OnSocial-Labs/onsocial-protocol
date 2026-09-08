@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { guildThreadDocumentCopy } from '@/features/guilds/guild-thread-data';
 import { getGuildBlueprint } from '@/features/guilds/guilds-data';
 import { LiveGuildPostPanel } from '@/features/guilds/live-guild-post-panel';
 import { loadGuildPostPageData } from '@/lib/load-guild-post-page';
@@ -21,12 +22,11 @@ export async function generateMetadata({
     decodeURIComponent(author),
     decodeURIComponent(postId)
   );
-  const name = initial?.guildName ?? getGuildBlueprint(id).name;
-
-  return {
-    title: `${name} Thread • OnSocial`,
-    description: `Threaded discussion in ${name}.`,
-  };
+  const { title, description } = guildThreadDocumentCopy(
+    initial?.guildName ?? getGuildBlueprint(id).name,
+    id
+  );
+  return { title, description };
 }
 
 export default async function GuildPostPage({ params }: GuildPostPageProps) {

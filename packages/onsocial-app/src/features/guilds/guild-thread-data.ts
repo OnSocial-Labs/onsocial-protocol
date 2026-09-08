@@ -1,4 +1,5 @@
 import type { GroupConversation } from '@onsocial/sdk';
+import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import type { GuildMembershipOutcome } from '@/features/guilds/guild-membership-action';
 import type { GuildViewerAccess } from '@/features/guilds/guild-structure';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
@@ -31,6 +32,18 @@ export type GuildThreadMembershipPatch = {
   pendingJoinProposalId?: string | null;
   clearViewerMembership?: boolean;
 };
+
+export function guildThreadDocumentCopy(
+  storedName: string | null | undefined,
+  groupId: string
+): { name: string; title: string; description: string } {
+  const name = guildDisplayName(storedName, groupId);
+  return {
+    name,
+    title: `${name} Thread • OnSocial`,
+    description: `Threaded discussion in ${name}.`,
+  };
+}
 
 export function groupPostContentPath(
   postAuthor: string,
