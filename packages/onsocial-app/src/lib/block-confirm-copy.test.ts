@@ -12,9 +12,9 @@ describe('blockConfirmCopy', () => {
     expect(copy.body).toContain('Bob');
   });
 
-  it('falls back to account id', () => {
-    expect(
-      blockConfirmCopy({ accountId: 'bob.testnet' }).title
-    ).toBe('Block bob.testnet?');
+  it('falls back to the spoken local part', () => {
+    expect(blockConfirmCopy({ accountId: 'bob.testnet' }).title).toBe(
+      'Block Bob?'
+    );
   });
 });
