@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { guildDocumentCopy } from '@/features/guilds/guild-card-display';
 import { getGuildBlueprint } from '@/features/guilds/guilds-data';
 import { LiveGuildMembersPanel } from '@/features/guilds/live-guild-members-panel';
 import { loadGuildMembersPageData } from '@/lib/load-guild-members-page';
@@ -15,12 +16,13 @@ export async function generateMetadata({
   const { groupId } = await params;
   const id = decodeURIComponent(groupId);
   const initial = await loadGuildMembersPageData(id);
-  const name = initial?.guildName ?? getGuildBlueprint(id).name;
-
-  return {
-    title: `${name} Members • OnSocial`,
-    description: `Members, roles, and permissions for ${name}.`,
-  };
+  const { title, description } = guildDocumentCopy(
+    initial?.guildName ?? getGuildBlueprint(id).name,
+    id,
+    'Members',
+    (name) => `Members, roles, and permissions for ${name}.`
+  );
+  return { title, description };
 }
 
 export default async function GuildMembersPage({

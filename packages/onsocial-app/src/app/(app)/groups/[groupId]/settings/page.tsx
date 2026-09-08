@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { guildDocumentCopy } from '@/features/guilds/guild-card-display';
 import { getGuildBlueprint } from '@/features/guilds/guilds-data';
 import { GuildSettingsPanel } from '@/features/guilds/guilds-panels';
 
@@ -15,12 +16,14 @@ export async function generateMetadata({
   params,
 }: GuildSettingsPageProps): Promise<Metadata> {
   const { groupId } = await params;
-  const guild = getGuildBlueprint(decodeURIComponent(groupId));
-
-  return {
-    title: `${guild.name} Settings • OnSocial`,
-    description: `Guild configuration and rollout model for ${guild.name}.`,
-  };
+  const id = decodeURIComponent(groupId);
+  const { title, description } = guildDocumentCopy(
+    getGuildBlueprint(id).name,
+    id,
+    'Settings',
+    (name) => `Guild configuration and rollout model for ${name}.`
+  );
+  return { title, description };
 }
 
 export default async function GuildSettingsPage({
