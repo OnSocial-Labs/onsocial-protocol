@@ -447,7 +447,7 @@ export function GuildGroupStorageSheet({
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
   const { accountId, getSigningWallet } = useAppWallet();
-  const { trackTransaction } = useAppTransactionFeedback();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [refreshKey, setRefreshKey] = useState(0);
   const pool = useGroupStoragePool(groupId, sheetOpen, refreshKey);
   const walletNear = useWalletNearBalance(accountId, sheetOpen, refreshKey);
@@ -638,14 +638,14 @@ export function GuildGroupStorageSheet({
         submittedMessage: txToastConfirming.fundingGroupStorage,
         successMessage: txToastSuccess.groupStorageFunded,
         failureMessage: txToastError.groupStorageFundFailed,
-        onFailure: (message) => setError(message),
       });
       if (!confirmed) return;
     } catch (err) {
       if (isWalletUserCancellation(err)) return;
-      setError(
-        err instanceof Error ? err.message : txToastError.groupStorageFundFailed
-      );
+      setTxResult({
+        type: 'error',
+        msg: txToastError.groupStorageFundFailed,
+      });
       return;
     } finally {
       setPending(false);
@@ -674,7 +674,6 @@ export function GuildGroupStorageSheet({
         submittedMessage: txToastConfirming.grantingGroupStorage,
         successMessage: txToastSuccess.groupStorageGranted,
         failureMessage: txToastError.groupStorageGrantFailed,
-        onFailure: (message) => setError(message),
       });
       if (!confirmed) return;
       setPendingGrantTargets((current) => [
@@ -682,11 +681,10 @@ export function GuildGroupStorageSheet({
       ]);
     } catch (err) {
       if (isWalletUserCancellation(err)) return;
-      setError(
-        err instanceof Error
-          ? err.message
-          : txToastError.groupStorageGrantFailed
-      );
+      setTxResult({
+        type: 'error',
+        msg: txToastError.groupStorageGrantFailed,
+      });
       return;
     } finally {
       setPending(false);
@@ -715,16 +713,14 @@ export function GuildGroupStorageSheet({
         submittedMessage: txToastConfirming.settingGroupStorageDefault,
         successMessage: txToastSuccess.groupStorageDefaultSet,
         failureMessage: txToastError.groupStorageDefaultFailed,
-        onFailure: (message) => setError(message),
       });
       if (!confirmed) return;
     } catch (err) {
       if (isWalletUserCancellation(err)) return;
-      setError(
-        err instanceof Error
-          ? err.message
-          : txToastError.groupStorageDefaultFailed
-      );
+      setTxResult({
+        type: 'error',
+        msg: txToastError.groupStorageDefaultFailed,
+      });
       return;
     } finally {
       setPending(false);
@@ -749,16 +745,14 @@ export function GuildGroupStorageSheet({
         submittedMessage: txToastConfirming.settingGroupStorageDefault,
         successMessage: txToastSuccess.groupStorageDefaultSet,
         failureMessage: txToastError.groupStorageDefaultFailed,
-        onFailure: (message) => setError(message),
       });
       if (!confirmed) return;
     } catch (err) {
       if (isWalletUserCancellation(err)) return;
-      setError(
-        err instanceof Error
-          ? err.message
-          : txToastError.groupStorageDefaultFailed
-      );
+      setTxResult({
+        type: 'error',
+        msg: txToastError.groupStorageDefaultFailed,
+      });
       return;
     } finally {
       setPending(false);
@@ -783,16 +777,14 @@ export function GuildGroupStorageSheet({
         submittedMessage: txToastConfirming.revokingGroupStorage,
         successMessage: txToastSuccess.groupStorageRevoked,
         failureMessage: txToastError.groupStorageRevokeFailed,
-        onFailure: (message) => setError(message),
       });
       if (!confirmed) return;
     } catch (err) {
       if (isWalletUserCancellation(err)) return;
-      setError(
-        err instanceof Error
-          ? err.message
-          : txToastError.groupStorageRevokeFailed
-      );
+      setTxResult({
+        type: 'error',
+        msg: txToastError.groupStorageRevokeFailed,
+      });
       return;
     } finally {
       setPending(false);

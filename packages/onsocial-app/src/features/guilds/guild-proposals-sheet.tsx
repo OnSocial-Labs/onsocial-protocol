@@ -67,7 +67,7 @@ export function GuildProposalsSheet({
   onResolved,
 }: GuildProposalsSheetProps) {
   const { getClient } = useAppOnSocialClient();
-  const { trackTransaction } = useAppTransactionFeedback();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [resolvedProposals, setResolvedProposals] = useState<Proposal[]>([]);
   const [allProposals, setAllProposals] = useState<Proposal[]>([]);
@@ -84,7 +84,6 @@ export function GuildProposalsSheet({
   const [pendingActions, setPendingActions] = useState<
     Map<string, 'support' | 'oppose'>
   >(() => new Map());
-  const [actionError, setActionError] = useState<string | null>(null);
   const retryTimersRef = useRef<number[]>([]);
 
   const clearRetryTimers = useCallback(() => {
@@ -248,7 +247,6 @@ export function GuildProposalsSheet({
   );
 
   const runVote = async (proposal: Proposal, approve: boolean) => {
-    setActionError(null);
     setPendingActions((current) =>
       new Map(current).set(proposal.id, approve ? 'support' : 'oppose')
     );
@@ -278,9 +276,10 @@ export function GuildProposalsSheet({
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
-      setActionError(
-        cause instanceof Error ? cause.message : 'Could not submit vote.'
-      );
+      setTxResult({
+        type: 'error',
+        msg: txToastError.guildVoteFailed,
+      });
     } finally {
       setPendingActions((current) => {
         const next = new Map(current);
@@ -374,12 +373,6 @@ export function GuildProposalsSheet({
         proposals.length === 0 &&
         resolvedProposals.length > 0 ? (
           <p className="guild-proposals-section-note">No active proposals</p>
-        ) : null}
-
-        {actionError ? (
-          <p className="guild-form-error" role="alert">
-            {actionError}
-          </p>
         ) : null}
 
         {loadState === 'ready' && proposals.length > 0 ? (

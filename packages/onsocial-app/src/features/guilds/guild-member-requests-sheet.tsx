@@ -64,7 +64,7 @@ export function GuildMemberRequestsSheet({
   onResolved,
 }: GuildMemberRequestsSheetProps) {
   const { getClient } = useAppOnSocialClient();
-  const { trackTransaction } = useAppTransactionFeedback();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [entries, setEntries] = useState<MemberRequestEntry[]>([]);
   const [viewerVotes, setViewerVotes] = useState<Map<string, boolean>>(
     () => new Map()
@@ -79,7 +79,6 @@ export function GuildMemberRequestsSheet({
   const [pendingActions, setPendingActions] = useState<
     Map<string, 'support' | 'oppose' | 'cancel'>
   >(() => new Map());
-  const [actionError, setActionError] = useState<string | null>(null);
 
   const loadRequests = useCallback(async () => {
     setLoadState('loading');
@@ -222,7 +221,6 @@ export function GuildMemberRequestsSheet({
     );
 
   const runVote = async (entry: MemberRequestEntry, approve: boolean) => {
-    setActionError(null);
     setPendingActions((current) =>
       new Map(current).set(entry.proposal.id, approve ? 'support' : 'oppose')
     );
@@ -262,11 +260,12 @@ export function GuildMemberRequestsSheet({
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
-      setActionError(
-        cause instanceof Error
-          ? cause.message
-          : 'Could not update this request.'
-      );
+      setTxResult({
+        type: 'error',
+        msg: memberDriven
+          ? txToastError.guildVoteFailed
+          : txToastError.guildRequestReviewFailed,
+      });
     } finally {
       setPendingActions((current) => {
         const next = new Map(current);
@@ -277,7 +276,6 @@ export function GuildMemberRequestsSheet({
   };
 
   const runCancel = async (entry: MemberRequestEntry) => {
-    setActionError(null);
     setPendingActions((current) =>
       new Map(current).set(entry.proposal.id, 'cancel')
     );
@@ -304,11 +302,10 @@ export function GuildMemberRequestsSheet({
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
-      setActionError(
-        cause instanceof Error
-          ? cause.message
-          : 'Could not cancel this request.'
-      );
+      setTxResult({
+        type: 'error',
+        msg: txToastError.guildMembershipFailed,
+      });
     } finally {
       setPendingActions((current) => {
         const next = new Map(current);
@@ -380,12 +377,6 @@ export function GuildMemberRequestsSheet({
                 : 'Join this guild to vote on access requests.'}
             </p>
           </div>
-        ) : null}
-
-        {actionError ? (
-          <p className="guild-form-error" role="alert">
-            {actionError}
-          </p>
         ) : null}
 
         {loadState === 'ready' && visibleEntries.length > 0 ? (

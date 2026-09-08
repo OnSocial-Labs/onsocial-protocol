@@ -58,7 +58,7 @@ export function GuildSpaceWritersSheet({
   onSaved,
 }: GuildSpaceWritersSheetProps) {
   const { getClient } = useAppOnSocialClient();
-  const { trackTransaction } = useAppTransactionFeedback();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const [leaders, setLeaders] = useState<GroupMemberRow[]>([]);
@@ -236,11 +236,10 @@ export function GuildSpaceWritersSheet({
       setClosing(true);
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : 'Could not update who can share.'
-      );
+      setTxResult({
+        type: 'error',
+        msg: txToastError.guildSpaceWriterFailed,
+      });
     } finally {
       setPending(false);
     }
@@ -434,12 +433,6 @@ export function GuildSpaceWritersSheet({
             {showEmptyManage ? (
               <p className="discover-sheet-subtitle guild-space-writers-empty-note">
                 Add members, then choose who can share here.
-              </p>
-            ) : null}
-
-            {error ? (
-              <p className="guild-form-error" role="alert">
-                {error}
               </p>
             ) : null}
 
