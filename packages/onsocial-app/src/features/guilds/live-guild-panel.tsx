@@ -149,10 +149,8 @@ import {
   readGuildMembershipCache,
   writeGuildMembershipCache,
 } from '@/lib/guild-membership-cache';
-import {
-  setGuildMembershipActionPending,
-  useGuildMembershipActionPending,
-} from '@/lib/guild-membership-action-pending';
+import { useGuildMembershipAction } from '@/features/guilds/use-guild-membership-action';
+import type { GuildMembershipOutcome } from '@/features/guilds/guild-membership-action';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
 import {
@@ -309,12 +307,6 @@ export function LiveGuildPanel({
   );
   const [loadingMore, setLoadingMore] = useState(false);
   const [isFeedRefreshing, setIsFeedRefreshing] = useState(false);
-  const [actionPendingLocal, setActionPendingLocal] = useState(false);
-  const actionPendingShared = useGuildMembershipActionPending(
-    accountId,
-    groupId
-  );
-  const actionPending = actionPendingLocal || actionPendingShared;
   const [composerSpaceId, setComposerSpaceId] = useState('general');
   const [feedFilter, setFeedFilter] = useState<{
     groupId: string;
@@ -355,7 +347,6 @@ export function LiveGuildPanel({
     () => !initial && !readGuildFeedCache(groupId, 'all')
   );
   const ssrGroupIdRef = useRef(initial ? groupId : null);
-  const [confirmingLeave, setConfirmingLeave] = useState(false);
   const [manageSheet, setManageSheet] = useState<GuildManageSheetId | null>(
     () => initialSheet
   );
@@ -386,7 +377,6 @@ export function LiveGuildPanel({
     )
   );
   const reconcileTimersRef = useRef<number[]>([]);
-  const confirmLeaveTimerRef = useRef<number | null>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -1303,9 +1293,6 @@ export function LiveGuildPanel({
     const timers = reconcileTimersRef.current;
     return () => {
       for (const timer of timers) window.clearTimeout(timer);
-      if (confirmLeaveTimerRef.current !== null) {
-        window.clearTimeout(confirmLeaveTimerRef.current);
-      }
     };
   }, []);
 
@@ -1437,136 +1424,68 @@ export function LiveGuildPanel({
     ]
   );
 
-  const clearConfirmLeave = () => {
-    if (confirmLeaveTimerRef.current !== null) {
-      window.clearTimeout(confirmLeaveTimerRef.current);
-      confirmLeaveTimerRef.current = null;
-    }
-    setConfirmingLeave(false);
-  };
+  const membershipSnapshot = useMemo(
+    () => ({
+      isMember: effectiveIsMember,
+      joinPending: effectiveJoinPending,
+      isOwner: effectiveIsOwner,
+      isBlacklisted: effectiveIsBlacklisted,
+      accessGated: Boolean(config?.accessGated),
+      memberDriven: Boolean(config?.memberDriven),
+      pendingJoinProposalId: viewer?.pendingJoinProposalId ?? null,
+      joinCancelReady,
+    }),
+    [
+      config?.accessGated,
+      config?.memberDriven,
+      effectiveIsBlacklisted,
+      effectiveIsMember,
+      effectiveIsOwner,
+      effectiveJoinPending,
+      joinCancelReady,
+      viewer?.pendingJoinProposalId,
+    ]
+  );
 
-  const runMembershipAction = async () => {
-    if (!isConnected) {
-      await connect();
-      return;
-    }
-
-    if (!config) return;
-    // Never join/leave from a guessed label — wait for ACL (hint is display-only).
-    if (!viewerAccessResolved) return;
-    if (effectiveIsBlacklisted) return;
-
-    if (effectiveIsMember && effectiveIsOwner) {
-      openManageSheet('members');
-      return;
-    }
-
-    setActionPendingLocal(true);
-    setGuildMembershipActionPending(accountId, groupId, true);
-    try {
-      const { client } = await getClient();
-      const response = effectiveIsMember
-        ? await client.groups.leave(groupId)
-        : effectiveJoinPending
-          ? config.memberDriven && viewer?.pendingJoinProposalId
-            ? await client.groups.cancelProposal(
-                groupId,
-                viewer.pendingJoinProposalId
-              )
-            : await client.groups.cancelJoin(groupId)
-          : await client.groups.join(groupId);
-
-      const txHashes = collectRelayTxHashes(response);
-      const confirmed = await trackTransaction({
-        txHashes,
-        submittedMessage: effectiveIsMember
-          ? txToastConfirming.leavingGuild
-          : effectiveJoinPending
-            ? txToastConfirming.cancelingGuildRequest
-            : config.accessGated
-              ? txToastConfirming.requestingGuildAccess
-              : txToastConfirming.joiningGuild,
-        successMessage: effectiveIsMember
-          ? txToastSuccess.guildLeft
-          : effectiveJoinPending
-            ? txToastSuccess.guildRequestCanceled
-            : config.accessGated
-              ? txToastSuccess.guildAccessRequested
-              : txToastSuccess.guildJoined,
-        failureMessage: txToastError.guildMembershipFailed,
-      });
-
-      if (confirmed) {
-        if (accountId) {
-          writeGuildMembershipCache(accountId, groupId, {
-            isMember: effectiveIsMember
-              ? false
-              : effectiveJoinPending
-                ? false
-                : !config.accessGated,
-            joinPending: effectiveIsMember
-              ? false
-              : effectiveJoinPending
-                ? false
-                : config.accessGated,
-          });
-        }
-        if (
-          config.memberDriven &&
-          !effectiveIsMember &&
-          !effectiveJoinPending
-        ) {
-          setOptimisticJoinPending(true);
-        } else if (effectiveJoinPending) {
-          setOptimisticJoinPending(false);
-        }
-        await refresh();
+  const handleMembershipConfirmed = useCallback(
+    async (outcome: GuildMembershipOutcome) => {
+      if (
+        outcome === 'requested' ||
+        (outcome === 'joined' && config?.memberDriven)
+      ) {
+        setOptimisticJoinPending(true);
+      } else if (outcome === 'canceled') {
+        setOptimisticJoinPending(false);
       }
-    } catch (cause) {
-      if (isWalletUserCancellation(cause)) return;
-      setTxResult({
-        type: 'error',
-        msg: txToastError.guildMembershipFailed,
-      });
-    } finally {
-      setActionPendingLocal(false);
-      setGuildMembershipActionPending(accountId, groupId, false);
-    }
-  };
+      await refresh();
+    },
+    [config?.memberDriven, refresh]
+  );
 
-  /**
-   * Leave / transfer ownership are destructive — require a second tap.
-   * Owners cannot leave on-chain; confirm opens members to transfer first.
-   */
-  const handleMembershipClick = () => {
-    if (needsCollaborativeStorage) {
-      setStorageSheetOpen(true);
-      return;
-    }
-    if (effectiveIsBlacklisted) {
-      return;
-    }
-    if (effectiveJoinPending && !joinCancelReady) {
-      return;
-    }
-    if (isConnected && !viewerAccessResolved) {
-      return;
-    }
-    if (effectiveIsMember && !confirmingLeave) {
-      setConfirmingLeave(true);
-      confirmLeaveTimerRef.current = window.setTimeout(() => {
-        confirmLeaveTimerRef.current = null;
-        setConfirmingLeave(false);
-      }, 4_000);
-      return;
-    }
-    clearConfirmLeave();
-    if (effectiveIsMember && effectiveIsOwner) {
-      openManageSheet('members');
-      return;
-    }
-    void runMembershipAction();
-  };
+  const handleOwnerManage = useCallback(() => {
+    openManageSheet('members');
+  }, [openManageSheet]);
+
+  const {
+    confirmingLeave,
+    actionPending,
+    clearConfirmLeave,
+    handleMembershipClick: runMembershipClick,
+  } = useGuildMembershipAction({
+    groupId,
+    snapshot: membershipSnapshot,
+    canMutate: Boolean(config) && viewerAccessResolved,
+    onOwnerManage: handleOwnerManage,
+    onConfirmed: handleMembershipConfirmed,
+  });
+
+  const handleMembershipClick = () =>
+    runMembershipClick({
+      needsStorage: needsCollaborativeStorage,
+      onNeedsStorage: () => setStorageSheetOpen(true),
+      requireResolvedAccess: true,
+      viewerAccessResolved,
+    });
 
   const openComposerModal = (mode: GuildComposerMode) => (target: PostRow) => {
     setModalError(null);

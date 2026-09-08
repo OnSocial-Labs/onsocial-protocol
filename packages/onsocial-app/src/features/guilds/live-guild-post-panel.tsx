@@ -85,10 +85,8 @@ import {
   sortThreadReplyRows,
   type ThreadReplySort,
 } from '@/lib/thread-reply-sort';
-import {
-  setGuildMembershipActionPending,
-  useGuildMembershipActionPending,
-} from '@/lib/guild-membership-action-pending';
+import { useGuildMembershipAction } from '@/features/guilds/use-guild-membership-action';
+import type { GuildMembershipOutcome } from '@/features/guilds/guild-membership-action';
 import {
   readGuildMembershipCache,
   writeGuildMembershipCache,
@@ -168,7 +166,6 @@ export function LiveGuildPostPanel({
   const threadLayout = resolveThreadLayout(searchParams);
   const mediaUnmuted = searchParams.get('media') === 'unmute';
   const mediaResumeIndex = readPostMediaUnmuteIndex(searchParams);
-  const confirmLeaveTimerRef = useRef<number | null>(null);
   const [loadState, setLoadState] = useState<LoadState>(() =>
     initial ? 'ready' : 'loading'
   );
@@ -211,8 +208,6 @@ export function LiveGuildPostPanel({
     string | null
   >(null);
   const [viewerAccessResolved, setViewerAccessResolved] = useState(false);
-  const [confirmingLeave, setConfirmingLeave] = useState(false);
-  const joinActionPending = useGuildMembershipActionPending(accountId, groupId);
   const [modalTarget, setModalTarget] = useState<PostRow | null>(null);
   const [modalMode, setModalMode] = useState<GuildComposerMode>('quote');
   const [modalSeed, setModalSeed] = useState<{ text: string; files: File[] }>({
@@ -988,137 +983,74 @@ export function LiveGuildPostPanel({
         ? joinCancelReady
         : !isConnected || (viewerAccessResolved && !effectiveIsMember);
 
-  const clearConfirmLeave = () => {
-    if (confirmLeaveTimerRef.current !== null) {
-      window.clearTimeout(confirmLeaveTimerRef.current);
-      confirmLeaveTimerRef.current = null;
-    }
-    setConfirmingLeave(false);
-  };
+  const membershipSnapshot = useMemo(
+    () => ({
+      isMember: effectiveIsMember,
+      joinPending: effectiveJoinPending,
+      isOwner: effectiveIsOwner,
+      isBlacklisted: effectiveIsBlacklisted,
+      accessGated,
+      memberDriven,
+      pendingJoinProposalId,
+      joinCancelReady,
+    }),
+    [
+      accessGated,
+      effectiveIsBlacklisted,
+      effectiveIsMember,
+      effectiveIsOwner,
+      effectiveJoinPending,
+      joinCancelReady,
+      memberDriven,
+      pendingJoinProposalId,
+    ]
+  );
 
-  const runMembershipAction = async () => {
-    if (!isConnected) {
-      await connect();
-      return;
-    }
-    if (effectiveIsBlacklisted) return;
-    if (effectiveIsMember && effectiveIsOwner) {
-      router.push(guildSheetPath(groupId, 'members'));
-      return;
-    }
-    if (effectiveJoinPending && !joinCancelReady) return;
-
-    setGuildMembershipActionPending(accountId, groupId, true);
-    try {
-      const { client } = await getClient();
-      const response = effectiveIsMember
-        ? await client.groups.leave(groupId)
-        : effectiveJoinPending
-          ? memberDriven && pendingJoinProposalId
-            ? await client.groups.cancelProposal(groupId, pendingJoinProposalId)
-            : await client.groups.cancelJoin(groupId)
-          : await client.groups.join(groupId);
-      const txHashes = collectRelayTxHashes(response);
-      const confirmed = await trackTransaction({
-        txHashes,
-        submittedMessage: effectiveIsMember
-          ? txToastConfirming.leavingGuild
-          : effectiveJoinPending
-            ? txToastConfirming.cancelingGuildRequest
-            : accessGated
-              ? txToastConfirming.requestingGuildAccess
-              : txToastConfirming.joiningGuild,
-        successMessage: effectiveIsMember
-          ? txToastSuccess.guildLeft
-          : effectiveJoinPending
-            ? txToastSuccess.guildRequestCanceled
-            : accessGated
-              ? txToastSuccess.guildAccessRequested
-              : txToastSuccess.guildJoined,
-        failureMessage: txToastError.guildMembershipFailed,
-      });
-      if (confirmed) {
-        if (accountId) {
-          writeGuildMembershipCache(accountId, groupId, {
-            isMember: effectiveIsMember
-              ? false
-              : effectiveJoinPending
-                ? false
-                : !accessGated,
-            joinPending: effectiveIsMember
-              ? false
-              : effectiveJoinPending
-                ? false
-                : accessGated,
-          });
-        }
-        if (effectiveIsMember) {
-          setIsMember(false);
-          setJoinPending(false);
-          setJoinCancelReady(false);
-          setPendingJoinProposalId(null);
-          setViewerAccess((current) => ({
-            ...current,
-            isMember: false,
-            isOwner: false,
-            isAdmin: false,
-            canModerate: false,
-          }));
-        } else if (effectiveJoinPending) {
-          setJoinPending(false);
-          setJoinCancelReady(false);
-          setPendingJoinProposalId(null);
-        } else if (accessGated) {
-          setJoinPending(true);
-          // Refresh resolves whether cancellation uses join request or proposal.
-          setJoinCancelReady(false);
-        } else {
-          setIsMember(true);
-          setJoinPending(false);
-        }
-        void refresh({ background: true });
+  const handleMembershipConfirmed = useCallback(
+    (outcome: GuildMembershipOutcome) => {
+      if (outcome === 'left') {
+        setIsMember(false);
+        setJoinPending(false);
+        setJoinCancelReady(false);
+        setPendingJoinProposalId(null);
+        setViewerAccess((current) => ({
+          ...current,
+          isMember: false,
+          isOwner: false,
+          isAdmin: false,
+          canModerate: false,
+        }));
+      } else if (outcome === 'canceled') {
+        setJoinPending(false);
+        setJoinCancelReady(false);
+        setPendingJoinProposalId(null);
+      } else if (outcome === 'requested') {
+        setJoinPending(true);
+        setJoinCancelReady(false);
+      } else {
+        setIsMember(true);
+        setJoinPending(false);
       }
-    } catch (cause) {
-      if (isWalletUserCancellation(cause)) return;
-      setTxResult({
-        type: 'error',
-        msg: txToastError.guildMembershipFailed,
-      });
-    } finally {
-      setGuildMembershipActionPending(accountId, groupId, false);
-    }
-  };
+      void refresh({ background: true });
+    },
+    [refresh]
+  );
 
-  /**
-   * Leave / transfer ownership are destructive — require a second tap.
-   * Owners cannot leave on-chain; confirm opens the members page to transfer.
-   */
-  const handleMembershipClick = () => {
-    if (effectiveIsBlacklisted) return;
-    if (effectiveJoinPending && !joinCancelReady) return;
-    if (effectiveIsMember && !confirmingLeave) {
-      setConfirmingLeave(true);
-      confirmLeaveTimerRef.current = window.setTimeout(() => {
-        confirmLeaveTimerRef.current = null;
-        setConfirmingLeave(false);
-      }, 4_000);
-      return;
-    }
-    clearConfirmLeave();
-    if (effectiveIsMember && effectiveIsOwner) {
-      router.push(guildSheetPath(groupId, 'members'));
-      return;
-    }
-    void runMembershipAction();
-  };
+  const handleOwnerManage = useCallback(() => {
+    router.push(guildSheetPath(groupId, 'members'));
+  }, [groupId, router]);
 
-  useEffect(() => {
-    return () => {
-      if (confirmLeaveTimerRef.current !== null) {
-        window.clearTimeout(confirmLeaveTimerRef.current);
-      }
-    };
-  }, []);
+  const {
+    confirmingLeave,
+    actionPending: joinActionPending,
+    clearConfirmLeave,
+    handleMembershipClick,
+  } = useGuildMembershipAction({
+    groupId,
+    snapshot: membershipSnapshot,
+    onOwnerManage: handleOwnerManage,
+    onConfirmed: handleMembershipConfirmed,
+  });
 
   const membershipActions = (
     <div className="guild-hero-membership-slot guild-thread-nav-membership-slot">
