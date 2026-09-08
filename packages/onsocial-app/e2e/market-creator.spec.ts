@@ -1,14 +1,18 @@
 import { expect, test } from '@playwright/test';
 import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
-import { stubMarketCreatorShop } from './helpers/market-creator';
+import { setE2eGraphMarket } from './helpers/e2e-graph';
+import {
+  MARKET_E2E_CREATOR,
+  stubMarketCreatorShop,
+} from './helpers/market-creator';
 
-const CREATOR = 'e2e.market.testnet';
-const SHOP_PATH = `/market?creator=${encodeURIComponent(CREATOR)}`;
+const SHOP_PATH = `/market?creator=${encodeURIComponent(MARKET_E2E_CREATOR)}`;
 
 test.describe('market creator shop', () => {
   test('empty creator shop is a door, not a listings-only miss', async ({
     page,
   }) => {
+    await setE2eGraphMarket(page, 'shop-empty');
     await stubMarketCreatorShop(page, { drops: 'empty' });
     await gotoApp(page, SHOP_PATH);
 
@@ -44,6 +48,21 @@ test.describe('market creator shop', () => {
     await expect(page.getByRole('button', { name: /Open sort menu/ })).toHaveCount(
       0
     );
+  });
+
+  test('SSR catalog hit paints Night Drive without the shop skeleton', async ({
+    page,
+  }) => {
+    await setE2eGraphMarket(page, 'shop');
+    await stubMarketCreatorShop(page, { drops: 'night-drive' });
+    await gotoApp(page, SHOP_PATH);
+    await expect(page.locator('[data-market-creator-skeleton]')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Mint Night Drive' })
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Open Quiet Print' })).toBeVisible();
+    await expect(page.locator('[data-market-creator-group="live"]')).toBeVisible();
+    await expect(page.locator('[data-market-creator-group="past"]')).toBeVisible();
   });
 
   test('SSR miss keeps the shop skeleton until drops settle', async ({
@@ -82,6 +101,7 @@ test.describe('market creator shop', () => {
   });
 
   test('shop search includes drops', async ({ page }) => {
+    await setE2eGraphMarket(page, 'shop');
     await stubMarketCreatorShop(page, { drops: 'night-drive' });
     await gotoApp(page, SHOP_PATH);
     await expect(

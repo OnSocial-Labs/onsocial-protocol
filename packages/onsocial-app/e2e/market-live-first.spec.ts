@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
+import { setE2eGraphMarket } from './helpers/e2e-graph';
 import { expectMarketChrome } from './helpers/market';
 import { stubMarketLiveFirstBrowse } from './helpers/market-live-first';
 
 test.describe('market live-first browse', () => {
   test('All paints live Buy before ended Settle', async ({ page }) => {
+    await setE2eGraphMarket(page, 'live-first');
     await stubMarketLiveFirstBrowse(page);
     await gotoApp(page, '/market');
     await expectMarketChrome(page);

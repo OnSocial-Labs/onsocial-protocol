@@ -202,7 +202,7 @@ export async function loadMarketPageData(
         ? Promise.resolve([] as MarketSaleItem[])
         : fetchMarketSales({ limit: 20, client }),
       query.creator
-        ? fetchCollectionsByCreator(query.creator, { limit: 48 })
+        ? fetchCollectionsByCreator(query.creator, { limit: 48, client })
         : Promise.resolve([]),
     ]);
     return {
