@@ -39,6 +39,7 @@ export default defineConfig({
             process.env.ONSOCIAL_API_KEY ?? 'ci-e2e-placeholder',
           NEXT_PUBLIC_NEAR_NETWORK:
             process.env.NEXT_PUBLIC_NEAR_NETWORK ?? 'testnet',
+          ...(useNextStart ? { NEXT_PUBLIC_E2E_WALLET: '1' } : {}),
         },
       },
 });

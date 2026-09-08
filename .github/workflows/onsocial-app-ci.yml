@@ -76,6 +76,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: check
+    env:
+      NEXT_PUBLIC_E2E_WALLET: '1'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
