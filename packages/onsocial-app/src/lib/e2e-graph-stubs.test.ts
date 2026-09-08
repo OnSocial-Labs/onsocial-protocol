@@ -4,6 +4,7 @@ import {
   e2eGuildCurrentRows,
   e2eGuildMemberRows,
   e2eHubCatalogRows,
+  e2eMarketShopCatalogRows,
   e2eSeriesCatalogRows,
   e2eVaultCollectionRows,
   e2eVaultOwnedRows,
@@ -13,6 +14,7 @@ import {
   isCreatorCatalogQuery,
   isGraphQueryRequest,
   isGroupsByIdsQuery,
+  isMarketShopCatalogQuery,
   parseE2eGraphCookie,
   resolveE2eGraphStub,
   serializeE2eGraphCookie,
@@ -66,6 +68,16 @@ describe('parseE2eGraphCookie', () => {
     expect(parseE2eGraphCookie('hub=held')).toEqual({ hub: 'held' });
   });
 
+  it('reads market=shop and combined catalog+market', () => {
+    expect(parseE2eGraphCookie('market=shop')).toEqual({ market: 'shop' });
+    expect(parseE2eGraphCookie('market=live-first')).toEqual({
+      market: 'live-first',
+    });
+    expect(serializeE2eGraphCookie({ catalog: 'empty', market: 'shop' })).toBe(
+      'catalog=empty&market=shop'
+    );
+  });
+
   it('reads guild=empty and combined hub+guild', () => {
     expect(parseE2eGraphCookie('guild=empty')).toEqual({ guild: 'empty' });
     expect(parseE2eGraphCookie('guild=owner')).toEqual({ guild: 'owner' });
@@ -83,6 +95,7 @@ describe('parseE2eGraphCookie', () => {
     expect(parseE2eGraphCookie('catalog=vault')).toEqual({});
     expect(parseE2eGraphCookie('vault=catalog')).toEqual({});
     expect(parseE2eGraphCookie('guild=catalog')).toEqual({});
+    expect(parseE2eGraphCookie('market=catalog')).toEqual({});
     expect(parseE2eGraphCookie('')).toEqual({});
   });
 });
@@ -222,6 +235,41 @@ describe('resolveE2eGraphStub', () => {
         cookieValue: 'guild=member',
       })?.data.groupMembersCurrent
     ).toEqual(e2eGuildMemberRows('member'));
+  });
+
+  it('returns Night Drive shop rows for the market creator catalog', () => {
+    const catalogQuery = 'query ScarcesCollectionsCurrent($limit: Int!) { x }';
+    expect(
+      isMarketShopCatalogQuery(catalogQuery, {
+        creatorId: 'e2e.market.testnet',
+      })
+    ).toBe(true);
+    expect(
+      resolveE2eGraphStub({
+        query: catalogQuery,
+        variables: { creatorId: 'e2e.market.testnet' },
+        cookieValue: 'market=shop',
+      })?.data.scarcesCollectionsCurrent
+    ).toEqual(e2eMarketShopCatalogRows('shop'));
+    expect(
+      resolveE2eGraphStub({
+        query: catalogQuery,
+        variables: { creatorId: 'alice.near' },
+        cookieValue: 'market=shop',
+      })
+    ).toBeNull();
+    expect(
+      resolveE2eGraphStub({
+        query: 'query ScarcesActiveListings($limit: Int!) { x }',
+        cookieValue: 'market=shop-empty',
+      })
+    ).toEqual({ data: { scarcesActiveListings: [] } });
+    expect(
+      resolveE2eGraphStub({
+        query: 'query ScarcesActiveListings($limit: Int!) { x }',
+        cookieValue: 'market=live-first',
+      })?.data.scarcesActiveListings
+    ).toHaveLength(2);
   });
 
   it('recognizes gateway and BFF graph/query POSTs', () => {

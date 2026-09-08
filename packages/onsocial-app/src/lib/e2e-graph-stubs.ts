@@ -5,7 +5,7 @@
  *
  * Tests opt in with cookie `onsocial.e2e.graph`
  * (`catalog=night-roads`, `vault=default`, `hub=catalog`, `guild=empty`,
- * or combined).
+ * `market=shop`, or combined).
  * No cookie → live indexer / existing `page.route` only (SSR miss still works).
  */
 
@@ -20,20 +20,27 @@ export const E2E_GUILD_TITLE = 'Audit Guild';
 /** Stored name embeds a raw id so the hero must clean it. */
 export const E2E_GUILD_STORED_NAME = `${E2E_GUILD_TITLE} grp_md_perm_1779813274071_ojf237`;
 export const E2E_GUILD_OWNER = 'alice.near';
+export const E2E_MARKET_CREATOR = 'e2e.market.testnet';
+export const E2E_MARKET_LIVE_ASK = 'e2e-live-first Live Ask';
+export const E2E_MARKET_ENDED_LOT = 'e2e-live-first Ended Lot';
 
 export type E2eGraphCatalog = 'night-roads' | 'empty';
 export type E2eGraphVault = 'default' | 'many-creators' | 'empty';
 export type E2eGraphHub = 'catalog' | 'empty' | 'held' | 'staff';
 export type E2eGraphGuild = 'empty' | 'missing' | 'member' | 'banned' | 'owner';
+export type E2eGraphMarket = 'shop' | 'shop-empty' | 'live-first';
 
 export type E2eGraphCookieValue = {
   catalog?: E2eGraphCatalog;
   vault?: E2eGraphVault;
   hub?: E2eGraphHub;
   guild?: E2eGraphGuild;
+  market?: E2eGraphMarket;
 };
 
 const TWO_NEAR_YOCTO = '2000000000000000000000000';
+const ONE_NEAR_YOCTO = '1000000000000000000000000';
+const SIX_TENTHS_NEAR_YOCTO = '600000000000000000000000';
 const NIGHT_ROADS = { id: 'night-roads', title: 'Night Roads' };
 const FIXTURE_CREATED_AT = 1_700_000_000_000;
 const FIXTURE_ENDED_AT = 1_699_913_600_000;
@@ -85,6 +92,14 @@ export function parseE2eGraphCookie(
   ) {
     parsed.guild = guild;
   }
+  const market = params.get('market');
+  if (
+    market === 'shop' ||
+    market === 'shop-empty' ||
+    market === 'live-first'
+  ) {
+    parsed.market = market;
+  }
   return parsed;
 }
 
@@ -94,6 +109,7 @@ export function serializeE2eGraphCookie(opts: E2eGraphCookieValue): string {
   if (opts.vault) params.set('vault', opts.vault);
   if (opts.hub) params.set('hub', opts.hub);
   if (opts.guild) params.set('guild', opts.guild);
+  if (opts.market) params.set('market', opts.market);
   return params.toString();
 }
 
@@ -114,6 +130,10 @@ export function isOwnedByQuery(query: string): boolean {
 
 export function isActiveListingsQuery(query: string): boolean {
   return query.includes('ScarcesActiveListings');
+}
+
+export function isScarcesEventsQuery(query: string): boolean {
+  return query.includes('ScarcesEvents');
 }
 
 export function isAppRowQuery(query: string): boolean {
@@ -195,6 +215,17 @@ export function isAppCatalogQuery(
   return (
     isCreatorCatalogQuery(query) &&
     (typeof variables.appId === 'string' || Array.isArray(variables.appIds))
+  );
+}
+
+export function isMarketShopCatalogQuery(
+  query: string,
+  variables: Record<string, unknown> = {}
+): boolean {
+  return (
+    isCreatorCatalogQuery(query) &&
+    !isAppCatalogQuery(query, variables) &&
+    variables.creatorId === E2E_MARKET_CREATOR
   );
 }
 
@@ -629,6 +660,95 @@ export function e2eGuildMemberCountRows(guild: E2eGraphGuild) {
   ];
 }
 
+export function e2eMarketShopCatalogRows(market: E2eGraphMarket) {
+  if (market !== 'shop') return [];
+  return [
+    collectionRow({
+      collectionId: 'night-drive',
+      creatorId: E2E_MARKET_CREATOR,
+      title: 'Night Drive',
+      kind: 'audio',
+      extra: { audioFormat: 'album' },
+    }),
+    collectionRow({
+      collectionId: 'quiet-print',
+      creatorId: E2E_MARKET_CREATOR,
+      title: 'Quiet Print',
+      kind: 'art',
+      endTime: FIXTURE_ENDED_AT,
+    }),
+  ];
+}
+
+export function e2eMarketListingRows(market: E2eGraphMarket) {
+  if (market !== 'live-first') return [];
+  const now = Date.now();
+  return [
+    {
+      listingKey: 'auction:e2e-ended',
+      kind: 'auction',
+      listingId: null,
+      tokenId: 'e2e-ended:1',
+      sellerId: E2E_MARKET_CREATOR,
+      creatorId: E2E_MARKET_CREATOR,
+      appId: null,
+      price: SIX_TENTHS_NEAR_YOCTO,
+      priceNumeric: 0.6,
+      reservePrice: SIX_TENTHS_NEAR_YOCTO,
+      buyNowPrice: null,
+      highestBid: SIX_TENTHS_NEAR_YOCTO,
+      bidCount: 1,
+      copies: 1,
+      remaining: 1,
+      mintedCount: 1,
+      expiresAt: now - 3_600_000,
+      title: E2E_MARKET_ENDED_LOT,
+      media: null,
+      sourcePostPath: null,
+      cardBg: null,
+      extraJson: null,
+      mediumKind: 'art',
+      audioFormat: null,
+      facets: [],
+      listedBlockHeight: 1,
+      listedBlockTimestamp: now,
+      updatedBlockHeight: 1,
+      updatedBlockTimestamp: now,
+    },
+    {
+      listingKey: 'native:e2e-live',
+      kind: 'native',
+      listingId: null,
+      tokenId: 'e2e-live:1',
+      sellerId: E2E_MARKET_CREATOR,
+      creatorId: E2E_MARKET_CREATOR,
+      appId: null,
+      price: ONE_NEAR_YOCTO,
+      priceNumeric: 1,
+      reservePrice: null,
+      buyNowPrice: null,
+      highestBid: null,
+      bidCount: 0,
+      copies: 1,
+      remaining: 1,
+      mintedCount: 1,
+      expiresAt: null,
+      title: E2E_MARKET_LIVE_ASK,
+      media: null,
+      sourcePostPath: null,
+      cardBg: null,
+      extraJson: null,
+      mediumKind: 'art',
+      audioFormat: null,
+      facets: [],
+      listedBlockHeight: 1,
+      listedBlockTimestamp: now - 86_400_000,
+      updatedBlockHeight: 1,
+      updatedBlockTimestamp: now - 86_400_000,
+    },
+  ];
+}
+
 export function resolveE2eGraphStub(opts: {
   query: string;
   variables?: Record<string, unknown>;
@@ -693,6 +813,27 @@ export function resolveE2eGraphStub(opts: {
     };
   }
   if (parsed.guild && isProfileBatchQuery(opts.query)) {
+    return { data: { profileSearch: [], profileKinds: [] } };
+  }
+
+  if (
+    parsed.market &&
+    (parsed.market === 'shop' || parsed.market === 'shop-empty') &&
+    isMarketShopCatalogQuery(opts.query, variables)
+  ) {
+    return {
+      data: { scarcesCollectionsCurrent: e2eMarketShopCatalogRows(parsed.market) },
+    };
+  }
+  if (parsed.market && isActiveListingsQuery(opts.query)) {
+    return {
+      data: { scarcesActiveListings: e2eMarketListingRows(parsed.market) },
+    };
+  }
+  if (parsed.market && isScarcesEventsQuery(opts.query)) {
+    return { data: { scarcesEvents: [] } };
+  }
+  if (parsed.market && isProfileBatchQuery(opts.query)) {
     return { data: { profileSearch: [], profileKinds: [] } };
   }
 

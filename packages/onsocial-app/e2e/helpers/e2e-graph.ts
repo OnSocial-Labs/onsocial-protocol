@@ -7,6 +7,7 @@ import {
   type E2eGraphCookieValue,
   type E2eGraphGuild,
   type E2eGraphHub,
+  type E2eGraphMarket,
   type E2eGraphVault,
 } from '../../src/lib/e2e-graph-stubs';
 
@@ -67,4 +68,12 @@ export async function setE2eGraphGuild(
   guild: E2eGraphGuild
 ): Promise<void> {
   await setE2eGraphCookie(page, { guild });
+}
+
+/** Opt SSR + BFF into a market fixture. Omit for the shop SSR-miss test. */
+export async function setE2eGraphMarket(
+  page: Page,
+  market: E2eGraphMarket
+): Promise<void> {
+  await setE2eGraphCookie(page, { market });
 }
