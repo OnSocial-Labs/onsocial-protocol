@@ -36183,6 +36183,18 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
+  .guild-feed-filter-chip-shimmer {
+    display: inline-block;
+    flex: 0 0 auto;
+    width: 3.6rem;
+    height: 1.55rem;
+    border-radius: 9999px;
+  }
+
+  .guild-feed-filter-chip-shimmer + .guild-feed-filter-chip-shimmer {
+    width: 4.4rem;
+  }
+
   .guild-feed-filter-button--add {
     display: inline-grid;
     place-items: center;

@@ -56,7 +56,7 @@ export function GuildRoomsSheet({
     connect,
   } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
-  const { trackTransaction } = useAppTransactionFeedback();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
 
   const [closing, setClosing] = useState(false);
   const [loadState, setLoadState] = useState<
@@ -200,9 +200,10 @@ export function GuildRoomsSheet({
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
-      setError(
-        cause instanceof Error ? cause.message : 'Could not save rooms.'
-      );
+      setTxResult({
+        type: 'error',
+        msg: txToastError.guildSettingsFailed,
+      });
     } finally {
       setPending(false);
     }
@@ -277,7 +278,6 @@ export function GuildRoomsSheet({
             disabled={pending}
             discoveredChannels={discoveredChannels}
           />
-          {error ? <p className="guild-form-error">{error}</p> : null}
         </>
       ) : null}
     </OsHugSheet>

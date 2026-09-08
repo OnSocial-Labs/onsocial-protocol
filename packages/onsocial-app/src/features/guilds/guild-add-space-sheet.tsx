@@ -19,6 +19,7 @@ import { persistGuildStructure } from '@/features/guilds/persist-guild-structure
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { SHEET_Z } from '@/lib/sheet-z';
+import { txToastError } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const POLICY_CHIP_LABEL: Record<GuildSpacePostPolicy, string> = {
@@ -60,7 +61,7 @@ export function GuildAddSpaceSheet({
 }: GuildAddSpaceSheetProps) {
   const shareLabelId = useId();
   const { getClient } = useAppOnSocialClient();
-  const { trackTransaction } = useAppTransactionFeedback();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const scrollFieldIntoView = useMobileFieldFocusScroll();
   const [title, setTitle] = useState('');
   const [postPolicy, setPostPolicy] = useState<GuildSpacePostPolicy>('members');
@@ -133,9 +134,10 @@ export function GuildAddSpaceSheet({
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
-      setError(
-        cause instanceof Error ? cause.message : 'Could not add this room.'
-      );
+      setTxResult({
+        type: 'error',
+        msg: txToastError.guildSettingsFailed,
+      });
     } finally {
       setPending(false);
     }

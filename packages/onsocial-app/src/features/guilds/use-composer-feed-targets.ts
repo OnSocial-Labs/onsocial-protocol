@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { GroupMembershipCurrentRow } from '@onsocial/sdk';
+import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import { normalizeGuildConfig } from '@/features/guilds/guild-config';
 import {
   composerGuildSpaces,
@@ -80,14 +81,14 @@ export function useComposerFeedTargets(args: {
     const membership = memberships.find((row) => row.groupId === targetId);
     if (!membership) {
       setGuildSpaces([]);
-      setGuildName(targetId);
+      setGuildName(guildDisplayName(null, targetId));
       setGuildLoading(true);
       return;
     }
 
     let cancelled = false;
     setGuildLoading(true);
-    setGuildName(membership.groupName?.trim() || targetId);
+    setGuildName(guildDisplayName(membership.groupName, targetId));
     const client = createReadOnlyOnSocialClient();
     void (async () => {
       try {
@@ -97,7 +98,12 @@ export function useComposerFeedTargets(args: {
         if (raw) {
           const config = normalizeGuildConfig(targetId, raw);
           const spaces = composerGuildSpaces(config.structure, access);
-          setGuildName(config.name || membership.groupName || targetId);
+          setGuildName(
+            guildDisplayName(
+              config.name || membership.groupName,
+              targetId
+            )
+          );
           setGuildSpaces(spaces);
           const preferred =
             defaultComposerSpace(config.structure, access)?.id ??
@@ -107,12 +113,12 @@ export function useComposerFeedTargets(args: {
             spaces.some((space) => space.id === current) ? current : preferred
           );
         } else {
-          setGuildName(membership.groupName?.trim() || targetId);
+          setGuildName(guildDisplayName(membership.groupName, targetId));
           setGuildSpaces([]);
         }
       } catch {
         if (!cancelled) {
-          setGuildName(membership.groupName?.trim() || targetId);
+          setGuildName(guildDisplayName(membership.groupName, targetId));
           setGuildSpaces([]);
           onError?.('Could not load that guild’s rooms.');
         }
@@ -133,7 +139,7 @@ export function useComposerFeedTargets(args: {
       if (!id) continue;
       options.push({
         id,
-        label: row.groupName?.trim() || id,
+        label: guildDisplayName(row.groupName, id),
       });
     }
     return options;
@@ -152,7 +158,7 @@ export function useComposerFeedTargets(args: {
     targetId !== COMPOSER_PERSONAL_TARGET
       ? {
           kind: 'guild' as const,
-          name: guildName || targetId,
+          name: guildDisplayName(guildName, targetId),
           channels: guildSpaces.map((space) => ({
             id: space.id,
             title: space.title,

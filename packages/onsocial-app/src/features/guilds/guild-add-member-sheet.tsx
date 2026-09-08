@@ -56,7 +56,7 @@ export function GuildAddMemberSheet({
 }: GuildAddMemberSheetProps) {
   const { accountId: viewerId } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
-  const { trackTransaction } = useAppTransactionFeedback();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
 
   const [closing, setClosing] = useState(false);
   const [query, setQuery] = useState('');
@@ -65,7 +65,6 @@ export function GuildAddMemberSheet({
   const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const sheetOpen = open && !closing;
   const excludedIds = useMemo(() => {
@@ -87,7 +86,6 @@ export function GuildAddMemberSheet({
     setSearchError(null);
     setSelectedId(null);
     setPending(false);
-    setError(null);
   }, [open]);
 
   useEffect(() => {
@@ -162,7 +160,6 @@ export function GuildAddMemberSheet({
     if (!selected || pending) return;
 
     setPending(true);
-    setError(null);
     try {
       const { client } = await getClient();
       const response = await client.groups.addMember(
@@ -182,9 +179,10 @@ export function GuildAddMemberSheet({
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
-      setError(
-        cause instanceof Error ? cause.message : 'Could not add this member.'
-      );
+      setTxResult({
+        type: 'error',
+        msg: txToastError.guildAddMemberFailed,
+      });
     } finally {
       setPending(false);
     }
@@ -211,11 +209,6 @@ export function GuildAddMemberSheet({
       bodyClassName="guild-facts-sheet-body"
       footer={
         <div className="guild-add-member-footer">
-          {error ? (
-            <p className="guild-form-error" role="alert">
-              {error}
-            </p>
-          ) : null}
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
             <OsSheetAction
               type="button"
@@ -249,7 +242,6 @@ export function GuildAddMemberSheet({
           value={query}
           onValueChange={(next) => {
             setQuery(next);
-            setError(null);
           }}
           placeholder="Search profiles"
           maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
@@ -305,7 +297,6 @@ export function GuildAddMemberSheet({
                     disabled={pending}
                     onClick={() => {
                       setSelectedId(profile.accountId);
-                      setError(null);
                     }}
                   >
                     <StandingIdentity

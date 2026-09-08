@@ -55,6 +55,9 @@ test.describe('guild page', () => {
     await expect(page.locator('[data-guild-page-skeleton]').first()).toBeVisible({
       timeout: 8_000,
     });
+    await expect(
+      page.locator('[data-guild-page-skeleton] [data-guild-room-rail-skeleton]')
+    ).toBeVisible();
     await expect(page.getByText(GUILD_E2E_EMPTY_FEED)).toHaveCount(0);
     await expect(
       page.getByRole('heading', { name: GUILD_E2E_TITLE }).first()
@@ -111,6 +114,7 @@ test.describe('guild page', () => {
     await page.getByRole('button', { name: 'Guild facts' }).click();
     const facts = page.getByRole('dialog', { name: GUILD_E2E_TITLE });
     await expect(facts).toBeVisible();
+    await expect(facts.getByText(GUILD_E2E_STORED_NAME)).toHaveCount(0);
     await expect(
       facts.getByText('Anyone can join and post. Activity stays public.')
     ).toBeVisible();

@@ -160,7 +160,7 @@ export function GuildMemberRowMenu({
   onAddStorage,
 }: GuildMemberRowMenuProps) {
   const { getClient } = useAppOnSocialClient();
-  const { trackTransaction } = useAppTransactionFeedback();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [confirmAction, setConfirmAction] =
@@ -169,7 +169,6 @@ export function GuildMemberRowMenu({
   const [supportOnSubmit, setSupportOnSubmit] = useState(true);
   const [pending, setPending] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
 
   const sheetOpen = open && !closing;
   const actions =
@@ -193,7 +192,6 @@ export function GuildMemberRowMenu({
     setConfirmAction(null);
     setKeepOwnerAsMember(false);
     setSupportOnSubmit(true);
-    setActionError(null);
   }, []);
 
   const resetConfirm = useCallback(() => {
@@ -201,7 +199,6 @@ export function GuildMemberRowMenu({
     setConfirmAction(null);
     setKeepOwnerAsMember(false);
     setSupportOnSubmit(true);
-    setActionError(null);
   }, [pending]);
 
   const handleMenuAction = useCallback(
@@ -224,7 +221,6 @@ export function GuildMemberRowMenu({
       }
 
       setCopyError(null);
-      setActionError(null);
       setKeepOwnerAsMember(false);
       setSupportOnSubmit(true);
       setConfirmAction(action);
@@ -236,7 +232,6 @@ export function GuildMemberRowMenu({
     if (!confirmAction || pending) return;
 
     setPending(true);
-    setActionError(null);
     try {
       const { client, accountId, wallet } = await getClient();
       const removeOldOwner =
@@ -259,7 +254,6 @@ export function GuildMemberRowMenu({
         submittedMessage: toast.confirming,
         successMessage: toast.success,
         failureMessage: toast.failure,
-        onFailure: (message) => setActionError(message),
       });
       if (confirmed) {
         onActionComplete?.({
@@ -272,9 +266,12 @@ export function GuildMemberRowMenu({
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
-      setActionError(
-        cause instanceof Error ? cause.message : 'Could not update member.'
-      );
+      setTxResult({
+        type: 'error',
+        msg: confirmAction
+          ? toastCopyForAction(confirmAction).failure
+          : txToastError.guildSettingsFailed,
+      });
     } finally {
       setPending(false);
     }
@@ -287,6 +284,7 @@ export function GuildMemberRowMenu({
     member.memberId,
     onActionComplete,
     pending,
+    setTxResult,
     supportOnSubmit,
     trackTransaction,
   ]);
@@ -375,11 +373,6 @@ export function GuildMemberRowMenu({
                 />
                 <span>Support when submitted</span>
               </label>
-            ) : null}
-            {actionError ? (
-              <p className="guild-form-error" role="alert">
-                {actionError}
-              </p>
             ) : null}
           </OsActionDrawerConfirm>
         ) : undefined}

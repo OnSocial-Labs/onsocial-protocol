@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   InformationCircleIcon,
   OsHugSheet,
@@ -199,6 +199,21 @@ function GuildRoomFactsSheet({
   );
 }
 
+/** Same pin + chip scale as the live rail — reserves the slot while rooms load. */
+export function GuildFeedFilterSkeleton() {
+  return (
+    <div className="guild-feed-filter-pin" data-guild-room-rail-skeleton>
+      <div className="guild-feed-filter-pin-inner">
+        <div className="guild-feed-filter-list" aria-hidden>
+          <span className="guild-feed-filter-button is-active">All</span>
+          <span className="standing-row-shimmer guild-feed-filter-chip-shimmer" />
+          <span className="standing-row-shimmer guild-feed-filter-chip-shimmer" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function GuildFeedFilterList({
   groupId,
   selectedFeedFilterId,
@@ -225,6 +240,25 @@ export function GuildFeedFilterList({
   scrollHidden?: boolean;
 }) {
   const [factsSpace, setFactsSpace] = useState<GuildSpace | null>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const activeChipRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const chip = activeChipRef.current;
+    const scroller = scrollerRef.current;
+    if (!chip || !scroller) return;
+    const chipLeft = chip.offsetLeft;
+    const chipRight = chipLeft + chip.offsetWidth;
+    const viewLeft = scroller.scrollLeft;
+    const viewRight = viewLeft + scroller.clientWidth;
+    if (chipLeft < viewLeft + 8 || chipRight > viewRight - 8) {
+      chip.scrollIntoView({
+        behavior: 'smooth',
+        inline: 'nearest',
+        block: 'nearest',
+      });
+    }
+  }, [selectedFeedFilterId, feedSpaces.length]);
 
   return (
     <>
@@ -235,6 +269,7 @@ export function GuildFeedFilterList({
           }`}
         >
           <div
+            ref={scrollerRef}
             className="guild-feed-filter-list"
             role="tablist"
             aria-label="Guild rooms"
@@ -244,6 +279,13 @@ export function GuildFeedFilterList({
               type="button"
               role="tab"
               aria-selected={selectedFeedFilterId === 'all'}
+              ref={
+                selectedFeedFilterId === 'all'
+                  ? (node) => {
+                      activeChipRef.current = node;
+                    }
+                  : undefined
+              }
               onClick={() => onSelectFeedFilter('all')}
             >
               All
@@ -261,6 +303,13 @@ export function GuildFeedFilterList({
                     isActive ? `${space.title}, room details` : space.title
                   }
                   title={isActive ? 'Room details' : undefined}
+                  ref={
+                    isActive
+                      ? (node) => {
+                          activeChipRef.current = node;
+                        }
+                      : undefined
+                  }
                   onClick={() => {
                     if (isActive) {
                       setFactsSpace(space);
