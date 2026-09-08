@@ -83,7 +83,6 @@ import { useGuildMembershipAction } from '@/features/guilds/use-guild-membership
 import type { GuildMembershipOutcome } from '@/features/guilds/guild-membership-action';
 import {
   GUILD_THREAD_LOAD_ERROR,
-  groupPostContentPath,
   guildThreadLoadMoreFallback,
   useGuildThreadData,
   type GuildThreadLoadMoreError,
