@@ -59,6 +59,8 @@ import { useOsPortalHost } from '@/contexts/os-portal-host-context';
 import { accountIdsEqual } from '@/lib/account-match';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
+import { useOsLauncherLastPlace } from '@/hooks/use-os-launcher-last-place';
+import { withOsLastPlaceApp } from '@/lib/os-launcher-last-place';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { ThemeToggle } from '@/components/os/theme-toggle';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
@@ -230,6 +232,11 @@ export function SummonLauncher({
   const { moodId: dockMoodId, style: dockMoodStyle } =
     useViewerDockMood(pageAccountId);
   const { navigate, openingPage } = useOsAppNavigate(pageAccountId);
+  const lastPlace = useOsLauncherLastPlace(pathname, accountId);
+  const launcherApps = useMemo(
+    () => withOsLastPlaceApp(apps, lastPlace),
+    [apps, lastPlace]
+  );
   const activeAppId = resolveActiveOsAppId(pathname, accountId);
   const [openInternal, setOpenInternal] = useState(false);
   const open = openProp ?? openInternal;
@@ -649,7 +656,7 @@ export function SummonLauncher({
                   <ul
                     className={`${osLauncherGridClassName} ${osLauncherPageClassName}`}
                   >
-                    {apps.map((app) => (
+                    {launcherApps.map((app) => (
                       <li key={app.id}>
                         <LauncherAppTile
                           app={app}
