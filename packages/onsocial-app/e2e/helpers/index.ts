@@ -30,6 +30,7 @@ export {
   expectChoiceMenuVisible,
   expectSearchHidden,
   expectSearchVisible,
+  typeDiscoverPeopleSearch,
   expectTabSelected,
   expectTabVisible,
   searchField,

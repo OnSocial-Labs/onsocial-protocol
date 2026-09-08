@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { E2E_CHROME_TIMEOUT_MS } from './navigation';
+import { dismissNextDevOverlay, E2E_CHROME_TIMEOUT_MS } from './navigation';
 
 export function tablist(page: Page, name: string | RegExp): Locator {
   return page.getByRole('tablist', { name });
@@ -68,6 +68,39 @@ export async function expectSearchVisible(
   await expect(searchField(page, name)).toBeVisible({
     timeout: opts?.timeout ?? E2E_CHROME_TIMEOUT_MS,
   });
+}
+
+const DISCOVER_OMNI_SEARCH = 'Search people, topics, and tickers';
+
+/**
+ * Type a people query on Discover Moving. The omni field can paint from SSR
+ * before `setQuery` is live — click, fill, and retry once if Profiles
+ * never selects.
+ */
+export async function typeDiscoverPeopleSearch(
+  page: Page,
+  query: string
+): Promise<void> {
+  await dismissNextDevOverlay(page);
+  await expectSearchVisible(page, DISCOVER_OMNI_SEARCH);
+  const field = searchField(page, DISCOVER_OMNI_SEARCH);
+  const profiles = tab(page, 'Discover', 'Profiles');
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await dismissNextDevOverlay(page);
+    await field.click();
+    await field.fill(query);
+    try {
+      await expect(profiles).toHaveAttribute('aria-selected', 'true', {
+        timeout: 8_000,
+      });
+      return;
+    } catch (error) {
+      if (attempt === 1) {
+        throw error;
+      }
+    }
+  }
 }
 
 export async function expectSearchHidden(
