@@ -1,94 +1,34 @@
 import type { Page } from '@playwright/test';
+import {
+  E2E_HUB_CREATOR_B,
+  E2E_HUB_ID,
+  E2E_HUB_OWNER,
+  E2E_HUB_TITLE,
+  e2eHubAppRow,
+  e2eHubCatalogRows,
+  e2eHubHeldCollectionRows,
+  e2eHubOwnedRows,
+  e2eHubStatsRow,
+  type E2eGraphHub,
+} from '../../src/lib/e2e-graph-stubs';
 
-const TWO_NEAR_YOCTO = '2000000000000000000000000';
-
-export const HUB_E2E_ID = 'e2e-hub';
-export const HUB_E2E_TITLE = 'Audit Hub';
-export const HUB_E2E_OWNER = 'alice.near';
+export const HUB_E2E_ID = E2E_HUB_ID;
+export const HUB_E2E_TITLE = E2E_HUB_TITLE;
+export const HUB_E2E_OWNER = E2E_HUB_OWNER;
 export const HUB_E2E_PATH = `/apps/${encodeURIComponent(HUB_E2E_ID)}`;
+export const HUB_E2E_CREATOR_B = E2E_HUB_CREATOR_B;
 
-export const HUB_E2E_CREATOR_B = 'bob.near';
-
-function collectionRow(opts: {
-  collectionId: string;
-  title: string;
-  kind: string;
-  extra?: Record<string, unknown>;
-  endTime?: number | null;
-  creatorId?: string;
-}) {
-  return {
-    collectionId: opts.collectionId,
-    creatorId: opts.creatorId ?? HUB_E2E_OWNER,
-    appId: HUB_E2E_ID,
-    price: TWO_NEAR_YOCTO,
-    allowlistPrice: null,
-    totalSupply: 10,
-    mintedCount: 2,
-    remaining: 8,
-    startTime: null,
-    endTime: opts.endTime ?? null,
-    createdAt: Date.now() - 86_400_000,
-    mintMode: null,
-    maxPerWallet: null,
-    paused: false,
-    cancelled: false,
-    banned: false,
-    transferable: true,
-    renewable: false,
-    maxRedeems: null,
-    randomAssignment: false,
-    appCommissionBps: null,
-    title: opts.title,
-    media: null,
-    description: null,
-    kind: opts.kind,
-    mediumKind: opts.kind,
-    sourcePostPath: null,
-    metadataTemplate: JSON.stringify({
-      title: opts.title,
-      extra: JSON.stringify({ kind: opts.kind, ...opts.extra }),
-    }),
-    metadata: null,
-    extraJson: JSON.stringify({
-      kind: opts.kind,
-      ...opts.extra,
-    }),
-    royaltyJson: null,
-    createdBlockHeight: 1,
-    createdBlockTimestamp: 1,
-    updatedBlockHeight: 1,
-    updatedBlockTimestamp: 1,
-  };
+function hubFixture(opts?: {
+  rows?: 'catalog' | 'empty';
+  held?: boolean;
+  ownerId?: string;
+}): E2eGraphHub {
+  if (opts?.held) return 'held';
+  if (opts?.ownerId) return 'staff';
+  return opts?.rows === 'catalog' ? 'catalog' : 'empty';
 }
 
-const HUB_APP_ROW = {
-  appId: HUB_E2E_ID,
-  ownerId: HUB_E2E_OWNER,
-  primarySaleBps: 250,
-  creatorAccess: 'open',
-  metadata: JSON.stringify({
-    name: HUB_E2E_TITLE,
-    description: 'A stub hub for e2e.',
-  }),
-  createdBlockTimestamp: 1,
-  updatedBlockTimestamp: 1,
-};
-
-const HUB_STATS = {
-  appId: HUB_E2E_ID,
-  dropsTotal: 4,
-  mintedTotal: 12,
-  uniqueHolders: 6,
-  salesCount: 3,
-  salesVolume: '4000000000000000000000000',
-  liveListings: 2,
-  lastActivityTimestamp: Date.now() * 1_000_000,
-};
-
-const HELD_OWNER = 'greenghost.onsocial.testnet';
-
-/** Browser GraphQL for hub catalog settle (SSR still misses in this env). */
+/** Browser GraphQL for hub catalog settle. Pair with `setE2eGraphHub` for SSR. */
 export async function stubHubPage(
   page: Page,
   opts?: {
@@ -100,10 +40,9 @@ export async function stubHubPage(
     ownerId?: string;
   }
 ): Promise<void> {
-  const rows = opts?.rows ?? 'empty';
   const catalogDelayMs = opts?.catalogDelayMs ?? 0;
   const held = opts?.held === true;
-  const ownerId = opts?.ownerId?.trim() || HUB_E2E_OWNER;
+  const hub = hubFixture(opts);
   await page.route('**/api/onapi/graph/query', async (route) => {
     const raw = route.request().postData() ?? '';
     let query = '';
@@ -118,30 +57,7 @@ export async function stubHubPage(
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          data: {
-            scarcesTokenOwners: held
-              ? [
-                  {
-                    tokenId: 'night-drive:3',
-                    ownerId: HELD_OWNER,
-                    burned: false,
-                    collectionId: 'night-drive',
-                    appId: HUB_E2E_ID,
-                    mintedBlockTimestamp: 1,
-                    updatedBlockTimestamp: 3,
-                  },
-                  {
-                    tokenId: 'dusk-run:1',
-                    ownerId: HELD_OWNER,
-                    burned: false,
-                    collectionId: 'dusk-run',
-                    appId: HUB_E2E_ID,
-                    mintedBlockTimestamp: 1,
-                    updatedBlockTimestamp: 4,
-                  },
-                ]
-              : [],
-          },
+          data: { scarcesTokenOwners: e2eHubOwnedRows(hub) },
         }),
       });
       return;
@@ -152,22 +68,7 @@ export async function stubHubPage(
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          data: {
-            scarcesCollectionsCurrent: [
-              collectionRow({
-                collectionId: 'night-drive',
-                title: 'Night Drive',
-                kind: 'audio',
-                extra: { audioFormat: 'album' },
-              }),
-              collectionRow({
-                collectionId: 'dusk-run',
-                title: 'Dusk Run',
-                kind: 'audio',
-                extra: { audioFormat: 'single' },
-              }),
-            ],
-          },
+          data: { scarcesCollectionsCurrent: e2eHubHeldCollectionRows() },
         }),
       });
       return;
@@ -178,7 +79,7 @@ export async function stubHubPage(
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          data: { scarcesApps: [{ ...HUB_APP_ROW, ownerId }] },
+          data: { scarcesApps: [e2eHubAppRow(hub)] },
         }),
       });
       return;
@@ -188,7 +89,7 @@ export async function stubHubPage(
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: { scarcesAppStats: [HUB_STATS] } }),
+        body: JSON.stringify({ data: { scarcesAppStats: [e2eHubStatsRow()] } }),
       });
       return;
     }
@@ -200,35 +101,11 @@ export async function stubHubPage(
       if (catalogDelayMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, catalogDelayMs));
       }
-      const catalog =
-        rows === 'catalog'
-          ? [
-              collectionRow({
-                collectionId: 'night-drive',
-                title: 'Night Drive',
-                kind: 'audio',
-                extra: { audioFormat: 'album' },
-              }),
-              collectionRow({
-                collectionId: 'quiet-print',
-                title: 'Quiet Print',
-                kind: 'art',
-                endTime: Date.now() - 86_400_000,
-                creatorId: HUB_E2E_CREATOR_B,
-              }),
-              collectionRow({
-                collectionId: 'dusk-run',
-                title: 'Dusk Run',
-                kind: 'audio',
-                extra: { audioFormat: 'single' },
-              }),
-            ]
-          : [];
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          data: { scarcesCollectionsCurrent: catalog },
+          data: { scarcesCollectionsCurrent: e2eHubCatalogRows(hub) },
         }),
       });
       return;

@@ -5,6 +5,7 @@ import {
   serializeE2eGraphCookie,
   type E2eGraphCatalog,
   type E2eGraphCookieValue,
+  type E2eGraphHub,
   type E2eGraphVault,
 } from '../../src/lib/e2e-graph-stubs';
 
@@ -49,4 +50,12 @@ export async function setE2eGraphVault(
   vault: E2eGraphVault
 ): Promise<void> {
   await setE2eGraphCookie(page, { vault });
+}
+
+/** Opt SSR + BFF into a hub fixture. Omit for the SSR-miss skeleton test. */
+export async function setE2eGraphHub(
+  page: Page,
+  hub: E2eGraphHub
+): Promise<void> {
+  await setE2eGraphCookie(page, { hub });
 }

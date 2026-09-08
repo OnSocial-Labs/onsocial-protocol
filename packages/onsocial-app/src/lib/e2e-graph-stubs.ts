@@ -4,19 +4,25 @@
  * CI / local e2e set the flag at process start (not `NEXT_PUBLIC_`).
  *
  * Tests opt in with cookie `onsocial.e2e.graph`
- * (`catalog=night-roads`, `vault=default`, or both).
+ * (`catalog=night-roads`, `vault=default`, `hub=catalog`, or combined).
  * No cookie → live indexer / existing `page.route` only (SSR miss still works).
  */
 
 export const E2E_GRAPH_COOKIE = 'onsocial.e2e.graph';
 export const E2E_VAULT_OWNER = 'greenghost.onsocial.testnet';
+export const E2E_HUB_ID = 'e2e-hub';
+export const E2E_HUB_TITLE = 'Audit Hub';
+export const E2E_HUB_OWNER = 'alice.near';
+export const E2E_HUB_CREATOR_B = 'bob.near';
 
 export type E2eGraphCatalog = 'night-roads' | 'empty';
 export type E2eGraphVault = 'default' | 'many-creators' | 'empty';
+export type E2eGraphHub = 'catalog' | 'empty' | 'held' | 'staff';
 
 export type E2eGraphCookieValue = {
   catalog?: E2eGraphCatalog;
   vault?: E2eGraphVault;
+  hub?: E2eGraphHub;
 };
 
 const TWO_NEAR_YOCTO = '2000000000000000000000000';
@@ -52,6 +58,15 @@ export function parseE2eGraphCookie(
   if (vault === 'default' || vault === 'many-creators' || vault === 'empty') {
     parsed.vault = vault;
   }
+  const hub = params.get('hub');
+  if (
+    hub === 'catalog' ||
+    hub === 'empty' ||
+    hub === 'held' ||
+    hub === 'staff'
+  ) {
+    parsed.hub = hub;
+  }
   return parsed;
 }
 
@@ -59,6 +74,7 @@ export function serializeE2eGraphCookie(opts: E2eGraphCookieValue): string {
   const params = new URLSearchParams();
   if (opts.catalog) params.set('catalog', opts.catalog);
   if (opts.vault) params.set('vault', opts.vault);
+  if (opts.hub) params.set('hub', opts.hub);
   return params.toString();
 }
 
@@ -81,13 +97,50 @@ export function isActiveListingsQuery(query: string): boolean {
   return query.includes('ScarcesActiveListings');
 }
 
-export function extractGraphQuery(body: unknown): string {
-  if (typeof body !== 'string' || !body.trim()) return '';
-  try {
-    return String((JSON.parse(body) as { query?: string }).query ?? '');
-  } catch {
-    return body;
+export function isAppRowQuery(query: string): boolean {
+  return query.includes('ScarcesAppRow');
+}
+
+export function isAppStatsQuery(query: string): boolean {
+  return query.includes('ScarcesAppStats');
+}
+
+export function extractGraphRequest(body: unknown): {
+  query: string;
+  variables: Record<string, unknown>;
+} {
+  if (typeof body !== 'string' || !body.trim()) {
+    return { query: '', variables: {} };
   }
+  try {
+    const parsed = JSON.parse(body) as {
+      query?: string;
+      variables?: unknown;
+    };
+    const variables =
+      parsed.variables &&
+      typeof parsed.variables === 'object' &&
+      !Array.isArray(parsed.variables)
+        ? (parsed.variables as Record<string, unknown>)
+        : {};
+    return { query: String(parsed.query ?? ''), variables };
+  } catch {
+    return { query: body, variables: {} };
+  }
+}
+
+export function extractGraphQuery(body: unknown): string {
+  return extractGraphRequest(body).query;
+}
+
+export function isAppCatalogQuery(
+  query: string,
+  variables: Record<string, unknown> = {}
+): boolean {
+  return (
+    isCreatorCatalogQuery(query) &&
+    (typeof variables.appId === 'string' || Array.isArray(variables.appIds))
+  );
 }
 
 export function isGraphQueryRequest(
@@ -113,6 +166,7 @@ export function isGraphQueryRequest(
 function collectionRow(opts: {
   collectionId: string;
   creatorId?: string;
+  appId?: string | null;
   title: string;
   kind: string;
   extra?: Record<string, unknown>;
@@ -122,7 +176,7 @@ function collectionRow(opts: {
   return {
     collectionId: opts.collectionId,
     creatorId: opts.creatorId ?? 'alice.near',
-    appId: null,
+    appId: opts.appId ?? null,
     price: TWO_NEAR_YOCTO,
     allowlistPrice: null,
     totalSupply: 10,
@@ -169,13 +223,14 @@ function ownedRow(opts: {
   tokenId: string;
   collectionId: string;
   updatedBlockTimestamp: number;
+  appId?: string | null;
 }) {
   return {
     tokenId: opts.tokenId,
     ownerId: E2E_VAULT_OWNER,
     burned: false,
     collectionId: opts.collectionId,
-    appId: null,
+    appId: opts.appId ?? null,
     mintedBlockTimestamp: 1,
     updatedBlockTimestamp: opts.updatedBlockTimestamp,
   };
@@ -323,11 +378,127 @@ export function e2eVaultListingRows(vault: E2eGraphVault) {
   ];
 }
 
+export function e2eHubAppRow(hub: E2eGraphHub) {
+  return {
+    appId: E2E_HUB_ID,
+    ownerId: hub === 'staff' ? E2E_VAULT_OWNER : E2E_HUB_OWNER,
+    primarySaleBps: 250,
+    creatorAccess: 'open',
+    metadata: JSON.stringify({
+      name: E2E_HUB_TITLE,
+      description: 'A stub hub for e2e.',
+    }),
+    createdBlockTimestamp: 1,
+    updatedBlockTimestamp: 1,
+  };
+}
+
+export function e2eHubStatsRow() {
+  return {
+    appId: E2E_HUB_ID,
+    dropsTotal: 4,
+    mintedTotal: 12,
+    uniqueHolders: 6,
+    salesCount: 3,
+    salesVolume: '4000000000000000000000000',
+    liveListings: 2,
+    lastActivityTimestamp: FIXTURE_CREATED_AT * 1_000_000,
+  };
+}
+
+export function e2eHubCatalogRows(hub: E2eGraphHub) {
+  if (hub === 'empty') return [];
+  return [
+    collectionRow({
+      collectionId: 'night-drive',
+      appId: E2E_HUB_ID,
+      title: 'Night Drive',
+      kind: 'audio',
+      extra: { audioFormat: 'album' },
+    }),
+    collectionRow({
+      collectionId: 'quiet-print',
+      appId: E2E_HUB_ID,
+      title: 'Quiet Print',
+      kind: 'art',
+      creatorId: E2E_HUB_CREATOR_B,
+      endTime: FIXTURE_ENDED_AT,
+    }),
+    collectionRow({
+      collectionId: 'dusk-run',
+      appId: E2E_HUB_ID,
+      title: 'Dusk Run',
+      kind: 'audio',
+      extra: { audioFormat: 'single' },
+    }),
+  ];
+}
+
+export function e2eHubOwnedRows(hub: E2eGraphHub) {
+  if (hub !== 'held') return [];
+  return [
+    ownedRow({
+      tokenId: 'night-drive:3',
+      collectionId: 'night-drive',
+      updatedBlockTimestamp: 3,
+      appId: E2E_HUB_ID,
+    }),
+    ownedRow({
+      tokenId: 'dusk-run:1',
+      collectionId: 'dusk-run',
+      updatedBlockTimestamp: 4,
+      appId: E2E_HUB_ID,
+    }),
+  ];
+}
+
+export function e2eHubHeldCollectionRows() {
+  return [
+    collectionRow({
+      collectionId: 'night-drive',
+      appId: E2E_HUB_ID,
+      title: 'Night Drive',
+      kind: 'audio',
+      extra: { audioFormat: 'album' },
+    }),
+    collectionRow({
+      collectionId: 'dusk-run',
+      appId: E2E_HUB_ID,
+      title: 'Dusk Run',
+      kind: 'audio',
+      extra: { audioFormat: 'single' },
+    }),
+  ];
+}
+
 export function resolveE2eGraphStub(opts: {
   query: string;
+  variables?: Record<string, unknown>;
   cookieValue?: string | null;
 }): { data: Record<string, unknown> } | null {
   const parsed = parseE2eGraphCookie(opts.cookieValue);
+  const variables = opts.variables ?? {};
+
+  if (parsed.hub && isAppRowQuery(opts.query)) {
+    return { data: { scarcesApps: [e2eHubAppRow(parsed.hub)] } };
+  }
+  if (parsed.hub && isAppStatsQuery(opts.query)) {
+    return { data: { scarcesAppStats: [e2eHubStatsRow()] } };
+  }
+  if (parsed.hub && isOwnedByQuery(opts.query)) {
+    return { data: { scarcesTokenOwners: e2eHubOwnedRows(parsed.hub) } };
+  }
+  if (parsed.hub === 'held' && isCollectionsByIdsQuery(opts.query)) {
+    return {
+      data: { scarcesCollectionsCurrent: e2eHubHeldCollectionRows() },
+    };
+  }
+  if (parsed.hub && isAppCatalogQuery(opts.query, variables)) {
+    return {
+      data: { scarcesCollectionsCurrent: e2eHubCatalogRows(parsed.hub) },
+    };
+  }
+
   if (parsed.vault && isOwnedByQuery(opts.query)) {
     return { data: { scarcesTokenOwners: e2eVaultOwnedRows(parsed.vault) } };
   }
@@ -341,7 +512,11 @@ export function resolveE2eGraphStub(opts: {
       data: { scarcesActiveListings: e2eVaultListingRows(parsed.vault) },
     };
   }
-  if (parsed.catalog && isCreatorCatalogQuery(opts.query)) {
+  if (
+    parsed.catalog &&
+    isCreatorCatalogQuery(opts.query) &&
+    !isAppCatalogQuery(opts.query, variables)
+  ) {
     return {
       data: { scarcesCollectionsCurrent: e2eSeriesCatalogRows(parsed.catalog) },
     };

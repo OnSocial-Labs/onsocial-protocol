@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   e2eGraphStubsAllowed,
+  e2eHubCatalogRows,
   e2eSeriesCatalogRows,
   e2eVaultCollectionRows,
   e2eVaultOwnedRows,
   extractGraphQuery,
+  extractGraphRequest,
+  isAppCatalogQuery,
   isCreatorCatalogQuery,
   isGraphQueryRequest,
   parseE2eGraphCookie,
@@ -53,6 +56,11 @@ describe('parseE2eGraphCookie', () => {
     expect(
       serializeE2eGraphCookie({ catalog: 'empty', vault: 'many-creators' })
     ).toBe('catalog=empty&vault=many-creators');
+  });
+
+  it('reads hub=catalog and hub=held', () => {
+    expect(parseE2eGraphCookie('hub=catalog')).toEqual({ hub: 'catalog' });
+    expect(parseE2eGraphCookie('hub=held')).toEqual({ hub: 'held' });
   });
 
   it('ignores missing or unknown values', () => {
@@ -134,6 +142,41 @@ describe('resolveE2eGraphStub', () => {
       catalogQuery
     );
     expect(extractGraphQuery('')).toBe('');
+    expect(
+      extractGraphRequest(
+        JSON.stringify({ query: catalogQuery, variables: { appId: 'e2e-hub' } })
+      )
+    ).toEqual({
+      query: catalogQuery,
+      variables: { appId: 'e2e-hub' },
+    });
+  });
+
+  it('returns hub catalog rows for an appId collectionsCurrent query', () => {
+    expect(
+      resolveE2eGraphStub({
+        query: catalogQuery,
+        variables: { appId: 'e2e-hub' },
+        cookieValue: 'hub=catalog',
+      })?.data.scarcesCollectionsCurrent
+    ).toEqual(e2eHubCatalogRows('catalog'));
+    expect(isAppCatalogQuery(catalogQuery, { appId: 'e2e-hub' })).toBe(true);
+    expect(
+      resolveE2eGraphStub({
+        query: catalogQuery,
+        variables: { creatorId: 'alice.near' },
+        cookieValue: 'catalog=night-roads&hub=catalog',
+      })?.data.scarcesCollectionsCurrent
+    ).toEqual(e2eSeriesCatalogRows('night-roads'));
+  });
+
+  it('returns the hub app row when opted in', () => {
+    expect(
+      resolveE2eGraphStub({
+        query: 'query ScarcesAppRow($appId: String!) { x }',
+        cookieValue: 'hub=catalog',
+      })?.data.scarcesApps
+    ).toHaveLength(1);
   });
 
   it('recognizes gateway and BFF graph/query POSTs', () => {

@@ -3,7 +3,7 @@ import { ACTIVE_API_URL, ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import {
   E2E_GRAPH_COOKIE,
   e2eGraphStubsAllowed,
-  extractGraphQuery,
+  extractGraphRequest,
   isGraphQueryRequest,
   resolveE2eGraphStub,
 } from '@/lib/e2e-graph-stubs';
@@ -19,8 +19,10 @@ async function e2eGraphCookieValue(): Promise<string | undefined> {
 
 const noStoreFetch: typeof globalThis.fetch = async (input, init) => {
   if (e2eGraphStubsAllowed() && isGraphQueryRequest(input, init)) {
+    const { query, variables } = extractGraphRequest(init?.body);
     const stub = resolveE2eGraphStub({
-      query: extractGraphQuery(init?.body),
+      query,
+      variables,
       cookieValue: await e2eGraphCookieValue(),
     });
     if (stub) {
