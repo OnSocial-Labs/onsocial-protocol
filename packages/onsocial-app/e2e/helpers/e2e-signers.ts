@@ -1,9 +1,12 @@
 /**
  * Env signers for Playwright. Account ids only — keys stay in integration
- * helpers (`scripts/e2e-signers.mjs`). Cloud secrets are named TICKET_E2E_*
- * but any spec that needs a real account can use them.
+ * helpers (`scripts/e2e-signers.mjs`).
  *
- * Keep names in sync with `scripts/e2e-signers.mjs`.
+ * Paint fixtures (`e2ePaintAccountId`, `e2ePortfolioAccountId`) stay on
+ * explicit e2e accounts. Ticket / signer env is for signed journeys only —
+ * do not let `TICKET_E2E_*` rewrite holder back-links or vault paths.
+ *
+ * Keep signer names in sync with `scripts/e2e-signers.mjs`.
  */
 
 export type E2eSignerRole = 'primary' | 'counterparty';
@@ -31,7 +34,15 @@ export function resolveE2eSignerAccount(
   );
 }
 
-/** Paint a connected wallet when a real signer account is in env. */
+/** Optional override for paint-only wallet seeds. Never reads ticket signers. */
 export function e2ePaintAccountId(fallback: string): string {
-  return resolveE2eSignerAccount('primary') || fallback;
+  return envTrim('E2E_PAINT_ACCOUNT') || fallback;
+}
+
+/**
+ * Live portfolio face for standing / drawer smokes.
+ * `alice.testnet` is the maintained testnet fixture — not dormant greenghost.
+ */
+export function e2ePortfolioAccountId(): string {
+  return envTrim('E2E_PORTFOLIO_ACCOUNT') || 'alice.testnet';
 }

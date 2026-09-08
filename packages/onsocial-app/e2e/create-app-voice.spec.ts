@@ -190,12 +190,18 @@ test.describe('create app voice', () => {
     await expect(form).not.toHaveAttribute('data-form-focused');
     await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
 
-    await page.locator('#app-create-name').focus();
+    const nameField = page.locator('#app-create-name');
+    await nameField.scrollIntoViewIfNeeded();
+    await nameField.click();
+    await nameField.focus();
     await expect(form).toHaveAttribute('data-form-focused', '');
     await expect(page.locator('#app-create-name')).toBeInViewport();
     await expect(footer).toBeInViewport();
 
-    await page.locator('#app-create-commission').focus();
+    const commissionField = page.locator('#app-create-commission');
+    await commissionField.scrollIntoViewIfNeeded();
+    await commissionField.click();
+    await commissionField.focus();
     await expect(form).toHaveAttribute('data-form-focused', '');
     await expect(page.locator('#app-create-commission')).toBeInViewport();
     await expect(footer).toBeInViewport();

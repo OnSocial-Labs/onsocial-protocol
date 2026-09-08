@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
+import { E2E_CHROME_TIMEOUT_MS, expectConnectVoice, gotoApp } from './helpers';
 import {
   COLLECTION_E2E_VIEWER,
   expectCollectionHolderChrome,
@@ -217,9 +217,7 @@ test.describe('collection drop page', () => {
       page.locator('.os-app-screen[data-header-owns-connect]')
     ).toHaveCount(0);
     await expect(page.locator('.ticket-door-page-actions')).toHaveCount(0);
-    await expect(
-      page.getByRole('button', { name: 'Connect', exact: true })
-    ).toHaveCount(1);
+    await expectConnectVoice(page);
     await expect(page.locator('.portfolio-summon-hint--connect')).toHaveText(
       'Connect'
     );

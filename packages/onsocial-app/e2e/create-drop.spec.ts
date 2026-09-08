@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
+import { E2E_CHROME_TIMEOUT_MS, expectConnectVoice, gotoApp } from './helpers';
 
 /**
  * New drop maker chrome. Does not submit a drop (no wallet).
@@ -50,9 +50,7 @@ test.describe('create drop', () => {
     await expect(page.locator('.portfolio-summon-hint--connect')).toHaveCount(
       0
     );
-    await expect(
-      page.getByRole('button', { name: 'Connect', exact: true })
-    ).toHaveCount(1);
+    await expectConnectVoice(page);
     await expect(
       page.getByRole('button', { name: 'Start drop', exact: true })
     ).toHaveCount(0);
