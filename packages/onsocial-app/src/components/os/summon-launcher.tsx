@@ -59,8 +59,10 @@ import { useOsPortalHost } from '@/contexts/os-portal-host-context';
 import { accountIdsEqual } from '@/lib/account-match';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useOsLauncherLastPlace } from '@/hooks/use-os-launcher-last-place';
-import { withOsLastPlaceApp } from '@/lib/os-launcher-last-place';
+import { osLastPlaceLauncherApp } from '@/lib/os-launcher-last-place';
+import { initials } from '@/lib/profile-display';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { ThemeToggle } from '@/components/os/theme-toggle';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
@@ -235,10 +237,6 @@ export function SummonLauncher({
     useViewerDockMood(pageAccountId);
   const { navigate, openingPage } = useOsAppNavigate(pageAccountId);
   const lastPlace = useOsLauncherLastPlace(pathname, accountId);
-  const launcherApps = useMemo(
-    () => withOsLastPlaceApp(apps, lastPlace),
-    [apps, lastPlace]
-  );
   const activeAppId = resolveActiveOsAppId(pathname, accountId);
   const [openInternal, setOpenInternal] = useState(false);
   const open = openProp ?? openInternal;
@@ -657,48 +655,72 @@ export function SummonLauncher({
                     setLauncherPage(next === 1 ? 1 : 0);
                   }}
                 >
-                  <ul
-                    className={`${osLauncherGridClassName} ${osLauncherPageClassName}`}
-                  >
-                    {launcherApps.map((app) => (
-                      <li key={app.id}>
-                        <LauncherAppTile
-                          app={app}
-                          openingPage={openingPage}
-                          active={isOsAppActive(app.id, activeAppId)}
-                          unread={launcherUnreadForApp(
-                            app.id,
-                            activityUnread,
-                            dmUnread
-                          )}
-                          onActivate={() => {
-                            if (app.kind === 'external') {
-                              closeLauncher();
-                              return;
-                            }
-                            handleNavigate(app);
+                  <div className={osLauncherPageClassName}>
+                    {lastPlace ? (
+                      <div className="os-launcher-return">
+                        <p className="os-launcher-return-eyebrow">Return</p>
+                        <button
+                          type="button"
+                          className="os-launcher-return-tile"
+                          data-app-id="last-place"
+                          aria-label={`Return to ${lastPlace.spokenLabel}`}
+                          onClick={() => {
+                            handleNavigate(osLastPlaceLauncherApp(lastPlace));
                           }}
-                        />
-                      </li>
-                    ))}
-                    {showMyPage && accountId ? (
-                      <li>
-                        <LauncherAppTile
-                          app={{
-                            id: 'my-page',
-                            label: 'Page',
-                            kind: 'app',
-                          }}
-                          openingPage={false}
-                          active={isOsAppActive('my-page', activeAppId)}
-                          onActivate={() => {
-                            closeLauncher();
-                            router.push(portfolioPath(accountId));
-                          }}
-                        />
-                      </li>
+                        >
+                          <AccountAvatar
+                            accountId={lastPlace.accountId}
+                            src={lastPlace.avatarUrl}
+                            fallbackInitial={initials(lastPlace.spokenLabel)}
+                            size="sm"
+                          />
+                          <span className="os-launcher-return-name">
+                            {lastPlace.spokenLabel}
+                          </span>
+                        </button>
+                      </div>
                     ) : null}
-                  </ul>
+                    <ul className={osLauncherGridClassName}>
+                      {apps.map((app) => (
+                        <li key={app.id}>
+                          <LauncherAppTile
+                            app={app}
+                            openingPage={openingPage}
+                            active={isOsAppActive(app.id, activeAppId)}
+                            unread={launcherUnreadForApp(
+                              app.id,
+                              activityUnread,
+                              dmUnread
+                            )}
+                            onActivate={() => {
+                              if (app.kind === 'external') {
+                                closeLauncher();
+                                return;
+                              }
+                              handleNavigate(app);
+                            }}
+                          />
+                        </li>
+                      ))}
+                      {showMyPage && accountId ? (
+                        <li>
+                          <LauncherAppTile
+                            app={{
+                              id: 'my-page',
+                              label: 'Page',
+                              kind: 'app',
+                            }}
+                            openingPage={false}
+                            active={isOsAppActive('my-page', activeAppId)}
+                            onActivate={() => {
+                              closeLauncher();
+                              router.push(portfolioPath(accountId));
+                            }}
+                          />
+                        </li>
+                      ) : null}
+                    </ul>
+                  </div>
                   <ul
                     className={`${osLauncherGridClassName} ${osLauncherPageClassName}`}
                   >

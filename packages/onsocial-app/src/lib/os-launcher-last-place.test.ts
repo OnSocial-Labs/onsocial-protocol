@@ -3,10 +3,11 @@ import {
   osLastPlaceFromPathname,
   osLastPlaceIsReturnable,
   osLastPlaceLauncherApp,
+  patchOsLastPlaceFace,
   readOsLastPlace,
   rememberOsLastPlaceFromPath,
   resetOsLastPlaceForTests,
-  withOsLastPlaceApp,
+  resolveOsLastPlaceSpokenLabel,
 } from '@/lib/os-launcher-last-place';
 
 afterEach(() => {
@@ -14,11 +15,11 @@ afterEach(() => {
 });
 
 describe('osLastPlaceFromPathname', () => {
-  it('remembers a portfolio face', () => {
+  it('remembers a portfolio face with a spoken label', () => {
     expect(osLastPlaceFromPathname('/@alice.testnet')).toEqual({
       accountId: 'alice.testnet',
       href: '/@alice.testnet',
-      label: '@alice.testnet',
+      label: 'Alice',
     });
   });
 
@@ -41,6 +42,15 @@ describe('osLastPlaceFromPathname', () => {
       osLastPlaceFromPathname('/@governance.onsocial.testnet/about')
     ).toBeNull();
     expect(osLastPlaceFromPathname('/@alice.sputnikv2.testnet')).toBeNull();
+  });
+});
+
+describe('resolveOsLastPlaceSpokenLabel', () => {
+  it('speaks the local part, then a chosen profile name', () => {
+    expect(resolveOsLastPlaceSpokenLabel('alice.testnet')).toBe('Alice');
+    expect(resolveOsLastPlaceSpokenLabel('alice.testnet', 'Night')).toBe(
+      'Night'
+    );
   });
 });
 
@@ -70,16 +80,23 @@ describe('rememberOsLastPlaceFromPath', () => {
     expect(rememberOsLastPlaceFromPath('/home')).toBeNull();
     const last = readOsLastPlace()!;
     expect(last.href).toBe('/@alice.testnet');
+    expect(last.label).toBe('Alice');
     expect(osLastPlaceLauncherApp(last)).toMatchObject({
       id: 'last-place',
       href: '/@alice.testnet',
       kind: 'app',
     });
+  });
+
+  it('patches a chosen name onto the remembered face', () => {
+    rememberOsLastPlaceFromPath('/@alice.testnet');
+    patchOsLastPlaceFace('alice.testnet', { profileName: 'Night' });
+    expect(readOsLastPlace()?.label).toBe('Night');
     expect(
-      withOsLastPlaceApp(
-        [{ id: 'home', label: 'Home', kind: 'app', href: '/home' }],
-        last
-      ).map((app) => app.id)
-    ).toEqual(['last-place', 'home']);
+      resolveOsLastPlaceSpokenLabel(
+        'alice.testnet',
+        readOsLastPlace()?.profileName
+      )
+    ).toBe('Night');
   });
 });

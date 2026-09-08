@@ -3,7 +3,7 @@ import { GOVERNANCE_DAO_ACCOUNT, TREASURY_DAO_ACCOUNT } from '@/lib/app-config';
 import { normalizeAccountRoute } from '@/lib/account-route';
 import { isHeuristicDaoAccountId } from '@/lib/enrich-standing-with-dao';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { fallbackLabel } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 import type { OsAppLink } from '@/lib/os-apps';
 
 const STORAGE_KEY = 'onsocial.os.last-place';
@@ -15,6 +15,8 @@ export type OsLastPlace = {
   href: string;
   accountId: string;
   label: string;
+  profileName?: string | null;
+  avatarUrl?: string | null;
 };
 
 export function parsePortfolioAccountFromPath(pathname: string): {
@@ -50,8 +52,16 @@ export function osLastPlaceFromPathname(pathname: string): OsLastPlace | null {
   return {
     href: portfolioPath(parsed.accountId),
     accountId: parsed.accountId,
-    label: `@${fallbackLabel(parsed.accountId)}`,
+    label: resolveOsLastPlaceSpokenLabel(parsed.accountId),
   };
+}
+
+/** Spoken page name — chosen profile name, else local part (`Alice`). */
+export function resolveOsLastPlaceSpokenLabel(
+  accountId: string,
+  profileName?: string | null
+): string {
+  return displayName(accountId, profileName);
 }
 
 export function osLastPlaceIsReturnable(
@@ -79,16 +89,6 @@ export function osLastPlaceLauncherApp(place: OsLastPlace): OsAppLink {
   };
 }
 
-/** Lead the grid with the last page so return is a hop, not Home Back. */
-export function withOsLastPlaceApp(
-  apps: readonly OsAppLink[],
-  place: OsLastPlace | null
-): OsAppLink[] {
-  if (!place) return [...apps];
-  if (apps.some((app) => app.id === 'last-place')) return [...apps];
-  return [osLastPlaceLauncherApp(place), ...apps];
-}
-
 type Listener = () => void;
 
 let memory: OsLastPlace | null = null;
@@ -109,7 +109,17 @@ function readStorage(): OsLastPlace | null {
     const href = typeof parsed.href === 'string' ? parsed.href.trim() : '';
     const label = typeof parsed.label === 'string' ? parsed.label.trim() : '';
     if (!accountId || !href || !label) return null;
-    return { accountId, href, label };
+    const profileName =
+      typeof parsed.profileName === 'string' ? parsed.profileName.trim() : null;
+    const avatarUrl =
+      typeof parsed.avatarUrl === 'string' ? parsed.avatarUrl.trim() : null;
+    return {
+      accountId,
+      href,
+      label,
+      profileName: profileName || null,
+      avatarUrl: avatarUrl || null,
+    };
   } catch {
     return null;
   }
@@ -119,6 +129,33 @@ export function readOsLastPlace(): OsLastPlace | null {
   if (memory) return memory;
   memory = readStorage();
   return memory;
+}
+
+export function patchOsLastPlaceFace(
+  accountId: string,
+  face: { profileName?: string | null; avatarUrl?: string | null }
+): void {
+  const current = readOsLastPlace();
+  if (!current || !accountIdsEqual(current.accountId, accountId)) return;
+  const profileName = face.profileName?.trim() || current.profileName || null;
+  const avatarUrl =
+    face.avatarUrl !== undefined
+      ? face.avatarUrl?.trim() || null
+      : (current.avatarUrl ?? null);
+  const label = resolveOsLastPlaceSpokenLabel(current.accountId, profileName);
+  if (
+    current.profileName === profileName &&
+    current.avatarUrl === avatarUrl &&
+    current.label === label
+  ) {
+    return;
+  }
+  writeOsLastPlace({
+    ...current,
+    profileName,
+    avatarUrl,
+    label,
+  });
 }
 
 export function writeOsLastPlace(place: OsLastPlace): void {
