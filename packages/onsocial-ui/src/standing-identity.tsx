@@ -22,7 +22,9 @@ export function standingIdentityLabel(
   profileName?: string | null
 ): { name: string | null; label: string; handle: string } {
   const handle = accountId.trim();
-  const name = handle ? formatNearAccountDisplayName(handle, profileName) : null;
+  const name = handle
+    ? formatNearAccountDisplayName(handle, profileName)
+    : null;
   return { name, label: name || `@${handle}`, handle };
 }
 

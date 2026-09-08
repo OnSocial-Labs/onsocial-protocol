@@ -31,12 +31,8 @@ describe('formatNearAccountFallbackTitle', () => {
 
 describe('formatNearAccountDisplayName', () => {
   it('keeps a chosen name', () => {
-    expect(formatNearAccountDisplayName('alice.near', ' Night ')).toBe(
-      'Night'
-    );
-    expect(resolveNearAccountCustomName('alice.near', 'Night')).toBe(
-      'Night'
-    );
+    expect(formatNearAccountDisplayName('alice.near', ' Night ')).toBe('Night');
+    expect(resolveNearAccountCustomName('alice.near', 'Night')).toBe('Night');
   });
 
   it('strips id-as-name and speaks the local part', () => {
@@ -44,18 +40,16 @@ describe('formatNearAccountDisplayName', () => {
     expect(formatNearAccountDisplayName('alice.near', 'alice.near')).toBe(
       'Alice'
     );
-    expect(formatNearAccountDisplayName('alice.tg', 'alice.tg')).toBe(
-      'Alice'
-    );
+    expect(formatNearAccountDisplayName('alice.tg', 'alice.tg')).toBe('Alice');
     expect(resolveNearAccountCustomName('alice.near', 'alice.near')).toBeNull();
   });
 
   it('treats implicit-account title as unset', () => {
     const implicit = 'a'.repeat(64);
     expect(formatNearAccountDisplayName(implicit)).toBe('Implicit account');
-    expect(
-      formatNearAccountDisplayName(implicit, 'Implicit account')
-    ).toBe('Implicit account');
+    expect(formatNearAccountDisplayName(implicit, 'Implicit account')).toBe(
+      'Implicit account'
+    );
     expect(formatNearAccountDisplayName(implicit, 'Custom')).toBe('Custom');
   });
 });
