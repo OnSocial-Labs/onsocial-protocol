@@ -59,9 +59,7 @@ test.describe('discover guilds', () => {
       })
     ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
 
-    await searchField(page, 'Search people, topics, and tickers').fill(
-      DISCOVER_GUILDS_SEARCH_QUERY
-    );
+    await searchField(page, 'Search Guilds').fill(DISCOVER_GUILDS_SEARCH_QUERY);
 
     const searchError = page.getByRole('alert').filter({
       hasText: DISCOVER_GUILDS_SEARCH_ERROR,
