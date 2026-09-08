@@ -50,23 +50,19 @@ async function waitForPortfolioReadyFlag(
 /**
  * Portfolio soft-nav is SSR'd as plain anchors until hydration marks ready.
  * Wait for the client flag (refcount survives remount). Reload once if the
- * account route never hydrates. Skip when the face is missing.
+ * account route never hydrates. Missing faces settle without skipping —
+ * callers use `expectPortfolioIdentityOrSkip`.
  */
 export async function waitForPortfolioClientReady(page: Page): Promise<void> {
   await dismissNextDevOverlay(page);
-  const settle = async (timeout: number) => {
-    const outcome = await waitForPortfolioReadyFlag(page, timeout);
-    if (outcome === 'missing') {
-      test.skip(true, 'Portfolio account not found on this network');
-    }
-  };
   try {
-    await settle(15_000);
+    await waitForPortfolioReadyFlag(page, 15_000);
+    return;
   } catch {
     await dismissNextDevOverlay(page);
     await page.reload({ waitUntil: 'domcontentloaded' });
     await dismissNextDevOverlay(page);
-    await settle(E2E_CHROME_TIMEOUT_MS);
+    await waitForPortfolioReadyFlag(page, E2E_CHROME_TIMEOUT_MS);
   }
 }
 
