@@ -120,6 +120,45 @@ function emptySheetBeat(
   };
 }
 
+function sheetBeatFromComposer(beat: ComposerBeat): SheetBeat {
+  return {
+    ...beat,
+    files: [...beat.files],
+    pollOptions: [...beat.pollOptions],
+    id: nextSheetBeatId(),
+    previews: postMediaPreviewEntriesFromFiles(beat.files),
+  };
+}
+
+function composerBeatFromSheet(beat: SheetBeat): ComposerBeat {
+  const { id: _id, previews: _previews, ...rest } = beat;
+  return {
+    ...rest,
+    files: [...rest.files],
+    pollOptions: [...rest.pollOptions],
+  };
+}
+
+function seedSheetBeats(input: {
+  initialBeats?: ComposerBeat[];
+  initialText: string;
+  initialFiles: File[];
+  initialDrop: ComposerDropDraft | null;
+  initialArticleMode: boolean;
+}): SheetBeat[] {
+  if (input.initialBeats && input.initialBeats.length > 0) {
+    return input.initialBeats.map(sheetBeatFromComposer);
+  }
+  return [
+    emptySheetBeat({
+      text: input.initialText,
+      files: input.initialFiles,
+      drop: input.initialDrop,
+      articleMode: input.initialArticleMode,
+    }),
+  ];
+}
+
 function revokeSheetBeatPreviews(beat: SheetBeat) {
   revokeComposerPreviewFiles(beat.files);
 }
@@ -241,9 +280,15 @@ interface ComposerSheetProps {
   initialFiles?: File[];
   /** Open already flipped to Article (Writing shelf CTA). */
   initialArticleMode?: boolean;
+  /** Restore a closed new-post thread (text / polls / extras). */
+  initialBeats?: ComposerBeat[];
   pending: boolean;
   error?: string | null;
-  onClose: (draft?: { text: string; files: File[] }) => void;
+  onClose: (draft?: {
+    text: string;
+    files: File[];
+    beats?: ComposerBeat[];
+  }) => void;
   onSubmit: (
     payload: ComposerSubmit
   ) => void | Promise<void | ComposerPublishResult>;
@@ -340,6 +385,7 @@ export function ComposerSheet({
   initialText = '',
   initialFiles = [],
   initialArticleMode = false,
+  initialBeats,
   pending,
   error,
   onClose,
@@ -371,18 +417,17 @@ export function ComposerSheet({
   // Seed from props when the sheet mounts already open (DropComposeHost).
   // `wasOpen` starts false so the open transition below always applies
   // `initialDrop` / `initialText` on first paint.
-  const [beats, setBeats] = useState<SheetBeat[]>(() => [
-    emptySheetBeat(
-      open
-        ? {
-            text: initialText,
-            files: initialFiles,
-            drop: initialDrop,
-            articleMode: initialArticleMode && mode === 'post',
-          }
-        : undefined
-    ),
-  ]);
+  const [beats, setBeats] = useState<SheetBeat[]>(() =>
+    open
+      ? seedSheetBeats({
+          initialBeats,
+          initialText,
+          initialFiles,
+          initialDrop,
+          initialArticleMode: initialArticleMode && mode === 'post',
+        })
+      : [emptySheetBeat()]
+  );
   const [focusedBeat, setFocusedBeat] = useState(0);
   const [plusPressed, setPlusPressed] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
@@ -452,7 +497,7 @@ export function ComposerSheet({
   };
 
   const removeThreadBeat = (index: number) => {
-    if (pending || index <= 0) return;
+    if (pending || beats.length < 2) return;
     const next = removeComposerThreadBeat(beats, index, safeFocus);
     if (next.beats.length === beats.length) return;
     const removed = beats[index];
@@ -512,14 +557,13 @@ export function ComposerSheet({
       setFormKey((key) => key + 1);
       setBeats((current) => {
         for (const row of current) revokeSheetBeatPreviews(row);
-        return [
-          emptySheetBeat({
-            text: initialText,
-            files: initialFiles,
-            drop: initialDrop,
-            articleMode: initialArticleMode && mode === 'post',
-          }),
-        ];
+        return seedSheetBeats({
+          initialBeats,
+          initialText,
+          initialFiles,
+          initialDrop,
+          initialArticleMode: initialArticleMode && mode === 'post',
+        });
       });
       setFocusedBeat(0);
       setPlusPressed(false);
@@ -642,7 +686,11 @@ export function ComposerSheet({
   const requestClose = () => {
     if (pending) return;
     const first = beats[0] ?? emptySheetBeat();
-    onClose({ text: first.text, files: first.files });
+    onClose({
+      text: first.text,
+      files: first.files,
+      beats: beats.map(composerBeatFromSheet),
+    });
   };
 
   const togglePlace = () => {
@@ -1026,7 +1074,9 @@ export function ComposerSheet({
         placeInputRef={focused ? placeInputRef : undefined}
         priorityMentionAccounts={priorityMentionAccounts}
         onPatch={(patch) => patchBeat(index, patch)}
-        onRemove={index > 0 ? () => removeThreadBeat(index) : undefined}
+        onRemove={
+          beats.length > 1 ? () => removeThreadBeat(index) : undefined
+        }
         onFocusBeat={() => focusFieldOnBeat(index)}
         onScrollField={scrollFieldIntoView}
         onOpenLabels={() => setLabelsOpen(true)}

@@ -118,13 +118,13 @@ export function collapseTrailingEmptyComposerBeat<T extends ComposerBeat>(
   };
 }
 
-/** Remove an extra beat. Beat 1 (index 0) cannot be removed. */
+/** Remove a beat. The last remaining beat cannot be removed. */
 export function removeComposerThreadBeat<T extends ComposerBeat>(
   beats: readonly T[],
   index: number,
   focus: number
 ): { beats: T[]; focus: number } {
-  if (index <= 0 || beats.length < 2 || index >= beats.length) {
+  if (beats.length < 2 || index < 0 || index >= beats.length) {
     return {
       beats: [...beats],
       focus: Math.max(0, Math.min(focus, beats.length - 1)),
@@ -132,7 +132,11 @@ export function removeComposerThreadBeat<T extends ComposerBeat>(
   }
   const next = beats.filter((_, rowIndex) => rowIndex !== index);
   const nextFocus =
-    focus === index ? index - 1 : focus > index ? focus - 1 : focus;
+    focus > index
+      ? focus - 1
+      : focus === index
+        ? Math.min(index, next.length - 1)
+        : focus;
   return {
     beats: next,
     focus: Math.max(0, Math.min(nextFocus, next.length - 1)),

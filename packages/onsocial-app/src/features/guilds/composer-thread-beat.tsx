@@ -121,7 +121,7 @@ export function ComposerThreadBeat({
       className={`guild-composer-self${
         index === 0 && showDestinationMenus ? ' has-destination-menus' : ''
       }${muted ? ' is-muted' : ''}${
-        canComposeThread && index > 0 ? ' has-remove' : ''
+        canComposeThread && beatCount > 1 ? ' has-remove' : ''
       }`}
       onClick={
         muted && !pending
@@ -141,7 +141,7 @@ export function ComposerThreadBeat({
       />
       <div className="guild-composer-row-copy">
         {index === 0 ? identitySlot : null}
-        {canComposeThread && index > 0 ? (
+        {canComposeThread && beatCount > 1 ? (
           <div
             className="guild-composer-beat-remove"
             onClick={(event) => event.stopPropagation()}
