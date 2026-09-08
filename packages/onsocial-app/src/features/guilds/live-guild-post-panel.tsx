@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
@@ -49,6 +50,7 @@ import {
   canViewerPostInChannel,
   guildSpaceFeedChannel,
 } from '@/features/guilds/guild-structure';
+import { collaborativeJoinNeedsStorage } from '@/features/guilds/guild-config';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import {
   inheritedGuildReplyFeedMeta,
@@ -61,6 +63,7 @@ import {
   guildSheetPath,
 } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
   EMPTY_POST_ENGAGEMENT,
@@ -180,6 +183,13 @@ export function LiveGuildPostPanel({
     connect,
   } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
+  const [storageSheetOpen, setStorageSheetOpen] = useState(false);
+  const [storageRefreshKey, setStorageRefreshKey] = useState(0);
+  const userStorage = useUserStorageBalance(
+    accountId,
+    isConnected,
+    storageRefreshKey
+  );
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -731,6 +741,12 @@ export function LiveGuildPostPanel({
     : Boolean(membershipHint?.joinPending);
   const effectiveIsOwner = viewerAccessResolved ? viewerAccess.isOwner : false;
   const effectiveIsBlacklisted = viewerAccessResolved ? isBlacklisted : false;
+  const needsCollaborativeStorage = collaborativeJoinNeedsStorage({
+    memberDriven,
+    isMember: effectiveIsMember,
+    joinPending: effectiveJoinPending,
+    availableYocto: userStorage.summary?.availableYocto,
+  });
   // Keep ready through Leave?/Transfer? confirm — danger mutes when !ready.
   const membershipActionReady = effectiveIsMember
     ? true
@@ -779,13 +795,21 @@ export function LiveGuildPostPanel({
     confirmingLeave,
     actionPending: joinActionPending,
     clearConfirmLeave,
-    handleMembershipClick,
+    handleMembershipClick: runMembershipClick,
   } = useGuildMembershipAction({
     groupId,
     snapshot: membershipSnapshot,
     onOwnerManage: handleOwnerManage,
     onConfirmed: handleMembershipConfirmed,
   });
+
+  const handleMembershipClick = () =>
+    runMembershipClick({
+      needsStorage: needsCollaborativeStorage,
+      onNeedsStorage: () => setStorageSheetOpen(true),
+      requireResolvedAccess: true,
+      viewerAccessResolved,
+    });
 
   const membershipActionLabel = guildMembershipJoinLabel({
     isConnected,
@@ -796,6 +820,7 @@ export function LiveGuildPostPanel({
     isOwner: effectiveIsOwner,
     isBlacklisted: effectiveIsBlacklisted,
     confirmingLeave,
+    needsStorage: needsCollaborativeStorage,
   });
 
   const membershipActions = (
@@ -1285,6 +1310,17 @@ export function LiveGuildPostPanel({
             }
           }}
           onSubmit={(payload) => void submitFromModal(payload)}
+        />
+      ) : null}
+      {accountId ? (
+        <AppStorageSheet
+          open={storageSheetOpen}
+          accountId={accountId}
+          refreshKey={storageRefreshKey}
+          onClose={() => setStorageSheetOpen(false)}
+          onStorageChanged={() =>
+            setStorageRefreshKey((current) => current + 1)
+          }
         />
       ) : null}
     </OsAppScreen>
