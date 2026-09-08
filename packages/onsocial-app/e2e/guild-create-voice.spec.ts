@@ -181,6 +181,7 @@ test.describe('create guild voice', () => {
     await expect(form).toBeVisible();
     await expect(form).not.toHaveAttribute('data-form-focused');
 
+    await dismissNextDevOverlay(page);
     const nameField = page.locator('#guild-create-name');
     await nameField.scrollIntoViewIfNeeded();
     await nameField.click();
