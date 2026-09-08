@@ -15,28 +15,28 @@ test.describe('discover guilds', () => {
     await stubDiscoverGuildsBrowse(page);
     await gotoApp(page, DISCOVER_GUILDS_E2E_PATH);
 
-    await expect(
-      page.getByRole('link', { name: DISCOVER_GUILDS_FIRST_NAME })
-    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    const firstGuild = page.getByRole('link', {
+      name: DISCOVER_GUILDS_FIRST_NAME,
+      exact: true,
+    });
+    const nextGuild = page.getByRole('link', {
+      name: DISCOVER_GUILDS_NEXT_NAME,
+      exact: true,
+    });
+    await expect(firstGuild).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await page
-      .getByRole('link', { name: 'Catalog Guild 24' })
+      .getByRole('link', { name: 'Catalog Guild 24', exact: true })
       .scrollIntoViewIfNeeded();
 
     const loadMoreError = page.getByRole('alert').filter({
       hasText: DISCOVER_GUILDS_LOAD_MORE_ERROR,
     });
     await expect(loadMoreError).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
-    await expect(
-      page.getByRole('link', { name: DISCOVER_GUILDS_FIRST_NAME })
-    ).toBeVisible();
-    await expect(
-      page.getByRole('link', { name: DISCOVER_GUILDS_NEXT_NAME })
-    ).toHaveCount(0);
+    await expect(firstGuild).toBeVisible();
+    await expect(nextGuild).toHaveCount(0);
 
     await loadMoreError.getByRole('button', { name: 'Try again' }).click();
-    await expect(
-      page.getByRole('link', { name: DISCOVER_GUILDS_NEXT_NAME })
-    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(nextGuild).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect(loadMoreError).toHaveCount(0);
   });
 });
