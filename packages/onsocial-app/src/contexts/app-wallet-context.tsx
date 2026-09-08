@@ -21,6 +21,10 @@ import {
 import { clearAppGatewayAuth } from '@/lib/app-gateway-auth';
 import { invalidateAppSocialSessionCache } from '@/lib/app-social-session-cache';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  createE2eMockWallet,
+  readE2eMockSignerEnabled,
+} from '@/lib/e2e-mock-signer';
 import { readE2eWalletAccountId } from '@/lib/e2e-wallet-account';
 
 const APP_WALLET_ACCOUNT_KEY = 'onsocial.app.wallet.accountId';
@@ -396,6 +400,14 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   }, [accountId]);
 
   const getSigningWallet = useCallback(async (): Promise<SigningWallet> => {
+    const e2eAccount = readE2eWalletAccountId();
+    if (e2eAccount && readE2eMockSignerEnabled()) {
+      return {
+        wallet: createE2eMockWallet(e2eAccount),
+        accountId: e2eAccount,
+      };
+    }
+
     const connector = connectorRef.current;
     if (!connector) {
       throw new Error('Wallet is still loading. Try again in a moment.');
