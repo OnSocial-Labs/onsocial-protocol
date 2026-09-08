@@ -7,6 +7,7 @@ import {
   seedE2eWallet,
   stubCollectionPageGraph,
 } from './helpers/collection-page';
+import { setE2eGraphDrop } from './helpers/e2e-graph';
 
 const HOLDER_BACK = `/@${COLLECTION_E2E_VIEWER}/collectibles`;
 const PILL_ACTION = /page-drawer-section-action/;
@@ -29,6 +30,17 @@ test.describe('collection drop page', () => {
     );
   });
 
+  test('SSR catalog hit paints Night Drive without the skeleton', async ({
+    page,
+  }) => {
+    await setE2eGraphDrop(page, 'default');
+    await stubCollectionPageGraph(page);
+    await gotoApp(page, '/collection/night-drive');
+    await expect(page.locator('[data-collection-page-skeleton]')).toHaveCount(0);
+    await expect(page.locator('.collection-title')).toHaveText('Night Drive');
+    await expect(page.getByText('2 tracks').first()).toBeVisible();
+  });
+
   test('unknown drop shows unavailable after the client fetch settles', async ({
     page,
   }) => {
@@ -43,6 +55,7 @@ test.describe('collection drop page', () => {
   });
 
   test('visitor audio drop keeps commerce first', async ({ page }) => {
+    await setE2eGraphDrop(page, 'default');
     await stubCollectionPageGraph(page);
     await gotoApp(page, '/collection/night-drive');
 
@@ -67,6 +80,7 @@ test.describe('collection drop page', () => {
     test('visitor writing drop keeps Read locked under commerce', async ({
       page,
     }) => {
+      await setE2eGraphDrop(page, 'default');
       await stubCollectionPageGraph(page);
       await gotoApp(page, '/collection/chapter-one');
 
@@ -121,6 +135,7 @@ test.describe('collection drop page', () => {
 
   test('held audio drop puts Play above the product row', async ({ page }) => {
     await seedE2eWallet(page);
+    await setE2eGraphDrop(page, 'held');
     await stubCollectionPageGraph(page, {
       heldIds: ['night-drive'],
       endedIds: ['night-drive'],
@@ -147,6 +162,7 @@ test.describe('collection drop page', () => {
 
   test('held writing drop puts Read in a vault pill', async ({ page }) => {
     await seedE2eWallet(page);
+    await setE2eGraphDrop(page, 'held');
     await stubCollectionPageGraph(page, {
       heldIds: ['chapter-one'],
       endedIds: ['chapter-one'],
@@ -166,6 +182,7 @@ test.describe('collection drop page', () => {
     page,
   }) => {
     await seedE2eWallet(page);
+    await setE2eGraphDrop(page, 'held');
     await stubCollectionPageGraph(page, { heldIds: ['quiet-print'] });
     await gotoApp(page, '/collection/quiet-print');
 
@@ -178,6 +195,7 @@ test.describe('collection drop page', () => {
   });
 
   test('Collect sheet speaks one deal, not a mint form', async ({ page }) => {
+    await setE2eGraphDrop(page, 'default');
     await stubCollectionPageGraph(page);
     await gotoApp(page, '/collection/night-drive');
     await expect(page.locator('.collection-title')).toHaveText('Night Drive', {
@@ -206,6 +224,7 @@ test.describe('collection drop page', () => {
   });
 
   test('Admit door asks Connect, not Connect wallet', async ({ page }) => {
+    await setE2eGraphDrop(page, 'default');
     await stubCollectionPageGraph(page);
     await gotoApp(page, '/collection/gate-pass/door');
 

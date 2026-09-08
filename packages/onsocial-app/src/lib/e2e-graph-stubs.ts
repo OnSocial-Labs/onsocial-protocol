@@ -5,7 +5,7 @@
  *
  * Tests opt in with cookie `onsocial.e2e.graph`
  * (`catalog=night-roads`, `vault=default`, `hub=catalog`, `guild=empty`,
- * `market=shop`, or combined).
+ * `market=shop`, `drop=default`, or combined).
  * No cookie → live indexer / existing `page.route` only (SSR miss still works).
  */
 
@@ -29,6 +29,12 @@ export type E2eGraphVault = 'default' | 'many-creators' | 'empty';
 export type E2eGraphHub = 'catalog' | 'empty' | 'held' | 'staff';
 export type E2eGraphGuild = 'empty' | 'missing' | 'member' | 'banned' | 'owner';
 export type E2eGraphMarket = 'shop' | 'shop-empty' | 'live-first';
+export type E2eGraphDrop = 'default' | 'held' | 'missing';
+export type E2eDropCollectionId =
+  | 'night-drive'
+  | 'chapter-one'
+  | 'quiet-print'
+  | 'gate-pass';
 
 export type E2eGraphCookieValue = {
   catalog?: E2eGraphCatalog;
@@ -36,6 +42,7 @@ export type E2eGraphCookieValue = {
   hub?: E2eGraphHub;
   guild?: E2eGraphGuild;
   market?: E2eGraphMarket;
+  drop?: E2eGraphDrop;
 };
 
 const TWO_NEAR_YOCTO = '2000000000000000000000000';
@@ -100,6 +107,10 @@ export function parseE2eGraphCookie(
   ) {
     parsed.market = market;
   }
+  const drop = params.get('drop');
+  if (drop === 'default' || drop === 'held' || drop === 'missing') {
+    parsed.drop = drop;
+  }
   return parsed;
 }
 
@@ -110,6 +121,7 @@ export function serializeE2eGraphCookie(opts: E2eGraphCookieValue): string {
   if (opts.hub) params.set('hub', opts.hub);
   if (opts.guild) params.set('guild', opts.guild);
   if (opts.market) params.set('market', opts.market);
+  if (opts.drop) params.set('drop', opts.drop);
   return params.toString();
 }
 
@@ -134,6 +146,17 @@ export function isActiveListingsQuery(query: string): boolean {
 
 export function isScarcesEventsQuery(query: string): boolean {
   return query.includes('ScarcesEvents');
+}
+
+export function isCollectionCurrentQuery(query: string): boolean {
+  return (
+    query.includes('ScarcesCollectionCurrent') &&
+    !query.includes('ScarcesCollectionsCurrent')
+  );
+}
+
+export function isOwnsCollectionEditionQuery(query: string): boolean {
+  return query.includes('OwnsCollectionEdition');
 }
 
 export function isAppRowQuery(query: string): boolean {
@@ -258,6 +281,8 @@ function collectionRow(opts: {
   extra?: Record<string, unknown>;
   series?: { id: string; title: string };
   endTime?: number | null;
+  remaining?: number;
+  maxRedeems?: number | null;
 }) {
   return {
     collectionId: opts.collectionId,
@@ -267,7 +292,7 @@ function collectionRow(opts: {
     allowlistPrice: null,
     totalSupply: 10,
     mintedCount: 2,
-    remaining: 8,
+    remaining: opts.remaining ?? 8,
     startTime: null,
     endTime: opts.endTime ?? null,
     createdAt: FIXTURE_CREATED_AT,
@@ -278,7 +303,7 @@ function collectionRow(opts: {
     banned: false,
     transferable: true,
     renewable: false,
-    maxRedeems: null,
+    maxRedeems: opts.maxRedeems ?? null,
     randomAssignment: false,
     appCommissionBps: null,
     title: opts.title,
@@ -749,6 +774,97 @@ export function e2eMarketListingRows(market: E2eGraphMarket) {
   ];
 }
 
+function dropExtra(kind: 'audio' | 'writing' | 'art' | 'ticket') {
+  if (kind === 'audio') {
+    return {
+      kind: 'audio',
+      audioFormat: 'album',
+      playable: [
+        {
+          cid: 'bafytrackoneaaaaaaaaaaaaaaaaaaaa',
+          mime: 'audio/mpeg',
+          title: 'One',
+        },
+        {
+          cid: 'bafytracktwoaaaaaaaaaaaaaaaaaaaa',
+          mime: 'audio/mpeg',
+          title: 'Two',
+        },
+      ],
+    };
+  }
+  if (kind === 'writing') {
+    return {
+      kind: 'writing',
+      writingFormat: 'issue',
+      readable: [
+        {
+          cid: 'bafymd1aaaaaaaaaaaaaaaaaaaaaaaa',
+          mime: 'text/markdown',
+          title: 'Chapter',
+        },
+      ],
+    };
+  }
+  if (kind === 'ticket') {
+    return { kind: 'ticket' };
+  }
+  return { kind: 'art' };
+}
+
+export function e2eDropCollectionRow(
+  collectionId: E2eDropCollectionId,
+  opts?: { ended?: boolean }
+) {
+  const ended =
+    opts?.ended === true ||
+    collectionId === 'quiet-print' ||
+    collectionId === 'gate-pass';
+  const kind =
+    collectionId === 'night-drive'
+      ? 'audio'
+      : collectionId === 'chapter-one'
+        ? 'writing'
+        : collectionId === 'gate-pass'
+          ? 'ticket'
+          : 'art';
+  const title =
+    collectionId === 'night-drive'
+      ? 'Night Drive'
+      : collectionId === 'chapter-one'
+        ? 'Chapter One'
+        : collectionId === 'gate-pass'
+          ? 'Gate Pass'
+          : 'Quiet Print';
+  return collectionRow({
+    collectionId,
+    title,
+    kind,
+    extra: dropExtra(kind),
+    remaining: ended ? 0 : 8,
+    endTime: ended ? FIXTURE_ENDED_AT : null,
+    maxRedeems: kind === 'ticket' ? 1 : null,
+  });
+}
+
+export function e2eDropCurrentRows(
+  drop: E2eGraphDrop,
+  collectionId: string
+): ReturnType<typeof collectionRow>[] {
+  if (drop === 'missing') return [];
+  if (
+    collectionId !== 'night-drive' &&
+    collectionId !== 'chapter-one' &&
+    collectionId !== 'quiet-print' &&
+    collectionId !== 'gate-pass'
+  ) {
+    return [];
+  }
+  return [
+    e2eDropCollectionRow(collectionId, { ended: drop === 'held' }),
+  ];
+}
+
 export function resolveE2eGraphStub(opts: {
   query: string;
   variables?: Record<string, unknown>;
@@ -835,6 +951,33 @@ export function resolveE2eGraphStub(opts: {
   }
   if (parsed.market && isProfileBatchQuery(opts.query)) {
     return { data: { profileSearch: [], profileKinds: [] } };
+  }
+
+  if (parsed.drop && isCollectionCurrentQuery(opts.query)) {
+    const collectionId =
+      typeof variables.collectionId === 'string' ? variables.collectionId : '';
+    return {
+      data: {
+        scarcesCollectionsCurrent: e2eDropCurrentRows(
+          parsed.drop,
+          collectionId
+        ),
+      },
+    };
+  }
+  if (parsed.drop === 'held' && isOwnsCollectionEditionQuery(opts.query)) {
+    const collectionId =
+      typeof variables.collectionId === 'string' ? variables.collectionId : '';
+    return {
+      data: {
+        scarcesTokenOwners: collectionId
+          ? [{ tokenId: `${collectionId}:3` }]
+          : [],
+      },
+    };
+  }
+  if (parsed.drop && isScarcesEventsQuery(opts.query)) {
+    return { data: { scarcesEvents: [] } };
   }
 
   if (parsed.vault && isOwnedByQuery(opts.query)) {
