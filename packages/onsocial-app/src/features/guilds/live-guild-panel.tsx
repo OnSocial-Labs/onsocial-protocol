@@ -36,7 +36,10 @@ import {
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
 import { PostRowSkeleton, postKey } from '@/features/home/post-card';
-import { GuildFeedFilterList } from '@/features/guilds/guild-feed-filter-list';
+import {
+  GuildFeedFilterList,
+  GuildFeedFilterSkeleton,
+} from '@/features/guilds/guild-feed-filter-list';
 import { postMetaFromText } from '@/features/home/post-mentions';
 import { placesMetaFromComposer } from '@/lib/post-place';
 import {
@@ -2007,6 +2010,11 @@ export function LiveGuildPanel({
                 </div>
               </div>
             )}
+            {feedSpaces.length > 0 ? (
+              renderFeedFilters()
+            ) : (
+              <GuildFeedFilterSkeleton />
+            )}
             <PostRowSkeleton
               rows={3}
               showChannel={selectedFeedFilterId === 'all'}
@@ -2272,7 +2280,7 @@ export function LiveGuildPanel({
             composer.mode === 'post' && config && postableSpaces.length > 0
               ? {
                   kind: 'guild' as const,
-                  name: config.name,
+                  name: guildDisplayName(config.name, groupId),
                   channels: postableSpaces.map((space) => ({
                     id: space.id,
                     title: space.title,
@@ -2365,7 +2373,7 @@ export function LiveGuildPanel({
         <GuildFactsSheet
           open={factsSheetOpen}
           groupId={groupId}
-          guildName={config.name}
+          guildName={guildDisplayName(config.name, groupId)}
           accessGated={config.accessGated}
           memberDriven={config.memberDriven}
           memberCount={memberCount}
@@ -2394,7 +2402,9 @@ export function LiveGuildPanel({
       {canManageGuild ? (
         <GuildSettingsSheet
           open={settingsSheetOpen}
-          guildName={config?.name}
+          guildName={
+            config ? guildDisplayName(config.name, groupId) : undefined
+          }
           onClose={() => {
             setSettingsSheetOpen(false);
             const next = settingsNextRef.current;
@@ -2418,7 +2428,9 @@ export function LiveGuildPanel({
         <GuildGroupStorageSheet
           open={groupStorageSheetOpen}
           groupId={groupId}
-          guildName={config?.name}
+          guildName={
+            config ? guildDisplayName(config.name, groupId) : undefined
+          }
           initialRecipient={groupStorageRecipient}
           onClose={() => {
             setGroupStorageSheetOpen(false);

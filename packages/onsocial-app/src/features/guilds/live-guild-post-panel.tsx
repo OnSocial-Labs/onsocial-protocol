@@ -1080,11 +1080,10 @@ export function LiveGuildPostPanel({
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : 'Could not update guild membership.'
-      );
+      setTxResult({
+        type: 'error',
+        msg: txToastError.guildMembershipFailed,
+      });
     } finally {
       setGuildMembershipActionPending(accountId, groupId, false);
     }
