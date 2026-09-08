@@ -1,10 +1,22 @@
 import type { Page } from '@playwright/test';
+import {
+  E2E_GUILD_ID,
+  E2E_GUILD_OWNER,
+  E2E_GUILD_STORED_NAME,
+  E2E_GUILD_TITLE,
+  e2eGuildBannedRows,
+  e2eGuildCurrentRows,
+  e2eGuildMemberCountRows,
+  e2eGuildMemberRows,
+  e2eGuildMembershipRows,
+  type E2eGraphGuild,
+} from '../../src/lib/e2e-graph-stubs';
 
-export const GUILD_E2E_ID = 'audit-guild';
-export const GUILD_E2E_TITLE = 'Audit Guild';
+export const GUILD_E2E_ID = E2E_GUILD_ID;
+export const GUILD_E2E_TITLE = E2E_GUILD_TITLE;
 /** Stored name embeds a raw id so the hero must clean it. */
-export const GUILD_E2E_STORED_NAME = `${GUILD_E2E_TITLE} grp_md_perm_1779813274071_ojf237`;
-export const GUILD_E2E_OWNER = 'alice.near';
+export const GUILD_E2E_STORED_NAME = E2E_GUILD_STORED_NAME;
+export const GUILD_E2E_OWNER = E2E_GUILD_OWNER;
 export const GUILD_E2E_PATH = `/groups/${encodeURIComponent(GUILD_E2E_ID)}`;
 export const GUILD_E2E_EMPTY_FEED = 'No guild posts yet.';
 export const GUILD_E2E_BANNED_HINT =
@@ -12,39 +24,17 @@ export const GUILD_E2E_BANNED_HINT =
 
 const CREATED_AT_NS = 1_700_000_000_000_000_000;
 
-function groupCurrentRow(opts?: { ownerId?: string }) {
-  return {
-    groupId: GUILD_E2E_ID,
-    ownerId: opts?.ownerId ?? GUILD_E2E_OWNER,
-    groupName: GUILD_E2E_STORED_NAME,
-    groupDescription: 'A stub guild for e2e.',
-    groupBannerCid: null,
-    groupBadgeCid: null,
-    isPublic: true,
-    isMemberDriven: false,
-    groupTopics: ['builders'],
-    blockHeight: 1,
-    blockTimestamp: 1,
-  };
-}
-
-function memberRow(opts: {
-  memberId: string;
-  isOwner?: boolean;
-  isAdmin?: boolean;
-  canModerate?: boolean;
-}) {
-  return {
-    groupId: GUILD_E2E_ID,
-    memberId: opts.memberId,
-    role: opts.isOwner ? 'owner' : opts.isAdmin ? 'admin' : 'member',
-    level: opts.isOwner ? 3 : opts.isAdmin ? 2 : 1,
-    isOwner: Boolean(opts.isOwner),
-    isAdmin: Boolean(opts.isAdmin),
-    canModerate: Boolean(opts.canModerate || opts.isOwner || opts.isAdmin),
-    blockHeight: 1,
-    blockTimestamp: 1,
-  };
+function guildFixture(opts?: {
+  rows?: 'empty' | 'missing';
+  ownerId?: string;
+  memberId?: string;
+  bannedId?: string;
+}): E2eGraphGuild {
+  if (opts?.rows === 'missing') return 'missing';
+  if (opts?.bannedId) return 'banned';
+  if (opts?.ownerId) return 'owner';
+  if (opts?.memberId) return 'member';
+  return 'empty';
 }
 
 function groupConfig(opts?: { ownerId?: string }) {
@@ -88,7 +78,8 @@ function json(data: unknown) {
 
 /**
  * Browser GraphQL + group data views for guild page settle.
- * SSR still misses a synthetic id in this env.
+ * Pair with `setE2eGraphGuild` for SSR. Omit the cookie for the SSR-miss
+ * skeleton test. Viewer/ACL still depends on these data-view stubs.
  */
 export async function stubGuildPage(
   page: Page,
@@ -109,6 +100,7 @@ export async function stubGuildPage(
   const memberId = opts?.memberId?.trim() || null;
   const bannedId = opts?.bannedId?.trim() || null;
   const missing = rows === 'missing';
+  const guild = guildFixture(opts);
 
   await page.route('**/api/onapi/graph/query', async (route) => {
     const raw = route.request().postData() ?? '';
@@ -129,7 +121,7 @@ export async function stubGuildPage(
       await delayIfShell();
       await route.fulfill(
         json({
-          data: { groupsCurrent: missing ? [] : [groupCurrentRow({ ownerId })] },
+          data: { groupsCurrent: e2eGuildCurrentRows(guild) },
         })
       );
       return;
@@ -145,17 +137,10 @@ export async function stubGuildPage(
       await route.fulfill(
         json({
           data: {
-            groupMembersCurrent:
-              !missing && viewerId
-                ? [
-                    memberRow({
-                      memberId: viewerId,
-                      isOwner: viewerId === ownerId,
-                      isAdmin: viewerId === ownerId,
-                      canModerate: viewerId === ownerId,
-                    }),
-                  ]
-                : [],
+            groupMembersCurrent: e2eGuildMembershipRows(
+              guild,
+              viewerId ?? undefined
+            ),
           },
         })
       );
@@ -165,19 +150,7 @@ export async function stubGuildPage(
     if (query.includes('GroupBannedOf')) {
       await route.fulfill(
         json({
-          data: {
-            groupBlacklistCurrent:
-              !missing && bannedId
-                ? [
-                    {
-                      groupId: GUILD_E2E_ID,
-                      memberId: bannedId,
-                      blockHeight: 1,
-                      blockTimestamp: 1,
-                    },
-                  ]
-                : [],
-          },
+          data: { groupBlacklistCurrent: e2eGuildBannedRows(guild) },
         })
       );
       return;
@@ -186,21 +159,7 @@ export async function stubGuildPage(
     if (query.includes('GroupMembersOf')) {
       await route.fulfill(
         json({
-          data: {
-            groupMembersCurrent: missing
-              ? []
-              : [
-                  memberRow({
-                    memberId: ownerId,
-                    isOwner: true,
-                    isAdmin: true,
-                    canModerate: true,
-                  }),
-                  ...(memberId && memberId !== ownerId
-                    ? [memberRow({ memberId })]
-                    : []),
-                ],
-          },
+          data: { groupMembersCurrent: e2eGuildMemberRows(guild) },
         })
       );
       return;
@@ -209,16 +168,7 @@ export async function stubGuildPage(
     if (query.includes('GroupMemberCounts')) {
       await route.fulfill(
         json({
-          data: {
-            groupMemberCounts: missing
-              ? []
-              : [
-                  {
-                    groupId: GUILD_E2E_ID,
-                    memberCount: memberId && memberId !== ownerId ? 2 : 1,
-                  },
-                ],
-          },
+          data: { groupMemberCounts: e2eGuildMemberCountRows(guild) },
         })
       );
       return;

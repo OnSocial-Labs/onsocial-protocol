@@ -4,7 +4,8 @@
  * CI / local e2e set the flag at process start (not `NEXT_PUBLIC_`).
  *
  * Tests opt in with cookie `onsocial.e2e.graph`
- * (`catalog=night-roads`, `vault=default`, `hub=catalog`, or combined).
+ * (`catalog=night-roads`, `vault=default`, `hub=catalog`, `guild=empty`,
+ * or combined).
  * No cookie → live indexer / existing `page.route` only (SSR miss still works).
  */
 
@@ -14,15 +15,22 @@ export const E2E_HUB_ID = 'e2e-hub';
 export const E2E_HUB_TITLE = 'Audit Hub';
 export const E2E_HUB_OWNER = 'alice.near';
 export const E2E_HUB_CREATOR_B = 'bob.near';
+export const E2E_GUILD_ID = 'audit-guild';
+export const E2E_GUILD_TITLE = 'Audit Guild';
+/** Stored name embeds a raw id so the hero must clean it. */
+export const E2E_GUILD_STORED_NAME = `${E2E_GUILD_TITLE} grp_md_perm_1779813274071_ojf237`;
+export const E2E_GUILD_OWNER = 'alice.near';
 
 export type E2eGraphCatalog = 'night-roads' | 'empty';
 export type E2eGraphVault = 'default' | 'many-creators' | 'empty';
 export type E2eGraphHub = 'catalog' | 'empty' | 'held' | 'staff';
+export type E2eGraphGuild = 'empty' | 'missing' | 'member' | 'banned' | 'owner';
 
 export type E2eGraphCookieValue = {
   catalog?: E2eGraphCatalog;
   vault?: E2eGraphVault;
   hub?: E2eGraphHub;
+  guild?: E2eGraphGuild;
 };
 
 const TWO_NEAR_YOCTO = '2000000000000000000000000';
@@ -67,6 +75,16 @@ export function parseE2eGraphCookie(
   ) {
     parsed.hub = hub;
   }
+  const guild = params.get('guild');
+  if (
+    guild === 'empty' ||
+    guild === 'missing' ||
+    guild === 'member' ||
+    guild === 'banned' ||
+    guild === 'owner'
+  ) {
+    parsed.guild = guild;
+  }
   return parsed;
 }
 
@@ -75,6 +93,7 @@ export function serializeE2eGraphCookie(opts: E2eGraphCookieValue): string {
   if (opts.catalog) params.set('catalog', opts.catalog);
   if (opts.vault) params.set('vault', opts.vault);
   if (opts.hub) params.set('hub', opts.hub);
+  if (opts.guild) params.set('guild', opts.guild);
   return params.toString();
 }
 
@@ -103,6 +122,42 @@ export function isAppRowQuery(query: string): boolean {
 
 export function isAppStatsQuery(query: string): boolean {
   return query.includes('ScarcesAppStats');
+}
+
+export function isGroupsByIdsQuery(query: string): boolean {
+  return query.includes('GroupsByIds');
+}
+
+export function isGroupFeedQuery(query: string): boolean {
+  return (
+    query.includes('GroupFeed') || query.includes('FilteredGroupFeed')
+  );
+}
+
+export function isGroupMembershipForQuery(query: string): boolean {
+  return query.includes('GroupMembershipFor');
+}
+
+export function isGroupBannedOfQuery(query: string): boolean {
+  return query.includes('GroupBannedOf');
+}
+
+export function isGroupMembersOfQuery(query: string): boolean {
+  return query.includes('GroupMembersOf');
+}
+
+export function isGroupMemberCountsQuery(query: string): boolean {
+  return query.includes('GroupMemberCounts');
+}
+
+export function isGroupPostCountQuery(query: string): boolean {
+  return query.includes('GroupPostCount');
+}
+
+export function isProfileBatchQuery(query: string): boolean {
+  return (
+    query.includes('ProfileStatsBatch') || query.includes('ProfileKinds')
+  );
 }
 
 export function extractGraphRequest(body: unknown): {
@@ -471,6 +526,109 @@ export function e2eHubHeldCollectionRows() {
   ];
 }
 
+function e2eGuildOwnerId(guild: E2eGraphGuild): string {
+  return guild === 'owner' ? E2E_VAULT_OWNER : E2E_GUILD_OWNER;
+}
+
+function e2eGuildMemberRow(opts: {
+  memberId: string;
+  isOwner?: boolean;
+  isAdmin?: boolean;
+  canModerate?: boolean;
+}) {
+  return {
+    groupId: E2E_GUILD_ID,
+    memberId: opts.memberId,
+    role: opts.isOwner ? 'owner' : opts.isAdmin ? 'admin' : 'member',
+    level: opts.isOwner ? 3 : opts.isAdmin ? 2 : 1,
+    isOwner: Boolean(opts.isOwner),
+    isAdmin: Boolean(opts.isAdmin),
+    canModerate: Boolean(opts.canModerate || opts.isOwner || opts.isAdmin),
+    blockHeight: 1,
+    blockTimestamp: 1,
+  };
+}
+
+export function e2eGuildCurrentRows(guild: E2eGraphGuild) {
+  if (guild === 'missing') return [];
+  return [
+    {
+      groupId: E2E_GUILD_ID,
+      ownerId: e2eGuildOwnerId(guild),
+      groupName: E2E_GUILD_STORED_NAME,
+      groupDescription: 'A stub guild for e2e.',
+      groupBannerCid: null,
+      groupBadgeCid: null,
+      isPublic: true,
+      isMemberDriven: false,
+      groupTopics: ['builders'],
+      blockHeight: 1,
+      blockTimestamp: 1,
+    },
+  ];
+}
+
+export function e2eGuildMemberRows(guild: E2eGraphGuild) {
+  if (guild === 'missing') return [];
+  const ownerId = e2eGuildOwnerId(guild);
+  return [
+    e2eGuildMemberRow({
+      memberId: ownerId,
+      isOwner: true,
+      isAdmin: true,
+      canModerate: true,
+    }),
+    ...(guild === 'member'
+      ? [e2eGuildMemberRow({ memberId: E2E_VAULT_OWNER })]
+      : []),
+  ];
+}
+
+export function e2eGuildMembershipRows(
+  guild: E2eGraphGuild,
+  viewerId?: string
+) {
+  if (guild === 'missing' || guild === 'banned') return [];
+  const ownerId = e2eGuildOwnerId(guild);
+  const memberId = viewerId?.trim() || '';
+  if (memberId && memberId === ownerId) {
+    return [
+      e2eGuildMemberRow({
+        memberId,
+        isOwner: true,
+        isAdmin: true,
+        canModerate: true,
+      }),
+    ];
+  }
+  if (guild === 'member' && memberId === E2E_VAULT_OWNER) {
+    return [e2eGuildMemberRow({ memberId })];
+  }
+  return [];
+}
+
+export function e2eGuildBannedRows(guild: E2eGraphGuild) {
+  if (guild !== 'banned') return [];
+  return [
+    {
+      groupId: E2E_GUILD_ID,
+      memberId: E2E_VAULT_OWNER,
+      blockHeight: 1,
+      blockTimestamp: 1,
+    },
+  ];
+}
+
+export function e2eGuildMemberCountRows(guild: E2eGraphGuild) {
+  if (guild === 'missing') return [];
+  return [
+    {
+      groupId: E2E_GUILD_ID,
+      memberCount: guild === 'member' ? 2 : 1,
+    },
+  ];
+}
+
 export function resolveE2eGraphStub(opts: {
   query: string;
   variables?: Record<string, unknown>;
@@ -497,6 +655,45 @@ export function resolveE2eGraphStub(opts: {
     return {
       data: { scarcesCollectionsCurrent: e2eHubCatalogRows(parsed.hub) },
     };
+  }
+
+  if (parsed.guild && isGroupsByIdsQuery(opts.query)) {
+    return { data: { groupsCurrent: e2eGuildCurrentRows(parsed.guild) } };
+  }
+  if (parsed.guild && isGroupFeedQuery(opts.query)) {
+    return { data: { postsCurrent: [] } };
+  }
+  if (parsed.guild && isGroupMembershipForQuery(opts.query)) {
+    const viewerId =
+      typeof variables.memberId === 'string' ? variables.memberId : '';
+    return {
+      data: {
+        groupMembersCurrent: e2eGuildMembershipRows(parsed.guild, viewerId),
+      },
+    };
+  }
+  if (parsed.guild && isGroupBannedOfQuery(opts.query)) {
+    return {
+      data: { groupBlacklistCurrent: e2eGuildBannedRows(parsed.guild) },
+    };
+  }
+  if (parsed.guild && isGroupMembersOfQuery(opts.query)) {
+    return {
+      data: { groupMembersCurrent: e2eGuildMemberRows(parsed.guild) },
+    };
+  }
+  if (parsed.guild && isGroupMemberCountsQuery(opts.query)) {
+    return {
+      data: { groupMemberCounts: e2eGuildMemberCountRows(parsed.guild) },
+    };
+  }
+  if (parsed.guild && isGroupPostCountQuery(opts.query)) {
+    return {
+      data: { postsCurrentAggregate: { aggregate: { count: 0 } } },
+    };
+  }
+  if (parsed.guild && isProfileBatchQuery(opts.query)) {
+    return { data: { profileSearch: [], profileKinds: [] } };
   }
 
   if (parsed.vault && isOwnedByQuery(opts.query)) {
