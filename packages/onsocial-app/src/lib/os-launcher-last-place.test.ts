@@ -34,6 +34,14 @@ describe('osLastPlaceFromPathname', () => {
     expect(osLastPlaceFromPathname('/@alice.testnet/collectibles')).toBeNull();
     expect(osLastPlaceFromPathname('/groups')).toBeNull();
   });
+
+  it('skips DAO and protocol faces, including overlays', () => {
+    expect(osLastPlaceFromPathname('/@governance.onsocial.testnet')).toBeNull();
+    expect(
+      osLastPlaceFromPathname('/@governance.onsocial.testnet/about')
+    ).toBeNull();
+    expect(osLastPlaceFromPathname('/@alice.sputnikv2.testnet')).toBeNull();
+  });
 });
 
 describe('osLastPlaceIsReturnable', () => {

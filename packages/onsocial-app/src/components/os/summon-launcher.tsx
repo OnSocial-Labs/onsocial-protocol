@@ -180,6 +180,7 @@ function LauncherAppTile({
         rel="noreferrer"
         aria-label={ariaLabel}
         aria-current={active ? 'page' : undefined}
+        data-app-id={app.id}
         onClick={(event) => {
           if (community) {
             event.preventDefault();
@@ -199,6 +200,7 @@ function LauncherAppTile({
       disabled={app.soon || (app.kind === 'open-page' && openingPage)}
       aria-label={ariaLabel}
       aria-current={active ? 'page' : undefined}
+      data-app-id={app.id}
       onClick={onActivate}
     >
       {tileBody}
@@ -610,7 +612,9 @@ export function SummonLauncher({
                 <SheetChromeHeader
                   className={osLauncherHeaderClassName}
                   actionsClassName={
-                    rally?.mark.visible ? 'os-launcher-header-actions' : undefined
+                    rally?.mark.visible
+                      ? 'os-launcher-header-actions'
+                      : undefined
                   }
                   actions={
                     rally?.mark.visible ? (

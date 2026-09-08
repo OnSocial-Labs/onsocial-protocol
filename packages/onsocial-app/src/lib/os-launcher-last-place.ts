@@ -1,8 +1,5 @@
 import { accountIdsEqual } from '@/lib/account-match';
-import {
-  GOVERNANCE_DAO_ACCOUNT,
-  TREASURY_DAO_ACCOUNT,
-} from '@/lib/app-config';
+import { GOVERNANCE_DAO_ACCOUNT, TREASURY_DAO_ACCOUNT } from '@/lib/app-config';
 import { normalizeAccountRoute } from '@/lib/account-route';
 import { isHeuristicDaoAccountId } from '@/lib/enrich-standing-with-dao';
 import { portfolioPath } from '@/lib/overlay-routes';
@@ -32,8 +29,7 @@ export function parsePortfolioAccountFromPath(pathname: string): {
   return { accountId, panel: parts[1] ?? null };
 }
 
-function isDaoOrProtocolFace(accountId: string, panel: string | null): boolean {
-  if (panel) return false;
+function isDaoOrProtocolAccount(accountId: string): boolean {
   const accountLower = accountId.trim().toLowerCase();
   if (
     accountLower === GOVERNANCE_DAO_ACCOUNT.trim().toLowerCase() ||
@@ -49,7 +45,8 @@ export function osLastPlaceFromPathname(pathname: string): OsLastPlace | null {
   const parsed = parsePortfolioAccountFromPath(pathname);
   if (!parsed) return null;
   if (parsed.panel && SKIP_PAGE_PANELS.has(parsed.panel)) return null;
-  if (isDaoOrProtocolFace(parsed.accountId, parsed.panel)) return null;
+  // Href is always the face — do not remember DAO/protocol as last-place.
+  if (isDaoOrProtocolAccount(parsed.accountId)) return null;
   return {
     href: portfolioPath(parsed.accountId),
     accountId: parsed.accountId,
@@ -67,10 +64,7 @@ export function osLastPlaceIsReturnable(
   if (current && accountIdsEqual(current.accountId, place.accountId)) {
     return false;
   }
-  if (
-    viewerAccountId &&
-    accountIdsEqual(place.accountId, viewerAccountId)
-  ) {
+  if (viewerAccountId && accountIdsEqual(place.accountId, viewerAccountId)) {
     return false;
   }
   return true;
@@ -139,7 +133,9 @@ export function writeOsLastPlace(place: OsLastPlace): void {
   notify();
 }
 
-export function rememberOsLastPlaceFromPath(pathname: string): OsLastPlace | null {
+export function rememberOsLastPlaceFromPath(
+  pathname: string
+): OsLastPlace | null {
   const place = osLastPlaceFromPathname(pathname);
   if (!place) return null;
   const current = readOsLastPlace();
