@@ -35,7 +35,7 @@ import { splitComposerThread } from '@/lib/composer-thread';
 import {
   allocateThreadPostIds,
   buildGuildThreadSetEntries,
-  canBatchComposerThread,
+  planComposerThreadChunks,
   threadSetEntriesFitEventBudget,
   type ComposerBeatWriteModel,
 } from '@/lib/composer-thread-batch';
@@ -75,8 +75,9 @@ function optimisticGuildThreadPosts(args: {
   ids: readonly string[];
   models: ComposerBeatWriteModel[];
   now: number;
+  parent?: PostRow | null;
 }): PostRow[] {
-  const { accountId, groupId, space, ids, models, now } = args;
+  const { accountId, groupId, space, ids, models, now, parent } = args;
   const channel = guildSpaceFeedChannel(space);
   const rows: PostRow[] = [];
   for (let index = 0; index < models.length; index += 1) {
@@ -119,10 +120,10 @@ function optimisticGuildThreadPosts(args: {
           ? 'longform'
           : (dropKind ?? space.kind),
     };
-    if (index > 0) {
-      const parent = rows[index - 1]!;
-      row.parentAuthor = parent.accountId;
-      row.parentPath = postContentPath(parent);
+    const replyParent = index > 0 ? rows[index - 1]! : parent;
+    if (replyParent) {
+      row.parentAuthor = replyParent.accountId;
+      row.parentPath = postContentPath(replyParent);
       row.parentType = 'post';
     }
     rows.push(row);
@@ -137,8 +138,11 @@ async function submitGuildThreadBatch(args: {
   space: GuildSpace;
   beats: ComposerSubmit[];
   trackTransaction: TrackTransaction;
+  parent?: PostRow | null;
+  silent?: boolean;
 }): Promise<GuildRootPostSubmitResult | null> {
-  const { client, accountId, groupId, space, beats, trackTransaction } = args;
+  const { client, accountId, groupId, space, beats, trackTransaction, parent } =
+    args;
   const now = Date.now();
   const ids = allocateThreadPostIds(beats.length, now);
   const { entries, models } = buildGuildThreadSetEntries({
@@ -148,6 +152,7 @@ async function submitGuildThreadBatch(args: {
     beats,
     ids,
     now,
+    parentId: parent?.postId,
   });
   if (!threadSetEntriesFitEventBudget(entries)) return null;
 
@@ -155,13 +160,15 @@ async function submitGuildThreadBatch(args: {
   try {
     response = await client.social.set(entries);
   } catch {
-    await trackTransaction({
-      txHashes: [],
-      submittedMessage: txToastConfirming.postingToGuild,
-      successMessage: txToastError.guildPostFailed,
-      failureMessage: txToastError.guildPostFailed,
-      toastKind: 'error',
-    });
+    if (!args.silent) {
+      await trackTransaction({
+        txHashes: [],
+        submittedMessage: txToastConfirming.postingToGuild,
+        successMessage: txToastError.guildPostFailed,
+        failureMessage: txToastError.guildPostFailed,
+        toastKind: 'error',
+      });
+    }
     return {
       confirmed: false,
       optimisticPost: null,
@@ -179,6 +186,7 @@ async function submitGuildThreadBatch(args: {
     ids,
     models,
     now,
+    parent,
   });
   const first = landed[0] ?? null;
   const confirmed = await trackTransaction({
@@ -186,7 +194,8 @@ async function submitGuildThreadBatch(args: {
     submittedMessage: txToastConfirming.postingToGuild,
     successMessage: txToastSuccess.threadPublished,
     failureMessage: txToastError.guildPostFailed,
-    ...(first
+    ...(args.silent ? { silent: true } : {}),
+    ...(!args.silent && first
       ? {
           actionHref: postThreadPath(first),
           actionLabel: txToastSuccess.viewThread,
@@ -214,6 +223,152 @@ async function submitGuildThreadBatch(args: {
   };
 }
 
+async function submitGuildThread(args: {
+  client: OnSocial;
+  accountId: string;
+  groupId: string;
+  space: GuildSpace;
+  beats: ComposerSubmit[];
+  trackTransaction: TrackTransaction;
+}): Promise<GuildRootPostSubmitResult> {
+  const { client, accountId, groupId, space, beats, trackTransaction } = args;
+  const chunks = planComposerThreadChunks(beats);
+  if (
+    chunks.length === 1 &&
+    chunks[0]!.beats.length === beats.length &&
+    beats.length >= 2
+  ) {
+    const batched = await submitGuildThreadBatch({
+      client,
+      accountId,
+      groupId,
+      space,
+      beats,
+      trackTransaction,
+    });
+    if (batched) return batched;
+  }
+
+  const total = beats.length;
+  let posted = 0;
+  let parent: PostRow | null = null;
+  let first: PostRow | null = null;
+  const landed: PostRow[] = [];
+  let lastHashes: string[] = [];
+
+  const failPartial = async (): Promise<GuildRootPostSubmitResult> => {
+    await trackTransaction({
+      txHashes: [],
+      explorerHash: lastHashes.at(-1) ?? null,
+      submittedMessage: txToastConfirming.postingToGuild,
+      successMessage:
+        posted > 0
+          ? txToastError.threadPartial(posted, total)
+          : txToastError.guildPostFailed,
+      failureMessage:
+        posted > 0
+          ? txToastError.threadPartial(posted, total)
+          : txToastError.guildPostFailed,
+      toastKind: 'error',
+    });
+    return {
+      confirmed: false,
+      optimisticPost: first,
+      optimisticPosts: landed,
+      groupId,
+      postedCount: posted,
+      totalCount: total,
+      txHashes: lastHashes,
+    };
+  };
+
+  for (const chunk of chunks) {
+    if (chunk.beats.length >= 2) {
+      const batched = await submitGuildThreadBatch({
+        client,
+        accountId,
+        groupId,
+        space,
+        beats: chunk.beats,
+        trackTransaction,
+        parent,
+        silent: true,
+      });
+      if (batched?.confirmed && batched.optimisticPosts?.length) {
+        posted += batched.postedCount ?? batched.optimisticPosts.length;
+        lastHashes = batched.txHashes?.length ? batched.txHashes : lastHashes;
+        if (!first) first = batched.optimisticPost;
+        landed.push(...batched.optimisticPosts);
+        parent = landed[landed.length - 1] ?? parent;
+        continue;
+      }
+      if (batched && !batched.confirmed) {
+        return failPartial();
+      }
+    }
+    for (const beat of chunk.beats) {
+      let next: { confirmed: boolean; optimisticPost: PostRow | null; txHashes?: string[] };
+      try {
+        if (!parent) {
+          next = await submitGuildRootPost({
+            client,
+            accountId,
+            groupId,
+            space,
+            payload: beat,
+            trackTransaction,
+            silent: true,
+          });
+        } else {
+          next = await submitPersonalPost({
+            client,
+            accountId,
+            mode: 'reply',
+            target: parent,
+            payload: beat,
+            trackTransaction,
+            silent: true,
+          });
+        }
+      } catch {
+        next = { confirmed: false, optimisticPost: null };
+      }
+      if (!next.confirmed || !next.optimisticPost) {
+        return failPartial();
+      }
+      posted += 1;
+      lastHashes = next.txHashes?.length ? next.txHashes : lastHashes;
+      if (!first) first = next.optimisticPost;
+      landed.push(next.optimisticPost);
+      parent = next.optimisticPost;
+    }
+  }
+
+  await trackTransaction({
+    txHashes: [],
+    explorerHash: lastHashes.at(-1) ?? null,
+    submittedMessage: txToastConfirming.postingToGuild,
+    successMessage: txToastSuccess.threadPublished,
+    failureMessage: txToastError.guildPostFailed,
+    ...(first
+      ? {
+          actionHref: postThreadPath(first),
+          actionLabel: txToastSuccess.viewThread,
+        }
+      : {}),
+  });
+
+  return {
+    confirmed: true,
+    optimisticPost: first,
+    optimisticPosts: landed,
+    groupId,
+    postedCount: posted,
+    totalCount: total,
+    txHashes: lastHashes,
+  };
+}
+
 /**
  * Root guild post from the shared composer (text / media / poll / Drop).
  */
@@ -231,98 +386,14 @@ export async function submitGuildRootPost(args: {
   const threadBeats =
     !args.silent ? splitComposerThread(payload) : null;
   if (threadBeats && threadBeats.length > 1) {
-    if (canBatchComposerThread(threadBeats)) {
-      const batched = await submitGuildThreadBatch({
-        client,
-        accountId,
-        groupId,
-        space,
-        beats: threadBeats,
-        trackTransaction,
-      });
-      if (batched) return batched;
-    }
-    const [root, ...rest] = threadBeats;
-    const first = await submitGuildRootPost({
+    return submitGuildThread({
       client,
       accountId,
       groupId,
       space,
-      payload: root!,
+      beats: threadBeats,
       trackTransaction,
-      silent: true,
     });
-    if (!first.confirmed || !first.optimisticPost) {
-      await trackTransaction({
-        txHashes: [],
-        explorerHash: first.txHashes?.at(-1) ?? null,
-        submittedMessage: txToastConfirming.postingToGuild,
-        successMessage: txToastError.guildPostFailed,
-        failureMessage: txToastError.guildPostFailed,
-        toastKind: 'error',
-      });
-      return first;
-    }
-    let parent = first.optimisticPost;
-    const landed: PostRow[] = [first.optimisticPost];
-    let posted = 1;
-    let lastHashes = first.txHashes ?? [];
-    const total = threadBeats.length;
-    for (const beat of rest) {
-      let next;
-      try {
-        next = await submitPersonalPost({
-          client,
-          accountId,
-          mode: 'reply',
-          target: parent,
-          payload: beat,
-          trackTransaction,
-          silent: true,
-        });
-      } catch {
-        next = { confirmed: false, optimisticPost: null };
-      }
-      if (!next.confirmed || !next.optimisticPost) {
-        await trackTransaction({
-          txHashes: [],
-          explorerHash: lastHashes.at(-1) ?? null,
-          submittedMessage: txToastConfirming.postingToGuild,
-          successMessage: txToastError.threadPartial(posted, total),
-          failureMessage: txToastError.threadPartial(posted, total),
-          toastKind: 'error',
-        });
-        return {
-          ...first,
-          confirmed: false,
-          optimisticPosts: landed,
-          postedCount: posted,
-          totalCount: total,
-          txHashes: lastHashes,
-        };
-      }
-      parent = next.optimisticPost;
-      landed.push(next.optimisticPost);
-      posted += 1;
-      lastHashes = next.txHashes?.length ? next.txHashes : lastHashes;
-    }
-    await trackTransaction({
-      txHashes: [],
-      explorerHash: lastHashes.at(-1) ?? null,
-      submittedMessage: txToastConfirming.postingToGuild,
-      successMessage: txToastSuccess.threadPublished,
-      failureMessage: txToastError.guildPostFailed,
-      actionHref: postThreadPath(first.optimisticPost),
-      actionLabel: txToastSuccess.viewThread,
-    });
-    return {
-      ...first,
-      confirmed: true,
-      optimisticPosts: landed,
-      postedCount: posted,
-      totalCount: total,
-      txHashes: lastHashes,
-    };
   }
   const text = payload.text.trim();
   const files = payload.files ?? [];

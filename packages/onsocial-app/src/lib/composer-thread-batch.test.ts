@@ -5,8 +5,10 @@ import {
   buildGuildThreadSetEntries,
   buildPersonalThreadSetEntries,
   canBatchComposerThread,
+  composerBeatCanBatch,
   COMPOSER_THREAD_EVENT_BUDGET_BYTES,
   estimateSetEventBytes,
+  planComposerThreadChunks,
   threadSetEntriesFitEventBudget,
 } from '@/lib/composer-thread-batch';
 import type { GuildSpace } from '@/features/guilds/guild-structure';
@@ -100,6 +102,44 @@ describe('composer thread batch', () => {
       parent: `alice.testnet/groups/builders/content/post/${ids[0]}`,
       parentType: 'post',
     });
+  });
+
+  it('continues a personal batch as replies when parentId is set', () => {
+    const now = 1_700_000_000_000;
+    const ids = allocateThreadPostIds(2, now);
+    const { entries } = buildPersonalThreadSetEntries({
+      accountId: 'alice.testnet',
+      beats: [{ text: 'three' }, { text: 'four' }],
+      ids,
+      now,
+      parentId: '99',
+    });
+    expect(entries[`post/${ids[0]}`]).toMatchObject({
+      text: 'three',
+      parent: 'alice.testnet/post/99',
+    });
+    expect(entries[`post/${ids[1]}`]).toMatchObject({
+      parent: `alice.testnet/post/${ids[0]}`,
+    });
+  });
+
+  it('chunks file and oversize beats away from the batched run', () => {
+    const fileBeat = {
+      text: 'pic',
+      files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })],
+    };
+    const fat = { text: 'x'.repeat(COMPOSER_THREAD_EVENT_BUDGET_BYTES) };
+    expect(composerBeatCanBatch(fileBeat)).toBe(false);
+    expect(composerBeatCanBatch(fat)).toBe(false);
+    expect(
+      planComposerThreadChunks([
+        { text: 'one' },
+        { text: 'two' },
+        fileBeat,
+        { text: 'four' },
+        { text: 'five' },
+      ]).map((chunk) => chunk.beats.map((beat) => beat.text))
+    ).toEqual([['one', 'two'], ['pic'], ['four', 'five']]);
   });
 
   it('flags a value that would blow the 16KB event line', () => {

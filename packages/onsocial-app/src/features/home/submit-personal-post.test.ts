@@ -662,6 +662,81 @@ describe('submitPersonalRepost', () => {
     expect(lastToast?.explorerHash).toBe('root-tx');
     expect(result.txHashes).toEqual(['root-tx']);
   });
+
+  it('keeps poll embeds on a sequential file extra', async () => {
+    const create = vi.fn().mockResolvedValue({ txHash: 'root-tx' });
+    const reply = vi.fn().mockResolvedValue({ txHash: 'reply-tx' });
+    const client = mockClient({ create, reply });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'post',
+      target: null,
+      payload: {
+        text: 'one',
+        thread: [
+          {
+            text: 'vote',
+            poll: { options: ['yes', 'no'] },
+            files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })],
+          },
+        ],
+      },
+      trackTransaction,
+    });
+
+    expect(reply).toHaveBeenCalledOnce();
+    expect(reply.mock.calls[0]![1]).toMatchObject({
+      text: 'vote',
+      embeds: [
+        expect.objectContaining({
+          kind: 'poll',
+          question: 'vote',
+          options: ['yes', 'no'],
+        }),
+      ],
+    });
+  });
+
+  it('batches the text run then replies the file beat', async () => {
+    const socialSet = vi.fn().mockResolvedValue({ txHash: 'batch-tx' });
+    const create = vi.fn();
+    const reply = vi.fn().mockResolvedValue({ txHash: 'file-tx' });
+    const client = mockClient({ socialSet, create, reply });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'post',
+      target: null,
+      payload: {
+        text: 'one',
+        thread: [
+          { text: 'two' },
+          {
+            text: 'pic',
+            files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })],
+          },
+        ],
+      },
+      trackTransaction,
+    });
+
+    expect(create).not.toHaveBeenCalled();
+    expect(socialSet).toHaveBeenCalledOnce();
+    expect(JSON.stringify(socialSet.mock.calls[0]![0])).toContain('one');
+    expect(JSON.stringify(socialSet.mock.calls[0]![0])).toContain('two');
+    expect(reply).toHaveBeenCalledOnce();
+    expect(result.confirmed).toBe(true);
+    expect(result.postedCount).toBe(3);
+    expect(result.optimisticPosts).toHaveLength(3);
+    const finalToast = trackTransaction.mock.calls.at(-1)?.[0];
+    expect(finalToast?.successMessage).toBe('Thread posted.');
+    expect(finalToast?.silent).toBeUndefined();
+  });
 });
 
 describe('viewerRepostWritePath', () => {

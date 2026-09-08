@@ -7,7 +7,6 @@ import {
   type PostData,
 } from '@onsocial/sdk';
 
-type SocialSetData = Record<string, unknown>;
 import type {
   ComposerDropDraft,
   ComposerSubmit,
@@ -36,6 +35,8 @@ import {
   type PostContentLabels,
 } from '@/lib/post-content-labels';
 import { placesMetaFromComposer } from '@/lib/post-place';
+
+type SocialSetData = Record<string, unknown>;
 
 /** Stay under NEAR `log_utf8` 16KB per EVENT_JSON line. */
 export const COMPOSER_THREAD_EVENT_BUDGET_BYTES = 14 * 1024;
@@ -104,6 +105,59 @@ export function canBatchComposerThread(
   }
   if (!beats.every(composerSubmitHasContent)) return false;
   return !beats.some(composerSubmitHasUploadFiles);
+}
+
+export type ComposerThreadChunk = {
+  beats: ComposerSubmit[];
+  startIndex: number;
+};
+
+/** One beat can join a batched set: no File uploads and EVENT_JSON fits. */
+export function composerBeatCanBatch(
+  payload: ComposerSubmit,
+  now = Date.now()
+): boolean {
+  if (!composerSubmitHasContent(payload)) return false;
+  if (composerSubmitHasUploadFiles(payload)) return false;
+  const drop = isDropComposeDraftReady(payload.drop)
+    ? payload.drop!
+    : personalDrop(payload);
+  const model = composerBeatWriteModel(payload, now, drop);
+  const sample = buildPostSetData(model.postData, '0', now);
+  return threadSetEntriesFitEventBudget(sample);
+}
+
+/**
+ * Consecutive batchable beats share a set. File / oversize beats stay
+ * their own sequential create-or-reply so the rest of the thread can
+ * still batch.
+ */
+export function planComposerThreadChunks(
+  beats: readonly ComposerSubmit[],
+  now = Date.now()
+): ComposerThreadChunk[] {
+  const chunks: ComposerThreadChunk[] = [];
+  let run: ComposerSubmit[] = [];
+  let runStart = 0;
+
+  const flushRun = () => {
+    if (run.length === 0) return;
+    chunks.push({ beats: run, startIndex: runStart });
+    run = [];
+  };
+
+  beats.forEach((beat, index) => {
+    if (composerBeatCanBatch(beat, now + index)) {
+      if (run.length === 0) runStart = index;
+      run.push(beat);
+      if (run.length >= COMPOSER_THREAD_MAX_BEATS) flushRun();
+      return;
+    }
+    flushRun();
+    chunks.push({ beats: [beat], startIndex: index });
+  });
+  flushRun();
+  return chunks;
 }
 
 function personalDrop(
@@ -188,24 +242,26 @@ export function buildPersonalThreadSetEntries(args: {
   beats: readonly ComposerSubmit[];
   ids: readonly string[];
   now: number;
+  /** When set, the first beat replies to this post instead of opening a root. */
+  parentId?: string;
 }): { entries: SocialSetData; models: ComposerBeatWriteModel[] } {
-  const { accountId, beats, ids, now } = args;
+  const { accountId, beats, ids, now, parentId } = args;
   const models = personalThreadBeatModels(beats, now);
   const entries: SocialSetData = {};
   for (let index = 0; index < models.length; index += 1) {
     const model = models[index]!;
     const postId = ids[index]!;
     const stamp = now + index;
-    const slice =
-      index === 0
-        ? buildPostSetData(model.postData, postId, stamp)
-        : buildReplySetData(
-            accountId,
-            ids[index - 1]!,
-            model.postData,
-            postId,
-            stamp
-          );
+    const replyParentId = index === 0 ? parentId : ids[index - 1];
+    const slice = replyParentId
+      ? buildReplySetData(
+          accountId,
+          replyParentId,
+          model.postData,
+          postId,
+          stamp
+        )
+      : buildPostSetData(model.postData, postId, stamp);
     Object.assign(entries, slice);
   }
   return { entries, models };
@@ -218,8 +274,10 @@ export function buildGuildThreadSetEntries(args: {
   beats: readonly ComposerSubmit[];
   ids: readonly string[];
   now: number;
+  /** When set, the first beat replies to this guild post instead of opening a root. */
+  parentId?: string;
 }): { entries: SocialSetData; models: ComposerBeatWriteModel[] } {
-  const { accountId, groupId, space, beats, ids, now } = args;
+  const { accountId, groupId, space, beats, ids, now, parentId } = args;
   const channel = guildSpaceFeedChannel(space);
   const models = beats.map((beat, index) => {
     const drop = isDropComposeDraftReady(beat.drop) ? beat.drop! : null;
@@ -245,20 +303,20 @@ export function buildGuildThreadSetEntries(args: {
     const model = models[index]!;
     const postId = ids[index]!;
     const stamp = now + index;
-    const slice =
-      index === 0
-        ? buildGroupPostSetData(groupId, model.postData, postId, stamp)
-        : buildGroupReplySetData(
+    const replyParentId = index === 0 ? parentId : ids[index - 1];
+    const slice = replyParentId
+      ? buildGroupReplySetData(
+          groupId,
+          buildGroupPostPath({
+            author: accountId,
             groupId,
-            buildGroupPostPath({
-              author: accountId,
-              groupId,
-              postId: ids[index - 1]!,
-            }),
-            model.postData,
-            postId,
-            stamp
-          );
+            postId: replyParentId,
+          }),
+          model.postData,
+          postId,
+          stamp
+        )
+      : buildGroupPostSetData(groupId, model.postData, postId, stamp);
     Object.assign(entries, slice);
   }
   return { entries, models };

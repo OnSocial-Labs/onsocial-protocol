@@ -183,4 +183,40 @@ describe('submitGuildRootPost thread', () => {
     expect(lastToast?.failureMessage).toBe('Posted 1 of 2.');
     expect(lastToast?.explorerHash).toBe('guild-root-tx');
   });
+
+  it('batches the text run then replies the file beat', async () => {
+    const socialSet = vi.fn().mockResolvedValue({ txHash: 'guild-batch-tx' });
+    const post = vi.fn();
+    const replyToPost = vi.fn().mockResolvedValue({ txHash: 'guild-file-tx' });
+    const client = {
+      social: { set: socialSet },
+      groups: { post, replyToPost },
+    } as unknown as OnSocial;
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitGuildRootPost({
+      client,
+      accountId: 'alice.testnet',
+      groupId: 'builders',
+      space,
+      payload: {
+        text: 'one',
+        thread: [
+          { text: 'two' },
+          {
+            text: 'pic',
+            files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })],
+          },
+        ],
+      },
+      trackTransaction,
+    });
+
+    expect(post).not.toHaveBeenCalled();
+    expect(socialSet).toHaveBeenCalledOnce();
+    expect(replyToPost).toHaveBeenCalledOnce();
+    expect(result.confirmed).toBe(true);
+    expect(result.postedCount).toBe(3);
+    expect(result.optimisticPosts).toHaveLength(3);
+  });
 });
