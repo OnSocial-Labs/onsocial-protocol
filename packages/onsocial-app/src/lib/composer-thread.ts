@@ -69,6 +69,23 @@ export function canAddComposerThreadBeat(beats: readonly ComposerBeat[]): boolea
   return Boolean(last && composerBeatHasContent(last));
 }
 
+/** Extra beats that would actually publish — used to warn before DAO collapse. */
+export function composerThreadHasFilledExtras(
+  beats: readonly ComposerBeat[]
+): boolean {
+  return beats.slice(1).some(composerBeatHasContent);
+}
+
+/** Filled beats to publish. DAO / reply / quote only send the opening post. */
+export function publishableComposerBeats(
+  beats: readonly ComposerBeat[],
+  canComposeThread: boolean
+): ComposerBeat[] {
+  if (canComposeThread) return beats.filter(composerBeatHasContent);
+  const first = beats[0];
+  return first && composerBeatHasContent(first) ? [first] : [];
+}
+
 export function threadPlusHint(beats: readonly ComposerBeat[]): string {
   if (canAddComposerThreadBeat(beats)) return 'Add to thread';
   if (composerThreadAtMax(beats)) return "That's the longest thread for now.";
@@ -192,8 +209,11 @@ export function beatToComposerSubmit(beat: ComposerBeat): ComposerSubmit {
       : {};
   const placeSlug = normalizePlaceSlug(beat.placeDraft);
   const place = placeSlug ? { places: [placeSlug] } : {};
+  const text =
+    beat.text.trim() ||
+    (beat.files.length > 0 && !beat.drop ? ' ' : beat.text);
   return {
-    text: beat.text,
+    text,
     ...(beat.files.length > 0 ? { files: beat.files } : {}),
     ...(beat.drop ? { drop: beat.drop } : {}),
     ...article,

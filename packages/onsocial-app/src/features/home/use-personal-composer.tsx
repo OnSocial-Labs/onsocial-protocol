@@ -40,6 +40,7 @@ import {
   submitPersonalPost,
   submitPersonalRepost,
   submitPersonalUnrepost,
+  optimisticPostsFromResult,
   type PersonalPostSubmitResult,
 } from '@/features/home/submit-personal-post';
 import {
@@ -418,12 +419,13 @@ export function usePersonalComposer({
             payload,
             trackTransaction,
           });
-          if (result.optimisticPost) {
+          const landed = optimisticPostsFromResult(result);
+          for (const post of landed) {
             dispatchGuildPostConfirmed({
               groupId: result.groupId,
-              post: result.optimisticPost,
+              post,
             });
-            onConfirmed?.(result.optimisticPost);
+            onConfirmed?.(post);
           }
           if (result.confirmed) {
             resetComposerState();
@@ -439,16 +441,17 @@ export function usePersonalComposer({
           payload,
           trackTransaction,
         });
-        if (result.optimisticPost) {
-          if (mode === 'reply' && target) {
-            dispatchPersonalReplyConfirmed({
-              parent: target,
-              reply: result.optimisticPost,
-            });
-            clearWriteDockDraft(writeDockDraftKey('post', postKey(target)));
-            clearReply();
-          }
-          onConfirmed?.(result.optimisticPost);
+        const landed = optimisticPostsFromResult(result);
+        if (result.optimisticPost && mode === 'reply' && target) {
+          dispatchPersonalReplyConfirmed({
+            parent: target,
+            reply: result.optimisticPost,
+          });
+          clearWriteDockDraft(writeDockDraftKey('post', postKey(target)));
+          clearReply();
+        }
+        for (const post of landed) {
+          onConfirmed?.(post);
         }
         if (result.confirmed) {
           resetComposerState();

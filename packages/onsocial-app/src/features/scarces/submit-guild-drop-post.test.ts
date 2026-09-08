@@ -132,8 +132,11 @@ describe('submitGuildRootPost thread', () => {
     expect(result.confirmed).toBe(true);
     expect(result.postedCount).toBe(2);
     expect(result.optimisticPost?.value).toContain('one');
+    expect(result.optimisticPosts).toHaveLength(2);
     const finalToast = trackTransaction.mock.calls.at(-1)?.[0];
     expect(finalToast?.successMessage).toBe('Thread posted.');
+    expect(finalToast?.actionLabel).toBe('View thread');
+    expect(finalToast?.actionHref).toBeTruthy();
     expect(finalToast?.explorerHash).toBe('guild-reply-tx');
     expect(result.txHashes).toEqual(['guild-reply-tx']);
   });

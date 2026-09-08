@@ -572,12 +572,18 @@ describe('submitPersonalRepost', () => {
     expect(result.postedCount).toBe(2);
     expect(result.totalCount).toBe(2);
     expect(result.optimisticPost?.value).toContain('one');
+    expect(result.optimisticPosts).toHaveLength(2);
+    expect(result.optimisticPosts?.[1]?.parentPath).toBe(
+      `${result.optimisticPost?.accountId}/post/${result.optimisticPost?.postId}`
+    );
     const silentCalls = trackTransaction.mock.calls.filter(
       (call) => call[0]?.silent
     );
     expect(silentCalls.length).toBeGreaterThanOrEqual(2);
     const finalToast = trackTransaction.mock.calls.at(-1)?.[0];
     expect(finalToast?.successMessage).toBe('Thread posted.');
+    expect(finalToast?.actionLabel).toBe('View thread');
+    expect(finalToast?.actionHref).toMatch(/\/posts\//);
     expect(finalToast?.silent).toBeUndefined();
     expect(finalToast?.txHashes).toEqual([]);
     expect(finalToast?.explorerHash).toBe('reply-tx');
@@ -605,6 +611,7 @@ describe('submitPersonalRepost', () => {
     expect(result.confirmed).toBe(false);
     expect(result.postedCount).toBe(1);
     expect(result.totalCount).toBe(2);
+    expect(result.optimisticPosts).toHaveLength(1);
     const lastToast = trackTransaction.mock.calls.at(-1)?.[0];
     expect(lastToast?.toastKind).toBe('error');
     expect(lastToast?.failureMessage).toBe('Posted 1 of 2.');

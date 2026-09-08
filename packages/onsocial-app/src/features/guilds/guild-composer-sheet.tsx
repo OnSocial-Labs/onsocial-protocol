@@ -88,12 +88,13 @@ import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import {
   canAddComposerThreadBeat,
   collapseTrailingEmptyComposerBeat,
-  threadPlusHint,
-  composerBeatHasContent,
   composerBeatsToSubmit,
+  composerThreadHasFilledExtras,
   emptyComposerBeat,
   keepUnsentComposerBeats,
+  publishableComposerBeats,
   removeComposerThreadBeat,
+  threadPlusHint,
   type ComposerBeat,
 } from '@/lib/composer-thread';
 
@@ -388,6 +389,7 @@ export function ComposerSheet({
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [dropPickerOpen, setDropPickerOpen] = useState(false);
   const [articleExitConfirmOpen, setArticleExitConfirmOpen] = useState(false);
+  const [daoThreadConfirmOpen, setDaoThreadConfirmOpen] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -459,6 +461,34 @@ export function ComposerSheet({
     setFocusedBeat(next.focus);
   };
 
+  const collapseThreadToFirst = () => {
+    setBeats((current) => {
+      const [first, ...rest] = current;
+      for (const row of rest) revokeSheetBeatPreviews(row);
+      return [first ?? emptySheetBeat()];
+    });
+    setFocusedBeat(0);
+  };
+
+  const requestAuthorMode = (next: 'me' | 'dao') => {
+    if (!authorTargets) return;
+    if (next === authorTargets.mode) return;
+    if (next === 'dao' && composerThreadHasFilledExtras(beats)) {
+      setDaoThreadConfirmOpen(true);
+      return;
+    }
+    if (next === 'dao' && beats.length > 1) {
+      collapseThreadToFirst();
+    }
+    authorTargets.onModeChange(next);
+  };
+
+  const confirmDaoThreadSwitch = () => {
+    collapseThreadToFirst();
+    setDaoThreadConfirmOpen(false);
+    authorTargets?.onModeChange('dao');
+  };
+
   const viewerName = accountId
     ? displayName(accountId, viewerShell?.displayName)
     : 'You';
@@ -498,6 +528,7 @@ export function ComposerSheet({
       setLabelsOpen(false);
       setDropPickerOpen(false);
       setArticleExitConfirmOpen(false);
+      setDaoThreadConfirmOpen(false);
     } else {
       setAppliedMediaSeedKey('');
       setArticleExitConfirmOpen(false);
@@ -564,9 +595,7 @@ export function ComposerSheet({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (pending) return;
-    const publishBeats = canComposeThread
-      ? beats.filter(composerBeatHasContent)
-      : [beat].filter(composerBeatHasContent);
+    const publishBeats = publishableComposerBeats(beats, canComposeThread);
     if (publishBeats.length === 0) return;
     if (publishBeats.some((row) => row.text.length > POST_TEXT_MAX_LENGTH)) {
       setMediaError(
@@ -585,9 +614,6 @@ export function ComposerSheet({
     if (!pollRowsReady) return;
     const payload = composerBeatsToSubmit(publishBeats);
     if (!payload) return;
-    if (!payload.text.trim() && (payload.files?.length || payload.drop)) {
-      payload.text = payload.drop ? '' : ' ';
-    }
     void (async () => {
       const result = await onSubmit(payload);
       if (!result || result.confirmed) return;
@@ -778,9 +804,7 @@ export function ComposerSheet({
   const textOverLimit = textLength > POST_TEXT_MAX_LENGTH;
   const showTextCount = textLength > 0;
 
-  const publishBeats = canComposeThread
-    ? beats.filter(composerBeatHasContent)
-    : [beat].filter(composerBeatHasContent);
+  const publishBeats = publishableComposerBeats(beats, canComposeThread);
   const threadPollReady = publishBeats.every((row) => {
     if (!row.pollEnabled) return true;
     const options = normalizePollOptions(row.pollOptions);
@@ -846,7 +870,7 @@ export function ComposerSheet({
             },
           ]}
           onChange={(value) =>
-            authorTargets.onModeChange(value === 'dao' ? 'dao' : 'me')
+            requestAuthorMode(value === 'dao' ? 'dao' : 'me')
           }
           disabled={pending}
           copy="Who publishes this post"
@@ -962,7 +986,18 @@ export function ComposerSheet({
   ) : null;
 
   const focusFieldOnBeat = (index: number) => {
-    if (index !== safeFocus) focusBeat(index);
+    const row = beats[index];
+    if (index !== safeFocus) {
+      flushSync(() => focusBeat(index));
+    }
+    const useTitle =
+      mode === 'post' &&
+      Boolean(row?.articleMode) &&
+      !row?.drop &&
+      !row?.pollEnabled;
+    focusComposerField(
+      useTitle ? titleInputRef.current : textareaRef.current
+    );
   };
 
   const renderBeat = (row: SheetBeat, index: number) => {
@@ -1192,7 +1227,7 @@ export function ComposerSheet({
                   }`}
                   disabled={!canAddThread || pending}
                   title={threadPlusHint(beats)}
-                  aria-label="Add to thread"
+                  aria-label={threadPlusHint(beats)}
                   onMouseDown={(event) => {
                     if (!canAddThread || pending) return;
                     event.preventDefault();
@@ -1409,6 +1444,16 @@ export function ComposerSheet({
       zIndex={COMPOSER_NEST_Z}
       onDiscard={clearArticleMode}
       onKeepEditing={() => setArticleExitConfirmOpen(false)}
+    />
+    <DiscardConfirmSheet
+      open={daoThreadConfirmOpen && open}
+      title="Propose as a single post?"
+      body="A DAO proposal is one Call. Extra thread posts will be cleared."
+      discardLabel="Switch to DAO"
+      keepEditingLabel="Keep thread"
+      zIndex={COMPOSER_NEST_Z}
+      onDiscard={confirmDaoThreadSwitch}
+      onKeepEditing={() => setDaoThreadConfirmOpen(false)}
     />
     <OsHugSheet
       open={labelsOpen && open}

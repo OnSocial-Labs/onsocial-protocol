@@ -3,6 +3,8 @@ import {
   appendComposerThreadBeat,
   beatToComposerSubmit,
   canAddComposerThreadBeat,
+  composerThreadHasFilledExtras,
+  publishableComposerBeats,
   collapseComposerThreadToFirst,
   collapseTrailingEmptyComposerBeat,
   keepUnsentComposerBeats,
@@ -88,6 +90,13 @@ describe('composer thread', () => {
     expect(submit.drop?.collectionId).toBe('c1');
   });
 
+  it('uses a space for media-only beats so they still publish', () => {
+    const file = new File(['x'], 'a.jpg', { type: 'image/jpeg' });
+    expect(
+      beatToComposerSubmit(emptyComposerBeat({ files: [file] })).text
+    ).toBe(' ');
+  });
+
   it('collapses extras back to a single post', () => {
     expect(
       collapseComposerThreadToFirst([
@@ -138,6 +147,37 @@ describe('composer thread', () => {
     ];
     const leftover = keepUnsentComposerBeats(beats, 2);
     expect(leftover.map((row) => row.text)).toEqual(['', 'three']);
+  });
+
+  it('detects filled extras before a DAO collapse', () => {
+    expect(
+      composerThreadHasFilledExtras([emptyComposerBeat({ text: 'one' })])
+    ).toBe(false);
+    expect(
+      composerThreadHasFilledExtras([
+        emptyComposerBeat({ text: 'one' }),
+        emptyComposerBeat(),
+      ])
+    ).toBe(false);
+    expect(
+      composerThreadHasFilledExtras([
+        emptyComposerBeat({ text: 'one' }),
+        emptyComposerBeat({ text: 'two' }),
+      ])
+    ).toBe(true);
+  });
+
+  it('publishes only the opening beat when threads are off', () => {
+    const beats = [
+      emptyComposerBeat({ text: 'one' }),
+      emptyComposerBeat({ text: 'two' }),
+    ];
+    expect(publishableComposerBeats(beats, true).map((row) => row.text)).toEqual(
+      ['one', 'two']
+    );
+    expect(publishableComposerBeats(beats, false).map((row) => row.text)).toEqual(
+      ['one']
+    );
   });
 
   it('maps titled article beats onto submit', () => {
