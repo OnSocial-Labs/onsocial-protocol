@@ -46,8 +46,10 @@ import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { commercePartyLines } from '@/features/scarces/collection-creator-face';
 import {
+  ENDORSE_CONNECTED_HINT,
   ENDORSE_CONNECT_CTA,
   ENDORSE_CONNECT_HINT,
+  ENDORSE_SUBMIT_CTA,
 } from '@/lib/endorse-compose-voice';
 import { customDisplayName } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
@@ -117,11 +119,8 @@ export function EndorseComposeSheet({
   const viewerShell = useViewerProfileShellContext();
   const { getClient } = useAppOnSocialClient();
   const { setTxResult } = useAppTransactionFeedback();
-  const {
-    confirmEndorse,
-    confirmEndorseRemove,
-    setEndorsePendingForTarget,
-  } = useViewerEndorsement(pageAccountId);
+  const { confirmEndorse, confirmEndorseRemove, setEndorsePendingForTarget } =
+    useViewerEndorsement(pageAccountId);
   const [closing, setClosing] = useState(false);
   const [topic, setTopic] = useState('');
   const [note, setNote] = useState('');
@@ -523,14 +522,14 @@ export function EndorseComposeSheet({
     }
   }
 
-  const verb = isEditing ? 'Edit endorsement' : 'Endorse';
+  const verb = isEditing ? 'Edit endorsement' : ENDORSE_SUBMIT_CTA;
   const primaryLabel = !isConnected
     ? ENDORSE_CONNECT_CTA
     : isEditing
       ? dirty
         ? 'Save endorsement'
         : 'Saved'
-      : 'Endorse';
+      : ENDORSE_SUBMIT_CTA;
 
   return (
     <>
@@ -687,9 +686,7 @@ export function EndorseComposeSheet({
               Editing your public vouch — change topic to move it.
             </p>
           ) : (
-            <p className="endorse-compose-hint">
-              Public vouch — topic, note, and media are optional.
-            </p>
+            <p className="endorse-compose-hint">{ENDORSE_CONNECTED_HINT}</p>
           )}
 
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
