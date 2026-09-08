@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build:deps": "pnpm --filter @onsocial/ui run build && pnpm --filter @onsocial/rpc run build && pnpm --filter @onsocial/sdk... run build",
+    "build:deps": "pnpm --filter @onsocial/app^... run build",
     "predev": "pnpm run build:deps",
     "dev": "next dev --port 3060",
     "prebuild": "pnpm run build:deps",

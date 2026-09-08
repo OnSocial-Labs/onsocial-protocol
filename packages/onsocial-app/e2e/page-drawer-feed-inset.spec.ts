@@ -1,7 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { expectPortfolioIdentityOrSkip, gotoApp } from './helpers';
+import {
+  e2ePortfolioAccountId,
+  expectPortfolioIdentityOrSkip,
+  gotoApp,
+} from './helpers';
 
-const accountId = process.env.E2E_PORTFOLIO_ACCOUNT ?? 'greenghost.testnet';
+const accountId = e2ePortfolioAccountId();
 const portfolioPath = `/@${accountId}`;
 
 test.describe('page drawer feed inset', () => {
@@ -13,6 +17,9 @@ test.describe('page drawer feed inset', () => {
 
     const drawer = page.locator('.glass-sheet-panel.page-drawer-panel');
     await expect(drawer).toBeVisible({ timeout: 20_000 });
+    await expect(
+      page.locator('.home-feed-state, .home-feed-list').first()
+    ).toBeVisible({ timeout: 20_000 });
 
     const metrics = await page.evaluate(() => {
       const body = document.querySelector('.page-drawer-body');

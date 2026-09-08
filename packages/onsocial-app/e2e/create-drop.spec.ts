@@ -1,5 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
-import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
+import {
+  E2E_CHROME_TIMEOUT_MS,
+  expectConnectVoice,
+  gotoApp,
+  setLookPreviewFile,
+} from './helpers';
 
 /**
  * New drop maker chrome. Does not submit a drop (no wallet).
@@ -50,9 +55,7 @@ test.describe('create drop', () => {
     await expect(page.locator('.portfolio-summon-hint--connect')).toHaveCount(
       0
     );
-    await expect(
-      page.getByRole('button', { name: 'Connect', exact: true })
-    ).toHaveCount(1);
+    await expectConnectVoice(page);
     await expect(
       page.getByRole('button', { name: 'Start drop', exact: true })
     ).toHaveCount(0);
@@ -131,12 +134,16 @@ test.describe('create drop', () => {
     expect(pieceBox!.width / pieceBox!.height).toBeCloseTo(1, 1);
     expect(pieceBox!.width).toBeLessThan(320);
 
-    await page.locator('input.scarce-cover-file-input').setInputFiles({
-      name: 'art.png',
-      mimeType: 'image/png',
-      buffer: COVER_PNG,
-    });
-    await expect(page.locator('.drop-create-piece.has-media')).toBeVisible();
+    await setLookPreviewFile(
+      page,
+      'input.scarce-cover-file-input',
+      {
+        name: 'art.png',
+        mimeType: 'image/png',
+        buffer: COVER_PNG,
+      },
+      page.locator('.drop-create-piece.has-media')
+    );
     const filledBox = await page
       .locator('.drop-create-piece.has-media')
       .boundingBox();

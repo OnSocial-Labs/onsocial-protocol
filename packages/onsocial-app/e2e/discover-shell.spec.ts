@@ -5,7 +5,7 @@ import {
   expectTabSelected,
   expectTabVisible,
   gotoApp,
-  searchField,
+  typeDiscoverPeopleSearch,
 } from './helpers';
 
 /**
@@ -45,8 +45,10 @@ test.describe('discover shell', () => {
   test('routes a people search from Moving to Profiles', async ({ page }) => {
     await gotoApp(page, '/discover');
     await expectTabSelected(page, 'Discover', 'Moving');
-    await searchField(page, 'Search people, topics, and tickers').fill('alice');
+    await typeDiscoverPeopleSearch(page, 'alice');
+    await expect(page).toHaveURL(/tab=profiles/);
     await expectTabSelected(page, 'Discover', 'Profiles');
+    await expectTabVisible(page, 'Filter profiles', 'All');
   });
 
   test('keeps face chips off the Moving landing', async ({ page }) => {

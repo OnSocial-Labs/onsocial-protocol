@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   closeStandingDrawer,
+  e2ePortfolioAccountId,
   expectGlassSheetHidden,
   expectGlassSheetVisible,
   expectPortfolioIdentityOrSkip,
@@ -10,7 +11,7 @@ import {
   switchStandingView,
 } from './helpers';
 
-const accountId = process.env.E2E_PORTFOLIO_ACCOUNT ?? 'greenghost.testnet';
+const accountId = e2ePortfolioAccountId();
 const portfolioPath = `/@${accountId}`;
 const standingIncomingPath = `${portfolioPath}/standing/incoming`;
 
@@ -39,7 +40,7 @@ test.describe('portfolio glass navigation', () => {
     });
 
     test('standing link opens drawer over portfolio', async ({ page }) => {
-      await openStandingFromProfile(page);
+      await openStandingFromProfile(page, accountId);
 
       await expect(page.locator('.standing-page-screen')).toHaveCount(0);
       await expectGlassSheetVisible(page);
@@ -49,7 +50,7 @@ test.describe('portfolio glass navigation', () => {
     });
 
     test('close standing drawer returns to portfolio', async ({ page }) => {
-      await openStandingFromProfile(page);
+      await openStandingFromProfile(page, accountId);
       await expectGlassSheetVisible(page);
 
       await closeStandingDrawer(page);
@@ -61,7 +62,7 @@ test.describe('portfolio glass navigation', () => {
     });
 
     test('reopen standing drawer after close', async ({ page }) => {
-      await openStandingFromProfile(page);
+      await openStandingFromProfile(page, accountId);
       await expectGlassSheetVisible(page);
 
       await closeStandingDrawer(page);
@@ -70,7 +71,7 @@ test.describe('portfolio glass navigation', () => {
       );
       await expectGlassSheetHidden(page);
 
-      await openStandingFromProfile(page);
+      await openStandingFromProfile(page, accountId);
 
       await expect(page.locator('.standing-page-screen')).toHaveCount(0);
       await expectGlassSheetVisible(page);
@@ -78,7 +79,7 @@ test.describe('portfolio glass navigation', () => {
     });
 
     test('standing to discover opens full page', async ({ page }) => {
-      await openStandingFromProfile(page);
+      await openStandingFromProfile(page, accountId);
       await expectGlassSheetVisible(page);
 
       await openDiscoverFromStandingDrawer(page);
@@ -94,7 +95,7 @@ test.describe('portfolio glass navigation', () => {
     test('one close after standing tab switch returns to portfolio', async ({
       page,
     }) => {
-      await openStandingFromProfile(page);
+      await openStandingFromProfile(page, accountId);
       await expectGlassSheetVisible(page);
 
       await switchStandingView(page, 'They stand with');

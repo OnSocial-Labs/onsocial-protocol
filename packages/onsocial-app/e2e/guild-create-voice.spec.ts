@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoApp } from './helpers';
+import { dismissNextDevOverlay, gotoApp, setLookPreviewFile } from './helpers';
 
 const LOOK_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -7,6 +7,8 @@ const LOOK_PNG = Buffer.from(
 );
 
 test.describe('create guild voice', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test('is a task sheet with footer Connect, not Connect wallet', async ({
     page,
   }) => {
@@ -65,6 +67,7 @@ test.describe('create guild voice', () => {
     await expect(page.locator('#guild-create-description')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Advanced' })).toHaveCount(0);
 
+    await dismissNextDevOverlay(page);
     await page.getByRole('button', { name: 'Add about', exact: true }).click();
     await expect(page.locator('#guild-create-description')).toBeVisible();
     await page
@@ -109,25 +112,29 @@ test.describe('create guild voice', () => {
     ).toBeLessThan(16);
     expect(bannerBox!.height).toBeLessThan(110);
 
-    await page.locator('[data-guild-look-file="banner"]').setInputFiles({
-      name: 'banner.png',
-      mimeType: 'image/png',
-      buffer: LOOK_PNG,
-    });
-    await expect(
+    await setLookPreviewFile(
+      page,
+      '[data-guild-look-file="banner"]',
+      {
+        name: 'banner.png',
+        mimeType: 'image/png',
+        buffer: LOOK_PNG,
+      },
       page.getByRole('button', { name: 'Change banner', exact: true })
-    ).toBeVisible();
+    );
     await banner.hover();
     await expect(page.getByRole('button', { name: 'Remove banner' })).toBeVisible();
 
-    await page.locator('[data-guild-look-file="badge"]').setInputFiles({
-      name: 'badge.png',
-      mimeType: 'image/png',
-      buffer: LOOK_PNG,
-    });
-    await expect(
+    await setLookPreviewFile(
+      page,
+      '[data-guild-look-file="badge"]',
+      {
+        name: 'badge.png',
+        mimeType: 'image/png',
+        buffer: LOOK_PNG,
+      },
       page.getByRole('button', { name: 'Change badge', exact: true })
-    ).toBeVisible();
+    );
     await badge.hover();
     await expect(page.getByRole('button', { name: 'Remove badge' })).toBeVisible();
 
@@ -149,11 +156,12 @@ test.describe('create guild voice', () => {
     await expect(
       page.getByRole('heading', { name: 'Create guild' })
     ).toBeVisible();
+    await dismissNextDevOverlay(page);
     await page
       .locator('.os-app-screen-actions')
       .getByRole('button', { name: 'Close' })
       .click();
-    await expect(page).toHaveURL(/\/groups\/?$/);
+    await page.waitForURL(/\/groups\/?$/, { timeout: 15_000 });
     await expect(
       page.getByRole('heading', { name: 'Create guild' })
     ).toHaveCount(0);
@@ -173,6 +181,7 @@ test.describe('create guild voice', () => {
     await expect(form).toBeVisible();
     await expect(form).not.toHaveAttribute('data-form-focused');
 
+    await dismissNextDevOverlay(page);
     const nameField = page.locator('#guild-create-name');
     await nameField.scrollIntoViewIfNeeded();
     await nameField.click();

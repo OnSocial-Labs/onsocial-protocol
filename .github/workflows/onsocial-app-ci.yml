@@ -1,0 +1,114 @@
+name: OnSocial App CI
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'packages/onsocial-app/**'
+      - 'packages/onsocial-ui/**'
+      - 'packages/onsocial-sdk/**'
+      - 'packages/onsocial-text-card/**'
+      - 'packages/onsocial-rpc/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/onsocial-app-ci.yml'
+  pull_request:
+    paths:
+      - 'packages/onsocial-app/**'
+      - 'packages/onsocial-ui/**'
+      - 'packages/onsocial-sdk/**'
+      - 'packages/onsocial-text-card/**'
+      - 'packages/onsocial-rpc/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/onsocial-app-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  ONSOCIAL_API_KEY: ci-check-placeholder
+  NEXT_PUBLIC_NEAR_NETWORK: testnet
+
+jobs:
+  check:
+    name: Build & Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build app dependencies
+        run: pnpm --filter @onsocial/app^... run build
+
+      - name: Lint
+        run: pnpm --filter @onsocial/app lint
+
+      - name: Type check
+        run: pnpm --filter @onsocial/app exec tsc --noEmit
+
+      - name: Unit tests
+        run: pnpm --filter @onsocial/app test
+
+      - name: Build
+        run: pnpm --filter @onsocial/app exec next build
+
+  e2e:
+    name: Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @onsocial/app exec playwright install --with-deps chromium
+
+      - name: Run e2e
+        run: pnpm --filter @onsocial/app test:e2e
+
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: packages/onsocial-app/test-results
+          if-no-files-found: ignore
+          retention-days: 7

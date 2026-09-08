@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoApp } from './helpers';
+import { gotoApp, setLookPreviewFile } from './helpers';
 
 test.describe('dao create voice', () => {
   test('Create DAO sheet asks Connect, not Connect wallet', async ({
@@ -106,27 +106,31 @@ test.describe('dao create voice', () => {
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
       'base64'
     );
-    await sheet.locator('[data-dao-look-file="cover"]').setInputFiles({
-      name: 'cover.png',
-      mimeType: 'image/png',
-      buffer: lookPng,
-    });
-    await expect(
+    await setLookPreviewFile(
+      page,
+      sheet.locator('[data-dao-look-file="cover"]'),
+      {
+        name: 'cover.png',
+        mimeType: 'image/png',
+        buffer: lookPng,
+      },
       sheet.getByRole('button', { name: 'Change cover', exact: true })
-    ).toBeVisible();
+    );
     await cover.hover();
     await expect(
       sheet.getByRole('button', { name: 'Remove cover' })
     ).toBeVisible();
 
-    await sheet.locator('[data-dao-look-file="crest"]').setInputFiles({
-      name: 'crest.png',
-      mimeType: 'image/png',
-      buffer: lookPng,
-    });
-    await expect(
+    await setLookPreviewFile(
+      page,
+      sheet.locator('[data-dao-look-file="crest"]'),
+      {
+        name: 'crest.png',
+        mimeType: 'image/png',
+        buffer: lookPng,
+      },
       sheet.getByRole('button', { name: 'Change crest', exact: true })
-    ).toBeVisible();
+    );
     await crest.hover();
     await expect(
       sheet.getByRole('button', { name: 'Remove crest' })
