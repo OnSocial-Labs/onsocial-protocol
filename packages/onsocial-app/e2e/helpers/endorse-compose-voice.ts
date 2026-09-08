@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import {
   dismissNextDevOverlay,
   gotoApp,
+  softOpenPortfolioOverlay,
   waitForPortfolioClientReady,
 } from './navigation';
 
@@ -15,16 +16,6 @@ const EMPTY_ENDORSEMENTS = {
   receivedHasMore: false,
   givenHasMore: false,
 };
-
-type NextDebugRouter = {
-  push: (href: string) => void;
-};
-
-declare global {
-  interface Window {
-    next?: { router?: NextDebugRouter };
-  }
-}
 
 /** Intercept endorsements so the panel opens without a live indexer. */
 export async function stubEndorseComposeApis(page: Page): Promise<void> {
@@ -45,14 +36,8 @@ async function openEndorsementsOverlay(page: Page): Promise<void> {
     return;
   }
 
-  // Dormant faces hide the signals row — soft-open the peek the same way Link does.
-  await page.evaluate((href) => {
-    const router = window.next?.router;
-    if (!router?.push) {
-      throw new Error('Next router missing — cannot open endorsements');
-    }
-    router.push(href);
-  }, endorsementsHref);
+  // Dormant faces hide the signals row — soft-open via the hydrated App Router.
+  await softOpenPortfolioOverlay(page, endorsementsHref);
 }
 
 /** Soft-open endorsements from the portfolio face, then open compose. */

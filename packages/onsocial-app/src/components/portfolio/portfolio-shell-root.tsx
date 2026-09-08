@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
+import { useRouter } from 'next/navigation';
 import { DaoFaceEligibilityProvider } from '@/contexts/dao-face-eligibility-context';
 import { PortfolioFacePreviewProvider } from '@/contexts/portfolio-face-preview-context';
 import {
@@ -47,6 +48,12 @@ import {
   resolvePortfolioMood,
 } from '@/lib/moods/resolve';
 import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
+import { e2eWalletPaintAllowed } from '@/lib/e2e-wallet-account';
+import {
+  installE2eAppRouterPush,
+  markPortfolioClientReady,
+  unmarkPortfolioClientReady,
+} from '@/lib/e2e-portfolio-ready';
 
 interface PortfolioShellRootProps {
   mood: ResolvedMood;
@@ -210,13 +217,20 @@ export function PortfolioShellRoot({
   const [softFillConfig, setSoftFillConfig] = useState<PublicPageConfig | null>(
     null
   );
+  const router = useRouter();
 
   useEffect(() => {
-    document.body.dataset.portfolioClientReady = 'true';
+    markPortfolioClientReady();
+    const uninstallPush = e2eWalletPaintAllowed()
+      ? installE2eAppRouterPush((href) => {
+          router.push(href, { scroll: false });
+        })
+      : undefined;
     return () => {
-      delete document.body.dataset.portfolioClientReady;
+      uninstallPush?.();
+      unmarkPortfolioClientReady();
     };
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (Object.keys(config).length > 0) return;
