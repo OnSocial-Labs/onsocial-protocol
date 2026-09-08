@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   guildPath,
   guildSheetPath,
+  manageSheetFromShare,
   parseGuildSheetParam,
 } from '@/features/guilds/guilds-data';
 
@@ -10,7 +11,7 @@ describe('guild share sheet paths', () => {
     expect(parseGuildSheetParam('proposals')).toBe('proposals');
     expect(parseGuildSheetParam('Members')).toBe('members');
     expect(parseGuildSheetParam(' requests ')).toBe('requests');
-    expect(parseGuildSheetParam('settings')).toBeNull();
+    expect(parseGuildSheetParam('settings')).toBe('settings');
     expect(parseGuildSheetParam('')).toBeNull();
     expect(parseGuildSheetParam(null)).toBeNull();
   });
@@ -23,5 +24,16 @@ describe('guild share sheet paths', () => {
     expect(guildSheetPath('a/b', 'members')).toBe(
       '/groups/a%2Fb?sheet=members'
     );
+    expect(guildSheetPath('rebels.near', 'settings')).toBe(
+      '/groups/rebels.near?sheet=settings'
+    );
+  });
+
+  it('keeps settings off the manage-sheet stack', () => {
+    expect(manageSheetFromShare('members')).toBe('members');
+    expect(manageSheetFromShare('proposals')).toBe('proposals');
+    expect(manageSheetFromShare('requests')).toBe('requests');
+    expect(manageSheetFromShare('settings')).toBeNull();
+    expect(manageSheetFromShare(null)).toBeNull();
   });
 });

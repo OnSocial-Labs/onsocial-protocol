@@ -86,6 +86,7 @@ import {
   collectRelayTxHashes,
   guildPath,
   guildSheetPath,
+  manageSheetFromShare,
   type GuildShareSheetId,
 } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -210,9 +211,11 @@ export function LiveGuildPanel({
   const [modalError, setModalError] = useState<string | null>(null);
   const [headerElevated, setHeaderElevated] = useState(false);
   const [manageSheet, setManageSheet] = useState<GuildManageSheetId | null>(
-    () => initialSheet
+    () => manageSheetFromShare(initialSheet)
   );
-  const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
+  const [settingsSheetOpen, setSettingsSheetOpen] = useState(
+    initialSheet === 'settings'
+  );
   const [groupStorageSheetOpen, setGroupStorageSheetOpen] = useState(false);
   const [groupStorageRecipient, setGroupStorageRecipient] = useState<
     string | null
@@ -249,7 +252,8 @@ export function LiveGuildPanel({
   );
 
   useEffect(() => {
-    if (initialSheet) setManageSheet(initialSheet);
+    setManageSheet(manageSheetFromShare(initialSheet));
+    setSettingsSheetOpen(initialSheet === 'settings');
   }, [initialSheet]);
 
   const joinRequestPending = pendingJoinRequest(viewer?.joinRequest ?? null);
@@ -997,7 +1001,12 @@ export function LiveGuildPanel({
             {canManageGuild ? (
               <OsIconAction
                 ariaLabel="Guild settings"
-                onClick={() => setSettingsSheetOpen(true)}
+                onClick={() => {
+                  setSettingsSheetOpen(true);
+                  router.replace(guildSheetPath(groupId, 'settings'), {
+                    scroll: false,
+                  });
+                }}
               >
                 <SettingsIcon className="glass-sheet-close-icon" aria-hidden />
               </OsIconAction>
@@ -1398,6 +1407,7 @@ export function LiveGuildPanel({
             if (next === 'edit') setEditSheetOpen(true);
             if (next === 'rooms') setRoomsSheetOpen(true);
             if (next === 'storage') setGroupStorageSheetOpen(true);
+            router.replace(guildPath(groupId), { scroll: false });
           }}
           onEditGuild={() => {
             settingsNextRef.current = 'edit';

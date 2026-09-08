@@ -172,6 +172,30 @@ test.describe('guild page', () => {
     await expect(members.getByRole('heading', { name: 'Members' })).toBeVisible();
   });
 
+  test('legacy /members redirects onto the members sheet', async ({ page }) => {
+    await stubGuildPage(page);
+    await gotoApp(page, `${GUILD_E2E_PATH}/members`);
+
+    await expect(page).toHaveURL(new RegExp(`${GUILD_E2E_PATH}\\?sheet=members`));
+    const members = page.getByRole('dialog', { name: 'Members' });
+    await expect(members).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(members.getByRole('heading', { name: 'Members' })).toBeVisible();
+  });
+
+  test('owner /settings redirects onto the settings hub', async ({ page }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await stubGuildPage(page, { ownerId: COLLECTIBLES_VAULT_OWNER });
+    await gotoApp(page, `${GUILD_E2E_PATH}/settings`);
+
+    await expect(page).toHaveURL(
+      new RegExp(`${GUILD_E2E_PATH}\\?sheet=settings`)
+    );
+    const settings = page.getByRole('dialog', { name: 'Settings' });
+    await expect(settings).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(settings.getByText('Edit guild')).toBeVisible();
+    await expect(settings.getByText('Rooms')).toBeVisible();
+  });
+
   test('document title includes Guilds · OnSocial', async ({ page }) => {
     await stubGuildPage(page);
     await gotoApp(page, GUILD_E2E_PATH);
