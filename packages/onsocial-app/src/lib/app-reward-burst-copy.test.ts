@@ -101,12 +101,12 @@ describe('compressAppRewardBurstReasons', () => {
     ).toEqual(['Stand · Maya']);
   });
 
-  it('falls back to full account id when no display name', () => {
+  it('falls back to the spoken local part when no display name', () => {
     expect(
       compressAppRewardBurstReasons([
         { action: 'stand_given', targetAccountId: 'alice.near' },
       ])
-    ).toEqual(['Stand · alice.near']);
+    ).toEqual(['Stand · Alice']);
   });
 
   it('prefers mutual stand over stand in one burst', () => {
@@ -115,7 +115,7 @@ describe('compressAppRewardBurstReasons', () => {
         { action: 'stand_given', targetAccountId: 'alice.near' },
         { action: 'mutual_stand_created', targetAccountId: 'alice.near' },
       ])
-    ).toEqual(['Mutual stand · alice.near']);
+    ).toEqual(['Mutual stand · Alice']);
   });
 
   it('drops daily when stand already explains the social beat', () => {
@@ -124,7 +124,7 @@ describe('compressAppRewardBurstReasons', () => {
         { action: 'stand_given', targetAccountId: 'alice.near' },
         { action: 'daily_active' },
       ])
-    ).toEqual(['Stand · alice.near']);
+    ).toEqual(['Stand · Alice']);
   });
 
   it('keeps daily when it is the only credit reason', () => {
@@ -143,10 +143,7 @@ describe('formatShortBurstReason', () => {
 
   it('drops trailing reasons instead of mid-string ellipsis', () => {
     expect(
-      formatShortBurstReason([
-        'Mutual stand · Maya Rodriguez',
-        'Profile saved',
-      ])
+      formatShortBurstReason(['Mutual stand · Maya Rodriguez', 'Profile saved'])
     ).toBe('Mutual stand · Maya Rodriguez');
   });
 });
