@@ -98,6 +98,9 @@ export {
 export {
   ArrowLeftIcon,
   ArrowUpRightIcon,
+  AlignCenterIcon,
+  AlignJustifyIcon,
+  AlignLeftIcon,
   BookmarkIcon,
   Box3dIcon,
   BoxCheckIcon,

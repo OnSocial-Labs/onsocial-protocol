@@ -343,6 +343,105 @@ export function NoteTextIcon({
   );
 }
 
+/** Mage `Align Left` — essay / article alignment. */
+export function AlignLeftIcon({
+  strokeWidth = 1.5,
+  ...props
+}: MageStrokeIconProps & { strokeWidth?: number }) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M4.5 12H12.5"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+      />
+      <path
+        d="M4.5 18.25H19.5"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+      />
+      <path
+        d="M4.5 5.75H19.5"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Mage `Align Center` — essay / article alignment. */
+export function AlignCenterIcon({
+  strokeWidth = 1.5,
+  ...props
+}: MageStrokeIconProps & { strokeWidth?: number }) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M6.28571 12H17.7143"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+      />
+      <path
+        d="M9.71429 17.7143H14.2857"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+      />
+      <path
+        d="M4 6.28571H20"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/**
+ * Justify — Mage ships left/center/right only; this matches Align Left’s
+ * stroke language with three equal full-width rules (standard justify mark).
+ */
+export function AlignJustifyIcon({
+  strokeWidth = 1.5,
+  ...props
+}: MageStrokeIconProps & { strokeWidth?: number }) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M4.5 5.75H19.5"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+      />
+      <path
+        d="M4.5 12H19.5"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+      />
+      <path
+        d="M4.5 18.25H19.5"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+      />
+    </MageStrokeSvg>
+  );
+}
+
 /** Mage `building-tree` — office / organization mark. */
 export function BuildingTreeIcon(props: MageStrokeIconProps) {
   return (

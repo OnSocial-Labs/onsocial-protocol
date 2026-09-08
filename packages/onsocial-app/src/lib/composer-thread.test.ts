@@ -139,4 +139,22 @@ describe('composer thread', () => {
     const leftover = keepUnsentComposerBeats(beats, 2);
     expect(leftover.map((row) => row.text)).toEqual(['', 'three']);
   });
+
+  it('maps titled article beats onto submit', () => {
+    const submit = beatToComposerSubmit(
+      emptyComposerBeat({
+        text: 'body',
+        articleMode: true,
+        articleTitle: 'Hello',
+      })
+    );
+    expect(submit.article).toEqual({ title: 'Hello' });
+  });
+
+  it('ignores articleMode without a title on submit', () => {
+    const submit = beatToComposerSubmit(
+      emptyComposerBeat({ text: 'body', articleMode: true })
+    );
+    expect(submit.article).toBeUndefined();
+  });
 });

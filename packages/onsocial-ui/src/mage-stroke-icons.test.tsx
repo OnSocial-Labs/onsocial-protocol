@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   ArrowLeftIcon,
   ArrowUpRightIcon,
+  AlignCenterIcon,
+  AlignJustifyIcon,
+  AlignLeftIcon,
   CameraIcon,
   ChartVerticalIcon,
   CheckIcon,
@@ -65,6 +68,9 @@ describe('mage stroke icons', () => {
   it('exports icon components', () => {
     expect(typeof ArrowLeftIcon).toBe('function');
     expect(typeof ArrowUpRightIcon).toBe('function');
+    expect(typeof AlignCenterIcon).toBe('function');
+    expect(typeof AlignJustifyIcon).toBe('function');
+    expect(typeof AlignLeftIcon).toBe('function');
     expect(typeof CameraIcon).toBe('function');
     expect(typeof ChartVerticalIcon).toBe('function');
     expect(typeof CheckIcon).toBe('function');

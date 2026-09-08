@@ -72,7 +72,7 @@ export function PortfolioWritingPanel({
         <div className="portfolio-writing-empty">
           <p>
             {emptyState === 'owner-cta' || emptyState === 'owner-copy'
-              ? 'Add a title in compose to publish an article here.'
+              ? 'Longer pieces live here.'
               : emptyState === 'visitor'
                 ? 'No articles yet.'
                 : 'No matching articles.'}
@@ -81,7 +81,7 @@ export function PortfolioWritingPanel({
             <button
               type="button"
               className="portfolio-writing-empty-action"
-              onClick={() => openPost()}
+              onClick={() => openPost({ article: true })}
             >
               Write an article
             </button>

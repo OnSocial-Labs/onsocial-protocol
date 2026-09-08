@@ -464,6 +464,8 @@ export function ProfileJobsEditor({
         body={`“${removeTitle}” leaves your hiring list.`}
         discardLabel="Remove"
         keepEditingLabel="Keep"
+        pending={busy && removeJobId !== null}
+        pendingLabel="Removing…"
         zIndex={SHEET_Z.lightboxNested}
         onDiscard={() => {
           if (removeJobId && !busy) void handleRemove(removeJobId);

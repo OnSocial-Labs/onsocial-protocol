@@ -52,16 +52,16 @@ function useAccountHasArticles(
   return enabled ? resolved : null;
 }
 
-/** Face / About entry to the Writing shelf. Hidden for visitors with no articles. */
-export function PortfolioWritingLink({ accountId }: { accountId: string }) {
+/** Owner always; visitors only once articles are confirmed. */
+export function useShowPortfolioWritingLink(accountId: string): boolean {
   const { accountId: viewerId } = useAppWallet();
   const isOwner = Boolean(viewerId && accountIdsEqual(viewerId, accountId));
   const hasArticles = useAccountHasArticles(accountId, !isOwner);
+  return shouldShowWritingLink({ isOwner, hasArticles });
+}
 
-  if (!shouldShowWritingLink({ isOwner, hasArticles })) {
-    return null;
-  }
-
+/** Presentational Writing door — parent owns visibility. */
+export function PortfolioWritingAnchor({ accountId }: { accountId: string }) {
   return (
     <Link
       href={writingPath(accountId)}
@@ -71,4 +71,11 @@ export function PortfolioWritingLink({ accountId }: { accountId: string }) {
       Writing
     </Link>
   );
+}
+
+/** Face / About entry to the Writing shelf. Hidden for visitors with no articles. */
+export function PortfolioWritingLink({ accountId }: { accountId: string }) {
+  const show = useShowPortfolioWritingLink(accountId);
+  if (!show) return null;
+  return <PortfolioWritingAnchor accountId={accountId} />;
 }

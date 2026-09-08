@@ -26,6 +26,7 @@ import {
 } from '@onsocial/sdk';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { PortfolioAboutIndustry } from '@/components/portfolio/portfolio-identity-topics';
+import { ProfileAlignToolIcon } from '@/components/profile/profile-align-tool-icon';
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { ProfileTopicsEditor } from '@/components/wallet/profile-topics-editor';
 import type { ProfileAboutPhotoDraft } from '@/components/wallet/profile-about-photos-editor';
@@ -337,7 +338,7 @@ export function ProfileAboutEditorSheet({
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => onAboutAlignChange(option)}
               >
-                {option === 'left' ? 'L' : option === 'center' ? 'C' : 'J'}
+                <ProfileAlignToolIcon option={option} />
               </button>
             ))}
           </div>

@@ -95,6 +95,7 @@ export function usePersonalComposer({
     target: PostRow | null;
     initialText?: string;
     initialFiles?: File[];
+    initialArticleMode?: boolean;
   } | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -207,7 +208,7 @@ export function usePersonalComposer({
     resetGuildState();
   }, [resetGuildState]);
 
-  const openPost = useCallback(() => {
+  const openPost = useCallback((opts?: { article?: boolean }) => {
     setError(null);
     setTargetId(COMPOSER_PERSONAL_TARGET);
     setAuthorMode(COMPOSER_AUTHOR_ME);
@@ -216,7 +217,11 @@ export function usePersonalComposer({
     setPendingDaoPayload(null);
     resetGuildState();
     clearReply();
-    setComposer({ mode: 'post', target: null });
+    setComposer({
+      mode: 'post',
+      target: null,
+      initialArticleMode: Boolean(opts?.article),
+    });
   }, [clearReply, resetGuildState]);
 
   const openReply = startReply;
@@ -495,6 +500,7 @@ export function usePersonalComposer({
         targetAuthorProfile={targetAuthorProfile}
         initialText={composer.initialText ?? ''}
         initialFiles={composer.initialFiles}
+        initialArticleMode={composer.initialArticleMode}
         onModeChange={
           composer.target
             ? (mode) =>

@@ -17,12 +17,16 @@ export type ComposerBeat = {
   nsfw: boolean;
   placeDraft: string;
   placeOpen: boolean;
+  /** Post compose mode flip — title field shows only when true. */
+  articleMode: boolean;
   articleTitle: string;
   articleAlign: ProfileAboutAlign;
 };
 
 export function emptyComposerBeat(
-  seed?: Partial<Pick<ComposerBeat, 'text' | 'files' | 'drop'>>
+  seed?: Partial<
+    Pick<ComposerBeat, 'text' | 'files' | 'drop' | 'articleMode' | 'articleTitle'>
+  >
 ): ComposerBeat {
   return {
     text: seed?.text ?? '',
@@ -35,7 +39,8 @@ export function emptyComposerBeat(
     nsfw: false,
     placeDraft: '',
     placeOpen: false,
-    articleTitle: '',
+    articleMode: seed?.articleMode ?? false,
+    articleTitle: seed?.articleTitle ?? '',
     articleAlign: 'left',
   };
 }

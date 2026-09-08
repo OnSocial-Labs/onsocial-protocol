@@ -12,6 +12,7 @@ import {
 } from '@onsocial/sdk';
 import { OsFieldRemove, osFieldBorderedClassName } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
+import { ProfileAlignToolIcon } from '@/components/profile/profile-align-tool-icon';
 import { QuotedPostInset } from '@/features/home/post-card';
 import { PostMediaBlock } from '@/features/home/post-media';
 import { ComposerHashtagTextarea } from '@/features/guilds/composer-hashtag-textarea';
@@ -34,6 +35,8 @@ export const COMPOSER_PLACEHOLDER: Record<ComposerMode, string> = {
   reply: 'Post your reply',
   quote: 'Add a comment',
 };
+
+export const COMPOSER_ARTICLE_PLACEHOLDER = 'Write your article…';
 
 export const COMPOSER_POLL_PLACEHOLDER = 'Ask a question…';
 
@@ -64,6 +67,7 @@ export function ComposerThreadBeat({
   viewerAvatarUrl,
   viewerName,
   textareaRef,
+  titleInputRef,
   mediaStripRef,
   placeInputRef,
   priorityMentionAccounts,
@@ -91,6 +95,7 @@ export function ComposerThreadBeat({
   viewerAvatarUrl?: string | null;
   viewerName: string;
   textareaRef?: RefObject<HTMLTextAreaElement | null>;
+  titleInputRef?: RefObject<HTMLInputElement | null>;
   mediaStripRef?: RefObject<HTMLDivElement | null>;
   placeInputRef?: RefObject<HTMLInputElement | null>;
   priorityMentionAccounts?: MentionPriorityAccount[];
@@ -101,13 +106,15 @@ export function ComposerThreadBeat({
   onOpenLabels: () => void;
   onMediaError: (message: string | null) => void;
 }) {
-  const rowTitle = row.articleTitle.trim();
-  const rowCanArticle = mode === 'post' && !row.drop && !row.pollEnabled;
-  const rowCanPoll = mode === 'post' && !row.drop && !rowTitle;
+  const rowCanArticle =
+    mode === 'post' && row.articleMode && !row.drop && !row.pollEnabled;
+  const rowCanPoll = mode === 'post' && !row.drop && !row.articleMode;
   const rowCanPlace = mode === 'post';
   const beatPlaceholder = row.pollEnabled
     ? COMPOSER_POLL_PLACEHOLDER
-    : COMPOSER_PLACEHOLDER[mode];
+    : rowCanArticle
+      ? COMPOSER_ARTICLE_PLACEHOLDER
+      : COMPOSER_PLACEHOLDER[mode];
 
   return (
     <div
@@ -137,18 +144,24 @@ export function ComposerThreadBeat({
             />
           </div>
         ) : null}
-        <div className="guild-composer-beat-body">
+        <div
+          className="guild-composer-beat-body"
+          {...(rowCanArticle
+            ? { 'data-article-align': row.articleAlign }
+            : {})}
+        >
           {rowCanArticle ? (
             <label className="guild-composer-article-field">
               <span className="sr-only">Article title</span>
               <input
+                ref={focused ? titleInputRef : undefined}
                 type="text"
                 className={`${osFieldBorderedClassName} guild-composer-article-title`}
                 value={row.articleTitle}
                 maxLength={ARTICLE_TITLE_MAX}
                 disabled={pending}
                 autoComplete="off"
-                placeholder="Title (optional)"
+                placeholder="Title"
                 aria-label="Article title"
                 onChange={(event) =>
                   onPatch({ articleTitle: event.target.value })
@@ -160,7 +173,7 @@ export function ComposerThreadBeat({
               />
             </label>
           ) : null}
-          {rowCanArticle && rowTitle ? (
+          {rowCanArticle ? (
             <div
               className="guild-composer-article-align"
               role="group"
@@ -188,7 +201,7 @@ export function ComposerThreadBeat({
                     onPatch({ articleAlign: option });
                   }}
                 >
-                  {option === 'left' ? 'L' : option === 'center' ? 'C' : 'J'}
+                  <ProfileAlignToolIcon option={option} />
                 </button>
               ))}
             </div>

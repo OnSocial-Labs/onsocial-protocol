@@ -124,6 +124,9 @@ export interface DiscardConfirmSheetProps {
   body?: string;
   discardLabel?: string;
   keepEditingLabel?: string;
+  /** Wallet / chain wait — danger pill shows pulsing dots, close blocked. */
+  pending?: boolean;
+  pendingLabel?: string;
   /** Override when stacking over a higher host. Default 96. */
   zIndex?: number;
   titleId?: string;
@@ -141,13 +144,17 @@ export function DiscardConfirmSheet({
   body = 'Edits won’t be saved.',
   discardLabel = 'Discard',
   keepEditingLabel = 'Keep editing',
+  pending = false,
+  pendingLabel = 'Removing…',
   zIndex = DISCARD_CONFIRM_Z,
   titleId,
 }: DiscardConfirmSheetProps) {
   return (
     <OsHugSheet
       open={open}
-      onClose={onKeepEditing}
+      onClose={() => {
+        if (!pending) onKeepEditing();
+      }}
       chrome="choice"
       label={title}
       {...(titleId ? { titleId } : {})}
@@ -160,7 +167,10 @@ export function DiscardConfirmSheet({
             <OsSheetAction
               type="button"
               variant="danger"
-              ready
+              ready={!pending}
+              pending={pending}
+              pendingLabel={pendingLabel}
+              disabled={pending}
               onClick={onDiscard}
             >
               {discardLabel}
@@ -168,7 +178,8 @@ export function DiscardConfirmSheet({
             <OsSheetAction
               type="button"
               variant="primary"
-              ready
+              ready={!pending}
+              disabled={pending}
               onClick={onKeepEditing}
             >
               {keepEditingLabel}

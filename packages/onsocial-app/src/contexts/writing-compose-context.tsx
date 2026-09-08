@@ -10,9 +10,18 @@ import {
   type ReactNode,
 } from 'react';
 
+export type OpenPersonalComposeOptions = {
+  /** Open already flipped to Article (Writing shelf). */
+  article?: boolean;
+};
+
+export type OpenPersonalCompose = (
+  opts?: OpenPersonalComposeOptions
+) => void;
+
 type WritingComposeContextValue = {
-  openPost: (() => void) | null;
-  registerOpenPost: (fn: (() => void) | null) => void;
+  openPost: OpenPersonalCompose | null;
+  registerOpenPost: (fn: OpenPersonalCompose | null) => void;
 };
 
 const WritingComposeContext = createContext<WritingComposeContextValue | null>(
@@ -20,12 +29,12 @@ const WritingComposeContext = createContext<WritingComposeContextValue | null>(
 );
 
 /**
- * Lets the Writing shelf open the expanded post sheet (title + align).
+ * Lets the Writing shelf open compose in Article mode (title required).
  * The owner composer registers from the face or a hard-refresh writing page.
  */
 export function WritingComposeProvider({ children }: { children: ReactNode }) {
-  const [openPost, setOpenPost] = useState<(() => void) | null>(null);
-  const registerOpenPost = useCallback((fn: (() => void) | null) => {
+  const [openPost, setOpenPost] = useState<OpenPersonalCompose | null>(null);
+  const registerOpenPost = useCallback((fn: OpenPersonalCompose | null) => {
     setOpenPost(() => fn);
   }, []);
   const value = useMemo<WritingComposeContextValue>(
@@ -40,11 +49,13 @@ export function WritingComposeProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useWritingComposeOpen(): (() => void) | null {
+export function useWritingComposeOpen(): OpenPersonalCompose | null {
   return useContext(WritingComposeContext)?.openPost ?? null;
 }
 
-export function useRegisterWritingCompose(openPost: (() => void) | null) {
+export function useRegisterWritingCompose(
+  openPost: OpenPersonalCompose | null
+) {
   const register = useContext(WritingComposeContext)?.registerOpenPost;
 
   useLayoutEffect(() => {

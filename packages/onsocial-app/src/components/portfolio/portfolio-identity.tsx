@@ -3,8 +3,7 @@
 import { useEffect } from 'react';
 import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kind-switch';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
-import { PortfolioAboutLink } from '@/components/portfolio/portfolio-about-link';
-import { PortfolioWritingLink } from '@/components/portfolio/portfolio-writing-link';
+import { PortfolioDepthLinks } from '@/components/portfolio/portfolio-depth-links';
 import { PortfolioFaceBio } from '@/components/portfolio/portfolio-face-bio';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
 import { PortfolioOrgMetaLine } from '@/components/portfolio/portfolio-org-meta-line';
@@ -163,16 +162,8 @@ export function PortfolioIdentity({
             <span>{locationLabel}</span>
           </p>
         ) : null}
-        {summary ? (
-          <PortfolioFaceBio
-            accountId={accountId}
-            text={summary}
-            showAbout={showAbout}
-          />
-        ) : showAbout ? (
-          <PortfolioAboutLink accountId={accountId} />
-        ) : null}
-        <PortfolioWritingLink accountId={accountId} />
+        {summary ? <PortfolioFaceBio text={summary} /> : null}
+        <PortfolioDepthLinks accountId={accountId} showAbout={showAbout} />
         <PortfolioIdentityGestures
           pageAccountId={accountId}
           profileName={profileName}

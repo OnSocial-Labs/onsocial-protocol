@@ -17,11 +17,13 @@ import {
 import {
   ChartVerticalFillIcon,
   ChartVerticalIcon,
+  DiscardConfirmSheet,
   ImageFillIcon,
   ImageIcon,
   MapMarkerFillIcon,
   MapMarkerIcon,
   MultiplyIcon,
+  NoteTextIcon,
   OsHugSheet,
   OsIconAction,
   OsPageSheet,
@@ -105,7 +107,9 @@ function nextSheetBeatId() {
 }
 
 function emptySheetBeat(
-  seed?: Partial<Pick<ComposerBeat, 'text' | 'files' | 'drop'>>
+  seed?: Partial<
+    Pick<ComposerBeat, 'text' | 'files' | 'drop' | 'articleMode' | 'articleTitle'>
+  >
 ): SheetBeat {
   const files = seed?.files ? [...seed.files] : [];
   return {
@@ -234,6 +238,8 @@ interface ComposerSheetProps {
   initialText?: string;
   /** Prefill media when expanding from the compact write dock. */
   initialFiles?: File[];
+  /** Open already flipped to Article (Writing shelf CTA). */
+  initialArticleMode?: boolean;
   pending: boolean;
   error?: string | null;
   onClose: (draft?: { text: string; files: File[] }) => void;
@@ -332,6 +338,7 @@ export function ComposerSheet({
   initialDrop = null,
   initialText = '',
   initialFiles = [],
+  initialArticleMode = false,
   pending,
   error,
   onClose,
@@ -366,7 +373,12 @@ export function ComposerSheet({
   const [beats, setBeats] = useState<SheetBeat[]>(() => [
     emptySheetBeat(
       open
-        ? { text: initialText, files: initialFiles, drop: initialDrop }
+        ? {
+            text: initialText,
+            files: initialFiles,
+            drop: initialDrop,
+            articleMode: initialArticleMode && mode === 'post',
+          }
         : undefined
     ),
   ]);
@@ -375,9 +387,11 @@ export function ComposerSheet({
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [dropPickerOpen, setDropPickerOpen] = useState(false);
+  const [articleExitConfirmOpen, setArticleExitConfirmOpen] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const placeInputRef = useRef<HTMLInputElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const mediaStripRef = useRef<HTMLDivElement>(null);
@@ -397,15 +411,17 @@ export function ComposerSheet({
     contentWarning,
     nsfw,
     placeOpen,
+    articleMode,
     articleTitle,
   } = beat;
   const articleTitleTrimmed = Boolean(articleTitle.trim());
-  const canUsePoll = mode === 'post' && !dropDraft && !articleTitleTrimmed;
+  const canUseArticle = mode === 'post' && !dropDraft && !pollEnabled;
+  const canUsePoll = mode === 'post' && !dropDraft && !articleMode;
   const canUseMedia = !pollEnabled && !dropDraft;
   const canUseDrop =
     mode === 'post' &&
     !pollEnabled &&
-    !articleTitleTrimmed &&
+    !articleMode &&
     mediaFiles.length === 0;
   const canUsePlace = mode === 'post';
   const canAddThread = canComposeThread && canAddComposerThreadBeat(beats);
@@ -471,6 +487,7 @@ export function ComposerSheet({
             text: initialText,
             files: initialFiles,
             drop: initialDrop,
+            articleMode: initialArticleMode && mode === 'post',
           }),
         ];
       });
@@ -480,8 +497,10 @@ export function ComposerSheet({
       setMediaError(null);
       setLabelsOpen(false);
       setDropPickerOpen(false);
+      setArticleExitConfirmOpen(false);
     } else {
       setAppliedMediaSeedKey('');
+      setArticleExitConfirmOpen(false);
     }
   } else if (open && appliedMediaSeedKey !== initialMediaSeedKey) {
     setAppliedMediaSeedKey(initialMediaSeedKey);
@@ -511,10 +530,14 @@ export function ComposerSheet({
   useEffect(() => {
     if (!open) return;
     const focusTimer = window.setTimeout(() => {
-      focusComposerField(textareaRef.current);
+      if (initialArticleMode && mode === 'post') {
+        focusComposerField(titleInputRef.current);
+      } else {
+        focusComposerField(textareaRef.current);
+      }
     }, 280);
     return () => window.clearTimeout(focusTimer);
-  }, [open, mode, formKey]);
+  }, [open, mode, formKey, initialArticleMode]);
 
   useEffect(() => {
     if (!open || !labelsOpen) return;
@@ -620,9 +643,43 @@ export function ComposerSheet({
     patchFocused({
       pollEnabled: true,
       drop: null,
+      articleMode: false,
+      articleTitle: '',
+      articleAlign: 'left',
       files: [],
       previews: [],
     });
+  };
+
+  const clearArticleMode = () => {
+    patchFocused({
+      articleMode: false,
+      articleTitle: '',
+      articleAlign: 'left',
+    });
+    setArticleExitConfirmOpen(false);
+    queueMicrotask(() => focusComposerField(textareaRef.current));
+  };
+
+  const toggleArticle = () => {
+    if (!canUseArticle || pending) return;
+    if (articleMode) {
+      if (articleTitleTrimmed) {
+        setArticleExitConfirmOpen(true);
+        return;
+      }
+      clearArticleMode();
+      return;
+    }
+    setMediaError(null);
+    patchFocused({
+      articleMode: true,
+      pollEnabled: false,
+      pollOptions: ['', ''],
+      pollDurationMs: undefined,
+      drop: null,
+    });
+    queueMicrotask(() => focusComposerField(titleInputRef.current));
   };
 
   const selectDrop = (drop: ComposerDropDraft) => {
@@ -634,6 +691,9 @@ export function ComposerSheet({
       pollEnabled: false,
       pollOptions: ['', ''],
       pollDurationMs: undefined,
+      articleMode: false,
+      articleTitle: '',
+      articleAlign: 'left',
       files: [],
       previews: [],
     });
@@ -733,7 +793,13 @@ export function ComposerSheet({
     publishBeats.length > 0 &&
     !pending &&
     threadPollReady &&
-    publishBeats.every((row) => row.text.length <= POST_TEXT_MAX_LENGTH);
+    publishBeats.every(
+      (row) =>
+        row.text.length <= POST_TEXT_MAX_LENGTH &&
+        (!row.articleMode || Boolean(row.articleTitle.trim()))
+    );
+  const publishingArticle =
+    mode === 'post' && publishBeats.some((row) => row.articleMode);
 
   const showDestinationMenus =
     mode === 'post' &&
@@ -920,6 +986,7 @@ export function ComposerSheet({
         viewerAvatarUrl={viewerShell?.avatarUrl}
         viewerName={viewerName}
         textareaRef={focused ? textareaRef : undefined}
+        titleInputRef={focused ? titleInputRef : undefined}
         mediaStripRef={focused ? mediaStripRef : undefined}
         placeInputRef={focused ? placeInputRef : undefined}
         priorityMentionAccounts={priorityMentionAccounts}
@@ -989,6 +1056,31 @@ export function ComposerSheet({
               <button
                 type="button"
                 className={`guild-composer-tool${
+                  articleMode ? ' is-active' : ''
+                }`}
+                disabled={!canUseArticle || pending}
+                title={
+                  canUseArticle
+                    ? articleMode
+                      ? 'Switch to a regular post'
+                      : 'Write an article'
+                    : 'Articles are for new posts'
+                }
+                aria-label={
+                  canUseArticle
+                    ? articleMode
+                      ? 'Switch to a regular post'
+                      : 'Write an article'
+                    : 'Articles are for new posts'
+                }
+                aria-pressed={articleMode}
+                onClick={toggleArticle}
+              >
+                <NoteTextIcon className="guild-composer-tool-icon" />
+              </button>
+              <button
+                type="button"
+                className={`guild-composer-tool${
                   pollEnabled ? ' is-active' : ''
                 }`}
                 disabled={!canUsePoll || pending}
@@ -997,8 +1089,8 @@ export function ComposerSheet({
                     ? pollEnabled
                       ? 'Remove poll'
                       : 'Add poll'
-                    : articleTitleTrimmed
-                      ? 'Clear the title to add a poll'
+                    : articleMode
+                      ? 'Turn off Article to add a poll'
                       : 'Polls are for new posts'
                 }
                 aria-label={
@@ -1006,8 +1098,8 @@ export function ComposerSheet({
                     ? pollEnabled
                       ? 'Remove poll'
                       : 'Add poll'
-                    : articleTitleTrimmed
-                      ? 'Clear the title to add a poll'
+                    : articleMode
+                      ? 'Turn off Article to add a poll'
                       : 'Polls are for new posts'
                 }
                 aria-pressed={pollEnabled}
@@ -1032,11 +1124,11 @@ export function ComposerSheet({
                       : 'Post a Drop'
                     : pollEnabled
                       ? 'Remove poll to post a Drop'
-                      : articleTitleTrimmed
-                      ? 'Clear the title to post a Drop'
-                      : mediaFiles.length > 0
-                        ? 'Remove photos to post a Drop'
-                        : 'Drops are for new posts'
+                      : articleMode
+                        ? 'Turn off Article to post a Drop'
+                        : mediaFiles.length > 0
+                          ? 'Remove photos to post a Drop'
+                          : 'Drops are for new posts'
                 }
                 aria-label={
                   canUseDrop
@@ -1045,8 +1137,8 @@ export function ComposerSheet({
                       : 'Post a Drop'
                     : pollEnabled
                       ? 'Remove poll to post a Drop'
-                      : articleTitleTrimmed
-                        ? 'Clear the title to post a Drop'
+                      : articleMode
+                        ? 'Turn off Article to post a Drop'
                         : mediaFiles.length > 0
                           ? 'Remove photos to post a Drop'
                           : 'Drops are for new posts'
@@ -1189,7 +1281,9 @@ export function ComposerSheet({
       footer={composerFooter}
     >
       <OsAppScreen
-        title={TITLE[mode]}
+        title={
+          mode === 'post' && articleMode ? 'New article' : TITLE[mode]
+        }
         glassChrome
         compactChrome
         embedded
@@ -1206,6 +1300,7 @@ export function ComposerSheet({
         actions={
           <OsSheetActions
             layout="row-compact"
+            size="sm"
             tone="frosted-primary"
             borderless
             className="guild-composer-toolbar-post guild-composer-header-post"
@@ -1221,11 +1316,19 @@ export function ComposerSheet({
                   ? 'Proposing…'
                   : mode === 'quote'
                     ? 'Quoting…'
-                    : 'Posting…'
+                    : publishingArticle
+                      ? 'Publishing…'
+                      : 'Posting…'
               }
               disabled={!canPost}
             >
-              {postingAsDao ? 'Propose' : mode === 'quote' ? 'Quote' : 'Post'}
+              {postingAsDao
+                ? 'Propose'
+                : mode === 'quote'
+                  ? 'Quote'
+                  : publishingArticle
+                    ? 'Publish'
+                    : 'Post'}
             </OsSheetAction>
           </OsSheetActions>
         }
@@ -1239,7 +1342,7 @@ export function ComposerSheet({
           onSubmit={handleSubmit}
         >
           <span id={titleId} className="sr-only">
-            {TITLE[mode]}
+            {mode === 'post' && articleMode ? 'New article' : TITLE[mode]}
           </span>
         {mode === 'reply' && target ? (
           <div className="guild-composer-reply-flow">
@@ -1296,6 +1399,16 @@ export function ComposerSheet({
       }
       onSelect={selectDrop}
       zIndex={COMPOSER_NEST_Z}
+    />
+    <DiscardConfirmSheet
+      open={articleExitConfirmOpen && open}
+      title="Switch to a regular post?"
+      body="The title will be cleared."
+      discardLabel="Switch"
+      keepEditingLabel="Keep article"
+      zIndex={COMPOSER_NEST_Z}
+      onDiscard={clearArticleMode}
+      onKeepEditing={() => setArticleExitConfirmOpen(false)}
     />
     <OsHugSheet
       open={labelsOpen && open}
