@@ -79,7 +79,12 @@ export async function openSignedVisitorProfile(page: Page): Promise<{
   return { viewer, target };
 }
 
-export async function expectSignedVisitorGestures(page: Page): Promise<void> {
+export async function expectSignedVisitorGestures(
+  page: Page,
+  target = signedChromeTargetAccount()
+): Promise<void> {
+  await expect(page.locator('.portfolio-name')).not.toHaveText(target);
+  await expect(page.locator('.portfolio-handle')).toHaveText(`@${target}`);
   const row = page.locator('.portfolio-identity-gesture-row').first();
   await expect(row).toBeVisible({ timeout: 15_000 });
   await expect(

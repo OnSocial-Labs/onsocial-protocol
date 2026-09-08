@@ -12,9 +12,9 @@ import {
 
 describe('accountDrawerPrimaryLabel', () => {
   it('uses You when the profile name matches the full account id', () => {
-    expect(accountDrawerPrimaryLabel('test03.onsocial', 'test03.onsocial')).toBe(
-      'You'
-    );
+    expect(
+      accountDrawerPrimaryLabel('test03.onsocial', 'test03.onsocial')
+    ).toBe('You');
     expect(accountDrawerPrimaryLabel('test03.onsocial')).toBe('You');
     expect(accountDrawerPrimaryLabel('alice.testnet', 'alice.testnet')).toBe(
       'You'
@@ -134,5 +134,12 @@ describe('displayName', () => {
       'a6e6fa47cfc1ac9d1b2adac3c66015503b9344f87148e3d88d5ec32d7d4eb513';
     expect(displayName(implicit)).toBe('Implicit account');
     expect(displayName(implicit, 'Custom')).toBe('Custom');
+  });
+
+  it('speaks the local part when the stored name is the account id', () => {
+    expect(displayName('alice.testnet')).toBe('Alice');
+    expect(displayName('alice.testnet', 'alice.testnet')).toBe('Alice');
+    expect(displayName('alice.testnet', 'Night')).toBe('Night');
+    expect(displayName('green-ghost.near')).toBe('Green Ghost');
   });
 });
