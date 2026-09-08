@@ -2,11 +2,8 @@ import { expect, test } from '@playwright/test';
 import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
 import { seedE2eWallet } from './helpers/collection-page';
 import { COLLECTIBLES_VAULT_OWNER } from './helpers/collectibles-vault';
-import {
-  HUB_E2E_PATH,
-  HUB_E2E_TITLE,
-  stubHubPage,
-} from './helpers/hub-page';
+import { setE2eGraphHub } from './helpers/e2e-graph';
+import { HUB_E2E_PATH, HUB_E2E_TITLE, stubHubPage } from './helpers/hub-page';
 
 const HOLDER_BACK = `/@${COLLECTIBLES_VAULT_OWNER}/collectibles`;
 
@@ -14,6 +11,7 @@ test.describe('hub page', () => {
   test('guest list uses Collect/Open and hides resale chrome', async ({
     page,
   }) => {
+    await setE2eGraphHub(page, 'catalog');
     await stubHubPage(page, { rows: 'catalog' });
     await gotoApp(page, HUB_E2E_PATH);
 
@@ -42,13 +40,33 @@ test.describe('hub page', () => {
     ).toContainText('@bob.near');
     await expect(page.locator('.app-drop-card')).toHaveCount(0);
     await expect(page.getByRole('tab', { name: /Resale/ })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Open Market' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Shop all on Market' })).toHaveCount(
+    await expect(page.getByRole('link', { name: 'Open Market' })).toHaveCount(
       0
     );
+    await expect(
+      page.getByRole('link', { name: 'Shop all on Market' })
+    ).toHaveCount(0);
     await expect(page.locator('a[href*="?app="]')).toHaveCount(0);
     await expect(
       page.getByText('4 drops · 12 minted · 6 holders · 4.0 NEAR')
+    ).toBeVisible();
+  });
+
+  test('SSR catalog hit paints Audit Hub without the skeleton', async ({
+    page,
+  }) => {
+    await setE2eGraphHub(page, 'catalog');
+    await stubHubPage(page, { rows: 'catalog' });
+    await gotoApp(page, HUB_E2E_PATH);
+    await expect(page.locator('[data-hub-page-skeleton]')).toHaveCount(0);
+    await expect(
+      page.getByRole('heading', { name: HUB_E2E_TITLE }).first()
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Collect Night Drive' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Open Quiet Print' })
     ).toBeVisible();
   });
 
@@ -75,6 +93,7 @@ test.describe('hub page', () => {
     page,
   }) => {
     await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphHub(page, 'held');
     await stubHubPage(page, { rows: 'catalog', held: true });
     await gotoApp(page, HUB_E2E_PATH);
 
@@ -90,7 +109,9 @@ test.describe('hub page', () => {
     await expect(
       page.getByRole('link', { name: 'Play Night Drive' })
     ).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Play Dusk Run' })).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Play Dusk Run' })
+    ).toBeVisible();
     await expect(
       page.getByRole('link', { name: 'Open Quiet Print' })
     ).toBeVisible();
@@ -105,6 +126,7 @@ test.describe('hub page', () => {
     page,
   }) => {
     await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphHub(page, 'staff');
     await stubHubPage(page, {
       rows: 'catalog',
       ownerId: COLLECTIBLES_VAULT_OWNER,
@@ -125,13 +147,16 @@ test.describe('hub page', () => {
     await expect(
       page.getByRole('link', { name: 'Collect Night Drive' })
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Hub settings' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Hub settings' })
+    ).toBeVisible();
     await expect(
       page.getByText('Only hub staff can publish here.')
     ).toHaveCount(0);
   });
 
   test('empty hub does not offer a Market shop door', async ({ page }) => {
+    await setE2eGraphHub(page, 'empty');
     await stubHubPage(page, { rows: 'empty' });
     await gotoApp(page, HUB_E2E_PATH);
 
@@ -139,13 +164,18 @@ test.describe('hub page', () => {
       page.getByRole('heading', { name: HUB_E2E_TITLE }).first()
     ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect(page.getByText('No drops in this hub yet.')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Browse Market' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Open Market' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Browse Market' })).toHaveCount(
+      0
+    );
+    await expect(page.getByRole('link', { name: 'Open Market' })).toHaveCount(
+      0
+    );
     await expect(page.locator('a[href*="?app="]')).toHaveCount(0);
     await expect(page.getByRole('tab', { name: /Resale/ })).toHaveCount(0);
   });
 
   test('document title includes Hub · OnSocial', async ({ page }) => {
+    await setE2eGraphHub(page, 'empty');
     await stubHubPage(page, { rows: 'empty' });
     await gotoApp(page, HUB_E2E_PATH);
     await expect(page).toHaveTitle(/Hub • OnSocial/, {

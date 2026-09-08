@@ -4,7 +4,7 @@ import { getServerApiKey } from '@/lib/create-server-onsocial-client';
 import {
   E2E_GRAPH_COOKIE,
   e2eGraphStubsAllowed,
-  extractGraphQuery,
+  extractGraphRequest,
   resolveE2eGraphStub,
 } from '@/lib/e2e-graph-stubs';
 
@@ -335,8 +335,12 @@ async function proxyOnApiRequest(
   ) {
     const cookieValue = request.cookies.get(E2E_GRAPH_COOKIE)?.value;
     if (cookieValue) {
+      const { query, variables } = extractGraphRequest(
+        await request.clone().text()
+      );
       const stub = resolveE2eGraphStub({
-        query: extractGraphQuery(await request.clone().text()),
+        query,
+        variables,
         cookieValue,
       });
       if (stub) {
