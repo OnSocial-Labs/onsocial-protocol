@@ -41971,6 +41971,60 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.18);
 }
 
+/* Recents row — one last page, above the stable app grid. */
+.os-launcher-return {
+  padding: 0.1rem max(1rem, env(safe-area-inset-right, 0px)) 0.15rem
+    max(1rem, env(safe-area-inset-left, 0px));
+}
+
+.os-launcher-return-eyebrow {
+  margin: 0 0 0.28rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.42);
+}
+
+.os-launcher-return-tile {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.18rem 0.7rem 0.18rem 0.18rem;
+  border: 0;
+  border-radius: 9999px;
+  background: rgb(var(--fg-rgb) / 0.045);
+  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+  color: rgb(var(--fg-rgb) / 0.92);
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.os-launcher-return-tile:hover,
+.os-launcher-return-tile:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.06);
+  outline: none;
+}
+
+.os-launcher-return-tile:focus-visible {
+  box-shadow:
+    inset 0 1px 0 rgb(var(--fg-rgb) / 0.08),
+    0 0 0 1px rgb(var(--fg-rgb) / 0.12);
+}
+
+.os-launcher-return-name {
+  overflow: hidden;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .token-create-form {
   display: flex;
   flex-direction: column;

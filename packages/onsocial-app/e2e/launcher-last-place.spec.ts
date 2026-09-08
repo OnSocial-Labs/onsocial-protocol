@@ -4,15 +4,15 @@ import { dismissNextDevOverlay, gotoApp } from './helpers';
 const LAST_PLACE = {
   href: '/@alice.testnet',
   accountId: 'alice.testnet',
-  label: '@alice.testnet',
+  label: 'Alice',
 } as const;
 
 /**
- * Home stays the daily root (no dock Back). Return to the last page is a
- * launcher hop — the leading tile, not `router.back()`.
+ * Home stays the daily root (no dock Back). Return is a recents slot above
+ * the stable app grid — not `router.back()`, not a shuffled first tile.
  */
 test.describe('launcher last place', () => {
-  test('Home has no dock Back and the launcher leads with the last page', async ({
+  test('Home has no dock Back and Return sits above the app grid', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -33,10 +33,15 @@ test.describe('launcher last place', () => {
 
     const lastPlace = launcher.locator('[data-app-id="last-place"]');
     await expect(lastPlace).toBeVisible();
-    await expect(lastPlace).toHaveAttribute('aria-label', LAST_PLACE.label);
+    await expect(lastPlace).toHaveAttribute('aria-label', 'Return to Alice');
+    await expect(launcher.getByText('Return', { exact: true })).toBeVisible();
+    await expect(lastPlace).toHaveText(/Alice/);
 
     const firstTile = launcher.locator('ul').first().locator('li').first();
-    await expect(firstTile.locator('[data-app-id="last-place"]')).toBeVisible();
+    await expect(firstTile.locator('[data-app-id="home"]')).toBeVisible();
+    await expect(firstTile.locator('[data-app-id="last-place"]')).toHaveCount(
+      0
+    );
 
     await lastPlace.click();
     await expect(page).toHaveURL(/\/@alice\.testnet\/?$/);
