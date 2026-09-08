@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   e2eGraphStubsAllowed,
+  e2eGuildCurrentRows,
+  e2eGuildMemberRows,
   e2eHubCatalogRows,
   e2eSeriesCatalogRows,
   e2eVaultCollectionRows,
@@ -10,6 +12,7 @@ import {
   isAppCatalogQuery,
   isCreatorCatalogQuery,
   isGraphQueryRequest,
+  isGroupsByIdsQuery,
   parseE2eGraphCookie,
   resolveE2eGraphStub,
   serializeE2eGraphCookie,
@@ -63,10 +66,23 @@ describe('parseE2eGraphCookie', () => {
     expect(parseE2eGraphCookie('hub=held')).toEqual({ hub: 'held' });
   });
 
+  it('reads guild=empty and combined hub+guild', () => {
+    expect(parseE2eGraphCookie('guild=empty')).toEqual({ guild: 'empty' });
+    expect(parseE2eGraphCookie('guild=owner')).toEqual({ guild: 'owner' });
+    expect(parseE2eGraphCookie('hub=catalog&guild=empty')).toEqual({
+      hub: 'catalog',
+      guild: 'empty',
+    });
+    expect(serializeE2eGraphCookie({ catalog: 'empty', guild: 'member' })).toBe(
+      'catalog=empty&guild=member'
+    );
+  });
+
   it('ignores missing or unknown values', () => {
     expect(parseE2eGraphCookie(null)).toEqual({});
     expect(parseE2eGraphCookie('catalog=vault')).toEqual({});
     expect(parseE2eGraphCookie('vault=catalog')).toEqual({});
+    expect(parseE2eGraphCookie('guild=catalog')).toEqual({});
     expect(parseE2eGraphCookie('')).toEqual({});
   });
 });
@@ -177,6 +193,35 @@ describe('resolveE2eGraphStub', () => {
         cookieValue: 'hub=catalog',
       })?.data.scarcesApps
     ).toHaveLength(1);
+  });
+
+  it('returns Audit Guild rows for GroupsByIds when opted in', () => {
+    const groupsQuery = 'query GroupsByIds($ids: [String!]!, $limit: Int!) { x }';
+    expect(isGroupsByIdsQuery(groupsQuery)).toBe(true);
+    expect(
+      resolveE2eGraphStub({
+        query: groupsQuery,
+        cookieValue: 'guild=empty',
+      })?.data.groupsCurrent
+    ).toEqual(e2eGuildCurrentRows('empty'));
+    expect(
+      resolveE2eGraphStub({
+        query: groupsQuery,
+        cookieValue: 'guild=missing',
+      })
+    ).toEqual({ data: { groupsCurrent: [] } });
+    expect(
+      resolveE2eGraphStub({
+        query: groupsQuery,
+        cookieValue: null,
+      })
+    ).toBeNull();
+    expect(
+      resolveE2eGraphStub({
+        query: 'query GroupMembersOf($groupId: String!) { x }',
+        cookieValue: 'guild=member',
+      })?.data.groupMembersCurrent
+    ).toEqual(e2eGuildMemberRows('member'));
   });
 
   it('recognizes gateway and BFF graph/query POSTs', () => {
