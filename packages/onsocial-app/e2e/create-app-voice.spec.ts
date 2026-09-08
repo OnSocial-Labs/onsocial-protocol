@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoApp } from './helpers';
+import { dismissNextDevOverlay, gotoApp } from './helpers';
 
 const LOOK_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -7,6 +7,8 @@ const LOOK_PNG = Buffer.from(
 );
 
 test.describe('create app voice', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test('waits About behind Add about', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, '/apps/create');
@@ -14,6 +16,7 @@ test.describe('create app voice', () => {
     await expect(
       page.getByRole('heading', { name: 'Open a hub' })
     ).toBeVisible();
+    await dismissNextDevOverlay(page);
     await expect(page.locator('.hub-look-preview')).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Add banner', exact: true })
@@ -60,6 +63,7 @@ test.describe('create app voice', () => {
         .getByRole('button', { name: /^(Connect|Open hub)$/ })
     ).toBeVisible();
 
+    await dismissNextDevOverlay(page);
     await page.getByRole('button', { name: 'Add about', exact: true }).click();
     await expect(page.locator('#app-create-description')).toBeVisible();
     await expect(page.getByText('About', { exact: true })).toBeVisible();
@@ -84,6 +88,7 @@ test.describe('create app voice', () => {
     await expect(
       page.getByRole('heading', { name: 'Open a hub' })
     ).toBeVisible();
+    await dismissNextDevOverlay(page);
     await expect(
       page.getByRole('button', { name: 'Add banner', exact: true })
     ).toBeVisible();
@@ -165,11 +170,13 @@ test.describe('create app voice', () => {
     });
     expect(footerGap).toBeLessThan(16);
 
-    await page
+    await dismissNextDevOverlay(page);
+    const close = page
       .locator('.os-app-screen-actions')
-      .getByRole('button', { name: 'Close' })
-      .click();
-    await expect(page).toHaveURL(/\/apps\/?$/);
+      .getByRole('button', { name: 'Close' });
+    await expect(close).toBeVisible();
+    await close.click();
+    await page.waitForURL(/\/apps\/?$/, { timeout: 15_000 });
     await expect(
       page.getByRole('heading', { name: 'Open a hub' })
     ).toHaveCount(0);
@@ -189,6 +196,9 @@ test.describe('create app voice', () => {
     await expect(form).toBeVisible();
     await expect(form).not.toHaveAttribute('data-form-focused');
     await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
+    await expect(footer.getByRole('button', { name: 'Connect' })).toBeVisible();
+
+    await dismissNextDevOverlay(page);
 
     const nameField = page.locator('#app-create-name');
     await nameField.scrollIntoViewIfNeeded();

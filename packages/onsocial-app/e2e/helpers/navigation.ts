@@ -83,6 +83,13 @@ export async function expectConnectVoice(page: Page): Promise<void> {
   ).toBeVisible();
 }
 
+/** Next.js dev overlay intercepts clicks during compile. */
+export async function dismissNextDevOverlay(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    document.querySelectorAll('nextjs-portal').forEach((node) => node.remove());
+  });
+}
+
 async function softOpenPortfolioHref(page: Page, href: string): Promise<void> {
   const softNav = page
     .waitForResponse(

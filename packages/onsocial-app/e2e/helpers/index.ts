@@ -10,6 +10,7 @@ export {
 export {
   closeStandingDrawer,
   E2E_CHROME_TIMEOUT_MS,
+  dismissNextDevOverlay,
   expectConnectVoice,
   expectGlassSheetHidden,
   expectGlassSheetVisible,
