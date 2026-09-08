@@ -30,6 +30,20 @@ function guildPubFallbackLabel(groupId: string): string | null {
   return `Public ·${digits.slice(-4)}`;
 }
 
+export function guildDocumentCopy(
+  storedName: string | null | undefined,
+  groupId: string,
+  surface: string,
+  describe: (name: string) => string
+): { name: string; title: string; description: string } {
+  const name = guildDisplayName(storedName, groupId);
+  return {
+    name,
+    title: `${name} ${surface} • OnSocial`,
+    description: describe(name),
+  };
+}
+
 export function guildDisplayName(
   name: string | null | undefined,
   groupId: string

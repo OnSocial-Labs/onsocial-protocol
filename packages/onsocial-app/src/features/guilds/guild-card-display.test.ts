@@ -4,6 +4,7 @@ import {
   guildCardMetaTags,
   guildDisplayInitials,
   guildDisplayName,
+  guildDocumentCopy,
   guildModeId,
   guildModeLabel,
   guildModeDescription,
@@ -33,6 +34,28 @@ describe('guild-card-display', () => {
     expect(guildDisplayName(null, 'grp_pub_1771027510_room1')).toBe(
       'Public ·7510'
     );
+  });
+
+  it('cleans stored ids in members and settings document titles', () => {
+    const stored = 'Audit Guild grp_md_perm_1779813274071_ojf237';
+    expect(
+      guildDocumentCopy(stored, 'audit-guild', 'Members', (name) =>
+        `Members, roles, and permissions for ${name}.`
+      )
+    ).toEqual({
+      name: 'Audit Guild',
+      title: 'Audit Guild Members • OnSocial',
+      description: 'Members, roles, and permissions for Audit Guild.',
+    });
+    expect(
+      guildDocumentCopy(stored, 'audit-guild', 'Settings', (name) =>
+        `Guild configuration and rollout model for ${name}.`
+      )
+    ).toEqual({
+      name: 'Audit Guild',
+      title: 'Audit Guild Settings • OnSocial',
+      description: 'Guild configuration and rollout model for Audit Guild.',
+    });
   });
 
   it('strips raw-id words embedded in stored names', () => {
