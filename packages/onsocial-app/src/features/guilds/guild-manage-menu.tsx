@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import {
-  UserPlusFillIcon,
+  UsersFillIcon,
   OsIconAction,
   osFloatingPanelCountClassName,
   type ActionDrawerItem,
@@ -138,7 +138,7 @@ export function GuildManageMenu({
             : 'Guild menu'
         }
       >
-        <UserPlusFillIcon
+        <UsersFillIcon
           className="glass-sheet-close-icon guild-manage-menu-icon"
           aria-hidden
         />

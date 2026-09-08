@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import {
   getGuildBlueprint,
   GUILD_PRODUCT_COPY,
@@ -24,7 +25,7 @@ export async function generateMetadata({
   const initial = await loadGuildPageData(id);
   if (initial) {
     return {
-      title: `${initial.config.name} • ${GUILD_PRODUCT_COPY.title} • OnSocial`,
+      title: `${guildDisplayName(initial.config.name, id)} • ${GUILD_PRODUCT_COPY.title} • OnSocial`,
       ...(initial.config.description
         ? { description: initial.config.description }
         : { description: GUILD_PRODUCT_COPY.subtitle }),
