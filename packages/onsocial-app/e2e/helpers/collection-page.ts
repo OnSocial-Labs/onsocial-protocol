@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import {
   E2E_VAULT_OWNER,
   e2eDropCollectionRow,
@@ -117,8 +117,16 @@ export async function seedE2eWallet(
   );
 }
 
-export function collectionPageRoot(page: Page) {
-  return page.locator('.collection-page');
+/** Settled drop shell — excludes loading.tsx / SSR-miss skeletons. */
+export function collectionPageRoot(page: Page): Locator {
+  return page.locator('.collection-page:not(.collection-page--skeleton)');
+}
+
+export async function expectCollectionPageSettled(page: Page): Promise<void> {
+  await expect(page.locator('[data-collection-page-skeleton]')).toHaveCount(0, {
+    timeout: E2E_CHROME_TIMEOUT_MS,
+  });
+  await expect(collectionPageRoot(page)).toHaveCount(1);
 }
 
 export async function expectCollectionVisitorChrome(page: Page): Promise<void> {
