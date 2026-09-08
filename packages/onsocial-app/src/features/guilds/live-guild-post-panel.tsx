@@ -964,16 +964,6 @@ export function LiveGuildPostPanel({
     : Boolean(membershipHint?.joinPending);
   const effectiveIsOwner = viewerAccessResolved ? viewerAccess.isOwner : false;
   const effectiveIsBlacklisted = viewerAccessResolved ? isBlacklisted : false;
-  const membershipActionLabel = guildMembershipJoinLabel({
-    isConnected,
-    accessGated,
-    joinPending: effectiveJoinPending,
-    joinCancelReady,
-    isMember: effectiveIsMember,
-    isOwner: effectiveIsOwner,
-    isBlacklisted: effectiveIsBlacklisted,
-    confirmingLeave,
-  });
   // Keep ready through Leave?/Transfer? confirm — danger mutes when !ready.
   const membershipActionReady = effectiveIsMember
     ? true
@@ -1050,6 +1040,17 @@ export function LiveGuildPostPanel({
     snapshot: membershipSnapshot,
     onOwnerManage: handleOwnerManage,
     onConfirmed: handleMembershipConfirmed,
+  });
+
+  const membershipActionLabel = guildMembershipJoinLabel({
+    isConnected,
+    accessGated,
+    joinPending: effectiveJoinPending,
+    joinCancelReady,
+    isMember: effectiveIsMember,
+    isOwner: effectiveIsOwner,
+    isBlacklisted: effectiveIsBlacklisted,
+    confirmingLeave,
   });
 
   const membershipActions = (

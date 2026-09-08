@@ -1392,37 +1392,6 @@ export function LiveGuildPanel({
         : effectiveJoinPending
           ? joinCancelReady
           : Boolean(config) && !effectiveIsMember;
-  const actionLabel = useMemo(
-    () =>
-      guildMembershipJoinLabel({
-        isConnected,
-        accessGated: Boolean(config?.accessGated),
-        joinPending: effectiveJoinPending,
-        joinCancelReady,
-        isMember: effectiveIsMember,
-        isOwner: effectiveIsOwner,
-        isBlacklisted: effectiveIsBlacklisted,
-        confirmingLeave,
-        needsStorage: needsCollaborativeStorage,
-        loadGuild: !config,
-        hintMember: !viewerAccessResolved && Boolean(membershipHint?.isMember),
-        hintJoinPending:
-          !viewerAccessResolved && Boolean(membershipHint?.joinPending),
-      }),
-    [
-      config,
-      confirmingLeave,
-      effectiveIsBlacklisted,
-      effectiveIsMember,
-      effectiveIsOwner,
-      effectiveJoinPending,
-      isConnected,
-      joinCancelReady,
-      membershipHint,
-      needsCollaborativeStorage,
-      viewerAccessResolved,
-    ]
-  );
 
   const membershipSnapshot = useMemo(
     () => ({
@@ -1486,6 +1455,38 @@ export function LiveGuildPanel({
       requireResolvedAccess: true,
       viewerAccessResolved,
     });
+
+  const actionLabel = useMemo(
+    () =>
+      guildMembershipJoinLabel({
+        isConnected,
+        accessGated: Boolean(config?.accessGated),
+        joinPending: effectiveJoinPending,
+        joinCancelReady,
+        isMember: effectiveIsMember,
+        isOwner: effectiveIsOwner,
+        isBlacklisted: effectiveIsBlacklisted,
+        confirmingLeave,
+        needsStorage: needsCollaborativeStorage,
+        loadGuild: !config,
+        hintMember: !viewerAccessResolved && Boolean(membershipHint?.isMember),
+        hintJoinPending:
+          !viewerAccessResolved && Boolean(membershipHint?.joinPending),
+      }),
+    [
+      config,
+      confirmingLeave,
+      effectiveIsBlacklisted,
+      effectiveIsMember,
+      effectiveIsOwner,
+      effectiveJoinPending,
+      isConnected,
+      joinCancelReady,
+      membershipHint,
+      needsCollaborativeStorage,
+      viewerAccessResolved,
+    ]
+  );
 
   const openComposerModal = (mode: GuildComposerMode) => (target: PostRow) => {
     setModalError(null);
