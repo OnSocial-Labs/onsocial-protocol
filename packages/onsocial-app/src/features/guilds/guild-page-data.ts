@@ -6,7 +6,6 @@ import type {
 } from '@onsocial/sdk';
 import type { GuildConfigSnapshot } from '@/features/guilds/guild-config';
 import type { GuildPageData } from '@/lib/load-guild-page';
-import type { GuildShellCacheEntry } from '@/lib/guild-shell-cache';
 import {
   writeGuildFeedCache,
   writeGuildPageCache,
