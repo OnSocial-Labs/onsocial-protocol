@@ -46,6 +46,7 @@ import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import {
   emptyLiveGuildState,
+  guildFeedLoadMoreError,
   liveGuildStateFromSeed,
   pageCacheFromInitial,
   pendingJoinRequest,
@@ -92,6 +93,7 @@ export function useGuildPageData({
   feedPending: boolean;
   hasMorePosts: boolean;
   loadingMore: boolean;
+  loadMoreError: string | null;
   isFeedRefreshing: boolean;
   localPosts: PostRow[];
   setLocalPosts: Dispatch<SetStateAction<PostRow[]>>;
@@ -153,6 +155,7 @@ export function useGuildPageData({
       false
   );
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [isFeedRefreshing, setIsFeedRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [optimisticJoinPending, setOptimisticJoinPending] = useState(false);
@@ -252,6 +255,7 @@ export function useGuildPageData({
           feedError: null,
         }));
         setHasMorePosts(hasMore);
+        setLoadMoreError(null);
       } catch (cause) {
         if (
           guildFeedRequestIdRef.current !== requestId ||
@@ -638,6 +642,7 @@ export function useGuildPageData({
     guildFeedRequestIdRef.current += 1;
     setLocalPosts([]);
     setAllowlistSpaceIds(new Set());
+    setLoadMoreError(null);
 
     // Parent pairs `initial` with this groupId; still require the id so a
     // stale seed cannot paint the wrong guild.
@@ -838,6 +843,7 @@ export function useGuildPageData({
     if (loadMoreInFlightRef.current || !hasMorePosts) return;
     loadMoreInFlightRef.current = true;
     setLoadingMore(true);
+    setLoadMoreError(null);
     void (async () => {
       try {
         const client = createReadOnlyOnSocialClient();
@@ -864,8 +870,9 @@ export function useGuildPageData({
           posts: [...current.posts, ...(page.items ?? [])],
         }));
         setHasMorePosts(hasMore);
-      } catch {
-        // Keep the current list; the sentinel stays available to retry.
+      } catch (cause) {
+        // Keep the current list; Retry replaces the sentinel so it does not loop.
+        setLoadMoreError(guildFeedLoadMoreError(cause));
       } finally {
         loadMoreInFlightRef.current = false;
         setLoadingMore(false);
@@ -885,6 +892,7 @@ export function useGuildPageData({
     feedPending,
     hasMorePosts,
     loadingMore,
+    loadMoreError,
     isFeedRefreshing,
     localPosts,
     setLocalPosts,

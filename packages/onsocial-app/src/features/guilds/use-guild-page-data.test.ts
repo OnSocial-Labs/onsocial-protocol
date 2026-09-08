@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { GuildPageData } from '@/lib/load-guild-page';
 import {
   emptyLiveGuildState,
+  GUILD_FEED_LOAD_MORE_ERROR,
+  guildFeedLoadMoreError,
   liveGuildStateFromSeed,
   pageCacheFromInitial,
   pendingJoinRequest,
@@ -64,6 +66,18 @@ describe('liveGuildStateFromSeed', () => {
       viewer: null,
       moderation: null,
     });
+  });
+});
+
+describe('guildFeedLoadMoreError', () => {
+  it('keeps a typed error and falls back when the page fails', () => {
+    expect(guildFeedLoadMoreError(new Error('Indexed feed timed out.'))).toBe(
+      'Indexed feed timed out.'
+    );
+    expect(guildFeedLoadMoreError('nope')).toBe(GUILD_FEED_LOAD_MORE_ERROR);
+    expect(guildFeedLoadMoreError(new Error('   '))).toBe(
+      GUILD_FEED_LOAD_MORE_ERROR
+    );
   });
 });
 
