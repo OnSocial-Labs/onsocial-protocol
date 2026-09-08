@@ -4,7 +4,10 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsChipRail } from '@/components/os/os-chip-rail';
-import { discoverGuildsLoadMoreError } from '@/features/discover/discover-guilds-data';
+import {
+  discoverGuildsLoadMoreError,
+  discoverGuildsSearchError,
+} from '@/features/discover/discover-guilds-data';
 import { DiscoverCommunityListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
@@ -96,7 +99,9 @@ export function DiscoverGuildsPanel() {
   );
   const [error, setError] = useState<string | null>(null);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
+  const [searchReloadNonce, setSearchReloadNonce] = useState(0);
   const searchRequestRef = useRef(0);
   const hasPaintedRef = useRef(initialGuilds != null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -175,6 +180,10 @@ export function DiscoverGuildsPanel() {
     setReloadNonce((n) => n + 1);
   }, []);
 
+  const retrySearch = useCallback(() => {
+    setSearchReloadNonce((n) => n + 1);
+  }, []);
+
   const loadMore = useCallback(async () => {
     if (moreLoadingRef.current || !hasMore || searchQuery) return;
     const offset = browseGuilds?.length ?? 0;
@@ -219,12 +228,19 @@ export function DiscoverGuildsPanel() {
 
   useEffect(() => {
     if (!searchQuery) {
+      queueMicrotask(() => {
+        setSearchError(null);
+        setSearchResults(null);
+        setSearchPending(false);
+      });
       return;
     }
 
     const requestId = ++searchRequestRef.current;
     queueMicrotask(() => {
       setSearchPending(true);
+      setSearchError(null);
+      setSearchResults(null);
     });
     const timer = window.setTimeout(() => {
       void (async () => {
@@ -240,16 +256,18 @@ export function DiscoverGuildsPanel() {
           const cards = items.map((row) => guildSummaryCardFromBrowse(row));
           setSearchResults(await enrichIndexedGuildSummaryCards(client, cards));
           setSearchPending(false);
-        } catch {
+          setSearchError(null);
+        } catch (cause) {
           if (searchRequestRef.current !== requestId) return;
-          setSearchResults([]);
+          // Keep prior hits; do not paint "No matches." for a failed query.
           setSearchPending(false);
+          setSearchError(discoverGuildsSearchError(cause));
         }
       })();
     }, 250);
 
     return () => window.clearTimeout(timer);
-  }, [accountId, searchQuery]);
+  }, [accountId, searchQuery, searchReloadNonce]);
 
   const activeSearchResults =
     searchQuery && !searchPending ? searchResults : null;
@@ -277,6 +295,7 @@ export function DiscoverGuildsPanel() {
   const isSearchEmpty =
     Boolean(searchQuery) &&
     !searchPending &&
+    !searchError &&
     visibleGuilds.length === 0 &&
     browseGuilds != null;
   const isTopicEmpty =
@@ -320,6 +339,9 @@ export function DiscoverGuildsPanel() {
       ) : null}
 
       {error ? <ListLoadError message={error} onRetry={retry} /> : null}
+      {searchError ? (
+        <ListLoadError message={searchError} onRetry={retrySearch} />
+      ) : null}
 
       {showSkeleton ? (
         <DiscoverCommunityListSkeleton label="Loading guilds…" />
