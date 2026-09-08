@@ -19,7 +19,6 @@ import {
   dropSnapshotExtra,
   resolvedDropPostText,
 } from '@/features/scarces/drop-post-payload';
-import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
 import {
   articleSnapshotExtra,
   resolveComposerArticle,
@@ -43,7 +42,7 @@ import { splitComposerThread } from '@/lib/composer-thread';
 import {
   allocateThreadPostIds,
   buildPersonalThreadSetEntries,
-  canBatchComposerThread,
+  planComposerThreadChunks,
   threadSetEntriesFitEventBudget,
 } from '@/lib/composer-thread-batch';
 
@@ -218,8 +217,10 @@ async function submitPersonalThreadBatch(args: {
   accountId: string;
   beats: ComposerSubmit[];
   trackTransaction: TrackTransaction;
+  parent?: PostRow | null;
+  silent?: boolean;
 }): Promise<PersonalPostSubmitResult | null> {
-  const { client, accountId, beats, trackTransaction } = args;
+  const { client, accountId, beats, trackTransaction, parent } = args;
   const now = Date.now();
   const ids = allocateThreadPostIds(beats.length, now);
   const { entries, models } = buildPersonalThreadSetEntries({
@@ -227,6 +228,7 @@ async function submitPersonalThreadBatch(args: {
     beats,
     ids,
     now,
+    parentId: parent?.postId,
   });
   if (!threadSetEntriesFitEventBudget(entries)) return null;
 
@@ -234,13 +236,15 @@ async function submitPersonalThreadBatch(args: {
   try {
     response = await client.social.set(entries);
   } catch {
-    await trackTransaction({
-      txHashes: [],
-      submittedMessage: txToastConfirming.posting,
-      successMessage: txToastError.postFailed,
-      failureMessage: txToastError.postFailed,
-      toastKind: 'error',
-    });
+    if (!args.silent) {
+      await trackTransaction({
+        txHashes: [],
+        submittedMessage: txToastConfirming.posting,
+        successMessage: txToastError.postFailed,
+        failureMessage: txToastError.postFailed,
+        toastKind: 'error',
+      });
+    }
     return {
       confirmed: false,
       optimisticPost: null,
@@ -253,13 +257,14 @@ async function submitPersonalThreadBatch(args: {
   const landed: PostRow[] = [];
   for (let index = 0; index < models.length; index += 1) {
     const model = models[index]!;
+    const target = index === 0 ? (parent ?? null) : landed[index - 1]!;
     landed.push(
       buildOptimisticPost({
         accountId,
         newPostId: ids[index]!,
         text: model.bodyText,
-        mode: index === 0 ? 'post' : 'reply',
-        target: index === 0 ? null : landed[index - 1]!,
+        mode: target ? 'reply' : 'post',
+        target,
         pollEmbed: model.pollEmbed,
         drop: model.drop,
         article: model.article,
@@ -274,7 +279,8 @@ async function submitPersonalThreadBatch(args: {
     submittedMessage: txToastConfirming.posting,
     successMessage: txToastSuccess.threadPublished,
     failureMessage: txToastError.postFailed,
-    ...(first
+    ...(args.silent ? { silent: true } : {}),
+    ...(!args.silent && first
       ? {
           actionHref: postThreadPath(first),
           actionLabel: txToastSuccess.viewThread,
@@ -300,6 +306,28 @@ async function submitPersonalThreadBatch(args: {
   };
 }
 
+async function submitPersonalThreadBeat(args: {
+  client: OnSocial;
+  accountId: string;
+  beat: ComposerSubmit;
+  parent: PostRow | null;
+  trackTransaction: TrackTransaction;
+}): Promise<PersonalPostSubmitResult> {
+  try {
+    return await submitPersonalPost({
+      client: args.client,
+      accountId: args.accountId,
+      mode: args.parent ? 'reply' : 'post',
+      target: args.parent,
+      payload: args.beat,
+      trackTransaction: args.trackTransaction,
+      silent: true,
+    });
+  } catch {
+    return { confirmed: false, optimisticPost: null };
+  }
+}
+
 async function submitPersonalThread(args: {
   client: OnSocial;
   accountId: string;
@@ -307,7 +335,12 @@ async function submitPersonalThread(args: {
   trackTransaction: TrackTransaction;
 }): Promise<PersonalPostSubmitResult> {
   const { client, accountId, beats, trackTransaction } = args;
-  if (canBatchComposerThread(beats)) {
+  const chunks = planComposerThreadChunks(beats);
+  if (
+    chunks.length === 1 &&
+    chunks[0]!.beats.length === beats.length &&
+    beats.length >= 2
+  ) {
     const batched = await submitPersonalThreadBatch({
       client,
       accountId,
@@ -316,6 +349,7 @@ async function submitPersonalThread(args: {
     });
     if (batched) return batched;
   }
+
   const total = beats.length;
   let posted = 0;
   let parent: PostRow | null = null;
@@ -323,51 +357,70 @@ async function submitPersonalThread(args: {
   const landed: PostRow[] = [];
   let lastHashes: string[] = [];
 
-  for (let index = 0; index < beats.length; index += 1) {
-    const beat = beats[index]!;
-    let result: PersonalPostSubmitResult;
-    try {
-      result = await submitPersonalPost({
+  const failPartial = async (): Promise<PersonalPostSubmitResult> => {
+    await trackTransaction({
+      txHashes: [],
+      explorerHash: lastHashes.at(-1) ?? null,
+      submittedMessage: txToastConfirming.posting,
+      successMessage:
+        posted > 0
+          ? txToastError.threadPartial(posted, total)
+          : txToastError.postFailed,
+      failureMessage:
+        posted > 0
+          ? txToastError.threadPartial(posted, total)
+          : txToastError.postFailed,
+      toastKind: 'error',
+    });
+    return {
+      confirmed: false,
+      optimisticPost: first,
+      optimisticPosts: landed,
+      postedCount: posted,
+      totalCount: total,
+      txHashes: lastHashes,
+    };
+  };
+
+  for (const chunk of chunks) {
+    if (chunk.beats.length >= 2) {
+      const batched = await submitPersonalThreadBatch({
         client,
         accountId,
-        mode: parent ? 'reply' : 'post',
-        target: parent,
-        payload: beat,
+        beats: chunk.beats,
         trackTransaction,
+        parent,
         silent: true,
       });
-    } catch {
-      result = { confirmed: false, optimisticPost: null };
+      if (batched?.confirmed && batched.optimisticPosts?.length) {
+        posted += batched.postedCount ?? batched.optimisticPosts.length;
+        lastHashes = batched.txHashes?.length ? batched.txHashes : lastHashes;
+        if (!first) first = batched.optimisticPost;
+        landed.push(...batched.optimisticPosts);
+        parent = landed[landed.length - 1] ?? parent;
+        continue;
+      }
+      if (batched && !batched.confirmed) {
+        return failPartial();
+      }
     }
-    if (!result.confirmed || !result.optimisticPost) {
-      await trackTransaction({
-        txHashes: [],
-        explorerHash: lastHashes.at(-1) ?? null,
-        submittedMessage: txToastConfirming.posting,
-        successMessage:
-          posted > 0
-            ? txToastError.threadPartial(posted, total)
-            : txToastError.postFailed,
-        failureMessage:
-          posted > 0
-            ? txToastError.threadPartial(posted, total)
-            : txToastError.postFailed,
-        toastKind: 'error',
+    for (const beat of chunk.beats) {
+      const result = await submitPersonalThreadBeat({
+        client,
+        accountId,
+        beat,
+        parent,
+        trackTransaction,
       });
-      return {
-        confirmed: false,
-        optimisticPost: first,
-        optimisticPosts: landed,
-        postedCount: posted,
-        totalCount: total,
-        txHashes: lastHashes,
-      };
+      if (!result.confirmed || !result.optimisticPost) {
+        return failPartial();
+      }
+      posted += 1;
+      lastHashes = result.txHashes?.length ? result.txHashes : lastHashes;
+      if (!first) first = result.optimisticPost;
+      landed.push(result.optimisticPost);
+      parent = result.optimisticPost;
     }
-    posted += 1;
-    lastHashes = result.txHashes?.length ? result.txHashes : lastHashes;
-    if (!first) first = result.optimisticPost;
-    landed.push(result.optimisticPost);
-    parent = result.optimisticPost;
   }
 
   await trackTransaction({
@@ -420,10 +473,7 @@ export async function submitPersonalPost(args: {
   }
   const text = payload.text.trim();
   const files = payload.files ?? [];
-  const drop =
-    mode === 'post' && payload.drop?.collectionId?.trim()
-      ? payload.drop
-      : null;
+  const drop = payload.drop?.collectionId?.trim() ? payload.drop : null;
   const article = resolveComposerArticle(
     payload.article,
     Boolean(drop) || Boolean(payload.poll)
@@ -436,7 +486,7 @@ export async function submitPersonalPost(args: {
   }
 
   const pollEmbed =
-    mode === 'post' && payload.poll && !drop
+    payload.poll && !drop
       ? {
           kind: 'poll' as const,
           question: text,
@@ -459,6 +509,25 @@ export async function submitPersonalPost(args: {
     ...postMetaFromText(bodyText),
     ...placesMetaFromComposer(payload.places),
   };
+  const embedFields = {
+    ...(pollEmbed
+      ? { embeds: [pollEmbed] }
+      : commerceEmbed
+        ? { embeds: [commerceEmbed] }
+        : {}),
+    ...(drop
+      ? { x: dropSnapshotExtra(drop) }
+      : articleExtra
+        ? { x: articleExtra, contentType: 'md' as const }
+        : {}),
+    ...(dropKind
+      ? { kind: dropKind }
+      : article
+        ? { kind: 'longform' as const }
+        : pollEmbed
+          ? { kind: 'poll' as const }
+          : {}),
+  };
   let response: unknown;
 
   if (mode === 'post') {
@@ -467,21 +536,7 @@ export async function submitPersonalPost(args: {
         text: bodyText,
         timestamp: Date.now(),
         ...tags,
-        ...(pollEmbed
-          ? { embeds: [pollEmbed] }
-          : commerceEmbed
-            ? { embeds: [commerceEmbed] }
-            : {}),
-        ...(drop
-          ? { x: dropSnapshotExtra(drop) }
-          : articleExtra
-            ? { x: articleExtra, contentType: 'md' as const }
-            : {}),
-        ...(dropKind
-          ? { kind: dropKind }
-          : article
-            ? { kind: 'longform' as const }
-            : {}),
+        ...embedFields,
         ...contentLabels,
         ...filePayload,
       },
@@ -500,12 +555,13 @@ export async function submitPersonalPost(args: {
       files
     );
     const postData = {
-      text,
+      text: bodyText,
       access: 'group' as const,
       groupId,
       timestamp: Date.now(),
       ...tags,
       ...feedMeta,
+      ...embedFields,
       ...contentLabels,
       ...filePayload,
     };
@@ -526,10 +582,11 @@ export async function submitPersonalPost(args: {
       files
     );
     const postData = {
-      text,
+      text: bodyText,
       timestamp: Date.now(),
       ...tags,
       ...feedMeta,
+      ...embedFields,
       ...contentLabels,
       ...filePayload,
     };
