@@ -7,6 +7,7 @@ import {
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
   parseMarketMediumFilter,
@@ -170,7 +171,9 @@ export function collectiblesToolbarFromQuery(query: CollectiblesPageQuery): {
   };
 }
 
-export function collectiblesSeedParamsKey(query: CollectiblesPageQuery): string {
+export function collectiblesSeedParamsKey(
+  query: CollectiblesPageQuery
+): string {
   return [
     query.q.trim().toLowerCase(),
     query.kind,
@@ -198,9 +201,16 @@ export async function loadCollectiblesPageData(
     return { holdings: null, accountId: null, creatorFaces: {} };
   }
   try {
+    let client: ReturnType<typeof createServerOnSocialClient> | undefined;
+    try {
+      client = createServerOnSocialClient();
+    } catch {
+      client = undefined;
+    }
     const holdings = await fetchOwnedScarcesPage(owner, {
       pageSize: 24,
       bypassCache: true,
+      ...(client ? { client } : {}),
     });
     const creatorIds = [
       ...new Set(

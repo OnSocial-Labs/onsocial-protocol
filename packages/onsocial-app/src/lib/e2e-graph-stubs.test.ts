@@ -2,11 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   e2eGraphStubsAllowed,
   e2eSeriesCatalogRows,
+  e2eVaultCollectionRows,
+  e2eVaultOwnedRows,
   extractGraphQuery,
   isCreatorCatalogQuery,
   isGraphQueryRequest,
   parseE2eGraphCookie,
   resolveE2eGraphStub,
+  serializeE2eGraphCookie,
 } from './e2e-graph-stubs';
 
 describe('e2eGraphStubsAllowed', () => {
@@ -41,9 +44,21 @@ describe('parseE2eGraphCookie', () => {
     expect(parseE2eGraphCookie('catalog=empty')).toEqual({ catalog: 'empty' });
   });
 
+  it('reads vault=default and combined catalog+vault', () => {
+    expect(parseE2eGraphCookie('vault=default')).toEqual({ vault: 'default' });
+    expect(parseE2eGraphCookie('catalog=night-roads&vault=default')).toEqual({
+      catalog: 'night-roads',
+      vault: 'default',
+    });
+    expect(
+      serializeE2eGraphCookie({ catalog: 'empty', vault: 'many-creators' })
+    ).toBe('catalog=empty&vault=many-creators');
+  });
+
   it('ignores missing or unknown values', () => {
     expect(parseE2eGraphCookie(null)).toEqual({});
     expect(parseE2eGraphCookie('catalog=vault')).toEqual({});
+    expect(parseE2eGraphCookie('vault=catalog')).toEqual({});
     expect(parseE2eGraphCookie('')).toEqual({});
   });
 });
@@ -83,6 +98,28 @@ describe('resolveE2eGraphStub', () => {
       resolveE2eGraphStub({
         query: catalogQuery,
         cookieValue: null,
+      })
+    ).toBeNull();
+  });
+
+  it('returns default vault owned + ByIds rows when opted in', () => {
+    const ownedQuery = 'query ScarcesOwnedBy($ownerId: String!) { x }';
+    expect(
+      resolveE2eGraphStub({
+        query: ownedQuery,
+        cookieValue: 'vault=default',
+      })?.data.scarcesTokenOwners
+    ).toEqual(e2eVaultOwnedRows('default'));
+    expect(
+      resolveE2eGraphStub({
+        query: byIdsQuery,
+        cookieValue: 'vault=default',
+      })?.data.scarcesCollectionsCurrent
+    ).toEqual(e2eVaultCollectionRows('default'));
+    expect(
+      resolveE2eGraphStub({
+        query: ownedQuery,
+        cookieValue: 'catalog=night-roads',
       })
     ).toBeNull();
   });

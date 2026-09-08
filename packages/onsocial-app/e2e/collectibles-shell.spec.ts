@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { setE2eGraphVault } from './helpers/e2e-graph';
 import {
   COLLECTIBLES_VAULT_OWNER,
   expectCollectiblesChrome,
@@ -40,9 +41,9 @@ test.describe('collectibles shell', () => {
     await expect(
       page.getByRole('main').getByRole('button', { name: 'Connect' })
     ).toHaveCount(0);
-    await expect(
-      page.locator('.portfolio-summon-hint--connect')
-    ).toHaveText('Connect');
+    await expect(page.locator('.portfolio-summon-hint--connect')).toHaveText(
+      'Connect'
+    );
     await expect(
       page.getByRole('main').getByRole('link', { name: 'Browse Market' })
     ).toHaveClass(PILL_ACTION);
@@ -73,11 +74,9 @@ test.describe('collectibles shell', () => {
     page,
   }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await setE2eGraphVault(page, 'default');
     await stubCollectiblesVaultGraph(page);
-    await gotoApp(
-      page,
-      `/@${COLLECTIBLES_VAULT_OWNER}/collectibles`
-    );
+    await gotoApp(page, `/@${COLLECTIBLES_VAULT_OWNER}/collectibles`);
 
     await expect(page.getByText('Night Drive').first()).toBeVisible({
       timeout: 30_000,
@@ -88,10 +87,12 @@ test.describe('collectibles shell', () => {
     await expect(kindRail.getByRole('tab', { name: 'Audio' })).toBeVisible();
     await expect(kindRail.getByRole('tab', { name: 'Writing' })).toBeVisible();
     await expect(kindRail.getByRole('tab', { name: 'Tickets' })).toBeVisible();
-    await expect(kindRail.getByRole('tab', { name: 'Memberships' })).toHaveCount(
-      0
-    );
-    const allBox = await kindRail.getByRole('tab', { name: 'All' }).boundingBox();
+    await expect(
+      kindRail.getByRole('tab', { name: 'Memberships' })
+    ).toHaveCount(0);
+    const allBox = await kindRail
+      .getByRole('tab', { name: 'All' })
+      .boundingBox();
     const ticketsBox = await kindRail
       .getByRole('tab', { name: 'Tickets' })
       .boundingBox();
@@ -107,7 +108,9 @@ test.describe('collectibles shell', () => {
     await expect(nightRow).not.toContainText('Listed');
     await expect(nightRow).not.toContainText('NEAR');
     await expect(nightRow).not.toContainText('@alice.near');
-    await expect(nightRow.getByRole('link', { name: /Play Night Drive/ })).toBeVisible();
+    await expect(
+      nightRow.getByRole('link', { name: /Play Night Drive/ })
+    ).toBeVisible();
 
     const chapterRow = page.locator('.collectibles-holding-row').filter({
       hasText: 'Chapter One',
@@ -171,9 +174,7 @@ test.describe('collectibles shell', () => {
     await pickCollectiblesKindFromFilter(page, 'Memberships', 'membership');
     await expect(page.locator('[data-collectibles-ready]')).toHaveCount(1);
     await expect(page.locator('[data-collectibles-loading]')).toHaveCount(0);
-    await expect(
-      page.getByText('No memberships held.')
-    ).toBeVisible();
+    await expect(page.getByText('No memberships held.')).toBeVisible();
     const showAll = page.getByRole('button', { name: 'Show all' });
     await expect(showAll).toHaveClass(PILL_ACTION);
     await expectEmptySitsUnderChrome(page);
@@ -217,8 +218,7 @@ test.describe('collectibles shell', () => {
     await page.getByRole('button', { name: 'Clear' }).click();
     await page.getByRole('button', { name: 'Done' }).click();
     await page.waitForURL(
-      (url) =>
-        !url.searchParams.has('creator') && !url.searchParams.has('sort')
+      (url) => !url.searchParams.has('creator') && !url.searchParams.has('sort')
     );
     await expect(nightRow).toBeVisible();
     await expectCollectiblesChrome(page);
@@ -302,9 +302,13 @@ test.describe('collectibles shell', () => {
     await expect(skeleton).toBeVisible({ timeout: 15_000 });
     await expectTabSelected(page, KIND_RAIL, 'Audio');
     const loadingRail = page.getByRole('tablist', { name: KIND_RAIL });
-    await expect(loadingRail.getByRole('tab', { name: 'Writing' })).toBeVisible();
+    await expect(
+      loadingRail.getByRole('tab', { name: 'Writing' })
+    ).toBeVisible();
     await expect(loadingRail.getByRole('tab', { name: 'Audio' })).toBeVisible();
-    await expect(loadingRail.getByRole('tab', { name: 'Tickets' })).toBeVisible();
+    await expect(
+      loadingRail.getByRole('tab', { name: 'Tickets' })
+    ).toBeVisible();
     await expect(
       loadingRail.getByRole('tab', { name: 'Memberships' })
     ).toHaveCount(0);
@@ -319,6 +323,7 @@ test.describe('collectibles shell', () => {
   test('deep-links kind from the URL without stacking loading chrome', async ({
     page,
   }) => {
+    await setE2eGraphVault(page, 'default');
     await stubCollectiblesVaultGraph(page);
     await gotoApp(
       page,
@@ -332,13 +337,16 @@ test.describe('collectibles shell', () => {
     await expectTabSelected(page, KIND_RAIL, 'Audio');
     await expectSearchVisible(page, 'Search collectibles');
     await expect(
-      page.locator('.collectibles-holding-row').filter({ hasText: 'Chapter One' })
+      page
+        .locator('.collectibles-holding-row')
+        .filter({ hasText: 'Chapter One' })
     ).toHaveCount(0);
   });
 
   test('shows a jump rail once six creators are on the shelf', async ({
     page,
   }) => {
+    await setE2eGraphVault(page, 'many-creators');
     await stubCollectiblesVaultManyCreators(page);
     await gotoApp(page, `/@${COLLECTIBLES_VAULT_OWNER}/collectibles`);
 
@@ -347,7 +355,9 @@ test.describe('collectibles shell', () => {
     });
     const jump = page.getByRole('listbox', { name: 'Jump to creator' });
     await expect(jump.first()).toBeVisible();
-    await expect(jump.first().getByRole('option', { name: 'Finn' })).toBeVisible();
+    await expect(
+      jump.first().getByRole('option', { name: 'Finn' })
+    ).toBeVisible();
     await jump.first().getByRole('option', { name: 'Finn' }).click();
     await expect(page.locator('#collectibles-from-finn-near')).toBeInViewport();
   });

@@ -1,32 +1,12 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import {
-  E2E_GRAPH_COOKIE,
   e2eSeriesCatalogRows,
   type E2eGraphCatalog,
 } from '../../src/lib/e2e-graph-stubs';
+import { setE2eGraphCatalog } from './e2e-graph';
 import { E2E_CHROME_TIMEOUT_MS } from './navigation';
 
-function e2eCookieUrl(): string {
-  return (
-    process.env.PLAYWRIGHT_TEST_BASE_URL ??
-    process.env.E2E_BASE_URL ??
-    `http://${process.env.E2E_HOST ?? 'localhost'}:${process.env.E2E_PORT ?? 3099}`
-  );
-}
-
-/** Opt SSR + BFF into a catalog fixture. Omit for the SSR-miss skeleton test. */
-export async function setE2eGraphCatalog(
-  page: Page,
-  catalog: E2eGraphCatalog
-): Promise<void> {
-  await page.context().addCookies([
-    {
-      name: E2E_GRAPH_COOKIE,
-      value: `catalog=${catalog}`,
-      url: e2eCookieUrl(),
-    },
-  ]);
-}
+export { setE2eGraphCatalog };
 
 /** Settled series shell — excludes loading skeletons (page + intercept). */
 export function seriesPageRoot(page: Page): Locator {

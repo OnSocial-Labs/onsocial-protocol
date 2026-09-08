@@ -14,7 +14,10 @@ import {
   parseAudioFormat,
   parseDropFacets,
 } from '@/features/scarces/drop-facets';
-import { isAudioMediumKind, normalizeMediumKind } from '@/features/market/market-medium';
+import {
+  isAudioMediumKind,
+  normalizeMediumKind,
+} from '@/features/market/market-medium';
 import {
   peekOwnedVaultPage,
   putOwnedVaultPage,
@@ -253,11 +256,7 @@ export function displayFromOwnedCollectionCatalog(
     }
   }
 
-  if (
-    media &&
-    collectionId &&
-    VARIATION_MEDIA_PLACEHOLDER.test(media)
-  ) {
+  if (media && collectionId && VARIATION_MEDIA_PLACEHOLDER.test(media)) {
     const seat = editionSeatFromTokenId(tokenId);
     if (seat != null) {
       media = media
@@ -760,9 +759,7 @@ export function viewerOwnsRelatedEdition(
   for (const row of owned) {
     if (postPath && row.sourcePostPath?.trim() === postPath) return true;
     const ownedCollection =
-      row.collectionId?.trim() ||
-      collectionIdFromTokenId(row.tokenId) ||
-      '';
+      row.collectionId?.trim() || collectionIdFromTokenId(row.tokenId) || '';
     if (
       listingCollection &&
       ownedCollection &&
@@ -1353,11 +1350,11 @@ type OwnedListedState = {
 };
 
 async function fetchOwnerListedStates(
-  owner: string
+  owner: string,
+  client: import('@onsocial/sdk').OnSocial = createReadOnlyOnSocialClient()
 ): Promise<Map<string, OwnedListedState>> {
   // Indexer active listings first — no get_sales_by_owner_id on the happy path.
   try {
-    const client = createReadOnlyOnSocialClient();
     const rows = await client.query.scarces.activeListings({
       sellerId: owner,
       kinds: ['native', 'auction'],
@@ -1384,7 +1381,9 @@ async function fetchOwnerListedStates(
         listedByToken.set(tokenId, {
           kind: 'auction',
           priceNear,
-          ...(typeof row.bidCount === 'number' ? { bidCount: row.bidCount } : {}),
+          ...(typeof row.bidCount === 'number'
+            ? { bidCount: row.bidCount }
+            : {}),
           ...(row.expiresAt != null ? { expiresAtNs: row.expiresAt } : {}),
         });
       }
@@ -1502,10 +1501,7 @@ export async function fetchOwnedScarceByTokenId(
   const token = await fetchTokenRecord(id);
   if (!token?.token_id?.trim()) return null;
   const tokenOwner = token.owner_id?.trim() || '';
-  if (
-    tokenOwner &&
-    tokenOwner.toLowerCase() !== owner.toLowerCase()
-  ) {
+  if (tokenOwner && tokenOwner.toLowerCase() !== owner.toLowerCase()) {
     return null;
   }
 
@@ -1563,9 +1559,7 @@ export async function fetchOwnedScarceForSourcePost(
       fromEnd,
       pageSize: OWNED_PAGE_SIZE,
     });
-    const hit = page.items.find(
-      (item) => item.sourcePostPath?.trim() === want
-    );
+    const hit = page.items.find((item) => item.sourcePostPath?.trim() === want);
     if (hit) return hit;
     if (!page.hasMore) break;
     fromEnd = page.nextFromEnd;
@@ -1583,9 +1577,9 @@ async function fetchOwnedScarcesPageFromIndexer(
   owner: string,
   fromEnd: number,
   pageSize: number,
-  maxTokens: number
+  maxTokens: number,
+  client: import('@onsocial/sdk').OnSocial = createReadOnlyOnSocialClient()
 ): Promise<OwnedScarcesPage | null> {
-  const client = createReadOnlyOnSocialClient();
   const take = Math.min(pageSize, maxTokens - fromEnd);
   if (take <= 0) {
     return { items: [], nextFromEnd: fromEnd, hasMore: false };
@@ -1626,7 +1620,7 @@ async function fetchOwnedScarcesPageFromIndexer(
     }
   }
 
-  const listedByToken = await fetchOwnerListedStates(owner);
+  const listedByToken = await fetchOwnerListedStates(owner, client);
   const items: OwnedScarceItem[] = [];
   for (const row of rows) {
     const tokenId = row.tokenId?.trim();
@@ -1634,7 +1628,7 @@ async function fetchOwnedScarcesPageFromIndexer(
     const collectionId =
       row.collectionId?.trim() || collectionIdFromTokenId(tokenId);
     const catalog = collectionId
-      ? collectionById.get(collectionId) ?? null
+      ? (collectionById.get(collectionId) ?? null)
       : null;
     const face = catalog
       ? displayFromOwnedCollectionCatalog(catalog, tokenId)
@@ -1649,9 +1643,7 @@ async function fetchOwnedScarcesPageFromIndexer(
       (catalog?.kind?.trim() ? catalog.kind.trim() : null);
     const displayTitle =
       face?.title ||
-      (tokenId.includes(':') && !tokenId.startsWith('s:')
-        ? tokenId
-        : 'Scarce');
+      (tokenId.includes(':') && !tokenId.startsWith('s:') ? tokenId : 'Scarce');
     const description = face?.description;
     const listed = listedByToken.get(tokenId);
     items.push({
@@ -1712,7 +1704,9 @@ async function fetchOwnedScarcesPageFromIndexer(
           ...(meta.sourcePostPath && !item.sourcePostPath
             ? { sourcePostPath: meta.sourcePostPath }
             : {}),
-          ...(meta.playable && !item.playable ? { playable: meta.playable } : {}),
+          ...(meta.playable && !item.playable
+            ? { playable: meta.playable }
+            : {}),
           ...(meta.playables?.length && !item.playables?.length
             ? { playables: meta.playables }
             : {}),
@@ -1795,6 +1789,8 @@ export async function fetchOwnedScarcesPage(
      * rest of the wallet.
      */
     maxTokens?: number;
+    /** SSR passes the API-key client so e2e graph stubs can seed first paint. */
+    client?: import('@onsocial/sdk').OnSocial;
   } = {}
 ): Promise<OwnedScarcesPage> {
   const owner = accountId.trim();
@@ -1820,7 +1816,8 @@ export async function fetchOwnedScarcesPage(
       owner,
       fromEnd,
       pageSize,
-      maxTokens
+      maxTokens,
+      opts.client ?? createReadOnlyOnSocialClient()
     );
   } catch {
     // Hasura / OnAPI unavailable — fall through to RPC.
@@ -2292,8 +2289,7 @@ export async function fetchMarketListings(
     opts.excludePrimaryThoughts ??
     (!mediumKind || mediumKind === 'all' || mediumKind === 'music');
   // Thoughts medium must still return primary post-mints.
-  const excludeThoughts =
-    excludePrimaryThoughts && mediumKind !== 'thought';
+  const excludeThoughts = excludePrimaryThoughts && mediumKind !== 'thought';
   try {
     const client = opts.client ?? createReadOnlyOnSocialClient();
     const rows = await client.query.scarces.activeListings({
