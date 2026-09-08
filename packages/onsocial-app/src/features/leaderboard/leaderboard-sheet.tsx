@@ -77,6 +77,7 @@ import {
   resolvePortfolioMood,
 } from '@/lib/moods/resolve';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { displayName } from '@/lib/profile-display';
 
 const INFLUENCE_HINT_SESSION_KEY = 'leaderboard-influence-hint-seen';
 
@@ -138,7 +139,7 @@ function BoardRow({
   isViewer?: boolean;
   rowRef?: Ref<HTMLDivElement>;
 }) {
-  const who = profile?.displayName?.trim() || `@${accountId}`;
+  const who = displayName(accountId, profile?.displayName);
   const positionHint = rankTied ? `, position ${denseIndex}` : '';
   const primaryUnit = leaderboardPrimaryUnit(track);
   const label = `${who} · rank ${rankLabel}${positionHint} · ${primary} ${primaryUnit}`;

@@ -30,7 +30,7 @@ import {
 } from '@/features/guilds/guild-member-row-actions';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { fallbackLabel } from '@/lib/profile-display';
+import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
   txToastConfirming,
@@ -175,11 +175,10 @@ export function GuildMemberRowMenu({
     listMode === 'banned'
       ? guildBannedMemberRowActions(member.memberId, manageContext)
       : guildMemberRowActions(member, manageContext);
-  const menuLabel = `Manage ${memberLabel}`;
   const handle = fallbackLabel(member.memberId);
-  const whoLabel = memberLabel.trim()
-    ? `${memberLabel} · @${handle}`
-    : `@${handle}`;
+  const spoken = displayName(member.memberId, memberLabel);
+  const menuLabel = `Manage ${spoken}`;
+  const whoLabel = `${spoken} · @${handle}`;
 
   const requestClose = useCallback(() => {
     if (pending) return;

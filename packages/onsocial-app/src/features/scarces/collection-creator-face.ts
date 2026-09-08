@@ -1,5 +1,5 @@
 import type { OnSocial } from '@onsocial/sdk';
-import { formatNearAccountFallbackTitle } from '@onsocial/ui';
+import { formatNearAccountDisplayName } from '@onsocial/ui';
 import { fallbackLabel, resolveProfileMediaUrl } from '@/lib/profile-display';
 
 /** Creator chrome for drop / player — indexer profile + stats. */
@@ -45,9 +45,7 @@ export function collectionCreatorNameLine(
   creatorId: string,
   displayName?: string | null
 ): string {
-  const custom = displayName?.trim();
-  if (custom) return custom;
-  return formatNearAccountFallbackTitle(creatorId);
+  return formatNearAccountDisplayName(creatorId, displayName);
 }
 
 /**

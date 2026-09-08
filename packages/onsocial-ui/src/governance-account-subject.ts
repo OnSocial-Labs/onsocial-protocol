@@ -17,11 +17,17 @@ const INFRASTRUCTURE_LOCAL_NAMES = new Set([
   'treasury',
 ]);
 
+const IMPLICIT_ACCOUNT_TITLE = 'Implicit account';
+
+function isImplicitNearAccountId(accountId: string): boolean {
+  return /^[0-9a-f]{64}$/i.test(accountId.trim());
+}
+
 /** Human title when no social profile — first account segment, hyphen/underscore → words. */
 export function formatNearAccountFallbackTitle(accountId: string): string {
   const trimmed = accountId.trim();
-  if (/^[0-9a-f]{64}$/i.test(trimmed)) {
-    return 'Implicit account';
+  if (isImplicitNearAccountId(trimmed)) {
+    return IMPLICIT_ACCOUNT_TITLE;
   }
 
   const local = trimmed.split('.')[0]?.trim() ?? trimmed;
@@ -34,6 +40,42 @@ export function formatNearAccountFallbackTitle(accountId: string): string {
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
+}
+
+/**
+ * Custom profile name only — null when it would just repeat the account id
+ * or the implicit-account title.
+ */
+export function resolveNearAccountCustomName(
+  accountId: string,
+  profileName?: string | null
+): string | null {
+  const handle = accountId.trim();
+  const name = profileName?.trim();
+  if (!name) return null;
+  const lower = name.toLowerCase();
+  if (lower === handle.toLowerCase()) return null;
+  if (
+    isImplicitNearAccountId(handle) &&
+    lower === IMPLICIT_ACCOUNT_TITLE.toLowerCase()
+  ) {
+    return null;
+  }
+  return name;
+}
+
+/**
+ * Identity title — chosen name, else spoken local part (`Alice`).
+ * Handle stays the full id (`@alice.near`) so the name line never repeats it.
+ */
+export function formatNearAccountDisplayName(
+  accountId: string,
+  profileName?: string | null
+): string {
+  return (
+    resolveNearAccountCustomName(accountId, profileName) ??
+    formatNearAccountFallbackTitle(accountId)
+  );
 }
 
 function normalizeAccountId(

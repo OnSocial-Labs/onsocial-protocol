@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { cn } from './cn.js';
+import { formatNearAccountDisplayName } from './governance-account-subject.js';
 import {
   ProfileAvatar,
   type ProfileAvatarShape,
@@ -12,15 +13,16 @@ export type StandingIdentityShowHandle = boolean | 'when-named';
 
 /**
  * Label rules for standing-row account chrome (pickers + list rows).
- * Handle is the full account id (do not strip `.near` / `.testnet`).
- * When there is no custom name, the primary line is `@handle`.
+ * Handle is the full account id (do not strip `.near` / `.tg` / `.testnet`).
+ * Primary line is the spoken / custom name so `showHandle: 'when-named'`
+ * always shows two rows (name + `@id`).
  */
 export function standingIdentityLabel(
   accountId: string,
   profileName?: string | null
 ): { name: string | null; label: string; handle: string } {
   const handle = accountId.trim();
-  const name = profileName?.trim() || null;
+  const name = handle ? formatNearAccountDisplayName(handle, profileName) : null;
   return { name, label: name || `@${handle}`, handle };
 }
 

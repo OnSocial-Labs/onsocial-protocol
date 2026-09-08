@@ -2,6 +2,7 @@
 
 import { CommunityDiscoverRow } from '@/components/community-cards';
 import type { DaoDirectoryEntry } from '@/features/protocol/dao-directory';
+import { displayName } from '@/lib/profile-display';
 
 /** Discover / search DAO row — banner + square crest before name. */
 export function DaoDirectoryRow({
@@ -9,8 +10,7 @@ export function DaoDirectoryRow({
 }: {
   entry: DaoDirectoryEntry;
 }) {
-  const named = entry.name.trim().toLowerCase() !== entry.accountId;
-  const title = named ? entry.name : entry.accountId;
+  const title = displayName(entry.accountId, entry.name);
   const description = entry.subtitle.trim() || null;
 
   return (
@@ -22,16 +22,14 @@ export function DaoDirectoryRow({
       markVariant="crest"
       title={title}
       description={description}
-      ariaLabel={named ? entry.name : `@${entry.accountId}`}
+      ariaLabel={title}
       meta={
         <>
-          {named ? (
-            <span className="community-summary-stat">
-              <span className="community-summary-stat-label">
-                @{entry.accountId}
-              </span>
+          <span className="community-summary-stat">
+            <span className="community-summary-stat-label">
+              @{entry.accountId}
             </span>
-          ) : null}
+          </span>
           <span className="guild-card-pill guild-card-pill--topic">
             {entry.kindLabel}
           </span>

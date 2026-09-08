@@ -13,6 +13,9 @@ describe('collectionCreatorNameLine', () => {
   it('fills the name slot from the account local part', () => {
     expect(collectionCreatorNameLine('alice.near')).toBe('Alice');
     expect(collectionCreatorNameLine('alice.near', '  ')).toBe('Alice');
+    expect(collectionCreatorNameLine('alice.near', 'alice.near')).toBe(
+      'Alice'
+    );
     expect(
       collectionCreatorNameLine('governance.onsocial.testnet')
     ).toBe('Governance');

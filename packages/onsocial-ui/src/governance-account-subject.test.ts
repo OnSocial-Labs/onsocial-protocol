@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatNearAccountDisplayName,
   formatNearAccountFallbackTitle,
   looksLikeInfrastructureAccount,
   resolveGovernanceAccountSubjectKind,
+  resolveNearAccountCustomName,
 } from './governance-account-subject.js';
 
 describe('formatNearAccountFallbackTitle', () => {
@@ -12,10 +14,49 @@ describe('formatNearAccountFallbackTitle', () => {
     ).toBe('Social Spend');
   });
 
+  it('speaks the first label on mainnet and telegram suffixes', () => {
+    expect(formatNearAccountFallbackTitle('alice.near')).toBe('Alice');
+    expect(formatNearAccountFallbackTitle('alice.tg')).toBe('Alice');
+    expect(formatNearAccountFallbackTitle('green-ghost.near')).toBe(
+      'Green Ghost'
+    );
+  });
+
   it('handles implicit accounts', () => {
     expect(formatNearAccountFallbackTitle('a'.repeat(64))).toBe(
       'Implicit account'
     );
+  });
+});
+
+describe('formatNearAccountDisplayName', () => {
+  it('keeps a chosen name', () => {
+    expect(formatNearAccountDisplayName('alice.near', ' Night ')).toBe(
+      'Night'
+    );
+    expect(resolveNearAccountCustomName('alice.near', 'Night')).toBe(
+      'Night'
+    );
+  });
+
+  it('strips id-as-name and speaks the local part', () => {
+    expect(formatNearAccountDisplayName('alice.near')).toBe('Alice');
+    expect(formatNearAccountDisplayName('alice.near', 'alice.near')).toBe(
+      'Alice'
+    );
+    expect(formatNearAccountDisplayName('alice.tg', 'alice.tg')).toBe(
+      'Alice'
+    );
+    expect(resolveNearAccountCustomName('alice.near', 'alice.near')).toBeNull();
+  });
+
+  it('treats implicit-account title as unset', () => {
+    const implicit = 'a'.repeat(64);
+    expect(formatNearAccountDisplayName(implicit)).toBe('Implicit account');
+    expect(
+      formatNearAccountDisplayName(implicit, 'Implicit account')
+    ).toBe('Implicit account');
+    expect(formatNearAccountDisplayName(implicit, 'Custom')).toBe('Custom');
   });
 });
 

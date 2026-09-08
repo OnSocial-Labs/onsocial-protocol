@@ -41,7 +41,7 @@ import {
   toggleThankRecipient,
 } from '@/lib/app-thank-token';
 import { sendThankTokenTransaction } from '@/lib/app-thank-token-transactions';
-import { fallbackLabel } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 import {
   fetchProfileSocialStandings,
   type StandingAccountSummary,
@@ -332,7 +332,7 @@ export function AppThankTokenSheet({
                 <OsSurfaceRow
                   key={stander.accountId}
                   label={
-                    stander.name?.trim() || fallbackLabel(stander.accountId)
+                    displayName(stander.accountId, stander.name)
                   }
                   description={stander.accountId}
                   leading={
@@ -341,7 +341,7 @@ export function AppThankTokenSheet({
                       kind={stander.kind}
                       src={stander.avatarUrl}
                       fallbackInitial={(
-                        stander.name?.trim() || stander.accountId
+                        displayName(stander.accountId, stander.name)
                       ).slice(0, 1)}
                       size="sm"
                     />

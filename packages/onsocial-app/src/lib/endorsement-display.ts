@@ -1,5 +1,6 @@
 import type { EndorsementListItem } from '@onsocial/sdk';
 import { normalizeEndorsementTopic } from '@onsocial/sdk';
+import { formatNearAccountDisplayName } from '@onsocial/ui';
 import { formatRelativePostTimestamp } from '@/lib/post-display';
 
 export function humanizeEndorsementTopic(topic?: string | null): string {
@@ -32,6 +33,5 @@ export function endorsementPartyLabel(
   accountId: string,
   name?: string | null
 ): string {
-  const trimmed = name?.trim();
-  return trimmed || `@${accountId}`;
+  return formatNearAccountDisplayName(accountId, name);
 }

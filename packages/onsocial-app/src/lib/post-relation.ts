@@ -2,7 +2,7 @@ import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { accountIdsEqual } from '@/lib/account-match';
 import { postKey } from '@/lib/post-display';
 import {
-  customDisplayName,
+  displayName,
   fallbackLabel,
 } from '@/lib/profile-display';
 
@@ -36,11 +36,11 @@ export function formatPostRelationTarget(
   profileName?: string | null
 ): { name: string | null; handle: string; label: string } {
   const handle = fallbackLabel(accountId);
-  const name = customDisplayName(accountId, profileName);
+  const name = displayName(accountId, profileName ?? undefined);
   return {
-    name: name || null,
+    name,
     handle,
-    label: name ? `${name} @${handle}` : `@${handle}`,
+    label: `${name} @${handle}`,
   };
 }
 

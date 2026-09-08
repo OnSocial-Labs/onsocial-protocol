@@ -24,6 +24,7 @@ import {
   normalizeProfileSearchQuery,
   PROFILE_SEARCH_MIN_QUERY_LENGTH,
 } from '@/lib/profile-account-search';
+import { displayName } from '@/lib/profile-display';
 import { replaceBrowserQueryUrl, replaceBrowserUrl } from '@/lib/sync-browser-url-query';
 import { isStandingListCacheDisplayReady } from '@/lib/profile-list-display';
 import {
@@ -132,7 +133,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 function accountLabel(account: StandingAccountSummary): string {
-  return account.name?.trim() || `@${account.accountId}`;
+  return displayName(account.accountId, account.name ?? undefined);
 }
 
 function hasStandingCounts(counts: {
