@@ -16,6 +16,14 @@ import { writeGuildShellCache } from '@/lib/guild-shell-cache';
 export type GuildPageLoadState = 'loading' | 'ready' | 'missing' | 'error';
 export type GuildFeedFilterId = 'all' | string;
 
+export const GUILD_FEED_LOAD_MORE_ERROR = 'Could not load more posts.';
+
+export function guildFeedLoadMoreError(cause: unknown): string {
+  return cause instanceof Error && cause.message.trim()
+    ? cause.message
+    : GUILD_FEED_LOAD_MORE_ERROR;
+}
+
 export interface ViewerGuildState {
   isMember: boolean;
   isOwner: boolean;

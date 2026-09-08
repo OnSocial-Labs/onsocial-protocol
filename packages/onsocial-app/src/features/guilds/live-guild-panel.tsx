@@ -113,6 +113,7 @@ import { readGuildMembershipCache } from '@/lib/guild-membership-cache';
 import { useGuildMembershipAction } from '@/features/guilds/use-guild-membership-action';
 import type { GuildMembershipOutcome } from '@/features/guilds/guild-membership-action';
 import {
+  GUILD_FEED_LOAD_MORE_ERROR,
   pendingJoinRequest,
   type GuildFeedFilterId,
 } from '@/features/guilds/guild-page-data';
@@ -181,6 +182,7 @@ export function LiveGuildPanel({
     feedPending,
     hasMorePosts,
     loadingMore,
+    loadMoreError,
     isFeedRefreshing,
     localPosts,
     setLocalPosts,
@@ -499,7 +501,7 @@ export function LiveGuildPanel({
   useInfiniteScrollSentinel({
     scrollRootRef,
     sentinelRef: loadMoreRef,
-    enabled: hasMorePosts && state.posts.length > 0,
+    enabled: hasMorePosts && state.posts.length > 0 && !loadMoreError,
     onIntersect: loadMoreFeed,
   });
 
@@ -1180,7 +1182,21 @@ export function LiveGuildPanel({
                       />
                     </div>
                   ))}
-                  {hasMorePosts || loadingMore ? (
+                  {loadMoreError ? (
+                    <div className="guild-state-card is-error">
+                      <p>{GUILD_FEED_LOAD_MORE_ERROR}</p>
+                      {loadMoreError !== GUILD_FEED_LOAD_MORE_ERROR ? (
+                        <small>{loadMoreError}</small>
+                      ) : null}
+                      <button
+                        className="guild-secondary-button"
+                        type="button"
+                        onClick={() => loadMoreFeed()}
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  ) : hasMorePosts || loadingMore ? (
                     <div className="home-feed-load-more">
                       {hasMorePosts ? (
                         <div
