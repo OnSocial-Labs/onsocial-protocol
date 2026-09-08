@@ -2,13 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  postContentPath,
-  type GroupMemberRow,
-  type GroupStats,
-  type JoinRequest,
-  type PostRow,
-} from '@onsocial/sdk';
+import { postContentPath, type PostRow } from '@onsocial/sdk';
 import {
   Divider,
   InformationCircleIcon,
@@ -62,8 +56,6 @@ import { FeedThreadBlock } from '@/features/guilds/feed-thread-block';
 import {
   collaborativeJoinNeedsStorage,
   GUILD_COLLABORATIVE_JOIN_STORAGE_HINT,
-  normalizeGuildConfig,
-  type GuildConfigSnapshot,
 } from '@/features/guilds/guild-config';
 import { GuildDescriptionClamp } from '@/features/guilds/guild-description-clamp';
 import { GuildAddMemberSheet } from '@/features/guilds/guild-add-member-sheet';
@@ -91,7 +83,6 @@ import { GuildSettingsSheet } from '@/features/guilds/guild-settings-sheet';
 import { GuildGroupStorageSheet } from '@/features/guilds/guild-group-storage-sheet';
 import { GuildProposalsSheet } from '@/features/guilds/guild-proposals-sheet';
 import { GuildSpaceWritersSheet } from '@/features/guilds/guild-space-writers-sheet';
-import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-write';
 import {
   collectRelayTxHashes,
   guildPath,
@@ -111,15 +102,9 @@ import { withRepostOriginals } from '@/lib/post-relation';
 import {
   applyMediaKindOverride,
   buildOptimisticMediaEntries,
-  revokeDroppedOptimisticMedia,
 } from '@/lib/post-media';
 import { normalizeComposerContentLabels } from '@/lib/post-content-labels';
-import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access';
 import { topicLabel } from '@/lib/topic-slug';
-import {
-  readGuildOwnerId,
-  reconcileGuildMemberRoster,
-} from '@/features/guilds/guild-member-roster';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   guildCoverStyle,
@@ -128,29 +113,17 @@ import {
 import type { GuildPageData } from '@/lib/load-guild-page';
 import {
   guildAccessLabel,
-  guildConfigFromIndexedRow,
   readGroupStatsCreatedAt,
   resolveGuildMemberCount,
 } from '@/features/guilds/guild-facts';
-import {
-  readGuildShellCache,
-  writeGuildShellCache,
-  type GuildShellCacheEntry,
-} from '@/lib/guild-shell-cache';
-import {
-  filterGuildPostsForSpace,
-  readGuildFeedCache,
-  readGuildPageCache,
-  writeGuildFeedCache,
-  writeGuildPageCache,
-  type GuildPageCacheEntry,
-} from '@/lib/guild-page-cache';
-import {
-  readGuildMembershipCache,
-  writeGuildMembershipCache,
-} from '@/lib/guild-membership-cache';
+import { readGuildMembershipCache } from '@/lib/guild-membership-cache';
 import { useGuildMembershipAction } from '@/features/guilds/use-guild-membership-action';
 import type { GuildMembershipOutcome } from '@/features/guilds/guild-membership-action';
+import {
+  pendingJoinRequest,
+  type GuildFeedFilterId,
+} from '@/features/guilds/guild-page-data';
+import { useGuildPageData } from '@/features/guilds/use-guild-page-data';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
 import {
@@ -158,74 +131,12 @@ import {
   subscribeGuildPostConfirmed,
 } from '@/features/scarces/submit-guild-drop-post';
 import { hydrateScarceEmbedsForPosts } from '@/lib/feed-paint-hydrate';
-import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import {
   txToastConfirming,
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
-
-interface ViewerGuildState {
-  isMember: boolean;
-  isOwner: boolean;
-  isAdmin: boolean;
-  canModerate: boolean;
-  isBlacklisted: boolean;
-  joinRequest: JoinRequest | null;
-  pendingJoinProposalId: string | null;
-}
-
-interface LiveGuildModerationState {
-  pendingMemberRequestCount: number;
-  activeProposalCount: number;
-}
-
-interface LiveGuildState {
-  config: GuildConfigSnapshot | null;
-  stats: GroupStats | null;
-  indexedMemberCount: number | null;
-  postCount: number | null;
-  members: GroupMemberRow[];
-  posts: PostRow[];
-  feedError: string | null;
-  viewer: ViewerGuildState | null;
-  moderation: LiveGuildModerationState | null;
-}
-
-type LoadState = 'loading' | 'ready' | 'missing' | 'error';
-type GuildFeedFilterId = 'all' | string;
-
-function pendingJoinRequest(request: JoinRequest | null): boolean {
-  return request?.status === 'pending';
-}
-
-function persistGuildPageCache(
-  groupId: string,
-  entry: GuildPageCacheEntry,
-  feed?: { filterId: string; posts: PostRow[]; hasMore: boolean }
-) {
-  writeGuildShellCache(groupId, entry.shell);
-  writeGuildPageCache(groupId, entry);
-  if (feed) {
-    writeGuildFeedCache(groupId, feed.filterId, {
-      posts: feed.posts,
-      hasMore: feed.hasMore,
-    });
-  }
-}
-
-function pageCacheFromInitial(initial: GuildPageData): GuildPageCacheEntry {
-  return {
-    config: initial.config,
-    shell: initial.shell,
-    stats: initial.stats,
-    indexedMemberCount: initial.indexedMemberCount,
-    members: initial.members,
-    postCount: initial.postCount,
-    structureResolved: initial.structureResolved,
-  };
-}
 
 export function LiveGuildPanel({
   groupId,
@@ -252,61 +163,6 @@ export function LiveGuildPanel({
     storageRefreshKey
   );
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
-  const [loadState, setLoadState] = useState<LoadState>(() =>
-    initial || readGuildPageCache(groupId) || readGuildShellCache(groupId)
-      ? 'ready'
-      : 'loading'
-  );
-  const [state, setState] = useState<LiveGuildState>(() => {
-    if (initial) {
-      return {
-        config: initial.config,
-        stats: initial.stats,
-        indexedMemberCount: initial.indexedMemberCount,
-        postCount: initial.postCount,
-        members: initial.members,
-        posts: initial.posts,
-        feedError: null,
-        viewer: null,
-        moderation: null,
-      };
-    }
-    const cachedPage = readGuildPageCache(groupId);
-    const cachedFeed = readGuildFeedCache(groupId, 'all');
-    return {
-      config: cachedPage?.config ?? null,
-      stats: cachedPage?.stats ?? null,
-      indexedMemberCount: cachedPage?.indexedMemberCount ?? null,
-      postCount: cachedPage?.postCount ?? null,
-      members: cachedPage?.members ?? [],
-      posts: cachedFeed?.posts ?? [],
-      feedError: null,
-      viewer: null,
-      moderation: null,
-    };
-  });
-  const structureHydratedRef = useRef(
-    Boolean(
-      initial?.structureResolved ||
-        readGuildPageCache(groupId)?.structureResolved
-    )
-  );
-  const structureRetryTimersRef = useRef<number[]>([]);
-  /** Skip one auto feed refresh when SSR or cache already painted the default feed. */
-  const skipSsrFeedRefreshRef = useRef(
-    Boolean(initial && initial.posts != null) ||
-      Boolean(readGuildFeedCache(groupId, 'all'))
-  );
-  const configRef = useRef<GuildConfigSnapshot | null>(initial?.config ?? null);
-  const [localPosts, setLocalPosts] = useState<PostRow[]>([]);
-  const [hasMorePosts, setHasMorePosts] = useState(
-    () =>
-      initial?.hasMorePosts ??
-      readGuildFeedCache(groupId, 'all')?.hasMore ??
-      false
-  );
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [isFeedRefreshing, setIsFeedRefreshing] = useState(false);
   const [composerSpaceId, setComposerSpaceId] = useState('general');
   const [feedFilter, setFeedFilter] = useState<{
     groupId: string;
@@ -320,6 +176,35 @@ export function LiveGuildPanel({
     },
     [groupId]
   );
+  const {
+    loadState,
+    error,
+    state,
+    config,
+    viewer,
+    shellPreview,
+    shellExtrasResolved,
+    viewerAccessResolved,
+    feedPending,
+    hasMorePosts,
+    loadingMore,
+    isFeedRefreshing,
+    localPosts,
+    setLocalPosts,
+    viewerAccess,
+    selectedFeedSpace,
+    optimisticJoinPending,
+    setOptimisticJoinPending,
+    refresh,
+    loadMoreFeed,
+    scheduleReconcile,
+  } = useGuildPageData({
+    groupId,
+    initial,
+    accountId,
+    walletLoading,
+    selectedFeedFilterId,
+  });
   const [composer, setComposer] = useState<{
     mode: GuildComposerMode;
     target: PostRow | null;
@@ -328,25 +213,7 @@ export function LiveGuildPanel({
   } | null>(null);
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [optimisticJoinPending, setOptimisticJoinPending] = useState(false);
   const [headerElevated, setHeaderElevated] = useState(false);
-  const [shellPreview, setShellPreview] = useState<GuildShellCacheEntry | null>(
-    () =>
-      initial?.shell ??
-      readGuildPageCache(groupId)?.shell ??
-      readGuildShellCache(groupId) ??
-      null
-  );
-  const [shellExtrasResolved, setShellExtrasResolved] = useState(() =>
-    Boolean(initial)
-  );
-  /** ACL resolved — separate from shell paint so join/leave never guess. */
-  const [viewerAccessResolved, setViewerAccessResolved] = useState(false);
-  const [feedPending, setFeedPending] = useState(
-    () => !initial && !readGuildFeedCache(groupId, 'all')
-  );
-  const ssrGroupIdRef = useRef(initial ? groupId : null);
   const [manageSheet, setManageSheet] = useState<GuildManageSheetId | null>(
     () => initialSheet
   );
@@ -366,28 +233,10 @@ export function LiveGuildPanel({
     spaceTitle: string;
     canEdit: boolean;
   } | null>(null);
-  const [allowlistSpaceIds, setAllowlistSpaceIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
-  const hasLoadedRef = useRef(
-    Boolean(
-      initial ||
-        readGuildPageCache(groupId) ||
-        readGuildFeedCache(groupId, 'all')
-    )
-  );
-  const reconcileTimersRef = useRef<number[]>([]);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const loadMoreInFlightRef = useRef(false);
-  const groupIdRef = useRef(groupId);
-  groupIdRef.current = groupId;
-  const guildShellRequestIdRef = useRef(0);
-  const guildFeedRequestIdRef = useRef(0);
   const lastHydratedFeedKeysRef = useRef('');
-  const selectedFeedFilterIdRef = useRef(selectedFeedFilterId);
-  selectedFeedFilterIdRef.current = selectedFeedFilterId;
 
   const openManageSheet = useCallback(
     (sheet: GuildManageSheetId | null) => {
@@ -408,9 +257,6 @@ export function LiveGuildPanel({
     if (initialSheet) setManageSheet(initialSheet);
   }, [initialSheet]);
 
-  const config = state.config;
-  configRef.current = config;
-  const viewer = state.viewer;
   const joinRequestPending = pendingJoinRequest(viewer?.joinRequest ?? null);
   const joinProposalPending = Boolean(viewer?.pendingJoinProposalId);
   const joinPending =
@@ -437,16 +283,6 @@ export function LiveGuildPanel({
   // Auto-hide only while sticky under elevated chrome — stay visible at top of page.
   // Unscoped listener — same path as the bottom dock (body scroller via capture).
   const feedFiltersHidden = useDockAutoHide(!headerElevated);
-  const viewerAccess = useMemo(
-    () => ({
-      isMember: viewer?.isMember ?? false,
-      canModerate: viewer?.canModerate ?? false,
-      isAdmin: viewer?.isAdmin ?? false,
-      isOwner: viewer?.isOwner ?? false,
-      canWriteSpaceIds: allowlistSpaceIds,
-    }),
-    [allowlistSpaceIds, viewer]
-  );
   const feedSpaces = useMemo(
     () => (config ? enabledGuildSpaces(config.structure) : []),
     [config]
@@ -463,10 +299,6 @@ export function LiveGuildPanel({
     () => (config ? composerGuildSpaces(config.structure, viewerAccess) : []),
     [config, viewerAccess]
   );
-  const selectedFeedSpace =
-    selectedFeedFilterId === 'all' || !config
-      ? null
-      : guildSpaceById(config.structure, selectedFeedFilterId);
   const composerSpace = useMemo(() => {
     if (!config) return null;
     const selected = guildSpaceById(config.structure, composerSpaceId);
@@ -596,628 +428,10 @@ export function LiveGuildPanel({
     };
   }, [feedPosts]);
 
-  const refreshFeed = useCallback(
-    async (opts?: { silent?: boolean }) => {
-      const requestId = ++guildFeedRequestIdRef.current;
-      const filterId = selectedFeedSpace?.id ?? 'all';
-      if (!opts?.silent) setIsFeedRefreshing(true);
-      setError(null);
-
-      try {
-        const client = createReadOnlyOnSocialClient();
-        const feedResult = await (selectedFeedSpace
-          ? client.query.groups.feedFiltered({
-              groupId,
-              channel: guildSpaceFeedChannel(selectedFeedSpace),
-              limit: 20,
-            })
-          : client.query.groups.feed({ groupId, limit: 20 }));
-        if (
-          guildFeedRequestIdRef.current !== requestId ||
-          groupIdRef.current !== groupId
-        ) {
-          return;
-        }
-
-        const fetchedPosts = feedResult.items ?? [];
-        const hasMore = feedResult.nextOffset !== undefined;
-        writeGuildFeedCache(groupId, filterId, {
-          posts: fetchedPosts,
-          hasMore,
-        });
-        const indexedKeys = new Set(fetchedPosts.map(postKey));
-        setLocalPosts((current) => {
-          const next = current.filter(
-            (post) => !indexedKeys.has(postKey(post))
-          );
-          revokeDroppedOptimisticMedia(current, next);
-          return next;
-        });
-        setState((current) => ({
-          ...current,
-          posts: fetchedPosts,
-          feedError: null,
-        }));
-        setHasMorePosts(hasMore);
-      } catch (cause) {
-        if (
-          guildFeedRequestIdRef.current !== requestId ||
-          groupIdRef.current !== groupId
-        ) {
-          return;
-        }
-        setState((current) => ({
-          ...current,
-          feedError:
-            cause instanceof Error
-              ? cause.message
-              : 'Could not load guild posts.',
-        }));
-      } finally {
-        if (
-          guildFeedRequestIdRef.current === requestId &&
-          groupIdRef.current === groupId
-        ) {
-          setIsFeedRefreshing(false);
-        }
-      }
-    },
-    [groupId, selectedFeedSpace]
-  );
-
-  const applyViewerAccess = useCallback(
-    async (
-      client: ReturnType<typeof createReadOnlyOnSocialClient>,
-      normalizedConfig: GuildConfigSnapshot
-    ) => {
-      if (!accountId) {
-        if (groupIdRef.current !== groupId) return;
-        setAllowlistSpaceIds(new Set());
-        setState((current) => ({
-          ...current,
-          viewer: null,
-          moderation: null,
-        }));
-        setShellExtrasResolved(true);
-        setViewerAccessResolved(true);
-        return;
-      }
-
-      // Fast membership hint from indexer before heavier ACL RPCs.
-      try {
-        const membership = await client.query.groups.membershipFor(
-          groupId,
-          accountId
-        );
-        if (membership && groupIdRef.current === groupId) {
-          writeGuildMembershipCache(accountId, groupId, {
-            isMember: true,
-            joinPending: false,
-          });
-        }
-      } catch {
-        // Cache hint is best-effort.
-      }
-      if (groupIdRef.current !== groupId) return;
-
-      const resolved = await resolveGuildViewerAccess(
-        client,
-        groupId,
-        accountId,
-        {
-          memberDriven: normalizedConfig.memberDriven,
-          accessGated: normalizedConfig.accessGated,
-        }
-      );
-      const viewerState = resolved?.viewer ?? null;
-      const moderationState = resolved?.moderation ?? null;
-      if (groupIdRef.current !== groupId) return;
-
-      if (viewerState?.isMember) {
-        try {
-          const granted = await resolveViewerAllowlistSpaceIds(
-            client,
-            groupId,
-            accountId,
-            normalizedConfig.structure,
-            viewerState
-          );
-          setAllowlistSpaceIds(granted);
-        } catch {
-          setAllowlistSpaceIds(new Set());
-        }
-      } else {
-        setAllowlistSpaceIds(new Set());
-      }
-      if (groupIdRef.current !== groupId) return;
-
-      setState((current) => ({
-        ...current,
-        viewer: viewerState,
-        moderation: moderationState,
-      }));
-
-      const joinPendingFromViewer =
-        pendingJoinRequest(viewerState?.joinRequest ?? null) ||
-        Boolean(viewerState?.pendingJoinProposalId);
-      writeGuildMembershipCache(accountId, groupId, {
-        isMember: Boolean(viewerState?.isMember),
-        joinPending: joinPendingFromViewer,
-      });
-      setShellExtrasResolved(true);
-      setViewerAccessResolved(true);
-    },
-    [accountId, groupId]
-  );
-
-  const clearStructureRetryTimers = useCallback(() => {
-    for (const timer of structureRetryTimersRef.current) {
-      window.clearTimeout(timer);
-    }
-    structureRetryTimersRef.current = [];
-  }, []);
-
-  /** Soft path after SSR: ACL + structure only — keep indexer shell/feed. */
-  const refreshViewerAccess = useCallback(async () => {
-    setError(null);
-    const client = createReadOnlyOnSocialClient();
-    const currentConfig = configRef.current;
-    if (!currentConfig) {
-      setShellExtrasResolved(true);
-      setViewerAccessResolved(!accountId);
-      return;
-    }
-
-    if (!structureHydratedRef.current) {
-      try {
-        const rawConfig = await client.groups.getConfig(groupId);
-        if (groupIdRef.current !== groupId) return;
-        if (rawConfig) {
-          const fromRpc = normalizeGuildConfig(groupId, rawConfig);
-          structureHydratedRef.current = true;
-          clearStructureRetryTimers();
-          setState((current) => ({
-            ...current,
-            config: {
-              ...(current.config ?? currentConfig),
-              structure: fromRpc.structure,
-              // Prefer RPC for name/topics if indexer lagged, keep painted shell otherwise.
-              name: fromRpc.name || (current.config ?? currentConfig).name,
-              description:
-                fromRpc.description ||
-                (current.config ?? currentConfig).description,
-              topics:
-                fromRpc.topics.length > 0
-                  ? fromRpc.topics
-                  : (current.config ?? currentConfig).topics,
-              accessGated: fromRpc.accessGated,
-              memberDriven: fromRpc.memberDriven,
-              ownerId:
-                fromRpc.ownerId ?? (current.config ?? currentConfig).ownerId,
-              // Prefer RPC media even when null (removal must clear painted shell).
-              bannerUrl: fromRpc.bannerUrl,
-              badgeUrl: fromRpc.badgeUrl,
-            },
-          }));
-          await applyViewerAccess(client, fromRpc);
-          return;
-        }
-      } catch {
-        // Keep default structure; still resolve ACL.
-      }
-      // Soft retry so a transient getConfig miss doesn't stick on defaults.
-      if (structureRetryTimersRef.current.length === 0) {
-        structureRetryTimersRef.current = INDEXER_SOFT_RETRY_MS.map((delay) =>
-          window.setTimeout(() => {
-            if (structureHydratedRef.current) return;
-            void refreshViewerAccess();
-          }, delay)
-        );
-      }
-    }
-
-    await applyViewerAccess(client, currentConfig);
-  }, [accountId, applyViewerAccess, clearStructureRetryTimers, groupId]);
-
-  /** Client navigation / cold load — indexer shell first, then ACL. */
-  const refreshShell = useCallback(async () => {
-    const requestId = ++guildShellRequestIdRef.current;
-    setError(null);
-    const client = createReadOnlyOnSocialClient();
-
-    const [
-      indexedRows,
-      feedResult,
-      membersResult,
-      countResult,
-      postCountResult,
-    ] = await Promise.all([
-      client.query.groups.byIds([groupId]).catch(() => []),
-      client.query.groups
-        .feed({ groupId, limit: 20 })
-        .catch(() => ({ items: [] as PostRow[], nextOffset: undefined })),
-      client.query.groups
-        .membersOf(groupId, { limit: 8 })
-        .catch(() => ({ items: [] as GroupMemberRow[] })),
-      client.query.groups
-        .memberCountsFor([groupId])
-        .catch(() => new Map<string, number>()),
-      client.query.groups.postCountFor(groupId).catch(() => null),
-    ]);
-    if (
-      guildShellRequestIdRef.current !== requestId ||
-      groupIdRef.current !== groupId
-    ) {
-      return false;
-    }
-
-    const indexed = indexedRows[0] ?? null;
-    if (indexed) {
-      const fromIndexer = guildConfigFromIndexedRow(groupId, indexed);
-      const shellEntry: GuildShellCacheEntry = {
-        name: fromIndexer.name,
-        bannerUrl: fromIndexer.bannerUrl,
-        badgeUrl: fromIndexer.badgeUrl,
-        accessGated: fromIndexer.accessGated,
-        memberDriven: fromIndexer.memberDriven,
-        description: fromIndexer.description,
-        topics: fromIndexer.topics,
-      };
-      const members = reconcileGuildMemberRoster(
-        membersResult.items ?? [],
-        fromIndexer.ownerId
-      );
-      const posts = feedResult.items ?? [];
-      const hasMore = feedResult.nextOffset !== undefined;
-      persistGuildPageCache(
-        groupId,
-        {
-          config: fromIndexer,
-          shell: shellEntry,
-          stats: null,
-          indexedMemberCount: countResult.get(groupId) ?? null,
-          members,
-          postCount: postCountResult,
-          structureResolved: structureHydratedRef.current,
-        },
-        { filterId: 'all', posts, hasMore }
-      );
-      const applyDefaultFeed = selectedFeedFilterIdRef.current === 'all';
-      setShellPreview(shellEntry);
-      setState((current) => ({
-        ...current,
-        config: current.config
-          ? {
-              ...fromIndexer,
-              structure: structureHydratedRef.current
-                ? current.config.structure
-                : fromIndexer.structure,
-            }
-          : fromIndexer,
-        indexedMemberCount: countResult.get(groupId) ?? null,
-        postCount: postCountResult,
-        members,
-        posts: applyDefaultFeed ? posts : current.posts,
-        feedError: applyDefaultFeed ? null : current.feedError,
-      }));
-      if (applyDefaultFeed) setHasMorePosts(hasMore);
-      setLoadState('ready');
-    }
-
-    let normalizedConfig: GuildConfigSnapshot | null = indexed
-      ? guildConfigFromIndexedRow(groupId, indexed)
-      : null;
-
-    try {
-      const rawConfig = await client.groups.getConfig(groupId);
-      if (
-        guildShellRequestIdRef.current !== requestId ||
-        groupIdRef.current !== groupId
-      ) {
-        return false;
-      }
-      if (rawConfig) {
-        normalizedConfig = normalizeGuildConfig(groupId, rawConfig);
-        structureHydratedRef.current = true;
-        clearStructureRetryTimers();
-        const shellEntry: GuildShellCacheEntry = {
-          name: normalizedConfig.name,
-          bannerUrl: normalizedConfig.bannerUrl,
-          badgeUrl: normalizedConfig.badgeUrl,
-          accessGated: normalizedConfig.accessGated,
-          memberDriven: normalizedConfig.memberDriven,
-          description: normalizedConfig.description,
-          topics: normalizedConfig.topics,
-        };
-        writeGuildShellCache(groupId, shellEntry);
-        const cachedPage = readGuildPageCache(groupId);
-        if (cachedPage) {
-          writeGuildPageCache(groupId, {
-            ...cachedPage,
-            config: normalizedConfig,
-            shell: shellEntry,
-            structureResolved: true,
-          });
-        }
-        setShellPreview(shellEntry);
-        setState((current) => ({
-          ...current,
-          config: normalizedConfig!,
-          members: reconcileGuildMemberRoster(
-            current.members,
-            readGuildOwnerId(rawConfig)
-          ),
-        }));
-        setLoadState('ready');
-      }
-    } catch {
-      // Indexer shell may already be enough.
-    }
-    if (
-      guildShellRequestIdRef.current !== requestId ||
-      groupIdRef.current !== groupId
-    ) {
-      return false;
-    }
-
-    if (!normalizedConfig && !indexed) {
-      setState({
-        config: null,
-        stats: null,
-        indexedMemberCount: null,
-        postCount: null,
-        members: [],
-        posts: [],
-        feedError: null,
-        viewer: null,
-        moderation: null,
-      });
-      setLoadState('missing');
-      setShellExtrasResolved(true);
-      setViewerAccessResolved(!accountId);
-      return false;
-    }
-
-    if (!normalizedConfig) {
-      setShellExtrasResolved(true);
-      setViewerAccessResolved(!accountId);
-      return true;
-    }
-
-    // Optional chain stats for facts (created_at); do not block paint.
-    void client.groups
-      .getStats(groupId)
-      .then((stats) => {
-        if (
-          guildShellRequestIdRef.current !== requestId ||
-          groupIdRef.current !== groupId
-        ) {
-          return;
-        }
-        setState((current) => ({ ...current, stats }));
-      })
-      .catch(() => {});
-
-    await applyViewerAccess(client, normalizedConfig);
-    return true;
-  }, [accountId, applyViewerAccess, clearStructureRetryTimers, groupId]);
-
-  const refresh = useCallback(async () => {
-    const keepPainted =
-      hasLoadedRef.current ||
-      Boolean(readGuildPageCache(groupId)) ||
-      Boolean(readGuildShellCache(groupId));
-    if (!keepPainted) {
-      setLoadState('loading');
-    }
-    setError(null);
-    if (!keepPainted) setFeedPending(true);
-
-    try {
-      const shellReady = await refreshShell();
-      setFeedPending(false);
-      hasLoadedRef.current = true;
-      if (!shellReady) return;
-    } catch (cause) {
-      setFeedPending(false);
-      if (!hasLoadedRef.current && !keepPainted) {
-        setLoadState('error');
-      }
-      setError(
-        cause instanceof Error ? cause.message : 'Could not load guild.'
-      );
-    }
-  }, [groupId, refreshShell]);
-
   useEffect(() => {
-    clearStructureRetryTimers();
-    guildShellRequestIdRef.current += 1;
-    guildFeedRequestIdRef.current += 1;
     lastHydratedFeedKeysRef.current = '';
     setHeaderElevated(false);
-    setLocalPosts([]);
-    setAllowlistSpaceIds(new Set());
-
-    // Parent pairs `initial` with this groupId; still require the id so a
-    // stale seed cannot paint the wrong guild.
-    if (initial && initial.groupId === groupId) {
-      persistGuildPageCache(groupId, pageCacheFromInitial(initial), {
-        filterId: 'all',
-        posts: initial.posts,
-        hasMore: initial.hasMorePosts,
-      });
-      setShellPreview(initial.shell);
-      setShellExtrasResolved(true);
-      setViewerAccessResolved(false);
-      setFeedPending(false);
-      setHasMorePosts(initial.hasMorePosts);
-      setLoadState('ready');
-      structureHydratedRef.current = Boolean(initial.structureResolved);
-      skipSsrFeedRefreshRef.current = true;
-      ssrGroupIdRef.current = groupId;
-      setState({
-        config: initial.config,
-        stats: initial.stats,
-        indexedMemberCount: initial.indexedMemberCount,
-        postCount: initial.postCount,
-        members: initial.members,
-        posts: initial.posts,
-        feedError: null,
-        viewer: null,
-        moderation: null,
-      });
-      hasLoadedRef.current = true;
-      return;
-    }
-
-    const cachedPage = readGuildPageCache(groupId);
-    const cachedFeed = readGuildFeedCache(groupId, 'all');
-    const cachedShell =
-      cachedPage?.shell ?? readGuildShellCache(groupId) ?? null;
-    setShellPreview(cachedShell);
-    ssrGroupIdRef.current = null;
-
-    if (cachedPage && cachedFeed) {
-      structureHydratedRef.current = cachedPage.structureResolved;
-      skipSsrFeedRefreshRef.current = true;
-      setShellExtrasResolved(true);
-      setViewerAccessResolved(false);
-      setFeedPending(false);
-      setHasMorePosts(cachedFeed.hasMore);
-      setLoadState('ready');
-      setState({
-        config: cachedPage.config,
-        stats: cachedPage.stats,
-        indexedMemberCount: cachedPage.indexedMemberCount,
-        postCount: cachedPage.postCount,
-        members: cachedPage.members,
-        posts: cachedFeed.posts,
-        feedError: null,
-        viewer: null,
-        moderation: null,
-      });
-      hasLoadedRef.current = true;
-      return;
-    }
-
-    structureHydratedRef.current = false;
-    skipSsrFeedRefreshRef.current = false;
-    setShellExtrasResolved(false);
-    setViewerAccessResolved(false);
-    setFeedPending(true);
-    setLoadState(cachedShell ? 'ready' : 'loading');
-    setState({
-      config: cachedPage?.config ?? null,
-      stats: cachedPage?.stats ?? null,
-      indexedMemberCount: cachedPage?.indexedMemberCount ?? null,
-      postCount: cachedPage?.postCount ?? null,
-      members: cachedPage?.members ?? [],
-      posts: cachedFeed?.posts ?? [],
-      feedError: null,
-      viewer: null,
-      moderation: null,
-    });
-    if (cachedFeed) setHasMorePosts(cachedFeed.hasMore);
-    hasLoadedRef.current = Boolean(cachedPage || cachedFeed);
-  }, [clearStructureRetryTimers, groupId, initial]);
-
-  useEffect(() => clearStructureRetryTimers, [clearStructureRetryTimers]);
-
-  useEffect(() => {
-    // Drop previous wallet's membership before extras resolve for the new one.
-    setState((current) => ({
-      ...current,
-      viewer: null,
-      moderation: null,
-    }));
-    setViewerAccessResolved(false);
-    // Soft SSR keeps painted shell; ACL still re-resolves for the new wallet.
-    const softSsr = ssrGroupIdRef.current === groupId && Boolean(initial);
-    if (!softSsr) {
-      setShellExtrasResolved(false);
-    }
-  }, [accountId, groupId, initial]);
-
-  useEffect(() => {
-    if (walletLoading) return;
-    // Soft-reconcile viewer/ACL after SSR; full reload on client guild switch.
-    const softSsr = ssrGroupIdRef.current === groupId && Boolean(initial);
-    if (!accountId) {
-      setViewerAccessResolved(true);
-      if (softSsr) {
-        hasLoadedRef.current = true;
-        void refreshViewerAccess();
-        return;
-      }
-    }
-    if (softSsr) {
-      hasLoadedRef.current = true;
-      void refreshViewerAccess();
-      return;
-    }
-    if (hasLoadedRef.current) {
-      void refresh();
-      return;
-    }
-    hasLoadedRef.current = false;
-    void refresh();
-    // Shell + feed load is scoped to guild/account changes; tab switches use refreshFeed.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshFeed intentionally excluded
-  }, [accountId, groupId, walletLoading, initial]);
-
-  useEffect(() => {
-    if (walletLoading || !hasLoadedRef.current) return;
-    // Seeded default feed (SSR or cache) — skip the duplicate keyed query.
-    if (skipSsrFeedRefreshRef.current && selectedFeedFilterId === 'all') {
-      skipSsrFeedRefreshRef.current = false;
-      return;
-    }
-    skipSsrFeedRefreshRef.current = false;
-
-    const cached = readGuildFeedCache(groupId, selectedFeedFilterId);
-    if (cached) {
-      setState((current) => ({
-        ...current,
-        posts: cached.posts,
-        feedError: null,
-      }));
-      setHasMorePosts(cached.hasMore);
-      void refreshFeed({ silent: true });
-      return;
-    }
-
-    if (selectedFeedSpace) {
-      const allFeed = readGuildFeedCache(groupId, 'all');
-      const optimistic = filterGuildPostsForSpace(
-        allFeed?.posts ?? [],
-        selectedFeedSpace
-      );
-      if (optimistic.length > 0) {
-        setState((current) => ({
-          ...current,
-          posts: optimistic,
-          feedError: null,
-        }));
-        setHasMorePosts(Boolean(allFeed?.hasMore));
-        void refreshFeed({ silent: true });
-        return;
-      }
-    }
-
-    void refreshFeed();
-  }, [
-    groupId,
-    refreshFeed,
-    selectedFeedFilterId,
-    selectedFeedSpace,
-    walletLoading,
-  ]);
-
-  useEffect(() => {
-    if (viewer?.pendingJoinProposalId || viewer?.isMember) {
-      setOptimisticJoinPending(false);
-    }
-  }, [viewer?.isMember, viewer?.pendingJoinProposalId]);
+  }, [groupId]);
 
   useEffect(() => {
     const scrollRoot = scrollRootRef.current;
@@ -1288,62 +502,6 @@ export function LiveGuildPanel({
       screen?.style.removeProperty('--os-rail-reveal');
     };
   }, [loadState, shellPreview?.name]);
-
-  useEffect(() => {
-    const timers = reconcileTimersRef.current;
-    return () => {
-      for (const timer of timers) window.clearTimeout(timer);
-    };
-  }, []);
-
-  const scheduleReconcile = useCallback(() => {
-    for (const delay of [2_000, 5_000]) {
-      reconcileTimersRef.current.push(
-        window.setTimeout(() => {
-          void refresh();
-        }, delay)
-      );
-    }
-  }, [refresh]);
-
-  const loadMoreFeed = useCallback(() => {
-    if (loadMoreInFlightRef.current || !hasMorePosts) return;
-    loadMoreInFlightRef.current = true;
-    setLoadingMore(true);
-    void (async () => {
-      try {
-        const client = createReadOnlyOnSocialClient();
-        const page = selectedFeedSpace
-          ? await client.query.groups.feedFiltered({
-              groupId,
-              channel: guildSpaceFeedChannel(selectedFeedSpace),
-              limit: 20,
-              offset: state.posts.length,
-            })
-          : await client.query.groups.feed({
-              groupId,
-              limit: 20,
-              offset: state.posts.length,
-            });
-        const nextPosts = [...state.posts, ...(page.items ?? [])];
-        const hasMore = page.nextOffset !== undefined;
-        writeGuildFeedCache(groupId, selectedFeedSpace?.id ?? 'all', {
-          posts: nextPosts,
-          hasMore,
-        });
-        setState((current) => ({
-          ...current,
-          posts: [...current.posts, ...(page.items ?? [])],
-        }));
-        setHasMorePosts(hasMore);
-      } catch {
-        // Keep the current list; the sentinel stays available to retry.
-      } finally {
-        loadMoreInFlightRef.current = false;
-        setLoadingMore(false);
-      }
-    })();
-  }, [groupId, hasMorePosts, selectedFeedSpace, state.posts.length]);
 
   useInfiniteScrollSentinel({
     scrollRootRef,
