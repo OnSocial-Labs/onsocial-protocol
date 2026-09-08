@@ -1443,8 +1443,6 @@ export function LiveGuildPanel({
   };
 
   const runMembershipAction = async () => {
-    setError(null);
-
     if (!isConnected) {
       await connect();
       return;
@@ -1523,11 +1521,10 @@ export function LiveGuildPanel({
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : 'Could not update guild membership.'
-      );
+      setTxResult({
+        type: 'error',
+        msg: txToastError.guildMembershipFailed,
+      });
     } finally {
       setActionPendingLocal(false);
       setGuildMembershipActionPending(accountId, groupId, false);
@@ -2161,8 +2158,6 @@ export function LiveGuildPanel({
               ) : null}
             </section>
 
-            {error ? <p className="guild-form-error">{error}</p> : null}
-
             <section className="guild-section guild-feed-section">
               {renderFeedFilters()}
 
@@ -2245,10 +2240,8 @@ export function LiveGuildPanel({
               ) : (
                 <div className="guild-state-card">
                   {selectedFeedSpace
-                    ? canCompose
-                      ? `No ${selectedFeedSpace.title.toLowerCase()} posts yet. Start this room from compose.`
-                      : `No ${selectedFeedSpace.title.toLowerCase()} posts yet.`
-                    : 'No guild posts yet. Members can start the feed from compose.'}
+                    ? `No ${selectedFeedSpace.title.toLowerCase()} posts yet.`
+                    : 'No guild posts yet.'}
                 </div>
               )}
             </section>

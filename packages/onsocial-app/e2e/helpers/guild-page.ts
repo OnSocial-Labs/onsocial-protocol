@@ -6,8 +6,7 @@ export const GUILD_E2E_TITLE = 'Audit Guild';
 export const GUILD_E2E_STORED_NAME = `${GUILD_E2E_TITLE} grp_md_perm_1779813274071_ojf237`;
 export const GUILD_E2E_OWNER = 'alice.near';
 export const GUILD_E2E_PATH = `/groups/${encodeURIComponent(GUILD_E2E_ID)}`;
-export const GUILD_E2E_EMPTY_FEED =
-  'No guild posts yet. Members can start the feed from compose.';
+export const GUILD_E2E_EMPTY_FEED = 'No guild posts yet.';
 
 const CREATED_AT_NS = 1_700_000_000_000_000_000;
 

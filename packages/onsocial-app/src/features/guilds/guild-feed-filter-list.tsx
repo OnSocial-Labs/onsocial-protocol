@@ -234,10 +234,16 @@ export function GuildFeedFilterList({
             pinned && scrollHidden ? ' is-scroll-hidden' : ''
           }`}
         >
-          <div className="guild-feed-filter-list" aria-label="Guild rooms">
+          <div
+            className="guild-feed-filter-list"
+            role="tablist"
+            aria-label="Guild rooms"
+          >
             <button
               className={`guild-feed-filter-button${selectedFeedFilterId === 'all' ? ' is-active' : ''}`}
               type="button"
+              role="tab"
+              aria-selected={selectedFeedFilterId === 'all'}
               onClick={() => onSelectFeedFilter('all')}
             >
               All
@@ -249,6 +255,8 @@ export function GuildFeedFilterList({
                   key={space.id}
                   className={`guild-feed-filter-button${isActive ? ' is-active' : ''}${isActive ? ' guild-feed-filter-button--room-active' : ''}`}
                   type="button"
+                  role="tab"
+                  aria-selected={isActive}
                   aria-label={
                     isActive ? `${space.title}, room details` : space.title
                   }

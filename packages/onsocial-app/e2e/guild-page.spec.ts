@@ -25,8 +25,16 @@ test.describe('guild page', () => {
     );
     await expect(page.getByText(GUILD_E2E_STORED_NAME)).toHaveCount(0);
     await expect(page.locator('.guild-hero-mode')).toHaveText('Open');
-    await expect(page.getByRole('button', { name: 'All' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'General' })).toBeVisible();
+    const rooms = page.getByRole('tablist', { name: 'Guild rooms' });
+    await expect(rooms).toBeVisible();
+    await expect(rooms.getByRole('tab', { name: 'All' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    await expect(rooms.getByRole('tab', { name: 'General' })).toHaveAttribute(
+      'aria-selected',
+      'false'
+    );
     await expect(page.getByText(GUILD_E2E_EMPTY_FEED)).toBeVisible();
 
     await expect(page.getByText('Connect wallet')).toHaveCount(0);
@@ -88,7 +96,9 @@ test.describe('guild page', () => {
     ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect(page.getByRole('button', { name: 'Guild settings' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Guild menu' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Add room' })).toBeVisible();
+    const rooms = page.getByRole('tablist', { name: 'Guild rooms' });
+    await expect(rooms.getByRole('button', { name: 'Add room' })).toBeVisible();
+    await expect(rooms.getByRole('tab', { name: 'Add room' })).toHaveCount(0);
   });
 
   test('facts sheet opens from the hero info control', async ({ page }) => {
@@ -114,11 +124,11 @@ test.describe('guild page', () => {
     await expect(
       page.getByRole('heading', { name: GUILD_E2E_TITLE }).first()
     ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
-    await page.getByRole('button', { name: 'General' }).click();
+    await page.getByRole('tab', { name: 'General' }).click();
     await expect(
-      page.getByRole('button', { name: 'General, room details' })
+      page.getByRole('tab', { name: 'General, room details' })
     ).toBeVisible();
-    await page.getByRole('button', { name: 'General, room details' }).click();
+    await page.getByRole('tab', { name: 'General, room details' }).click();
     const roomFacts = page.getByRole('dialog', { name: 'General' });
     await expect(roomFacts).toBeVisible();
     await expect(roomFacts.getByText('Everyone here')).toBeVisible();
