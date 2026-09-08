@@ -1,125 +1,22 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
+import {
+  E2E_VAULT_OWNER,
+  e2eDropCollectionRow,
+  type E2eDropCollectionId,
+} from '../../src/lib/e2e-graph-stubs';
 import { e2ePaintAccountId } from './e2e-signers';
 import { E2E_CHROME_TIMEOUT_MS } from './navigation';
 
 /** Keep in sync with `src/lib/e2e-wallet-account.ts`. */
 const E2E_WALLET_ACCOUNT_KEY = 'onsocial.e2e.accountId';
 
-const TWO_NEAR_YOCTO = '2000000000000000000000000';
+export const COLLECTION_E2E_VIEWER = E2E_VAULT_OWNER;
 
-export const COLLECTION_E2E_VIEWER = 'greenghost.onsocial.testnet';
-
-type CollectionStubKind = 'audio' | 'writing' | 'art' | 'ticket';
-
-function extraForKind(kind: CollectionStubKind): Record<string, unknown> {
-  if (kind === 'audio') {
-    return {
-      kind: 'audio',
-      audioFormat: 'album',
-      playable: [
-        { cid: 'bafytrackoneaaaaaaaaaaaaaaaaaaaa', mime: 'audio/mpeg', title: 'One' },
-        { cid: 'bafytracktwoaaaaaaaaaaaaaaaaaaaa', mime: 'audio/mpeg', title: 'Two' },
-      ],
-    };
-  }
-  if (kind === 'writing') {
-    return {
-      kind: 'writing',
-      writingFormat: 'issue',
-      readable: [
-        {
-          cid: 'bafymd1aaaaaaaaaaaaaaaaaaaaaaaa',
-          mime: 'text/markdown',
-          title: 'Chapter',
-        },
-      ],
-    };
-  }
-  if (kind === 'ticket') {
-    return { kind: 'ticket' };
-  }
-  return { kind: 'art' };
-}
-
-function collectionRow(opts: {
-  collectionId: string;
-  title: string;
-  kind: CollectionStubKind;
-  ended?: boolean;
-}) {
-  const extra = extraForKind(opts.kind);
-  return {
-    collectionId: opts.collectionId,
-    creatorId: 'alice.near',
-    appId: null,
-    price: TWO_NEAR_YOCTO,
-    allowlistPrice: null,
-    totalSupply: 10,
-    mintedCount: 2,
-    remaining: opts.ended ? 0 : 8,
-    startTime: null,
-    endTime: opts.ended ? Date.now() - 60_000 : null,
-    createdAt: Date.now() - 86_400_000,
-    mintMode: null,
-    maxPerWallet: null,
-    paused: false,
-    cancelled: false,
-    banned: false,
-    transferable: true,
-    renewable: false,
-    maxRedeems: opts.kind === 'ticket' ? 1 : null,
-    randomAssignment: false,
-    appCommissionBps: null,
-    title: opts.title,
-    media: null,
-    description: null,
-    kind: opts.kind,
-    mediumKind: opts.kind,
-    sourcePostPath: null,
-    metadataTemplate: JSON.stringify({
-      title: opts.title,
-      extra: JSON.stringify(extra),
-    }),
-    metadata: null,
-    extraJson: JSON.stringify(extra),
-    royaltyJson: null,
-    createdBlockHeight: 1,
-    createdBlockTimestamp: 1,
-    updatedBlockHeight: 1,
-    updatedBlockTimestamp: 1,
-  };
-}
-
-const STUBS = {
-  'night-drive': collectionRow({
-    collectionId: 'night-drive',
-    title: 'Night Drive',
-    kind: 'audio',
-  }),
-  'chapter-one': collectionRow({
-    collectionId: 'chapter-one',
-    title: 'Chapter One',
-    kind: 'writing',
-  }),
-  'quiet-print': collectionRow({
-    collectionId: 'quiet-print',
-    title: 'Quiet Print',
-    kind: 'art',
-    ended: true,
-  }),
-  'gate-pass': collectionRow({
-    collectionId: 'gate-pass',
-    title: 'Gate Pass',
-    kind: 'ticket',
-    ended: true,
-  }),
-} as const;
-
-export type StubCollectionId = keyof typeof STUBS;
+export type StubCollectionId = E2eDropCollectionId;
 
 /**
- * Browser GraphQL for drop-page client refresh (SSR still misses in this env).
- * Optional owned ids paint use-first after the e2e wallet seed.
+ * Browser GraphQL for drop-page settle. Pair with `setE2eGraphDrop` for SSR.
+ * Omit the cookie for the SSR-miss skeleton test.
  */
 export async function stubCollectionPageGraph(
   page: Page,
@@ -149,20 +46,21 @@ export async function stubCollectionPageGraph(
       query = raw;
     }
 
-    if (query.includes('ScarcesCollectionCurrent')) {
+    if (
+      query.includes('ScarcesCollectionCurrent') &&
+      !query.includes('ScarcesCollectionsCurrent')
+    ) {
       if (catalogDelayMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, catalogDelayMs));
       }
       const id = String(variables.collectionId ?? '') as StubCollectionId;
-      const base = STUBS[id] ?? null;
-      const row = base
-        ? ended.has(id)
-          ? {
-              ...base,
-              remaining: 0,
-              endTime: Date.now() - 60_000,
-            }
-          : base
+      const known =
+        id === 'night-drive' ||
+        id === 'chapter-one' ||
+        id === 'quiet-print' ||
+        id === 'gate-pass';
+      const row = known
+        ? e2eDropCollectionRow(id, { ended: ended.has(id) })
         : null;
       await route.fulfill({
         status: 200,
@@ -219,8 +117,16 @@ export async function seedE2eWallet(
   );
 }
 
-export function collectionPageRoot(page: Page) {
-  return page.locator('.collection-page');
+/** Settled drop shell — excludes loading.tsx / SSR-miss skeletons. */
+export function collectionPageRoot(page: Page): Locator {
+  return page.locator('.collection-page:not(.collection-page--skeleton)');
+}
+
+export async function expectCollectionPageSettled(page: Page): Promise<void> {
+  await expect(page.locator('[data-collection-page-skeleton]')).toHaveCount(0, {
+    timeout: E2E_CHROME_TIMEOUT_MS,
+  });
+  await expect(collectionPageRoot(page)).toHaveCount(1);
 }
 
 export async function expectCollectionVisitorChrome(page: Page): Promise<void> {

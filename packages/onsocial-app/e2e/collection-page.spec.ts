@@ -2,11 +2,14 @@ import { expect, test } from '@playwright/test';
 import { E2E_CHROME_TIMEOUT_MS, expectConnectVoice, gotoApp } from './helpers';
 import {
   COLLECTION_E2E_VIEWER,
+  collectionPageRoot,
   expectCollectionHolderChrome,
+  expectCollectionPageSettled,
   expectCollectionVisitorChrome,
   seedE2eWallet,
   stubCollectionPageGraph,
 } from './helpers/collection-page';
+import { setE2eGraphDrop } from './helpers/e2e-graph';
 
 const HOLDER_BACK = `/@${COLLECTION_E2E_VIEWER}/collectibles`;
 const PILL_ACTION = /page-drawer-section-action/;
@@ -21,12 +24,27 @@ test.describe('collection drop page', () => {
       timeout: 8_000,
     });
     await expect(page.getByText('This drop isn’t available.')).toHaveCount(0);
-    await expect(page.locator('.collection-title')).toHaveText('Night Drive', {
+    await expect(
+      collectionPageRoot(page).locator('.collection-title')
+    ).toHaveText('Night Drive', {
       timeout: 12_000,
     });
     await expect(page.locator('[data-collection-page-skeleton]')).toHaveCount(
       0
     );
+  });
+
+  test('SSR catalog hit paints Night Drive without the skeleton', async ({
+    page,
+  }) => {
+    await setE2eGraphDrop(page, 'default');
+    await stubCollectionPageGraph(page);
+    await gotoApp(page, '/collection/night-drive');
+    await expectCollectionPageSettled(page);
+    await expect(
+      collectionPageRoot(page).locator('.collection-title')
+    ).toHaveText('Night Drive');
+    await expect(page.getByText('2 tracks').first()).toBeVisible();
   });
 
   test('unknown drop shows unavailable after the client fetch settles', async ({
@@ -43,12 +61,14 @@ test.describe('collection drop page', () => {
   });
 
   test('visitor audio drop keeps commerce first', async ({ page }) => {
+    await setE2eGraphDrop(page, 'default');
     await stubCollectionPageGraph(page);
     await gotoApp(page, '/collection/night-drive');
 
-    await expect(page.locator('.collection-title')).toHaveText('Night Drive', {
-      timeout: 30_000,
-    });
+    await expectCollectionPageSettled(page);
+    await expect(
+      collectionPageRoot(page).locator('.collection-title')
+    ).toHaveText('Night Drive');
     await expectCollectionVisitorChrome(page);
     await expect(page.getByRole('link', { name: 'Play' })).toHaveCount(0);
     await expect(page.locator('.collection-tracks')).toBeVisible();
@@ -67,15 +87,14 @@ test.describe('collection drop page', () => {
     test('visitor writing drop keeps Read locked under commerce', async ({
       page,
     }) => {
+      await setE2eGraphDrop(page, 'default');
       await stubCollectionPageGraph(page);
       await gotoApp(page, '/collection/chapter-one');
 
-      await expect(page.locator('.collection-title')).toHaveText(
-        'Chapter One',
-        {
-          timeout: 30_000,
-        }
-      );
+      await expectCollectionPageSettled(page);
+      await expect(
+        collectionPageRoot(page).locator('.collection-title')
+      ).toHaveText('Chapter One');
       await expectCollectionVisitorChrome(page);
       await expect(page.locator('.collection-reading')).toBeVisible();
       const read = page.getByRole('button', { name: 'Read', exact: true });
@@ -121,17 +140,21 @@ test.describe('collection drop page', () => {
 
   test('held audio drop puts Play above the product row', async ({ page }) => {
     await seedE2eWallet(page);
+    await setE2eGraphDrop(page, 'held');
     await stubCollectionPageGraph(page, {
       heldIds: ['night-drive'],
       endedIds: ['night-drive'],
     });
     await gotoApp(page, '/collection/night-drive');
 
-    await expect(page.locator('.collection-title')).toHaveText('Night Drive', {
-      timeout: 30_000,
-    });
+    await expectCollectionPageSettled(page);
+    await expect(
+      collectionPageRoot(page).locator('.collection-title')
+    ).toHaveText('Night Drive');
     await expectCollectionHolderChrome(page, HOLDER_BACK);
-    const play = page.locator('.collection-use-actions').getByRole('link', {
+    const play = collectionPageRoot(page)
+      .locator('.collection-use-actions')
+      .getByRole('link', {
       name: 'Play',
     });
     await expect(play).toHaveClass(PILL_ACTION);
@@ -147,15 +170,17 @@ test.describe('collection drop page', () => {
 
   test('held writing drop puts Read in a vault pill', async ({ page }) => {
     await seedE2eWallet(page);
+    await setE2eGraphDrop(page, 'held');
     await stubCollectionPageGraph(page, {
       heldIds: ['chapter-one'],
       endedIds: ['chapter-one'],
     });
     await gotoApp(page, '/collection/chapter-one');
 
-    await expect(page.locator('.collection-title')).toHaveText('Chapter One', {
-      timeout: 30_000,
-    });
+    await expectCollectionPageSettled(page);
+    await expect(
+      collectionPageRoot(page).locator('.collection-title')
+    ).toHaveText('Chapter One');
     await expectCollectionHolderChrome(page, HOLDER_BACK);
     const read = page.getByRole('button', { name: 'Read', exact: true });
     await expect(read).toHaveClass(PILL_ACTION);
@@ -166,23 +191,27 @@ test.describe('collection drop page', () => {
     page,
   }) => {
     await seedE2eWallet(page);
+    await setE2eGraphDrop(page, 'held');
     await stubCollectionPageGraph(page, { heldIds: ['quiet-print'] });
     await gotoApp(page, '/collection/quiet-print');
 
-    await expect(page.locator('.collection-title')).toHaveText('Quiet Print', {
-      timeout: 30_000,
-    });
+    await expectCollectionPageSettled(page);
+    await expect(
+      collectionPageRoot(page).locator('.collection-title')
+    ).toHaveText('Quiet Print');
     await expectCollectionHolderChrome(page, HOLDER_BACK);
     await expect(page.getByRole('link', { name: 'Play' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Read' })).toHaveCount(0);
   });
 
   test('Collect sheet speaks one deal, not a mint form', async ({ page }) => {
+    await setE2eGraphDrop(page, 'default');
     await stubCollectionPageGraph(page);
     await gotoApp(page, '/collection/night-drive');
-    await expect(page.locator('.collection-title')).toHaveText('Night Drive', {
-      timeout: 30_000,
-    });
+    await expectCollectionPageSettled(page);
+    await expect(
+      collectionPageRoot(page).locator('.collection-title')
+    ).toHaveText('Night Drive');
 
     await page.getByRole('button', { name: 'Mint', exact: true }).click();
     const sheet = page.getByRole('dialog', { name: 'Mint' });
@@ -206,6 +235,7 @@ test.describe('collection drop page', () => {
   });
 
   test('Admit door asks Connect, not Connect wallet', async ({ page }) => {
+    await setE2eGraphDrop(page, 'default');
     await stubCollectionPageGraph(page);
     await gotoApp(page, '/collection/gate-pass/door');
 

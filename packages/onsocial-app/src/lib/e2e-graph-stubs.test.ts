@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   e2eGraphStubsAllowed,
+  e2eDropCurrentRows,
   e2eGuildCurrentRows,
   e2eGuildMemberRows,
   e2eHubCatalogRows,
@@ -11,6 +12,7 @@ import {
   extractGraphQuery,
   extractGraphRequest,
   isAppCatalogQuery,
+  isCollectionCurrentQuery,
   isCreatorCatalogQuery,
   isGraphQueryRequest,
   isGroupsByIdsQuery,
@@ -68,6 +70,14 @@ describe('parseE2eGraphCookie', () => {
     expect(parseE2eGraphCookie('hub=held')).toEqual({ hub: 'held' });
   });
 
+  it('reads drop=default and drop=held', () => {
+    expect(parseE2eGraphCookie('drop=default')).toEqual({ drop: 'default' });
+    expect(parseE2eGraphCookie('drop=held')).toEqual({ drop: 'held' });
+    expect(serializeE2eGraphCookie({ market: 'shop', drop: 'default' })).toBe(
+      'market=shop&drop=default'
+    );
+  });
+
   it('reads market=shop and combined catalog+market', () => {
     expect(parseE2eGraphCookie('market=shop')).toEqual({ market: 'shop' });
     expect(parseE2eGraphCookie('market=live-first')).toEqual({
@@ -96,6 +106,7 @@ describe('parseE2eGraphCookie', () => {
     expect(parseE2eGraphCookie('vault=catalog')).toEqual({});
     expect(parseE2eGraphCookie('guild=catalog')).toEqual({});
     expect(parseE2eGraphCookie('market=catalog')).toEqual({});
+    expect(parseE2eGraphCookie('drop=shop')).toEqual({});
     expect(parseE2eGraphCookie('')).toEqual({});
   });
 });
@@ -270,6 +281,42 @@ describe('resolveE2eGraphStub', () => {
         cookieValue: 'market=live-first',
       })?.data.scarcesActiveListings
     ).toHaveLength(2);
+  });
+
+  it('returns Night Drive for ScarcesCollectionCurrent when opted in', () => {
+    const dropQuery =
+      'query ScarcesCollectionCurrent($collectionId: String!) { x }';
+    const catalogQuery = 'query ScarcesCollectionsCurrent($limit: Int!) { x }';
+    expect(isCollectionCurrentQuery(dropQuery)).toBe(true);
+    expect(isCollectionCurrentQuery(catalogQuery)).toBe(false);
+    expect(
+      resolveE2eGraphStub({
+        query: dropQuery,
+        variables: { collectionId: 'night-drive' },
+        cookieValue: 'drop=default',
+      })?.data.scarcesCollectionsCurrent
+    ).toEqual(e2eDropCurrentRows('default', 'night-drive'));
+    expect(
+      resolveE2eGraphStub({
+        query: dropQuery,
+        variables: { collectionId: 'no-such-drop' },
+        cookieValue: 'drop=default',
+      })
+    ).toEqual({ data: { scarcesCollectionsCurrent: [] } });
+    expect(
+      resolveE2eGraphStub({
+        query: dropQuery,
+        variables: { collectionId: 'night-drive' },
+        cookieValue: null,
+      })
+    ).toBeNull();
+    expect(
+      resolveE2eGraphStub({
+        query: catalogQuery,
+        variables: { creatorId: 'alice.near' },
+        cookieValue: 'drop=default',
+      })
+    ).toBeNull();
   });
 
   it('recognizes gateway and BFF graph/query POSTs', () => {

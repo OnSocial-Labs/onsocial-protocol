@@ -5,6 +5,7 @@ import {
   serializeE2eGraphCookie,
   type E2eGraphCatalog,
   type E2eGraphCookieValue,
+  type E2eGraphDrop,
   type E2eGraphGuild,
   type E2eGraphHub,
   type E2eGraphMarket,
@@ -76,4 +77,12 @@ export async function setE2eGraphMarket(
   market: E2eGraphMarket
 ): Promise<void> {
   await setE2eGraphCookie(page, { market });
+}
+
+/** Opt SSR + BFF into a drop fixture. Omit for the SSR-miss skeleton test. */
+export async function setE2eGraphDrop(
+  page: Page,
+  drop: E2eGraphDrop
+): Promise<void> {
+  await setE2eGraphCookie(page, { drop });
 }
