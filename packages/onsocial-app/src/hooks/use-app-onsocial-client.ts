@@ -30,6 +30,7 @@ import {
   setCachedAppSocialSession,
 } from '@/lib/app-social-session-cache';
 import { createAppOnSocialClient } from '@/lib/create-app-onsocial-client';
+import { readE2eMockSignerEnabled } from '@/lib/e2e-mock-signer';
 
 export type AppOnSocialClientBundle = {
   client: OnSocial;
@@ -72,6 +73,17 @@ export function useAppOnSocialClient() {
 
   const getClient = useCallback(async (): Promise<AppOnSocialClientBundle> => {
     const { wallet, accountId: signingAccountId } = await getSigningWallet();
+
+    // Paint + mock signer: never attach a leftover session so writes stay on
+    // the recording wallet and never hit the gateway relay.
+    if (readE2eMockSignerEnabled()) {
+      return {
+        client: createAppOnSocialClient(signingAccountId, wallet),
+        accountId: signingAccountId,
+        session: null,
+        wallet,
+      };
+    }
 
     let session = getCachedAppSocialSession(signingAccountId);
     if (!session) {

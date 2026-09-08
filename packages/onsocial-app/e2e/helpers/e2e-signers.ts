@@ -58,14 +58,23 @@ export function hasE2eSignerSecrets(role: E2eSignerRole = 'primary'): boolean {
   );
 }
 
-/** Skip on-chain mint / stand / endorse writes unless signer secrets exist. */
+/**
+ * True only when a human opted into spending testnet NEAR.
+ * Secrets alone are not enough — ticket organizer keys may be present
+ * in other suites. App CI never sets `E2E_SIGNED_WRITES`.
+ */
+export function signedWritesEnabled(role: E2eSignerRole = 'primary'): boolean {
+  return process.env.E2E_SIGNED_WRITES === '1' && hasE2eSignerSecrets(role);
+}
+
+/** Skip on-chain mint / stand / endorse writes unless explicitly enabled. */
 export function skipUnlessE2eSigner(
   testFn: { skip: (condition?: boolean, description?: string) => void },
   role: E2eSignerRole = 'primary'
 ): void {
   testFn.skip(
-    !hasE2eSignerSecrets(role),
-    'Set E2E_SIGNER_ACCOUNT + E2E_SIGNER_PRIVATE_KEY (or TICKET_E2E_ORGANIZER_*) to run on-chain writes'
+    !signedWritesEnabled(role),
+    'Set E2E_SIGNED_WRITES=1 and E2E_SIGNER_ACCOUNT + E2E_SIGNER_PRIVATE_KEY (or TICKET_E2E_ORGANIZER_*) to run on-chain writes'
   );
 }
 

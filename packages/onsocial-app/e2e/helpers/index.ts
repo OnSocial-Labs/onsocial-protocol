@@ -7,6 +7,7 @@ export {
   e2ePortfolioAccountId,
   hasE2eSignerSecrets,
   resolveE2eSignerAccount,
+  signedWritesEnabled,
   skipUnlessE2eSigner,
 } from './e2e-signers';
 export {
