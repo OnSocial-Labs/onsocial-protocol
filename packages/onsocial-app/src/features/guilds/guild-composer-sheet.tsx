@@ -131,11 +131,22 @@ function sheetBeatFromComposer(beat: ComposerBeat): SheetBeat {
 }
 
 function composerBeatFromSheet(beat: SheetBeat): ComposerBeat {
-  const { id: _id, previews: _previews, ...rest } = beat;
   return {
-    ...rest,
-    files: [...rest.files],
-    pollOptions: [...rest.pollOptions],
+    text: beat.text,
+    pollEnabled: beat.pollEnabled,
+    pollOptions: [...beat.pollOptions],
+    ...(beat.pollDurationMs != null
+      ? { pollDurationMs: beat.pollDurationMs }
+      : {}),
+    drop: beat.drop,
+    files: [...beat.files],
+    contentWarning: beat.contentWarning,
+    nsfw: beat.nsfw,
+    placeDraft: beat.placeDraft,
+    placeOpen: beat.placeOpen,
+    articleMode: beat.articleMode,
+    articleTitle: beat.articleTitle,
+    articleAlign: beat.articleAlign,
   };
 }
 
