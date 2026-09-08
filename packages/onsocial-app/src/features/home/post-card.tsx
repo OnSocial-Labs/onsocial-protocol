@@ -155,7 +155,6 @@ import {
 import { postThreadPath } from '@/lib/post-routes';
 import { shareUrl } from '@/lib/share-url';
 import type { PollTally } from '@/lib/poll-votes';
-import { fallbackLabel } from '@/lib/profile-display';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 
@@ -631,8 +630,7 @@ export function QuotedPostInset({
   const router = useRouter();
   const { safeMode } = useViewerSafeMode();
   const labels = parsePostContentLabels(post.value);
-  const name =
-    authorProfile?.displayName?.trim() || fallbackLabel(post.accountId);
+  const name = displayName(post.accountId, authorProfile?.displayName);
   const text = truncateQuoteText(parsePostText(post.value));
   const mediaItems = parsePostMedia(post.value).slice(0, 4);
   const thumb = mediaItems.length === 1 ? mediaItems[0] : null;
@@ -1684,8 +1682,7 @@ export function PostCard({
     setFeedMediumCoverSvg(coverSvg);
     setFeedMediumOpen(true);
   };
-  const fallback = fallbackLabel(post.accountId);
-  const name = authorProfile?.displayName?.trim() || fallback;
+  const name = displayName(post.accountId, authorProfile?.displayName);
   const badges = postBadges(post, Boolean(poll), mediaItems.length > 0);
   const relationContext = showRelationBadge
     ? postRelationContext(post, {

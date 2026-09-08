@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import {
   Box3dIcon,
-  formatNearAccountFallbackTitle,
+  formatNearAccountDisplayName,
   UserIcon,
   type GovernanceAccountSubjectKind,
 } from '@onsocial/ui';
@@ -43,8 +43,7 @@ export function ProtocolAccountChip({
 }) {
   const socialProfile = hasSocialProfile(profileName, avatarUrl);
   const hue = protocolAccountHue(accountId);
-  const title =
-    profileName?.trim() || formatNearAccountFallbackTitle(accountId);
+  const title = formatNearAccountDisplayName(accountId, profileName);
   const handle = fallbackLabel(accountId);
   const resolvedHref =
     subjectKind === 'infrastructure' && !socialProfile ? null : href;
@@ -55,7 +54,7 @@ export function ProtocolAccountChip({
     <AccountAvatar
       accountId={accountId}
       src={avatarUrl ?? null}
-      fallbackInitial={profileName || accountId}
+      fallbackInitial={title}
       size="sm"
       className={`protocol-account-chip-avatar is-hue-${hue}${
         dense ? ' is-dense' : ''

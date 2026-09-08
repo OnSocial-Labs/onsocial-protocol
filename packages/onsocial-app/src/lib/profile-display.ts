@@ -1,5 +1,8 @@
 import { truncateAccountId } from '@onsocial/sdk';
-import { formatNearAccountFallbackTitle } from '@onsocial/ui';
+import {
+  formatNearAccountDisplayName,
+  resolveNearAccountCustomName,
+} from '@onsocial/ui';
 import { isImplicitNearAccountId } from '@/lib/account-match';
 
 const IMPLICIT_ACCOUNT_TITLE = 'Implicit account';
@@ -66,17 +69,10 @@ export function customDisplayName(
   accountId: string,
   profileName?: string | null
 ): string {
-  const name = profileName?.trim();
+  const name = resolveNearAccountCustomName(accountId, profileName);
   if (!name) return '';
   const handle = fallbackLabel(accountId);
   if (name.toLowerCase() === handle.toLowerCase()) return '';
-  if (name.toLowerCase() === accountId.trim().toLowerCase()) return '';
-  if (
-    isImplicitNearAccountId(accountId) &&
-    name.toLowerCase() === IMPLICIT_ACCOUNT_TITLE.toLowerCase()
-  ) {
-    return '';
-  }
   return name;
 }
 
@@ -84,13 +80,11 @@ export function customDisplayName(
  * Identity title — chosen name, else spoken local part (`Alice`).
  * Handle stays the full id (`@alice.testnet`) so the name line never repeats it.
  */
-export function displayName(accountId: string, profileName?: string): string {
-  const custom = customDisplayName(accountId, profileName);
-  if (custom) return custom;
-  if (isImplicitNearAccountId(accountId)) {
-    return IMPLICIT_ACCOUNT_TITLE;
-  }
-  return formatNearAccountFallbackTitle(accountId);
+export function displayName(
+  accountId: string,
+  profileName?: string | null
+): string {
+  return formatNearAccountDisplayName(accountId, profileName);
 }
 
 /** Account drawer — primary line when viewing your own sheet. */

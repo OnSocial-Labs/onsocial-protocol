@@ -161,9 +161,11 @@ export {
   type MageStrokeIconProps,
 } from './mage-stroke-icons.js';
 export {
+  formatNearAccountDisplayName,
   formatNearAccountFallbackTitle,
   looksLikeInfrastructureAccount,
   resolveGovernanceAccountSubjectKind,
+  resolveNearAccountCustomName,
   type GovernanceAccountSubjectKind,
 } from './governance-account-subject.js';
 export {

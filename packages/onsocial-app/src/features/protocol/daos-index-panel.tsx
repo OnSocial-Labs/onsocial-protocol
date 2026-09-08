@@ -25,6 +25,7 @@ import {
   readOptimisticMyDaos,
   type OptimisticMyDao,
 } from '@/features/protocol/my-daos-optimistic';
+import { displayName } from '@/lib/profile-display';
 import {
   GOVERNANCE_DAO_ACCOUNT,
   TREASURY_DAO_ACCOUNT,
@@ -239,20 +240,18 @@ export function DaosIndexPanel() {
           >
             <LauncherMineRail>
               {myEntries.map((entry) => {
-                const named =
-                  entry.name.trim().toLowerCase() !== entry.accountId;
-                const title = named ? entry.name : entry.accountId;
+                const title = displayName(entry.accountId, entry.name);
                 return (
                   <LauncherMineCard
                     key={entry.accountId}
                     href={entry.href}
                     seedId={entry.accountId}
                     title={title}
-                    subtitle={named ? `@${entry.accountId}` : null}
+                    subtitle={`@${entry.accountId}`}
                     bannerUrl={entry.bannerUrl}
                     markUrl={entry.avatarUrl}
                     markVariant="crest"
-                    ariaLabel={named ? entry.name : `@${entry.accountId}`}
+                    ariaLabel={title}
                   />
                 );
               })}

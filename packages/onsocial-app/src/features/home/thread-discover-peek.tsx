@@ -12,6 +12,7 @@ import {
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { displayName } from '@/lib/profile-display';
 import { postThreadPath } from '@/lib/post-routes';
 
 const PEEK_FETCH_LIMIT = 8;
@@ -89,7 +90,7 @@ export function ThreadDiscoverPeek({
   const post = peek.post;
   const profile =
     authorProfiles?.[post.accountId] ?? fetchedProfiles[post.accountId];
-  const name = profile?.displayName?.trim() || `@${post.accountId}`;
+  const name = displayName(post.accountId, profile?.displayName);
 
   return (
     <section className="thread-discover-peek">

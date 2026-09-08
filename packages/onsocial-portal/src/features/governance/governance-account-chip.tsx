@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
   Box3dIcon,
-  formatNearAccountFallbackTitle,
+  formatNearAccountDisplayName,
   UserIcon,
   type GovernanceAccountSubjectKind,
 } from '@onsocial/ui';
@@ -110,7 +110,7 @@ export function GovernanceAccountChip({
 
   const socialProfile = hasSocialProfile(lookup.displayName, lookup.avatarUrl);
   const socialName = lookup.displayName?.trim() || null;
-  const displayName = socialName || formatNearAccountFallbackTitle(accountId);
+  const displayName = formatNearAccountDisplayName(accountId, socialName);
   const profileHref =
     subjectKind === 'infrastructure' && !socialProfile
       ? null

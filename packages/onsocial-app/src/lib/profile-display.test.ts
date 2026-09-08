@@ -140,6 +140,8 @@ describe('displayName', () => {
     expect(displayName('alice.testnet')).toBe('Alice');
     expect(displayName('alice.testnet', 'alice.testnet')).toBe('Alice');
     expect(displayName('alice.testnet', 'Night')).toBe('Night');
+    expect(displayName('alice.near')).toBe('Alice');
+    expect(displayName('alice.tg', 'alice.tg')).toBe('Alice');
     expect(displayName('green-ghost.near')).toBe('Green Ghost');
   });
 });

@@ -25,6 +25,7 @@ import {
 } from '@/lib/load-post-quotes-page';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { resolveQuotedInset } from '@/lib/post-relation';
+import { displayName } from '@/lib/profile-display';
 import { postThreadPath } from '@/lib/post-routes';
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
@@ -332,8 +333,10 @@ export function PostQuotesPanel({
               ) : reposters.length > 0 ? (
                 reposters.map((row, index) => {
                   const profile = postAuthorProfiles[row.accountId];
-                  const name =
-                    profile?.displayName?.trim() || `@${row.accountId}`;
+                  const name = displayName(
+                    row.accountId,
+                    profile?.displayName
+                  );
                   return (
                     <div key={`${row.accountId}:${row.repostId}`}>
                       {index > 0 ? (

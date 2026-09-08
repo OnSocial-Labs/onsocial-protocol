@@ -119,11 +119,11 @@ describe('formatPostRelationTarget', () => {
     });
   });
 
-  it('falls back to handle only', () => {
+  it('speaks the local part when the profile name is unset', () => {
     expect(formatPostRelationTarget('bob.near')).toEqual({
-      name: null,
+      name: 'Bob',
       handle: 'bob.near',
-      label: '@bob.near',
+      label: 'Bob @bob.near',
     });
   });
 });
