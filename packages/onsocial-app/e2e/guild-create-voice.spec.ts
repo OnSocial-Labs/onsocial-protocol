@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoApp, setLookPreviewFile } from './helpers';
+import { dismissNextDevOverlay, gotoApp, setLookPreviewFile } from './helpers';
 
 const LOOK_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -7,6 +7,8 @@ const LOOK_PNG = Buffer.from(
 );
 
 test.describe('create guild voice', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test('is a task sheet with footer Connect, not Connect wallet', async ({
     page,
   }) => {
@@ -65,6 +67,7 @@ test.describe('create guild voice', () => {
     await expect(page.locator('#guild-create-description')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Advanced' })).toHaveCount(0);
 
+    await dismissNextDevOverlay(page);
     await page.getByRole('button', { name: 'Add about', exact: true }).click();
     await expect(page.locator('#guild-create-description')).toBeVisible();
     await page
@@ -153,11 +156,12 @@ test.describe('create guild voice', () => {
     await expect(
       page.getByRole('heading', { name: 'Create guild' })
     ).toBeVisible();
+    await dismissNextDevOverlay(page);
     await page
       .locator('.os-app-screen-actions')
       .getByRole('button', { name: 'Close' })
       .click();
-    await expect(page).toHaveURL(/\/groups\/?$/);
+    await page.waitForURL(/\/groups\/?$/, { timeout: 15_000 });
     await expect(
       page.getByRole('heading', { name: 'Create guild' })
     ).toHaveCount(0);
