@@ -711,8 +711,20 @@ export function LiveGuildPanel({
           payload,
           trackTransaction,
         });
-        if (result.optimisticPost) {
-          setLocalPosts((current) => [result.optimisticPost!, ...current]);
+        const landed = result.optimisticPosts?.length
+          ? result.optimisticPosts
+          : result.optimisticPost
+            ? [result.optimisticPost]
+            : [];
+        if (landed.length > 0) {
+          setLocalPosts((current) => {
+            const next = [...current];
+            for (const post of landed) {
+              if (next.some((row) => postKey(row) === postKey(post))) continue;
+              next.unshift(post);
+            }
+            return next;
+          });
           scheduleReconcile();
         }
         if (result.confirmed) {

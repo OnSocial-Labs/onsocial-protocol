@@ -33,12 +33,15 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { splitComposerThread } from '@/lib/composer-thread';
 import { submitPersonalPost } from '@/features/home/submit-personal-post';
+import { postThreadPath } from '@/lib/post-routes';
 
 type TrackTransaction = (input: {
   txHashes: string[];
   submittedMessage: string;
   successMessage: string;
   failureMessage: string;
+  actionHref?: string | null;
+  actionLabel?: string | null;
   silent?: boolean;
   toastKind?: 'success' | 'error';
   explorerHash?: string | null;
@@ -47,6 +50,8 @@ type TrackTransaction = (input: {
 export interface GuildRootPostSubmitResult {
   confirmed: boolean;
   optimisticPost: PostRow | null;
+  /** Root plus landed self-replies, oldest first. Partial flushes include what posted. */
+  optimisticPosts?: PostRow[];
   groupId: string;
   postedCount?: number;
   totalCount?: number;
@@ -95,6 +100,7 @@ export async function submitGuildRootPost(args: {
       return first;
     }
     let parent = first.optimisticPost;
+    const landed: PostRow[] = [first.optimisticPost];
     let posted = 1;
     let lastHashes = first.txHashes ?? [];
     const total = threadBeats.length;
@@ -125,12 +131,14 @@ export async function submitGuildRootPost(args: {
         return {
           ...first,
           confirmed: false,
+          optimisticPosts: landed,
           postedCount: posted,
           totalCount: total,
           txHashes: lastHashes,
         };
       }
       parent = next.optimisticPost;
+      landed.push(next.optimisticPost);
       posted += 1;
       lastHashes = next.txHashes?.length ? next.txHashes : lastHashes;
     }
@@ -140,10 +148,13 @@ export async function submitGuildRootPost(args: {
       submittedMessage: txToastConfirming.postingToGuild,
       successMessage: txToastSuccess.threadPublished,
       failureMessage: txToastError.guildPostFailed,
+      actionHref: postThreadPath(first.optimisticPost),
+      actionLabel: txToastSuccess.viewThread,
     });
     return {
       ...first,
       confirmed: true,
+      optimisticPosts: landed,
       postedCount: posted,
       totalCount: total,
       txHashes: lastHashes,

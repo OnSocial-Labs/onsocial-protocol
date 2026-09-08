@@ -44,9 +44,18 @@ import { splitComposerThread } from '@/lib/composer-thread';
 export interface PersonalPostSubmitResult {
   confirmed: boolean;
   optimisticPost: PostRow | null;
+  /** Root plus landed self-replies, oldest first. Partial flushes include what posted. */
+  optimisticPosts?: PostRow[];
   postedCount?: number;
   totalCount?: number;
   txHashes?: string[];
+}
+
+export function optimisticPostsFromResult(
+  result: Pick<PersonalPostSubmitResult, 'optimisticPost' | 'optimisticPosts'>
+): PostRow[] {
+  if (result.optimisticPosts?.length) return result.optimisticPosts;
+  return result.optimisticPost ? [result.optimisticPost] : [];
 }
 
 type TrackTransaction = (input: {
@@ -209,6 +218,7 @@ async function submitPersonalThread(args: {
   let posted = 0;
   let parent: PostRow | null = null;
   let first: PostRow | null = null;
+  const landed: PostRow[] = [];
   let lastHashes: string[] = [];
 
   for (let index = 0; index < beats.length; index += 1) {
@@ -245,6 +255,7 @@ async function submitPersonalThread(args: {
       return {
         confirmed: false,
         optimisticPost: first,
+        optimisticPosts: landed,
         postedCount: posted,
         totalCount: total,
         txHashes: lastHashes,
@@ -253,6 +264,7 @@ async function submitPersonalThread(args: {
     posted += 1;
     lastHashes = result.txHashes?.length ? result.txHashes : lastHashes;
     if (!first) first = result.optimisticPost;
+    landed.push(result.optimisticPost);
     parent = result.optimisticPost;
   }
 
@@ -262,11 +274,18 @@ async function submitPersonalThread(args: {
     submittedMessage: txToastConfirming.posting,
     successMessage: txToastSuccess.threadPublished,
     failureMessage: txToastError.postFailed,
+    ...(first
+      ? {
+          actionHref: postThreadPath(first),
+          actionLabel: txToastSuccess.viewThread,
+        }
+      : {}),
   });
 
   return {
     confirmed: true,
     optimisticPost: first,
+    optimisticPosts: landed,
     postedCount: posted,
     totalCount: total,
     txHashes: lastHashes,

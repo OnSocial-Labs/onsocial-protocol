@@ -123,6 +123,13 @@ export function ComposerThreadBeat({
       }${muted ? ' is-muted' : ''}${
         canComposeThread && index > 0 ? ' has-remove' : ''
       }`}
+      onClick={
+        muted && !pending
+          ? () => {
+              onFocusBeat();
+            }
+          : undefined
+      }
     >
       <AccountAvatar
         accountId={accountId}
@@ -135,7 +142,10 @@ export function ComposerThreadBeat({
       <div className="guild-composer-row-copy">
         {index === 0 ? identitySlot : null}
         {canComposeThread && index > 0 ? (
-          <div className="guild-composer-beat-remove">
+          <div
+            className="guild-composer-beat-remove"
+            onClick={(event) => event.stopPropagation()}
+          >
             <OsFieldRemove
               aria-label={`Remove post ${index + 1}`}
               ready={!pending}
