@@ -10,6 +10,7 @@ type NextDebugRouter = {
 declare global {
   interface Window {
     next?: { router?: NextDebugRouter };
+    __onsocialE2ePush?: (href: string) => void;
   }
 }
 
@@ -30,29 +31,42 @@ export async function gotoApp(
 async function waitForPortfolioReadyFlag(
   page: Page,
   timeout: number
-): Promise<void> {
-  await page.waitForFunction(
-    () => document.body.dataset.portfolioClientReady === 'true',
+): Promise<'ready' | 'missing'> {
+  const outcome = await page.waitForFunction(
+    () => {
+      const ready = document.body.dataset.portfolioClientReady === 'true';
+      const identity = Boolean(document.querySelector('.portfolio-identity'));
+      const missing = Boolean(document.querySelector('.not-found-title'));
+      if (ready) return 'ready';
+      if (missing && !identity) return 'missing';
+      return false;
+    },
     undefined,
     { timeout }
   );
+  return (await outcome.jsonValue()) as 'ready' | 'missing';
 }
 
 /**
  * Portfolio soft-nav is SSR'd as plain anchors until hydration marks ready.
- * First paint can miss the flag while Next is still compiling `/[accountId]` —
- * dismiss the overlay and reload once if it never appears.
+ * Wait for the client flag (refcount survives remount). Reload once if the
+ * account route never hydrates. Skip when the face is missing.
  */
 export async function waitForPortfolioClientReady(page: Page): Promise<void> {
   await dismissNextDevOverlay(page);
+  const settle = async (timeout: number) => {
+    const outcome = await waitForPortfolioReadyFlag(page, timeout);
+    if (outcome === 'missing') {
+      test.skip(true, 'Portfolio account not found on this network');
+    }
+  };
   try {
-    await waitForPortfolioReadyFlag(page, 15_000);
-    return;
+    await settle(15_000);
   } catch {
     await dismissNextDevOverlay(page);
     await page.reload({ waitUntil: 'domcontentloaded' });
     await dismissNextDevOverlay(page);
-    await waitForPortfolioReadyFlag(page, E2E_CHROME_TIMEOUT_MS);
+    await settle(E2E_CHROME_TIMEOUT_MS);
   }
 }
 
@@ -140,7 +154,19 @@ export async function setLookPreviewFile(
   }
 }
 
-async function softOpenPortfolioHref(page: Page, href: string): Promise<void> {
+/**
+ * Soft-open a face overlay. App Router has no `window.next.router` on
+ * `next start` — use the e2e push installed when the portfolio hydrates.
+ */
+export async function softOpenPortfolioOverlay(
+  page: Page,
+  href: string
+): Promise<void> {
+  await page.waitForFunction(
+    () => typeof window.__onsocialE2ePush === 'function',
+    undefined,
+    { timeout: 15_000 }
+  );
   const softNav = page
     .waitForResponse(
       (resp) =>
@@ -153,11 +179,11 @@ async function softOpenPortfolioHref(page: Page, href: string): Promise<void> {
     .catch(() => null);
 
   await page.evaluate((nextHref) => {
-    const router = window.next?.router;
-    if (!router?.push) {
-      throw new Error('Next router missing — cannot open portfolio overlay');
+    const push = window.__onsocialE2ePush;
+    if (!push) {
+      throw new Error('E2E router missing — portfolio client is not ready');
     }
-    router.push(nextHref);
+    push(nextHref);
   }, href);
   await softNav;
 }
@@ -190,7 +216,7 @@ export async function openStandingFromProfile(
     await standingLink.click();
     await softNav;
   } else {
-    await softOpenPortfolioHref(page, standingHref);
+    await softOpenPortfolioOverlay(page, standingHref);
   }
   await page.waitForURL(new RegExp(`/standing/incoming`));
 }
@@ -201,7 +227,9 @@ export async function closeStandingDrawer(page: Page): Promise<void> {
     .click();
 }
 
-export async function openDiscoverFromStandingDrawer(page: Page): Promise<void> {
+export async function openDiscoverFromStandingDrawer(
+  page: Page
+): Promise<void> {
   await page
     .getByRole('link', { name: 'Discover profiles to stand with' })
     .click();
