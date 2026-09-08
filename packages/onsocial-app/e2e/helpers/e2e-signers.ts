@@ -1,6 +1,6 @@
 /**
- * Env signers for Playwright. Account ids only — keys stay in integration
- * helpers (`scripts/e2e-signers.mjs`).
+ * Env signers for Playwright. Account ids only — never return private keys
+ * from this module. Key material stays in `scripts/e2e-signers.mjs`.
  *
  * Paint fixtures (`e2ePaintAccountId`, `e2ePortfolioAccountId`) stay on
  * explicit e2e accounts. Ticket / signer env is for signed journeys only —
@@ -14,6 +14,10 @@ export type E2eSignerRole = 'primary' | 'counterparty';
 function envTrim(name: string): string | null {
   const value = process.env[name]?.trim();
   return value ? value : null;
+}
+
+function envHas(name: string): boolean {
+  return Boolean(envTrim(name));
 }
 
 export function resolveE2eSignerAccount(
@@ -31,6 +35,37 @@ export function resolveE2eSignerAccount(
     envTrim('TICKET_E2E_ORGANIZER_ACCOUNT') ||
     envTrim('ACCOUNT_ID') ||
     envTrim('TEST_ACCOUNT_ID')
+  );
+}
+
+/**
+ * True when a write journey can load both account + key env.
+ * Does not return the key. App CI does not set these secrets.
+ */
+export function hasE2eSignerSecrets(role: E2eSignerRole = 'primary'): boolean {
+  if (!resolveE2eSignerAccount(role)) return false;
+  if (role === 'counterparty') {
+    return (
+      envHas('E2E_COUNTERPARTY_PRIVATE_KEY') ||
+      envHas('TICKET_E2E_BUYER_PRIVATE_KEY') ||
+      envHas('TEST_PRIVATE_KEY')
+    );
+  }
+  return (
+    envHas('E2E_SIGNER_PRIVATE_KEY') ||
+    envHas('TICKET_E2E_ORGANIZER_PRIVATE_KEY') ||
+    envHas('TEST_PRIVATE_KEY')
+  );
+}
+
+/** Skip on-chain mint / stand / endorse writes unless signer secrets exist. */
+export function skipUnlessE2eSigner(
+  testFn: { skip: (condition?: boolean, description?: string) => void },
+  role: E2eSignerRole = 'primary'
+): void {
+  testFn.skip(
+    !hasE2eSignerSecrets(role),
+    'Set E2E_SIGNER_ACCOUNT + E2E_SIGNER_PRIVATE_KEY (or TICKET_E2E_ORGANIZER_*) to run on-chain writes'
   );
 }
 

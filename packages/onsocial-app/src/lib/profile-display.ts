@@ -1,10 +1,11 @@
 import { truncateAccountId } from '@onsocial/sdk';
+import { formatNearAccountFallbackTitle } from '@onsocial/ui';
 import { isImplicitNearAccountId } from '@/lib/account-match';
 
 const IMPLICIT_ACCOUNT_TITLE = 'Implicit account';
 
 /**
- * Identity label for an account — full NEAR account id for named accounts.
+ * Handle / id line — full NEAR account id for named accounts.
  * Implicit (64-char hex) ids shorten so handles stay readable in UI.
  */
 export function fallbackLabel(accountId: string): string {
@@ -57,17 +58,6 @@ export function portfolioHandleHint(
   return `Shows as ${moodHandle} on your page`;
 }
 
-export function displayName(accountId: string, profileName?: string): string {
-  const name = profileName?.trim();
-  if (name) {
-    return name;
-  }
-  if (isImplicitNearAccountId(accountId)) {
-    return IMPLICIT_ACCOUNT_TITLE;
-  }
-  return fallbackLabel(accountId);
-}
-
 /**
  * Custom profile name only — empty when it would just repeat the account id.
  * Use for gesture titles (Mint/Buy) when @handle is shown elsewhere.
@@ -88,6 +78,19 @@ export function customDisplayName(
     return '';
   }
   return name;
+}
+
+/**
+ * Identity title — chosen name, else spoken local part (`Alice`).
+ * Handle stays the full id (`@alice.testnet`) so the name line never repeats it.
+ */
+export function displayName(accountId: string, profileName?: string): string {
+  const custom = customDisplayName(accountId, profileName);
+  if (custom) return custom;
+  if (isImplicitNearAccountId(accountId)) {
+    return IMPLICIT_ACCOUNT_TITLE;
+  }
+  return formatNearAccountFallbackTitle(accountId);
 }
 
 /** Account drawer — primary line when viewing your own sheet. */

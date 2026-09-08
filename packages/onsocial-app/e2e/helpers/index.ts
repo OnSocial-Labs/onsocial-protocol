@@ -5,8 +5,20 @@
 export {
   e2ePaintAccountId,
   e2ePortfolioAccountId,
+  hasE2eSignerSecrets,
   resolveE2eSignerAccount,
+  skipUnlessE2eSigner,
 } from './e2e-signers';
+export {
+  expectSignedEndorseCompose,
+  expectSignedVisitorGestures,
+  openSignedEndorseCompose,
+  openSignedVisitorProfile,
+  SIGNED_CHROME_VIEWER,
+  signedChromeTargetAccount,
+  signedChromeViewerAccount,
+  stubSignedJourneyApis,
+} from './signed-journey-chrome';
 export {
   closeStandingDrawer,
   E2E_CHROME_TIMEOUT_MS,
