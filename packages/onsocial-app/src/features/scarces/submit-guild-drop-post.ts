@@ -1,4 +1,4 @@
-import { type OnSocial, type PostRow } from '@onsocial/sdk';
+import { postContentPath, type OnSocial, type PostRow } from '@onsocial/sdk';
 import type {
   ComposerDropDraft,
   ComposerSubmit,
@@ -32,6 +32,13 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { splitComposerThread } from '@/lib/composer-thread';
+import {
+  allocateThreadPostIds,
+  buildGuildThreadSetEntries,
+  canBatchComposerThread,
+  threadSetEntriesFitEventBudget,
+  type ComposerBeatWriteModel,
+} from '@/lib/composer-thread-batch';
 import { submitPersonalPost } from '@/features/home/submit-personal-post';
 import { postThreadPath } from '@/lib/post-routes';
 
@@ -61,6 +68,152 @@ export interface GuildRootPostSubmitResult {
 /** @deprecated Prefer GuildRootPostSubmitResult */
 export type GuildDropPostSubmitResult = GuildRootPostSubmitResult;
 
+function optimisticGuildThreadPosts(args: {
+  accountId: string;
+  groupId: string;
+  space: GuildSpace;
+  ids: readonly string[];
+  models: ComposerBeatWriteModel[];
+  now: number;
+}): PostRow[] {
+  const { accountId, groupId, space, ids, models, now } = args;
+  const channel = guildSpaceFeedChannel(space);
+  const rows: PostRow[] = [];
+  for (let index = 0; index < models.length; index += 1) {
+    const model = models[index]!;
+    const dropKind = dropPostKind(model.drop);
+    const commerceEmbed = model.drop
+      ? commerceEmbedFromDraft(model.drop)
+      : null;
+    const articleExtra = model.article
+      ? articleSnapshotExtra(model.article)
+      : undefined;
+    const row: PostRow = {
+      accountId,
+      postId: ids[index]!,
+      value: JSON.stringify({
+        v: 1,
+        text: model.bodyText,
+        ...postMetaFromText(model.bodyText),
+        ...placesMetaFromComposer(model.places),
+        ...(model.pollEmbed
+          ? { embeds: [model.pollEmbed] }
+          : commerceEmbed
+            ? { embeds: [commerceEmbed] }
+            : {}),
+        ...(model.drop
+          ? { x: dropSnapshotExtra(model.drop) }
+          : articleExtra
+            ? { x: articleExtra, contentType: 'md' }
+            : {}),
+        ...model.contentLabels,
+      }),
+      blockHeight: 0,
+      blockTimestamp: now + index,
+      groupId,
+      isGroupContent: true,
+      channel,
+      kind: model.pollEmbed
+        ? 'poll'
+        : model.article
+          ? 'longform'
+          : (dropKind ?? space.kind),
+    };
+    if (index > 0) {
+      const parent = rows[index - 1]!;
+      row.parentAuthor = parent.accountId;
+      row.parentPath = postContentPath(parent);
+      row.parentType = 'post';
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+async function submitGuildThreadBatch(args: {
+  client: OnSocial;
+  accountId: string;
+  groupId: string;
+  space: GuildSpace;
+  beats: ComposerSubmit[];
+  trackTransaction: TrackTransaction;
+}): Promise<GuildRootPostSubmitResult | null> {
+  const { client, accountId, groupId, space, beats, trackTransaction } = args;
+  const now = Date.now();
+  const ids = allocateThreadPostIds(beats.length, now);
+  const { entries, models } = buildGuildThreadSetEntries({
+    accountId,
+    groupId,
+    space,
+    beats,
+    ids,
+    now,
+  });
+  if (!threadSetEntriesFitEventBudget(entries)) return null;
+
+  let response: unknown;
+  try {
+    response = await client.social.set(entries);
+  } catch {
+    await trackTransaction({
+      txHashes: [],
+      submittedMessage: txToastConfirming.postingToGuild,
+      successMessage: txToastError.guildPostFailed,
+      failureMessage: txToastError.guildPostFailed,
+      toastKind: 'error',
+    });
+    return {
+      confirmed: false,
+      optimisticPost: null,
+      groupId,
+      postedCount: 0,
+      totalCount: beats.length,
+    };
+  }
+
+  const txHashes = collectRelayTxHashes(response);
+  const landed = optimisticGuildThreadPosts({
+    accountId,
+    groupId,
+    space,
+    ids,
+    models,
+    now,
+  });
+  const first = landed[0] ?? null;
+  const confirmed = await trackTransaction({
+    txHashes,
+    submittedMessage: txToastConfirming.postingToGuild,
+    successMessage: txToastSuccess.threadPublished,
+    failureMessage: txToastError.guildPostFailed,
+    ...(first
+      ? {
+          actionHref: postThreadPath(first),
+          actionLabel: txToastSuccess.viewThread,
+        }
+      : {}),
+  });
+  if (!confirmed) {
+    return {
+      confirmed: false,
+      optimisticPost: null,
+      groupId,
+      postedCount: 0,
+      totalCount: beats.length,
+      txHashes,
+    };
+  }
+  return {
+    confirmed: true,
+    optimisticPost: first,
+    optimisticPosts: landed,
+    groupId,
+    postedCount: beats.length,
+    totalCount: beats.length,
+    txHashes,
+  };
+}
+
 /**
  * Root guild post from the shared composer (text / media / poll / Drop).
  */
@@ -78,6 +231,17 @@ export async function submitGuildRootPost(args: {
   const threadBeats =
     !args.silent ? splitComposerThread(payload) : null;
   if (threadBeats && threadBeats.length > 1) {
+    if (canBatchComposerThread(threadBeats)) {
+      const batched = await submitGuildThreadBatch({
+        client,
+        accountId,
+        groupId,
+        space,
+        beats: threadBeats,
+        trackTransaction,
+      });
+      if (batched) return batched;
+    }
     const [root, ...rest] = threadBeats;
     const first = await submitGuildRootPost({
       client,

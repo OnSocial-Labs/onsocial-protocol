@@ -17,12 +17,12 @@ import {
 import { dismissNextDevOverlay } from './helpers';
 
 /**
- * Plus → two beats → Post. Mock signer records the root `set` and refuses
- * broadcast — extras never hit the chain. Real writes stay behind
+ * Plus → two beats → Post. Mock signer records one batched `set` (root +
+ * extra) and refuses broadcast. Real writes stay behind
  * `E2E_SIGNED_WRITES=1`.
  */
 test.describe('compose thread', () => {
-  test('plus two beats then Post records the root set', async ({ page }) => {
+  test('plus two beats then Post records one batched set', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await clearComposerThreadDrafts(page);
     await seedE2eMockSigner(page);
@@ -46,7 +46,7 @@ test.describe('compose thread', () => {
       expect(prepared.some((action) => action?.e2eVerb === 'set')).toBe(true);
       const blob = JSON.stringify(recorded);
       expect(blob).toContain(E2E_THREAD_ROOT);
-      expect(blob).not.toContain(E2E_THREAD_EXTRA);
+      expect(blob).toContain(E2E_THREAD_EXTRA);
     });
 
     await expect(composerBeatFields(page)).toHaveCount(2);
