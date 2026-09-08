@@ -8,6 +8,7 @@ import {
 import {
   expectSeriesPageSettled,
   seriesPageRoot,
+  setE2eGraphCatalog,
   stubSeriesCreatorCatalog,
 } from './helpers/series-page';
 
@@ -24,6 +25,7 @@ const HOLDER_BACK = `/@${COLLECTIBLES_VAULT_OWNER}/collectibles`;
 
 test.describe('series page', () => {
   test('loads brand hero and guest empty with shop exit', async ({ page }) => {
+    await setE2eGraphCatalog(page, 'empty');
     await stubSeriesCreatorCatalog(page, { rows: 'empty' });
     await gotoApp(page, SERIES_PATH);
 
@@ -31,7 +33,9 @@ test.describe('series page', () => {
       page.getByRole('heading', { level: 1, name: SERIES_TITLE })
     ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect(
-      page.locator('.series-hero-title').getByText(SERIES_TITLE, { exact: true })
+      page
+        .locator('.series-hero-title')
+        .getByText(SERIES_TITLE, { exact: true })
     ).toBeVisible();
     await expect(
       page.getByText('0 drops', { exact: true }).first()
@@ -69,6 +73,7 @@ test.describe('series page', () => {
 
   test('owner empty series starts a drop in this line', async ({ page }) => {
     await seedE2eWallet(page, CREATOR);
+    await setE2eGraphCatalog(page, 'empty');
     await stubSeriesCreatorCatalog(page, { rows: 'empty' });
     await gotoApp(page, SERIES_PATH);
     const create = page.getByRole('link', { name: 'Create a drop' });
@@ -79,6 +84,23 @@ test.describe('series page', () => {
     );
   });
 
+  test('SSR catalog hit paints Night Roads without the skeleton', async ({
+    page,
+  }) => {
+    await setE2eGraphCatalog(page, 'night-roads');
+    await stubSeriesCreatorCatalog(page, { rows: 'night-roads' });
+    await gotoApp(page, NIGHT_ROADS_PATH);
+    await expect(page.locator('[data-series-page-skeleton]')).toHaveCount(0);
+    await expect(seriesPageRoot(page)).toHaveCount(1);
+    await expect(page.locator('.series-hero-title')).toHaveText('Night Roads');
+    await expect(
+      page.getByRole('link', { name: 'Collect Night Drive' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Open Quiet Print' })
+    ).toBeVisible();
+  });
+
   test('SSR catalog miss keeps the skeleton until the client fetch settles', async ({
     page,
   }) => {
@@ -87,17 +109,21 @@ test.describe('series page', () => {
       catalogDelayMs: 2500,
     });
     await gotoApp(page, NIGHT_ROADS_PATH);
-    await expect(page.locator('[data-series-page-skeleton]').first()).toBeVisible(
-      {
-        timeout: 8_000,
-      }
-    );
+    await expect(
+      page.locator('[data-series-page-skeleton]').first()
+    ).toBeVisible({
+      timeout: 8_000,
+    });
     await expect(page.getByText('No drops in this series yet.')).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Collect Night Drive' })).toBeVisible({
+    await expect(
+      page.getByRole('link', { name: 'Collect Night Drive' })
+    ).toBeVisible({
       timeout: 12_000,
     });
     await expect(page.locator('[data-series-page-skeleton]')).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Open Quiet Print' })).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Open Quiet Print' })
+    ).toBeVisible();
     await expect(page.locator('.app-drop-card')).toHaveCount(0);
   });
 
@@ -105,6 +131,7 @@ test.describe('series page', () => {
     page,
   }) => {
     await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphCatalog(page, 'night-roads');
     await stubSeriesCreatorCatalog(page, { rows: 'night-roads' });
     await stubCollectiblesVaultGraph(page);
     await gotoApp(page, NIGHT_ROADS_PATH);
@@ -136,6 +163,7 @@ test.describe('series page', () => {
 
   test('Collectibles series heading opens this page', async ({ page }) => {
     await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphCatalog(page, 'night-roads');
     await stubSeriesCreatorCatalog(page, { rows: 'night-roads' });
     await stubCollectiblesVaultGraph(page);
     await gotoApp(page, `/@${COLLECTIBLES_VAULT_OWNER}/collectibles`);
@@ -154,6 +182,7 @@ test.describe('series page', () => {
   });
 
   test('document title includes Series · OnSocial', async ({ page }) => {
+    await setE2eGraphCatalog(page, 'empty');
     await stubSeriesCreatorCatalog(page, { rows: 'empty' });
     await gotoApp(page, SERIES_PATH);
     await expect(page).toHaveTitle(
