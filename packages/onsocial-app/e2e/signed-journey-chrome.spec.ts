@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-import { DISCOVER_CONNECT_HINT } from '../src/lib/discover-tab-lead';
 import {
   collectionPageRoot,
   expectCollectionPageSettled,
@@ -43,7 +42,9 @@ test.describe('signed journey chrome', () => {
     await expect(page.locator('.portfolio-summon-account.is-you')).toBeVisible({
       timeout: E2E_CHROME_TIMEOUT_MS,
     });
-    await expect(page.getByText(DISCOVER_CONNECT_HINT)).toHaveCount(0);
+    await expect(
+      page.getByText('Connect to stand with profiles.')
+    ).toHaveCount(0);
     await expect(page.getByText('Connect wallet')).toHaveCount(0);
     await expect(
       page.locator('.portfolio-summon-account.is-connect')
