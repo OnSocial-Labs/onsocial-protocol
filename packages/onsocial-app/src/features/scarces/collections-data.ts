@@ -960,17 +960,18 @@ async function hydrateWritingFromSourcePost(
 /** Collections created by an account, newest first. */
 export async function fetchCollectionsByCreator(
   creatorId: string,
-  opts: { limit?: number } = {}
+  opts: { limit?: number; client?: import('@onsocial/sdk').OnSocial } = {}
 ): Promise<CollectionView[]> {
   const creator = creatorId.trim();
   if (!creator) return [];
   const limit = opts.limit ?? 24;
 
   try {
-    const { createReadOnlyOnSocialClient } = await import(
-      '@/lib/create-readonly-onsocial-client'
-    );
-    const client = createReadOnlyOnSocialClient();
+    const client =
+      opts.client ??
+      (
+        await import('@/lib/create-readonly-onsocial-client')
+      ).createReadOnlyOnSocialClient();
     const catalog = await client.query.scarces.collectionsCurrent({
       creatorId: creator,
       limit,

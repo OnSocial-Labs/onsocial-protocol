@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ACTIVE_API_URL } from '@/lib/app-config';
 import { getServerApiKey } from '@/lib/create-server-onsocial-client';
+import {
+  E2E_GRAPH_COOKIE,
+  e2eGraphStubsAllowed,
+  extractGraphQuery,
+  resolveE2eGraphStub,
+} from '@/lib/e2e-graph-stubs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -320,6 +326,25 @@ async function proxyOnApiRequest(
       { error: 'Cross-origin OnAPI proxy requests are not allowed' },
       { status: 403 }
     );
+  }
+
+  if (
+    e2eGraphStubsAllowed() &&
+    request.method === 'POST' &&
+    pathSegments.join('/') === 'graph/query'
+  ) {
+    const cookieValue = request.cookies.get(E2E_GRAPH_COOKIE)?.value;
+    if (cookieValue) {
+      const stub = resolveE2eGraphStub({
+        query: extractGraphQuery(await request.clone().text()),
+        cookieValue,
+      });
+      if (stub) {
+        return NextResponse.json(stub, {
+          headers: { 'Cache-Control': 'no-store' },
+        });
+      }
+    }
   }
 
   const route = findAllowedRoute(request.method, pathSegments);

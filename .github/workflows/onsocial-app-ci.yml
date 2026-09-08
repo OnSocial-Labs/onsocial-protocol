@@ -78,6 +78,7 @@ jobs:
     needs: check
     env:
       NEXT_PUBLIC_E2E_WALLET: '1'
+      E2E_GRAPH_STUBS: '1'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
