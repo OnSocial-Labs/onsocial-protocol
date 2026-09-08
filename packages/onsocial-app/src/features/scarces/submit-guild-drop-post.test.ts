@@ -107,10 +107,12 @@ describe('submitGuildDropPost', () => {
 });
 
 describe('submitGuildRootPost thread', () => {
-  it('publishes a guild thread as room post then self-reply', async () => {
-    const post = vi.fn().mockResolvedValue({ txHash: 'guild-root-tx' });
-    const replyToPost = vi.fn().mockResolvedValue({ txHash: 'guild-reply-tx' });
+  it('publishes a guild text thread as one social.set', async () => {
+    const socialSet = vi.fn().mockResolvedValue({ txHash: 'guild-thread-tx' });
+    const post = vi.fn();
+    const replyToPost = vi.fn();
     const client = {
+      social: { set: socialSet },
       groups: { post, replyToPost },
     } as unknown as OnSocial;
     const trackTransaction = vi.fn().mockResolvedValue(true);
@@ -127,8 +129,12 @@ describe('submitGuildRootPost thread', () => {
       trackTransaction,
     });
 
-    expect(post).toHaveBeenCalledOnce();
-    expect(replyToPost).toHaveBeenCalledOnce();
+    expect(post).not.toHaveBeenCalled();
+    expect(replyToPost).not.toHaveBeenCalled();
+    expect(socialSet).toHaveBeenCalledOnce();
+    const [entries] = socialSet.mock.calls[0]!;
+    expect(JSON.stringify(entries)).toContain('one');
+    expect(JSON.stringify(entries)).toContain('two');
     expect(result.confirmed).toBe(true);
     expect(result.postedCount).toBe(2);
     expect(result.optimisticPost?.value).toContain('one');
@@ -137,14 +143,16 @@ describe('submitGuildRootPost thread', () => {
     expect(finalToast?.successMessage).toBe('Thread posted.');
     expect(finalToast?.actionLabel).toBe('View thread');
     expect(finalToast?.actionHref).toBeTruthy();
-    expect(finalToast?.explorerHash).toBe('guild-reply-tx');
-    expect(result.txHashes).toEqual(['guild-reply-tx']);
+    expect(finalToast?.txHashes).toEqual(['guild-thread-tx']);
+    expect(result.txHashes).toEqual(['guild-thread-tx']);
   });
 
-  it('keeps the landed root when a later beat fails', async () => {
+  it('keeps the landed root when a later sequential beat fails', async () => {
     const post = vi.fn().mockResolvedValue({ txHash: 'guild-root-tx' });
     const replyToPost = vi.fn().mockRejectedValue(new Error('nope'));
+    const socialSet = vi.fn();
     const client = {
+      social: { set: socialSet },
       groups: { post, replyToPost },
     } as unknown as OnSocial;
     const trackTransaction = vi.fn().mockResolvedValue(true);
@@ -156,11 +164,17 @@ describe('submitGuildRootPost thread', () => {
       space,
       payload: {
         text: 'one',
-        thread: [{ text: 'two' }],
+        thread: [
+          {
+            text: 'two',
+            files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })],
+          },
+        ],
       },
       trackTransaction,
     });
 
+    expect(socialSet).not.toHaveBeenCalled();
     expect(result.confirmed).toBe(false);
     expect(result.postedCount).toBe(1);
     expect(result.optimisticPost?.value).toContain('one');

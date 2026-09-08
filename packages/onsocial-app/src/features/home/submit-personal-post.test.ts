@@ -545,10 +545,11 @@ describe('submitPersonalRepost', () => {
     expect(result.optimisticPost?.isGroupContent).toBe(true);
   });
 
-  it('publishes a thread as root then self-reply', async () => {
-    const create = vi.fn().mockResolvedValue({ txHash: 'root-tx' });
-    const reply = vi.fn().mockResolvedValue({ txHash: 'reply-tx' });
-    const client = mockClient({ create, reply });
+  it('publishes a text thread as one social.set', async () => {
+    const socialSet = vi.fn().mockResolvedValue({ txHash: 'thread-tx' });
+    const create = vi.fn();
+    const reply = vi.fn();
+    const client = mockClient({ socialSet, create, reply });
     const trackTransaction = vi.fn().mockResolvedValue(true);
 
     const result = await submitPersonalPost({
@@ -563,11 +564,14 @@ describe('submitPersonalRepost', () => {
       trackTransaction,
     });
 
-    expect(create).toHaveBeenCalledOnce();
-    expect(reply).toHaveBeenCalledOnce();
-    expect(reply.mock.calls[0]?.[0]).toMatchObject({
-      author: 'alice.testnet',
-    });
+    expect(create).not.toHaveBeenCalled();
+    expect(reply).not.toHaveBeenCalled();
+    expect(socialSet).toHaveBeenCalledOnce();
+    const [entries] = socialSet.mock.calls[0]!;
+    const paths = Object.keys(entries as Record<string, unknown>);
+    expect(paths).toHaveLength(2);
+    expect(JSON.stringify(entries)).toContain('one');
+    expect(JSON.stringify(entries)).toContain('two');
     expect(result.confirmed).toBe(true);
     expect(result.postedCount).toBe(2);
     expect(result.totalCount).toBe(2);
@@ -576,21 +580,56 @@ describe('submitPersonalRepost', () => {
     expect(result.optimisticPosts?.[1]?.parentPath).toBe(
       `${result.optimisticPost?.accountId}/post/${result.optimisticPost?.postId}`
     );
+    expect(trackTransaction).toHaveBeenCalledOnce();
+    const finalToast = trackTransaction.mock.calls.at(-1)?.[0];
+    expect(finalToast?.successMessage).toBe('Thread posted.');
+    expect(finalToast?.actionLabel).toBe('View thread');
+    expect(finalToast?.actionHref).toMatch(/\/posts\//);
+    expect(finalToast?.silent).toBeUndefined();
+    expect(finalToast?.txHashes).toEqual(['thread-tx']);
+    expect(result.txHashes).toEqual(['thread-tx']);
+  });
+
+  it('falls back to create then reply when a beat has files', async () => {
+    const create = vi.fn().mockResolvedValue({ txHash: 'root-tx' });
+    const reply = vi.fn().mockResolvedValue({ txHash: 'reply-tx' });
+    const socialSet = vi.fn();
+    const client = mockClient({ create, reply, socialSet });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'post',
+      target: null,
+      payload: {
+        text: 'one',
+        thread: [
+          {
+            text: 'two',
+            files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })],
+          },
+        ],
+      },
+      trackTransaction,
+    });
+
+    expect(socialSet).not.toHaveBeenCalled();
+    expect(create).toHaveBeenCalledOnce();
+    expect(reply).toHaveBeenCalledOnce();
+    expect(result.confirmed).toBe(true);
+    expect(result.postedCount).toBe(2);
     const silentCalls = trackTransaction.mock.calls.filter(
       (call) => call[0]?.silent
     );
     expect(silentCalls.length).toBeGreaterThanOrEqual(2);
     const finalToast = trackTransaction.mock.calls.at(-1)?.[0];
     expect(finalToast?.successMessage).toBe('Thread posted.');
-    expect(finalToast?.actionLabel).toBe('View thread');
-    expect(finalToast?.actionHref).toMatch(/\/posts\//);
-    expect(finalToast?.silent).toBeUndefined();
     expect(finalToast?.txHashes).toEqual([]);
     expect(finalToast?.explorerHash).toBe('reply-tx');
-    expect(result.txHashes).toEqual(['reply-tx']);
   });
 
-  it('says posted N of M when a later beat fails', async () => {
+  it('says posted N of M when a later sequential beat fails', async () => {
     const create = vi.fn().mockResolvedValue({ txHash: 'root-tx' });
     const reply = vi.fn().mockRejectedValue(new Error('nope'));
     const client = mockClient({ create, reply });
@@ -603,7 +642,12 @@ describe('submitPersonalRepost', () => {
       target: null,
       payload: {
         text: 'one',
-        thread: [{ text: 'two' }],
+        thread: [
+          {
+            text: 'two',
+            files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })],
+          },
+        ],
       },
       trackTransaction,
     });

@@ -40,6 +40,12 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { appendThreadFocusReply, postThreadPath } from '@/lib/post-routes';
 import { splitComposerThread } from '@/lib/composer-thread';
+import {
+  allocateThreadPostIds,
+  buildPersonalThreadSetEntries,
+  canBatchComposerThread,
+  threadSetEntriesFitEventBudget,
+} from '@/lib/composer-thread-batch';
 
 export interface PersonalPostSubmitResult {
   confirmed: boolean;
@@ -207,6 +213,93 @@ function buildOptimisticPost(args: {
   };
 }
 
+async function submitPersonalThreadBatch(args: {
+  client: OnSocial;
+  accountId: string;
+  beats: ComposerSubmit[];
+  trackTransaction: TrackTransaction;
+}): Promise<PersonalPostSubmitResult | null> {
+  const { client, accountId, beats, trackTransaction } = args;
+  const now = Date.now();
+  const ids = allocateThreadPostIds(beats.length, now);
+  const { entries, models } = buildPersonalThreadSetEntries({
+    accountId,
+    beats,
+    ids,
+    now,
+  });
+  if (!threadSetEntriesFitEventBudget(entries)) return null;
+
+  let response: unknown;
+  try {
+    response = await client.social.set(entries);
+  } catch {
+    await trackTransaction({
+      txHashes: [],
+      submittedMessage: txToastConfirming.posting,
+      successMessage: txToastError.postFailed,
+      failureMessage: txToastError.postFailed,
+      toastKind: 'error',
+    });
+    return {
+      confirmed: false,
+      optimisticPost: null,
+      postedCount: 0,
+      totalCount: beats.length,
+    };
+  }
+
+  const txHashes = collectRelayTxHashes(response);
+  const landed: PostRow[] = [];
+  for (let index = 0; index < models.length; index += 1) {
+    const model = models[index]!;
+    landed.push(
+      buildOptimisticPost({
+        accountId,
+        newPostId: ids[index]!,
+        text: model.bodyText,
+        mode: index === 0 ? 'post' : 'reply',
+        target: index === 0 ? null : landed[index - 1]!,
+        pollEmbed: model.pollEmbed,
+        drop: model.drop,
+        article: model.article,
+        places: model.places,
+        contentLabels: model.contentLabels,
+      })
+    );
+  }
+  const first = landed[0] ?? null;
+  const confirmed = await trackTransaction({
+    txHashes,
+    submittedMessage: txToastConfirming.posting,
+    successMessage: txToastSuccess.threadPublished,
+    failureMessage: txToastError.postFailed,
+    ...(first
+      ? {
+          actionHref: postThreadPath(first),
+          actionLabel: txToastSuccess.viewThread,
+        }
+      : {}),
+  });
+  if (!confirmed) {
+    return {
+      confirmed: false,
+      optimisticPost: null,
+      postedCount: 0,
+      totalCount: beats.length,
+      txHashes,
+    };
+  }
+  return {
+    confirmed: true,
+    optimisticPost: first,
+    optimisticPosts: landed,
+    postedCount: beats.length,
+    totalCount: beats.length,
+    txHashes,
+  };
+}
+
 async function submitPersonalThread(args: {
   client: OnSocial;
   accountId: string;
@@ -214,6 +307,15 @@ async function submitPersonalThread(args: {
   trackTransaction: TrackTransaction;
 }): Promise<PersonalPostSubmitResult> {
   const { client, accountId, beats, trackTransaction } = args;
+  if (canBatchComposerThread(beats)) {
+    const batched = await submitPersonalThreadBatch({
+      client,
+      accountId,
+      beats,
+      trackTransaction,
+    });
+    if (batched) return batched;
+  }
   const total = beats.length;
   let posted = 0;
   let parent: PostRow | null = null;
