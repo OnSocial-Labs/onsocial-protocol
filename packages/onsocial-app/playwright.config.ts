@@ -3,6 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 const port = Number(process.env.E2E_PORT ?? 3099);
 const host = process.env.E2E_HOST ?? 'localhost';
 const baseURL = process.env.E2E_BASE_URL ?? `http://${host}:${port}`;
+const useNextStart =
+  process.env.CI === 'true' || process.env.E2E_NEXT_START === '1';
 
 export default defineConfig({
   testDir: './e2e',
@@ -25,9 +27,18 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: `pnpm run build:deps && pnpm exec next dev --port ${port}`,
+        command: useNextStart
+          ? `pnpm run build:deps && pnpm exec next build && pnpm exec next start --port ${port}`
+          : `pnpm run build:deps && pnpm exec next dev --port ${port}`,
         url: baseURL,
         reuseExistingServer: !process.env.CI,
-        timeout: 180_000,
+        timeout: 240_000,
+        env: {
+          ...process.env,
+          ONSOCIAL_API_KEY:
+            process.env.ONSOCIAL_API_KEY ?? 'ci-e2e-placeholder',
+          NEXT_PUBLIC_NEAR_NETWORK:
+            process.env.NEXT_PUBLIC_NEAR_NETWORK ?? 'testnet',
+        },
       },
 });
