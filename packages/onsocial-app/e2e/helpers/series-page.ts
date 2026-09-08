@@ -1,6 +1,19 @@
-import type { Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
+import { E2E_CHROME_TIMEOUT_MS } from './navigation';
 
 const TWO_NEAR_YOCTO = '2000000000000000000000000';
+
+/** Settled series shell — excludes loading skeletons (page + intercept). */
+export function seriesPageRoot(page: Page): Locator {
+  return page.locator('.series-page:not(.series-page--skeleton)');
+}
+
+export async function expectSeriesPageSettled(page: Page): Promise<void> {
+  await expect(page.locator('[data-series-page-skeleton]')).toHaveCount(0, {
+    timeout: E2E_CHROME_TIMEOUT_MS,
+  });
+  await expect(seriesPageRoot(page)).toHaveCount(1);
+}
 
 function collectionRow(opts: {
   collectionId: string;

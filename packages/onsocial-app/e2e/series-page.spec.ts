@@ -5,7 +5,11 @@ import {
   COLLECTIBLES_VAULT_OWNER,
   stubCollectiblesVaultGraph,
 } from './helpers/collectibles-vault';
-import { stubSeriesCreatorCatalog } from './helpers/series-page';
+import {
+  expectSeriesPageSettled,
+  seriesPageRoot,
+  stubSeriesCreatorCatalog,
+} from './helpers/series-page';
 
 /**
  * Smoke for the public series page shell.
@@ -33,7 +37,8 @@ test.describe('series page', () => {
       page.getByText('0 drops', { exact: true }).first()
     ).toBeVisible();
 
-    const root = page.locator('.series-page');
+    await expectSeriesPageSettled(page);
+    const root = seriesPageRoot(page);
     await expect(root).not.toHaveClass(/is-use-first/);
     await expect(root).toHaveAttribute(
       'data-series-back',
@@ -100,10 +105,12 @@ test.describe('series page', () => {
     page,
   }) => {
     await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await stubSeriesCreatorCatalog(page, { rows: 'night-roads' });
     await stubCollectiblesVaultGraph(page);
     await gotoApp(page, NIGHT_ROADS_PATH);
 
-    const root = page.locator('.series-page');
+    await expectSeriesPageSettled(page);
+    const root = seriesPageRoot(page);
     await expect(root).toHaveClass(/is-use-first/, {
       timeout: E2E_CHROME_TIMEOUT_MS,
     });
