@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsChipRail } from '@/components/os/os-chip-rail';
+import { discoverGuildsLoadMoreError } from '@/features/discover/discover-guilds-data';
 import { DiscoverCommunityListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
@@ -94,6 +95,7 @@ export function DiscoverGuildsPanel() {
     () => (initialGuilds?.length ?? 0) >= BROWSE_LIMIT
   );
   const [error, setError] = useState<string | null>(null);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const searchRequestRef = useRef(0);
   const hasPaintedRef = useRef(initialGuilds != null);
@@ -147,6 +149,7 @@ export function DiscoverGuildsPanel() {
         setHasMore(nextOffset != null);
         setPending(false);
         setError(null);
+        setLoadMoreError(null);
         hasPaintedRef.current = true;
         const withCounts = await enrichIndexedGuildSummaryCards(client, page);
         if (!cancelled) setBrowseGuilds(withCounts);
@@ -178,6 +181,7 @@ export function DiscoverGuildsPanel() {
     if (offset === 0) return;
     moreLoadingRef.current = true;
     setMoreLoading(true);
+    setLoadMoreError(null);
     try {
       const client = createReadOnlyOnSocialClient();
       const { items, nextOffset } = await client.query.groups.browse({
@@ -195,8 +199,10 @@ export function DiscoverGuildsPanel() {
         const byId = new Map(withCounts.map((card) => [card.groupId, card]));
         return prev.map((card) => byId.get(card.groupId) ?? card);
       });
-    } catch {
-      setHasMore(false);
+    } catch (cause) {
+      // Keep the current list and hasMore; Retry replaces the sentinel so it
+      // does not loop or look like the catalog ended.
+      setLoadMoreError(discoverGuildsLoadMoreError(cause));
     } finally {
       moreLoadingRef.current = false;
       setMoreLoading(false);
@@ -206,7 +212,8 @@ export function DiscoverGuildsPanel() {
   useInfiniteScrollSentinel({
     scrollRootRef,
     sentinelRef: loadMoreRef,
-    enabled: !searchQuery && hasMore && !moreLoading && !pending,
+    enabled:
+      !searchQuery && hasMore && !moreLoading && !pending && !loadMoreError,
     onIntersect: loadMore,
   });
 
@@ -384,7 +391,9 @@ export function DiscoverGuildsPanel() {
         </div>
       ) : null}
 
-      {!searchQuery && (hasMore || moreLoading) ? (
+      {!searchQuery && loadMoreError ? (
+        <ListLoadError message={loadMoreError} onRetry={() => void loadMore()} />
+      ) : !searchQuery && (hasMore || moreLoading) ? (
         <div className="dao-discover-load-more">
           <div
             ref={loadMoreRef}
