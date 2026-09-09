@@ -12,6 +12,7 @@ import {
   shopRowCreatorLabel,
 } from '@/features/scarces/series-page-view';
 import { collectionPath } from '@/lib/app-routes';
+import { OsRowAction } from '@/lib/os-row-action';
 
 /** Unheld series drop — same list row as the vault, shop CTA to the drop. */
 export function SeriesShopRow({
@@ -82,14 +83,13 @@ export function SeriesShopRow({
         </div>
       </Link>
       <div className="market-listing-action-col collectibles-holding-action-col">
-        <Link
+        <OsRowAction
           href={href}
-          scroll={false}
-          className="page-drawer-section-action collectibles-holding-action"
+          className="collectibles-holding-action"
           aria-label={`${action} ${view.title}`}
         >
           {action}
-        </Link>
+        </OsRowAction>
       </div>
     </div>
   );

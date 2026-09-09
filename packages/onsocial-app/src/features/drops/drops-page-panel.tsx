@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsRowAction } from '@/lib/os-row-action';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { DropRowFans } from '@/components/drops/drop-row-fans';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
@@ -392,14 +393,13 @@ function DropRow({
             onOwnerManaged={onOwnerManaged}
           />
         </div>
-        <Link
+        <OsRowAction
           href={href}
-          scroll={false}
-          className="page-drawer-section-action collectibles-holding-action"
+          className="collectibles-holding-action"
           aria-label={`${action} ${item.title}`}
         >
           {action}
-        </Link>
+        </OsRowAction>
       </div>
     </div>
   );

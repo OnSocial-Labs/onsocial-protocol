@@ -13920,57 +13920,26 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.52);
   }
 
-  .page-drawer-section-action {
-    display: inline-flex;
+  /* Hug the label — same sm pill as Market Buy / OsEmptyAction. */
+  .os-row-action {
     width: fit-content;
-    align-items: center;
-    justify-content: center;
-    gap: 0.32rem;
-    border: 0;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.07);
-    color: rgb(var(--fg-rgb) / 0.78);
-    font: inherit;
-    font-size: 0.72rem;
-    font-weight: 600;
-    padding: 0.28rem 0.72rem;
-    min-height: 1.65rem;
-    text-decoration: none;
-    cursor: pointer;
-    transition:
-      background 160ms ease,
-      color 160ms ease;
+    max-width: 100%;
   }
 
-  .page-drawer-section-action:hover,
-  .page-drawer-section-action:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.1);
-    color: rgb(var(--fg-rgb) / 0.92);
-    outline: none;
+  .market-listing-action-col .os-row-action {
+    min-width: 4.5rem;
   }
 
-  /* Directional cue: arrow = navigates away, chevron = expands in place. */
-  .page-drawer-section-action-arrow {
+  .market-listing-action-col .os-row-action .os-sheet-action {
+    width: 100%;
+  }
+
+  /* Directional cue: arrow = navigates away. */
+  .os-row-action-arrow {
     width: 0.55rem;
     height: 0.55rem;
-    color: rgb(var(--fg-rgb) / 0.45);
-  }
-
-  .page-drawer-section-action-chevron {
-    width: 0.7rem;
-    height: 0.7rem;
-    color: rgb(var(--fg-rgb) / 0.45);
-    transition: transform 200ms ease;
-  }
-
-  .page-drawer-section-action-chevron.is-open {
-    transform: rotate(180deg);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .page-drawer-section-action-chevron {
-      transition: none;
-    }
+    color: currentColor;
+    opacity: 0.72;
   }
 
   /* Same stack rhythm as `.portfolio-store` (rail → CTA). */
@@ -24608,16 +24577,24 @@ a.os-surface-row {
     margin-top: 0;
   }
 
-  /* Header chip — denser, borderless soft pill (not a bordered drawer CTA). */
-  .os-app-screen-actions a.collectibles-play-drop-action {
+  /* Header chip — denser soft pill on glass (View drop / Event). */
+  .os-app-screen-actions .collectibles-play-drop-action {
+    gap: 0.32rem;
+  }
+
+  .os-app-screen-actions .collectibles-play-drop-action .os-sheet-action {
     gap: 0.32rem;
     padding: 0.34rem 0.62rem;
     border: 0;
     font-size: 0.72rem;
   }
 
-  .os-app-screen-actions a.collectibles-play-drop-action:hover,
-  .os-app-screen-actions a.collectibles-play-drop-action:focus-visible {
+  .os-app-screen-actions
+    .collectibles-play-drop-action
+    .os-sheet-action:hover,
+  .os-app-screen-actions
+    .collectibles-play-drop-action
+    .os-sheet-action:focus-visible {
     border: 0;
   }
 
@@ -24638,7 +24615,8 @@ a.os-surface-row {
   /* On cover: frosted dark pill so the chip stays readable (← / shop recipe). */
   .os-app-screen[data-immersive-header='true']
     .os-app-screen-header:not(.is-elevated)
-    a.collectibles-play-drop-action {
+    .collectibles-play-drop-action
+    .os-sheet-action {
     border: 0;
     background: var(--app-scrim-media);
     color: var(--app-on-media-ink);
@@ -24649,10 +24627,12 @@ a.os-surface-row {
 
   .os-app-screen[data-immersive-header='true']
     .os-app-screen-header:not(.is-elevated)
-    a.collectibles-play-drop-action:hover,
+    .collectibles-play-drop-action
+    .os-sheet-action:hover,
   .os-app-screen[data-immersive-header='true']
     .os-app-screen-header:not(.is-elevated)
-    a.collectibles-play-drop-action:focus-visible {
+    .collectibles-play-drop-action
+    .os-sheet-action:focus-visible {
     border: 0;
     background: var(--app-scrim-media-hover);
     color: rgb(255 255 255 / 1);
@@ -24666,7 +24646,8 @@ a.os-surface-row {
 
   .os-app-screen[data-immersive-header='true']
     .os-app-screen-header.is-elevated
-    a.collectibles-play-drop-action {
+    .collectibles-play-drop-action
+    .os-sheet-action {
     filter: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -24858,15 +24839,13 @@ a.os-surface-row {
     outline: none;
   }
 
-  a.collectibles-holding-action {
+  .collectibles-holding-action {
     flex-shrink: 0;
     min-width: 4.5rem;
   }
 
-  .collectibles-holding-row:hover .collectibles-holding-action,
-  .collectibles-holding-row:focus-within .collectibles-holding-action {
-    background: rgb(var(--fg-rgb) / 0.1);
-    color: rgb(var(--fg-rgb) / 0.92);
+  .collectibles-holding-action .os-sheet-action {
+    width: 100%;
   }
 
   .market-creator-shop {
@@ -27108,13 +27087,19 @@ a.os-surface-row {
   /* Header chip — denser soft pill on glass chrome (same family as play “View drop”). */
   .os-app-screen-actions .ticket-door-event-action {
     gap: 0.32rem;
+  }
+
+  .os-app-screen-actions .ticket-door-event-action .os-sheet-action {
+    gap: 0.32rem;
     padding: 0.34rem 0.62rem;
     border: 0;
     font-size: 0.72rem;
   }
 
-  .os-app-screen-actions .ticket-door-event-action:hover,
-  .os-app-screen-actions .ticket-door-event-action:focus-visible {
+  .os-app-screen-actions .ticket-door-event-action .os-sheet-action:hover,
+  .os-app-screen-actions
+    .ticket-door-event-action
+    .os-sheet-action:focus-visible {
     border: 0;
   }
 

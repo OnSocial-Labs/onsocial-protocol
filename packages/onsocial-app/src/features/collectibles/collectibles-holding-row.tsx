@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
 import { displayName } from '@/lib/profile-display';
 import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
+import { OsRowAction } from '@/lib/os-row-action';
 
 interface CollectiblesHoldingRowProps {
   item: PortfolioHoldingPeek;
@@ -79,14 +80,13 @@ export function CollectiblesHoldingRow({
         {ownerMenu ? (
           <div className="drops-discovery-head-trail">{ownerMenu}</div>
         ) : null}
-        <Link
+        <OsRowAction
           href={item.href}
-          scroll={false}
-          className="page-drawer-section-action collectibles-holding-action"
+          className="collectibles-holding-action"
           aria-label={`${item.actionLabel} ${item.title}`}
         >
           {item.actionLabel}
-        </Link>
+        </OsRowAction>
       </div>
     </div>
   );

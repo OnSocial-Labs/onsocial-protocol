@@ -1,9 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ProtocolMotionArrow } from '@onsocial/ui';
 import { CollectiblesHoldingRowMenu } from '@/features/collectibles/collectibles-holding-row-menu';
+import { OsRowAction } from '@/lib/os-row-action';
 import { CollectiblesVaultLibrary } from '@/features/collectibles/collectibles-vault-library';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
@@ -185,14 +185,10 @@ export function PageDrawerCollectionList({
             />
           ) : null}
           {!loading && showSeeAll ? (
-            <Link
-              href={seeAllHref}
-              scroll={false}
-              className="page-drawer-section-action"
-            >
+            <OsRowAction href={seeAllHref}>
               {seeAllCopy.action} · {seeAllCopy.count}
-              <ProtocolMotionArrow className="page-drawer-section-action-arrow" />
-            </Link>
+              <ProtocolMotionArrow className="os-row-action-arrow" />
+            </OsRowAction>
           ) : null}
         </section>
       </div>

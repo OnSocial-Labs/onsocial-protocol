@@ -108,6 +108,7 @@ import {
 } from '@/lib/app-routes';
 import { MARKET_PAGE_CLASS, osChromePageClassName } from '@/lib/os-chrome-page';
 import { OsEmptyAction } from '@/lib/os-empty-action';
+import { OsRowAction } from '@/lib/os-row-action';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   formatFutureRelativeTime,
@@ -793,9 +794,6 @@ export function CollectionPagePanel({
   const vaultHref = viewerAccountId
     ? portfolioCollectiblesPath(viewerAccountId)
     : null;
-  const useActionClass = useFirst
-    ? 'page-drawer-section-action collectibles-holding-action'
-    : 'collection-reading-open';
   const writingLockedHint = writingReadLockedHint({
     isConnected,
     holdsEdition,
@@ -1079,13 +1077,12 @@ export function CollectionPagePanel({
                         ? '1 track'
                         : `${playables.length} tracks`}
                     </p>
-                    <Link
-                      className={useActionClass}
+                    <OsRowAction
+                      className="collectibles-holding-action"
                       href={holderPlayHref}
-                      scroll={false}
                     >
                       Play
-                    </Link>
+                    </OsRowAction>
                   </div>
                 ) : null}
                 {hasReadables ? (
@@ -1093,25 +1090,23 @@ export function CollectionPagePanel({
                     <p className="collection-section-label">
                       {writingReadingSectionLabel(readables.length)}
                     </p>
-                    <button
-                      type="button"
-                      className={useActionClass}
+                    <OsRowAction
+                      className="collectibles-holding-action"
                       onClick={() => setWritingReadOpen(true)}
                     >
                       Read
-                    </button>
+                    </OsRowAction>
                   </div>
                 ) : null}
                 {canShowPass ? (
                   <div className="collection-reading-row">
                     <p className="collection-section-label">Your pass</p>
-                    <button
-                      type="button"
-                      className={useActionClass}
+                    <OsRowAction
+                      className="collectibles-holding-action"
                       onClick={openOwnedPass}
                     >
                       {passActionLabel}
-                    </button>
+                    </OsRowAction>
                   </div>
                 ) : null}
                 {vaultHref ? (
@@ -1372,7 +1367,7 @@ export function CollectionPagePanel({
               </p>
               <button
                 type="button"
-                className={useActionClass}
+                className="collection-reading-open"
                 onClick={() => setWritingReadOpen(true)}
               >
                 Read

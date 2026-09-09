@@ -3,17 +3,12 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import {
-  cn,
-  OsSheetAction,
-  OsSheetActions,
-  osSheetActionClassName,
-} from '@onsocial/ui';
-import {
   marketCreatorDropMetaBits,
   marketCreatorDropMintable,
   marketCreatorShopActionLabel,
 } from '@/features/market/market-creator-view';
 import { collectionPath } from '@/lib/app-routes';
+import { OsRowAction } from '@/lib/os-row-action';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 
 /** Unlisted creator drop — same list row and action pill as Market listings. */
@@ -69,40 +64,23 @@ export function MarketCreatorDropRow({
         </div>
       </Link>
       <div className="market-listing-action-col collectibles-holding-action-col">
-        <OsSheetActions
-          layout="row-compact"
-          tone="frosted-primary"
-          size="sm"
-          borderless
-          className="market-listing-action collectibles-holding-action"
-        >
-          {mintable ? (
-            <OsSheetAction
-              type="button"
-              variant="primary"
-              ready
-              aria-label={`${action} ${drop.title}`}
-              onClick={() => onMint?.(drop)}
-            >
-              {action}
-            </OsSheetAction>
-          ) : (
-            <Link
-              href={href}
-              scroll={false}
-              className={cn(
-                osSheetActionClassName,
-                'os-sheet-action--primary',
-                'is-ready'
-              )}
-              aria-label={`${action} ${drop.title}`}
-            >
-              <span className="os-sheet-action__shell">
-                <span className="os-sheet-action__label">{action}</span>
-              </span>
-            </Link>
-          )}
-        </OsSheetActions>
+        {mintable ? (
+          <OsRowAction
+            className="collectibles-holding-action"
+            aria-label={`${action} ${drop.title}`}
+            onClick={() => onMint?.(drop)}
+          >
+            {action}
+          </OsRowAction>
+        ) : (
+          <OsRowAction
+            className="collectibles-holding-action"
+            href={href}
+            aria-label={`${action} ${drop.title}`}
+          >
+            {action}
+          </OsRowAction>
+        )}
       </div>
     </div>
   );
