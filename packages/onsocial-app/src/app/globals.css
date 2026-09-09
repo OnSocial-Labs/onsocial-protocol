@@ -11203,9 +11203,11 @@ a.os-surface-row {
   /*
    * Shared chrome glass screens (Home / Market / Discover / Guilds index):
    * the header — nav row plus toolbar pill bars — overlays the scroller, the
-   * body offsets content by the measured chrome height
+   * body offsets content by the measured resting chrome height
    * (--os-screen-chrome-height, set by OsAppScreen), and content slides
-   * under the same frost recipe once scrolled.
+   * under the same frost recipe once scrolled. Scroll tuck is visual-only —
+   * OsAppScreen freezes this var while search/toolbar rails hide so the
+   * body inset does not jump (same contract as immersive guild rails).
    */
   .os-app-screen[data-glass-chrome='true'] .os-app-screen-header {
     position: absolute;
@@ -11244,6 +11246,21 @@ a.os-surface-row {
     --os-app-screen-chrome-height: calc(
       env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y) +
         var(--os-app-screen-nav-row-height) + var(--os-app-chrome-pad-y)
+    );
+  }
+
+  /*
+   * Pre-measure fallback when a chip rail is in the header. Nav-only height
+   * under-counts by one rail and lets list skeletons flash under chips
+   * before OsAppScreen writes --os-screen-chrome-height.
+   */
+  .os-app-screen[data-compact-chrome='true']:has(.os-app-chrome-rail) {
+    --os-app-screen-chrome-height: calc(
+      env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y) +
+        var(--os-app-screen-nav-row-height) +
+        var(--os-app-chrome-chip-gap, 0.28rem) +
+        var(--os-app-chrome-rail-height, 1.85rem) +
+        var(--os-app-chrome-pad-y)
     );
   }
 

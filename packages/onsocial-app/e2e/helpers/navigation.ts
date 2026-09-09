@@ -74,7 +74,11 @@ export async function expectPortfolioIdentityOrSkip(
   accountId: string
 ): Promise<void> {
   const missing = page.getByRole('heading', { name: 'Account not found' });
-  const identity = page.locator('.portfolio-identity');
+  // Soft-nav remounts can briefly leave two identity nodes — prefer main.
+  const identity = page
+    .getByRole('main')
+    .locator('.portfolio-identity')
+    .first();
   await Promise.race([
     identity.waitFor({ state: 'visible', timeout: E2E_CHROME_TIMEOUT_MS }),
     missing.waitFor({ state: 'visible', timeout: E2E_CHROME_TIMEOUT_MS }),

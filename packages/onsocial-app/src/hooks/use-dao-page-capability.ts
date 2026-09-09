@@ -61,7 +61,8 @@ export function useDaoPageCapability(
         })
         .catch(() => {
           if (cancelled) return;
-          setHasStakeProposePath(false);
+          // Fail open — hide Stake only after a definitive "no path" answer.
+          setHasStakeProposePath(true);
           setStakePathReady(true);
         });
       return () => {
@@ -80,7 +81,7 @@ export function useDaoPageCapability(
       .catch(() => {
         if (cancelled) return;
         setEligibility(null);
-        setHasStakeProposePath(false);
+        setHasStakeProposePath(true);
         setStakePathReady(true);
       })
       .finally(() => {
