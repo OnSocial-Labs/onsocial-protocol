@@ -52,6 +52,7 @@ import {
   dropsPath,
   parseDropsMediumParam,
 } from '@/lib/app-routes';
+import { DROPS_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import {
   EMPTY_DROPS_PAGE_QUERY,
@@ -1100,7 +1101,7 @@ export function DropsPagePanel({
     >
       <div className="drops-screen-body">
         <div aria-hidden className="os-chrome-glass" />
-        <div className="market-page-body drops-page-body">
+        <div className={DROPS_INDEX_PAGE_CLASS}>
           <section
             className={`market-section${
               catalogRefreshing ? ' drops-catalog--refreshing' : ''

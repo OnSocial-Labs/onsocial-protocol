@@ -5,6 +5,7 @@ import {
 } from '@/features/drops/drops-heading';
 import { DropsListingToolbar } from '@/features/drops/drops-listing-toolbar';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
+import { DROPS_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import {
   EMPTY_DROPS_PAGE_QUERY,
@@ -43,7 +44,7 @@ export function DropsLoadingScreen({
       <div className="drops-screen-body">
         <div aria-hidden className="os-chrome-glass" />
         <div
-          className="market-page-body drops-page-body"
+          className={DROPS_INDEX_PAGE_CLASS}
           aria-busy="true"
           aria-live="polite"
         >

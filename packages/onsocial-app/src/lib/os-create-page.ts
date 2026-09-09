@@ -1,4 +1,4 @@
-import { osAppChromePageClassName } from '@onsocial/ui';
+import { osChromePageClassName } from '@/lib/os-chrome-page';
 
 /**
  * Create-place form root. Inset is `.os-app-chrome-page` →
@@ -8,7 +8,7 @@ import { osAppChromePageClassName } from '@onsocial/ui';
 export function osCreatePageClassName(
   ...parts: Array<string | false | null | undefined>
 ): string {
-  return [osAppChromePageClassName, ...parts].filter(Boolean).join(' ');
+  return osChromePageClassName(...parts);
 }
 
 export const GUILD_CREATE_FORM_CLASS = osCreatePageClassName('guild-create-form');

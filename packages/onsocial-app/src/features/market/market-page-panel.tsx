@@ -122,6 +122,7 @@ import { collectionToProfileStoreDrop } from '@/lib/profile-store-map';
 import { filterDropsNotListed } from '@/lib/profile-store-available';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 import { APP_HOME_PATH, appPath } from '@/lib/app-routes';
+import { MARKET_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
 import {
   portfolioCollectiblesPath,
 } from '@/lib/overlay-routes';
@@ -1784,7 +1785,7 @@ export function MarketPagePanel({
       }
     >
       <div
-        className="market-page"
+        className={MARKET_INDEX_PAGE_CLASS}
         data-market-panel
         data-market-creator-shop={creatorFilter ? '' : undefined}
       >

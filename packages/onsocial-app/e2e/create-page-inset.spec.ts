@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   E2E_CHROME_TIMEOUT_MS,
-  expectCreatePageInset,
+  expectChromePageInset,
   gotoApp,
 } from './helpers';
 
@@ -12,7 +12,7 @@ test.describe('create page inset', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, '/daos/create');
     await expect(page.getByRole('heading', { name: 'Create DAO' })).toBeVisible();
-    await expectCreatePageInset(page.locator('.dao-create-form'));
+    await expectChromePageInset(page.locator('.dao-create-form'));
   });
 
   test('Create guild uses the shared chrome page inset', async ({ page }) => {
@@ -21,14 +21,14 @@ test.describe('create page inset', () => {
     await expect(
       page.getByRole('heading', { name: 'Create guild' })
     ).toBeVisible();
-    await expectCreatePageInset(page.locator('.guild-create-form'));
+    await expectChromePageInset(page.locator('.guild-create-form'));
   });
 
   test('Open a hub uses the shared chrome page inset', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, '/apps/create');
     await expect(page.getByRole('heading', { name: 'Open a hub' })).toBeVisible();
-    await expectCreatePageInset(page.locator('.hub-create-form'));
+    await expectChromePageInset(page.locator('.hub-create-form'));
   });
 
   test('New drop uses the shared chrome page inset', async ({ page }) => {
@@ -39,6 +39,6 @@ test.describe('create page inset', () => {
       '',
       { timeout: E2E_CHROME_TIMEOUT_MS }
     );
-    await expectCreatePageInset(page.locator('.drop-create-form'));
+    await expectChromePageInset(page.locator('.drop-create-form'));
   });
 });

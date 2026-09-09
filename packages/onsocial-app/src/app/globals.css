@@ -19714,21 +19714,19 @@ a.os-surface-row {
   }
 
   /*
-   * Shared OsAppScreen body inset — one rule for every padded page root.
-   * Create places use `.os-app-chrome-page` on the form (`os-create-page.ts`).
-   * Discover/Standing denser vertical uses the same --os-screen-body-pad-x.
+   * Shared OsAppScreen body inset — bridge for roots not yet on
+   * `.os-app-chrome-page` (create + indexes use `os-chrome-page.ts`).
+   * `.market-page:not(...)` keeps vault / play / door / series padded
+   * until those roots move. Discover/Standing use the same pad-x.
    */
   .app-soon-page,
   .guilds-page,
-  .market-page,
-  .market-page-body,
-  .drops-page-body,
+  .market-page:not(.os-app-chrome-page),
   .apps-directory,
   .app-page,
   .collection-page,
   .drop-studio,
-  .protocol-page,
-  .launcher-home {
+  .protocol-page {
     padding: var(--os-screen-body-inset, 0.15rem 1rem 1.5rem);
   }
 
@@ -40281,7 +40279,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   display: flex;
   flex-direction: column;
   gap: 1.15rem;
-  padding-bottom: 1.5rem;
 }
 
 .launcher-home-lede {
