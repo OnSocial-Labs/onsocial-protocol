@@ -1,4 +1,5 @@
 import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-root';
+import { PortfolioFaceOverlayLeave } from '@/components/portfolio/portfolio-face-overlay-leave';
 import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
 import { StandingOverlayRoute } from '@/components/panels/standing-overlay-route';
 import { loadStandingListPage } from '@/lib/load-standing-list-page';
@@ -50,6 +51,7 @@ export default async function StandingKindOverlay({
 
   return (
     <OverlayInterceptRoot>
+      <PortfolioFaceOverlayLeave accountId={accountId} />
       <StandingOverlayRoute
         accountId={accountId}
         kind={kind}

@@ -14,7 +14,7 @@ import type { LeaderboardTrack } from '@/lib/leaderboard';
 
 /**
  * First-class `/leaderboard` destination — same appear page sheet as chart entries.
- * Underlay registers the OS portal host; close restores history.
+ * Underlay registers the OS portal host; close leaves to Home.
  */
 export function LeaderboardRoutePanel() {
   const router = useRouter();
@@ -42,11 +42,7 @@ export function LeaderboardRoutePanel() {
       rowNavigateRef.current = false;
       return;
     }
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-      router.back();
-      return;
-    }
-    router.replace(APP_HOME_PATH);
+    router.push(APP_HOME_PATH);
   }, [router]);
 
   return (
@@ -56,6 +52,8 @@ export function LeaderboardRoutePanel() {
         leading={null}
         glassChrome
         compactChrome
+        dockBack
+        backFallbackHref={APP_HOME_PATH}
       >
         <p className="leaderboard-route-underlay">
           Protocol reputation, influence, and earners.

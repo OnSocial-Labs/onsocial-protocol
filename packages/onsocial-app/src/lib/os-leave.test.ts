@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { APP_HOME_PATH } from '@/lib/app-routes';
-import { OS_INDEX_LEAVE_HREF, resolveOsLeave } from '@/lib/os-leave';
+import {
+  OS_INDEX_LEAVE_HREF,
+  portfolioFaceOverlayLeaveHref,
+  resolveOsLeave,
+} from '@/lib/os-leave';
 
 describe('resolveOsLeave', () => {
   it('uses onBack for a stack pane (thread → inbox)', () => {
@@ -26,5 +30,16 @@ describe('resolveOsLeave', () => {
       kind: 'parent',
       href: APP_HOME_PATH,
     });
+  });
+
+  it('sends face overlays to the page, not Home', () => {
+    expect(portfolioFaceOverlayLeaveHref('alice.testnet')).toBe(
+      '/@alice.testnet'
+    );
+    expect(
+      resolveOsLeave({
+        fallbackHref: portfolioFaceOverlayLeaveHref('alice.testnet'),
+      })
+    ).toEqual({ kind: 'parent', href: '/@alice.testnet' });
   });
 });

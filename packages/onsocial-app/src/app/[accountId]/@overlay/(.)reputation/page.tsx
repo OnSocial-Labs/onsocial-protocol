@@ -1,4 +1,5 @@
 import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-root';
+import { PortfolioFaceOverlayLeave } from '@/components/portfolio/portfolio-face-overlay-leave';
 import { panelLabel } from '@/lib/overlay-routes';
 import { ReputationPanel } from '@/components/panels/reputation-panel';
 import { SimpleOverlayPanel } from '@/components/overlay/simple-overlay-panel';
@@ -23,6 +24,7 @@ export default async function ReputationOverlay({ params }: OverlayRouteProps) {
         title={panelLabel('reputation')}
         headerActions={<LeaderboardChartAction track="reputation" />}
       >
+        <PortfolioFaceOverlayLeave accountId={accountId} />
         <ReputationPanel accountId={accountId} reputation={reputation} />
       </SimpleOverlayPanel>
     </OverlayInterceptRoot>

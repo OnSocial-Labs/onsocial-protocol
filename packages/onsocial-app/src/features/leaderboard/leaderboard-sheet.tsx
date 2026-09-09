@@ -159,9 +159,7 @@ function BoardRow({
       >
         <span className="leaderboard-row-rank-label">{rankLabel}</span>
         <span
-          className={`leaderboard-row-rank-dense${
-            rankTied ? '' : ' is-empty'
-          }`}
+          className={`leaderboard-row-rank-dense${rankTied ? '' : ' is-empty'}`}
         >
           {rankTied ? denseIndex : '\u00a0'}
         </span>
@@ -382,8 +380,7 @@ function presentationForEntry<T extends { accountId: string; rank: number }>(
   }
   const rank = Math.max(1, Math.floor(entry.rank));
   const rankTied =
-    rows.filter((row) => Math.max(1, Math.floor(row.rank)) === rank).length >
-    1;
+    rows.filter((row) => Math.max(1, Math.floor(row.rank)) === rank).length > 1;
   return {
     denseIndex: rank,
     rankTied,
@@ -560,7 +557,7 @@ export function LeaderboardSheet({
   /** Controlled track (URL-driven `/leaderboard?track=`). */
   track?: LeaderboardTrack;
   onTrackChange?: (track: LeaderboardTrack) => void;
-  /** Fired when a row link is taken — parent can skip history.back(). */
+  /** Fired when a row link is taken — parent should not also leave to Home. */
   onRowNavigate?: () => void;
 }) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
@@ -588,7 +585,9 @@ export function LeaderboardSheet({
     } as CSSProperties;
   }, [fallbackMood.cssVars, fetchedMoodStyle, viewerAccountId]);
   const [boostOpen, setBoostOpen] = useState(false);
-  const [influenceHintSeen, setInfluenceHintSeen] = useState(readInfluenceHintSeen);
+  const [influenceHintSeen, setInfluenceHintSeen] = useState(
+    readInfluenceHintSeen
+  );
 
   const dismissInfluenceHint = useCallback(() => {
     persistInfluenceHintSeen();
@@ -633,7 +632,10 @@ export function LeaderboardSheet({
 
   const boostAccountId = isConnected ? (viewerAccountId ?? '') : '';
   const boostSheetOpen =
-    boostOpen && sheetOpen && track === 'influence' && boostAccountId.length > 0;
+    boostOpen &&
+    sheetOpen &&
+    track === 'influence' &&
+    boostAccountId.length > 0;
   const boost = useBoostPosition(boostAccountId, {
     live: boostSheetOpen,
   });
@@ -733,14 +735,15 @@ export function LeaderboardSheet({
   const stickyViewer = viewerOutside ?? (viewerPinned ? viewerInListRow : null);
   const shareViewer = viewerInListRow ?? viewerOutside;
   const trackHint =
-    track === 'influence' &&
-    !influenceHintSeen &&
-    leaderboardTrackHint(track);
+    track === 'influence' && !influenceHintSeen && leaderboardTrackHint(track);
   /** Quiet you-line whenever the viewer has a rank on this track. */
   const showYouLine = Boolean(shareViewer && isConnected);
 
   const scrollToViewer = useCallback(() => {
-    viewerRowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    viewerRowRef.current?.scrollIntoView({
+      block: 'center',
+      behavior: 'smooth',
+    });
   }, []);
 
   const accountIds = useMemo(() => {
