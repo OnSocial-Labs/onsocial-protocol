@@ -295,7 +295,7 @@ subscriptionRouter.post('/tax-preview', async (req: Request, res: Response) => {
 
   let breakdown: TaxBreakdown;
   try {
-    breakdown = computeTaxBreakdown({
+    breakdown = await computeTaxBreakdown({
       netMinor,
       currency: plan.currency,
       identity: {
@@ -597,7 +597,7 @@ subscriptionRouter.post(
     const netMinor = promo ? resolvePrice(plan, promo) : plan.amountMinor;
     let taxBreakdown: TaxBreakdown;
     try {
-      taxBreakdown = computeTaxBreakdown({
+      taxBreakdown = await computeTaxBreakdown({
         netMinor,
         currency: plan.currency,
         identity: {

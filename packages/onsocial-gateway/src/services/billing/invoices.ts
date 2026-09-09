@@ -90,12 +90,12 @@ function formatInvoiceNumber(seq: number, issuedAt: Date): string {
   return `INV-${y}-${String(seq).padStart(6, '0')}`;
 }
 
-function toInvoice(
+async function toInvoice(
   input: CreateInvoiceInput,
   id: string,
   invoiceNumber: string,
   issuedAt: string
-): InvoiceRecord {
+): Promise<InvoiceRecord> {
   const country = normalizeCountryCode(input.billingCountry);
   if (!country) {
     throw new InvoiceIssuanceError('Invalid billing country for invoice');
@@ -110,7 +110,7 @@ function toInvoice(
     country,
     input.billingPostalCode
   );
-  const breakdown = computeTaxBreakdown({
+  const breakdown = await computeTaxBreakdown({
     netMinor: input.netMinor,
     currency: input.currency,
     identity: {
@@ -175,7 +175,7 @@ class MemoryInvoiceStore implements InvoiceStore {
 
     const now = new Date();
     this.seq += 1;
-    const invoice = toInvoice(
+    const invoice = await toInvoice(
       input,
       randomUUID(),
       formatInvoiceNumber(this.seq, now),
@@ -271,7 +271,7 @@ class PostgresInvoiceStore implements InvoiceStore {
       throw new InvoiceIssuanceError('Failed to allocate invoice number');
     }
 
-    const invoice = toInvoice(
+    const invoice = await toInvoice(
       input,
       randomUUID(),
       formatInvoiceNumber(seq, now),

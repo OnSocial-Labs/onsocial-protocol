@@ -19,14 +19,14 @@ describe('billing tax (net plan + tax at checkout)', () => {
     delete process.env.BILLING_TAX_COLLECT_COUNTRIES;
   });
 
-  it('normalizes country and VAT id', () => {
+  it('normalizes country and VAT id', async () => {
     expect(normalizeCountryCode(' gb ')).toBe('GB');
     expect(normalizeCountryCode('G')).toBeNull();
     expect(normalizeVatId('GB 123 456 789')).toBe('GB123456789');
     expect(normalizeVatId('x')).toBeNull();
   });
 
-  it('adds tax on net without rounding drift', () => {
+  it('adds tax on net without rounding drift', async () => {
     expect(addTaxToNet(4900, 2000)).toEqual({
       netMinor: 4900,
       taxMinor: 980,
@@ -39,15 +39,15 @@ describe('billing tax (net plan + tax at checkout)', () => {
     });
   });
 
-  it('splits inclusive totals (legacy helper)', () => {
+  it('splits inclusive totals (legacy helper)', async () => {
     expect(splitInclusiveTotal(4900, 2000)).toEqual({
       netMinor: 4083,
       taxMinor: 817,
     });
   });
 
-  it('applies UK VAT on net plan price', () => {
-    const breakdown = computeTaxBreakdown({
+  it('applies UK VAT on net plan price', async () => {
+    const breakdown = await computeTaxBreakdown({
       netMinor: 4900,
       currency: 'USD',
       identity: { country: 'GB' },
@@ -59,8 +59,8 @@ describe('billing tax (net plan + tax at checkout)', () => {
     expect(breakdown.totalMinor).toBe(5880);
   });
 
-  it('applies EU OSS VAT for B2C consumers', () => {
-    const breakdown = computeTaxBreakdown({
+  it('applies EU OSS VAT for B2C consumers', async () => {
+    const breakdown = await computeTaxBreakdown({
       netMinor: 4900,
       currency: 'USD',
       identity: { country: 'BE' },
@@ -71,8 +71,8 @@ describe('billing tax (net plan + tax at checkout)', () => {
     expect(breakdown.totalMinor).toBe(5929);
   });
 
-  it('applies EU reverse charge only when VAT ID is VIES-verified', () => {
-    const verified = computeTaxBreakdown({
+  it('applies EU reverse charge only when VAT ID is VIES-verified', async () => {
+    const verified = await computeTaxBreakdown({
       netMinor: 19900,
       currency: 'USD',
       identity: {
@@ -85,7 +85,7 @@ describe('billing tax (net plan + tax at checkout)', () => {
     expect(verified.taxMinor).toBe(0);
     expect(verified.totalMinor).toBe(19900);
 
-    const unverified = computeTaxBreakdown({
+    const unverified = await computeTaxBreakdown({
       netMinor: 19900,
       currency: 'USD',
       identity: { country: 'DE', vatId: 'DE123456789' },
@@ -94,9 +94,9 @@ describe('billing tax (net plan + tax at checkout)', () => {
     expect(unverified.taxMinor).toBeGreaterThan(0);
   });
 
-  it('records EU B2C as unconfigured when OSS is disabled', () => {
+  it('records EU B2C as unconfigured when OSS is disabled', async () => {
     process.env.BILLING_EU_OSS_ENABLED = '0';
-    const breakdown = computeTaxBreakdown({
+    const breakdown = await computeTaxBreakdown({
       netMinor: 4900,
       currency: 'USD',
       identity: { country: 'FR' },
@@ -106,8 +106,8 @@ describe('billing tax (net plan + tax at checkout)', () => {
     expect(breakdown.totalMinor).toBe(4900);
   });
 
-  it('marks rest-of-world out of scope with net-only total', () => {
-    const breakdown = computeTaxBreakdown({
+  it('marks rest-of-world out of scope with net-only total', async () => {
+    const breakdown = await computeTaxBreakdown({
       netMinor: 4900,
       currency: 'USD',
       identity: { country: 'HK' },
@@ -117,8 +117,8 @@ describe('billing tax (net plan + tax at checkout)', () => {
     expect(breakdown.totalMinor).toBe(4900);
   });
 
-  it('applies US sales tax for taxable SaaS states when ZIP is present', () => {
-    const breakdown = computeTaxBreakdown({
+  it('applies US sales tax for taxable SaaS states when ZIP is present', async () => {
+    const breakdown = await computeTaxBreakdown({
       netMinor: 4900,
       currency: 'USD',
       identity: { country: 'US', region: 'TX', postalCode: '78701' },
@@ -129,18 +129,18 @@ describe('billing tax (net plan + tax at checkout)', () => {
     expect(breakdown.totalMinor).toBe(5206);
   });
 
-  it('requires US state and ZIP', () => {
-    expect(() =>
+  it('requires US state and ZIP', async () => {
+    await expect(
       computeTaxBreakdown({
         netMinor: 4900,
         currency: 'USD',
         identity: { country: 'US' },
       })
-    ).toThrow(/state/i);
+    ).rejects.toThrow(/state/i);
   });
 
-  it('applies Canada GST/HST by province', () => {
-    const breakdown = computeTaxBreakdown({
+  it('applies Canada GST/HST by province', async () => {
+    const breakdown = await computeTaxBreakdown({
       netMinor: 4900,
       currency: 'USD',
       identity: { country: 'CA', region: 'ON' },
@@ -150,8 +150,8 @@ describe('billing tax (net plan + tax at checkout)', () => {
     expect(breakdown.totalMinor).toBe(4900 + 637);
   });
 
-  it('applies national VAT/GST for Australia', () => {
-    const breakdown = computeTaxBreakdown({
+  it('applies national VAT/GST for Australia', async () => {
+    const breakdown = await computeTaxBreakdown({
       netMinor: 4900,
       currency: 'USD',
       identity: { country: 'AU' },
@@ -162,10 +162,10 @@ describe('billing tax (net plan + tax at checkout)', () => {
     expect(breakdown.totalMinor).toBe(5390);
   });
 
-  it('respects BILLING_TAX_COLLECT_COUNTRIES allowlist', () => {
+  it('respects BILLING_TAX_COLLECT_COUNTRIES allowlist', async () => {
     process.env.BILLING_TAX_COLLECT_COUNTRIES = 'GB,EU';
 
-    const be = computeTaxBreakdown({
+    const be = await computeTaxBreakdown({
       netMinor: 4900,
       currency: 'USD',
       identity: { country: 'BE' },
@@ -173,7 +173,7 @@ describe('billing tax (net plan + tax at checkout)', () => {
     expect(be.treatment).toBe('eu_oss_vat');
     expect(be.taxMinor).toBeGreaterThan(0);
 
-    const us = computeTaxBreakdown({
+    const us = await computeTaxBreakdown({
       netMinor: 4900,
       currency: 'USD',
       identity: { country: 'US', region: 'TX', postalCode: '78701' },
@@ -182,7 +182,7 @@ describe('billing tax (net plan + tax at checkout)', () => {
     expect(us.taxMinor).toBe(0);
     expect(us.totalMinor).toBe(4900);
 
-    const au = computeTaxBreakdown({
+    const au = await computeTaxBreakdown({
       netMinor: 4900,
       currency: 'USD',
       identity: { country: 'AU' },

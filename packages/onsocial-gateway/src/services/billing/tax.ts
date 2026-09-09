@@ -8,10 +8,11 @@
  * - GB → UK VAT on net
  * - EU B2C → OSS standard VAT for buyer country (when enabled)
  * - EU B2B + VIES-verified VAT ID → reverse charge (0% on invoice)
- * - US → state sales tax when SaaS is taxable (ZIP required; local add-ons later)
+ * - US → Stripe Tax (ZIP-level) when BILLING_TAX_ENGINE=stripe; else state table
  * - CA → GST/HST by province
  * - Other registered destinations → national VAT/GST tables
  * - Else → out of scope (0%)
+ * - BILLING_TAX_COLLECT_COUNTRIES gates where we collect (GB always allowed)
  */
 
 import {
@@ -21,6 +22,7 @@ import {
   lookupNationalVat,
   lookupUsSalesTax,
 } from './tax-jurisdictions.js';
+import { quoteUsWithOptionalFallback } from './tax-engine.js';
 
 export type TaxTreatment =
   | 'uk_vat'
@@ -40,6 +42,9 @@ export interface BillingIdentity {
   region?: string | null;
   /** US ZIP / CA postal — required for US. */
   postalCode?: string | null;
+  /** Optional street / city for Stripe Tax accuracy. */
+  line1?: string | null;
+  city?: string | null;
   vatId?: string | null;
   companyName?: string | null;
   /**
@@ -254,11 +259,11 @@ export function splitInclusiveTotal(
   return { netMinor, taxMinor: totalMinor - netMinor };
 }
 
-export function computeTaxBreakdown(input: {
+export async function computeTaxBreakdown(input: {
   netMinor: number;
   currency: string;
   identity: BillingIdentity;
-}): TaxBreakdown {
+}): Promise<TaxBreakdown> {
   const country = normalizeCountryCode(input.identity.country);
   if (!country) {
     throw new Error('Invalid billing country');
@@ -354,6 +359,30 @@ export function computeTaxBreakdown(input: {
         note: 'US sales tax not collected — US not in BILLING_TAX_COLLECT_COUNTRIES.',
       };
     }
+
+    const engineQuote = await quoteUsWithOptionalFallback({
+      netMinor,
+      currency,
+      country: 'US',
+      region,
+      postalCode: postalCode || '',
+      line1: input.identity.line1,
+      city: input.identity.city,
+    });
+    if (engineQuote) {
+      return {
+        treatment: 'us_sales_tax',
+        currency,
+        netMinor,
+        taxMinor: engineQuote.taxMinor,
+        totalMinor: netMinor + engineQuote.taxMinor,
+        taxRateBps: engineQuote.taxRateBps,
+        note: engineQuote.calculationId
+          ? `${engineQuote.note} Calc ${engineQuote.calculationId}.`
+          : engineQuote.note,
+      };
+    }
+
     const us = lookupUsSalesTax(region);
     if (us && us.taxRateBps > 0) {
       const amounts = addTaxToNet(netMinor, us.taxRateBps);
@@ -362,7 +391,7 @@ export function computeTaxBreakdown(input: {
         currency,
         ...amounts,
         taxRateBps: us.taxRateBps,
-        note: us.note,
+        note: `${us.note} (built-in state estimate; set BILLING_TAX_ENGINE=stripe for ZIP-level rates).`,
       };
     }
     return {
