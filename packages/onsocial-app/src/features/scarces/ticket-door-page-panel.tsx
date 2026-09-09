@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -32,15 +31,14 @@ import {
   collectionRedeemPath,
 } from '@/lib/app-routes';
 import { DOOR_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 
 function DoorEmpty({ copy, dropHref }: { copy: ReactNode; dropHref?: string }) {
   return (
     <div className="market-page-empty">
       <p className="market-page-empty-copy">{copy}</p>
       {dropHref ? (
-        <Link className="app-soon-link" href={dropHref}>
-          Back to drop
-        </Link>
+        <OsEmptyAction href={dropHref}>Back to drop</OsEmptyAction>
       ) : null}
     </div>
   );

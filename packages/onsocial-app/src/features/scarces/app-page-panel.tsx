@@ -84,6 +84,7 @@ import {
   MARKET_APP_PARAM,
 } from '@/lib/app-routes';
 import { MARKET_PAGE_CLASS, osChromePageClassName } from '@/lib/os-chrome-page';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import {
@@ -476,12 +477,12 @@ export function AppPagePanel({
     return (
       <OsAppScreen title="Hub" dockBack backFallbackHref={hubBackHref}>
         <div className={MARKET_PAGE_CLASS}>
-          <p className="market-page-status">
-            This hub isn&rsquo;t available.{' '}
-            <Link className="app-soon-link" href={APP_APPS_PATH}>
-              Browse hubs
-            </Link>
-          </p>
+          <div className="market-page-empty">
+            <p className="market-page-empty-copy">
+              This hub isn&rsquo;t available.
+            </p>
+            <OsEmptyAction href={APP_APPS_PATH}>Browse hubs</OsEmptyAction>
+          </div>
         </div>
       </OsAppScreen>
     );
@@ -726,13 +727,12 @@ export function AppPagePanel({
                   <p className="standing-panel-empty-secondary">
                     Start the next drop here from Create.
                   </p>
-                  <Link
+                  <OsEmptyAction
                     href={createHref}
-                    className="page-drawer-section-action series-empty-create"
-                    scroll={false}
+                    className="series-empty-create"
                   >
                     Create a drop
-                  </Link>
+                  </OsEmptyAction>
                 </>
               ) : null}
             </div>

@@ -107,6 +107,7 @@ import {
   seriesPagePath,
 } from '@/lib/app-routes';
 import { MARKET_PAGE_CLASS, osChromePageClassName } from '@/lib/os-chrome-page';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   formatFutureRelativeTime,
@@ -705,14 +706,16 @@ export function CollectionPagePanel({
     return (
       <OsAppScreen title="Drop" dockBack backFallbackHref={catalogLeaveHref}>
         <div className={MARKET_PAGE_CLASS}>
-          <p className="market-page-status">
-            This drop isn’t available.{' '}
-            <Link className="app-soon-link" href={catalogLeaveHref}>
+          <div className="market-page-empty">
+            <p className="market-page-empty-copy">
+              This drop isn’t available.
+            </p>
+            <OsEmptyAction href={catalogLeaveHref}>
               {catalogLeaveHref === APP_DROPS_PATH
                 ? 'Back to Drops'
                 : 'Back to Collectibles'}
-            </Link>
-          </p>
+            </OsEmptyAction>
+          </div>
         </div>
       </OsAppScreen>
     );

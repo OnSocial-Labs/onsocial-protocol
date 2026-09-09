@@ -46,6 +46,7 @@ import {
   collectionPath,
 } from '@/lib/app-routes';
 import { osChromePageClassName } from '@/lib/os-chrome-page';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import {
   getOfflineAlbum,
   playablesFromOfflineAlbum,
@@ -479,12 +480,9 @@ export function CollectiblesPlayPanel({
               <p className="market-page-empty-copy">
                 Couldn’t open this collectible.
               </p>
-              <Link
-                className="page-drawer-section-action"
-                href={vaultBackHref}
-              >
+              <OsEmptyAction href={vaultBackHref}>
                 Back to Collectibles
-              </Link>
+              </OsEmptyAction>
             </div>
           ) : null
         ) : null}

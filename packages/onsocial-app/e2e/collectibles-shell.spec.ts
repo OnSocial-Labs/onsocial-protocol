@@ -8,6 +8,7 @@ import {
   stubCollectiblesVaultManyCreators,
 } from './helpers/collectibles-vault';
 import {
+  expectOsEmptyAction,
   expectSearchHidden,
   expectSearchVisible,
   expectTabSelected,
@@ -17,7 +18,6 @@ import {
 import { marketFilterTrigger, openMarketFilter } from './helpers/market';
 
 const KIND_RAIL = 'Collectible kind';
-const PILL_ACTION = /page-drawer-section-action/;
 
 async function expectEmptySitsUnderChrome(page: Page) {
   const empty = page.locator('.collectibles-page .market-page-empty');
@@ -44,9 +44,9 @@ test.describe('collectibles shell', () => {
     await expect(page.locator('.portfolio-summon-hint--connect')).toHaveText(
       'Connect'
     );
-    await expect(
+    await expectOsEmptyAction(
       page.getByRole('main').getByRole('link', { name: 'Browse Market' })
-    ).toHaveClass(PILL_ACTION);
+    );
     await expectEmptySitsUnderChrome(page);
     await expectSearchHidden(page, 'Search collectibles');
     await expect(page.getByRole('tablist', { name: KIND_RAIL })).toHaveCount(0);
@@ -60,9 +60,9 @@ test.describe('collectibles shell', () => {
     await expect(page.getByText('Nothing held yet.')).toBeVisible({
       timeout: 30_000,
     });
-    await expect(
+    await expectOsEmptyAction(
       page.getByRole('main').getByRole('link', { name: 'Browse Market' })
-    ).toHaveClass(PILL_ACTION);
+    );
     await expectEmptySitsUnderChrome(page);
     await expectSearchHidden(page, 'Search collectibles');
     await expect(page.getByRole('tablist', { name: KIND_RAIL })).toHaveCount(0);
@@ -176,7 +176,7 @@ test.describe('collectibles shell', () => {
     await expect(page.locator('[data-collectibles-loading]')).toHaveCount(0);
     await expect(page.getByText('No memberships held.')).toBeVisible();
     const showAll = page.getByRole('button', { name: 'Show all' });
-    await expect(showAll).toHaveClass(PILL_ACTION);
+    await expectOsEmptyAction(showAll);
     await expectEmptySitsUnderChrome(page);
     await page.screenshot({
       path: `${testInfo.outputDir}/collectibles-empty-filter.png`,

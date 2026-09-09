@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -49,6 +48,7 @@ import {
   APP_MARKET_PATH,
 } from '@/lib/app-routes';
 import { VAULT_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
   listOfflineAlbums,
@@ -803,9 +803,7 @@ export function CollectiblesPagePanel({
         <div className="market-page-empty">
           <p className="market-page-empty-copy">{COLLECTIBLES_CONNECT_HINT}</p>
           <div className="collectibles-empty-actions">
-            <Link className="page-drawer-section-action" href={APP_MARKET_PATH}>
-              Browse Market
-            </Link>
+            <OsEmptyAction href={APP_MARKET_PATH}>Browse Market</OsEmptyAction>
           </div>
         </div>
       ) : null}
@@ -842,27 +840,14 @@ export function CollectiblesPagePanel({
           </p>
           {isSelf ? (
             <div className="collectibles-empty-actions">
-              <Link
-                className="page-drawer-section-action"
-                href={APP_MARKET_PATH}
-              >
-                Browse Market
-              </Link>
-              <Link
-                className="page-drawer-section-action"
-                href={APP_DROP_CREATE_PATH}
-              >
+              <OsEmptyAction href={APP_MARKET_PATH}>Browse Market</OsEmptyAction>
+              <OsEmptyAction href={APP_DROP_CREATE_PATH}>
                 Create a drop
-              </Link>
+              </OsEmptyAction>
             </div>
           ) : (
             <div className="collectibles-empty-actions">
-              <Link
-                className="page-drawer-section-action"
-                href={APP_MARKET_PATH}
-              >
-                Browse Market
-              </Link>
+              <OsEmptyAction href={APP_MARKET_PATH}>Browse Market</OsEmptyAction>
             </div>
           )}
         </div>
@@ -882,13 +867,7 @@ export function CollectiblesPagePanel({
                 : `No ${emptyFilterLabel.toLowerCase()} held.`}
           </p>
           <div className="collectibles-empty-actions">
-            <button
-              type="button"
-              className="page-drawer-section-action"
-              onClick={clearDiscovery}
-            >
-              Show all
-            </button>
+            <OsEmptyAction onClick={clearDiscovery}>Show all</OsEmptyAction>
           </div>
         </div>
       ) : null}

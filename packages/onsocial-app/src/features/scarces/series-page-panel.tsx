@@ -43,6 +43,7 @@ import { SeriesShopRow } from '@/features/scarces/series-shop-row';
 import { accountIdsEqual } from '@/lib/account-match';
 import { dropCreatePath, marketCreatorPath } from '@/lib/app-routes';
 import { MARKET_PAGE_CLASS, osChromePageClassName } from '@/lib/os-chrome-page';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import {
   groupHoldingsForRail,
@@ -360,13 +361,12 @@ export function SeriesPagePanel({
                   <p className="standing-panel-empty-secondary">
                     Start the next drop in this line from Create.
                   </p>
-                  <Link
+                  <OsEmptyAction
                     href={dropCreatePath({ series: title })}
-                    className="page-drawer-section-action series-empty-create"
-                    scroll={false}
+                    className="series-empty-create"
                   >
                     Create a drop
-                  </Link>
+                  </OsEmptyAction>
                 </>
               ) : null}
             </div>

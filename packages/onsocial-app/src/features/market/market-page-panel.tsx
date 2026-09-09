@@ -29,7 +29,7 @@ import {
   marketCreatorScreenTitle,
   marketCreatorSearchPlaceholder,
 } from '@/features/market/market-creator-view';
-import { MarketEmptyAction } from '@/features/market/market-empty-action';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { partitionMarketListingsLiveFirst } from '@/features/market/market-listing-rank';
 import { MarketListingRow } from '@/features/market/market-listing-row';
@@ -1859,9 +1859,7 @@ export function MarketPagePanel({
               Nothing listed yet. List a scarce from a post, or sell one you own
               under Yours.
             </p>
-            <MarketEmptyAction href={APP_HOME_PATH}>
-              Back to Home
-            </MarketEmptyAction>
+            <OsEmptyAction href={APP_HOME_PATH}>Back to Home</OsEmptyAction>
           </div>
         ) : null}
 
@@ -1939,9 +1937,9 @@ export function MarketPagePanel({
             <p className="market-page-empty-copy">
               {marketCreatorEmptyCopy()}
             </p>
-            <MarketEmptyAction href={marketCreatorBackHref()}>
+            <OsEmptyAction href={marketCreatorBackHref()}>
               {marketCreatorBrowseLabel()}
-            </MarketEmptyAction>
+            </OsEmptyAction>
           </div>
         ) : null}
 
