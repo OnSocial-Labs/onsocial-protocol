@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import type { TransactionFeedback } from '@/components/ui/transaction-feedback-toast';
 import { waitForNearTransactionBatchConfirmation } from '@/lib/app-near-rpc';
+import { CONNECT_CONTINUE_ERROR } from '@/lib/app-connect-voice';
 import { nearExplorerTxHref } from '@/lib/app-config';
 
 type TrackNearTransactionParams = {
@@ -63,7 +64,7 @@ export function useNearTransactionFeedback(
       );
 
       if (!accountId) {
-        const msg = 'Connect wallet to continue.';
+        const msg = CONNECT_CONTINUE_ERROR;
         if (!silent) {
           setTxResult({ type: 'error', msg });
         }
