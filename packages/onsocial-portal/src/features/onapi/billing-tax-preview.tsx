@@ -7,39 +7,14 @@ import {
 } from '@/features/onapi/billing-api';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 
-/** Short, non-tutorial copy for the checkout summary. */
-function consumerSummary(preview: TaxPreviewInfo): {
-  eyebrow: string;
-  detail: string | null;
-} {
-  switch (preview.taxTreatment) {
-    case 'uk_vat_inclusive':
-      return {
-        eyebrow: 'You pay',
-        detail: `Includes VAT ${preview.taxFormatted} (${(
-          preview.taxRateBps / 100
-        ).toFixed(0)}%)`,
-      };
-    case 'eu_reverse_charge':
-      return {
-        eyebrow: 'You pay',
-        detail: 'Business VAT ID verified — reverse charge on your invoice',
-      };
-    case 'eu_b2c_unconfigured':
-      return {
-        eyebrow: 'You pay',
-        detail: preview.billingVatId
-          ? 'VAT ID will be checked at checkout'
-          : 'Personal / no VAT ID — same total',
-      };
-    case 'out_of_scope':
-      return {
-        eyebrow: 'You pay',
-        detail: 'No VAT on this invoice for your country',
-      };
-    default:
-      return { eyebrow: 'You pay', detail: null };
+function vatLineLabel(preview: TaxPreviewInfo): string {
+  if (preview.taxMinor > 0) {
+    return `VAT (${(preview.taxRateBps / 100).toFixed(0)}%)`;
   }
+  if (preview.taxTreatment === 'eu_reverse_charge') {
+    return 'VAT (reverse charge)';
+  }
+  return 'VAT';
 }
 
 export function useBillingTaxPreview(input: {
@@ -74,7 +49,6 @@ export function useBillingTaxPreview(input: {
 
     let cancelled = false;
     const vatTrimmed = vatId.trim();
-    // Verify EU VAT once the id looks complete enough; needs wallet JWT.
     const verifyVat = Boolean(jwt) && vatTrimmed.length >= 8;
     const timer = window.setTimeout(() => {
       setLoading(true);
@@ -118,6 +92,10 @@ export function useBillingTaxPreview(input: {
   };
 }
 
+/**
+ * Standard checkout math: subtotal → VAT → total.
+ * Country (+ optional business VAT ID) drives the numbers; no tutorial copy.
+ */
 export function BillingTaxPreviewPanel({
   preview,
   loading,
@@ -137,38 +115,34 @@ export function BillingTaxPreviewPanel({
 
   if (!preview && !loading) return null;
 
-  const summary = preview ? consumerSummary(preview) : null;
-
   return (
     <SurfacePanel
       radius="md"
       tone="inset"
       borderTone="subtle"
       padding="snug"
-      className="space-y-1.5"
+      className="space-y-2"
       aria-live="polite"
     >
       {loading && !preview ? (
-        <p className="text-xs text-muted-foreground">Updating total…</p>
-      ) : preview && summary ? (
-        <>
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="text-xs text-muted-foreground">
-              {summary.eyebrow}
-            </span>
-            <span className="text-lg font-semibold tabular-nums tracking-[-0.03em] text-foreground">
-              {preview.totalFormatted}
-              <span className="ml-1 text-xs font-normal text-muted-foreground">
-                /mo
-              </span>
-            </span>
-          </div>
-          {summary.detail ? (
-            <p className="text-right text-[11px] leading-relaxed text-muted-foreground/75">
-              {summary.detail}
-            </p>
-          ) : null}
-        </>
+        <p className="text-xs text-muted-foreground">Updating…</p>
+      ) : preview ? (
+        <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
+          <span className="text-muted-foreground">Subtotal</span>
+          <span className="text-right font-medium tabular-nums">
+            {preview.netFormatted}
+          </span>
+          <span className="text-muted-foreground">{vatLineLabel(preview)}</span>
+          <span className="text-right font-medium tabular-nums">
+            {preview.taxFormatted}
+          </span>
+          <span className="border-t border-border/40 pt-1.5 font-medium text-foreground">
+            Total
+          </span>
+          <span className="border-t border-border/40 pt-1.5 text-right text-base font-semibold tabular-nums tracking-[-0.02em]">
+            {preview.totalFormatted}
+          </span>
+        </div>
       ) : null}
     </SurfacePanel>
   );
