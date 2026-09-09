@@ -11,6 +11,7 @@ import {
 } from '@/contexts/dock-chrome-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
+import { syncOsScreenChromeHeight } from '@/lib/os-screen-chrome-height';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 
 /** Scroll tuck target — search+chip screens tuck the nav search; toolbar-only screens tuck chips. */
@@ -192,17 +193,22 @@ export function OsAppScreen({
     const body = bodyRef.current;
     if (!header || !body) return;
     const screen = header.closest<HTMLElement>('.os-app-screen');
+    const restingHeightRef = { current: 0 };
 
-    // Chrome height varies per screen (search bars, chip rails, auto-hide),
-    // so measure it — the body offsets content by this much.
+    // Measure resting chrome for body inset. While search/toolbar tuck is
+    // visual-only, freeze the last resting height so content does not jump
+    // (same contract as guild immersive rails).
     const syncHeight = () => {
-      screen?.style.setProperty(
-        '--os-screen-chrome-height',
-        `${header.offsetHeight}px`
-      );
+      syncOsScreenChromeHeight(screen, header, restingHeightRef);
     };
     const observer = new ResizeObserver(syncHeight);
     observer.observe(header);
+    const mutationObserver = new MutationObserver(syncHeight);
+    mutationObserver.observe(header, {
+      attributes: true,
+      attributeFilter: ['class'],
+      subtree: true,
+    });
     syncHeight();
 
     const syncElevated = () => {
@@ -212,6 +218,7 @@ export function OsAppScreen({
     body.addEventListener('scroll', syncElevated, { passive: true });
     return () => {
       observer.disconnect();
+      mutationObserver.disconnect();
       body.removeEventListener('scroll', syncElevated);
       screen?.style.removeProperty('--os-screen-chrome-height');
     };

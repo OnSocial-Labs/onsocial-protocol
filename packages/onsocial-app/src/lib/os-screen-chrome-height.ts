@@ -1,0 +1,44 @@
+/**
+ * Glass chrome inset sync — measure resting header height into
+ * `--os-screen-chrome-height`, and freeze that value while scroll-tuck is
+ * visual-only so body padding / catch-up chips do not jump.
+ *
+ * Guild immersive rails already tuck with transform + stable scroll-padding;
+ * compact glass Home / Discover / Market / DAO used to remasure on collapse.
+ */
+
+export function isOsAppChromeVisuallyTucked(header: HTMLElement): boolean {
+  if (header.classList.contains('is-search-tucked')) return true;
+  if (header.querySelector('.os-app-chrome-rail.is-scroll-hidden')) return true;
+  if (header.querySelector('.standing-toolbar-rail.is-scroll-hidden')) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Writes `--os-screen-chrome-height` from the fully revealed header.
+ * While tucked, reasserts the last resting height instead of the collapsed box.
+ */
+export function syncOsScreenChromeHeight(
+  screen: HTMLElement | null,
+  header: HTMLElement,
+  restingHeightRef: { current: number }
+): void {
+  if (!screen) return;
+
+  if (isOsAppChromeVisuallyTucked(header)) {
+    if (restingHeightRef.current > 0) {
+      screen.style.setProperty(
+        '--os-screen-chrome-height',
+        `${restingHeightRef.current}px`
+      );
+    }
+    return;
+  }
+
+  const height = header.offsetHeight;
+  if (height <= 0) return;
+  restingHeightRef.current = height;
+  screen.style.setProperty('--os-screen-chrome-height', `${height}px`);
+}
