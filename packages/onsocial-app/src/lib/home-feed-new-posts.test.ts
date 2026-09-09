@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PostRow } from '@onsocial/sdk';
 import {
   countUnseenFeedPosts,
+  EMPTY_UNSEEN_FEED_SUMMARY,
   feedPostKeySet,
   homeFeedNewPostsCountLabel,
   homeFeedNewPostsLabel,

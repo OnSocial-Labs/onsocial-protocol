@@ -84,12 +84,14 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { fetchIndexedPostsByRefs } from '@/lib/fetch-personal-post';
 import { parseSaveContentPath } from '@/lib/save-content-path';
 import {
+  EMPTY_UNSEEN_FEED_SUMMARY,
   feedPostKeySet,
   HOME_FEED_NEW_POLL_MS,
   HOME_FEED_NEW_PROBE_SIZE,
   homeFeedNewPostsCountLabel,
   pendingFeedOffsetShift,
   summarizeUnseenFeedPosts,
+  type UnseenFeedSummary,
 } from '@/lib/home-feed-new-posts';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 import { filterHiddenAuthors } from '@/lib/viewer-mute-block-filter';
@@ -296,8 +298,9 @@ export function HomePagePanel({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [engagementError, setEngagementError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
-  const [newPostCount, setNewPostCount] = useState(0);
-  const [newPostAuthors, setNewPostAuthors] = useState<string[]>([]);
+  const [unseenPosts, setUnseenPosts] = useState<UnseenFeedSummary>(
+    EMPTY_UNSEEN_FEED_SUMMARY
+  );
   const [lens, setLens] = useState<HomeFeedLens>('global');
   const [lensReady, setLensReady] = useState(false);
   const [sort, setSort] = useState<HomeFeedSort>('hot');
@@ -338,7 +341,7 @@ export function HomePagePanel({
   const amplifyHeatFloorsRef = useRef<Map<string, AmplifyHeatFloor>>(new Map());
   const seenPostKeysRef = useRef<Set<string>>(new Set());
   const newPostsProbeInFlightRef = useRef(false);
-  const newPostCountRef = useRef(0);
+  const newPostCountRef = useRef(0); // offset-shift probe; mirrors unseenPosts.count
   /** Head growth already folded into `nextOffset` by load-more compensation. */
   const offsetShiftAppliedRef = useRef(0);
   const isRefreshingRef = useRef(false);
@@ -362,8 +365,8 @@ export function HomePagePanel({
   }, [isRefreshing]);
 
   useEffect(() => {
-    newPostCountRef.current = newPostCount;
-  }, [newPostCount]);
+    newPostCountRef.current = unseenPosts.count;
+  }, [unseenPosts.count]);
 
   useEffect(() => {
     isLoadingRef.current = isLoading;
@@ -528,8 +531,7 @@ export function HomePagePanel({
     setStandingNetworkIds(null);
     setEngagementError(null);
     setLoadError(null);
-    setNewPostCount(0);
-    setNewPostAuthors([]);
+    setUnseenPosts(EMPTY_UNSEEN_FEED_SUMMARY);
     newPostCountRef.current = 0;
     offsetShiftAppliedRef.current = 0;
 
@@ -761,8 +763,8 @@ export function HomePagePanel({
   }, []);
 
   const applyNewPosts = useCallback(() => {
-    setNewPostCount(0);
-    setNewPostAuthors([]);
+    setUnseenPosts(EMPTY_UNSEEN_FEED_SUMMARY);
+    newPostCountRef.current = 0;
     scrollRootRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     setReloadNonce((value) => value + 1);
   }, []);
@@ -817,8 +819,7 @@ export function HomePagePanel({
           viewerAccountId: accountId,
         }
       );
-      setNewPostCount(summary.count);
-      setNewPostAuthors(summary.authorIds);
+      setUnseenPosts(summary);
     } catch {
       // Quiet — pill is best-effort; list stays as-is.
     } finally {
@@ -854,8 +855,7 @@ export function HomePagePanel({
 
   const onConfirmed = useCallback((post: PostRow) => {
     if (!shouldPrependOptimisticFeedPost(post)) return;
-    setNewPostCount(0);
-    setNewPostAuthors([]);
+    setUnseenPosts(EMPTY_UNSEEN_FEED_SUMMARY);
     newPostCountRef.current = 0;
     setPosts((current) => insertOptimisticFeedPost(current, post));
   }, []);
@@ -901,7 +901,7 @@ export function HomePagePanel({
   const showEmpty =
     !isLoading && !isRefreshing && !loadError && visiblePosts.length === 0;
   const showFeed = visiblePosts.length > 0;
-  const newPostsCountLabel = homeFeedNewPostsCountLabel(newPostCount);
+  const newPostsCountLabel = homeFeedNewPostsCountLabel(unseenPosts.count);
   const showNewPostsPill =
     Boolean(newPostsCountLabel) && showFeed && !isRefreshing && !isLoading;
   const toolbarHidden = useDockAutoHide(false, scrollRootRef);
@@ -988,16 +988,16 @@ export function HomePagePanel({
 
           {sheet}
         </OsAppChromePage>
-      </OsAppScreen>
 
-      {showNewPostsPill ? (
-        <HomeFeedNewPostsChip
-          count={newPostCount}
-          authorIds={newPostAuthors}
-          hidden={toolbarHidden}
-          onClick={applyNewPosts}
-        />
-      ) : null}
+        {showNewPostsPill ? (
+          <HomeFeedNewPostsChip
+            count={unseenPosts.count}
+            authorIds={unseenPosts.authorIds}
+            hidden={toolbarHidden}
+            onClick={applyNewPosts}
+          />
+        ) : null}
+      </OsAppScreen>
 
       <HomeSavedFeedSheet
         open={savedFeedSheetOpen}

@@ -17,6 +17,11 @@ export type UnseenFeedSummary = {
   authorIds: string[];
 };
 
+export const EMPTY_UNSEEN_FEED_SUMMARY: UnseenFeedSummary = {
+  count: 0,
+  authorIds: [],
+};
+
 /** Count head-page posts the viewer has not loaded yet + unique authors. */
 export function summarizeUnseenFeedPosts(
   head: readonly PostRow[],

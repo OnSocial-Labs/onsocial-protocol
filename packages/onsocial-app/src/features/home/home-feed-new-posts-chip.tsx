@@ -1,7 +1,6 @@
 'use client';
 
 import { AccountAvatar } from '@/components/profile/account-avatar';
-import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
   HOME_FEED_NEW_AVATAR_SLOTS,
@@ -11,8 +10,9 @@ import {
 import { fallbackLabel } from '@/lib/profile-display';
 
 /**
- * Catch-up chip under home header — dock frost + mood, ≤3 faces, compact count.
- * Parent owns scroll-hide (same tuck as home chrome).
+ * Catch-up chip under home header — dock frost tokens, ≤3 faces, compact count.
+ * Parent owns scroll-hide (same tuck as home chrome). Mounted inside
+ * `OsAppScreen` so `--os-dock-*` inherits from the shared dock frost rules.
  */
 export function HomeFeedNewPostsChip({
   count,
@@ -29,7 +29,6 @@ export function HomeFeedNewPostsChip({
   const ariaLabel = homeFeedNewPostsLabel(count);
   const faces = authorIds.slice(0, HOME_FEED_NEW_AVATAR_SLOTS);
   const profiles = usePostAuthorProfiles(faces);
-  const { moodId, style: moodStyle } = useViewerDockMood();
 
   if (!countLabel) return null;
 
@@ -41,8 +40,6 @@ export function HomeFeedNewPostsChip({
       <button
         type="button"
         className="home-feed-new-posts-pill"
-        data-mood={moodId ?? undefined}
-        style={moodStyle}
         aria-label={ariaLabel}
         onClick={onClick}
       >
