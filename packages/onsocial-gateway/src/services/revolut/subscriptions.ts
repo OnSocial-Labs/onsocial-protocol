@@ -89,6 +89,9 @@ export interface SubscriptionRecord {
   /** Buyer VAT verified via VIES at subscribe (EU reverse charge). */
   billingVatVerified: boolean;
   billingViesRequestId: string | null;
+  /** US state / CA province. */
+  billingRegion: string | null;
+  billingPostalCode: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -138,6 +141,8 @@ class MemoryStore implements SubscriptionStore {
       billingVatId: record.billingVatId ?? null,
       billingVatVerified: Boolean(record.billingVatVerified),
       billingViesRequestId: record.billingViesRequestId ?? null,
+      billingRegion: record.billingRegion ?? null,
+      billingPostalCode: record.billingPostalCode ?? null,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
     });
@@ -283,6 +288,8 @@ export class HasuraStore implements SubscriptionStore {
       billingVatId: (row.billingVatId as string) || null,
       billingVatVerified: Boolean(row.billingVatVerified),
       billingViesRequestId: (row.billingViesRequestId as string) || null,
+      billingRegion: (row.billingRegion as string) || null,
+      billingPostalCode: (row.billingPostalCode as string) || null,
       createdAt: row.createdAt as string,
       updatedAt: row.updatedAt as string,
     };
@@ -296,6 +303,7 @@ export class HasuraStore implements SubscriptionStore {
     graceTier gracePeriodEnd
     billingEmail billingCountry billingCompanyName billingVatId
     billingVatVerified billingViesRequestId
+    billingRegion billingPostalCode
     createdAt updatedAt
   `;
 
@@ -335,6 +343,8 @@ export class HasuraStore implements SubscriptionStore {
           billingVatId: record.billingVatId,
           billingVatVerified: Boolean(record.billingVatVerified),
           billingViesRequestId: record.billingViesRequestId,
+          billingRegion: record.billingRegion,
+          billingPostalCode: record.billingPostalCode,
           updatedAt: new Date().toISOString(),
         },
       }
@@ -365,6 +375,8 @@ export class HasuraStore implements SubscriptionStore {
         $billingVatId: String
         $billingVatVerified: Boolean!
         $billingViesRequestId: String
+        $billingRegion: String
+        $billingPostalCode: String
         $now: timestamptz!
       ) {
         updateDeveloperSubscriptions(
@@ -388,6 +400,8 @@ export class HasuraStore implements SubscriptionStore {
             billingVatId: $billingVatId
             billingVatVerified: $billingVatVerified
             billingViesRequestId: $billingViesRequestId
+            billingRegion: $billingRegion
+            billingPostalCode: $billingPostalCode
             updatedAt: $now
           }
         ) { affectedRows }
@@ -412,6 +426,8 @@ export class HasuraStore implements SubscriptionStore {
         billingVatId: record.billingVatId,
         billingVatVerified: Boolean(record.billingVatVerified),
         billingViesRequestId: record.billingViesRequestId,
+        billingRegion: record.billingRegion,
+        billingPostalCode: record.billingPostalCode,
         now: new Date().toISOString(),
       }
     );
@@ -427,7 +443,7 @@ export class HasuraStore implements SubscriptionStore {
             object: $obj
             on_conflict: {
               constraint: developerSubscriptionsAccountIdKey
-              update_columns: [tier, status, revolutSubscriptionId, revolutCustomerId, revolutSetupOrderId, revolutLastOrderId, promotionCode, promotionCyclesRemaining, currentPeriodStart, currentPeriodEnd, graceTier, gracePeriodEnd, billingEmail, billingCountry, billingCompanyName, billingVatId, billingVatVerified, billingViesRequestId, updatedAt]
+              update_columns: [tier, status, revolutSubscriptionId, revolutCustomerId, revolutSetupOrderId, revolutLastOrderId, promotionCode, promotionCyclesRemaining, currentPeriodStart, currentPeriodEnd, graceTier, gracePeriodEnd, billingEmail, billingCountry, billingCompanyName, billingVatId, billingVatVerified, billingViesRequestId, billingRegion, billingPostalCode, updatedAt]
             }
           ) { id }
         }`,
@@ -453,6 +469,8 @@ export class HasuraStore implements SubscriptionStore {
             billingVatId: record.billingVatId,
             billingVatVerified: Boolean(record.billingVatVerified),
             billingViesRequestId: record.billingViesRequestId,
+            billingRegion: record.billingRegion,
+            billingPostalCode: record.billingPostalCode,
             updatedAt: new Date().toISOString(),
           },
         }

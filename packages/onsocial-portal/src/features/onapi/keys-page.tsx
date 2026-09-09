@@ -82,6 +82,11 @@ import {
 } from '@/features/onapi/billing-api';
 import { BILLING_COUNTRY_SELECT_OPTIONS } from '@/features/onapi/billing-countries';
 import {
+  countryNeedsPostal,
+  countryNeedsRegion,
+  regionSelectOptions,
+} from '@/features/onapi/billing-regions';
+import {
   BillingTaxPreviewPanel,
   useBillingTaxPreview,
 } from '@/features/onapi/billing-tax-preview';
@@ -446,6 +451,8 @@ export default function OnApiKeysPage() {
 
   const [billingEmail, setBillingEmail] = useState('');
   const [billingCountry, setBillingCountry] = useState('GB');
+  const [billingRegion, setBillingRegion] = useState('');
+  const [billingPostalCode, setBillingPostalCode] = useState('');
   const [billingCompanyName, setBillingCompanyName] = useState('');
   const [billingVatId, setBillingVatId] = useState('');
   const [emailTouched, setEmailTouched] = useState(false);
@@ -788,7 +795,13 @@ export default function OnApiKeysPage() {
     ACTIVE_API_URL.includes('localhost') && subscription?.status === 'pending';
   const quickStartExpanded = !hasKeys || quickStartOpen;
   const emailValid = EMAIL_RE.test(billingEmail.trim());
-  const billingReady = emailValid && Boolean(billingCountry);
+  const needsRegion = countryNeedsRegion(billingCountry);
+  const needsPostal = countryNeedsPostal(billingCountry);
+  const billingReady =
+    emailValid &&
+    Boolean(billingCountry) &&
+    (!needsRegion || Boolean(billingRegion)) &&
+    (!needsPostal || Boolean(billingPostalCode.trim()));
   const showEmailHint =
     emailTouched && billingEmail.trim().length > 0 && !emailValid;
 
@@ -796,6 +809,8 @@ export default function OnApiKeysPage() {
     jwt,
     tier: targetPlan?.tier ?? requestedTier,
     country: billingCountry,
+    region: billingRegion,
+    postalCode: billingPostalCode,
     companyName: billingCompanyName,
     vatId: billingVatId,
     enabled: showUpgradePanel,
@@ -814,6 +829,8 @@ export default function OnApiKeysPage() {
       const result = await subscribe(token, requestedTier, {
         email: billingEmail.trim(),
         country: billingCountry,
+        region: billingRegion,
+        postalCode: billingPostalCode,
         companyName: billingCompanyName,
         vatId: billingVatId,
       });
@@ -826,6 +843,8 @@ export default function OnApiKeysPage() {
     ensureAuth,
     billingEmail,
     billingCountry,
+    billingRegion,
+    billingPostalCode,
     billingCompanyName,
     billingVatId,
     requestedTier,
@@ -1401,13 +1420,56 @@ export default function OnApiKeysPage() {
                   </div>
                   <PortalFieldSelect
                     value={billingCountry}
-                    onChange={setBillingCountry}
+                    onChange={(code) => {
+                      setBillingCountry(code);
+                      setBillingRegion('');
+                      setBillingPostalCode('');
+                    }}
                     options={BILLING_COUNTRY_SELECT_OPTIONS}
                     ariaLabel="Billing country"
                     placeholder="Billing country"
                     compact
                     triggerClassName="border-border/40 bg-background/45 tracking-[-0.01em]"
                   />
+                  {needsRegion ? (
+                    <PortalFieldSelect
+                      value={billingRegion}
+                      onChange={setBillingRegion}
+                      options={regionSelectOptions(billingCountry)}
+                      ariaLabel={
+                        billingCountry === 'US'
+                          ? 'Billing state'
+                          : 'Billing province'
+                      }
+                      placeholder={
+                        billingCountry === 'US'
+                          ? 'State'
+                          : 'Province / territory'
+                      }
+                      compact
+                      triggerClassName="border-border/40 bg-background/45 tracking-[-0.01em]"
+                    />
+                  ) : null}
+                  {needsPostal ? (
+                    <SurfacePanel
+                      radius="md"
+                      tone="inset"
+                      borderTone="subtle"
+                      padding="none"
+                      className="px-3 py-2.5"
+                    >
+                      <input
+                        id="billing-zip"
+                        type="text"
+                        value={billingPostalCode}
+                        onChange={(e) => setBillingPostalCode(e.target.value)}
+                        placeholder="ZIP code"
+                        inputMode="numeric"
+                        autoComplete="postal-code"
+                        className="w-full bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
+                      />
+                    </SurfacePanel>
+                  ) : null}
                   <SurfacePanel
                     radius="md"
                     tone="inset"

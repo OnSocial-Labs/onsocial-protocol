@@ -528,6 +528,34 @@ describe('subscription routes', () => {
     expect(pending.body.taxNote).toMatch(/VIES/i);
   });
 
+  it('previews US sales tax when state and ZIP are provided', async () => {
+    const res = await request(createPublicApp())
+      .post('/developer/tax-preview')
+      .send({
+        tier: 'pro',
+        country: 'US',
+        region: 'TX',
+        postalCode: '78701',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      taxTreatment: 'us_sales_tax',
+      taxRateBps: 625,
+      netMinor: 4900,
+      totalMinor: 5206,
+    });
+  });
+
+  it('rejects US tax preview without a ZIP code', async () => {
+    const res = await request(createPublicApp())
+      .post('/developer/tax-preview')
+      .send({ tier: 'pro', country: 'US', region: 'TX' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/ZIP/i);
+  });
+
   it('rejects tax preview without a billing country', async () => {
     const res = await request(createPublicApp())
       .post('/developer/tax-preview')

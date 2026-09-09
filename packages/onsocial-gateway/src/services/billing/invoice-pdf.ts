@@ -44,6 +44,12 @@ function treatmentLabel(treatment: string): string {
       return 'EU reverse charge (Art. 196)';
     case 'eu_b2c_unconfigured':
       return 'EU B2C (VAT OSS pending)';
+    case 'us_sales_tax':
+      return 'US sales tax';
+    case 'ca_gst':
+      return 'Canada GST/HST';
+    case 'destination_vat':
+      return 'Destination VAT/GST';
     case 'out_of_scope':
       return 'Out of scope';
     default:
@@ -83,6 +89,12 @@ function buildLines(invoice: InvoiceRecord): Line[] {
   push(invoice.billingEmail);
   push(`NEAR account: ${invoice.accountId}`);
   push(`Billing country: ${invoice.billingCountry}`);
+  if (invoice.billingRegion) {
+    push(`Region: ${invoice.billingRegion}`);
+  }
+  if (invoice.billingPostalCode) {
+    push(`Postal / ZIP: ${invoice.billingPostalCode}`);
+  }
   if (invoice.billingVatId) {
     push(
       `VAT / tax ID: ${invoice.billingVatId}${invoice.vatVerified ? ' (VIES verified)' : ''}`

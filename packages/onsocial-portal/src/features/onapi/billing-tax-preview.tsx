@@ -16,6 +16,15 @@ function vatLineLabel(preview: TaxPreviewInfo): string {
     if (preview.taxTreatment === 'uk_vat') {
       return `VAT (${rate}%)`;
     }
+  if (preview.taxTreatment === 'us_sales_tax') {
+      return `Sales tax (${rate}%)`;
+    }
+    if (preview.taxTreatment === 'ca_gst') {
+      return `GST/HST (${rate}%)`;
+    }
+    if (preview.taxTreatment === 'destination_vat') {
+      return `VAT/GST (${rate}%)`;
+    }
     return `Tax (${rate}%)`;
   }
   if (preview.taxTreatment === 'eu_reverse_charge') {
@@ -34,6 +43,8 @@ export function useBillingTaxPreview(input: {
   jwt: string | null;
   tier: string | null | undefined;
   country: string;
+  region?: string;
+  postalCode?: string;
   companyName?: string;
   vatId?: string;
   enabled?: boolean;
@@ -46,6 +57,8 @@ export function useBillingTaxPreview(input: {
     jwt,
     tier,
     country,
+    region = '',
+    postalCode = '',
     companyName = '',
     vatId = '',
     enabled = true,
@@ -53,7 +66,13 @@ export function useBillingTaxPreview(input: {
   const [preview, setPreview] = useState<TaxPreviewInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const active = Boolean(enabled && tier && country);
+  const needsRegion = country === 'US' || country === 'CA';
+  const needsPostal = country === 'US';
+  const locationReady =
+    Boolean(country) &&
+    (!needsRegion || Boolean(region.trim())) &&
+    (!needsPostal || Boolean(postalCode.trim()));
+  const active = Boolean(enabled && tier && locationReady);
 
   useEffect(() => {
     if (!active || !tier || !country) {
@@ -69,6 +88,8 @@ export function useBillingTaxPreview(input: {
         {
           tier,
           country,
+          region: region.trim() || undefined,
+          postalCode: postalCode.trim() || undefined,
           companyName,
           vatId: vatTrimmed || undefined,
           verifyVat,
@@ -96,7 +117,7 @@ export function useBillingTaxPreview(input: {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [active, jwt, tier, country, companyName, vatId]);
+  }, [active, jwt, tier, country, region, postalCode, companyName, vatId]);
 
   return {
     preview: active ? preview : null,

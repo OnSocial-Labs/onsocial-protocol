@@ -112,6 +112,8 @@ export async function fetchSubscription(jwt: string): Promise<{
 export interface SubscribeBillingDetails {
   email: string;
   country: string;
+  region?: string;
+  postalCode?: string;
   companyName?: string;
   vatId?: string;
 }
@@ -140,6 +142,8 @@ export interface TaxPreviewInfo {
 export interface TaxPreviewInput {
   tier: string;
   country: string;
+  region?: string;
+  postalCode?: string;
   companyName?: string;
   vatId?: string;
   /** When true, EU VAT IDs are checked via VIES (use on blur / settled input). */
@@ -162,6 +166,10 @@ export async function fetchTaxPreview(
     body: JSON.stringify({
       tier: input.tier,
       country: input.country,
+      ...(input.region?.trim() && { region: input.region.trim() }),
+      ...(input.postalCode?.trim() && {
+        postalCode: input.postalCode.trim(),
+      }),
       ...(input.companyName?.trim() && {
         companyName: input.companyName.trim(),
       }),
@@ -192,6 +200,10 @@ export async function subscribe(
       tier,
       email: billing.email,
       country: billing.country,
+      ...(billing.region?.trim() && { region: billing.region.trim() }),
+      ...(billing.postalCode?.trim() && {
+        postalCode: billing.postalCode.trim(),
+      }),
       ...(billing.companyName?.trim() && {
         companyName: billing.companyName.trim(),
       }),

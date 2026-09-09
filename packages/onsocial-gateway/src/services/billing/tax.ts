@@ -8,20 +8,38 @@
  * - GB → UK VAT on net
  * - EU B2C → OSS standard VAT for buyer country (when enabled)
  * - EU B2B + VIES-verified VAT ID → reverse charge (0% on invoice)
- * - Rest of world → out of scope until a jurisdiction is registered (0% today)
+ * - US → state sales tax when SaaS is taxable (ZIP required; local add-ons later)
+ * - CA → GST/HST by province
+ * - Other registered destinations → national VAT/GST tables
+ * - Else → out of scope (0%)
  */
+
+import {
+  countryRequiresPostal,
+  countryRequiresRegion,
+  lookupCaGst,
+  lookupNationalVat,
+  lookupUsSalesTax,
+} from './tax-jurisdictions.js';
 
 export type TaxTreatment =
   | 'uk_vat'
   | 'eu_oss_vat'
   | 'eu_reverse_charge'
   | 'eu_b2c_unconfigured'
+  | 'us_sales_tax'
+  | 'ca_gst'
+  | 'destination_vat'
   | 'out_of_scope'
   /** @deprecated Legacy invoices — UK VAT extracted from inclusive total */
   | 'uk_vat_inclusive';
 
 export interface BillingIdentity {
   country: string;
+  /** US state / CA province (ISO-like 2-letter). */
+  region?: string | null;
+  /** US ZIP / CA postal — required for US. */
+  postalCode?: string | null;
   vatId?: string | null;
   companyName?: string | null;
   /**
@@ -119,6 +137,37 @@ export function normalizeVatId(
   if (cleaned.length < 4 || cleaned.length > 20) return null;
   if (!/^[A-Z0-9]+$/.test(cleaned)) return null;
   return cleaned;
+}
+
+export function normalizeRegionCode(
+  country: string,
+  input: string | null | undefined
+): string | null {
+  if (!input) return null;
+  const code = input.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(code)) return null;
+  if (country === 'US' || country === 'CA') return code;
+  return code;
+}
+
+export function normalizePostalCode(
+  country: string,
+  input: string | null | undefined
+): string | null {
+  if (!input) return null;
+  const raw = input.trim().toUpperCase();
+  if (country === 'US') {
+    const compact = raw.replace(/\s+/g, '');
+    if (!/^\d{5}(-\d{4})?$/.test(compact)) return null;
+    return compact;
+  }
+  if (country === 'CA') {
+    const compact = raw.replace(/\s+/g, '');
+    if (!/^[A-Z]\d[A-Z]\d[A-Z]\d$/.test(compact)) return null;
+    return `${compact.slice(0, 3)} ${compact.slice(3)}`;
+  }
+  if (raw.length < 3 || raw.length > 12) return null;
+  return raw;
 }
 
 export function getUkVatRateBps(): number {
@@ -237,6 +286,73 @@ export function computeTaxBreakdown(input: {
       note: vatId
         ? 'EU VAT ID present but not VIES-verified — reverse charge not applied; OSS VAT not configured.'
         : 'EU buyer without VAT ID — OSS VAT not configured; net price only until OSS is enabled.',
+    };
+  }
+
+  const region = normalizeRegionCode(country, input.identity.region);
+  const postalCode = normalizePostalCode(country, input.identity.postalCode);
+
+  if (countryRequiresRegion(country) && !region) {
+    throw new Error(
+      country === 'US'
+        ? 'US billing state is required'
+        : 'Canadian province is required'
+    );
+  }
+  if (countryRequiresPostal(country) && !postalCode) {
+    throw new Error('US ZIP code is required');
+  }
+
+  if (country === 'US' && region) {
+    const us = lookupUsSalesTax(region);
+    if (us && us.taxRateBps > 0) {
+      const amounts = addTaxToNet(netMinor, us.taxRateBps);
+      return {
+        treatment: us.treatment,
+        currency,
+        ...amounts,
+        taxRateBps: us.taxRateBps,
+        note: us.note,
+      };
+    }
+    return {
+      treatment: 'us_sales_tax',
+      currency,
+      netMinor,
+      taxMinor: 0,
+      totalMinor: netMinor,
+      taxRateBps: 0,
+      note: us?.note || `No US sales tax collected for ${region}.`,
+    };
+  }
+
+  if (country === 'CA') {
+    if (!region) {
+      throw new Error('Canadian province is required');
+    }
+    const ca = lookupCaGst(region);
+    if (!ca) {
+      throw new Error('Invalid Canadian province');
+    }
+    const amounts = addTaxToNet(netMinor, ca.taxRateBps);
+    return {
+      treatment: ca.treatment,
+      currency,
+      ...amounts,
+      taxRateBps: ca.taxRateBps,
+      note: ca.note,
+    };
+  }
+
+  const national = lookupNationalVat(country);
+  if (national) {
+    const amounts = addTaxToNet(netMinor, national.taxRateBps);
+    return {
+      treatment: national.treatment,
+      currency,
+      ...amounts,
+      taxRateBps: national.taxRateBps,
+      note: national.note,
     };
   }
 

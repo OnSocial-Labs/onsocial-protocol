@@ -109,11 +109,56 @@ describe('billing tax (net plan + tax at checkout)', () => {
     const breakdown = computeTaxBreakdown({
       netMinor: 4900,
       currency: 'USD',
-      identity: { country: 'US' },
+      identity: { country: 'HK' },
     });
     expect(breakdown.treatment).toBe('out_of_scope');
     expect(breakdown.taxMinor).toBe(0);
     expect(breakdown.totalMinor).toBe(4900);
+  });
+
+  it('applies US sales tax for taxable SaaS states when ZIP is present', () => {
+    const breakdown = computeTaxBreakdown({
+      netMinor: 4900,
+      currency: 'USD',
+      identity: { country: 'US', region: 'TX', postalCode: '78701' },
+    });
+    expect(breakdown.treatment).toBe('us_sales_tax');
+    expect(breakdown.taxRateBps).toBe(625);
+    expect(breakdown.taxMinor).toBe(306);
+    expect(breakdown.totalMinor).toBe(5206);
+  });
+
+  it('requires US state and ZIP', () => {
+    expect(() =>
+      computeTaxBreakdown({
+        netMinor: 4900,
+        currency: 'USD',
+        identity: { country: 'US' },
+      })
+    ).toThrow(/state/i);
+  });
+
+  it('applies Canada GST/HST by province', () => {
+    const breakdown = computeTaxBreakdown({
+      netMinor: 4900,
+      currency: 'USD',
+      identity: { country: 'CA', region: 'ON' },
+    });
+    expect(breakdown.treatment).toBe('ca_gst');
+    expect(breakdown.taxRateBps).toBe(1300);
+    expect(breakdown.totalMinor).toBe(4900 + 637);
+  });
+
+  it('applies national VAT/GST for Australia', () => {
+    const breakdown = computeTaxBreakdown({
+      netMinor: 4900,
+      currency: 'USD',
+      identity: { country: 'AU' },
+    });
+    expect(breakdown.treatment).toBe('destination_vat');
+    expect(breakdown.taxRateBps).toBe(1000);
+    expect(breakdown.taxMinor).toBe(490);
+    expect(breakdown.totalMinor).toBe(5390);
   });
 });
 
