@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { canonicalAccountId } from '@/lib/account-match';
+import { connectBefore } from '@/lib/connect-continue-voice';
 import {
   ensureAppGatewayAuth,
   getCachedAppGatewayAuth,
@@ -132,7 +133,7 @@ export function useViewerMute(options: UseViewerMuteOptions = {}) {
     async (targetAccountId: string, shouldMute: boolean): Promise<void> => {
       const target = canonicalAccountId(targetAccountId);
       if (!isConnected) {
-        throw new Error('Connect your wallet before updating mutes.');
+        throw new Error(connectBefore('updating mutes'));
       }
       if (viewerAccountId && canonicalAccountId(viewerAccountId) === target) {
         throw new Error('You cannot mute yourself.');

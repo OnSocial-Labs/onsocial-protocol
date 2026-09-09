@@ -16,6 +16,7 @@ import {
 } from '@onsocial/sdk';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { creditAppPlatformReward } from '@/lib/app-platform-rewards';
+import { connectBefore } from '@/lib/connect-continue-voice';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import type { PublicPageConfig, ResolvedPageHero } from '@/lib/page-data';
 import {
@@ -197,7 +198,7 @@ export function useAppProfileEditor(
   const saveProfile = useCallback(
     async (input: ProfileEditorSaveInput): Promise<ProfileEditorSaveResult> => {
       if (!accountId) {
-        throw new Error('Connect your wallet before saving a profile.');
+        throw new Error(connectBefore('saving a profile'));
       }
 
       const name = input.name.trim();

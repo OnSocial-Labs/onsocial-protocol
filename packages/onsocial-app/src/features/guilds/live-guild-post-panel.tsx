@@ -21,6 +21,7 @@ import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
 import {
   writeDockDraftKey,
   WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
+  writeDockReplySpokenName,
 } from '@/lib/os-write-dock';
 import {
   clearWriteDockDraft,
@@ -690,14 +691,17 @@ export function LiveGuildPostPanel({
     root && writeTarget && postKey(writeTarget) !== postKey(root)
   );
   const writeName = writeTarget
-    ? postAuthorProfiles[writeTarget.accountId]?.displayName
-    : null;
+    ? writeDockReplySpokenName(
+        writeTarget.accountId,
+        postAuthorProfiles[writeTarget.accountId]?.displayName
+      )
+    : '';
   const threadDraftKey = root
     ? writeDockDraftKey('post', postKey(root))
     : undefined;
-  const writeAbove = nestedDockReply ? (
+  const writeAbove = nestedDockReply && writeName ? (
     <OsWriteDockReplyChip
-      label={writeName?.trim() || 'this post'}
+      label={writeName}
       onCancel={() => setDockTarget(null)}
     />
   ) : null;

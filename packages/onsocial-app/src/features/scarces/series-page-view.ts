@@ -5,7 +5,7 @@ import {
 import { peekOwnedVaultPage } from '@/features/market/owned-vault-cache';
 import { accountIdsEqual } from '@/lib/account-match';
 import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
-import { fallbackLabel } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 
 export type SeriesHoldMatch = {
   creatorId: string;
@@ -54,10 +54,13 @@ export function seriesShopActionLabel(status: string): string {
   return status === 'live' ? 'Collect' : 'Open';
 }
 
-/** Compact @handle on multi-creator shop rows — same voice as Collectibles. */
-export function shopRowCreatorHandle(creatorId: string): string {
+/** Compact spoken name on multi-creator shop rows — same voice as lists. */
+export function shopRowCreatorLabel(
+  creatorId: string,
+  profileName?: string | null
+): string {
   const id = creatorId.trim();
-  return id ? `@${fallbackLabel(id)}` : '';
+  return id ? displayName(id, profileName) : '';
 }
 
 /** Creator or someone who holds an edition in this line. */

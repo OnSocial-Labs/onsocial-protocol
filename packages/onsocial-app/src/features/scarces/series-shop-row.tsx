@@ -9,7 +9,7 @@ import {
 } from '@/features/scarces/collections-data';
 import {
   seriesShopActionLabel,
-  shopRowCreatorHandle,
+  shopRowCreatorLabel,
 } from '@/features/scarces/series-page-view';
 import { collectionPath } from '@/lib/app-routes';
 
@@ -29,8 +29,8 @@ export function SeriesShopRow({
   const status = deriveCollectionStatus(view, nowMs);
   const action = seriesShopActionLabel(status);
   const href = collectionPath(view.collectionId);
-  const creatorHandle = showCreator
-    ? shopRowCreatorHandle(view.creatorId)
+  const creatorLabel = showCreator
+    ? shopRowCreatorLabel(view.creatorId)
     : '';
   const price =
     view.priceNear != null && view.priceNear !== '0'
@@ -70,10 +70,10 @@ export function SeriesShopRow({
             {view.kind ? (
               <span className="market-listing-own"> · {view.kind}</span>
             ) : null}
-            {creatorHandle ? (
+            {creatorLabel ? (
               <span className="market-listing-own">
                 {' · '}
-                {creatorHandle}
+                {creatorLabel}
               </span>
             ) : null}
             <span> · {price}</span>

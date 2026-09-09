@@ -1,6 +1,7 @@
 import {
   POST_TEXT_MAX_LENGTH,
 } from '@/lib/post-display';
+import { displayName } from '@/lib/profile-display';
 
 export const WRITE_DOCK_MOBILE_MAX_WIDTH_PX = 767;
 
@@ -98,6 +99,14 @@ export function writeDockInputHeightPx(
 export function writeDockReplyPlaceholder(name?: string | null): string {
   const trimmed = name?.trim();
   return trimmed ? `Reply to ${trimmed}…` : WRITE_DOCK_ADD_REPLY_PLACEHOLDER;
+}
+
+/** Reply chip — spoken name, never the raw id or “this post”. */
+export function writeDockReplySpokenName(
+  accountId: string,
+  profileName?: string | null
+): string {
+  return displayName(accountId, profileName);
 }
 
 export function writeDockIsThoughtEnlarge(

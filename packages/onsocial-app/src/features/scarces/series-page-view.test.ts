@@ -14,7 +14,7 @@ import {
   seriesPageBackHref,
   seriesShopActionLabel,
   seriesUseFirst,
-  shopRowCreatorHandle,
+  shopRowCreatorLabel,
 } from '@/features/scarces/series-page-view';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
 
@@ -103,10 +103,11 @@ describe('series page view', () => {
     expect(seriesShopActionLabel('ended')).toBe('Open');
   });
 
-  it('keeps the full named handle on shop rows', () => {
-    expect(shopRowCreatorHandle('alice.near')).toBe('@alice.near');
-    expect(shopRowCreatorHandle(' Bob.testnet ')).toBe('@Bob.testnet');
-    expect(shopRowCreatorHandle('')).toBe('');
+  it('speaks the local part on shop rows, not @handle', () => {
+    expect(shopRowCreatorLabel('alice.near')).toBe('Alice');
+    expect(shopRowCreatorLabel(' Bob.testnet ')).toBe('Bob');
+    expect(shopRowCreatorLabel('alice.testnet', 'Night')).toBe('Night');
+    expect(shopRowCreatorLabel('')).toBe('');
   });
 
   it('is use-first for owners and confirmed holders only', () => {
