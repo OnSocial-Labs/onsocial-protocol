@@ -18,6 +18,8 @@ import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { OsEmptyAction } from '@/lib/os-empty-action';
+import { OsLoadMore } from '@/lib/os-load-more';
 import { fetchIndexedPost } from '@/lib/fetch-personal-post';
 import {
   POST_QUOTES_PAGE_SIZE,
@@ -216,26 +218,14 @@ export function PostQuotesPanel({
         {loadState === 'missing' ? (
           <section className="guild-state-card">
             <p>We could not find this post in the indexed feed yet.</p>
-            <button
-              className="guild-secondary-button"
-              type="button"
-              onClick={() => void refresh()}
-            >
-              Retry
-            </button>
+            <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
           </section>
         ) : null}
 
         {loadState === 'error' ? (
           <section className="guild-state-card is-error">
             <p>{error ?? 'Could not load quotes.'}</p>
-            <button
-              className="guild-secondary-button"
-              type="button"
-              onClick={() => void refresh()}
-            >
-              Retry
-            </button>
+            <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
           </section>
         ) : null}
 
@@ -375,18 +365,17 @@ export function PostQuotesPanel({
 
               {(activeTab === 'quotes' && hasMoreQuotes) ||
               (activeTab === 'reposts' && hasMoreReposters) ? (
-                <button
-                  type="button"
-                  className="guild-load-more"
-                  disabled={loadingMore}
+                <OsLoadMore
                   onClick={() => void loadMore(activeTab)}
+                  pending={loadingMore}
+                  disabled={loadingMore}
                 >
                   {loadingMore
                     ? 'Loading…'
                     : activeTab === 'quotes'
                       ? 'Show more quotes'
                       : 'Show more reposts'}
-                </button>
+                </OsLoadMore>
               ) : null}
             </div>
           </section>

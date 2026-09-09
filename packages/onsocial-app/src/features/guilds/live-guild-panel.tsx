@@ -18,6 +18,7 @@ import {
 } from '@/contexts/compose-launcher-context';
 import { useFeedReplyWriteDock } from '@/hooks/use-feed-reply-write-dock';
 import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import { writeDockDraftKey } from '@/lib/os-write-dock';
 import {
   clearWriteDockDraft,
@@ -1090,26 +1091,14 @@ export function LiveGuildPanel({
               If it was just created, wait a moment and try again. Anyone can
               open this page once the guild is live.
             </p>
-            <button
-              className="guild-secondary-button"
-              type="button"
-              onClick={() => void refresh()}
-            >
-              Try again
-            </button>
+            <OsEmptyAction onClick={() => void refresh()}>Try again</OsEmptyAction>
           </section>
         ) : null}
 
         {loadState === 'error' ? (
           <section className="guild-state-card is-error">
             <p>{error ?? 'Could not load guild.'}</p>
-            <button
-              className="guild-secondary-button"
-              type="button"
-              onClick={() => void refresh()}
-            >
-              Retry
-            </button>
+            <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
           </section>
         ) : null}
 
@@ -1225,13 +1214,9 @@ export function LiveGuildPanel({
                       {loadMoreError !== GUILD_FEED_LOAD_MORE_ERROR ? (
                         <small>{loadMoreError}</small>
                       ) : null}
-                      <button
-                        className="guild-secondary-button"
-                        type="button"
-                        onClick={() => loadMoreFeed()}
-                      >
+                      <OsEmptyAction onClick={() => loadMoreFeed()}>
                         Retry
-                      </button>
+                      </OsEmptyAction>
                     </div>
                   ) : hasMorePosts || loadingMore ? (
                     <div className="home-feed-load-more">
@@ -1255,13 +1240,9 @@ export function LiveGuildPanel({
                 <div className="guild-state-card is-error">
                   <p>Guild posts could not load from the indexed feed.</p>
                   <small>{state.feedError}</small>
-                  <button
-                    className="guild-secondary-button"
-                    type="button"
-                    onClick={() => void refresh()}
-                  >
+                  <OsEmptyAction onClick={() => void refresh()}>
                     Retry
-                  </button>
+                  </OsEmptyAction>
                 </div>
               ) : feedPending ? (
                 <PostRowSkeleton

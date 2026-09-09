@@ -23,6 +23,7 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
@@ -354,13 +355,9 @@ export function GuildMemberRequestsSheet({
         {loadState === 'error' ? (
           <div className="guild-manage-sheet-state">
             <p>{loadError ?? 'Could not load member requests.'}</p>
-            <button
-              type="button"
-              className="guild-secondary-button"
-              onClick={() => void loadRequests()}
-            >
+            <OsEmptyAction onClick={() => void loadRequests()}>
               Try again
-            </button>
+            </OsEmptyAction>
           </div>
         ) : null}
 

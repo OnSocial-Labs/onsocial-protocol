@@ -50,6 +50,7 @@ import {
 import { VAULT_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsEmptyAction } from '@/lib/os-empty-action';
+import { OsLoadMore } from '@/lib/os-load-more';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
   listOfflineAlbums,
@@ -902,14 +903,13 @@ export function CollectiblesPagePanel({
 
       {showLoadMore ? (
         <>
-          <button
-            type="button"
-            className="market-sales-more"
-            disabled={loadingMore}
+          <OsLoadMore
             onClick={loadMore}
+            pending={loadingMore}
+            disabled={loadingMore}
           >
             {loadMoreLabel}
-          </button>
+          </OsLoadMore>
           <div ref={loadMoreSentinelRef} aria-hidden />
         </>
       ) : null}

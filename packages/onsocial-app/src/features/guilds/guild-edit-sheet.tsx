@@ -38,6 +38,7 @@ import { guildCoverStyle } from '@/features/guilds/guild-visual';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
@@ -440,13 +441,7 @@ export function GuildEditSheet({
         {loadState === 'error' ? (
           <div className="guild-state-card is-error">
             <p>{error ?? 'Could not load guild settings.'}</p>
-            <button
-              type="button"
-              className="guild-secondary-button"
-              onClick={() => void load()}
-            >
-              Retry
-            </button>
+            <OsEmptyAction onClick={() => void load()}>Retry</OsEmptyAction>
           </div>
         ) : null}
 

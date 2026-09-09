@@ -48,6 +48,7 @@ import {
   fetchDiscoverProfiles,
   type DiscoverProfileSummary,
 } from '@/lib/discover-profiles';
+import { OsRowAction } from '@/lib/os-row-action';
 import {
   PROFILE_SEARCH_MAX_QUERY_LENGTH,
   PROFILE_SEARCH_MIN_QUERY_LENGTH,
@@ -1531,13 +1532,9 @@ export function CollectionAllowlistManager({
     <>
       <div className="collection-reading-row">
         <p className="collection-section-label">Allowlist</p>
-        <button
-          type="button"
-          className="collection-reading-open"
-          onClick={() => setOpen(true)}
-        >
+        <OsRowAction onClick={() => setOpen(true)}>
           {hasList ? 'Manage' : 'Add'}
-        </button>
+        </OsRowAction>
       </div>
       <CollectionAllowlistSheet
         open={open}

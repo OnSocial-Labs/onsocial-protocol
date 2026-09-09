@@ -27,6 +27,7 @@ import {
 } from '@/features/guilds/guild-structure';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastConfirming,
@@ -256,13 +257,7 @@ export function GuildRoomsSheet({
       {loadState === 'error' ? (
         <div className="guild-state-card is-error">
           <p>{error ?? 'Could not load rooms.'}</p>
-          <button
-            type="button"
-            className="guild-secondary-button"
-            onClick={() => void load()}
-          >
-            Retry
-          </button>
+          <OsEmptyAction onClick={() => void load()}>Retry</OsEmptyAction>
         </div>
       ) : null}
       {loadState === 'forbidden' ? (

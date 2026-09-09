@@ -26,6 +26,8 @@ describe('os row action', () => {
       'features/scarces/series-shop-row.tsx',
       'features/scarces/collection-page-panel.tsx',
       'features/scarces/ticket-door-page-panel.tsx',
+      'features/scarces/app-page-panel.tsx',
+      'features/scarces/series-page-panel.tsx',
       'components/portfolio/page-drawer-collection.tsx',
     ] as const;
     for (const file of wiring) {

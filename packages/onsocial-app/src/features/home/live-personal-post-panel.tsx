@@ -20,6 +20,8 @@ import {
   writeDockReplySpokenName,
 } from '@/lib/os-write-dock';
 import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { OsEmptyAction } from '@/lib/os-empty-action';
+import { OsLoadMore } from '@/lib/os-load-more';
 import {
   clearWriteDockDraft,
   writeDockDraftFromComposer,
@@ -812,26 +814,14 @@ export function LivePersonalPostPanel({
         {loadState === 'missing' ? (
           <section className="guild-state-card">
             <p>We could not find this post in the indexed feed yet.</p>
-            <button
-              className="guild-secondary-button"
-              type="button"
-              onClick={() => void refresh()}
-            >
-              Retry
-            </button>
+            <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
           </section>
         ) : null}
 
         {loadState === 'error' ? (
           <section className="guild-state-card is-error">
             <p>{error ?? 'Could not load post thread.'}</p>
-            <button
-              className="guild-secondary-button"
-              type="button"
-              onClick={() => void refresh()}
-            >
-              Retry
-            </button>
+            <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
           </section>
         ) : null}
 
@@ -1036,18 +1026,17 @@ export function LivePersonalPostPanel({
 
                 {(activeThreadTab === 'replies' && hasMoreReplies) ||
                 (activeThreadTab === 'quotes' && hasMoreQuotes) ? (
-                  <button
-                    type="button"
-                    className="guild-load-more"
-                    disabled={loadingMore}
+                  <OsLoadMore
                     onClick={() => void loadMore(activeThreadTab)}
+                    pending={loadingMore}
+                    disabled={loadingMore}
                   >
                     {loadingMore
                       ? 'Loading…'
                       : activeThreadTab === 'replies'
                         ? 'Show more replies'
                         : 'Show more quotes'}
-                  </button>
+                  </OsLoadMore>
                 ) : null}
               </div>
             ) : (
@@ -1063,14 +1052,13 @@ export function LivePersonalPostPanel({
                 ) : null}
 
                 {hasMoreReplies ? (
-                  <button
-                    type="button"
-                    className="guild-load-more"
-                    disabled={loadingMore}
+                  <OsLoadMore
                     onClick={() => void loadMore('replies')}
+                    pending={loadingMore}
+                    disabled={loadingMore}
                   >
                     {loadingMore ? 'Loading…' : 'Show more replies'}
-                  </button>
+                  </OsLoadMore>
                 ) : null}
               </div>
             )}

@@ -6,6 +6,7 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { ListLoadError } from '@/components/panels/list-load-error';
+import { OsLoadMore } from '@/lib/os-load-more';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { MarketListingRow } from '@/features/market/market-listing-row';
 import {
@@ -452,14 +453,13 @@ export function PageDrawerStoreList({
             })}
           </div>
           {listingsState.hasMore && listingsState.status !== 'error' ? (
-            <button
-              type="button"
-              className="market-sales-more"
-              disabled={loadingMore}
+            <OsLoadMore
               onClick={() => void loadMore()}
+              pending={loadingMore}
+              disabled={loadingMore}
             >
               {loadingMore ? 'Loading…' : 'Show more'}
-            </button>
+            </OsLoadMore>
           ) : null}
         </section>
       ) : null}
