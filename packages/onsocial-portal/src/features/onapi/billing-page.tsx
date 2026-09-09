@@ -29,11 +29,16 @@ import {
   fetchPlans,
   fetchPlansPublic,
   fetchSubscription,
+  fetchInvoices,
+  downloadInvoicePdf,
   subscribe,
   cancelSubscription,
   type PlanInfo,
   type SubscriptionInfo,
+  type InvoiceInfo,
 } from '@/features/onapi/billing-api';
+import { BILLING_COUNTRY_SELECT_OPTIONS } from '@/features/onapi/billing-countries';
+import { PortalFieldSelect } from '@/components/ui/portal-field-select';
 
 // ── Tier presentation ─────────────────────────────────────────
 
@@ -102,7 +107,14 @@ export default function BillingPage() {
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [billingEmail, setBillingEmail] = useState('');
+  const [billingCountry, setBillingCountry] = useState('GB');
+  const [billingCompanyName, setBillingCompanyName] = useState('');
+  const [billingVatId, setBillingVatId] = useState('');
   const [emailTouched, setEmailTouched] = useState(false);
+  const [invoices, setInvoices] = useState<InvoiceInfo[]>([]);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<
+    string | null
+  >(null);
   const pendingUpgradeRef = useRef(false);
 
   // Fetch plans (public, no auth)
@@ -118,16 +130,18 @@ export default function BillingPage() {
     setLoading(true);
     setError(null);
     try {
-      const [planList, subData] = await Promise.all([
+      const [planList, subData, invoiceList] = await Promise.all([
         fetchPlans(jwt),
         fetchSubscription(jwt).catch(() => ({
           subscription: null,
           tier: 'free' as string,
         })),
+        fetchInvoices(jwt).catch(() => [] as InvoiceInfo[]),
       ]);
       setPlans(planList);
       setSubscription(subData.subscription);
       setCurrentTier(subData.tier);
+      setInvoices(invoiceList);
     } catch {
       // Plan fetch failed — keep existing plans, non-blocking
     } finally {
@@ -147,13 +161,14 @@ export default function BillingPage() {
     tierRank(requestedTier) <= tierRank(currentTier) && !alreadyOnTier;
 
   const emailValid = EMAIL_RE.test(billingEmail.trim());
+  const billingReady = emailValid && Boolean(billingCountry);
   const showEmailHint =
     emailTouched && billingEmail.trim().length > 0 && !emailValid;
 
   // ── Subscribe ─────────────────────────────────────────────────
 
   const executeUpgrade = useCallback(async () => {
-    if (!emailValid) return;
+    if (!billingReady) return;
     setUpgrading(true);
     setError(null);
     try {
@@ -162,16 +177,29 @@ export default function BillingPage() {
         setUpgrading(false);
         return;
       }
-      const result = await subscribe(token, requestedTier, billingEmail.trim());
+      const result = await subscribe(token, requestedTier, {
+        email: billingEmail.trim(),
+        country: billingCountry,
+        companyName: billingCompanyName,
+        vatId: billingVatId,
+      });
       window.location.href = result.checkoutUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start checkout');
       setUpgrading(false);
     }
-  }, [ensureAuth, billingEmail, requestedTier, emailValid]);
+  }, [
+    ensureAuth,
+    billingEmail,
+    billingCountry,
+    billingCompanyName,
+    billingVatId,
+    requestedTier,
+    billingReady,
+  ]);
 
   const handleSubscribe = async () => {
-    if (!emailValid) return;
+    if (!billingReady) return;
     setUpgrading(true);
     setError(null);
     if (!isConnected) {
@@ -203,6 +231,22 @@ export default function BillingPage() {
       setError(err instanceof Error ? err.message : 'Failed to cancel');
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleDownloadInvoice = async (invoice: InvoiceInfo) => {
+    setError(null);
+    setDownloadingInvoiceId(invoice.id);
+    try {
+      const token = jwt ?? (await ensureAuth());
+      if (!token) return;
+      await downloadInvoicePdf(token, invoice.id, `${invoice.invoiceNumber}.pdf`);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to download invoice'
+      );
+    } finally {
+      setDownloadingInvoiceId(null);
     }
   };
 
@@ -485,6 +529,49 @@ export default function BillingPage() {
                   className="min-w-0 flex-1 bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
                 />
               </SurfacePanel>
+              <PortalFieldSelect
+                value={billingCountry}
+                onChange={setBillingCountry}
+                options={BILLING_COUNTRY_SELECT_OPTIONS}
+                ariaLabel="Billing country"
+                placeholder="Billing country"
+                compact
+                triggerClassName="border-border/40 bg-background/45"
+              />
+              <SurfacePanel
+                radius="md"
+                tone="inset"
+                borderTone="subtle"
+                padding="none"
+                className="px-4 py-3"
+              >
+                <input
+                  type="text"
+                  value={billingCompanyName}
+                  onChange={(e) => setBillingCompanyName(e.target.value)}
+                  placeholder="Company name (optional)"
+                  className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/50"
+                />
+              </SurfacePanel>
+              <SurfacePanel
+                radius="md"
+                tone="inset"
+                borderTone="subtle"
+                padding="none"
+                className="px-4 py-3"
+              >
+                <input
+                  type="text"
+                  value={billingVatId}
+                  onChange={(e) => setBillingVatId(e.target.value)}
+                  placeholder="VAT / tax ID (optional)"
+                  className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/50"
+                />
+              </SurfacePanel>
+              <p className="text-xs text-muted-foreground/60">
+                Tax-inclusive prices. UK VAT appears on your OnSocial invoice. EU
+                VAT IDs are checked via VIES before reverse charge.
+              </p>
               <div className="min-h-5">
                 <AnimatePresence initial={false}>
                   {showEmailHint && (
@@ -505,7 +592,7 @@ export default function BillingPage() {
               <Button
                 onClick={handleSubscribe}
                 loading={upgrading}
-                disabled={upgrading || !emailValid}
+                disabled={upgrading || !billingReady}
                 variant={accent === 'purple' ? 'secondary' : 'default'}
                 className="w-full justify-center"
                 size="cta"
@@ -541,6 +628,46 @@ export default function BillingPage() {
           You&apos;re on a higher plan. Cancel renewal first, keep access until
           it ends, then buy this plan later if you still need it.
         </div>
+      )}
+
+      {!loading && invoices.length > 0 && (
+        <SurfacePanel radius="xl" tone="soft" padding="roomy" className="space-y-3">
+          <h2 className="text-sm font-semibold tracking-[-0.01em]">Invoices</h2>
+          <ul className="space-y-2">
+            {invoices.map((inv) => (
+              <li
+                key={inv.id}
+                className="flex items-center justify-between gap-3 text-sm border-b border-border/20 pb-2 last:border-0 last:pb-0"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{inv.invoiceNumber}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(inv.issuedAt).toLocaleDateString()} ·{' '}
+                    {inv.tier} · {inv.billingCountry}
+                    {inv.taxMinor > 0
+                      ? ` · VAT $${(inv.taxMinor / 100).toFixed(2)}`
+                      : ` · ${inv.taxTreatment.replace(/_/g, ' ')}`}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className="font-medium">
+                    ${(inv.totalMinor / 100).toFixed(2)}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    loading={downloadingInvoiceId === inv.id}
+                    disabled={downloadingInvoiceId === inv.id}
+                    onClick={() => void handleDownloadInvoice(inv)}
+                  >
+                    PDF
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </SurfacePanel>
       )}
     </PageShell>
   );

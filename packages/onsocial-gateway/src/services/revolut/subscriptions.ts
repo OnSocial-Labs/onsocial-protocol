@@ -42,6 +42,27 @@ export type SubscriptionStatus =
   | 'pending'
   | 'expired';
 
+/**
+ * Whether the account should receive paid API limits for this row.
+ * `pending` never counts — checkout is not payment. Cancelled / past_due
+ * still count until `currentPeriodEnd` (when provided).
+ *
+ * Callers that already filtered by period (e.g. `getWithValidPeriod`) may
+ * omit `currentPeriodEnd`; status alone then decides.
+ */
+export function hasPaidAccess(sub: {
+  status: string;
+  currentPeriodEnd?: string;
+}): boolean {
+  if (sub.status === 'pending' || sub.status === 'expired') {
+    return false;
+  }
+  if (!sub.currentPeriodEnd) {
+    return true;
+  }
+  return new Date(sub.currentPeriodEnd) > new Date();
+}
+
 export interface SubscriptionRecord {
   id: string;
   accountId: string;
@@ -59,6 +80,15 @@ export interface SubscriptionRecord {
   graceTier: Tier | null;
   /** ISO 8601 — end of grace period for the previous higher tier. */
   gracePeriodEnd: string | null;
+  /** Billing email collected at checkout (invoice + Revolut customer). */
+  billingEmail: string | null;
+  /** ISO 3166-1 alpha-2 billing country. */
+  billingCountry: string | null;
+  billingCompanyName: string | null;
+  billingVatId: string | null;
+  /** Buyer VAT verified via VIES at subscribe (EU reverse charge). */
+  billingVatVerified: boolean;
+  billingViesRequestId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -102,6 +132,12 @@ class MemoryStore implements SubscriptionStore {
       ...record,
       graceTier: record.graceTier ?? null,
       gracePeriodEnd: record.gracePeriodEnd ?? null,
+      billingEmail: record.billingEmail ?? null,
+      billingCountry: record.billingCountry ?? null,
+      billingCompanyName: record.billingCompanyName ?? null,
+      billingVatId: record.billingVatId ?? null,
+      billingVatVerified: Boolean(record.billingVatVerified),
+      billingViesRequestId: record.billingViesRequestId ?? null,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
     });
@@ -241,6 +277,12 @@ export class HasuraStore implements SubscriptionStore {
       currentPeriodEnd: row.currentPeriodEnd as string,
       graceTier: (row.graceTier as Tier) || null,
       gracePeriodEnd: (row.gracePeriodEnd as string) || null,
+      billingEmail: (row.billingEmail as string) || null,
+      billingCountry: (row.billingCountry as string) || null,
+      billingCompanyName: (row.billingCompanyName as string) || null,
+      billingVatId: (row.billingVatId as string) || null,
+      billingVatVerified: Boolean(row.billingVatVerified),
+      billingViesRequestId: (row.billingViesRequestId as string) || null,
       createdAt: row.createdAt as string,
       updatedAt: row.updatedAt as string,
     };
@@ -252,6 +294,8 @@ export class HasuraStore implements SubscriptionStore {
     promotionCode promotionCyclesRemaining
     currentPeriodStart currentPeriodEnd
     graceTier gracePeriodEnd
+    billingEmail billingCountry billingCompanyName billingVatId
+    billingVatVerified billingViesRequestId
     createdAt updatedAt
   `;
 
@@ -285,6 +329,12 @@ export class HasuraStore implements SubscriptionStore {
           currentPeriodEnd: record.currentPeriodEnd,
           graceTier: record.graceTier,
           gracePeriodEnd: record.gracePeriodEnd,
+          billingEmail: record.billingEmail,
+          billingCountry: record.billingCountry,
+          billingCompanyName: record.billingCompanyName,
+          billingVatId: record.billingVatId,
+          billingVatVerified: Boolean(record.billingVatVerified),
+          billingViesRequestId: record.billingViesRequestId,
           updatedAt: new Date().toISOString(),
         },
       }
@@ -309,6 +359,12 @@ export class HasuraStore implements SubscriptionStore {
         $currentPeriodEnd: timestamptz!
         $graceTier: String
         $gracePeriodEnd: timestamptz
+        $billingEmail: String
+        $billingCountry: String
+        $billingCompanyName: String
+        $billingVatId: String
+        $billingVatVerified: Boolean!
+        $billingViesRequestId: String
         $now: timestamptz!
       ) {
         updateDeveloperSubscriptions(
@@ -326,6 +382,12 @@ export class HasuraStore implements SubscriptionStore {
             currentPeriodEnd: $currentPeriodEnd
             graceTier: $graceTier
             gracePeriodEnd: $gracePeriodEnd
+            billingEmail: $billingEmail
+            billingCountry: $billingCountry
+            billingCompanyName: $billingCompanyName
+            billingVatId: $billingVatId
+            billingVatVerified: $billingVatVerified
+            billingViesRequestId: $billingViesRequestId
             updatedAt: $now
           }
         ) { affectedRows }
@@ -344,6 +406,12 @@ export class HasuraStore implements SubscriptionStore {
         currentPeriodEnd: record.currentPeriodEnd,
         graceTier: record.graceTier,
         gracePeriodEnd: record.gracePeriodEnd,
+        billingEmail: record.billingEmail,
+        billingCountry: record.billingCountry,
+        billingCompanyName: record.billingCompanyName,
+        billingVatId: record.billingVatId,
+        billingVatVerified: Boolean(record.billingVatVerified),
+        billingViesRequestId: record.billingViesRequestId,
         now: new Date().toISOString(),
       }
     );
@@ -359,7 +427,7 @@ export class HasuraStore implements SubscriptionStore {
             object: $obj
             on_conflict: {
               constraint: developerSubscriptionsAccountIdKey
-              update_columns: [tier, status, revolutSubscriptionId, revolutCustomerId, revolutSetupOrderId, revolutLastOrderId, promotionCode, promotionCyclesRemaining, currentPeriodStart, currentPeriodEnd, graceTier, gracePeriodEnd, updatedAt]
+              update_columns: [tier, status, revolutSubscriptionId, revolutCustomerId, revolutSetupOrderId, revolutLastOrderId, promotionCode, promotionCyclesRemaining, currentPeriodStart, currentPeriodEnd, graceTier, gracePeriodEnd, billingEmail, billingCountry, billingCompanyName, billingVatId, billingVatVerified, billingViesRequestId, updatedAt]
             }
           ) { id }
         }`,
@@ -379,6 +447,12 @@ export class HasuraStore implements SubscriptionStore {
             currentPeriodEnd: record.currentPeriodEnd,
             graceTier: record.graceTier,
             gracePeriodEnd: record.gracePeriodEnd,
+            billingEmail: record.billingEmail,
+            billingCountry: record.billingCountry,
+            billingCompanyName: record.billingCompanyName,
+            billingVatId: record.billingVatId,
+            billingVatVerified: Boolean(record.billingVatVerified),
+            billingViesRequestId: record.billingViesRequestId,
             updatedAt: new Date().toISOString(),
           },
         }

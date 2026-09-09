@@ -31,6 +31,10 @@ export interface SubscriptionInfo {
   promotionCyclesRemaining: number;
   graceTier: string | null;
   gracePeriodEnd: string | null;
+  billingEmail?: string | null;
+  billingCountry?: string | null;
+  billingCompanyName?: string | null;
+  billingVatId?: string | null;
 }
 
 export interface SubscribeResult {
@@ -105,19 +109,90 @@ export async function fetchSubscription(jwt: string): Promise<{
   return gw('/developer/subscription', jwt);
 }
 
+export interface SubscribeBillingDetails {
+  email: string;
+  country: string;
+  companyName?: string;
+  vatId?: string;
+}
+
 /** Create a checkout order and get the redirect URL */
 export async function subscribe(
   jwt: string,
   tier: string,
-  email?: string
+  billing: SubscribeBillingDetails
 ): Promise<SubscribeResult> {
   return gw('/developer/subscribe', jwt, {
     method: 'POST',
     body: JSON.stringify({
       tier,
-      ...(email && { email }),
+      email: billing.email,
+      country: billing.country,
+      ...(billing.companyName?.trim() && {
+        companyName: billing.companyName.trim(),
+      }),
+      ...(billing.vatId?.trim() && { vatId: billing.vatId.trim() }),
     }),
   });
+}
+
+export interface InvoiceInfo {
+  id: string;
+  invoiceNumber: string;
+  tier: string;
+  revolutOrderId: string;
+  currency: string;
+  totalMinor: number;
+  netMinor: number;
+  taxMinor: number;
+  taxRateBps: number;
+  taxTreatment: string;
+  taxNote: string;
+  billingCountry: string;
+  billingVatId: string | null;
+  issuedAt: string;
+  periodStart: string;
+  periodEnd: string;
+}
+
+export async function fetchInvoices(jwt: string): Promise<InvoiceInfo[]> {
+  const data = await gw<{ invoices: InvoiceInfo[] }>('/developer/invoices', jwt);
+  return data.invoices;
+}
+
+/** Download invoice PDF (triggers browser save). */
+export async function downloadInvoicePdf(
+  jwt: string,
+  invoiceId: string,
+  filenameHint?: string
+): Promise<void> {
+  const res = await fetch(
+    `${GATEWAY_BASE}/developer/invoices/${encodeURIComponent(invoiceId)}/pdf`,
+    {
+      headers: { Authorization: `Bearer ${jwt}` },
+    }
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body as { error?: string }).error ??
+        `Failed to download invoice (${res.status})`
+    );
+  }
+
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') ?? '';
+  const match = /filename="([^"]+)"/i.exec(disposition);
+  const filename = match?.[1] || filenameHint || `invoice-${invoiceId}.pdf`;
+
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 /** Cancel renewal (keeps access until period end) */

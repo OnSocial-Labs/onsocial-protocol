@@ -38,9 +38,17 @@ Local gateway + billing sandbox:
 
 ```bash
 NEXT_PUBLIC_NEAR_NETWORK=testnet
-NEXT_PUBLIC_API_URL=http://localhost:4000
-NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+NEXT_PUBLIC_API_URL=http://localhost:4000          # Revolut / developer JWT
+NEXT_PUBLIC_BACKEND_URL=https://testnet.onsocial.id # governance / partners / seasons
+# Profiles + /api/onapi proxy also use testnet when API URL is local.
+# Optional override: PORTAL_DATA_GATEWAY_URL=https://testnet.onsocial.id
 ```
+
+`dev:local-sandbox` already sets this split. Do not point `BACKEND_URL` at
+localhost:4000 — the local gateway has no `/v1/governance/*` routes.
+
+Wallet social session ≠ gateway JWT. Username/avatar need the public data gateway
+(and `ONSOCIAL_API_KEY`); billing pages use local `ensureAuth` wallet sign-in.
 
 Sync secrets from GSM (requires `gcloud` auth):
 

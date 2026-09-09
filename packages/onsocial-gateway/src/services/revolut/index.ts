@@ -9,6 +9,7 @@ export {
 } from './client.js';
 export {
   subscriptionStore,
+  hasPaidAccess,
   type SubscriptionRecord,
   type SubscriptionStatus,
 } from './subscriptions.js';

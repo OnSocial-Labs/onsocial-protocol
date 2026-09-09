@@ -30,6 +30,7 @@ import { subscriptionStore } from '../services/revolut/index.js';
 import { getPlan } from '../services/revolut/plans.js';
 import { updateAccountTier } from '../services/apikeys/index.js';
 import { clearTierCache } from '../tiers/index.js';
+import { issueInvoiceForOrder } from '../services/billing/invoices.js';
 import type { Tier } from '../types/index.js';
 import type { SubscriptionRecord } from '../services/revolut/subscriptions.js';
 
@@ -183,6 +184,43 @@ async function resolveSubscriptionForOrder(
 
 // --- Event handlers --------------------------------------------------------
 
+async function issueInvoiceRequired(
+  sub: SubscriptionRecord,
+  tier: Tier,
+  orderId: string,
+  periodStart: string,
+  periodEnd: string
+): Promise<void> {
+  const plan = getPlan(tier);
+  if (!plan) {
+    throw new Error(`Cannot issue invoice — unknown tier ${tier}`);
+  }
+  if (!sub.billingCountry || !sub.billingEmail) {
+    // Permanent data gap (pre-country checkouts) — retry won't help.
+    logger.error(
+      { accountId: sub.accountId, orderId },
+      'Cannot issue invoice — missing billing identity'
+    );
+    return;
+  }
+
+  await issueInvoiceForOrder({
+    accountId: sub.accountId,
+    tier,
+    revolutOrderId: orderId,
+    currency: plan.currency,
+    totalMinor: plan.amountMinor,
+    billingEmail: sub.billingEmail,
+    billingCountry: sub.billingCountry,
+    billingCompanyName: sub.billingCompanyName,
+    billingVatId: sub.billingVatId,
+    vatVerified: Boolean(sub.billingVatVerified),
+    viesRequestId: sub.billingViesRequestId,
+    periodStart,
+    periodEnd,
+  });
+}
+
 async function handleOrderCompleted(orderId: string): Promise<void> {
   const resolved = await resolveSubscriptionForOrder(orderId);
 
@@ -202,6 +240,28 @@ async function handleOrderCompleted(orderId: string): Promise<void> {
     return;
   }
 
+  // Idempotent: same order must not re-extend the billing period
+  if (sub.revolutLastOrderId === orderId) {
+    logger.info(
+      { accountId: sub.accountId, orderId, status: sub.status },
+      'ORDER_COMPLETED already applied — skipping period update'
+    );
+    // Still ensure keys/cache match in case a prior run died mid-way
+    if (sub.status === 'active') {
+      await updateAccountTier(sub.accountId, tier);
+      clearTierCache(sub.accountId);
+    }
+    // Re-attempt invoice if a prior run activated but failed to issue
+    await issueInvoiceRequired(
+      sub,
+      tier,
+      orderId,
+      sub.currentPeriodStart,
+      sub.currentPeriodEnd
+    );
+    return;
+  }
+
   // Calculate billing period
   const now = new Date();
   const periodEnd = new Date(now);
@@ -211,11 +271,14 @@ async function handleOrderCompleted(orderId: string): Promise<void> {
     periodEnd.setFullYear(periodEnd.getFullYear() + plan.intervalCount);
   }
 
+  const periodStartIso = now.toISOString();
+  const periodEndIso = periodEnd.toISOString();
+
   // Update subscription period (handles both initial activation and renewals)
   await subscriptionStore.updatePeriod(
     sub.accountId,
-    now.toISOString(),
-    periodEnd.toISOString(),
+    periodStartIso,
+    periodEndIso,
     orderId
   );
 
@@ -230,12 +293,15 @@ async function handleOrderCompleted(orderId: string): Promise<void> {
   await updateAccountTier(sub.accountId, tier);
   clearTierCache(sub.accountId);
 
+  // Durable invoice: throw → webhook 500 → Revolut retries
+  await issueInvoiceRequired(sub, tier, orderId, periodStartIso, periodEndIso);
+
   logger.info(
     {
       accountId: sub.accountId,
       tier,
       orderId,
-      periodEnd: periodEnd.toISOString(),
+      periodEnd: periodEndIso,
     },
     'Subscription activated/renewed'
   );

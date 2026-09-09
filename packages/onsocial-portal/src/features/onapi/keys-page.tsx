@@ -80,6 +80,13 @@ import {
   type PlanInfo,
   type SubscriptionInfo,
 } from '@/features/onapi/billing-api';
+import { BILLING_COUNTRY_SELECT_OPTIONS } from '@/features/onapi/billing-countries';
+import { PortalFieldSelect } from '@/components/ui/portal-field-select';
+import {
+  txToastBillingError,
+  txToastBillingPending,
+  txToastBillingSuccess,
+} from '@/lib/transaction-toast-copy';
 import { ACTIVE_API_URL } from '@/lib/portal-config';
 
 function maskKey(prefix: string): string {
@@ -434,21 +441,23 @@ export default function OnApiKeysPage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   const [billingEmail, setBillingEmail] = useState('');
+  const [billingCountry, setBillingCountry] = useState('GB');
+  const [billingCompanyName, setBillingCompanyName] = useState('');
+  const [billingVatId, setBillingVatId] = useState('');
   const [emailTouched, setEmailTouched] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [completingDev, setCompletingDev] = useState(false);
   const pendingUpgradeRef = useRef(false);
+  const [confirmingCheckout, setConfirmingCheckout] = useState(
+    () => searchParams.get('checkout') === 'success'
+  );
 
   useEffect(() => {
-    if (searchParams.get('checkout') === 'success') {
-      setToast({
-        type: 'success',
-        msg: 'Payment complete \u2014 your plan is active!',
-      });
-      window.history.replaceState({}, '', '/onapi/keys');
-    }
+    if (searchParams.get('checkout') !== 'success') return;
+    window.history.replaceState({}, '', '/onapi/keys');
+    setConfirmingCheckout(true);
   }, [searchParams]);
 
   const [keys, setKeys] = useState<ApiKeyInfo[]>([]);
@@ -651,6 +660,80 @@ export default function OnApiKeysPage() {
   }, [jwt, accountId, isConnected, refresh]);
 
   useEffect(() => {
+    if (!confirmingCheckout) return;
+
+    let cancelled = false;
+    const sleep = (ms: number) =>
+      new Promise<void>((resolve) => {
+        window.setTimeout(resolve, ms);
+      });
+
+    const confirmCheckout = async () => {
+      setToast({
+        type: 'pending',
+        msg: txToastBillingPending.confirmingPayment,
+        pendingPhase: 'chain',
+      });
+
+      let token = jwt;
+      if (!token) {
+        token = await ensureAuth();
+        if (cancelled) return;
+      }
+      if (!token) {
+        // Keep confirmingCheckout true so we retry after the user authorizes.
+        return;
+      }
+
+      const delaysMs = [0, 1500, 1500, 2000, 3000, 4000];
+      for (const delay of delaysMs) {
+        if (delay > 0) await sleep(delay);
+        if (cancelled) return;
+        try {
+          const subData = await fetchSubscription(token);
+          if (cancelled) return;
+          setSubscription(subData.subscription);
+          setCurrentTier(subData.tier);
+          setIsAdmin(!!subData.admin);
+
+          const status = subData.subscription?.status;
+          if (status === 'active') {
+            setToast({
+              type: 'success',
+              msg: txToastBillingSuccess.planActive,
+            });
+            setConfirmingCheckout(false);
+            await refresh();
+            return;
+          }
+          if (status === 'past_due' || status === 'expired') {
+            setToast({
+              type: 'error',
+              msg: txToastBillingError.paymentNotConfirmed,
+            });
+            setConfirmingCheckout(false);
+            return;
+          }
+        } catch {
+          // Webhook may still be in flight
+        }
+      }
+
+      if (cancelled) return;
+      setToast({
+        type: 'error',
+        msg: txToastBillingError.paymentNotConfirmed,
+      });
+      setConfirmingCheckout(false);
+    };
+
+    void confirmCheckout();
+    return () => {
+      cancelled = true;
+    };
+  }, [confirmingCheckout, jwt, ensureAuth, refresh]);
+
+  useEffect(() => {
     if (!jwt) return;
 
     const tick = () => {
@@ -701,11 +784,12 @@ export default function OnApiKeysPage() {
     ACTIVE_API_URL.includes('localhost') && subscription?.status === 'pending';
   const quickStartExpanded = !hasKeys || quickStartOpen;
   const emailValid = EMAIL_RE.test(billingEmail.trim());
+  const billingReady = emailValid && Boolean(billingCountry);
   const showEmailHint =
     emailTouched && billingEmail.trim().length > 0 && !emailValid;
 
   const executeUpgrade = useCallback(async () => {
-    if (!emailValid || !requestedTier) return;
+    if (!billingReady || !requestedTier) return;
     setUpgrading(true);
     setError(null);
     try {
@@ -714,16 +798,29 @@ export default function OnApiKeysPage() {
         setUpgrading(false);
         return;
       }
-      const result = await subscribe(token, requestedTier, billingEmail.trim());
+      const result = await subscribe(token, requestedTier, {
+        email: billingEmail.trim(),
+        country: billingCountry,
+        companyName: billingCompanyName,
+        vatId: billingVatId,
+      });
       window.location.href = result.checkoutUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start checkout');
       setUpgrading(false);
     }
-  }, [ensureAuth, billingEmail, requestedTier, emailValid]);
+  }, [
+    ensureAuth,
+    billingEmail,
+    billingCountry,
+    billingCompanyName,
+    billingVatId,
+    requestedTier,
+    billingReady,
+  ]);
 
   const handleSubscribe = async () => {
-    if (!emailValid) return;
+    if (!billingReady) return;
     setUpgrading(true);
     setError(null);
     if (!isConnected) {
@@ -765,7 +862,7 @@ export default function OnApiKeysPage() {
       await refresh();
       setToast({
         type: 'success',
-        msg: 'Payment complete \u2014 your plan is active!',
+        msg: txToastBillingSuccess.planActive,
       });
     } catch (err) {
       setError(
@@ -1286,13 +1383,58 @@ export default function OnApiKeysPage() {
                       />
                     </SurfacePanel>
                     <p className="mt-1 px-0.5 portal-type-caption tracking-[0.02em] text-muted-foreground/40">
-                      For receipts and payment updates
+                      For receipts, invoices, and payment updates
                     </p>
                   </div>
+                  <PortalFieldSelect
+                    value={billingCountry}
+                    onChange={setBillingCountry}
+                    options={BILLING_COUNTRY_SELECT_OPTIONS}
+                    ariaLabel="Billing country"
+                    placeholder="Billing country"
+                    compact
+                    triggerClassName="border-border/40 bg-background/45 tracking-[-0.01em]"
+                  />
+                  <SurfacePanel
+                    radius="md"
+                    tone="inset"
+                    borderTone="subtle"
+                    padding="none"
+                    className="px-3 py-2.5"
+                  >
+                    <input
+                      id="billing-company"
+                      type="text"
+                      value={billingCompanyName}
+                      onChange={(e) => setBillingCompanyName(e.target.value)}
+                      placeholder="Company name (optional)"
+                      className="w-full bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
+                    />
+                  </SurfacePanel>
+                  <SurfacePanel
+                    radius="md"
+                    tone="inset"
+                    borderTone="subtle"
+                    padding="none"
+                    className="px-3 py-2.5"
+                  >
+                    <input
+                      id="billing-vat"
+                      type="text"
+                      value={billingVatId}
+                      onChange={(e) => setBillingVatId(e.target.value)}
+                      placeholder="VAT / tax ID (optional)"
+                      className="w-full bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
+                    />
+                  </SurfacePanel>
+                  <p className="px-0.5 portal-type-caption tracking-[0.02em] text-muted-foreground/40">
+                    Prices are tax-inclusive. UK invoices show VAT inside the
+                    total; EU VAT IDs are checked via VIES before reverse charge.
+                  </p>
                   <Button
                     onClick={handleSubscribe}
                     loading={upgrading}
-                    disabled={upgrading || !emailValid}
+                    disabled={upgrading || !billingReady}
                     variant={accent === 'purple' ? 'secondary' : 'default'}
                     className="w-full justify-center"
                     size="cta"

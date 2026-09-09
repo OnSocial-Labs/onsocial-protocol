@@ -123,3 +123,17 @@ export const txToastGovError = {
   governancePrepFailed: 'Governance preparation failed.',
   actionFailed: (actionLabel: string) => `${actionLabel} failed.`,
 } as const;
+
+/** OnAPI / Revolut billing — off-chain payment confirmation. */
+export const txToastBillingPending = {
+  confirmingPayment: 'Confirming payment…',
+} as const;
+
+export const txToastBillingSuccess = {
+  planActive: 'Payment confirmed — your plan is active.',
+} as const;
+
+export const txToastBillingError = {
+  paymentNotConfirmed:
+    'Payment is still confirming. Refresh in a moment, or check your email.',
+} as const;
