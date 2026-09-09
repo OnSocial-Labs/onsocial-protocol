@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { connectBefore } from '@/lib/connect-continue-voice';
 import {
   creditAppPlatformReward,
   creditAppPlatformSocialReward,
@@ -101,7 +102,7 @@ export function useViewerStanding(listAccountId: string) {
       shouldStand: boolean
     ): Promise<void> => {
       if (!isConnected) {
-        throw new Error('Connect your wallet before updating standing.');
+        throw new Error(connectBefore('updating standing'));
       }
 
       if (viewerAccountId === targetAccount.accountId) {

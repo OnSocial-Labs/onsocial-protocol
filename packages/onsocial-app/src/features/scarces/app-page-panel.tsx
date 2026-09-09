@@ -89,7 +89,7 @@ import {
   groupHoldingsForRail,
   toPortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
-import { fallbackLabel } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 import { formatProfileCount } from '@/lib/profile-social-standings';
 
 /** Two-letter monogram from the store name for the logo fallback. */
@@ -586,7 +586,7 @@ export function AppPagePanel({
                 scroll={false}
                 className="app-page-owner"
               >
-                by @{fallbackLabel(app.ownerId)}
+                by {displayName(app.ownerId)}
               </Link>
             </div>
           </header>

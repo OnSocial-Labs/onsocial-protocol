@@ -10,8 +10,9 @@ import {
 import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
-  WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
   writeDockDraftKey,
+  writeDockReplyPlaceholder,
+  writeDockReplySpokenName,
 } from '@/lib/os-write-dock';
 import { clearWriteDockDraft } from '@/lib/os-write-dock-draft';
 import { postKey } from '@/lib/post-display';
@@ -54,13 +55,16 @@ export function useFeedReplyWriteDock({
   );
   const name = !target
     ? null
-    : (authorNameFor?.(target.accountId) ??
-      fetchedProfiles[target.accountId]?.displayName);
+    : writeDockReplySpokenName(
+        target.accountId,
+        authorNameFor?.(target.accountId) ??
+          fetchedProfiles[target.accountId]?.displayName
+      );
   const above = useMemo(() => {
-    if (!target) return null;
+    if (!target || !name) return null;
     return (
       <OsWriteDockReplyChip
-        label={name?.trim() || 'this post'}
+        label={name}
         onCancel={clearReply}
       />
     );
@@ -77,7 +81,7 @@ export function useFeedReplyWriteDock({
   useReplyWriteDock({
     target,
     enabled: (enabled ?? true) && Boolean(target) && !sheetOpen,
-    placeholder: WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
+    placeholder: writeDockReplyPlaceholder(name),
     above,
     revision: target ? postKey(target) : '',
     draftKey: target ? writeDockDraftKey('post', postKey(target)) : undefined,

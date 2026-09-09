@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import type { TransactionFeedback } from '@/components/ui/transaction-feedback-toast';
 import { waitForNearTransactionBatchConfirmation } from '@/lib/app-near-rpc';
 import { nearExplorerTxHref } from '@/lib/app-config';
+import { CONNECT_CONTINUE } from '@/lib/connect-continue-voice';
 
 type TrackNearTransactionParams = {
   txHashes: string[];
@@ -63,7 +64,7 @@ export function useNearTransactionFeedback(
       );
 
       if (!accountId) {
-        const msg = 'Connect wallet to continue.';
+        const msg = CONNECT_CONTINUE;
         if (!silent) {
           setTxResult({ type: 'error', msg });
         }

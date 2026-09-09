@@ -8,6 +8,7 @@ import {
   writeDockInputMaxLines,
   writeDockIsThoughtEnlarge,
   writeDockReplyPlaceholder,
+  writeDockReplySpokenName,
   writeDockShouldSendOnEnter,
   writeDockShowCompactBarTools,
   writeDockShowExpand,
@@ -54,6 +55,11 @@ describe('os write dock helpers', () => {
     expect(WRITE_DOCK_ADD_REPLY_PLACEHOLDER).toBe('Add a reply…');
     expect(writeDockReplyPlaceholder(null)).toBe(WRITE_DOCK_ADD_REPLY_PLACEHOLDER);
     expect(writeDockReplyPlaceholder('  Ada  ')).toBe('Reply to Ada…');
+    expect(writeDockReplySpokenName('alice.testnet')).toBe('Alice');
+    expect(writeDockReplySpokenName('alice.testnet', 'Night')).toBe('Night');
+    expect(writeDockReplySpokenName('alice.testnet', 'alice.testnet')).toBe(
+      'Alice'
+    );
   });
 
   it('namespaces draft keys by surface', () => {

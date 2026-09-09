@@ -6,6 +6,7 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { canonicalAccountId } from '@/lib/account-match';
+import { connectBefore } from '@/lib/connect-continue-voice';
 import {
   deriveBlockedAccountIds,
   recordViewerBlock,
@@ -131,7 +132,7 @@ export function useViewerBlock(options: UseViewerBlockOptions = {}) {
     async (targetAccountId: string, shouldBlock: boolean): Promise<boolean> => {
       const target = canonicalAccountId(targetAccountId);
       if (!isConnected) {
-        throw new Error('Connect your wallet before updating blocks.');
+        throw new Error(connectBefore('updating blocks'));
       }
       if (viewerAccountId && canonicalAccountId(viewerAccountId) === target) {
         throw new Error('You cannot block yourself.');

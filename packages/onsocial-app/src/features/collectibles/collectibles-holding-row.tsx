@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
-import { fallbackLabel } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
 
 interface CollectiblesHoldingRowProps {
@@ -11,7 +11,7 @@ interface CollectiblesHoldingRowProps {
   editionCount?: number;
   /** Owner-only manage menu — rendered beside the use CTA. */
   ownerMenu?: ReactNode;
-  /** Hide @creator when the row already sits under a creator heading. */
+  /** Hide the creator when the row already sits under a creator heading. */
   hideCreator?: boolean;
 }
 
@@ -68,7 +68,8 @@ export function CollectiblesHoldingRow({
             ) : null}
             {creatorId && !hideCreator ? (
               <span className="market-listing-own">
-                {' · '}@{fallbackLabel(creatorId)}
+                {' · '}
+                {displayName(creatorId)}
               </span>
             ) : null}
           </p>
