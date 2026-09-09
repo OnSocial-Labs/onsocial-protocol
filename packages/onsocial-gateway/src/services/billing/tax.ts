@@ -184,6 +184,35 @@ export function isEuOssEnabled(): boolean {
   return true;
 }
 
+/**
+ * Optional allowlist of countries where we are registered to *collect* tax.
+ *
+ * Env: `BILLING_TAX_COLLECT_COUNTRIES=GB,EU,US,CA,AU`
+ * - Unset → collect wherever rate tables apply (sandbox / early prod)
+ * - `EU` → all EU member states for OSS B2C
+ * - `GB` is always allowed (UK seller home VAT) even if omitted
+ */
+export function getTaxCollectAllowlist(): Set<string> | null {
+  const raw = process.env.BILLING_TAX_COLLECT_COUNTRIES?.trim();
+  if (!raw) return null;
+  const set = new Set(
+    raw
+      .split(',')
+      .map((part) => part.trim().toUpperCase())
+      .filter((part) => /^[A-Z]{2}$/.test(part) || part === 'EU')
+  );
+  return set.size > 0 ? set : null;
+}
+
+export function isTaxCollectionAllowed(country: string): boolean {
+  const list = getTaxCollectAllowlist();
+  if (!list) return true;
+  if (country === 'GB') return true;
+  if (list.has(country)) return true;
+  if (EU_COUNTRY_CODES.has(country) && list.has('EU')) return true;
+  return false;
+}
+
 export function getEuStandardVatRateBps(country: string): number | null {
   const rate = EU_STANDARD_VAT_RATE_BPS[country];
   return typeof rate === 'number' ? rate : null;
@@ -265,7 +294,11 @@ export function computeTaxBreakdown(input: {
     }
 
     const euRateBps = getEuStandardVatRateBps(country);
-    if (isEuOssEnabled() && euRateBps != null) {
+    if (
+      isEuOssEnabled() &&
+      isTaxCollectionAllowed(country) &&
+      euRateBps != null
+    ) {
       const amounts = addTaxToNet(netMinor, euRateBps);
       return {
         treatment: 'eu_oss_vat',
@@ -283,9 +316,15 @@ export function computeTaxBreakdown(input: {
       taxMinor: 0,
       totalMinor: netMinor,
       taxRateBps: 0,
-      note: vatId
-        ? 'EU VAT ID present but not VIES-verified — reverse charge not applied; OSS VAT not configured.'
-        : 'EU buyer without VAT ID — OSS VAT not configured; net price only until OSS is enabled.',
+      note: !isEuOssEnabled()
+        ? vatId
+          ? 'EU VAT ID present but not VIES-verified — reverse charge not applied; OSS VAT not configured.'
+          : 'EU buyer without VAT ID — OSS VAT not configured; net price only until OSS is enabled.'
+        : !isTaxCollectionAllowed(country)
+          ? `EU VAT not collected for ${country} — not in BILLING_TAX_COLLECT_COUNTRIES.`
+          : vatId
+            ? 'EU VAT ID present but not VIES-verified — reverse charge not applied; OSS VAT not configured.'
+            : 'EU buyer without VAT ID — OSS VAT not configured; net price only until OSS is enabled.',
     };
   }
 
@@ -304,6 +343,17 @@ export function computeTaxBreakdown(input: {
   }
 
   if (country === 'US' && region) {
+    if (!isTaxCollectionAllowed('US')) {
+      return {
+        treatment: 'out_of_scope',
+        currency,
+        netMinor,
+        taxMinor: 0,
+        totalMinor: netMinor,
+        taxRateBps: 0,
+        note: 'US sales tax not collected — US not in BILLING_TAX_COLLECT_COUNTRIES.',
+      };
+    }
     const us = lookupUsSalesTax(region);
     if (us && us.taxRateBps > 0) {
       const amounts = addTaxToNet(netMinor, us.taxRateBps);
@@ -330,6 +380,17 @@ export function computeTaxBreakdown(input: {
     if (!region) {
       throw new Error('Canadian province is required');
     }
+    if (!isTaxCollectionAllowed('CA')) {
+      return {
+        treatment: 'out_of_scope',
+        currency,
+        netMinor,
+        taxMinor: 0,
+        totalMinor: netMinor,
+        taxRateBps: 0,
+        note: 'Canada GST/HST not collected — CA not in BILLING_TAX_COLLECT_COUNTRIES.',
+      };
+    }
     const ca = lookupCaGst(region);
     if (!ca) {
       throw new Error('Invalid Canadian province');
@@ -346,6 +407,17 @@ export function computeTaxBreakdown(input: {
 
   const national = lookupNationalVat(country);
   if (national) {
+    if (!isTaxCollectionAllowed(country)) {
+      return {
+        treatment: 'out_of_scope',
+        currency,
+        netMinor,
+        taxMinor: 0,
+        totalMinor: netMinor,
+        taxRateBps: 0,
+        note: `${country} VAT/GST not collected — not in BILLING_TAX_COLLECT_COUNTRIES.`,
+      };
+    }
     const amounts = addTaxToNet(netMinor, national.taxRateBps);
     return {
       treatment: national.treatment,

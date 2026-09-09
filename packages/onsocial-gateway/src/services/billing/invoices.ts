@@ -42,6 +42,7 @@ export interface InvoiceRecord {
   viesRequestId: string | null;
   sellerLegalName: string;
   sellerVatNumber: string;
+  sellerOssVatNumber: string | null;
   sellerAddress: string;
   sellerCompanyNumber: string | null;
   sellerCountry: string;
@@ -105,7 +106,10 @@ function toInvoice(
 
   const vatVerified = Boolean(input.vatVerified);
   const billingRegion = normalizeRegionCode(country, input.billingRegion);
-  const billingPostalCode = normalizePostalCode(country, input.billingPostalCode);
+  const billingPostalCode = normalizePostalCode(
+    country,
+    input.billingPostalCode
+  );
   const breakdown = computeTaxBreakdown({
     netMinor: input.netMinor,
     currency: input.currency,
@@ -143,6 +147,7 @@ function toInvoice(
     viesRequestId: input.viesRequestId?.trim() || null,
     sellerLegalName: seller.legalName,
     sellerVatNumber: seller.vatNumber,
+    sellerOssVatNumber: seller.ossVatNumber,
     sellerAddress: seller.address,
     sellerCompanyNumber: seller.companyNumber,
     sellerCountry: seller.country,
@@ -233,6 +238,7 @@ class PostgresInvoiceStore implements InvoiceStore {
       viesRequestId: (row.vies_request_id as string) || null,
       sellerLegalName: row.seller_legal_name as string,
       sellerVatNumber: (row.seller_vat_number as string) || '',
+      sellerOssVatNumber: (row.seller_oss_vat_number as string) || null,
       sellerAddress: (row.seller_address as string) || '',
       sellerCompanyNumber: (row.seller_company_number as string) || null,
       sellerCountry: row.seller_country as string,
@@ -280,11 +286,11 @@ class PostgresInvoiceStore implements InvoiceStore {
            tax_treatment, tax_note, billing_email, billing_country,
            billing_company_name, billing_vat_id, billing_region, billing_postal_code,
            vat_verified, vies_request_id,
-           seller_legal_name, seller_vat_number, seller_address,
+           seller_legal_name, seller_vat_number, seller_oss_vat_number, seller_address,
            seller_company_number, seller_country, period_start, period_end,
            issued_at, created_at
          ) VALUES (
-           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29
+           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30
          )`,
         [
           invoice.id,
@@ -309,6 +315,7 @@ class PostgresInvoiceStore implements InvoiceStore {
           invoice.viesRequestId,
           invoice.sellerLegalName,
           invoice.sellerVatNumber,
+          invoice.sellerOssVatNumber,
           invoice.sellerAddress,
           invoice.sellerCompanyNumber,
           invoice.sellerCountry,

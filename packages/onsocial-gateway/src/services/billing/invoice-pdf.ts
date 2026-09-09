@@ -79,6 +79,9 @@ function buildLines(invoice: InvoiceRecord): Line[] {
   push(invoice.sellerAddress);
   push(`Country: ${invoice.sellerCountry}`);
   push(`VAT number: ${invoice.sellerVatNumber}`);
+  if (invoice.sellerOssVatNumber) {
+    push(`EU OSS VAT number: ${invoice.sellerOssVatNumber}`);
+  }
   if (invoice.sellerCompanyNumber) {
     push(`Company number: ${invoice.sellerCompanyNumber}`);
   }
@@ -115,9 +118,23 @@ function buildLines(invoice: InvoiceRecord): Line[] {
 
   push(`Net amount:  ${money(invoice.netMinor, invoice.currency)}`);
   if (invoice.taxMinor > 0) {
+    const rate = (invoice.taxRateBps / 100).toFixed(1).replace(/\.0$/, '');
+    const taxWord =
+      invoice.taxTreatment === 'us_sales_tax'
+        ? 'Sales tax'
+        : invoice.taxTreatment === 'ca_gst'
+          ? 'GST/HST'
+          : 'VAT';
     push(
-      `VAT (${(invoice.taxRateBps / 100).toFixed(0)}%): ${money(invoice.taxMinor, invoice.currency)}`
+      `${taxWord} (${rate}%): ${money(invoice.taxMinor, invoice.currency)}`
     );
+  } else if (invoice.taxTreatment === 'eu_reverse_charge') {
+    push(`VAT (reverse charge): ${money(0, invoice.currency)}`);
+  } else if (
+    invoice.taxTreatment === 'out_of_scope' ||
+    invoice.taxTreatment === 'eu_b2c_unconfigured'
+  ) {
+    // Omit a fake $0 VAT line — total-only honesty for unconfigured jurisdictions.
   } else {
     push(`VAT:         ${money(0, invoice.currency)}`);
   }

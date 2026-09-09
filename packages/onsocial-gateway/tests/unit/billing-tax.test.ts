@@ -16,6 +16,7 @@ describe('billing tax (net plan + tax at checkout)', () => {
   afterEach(() => {
     delete process.env.BILLING_VAT_RATE_BPS;
     delete process.env.BILLING_EU_OSS_ENABLED;
+    delete process.env.BILLING_TAX_COLLECT_COUNTRIES;
   });
 
   it('normalizes country and VAT id', () => {
@@ -160,6 +161,35 @@ describe('billing tax (net plan + tax at checkout)', () => {
     expect(breakdown.taxMinor).toBe(490);
     expect(breakdown.totalMinor).toBe(5390);
   });
+
+  it('respects BILLING_TAX_COLLECT_COUNTRIES allowlist', () => {
+    process.env.BILLING_TAX_COLLECT_COUNTRIES = 'GB,EU';
+
+    const be = computeTaxBreakdown({
+      netMinor: 4900,
+      currency: 'USD',
+      identity: { country: 'BE' },
+    });
+    expect(be.treatment).toBe('eu_oss_vat');
+    expect(be.taxMinor).toBeGreaterThan(0);
+
+    const us = computeTaxBreakdown({
+      netMinor: 4900,
+      currency: 'USD',
+      identity: { country: 'US', region: 'TX', postalCode: '78701' },
+    });
+    expect(us.treatment).toBe('out_of_scope');
+    expect(us.taxMinor).toBe(0);
+    expect(us.totalMinor).toBe(4900);
+
+    const au = computeTaxBreakdown({
+      netMinor: 4900,
+      currency: 'USD',
+      identity: { country: 'AU' },
+    });
+    expect(au.treatment).toBe('out_of_scope');
+    expect(au.taxMinor).toBe(0);
+  });
 });
 
 describe('invoice idempotency', () => {
@@ -190,6 +220,7 @@ describe('invoice idempotency', () => {
 
 describe('invoice PDF', () => {
   it('renders a valid PDF containing invoice fields', async () => {
+    process.env.BILLING_SELLER_OSS_VAT_NUMBER = 'IE1234567AB';
     const invoice = await issueInvoiceForOrder({
       accountId: 'alice.testnet',
       tier: 'scale',
@@ -212,6 +243,9 @@ describe('invoice PDF', () => {
     expect(text).toContain('alice.testnet');
     expect(text).toContain('$238.80');
     expect(text).toContain('Tax point');
+    expect(text).toContain('IE1234567AB');
+    expect(invoice.sellerOssVatNumber).toBe('IE1234567AB');
     expect(invoicePdfFilename(invoice)).toBe(`${invoice.invoiceNumber}.pdf`);
+    delete process.env.BILLING_SELLER_OSS_VAT_NUMBER;
   });
 });
