@@ -49,8 +49,9 @@ import {
   getOfflineAlbum,
   playablesFromOfflineAlbum,
 } from '@/lib/collectibles-offline';
+import { collectiblesPlayBackHref } from '@/features/collectibles/collectibles-play-view';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
+import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 
 interface PlayLoadState {
@@ -424,9 +425,7 @@ export function CollectiblesPlayPanel({
     };
   }, [handoffKey]);
 
-  const vaultBackHref = viewerAccountId
-    ? portfolioCollectiblesPath(viewerAccountId)
-    : APP_COLLECTIBLES_PATH;
+  const vaultBackHref = collectiblesPlayBackHref(viewerAccountId);
 
   return (
     <OsAppScreen

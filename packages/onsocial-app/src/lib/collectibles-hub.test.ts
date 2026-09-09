@@ -58,6 +58,15 @@ describe('collectibles os apps', () => {
     expect(resolveActiveOsAppId('/market')).toBe('market');
   });
 
+  it('marks a drop page as Drops, not Hubs', () => {
+    expect(resolveActiveOsAppId('/collection/night-drive')).toBe('drops');
+    expect(resolveActiveOsAppId('/collection/night-drive/door')).toBe('drops');
+    expect(resolveActiveOsAppId('/collection/night-drive/redeem')).toBe(
+      'drops'
+    );
+    expect(resolveActiveOsAppId('/apps/night-roads')).toBe('hubs');
+  });
+
   it('marks collectibles active on the vault route', () => {
     expect(resolveActiveOsAppId('/collectibles')).toBe('collectibles');
     expect(resolveActiveOsAppId('/collectibles?kind=audio')).toBe(

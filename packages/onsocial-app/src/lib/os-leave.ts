@@ -2,8 +2,9 @@ import { APP_HOME_PATH } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 
 /**
- * Daily indexes (Guilds, Hubs, DAOs, …) leave to Home.
+ * Daily indexes (Guilds, Hubs, DAOs, Drops, …) leave to Home.
  * Never the gate (`/`).
+ * Inventory of current parents: `os-leave-map.ts`.
  */
 export const OS_INDEX_LEAVE_HREF = APP_HOME_PATH;
 
