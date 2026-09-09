@@ -191,6 +191,35 @@ test.describe('create app voice', () => {
     ).toHaveCount(0);
   });
 
+  test('dirty dock Back asks before leaving', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, '/home');
+    await dismissNextDevOverlay(page);
+    await gotoApp(page, '/apps/create');
+    await expect(
+      page.getByRole('heading', { name: 'Open a hub' })
+    ).toBeVisible();
+    await dismissNextDevOverlay(page);
+    await page.locator('#app-create-name').fill('Midnight');
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    const discard = page.getByRole('dialog', { name: 'Discard hub?' });
+    await expect(discard).toBeVisible();
+    await discard
+      .locator('.os-sheet-action--primary')
+      .filter({ hasText: 'Keep editing' })
+      .click();
+    await expect(discard).toHaveCount(0);
+    await expect(page).toHaveURL(/\/apps\/create\/?$/);
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Discard hub?' })).toBeVisible();
+    await page
+      .locator('.os-sheet-action--danger')
+      .filter({ hasText: 'Discard' })
+      .click();
+    await page.waitForURL(/\/apps\/?$/, { timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: 'Hubs' })).toBeVisible();
+  });
+
   test('tracks field focus so the footer stays over the keyboard', async ({
     page,
   }) => {
