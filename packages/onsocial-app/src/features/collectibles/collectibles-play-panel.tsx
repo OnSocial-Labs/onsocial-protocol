@@ -31,6 +31,7 @@ import {
 } from '@/features/market/market-listings';
 import { marketMediumLabel } from '@/features/market/market-medium';
 import { CollectiblesPlaySkeleton } from '@/features/collectibles/collectibles-play-skeleton';
+import { OsRowAction } from '@/lib/os-row-action';
 import {
   collectionCreatorNameLine,
   fetchCollectionCreatorFace,
@@ -440,12 +441,11 @@ export function CollectiblesPlayPanel({
       scrollRootRef={scrollRootRef}
       actions={
         status === 'ready' && view && !offlinePlayback ? (
-          <Link
-            className={`page-drawer-section-action collectibles-play-drop-action${
+          <OsRowAction
+            className={`collectibles-play-drop-action${
               dropIsLive ? ' is-live' : ''
             }`}
             href={dropHref}
-            scroll={false}
           >
             {dropIsLive ? (
               <span className="collectibles-play-drop-live" aria-hidden />
@@ -454,7 +454,7 @@ export function CollectiblesPlayPanel({
             {dropIsLive ? (
               <span className="collectibles-play-drop-live-label">Live</span>
             ) : null}
-          </Link>
+          </OsRowAction>
         ) : undefined
       }
     >

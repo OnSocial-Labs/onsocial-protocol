@@ -5,6 +5,7 @@ import {
   expectDropsChrome,
   expectMarketFilterSummary,
   expectMediumSelected,
+  expectOsRowAction,
   expectTabSelected,
   expectTabVisible,
   gotoApp,
@@ -38,11 +39,11 @@ test.describe('drops discovery', () => {
     await expect(page.getByText('Featured · Closing')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Mint / })).toHaveCount(0);
     const shopPills = page.locator(
-      '.drops-discovery-row .page-drawer-section-action'
+      '.drops-discovery-row .os-row-action .os-sheet-action'
     );
     const rowCount = await page.locator('.drops-discovery-row').count();
     if (rowCount > 0) {
-      await expect(shopPills.first()).toBeVisible();
+      await expectOsRowAction(shopPills.first());
       await expect(shopPills.first()).toHaveText(/^(Collect|Open)$/);
     }
   });

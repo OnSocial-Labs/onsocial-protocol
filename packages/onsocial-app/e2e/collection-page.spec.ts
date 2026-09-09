@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { E2E_CHROME_TIMEOUT_MS, expectConnectVoice, gotoApp } from './helpers';
+import { E2E_CHROME_TIMEOUT_MS, expectConnectVoice, expectOsRowAction, gotoApp } from './helpers';
 import {
   COLLECTION_E2E_VIEWER,
   collectionPageRoot,
@@ -12,7 +12,6 @@ import {
 import { setE2eGraphDrop } from './helpers/e2e-graph';
 
 const HOLDER_BACK = `/@${COLLECTION_E2E_VIEWER}/collectibles`;
-const PILL_ACTION = /page-drawer-section-action/;
 
 test.describe('collection drop page', () => {
   test('SSR catalog miss keeps the skeleton until the client fetch settles', async ({
@@ -100,7 +99,7 @@ test.describe('collection drop page', () => {
       const read = page.getByRole('button', { name: 'Read', exact: true });
       await expect(read).toBeVisible();
       await expect(read).toHaveClass(/collection-reading-open/);
-      await expect(read).not.toHaveClass(PILL_ACTION);
+      await expect(read).not.toHaveClass(/os-sheet-action/);
       await expect(
         page.getByText('Connect to read.', { exact: true })
       ).toBeVisible();
@@ -157,7 +156,7 @@ test.describe('collection drop page', () => {
       .getByRole('link', {
       name: 'Play',
     });
-    await expect(play).toHaveClass(PILL_ACTION);
+    await expectOsRowAction(play);
     await expect(play).toHaveAttribute(
       'href',
       /\/collectibles\/play\?.*night-drive/
@@ -183,7 +182,7 @@ test.describe('collection drop page', () => {
     ).toHaveText('Chapter One');
     await expectCollectionHolderChrome(page, HOLDER_BACK);
     const read = page.getByRole('button', { name: 'Read', exact: true });
-    await expect(read).toHaveClass(PILL_ACTION);
+    await expectOsRowAction(read);
     await expect(page.locator('.collection-writing-locked')).toHaveCount(0);
   });
 

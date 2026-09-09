@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsRowAction } from '@/lib/os-row-action';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   fetchCollectionPreferIndexer,
@@ -323,16 +324,15 @@ export function TicketDoorPagePanel({
       footer={footer}
       actions={
         view && canStaff && accessReady && isConnected ? (
-          <button
-            type="button"
-            className="page-drawer-section-action ticket-door-event-action"
+          <OsRowAction
+            className="ticket-door-event-action"
             onClick={() => setEventOpen(true)}
             aria-label={
               redeemVoice ? 'Open event redeem details' : 'Open event door details'
             }
           >
             Event
-          </button>
+          </OsRowAction>
         ) : null
       }
     >

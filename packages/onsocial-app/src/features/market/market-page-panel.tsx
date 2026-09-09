@@ -30,6 +30,7 @@ import {
   marketCreatorSearchPlaceholder,
 } from '@/features/market/market-creator-view';
 import { OsEmptyAction } from '@/lib/os-empty-action';
+import { OsRowAction } from '@/lib/os-row-action';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { partitionMarketListingsLiveFirst } from '@/features/market/market-listing-rank';
 import { MarketListingRow } from '@/features/market/market-listing-row';
@@ -2069,14 +2070,10 @@ export function MarketPagePanel({
                 Yours
               </h2>
               {viewerAccountId ? (
-                <Link
-                  href={portfolioCollectiblesPath(viewerAccountId)}
-                  scroll={false}
-                  className="page-drawer-section-action"
-                >
+                <OsRowAction href={portfolioCollectiblesPath(viewerAccountId)}>
                   Open Collectibles
-                  <ProtocolMotionArrow className="page-drawer-section-action-arrow" />
-                </Link>
+                  <ProtocolMotionArrow className="os-row-action-arrow" />
+                </OsRowAction>
               ) : null}
             </div>
             <div className="market-listing-list" role="list">
