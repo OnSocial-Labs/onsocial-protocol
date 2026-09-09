@@ -13,6 +13,8 @@ import {
   Divider,
   InformationCircleIcon,
   OsIconAction,
+  OsSheetAction,
+  OsSheetActions,
   SettingsIcon,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -624,13 +626,23 @@ export function AppPagePanel({
             </div>
             {canRequestPublish ? (
               <div className="guild-hero-membership-slot">
-                <button
-                  type="button"
-                  className="hub-hero-publish-request"
-                  onClick={openPublishAccess}
+                <OsSheetActions
+                  layout="row-compact"
+                  tone="frosted-primary"
+                  size="sm"
+                  borderless
+                  className="guild-hero-membership hub-hero-publish-request"
                 >
-                  {myPublishPending ? 'Pending' : 'Request'}
-                </button>
+                  <OsSheetAction
+                    type="button"
+                    className="guild-hero-action"
+                    variant="primary"
+                    ready
+                    onClick={openPublishAccess}
+                  >
+                    {myPublishPending ? 'Pending' : 'Request'}
+                  </OsSheetAction>
+                </OsSheetActions>
               </div>
             ) : null}
           </div>

@@ -534,6 +534,7 @@ export function CollectiblesPlayPanel({
                 <OsSheetActions
                   layout="row-compact"
                   tone="frosted-primary"
+                  size="sm"
                   borderless
                   className="collectibles-play-sell-action"
                 >
