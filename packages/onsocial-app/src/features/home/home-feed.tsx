@@ -16,12 +16,13 @@ import {
   type PostRow,
   type PostScarceEmbed,
 } from '@onsocial/sdk';
-import { OnSocialMark, OsAppChromePage, OsAppChromeToolbarRail, ProtocolMotionArrow } from '@onsocial/ui';
+import { OnSocialMark, OsAppChromePage, OsAppChromeToolbarRail } from '@onsocial/ui';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HomeFeedChipBar } from '@/features/home/home-feed-chip-bar';
+import { HomeFeedNewPostsChip } from '@/features/home/home-feed-new-posts-chip';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { HomeFeedSortToggle } from '@/features/home/home-feed-sort-toggle';
 import { APP_DISCOVER_PATH } from '@/lib/app-routes';
@@ -84,12 +85,12 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { fetchIndexedPostsByRefs } from '@/lib/fetch-personal-post';
 import { parseSaveContentPath } from '@/lib/save-content-path';
 import {
-  countUnseenFeedPosts,
   feedPostKeySet,
   HOME_FEED_NEW_POLL_MS,
   HOME_FEED_NEW_PROBE_SIZE,
-  homeFeedNewPostsLabel,
+  homeFeedNewPostsCountLabel,
   pendingFeedOffsetShift,
+  summarizeUnseenFeedPosts,
 } from '@/lib/home-feed-new-posts';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 import { filterHiddenAuthors } from '@/lib/viewer-mute-block-filter';
@@ -297,6 +298,7 @@ export function HomePagePanel({
   const [engagementError, setEngagementError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [newPostCount, setNewPostCount] = useState(0);
+  const [newPostAuthors, setNewPostAuthors] = useState<string[]>([]);
   const [lens, setLens] = useState<HomeFeedLens>('global');
   const [lensReady, setLensReady] = useState(false);
   const [sort, setSort] = useState<HomeFeedSort>('hot');
@@ -528,6 +530,7 @@ export function HomePagePanel({
     setEngagementError(null);
     setLoadError(null);
     setNewPostCount(0);
+    setNewPostAuthors([]);
     newPostCountRef.current = 0;
     offsetShiftAppliedRef.current = 0;
 
@@ -760,6 +763,7 @@ export function HomePagePanel({
 
   const applyNewPosts = useCallback(() => {
     setNewPostCount(0);
+    setNewPostAuthors([]);
     scrollRootRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     setReloadNonce((value) => value + 1);
   }, []);
@@ -806,7 +810,7 @@ export function HomePagePanel({
         return;
       }
 
-      const unseen = countUnseenFeedPosts(
+      const summary = summarizeUnseenFeedPosts(
         result.page.items,
         seenPostKeysRef.current,
         {
@@ -814,7 +818,8 @@ export function HomePagePanel({
           viewerAccountId: accountId,
         }
       );
-      setNewPostCount(unseen);
+      setNewPostCount(summary.count);
+      setNewPostAuthors(summary.authorIds);
     } catch {
       // Quiet — pill is best-effort; list stays as-is.
     } finally {
@@ -851,6 +856,7 @@ export function HomePagePanel({
   const onConfirmed = useCallback((post: PostRow) => {
     if (!shouldPrependOptimisticFeedPost(post)) return;
     setNewPostCount(0);
+    setNewPostAuthors([]);
     newPostCountRef.current = 0;
     setPosts((current) => insertOptimisticFeedPost(current, post));
   }, []);
@@ -896,9 +902,9 @@ export function HomePagePanel({
   const showEmpty =
     !isLoading && !isRefreshing && !loadError && visiblePosts.length === 0;
   const showFeed = visiblePosts.length > 0;
-  const newPostsLabel = homeFeedNewPostsLabel(newPostCount);
+  const newPostsCountLabel = homeFeedNewPostsCountLabel(newPostCount);
   const showNewPostsPill =
-    Boolean(newPostsLabel) && showFeed && !isRefreshing && !isLoading;
+    Boolean(newPostsCountLabel) && showFeed && !isRefreshing && !isLoading;
   const toolbarHidden = useDockAutoHide(false, scrollRootRef);
   return (
     <HomeActiveFocusProvider focus={activeFocus}>
@@ -992,19 +998,12 @@ export function HomePagePanel({
       </OsAppScreen>
 
       {showNewPostsPill ? (
-        <div className="home-feed-new-posts-anchor" role="status">
-          <button
-            type="button"
-            className="home-feed-new-posts-pill"
-            onClick={applyNewPosts}
-          >
-            <ProtocolMotionArrow
-              static
-              className="home-feed-new-posts-pill-arrow"
-            />
-            <span>{newPostsLabel}</span>
-          </button>
-        </div>
+        <HomeFeedNewPostsChip
+          count={newPostCount}
+          authorIds={newPostAuthors}
+          hidden={toolbarHidden}
+          onClick={applyNewPosts}
+        />
       ) : null}
 
       <HomeSavedFeedSheet

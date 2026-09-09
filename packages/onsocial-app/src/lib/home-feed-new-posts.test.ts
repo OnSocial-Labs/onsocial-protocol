@@ -3,8 +3,10 @@ import type { PostRow } from '@onsocial/sdk';
 import {
   countUnseenFeedPosts,
   feedPostKeySet,
+  homeFeedNewPostsCountLabel,
   homeFeedNewPostsLabel,
   pendingFeedOffsetShift,
+  summarizeUnseenFeedPosts,
 } from './home-feed-new-posts';
 
 function row(accountId: string, postId: string): PostRow {
@@ -66,8 +68,35 @@ describe('countUnseenFeedPosts', () => {
   });
 });
 
+describe('summarizeUnseenFeedPosts', () => {
+  it('returns unique authors in head order capped at three', () => {
+    const seen = feedPostKeySet([row('z.near', 'old')]);
+    const head = [
+      row('a.near', '1'),
+      row('a.near', '2'),
+      row('b.near', '3'),
+      row('c.near', '4'),
+      row('d.near', '5'),
+    ];
+    expect(summarizeUnseenFeedPosts(head, seen)).toEqual({
+      count: 5,
+      authorIds: ['a.near', 'b.near', 'c.near'],
+    });
+  });
+});
+
+describe('homeFeedNewPostsCountLabel', () => {
+  it('formats compact chip counts', () => {
+    expect(homeFeedNewPostsCountLabel(1)).toBe('1');
+    expect(homeFeedNewPostsCountLabel(3)).toBe('3');
+    expect(homeFeedNewPostsCountLabel(4)).toBe('3+');
+    expect(homeFeedNewPostsCountLabel(8)).toBe('3+');
+    expect(homeFeedNewPostsCountLabel(0)).toBe('');
+  });
+});
+
 describe('homeFeedNewPostsLabel', () => {
-  it('formats singular, plural, and saturated probe', () => {
+  it('formats singular, plural, and saturated probe for a11y', () => {
     expect(homeFeedNewPostsLabel(1)).toBe('1 new post');
     expect(homeFeedNewPostsLabel(3)).toBe('3 new posts');
     expect(homeFeedNewPostsLabel(8)).toBe('8+ new posts');
