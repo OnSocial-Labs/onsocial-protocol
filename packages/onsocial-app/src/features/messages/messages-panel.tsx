@@ -20,7 +20,10 @@ import {
   OsAppChromePageStatus,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
+import {
+  OsChromeListAlert,
+  OsChromeWhisper,
+} from '@/components/chrome/os-chrome-whisper';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -1369,6 +1372,12 @@ export function MessagesPanel() {
 
   const messagesPane = threadOpen ? 'thread' : 'list';
   const keysLocked = !isUnlocked;
+  const showSealedThreadHint =
+    threadOpen &&
+    Boolean(accountId) &&
+    Boolean(activeThreadId) &&
+    messages != null &&
+    isDmThreadSealedArchived(accountId, activeThreadId);
   const peerProfile = peerFromThread ? profiles[peerFromThread] : undefined;
   const peerName = peerFromThread
     ? displayName(peerFromThread, peerProfile?.displayName)
@@ -1526,6 +1535,12 @@ export function MessagesPanel() {
           )
         ) : null}
 
+        {showSealedThreadHint ? (
+          <OsChromeWhisper className="messages-sealed-hint">
+            Sealed before a key reset. New replies open normally.
+          </OsChromeWhisper>
+        ) : null}
+
         {!keysLocked ? (
           <div className="messages-layout" data-messages-pane={messagesPane}>
             <aside className="messages-thread-list" aria-label="Conversations">
@@ -1642,13 +1657,6 @@ export function MessagesPanel() {
                 <OsAppChromePageStatus>Loading…</OsAppChromePageStatus>
               ) : (
                 <>
-                  {accountId &&
-                  activeThreadId &&
-                  isDmThreadSealedArchived(accountId, activeThreadId) ? (
-                    <p className="messages-sealed-banner" role="status">
-                      Sealed before a key reset. New replies open normally.
-                    </p>
-                  ) : null}
                   {hasMoreMessages ? (
                     <div className="messages-load-older">
                       <OsSheetAction

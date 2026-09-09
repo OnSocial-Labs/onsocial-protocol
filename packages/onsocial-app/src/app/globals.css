@@ -41595,13 +41595,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   outline: none;
 }
 
-.messages-sealed-banner {
-  margin: 0 0 0.55rem;
-  color: rgb(var(--fg-rgb) / 0.58);
-  font-size: 0.78rem;
-  line-height: 1.4;
-}
-
 .portfolio-identity-gesture--message {
   display: inline-flex;
   align-items: center;
