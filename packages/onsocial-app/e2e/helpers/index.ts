@@ -64,7 +64,11 @@ export {
   pickMediumAndWaitUrl,
 } from './market';
 export { expectChromePageInset } from './create-page';
-export { expectOsEmptyAction, expectOsRowAction } from './empty-action';
+export {
+  expectOsChromeWhisperRetry,
+  expectOsEmptyAction,
+  expectOsRowAction,
+} from './empty-action';
 export { clickDropsSortAndWaitUrl, expectDropsChrome } from './drops';
 export {
   clickCollectiblesKindAndWaitUrl,

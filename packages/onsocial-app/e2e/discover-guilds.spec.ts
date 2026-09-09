@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   E2E_CHROME_TIMEOUT_MS,
-  expectOsEmptyAction,
+  expectOsChromeWhisperRetry,
   gotoApp,
   searchField,
 } from './helpers';
@@ -44,7 +44,7 @@ test.describe('discover guilds', () => {
     await expect(nextGuild).toHaveCount(0);
 
     const retry = loadMoreError.getByRole('button', { name: 'Try again' });
-    await expectOsEmptyAction(retry);
+    await expectOsChromeWhisperRetry(retry);
     await retry.click();
     await expect(nextGuild).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect(loadMoreError).toHaveCount(0);
