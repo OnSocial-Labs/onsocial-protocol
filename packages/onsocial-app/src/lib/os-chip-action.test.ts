@@ -24,6 +24,21 @@ describe('os chip action', () => {
     expect(source).not.toContain('guild-secondary-button');
   });
 
+  it('uses OsSheetAction for Add room and drops legacy guild button CSS', () => {
+    const source = readFileSync(
+      join(appSrc, 'features/guilds/guild-structure-settings-section.tsx'),
+      'utf8'
+    );
+    expect(source).toContain('OsSheetAction');
+    expect(source).toContain('Add room');
+    expect(source).not.toContain('guild-primary-button');
+    const css = readFileSync(join(appSrc, 'app/globals.css'), 'utf8');
+    expect(css).not.toContain('.guild-primary-button');
+    expect(css).not.toContain('.guild-secondary-button');
+    expect(css).not.toContain('.guild-primary-link');
+    expect(css).not.toContain('.guild-secondary-link');
+  });
+
   it('drops structure-only secondary chip CSS leftovers', () => {
     const css = readFileSync(join(appSrc, 'app/globals.css'), 'utf8');
     expect(css).not.toContain('.guild-structure-discovery-chip');

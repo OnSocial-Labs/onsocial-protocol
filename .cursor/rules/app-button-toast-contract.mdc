@@ -110,10 +110,11 @@ use `OsSheetAction` `sm` in place.
 - Guild member role confirms (Move to mod, Remove, Transfer, …) — same commit chrome
 - Proposal vote / confirm footers
 
-**Do not** hand-roll `guild-secondary-button`, `market-sales-more`, `collection-reading-open`,
-`launcher-home-retry`, `profile-support-retry`, or underlined retry links for the jobs
-above — use the helpers. Clipboard / share success uses the global toast (see
-`endorsementLinkCopied` / `recoveryCodeCopied`) — never `succeeded` morph on the pill.
+**Do not** hand-roll `guild-primary-button`, `guild-secondary-button`, `market-sales-more`,
+`collection-reading-open`, `launcher-home-retry`, `profile-support-retry`, or underlined
+retry links for the jobs above — use the helpers. Clipboard / share success uses the global
+toast (see `endorsementLinkCopied` / `recoveryCodeCopied`) — never `succeeded` morph on the
+pill.
 
 ## Commit chrome (Cancel + primary)
 

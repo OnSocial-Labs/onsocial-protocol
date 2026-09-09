@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { osFieldBorderedClassName } from '@onsocial/ui';
+import { osFieldBorderedClassName, OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import {
   GUILD_POST_POLICY_OPTIONS,
   GUILD_SPACE_KIND_OPTIONS,
@@ -205,14 +205,23 @@ export function GuildStructureSettingsSection({
             </select>
           </label>
         </div>
-        <button
-          type="button"
-          className="guild-primary-button guild-structure-add-button"
-          disabled={disabled || !customTitle.trim()}
-          onClick={addCustomSpace}
+        <OsSheetActions
+          layout="row-compact"
+          tone="frosted-primary"
+          size="sm"
+          borderless
+          className="guild-structure-add-button"
         >
-          Add room
-        </button>
+          <OsSheetAction
+            type="button"
+            variant="primary"
+            ready={!disabled && Boolean(customTitle.trim())}
+            disabled={disabled}
+            onClick={addCustomSpace}
+          >
+            Add room
+          </OsSheetAction>
+        </OsSheetActions>
       </div>
 
       <div className="guild-structure-space-list">
