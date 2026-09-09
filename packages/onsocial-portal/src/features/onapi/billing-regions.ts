@@ -96,3 +96,8 @@ export function countryNeedsRegion(country: string): boolean {
 export function countryNeedsPostal(country: string): boolean {
   return country === 'US';
 }
+
+/** Full street address required for US (Stripe Tax + invoice quality). */
+export function countryNeedsStreetAddress(country: string): boolean {
+  return country === 'US';
+}

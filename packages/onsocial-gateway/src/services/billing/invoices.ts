@@ -11,6 +11,7 @@ import { logger } from '../../logger.js';
 import type { Tier } from '../../types/index.js';
 import {
   computeTaxBreakdown,
+  normalizeAddressLine,
   normalizeCountryCode,
   normalizePostalCode,
   normalizeRegionCode,
@@ -38,6 +39,8 @@ export interface InvoiceRecord {
   billingVatId: string | null;
   billingRegion: string | null;
   billingPostalCode: string | null;
+  billingLine1: string | null;
+  billingCity: string | null;
   vatVerified: boolean;
   viesRequestId: string | null;
   sellerLegalName: string;
@@ -65,6 +68,8 @@ export interface CreateInvoiceInput {
   billingVatId?: string | null;
   billingRegion?: string | null;
   billingPostalCode?: string | null;
+  billingLine1?: string | null;
+  billingCity?: string | null;
   vatVerified?: boolean;
   viesRequestId?: string | null;
   periodStart: string;
@@ -110,6 +115,8 @@ async function toInvoice(
     country,
     input.billingPostalCode
   );
+  const billingLine1 = normalizeAddressLine(input.billingLine1);
+  const billingCity = normalizeAddressLine(input.billingCity, 80);
   const breakdown = await computeTaxBreakdown({
     netMinor: input.netMinor,
     currency: input.currency,
@@ -117,6 +124,8 @@ async function toInvoice(
       country,
       region: billingRegion,
       postalCode: billingPostalCode,
+      line1: billingLine1,
+      city: billingCity,
       vatId: input.billingVatId,
       companyName: input.billingCompanyName,
       vatVerified,
@@ -143,6 +152,8 @@ async function toInvoice(
     billingVatId: normalizeVatId(input.billingVatId),
     billingRegion,
     billingPostalCode,
+    billingLine1,
+    billingCity,
     vatVerified,
     viesRequestId: input.viesRequestId?.trim() || null,
     sellerLegalName: seller.legalName,
@@ -234,6 +245,8 @@ class PostgresInvoiceStore implements InvoiceStore {
       billingVatId: (row.billing_vat_id as string) || null,
       billingRegion: (row.billing_region as string) || null,
       billingPostalCode: (row.billing_postal_code as string) || null,
+      billingLine1: (row.billing_line1 as string) || null,
+      billingCity: (row.billing_city as string) || null,
       vatVerified: Boolean(row.vat_verified),
       viesRequestId: (row.vies_request_id as string) || null,
       sellerLegalName: row.seller_legal_name as string,
@@ -285,12 +298,13 @@ class PostgresInvoiceStore implements InvoiceStore {
            currency, total_minor, net_minor, tax_minor, tax_rate_bps,
            tax_treatment, tax_note, billing_email, billing_country,
            billing_company_name, billing_vat_id, billing_region, billing_postal_code,
+           billing_line1, billing_city,
            vat_verified, vies_request_id,
            seller_legal_name, seller_vat_number, seller_oss_vat_number, seller_address,
            seller_company_number, seller_country, period_start, period_end,
            issued_at, created_at
          ) VALUES (
-           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30
+           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32
          )`,
         [
           invoice.id,
@@ -311,6 +325,8 @@ class PostgresInvoiceStore implements InvoiceStore {
           invoice.billingVatId,
           invoice.billingRegion,
           invoice.billingPostalCode,
+          invoice.billingLine1,
+          invoice.billingCity,
           invoice.vatVerified,
           invoice.viesRequestId,
           invoice.sellerLegalName,

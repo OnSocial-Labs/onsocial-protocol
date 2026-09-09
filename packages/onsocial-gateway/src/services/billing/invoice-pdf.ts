@@ -92,11 +92,19 @@ function buildLines(invoice: InvoiceRecord): Line[] {
   push(invoice.billingEmail);
   push(`NEAR account: ${invoice.accountId}`);
   push(`Billing country: ${invoice.billingCountry}`);
-  if (invoice.billingRegion) {
-    push(`Region: ${invoice.billingRegion}`);
+  if (invoice.billingLine1) {
+    push(invoice.billingLine1);
   }
-  if (invoice.billingPostalCode) {
-    push(`Postal / ZIP: ${invoice.billingPostalCode}`);
+  if (
+    invoice.billingCity ||
+    invoice.billingRegion ||
+    invoice.billingPostalCode
+  ) {
+    push(
+      [invoice.billingCity, invoice.billingRegion, invoice.billingPostalCode]
+        .filter(Boolean)
+        .join(', ')
+    );
   }
   if (invoice.billingVatId) {
     push(

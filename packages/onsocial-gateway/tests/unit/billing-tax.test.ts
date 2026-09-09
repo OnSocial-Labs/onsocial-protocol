@@ -121,7 +121,13 @@ describe('billing tax (net plan + tax at checkout)', () => {
     const breakdown = await computeTaxBreakdown({
       netMinor: 4900,
       currency: 'USD',
-      identity: { country: 'US', region: 'TX', postalCode: '78701' },
+      identity: {
+        country: 'US',
+        region: 'TX',
+        postalCode: '78701',
+        line1: '100 Congress Ave',
+        city: 'Austin',
+      },
     });
     expect(breakdown.treatment).toBe('us_sales_tax');
     expect(breakdown.taxRateBps).toBe(625);
@@ -137,6 +143,20 @@ describe('billing tax (net plan + tax at checkout)', () => {
         identity: { country: 'US' },
       })
     ).rejects.toThrow(/state/i);
+  });
+
+  it('requires US street and city', async () => {
+    await expect(
+      computeTaxBreakdown({
+        netMinor: 4900,
+        currency: 'USD',
+        identity: {
+          country: 'US',
+          region: 'TX',
+          postalCode: '78701',
+        },
+      })
+    ).rejects.toThrow(/street/i);
   });
 
   it('applies Canada GST/HST by province', async () => {
@@ -176,7 +196,13 @@ describe('billing tax (net plan + tax at checkout)', () => {
     const us = await computeTaxBreakdown({
       netMinor: 4900,
       currency: 'USD',
-      identity: { country: 'US', region: 'TX', postalCode: '78701' },
+      identity: {
+        country: 'US',
+        region: 'TX',
+        postalCode: '78701',
+        line1: '100 Congress Ave',
+        city: 'Austin',
+      },
     });
     expect(us.treatment).toBe('out_of_scope');
     expect(us.taxMinor).toBe(0);

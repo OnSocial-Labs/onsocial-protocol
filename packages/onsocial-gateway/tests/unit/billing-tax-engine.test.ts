@@ -83,7 +83,13 @@ describe('Stripe Tax engine', () => {
     const breakdown = await computeTaxBreakdown({
       netMinor: 4900,
       currency: 'USD',
-      identity: { country: 'US', region: 'TX', postalCode: '78701' },
+      identity: {
+        country: 'US',
+        region: 'TX',
+        postalCode: '78701',
+        line1: '100 Congress Ave',
+        city: 'Austin',
+      },
     });
     expect(breakdown.treatment).toBe('us_sales_tax');
     expect(breakdown.taxMinor).toBe(306);
@@ -107,7 +113,13 @@ describe('Stripe Tax engine', () => {
     const breakdown = await computeTaxBreakdown({
       netMinor: 4900,
       currency: 'USD',
-      identity: { country: 'US', region: 'TX', postalCode: '78701' },
+      identity: {
+        country: 'US',
+        region: 'TX',
+        postalCode: '78701',
+        line1: '100 Congress Ave',
+        city: 'Austin',
+      },
     });
     expect(breakdown.taxMinor).toBe(306);
     expect(breakdown.note).toMatch(/built-in state estimate/i);

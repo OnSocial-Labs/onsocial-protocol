@@ -114,6 +114,8 @@ export interface SubscribeBillingDetails {
   country: string;
   region?: string;
   postalCode?: string;
+  line1?: string;
+  city?: string;
   companyName?: string;
   vatId?: string;
 }
@@ -144,6 +146,8 @@ export interface TaxPreviewInput {
   country: string;
   region?: string;
   postalCode?: string;
+  line1?: string;
+  city?: string;
   companyName?: string;
   vatId?: string;
   /** When true, EU VAT IDs are checked via VIES (use on blur / settled input). */
@@ -170,6 +174,8 @@ export async function fetchTaxPreview(
       ...(input.postalCode?.trim() && {
         postalCode: input.postalCode.trim(),
       }),
+      ...(input.line1?.trim() && { line1: input.line1.trim() }),
+      ...(input.city?.trim() && { city: input.city.trim() }),
       ...(input.companyName?.trim() && {
         companyName: input.companyName.trim(),
       }),
@@ -204,6 +210,8 @@ export async function subscribe(
       ...(billing.postalCode?.trim() && {
         postalCode: billing.postalCode.trim(),
       }),
+      ...(billing.line1?.trim() && { line1: billing.line1.trim() }),
+      ...(billing.city?.trim() && { city: billing.city.trim() }),
       ...(billing.companyName?.trim() && {
         companyName: billing.companyName.trim(),
       }),

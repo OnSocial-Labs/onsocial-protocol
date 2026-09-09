@@ -232,6 +232,8 @@ async function issueInvoiceRequired(
     billingVatId: sub.billingVatId,
     billingRegion: sub.billingRegion,
     billingPostalCode: sub.billingPostalCode,
+    billingLine1: sub.billingLine1,
+    billingCity: sub.billingCity,
     vatVerified: Boolean(sub.billingVatVerified),
     viesRequestId: sub.billingViesRequestId,
     periodStart,

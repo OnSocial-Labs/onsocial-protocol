@@ -92,6 +92,8 @@ export interface SubscriptionRecord {
   /** US state / CA province. */
   billingRegion: string | null;
   billingPostalCode: string | null;
+  billingLine1: string | null;
+  billingCity: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -143,6 +145,8 @@ class MemoryStore implements SubscriptionStore {
       billingViesRequestId: record.billingViesRequestId ?? null,
       billingRegion: record.billingRegion ?? null,
       billingPostalCode: record.billingPostalCode ?? null,
+      billingLine1: record.billingLine1 ?? null,
+      billingCity: record.billingCity ?? null,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
     });
@@ -290,6 +294,8 @@ export class HasuraStore implements SubscriptionStore {
       billingViesRequestId: (row.billingViesRequestId as string) || null,
       billingRegion: (row.billingRegion as string) || null,
       billingPostalCode: (row.billingPostalCode as string) || null,
+      billingLine1: (row.billingLine1 as string) || null,
+      billingCity: (row.billingCity as string) || null,
       createdAt: row.createdAt as string,
       updatedAt: row.updatedAt as string,
     };
@@ -303,7 +309,7 @@ export class HasuraStore implements SubscriptionStore {
     graceTier gracePeriodEnd
     billingEmail billingCountry billingCompanyName billingVatId
     billingVatVerified billingViesRequestId
-    billingRegion billingPostalCode
+    billingRegion billingPostalCode billingLine1 billingCity
     createdAt updatedAt
   `;
 
@@ -345,6 +351,8 @@ export class HasuraStore implements SubscriptionStore {
           billingViesRequestId: record.billingViesRequestId,
           billingRegion: record.billingRegion,
           billingPostalCode: record.billingPostalCode,
+          billingLine1: record.billingLine1,
+          billingCity: record.billingCity,
           updatedAt: new Date().toISOString(),
         },
       }
@@ -377,6 +385,8 @@ export class HasuraStore implements SubscriptionStore {
         $billingViesRequestId: String
         $billingRegion: String
         $billingPostalCode: String
+        $billingLine1: String
+        $billingCity: String
         $now: timestamptz!
       ) {
         updateDeveloperSubscriptions(
@@ -402,6 +412,8 @@ export class HasuraStore implements SubscriptionStore {
             billingViesRequestId: $billingViesRequestId
             billingRegion: $billingRegion
             billingPostalCode: $billingPostalCode
+            billingLine1: $billingLine1
+            billingCity: $billingCity
             updatedAt: $now
           }
         ) { affectedRows }
@@ -428,6 +440,8 @@ export class HasuraStore implements SubscriptionStore {
         billingViesRequestId: record.billingViesRequestId,
         billingRegion: record.billingRegion,
         billingPostalCode: record.billingPostalCode,
+        billingLine1: record.billingLine1,
+        billingCity: record.billingCity,
         now: new Date().toISOString(),
       }
     );
@@ -443,7 +457,7 @@ export class HasuraStore implements SubscriptionStore {
             object: $obj
             on_conflict: {
               constraint: developerSubscriptionsAccountIdKey
-              update_columns: [tier, status, revolutSubscriptionId, revolutCustomerId, revolutSetupOrderId, revolutLastOrderId, promotionCode, promotionCyclesRemaining, currentPeriodStart, currentPeriodEnd, graceTier, gracePeriodEnd, billingEmail, billingCountry, billingCompanyName, billingVatId, billingVatVerified, billingViesRequestId, billingRegion, billingPostalCode, updatedAt]
+              update_columns: [tier, status, revolutSubscriptionId, revolutCustomerId, revolutSetupOrderId, revolutLastOrderId, promotionCode, promotionCyclesRemaining, currentPeriodStart, currentPeriodEnd, graceTier, gracePeriodEnd, billingEmail, billingCountry, billingCompanyName, billingVatId, billingVatVerified, billingViesRequestId, billingRegion, billingPostalCode, billingLine1, billingCity, updatedAt]
             }
           ) { id }
         }`,
@@ -471,6 +485,8 @@ export class HasuraStore implements SubscriptionStore {
             billingViesRequestId: record.billingViesRequestId,
             billingRegion: record.billingRegion,
             billingPostalCode: record.billingPostalCode,
+            billingLine1: record.billingLine1,
+            billingCity: record.billingCity,
             updatedAt: new Date().toISOString(),
           },
         }

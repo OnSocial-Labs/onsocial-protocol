@@ -175,6 +175,20 @@ export function normalizePostalCode(
   return raw;
 }
 
+export function normalizeAddressLine(
+  input: string | null | undefined,
+  maxLen = 120
+): string | null {
+  if (!input) return null;
+  const cleaned = input.trim().replace(/\s+/g, ' ');
+  if (cleaned.length < 2 || cleaned.length > maxLen) return null;
+  return cleaned;
+}
+
+export function countryRequiresStreetAddress(country: string): boolean {
+  return country === 'US';
+}
+
 export function getUkVatRateBps(): number {
   const raw = process.env.BILLING_VAT_RATE_BPS?.trim();
   if (!raw) return 2000;
@@ -347,6 +361,17 @@ export async function computeTaxBreakdown(input: {
     throw new Error('US ZIP code is required');
   }
 
+  const line1 = normalizeAddressLine(input.identity.line1);
+  const city = normalizeAddressLine(input.identity.city, 80);
+  if (countryRequiresStreetAddress(country)) {
+    if (!line1) {
+      throw new Error('US street address is required');
+    }
+    if (!city) {
+      throw new Error('US city is required');
+    }
+  }
+
   if (country === 'US' && region) {
     if (!isTaxCollectionAllowed('US')) {
       return {
@@ -366,8 +391,8 @@ export async function computeTaxBreakdown(input: {
       country: 'US',
       region,
       postalCode: postalCode || '',
-      line1: input.identity.line1,
-      city: input.identity.city,
+      line1: line1 || input.identity.line1,
+      city: city || input.identity.city,
     });
     if (engineQuote) {
       return {

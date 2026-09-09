@@ -43,6 +43,8 @@ export function useBillingTaxPreview(input: {
   country: string;
   region?: string;
   postalCode?: string;
+  line1?: string;
+  city?: string;
   companyName?: string;
   vatId?: string;
   enabled?: boolean;
@@ -57,6 +59,8 @@ export function useBillingTaxPreview(input: {
     country,
     region = '',
     postalCode = '',
+    line1 = '',
+    city = '',
     companyName = '',
     vatId = '',
     enabled = true,
@@ -66,10 +70,12 @@ export function useBillingTaxPreview(input: {
   const [error, setError] = useState<string | null>(null);
   const needsRegion = country === 'US' || country === 'CA';
   const needsPostal = country === 'US';
+  const needsStreet = country === 'US';
   const locationReady =
     Boolean(country) &&
     (!needsRegion || Boolean(region.trim())) &&
-    (!needsPostal || Boolean(postalCode.trim()));
+    (!needsPostal || Boolean(postalCode.trim())) &&
+    (!needsStreet || (Boolean(line1.trim()) && Boolean(city.trim())));
   const active = Boolean(enabled && tier && locationReady);
 
   useEffect(() => {
@@ -88,6 +94,8 @@ export function useBillingTaxPreview(input: {
           country,
           region: region.trim() || undefined,
           postalCode: postalCode.trim() || undefined,
+          line1: line1.trim() || undefined,
+          city: city.trim() || undefined,
           companyName,
           vatId: vatTrimmed || undefined,
           verifyVat,
@@ -115,7 +123,18 @@ export function useBillingTaxPreview(input: {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [active, jwt, tier, country, region, postalCode, companyName, vatId]);
+  }, [
+    active,
+    jwt,
+    tier,
+    country,
+    region,
+    postalCode,
+    line1,
+    city,
+    companyName,
+    vatId,
+  ]);
 
   return {
     preview: active ? preview : null,

@@ -32,6 +32,7 @@ import {
 import {
   computeTaxBreakdown,
   EU_COUNTRY_CODES,
+  normalizeAddressLine,
   normalizeCountryCode,
   normalizePostalCode,
   normalizeRegionCode,
@@ -121,9 +122,17 @@ function requireJwtAuth(req: Request, res: Response, next: () => void): void {
 function parseBillingLocation(
   country: string,
   regionRaw: unknown,
-  postalRaw: unknown
+  postalRaw: unknown,
+  line1Raw?: unknown,
+  cityRaw?: unknown
 ):
-  | { ok: true; region: string | null; postalCode: string | null }
+  | {
+      ok: true;
+      region: string | null;
+      postalCode: string | null;
+      line1: string | null;
+      city: string | null;
+    }
   | { ok: false; error: string } {
   const region =
     typeof regionRaw === 'string'
@@ -145,6 +154,18 @@ function parseBillingLocation(
     };
   }
 
+  const line1 =
+    typeof line1Raw === 'string' ? normalizeAddressLine(line1Raw) : null;
+  if (typeof line1Raw === 'string' && line1Raw.trim() && !line1) {
+    return { ok: false, error: 'Invalid street address' };
+  }
+
+  const city =
+    typeof cityRaw === 'string' ? normalizeAddressLine(cityRaw, 80) : null;
+  if (typeof cityRaw === 'string' && cityRaw.trim() && !city) {
+    return { ok: false, error: 'Invalid city' };
+  }
+
   if ((country === 'US' || country === 'CA') && !region) {
     return {
       ok: false,
@@ -157,8 +178,14 @@ function parseBillingLocation(
   if (country === 'US' && !postalCode) {
     return { ok: false, error: 'US ZIP code is required' };
   }
+  if (country === 'US' && !line1) {
+    return { ok: false, error: 'US street address is required' };
+  }
+  if (country === 'US' && !city) {
+    return { ok: false, error: 'US city is required' };
+  }
 
-  return { ok: true, region, postalCode };
+  return { ok: true, region, postalCode, line1, city };
 }
 
 function formatMoneyMinor(minor: number, currency: string): string {
@@ -203,8 +230,17 @@ function resolveSubscriptionNetMinor(
  * }
  */
 subscriptionRouter.post('/tax-preview', async (req: Request, res: Response) => {
-  const { tier, country, companyName, vatId, verifyVat, region, postalCode } =
-    req.body ?? {};
+  const {
+    tier,
+    country,
+    companyName,
+    vatId,
+    verifyVat,
+    region,
+    postalCode,
+    line1,
+    city,
+  } = req.body ?? {};
 
   if (!tier || !subscribableTiers().includes(tier)) {
     res.status(400).json({
@@ -229,13 +265,21 @@ subscriptionRouter.post('/tax-preview', async (req: Request, res: Response) => {
     return;
   }
 
-  const location = parseBillingLocation(billingCountry, region, postalCode);
+  const location = parseBillingLocation(
+    billingCountry,
+    region,
+    postalCode,
+    line1,
+    city
+  );
   if (!location.ok) {
     res.status(400).json({ error: location.error });
     return;
   }
   const billingRegion = location.region;
   const billingPostalCode = location.postalCode;
+  const billingLine1 = location.line1;
+  const billingCity = location.city;
 
   let billingCompanyName =
     typeof companyName === 'string' && companyName.trim()
@@ -302,6 +346,8 @@ subscriptionRouter.post('/tax-preview', async (req: Request, res: Response) => {
         country: billingCountry,
         region: billingRegion,
         postalCode: billingPostalCode,
+        line1: billingLine1,
+        city: billingCity,
         vatId: billingVatId,
         companyName: billingCompanyName,
         vatVerified,
@@ -340,6 +386,8 @@ subscriptionRouter.post('/tax-preview', async (req: Request, res: Response) => {
     billingCountry,
     billingRegion,
     billingPostalCode,
+    billingLine1,
+    billingCity,
     billingVatId,
     billingCompanyName,
     chargeNote:
@@ -377,6 +425,8 @@ subscriptionRouter.post(
       vatId,
       region,
       postalCode,
+      line1,
+      city,
     } = req.body;
 
     // Build redirect URL from Origin header so Revolut sends users back to keys page
@@ -413,13 +463,21 @@ subscriptionRouter.post(
       return;
     }
 
-    const location = parseBillingLocation(billingCountry, region, postalCode);
+    const location = parseBillingLocation(
+      billingCountry,
+      region,
+      postalCode,
+      line1,
+      city
+    );
     if (!location.ok) {
       res.status(400).json({ error: location.error });
       return;
     }
     const billingRegion = location.region;
     const billingPostalCode = location.postalCode;
+    const billingLine1 = location.line1;
+    const billingCity = location.city;
 
     let billingCompanyName =
       typeof companyName === 'string' && companyName.trim()
@@ -497,6 +555,8 @@ subscriptionRouter.post(
                 billingViesRequestId,
                 billingRegion,
                 billingPostalCode,
+                billingLine1,
+                billingCity,
               });
               res.json({
                 checkoutUrl: setupOrder.checkout_url,
@@ -604,6 +664,8 @@ subscriptionRouter.post(
           country: billingCountry,
           region: billingRegion,
           postalCode: billingPostalCode,
+          line1: billingLine1,
+          city: billingCity,
           vatId: billingVatId,
           companyName: billingCompanyName,
           vatVerified: billingVatVerified,
@@ -700,6 +762,8 @@ subscriptionRouter.post(
         billingViesRequestId,
         billingRegion,
         billingPostalCode,
+        billingLine1,
+        billingCity,
       });
 
       logger.info(
@@ -991,6 +1055,8 @@ subscriptionRouter.post(
           billingVatId: sub.billingVatId,
           billingRegion: sub.billingRegion,
           billingPostalCode: sub.billingPostalCode,
+          billingLine1: sub.billingLine1,
+          billingCity: sub.billingCity,
           vatVerified: Boolean(sub.billingVatVerified),
           viesRequestId: sub.billingViesRequestId,
           periodStart: now.toISOString(),
@@ -1144,6 +1210,8 @@ subscriptionRouter.post(
       billingViesRequestId: existing?.billingViesRequestId || null,
       billingRegion: existing?.billingRegion || null,
       billingPostalCode: existing?.billingPostalCode || null,
+      billingLine1: existing?.billingLine1 || null,
+      billingCity: existing?.billingCity || null,
     });
 
     await subscriptionStore.updatePeriod(
@@ -1171,6 +1239,8 @@ subscriptionRouter.post(
           billingVatId: existing.billingVatId,
           billingRegion: existing.billingRegion,
           billingPostalCode: existing.billingPostalCode,
+          billingLine1: existing.billingLine1,
+          billingCity: existing.billingCity,
           vatVerified: Boolean(existing.billingVatVerified),
           viesRequestId: existing.billingViesRequestId,
           periodStart: now.toISOString(),

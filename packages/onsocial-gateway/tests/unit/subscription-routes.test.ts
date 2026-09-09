@@ -536,6 +536,8 @@ describe('subscription routes', () => {
         country: 'US',
         region: 'TX',
         postalCode: '78701',
+        line1: '100 Congress Ave',
+        city: 'Austin',
       });
 
     expect(res.status).toBe(200);
@@ -550,10 +552,31 @@ describe('subscription routes', () => {
   it('rejects US tax preview without a ZIP code', async () => {
     const res = await request(createPublicApp())
       .post('/developer/tax-preview')
-      .send({ tier: 'pro', country: 'US', region: 'TX' });
+      .send({
+        tier: 'pro',
+        country: 'US',
+        region: 'TX',
+        line1: '100 Congress Ave',
+        city: 'Austin',
+      });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/ZIP/i);
+  });
+
+  it('rejects US tax preview without a street address', async () => {
+    const res = await request(createPublicApp())
+      .post('/developer/tax-preview')
+      .send({
+        tier: 'pro',
+        country: 'US',
+        region: 'TX',
+        postalCode: '78701',
+        city: 'Austin',
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/street/i);
   });
 
   it('rejects tax preview without a billing country', async () => {

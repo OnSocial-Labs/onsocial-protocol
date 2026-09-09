@@ -84,6 +84,7 @@ import { BILLING_COUNTRY_SELECT_OPTIONS } from '@/features/onapi/billing-countri
 import {
   countryNeedsPostal,
   countryNeedsRegion,
+  countryNeedsStreetAddress,
   regionSelectOptions,
 } from '@/features/onapi/billing-regions';
 import {
@@ -453,6 +454,8 @@ export default function OnApiKeysPage() {
   const [billingCountry, setBillingCountry] = useState('GB');
   const [billingRegion, setBillingRegion] = useState('');
   const [billingPostalCode, setBillingPostalCode] = useState('');
+  const [billingLine1, setBillingLine1] = useState('');
+  const [billingCity, setBillingCity] = useState('');
   const [billingCompanyName, setBillingCompanyName] = useState('');
   const [billingVatId, setBillingVatId] = useState('');
   const [emailTouched, setEmailTouched] = useState(false);
@@ -797,11 +800,14 @@ export default function OnApiKeysPage() {
   const emailValid = EMAIL_RE.test(billingEmail.trim());
   const needsRegion = countryNeedsRegion(billingCountry);
   const needsPostal = countryNeedsPostal(billingCountry);
+  const needsStreet = countryNeedsStreetAddress(billingCountry);
   const billingReady =
     emailValid &&
     Boolean(billingCountry) &&
     (!needsRegion || Boolean(billingRegion)) &&
-    (!needsPostal || Boolean(billingPostalCode.trim()));
+    (!needsPostal || Boolean(billingPostalCode.trim())) &&
+    (!needsStreet ||
+      (Boolean(billingLine1.trim()) && Boolean(billingCity.trim())));
   const showEmailHint =
     emailTouched && billingEmail.trim().length > 0 && !emailValid;
 
@@ -811,6 +817,8 @@ export default function OnApiKeysPage() {
     country: billingCountry,
     region: billingRegion,
     postalCode: billingPostalCode,
+    line1: billingLine1,
+    city: billingCity,
     companyName: billingCompanyName,
     vatId: billingVatId,
     enabled: showUpgradePanel,
@@ -831,6 +839,8 @@ export default function OnApiKeysPage() {
         country: billingCountry,
         region: billingRegion,
         postalCode: billingPostalCode,
+        line1: billingLine1,
+        city: billingCity,
         companyName: billingCompanyName,
         vatId: billingVatId,
       });
@@ -845,6 +855,8 @@ export default function OnApiKeysPage() {
     billingCountry,
     billingRegion,
     billingPostalCode,
+    billingLine1,
+    billingCity,
     billingCompanyName,
     billingVatId,
     requestedTier,
@@ -1424,6 +1436,8 @@ export default function OnApiKeysPage() {
                       setBillingCountry(code);
                       setBillingRegion('');
                       setBillingPostalCode('');
+                      setBillingLine1('');
+                      setBillingCity('');
                     }}
                     options={BILLING_COUNTRY_SELECT_OPTIONS}
                     ariaLabel="Billing country"
@@ -1431,6 +1445,44 @@ export default function OnApiKeysPage() {
                     compact
                     triggerClassName="border-border/40 bg-background/45 tracking-[-0.01em]"
                   />
+                  {needsStreet ? (
+                    <>
+                      <SurfacePanel
+                        radius="md"
+                        tone="inset"
+                        borderTone="subtle"
+                        padding="none"
+                        className="px-3 py-2.5"
+                      >
+                        <input
+                          id="billing-line1"
+                          type="text"
+                          value={billingLine1}
+                          onChange={(e) => setBillingLine1(e.target.value)}
+                          placeholder="Street address"
+                          autoComplete="address-line1"
+                          className="w-full bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
+                        />
+                      </SurfacePanel>
+                      <SurfacePanel
+                        radius="md"
+                        tone="inset"
+                        borderTone="subtle"
+                        padding="none"
+                        className="px-3 py-2.5"
+                      >
+                        <input
+                          id="billing-city"
+                          type="text"
+                          value={billingCity}
+                          onChange={(e) => setBillingCity(e.target.value)}
+                          placeholder="City"
+                          autoComplete="address-level2"
+                          className="w-full bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
+                        />
+                      </SurfacePanel>
+                    </>
+                  ) : null}
                   {needsRegion ? (
                     <PortalFieldSelect
                       value={billingRegion}
