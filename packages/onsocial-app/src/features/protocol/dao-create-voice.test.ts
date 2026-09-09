@@ -8,15 +8,24 @@ import {
   DAO_CREATE_CHANGE_CREST,
   DAO_CREATE_CONNECT_CTA,
   DAO_CREATE_CONNECT_HINT,
+  DAO_CREATE_FORM_ID,
   DAO_CREATE_PUBLISH,
   DAO_CREATE_REMOVE_COVER,
   DAO_CREATE_REMOVE_CREST,
+  DAO_CREATE_TITLE,
   daoCreateNearShortHint,
   daoCreatePurposeToggle,
   daoCreateWhisper,
 } from '@/features/protocol/dao-create-voice';
+import { APP_DAOS_CREATE_PATH, daosCreateHref } from '@/lib/app-routes';
 
 describe('DAO create Connect voice', () => {
+  it('opens Create DAO as a first-class place', () => {
+    expect(DAO_CREATE_TITLE).toBe('Create DAO');
+    expect(DAO_CREATE_FORM_ID).toBe('dao-create-form');
+    expect(APP_DAOS_CREATE_PATH).toBe('/daos/create');
+    expect(daosCreateHref()).toBe('/daos/create');
+  });
   it('asks Connect, not Connect wallet', () => {
     expect(DAO_CREATE_CONNECT_CTA).toBe('Connect');
     expect(DAO_CREATE_CONNECT_CTA.toLowerCase()).not.toContain('wallet');

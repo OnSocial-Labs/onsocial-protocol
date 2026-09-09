@@ -1,7 +1,12 @@
+/** Create DAO place title — and the connected footer submit. */
+export const DAO_CREATE_TITLE = 'Create DAO';
+
+export const DAO_CREATE_FORM_ID = 'dao-create-form';
+
 /** Logged-out Create DAO CTA — never Connect wallet. */
 export const DAO_CREATE_CONNECT_CTA = 'Connect';
 
-/** Create DAO sheet body — footer owns Connect. */
+/** Create DAO place body — footer owns Connect. */
 export const DAO_CREATE_CONNECT_HINT = 'Connect to create a DAO.';
 
 /** Header deal line — attach amount only, no gas / bond. */
