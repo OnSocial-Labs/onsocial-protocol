@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
@@ -150,14 +151,14 @@ export function DiscoverPanelContent() {
           ) : null}
 
           {loadError ? (
-            <ListLoadError message={loadError} onRetry={retryLoad} />
+            profilesForList.length > 0 ? (
+              <OsChromeListAlert message={loadError} onRetry={retryLoad} />
+            ) : (
+              <ListLoadError message={loadError} onRetry={retryLoad} />
+            )
           ) : null}
 
-          {actionError ? (
-            <p className="standing-panel-error" role="alert">
-              {actionError}
-            </p>
-          ) : null}
+          {actionError ? <OsChromeListAlert message={actionError} /> : null}
 
           <div
             id="discover-panel-profiles"
@@ -182,7 +183,7 @@ export function DiscoverPanelContent() {
             >
               {showListSkeleton ? (
                 <ProfileSocialListSkeleton rowVariant="discover" />
-              ) : loadError ? null : profilesForList.length === 0 ? (
+              ) : profilesForList.length === 0 ? (
                 !hasRecommended && (!isSearchEmpty || searchSettled) ? (
                   <div
                     className={`standing-panel-empty-block${

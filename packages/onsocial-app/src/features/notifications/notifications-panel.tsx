@@ -11,6 +11,7 @@ import {
   OsSheetAction,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppAccountSheet } from '@/contexts/app-account-sheet-context';
@@ -278,15 +279,26 @@ export function NotificationsPanel() {
     body = (
       <>
         {error ? (
-          <OsAppChromePageStatus error role="alert">
-            {error}
-          </OsAppChromePageStatus>
+          items != null && items.length > 0 ? (
+            <OsChromeListAlert
+              message={error}
+              onRetry={() =>
+                void (nextCursor ? loadMore() : loadInitial())
+              }
+            />
+          ) : (
+            <OsAppChromePageStatus error role="alert">
+              {error}
+            </OsAppChromePageStatus>
+          )
         ) : null}
 
         {items == null ? (
           <NotificationActivitySkeleton />
         ) : items.length === 0 ? (
-          <OsAppChromePageStatus>No activity yet.</OsAppChromePageStatus>
+          error ? null : (
+            <OsAppChromePageStatus>No activity yet.</OsAppChromePageStatus>
+          )
         ) : (
           <>
             <NotificationActivityRows

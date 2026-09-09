@@ -18,6 +18,7 @@ import {
 } from '@onsocial/sdk';
 import { OnSocialMark, OsAppChromePage, OsAppChromeToolbarRail } from '@onsocial/ui';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -949,13 +950,15 @@ export function HomePagePanel({
       >
         <OsAppChromePage className="home-feed">
           {loadError ? (
-            <ListLoadError message={loadError} onRetry={retryLoad} />
+            showFeed ? (
+              <OsChromeListAlert message={loadError} onRetry={retryLoad} />
+            ) : (
+              <ListLoadError message={loadError} onRetry={retryLoad} />
+            )
           ) : null}
 
           {engagementError ? (
-            <p className="standing-panel-error" role="alert">
-              {engagementError}
-            </p>
+            <OsChromeListAlert message={engagementError} />
           ) : null}
 
           {showColdSkeleton ? <PostRowSkeleton rows={4} /> : null}

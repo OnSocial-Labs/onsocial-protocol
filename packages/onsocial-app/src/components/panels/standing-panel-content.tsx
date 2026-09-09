@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { useStandingPanel } from '@/components/panels/standing-panel-context';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
@@ -51,17 +52,20 @@ export function StandingPanelContent() {
       ),
     [endorsementSyncVersion, filteredAccounts]
   );
+  const listHasRows = listAccounts.length > 0;
 
   return (
     <div className="standing-panel">
       {loadError ? (
-        <ListLoadError message={loadError} onRetry={retryLoad} />
+        listHasRows ? (
+          <OsChromeListAlert message={loadError} onRetry={retryLoad} />
+        ) : (
+          <ListLoadError message={loadError} onRetry={retryLoad} />
+        )
       ) : null}
 
       {actionError ? (
-        <p className="standing-panel-error" role="alert">
-          {actionError}
-        </p>
+        <OsChromeListAlert message={actionError} />
       ) : null}
 
       <div

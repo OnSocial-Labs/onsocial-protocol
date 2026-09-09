@@ -7,6 +7,7 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsRowAction } from '@/lib/os-row-action';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { DropRowFans } from '@/components/drops/drop-row-fans';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -1175,7 +1176,7 @@ export function DropsPagePanel({
               </>
             )}
             {loadMoreFailed ? (
-              <ListLoadError
+              <OsChromeListAlert
                 message="Couldn’t load more."
                 retryLabel="Retry"
                 onRetry={loadMore}

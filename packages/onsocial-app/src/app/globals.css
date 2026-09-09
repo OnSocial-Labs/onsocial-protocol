@@ -11679,6 +11679,40 @@ a.os-surface-row {
     text-align: center;
   }
 
+  .os-chrome-whisper--alert {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    max-width: min(calc(var(--os-column-width, 100%) - 1.7rem), 22rem);
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .os-chrome-whisper-copy {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .os-chrome-whisper-retry {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.78);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .os-chrome-whisper-retry:hover,
+  .os-chrome-whisper-retry:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.96);
+    outline: none;
+  }
+
   .discover-connect-hint {
     margin: 0;
     font-size: 0.75rem;
@@ -41060,8 +41094,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   min-height: 100%;
 }
 
-.messages-panel[data-messages-pane='thread'] .messages-passkey-hint,
-.messages-panel[data-messages-pane='thread'] .os-chrome-whisper-anchor {
+.messages-panel[data-messages-pane='thread']
+  .os-chrome-whisper-anchor:has(.messages-passkey-hint) {
   display: none;
 }
 
