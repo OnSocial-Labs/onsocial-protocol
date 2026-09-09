@@ -4,6 +4,7 @@ import { portfolioPath } from '@/lib/overlay-routes';
 /**
  * Daily indexes (Guilds, Hubs, DAOs, …) leave to Home.
  * Never the gate (`/`).
+ * Inventory of current parents + mismatch flags: `os-leave-map.ts`.
  */
 export const OS_INDEX_LEAVE_HREF = APP_HOME_PATH;
 
