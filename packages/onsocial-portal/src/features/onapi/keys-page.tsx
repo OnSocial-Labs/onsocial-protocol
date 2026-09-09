@@ -81,6 +81,10 @@ import {
   type SubscriptionInfo,
 } from '@/features/onapi/billing-api';
 import { BILLING_COUNTRY_SELECT_OPTIONS } from '@/features/onapi/billing-countries';
+import {
+  BillingTaxPreviewPanel,
+  useBillingTaxPreview,
+} from '@/features/onapi/billing-tax-preview';
 import { PortalFieldSelect } from '@/components/ui/portal-field-select';
 import {
   txToastBillingError,
@@ -788,6 +792,15 @@ export default function OnApiKeysPage() {
   const showEmailHint =
     emailTouched && billingEmail.trim().length > 0 && !emailValid;
 
+  const taxPreview = useBillingTaxPreview({
+    jwt,
+    tier: targetPlan?.tier ?? requestedTier,
+    country: billingCountry,
+    companyName: billingCompanyName,
+    vatId: billingVatId,
+    enabled: showUpgradePanel,
+  });
+
   const executeUpgrade = useCallback(async () => {
     if (!billingReady || !requestedTier) return;
     setUpgrading(true);
@@ -1423,15 +1436,15 @@ export default function OnApiKeysPage() {
                       type="text"
                       value={billingVatId}
                       onChange={(e) => setBillingVatId(e.target.value)}
-                      placeholder="VAT / tax ID (optional)"
+                      placeholder="Business VAT ID (optional)"
                       className="w-full bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
                     />
                   </SurfacePanel>
-                  <p className="px-0.5 portal-type-caption tracking-[0.02em] text-muted-foreground/40">
-                    Prices are tax-inclusive. UK invoices show VAT inside the
-                    total; EU VAT IDs are checked via VIES before reverse
-                    charge.
-                  </p>
+                  <BillingTaxPreviewPanel
+                    preview={taxPreview.preview}
+                    loading={taxPreview.loading}
+                    error={taxPreview.error}
+                  />
                   <Button
                     onClick={handleSubscribe}
                     loading={upgrading}

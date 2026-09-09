@@ -48,7 +48,18 @@ export function resolveServerDataGatewayUrl(): string {
 
 export function getServerOnApiKey(): string | undefined {
   const key = process.env[SERVER_ONAPI_ENV]?.trim();
-  if (key) return key;
+  if (key) {
+    if (
+      process.env.NODE_ENV === 'development' &&
+      !key.startsWith('onsocial_')
+    ) {
+      console.warn(
+        `[portal] ${SERVER_ONAPI_ENV} must start with onsocial_ (got ${key.slice(0, 8)}…). ` +
+          'A shell override often shadows .env.local — unset ONSOCIAL_API_KEY and restart.'
+      );
+    }
+    return key;
+  }
 
   const legacy = process.env.GATEWAY_SERVICE_KEY?.trim();
   if (legacy && process.env.NODE_ENV === 'development') {

@@ -114,6 +114,172 @@ function requireJwtAuth(req: Request, res: Response, next: () => void): void {
 
 // Auth middleware applied per-route below (not router-wide) so /plans stays public
 
+function formatMoneyMinor(minor: number, currency: string): string {
+  const amount = (minor / 100).toFixed(2);
+  return currency.toUpperCase() === 'USD'
+    ? `$${amount}`
+    : `${amount} ${currency}`;
+}
+
+/**
+ * POST /developer/tax-preview
+ *
+ * Pre-checkout tax breakdown for a plan + billing identity.
+ * List prices stay tax-inclusive; this only explains net / VAT / treatment.
+ * Revolut still charges the inclusive total.
+ *
+ * Public by default (same idea as /plans). Optional `verifyVat: true` runs VIES
+ * and requires a wallet JWT so we do not expose unauthenticated VIES traffic.
+ *
+ * Body: {
+ *   tier: "pro" | "scale",
+ *   country: string,
+ *   companyName?: string,
+ *   vatId?: string,
+ *   verifyVat?: boolean   // run VIES when EU + VAT ID (debounced from portal)
+ * }
+ */
+subscriptionRouter.post(
+  '/tax-preview',
+  async (req: Request, res: Response) => {
+    const { tier, country, companyName, vatId, verifyVat } = req.body ?? {};
+
+    if (!tier || !subscribableTiers().includes(tier)) {
+      res.status(400).json({
+        error: `Invalid tier. Choose one of: ${subscribableTiers().join(', ')}`,
+      });
+      return;
+    }
+
+    const plan = getPlan(tier);
+    if (!plan) {
+      res.status(400).json({ error: 'Unknown plan' });
+      return;
+    }
+
+    const billingCountry = normalizeCountryCode(
+      typeof country === 'string' ? country : ''
+    );
+    if (!billingCountry) {
+      res.status(400).json({
+        error: 'Billing country is required (ISO 3166-1 alpha-2, e.g. GB)',
+      });
+      return;
+    }
+
+    let billingCompanyName =
+      typeof companyName === 'string' && companyName.trim()
+        ? companyName.trim().slice(0, 120)
+        : null;
+    const billingVatId =
+      typeof vatId === 'string' ? normalizeVatId(vatId) : null;
+    if (typeof vatId === 'string' && vatId.trim() && !billingVatId) {
+      res.status(400).json({ error: 'Invalid VAT / tax ID format' });
+      return;
+    }
+
+    let vatVerified = false;
+    let viesRequestId: string | null = null;
+    let viesStatus: 'skipped' | 'verified' | 'invalid' | 'unavailable' =
+      'skipped';
+
+    const shouldVerify =
+      Boolean(verifyVat) &&
+      Boolean(billingVatId) &&
+      EU_COUNTRY_CODES.has(billingCountry);
+
+    if (shouldVerify && billingVatId) {
+      if (!req.auth || req.auth.method === 'apikey') {
+        res.status(401).json({
+          error: 'Wallet login required to verify a VAT number',
+        });
+        return;
+      }
+
+      const vies = await validateEuVatId({
+        country: billingCountry,
+        vatId: billingVatId,
+      });
+      if (!vies.ok) {
+        viesStatus = 'unavailable';
+      } else if (!vies.valid) {
+        viesStatus = 'invalid';
+        res.status(400).json({
+          error:
+            vies.reason ||
+            'VAT number is not valid. Check the number or leave VAT blank.',
+          viesStatus,
+        });
+        return;
+      } else {
+        vatVerified = true;
+        viesStatus = 'verified';
+        viesRequestId = vies.requestIdentifier;
+        if (!billingCompanyName && vies.name) {
+          billingCompanyName = vies.name.slice(0, 120);
+        }
+      }
+    }
+
+    const promo = getActivePromoForTier(tier);
+    const resolved = promo ? resolvePrice(plan, promo) : plan.amountMinor;
+    const totalMinor =
+      typeof resolved === 'number' && Number.isFinite(resolved)
+        ? resolved
+        : plan.amountMinor;
+
+    let breakdown;
+    try {
+      breakdown = computeTaxBreakdown({
+        totalMinor,
+        currency: plan.currency,
+        identity: {
+          country: billingCountry,
+          vatId: billingVatId,
+          companyName: billingCompanyName,
+          vatVerified,
+        },
+      });
+    } catch {
+      res.status(400).json({ error: 'Invalid billing country' });
+      return;
+    }
+
+    const pendingViesNote =
+      Boolean(billingVatId) &&
+      EU_COUNTRY_CODES.has(billingCountry) &&
+      !vatVerified &&
+      viesStatus === 'skipped'
+        ? ' EU VAT will be checked via VIES when you continue to checkout before reverse charge applies.'
+        : '';
+
+    res.json({
+      tier: plan.tier,
+      currency: breakdown.currency,
+      totalMinor: breakdown.totalMinor,
+      netMinor: breakdown.netMinor,
+      taxMinor: breakdown.taxMinor,
+      taxRateBps: breakdown.taxRateBps,
+      taxTreatment: breakdown.treatment,
+      taxNote: `${breakdown.note}${pendingViesNote}`.trim(),
+      totalFormatted: formatMoneyMinor(
+        breakdown.totalMinor,
+        breakdown.currency
+      ),
+      netFormatted: formatMoneyMinor(breakdown.netMinor, breakdown.currency),
+      taxFormatted: formatMoneyMinor(breakdown.taxMinor, breakdown.currency),
+      vatVerified,
+      viesStatus,
+      viesRequestId,
+      billingCountry,
+      billingVatId,
+      billingCompanyName,
+      chargeNote:
+        'You pay the tax-inclusive total. Revolut collects payment; your OnSocial tax invoice shows the VAT breakdown.',
+    });
+  }
+);
+
 /**
  * POST /developer/subscribe
  *

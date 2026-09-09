@@ -476,4 +476,47 @@ describe('subscription routes', () => {
       })
     );
   });
+
+  it('previews UK inclusive VAT before checkout', async () => {
+    const res = await request(createPublicApp())
+      .post('/developer/tax-preview')
+      .send({ tier: 'pro', country: 'GB' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      tier: 'pro',
+      totalMinor: 4900,
+      taxTreatment: 'uk_vat_inclusive',
+      taxRateBps: 2000,
+    });
+    expect(res.body.netMinor + res.body.taxMinor).toBe(4900);
+    expect(res.body.taxMinor).toBeGreaterThan(0);
+    expect(res.body.totalFormatted).toBe('$49.00');
+    expect(res.body.chargeNote).toMatch(/OnSocial tax invoice/i);
+  });
+
+  it('previews EU reverse charge only after VIES verification flag', async () => {
+    const pending = await request(createPublicApp())
+      .post('/developer/tax-preview')
+      .send({
+        tier: 'pro',
+        country: 'DE',
+        vatId: 'DE123456789',
+        verifyVat: false,
+      });
+
+    expect(pending.status).toBe(200);
+    expect(pending.body.taxTreatment).toBe('eu_b2c_unconfigured');
+    expect(pending.body.taxMinor).toBe(0);
+    expect(pending.body.taxNote).toMatch(/VIES/i);
+  });
+
+  it('rejects tax preview without a billing country', async () => {
+    const res = await request(createPublicApp())
+      .post('/developer/tax-preview')
+      .send({ tier: 'pro' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/country/i);
+  });
 });

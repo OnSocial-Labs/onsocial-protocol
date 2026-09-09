@@ -116,6 +116,70 @@ export interface SubscribeBillingDetails {
   vatId?: string;
 }
 
+export interface TaxPreviewInfo {
+  tier: string;
+  currency: string;
+  totalMinor: number;
+  netMinor: number;
+  taxMinor: number;
+  taxRateBps: number;
+  taxTreatment: string;
+  taxNote: string;
+  totalFormatted: string;
+  netFormatted: string;
+  taxFormatted: string;
+  vatVerified: boolean;
+  viesStatus: 'skipped' | 'verified' | 'invalid' | 'unavailable';
+  viesRequestId: string | null;
+  billingCountry: string;
+  billingVatId: string | null;
+  billingCompanyName: string | null;
+  chargeNote: string;
+}
+
+export interface TaxPreviewInput {
+  tier: string;
+  country: string;
+  companyName?: string;
+  vatId?: string;
+  /** When true, EU VAT IDs are checked via VIES (use on blur / settled input). */
+  verifyVat?: boolean;
+}
+
+/** Pre-checkout tax breakdown (same rules as OnSocial invoices). Public. */
+export async function fetchTaxPreview(
+  input: TaxPreviewInput,
+  jwt?: string | null
+): Promise<TaxPreviewInfo> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (jwt) headers.Authorization = `Bearer ${jwt}`;
+
+  const res = await fetch(`${GATEWAY_BASE}/developer/tax-preview`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      tier: input.tier,
+      country: input.country,
+      ...(input.companyName?.trim() && {
+        companyName: input.companyName.trim(),
+      }),
+      ...(input.vatId?.trim() && { vatId: input.vatId.trim() }),
+      ...(input.verifyVat ? { verifyVat: true } : {}),
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body as { error?: string }).error ?? `Request failed (${res.status})`
+    );
+  }
+
+  return (await res.json()) as TaxPreviewInfo;
+}
+
 /** Create a checkout order and get the redirect URL */
 export async function subscribe(
   jwt: string,

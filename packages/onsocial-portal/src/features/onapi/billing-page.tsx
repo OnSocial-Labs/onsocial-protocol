@@ -38,6 +38,10 @@ import {
   type InvoiceInfo,
 } from '@/features/onapi/billing-api';
 import { BILLING_COUNTRY_SELECT_OPTIONS } from '@/features/onapi/billing-countries';
+import {
+  BillingTaxPreviewPanel,
+  useBillingTaxPreview,
+} from '@/features/onapi/billing-tax-preview';
 import { PortalFieldSelect } from '@/components/ui/portal-field-select';
 
 // ── Tier presentation ─────────────────────────────────────────
@@ -164,6 +168,15 @@ export default function BillingPage() {
   const billingReady = emailValid && Boolean(billingCountry);
   const showEmailHint =
     emailTouched && billingEmail.trim().length > 0 && !emailValid;
+
+  const taxPreview = useBillingTaxPreview({
+    jwt,
+    tier: targetPlan?.tier,
+    country: billingCountry,
+    companyName: billingCompanyName,
+    vatId: billingVatId,
+    enabled: Boolean(targetPlan) && !alreadyOnTier && !requiresCancelFirst,
+  });
 
   // ── Subscribe ─────────────────────────────────────────────────
 
@@ -568,14 +581,15 @@ export default function BillingPage() {
                   type="text"
                   value={billingVatId}
                   onChange={(e) => setBillingVatId(e.target.value)}
-                  placeholder="VAT / tax ID (optional)"
+                  placeholder="Business VAT ID (optional)"
                   className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/50"
                 />
               </SurfacePanel>
-              <p className="text-xs text-muted-foreground/60">
-                Tax-inclusive prices. UK VAT appears on your OnSocial invoice.
-                EU VAT IDs are checked via VIES before reverse charge.
-              </p>
+              <BillingTaxPreviewPanel
+                preview={taxPreview.preview}
+                loading={taxPreview.loading}
+                error={taxPreview.error}
+              />
               <div className="min-h-5">
                 <AnimatePresence initial={false}>
                   {showEmailHint && (
