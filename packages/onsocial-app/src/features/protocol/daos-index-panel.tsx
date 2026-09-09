@@ -13,7 +13,6 @@ import {
   LauncherMineRailSkeleton,
 } from '@/components/launcher-home';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { DaoCreateSheet } from '@/features/protocol/dao-create-sheet';
 import { DaosExplorePanel } from '@/features/protocol/daos-explore-panel';
 import { daoDirectoryEntryFromMembership } from '@/features/protocol/dao-directory';
 import {
@@ -30,7 +29,12 @@ import {
   GOVERNANCE_DAO_ACCOUNT,
   TREASURY_DAO_ACCOUNT,
 } from '@/lib/app-config';
-import { DAOS_CREATE_QUERY, daoPath } from '@/lib/app-routes';
+import {
+  APP_DAOS_CREATE_PATH,
+  DAOS_CREATE_QUERY,
+  daosCreateHref,
+  daoPath,
+} from '@/lib/app-routes';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -71,7 +75,6 @@ export function DaosIndexPanel() {
   const [myDaos, setMyDaos] = useState<MyDaoMembership[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
-  const [createOpen, setCreateOpen] = useState(false);
 
   const discoverDaosHref = appDiscoverTabHref('daos');
 
@@ -80,12 +83,7 @@ export function DaosIndexPanel() {
       searchParams.get(DAOS_CREATE_QUERY) === '1' ||
       searchParams.get(DAOS_CREATE_QUERY) === 'true';
     if (!wantsCreate) return;
-    queueMicrotask(() => setCreateOpen(true));
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete(DAOS_CREATE_QUERY);
-    params.delete('tab');
-    const qs = params.toString();
-    router.replace(qs ? `/daos?${qs}` : '/daos', { scroll: false });
+    router.replace(APP_DAOS_CREATE_PATH);
   }, [router, searchParams]);
 
   useEffect(() => {
@@ -191,13 +189,10 @@ export function DaosIndexPanel() {
           <SearchIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
       </OsIconAction>
-      <OsIconAction
-        ariaLabel="Create DAO"
-        aria-expanded={createOpen}
-        aria-haspopup="dialog"
-        onClick={() => setCreateOpen(true)}
-      >
-        <PlusIcon aria-hidden className="glass-sheet-close-icon" />
+      <OsIconAction asChild ariaLabel="Create DAO">
+        <Link href={daosCreateHref()} scroll={false}>
+          <PlusIcon aria-hidden className="glass-sheet-close-icon" />
+        </Link>
       </OsIconAction>
     </>
   );
@@ -268,11 +263,6 @@ export function DaosIndexPanel() {
           </>
         ) : null}
       </div>
-
-      <DaoCreateSheet
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-      />
     </OsAppScreen>
   );
 }

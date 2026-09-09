@@ -41636,6 +41636,30 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   );
 }
 
+/* Create DAO — footer rides the keys above the dock. */
+.os-app-screen:has(.dao-create-form[data-keyboard='open'])
+  .os-app-screen-footer {
+  bottom: calc(
+    var(--drop-create-keyboard-lift, 0px) +
+      var(--portfolio-dock-clearance, 4.75rem)
+  );
+}
+
+.os-app-screen:has(.dao-create-form[data-keyboard='open'])
+  .os-app-screen-body {
+  padding-bottom: calc(
+    var(--drop-create-keyboard-lift, 0px) +
+      var(--portfolio-dock-clearance, 4.75rem) +
+      var(--os-screen-footer-band)
+  );
+}
+
+.os-app-screen:has(.dao-create-form[data-keyboard='open'])
+  > .portfolio-summon-dock {
+  bottom: var(--drop-create-keyboard-lift, 0px);
+  z-index: 85;
+}
+
 /* New drop form — lift dock + scroll room while a field is focused (mobile). */
 .os-app-screen:has(.drop-create-form[data-keyboard='open'])
   > .portfolio-summon-dock {

@@ -20,11 +20,13 @@ export const APP_MARKET_PATH = '/market';
 export const APP_PROTOCOL_PATH = '/protocol';
 /** Community DAO directory — portfolio homes for org DAOs. */
 export const APP_DAOS_PATH = '/daos';
-/** Open the DAOs app create sheet (`/daos?create=1`). */
+/** First-class Create DAO place — same pattern as `/groups/create`. */
+export const APP_DAOS_CREATE_PATH = '/daos/create';
+/** Legacy bookmark (`/daos?create=1`) — redirects to {@link APP_DAOS_CREATE_PATH}. */
 export const DAOS_CREATE_QUERY = 'create';
 
 export function daosCreateHref(): string {
-  return `${APP_DAOS_PATH}?${DAOS_CREATE_QUERY}=1`;
+  return APP_DAOS_CREATE_PATH;
 }
 /** Private messages inbox. */
 export const APP_MESSAGES_PATH = '/messages';
