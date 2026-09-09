@@ -210,7 +210,10 @@ export const APP_COLLECTIBLES_PATH = '/collectibles';
 /** Focused Collectibles player for music / video holdings. */
 export const APP_COLLECTIBLES_PLAY_PATH = '/collectibles/play';
 export const APP_COLLECTION_PATH = '/collection';
-export const APP_DROP_CREATE_PATH = '/market/create';
+/** First-class New drop place — same pattern as `/groups/create`. */
+export const APP_DROP_CREATE_PATH = '/drops/create';
+/** Legacy bookmark (`/market/create`) — redirects to {@link APP_DROP_CREATE_PATH}. */
+export const APP_MARKET_CREATE_PATH = '/market/create';
 export const APP_APPS_PATH = '/apps';
 export const APP_APP_CREATE_PATH = '/apps/create';
 export const APP_SERIES_PATH = '/series';

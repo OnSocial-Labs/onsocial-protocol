@@ -51,6 +51,13 @@ describe('collectibles routes', () => {
 });
 
 describe('collectibles os apps', () => {
+  it('marks New drop as Drops, not Market', () => {
+    expect(resolveActiveOsAppId('/drops')).toBe('drops');
+    expect(resolveActiveOsAppId('/drops/create')).toBe('drops');
+    expect(resolveActiveOsAppId('/market/create')).toBe('drops');
+    expect(resolveActiveOsAppId('/market')).toBe('market');
+  });
+
   it('marks collectibles active on the vault route', () => {
     expect(resolveActiveOsAppId('/collectibles')).toBe('collectibles');
     expect(resolveActiveOsAppId('/collectibles?kind=audio')).toBe(

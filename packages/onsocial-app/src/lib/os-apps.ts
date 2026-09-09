@@ -14,6 +14,7 @@ import {
   APP_DROPS_PATH,
   APP_GROUPS_PATH,
   APP_HOME_PATH,
+  APP_MARKET_CREATE_PATH,
   APP_MARKET_PATH,
   APP_MESSAGES_PATH,
   APP_NOTIFICATIONS_PATH,
@@ -77,6 +78,9 @@ export function resolveActiveOsAppId(
     path.startsWith(`${APP_COLLECTION_PATH}/`)
   ) {
     return 'hubs';
+  }
+  if (path === APP_MARKET_CREATE_PATH) {
+    return 'drops';
   }
   if (path === APP_MARKET_PATH || path.startsWith(`${APP_MARKET_PATH}/`)) {
     return 'market';

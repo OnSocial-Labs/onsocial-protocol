@@ -27,7 +27,8 @@ describe('seriesPagePath', () => {
 });
 
 describe('dropCreatePath', () => {
-  it('stays on New drop and prefills a series name', () => {
+  it('opens New drop as a Drops place and prefills a series name', () => {
+    expect(APP_DROP_CREATE_PATH).toBe('/drops/create');
     expect(dropCreatePath()).toBe(APP_DROP_CREATE_PATH);
     expect(dropCreatePath({ series: 'Night Roads' })).toBe(
       `${APP_DROP_CREATE_PATH}?series=Night+Roads`
