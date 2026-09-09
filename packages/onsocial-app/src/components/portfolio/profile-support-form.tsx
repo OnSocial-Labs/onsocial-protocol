@@ -18,6 +18,7 @@ import { accountIdsEqual } from '@/lib/account-match';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { formatSocialCompact } from '@/lib/format-social-balance';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import { displayName } from '@/lib/profile-display';
 import {
   clampSocialSpendAmountInput,
@@ -387,17 +388,12 @@ export function ProfileSupportForm({
         ) : routingStatus === 'loading' ? (
           <p className="profile-support-routing is-loading">Loading split…</p>
         ) : routingStatus === 'error' ? (
-          <p className="profile-support-routing is-error">
-            Couldn’t load split
-            <span aria-hidden> · </span>
-            <button
-              type="button"
-              className="profile-support-retry"
-              onClick={retryRouting}
-            >
-              Retry
-            </button>
-          </p>
+          <div className="profile-support-routing-recover">
+            <p className="profile-support-routing is-error">
+              Couldn’t load split
+            </p>
+            <OsEmptyAction onClick={retryRouting}>Retry</OsEmptyAction>
+          </div>
         ) : routingReady && !routing.active ? (
           <p className="profile-support-routing is-error">
             Support isn’t available right now.

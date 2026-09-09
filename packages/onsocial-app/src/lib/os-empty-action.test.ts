@@ -13,6 +13,8 @@ const leftoverEmptyClasses = [
   'market-page-retry',
   'standing-panel-error-retry',
   'endorsements-retry',
+  'launcher-home-retry',
+  'profile-support-retry',
 ] as const;
 
 const emptyActionWiring = [
@@ -21,6 +23,10 @@ const emptyActionWiring = [
   'components/panels/endorsements-panel.tsx',
   'components/portfolio/portfolio-writing-panel.tsx',
   'components/portfolio/page-drawer-store.tsx',
+  'components/portfolio/profile-support-form.tsx',
+  'components/panels/endorsement-support-form.tsx',
+  'components/launcher-home/launcher-home-empty.tsx',
+  'features/home/post-amplify-form.tsx',
   'features/market/market-page-panel.tsx',
   'features/collectibles/collectibles-page-panel.tsx',
   'features/collectibles/collectibles-play-panel.tsx',
@@ -75,5 +81,19 @@ describe('os empty action', () => {
     expect(globals).not.toContain('.market-page-retry');
     expect(globals).not.toContain('.standing-panel-error-retry');
     expect(globals).not.toContain('.endorsements-retry');
+    expect(globals).not.toContain('.launcher-home-retry');
+    expect(globals).not.toContain('.profile-support-retry');
+    expect(globals).not.toContain('.app-reward-toast');
+  });
+
+  it('toasts DM recovery copy instead of succeeded morph', () => {
+    const source = readFileSync(
+      join(appSrc, 'features/messages/dm-recovery-code-sheet.tsx'),
+      'utf8'
+    );
+    expect(source).not.toContain('succeededLabel');
+    expect(source).not.toContain('succeeded={');
+    expect(source).toContain('txToastSuccess.recoveryCodeCopied');
+    expect(source).toContain('txToastError.recoveryCodeCopyFailed');
   });
 });

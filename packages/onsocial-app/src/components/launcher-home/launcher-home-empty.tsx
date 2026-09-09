@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 
 /** Quiet one-line status under a launcher Home section. */
 export function LauncherHomeEmpty({ children }: { children: ReactNode }) {
@@ -18,13 +19,7 @@ export function LauncherHomeError({
   return (
     <div className="launcher-home-empty-block">
       <p className="launcher-home-empty">{message}</p>
-      <button
-        type="button"
-        className="launcher-home-retry"
-        onClick={onRetry}
-      >
-        Retry
-      </button>
+      <OsEmptyAction onClick={onRetry}>Retry</OsEmptyAction>
     </div>
   );
 }
