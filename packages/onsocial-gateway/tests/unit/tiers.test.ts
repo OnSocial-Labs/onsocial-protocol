@@ -6,6 +6,11 @@ vi.mock('../../src/services/revolut/index.js', () => ({
   subscriptionStore: {
     getWithValidPeriod: vi.fn(),
   },
+  hasPaidAccess: (sub: { status: string; currentPeriodEnd?: string }) => {
+    if (sub.status === 'pending' || sub.status === 'expired') return false;
+    if (!sub.currentPeriodEnd) return true;
+    return new Date(sub.currentPeriodEnd) > new Date();
+  },
 }));
 
 vi.mock('../../src/config/index.js', () => ({
@@ -95,6 +100,36 @@ describe('getTierInfo', () => {
       tier: 'pro',
       status: 'past_due',
       currentPeriodEnd: new Date(Date.now() + 5 * 24 * 3600_000).toISOString(),
+    });
+
+    const info = await getTierInfo('alice.testnet');
+
+    expect(info.tier).toBe('pro');
+    expect(info.rateLimit).toBe(600);
+  });
+
+  it('should keep free tier while checkout is still pending', async () => {
+    mockGetWithValidPeriod.mockResolvedValue({
+      tier: 'pro',
+      status: 'pending',
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 3600_000).toISOString(),
+      graceTier: null,
+      gracePeriodEnd: null,
+    });
+
+    const info = await getTierInfo('alice.testnet');
+
+    expect(info.tier).toBe('free');
+    expect(info.rateLimit).toBe(60);
+  });
+
+  it('should keep prior paid grace tier while upgrade checkout is pending', async () => {
+    mockGetWithValidPeriod.mockResolvedValue({
+      tier: 'scale',
+      status: 'pending',
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 3600_000).toISOString(),
+      graceTier: 'pro',
+      gracePeriodEnd: new Date(Date.now() + 10 * 24 * 3600_000).toISOString(),
     });
 
     const info = await getTierInfo('alice.testnet');

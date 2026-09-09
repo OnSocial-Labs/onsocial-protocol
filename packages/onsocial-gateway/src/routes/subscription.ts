@@ -22,23 +22,36 @@ import {
   SUBSCRIPTION_PLANS,
   formatPrice,
   subscriptionStore,
+  hasPaidAccess,
   getPromotion,
   getActivePromoForTier,
   promoAppliesToTier,
   resolvePrice,
   formatDiscount,
 } from '../services/revolut/index.js';
+import {
+  computeTaxBreakdown,
+  EU_COUNTRY_CODES,
+  normalizeAddressLine,
+  normalizeCountryCode,
+  normalizePostalCode,
+  normalizeRegionCode,
+  normalizeVatId,
+  type TaxBreakdown,
+} from '../services/billing/tax.js';
+import { resolveRevolutPlanVariationId } from '../services/revolut/charge-variations.js';
+import { buildRevolutTaxLineItems } from '../services/revolut/order-tax-line-items.js';
+import { validateEuVatId } from '../services/billing/vies.js';
+import {
+  invoiceStore,
+  issueInvoiceForOrder,
+} from '../services/billing/invoices.js';
+import {
+  invoicePdfFilename,
+  renderInvoicePdf,
+} from '../services/billing/invoice-pdf.js';
 
 export const subscriptionRouter = Router();
-
-function hasPaidAccess(sub: {
-  status: string;
-  currentPeriodEnd: string;
-}): boolean {
-  return (
-    sub.status !== 'pending' && new Date(sub.currentPeriodEnd) > new Date()
-  );
-}
 
 function normalizeRevolutState(value?: string | null): string {
   return value?.trim().toLowerCase() || '';
@@ -107,13 +120,321 @@ function requireJwtAuth(req: Request, res: Response, next: () => void): void {
 
 // Auth middleware applied per-route below (not router-wide) so /plans stays public
 
+function parseBillingLocation(
+  country: string,
+  regionRaw: unknown,
+  postalRaw: unknown,
+  line1Raw?: unknown,
+  cityRaw?: unknown
+):
+  | {
+      ok: true;
+      region: string | null;
+      postalCode: string | null;
+      line1: string | null;
+      city: string | null;
+    }
+  | { ok: false; error: string } {
+  const region =
+    typeof regionRaw === 'string'
+      ? normalizeRegionCode(country, regionRaw)
+      : null;
+  if (typeof regionRaw === 'string' && regionRaw.trim() && !region) {
+    return { ok: false, error: 'Invalid billing state / province' };
+  }
+
+  const postalCode =
+    typeof postalRaw === 'string'
+      ? normalizePostalCode(country, postalRaw)
+      : null;
+  if (typeof postalRaw === 'string' && postalRaw.trim() && !postalCode) {
+    return {
+      ok: false,
+      error:
+        country === 'US' ? 'Invalid US ZIP code' : 'Invalid postal / ZIP code',
+    };
+  }
+
+  const line1 =
+    typeof line1Raw === 'string' ? normalizeAddressLine(line1Raw) : null;
+  if (typeof line1Raw === 'string' && line1Raw.trim() && !line1) {
+    return { ok: false, error: 'Invalid street address' };
+  }
+
+  const city =
+    typeof cityRaw === 'string' ? normalizeAddressLine(cityRaw, 80) : null;
+  if (typeof cityRaw === 'string' && cityRaw.trim() && !city) {
+    return { ok: false, error: 'Invalid city' };
+  }
+
+  if ((country === 'US' || country === 'CA') && !region) {
+    return {
+      ok: false,
+      error:
+        country === 'US'
+          ? 'US billing state is required'
+          : 'Canadian province is required',
+    };
+  }
+  if (country === 'US' && !postalCode) {
+    return { ok: false, error: 'US ZIP code is required' };
+  }
+
+  return { ok: true, region, postalCode, line1, city };
+}
+
+function formatMoneyMinor(minor: number, currency: string): string {
+  const amount = (minor / 100).toFixed(2);
+  return currency.toUpperCase() === 'USD'
+    ? `$${amount}`
+    : `${amount} ${currency}`;
+}
+
+/** Best-effort: Revolut plans are flat; tax shows on orders via line_items. */
+async function attachTaxLineItemsToSetupOrder(
+  revolut: {
+    updateOrder: (
+      orderId: string,
+      params: {
+        amount: number;
+        lineItems: ReturnType<typeof buildRevolutTaxLineItems>;
+      }
+    ) => Promise<unknown>;
+  },
+  orderId: string,
+  planName: string,
+  breakdown: TaxBreakdown
+): Promise<void> {
+  try {
+    await revolut.updateOrder(orderId, {
+      amount: breakdown.totalMinor,
+      lineItems: buildRevolutTaxLineItems({
+        planName,
+        breakdown,
+      }),
+    });
+  } catch (err) {
+    logger.warn(
+      { err, setupOrderId: orderId, taxMinor: breakdown.taxMinor },
+      'Failed to attach tax line items to Revolut setup order'
+    );
+  }
+}
+
+function resolveSubscriptionNetMinor(
+  sub: {
+    promotionCode: string | null;
+    promotionCyclesRemaining: number;
+    tier: string;
+  },
+  plan: NonNullable<ReturnType<typeof getPlan>>
+): number {
+  if (sub.promotionCode && sub.promotionCyclesRemaining > 0) {
+    const promo = getPromotion(sub.promotionCode);
+    if (promo && promoAppliesToTier(promo, sub.tier)) {
+      return resolvePrice(plan, promo);
+    }
+  }
+  return plan.amountMinor;
+}
+
+/**
+ * POST /developer/tax-preview
+ *
+ * Pre-checkout tax breakdown for a plan + billing identity.
+ * Plan prices are net (excl. tax); response total is what Revolut will charge.
+ *
+ * Public by default (same idea as /plans). Optional `verifyVat: true` runs VIES
+ * and requires a wallet JWT so we do not expose unauthenticated VIES traffic.
+ *
+ * Body: {
+ *   tier: "pro" | "scale",
+ *   country: string,
+ *   companyName?: string,
+ *   vatId?: string,
+ *   verifyVat?: boolean   // run VIES when EU + VAT ID (debounced from portal)
+ * }
+ */
+subscriptionRouter.post('/tax-preview', async (req: Request, res: Response) => {
+  const {
+    tier,
+    country,
+    companyName,
+    vatId,
+    verifyVat,
+    region,
+    postalCode,
+    line1,
+    city,
+  } = req.body ?? {};
+
+  if (!tier || !subscribableTiers().includes(tier)) {
+    res.status(400).json({
+      error: `Invalid tier. Choose one of: ${subscribableTiers().join(', ')}`,
+    });
+    return;
+  }
+
+  const plan = getPlan(tier);
+  if (!plan) {
+    res.status(400).json({ error: 'Unknown plan' });
+    return;
+  }
+
+  const billingCountry = normalizeCountryCode(
+    typeof country === 'string' ? country : ''
+  );
+  if (!billingCountry) {
+    res.status(400).json({
+      error: 'Billing country is required (ISO 3166-1 alpha-2, e.g. GB)',
+    });
+    return;
+  }
+
+  const location = parseBillingLocation(
+    billingCountry,
+    region,
+    postalCode,
+    line1,
+    city
+  );
+  if (!location.ok) {
+    res.status(400).json({ error: location.error });
+    return;
+  }
+  const billingRegion = location.region;
+  const billingPostalCode = location.postalCode;
+  const billingLine1 = location.line1;
+  const billingCity = location.city;
+
+  let billingCompanyName =
+    typeof companyName === 'string' && companyName.trim()
+      ? companyName.trim().slice(0, 120)
+      : null;
+  const billingVatId = typeof vatId === 'string' ? normalizeVatId(vatId) : null;
+  if (typeof vatId === 'string' && vatId.trim() && !billingVatId) {
+    res.status(400).json({ error: 'Invalid VAT / tax ID format' });
+    return;
+  }
+
+  let vatVerified = false;
+  let viesRequestId: string | null = null;
+  let viesStatus: 'skipped' | 'verified' | 'invalid' | 'unavailable' =
+    'skipped';
+
+  const shouldVerify =
+    Boolean(verifyVat) &&
+    Boolean(billingVatId) &&
+    EU_COUNTRY_CODES.has(billingCountry);
+
+  if (shouldVerify && billingVatId) {
+    if (!req.auth || req.auth.method === 'apikey') {
+      res.status(401).json({
+        error: 'Wallet login required to verify a VAT number',
+      });
+      return;
+    }
+
+    const vies = await validateEuVatId({
+      country: billingCountry,
+      vatId: billingVatId,
+    });
+    if (!vies.ok) {
+      viesStatus = 'unavailable';
+    } else if (!vies.valid) {
+      viesStatus = 'invalid';
+      res.status(400).json({
+        error:
+          vies.reason ||
+          'VAT number is not valid. Check the number or leave VAT blank.',
+        viesStatus,
+      });
+      return;
+    } else {
+      vatVerified = true;
+      viesStatus = 'verified';
+      viesRequestId = vies.requestIdentifier;
+      if (!billingCompanyName && vies.name) {
+        billingCompanyName = vies.name.slice(0, 120);
+      }
+    }
+  }
+
+  const promo = getActivePromoForTier(tier);
+  const netMinor = promo ? resolvePrice(plan, promo) : plan.amountMinor;
+
+  let breakdown: TaxBreakdown;
+  try {
+    breakdown = await computeTaxBreakdown({
+      netMinor,
+      currency: plan.currency,
+      identity: {
+        country: billingCountry,
+        region: billingRegion,
+        postalCode: billingPostalCode,
+        line1: billingLine1,
+        city: billingCity,
+        vatId: billingVatId,
+        companyName: billingCompanyName,
+        vatVerified,
+      },
+    });
+  } catch (err) {
+    res.status(400).json({
+      error: err instanceof Error ? err.message : 'Invalid billing country',
+    });
+    return;
+  }
+
+  const pendingViesNote =
+    Boolean(billingVatId) &&
+    EU_COUNTRY_CODES.has(billingCountry) &&
+    !vatVerified &&
+    viesStatus === 'skipped'
+      ? ' EU VAT will be checked via VIES when you continue to checkout before reverse charge applies.'
+      : '';
+
+  res.json({
+    tier: plan.tier,
+    currency: breakdown.currency,
+    netMinor: breakdown.netMinor,
+    taxMinor: breakdown.taxMinor,
+    totalMinor: breakdown.totalMinor,
+    taxRateBps: breakdown.taxRateBps,
+    taxTreatment: breakdown.treatment,
+    taxNote: `${breakdown.note}${pendingViesNote}`.trim(),
+    netFormatted: formatMoneyMinor(breakdown.netMinor, breakdown.currency),
+    taxFormatted: formatMoneyMinor(breakdown.taxMinor, breakdown.currency),
+    totalFormatted: formatMoneyMinor(breakdown.totalMinor, breakdown.currency),
+    vatVerified,
+    viesStatus,
+    viesRequestId,
+    billingCountry,
+    billingRegion,
+    billingPostalCode,
+    billingLine1,
+    billingCity,
+    billingVatId,
+    billingCompanyName,
+    chargeNote:
+      'You pay the total below. Revolut collects payment; your OnSocial tax invoice matches this breakdown.',
+  });
+});
+
 /**
  * POST /developer/subscribe
  *
  * Create a Revolut subscription for a plan.
  * Returns a checkout_url (the setup order's hosted checkout page).
  *
- * Body: { tier: "pro" | "scale", email: string, promoCode?: string }
+ * Body: {
+ *   tier: "pro" | "scale",
+ *   email: string,
+ *   country: string,           // ISO 3166-1 alpha-2
+ *   companyName?: string,
+ *   vatId?: string,
+ *   promoCode?: string
+ * }
  */
 subscriptionRouter.post(
   '/subscribe',
@@ -121,7 +442,18 @@ subscriptionRouter.post(
   requireJwtAuth,
   async (req: Request, res: Response) => {
     const accountId = req.auth!.accountId;
-    const { tier, email, promoCode } = req.body;
+    const {
+      tier,
+      email,
+      promoCode,
+      country,
+      companyName,
+      vatId,
+      region,
+      postalCode,
+      line1,
+      city,
+    } = req.body;
 
     // Build redirect URL from Origin header so Revolut sends users back to keys page
     // Skip localhost — Revolut production API rejects it
@@ -145,6 +477,73 @@ subscriptionRouter.post(
         .status(400)
         .json({ error: 'Email address is required for subscription billing' });
       return;
+    }
+
+    const billingCountry = normalizeCountryCode(
+      typeof country === 'string' ? country : ''
+    );
+    if (!billingCountry) {
+      res.status(400).json({
+        error: 'Billing country is required (ISO 3166-1 alpha-2, e.g. GB)',
+      });
+      return;
+    }
+
+    const location = parseBillingLocation(
+      billingCountry,
+      region,
+      postalCode,
+      line1,
+      city
+    );
+    if (!location.ok) {
+      res.status(400).json({ error: location.error });
+      return;
+    }
+    const billingRegion = location.region;
+    const billingPostalCode = location.postalCode;
+    const billingLine1 = location.line1;
+    const billingCity = location.city;
+
+    let billingCompanyName =
+      typeof companyName === 'string' && companyName.trim()
+        ? companyName.trim().slice(0, 120)
+        : null;
+    const billingVatId =
+      typeof vatId === 'string' ? normalizeVatId(vatId) : null;
+    if (typeof vatId === 'string' && vatId.trim() && !billingVatId) {
+      res.status(400).json({ error: 'Invalid VAT / tax ID format' });
+      return;
+    }
+
+    // EU reverse charge requires a live VIES pass — never honor-system.
+    let billingVatVerified = false;
+    let billingViesRequestId: string | null = null;
+    if (billingVatId && EU_COUNTRY_CODES.has(billingCountry)) {
+      const vies = await validateEuVatId({
+        country: billingCountry,
+        vatId: billingVatId,
+      });
+      if (!vies.ok) {
+        res.status(503).json({
+          error:
+            'VAT verification service is temporarily unavailable. Try again shortly, or leave VAT blank to continue without reverse charge.',
+        });
+        return;
+      }
+      if (!vies.valid) {
+        res.status(400).json({
+          error:
+            vies.reason ||
+            'VAT number is not valid. Check the number or leave VAT blank.',
+        });
+        return;
+      }
+      billingVatVerified = true;
+      billingViesRequestId = vies.requestIdentifier;
+      if (!billingCompanyName && vies.name) {
+        billingCompanyName = vies.name.slice(0, 120);
+      }
     }
 
     const revolut = await config.getRevolutClient();
@@ -171,6 +570,53 @@ subscriptionRouter.post(
               isResumableSetupOrderState(setupOrder.state) &&
               setupOrder.checkout_url
             ) {
+              // Persist latest billing identity so invoices match checkout.
+              await subscriptionStore.upsert({
+                ...existing,
+                billingEmail: email.trim(),
+                billingCountry,
+                billingCompanyName,
+                billingVatId,
+                billingVatVerified,
+                billingViesRequestId,
+                billingRegion,
+                billingPostalCode,
+                billingLine1,
+                billingCity,
+              });
+
+              const resumeNet =
+                existing.promotionCode && existing.promotionCyclesRemaining > 0
+                  ? resolveSubscriptionNetMinor(existing, requestedPlan)
+                  : requestedPlan.amountMinor;
+              try {
+                const resumeTax = await computeTaxBreakdown({
+                  netMinor: resumeNet,
+                  currency: requestedPlan.currency,
+                  identity: {
+                    country: billingCountry,
+                    region: billingRegion,
+                    postalCode: billingPostalCode,
+                    line1: billingLine1,
+                    city: billingCity,
+                    vatId: billingVatId,
+                    companyName: billingCompanyName,
+                    vatVerified: billingVatVerified,
+                  },
+                });
+                await attachTaxLineItemsToSetupOrder(
+                  revolut,
+                  existing.revolutSetupOrderId,
+                  requestedPlan.name,
+                  resumeTax
+                );
+              } catch (err) {
+                logger.warn(
+                  { err, accountId },
+                  'Failed to recompute tax for resumed Revolut setup order'
+                );
+              }
+
               res.json({
                 checkoutUrl: setupOrder.checkout_url,
                 orderId: existing.revolutSetupOrderId,
@@ -255,15 +701,6 @@ subscriptionRouter.post(
 
     const plan = getPlan(tier)!;
 
-    // Ensure plan has a Revolut variation ID
-    if (!plan.revolutPlanVariationId) {
-      res.status(503).json({
-        error:
-          'Subscription plans not yet configured. Run setup-revolut-plans.ts first.',
-      });
-      return;
-    }
-
     // Resolve promotion: explicit code > auto-applied active promo
     let promo = promoCode
       ? getPromotion(promoCode)
@@ -276,23 +713,73 @@ subscriptionRouter.post(
       promo = undefined;
     }
 
+    const netMinor = promo ? resolvePrice(plan, promo) : plan.amountMinor;
+    let taxBreakdown: TaxBreakdown;
+    try {
+      taxBreakdown = await computeTaxBreakdown({
+        netMinor,
+        currency: plan.currency,
+        identity: {
+          country: billingCountry,
+          region: billingRegion,
+          postalCode: billingPostalCode,
+          line1: billingLine1,
+          city: billingCity,
+          vatId: billingVatId,
+          companyName: billingCompanyName,
+          vatVerified: billingVatVerified,
+        },
+      });
+    } catch (err) {
+      res.status(400).json({
+        error: err instanceof Error ? err.message : 'Invalid billing country',
+      });
+      return;
+    }
+
+    let planVariationId: string;
+    try {
+      planVariationId = await resolveRevolutPlanVariationId(
+        revolut,
+        plan,
+        taxBreakdown.totalMinor
+      );
+    } catch (err) {
+      logger.error(
+        { err, tier, totalMinor: taxBreakdown.totalMinor },
+        'Failed to resolve Revolut plan variation for checkout total'
+      );
+      res.status(503).json({
+        error:
+          'Subscription plans not yet configured. Run setup-revolut-plans.ts first.',
+      });
+      return;
+    }
+
     const subscriptionId = randomUUID();
 
     try {
       // 1. Create or find Revolut customer
       const customer = await revolut.getOrCreateCustomer(email, accountId);
 
-      // 2. Create Revolut subscription
+      // 2. Create Revolut subscription at the tax-inclusive total
       const sub = await revolut.createSubscription({
-        planVariationId: plan.revolutPlanVariationId,
+        planVariationId,
         customerId: customer.id,
         redirectUrl,
         externalReference: `${accountId}:${tier}`,
       });
 
-      // 3. Get the setup order for checkout URL
+      // 3. Attach net + tax line items on the pending setup order so Revolut's
+      //    payment receipt can show Included tax (plans are flat amounts only).
       let checkoutUrl: string | undefined;
       if (sub.setup_order_id) {
+        await attachTaxLineItemsToSetupOrder(
+          revolut,
+          sub.setup_order_id,
+          plan.name,
+          taxBreakdown
+        );
         const setupOrder = await revolut.getOrder(sub.setup_order_id);
         checkoutUrl = setupOrder.checkout_url;
       }
@@ -305,14 +792,9 @@ subscriptionRouter.post(
       }
 
       // 4. Store subscription in our DB (pending until webhook confirms payment)
-      // If downgrading, preserve the old higher tier as a grace period so rate
-      // limits aren't cut immediately.
-      const oldPlan = existing ? getPlan(existing.tier) : null;
-      const isDowngrade =
-        existing &&
-        oldPlan &&
-        oldPlan.amountMinor > plan.amountMinor &&
-        hasPaidAccess(existing);
+      // Preserve prior paid access via grace while checkout is pending so
+      // upgrades/downgrades do not drop the account to free mid-payment.
+      const hadPaidAccess = existing ? hasPaidAccess(existing) : false;
       const now = new Date();
       const periodEnd = new Date(now);
       if (plan.interval === 'month') {
@@ -329,13 +811,25 @@ subscriptionRouter.post(
         revolutSubscriptionId: sub.id,
         revolutCustomerId: customer.id,
         revolutSetupOrderId: sub.setup_order_id || null,
-        revolutLastOrderId: sub.setup_order_id || null,
+        // Only set after ORDER_COMPLETED — keeps webhook idempotency correct
+        revolutLastOrderId: null,
         promotionCode: promo?.code || null,
         promotionCyclesRemaining: promo ? promo.durationCycles : 0,
         currentPeriodStart: now.toISOString(),
         currentPeriodEnd: periodEnd.toISOString(),
-        graceTier: isDowngrade ? existing.tier : null,
-        gracePeriodEnd: isDowngrade ? existing.currentPeriodEnd : null,
+        graceTier: hadPaidAccess && existing ? existing.tier : null,
+        gracePeriodEnd:
+          hadPaidAccess && existing ? existing.currentPeriodEnd : null,
+        billingEmail: email.trim(),
+        billingCountry,
+        billingCompanyName,
+        billingVatId,
+        billingVatVerified,
+        billingViesRequestId,
+        billingRegion,
+        billingPostalCode,
+        billingLine1,
+        billingCity,
       });
 
       logger.info(
@@ -346,6 +840,11 @@ subscriptionRouter.post(
           setupOrderId: sub.setup_order_id,
           subscriptionId,
           promo: promo?.code,
+          billingVatVerified,
+          netMinor: taxBreakdown.netMinor,
+          taxMinor: taxBreakdown.taxMinor,
+          chargeTotalMinor: taxBreakdown.totalMinor,
+          taxTreatment: taxBreakdown.treatment,
         },
         'Revolut subscription created'
       );
@@ -413,6 +912,10 @@ subscriptionRouter.get(
           promotionCyclesRemaining: sub.promotionCyclesRemaining ?? 0,
           graceTier: sub.graceTier ?? null,
           gracePeriodEnd: sub.gracePeriodEnd ?? null,
+          billingEmail: sub.billingEmail ?? null,
+          billingCountry: sub.billingCountry ?? null,
+          billingCompanyName: sub.billingCompanyName ?? null,
+          billingVatId: sub.billingVatId ?? null,
         },
         tier: admin ? 'service' : hasPaidAccess(sub) ? sub.tier : 'free',
         admin,
@@ -421,6 +924,85 @@ subscriptionRouter.get(
       req.log.error({ error }, 'Failed to fetch subscription');
       // Degrade gracefully — treat as free tier (or service for admins)
       res.json({ subscription: null, tier: admin ? 'service' : 'free', admin });
+    }
+  }
+);
+
+/**
+ * GET /developer/invoices
+ * List tax invoices for the authenticated account (newest first).
+ */
+subscriptionRouter.get(
+  '/invoices',
+  requireAuth,
+  requireJwtAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const invoices = await invoiceStore.listByAccount(req.auth!.accountId);
+      res.json({ invoices });
+    } catch (error) {
+      req.log.error({ error }, 'Failed to list invoices');
+      res.status(500).json({ error: 'Failed to list invoices' });
+    }
+  }
+);
+
+/**
+ * GET /developer/invoices/:id/pdf
+ * Download tax invoice as PDF.
+ */
+subscriptionRouter.get(
+  '/invoices/:id/pdf',
+  requireAuth,
+  requireJwtAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const invoice = await invoiceStore.getById(
+        req.auth!.accountId,
+        String(req.params.id)
+      );
+      if (!invoice) {
+        res.status(404).json({ error: 'Invoice not found' });
+        return;
+      }
+
+      const pdf = renderInvoicePdf(invoice);
+      const filename = invoicePdfFilename(invoice);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${filename}"`
+      );
+      res.setHeader('Content-Length', String(pdf.length));
+      res.status(200).send(pdf);
+    } catch (error) {
+      req.log.error({ error }, 'Failed to render invoice PDF');
+      res.status(500).json({ error: 'Failed to render invoice PDF' });
+    }
+  }
+);
+
+/**
+ * GET /developer/invoices/:id
+ */
+subscriptionRouter.get(
+  '/invoices/:id',
+  requireAuth,
+  requireJwtAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const invoice = await invoiceStore.getById(
+        req.auth!.accountId,
+        String(req.params.id)
+      );
+      if (!invoice) {
+        res.status(404).json({ error: 'Invoice not found' });
+        return;
+      }
+      res.json({ invoice });
+    } catch (error) {
+      req.log.error({ error }, 'Failed to fetch invoice');
+      res.status(500).json({ error: 'Failed to fetch invoice' });
     }
   }
 );
@@ -525,6 +1107,35 @@ subscriptionRouter.post(
     await updateAccountTier(accountId, sub.tier);
     clearTierCache(accountId);
 
+    if (sub.billingCountry && sub.billingEmail) {
+      try {
+        await issueInvoiceForOrder({
+          accountId,
+          tier: sub.tier,
+          revolutOrderId: orderId,
+          currency: plan.currency,
+          netMinor: resolveSubscriptionNetMinor(sub, plan),
+          billingEmail: sub.billingEmail,
+          billingCountry: sub.billingCountry,
+          billingCompanyName: sub.billingCompanyName,
+          billingVatId: sub.billingVatId,
+          billingRegion: sub.billingRegion,
+          billingPostalCode: sub.billingPostalCode,
+          billingLine1: sub.billingLine1,
+          billingCity: sub.billingCity,
+          vatVerified: Boolean(sub.billingVatVerified),
+          viesRequestId: sub.billingViesRequestId,
+          periodStart: now.toISOString(),
+          periodEnd: periodEnd.toISOString(),
+        });
+      } catch (err) {
+        logger.warn(
+          { err, accountId, orderId },
+          'Failed to issue invoice on dev-complete'
+        );
+      }
+    }
+
     logger.info(
       { accountId, tier: sub.tier, orderId },
       'Subscription marked active via dev completion endpoint'
@@ -536,6 +1147,196 @@ subscriptionRouter.post(
         tier: sub.tier,
         currentPeriodStart: now.toISOString(),
         currentPeriodEnd: periodEnd.toISOString(),
+      },
+    });
+  }
+);
+
+/**
+ * Non-production recovery: activate a paid Revolut order after webhook miss
+ * (e.g. signing-secret mismatch / in-memory store restart).
+ *
+ * Body: {
+ *   orderId: string,
+ *   revolutSubscriptionId?: string,
+ *   tier?: "pro" | "scale"
+ * }
+ */
+subscriptionRouter.post(
+  '/subscription/dev-recover',
+  requireAuth,
+  requireJwtAuth,
+  async (req: Request, res: Response) => {
+    if (config.nodeEnv === 'production') {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+
+    const accountId = req.auth!.accountId;
+    const orderId =
+      typeof req.body?.orderId === 'string' ? req.body.orderId.trim() : '';
+    if (!orderId) {
+      res.status(400).json({ error: 'orderId is required' });
+      return;
+    }
+
+    const revolut = await config.getRevolutClient();
+    if (!revolut) {
+      res.status(503).json({ error: 'Payment service not configured' });
+      return;
+    }
+
+    let order;
+    try {
+      order = await revolut.getOrder(orderId);
+    } catch (err) {
+      logger.warn({ err, orderId }, 'dev-recover: failed to fetch order');
+      res.status(404).json({ error: 'Order not found in Revolut' });
+      return;
+    }
+
+    const orderState = String(order.state || '').toLowerCase();
+    if (orderState !== 'completed') {
+      res.status(409).json({
+        error: `Order is ${order.state || 'unknown'}, expected completed`,
+      });
+      return;
+    }
+
+    const externalRef =
+      typeof order.merchant_order_ext_ref === 'string'
+        ? order.merchant_order_ext_ref
+        : undefined;
+
+    let tier =
+      typeof req.body?.tier === 'string'
+        ? req.body.tier.trim().toLowerCase()
+        : '';
+    const revolutSubscriptionId =
+      typeof req.body?.revolutSubscriptionId === 'string'
+        ? req.body.revolutSubscriptionId.trim()
+        : '';
+
+    if (!tier && externalRef?.includes(':')) {
+      const parts = externalRef.split(':');
+      const refTier = parts[1];
+      if (refTier) tier = refTier.toLowerCase();
+    }
+    if (!tier && order.metadata?.tier) {
+      tier = String(order.metadata.tier).toLowerCase();
+    }
+    if (!tier) {
+      tier = 'pro';
+    }
+
+    if (!subscribableTiers().includes(tier)) {
+      res.status(400).json({ error: `Invalid tier: ${tier}` });
+      return;
+    }
+
+    const plan = getPlan(tier);
+    if (!plan) {
+      res.status(400).json({ error: 'Unknown subscription tier' });
+      return;
+    }
+
+    const now = new Date();
+    const periodEnd = new Date(now);
+    if (plan.interval === 'month') {
+      periodEnd.setMonth(periodEnd.getMonth() + plan.intervalCount);
+    } else {
+      periodEnd.setFullYear(periodEnd.getFullYear() + plan.intervalCount);
+    }
+
+    const existing = await subscriptionStore.getByAccount(accountId);
+    const subscriptionId = existing?.id || randomUUID();
+
+    await subscriptionStore.upsert({
+      id: subscriptionId,
+      accountId,
+      tier: plan.tier,
+      status: 'pending',
+      revolutSubscriptionId:
+        revolutSubscriptionId || existing?.revolutSubscriptionId || null,
+      revolutCustomerId:
+        existing?.revolutCustomerId || order.customer?.id || null,
+      revolutSetupOrderId: orderId,
+      revolutLastOrderId: null,
+      promotionCode: existing?.promotionCode || null,
+      promotionCyclesRemaining: existing?.promotionCyclesRemaining || 0,
+      currentPeriodStart: now.toISOString(),
+      currentPeriodEnd: periodEnd.toISOString(),
+      graceTier: null,
+      gracePeriodEnd: null,
+      billingEmail: existing?.billingEmail || null,
+      billingCountry: existing?.billingCountry || null,
+      billingCompanyName: existing?.billingCompanyName || null,
+      billingVatId: existing?.billingVatId || null,
+      billingVatVerified: Boolean(existing?.billingVatVerified),
+      billingViesRequestId: existing?.billingViesRequestId || null,
+      billingRegion: existing?.billingRegion || null,
+      billingPostalCode: existing?.billingPostalCode || null,
+      billingLine1: existing?.billingLine1 || null,
+      billingCity: existing?.billingCity || null,
+    });
+
+    await subscriptionStore.updatePeriod(
+      accountId,
+      now.toISOString(),
+      periodEnd.toISOString(),
+      orderId
+    );
+    await updateAccountTier(accountId, plan.tier);
+    clearTierCache(accountId);
+
+    if (existing?.billingCountry && existing.billingEmail) {
+      try {
+        await issueInvoiceForOrder({
+          accountId,
+          tier: plan.tier,
+          revolutOrderId: orderId,
+          currency: plan.currency,
+          netMinor: existing
+            ? resolveSubscriptionNetMinor(existing, plan)
+            : plan.amountMinor,
+          billingEmail: existing.billingEmail,
+          billingCountry: existing.billingCountry,
+          billingCompanyName: existing.billingCompanyName,
+          billingVatId: existing.billingVatId,
+          billingRegion: existing.billingRegion,
+          billingPostalCode: existing.billingPostalCode,
+          billingLine1: existing.billingLine1,
+          billingCity: existing.billingCity,
+          vatVerified: Boolean(existing.billingVatVerified),
+          viesRequestId: existing.billingViesRequestId,
+          periodStart: now.toISOString(),
+          periodEnd: periodEnd.toISOString(),
+        });
+      } catch (err) {
+        logger.warn(
+          { err, accountId, orderId },
+          'Failed to issue invoice on dev-recover'
+        );
+      }
+    }
+
+    logger.info(
+      {
+        accountId,
+        tier: plan.tier,
+        orderId,
+        revolutSubscriptionId: revolutSubscriptionId || null,
+      },
+      'Subscription recovered via dev-recover from completed Revolut order'
+    );
+
+    res.json({
+      status: 'active',
+      subscription: {
+        tier: plan.tier,
+        currentPeriodStart: now.toISOString(),
+        currentPeriodEnd: periodEnd.toISOString(),
+        orderId,
       },
     });
   }

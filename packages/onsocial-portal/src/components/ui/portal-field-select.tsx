@@ -63,6 +63,7 @@ export function PortalFieldSelect({
   ariaLabel,
   className,
   triggerClassName,
+  menuClassName,
   compact = false,
 }: {
   label?: string;
@@ -74,6 +75,7 @@ export function PortalFieldSelect({
   ariaLabel?: string;
   className?: string;
   triggerClassName?: string;
+  menuClassName?: string;
   compact?: boolean;
 }) {
   const fallbackId = useId();
@@ -190,7 +192,10 @@ export function PortalFieldSelect({
           <FloatingPanelMenu
             open={isOpen}
             align="full"
-            className="space-y-0.5 p-1 md:p-1.5"
+            className={cn(
+              'max-h-64 space-y-0.5 overflow-y-auto overscroll-contain p-1 md:p-1.5',
+              menuClassName
+            )}
             role="listbox"
             aria-label={ariaLabel ?? label ?? 'Select option'}
             onKeyDown={(event) => {

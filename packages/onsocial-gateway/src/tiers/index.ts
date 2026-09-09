@@ -1,5 +1,5 @@
 import { config } from '../config/index.js';
-import { subscriptionStore } from '../services/revolut/index.js';
+import { hasPaidAccess, subscriptionStore } from '../services/revolut/index.js';
 import { logger } from '../logger.js';
 import type { Tier, TierInfo } from '../types/index.js';
 
@@ -18,8 +18,10 @@ export function isAdmin(accountId: string): boolean {
  * Get tier info for an account (with caching).
  *
  * Admin wallets always receive the `service` tier.
- * Otherwise queries the developer_subscriptions table for an active subscription.
- * Falls back to 'free' if no active subscription exists or if the lookup fails.
+ * Paid tiers require confirmed payment (`hasPaidAccess`) — pending
+ * checkout never elevates rate limits. Grace tiers still apply during
+ * upgrade/downgrade checkout so existing paid access is not dropped.
+ * Falls back to 'free' if no paid subscription exists or if the lookup fails.
  */
 export async function getTierInfo(accountId: string): Promise<TierInfo> {
   const now = Date.now();
@@ -38,8 +40,11 @@ export async function getTierInfo(accountId: string): Promise<TierInfo> {
     try {
       const sub = await subscriptionStore.getWithValidPeriod(accountId);
       if (sub) {
-        tier = sub.tier;
-        // During a downgrade, honour the previous higher tier until its grace period ends
+        if (hasPaidAccess(sub)) {
+          tier = sub.tier;
+        }
+        // Honour grace during downgrade / mid-checkout so paid users are not
+        // dropped to free while a new Revolut setup order is still pending.
         if (
           sub.graceTier &&
           sub.gracePeriodEnd &&

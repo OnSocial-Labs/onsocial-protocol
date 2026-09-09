@@ -3,6 +3,7 @@ import { afterEach, describe, it, expect, vi } from 'vitest';
 // MemoryStore is used when NODE_ENV !== 'production' and HASURA_ADMIN_SECRET is unset
 import {
   HasuraStore,
+  hasPaidAccess,
   subscriptionStore,
   type SubscriptionRecord,
 } from '../../src/services/revolut/subscriptions.js';
@@ -30,6 +31,14 @@ const baseSub: Omit<SubscriptionRecord, 'createdAt' | 'updatedAt'> = {
   promotionCyclesRemaining: 0,
   currentPeriodStart: pastISO(24),
   currentPeriodEnd: futureISO(24 * 29), // ~29 days left
+  graceTier: null,
+  gracePeriodEnd: null,
+  billingEmail: null,
+  billingCountry: null,
+  billingCompanyName: null,
+  billingVatId: null,
+  billingVatVerified: false,
+  billingViesRequestId: null,
 };
 
 afterEach(() => {
@@ -37,6 +46,53 @@ afterEach(() => {
 });
 
 // ── Tests ─────────────────────────────────────────────────────
+
+describe('hasPaidAccess', () => {
+  it('rejects pending and expired even with a future period', () => {
+    expect(
+      hasPaidAccess({
+        status: 'pending',
+        currentPeriodEnd: futureISO(24),
+      })
+    ).toBe(false);
+    expect(
+      hasPaidAccess({
+        status: 'expired',
+        currentPeriodEnd: futureISO(24),
+      })
+    ).toBe(false);
+  });
+
+  it('accepts active, cancelled, and past_due while the period is valid', () => {
+    expect(
+      hasPaidAccess({
+        status: 'active',
+        currentPeriodEnd: futureISO(24),
+      })
+    ).toBe(true);
+    expect(
+      hasPaidAccess({
+        status: 'cancelled',
+        currentPeriodEnd: futureISO(24),
+      })
+    ).toBe(true);
+    expect(
+      hasPaidAccess({
+        status: 'past_due',
+        currentPeriodEnd: futureISO(24),
+      })
+    ).toBe(true);
+  });
+
+  it('rejects when the paid period has ended', () => {
+    expect(
+      hasPaidAccess({
+        status: 'active',
+        currentPeriodEnd: pastISO(1),
+      })
+    ).toBe(false);
+  });
+});
 
 describe('SubscriptionStore (MemoryStore)', () => {
   // Reset store between tests by upserting with a fresh state

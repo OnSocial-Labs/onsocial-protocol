@@ -55,6 +55,8 @@ vi.mock('../../src/services/revolut/plans.js', () => ({
         tier: 'pro',
         interval: 'month',
         intervalCount: 1,
+        amountMinor: 4900,
+        currency: 'USD',
       };
     }
     if (tier === 'scale') {
@@ -62,10 +64,16 @@ vi.mock('../../src/services/revolut/plans.js', () => ({
         tier: 'scale',
         interval: 'month',
         intervalCount: 1,
+        amountMinor: 19900,
+        currency: 'USD',
       };
     }
     return null;
   }),
+}));
+
+vi.mock('../../src/services/billing/invoices.js', () => ({
+  issueInvoiceForOrder: vi.fn(async () => ({ id: 'inv-1' })),
 }));
 
 vi.mock('../../src/services/apikeys/index.js', () => ({
@@ -92,6 +100,15 @@ function createApp() {
   app.use('/webhooks', webhookRouter);
   return app;
 }
+
+const billingIdentity = {
+  billingEmail: 'alice@example.com',
+  billingCountry: 'GB',
+  billingCompanyName: 'Alice Ltd',
+  billingVatId: null,
+  billingVatVerified: false,
+  billingViesRequestId: null,
+};
 
 describe('Revolut webhook route', () => {
   beforeEach(() => {
@@ -173,6 +190,7 @@ describe('Revolut webhook route', () => {
       revolutSubscriptionId: 'rev-sub-1',
       revolutLastOrderId: null,
       promotionCyclesRemaining: 0,
+      ...billingIdentity,
     });
 
     const res = await request(createApp())
@@ -206,6 +224,7 @@ describe('Revolut webhook route', () => {
       revolutSubscriptionId: 'rev-sub-1',
       revolutLastOrderId: 'order-completed-123',
       promotionCyclesRemaining: 0,
+      ...billingIdentity,
     });
 
     const res = await request(createApp())
@@ -236,6 +255,7 @@ describe('Revolut webhook route', () => {
       revolutSubscriptionId: 'rev-sub-1',
       revolutLastOrderId: 'older-order-123',
       promotionCyclesRemaining: 2,
+      ...billingIdentity,
     });
 
     const res = await request(createApp())
@@ -247,6 +267,40 @@ describe('Revolut webhook route', () => {
 
     expect(res.status).toBe(204);
     expect(mockDecrementPromoCycles).toHaveBeenCalledWith('alice.testnet');
+  });
+
+  it('does not re-extend the period when ORDER_COMPLETED is delivered twice', async () => {
+    const payload = loadFixture('order-completed.json');
+    mockGetOrder.mockResolvedValue({
+      metadata: {
+        account_id: 'alice.testnet',
+        tier: 'pro',
+      },
+    });
+    mockGetByAccount.mockResolvedValue({
+      accountId: 'alice.testnet',
+      tier: 'pro',
+      status: 'active',
+      revolutSubscriptionId: 'rev-sub-1',
+      revolutLastOrderId: 'order-completed-123',
+      promotionCyclesRemaining: 0,
+      currentPeriodStart: '2024-01-01T00:00:00.000Z',
+      currentPeriodEnd: '2024-02-01T00:00:00.000Z',
+      ...billingIdentity,
+    });
+
+    const res = await request(createApp())
+      .post('/webhooks/revolut')
+      .set('Content-Type', 'application/json')
+      .set('Revolut-Signature', 'v1=test-signature')
+      .set('Revolut-Request-Timestamp', '1713139200')
+      .send(payload);
+
+    expect(res.status).toBe(204);
+    expect(mockUpdatePeriod).not.toHaveBeenCalled();
+    expect(mockDecrementPromoCycles).not.toHaveBeenCalled();
+    expect(mockUpdateAccountTier).toHaveBeenCalledWith('alice.testnet', 'pro');
+    expect(mockClearTierCache).toHaveBeenCalledWith('alice.testnet');
   });
 
   it('resolves renewal orders through subscription cycles when metadata is absent', async () => {
@@ -262,6 +316,7 @@ describe('Revolut webhook route', () => {
         revolutSubscriptionId: 'rev-scale-1',
         revolutLastOrderId: 'older-order-123',
         promotionCyclesRemaining: 0,
+        ...billingIdentity,
       },
     ]);
     mockGetSubscriptionCycles.mockResolvedValue([

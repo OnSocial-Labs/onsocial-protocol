@@ -28,6 +28,8 @@ target/
 .env
 .env.testnet
 .env.mainnet
+.env.sandbox
+**/.env.sandbox
 
 # Security: Private keys
 keys/

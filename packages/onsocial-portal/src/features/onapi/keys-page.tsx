@@ -80,6 +80,23 @@ import {
   type PlanInfo,
   type SubscriptionInfo,
 } from '@/features/onapi/billing-api';
+import { BILLING_COUNTRY_SELECT_OPTIONS } from '@/features/onapi/billing-countries';
+import {
+  countryNeedsPostal,
+  countryNeedsRegion,
+  postalCodePlaceholder,
+  regionSelectOptions,
+} from '@/features/onapi/billing-regions';
+import {
+  BillingTaxPreviewPanel,
+  useBillingTaxPreview,
+} from '@/features/onapi/billing-tax-preview';
+import { PortalFieldSelect } from '@/components/ui/portal-field-select';
+import {
+  txToastBillingError,
+  txToastBillingPending,
+  txToastBillingSuccess,
+} from '@/lib/transaction-toast-copy';
 import { ACTIVE_API_URL } from '@/lib/portal-config';
 
 function maskKey(prefix: string): string {
@@ -434,21 +451,27 @@ export default function OnApiKeysPage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   const [billingEmail, setBillingEmail] = useState('');
+  const [billingCountry, setBillingCountry] = useState('GB');
+  const [billingRegion, setBillingRegion] = useState('');
+  const [billingPostalCode, setBillingPostalCode] = useState('');
+  const [billingLine1, setBillingLine1] = useState('');
+  const [billingCity, setBillingCity] = useState('');
+  const [billingCompanyName, setBillingCompanyName] = useState('');
+  const [billingVatId, setBillingVatId] = useState('');
   const [emailTouched, setEmailTouched] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [completingDev, setCompletingDev] = useState(false);
   const pendingUpgradeRef = useRef(false);
+  const [confirmingCheckout, setConfirmingCheckout] = useState(
+    () => searchParams.get('checkout') === 'success'
+  );
 
   useEffect(() => {
-    if (searchParams.get('checkout') === 'success') {
-      setToast({
-        type: 'success',
-        msg: 'Payment complete \u2014 your plan is active!',
-      });
-      window.history.replaceState({}, '', '/onapi/keys');
-    }
+    if (searchParams.get('checkout') !== 'success') return;
+    window.history.replaceState({}, '', '/onapi/keys');
+    setConfirmingCheckout(true);
   }, [searchParams]);
 
   const [keys, setKeys] = useState<ApiKeyInfo[]>([]);
@@ -651,6 +674,80 @@ export default function OnApiKeysPage() {
   }, [jwt, accountId, isConnected, refresh]);
 
   useEffect(() => {
+    if (!confirmingCheckout) return;
+
+    let cancelled = false;
+    const sleep = (ms: number) =>
+      new Promise<void>((resolve) => {
+        window.setTimeout(resolve, ms);
+      });
+
+    const confirmCheckout = async () => {
+      setToast({
+        type: 'pending',
+        msg: txToastBillingPending.confirmingPayment,
+        pendingPhase: 'chain',
+      });
+
+      let token = jwt;
+      if (!token) {
+        token = await ensureAuth();
+        if (cancelled) return;
+      }
+      if (!token) {
+        // Keep confirmingCheckout true so we retry after the user authorizes.
+        return;
+      }
+
+      const delaysMs = [0, 1500, 1500, 2000, 3000, 4000];
+      for (const delay of delaysMs) {
+        if (delay > 0) await sleep(delay);
+        if (cancelled) return;
+        try {
+          const subData = await fetchSubscription(token);
+          if (cancelled) return;
+          setSubscription(subData.subscription);
+          setCurrentTier(subData.tier);
+          setIsAdmin(!!subData.admin);
+
+          const status = subData.subscription?.status;
+          if (status === 'active') {
+            setToast({
+              type: 'success',
+              msg: txToastBillingSuccess.planActive,
+            });
+            setConfirmingCheckout(false);
+            await refresh();
+            return;
+          }
+          if (status === 'past_due' || status === 'expired') {
+            setToast({
+              type: 'error',
+              msg: txToastBillingError.paymentNotConfirmed,
+            });
+            setConfirmingCheckout(false);
+            return;
+          }
+        } catch {
+          // Webhook may still be in flight
+        }
+      }
+
+      if (cancelled) return;
+      setToast({
+        type: 'error',
+        msg: txToastBillingError.paymentNotConfirmed,
+      });
+      setConfirmingCheckout(false);
+    };
+
+    void confirmCheckout();
+    return () => {
+      cancelled = true;
+    };
+  }, [confirmingCheckout, jwt, ensureAuth, refresh]);
+
+  useEffect(() => {
     if (!jwt) return;
 
     const tick = () => {
@@ -701,11 +798,31 @@ export default function OnApiKeysPage() {
     ACTIVE_API_URL.includes('localhost') && subscription?.status === 'pending';
   const quickStartExpanded = !hasKeys || quickStartOpen;
   const emailValid = EMAIL_RE.test(billingEmail.trim());
+  const needsRegion = countryNeedsRegion(billingCountry);
+  const needsPostal = countryNeedsPostal(billingCountry);
+  const billingReady =
+    emailValid &&
+    Boolean(billingCountry) &&
+    (!needsRegion || Boolean(billingRegion)) &&
+    (!needsPostal || Boolean(billingPostalCode.trim()));
   const showEmailHint =
     emailTouched && billingEmail.trim().length > 0 && !emailValid;
 
+  const taxPreview = useBillingTaxPreview({
+    jwt,
+    tier: targetPlan?.tier ?? requestedTier,
+    country: billingCountry,
+    region: billingRegion,
+    postalCode: billingPostalCode,
+    line1: billingLine1,
+    city: billingCity,
+    companyName: billingCompanyName,
+    vatId: billingVatId,
+    enabled: showUpgradePanel,
+  });
+
   const executeUpgrade = useCallback(async () => {
-    if (!emailValid || !requestedTier) return;
+    if (!billingReady || !requestedTier) return;
     setUpgrading(true);
     setError(null);
     try {
@@ -714,16 +831,37 @@ export default function OnApiKeysPage() {
         setUpgrading(false);
         return;
       }
-      const result = await subscribe(token, requestedTier, billingEmail.trim());
+      const result = await subscribe(token, requestedTier, {
+        email: billingEmail.trim(),
+        country: billingCountry,
+        region: billingRegion,
+        postalCode: billingPostalCode,
+        line1: billingLine1,
+        city: billingCity,
+        companyName: billingCompanyName,
+        vatId: billingVatId,
+      });
       window.location.href = result.checkoutUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start checkout');
       setUpgrading(false);
     }
-  }, [ensureAuth, billingEmail, requestedTier, emailValid]);
+  }, [
+    ensureAuth,
+    billingEmail,
+    billingCountry,
+    billingRegion,
+    billingPostalCode,
+    billingLine1,
+    billingCity,
+    billingCompanyName,
+    billingVatId,
+    requestedTier,
+    billingReady,
+  ]);
 
   const handleSubscribe = async () => {
-    if (!emailValid) return;
+    if (!billingReady) return;
     setUpgrading(true);
     setError(null);
     if (!isConnected) {
@@ -765,7 +903,7 @@ export default function OnApiKeysPage() {
       await refresh();
       setToast({
         type: 'success',
-        msg: 'Payment complete \u2014 your plan is active!',
+        msg: txToastBillingSuccess.planActive,
       });
     } catch (err) {
       setError(
@@ -1206,7 +1344,7 @@ export default function OnApiKeysPage() {
                           {targetPlan.promotion.discountedPrice}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          /{targetPlan.interval}
+                          /{targetPlan.interval} + tax
                         </span>
                         <span
                           className="ml-2 text-xs font-medium"
@@ -1224,7 +1362,7 @@ export default function OnApiKeysPage() {
                           ${(targetPlan.amountMinor / 100).toFixed(0)}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          /{targetPlan.interval}
+                          /{targetPlan.interval} + tax
                         </span>
                       </>
                     )}
@@ -1286,13 +1424,136 @@ export default function OnApiKeysPage() {
                       />
                     </SurfacePanel>
                     <p className="mt-1 px-0.5 portal-type-caption tracking-[0.02em] text-muted-foreground/40">
-                      For receipts and payment updates
+                      For receipts, invoices, and payment updates
                     </p>
                   </div>
+                  <PortalFieldSelect
+                    value={billingCountry}
+                    onChange={(code) => {
+                      setBillingCountry(code);
+                      setBillingRegion('');
+                      setBillingPostalCode('');
+                      setBillingLine1('');
+                      setBillingCity('');
+                    }}
+                    options={BILLING_COUNTRY_SELECT_OPTIONS}
+                    ariaLabel="Billing country"
+                    placeholder="Billing country"
+                    compact
+                    triggerClassName="border-border/40 bg-background/45 tracking-[-0.01em]"
+                  />
+                  <SurfacePanel
+                    radius="md"
+                    tone="inset"
+                    borderTone="subtle"
+                    padding="none"
+                    className="px-3 py-2.5"
+                  >
+                    <input
+                      id="billing-line1"
+                      type="text"
+                      value={billingLine1}
+                      onChange={(e) => setBillingLine1(e.target.value)}
+                      placeholder="Street address (optional)"
+                      autoComplete="address-line1"
+                      className="w-full bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
+                    />
+                  </SurfacePanel>
+                  <SurfacePanel
+                    radius="md"
+                    tone="inset"
+                    borderTone="subtle"
+                    padding="none"
+                    className="px-3 py-2.5"
+                  >
+                    <input
+                      id="billing-city"
+                      type="text"
+                      value={billingCity}
+                      onChange={(e) => setBillingCity(e.target.value)}
+                      placeholder="City (optional)"
+                      autoComplete="address-level2"
+                      className="w-full bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
+                    />
+                  </SurfacePanel>
+                  {needsRegion ? (
+                    <PortalFieldSelect
+                      value={billingRegion}
+                      onChange={setBillingRegion}
+                      options={regionSelectOptions(billingCountry)}
+                      ariaLabel={
+                        billingCountry === 'US'
+                          ? 'Billing state'
+                          : 'Billing province'
+                      }
+                      placeholder={
+                        billingCountry === 'US'
+                          ? 'State'
+                          : 'Province / territory'
+                      }
+                      compact
+                      triggerClassName="border-border/40 bg-background/45 tracking-[-0.01em]"
+                    />
+                  ) : null}
+                  <SurfacePanel
+                    radius="md"
+                    tone="inset"
+                    borderTone="subtle"
+                    padding="none"
+                    className="px-3 py-2.5"
+                  >
+                    <input
+                      id="billing-zip"
+                      type="text"
+                      value={billingPostalCode}
+                      onChange={(e) => setBillingPostalCode(e.target.value)}
+                      placeholder={postalCodePlaceholder(billingCountry)}
+                      inputMode={billingCountry === 'US' ? 'numeric' : 'text'}
+                      autoComplete="postal-code"
+                      className="w-full bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
+                    />
+                  </SurfacePanel>
+                  <SurfacePanel
+                    radius="md"
+                    tone="inset"
+                    borderTone="subtle"
+                    padding="none"
+                    className="px-3 py-2.5"
+                  >
+                    <input
+                      id="billing-company"
+                      type="text"
+                      value={billingCompanyName}
+                      onChange={(e) => setBillingCompanyName(e.target.value)}
+                      placeholder="Company name (optional)"
+                      className="w-full bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
+                    />
+                  </SurfacePanel>
+                  <SurfacePanel
+                    radius="md"
+                    tone="inset"
+                    borderTone="subtle"
+                    padding="none"
+                    className="px-3 py-2.5"
+                  >
+                    <input
+                      id="billing-vat"
+                      type="text"
+                      value={billingVatId}
+                      onChange={(e) => setBillingVatId(e.target.value)}
+                      placeholder="Business VAT ID (optional)"
+                      className="w-full bg-transparent text-sm font-medium tracking-[-0.01em] outline-none placeholder:text-muted-foreground/50"
+                    />
+                  </SurfacePanel>
+                  <BillingTaxPreviewPanel
+                    preview={taxPreview.preview}
+                    loading={taxPreview.loading}
+                    error={taxPreview.error}
+                  />
                   <Button
                     onClick={handleSubscribe}
                     loading={upgrading}
-                    disabled={upgrading || !emailValid}
+                    disabled={upgrading || !billingReady}
                     variant={accent === 'purple' ? 'secondary' : 'default'}
                     className="w-full justify-center"
                     size="cta"

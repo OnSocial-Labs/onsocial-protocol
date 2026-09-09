@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ACTIVE_API_URL } from '@/lib/portal-config';
-import { getServerOnApiKey } from '@/lib/onsocial-server-client';
+import {
+  getServerOnApiKey,
+  resolveServerDataGatewayUrl,
+} from '@/lib/onsocial-server-client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,7 +40,9 @@ function findAllowedRoute(
 }
 
 function buildTargetUrl(pathSegments: string[], search: string): string {
-  const base = ACTIVE_API_URL.replace(/\/$/, '');
+  // Social/data proxy uses the indexed network gateway (testnet/mainnet), not
+  // a local Revolut sandbox gateway which has no service key / profile graph.
+  const base = resolveServerDataGatewayUrl();
   const path = pathSegments.map(encodeURIComponent).join('/');
   return `${base}/${path}${search}`;
 }
