@@ -63,6 +63,7 @@ export {
   openMarketFilter,
   pickMediumAndWaitUrl,
 } from './market';
+export { expectChromePageInset } from './create-page';
 export { clickDropsSortAndWaitUrl, expectDropsChrome } from './drops';
 export {
   clickCollectiblesKindAndWaitUrl,

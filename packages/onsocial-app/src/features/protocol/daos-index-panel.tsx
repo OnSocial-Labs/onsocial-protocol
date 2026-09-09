@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { LAUNCHER_HOME_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import {
   LauncherHomeMineStatus,
@@ -205,7 +206,7 @@ export function DaosIndexPanel() {
       glassChrome
       actions={headerActions}
     >
-      <div className="launcher-home">
+      <div className={LAUNCHER_HOME_PAGE_CLASS}>
         <div className="launcher-home-shortcuts">
           <Link
             href={daoPath(GOVERNANCE_DAO_ACCOUNT)}

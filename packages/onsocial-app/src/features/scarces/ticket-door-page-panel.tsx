@@ -31,6 +31,7 @@ import {
   collectionPath,
   collectionRedeemPath,
 } from '@/lib/app-routes';
+import { DOOR_PAGE_CLASS } from '@/lib/os-chrome-page';
 
 function DoorEmpty({ copy, dropHref }: { copy: ReactNode; dropHref?: string }) {
   return (
@@ -337,7 +338,7 @@ export function TicketDoorPagePanel({
         ) : null
       }
     >
-      <div className="market-page ticket-door-page">{body}</div>
+      <div className={DOOR_PAGE_CLASS}>{body}</div>
       {view && canStaff && accessReady && isConnected ? (
         <TicketDoorEventSheet
           open={eventOpen}

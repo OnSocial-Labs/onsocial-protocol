@@ -17,6 +17,7 @@ import {
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { fetchIndexedPost } from '@/lib/fetch-personal-post';
 import {
   POST_QUOTES_PAGE_SIZE,
@@ -209,7 +210,7 @@ export function PostQuotesPanel({
       glassChrome
       backFallbackHref={backHref}
     >
-      <div className="guilds-page">
+      <div className={GUILDS_PAGE_CLASS}>
         {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
 
         {loadState === 'missing' ? (

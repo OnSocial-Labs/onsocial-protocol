@@ -11,6 +11,7 @@ import {
   LauncherMineRailSkeleton,
 } from '@/components/launcher-home';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { LAUNCHER_HOME_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -93,7 +94,7 @@ export function HubsIndexPanel() {
       glassChrome
       actions={headerActions}
     >
-      <div className="launcher-home">
+      <div className={LAUNCHER_HOME_PAGE_CLASS}>
         <LauncherHomeSection aria-label="My hubs">
           <LauncherHomeMineStatus
             connected={Boolean(accountId)}

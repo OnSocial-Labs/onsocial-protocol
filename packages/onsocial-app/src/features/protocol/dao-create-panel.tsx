@@ -68,6 +68,7 @@ import {
 import { SPUTNIK_DAO_FACTORY } from '@/lib/app-config';
 import { yoctoToNear } from '@/lib/app-near-rpc';
 import { APP_DAOS_PATH, daoPath } from '@/lib/app-routes';
+import { DAO_CREATE_FORM_CLASS } from '@/lib/os-create-page';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import {
@@ -516,7 +517,7 @@ export function DaoCreatePanel() {
     >
       <form
         id={DAO_CREATE_FORM_ID}
-        className="protocol-task-form dao-create-form"
+        className={DAO_CREATE_FORM_CLASS}
         data-form-focused={formFieldFocused ? '' : undefined}
         data-keyboard={formKeyboardOpen ? 'open' : undefined}
         onFocusCapture={handleFormFocusCapture}

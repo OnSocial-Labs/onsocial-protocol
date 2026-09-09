@@ -19,6 +19,7 @@ import {
   WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
   writeDockReplySpokenName,
 } from '@/lib/os-write-dock';
+import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
 import {
   clearWriteDockDraft,
   writeDockDraftFromComposer,
@@ -805,7 +806,7 @@ export function LivePersonalPostPanel({
       backFallbackHref={portfolioPath(author)}
       actions={connectAction}
     >
-      <div className="guilds-page">
+      <div className={GUILDS_PAGE_CLASS}>
         {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
 
         {loadState === 'missing' ? (

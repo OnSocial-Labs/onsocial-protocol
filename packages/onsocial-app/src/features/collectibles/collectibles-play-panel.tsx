@@ -45,6 +45,7 @@ import {
   COLLECTIBLES_PLAY_TOKEN_PARAM,
   collectionPath,
 } from '@/lib/app-routes';
+import { osChromePageClassName } from '@/lib/os-chrome-page';
 import {
   getOfflineAlbum,
   playablesFromOfflineAlbum,
@@ -464,9 +465,11 @@ export function CollectiblesPlayPanel({
       ) : null}
 
       <div
-        className={`market-page collectibles-play-page${
-          immersive ? ' is-immersive' : ''
-        }`}
+        className={osChromePageClassName(
+          'market-page',
+          'collectibles-play-page',
+          immersive && 'is-immersive'
+        )}
       >
         {status === 'loading' ? <CollectiblesPlaySkeleton /> : null}
 

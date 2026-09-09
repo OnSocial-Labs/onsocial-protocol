@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { SeriesPageSkeleton } from '@/features/scarces/series-page-skeleton';
 import { seriesRouteLoadingBackHref } from '@/features/scarces/series-page-view';
+import { MARKET_PAGE_CLASS } from '@/lib/os-chrome-page';
 
 function creatorIdFromParams(params: { creatorId?: string | string[] }) {
   const raw = params.creatorId;
@@ -28,7 +29,7 @@ export function SeriesRouteLoadingScreen() {
       backFallbackHref={backHref}
       glassChrome
     >
-      <div className="market-page">
+      <div className={MARKET_PAGE_CLASS}>
         <SeriesPageSkeleton />
       </div>
     </OsAppScreen>

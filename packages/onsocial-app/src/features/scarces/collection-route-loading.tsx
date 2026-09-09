@@ -5,6 +5,7 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { CollectionPageSkeleton } from '@/features/scarces/collection-page-skeleton';
 import { collectionChildLeaveHref } from '@/features/scarces/collection-page-view';
 import { APP_DROPS_PATH } from '@/lib/app-routes';
+import { DOOR_PAGE_CLASS } from '@/lib/os-chrome-page';
 
 function collectionIdFromParams(params: { collectionId?: string | string[] }) {
   const raw = params.collectionId;
@@ -39,7 +40,7 @@ export function CollectionChildLoadingScreen({
 
   return (
     <OsAppScreen title={title} dockBack backFallbackHref={backHref} glassChrome>
-      <div className="market-page ticket-door-page">
+      <div className={DOOR_PAGE_CLASS}>
         <div className="market-page-empty">
           <p className="market-page-empty-copy">{copy}</p>
         </div>

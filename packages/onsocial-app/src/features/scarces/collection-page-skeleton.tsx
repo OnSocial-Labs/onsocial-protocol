@@ -1,3 +1,5 @@
+import { COLLECTION_PAGE_SKELETON_CLASS } from '@/lib/os-chrome-page';
+
 /**
  * Drop page cold-load shell — immersive cover + meta + compact body bands
  * reserve final geometry so the screen does not jump when the drop resolves.
@@ -5,7 +7,7 @@
 export function CollectionPageSkeleton() {
   return (
     <div
-      className="collection-page collection-page--skeleton"
+      className={COLLECTION_PAGE_SKELETON_CLASS}
       aria-busy="true"
       aria-label="Loading drop"
       data-collection-page-skeleton

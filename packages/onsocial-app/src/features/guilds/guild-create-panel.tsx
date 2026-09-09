@@ -42,6 +42,7 @@ import {
   guildCreateAboutToggle,
 } from '@/features/guilds/guild-create-voice';
 import { APP_GROUPS_PATH } from '@/lib/app-routes';
+import { GUILD_CREATE_FORM_CLASS } from '@/lib/os-create-page';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
   txToastConfirming,
@@ -400,7 +401,7 @@ export function GuildCreatePanel() {
     >
       <form
         id={GUILD_CREATE_FORM_ID}
-        className="guild-create-form"
+        className={GUILD_CREATE_FORM_CLASS}
         data-form-focused={formFieldFocused ? '' : undefined}
         data-keyboard={formKeyboardOpen ? 'open' : undefined}
         onFocusCapture={handleFormFocusCapture}

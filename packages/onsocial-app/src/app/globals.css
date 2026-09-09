@@ -19713,26 +19713,6 @@ a.os-surface-row {
     z-index: 1;
   }
 
-  /*
-   * Shared OsAppScreen body inset — one rule for every padded page root.
-   * Discover/Standing denser vertical uses the same --os-screen-body-pad-x.
-   */
-  .app-soon-page,
-  .guilds-page,
-  .market-page,
-  .market-page-body,
-  .drops-page-body,
-  .apps-directory,
-  .app-page,
-  .collection-page,
-  .drop-create-form,
-  .drop-studio,
-  .guild-create-form,
-  .protocol-page,
-  .launcher-home {
-    padding: var(--os-screen-body-inset, 0.15rem 1rem 1.5rem);
-  }
-
   .messages-panel,
   .notifications-panel,
   .app-soon-page {
@@ -40282,7 +40262,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   display: flex;
   flex-direction: column;
   gap: 1.15rem;
-  padding-bottom: 1.5rem;
 }
 
 .launcher-home-lede {

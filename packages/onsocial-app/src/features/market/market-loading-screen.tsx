@@ -1,5 +1,6 @@
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { APP_HOME_PATH } from '@/lib/app-routes';
+import { MARKET_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
 import {
   MarketLoadingActions,
   MarketSearchHeading,
@@ -45,7 +46,11 @@ export function MarketLoadingScreen({
         />
       }
     >
-      <div className="market-page" aria-busy="true" aria-live="polite">
+      <div
+        className={MARKET_INDEX_PAGE_CLASS}
+        aria-busy="true"
+        aria-live="polite"
+      >
         <p className="sr-only">Loading listings…</p>
         <div className="market-section">
           <MarketListSkeleton rows={6} />

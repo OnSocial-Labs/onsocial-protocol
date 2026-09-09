@@ -12,6 +12,7 @@ import {
 import type { MarketMediumFilter } from '@/features/market/market-medium';
 import { peekOwnedVaultPage } from '@/features/market/owned-vault-cache';
 import { APP_HOME_PATH } from '@/lib/app-routes';
+import { VAULT_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { normalizeAccountRoute } from '@/lib/account-route';
 import { resolveCollectiblesHeldKinds } from '@/lib/collectibles-held-kinds';
 import {
@@ -126,7 +127,7 @@ export function CollectiblesLoadingScreen({
       }
     >
       <div
-        className="market-page collectibles-page"
+        className={VAULT_PAGE_CLASS}
         aria-busy="true"
         aria-live="polite"
         data-collectibles-loading-screen

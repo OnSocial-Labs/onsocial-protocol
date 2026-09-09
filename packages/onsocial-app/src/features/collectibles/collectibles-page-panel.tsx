@@ -48,6 +48,7 @@ import {
   APP_HOME_PATH,
   APP_MARKET_PATH,
 } from '@/lib/app-routes';
+import { VAULT_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
   listOfflineAlbums,
@@ -784,7 +785,7 @@ export function CollectiblesPagePanel({
 
   const body = (
     <div
-      className="market-page collectibles-page"
+      className={VAULT_PAGE_CLASS}
       data-collectibles-back={dockBackHref}
     >
       {showVaultSkeleton ? (
