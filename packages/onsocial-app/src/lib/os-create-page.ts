@@ -2,8 +2,7 @@ import { osChromePageClassName } from '@/lib/os-chrome-page';
 
 /**
  * Create-place form root. Inset is `.os-app-chrome-page` →
- * `--os-screen-body-inset` on OsAppScreen. Do not add these forms to the
- * globals page-root allowlist (that would double-pad).
+ * `--os-screen-body-inset` on OsAppScreen. Feature classes add layout only.
  */
 export function osCreatePageClassName(
   ...parts: Array<string | false | null | undefined>

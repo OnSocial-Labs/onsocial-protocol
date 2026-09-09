@@ -83,7 +83,7 @@ import {
   APP_DROP_CREATE_PATH,
   MARKET_APP_PARAM,
 } from '@/lib/app-routes';
-import { osChromePageClassName } from '@/lib/os-chrome-page';
+import { MARKET_PAGE_CLASS, osChromePageClassName } from '@/lib/os-chrome-page';
 import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import {
@@ -475,7 +475,7 @@ export function AppPagePanel({
   if (notFound && !app) {
     return (
       <OsAppScreen title="Hub" dockBack backFallbackHref={hubBackHref}>
-        <div className="market-page">
+        <div className={MARKET_PAGE_CLASS}>
           <p className="market-page-status">
             This hub isn&rsquo;t available.{' '}
             <Link className="app-soon-link" href={APP_APPS_PATH}>

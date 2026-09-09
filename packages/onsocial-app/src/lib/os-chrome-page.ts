@@ -2,8 +2,7 @@ import { osAppChromePageClassName } from '@onsocial/ui';
 
 /**
  * Standard OsAppScreen page root. Inset is `.os-app-chrome-page` →
- * `--os-screen-body-inset`. Do not also list these roots on the globals
- * allowlist (that would double-pad).
+ * `--os-screen-body-inset`. Feature classes add layout only — never padding.
  */
 export function osChromePageClassName(
   ...parts: Array<string | false | null | undefined>
@@ -18,7 +17,26 @@ export const DROPS_INDEX_PAGE_CLASS = osChromePageClassName(
   'drops-page-body'
 );
 
-export const MARKET_INDEX_PAGE_CLASS = osChromePageClassName('market-page');
+/** Market index, series/drop/hub error shells, series loading. */
+export const MARKET_PAGE_CLASS = osChromePageClassName('market-page');
+
+export const MARKET_INDEX_PAGE_CLASS = MARKET_PAGE_CLASS;
+
+export const VAULT_PAGE_CLASS = osChromePageClassName(
+  'market-page',
+  'collectibles-page'
+);
+
+export const DOOR_PAGE_CLASS = osChromePageClassName(
+  'market-page',
+  'ticket-door-page'
+);
+
+export const PLAY_LOADING_PAGE_CLASS = osChromePageClassName(
+  'market-page',
+  'collectibles-play-page',
+  'is-immersive'
+);
 
 export const GUILDS_PAGE_CLASS = osChromePageClassName('guilds-page');
 

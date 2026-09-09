@@ -106,7 +106,7 @@ import {
   marketCreatorPath,
   seriesPagePath,
 } from '@/lib/app-routes';
-import { osChromePageClassName } from '@/lib/os-chrome-page';
+import { MARKET_PAGE_CLASS, osChromePageClassName } from '@/lib/os-chrome-page';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   formatFutureRelativeTime,
@@ -704,7 +704,7 @@ export function CollectionPagePanel({
   if (catalogShell === 'unavailable' || !view) {
     return (
       <OsAppScreen title="Drop" dockBack backFallbackHref={catalogLeaveHref}>
-        <div className="market-page">
+        <div className={MARKET_PAGE_CLASS}>
           <p className="market-page-status">
             This drop isn’t available.{' '}
             <Link className="app-soon-link" href={catalogLeaveHref}>

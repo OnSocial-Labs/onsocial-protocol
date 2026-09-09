@@ -19713,16 +19713,6 @@ a.os-surface-row {
     z-index: 1;
   }
 
-  /*
-   * Shared OsAppScreen body inset — last allowlist bridge.
-   * Create, indexes, and detail pages use `.os-app-chrome-page`
-   * (`os-chrome-page.ts`). Vault / play / door / series still use
-   * `.market-page` until those roots move.
-   */
-  .market-page:not(.os-app-chrome-page) {
-    padding: var(--os-screen-body-inset, 0.15rem 1rem 1.5rem);
-  }
-
   .messages-panel,
   .notifications-panel,
   .app-soon-page {

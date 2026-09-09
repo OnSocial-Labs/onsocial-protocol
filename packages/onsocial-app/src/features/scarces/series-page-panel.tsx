@@ -42,6 +42,7 @@ import {
 import { SeriesShopRow } from '@/features/scarces/series-shop-row';
 import { accountIdsEqual } from '@/lib/account-match';
 import { dropCreatePath, marketCreatorPath } from '@/lib/app-routes';
+import { MARKET_PAGE_CLASS, osChromePageClassName } from '@/lib/os-chrome-page';
 import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import {
   groupHoldingsForRail,
@@ -207,7 +208,7 @@ export function SeriesPagePanel({
         backFallbackHref={seriesBackHref}
         glassChrome
       >
-        <div className="market-page">
+        <div className={MARKET_PAGE_CLASS}>
           <SeriesPageSkeleton />
         </div>
       </OsAppScreen>
@@ -240,7 +241,11 @@ export function SeriesPagePanel({
       }
     >
       <div
-        className={`market-page series-page${useFirst ? ' is-use-first' : ''}`}
+        className={osChromePageClassName(
+          'market-page',
+          'series-page',
+          useFirst && 'is-use-first'
+        )}
         data-series-use-first={useFirst ? '' : undefined}
         data-series-back={seriesBackHref}
       >
