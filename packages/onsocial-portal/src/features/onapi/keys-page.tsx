@@ -1316,7 +1316,7 @@ export default function OnApiKeysPage() {
                           {targetPlan.promotion.discountedPrice}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          /{targetPlan.interval}
+                          /{targetPlan.interval} + tax
                         </span>
                         <span
                           className="ml-2 text-xs font-medium"
@@ -1334,7 +1334,7 @@ export default function OnApiKeysPage() {
                           ${(targetPlan.amountMinor / 100).toFixed(0)}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          /{targetPlan.interval}
+                          /{targetPlan.interval} + tax
                         </span>
                       </>
                     )}

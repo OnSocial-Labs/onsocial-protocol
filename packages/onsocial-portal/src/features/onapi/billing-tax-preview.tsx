@@ -9,12 +9,25 @@ import { SurfacePanel } from '@/components/ui/surface-panel';
 
 function vatLineLabel(preview: TaxPreviewInfo): string {
   if (preview.taxMinor > 0) {
-    return `VAT (${(preview.taxRateBps / 100).toFixed(0)}%)`;
+    const rate = (preview.taxRateBps / 100).toFixed(1).replace(/\.0$/, '');
+    if (preview.taxTreatment === 'eu_oss_vat') {
+      return `VAT / OSS (${rate}%)`;
+    }
+    if (preview.taxTreatment === 'uk_vat') {
+      return `VAT (${rate}%)`;
+    }
+    return `Tax (${rate}%)`;
   }
   if (preview.taxTreatment === 'eu_reverse_charge') {
     return 'VAT (reverse charge)';
   }
-  return 'VAT';
+  return 'Tax';
+}
+
+function showTaxLine(preview: TaxPreviewInfo): boolean {
+  return (
+    preview.taxMinor > 0 || preview.taxTreatment === 'eu_reverse_charge'
+  );
 }
 
 export function useBillingTaxPreview(input: {
@@ -128,18 +141,36 @@ export function BillingTaxPreviewPanel({
         <p className="text-xs text-muted-foreground">Updating…</p>
       ) : preview ? (
         <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
-          <span className="text-muted-foreground">Subtotal</span>
-          <span className="text-right font-medium tabular-nums">
-            {preview.netFormatted}
-          </span>
-          <span className="text-muted-foreground">{vatLineLabel(preview)}</span>
-          <span className="text-right font-medium tabular-nums">
-            {preview.taxFormatted}
-          </span>
-          <span className="border-t border-border/40 pt-1.5 font-medium text-foreground">
+          {showTaxLine(preview) ? (
+            <>
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="text-right font-medium tabular-nums">
+                {preview.netFormatted}
+              </span>
+              <span className="text-muted-foreground">
+                {vatLineLabel(preview)}
+              </span>
+              <span className="text-right font-medium tabular-nums">
+                {preview.taxFormatted}
+              </span>
+            </>
+          ) : null}
+          <span
+            className={
+              showTaxLine(preview)
+                ? 'border-t border-border/40 pt-1.5 font-medium text-foreground'
+                : 'font-medium text-foreground'
+            }
+          >
             Total
           </span>
-          <span className="border-t border-border/40 pt-1.5 text-right text-base font-semibold tabular-nums tracking-[-0.02em]">
+          <span
+            className={
+              showTaxLine(preview)
+                ? 'border-t border-border/40 pt-1.5 text-right text-base font-semibold tabular-nums tracking-[-0.02em]'
+                : 'text-right text-base font-semibold tabular-nums tracking-[-0.02em]'
+            }
+          >
             {preview.totalFormatted}
           </span>
         </div>

@@ -2,8 +2,9 @@
 /**
  * One-time setup: create subscription plans in Revolut Merchant API.
  *
- * Creates Pro (monthly) and Scale (monthly) plans, then prints the
- * plan_variation_ids you need to set as env vars:
+ * Creates Pro (monthly) and Scale (monthly) plans at **net** prices (excl. tax).
+ * Tax-inclusive gross plans are created automatically at checkout when needed.
+ * Prints the plan_variation_ids you need to set as env vars:
  *
  *   REVOLUT_PRO_VARIATION_ID=<uuid>
  *   REVOLUT_SCALE_VARIATION_ID=<uuid>

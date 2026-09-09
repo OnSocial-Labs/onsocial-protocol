@@ -34,8 +34,12 @@ function formatDate(iso: string): string {
 
 function treatmentLabel(treatment: string): string {
   switch (treatment) {
+    case 'uk_vat':
+      return 'UK VAT';
     case 'uk_vat_inclusive':
-      return 'UK VAT (tax-inclusive)';
+      return 'UK VAT (legacy inclusive)';
+    case 'eu_oss_vat':
+      return 'EU VAT (OSS)';
     case 'eu_reverse_charge':
       return 'EU reverse charge (Art. 196)';
     case 'eu_b2c_unconfigured':
@@ -93,9 +97,7 @@ function buildLines(invoice: InvoiceRecord): Line[] {
   const tierLabel =
     invoice.tier.charAt(0).toUpperCase() + invoice.tier.slice(1);
   push(`1 × OnSocial API ${tierLabel} — monthly subscription`);
-  push(
-    `Unit price (tax-inclusive): ${money(invoice.totalMinor, invoice.currency)}`
-  );
+  push(`Net plan price: ${money(invoice.netMinor, invoice.currency)}`);
   push(`Payment reference (Revolut): ${invoice.revolutOrderId}`);
   push('');
 

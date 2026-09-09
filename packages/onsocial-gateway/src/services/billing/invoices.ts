@@ -52,7 +52,8 @@ export interface CreateInvoiceInput {
   tier: Tier;
   revolutOrderId: string;
   currency: string;
-  totalMinor: number;
+  /** Net plan amount (after promo), excl. tax — total is computed from jurisdiction. */
+  netMinor: number;
   billingEmail: string;
   billingCountry: string;
   billingCompanyName?: string | null;
@@ -98,7 +99,7 @@ function toInvoice(
 
   const vatVerified = Boolean(input.vatVerified);
   const breakdown = computeTaxBreakdown({
-    totalMinor: input.totalMinor,
+    netMinor: input.netMinor,
     currency: input.currency,
     identity: {
       country,

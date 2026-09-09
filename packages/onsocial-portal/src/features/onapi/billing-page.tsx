@@ -478,7 +478,7 @@ export default function BillingPage() {
                     )}
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    /{targetPlan.interval}
+                    /{targetPlan.interval} + tax
                   </span>
                   <span className="ml-2 text-xs font-medium portal-green-text">
                     {targetPlan.promotion.discountPercent}% off
@@ -493,7 +493,7 @@ export default function BillingPage() {
                     ${(targetPlan.amountMinor / 100).toFixed(0)}
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    /{targetPlan.interval}
+                    /{targetPlan.interval} + tax
                   </span>
                 </>
               )}

@@ -47,6 +47,22 @@ vi.mock('../../src/services/apikeys/index.js', () => ({
   updateAccountTier: (...args: unknown[]) => mocks.updateAccountTier(...args),
 }));
 
+vi.mock('../../src/services/revolut/charge-variations.js', () => ({
+  resolveRevolutPlanVariationId: vi.fn(
+    async (
+      _client: unknown,
+      plan: { amountMinor: number; revolutPlanVariationId?: string },
+      totalMinor: number
+    ) => {
+      if (totalMinor === plan.amountMinor) {
+        return plan.revolutPlanVariationId || 'net-plan';
+      }
+      return `gross-${totalMinor}`;
+    }
+  ),
+  clearChargeVariationCache: vi.fn(),
+}));
+
 vi.mock('../../src/services/revolut/index.js', () => ({
   getPlan: vi.fn((tier: string) => {
     if (tier === 'pro') {
@@ -477,7 +493,7 @@ describe('subscription routes', () => {
     );
   });
 
-  it('previews UK inclusive VAT before checkout', async () => {
+  it('previews UK VAT on net plan price before checkout', async () => {
     const res = await request(createPublicApp())
       .post('/developer/tax-preview')
       .send({ tier: 'pro', country: 'GB' });
@@ -485,17 +501,18 @@ describe('subscription routes', () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({
       tier: 'pro',
-      totalMinor: 4900,
-      taxTreatment: 'uk_vat_inclusive',
+      netMinor: 4900,
+      totalMinor: 5880,
+      taxTreatment: 'uk_vat',
       taxRateBps: 2000,
     });
-    expect(res.body.netMinor + res.body.taxMinor).toBe(4900);
-    expect(res.body.taxMinor).toBeGreaterThan(0);
-    expect(res.body.totalFormatted).toBe('$49.00');
+    expect(res.body.netMinor + res.body.taxMinor).toBe(5880);
+    expect(res.body.taxMinor).toBe(980);
+    expect(res.body.totalFormatted).toBe('$58.80');
     expect(res.body.chargeNote).toMatch(/OnSocial tax invoice/i);
   });
 
-  it('previews EU reverse charge only after VIES verification flag', async () => {
+  it('previews EU OSS VAT until VIES reverse charge is verified', async () => {
     const pending = await request(createPublicApp())
       .post('/developer/tax-preview')
       .send({
@@ -506,8 +523,8 @@ describe('subscription routes', () => {
       });
 
     expect(pending.status).toBe(200);
-    expect(pending.body.taxTreatment).toBe('eu_b2c_unconfigured');
-    expect(pending.body.taxMinor).toBe(0);
+    expect(pending.body.taxTreatment).toBe('eu_oss_vat');
+    expect(pending.body.taxMinor).toBeGreaterThan(0);
     expect(pending.body.taxNote).toMatch(/VIES/i);
   });
 

@@ -16,7 +16,7 @@ export interface SubscriptionPlan {
   tier: Exclude<Tier, 'free' | 'service'>;
   /** Display name */
   name: string;
-  /** Price in minor units (e.g. 4900 = $49.00) */
+  /** Net plan price in minor units, excl. tax (e.g. 4900 = $49.00/mo + tax) */
   amountMinor: number;
   /** ISO 4217 currency code */
   currency: string;
@@ -69,7 +69,7 @@ export const SUBSCRIPTION_PLANS: readonly SubscriptionPlan[] = [
     currency: 'USD',
     interval: 'month',
     intervalCount: 1,
-    description: 'OnSocial API Pro — 600 req/min (USD prices tax-inclusive)',
+    description: 'OnSocial API Pro — 600 req/min (USD net price, tax at checkout)',
     rateLimit: 600,
   },
   {
@@ -80,7 +80,7 @@ export const SUBSCRIPTION_PLANS: readonly SubscriptionPlan[] = [
     interval: 'month',
     intervalCount: 1,
     description:
-      'OnSocial API Scale — 3,000 req/min (USD prices tax-inclusive)',
+      'OnSocial API Scale — 3,000 req/min (USD net price, tax at checkout)',
     rateLimit: 3000,
   },
 ] as const;
@@ -119,11 +119,11 @@ export function subscribableTiers(): string[] {
   return SUBSCRIPTION_PLANS.map((p) => p.tier);
 }
 
-/** Format minor units to display price (e.g. 4900 → "$49.00") */
+/** Format net plan price for display (e.g. 4900 → "$49.00/mo + tax") */
 export function formatPrice(plan: SubscriptionPlan): string {
   const major = (plan.amountMinor / 100).toFixed(2);
   const symbol = plan.currency === 'USD' ? '$' : plan.currency;
-  return `${symbol}${major}/${plan.interval}`;
+  return `${symbol}${major}/${plan.interval} + tax`;
 }
 
 // --- Promotion helpers -----------------------------------------------------

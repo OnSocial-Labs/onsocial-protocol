@@ -34,7 +34,9 @@ import {
   EU_COUNTRY_CODES,
   normalizeCountryCode,
   normalizeVatId,
+  type TaxBreakdown,
 } from '../services/billing/tax.js';
+import { resolveRevolutPlanVariationId } from '../services/revolut/charge-variations.js';
 import { validateEuVatId } from '../services/billing/vies.js';
 import {
   invoiceStore,
@@ -121,12 +123,28 @@ function formatMoneyMinor(minor: number, currency: string): string {
     : `${amount} ${currency}`;
 }
 
+function resolveSubscriptionNetMinor(
+  sub: {
+    promotionCode: string | null;
+    promotionCyclesRemaining: number;
+    tier: string;
+  },
+  plan: NonNullable<ReturnType<typeof getPlan>>
+): number {
+  if (sub.promotionCode && sub.promotionCyclesRemaining > 0) {
+    const promo = getPromotion(sub.promotionCode);
+    if (promo && promoAppliesToTier(promo, sub.tier)) {
+      return resolvePrice(plan, promo);
+    }
+  }
+  return plan.amountMinor;
+}
+
 /**
  * POST /developer/tax-preview
  *
  * Pre-checkout tax breakdown for a plan + billing identity.
- * List prices stay tax-inclusive; this only explains net / VAT / treatment.
- * Revolut still charges the inclusive total.
+ * Plan prices are net (excl. tax); response total is what Revolut will charge.
  *
  * Public by default (same idea as /plans). Optional `verifyVat: true` runs VIES
  * and requires a wallet JWT so we do not expose unauthenticated VIES traffic.
@@ -219,16 +237,12 @@ subscriptionRouter.post('/tax-preview', async (req: Request, res: Response) => {
   }
 
   const promo = getActivePromoForTier(tier);
-  const resolved = promo ? resolvePrice(plan, promo) : plan.amountMinor;
-  const totalMinor =
-    typeof resolved === 'number' && Number.isFinite(resolved)
-      ? resolved
-      : plan.amountMinor;
+  const netMinor = promo ? resolvePrice(plan, promo) : plan.amountMinor;
 
-  let breakdown;
+  let breakdown: TaxBreakdown;
   try {
     breakdown = computeTaxBreakdown({
-      totalMinor,
+      netMinor,
       currency: plan.currency,
       identity: {
         country: billingCountry,
@@ -253,15 +267,15 @@ subscriptionRouter.post('/tax-preview', async (req: Request, res: Response) => {
   res.json({
     tier: plan.tier,
     currency: breakdown.currency,
-    totalMinor: breakdown.totalMinor,
     netMinor: breakdown.netMinor,
     taxMinor: breakdown.taxMinor,
+    totalMinor: breakdown.totalMinor,
     taxRateBps: breakdown.taxRateBps,
     taxTreatment: breakdown.treatment,
     taxNote: `${breakdown.note}${pendingViesNote}`.trim(),
-    totalFormatted: formatMoneyMinor(breakdown.totalMinor, breakdown.currency),
     netFormatted: formatMoneyMinor(breakdown.netMinor, breakdown.currency),
     taxFormatted: formatMoneyMinor(breakdown.taxMinor, breakdown.currency),
+    totalFormatted: formatMoneyMinor(breakdown.totalMinor, breakdown.currency),
     vatVerified,
     viesStatus,
     viesRequestId,
@@ -269,7 +283,7 @@ subscriptionRouter.post('/tax-preview', async (req: Request, res: Response) => {
     billingVatId,
     billingCompanyName,
     chargeNote:
-      'You pay the tax-inclusive total. Revolut collects payment; your OnSocial tax invoice shows the VAT breakdown.',
+      'You pay the total below. Revolut collects payment; your OnSocial tax invoice matches this breakdown.',
   });
 });
 
@@ -368,26 +382,6 @@ subscriptionRouter.post(
       billingViesRequestId = vies.requestIdentifier;
       if (!billingCompanyName && vies.name) {
         billingCompanyName = vies.name.slice(0, 120);
-      }
-    }
-
-    // Preview tax treatment (list prices are tax-inclusive; Revolut charge unchanged)
-    const planForTax = getPlan(tier);
-    if (planForTax) {
-      try {
-        computeTaxBreakdown({
-          totalMinor: planForTax.amountMinor,
-          currency: planForTax.currency,
-          identity: {
-            country: billingCountry,
-            vatId: billingVatId,
-            companyName: billingCompanyName,
-            vatVerified: billingVatVerified,
-          },
-        });
-      } catch {
-        res.status(400).json({ error: 'Invalid billing country' });
-        return;
       }
     }
 
@@ -509,15 +503,6 @@ subscriptionRouter.post(
 
     const plan = getPlan(tier)!;
 
-    // Ensure plan has a Revolut variation ID
-    if (!plan.revolutPlanVariationId) {
-      res.status(503).json({
-        error:
-          'Subscription plans not yet configured. Run setup-revolut-plans.ts first.',
-      });
-      return;
-    }
-
     // Resolve promotion: explicit code > auto-applied active promo
     let promo = promoCode
       ? getPromotion(promoCode)
@@ -530,15 +515,52 @@ subscriptionRouter.post(
       promo = undefined;
     }
 
+    const netMinor = promo ? resolvePrice(plan, promo) : plan.amountMinor;
+    let taxBreakdown: TaxBreakdown;
+    try {
+      taxBreakdown = computeTaxBreakdown({
+        netMinor,
+        currency: plan.currency,
+        identity: {
+          country: billingCountry,
+          vatId: billingVatId,
+          companyName: billingCompanyName,
+          vatVerified: billingVatVerified,
+        },
+      });
+    } catch {
+      res.status(400).json({ error: 'Invalid billing country' });
+      return;
+    }
+
+    let planVariationId: string;
+    try {
+      planVariationId = await resolveRevolutPlanVariationId(
+        revolut,
+        plan,
+        taxBreakdown.totalMinor
+      );
+    } catch (err) {
+      logger.error(
+        { err, tier, totalMinor: taxBreakdown.totalMinor },
+        'Failed to resolve Revolut plan variation for checkout total'
+      );
+      res.status(503).json({
+        error:
+          'Subscription plans not yet configured. Run setup-revolut-plans.ts first.',
+      });
+      return;
+    }
+
     const subscriptionId = randomUUID();
 
     try {
       // 1. Create or find Revolut customer
       const customer = await revolut.getOrCreateCustomer(email, accountId);
 
-      // 2. Create Revolut subscription
+      // 2. Create Revolut subscription at the tax-inclusive total
       const sub = await revolut.createSubscription({
-        planVariationId: plan.revolutPlanVariationId,
+        planVariationId,
         customerId: customer.id,
         redirectUrl,
         externalReference: `${accountId}:${tier}`,
@@ -604,6 +626,10 @@ subscriptionRouter.post(
           subscriptionId,
           promo: promo?.code,
           billingVatVerified,
+          netMinor: taxBreakdown.netMinor,
+          taxMinor: taxBreakdown.taxMinor,
+          chargeTotalMinor: taxBreakdown.totalMinor,
+          taxTreatment: taxBreakdown.treatment,
         },
         'Revolut subscription created'
       );
@@ -873,7 +899,7 @@ subscriptionRouter.post(
           tier: sub.tier,
           revolutOrderId: orderId,
           currency: plan.currency,
-          totalMinor: plan.amountMinor,
+          netMinor: resolveSubscriptionNetMinor(sub, plan),
           billingEmail: sub.billingEmail,
           billingCountry: sub.billingCountry,
           billingCompanyName: sub.billingCompanyName,
@@ -1047,7 +1073,9 @@ subscriptionRouter.post(
           tier: plan.tier,
           revolutOrderId: orderId,
           currency: plan.currency,
-          totalMinor: plan.amountMinor,
+          netMinor: existing
+            ? resolveSubscriptionNetMinor(existing, plan)
+            : plan.amountMinor,
           billingEmail: existing.billingEmail,
           billingCountry: existing.billingCountry,
           billingCompanyName: existing.billingCompanyName,

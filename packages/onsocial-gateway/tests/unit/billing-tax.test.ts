@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  addTaxToNet,
   computeTaxBreakdown,
   normalizeCountryCode,
   normalizeVatId,
@@ -11,9 +12,10 @@ import {
   renderInvoicePdf,
 } from '../../src/services/billing/invoice-pdf.js';
 
-describe('billing tax (UK inclusive)', () => {
+describe('billing tax (net plan + tax at checkout)', () => {
   afterEach(() => {
     delete process.env.BILLING_VAT_RATE_BPS;
+    delete process.env.BILLING_EU_OSS_ENABLED;
   });
 
   it('normalizes country and VAT id', () => {
@@ -23,35 +25,54 @@ describe('billing tax (UK inclusive)', () => {
     expect(normalizeVatId('x')).toBeNull();
   });
 
-  it('splits inclusive totals without rounding drift', () => {
+  it('adds tax on net without rounding drift', () => {
+    expect(addTaxToNet(4900, 2000)).toEqual({
+      netMinor: 4900,
+      taxMinor: 980,
+      totalMinor: 5880,
+    });
+    expect(addTaxToNet(4900, 2100)).toEqual({
+      netMinor: 4900,
+      taxMinor: 1029,
+      totalMinor: 5929,
+    });
+  });
+
+  it('splits inclusive totals (legacy helper)', () => {
     expect(splitInclusiveTotal(4900, 2000)).toEqual({
       netMinor: 4083,
       taxMinor: 817,
     });
-    expect(splitInclusiveTotal(19900, 2000)).toEqual({
-      netMinor: 16583,
-      taxMinor: 3317,
-    });
-    const a = splitInclusiveTotal(4900, 2000);
-    expect(a.netMinor + a.taxMinor).toBe(4900);
   });
 
-  it('extracts UK VAT from tax-inclusive list price', () => {
+  it('applies UK VAT on net plan price', () => {
     const breakdown = computeTaxBreakdown({
-      totalMinor: 4900,
+      netMinor: 4900,
       currency: 'USD',
       identity: { country: 'GB' },
     });
-    expect(breakdown.treatment).toBe('uk_vat_inclusive');
+    expect(breakdown.treatment).toBe('uk_vat');
     expect(breakdown.taxRateBps).toBe(2000);
-    expect(breakdown.totalMinor).toBe(4900);
-    expect(breakdown.netMinor + breakdown.taxMinor).toBe(4900);
-    expect(breakdown.taxMinor).toBeGreaterThan(0);
+    expect(breakdown.netMinor).toBe(4900);
+    expect(breakdown.taxMinor).toBe(980);
+    expect(breakdown.totalMinor).toBe(5880);
+  });
+
+  it('applies EU OSS VAT for B2C consumers', () => {
+    const breakdown = computeTaxBreakdown({
+      netMinor: 4900,
+      currency: 'USD',
+      identity: { country: 'BE' },
+    });
+    expect(breakdown.treatment).toBe('eu_oss_vat');
+    expect(breakdown.taxRateBps).toBe(2100);
+    expect(breakdown.taxMinor).toBe(1029);
+    expect(breakdown.totalMinor).toBe(5929);
   });
 
   it('applies EU reverse charge only when VAT ID is VIES-verified', () => {
     const verified = computeTaxBreakdown({
-      totalMinor: 19900,
+      netMinor: 19900,
       currency: 'USD',
       identity: {
         country: 'DE',
@@ -61,35 +82,38 @@ describe('billing tax (UK inclusive)', () => {
     });
     expect(verified.treatment).toBe('eu_reverse_charge');
     expect(verified.taxMinor).toBe(0);
-    expect(verified.netMinor).toBe(19900);
+    expect(verified.totalMinor).toBe(19900);
 
     const unverified = computeTaxBreakdown({
-      totalMinor: 19900,
+      netMinor: 19900,
       currency: 'USD',
       identity: { country: 'DE', vatId: 'DE123456789' },
     });
-    expect(unverified.treatment).toBe('eu_b2c_unconfigured');
-    expect(unverified.taxMinor).toBe(0);
+    expect(unverified.treatment).toBe('eu_oss_vat');
+    expect(unverified.taxMinor).toBeGreaterThan(0);
   });
 
-  it('records EU B2C without VAT ID as unconfigured', () => {
+  it('records EU B2C as unconfigured when OSS is disabled', () => {
+    process.env.BILLING_EU_OSS_ENABLED = '0';
     const breakdown = computeTaxBreakdown({
-      totalMinor: 4900,
+      netMinor: 4900,
       currency: 'USD',
       identity: { country: 'FR' },
     });
     expect(breakdown.treatment).toBe('eu_b2c_unconfigured');
     expect(breakdown.taxMinor).toBe(0);
+    expect(breakdown.totalMinor).toBe(4900);
   });
 
-  it('marks rest-of-world out of scope', () => {
+  it('marks rest-of-world out of scope with net-only total', () => {
     const breakdown = computeTaxBreakdown({
-      totalMinor: 4900,
+      netMinor: 4900,
       currency: 'USD',
       identity: { country: 'US' },
     });
     expect(breakdown.treatment).toBe('out_of_scope');
     expect(breakdown.taxMinor).toBe(0);
+    expect(breakdown.totalMinor).toBe(4900);
   });
 });
 
@@ -100,7 +124,7 @@ describe('invoice idempotency', () => {
       tier: 'pro' as const,
       revolutOrderId: `order-tax-${Date.now()}`,
       currency: 'USD',
-      totalMinor: 4900,
+      netMinor: 4900,
       billingEmail: 'alice@example.com',
       billingCountry: 'GB',
       billingCompanyName: 'Alice Ltd',
@@ -112,8 +136,9 @@ describe('invoice idempotency', () => {
     const first = await issueInvoiceForOrder(input);
     const second = await issueInvoiceForOrder(input);
     expect(second.id).toBe(first.id);
-    expect(first.taxTreatment).toBe('uk_vat_inclusive');
-    expect(first.taxMinor).toBe(817);
+    expect(first.taxTreatment).toBe('uk_vat');
+    expect(first.taxMinor).toBe(980);
+    expect(first.totalMinor).toBe(5880);
     expect(first.invoiceNumber).toMatch(/^INV-\d{4}-\d{6}$/);
   });
 });
@@ -125,7 +150,7 @@ describe('invoice PDF', () => {
       tier: 'scale',
       revolutOrderId: `order-pdf-${Date.now()}`,
       currency: 'USD',
-      totalMinor: 19900,
+      netMinor: 19900,
       billingEmail: 'alice@example.com',
       billingCountry: 'GB',
       billingCompanyName: 'Alice Ltd',
@@ -140,7 +165,7 @@ describe('invoice PDF', () => {
     expect(text).toContain('%%EOF');
     expect(text).toContain(invoice.invoiceNumber);
     expect(text).toContain('alice.testnet');
-    expect(text).toContain('$199.00');
+    expect(text).toContain('$238.80');
     expect(text).toContain('Tax point');
     expect(invoicePdfFilename(invoice)).toBe(`${invoice.invoiceNumber}.pdf`);
   });

@@ -27,7 +27,12 @@ import type { Request, Response } from 'express';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
 import { subscriptionStore } from '../services/revolut/index.js';
-import { getPlan } from '../services/revolut/plans.js';
+import {
+  getPlan,
+  getPromotion,
+  promoAppliesToTier,
+  resolvePrice,
+} from '../services/revolut/plans.js';
 import { updateAccountTier } from '../services/apikeys/index.js';
 import { clearTierCache } from '../tiers/index.js';
 import { issueInvoiceForOrder } from '../services/billing/invoices.js';
@@ -204,12 +209,23 @@ async function issueInvoiceRequired(
     return;
   }
 
+  const netMinor =
+    sub.promotionCode && sub.promotionCyclesRemaining > 0
+      ? (() => {
+          const promo = getPromotion(sub.promotionCode!);
+          if (promo && promoAppliesToTier(promo, sub.tier)) {
+            return resolvePrice(plan, promo);
+          }
+          return plan.amountMinor;
+        })()
+      : plan.amountMinor;
+
   await issueInvoiceForOrder({
     accountId: sub.accountId,
     tier,
     revolutOrderId: orderId,
     currency: plan.currency,
-    totalMinor: plan.amountMinor,
+    netMinor,
     billingEmail: sub.billingEmail,
     billingCountry: sub.billingCountry,
     billingCompanyName: sub.billingCompanyName,

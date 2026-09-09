@@ -1,21 +1,24 @@
 /**
- * UK seller tax rules for OnAPI subscriptions (tax-inclusive list prices).
+ * Global seller tax rules for OnAPI subscriptions (tax-exclusive net list prices).
  *
- * Revolut still charges the plan amount (e.g. $49 / $199). This module only
- * decides how that total is broken out on *our* invoices.
+ * Plan amounts in plans.ts are **net** (excl. tax). Checkout adds VAT / sales tax
+ * by buyer jurisdiction; Revolut charges net + tax; invoices match the charge.
  *
- * Day-one scope:
- * - GB → extract UK VAT at BILLING_VAT_RATE_BPS (default 20%)
- * - EU + VAT ID → reverse charge (0% VAT)
- * - EU without VAT ID → recorded untaxed until OSS is configured
- * - Rest of world → out of scope (0%)
+ * Scope:
+ * - GB → UK VAT on net
+ * - EU B2C → OSS standard VAT for buyer country (when enabled)
+ * - EU B2B + VIES-verified VAT ID → reverse charge (0% on invoice)
+ * - Rest of world → out of scope until a jurisdiction is registered (0% today)
  */
 
 export type TaxTreatment =
-  | 'uk_vat_inclusive'
+  | 'uk_vat'
+  | 'eu_oss_vat'
   | 'eu_reverse_charge'
   | 'eu_b2c_unconfigured'
-  | 'out_of_scope';
+  | 'out_of_scope'
+  /** @deprecated Legacy invoices — UK VAT extracted from inclusive total */
+  | 'uk_vat_inclusive';
 
 export interface BillingIdentity {
   country: string;
@@ -23,7 +26,7 @@ export interface BillingIdentity {
   companyName?: string | null;
   /**
    * Required for EU reverse charge. When false/undefined with a VAT ID,
-   * treatment falls back to eu_b2c_unconfigured (never silently reverse-charge).
+   * treatment falls back to EU B2C OSS (never silently reverse-charge).
    */
   vatVerified?: boolean;
 }
@@ -31,9 +34,9 @@ export interface BillingIdentity {
 export interface TaxBreakdown {
   treatment: TaxTreatment;
   currency: string;
-  totalMinor: number;
   netMinor: number;
   taxMinor: number;
+  totalMinor: number;
   /** Basis points — 2000 = 20%. */
   taxRateBps: number;
   note: string;
@@ -70,6 +73,37 @@ export const EU_COUNTRY_CODES = new Set([
   'SE',
 ]);
 
+/** EU standard VAT rates (bps) for OSS B2C digital services. */
+export const EU_STANDARD_VAT_RATE_BPS: Readonly<Record<string, number>> = {
+  AT: 2000,
+  BE: 2100,
+  BG: 2000,
+  HR: 2500,
+  CY: 1900,
+  CZ: 2100,
+  DK: 2500,
+  EE: 2200,
+  FI: 2550,
+  FR: 2000,
+  DE: 1900,
+  GR: 2400,
+  HU: 2700,
+  IE: 2300,
+  IT: 2200,
+  LV: 2100,
+  LT: 2100,
+  LU: 1700,
+  MT: 1800,
+  NL: 2100,
+  PL: 2300,
+  PT: 2300,
+  RO: 1900,
+  SK: 2000,
+  SI: 2200,
+  ES: 2100,
+  SE: 2500,
+};
+
 export function normalizeCountryCode(input: string): string | null {
   const code = input.trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(code)) return null;
@@ -95,9 +129,38 @@ export function getUkVatRateBps(): number {
   return Math.round(n);
 }
 
+export function isEuOssEnabled(): boolean {
+  const raw = process.env.BILLING_EU_OSS_ENABLED?.trim().toLowerCase();
+  if (raw === '0' || raw === 'false' || raw === 'off') return false;
+  return true;
+}
+
+export function getEuStandardVatRateBps(country: string): number | null {
+  const rate = EU_STANDARD_VAT_RATE_BPS[country];
+  return typeof rate === 'number' ? rate : null;
+}
+
+/**
+ * Add tax on top of a net amount (tax-exclusive pricing).
+ * taxMinor uses standard rounding; totalMinor = netMinor + taxMinor exactly.
+ */
+export function addTaxToNet(
+  netMinor: number,
+  taxRateBps: number
+): Pick<TaxBreakdown, 'netMinor' | 'taxMinor' | 'totalMinor'> {
+  if (netMinor < 0) {
+    throw new Error('netMinor must be >= 0');
+  }
+  if (taxRateBps <= 0) {
+    return { netMinor, taxMinor: 0, totalMinor: netMinor };
+  }
+  const taxMinor = Math.round((netMinor * taxRateBps) / 10_000);
+  return { netMinor, taxMinor, totalMinor: netMinor + taxMinor };
+}
+
 /**
  * Split a tax-inclusive total into net + tax at the given rate (bps).
- * Uses remainder-on-tax so net + tax === total exactly.
+ * Legacy helper — new checkout uses addTaxToNet on net plan prices.
  */
 export function splitInclusiveTotal(
   totalMinor: number,
@@ -114,7 +177,7 @@ export function splitInclusiveTotal(
 }
 
 export function computeTaxBreakdown(input: {
-  totalMinor: number;
+  netMinor: number;
   currency: string;
   identity: BillingIdentity;
 }): TaxBreakdown {
@@ -125,19 +188,17 @@ export function computeTaxBreakdown(input: {
 
   const vatId = normalizeVatId(input.identity.vatId);
   const currency = input.currency.toUpperCase();
-  const totalMinor = input.totalMinor;
+  const netMinor = input.netMinor;
 
   if (country === 'GB') {
     const taxRateBps = getUkVatRateBps();
-    const { netMinor, taxMinor } = splitInclusiveTotal(totalMinor, taxRateBps);
+    const amounts = addTaxToNet(netMinor, taxRateBps);
     return {
-      treatment: 'uk_vat_inclusive',
+      treatment: 'uk_vat',
       currency,
-      totalMinor,
-      netMinor,
-      taxMinor,
+      ...amounts,
       taxRateBps,
-      note: `Includes UK VAT at ${(taxRateBps / 100).toFixed(0)}% (tax-inclusive price).`,
+      note: `UK VAT at ${(taxRateBps / 100).toFixed(1).replace(/\.0$/, '')}% on net plan price.`,
     };
   }
 
@@ -146,42 +207,46 @@ export function computeTaxBreakdown(input: {
       return {
         treatment: 'eu_reverse_charge',
         currency,
-        totalMinor,
-        netMinor: totalMinor,
+        netMinor,
         taxMinor: 0,
+        totalMinor: netMinor,
         taxRateBps: 0,
         note: `EU B2B reverse charge. Customer VAT ${vatId} verified via VIES; VAT accounted for by the customer.`,
       };
     }
-    if (vatId && !input.identity.vatVerified) {
+
+    const euRateBps = getEuStandardVatRateBps(country);
+    if (isEuOssEnabled() && euRateBps != null) {
+      const amounts = addTaxToNet(netMinor, euRateBps);
       return {
-        treatment: 'eu_b2c_unconfigured',
+        treatment: 'eu_oss_vat',
         currency,
-        totalMinor,
-        netMinor: totalMinor,
-        taxMinor: 0,
-        taxRateBps: 0,
-        note: 'EU VAT ID present but not VIES-verified — reverse charge not applied.',
+        ...amounts,
+        taxRateBps: euRateBps,
+        note: `EU VAT (${country}) at ${(euRateBps / 100).toFixed(1).replace(/\.0$/, '')}% via OSS on net plan price.`,
       };
     }
+
     return {
       treatment: 'eu_b2c_unconfigured',
       currency,
-      totalMinor,
-      netMinor: totalMinor,
+      netMinor,
       taxMinor: 0,
+      totalMinor: netMinor,
       taxRateBps: 0,
-      note: 'EU buyer without VAT ID — OSS VAT not configured yet; recorded with 0% tax.',
+      note: vatId
+        ? 'EU VAT ID present but not VIES-verified — reverse charge not applied; OSS VAT not configured.'
+        : 'EU buyer without VAT ID — OSS VAT not configured; net price only until OSS is enabled.',
     };
   }
 
   return {
     treatment: 'out_of_scope',
     currency,
-    totalMinor,
-    netMinor: totalMinor,
+    netMinor,
     taxMinor: 0,
+    totalMinor: netMinor,
     taxRateBps: 0,
-    note: 'Supply outside UK/EU VAT scope for day-one rules.',
+    note: 'No VAT / sales tax collected for this jurisdiction under current registrations.',
   };
 }
