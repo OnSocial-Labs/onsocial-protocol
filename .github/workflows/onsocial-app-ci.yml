@@ -102,7 +102,20 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install Playwright Chromium
-        run: pnpm --filter @onsocial/app exec playwright install --with-deps chromium
+        run: |
+          set -euo pipefail
+          # Google Chrome apt mirrors occasionally hash-mismatch on Actions.
+          # Retry --with-deps, then fall back to browser-only install (deps are
+          # usually already present on ubuntu-latest / warm runners).
+          for attempt in 1 2 3; do
+            if pnpm --filter @onsocial/app exec playwright install --with-deps chromium; then
+              exit 0
+            fi
+            echo "playwright install --with-deps failed (attempt ${attempt}); retrying…"
+            sleep $((attempt * 5))
+          done
+          echo "Falling back to playwright install chromium (no apt deps)"
+          pnpm --filter @onsocial/app exec playwright install chromium
 
       - name: Run e2e
         run: pnpm --filter @onsocial/app test:e2e
