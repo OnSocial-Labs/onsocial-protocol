@@ -16,7 +16,7 @@ const COVER_PNG = Buffer.from(
 
 async function openCreateDrop(
   page: Page,
-  path = '/market/create'
+  path = '/drops/create'
 ): Promise<void> {
   await gotoApp(page, path);
   await expect(page.locator('.drop-create-form')).toHaveAttribute(
@@ -36,7 +36,8 @@ test.describe('create drop', () => {
   });
 
   test('titles New drop and leaves to Drops', async ({ page }) => {
-    await gotoApp(page, '/market/create');
+    await gotoApp(page, '/home');
+    await gotoApp(page, '/drops/create');
 
     await expect(
       page.getByRole('heading', { level: 1, name: 'New drop' })
@@ -62,6 +63,20 @@ test.describe('create drop', () => {
 
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await expect(page).toHaveURL(/\/drops(?:\?|$)/);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'New drop' })
+    ).toHaveCount(0);
+  });
+
+  test('legacy /market/create redirects to /drops/create', async ({ page }) => {
+    await gotoApp(page, '/market/create?series=Night+Roads');
+    await page.waitForURL(/\/drops\/create/, {
+      timeout: E2E_CHROME_TIMEOUT_MS,
+    });
+    await expect(page).toHaveURL(/\/drops\/create\?series=Night(\+|%20)Roads/);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'New drop' })
+    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
   });
 
   test('orders work, title, deal, then description', async ({ page }) => {
@@ -440,7 +455,7 @@ test.describe('create drop', () => {
   test('hub bind leaves to that hub; series query still prefills', async ({
     page,
   }) => {
-    await openCreateDrop(page, '/market/create?app=e2e-hub&series=Audit+Series');
+    await openCreateDrop(page, '/drops/create?app=e2e-hub&series=Audit+Series');
     await expect(
       page.getByRole('heading', { level: 1, name: 'New drop' })
     ).toBeVisible();
