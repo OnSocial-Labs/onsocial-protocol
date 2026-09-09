@@ -11,9 +11,11 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  DiscardConfirmSheet,
   OsIconAction,
   QuestionMarkCircleFillIcon,
   osFieldBorderedClassName,
+  useDiscardConfirm,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { InfoDrawer } from '@onsocial/ui';
@@ -112,6 +114,38 @@ export function GuildCreatePanel() {
   const formViewport = useVisualViewportSheetMetrics(formFieldFocused);
   const formKeyboardOpen =
     formFieldFocused && formViewport.isMobile && formViewport.lift > 0;
+
+  const leaveToGuilds = useCallback(() => {
+    router.push(APP_GROUPS_PATH);
+  }, [router]);
+
+  const dirty =
+    name.trim().length > 0 ||
+    description.trim().length > 0 ||
+    bannerFile != null ||
+    badgeFile != null ||
+    (slugTouched && slug.trim().length > 0) ||
+    tags.length > 0 ||
+    accessGated ||
+    memberDriven;
+
+  const {
+    discardConfirmOpen,
+    requestCloseOrConfirm,
+    keepEditing,
+    discard,
+  } = useDiscardConfirm({
+    open: true,
+    dirty,
+    pending,
+    onClose: leaveToGuilds,
+  });
+
+  const handleDockBack = useCallback(() => {
+    if (requestCloseOrConfirm()) {
+      leaveToGuilds();
+    }
+  }, [requestCloseOrConfirm, leaveToGuilds]);
 
   const handleFormFocusCapture = useCallback(
     (event: FocusEvent<HTMLFormElement>) => {
@@ -340,6 +374,7 @@ export function GuildCreatePanel() {
       dockBack
       headerOwnsConnect
       backFallbackHref={APP_GROUPS_PATH}
+      onDockBack={handleDockBack}
       glassChrome
       style={screenStyle}
       actions={
@@ -538,6 +573,13 @@ export function GuildCreatePanel() {
 
         {error ? <p className="guild-form-error">{error}</p> : null}
       </form>
+      <DiscardConfirmSheet
+        open={discardConfirmOpen}
+        onDiscard={discard}
+        onKeepEditing={keepEditing}
+        title="Discard guild?"
+        body="Name, ID, look, and about won’t be saved."
+      />
       <InfoDrawer
         open={helpOpen}
         onClose={() => setHelpOpen(false)}

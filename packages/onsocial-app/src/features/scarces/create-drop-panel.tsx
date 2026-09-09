@@ -301,6 +301,7 @@ export function CreateDropPanel() {
   const seriesFieldRef = useRef<HTMLInputElement>(null);
   const placeFieldRef = useRef<HTMLInputElement>(null);
   const [discardDraftOpen, setDiscardDraftOpen] = useState(false);
+  const [leaveAfterDiscard, setLeaveAfterDiscard] = useState(false);
   const [artMode, setArtMode] = useState<DropArtMode>('single');
   const [musicFormat, setMusicFormat] = useState<MusicReleaseFormat>('single');
   const [trackFiles, setTrackFiles] = useState<File[]>([]);
@@ -1485,6 +1486,27 @@ export function CreateDropPanel() {
     chapterFiles.length > 0 ||
     variationFiles.length > 0;
 
+  const leaveToParent = useCallback(() => {
+    router.push(dropCreateBackHref(appId));
+  }, [router, appId]);
+
+  const handleDockBack = useCallback(() => {
+    if (pending) return;
+    if (hasDiscardableDraft) {
+      setLeaveAfterDiscard(true);
+      setDiscardDraftOpen(true);
+      return;
+    }
+    leaveToParent();
+  }, [pending, hasDiscardableDraft, leaveToParent]);
+
+  const handleDiscardDraft = useCallback(() => {
+    const shouldLeave = leaveAfterDiscard;
+    resetCreateForm();
+    setLeaveAfterDiscard(false);
+    if (shouldLeave) leaveToParent();
+  }, [leaveAfterDiscard, resetCreateForm, leaveToParent]);
+
   const startSummaryRows = useMemo((): DropStartSummaryRow[] => {
     const kindParts = [template.label];
     if (isAudio) {
@@ -2438,6 +2460,7 @@ export function CreateDropPanel() {
       dockBack={!studioOpen}
       headerOwnsConnect={!studioOpen}
       backFallbackHref={dropCreateBackHref(appId)}
+      onDockBack={handleDockBack}
       compactChrome
       glassChrome
       scrollRootRef={scrollRootRef}
@@ -3642,8 +3665,11 @@ export function CreateDropPanel() {
 
       <DiscardConfirmSheet
         open={discardDraftOpen}
-        onDiscard={resetCreateForm}
-        onKeepEditing={() => setDiscardDraftOpen(false)}
+        onDiscard={handleDiscardDraft}
+        onKeepEditing={() => {
+          setLeaveAfterDiscard(false);
+          setDiscardDraftOpen(false);
+        }}
         title="Discard draft?"
         body="Clears this drop form and any pinned media for it."
         discardLabel="Discard draft"

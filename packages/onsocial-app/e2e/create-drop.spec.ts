@@ -68,6 +68,35 @@ test.describe('create drop', () => {
     ).toHaveCount(0);
   });
 
+  test('dirty dock Back asks before leaving', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, '/home');
+    await openCreateDrop(page);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'New drop' })
+    ).toBeVisible();
+    await page.locator('#drop-create-title').fill('Builders');
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    const discard = page.getByRole('dialog', { name: 'Discard draft?' });
+    await expect(discard).toBeVisible();
+    await discard
+      .locator('.os-sheet-action--primary')
+      .filter({ hasText: 'Keep editing' })
+      .click();
+    await expect(discard).toHaveCount(0);
+    await expect(page).toHaveURL(/\/drops\/create\/?$/);
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Discard draft?' })).toBeVisible();
+    await page
+      .locator('.os-sheet-action--danger')
+      .filter({ hasText: 'Discard draft' })
+      .click();
+    await page.waitForURL(/\/drops(?:\?|$)/, { timeout: 15_000 });
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'New drop' })
+    ).toHaveCount(0);
+  });
+
   test('legacy /market/create redirects to /drops/create', async ({ page }) => {
     await gotoApp(page, '/market/create?series=Night+Roads');
     await page.waitForURL(/\/drops\/create/, {

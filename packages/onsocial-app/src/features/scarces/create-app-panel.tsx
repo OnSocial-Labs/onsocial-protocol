@@ -11,9 +11,11 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  DiscardConfirmSheet,
   OsIconAction,
   QuestionMarkCircleFillIcon,
   osFieldBorderedClassName,
+  useDiscardConfirm,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { SuffixField } from '@onsocial/ui';
@@ -121,6 +123,38 @@ export function CreateAppPanel() {
   const formViewport = useVisualViewportSheetMetrics(formFieldFocused);
   const formKeyboardOpen =
     formFieldFocused && formViewport.isMobile && formViewport.lift > 0;
+
+  const leaveToHubs = useCallback(() => {
+    router.push(APP_APPS_PATH);
+  }, [router]);
+
+  const dirty =
+    name.trim().length > 0 ||
+    description.trim().length > 0 ||
+    logoFile != null ||
+    bannerFile != null ||
+    (slugTouched && slug.trim().length > 0) ||
+    categories.length > 0 ||
+    creatorAccess !== 'open' ||
+    commissionInput !== '2.5';
+
+  const {
+    discardConfirmOpen,
+    requestCloseOrConfirm,
+    keepEditing,
+    discard,
+  } = useDiscardConfirm({
+    open: true,
+    dirty,
+    pending,
+    onClose: leaveToHubs,
+  });
+
+  const handleDockBack = useCallback(() => {
+    if (requestCloseOrConfirm()) {
+      leaveToHubs();
+    }
+  }, [requestCloseOrConfirm, leaveToHubs]);
 
   const handleFormFocusCapture = useCallback(
     (event: FocusEvent<HTMLFormElement>) => {
@@ -362,6 +396,7 @@ export function CreateAppPanel() {
       dockBack
       headerOwnsConnect
       backFallbackHref={APP_APPS_PATH}
+      onDockBack={handleDockBack}
       glassChrome
       style={screenStyle}
       actions={
@@ -557,6 +592,13 @@ export function CreateAppPanel() {
 
         {error ? <p className="guild-form-error">{error}</p> : null}
       </form>
+      <DiscardConfirmSheet
+        open={discardConfirmOpen}
+        onDiscard={discard}
+        onKeepEditing={keepEditing}
+        title="Discard hub?"
+        body="Name, ID, look, and about won’t be saved."
+      />
       <HubCreateHelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />
     </OsAppScreen>
   );
