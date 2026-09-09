@@ -69,7 +69,8 @@ export const SUBSCRIPTION_PLANS: readonly SubscriptionPlan[] = [
     currency: 'USD',
     interval: 'month',
     intervalCount: 1,
-    description: 'OnSocial API Pro — 600 req/min (USD net price, tax at checkout)',
+    description:
+      'OnSocial API Pro — 600 req/min (USD net price, tax at checkout)',
     rateLimit: 600,
   },
   {

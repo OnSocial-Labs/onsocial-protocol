@@ -11,11 +11,7 @@ import type { SubscriptionPlan } from './plans.js';
 
 const variationCache = new Map<string, string>();
 
-function cacheKey(
-  tier: string,
-  currency: string,
-  totalMinor: number
-): string {
+function cacheKey(tier: string, currency: string, totalMinor: number): string {
   return `${tier}:${currency}:${totalMinor}`;
 }
 
@@ -33,10 +29,7 @@ export async function resolveRevolutPlanVariationId(
   plan: SubscriptionPlan,
   chargeTotalMinor: number
 ): Promise<string> {
-  if (
-    chargeTotalMinor === plan.amountMinor &&
-    plan.revolutPlanVariationId
-  ) {
+  if (chargeTotalMinor === plan.amountMinor && plan.revolutPlanVariationId) {
     return plan.revolutPlanVariationId;
   }
 

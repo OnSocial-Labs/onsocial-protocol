@@ -141,9 +141,7 @@ function parseBillingLocation(
     return {
       ok: false,
       error:
-        country === 'US'
-          ? 'Invalid US ZIP code'
-          : 'Invalid postal / ZIP code',
+        country === 'US' ? 'Invalid US ZIP code' : 'Invalid postal / ZIP code',
     };
   }
 
@@ -370,8 +368,16 @@ subscriptionRouter.post(
   requireJwtAuth,
   async (req: Request, res: Response) => {
     const accountId = req.auth!.accountId;
-    const { tier, email, promoCode, country, companyName, vatId, region, postalCode } =
-      req.body;
+    const {
+      tier,
+      email,
+      promoCode,
+      country,
+      companyName,
+      vatId,
+      region,
+      postalCode,
+    } = req.body;
 
     // Build redirect URL from Origin header so Revolut sends users back to keys page
     // Skip localhost — Revolut production API rejects it

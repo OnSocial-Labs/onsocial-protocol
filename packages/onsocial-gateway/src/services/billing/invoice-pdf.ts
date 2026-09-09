@@ -125,9 +125,7 @@ function buildLines(invoice: InvoiceRecord): Line[] {
         : invoice.taxTreatment === 'ca_gst'
           ? 'GST/HST'
           : 'VAT';
-    push(
-      `${taxWord} (${rate}%): ${money(invoice.taxMinor, invoice.currency)}`
-    );
+    push(`${taxWord} (${rate}%): ${money(invoice.taxMinor, invoice.currency)}`);
   } else if (invoice.taxTreatment === 'eu_reverse_charge') {
     push(`VAT (reverse charge): ${money(0, invoice.currency)}`);
   } else if (
