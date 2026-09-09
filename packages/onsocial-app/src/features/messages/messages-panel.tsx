@@ -1373,6 +1373,7 @@ export function MessagesPanel() {
   const messagesPane = threadOpen ? 'thread' : 'list';
   const keysLocked = !isUnlocked;
   const showSealedThreadHint =
+    !error &&
     threadOpen &&
     Boolean(accountId) &&
     Boolean(activeThreadId) &&
