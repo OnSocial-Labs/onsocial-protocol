@@ -16,7 +16,7 @@ function vatLineLabel(preview: TaxPreviewInfo): string {
     if (preview.taxTreatment === 'uk_vat') {
       return `VAT (${rate}%)`;
     }
-  if (preview.taxTreatment === 'us_sales_tax') {
+    if (preview.taxTreatment === 'us_sales_tax') {
       return `Sales tax (${rate}%)`;
     }
     if (preview.taxTreatment === 'ca_gst') {
@@ -34,9 +34,7 @@ function vatLineLabel(preview: TaxPreviewInfo): string {
 }
 
 function showTaxLine(preview: TaxPreviewInfo): boolean {
-  return (
-    preview.taxMinor > 0 || preview.taxTreatment === 'eu_reverse_charge'
-  );
+  return preview.taxMinor > 0 || preview.taxTreatment === 'eu_reverse_charge';
 }
 
 export function useBillingTaxPreview(input: {
