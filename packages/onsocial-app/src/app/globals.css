@@ -19715,6 +19715,7 @@ a.os-surface-row {
 
   /*
    * Shared OsAppScreen body inset — one rule for every padded page root.
+   * Create places use `.os-app-chrome-page` on the form (`os-create-page.ts`).
    * Discover/Standing denser vertical uses the same --os-screen-body-pad-x.
    */
   .app-soon-page,
@@ -19725,9 +19726,7 @@ a.os-surface-row {
   .apps-directory,
   .app-page,
   .collection-page,
-  .drop-create-form,
   .drop-studio,
-  .guild-create-form,
   .protocol-page,
   .launcher-home {
     padding: var(--os-screen-body-inset, 0.15rem 1rem 1.5rem);

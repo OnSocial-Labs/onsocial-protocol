@@ -189,6 +189,7 @@ import {
   collectionPath,
   dropCreateBackHref,
 } from '@/lib/app-routes';
+import { DROP_CREATE_FORM_CLASS } from '@/lib/os-create-page';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import { STORAGE_DEPOSIT_PRESETS_NEAR } from '@/lib/user-storage-display';
 import {
@@ -2600,7 +2601,7 @@ export function CreateDropPanel() {
       ) : null}
       <form
         id={fieldId('form')}
-        className="drop-create-form"
+        className={DROP_CREATE_FORM_CLASS}
         data-drop-create-back={dropCreateBackHref(appId)}
         data-drop-create-series={seriesName.trim() || undefined}
         data-drop-create-ready={createReady ? '' : undefined}

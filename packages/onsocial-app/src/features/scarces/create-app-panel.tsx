@@ -53,6 +53,7 @@ import {
 } from '@/features/scarces/hub-create-voice';
 import { HubLookPreview } from '@/features/scarces/hub-look-preview';
 import { APP_APPS_PATH, appPath } from '@/lib/app-routes';
+import { HUB_CREATE_FORM_CLASS } from '@/lib/os-create-page';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import { normalizeTopicList } from '@/lib/topic-slug';
@@ -422,7 +423,7 @@ export function CreateAppPanel() {
     >
       <form
         id={HUB_CREATE_FORM_ID}
-        className="drop-create-form hub-create-form"
+        className={HUB_CREATE_FORM_CLASS}
         data-form-focused={formFieldFocused ? '' : undefined}
         data-keyboard={formKeyboardOpen ? 'open' : undefined}
         onFocusCapture={handleFormFocusCapture}

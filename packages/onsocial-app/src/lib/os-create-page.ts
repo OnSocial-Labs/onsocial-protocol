@@ -1,0 +1,26 @@
+import { osAppChromePageClassName } from '@onsocial/ui';
+
+/**
+ * Create-place form root. Inset is `.os-app-chrome-page` →
+ * `--os-screen-body-inset` on OsAppScreen. Do not add these forms to the
+ * globals page-root allowlist (that would double-pad).
+ */
+export function osCreatePageClassName(
+  ...parts: Array<string | false | null | undefined>
+): string {
+  return [osAppChromePageClassName, ...parts].filter(Boolean).join(' ');
+}
+
+export const GUILD_CREATE_FORM_CLASS = osCreatePageClassName('guild-create-form');
+
+export const HUB_CREATE_FORM_CLASS = osCreatePageClassName(
+  'drop-create-form',
+  'hub-create-form'
+);
+
+export const DROP_CREATE_FORM_CLASS = osCreatePageClassName('drop-create-form');
+
+export const DAO_CREATE_FORM_CLASS = osCreatePageClassName(
+  'protocol-task-form',
+  'dao-create-form'
+);
