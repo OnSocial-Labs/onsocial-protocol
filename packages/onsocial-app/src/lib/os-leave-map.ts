@@ -1,6 +1,5 @@
 import {
   APP_APPS_PATH,
-  APP_COLLECTIBLES_PATH,
   APP_DAOS_PATH,
   APP_DISCOVER_PATH,
   APP_DROPS_PATH,
@@ -235,10 +234,9 @@ export const OS_LEAVE_MAP = [
     place: 'Collectibles play loading',
     route: '/collectibles/play',
     dockBack: true,
-    parent: APP_COLLECTIBLES_PATH,
-    modelParent: '/@viewer/collectibles',
-    verdict: 'mismatch',
-    note: 'Loaded play leaves the vault; loading uses the OS `/collectibles` hop.',
+    parent: '/@viewer/collectibles',
+    verdict: 'matches',
+    note: 'collectiblesPlayBackHref — vault when signed in, OS hop when not.',
   },
   {
     id: 'portfolio-face',

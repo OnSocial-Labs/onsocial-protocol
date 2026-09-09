@@ -1,14 +1,18 @@
+'use client';
+
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { useAppWallet } from '@/contexts/app-wallet-context';
 import { CollectiblesPlaySkeleton } from '@/features/collectibles/collectibles-play-skeleton';
-import { APP_COLLECTIBLES_PATH } from '@/lib/app-routes';
+import { collectiblesPlayBackHref } from '@/features/collectibles/collectibles-play-view';
 
 /** Full-screen immersive player shell for route loading + Suspense. */
 export function CollectiblesPlayLoadingScreen() {
+  const { accountId } = useAppWallet();
   return (
     <OsAppScreen
       title="Player"
       dockBack
-      backFallbackHref={APP_COLLECTIBLES_PATH}
+      backFallbackHref={collectiblesPlayBackHref(accountId)}
       immersiveHeader
     >
       <div aria-hidden className="os-chrome-glass" />

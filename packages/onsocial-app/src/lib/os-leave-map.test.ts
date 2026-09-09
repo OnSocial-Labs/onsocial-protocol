@@ -71,9 +71,8 @@ describe('os leave map', () => {
     });
   });
 
-  it('lists only play-loading as a leftover mismatch', () => {
-    expect(osLeaveRowsByVerdict('mismatch').map((entry) => entry.id)).toEqual([
-      'collectibles-play-loading',
-    ]);
+  it('has no leftover leave mismatches', () => {
+    expect(osLeaveRowsByVerdict('mismatch')).toEqual([]);
+    expect(row('collectibles-play-loading').verdict).toBe('matches');
   });
 });
