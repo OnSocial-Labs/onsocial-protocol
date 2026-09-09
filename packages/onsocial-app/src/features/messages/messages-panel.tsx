@@ -1501,16 +1501,18 @@ export function MessagesPanel() {
         {unlockPanel}
 
         {isUnlocked && canPasskey && !passkeyEnrolled ? (
-          <button
-            type="button"
-            className="messages-passkey-hint"
-            disabled={enrollPending}
-            onClick={() => void handleEnrollPasskey()}
-          >
-            {enrollPending
-              ? 'Enabling device unlock…'
-              : 'Unlock next time with this device'}
-          </button>
+          <div className="os-chrome-whisper-anchor" role="status">
+            <button
+              type="button"
+              className="messages-passkey-hint os-chrome-whisper"
+              disabled={enrollPending}
+              onClick={() => void handleEnrollPasskey()}
+            >
+              {enrollPending
+                ? 'Enabling device unlock…'
+                : 'Unlock next time with this device'}
+            </button>
+          </div>
         ) : null}
 
         {error ? (

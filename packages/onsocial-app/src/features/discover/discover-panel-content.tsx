@@ -4,7 +4,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
-import { OsAppChromePage, OsAppChromePageStatus } from '@onsocial/ui';
+import { OsAppChromePage } from '@onsocial/ui';
 import { DiscoverDaosPanel } from '@/features/discover/discover-daos-panel';
 import { DiscoverGuildsPanel } from '@/features/discover/discover-guilds-panel';
 import { DiscoverHubsPanel } from '@/features/discover/discover-hubs-panel';
@@ -142,9 +142,11 @@ export function DiscoverPanelContent() {
           <DiscoverFaceFilterRail />
 
           {showConnectHint ? (
-            <OsAppChromePageStatus className="discover-connect-hint">
-              {DISCOVER_CONNECT_HINT}
-            </OsAppChromePageStatus>
+            <div className="os-chrome-whisper-anchor" role="status">
+              <p className="discover-connect-hint os-chrome-whisper">
+                {DISCOVER_CONNECT_HINT}
+              </p>
+            </div>
           ) : null}
 
           {loadError ? (

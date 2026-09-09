@@ -32,6 +32,7 @@ export function StandingSheetHeader() {
         className={`os-app-chrome-rail standing-sheet-toolbar-row standing-toolbar-rail${
           toolbarHidden ? ' is-scroll-hidden' : ''
         }`}
+        data-os-chrome-tucked={toolbarHidden ? '' : undefined}
       >
         <StandingListToolbar onViewMenuOpenChange={setViewMenuOpen} />
       </div>

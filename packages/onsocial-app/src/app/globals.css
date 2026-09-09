@@ -1577,7 +1577,8 @@ a.os-surface-row {
   gap: 0.5rem;
   width: min(calc(100% - 1.5rem), 20rem);
   transform: translateX(-50%);
-  bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+  /* Sit just above the summon dock — follow --portfolio-dock-clearance. */
+  bottom: calc(var(--portfolio-dock-clearance, 4.75rem) + 1rem);
 }
 
 .portfolio-face-preview-bar.os-floating-panel {
@@ -1648,7 +1649,8 @@ a.os-surface-row {
 }
 
 .portfolio-mood-preview-bar.is-stacked {
-  bottom: calc(10.25rem + env(safe-area-inset-bottom, 0px));
+  /* Face bar (~2.5rem) + gap above dock clearance. */
+  bottom: calc(var(--portfolio-dock-clearance, 4.75rem) + 5.5rem);
 }
 
 .portfolio-summon-dock.is-launcher-open {
@@ -11639,6 +11641,42 @@ a.os-surface-row {
     .standing-list-toolbar
     .os-floating-panel-trigger.is-open {
     background: var(--os-surface-fill-hover);
+  }
+
+  /* Intermittent chrome whispers — fixed under measured header, never reserve flow. */
+  .os-chrome-whisper-anchor {
+    position: fixed;
+    z-index: 54;
+    left: calc(
+      var(--os-column-inset-inline, 0px) + var(--os-column-width, 100%) / 2
+    );
+    top: calc(
+      var(
+          --os-screen-chrome-height,
+          var(--os-app-screen-chrome-height, 4.5rem)
+        ) + 0.35rem
+    );
+    width: max-content;
+    max-width: min(calc(var(--os-column-width, 100%) - 1.7rem), 22rem);
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .os-chrome-whisper-anchor > * {
+    pointer-events: auto;
+  }
+
+  .os-chrome-whisper {
+    margin: 0;
+    padding: 0.28rem 0.7rem;
+    border-radius: 9999px;
+    background: rgb(var(--bg-rgb) / 0.72);
+    backdrop-filter: blur(18px) saturate(1.4);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    font-size: 0.75rem;
+    line-height: 1.35;
+    color: rgb(var(--fg-rgb) / 0.55);
+    text-align: center;
   }
 
   .discover-connect-hint {
@@ -41022,7 +41060,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   min-height: 100%;
 }
 
-.messages-panel[data-messages-pane='thread'] .messages-passkey-hint {
+.messages-panel[data-messages-pane='thread'] .messages-passkey-hint,
+.messages-panel[data-messages-pane='thread'] .os-chrome-whisper-anchor {
   display: none;
 }
 
@@ -41713,6 +41752,12 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   opacity: 1;
   color: rgb(var(--fg-rgb) / 0.26);
   cursor: default;
+}
+
+/* Keep the actions slot width stable when there is nothing to mark. */
+.notifications-mark-all.is-slot-reserved {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .os-launcher-item-badge {

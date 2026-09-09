@@ -5,9 +5,17 @@
  *
  * Guild immersive rails already tuck with transform + stable scroll-padding;
  * compact glass Home / Discover / Market / DAO used to remasure on collapse.
+ *
+ * Prefer `data-os-chrome-tucked` (set by screen / toolbar rails). Class
+ * sniffing remains a fallback for older markup.
  */
 
+export const OS_CHROME_TUCKED_ATTR = 'data-os-chrome-tucked';
+
 export function isOsAppChromeVisuallyTucked(header: HTMLElement): boolean {
+  if (header.hasAttribute(OS_CHROME_TUCKED_ATTR)) return true;
+  if (header.querySelector(`[${OS_CHROME_TUCKED_ATTR}]`)) return true;
+  // Fallback — CSS still uses these classes for the visual tuck motion.
   if (header.classList.contains('is-search-tucked')) return true;
   if (header.querySelector('.os-app-chrome-rail.is-scroll-hidden')) return true;
   if (header.querySelector('.standing-toolbar-rail.is-scroll-hidden')) {
