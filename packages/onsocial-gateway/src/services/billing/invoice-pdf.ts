@@ -6,7 +6,10 @@
 import type { InvoiceRecord } from './invoices.js';
 
 function pdfEscape(text: string): string {
-  return text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
 }
 
 /** Helvetica / WinAnsi-safe: replace unsupported chars. */
@@ -16,7 +19,9 @@ function latin1Safe(text: string): string {
 
 function money(minor: number, currency: string): string {
   const amount = (minor / 100).toFixed(2);
-  return currency.toUpperCase() === 'USD' ? `$${amount}` : `${amount} ${currency}`;
+  return currency.toUpperCase() === 'USD'
+    ? `$${amount}`
+    : `${amount} ${currency}`;
 }
 
 function formatDate(iso: string): string {
@@ -88,7 +93,9 @@ function buildLines(invoice: InvoiceRecord): Line[] {
   const tierLabel =
     invoice.tier.charAt(0).toUpperCase() + invoice.tier.slice(1);
   push(`1 × OnSocial API ${tierLabel} — monthly subscription`);
-  push(`Unit price (tax-inclusive): ${money(invoice.totalMinor, invoice.currency)}`);
+  push(
+    `Unit price (tax-inclusive): ${money(invoice.totalMinor, invoice.currency)}`
+  );
   push(`Payment reference (Revolut): ${invoice.revolutOrderId}`);
   push('');
 

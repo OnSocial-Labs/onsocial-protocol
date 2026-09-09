@@ -1,8 +1,5 @@
 import { config } from '../config/index.js';
-import {
-  hasPaidAccess,
-  subscriptionStore,
-} from '../services/revolut/index.js';
+import { hasPaidAccess, subscriptionStore } from '../services/revolut/index.js';
 import { logger } from '../logger.js';
 import type { Tier, TierInfo } from '../types/index.js';
 

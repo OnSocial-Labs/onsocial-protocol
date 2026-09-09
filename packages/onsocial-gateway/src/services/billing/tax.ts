@@ -77,7 +77,9 @@ export function normalizeCountryCode(input: string): string | null {
 }
 
 /** Strip spaces and unify case; keep alphanumerics only for comparison. */
-export function normalizeVatId(input: string | null | undefined): string | null {
+export function normalizeVatId(
+  input: string | null | undefined
+): string | null {
   if (!input) return null;
   const cleaned = input.replace(/[\s.-]/g, '').toUpperCase();
   if (cleaned.length < 4 || cleaned.length > 20) return null;

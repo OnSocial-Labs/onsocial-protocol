@@ -83,7 +83,10 @@ export async function validateEuVatId(input: {
   try {
     const res = await fetch(VIES_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
       body: JSON.stringify({
         countryCode: parts.countryCode,
         vatNumber: parts.vatNumber,
@@ -141,7 +144,10 @@ export async function validateEuVatId(input: {
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    logger.warn({ err: message, country: parts.countryCode }, 'VIES request failed');
+    logger.warn(
+      { err: message, country: parts.countryCode },
+      'VIES request failed'
+    );
     return {
       ok: false,
       error: message,

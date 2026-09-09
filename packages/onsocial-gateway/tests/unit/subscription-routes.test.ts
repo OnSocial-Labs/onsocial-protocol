@@ -100,10 +100,12 @@ vi.mock('../../src/services/revolut/index.js', () => ({
     sub.status !== 'expired' &&
     new Date(sub.currentPeriodEnd) > new Date(),
   subscriptionStore: {
-    getWithValidPeriod: (...args: unknown[]) => mocks.getWithValidPeriod(...args),
+    getWithValidPeriod: (...args: unknown[]) =>
+      mocks.getWithValidPeriod(...args),
     getByAccount: (...args: unknown[]) => mocks.getByAccount(...args),
     updateStatus: (...args: unknown[]) => mocks.updateStatus(...args),
-    getActiveByAccount: (...args: unknown[]) => mocks.getActiveByAccount(...args),
+    getActiveByAccount: (...args: unknown[]) =>
+      mocks.getActiveByAccount(...args),
     upsert: (...args: unknown[]) => mocks.upsert(...args),
     updatePeriod: (...args: unknown[]) => mocks.updatePeriod(...args),
   },
@@ -249,7 +251,10 @@ describe('subscription routes', () => {
     expect(res.body.checkoutUrl).toBe(
       'https://sandbox-checkout.revolut.com/payment-link/new'
     );
-    expect(mocks.updateStatus).toHaveBeenCalledWith('alice.testnet', 'cancelled');
+    expect(mocks.updateStatus).toHaveBeenCalledWith(
+      'alice.testnet',
+      'cancelled'
+    );
     expect(mocks.createSubscription).toHaveBeenCalledTimes(1);
     expect(mocks.upsert).toHaveBeenCalledTimes(1);
   });
@@ -384,7 +389,10 @@ describe('subscription routes', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mocks.updateStatus).toHaveBeenCalledWith('alice.testnet', 'cancelled');
+    expect(mocks.updateStatus).toHaveBeenCalledWith(
+      'alice.testnet',
+      'cancelled'
+    );
   });
 
   it('allows dev-only completion of a pending subscription', async () => {
@@ -404,7 +412,10 @@ describe('subscription routes', () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('active');
     expect(mocks.updatePeriod).toHaveBeenCalledTimes(1);
-    expect(mocks.updateAccountTier).toHaveBeenCalledWith('alice.testnet', 'pro');
+    expect(mocks.updateAccountTier).toHaveBeenCalledWith(
+      'alice.testnet',
+      'pro'
+    );
     expect(mocks.clearTierCache).toHaveBeenCalledWith('alice.testnet');
   });
 
