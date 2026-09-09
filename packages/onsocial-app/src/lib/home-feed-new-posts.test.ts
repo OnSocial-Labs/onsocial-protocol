@@ -84,6 +84,10 @@ describe('summarizeUnseenFeedPosts', () => {
       authorIds: ['a.near', 'b.near', 'c.near'],
     });
   });
+
+  it('shares EMPTY_UNSEEN_FEED_SUMMARY shape for clears', () => {
+    expect(EMPTY_UNSEEN_FEED_SUMMARY).toEqual({ count: 0, authorIds: [] });
+  });
 });
 
 describe('homeFeedNewPostsCountLabel', () => {

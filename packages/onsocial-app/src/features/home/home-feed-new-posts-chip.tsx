@@ -6,6 +6,7 @@ import {
   HOME_FEED_NEW_AVATAR_SLOTS,
   homeFeedNewPostsCountLabel,
   homeFeedNewPostsLabel,
+  type UnseenFeedSummary,
 } from '@/lib/home-feed-new-posts';
 import { fallbackLabel } from '@/lib/profile-display';
 
@@ -15,19 +16,17 @@ import { fallbackLabel } from '@/lib/profile-display';
  * `OsAppScreen` so `--os-dock-*` inherits from the shared dock frost rules.
  */
 export function HomeFeedNewPostsChip({
-  count,
-  authorIds,
+  summary,
   hidden = false,
   onClick,
 }: {
-  count: number;
-  authorIds: string[];
+  summary: UnseenFeedSummary;
   hidden?: boolean;
   onClick: () => void;
 }) {
-  const countLabel = homeFeedNewPostsCountLabel(count);
-  const ariaLabel = homeFeedNewPostsLabel(count);
-  const faces = authorIds.slice(0, HOME_FEED_NEW_AVATAR_SLOTS);
+  const countLabel = homeFeedNewPostsCountLabel(summary.count);
+  const ariaLabel = homeFeedNewPostsLabel(summary.count);
+  const faces = summary.authorIds.slice(0, HOME_FEED_NEW_AVATAR_SLOTS);
   const profiles = usePostAuthorProfiles(faces);
 
   if (!countLabel) return null;

@@ -341,7 +341,7 @@ export function HomePagePanel({
   const amplifyHeatFloorsRef = useRef<Map<string, AmplifyHeatFloor>>(new Map());
   const seenPostKeysRef = useRef<Set<string>>(new Set());
   const newPostsProbeInFlightRef = useRef(false);
-  const newPostCountRef = useRef(0); // offset-shift probe; mirrors unseenPosts.count
+  const unseenPostsRef = useRef<UnseenFeedSummary>(EMPTY_UNSEEN_FEED_SUMMARY);
   /** Head growth already folded into `nextOffset` by load-more compensation. */
   const offsetShiftAppliedRef = useRef(0);
   const isRefreshingRef = useRef(false);
@@ -365,8 +365,12 @@ export function HomePagePanel({
   }, [isRefreshing]);
 
   useEffect(() => {
-    newPostCountRef.current = unseenPosts.count;
-  }, [unseenPosts.count]);
+    unseenPostsRef.current = unseenPosts;
+  }, [unseenPosts]);
+
+  const clearUnseenPosts = useCallback(() => {
+    setUnseenPosts(EMPTY_UNSEEN_FEED_SUMMARY);
+  }, []);
 
   useEffect(() => {
     isLoadingRef.current = isLoading;
@@ -531,8 +535,7 @@ export function HomePagePanel({
     setStandingNetworkIds(null);
     setEngagementError(null);
     setLoadError(null);
-    setUnseenPosts(EMPTY_UNSEEN_FEED_SUMMARY);
-    newPostCountRef.current = 0;
+    clearUnseenPosts();
     offsetShiftAppliedRef.current = 0;
 
     const keepPrevious = postsLengthRef.current > 0;
@@ -634,7 +637,7 @@ export function HomePagePanel({
     // heat order everywhere (topic indexes included), where chrono-new posts
     // do not shift offsets.
     const pendingShift = pendingFeedOffsetShift({
-      newPostCount: newPostCountRef.current,
+      newPostCount: unseenPostsRef.current.count,
       appliedShift: offsetShiftAppliedRef.current,
       chronoPaged: sort !== 'hot',
     });
@@ -763,11 +766,10 @@ export function HomePagePanel({
   }, []);
 
   const applyNewPosts = useCallback(() => {
-    setUnseenPosts(EMPTY_UNSEEN_FEED_SUMMARY);
-    newPostCountRef.current = 0;
+    clearUnseenPosts();
     scrollRootRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     setReloadNonce((value) => value + 1);
-  }, []);
+  }, [clearUnseenPosts]);
 
   const probeNewPosts = useCallback(async () => {
     if (
@@ -853,12 +855,14 @@ export function HomePagePanel({
     [accountId]
   );
 
-  const onConfirmed = useCallback((post: PostRow) => {
-    if (!shouldPrependOptimisticFeedPost(post)) return;
-    setUnseenPosts(EMPTY_UNSEEN_FEED_SUMMARY);
-    newPostCountRef.current = 0;
-    setPosts((current) => insertOptimisticFeedPost(current, post));
-  }, []);
+  const onConfirmed = useCallback(
+    (post: PostRow) => {
+      if (!shouldPrependOptimisticFeedPost(post)) return;
+      clearUnseenPosts();
+      setPosts((current) => insertOptimisticFeedPost(current, post));
+    },
+    [clearUnseenPosts]
+  );
 
   const onUnreposted = useCallback(
     (target: PostRow) => {
@@ -991,8 +995,7 @@ export function HomePagePanel({
 
         {showNewPostsPill ? (
           <HomeFeedNewPostsChip
-            count={unseenPosts.count}
-            authorIds={unseenPosts.authorIds}
+            summary={unseenPosts}
             hidden={toolbarHidden}
             onClick={applyNewPosts}
           />
