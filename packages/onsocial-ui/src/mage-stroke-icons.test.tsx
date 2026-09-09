@@ -12,6 +12,7 @@ import {
   TimeIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   CopyIcon,
   DotsCircleIcon,
   DownloadIcon,
@@ -78,6 +79,7 @@ describe('mage stroke icons', () => {
     expect(typeof TimeIcon).toBe('function');
     expect(typeof ChevronLeftIcon).toBe('function');
     expect(typeof ChevronRightIcon).toBe('function');
+    expect(typeof ChevronUpIcon).toBe('function');
     expect(typeof CopyIcon).toBe('function');
     expect(typeof EditIcon).toBe('function');
     expect(typeof EditPenIcon).toBe('function');

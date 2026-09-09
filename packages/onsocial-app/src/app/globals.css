@@ -20134,11 +20134,11 @@ a.os-surface-row {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.45rem;
+    gap: 0.4rem;
     width: 100%;
     min-height: 2.35rem;
     margin: 0;
-    padding: 0.35rem 0.7rem 0.35rem 0.4rem;
+    padding: 0.35rem 0.7rem 0.35rem 0.5rem;
     border: 0;
     border-radius: 1.15rem;
     overflow: hidden;
@@ -20152,6 +20152,13 @@ a.os-surface-row {
     cursor: pointer;
     pointer-events: auto;
     animation: home-feed-new-posts-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .home-feed-new-posts-chevron {
+    flex-shrink: 0;
+    width: 0.95rem;
+    height: 0.95rem;
+    color: rgb(var(--fg-rgb) / 0.72);
   }
 
   .home-feed-new-posts-faces {
@@ -20171,10 +20178,22 @@ a.os-surface-row {
     margin-left: -0.42rem;
   }
 
+  .home-feed-new-posts-copy {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.28rem;
+    min-width: 0;
+  }
+
   .home-feed-new-posts-count {
     min-width: 0.9rem;
     text-align: center;
     font-variant-numeric: tabular-nums;
+  }
+
+  .home-feed-new-posts-word {
+    font-weight: 550;
+    color: rgb(var(--fg-rgb) / 0.72);
   }
 
   .home-feed-new-posts-pill:hover {

@@ -84,15 +84,15 @@ export function homeFeedNewPostsCountLabel(count: number): string {
   return `${HOME_FEED_NEW_AVATAR_SLOTS}+`;
 }
 
-/** Accessible long form (`8+ new posts` when the probe is saturated). */
+/** Accessible long form (`8+ posted` when the probe is saturated). */
 export function homeFeedNewPostsLabel(
   count: number,
   probeSize: number = HOME_FEED_NEW_PROBE_SIZE
 ): string {
   if (count <= 0) return '';
-  if (count === 1) return '1 new post';
-  if (count >= probeSize) return `${probeSize}+ new posts`;
-  return `${count} new posts`;
+  if (count === 1) return '1 posted';
+  if (count >= probeSize) return `${probeSize}+ posted`;
+  return `${count} posted`;
 }
 
 /**

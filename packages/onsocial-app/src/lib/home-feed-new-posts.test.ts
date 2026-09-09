@@ -102,9 +102,9 @@ describe('homeFeedNewPostsCountLabel', () => {
 
 describe('homeFeedNewPostsLabel', () => {
   it('formats singular, plural, and saturated probe for a11y', () => {
-    expect(homeFeedNewPostsLabel(1)).toBe('1 new post');
-    expect(homeFeedNewPostsLabel(3)).toBe('3 new posts');
-    expect(homeFeedNewPostsLabel(8)).toBe('8+ new posts');
+    expect(homeFeedNewPostsLabel(1)).toBe('1 posted');
+    expect(homeFeedNewPostsLabel(3)).toBe('3 posted');
+    expect(homeFeedNewPostsLabel(8)).toBe('8+ posted');
     expect(homeFeedNewPostsLabel(0)).toBe('');
   });
 });

@@ -9,9 +9,10 @@ import {
   type UnseenFeedSummary,
 } from '@/lib/home-feed-new-posts';
 import { fallbackLabel } from '@/lib/profile-display';
+import { ChevronUpIcon } from '@onsocial/ui';
 
 /**
- * Catch-up chip under home header — dock frost tokens, ≤3 faces, compact count.
+ * Catch-up chip under home header — dock frost tokens, ↑ + faces + count posted.
  * Parent owns scroll-hide (same tuck as home chrome). Mounted inside
  * `OsAppScreen` so `--os-dock-*` inherits from the shared dock frost rules.
  */
@@ -42,6 +43,10 @@ export function HomeFeedNewPostsChip({
         aria-label={ariaLabel}
         onClick={onClick}
       >
+        <ChevronUpIcon
+          className="home-feed-new-posts-chevron"
+          aria-hidden
+        />
         {faces.length > 0 ? (
           <span className="home-feed-new-posts-faces" aria-hidden>
             {faces.map((accountId) => {
@@ -61,7 +66,10 @@ export function HomeFeedNewPostsChip({
             })}
           </span>
         ) : null}
-        <span className="home-feed-new-posts-count">{countLabel}</span>
+        <span className="home-feed-new-posts-copy" aria-hidden>
+          <span className="home-feed-new-posts-count">{countLabel}</span>
+          <span className="home-feed-new-posts-word">posted</span>
+        </span>
       </button>
     </div>
   );
