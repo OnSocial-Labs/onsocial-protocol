@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   excludeRecommendedFromList,
   filterRecommendedPeek,
-  nextDiscoverListMinHeight,
   rankStandingRecommendations,
   RECOMMENDED_MIN_SHARED,
 } from './discover-recommended';
@@ -176,15 +175,6 @@ describe('excludeRecommendedFromList', () => {
         ['rec.near']
       ).map((row) => row.accountId)
     ).toEqual(['keep.near', 'also.near']);
-  });
-});
-
-describe('nextDiscoverListMinHeight', () => {
-  it('locks the first measured height and only grows after that', () => {
-    expect(nextDiscoverListMinHeight(null, 0)).toBeNull();
-    expect(nextDiscoverListMinHeight(null, 480)).toBe(480);
-    expect(nextDiscoverListMinHeight(480, 420)).toBe(480);
-    expect(nextDiscoverListMinHeight(480, 520)).toBe(520);
   });
 });
 

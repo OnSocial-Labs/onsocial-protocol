@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
-import { DiscoverRecommendedPeekSkeleton } from '@/features/discover/discover-loading-skeleton';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { isDiscoverPeopleSearchActive } from '@/features/discover/discover-omni-search';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
@@ -115,12 +114,8 @@ export function DiscoverRecommendedPeek({
     };
   }, [onShownIdsChange, visible]);
 
-  if (!enabled) return null;
-  if (rowsForViewer == null) {
-    return <DiscoverRecommendedPeekSkeleton />;
-  }
-  if (visible.length === 0) return null;
-
+  // Pending / empty — never reserve flow (chrome spacing contract).
+  if (!enabled || rowsForViewer == null || visible.length === 0) return null;
   return (
     <section
       className="discover-trending-section discover-recommended-peek"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
@@ -18,7 +18,6 @@ import { DiscoverFaceFilterRail } from '@/features/discover/discover-face-filter
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
 import {
   excludeRecommendedFromList,
-  nextDiscoverListMinHeight,
 } from '@/lib/discover-recommended';
 import {
   DISCOVER_CONNECT_HINT,
@@ -77,50 +76,11 @@ export function DiscoverPanelContent() {
   if (!visitedTabs.has(tab)) {
     setVisitedTabs(new Set([...visitedTabs, tab]));
   }
-  const listSlotRef = useRef<HTMLDivElement>(null);
-  const [listSlotReserve, setListSlotReserve] = useState<{
-    key: string;
-    height: number | null;
-  }>({ key: listKey, height: null });
-  if (listSlotReserve.key !== listKey) {
-    setListSlotReserve({ key: listKey, height: null });
-  }
-  const listSlotMinHeight =
-    listSlotReserve.key === listKey ? listSlotReserve.height : null;
-  const canExcludeRecommended =
-    listSlotMinHeight != null || showListSkeleton || listAccounts.length === 0;
   const profilesForList = useMemo(
-    () =>
-      canExcludeRecommended
-        ? excludeRecommendedFromList(listAccounts, recommendedShownIds)
-        : listAccounts,
-    [canExcludeRecommended, listAccounts, recommendedShownIds]
+    () => excludeRecommendedFromList(listAccounts, recommendedShownIds),
+    [listAccounts, recommendedShownIds]
   );
   const hasRecommended = recommendedShownIds.length > 0;
-
-  useLayoutEffect(() => {
-    if (showListSkeleton) return;
-    const node = listSlotRef.current;
-    if (!node) return;
-    const measured = node.getBoundingClientRect().height;
-    setListSlotReserve((previous) => {
-      const height = nextDiscoverListMinHeight(
-        previous.key === listKey ? previous.height : null,
-        measured
-      );
-      if (previous.key === listKey && previous.height === height) {
-        return previous;
-      }
-      return { key: listKey, height };
-    });
-  }, [
-    listAccounts,
-    listKey,
-    profilesForList,
-    recommendedShownIds,
-    showListSkeleton,
-  ]);
-
   return (
     <OsAppChromePage className="standing-panel discover-panel">
       {visitedTabs.has('trending') ? (
@@ -172,15 +132,7 @@ export function DiscoverPanelContent() {
               onShownIdsChange={handleRecommendedShownIds}
             />
 
-            <div
-              ref={listSlotRef}
-              className="discover-profiles-list-slot"
-              style={
-                listSlotMinHeight != null
-                  ? { minHeight: listSlotMinHeight }
-                  : undefined
-              }
-            >
+            <div className="discover-profiles-list-slot">
               {showListSkeleton ? (
                 <ProfileSocialListSkeleton rowVariant="discover" />
               ) : profilesForList.length === 0 ? (
