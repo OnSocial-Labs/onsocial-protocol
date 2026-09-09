@@ -13906,6 +13906,12 @@ a.os-surface-row {
     margin: 0.2rem 0 0;
   }
 
+  /* Quiet settings / additive chips — same ghost sm recipe as load-more. */
+  .os-chip-action {
+    width: fit-content;
+    max-width: 100%;
+  }
+
   .guild-thread-column .os-load-more,
   .guild-state-card .os-load-more {
     align-self: center;
@@ -36136,7 +36142,7 @@ a.os-surface-row {
     flex-shrink: 0;
   }
 
-  .guild-structure-icon-button {
+  .guild-structure-icon-button.os-chip-action .os-sheet-action {
     min-width: 2rem;
     padding-inline: 0.55rem;
   }
@@ -36203,10 +36209,6 @@ a.os-surface-row {
     font-size: 0.8rem;
     line-height: 1.45;
     color: rgb(var(--fg-rgb) / 0.62);
-  }
-
-  .guild-structure-discovery-chip {
-    border-color: color-mix(in srgb, var(--protocol-purple) 28%, transparent);
   }
 
   .guild-structure-space-title-field {

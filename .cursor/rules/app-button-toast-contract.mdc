@@ -79,6 +79,7 @@ Same pill language — helpers only, never feature CSS:
 | `OsEmptyAction` | primary `sm` | Empty / retry recoveries (Clear search, Try again, Browse Market) |
 | `OsRowAction` | primary `sm` | List / header chips (Play, Collect, Read, See all) |
 | `OsLoadMore` | ghost `sm` | Show more / Load more / Show less |
+| `OsChipAction` | ghost `sm` | Settings / additive chips (+ room, Enable all, ↑↓, disclosure) |
 | `OsIconAction` | icon | Header / chrome icons (not a pill) |
 
 Sheet footers use `OsSheetAction` directly (`md` stack). Market Buy / guild Join
@@ -96,7 +97,6 @@ use `OsSheetAction` `sm` in place.
 - Feed love / like / save / amplify — inline engagement
 - Collect SOCIAL wallet chip — `os-surface-chip`
 - Form choice chips (`os-surface-chip` / `os-choice-chip-row`)
-- Guild structure discovery / reorder icon chips — compact custom until a chip recipe exists
 - Accent Standing Discover (`StandingDiscoverLink`) — standing signal, not a generic CTA
 
 ## When to use `OsSheetAction`
