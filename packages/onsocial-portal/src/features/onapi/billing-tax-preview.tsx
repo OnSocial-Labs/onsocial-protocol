@@ -70,12 +70,10 @@ export function useBillingTaxPreview(input: {
   const [error, setError] = useState<string | null>(null);
   const needsRegion = country === 'US' || country === 'CA';
   const needsPostal = country === 'US';
-  const needsStreet = country === 'US';
   const locationReady =
     Boolean(country) &&
     (!needsRegion || Boolean(region.trim())) &&
-    (!needsPostal || Boolean(postalCode.trim())) &&
-    (!needsStreet || (Boolean(line1.trim()) && Boolean(city.trim())));
+    (!needsPostal || Boolean(postalCode.trim()));
   const active = Boolean(enabled && tier && locationReady);
 
   useEffect(() => {

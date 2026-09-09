@@ -40,6 +40,7 @@ import {
   type TaxBreakdown,
 } from '../services/billing/tax.js';
 import { resolveRevolutPlanVariationId } from '../services/revolut/charge-variations.js';
+import { buildRevolutTaxLineItems } from '../services/revolut/order-tax-line-items.js';
 import { validateEuVatId } from '../services/billing/vies.js';
 import {
   invoiceStore,
@@ -178,12 +179,6 @@ function parseBillingLocation(
   if (country === 'US' && !postalCode) {
     return { ok: false, error: 'US ZIP code is required' };
   }
-  if (country === 'US' && !line1) {
-    return { ok: false, error: 'US street address is required' };
-  }
-  if (country === 'US' && !city) {
-    return { ok: false, error: 'US city is required' };
-  }
 
   return { ok: true, region, postalCode, line1, city };
 }
@@ -193,6 +188,37 @@ function formatMoneyMinor(minor: number, currency: string): string {
   return currency.toUpperCase() === 'USD'
     ? `$${amount}`
     : `${amount} ${currency}`;
+}
+
+/** Best-effort: Revolut plans are flat; tax shows on orders via line_items. */
+async function attachTaxLineItemsToSetupOrder(
+  revolut: {
+    updateOrder: (
+      orderId: string,
+      params: {
+        amount: number;
+        lineItems: ReturnType<typeof buildRevolutTaxLineItems>;
+      }
+    ) => Promise<unknown>;
+  },
+  orderId: string,
+  planName: string,
+  breakdown: TaxBreakdown
+): Promise<void> {
+  try {
+    await revolut.updateOrder(orderId, {
+      amount: breakdown.totalMinor,
+      lineItems: buildRevolutTaxLineItems({
+        planName,
+        breakdown,
+      }),
+    });
+  } catch (err) {
+    logger.warn(
+      { err, setupOrderId: orderId, taxMinor: breakdown.taxMinor },
+      'Failed to attach tax line items to Revolut setup order'
+    );
+  }
 }
 
 function resolveSubscriptionNetMinor(
@@ -558,6 +584,39 @@ subscriptionRouter.post(
                 billingLine1,
                 billingCity,
               });
+
+              const resumeNet =
+                existing.promotionCode && existing.promotionCyclesRemaining > 0
+                  ? resolveSubscriptionNetMinor(existing, requestedPlan)
+                  : requestedPlan.amountMinor;
+              try {
+                const resumeTax = await computeTaxBreakdown({
+                  netMinor: resumeNet,
+                  currency: requestedPlan.currency,
+                  identity: {
+                    country: billingCountry,
+                    region: billingRegion,
+                    postalCode: billingPostalCode,
+                    line1: billingLine1,
+                    city: billingCity,
+                    vatId: billingVatId,
+                    companyName: billingCompanyName,
+                    vatVerified: billingVatVerified,
+                  },
+                });
+                await attachTaxLineItemsToSetupOrder(
+                  revolut,
+                  existing.revolutSetupOrderId,
+                  requestedPlan.name,
+                  resumeTax
+                );
+              } catch (err) {
+                logger.warn(
+                  { err, accountId },
+                  'Failed to recompute tax for resumed Revolut setup order'
+                );
+              }
+
               res.json({
                 checkoutUrl: setupOrder.checkout_url,
                 orderId: existing.revolutSetupOrderId,
@@ -711,9 +770,16 @@ subscriptionRouter.post(
         externalReference: `${accountId}:${tier}`,
       });
 
-      // 3. Get the setup order for checkout URL
+      // 3. Attach net + tax line items on the pending setup order so Revolut's
+      //    payment receipt can show Included tax (plans are flat amounts only).
       let checkoutUrl: string | undefined;
       if (sub.setup_order_id) {
+        await attachTaxLineItemsToSetupOrder(
+          revolut,
+          sub.setup_order_id,
+          plan.name,
+          taxBreakdown
+        );
         const setupOrder = await revolut.getOrder(sub.setup_order_id);
         checkoutUrl = setupOrder.checkout_url;
       }

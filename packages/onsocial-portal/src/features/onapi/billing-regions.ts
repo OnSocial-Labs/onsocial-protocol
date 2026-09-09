@@ -97,7 +97,10 @@ export function countryNeedsPostal(country: string): boolean {
   return country === 'US';
 }
 
-/** Full street address required for US (Stripe Tax + invoice quality). */
-export function countryNeedsStreetAddress(country: string): boolean {
-  return country === 'US';
+/** Placeholder for the always-visible postal field (required only for US tax). */
+export function postalCodePlaceholder(country: string): string {
+  if (country === 'US') return 'ZIP code';
+  if (country === 'GB') return 'Postcode (optional)';
+  if (country === 'CA') return 'Postal code (optional)';
+  return 'Postal / ZIP (optional)';
 }

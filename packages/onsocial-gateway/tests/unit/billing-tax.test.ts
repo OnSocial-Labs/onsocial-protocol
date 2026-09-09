@@ -145,18 +145,20 @@ describe('billing tax (net plan + tax at checkout)', () => {
     ).rejects.toThrow(/state/i);
   });
 
-  it('requires US street and city', async () => {
-    await expect(
-      computeTaxBreakdown({
-        netMinor: 4900,
-        currency: 'USD',
-        identity: {
-          country: 'US',
-          region: 'TX',
-          postalCode: '78701',
-        },
-      })
-    ).rejects.toThrow(/street/i);
+  it('computes US tax without optional street and city', async () => {
+    const breakdown = await computeTaxBreakdown({
+      netMinor: 4900,
+      currency: 'USD',
+      identity: {
+        country: 'US',
+        region: 'TX',
+        postalCode: '78701',
+      },
+    });
+    expect(breakdown.treatment).toBe('us_sales_tax');
+    expect(breakdown.taxRateBps).toBe(625);
+    expect(breakdown.taxMinor).toBe(306);
+    expect(breakdown.totalMinor).toBe(5206);
   });
 
   it('applies Canada GST/HST by province', async () => {

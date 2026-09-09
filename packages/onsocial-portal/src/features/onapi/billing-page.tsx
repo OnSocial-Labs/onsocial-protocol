@@ -41,7 +41,7 @@ import { BILLING_COUNTRY_SELECT_OPTIONS } from '@/features/onapi/billing-countri
 import {
   countryNeedsPostal,
   countryNeedsRegion,
-  countryNeedsStreetAddress,
+  postalCodePlaceholder,
   regionSelectOptions,
 } from '@/features/onapi/billing-regions';
 import {
@@ -177,14 +177,11 @@ export default function BillingPage() {
   const emailValid = EMAIL_RE.test(billingEmail.trim());
   const needsRegion = countryNeedsRegion(billingCountry);
   const needsPostal = countryNeedsPostal(billingCountry);
-  const needsStreet = countryNeedsStreetAddress(billingCountry);
   const billingReady =
     emailValid &&
     Boolean(billingCountry) &&
     (!needsRegion || Boolean(billingRegion)) &&
-    (!needsPostal || Boolean(billingPostalCode.trim())) &&
-    (!needsStreet ||
-      (Boolean(billingLine1.trim()) && Boolean(billingCity.trim())));
+    (!needsPostal || Boolean(billingPostalCode.trim()));
   const showEmailHint =
     emailTouched && billingEmail.trim().length > 0 && !emailValid;
 
@@ -592,42 +589,38 @@ export default function BillingPage() {
                 compact
                 triggerClassName="border-border/40 bg-background/45"
               />
-              {needsStreet ? (
-                <>
-                  <SurfacePanel
-                    radius="md"
-                    tone="inset"
-                    borderTone="subtle"
-                    padding="none"
-                    className="px-4 py-3"
-                  >
-                    <input
-                      type="text"
-                      value={billingLine1}
-                      onChange={(e) => setBillingLine1(e.target.value)}
-                      placeholder="Street address"
-                      autoComplete="address-line1"
-                      className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/50"
-                    />
-                  </SurfacePanel>
-                  <SurfacePanel
-                    radius="md"
-                    tone="inset"
-                    borderTone="subtle"
-                    padding="none"
-                    className="px-4 py-3"
-                  >
-                    <input
-                      type="text"
-                      value={billingCity}
-                      onChange={(e) => setBillingCity(e.target.value)}
-                      placeholder="City"
-                      autoComplete="address-level2"
-                      className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/50"
-                    />
-                  </SurfacePanel>
-                </>
-              ) : null}
+              <SurfacePanel
+                radius="md"
+                tone="inset"
+                borderTone="subtle"
+                padding="none"
+                className="px-4 py-3"
+              >
+                <input
+                  type="text"
+                  value={billingLine1}
+                  onChange={(e) => setBillingLine1(e.target.value)}
+                  placeholder="Street address (optional)"
+                  autoComplete="address-line1"
+                  className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/50"
+                />
+              </SurfacePanel>
+              <SurfacePanel
+                radius="md"
+                tone="inset"
+                borderTone="subtle"
+                padding="none"
+                className="px-4 py-3"
+              >
+                <input
+                  type="text"
+                  value={billingCity}
+                  onChange={(e) => setBillingCity(e.target.value)}
+                  placeholder="City (optional)"
+                  autoComplete="address-level2"
+                  className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/50"
+                />
+              </SurfacePanel>
               {needsRegion ? (
                 <PortalFieldSelect
                   value={billingRegion}
@@ -645,25 +638,23 @@ export default function BillingPage() {
                   triggerClassName="border-border/40 bg-background/45"
                 />
               ) : null}
-              {needsPostal ? (
-                <SurfacePanel
-                  radius="md"
-                  tone="inset"
-                  borderTone="subtle"
-                  padding="none"
-                  className="px-4 py-3"
-                >
-                  <input
-                    type="text"
-                    value={billingPostalCode}
-                    onChange={(e) => setBillingPostalCode(e.target.value)}
-                    placeholder="ZIP code"
-                    inputMode="numeric"
-                    autoComplete="postal-code"
-                    className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/50"
-                  />
-                </SurfacePanel>
-              ) : null}
+              <SurfacePanel
+                radius="md"
+                tone="inset"
+                borderTone="subtle"
+                padding="none"
+                className="px-4 py-3"
+              >
+                <input
+                  type="text"
+                  value={billingPostalCode}
+                  onChange={(e) => setBillingPostalCode(e.target.value)}
+                  placeholder={postalCodePlaceholder(billingCountry)}
+                  inputMode={billingCountry === 'US' ? 'numeric' : 'text'}
+                  autoComplete="postal-code"
+                  className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/50"
+                />
+              </SurfacePanel>
               <SurfacePanel
                 radius="md"
                 tone="inset"

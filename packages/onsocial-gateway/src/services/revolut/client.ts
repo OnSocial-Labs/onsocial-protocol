@@ -40,6 +40,24 @@ export interface CreateOrderParams {
   redirectUrl?: string; // where Revolut redirects after checkout
 }
 
+export interface RevolutOrderLineItemInput {
+  name: string;
+  type: 'physical' | 'service';
+  quantity: { value: number; unit?: string };
+  unit_price_amount: number;
+  total_amount: number;
+  taxes?: Array<{ name: string; amount: number }>;
+  discounts?: Array<{ name: string; amount: number }>;
+  description?: string;
+  external_id?: string;
+}
+
+export interface UpdateOrderParams {
+  amount?: number;
+  lineItems?: RevolutOrderLineItemInput[];
+  description?: string;
+}
+
 export interface RevolutOrder {
   id: string;
   token: string; // public token for checkout widget
@@ -50,6 +68,7 @@ export interface RevolutOrder {
   created_at: string;
   merchant_order_ext_ref?: string;
   metadata?: Record<string, string>;
+  line_items?: RevolutOrderLineItemInput[];
   payments?: Array<{
     id: string;
     state: string;
@@ -213,6 +232,21 @@ export class RevolutClient {
    */
   async getOrder(orderId: string): Promise<RevolutOrder> {
     return this.request<RevolutOrder>('GET', `/orders/${orderId}`);
+  }
+
+  /**
+   * Update a pending order (e.g. attach line_items + taxes for receipt display).
+   * @see https://developer.revolut.com/docs/merchant/update-order
+   */
+  async updateOrder(
+    orderId: string,
+    params: UpdateOrderParams
+  ): Promise<RevolutOrder> {
+    return this.request<RevolutOrder>('PATCH', `/orders/${orderId}`, {
+      ...(params.amount != null && { amount: params.amount }),
+      ...(params.description && { description: params.description }),
+      ...(params.lineItems && { line_items: params.lineItems }),
+    });
   }
 
   // --- Customers -----------------------------------------------------------

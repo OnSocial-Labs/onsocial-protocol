@@ -96,6 +96,51 @@ describe('RevolutClient: 204 No Content handling', () => {
     expect(result.id).toBe('order-1');
     expect(result.state).toBe('completed');
   });
+
+  it('PATCHes line_items taxes onto a pending order', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(
+        JSON.stringify({ id: 'order-1', state: 'pending', amount: 5880 }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    );
+
+    const client = new RevolutClient(baseCfg);
+    await client.updateOrder('order-1', {
+      amount: 5880,
+      lineItems: [
+        {
+          name: 'OnSocial API Pro',
+          type: 'service',
+          quantity: { value: 1 },
+          unit_price_amount: 4900,
+          total_amount: 5880,
+          taxes: [{ name: 'VAT 20%', amount: 980 }],
+        },
+      ],
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/orders/order-1');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(String(init.body))).toEqual({
+      amount: 5880,
+      line_items: [
+        {
+          name: 'OnSocial API Pro',
+          type: 'service',
+          quantity: { value: 1 },
+          unit_price_amount: 4900,
+          total_amount: 5880,
+          taxes: [{ name: 'VAT 20%', amount: 980 }],
+        },
+      ],
+    });
+  });
 });
 
 // ── Webhook signature verification ─────────────────────────────────────────

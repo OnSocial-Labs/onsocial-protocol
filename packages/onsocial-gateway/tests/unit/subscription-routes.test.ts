@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   getActiveByAccount: vi.fn(),
   upsert: vi.fn(),
   getOrder: vi.fn(),
+  updateOrder: vi.fn(),
   updatePeriod: vi.fn(),
   updateAccountTier: vi.fn(),
   clearTierCache: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock('../../src/config/index.js', () => ({
       getOrCreateCustomer: mocks.getOrCreateCustomer,
       createSubscription: mocks.createSubscription,
       getOrder: mocks.getOrder,
+      updateOrder: mocks.updateOrder,
     })),
   },
 }));
@@ -172,6 +174,7 @@ describe('subscription routes', () => {
       getOrCreateCustomer: mocks.getOrCreateCustomer,
       createSubscription: mocks.createSubscription,
       getOrder: mocks.getOrder,
+      updateOrder: mocks.updateOrder,
     } as never);
     mocks.getOrCreateCustomer.mockResolvedValue({ id: 'cust-1' });
     mocks.createSubscription.mockResolvedValue({
@@ -182,6 +185,7 @@ describe('subscription routes', () => {
     mocks.getByAccount.mockResolvedValue(null);
     mocks.updatePeriod.mockResolvedValue(undefined);
     mocks.updateAccountTier.mockResolvedValue(undefined);
+    mocks.updateOrder.mockResolvedValue({ id: 'setup-order-1', state: 'pending' });
     mocks.getOrder.mockResolvedValue({
       id: 'setup-order-1',
       state: 'pending',
@@ -257,6 +261,7 @@ describe('subscription routes', () => {
       getOrCreateCustomer: mocks.getOrCreateCustomer,
       createSubscription: mocks.createSubscription,
       getOrder: mocks.getOrder,
+      updateOrder: mocks.updateOrder,
     } as never);
 
     mocks.getWithValidPeriod.mockResolvedValue({
@@ -493,6 +498,29 @@ describe('subscription routes', () => {
     );
   });
 
+  it('attaches UK VAT line items to the Revolut setup order', async () => {
+    const res = await request(createApp())
+      .post('/developer/subscribe')
+      .send({ tier: 'pro', email: 'alice@example.com', country: 'GB' });
+
+    expect(res.status).toBe(200);
+    expect(mocks.updateOrder).toHaveBeenCalledWith(
+      'setup-order-1',
+      expect.objectContaining({
+        amount: 5880,
+        lineItems: [
+          expect.objectContaining({
+            name: 'OnSocial API Pro',
+            type: 'service',
+            unit_price_amount: 4900,
+            total_amount: 5880,
+            taxes: [{ name: 'VAT 20%', amount: 980 }],
+          }),
+        ],
+      })
+    );
+  });
+
   it('previews UK VAT on net plan price before checkout', async () => {
     const res = await request(createPublicApp())
       .post('/developer/tax-preview')
@@ -564,7 +592,7 @@ describe('subscription routes', () => {
     expect(res.body.error).toMatch(/ZIP/i);
   });
 
-  it('rejects US tax preview without a street address', async () => {
+  it('allows US tax preview without optional street address', async () => {
     const res = await request(createPublicApp())
       .post('/developer/tax-preview')
       .send({
@@ -572,11 +600,15 @@ describe('subscription routes', () => {
         country: 'US',
         region: 'TX',
         postalCode: '78701',
-        city: 'Austin',
       });
 
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/street/i);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      taxTreatment: 'us_sales_tax',
+      taxRateBps: 625,
+      netMinor: 4900,
+      totalMinor: 5206,
+    });
   });
 
   it('rejects tax preview without a billing country', async () => {
