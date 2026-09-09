@@ -134,7 +134,7 @@ export async function expectCollectionVisitorChrome(page: Page): Promise<void> {
   await expect(root).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
   await expect(root).not.toHaveClass(/is-use-first/);
   await expect(root).not.toHaveAttribute('data-collection-use-first', '');
-  await expect(root).toHaveAttribute('data-collection-back', '/market');
+  await expect(root).toHaveAttribute('data-collection-back', '/drops');
   await expect(root.locator('.collection-commerce-supply')).toBeVisible();
   await expect(root.locator('.collection-product-price')).toContainText('NEAR');
   await expect(root.locator('.collection-progress')).toBeVisible();
