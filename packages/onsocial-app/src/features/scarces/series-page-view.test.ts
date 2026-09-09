@@ -12,6 +12,7 @@ import {
   seriesCatalogShell,
   seriesDisplayTitle,
   seriesPageBackHref,
+  seriesRouteLoadingBackHref,
   seriesShopActionLabel,
   seriesUseFirst,
   shopRowCreatorLabel,
@@ -147,6 +148,13 @@ describe('series page view', () => {
         shopHref: '/market?creator=bob.near',
       })
     ).toBe('/market?creator=bob.near');
+  });
+
+  it('sends series route loading to the creator shop', () => {
+    expect(seriesRouteLoadingBackHref('bob.near')).toBe(
+      '/market?creator=bob.near'
+    );
+    expect(seriesRouteLoadingBackHref('  ')).toBe('/drops');
   });
 
   it('matches holdings by catalog id or stamped series', () => {

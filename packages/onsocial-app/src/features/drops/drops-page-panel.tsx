@@ -52,6 +52,7 @@ import {
   dropsPath,
   parseDropsMediumParam,
 } from '@/lib/app-routes';
+import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import {
   EMPTY_DROPS_PAGE_QUERY,
   dropsQueryPath,
@@ -1077,7 +1078,7 @@ export function DropsPagePanel({
       leading={null}
       glassChrome
       scrollRootRef={scrollRootRef}
-      backFallbackHref={APP_MARKET_PATH}
+      backFallbackHref={OS_INDEX_LEAVE_HREF}
       heading={
         <DropsSearchHeading query={query} onQueryChange={setQuery} />
       }

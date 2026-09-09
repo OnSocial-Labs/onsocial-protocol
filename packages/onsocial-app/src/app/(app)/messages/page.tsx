@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { OsAppChromePage, OsAppChromePageStatus } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { MessagesPanel } from '@/features/messages/messages-panel';
+import { APP_HOME_PATH } from '@/lib/app-routes';
 
 export const metadata: Metadata = {
   title: 'Messages • OnSocial',
@@ -19,6 +20,8 @@ function MessagesFallback() {
     <OsAppScreen
       title="Messages"
       compactChrome
+      dockBack
+      backFallbackHref={APP_HOME_PATH}
       leading={null}
       glassChrome
       heading={<p className="os-app-screen-title">Messages</p>}
