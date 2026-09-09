@@ -30,6 +30,7 @@ import {
   formatPostTimestamp,
   formatRelativePostTimestamp,
 } from '@/lib/post-display';
+import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import { postThreadPath } from '@/lib/post-routes';
 
 const SECTION_LIMIT = 6;
@@ -139,7 +140,7 @@ export function MovingPostPeekSection({
             }
             accountId={post.accountId}
             profileName={post.authorName}
-            avatarUrl={post.authorAvatar}
+            avatarUrl={resolveProfileMediaUrl(post.authorAvatar)}
             timeLabel={formatRelativePostTimestamp(post.blockTimestamp)}
             timeTitle={formatPostTimestamp(post.blockTimestamp)}
             excerpt={formatPostPeekExcerpt(post.value, {

@@ -1,5 +1,6 @@
 'use client';
 
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { DiscoverCommunityListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
@@ -53,7 +54,13 @@ export function DiscoverDaosPanel() {
         {discoverDaosLead(total, catalogQuery, syncing)}
       </DiscoverTabLead>
 
-      {error ? <ListLoadError message={error} onRetry={retry} /> : null}
+      {error ? (
+        entries.length > 0 ? (
+          <OsChromeListAlert message={error} onRetry={retry} />
+        ) : (
+          <ListLoadError message={error} onRetry={retry} />
+        )
+      ) : null}
 
       {showSkeleton ? (
         <DiscoverCommunityListSkeleton label="Loading DAOs…" />

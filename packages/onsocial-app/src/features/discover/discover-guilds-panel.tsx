@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import {
@@ -338,9 +339,19 @@ export function DiscoverGuildsPanel() {
         />
       ) : null}
 
-      {error ? <ListLoadError message={error} onRetry={retry} /> : null}
+      {error ? (
+        visibleGuilds.length > 0 ? (
+          <OsChromeListAlert message={error} onRetry={retry} />
+        ) : (
+          <ListLoadError message={error} onRetry={retry} />
+        )
+      ) : null}
       {searchError ? (
-        <ListLoadError message={searchError} onRetry={retrySearch} />
+        visibleGuilds.length > 0 ? (
+          <OsChromeListAlert message={searchError} onRetry={retrySearch} />
+        ) : (
+          <ListLoadError message={searchError} onRetry={retrySearch} />
+        )
       ) : null}
 
       {showSkeleton ? (
@@ -402,7 +413,10 @@ export function DiscoverGuildsPanel() {
       ) : null}
 
       {!searchQuery && loadMoreError ? (
-        <ListLoadError message={loadMoreError} onRetry={() => void loadMore()} />
+        <OsChromeListAlert
+          message={loadMoreError}
+          onRetry={() => void loadMore()}
+        />
       ) : !searchQuery && (hasMore || moreLoading) ? (
         <div className="dao-discover-load-more">
           <div

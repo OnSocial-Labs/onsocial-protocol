@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CommunityDiscoverRow } from '@/components/community-cards';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import {
@@ -209,7 +210,13 @@ export function DiscoverHubsPanel() {
         />
       ) : null}
 
-      {error ? <ListLoadError message={error} onRetry={retry} /> : null}
+      {error ? (
+        apps != null && apps.length > 0 ? (
+          <OsChromeListAlert message={error} onRetry={retry} />
+        ) : (
+          <ListLoadError message={error} onRetry={retry} />
+        )
+      ) : null}
 
       {showScarcePeeks ? (
         mostTraded === null || mostLoved === null ? (

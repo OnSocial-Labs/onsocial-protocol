@@ -29,6 +29,7 @@ import {
   marketCreatorScreenTitle,
   marketCreatorSearchPlaceholder,
 } from '@/features/market/market-creator-view';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsLoadMore } from '@/lib/os-load-more';
@@ -2004,7 +2005,7 @@ export function MarketPagePanel({
         ) : null}
 
         {loadMoreFailed ? (
-          <ListLoadError
+          <OsChromeListAlert
             message="Couldn’t load more."
             retryLabel="Retry"
             onRetry={loadMoreListings}

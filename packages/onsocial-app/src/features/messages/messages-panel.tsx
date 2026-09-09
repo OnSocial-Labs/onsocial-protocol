@@ -20,6 +20,7 @@ import {
   OsAppChromePageStatus,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -1516,9 +1517,13 @@ export function MessagesPanel() {
         ) : null}
 
         {error ? (
-          <OsAppChromePageStatus error role="alert">
-            {error}
-          </OsAppChromePageStatus>
+          threads != null && threads.length > 0 ? (
+            <OsChromeListAlert message={error} />
+          ) : (
+            <OsAppChromePageStatus error role="alert">
+              {error}
+            </OsAppChromePageStatus>
+          )
         ) : null}
 
         {!keysLocked ? (
