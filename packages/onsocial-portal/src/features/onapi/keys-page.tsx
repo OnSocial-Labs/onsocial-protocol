@@ -1429,7 +1429,8 @@ export default function OnApiKeysPage() {
                   </SurfacePanel>
                   <p className="px-0.5 portal-type-caption tracking-[0.02em] text-muted-foreground/40">
                     Prices are tax-inclusive. UK invoices show VAT inside the
-                    total; EU VAT IDs are checked via VIES before reverse charge.
+                    total; EU VAT IDs are checked via VIES before reverse
+                    charge.
                   </p>
                   <Button
                     onClick={handleSubscribe}

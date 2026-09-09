@@ -1,9 +1,6 @@
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import type { PortalOnSocialConfig } from '@/lib/onsocial-client';
-import {
-  ACTIVE_API_URL,
-  ACTIVE_NEAR_NETWORK,
-} from '@/lib/portal-config';
+import { ACTIVE_API_URL, ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
 
 /** Canonical server env (from GSM `ONSOCIAL_SERVICE_ONAPI_KEY`). */
 const SERVER_ONAPI_ENV = 'ONSOCIAL_API_KEY';

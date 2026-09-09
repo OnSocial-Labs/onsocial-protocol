@@ -156,7 +156,10 @@ export interface InvoiceInfo {
 }
 
 export async function fetchInvoices(jwt: string): Promise<InvoiceInfo[]> {
-  const data = await gw<{ invoices: InvoiceInfo[] }>('/developer/invoices', jwt);
+  const data = await gw<{ invoices: InvoiceInfo[] }>(
+    '/developer/invoices',
+    jwt
+  );
   return data.invoices;
 }
 

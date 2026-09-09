@@ -240,7 +240,11 @@ export default function BillingPage() {
     try {
       const token = jwt ?? (await ensureAuth());
       if (!token) return;
-      await downloadInvoicePdf(token, invoice.id, `${invoice.invoiceNumber}.pdf`);
+      await downloadInvoicePdf(
+        token,
+        invoice.id,
+        `${invoice.invoiceNumber}.pdf`
+      );
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to download invoice'
@@ -569,8 +573,8 @@ export default function BillingPage() {
                 />
               </SurfacePanel>
               <p className="text-xs text-muted-foreground/60">
-                Tax-inclusive prices. UK VAT appears on your OnSocial invoice. EU
-                VAT IDs are checked via VIES before reverse charge.
+                Tax-inclusive prices. UK VAT appears on your OnSocial invoice.
+                EU VAT IDs are checked via VIES before reverse charge.
               </p>
               <div className="min-h-5">
                 <AnimatePresence initial={false}>
@@ -631,7 +635,12 @@ export default function BillingPage() {
       )}
 
       {!loading && invoices.length > 0 && (
-        <SurfacePanel radius="xl" tone="soft" padding="roomy" className="space-y-3">
+        <SurfacePanel
+          radius="xl"
+          tone="soft"
+          padding="roomy"
+          className="space-y-3"
+        >
           <h2 className="text-sm font-semibold tracking-[-0.01em]">Invoices</h2>
           <ul className="space-y-2">
             {invoices.map((inv) => (
@@ -642,8 +651,8 @@ export default function BillingPage() {
                 <div className="min-w-0">
                   <p className="font-medium truncate">{inv.invoiceNumber}</p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(inv.issuedAt).toLocaleDateString()} ·{' '}
-                    {inv.tier} · {inv.billingCountry}
+                    {new Date(inv.issuedAt).toLocaleDateString()} · {inv.tier} ·{' '}
+                    {inv.billingCountry}
                     {inv.taxMinor > 0
                       ? ` · VAT $${(inv.taxMinor / 100).toFixed(2)}`
                       : ` · ${inv.taxTreatment.replace(/_/g, ' ')}`}
