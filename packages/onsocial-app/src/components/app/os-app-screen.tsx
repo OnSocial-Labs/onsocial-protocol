@@ -10,8 +10,8 @@ import {
   useRegisterHeaderOwnsConnect,
 } from '@/contexts/dock-chrome-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
+import { useOsScreenChromeHeightSync } from '@/hooks/use-os-screen-chrome-height-sync';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
-import { syncOsScreenChromeHeight } from '@/lib/os-screen-chrome-height';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 
 /** Scroll tuck target — search+chip screens tuck the nav search; toolbar-only screens tuck chips. */
@@ -152,6 +152,8 @@ export function OsAppScreen({
     scrollTuck !== 'search' || scrollTuckPinned,
     scrollTuck === 'search' ? tuckScrollRef : null
   );
+  const searchChromeTucked =
+    scrollTuck === 'search' && searchTucked && Boolean(toolbar && heading);
   const portalHostRef = useRegisterOsPortalHost<HTMLDivElement>();
   const [glassElevated, setGlassElevated] = useState(false);
   const hasFooter = footer != null;
@@ -187,40 +189,19 @@ export function OsAppScreen({
     if (scrollRootRef) scrollRootRef.current = node;
   };
 
+  useOsScreenChromeHeightSync({ enabled: glassMode, headerRef });
+
   useLayoutEffect(() => {
     if (!glassMode) return;
-    const header = headerRef.current;
     const body = bodyRef.current;
-    if (!header || !body) return;
-    const screen = header.closest<HTMLElement>('.os-app-screen');
-    const restingHeightRef = { current: 0 };
-
-    // Measure resting chrome for body inset. While search/toolbar tuck is
-    // visual-only, freeze the last resting height so content does not jump
-    // (same contract as guild immersive rails).
-    const syncHeight = () => {
-      syncOsScreenChromeHeight(screen, header, restingHeightRef);
-    };
-    const observer = new ResizeObserver(syncHeight);
-    observer.observe(header);
-    const mutationObserver = new MutationObserver(syncHeight);
-    mutationObserver.observe(header, {
-      attributes: true,
-      attributeFilter: ['class'],
-      subtree: true,
-    });
-    syncHeight();
-
+    if (!body) return;
     const syncElevated = () => {
       setGlassElevated(body.scrollTop > 8 || glassScrollElevated);
     };
     syncElevated();
     body.addEventListener('scroll', syncElevated, { passive: true });
     return () => {
-      observer.disconnect();
-      mutationObserver.disconnect();
       body.removeEventListener('scroll', syncElevated);
-      screen?.style.removeProperty('--os-screen-chrome-height');
     };
   }, [glassMode, glassScrollElevated]);
 
@@ -260,10 +241,9 @@ export function OsAppScreen({
         <header
           ref={headerRef}
           className={`os-app-screen-header${elevated ? ' is-elevated' : ''}${
-            scrollTuck === 'search' && searchTucked && toolbar && heading
-              ? ' is-search-tucked'
-              : ''
+            searchChromeTucked ? ' is-search-tucked' : ''
           }`}
+          data-os-chrome-tucked={searchChromeTucked ? '' : undefined}
         >
           {showNavRow ? (
             <div className="os-app-screen-nav-row">

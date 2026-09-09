@@ -28,6 +28,7 @@ export function OsAppChromeToolbarRail({
         className
       )}
       {...props}
+      data-os-chrome-tucked={hidden ? '' : undefined}
     >
       {children}
     </div>

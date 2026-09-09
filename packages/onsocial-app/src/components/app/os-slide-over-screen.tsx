@@ -29,8 +29,8 @@ import {
   useScrollLock,
 } from '@onsocial/ui';
 import { useOsPortalHost } from '@/contexts/os-portal-host-context';
+import { useOsScreenChromeHeightSync } from '@/hooks/use-os-screen-chrome-height-sync';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
-import { syncOsScreenChromeHeight } from '@/lib/os-screen-chrome-height';
 
 const clientMountedSubscribe = () => () => {};
 const getClientMountedSnapshot = () => true;
@@ -202,39 +202,21 @@ export function OsSlideOverScreen({
     return () => window.removeEventListener('keydown', onKey);
   }, [layerOpen, requestClose]);
 
+  useOsScreenChromeHeightSync({ enabled: renderOpen, headerRef });
+
   useLayoutEffect(() => {
     if (!renderOpen) return;
-    const header = headerRef.current;
     const body = bodyRef.current;
-    if (!header || !body) return;
-    const screen = header.closest<HTMLElement>('.os-app-screen');
-    const restingHeightRef = { current: 0 };
-
-    const syncHeight = () => {
-      syncOsScreenChromeHeight(screen, header, restingHeightRef);
-    };
-    const observer = new ResizeObserver(syncHeight);
-    observer.observe(header);
-    const mutationObserver = new MutationObserver(syncHeight);
-    mutationObserver.observe(header, {
-      attributes: true,
-      attributeFilter: ['class'],
-      subtree: true,
-    });
-    syncHeight();
-
+    if (!body) return;
     const syncElevated = () => {
       setGlassElevated(body.scrollTop > 8);
     };
     syncElevated();
     body.addEventListener('scroll', syncElevated, { passive: true });
     return () => {
-      observer.disconnect();
-      mutationObserver.disconnect();
       body.removeEventListener('scroll', syncElevated);
-      screen?.style.removeProperty('--os-screen-chrome-height');
     };
-  }, [renderOpen, toolbar, subtitle, heading, hideNav]);
+  }, [renderOpen]);
 
   const setBodyRef = useCallback(
     (node: HTMLElement | null) => {

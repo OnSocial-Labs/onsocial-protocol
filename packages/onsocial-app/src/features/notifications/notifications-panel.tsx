@@ -246,11 +246,15 @@ export function NotificationsPanel() {
   );
 
   const markAllAction =
-    isConnected && hasSocialSession && unreadCount > 0 ? (
+    isConnected && hasSocialSession ? (
       <button
         type="button"
-        className="notifications-mark-all"
-        disabled={markingAll}
+        className={`notifications-mark-all${
+          unreadCount > 0 ? '' : ' is-slot-reserved'
+        }`}
+        disabled={markingAll || unreadCount === 0}
+        tabIndex={unreadCount > 0 ? undefined : -1}
+        aria-hidden={unreadCount > 0 ? undefined : true}
         onClick={() => void markAllRead()}
       >
         {markingAll ? 'Marking…' : 'Mark all read'}
