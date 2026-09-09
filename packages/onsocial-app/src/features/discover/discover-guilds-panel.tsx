@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsChipRail } from '@/components/os/os-chip-rail';
@@ -27,6 +26,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { APP_GROUPS_PATH } from '@/lib/app-routes';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import {
   countPrimaryTopics,
   discoverTopicFiltersFromCounts,
@@ -371,29 +371,17 @@ export function DiscoverGuildsPanel() {
           {isSearchEmpty ? null : (
             <div className="standing-panel-empty-actions">
               {isTopicEmpty ? (
-                <button
-                  type="button"
-                  className="standing-panel-empty-action"
-                  onClick={() => setTopicFilter('all')}
-                >
+                <OsEmptyAction onClick={() => setTopicFilter('all')}>
                   Show all guilds
-                </button>
+                </OsEmptyAction>
               ) : (
                 <>
-                  <Link
-                    className="standing-panel-empty-action"
-                    href={`${APP_GROUPS_PATH}/create`}
-                    scroll={false}
-                  >
+                  <OsEmptyAction href={`${APP_GROUPS_PATH}/create`}>
                     Create a guild
-                  </Link>
-                  <Link
-                    className="standing-panel-empty-action"
-                    href={APP_GROUPS_PATH}
-                    scroll={false}
-                  >
+                  </OsEmptyAction>
+                  <OsEmptyAction href={APP_GROUPS_PATH}>
                     Open Guilds
-                  </Link>
+                  </OsEmptyAction>
                 </>
               )}
             </div>

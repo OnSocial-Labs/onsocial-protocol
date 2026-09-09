@@ -29,6 +29,7 @@ import {
   marketCreatorScreenTitle,
   marketCreatorSearchPlaceholder,
 } from '@/features/market/market-creator-view';
+import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { partitionMarketListingsLiveFirst } from '@/features/market/market-listing-rank';
@@ -1841,16 +1842,11 @@ export function MarketPagePanel({
           </div>
         ) : null}
         {listingsFailed ? (
-          <p className="market-page-status" role="alert">
-            Couldn’t load listings.{' '}
-            <button
-              type="button"
-              className="market-page-retry"
-              onClick={() => setRetryKey((value) => value + 1)}
-            >
-              Retry
-            </button>
-          </p>
+          <ListLoadError
+            message="Couldn’t load listings."
+            retryLabel="Retry"
+            onRetry={() => setRetryKey((value) => value + 1)}
+          />
         ) : null}
 
         {showEmptyBrowse ? (
@@ -1882,54 +1878,33 @@ export function MarketPagePanel({
         ) : null}
 
         {showEmptyFilter ? (
-          <p className="market-page-status">
-            {facetOrFormatActive ? (
-              <>
-                No matches for these filters.{' '}
-                <button
-                  type="button"
-                  className="market-page-retry"
-                  onClick={() => setMediumFilter('all')}
-                >
+          <div className="standing-panel-empty-state">
+            <p className="market-page-status">
+              {facetOrFormatActive
+                ? 'No matches for these filters.'
+                : mediumFilter !== 'all'
+                  ? `Nothing in ${
+                      MARKET_MEDIUM_FILTERS.find(
+                        (tab) => tab.id === mediumFilter
+                      )?.label ?? mediumFilter
+                    } right now.`
+                  : `Nothing in ${
+                      listingFilter === 'auctions' ? 'Auctions' : 'Fixed'
+                    } right now.`}
+            </p>
+            <div className="standing-panel-empty-actions">
+              {facetOrFormatActive || mediumFilter !== 'all' ? (
+                <OsEmptyAction onClick={() => setMediumFilter('all')}>
                   Clear filter
-                </button>
-              </>
-            ) : mediumFilter !== 'all' ? (
-              <>
-                Nothing in{' '}
-                {MARKET_MEDIUM_FILTERS.find((tab) => tab.id === mediumFilter)
-                  ?.label ?? mediumFilter}{' '}
-                right now.{' '}
-                <button
-                  type="button"
-                  className="market-page-retry"
-                  onClick={() => setMediumFilter('all')}
-                >
-                  Clear filter
-                </button>
-                {' · '}
-                <button
-                  type="button"
-                  className="market-page-retry"
-                  onClick={() => setFilter('all')}
-                >
+                </OsEmptyAction>
+              ) : null}
+              {!facetOrFormatActive ? (
+                <OsEmptyAction onClick={() => setFilter('all')}>
                   See All
-                </button>
-              </>
-            ) : (
-              <>
-                Nothing in {listingFilter === 'auctions' ? 'Auctions' : 'Fixed'}{' '}
-                right now.{' '}
-                <button
-                  type="button"
-                  className="market-page-retry"
-                  onClick={() => setFilter('all')}
-                >
-                  See All
-                </button>
-              </>
-            )}
-          </p>
+                </OsEmptyAction>
+              ) : null}
+            </div>
+          </div>
         ) : null}
 
         {creatorEmpty ? (
@@ -1944,16 +1919,16 @@ export function MarketPagePanel({
         ) : null}
 
         {appEmpty ? (
-          <p className="market-page-status">
-            No live listings in {appFilter} right now.{' '}
-            <button
-              type="button"
-              className="market-page-retry"
-              onClick={clearNarrowFilter}
-            >
-              Clear filter
-            </button>
-          </p>
+          <div className="standing-panel-empty-state">
+            <p className="market-page-status">
+              No live listings in {appFilter} right now.
+            </p>
+            <div className="standing-panel-empty-actions">
+              <OsEmptyAction onClick={clearNarrowFilter}>
+                Clear filter
+              </OsEmptyAction>
+            </div>
+          </div>
         ) : null}
 
         <section
@@ -2027,16 +2002,11 @@ export function MarketPagePanel({
         ) : null}
 
         {loadMoreFailed ? (
-          <p className="market-page-status" role="alert">
-            Couldn’t load more.{' '}
-            <button
-              type="button"
-              className="market-page-retry"
-              onClick={loadMoreListings}
-            >
-              Retry
-            </button>
-          </p>
+          <ListLoadError
+            message="Couldn’t load more."
+            retryLabel="Retry"
+            onRetry={loadMoreListings}
+          />
         ) : null}
 
         {(discoveryFilteredListings.length > 0 ||

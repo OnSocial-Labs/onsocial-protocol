@@ -48,6 +48,7 @@ import {
   APP_MARKET_PATH,
 } from '@/lib/app-routes';
 import { VAULT_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
@@ -809,20 +810,14 @@ export function CollectiblesPagePanel({
       ) : null}
 
       {ownerAccountId && status === 'error' && !usingOfflineLibrary ? (
-        <div className="market-page-status">
-          <p>
-            {isSelf
+        <ListLoadError
+          message={
+            isSelf
               ? 'Couldn’t load your collectibles.'
-              : 'Couldn’t load collectibles.'}
-          </p>
-          <button
-            type="button"
-            className="market-page-retry"
-            onClick={() => setRetryKey((n) => n + 1)}
-          >
-            Try again
-          </button>
-        </div>
+              : 'Couldn’t load collectibles.'
+          }
+          onRetry={() => setRetryKey((n) => n + 1)}
+        />
       ) : null}
 
       {showOfflineOnly ? (
