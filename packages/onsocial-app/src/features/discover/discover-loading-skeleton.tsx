@@ -30,20 +30,6 @@ export function DiscoverTrendingChipSectionSkeleton({
   );
 }
 
-export function DiscoverRecommendedPeekSkeleton() {
-  return (
-    <section
-      className="discover-trending-section discover-recommended-peek discover-recommended-peek--pending"
-      aria-hidden
-    >
-      <div className="discover-trending-section-head">
-        <span className="standing-row-shimmer standing-row-shimmer-line discover-trending-shimmer-heading" />
-      </div>
-      <ProfileSocialListSkeleton rowVariant="discover" count={4} />
-    </section>
-  );
-}
-
 export function DiscoverTrendingProfilesSectionSkeleton() {
   return (
     <section
