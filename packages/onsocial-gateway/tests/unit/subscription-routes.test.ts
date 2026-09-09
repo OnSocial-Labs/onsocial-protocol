@@ -185,7 +185,10 @@ describe('subscription routes', () => {
     mocks.getByAccount.mockResolvedValue(null);
     mocks.updatePeriod.mockResolvedValue(undefined);
     mocks.updateAccountTier.mockResolvedValue(undefined);
-    mocks.updateOrder.mockResolvedValue({ id: 'setup-order-1', state: 'pending' });
+    mocks.updateOrder.mockResolvedValue({
+      id: 'setup-order-1',
+      state: 'pending',
+    });
     mocks.getOrder.mockResolvedValue({
       id: 'setup-order-1',
       state: 'pending',
