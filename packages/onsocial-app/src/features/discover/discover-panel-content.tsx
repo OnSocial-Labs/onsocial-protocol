@@ -82,7 +82,7 @@ export function DiscoverPanelContent() {
   );
   const hasRecommended = recommendedShownIds.length > 0;
   return (
-    <OsAppChromePage className="standing-panel discover-panel">
+    <OsAppChromePage className="discover-panel">
       {visitedTabs.has('trending') ? (
         <div hidden={tab !== 'trending'}>
           <DiscoverTrendingPanel onOpenTab={setTab} initial={initialTrending} />
