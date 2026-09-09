@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { Divider, OsIconAction, SettingsIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -1209,15 +1210,10 @@ export function LiveGuildPanel({
                     </div>
                   ))}
                   {loadMoreError ? (
-                    <div className="guild-state-card is-error">
-                      <p>{GUILD_FEED_LOAD_MORE_ERROR}</p>
-                      {loadMoreError !== GUILD_FEED_LOAD_MORE_ERROR ? (
-                        <small>{loadMoreError}</small>
-                      ) : null}
-                      <OsEmptyAction onClick={() => loadMoreFeed()}>
-                        Retry
-                      </OsEmptyAction>
-                    </div>
+                    <OsChromeListAlert
+                      message={GUILD_FEED_LOAD_MORE_ERROR}
+                      onRetry={() => loadMoreFeed()}
+                    />
                   ) : hasMorePosts || loadingMore ? (
                     <div className="home-feed-load-more">
                       {hasMorePosts ? (

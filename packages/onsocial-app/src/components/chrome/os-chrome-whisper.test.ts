@@ -38,6 +38,8 @@ describe('os chrome whisper', () => {
       'features/discover/discover-guilds-panel.tsx',
       'features/discover/discover-daos-panel.tsx',
       'features/discover/discover-hubs-panel.tsx',
+      'features/guilds/live-guild-panel.tsx',
+      'features/guilds/guild-members-roster.tsx',
     ] as const;
 
     for (const file of surfaces) {
