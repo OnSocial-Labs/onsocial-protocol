@@ -44,7 +44,7 @@ export interface OsAppLink {
 /**
  * Which launcher app is "here" for the current route.
  * External portals (Boost) are never active in-app.
- * Hubs covers `/apps` and drop pages under `/collection`.
+ * Hubs covers `/apps`. Drop pages under `/collection` are Drops.
  */
 export function resolveActiveOsAppId(
   pathname: string,
@@ -77,7 +77,7 @@ export function resolveActiveOsAppId(
     path === APP_COLLECTION_PATH ||
     path.startsWith(`${APP_COLLECTION_PATH}/`)
   ) {
-    return 'hubs';
+    return 'drops';
   }
   if (path === APP_MARKET_CREATE_PATH) {
     return 'drops';
