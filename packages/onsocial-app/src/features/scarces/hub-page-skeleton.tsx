@@ -1,3 +1,5 @@
+import { HUB_PAGE_SKELETON_CLASS } from '@/lib/os-chrome-page';
+
 function HubCatalogBones() {
   return (
     <div className="market-listing-list" aria-hidden>
@@ -43,7 +45,7 @@ export function HubPageSkeleton({ listOnly = false }: { listOnly?: boolean }) {
 
   return (
     <div
-      className="app-page hub-page--skeleton"
+      className={HUB_PAGE_SKELETON_CLASS}
       aria-busy="true"
       aria-label="Loading hub"
       data-hub-page-skeleton

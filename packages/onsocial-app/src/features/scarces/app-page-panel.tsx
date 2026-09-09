@@ -83,6 +83,7 @@ import {
   APP_DROP_CREATE_PATH,
   MARKET_APP_PARAM,
 } from '@/lib/app-routes';
+import { osChromePageClassName } from '@/lib/os-chrome-page';
 import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import {
@@ -549,7 +550,7 @@ export function AppPagePanel({
         className={`os-chrome-glass${headerElevated ? ' is-frosted' : ''}`}
       />
       <div
-        className={`app-page${useFirst ? ' is-use-first' : ''}`}
+        className={osChromePageClassName('app-page', useFirst && 'is-use-first')}
         data-hub-use-first={useFirst ? '' : undefined}
         data-hub-back={hubBackHref}
       >

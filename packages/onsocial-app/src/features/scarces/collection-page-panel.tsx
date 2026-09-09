@@ -106,6 +106,7 @@ import {
   marketCreatorPath,
   seriesPagePath,
 } from '@/lib/app-routes';
+import { osChromePageClassName } from '@/lib/os-chrome-page';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   formatFutureRelativeTime,
@@ -876,7 +877,10 @@ export function CollectionPagePanel({
         />
       ) : null}
       <div
-        className={`collection-page${useFirst ? ' is-use-first' : ''}`}
+        className={osChromePageClassName(
+          'collection-page',
+          useFirst && 'is-use-first'
+        )}
         data-collection-use-first={useFirst ? '' : undefined}
         data-collection-back={dropBackHref}
       >

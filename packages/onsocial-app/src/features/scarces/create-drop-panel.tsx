@@ -189,6 +189,7 @@ import {
   collectionPath,
   dropCreateBackHref,
 } from '@/lib/app-routes';
+import { DROP_STUDIO_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { DROP_CREATE_FORM_CLASS } from '@/lib/os-create-page';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import { STORAGE_DEPOSIT_PRESETS_NEAR } from '@/lib/user-storage-display';
@@ -2582,7 +2583,7 @@ export function CreateDropPanel() {
           and an in-flight server render survive stepping back to the form. */}
       {isGeneratedSet || generateJobId ? (
         <div
-          className="drop-studio"
+          className={DROP_STUDIO_PAGE_CLASS}
           style={studioOpen ? undefined : { display: 'none' }}
         >
           <GenerativeDropBuilder

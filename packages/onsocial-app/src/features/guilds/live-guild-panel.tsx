@@ -17,6 +17,7 @@ import {
   type WriteDockSubmit,
 } from '@/contexts/compose-launcher-context';
 import { useFeedReplyWriteDock } from '@/hooks/use-feed-reply-write-dock';
+import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { writeDockDraftKey } from '@/lib/os-write-dock';
 import {
   clearWriteDockDraft,
@@ -1052,7 +1053,7 @@ export function LiveGuildPanel({
           headerElevated && feedFiltersHidden ? ' is-rail-hidden' : ''
         }`}
       />
-      <div className="guilds-page">
+      <div className={GUILDS_PAGE_CLASS}>
         {loadState === 'loading' ? (
           <div
             className="guild-loading"

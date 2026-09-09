@@ -19,3 +19,17 @@ export const DROPS_INDEX_PAGE_CLASS = osChromePageClassName(
 );
 
 export const MARKET_INDEX_PAGE_CLASS = osChromePageClassName('market-page');
+
+export const GUILDS_PAGE_CLASS = osChromePageClassName('guilds-page');
+
+export const DROP_STUDIO_PAGE_CLASS = osChromePageClassName('drop-studio');
+
+export const HUB_PAGE_SKELETON_CLASS = osChromePageClassName(
+  'app-page',
+  'hub-page--skeleton'
+);
+
+export const COLLECTION_PAGE_SKELETON_CLASS = osChromePageClassName(
+  'collection-page',
+  'collection-page--skeleton'
+);

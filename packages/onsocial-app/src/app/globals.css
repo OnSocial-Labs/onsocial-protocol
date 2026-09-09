@@ -19714,19 +19714,12 @@ a.os-surface-row {
   }
 
   /*
-   * Shared OsAppScreen body inset — bridge for roots not yet on
-   * `.os-app-chrome-page` (create + indexes use `os-chrome-page.ts`).
-   * `.market-page:not(...)` keeps vault / play / door / series padded
-   * until those roots move. Discover/Standing use the same pad-x.
+   * Shared OsAppScreen body inset — last allowlist bridge.
+   * Create, indexes, and detail pages use `.os-app-chrome-page`
+   * (`os-chrome-page.ts`). Vault / play / door / series still use
+   * `.market-page` until those roots move.
    */
-  .app-soon-page,
-  .guilds-page,
-  .market-page:not(.os-app-chrome-page),
-  .apps-directory,
-  .app-page,
-  .collection-page,
-  .drop-studio,
-  .protocol-page {
+  .market-page:not(.os-app-chrome-page) {
     padding: var(--os-screen-body-inset, 0.15rem 1rem 1.5rem);
   }
 
