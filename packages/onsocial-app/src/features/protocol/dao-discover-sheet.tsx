@@ -6,6 +6,7 @@ import { SearchField } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { DaoDirectoryList } from '@/features/protocol/dao-directory-row';
 import { useDaoCatalogBrowse } from '@/hooks/use-dao-catalog-browse';
+import { OsLoadMore } from '@/lib/os-load-more';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 /**
@@ -98,14 +99,13 @@ export function DaoDiscoverSheet({
       {hasMore || pending ? (
         <div className="dao-discover-load-more">
           <div ref={loadMoreRef} className="protocol-feed-sentinel" aria-hidden />
-          <button
-            type="button"
-            className="daos-discover-more"
-            disabled={pending}
+          <OsLoadMore
             onClick={loadMore}
+            pending={pending}
+            disabled={pending}
           >
             {pending ? 'Loading…' : 'Load more'}
-          </button>
+          </OsLoadMore>
         </div>
       ) : null}
     </OsSlideOverScreen>

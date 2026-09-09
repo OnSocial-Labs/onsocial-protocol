@@ -1110,13 +1110,7 @@ export function CollectionPagePanel({
                   </div>
                 ) : null}
                 {vaultHref ? (
-                  <Link
-                    href={vaultHref}
-                    scroll={false}
-                    className="collection-reading-open"
-                  >
-                    Open Collectibles
-                  </Link>
+                  <OsRowAction href={vaultHref}>Open Collectibles</OsRowAction>
                 ) : null}
               </div>
             ) : null}
@@ -1365,13 +1359,9 @@ export function CollectionPagePanel({
               <p className="collection-section-label">
                 {writingReadingSectionLabel(readables.length)}
               </p>
-              <button
-                type="button"
-                className="collection-reading-open"
-                onClick={() => setWritingReadOpen(true)}
-              >
+              <OsRowAction onClick={() => setWritingReadOpen(true)}>
                 Read
-              </button>
+              </OsRowAction>
             </div>
             {!canReadWriting ? (
               <p className="collection-writing-locked">{writingLockedHint}</p>
@@ -1392,28 +1382,23 @@ export function CollectionPagePanel({
                   <p className="collection-section-label">
                     {staffVoice === 'redeem' ? 'Counter' : 'Door'}
                   </p>
-                  <Link
+                  <OsRowAction
                     href={
                       staffVoice === 'redeem'
                         ? collectionRedeemPath(view.collectionId)
                         : collectionDoorPath(view.collectionId)
                     }
-                    className="collection-reading-open"
                   >
                     {staffVoice === 'redeem' ? 'Redeem' : 'Admit'}
-                  </Link>
+                  </OsRowAction>
                 </div>
                 <div className="collection-reading-row">
                   <p className="collection-section-label">
                     {staffVoice === 'redeem' ? 'Redeem log' : 'Door log'}
                   </p>
-                  <button
-                    type="button"
-                    className="collection-reading-open"
-                    onClick={() => setDoorLogOpen(true)}
-                  >
+                  <OsRowAction onClick={() => setDoorLogOpen(true)}>
                     See who
-                  </button>
+                  </OsRowAction>
                 </div>
               </>
             ) : null}

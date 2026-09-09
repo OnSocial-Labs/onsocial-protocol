@@ -31,6 +31,7 @@ import {
 } from '@/features/market/market-creator-view';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsEmptyAction } from '@/lib/os-empty-action';
+import { OsLoadMore } from '@/lib/os-load-more';
 import { OsRowAction } from '@/lib/os-row-action';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { partitionMarketListingsLiveFirst } from '@/features/market/market-listing-rank';
@@ -2022,14 +2023,13 @@ export function MarketPagePanel({
               className="market-listing-sentinel"
               aria-hidden
             />
-            <button
-              type="button"
-              className="market-sales-more"
-              disabled={loadingMore}
+            <OsLoadMore
               onClick={loadMoreListings}
+              pending={loadingMore}
+              disabled={loadingMore}
             >
               {loadingMore ? 'Loading…' : 'Show more'}
-            </button>
+            </OsLoadMore>
           </>
         ) : null}
 
@@ -2071,14 +2071,13 @@ export function MarketPagePanel({
               })}
             </div>
             {ownedState.hasMore ? (
-              <button
-                type="button"
-                className="market-sales-more"
+              <OsLoadMore
                 onClick={loadMoreOwned}
+                pending={ownedLoadingMore}
                 disabled={ownedLoadingMore}
               >
                 {ownedLoadingMore ? 'Loading…' : 'Show more'}
-              </button>
+              </OsLoadMore>
             ) : null}
           </section>
         ) : null}
@@ -2125,22 +2124,14 @@ export function MarketPagePanel({
               ))}
             </ul>
             {hiddenSalesCount > 0 ? (
-              <button
-                type="button"
-                className="market-sales-more"
-                onClick={() => setSalesExpanded(true)}
-              >
+              <OsLoadMore onClick={() => setSalesExpanded(true)}>
                 Show {hiddenSalesCount} more
-              </button>
+              </OsLoadMore>
             ) : null}
             {salesExpanded && salesRows.length > RECENT_SALES_PREVIEW ? (
-              <button
-                type="button"
-                className="market-sales-more"
-                onClick={() => setSalesExpanded(false)}
-              >
+              <OsLoadMore onClick={() => setSalesExpanded(false)}>
                 Show less
-              </button>
+              </OsLoadMore>
             ) : null}
           </section>
         ) : null}

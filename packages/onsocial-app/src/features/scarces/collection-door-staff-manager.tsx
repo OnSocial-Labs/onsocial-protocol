@@ -29,6 +29,7 @@ import {
   fetchDiscoverProfiles,
   type DiscoverProfileSummary,
 } from '@/lib/discover-profiles';
+import { OsRowAction } from '@/lib/os-row-action';
 import {
   PROFILE_SEARCH_MAX_QUERY_LENGTH,
   PROFILE_SEARCH_MIN_QUERY_LENGTH,
@@ -309,13 +310,9 @@ export function CollectionDoorStaffManager({
         <p className="collection-section-label">
           {voice === 'redeem' ? 'Redeem staff' : 'Door staff'}
         </p>
-        <button
-          type="button"
-          className="collection-reading-open"
-          onClick={() => setOpen(true)}
-        >
+        <OsRowAction onClick={() => setOpen(true)}>
           {saved.length > 0 ? `${saved.length} · Manage` : 'Manage'}
-        </button>
+        </OsRowAction>
       </div>
 
       <OsHugSheet

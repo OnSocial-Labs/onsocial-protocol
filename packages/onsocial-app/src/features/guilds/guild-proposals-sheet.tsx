@@ -21,6 +21,8 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { OsEmptyAction } from '@/lib/os-empty-action';
+import { OsRowAction } from '@/lib/os-row-action';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
@@ -327,14 +329,10 @@ export function GuildProposalsSheet({
     >
       <div className="guild-proposals-sheet">
         {onOpenRequests && joinRequestCount > 0 ? (
-          <button
-            type="button"
-            className="guild-secondary-button guild-proposals-requests-link"
-            onClick={onOpenRequests}
-          >
+          <OsRowAction onClick={onOpenRequests}>
             {joinRequestCount} join{' '}
             {joinRequestCount === 1 ? 'request' : 'requests'} in Member requests
-          </button>
+          </OsRowAction>
         ) : null}
 
         {loadState === 'loading' ? (
@@ -346,13 +344,9 @@ export function GuildProposalsSheet({
         {loadState === 'error' ? (
           <div className="guild-manage-sheet-state">
             <p>{loadError ?? 'Could not load proposals.'}</p>
-            <button
-              type="button"
-              className="guild-secondary-button"
-              onClick={() => void loadProposals()}
-            >
+            <OsEmptyAction onClick={() => void loadProposals()}>
               Try again
-            </button>
+            </OsEmptyAction>
           </div>
         ) : null}
 

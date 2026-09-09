@@ -98,8 +98,7 @@ test.describe('collection drop page', () => {
       await expect(page.locator('.collection-reading')).toBeVisible();
       const read = page.getByRole('button', { name: 'Read', exact: true });
       await expect(read).toBeVisible();
-      await expect(read).toHaveClass(/collection-reading-open/);
-      await expect(read).not.toHaveClass(/os-sheet-action/);
+      await expectOsRowAction(read);
       await expect(
         page.getByText('Connect to read.', { exact: true })
       ).toBeVisible();

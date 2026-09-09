@@ -57,6 +57,48 @@ Never mount a local `TransactionFeedbackToast` — root provider only.
 - **Passive credits** — same glass toast (`+X SOCIAL · Stand`), not a custom burst pill
 - Do not revive `AppRewardCreditBurst`
 
+## Action taxonomy (one primitive)
+
+Three orthogonal axes — do **not** invent a second Button tree or
+`dangerPrimary` / `dangerGhost` style matrix.
+
+| Axis | Values | Meaning |
+|------|--------|---------|
+| **Intent** | `primary` · `ghost` (secondary) · `danger` | What the action is |
+| **State** | idle · `ready` · `pending` · disabled | Can they press / working |
+| **Placement** | `sm` / `md` · borderless · stack / row | Where it lives |
+
+`dismiss` may stay as a soft cousin of `ghost`; prefer `ghost` for new work.
+
+### Placement recipes (app `src/lib`)
+
+Same pill language — helpers only, never feature CSS:
+
+| Helper | Intent | Use |
+|--------|--------|-----|
+| `OsEmptyAction` | primary `sm` | Empty / retry recoveries (Clear search, Try again, Browse Market) |
+| `OsRowAction` | primary `sm` | List / header chips (Play, Collect, Read, See all) |
+| `OsLoadMore` | ghost `sm` | Show more / Load more / Show less |
+| `OsIconAction` | icon | Header / chrome icons (not a pill) |
+
+Sheet footers use `OsSheetAction` directly (`md` stack). Market Buy / guild Join
+use `OsSheetAction` `sm` in place.
+
+### When to use which intent
+
+- **primary** — one main commit per surface (Save, Buy, Collect, Join)
+- **ghost** — Cancel, Show more, quiet secondary
+- **danger** — Remove, Leave, Discard, Transfer — same chrome as primary, red intent, arms on `ready`
+
+### Keep outside this pill system (different jobs)
+
+- Stand / step back, endorse toggles — gesture flips; toast **errors only**
+- Feed love / like / save / amplify — inline engagement
+- Collect SOCIAL wallet chip — `os-surface-chip`
+- Form choice chips (`os-surface-chip` / `os-choice-chip-row`)
+- Guild structure discovery / reorder icon chips — compact custom until a chip recipe exists
+- Accent Standing Discover (`StandingDiscoverLink`) — standing signal, not a generic CTA
+
 ## When to use `OsSheetAction`
 
 **Use** for sheet/footer/form commit CTAs:
@@ -68,12 +110,8 @@ Never mount a local `TransactionFeedbackToast` — root provider only.
 - Guild member role confirms (Move to mod, Remove, Transfer, …) — same commit chrome
 - Proposal vote / confirm footers
 
-**Keep compact custom pills** (not full-width sheet actions):
-
-- Guild hero join / leave / request
-- Stand / step back
-- Structure discovery chips, icon-only row actions
-- Collect SOCIAL chip on wallet card
+**Do not** hand-roll `guild-secondary-button`, `market-sales-more`, `collection-reading-open`,
+or underlined retry links for the jobs above — use the helpers.
 
 ## Commit chrome (Cancel + primary)
 

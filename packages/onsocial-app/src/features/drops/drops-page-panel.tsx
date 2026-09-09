@@ -56,6 +56,7 @@ import {
 } from '@/lib/app-routes';
 import { DROPS_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OsEmptyAction } from '@/lib/os-empty-action';
+import { OsLoadMore } from '@/lib/os-load-more';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import {
   EMPTY_DROPS_PAGE_QUERY,
@@ -1185,14 +1186,13 @@ export function DropsPagePanel({
             (!searching || needle === debouncedQuery.toLowerCase()) &&
             !failed &&
             !refreshing ? (
-              <button
-                type="button"
-                className="market-sales-more"
-                disabled={loading}
+              <OsLoadMore
                 onClick={loadMore}
+                pending={loading}
+                disabled={loading}
               >
                 {loading ? 'Loading…' : 'Show more'}
-              </button>
+              </OsLoadMore>
             ) : null}
           </section>
 

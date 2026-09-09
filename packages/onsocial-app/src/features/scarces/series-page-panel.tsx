@@ -44,6 +44,7 @@ import { accountIdsEqual } from '@/lib/account-match';
 import { dropCreatePath, marketCreatorPath } from '@/lib/app-routes';
 import { MARKET_PAGE_CLASS, osChromePageClassName } from '@/lib/os-chrome-page';
 import { OsEmptyAction } from '@/lib/os-empty-action';
+import { OsRowAction } from '@/lib/os-row-action';
 import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import {
   groupHoldingsForRail,
@@ -298,13 +299,7 @@ export function SeriesPagePanel({
           ) : null}
           {useFirst && vaultHref ? (
             <div className="series-use-actions">
-              <Link
-                href={vaultHref}
-                scroll={false}
-                className="collection-reading-open"
-              >
-                Open Collectibles
-              </Link>
+              <OsRowAction href={vaultHref}>Open Collectibles</OsRowAction>
             </div>
           ) : null}
         </header>

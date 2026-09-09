@@ -85,6 +85,7 @@ import {
 } from '@/lib/app-routes';
 import { MARKET_PAGE_CLASS, osChromePageClassName } from '@/lib/os-chrome-page';
 import { OsEmptyAction } from '@/lib/os-empty-action';
+import { OsRowAction } from '@/lib/os-row-action';
 import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import {
@@ -656,13 +657,7 @@ export function AppPagePanel({
 
           {useFirst && vaultHref ? (
             <div className="series-use-actions">
-              <Link
-                href={vaultHref}
-                scroll={false}
-                className="collection-reading-open"
-              >
-                Open Collectibles
-              </Link>
+              <OsRowAction href={vaultHref}>Open Collectibles</OsRowAction>
             </div>
           ) : null}
 

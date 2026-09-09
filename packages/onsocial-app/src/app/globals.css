@@ -13898,6 +13898,20 @@ a.os-surface-row {
     max-width: 100%;
   }
 
+  /* Quiet Show more — ghost sm; hug label like empty/row recipes. */
+  .os-load-more {
+    width: fit-content;
+    max-width: 100%;
+    align-self: flex-start;
+    margin: 0.2rem 0 0;
+  }
+
+  .guild-thread-column .os-load-more,
+  .guild-state-card .os-load-more {
+    align-self: center;
+    margin-top: 0.6rem;
+  }
+
   .market-listing-action-col .os-row-action {
     min-width: 4.5rem;
   }
@@ -25906,29 +25920,6 @@ a.os-surface-row {
     margin: 0;
   }
 
-  .collection-reading-open {
-    border: 0;
-    background: transparent;
-    padding: 0;
-    margin: 0;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 0.82rem;
-    font-weight: 700;
-    line-height: 1.2;
-    letter-spacing: -0.01em;
-    color: rgb(var(--fg-rgb) / 0.78);
-    text-decoration: none;
-  }
-
-  .collection-reading-open:hover,
-  .collection-reading-open:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.96);
-    outline: none;
-    text-decoration: underline;
-    text-underline-offset: 0.12em;
-  }
-
   .collection-tracks > .collection-section-label {
     display: flex;
     align-items: center;
@@ -32464,32 +32455,6 @@ a.os-surface-row {
     margin-top: 0.05rem;
   }
 
-  .market-sales-more {
-    align-self: flex-start;
-    margin: 0.2rem 0 0;
-    border: 0;
-    border-radius: 9999px;
-    background: transparent;
-    padding: 0.375rem 0.75rem;
-    color: var(--os-surface-muted);
-    font: inherit;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    letter-spacing: -0.01em;
-    line-height: 1.35;
-    cursor: pointer;
-    transition:
-      color 160ms ease,
-      background 160ms ease;
-  }
-
-  .market-sales-more:hover,
-  .market-sales-more:focus-visible {
-    background: var(--os-surface-row-hover);
-    color: var(--os-surface-emphasis);
-    outline: none;
-  }
-
   .market-listing-sentinel {
     height: 1px;
   }
@@ -34548,38 +34513,6 @@ a.os-surface-row {
   .guild-thread-ancestor.post-thread-item,
   .guild-thread-root.post-thread-item {
     --thread-pad-top: 0.35rem;
-  }
-
-  .guild-load-more {
-    align-self: center;
-    margin-top: 0.6rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: rgb(var(--fg-rgb) / 0.66);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.74rem;
-    font-weight: 600;
-    padding: 0.5rem 0.9rem;
-    transition:
-      background 160ms ease,
-      border-color 160ms ease,
-      color 160ms ease;
-  }
-
-  .guild-load-more:hover:not(:disabled),
-  .guild-load-more:focus-visible {
-    border-color: rgb(var(--fg-rgb) / 0.16);
-    background: rgb(var(--fg-rgb) / 0.05);
-    color: rgb(var(--fg-rgb) / 0.86);
-    outline: none;
-  }
-
-  .guild-load-more:disabled {
-    cursor: default;
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .guild-thread-column {
@@ -39206,28 +39139,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   height: 1px;
 }
 
-.protocol-feed-more {
-  align-self: center;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  border: 1px solid rgb(var(--fg-rgb) / 0.14);
-  border-radius: 999px;
-  background: transparent;
-  padding: 0.45rem 0.9rem;
-  font: inherit;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: rgb(var(--fg-rgb) / 0.78);
-  cursor: pointer;
-}
-
-.protocol-feed-more:hover,
-.protocol-feed-more:focus-visible {
-  border-color: rgb(var(--fg-rgb) / 0.28);
-  color: rgb(var(--fg-rgb) / 0.92);
-}
-
 .protocol-feed-end {
   margin: 0;
   padding: 0.35rem 0 0.15rem;
@@ -40951,31 +40862,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   align-items: stretch;
   gap: 0.45rem;
   padding-top: 0.35rem;
-}
-
-.daos-discover-more {
-  align-self: center;
-  border: 0;
-  border-radius: 9999px;
-  padding: 0.45rem 0.85rem;
-  background: rgb(var(--fg-rgb) / 0.1);
-  color: rgb(var(--fg-rgb) / 0.88);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.daos-discover-more:hover,
-.daos-discover-more:focus-visible {
-  background: rgb(var(--fg-rgb) / 0.14);
-  outline: none;
-}
-
-.daos-discover-more:disabled {
-  opacity: 1;
-  color: rgb(var(--fg-rgb) / 0.26);
-  cursor: default;
 }
 
 .launcher-home-shortcuts {

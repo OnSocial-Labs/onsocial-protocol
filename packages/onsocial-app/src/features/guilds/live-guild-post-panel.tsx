@@ -24,6 +24,8 @@ import {
   writeDockReplySpokenName,
 } from '@/lib/os-write-dock';
 import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { OsEmptyAction } from '@/lib/os-empty-action';
+import { OsLoadMore } from '@/lib/os-load-more';
 import {
   clearWriteDockDraft,
   writeDockDraftFromComposer,
@@ -148,26 +150,19 @@ function GuildThreadLoadMoreFooter({
         {loadMoreError.message !== fallback ? (
           <small>{loadMoreError.message}</small>
         ) : null}
-        <button
-          className="guild-secondary-button"
-          type="button"
-          onClick={() => onLoadMore(tab)}
-        >
-          Retry
-        </button>
+        <OsEmptyAction onClick={() => onLoadMore(tab)}>Retry</OsEmptyAction>
       </div>
     );
   }
   if (!hasMore) return null;
   return (
-    <button
-      type="button"
-      className="guild-load-more"
-      disabled={loadingMore}
+    <OsLoadMore
       onClick={() => onLoadMore(tab)}
+      pending={loadingMore}
+      disabled={loadingMore}
     >
       {loadingMore ? 'Loading…' : idleLabel}
-    </button>
+    </OsLoadMore>
   );
 }
 
@@ -1002,26 +997,14 @@ export function LiveGuildPostPanel({
         {loadState === 'missing' ? (
           <section className="guild-state-card">
             <p>We could not find this guild post in the indexed feed yet.</p>
-            <button
-              className="guild-secondary-button"
-              type="button"
-              onClick={() => void refresh()}
-            >
-              Retry
-            </button>
+            <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
           </section>
         ) : null}
 
         {loadState === 'error' ? (
           <section className="guild-state-card is-error">
             <p>{error ?? GUILD_THREAD_LOAD_ERROR}</p>
-            <button
-              className="guild-secondary-button"
-              type="button"
-              onClick={() => void refresh()}
-            >
-              Retry
-            </button>
+            <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
           </section>
         ) : null}
 

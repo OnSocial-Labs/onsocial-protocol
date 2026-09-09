@@ -97,6 +97,7 @@ import type {
   ProtocolDaoPolicy,
 } from '@/features/protocol/types';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { OsLoadMore } from '@/lib/os-load-more';
 import {
   PROTOCOL_FAMILY_PARAM,
   PROTOCOL_PROPOSAL_PARAM,
@@ -1761,16 +1762,12 @@ export function DaoWorkspacePanel({
                     className="protocol-feed-sentinel"
                     aria-hidden
                   />
-                  <button
-                    type="button"
-                    className="protocol-feed-more"
-                    onClick={loadMorePainted}
-                  >
+                  <OsLoadMore onClick={loadMorePainted}>
                     Load more
                     <span className="protocol-status-count">
                       {paintedCount}/{filteredApplications.length}
                     </span>
-                  </button>
+                  </OsLoadMore>
                 </>
               ) : null}
               {feedEndSummary ? (
