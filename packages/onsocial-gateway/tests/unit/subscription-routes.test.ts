@@ -204,7 +204,17 @@ describe('subscription routes', () => {
     expect(res.body.checkoutUrl).toBe(
       'https://sandbox-checkout.revolut.com/payment-link/resume'
     );
-    expect(mocks.upsert).not.toHaveBeenCalled();
+    // Resume reuses the Revolut setup order; upsert only refreshes billing identity.
+    expect(mocks.createSubscription).not.toHaveBeenCalled();
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'sub-1',
+        status: 'pending',
+        revolutSetupOrderId: 'setup-order-1',
+        billingEmail: 'alice@example.com',
+        billingCountry: 'GB',
+      })
+    );
   });
 
   it('clears a terminal pending setup so a fresh checkout can be created', async () => {
