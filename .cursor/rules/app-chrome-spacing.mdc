@@ -18,6 +18,7 @@ Three families — do not merge their geometry:
 
 - Measure permanent chrome (`--os-screen-chrome-height`); tuck is visual-only (freeze inset).
 - Under-chrome overlays: `.os-chrome-whisper-anchor` — never reserve flow when hidden.
+- Messages sealed-thread hint: `OsChromeWhisper` (do not in-flow shove bubbles). Passkey hint stays overlay and hides on the thread pane.
 - Body inset: `OsAppChromePage` / `--os-screen-body-inset` — no feature-level padding inventing numbers.
 - Dock: `--portfolio-dock-clearance`.
 

@@ -54,4 +54,18 @@ describe('os chrome whisper', () => {
     expect(drops).toContain('failed && items.length === 0');
     expect(drops).toContain('failed && items.length > 0');
   });
+
+  it('overlays the Messages sealed-thread hint instead of shoving bubbles', () => {
+    const source = readFileSync(
+      join(appSrc, 'features/messages/messages-panel.tsx'),
+      'utf8'
+    );
+    const globals = readFileSync(join(appSrc, 'app/globals.css'), 'utf8');
+
+    expect(source).toContain('OsChromeWhisper');
+    expect(source).toContain('messages-sealed-hint');
+    expect(source).toContain('Sealed before a key reset');
+    expect(source).not.toContain('messages-sealed-banner');
+    expect(globals).not.toContain('.messages-sealed-banner');
+  });
 });
