@@ -34070,44 +34070,6 @@ a.os-surface-row {
     align-items: center;
   }
 
-  .guild-primary-link,
-  .guild-secondary-link,
-  .guild-primary-button,
-  .guild-secondary-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 2.4rem;
-    border-radius: 9999px;
-    padding: 0.62rem 0.95rem;
-    font: inherit;
-    font-size: 0.82rem;
-    font-weight: 600;
-    text-decoration: none;
-    cursor: pointer;
-  }
-
-  .guild-primary-link,
-  .guild-primary-button {
-    border: 0;
-    background: rgb(var(--fg-rgb) / 0.92);
-    color: var(--bg);
-  }
-
-  .guild-secondary-link,
-  .guild-secondary-button {
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: rgb(var(--fg-rgb) / 0.76);
-  }
-
-  .guild-primary-button:disabled,
-  .guild-secondary-button:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: not-allowed;
-  }
-
   /* Stable footprint while the label swaps between text and pending dots. */
   .guild-hero-action {
     min-width: 4.25rem;
@@ -36193,6 +36155,10 @@ a.os-surface-row {
 
   .guild-structure-add-button {
     width: fit-content;
+  }
+
+  .guild-structure-add-button.os-sheet-actions--row-compact {
+    align-self: flex-start;
   }
 
   .guild-structure-discovery {
