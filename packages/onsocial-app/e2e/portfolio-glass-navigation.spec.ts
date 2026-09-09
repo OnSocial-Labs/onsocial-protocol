@@ -45,7 +45,9 @@ test.describe('portfolio glass navigation', () => {
       await expect(page.locator('.standing-page-screen')).toHaveCount(0);
       await expectGlassSheetVisible(page);
       await expect(page.locator('.standing-panel')).toBeVisible();
-      await expect(page.locator('.portfolio-identity')).toBeVisible();
+      await expect(
+        page.getByRole('main').locator('.portfolio-identity').first()
+      ).toBeVisible();
       await expect(page.locator('.standing-list-skeleton')).toHaveCount(0);
     });
 
