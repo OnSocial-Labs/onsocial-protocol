@@ -2,7 +2,12 @@
 
 import { useState } from 'react';
 import { OsHugSheet, OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { canOfferDmPasskey, enrollDmPasskeyUnlock } from '@/lib/dm/keys';
+import {
+  txToastError,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
 
 interface DmRecoveryCodeSheetProps {
   open: boolean;
@@ -31,12 +36,31 @@ export function DmRecoveryCodeSheet({
   onPasskeyEnrolled,
   variant = 'created',
 }: DmRecoveryCodeSheetProps) {
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const { setTxResult } = useAppTransactionFeedback();
   const [passkeyPending, setPasskeyPending] = useState(false);
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
   const [passkeyDone, setPasskeyDone] = useState(false);
-  const copied = open && copiedCode === code;
   const showPasskey = Boolean(accountId && canOfferDmPasskey() && !passkeyDone);
+
+  const handleCopyCode = () => {
+    void (async () => {
+      try {
+        if (!navigator.clipboard?.writeText) {
+          throw new Error('clipboard unavailable');
+        }
+        await navigator.clipboard.writeText(code);
+        setTxResult({
+          type: 'success',
+          msg: txToastSuccess.recoveryCodeCopied,
+        });
+      } catch {
+        setTxResult({
+          type: 'error',
+          msg: txToastError.recoveryCodeCopyFailed,
+        });
+      }
+    })();
+  };
 
   const handleEnrollPasskey = async () => {
     if (!accountId) return;
@@ -75,17 +99,7 @@ export function DmRecoveryCodeSheet({
       backdropLabel="Close recovery code"
       footer={
         <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="button"
-            ready
-            succeeded={copied}
-            succeededLabel="Copied"
-            onClick={() => {
-              void navigator.clipboard?.writeText(code).then(() => {
-                setCopiedCode(code);
-              });
-            }}
-          >
+          <OsSheetAction type="button" ready onClick={handleCopyCode}>
             Copy code
           </OsSheetAction>
           {showPasskey ? (

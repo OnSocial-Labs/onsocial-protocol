@@ -19501,52 +19501,6 @@ a.os-surface-row {
     }
   }
 
-  .app-reward-toast {
-    position: fixed;
-    z-index: 70;
-    left: 50%;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
-    transform: translateX(-50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.25rem;
-    width: min(calc(100% - 2rem), 20rem);
-    padding: 0.75rem 1rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 1rem;
-    background: var(--surface-solid);
-    box-shadow: 0 16px 48px rgb(0 0 0 / 0.35);
-    pointer-events: auto;
-  }
-
-  .app-reward-toast.is-pending {
-    border-color: var(--protocol-blue-border);
-  }
-
-  .app-reward-toast.is-success {
-    border-color: color-mix(in srgb, var(--protocol-green) 45%, transparent);
-  }
-
-  .app-reward-toast.is-error {
-    border-color: color-mix(in srgb, var(--protocol-red) 45%, transparent);
-  }
-
-  .app-reward-toast-message {
-    margin: 0;
-    font-size: 0.82rem;
-    font-weight: 500;
-    text-align: center;
-    color: rgb(var(--fg-rgb) / 0.92);
-  }
-
-  .app-reward-toast-link {
-    font-size: 0.72rem;
-    color: rgb(var(--fg-rgb) / 0.55);
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .account-card-copy,
     .os-surface-row,
@@ -37347,22 +37301,11 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.48);
   }
 
-  .profile-support-retry {
-    border: 0;
-    padding: 0;
-    margin: 0;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.72);
-    font: inherit;
-    font-size: inherit;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 0.12em;
-  }
-
-  .profile-support-retry:hover {
-    color: rgb(var(--fg-rgb) / 0.9);
+  .profile-support-routing-recover {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45rem;
   }
 
   .profile-support-token-unit {
@@ -40709,25 +40652,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   flex-direction: column;
   align-items: flex-start;
   gap: 0.55rem;
-}
-
-.launcher-home-retry {
-  border: 0;
-  padding: 0;
-  background: none;
-  color: rgb(var(--fg-rgb) / 0.72);
-  font: inherit;
-  font-size: 0.84rem;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 0.12em;
-  cursor: pointer;
-}
-
-.launcher-home-retry:hover,
-.launcher-home-retry:focus-visible {
-  color: rgb(var(--fg-rgb) / 0.92);
-  outline: none;
 }
 
 .launcher-home-empty {
