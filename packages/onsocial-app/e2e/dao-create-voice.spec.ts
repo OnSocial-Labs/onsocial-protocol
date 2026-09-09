@@ -192,12 +192,18 @@ test.describe('dao create voice', () => {
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     const discard = page.getByRole('dialog', { name: 'Discard DAO?' });
     await expect(discard).toBeVisible();
-    await discard.getByRole('button', { name: 'Keep editing' }).click();
+    await discard
+      .locator('.os-sheet-action--primary')
+      .filter({ hasText: 'Keep editing' })
+      .click();
     await expect(discard).toHaveCount(0);
     await expect(page).toHaveURL(/\/daos\/create\/?$/);
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Discard DAO?' })).toBeVisible();
-    await page.getByRole('button', { name: 'Discard', exact: true }).click();
+    await page
+      .locator('.os-sheet-action--danger')
+      .filter({ hasText: 'Discard' })
+      .click();
     await page.waitForURL(/\/daos\/?$/, { timeout: 15_000 });
     await expect(page.getByRole('heading', { name: 'DAOs' })).toBeVisible();
   });
