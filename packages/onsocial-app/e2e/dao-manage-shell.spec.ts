@@ -28,15 +28,16 @@ test.describe('DAO manage shell', () => {
     await manage.click();
     await expect(manage).toHaveAttribute('aria-expanded', 'true');
     await expectGlassSheetVisible(page);
-    await expect(page.getByRole('heading', { name: 'Manage' })).toBeVisible();
+    const sheet = page.locator('.glass-sheet-root.is-visible');
+    await expect(sheet.getByRole('heading', { name: 'Manage' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: /Propose/ })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: /Stake/ })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(sheet.getByRole('button', { name: /Settings/ })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: /Info/ })).toBeVisible();
     await expect(
-      page.getByRole('button', { name: /Propose/ })
-    ).toBeVisible();
-    await expect(page.getByRole('button', { name: /Stake/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Settings/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Info/ })).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: /Edit profile/ })
+      sheet.getByRole('button', { name: /Edit profile/ })
     ).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Close', exact: true }).click();

@@ -11250,6 +11250,21 @@ a.os-surface-row {
   }
 
   /*
+   * Pre-measure fallback when a chip rail is in the header. Nav-only height
+   * under-counts by one rail and lets list skeletons flash under chips
+   * before OsAppScreen writes --os-screen-chrome-height.
+   */
+  .os-app-screen[data-compact-chrome='true']:has(.os-app-chrome-rail) {
+    --os-app-screen-chrome-height: calc(
+      env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y) +
+        var(--os-app-screen-nav-row-height) +
+        var(--os-app-chrome-chip-gap, 0.28rem) +
+        var(--os-app-chrome-rail-height, 1.85rem) +
+        var(--os-app-chrome-pad-y)
+    );
+  }
+
+  /*
    * One compact nav band everywhere (Discover / Market / Messages / Proposals).
    * Market actions used to stay at OsIconAction's 2.75rem and loft the row —
    * Discover (no actions) stayed 2.35rem, so its search sat higher / chips closer.

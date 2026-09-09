@@ -68,7 +68,9 @@ export function DaoFaceEligibilityProvider({
             setHasStakeProposePath(next);
             setStakePathReady(true);
           } catch {
-            setHasStakeProposePath(false);
+            // Fail open — keep Stake visible when RPC blips; only hide once
+            // we positively know this board has no stake path.
+            setHasStakeProposePath(true);
             setStakePathReady(true);
           }
           return null;
@@ -90,7 +92,8 @@ export function DaoFaceEligibilityProvider({
           return next;
         } catch {
           setEligibility(null);
-          setHasStakeProposePath(false);
+          // Fail open on transient RPC errors (same as guest stake-path fetch).
+          setHasStakeProposePath(true);
           setStakePathReady(true);
           return null;
         } finally {
