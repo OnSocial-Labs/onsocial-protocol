@@ -1139,7 +1139,7 @@ export function DropsPagePanel({
             <h2 id="drops-catalog" className="market-section-title">
               {sorts.find((entry) => entry.id === sort)?.label ?? 'Drops'}
             </h2>
-            {failed ? (
+            {failed && items.length === 0 ? (
               <ListLoadError
                 message="Couldn’t load drops."
                 retryLabel="Retry"
@@ -1175,6 +1175,13 @@ export function DropsPagePanel({
                 )}
               </>
             )}
+            {failed && items.length > 0 ? (
+              <OsChromeListAlert
+                message="Couldn’t refresh drops."
+                retryLabel="Retry"
+                onRetry={() => setReloadKey((value) => value + 1)}
+              />
+            ) : null}
             {loadMoreFailed ? (
               <OsChromeListAlert
                 message="Couldn’t load more."

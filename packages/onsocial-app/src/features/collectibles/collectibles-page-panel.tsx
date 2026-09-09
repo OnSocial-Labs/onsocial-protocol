@@ -48,6 +48,7 @@ import {
   APP_MARKET_PATH,
 } from '@/lib/app-routes';
 import { VAULT_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsLoadMore } from '@/lib/os-load-more';
@@ -185,6 +186,8 @@ export function CollectiblesPagePanel({
     return EMPTY_HOLDINGS;
   });
   const [loadingMore, setLoadingMore] = useState(false);
+  /** Mid-list refresh / append failure — overlay, never blank painted rows. */
+  const [liveListError, setLiveListError] = useState<string | null>(null);
   const [offlineHoldings, setOfflineHoldings] = useState<
     PortfolioHoldingPeek[]
   >([]);
@@ -341,6 +344,7 @@ export function CollectiblesPagePanel({
     }
 
     let cancelled = false;
+    setLiveListError(null);
     const applyPage = (
       items: OwnedScarceItem[],
       nextFromEnd: number,
@@ -348,6 +352,7 @@ export function CollectiblesPagePanel({
       faces?: Map<string, CollectionCreatorFace>
     ) => {
       if (cancelled) return;
+      setLiveListError(null);
       if (faces && faces.size > 0) {
         setCreatorFaces((prev) => {
           const next = new Map(prev);
@@ -431,18 +436,19 @@ export function CollectiblesPagePanel({
         applyPage(page.items, page.nextFromEnd, page.hasMore, faces);
       } catch {
         if (cancelled) return;
-        setHoldings((prev) => {
-          if (
-            prev.items.length > 0 &&
-            prev.loadKey?.startsWith(`${ownerAccountId}:`)
-          ) {
-            return prev;
-          }
-          return {
-            ...EMPTY_HOLDINGS,
-            loadKey,
-            failed: true,
-          };
+        const prev = holdingsRef.current;
+        if (
+          prev.items.length > 0 &&
+          prev.loadKey?.startsWith(`${ownerAccountId}:`)
+        ) {
+          setLiveListError('Couldn’t refresh collectibles.');
+          return;
+        }
+        setLiveListError(null);
+        setHoldings({
+          ...EMPTY_HOLDINGS,
+          loadKey,
+          failed: true,
         });
       }
     })();
@@ -484,10 +490,12 @@ export function CollectiblesPagePanel({
   const loadMore = useCallback(() => {
     if (!ownerAccountId || !holdings.hasMore || loadingMore) return;
     setLoadingMore(true);
+    setLiveListError(null);
     void fetchOwnedScarcesPage(ownerAccountId, {
       fromEnd: holdings.nextFromEnd,
     })
       .then((page) => {
+        setLiveListError(null);
         setHoldings((prev) => {
           const seen = new Set(prev.items.map((item) => item.tokenId));
           const ownedSeen = new Set(prev.owned.map((item) => item.tokenId));
@@ -514,7 +522,7 @@ export function CollectiblesPagePanel({
         });
       })
       .catch(() => {
-        /* keep existing rows */
+        setLiveListError('Couldn’t load more.');
       })
       .finally(() => setLoadingMore(false));
   }, [
@@ -811,13 +819,37 @@ export function CollectiblesPagePanel({
       ) : null}
 
       {ownerAccountId && status === 'error' && !usingOfflineLibrary ? (
-        <ListLoadError
-          message={
-            isSelf
-              ? 'Couldn’t load your collectibles.'
-              : 'Couldn’t load collectibles.'
-          }
-          onRetry={() => setRetryKey((n) => n + 1)}
+        vaultItems.length > 0 ? (
+          <OsChromeListAlert
+            message={
+              isSelf
+                ? 'Couldn’t refresh your collectibles.'
+                : 'Couldn’t refresh collectibles.'
+            }
+            onRetry={() => setRetryKey((n) => n + 1)}
+          />
+        ) : (
+          <ListLoadError
+            message={
+              isSelf
+                ? 'Couldn’t load your collectibles.'
+                : 'Couldn’t load collectibles.'
+            }
+            onRetry={() => setRetryKey((n) => n + 1)}
+          />
+        )
+      ) : null}
+
+      {liveListError && vaultItems.length > 0 ? (
+        <OsChromeListAlert
+          message={liveListError}
+          onRetry={() => {
+            if (liveListError === 'Couldn’t load more.') {
+              loadMore();
+              return;
+            }
+            setRetryKey((n) => n + 1);
+          }}
         />
       ) : null}
 

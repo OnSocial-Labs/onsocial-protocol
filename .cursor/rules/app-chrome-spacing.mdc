@@ -1,0 +1,28 @@
+---
+description: App screen chrome spacing — glass lists, immersive, sheets
+globs: packages/onsocial-app/**/*.{ts,tsx,css}
+alwaysApply: false
+---
+
+# Screen chrome spacing
+
+Three families — do not merge their geometry:
+
+| Family | Shell | Mid-list errors | Cold empty |
+|---|---|---|---|
+| Glass lists | `OsAppScreen` + compact/glass | `OsChromeListAlert` | `ListLoadError` |
+| Immersive | Guild / hero (`immersiveHeader`) | Rail-aware overlay | In-flow state card |
+| Sheets / forms | Gesture / glass sheets | Whisper only if shoving painted rows | In-flow hint |
+
+## Shared
+
+- Measure permanent chrome (`--os-screen-chrome-height`); tuck is visual-only (freeze inset).
+- Under-chrome overlays: `.os-chrome-whisper-anchor` — never reserve flow when hidden.
+- Body inset: `OsAppChromePage` / `--os-screen-body-inset` — no feature-level padding inventing numbers.
+- Dock: `--portfolio-dock-clearance`.
+
+## Live vs cold
+
+- Painted rows → overlay (`OsChromeListAlert`).
+- Empty / first paint → in-flow (`ListLoadError`).
+- Soft revalidate that keeps a cache must keep painting the cache and whisper the failure — never blank to `ListLoadError`.
