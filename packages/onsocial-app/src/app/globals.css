@@ -20050,16 +20050,6 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.03);
   }
 
-  .post-composer-guest {
-    align-items: flex-start;
-  }
-
-  .post-composer-lead {
-    margin: 0;
-    font-size: 0.88rem;
-    color: rgb(var(--fg-rgb) / 0.58);
-  }
-
   .post-composer-label {
     font-size: 0.68rem;
     letter-spacing: 0.16em;
@@ -20100,20 +20090,26 @@ a.os-surface-row {
     transition: opacity 160ms ease;
   }
 
-  /* Top catch-up chip — dock frost + mood; toast stays bottom. */
+  /* Catch-up chip under measured header chrome, floating above posts. */
   .home-feed-new-posts-anchor {
     position: fixed;
     z-index: 55;
     left: calc(
       var(--os-column-inset-inline, 0px) + var(--os-column-width, 100%) / 2
     );
-    top: calc(env(safe-area-inset-top, 0px) + 0.65rem);
+    top: calc(
+      var(
+          --os-screen-chrome-height,
+          var(--os-app-screen-chrome-height, 4.5rem)
+        ) + 0.45rem
+    );
     bottom: auto;
     width: max-content;
     max-width: min(calc(var(--os-column-width, 100%) - 1.5rem), 16rem);
     transform: translateX(-50%);
     pointer-events: none;
     transition:
+      top var(--os-motion-dock, 260ms) ease,
       transform var(--os-motion-dock, 260ms) ease,
       opacity 200ms ease;
   }

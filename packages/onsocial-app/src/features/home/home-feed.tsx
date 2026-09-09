@@ -26,7 +26,6 @@ import { HomeFeedNewPostsChip } from '@/features/home/home-feed-new-posts-chip';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { HomeFeedSortToggle } from '@/features/home/home-feed-sort-toggle';
 import { APP_DISCOVER_PATH } from '@/lib/app-routes';
-import { HOME_COMPOSE_CONNECT_LEAD } from '@/features/home/home-compose-voice';
 import {
   fetchCircleFeedPage,
   fetchPulseFeedPage,
@@ -945,12 +944,6 @@ export function HomePagePanel({
         }
       >
         <OsAppChromePage className="home-feed">
-          {!isConnected && !walletLoading ? (
-            <section className="post-composer post-composer-guest">
-              <p className="post-composer-lead">{HOME_COMPOSE_CONNECT_LEAD}</p>
-            </section>
-          ) : null}
-
           {loadError ? (
             <ListLoadError message={loadError} onRetry={retryLoad} />
           ) : null}

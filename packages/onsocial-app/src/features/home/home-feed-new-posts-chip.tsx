@@ -11,7 +11,7 @@ import {
 import { fallbackLabel } from '@/lib/profile-display';
 
 /**
- * Top catch-up chip — dock frost + mood, ≤3 faces, compact count.
+ * Catch-up chip under home header — dock frost + mood, ≤3 faces, compact count.
  * Parent owns scroll-hide (same tuck as home chrome).
  */
 export function HomeFeedNewPostsChip({
