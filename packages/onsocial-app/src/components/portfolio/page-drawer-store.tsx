@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsLoadMore } from '@/lib/os-load-more';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
@@ -143,6 +144,7 @@ export function PageDrawerStoreList({
     status: 'loading',
   });
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [cancelRowKey, setCancelRowKey] = useState<string | null>(null);
   const [buyListing, setBuyListing] = useState<ScarceBuyListing | null>(null);
   const [bidListing, setBidListing] = useState<ScarceBidListing | null>(null);
@@ -151,6 +153,7 @@ export function PageDrawerStoreList({
 
   useEffect(() => {
     let cancelled = false;
+    setLoadMoreFailed(false);
     setListingsState((prev) => ({ ...prev, status: 'loading' }));
     void fetchMarketListings({
       sellerId: pageAccountId,
@@ -218,6 +221,7 @@ export function PageDrawerStoreList({
   const loadMore = useCallback(async () => {
     if (loadingMore || !listingsState.hasMore) return;
     setLoadingMore(true);
+    setLoadMoreFailed(false);
     try {
       const page = await fetchMarketListings({
         sellerId: pageAccountId,
@@ -231,7 +235,7 @@ export function PageDrawerStoreList({
         status: 'ready',
       }));
     } catch {
-      // Leave hasMore set so the button can retry.
+      setLoadMoreFailed(true);
     } finally {
       setLoadingMore(false);
     }
@@ -452,7 +456,9 @@ export function PageDrawerStoreList({
               );
             })}
           </div>
-          {listingsState.hasMore && listingsState.status !== 'error' ? (
+          {listingsState.hasMore &&
+          listingsState.status !== 'error' &&
+          !loadMoreFailed ? (
             <OsLoadMore
               onClick={() => void loadMore()}
               pending={loadingMore}
@@ -500,11 +506,27 @@ export function PageDrawerStoreList({
         </section>
       ) : null}
 
-      {listingsState.status === 'error' && !showListings ? (
-        <ListLoadError
-          message="Couldn’t load listings."
+      {listingsState.status === 'error' ? (
+        showListings ? (
+          <OsChromeListAlert
+            message="Couldn’t refresh listings."
+            retryLabel="Retry"
+            onRetry={() => setRetryKey((value) => value + 1)}
+          />
+        ) : (
+          <ListLoadError
+            message="Couldn’t load listings."
+            retryLabel="Retry"
+            onRetry={() => setRetryKey((value) => value + 1)}
+          />
+        )
+      ) : null}
+
+      {loadMoreFailed && showListings ? (
+        <OsChromeListAlert
+          message="Couldn’t load more."
           retryLabel="Retry"
-          onRetry={() => setRetryKey((value) => value + 1)}
+          onRetry={() => void loadMore()}
         />
       ) : null}
 

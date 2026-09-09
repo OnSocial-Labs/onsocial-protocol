@@ -31,6 +31,8 @@ describe('os chrome whisper', () => {
       'components/panels/standing-panel-content.tsx',
       'features/market/market-page-panel.tsx',
       'features/drops/drops-page-panel.tsx',
+      'features/collectibles/collectibles-page-panel.tsx',
+      'components/portfolio/page-drawer-store.tsx',
       'features/notifications/notifications-panel.tsx',
       'features/messages/messages-panel.tsx',
       'features/discover/discover-guilds-panel.tsx',
@@ -42,5 +44,12 @@ describe('os chrome whisper', () => {
       const source = readFileSync(join(appSrc, file), 'utf8');
       expect(source, file).toContain('OsChromeListAlert');
     }
+
+    const drops = readFileSync(
+      join(appSrc, 'features/drops/drops-page-panel.tsx'),
+      'utf8'
+    );
+    expect(drops).toContain('failed && items.length === 0');
+    expect(drops).toContain('failed && items.length > 0');
   });
 });
