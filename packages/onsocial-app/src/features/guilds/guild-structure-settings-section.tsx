@@ -27,6 +27,7 @@ import {
   structureChannelSuggestions,
   type DiscoveredChannelUsage,
 } from '@/features/guilds/guild-structure-discovery';
+import { OsChipAction } from '@/lib/os-chip-action';
 
 interface GuildStructureSettingsSectionProps {
   structure: GuildStructureDocument;
@@ -116,27 +117,23 @@ export function GuildStructureSettingsSection({
           </p>
           <div className="guild-structure-chip-row">
             {suggestions.map((suggestion) => (
-              <button
+              <OsChipAction
                 key={suggestion.channelId}
-                type="button"
-                className="guild-secondary-button guild-structure-discovery-chip"
                 disabled={disabled}
                 onClick={() => enableSuggestion(suggestion.channelId)}
               >
                 + {suggestion.title} ({suggestion.postCount})
-              </button>
+              </OsChipAction>
             ))}
             {suggestions.length > 1 ? (
-              <button
-                type="button"
-                className="guild-secondary-button"
+              <OsChipAction
                 disabled={disabled}
                 onClick={() =>
                   onChange(enableAllSuggestedSpaces(structure, suggestions))
                 }
               >
                 Enable all
-              </button>
+              </OsChipAction>
             ) : null}
           </div>
         </div>
@@ -249,9 +246,8 @@ export function GuildStructureSettingsSection({
               </span>
             </div>
             <div className="guild-structure-space-actions">
-              <button
-                type="button"
-                className="guild-secondary-button guild-structure-icon-button"
+              <OsChipAction
+                className="guild-structure-icon-button"
                 disabled={disabled}
                 aria-label={`Move ${space.title} up`}
                 onClick={() =>
@@ -259,10 +255,9 @@ export function GuildStructureSettingsSection({
                 }
               >
                 ↑
-              </button>
-              <button
-                type="button"
-                className="guild-secondary-button guild-structure-icon-button"
+              </OsChipAction>
+              <OsChipAction
+                className="guild-structure-icon-button"
                 disabled={disabled}
                 aria-label={`Move ${space.title} down`}
                 onClick={() =>
@@ -270,7 +265,7 @@ export function GuildStructureSettingsSection({
                 }
               >
                 ↓
-              </button>
+              </OsChipAction>
               <label className="guild-structure-toggle">
                 <input
                   type="checkbox"
@@ -300,29 +295,26 @@ export function GuildStructureSettingsSection({
           <p className="guild-structure-subhead">Suggested rooms</p>
           <div className="guild-structure-chip-row">
             {libraryAdds.map((space) => (
-              <button
+              <OsChipAction
                 key={space.id}
-                type="button"
-                className="guild-secondary-button"
                 disabled={disabled}
                 onClick={() => addLibrarySpace(space)}
               >
                 + {space.title}
-              </button>
+              </OsChipAction>
             ))}
           </div>
         </div>
       ) : null}
 
       <div className="guild-structure-advanced">
-        <button
-          type="button"
-          className="guild-secondary-button guild-structure-advanced-toggle"
+        <OsChipAction
+          className="guild-structure-advanced-toggle"
           disabled={disabled}
           onClick={() => setShowAdvanced((value) => !value)}
         >
           {showAdvanced ? 'Hide templates' : 'Start from template'}
-        </button>
+        </OsChipAction>
         {showAdvanced ? (
           <label className="guild-field" htmlFor="guild-structure-template">
             <span>Template</span>
