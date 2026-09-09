@@ -7,6 +7,7 @@ import {
   collectionCatalogShell,
   collectionCoverImmersive,
   collectionCoverSquare,
+  collectionChildLeaveHref,
   collectionDropBackHref,
   collectionShowCommerceMeter,
   collectionUseFirst,
@@ -90,7 +91,7 @@ describe('collection page view', () => {
     ).toBe('drop');
   });
 
-  it('sends holders to Collectibles and visitors to Market', () => {
+  it('sends holders to Collectibles and visitors to Drops', () => {
     expect(
       collectionDropBackHref({
         useFirst: true,
@@ -99,10 +100,15 @@ describe('collection page view', () => {
     ).toBe('/@Alice.near/collectibles');
     expect(
       collectionDropBackHref({ useFirst: false, viewerAccountId: 'alice.near' })
-    ).toBe('/market');
+    ).toBe('/drops');
     expect(collectionDropBackHref({ useFirst: true, viewerAccountId: '' })).toBe(
-      '/market'
+      '/drops'
     );
+  });
+
+  it('sends door and redeem loading to the drop', () => {
+    expect(collectionChildLeaveHref('night-drive')).toBe('/collection/night-drive');
+    expect(collectionChildLeaveHref('  ')).toBe('/drops');
   });
 
   it('reads a held drop from the vault page cache', () => {

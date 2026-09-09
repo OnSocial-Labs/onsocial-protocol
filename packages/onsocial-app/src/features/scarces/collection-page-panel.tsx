@@ -95,7 +95,6 @@ import { useScarceDropLoves } from '@/hooks/use-scarce-drop-loves';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_DROPS_PATH,
-  APP_MARKET_PATH,
   COLLECTION_DOOR_QUERY,
   COLLECTION_PASS_QUERY,
   COLLECTION_PASS_TOKEN_PARAM,
@@ -684,12 +683,16 @@ export function CollectionPagePanel({
     ssrMiss: initial == null,
     clientSettled,
   });
+  const catalogLeaveHref = collectionDropBackHref({
+    useFirst: peekHoldsCollection(viewerAccountId, collectionId),
+    viewerAccountId,
+  });
   if (catalogShell === 'skeleton') {
     return (
       <OsAppScreen
         title="Drop"
         dockBack
-        backFallbackHref={APP_MARKET_PATH}
+        backFallbackHref={catalogLeaveHref}
         immersiveHeader
       >
         <div aria-hidden className="os-chrome-glass" />
@@ -699,12 +702,14 @@ export function CollectionPagePanel({
   }
   if (catalogShell === 'unavailable' || !view) {
     return (
-      <OsAppScreen title="Drop" dockBack backFallbackHref={APP_MARKET_PATH}>
+      <OsAppScreen title="Drop" dockBack backFallbackHref={catalogLeaveHref}>
         <div className="market-page">
           <p className="market-page-status">
             This drop isn’t available.{' '}
-            <Link className="app-soon-link" href={APP_MARKET_PATH}>
-              Back to Market
+            <Link className="app-soon-link" href={catalogLeaveHref}>
+              {catalogLeaveHref === APP_DROPS_PATH
+                ? 'Back to Drops'
+                : 'Back to Collectibles'}
             </Link>
           </p>
         </div>

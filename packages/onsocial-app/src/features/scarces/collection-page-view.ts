@@ -1,5 +1,5 @@
 import { peekOwnedVaultPage } from '@/features/market/owned-vault-cache';
-import { APP_MARKET_PATH } from '@/lib/app-routes';
+import { APP_DROPS_PATH, collectionPath } from '@/lib/app-routes';
 import { collectionIdFromTokenId } from '@/features/market/market-listings';
 import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
 
@@ -48,14 +48,20 @@ export function collectionCatalogShell(opts: {
   return 'unavailable';
 }
 
-/** Holders go back to the vault; visitors stay on Market. */
+/** Holders go back to the vault; visitors stay on Drops. */
 export function collectionDropBackHref(opts: {
   useFirst: boolean;
   viewerAccountId?: string | null;
 }): string {
   const account = opts.viewerAccountId?.trim();
   if (opts.useFirst && account) return portfolioCollectiblesPath(account);
-  return APP_MARKET_PATH;
+  return APP_DROPS_PATH;
+}
+
+/** Door / redeem loading — leave to the drop when the id is known. */
+export function collectionChildLeaveHref(collectionId?: string | null): string {
+  const id = collectionId?.trim();
+  return id ? collectionPath(id) : APP_DROPS_PATH;
 }
 
 function itemCollectionId(item: {

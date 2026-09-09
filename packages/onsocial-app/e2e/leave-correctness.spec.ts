@@ -16,6 +16,18 @@ test.describe('leave correctness', () => {
     await expect(page).toHaveURL(/\/home\/?$/);
   });
 
+  test('Drops index dock Back leaves to Home, not Market', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, '/market');
+    await dismissNextDevOverlay(page);
+    await gotoApp(page, '/drops');
+    await dismissNextDevOverlay(page);
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await expect(page).toHaveURL(/\/home\/?$/);
+  });
+
   test('Leaderboard close leaves to Home', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, '/messages');

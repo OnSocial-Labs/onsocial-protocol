@@ -5,7 +5,7 @@ import {
 } from '@/features/drops/drops-heading';
 import { DropsListingToolbar } from '@/features/drops/drops-listing-toolbar';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
-import { APP_MARKET_PATH } from '@/lib/app-routes';
+import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import {
   EMPTY_DROPS_PAGE_QUERY,
   dropsToolbarFromQuery,
@@ -28,7 +28,7 @@ export function DropsLoadingScreen({
       dockBack
       leading={null}
       glassChrome
-      backFallbackHref={APP_MARKET_PATH}
+      backFallbackHref={OS_INDEX_LEAVE_HREF}
       heading={<DropsSearchHeading interactive={false} />}
       actions={<DropsLoadingActions />}
       toolbar={

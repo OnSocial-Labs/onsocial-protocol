@@ -4,6 +4,7 @@ import {
 } from '@/features/market/market-listings';
 import { peekOwnedVaultPage } from '@/features/market/owned-vault-cache';
 import { accountIdsEqual } from '@/lib/account-match';
+import { APP_DROPS_PATH, marketCreatorPath } from '@/lib/app-routes';
 import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
 
@@ -80,6 +81,12 @@ export function seriesPageBackHref(opts: {
   const account = opts.viewerAccountId?.trim();
   if (opts.useFirst && account) return portfolioCollectiblesPath(account);
   return opts.shopHref;
+}
+
+/** Route `loading.tsx` — visitor shop when the creator is known, else Drops. */
+export function seriesRouteLoadingBackHref(creatorId?: string | null): string {
+  const id = creatorId?.trim();
+  return id ? marketCreatorPath(id) : APP_DROPS_PATH;
 }
 
 function itemCollectionId(item: {
