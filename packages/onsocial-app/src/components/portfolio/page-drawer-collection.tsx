@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ProtocolMotionArrow } from '@onsocial/ui';
 import { CollectiblesHoldingRowMenu } from '@/features/collectibles/collectibles-holding-row-menu';
