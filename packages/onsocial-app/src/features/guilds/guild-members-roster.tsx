@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { GroupBannedRow, GroupMemberRow } from '@onsocial/sdk';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { bannedRowsAsMemberRows } from '@/features/guilds/guild-banned-rows';
@@ -155,6 +156,13 @@ export function GuildMembersRoster({
             </p>
           </div>
         )
+      ) : null}
+
+      {loadError && (members.length > 0 || banned.length > 0) ? (
+        <OsChromeListAlert
+          message={loadError}
+          onRetry={onRetry ?? undefined}
+        />
       ) : null}
 
       <div

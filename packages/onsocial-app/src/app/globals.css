@@ -11662,6 +11662,14 @@ a.os-surface-row {
     pointer-events: none;
   }
 
+  /* Immersive guild / hero — sit under elevated chrome + sticky rail. */
+  .os-app-screen[data-immersive-header='true'] .os-chrome-whisper-anchor {
+    top: calc(
+      var(--os-app-screen-elevated-chrome-height) + var(--os-rail-reveal, 0px) +
+        0.35rem
+    );
+  }
+
   .os-chrome-whisper-anchor > * {
     pointer-events: auto;
   }
