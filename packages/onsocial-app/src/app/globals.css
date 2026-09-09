@@ -1658,10 +1658,12 @@ a.os-surface-row {
 
 /* OS dock pill — mood-tinted header frost; depth shadow only (no accent halo).
  * Include mooded summon on OS screens so home isn’t a near-opaque --bg slab.
- * Catch-up chip shares the same --os-dock-* tokens.
+ * Catch-up chip shares the same --os-dock-* tokens (home is not under
+ * `.portfolio-os-layer`, so also key off `.os-app-screen--mood`).
  * Glass finish keeps its own `.portfolio-summon-dock[data-mood=glass]` tokens. */
 .portfolio-os-layer .os-dock-pill,
 .portfolio-os-layer .home-feed-new-posts-pill,
+.os-app-screen.os-app-screen--mood .home-feed-new-posts-pill,
 .portfolio-summon-dock[data-mood]:not([data-mood='glass']) .os-dock-pill {
   --os-dock-fill: color-mix(
     in srgb,
@@ -1700,6 +1702,7 @@ a.os-surface-row {
 @media (prefers-reduced-transparency: reduce) {
   .portfolio-os-layer .os-dock-pill,
   .portfolio-os-layer .home-feed-new-posts-pill,
+  .os-app-screen.os-app-screen--mood .home-feed-new-posts-pill,
   .portfolio-summon-dock[data-mood]:not([data-mood='glass']) .os-dock-pill {
     --os-dock-fill: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.96));
     --os-dock-shadow: var(--os-chrome-elev-shadow);
@@ -20127,6 +20130,7 @@ a.os-surface-row {
   }
 
   .home-feed-new-posts-pill {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -20137,9 +20141,9 @@ a.os-surface-row {
     padding: 0.35rem 0.7rem 0.35rem 0.4rem;
     border: 0;
     border-radius: 1.15rem;
-    background: var(--os-dock-fill, rgb(var(--bg-rgb) / 0.72));
-    backdrop-filter: blur(24px) saturate(1.45);
-    -webkit-backdrop-filter: blur(24px) saturate(1.45);
+    overflow: hidden;
+    /* Frost lives on unlayered ::before — same pattern as `.os-dock-pill`. */
+    background: transparent;
     box-shadow:
       var(--os-dock-lip, inset 0 1px 0 rgb(var(--fg-rgb) / 0.1)),
       var(
@@ -20201,8 +20205,6 @@ a.os-surface-row {
   @media (prefers-reduced-transparency: reduce) {
     .home-feed-new-posts-pill {
       --os-dock-fill: rgb(var(--bg-rgb) / 0.94);
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
     }
   }
 
@@ -37519,8 +37521,36 @@ a.os-surface-row {
   backdrop-filter: blur(20px) saturate(1.3);
 }
 
+/*
+ * Catch-up chip frost — same recipe as `.os-dock-pill:before`.
+ * Keep the selector distinct from layered `.home-feed-new-posts-pill` so
+ * Turbopack does not collapse `::before` into the base rule.
+ */
+.home-feed-new-posts-anchor > .home-feed-new-posts-pill::before {
+  content: '';
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--os-dock-fill, rgb(var(--bg-rgb) / 0.72));
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  backdrop-filter: blur(20px) saturate(1.3);
+  position: absolute;
+  inset: 0;
+}
+
+.home-feed-new-posts-anchor > .home-feed-new-posts-pill > * {
+  z-index: 1;
+  position: relative;
+}
+
 @media (prefers-reduced-transparency: reduce) {
   .os-dock-pill.portfolio-summon::before {
+    backdrop-filter: none;
+    background: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.94));
+  }
+
+  .home-feed-new-posts-anchor > .home-feed-new-posts-pill::before {
+    -webkit-backdrop-filter: none;
     backdrop-filter: none;
     background: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.94));
   }
