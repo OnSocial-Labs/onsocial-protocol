@@ -24407,6 +24407,12 @@ a.os-surface-row {
     gap: 0.55rem;
   }
 
+  /* Hug the label — sm recoveries are not sheet-footer bars. */
+  .os-empty-action {
+    width: fit-content;
+    max-width: 100%;
+  }
+
   /* Vault empties sit under chrome — do not float in a 40vh Market block. */
   .collectibles-page .market-page-empty {
     min-height: 0;
@@ -36861,14 +36867,6 @@ a.os-surface-row {
     align-items: flex-start;
   }
 
-  .app-soon-link {
-    display: inline-flex;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 9999px;
-    padding: 0.6rem 0.95rem;
-    font-size: 0.82rem;
-    color: rgb(var(--fg-rgb) / 0.82);
-  }
 
   /* ── Endorsements overlay ───────────────────────────────── */
 
