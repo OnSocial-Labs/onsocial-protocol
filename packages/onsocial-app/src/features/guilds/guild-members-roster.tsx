@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { GroupBannedRow, GroupMemberRow } from '@onsocial/sdk';
+import { ListLoadError } from '@/components/panels/list-load-error';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { bannedRowsAsMemberRows } from '@/features/guilds/guild-banned-rows';
 import { GuildMemberList } from '@/features/guilds/guild-member-list';
@@ -142,20 +143,18 @@ export function GuildMembersRoster({
       ) : null}
 
       {loadError && members.length === 0 && banned.length === 0 ? (
-        <div className="standing-panel-error-block">
-          <p className="standing-panel-error">
-            {loadError ?? 'Could not load members.'}
-          </p>
-          {onRetry ? (
-            <button
-              type="button"
-              className="standing-panel-error-retry"
-              onClick={onRetry}
-            >
-              Try again
-            </button>
-          ) : null}
-        </div>
+        onRetry ? (
+          <ListLoadError
+            message={loadError ?? 'Could not load members.'}
+            onRetry={onRetry}
+          />
+        ) : (
+          <div className="standing-panel-error-block">
+            <p className="standing-panel-error">
+              {loadError ?? 'Could not load members.'}
+            </p>
+          </div>
+        )
       ) : null}
 
       <div

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { DiscoverCommunityListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
@@ -10,6 +9,7 @@ import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-sea
 import { useDaoCatalogBrowse } from '@/hooks/use-dao-catalog-browse';
 import { discoverDaosLead } from '@/lib/discover-tab-lead';
 import { APP_DAOS_PATH, daosCreateHref } from '@/lib/app-routes';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 
 /**
  * Discover → DAOs — factory catalog find. Create / My DAOs live in the DAOs app.
@@ -68,13 +68,7 @@ export function DiscoverDaosPanel() {
           </div>
           {isSearchEmpty ? (
             <div className="standing-panel-empty-actions">
-              <Link
-                className="standing-panel-empty-action"
-                href={APP_DAOS_PATH}
-                scroll={false}
-              >
-                My DAOs
-              </Link>
+              <OsEmptyAction href={APP_DAOS_PATH}>My DAOs</OsEmptyAction>
             </div>
           ) : null}
         </div>

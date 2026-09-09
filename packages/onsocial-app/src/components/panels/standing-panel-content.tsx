@@ -6,6 +6,7 @@ import { useStandingPanel } from '@/components/panels/standing-panel-context';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { StandingDiscoverLink } from '@/components/panels/standing-discover-link';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import {
   profileListAccountToStandingSummary,
@@ -87,13 +88,9 @@ export function StandingPanelContent() {
               {emptyState.showClearSearch || emptyState.showDiscover ? (
                 <div className="standing-panel-empty-actions">
                   {emptyState.showClearSearch ? (
-                    <button
-                      type="button"
-                      className="standing-panel-empty-action"
-                      onClick={clearSearch}
-                    >
+                    <OsEmptyAction onClick={clearSearch}>
                       Clear search
-                    </button>
+                    </OsEmptyAction>
                   ) : null}
                   {emptyState.showDiscover ? (
                     <StandingDiscoverLink closeOverlay />

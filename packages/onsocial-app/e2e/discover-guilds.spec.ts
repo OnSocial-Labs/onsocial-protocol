@@ -1,5 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { E2E_CHROME_TIMEOUT_MS, gotoApp, searchField } from './helpers';
+import {
+  E2E_CHROME_TIMEOUT_MS,
+  expectOsEmptyAction,
+  gotoApp,
+  searchField,
+} from './helpers';
 import {
   DISCOVER_GUILDS_E2E_PATH,
   DISCOVER_GUILDS_FIRST_NAME,
@@ -38,7 +43,9 @@ test.describe('discover guilds', () => {
     await expect(firstGuild).toBeVisible();
     await expect(nextGuild).toHaveCount(0);
 
-    await loadMoreError.getByRole('button', { name: 'Try again' }).click();
+    const retry = loadMoreError.getByRole('button', { name: 'Try again' });
+    await expectOsEmptyAction(retry);
+    await retry.click();
     await expect(nextGuild).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect(loadMoreError).toHaveCount(0);
   });

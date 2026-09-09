@@ -48,4 +48,12 @@ test.describe('empty action', () => {
       page.getByRole('link', { name: 'Back to Drops' })
     );
   });
+
+  test('Drops Open Market uses the shared empty action', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, '/drops');
+    await expectOsEmptyAction(
+      page.getByRole('main').getByRole('link', { name: 'Open Market' })
+    );
+  });
 });

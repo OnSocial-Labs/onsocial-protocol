@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CommunityDiscoverRow } from '@/components/community-cards';
 import { ListLoadError } from '@/components/panels/list-load-error';
@@ -39,6 +38,7 @@ import {
   dropsPath,
 } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import { fallbackLabel } from '@/lib/profile-display';
 
 const SCARCE_PEEK_LIMIT = 6;
@@ -260,21 +260,13 @@ export function DiscoverHubsPanel() {
           {isSearchEmpty ? null : (
             <div className="standing-panel-empty-actions">
               {isCategoryEmpty ? (
-                <button
-                  type="button"
-                  className="standing-panel-empty-action"
-                  onClick={() => setCategoryFilter('all')}
-                >
+                <OsEmptyAction onClick={() => setCategoryFilter('all')}>
                   Show all hubs
-                </button>
+                </OsEmptyAction>
               ) : (
-                <Link
-                  className="standing-panel-empty-action"
-                  href={APP_APP_CREATE_PATH}
-                  scroll={false}
-                >
+                <OsEmptyAction href={APP_APP_CREATE_PATH}>
                   Open a hub
-                </Link>
+                </OsEmptyAction>
               )}
             </div>
           )}

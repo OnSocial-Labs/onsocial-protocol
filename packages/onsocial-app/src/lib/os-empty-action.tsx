@@ -10,9 +10,10 @@ import {
 export const osEmptyActionClassName = 'os-empty-action';
 
 /**
- * Page-empty recovery CTA. Inset actions share `.os-app-chrome-page`;
- * recoveries share this borderless `sm` sheet action. Do not hand-roll
- * `app-soon-link` or `page-drawer-section-action` on an empty.
+ * Page-empty and list-retry recovery CTA. Inset actions share
+ * `.os-app-chrome-page`; recoveries share this borderless `sm` sheet
+ * action. Do not hand-roll underlined text links or bordered pills
+ * on an empty.
  */
 export function OsEmptyAction({
   href,
