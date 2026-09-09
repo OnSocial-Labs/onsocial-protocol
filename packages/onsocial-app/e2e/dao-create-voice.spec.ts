@@ -73,8 +73,9 @@ test.describe('dao create voice', () => {
         return overlapsBottom && centered && nameBelow ? 'ready' : 'layout';
       })
       .toBe('ready');
+    const footer = page.locator('.os-app-screen-footer');
     await expect(
-      page.getByRole('button', { name: 'Connect', exact: true })
+      footer.getByRole('button', { name: 'Connect', exact: true })
     ).toBeVisible();
     await expect(
       page.getByText('You start as council · ~6 NEAR', { exact: true })

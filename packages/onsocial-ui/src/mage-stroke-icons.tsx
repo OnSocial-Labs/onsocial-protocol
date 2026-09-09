@@ -40,6 +40,21 @@ export function ChevronDownIcon(props: MageStrokeIconProps) {
   );
 }
 
+/** Mage `chevron-up` — vertical flip of {@link ChevronDownIcon}. */
+export function ChevronUpIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M4 15.5831L10.5866 8.9963C10.9633 8.625 11.471 8.4169 12 8.4169C12.529 8.4169 13.0367 8.625 13.4134 8.9963L20 15.5831"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </MageStrokeSvg>
+  );
+}
+
 export function MultiplyIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>

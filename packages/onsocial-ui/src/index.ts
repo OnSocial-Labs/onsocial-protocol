@@ -111,6 +111,7 @@ export {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   CopyIcon,
   DotsCircleIcon,
   DownloadIcon,
