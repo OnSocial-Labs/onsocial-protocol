@@ -23,6 +23,7 @@ import {
   DISCOVER_CONNECT_HINT,
   discoverProfilesLead,
 } from '@/lib/discover-tab-lead';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 
 export function DiscoverPanelContent() {
   const [recommendedShownIds, setRecommendedShownIds] = useState<string[]>([]);
@@ -197,13 +198,9 @@ export function DiscoverPanelContent() {
                       ) : null}
                       {emptyState.showClearSearch ? (
                         <div className="standing-panel-empty-actions">
-                          <button
-                            type="button"
-                            className="standing-panel-empty-action"
-                            onClick={clearSearch}
-                          >
+                          <OsEmptyAction onClick={clearSearch}>
                             Clear search
-                          </button>
+                          </OsEmptyAction>
                         </div>
                       ) : null}
                     </div>

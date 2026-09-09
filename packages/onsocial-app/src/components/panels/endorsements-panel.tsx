@@ -23,6 +23,7 @@ import {
   type EndorsementSupportTarget,
 } from '@/components/panels/endorsement-support-sheet';
 import { DiscoverProfilesLink } from '@/components/panels/standing-discover-link';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import { Divider, OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -503,13 +504,7 @@ export function EndorsementsPanel({
           aria-labelledby={`endorsements-tab-${mode}`}
         >
           <p className="endorsements-empty-copy">{error}</p>
-          <button
-            type="button"
-            className="endorsements-retry"
-            onClick={() => void load()}
-          >
-            Retry
-          </button>
+          <OsEmptyAction onClick={() => void load()}>Retry</OsEmptyAction>
         </div>
       ) : items.length === 0 ? (
         <div
@@ -596,13 +591,7 @@ export function EndorsementsPanel({
           ) : loadMoreError ? (
             <div className="endorsements-load-more-error">
               <p className="endorsements-loading-more">{loadMoreError}</p>
-              <button
-                type="button"
-                className="endorsements-retry"
-                onClick={() => void loadMore()}
-              >
-                Retry
-              </button>
+              <OsEmptyAction onClick={() => void loadMore()}>Retry</OsEmptyAction>
             </div>
           ) : null}
         </div>

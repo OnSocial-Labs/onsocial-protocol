@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import { ListLoadError } from '@/components/panels/list-load-error';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { MarketListingRow } from '@/features/market/market-listing-row';
 import {
@@ -500,16 +501,11 @@ export function PageDrawerStoreList({
       ) : null}
 
       {listingsState.status === 'error' && !showListings ? (
-        <p className="page-drawer-section-empty" role="alert">
-          Couldn’t load listings.{' '}
-          <button
-            type="button"
-            className="market-page-retry"
-            onClick={() => setRetryKey((value) => value + 1)}
-          >
-            Retry
-          </button>
-        </p>
+        <ListLoadError
+          message="Couldn’t load listings."
+          retryLabel="Retry"
+          onRetry={() => setRetryKey((value) => value + 1)}
+        />
       ) : null}
 
       {isEmpty ? (

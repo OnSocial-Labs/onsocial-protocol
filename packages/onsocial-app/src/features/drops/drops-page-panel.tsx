@@ -7,6 +7,7 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsRowAction } from '@/lib/os-row-action';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { DropRowFans } from '@/components/drops/drop-row-fans';
+import { ListLoadError } from '@/components/panels/list-load-error';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
@@ -54,6 +55,7 @@ import {
   parseDropsMediumParam,
 } from '@/lib/app-routes';
 import { DROPS_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import {
   EMPTY_DROPS_PAGE_QUERY,
@@ -410,6 +412,29 @@ function dropMediumLabel(medium: MarketMediumFilter): string | null {
   return DROP_MEDIUM_FILTERS.find((entry) => entry.id === medium)?.label ?? null;
 }
 
+function DropsEmptyRecovery({
+  copy,
+  actions,
+}: {
+  copy: string;
+  actions?: ReadonlyArray<{ href: string; label: string }>;
+}) {
+  return (
+    <div className="standing-panel-empty-state">
+      <p className="market-page-status">{copy}</p>
+      {actions && actions.length > 0 ? (
+        <div className="standing-panel-empty-actions">
+          {actions.map((action) => (
+            <OsEmptyAction key={`${action.label}:${action.href}`} href={action.href}>
+              {action.label}
+            </OsEmptyAction>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function EmptyDropsStatus({
   sort,
   query,
@@ -425,88 +450,88 @@ function EmptyDropsStatus({
   }
   if (mediumLabel) {
     return (
-      <p className="market-page-status">
-        No {mediumLabel.toLowerCase()} drops here.{' '}
-        <Link href={dropsPath({ sort })}>Clear filter</Link>
-        {sort !== 'live' ? (
-          <>
-            {' · '}
-            <Link href={dropsPath({ kind: medium })}>See Live</Link>
-          </>
-        ) : null}
-      </p>
+      <DropsEmptyRecovery
+        copy={`No ${mediumLabel.toLowerCase()} drops here.`}
+        actions={[
+          { href: dropsPath({ sort }), label: 'Clear filter' },
+          ...(sort !== 'live'
+            ? [{ href: dropsPath({ kind: medium }), label: 'See Live' }]
+            : []),
+        ]}
+      />
     );
   }
   if (sort === 'saved') {
     return (
-      <p className="market-page-status">
-        No bookmarked drops yet. Save a drop from the ⋮ menu.
-      </p>
+      <DropsEmptyRecovery copy="No bookmarked drops yet. Save a drop from the ⋮ menu." />
     );
   }
   if (sort === 'upcoming') {
     return (
-      <p className="market-page-status">
-        No upcoming drops.{' '}
-        <Link href={dropsPath({ sort: 'live' })}>See Live</Link>
-        {' · '}
-        <Link href={APP_DROP_CREATE_PATH}>Create</Link>
-      </p>
+      <DropsEmptyRecovery
+        copy="No upcoming drops."
+        actions={[
+          { href: dropsPath({ sort: 'live' }), label: 'See Live' },
+          { href: APP_DROP_CREATE_PATH, label: 'Create' },
+        ]}
+      />
     );
   }
   if (sort === 'finished') {
     return (
-      <p className="market-page-status">
-        No finished drops yet.{' '}
-        <Link href={dropsPath({ sort: 'live' })}>See Live</Link>
-      </p>
+      <DropsEmptyRecovery
+        copy="No finished drops yet."
+        actions={[{ href: dropsPath({ sort: 'live' }), label: 'See Live' }]}
+      />
     );
   }
   if (sort === 'closing') {
     return (
-      <p className="market-page-status">
-        Nothing closing right now.{' '}
-        <Link href={dropsPath()}>Browse Live</Link>
-      </p>
+      <DropsEmptyRecovery
+        copy="Nothing closing right now."
+        actions={[{ href: dropsPath(), label: 'Browse Live' }]}
+      />
     );
   }
   if (sort === 'live') {
     return (
-      <p className="market-page-status">
-        No live drops right now.{' '}
-        <Link href={dropsPath({ sort: 'upcoming' })}>See Upcoming</Link>
-        {' · '}
-        <Link href={APP_DROP_CREATE_PATH}>Create</Link>
-      </p>
+      <DropsEmptyRecovery
+        copy="No live drops right now."
+        actions={[
+          { href: dropsPath({ sort: 'upcoming' }), label: 'See Upcoming' },
+          { href: APP_DROP_CREATE_PATH, label: 'Create' },
+        ]}
+      />
     );
   }
   if (sort === 'new') {
     return (
-      <p className="market-page-status">
-        No new drops yet.{' '}
-        <Link href={dropsPath()}>See Live</Link>
-        {' · '}
-        <Link href={dropsPath({ sort: 'upcoming' })}>See Upcoming</Link>
-      </p>
+      <DropsEmptyRecovery
+        copy="No new drops yet."
+        actions={[
+          { href: dropsPath(), label: 'See Live' },
+          { href: dropsPath({ sort: 'upcoming' }), label: 'See Upcoming' },
+        ]}
+      />
     );
   }
   if (sort === 'loved') {
     return (
-      <p className="market-page-status">
-        No loved drops yet.{' '}
-        <Link href={dropsPath()}>Browse Live</Link>
-      </p>
+      <DropsEmptyRecovery
+        copy="No loved drops yet."
+        actions={[{ href: dropsPath(), label: 'Browse Live' }]}
+      />
     );
   }
   if (sort === 'traded') {
     return (
-      <p className="market-page-status">
-        No traded drops yet.{' '}
-        <Link href={dropsPath()}>Browse Live</Link>
-      </p>
+      <DropsEmptyRecovery
+        copy="No traded drops yet."
+        actions={[{ href: dropsPath(), label: 'Browse Live' }]}
+      />
     );
   }
-  return <p className="market-page-status">No drops yet.</p>;
+  return <DropsEmptyRecovery copy="No drops yet." />;
 }
 
 export function DropsPagePanel({
@@ -1113,16 +1138,11 @@ export function DropsPagePanel({
               {sorts.find((entry) => entry.id === sort)?.label ?? 'Drops'}
             </h2>
             {failed ? (
-              <p className="market-page-status" role="alert">
-                Couldn’t load drops.{' '}
-                <button
-                  type="button"
-                  className="market-page-retry"
-                  onClick={() => setReloadKey((value) => value + 1)}
-                >
-                  Retry
-                </button>
-              </p>
+              <ListLoadError
+                message="Couldn’t load drops."
+                retryLabel="Retry"
+                onRetry={() => setReloadKey((value) => value + 1)}
+              />
             ) : showCatalogSkeleton ? (
               <MarketListSkeleton rows={5} />
             ) : visibleItems.length === 0 &&
@@ -1154,16 +1174,11 @@ export function DropsPagePanel({
               </>
             )}
             {loadMoreFailed ? (
-              <p className="market-page-status" role="alert">
-                Couldn’t load more.{' '}
-                <button
-                  type="button"
-                  className="market-page-retry"
-                  onClick={loadMore}
-                >
-                  Retry
-                </button>
-              </p>
+              <ListLoadError
+                message="Couldn’t load more."
+                retryLabel="Retry"
+                onRetry={loadMore}
+              />
             ) : null}
             {hasMore &&
             items.length > 0 &&
@@ -1181,10 +1196,10 @@ export function DropsPagePanel({
             ) : null}
           </section>
 
-          <p className="market-page-status">
-            Looking for secondary listings?{' '}
-            <Link href={APP_MARKET_PATH}>Open Market</Link>
-          </p>
+          <DropsEmptyRecovery
+            copy="Looking for secondary listings?"
+            actions={[{ href: APP_MARKET_PATH, label: 'Open Market' }]}
+          />
         </div>
 
         {playItem ? (

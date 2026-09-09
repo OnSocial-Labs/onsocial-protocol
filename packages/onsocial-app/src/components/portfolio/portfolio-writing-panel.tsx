@@ -16,6 +16,7 @@ import {
   resolveWritingEmptyState,
 } from '@/lib/article-post-payload';
 import { accountIdsEqual } from '@/lib/account-match';
+import { OsEmptyAction } from '@/lib/os-empty-action';
 import { writingArticlePath } from '@/lib/overlay-routes';
 import { formatRelativePostTimestamp } from '@/lib/post-display';
 
@@ -78,13 +79,9 @@ export function PortfolioWritingPanel({
                 : 'No matching articles.'}
           </p>
           {emptyState === 'owner-cta' && openPost ? (
-            <button
-              type="button"
-              className="portfolio-writing-empty-action"
-              onClick={() => openPost({ article: true })}
-            >
+            <OsEmptyAction onClick={() => openPost({ article: true })}>
               Write an article
-            </button>
+            </OsEmptyAction>
           ) : null}
         </div>
       ) : (
