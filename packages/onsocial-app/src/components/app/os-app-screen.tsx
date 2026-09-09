@@ -83,8 +83,8 @@ export interface OsAppScreenProps {
    */
   footer?: ReactNode;
   /**
-   * Summon launcher. Task screens with a locked footer (Open a hub) turn
-   * this off so Close + the footer own leave and Connect.
+   * Summon launcher. Leave is `dockBack`. Footer / header CTAs own Connect
+   * via `headerOwnsConnect` — do not turn the dock off to hide it.
    */
   launcher?: boolean;
   /** Scroll container for nested infinite lists (`.os-app-screen-body`). */

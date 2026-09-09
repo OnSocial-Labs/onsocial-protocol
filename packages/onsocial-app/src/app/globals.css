@@ -11144,7 +11144,7 @@ a.os-surface-row {
     );
   }
 
-  /* Open a hub — no launcher; same safe-edge pin as a hidden dock. */
+  /* Task screens that still omit the launcher — pin footer to the safe edge. */
   .os-app-screen[data-launcher='off'][data-screen-footer='true']
     .os-app-screen-footer {
     bottom: env(safe-area-inset-bottom, 0px);
@@ -41607,32 +41607,25 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   );
 }
 
-/* Open a hub — no launcher; footer sits on the safe edge and rides the keys. */
-.os-app-screen[data-launcher='off'][data-screen-footer='true']
+/* Create guild / Open a hub — footer rides the keys above the dock. */
+.os-app-screen:has(
+    :is(.hub-create-form, .guild-create-form)[data-keyboard='open']
+  )
   .os-app-screen-footer {
-  bottom: env(safe-area-inset-bottom, 0px);
-}
-
-.os-app-screen[data-launcher='off'][data-screen-footer='true']
-  .os-app-screen-body {
-  padding-bottom: calc(
-    env(safe-area-inset-bottom, 0px) + var(--os-screen-footer-band)
+  bottom: calc(
+    var(--drop-create-keyboard-lift, 0px) +
+      var(--portfolio-dock-clearance, 4.75rem)
   );
 }
 
-.os-app-screen[data-launcher='off']:has(
-    :is(.hub-create-form, .guild-create-form)[data-keyboard='open']
-  )
-  .os-app-screen-footer {
-  bottom: var(--drop-create-keyboard-lift, 0px);
-}
-
-.os-app-screen[data-launcher='off']:has(
+.os-app-screen:has(
     :is(.hub-create-form, .guild-create-form)[data-keyboard='open']
   )
   .os-app-screen-body {
   padding-bottom: calc(
-    var(--drop-create-keyboard-lift, 0px) + var(--os-screen-footer-band)
+    var(--drop-create-keyboard-lift, 0px) +
+      var(--portfolio-dock-clearance, 4.75rem) +
+      var(--os-screen-footer-band)
   );
 }
 
@@ -41654,20 +41647,23 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   );
 }
 
-.os-app-screen:has(.dao-create-form[data-keyboard='open'])
+/* New drop / create places — lift dock while a field is focused. */
+.os-app-screen:has(
+    :is(
+        .drop-create-form,
+        .guild-create-form,
+        .hub-create-form,
+        .dao-create-form
+      )[data-keyboard='open']
+  )
   > .portfolio-summon-dock {
   bottom: var(--drop-create-keyboard-lift, 0px);
   z-index: 85;
 }
 
-/* New drop form — lift dock + scroll room while a field is focused (mobile). */
-.os-app-screen:has(.drop-create-form[data-keyboard='open'])
-  > .portfolio-summon-dock {
-  bottom: var(--drop-create-keyboard-lift, 0px);
-  z-index: 85;
-}
-
-.os-app-screen:has(.drop-create-form[data-keyboard='open'])
+.os-app-screen:has(
+    .drop-create-form[data-keyboard='open']:not(.hub-create-form)
+  )
   .os-app-screen-body {
   padding-bottom: calc(
     var(--drop-create-keyboard-lift, 0px) + 3.25rem +

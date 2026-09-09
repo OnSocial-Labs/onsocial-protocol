@@ -48,18 +48,23 @@ test.describe('create guild voice', () => {
     await expect(page.locator('.guild-look-preview-badge-empty')).toHaveText(
       '+'
     );
-    await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
+    await expect(page.locator('.os-app-screen')).toHaveAttribute(
+      'data-header-owns-connect',
+      ''
+    );
+    await expect(page.locator('.portfolio-summon-dock')).toBeVisible();
+    await expect(page.locator('.portfolio-summon-hint--connect')).toHaveCount(
+      0
+    );
     await expect(page.getByText('Connect wallet')).toHaveCount(0);
     await expect(
       page.locator('.os-app-screen-actions').getByRole('button', { name: 'Close' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Back', exact: true })
     ).toBeVisible();
     const footer = page.locator('.os-app-screen-footer');
     await expect(footer.getByRole('button', { name: 'Connect' })).toBeVisible();
-    const footerGap = await footer.evaluate((node) => {
-      const box = node.getBoundingClientRect();
-      return Math.round(window.innerHeight - box.bottom);
-    });
-    expect(footerGap).toBeLessThan(16);
 
     await expect(
       page.getByRole('button', { name: 'Add about', exact: true })
@@ -150,17 +155,16 @@ test.describe('create guild voice', () => {
     ).toBeVisible();
   });
 
-  test('closes to Guilds', async ({ page }) => {
+  test('dock Back leaves to Guilds', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, '/home');
+    await dismissNextDevOverlay(page);
     await gotoApp(page, '/groups/create');
     await expect(
       page.getByRole('heading', { name: 'Create guild' })
     ).toBeVisible();
     await dismissNextDevOverlay(page);
-    await page
-      .locator('.os-app-screen-actions')
-      .getByRole('button', { name: 'Close' })
-      .click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
     await page.waitForURL(/\/groups\/?$/, { timeout: 15_000 });
     await expect(
       page.getByRole('heading', { name: 'Create guild' })

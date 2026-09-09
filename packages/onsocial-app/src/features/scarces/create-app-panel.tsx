@@ -11,7 +11,6 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  MultiplyIcon,
   OsIconAction,
   QuestionMarkCircleFillIcon,
   osFieldBorderedClassName,
@@ -45,7 +44,6 @@ import {
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import {
-  HUB_CREATE_CLOSE,
   HUB_CREATE_CONNECT,
   HUB_CREATE_FORM_ID,
   HUB_CREATE_SUBMIT,
@@ -361,29 +359,23 @@ export function CreateAppPanel() {
   return (
     <OsAppScreen
       title="Open a hub"
-      launcher={false}
+      dockBack
+      headerOwnsConnect
+      backFallbackHref={APP_APPS_PATH}
       glassChrome
       style={screenStyle}
       actions={
-        <>
-          <OsIconAction
-            ariaLabel={HUB_CREATE_HELP_TITLE}
-            aria-expanded={helpOpen}
-            aria-haspopup="dialog"
-            onClick={() => setHelpOpen(true)}
-          >
-            <QuestionMarkCircleFillIcon
-              aria-hidden
-              className="glass-sheet-close-icon"
-            />
-          </OsIconAction>
-          <OsIconAction
-            ariaLabel={HUB_CREATE_CLOSE}
-            onClick={() => router.push(APP_APPS_PATH)}
-          >
-            <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
-          </OsIconAction>
-        </>
+        <OsIconAction
+          ariaLabel={HUB_CREATE_HELP_TITLE}
+          aria-expanded={helpOpen}
+          aria-haspopup="dialog"
+          onClick={() => setHelpOpen(true)}
+        >
+          <QuestionMarkCircleFillIcon
+            aria-hidden
+            className="glass-sheet-close-icon"
+          />
+        </OsIconAction>
       }
       footer={
         <CommerceSheetFooter
