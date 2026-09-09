@@ -11,7 +11,6 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  MultiplyIcon,
   OsIconAction,
   QuestionMarkCircleFillIcon,
   osFieldBorderedClassName,
@@ -33,7 +32,6 @@ import {
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import {
-  GUILD_CREATE_CLOSE,
   GUILD_CREATE_CONNECT,
   GUILD_CREATE_FORM_ID,
   GUILD_CREATE_HELP_TITLE,
@@ -339,29 +337,23 @@ export function GuildCreatePanel() {
   return (
     <OsAppScreen
       title={GUILD_CREATE_TITLE}
-      launcher={false}
+      dockBack
+      headerOwnsConnect
+      backFallbackHref={APP_GROUPS_PATH}
       glassChrome
       style={screenStyle}
       actions={
-        <>
-          <OsIconAction
-            ariaLabel={GUILD_CREATE_HELP_TITLE}
-            aria-expanded={helpOpen}
-            aria-haspopup="dialog"
-            onClick={() => setHelpOpen(true)}
-          >
-            <QuestionMarkCircleFillIcon
-              aria-hidden
-              className="glass-sheet-close-icon"
-            />
-          </OsIconAction>
-          <OsIconAction
-            ariaLabel={GUILD_CREATE_CLOSE}
-            onClick={() => router.push(APP_GROUPS_PATH)}
-          >
-            <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
-          </OsIconAction>
-        </>
+        <OsIconAction
+          ariaLabel={GUILD_CREATE_HELP_TITLE}
+          aria-expanded={helpOpen}
+          aria-haspopup="dialog"
+          onClick={() => setHelpOpen(true)}
+        >
+          <QuestionMarkCircleFillIcon
+            aria-hidden
+            className="glass-sheet-close-icon"
+          />
+        </OsIconAction>
       }
       footer={
         <CommerceSheetFooter

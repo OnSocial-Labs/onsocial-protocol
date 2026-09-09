@@ -52,9 +52,19 @@ test.describe('create app voice', () => {
     await expect(access.getByRole('radio', { name: 'Staff' })).toHaveCount(0);
     await expect(access.getByRole('radio', { name: 'Approval' })).toHaveCount(0);
     await expect(page.getByText('Anyone can drop', { exact: true })).toBeVisible();
-    await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
+    await expect(page.locator('.os-app-screen')).toHaveAttribute(
+      'data-header-owns-connect',
+      ''
+    );
+    await expect(page.locator('.portfolio-summon-dock')).toBeVisible();
+    await expect(page.locator('.portfolio-summon-hint--connect')).toHaveCount(
+      0
+    );
     await expect(
       page.locator('.os-app-screen-actions').getByRole('button', { name: 'Close' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Back', exact: true })
     ).toBeVisible();
     await expect(page.getByText('Connect wallet')).toHaveCount(0);
     await expect(
@@ -156,30 +166,25 @@ test.describe('create app voice', () => {
     ).toBeVisible();
   });
 
-  test('locks Connect in the footer and closes to Hubs', async ({ page }) => {
+  test('locks Connect in the footer and dock Back leaves to Hubs', async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, '/home');
+    await dismissNextDevOverlay(page);
     await gotoApp(page, '/apps/create');
 
     await expect(
       page.getByRole('heading', { name: 'Open a hub' })
     ).toBeVisible();
-    await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
+    await expect(page.locator('.portfolio-summon-dock')).toBeVisible();
     await expect(page.getByText('Connect wallet')).toHaveCount(0);
     const footer = page.locator('.os-app-screen-footer');
     await expect(footer.getByRole('button', { name: 'Connect' })).toBeVisible();
     await expect(footer).toBeInViewport();
-    const footerGap = await footer.evaluate((node) => {
-      const box = node.getBoundingClientRect();
-      return Math.round(window.innerHeight - box.bottom);
-    });
-    expect(footerGap).toBeLessThan(16);
 
     await dismissNextDevOverlay(page);
-    const close = page
-      .locator('.os-app-screen-actions')
-      .getByRole('button', { name: 'Close' });
-    await expect(close).toBeVisible();
-    await close.click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
     await page.waitForURL(/\/apps\/?$/, { timeout: 15_000 });
     await expect(
       page.getByRole('heading', { name: 'Open a hub' })
@@ -199,7 +204,7 @@ test.describe('create app voice', () => {
     ).toBeVisible();
     await expect(form).toBeVisible();
     await expect(form).not.toHaveAttribute('data-form-focused');
-    await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
+    await expect(page.locator('.portfolio-summon-dock')).toBeVisible();
     await expect(footer.getByRole('button', { name: 'Connect' })).toBeVisible();
 
     await dismissNextDevOverlay(page);

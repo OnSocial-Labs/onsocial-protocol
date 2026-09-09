@@ -9,7 +9,6 @@ export function guildCreateAboutToggle(opts: {
 
 export const GUILD_CREATE_TITLE = 'Create guild';
 export const GUILD_CREATE_HELP_TITLE = 'Your guild';
-export const GUILD_CREATE_CLOSE = 'Close';
 export const GUILD_CREATE_CONNECT = 'Connect';
 export const GUILD_CREATE_SUBMIT = 'Create guild';
 export const GUILD_CREATE_FORM_ID = 'guild-create-form';
