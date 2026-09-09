@@ -1,4 +1,5 @@
 import { APP_HOME_PATH } from '@/lib/app-routes';
+import { portfolioPath } from '@/lib/overlay-routes';
 
 /**
  * Daily indexes (Guilds, Hubs, DAOs, …) leave to Home.
@@ -20,4 +21,9 @@ export function resolveOsLeave({
 }): { kind: 'callback' } | { kind: 'parent'; href: string } {
   if (onBack) return { kind: 'callback' };
   return { kind: 'parent', href: fallbackHref };
+}
+
+/** Standing / Discover / Endorsements / Reputation / About — leave to the face. */
+export function portfolioFaceOverlayLeaveHref(accountId: string): string {
+  return portfolioPath(accountId);
 }

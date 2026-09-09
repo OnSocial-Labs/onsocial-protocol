@@ -1,4 +1,5 @@
 import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-root';
+import { PortfolioFaceOverlayLeave } from '@/components/portfolio/portfolio-face-overlay-leave';
 import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
 import { DiscoverOverlaySheet } from '@/features/discover/discover-panel';
 import { parseDiscoverProfileFilters } from '@/lib/discover-profiles';
@@ -52,6 +53,7 @@ export default async function DiscoverOverlayRoute({
 
   return (
     <OverlayInterceptRoot>
+      <PortfolioFaceOverlayLeave accountId={accountId} />
       <DiscoverOverlaySheet
         accountId={accountId}
         initialPage={initialPage}

@@ -1,4 +1,5 @@
 import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-root';
+import { PortfolioFaceOverlayLeave } from '@/components/portfolio/portfolio-face-overlay-leave';
 import { panelLabel } from '@/lib/overlay-routes';
 import { EndorsementsPanel } from '@/components/panels/endorsements-panel';
 import { SimpleOverlayPanel } from '@/components/overlay/simple-overlay-panel';
@@ -36,6 +37,7 @@ export default async function EndorsementsOverlay({
   return (
     <OverlayInterceptRoot>
       <SimpleOverlayPanel ariaTitle={title} title={title}>
+        <PortfolioFaceOverlayLeave accountId={accountId} />
         <EndorsementsPanel
           accountId={accountId}
           profileName={shell?.name ?? null}

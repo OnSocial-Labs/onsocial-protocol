@@ -1,11 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import {
-  OsPageSheet,
-  OsProposalCardList,
-} from '@onsocial/ui';
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { useSearchParams } from 'next/navigation';
+import { OsPageSheet, OsProposalCardList } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
@@ -178,8 +182,8 @@ export function DaoWorkspacePanel({
   const [statusFilter, setStatusFilter] = useState<ProtocolFeedStatusFilter>(
     () => parseProtocolFeedStatus(searchParams.get(PROTOCOL_STATUS_PARAM))
   );
-  const [familyFilter, setFamilyFilter] = useState<ProtocolProposalFamily>(
-    () => parseProtocolProposalFamily(searchParams.get(PROTOCOL_FAMILY_PARAM))
+  const [familyFilter, setFamilyFilter] = useState<ProtocolProposalFamily>(() =>
+    parseProtocolProposalFamily(searchParams.get(PROTOCOL_FAMILY_PARAM))
   );
   const [searchQuery, setSearchQuery] = useState(() =>
     parseProtocolSearchQuery(searchParams.get(PROTOCOL_SEARCH_PARAM))
@@ -211,8 +215,8 @@ export function DaoWorkspacePanel({
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>(
     () => (cachedFeed ? 'ready' : 'loading')
   );
-  const [feedSyncing, setFeedSyncing] = useState(
-    () => Boolean(cachedFeed?.syncing)
+  const [feedSyncing, setFeedSyncing] = useState(() =>
+    Boolean(cachedFeed?.syncing)
   );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionAppId, setActionAppId] = useState<string | null>(null);
@@ -234,10 +238,9 @@ export function DaoWorkspacePanel({
   const [stakeOpen, setStakeOpen] = useState(false);
   const [settingsActionOpen, setSettingsActionOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsAction, setSettingsAction] =
-    useState<ProtocolPolicyActionId>(
-      () => readLastProtocolPolicyAction() ?? 'update_vote_policy'
-    );
+  const [settingsAction, setSettingsAction] = useState<ProtocolPolicyActionId>(
+    () => readLastProtocolPolicyAction() ?? 'update_vote_policy'
+  );
   const [infoOpen, setInfoOpen] = useState(false);
   const [toolsHostSession, setToolsHostSession] = useState(false);
   const [createPending, setCreatePending] = useState(false);
@@ -284,9 +287,15 @@ export function DaoWorkspacePanel({
   }, [searchQuery]);
 
   useEffect(() => {
-    setStatusFilter(parseProtocolFeedStatus(searchParams.get(PROTOCOL_STATUS_PARAM)));
-    setFamilyFilter(parseProtocolProposalFamily(searchParams.get(PROTOCOL_FAMILY_PARAM)));
-    setSearchQuery(parseProtocolSearchQuery(searchParams.get(PROTOCOL_SEARCH_PARAM)));
+    setStatusFilter(
+      parseProtocolFeedStatus(searchParams.get(PROTOCOL_STATUS_PARAM))
+    );
+    setFamilyFilter(
+      parseProtocolProposalFamily(searchParams.get(PROTOCOL_FAMILY_PARAM))
+    );
+    setSearchQuery(
+      parseProtocolSearchQuery(searchParams.get(PROTOCOL_SEARCH_PARAM))
+    );
     setFocusedProposalId(
       parseProtocolProposalId(searchParams.get(PROTOCOL_PROPOSAL_PARAM))
     );
@@ -306,9 +315,15 @@ export function DaoWorkspacePanel({
     if (typeof window === 'undefined') return;
     const syncFromUrl = () => {
       const params = new URLSearchParams(window.location.search);
-      setStatusFilter(parseProtocolFeedStatus(params.get(PROTOCOL_STATUS_PARAM)));
-      setFamilyFilter(parseProtocolProposalFamily(params.get(PROTOCOL_FAMILY_PARAM)));
-      setSearchQuery(parseProtocolSearchQuery(params.get(PROTOCOL_SEARCH_PARAM)));
+      setStatusFilter(
+        parseProtocolFeedStatus(params.get(PROTOCOL_STATUS_PARAM))
+      );
+      setFamilyFilter(
+        parseProtocolProposalFamily(params.get(PROTOCOL_FAMILY_PARAM))
+      );
+      setSearchQuery(
+        parseProtocolSearchQuery(params.get(PROTOCOL_SEARCH_PARAM))
+      );
       setFocusedProposalId(
         parseProtocolProposalId(params.get(PROTOCOL_PROPOSAL_PARAM))
       );
@@ -436,16 +451,6 @@ export function DaoWorkspacePanel({
   );
 
   const clearProposalDetail = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (
-        params.get(PROTOCOL_PROPOSAL_PARAM)?.trim() &&
-        window.history.length > 1
-      ) {
-        window.history.back();
-        return;
-      }
-    }
     setFocusedProposalId(null);
     replaceBrowserUrl(
       daoPortfolioPath(daoAccountId, {
@@ -488,62 +493,64 @@ export function DaoWorkspacePanel({
     softIndexDaoMemberships(daoAccountId);
   }, [daoAccountId]);
 
-  const loadFeed = useCallback(async (opts?: { soft?: boolean }) => {
-    let soft = Boolean(opts?.soft);
-    const cached = readDaoFeedCache(daoAccountId);
-    if (!soft && cached) {
-      setApplications((current) =>
-        mergeProtocolFeedApplications(current, cached.applications)
-      );
-      setDaoPolicy((prev) => cached.daoPolicy ?? prev);
-      setFeedSyncing(Boolean(cached.syncing));
-      setLoadState('ready');
-      setLoadError(null);
-      soft = true;
-    } else if (!soft) {
-      setLoadState((prev) => (prev === 'ready' ? prev : 'loading'));
-    }
-    if (!soft) setLoadError(null);
-    try {
-      const feed = await fetchProtocolFeed(daoAccountId, 'protocol');
-      writeDaoFeedCache(daoAccountId, feed);
-      setApplications((current) =>
-        mergeProtocolFeedApplications(current, feed.applications)
-      );
-      setDaoPolicy((prev) => feed.daoPolicy ?? prev);
-      setFeedSyncing(Boolean(feed.syncing));
-      setLoadState('ready');
+  const loadFeed = useCallback(
+    async (opts?: { soft?: boolean }) => {
+      let soft = Boolean(opts?.soft);
+      const cached = readDaoFeedCache(daoAccountId);
+      if (!soft && cached) {
+        setApplications((current) =>
+          mergeProtocolFeedApplications(current, cached.applications)
+        );
+        setDaoPolicy((prev) => cached.daoPolicy ?? prev);
+        setFeedSyncing(Boolean(cached.syncing));
+        setLoadState('ready');
+        setLoadError(null);
+        soft = true;
+      } else if (!soft) {
+        setLoadState((prev) => (prev === 'ready' ? prev : 'loading'));
+      }
+      if (!soft) setLoadError(null);
+      try {
+        const feed = await fetchProtocolFeed(daoAccountId, 'protocol');
+        writeDaoFeedCache(daoAccountId, feed);
+        setApplications((current) =>
+          mergeProtocolFeedApplications(current, feed.applications)
+        );
+        setDaoPolicy((prev) => feed.daoPolicy ?? prev);
+        setFeedSyncing(Boolean(feed.syncing));
+        setLoadState('ready');
 
-      if (accountId && feed.daoPolicy) {
-        const roleNames = (feed.daoPolicy.roles ?? [])
-          .filter((role) =>
-            daoRoleGroupMembers(role).some(
-              (member) =>
-                member.trim().toLowerCase() === accountId.trim().toLowerCase()
+        if (accountId && feed.daoPolicy) {
+          const roleNames = (feed.daoPolicy.roles ?? [])
+            .filter((role) =>
+              daoRoleGroupMembers(role).some(
+                (member) =>
+                  member.trim().toLowerCase() === accountId.trim().toLowerCase()
+              )
             )
-          )
-          .map((role) => role.name?.trim() ?? '')
-          .filter(Boolean);
-        if (
-          roleNames.length > 0 ||
-          isProtocolDaoGroupMember(feed.daoPolicy, accountId)
-        ) {
-          rememberOptimisticMyDao({
-            daoAccountId,
-            roleNames:
-              roleNames.length > 0 ? roleNames : ['member'],
-          });
+            .map((role) => role.name?.trim() ?? '')
+            .filter(Boolean);
+          if (
+            roleNames.length > 0 ||
+            isProtocolDaoGroupMember(feed.daoPolicy, accountId)
+          ) {
+            rememberOptimisticMyDao({
+              daoAccountId,
+              roleNames: roleNames.length > 0 ? roleNames : ['member'],
+            });
+          }
+        }
+      } catch (error) {
+        if (!soft) {
+          setLoadState('error');
+          setLoadError(
+            error instanceof Error ? error.message : 'Could not load proposals.'
+          );
         }
       }
-    } catch (error) {
-      if (!soft) {
-        setLoadState('error');
-        setLoadError(
-          error instanceof Error ? error.message : 'Could not load proposals.'
-        );
-      }
-    }
-  }, [accountId, daoAccountId]);
+    },
+    [accountId, daoAccountId]
+  );
 
   useEffect(() => {
     void loadFeed();
@@ -983,7 +990,11 @@ export function DaoWorkspacePanel({
                   ([id]) => id.trim().toLowerCase() === viewer
                 )
             );
-          if (voteChoice && refreshed.proposal && !hasViewerVote(refreshed.proposal)) {
+          if (
+            voteChoice &&
+            refreshed.proposal &&
+            !hasViewerVote(refreshed.proposal)
+          ) {
             await new Promise((resolve) => window.setTimeout(resolve, 900));
             refreshed = await fetchProtocolProposal({
               daoAccountId,
@@ -999,10 +1010,7 @@ export function DaoWorkspacePanel({
           // soft refresh best-effort
         }
 
-        schedulePostActionProposalRefresh(
-          actionApplication.app_id,
-          proposalId
-        );
+        schedulePostActionProposalRefresh(actionApplication.app_id, proposalId);
 
         bumpDaoWorkspacePrefetch(daoAccountId);
       } catch (error) {
@@ -1100,12 +1108,10 @@ export function DaoWorkspacePanel({
         });
         const confirmed = await trackTransaction({
           txHashes,
-          submittedMessage: txToastGovPending.actionSubmitted(
-            'settings proposal'
-          ),
-          successMessage: txToastGovSuccess.actionConfirmed(
-            'settings proposal'
-          ),
+          submittedMessage:
+            txToastGovPending.actionSubmitted('settings proposal'),
+          successMessage:
+            txToastGovSuccess.actionConfirmed('settings proposal'),
           failureMessage: txToastGovError.actionFailed('settings proposal'),
         });
         if (!confirmed) return;
@@ -1153,9 +1159,7 @@ export function DaoWorkspacePanel({
           eligibility,
           BigInt(amountYocto)
         );
-        if (
-          BigInt(plan.depositAmount) > BigInt(eligibility.walletBalance)
-        ) {
+        if (BigInt(plan.depositAmount) > BigInt(eligibility.walletBalance)) {
           throw new Error('Not enough SOCIAL in wallet to deposit.');
         }
         if (
@@ -1278,7 +1282,8 @@ export function DaoWorkspacePanel({
         });
         await trackTransaction({
           txHashes,
-          submittedMessage: txToastGovPending.actionSubmitted('stake withdrawal'),
+          submittedMessage:
+            txToastGovPending.actionSubmitted('stake withdrawal'),
           successMessage: txToastGovSuccess.actionConfirmed('stake withdrawal'),
           failureMessage: txToastGovError.actionFailed('stake withdrawal'),
         });
@@ -1704,7 +1709,9 @@ export function DaoWorkspacePanel({
           </button>
         </div>
       ) : null}
-      {loadState === 'ready' && !showColdSkeleton && applications.length === 0 ? (
+      {loadState === 'ready' &&
+      !showColdSkeleton &&
+      applications.length === 0 ? (
         <p className="protocol-empty">
           {hideTools ? 'No proposals yet.' : 'No protocol proposals yet.'}
         </p>
@@ -1802,9 +1809,7 @@ export function DaoWorkspacePanel({
           moodId={pageMood.moodId ?? undefined}
           moodStyle={pageMood.moodStyle}
           panelClassName={sheet.className ?? 'dao-proposals-page'}
-          bodyClassName={
-            sheet.contentClassName ?? 'dao-proposals-page-body'
-          }
+          bodyClassName={sheet.contentClassName ?? 'dao-proposals-page-body'}
           header={null}
         >
           <OsAppScreen

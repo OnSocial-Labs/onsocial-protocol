@@ -1176,12 +1176,7 @@ export function MessagesPanel() {
     const el = scrollRootRef.current;
     if (!el || !threadOpen || !pinThreadToLatestRef.current) return;
     el.scrollTop = el.scrollHeight;
-  }, [
-    threadOpen,
-    displayMessages,
-    keyboardOpen,
-    viewport.lift,
-  ]);
+  }, [threadOpen, displayMessages, keyboardOpen, viewport.lift]);
 
   useEffect(() => {
     if (!isUnlocked || !peerFromThread || !hasSocialSession) {
@@ -1303,6 +1298,8 @@ export function MessagesPanel() {
         title="Messages"
         compactChrome
         glassChrome
+        dockBack
+        backFallbackHref={APP_HOME_PATH}
         leading={null}
         heading={<p className="os-app-screen-title">Messages</p>}
         actions={
@@ -1338,6 +1335,8 @@ export function MessagesPanel() {
         title="Messages"
         compactChrome
         glassChrome
+        dockBack
+        backFallbackHref={APP_HOME_PATH}
         leading={null}
         heading={<p className="os-app-screen-title">Messages</p>}
         actions={
@@ -1458,8 +1457,8 @@ export function MessagesPanel() {
       scrollRootRef={scrollRootRef}
       moodId={threadOpen && peerMood ? peerMood.id : undefined}
       moodStyle={threadMoodStyle}
-      dockBack={threadOpen}
-      onDockBack={closeThread}
+      dockBack
+      onDockBack={threadOpen ? closeThread : undefined}
       backFallbackHref={threadOpen ? messagesPath() : APP_HOME_PATH}
       leading={null}
       style={screenStyle}
@@ -1521,110 +1520,108 @@ export function MessagesPanel() {
         ) : null}
 
         {!keysLocked ? (
-        <div className="messages-layout" data-messages-pane={messagesPane}>
-          <aside className="messages-thread-list" aria-label="Conversations">
-            {threads == null ? (
-              <OsAppChromePageStatus>Loading…</OsAppChromePageStatus>
-            ) : isSearching ? (
-              <>
-                {filteredThreads.length === 0 ? (
-                  <OsAppChromePageStatus>
-                    No matches.
-                  </OsAppChromePageStatus>
-                ) : (
-                  <>
-                    {peopleActive ? (
-                      <p className="messages-search-section">Conversations</p>
-                    ) : null}
+          <div className="messages-layout" data-messages-pane={messagesPane}>
+            <aside className="messages-thread-list" aria-label="Conversations">
+              {threads == null ? (
+                <OsAppChromePageStatus>Loading…</OsAppChromePageStatus>
+              ) : isSearching ? (
+                <>
+                  {filteredThreads.length === 0 ? (
+                    <OsAppChromePageStatus>No matches.</OsAppChromePageStatus>
+                  ) : (
+                    <>
+                      {peopleActive ? (
+                        <p className="messages-search-section">Conversations</p>
+                      ) : null}
+                      <MessagesInboxThreadRows
+                        threads={filteredThreads}
+                        ariaLabel="Matching conversations"
+                        profiles={profiles}
+                        inboxPreviewByThread={inboxPreviewByThread}
+                        sealedThreadIds={sealedThreadIds}
+                        activeThreadId={activeThreadId}
+                        onOpenThread={(threadId) => {
+                          clearSearch();
+                          void openThread(threadId);
+                        }}
+                      />
+                    </>
+                  )}
+                  {peopleActive ? (
+                    <div className="messages-search-people">
+                      <p className="messages-search-section">Start a chat</p>
+                      {peoplePending ? (
+                        <p className="messages-muted">Searching…</p>
+                      ) : peopleError ? (
+                        <p className="messages-muted">{peopleError}</p>
+                      ) : peopleResults.length === 0 ? (
+                        <p className="messages-muted">No matches.</p>
+                      ) : (
+                        <MessagesInboxPeopleRows
+                          people={peopleResults}
+                          ariaLabel="Start a chat"
+                          isBlocked={messagingBlockedReason}
+                          blockedCopy={messagingBlockedCopy}
+                          onOpenPerson={startChatFromPeer}
+                        />
+                      )}
+                    </div>
+                  ) : null}
+                </>
+              ) : threads.length === 0 ? (
+                <OsAppChromePageStatus>
+                  No conversations yet. Search to start a chat, or message them
+                  from their profile.
+                </OsAppChromePageStatus>
+              ) : inboxThreads &&
+                inboxThreads.length === 0 &&
+                sealedThreads.length > 0 ? (
+                <OsAppChromePageStatus>
+                  No open conversations. Sealed threads from before a key reset
+                  are below.
+                </OsAppChromePageStatus>
+              ) : inboxThreads && inboxThreads.length === 0 ? (
+                <OsAppChromePageStatus>
+                  No conversations yet. Search to start a chat, or message them
+                  from their profile.
+                </OsAppChromePageStatus>
+              ) : (
+                <MessagesInboxThreadRows
+                  threads={inboxThreads ?? []}
+                  ariaLabel="Conversations"
+                  profiles={profiles}
+                  inboxPreviewByThread={inboxPreviewByThread}
+                  activeThreadId={activeThreadId}
+                  onOpenThread={(threadId) => void openThread(threadId)}
+                />
+              )}
+              {!isSearching && sealedThreads.length > 0 ? (
+                <div className="messages-sealed-archive">
+                  <button
+                    type="button"
+                    className="messages-sealed-archive-toggle"
+                    aria-expanded={showSealedArchive}
+                    onClick={() => setShowSealedArchive((open) => !open)}
+                  >
+                    {showSealedArchive ? 'Hide sealed' : 'Sealed before reset'}{' '}
+                    · {sealedThreads.length}
+                  </button>
+                  {showSealedArchive ? (
                     <MessagesInboxThreadRows
-                      threads={filteredThreads}
-                      ariaLabel="Matching conversations"
+                      threads={sealedThreads}
+                      ariaLabel="Sealed conversations"
                       profiles={profiles}
                       inboxPreviewByThread={inboxPreviewByThread}
-                      sealedThreadIds={sealedThreadIds}
+                      treatAllAsSealed
                       activeThreadId={activeThreadId}
-                      onOpenThread={(threadId) => {
-                        clearSearch();
-                        void openThread(threadId);
-                      }}
+                      onOpenThread={(threadId) => void openThread(threadId)}
                     />
-                  </>
-                )}
-                {peopleActive ? (
-                  <div className="messages-search-people">
-                    <p className="messages-search-section">Start a chat</p>
-                    {peoplePending ? (
-                      <p className="messages-muted">Searching…</p>
-                    ) : peopleError ? (
-                      <p className="messages-muted">{peopleError}</p>
-                    ) : peopleResults.length === 0 ? (
-                      <p className="messages-muted">No matches.</p>
-                    ) : (
-                      <MessagesInboxPeopleRows
-                        people={peopleResults}
-                        ariaLabel="Start a chat"
-                        isBlocked={messagingBlockedReason}
-                        blockedCopy={messagingBlockedCopy}
-                        onOpenPerson={startChatFromPeer}
-                      />
-                    )}
-                  </div>
-                ) : null}
-              </>
-            ) : threads.length === 0 ? (
-              <OsAppChromePageStatus>
-                No conversations yet. Search to start a chat, or message them
-                from their profile.
-              </OsAppChromePageStatus>
-            ) : inboxThreads &&
-              inboxThreads.length === 0 &&
-              sealedThreads.length > 0 ? (
-              <OsAppChromePageStatus>
-                No open conversations. Sealed threads from before a key reset
-                are below.
-              </OsAppChromePageStatus>
-            ) : inboxThreads && inboxThreads.length === 0 ? (
-              <OsAppChromePageStatus>
-                No conversations yet. Search to start a chat, or message them
-                from their profile.
-              </OsAppChromePageStatus>
-            ) : (
-              <MessagesInboxThreadRows
-                threads={inboxThreads ?? []}
-                ariaLabel="Conversations"
-                profiles={profiles}
-                inboxPreviewByThread={inboxPreviewByThread}
-                activeThreadId={activeThreadId}
-                onOpenThread={(threadId) => void openThread(threadId)}
-              />
-            )}
-            {!isSearching && sealedThreads.length > 0 ? (
-              <div className="messages-sealed-archive">
-                <button
-                  type="button"
-                  className="messages-sealed-archive-toggle"
-                  aria-expanded={showSealedArchive}
-                  onClick={() => setShowSealedArchive((open) => !open)}
-                >
-                  {showSealedArchive ? 'Hide sealed' : 'Sealed before reset'} ·{' '}
-                  {sealedThreads.length}
-                </button>
-                {showSealedArchive ? (
-                  <MessagesInboxThreadRows
-                    threads={sealedThreads}
-                    ariaLabel="Sealed conversations"
-                    profiles={profiles}
-                    inboxPreviewByThread={inboxPreviewByThread}
-                    treatAllAsSealed
-                    activeThreadId={activeThreadId}
-                    onOpenThread={(threadId) => void openThread(threadId)}
-                  />
-                ) : null}
-              </div>
-            ) : null}
-          </aside>
+                  ) : null}
+                </div>
+              ) : null}
+            </aside>
 
-          <section className="messages-thread" aria-label="Thread">
+            <section className="messages-thread" aria-label="Thread">
               {!activeThreadId ? (
                 <OsAppChromePageStatus className="messages-thread-empty">
                   Pick a conversation, search to start a chat, or message them
@@ -1812,8 +1809,8 @@ export function MessagesPanel() {
                   </ul>
                 </>
               )}
-          </section>
-        </div>
+            </section>
+          </div>
         ) : null}
 
         <DmRecoveryCodeSheet

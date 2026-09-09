@@ -41,7 +41,7 @@ const LONG_PRESS_MS = 480;
 const SWIPE_UP_PX = 28;
 const TAP_SLOP_PX = 12;
 
-/** Face default — history.back(), else Home (overlays override via context). */
+/** Face default — leave to Home. Overlays register a face parent via context. */
 const FACE_DOCK_BACK: DockBackRegistration = {
   fallbackHref: APP_HOME_PATH,
   ariaLabel: 'Back',
