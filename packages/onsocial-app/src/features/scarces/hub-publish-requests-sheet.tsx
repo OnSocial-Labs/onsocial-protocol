@@ -291,6 +291,7 @@ export function HubPublishRequestsSheet({
                     <OsSheetActions
                       layout="row-compact"
                       tone="frosted-primary"
+                      size="sm"
                       borderless
                       className="hub-publish-request-actions"
                     >

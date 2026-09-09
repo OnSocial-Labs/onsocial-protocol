@@ -560,34 +560,31 @@
   flex: 0 0 auto;
 }
 
-/* Hub publish Request — soft purple wash, strong purple type (role-pill family). */
-.app-page-hero .hub-hero-publish-request {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 1.65rem;
-  padding: 0.28rem 0.62rem;
+/* Hub publish Request — purple role-pill ink on the shared sm Join chrome. */
+.app-page-hero
+  .hub-hero-publish-request.os-sheet-actions--row-compact
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
+.app-page-hero
+  .hub-hero-publish-request.os-sheet-actions--row-compact
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
   border: 0;
-  border-radius: 9999px;
   background: color-mix(
     in srgb,
     var(--protocol-purple) 12%,
     rgb(var(--fg-rgb) / 0.04)
   );
   color: var(--protocol-purple);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-  cursor: pointer;
-  -webkit-appearance: none;
-  appearance: none;
+  box-shadow: none;
 }
 
-.app-page-hero .hub-hero-publish-request:hover,
-.app-page-hero .hub-hero-publish-request:focus-visible {
+.app-page-hero
+  .hub-hero-publish-request.os-sheet-actions--row-compact
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover,
+.app-page-hero
+  .hub-hero-publish-request.os-sheet-actions--row-compact
+  .os-sheet-action--primary.is-ready:not(:disabled):not(
+    .is-succeeded
+  ):focus-visible {
   background: color-mix(
     in srgb,
     var(--protocol-purple) 18%,
@@ -626,8 +623,8 @@
 }
 
 /*
- * Play title Sell — unlayered so it beats os-sheet-action row-compact (2.75rem).
- * Hug label width (no min-width pad); Market compact padding → true capsule.
+ * Play title Sell / Drop Manage — hug width; size="sm" owns height/padding.
+ * Green commerce ink stays app-surface only (not a UI brand tone).
  */
 .collectibles-play-sell-action.os-sheet-actions--row-compact {
   flex-shrink: 0;
@@ -643,11 +640,6 @@
   flex: 0 0 auto;
   width: auto;
   min-width: 0;
-  min-height: 0;
-  height: auto;
-  padding: 0.28rem 0.72rem;
-  font-size: 0.72rem;
-  line-height: 1.2;
   border-radius: 9999px;
   box-shadow: none;
 }
@@ -655,10 +647,26 @@
 .collectibles-play-sell-action.os-sheet-actions--borderless
   .os-sheet-action__shell {
   width: auto;
-  min-height: 0;
 }
 
-/* Sell / Manage green now comes from OsSheetAction tone="brand". */
+.collectibles-play-sell-action
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
+.collectibles-play-sell-action
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
+  border-color: rgb(var(--fg-rgb) / 0.12);
+  background: rgb(var(--fg-rgb) / 0.07);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  color: var(--protocol-green-ink, var(--protocol-green));
+}
+
+.collectibles-play-sell-action
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
+  border-color: rgb(var(--fg-rgb) / 0.16);
+  background: rgb(var(--fg-rgb) / 0.1);
+  color: var(--protocol-green-ink, var(--protocol-green-hover, var(--protocol-green)));
+}
 
 /*
  * Drop page Manage — same Sell family, but height-locked to bookmark / share
@@ -837,7 +845,7 @@
 
 /* Compact proposal footer actions live in @onsocial/ui os-proposal-card.css */
 
-/* Hub publish Approve — row CTA size (Buy / Join). Compact × = OsFieldRemove. */
+/* Hub publish Approve — size="sm" owns dims; slot owns hug + gap. */
 .hub-publish-request-actions.os-sheet-actions--row-compact {
   flex-shrink: 0;
   width: auto;
@@ -850,17 +858,8 @@
   flex: 0 0 auto;
   width: auto;
   min-width: 0;
-  min-height: 1.65rem;
-  padding: 0.28rem 0.72rem;
-  font-size: 0.72rem;
-  line-height: 1.2;
   border-radius: 9999px;
   box-shadow: none;
-}
-
-.hub-publish-request-actions.os-sheet-actions--borderless
-  .os-sheet-action__shell {
-  min-height: 1.1rem;
 }
 
 .guild-composer-toolbar-post.os-sheet-actions--row-compact {
