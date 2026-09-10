@@ -23408,11 +23408,22 @@ a.os-surface-row {
   }
 
   button.scarce-clip-fans-facepile.guild-facepile {
+    align-items: center;
+    min-height: 1.35rem;
     margin: 0 auto 0 0;
     padding: 0.1rem 0.15rem 0.1rem 0;
     border: 0;
     background: transparent;
     color: var(--os-surface-muted);
+  }
+
+  .scarce-clip-fans-facepile .guild-facepile-avatars--slots {
+    height: 1.35rem;
+    align-items: center;
+  }
+
+  .scarce-clip-fans-facepile .guild-facepile-count--slot {
+    min-width: 3.5rem;
   }
 
   button.scarce-clip-fans-facepile.guild-facepile:hover,
