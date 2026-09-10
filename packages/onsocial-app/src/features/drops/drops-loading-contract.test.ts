@@ -18,13 +18,17 @@ describe('drops loading contract', () => {
 
   it('renders append skeleton rows without replacing painted drops', () => {
     const source = readFileSync(join(dropsSrc, 'drops-page-panel.tsx'), 'utf8');
+    const skeletonSource = readFileSync(
+      join(dropsSrc, '../market/market-list-skeleton.tsx'),
+      'utf8'
+    );
 
     expect(source).toContain(
       "resolveAppLoadingPresentation(hasPaintedRows ? 'appending' : 'cold'"
     );
     expect(source).toContain('showAppendSkeleton');
     expect(source).toContain('variant="drops"');
-    expect(source).toContain('drops-discovery-row--skeleton');
+    expect(skeletonSource).toContain('drops-discovery-row--skeleton');
     expect(source).toContain("failed && errorPresentation === 'overlay'");
   });
 
