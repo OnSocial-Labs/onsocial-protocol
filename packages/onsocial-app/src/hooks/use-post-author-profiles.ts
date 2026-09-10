@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { ProfileKind } from '@onsocial/sdk';
+import type { ProfileKind, ProfileSearchRow } from '@onsocial/sdk';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
@@ -138,7 +138,33 @@ async function fetchPostAuthorProfilesBatch(
 
   const request = (async (): Promise<Record<string, PostAuthorProfile>> => {
     const client = createReadOnlyOnSocialClient();
-    const rows = await client.query.profiles.statsForAccounts(missing);
+    let rows: ProfileSearchRow[];
+    try {
+      rows = await client.query.profiles.statsForAccounts(missing);
+    } catch {
+      // Older Graph deployments may not expose profileSearch yet. The raw
+      // profilesCurrent view still provides enough data for post bylines.
+      let profiles: Record<string, { name?: string; avatar?: string }> = {};
+      try {
+        profiles = await client.profiles.getMany(missing);
+      } catch {
+        // Keep the feed usable even when both Graph profile views are stale.
+      }
+      const next: Record<string, PostAuthorProfile> = {};
+      for (const accountId of missing) {
+        const profile = profiles[accountId];
+        const author = profile
+          ? toPostAuthorProfile(accountId, profile.name, profile.avatar)
+          : null;
+        if (author) {
+          seedPostAuthorProfile(author);
+          next[accountId] = author;
+        } else if (!profileCache.has(accountId)) {
+          profileCache.set(accountId, null);
+        }
+      }
+      return next;
+    }
     const byId = new Map(rows.map((row) => [row.accountId, row] as const));
     const next: Record<string, PostAuthorProfile> = {};
 

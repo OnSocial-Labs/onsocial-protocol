@@ -1096,13 +1096,13 @@ export function CollectionPagePanel({
                 ) : null}
                 {hasPlayables && listenOnPlayPage && holderPlayHref && vaultHref ? (
                   <div className="collection-reading-row">
+                    <OsRowAction href={vaultHref}>Open Collectibles</OsRowAction>
                     <OsRowAction
                       className="collectibles-holding-action"
                       href={holderPlayHref}
                     >
                       Open player
                     </OsRowAction>
-                    <OsRowAction href={vaultHref}>Open Collectibles</OsRowAction>
                   </div>
                 ) : vaultHref ? (
                   <OsRowAction href={vaultHref}>Open Collectibles</OsRowAction>
