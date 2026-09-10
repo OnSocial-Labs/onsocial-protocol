@@ -41658,6 +41658,11 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   min-width: 0;
 }
 
+.notifications-activity-list--refreshing {
+  opacity: 0.72;
+  transition: opacity 120ms ease;
+}
+
 .notifications-activity-day {
   padding: 0.75rem 0 0.28rem;
 }
@@ -41753,7 +41758,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.35rem;
 }
 
-.notifications-activity-row .standing-row-aside {
+.notifications-activity-row .standing-row-aside,
+.notifications-activity-row--skeleton .standing-row-aside {
   flex-direction: row;
   align-items: center;
   justify-content: flex-end;
