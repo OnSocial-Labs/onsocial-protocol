@@ -45,7 +45,8 @@ const earlierMessage = {
 };
 
 type StubOptions = {
-  delayThreads?: boolean;
+  delayInitialThreads?: boolean;
+  delayRefreshThreads?: boolean;
   delayAppend?: boolean;
   failAppend?: boolean;
 };
@@ -149,8 +150,8 @@ async function stubMessages(
     if (path.endsWith('/developer/dm/threads')) {
       threadCallCount += 1;
       if (
-        options.delayThreads &&
-        (threadCallCount === 1 || threadCallCount === 2)
+        (options.delayInitialThreads && threadCallCount === 1) ||
+        (options.delayRefreshThreads && threadCallCount === 2)
       ) {
         await threadGate;
       }
@@ -221,7 +222,7 @@ test.describe('authenticated messages loading', () => {
   test('keeps the cold inbox skeleton until authenticated threads settle', async ({
     page,
   }) => {
-    const stub = await stubMessages(page, { delayThreads: true });
+    const stub = await stubMessages(page, { delayInitialThreads: true });
     await page.goto('/messages', { waitUntil: 'domcontentloaded' });
 
     await expect(
@@ -239,7 +240,7 @@ test.describe('authenticated messages loading', () => {
   });
 
   test('preserves the painted inbox during a soft refresh', async ({ page }) => {
-    const stub = await stubMessages(page);
+    const stub = await stubMessages(page, { delayRefreshThreads: true });
     await page.goto('/messages', { waitUntil: 'domcontentloaded' });
     await expectInboxPainted(page);
 
