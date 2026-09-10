@@ -36,6 +36,7 @@ export default defineConfig({
         env: {
           ...process.env,
           NEXT_DIST_DIR: process.env.NEXT_DIST_DIR ?? '.next-e2e',
+          E2E_HOME_SSR_MISS: '1',
           ONSOCIAL_API_KEY:
             process.env.ONSOCIAL_API_KEY ?? 'ci-e2e-placeholder',
           NEXT_PUBLIC_NEAR_NETWORK:
