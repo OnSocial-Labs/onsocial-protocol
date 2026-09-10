@@ -59,6 +59,7 @@ import { DROPS_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsLoadMore } from '@/lib/os-load-more';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
+import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
 import {
   EMPTY_DROPS_PAGE_QUERY,
   dropsQueryPath,
@@ -337,11 +338,7 @@ function DropRow({
       )}
       <div className="market-listing-copy drops-discovery-copy">
         <div className="market-listing-head drops-discovery-head">
-          <Link
-            href={href}
-            scroll={false}
-            className="market-listing-title"
-          >
+          <Link href={href} scroll={false} className="market-listing-title">
             {item.title}
           </Link>
         </div>
@@ -411,7 +408,9 @@ function DropRow({
 
 function dropMediumLabel(medium: MarketMediumFilter): string | null {
   if (medium === 'all') return null;
-  return DROP_MEDIUM_FILTERS.find((entry) => entry.id === medium)?.label ?? null;
+  return (
+    DROP_MEDIUM_FILTERS.find((entry) => entry.id === medium)?.label ?? null
+  );
 }
 
 function DropsEmptyRecovery({
@@ -427,7 +426,10 @@ function DropsEmptyRecovery({
       {actions && actions.length > 0 ? (
         <div className="standing-panel-empty-actions">
           {actions.map((action) => (
-            <OsEmptyAction key={`${action.label}:${action.href}`} href={action.href}>
+            <OsEmptyAction
+              key={`${action.label}:${action.href}`}
+              href={action.href}
+            >
               {action.label}
             </OsEmptyAction>
           ))}
@@ -757,9 +759,7 @@ export function DropsPagePanel({
           audioFormat: nextFormat,
         });
         const useSeed =
-          Boolean(seedPromise) &&
-          !nextSearch &&
-          nextKey === seedKey;
+          Boolean(seedPromise) && !nextSearch && nextKey === seedKey;
         if (useSeed && seedPromise) {
           const data = await seedPromise;
           if (gen !== reloadGenRef.current) return;
@@ -811,15 +811,7 @@ export function DropsPagePanel({
 
   useEffect(() => {
     void reload(sort, medium, debouncedQuery, audioFormat);
-  }, [
-    sort,
-    medium,
-    audioFormat,
-    debouncedQuery,
-    reload,
-    reloadKey,
-    accountId,
-  ]);
+  }, [sort, medium, audioFormat, debouncedQuery, reload, reloadKey, accountId]);
 
   // Soft-fill fan counts after paint (kept off the critical fetch path).
   useEffect(() => {
@@ -874,14 +866,7 @@ export function DropsPagePanel({
     return () => {
       cancelled = true;
     };
-  }, [
-    items,
-    sort,
-    refreshing,
-    loading,
-    activeCatalogKey,
-    patchCatalogCache,
-  ]);
+  }, [items, sort, refreshing, loading, activeCatalogKey, patchCatalogCache]);
 
   // Soft-fill allowlist remaining for Upcoming rows (N× RPC, after paint).
   useEffect(() => {
@@ -1021,9 +1006,20 @@ export function DropsPagePanel({
     return groups;
   }, [sort, visibleItems, nowMs]);
 
-  const showCatalogSkeleton =
-    loading && items.length === 0 && !failed && !searching;
-  const catalogRefreshing = refreshing && items.length > 0;
+  const hasPaintedRows = items.length > 0;
+  const loadingPresentation = loading
+    ? resolveAppLoadingPresentation(hasPaintedRows ? 'appending' : 'cold', {
+        hasPaintedRows,
+      })
+    : refreshing
+      ? resolveAppLoadingPresentation('refreshing', { hasPaintedRows })
+      : null;
+  const showCatalogSkeleton = !failed && loadingPresentation === 'skeleton';
+  const catalogRefreshing = loadingPresentation === 'preserve';
+  const showAppendSkeleton = loadingPresentation === 'append-skeleton';
+  const errorPresentation = failed
+    ? resolveAppLoadingPresentation('error', { hasPaintedRows })
+    : null;
 
   const renderRow = (item: DropDiscoveryItem) => (
     <DropRow
@@ -1107,9 +1103,7 @@ export function DropsPagePanel({
       glassChrome
       scrollRootRef={scrollRootRef}
       backFallbackHref={OS_INDEX_LEAVE_HREF}
-      heading={
-        <DropsSearchHeading query={query} onQueryChange={setQuery} />
-      }
+      heading={<DropsSearchHeading query={query} onQueryChange={setQuery} />}
       actions={<DropsHeadingActions />}
       toolbar={
         <DropsListingToolbar
@@ -1139,7 +1133,7 @@ export function DropsPagePanel({
             <h2 id="drops-catalog" className="market-section-title">
               {sorts.find((entry) => entry.id === sort)?.label ?? 'Drops'}
             </h2>
-            {failed && items.length === 0 ? (
+            {failed && errorPresentation === 'state' ? (
               <ListLoadError
                 message="Couldn’t load drops."
                 retryLabel="Retry"
@@ -1173,9 +1167,10 @@ export function DropsPagePanel({
                     {visibleItems.map((item) => renderRow(item))}
                   </div>
                 )}
+                {showAppendSkeleton ? <MarketListSkeleton rows={2} /> : null}
               </>
             )}
-            {failed && items.length > 0 ? (
+            {failed && errorPresentation === 'overlay' ? (
               <OsChromeListAlert
                 message="Couldn’t refresh drops."
                 retryLabel="Retry"
