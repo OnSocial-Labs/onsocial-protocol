@@ -115,6 +115,7 @@ import {
 } from '@/lib/post-media';
 import { normalizeComposerContentLabels } from '@/lib/post-content-labels';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
 import type { GuildPageData } from '@/lib/load-guild-page';
 import {
   readGroupStatsCreatedAt,
@@ -202,6 +203,7 @@ export function LiveGuildPanel({
     optimisticJoinPending,
     setOptimisticJoinPending,
     refresh,
+    refreshFeed,
     loadMoreFeed,
     scheduleReconcile,
   } = useGuildPageData({
@@ -367,6 +369,28 @@ export function LiveGuildPanel({
   }, [selectedFeedFilterId, config, postableSpaces]);
   const feedBlocks = useMemo(() => coalesceFeedThreads(feedPosts), [feedPosts]);
   const quotedPosts = useQuotedPosts(feedPosts);
+  const shellPresentation = resolveAppLoadingPresentation(
+    loadState === 'loading'
+      ? 'cold'
+      : loadState === 'error'
+        ? 'error'
+        : 'empty',
+    { hasPaintedRows: Boolean(config || shellPreview) }
+  );
+  const feedPresentation = resolveAppLoadingPresentation(
+    loadingMore
+      ? 'appending'
+      : isFeedRefreshing
+        ? 'refreshing'
+        : feedPending
+          ? 'cold'
+          : state.feedError
+            ? 'error'
+            : 'empty',
+    { hasPaintedRows: feedPosts.length > 0 }
+  );
+  const showFeedRefreshing = feedPresentation === 'preserve';
+  const showFeedAppendSkeleton = feedPresentation === 'append-skeleton';
   // Confirmed-ledger facepile: the viewer knows they are a member before the
   // indexer does, so seed the stack with their own avatar until stats catch up.
   const facepileIds = useMemo(
@@ -1060,6 +1084,7 @@ export function LiveGuildPanel({
           <div
             className="guild-loading"
             data-guild-page-skeleton
+            data-guild-loading-presentation={shellPresentation}
             aria-busy="true"
             aria-label="Loading guild"
           >
@@ -1170,8 +1195,16 @@ export function LiveGuildPanel({
 
               {feedPosts.length > 0 ? (
                 <div
-                  className={`home-feed-list${isFeedRefreshing ? ' is-refreshing' : ''}`}
+                  className={`home-feed-list${
+                    showFeedRefreshing ? ' is-refreshing' : ''
+                  }`}
                 >
+                  {state.feedError ? (
+                    <OsChromeListAlert
+                      message="Guild posts could not refresh from the indexed feed."
+                      onRetry={() => void refreshFeed()}
+                    />
+                  ) : null}
                   {feedBlocks.map(({ posts }, blockIndex) => (
                     <div key={postKey(posts[0]!)}>
                       <Divider
@@ -1223,7 +1256,7 @@ export function LiveGuildPanel({
                           aria-hidden
                         />
                       ) : null}
-                      {loadingMore ? (
+                      {showFeedAppendSkeleton ? (
                         <PostRowSkeleton
                           rows={2}
                           showChannel={selectedFeedFilterId === 'all'}

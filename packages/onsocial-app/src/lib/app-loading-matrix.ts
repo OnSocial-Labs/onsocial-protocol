@@ -145,15 +145,16 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     id: 'messages',
     route: '/messages',
     family: 'private',
-    cold: 'Status fallback until session and keys are available',
+    cold: 'MessagesInboxSkeleton and MessagesThreadSkeleton after session and keys are available',
     refreshing: 'Keep inbox or thread state',
-    appending: 'Not applicable',
+    appending: 'Append MessagesThreadAppendSkeleton rows',
     empty: 'OsAppChromePageStatus',
     error: 'OsChromeListAlert when painted inbox rows exist',
     routeFallback: 'status',
     implementationFiles: [
       'app/(app)/messages/page.tsx',
       'features/messages/messages-panel.tsx',
+      'features/messages/messages-thread-skeleton.tsx',
     ],
   },
 ] as const;
