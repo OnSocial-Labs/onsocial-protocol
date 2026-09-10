@@ -12553,11 +12553,11 @@ a.os-surface-row {
 
   /* Room for the portfolio dock under a keep-dock mood page. */
   .glass-sheet-root[data-keep-dock='true'] .glass-sheet-body {
-    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--portfolio-dock-clearance, 4.75rem);
   }
 
   .glass-sheet-root[data-keep-dock='true'] .dao-proposals-page .dao-workspace {
-    padding-bottom: calc(1.25rem + 4.75rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(1.25rem + var(--portfolio-dock-clearance, 4.75rem));
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -13951,7 +13951,7 @@ a.os-surface-row {
    */
   .page-drawer-scroll-end {
     flex-shrink: 0;
-    height: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+    height: var(--portfolio-dock-clearance, 4.75rem);
     pointer-events: none;
   }
 

@@ -36,5 +36,17 @@ describe('page drawer feed inset', () => {
     expect(rail).toMatch(
       /isProfileFeedTab\(tab\) \?[\s\S]*?page-drawer-scroll-end/
     );
+    expect(globalsCss).toMatch(
+      /\.page-drawer-scroll-end \{[\s\S]*?height: var\(--portfolio-dock-clearance, 4\.75rem\);/
+    );
+  });
+
+  it('uses dock clearance for keep-dock sheet bodies', () => {
+    expect(globalsCss).toMatch(
+      /\.glass-sheet-root\[data-keep-dock='true'\] \.glass-sheet-body \{[\s\S]*?padding-bottom: var\(--portfolio-dock-clearance, 4\.75rem\);/
+    );
+    expect(globalsCss).toMatch(
+      /\.glass-sheet-root\[data-keep-dock='true'\] \.dao-proposals-page \.dao-workspace \{[\s\S]*?padding-bottom: calc\(1\.25rem \+ var\(--portfolio-dock-clearance, 4\.75rem\)\);/
+    );
   });
 });
