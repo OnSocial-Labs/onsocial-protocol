@@ -274,7 +274,7 @@ async function expectInboxPainted(page: Page): Promise<void> {
     }
   );
   // #endregion
-  await expect(page.getByText(MESSAGES_E2E_PEER, { exact: true })).toBeVisible({
+  await expect(page.getByText('Bob', { exact: true })).toBeVisible({
     timeout: 30_000,
   });
 }
@@ -357,7 +357,9 @@ test.describe('authenticated messages loading', () => {
     });
 
     await page.getByRole('button', { name: 'Earlier' }).click();
-    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(
+      page.getByText('Messages unavailable', { exact: true })
+    ).toBeVisible();
     await expect(page.getByText('Earlier')).toBeVisible();
 
     await page.getByRole('button', { name: 'Earlier' }).click();
