@@ -886,96 +886,43 @@ export function CollectionPagePanel({
         data-collection-back={dropBackHref}
       >
         <section className="collection-hero" aria-label="Drop cover">
-          {isAudio && hasPlayables && !listenOnPlayPage ? (
-            <div
-              className={`collection-music-hero${
-                immersive ? ' is-immersive' : ''
-              }`}
-            >
-              <ScarceClipPlayer
-                key={`cover-${playables[0]!.url}`}
-                clip={playables[0]!}
-                tracks={playables}
-                poster={view.mediaUrl}
-                layout="cover"
-                showTracks={false}
-                showFeedPost={false}
-                showShare={false}
-                showDownloads={false}
-                persist={{
-                  collectionId: view.collectionId,
-                  title: view.title,
-                  creatorId: view.creatorId,
-                  seriesId: view.seriesId,
-                  seriesTitle: view.seriesTitle,
-                  audioFormat: view.audioFormat,
-                  facets: view.facets,
-                }}
-                creatorId={view.creatorId}
-                canKeepOffline={
-                  isOwner
-                    ? true
-                    : !viewerAccountId
-                      ? false
-                      : holdsEdition == null
-                        ? null
-                        : holdsEdition
-                }
-              />
-            </div>
-          ) : (
-            <div
-              className={`collection-cover${view.mediaUrl ? ' has-media' : ''}${
-                isSquareCover ? ' is-square' : ''
-              }${isTextCardCover ? ' is-card' : ''}${
-                immersive ? ' is-immersive' : ''
-              }${
-                hasReadables || canShowPass || listenOnPlayPage ? ' has-read' : ''
-              }`}
-              {...(view.cardBg && !view.mediaUrl
-                ? { style: { background: view.cardBg } }
-                : {})}
-            >
-              {view.mediaUrl ? <img src={view.mediaUrl} alt="" /> : null}
-              {listenOnPlayPage && holderPlayHref ? (
-                <Link
-                  className="scarce-clip-cover-expand collection-cover-read-expand"
-                  href={holderPlayHref}
-                  scroll={false}
-                  aria-label="Play"
-                >
-                  <ScaleUpIcon
-                    className="scarce-clip-cover-expand-icon"
-                    aria-hidden
-                  />
-                </Link>
-              ) : hasReadables ? (
-                <button
-                  type="button"
-                  className="scarce-clip-cover-expand collection-cover-read-expand"
-                  aria-label="Open reader"
-                  onClick={() => setWritingReadOpen(true)}
-                >
-                  <ScaleUpIcon
-                    className="scarce-clip-cover-expand-icon"
-                    aria-hidden
-                  />
-                </button>
-              ) : canShowPass ? (
-                <button
-                  type="button"
-                  className="scarce-clip-cover-expand collection-cover-read-expand"
-                  aria-label={passActionLabel}
-                  onClick={openOwnedPass}
-                >
-                  <ScaleUpIcon
-                    className="scarce-clip-cover-expand-icon"
-                    aria-hidden
-                  />
-                </button>
-              ) : null}
-            </div>
-          )}
+          <div
+            className={`collection-cover${view.mediaUrl ? ' has-media' : ''}${
+              isSquareCover ? ' is-square' : ''
+            }${isTextCardCover ? ' is-card' : ''}${
+              immersive ? ' is-immersive' : ''
+            }${hasReadables || canShowPass ? ' has-read' : ''}`}
+            {...(view.cardBg && !view.mediaUrl
+              ? { style: { background: view.cardBg } }
+              : {})}
+          >
+            {view.mediaUrl ? <img src={view.mediaUrl} alt="" /> : null}
+            {hasReadables ? (
+              <button
+                type="button"
+                className="scarce-clip-cover-expand collection-cover-read-expand"
+                aria-label="Open reader"
+                onClick={() => setWritingReadOpen(true)}
+              >
+                <ScaleUpIcon
+                  className="scarce-clip-cover-expand-icon"
+                  aria-hidden
+                />
+              </button>
+            ) : canShowPass ? (
+              <button
+                type="button"
+                className="scarce-clip-cover-expand collection-cover-read-expand"
+                aria-label={passActionLabel}
+                onClick={openOwnedPass}
+              >
+                <ScaleUpIcon
+                  className="scarce-clip-cover-expand-icon"
+                  aria-hidden
+                />
+              </button>
+            ) : null}
+          </div>
 
           <header className="collection-head">
             <div className="collection-title-row">
@@ -1094,9 +1041,14 @@ export function CollectionPagePanel({
                     </OsRowAction>
                   </div>
                 ) : null}
-                {hasPlayables && listenOnPlayPage && holderPlayHref && vaultHref ? (
+                {hasPlayables &&
+                listenOnPlayPage &&
+                holderPlayHref &&
+                vaultHref ? (
                   <div className="collection-reading-row">
-                    <OsRowAction href={vaultHref}>Open Collectibles</OsRowAction>
+                    <OsRowAction href={vaultHref}>
+                      Open Collectibles
+                    </OsRowAction>
                     <OsRowAction
                       className="collectibles-holding-action"
                       href={holderPlayHref}
@@ -1264,7 +1216,10 @@ export function CollectionPagePanel({
                 aria-valuemax={100}
                 aria-label="Editions minted"
               >
-                <Divider variant="detail" className="collection-progress-rule" />
+                <Divider
+                  variant="detail"
+                  className="collection-progress-rule"
+                />
                 <span
                   className="collection-progress-fill"
                   style={{ width: `${progressPct}%` }}
@@ -1311,7 +1266,9 @@ export function CollectionPagePanel({
         {hasPlayables ? (
           <section className="collection-tracks" aria-label="Tracks">
             <p className="collection-section-label">
-              {playables.length === 1 ? '1 track' : `${playables.length} tracks`}
+              {playables.length === 1
+                ? '1 track'
+                : `${playables.length} tracks`}
             </p>
             <ScarceClipPlayer
               key={`tracks-${playables[0]!.url}`}
