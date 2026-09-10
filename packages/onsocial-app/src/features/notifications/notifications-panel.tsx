@@ -184,7 +184,10 @@ export function NotificationsPanel() {
           hypothesisId: 'D',
           location: 'notifications-panel.tsx:151',
           message: 'Initial activity load succeeded',
-          data: { accountId: id, itemCount: result.notifications.length },
+          data: {
+            accountId: expected,
+            itemCount: result.notifications.length,
+          },
           timestamp: Date.now(),
         })
       );
