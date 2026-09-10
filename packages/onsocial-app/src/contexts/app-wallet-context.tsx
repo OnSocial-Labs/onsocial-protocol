@@ -205,20 +205,6 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const e2eAccount = readE2eWalletAccountId();
     if (e2eAccount) {
-      // #region agent log
-      console.info(
-        JSON.stringify({
-          hypothesisId: 'A',
-          location: 'app-wallet-context.tsx:207',
-          message: 'E2E account branch entered',
-          data: {
-            accountId: e2eAccount,
-            authSession: readE2eAuthSessionEnabled(),
-          },
-          timestamp: Date.now(),
-        })
-      );
-      // #endregion
       setAccountId(e2eAccount);
       setIsLoading(false);
       if (readE2eAuthSessionEnabled()) {

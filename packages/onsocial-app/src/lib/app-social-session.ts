@@ -275,17 +275,6 @@ export async function restoreAppSocialSession(
   accountId: string
 ): Promise<Session | null> {
   const stored = await peekStoredAppSocialSession(accountId);
-  // #region agent log
-  console.info(
-    JSON.stringify({
-      hypothesisId: 'B',
-      location: 'app-social-session.ts:277',
-      message: 'Restore inspected local session',
-      data: { accountId, stored: Boolean(stored) },
-      timestamp: Date.now(),
-    })
-  );
-  // #endregion
   if (!stored) {
     return null;
   }
@@ -301,22 +290,6 @@ export async function restoreAppSocialSession(
       accountId,
       stored.publicKey
     );
-    // #region agent log
-    console.info(
-      JSON.stringify({
-        hypothesisId: 'B',
-        location: 'app-social-session.ts:288',
-        message: 'Stored session and access-key lookup resolved',
-        data: {
-          accountId,
-          stored: true,
-          allowanceResolved: remainingAllowanceYocto !== null,
-          expectedContract: coreContractIdForNetwork(),
-        },
-        timestamp: Date.now(),
-      })
-    );
-    // #endregion
   } catch (error) {
     // Transient RPC failures must not wipe a valid local session.
     console.warn('OnSocial session key check failed', error);
