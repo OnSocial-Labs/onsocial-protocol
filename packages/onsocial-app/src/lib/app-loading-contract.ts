@@ -27,7 +27,7 @@ export function resolveAppLoadingPresentation(
 
   switch (phase) {
     case 'cold':
-      return 'skeleton';
+      return hasPaintedRows ? 'preserve' : 'skeleton';
     case 'refreshing':
       return hasPaintedRows ? 'preserve' : 'skeleton';
     case 'appending':
@@ -37,4 +37,12 @@ export function resolveAppLoadingPresentation(
     case 'error':
       return hasPaintedRows ? 'overlay' : 'state';
   }
+}
+
+/** Ignore a response when a newer load owns the page state. */
+export function isCurrentLoadingRequest(
+  currentRequestId: number,
+  responseRequestId: number
+): boolean {
+  return currentRequestId === responseRequestId;
 }

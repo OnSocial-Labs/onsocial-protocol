@@ -7,6 +7,7 @@ import {
   type AppLoadingFamily,
 } from '@/lib/app-loading-matrix';
 import {
+  isCurrentLoadingRequest,
   resolveAppLoadingPresentation,
   type AppLoadingPhase,
 } from '@/lib/app-loading-contract';
@@ -16,6 +17,7 @@ const appSrc = join(dirname(fileURLToPath(import.meta.url)), '..');
 describe('app loading contract', () => {
   it.each([
     ['cold', false, 'skeleton'],
+    ['cold', true, 'preserve'],
     ['refreshing', false, 'skeleton'],
     ['refreshing', true, 'preserve'],
     ['appending', false, 'append-skeleton'],
@@ -36,6 +38,11 @@ describe('app loading contract', () => {
     expect(resolveAppLoadingPresentation('error', { hasPaintedRows: true })).toBe(
       'overlay'
     );
+  });
+
+  it('rejects responses from older loading generations', () => {
+    expect(isCurrentLoadingRequest(3, 2)).toBe(false);
+    expect(isCurrentLoadingRequest(3, 3)).toBe(true);
   });
 });
 
