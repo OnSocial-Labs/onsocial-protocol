@@ -1,5 +1,8 @@
 'use client';
 
+import { useLayoutEffect, useRef } from 'react';
+import { writeDropsDebugLog } from '@/lib/drops-debug-log';
+
 interface MarketListSkeletonProps {
   rows?: number;
   variant?: 'market' | 'drops';
@@ -11,9 +14,46 @@ export function MarketListSkeleton({
   variant = 'market',
 }: MarketListSkeletonProps) {
   const isDrops = variant === 'drops';
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (!isDrops) return;
+    const list = listRef.current;
+    const screen = list?.closest<HTMLElement>('.os-app-screen');
+    const body = list?.closest<HTMLElement>('.os-app-screen-body');
+    const header = screen?.querySelector<HTMLElement>('.os-app-screen-header');
+    if (!list || !screen || !body || !header) return;
+    const listRect = list.getBoundingClientRect();
+    const screenRect = screen.getBoundingClientRect();
+    const bodyRect = body.getBoundingClientRect();
+    const rowHeights = Array.from(
+      list.querySelectorAll<HTMLElement>(':scope > .market-listing-row')
+    ).map((row) => row.getBoundingClientRect().height);
+    // #region agent log
+    writeDropsDebugLog('C', 'drops skeleton layout after commit', {
+      phase: 'layout-effect',
+      shell: Boolean(header.querySelector('[data-drops-loading]'))
+        ? 'route-loading'
+        : 'client-panel',
+      rows,
+      listTop: listRect.top,
+      listHeight: listRect.height,
+      rowHeights,
+      bodyTop: bodyRect.top,
+      bodyHeight: bodyRect.height,
+      screenHeight: screenRect.height,
+      headerHeight: header.offsetHeight,
+      chromeVar: screen.style.getPropertyValue('--os-screen-chrome-height'),
+      bodyPaddingTop: getComputedStyle(body).paddingTop,
+      fonts: document.fonts.status,
+      viewport: `${window.innerWidth}x${window.innerHeight}`,
+    });
+    // #endregion
+  }, [isDrops, rows]);
 
   return (
     <div
+      ref={listRef}
       className="market-listing-list market-listing-list--skeleton"
       aria-hidden
     >

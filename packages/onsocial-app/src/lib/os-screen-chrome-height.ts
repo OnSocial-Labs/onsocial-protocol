@@ -10,6 +10,8 @@
  * sniffing remains a fallback for older markup.
  */
 
+import { writeDropsDebugLog } from '@/lib/drops-debug-log';
+
 export const OS_CHROME_TUCKED_ATTR = 'data-os-chrome-tucked';
 
 export function isOsAppChromeVisuallyTucked(header: HTMLElement): boolean {
@@ -34,6 +36,9 @@ export function syncOsScreenChromeHeight(
   restingHeightRef: { current: number }
 ): void {
   if (!screen) return;
+  const dropsScreen = Boolean(
+    header.querySelector('[data-drops-loading], [data-drops-ready]')
+  );
 
   if (isOsAppChromeVisuallyTucked(header)) {
     if (restingHeightRef.current > 0) {
@@ -41,12 +46,35 @@ export function syncOsScreenChromeHeight(
         '--os-screen-chrome-height',
         `${restingHeightRef.current}px`
       );
+      if (dropsScreen) {
+        // #region agent log
+        writeDropsDebugLog('B', 'chrome height reasserted while tucked', {
+          phase: 'sync',
+          tucked: true,
+          measuredHeight: header.offsetHeight,
+          restingHeight: restingHeightRef.current,
+          chromeVar: screen.style.getPropertyValue('--os-screen-chrome-height'),
+        });
+        // #endregion
+      }
     }
     return;
   }
 
   const height = header.offsetHeight;
   if (height <= 0) return;
+  const previousRestingHeight = restingHeightRef.current;
   restingHeightRef.current = height;
   screen.style.setProperty('--os-screen-chrome-height', `${height}px`);
+  if (dropsScreen) {
+    // #region agent log
+    writeDropsDebugLog('B', 'chrome height measured', {
+      phase: 'sync',
+      tucked: false,
+      measuredHeight: height,
+      previousRestingHeight,
+      chromeVar: screen.style.getPropertyValue('--os-screen-chrome-height'),
+    });
+    // #endregion
+  }
 }
