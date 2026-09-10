@@ -1,4 +1,7 @@
-import { sessionId, generateEd25519Key } from '@onsocial/sdk/advanced';
+import {
+  generateEd25519Key,
+  sessionId,
+} from '../../../onsocial-sdk/dist/advanced/index.js';
 import type { Page } from '@playwright/test';
 import { e2ePaintAccountId } from './e2e-signers';
 import { E2E_WALLET_ACCOUNT_KEY } from '../../src/lib/e2e-wallet-account';
