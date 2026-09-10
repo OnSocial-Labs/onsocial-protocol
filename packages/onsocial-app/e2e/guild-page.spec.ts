@@ -88,7 +88,6 @@ test.describe('guild page', () => {
   test('preserves painted feed rows while a room refresh is pending', async ({
     page,
   }) => {
-    await setE2eGraphGuild(page, 'empty');
     await stubGuildPage(page, {
       feedRows: GUILD_E2E_FEED_ROWS,
       feedRefreshDelayMs: 2500,
@@ -104,7 +103,6 @@ test.describe('guild page', () => {
   });
 
   test('shows a feed refresh error over painted rows', async ({ page }) => {
-    await setE2eGraphGuild(page, 'empty');
     await stubGuildPage(page, {
       feedRows: GUILD_E2E_FEED_ROWS,
       feedErrorOnce: true,
