@@ -34,6 +34,7 @@ import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsLoadMore } from '@/lib/os-load-more';
 import { OsRowAction } from '@/lib/os-row-action';
+import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { partitionMarketListingsLiveFirst } from '@/features/market/market-listing-rank';
 import { MarketListingRow } from '@/features/market/market-listing-row';
@@ -127,9 +128,7 @@ import { filterDropsNotListed } from '@/lib/profile-store-available';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 import { APP_HOME_PATH, appPath } from '@/lib/app-routes';
 import { MARKET_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
-import {
-  portfolioCollectiblesPath,
-} from '@/lib/overlay-routes';
+import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastConfirming,
@@ -292,6 +291,7 @@ export function MarketPagePanel({
   } | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
+  const [listingsError, setListingsError] = useState<string | null>(null);
   const [catalogRefreshing, setCatalogRefreshing] = useState(false);
   const [sales, setSales] = useState<MarketSaleItem[] | null>(null);
   const [ownedState, setOwnedState] = useState<OwnedState>(EMPTY_OWNED);
@@ -550,6 +550,7 @@ export function MarketPagePanel({
     const gen = ++listingsFetchGenRef.current;
     setLoadingMore(false);
     setLoadMoreFailed(false);
+    setListingsError(null);
 
     const bypassCache = retryKey > 0;
     const cached = bypassCache
@@ -608,6 +609,7 @@ export function MarketPagePanel({
 
     const applyPage = (page: MarketListingsPage) => {
       if (cancelled || gen !== listingsFetchGenRef.current) return;
+      setListingsError(null);
       writeCatalogCache(catalogCacheKey, {
         items: page.items,
         nextOffset: page.nextOffset,
@@ -638,6 +640,7 @@ export function MarketPagePanel({
     const applyFail = () => {
       if (cancelled || gen !== listingsFetchGenRef.current) return;
       finishRefresh();
+      setListingsError('Couldn’t load listings.');
       if (cacheFresh && cached) return;
       setListingsState((current) => ({
         ...current,
@@ -1626,13 +1629,26 @@ export function MarketPagePanel({
       : salesRows.slice(0, RECENT_SALES_PREVIEW);
   const hiddenSalesCount = Math.max(0, salesRows.length - visibleSales.length);
 
-  const showListSkeleton =
-    creatorFilter
-      ? creatorShopShell === 'skeleton'
-      : listingsState.items.length === 0 &&
-        !listingsFailed &&
-        !searching &&
-        (status === 'loading' || !listingsReady || catalogRefreshing);
+  const shouldShowListSkeleton = creatorFilter
+    ? creatorShopShell === 'skeleton'
+    : listingsState.items.length === 0 &&
+      !listingsFailed &&
+      !searching &&
+      (status === 'loading' || !listingsReady || catalogRefreshing);
+  const hasPaintedRows = listings.length > 0;
+  const loadingPresentation = loadingMore
+    ? resolveAppLoadingPresentation('appending', { hasPaintedRows })
+    : shouldShowListSkeleton
+      ? resolveAppLoadingPresentation('cold', { hasPaintedRows })
+      : catalogRefreshing
+        ? resolveAppLoadingPresentation('refreshing', { hasPaintedRows })
+        : null;
+  const showListSkeleton = loadingPresentation === 'skeleton';
+  const showCatalogRefreshing = loadingPresentation === 'preserve';
+  const showAppendSkeleton = loadingPresentation === 'append-skeleton';
+  const errorPresentation = listingsError
+    ? resolveAppLoadingPresentation('error', { hasPaintedRows })
+    : null;
   const showOwnedSection =
     Boolean(viewerAccountId) &&
     owned.length > 0 &&
@@ -1759,15 +1775,18 @@ export function MarketPagePanel({
             shopMode ? marketCreatorSearchPlaceholder() : 'Search listings'
           }
           searchAriaLabel={
-            shopMode ? marketCreatorSearchPlaceholder() : 'Search Market listings'
+            shopMode
+              ? marketCreatorSearchPlaceholder()
+              : 'Search Market listings'
           }
         />
       }
       actions={<MarketHeadingActions />}
       toolbar={
-        shopMode && (creatorEmpty || showListSkeleton) ? undefined : (
+        shopMode && creatorEmpty ? undefined : (
           <MarketListingToolbar
-            ready
+            inert={showListSkeleton}
+            ready={!showListSkeleton}
             listingFilter={shopListingFilter}
             listingSort={listingSort}
             medium={mediumFilter}
@@ -1844,6 +1863,13 @@ export function MarketPagePanel({
             <MarketListSkeleton rows={shopMode ? 3 : 5} />
           </div>
         ) : null}
+        {listingsError && errorPresentation === 'overlay' ? (
+          <OsChromeListAlert
+            message={listingsError}
+            retryLabel="Retry"
+            onRetry={() => setRetryKey((value) => value + 1)}
+          />
+        ) : null}
         {listingsFailed ? (
           <ListLoadError
             message="Couldn’t load listings."
@@ -1912,9 +1938,7 @@ export function MarketPagePanel({
 
         {creatorEmpty ? (
           <div className="market-page-empty">
-            <p className="market-page-empty-copy">
-              {marketCreatorEmptyCopy()}
-            </p>
+            <p className="market-page-empty-copy">{marketCreatorEmptyCopy()}</p>
             <OsEmptyAction href={marketCreatorBackHref()}>
               {marketCreatorBrowseLabel()}
             </OsEmptyAction>
@@ -1941,10 +1965,10 @@ export function MarketPagePanel({
             shopMode ? undefined : `market-listing-tab-${shopListingFilter}`
           }
           className={`market-section${
-            catalogRefreshing ? ' drops-catalog--refreshing' : ''
+            showCatalogRefreshing ? ' drops-catalog--refreshing' : ''
           }`}
           hidden={discoveryFilteredListings.length === 0}
-          aria-busy={catalogRefreshing || undefined}
+          aria-busy={showCatalogRefreshing || undefined}
         >
           <h2
             id="market-new"
@@ -2016,9 +2040,9 @@ export function MarketPagePanel({
           (clientDiscoveryFilterActive && listingsState.hasMore)) &&
         listingsState.hasMore &&
         !loadMoreFailed &&
-        !catalogRefreshing ? (
+        !showCatalogRefreshing ? (
           <>
-            {loadingMore ? <MarketListSkeleton rows={2} /> : null}
+            {showAppendSkeleton ? <MarketListSkeleton rows={2} /> : null}
             <div
               ref={listingsSentinelRef}
               className="market-listing-sentinel"
