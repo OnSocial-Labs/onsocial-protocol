@@ -127,8 +127,8 @@ const DECISIONS: Decision[] = [
     accent: 'blue',
   },
   {
-    choice: 'Direct contract read',
-    use: 'Fresh readback after a write or current on-chain state.',
+    choice: 'Fresh source-of-truth read',
+    use: 'Fresh readback after a write or current account state.',
     wallet: 'No transaction',
     auth: 'Usually none',
     method: 'os.social.getOne, os.groups.getConfig',

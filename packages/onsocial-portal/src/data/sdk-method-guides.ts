@@ -209,7 +209,7 @@ const feed = await os.query.groups.feed({ groupId, limit: 20 });`,
       'os.storageAccount.balance/deposit/withdraw/tip/sponsor',
     ],
     readMethods: [
-      'os.permissions.has(owner, grantee, path, level) for current on-chain authority.',
+      'os.permissions.has(owner, grantee, path, level) for current access checks.',
       'os.permissions.get(owner, grantee, path) for the current permission level.',
       'os.query.permissions.history(accountId) for indexed grant/revoke timelines.',
       'os.query.permissions.grantsBy/grantsTo/keyGrantsBy for audit tables.',
