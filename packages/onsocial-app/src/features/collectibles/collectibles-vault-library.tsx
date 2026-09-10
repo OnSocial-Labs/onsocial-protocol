@@ -145,6 +145,7 @@ export function CollectiblesVaultLibrary({
   selectedCreator = null,
   creatorFaces,
   embedded = false,
+  refreshing = false,
 }: {
   groups: CollectiblesLibraryCreatorGroup[];
   ownedByToken: Map<string, OwnedScarceItem>;
@@ -155,6 +156,8 @@ export function CollectiblesVaultLibrary({
   creatorFaces?: ReadonlyMap<string, CollectionCreatorFace>;
   /** Drawer preview — keep the parent Collectibles heading. */
   embedded?: boolean;
+  /** Keep painted rows visible while the vault revalidates in the background. */
+  refreshing?: boolean;
 }) {
   const showJump =
     !embedded && showCreatorHeadings && groups.length >= COLLECTIBLES_LIBRARY_JUMP_MIN;
@@ -283,8 +286,11 @@ export function CollectiblesVaultLibrary({
 
   return (
     <section
-      className="market-section collectibles-library"
+      className={`market-section collectibles-library${
+        refreshing ? ' collectibles-library--refreshing' : ''
+      }`}
       aria-label="Collectibles"
+      aria-busy={refreshing || undefined}
     >
       {stack}
     </section>

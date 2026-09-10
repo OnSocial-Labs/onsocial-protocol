@@ -34,7 +34,10 @@ import {
 } from '@/lib/collectibles-held-kinds';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
-import { CollectiblesLibrarySkeleton } from '@/features/collectibles/collectibles-library-skeleton';
+import {
+  CollectiblesLibraryAppendSkeleton,
+  CollectiblesLibrarySkeleton,
+} from '@/features/collectibles/collectibles-library-skeleton';
 import { COLLECTIBLES_CONNECT_HINT } from '@/features/collectibles/collectibles-vault-voice';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
@@ -53,6 +56,7 @@ import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsLoadMore } from '@/lib/os-load-more';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
 import {
   listOfflineAlbums,
   offlineAlbumToHoldingPeek,
@@ -556,11 +560,26 @@ export function CollectiblesPagePanel({
   );
   const usingOfflineLibrary =
     isSelf && !sameOwnerHoldings && selfOfflineHoldings.length > 0;
+  const hasPaintedRows = vaultItems.length > 0;
+  const loadingPresentation =
+    loadingMore
+      ? resolveAppLoadingPresentation('appending', { hasPaintedRows })
+      : status === 'loading'
+        ? resolveAppLoadingPresentation(
+            hasPaintedRows ? 'refreshing' : 'cold',
+            { hasPaintedRows }
+          )
+        : null;
+  const errorPresentation =
+    status === 'error' || liveListError
+      ? resolveAppLoadingPresentation('error', { hasPaintedRows })
+      : null;
   const showVaultSkeleton =
-    (Boolean(ownerAccountId) &&
-      status === 'loading' &&
-      vaultItems.length === 0) ||
+    loadingPresentation === 'skeleton' ||
     (!pageAccountId && !selfOfflineReady && !viewerAccountId);
+  const showRefreshOverlay = errorPresentation === 'overlay';
+  const showStateError = errorPresentation === 'state';
+  const showLibrary = loadingPresentation !== 'skeleton';
 
   const filtered = useMemo(() => {
     let byKind = filterHoldingsByMedium(vaultItems, mediumFilter);
@@ -818,31 +837,25 @@ export function CollectiblesPagePanel({
         </div>
       ) : null}
 
-      {ownerAccountId && status === 'error' && !usingOfflineLibrary ? (
-        vaultItems.length > 0 ? (
-          <OsChromeListAlert
-            message={
-              isSelf
-                ? 'Couldn’t refresh your collectibles.'
-                : 'Couldn’t refresh collectibles.'
-            }
-            onRetry={() => setRetryKey((n) => n + 1)}
-          />
-        ) : (
-          <ListLoadError
-            message={
-              isSelf
-                ? 'Couldn’t load your collectibles.'
-                : 'Couldn’t load collectibles.'
-            }
-            onRetry={() => setRetryKey((n) => n + 1)}
-          />
-        )
+      {ownerAccountId && !usingOfflineLibrary && showStateError ? (
+        <ListLoadError
+          message={
+            isSelf
+              ? 'Couldn’t load your collectibles.'
+              : 'Couldn’t load collectibles.'
+          }
+          onRetry={() => setRetryKey((n) => n + 1)}
+        />
       ) : null}
 
-      {liveListError && vaultItems.length > 0 ? (
+      {ownerAccountId && !usingOfflineLibrary && showRefreshOverlay ? (
         <OsChromeListAlert
-          message={liveListError}
+          message={
+            liveListError ??
+            (isSelf
+              ? 'Couldn’t refresh your collectibles.'
+              : 'Couldn’t refresh collectibles.')
+          }
           onRetry={() => {
             if (liveListError === 'Couldn’t load more.') {
               loadMore();
@@ -904,13 +917,18 @@ export function CollectiblesPagePanel({
         <p className="market-page-status">Looking for matches…</p>
       ) : null}
 
-      {filtered.length > 0 && (status === 'ready' || usingOfflineLibrary) ? (
+      {showLibrary &&
+      filtered.length > 0 &&
+      (status === 'ready' ||
+        usingOfflineLibrary ||
+        loadingPresentation === 'preserve') ? (
         <CollectiblesVaultLibrary
           groups={displayGroups}
           ownedByToken={ownedByToken}
           showCreatorHeadings={showCreatorHeadings}
           selectedCreator={creatorFilter}
           creatorFaces={creatorFaces}
+          refreshing={loadingPresentation === 'preserve'}
           onSelectCreator={(creatorKey) =>
             replaceDiscoveryParams({
               creator: creatorFilter === creatorKey ? null : creatorKey,
@@ -931,6 +949,10 @@ export function CollectiblesPagePanel({
               : undefined
           }
         />
+      ) : null}
+
+      {loadingPresentation === 'append-skeleton' ? (
+        <CollectiblesLibraryAppendSkeleton />
       ) : null}
 
       {showLoadMore ? (
