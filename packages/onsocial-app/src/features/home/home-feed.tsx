@@ -312,6 +312,7 @@ export function HomePagePanel({
   const [ssrBootstrapDone, setSsrBootstrapDone] = useState(
     () => initialPage != null
   );
+  const sortInitializedRef = useRef(false);
   const [savedFeeds, setSavedFeeds] = useState<HomeSavedFeed[]>([]);
   const [savedFeedSheetOpen, setSavedFeedSheetOpen] = useState(false);
   const tagParam = searchParams.get(HOME_HASHTAG_QUERY_KEY);
@@ -389,7 +390,10 @@ export function HomePagePanel({
     if (walletLoading) return;
     setLens(readStoredHomeFeedLens(isConnected));
     const storedSort = readHomeFeedSort();
-    setSort(storedSort);
+    if (!sortInitializedRef.current) {
+      sortInitializedRef.current = true;
+      setSort(storedSort);
+    }
     // SSR seed is always hot — if the user prefers Recent, soft-refetch
     // without treating the hot seed as a finished bootstrap for that sort.
     if (
