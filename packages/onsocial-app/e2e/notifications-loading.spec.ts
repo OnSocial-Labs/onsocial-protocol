@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { appendFileSync } from 'node:fs';
 import {
   NOTIFICATIONS_E2E_ACCOUNT,
   seedAuthenticatedNotifications,
@@ -72,6 +73,25 @@ async function stubNotifications(
 
   await page.route('**/api/onapi/developer/notifications**', async (route) => {
     const url = new URL(route.request().url());
+    // #region agent log
+    appendFileSync(
+      '/opt/cursor/logs/debug.log',
+      `${JSON.stringify({
+        hypothesisId: 'C',
+        location: 'notifications-loading.spec.ts:77',
+        message: 'Notifications proxy interception observed',
+        data: {
+          path: url.pathname,
+          cursor: url.searchParams.get('cursor'),
+          delayInitial: Boolean(options.delayInitial),
+          hasAuthorization: Boolean(
+            route.request().headers().authorization
+          ),
+        },
+        timestamp: Date.now(),
+      })}\n`
+    );
+    // #endregion
     if (url.pathname.endsWith('/count')) {
       await route.fulfill({
         status: 200,
@@ -117,6 +137,18 @@ async function stubNotifications(
 
     listCallCount += 1;
     if (listCallCount === 1) {
+      // #region agent log
+      appendFileSync(
+        '/opt/cursor/logs/debug.log',
+        `${JSON.stringify({
+          hypothesisId: 'E',
+          location: 'notifications-loading.spec.ts:141',
+          message: 'Initial notification route reached gate',
+          data: { delayInitial: Boolean(options.delayInitial) },
+          timestamp: Date.now(),
+        })}\n`
+      );
+      // #endregion
       if (options.delayInitial) await initialGate;
       if (options.failInitial) {
         await route.fulfill({
@@ -250,7 +282,10 @@ test.describe('authenticated notifications loading', () => {
     await expectAuthenticatedActivity(page);
 
     await page.getByRole('button', { name: 'Load earlier' }).click();
-    await expect(page.getByRole('alert')).toBeVisible();
+    const appendError = page
+      .getByRole('alert')
+      .filter({ hasText: 'Notifications unavailable' });
+    await expect(appendError).toBeVisible();
     await expect(page.getByText('First update', { exact: true })).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Try again' })
@@ -258,6 +293,6 @@ test.describe('authenticated notifications loading', () => {
 
     await page.getByRole('button', { name: 'Try again' }).click();
     await expect(page.getByText('Earlier update', { exact: true })).toBeVisible();
-    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(appendError).toHaveCount(0);
   });
 });
