@@ -1,0 +1,28 @@
+---
+description: App loading and skeleton contract
+globs: packages/onsocial-app/**/*.{ts,tsx,css}
+alwaysApply: false
+---
+
+# App loading contract
+
+Keep the page inventory in `packages/onsocial-app/src/lib/app-loading-matrix.ts`
+up to date when adding or changing a page.
+
+## State behavior
+
+- Cold with no painted data → structural skeleton matching the final shell.
+- Refresh with painted data → keep rows; use a refresh treatment.
+- Load more → append skeleton rows; never replace painted rows.
+- Empty or cold error → in-flow state.
+- Error with painted rows → `OsChromeListAlert` / whisper overlay.
+- Intermittent chrome → fixed overlay or `null`; never reserve hidden flow.
+
+## Geometry
+
+- Skeleton and production rows share layout primitives, variants, and tokens.
+- Route `loading.tsx` must preserve the page shell when the shell is known.
+- `Suspense fallback={null}` is only valid when an already-mounted shell remains
+  visible and a blank first navigation is not possible.
+- New content requires updating the real layout, skeleton, matrix row, and
+  contract/visual coverage together.
