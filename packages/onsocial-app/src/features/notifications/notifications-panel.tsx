@@ -28,7 +28,9 @@ import {
   getCachedAppGatewayAuth,
 } from '@/lib/app-gateway-auth';
 import { APP_HOME_PATH, messagesPath } from '@/lib/app-routes';
+import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
 import {
+  NotificationActivityAppendSkeleton,
   NotificationActivityRows,
   NotificationActivitySkeleton,
 } from '@/features/notifications/notification-activity-rows';
@@ -55,8 +57,12 @@ export function NotificationsPanel() {
   const activityUnread = useNotificationsUnreadCount();
   const [items, setItems] = useState<Notification[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingInitial, setLoadingInitial] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorSource, setErrorSource] = useState<
+    'initial' | 'append' | 'action' | null
+  >(null);
   const [markingAll, setMarkingAll] = useState(false);
   const accountGenRef = useRef(0);
   const accountIdRef = useRef(accountId);
@@ -117,6 +123,8 @@ export function NotificationsPanel() {
     const gen = accountGenRef.current;
     const expected = accountId;
     setError(null);
+    setErrorSource(null);
+    setLoadingInitial(true);
     try {
       const { client, accountId: id } = await withAuth();
       if (accountGenRef.current !== gen || !isCurrentAccount(expected)) return;
@@ -128,21 +136,29 @@ export function NotificationsPanel() {
       if (accountGenRef.current !== gen || !isCurrentAccount(expected)) return;
       setItems(result.notifications);
       setNextCursor(result.nextCursor);
+      setError(null);
+      setErrorSource(null);
       requestNotificationsUnreadRefresh();
     } catch (cause) {
       if (accountGenRef.current !== gen || !isCurrentAccount(expected)) return;
       setError(
         cause instanceof Error ? cause.message : 'Could not load activity.'
       );
-      setItems([]);
-      setNextCursor(null);
+      setErrorSource('initial');
+      setItems((current) => current ?? []);
+    } finally {
+      if (accountGenRef.current === gen && isCurrentAccount(expected)) {
+        setLoadingInitial(false);
+      }
     }
   }, [accountId, isCurrentAccount, withAuth]);
 
   useEffect(() => {
     setItems(null);
     setNextCursor(null);
+    setLoadingInitial(false);
     setError(null);
+    setErrorSource(null);
     previousUnreadRef.current = null;
     if (!isConnected || !accountId || !hasSocialSession) return;
     void loadInitial();
@@ -166,6 +182,8 @@ export function NotificationsPanel() {
   const loadMore = useCallback(async () => {
     if (!accountId || !nextCursor || loadingMore) return;
     setLoadingMore(true);
+    setError(null);
+    setErrorSource(null);
     try {
       const gen = accountGenRef.current;
       const { client, accountId: id } = await withAuth();
@@ -179,10 +197,13 @@ export function NotificationsPanel() {
       if (accountGenRef.current !== gen || !isCurrentAccount(accountId)) return;
       setItems((prev) => [...(prev ?? []), ...result.notifications]);
       setNextCursor(result.nextCursor);
+      setError(null);
+      setErrorSource(null);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : 'Could not load more activity.'
       );
+      setErrorSource('append');
     } finally {
       setLoadingMore(false);
     }
@@ -192,6 +213,7 @@ export function NotificationsPanel() {
     if (!accountId || markingAll) return;
     setMarkingAll(true);
     setError(null);
+    setErrorSource(null);
     try {
       const { client, accountId: id } = await withAuth();
       await client.notifications.markRead(id, {
@@ -206,6 +228,7 @@ export function NotificationsPanel() {
       setError(
         cause instanceof Error ? cause.message : 'Could not mark activity read.'
       );
+      setErrorSource('action');
     } finally {
       setMarkingAll(false);
     }
@@ -262,6 +285,32 @@ export function NotificationsPanel() {
       </button>
     ) : null;
 
+  const hasPaintedRows = Boolean(items && items.length > 0);
+  const hasPaintedContent = items !== null;
+  const loadingPresentation = loadingMore
+    ? resolveAppLoadingPresentation('appending', { hasPaintedRows })
+    : loadingInitial
+      ? resolveAppLoadingPresentation('refreshing', {
+          hasPaintedRows: hasPaintedContent,
+        })
+      : null;
+  const errorPresentation = error
+    ? resolveAppLoadingPresentation('error', { hasPaintedRows })
+    : null;
+  const showActivitySkeleton =
+    items == null || loadingPresentation === 'skeleton';
+  const showActivityRefreshing = loadingPresentation === 'preserve';
+  const showAppendSkeleton = loadingPresentation === 'append-skeleton';
+  const retryError = () => {
+    if (errorSource === 'append') {
+      void loadMore();
+    } else if (errorSource === 'action') {
+      void markAllRead();
+    } else {
+      void loadInitial();
+    }
+  };
+
   let body: ReactNode;
   if (!isConnected || !accountId) {
     body = (
@@ -279,12 +328,10 @@ export function NotificationsPanel() {
     body = (
       <>
         {error ? (
-          items != null && items.length > 0 ? (
+          errorPresentation === 'overlay' ? (
             <OsChromeListAlert
               message={error}
-              onRetry={() =>
-                void (nextCursor ? loadMore() : loadInitial())
-              }
+              onRetry={retryError}
             />
           ) : (
             <OsAppChromePageStatus error role="alert">
@@ -293,7 +340,7 @@ export function NotificationsPanel() {
           )
         ) : null}
 
-        {items == null ? (
+        {items == null || showActivitySkeleton ? (
           <NotificationActivitySkeleton />
         ) : items.length === 0 ? (
           error ? null : (
@@ -308,7 +355,9 @@ export function NotificationsPanel() {
               collectionNames={collectionNames}
               postSnippets={postSnippets}
               onOpen={openItem}
+              refreshing={showActivityRefreshing}
             />
+            {showAppendSkeleton ? <NotificationActivityAppendSkeleton /> : null}
             {nextCursor ? (
               <div className="notifications-load-more">
                 <OsSheetAction

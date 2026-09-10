@@ -44,7 +44,10 @@ const SYSTEM_FAMILY_ICON: Record<NotificationSystemFamily, FillIcon> = {
 
 function NotificationActivitySkeletonRow() {
   return (
-    <div className="standing-row notifications-activity-row" aria-hidden>
+    <div
+      className="standing-row notifications-activity-row--skeleton"
+      aria-hidden
+    >
       <div className="standing-row-main">
         <div className="standing-row-avatar standing-row-shimmer" />
         <div className="standing-row-copy">
@@ -68,6 +71,28 @@ export function NotificationActivitySkeleton({ count = 6 }: { count?: number }) 
       className="standing-list notifications-activity-list standing-list-skeleton"
       aria-busy="true"
       aria-label="Loading activity"
+    >
+      {Array.from({ length: count }, (_, index) => (
+        <div key={index}>
+          {index > 0 ? <Divider variant="item" /> : null}
+          <NotificationActivitySkeletonRow />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Rows-only shimmer appended after painted activity during pagination. */
+export function NotificationActivityAppendSkeleton({
+  count = 2,
+}: {
+  count?: number;
+}) {
+  return (
+    <div
+      className="standing-list notifications-activity-list standing-list-skeleton notifications-activity-append-skeleton"
+      data-notifications-append-skeleton
+      aria-hidden
     >
       {Array.from({ length: count }, (_, index) => (
         <div key={index}>
@@ -126,6 +151,7 @@ export function NotificationActivityRows({
   collectionNames,
   postSnippets,
   onOpen,
+  refreshing = false,
 }: {
   items: Notification[];
   profiles: Record<string, PostAuthorProfile>;
@@ -133,11 +159,18 @@ export function NotificationActivityRows({
   collectionNames?: Record<string, string>;
   postSnippets?: Record<string, string>;
   onOpen: (item: Notification) => void;
+  refreshing?: boolean;
 }) {
   const rows = buildNotificationDayRows(items);
 
   return (
-    <div className="standing-list notifications-activity-list" role="list">
+    <div
+      className={`standing-list notifications-activity-list${
+        refreshing ? ' notifications-activity-list--refreshing' : ''
+      }`}
+      role="list"
+      aria-busy={refreshing || undefined}
+    >
       {rows.map((row, index) => {
         if (row.kind === 'day') {
           return (

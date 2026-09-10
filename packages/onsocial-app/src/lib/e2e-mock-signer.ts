@@ -3,6 +3,7 @@ import { e2eWalletPaintAllowed } from '@/lib/e2e-wallet-account';
 
 /** Keep in sync with Playwright `seedE2eMockSigner`. */
 export const E2E_MOCK_SIGNER_KEY = 'onsocial.e2e.mockSigner';
+export const E2E_AUTH_SESSION_KEY = 'onsocial.e2e.authSession';
 
 /** Thrown after recording so nothing hits the chain. */
 export const E2E_MOCK_SIGNER_ERROR = 'E2E mock signer — not broadcast';
@@ -24,6 +25,16 @@ export function readE2eMockSignerEnabled(): boolean {
   if (typeof window === 'undefined') return false;
   try {
     return window.localStorage.getItem(E2E_MOCK_SIGNER_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function readE2eAuthSessionEnabled(): boolean {
+  if (!e2eWalletPaintAllowed()) return false;
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(E2E_AUTH_SESSION_KEY) === '1';
   } catch {
     return false;
   }
