@@ -203,6 +203,7 @@ export function LiveGuildPanel({
     optimisticJoinPending,
     setOptimisticJoinPending,
     refresh,
+    refreshFeed,
     loadMoreFeed,
     scheduleReconcile,
   } = useGuildPageData({
