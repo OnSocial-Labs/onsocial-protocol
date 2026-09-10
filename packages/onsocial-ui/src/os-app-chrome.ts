@@ -27,6 +27,8 @@ export {
 export {
   OsAppChromePage,
   OsAppChromePageStatus,
+} from './os-app-chrome-page.js';
+export {
   osAppChromePageClassName,
   osAppChromePageStatusClassName,
-} from './os-app-chrome-page.js';
+} from './os-app-chrome-page-class-names.js';

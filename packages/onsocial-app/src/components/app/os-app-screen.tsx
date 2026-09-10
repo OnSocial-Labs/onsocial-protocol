@@ -158,8 +158,7 @@ export function OsAppScreen({
   const [glassElevated, setGlassElevated] = useState(false);
   const hasFooter = footer != null;
   const viewerMood = useViewerDockMood();
-  const resolvedMoodId =
-    moodId !== undefined ? moodId : viewerMood.moodId;
+  const resolvedMoodId = moodId !== undefined ? moodId : viewerMood.moodId;
   const resolvedMoodStyle =
     moodStyle !== undefined ? moodStyle : viewerMood.style;
   const hasMood = Boolean(resolvedMoodId);

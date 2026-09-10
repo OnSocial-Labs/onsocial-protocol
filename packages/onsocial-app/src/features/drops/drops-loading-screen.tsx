@@ -3,6 +3,10 @@ import {
   DropsLoadingActions,
   DropsSearchHeading,
 } from '@/features/drops/drops-heading';
+import {
+  DROPS_CATALOG_SKELETON_ROWS,
+  dropsSortLabel,
+} from '@/features/drops/drops-catalog-layout';
 import { DropsListingToolbar } from '@/features/drops/drops-listing-toolbar';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { DROPS_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
@@ -49,9 +53,15 @@ export function DropsLoadingScreen({
           aria-live="polite"
         >
           <p className="sr-only">Loading drops…</p>
-          <div className="market-section">
-            <MarketListSkeleton rows={6} />
-          </div>
+          <section className="market-section" aria-labelledby="drops-catalog">
+            <h2 id="drops-catalog" className="market-section-title">
+              {dropsSortLabel(toolbar.sort)}
+            </h2>
+            <MarketListSkeleton
+              rows={DROPS_CATALOG_SKELETON_ROWS}
+              variant="drops"
+            />
+          </section>
         </div>
       </div>
     </OsAppScreen>
