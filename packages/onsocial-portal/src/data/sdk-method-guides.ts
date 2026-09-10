@@ -39,7 +39,7 @@ export const SDK_METHOD_GUIDES: SdkMethodGuide[] = [
       'Auth: completeAppHandoff for a listed community site, or wallet + os.auth.setToken for a first-party app.',
       'Write through os.profiles, os.posts, os.reactions, os.saves, os.standings, os.endorsements, or os.attestations.',
       'Read the exact path back with os.social.getOne or os.social.get immediately after the write.',
-      'Use os.query.feed, os.query.threads, or other indexed helpers for product lists once the indexer catches up.',
+      'Use os.query.feed, os.query.threads, or other indexed helpers for product lists.',
     ],
     primaryMethods: [
       'os.profiles.update(profile)',
@@ -133,8 +133,8 @@ const indexedThread = await os.query.threads.tree(accountId, postId, {
     readMethods: [
       'os.groups.getConfig(groupId) for current group settings.',
       'os.groups.isMember(groupId, accountId) before showing member-only actions.',
-      'os.query.groups.feed(groupId, { limit }) for indexed group timelines.',
-      'os.query.groups.post(author, groupId, postId) for indexed group post rows.',
+      'os.query.groups.feed({ groupId, limit }) for indexed group timelines.',
+      'os.query.groups.post({ author, groupId, postId }) for indexed group post rows.',
     ],
     transactionModel: [
       'Group lifecycle and member management writes are wallet or session signed contract actions.',
@@ -168,7 +168,7 @@ await os.posts.groupPost(
 
 const config = await os.groups.getConfig(groupId);
 const isMember = await os.groups.isMember(groupId, accountId);
-const feed = await os.query.groups.feed(groupId, { limit: 20 });`,
+const feed = await os.query.groups.feed({ groupId, limit: 20 });`,
       },
     ],
     notes: [
@@ -218,7 +218,7 @@ const feed = await os.query.groups.feed(groupId, { limit: 20 });`,
     transactionModel: [
       'Storage deposits attach value, so browser flows should use wallet broadcast.',
       'Direct permission grants are admin-style writes; use wait: true or confirmation in critical flows when available.',
-      'Permission query helpers are indexed history and can lag; use os.permissions.has/get for decisions.',
+      'Permission query helpers show indexed history; use os.permissions.has/get for current access decisions.',
     ],
     examples: [
       {
@@ -277,8 +277,8 @@ const history = await os.query.permissions.history(accountId, { limit: 20 });`,
       'os.query.feed.recent(opts)',
       'os.query.threads.replies(author, postId, opts)',
       'os.query.threads.tree(author, postId, opts)',
-      'os.query.groups.feed(groupId, opts)',
-      'os.query.groups.post(author, groupId, postId)',
+      'os.query.groups.feed({ groupId, ...opts })',
+      'os.query.groups.post({ author, groupId, postId })',
       'os.query.profiles.*',
       'os.query.reactions.counts(author, path)',
       'os.query.permissions.* and os.query.governance.*',

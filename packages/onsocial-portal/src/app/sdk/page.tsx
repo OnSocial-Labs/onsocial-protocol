@@ -471,7 +471,7 @@ const METHOD_FAMILIES: MethodFamily[] = [
 ];
 
 const PRODUCTION_CHECKS = [
-  'Use direct reads after writes, then show indexed reads as eventually consistent.',
+  'Use direct reads to confirm writes, then use indexed reads for feeds and lists.',
   'Use deterministic IDs for retryable writes such as posts, replies, and group setup.',
   'Batch related social paths when one user intent should be one transaction.',
   'Check storage balance before write-heavy flows and surface deposit actions clearly.',
@@ -945,7 +945,7 @@ await os.social.set({
           badge="Packages"
           badgeAccent="neutral"
           title="Installable surfaces"
-          description="@onsocial/sdk is the unified client. It is not on npm yet — this repo uses workspace:*. The rewards package is on npm for partner-only integrations."
+          description="@onsocial/sdk is the unified client. This monorepo links it with workspace:*. The rewards package is available on npm for partner integrations."
         />
         <div className="grid gap-4 md:grid-cols-2">
           {SDK_PACKAGES.map((pkg) => (
