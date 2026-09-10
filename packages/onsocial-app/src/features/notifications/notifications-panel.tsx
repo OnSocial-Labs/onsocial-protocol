@@ -67,6 +67,11 @@ export function NotificationsPanel() {
   const accountGenRef = useRef(0);
   const accountIdRef = useRef(accountId);
   const previousUnreadRef = useRef<number | null>(null);
+  const initialLoadRef = useRef<{
+    accountId: string;
+    generation: number;
+    token: object;
+  } | null>(null);
 
   useEffect(() => {
     accountIdRef.current = accountId;
@@ -122,6 +127,20 @@ export function NotificationsPanel() {
     if (!accountId) return;
     const gen = accountGenRef.current;
     const expected = accountId;
+    const activeLoad = initialLoadRef.current;
+    if (
+      activeLoad &&
+      activeLoad.accountId === expected &&
+      activeLoad.generation === gen
+    ) {
+      return;
+    }
+    const requestToken = {};
+    initialLoadRef.current = {
+      accountId: expected,
+      generation: gen,
+      token: requestToken,
+    };
     setError(null);
     setErrorSource(null);
     setLoadingInitial(true);
@@ -138,15 +157,43 @@ export function NotificationsPanel() {
       setNextCursor(result.nextCursor);
       setError(null);
       setErrorSource(null);
+      // #region agent log
+      console.info(
+        JSON.stringify({
+          hypothesisId: 'D',
+          location: 'notifications-panel.tsx:151',
+          message: 'Initial activity load succeeded',
+          data: { accountId: id, itemCount: result.notifications.length },
+          timestamp: Date.now(),
+        })
+      );
+      // #endregion
       requestNotificationsUnreadRefresh();
     } catch (cause) {
       if (accountGenRef.current !== gen || !isCurrentAccount(expected)) return;
+      // #region agent log
+      console.info(
+        JSON.stringify({
+          hypothesisId: 'D',
+          location: 'notifications-panel.tsx:166',
+          message: 'Initial activity load failed',
+          data: {
+            accountId: expected,
+            error: cause instanceof Error ? cause.message : String(cause),
+          },
+          timestamp: Date.now(),
+        })
+      );
+      // #endregion
       setError(
         cause instanceof Error ? cause.message : 'Could not load activity.'
       );
       setErrorSource('initial');
       setItems((current) => current ?? []);
     } finally {
+      if (initialLoadRef.current?.token === requestToken) {
+        initialLoadRef.current = null;
+      }
       if (accountGenRef.current === gen && isCurrentAccount(expected)) {
         setLoadingInitial(false);
       }
