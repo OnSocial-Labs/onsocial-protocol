@@ -17,6 +17,7 @@ export default defineConfig({
   use: {
     baseURL,
     trace: 'on-first-retry',
+    video: process.env.E2E_VIDEO === '1' ? 'on' : undefined,
   },
   projects: [
     {
