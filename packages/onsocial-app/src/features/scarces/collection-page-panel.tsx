@@ -1094,7 +1094,17 @@ export function CollectionPagePanel({
                     </OsRowAction>
                   </div>
                 ) : null}
-                {vaultHref ? (
+                {hasPlayables && listenOnPlayPage && holderPlayHref && vaultHref ? (
+                  <div className="collection-reading-row">
+                    <OsRowAction
+                      className="collectibles-holding-action"
+                      href={holderPlayHref}
+                    >
+                      Open player
+                    </OsRowAction>
+                    <OsRowAction href={vaultHref}>Open Collectibles</OsRowAction>
+                  </div>
+                ) : vaultHref ? (
                   <OsRowAction href={vaultHref}>Open Collectibles</OsRowAction>
                 ) : null}
               </div>
@@ -1300,21 +1310,9 @@ export function CollectionPagePanel({
 
         {hasPlayables ? (
           <section className="collection-tracks" aria-label="Tracks">
-            <div className="collection-reading-row">
-              <p className="collection-section-label">
-                {playables.length === 1
-                  ? '1 track'
-                  : `${playables.length} tracks`}
-              </p>
-              {listenOnPlayPage && holderPlayHref ? (
-                <OsRowAction
-                  className="collectibles-holding-action"
-                  href={holderPlayHref}
-                >
-                  Open player
-                </OsRowAction>
-              ) : null}
-            </div>
+            <p className="collection-section-label">
+              {playables.length === 1 ? '1 track' : `${playables.length} tracks`}
+            </p>
             <ScarceClipPlayer
               key={`tracks-${playables[0]!.url}`}
               clip={playables[0]!}
