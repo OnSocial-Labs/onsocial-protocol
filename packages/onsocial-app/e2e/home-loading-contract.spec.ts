@@ -91,7 +91,9 @@ test.describe('Home loading contract', () => {
 
     const recent = page.getByRole('button', { name: 'Recent' });
     await expect(recent).toBeVisible();
+    await expect(recent).toHaveAttribute('aria-pressed', 'false');
     await recent.click();
+    await expect(recent).toHaveAttribute('aria-pressed', 'true');
 
     const feed = page.locator('.home-feed-list');
     await expect(feed).toContainText('Recent response');
