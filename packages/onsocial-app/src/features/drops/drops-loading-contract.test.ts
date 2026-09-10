@@ -24,6 +24,7 @@ describe('drops loading contract', () => {
     );
     expect(source).toContain('showAppendSkeleton');
     expect(source).toContain('variant="drops"');
+    expect(source).toContain('drops-discovery-row--skeleton');
     expect(source).toContain("failed && errorPresentation === 'overlay'");
   });
 

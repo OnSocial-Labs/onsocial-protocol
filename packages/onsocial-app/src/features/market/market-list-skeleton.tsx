@@ -21,7 +21,7 @@ export function MarketListSkeleton({
         <div
           key={index}
           className={`market-listing-row market-listing-row--skeleton${
-            isDrops ? ' drops-discovery-row' : ''
+            isDrops ? ' drops-discovery-row--skeleton' : ''
           }`}
         >
           <span
