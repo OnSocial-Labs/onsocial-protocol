@@ -126,7 +126,7 @@ import { accountIdsEqual } from '@/lib/account-match';
 import { collectionToProfileStoreDrop } from '@/lib/profile-store-map';
 import { filterDropsNotListed } from '@/lib/profile-store-available';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
-import { APP_HOME_PATH, appPath } from '@/lib/app-routes';
+import { APP_DROPS_PATH, APP_HOME_PATH, appPath } from '@/lib/app-routes';
 import { MARKET_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
 import { SHEET_Z } from '@/lib/sheet-z';
@@ -265,7 +265,11 @@ export function MarketPagePanel({
   seedQuery?: MarketPageQuery;
   seedPromise?: Promise<MarketPageData | null> | null;
 } = {}) {
-  const { accountId: viewerAccountId, getSigningWallet } = useAppWallet();
+  const {
+    accountId: viewerAccountId,
+    getSigningWallet,
+    isLoading: walletLoading,
+  } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const router = useRouter();
   const seedKey = marketSeedParamsKey(seedQuery);
@@ -1590,12 +1594,16 @@ export function MarketPagePanel({
     listingsReady &&
     !listingsFailed &&
     !searching &&
+    !walletLoading &&
+    !catalogRefreshing &&
+    !loadingMore &&
     !creatorFilter &&
     !appFilter &&
     listingFilter === 'all' &&
     mediumFilter === 'all' &&
     browseListings.length === 0 &&
-    owned.length === 0;
+    owned.length === 0 &&
+    ownedState.loaded;
   const searchSettled =
     searching &&
     listingQuery.trim() === debouncedQuery &&
@@ -1634,7 +1642,14 @@ export function MarketPagePanel({
     : listingsState.items.length === 0 &&
       !listingsFailed &&
       !searching &&
-      (status === 'loading' || !listingsReady || catalogRefreshing);
+      (status === 'loading' ||
+        !listingsReady ||
+        catalogRefreshing ||
+        (!creatorFilter &&
+          !appFilter &&
+          browseListings.length === 0 &&
+          (walletLoading ||
+            (Boolean(viewerAccountId) && !ownedState.loaded))));
   const hasPaintedRows = listings.length > 0;
   const loadingPresentation = loadingMore
     ? resolveAppLoadingPresentation('appending', { hasPaintedRows })
@@ -1884,7 +1899,7 @@ export function MarketPagePanel({
               Nothing listed yet. List a scarce from a post, or sell one you own
               under Yours.
             </p>
-            <OsEmptyAction href={APP_HOME_PATH}>Back to Home</OsEmptyAction>
+            <OsEmptyAction href={APP_DROPS_PATH}>Browse Drops</OsEmptyAction>
           </div>
         ) : null}
 

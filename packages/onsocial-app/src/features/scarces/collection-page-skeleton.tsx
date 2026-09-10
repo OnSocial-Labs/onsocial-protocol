@@ -1,8 +1,9 @@
 import { COLLECTION_PAGE_SKELETON_CLASS } from '@/lib/os-chrome-page';
 
 /**
- * Drop page cold-load shell — immersive cover + meta + compact body bands
- * reserve final geometry so the screen does not jump when the drop resolves.
+ * Drop page cold-load shell. The route does not know the collection medium
+ * yet, so this deliberately reserves only geometry shared by every drop.
+ * Medium-specific sections are added after the collection view resolves.
  */
 export function CollectionPageSkeleton() {
   return (
@@ -14,12 +15,8 @@ export function CollectionPageSkeleton() {
     >
       <p className="sr-only">Loading drop…</p>
       <section className="collection-hero" aria-hidden>
-        <div className="collection-music-hero is-immersive">
-          <div className="scarce-clip-player-shell">
-            <div className="scarce-clip-player">
-              <div className="standing-row-shimmer scarce-clip-player-cover collection-skeleton-cover" />
-            </div>
-          </div>
+        <div className="collection-cover has-media">
+          <div className="standing-row-shimmer collection-skeleton-cover" />
         </div>
         <header className="collection-head">
           <div className="standing-row-shimmer collection-skeleton-title" />
@@ -30,26 +27,7 @@ export function CollectionPageSkeleton() {
               <span className="standing-row-shimmer collection-skeleton-line-sm" />
             </div>
           </div>
-          <div className="collection-use-actions" aria-hidden>
-            <div className="collection-reading-row">
-              <span className="standing-row-shimmer collection-skeleton-section-label" />
-              <span className="standing-row-shimmer collection-skeleton-use-pill" />
-            </div>
-          </div>
         </header>
-      </section>
-
-      <section className="collection-tracks" aria-hidden>
-        <span className="standing-row-shimmer collection-skeleton-section-label" />
-        <div className="collection-skeleton-track-list">
-          {Array.from({ length: 3 }, (_, index) => (
-            <div key={index} className="collection-skeleton-track">
-              <span className="standing-row-shimmer collection-skeleton-track-play" />
-              <span className="standing-row-shimmer collection-skeleton-track-title" />
-              <span className="standing-row-shimmer collection-skeleton-track-love" />
-            </div>
-          ))}
-        </div>
       </section>
 
       <section className="collection-activity" aria-hidden>

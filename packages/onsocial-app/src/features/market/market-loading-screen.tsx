@@ -54,7 +54,7 @@ export function MarketLoadingScreen({
       >
         <p className="sr-only">Loading listings…</p>
         <div className="market-section">
-          <MarketListSkeleton rows={6} />
+          <MarketListSkeleton rows={5} />
         </div>
       </div>
     </OsAppScreen>

@@ -30,6 +30,18 @@ describe('market loading contract', () => {
     expect(source).toContain('failed: current.items.length === 0');
   });
 
+  it('does not paint empty browse while wallet or catalog state is settling', () => {
+    const source = readFileSync(
+      join(marketSrc, 'market-page-panel.tsx'),
+      'utf8'
+    );
+
+    expect(source).toContain('!walletLoading');
+    expect(source).toContain('!catalogRefreshing');
+    expect(source).toContain('ownedState.loaded');
+    expect(source).not.toContain('showOwnedCheckSkeleton');
+  });
+
   it('keeps creator-shop listing-type chips out of the route loading shell', () => {
     const source = readFileSync(
       join(marketSrc, 'market-loading-screen.tsx'),

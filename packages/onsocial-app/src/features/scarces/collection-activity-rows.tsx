@@ -74,7 +74,7 @@ export function CollectionActivityRows({
                   <span className="standing-row-time">{row.time}</span>
                 ) : null}
                 {row.priceNear ? (
-                  <span className="portfolio-support-collect-info-amount">
+                  <span className="collection-activity-price">
                     {row.priceNear} NEAR
                   </span>
                 ) : null}

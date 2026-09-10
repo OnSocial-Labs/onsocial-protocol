@@ -756,6 +756,11 @@ export function CollectionPagePanel({
     : null;
   const listenOnPlayPage =
     Boolean(holderPlayHref) && (isOwner || holdsEdition === true);
+  const holderActionsPending =
+    Boolean(viewerAccountId) &&
+    !isOwner &&
+    holdsEdition == null &&
+    hasPlayables;
   const sourceHref = postHrefFromSourcePath(view.sourcePostPath);
   const isAudio =
     hasPlayables || view.kind === 'audio' || view.kind === 'music';
@@ -1059,6 +1064,20 @@ export function CollectionPagePanel({
                 ) : vaultHref ? (
                   <OsRowAction href={vaultHref}>Open Collectibles</OsRowAction>
                 ) : null}
+              </div>
+            ) : holderActionsPending ? (
+              <div
+                className="collection-use-actions is-pending"
+                aria-busy="true"
+                aria-label="Checking your collection"
+              >
+                <div
+                  className="collection-reading-row collection-use-actions-pending-row"
+                  aria-hidden
+                >
+                  <span className="standing-row-shimmer collection-skeleton-use-pill" />
+                  <span className="standing-row-shimmer collection-skeleton-use-pill" />
+                </div>
               </div>
             ) : null}
             <div className="collection-product-row">
