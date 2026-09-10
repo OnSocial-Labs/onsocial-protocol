@@ -1,4 +1,3 @@
-import { appendFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import {
   MESSAGES_E2E_PEER,
@@ -44,24 +43,6 @@ const earlierMessage = {
   id: 'message-earlier',
   createdAt: '2026-09-10T08:00:00.000Z',
 };
-
-function writeMessagesDebugLog(
-  hypothesisId: string,
-  location: string,
-  message: string,
-  data: Record<string, unknown>
-): void {
-  appendFileSync(
-    '/opt/cursor/logs/debug.log',
-    `${JSON.stringify({
-      hypothesisId,
-      location,
-      message,
-      data,
-      timestamp: Date.now(),
-    })}\n`
-  );
-}
 
 type StubOptions = {
   delayThreads?: boolean;
@@ -173,24 +154,6 @@ async function stubMessages(
       ) {
         await threadGate;
       }
-      // #region agent log
-      writeMessagesDebugLog(
-        'A,B',
-        'e2e/messages-loading.spec.ts:174',
-        'thread list stub response',
-        {
-          call: threadCallCount,
-          threadCount: 1,
-          peerAccountIdPresent: Boolean(
-            (threadCallCount > 1 ? refreshedThread : firstThread).peerAccountId
-          ),
-          threadShapeValid: Boolean(
-            (threadCallCount > 1 ? refreshedThread : firstThread).threadId &&
-              (threadCallCount > 1 ? refreshedThread : firstThread).lastMessageAt
-          ),
-        }
-      );
-      // #endregion
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -245,35 +208,6 @@ async function stubMessages(
 }
 
 async function expectInboxPainted(page: Page): Promise<void> {
-  const bodyText = await page.locator('body').innerText();
-  const inboxRows = await page.locator('.messages-inbox-row').allTextContents();
-  const exactPeerTextCount = await page
-    .getByText(MESSAGES_E2E_PEER, { exact: true })
-    .count();
-  const profileNameTextCount = await page.getByText('Bob', { exact: true }).count();
-  // #region agent log
-  writeMessagesDebugLog(
-    'A,B,C',
-    'e2e/messages-loading.spec.ts:242',
-    'inbox paint assertion DOM state',
-    {
-      exactPeerTextCount,
-      profileNameTextCount,
-      bodyHasPeerAccount: bodyText.includes(MESSAGES_E2E_PEER),
-      inboxRowCount: inboxRows.length,
-      inboxRowHasPeerAccount: inboxRows.some((text) =>
-        text.includes(MESSAGES_E2E_PEER)
-      ),
-      skeletonCount: await page
-        .locator('.messages-inbox-row--skeleton')
-        .count(),
-      refreshingListCount: await page
-        .locator('.messages-inbox-list--refreshing')
-        .count(),
-      errorCount: await page.getByRole('alert').count(),
-    }
-  );
-  // #endregion
   await expect(page.getByText('Bob', { exact: true })).toBeVisible({
     timeout: 30_000,
   });
