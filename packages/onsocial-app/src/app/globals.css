@@ -24820,8 +24820,9 @@ a.os-surface-row {
 
   /*
    * Search tuck collapses the nav row but keeps the resting body inset frozen.
-   * Pull collectibles content and sticky creator headings up by exactly that
-   * collapsed band so account names stay under the kind rail.
+   * Pull collectibles content up by exactly that collapsed band so rows slide
+   * under the kind rail; docked creator headings drop their own dock offset
+   * by the same band (below) to stay flush under the rail.
    */
   .os-app-screen:has(.os-app-screen-header.is-search-tucked)
     .collectibles-page.os-app-chrome-page {
@@ -24873,6 +24874,13 @@ a.os-surface-row {
   h2.collectibles-library-heading,
   button.collectibles-library-heading {
     position: sticky;
+    /*
+     * Stick flush under the glass chrome. The body scroller's padding-top
+     * already reserves the chrome band, and sticky offsets resolve against
+     * the scroller's content box — so `top: 0` docks right under the rail.
+     * Never add --os-screen-chrome-height here: that double-counts the
+     * padding and pushes the strip one chrome-band too low (over content).
+     */
     top: 0;
     z-index: 2;
     font-size: 0.92rem;
@@ -24883,6 +24891,57 @@ a.os-surface-row {
     transition: top var(--os-motion-chrome, 220ms) ease;
   }
 
+  /*
+   * Chrome continuity — the docked account strip joins the header frost
+   * instead of sliding behind it as a solid slab. Bleed the band to the
+   * column edges (page pad-x) so the glass runs unbroken from the rail
+   * through the strip; content keeps the shared inset via padding.
+   */
+  .os-app-screen[data-glass-chrome='true']
+    h2.collectibles-library-heading,
+  .os-app-screen[data-glass-chrome='true']
+    button.collectibles-library-heading {
+    box-sizing: border-box;
+    width: calc(100% + (2 * var(--os-screen-body-pad-x, 1rem)));
+    max-width: none;
+    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 1rem));
+    padding-inline: var(--os-screen-body-pad-x, 1rem);
+    background: transparent;
+  }
+
+  /*
+   * Elevated — same frost recipe as the header ::before so rows scroll
+   * under one continuous glass sheet (snaps with scroll like the header,
+   * no fade that would outrun the blur).
+   */
+  .os-app-screen[data-glass-chrome='true']:has(
+      .os-app-screen-header.is-elevated
+    )
+    h2.collectibles-library-heading,
+  .os-app-screen[data-glass-chrome='true']:has(
+      .os-app-screen-header.is-elevated
+    )
+    button.collectibles-library-heading {
+    background: rgb(var(--bg-rgb) / 0.72);
+    backdrop-filter: blur(20px) saturate(1.3);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .os-app-screen[data-glass-chrome='true']:has(
+        .os-app-screen-header.is-elevated
+      )
+      h2.collectibles-library-heading,
+    .os-app-screen[data-glass-chrome='true']:has(
+        .os-app-screen-header.is-elevated
+      )
+      button.collectibles-library-heading {
+      background: rgb(var(--bg-rgb) / 0.94);
+      backdrop-filter: none;
+    }
+  }
+
+  /* Tucked chrome is rail-only — pull the stick point up by the collapsed
+     search band so the strip stays flush under the rail. */
   .os-app-screen:has(.os-app-screen-header.is-search-tucked)
     h2.collectibles-library-heading,
   .os-app-screen:has(.os-app-screen-header.is-search-tucked)
