@@ -23,6 +23,7 @@ import { invalidateAppSocialSessionCache } from '@/lib/app-social-session-cache'
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
   createE2eMockWallet,
+  readE2eAuthSessionEnabled,
   readE2eMockSignerEnabled,
 } from '@/lib/e2e-mock-signer';
 import { readE2eWalletAccountId } from '@/lib/e2e-wallet-account';
@@ -206,6 +207,11 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     if (e2eAccount) {
       setAccountId(e2eAccount);
       setIsLoading(false);
+      if (readE2eAuthSessionEnabled()) {
+        void restoreAppSocialSession(e2eAccount)
+          .then((session) => setHasSocialSession(Boolean(session)))
+          .catch(() => setHasSocialSession(false));
+      }
       return;
     }
 
@@ -401,7 +407,10 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
   const getSigningWallet = useCallback(async (): Promise<SigningWallet> => {
     const e2eAccount = readE2eWalletAccountId();
-    if (e2eAccount && readE2eMockSignerEnabled()) {
+    if (
+      e2eAccount &&
+      (readE2eMockSignerEnabled() || readE2eAuthSessionEnabled())
+    ) {
       return {
         wallet: createE2eMockWallet(e2eAccount),
         accountId: e2eAccount,

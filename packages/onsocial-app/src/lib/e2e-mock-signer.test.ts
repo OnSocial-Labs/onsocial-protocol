@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  E2E_AUTH_SESSION_KEY,
   E2E_MOCK_SIGNER_ERROR,
   E2E_MOCK_SIGNER_KEY,
   createE2eMockWallet,
+  readE2eAuthSessionEnabled,
   readE2eMockSignerEnabled,
 } from './e2e-mock-signer';
 
@@ -26,6 +28,23 @@ describe('readE2eMockSignerEnabled', () => {
       },
     });
     expect(readE2eMockSignerEnabled()).toBe(true);
+  });
+});
+
+describe('readE2eAuthSessionEnabled', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it('turns on only for the E2E auth-session flag', () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => (key === E2E_AUTH_SESSION_KEY ? '1' : null),
+      },
+    });
+    expect(readE2eAuthSessionEnabled()).toBe(true);
   });
 });
 
