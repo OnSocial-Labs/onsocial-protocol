@@ -11,7 +11,7 @@ import {
  * Copy the Collectibles URL + last held-kinds cookie onto request headers so
  * `loading.tsx` can paint query chrome without a hydrate hop.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const account = collectiblesVaultAccountFromPathname(pathname);
   if (pathname !== '/collectibles' && pathname !== '/collectibles/' && !account) {

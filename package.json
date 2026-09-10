@@ -27,12 +27,6 @@
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "sharp"
-    ]
-  },
   "private": true,
   "scripts": {
     "build": "make build-all-js",
@@ -55,7 +49,7 @@
   "workspaces": [
     "packages/*"
   ],
-  "packageManager": "pnpm@10.32.1",
+  "packageManager": "pnpm@12.3.4",
   "dependencies": {
     "@near-js/accounts": "^2.5.1",
     "@near-js/crypto": "^2.5.1",
