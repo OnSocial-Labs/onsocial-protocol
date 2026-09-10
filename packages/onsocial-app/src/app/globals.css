@@ -41145,6 +41145,51 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.4rem;
 }
 
+.messages-inbox-list--refreshing,
+.messages-bubble-list--refreshing {
+  opacity: 0.78;
+  transition: opacity 160ms ease;
+}
+
+.messages-inbox-row--skeleton {
+  pointer-events: none;
+}
+
+.messages-bubble-list--skeleton {
+  pointer-events: none;
+}
+
+.messages-bubble-list--append-skeleton {
+  padding-top: 0.1rem;
+}
+
+.messages-bubble-list--skeleton .messages-bubble--skeleton {
+  display: grid;
+  gap: 0.35rem;
+  width: min(78%, 15rem);
+  min-height: 3.25rem;
+  background: rgb(var(--fg-rgb) / 0.06);
+}
+
+.messages-bubble-list--skeleton .messages-bubble--skeleton.is-mine {
+  justify-items: end;
+}
+
+.messages-skeleton-line {
+  display: block;
+  height: 0.75rem;
+  border-radius: 999px;
+  background: rgb(var(--fg-rgb) / 0.1);
+}
+
+.messages-skeleton-line--wide {
+  width: min(100%, 11rem);
+}
+
+.messages-skeleton-line--short {
+  width: min(72%, 7rem);
+}
+
 .messages-bubble {
   max-width: 78%;
   padding: 0.48rem 0.7rem;
