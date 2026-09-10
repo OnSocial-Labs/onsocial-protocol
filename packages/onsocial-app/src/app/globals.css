@@ -23171,6 +23171,21 @@ a.os-surface-row {
     pointer-events: auto;
   }
 
+  /* Desktop hover exposes controls without requiring a cover click. */
+  @media (hover: hover) and (pointer: fine) {
+    .scarce-clip-player:hover .scarce-clip-cover-chrome,
+    .scarce-clip-player:focus-within .scarce-clip-cover-chrome {
+      opacity: 1;
+    }
+
+    .scarce-clip-player:hover .scarce-clip-cover-transport,
+    .scarce-clip-player:hover .scarce-clip-cover-progress,
+    .scarce-clip-player:focus-within .scarce-clip-cover-transport,
+    .scarce-clip-player:focus-within .scarce-clip-cover-progress {
+      pointer-events: auto;
+    }
+  }
+
   .scarce-clip-cover-transport {
     position: absolute;
     top: 50%;
