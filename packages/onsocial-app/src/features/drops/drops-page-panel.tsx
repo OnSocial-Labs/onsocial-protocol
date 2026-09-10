@@ -16,11 +16,12 @@ import {
   DropsHeadingActions,
   DropsSearchHeading,
 } from '@/features/drops/drops-heading';
-import { DropsDiscoveryRowMenu } from '@/features/drops/drops-discovery-row-menu';
 import {
-  DROPS_BASE_SORTS,
-  DropsListingToolbar,
-} from '@/features/drops/drops-listing-toolbar';
+  DROPS_CATALOG_SKELETON_ROWS,
+  dropsSortLabel,
+} from '@/features/drops/drops-catalog-layout';
+import { DropsDiscoveryRowMenu } from '@/features/drops/drops-discovery-row-menu';
+import { DropsListingToolbar } from '@/features/drops/drops-listing-toolbar';
 import {
   DROPS_PAGE_SIZE,
   dropsItemMatchesQuery,
@@ -571,11 +572,6 @@ export function DropsPagePanel({
     const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
     return () => window.clearInterval(id);
   }, []);
-
-  const sorts = useMemo(() => {
-    if (!isConnected) return DROPS_BASE_SORTS;
-    return [...DROPS_BASE_SORTS, { id: 'saved' as const, label: 'Saved' }];
-  }, [isConnected]);
 
   useEffect(() => {
     setPageQuery(seedQuery);
@@ -1131,7 +1127,7 @@ export function DropsPagePanel({
             aria-busy={catalogRefreshing || undefined}
           >
             <h2 id="drops-catalog" className="market-section-title">
-              {sorts.find((entry) => entry.id === sort)?.label ?? 'Drops'}
+              {dropsSortLabel(sort)}
             </h2>
             {failed && errorPresentation === 'state' ? (
               <ListLoadError
@@ -1140,7 +1136,10 @@ export function DropsPagePanel({
                 onRetry={() => setReloadKey((value) => value + 1)}
               />
             ) : showCatalogSkeleton ? (
-              <MarketListSkeleton rows={5} />
+              <MarketListSkeleton
+                rows={DROPS_CATALOG_SKELETON_ROWS}
+                variant="drops"
+              />
             ) : visibleItems.length === 0 &&
               !loading &&
               (!searching || needle === debouncedQuery.toLowerCase()) ? (
@@ -1167,7 +1166,9 @@ export function DropsPagePanel({
                     {visibleItems.map((item) => renderRow(item))}
                   </div>
                 )}
-                {showAppendSkeleton ? <MarketListSkeleton rows={2} /> : null}
+                {showAppendSkeleton ? (
+                  <MarketListSkeleton rows={2} variant="drops" />
+                ) : null}
               </>
             )}
             {failed && errorPresentation === 'overlay' ? (

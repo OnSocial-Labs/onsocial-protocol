@@ -9,7 +9,11 @@ import {
   osFloatingPanelTriggerMetaClassName,
 } from '@onsocial/ui';
 import { OsChipRail } from '@/components/os/os-chip-rail';
-import type { DropAudioFormatFilter, DropsSort } from '@/features/drops/drops-data';
+import type {
+  DropAudioFormatFilter,
+  DropsSort,
+} from '@/features/drops/drops-data';
+import { DROPS_SORT_LABELS } from '@/features/drops/drops-catalog-layout';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
   MarketFilterMenu,
@@ -18,16 +22,9 @@ import {
 import type { MarketMediumFilter } from '@/features/market/market-medium';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 
-export const DROPS_BASE_SORTS: ReadonlyArray<{ id: DropsSort; label: string }> =
-  [
-    { id: 'live', label: 'Live' },
-    { id: 'closing', label: 'Closing' },
-    { id: 'upcoming', label: 'Upcoming' },
-    { id: 'new', label: 'New' },
-    { id: 'loved', label: 'Loved' },
-    { id: 'traded', label: 'Traded' },
-    { id: 'finished', label: 'Finished' },
-  ];
+export const DROPS_BASE_SORTS = DROPS_SORT_LABELS.filter(
+  (entry) => entry.id !== 'saved'
+);
 
 /**
  * Sort rail + Filter. Live menus on the ready panel; inert clone on the

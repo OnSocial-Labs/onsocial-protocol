@@ -22,9 +22,19 @@ describe('drops loading contract', () => {
     expect(source).toContain(
       "resolveAppLoadingPresentation(hasPaintedRows ? 'appending' : 'cold'"
     );
-    expect(source).toContain(
-      '{showAppendSkeleton ? <MarketListSkeleton rows={2} /> : null}'
-    );
+    expect(source).toContain('showAppendSkeleton');
+    expect(source).toContain('variant="drops"');
     expect(source).toContain("failed && errorPresentation === 'overlay'");
+  });
+
+  it('shares the ready-state heading and skeleton height in route loading', () => {
+    const loadingSource = readFileSync(
+      join(dropsSrc, 'drops-loading-screen.tsx'),
+      'utf8'
+    );
+
+    expect(loadingSource).toContain('dropsSortLabel(toolbar.sort)');
+    expect(loadingSource).toContain('DROPS_CATALOG_SKELETON_ROWS');
+    expect(loadingSource).toContain('variant="drops"');
   });
 });
