@@ -51,8 +51,8 @@ describe('os chrome whisper', () => {
       join(appSrc, 'features/drops/drops-page-panel.tsx'),
       'utf8'
     );
-    expect(drops).toContain('failed && items.length === 0');
-    expect(drops).toContain('failed && items.length > 0');
+    expect(drops).toContain("failed && errorPresentation === 'state'");
+    expect(drops).toContain("failed && errorPresentation === 'overlay'");
   });
 
   it('overlays the Messages sealed-thread hint instead of shoving bubbles', () => {
