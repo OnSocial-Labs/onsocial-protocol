@@ -2,9 +2,15 @@
 
 import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from './cn.js';
+import {
+  osAppChromePageClassName,
+  osAppChromePageStatusClassName,
+} from './os-app-chrome-page-class-names.js';
 
-export const osAppChromePageClassName = 'os-app-chrome-page';
-export const osAppChromePageStatusClassName = 'os-app-chrome-page-status';
+export {
+  osAppChromePageClassName,
+  osAppChromePageStatusClassName,
+} from './os-app-chrome-page-class-names.js';
 
 /** Standard OsAppScreen page root — `--os-screen-body-inset`, same width as Home. */
 export function OsAppChromePage({

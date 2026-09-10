@@ -1,4 +1,4 @@
-import { osAppChromePageClassName } from '@onsocial/ui';
+import { osAppChromePageClassName } from '@onsocial/ui/os-app-chrome-page-class-names';
 
 /**
  * Standard OsAppScreen page root. Inset is `.os-app-chrome-page` →

@@ -22,6 +22,14 @@ const appSrc = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('os chrome page', () => {
   it('uses the UI chrome page class as the only inset root', () => {
+    const serverShell = readFileSync(
+      join(appSrc, 'lib/os-chrome-page.ts'),
+      'utf8'
+    );
+
+    expect(serverShell).toContain(
+      '@onsocial/ui/os-app-chrome-page-class-names'
+    );
     expect(osChromePageClassName('launcher-home')).toBe(
       `${osAppChromePageClassName} launcher-home`
     );
@@ -65,7 +73,10 @@ describe('os chrome page', () => {
 
   it('wires index panels to the shared page classes', () => {
     const wiring = [
-      ['features/guilds/live-guilds-index-panel.tsx', 'LAUNCHER_HOME_PAGE_CLASS'],
+      [
+        'features/guilds/live-guilds-index-panel.tsx',
+        'LAUNCHER_HOME_PAGE_CLASS',
+      ],
       ['features/scarces/hubs-index-panel.tsx', 'LAUNCHER_HOME_PAGE_CLASS'],
       ['features/protocol/daos-index-panel.tsx', 'LAUNCHER_HOME_PAGE_CLASS'],
       ['features/drops/drops-page-panel.tsx', 'DROPS_INDEX_PAGE_CLASS'],

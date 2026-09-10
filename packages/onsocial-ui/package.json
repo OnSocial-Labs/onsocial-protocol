@@ -34,6 +34,10 @@
     "./os-chrome-subject.css": "./os-chrome-subject.css",
     "./os-app-chrome.css": "./os-app-chrome.css",
     "./os-app-chrome-page.css": "./os-app-chrome-page.css",
+    "./os-app-chrome-page-class-names": {
+      "import": "./dist/os-app-chrome-page-class-names.js",
+      "types": "./dist/os-app-chrome-page-class-names.d.ts"
+    },
     "./os-sheet-facts.css": "./os-sheet-facts.css",
     "./os-proposal-card.css": "./os-proposal-card.css",
     "./os-rich-text-field.css": "./os-rich-text-field.css"
