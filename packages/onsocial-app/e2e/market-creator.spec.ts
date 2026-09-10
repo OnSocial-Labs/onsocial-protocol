@@ -91,6 +91,9 @@ test.describe('market creator shop', () => {
       page.locator('.market-listing-row--skeleton').first()
     ).toBeVisible();
     await expect(page.locator('[data-market-loading]')).toBeVisible();
+    await expect(
+      page.getByRole('tablist', { name: 'Listing type' })
+    ).toHaveCount(0);
     await expect(page.getByText('No live listings from')).toHaveCount(0);
     await expect(page.getByText('No drops or listings from')).toHaveCount(0);
     await expect(

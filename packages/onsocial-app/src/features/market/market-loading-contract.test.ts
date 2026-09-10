@@ -29,4 +29,13 @@ describe('market loading contract', () => {
     expect(source).toContain("setListingsError('Couldn’t load listings.')");
     expect(source).toContain('failed: current.items.length === 0');
   });
+
+  it('keeps creator-shop listing-type chips out of the route loading shell', () => {
+    const source = readFileSync(
+      join(marketSrc, 'market-loading-screen.tsx'),
+      'utf8'
+    );
+
+    expect(source).toContain('hideListingTypes={Boolean(query.creator)}');
+  });
 });

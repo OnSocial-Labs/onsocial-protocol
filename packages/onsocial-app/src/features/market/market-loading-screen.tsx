@@ -43,6 +43,7 @@ export function MarketLoadingScreen({
           audioFormat={toolbar.audioFormat}
           selectedFacets={toolbar.facets}
           facetMedium={facetMedium}
+          hideListingTypes={Boolean(query.creator)}
         />
       }
     >
