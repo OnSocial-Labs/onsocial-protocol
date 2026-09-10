@@ -35,6 +35,7 @@ export default defineConfig({
         timeout: 240_000,
         env: {
           ...process.env,
+          NEXT_DIST_DIR: process.env.NEXT_DIST_DIR ?? '.next-e2e',
           ONSOCIAL_API_KEY:
             process.env.ONSOCIAL_API_KEY ?? 'ci-e2e-placeholder',
           NEXT_PUBLIC_NEAR_NETWORK:
