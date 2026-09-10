@@ -6,6 +6,12 @@ type HomeFixture = {
   postId: string;
 };
 
+async function pauseForWalkthrough(page: Page): Promise<void> {
+  if (process.env.E2E_VIDEO === '1') {
+    await page.waitForTimeout(1_000);
+  }
+}
+
 function homeRows(fixture: HomeFixture) {
   return [
     {
@@ -62,7 +68,7 @@ test.describe('Home loading contract', () => {
 
   test('shows cold skeleton, then ignores an older response after sort changes', async ({
     page,
-  }) => {
+  }, testInfo) => {
     let releaseHot!: () => void;
     const hotBlocked = new Promise<void>((resolve) => {
       releaseHot = resolve;
@@ -90,6 +96,11 @@ test.describe('Home loading contract', () => {
 
     await gotoApp(page, '/home');
     await expect(page.locator('.post-row-skeleton-list')).toBeVisible();
+    await page.screenshot({
+      path: `${testInfo.outputDir}/home-cold-skeleton.png`,
+      fullPage: true,
+    });
+    await pauseForWalkthrough(page);
 
     await dismissNextDevOverlay(page);
     const recent = page.getByRole('button', { name: 'Recent' });
@@ -101,6 +112,11 @@ test.describe('Home loading contract', () => {
     const feed = page.locator('.home-feed-list');
     await expect(feed).toContainText('Recent response');
     await expect(feed).not.toContainText('Hot response');
+    await page.screenshot({
+      path: `${testInfo.outputDir}/home-recent-response.png`,
+      fullPage: true,
+    });
+    await pauseForWalkthrough(page);
 
     releaseHot();
     await expect(feed).toContainText('Recent response');
@@ -109,7 +125,7 @@ test.describe('Home loading contract', () => {
 
   test('keeps painted posts visible during a slow refresh', async ({
     page,
-  }) => {
+  }, testInfo) => {
     let feedRequestCount = 0;
     let releaseRefresh!: () => void;
     const refreshBlocked = new Promise<void>((resolve) => {
@@ -149,8 +165,18 @@ test.describe('Home loading contract', () => {
     await expect(feed).toContainText('Initial response');
     await expect(page.locator('.post-row-skeleton-list')).toHaveCount(0);
     await expect(feed).toHaveClass(/is-refreshing/);
+    await page.screenshot({
+      path: `${testInfo.outputDir}/home-refresh-preserves-rows.png`,
+      fullPage: true,
+    });
+    await pauseForWalkthrough(page);
 
     releaseRefresh();
     await expect(feed).toContainText('Refreshed response');
+    await page.screenshot({
+      path: `${testInfo.outputDir}/home-refreshed-response.png`,
+      fullPage: true,
+    });
+    await pauseForWalkthrough(page);
   });
 });
