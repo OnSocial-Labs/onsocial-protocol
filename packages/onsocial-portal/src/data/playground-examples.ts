@@ -31,6 +31,7 @@ const handle = accountId
 const result = await os.profiles.update({
   name: "Playground " + handle,
   bio: "Testing the OnSocial SDK on " + network + " as " + accountId + ".",
+  about: "Building with the OnSocial SDK.",
   tags: ["playground", "sdk", network]
 });
 
@@ -40,6 +41,7 @@ const fields = await os.social.get(
     "profile/v",
     "profile/name",
     "profile/bio",
+    "profile/about",
     "profile/tags"
   ],
   accountId

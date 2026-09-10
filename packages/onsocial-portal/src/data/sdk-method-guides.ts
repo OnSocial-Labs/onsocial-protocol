@@ -42,7 +42,7 @@ export const SDK_METHOD_GUIDES: SdkMethodGuide[] = [
       'Use os.query.feed, os.query.threads, or other indexed helpers for product lists.',
     ],
     primaryMethods: [
-      'os.profiles.update(profile)',
+      'os.profiles.update({ name, bio, about, ... })',
       'os.profiles.get(accountId) and os.profiles.getMany(accountIds)',
       'os.posts.create(post, postId?)',
       'os.posts.reply(parent, reply, replyId?)',
@@ -74,6 +74,7 @@ export const SDK_METHOD_GUIDES: SdkMethodGuide[] = [
 await os.profiles.update({
   name: 'Ada',
   bio: 'Building on OnSocial',
+  about: 'Open-source builder and community host.',
 });
 
 await os.posts.create(

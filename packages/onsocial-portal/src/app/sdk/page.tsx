@@ -381,7 +381,7 @@ const METHOD_FAMILIES: MethodFamily[] = [
     summary:
       'Profiles, posts, replies, quotes, reactions, saves, attestations, and social graph actions.',
     methods: [
-      'os.profiles.update/get/getMany/avatarUrl/bannerUrl',
+      'os.profiles.update({ name, bio, about, ... }) / get / getMany / avatarUrl / bannerUrl',
       'os.posts.create/reply/quote/groupPost/groupReply/groupQuote',
       'os.reactions.add/remove/toggle/summary',
       'os.standings.add/remove',
