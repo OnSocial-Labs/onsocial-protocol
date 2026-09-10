@@ -136,6 +136,10 @@ export function ScarceClipListenSheet({
           )}
         </div>
 
+        {footer ? (
+          <div className="scarce-clip-listen-footer">{footer}</div>
+        ) : null}
+
         {showActions ? (
           <div className="scarce-clip-listen-actions">
             {showLove ? (
@@ -207,10 +211,6 @@ export function ScarceClipListenSheet({
               </button>
             ) : null}
           </div>
-        ) : null}
-
-        {footer ? (
-          <div className="scarce-clip-listen-footer">{footer}</div>
         ) : null}
 
         <div className="scarce-clip-listen-copy">
