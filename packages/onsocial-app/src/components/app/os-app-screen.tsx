@@ -12,7 +12,6 @@ import {
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useOsScreenChromeHeightSync } from '@/hooks/use-os-screen-chrome-height-sync';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
-import { writeDropsDebugLog } from '@/lib/drops-debug-log';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 
 /** Scroll tuck target — search+chip screens tuck the nav search; toolbar-only screens tuck chips. */
@@ -190,34 +189,6 @@ export function OsAppScreen({
   };
 
   useOsScreenChromeHeightSync({ enabled: glassMode, headerRef });
-
-  useLayoutEffect(() => {
-    if (title !== 'Drops' || !glassMode) return;
-    const header = headerRef.current;
-    const body = bodyRef.current;
-    const screen = header?.closest<HTMLElement>('.os-app-screen');
-    if (!header || !body || !screen) return;
-    const headerRect = header.getBoundingClientRect();
-    const bodyRect = body.getBoundingClientRect();
-    const screenRect = screen.getBoundingClientRect();
-    const toolbar = header.querySelector<HTMLElement>('.os-app-screen-toolbar');
-    // #region agent log
-    writeDropsDebugLog('B', 'screen layout after commit', {
-      phase: 'layout-effect',
-      loadingShell: Boolean(header.querySelector('[data-drops-loading]')),
-      headerHeight: header.offsetHeight,
-      headerRectHeight: headerRect.height,
-      bodyTop: bodyRect.top,
-      bodyHeight: bodyRect.height,
-      screenHeight: screenRect.height,
-      chromeVar: screen.style.getPropertyValue('--os-screen-chrome-height'),
-      bodyPaddingTop: getComputedStyle(body).paddingTop,
-      toolbarHeight: toolbar?.getBoundingClientRect().height ?? null,
-      fonts: document.fonts.status,
-      readyState: document.readyState,
-    });
-    // #endregion
-  }, [glassMode, title]);
 
   useLayoutEffect(() => {
     if (!glassMode) return;
