@@ -12,7 +12,6 @@ export const NOTIFICATIONS_E2E_ACCOUNT = e2ePaintAccountId(
 );
 
 const SESSION_PREFIX = 'onsocial.app.session.';
-const GATEWAY_JWT_PREFIX = 'onsocial.app.gateway.jwt.';
 const CORE_TESTNET = 'core.onsocial.testnet';
 
 function encodeBase64Url(value: unknown): string {
