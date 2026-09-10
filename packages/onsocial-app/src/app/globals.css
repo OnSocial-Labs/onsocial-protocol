@@ -25479,7 +25479,7 @@ a.os-surface-row {
     flex: 1;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.05rem;
+    gap: 0.12rem;
   }
 
   .collection-meta-creator-name {
@@ -25518,7 +25518,7 @@ a.os-surface-row {
     max-width: 100%;
     font-size: 0.78rem;
     font-weight: 500;
-    line-height: 1;
+    line-height: 1.2;
     color: var(--os-surface-muted);
   }
 
@@ -26043,7 +26043,7 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.45rem;
-    margin-top: 0.15rem;
+    margin-top: 0.35rem;
   }
 
   .collection-reading-row {
