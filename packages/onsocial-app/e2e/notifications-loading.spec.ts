@@ -103,6 +103,18 @@ async function stubNotifications(
       });
       return;
     }
+    if (url.pathname.endsWith('/push/status')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          configured: false,
+          enabled: false,
+          subscriptionCount: 0,
+        }),
+      });
+      return;
+    }
     if (url.pathname.endsWith('/read')) {
       await route.fulfill({
         status: 200,
