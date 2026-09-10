@@ -30,14 +30,18 @@ describe('notifications loading contract', () => {
       join(notificationsSrc, 'notification-activity-rows.tsx'),
       'utf8'
     );
+    const skeletonSource = rowsSource.slice(
+      0,
+      rowsSource.indexOf('function SystemMark')
+    );
 
     expect(source).toContain('setItems((current) => current ?? [])');
     expect(source).toContain('refreshing={showActivityRefreshing}');
     expect(source).toContain('NotificationActivityAppendSkeleton');
     expect(source).toContain('errorSource');
-    expect(rowsSource).toContain('data-notifications-append-skeleton');
-    expect(rowsSource).toContain('notifications-activity-row--skeleton');
-    expect(rowsSource).not.toContain(
+    expect(skeletonSource).toContain('data-notifications-append-skeleton');
+    expect(skeletonSource).toContain('notifications-activity-row--skeleton');
+    expect(skeletonSource).not.toContain(
       'className="standing-row notifications-activity-row"'
     );
   });
