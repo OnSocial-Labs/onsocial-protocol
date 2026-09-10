@@ -50,6 +50,24 @@ function HoldingListBone({ rows }: { rows: number }) {
   );
 }
 
+export function CollectiblesLibraryAppendSkeleton({
+  rows = 2,
+}: {
+  rows?: number;
+}) {
+  return (
+    <div
+      className="market-listing-list market-listing-list--skeleton collectibles-library-append-skeleton"
+      data-collectibles-library-append-skeleton
+      aria-hidden
+    >
+      {Array.from({ length: rows }, (_, index) => (
+        <HoldingRowBone key={index} />
+      ))}
+    </div>
+  );
+}
+
 /**
  * Vault open shimmer — creator → series → use rows, not a Market list.
  * Two groups, six rows: same count as the old Market skeleton.
