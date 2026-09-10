@@ -1070,21 +1070,6 @@ export function CollectionPagePanel({
             </div>
             {useFirst ? (
               <div className="collection-use-actions">
-                {hasPlayables && listenOnPlayPage && holderPlayHref ? (
-                  <div className="collection-reading-row">
-                    <p className="collection-section-label">
-                      {playables.length === 1
-                        ? '1 track'
-                        : `${playables.length} tracks`}
-                    </p>
-                    <OsRowAction
-                      className="collectibles-holding-action"
-                      href={holderPlayHref}
-                    >
-                      Play
-                    </OsRowAction>
-                  </div>
-                ) : null}
                 {hasReadables ? (
                   <div className="collection-reading-row">
                     <p className="collection-section-label">
@@ -1313,13 +1298,23 @@ export function CollectionPagePanel({
           />
         ) : null}
 
-        {!useFirst && hasPlayables ? (
+        {hasPlayables ? (
           <section className="collection-tracks" aria-label="Tracks">
-            <p className="collection-section-label">
-              {playables.length === 1
-                ? '1 track'
-                : `${playables.length} tracks`}
-            </p>
+            <div className="collection-reading-row">
+              <p className="collection-section-label">
+                {playables.length === 1
+                  ? '1 track'
+                  : `${playables.length} tracks`}
+              </p>
+              {listenOnPlayPage && holderPlayHref ? (
+                <OsRowAction
+                  className="collectibles-holding-action"
+                  href={holderPlayHref}
+                >
+                  Open player
+                </OsRowAction>
+              ) : null}
+            </div>
             <ScarceClipPlayer
               key={`tracks-${playables[0]!.url}`}
               clip={playables[0]!}
