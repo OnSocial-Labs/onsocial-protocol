@@ -15034,6 +15034,12 @@ a.os-surface-row {
     padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
   }
 
+.os-app-chrome-page.discover-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
   @keyframes standing-panel-body-in {
     from {
       opacity: 0;
