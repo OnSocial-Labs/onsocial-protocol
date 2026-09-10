@@ -31,7 +31,9 @@ describe('messages loading contract', () => {
 
     expect(rowsSource).toContain('MessagesInboxSkeleton');
     expect(rowsSource).toContain('messages-inbox-list--refreshing');
-    expect(rowsSource).toContain('aria-busy={refreshing || undefined}');
+    expect(rowsSource).toContain(
+      'aria-busy={refreshing || skeleton || undefined}'
+    );
     expect(skeletonSource).toContain('MessagesThreadAppendSkeleton');
     expect(skeletonSource).toContain('data-messages-append-skeleton');
   });

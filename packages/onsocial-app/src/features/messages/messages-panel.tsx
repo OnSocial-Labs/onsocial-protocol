@@ -1717,7 +1717,7 @@ export function MessagesPanel() {
                     </div>
                   ) : null}
                 </>
-              ) : threads.length === 0 ? (
+              ) : threads?.length === 0 ? (
                 <OsAppChromePageStatus>
                   No conversations yet. Search to start a chat, or message them
                   from their profile.
