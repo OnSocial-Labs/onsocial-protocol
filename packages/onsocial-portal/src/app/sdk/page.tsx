@@ -483,7 +483,7 @@ const SDK_PACKAGES = [
     name: '@onsocial/sdk',
     manager: 'pnpm',
     command: 'pnpm add @onsocial/sdk',
-    status: 'Unified client. Not on npm yet — this repo uses workspace:*',
+    status: 'Unified client. This monorepo uses workspace:*',
     accent: 'blue' as PortalAccent,
   },
   {
@@ -527,7 +527,7 @@ export default function SDKPage() {
         badgeAccent="purple"
         glowAccents={['purple', 'blue', 'green']}
         title="Build with the OnSocial SDK"
-        description="Listed community dapps use Continue with OnSocial. Wallet apps and this playground sign a challenge. Same client after that: write, read fresh, then query."
+        description="Authenticate once. Write through the SDK, read fresh data, then query indexed results."
       >
         <Link
           href="/playground"
@@ -559,7 +559,7 @@ export default function SDKPage() {
           badge="Start Here"
           badgeAccent="blue"
           title="Pick the on-ramp"
-          description="A listed community site does not connect a wallet on its origin. Wallet apps and the playground do. After auth, writes and queries are the same."
+          description="Choose the simplest auth path for your app. After auth, the SDK API is the same."
         />
         <div className="grid gap-4 lg:grid-cols-2">
           {ON_RAMPS.map((ramp) => {
