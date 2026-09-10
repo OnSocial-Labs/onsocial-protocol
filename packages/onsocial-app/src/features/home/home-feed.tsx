@@ -313,6 +313,7 @@ export function HomePagePanel({
     () => initialPage != null
   );
   const sortInitializedRef = useRef(false);
+  const sortUserChangedRef = useRef(false);
   const [savedFeeds, setSavedFeeds] = useState<HomeSavedFeed[]>([]);
   const [savedFeedSheetOpen, setSavedFeedSheetOpen] = useState(false);
   const tagParam = searchParams.get(HOME_HASHTAG_QUERY_KEY);
@@ -392,7 +393,9 @@ export function HomePagePanel({
     const storedSort = readHomeFeedSort();
     if (!sortInitializedRef.current) {
       sortInitializedRef.current = true;
-      setSort(storedSort);
+      if (!sortUserChangedRef.current) {
+        setSort(storedSort);
+      }
     }
     // SSR seed is always hot — if the user prefers Recent, soft-refetch
     // without treating the hot seed as a finished bootstrap for that sort.
@@ -421,6 +424,7 @@ export function HomePagePanel({
   }, [activeFocus, activeLens, standingNetworkIds]);
 
   const handleSortChange = useCallback((next: HomeFeedSort) => {
+    sortUserChangedRef.current = true;
     setSort(next);
     writeHomeFeedSort(next);
   }, []);
