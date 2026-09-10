@@ -6,6 +6,8 @@ import { setE2eGraphGuild } from './helpers/e2e-graph';
 import {
   GUILD_E2E_BANNED_HINT,
   GUILD_E2E_EMPTY_FEED,
+  GUILD_E2E_FEED_ROWS,
+  GUILD_E2E_FEED_TEXT,
   GUILD_E2E_PATH,
   GUILD_E2E_STORED_NAME,
   GUILD_E2E_TITLE,
@@ -81,6 +83,43 @@ test.describe('guild page', () => {
     ).toBeVisible({ timeout: 12_000 });
     await expect(page.locator('[data-guild-page-skeleton]')).toHaveCount(0);
     await expect(page.getByText(GUILD_E2E_EMPTY_FEED)).toBeVisible();
+  });
+
+  test('preserves painted feed rows while a room refresh is pending', async ({
+    page,
+  }) => {
+    await setE2eGraphGuild(page, 'empty');
+    await stubGuildPage(page, {
+      feedRows: GUILD_E2E_FEED_ROWS,
+      feedRefreshDelayMs: 2500,
+    });
+    await gotoApp(page, GUILD_E2E_PATH);
+
+    await expect(page.getByText(GUILD_E2E_FEED_TEXT)).toBeVisible({
+      timeout: E2E_CHROME_TIMEOUT_MS,
+    });
+    await page.getByRole('tab', { name: 'General' }).click();
+    await expect(page.locator('.home-feed-list.is-refreshing')).toBeVisible();
+    await expect(page.getByText(GUILD_E2E_FEED_TEXT)).toBeVisible();
+  });
+
+  test('shows a feed refresh error over painted rows', async ({ page }) => {
+    await setE2eGraphGuild(page, 'empty');
+    await stubGuildPage(page, {
+      feedRows: GUILD_E2E_FEED_ROWS,
+      feedErrorOnce: true,
+    });
+    await gotoApp(page, GUILD_E2E_PATH);
+
+    await expect(page.getByText(GUILD_E2E_FEED_TEXT)).toBeVisible({
+      timeout: E2E_CHROME_TIMEOUT_MS,
+    });
+    await page.getByRole('tab', { name: 'General' }).click();
+    const feedError = page
+      .getByRole('alert')
+      .filter({ hasText: 'Guild posts could not refresh' });
+    await expect(feedError).toBeVisible();
+    await expect(page.getByText(GUILD_E2E_FEED_TEXT)).toBeVisible();
   });
 
   test('member sees Joined and the guild menu, not settings', async ({

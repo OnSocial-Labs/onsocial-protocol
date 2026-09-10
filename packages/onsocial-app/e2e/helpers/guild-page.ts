@@ -21,6 +21,19 @@ export const GUILD_E2E_PATH = `/groups/${encodeURIComponent(GUILD_E2E_ID)}`;
 export const GUILD_E2E_EMPTY_FEED = 'No guild posts yet.';
 export const GUILD_E2E_BANNED_HINT =
   "This guild banned you. You can't join or post.";
+export const GUILD_E2E_FEED_TEXT = 'Guild update from Alice.';
+
+const STUB_GUILD_POST = {
+  accountId: 'alice.testnet',
+  postId: 'guild-loading',
+  value: JSON.stringify({ text: GUILD_E2E_FEED_TEXT }),
+  blockHeight: 1,
+  blockTimestamp: 1_700_000_000_000,
+  receiptId: 'guild-loading-e2e',
+  isGroupContent: true,
+  groupId: E2E_GUILD_ID,
+};
+export const GUILD_E2E_FEED_ROWS = [STUB_GUILD_POST];
 
 const CREATED_AT_NS = 1_700_000_000_000_000_000;
 
@@ -86,6 +99,10 @@ export async function stubGuildPage(
   opts?: {
     rows?: 'empty' | 'missing';
     catalogDelayMs?: number;
+    feedDelayMs?: number;
+    feedRefreshDelayMs?: number;
+    feedErrorOnce?: boolean;
+    feedRows?: readonly unknown[];
     /** Indexer + RPC owner. Staff chrome when this is the seeded wallet. */
     ownerId?: string;
     /** Seeded wallet is a member (not owner) when this is set. */
@@ -96,6 +113,10 @@ export async function stubGuildPage(
 ): Promise<void> {
   const rows = opts?.rows ?? 'empty';
   const catalogDelayMs = opts?.catalogDelayMs ?? 0;
+  const feedDelayMs = opts?.feedDelayMs ?? 0;
+  const feedRefreshDelayMs = opts?.feedRefreshDelayMs ?? 0;
+  const feedRows = opts?.feedRows ?? [];
+  let feedCallCount = 0;
   const ownerId = opts?.ownerId?.trim() || GUILD_E2E_OWNER;
   const memberId = opts?.memberId?.trim() || null;
   const bannedId = opts?.bannedId?.trim() || null;
@@ -128,7 +149,20 @@ export async function stubGuildPage(
     }
 
     if (query.includes('GroupFeed') || query.includes('FilteredGroupFeed')) {
-      await route.fulfill(json({ data: { postsCurrent: [] } }));
+      feedCallCount += 1;
+      const delayMs = feedCallCount > 1 ? feedRefreshDelayMs : feedDelayMs;
+      if (delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+      if (opts?.feedErrorOnce && feedCallCount > 1) {
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'Guild feed unavailable' }),
+        });
+        return;
+      }
+      await route.fulfill(json({ data: { postsCurrent: feedRows } }));
       return;
     }
 
