@@ -519,12 +519,14 @@ console.log({
   {
     id: 'deposit-storage',
     title: 'Deposit Storage',
-    description: 'Add storage deposit for your account',
+    description:
+      'Add storage deposit; the SDK client must have a signer configured',
     category: 'storage',
     code: `// Deposit storage for account
 import { NEAR } from "@onsocial/sdk";
 
 const accountId = wallet.accountId;
+// The SDK client must have a configured signer for deposit-funded writes.
 const result = await os.storageAccount.deposit(NEAR("0.1"));
 const balance = await os.storageAccount.balance(accountId);
 

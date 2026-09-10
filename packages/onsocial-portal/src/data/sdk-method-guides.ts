@@ -216,7 +216,7 @@ const feed = await os.query.groups.feed({ groupId, limit: 20 });`,
       'os.storageAccount.balance(accountId) for live storage balance checks.',
     ],
     transactionModel: [
-      'Storage deposits attach value, so browser flows should use wallet broadcast.',
+      'Storage deposits require a configured signer; wallet broadcast is used for storage-admin writes such as withdraw, tip, and sponsor.',
       'Direct permission grants are admin-style writes; use wait: true or confirmation in critical flows when available.',
       'Permission query helpers show indexed history; use os.permissions.has/get for current access decisions.',
     ],

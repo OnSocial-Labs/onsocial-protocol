@@ -325,7 +325,7 @@ export class OnSocial {
    *
    * ```ts
    * await os.economy.scarces.tokens.mint({ title: 'Art', image: file });
-   * await os.economy.rewards.claim(claimId);
+   * await os.economy.rewards.claim('alice.near');
    * ```
    */
   readonly economy: EconomyNamespace;
