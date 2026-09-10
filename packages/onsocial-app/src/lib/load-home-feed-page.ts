@@ -22,6 +22,13 @@ export async function loadHomeFeedPage(opts?: {
   offset?: number;
   limit?: number;
 }): Promise<HomeFeedPaint | null> {
+  if (
+    process.env.E2E_GRAPH_STUBS === '1' &&
+    process.env.E2E_HOME_SSR_MISS === '1'
+  ) {
+    return null;
+  }
+
   try {
     const os = createServerOnSocialClient();
     const page = await os.query.feed.recent({

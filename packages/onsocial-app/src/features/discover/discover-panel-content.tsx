@@ -16,14 +16,13 @@ import { DiscoverRecommendedPeek } from '@/features/discover/discover-recommende
 import { DiscoverTrendingPanel } from '@/features/discover/discover-trending-panel';
 import { DiscoverFaceFilterRail } from '@/features/discover/discover-face-filter-rail';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
-import {
-  excludeRecommendedFromList,
-} from '@/lib/discover-recommended';
+import { excludeRecommendedFromList } from '@/lib/discover-recommended';
 import {
   DISCOVER_CONNECT_HINT,
   discoverProfilesLead,
 } from '@/lib/discover-tab-lead';
 import { OsEmptyAction } from '@/lib/os-empty-action';
+import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
 
 export function DiscoverPanelContent() {
   const [recommendedShownIds, setRecommendedShownIds] = useState<string[]>([]);
@@ -80,6 +79,20 @@ export function DiscoverPanelContent() {
     () => excludeRecommendedFromList(listAccounts, recommendedShownIds),
     [listAccounts, recommendedShownIds]
   );
+  const hasPaintedRows = profilesForList.length > 0;
+  const loadingPresentation = isLoadingMore
+    ? resolveAppLoadingPresentation('appending', { hasPaintedRows })
+    : showListSkeleton
+      ? resolveAppLoadingPresentation('cold', { hasPaintedRows })
+      : isListRefreshing
+        ? resolveAppLoadingPresentation('refreshing', { hasPaintedRows })
+        : null;
+  const errorPresentation = loadError
+    ? resolveAppLoadingPresentation('error', { hasPaintedRows })
+    : null;
+  const showProfilesSkeleton = loadingPresentation === 'skeleton';
+  const showListRefreshing = loadingPresentation === 'preserve';
+  const showAppendSkeleton = loadingPresentation === 'append-skeleton';
   const hasRecommended = recommendedShownIds.length > 0;
   return (
     <OsAppChromePage className="discover-panel">
@@ -111,7 +124,7 @@ export function DiscoverPanelContent() {
           ) : null}
 
           {loadError ? (
-            profilesForList.length > 0 ? (
+            errorPresentation === 'overlay' ? (
               <OsChromeListAlert message={loadError} onRetry={retryLoad} />
             ) : (
               <ListLoadError message={loadError} onRetry={retryLoad} />
@@ -125,7 +138,7 @@ export function DiscoverPanelContent() {
             role="tabpanel"
             aria-labelledby="discover-tab-profiles"
             className={`standing-panel-body${
-              isListRefreshing && !showListSkeleton ? ' is-refreshing' : ''
+              showListRefreshing ? ' is-refreshing' : ''
             }`}
           >
             <DiscoverRecommendedPeek
@@ -133,7 +146,7 @@ export function DiscoverPanelContent() {
             />
 
             <div className="discover-profiles-list-slot">
-              {showListSkeleton ? (
+              {showProfilesSkeleton ? (
                 <ProfileSocialListSkeleton rowVariant="discover" />
               ) : profilesForList.length === 0 ? (
                 !hasRecommended && (!isSearchEmpty || searchSettled) ? (
@@ -191,7 +204,7 @@ export function DiscoverPanelContent() {
                   }}
                   loadMoreSentinelRef={loadMoreRef}
                   footerSummary={footerSummary}
-                  isLoadingMore={isLoadingMore}
+                  isLoadingMore={showAppendSkeleton}
                   showLoadMoreSentinel={showLoadMoreSentinel}
                 />
               )}

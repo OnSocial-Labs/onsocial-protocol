@@ -97,6 +97,10 @@ import {
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 import { filterHiddenAuthors } from '@/lib/viewer-mute-block-filter';
 import {
+  isCurrentLoadingRequest,
+  resolveAppLoadingPresentation,
+} from '@/lib/app-loading-contract';
+import {
   getGlobalViewerBlockLedgerVersion,
   subscribeGlobalViewerBlockLedger,
 } from '@/lib/viewer-block-global';
@@ -229,13 +233,13 @@ async function loadFocusedFeedPage(
 function HomeFeedLoadMoreFooter({
   loadMoreSentinelRef,
   showSentinel,
-  isLoadingMore,
+  showAppendSkeleton,
 }: {
   loadMoreSentinelRef: RefObject<HTMLDivElement | null>;
   showSentinel: boolean;
-  isLoadingMore: boolean;
+  showAppendSkeleton: boolean;
 }) {
-  if (!showSentinel && !isLoadingMore) return null;
+  if (!showSentinel && !showAppendSkeleton) return null;
 
   return (
     <div className="home-feed-load-more">
@@ -246,7 +250,7 @@ function HomeFeedLoadMoreFooter({
           aria-hidden
         />
       ) : null}
-      {isLoadingMore ? <PostRowSkeleton rows={2} /> : null}
+      {showAppendSkeleton ? <PostRowSkeleton rows={2} /> : null}
     </div>
   );
 }
@@ -308,6 +312,8 @@ export function HomePagePanel({
   const [ssrBootstrapDone, setSsrBootstrapDone] = useState(
     () => initialPage != null
   );
+  const sortInitializedRef = useRef(false);
+  const sortUserChangedRef = useRef(false);
   const [savedFeeds, setSavedFeeds] = useState<HomeSavedFeed[]>([]);
   const [savedFeedSheetOpen, setSavedFeedSheetOpen] = useState(false);
   const tagParam = searchParams.get(HOME_HASHTAG_QUERY_KEY);
@@ -385,7 +391,12 @@ export function HomePagePanel({
     if (walletLoading) return;
     setLens(readStoredHomeFeedLens(isConnected));
     const storedSort = readHomeFeedSort();
-    setSort(storedSort);
+    if (!sortInitializedRef.current) {
+      sortInitializedRef.current = true;
+      if (!sortUserChangedRef.current) {
+        setSort(storedSort);
+      }
+    }
     // SSR seed is always hot — if the user prefers Recent, soft-refetch
     // without treating the hot seed as a finished bootstrap for that sort.
     if (
@@ -413,6 +424,7 @@ export function HomePagePanel({
   }, [activeFocus, activeLens, standingNetworkIds]);
 
   const handleSortChange = useCallback((next: HomeFeedSort) => {
+    sortUserChangedRef.current = true;
     setSort(next);
     writeHomeFeedSort(next);
   }, []);
@@ -560,7 +572,7 @@ export function HomePagePanel({
             }
           : await fetchHomeFeedPageClient(activeLens, accountId, 0, null, sort);
 
-        if (loadIdRef.current !== loadId) return;
+        if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
 
         standingSourcesRef.current = result.standingSources;
         setStandingNetworkIds(result.standingSources);
@@ -583,7 +595,7 @@ export function HomePagePanel({
         setSsrBootstrapDone(true);
         ssrBootstrapDoneRef.current = true;
       } catch (cause) {
-        if (loadIdRef.current !== loadId) return;
+        if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
         const message =
           cause instanceof Error ? cause.message : 'Could not load feed.';
         setLoadError(message);
@@ -598,7 +610,7 @@ export function HomePagePanel({
           nextOffsetRef.current = undefined;
         }
       } finally {
-        if (loadIdRef.current === loadId) {
+        if (isCurrentLoadingRequest(loadIdRef.current, loadId)) {
           setIsLoading(false);
           setIsRefreshing(false);
           setIsLoadingMore(false);
@@ -663,7 +675,7 @@ export function HomePagePanel({
               sort
             );
 
-        if (loadIdRef.current !== loadId) return;
+        if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
 
         if (result.standingSources) {
           standingSourcesRef.current = result.standingSources;
@@ -685,13 +697,13 @@ export function HomePagePanel({
         nextOffsetRef.current = result.page.nextOffset;
       } catch {
         // Keep the current list; the sentinel stays available to retry.
-        if (loadIdRef.current === loadId) {
+        if (isCurrentLoadingRequest(loadIdRef.current, loadId)) {
           // Restore offset so the next intersect can retry this page.
           nextOffsetRef.current = baseOffset;
           setNextOffset(baseOffset);
         }
       } finally {
-        if (loadIdRef.current === loadId) {
+        if (isCurrentLoadingRequest(loadIdRef.current, loadId)) {
           setIsLoadingMore(false);
           appendInFlightRef.current = false;
         }
@@ -902,7 +914,19 @@ export function HomePagePanel({
     ? homeFeedFocusEmptyCopy(activeFocus)
     : homeFeedLensEmptyCopy(activeLens);
 
-  const showColdSkeleton = isLoading && visiblePosts.length === 0;
+  const hasPaintedRows = visiblePosts.length > 0;
+  const loadingPresentation = isLoadingMore
+    ? resolveAppLoadingPresentation('appending', { hasPaintedRows })
+    : isLoading
+      ? resolveAppLoadingPresentation('cold', { hasPaintedRows })
+      : isRefreshing
+        ? resolveAppLoadingPresentation('refreshing', { hasPaintedRows })
+        : null;
+  const errorPresentation = loadError
+    ? resolveAppLoadingPresentation('error', { hasPaintedRows })
+    : null;
+  const showColdSkeleton = loadingPresentation === 'skeleton';
+  const showAppendSkeleton = loadingPresentation === 'append-skeleton';
   const showEmpty =
     !isLoading && !isRefreshing && !loadError && visiblePosts.length === 0;
   const showFeed = visiblePosts.length > 0;
@@ -950,7 +974,7 @@ export function HomePagePanel({
       >
         <OsAppChromePage className="home-feed">
           {loadError ? (
-            showFeed ? (
+            errorPresentation === 'overlay' ? (
               <OsChromeListAlert message={loadError} onRetry={retryLoad} />
             ) : (
               <ListLoadError message={loadError} onRetry={retryLoad} />
@@ -988,7 +1012,7 @@ export function HomePagePanel({
               <HomeFeedLoadMoreFooter
                 loadMoreSentinelRef={loadMoreRef}
                 showSentinel={showLoadMoreSentinel}
-                isLoadingMore={isLoadingMore}
+                showAppendSkeleton={showAppendSkeleton}
               />
             </>
           ) : null}
