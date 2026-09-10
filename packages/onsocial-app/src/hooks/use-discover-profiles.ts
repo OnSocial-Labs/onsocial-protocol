@@ -555,8 +555,8 @@ export function useDiscoverProfiles(
           if (loadIdRef.current !== loadId || isAbortError(cause)) return;
           const message =
             cause instanceof Error ? cause.message : 'Could not load profiles.';
+          setLoadError(message);
           if (!cacheReady && !canUseInitialPage) {
-            setLoadError(message);
             setProfiles([]);
             setHasMore(false);
           }
@@ -664,9 +664,10 @@ export function useDiscoverProfiles(
   const searchSettled = !searching || !isLoading;
   const showListSkeleton =
     !searching &&
+    !hasListRows &&
     (walletLoading ||
-      (!listBootstrapReady && isLoading && !hasListRows) ||
-      (!listBootstrapReady && !relationshipSynced && !hasListRows));
+      (!listBootstrapReady && isLoading) ||
+      (!listBootstrapReady && !relationshipSynced));
   const isSearchEmpty = searching;
   const listKey = `${normalizedQuery || '__all__'}:${face}:${industry || '__any__'}:${craft || '__any__'}`;
 
@@ -757,6 +758,7 @@ export function useDiscoverProfiles(
     emptyState,
     isSearchEmpty,
     searchSettled,
+    isLoading,
     showListSkeleton,
     isListRefreshing,
     isLoadingMore,
