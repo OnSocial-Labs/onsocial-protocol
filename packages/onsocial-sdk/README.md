@@ -4,6 +4,50 @@ Gateway-first TypeScript SDK for OnSocial Protocol.
 
 Use it to write social data, work with groups and governance, query indexed feeds and threads, upload media, mint Scarces, manage permissions, and call protocol services without dealing with raw contract payloads.
 
+## Start here
+
+```bash
+npm install @onsocial/sdk
+```
+
+```ts
+import { OnSocial } from '@onsocial/sdk';
+
+const os = new OnSocial({ network: 'testnet' });
+const feed = await os.query.feed.recent({ limit: 20 });
+```
+
+For writes, configure an API key and actor, then attach the user's Session:
+
+```ts
+const os = new OnSocial({
+  network: 'testnet',
+  apiKey: process.env.ONSOCIAL_API_KEY!,
+  actorId: 'alice.testnet',
+});
+
+os.attachSession(session);
+await os.posts.create({ text: 'Hello OnSocial' });
+```
+
+Use a wallet client for paid Scarces purchases. See
+[WRITE_LANES.md](./docs/WRITE_LANES.md) for the two write lanes.
+
+## Find a method
+
+| Need                        | Use                                                 |
+| --------------------------- | --------------------------------------------------- |
+| Profiles and posts          | `os.profiles`, `os.posts`                           |
+| Reactions, saves, standings | `os.reactions`, `os.saves`, `os.standings`          |
+| Groups and governance       | `os.groups`                                         |
+| NFTs and marketplace        | `os.scarces`                                        |
+| Indexed reads               | `os.query`                                          |
+| Storage and permissions     | `os.storageAccount`, `os.storage`, `os.permissions` |
+| Login and sessions          | `os.auth`                                           |
+| Anything not wrapped        | `os.raw`                                            |
+
+The [cheatsheet](./docs/CHEATSHEET.md) lists common tasks and calls.
+
 ## Module index
 
 Every module hangs off a single `OnSocial` instance. Use this table to find the namespace for what you want to do; full method docs live in JSDoc on hover.
@@ -337,68 +381,13 @@ const post = {
 
 Keep the canonical content path as `groups/{groupId}/content/post/{postId}`. Use UI filtering first, and only add indexed filtered views later if multiple apps need the same feed slices.
 
-## Main Modules
+## Namespaces
 
-The SDK is organised into three discoverable namespaces plus a few cross-cutting modules. Top-level shortcuts (`os.posts`, `os.scarces`, …) remain available — the namespaces are the same instances re-grouped for clarity.
+Top-level modules are the recommended API: `os.posts`, `os.groups`,
+`os.scarces`, `os.query`, and so on. Grouped aliases such as `os.content`,
+`os.economy`, and `os.platform` are also available.
 
-### `os.content` — user-generated content
-
-| Module         | Purpose                                                       |
-| -------------- | ------------------------------------------------------------- |
-| `profiles`     | Read / update profile data (with auto avatar / banner upload) |
-| `posts`        | Create posts, replies, quotes — including group variants      |
-| `reactions`    | `add` / `remove` / `toggle` / `summary`                       |
-| `saves`        | Bookmark posts (`add` / `remove` / `toggle` / `has` / `list`) |
-| `endorsements` | Directed contextual vouches                                   |
-| `attestations` | Verifiable typed claims                                       |
-| `standings`    | Account ↔ account "stand with" graph                         |
-| `feed`         | Indexed GraphQL reads (alias of `os.query`)                   |
-
-```ts
-await os.content.profiles.update({ name: 'Alice' });
-await os.content.posts.create({ text: 'gm' });
-await os.content.reactions.toggle(post, 'like');
-await os.content.saves.add(post, { folder: 'inspiration' });
-const feed = await os.content.feed.fromAccounts({ accountId: 'alice.near' });
-```
-
-### `os.economy` — value flows
-
-| Module    | Purpose                                |
-| --------- | -------------------------------------- |
-| `scarces` | Collections, mint, list, offers (NFTs) |
-| `rewards` | Credit / claim / balance               |
-
-```ts
-await os.economy.scarces.tokens.mint({ title: 'Art', image: file });
-await os.economy.rewards.claim(claimId);
-```
-
-### `os.platform` — dev-platform & integration
-
-| Module          | Purpose                                                     |
-| --------------- | ----------------------------------------------------------- |
-| `storage`       | IPFS file / JSON upload                                     |
-| `permissions`   | Account + key permission management                         |
-| `notifications` | Inbox list/count/mark-read (all tiers); events/rules (pro+) |
-| `webhooks`      | Outbound webhook endpoints (pro tier+)                      |
-| `pages`         | onsocial.id page configuration                              |
-
-```ts
-const { cid } = await os.platform.storage.upload(file);
-await os.platform.notifications.list();
-```
-
-### Cross-cutting
-
-| Module      | Purpose                                                    |
-| ----------- | ---------------------------------------------------------- |
-| `os.auth`   | Login, refresh, session management                         |
-| `os.groups` | Group lifecycle, membership, governance, group content     |
-| `os.chain`  | On-chain storage balance, nonces, governance config        |
-| `os.social` | Raw OnSocial KV (`set` / `get` / `listKeys` / `countKeys`) |
-
-## Going Lower-Level
+## Going lower-level
 
 The opinionated namespaces above cover the common app cases. When you need granular control — an action the SDK hasn't wrapped yet, a custom OnSocial KV path, or a direct gateway call — reach for `os.raw`.
 
