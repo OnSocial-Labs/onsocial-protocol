@@ -24818,6 +24818,27 @@ a.os-surface-row {
     transition: opacity 120ms ease;
   }
 
+  /*
+   * Search tuck collapses the nav row but keeps the resting body inset frozen.
+   * Pull collectibles content and sticky creator headings up by exactly that
+   * collapsed band so account names stay under the kind rail.
+   */
+  .os-app-screen:has(.os-app-screen-header.is-search-tucked)
+    .collectibles-page.os-app-chrome-page {
+    --collectibles-search-tuck-offset: calc(
+      var(--os-app-screen-nav-row-height, 2.35rem) +
+        var(--os-app-chrome-chip-gap, 0.28rem)
+    );
+    padding-top: 0;
+  }
+
+  .os-app-screen:has(.os-app-screen-header.is-search-tucked)
+    .collectibles-page.os-app-chrome-page
+    .collectibles-library {
+    margin-top: calc(-1 * var(--collectibles-search-tuck-offset));
+    transition: margin-top var(--os-motion-chrome, 220ms) ease;
+  }
+
   .collectibles-library-creator,
   .collectibles-library-series {
     display: flex;
@@ -24859,6 +24880,14 @@ a.os-surface-row {
     letter-spacing: 0;
     text-transform: none;
     color: rgb(var(--fg-rgb) / 0.82);
+    transition: top var(--os-motion-chrome, 220ms) ease;
+  }
+
+  .os-app-screen:has(.os-app-screen-header.is-search-tucked)
+    h2.collectibles-library-heading,
+  .os-app-screen:has(.os-app-screen-header.is-search-tucked)
+    button.collectibles-library-heading {
+    top: calc(-1 * var(--collectibles-search-tuck-offset, 0px));
   }
 
   .collectibles-library-heading-face {
