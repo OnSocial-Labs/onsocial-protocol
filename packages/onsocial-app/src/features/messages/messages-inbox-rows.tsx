@@ -17,18 +17,60 @@ import { displayName, fallbackLabel } from '@/lib/profile-display';
 export function MessagesInboxList({
   children,
   'aria-label': ariaLabel,
+  refreshing = false,
+  skeleton = false,
 }: {
   children: ReactNode;
   'aria-label': string;
+  refreshing?: boolean;
+  skeleton?: boolean;
 }) {
   return (
     <div
-      className="standing-list notifications-activity-list messages-inbox-list"
+      className={`standing-list notifications-activity-list messages-inbox-list${
+        refreshing ? ' messages-inbox-list--refreshing' : ''
+      }${skeleton ? ' messages-inbox-list--skeleton' : ''}`}
       role="list"
       aria-label={ariaLabel}
+      aria-busy={refreshing || skeleton || undefined}
     >
       {children}
     </div>
+  );
+}
+
+function MessagesInboxSkeletonRow() {
+  return (
+    <div
+      className="standing-row notifications-activity-row messages-inbox-row--skeleton"
+      aria-hidden
+    >
+      <div className="standing-row-main">
+        <div className="standing-row-avatar standing-row-shimmer" />
+        <div className="standing-row-copy">
+          <div className="standing-row-name-row">
+            <div className="standing-row-shimmer standing-row-shimmer-line" />
+          </div>
+          <div className="standing-row-shimmer standing-row-shimmer-line-sm" />
+        </div>
+      </div>
+      <div className="standing-row-aside">
+        <div className="standing-row-shimmer standing-row-shimmer-time" />
+      </div>
+    </div>
+  );
+}
+
+export function MessagesInboxSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <MessagesInboxList aria-label="Loading conversations" skeleton>
+      {Array.from({ length: count }, (_, index) => (
+        <Fragment key={index}>
+          {index > 0 ? <Divider variant="item" /> : null}
+          <MessagesInboxSkeletonRow />
+        </Fragment>
+      ))}
+    </MessagesInboxList>
   );
 }
 
@@ -163,6 +205,7 @@ export function MessagesInboxThreadRows({
   sealedThreadIds,
   treatAllAsSealed = false,
   activeThreadId,
+  refreshing = false,
   onOpenThread,
 }: {
   threads: readonly DmThreadSummary[];
@@ -172,10 +215,11 @@ export function MessagesInboxThreadRows({
   sealedThreadIds?: ReadonlySet<string>;
   treatAllAsSealed?: boolean;
   activeThreadId?: string | null;
+  refreshing?: boolean;
   onOpenThread: (threadId: string) => void;
 }) {
   return (
-    <MessagesInboxList aria-label={ariaLabel}>
+    <MessagesInboxList aria-label={ariaLabel} refreshing={refreshing}>
       {threads.map((thread, index) => {
         const sealed =
           treatAllAsSealed ||

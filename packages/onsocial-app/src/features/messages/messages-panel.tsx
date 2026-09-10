@@ -65,6 +65,7 @@ import {
 } from '@/lib/dm/thread-archive';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
+import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
 import { DmBubbleText } from '@/features/messages/dm-bubble-text';
 import { DmMediaBubble } from '@/features/messages/dm-media-bubble';
 import { DmRecoveryCodeSheet } from '@/features/messages/dm-recovery-code-sheet';
@@ -91,8 +92,13 @@ import { messagesThreadChromeTitle } from '@/features/messages/messages-thread-c
 import { MessagesThreadChromeHeading } from '@/features/messages/messages-thread-chrome-heading';
 import {
   MessagesInboxPeopleRows,
+  MessagesInboxSkeleton,
   MessagesInboxThreadRows,
 } from '@/features/messages/messages-inbox-rows';
+import {
+  MessagesThreadAppendSkeleton,
+  MessagesThreadSkeleton,
+} from '@/features/messages/messages-thread-skeleton';
 import {
   buildDmThreadId,
   messagingBlockedCopy,
@@ -120,6 +126,10 @@ export function MessagesPanel() {
   const [threads, setThreads] = useState<DmThreadSummary[] | null>(null);
   const [messages, setMessages] = useState<DmMessageRecord[] | null>(null);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingThreads, setLoadingThreads] = useState(false);
+  const [refreshingThreads, setRefreshingThreads] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [refreshingMessages, setRefreshingMessages] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [plainById, setPlainById] = useState<Record<string, string>>({});
   const [replyToById, setReplyToById] = useState<Record<string, string>>({});
@@ -135,6 +145,9 @@ export function MessagesPanel() {
     Record<string, { url: string; mime: string }>
   >({});
   const [error, setError] = useState<string | null>(null);
+  const [errorSource, setErrorSource] = useState<
+    'keys' | 'threads' | 'thread' | 'older' | null
+  >(null);
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const [recoveryVariant, setRecoveryVariant] = useState<'created' | 'reset'>(
     'created'
@@ -148,6 +161,7 @@ export function MessagesPanel() {
     Record<string, string>
   >({});
   const activeThreadIdRef = useRef(activeThreadId);
+  const threadsRef = useRef(threads);
   const messagesRef = useRef(messages);
   const openThreadSeqRef = useRef(0);
   /** Bumps on account change so late async commits cannot leak across wallets. */
@@ -166,6 +180,10 @@ export function MessagesPanel() {
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    threadsRef.current = threads;
+  }, [threads]);
 
   useEffect(() => {
     accountIdRef.current = accountId;
@@ -395,6 +413,7 @@ export function MessagesPanel() {
       setError(
         'Could not verify messaging keys. Check your connection and try again.'
       );
+      setErrorSource('keys');
       setKeysTick((n) => n + 1);
       return;
     }
@@ -430,11 +449,13 @@ export function MessagesPanel() {
         cause instanceof DmKeysMismatchError
       ) {
         setError(cause.message);
+        setErrorSource('keys');
         setKeysTick((n) => n + 1);
         return;
       }
       if (cause instanceof DmKeysUnavailableError) {
         setError(cause.message);
+        setErrorSource('keys');
         setKeysTick((n) => n + 1);
         return;
       }
@@ -485,6 +506,11 @@ export function MessagesPanel() {
     setThreads(null);
     setMessages(null);
     setHasMoreMessages(false);
+    setLoadingThreads(false);
+    setRefreshingThreads(false);
+    setLoadingMessages(false);
+    setRefreshingMessages(false);
+    setLoadingOlder(false);
     setPlainById({});
     setReplyToById({});
     setOutgoing([]);
@@ -493,6 +519,7 @@ export function MessagesPanel() {
     inboxPreviewCacheRef.current.clear();
     setActiveThreadId('');
     setError(null);
+    setErrorSource(null);
     setRecoveryCode(null);
     setRecoveryVariant('created');
   }, [releaseOutgoingMedia]);
@@ -501,20 +528,46 @@ export function MessagesPanel() {
     clearThreadState();
   }, [accountId, clearThreadState]);
 
-  const refreshThreads = useCallback(async () => {
-    if (!accountId) return;
-    const gen = accountGenRef.current;
-    const expectedAccount = accountId;
-    const { client } = await withAuth();
-    if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
-      return;
-    }
-    const { threads: next } = await client.dm.listThreads();
-    if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
-      return;
-    }
-    setThreads(next);
-  }, [accountId, isCurrentAccount, withAuth]);
+  const refreshThreads = useCallback(
+    async (options?: { initial?: boolean }): Promise<boolean> => {
+      if (!accountId) return false;
+      const initial = options?.initial === true;
+      if (initial) setLoadingThreads(true);
+      else setRefreshingThreads(true);
+      setError(null);
+      setErrorSource(null);
+      const gen = accountGenRef.current;
+      const expectedAccount = accountId;
+      try {
+        const { client } = await withAuth();
+        if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
+          return false;
+        }
+        const { threads: next } = await client.dm.listThreads();
+        if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
+          return false;
+        }
+        setThreads(next);
+        return true;
+      } catch (cause) {
+        if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
+          return false;
+        }
+        setError(
+          cause instanceof Error ? cause.message : 'Could not load messages.'
+        );
+        setErrorSource('threads');
+        if (threadsRef.current == null) setThreads([]);
+        return false;
+      } finally {
+        if (accountGenRef.current === gen && isCurrentAccount(expectedAccount)) {
+          if (initial) setLoadingThreads(false);
+          else setRefreshingThreads(false);
+        }
+      }
+    },
+    [accountId, isCurrentAccount, withAuth]
+  );
 
   const markThreadReadThrough = useCallback(
     async (
@@ -655,65 +708,98 @@ export function MessagesPanel() {
       const gen = accountGenRef.current;
       const expectedAccount = accountId;
       setActiveThreadId(threadId);
+      setMessages(null);
+      setHasMoreMessages(false);
+      setLoadingMessages(true);
       setError(null);
+      setErrorSource(null);
       pinThreadToLatestRef.current = true;
       router.replace(messagesPath({ threadId }));
-      const { client } = await withAuth();
-      if (
-        openThreadSeqRef.current !== seq ||
-        accountGenRef.current !== gen ||
-        !isCurrentAccount(expectedAccount)
-      ) {
-        return;
-      }
-      const { messages: next, hasMore } = await client.dm.listMessages(
-        threadId,
-        { limit: THREAD_PAGE_SIZE }
-      );
-      if (
-        openThreadSeqRef.current !== seq ||
-        accountGenRef.current !== gen ||
-        !isCurrentAccount(expectedAccount)
-      ) {
-        return;
-      }
-      setMessages(next);
-      setHasMoreMessages(hasMore);
-      setPlainById((prev) => {
-        const kept: Record<string, string> = {};
-        for (const [id, text] of Object.entries(prev)) {
-          if (id.startsWith('local:')) kept[id] = text;
+      try {
+        const { client } = await withAuth();
+        if (
+          openThreadSeqRef.current !== seq ||
+          accountGenRef.current !== gen ||
+          !isCurrentAccount(expectedAccount)
+        ) {
+          return;
         }
-        return kept;
-      });
-      setReplyToById((prev) => {
-        const kept: Record<string, string> = {};
-        for (const [id, parent] of Object.entries(prev)) {
-          if (id.startsWith('local:')) kept[id] = parent;
+        const { messages: next, hasMore } = await client.dm.listMessages(
+          threadId,
+          { limit: THREAD_PAGE_SIZE }
+        );
+        if (
+          openThreadSeqRef.current !== seq ||
+          accountGenRef.current !== gen ||
+          !isCurrentAccount(expectedAccount)
+        ) {
+          return;
         }
-        return kept;
-      });
-      const unlocked = Boolean(accountId && hasUnlockedDmKey(accountId));
-      if (
-        openThreadSeqRef.current !== seq ||
-        accountGenRef.current !== gen ||
-        !isCurrentAccount(expectedAccount)
-      ) {
-        return;
+        setMessages(next);
+        setHasMoreMessages(hasMore);
+        setPlainById((prev) => {
+          const kept: Record<string, string> = {};
+          for (const [id, text] of Object.entries(prev)) {
+            if (id.startsWith('local:')) kept[id] = text;
+          }
+          return kept;
+        });
+        setReplyToById((prev) => {
+          const kept: Record<string, string> = {};
+          for (const [id, parent] of Object.entries(prev)) {
+            if (id.startsWith('local:')) kept[id] = parent;
+          }
+          return kept;
+        });
+        const unlocked = Boolean(accountId && hasUnlockedDmKey(accountId));
+        if (
+          openThreadSeqRef.current !== seq ||
+          accountGenRef.current !== gen ||
+          !isCurrentAccount(expectedAccount)
+        ) {
+          return;
+        }
+        const plain = await decryptMessages(client, next, threadId);
+        if (
+          openThreadSeqRef.current !== seq ||
+          accountGenRef.current !== gen ||
+          !isCurrentAccount(expectedAccount)
+        ) {
+          return;
+        }
+        if (unlocked) {
+          try {
+            await markThreadReadThrough(client, threadId, next, plain);
+            requestDmUnreadRefresh();
+          } catch {
+            // Keep the loaded thread visible when read-state sync soft-fails.
+          }
+        }
+        void refreshThreads();
+      } catch (cause) {
+        if (
+          openThreadSeqRef.current === seq &&
+          accountGenRef.current === gen &&
+          isCurrentAccount(expectedAccount)
+        ) {
+          setMessages([]);
+          setHasMoreMessages(false);
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : 'Could not load this conversation.'
+          );
+          setErrorSource('thread');
+        }
+      } finally {
+        if (
+          openThreadSeqRef.current === seq &&
+          accountGenRef.current === gen &&
+          isCurrentAccount(expectedAccount)
+        ) {
+          setLoadingMessages(false);
+        }
       }
-      const plain = await decryptMessages(client, next, threadId);
-      if (
-        openThreadSeqRef.current !== seq ||
-        accountGenRef.current !== gen ||
-        !isCurrentAccount(expectedAccount)
-      ) {
-        return;
-      }
-      if (unlocked) {
-        await markThreadReadThrough(client, threadId, next, plain);
-        requestDmUnreadRefresh();
-      }
-      void refreshThreads();
     },
     [
       accountId,
@@ -961,9 +1047,11 @@ export function MessagesPanel() {
 
   const softRefreshOpenThread = useCallback(
     async (threadId: string) => {
+      if (!messagesRef.current) return;
+      const gen = accountGenRef.current;
+      const expectedAccount = accountId;
+      setRefreshingMessages(true);
       try {
-        const gen = accountGenRef.current;
-        const expectedAccount = accountId;
         const { client } = await withAuth();
         if (
           accountGenRef.current !== gen ||
@@ -1025,6 +1113,14 @@ export function MessagesPanel() {
         }
       } catch {
         // Soft poll — ignore transient errors.
+      } finally {
+        if (
+          activeThreadIdRef.current === threadId &&
+          accountGenRef.current === gen &&
+          isCurrentAccount(expectedAccount)
+        ) {
+          setRefreshingMessages(false);
+        }
       }
     },
     [
@@ -1042,7 +1138,8 @@ export function MessagesPanel() {
     void (async () => {
       try {
         await bootstrapKeys();
-        await refreshThreads();
+        const threadsReady = await refreshThreads({ initial: true });
+        if (!threadsReady) return;
         if (threadParam) {
           await openThread(threadParam);
         } else if (peerParam) {
@@ -1052,6 +1149,7 @@ export function MessagesPanel() {
         setError(
           cause instanceof Error ? cause.message : 'Could not load messages.'
         );
+        setErrorSource('keys');
       }
     })();
   }, [
@@ -1263,6 +1361,8 @@ export function MessagesPanel() {
       });
       setMessages(merged);
       setHasMoreMessages(hasMore);
+      setError(null);
+      setErrorSource(null);
       await decryptMessages(client, merged, activeThreadId);
     } catch (cause) {
       setError(
@@ -1270,6 +1370,7 @@ export function MessagesPanel() {
           ? cause.message
           : 'Could not load older messages.'
       );
+      setErrorSource('older');
     } finally {
       setLoadingOlder(false);
     }
@@ -1445,6 +1546,31 @@ export function MessagesPanel() {
   const screenTitle = threadOpen
     ? messagesThreadChromeTitle(peerName, peerHandle)
     : 'Messages';
+  const threadListPresentation = resolveAppLoadingPresentation(
+    errorSource === 'threads'
+      ? 'error'
+      : refreshingThreads || loadingThreads
+        ? 'refreshing'
+        : threads == null
+          ? 'cold'
+          : 'empty',
+    { hasPaintedRows: Boolean(threads?.length) }
+  );
+  const threadPresentation = resolveAppLoadingPresentation(
+    errorSource === 'thread'
+      ? 'error'
+      : refreshingMessages || loadingMessages
+        ? 'refreshing'
+        : messages == null && activeThreadId
+          ? 'cold'
+          : 'empty',
+    { hasPaintedRows: Boolean(messages?.length) }
+  );
+  const showThreadListSkeleton = threadListPresentation === 'skeleton';
+  const showThreadListRefreshing = threadListPresentation === 'preserve';
+  const showThreadSkeleton =
+    threadOpen && threadPresentation === 'skeleton';
+  const showThreadRefreshing = threadPresentation === 'preserve';
   const threadChromeHeading =
     threadOpen && peerFromThread ? (
       <MessagesThreadChromeHeading
@@ -1545,8 +1671,8 @@ export function MessagesPanel() {
         {!keysLocked ? (
           <div className="messages-layout" data-messages-pane={messagesPane}>
             <aside className="messages-thread-list" aria-label="Conversations">
-              {threads == null ? (
-                <OsAppChromePageStatus>Loading…</OsAppChromePageStatus>
+              {showThreadListSkeleton ? (
+                <MessagesInboxSkeleton />
               ) : isSearching ? (
                 <>
                   {filteredThreads.length === 0 ? (
@@ -1614,6 +1740,7 @@ export function MessagesPanel() {
                   ariaLabel="Conversations"
                   profiles={profiles}
                   inboxPreviewByThread={inboxPreviewByThread}
+                  refreshing={showThreadListRefreshing}
                   activeThreadId={activeThreadId}
                   onOpenThread={(threadId) => void openThread(threadId)}
                 />
@@ -1654,8 +1781,8 @@ export function MessagesPanel() {
                 <OsAppChromePageStatus>
                   Unlock messages to read this conversation.
                 </OsAppChromePageStatus>
-              ) : messages == null ? (
-                <OsAppChromePageStatus>Loading…</OsAppChromePageStatus>
+              ) : showThreadSkeleton ? (
+                <MessagesThreadSkeleton />
               ) : (
                 <>
                   {hasMoreMessages ? (
@@ -1671,7 +1798,14 @@ export function MessagesPanel() {
                       </OsSheetAction>
                     </div>
                   ) : null}
-                  <ul className="messages-bubble-list">
+                  <ul
+                    className={`messages-bubble-list${
+                      showThreadRefreshing
+                        ? ' messages-bubble-list--refreshing'
+                        : ''
+                    }`}
+                    aria-busy={showThreadRefreshing || undefined}
+                  >
                     {threadRows.map((row) => {
                       if (row.kind === 'day') {
                         return (
@@ -1823,6 +1957,7 @@ export function MessagesPanel() {
                       );
                     })}
                   </ul>
+                  {loadingOlder ? <MessagesThreadAppendSkeleton /> : null}
                 </>
               )}
             </section>
