@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronRightIcon, MessageRoundIcon } from '@onsocial/ui';
+import { ChevronRightIcon } from '@onsocial/ui';
 
 interface ThreadViewQuotesRowProps {
   href: string;
@@ -18,7 +18,6 @@ export function ThreadViewQuotesRow({
 }: ThreadViewQuotesRowProps) {
   return (
     <Link href={href} className="thread-view-quotes" scroll={false}>
-      <MessageRoundIcon className="thread-view-quotes-icon" aria-hidden />
       <span className="thread-view-quotes-label">View quotes</span>
       <span className="thread-view-quotes-count">{quoteCount}</span>
       <ChevronRightIcon className="thread-view-quotes-chevron" aria-hidden />
