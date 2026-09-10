@@ -1,3 +1,4 @@
+import { appendFileSync, mkdirSync } from 'node:fs';
 import {
   generateEd25519Key,
   sessionId,
@@ -36,6 +37,7 @@ function e2eGatewayToken(accountId: string): string {
  * Notifications client path; only the access-key lookup is stubbed by tests.
  */
 export async function seedAuthenticatedNotifications(page: Page): Promise<void> {
+  mkdirSync('/opt/cursor/logs', { recursive: true });
   const sessionKey = await generateEd25519Key();
   const path = `${NOTIFICATIONS_E2E_ACCOUNT}/`;
   const storedSession = {
@@ -57,10 +59,30 @@ export async function seedAuthenticatedNotifications(page: Page): Promise<void> 
   );
   const token = e2eGatewayToken(NOTIFICATIONS_E2E_ACCOUNT);
 
+  // #region agent log
+  page.on('console', (message) => {
+    const text = message.text();
+    if (!text.includes('"hypothesisId"')) return;
+    appendFileSync('/opt/cursor/logs/debug.log', `${text}\n`);
+  });
+  // #endregion
+
   await page.route('**/api/near/rpc', async (route) => {
     const body = route.request().postDataJSON() as {
       params?: { request_type?: string };
     };
+    // #region agent log
+    appendFileSync(
+      '/opt/cursor/logs/debug.log',
+      `${JSON.stringify({
+        hypothesisId: 'B',
+        location: 'notifications-auth.ts:73',
+        message: 'NEAR RPC interception observed',
+        data: { requestType: body.params?.request_type ?? null },
+        timestamp: Date.now(),
+      })}\n`
+    );
+    // #endregion
     if (body.params?.request_type !== 'view_access_key') {
       await route.continue();
       return;

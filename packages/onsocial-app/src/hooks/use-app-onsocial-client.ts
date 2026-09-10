@@ -98,6 +98,22 @@ export function useAppOnSocialClient() {
       }
     }
 
+    // #region agent log
+    console.info(
+      JSON.stringify({
+        hypothesisId: 'C',
+        location: 'use-app-onsocial-client.ts:103',
+        message: 'Client bundle resolved session',
+        data: {
+          accountId: signingAccountId,
+          hasSession: Boolean(session),
+          authSessionFlag: readE2eAuthSessionEnabled(),
+        },
+        timestamp: Date.now(),
+      })
+    );
+    // #endregion
+
     // Always pass wallet when there is no session so core writes still work.
     const client = createAppOnSocialClient(
       signingAccountId,
