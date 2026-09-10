@@ -11,6 +11,7 @@ import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
   albumTrackLovePathLike,
+  countAlbumFans,
   dedupeAlbumFanIds,
   deriveLovedStateFromLedger,
   nextFanCountAfterLoveToggle,
@@ -80,7 +81,8 @@ export function useScarceTrackLoves(opts: {
     try {
       // Love counts / viewer / fanCount stay independent of the roster query so a
       // facepile GraphQL miss cannot wipe hearts (Promise.all used to).
-      const [countRows, viewerRows, fanRows] = await Promise.all([
+      const [countResult, viewerResult, fanCountResult] =
+        await Promise.allSettled([
         client.query.graphql<{
           reactionCounts: Array<{ postPath: string; reactionCount: number }>;
         }>({
@@ -138,7 +140,16 @@ export function useScarceTrackLoves(opts: {
             collectionId,
           },
         }),
-      ]);
+        ]);
+      if (countResult.status !== 'fulfilled') {
+        throw countResult.reason;
+      }
+      const countRows = countResult.value;
+      const viewerRows =
+        viewerResult.status === 'fulfilled' ? viewerResult.value : null;
+      const fanRows =
+        fanCountResult.status === 'fulfilled' ? fanCountResult.value : null;
+      const fanCountUnavailable = fanCountResult.status !== 'fulfilled';
       if (loadId !== loadIdRef.current) return;
       const apiCounts: Record<string, number> = {};
       for (const cid of trackCids) apiCounts[cid] = 0;
@@ -159,7 +170,7 @@ export function useScarceTrackLoves(opts: {
         apiLoved,
         apiCounts,
         apiFanCount:
-          Number(fanRows.data?.scarceAlbumLoveFans?.[0]?.fanCount ?? 0) || 0,
+          Number(fanRows?.data?.scarceAlbumLoveFans?.[0]?.fanCount ?? 0) || 0,
         ledger: ledgerRef.current,
         creatorId,
         viewerId: accountId,
@@ -187,6 +198,7 @@ export function useScarceTrackLoves(opts: {
       // Paint hearts + fan count immediately — don't block the player on roster.
       const needFanRoster =
         derived.fanCount > 0 ||
+        fanCountUnavailable ||
         derived.hasLedgerOverride ||
         stateRef.current.fanIds.length > 0;
       setState({
@@ -236,6 +248,11 @@ export function useScarceTrackLoves(opts: {
         );
         setState((previous) => ({
           ...previous,
+          fanCount: Math.max(
+            previous.fanCount,
+            derived.fanCount,
+            countAlbumFans(apiFanIds, creatorId)
+          ),
           fanIds: applyLedgerFanIds(apiFanIds),
         }));
       } catch {
