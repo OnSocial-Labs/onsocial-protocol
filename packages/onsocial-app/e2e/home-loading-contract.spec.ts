@@ -58,6 +58,8 @@ async function fulfillHomeFeed(route: Route, fixture: HomeFixture) {
 }
 
 test.describe('Home loading contract', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test('shows cold skeleton, then ignores an older response after sort changes', async ({
     page,
   }) => {
