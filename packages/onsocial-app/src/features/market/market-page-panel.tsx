@@ -1783,9 +1783,10 @@ export function MarketPagePanel({
       }
       actions={<MarketHeadingActions />}
       toolbar={
-        shopMode && (creatorEmpty || showListSkeleton) ? undefined : (
+        shopMode && creatorEmpty ? undefined : (
           <MarketListingToolbar
-            ready
+            inert={showListSkeleton}
+            ready={!showListSkeleton}
             listingFilter={shopListingFilter}
             listingSort={listingSort}
             medium={mediumFilter}
