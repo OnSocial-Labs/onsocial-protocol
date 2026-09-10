@@ -18,8 +18,8 @@ export type AppLoadingMatrixRow = {
 };
 
 /**
- * The app's loading inventory. Add a row when adding a page, then update the
- * referenced components as the page's layout evolves.
+ * The primary data-backed page inventory. Add a row when adding a page, then
+ * update the referenced components as the page's layout evolves.
  */
 export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
   {

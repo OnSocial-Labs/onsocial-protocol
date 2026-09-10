@@ -1,6 +1,6 @@
 # App loading-state contract
 
-The page inventory lives in
+The primary data-backed page inventory lives in
 [`src/lib/app-loading-matrix.ts`](../src/lib/app-loading-matrix.ts). When
 adding or changing page content, update the production layout and its loading
 implementation together.
