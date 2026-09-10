@@ -45,6 +45,14 @@ import {
 } from '@/lib/notification-display';
 
 const PAGE_SIZE = 40;
+type InitialNotificationResult = {
+  notifications: Notification[];
+  nextCursor: string | null;
+};
+const initialNotificationRequests = new Map<
+  string,
+  Promise<InitialNotificationResult>
+>();
 
 /**
  * Activity inbox — standard `OsAppScreen` + connected viewer mood.
@@ -145,13 +153,26 @@ export function NotificationsPanel() {
     setErrorSource(null);
     setLoadingInitial(true);
     try {
-      const { client, accountId: id } = await withAuth();
-      if (accountGenRef.current !== gen || !isCurrentAccount(expected)) return;
-      const result = await client.notifications.list({
-        recipient: id,
-        limit: PAGE_SIZE,
-        excludeType: ACTIVITY_EXCLUDE_TYPE,
-      });
+      const requestKey = expected.toLowerCase();
+      let request = initialNotificationRequests.get(requestKey);
+      if (!request) {
+        request = (async () => {
+          const { client, accountId: id } = await withAuth();
+          return client.notifications.list({
+            recipient: id,
+            limit: PAGE_SIZE,
+            excludeType: ACTIVITY_EXCLUDE_TYPE,
+          });
+        })();
+        initialNotificationRequests.set(requestKey, request);
+        const clearRequest = () => {
+          if (initialNotificationRequests.get(requestKey) === request) {
+            initialNotificationRequests.delete(requestKey);
+          }
+        };
+        void request.then(clearRequest, clearRequest);
+      }
+      const result = await request;
       if (accountGenRef.current !== gen || !isCurrentAccount(expected)) return;
       setItems(result.notifications);
       setNextCursor(result.nextCursor);
