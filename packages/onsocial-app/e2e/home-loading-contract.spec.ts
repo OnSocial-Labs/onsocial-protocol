@@ -1,5 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
-import { gotoApp } from './helpers';
+import { dismissNextDevOverlay, gotoApp } from './helpers';
 
 type HomeFixture = {
   label: string;
@@ -89,6 +89,7 @@ test.describe('Home loading contract', () => {
     await gotoApp(page, '/home');
     await expect(page.locator('.post-row-skeleton-list')).toBeVisible();
 
+    await dismissNextDevOverlay(page);
     const recent = page.getByRole('button', { name: 'Recent' });
     await expect(recent).toBeVisible();
     await expect(recent).toHaveAttribute('aria-pressed', 'false');
