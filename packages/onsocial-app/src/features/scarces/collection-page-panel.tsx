@@ -43,6 +43,7 @@ import {
   collectionCoverSquare,
   collectionDropBackHref,
   collectionShowCommerceMeter,
+  collectionShowInlineTracks,
   collectionUseFirst,
   peekHoldsCollection,
   peekOwnedTokenForCollection,
@@ -792,6 +793,10 @@ export function CollectionPagePanel({
     useFirst,
     canMintMore: showMintCompose,
   });
+  const showInlineTracks = collectionShowInlineTracks({
+    hasPlayables,
+    useFirst,
+  });
   const dropBackHref = collectionDropBackHref({
     useFirst,
     viewerAccountId,
@@ -1068,7 +1073,7 @@ export function CollectionPagePanel({
                       className="collectibles-holding-action"
                       href={holderPlayHref}
                     >
-                      Open player
+                      Play
                     </OsRowAction>
                   </div>
                 ) : hasPlayables &&
@@ -1080,7 +1085,7 @@ export function CollectionPagePanel({
                       className="collectibles-holding-action"
                       href={holderPlayHref}
                     >
-                      Open player
+                      Play
                     </OsRowAction>
                   </div>
                 ) : !canShowPass && vaultHref ? (
@@ -1304,7 +1309,7 @@ export function CollectionPagePanel({
           />
         ) : null}
 
-        {hasPlayables ? (
+        {showInlineTracks ? (
           <section className="collection-tracks" aria-label="Tracks">
             <p className="collection-section-label">
               {playables.length === 1

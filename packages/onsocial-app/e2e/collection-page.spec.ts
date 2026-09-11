@@ -69,7 +69,9 @@ test.describe('collection drop page', () => {
       collectionPageRoot(page).locator('.collection-title')
     ).toHaveText('Night Drive');
     await expectCollectionVisitorChrome(page);
-    await expect(page.getByRole('link', { name: 'Play' })).toHaveCount(0);
+    await expect(
+      page.getByRole('link', { name: 'Play', exact: true })
+    ).toHaveCount(0);
     await expect(page.locator('.collection-tracks')).toBeVisible();
     await expect(page.getByText('2 tracks').first()).toBeVisible();
     await expect(page.locator('.collection-meta-creator-name')).toHaveText(
@@ -153,8 +155,9 @@ test.describe('collection drop page', () => {
     const play = collectionPageRoot(page)
       .locator('.collection-use-actions')
       .getByRole('link', {
-      name: 'Play',
-    });
+        name: 'Play',
+        exact: true,
+      });
     await expectOsRowAction(play);
     await expect(play).toHaveAttribute(
       'href',
@@ -198,7 +201,9 @@ test.describe('collection drop page', () => {
       collectionPageRoot(page).locator('.collection-title')
     ).toHaveText('Quiet Print');
     await expectCollectionHolderChrome(page, HOLDER_BACK);
-    await expect(page.getByRole('link', { name: 'Play' })).toHaveCount(0);
+    await expect(
+      page.getByRole('link', { name: 'Play', exact: true })
+    ).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Read' })).toHaveCount(0);
   });
 
