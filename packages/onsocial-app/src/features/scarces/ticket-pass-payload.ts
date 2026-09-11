@@ -121,6 +121,21 @@ export function ticketPassSeatLabel(tokenId: string): string {
 }
 
 /**
+ * Quiet preview of a live Show-pass code for the copy control.
+ * Full string still copies; this is recognition-only.
+ */
+export function ticketPassLiveCodePreview(
+  code: string,
+  head = 10,
+  tail = 6
+): string {
+  const trimmed = code.trim();
+  if (!trimmed) return '';
+  if (trimmed.length <= head + tail + 1) return trimmed;
+  return `${trimmed.slice(0, head)}…${trimmed.slice(-tail)}`;
+}
+
+/**
  * Quiet door cue when the current owner is not the original minter
  * (gift / transfer / secondary).
  */

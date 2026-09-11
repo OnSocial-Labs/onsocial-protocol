@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { resolveOsGlassPanelFilter } from '@onsocial/ui';
+import { useCallback, useEffect, useState } from 'react';
+import { CopyIcon, Divider } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -15,6 +15,7 @@ import {
   TICKET_PASS_LIVE_REFRESH_MS,
 } from '@/features/scarces/ticket-pass-live';
 import {
+  ticketPassLiveCodePreview,
   ticketPassSeatLabel,
   ticketPassStatusLabel,
 } from '@/features/scarces/ticket-pass-payload';
@@ -37,7 +38,9 @@ import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
 /**
  * Show pass — same OsSlideOverScreen chrome as Listen / Read.
- * Back lives in the OS nav row, clipped to the phone card.
+ * Full viewer mood wash on the slide (no frosted ticket card — QR is
+ * already stark white). Status once on the body; live code is a quiet
+ * preview + copy glyph.
  */
 export function TicketShowPassSheet({
   open,
@@ -91,15 +94,10 @@ export function TicketShowPassSheet({
 
   const statusLoading = open && !statusReady;
 
-  const cardStyle = useMemo(() => {
-    const frost = resolveOsGlassPanelFilter();
-    return {
-      backdropFilter: frost,
-      WebkitBackdropFilter: frost,
-    };
-  }, []);
-
   const passCode = livePayload?.trim() || '';
+  const passCodePreview = passCode
+    ? ticketPassLiveCodePreview(passCode)
+    : '';
   const copyPassCode = useCallback(async () => {
     if (!passCode) return;
     try {
@@ -274,107 +272,120 @@ export function TicketShowPassSheet({
       open={open}
       onClose={onClose}
       title={name}
-      subtitle={statusLine}
       closeAriaLabel="Back from pass"
       zIndex={SCARCE_Z.nestedOverCommerce}
       className="ticket-pass-slide"
       contentClassName="ticket-pass-slide-body"
     >
       <div className="ticket-show-pass">
-        <div className="ticket-show-pass-card">
-          <div
-            className="ticket-show-pass-card-frost"
-            style={cardStyle}
-            aria-hidden
-          />
-          <div className="ticket-show-pass-card-body">
-            <div className="ticket-show-pass-header">
-              {media ? (
-                <img
-                  src={media}
-                  alt=""
-                  className="ticket-show-pass-mark"
-                  onError={() => setThumbFailed(true)}
+        <div className="ticket-show-pass-body">
+          <div className="ticket-show-pass-header">
+            {media ? (
+              <img
+                src={media}
+                alt=""
+                className="ticket-show-pass-mark"
+                onError={() => setThumbFailed(true)}
+              />
+            ) : null}
+
+            <h2 className="ticket-show-pass-title">{name}</h2>
+            <p className={`ticket-show-pass-status${toneClass}`}>
+              {statusLine}
+            </p>
+          </div>
+
+          {livePayload ? (
+            <TicketPassQr
+              value={livePayload}
+              title={`QR for ${name}`}
+              className="ticket-show-pass-qr"
+            />
+          ) : (
+            <p className="ticket-show-pass-hint">
+              {qrHint ?? 'Pass code unavailable.'}
+            </p>
+          )}
+
+          <div className="ticket-show-pass-footer">
+            <div
+              className={`ticket-show-pass-identity${
+                ownerId ? '' : ' is-solo'
+              }`}
+            >
+              {ownerId ? (
+                <AccountAvatar
+                  accountId={ownerId}
+                  src={holderFaceForOwner?.avatarUrl ?? null}
+                  fallbackInitial={holderName || ownerId}
+                  size="sm"
+                  shellLoading={!holderReady}
+                  className="ticket-show-pass-holder-avatar"
                 />
               ) : null}
-
-              <h2 className="ticket-show-pass-title">{name}</h2>
-              <p className={`ticket-show-pass-status${toneClass}`}>
-                {statusLine}
-              </p>
-            </div>
-
-            {livePayload ? (
-              <TicketPassQr
-                value={livePayload}
-                title={`QR for ${name}`}
-                className="ticket-show-pass-qr"
-              />
-            ) : (
-              <p className="ticket-show-pass-hint">
-                {qrHint ?? 'Pass code unavailable.'}
-              </p>
-            )}
-
-            <div className="ticket-show-pass-footer">
-              <div
-                className={`ticket-show-pass-identity${
-                  ownerId ? '' : ' is-solo'
-                }`}
-              >
-                {ownerId ? (
-                  <AccountAvatar
-                    accountId={ownerId}
-                    src={holderFaceForOwner?.avatarUrl ?? null}
-                    fallbackInitial={holderName || ownerId}
-                    size="sm"
-                    shellLoading={!holderReady}
-                    className="ticket-show-pass-holder-avatar"
-                  />
+              <div className="ticket-show-pass-identity-copy">
+                {ownerId && holderName ? (
+                  <p className="ticket-show-pass-holder-name">{holderName}</p>
                 ) : null}
-                <div className="ticket-show-pass-identity-copy">
-                  {ownerId && holderName ? (
-                    <p className="ticket-show-pass-holder-name">
-                      {holderName}
-                    </p>
-                  ) : null}
-                  {ownerId && holderAccount ? (
-                    <p className="ticket-show-pass-holder-account">
-                      {holderAccount}
-                    </p>
-                  ) : null}
-                  <p className="ticket-show-pass-seat">
-                    {ticketPassSeatLabel(tokenId)}
+                {ownerId && holderAccount ? (
+                  <p className="ticket-show-pass-holder-account">
+                    {holderAccount}
                   </p>
-                  {passCode ? (
-                    <button
-                      type="button"
-                      className="ticket-show-pass-code"
-                      onClick={() => void copyPassCode()}
-                      aria-label="Copy live pass code for door entry"
-                    >
-                      {codeCopied ? 'Copied' : 'Copy live code'}
-                    </button>
-                  ) : null}
-                  <TicketClaimRefundAction
-                    collectionId={collectionId}
-                    tokenId={tokenId}
-                    status={status}
-                    onClaimed={() => {
-                      setStatusReady(false);
-                      void fetchTicketTokenStatus(tokenId)
-                        .then((next) => {
-                          setStatus(next);
-                          setStatusReady(true);
-                        })
-                        .catch(() => {
-                          setStatusReady(true);
-                        });
-                    }}
-                  />
-                </div>
+                ) : null}
               </div>
             </div>
+
+            <Divider
+              variant="detail"
+              className="ticket-show-pass-divider"
+            />
+
+            <div className="ticket-show-pass-meta">
+              <span className="ticket-show-pass-seat">
+                {ticketPassSeatLabel(tokenId)}
+              </span>
+              {passCode ? (
+                <button
+                  type="button"
+                  className={`ticket-show-pass-code${
+                    codeCopied ? ' is-copied' : ''
+                  }`}
+                  onClick={() => void copyPassCode()}
+                  aria-label={
+                    codeCopied
+                      ? 'Live pass code copied'
+                      : 'Copy live pass code for door entry'
+                  }
+                >
+                  <span className="ticket-show-pass-code-preview">
+                    {codeCopied ? 'Copied' : passCodePreview}
+                  </span>
+                  {codeCopied ? null : (
+                    <CopyIcon
+                      className="ticket-show-pass-code-icon"
+                      aria-hidden
+                    />
+                  )}
+                </button>
+              ) : null}
+            </div>
+
+            <TicketClaimRefundAction
+              collectionId={collectionId}
+              tokenId={tokenId}
+              status={status}
+              onClaimed={() => {
+                setStatusReady(false);
+                void fetchTicketTokenStatus(tokenId)
+                  .then((next) => {
+                    setStatus(next);
+                    setStatusReady(true);
+                  })
+                  .catch(() => {
+                    setStatusReady(true);
+                  });
+              }}
+            />
           </div>
         </div>
       </div>

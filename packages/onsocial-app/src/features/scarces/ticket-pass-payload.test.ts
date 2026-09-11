@@ -4,6 +4,7 @@ import {
   isPassMediumKind,
   parseTicketPassPayload,
   passStaffVoice,
+  ticketPassLiveCodePreview,
   ticketPassOriginLabel,
   ticketPassRemaining,
   ticketPassSeatLabel,
@@ -121,6 +122,15 @@ describe('ticket-pass-payload', () => {
     expect(ticketPassSeatLabel('onsocial-14oliw:1')).toBe('Pass 1');
     expect(ticketPassSeatLabel('night-drive:12')).toBe('Pass 12');
     expect(ticketPassSeatLabel('')).toBe('Pass');
+  });
+
+  it('previews live pass codes without truncating short values', () => {
+    expect(ticketPassLiveCodePreview('os2|a|1|x')).toBe('os2|a|1|x');
+    expect(
+      ticketPassLiveCodePreview(
+        'os2|onsocial-1|token:1|1710000000000|pk|nonce|sigABCDEF'
+      )
+    ).toBe('os2|onsoci…ABCDEF');
   });
 
   it('flags received passes when owner differs from minter', () => {

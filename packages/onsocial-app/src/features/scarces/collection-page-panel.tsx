@@ -1035,9 +1035,11 @@ export function CollectionPagePanel({
                     </OsRowAction>
                   </div>
                 ) : null}
-                {canShowPass ? (
+                {canShowPass && vaultHref ? (
                   <div className="collection-reading-row">
-                    <p className="collection-section-label">Your pass</p>
+                    <OsRowAction href={vaultHref}>
+                      Open Collectibles
+                    </OsRowAction>
                     <OsRowAction
                       className="collectibles-holding-action"
                       onClick={openOwnedPass}
@@ -1045,11 +1047,19 @@ export function CollectionPagePanel({
                       {passActionLabel}
                     </OsRowAction>
                   </div>
+                ) : canShowPass ? (
+                  <OsRowAction
+                    className="collectibles-holding-action"
+                    onClick={openOwnedPass}
+                  >
+                    {passActionLabel}
+                  </OsRowAction>
                 ) : null}
                 {hasPlayables &&
                 listenOnPlayPage &&
                 holderPlayHref &&
-                vaultHref ? (
+                vaultHref &&
+                !canShowPass ? (
                   <div className="collection-reading-row">
                     <OsRowAction href={vaultHref}>
                       Open Collectibles
@@ -1061,7 +1071,19 @@ export function CollectionPagePanel({
                       Open player
                     </OsRowAction>
                   </div>
-                ) : vaultHref ? (
+                ) : hasPlayables &&
+                  listenOnPlayPage &&
+                  holderPlayHref &&
+                  canShowPass ? (
+                  <div className="collection-reading-row">
+                    <OsRowAction
+                      className="collectibles-holding-action"
+                      href={holderPlayHref}
+                    >
+                      Open player
+                    </OsRowAction>
+                  </div>
+                ) : !canShowPass && vaultHref ? (
                   <OsRowAction href={vaultHref}>Open Collectibles</OsRowAction>
                 ) : null}
               </div>
