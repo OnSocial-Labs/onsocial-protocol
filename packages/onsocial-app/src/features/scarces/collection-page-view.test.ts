@@ -10,6 +10,7 @@ import {
   collectionChildLeaveHref,
   collectionDropBackHref,
   collectionShowCommerceMeter,
+  collectionShowInlineTracks,
   collectionUseFirst,
   peekHoldsCollection,
   peekOwnedTokenForCollection,
@@ -58,6 +59,18 @@ describe('collection page view', () => {
     expect(
       collectionShowCommerceMeter({ useFirst: true, canMintMore: true })
     ).toBe(true);
+  });
+
+  it('keeps inline tracks for visitors and hides them when held', () => {
+    expect(
+      collectionShowInlineTracks({ hasPlayables: true, useFirst: false })
+    ).toBe(true);
+    expect(
+      collectionShowInlineTracks({ hasPlayables: true, useFirst: true })
+    ).toBe(false);
+    expect(
+      collectionShowInlineTracks({ hasPlayables: false, useFirst: false })
+    ).toBe(false);
   });
 
   it('paints a skeleton on SSR miss until the client catalog settles', () => {

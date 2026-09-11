@@ -37,6 +37,14 @@ export function collectionShowCommerceMeter(opts: {
   return !opts.useFirst || opts.canMintMore;
 }
 
+/** Visitors keep inline tracks. Holders hop to /collectibles/play. */
+export function collectionShowInlineTracks(opts: {
+  hasPlayables: boolean;
+  useFirst: boolean;
+}): boolean {
+  return opts.hasPlayables && !opts.useFirst;
+}
+
 /** First paint after an SSR catalog miss — skeleton until the client settles. */
 export function collectionCatalogShell(opts: {
   hasView: boolean;
