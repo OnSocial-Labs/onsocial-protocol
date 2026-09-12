@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  GOVERNANCE_DAO_ACCOUNT,
-  TREASURY_DAO_ACCOUNT,
-} from '@/lib/app-config';
+import { GOVERNANCE_DAO_ACCOUNT, TREASURY_DAO_ACCOUNT } from '@/lib/app-config';
 import {
   APP_COLLECTIBLES_PATH,
   COLLECTIBLES_SEARCH_PARAM,
@@ -33,13 +30,15 @@ describe('collectibles routes', () => {
     expect(collectiblesPlayPath('night-drive')).toBe(
       '/collectibles/play?c=night-drive'
     );
-    expect(collectiblesPlayPath('night-drive', { tokenId: 'night-drive:2' })).toBe(
-      '/collectibles/play?c=night-drive&t=night-drive%3A2'
-    );
+    expect(
+      collectiblesPlayPath('night-drive', { tokenId: 'night-drive:2' })
+    ).toBe('/collectibles/play?c=night-drive&t=night-drive%3A2');
     expect(collectionPath('gate', { pass: true, tokenId: 'gate:2' })).toBe(
       '/collection/gate?pass=1&t=gate%3A2'
     );
-    expect(collectionPath('gate', { door: true })).toBe('/collection/gate/door');
+    expect(collectionPath('gate', { door: true })).toBe(
+      '/collection/gate/door'
+    );
     expect(collectionDoorPath('gate')).toBe('/collection/gate/door');
     expect(isAppRoutePath('/collection/gate/door')).toBe(true);
     expect(collectionPath('perk', { redeem: true })).toBe(
@@ -78,9 +77,9 @@ describe('collectibles os apps', () => {
     expect(resolveActiveOsAppId('/@alice.near/collectibles')).toBe(
       'collectibles'
     );
-    expect(
-      resolveActiveOsAppId('/@alice.near/collectibles?kind=writing')
-    ).toBe('collectibles');
+    expect(resolveActiveOsAppId('/@alice.near/collectibles?kind=writing')).toBe(
+      'collectibles'
+    );
   });
 
   it('exposes Protocol as an in-app launcher destination', () => {
@@ -116,9 +115,9 @@ describe('collectibles os apps', () => {
     expect(gateOsApps().some((app) => app.id === 'collectibles')).toBe(true);
     const owner = ownerPortfolioOsApps('alice.near');
     expect(owner.some((app) => app.id === 'collectibles')).toBe(true);
-    expect(
-      owner.find((app) => app.id === 'collectibles')?.href
-    ).toBe('/@alice.near/collectibles');
+    expect(owner.find((app) => app.id === 'collectibles')?.href).toBe(
+      '/@alice.near/collectibles'
+    );
     expect(
       visitorPortfolioOsApps('alice.near').some(
         (app) => app.id === 'collectibles'
@@ -138,9 +137,22 @@ describe('collectibles os apps', () => {
     expect(
       appShellOsApps('alice.near').find((app) => app.id === 'discover')?.href
     ).toBe('/discover');
-    expect(
-      gateOsApps().find((app) => app.id === 'discover')?.href
-    ).toBe('/discover');
+    expect(gateOsApps().find((app) => app.id === 'discover')?.href).toBe(
+      '/discover'
+    );
+  });
+
+  it('keeps Boost off the launcher — the owner face opens it', () => {
+    const rails = [
+      gateOsApps(),
+      ownerPortfolioOsApps('alice.near'),
+      visitorPortfolioOsApps('alice.near'),
+      appShellOsApps('alice.near'),
+      appShellOsApps(null),
+    ];
+    for (const apps of rails) {
+      expect(apps.some((app) => app.id === 'boost')).toBe(false);
+    }
   });
 
   it('inserts Collectibles after Market when the wallet is connected', () => {

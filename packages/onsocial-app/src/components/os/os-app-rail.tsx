@@ -1,17 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { appPageHref } from '@/lib/app-links';
-import { isPortfolioOverlayPath, overlayPath } from '@/lib/overlay-routes';
+import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
 import {
   appShellOsApps,
+  osAppOpensWithWallet,
   ownerPortfolioOsApps,
   visitorPortfolioOsApps,
   type OsAppLink,
 } from '@/lib/os-apps';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 function nearestIndex(container: HTMLElement): number {
   const items = container.querySelectorAll<HTMLElement>('[data-os-app-item]');
@@ -48,12 +46,9 @@ export function OsAppRail({
   ariaLabel = 'OnSocial apps',
   className,
 }: OsAppRailProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { getSigningWallet } = useAppWallet();
+  const { navigate, openingPage } = useOsAppNavigate(accountId);
   const listRef = useRef<HTMLUListElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [openingPage, setOpeningPage] = useState(false);
 
   const syncActiveIndex = useCallback(() => {
     const container = listRef.current;
@@ -78,51 +73,6 @@ export function OsAppRail({
     };
   }, [apps.length, syncActiveIndex]);
 
-  const openPage = useCallback(async () => {
-    if (openingPage) {
-      return;
-    }
-
-    setOpeningPage(true);
-    try {
-      const { accountId: viewerAccountId } = await getSigningWallet();
-      router.push(appPageHref(viewerAccountId));
-    } catch (error) {
-      if (!isWalletUserCancellation(error)) {
-        console.error('Could not open OnPage', error);
-      }
-    } finally {
-      setOpeningPage(false);
-    }
-  }, [getSigningWallet, openingPage, router]);
-
-  const navigate = useCallback(
-    (app: OsAppLink) => {
-      if (app.soon) {
-        return;
-      }
-
-      if (app.kind === 'open-page') {
-        void openPage();
-        return;
-      }
-
-      if (app.kind === 'app' && app.href) {
-        router.push(app.href);
-        return;
-      }
-
-      if (app.kind === 'overlay' && app.overlay && accountId) {
-        const href = overlayPath(accountId, app.overlay);
-        const openOverlay = isPortfolioOverlayPath(pathname)
-          ? router.replace.bind(router)
-          : router.push.bind(router);
-        openOverlay(href, { scroll: false });
-      }
-    },
-    [accountId, openPage, pathname, router]
-  );
-
   if (apps.length === 0) {
     return null;
   }
@@ -135,12 +85,23 @@ export function OsAppRail({
         {apps.map((app, index) => {
           const distance = Math.abs(index - activeIndex);
           const opacity =
-            distance === 0 ? 1 : distance === 1 ? 0.34 : distance === 2 ? 0.14 : 0.06;
+            distance === 0
+              ? 1
+              : distance === 1
+                ? 0.34
+                : distance === 2
+                  ? 0.14
+                  : 0.06;
           const itemClassName = `gate-dapp-link${app.soon ? ' is-soon' : ''}`;
 
           if (app.kind === 'external' && app.href) {
             return (
-              <li key={app.id} data-os-app-item data-dapp-item className="gate-dapp-item">
+              <li
+                key={app.id}
+                data-os-app-item
+                data-dapp-item
+                className="gate-dapp-item"
+              >
                 <a
                   href={app.href}
                   className={itemClassName}
@@ -154,7 +115,12 @@ export function OsAppRail({
           }
 
           return (
-            <li key={app.id} data-os-app-item data-dapp-item className="gate-dapp-item">
+            <li
+              key={app.id}
+              data-os-app-item
+              data-dapp-item
+              className="gate-dapp-item"
+            >
               <button
                 type="button"
                 className={itemClassName}
@@ -163,11 +129,13 @@ export function OsAppRail({
                 disabled={
                   app.soon ||
                   (app.kind === 'overlay' && !accountId) ||
-                  (app.kind === 'open-page' && openingPage)
+                  (osAppOpensWithWallet(app) && openingPage)
                 }
                 onClick={() => navigate(app)}
               >
-                {app.kind === 'open-page' && openingPage && index === activeIndex
+                {osAppOpensWithWallet(app) &&
+                openingPage &&
+                index === activeIndex
                   ? 'Opening…'
                   : app.label}
               </button>

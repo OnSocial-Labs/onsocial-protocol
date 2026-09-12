@@ -3,8 +3,12 @@
 import { useCallback, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { isPortfolioOverlayPath, overlayPath, portfolioPath } from '@/lib/overlay-routes';
-import type { OsAppLink } from '@/lib/os-apps';
+import {
+  isPortfolioOverlayPath,
+  overlayPath,
+  portfolioPath,
+} from '@/lib/overlay-routes';
+import { osAppOpensWithWallet, type OsAppLink } from '@/lib/os-apps';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 export function useOsAppNavigate(pageAccountId?: string) {
@@ -35,7 +39,7 @@ export function useOsAppNavigate(pageAccountId?: string) {
       if (app.soon) {
         return false;
       }
-      if (app.kind === 'open-page') {
+      if (osAppOpensWithWallet(app)) {
         void openPage();
         return true;
       }
