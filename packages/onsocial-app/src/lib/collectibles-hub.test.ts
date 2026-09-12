@@ -14,8 +14,6 @@ import {
 import {
   appShellOsApps,
   gateOsApps,
-  osAppOpensWithWallet,
-  osAppViewerSheetPath,
   ownerPortfolioOsApps,
   resolveActiveOsAppId,
   visitorPortfolioOsApps,
@@ -144,7 +142,7 @@ describe('collectibles os apps', () => {
     );
   });
 
-  it('opens Boost as the owner sheet, not Portal', () => {
+  it('keeps Boost off the launcher — the owner face opens it', () => {
     const rails = [
       gateOsApps(),
       ownerPortfolioOsApps('alice.near'),
@@ -153,25 +151,8 @@ describe('collectibles os apps', () => {
       appShellOsApps(null),
     ];
     for (const apps of rails) {
-      const boost = apps.find((app) => app.id === 'boost');
-      expect(boost).toMatchObject({
-        id: 'boost',
-        label: 'Boost',
-        kind: 'sheet',
-        sheet: 'boost',
-      });
-      expect(boost?.href).toBeUndefined();
-      expect(osAppOpensWithWallet(boost!)).toBe(true);
-      expect(osAppViewerSheetPath(boost!, 'alice.testnet')).toBe(
-        '/@alice.testnet?sheet=boost'
-      );
+      expect(apps.some((app) => app.id === 'boost')).toBe(false);
     }
-    expect(
-      osAppViewerSheetPath(
-        { id: 'page', label: 'Page', kind: 'open-page' },
-        'alice.testnet'
-      )
-    ).toBeNull();
   });
 
   it('inserts Collectibles after Market when the wallet is connected', () => {

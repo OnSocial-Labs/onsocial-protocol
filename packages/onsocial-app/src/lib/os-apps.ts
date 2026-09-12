@@ -19,22 +19,12 @@ import {
   daoPath,
 } from '@/lib/app-routes';
 import {
-  portfolioBoostPath,
   portfolioCollectiblesPath,
   discoverPath,
   type OverlayPanel,
-  type PortfolioShareSheetId,
 } from '@/lib/overlay-routes';
 
-export type OsAppLinkKind =
-  | 'app'
-  | 'overlay'
-  | 'external'
-  | 'open-page'
-  | 'sheet';
-
-/** First-party viewer sheets opened from the launcher (wallet, then owner face). */
-export type OsAppSheetId = Extract<PortfolioShareSheetId, 'boost'>;
+export type OsAppLinkKind = 'app' | 'overlay' | 'external' | 'open-page';
 
 export interface OsAppLink {
   id: string;
@@ -42,7 +32,6 @@ export interface OsAppLink {
   kind: OsAppLinkKind;
   href?: string;
   overlay?: OverlayPanel;
-  sheet?: OsAppSheetId;
   soon?: boolean;
   /** Community-board icon. First-party tiles use {@link OsAppIcon}. */
   iconUrl?: string;
@@ -50,7 +39,7 @@ export interface OsAppLink {
 
 /**
  * Which launcher app is "here" for the current route.
- * Viewer sheets (Boost) live on the owner face — never the active route tile.
+ * Boost lives on the owner face, not as a launcher tile.
  * Hubs covers `/apps`. Drop pages under `/collection` are Drops.
  */
 export function resolveActiveOsAppId(
@@ -173,26 +162,8 @@ export function isOsAppActive(appId: string, activeId: string | null): boolean {
   return false;
 }
 
-const BOOST_APP: OsAppLink = {
-  id: 'boost',
-  label: 'Boost',
-  kind: 'sheet',
-  sheet: 'boost',
-};
-
-/** Owner-face href after the viewer wallet is known. */
-export function osAppViewerSheetPath(
-  app: OsAppLink,
-  viewerAccountId: string
-): string | null {
-  if (app.kind !== 'sheet' || app.sheet !== 'boost') {
-    return null;
-  }
-  return portfolioBoostPath(viewerAccountId);
-}
-
 export function osAppOpensWithWallet(app: OsAppLink): boolean {
-  return app.kind === 'open-page' || app.kind === 'sheet';
+  return app.kind === 'open-page';
 }
 
 const PROTOCOL_APP: OsAppLink = {
@@ -262,7 +233,6 @@ export function gateOsApps(): OsAppLink[] {
       href: APP_GROUPS_PATH,
     },
     DAOS_APP,
-    BOOST_APP,
     PROTOCOL_APP,
   ];
 }
@@ -315,7 +285,6 @@ export function ownerPortfolioOsApps(accountId: string): OsAppLink[] {
     },
     DAOS_APP,
     PROTOCOL_APP,
-    BOOST_APP,
   ];
 }
 
@@ -361,7 +330,6 @@ export function visitorPortfolioOsApps(accountId: string): OsAppLink[] {
     },
     DAOS_APP,
     PROTOCOL_APP,
-    BOOST_APP,
   ];
 }
 
@@ -402,7 +370,6 @@ export function appShellOsApps(accountId: string | null): OsAppLink[] {
     },
     DAOS_APP,
     PROTOCOL_APP,
-    BOOST_APP,
   ];
 
   if (accountId) {
