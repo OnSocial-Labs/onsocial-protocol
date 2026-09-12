@@ -33,7 +33,6 @@ const OS_APP_ICON_BY_ID: Record<string, ComponentType<MageFillIconProps>> = {
   protocol: GlobeFillIcon,
   page: UserCircleFillIcon,
   'my-page': UserCircleFillIcon,
-  'last-place': UserCircleFillIcon,
 };
 
 export function OsAppIcon({

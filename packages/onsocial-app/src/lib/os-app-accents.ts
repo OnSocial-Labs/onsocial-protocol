@@ -11,7 +11,6 @@ const OS_APP_ACCENT_BY_ID: Record<string, OsLauncherIconAccent> = {
   protocol: 'blue',
   page: 'green',
   'my-page': 'green',
-  'last-place': 'green',
 };
 
 export function osAppAccent(appId: string): OsLauncherIconAccent {
