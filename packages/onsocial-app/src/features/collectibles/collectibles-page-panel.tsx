@@ -819,8 +819,9 @@ export function CollectiblesPagePanel({
     >
       {/*
        * One-pane frost owner — zero-height sticky band; its ::before sheets
-       * the header zone + docked account strip so no seam shows between two
-       * blurs. The library sets --collectibles-strip-cover on the page root.
+       * the header zone + one strip slot below the rail, so a docking account
+       * glides into frost that is already there (no seam, no grow-snap).
+       * The library sets --collectibles-strip-slot on the page root.
        */}
       <div className="collectibles-chrome-glass" aria-hidden />
       {showVaultSkeleton ? (

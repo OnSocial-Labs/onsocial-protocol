@@ -27,79 +27,80 @@ function jumpToHeading(headingId: string) {
     ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-const DOCKED_STRIP_CLASS = 'is-docked';
+const LEAVING_STRIP_CLASS = 'is-leaving';
 const ACCOUNT_STRIP_SELECTOR =
   'h2.collectibles-library-heading, button.collectibles-library-heading';
 
 /**
- * Keep the docked account strip sharp on the page's one-pane glass sheet
- * (`.collectibles-chrome-glass`). `position: sticky` exposes no stuck state,
- * so measure each account heading against the scroller's content-box top
- * (its clamp line, including the search-tuck offset via the heading's
- * computed `top`):
- * - `is-docked` toggles only while clamped at the line — strips sliding out
- *   above it stay under the glass so they blur away with the rows.
- * - `--collectibles-strip-cover` (on the page root) grows the glass sheet
- *   down to the docked strip's bottom so rail + strip frost read as one.
+ * Account strip chrome against the one-pane glass sheet:
+ * - Slot: measure one rendered strip into `--collectibles-strip-slot` (on the
+ *   page root) so the sheet always reaches one strip below the rail — a
+ *   docking account glides into frost that is already there instead of the
+ *   sheet growing at the dock moment. Layout-time only, never per-scroll.
+ * - Leaving: `position: sticky` exposes no stuck state, so measure each strip
+ *   against its clamp line (scroller content-box top + the strip's computed
+ *   `top`, which includes the search-tuck offset). A strip pushed above the
+ *   line is leaving — toggle `is-leaving` so it slides out UNDER the sheet
+ *   and blurs away with the rows instead of riding over the rail.
  */
-function useDockedAccountStrip(
+function useAccountStripChrome(
   stackRef: RefObject<HTMLDivElement | null>,
   disabled: boolean,
-  groups: readonly CollectiblesLibraryCreatorGroup[],
-  selectedCreator: string | null
+  groups: readonly CollectiblesLibraryCreatorGroup[]
 ) {
   useEffect(() => {
     const stack = stackRef.current;
     if (disabled || !stack) return;
-    const scroller = stack.closest<HTMLElement>('.os-app-screen-body');
     const page = stack.closest<HTMLElement>('.collectibles-page');
-    if (!scroller) return;
+    const scroller = stack.closest<HTMLElement>('.os-app-screen-body');
+    if (!page || !scroller) return;
     const header = stack
       .closest('.os-app-screen')
       ?.querySelector('.os-app-screen-header');
 
+    const measureSlot = () => {
+      const strip = stack.querySelector<HTMLElement>(ACCOUNT_STRIP_SELECTOR);
+      if (strip) {
+        page.style.setProperty(
+          '--collectibles-strip-slot',
+          `${strip.getBoundingClientRect().height.toFixed(2)}px`
+        );
+      } else {
+        // No account strips (single creator) — sheet stays rail-height.
+        page.style.removeProperty('--collectibles-strip-slot');
+      }
+    };
+
     let raf = 0;
-    let settleTimer: number | null = null;
-    const measure = () => {
+    const measureLeaving = () => {
       raf = 0;
       const clipLine =
         scroller.getBoundingClientRect().top +
         (parseFloat(getComputedStyle(scroller).paddingTop) || 0);
-      let stripCover = 0;
       stack
         .querySelectorAll<HTMLElement>(ACCOUNT_STRIP_SELECTOR)
-        .forEach((heading) => {
-          const stickTop = parseFloat(getComputedStyle(heading).top) || 0;
-          const rect = heading.getBoundingClientRect();
-          const docked = Math.abs(rect.top - (clipLine + stickTop)) <= 2;
-          heading.classList.toggle(DOCKED_STRIP_CLASS, docked);
-          if (docked) {
-            stripCover = Math.max(stripCover, rect.bottom - clipLine);
-          }
+        .forEach((strip) => {
+          const stickTop = parseFloat(getComputedStyle(strip).top) || 0;
+          const leaving =
+            strip.getBoundingClientRect().top < clipLine + stickTop - 2;
+          strip.classList.toggle(LEAVING_STRIP_CLASS, leaving);
         });
-      page?.style.setProperty(
-        '--collectibles-strip-cover',
-        `${stripCover.toFixed(2)}px`
-      );
     };
-    const schedule = () => {
-      if (!raf) raf = requestAnimationFrame(measure);
-    };
-    // The stick offset animates (top transition) after a tuck toggle —
-    // re-measure once it settles so the sheet height tracks the strip.
-    const scheduleWithSettle = () => {
-      schedule();
-      if (settleTimer != null) window.clearTimeout(settleTimer);
-      settleTimer = window.setTimeout(schedule, 250);
+    const scheduleLeaving = () => {
+      if (!raf) raf = requestAnimationFrame(measureLeaving);
     };
 
-    schedule();
-    scroller.addEventListener('scroll', schedule, { passive: true });
-    const resizeObserver = new ResizeObserver(schedule);
-    resizeObserver.observe(scroller);
+    measureSlot();
+    measureLeaving();
+    scroller.addEventListener('scroll', scheduleLeaving, { passive: true });
+    const resizeObserver = new ResizeObserver(() => {
+      measureSlot();
+      scheduleLeaving();
+    });
+    resizeObserver.observe(stack);
     // Search tuck / pin flips header classes (and the stick offset) without
     // necessarily scrolling — re-measure on chrome class changes too.
-    const chromeObserver = new MutationObserver(scheduleWithSettle);
+    const chromeObserver = new MutationObserver(scheduleLeaving);
     if (header) {
       chromeObserver.observe(header, {
         attributes: true,
@@ -108,13 +109,12 @@ function useDockedAccountStrip(
     }
     return () => {
       if (raf) cancelAnimationFrame(raf);
-      if (settleTimer != null) window.clearTimeout(settleTimer);
-      scroller.removeEventListener('scroll', schedule);
+      scroller.removeEventListener('scroll', scheduleLeaving);
       resizeObserver.disconnect();
       chromeObserver.disconnect();
-      page?.style.removeProperty('--collectibles-strip-cover');
+      page.style.removeProperty('--collectibles-strip-slot');
     };
-  }, [stackRef, disabled, groups, selectedCreator]);
+  }, [stackRef, disabled, groups]);
 }
 
 function CreatorHeading({
@@ -252,7 +252,7 @@ export function CollectiblesVaultLibrary({
   const showJump =
     !embedded && showCreatorHeadings && groups.length >= COLLECTIBLES_LIBRARY_JUMP_MIN;
   const stackRef = useRef<HTMLDivElement | null>(null);
-  useDockedAccountStrip(stackRef, embedded, groups, selectedCreator);
+  useAccountStripChrome(stackRef, embedded, groups);
   const stack = (
       <div
         ref={stackRef}

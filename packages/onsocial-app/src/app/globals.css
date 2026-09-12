@@ -25107,7 +25107,9 @@ a.os-surface-row {
     button.collectibles-library-heading {
     position: sticky;
     top: 0;
-    z-index: 2;
+    /* Above the one-pane glass sheet — strip text stays sharp on the frost,
+       so docking / arriving never pops through the blur. */
+    z-index: var(--os-chrome-rail-z);
     box-sizing: border-box;
     width: calc(100% + (2 * var(--os-screen-body-pad-x, 1rem)));
     max-width: none;
@@ -25117,23 +25119,36 @@ a.os-surface-row {
   }
 
   /*
+   * Leaving strips slide out UNDER the glass sheet — once pushed above their
+   * clamp line they blur away with the rows instead of riding over the rail.
+   * `.is-leaving` is toggled from the library.
+   */
+  .os-app-screen[data-glass-chrome='true']
+    .collectibles-page
+    h2.collectibles-library-heading.is-leaving,
+  .os-app-screen[data-glass-chrome='true']
+    .collectibles-page
+    button.collectibles-library-heading.is-leaving {
+    z-index: 2;
+  }
+
+  /*
    * One glass sheet from the rail through the docked account strip — same
    * pattern as `.os-chrome-glass` (guild rails): a zero-height sticky band
    * at the top of the scroller owns the frost for BOTH the header zone and
-   * the docked strip, so no seam line shows where two independent blurs
+   * the strip slot, so no seam line shows where two independent blurs
    * would meet. The ::before reaches up over the chrome band (the body
-   * padding-top reserves it) and grows downward past the docked strip via
-   * --collectibles-strip-cover (JS-measured strip bottom relative to the
-   * chrome band bottom; 0 when nothing is docked). Opacity snaps with
-   * scroll like the header — no fade that would outrun the blur.
-   * Standard property only (Lightning CSS drops it if a -webkit- pair
-   * follows).
+   * padding-top reserves it) and extends one strip slot below the rail
+   * (--collectibles-strip-slot, measured once from a rendered strip).
+   * Opacity snaps with scroll like the header — no fade that would outrun
+   * the blur. Standard property only (Lightning CSS drops it if a
+   * -webkit- pair follows).
    */
   .collectibles-chrome-glass {
     position: sticky;
     top: 0;
     height: 0;
-    /* Above rows, under the docked account strip (shared chrome scale). */
+    /* Above rows, under the account strips (shared chrome scale). */
     z-index: var(--os-chrome-glass-z);
     pointer-events: none;
   }
@@ -25143,13 +25158,30 @@ a.os-surface-row {
     position: absolute;
     top: calc(-1 * var(--os-screen-chrome-height, var(--os-app-screen-chrome-height)));
     inset-inline: calc(-1 * var(--os-screen-body-pad-x, 1rem));
+    /*
+     * Untucked, the sheet always reaches one strip slot below the rail, so a
+     * docking account glides into frost that is already there — no grow/snap
+     * at the dock moment, no bounce at section handoff. Tucked (rail-only
+     * chrome) the strip lands inside the header zone, so the sheet retracts
+     * to it. Height eases with the same chrome timing as the strip's stick
+     * offset, so sheet and strip move together on tuck/untuck.
+     */
     height: calc(
       var(--os-screen-chrome-height, var(--os-app-screen-chrome-height)) +
-        max(var(--collectibles-strip-cover, 0px), 0px)
+        var(--collectibles-strip-slot, 0px)
     );
     background: rgb(var(--bg-rgb) / 0.72);
     backdrop-filter: blur(20px) saturate(1.3);
     opacity: 0;
+    transition: height var(--os-motion-chrome, 220ms) ease;
+  }
+
+  .os-app-screen:has(.os-app-screen-header.is-search-tucked)
+    .collectibles-chrome-glass::before {
+    height: var(
+      --os-screen-chrome-height,
+      var(--os-app-screen-chrome-height)
+    );
   }
 
   .os-app-screen[data-glass-chrome='true']:has(
@@ -25174,21 +25206,6 @@ a.os-surface-row {
       background: rgb(var(--bg-rgb) / 0.94);
       backdrop-filter: none;
     }
-  }
-
-  /*
-   * Docked strip floats on the band's frost — text stays sharp above the
-   * glass, no fill of its own. `.is-docked` is toggled from the library
-   * only on the account strip clamped to the rail; mid-list accounts stay
-   * transparent and scroll under the sheet instead of painting strips.
-   */
-  .os-app-screen[data-glass-chrome='true']
-    .collectibles-page
-    h2.collectibles-library-heading.is-docked,
-  .os-app-screen[data-glass-chrome='true']
-    .collectibles-page
-    button.collectibles-library-heading.is-docked {
-    z-index: var(--os-chrome-rail-z);
   }
 
   /* Tucked chrome is rail-only — pull the stick point up by the collapsed
