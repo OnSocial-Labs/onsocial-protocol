@@ -6231,6 +6231,11 @@ a.os-surface-row {
     list-style: none;
   }
 
+  .portfolio-rally-strip-item {
+    display: flex;
+    flex-direction: column;
+  }
+
   .portfolio-rally-strip-row {
     display: grid;
     grid-template-columns: 2.1rem minmax(0, 1fr) auto;
@@ -6241,6 +6246,25 @@ a.os-surface-row {
     padding-inline: 0.2rem;
     font-size: 0.85rem;
     letter-spacing: -0.015em;
+  }
+
+  .portfolio-rally-strip-you {
+    width: calc(100% + 0.4rem);
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .portfolio-rally-why {
+    margin: 0 0 0.2rem;
+    padding: 0 0.2rem 0.2rem 2.3rem;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    color: rgb(var(--fg-rgb) / 0.48);
   }
 
   .portfolio-rally-strip-rank,
@@ -6267,9 +6291,9 @@ a.os-surface-row {
     text-decoration: none;
   }
 
-  .portfolio-rally-strip-row.is-you .portfolio-rally-strip-name,
-  .portfolio-rally-strip-row.is-you .portfolio-rally-strip-rank,
-  .portfolio-rally-strip-row.is-you .portfolio-rally-strip-score {
+  .portfolio-rally-strip-item.is-you .portfolio-rally-strip-name,
+  .portfolio-rally-strip-item.is-you .portfolio-rally-strip-rank,
+  .portfolio-rally-strip-item.is-you .portfolio-rally-strip-score {
     color: rgb(var(--fg-rgb) / 0.94);
     font-weight: 600;
   }

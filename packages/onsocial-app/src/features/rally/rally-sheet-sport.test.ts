@@ -18,8 +18,10 @@ describe('RallySheetSport', () => {
     expect(html).toContain('You');
     expect(html).toContain('#2');
     expect(html).toContain('/@b.near');
+    expect(html).toContain('type="button"');
     expect(html).not.toContain('SOCIAL');
     expect(html).not.toContain('Stand, endorse');
+    expect(html).not.toContain('are carrying you');
     expect(html).not.toContain('portal');
     expect(html).not.toContain('Full standings');
   });

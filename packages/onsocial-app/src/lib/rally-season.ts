@@ -1,5 +1,4 @@
 import { SOCIAL_SPEND_CONTRACT } from '@/lib/app-config';
-import { portalHref } from '@/lib/app-links';
 import { viewNearContract } from '@/lib/app-near-rpc';
 import { formatSocialCompact, yoctoToSocial } from '@/lib/format-social-balance';
 
@@ -43,11 +42,21 @@ export type RallySettlementSummary = {
   publishedTxHash: string | null;
 };
 
+export type RallyMeritBreakdown = {
+  join: number;
+  profile: number;
+  endorsements: number;
+  solidarity: number;
+  support: number;
+  boost: number;
+};
+
 export type RallyStanding = {
   rank: number;
   score: number;
   accountId: string;
   displayName?: string | null;
+  breakdown?: RallyMeritBreakdown;
 };
 
 export type RallyBoardRow = {
@@ -55,6 +64,7 @@ export type RallyBoardRow = {
   score: number;
   accountId: string;
   displayName?: string | null;
+  breakdown?: RallyMeritBreakdown;
 };
 
 export type RallyClaimRecord = {
@@ -86,10 +96,6 @@ const SEASON_TITLES: Record<string, RallyPresentation> = {
 export function rallySeasonApiPath(seasonId: string, suffix = ''): string {
   const base = `/api/seasons/${encodeURIComponent(seasonId)}`;
   return suffix ? `${base}/${suffix}` : base;
-}
-
-export function rallyPortalPath(seasonId: string): string {
-  return portalHref(`/season/${encodeURIComponent(seasonId)}`);
 }
 
 export function resolveRallyPresentation(
@@ -282,18 +288,112 @@ export function formatRallyPrizeLine(input: {
   return '';
 }
 
+function readPoints(value: unknown): number {
+  const next = Number(value);
+  return Number.isFinite(next) && next > 0 ? next : 0;
+}
+
+export function parseRallyMeritBreakdown(
+  raw: unknown
+): RallyMeritBreakdown | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const row = raw as Record<string, unknown>;
+  return {
+    join: readPoints(row.join),
+    profile: readPoints(row.profile),
+    endorsements: readPoints(row.endorsements),
+    solidarity: readPoints(row.solidarity),
+    support: readPoints(row.support),
+    boost: readPoints(row.boost),
+  };
+}
+
+/** Activity only — the join ticket is a floor, not the race. */
+export function rallyMeritScore(
+  breakdown: RallyMeritBreakdown | null | undefined
+): number | null {
+  if (!breakdown) return null;
+  return (
+    breakdown.profile +
+    breakdown.endorsements +
+    breakdown.solidarity +
+    breakdown.support +
+    breakdown.boost
+  );
+}
+
+const MERIT_LEVERS = [
+  { key: 'solidarity', one: 'Stands', many: 'Stands' },
+  { key: 'endorsements', one: 'Endorsements', many: 'Endorsements' },
+  { key: 'support', one: 'Support', many: 'Support' },
+  { key: 'boost', one: 'Boost', many: 'Boost' },
+  { key: 'profile', one: 'Profile', many: 'Profile' },
+] as const;
+
+function leverPoints(
+  breakdown: RallyMeritBreakdown,
+  key: (typeof MERIT_LEVERS)[number]['key']
+): number {
+  return breakdown[key];
+}
+
+/** One line — what is moving you, or what to do. */
+export function resolveRallyMeritWhy(
+  breakdown: RallyMeritBreakdown | null | undefined,
+  ended = false
+): string {
+  const merit = rallyMeritScore(breakdown) ?? 0;
+  if (merit <= 0) {
+    return ended
+      ? "Activity didn't move this."
+      : 'Stand, endorse, and boost to move.';
+  }
+  const ranked = MERIT_LEVERS.map((lever) => ({
+    ...lever,
+    points: leverPoints(breakdown!, lever.key),
+  }))
+    .filter((lever) => lever.points > 0)
+    .sort((left, right) => right.points - left.points);
+  const lead = ranked[0];
+  const next = ranked[1];
+  if (!lead) {
+    return ended
+      ? "Activity didn't move this."
+      : 'Stand, endorse, and boost to move.';
+  }
+  const pair = next && next.points >= lead.points * 0.6;
+  if (ended) {
+    return pair
+      ? `${lead.many} and ${next.many.toLowerCase()} carried you.`
+      : `${lead.one} carried you.`;
+  }
+  if (pair) {
+    return `${lead.many} and ${next.many.toLowerCase()} are carrying you.`;
+  }
+  const plural = lead.key === 'solidarity' || lead.key === 'endorsements';
+  return plural
+    ? `${lead.one} are carrying you.`
+    : `${lead.one} is carrying you.`;
+}
+
 function standingToBoardRow(
-  row: Pick<RallyBoardRow, 'rank' | 'score' | 'accountId' | 'displayName'>
+  row: Pick<
+    RallyBoardRow,
+    'rank' | 'score' | 'accountId' | 'displayName' | 'breakdown'
+  >
 ): RallyBoardRow | null {
   const accountId = row.accountId.trim();
   if (!accountId || !Number.isFinite(row.rank) || row.rank <= 0) return null;
+  const breakdown = row.breakdown ?? null;
+  const merit = rallyMeritScore(breakdown);
   return {
     rank: row.rank,
-    score: Number.isFinite(row.score) ? row.score : 0,
+    score: merit ?? (Number.isFinite(row.score) ? row.score : 0),
     accountId,
     ...(row.displayName?.trim()
       ? { displayName: row.displayName.trim() }
       : {}),
+    ...(breakdown ? { breakdown } : {}),
   };
 }
 
@@ -503,6 +603,7 @@ export async function fetchRallyStandings(
       score?: number;
       accountId?: string;
       displayName?: string | null;
+      breakdown?: unknown;
     }>;
   };
   const rows = (data.standings ?? [])
@@ -512,6 +613,7 @@ export async function fetchRallyStandings(
         score: Number(row.score),
         accountId: String(row.accountId ?? ''),
         displayName: row.displayName,
+        breakdown: parseRallyMeritBreakdown(row.breakdown) ?? undefined,
       })
     )
     .filter((row): row is RallyBoardRow => row != null);
@@ -531,7 +633,16 @@ export async function fetchRallyMe(
   );
   if (!response.ok) return null;
   const data = (await response.json()) as { standing?: RallyStanding | null };
-  return data.standing ?? null;
+  const standing = data.standing;
+  if (!standing?.accountId) return null;
+  const breakdown = parseRallyMeritBreakdown(standing.breakdown);
+  return {
+    rank: standing.rank,
+    score: standing.score,
+    accountId: standing.accountId,
+    ...(standing.displayName ? { displayName: standing.displayName } : {}),
+    ...(breakdown ? { breakdown } : {}),
+  };
 }
 
 export async function fetchRallyClaim(

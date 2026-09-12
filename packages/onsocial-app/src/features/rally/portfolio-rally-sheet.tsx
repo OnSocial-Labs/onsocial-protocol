@@ -392,6 +392,7 @@ export function PortfolioRallySheet({
           <RallySheetSport
             rows={player.standingStrip}
             viewerAccountId={accountId}
+            ended={player.phase !== 'live'}
           />
         </div>
       )}
