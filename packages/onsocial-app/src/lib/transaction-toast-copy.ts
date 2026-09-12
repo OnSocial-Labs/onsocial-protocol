@@ -152,8 +152,7 @@ export const txToastPending = {
 
 export const txToastSuccess = {
   socialCollected: 'SOCIAL collected.',
-  joinedRally: (seasonTitle: string, badgeLabel = 'Rally') =>
-    `You're in ${seasonTitle}. ${badgeLabel} badge on your profile.`,
+  joinedRally: (seasonTitle: string) => `You're in ${seasonTitle}.`,
   socialInWallet: 'SOCIAL is in your wallet.',
   rewardsCollected: (amountLabel: string) => `${amountLabel} SOCIAL collected.`,
   rewardCredited: (amountLabel: string, reason?: string | null) =>

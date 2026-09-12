@@ -8,15 +8,19 @@ import {
   fetchRallyClaim,
   fetchRallyMe,
   fetchRallyRegistry,
+  fetchRallyStandings,
   fetchRallyStatus,
   formatJoinRallyMinLabel,
   formatRallyMarkCaption,
+  formatRallyPrizeLine,
   resolveRallyCanJoin,
   resolveRallyLifecyclePhase,
   resolveRallyMarkNudge,
   resolveRallyOccasion,
   resolveRallyPresentation,
+  resolveRallyStandingStrip,
   shouldFetchRallyJoinAffordance,
+  type RallyBoardRow,
   type RallyClaimRecord,
   type RallyLifecyclePhase,
   type RallyRegistryEntry,
@@ -30,7 +34,6 @@ export type RallyOccasion = {
   entry: RallyRegistryEntry | null;
   seasonId: string | null;
   pageTitle: string;
-  profileBadgeLabel: string;
 };
 
 export type RallyMarkState = {
@@ -45,7 +48,6 @@ export type RallyPlayerState = {
   loaded: boolean;
   seasonId: string;
   pageTitle: string;
-  profileBadgeLabel: string;
   phase: RallyLifecyclePhase | null;
   joined: boolean;
   standing: RallyStanding | null;
@@ -58,6 +60,8 @@ export type RallyPlayerState = {
   canCollect: boolean;
   joinPending: boolean;
   claimPending: boolean;
+  prizeLine: string;
+  standingStrip: RallyBoardRow[];
   refresh: () => void;
 };
 
@@ -112,6 +116,9 @@ export function useRallySeason(
   const [joinMinYocto, setJoinMinYocto] = useState<bigint | null>(null);
   const [balanceYocto, setBalanceYocto] = useState<bigint | null>(null);
   const [chainLabel, setChainLabel] = useState<string | null>(null);
+  const [poolYocto, setPoolYocto] = useState<string | null>(null);
+  const [boardRows, setBoardRows] = useState<RallyBoardRow[]>([]);
+  const [participantCount, setParticipantCount] = useState<number | null>(null);
   const [detailLoaded, setDetailLoaded] = useState(!detail);
   const [detailGate, setDetailGate] = useState(detail);
   const [tracked, setTracked] = useState({
@@ -133,6 +140,9 @@ export function useRallySeason(
     setJoinMinYocto(null);
     setBalanceYocto(null);
     setChainLabel(null);
+    setPoolYocto(null);
+    setBoardRows([]);
+    setParticipantCount(null);
     setDetailLoaded(!detail);
   }
   if (detailGate !== detail) {
@@ -218,9 +228,15 @@ export function useRallySeason(
     if (!detail || !seasonId) return;
     let cancelled = false;
     void (async () => {
-      const status = await fetchRallyStatus(seasonId);
+      const [status, board] = await Promise.all([
+        fetchRallyStatus(seasonId),
+        fetchRallyStandings(seasonId),
+      ]);
       if (cancelled) return;
       setChainLabel(status?.onChainConfig?.label ?? null);
+      setPoolYocto(status?.indexedPoolYocto ?? null);
+      setBoardRows(board?.rows ?? []);
+      setParticipantCount(board?.total ?? null);
       setPhase(
         resolveRallyLifecyclePhase(
           status?.onChainConfig ?? null,
@@ -262,6 +278,15 @@ export function useRallySeason(
   });
   const canCollect =
     resolvedPhase === 'claim_open' && Boolean(claim && claim.claimed === false);
+  const prizeLine = formatRallyPrizeLine({
+    poolYocto,
+    participantCount,
+  });
+  const standingStrip = resolveRallyStandingStrip({
+    rows: boardRows,
+    viewerAccountId: accountId,
+    viewerStanding: standing,
+  });
   const hasJoinOverride = seasonId ? hasSeasonJoinConfirmed(seasonId) : false;
   const hasClaimOverride = Boolean(
     seasonId && claim?.claimed && apiClaim && apiClaim.claimed !== true
@@ -291,7 +316,6 @@ export function useRallySeason(
       entry,
       seasonId,
       pageTitle: presentation.pageTitle,
-      profileBadgeLabel: presentation.profileBadgeLabel,
     };
     const ariaLabel = !entry
       ? presentation.pageTitle
@@ -317,7 +341,6 @@ export function useRallySeason(
       loaded,
       seasonId: seasonId ?? '',
       pageTitle: presentation.pageTitle,
-      profileBadgeLabel: presentation.profileBadgeLabel,
       phase: resolvedPhase,
       joined,
       standing,
@@ -330,6 +353,8 @@ export function useRallySeason(
       canCollect,
       joinPending,
       claimPending,
+      prizeLine,
+      standingStrip,
       refresh,
     };
     return { occasion, mark, player, refresh };
@@ -349,11 +374,12 @@ export function useRallySeason(
     occasionLoaded,
     participateSyncVersion,
     presentation.pageTitle,
-    presentation.profileBadgeLabel,
+    prizeLine,
     refresh,
     resolvedPhase,
     seasonId,
     snapshotReady,
     standing,
+    standingStrip,
   ]);
 }

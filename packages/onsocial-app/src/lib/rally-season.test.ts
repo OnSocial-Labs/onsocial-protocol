@@ -2,14 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { txToastSuccess } from '@/lib/transaction-toast-copy';
 import {
   formatRallyMarkCaption,
+  formatRallyPrizeLine,
   parseJoinRallyMinYocto,
-  rallyPortalPath,
   resolveRallyLifecyclePhase,
+  resolveRallyMeritWhy,
+  rallyMeritScore,
   resolveRallyCanJoin,
   resolveRallyMarkNudge,
   resolveRallyOccasion,
   resolveRallyPresentation,
   resolveRallySheetView,
+  resolveRallyStandingStrip,
   shouldFetchRallyJoinAffordance,
 } from '@/lib/rally-season';
 
@@ -85,12 +88,11 @@ describe('rally-season', () => {
     expect(resolveRallyPresentation('season-one').pageTitle).toBe(
       'OnSocial Rally'
     );
-    expect(rallyPortalPath('season-one')).toContain('/season/season-one');
     expect(txToastSuccess.joinedRally('Season Two')).toBe(
-      "You're in Season Two. Rally badge on your profile."
+      "You're in Season Two."
     );
-    expect(txToastSuccess.joinedRally('Genesis Rally', 'Genesis')).toBe(
-      "You're in Genesis Rally. Genesis badge on your profile."
+    expect(txToastSuccess.joinedRally('Genesis Rally')).toBe(
+      "You're in Genesis Rally."
     );
     expect(
       formatRallyMarkCaption({
@@ -99,6 +101,106 @@ describe('rally-season', () => {
       })
     ).toBe('1,500');
     expect(formatRallyMarkCaption({ rank: 12 })).toBe('#12');
+  });
+
+  it('writes a prize line from pool and field size', () => {
+    expect(
+      formatRallyPrizeLine({
+        poolYocto: '1500000000000000000000',
+        participantCount: 48,
+      })
+    ).toBe('1,500 SOCIAL · 48 in');
+    expect(formatRallyPrizeLine({ poolYocto: '0', participantCount: 0 })).toBe(
+      ''
+    );
+    expect(
+      formatRallyPrizeLine({ poolYocto: '1500000000000000000000' })
+    ).toBe('1,500 SOCIAL');
+    expect(formatRallyPrizeLine({ participantCount: 3 })).toBe('3 in');
+  });
+
+  it('windows the standing strip around the viewer', () => {
+    const rows = [
+      { rank: 1, score: 90, accountId: 'a.near' },
+      { rank: 2, score: 80, accountId: 'b.near' },
+      { rank: 3, score: 70, accountId: 'c.near' },
+      { rank: 4, score: 60, accountId: 'd.near' },
+    ];
+    expect(
+      resolveRallyStandingStrip({ rows, viewerAccountId: null }).map(
+        (row) => row.accountId
+      )
+    ).toEqual(['a.near', 'b.near', 'c.near']);
+    expect(
+      resolveRallyStandingStrip({
+        rows,
+        viewerAccountId: 'c.near',
+        viewerStanding: { rank: 3, score: 70, accountId: 'c.near' },
+      }).map((row) => row.accountId)
+    ).toEqual(['b.near', 'c.near', 'd.near']);
+    expect(
+      resolveRallyStandingStrip({
+        rows,
+        viewerAccountId: 'you.near',
+        viewerStanding: { rank: 12, score: 11, accountId: 'you.near' },
+      }).map((row) => row.accountId)
+    ).toEqual(['c.near', 'd.near', 'you.near']);
+  });
+
+  it('shows merit on the strip and a why line for the viewer', () => {
+    const breakdown = {
+      join: 1000,
+      profile: 250,
+      endorsements: 500,
+      solidarity: 225,
+      support: 0,
+      boost: 0,
+    };
+    expect(rallyMeritScore(breakdown)).toBe(975);
+    expect(
+      resolveRallyStandingStrip({
+        rows: [
+          {
+            rank: 1,
+            score: 1975,
+            accountId: 'a.near',
+            breakdown,
+          },
+        ],
+      })[0]?.score
+    ).toBe(975);
+    expect(resolveRallyMeritWhy(breakdown)).toBe(
+      'Endorsements are carrying you.'
+    );
+    expect(
+      resolveRallyMeritWhy({
+        join: 1000,
+        profile: 0,
+        endorsements: 400,
+        solidarity: 350,
+        support: 0,
+        boost: 0,
+      })
+    ).toBe('Endorsements and stands are carrying you.');
+    expect(resolveRallyMeritWhy(null)).toBe(
+      'Stand, endorse, and boost to move.'
+    );
+    expect(resolveRallyMeritWhy(null, true)).toBe(
+      "Activity didn't move this."
+    );
+    expect(
+      resolveRallyMeritWhy(
+        {
+          join: 1000,
+          profile: 0,
+          endorsements: 0,
+          solidarity: 400,
+          support: 0,
+          boost: 0,
+        },
+        true
+      )
+    ).toBe('Stands carried you.');
   });
 
   it('keeps the sheet number-first', () => {
@@ -134,7 +236,7 @@ describe('rally-season', () => {
     ).toMatchObject({
       eyebrow: 'Rally',
       title: '#12',
-      body: 'OnSocial Rally #4',
+      body: '',
     });
     expect(
       resolveRallySheetView({
@@ -149,7 +251,7 @@ describe('rally-season', () => {
     ).toMatchObject({
       eyebrow: 'Rally',
       title: 'OnSocial Rally #4',
-      body: "You're in.",
+      body: '',
     });
     expect(
       resolveRallySheetView({
@@ -166,6 +268,7 @@ describe('rally-season', () => {
       eyebrow: 'Rally',
       title: 'Join',
       titleUnit: '10 SOCIAL',
+      body: '',
     });
     expect(
       resolveRallySheetView({
