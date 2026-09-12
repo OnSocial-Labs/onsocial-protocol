@@ -6220,37 +6220,13 @@ a.os-surface-row {
   .portfolio-rally-view {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  .portfolio-rally-sport {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-
-  .portfolio-rally-prize,
-  .portfolio-rally-rules {
-    margin: 0;
-    font-size: 0.78rem;
-    line-height: 1.4;
-    letter-spacing: -0.01em;
-  }
-
-  .portfolio-rally-prize {
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.78);
-  }
-
-  .portfolio-rally-rules {
-    color: rgb(var(--fg-rgb) / 0.48);
+    gap: 0.15rem;
   }
 
   .portfolio-rally-strip {
     display: flex;
     flex-direction: column;
-    gap: 0.12rem;
-    margin: 0.45rem 0 0;
+    margin: 0.1rem 0 0;
     padding: 0;
     list-style: none;
   }
@@ -6258,10 +6234,12 @@ a.os-surface-row {
   .portfolio-rally-strip-row {
     display: grid;
     grid-template-columns: 2.1rem minmax(0, 1fr) auto;
-    align-items: baseline;
+    align-items: center;
     gap: 0.45rem;
-    min-height: 1.45rem;
-    font-size: 0.82rem;
+    margin-inline: -0.2rem;
+    padding-block: 0.48rem;
+    padding-inline: 0.2rem;
+    font-size: 0.85rem;
     letter-spacing: -0.015em;
   }
 
@@ -6269,6 +6247,12 @@ a.os-surface-row {
   .portfolio-rally-strip-score {
     font-variant-numeric: tabular-nums;
     color: rgb(var(--fg-rgb) / 0.46);
+  }
+
+  .portfolio-rally-strip-score {
+    font-size: 0.74rem;
+    font-weight: 600;
+    text-align: right;
   }
 
   .portfolio-rally-strip-name,
@@ -6279,14 +6263,14 @@ a.os-surface-row {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: rgb(var(--fg-rgb) / 0.78);
+    color: rgb(var(--fg-rgb) / 0.82);
     text-decoration: none;
   }
 
   .portfolio-rally-strip-row.is-you .portfolio-rally-strip-name,
   .portfolio-rally-strip-row.is-you .portfolio-rally-strip-rank,
   .portfolio-rally-strip-row.is-you .portfolio-rally-strip-score {
-    color: rgb(var(--fg-rgb) / 0.92);
+    color: rgb(var(--fg-rgb) / 0.94);
     font-weight: 600;
   }
 

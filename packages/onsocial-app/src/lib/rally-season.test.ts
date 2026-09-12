@@ -111,8 +111,11 @@ describe('rally-season', () => {
       })
     ).toBe('1,500 SOCIAL · 48 in');
     expect(formatRallyPrizeLine({ poolYocto: '0', participantCount: 0 })).toBe(
-      'Pool fills as people join.'
+      ''
     );
+    expect(
+      formatRallyPrizeLine({ poolYocto: '1500000000000000000000' })
+    ).toBe('1,500 SOCIAL');
     expect(formatRallyPrizeLine({ participantCount: 3 })).toBe('3 in');
   });
 
@@ -177,7 +180,7 @@ describe('rally-season', () => {
     ).toMatchObject({
       eyebrow: 'Rally',
       title: '#12',
-      body: 'OnSocial Rally #4',
+      body: '',
     });
     expect(
       resolveRallySheetView({
@@ -192,7 +195,7 @@ describe('rally-season', () => {
     ).toMatchObject({
       eyebrow: 'Rally',
       title: 'OnSocial Rally #4',
-      body: "You're in.",
+      body: '',
     });
     expect(
       resolveRallySheetView({
@@ -209,6 +212,7 @@ describe('rally-season', () => {
       eyebrow: 'Rally',
       title: 'Join',
       titleUnit: '10 SOCIAL',
+      body: '',
     });
     expect(
       resolveRallySheetView({

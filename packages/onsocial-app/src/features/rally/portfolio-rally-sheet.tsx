@@ -358,6 +358,9 @@ export function PortfolioRallySheet({
                   </>
                 )}
               </h2>
+              {player.loaded && player.prizeLine ? (
+                <p className="portfolio-payout-sheet-sub">{player.prizeLine}</p>
+              ) : null}
             </div>
           </div>
         </SheetChromeHeader>
@@ -376,7 +379,9 @@ export function PortfolioRallySheet({
         <RallySheetLoadingSkeleton />
       ) : (
         <div className="portfolio-rally-view">
-          <p className="portfolio-boost-intro">{view.body}</p>
+          {view.body ? (
+            <p className="portfolio-boost-intro">{view.body}</p>
+          ) : null}
 
           {isConnected &&
           player.phase === 'live' &&
@@ -388,7 +393,6 @@ export function PortfolioRallySheet({
           ) : null}
 
           <RallySheetSport
-            prizeLine={player.prizeLine}
             rows={player.standingStrip}
             viewerAccountId={accountId}
           />

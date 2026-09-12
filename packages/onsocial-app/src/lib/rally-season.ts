@@ -57,9 +57,6 @@ export type RallyBoardRow = {
   displayName?: string | null;
 };
 
-export const RALLY_SPORT_LINE =
-  'Stand, endorse, and boost. Half the pool by score.';
-
 export type RallyClaimRecord = {
   seasonId: string;
   accountId: string;
@@ -268,7 +265,7 @@ function parsePositiveYocto(value: string | null | undefined): bigint | null {
   }
 }
 
-/** Prize line — pool first, then how many are in. */
+/** Prize sub — pool first, then how many are in. Empty when neither is known. */
 export function formatRallyPrizeLine(input: {
   poolYocto?: string | null;
   participantCount?: number | null;
@@ -284,9 +281,9 @@ export function formatRallyPrizeLine(input: {
   if (amount && count > 0) {
     return `${amount} SOCIAL · ${count} in`;
   }
-  if (amount) return `${amount} SOCIAL in the pool`;
+  if (amount) return `${amount} SOCIAL`;
   if (count > 0) return `${count} in`;
-  return 'Pool fills as people join.';
+  return '';
 }
 
 function standingToBoardRow(
@@ -413,7 +410,7 @@ export function resolveRallySheetView(input: {
       eyebrow,
       title: rank || pageTitle,
       titleUnit: null,
-      body: rank ? pageTitle : "You're in.",
+      body: '',
       ariaLabel: rank ? `${rank} in ${pageTitle}` : `You're in ${pageTitle}`,
     };
   }
@@ -424,9 +421,7 @@ export function resolveRallySheetView(input: {
       eyebrow,
       title: 'Join',
       titleUnit: min ? `${min} SOCIAL` : null,
-      body: min
-        ? `Spend ${min} SOCIAL to enter ${pageTitle}.`
-        : `Join ${pageTitle}.`,
+      body: '',
       ariaLabel: min ? `Join ${pageTitle} · ${min} SOCIAL` : `Join ${pageTitle}`,
     };
   }
