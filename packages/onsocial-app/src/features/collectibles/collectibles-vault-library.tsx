@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import Link from 'next/link';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { OsChipRail } from '@/components/os/os-chip-rail';
@@ -25,6 +25,74 @@ function jumpToHeading(headingId: string) {
   document
     .getElementById(headingId)
     ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+const DOCKED_STRIP_CLASS = 'is-docked';
+const ACCOUNT_STRIP_SELECTOR =
+  'h2.collectibles-library-heading, button.collectibles-library-heading';
+
+/**
+ * Frost only the account strip actually docked under the glass rail.
+ * `position: sticky` exposes no stuck state, so measure each account heading
+ * against the scroller's content-box top (its clamp line, including the
+ * search-tuck offset via the heading's computed `top`) and toggle
+ * `is-docked`; CSS gates the frost on that class + the elevated header.
+ * Mid-list account headings stay transparent instead of painting strips.
+ */
+function useDockedAccountStrip(
+  stackRef: RefObject<HTMLDivElement | null>,
+  disabled: boolean,
+  groups: readonly CollectiblesLibraryCreatorGroup[],
+  selectedCreator: string | null
+) {
+  useEffect(() => {
+    const stack = stackRef.current;
+    if (disabled || !stack) return;
+    const scroller = stack.closest<HTMLElement>('.os-app-screen-body');
+    if (!scroller) return;
+    const header = stack
+      .closest('.os-app-screen')
+      ?.querySelector('.os-app-screen-header');
+
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
+      const clipLine =
+        scroller.getBoundingClientRect().top +
+        (parseFloat(getComputedStyle(scroller).paddingTop) || 0);
+      stack
+        .querySelectorAll<HTMLElement>(ACCOUNT_STRIP_SELECTOR)
+        .forEach((heading) => {
+          const stickTop = parseFloat(getComputedStyle(heading).top) || 0;
+          const docked =
+            heading.getBoundingClientRect().top <= clipLine + stickTop + 1;
+          heading.classList.toggle(DOCKED_STRIP_CLASS, docked);
+        });
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(measure);
+    };
+
+    schedule();
+    scroller.addEventListener('scroll', schedule, { passive: true });
+    const resizeObserver = new ResizeObserver(schedule);
+    resizeObserver.observe(scroller);
+    // Search tuck / pin flips header classes (and the stick offset) without
+    // necessarily scrolling — re-measure on chrome class changes too.
+    const chromeObserver = new MutationObserver(schedule);
+    if (header) {
+      chromeObserver.observe(header, {
+        attributes: true,
+        attributeFilter: ['class'],
+      });
+    }
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      scroller.removeEventListener('scroll', schedule);
+      resizeObserver.disconnect();
+      chromeObserver.disconnect();
+    };
+  }, [stackRef, disabled, groups, selectedCreator]);
 }
 
 function CreatorHeading({
@@ -161,8 +229,11 @@ export function CollectiblesVaultLibrary({
 }) {
   const showJump =
     !embedded && showCreatorHeadings && groups.length >= COLLECTIBLES_LIBRARY_JUMP_MIN;
+  const stackRef = useRef<HTMLDivElement | null>(null);
+  useDockedAccountStrip(stackRef, embedded, groups, selectedCreator);
   const stack = (
       <div
+        ref={stackRef}
         id={embedded ? undefined : 'collectibles-results'}
         className="collectibles-library-stack"
       >
