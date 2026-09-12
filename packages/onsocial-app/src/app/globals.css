@@ -22343,13 +22343,14 @@ a.os-surface-row {
     top: calc(
       env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y, 0.3rem)
     );
-    left: max(
+    right: max(
       var(--os-screen-body-pad-x, 1rem),
-      env(safe-area-inset-left, 0px)
+      env(safe-area-inset-right, 0px)
     );
     z-index: 3;
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     height: var(--os-app-screen-nav-row-height, 2.35rem);
   }
 
