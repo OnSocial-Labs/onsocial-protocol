@@ -74,6 +74,7 @@ import { portfolioPath } from '@/lib/overlay-routes';
 import {
   appShellOsApps,
   isOsAppActive,
+  osAppOpensWithWallet,
   ownerPortfolioOsApps,
   resolveActiveOsAppId,
   visitorPortfolioOsApps,
@@ -109,7 +110,7 @@ function probeOsCardHost(): HTMLElement | null {
 }
 
 function launcherAppLabel(app: OsAppLink, openingPage: boolean) {
-  if (app.kind === 'open-page' && openingPage) {
+  if (osAppOpensWithWallet(app) && openingPage) {
     return 'Opening…';
   }
 
@@ -199,7 +200,7 @@ function LauncherAppTile({
     <button
       type="button"
       className={tileClassName}
-      disabled={app.soon || (app.kind === 'open-page' && openingPage)}
+      disabled={app.soon || (osAppOpensWithWallet(app) && openingPage)}
       aria-label={ariaLabel}
       aria-current={active ? 'page' : undefined}
       data-app-id={app.id}

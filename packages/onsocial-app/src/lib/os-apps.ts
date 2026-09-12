@@ -1,8 +1,5 @@
 import { accountIdsEqual } from '@/lib/account-match';
-import {
-  GOVERNANCE_DAO_ACCOUNT,
-  TREASURY_DAO_ACCOUNT,
-} from '@/lib/app-config';
+import { GOVERNANCE_DAO_ACCOUNT, TREASURY_DAO_ACCOUNT } from '@/lib/app-config';
 import { isHeuristicDaoAccountId } from '@/lib/enrich-standing-with-dao';
 import {
   APP_APPS_PATH,
@@ -21,14 +18,23 @@ import {
   APP_PROTOCOL_PATH,
   daoPath,
 } from '@/lib/app-routes';
-import { portalHref } from '@/lib/app-links';
 import {
+  portfolioBoostPath,
   portfolioCollectiblesPath,
   discoverPath,
   type OverlayPanel,
+  type PortfolioShareSheetId,
 } from '@/lib/overlay-routes';
 
-export type OsAppLinkKind = 'app' | 'overlay' | 'external' | 'open-page';
+export type OsAppLinkKind =
+  | 'app'
+  | 'overlay'
+  | 'external'
+  | 'open-page'
+  | 'sheet';
+
+/** First-party viewer sheets opened from the launcher (wallet, then owner face). */
+export type OsAppSheetId = Extract<PortfolioShareSheetId, 'boost'>;
 
 export interface OsAppLink {
   id: string;
@@ -36,6 +42,7 @@ export interface OsAppLink {
   kind: OsAppLinkKind;
   href?: string;
   overlay?: OverlayPanel;
+  sheet?: OsAppSheetId;
   soon?: boolean;
   /** Community-board icon. First-party tiles use {@link OsAppIcon}. */
   iconUrl?: string;
@@ -43,7 +50,7 @@ export interface OsAppLink {
 
 /**
  * Which launcher app is "here" for the current route.
- * External portals (Boost) are never active in-app.
+ * Viewer sheets (Boost) live on the owner face — never the active route tile.
  * Hubs covers `/apps`. Drop pages under `/collection` are Drops.
  */
 export function resolveActiveOsAppId(
@@ -61,10 +68,7 @@ export function resolveActiveOsAppId(
   ) {
     return 'activity';
   }
-  if (
-    path === APP_MESSAGES_PATH ||
-    path.startsWith(`${APP_MESSAGES_PATH}/`)
-  ) {
+  if (path === APP_MESSAGES_PATH || path.startsWith(`${APP_MESSAGES_PATH}/`)) {
     return 'messages';
   }
   if (path === APP_DISCOVER_PATH || path.startsWith(`${APP_DISCOVER_PATH}/`)) {
@@ -116,10 +120,7 @@ export function resolveActiveOsAppId(
     }
     return 'daos';
   }
-  if (
-    path === APP_PROTOCOL_PATH ||
-    path.startsWith(`${APP_PROTOCOL_PATH}/`)
-  ) {
+  if (path === APP_PROTOCOL_PATH || path.startsWith(`${APP_PROTOCOL_PATH}/`)) {
     return 'protocol';
   }
 
@@ -172,14 +173,27 @@ export function isOsAppActive(appId: string, activeId: string | null): boolean {
   return false;
 }
 
-const OS_EXTERNAL_LINKS: OsAppLink[] = [
-  {
-    id: 'boost',
-    label: 'Boost',
-    kind: 'external',
-    href: portalHref('/boost'),
-  },
-];
+const BOOST_APP: OsAppLink = {
+  id: 'boost',
+  label: 'Boost',
+  kind: 'sheet',
+  sheet: 'boost',
+};
+
+/** Owner-face href after the viewer wallet is known. */
+export function osAppViewerSheetPath(
+  app: OsAppLink,
+  viewerAccountId: string
+): string | null {
+  if (app.kind !== 'sheet' || app.sheet !== 'boost') {
+    return null;
+  }
+  return portfolioBoostPath(viewerAccountId);
+}
+
+export function osAppOpensWithWallet(app: OsAppLink): boolean {
+  return app.kind === 'open-page' || app.kind === 'sheet';
+}
 
 const PROTOCOL_APP: OsAppLink = {
   id: 'protocol',
@@ -248,12 +262,7 @@ export function gateOsApps(): OsAppLink[] {
       href: APP_GROUPS_PATH,
     },
     DAOS_APP,
-    {
-      id: 'boost',
-      label: 'Boost',
-      kind: 'external',
-      href: portalHref('/boost'),
-    },
+    BOOST_APP,
     PROTOCOL_APP,
   ];
 }
@@ -306,7 +315,7 @@ export function ownerPortfolioOsApps(accountId: string): OsAppLink[] {
     },
     DAOS_APP,
     PROTOCOL_APP,
-    ...OS_EXTERNAL_LINKS,
+    BOOST_APP,
   ];
 }
 
@@ -352,7 +361,7 @@ export function visitorPortfolioOsApps(accountId: string): OsAppLink[] {
     },
     DAOS_APP,
     PROTOCOL_APP,
-    ...OS_EXTERNAL_LINKS,
+    BOOST_APP,
   ];
 }
 
@@ -393,7 +402,7 @@ export function appShellOsApps(accountId: string | null): OsAppLink[] {
     },
     DAOS_APP,
     PROTOCOL_APP,
-    ...OS_EXTERNAL_LINKS,
+    BOOST_APP,
   ];
 
   if (accountId) {

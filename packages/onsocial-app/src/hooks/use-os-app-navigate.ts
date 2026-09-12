@@ -3,8 +3,16 @@
 import { useCallback, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { isPortfolioOverlayPath, overlayPath, portfolioPath } from '@/lib/overlay-routes';
-import type { OsAppLink } from '@/lib/os-apps';
+import {
+  isPortfolioOverlayPath,
+  overlayPath,
+  portfolioPath,
+} from '@/lib/overlay-routes';
+import {
+  osAppOpensWithWallet,
+  osAppViewerSheetPath,
+  type OsAppLink,
+} from '@/lib/os-apps';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 export function useOsAppNavigate(pageAccountId?: string) {
@@ -13,30 +21,45 @@ export function useOsAppNavigate(pageAccountId?: string) {
   const { getSigningWallet } = useAppWallet();
   const [openingPage, setOpeningPage] = useState(false);
 
-  const openPage = useCallback(async () => {
-    if (openingPage) {
-      return;
-    }
-    setOpeningPage(true);
-    try {
-      const { accountId } = await getSigningWallet();
-      router.push(portfolioPath(accountId));
-    } catch (error) {
-      if (!isWalletUserCancellation(error)) {
-        console.error('Could not open your page', error);
+  const openWithWallet = useCallback(
+    async (app: OsAppLink) => {
+      if (openingPage) {
+        return;
       }
-    } finally {
-      setOpeningPage(false);
-    }
-  }, [getSigningWallet, openingPage, router]);
+      setOpeningPage(true);
+      try {
+        const { accountId } = await getSigningWallet();
+        if (app.kind === 'open-page') {
+          router.push(portfolioPath(accountId));
+          return;
+        }
+        const sheetHref = osAppViewerSheetPath(app, accountId);
+        if (sheetHref) {
+          router.push(sheetHref);
+        }
+      } catch (error) {
+        if (!isWalletUserCancellation(error)) {
+          console.error(
+            app.kind === 'sheet'
+              ? 'Could not open boost'
+              : 'Could not open your page',
+            error
+          );
+        }
+      } finally {
+        setOpeningPage(false);
+      }
+    },
+    [getSigningWallet, openingPage, router]
+  );
 
   const navigate = useCallback(
     (app: OsAppLink): boolean => {
       if (app.soon) {
         return false;
       }
-      if (app.kind === 'open-page') {
-        void openPage();
+      if (osAppOpensWithWallet(app)) {
+        void openWithWallet(app);
         return true;
       }
       if (app.kind === 'app' && app.href) {
@@ -53,7 +76,7 @@ export function useOsAppNavigate(pageAccountId?: string) {
       }
       return false;
     },
-    [openPage, pageAccountId, pathname, router]
+    [openWithWallet, pageAccountId, pathname, router]
   );
 
   return { navigate, openingPage };
