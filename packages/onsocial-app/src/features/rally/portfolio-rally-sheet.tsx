@@ -183,10 +183,7 @@ export function PortfolioRallySheet({
       const confirmed = await trackTransaction({
         txHashes: extractNearTransactionHashes(payment),
         submittedMessage: txToastPending.joiningRally(player.pageTitle),
-        successMessage: txToastSuccess.joinedRally(
-          player.pageTitle,
-          player.profileBadgeLabel
-        ),
+        successMessage: txToastSuccess.joinedRally(player.pageTitle),
         failureMessage: txToastError.joinRallyFailed,
       });
       if (confirmed) {

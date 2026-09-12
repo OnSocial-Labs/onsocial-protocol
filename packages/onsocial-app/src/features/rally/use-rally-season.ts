@@ -34,7 +34,6 @@ export type RallyOccasion = {
   entry: RallyRegistryEntry | null;
   seasonId: string | null;
   pageTitle: string;
-  profileBadgeLabel: string;
 };
 
 export type RallyMarkState = {
@@ -49,7 +48,6 @@ export type RallyPlayerState = {
   loaded: boolean;
   seasonId: string;
   pageTitle: string;
-  profileBadgeLabel: string;
   phase: RallyLifecyclePhase | null;
   joined: boolean;
   standing: RallyStanding | null;
@@ -318,7 +316,6 @@ export function useRallySeason(
       entry,
       seasonId,
       pageTitle: presentation.pageTitle,
-      profileBadgeLabel: presentation.profileBadgeLabel,
     };
     const ariaLabel = !entry
       ? presentation.pageTitle
@@ -344,7 +341,6 @@ export function useRallySeason(
       loaded,
       seasonId: seasonId ?? '',
       pageTitle: presentation.pageTitle,
-      profileBadgeLabel: presentation.profileBadgeLabel,
       phase: resolvedPhase,
       joined,
       standing,
@@ -378,7 +374,6 @@ export function useRallySeason(
     occasionLoaded,
     participateSyncVersion,
     presentation.pageTitle,
-    presentation.profileBadgeLabel,
     prizeLine,
     refresh,
     resolvedPhase,

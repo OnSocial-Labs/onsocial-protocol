@@ -89,10 +89,10 @@ describe('rally-season', () => {
     );
     expect(rallyPortalPath('season-one')).toContain('/season/season-one');
     expect(txToastSuccess.joinedRally('Season Two')).toBe(
-      "You're in Season Two. Rally badge on your profile."
+      "You're in Season Two."
     );
-    expect(txToastSuccess.joinedRally('Genesis Rally', 'Genesis')).toBe(
-      "You're in Genesis Rally. Genesis badge on your profile."
+    expect(txToastSuccess.joinedRally('Genesis Rally')).toBe(
+      "You're in Genesis Rally."
     );
     expect(
       formatRallyMarkCaption({

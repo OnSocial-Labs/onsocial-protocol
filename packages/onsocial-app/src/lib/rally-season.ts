@@ -70,19 +70,16 @@ export type RallyClaimRecord = {
 export type RallyPresentation = {
   seasonId: string;
   pageTitle: string;
-  profileBadgeLabel: string;
 };
 
 const SEASON_TITLES: Record<string, RallyPresentation> = {
   'season-zero': {
     seasonId: 'season-zero',
     pageTitle: 'Genesis Rally',
-    profileBadgeLabel: 'Genesis',
   },
   'season-one': {
     seasonId: 'season-one',
     pageTitle: 'OnSocial Rally',
-    profileBadgeLabel: 'Rally',
   },
 };
 
@@ -103,7 +100,6 @@ export function resolveRallyPresentation(
   return {
     seasonId,
     pageTitle: catalog?.pageTitle ?? label?.trim() ?? 'OnSocial Rally',
-    profileBadgeLabel: catalog?.profileBadgeLabel ?? 'Rally',
   };
 }
 
