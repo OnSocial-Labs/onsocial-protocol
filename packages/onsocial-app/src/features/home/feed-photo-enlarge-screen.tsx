@@ -186,6 +186,7 @@ export function FeedPhotoEnlargeScreen({
       heading={quietHeading}
       closeAriaLabel={quietClose}
       zIndex={SCARCE_Z.listenShell}
+      elevateChrome={false}
       className={slideClass}
       contentClassName="feed-photo-slide-body"
     >

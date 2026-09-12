@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { CopyIcon, Divider } from '@onsocial/ui';
+import { CopyIcon, Divider, ScaleUpIcon } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { DropImageLightbox } from '@/features/scarces/drop-artwork-preview';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -62,6 +63,7 @@ export function TicketShowPassSheet({
   const [statusError, setStatusError] = useState<string | null>(null);
   const [statusReady, setStatusReady] = useState(false);
   const [thumbFailed, setThumbFailed] = useState(false);
+  const [artEnlargeOpen, setArtEnlargeOpen] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [livePayload, setLivePayload] = useState<string | null>(null);
   const [liveError, setLiveError] = useState<string | null>(null);
@@ -274,6 +276,7 @@ export function TicketShowPassSheet({
       title={name}
       closeAriaLabel="Back from pass"
       zIndex={SCARCE_Z.nestedOverCommerce}
+      elevateChrome={false}
       className="ticket-pass-slide"
       contentClassName="ticket-pass-slide-body"
     >
@@ -281,12 +284,22 @@ export function TicketShowPassSheet({
         <div className="ticket-show-pass-body">
           <div className="ticket-show-pass-header">
             {media ? (
-              <img
-                src={media}
-                alt=""
-                className="ticket-show-pass-mark"
-                onError={() => setThumbFailed(true)}
-              />
+              <button
+                type="button"
+                className="ticket-show-pass-mark-btn"
+                onClick={() => setArtEnlargeOpen(true)}
+                aria-label="View full artwork"
+              >
+                <img
+                  src={media}
+                  alt=""
+                  className="ticket-show-pass-mark"
+                  onError={() => setThumbFailed(true)}
+                />
+                <span className="ticket-show-pass-mark-expand" aria-hidden>
+                  <ScaleUpIcon className="ticket-show-pass-mark-expand-icon" />
+                </span>
+              </button>
             ) : null}
 
             <h2 className="ticket-show-pass-title">{name}</h2>
@@ -389,6 +402,15 @@ export function TicketShowPassSheet({
           </div>
         </div>
       </div>
+
+      {media && artEnlargeOpen ? (
+        <DropImageLightbox
+          open={artEnlargeOpen}
+          src={media}
+          label={name}
+          onClose={() => setArtEnlargeOpen(false)}
+        />
+      ) : null}
     </OsSlideOverScreen>
   );
 }

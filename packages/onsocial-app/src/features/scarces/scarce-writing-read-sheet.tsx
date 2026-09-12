@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  ChevronRightIcon,
   MultiplyIcon,
   OsIconAction,
   OsSheetAction,
@@ -40,7 +41,7 @@ function WritingReadClose() {
       ariaLabel="Back from reader"
       onClick={() => requestClose?.()}
     >
-      <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
+      <ChevronRightIcon className="glass-sheet-close-icon" aria-hidden />
     </OsIconAction>
   );
 }
@@ -163,6 +164,7 @@ export function WritingReadSheet({
       title={name}
       hideNav
       viewport
+      elevateChrome={false}
       closeAriaLabel="Back from reader"
       zIndex={SCARCE_Z.listenShell}
       className={`scarce-read-slide${chromeQuiet ? ' is-reading-quiet' : ''}`}

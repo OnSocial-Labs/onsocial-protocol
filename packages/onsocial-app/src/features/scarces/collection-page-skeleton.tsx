@@ -1,11 +1,19 @@
 import { COLLECTION_PAGE_SKELETON_CLASS } from '@/lib/os-chrome-page';
 
 /**
- * Drop page cold-load shell. The route does not know the collection medium
- * yet, so this deliberately reserves only geometry shared by every drop.
- * Medium-specific sections are added after the collection view resolves.
+ * Drop page cold-load shell. Reserves geometry matching the resolved
+ * medium so first paint doesn't jump. When medium is unknown, defaults
+ * to general drop geometry.
  */
-export function CollectionPageSkeleton() {
+export interface CollectionPageSkeletonProps {
+  isAudio?: boolean;
+  isImmersive?: boolean;
+}
+
+export function CollectionPageSkeleton({
+  isAudio = false,
+  isImmersive = true,
+}: CollectionPageSkeletonProps = {}) {
   return (
     <div
       className={COLLECTION_PAGE_SKELETON_CLASS}
@@ -15,7 +23,11 @@ export function CollectionPageSkeleton() {
     >
       <p className="sr-only">Loading drop…</p>
       <section className="collection-hero" aria-hidden>
-        <div className="collection-cover has-media">
+        <div
+          className={`collection-cover has-media${
+            isImmersive ? ' is-immersive' : ''
+          }${isAudio ? ' is-square' : ''}`}
+        >
           <div className="standing-row-shimmer collection-skeleton-cover" />
         </div>
         <header className="collection-head">
@@ -30,20 +42,34 @@ export function CollectionPageSkeleton() {
         </header>
       </section>
 
-      <section className="collection-activity" aria-hidden>
-        <span className="standing-row-shimmer collection-skeleton-section-label" />
-        <div className="collection-skeleton-activity-list">
-          {Array.from({ length: 3 }, (_, index) => (
-            <div key={index} className="collection-skeleton-activity-row">
-              <span className="standing-row-shimmer collection-skeleton-activity-avatar" />
-              <div className="collection-skeleton-activity-copy">
-                <span className="standing-row-shimmer collection-skeleton-line" />
-                <span className="standing-row-shimmer collection-skeleton-line-sm" />
+      {isAudio ? (
+        <section className="collection-tracks-skeleton" aria-hidden>
+          <div className="collection-skeleton-track-list">
+            {Array.from({ length: 4 }, (_, index) => (
+              <div key={index} className="collection-skeleton-track">
+                <span className="standing-row-shimmer collection-skeleton-track-play" />
+                <span className="standing-row-shimmer collection-skeleton-track-title" />
+                <span className="standing-row-shimmer collection-skeleton-track-love" />
               </div>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      ) : (
+        <section className="collection-activity" aria-hidden>
+          <span className="standing-row-shimmer collection-skeleton-section-label" />
+          <div className="collection-skeleton-activity-list">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div key={index} className="collection-skeleton-activity-row">
+                <span className="standing-row-shimmer collection-skeleton-activity-avatar" />
+                <div className="collection-skeleton-activity-copy">
+                  <span className="standing-row-shimmer collection-skeleton-line" />
+                  <span className="standing-row-shimmer collection-skeleton-line-sm" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

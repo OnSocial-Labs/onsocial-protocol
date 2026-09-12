@@ -292,6 +292,7 @@ export function ScarceFeedMediumSheet({
         title={name}
         closeAriaLabel="Back from preview"
         zIndex={SCARCE_Z.listenShell}
+        elevateChrome={false}
         className="scarce-thought-slide"
         contentClassName="scarce-thought-slide-body"
       >
@@ -320,6 +321,7 @@ export function ScarceFeedMediumSheet({
       subtitle="Read"
       closeAriaLabel="Back from reader"
       zIndex={SCARCE_Z.listenShell}
+      elevateChrome={false}
       className="scarce-read-slide"
       contentClassName="scarce-read-slide-body"
     >

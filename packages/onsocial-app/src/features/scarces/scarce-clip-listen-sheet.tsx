@@ -121,6 +121,7 @@ export function ScarceClipListenSheet({
       subtitle={screenSubtitle}
       closeAriaLabel="Back from listen"
       zIndex={SCARCE_Z.listenShell}
+      elevateChrome={false}
       className="scarce-listen-slide"
       contentClassName="scarce-listen-slide-body"
     >

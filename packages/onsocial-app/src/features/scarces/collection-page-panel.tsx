@@ -19,6 +19,7 @@ import {
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
+import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { CollectionAllowlistManager } from '@/features/scarces/collection-allowlist-manager';
@@ -46,12 +47,16 @@ import {
   collectionShowInlineTracks,
   collectionUseFirst,
   peekHoldsCollection,
+  peekHoldsCollectionForDropPage,
   peekOwnedTokenForCollection,
+  resolveCollectionOwnership,
+  seedCollectionViewFromNowPlaying,
 } from '@/features/scarces/collection-page-view';
 import {
   CollectionActivitySkeleton,
   CollectionPageSkeleton,
 } from '@/features/scarces/collection-page-skeleton';
+import { DropImageLightbox } from '@/features/scarces/drop-artwork-preview';
 import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
 import { VariationSetPeek } from '@/features/scarces/variation-set-peek';
 import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
@@ -171,8 +176,10 @@ export function CollectionPagePanel({
   initialCreator?: CollectionCreatorFace | null;
   initialActivity?: CollectionActivityRow[];
 }) {
-  const { accountId: viewerAccountId, isConnected } = useAppWallet();
+  const { accountId: viewerAccountId, isConnected, isLoading: walletLoading } =
+    useAppWallet();
   const { setTxResult } = useAppTransactionFeedback();
+  const nowPlaying = useCollectiblesNowPlayingOptional();
   const router = useRouter();
   const collectionSaves = useScarceCollectionSaves({
     collectionIds: [collectionId],
@@ -180,7 +187,15 @@ export function CollectionPagePanel({
   });
   const collectionSaved = collectionSaves.viewerSaved(collectionId);
   const collectionSavePending = collectionSaves.isSavePending(collectionId);
-  const [view, setView] = useState<CollectionView | null>(initial);
+  const isNowPlayingThisDrop =
+    nowPlaying?.session?.collectionId?.trim() === collectionId.trim();
+  const [view, setView] = useState<CollectionView | null>(() => {
+    if (initial) return initial;
+    if (isNowPlayingThisDrop && nowPlaying?.session) {
+      return seedCollectionViewFromNowPlaying(nowPlaying.session);
+    }
+    return null;
+  });
   /** Album / multi-clip drops love per track in the player — no Drop-level heart. */
   const showDropLove = (view?.playables.length ?? 0) === 0;
   const dropLoves = useScarceDropLoves({
@@ -190,7 +205,9 @@ export function CollectionPagePanel({
   const dropFanIds = dropLoves.fanIds.slice(0, 5);
   const dropFanProfiles = usePostAuthorProfiles(showDropLove ? dropFanIds : []);
   const [dropFansOpen, setDropFansOpen] = useState(false);
-  const [clientSettled, setClientSettled] = useState(initial != null);
+  const [clientSettled, setClientSettled] = useState(
+    initial != null || (isNowPlayingThisDrop && Boolean(nowPlaying?.session))
+  );
   const [walletRemaining, setWalletRemaining] = useState<number | null>(null);
   /** null = not checked yet / N/A; number = remaining allowlist mints. */
   const [allowlistRemaining, setAllowlistRemaining] = useState<number | null>(
@@ -198,7 +215,7 @@ export function CollectionPagePanel({
   );
   /** null = unchecked; true/false after ownership scan. Vault cache seeds hold. */
   const [holdsEdition, setHoldsEdition] = useState<boolean | null>(() =>
-    peekHoldsCollection(viewerAccountId, collectionId) ? true : null
+    peekHoldsCollectionForDropPage(viewerAccountId, collectionId) ? true : null
   );
   /** Owned edition for Show pass when known. */
   const [ownedPassTokenId, setOwnedPassTokenId] = useState<string | null>(() =>
@@ -235,6 +252,7 @@ export function CollectionPagePanel({
   const [writingReadOpen, setWritingReadOpen] = useState(false);
   const [showPassOpen, setShowPassOpen] = useState(false);
   const [showPassTokenId, setShowPassTokenId] = useState<string | null>(null);
+  const [mediaLightboxOpen, setMediaLightboxOpen] = useState(false);
   /** Viewer is creator or door staff for redeem. */
   const [isRedeemer, setIsRedeemer] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
@@ -301,6 +319,16 @@ export function CollectionPagePanel({
       });
       return;
     }
+    // First paint often has no account — re-seed hold from vault once wallet hydrates.
+    if (peekHoldsCollection(viewerAccountId, collectionId)) {
+      queueMicrotask(() => {
+        setHoldsEdition((prev) => (prev == null ? true : prev));
+        const token = peekOwnedTokenForCollection(viewerAccountId, collectionId);
+        if (token) {
+          setOwnedPassTokenId((prev) => prev ?? token);
+        }
+      });
+    }
     let cancelled = false;
     const passKind = isPassMediumKind(view?.kind);
     void Promise.all([
@@ -330,12 +358,7 @@ export function CollectionPagePanel({
     return () => {
       cancelled = true;
     };
-  }, [
-    collectionId,
-    viewerAccountId,
-    refreshKey,
-    view?.kind,
-  ]);
+  }, [collectionId, viewerAccountId, refreshKey, view?.kind]);
 
   // Holdings "Read" deep-links with ?read=1 → open immersive reader once writing is present.
   useEffect(() => {
@@ -688,7 +711,7 @@ export function CollectionPagePanel({
     clientSettled,
   });
   const catalogLeaveHref = collectionDropBackHref({
-    useFirst: peekHoldsCollection(viewerAccountId, collectionId),
+    useFirst: peekHoldsCollectionForDropPage(viewerAccountId, collectionId),
     viewerAccountId,
   });
   if (catalogShell === 'skeleton') {
@@ -755,13 +778,16 @@ export function CollectionPagePanel({
   const holderPlayHref = hasPlayables
     ? collectiblesPlayPath(view.collectionId)
     : null;
-  const listenOnPlayPage =
-    Boolean(holderPlayHref) && (isOwner || holdsEdition === true);
-  const holderActionsPending =
-    Boolean(viewerAccountId) &&
-    !isOwner &&
-    holdsEdition == null &&
-    hasPlayables;
+  const ownership = resolveCollectionOwnership({
+    isOwner,
+    holdsEdition,
+    walletLoading,
+    viewerAccountId,
+    playSessionMatches: isNowPlayingThisDrop,
+  });
+  const useFirst = collectionUseFirst(ownership);
+  const listenOnPlayPage = Boolean(holderPlayHref) && ownership === 'holder';
+  const holderActionsPending = ownership === 'unknown' && hasPlayables;
   const sourceHref = postHrefFromSourcePath(view.sourcePostPath);
   const isAudio =
     hasPlayables || view.kind === 'audio' || view.kind === 'music';
@@ -788,14 +814,13 @@ export function CollectionPagePanel({
   const canShowPass =
     isPassKind && holdsEdition === true && Boolean(ownedPassTokenId);
   const passActionLabel = holdingsActionLabel(mediumKind);
-  const useFirst = collectionUseFirst({ isOwner, holdsEdition });
   const showCommerceMeter = collectionShowCommerceMeter({
     useFirst,
     canMintMore: showMintCompose,
   });
   const showInlineTracks = collectionShowInlineTracks({
     hasPlayables,
-    useFirst,
+    ownership,
   });
   const dropBackHref = collectionDropBackHref({
     useFirst,
@@ -901,7 +926,7 @@ export function CollectionPagePanel({
               isSquareCover ? ' is-square' : ''
             }${isTextCardCover ? ' is-card' : ''}${
               immersive ? ' is-immersive' : ''
-            }${hasReadables || canShowPass ? ' has-read' : ''}`}
+            }${hasReadables || canShowPass || (!isAudio && Boolean(view.mediaUrl)) ? ' has-read' : ''}`}
             {...(view.cardBg && !view.mediaUrl
               ? { style: { background: view.cardBg } }
               : {})}
@@ -925,6 +950,18 @@ export function CollectionPagePanel({
                 className="scarce-clip-cover-expand collection-cover-read-expand"
                 aria-label={passActionLabel}
                 onClick={openOwnedPass}
+              >
+                <ScaleUpIcon
+                  className="scarce-clip-cover-expand-icon"
+                  aria-hidden
+                />
+              </button>
+            ) : !isAudio && view.mediaUrl ? (
+              <button
+                type="button"
+                className="scarce-clip-cover-expand collection-cover-read-expand"
+                aria-label="View artwork"
+                onClick={() => setMediaLightboxOpen(true)}
               >
                 <ScaleUpIcon
                   className="scarce-clip-cover-expand-icon"
@@ -1540,6 +1577,15 @@ export function CollectionPagePanel({
           fanIds={dropLoves.fanIds}
           fanCount={dropLoves.fanCount}
           dropTitle={view.title}
+        />
+      ) : null}
+
+      {view.mediaUrl && mediaLightboxOpen ? (
+        <DropImageLightbox
+          open={mediaLightboxOpen}
+          src={view.mediaUrl}
+          label={view.title}
+          onClose={() => setMediaLightboxOpen(false)}
         />
       ) : null}
     </OsAppScreen>

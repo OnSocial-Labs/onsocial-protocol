@@ -531,7 +531,11 @@
   padding: 0;
   border: 0;
   border-radius: 0.5rem;
+  /* Kill UA button face (shows as a light-mode chip when appearance is left alone). */
+  -webkit-appearance: none;
+  appearance: none;
   background: transparent;
+  background-color: transparent;
   color: rgb(var(--fg-rgb) / 0.72);
   text-decoration: none;
   cursor: pointer;

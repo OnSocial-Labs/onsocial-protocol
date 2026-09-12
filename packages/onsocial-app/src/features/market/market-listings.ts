@@ -73,6 +73,8 @@ export interface ScarcePlayableMedia {
   cid?: string;
   /** Track / clip label when present in `extra.playable`. */
   title?: string;
+  /** Track artist / performer when present in `extra.playable`. */
+  artist?: string;
   /** Optional plain-text lyrics for this track (`extra.playable[].lyrics`). */
   lyrics?: string;
 }
@@ -570,6 +572,8 @@ function playablesFromExtra(
     const url = resolveScarceMediaUrl(cid);
     if (!url) continue;
     const title = stringField(record, 'title') ?? undefined;
+    const artistRaw = stringField(record, 'artist');
+    const artist = artistRaw?.trim() ? artistRaw : undefined;
     const lyricsRaw = stringField(record, 'lyrics');
     const lyrics = lyricsRaw?.trim() ? lyricsRaw : undefined;
     out.push({
@@ -577,6 +581,7 @@ function playablesFromExtra(
       mime,
       cid,
       ...(title ? { title } : {}),
+      ...(artist ? { artist } : {}),
       ...(lyrics ? { lyrics } : {}),
     });
   }

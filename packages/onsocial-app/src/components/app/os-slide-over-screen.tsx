@@ -24,6 +24,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  ChevronRightIcon,
   MultiplyIcon,
   OsIconAction,
   useScrollLock,
@@ -79,10 +80,23 @@ export interface OsSlideOverScreenProps {
    * body offset — use this for cover/identity editors.
    */
   immersiveHeader?: boolean;
+  /**
+   * Glass chrome (absolute frost header + scroll elevate). Media slides
+   * (Listen / pass / thought) pass false — plain in-flow header so × matches
+   * hug drawers (theme `--fg`, no frost chip).
+   */
+  elevateChrome?: boolean;
   zIndex?: number;
   closeAriaLabel?: string;
   /** When true, close + Escape do nothing (e.g. post pending). */
   closeDisabled?: boolean;
+  /**
+   * Close control glyph:
+   * - `'chevron-right'` (default): Mage chevron pointing right (matching slide exit direction).
+   * - `'multiply'`: classic × close glyph.
+   * Or pass a custom ReactNode.
+   */
+  closeIcon?: 'chevron-right' | 'multiply' | ReactNode;
   /**
    * Mood wash under glass (`data-mood` + CSS vars).
    * `undefined` (default) → connected viewer mood; `null` → flat screen base.
@@ -117,9 +131,11 @@ export function OsSlideOverScreen({
   footer,
   children,
   immersiveHeader = false,
+  elevateChrome = true,
   zIndex = 70,
   closeAriaLabel = 'Close',
   closeDisabled = false,
+  closeIcon = 'chevron-right',
   moodId,
   moodStyle,
   style,
@@ -147,6 +163,7 @@ export function OsSlideOverScreen({
   const resolvedMoodStyle =
     moodStyle !== undefined ? moodStyle : viewerMood.style;
   const hasMood = Boolean(resolvedMoodId);
+  const useGlassChrome = !immersiveHeader && elevateChrome;
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -205,7 +222,7 @@ export function OsSlideOverScreen({
   useOsScreenChromeHeightSync({ enabled: renderOpen, headerRef });
 
   useLayoutEffect(() => {
-    if (!renderOpen) return;
+    if (!renderOpen || !useGlassChrome) return;
     const body = bodyRef.current;
     if (!body) return;
     const syncElevated = () => {
@@ -216,7 +233,7 @@ export function OsSlideOverScreen({
     return () => {
       body.removeEventListener('scroll', syncElevated);
     };
-  }, [renderOpen]);
+  }, [renderOpen, useGlassChrome]);
 
   const setBodyRef = useCallback(
     (node: HTMLElement | null) => {
@@ -254,7 +271,7 @@ export function OsSlideOverScreen({
       }`}
       data-tone="os"
       data-immersive-header={immersiveHeader ? 'true' : undefined}
-      data-glass-chrome={immersiveHeader ? undefined : 'true'}
+      data-glass-chrome={useGlassChrome ? 'true' : undefined}
       data-screen-footer={hasFooter ? 'true' : undefined}
       data-os-slide-over="true"
       data-hide-nav={hideNav ? 'true' : undefined}
@@ -269,7 +286,7 @@ export function OsSlideOverScreen({
         <header
           ref={headerRef}
           className={`os-app-screen-header${
-            immersiveHeader ? '' : glassElevated ? ' is-elevated' : ''
+            useGlassChrome && glassElevated ? ' is-elevated' : ''
           }`}
         >
           {hideNav ? (
@@ -283,7 +300,19 @@ export function OsSlideOverScreen({
                 disabled={closeDisabled}
                 onClick={requestClose}
               >
-                <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
+                {closeIcon === 'chevron-right' ? (
+                  <ChevronRightIcon
+                    className="glass-sheet-close-icon"
+                    aria-hidden
+                  />
+                ) : closeIcon === 'multiply' ? (
+                  <MultiplyIcon
+                    className="glass-sheet-close-icon"
+                    aria-hidden
+                  />
+                ) : (
+                  closeIcon
+                )}
               </OsIconAction>
               <div className="os-app-screen-heading">
                 {heading ? (

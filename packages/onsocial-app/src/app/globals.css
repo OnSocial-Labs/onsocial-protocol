@@ -416,12 +416,14 @@
  * Immersive guild chrome — unlayered so white icons beat glass-sheet.css
  * (imported outside @layer). Light-mode --fg is dark; without this, back /
  * manage / settings vanish on dark banners.
+ *
+ * Scope to `> .os-app-screen-column > .os-app-screen-header` — slide-overs
+ * portal into the host screen; a descendant selector would paint these
+ * cover discs onto Listen/pass × (white ink + scrim bg).
  */
-.os-app-screen[data-immersive-header='true']
-  .os-app-screen-header:not(.is-elevated)
+.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
   .contextual-back,
-.os-app-screen[data-immersive-header='true']
-  .os-app-screen-header:not(.is-elevated)
+.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
   .glass-sheet-icon-action {
   box-sizing: border-box;
   width: 1.85rem;
@@ -440,11 +442,9 @@
   -webkit-backdrop-filter: blur(10px);
 }
 
-.os-app-screen[data-immersive-header='true']
-  .os-app-screen-header:not(.is-elevated)
+.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
   .glass-sheet-close-icon,
-.os-app-screen[data-immersive-header='true']
-  .os-app-screen-header:not(.is-elevated)
+.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
   .guild-manage-menu-icon {
   width: 1.25rem;
   height: 1.25rem;
@@ -501,11 +501,18 @@
  * (.glass-sheet-icon-action uses --fg). Icon only — no fill, border, or ring.
  */
 .scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close,
+.drop-art-page-sheet-panel .glass-sheet-icon-action.scarce-card-lightbox-close,
 .scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
+.drop-art-page-sheet-panel .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
 .scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close:focus,
+.drop-art-page-sheet-panel .glass-sheet-icon-action.scarce-card-lightbox-close:focus,
 .scarce-card-lightbox
   .glass-sheet-icon-action.scarce-card-lightbox-close:focus-visible,
+.drop-art-page-sheet-panel
+  .glass-sheet-icon-action.scarce-card-lightbox-close:focus-visible,
 .scarce-card-lightbox
+  .glass-sheet-icon-action.scarce-card-lightbox-close:active,
+.drop-art-page-sheet-panel
   .glass-sheet-icon-action.scarce-card-lightbox-close:active {
   border: 0;
   outline: none;
@@ -518,29 +525,34 @@
 }
 
 .scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
+.drop-art-page-sheet-panel .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
 .scarce-card-lightbox
+  .glass-sheet-icon-action.scarce-card-lightbox-close:focus-visible,
+.drop-art-page-sheet-panel
   .glass-sheet-icon-action.scarce-card-lightbox-close:focus-visible {
   color: rgb(var(--fg-rgb) / 1);
 }
 
-.os-app-screen[data-immersive-header='true']
-  .os-app-screen-header:not(.is-elevated)
+/*
+ * Media slides skip glass chrome (`elevateChrome={false}`) so × sits on mood
+ * like hug drawers — stock OsIconAction / --fg-rgb, including hover + focus.
+ * Immersive cover discs are scoped to the host screen’s own header (see
+ * above) so portaled slides don’t inherit white/scrim from album/play pages.
+ */
+
+.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
   .contextual-back:hover,
-.os-app-screen[data-immersive-header='true']
-  .os-app-screen-header:not(.is-elevated)
+.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
   .glass-sheet-icon-action:hover,
-.os-app-screen[data-immersive-header='true']
-  .os-app-screen-header:not(.is-elevated)
+.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
   .glass-sheet-icon-action:focus-visible {
   background: var(--app-scrim-media-hover);
   color: rgb(255 255 255 / 1);
 }
 
-.os-app-screen[data-immersive-header='true']
-  .os-app-screen-header.is-elevated
+.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated
   .contextual-back,
-.os-app-screen[data-immersive-header='true']
-  .os-app-screen-header.is-elevated
+.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated
   .glass-sheet-icon-action {
   filter: none;
   backdrop-filter: none;
@@ -11160,7 +11172,7 @@ a.os-surface-row {
   }
 
   /* Immersive screens place the bar over top media, then harden on scroll. */
-  .os-app-screen[data-immersive-header='true'] .os-app-screen-header {
+  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header {
     position: absolute;
     inset: 0 0 auto;
     z-index: var(--os-chrome-header-z);
@@ -11180,13 +11192,12 @@ a.os-surface-row {
    * The layer is always mounted; opacity snaps with scroll so a flick does
    * not outrun the blur (a 220ms fade left a clear bar over content).
    */
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header.is-elevated {
+  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated {
     background: transparent;
   }
 
-  .os-app-screen[data-immersive-header='true'] .os-app-screen-header::before,
-  .os-app-screen[data-glass-chrome='true'] .os-app-screen-header::before {
+  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header::before,
+  .os-app-screen[data-glass-chrome='true'] > .os-app-screen-column > .os-app-screen-header::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -11211,15 +11222,14 @@ a.os-surface-row {
    * OsAppScreen freezes this var while search/toolbar rails hide so the
    * body inset does not jump (same contract as immersive guild rails).
    */
-  .os-app-screen[data-glass-chrome='true'] .os-app-screen-header {
+  .os-app-screen[data-glass-chrome='true'] > .os-app-screen-column > .os-app-screen-header {
     position: absolute;
     inset: 0 0 auto;
     z-index: var(--os-chrome-header-z);
     background: transparent;
   }
 
-  .os-app-screen[data-glass-chrome='true']
-    .os-app-screen-header.is-elevated::before {
+  .os-app-screen[data-glass-chrome='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated::before {
     opacity: 1;
   }
 
@@ -11363,26 +11373,26 @@ a.os-surface-row {
    * The header's own frost is only a fallback for screens without the rail.
    */
   .os-app-screen[data-immersive-header='true']:not(:has(.guild-feed-filter-pin))
-    .os-app-screen-header.is-elevated::before {
+    > .os-app-screen-column
+    > .os-app-screen-header.is-elevated::before {
     opacity: 1;
   }
 
-  .os-app-screen[data-immersive-header='true'] .os-app-screen-header > *,
-  .os-app-screen[data-glass-chrome='true'] .os-app-screen-header > * {
+  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header > *,
+  .os-app-screen[data-glass-chrome='true'] > .os-app-screen-column > .os-app-screen-header > * {
     position: relative;
     z-index: 1;
   }
 
   @media (prefers-reduced-transparency: reduce) {
-    .os-app-screen[data-immersive-header='true'] .os-app-screen-header::before,
-    .os-app-screen[data-glass-chrome='true'] .os-app-screen-header::before {
+    .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header::before,
+    .os-app-screen[data-glass-chrome='true'] > .os-app-screen-column > .os-app-screen-header::before {
       background: rgb(var(--bg-rgb) / 0.94);
       backdrop-filter: none;
     }
   }
 
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header.is-elevated
+  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated
     .os-app-screen-nav-row {
     align-items: center;
   }
@@ -11419,8 +11429,7 @@ a.os-surface-row {
     will-change: auto;
   }
 
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header.is-elevated
+  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated
     .os-app-screen-heading {
     padding-top: 0;
     pointer-events: auto;
@@ -22322,6 +22331,68 @@ a.os-surface-row {
     height: 100%;
   }
 
+  /* —— Drop Art Viewer (OsPageSheet overlay — stays within OS screen) —— */
+  .drop-art-page-sheet-panel.glass-sheet-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .drop-art-page-sheet-panel .scarce-card-lightbox-chrome {
+    position: absolute;
+    top: calc(
+      env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y, 0.3rem)
+    );
+    left: max(
+      var(--os-screen-body-pad-x, 1rem),
+      env(safe-area-inset-left, 0px)
+    );
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    height: var(--os-app-screen-nav-row-height, 2.35rem);
+  }
+
+  .drop-art-page-sheet-panel .glass-sheet-icon-action.scarce-card-lightbox-close {
+    width: var(--os-app-screen-nav-row-height, 2.35rem);
+    height: var(--os-app-screen-nav-row-height, 2.35rem);
+    min-width: var(--os-app-screen-nav-row-height, 2.35rem);
+    min-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  }
+
+  .drop-art-page-sheet-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .drop-art-page-sheet-content {
+    position: relative;
+    display: flex;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: max(1.25rem, env(safe-area-inset-top, 0px))
+      max(1.25rem, env(safe-area-inset-right, 0px))
+      max(1.25rem, env(safe-area-inset-bottom, 0px))
+      max(1.25rem, env(safe-area-inset-left, 0px));
+    cursor: zoom-out;
+  }
+
+  .drop-art-page-sheet-panel .scarce-card-lightbox-asset {
+    opacity: 1;
+    transform: none;
+    max-width: min(92vw, 560px);
+    max-height: min(78dvh, 560px);
+  }
+
   .scarce-card-lightbox {
     --scarce-lightbox-vh: 100dvh;
     position: fixed;
@@ -22336,22 +22407,19 @@ a.os-surface-row {
       max(1.25rem, env(safe-area-inset-right, 0px))
       max(1.25rem, env(safe-area-inset-bottom, 0px))
       max(1.25rem, env(safe-area-inset-left, 0px));
-    background: rgb(var(--bg-rgb) / 0);
+    background: var(--bg);
     cursor: zoom-out;
     opacity: 0;
-    transition:
-      opacity 180ms ease,
-      background 180ms ease;
+    transition: opacity 180ms ease;
   }
 
   .scarce-card-lightbox.is-open {
-    /* Theme field — follows light/dark toggle (not a fixed near-black). */
-    background: rgb(var(--bg-rgb) / 0.98);
+    /* Solid opaque field — follows theme with zero see-through distraction. */
+    background: var(--bg);
     opacity: 1;
   }
 
   .scarce-card-lightbox.is-closing {
-    background: rgb(var(--bg-rgb) / 0);
     opacity: 0;
   }
 
@@ -22472,32 +22540,33 @@ a.os-surface-row {
     height: auto;
     aspect-ratio: 1 / 1;
     object-fit: cover;
-    border-radius: 0.75rem;
-    /* Dark field: soft depth only — no 1px ring (reads as a border). */
-    box-shadow:
-      0 1.5rem 3rem rgb(0 0 0 / 0.72),
-      0 0.6rem 1.4rem rgb(0 0 0 / 0.48),
-      0 0 2.75rem rgb(var(--fg-rgb) / 0.1);
+    border-radius: 0.85rem;
+    /*
+     * Best-in-class gallery presentation:
+     * Dark field: Zero drop shadow (no murky black puddles or white glow halos).
+     * 1px crisp hairline edge (8% ink) cleanly defines perimeter even for solid black art.
+     */
+    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
     cursor: default;
-    transform: scale(0.94);
+    transform: scale(0.95);
     opacity: 0;
     transition:
       transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
       opacity 180ms ease;
   }
 
-  /* Light field: same soft lift, no outline. */
+  /* Light field: crisp 1px hairline + subtle soft ambient lift for white-on-white art. */
   :root[data-theme='light'] .scarce-card-lightbox-asset {
     box-shadow:
-      0 1.1rem 2.4rem rgb(0 0 0 / 0.16),
-      0 0.35rem 0.9rem rgb(0 0 0 / 0.08);
+      0 0 0 1px rgb(var(--fg-rgb) / 0.08),
+      0 12px 32px rgb(0 0 0 / 0.08);
   }
 
   @media (prefers-color-scheme: light) {
     :root:not([data-theme]) .scarce-card-lightbox-asset {
       box-shadow:
-        0 1.1rem 2.4rem rgb(0 0 0 / 0.16),
-        0 0.35rem 0.9rem rgb(0 0 0 / 0.08);
+        0 0 0 1px rgb(var(--fg-rgb) / 0.08),
+        0 12px 32px rgb(0 0 0 / 0.08);
     }
   }
 
@@ -23946,7 +24015,8 @@ a.os-surface-row {
     display: flex;
     justify-content: center;
     align-items: center;
-    flex: 0 0 auto;
+    /* Yield leftover column to art so transport stays on-screen. */
+    flex: 1 1 auto;
     min-height: 0;
   }
 
@@ -23954,15 +24024,95 @@ a.os-surface-row {
     flex: 0 0 auto;
   }
 
+  /*
+   * Extended player cover budgets — Listen (square) + play/music (bleed band).
+   * Phone-tall MQs retoken; Listen also flex-shrinks art so controls fit any height.
+   */
+  .scarce-clip-listen {
+    --scarce-listen-cover-dvh: 52dvh;
+    --scarce-listen-cover-size: min(
+      100%,
+      28rem,
+      var(--scarce-listen-cover-dvh)
+    );
+  }
+
+  .collectibles-play-page.is-immersive,
+  .collection-cover.is-immersive.is-square,
+  .collection-music-hero.is-immersive {
+    --scarce-play-cover-band: min(52dvh, clamp(12rem, 78vw, 20rem));
+  }
+
+  .collection-cover.is-immersive {
+    --scarce-banner-cover-band: min(34dvh, clamp(11rem, 56.25vw, 18rem));
+  }
+
+  /*
+   * Typical phones are ~48–58rem tall — 42rem alone never fired on iPhone-class
+   * columns, so covers stayed huge and transport scrolled away.
+   */
+  @media (max-height: 56rem) {
+    .scarce-clip-listen {
+      --scarce-listen-cover-dvh: 40dvh;
+      gap: 0.45rem;
+    }
+
+    .collectibles-play-page.is-immersive,
+    .collection-cover.is-immersive.is-square,
+    .collection-music-hero.is-immersive {
+      --scarce-play-cover-band: min(40dvh, clamp(12rem, 78vw, 19.5rem));
+    }
+
+    .collection-cover.is-immersive {
+      --scarce-banner-cover-band: min(30dvh, clamp(10rem, 56.25vw, 15.5rem));
+    }
+
+    .scarce-clip-listen-controls {
+      margin-top: 0.55rem;
+    }
+  }
+
+  @media (max-height: 42rem) {
+    .scarce-clip-listen {
+      --scarce-listen-cover-dvh: 30dvh;
+    }
+
+    .collectibles-play-page.is-immersive,
+    .collection-cover.is-immersive.is-square,
+    .collection-music-hero.is-immersive {
+      --scarce-play-cover-band: min(28dvh, clamp(8.5rem, 62vw, 12rem));
+    }
+
+    .collection-cover.is-immersive {
+      --scarce-banner-cover-band: min(22dvh, clamp(7.5rem, 48vw, 10.5rem));
+    }
+
+    .scarce-clip-listen-track {
+      font-size: 1rem;
+    }
+
+    .scarce-clip-listen-actions {
+      margin-top: 0;
+    }
+  }
+
   .scarce-clip-listen-cover {
-    /* Same budget on both axes so short viewports stay square (no squash). */
-    width: min(100%, 28rem, 58dvh);
-    max-height: min(100%, 28rem, 58dvh);
+    /* Cap by token and by art flex height so the square yields, never squashes. */
+    width: var(--scarce-listen-cover-size);
+    max-width: 100%;
+    max-height: min(var(--scarce-listen-cover-size), 100%);
     height: auto;
     aspect-ratio: 1 / 1;
     object-fit: cover;
     border-radius: 0.85rem;
     background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .scarce-clip-listen-controls,
+  .scarce-clip-listen-actions,
+  .scarce-clip-listen-copy,
+  .scarce-clip-listen-footer {
+    flex-shrink: 0;
   }
 
   .scarce-clip-listen.is-lyrics .scarce-clip-listen-cover {
@@ -24552,8 +24702,23 @@ a.os-surface-row {
     max-width: none;
     margin: 0 calc(-1 * var(--os-screen-body-pad-x, 1rem));
     height: calc(
-      env(safe-area-inset-top, 0px) + min(52dvh, clamp(12rem, 78vw, 20rem))
+      env(safe-area-inset-top, 0px) + var(--scarce-play-cover-band)
     );
+  }
+
+  /*
+   * Collectibles play (extended) — phone-tall: cover height via token;
+   * keep cover transport visible without a poke (touch can’t hover).
+   */
+  @media (max-height: 56rem) {
+    .collectibles-play-page.is-immersive .scarce-clip-cover-chrome {
+      opacity: 1;
+    }
+
+    .collectibles-play-page.is-immersive .scarce-clip-cover-transport,
+    .collectibles-play-page.is-immersive .scarce-clip-cover-progress {
+      pointer-events: auto;
+    }
   }
 
   .collectibles-play-page.is-immersive .scarce-clip-player-cover,
@@ -24707,8 +24872,7 @@ a.os-surface-row {
   }
 
   /* On cover: frosted dark pill so the chip stays readable (← / shop recipe). */
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header:not(.is-elevated)
+  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
     .collectibles-play-drop-action
     .os-sheet-action {
     border: 0;
@@ -24719,12 +24883,10 @@ a.os-surface-row {
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
   }
 
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header:not(.is-elevated)
+  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
     .collectibles-play-drop-action
     .os-sheet-action:hover,
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header:not(.is-elevated)
+  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
     .collectibles-play-drop-action
     .os-sheet-action:focus-visible {
     border: 0;
@@ -24732,14 +24894,12 @@ a.os-surface-row {
     color: rgb(255 255 255 / 1);
   }
 
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header:not(.is-elevated)
+  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
     .collectibles-play-drop-live-label {
     color: var(--protocol-green);
   }
 
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header.is-elevated
+  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated
     .collectibles-play-drop-action
     .os-sheet-action {
     filter: none;
@@ -25334,7 +25494,13 @@ a.os-surface-row {
     margin-inline: calc(-1 * var(--os-screen-body-pad-x, 1rem));
     border-radius: 0;
     aspect-ratio: auto;
-    height: calc(env(safe-area-inset-top, 0px) + clamp(10rem, 42vw, 14.5rem));
+    height: calc(
+      env(safe-area-inset-top, 0px) +
+        var(
+          --scarce-banner-cover-band,
+          min(34dvh, clamp(11rem, 56.25vw, 18rem))
+        )
+    );
   }
 
   /*
@@ -25346,7 +25512,7 @@ a.os-surface-row {
     max-width: none;
     margin-inline: calc(-1 * var(--os-screen-body-pad-x, 1rem));
     height: calc(
-      env(safe-area-inset-top, 0px) + min(52dvh, clamp(12rem, 78vw, 20rem))
+      env(safe-area-inset-top, 0px) + var(--scarce-play-cover-band)
     );
   }
 
@@ -25383,7 +25549,7 @@ a.os-surface-row {
 
   .collection-cover.is-immersive.has-read .collection-cover-read-expand {
     right: max(0.85rem, env(safe-area-inset-right, 0px));
-    bottom: max(1.1rem, env(safe-area-inset-bottom, 0px));
+    bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
   }
 
   .collection-status {
@@ -25436,8 +25602,7 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.55);
   }
 
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header:not(.is-elevated)
+  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
     .collection-header-status:not(.is-live) {
     background: var(--app-scrim-media);
     color: var(--app-on-media-ink);
@@ -25446,16 +25611,14 @@ a.os-surface-row {
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
   }
 
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header:not(.is-elevated)
+  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
     .collection-header-status.is-live {
     background: color-mix(in srgb, var(--protocol-green) 92%, transparent);
     color: #05130d;
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
   }
 
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header.is-elevated
+  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated
     .collection-header-status {
     filter: none;
     backdrop-filter: none;
@@ -25478,7 +25641,7 @@ a.os-surface-row {
     max-width: none;
     margin: 0 calc(-1 * var(--os-screen-body-pad-x, 1rem));
     height: calc(
-      env(safe-area-inset-top, 0px) + min(52dvh, clamp(12rem, 78vw, 20rem))
+      env(safe-area-inset-top, 0px) + var(--scarce-play-cover-band)
     );
   }
 
@@ -26971,14 +27134,80 @@ a.os-surface-row {
     width: 100%;
   }
 
+  .ticket-show-pass-mark-btn {
+    position: relative;
+    border: 0;
+    padding: 0;
+    margin: 0 0 0.2rem;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    transition: transform 120ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .ticket-show-pass-mark-btn:active {
+    transform: scale(0.96);
+  }
+
+  .ticket-show-pass-mark-btn:focus-visible {
+    outline: 2px solid var(--signal-reputation, var(--protocol-green));
+    outline-offset: 3px;
+  }
+
   .ticket-show-pass-mark {
-    width: 2.25rem;
-    height: 2.25rem;
-    margin: 0 0 0.1rem;
-    border-radius: 0.55rem;
+    width: clamp(3.75rem, 15vw, 4.75rem);
+    height: clamp(3.75rem, 15vw, 4.75rem);
+    margin: 0;
+    border-radius: 0.85rem;
     object-fit: cover;
     flex-shrink: 0;
     background: rgb(var(--fg-rgb) / 0.08);
+    box-shadow: 0 3px 10px rgb(0 0 0 / 0.14);
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    transition: box-shadow 180ms ease, border-color 180ms ease;
+  }
+
+  .ticket-show-pass-mark-btn:hover .ticket-show-pass-mark {
+    box-shadow: 0 8px 22px rgb(0 0 0 / 0.24), 0 0 0 1px rgb(var(--fg-rgb) / 0.16);
+    border-color: rgb(var(--fg-rgb) / 0.25);
+  }
+
+  .ticket-show-pass-mark-btn:active .ticket-show-pass-mark {
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.16);
+  }
+
+  .ticket-show-pass-mark-expand {
+    position: absolute;
+    bottom: 0.25rem;
+    right: 0.25rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 9999px;
+    background: rgb(0 0 0 / 0.72);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.82;
+    transform: scale(0.94);
+    transition: opacity 160ms ease, transform 160ms cubic-bezier(0.16, 1, 0.3, 1), background-color 160ms ease;
+    pointer-events: none;
+  }
+
+  .ticket-show-pass-mark-btn:hover .ticket-show-pass-mark-expand {
+    opacity: 1;
+    transform: scale(1);
+    background: rgb(0 0 0 / 0.9);
+  }
+
+  .ticket-show-pass-mark-expand-icon {
+    width: 0.75rem;
+    height: 0.75rem;
   }
 
   .ticket-show-pass-title {
@@ -27198,8 +27427,9 @@ a.os-surface-row {
     }
 
     .ticket-show-pass-mark {
-      width: 1.9rem;
-      height: 1.9rem;
+      width: 2.75rem;
+      height: 2.75rem;
+      border-radius: 0.65rem;
     }
   }
 
@@ -27211,6 +27441,12 @@ a.os-surface-row {
     }
 
     .ticket-show-pass-mark {
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 0.55rem;
+    }
+
+    .ticket-show-pass-mark-expand {
       display: none;
     }
 
@@ -27247,8 +27483,8 @@ a.os-surface-row {
     }
 
     .ticket-show-pass-mark {
-      width: 2.5rem;
-      height: 2.5rem;
+      width: 4.75rem;
+      height: 4.75rem;
     }
   }
 
@@ -29067,6 +29303,15 @@ a.os-surface-row {
     height: 100%;
     padding: 0;
     overflow: hidden;
+  }
+
+  /* Extended Listen — phone-tall columns may scroll so transport stays reachable. */
+  @media (max-height: 56rem) {
+    .scarce-listen-slide .os-slide-over-content.scarce-listen-slide-body {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
   }
 
   .scarce-listen-slide .scarce-clip-listen {
@@ -33150,8 +33395,7 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
-  .os-app-screen[data-immersive-header='true']
-    .os-app-screen-header:not(.is-elevated)
+  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
     .guild-manage-menu-trigger.has-badge
     .guild-manage-menu-icon {
     color: var(--app-on-media-ink);

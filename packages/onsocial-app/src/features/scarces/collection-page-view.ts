@@ -2,6 +2,8 @@ import { peekOwnedVaultPage } from '@/features/market/owned-vault-cache';
 import { APP_DROPS_PATH, collectionPath } from '@/lib/app-routes';
 import { collectionIdFromTokenId } from '@/features/market/market-listings';
 import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
+import type { CollectiblesNowPlayingSession } from '@/contexts/collectibles-now-playing-context';
+import type { CollectionView } from '@/features/scarces/collections-data';
 
 /** Art matches create-drop / wallets: inset 1×1. Audio is also square. */
 export function collectionCoverSquare(opts: {
@@ -21,12 +23,41 @@ export function collectionCoverImmersive(opts: {
   return (opts.kind ?? '').trim().toLowerCase() !== 'art';
 }
 
-/** Holder or creator — Play / Read / Show pass first, commerce second. */
-export function collectionUseFirst(opts: {
+/**
+ * Drop-page ownership for layout.
+ * - `holder` — creator or confirmed edition hold (Play / Read first)
+ * - `visitor` — settled non-holder (inline tracks preview)
+ * - `unknown` — wallet or ownership still resolving (no visitor flash)
+ */
+export type CollectionOwnership = 'unknown' | 'visitor' | 'holder';
+
+export function resolveCollectionOwnership(opts: {
   isOwner: boolean;
+  /** null = unchecked; true/false after seed or chain scan. */
   holdsEdition: boolean | null;
-}): boolean {
-  return opts.isOwner || opts.holdsEdition === true;
+  walletLoading: boolean;
+  viewerAccountId?: string | null;
+  /** View drop — now-playing session is this collection. */
+  playSessionMatches?: boolean;
+}): CollectionOwnership {
+  if (opts.isOwner || opts.holdsEdition === true) return 'holder';
+  if (
+    opts.holdsEdition == null &&
+    Boolean(opts.viewerAccountId?.trim()) &&
+    opts.playSessionMatches
+  ) {
+    return 'holder';
+  }
+  if (opts.walletLoading) return 'unknown';
+  if (opts.holdsEdition == null && Boolean(opts.viewerAccountId?.trim())) {
+    return 'unknown';
+  }
+  return 'visitor';
+}
+
+/** Holder / creator — Play / Read / Show pass first, commerce second. */
+export function collectionUseFirst(ownership: CollectionOwnership): boolean {
+  return ownership === 'holder';
 }
 
 /** Mint meter / NEAR / supply — visitors, or holders who can still mint. */
@@ -37,12 +68,12 @@ export function collectionShowCommerceMeter(opts: {
   return !opts.useFirst || opts.canMintMore;
 }
 
-/** Visitors keep inline tracks. Holders hop to /collectibles/play. */
+/** Visitors only — holders listen on /collectibles/play. */
 export function collectionShowInlineTracks(opts: {
   hasPlayables: boolean;
-  useFirst: boolean;
+  ownership: CollectionOwnership;
 }): boolean {
-  return opts.hasPlayables && !opts.useFirst;
+  return opts.hasPlayables && opts.ownership === 'visitor';
 }
 
 /** First paint after an SSR catalog miss — skeleton until the client settles. */
@@ -94,6 +125,30 @@ export function peekHoldsCollection(
   return page.items.some((item) => itemCollectionId(item) === id);
 }
 
+/** Same key as app-wallet-context — seed hold before React wallet hydrates. */
+const APP_WALLET_ACCOUNT_KEY = 'onsocial.app.wallet.accountId';
+
+function peekStoredWalletAccountId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(APP_WALLET_ACCOUNT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * First-paint hold seed. Live account when present, else persisted wallet id
+ * so refresh doesn’t treat a holder as a visitor for one frame.
+ */
+export function peekHoldsCollectionForDropPage(
+  accountId: string | null | undefined,
+  collectionId: string
+): boolean {
+  if (peekHoldsCollection(accountId, collectionId)) return true;
+  return peekHoldsCollection(peekStoredWalletAccountId(), collectionId);
+}
+
 export function peekOwnedTokenForCollection(
   accountId: string | null | undefined,
   collectionId: string
@@ -107,3 +162,57 @@ export function peekOwnedTokenForCollection(
     page.items.find((item) => itemCollectionId(item) === id)?.tokenId ?? null
   );
 }
+
+/**
+ * Optimistic view seed when navigating from Now Playing ("View drop").
+ * Paints the album cover, title, and tracks on frame 1 without a skeleton flash.
+ */
+export function seedCollectionViewFromNowPlaying(
+  session: CollectiblesNowPlayingSession
+): CollectionView {
+  const firstTrack = session.tracks[0];
+  const artistId = firstTrack?.artist?.trim() || '';
+  return {
+    collectionId: session.collectionId,
+    creatorId: artistId,
+    title: session.title,
+    mediaUrl: session.poster,
+    priceNear: null,
+    priceYocto: '0',
+    totalSupply: 0,
+    minted: 0,
+    remaining: 0,
+    startTimeMs: null,
+    endTimeMs: null,
+    createdAtMs: 0,
+    maxPerWallet: null,
+    mintMode: 'public',
+    paused: false,
+    cancelled: false,
+    soldOut: false,
+    hasAllowlist: false,
+    appId: null,
+    appCommissionBps: null,
+    kind: 'audio',
+    audioFormat: session.tracks.length > 1 ? 'album' : 'single',
+    facets: [],
+    playables: session.tracks,
+    readables: [],
+    bookPdf: null,
+    writingFormat: null,
+    writingManifestCid: null,
+    transferable: true,
+    renewable: false,
+    maxRedeems: null,
+    isVariations: false,
+    randomAssignment: false,
+    seriesId: null,
+    seriesTitle: null,
+    eventStartsAtMs: null,
+    eventEndsAtMs: null,
+    place: null,
+    accessEndsAtMs: null,
+    royalty: null,
+  };
+}
+

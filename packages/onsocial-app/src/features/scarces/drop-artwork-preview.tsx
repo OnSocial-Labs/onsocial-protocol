@@ -9,29 +9,20 @@ import {
   useCallback,
   useEffect,
   useId,
-  useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
-  type CSSProperties,
   type DragEvent as ReactDragEvent,
   type ReactNode,
 } from 'react';
-import { createPortal } from 'react-dom';
 import {
   MultiplyIcon,
+  OsPageSheet,
   OsSheetAction,
   OsSheetActions,
   SheetCloseButton,
-  useScrollLock,
 } from '@onsocial/ui';
 import { dropCreatePiecePickerClass } from '@/features/scarces/drop-create-layout';
-import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
-
-const clientMountedSubscribe = () => () => {};
-const getClientMountedSnapshot = () => true;
-const getServerMountedSnapshot = () => false;
-const LIGHTBOX_EXIT_MS = 180;
+import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
 interface DropImageLightboxProps {
   open: boolean;
@@ -44,9 +35,15 @@ interface DropImageLightboxProps {
   onPrev?: () => void;
   /** When set, show next chevron + → key. */
   onNext?: () => void;
+  /**
+   * Surface material:
+   * - `'page'` (default): Solid opaque canvas (`--bg`). Zero distraction / bleed through. Best for high-contrast art.
+   * - `'glass'`: Atmospheric frosted blur scrim.
+   */
+  surface?: 'page' | 'glass';
 }
 
-/** Shared zoom dialog — same chrome as feed / list scarce previews. */
+/** Shared zoom dialog inside OS container — uses OsPageSheet overlay. */
 export function DropImageLightbox({
   open,
   src,
@@ -55,163 +52,107 @@ export function DropImageLightbox({
   footer,
   onPrev,
   onNext,
+  surface = 'page',
 }: DropImageLightboxProps) {
   const titleId = useId();
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const [closing, setClosing] = useState(false);
-  const [entered, setEntered] = useState(false);
-  const [wasOpen, setWasOpen] = useState(open);
-  const mounted = useSyncExternalStore(
-    clientMountedSubscribe,
-    getClientMountedSnapshot,
-    getServerMountedSnapshot
-  );
-
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) {
-      setClosing(false);
-      setEntered(false);
-    }
-  }
-
-  const lightboxOpen = open && !closing;
-  const viewport = useVisualViewportSheetMetrics(open || closing);
-  useScrollLock(lightboxOpen);
-
-  const lightboxStyle = useMemo((): CSSProperties | undefined => {
-    if (typeof window === 'undefined') return undefined;
-    const vv = window.visualViewport;
-    if (!viewport.isMobile || !vv || viewport.height <= 0) return undefined;
-    return {
-      top: vv.offsetTop,
-      left: vv.offsetLeft,
-      width: vv.width,
-      height: vv.height,
-      ['--scarce-lightbox-vh' as string]: `${viewport.height}px`,
-    };
-  }, [viewport.height, viewport.isMobile]);
-
-  const requestClose = useCallback(() => {
-    setClosing(true);
-    setEntered(false);
-  }, []);
 
   useEffect(() => {
-    if (!closing) return;
-    const timer = window.setTimeout(() => {
-      setClosing(false);
-      onClose();
-    }, LIGHTBOX_EXIT_MS);
-    return () => window.clearTimeout(timer);
-  }, [closing, onClose]);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const frame = window.requestAnimationFrame(() => setEntered(true));
-    closeRef.current?.focus();
-    return () => window.cancelAnimationFrame(frame);
-  }, [lightboxOpen]);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
+    if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        requestClose();
-        return;
-      }
       if (event.key === 'ArrowLeft' && onPrev) {
         event.preventDefault();
         onPrev();
-        return;
-      }
-      if (event.key === 'ArrowRight' && onNext) {
+      } else if (event.key === 'ArrowRight' && onNext) {
         event.preventDefault();
         onNext();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [lightboxOpen, requestClose, onPrev, onNext]);
-
-  if (!mounted || (!open && !closing)) return null;
+  }, [open, onPrev, onNext]);
 
   const hasNav = Boolean(onPrev || onNext);
 
-  return createPortal(
-    <div
-      className={`scarce-card-lightbox${entered && !closing ? ' is-open' : ''}${closing ? ' is-closing' : ''}`}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      style={lightboxStyle}
-      onClick={requestClose}
-    >
-      <p id={titleId} className="sr-only">
-        {label}
-      </p>
-      <div className="scarce-card-lightbox-chrome">
-        <SheetCloseButton
-          ref={closeRef}
-          onClick={requestClose}
-          ariaLabel="Close preview"
-          className="scarce-card-lightbox-close"
-        />
-      </div>
-      <div
-        className={`scarce-card-lightbox-stage${hasNav ? ' has-nav' : ''}`}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <img
-          key={src}
-          className="scarce-card-lightbox-asset"
-          src={src}
-          alt=""
-        />
-        {hasNav ? (
+  return (
+    <OsPageSheet
+      open={open}
+      onClose={onClose}
+      surface={surface}
+      presentation="appear"
+      zIndex={SCARCE_Z.nestedOverCommerce}
+      ariaLabelledBy={titleId}
+      backdropLabel={`Close ${label} preview`}
+      panelClassName="drop-art-page-sheet-panel"
+      bodyClassName="drop-art-page-sheet-body"
+      header={
+        <div className="scarce-card-lightbox-chrome">
+          <SheetCloseButton
+            onClick={onClose}
+            ariaLabel="Close preview"
+            className="scarce-card-lightbox-close"
+          />
+        </div>
+      }
+      footer={
+        footer ? (
           <div
-            className="scarce-card-lightbox-nav-row"
-            role="group"
-            aria-label="Cover style"
+            className="scarce-card-lightbox-footer"
+            onClick={(event) => event.stopPropagation()}
           >
-            {onPrev ? (
-              <button
-                type="button"
-                className="scarce-card-lightbox-nav scarce-card-lightbox-nav--prev"
-                aria-label="Previous"
-                onClick={onPrev}
-              >
-                ‹
-              </button>
-            ) : (
-              <span className="scarce-card-lightbox-nav-spacer" aria-hidden />
-            )}
-            {onNext ? (
-              <button
-                type="button"
-                className="scarce-card-lightbox-nav scarce-card-lightbox-nav--next"
-                aria-label="Next"
-                onClick={onNext}
-              >
-                ›
-              </button>
-            ) : (
-              <span className="scarce-card-lightbox-nav-spacer" aria-hidden />
-            )}
+            {footer}
           </div>
-        ) : null}
-      </div>
-      {footer ? (
+        ) : null
+      }
+    >
+      <div className="drop-art-page-sheet-content" onClick={onClose}>
+        <p id={titleId} className="sr-only">
+          {label}
+        </p>
         <div
-          className="scarce-card-lightbox-footer"
+          className={`scarce-card-lightbox-stage${hasNav ? ' has-nav' : ''}`}
           onClick={(event) => event.stopPropagation()}
         >
-          {footer}
+          <img
+            key={src}
+            className="scarce-card-lightbox-asset"
+            src={src}
+            alt=""
+          />
+          {hasNav ? (
+            <div
+              className="scarce-card-lightbox-nav-row"
+              role="group"
+              aria-label="Cover style"
+            >
+              {onPrev ? (
+                <button
+                  type="button"
+                  className="scarce-card-lightbox-nav scarce-card-lightbox-nav--prev"
+                  aria-label="Previous"
+                  onClick={onPrev}
+                >
+                  ‹
+                </button>
+              ) : (
+                <span className="scarce-card-lightbox-nav-spacer" aria-hidden />
+              )}
+              {onNext ? (
+                <button
+                  type="button"
+                  className="scarce-card-lightbox-nav scarce-card-lightbox-nav--next"
+                  aria-label="Next"
+                  onClick={onNext}
+                >
+                  ›
+                </button>
+              ) : (
+                <span className="scarce-card-lightbox-nav-spacer" aria-hidden />
+              )}
+            </div>
+          ) : null}
         </div>
-      ) : null}
-    </div>,
-    document.body
+      </div>
+    </OsPageSheet>
   );
 }
 

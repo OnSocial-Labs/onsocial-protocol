@@ -248,6 +248,10 @@ function playablesFromExtraRecord(
       typeof record?.title === 'string' && record.title.trim()
         ? record.title.trim()
         : undefined;
+    const artist =
+      typeof record?.artist === 'string' && record.artist.trim()
+        ? record.artist.trim()
+        : undefined;
     const lyrics =
       typeof record?.lyrics === 'string' && record.lyrics.trim()
         ? record.lyrics
@@ -257,6 +261,7 @@ function playablesFromExtraRecord(
       mime,
       cid,
       ...(title ? { title } : {}),
+      ...(artist ? { artist } : {}),
       ...(lyrics ? { lyrics } : {}),
     });
   }

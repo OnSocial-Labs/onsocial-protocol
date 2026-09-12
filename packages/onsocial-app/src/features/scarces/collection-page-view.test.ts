@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   invalidateOwnedVaultCache,
   putOwnedVaultPage,
@@ -13,7 +13,10 @@ import {
   collectionShowInlineTracks,
   collectionUseFirst,
   peekHoldsCollection,
+  peekHoldsCollectionForDropPage,
   peekOwnedTokenForCollection,
+  resolveCollectionOwnership,
+  seedCollectionViewFromNowPlaying,
 } from '@/features/scarces/collection-page-view';
 
 describe('collection page view', () => {
@@ -34,19 +37,68 @@ describe('collection page view', () => {
     );
   });
 
-  it('is use-first for owners and confirmed holders only', () => {
-    expect(collectionUseFirst({ isOwner: true, holdsEdition: false })).toBe(
-      true
-    );
-    expect(collectionUseFirst({ isOwner: false, holdsEdition: true })).toBe(
-      true
-    );
-    expect(collectionUseFirst({ isOwner: false, holdsEdition: null })).toBe(
-      false
-    );
-    expect(collectionUseFirst({ isOwner: false, holdsEdition: false })).toBe(
-      false
-    );
+  it('resolves ownership to holder / visitor / unknown', () => {
+    expect(
+      resolveCollectionOwnership({
+        isOwner: true,
+        holdsEdition: false,
+        walletLoading: false,
+      })
+    ).toBe('holder');
+    expect(
+      resolveCollectionOwnership({
+        isOwner: false,
+        holdsEdition: true,
+        walletLoading: false,
+        viewerAccountId: 'alice.near',
+      })
+    ).toBe('holder');
+    expect(
+      resolveCollectionOwnership({
+        isOwner: false,
+        holdsEdition: null,
+        walletLoading: false,
+        viewerAccountId: 'alice.near',
+        playSessionMatches: true,
+      })
+    ).toBe('holder');
+    expect(
+      resolveCollectionOwnership({
+        isOwner: false,
+        holdsEdition: null,
+        walletLoading: true,
+      })
+    ).toBe('unknown');
+    expect(
+      resolveCollectionOwnership({
+        isOwner: false,
+        holdsEdition: null,
+        walletLoading: false,
+        viewerAccountId: 'alice.near',
+      })
+    ).toBe('unknown');
+    expect(
+      resolveCollectionOwnership({
+        isOwner: false,
+        holdsEdition: false,
+        walletLoading: false,
+        viewerAccountId: 'alice.near',
+      })
+    ).toBe('visitor');
+    expect(
+      resolveCollectionOwnership({
+        isOwner: false,
+        holdsEdition: null,
+        walletLoading: false,
+        viewerAccountId: null,
+      })
+    ).toBe('visitor');
+  });
+
+  it('is use-first only for holders', () => {
+    expect(collectionUseFirst('holder')).toBe(true);
+    expect(collectionUseFirst('visitor')).toBe(false);
+    expect(collectionUseFirst('unknown')).toBe(false);
   });
 
   it('keeps the mint meter for visitors and holders who can mint more', () => {
@@ -61,15 +113,30 @@ describe('collection page view', () => {
     ).toBe(true);
   });
 
-  it('keeps inline tracks for visitors and hides them when held', () => {
+  it('shows inline tracks for visitors only', () => {
     expect(
-      collectionShowInlineTracks({ hasPlayables: true, useFirst: false })
+      collectionShowInlineTracks({
+        hasPlayables: true,
+        ownership: 'visitor',
+      })
     ).toBe(true);
     expect(
-      collectionShowInlineTracks({ hasPlayables: true, useFirst: true })
+      collectionShowInlineTracks({
+        hasPlayables: true,
+        ownership: 'holder',
+      })
     ).toBe(false);
     expect(
-      collectionShowInlineTracks({ hasPlayables: false, useFirst: false })
+      collectionShowInlineTracks({
+        hasPlayables: true,
+        ownership: 'unknown',
+      })
+    ).toBe(false);
+    expect(
+      collectionShowInlineTracks({
+        hasPlayables: false,
+        ownership: 'visitor',
+      })
     ).toBe(false);
   });
 
@@ -120,7 +187,9 @@ describe('collection page view', () => {
   });
 
   it('sends door and redeem loading to the drop', () => {
-    expect(collectionChildLeaveHref('night-drive')).toBe('/collection/night-drive');
+    expect(collectionChildLeaveHref('night-drive')).toBe(
+      '/collection/night-drive'
+    );
     expect(collectionChildLeaveHref('  ')).toBe('/drops');
   });
 
@@ -146,5 +215,69 @@ describe('collection page view', () => {
     expect(peekHoldsCollection('alice.near', 'chapter-one')).toBe(false);
     invalidateOwnedVaultCache('alice.near');
     expect(peekHoldsCollection('alice.near', 'night-drive')).toBe(false);
+  });
+
+  it('seeds drop-page hold from the persisted wallet when React wallet is cold', () => {
+    invalidateOwnedVaultCache();
+    putOwnedVaultPage('alice.near', {
+      items: [
+        {
+          tokenId: 'night-drive:3',
+          title: 'Night Drive',
+          ownerId: 'alice.near',
+          collectionId: 'night-drive',
+          listingKind: null,
+        },
+      ],
+      nextFromEnd: 0,
+      hasMore: false,
+    });
+    const store = new Map<string, string>();
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          store.set(key, value);
+        },
+        removeItem: (key: string) => {
+          store.delete(key);
+        },
+      },
+    });
+    window.localStorage.setItem('onsocial.app.wallet.accountId', 'alice.near');
+    expect(peekHoldsCollectionForDropPage(null, 'night-drive')).toBe(true);
+    expect(peekHoldsCollectionForDropPage(null, 'chapter-one')).toBe(false);
+    window.localStorage.removeItem('onsocial.app.wallet.accountId');
+    vi.unstubAllGlobals();
+    invalidateOwnedVaultCache('alice.near');
+  });
+
+  it('seeds drop view synchronously from a live now-playing session', () => {
+    const view = seedCollectionViewFromNowPlaying({
+      collectionId: 'night-drive',
+      title: 'Night Drive',
+      poster: 'https://cdn.example/night-drive.jpg',
+      tracks: [
+        {
+          title: 'Intro',
+          url: 'https://cdn.example/1.mp3',
+          mime: 'audio/mpeg',
+          artist: 'alice.near',
+        },
+        {
+          title: 'Neon Skyline',
+          url: 'https://cdn.example/2.mp3',
+          mime: 'audio/mpeg',
+          artist: 'alice.near',
+        },
+      ],
+    });
+    expect(view.collectionId).toBe('night-drive');
+    expect(view.title).toBe('Night Drive');
+    expect(view.creatorId).toBe('alice.near');
+    expect(view.mediaUrl).toBe('https://cdn.example/night-drive.jpg');
+    expect(view.kind).toBe('audio');
+    expect(view.audioFormat).toBe('album');
+    expect(view.playables).toHaveLength(2);
   });
 });
