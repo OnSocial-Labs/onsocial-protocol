@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useId, useState } from 'react';
-import {  GlassSheet,
+import {
+  GlassSheet,
   osGestureSheetBodyClassName,
   useScrollLock,
 } from '@onsocial/ui';
@@ -11,6 +12,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useSeasonParticipation } from '@/contexts/season-participation-context';
 import { CommerceSheetFooter } from '@/features/scarces/commerce-sheet-footer';
+import { RallySheetSport } from '@/features/rally/rally-sheet-sport';
 import type { RallyPlayerState } from '@/features/rally/use-rally-season';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
@@ -18,7 +20,7 @@ import { extractNearTransactionHashes } from '@/lib/app-near-rpc';
 import { refreshAppSocialBalanceAfterClaim } from '@/lib/app-social-balance-sync';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
-import { rallyPortalPath, resolveRallySheetView } from '@/lib/rally-season';
+import { resolveRallySheetView } from '@/lib/rally-season';
 import {
   txToastConfirming,
   txToastError,
@@ -62,7 +64,7 @@ export function PortfolioRallySheet({
   const mood = moodPreview?.effectiveMood ?? null;
   const panelStyle = mood ? supportSheetPanelStyle(mood.cssVars) : undefined;
 
-  const { isConnected, connect } = useAppWallet();
+  const { accountId, isConnected, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const {
@@ -385,16 +387,11 @@ export function PortfolioRallySheet({
             </p>
           ) : null}
 
-          {player.seasonId ? (
-            <a
-              className="portfolio-rally-standings-link"
-              href={rallyPortalPath(player.seasonId)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Full standings
-            </a>
-          ) : null}
+          <RallySheetSport
+            prizeLine={player.prizeLine}
+            rows={player.standingStrip}
+            viewerAccountId={accountId}
+          />
         </div>
       )}
     </GlassSheet>

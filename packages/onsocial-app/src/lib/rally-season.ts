@@ -47,7 +47,18 @@ export type RallyStanding = {
   rank: number;
   score: number;
   accountId: string;
+  displayName?: string | null;
 };
+
+export type RallyBoardRow = {
+  rank: number;
+  score: number;
+  accountId: string;
+  displayName?: string | null;
+};
+
+export const RALLY_SPORT_LINE =
+  'Stand, endorse, and boost. Half the pool by score.';
 
 export type RallyClaimRecord = {
   seasonId: string;
@@ -246,6 +257,97 @@ export function formatRallyMarkCaption(input: {
   return formatRallyRankLabel(input.rank);
 }
 
+function parsePositiveYocto(value: string | null | undefined): bigint | null {
+  const raw = value?.trim() ?? '';
+  if (!raw || !/^\d+$/.test(raw)) return null;
+  try {
+    const yocto = BigInt(raw);
+    return yocto > 0n ? yocto : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Prize line — pool first, then how many are in. */
+export function formatRallyPrizeLine(input: {
+  poolYocto?: string | null;
+  participantCount?: number | null;
+}): string {
+  const pool = parsePositiveYocto(input.poolYocto);
+  const count =
+    input.participantCount != null &&
+    Number.isFinite(input.participantCount) &&
+    input.participantCount > 0
+      ? Math.floor(input.participantCount)
+      : 0;
+  const amount = pool ? formatSocialCompact(pool.toString()) : '';
+  if (amount && count > 0) {
+    return `${amount} SOCIAL · ${count} in`;
+  }
+  if (amount) return `${amount} SOCIAL in the pool`;
+  if (count > 0) return `${count} in`;
+  return 'Pool fills as people join.';
+}
+
+function standingToBoardRow(
+  row: Pick<RallyBoardRow, 'rank' | 'score' | 'accountId' | 'displayName'>
+): RallyBoardRow | null {
+  const accountId = row.accountId.trim();
+  if (!accountId || !Number.isFinite(row.rank) || row.rank <= 0) return null;
+  return {
+    rank: row.rank,
+    score: Number.isFinite(row.score) ? row.score : 0,
+    accountId,
+    ...(row.displayName?.trim()
+      ? { displayName: row.displayName.trim() }
+      : {}),
+  };
+}
+
+/**
+ * Three-row strip: neighbors around you when joined, else the top.
+ * If you placed outside the fetched page, you still close the strip.
+ */
+export function resolveRallyStandingStrip(input: {
+  rows: readonly RallyBoardRow[];
+  viewerAccountId?: string | null;
+  viewerStanding?: RallyStanding | null;
+  limit?: number;
+}): RallyBoardRow[] {
+  const limit = Math.max(1, input.limit ?? 3);
+  const merged = new Map<string, RallyBoardRow>();
+  for (const row of input.rows) {
+    const next = standingToBoardRow(row);
+    if (next) merged.set(next.accountId.toLowerCase(), next);
+  }
+  const viewerId = input.viewerAccountId?.trim() ?? '';
+  if (viewerId && input.viewerStanding) {
+    const yours = standingToBoardRow({
+      ...input.viewerStanding,
+      accountId: viewerId,
+    });
+    if (yours) merged.set(viewerId.toLowerCase(), yours);
+  }
+  const ranked = [...merged.values()].sort((left, right) => {
+    if (left.rank !== right.rank) return left.rank - right.rank;
+    return left.accountId.localeCompare(right.accountId);
+  });
+  if (ranked.length === 0) return [];
+
+  const viewerIndex = viewerId
+    ? ranked.findIndex(
+        (row) => row.accountId.toLowerCase() === viewerId.toLowerCase()
+      )
+    : -1;
+  if (viewerIndex < 0) return ranked.slice(0, limit);
+
+  const start = Math.min(
+    Math.max(0, viewerIndex - Math.floor((limit - 1) / 2)),
+    Math.max(0, ranked.length - limit)
+  );
+  return ranked.slice(start, start + limit);
+}
+
 export type RallySheetView = {
   eyebrow: string;
   title: string;
@@ -371,6 +473,7 @@ export async function fetchRallyStatus(seasonId: string): Promise<{
   onChainConfig: RallyOnChainConfig | null;
   settlement: RallySettlementSummary | null;
   joinMinYocto: string | null;
+  indexedPoolYocto: string | null;
 } | null> {
   const response = await fetch(rallySeasonApiPath(seasonId, 'status'), {
     cache: 'no-store',
@@ -380,11 +483,50 @@ export async function fetchRallyStatus(seasonId: string): Promise<{
     onChainConfig?: RallyOnChainConfig | null;
     settlement?: RallySettlementSummary | null;
     joinMinYocto?: string;
+    indexedPoolYocto?: string;
   };
   return {
     onChainConfig: data.onChainConfig ?? null,
     settlement: data.settlement ?? null,
     joinMinYocto: data.joinMinYocto ?? null,
+    indexedPoolYocto: data.indexedPoolYocto ?? null,
+  };
+}
+
+export async function fetchRallyStandings(
+  seasonId: string,
+  opts?: { limit?: number; offset?: number }
+): Promise<{ rows: RallyBoardRow[]; total: number } | null> {
+  const params = new URLSearchParams();
+  params.set('limit', String(opts?.limit ?? 8));
+  if (opts?.offset != null) params.set('offset', String(opts.offset));
+  const response = await fetch(
+    `${rallySeasonApiPath(seasonId, 'standings')}?${params.toString()}`,
+    { cache: 'no-store' }
+  );
+  if (!response.ok) return null;
+  const data = (await response.json()) as {
+    total?: number;
+    standings?: Array<{
+      rank?: number;
+      score?: number;
+      accountId?: string;
+      displayName?: string | null;
+    }>;
+  };
+  const rows = (data.standings ?? [])
+    .map((row) =>
+      standingToBoardRow({
+        rank: Number(row.rank),
+        score: Number(row.score),
+        accountId: String(row.accountId ?? ''),
+        displayName: row.displayName,
+      })
+    )
+    .filter((row): row is RallyBoardRow => row != null);
+  return {
+    rows,
+    total: Number.isFinite(data.total) ? Number(data.total) : rows.length,
   };
 }
 

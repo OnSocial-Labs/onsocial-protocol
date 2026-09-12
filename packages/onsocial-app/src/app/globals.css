@@ -2446,13 +2446,6 @@ a.os-surface-row {
   padding-bottom: 0.3rem;
 }
 
-.portfolio-rally-standings-link,
-.portfolio-rally-standings-link:hover,
-.portfolio-rally-standings-link:focus-visible,
-.portfolio-rally-standings-link:visited {
-  text-decoration: none;
-}
-
 .scarce-provenance-original-link:hover,
 .scarce-provenance-original-link:focus-visible {
   color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
@@ -6230,32 +6223,71 @@ a.os-surface-row {
     gap: 0.35rem;
   }
 
-  .portfolio-rally-standings-link {
-    display: inline-flex;
-    align-self: flex-start;
-    align-items: center;
-    min-height: 1.65rem;
+  .portfolio-rally-sport {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .portfolio-rally-prize,
+  .portfolio-rally-rules {
     margin: 0;
-    padding: 0;
-    border: 0;
-    background: none;
-    font: inherit;
     font-size: 0.78rem;
-    font-weight: 600;
+    line-height: 1.4;
     letter-spacing: -0.01em;
+  }
+
+  .portfolio-rally-prize {
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.78);
+  }
+
+  .portfolio-rally-rules {
     color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .portfolio-rally-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    margin: 0.45rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .portfolio-rally-strip-row {
+    display: grid;
+    grid-template-columns: 2.1rem minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 0.45rem;
+    min-height: 1.45rem;
+    font-size: 0.82rem;
+    letter-spacing: -0.015em;
+  }
+
+  .portfolio-rally-strip-rank,
+  .portfolio-rally-strip-score {
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--fg-rgb) / 0.46);
+  }
+
+  .portfolio-rally-strip-name,
+  .portfolio-rally-strip-name:hover,
+  .portfolio-rally-strip-name:focus-visible,
+  .portfolio-rally-strip-name:visited {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: rgb(var(--fg-rgb) / 0.78);
     text-decoration: none;
   }
 
-  .portfolio-rally-standings-link:hover,
-  .portfolio-rally-standings-link:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.88);
-  }
-
-  .portfolio-rally-standings-link:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
-    border-radius: 0.4rem;
+  .portfolio-rally-strip-row.is-you .portfolio-rally-strip-name,
+  .portfolio-rally-strip-row.is-you .portfolio-rally-strip-rank,
+  .portfolio-rally-strip-row.is-you .portfolio-rally-strip-score {
+    color: rgb(var(--fg-rgb) / 0.92);
+    font-weight: 600;
   }
 
   .portfolio-listing-action-row {

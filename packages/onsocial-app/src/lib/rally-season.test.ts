@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { txToastSuccess } from '@/lib/transaction-toast-copy';
 import {
   formatRallyMarkCaption,
+  formatRallyPrizeLine,
   parseJoinRallyMinYocto,
   rallyPortalPath,
   resolveRallyLifecyclePhase,
@@ -10,6 +11,7 @@ import {
   resolveRallyOccasion,
   resolveRallyPresentation,
   resolveRallySheetView,
+  resolveRallyStandingStrip,
   shouldFetchRallyJoinAffordance,
 } from '@/lib/rally-season';
 
@@ -99,6 +101,47 @@ describe('rally-season', () => {
       })
     ).toBe('1,500');
     expect(formatRallyMarkCaption({ rank: 12 })).toBe('#12');
+  });
+
+  it('writes a prize line from pool and field size', () => {
+    expect(
+      formatRallyPrizeLine({
+        poolYocto: '1500000000000000000000',
+        participantCount: 48,
+      })
+    ).toBe('1,500 SOCIAL · 48 in');
+    expect(formatRallyPrizeLine({ poolYocto: '0', participantCount: 0 })).toBe(
+      'Pool fills as people join.'
+    );
+    expect(formatRallyPrizeLine({ participantCount: 3 })).toBe('3 in');
+  });
+
+  it('windows the standing strip around the viewer', () => {
+    const rows = [
+      { rank: 1, score: 90, accountId: 'a.near' },
+      { rank: 2, score: 80, accountId: 'b.near' },
+      { rank: 3, score: 70, accountId: 'c.near' },
+      { rank: 4, score: 60, accountId: 'd.near' },
+    ];
+    expect(
+      resolveRallyStandingStrip({ rows, viewerAccountId: null }).map(
+        (row) => row.accountId
+      )
+    ).toEqual(['a.near', 'b.near', 'c.near']);
+    expect(
+      resolveRallyStandingStrip({
+        rows,
+        viewerAccountId: 'c.near',
+        viewerStanding: { rank: 3, score: 70, accountId: 'c.near' },
+      }).map((row) => row.accountId)
+    ).toEqual(['b.near', 'c.near', 'd.near']);
+    expect(
+      resolveRallyStandingStrip({
+        rows,
+        viewerAccountId: 'you.near',
+        viewerStanding: { rank: 12, score: 11, accountId: 'you.near' },
+      }).map((row) => row.accountId)
+    ).toEqual(['c.near', 'd.near', 'you.near']);
   });
 
   it('keeps the sheet number-first', () => {
