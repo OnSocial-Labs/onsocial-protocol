@@ -32,12 +32,15 @@ const ACCOUNT_STRIP_SELECTOR =
   'h2.collectibles-library-heading, button.collectibles-library-heading';
 
 /**
- * Frost only the account strip actually docked under the glass rail.
- * `position: sticky` exposes no stuck state, so measure each account heading
- * against the scroller's content-box top (its clamp line, including the
- * search-tuck offset via the heading's computed `top`) and toggle
- * `is-docked`; CSS gates the frost on that class + the elevated header.
- * Mid-list account headings stay transparent instead of painting strips.
+ * Keep the docked account strip sharp on the page's one-pane glass sheet
+ * (`.collectibles-chrome-glass`). `position: sticky` exposes no stuck state,
+ * so measure each account heading against the scroller's content-box top
+ * (its clamp line, including the search-tuck offset via the heading's
+ * computed `top`):
+ * - `is-docked` toggles only while clamped at the line — strips sliding out
+ *   above it stay under the glass so they blur away with the rows.
+ * - `--collectibles-strip-cover` (on the page root) grows the glass sheet
+ *   down to the docked strip's bottom so rail + strip frost read as one.
  */
 function useDockedAccountStrip(
   stackRef: RefObject<HTMLDivElement | null>,
@@ -49,28 +52,45 @@ function useDockedAccountStrip(
     const stack = stackRef.current;
     if (disabled || !stack) return;
     const scroller = stack.closest<HTMLElement>('.os-app-screen-body');
+    const page = stack.closest<HTMLElement>('.collectibles-page');
     if (!scroller) return;
     const header = stack
       .closest('.os-app-screen')
       ?.querySelector('.os-app-screen-header');
 
     let raf = 0;
+    let settleTimer: number | null = null;
     const measure = () => {
       raf = 0;
       const clipLine =
         scroller.getBoundingClientRect().top +
         (parseFloat(getComputedStyle(scroller).paddingTop) || 0);
+      let stripCover = 0;
       stack
         .querySelectorAll<HTMLElement>(ACCOUNT_STRIP_SELECTOR)
         .forEach((heading) => {
           const stickTop = parseFloat(getComputedStyle(heading).top) || 0;
-          const docked =
-            heading.getBoundingClientRect().top <= clipLine + stickTop + 1;
+          const rect = heading.getBoundingClientRect();
+          const docked = Math.abs(rect.top - (clipLine + stickTop)) <= 2;
           heading.classList.toggle(DOCKED_STRIP_CLASS, docked);
+          if (docked) {
+            stripCover = Math.max(stripCover, rect.bottom - clipLine);
+          }
         });
+      page?.style.setProperty(
+        '--collectibles-strip-cover',
+        `${stripCover.toFixed(2)}px`
+      );
     };
     const schedule = () => {
       if (!raf) raf = requestAnimationFrame(measure);
+    };
+    // The stick offset animates (top transition) after a tuck toggle —
+    // re-measure once it settles so the sheet height tracks the strip.
+    const scheduleWithSettle = () => {
+      schedule();
+      if (settleTimer != null) window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(schedule, 250);
     };
 
     schedule();
@@ -79,7 +99,7 @@ function useDockedAccountStrip(
     resizeObserver.observe(scroller);
     // Search tuck / pin flips header classes (and the stick offset) without
     // necessarily scrolling — re-measure on chrome class changes too.
-    const chromeObserver = new MutationObserver(schedule);
+    const chromeObserver = new MutationObserver(scheduleWithSettle);
     if (header) {
       chromeObserver.observe(header, {
         attributes: true,
@@ -88,9 +108,11 @@ function useDockedAccountStrip(
     }
     return () => {
       if (raf) cancelAnimationFrame(raf);
+      if (settleTimer != null) window.clearTimeout(settleTimer);
       scroller.removeEventListener('scroll', schedule);
       resizeObserver.disconnect();
       chromeObserver.disconnect();
+      page?.style.removeProperty('--collectibles-strip-cover');
     };
   }, [stackRef, disabled, groups, selectedCreator]);
 }

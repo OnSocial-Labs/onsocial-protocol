@@ -25117,40 +25117,78 @@ a.os-surface-row {
   }
 
   /*
-   * Docked + elevated — same frost recipe as the header ::before so rows
-   * scroll under one continuous glass sheet (snaps with scroll like the
-   * header, no fade that would outrun the blur). `.is-docked` is toggled
-   * from the library only on the account strip clamped to the rail;
-   * mid-list accounts stay transparent instead of painting strips.
+   * One glass sheet from the rail through the docked account strip — same
+   * pattern as `.os-chrome-glass` (guild rails): a zero-height sticky band
+   * at the top of the scroller owns the frost for BOTH the header zone and
+   * the docked strip, so no seam line shows where two independent blurs
+   * would meet. The ::before reaches up over the chrome band (the body
+   * padding-top reserves it) and grows downward past the docked strip via
+   * --collectibles-strip-cover (JS-measured strip bottom relative to the
+   * chrome band bottom; 0 when nothing is docked). Opacity snaps with
+   * scroll like the header — no fade that would outrun the blur.
+   * Standard property only (Lightning CSS drops it if a -webkit- pair
+   * follows).
    */
-  .os-app-screen[data-glass-chrome='true']:has(
-      .os-app-screen-header.is-elevated
-    )
-    .collectibles-page
-    h2.collectibles-library-heading.is-docked,
-  .os-app-screen[data-glass-chrome='true']:has(
-      .os-app-screen-header.is-elevated
-    )
-    .collectibles-page
-    button.collectibles-library-heading.is-docked {
+  .collectibles-chrome-glass {
+    position: sticky;
+    top: 0;
+    height: 0;
+    /* Above rows, under the docked account strip (shared chrome scale). */
+    z-index: var(--os-chrome-glass-z);
+    pointer-events: none;
+  }
+
+  .collectibles-chrome-glass::before {
+    content: '';
+    position: absolute;
+    top: calc(-1 * var(--os-screen-chrome-height, var(--os-app-screen-chrome-height)));
+    inset-inline: calc(-1 * var(--os-screen-body-pad-x, 1rem));
+    height: calc(
+      var(--os-screen-chrome-height, var(--os-app-screen-chrome-height)) +
+        max(var(--collectibles-strip-cover, 0px), 0px)
+    );
     background: rgb(var(--bg-rgb) / 0.72);
     backdrop-filter: blur(20px) saturate(1.3);
+    opacity: 0;
+  }
+
+  .os-app-screen[data-glass-chrome='true']:has(
+      .os-app-screen-header.is-elevated
+    )
+    .collectibles-chrome-glass::before {
+    opacity: 1;
+  }
+
+  /*
+   * The band owns the frost on this screen — keep the header's own layer
+   * clear so the two never double-frost or meet at a seam.
+   */
+  .os-app-screen[data-glass-chrome='true']:has(.collectibles-chrome-glass)
+    > .os-app-screen-column
+    > .os-app-screen-header.is-elevated::before {
+    opacity: 0;
   }
 
   @media (prefers-reduced-transparency: reduce) {
-    .os-app-screen[data-glass-chrome='true']:has(
-        .os-app-screen-header.is-elevated
-      )
-      .collectibles-page
-      h2.collectibles-library-heading.is-docked,
-    .os-app-screen[data-glass-chrome='true']:has(
-        .os-app-screen-header.is-elevated
-      )
-      .collectibles-page
-      button.collectibles-library-heading.is-docked {
+    .collectibles-chrome-glass::before {
       background: rgb(var(--bg-rgb) / 0.94);
       backdrop-filter: none;
     }
+  }
+
+  /*
+   * Docked strip floats on the band's frost — text stays sharp above the
+   * glass, no fill of its own. `.is-docked` is toggled from the library
+   * only on the account strip clamped to the rail; mid-list accounts stay
+   * transparent and scroll under the sheet instead of painting strips.
+   */
+  .os-app-screen[data-glass-chrome='true']
+    .collectibles-page
+    h2.collectibles-library-heading.is-docked,
+  .os-app-screen[data-glass-chrome='true']
+    .collectibles-page
+    button.collectibles-library-heading.is-docked {
+    z-index: var(--os-chrome-rail-z);
   }
 
   /* Tucked chrome is rail-only — pull the stick point up by the collapsed

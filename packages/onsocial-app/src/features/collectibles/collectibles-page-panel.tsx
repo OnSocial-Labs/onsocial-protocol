@@ -817,6 +817,12 @@ export function CollectiblesPagePanel({
       className={VAULT_PAGE_CLASS}
       data-collectibles-back={dockBackHref}
     >
+      {/*
+       * One-pane frost owner — zero-height sticky band; its ::before sheets
+       * the header zone + docked account strip so no seam shows between two
+       * blurs. The library sets --collectibles-strip-cover on the page root.
+       */}
+      <div className="collectibles-chrome-glass" aria-hidden />
       {showVaultSkeleton ? (
         <section
           className="market-section collectibles-library"
