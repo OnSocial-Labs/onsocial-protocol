@@ -4,11 +4,13 @@
 
 import type {
   BoostAccountView,
+  BoostContractStats,
   BoostLockStatus,
   BoostRewardsLiveSnapshot,
 } from '@onsocial/sdk';
 import type { BoostLockPeriod } from '@onsocial/sdk/advanced';
 import { BROWSER_GATEWAY_PROXY } from '@/lib/app-gateway-url';
+import { formatSocialCompact } from '@/lib/format-social-balance';
 
 export interface BoostLockPeriodOption {
   months: BoostLockPeriod;
@@ -134,6 +136,64 @@ export function applyLockBonus(
   bonusPercent: number
 ): bigint {
   return (amountYocto * BigInt(100 + bonusPercent)) / 100n;
+}
+
+/**
+ * Share of network influence (0–100). Null when either side is empty so
+ * the sheet can show an em dash instead of `0.00%`.
+ */
+export function boostSharePercent(
+  effectiveYocto: bigint,
+  totalEffectiveYocto: bigint
+): number | null {
+  if (effectiveYocto <= 0n || totalEffectiveYocto <= 0n) return null;
+  const bps = Number((effectiveYocto * 10000n) / totalEffectiveYocto);
+  if (!Number.isFinite(bps) || bps <= 0) return null;
+  return bps / 100;
+}
+
+/** Preview share after increase / extend — swap this lock into the network total. */
+export function previewBoostSharePercent(input: {
+  currentEffectiveYocto: bigint;
+  previewEffectiveYocto: bigint;
+  networkTotalEffectiveYocto: bigint;
+}): number | null {
+  if (input.networkTotalEffectiveYocto <= 0n) return null;
+  const rest =
+    input.networkTotalEffectiveYocto > input.currentEffectiveYocto
+      ? input.networkTotalEffectiveYocto - input.currentEffectiveYocto
+      : 0n;
+  return boostSharePercent(
+    input.previewEffectiveYocto,
+    rest + input.previewEffectiveYocto
+  );
+}
+
+export function formatBoostSharePercent(percent: number | null): string {
+  if (percent == null) return '—';
+  return `${percent.toFixed(2)}%`;
+}
+
+export function formatBoostWeeklyRateBps(
+  bps: number | null | undefined
+): string {
+  if (bps == null || !Number.isFinite(bps)) return '—';
+  return `${(bps / 100).toFixed(2)}%`;
+}
+
+export function formatBoostNetworkAmount(
+  yocto: string | null | undefined
+): string {
+  const value = parseYoctoOrZero(yocto);
+  if (value <= 0n) return '—';
+  return formatSocialCompact(value);
+}
+
+export function formatBoostBoosterCount(
+  count: number | null | undefined
+): string {
+  if (count == null || !Number.isFinite(count)) return '—';
+  return count.toLocaleString('en-US');
 }
 
 /** Fixed-fraction yocto display for the live collect counter. */
@@ -286,16 +346,41 @@ export function formatTimeRemainingLabel(unlockAtNs: number): string {
 
 // ── Reads (boost contract views via the OnAPI gateway proxy) ──
 
-async function fetchBoostView<T>(path: string, accountId: string): Promise<T> {
-  const search = new URLSearchParams({ accountId });
-  const response = await fetch(
-    `${BROWSER_GATEWAY_PROXY}/${path}?${search.toString()}`,
-    { cache: 'no-store' }
-  );
+async function fetchBoostJson<T>(
+  path: string,
+  search?: URLSearchParams
+): Promise<T> {
+  const suffix = search?.toString() ? `?${search.toString()}` : '';
+  const response = await fetch(`${BROWSER_GATEWAY_PROXY}/${path}${suffix}`, {
+    cache: 'no-store',
+  });
   if (!response.ok) {
     throw new Error(`Boost read failed (${response.status})`);
   }
   return (await response.json()) as T;
+}
+
+async function fetchBoostView<T>(path: string, accountId: string): Promise<T> {
+  return fetchBoostJson<T>(path, new URLSearchParams({ accountId }));
+}
+
+export function fetchBoostStats(): Promise<BoostContractStats> {
+  return fetchBoostJson<BoostContractStats>('data/boost-stats');
+}
+
+/** Indexed booster count — Graph aggregate, not the boost contract. */
+export async function fetchActiveBoosterCount(): Promise<number | null> {
+  try {
+    const response = await fetch('/api/boost-network', { cache: 'no-store' });
+    if (!response.ok) return null;
+    const data = (await response.json()) as { boosterCount?: unknown };
+    return typeof data.boosterCount === 'number' &&
+      Number.isFinite(data.boosterCount)
+      ? data.boosterCount
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 export function fetchBoostAccount(

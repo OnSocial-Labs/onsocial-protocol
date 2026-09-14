@@ -30,6 +30,7 @@ import { AmountField } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
+import { BoostNetworkPulse } from '@/features/boost/boost-network-pulse';
 import {
   applyLockBonus,
   BOOST_ADJUST_GAS,
@@ -38,8 +39,11 @@ import {
   BOOST_DEFAULT_LOCK_MONTHS,
   BOOST_LOCK_GAS,
   BOOST_LOCK_PERIOD_OPTIONS,
+  formatBoostSharePercent,
   isLongerLockPeriod,
   longerLockPeriodOptions,
+  parseYoctoOrZero,
+  previewBoostSharePercent,
   resolveCurrentLockMonths,
   BOOST_MIN_LOCK_SOCIAL_LABEL,
   BOOST_MIN_LOCK_YOCTO,
@@ -52,6 +56,7 @@ import {
   lockPeriodOption,
   previewUnlockDateLabel,
 } from '@/features/boost/boost-position';
+import { useBoostNetworkPulse } from '@/features/boost/use-boost-network';
 import type { BoostPosition } from '@/features/boost/use-boost-position';
 import {
   CommerceSheetFooter,
@@ -233,13 +238,20 @@ function BoostSheetLoadingSkeleton() {
         <span className="standing-row-shimmer portfolio-boost-shimmer-chip" />
       </div>
       <section className="portfolio-boost-summary" aria-hidden>
-        {[0, 1, 2].map((row) => (
+        {[0, 1, 2, 3].map((row) => (
           <div key={row} className="portfolio-boost-summary-row">
             <span className="standing-row-shimmer portfolio-boost-shimmer-label" />
             <span className="standing-row-shimmer portfolio-boost-shimmer-value" />
           </div>
         ))}
       </section>
+      <BoostNetworkPulse
+        boosterCount={null}
+        totalLockedYocto={null}
+        scheduledPoolYocto={null}
+        activeWeeklyRateBps={null}
+        loading
+      />
     </div>
   );
 }
@@ -412,6 +424,7 @@ export function PortfolioBoostSheet({
     beginPostClaimHold,
     endPostClaimHold,
   } = position;
+  const network = useBoostNetworkPulse(sheetOpen);
 
   claimableYoctoRef.current = claimableYocto;
 
@@ -563,6 +576,24 @@ export function PortfolioBoostSheet({
         : mode === 'increase' && amountReady && currentOption
           ? currentOption.months
           : null;
+  const currentEffectiveYocto = parseYoctoOrZero(account?.effective_boost);
+  const previewEffectiveYocto = summaryInfluenceYocto ?? currentEffectiveYocto;
+  const sharePercent = previewBoostSharePercent({
+    currentEffectiveYocto,
+    previewEffectiveYocto,
+    networkTotalEffectiveYocto: parseYoctoOrZero(
+      network.stats?.total_effective_boost
+    ),
+  });
+  const networkPulse = (
+    <BoostNetworkPulse
+      boosterCount={network.boosterCount}
+      totalLockedYocto={network.stats?.total_locked ?? null}
+      scheduledPoolYocto={network.stats?.scheduled_pool ?? null}
+      activeWeeklyRateBps={network.stats?.active_weekly_rate_bps ?? null}
+      loading={!network.loaded}
+    />
+  );
 
   const applyAmountInput = useCallback((raw: string) => {
     setAmountInput(
@@ -634,6 +665,7 @@ export function PortfolioBoostSheet({
         }
         await input.onConfirmed?.();
         await refresh();
+        void network.refresh();
         if (celebrateCollect) {
           // RPC can lag — portal retries while the chip is up.
           window.setTimeout(() => {
@@ -802,8 +834,7 @@ export function PortfolioBoostSheet({
   }
 
   const collectCelebrating = claimCelebration != null;
-  const displayClaimableYocto =
-    claimCelebration?.amountYocto ?? claimableYocto;
+  const displayClaimableYocto = claimCelebration?.amountYocto ?? claimableYocto;
 
   const modeChips: { id: BoostSheetMode; label: string }[] = [
     { id: 'collect', label: 'Collect' },
@@ -834,11 +865,9 @@ export function PortfolioBoostSheet({
         visible: true,
         primaryLabel: 'Commit',
         primaryPendingLabel: 'Committing…',
-        canSubmit:
-          amountReady && (signingAction === 'commit' || !txBusy),
+        canSubmit: amountReady && (signingAction === 'commit' || !txBusy),
         pending: signingAction === 'commit',
-        disabled:
-          (txBusy && signingAction !== 'commit') || !amountReady,
+        disabled: (txBusy && signingAction !== 'commit') || !amountReady,
         primaryType: 'button',
         onPrimaryClick: handleCommit,
       };
@@ -868,11 +897,9 @@ export function PortfolioBoostSheet({
         visible: true,
         primaryLabel: extendLabel,
         primaryPendingLabel: 'Extending…',
-        canSubmit:
-          canExtend && (signingAction === 'extend' || !txBusy),
+        canSubmit: canExtend && (signingAction === 'extend' || !txBusy),
         pending: signingAction === 'extend',
-        disabled:
-          (txBusy && signingAction !== 'extend') || !canExtend,
+        disabled: (txBusy && signingAction !== 'extend') || !canExtend,
         primaryType: 'button',
         onPrimaryClick: handleExtend,
       };
@@ -896,11 +923,9 @@ export function PortfolioBoostSheet({
         visible: true,
         primaryLabel: 'Increase',
         primaryPendingLabel: 'Committing…',
-        canSubmit:
-          amountReady && (signingAction === 'commit' || !txBusy),
+        canSubmit: amountReady && (signingAction === 'commit' || !txBusy),
         pending: signingAction === 'commit',
-        disabled:
-          (txBusy && signingAction !== 'commit') || !amountReady,
+        disabled: (txBusy && signingAction !== 'commit') || !amountReady,
         primaryType: 'button',
         onPrimaryClick: handleCommit,
       };
@@ -982,10 +1007,7 @@ export function PortfolioBoostSheet({
                     >
                       {formatSocialCompact(lockedYocto)}
                     </span>
-                    <span
-                      className="portfolio-payout-sheet-unit"
-                      aria-hidden
-                    >
+                    <span className="portfolio-payout-sheet-unit" aria-hidden>
                       SOCIAL locked
                     </span>
                   </>
@@ -1180,6 +1202,19 @@ export function PortfolioBoostSheet({
                 )}
               </span>
             </div>
+            <div className="portfolio-boost-summary-row">
+              <span className="portfolio-boost-summary-label">Share</span>
+              {network.loaded ? (
+                <span className="portfolio-boost-summary-value">
+                  {formatBoostSharePercent(sharePercent)}
+                </span>
+              ) : (
+                <span
+                  className="standing-row-shimmer portfolio-boost-shimmer-value"
+                  aria-hidden
+                />
+              )}
+            </div>
             {summaryBonusOption ? (
               <div className="portfolio-boost-summary-row">
                 <span className="portfolio-boost-summary-label">Bonus</span>
@@ -1208,6 +1243,7 @@ export function PortfolioBoostSheet({
               </span>
             </div>
           </section>
+          {networkPulse}
         </div>
       ) : (
         <div className="portfolio-boost-view">
@@ -1267,6 +1303,7 @@ export function PortfolioBoostSheet({
               {fieldError ?? amountError}
             </p>
           ) : null}
+          {networkPulse}
         </div>
       )}
     </GlassSheet>
