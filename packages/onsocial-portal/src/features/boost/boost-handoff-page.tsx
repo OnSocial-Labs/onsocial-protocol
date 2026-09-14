@@ -23,13 +23,16 @@ export function BoostHandoffPage() {
     let cancelled = false;
     void Promise.all([
       os.boost.getStats().catch(() => null),
-      fetchActiveBoosterCount(),
-    ]).then(([nextStats, nextCount]) => {
-      if (cancelled) return;
-      setStats(nextStats);
-      setBoosterCount(nextCount);
-      setLoading(false);
-    });
+      fetchActiveBoosterCount().catch(() => null),
+    ])
+      .then(([nextStats, nextCount]) => {
+        if (cancelled) return;
+        setStats(nextStats);
+        setBoosterCount(nextCount);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -57,7 +60,7 @@ export function BoostHandoffPage() {
           </p>
           <div className="mt-4 flex justify-center">
             <Button asChild>
-              <OpenBoostInAppLink />
+              <OpenBoostInAppLink>Open in OnSocial</OpenBoostInAppLink>
             </Button>
           </div>
         </SurfacePanel>

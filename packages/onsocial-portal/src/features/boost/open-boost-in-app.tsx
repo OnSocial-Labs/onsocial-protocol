@@ -8,16 +8,13 @@ type OpenBoostInAppLinkProps = Omit<
   AnchorHTMLAttributes<HTMLAnchorElement>,
   'href'
 > & {
-  children?: ReactNode;
+  children: ReactNode;
 };
 
 export const OpenBoostInAppLink = forwardRef<
   HTMLAnchorElement,
   OpenBoostInAppLinkProps
->(function OpenBoostInAppLink(
-  { className, children = 'Open in OnSocial', ...props },
-  ref
-) {
+>(function OpenBoostInAppLink({ className, children, ...props }, ref) {
   const { accountId } = useWallet();
   return (
     <a
