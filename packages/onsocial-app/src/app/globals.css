@@ -2678,6 +2678,7 @@ a.os-surface-row {
     flex: 1;
     overflow-y: auto;
     overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .gate-content {
@@ -11619,6 +11620,22 @@ a.os-surface-row {
     -webkit-overflow-scrolling: touch;
     /* Short clearance only — feed scrolls under the floating dock pill. */
     padding-bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /*
+   * Lenis on nested overflow roots (not html). Keep native overflow when
+   * stopped — useScrollLock owns the sheet lock, not overflow:hidden.
+   */
+  .lenis.lenis-smooth {
+    scroll-behavior: auto;
+  }
+
+  .lenis.lenis-smooth [data-lenis-prevent] {
+    overscroll-behavior: contain;
+  }
+
+  .lenis.lenis-scrolling iframe {
+    pointer-events: none;
   }
 
   /* Overlay lock — hide the background rail without toggling overflow (shift). */

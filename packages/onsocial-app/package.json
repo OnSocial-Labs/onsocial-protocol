@@ -29,6 +29,7 @@
     "@onsocial/ui": "workspace:*",
     "@ref-finance/ref-sdk": "^1.5.0",
     "fflate": "^0.8.3",
+    "lenis": "^1.3.18",
     "next": "^16.3.4",
     "pdfjs-dist": "4.10.38",
     "react": "^19.2.4",
