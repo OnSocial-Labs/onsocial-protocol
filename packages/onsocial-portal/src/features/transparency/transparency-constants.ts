@@ -84,7 +84,7 @@ export const MARKET_LIQUIDITY_POOLS = [
 ] as const;
 
 export const TRANSPARENCY_ACTION_LINKS = [
-  { label: 'Boost', href: '/boost', hint: 'Lock' },
+  { label: 'Boost', href: '/boost', hint: 'Open' },
   { label: 'OnSocial Rally', href: '/season', hint: 'Spend' },
   { label: 'Discover', href: '/discover', hint: 'Support' },
   { label: 'Governance', href: '/governance/manage', hint: 'Delegate' },

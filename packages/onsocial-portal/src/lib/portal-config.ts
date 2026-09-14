@@ -169,6 +169,13 @@ export function getPublicAppPageUrl(accountId: string): string {
   return `${PUBLIC_APP_URL}/@${encodeURIComponent(accountId)}`;
 }
 
+/** Owner Boost sheet in the app. No account → app origin (connect there). */
+export function getPublicAppBoostUrl(accountId?: string | null): string {
+  const trimmed = accountId?.trim();
+  if (!trimmed) return PUBLIC_APP_URL;
+  return `${getPublicAppPageUrl(trimmed)}?sheet=boost`;
+}
+
 export function getPortalProfileUrl(accountId: string): string {
   return `/u/${encodeURIComponent(accountId)}`;
 }

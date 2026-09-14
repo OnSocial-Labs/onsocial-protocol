@@ -1,8 +1,7 @@
 import { PageShell } from '@/components/layout/page-shell';
-import { BoostCommitmentPanelSkeleton } from '@/features/boost/boost-commitment-panel-skeleton';
+import { BoostNetworkPulse } from '@/features/boost/boost-network-pulse';
 import { BoostPageColumn } from '@/features/boost/boost-page-column';
 import { BoostPageIntro } from '@/features/boost/boost-page-intro';
-import { BoostNetworkPulse } from '@/features/boost/boost-network-pulse';
 
 export function BoostPageLoadingShell() {
   return (
@@ -19,8 +18,6 @@ export function BoostPageLoadingShell() {
           activeWeeklyRateBps={null}
           loading
         />
-
-        <BoostCommitmentPanelSkeleton />
       </BoostPageColumn>
     </PageShell>
   );

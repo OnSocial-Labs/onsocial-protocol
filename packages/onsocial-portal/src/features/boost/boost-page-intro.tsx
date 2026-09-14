@@ -11,7 +11,7 @@ export function BoostPageIntro() {
   return (
     <SectionHeader
       title="Boost"
-      description="Lock SOCIAL to grow influence on the network."
+      description="Lock SOCIAL to grow influence. Collect in OnSocial."
       size="compact"
       badgeAccent="blue"
       className="mb-0"

@@ -31,10 +31,17 @@ export interface LiveCtaPersonalRewards {
   } | null;
 }
 
+export interface LiveCtaPersonalBoost {
+  locked: string;
+  influence: string;
+  claimable: string;
+}
+
 export interface LiveCtaPayload {
   boost: LiveCtaBoostNetwork | null;
   rewards: LiveCtaRewardsNetwork | null;
   personal: LiveCtaPersonalRewards | null;
+  personalBoost: LiveCtaPersonalBoost | null;
 }
 
 function yoctoString(value: unknown): string {
@@ -288,15 +295,33 @@ export async function loadPersonalRewards(
   };
 }
 
+export async function loadPersonalBoost(
+  os: PortalOnSocial,
+  accountId: string
+): Promise<LiveCtaPersonalBoost | null> {
+  const [account, snapshot] = await Promise.all([
+    os.boost.getAccount(accountId).catch(() => null),
+    os.boost.getRewardsLiveSnapshot(accountId).catch(() => null),
+  ]);
+  if (!account && !snapshot) return null;
+
+  return {
+    locked: yoctoString(account?.locked_amount),
+    influence: yoctoString(account?.effective_boost),
+    claimable: yoctoString(snapshot?.claimable_rewards),
+  };
+}
+
 export async function loadLiveCtaPayload(
   os: PortalOnSocial,
   accountId: string | null
 ): Promise<LiveCtaPayload> {
-  const [boost, rewards, personal] = await Promise.all([
+  const [boost, rewards, personal, personalBoost] = await Promise.all([
     loadBoostNetwork(os),
     loadRewardsNetwork(os),
     accountId ? loadPersonalRewards(os, accountId) : Promise.resolve(null),
+    accountId ? loadPersonalBoost(os, accountId) : Promise.resolve(null),
   ]);
 
-  return { boost, rewards, personal };
+  return { boost, rewards, personal, personalBoost };
 }

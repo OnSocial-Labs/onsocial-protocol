@@ -10,6 +10,7 @@ import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { GenesisRallyStrip } from '@/features/season/genesis-rally-strip';
+import { OpenBoostInAppLink } from '@/features/boost/open-boost-in-app';
 import type { LiveCtaPayload } from '@/lib/portal-live-cta-server';
 import { section } from '@/lib/section-styles';
 import { yoctoToSocial } from '@/lib/near-rpc';
@@ -52,6 +53,7 @@ async function fetchLiveCta(accountId: string | null): Promise<LiveCtaPayload> {
     boost: body?.boost ?? null,
     rewards: body?.rewards ?? null,
     personal: body?.personal ?? null,
+    personalBoost: body?.personalBoost ?? null,
   };
 }
 
@@ -73,6 +75,7 @@ export function CTA() {
             boost: payload.boost,
             rewards: payload.rewards,
             personal: current?.personal ?? null,
+            personalBoost: current?.personalBoost ?? null,
           }));
         }
       })
@@ -82,6 +85,7 @@ export function CTA() {
             boost: null,
             rewards: null,
             personal: current?.personal ?? null,
+            personalBoost: current?.personalBoost ?? null,
           }));
         }
       })
@@ -99,7 +103,7 @@ export function CTA() {
   useEffect(() => {
     if (!accountId) {
       setLiveData((current) =>
-        current ? { ...current, personal: null } : current
+        current ? { ...current, personal: null, personalBoost: null } : current
       );
       setPersonalLoading(false);
       return;
@@ -115,13 +119,16 @@ export function CTA() {
             boost: current?.boost ?? payload.boost,
             rewards: current?.rewards ?? payload.rewards,
             personal: payload.personal,
+            personalBoost: payload.personalBoost,
           }));
         }
       })
       .catch(() => {
         if (!cancelled) {
           setLiveData((current) =>
-            current ? { ...current, personal: null } : current
+            current
+              ? { ...current, personal: null, personalBoost: null }
+              : current
           );
         }
       })
@@ -183,6 +190,15 @@ export function CTA() {
     : [];
 
   const personal = liveData?.personal;
+  const personalBoost = liveData?.personalBoost;
+  const personalBoostLocked = personalBoost
+    ? BigInt(personalBoost.locked || '0')
+    : 0n;
+  const personalBoostClaimable = personalBoost
+    ? BigInt(personalBoost.claimable || '0')
+    : 0n;
+  const hasPersonalBoost =
+    personalBoostLocked > 0n || personalBoostClaimable > 0n;
   const topRewardApp = personal?.topRewardApp ?? null;
   const claimableAmount = personal ? BigInt(personal.claimable || '0') : 0n;
   const totalEarnedAmount = personal ? BigInt(personal.totalEarned || '0') : 0n;
@@ -305,53 +321,99 @@ export function CTA() {
             </SurfacePanel>
           </Link>
 
-          <Link href="/boost" className="group">
-            <SurfacePanel
-              radius="xl"
-              tone="solid"
-              borderTone="strong"
-              padding="none"
-              className="h-full overflow-hidden transition-[border-color,box-shadow] duration-200 hover:border-[var(--portal-blue-border-strong)] hover:shadow-[0_0_20px_var(--portal-blue-shadow)]"
+          <SurfacePanel
+            radius="xl"
+            tone="solid"
+            borderTone="strong"
+            padding="none"
+            className="h-full overflow-hidden"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className={section.card}
             >
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={isInView ? { opacity: 1, y: 0 } : {}}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className={section.card}
-              >
-                <div className="flex flex-col items-center text-center gap-1">
-                  <span className="portal-blue-text inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em]">
-                    <Coins className="portal-blue-icon h-3.5 w-3.5" />
-                    Boost
-                    <ProtocolMotionArrow className="h-3 w-3" />
-                  </span>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    Lock SOCIAL to grow influence and collect rewards.
-                  </p>
-                </div>
+              <div className="flex flex-col items-center text-center gap-1">
+                <span className="portal-blue-text inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em]">
+                  <Coins className="portal-blue-icon h-3.5 w-3.5" />
+                  Boost
+                </span>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  Locked SOCIAL × time. Collect in OnSocial.
+                </p>
+              </div>
 
-                <div className="pt-4">
-                  {networkLoading ? (
-                    <div className="flex min-h-16 items-center justify-center">
-                      <PulsingDots size="md" />
+              <div className="pt-4">
+                {networkLoading ? (
+                  <div className="flex min-h-16 items-center justify-center">
+                    <PulsingDots size="md" />
+                  </div>
+                ) : (
+                  <StatStrip>
+                    {boostPreviewStats.map((stat, index) => (
+                      <StatStripCell
+                        key={stat.label}
+                        label={stat.label}
+                        showDivider={index < boostPreviewStats.length - 1}
+                      >
+                        <p className={stat.valueClassName}>{stat.value}</p>
+                      </StatStripCell>
+                    ))}
+                  </StatStrip>
+                )}
+              </div>
+
+              {isConnected ? (
+                <div className="mt-3 px-1 pt-3">
+                  {personalLoading ? (
+                    <div className="flex min-h-10 items-center justify-center">
+                      <PulsingDots size="sm" />
                     </div>
                   ) : (
-                    <StatStrip>
-                      {boostPreviewStats.map((stat, index) => (
-                        <StatStripCell
-                          key={stat.label}
-                          label={stat.label}
-                          showDivider={index < boostPreviewStats.length - 1}
-                        >
-                          <p className={stat.valueClassName}>{stat.value}</p>
-                        </StatStripCell>
-                      ))}
-                    </StatStrip>
+                    <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs leading-relaxed text-muted-foreground">
+                      {hasPersonalBoost && personalBoost ? (
+                        <>
+                          <span className="uppercase tracking-[0.14em]">
+                            Yours
+                          </span>
+                          <span>
+                            <span className="text-portal-neutral font-mono font-semibold tracking-tight">
+                              {formatCompactSocial(personalBoost.locked)}
+                            </span>{' '}
+                            locked
+                          </span>
+                          <span className="text-border">·</span>
+                          <span>
+                            <span className="portal-blue-text font-mono font-semibold tracking-tight">
+                              {formatCompactSocial(personalBoost.influence)}
+                            </span>{' '}
+                            influence
+                          </span>
+                          {personalBoostClaimable > 0n ? (
+                            <>
+                              <span className="text-border">·</span>
+                              <span>
+                                <span className="portal-gold-text font-mono font-semibold tracking-tight">
+                                  {formatCompactSocial(personalBoost.claimable)}
+                                </span>{' '}
+                                ready
+                              </span>
+                            </>
+                          ) : null}
+                          <span className="text-border">·</span>
+                        </>
+                      ) : null}
+                      <OpenBoostInAppLink className="group inline-flex items-center gap-1 font-medium text-foreground transition-colors hover:text-muted-foreground">
+                        Open in OnSocial
+                        <ProtocolMotionArrow className="h-3 w-3" />
+                      </OpenBoostInAppLink>
+                    </div>
                   )}
                 </div>
-              </motion.div>
-            </SurfacePanel>
-          </Link>
+              ) : null}
+            </motion.div>
+          </SurfacePanel>
         </div>
       </div>
     </section>
