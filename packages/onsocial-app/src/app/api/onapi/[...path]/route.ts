@@ -59,10 +59,11 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
 
   // SOCIAL wallet balance — premium mood unlock preflight.
   { method: 'GET', path: 'data/ft-balance-of', body: 'none' },
-  // Boost position reads (portfolio boost sheet).
+  // Boost position + network stats (portfolio boost sheet).
   { method: 'GET', path: 'data/boost-account', body: 'none' },
   { method: 'GET', path: 'data/boost-lock-status', body: 'none' },
   { method: 'GET', path: 'data/boost-rewards-live', body: 'none' },
+  { method: 'GET', path: 'data/boost-stats', body: 'none' },
   // SOCIAL token icon / decimals for amount fields.
   { method: 'GET', path: 'data/ft-metadata', body: 'none' },
   // Wallet storage buffer + personal storage reads.
