@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { GatePwaInstall } from '@/components/gate/gate-pwa-install';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { portfolioPath } from '@/lib/overlay-routes';
+import { gateContinuePath } from '@/lib/overlay-routes';
 
 export function GateConnect() {
   const router = useRouter();
@@ -12,7 +12,9 @@ export function GateConnect() {
 
   useEffect(() => {
     if (!isLoading && isConnected && accountId) {
-      router.replace(portfolioPath(accountId));
+      router.replace(
+        gateContinuePath(accountId, window.location.search)
+      );
     }
   }, [accountId, isConnected, isLoading, router]);
 

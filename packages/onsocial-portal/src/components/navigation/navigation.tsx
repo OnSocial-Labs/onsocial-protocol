@@ -93,9 +93,9 @@ const baseNavGroups: NavGroup[] = [
         icon: ArrowLeftRight,
       },
       {
-        label: 'Boost',
-        href: '/boost',
-        description: 'Influence staking & rewards',
+        label: 'Influence',
+        href: '/boost/leaderboard',
+        description: 'Locked SOCIAL × time',
         icon: Flame,
       },
       {

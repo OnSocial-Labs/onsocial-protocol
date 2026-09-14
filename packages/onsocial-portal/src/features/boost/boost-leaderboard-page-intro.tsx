@@ -1,9 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { SectionHeader } from '@/components/layout/section-header';
 import { Button } from '@/components/ui/button';
 import { ProtocolMotionArrow } from '@onsocial/ui';
+import { OpenBoostInAppLink } from '@/features/boost/open-boost-in-app';
 import { usePageNavBadge } from '@/hooks/use-page-nav-badge';
 
 export function BoostLeaderboardPageIntro() {
@@ -19,10 +19,10 @@ export function BoostLeaderboardPageIntro() {
       contentClassName="flex-1"
       aside={
         <Button variant="outline" size="sm" asChild>
-          <Link href="/boost" className="group">
-            <ProtocolMotionArrow direction="left" className="h-4 w-4" />
-            Back to Boost
-          </Link>
+          <OpenBoostInAppLink className="group inline-flex items-center gap-1">
+            Open in OnSocial
+            <ProtocolMotionArrow className="h-4 w-4" />
+          </OpenBoostInAppLink>
         </Button>
       }
     />

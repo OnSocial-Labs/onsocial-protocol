@@ -67,6 +67,26 @@ export function homeRallyPath(): string {
   return `${APP_HOME_PATH}?${PORTFOLIO_SHEET_PARAM}=rally`;
 }
 
+/** Viewer Boost sheet from Home — guest lock, same `sheet=` key as profile. */
+export function homeBoostPath(): string {
+  return `${APP_HOME_PATH}?${PORTFOLIO_SHEET_PARAM}=boost`;
+}
+
+/** After the gate connects, keep Boost / Rally intent on the owner page. */
+export function gateContinuePath(
+  accountId: string,
+  search: string | URLSearchParams
+): string {
+  const params =
+    typeof search === 'string'
+      ? new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+      : search;
+  const sheet = parsePortfolioSheetParam(params.get(PORTFOLIO_SHEET_PARAM));
+  if (sheet === 'boost') return portfolioBoostPath(accountId);
+  if (sheet === 'rally') return portfolioRallyPath(accountId);
+  return portfolioPath(accountId);
+}
+
 /** One-shot deep link — opens the portfolio page drawer, hash is stripped after. */
 export function portfolioFeedPath(accountId: string): string {
   return `${portfolioPath(accountId)}#${PORTFOLIO_FEED_SECTION_ID}`;

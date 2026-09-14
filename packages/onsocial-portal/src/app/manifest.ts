@@ -49,9 +49,9 @@ export default function manifest(): MetadataRoute.Manifest {
         icons: [{ src: '/onsocial_icon_192.png', sizes: '192x192' }],
       },
       {
-        name: 'Boost',
-        short_name: 'Boost',
-        url: '/boost',
+        name: 'Influence',
+        short_name: 'Influence',
+        url: '/boost/leaderboard',
         icons: [{ src: '/onsocial_icon_192.png', sizes: '192x192' }],
       },
     ],

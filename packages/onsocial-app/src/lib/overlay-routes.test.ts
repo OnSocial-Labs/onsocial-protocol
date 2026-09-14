@@ -14,6 +14,8 @@ import {
   endorsementsPath,
   parsePortfolioEndorsementFocus,
   portfolioEndorsementPath,
+  gateContinuePath,
+  homeBoostPath,
   homeRallyPath,
   portfolioRallyPath,
   portfolioFeedPath,
@@ -60,6 +62,24 @@ describe('portfolioRallyPath', () => {
       '/@alice.testnet?sheet=rally'
     );
     expect(homeRallyPath()).toBe('/home?sheet=rally');
+  });
+});
+
+describe('homeBoostPath', () => {
+  it('deep-links the guest Boost sheet on Home', () => {
+    expect(homeBoostPath()).toBe('/home?sheet=boost');
+  });
+});
+
+describe('gateContinuePath', () => {
+  it('keeps Boost and Rally intent after the gate connects', () => {
+    expect(gateContinuePath('alice.testnet', '?sheet=boost')).toBe(
+      '/@alice.testnet?sheet=boost'
+    );
+    expect(gateContinuePath('alice.testnet', 'sheet=rally')).toBe(
+      '/@alice.testnet?sheet=rally'
+    );
+    expect(gateContinuePath('alice.testnet', '')).toBe('/@alice.testnet');
   });
 });
 

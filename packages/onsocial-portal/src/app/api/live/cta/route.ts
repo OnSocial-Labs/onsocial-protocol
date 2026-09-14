@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
 import {
   loadLiveCtaPayload,
+  loadPersonalBoost,
   loadPersonalRewards,
   type LiveCtaPayload,
 } from '@/lib/portal-live-cta-server';
@@ -24,6 +25,10 @@ const networkCache =
 const personalCache = createPortalRequestCache<LiveCtaPayload['personal']>(
   PERSONAL_CACHE_TTL_MS
 );
+
+const personalBoostCache = createPortalRequestCache<
+  LiveCtaPayload['personalBoost']
+>(PERSONAL_CACHE_TTL_MS);
 
 const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 
@@ -55,11 +60,17 @@ export async function GET(request: NextRequest) {
           loadPersonalRewards(os, accountId)
         )
       : null;
+    const personalBoost = accountId
+      ? await personalBoostCache.getOrLoad(accountId, () =>
+          loadPersonalBoost(os, accountId)
+        )
+      : null;
 
     const response: LiveCtaPayload = {
       boost: network.boost,
       rewards: network.rewards,
       personal,
+      personalBoost,
     };
 
     return NextResponse.json(response, {

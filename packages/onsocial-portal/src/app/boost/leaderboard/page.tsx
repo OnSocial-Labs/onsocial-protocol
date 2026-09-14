@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { OpenBoostInAppLink } from '@/features/boost/open-boost-in-app';
 import { Crown, Flame, RefreshCw, Shield, TrendingUp, Zap } from 'lucide-react';
 import { StandingIdentity } from '@onsocial/ui';
 import type { ProfileAvatarShape, ProfileKind } from '@onsocial/sdk';
@@ -721,10 +722,10 @@ export default function BoostLeaderboardPage() {
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Button asChild>
-              <Link href="/boost">
+              <OpenBoostInAppLink>
                 <Flame className="mr-1.5 h-4 w-4" />
-                Lock SOCIAL
-              </Link>
+                Open in OnSocial
+              </OpenBoostInAppLink>
             </Button>
           </div>
         </SurfacePanel>

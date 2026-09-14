@@ -252,7 +252,7 @@ export function TransparencySupplyPulse({
           />
           <PulseItem
             label="Locked"
-            href="/boost"
+            href="/boost/leaderboard"
             value={locked}
             loading={lockedLoading}
             external={false}
