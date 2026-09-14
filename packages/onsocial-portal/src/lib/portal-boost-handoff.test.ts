@@ -24,11 +24,13 @@ describe('getPublicAppBoostUrl', () => {
   });
 });
 
-describe('boost handoff routes', () => {
-  it('keeps /boost as a pulse handoff, not a lock action', () => {
-    expect(resolveRouteNavBack('/boost')).toEqual({ label: 'Back' });
+describe('boost protocol routes', () => {
+  it('sends Boost to the Influence leaderboard, not a lock form', () => {
+    expect(resolveRouteNavBack('/boost/leaderboard')).toEqual({
+      label: 'Back',
+    });
     expect(
       TRANSPARENCY_ACTION_LINKS.find((link) => link.label === 'Boost')
-    ).toMatchObject({ href: '/boost', hint: 'Open' });
+    ).toMatchObject({ href: '/boost/leaderboard', hint: 'Open' });
   });
 });

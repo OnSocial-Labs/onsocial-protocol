@@ -17,6 +17,15 @@ const nextConfig = {
   },
   // Turbopack is the default bundler in Next.js 16
   turbopack: {},
+  async redirects() {
+    return [
+      {
+        source: '/boost',
+        destination: '/boost/leaderboard',
+        permanent: true,
+      },
+    ];
+  },
   serverExternalPackages: ['@ref-finance/ref-sdk', 'near-api-js'],
   // Keep webpack config as fallback for `next build --webpack`
   webpack: (config, { isServer }) => {

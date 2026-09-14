@@ -21,8 +21,7 @@ export function resolveRouteNavBack(
   if (
     pathname.startsWith('/governance/') ||
     pathname.startsWith('/onapi/') ||
-    pathname === '/boost' ||
-    pathname.startsWith('/boost/') ||
+    pathname.startsWith('/boost') ||
     pathname === '/season' ||
     pathname.startsWith('/season/') ||
     pathname === '/season-zero' ||
