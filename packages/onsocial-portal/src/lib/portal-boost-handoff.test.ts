@@ -14,9 +14,13 @@ describe('getPublicAppBoostUrl', () => {
     );
   });
 
-  it('falls back to the app origin when nobody is connected', () => {
-    expect(getPublicAppBoostUrl(null)).toBe(PUBLIC_APP_URL);
-    expect(getPublicAppBoostUrl('  ')).toBe(PUBLIC_APP_URL);
+  it('keeps Boost intent on Home when nobody is connected', () => {
+    expect(getPublicAppBoostUrl(null)).toBe(
+      `${PUBLIC_APP_URL}/home?sheet=boost`
+    );
+    expect(getPublicAppBoostUrl('  ')).toBe(
+      `${PUBLIC_APP_URL}/home?sheet=boost`
+    );
   });
 });
 

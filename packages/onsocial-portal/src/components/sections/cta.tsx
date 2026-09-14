@@ -411,7 +411,16 @@ export function CTA() {
                     </div>
                   )}
                 </div>
-              ) : null}
+              ) : (
+                <div className="mt-3 px-1 pt-3">
+                  <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs leading-relaxed text-muted-foreground">
+                    <OpenBoostInAppLink className="group inline-flex items-center gap-1 font-medium text-foreground transition-colors hover:text-muted-foreground">
+                      Open in OnSocial
+                      <ProtocolMotionArrow className="h-3 w-3" />
+                    </OpenBoostInAppLink>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </SurfacePanel>
         </div>
