@@ -8,10 +8,11 @@
 //! Accrual and live pool weight freeze at `unlock_at`; leftover rewards stay claimable.
 
 use near_sdk::{
-    AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise, PromiseError, env,
+    env,
     json_types::{Base58CryptoHash, U128},
     near, serde_json,
     store::LookupMap,
+    AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise, PromiseError,
 };
 use near_sdk_macros::NearSchema;
 use primitive_types::U256;
@@ -809,6 +810,8 @@ impl OnsocialBoost {
         self.total_rewards_released.saturating_add(released)
     }
 
+    /// Claims leftover rewards while the lock is still active.
+    /// After `unlock_at`, collect via `unlock` or renew/extend first.
     #[handle_result]
     pub fn claim_rewards(&mut self) -> Result<Promise, BoostError> {
         let account_id = env::predecessor_account_id();
@@ -821,6 +824,12 @@ impl OnsocialBoost {
             .accounts
             .get(&account_id)
             .ok_or_else(|| BoostError::InvalidInput("No account".into()))?;
+
+        if Self::lock_expired_at(account, env::block_timestamp()) {
+            return Err(BoostError::InvalidInput(
+                "Lock expired; unlock or renew".into(),
+            ));
+        }
 
         let claimable = self.calculate_claimable_internal(account, false);
         if claimable == 0 {

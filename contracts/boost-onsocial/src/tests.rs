@@ -562,11 +562,9 @@ fn test_storage_balance_of() {
 fn test_lock_auto_registers_storage() {
     let mut contract = setup_contract();
     // No setup_with_storage call — user stakes directly
-    assert!(
-        contract
-            .storage_balance_of("alice.near".parse().unwrap())
-            .is_none()
-    );
+    assert!(contract
+        .storage_balance_of("alice.near".parse().unwrap())
+        .is_none());
 
     lock_tokens(&mut contract, "alice.near", ONE_SOCIAL, 6);
 
@@ -861,6 +859,65 @@ fn test_expired_lock_claimable_freezes_until_renew() {
         "Renew after expiry restores live pool weight"
     );
     assert_eq!(account.lock_months, 1);
+}
+
+#[test]
+fn test_claim_rewards_rejected_after_expiry() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+
+    let start_time = 1_000_000_000_000_000_000u64;
+    fund_pool_at(&mut contract, 1000 * ONE_SOCIAL, start_time);
+    lock_tokens_at(&mut contract, "alice.near", ONE_SOCIAL, 1, start_time);
+
+    let expiry = start_time + MONTH_NS;
+    let mut context = get_context("alice.near");
+    context.block_timestamp(expiry + NS_PER_SEC);
+    testing_env!(context.build());
+    contract.sync_account(&"alice.near".parse().unwrap());
+
+    let account = contract
+        .accounts
+        .get(&"alice.near".parse::<AccountId>().unwrap())
+        .cloned()
+        .unwrap();
+    let leftover = contract.calculate_claimable(&account);
+    assert!(leftover > 0, "Should have leftover from the lock");
+
+    assert!(
+        matches!(
+            contract.claim_rewards(),
+            Err(BoostError::InvalidInput(message)) if message == "Lock expired; unlock or renew"
+        ),
+        "claim_rewards is closed after expiry"
+    );
+
+    let account = contract
+        .accounts
+        .get(&"alice.near".parse::<AccountId>().unwrap())
+        .cloned()
+        .unwrap();
+    assert_eq!(
+        contract.calculate_claimable(&account),
+        leftover,
+        "Rejected claim must not consume leftover"
+    );
+
+    contract.renew_lock().unwrap();
+    let status = contract.get_lock_status("alice.near".parse().unwrap());
+    assert!(!status.lock_expired, "Renew reopens the active lock");
+    assert!(!status.can_unlock);
+
+    let account = contract
+        .accounts
+        .get(&"alice.near".parse::<AccountId>().unwrap())
+        .cloned()
+        .unwrap();
+    assert_eq!(
+        contract.calculate_claimable(&account),
+        leftover,
+        "Leftover stays claimable after renew"
+    );
 }
 
 #[test]
@@ -2625,6 +2682,7 @@ fn test_extend_just_before_expiry() {
 // - extend_lock while unlock pending (Unlock pending)
 // - renew_lock while unlock pending (Unlock pending)
 // - claim_rewards while unlock pending (Unlock pending)
+// - claim_rewards after expiry (Lock expired; unlock or renew)
 
 #[test]
 fn test_ft_on_transfer_rejects_wrong_token() {
