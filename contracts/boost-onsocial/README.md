@@ -19,7 +19,7 @@ The default release schedule starts at `0.01%` per week, increases by `0.01%` ev
 - Lock bonuses applied to weighted boost, not raw token principal
 - Boost-seconds reward accounting for fair time-weighted distribution
 - Stepped reward release schedule with configurable start, step, interval, and cap
-- Reward clock pauses when there are no active participants
+- Reward clock pauses when there are no active (unexpired) locks
 - Auto-registration subsidy for first lock when contract storage balance allows it
 - Additional funding paths:
 	- `credits`: splits inbound SOCIAL into `60% infra` and `40% scheduled rewards`
@@ -49,8 +49,10 @@ Where:
 
 - `weighted_amount = 100% of first 1,000 SOCIAL + 50% of next 4,000 + 25% above 5,000`
 - `effective_boost = weighted_amount * (100 + bonus) / 100`
-- `boost_seconds` accumulates over time while the position remains active
+- `boost_seconds` accumulates over time while the lock is active
+- Accrual and live pool weight freeze at `unlock_at`. After expiry, `claim_rewards` is closed; leftover is paid on `unlock`, or after `renew_lock` / `extend_lock` via `claim_rewards` again. Renew / extend starts a new clock.
 - released rewards come from the scheduled pool according to the current weekly rate
+- The release clock pauses when nobody has an active (unexpired) lock
 
 Examples before lock bonus:
 
@@ -129,9 +131,13 @@ near call <contract> unlock '{}' --accountId <user> --gas 100Tgas
 
 ### Claim Rewards
 
+While the lock is active (before `unlock_at`):
+
 ```bash
 near call <contract> claim_rewards '{}' --accountId <user> --gas 100Tgas
 ```
+
+After expiry, `claim_rewards` is rejected. Collect leftover with `unlock`, or `renew_lock` / `extend_lock` then claim.
 
 ### Add Reward Funding
 
@@ -157,7 +163,7 @@ near call token.onsocial.near ft_transfer_call '{"receiver_id":"<contract>","amo
 | `extend_lock(months)` | Extends an existing lock to a longer supported period |
 | `renew_lock()` | Re-locks using the current lock period |
 | `unlock()` | Unlocks tokens after expiry |
-| `claim_rewards()` | Claims accumulated SOCIAL rewards |
+| `claim_rewards()` | Claims accumulated SOCIAL rewards while the lock is active (rejected after expiry) |
 
 ### View Methods
 

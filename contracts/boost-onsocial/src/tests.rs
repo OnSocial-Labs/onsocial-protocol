@@ -562,11 +562,9 @@ fn test_storage_balance_of() {
 fn test_lock_auto_registers_storage() {
     let mut contract = setup_contract();
     // No setup_with_storage call — user stakes directly
-    assert!(
-        contract
-            .storage_balance_of("alice.near".parse().unwrap())
-            .is_none()
-    );
+    assert!(contract
+        .storage_balance_of("alice.near".parse().unwrap())
+        .is_none());
 
     lock_tokens(&mut contract, "alice.near", ONE_SOCIAL, 6);
 
@@ -774,7 +772,7 @@ fn test_get_lock_status() {
 // =============================================================================
 
 #[test]
-fn test_effective_boost_keeps_bonus_until_unlock() {
+fn test_effective_boost_freezes_at_expiry() {
     let mut contract = setup_contract();
     setup_with_storage(&mut contract, "alice.near");
 
@@ -789,12 +787,137 @@ fn test_effective_boost_keeps_bonus_until_unlock() {
     let account = contract.get_account("alice.near".parse().unwrap());
     assert_eq!(account.effective_boost.0, ONE_SOCIAL * 105 / 100);
 
-    // After expiry: STILL has bonus (until unlock is called)
+    // After expiry: live pool weight is 0; principal stays locked until unlock.
     context.block_timestamp(start_time + MONTH_NS + NS_PER_SEC);
     testing_env!(context.build());
 
     let account = contract.get_account("alice.near".parse().unwrap());
-    assert_eq!(account.effective_boost.0, ONE_SOCIAL * 105 / 100); // Bonus kept until unlock
+    assert_eq!(account.effective_boost.0, 0);
+    assert!(account.locked_amount.0 > 0);
+}
+
+#[test]
+fn test_expired_lock_claimable_freezes_until_renew() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+
+    let start_time = 1_000_000_000_000_000_000u64;
+    fund_pool_at(&mut contract, 1000 * ONE_SOCIAL, start_time);
+    lock_tokens_at(&mut contract, "alice.near", ONE_SOCIAL, 1, start_time);
+
+    let expiry = start_time + MONTH_NS;
+    let mut context = get_context("alice.near");
+    context.block_timestamp(expiry + NS_PER_SEC);
+    testing_env!(context.build());
+    contract.sync_account(&"alice.near".parse().unwrap());
+
+    let account = contract
+        .accounts
+        .get(&"alice.near".parse::<AccountId>().unwrap())
+        .cloned()
+        .unwrap();
+    let claimable_at_expiry = contract.calculate_claimable(&account);
+    let seconds_at_expiry = account.boost_seconds;
+    assert!(
+        claimable_at_expiry > 0,
+        "Should have earned during the lock"
+    );
+    assert_eq!(contract.total_effective_boost, 0);
+    assert_eq!(
+        contract
+            .get_reward_rate("alice.near".parse().unwrap())
+            .rewards_per_second
+            .0,
+        0,
+        "Live rate is 0 after expiry"
+    );
+
+    context.block_timestamp(expiry + 4 * WEEK_NS);
+    testing_env!(context.build());
+    contract.sync_account(&"alice.near".parse().unwrap());
+    contract.poke();
+
+    let account = contract
+        .accounts
+        .get(&"alice.near".parse::<AccountId>().unwrap())
+        .cloned()
+        .unwrap();
+    assert_eq!(account.boost_seconds, seconds_at_expiry);
+    assert_eq!(
+        contract.calculate_claimable(&account),
+        claimable_at_expiry,
+        "Claimable must not grow after expiry"
+    );
+
+    context.predecessor_account_id("alice.near".parse().unwrap());
+    testing_env!(context.build());
+    contract.renew_lock().unwrap();
+
+    let account = contract.get_account("alice.near".parse().unwrap());
+    assert!(
+        account.effective_boost.0 > 0,
+        "Renew after expiry restores live pool weight"
+    );
+    assert_eq!(account.lock_months, 1);
+}
+
+#[test]
+fn test_claim_rewards_rejected_after_expiry() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+
+    let start_time = 1_000_000_000_000_000_000u64;
+    fund_pool_at(&mut contract, 1000 * ONE_SOCIAL, start_time);
+    lock_tokens_at(&mut contract, "alice.near", ONE_SOCIAL, 1, start_time);
+
+    let expiry = start_time + MONTH_NS;
+    let mut context = get_context("alice.near");
+    context.block_timestamp(expiry + NS_PER_SEC);
+    testing_env!(context.build());
+    contract.sync_account(&"alice.near".parse().unwrap());
+
+    let account = contract
+        .accounts
+        .get(&"alice.near".parse::<AccountId>().unwrap())
+        .cloned()
+        .unwrap();
+    let leftover = contract.calculate_claimable(&account);
+    assert!(leftover > 0, "Should have leftover from the lock");
+
+    assert!(
+        matches!(
+            contract.claim_rewards(),
+            Err(BoostError::InvalidInput(message)) if message == "Lock expired; unlock or renew"
+        ),
+        "claim_rewards is closed after expiry"
+    );
+
+    let account = contract
+        .accounts
+        .get(&"alice.near".parse::<AccountId>().unwrap())
+        .cloned()
+        .unwrap();
+    assert_eq!(
+        contract.calculate_claimable(&account),
+        leftover,
+        "Rejected claim must not consume leftover"
+    );
+
+    contract.renew_lock().unwrap();
+    let status = contract.get_lock_status("alice.near".parse().unwrap());
+    assert!(!status.lock_expired, "Renew reopens the active lock");
+    assert!(!status.can_unlock);
+
+    let account = contract
+        .accounts
+        .get(&"alice.near".parse::<AccountId>().unwrap())
+        .cloned()
+        .unwrap();
+    assert_eq!(
+        contract.calculate_claimable(&account),
+        leftover,
+        "Leftover stays claimable after renew"
+    );
 }
 
 #[test]
@@ -1683,9 +1806,8 @@ fn test_multiple_equal_participants() {
 /// REGRESSION TEST: Verifies that total_effective_boost remains correct after unlock.
 /// Previously, there was a bug where phantom bonus tokens remained in total_effective_boost.
 ///
-/// With Option A fix: Bonus is KEPT until unlock() is called. User fulfilled their
-/// commitment, so they deserve the bonus rate for the entire lock period.
-/// The tracked_effective_boost field ensures unlock correctly subtracts the bonus.
+/// REGRESSION TEST: total_effective_boost is 0 after the last locker expires
+/// (pool weight freezes at unlock_at) and stays 0 through unlock bookkeeping.
 #[test]
 fn test_regression_effective_boost_invariant_after_unlock() {
     let mut contract = setup_contract();
@@ -1693,70 +1815,49 @@ fn test_regression_effective_boost_invariant_after_unlock() {
 
     let start_time = 1_000_000_000_000_000_000u64;
 
-    // Step 1: Lock 1 SOCIAL for 12 months (20% bonus)
-    // Effective boost = 1 × 1.20 = 1.2 SOCIAL
     lock_tokens_at(&mut contract, "alice.near", ONE_SOCIAL, 12, start_time);
 
-    // Verify: total_effective_boost includes the 20% bonus
-    let effective_at_lock = contract.total_effective_boost;
     let expected_with_bonus = ONE_SOCIAL * 120 / 100;
     assert_eq!(
-        effective_at_lock, expected_with_bonus,
+        contract.total_effective_boost, expected_with_bonus,
         "At lock time, effective boost should include the 20% bonus"
     );
 
-    // Step 2: Advance time past lock expiry (12 months + 1 second)
     let after_expiry = start_time + 12 * MONTH_NS + NS_PER_SEC;
     let mut context = get_context("alice.near");
     context.block_timestamp(after_expiry);
     testing_env!(context.build());
 
-    // Verify lock has expired
     let status = contract.get_lock_status("alice.near".parse().unwrap());
     assert!(status.lock_expired, "Lock should be expired");
     assert!(status.can_unlock, "Should be able to unlock");
-
-    // With Option A: effective_boost KEEPS the bonus until unlock() is called
-    // User fulfilled their commitment - they deserve the bonus for full period
-    let account = contract
-        .accounts
-        .get(&"alice.near".parse::<AccountId>().unwrap())
-        .cloned()
-        .unwrap();
-    let effective_now = contract.effective_boost(&account);
     assert_eq!(
-        effective_now, expected_with_bonus,
-        "After expiry, effective_boost KEEPS bonus until unlock (Option A)"
+        status.effective_boost.0, 0,
+        "After expiry, live pool weight is 0"
     );
 
-    // Step 3: Sync account - with Option A, effective boost doesn't change after expiry
     contract.sync_account(&"alice.near".parse().unwrap());
 
-    // After sync, total_effective_boost STILL includes the bonus (Option A)
     assert_eq!(
-        contract.total_effective_boost, expected_with_bonus,
-        "After sync, total_effective_boost still includes bonus (Option A)"
+        contract.total_effective_boost, 0,
+        "After sync, the expired locker is out of live pool weight"
     );
 
-    // Verify tracked_effective_boost still has the bonus
     let account = contract
         .accounts
         .get(&"alice.near".parse::<AccountId>().unwrap())
         .cloned()
         .unwrap();
     assert_eq!(
-        account.tracked_effective_boost, expected_with_bonus,
-        "tracked_effective_boost keeps bonus until unlock"
+        account.tracked_effective_boost, 0,
+        "tracked_effective_boost is 0 after expiry sync"
     );
+    assert!(account.locked_amount > 0, "Principal stays locked");
 
-    // Step 4: Simulate what unlock() does (we can't call it directly due to Promise)
-    // unlock() uses tracked_effective_boost
     let effective = account.tracked_effective_boost;
-
     contract.total_locked = contract.total_locked.saturating_sub(account.locked_amount);
     contract.total_effective_boost = contract.total_effective_boost.saturating_sub(effective);
 
-    // Zero out the account (like unlock does)
     let mut account = account;
     account.locked_amount = 0;
     account.unlock_at = 0;
@@ -1766,15 +1867,11 @@ fn test_regression_effective_boost_invariant_after_unlock() {
         .accounts
         .insert("alice.near".parse().unwrap(), account);
 
-    // Step 5: INVARIANT CHECK - total_effective_boost should be 0
-    let phantom_tokens = contract.total_effective_boost;
-
-    // This now passes with the fix
     assert_eq!(
-        phantom_tokens, 0,
+        contract.total_effective_boost, 0,
         "INVARIANT: total_effective_boost should be 0 after last user unlocks. \
          Found {} phantom tokens",
-        phantom_tokens
+        contract.total_effective_boost
     );
 }
 
@@ -1782,11 +1879,8 @@ fn test_regression_effective_boost_invariant_after_unlock() {
 // REGRESSION TEST: Expired Lock Boost-Seconds (Previously Buggy)
 // =============================================================================
 
-/// REGRESSION TEST: Verifies the boost-seconds invariant is maintained after lock expires.
-///
-/// With Option A: Bonus is KEPT until unlock() is called. This means both global
-/// boost-seconds and user boost-seconds accrue at the SAME bonus rate, maintaining
-/// the invariant naturally. User fulfilled commitment → deserves full bonus period.
+/// REGRESSION TEST: After expiry, boost-seconds freeze. A lone participant's
+/// user seconds still match the global total (no phantom denominator).
 #[test]
 fn test_regression_expired_lock_boost_seconds_invariant() {
     let mut contract = setup_contract();
@@ -1794,7 +1888,6 @@ fn test_regression_expired_lock_boost_seconds_invariant() {
 
     let start_time = 1_000_000_000_000_000_000u64;
 
-    // Lock 100 SOCIAL for 12 months (20% bonus)
     lock_tokens_at(
         &mut contract,
         "alice.near",
@@ -1803,63 +1896,50 @@ fn test_regression_expired_lock_boost_seconds_invariant() {
         start_time,
     );
 
-    // Verify initial state
-    let effective_with_bonus = 100 * ONE_SOCIAL * 120 / 100; // 120 SOCIAL effective
+    let effective_with_bonus = 100 * ONE_SOCIAL * 120 / 100;
     assert_eq!(contract.total_effective_boost, effective_with_bonus);
 
-    // Advance time past lock expiry (12 months + 1 week)
     let after_expiry = start_time + 12 * MONTH_NS + WEEK_NS;
     let mut context = get_context("alice.near");
     context.block_timestamp(after_expiry);
     testing_env!(context.build());
 
-    // Sync the account
     contract.sync_account(&"alice.near".parse().unwrap());
 
-    // With Option A: effective_boost KEEPS the bonus after expiry
     let account = contract
         .accounts
         .get(&"alice.near".parse::<AccountId>().unwrap())
         .cloned()
         .unwrap();
-    let effective_after_expiry = contract.effective_boost(&account);
     assert_eq!(
-        effective_after_expiry, effective_with_bonus,
-        "With Option A, effective_boost keeps bonus until unlock"
+        contract.effective_boost(&account),
+        0,
+        "After expiry, live pool weight is 0"
+    );
+    let seconds_at_expiry = account.boost_seconds;
+    let global_at_expiry = contract.total_boost_seconds;
+    assert_eq!(
+        global_at_expiry, seconds_at_expiry,
+        "User and global boost-seconds match at expiry freeze"
     );
 
-    // Now advance 100 more seconds and sync again
     let later = after_expiry + 100 * NS_PER_SEC;
     context.block_timestamp(later);
     testing_env!(context.build());
-
     contract.sync_account(&"alice.near".parse().unwrap());
 
-    // Get the user's boost-seconds
     let account = contract
         .accounts
         .get(&"alice.near".parse::<AccountId>().unwrap())
         .cloned()
         .unwrap();
-    let user_stake_seconds = account.boost_seconds;
-
-    // With Option A: BOTH global and user boost-seconds accrue at the SAME bonus rate (120%)
-    // so there are NO phantom boost-seconds. The invariant is naturally maintained.
-
-    let phantom_boost_seconds = contract
-        .total_boost_seconds
-        .saturating_sub(user_stake_seconds);
-
-    // With Option A, phantom_boost_seconds should be 0 because:
-    // - Global: 120 SOCIAL × 100 sec = 12,000 SOCIAL-seconds
-    // - User:   120 SOCIAL × 100 sec = 12,000 SOCIAL-seconds (SAME!)
     assert_eq!(
-        phantom_boost_seconds, 0,
-        "INVARIANT: Boost-seconds should match for a single participant with Option A\n\
-         User boost-seconds: {}\n\
-         Total boost-seconds: {}\n\
-         Phantom boost-seconds: {} (expected 0)",
-        user_stake_seconds, contract.total_boost_seconds, phantom_boost_seconds
+        account.boost_seconds, seconds_at_expiry,
+        "User boost-seconds must not grow after expiry"
+    );
+    assert_eq!(
+        contract.total_boost_seconds, global_at_expiry,
+        "Global boost-seconds must not grow after the last lock expires"
     );
 }
 
@@ -1891,10 +1971,7 @@ fn test_regression_expired_lock_full_rewards() {
     testing_env!(context.build());
     contract.poke();
 
-    // Record how much was released before expiry
-    let released_before_expiry = contract.total_rewards_released;
-
-    // Step 4: Advance past expiry + 4 weeks (to trigger more releases)
+    // Step 4: Advance past expiry + 4 weeks — must not keep emitting.
     let after_expiry = start_time + 12 * MONTH_NS + 4 * WEEK_NS;
     context.block_timestamp(after_expiry);
     testing_env!(context.build());
@@ -1903,37 +1980,34 @@ fn test_regression_expired_lock_full_rewards() {
     contract.sync_account(&"alice.near".parse().unwrap());
     contract.poke(); // Release rewards for the post-expiry period
 
-    let _released_after_expiry = contract.total_rewards_released - released_before_expiry;
+    let released_at_expiry_sync = contract.total_rewards_released;
+    contract.poke();
 
-    // Step 5: Calculate Alice's claimable rewards
+    // Clock is paused — poke must not release more after the last lock expires.
+    assert_eq!(
+        contract.total_rewards_released, released_at_expiry_sync,
+        "Scheduled pool must not keep releasing after the last lock expires"
+    );
+
     let account = contract
         .accounts
         .get(&"alice.near".parse::<AccountId>().unwrap())
         .cloned()
         .unwrap();
     let alice_claimable = contract.calculate_claimable(&account);
-
-    // INVARIANT: Alice is the ONLY participant. She should receive 100% of released rewards.
-    // With the bug, she receives only ~83% of post-expiry rewards.
-
-    // Total rewards that should be claimable = total_rewards_released
     let total_released = contract.total_rewards_released;
-
-    // Calculate Alice's share ratio
     let alice_share_pct = if total_released > 0 {
         (alice_claimable as f64 / total_released as f64) * 100.0
     } else {
         100.0
     };
 
-    // THE BUG: Alice's share should be ~100%, but due to phantom boost-seconds
-    // from the expired bonus, she gets less
     assert!(
         alice_share_pct >= 99.9,
-        "BUG: A lone participant should receive ~100% of rewards!\n\
+        "A lone participant should receive ~100% of rewards released during the lock!\n\
          Alice's claimable: {} ({:.2}% of total)\n\
          Total released: {}\n\
-         Missing rewards: {} (stuck in contract forever)",
+         Missing rewards: {}",
         alice_claimable,
         alice_share_pct,
         total_released,
@@ -2032,10 +2106,11 @@ fn test_bug_unlock_callback_missing_tracked_effective_boost_restore() {
         .cloned()
         .unwrap();
 
-    // With the FIX: tracked_effective_boost should be restored
+    // After expiry, unlock sync drops live weight to 0. A failed transfer must
+    // restore that frozen state — not the pre-expiry bonus — and must not inflate.
     assert_eq!(
-        account_after_restore.tracked_effective_boost, expected_effective,
-        "FIX VERIFIED: tracked_effective_boost is properly restored after failed unlock"
+        account_after_restore.tracked_effective_boost, 0,
+        "Expired lock restores with 0 live pool weight after failed unlock"
     );
     assert_eq!(
         account_after_restore.boost_seconds, pending.old_boost_seconds,
@@ -2053,27 +2128,19 @@ fn test_bug_unlock_callback_missing_tracked_effective_boost_restore() {
         contract.total_rewards_released, pending.old_total_rewards_released,
         "total_rewards_released should be restored after failed unlock"
     );
-
-    // And total_effective_boost was restored
     assert_eq!(
-        contract.total_effective_boost, expected_effective,
-        "total_effective_boost was correctly restored to 120"
+        contract.total_effective_boost, 0,
+        "total_effective_boost stays 0 for an expired locker after failed unlock"
     );
 
-    // Step 5: Sync account - should NOT cause any inflation now
     let mut context = get_context("alice.near");
     context.block_timestamp(after_expiry);
     testing_env!(context.build());
-
     contract.sync_account(&"alice.near".parse().unwrap());
 
-    // WITH THE FIX: total_effective_boost should remain correct
-    let final_effective = contract.total_effective_boost;
-
     assert_eq!(
-        final_effective, expected_effective,
-        "FIX VERIFIED: total_effective_boost is {} as expected (no phantom boost)",
-        expected_effective
+        contract.total_effective_boost, 0,
+        "Sync after failed unlock must not inflate live pool weight"
     );
 }
 
@@ -2132,36 +2199,30 @@ fn test_bug_unlock_callback_reward_dilution() {
     testing_env!(context.build());
     contract.sync_account(&"alice.near".parse().unwrap());
 
-    // With fix: total should still be 240 (Alice 120 + Bob 120)
+    // Alice expired: live weight is Bob only (120). Failed unlock must not
+    // put Alice's bonus back into the pool.
     assert_eq!(
         contract.total_effective_boost,
-        240 * ONE_SOCIAL,
-        "FIX VERIFIED: total_effective_boost remains correct after failed unlock"
+        120 * ONE_SOCIAL,
+        "Live pool weight is remaining unexpired lockers only"
     );
 
-    // Advance a week and release rewards
     context.block_timestamp(after_expiry + WEEK_NS);
     testing_env!(context.build());
     contract.poke();
 
-    // Calculate Bob's share
     let bob_account = contract
         .accounts
         .get(&"bob.near".parse::<AccountId>().unwrap())
         .cloned()
         .unwrap();
     let bob_claimable = contract.calculate_claimable(&bob_account);
-
-    // Calculate expected fair share
-    // Bob should get 50% of rewards (120/240)
     let total_released = contract.total_rewards_released;
-
     let bob_actual_pct = (bob_claimable as f64 / total_released as f64) * 100.0;
 
-    // With fix: Bob gets his fair ~50% share
     assert!(
-        bob_actual_pct >= 49.0, // Allow small rounding
-        "FIX VERIFIED: Bob receives fair ~50% of rewards ({:.1}%)",
+        bob_actual_pct >= 49.0,
+        "Bob should not be diluted by an expired locker ({:.1}%)",
         bob_actual_pct
     );
 }
@@ -2469,9 +2530,10 @@ fn test_lock_6mo_extend_to_48mo_then_unlock() {
         "Lock should be expired after 48 months"
     );
     assert!(status.can_unlock, "Should be able to unlock");
-
-    // Effective boost still has the bonus until unlock is called
-    assert_eq!(status.effective_boost.0, ONE_SOCIAL * 150 / 100);
+    assert_eq!(
+        status.effective_boost.0, 0,
+        "Live pool weight freezes at expiry"
+    );
 }
 
 /// Test extending through all bonus tiers: 1 → 6 → 12 → 24 → 48
@@ -2620,6 +2682,7 @@ fn test_extend_just_before_expiry() {
 // - extend_lock while unlock pending (Unlock pending)
 // - renew_lock while unlock pending (Unlock pending)
 // - claim_rewards while unlock pending (Unlock pending)
+// - claim_rewards after expiry (Lock expired; unlock or renew)
 
 #[test]
 fn test_ft_on_transfer_rejects_wrong_token() {
