@@ -10,7 +10,7 @@
 # =============================================================================
 
 # syntax=docker/dockerfile:1.4
-FROM node:20-alpine AS base
+FROM node:22-alpine3.23 AS base
 
 # Set HOME and XDG_CACHE_HOME to ensure Corepack and pnpm can write cache
 ENV HOME=/root
@@ -70,7 +70,7 @@ COPY packages/onsocial-app ./packages/onsocial-app
 # -----------------------------------------------------------------------------
 # Stage 3: Production Runtime
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS runtime-alpine
+FROM node:22-alpine3.23 AS runtime-alpine
 
 # Install runtime dependencies
 RUN apk add --no-cache \

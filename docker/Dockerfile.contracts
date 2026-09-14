@@ -17,8 +17,8 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install Node.js 20 and NEAR CLI tools
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+# Install Node.js 22 and NEAR CLI tools
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get update && apt-get install -y --no-install-recommends nodejs \
     && npm install -g npm@10.9.2 near-cli near-sandbox \
     && apt-get clean \
