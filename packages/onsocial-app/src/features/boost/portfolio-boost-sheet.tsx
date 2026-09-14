@@ -28,6 +28,7 @@ import {
 } from '@onsocial/sdk/advanced';
 import { AmountField } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { BoostNetworkPulse } from '@/features/boost/boost-network-pulse';
@@ -381,6 +382,8 @@ export function PortfolioBoostSheet({
   }, [keyboardStyle, mood]);
 
   const { getClient } = useAppOnSocialClient();
+  const { accountId: walletAccountId, connect } = useAppWallet();
+  const needsConnect = !walletAccountId;
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const socialIcon = useSocialTokenIcon();
 
@@ -496,6 +499,10 @@ export function PortfolioBoostSheet({
   useScrollLock(open || closing);
 
   const refreshWalletBalance = useCallback(async () => {
+    if (!accountId.trim()) {
+      setBalanceYocto(null);
+      return;
+    }
     try {
       setBalanceYocto(await fetchWalletSocialBalanceYocto(accountId));
     } catch {
@@ -859,6 +866,20 @@ export function PortfolioBoostSheet({
 
   const footerState = ((): CommerceSheetFooterState | null => {
     if (!loaded) return null;
+
+    if (needsConnect) {
+      return {
+        visible: true,
+        primaryLabel: 'Connect',
+        primaryPendingLabel: 'Connecting…',
+        canSubmit: true,
+        pending: false,
+        primaryType: 'button',
+        onPrimaryClick: () => {
+          void connect();
+        },
+      };
+    }
 
     if (!hasPosition) {
       return {
@@ -1268,7 +1289,7 @@ export function PortfolioBoostSheet({
                 className={`os-surface-chip${
                   selectedMonths === option.months ? ' is-selected' : ''
                 }`}
-                disabled={txBusy}
+                disabled={txBusy || needsConnect}
                 onClick={() => setSelectedMonths(option.months)}
               >
                 {option.short}
@@ -1285,7 +1306,7 @@ export function PortfolioBoostSheet({
             onMax={applyMaxAmount}
             balanceYocto={balanceYocto}
             tokenIconSrc={socialIcon}
-            disabled={txBusy}
+            disabled={txBusy || needsConnect}
           />
 
           {amountReady ? (

@@ -16,6 +16,10 @@ import {
   RallySheetDeepLink,
   RallySheetProvider,
 } from '@/features/rally/rally-sheet-host';
+import {
+  BoostSheetDeepLink,
+  BoostSheetProvider,
+} from '@/features/boost/boost-sheet-host';
 import { ComposeLauncherProvider } from '@/contexts/compose-launcher-context';
 import { DockChromeProvider } from '@/contexts/dock-chrome-context';
 import {
@@ -71,24 +75,27 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                             <DockChromeProvider>
                               <OsPortalHostProvider>
                                 <OsGlassSheetPortalBridge>
-                                  <RallySheetProvider>
-                                    <CollectiblesNowPlayingProvider>
-                                      <DmUnreadHost>
-                                        <NotificationsHost>
-                                          <WebPushProvider>
-                                            {children}
-                                            <ViewerMuteBlockHost />
-                                            <DropComposeHost />
-                                            <Suspense fallback={null}>
-                                              <WalletSheetDeepLink />
-                                              <RallySheetDeepLink />
-                                            </Suspense>
-                                            <AppAccountSheetHost />
-                                          </WebPushProvider>
-                                        </NotificationsHost>
-                                      </DmUnreadHost>
-                                    </CollectiblesNowPlayingProvider>
-                                  </RallySheetProvider>
+                                  <BoostSheetProvider>
+                                    <RallySheetProvider>
+                                      <CollectiblesNowPlayingProvider>
+                                        <DmUnreadHost>
+                                          <NotificationsHost>
+                                            <WebPushProvider>
+                                              {children}
+                                              <ViewerMuteBlockHost />
+                                              <DropComposeHost />
+                                              <Suspense fallback={null}>
+                                                <WalletSheetDeepLink />
+                                                <BoostSheetDeepLink />
+                                                <RallySheetDeepLink />
+                                              </Suspense>
+                                              <AppAccountSheetHost />
+                                            </WebPushProvider>
+                                          </NotificationsHost>
+                                        </DmUnreadHost>
+                                      </CollectiblesNowPlayingProvider>
+                                    </RallySheetProvider>
+                                  </BoostSheetProvider>
                                 </OsGlassSheetPortalBridge>
                               </OsPortalHostProvider>
                             </DockChromeProvider>

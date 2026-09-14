@@ -119,6 +119,19 @@ export function useBoostPosition(
   );
 
   const refresh = useCallback(async () => {
+    if (!accountId.trim()) {
+      setAccount(null);
+      setLockStatus(null);
+      setSnapshot(null);
+      latestSnapshotRef.current = null;
+      setClaimableYoctoValue(0n);
+      setRatePerSecondYocto(0n);
+      liveAnchorRef.current = null;
+      lastAppliedAsOfRef.current = null;
+      setLoaded(true);
+      return;
+    }
+
     const seq = ++requestSeqRef.current;
     try {
       const [nextAccount, nextLockStatus, nextSnapshot] = await Promise.all([
@@ -247,7 +260,7 @@ export function useBoostPosition(
 
   // Periodic snapshot resync + focus resync after a long background.
   useEffect(() => {
-    if (!live) return;
+    if (!live || !accountId.trim()) return;
 
     const resync = () => {
       void fetchBoostRewardsLiveSnapshot(accountId)

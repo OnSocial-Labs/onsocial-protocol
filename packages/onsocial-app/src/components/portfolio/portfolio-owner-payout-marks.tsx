@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
   FireFillIcon,
   GiftFillIcon,
@@ -15,7 +15,7 @@ import {
   PortfolioListingActionsSheet,
 } from '@/components/portfolio/portfolio-listing-actions-sheet';
 import { BOOST_CLAIM_DUST_YOCTO } from '@/features/boost/boost-position';
-import { PortfolioBoostSheet } from '@/features/boost/portfolio-boost-sheet';
+import { useBoostSheet } from '@/features/boost/boost-sheet-host';
 import { useBoostPosition } from '@/features/boost/use-boost-position';
 import { useRallySheet } from '@/features/rally/rally-sheet-host';
 import { PortfolioScarceEarningsSheet } from '@/components/portfolio/portfolio-scarce-earnings-sheet';
@@ -28,11 +28,6 @@ import {
 } from '@/features/scarces/listing-actions';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { messagesPath } from '@/lib/app-routes';
-import {
-  PORTFOLIO_SHEET_PARAM,
-  parsePortfolioSheetParam,
-} from '@/lib/overlay-routes';
-import { buildPathWithQuery } from '@/lib/sync-browser-url-query';
 import { extractNearTransactionHashes } from '@/lib/app-near-rpc';
 import { refreshAppSocialBalanceAfterClaim } from '@/lib/app-social-balance-sync';
 import { formatSocialCompact } from '@/lib/format-social-balance';
@@ -59,11 +54,10 @@ export function PortfolioOwnerPayoutMarks({
   accountId,
 }: PortfolioOwnerPayoutMarksProps) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const dmUnread = useDmUnreadCount();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const { openBoostSheet } = useBoostSheet();
   const [claimableYocto, setClaimableYocto] = useState<bigint | null>(null);
   const [salesYocto, setSalesYocto] = useState<string | null>(null);
   const [salesItems, setSalesItems] = useState<ScarceCreatorEarningRow[]>([]);
@@ -75,40 +69,8 @@ export function PortfolioOwnerPayoutMarks({
   const [supportOpen, setSupportOpen] = useState(false);
   const [salesOpen, setSalesOpen] = useState(false);
   const [listingsOpen, setListingsOpen] = useState(false);
-  const [boostOpen, setBoostOpen] = useState(
-    () =>
-      parsePortfolioSheetParam(searchParams.get(PORTFOLIO_SHEET_PARAM)) ===
-      'boost'
-  );
-  const boost = useBoostPosition(accountId, { live: boostOpen });
+  const boost = useBoostPosition(accountId);
   const rally = useRallySheet();
-
-  useEffect(() => {
-    if (
-      parsePortfolioSheetParam(searchParams.get(PORTFOLIO_SHEET_PARAM)) !==
-      'boost'
-    ) {
-      return;
-    }
-    queueMicrotask(() => setBoostOpen(true));
-  }, [searchParams]);
-
-  const handleBoostOpenChange = useCallback(
-    (open: boolean) => {
-      setBoostOpen(open);
-      if (
-        open ||
-        parsePortfolioSheetParam(searchParams.get(PORTFOLIO_SHEET_PARAM)) !==
-          'boost'
-      ) {
-        return;
-      }
-      const next = new URLSearchParams(searchParams.toString());
-      next.delete(PORTFOLIO_SHEET_PARAM);
-      router.replace(buildPathWithQuery(pathname, next), { scroll: false });
-    },
-    [pathname, router, searchParams]
-  );
 
   const refreshSupport = useCallback(
     async (options: { fresh?: boolean } = {}) => {
@@ -320,7 +282,7 @@ export function PortfolioOwnerPayoutMarks({
             <button
               type="button"
               className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
-              onClick={() => setBoostOpen(true)}
+              onClick={() => openBoostSheet()}
               aria-label={
                 boost.hasPosition
                   ? `${boostLabel} SOCIAL boosting — manage`
@@ -446,13 +408,6 @@ export function PortfolioOwnerPayoutMarks({
           onOpenChange={setSalesOpen}
         />
       ) : null}
-
-      <PortfolioBoostSheet
-        open={boostOpen}
-        accountId={accountId}
-        position={boost}
-        onOpenChange={handleBoostOpenChange}
-      />
     </>
   );
 }
