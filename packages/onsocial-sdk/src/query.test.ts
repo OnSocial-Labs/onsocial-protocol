@@ -4739,6 +4739,7 @@ describe('QueryModule', () => {
       lockedAmount: '10000000000000000',
       effectiveBoost: '12000000000000000',
       lockMonths: 12,
+      unlockAt: 1714000000000,
       totalClaimed: '500000000000000',
       totalCreditsPurchased: '0',
       lastEventType: 'BOOST_LOCK',
@@ -4794,6 +4795,7 @@ describe('QueryModule', () => {
         (fetch.mock.calls[0][1] as RequestInit).body as string
       );
       expect(body.variables).toEqual({ accountId: 'alice.near' });
+      expect(body.query).toMatch(/unlockAt/);
     });
 
     it('state returns null when no rows', async () => {

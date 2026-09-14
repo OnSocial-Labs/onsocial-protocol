@@ -45,11 +45,14 @@ export async function GET() {
       }`,
     });
 
-    const fromLeaderboard = readAggregateCount(
-      res.data?.leaderboardBoostAggregate
-    );
+    const fromLeaderboardNode = res.data?.leaderboardBoostAggregate;
     const fromState = readAggregateCount(res.data?.boosterStateAggregate);
-    const boosterCount = fromLeaderboard > 0 ? fromLeaderboard : fromState;
+    // Leaderboard view is live pool weight (expired locks excluded). A real
+    // 0 must not fall through to unfiltered booster_state.
+    const boosterCount =
+      fromLeaderboardNode != null
+        ? readAggregateCount(fromLeaderboardNode)
+        : fromState;
     const payload: BoostNetworkSnapshot = { boosterCount };
 
     return NextResponse.json(payload, {

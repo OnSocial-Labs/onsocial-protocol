@@ -12,11 +12,19 @@ pub(crate) struct BoosterStateAccum {
     pub(crate) locked_amount: Option<String>,
     pub(crate) effective_boost: Option<String>,
     pub(crate) lock_months: Option<u64>,
+    pub(crate) unlock_at: Option<u64>,
     pub(crate) total_claimed: Option<String>,
     pub(crate) total_credits_purchased: Option<String>,
     pub(crate) last_event_type: String,
     pub(crate) last_event_block: String,
     pub(crate) updated_at: String,
+}
+
+/// Same 30-day month the boost contract uses for `unlock_at`.
+pub(crate) const BOOST_MONTH_NS: u64 = 30 * 24 * 60 * 60 * 1_000_000_000;
+
+pub(crate) fn derived_unlock_at(block_timestamp: u64, months: u64) -> u64 {
+    block_timestamp.saturating_add(months.saturating_mul(BOOST_MONTH_NS))
 }
 
 #[substreams::handlers::map]
@@ -52,6 +60,9 @@ pub(crate) fn boost_db_out_impl(output: BoostOutput) -> DatabaseChanges {
         }
         if let Some(v) = &state.lock_months {
             row.set("lock_months", *v);
+        }
+        if let Some(v) = state.unlock_at {
+            row.set("unlock_at", v);
         }
         if let Some(v) = &state.total_claimed {
             row.set("total_claimed", v);
@@ -154,6 +165,7 @@ pub(crate) fn accumulate_booster_state(
             entry.locked_amount = Some(p.amount.clone());
             entry.effective_boost = Some(p.effective_boost.clone());
             entry.lock_months = Some(p.months);
+            entry.unlock_at = Some(derived_unlock_at(event.block_timestamp, p.months));
         }
         Some(Payload::BoostExtend(p)) => {
             let entry = accum.entry(event.account_id.clone()).or_default();
@@ -162,6 +174,7 @@ pub(crate) fn accumulate_booster_state(
             entry.updated_at = event.block_timestamp.to_string();
             entry.effective_boost = Some(p.new_effective_boost.clone());
             entry.lock_months = Some(p.new_months);
+            entry.unlock_at = Some(derived_unlock_at(event.block_timestamp, p.new_months));
         }
         Some(Payload::BoostUnlock(_)) => {
             let entry = accum.entry(event.account_id.clone()).or_default();
@@ -171,6 +184,7 @@ pub(crate) fn accumulate_booster_state(
             entry.locked_amount = Some("0".to_string());
             entry.effective_boost = Some("0".to_string());
             entry.lock_months = Some(0);
+            entry.unlock_at = Some(0);
         }
         Some(Payload::RewardsClaim(p)) => {
             let entry = accum.entry(event.account_id.clone()).or_default();

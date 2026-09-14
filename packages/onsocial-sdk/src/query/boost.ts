@@ -5,7 +5,9 @@
 // Backed by three tables populated by the boost substreams indexer:
 //   - `boost_events`           — full event stream.
 //   - `booster_state`          — current per-account state (locked amount,
-//                                effective boost, total claimed/purchased).
+//                                effective boost, unlock_at, total claimed/purchased).
+//                                Live Influence rank uses `leaderboard_boost`, which
+//                                treats expired locks as 0 pool weight.
 //   - `boost_credit_purchases` — focused history of CREDITS_PURCHASE events.
 //
 // For *live* on-chain numbers (current claimable rewards, real-time
@@ -80,6 +82,8 @@ export interface BoosterStateRow {
   effectiveBoost: string;
   /** Lock period in months (one of 1, 6, 12, 24, 48; 0 if not locked). */
   lockMonths: number;
+  /** Unlock timestamp (ns since epoch). 0 if unlocked. */
+  unlockAt: number;
   /** yoctoSOCIAL string — cumulative rewards claimed. */
   totalClaimed: string;
   /** yoctoSOCIAL string — cumulative SOCIAL spent on credits. */
@@ -138,6 +142,7 @@ const BOOSTER_STATE_FIELDS = `
   lockedAmount
   effectiveBoost
   lockMonths
+  unlockAt
   totalClaimed
   totalCreditsPurchased
   lastEventType

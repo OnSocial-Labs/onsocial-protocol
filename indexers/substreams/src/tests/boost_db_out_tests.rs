@@ -1,4 +1,7 @@
-use crate::boost_db_out::{accumulate_booster_state, write_boost_event, write_credit_purchase};
+use crate::boost_db_out::{
+    accumulate_booster_state, derived_unlock_at, write_boost_event, write_credit_purchase,
+    BOOST_MONTH_NS,
+};
 use crate::pb::boost::v1::boost_event::Payload;
 use crate::pb::boost::v1::*;
 use std::collections::HashMap;
@@ -93,6 +96,10 @@ fn test_update_booster_state_lock_vs_unlock() {
         accum.get("alice.near").unwrap().last_event_type,
         "BOOST_LOCK"
     );
+    assert_eq!(
+        accum.get("alice.near").unwrap().unlock_at,
+        Some(derived_unlock_at(1_000_000_000, 12))
+    );
 
     // Flush to tables
     let mut tables = Tables::new();
@@ -129,6 +136,7 @@ fn test_update_booster_state_lock_vs_unlock() {
         }),
     );
     accumulate_booster_state(&mut accum2, &unlock_event);
+    assert_eq!(accum2.get("alice.near").unwrap().unlock_at, Some(0));
 
     let mut tables2 = Tables::new();
     for (account_id, state) in &accum2 {
@@ -208,10 +216,7 @@ fn test_infra_withdraw_authority_set_writes_owner_columns() {
         find_field(&changes, "boost_events", "event_type"),
         Some("INFRA_WITHDRAW_AUTHORITY_SET")
     );
-    assert_eq!(
-        find_field(&changes, "boost_events", "old_owner"),
-        Some("")
-    );
+    assert_eq!(find_field(&changes, "boost_events", "old_owner"), Some(""));
     assert_eq!(
         find_field(&changes, "boost_events", "new_owner"),
         Some("treasury.onsocial.testnet")
@@ -256,6 +261,18 @@ fn test_boost_extend_updates_state() {
     assert_eq!(state.last_event_type, "BOOST_EXTEND");
     assert_eq!(state.effective_boost.as_deref(), Some("200"));
     assert_eq!(state.lock_months, Some(24));
+    assert_eq!(state.unlock_at, Some(derived_unlock_at(1_000_000_000, 24)));
+}
+
+#[test]
+fn test_derived_unlock_at_matches_contract_month() {
+    assert_eq!(BOOST_MONTH_NS, 2_592_000_000_000_000);
+    let lock_ns = 1_775_000_000_000_000_000;
+    assert_eq!(derived_unlock_at(lock_ns, 1), lock_ns + BOOST_MONTH_NS);
+    assert_eq!(
+        derived_unlock_at(lock_ns, 48),
+        lock_ns + 48 * BOOST_MONTH_NS
+    );
 }
 
 #[test]
