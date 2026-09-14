@@ -115,7 +115,7 @@ test.describe('boost sheet network pulse', () => {
     const sheet = page.getByRole('dialog').filter({ hasText: 'Boost' });
     await expect(sheet).toBeVisible();
     await expect(sheet.getByText('Share', { exact: true })).toBeVisible();
-    await expect(sheet.getByText('1.00%')).toBeVisible();
+    await expect(sheet.getByText('1.00%', { exact: true })).toBeVisible();
 
     const network = sheet.getByRole('region', { name: 'Network' });
     await expect(network.getByText('Boosters')).toBeVisible();
@@ -126,5 +126,8 @@ test.describe('boost sheet network pulse', () => {
     await expect(network.getByText('8,000')).toBeVisible();
     await expect(network.getByText('Rate')).toBeVisible();
     await expect(network.getByText('1.25%')).toBeVisible();
+    await sheet.screenshot({
+      path: 'test-results/boost-sheet-network-pulse.png',
+    });
   });
 });

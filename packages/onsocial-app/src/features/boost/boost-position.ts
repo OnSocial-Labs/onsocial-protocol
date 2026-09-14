@@ -158,6 +158,7 @@ export function previewBoostSharePercent(input: {
   previewEffectiveYocto: bigint;
   networkTotalEffectiveYocto: bigint;
 }): number | null {
+  if (input.networkTotalEffectiveYocto <= 0n) return null;
   const rest =
     input.networkTotalEffectiveYocto > input.currentEffectiveYocto
       ? input.networkTotalEffectiveYocto - input.currentEffectiveYocto

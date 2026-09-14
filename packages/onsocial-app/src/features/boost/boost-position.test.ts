@@ -104,6 +104,16 @@ describe('boost share', () => {
       })
     ).toBe(100);
   });
+
+  it('hides share until the network total is known', () => {
+    expect(
+      previewBoostSharePercent({
+        currentEffectiveYocto: 120n * SOCIAL,
+        previewEffectiveYocto: 120n * SOCIAL,
+        networkTotalEffectiveYocto: 0n,
+      })
+    ).toBeNull();
+  });
 });
 
 describe('boost network pulse labels', () => {
