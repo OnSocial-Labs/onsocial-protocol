@@ -665,14 +665,14 @@ export async function getSeasonStandings(
       `WITH ${joinedRallyCte(hasCutoff)}
        SELECT
          latest.account_id,
-         CASE
-           WHEN latest.event_type = 'BOOST_UNLOCK' THEN '0'
-           WHEN COALESCE(bs.unlock_at, 0) > 0
-            AND bs.unlock_at <= (EXTRACT(EPOCH FROM (NOW() AT TIME ZONE 'utc')) * 1000000000)::BIGINT
-           THEN '0'
-           WHEN latest.event_type = 'BOOST_EXTEND' THEN COALESCE(latest.new_effective_boost, latest.effective_boost, '0')
-           ELSE COALESCE(latest.effective_boost, latest.new_effective_boost, '0')
-         END AS effective_boost
+         boost_live_effective_boost(
+           CASE
+             WHEN latest.event_type = 'BOOST_EXTEND'
+             THEN COALESCE(latest.new_effective_boost, latest.effective_boost, '0')
+             ELSE COALESCE(latest.effective_boost, latest.new_effective_boost, '0')
+           END,
+           COALESCE(bs.unlock_at, 0)
+         ) AS effective_boost
        FROM (
          SELECT DISTINCT ON (be.account_id)
            be.account_id,

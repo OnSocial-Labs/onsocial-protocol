@@ -26,33 +26,17 @@ export async function GET() {
     const os = createServerOnSocialClient();
     const res = await os.query.graphql<{
       leaderboardBoostAggregate?: AggregateCountNode | null;
-      boosterStateAggregate?: AggregateCountNode | null;
     }>({
       query: `{
         leaderboardBoostAggregate {
           aggregate { count }
         }
-        boosterStateAggregate(
-          where: {
-            _and: [
-              { effectiveBoost: { _neq: "0" } },
-              { effectiveBoost: { _neq: "" } }
-            ]
-          }
-        ) {
-          aggregate { count }
-        }
       }`,
     });
 
-    const fromLeaderboardNode = res.data?.leaderboardBoostAggregate;
-    const fromState = readAggregateCount(res.data?.boosterStateAggregate);
-    // Leaderboard view is live pool weight (expired locks excluded). A real
-    // 0 must not fall through to unfiltered booster_state.
-    const boosterCount =
-      fromLeaderboardNode != null
-        ? readAggregateCount(fromLeaderboardNode)
-        : fromState;
+    const boosterCount = readAggregateCount(
+      res.data?.leaderboardBoostAggregate
+    );
     const payload: BoostNetworkSnapshot = { boosterCount };
 
     return NextResponse.json(payload, {
