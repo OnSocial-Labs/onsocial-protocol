@@ -5,8 +5,9 @@ import Lenis from 'lenis';
 import {
   APP_SMOOTH_SCROLL_LENIS_OPTIONS,
   APP_SMOOTH_SCROLL_ROOT_SELECTOR,
+  APP_SMOOTH_WHEEL_MEDIA,
   isAppSmoothScrollLocked,
-  prefersReducedMotion,
+  shouldUseAppSmoothScroll,
 } from '@/lib/app-smooth-scroll';
 
 function bindAppSmoothScroll(wrapper: HTMLElement): () => void {
@@ -41,11 +42,11 @@ function bindAppSmoothScroll(wrapper: HTMLElement): () => void {
 function bindAppSmoothScrollRoots(): () => void {
   const instances = new Map<HTMLElement, () => void>();
   let raf = 0;
-  let reduced = prefersReducedMotion();
+  let enabled = shouldUseAppSmoothScroll();
 
   const sync = () => {
     raf = 0;
-    if (reduced) {
+    if (!enabled) {
       for (const unbind of instances.values()) unbind();
       instances.clear();
       return;
@@ -77,25 +78,32 @@ function bindAppSmoothScrollRoots(): () => void {
   const observer = new MutationObserver(schedule);
   observer.observe(document.body, { childList: true, subtree: true });
 
-  const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const onMotionChange = () => {
-    reduced = motionQuery.matches;
+  const mediaQueries = [
+    window.matchMedia('(prefers-reduced-motion: reduce)'),
+    window.matchMedia(APP_SMOOTH_WHEEL_MEDIA),
+  ];
+  const onMediaChange = () => {
+    enabled = shouldUseAppSmoothScroll();
     schedule();
   };
-  motionQuery.addEventListener('change', onMotionChange);
+  for (const query of mediaQueries) {
+    query.addEventListener('change', onMediaChange);
+  }
 
   sync();
 
   return () => {
     observer.disconnect();
-    motionQuery.removeEventListener('change', onMotionChange);
+    for (const query of mediaQueries) {
+      query.removeEventListener('change', onMediaChange);
+    }
     if (raf !== 0) window.cancelAnimationFrame(raf);
     for (const unbind of instances.values()) unbind();
     instances.clear();
   };
 }
 
-/** Soft wheel / trackpad coast on every OS overflow root — same Lenis feel as portal. */
+/** Wheel / trackpad coast on OS overflow roots. Phones stay on native overflow. */
 export function AppSmoothScrollProvider({ children }: { children: ReactNode }) {
   useEffect(() => bindAppSmoothScrollRoots(), []);
   return children;

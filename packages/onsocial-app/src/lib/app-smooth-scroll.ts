@@ -29,11 +29,30 @@ export const APP_SMOOTH_SCROLL_LENIS_OPTIONS = {
   naiveDimensions: true,
 } as const;
 
+/** Desktop / trackpad only — phones keep native overflow momentum. */
+export const APP_SMOOTH_WHEEL_MEDIA = '(hover: hover) and (pointer: fine)';
+
+export type AppSmoothScrollMatchMedia = (query: string) => { matches: boolean };
+
 export function prefersReducedMotion(
-  matchMedia: (query: string) => { matches: boolean } = (query) =>
-    window.matchMedia(query)
+  matchMedia: AppSmoothScrollMatchMedia = (query) => window.matchMedia(query)
 ): boolean {
   return matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
+ * Lenis VirtualScroll always binds `touchmove` with `{ passive: false }`.
+ * On iOS that can kill nested-overflow inertia even when `syncTouch` is off.
+ * Native `-webkit-overflow-scrolling: touch` is the mobile path; Lenis is
+ * only for fine-pointer wheel / trackpad coast.
+ */
+export function shouldUseAppSmoothScroll(
+  matchMedia: AppSmoothScrollMatchMedia = (query) => window.matchMedia(query)
+): boolean {
+  return (
+    !prefersReducedMotion(matchMedia) &&
+    matchMedia(APP_SMOOTH_WHEEL_MEDIA).matches
+  );
 }
 
 export function isAppSmoothScrollLocked(dataset: {

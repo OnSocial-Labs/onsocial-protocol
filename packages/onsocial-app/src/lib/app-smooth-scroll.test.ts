@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   APP_SMOOTH_SCROLL_LENIS_OPTIONS,
   APP_SMOOTH_SCROLL_ROOT_SELECTOR,
+  APP_SMOOTH_WHEEL_MEDIA,
   isAppSmoothScrollLocked,
   prefersReducedMotion,
+  shouldUseAppSmoothScroll,
 } from './app-smooth-scroll';
 
 describe('app smooth scroll', () => {
@@ -38,5 +40,26 @@ describe('app smooth scroll', () => {
   it('honors reduced motion', () => {
     expect(prefersReducedMotion(() => ({ matches: true }))).toBe(true);
     expect(prefersReducedMotion(() => ({ matches: false }))).toBe(false);
+  });
+
+  it('uses Lenis only for fine-pointer wheel, not touch phones', () => {
+    const desktop = (query: string) => ({
+      matches:
+        query === APP_SMOOTH_WHEEL_MEDIA
+          ? true
+          : query === '(prefers-reduced-motion: reduce)'
+            ? false
+            : false,
+    });
+    const phone = (_query: string) => ({
+      matches: false,
+    });
+    const reducedDesktop = (query: string) => ({
+      matches: query === '(prefers-reduced-motion: reduce)',
+    });
+
+    expect(shouldUseAppSmoothScroll(desktop)).toBe(true);
+    expect(shouldUseAppSmoothScroll(phone)).toBe(false);
+    expect(shouldUseAppSmoothScroll(reducedDesktop)).toBe(false);
   });
 });
