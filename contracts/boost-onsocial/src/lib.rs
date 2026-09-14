@@ -5,6 +5,7 @@
 //! Time-lock bonuses: 1mo=5%, 2-6mo=10%, 7-12mo=20%, 13-24mo=35%, 25+mo=50%
 //! Reward formula: (user_boost_seconds / total_boost_seconds) × total_released - claimed
 //! Effective boost uses tiered amount weighting plus the existing lock bonus.
+//! Accrual and live pool weight freeze at `unlock_at`; leftover rewards stay claimable.
 
 use near_sdk::{
     AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise, PromiseError, env,
@@ -320,24 +321,26 @@ impl OnsocialBoost {
 
     /// Releases rewards pro-rata by elapsed time. Pauses clock when no active boosts.
     fn release_due_rewards(&mut self) {
+        self.release_due_rewards_until(env::block_timestamp());
+    }
+
+    fn release_due_rewards_until(&mut self, until: u64) {
         if self.scheduled_pool == 0 {
             return;
         }
 
-        let now = env::block_timestamp();
-
         if self.total_effective_boost == 0 {
-            self.last_release_time = now;
+            self.last_release_time = until;
             return;
         }
 
-        let elapsed = now.saturating_sub(self.last_release_time);
+        let elapsed = until.saturating_sub(self.last_release_time);
         if elapsed == 0 {
             return;
         }
 
         let to_release =
-            self.compute_release_between(self.scheduled_pool, self.last_release_time, now);
+            self.compute_release_between(self.scheduled_pool, self.last_release_time, until);
         if to_release == 0 {
             return;
         }
@@ -352,7 +355,7 @@ impl OnsocialBoost {
 
         self.scheduled_pool = final_remaining;
         self.total_rewards_released = self.total_rewards_released.saturating_add(final_released);
-        self.last_release_time = now;
+        self.last_release_time = until;
 
         if final_released > 0 {
             self.emit_event(
@@ -369,44 +372,103 @@ impl OnsocialBoost {
     }
 
     fn update_global_boost_seconds(&mut self) {
-        let now = env::block_timestamp();
-        if now <= self.last_global_update {
+        self.update_global_boost_seconds_until(env::block_timestamp());
+    }
+
+    fn update_global_boost_seconds_until(&mut self, until: u64) {
+        if until <= self.last_global_update {
             return;
         }
 
-        let elapsed_sec = now.saturating_sub(self.last_global_update) / NS_PER_SEC;
+        let elapsed_sec = until.saturating_sub(self.last_global_update) / NS_PER_SEC;
         if elapsed_sec > 0 && self.total_effective_boost > 0 {
             let additional = u256_mul(self.total_effective_boost, elapsed_sec as u128);
             self.total_boost_seconds = self.total_boost_seconds.saturating_add(additional);
         }
-        self.last_global_update = now;
+        self.last_global_update = until;
+    }
+
+    fn lock_expired_at(account: &Account, now: u64) -> bool {
+        account.locked_amount > 0 && account.unlock_at > 0 && now >= account.unlock_at
+    }
+
+    fn accrual_cutoff(account: &Account, now: u64) -> u64 {
+        if account.locked_amount > 0 && account.unlock_at > 0 {
+            now.min(account.unlock_at)
+        } else {
+            now
+        }
+    }
+
+    fn is_sole_tracked_locker(&self, account: &Account) -> bool {
+        account.tracked_effective_boost > 0
+            && self.total_effective_boost == account.tracked_effective_boost
+    }
+
+    fn accrue_account_boost_seconds(account: &mut Account, accruing: u128, cutoff: u64) {
+        if accruing == 0 || account.last_update_time == 0 || account.last_update_time >= cutoff {
+            return;
+        }
+        let elapsed_sec = cutoff.saturating_sub(account.last_update_time) / NS_PER_SEC;
+        if elapsed_sec == 0 {
+            return;
+        }
+        let additional = u256_mul(accruing, elapsed_sec as u128);
+        account.boost_seconds = account.boost_seconds.saturating_add(additional);
+    }
+
+    fn retarget_effective_boost(&mut self, account: &mut Account, new_effective: u128) {
+        if account.tracked_effective_boost == new_effective {
+            return;
+        }
+        self.total_effective_boost = self
+            .total_effective_boost
+            .saturating_sub(account.tracked_effective_boost)
+            .saturating_add(new_effective);
+        account.tracked_effective_boost = new_effective;
     }
 
     // --- Core: Account Sync ---
 
     /// Syncs account and global state to current timestamp.
+    /// Expired locks stop accruing at `unlock_at` and drop out of live pool weight.
     fn sync_account(&mut self, account_id: &AccountId) {
-        self.release_due_rewards();
-        self.update_global_boost_seconds();
-
         let mut account = self.accounts.get(account_id).cloned().unwrap_or_default();
         let now = env::block_timestamp();
+        let cutoff = Self::accrual_cutoff(&account, now);
+        let expired = Self::lock_expired_at(&account, now);
+        let accruing = self.effective_boost_with_bonus(&account);
+        let sole_locker = expired && self.is_sole_tracked_locker(&account);
 
-        let effective = self.effective_boost(&account);
-        if effective > 0 && account.last_update_time > 0 && account.last_update_time < now {
-            let elapsed_sec = now.saturating_sub(account.last_update_time) / NS_PER_SEC;
-            if elapsed_sec > 0 {
-                let additional = u256_mul(effective, elapsed_sec as u128);
-                account.boost_seconds = account.boost_seconds.saturating_add(additional);
+        if sole_locker {
+            // Last active lock ended — freeze the pool clock at expiry.
+            self.release_due_rewards_until(cutoff);
+            self.update_global_boost_seconds_until(cutoff);
+        } else if expired && account.tracked_effective_boost > 0 {
+            self.release_due_rewards();
+            self.update_global_boost_seconds_until(cutoff.max(self.last_global_update));
+            if self.last_global_update > cutoff {
+                let phantom_sec = self.last_global_update.saturating_sub(cutoff) / NS_PER_SEC;
+                if phantom_sec > 0 {
+                    let phantom = u256_mul(account.tracked_effective_boost, phantom_sec as u128);
+                    self.total_boost_seconds = self.total_boost_seconds.saturating_sub(phantom);
+                }
             }
+        } else {
+            self.release_due_rewards();
+            self.update_global_boost_seconds();
         }
 
-        if account.tracked_effective_boost != effective {
-            self.total_effective_boost = self
-                .total_effective_boost
-                .saturating_sub(account.tracked_effective_boost)
-                .saturating_add(effective);
-            account.tracked_effective_boost = effective;
+        Self::accrue_account_boost_seconds(&mut account, accruing, cutoff);
+
+        let pool_weight = if expired { 0 } else { accruing };
+        self.retarget_effective_boost(&mut account, pool_weight);
+
+        if sole_locker {
+            self.last_release_time = now;
+            self.last_global_update = now;
+        } else if expired {
+            self.update_global_boost_seconds();
         }
 
         account.last_update_time = now;
@@ -670,8 +732,14 @@ impl OnsocialBoost {
     }
 
     fn calculate_claimable_internal(&self, account: &Account, project_releases: bool) -> u128 {
+        let now = env::block_timestamp();
+        let cutoff = Self::accrual_cutoff(account, now);
+        let expired = Self::lock_expired_at(account, now);
+        let sole_locker = expired && self.is_sole_tracked_locker(account);
+        let as_of = if sole_locker { cutoff } else { now };
+
         let total_released = if project_releases {
-            self.project_total_released()
+            self.project_total_released_until(as_of)
         } else {
             self.total_rewards_released
         };
@@ -683,20 +751,34 @@ impl OnsocialBoost {
             return 0;
         }
 
-        let now = env::block_timestamp();
         let mut user_ss = account.boost_seconds;
-        let effective = self.effective_boost(account);
-
-        if effective > 0 && account.last_update_time > 0 && account.last_update_time < now {
-            let elapsed_sec = now.saturating_sub(account.last_update_time) / NS_PER_SEC;
-            user_ss = user_ss.saturating_add(u256_mul(effective, elapsed_sec as u128));
+        let accruing = self.effective_boost_with_bonus(account);
+        if accruing > 0 && account.last_update_time > 0 && account.last_update_time < cutoff {
+            let elapsed_sec = cutoff.saturating_sub(account.last_update_time) / NS_PER_SEC;
+            if elapsed_sec > 0 {
+                user_ss = user_ss.saturating_add(u256_mul(accruing, elapsed_sec as u128));
+            }
         }
 
         let mut total_ss = self.total_boost_seconds;
-        if self.last_global_update < now && self.total_effective_boost > 0 {
-            let elapsed_sec = now.saturating_sub(self.last_global_update) / NS_PER_SEC;
-            total_ss =
-                total_ss.saturating_add(u256_mul(self.total_effective_boost, elapsed_sec as u128));
+        if self.last_global_update < as_of && self.total_effective_boost > 0 {
+            let elapsed_sec = as_of.saturating_sub(self.last_global_update) / NS_PER_SEC;
+            if elapsed_sec > 0 {
+                total_ss = total_ss
+                    .saturating_add(u256_mul(self.total_effective_boost, elapsed_sec as u128));
+            }
+        }
+        if expired && !sole_locker && account.tracked_effective_boost > 0 && as_of > cutoff {
+            let phantom_from = cutoff.max(self.last_global_update);
+            if as_of > phantom_from {
+                let phantom_sec = as_of.saturating_sub(phantom_from) / NS_PER_SEC;
+                if phantom_sec > 0 {
+                    total_ss = total_ss.saturating_sub(u256_mul(
+                        account.tracked_effective_boost,
+                        phantom_sec as u128,
+                    ));
+                }
+            }
         }
 
         if total_ss == 0 {
@@ -709,18 +791,21 @@ impl OnsocialBoost {
 
     /// Projects total released rewards for view calls without mutating state.
     fn project_total_released(&self) -> u128 {
+        self.project_total_released_until(env::block_timestamp())
+    }
+
+    fn project_total_released_until(&self, until: u64) -> u128 {
         if self.total_effective_boost == 0 || self.scheduled_pool == 0 {
             return self.total_rewards_released;
         }
 
-        let now = env::block_timestamp();
-        let elapsed = now.saturating_sub(self.last_release_time);
+        let elapsed = until.saturating_sub(self.last_release_time);
         if elapsed == 0 {
             return self.total_rewards_released;
         }
 
         let released =
-            self.compute_release_between(self.scheduled_pool, self.last_release_time, now);
+            self.compute_release_between(self.scheduled_pool, self.last_release_time, until);
         self.total_rewards_released.saturating_add(released)
     }
 
@@ -1148,7 +1233,11 @@ impl OnsocialBoost {
     }
 
     fn effective_boost(&self, account: &Account) -> u128 {
-        self.effective_boost_with_bonus(account)
+        if Self::lock_expired_at(account, env::block_timestamp()) {
+            0
+        } else {
+            self.effective_boost_with_bonus(account)
+        }
     }
 
     fn release_step_interval_ns(&self) -> u64 {

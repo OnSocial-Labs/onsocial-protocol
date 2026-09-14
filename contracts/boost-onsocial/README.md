@@ -19,7 +19,7 @@ The default release schedule starts at `0.01%` per week, increases by `0.01%` ev
 - Lock bonuses applied to weighted boost, not raw token principal
 - Boost-seconds reward accounting for fair time-weighted distribution
 - Stepped reward release schedule with configurable start, step, interval, and cap
-- Reward clock pauses when there are no active participants
+- Reward clock pauses when there are no active (unexpired) locks
 - Auto-registration subsidy for first lock when contract storage balance allows it
 - Additional funding paths:
 	- `credits`: splits inbound SOCIAL into `60% infra` and `40% scheduled rewards`
@@ -49,8 +49,10 @@ Where:
 
 - `weighted_amount = 100% of first 1,000 SOCIAL + 50% of next 4,000 + 25% above 5,000`
 - `effective_boost = weighted_amount * (100 + bonus) / 100`
-- `boost_seconds` accumulates over time while the position remains active
+- `boost_seconds` accumulates over time while the lock is active
+- Accrual and live pool weight freeze at `unlock_at`. Leftover rewards stay claimable via `claim_rewards`. Unlock still returns principal. Renew / extend starts a new clock.
 - released rewards come from the scheduled pool according to the current weekly rate
+- The release clock pauses when nobody has an active (unexpired) lock
 
 Examples before lock bonus:
 

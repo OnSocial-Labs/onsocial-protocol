@@ -297,6 +297,11 @@ export function useBoostPosition(
   // 100ms client-anchor tick — only advances upward.
   useEffect(() => {
     if (!live || ratePerSecondYocto <= 0n || !snapshot) return;
+    const expired =
+      account != null &&
+      account.unlock_at > 0 &&
+      Date.now() * 1_000_000 >= account.unlock_at;
+    if (expired) return;
 
     const tick = () => {
       if (livePausedRef.current || !liveAnchorRef.current) return;
@@ -309,7 +314,7 @@ export function useBoostPosition(
     tick();
     const interval = setInterval(tick, BOOST_LIVE_TICK_MS);
     return () => clearInterval(interval);
-  }, [live, ratePerSecondYocto, setClaimableYoctoValue, snapshot]);
+  }, [account, live, ratePerSecondYocto, setClaimableYoctoValue, snapshot]);
 
   const lockedYocto = account ? parseYoctoOrZero(account.locked_amount) : 0n;
   const hasPosition = lockedYocto > 0n;
