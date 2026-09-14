@@ -50,6 +50,12 @@ export interface BoostPosition {
   beginPostClaimHold: () => void;
   /** Apply the latest snapshot with decrease allowed, then resume ticks. */
   endPostClaimHold: () => void;
+  /**
+   * Register a callback fired when a snapshot is applied while the
+   * celebration hold is active. Lets the sheet clear the chip in the same
+   * paint as the counter reveal. Returns an unsubscribe function.
+   */
+  onPostClaimSnapshotApplied: (callback: () => void) => () => void;
 }
 
 /**
@@ -82,6 +88,9 @@ export function useBoostPosition(
   const latestSnapshotRef = useRef<BoostRewardsLiveSnapshot | null>(null);
   const lastAppliedAsOfRef = useRef<number | null>(null);
   const tabHiddenAtRef = useRef<number | null>(null);
+  const postClaimSnapshotAppliedListenersRef = useRef<Set<() => void>>(
+    new Set()
+  );
 
   const setClaimableYoctoValue = useCallback((value: bigint) => {
     claimableYoctoRef.current = value;
@@ -151,6 +160,11 @@ export function useBoostPosition(
       // Celebration hold: keep optimistic 0 until endPostClaimHold batches
       // with the chip clear — avoids a stale pre-claim flash on reveal.
       if (postClaimHoldRef.current) {
+        // Notify listeners that a fresh snapshot landed while the hold is
+        // active so the sheet can clear the chip in the same paint.
+        for (const listener of postClaimSnapshotAppliedListenersRef.current) {
+          listener();
+        }
         return;
       }
 
@@ -223,6 +237,13 @@ export function useBoostPosition(
     }
     livePausedRef.current = false;
   }, [applySnapshotToCounter]);
+
+  const onPostClaimSnapshotApplied = useCallback((callback: () => void) => {
+    postClaimSnapshotAppliedListenersRef.current.add(callback);
+    return () => {
+      postClaimSnapshotAppliedListenersRef.current.delete(callback);
+    };
+  }, []);
 
   useEffect(() => {
     setAccount(null);
@@ -342,5 +363,6 @@ export function useBoostPosition(
     resetLiveCounterAfterClaim,
     beginPostClaimHold,
     endPostClaimHold,
+    onPostClaimSnapshotApplied,
   };
 }

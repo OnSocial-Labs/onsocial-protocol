@@ -102,6 +102,12 @@ const BOOST_MODE_SWAP_MS = 180;
  */
 const BOOST_COLLECT_CELEBRATION_HOLD_MS = 2100;
 const BOOST_COLLECT_CELEBRATION_HOLD_REDUCED_MS = 1400;
+/**
+ * Max time the +amount chip can stay up if chain state never lands. The
+ * normal path clears on the applied post-claim snapshot, not this fallback.
+ */
+const BOOST_COLLECT_CELEBRATION_MAX_MS = 4500;
+const BOOST_COLLECT_CELEBRATION_MAX_REDUCED_MS = 3200;
 
 type BoostClaimCelebration = { id: number; amountYocto: bigint };
 
@@ -426,6 +432,7 @@ export function PortfolioBoostSheet({
     resetLiveCounterAfterClaim,
     beginPostClaimHold,
     endPostClaimHold,
+    onPostClaimSnapshotApplied,
   } = position;
   const network = useBoostNetworkPulse(sheetOpen);
 
@@ -455,16 +462,24 @@ export function PortfolioBoostSheet({
       }
       const id = ++claimCelebrationIdRef.current;
       setClaimCelebration({ id, amountYocto });
-      const holdMs = prefersReducedMotion()
-        ? BOOST_COLLECT_CELEBRATION_HOLD_REDUCED_MS
-        : BOOST_COLLECT_CELEBRATION_HOLD_MS;
+      // Fallback only — normal clear happens when the post-claim snapshot
+      // applies and the counter reveals the new baseline in the same paint.
+      const maxMs = prefersReducedMotion()
+        ? BOOST_COLLECT_CELEBRATION_MAX_REDUCED_MS
+        : BOOST_COLLECT_CELEBRATION_MAX_MS;
       claimCelebrationTimeoutRef.current = setTimeout(() => {
         if (claimCelebrationIdRef.current !== id) return;
         revealAfterCollectCelebration();
-      }, holdMs);
+      }, maxMs);
     },
     [revealAfterCollectCelebration]
   );
+
+  /** Snapshot applied while the chip is up — clear it in the same paint. */
+  const handlePostClaimSnapshotApplied = useCallback(() => {
+    if (claimCelebrationIdRef.current === 0) return;
+    revealAfterCollectCelebration();
+  }, [revealAfterCollectCelebration]);
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -487,6 +502,10 @@ export function PortfolioBoostSheet({
     if (!open) return;
     endPostClaimHold();
   }, [open, endPostClaimHold]);
+
+  useEffect(() => {
+    return onPostClaimSnapshotApplied(handlePostClaimSnapshotApplied);
+  }, [onPostClaimSnapshotApplied, handlePostClaimSnapshotApplied]);
 
   useEffect(() => {
     return () => {

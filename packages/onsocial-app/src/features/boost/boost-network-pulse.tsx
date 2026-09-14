@@ -1,5 +1,6 @@
 'use client';
 
+import { Divider } from '@onsocial/ui';
 import {
   formatBoostBoosterCount,
   formatBoostNetworkAmount,
@@ -44,27 +45,30 @@ export function BoostNetworkPulse({
   loading?: boolean;
 }) {
   return (
-    <section className="portfolio-boost-network" aria-label="Network">
-      <PulseItem
-        label="Boosters"
-        value={formatBoostBoosterCount(boosterCount)}
-        loading={loading}
-      />
-      <PulseItem
-        label="Locked"
-        value={formatBoostNetworkAmount(totalLockedYocto)}
-        loading={loading}
-      />
-      <PulseItem
-        label="Pool"
-        value={formatBoostNetworkAmount(scheduledPoolYocto)}
-        loading={loading}
-      />
-      <PulseItem
-        label="Rate"
-        value={formatBoostWeeklyRateBps(activeWeeklyRateBps)}
-        loading={loading}
-      />
-    </section>
+    <div className="portfolio-boost-network-block">
+      <Divider variant="item" />
+      <section className="portfolio-boost-network" aria-label="Network">
+        <PulseItem
+          label="Boosters"
+          value={formatBoostBoosterCount(boosterCount)}
+          loading={loading}
+        />
+        <PulseItem
+          label="Locked"
+          value={formatBoostNetworkAmount(totalLockedYocto)}
+          loading={loading}
+        />
+        <PulseItem
+          label="Pool"
+          value={formatBoostNetworkAmount(scheduledPoolYocto)}
+          loading={loading}
+        />
+        <PulseItem
+          label="Rate"
+          value={formatBoostWeeklyRateBps(activeWeeklyRateBps)}
+          loading={loading}
+        />
+      </section>
+    </div>
   );
 }
