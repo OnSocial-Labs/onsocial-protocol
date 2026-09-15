@@ -197,6 +197,29 @@ test.describe('create drop', () => {
     await expect(page.locator('.drop-cover-seat-grid')).toHaveCount(0);
   });
 
+  test('taps artwork to open the OsPageSheet overlay', async ({ page }) => {
+    await openCreateDrop(page);
+    await setLookPreviewFile(
+      page,
+      'input.scarce-cover-file-input',
+      {
+        name: 'art.png',
+        mimeType: 'image/png',
+        buffer: COVER_PNG,
+      },
+      page.locator('.drop-create-piece.has-media')
+    );
+
+    await page.getByRole('button', { name: 'Artwork preview' }).click();
+    const overlay = page.getByRole('dialog', { name: 'Artwork preview' });
+    await expect(overlay).toBeVisible();
+    await expect(page.locator('.drop-art-page-sheet-panel')).toBeVisible();
+    await expect(page.locator('.scarce-card-lightbox.is-open')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Close preview' }).click();
+    await expect(overlay).toHaveCount(0);
+  });
+
   test('names Audio and Writing attach on the piece', async ({ page }) => {
     await openCreateDrop(page);
 
