@@ -2,10 +2,25 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   focusComposerField,
   scrollMobileFieldIntoView,
+  shouldForceComposerPrimaryFocus,
 } from '@/hooks/use-mobile-field-focus-scroll';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe('shouldForceComposerPrimaryFocus', () => {
+  it('is false for field onFocus (keeps poll / article body focus)', () => {
+    expect(shouldForceComposerPrimaryFocus()).toBe(false);
+    expect(shouldForceComposerPrimaryFocus({})).toBe(false);
+    expect(shouldForceComposerPrimaryFocus({ focusPrimary: false })).toBe(
+      false
+    );
+  });
+
+  it('is true only for muted-beat clicks that need a primary field', () => {
+    expect(shouldForceComposerPrimaryFocus({ focusPrimary: true })).toBe(true);
+  });
 });
 
 describe('focusComposerField', () => {
