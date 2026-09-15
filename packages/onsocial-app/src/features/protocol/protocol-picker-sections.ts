@@ -72,11 +72,19 @@ export function protocolPickerForeignStakeMessage(
     : `Need ${token} stake to propose.`;
 }
 
-/** Propose / Settings pickers hug like the wallet — content height, standard cap. */
+/** Propose / Settings pickers hug like the wallet — content height, short cap. */
 export const PROTOCOL_PICKER_LAYOUT = {
   initialDetent: 'full' as const,
   peekRatio: 1,
 };
+
+/** Kind rows only once a wallet can pick — no logged-out catalog dump. */
+export function shouldShowProtocolPickerOptions(
+  accountId: string | null,
+  loadState: 'idle' | 'loading' | 'ready' | 'error'
+): boolean {
+  return Boolean(accountId) && loadState === 'ready';
+}
 
 export function countProtocolPickerOptions<T extends string>(
   common: ProtocolPickerOption<T>[],

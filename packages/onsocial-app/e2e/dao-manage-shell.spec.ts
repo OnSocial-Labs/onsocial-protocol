@@ -57,11 +57,14 @@ test.describe('DAO manage shell', () => {
     const propose = page.getByRole('dialog', { name: 'Propose' });
     await expect(propose).toBeVisible({ timeout: 30_000 });
     await expect(propose).toHaveAttribute('data-sizing', 'hug');
-    await expect(propose).toHaveClass(/os-sheet-cap-standard/);
+    await expect(propose).toHaveClass(/os-sheet-cap-short/);
     await expect(propose).not.toHaveAttribute('data-surface', 'page');
     await expect(
       page.getByRole('button', { name: 'Close propose' })
     ).toBeVisible();
+    await expect(propose.getByText('Connect a wallet to propose.')).toBeVisible();
+    await expect(propose.getByText('COMMON')).toHaveCount(0);
+    await expect(propose.getByText('Signal')).toHaveCount(0);
   });
 
   test('Manage Info opens the policy snapshot', async ({ page }) => {

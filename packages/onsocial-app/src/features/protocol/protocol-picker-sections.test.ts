@@ -4,6 +4,7 @@ import {
   PROTOCOL_PICKER_LAYOUT,
   protocolPickerForeignStakeMessage,
   protocolPickerStakeGateMessage,
+  shouldShowProtocolPickerOptions,
 } from '@/features/protocol/protocol-picker-sections';
 
 type DemoId = 'a' | 'b' | 'c';
@@ -66,5 +67,16 @@ describe('PROTOCOL_PICKER_LAYOUT', () => {
       initialDetent: 'full',
       peekRatio: 1,
     });
+  });
+});
+
+describe('shouldShowProtocolPickerOptions', () => {
+  it('hides the catalog until a connected wallet is ready', () => {
+    expect(shouldShowProtocolPickerOptions(null, 'ready')).toBe(false);
+    expect(shouldShowProtocolPickerOptions('alice.near', 'loading')).toBe(
+      false
+    );
+    expect(shouldShowProtocolPickerOptions('alice.near', 'error')).toBe(false);
+    expect(shouldShowProtocolPickerOptions('alice.near', 'ready')).toBe(true);
   });
 });

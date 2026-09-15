@@ -10,7 +10,10 @@ import {
   OsSurfaceRow,
   OsSurfaceRowList,
 } from '@onsocial/ui';
-import { PROTOCOL_PICKER_LAYOUT } from '@/features/protocol/protocol-picker-sections';
+import {
+  PROTOCOL_PICKER_LAYOUT,
+  shouldShowProtocolPickerOptions,
+} from '@/features/protocol/protocol-picker-sections';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { getProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
 import { isProtocolDaoGroupMember } from '@/features/protocol/protocol-propose-gate';
@@ -148,7 +151,7 @@ export function useProtocolPickerEligibility({
 
 /**
  * Hug shell for Protocol Propose / Settings action pickers.
- * Wallet-like: content-sized hug, standard cap — not a 90dvh catalog.
+ * Wallet-like: content-sized hug, short cap — not a 90dvh catalog.
  */
 export function ProtocolPickerSheet({
   open,
@@ -180,7 +183,7 @@ export function ProtocolPickerSheet({
       sizing="hug"
       initialDetent={PROTOCOL_PICKER_LAYOUT.initialDetent}
       peekRatio={PROTOCOL_PICKER_LAYOUT.peekRatio}
-      panelClassName="os-sheet-cap-standard"
+      panelClassName="os-sheet-cap-short"
       bodyClassName="protocol-action-sheet-body protocol-picker-sheet-body"
     >
       <div className="protocol-propose-kind">{children}</div>
@@ -273,6 +276,10 @@ export function ProtocolPickerOptionList<T extends string>({
   highlightedId: T | null;
   onSelect: (id: T) => void;
 }) {
+  if (!shouldShowProtocolPickerOptions(accountId, loadState)) {
+    return null;
+  }
+
   return sections.map((section) => {
     if (section.options.length === 0) return null;
 

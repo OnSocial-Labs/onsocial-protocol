@@ -14,9 +14,10 @@ const task = readFileSync(join(here, 'protocol-task-sheet.tsx'), 'utf8');
 const globalsCss = readFileSync(join(here, '../../app/globals.css'), 'utf8');
 
 describe('Propose picker + create chrome', () => {
-  it('hugs the kind picker with a wallet-like standard cap', () => {
+  it('hugs the kind picker with a wallet-like short cap', () => {
     expect(picker).toContain('PROTOCOL_PICKER_LAYOUT');
-    expect(picker).toContain('os-sheet-cap-standard');
+    expect(picker).toContain('os-sheet-cap-short');
+    expect(picker).toContain('shouldShowProtocolPickerOptions');
     expect(picker).toContain('sizing="hug"');
     expect(picker).not.toContain('peekRatio={0.9}');
     expect(picker).not.toContain("initialDetent='peek'");
