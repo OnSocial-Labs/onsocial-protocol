@@ -497,21 +497,14 @@
 }
 
 /*
- * Scarce card lightbox — unlayered so it beats glass-sheet.css
+ * Drop art OsPageSheet close — unlayered so it beats glass-sheet.css
  * (.glass-sheet-icon-action uses --fg). Icon only — no fill, border, or ring.
  */
-.scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close,
 .drop-art-page-sheet-panel .glass-sheet-icon-action.scarce-card-lightbox-close,
-.scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
 .drop-art-page-sheet-panel .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
-.scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close:focus,
 .drop-art-page-sheet-panel .glass-sheet-icon-action.scarce-card-lightbox-close:focus,
-.scarce-card-lightbox
-  .glass-sheet-icon-action.scarce-card-lightbox-close:focus-visible,
 .drop-art-page-sheet-panel
   .glass-sheet-icon-action.scarce-card-lightbox-close:focus-visible,
-.scarce-card-lightbox
-  .glass-sheet-icon-action.scarce-card-lightbox-close:active,
 .drop-art-page-sheet-panel
   .glass-sheet-icon-action.scarce-card-lightbox-close:active {
   border: 0;
@@ -524,10 +517,7 @@
   color: rgb(var(--fg-rgb) / 0.88);
 }
 
-.scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
 .drop-art-page-sheet-panel .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
-.scarce-card-lightbox
-  .glass-sheet-icon-action.scarce-card-lightbox-close:focus-visible,
 .drop-art-page-sheet-panel
   .glass-sheet-icon-action.scarce-card-lightbox-close:focus-visible {
   color: rgb(var(--fg-rgb) / 1);
@@ -22215,11 +22205,8 @@ a.os-surface-row {
   /*
    * Post-origin scarce medium — same canvas as listen enlarge (28rem cover).
    * Audio mounts ScarceClipListenSheet directly; viewer / loading reuse
-   * listen lightbox chrome with Mint/Buy + post engagement under the art.
+   * listen chrome with Mint/Buy + post engagement under the art.
    */
-  .scarce-card-lightbox.scarce-post-medium-lightbox.is-closing {
-    opacity: 0;
-  }
 
   .scarce-post-medium-listen {
     gap: 0.55rem;
@@ -22489,38 +22476,12 @@ a.os-surface-row {
   .drop-art-page-sheet-panel .scarce-card-lightbox-asset {
     opacity: 1;
     transform: none;
+    width: min(92vw, 600px);
     max-width: min(92vw, 560px);
     max-height: min(78dvh, 560px);
-  }
-
-  .scarce-card-lightbox {
-    --scarce-lightbox-vh: 100dvh;
-    position: fixed;
-    inset: 0;
-    /* Above commerce sheets (90) — art zoom from list/buy must not sit under the drawer. */
-    z-index: 110;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    padding: max(1.25rem, env(safe-area-inset-top, 0px))
-      max(1.25rem, env(safe-area-inset-right, 0px))
-      max(1.25rem, env(safe-area-inset-bottom, 0px))
-      max(1.25rem, env(safe-area-inset-left, 0px));
-    background: var(--bg);
-    cursor: zoom-out;
-    opacity: 0;
-    transition: opacity 180ms ease;
-  }
-
-  .scarce-card-lightbox.is-open {
-    /* Solid opaque field — follows theme with zero see-through distraction. */
-    background: var(--bg);
-    opacity: 1;
-  }
-
-  .scarce-card-lightbox.is-closing {
-    opacity: 0;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
   }
 
   .scarce-card-lightbox-chrome {
@@ -22635,8 +22596,8 @@ a.os-surface-row {
   .scarce-card-lightbox-asset {
     display: block;
     /* 600px = 1800÷3 — integer scale for mint PNG zoom. */
-    width: min(92vw, calc(var(--scarce-lightbox-vh) * 0.92), 600px);
-    max-height: min(calc(var(--scarce-lightbox-vh) * 0.92), 600px);
+    width: min(92vw, 600px);
+    max-height: min(92dvh, 600px);
     height: auto;
     aspect-ratio: 1 / 1;
     object-fit: cover;
@@ -22648,11 +22609,6 @@ a.os-surface-row {
      */
     box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
     cursor: default;
-    transform: scale(0.95);
-    opacity: 0;
-    transition:
-      transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
-      opacity 180ms ease;
   }
 
   /* Light field: crisp 1px hairline + subtle soft ambient lift for white-on-white art. */
@@ -22668,16 +22624,6 @@ a.os-surface-row {
         0 0 0 1px rgb(var(--fg-rgb) / 0.08),
         0 12px 32px rgb(0 0 0 / 0.08);
     }
-  }
-
-  .scarce-card-lightbox.is-open .scarce-card-lightbox-asset {
-    transform: scale(1);
-    opacity: 1;
-  }
-
-  .scarce-card-lightbox.is-closing .scarce-card-lightbox-asset {
-    transform: scale(0.96);
-    opacity: 0;
   }
 
   .scarce-mood-picker-block {
@@ -22762,13 +22708,6 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.06);
   }
 
-  .scarce-frame-lightbox {
-    flex-direction: column;
-    justify-content: center;
-    gap: 1rem;
-    cursor: zoom-out;
-  }
-
   .scarce-frame-lightbox-stage {
     position: relative;
     display: flex;
@@ -22779,10 +22718,10 @@ a.os-surface-row {
     min-height: 0;
   }
 
-  .scarce-frame-lightbox-video {
-    /* Leave room for the scrubber dock under the art. */
-    width: min(92vw, calc(var(--scarce-lightbox-vh) * 0.72), 36rem);
-    max-height: min(calc(var(--scarce-lightbox-vh) * 0.72), 36rem);
+  .drop-art-page-sheet-panel .scarce-frame-lightbox-video {
+    width: min(92vw, 36rem);
+    max-width: min(92vw, 560px);
+    max-height: min(68dvh, 36rem);
     cursor: default;
   }
 
@@ -22807,29 +22746,6 @@ a.os-surface-row {
     flex-direction: column;
     gap: 0.45rem;
     padding: 0 0.25rem max(0.25rem, env(safe-area-inset-bottom, 0px));
-  }
-
-  .scarce-frame-picker-scrub--lightbox .scarce-frame-picker-time {
-    color: rgb(255 255 255 / 0.62);
-  }
-
-  .scarce-frame-picker-scrub--lightbox .scarce-frame-picker-track::before {
-    background: rgb(255 255 255 / 0.2);
-  }
-
-  .scarce-frame-picker-scrub--lightbox .scarce-frame-picker-track::after {
-    background: rgb(255 255 255 / 0.72);
-  }
-
-  .scarce-frame-picker-scrub--lightbox
-    input[type='range']::-webkit-slider-thumb {
-    background: rgb(255 255 255 / 0.95);
-    box-shadow: 0 0 0 2px rgb(6 6 8 / 0.85);
-  }
-
-  .scarce-frame-picker-scrub--lightbox input[type='range']::-moz-range-thumb {
-    background: rgb(255 255 255 / 0.95);
-    box-shadow: 0 0 0 2px rgb(6 6 8 / 0.85);
   }
 
   .scarce-frame-picker-loading {
@@ -24079,23 +23995,6 @@ a.os-surface-row {
    * Full-screen listen — solid theme canvas (not dark art scrim).
    * Contract sits opposite the time pill (same slot as cover expand).
    */
-  .scarce-card-lightbox.scarce-clip-listen-lightbox,
-  .scarce-card-lightbox.scarce-clip-listen-lightbox.is-open,
-  .scarce-card-lightbox.scarce-clip-listen-lightbox.is-closing {
-    cursor: default;
-    align-items: stretch;
-    justify-content: stretch;
-    padding: 0;
-    background: var(--bg);
-    opacity: 1;
-    /* Under commerce (90) so Mint drawer can stack over the player shell. */
-    z-index: 80;
-  }
-
-  .scarce-card-lightbox.scarce-clip-listen-lightbox.is-closing {
-    opacity: 0;
-  }
-
   .scarce-clip-listen {
     display: flex;
     flex: 1;
@@ -26949,20 +26848,6 @@ a.os-surface-row {
     opacity: 0.88;
   }
 
-  .scarce-writing-read-lightbox .scarce-writing-read {
-    --writing-read-measure: min(34rem, 100%);
-    display: flex;
-    flex-direction: column;
-    gap: 0.7rem;
-    width: min(100%, 44rem);
-    max-height: min(var(--scarce-lightbox-vh, 100dvh), 100%);
-    margin: 0 auto;
-    padding: 0 1.1rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
-    padding-top: max(0.55rem, env(safe-area-inset-top, 0px));
-    min-height: 0;
-    box-sizing: border-box;
-  }
-
   .scarce-writing-read-progress {
     position: fixed;
     top: env(safe-area-inset-top, 0px);
@@ -27223,31 +27108,6 @@ a.os-surface-row {
 
   /* —— Ticket Show pass / Door —— */
   /* Fullscreen frost like drawers (not Listen’s solid canvas). */
-  .ticket-show-pass-lightbox.scarce-card-lightbox {
-    align-items: stretch;
-    justify-content: stretch;
-    padding: 0;
-    background: rgb(var(--bg-rgb) / 0);
-    cursor: default;
-    z-index: 110;
-  }
-
-  .ticket-show-pass-lightbox.scarce-card-lightbox.is-open {
-    background: var(--glass-scrim, rgb(var(--bg-rgb) / 0.28));
-    opacity: 1;
-  }
-
-  .ticket-show-pass-lightbox.scarce-card-lightbox.is-closing {
-    background: rgb(var(--bg-rgb) / 0);
-    opacity: 0;
-  }
-
-  @media (prefers-reduced-transparency: reduce) {
-    .ticket-show-pass-lightbox.scarce-card-lightbox.is-open {
-      background: var(--glass-scrim-solid, rgb(var(--bg-rgb) / 0.82));
-    }
-  }
-
   .ticket-show-pass {
     --pass-pad-x: max(0.85rem, env(safe-area-inset-left, 0px));
     --pass-pad-r: max(0.85rem, env(safe-area-inset-right, 0px));

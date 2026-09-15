@@ -2,11 +2,10 @@
 
 /**
  * Seat-tile artwork thumbs for create-drop — same size as variation sets,
- * Mage remove control, tap-to-zoom with the shared scarce card lightbox.
+ * Mage remove control, tap-to-zoom with the shared OsPageSheet overlay.
  */
 
 import {
-  useCallback,
   useEffect,
   useId,
   useRef,
@@ -26,9 +25,17 @@ import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
 interface DropImageLightboxProps {
   open: boolean;
-  src: string;
   label: string;
   onClose: () => void;
+  /** After the OsPageSheet exit animation unmounts. */
+  onClosed?: () => void;
+  closeAriaLabel?: string;
+  /** Raster zoom. Omit when `svg` or `children` is the stage. */
+  src?: string;
+  /** Inline SVG (text cards). Nested https faces work in DOM SVG, not img. */
+  svg?: string | null;
+  /** Custom stage (video frame picker). Wins over `src` / `svg`. */
+  children?: ReactNode;
   /** Optional action under the zoomed art (e.g. Use in cover). */
   footer?: ReactNode;
   /** When set, show prev chevron + ← key. */
@@ -43,12 +50,20 @@ interface DropImageLightboxProps {
   surface?: 'page' | 'glass';
 }
 
+function stopSheetClick(event: { stopPropagation: () => void }) {
+  event.stopPropagation();
+}
+
 /** Shared zoom dialog inside OS container — uses OsPageSheet overlay. */
 export function DropImageLightbox({
   open,
   src,
+  svg,
+  children,
   label,
   onClose,
+  onClosed,
+  closeAriaLabel = 'Close preview',
   footer,
   onPrev,
   onNext,
@@ -72,33 +87,33 @@ export function DropImageLightbox({
   }, [open, onPrev, onNext]);
 
   const hasNav = Boolean(onPrev || onNext);
+  const inlineSvg = svg?.trim() || null;
+  const rasterSrc = src?.trim() || null;
 
   return (
     <OsPageSheet
       open={open}
       onClose={onClose}
+      onClosed={onClosed}
       surface={surface}
       presentation="appear"
       zIndex={SCARCE_Z.nestedOverCommerce}
       ariaLabelledBy={titleId}
-      backdropLabel={`Close ${label} preview`}
+      backdropLabel={`Close ${label}`}
       panelClassName="drop-art-page-sheet-panel"
       bodyClassName="drop-art-page-sheet-body"
       header={
         <div className="scarce-card-lightbox-chrome">
           <SheetCloseButton
             onClick={onClose}
-            ariaLabel="Close preview"
+            ariaLabel={closeAriaLabel}
             className="scarce-card-lightbox-close"
           />
         </div>
       }
       footer={
         footer ? (
-          <div
-            className="scarce-card-lightbox-footer"
-            onClick={(event) => event.stopPropagation()}
-          >
+          <div className="scarce-card-lightbox-footer" onClick={stopSheetClick}>
             {footer}
           </div>
         ) : null
@@ -108,49 +123,68 @@ export function DropImageLightbox({
         <p id={titleId} className="sr-only">
           {label}
         </p>
-        <div
-          className={`scarce-card-lightbox-stage${hasNav ? ' has-nav' : ''}`}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <img
-            key={src}
-            className="scarce-card-lightbox-asset"
-            src={src}
-            alt=""
-          />
-          {hasNav ? (
-            <div
-              className="scarce-card-lightbox-nav-row"
-              role="group"
-              aria-label="Cover style"
-            >
-              {onPrev ? (
-                <button
-                  type="button"
-                  className="scarce-card-lightbox-nav scarce-card-lightbox-nav--prev"
-                  aria-label="Previous"
-                  onClick={onPrev}
-                >
-                  ‹
-                </button>
-              ) : (
-                <span className="scarce-card-lightbox-nav-spacer" aria-hidden />
-              )}
-              {onNext ? (
-                <button
-                  type="button"
-                  className="scarce-card-lightbox-nav scarce-card-lightbox-nav--next"
-                  aria-label="Next"
-                  onClick={onNext}
-                >
-                  ›
-                </button>
-              ) : (
-                <span className="scarce-card-lightbox-nav-spacer" aria-hidden />
-              )}
-            </div>
-          ) : null}
-        </div>
+        {children ? (
+          <div className="scarce-card-lightbox-stage" onClick={stopSheetClick}>
+            {children}
+          </div>
+        ) : (
+          <div
+            className={`scarce-card-lightbox-stage${hasNav ? ' has-nav' : ''}`}
+            onClick={stopSheetClick}
+          >
+            {inlineSvg ? (
+              <div
+                className="scarce-card-lightbox-asset scarce-card-lightbox-svg"
+                dangerouslySetInnerHTML={{ __html: inlineSvg }}
+              />
+            ) : rasterSrc ? (
+              <img
+                key={rasterSrc}
+                className="scarce-card-lightbox-asset"
+                src={rasterSrc}
+                alt=""
+              />
+            ) : null}
+            {hasNav ? (
+              <div
+                className="scarce-card-lightbox-nav-row"
+                role="group"
+                aria-label="Cover style"
+              >
+                {onPrev ? (
+                  <button
+                    type="button"
+                    className="scarce-card-lightbox-nav scarce-card-lightbox-nav--prev"
+                    aria-label="Previous"
+                    onClick={onPrev}
+                  >
+                    ‹
+                  </button>
+                ) : (
+                  <span
+                    className="scarce-card-lightbox-nav-spacer"
+                    aria-hidden
+                  />
+                )}
+                {onNext ? (
+                  <button
+                    type="button"
+                    className="scarce-card-lightbox-nav scarce-card-lightbox-nav--next"
+                    aria-label="Next"
+                    onClick={onNext}
+                  >
+                    ›
+                  </button>
+                ) : (
+                  <span
+                    className="scarce-card-lightbox-nav-spacer"
+                    aria-hidden
+                  />
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
     </OsPageSheet>
   );
