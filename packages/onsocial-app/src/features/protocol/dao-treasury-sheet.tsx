@@ -46,8 +46,8 @@ export function DaoTreasurySheet({
   onClose: () => void;
 }) {
   const cachedTreasury = readDaoTreasuryCache(daoAccountId);
-  const [sheetOpen, setSheetOpen] = useState(open);
-  if (open && !sheetOpen) setSheetOpen(true);
+  const [mounted, setMounted] = useState(open);
+  if (open && !mounted) setMounted(true);
 
   const [assets, setAssets] = useState<ProtocolDaoTransferAsset[] | null>(
     () => cachedTreasury?.assets ?? null
@@ -58,24 +58,17 @@ export function DaoTreasurySheet({
   const [pending, setPending] = useState(() => cachedTreasury == null);
   const [error, setError] = useState<string | null>(null);
 
-  const requestClose = useCallback(() => {
-    setSheetOpen(false);
-  }, []);
-
-  useEffect(() => {
-    if (!open) setSheetOpen(false);
-  }, [open]);
-
   const handleClosed = useCallback(() => {
     setAssets(null);
     setSupportYocto(null);
     setError(null);
     setPending(false);
+    setMounted(false);
     onClose();
   }, [onClose]);
 
   useEffect(() => {
-    if (!sheetOpen) return;
+    if (!open) return;
     let cancelled = false;
     const cached = readDaoTreasuryCache(daoAccountId);
     if (cached) {
@@ -124,7 +117,7 @@ export function DaoTreasurySheet({
     return () => {
       cancelled = true;
     };
-  }, [sheetOpen, daoAccountId]);
+  }, [open, daoAccountId]);
 
   const hasAssets = Boolean(assets && assets.length > 0);
   const hasSupport = supportYocto != null && supportYocto > 0n;
@@ -136,11 +129,13 @@ export function DaoTreasurySheet({
     !hasAssets &&
     !hasSupport;
 
+  if (!mounted) return null;
+
   return (
     <DaoOrgPageSheet
       daoAccountId={daoAccountId}
-      open={sheetOpen}
-      onClose={requestClose}
+      open={open}
+      onClose={onClose}
       onClosed={handleClosed}
       title="Treasury"
       subtitle={daoName?.trim() || daoAccountId}

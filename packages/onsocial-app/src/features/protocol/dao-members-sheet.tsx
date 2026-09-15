@@ -43,8 +43,8 @@ export function DaoMembersSheet({
 }) {
   const { accountId } = useAppWallet();
   const face = useMatchingDaoFaceEligibility(daoAccountId);
-  const [sheetOpen, setSheetOpen] = useState(open);
-  if (open && !sheetOpen) setSheetOpen(true);
+  const [mounted, setMounted] = useState(open);
+  if (open && !mounted) setMounted(true);
 
   const [policy, setPolicy] = useState<ProtocolDaoPolicy | null>(
     () => readDaoFeedCache(daoAccountId)?.daoPolicy ?? null
@@ -57,24 +57,17 @@ export function DaoMembersSheet({
   );
   const [error, setError] = useState<string | null>(null);
 
-  const requestClose = useCallback(() => {
-    setSheetOpen(false);
-  }, []);
-
-  useEffect(() => {
-    if (!open) setSheetOpen(false);
-  }, [open]);
-
   const handleClosed = useCallback(() => {
     setPolicy(null);
     setFetchedEligibility(null);
     setError(null);
     setPending(false);
+    setMounted(false);
     onClose();
   }, [onClose]);
 
   useEffect(() => {
-    if (!sheetOpen) return;
+    if (!open) return;
     let cancelled = false;
     const cached = readDaoFeedCache(daoAccountId);
     if (cached?.daoPolicy) {
@@ -113,10 +106,10 @@ export function DaoMembersSheet({
     return () => {
       cancelled = true;
     };
-  }, [sheetOpen, daoAccountId]);
+  }, [open, daoAccountId]);
 
   useEffect(() => {
-    if (!sheetOpen || !accountId) {
+    if (!open || !accountId) {
       queueMicrotask(() => setFetchedEligibility(null));
       return;
     }
@@ -133,7 +126,7 @@ export function DaoMembersSheet({
     return () => {
       cancelled = true;
     };
-  }, [sheetOpen, accountId, daoAccountId, face]);
+  }, [open, accountId, daoAccountId, face]);
 
   const sections = useMemo(() => listDaoMembershipSections(policy), [policy]);
   const showProtocolRoleMarks = isProtocolFacePairDao(daoAccountId);
@@ -157,11 +150,13 @@ export function DaoMembersSheet({
     : null;
   const viewerMeetsStake = Boolean(eligibility?.canPropose);
 
+  if (!mounted) return null;
+
   return (
     <DaoOrgPageSheet
       daoAccountId={daoAccountId}
-      open={sheetOpen}
-      onClose={requestClose}
+      open={open}
+      onClose={onClose}
       onClosed={handleClosed}
       title="Members"
       subtitle={daoName?.trim() || daoAccountId}
@@ -254,7 +249,7 @@ export function DaoMembersSheet({
                     type="button"
                     className="dao-members-stake"
                     onClick={() => {
-                      requestClose();
+                      onClose();
                       onRequestStake();
                     }}
                   >
