@@ -78,6 +78,8 @@ describe('formatPageDrawerCredentialsLine', () => {
 describe('dao role helpers', () => {
   it('formats and sorts guardians before council', () => {
     expect(formatDaoRoleLabel('guardians')).toBe('Guardian');
+    expect(formatDaoRoleLabel('delegated_proposers')).toBe('Proposers');
+    expect(formatDaoRoleLabel('token_holders')).toBe('Token Holders');
     expect(sortDaoRoleIds(['council', 'guardians'])).toEqual([
       'guardians',
       'council',

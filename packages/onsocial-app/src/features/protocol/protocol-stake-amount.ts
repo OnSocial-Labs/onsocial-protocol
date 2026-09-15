@@ -23,12 +23,33 @@ export function protocolStakeWhisper(
   }
   switch (mode) {
     case 'delegate':
-      return 'Member delegation and vote weight for this board.';
+      return 'Turns SOCIAL into proposal weight for this board.';
     case 'undelegate':
-      return 'Removes vote weight · cooldown starts';
+      return 'Removes proposal weight · cooldown starts';
     case 'withdraw':
       return 'Unlocked staked SOCIAL → wallet';
   }
+}
+
+export function protocolStakeModeVerb(mode: ProtocolStakeMode): string {
+  switch (mode) {
+    case 'delegate':
+      return 'Delegate';
+    case 'undelegate':
+      return 'Undelegate';
+    case 'withdraw':
+      return 'Withdraw';
+  }
+}
+
+/** Primary CTA — verb + amount when the field is ready. */
+export function protocolStakeCtaLabel(
+  mode: ProtocolStakeMode,
+  amountLabel: string | null
+): string {
+  const verb = protocolStakeModeVerb(mode);
+  if (!amountLabel) return verb;
+  return `${verb} ${amountLabel} SOCIAL`;
 }
 
 export function protocolStakeShowsAmountField(

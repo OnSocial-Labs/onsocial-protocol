@@ -40474,39 +40474,46 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.35);
 }
 
-.dao-members-threshold,
-.dao-members-viewer-line {
+.dao-members-stake-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.dao-members-threshold {
   margin: 0;
   font-size: 0.88rem;
   line-height: 1.45;
   color: rgb(var(--fg-rgb) / 0.62);
+  font-variant-numeric: tabular-nums;
 }
 
-.dao-members-viewer {
+.dao-members-stake-metric {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.45rem;
-  margin-top: 0.45rem;
-}
-
-.dao-members-stake {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font: inherit;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
   font-size: 0.88rem;
-  font-weight: 650;
-  color: rgb(var(--fg-rgb) / 0.88);
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
 }
 
-.dao-members-stake:hover,
-.dao-members-stake:focus-visible {
-  color: rgb(var(--fg-rgb) / 1);
+.dao-members-stake-metric-label {
+  color: rgb(var(--fg-rgb) / 0.5);
+}
+
+.dao-members-stake-metric-value {
+  font-weight: 650;
+  text-align: right;
+  color: rgb(var(--fg-rgb) / 0.88);
+}
+
+.dao-members-stake-status {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  font-weight: 650;
+  color: var(--signal-reputation, var(--protocol-green, #22c55e));
 }
 
 .dao-treasury-section {

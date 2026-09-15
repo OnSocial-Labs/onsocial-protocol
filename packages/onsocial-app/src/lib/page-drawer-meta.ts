@@ -119,7 +119,16 @@ export function formatDaoRoleLabel(roleId: string): string {
   const id = roleId.trim().toLowerCase();
   if (id === 'guardians') return 'Guardian';
   if (id === 'council') return 'Council';
+  if (id === 'delegated_proposers') return 'Proposers';
   if (!id) return '';
+  // Snake / kebab ids → Title Case words (e.g. token_holders → Token Holders).
+  if (/[_-]/.test(id)) {
+    return id
+      .split(/[_-]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
   return id.charAt(0).toUpperCase() + id.slice(1);
 }
 

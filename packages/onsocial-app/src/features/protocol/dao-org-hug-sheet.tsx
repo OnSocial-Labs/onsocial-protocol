@@ -25,6 +25,7 @@ export function DaoOrgHugSheet({
   zIndex = SHEET_Z.list,
   panelClassName,
   contentClassName,
+  footer,
   children,
 }: {
   open: boolean;
@@ -37,6 +38,8 @@ export function DaoOrgHugSheet({
   zIndex?: number;
   panelClassName?: string;
   contentClassName?: string;
+  /** Pinned hug footer (e.g. Members stake CTA) — same slot as other drawers. */
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   const pageMood = useDaoPageMood(daoAccountId, open);
@@ -64,6 +67,7 @@ export function DaoOrgHugSheet({
       panelStyle={pageMood.moodStyle}
       panelClassName={panelClass}
       bodyClassName="dao-org-hug-body"
+      footer={footer}
     >
       <div className={contentClass}>{children}</div>
     </OsHugSheet>

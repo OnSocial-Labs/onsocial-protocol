@@ -22,6 +22,7 @@ import {
   protocolStakeAmountError,
   protocolStakeAmountMeta,
   protocolStakeShowsAmountField,
+  protocolStakeCtaLabel,
   protocolStakeWhisper,
   resolveProtocolStakeMaxYocto,
   type ProtocolStakeMode,
@@ -212,12 +213,10 @@ export function ProtocolStakeSheet({
   );
 
   const stakingReady = Boolean(eligibility?.stakingContractId);
-  const ctaLabel =
-    mode === 'delegate'
-      ? 'Delegate'
-      : mode === 'undelegate'
-        ? 'Undelegate'
-        : 'Withdraw';
+  const ctaLabel = protocolStakeCtaLabel(
+    mode,
+    amountOk && !amountError ? normalizedAmount : null
+  );
 
   const footerState = useMemo((): CommerceSheetFooterState | null => {
     if (!open) return null;

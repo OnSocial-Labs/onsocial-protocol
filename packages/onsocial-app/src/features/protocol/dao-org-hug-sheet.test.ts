@@ -66,4 +66,12 @@ describe('DAO org hug drawers', () => {
     expect(globalsCss).not.toContain('dao-members-slide');
     expect(globalsCss).not.toContain('dao-treasury-slide');
   });
+
+  it('pins Members stake CTA in the hug footer, not inside the panel', () => {
+    expect(wrapper).toContain('footer={footer}');
+    expect(members).toContain('footer={stakeFooter}');
+    expect(members).toContain('OsSheetFooter');
+    expect(members).not.toContain('dao-members-stake-footer');
+    expect(members).not.toContain('dao-members-stake-actions');
+  });
 });

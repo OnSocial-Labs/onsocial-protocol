@@ -9,6 +9,7 @@ import {
   protocolStakeActionBlocked,
   protocolStakeAmountError,
   protocolStakeAmountMeta,
+  protocolStakeCtaLabel,
   protocolStakeWhisper,
   resolveProtocolStakeMaxYocto,
 } from '@/features/protocol/protocol-stake-amount';
@@ -65,8 +66,17 @@ describe('protocol-stake-amount', () => {
   });
 
   it('morphs whisper and meta by stake mode', () => {
+    expect(protocolStakeWhisper('delegate')).toMatch(/proposal weight/i);
+    expect(protocolStakeWhisper('undelegate')).toMatch(/proposal weight/i);
     expect(protocolStakeWhisper('withdraw')).toMatch(/wallet/i);
     expect(protocolStakeWhisper('delegate', true)).toMatch(/paused/i);
+    expect(protocolStakeCtaLabel('delegate', null)).toBe('Delegate');
+    expect(protocolStakeCtaLabel('delegate', '500')).toBe(
+      'Delegate 500 SOCIAL'
+    );
+    expect(protocolStakeCtaLabel('undelegate', '50')).toBe(
+      'Undelegate 50 SOCIAL'
+    );
     expect(
       protocolStakeAmountMeta({
         mode: 'withdraw',

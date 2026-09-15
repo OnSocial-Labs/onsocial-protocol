@@ -2,12 +2,21 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Divider } from '@onsocial/ui';
+import { Divider, OsSheetAction, OsSheetActions, OsSheetFooter } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { DaoOrgHugSheet } from '@/features/protocol/dao-org-hug-sheet';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { listDaoMembershipSections } from '@/features/protocol/dao-group-roles';
+import {
+  DAO_STAKE_ROLE_CONNECT_CTA,
+  DAO_STAKE_ROLE_META,
+  DAO_STAKE_ROLE_MET_STATUS,
+  DAO_STAKE_ROLE_PROGRESS_LABEL,
+  daoStakeRoleCtaLabel,
+  daoStakeRoleGateCopy,
+  daoStakeRoleProgressValue,
+} from '@/features/protocol/dao-members-copy';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import {
   getProtocolGovernanceEligibility,
@@ -22,6 +31,7 @@ import {
 import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { formatSocialCompact } from '@/lib/format-social-balance';
+import { formatDaoRoleLabel } from '@/lib/page-drawer-meta';
 import { portfolioPath } from '@/lib/overlay-routes';
 
 /**
@@ -41,7 +51,7 @@ export function DaoMembersSheet({
   onClose: () => void;
   onRequestStake?: () => void;
 }) {
-  const { accountId } = useAppWallet();
+  const { accountId, connect } = useAppWallet();
   const face = useMatchingDaoFaceEligibility(daoAccountId);
   const [policy, setPolicy] = useState<ProtocolDaoPolicy | null>(
     () => readDaoFeedCache(daoAccountId)?.daoPolicy ?? null
@@ -137,6 +147,39 @@ export function DaoMembersSheet({
     ? formatSocialCompact(eligibility.remainingToThreshold)
     : null;
   const viewerMeetsStake = Boolean(eligibility?.canPropose);
+  const stakeTokenLabel = eligibility?.foreignStakeTokenLabel ?? 'SOCIAL';
+  const hasStakeRole = sections.some((section) => section.kind === 'member');
+  const stakeFooterReady =
+    hasStakeRole &&
+    (!accountId ||
+      (!viewerMeetsStake &&
+        Boolean(eligibility?.hasStakeProposePath) &&
+        Boolean(onRequestStake) &&
+        viewerRemainingLabel != null));
+
+  const stakeFooter = stakeFooterReady ? (
+    <OsSheetFooter>
+      <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+        <OsSheetAction
+          type="button"
+          variant="primary"
+          ready
+          onClick={() => {
+            if (!accountId) {
+              void connect();
+              return;
+            }
+            onClose();
+            onRequestStake?.();
+          }}
+        >
+          {!accountId
+            ? DAO_STAKE_ROLE_CONNECT_CTA
+            : daoStakeRoleCtaLabel(viewerRemainingLabel!, stakeTokenLabel)}
+        </OsSheetAction>
+      </OsSheetActions>
+    </OsSheetFooter>
+  ) : null;
 
   return (
     <DaoOrgHugSheet
@@ -147,6 +190,7 @@ export function DaoMembersSheet({
       subtitle={daoName?.trim() || daoAccountId}
       closeAriaLabel="Close members"
       contentClassName="dao-members-sheet"
+      footer={stakeFooter}
     >
       {pending && !policy ? (
         <p className="dao-members-empty">Loading roles…</p>
@@ -162,15 +206,16 @@ export function DaoMembersSheet({
         <p className="dao-members-empty">No roles on this DAO yet.</p>
       ) : null}
 
-      {sections.map((section) =>
-        section.kind === 'group' ? (
+      {sections.map((section) => {
+        const roleLabel = formatDaoRoleLabel(section.roleName) || section.roleName;
+        return section.kind === 'group' ? (
           <section
             key={`group:${section.roleName}`}
             className="dao-members-role"
-            aria-label={section.roleName}
+            aria-label={roleLabel}
           >
             <h2 className="dao-members-role-title">
-              {section.roleName}
+              {roleLabel}
               <span className="dao-members-role-count">
                 {section.accountIds.length}
               </span>
@@ -208,43 +253,47 @@ export function DaoMembersSheet({
           <section
             key={`member:${section.roleName}`}
             className="dao-members-role"
-            aria-label={section.roleName}
+            aria-label={roleLabel}
           >
             <h2 className="dao-members-role-title">
-              {section.roleName}
-              <span className="dao-members-role-meta">Stake</span>
+              {roleLabel}
+              <span className="dao-members-role-meta">{DAO_STAKE_ROLE_META}</span>
             </h2>
-            <p className="dao-members-threshold">
-              Need {formatSocialCompact(section.thresholdYocto)}{' '}
-              {eligibility?.foreignStakeTokenLabel ?? 'SOCIAL'} delegated to
-              hold this role.
-            </p>
-            {accountId && eligibility ? (
-              <div className="dao-members-viewer">
-                <p className="dao-members-viewer-line">
-                  {viewerMeetsStake
-                    ? `You meet it · ${viewerDelegatedLabel} SOCIAL`
-                    : `You have ${viewerDelegatedLabel} SOCIAL · need ${viewerRemainingLabel} more`}
-                </p>
-                {!viewerMeetsStake &&
-                eligibility.hasStakeProposePath &&
-                onRequestStake ? (
-                  <button
-                    type="button"
-                    className="dao-members-stake"
-                    onClick={() => {
-                      onClose();
-                      onRequestStake();
-                    }}
-                  >
-                    Stake to join
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
+            <div className="dao-members-stake-block">
+              <p className="dao-members-threshold">
+                {daoStakeRoleGateCopy(
+                  formatSocialCompact(section.thresholdYocto),
+                  stakeTokenLabel
+                )}
+              </p>
+              {accountId &&
+              eligibility &&
+              viewerDelegatedLabel != null &&
+              viewerRemainingLabel != null ? (
+                <>
+                  <div className="dao-members-stake-metric">
+                    <span className="dao-members-stake-metric-label">
+                      {DAO_STAKE_ROLE_PROGRESS_LABEL}
+                    </span>
+                    <span className="dao-members-stake-metric-value">
+                      {daoStakeRoleProgressValue(
+                        viewerDelegatedLabel,
+                        formatSocialCompact(section.thresholdYocto),
+                        stakeTokenLabel
+                      )}
+                    </span>
+                  </div>
+                  {viewerMeetsStake ? (
+                    <p className="dao-members-stake-status">
+                      {DAO_STAKE_ROLE_MET_STATUS}
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
           </section>
-        )
-      )}
+        );
+      })}
     </DaoOrgHugSheet>
   );
 }
