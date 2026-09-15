@@ -49,6 +49,17 @@ export function focusComposerField(
   scrollMobileFieldIntoView(field);
 }
 
+/**
+ * Beat activation from a child field's onFocus must not force title/textarea
+ * focus — that steals from article body, poll options, and place. Only muted
+ * beat clicks (no focused child) should force the primary field.
+ */
+export function shouldForceComposerPrimaryFocus(
+  options?: { focusPrimary?: boolean }
+): boolean {
+  return Boolean(options?.focusPrimary);
+}
+
 export function useMobileFieldFocusScroll<
   T extends HTMLElement = HTMLElement,
 >(): FocusEventHandler<T> {

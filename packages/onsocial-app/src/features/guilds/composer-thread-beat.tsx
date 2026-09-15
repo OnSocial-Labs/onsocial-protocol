@@ -101,7 +101,12 @@ export function ComposerThreadBeat({
   priorityMentionAccounts?: MentionPriorityAccount[];
   onPatch: (patch: Partial<ComposerSheetBeat>) => void;
   onRemove?: () => void;
-  onFocusBeat: () => void;
+  /**
+   * Activate this beat. Pass `{ focusPrimary: true }` only when the beat
+   * was selected without focusing a child field (muted-beat click) — field
+   * `onFocus` must not force title/textarea or it steals from poll/body.
+   */
+  onFocusBeat: (options?: { focusPrimary?: boolean }) => void;
   onScrollField: (event: FocusEvent<HTMLElement>) => void;
   onOpenLabels: () => void;
   onMediaError: (message: string | null) => void;
@@ -126,7 +131,7 @@ export function ComposerThreadBeat({
       onClick={
         muted && !pending
           ? () => {
-              onFocusBeat();
+              onFocusBeat({ focusPrimary: true });
             }
           : undefined
       }

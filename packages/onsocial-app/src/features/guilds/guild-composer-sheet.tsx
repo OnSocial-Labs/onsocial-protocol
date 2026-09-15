@@ -63,6 +63,7 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
 import {
   focusComposerField,
+  shouldForceComposerPrimaryFocus,
   scrollMobileFieldIntoView,
   useMobileFieldFocusScroll,
 } from '@/hooks/use-mobile-field-focus-scroll';
@@ -1044,11 +1045,18 @@ export function ComposerSheet({
     <IdentityLine name={viewerName} handle={accountId} />
   ) : null;
 
-  const focusFieldOnBeat = (index: number) => {
-    const row = beats[index];
+  const focusFieldOnBeat = (
+    index: number,
+    options?: { focusPrimary?: boolean }
+  ) => {
     if (index !== safeFocus) {
       flushSync(() => focusBeat(index));
     }
+    // Field onFocus (title, body, poll, place) already moved focus — do not
+    // steal back to title/textarea. Only muted-beat clicks request primary.
+    if (!shouldForceComposerPrimaryFocus(options)) return;
+
+    const row = beats[index];
     const useTitle =
       mode === 'post' &&
       Boolean(row?.articleMode) &&
@@ -1088,7 +1096,7 @@ export function ComposerSheet({
         onRemove={
           beats.length > 1 ? () => removeThreadBeat(index) : undefined
         }
-        onFocusBeat={() => focusFieldOnBeat(index)}
+        onFocusBeat={(options) => focusFieldOnBeat(index, options)}
         onScrollField={scrollFieldIntoView}
         onOpenLabels={() => setLabelsOpen(true)}
         onMediaError={setMediaError}
