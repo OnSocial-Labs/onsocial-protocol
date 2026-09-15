@@ -138,23 +138,31 @@ impl KeyPool {
             key_refs.push(key_ref);
         }
 
+        // Query on-chain status with retries. Rate-limited RPC errors must NOT
+        // be treated as "missing key" — that path tries AddKey for keys that
+        // already exist and can leave the pool at 0 active signers (/ready 503).
         let mut to_register = Vec::new();
         let mut active_refs = Vec::new();
-        for key_ref in key_refs {
-            match rpc
-                .query_access_key(&self.account_id, &key_ref.public_key)
+        for (i, key_ref) in key_refs.into_iter().enumerate() {
+            if i > 0 {
+                // Pace queries: Lava (and similar gateways) rate-limit bursty
+                // access_key fan-out during cold bootstrap of ~50 keys.
+                tokio::time::sleep(Duration::from_millis(75)).await;
+            }
+            match self
+                .sync_full_access_delegate_nonce(rpc, &key_ref.public_key)
                 .await
             {
-                Ok(ak) => {
-                    if !matches!(&ak.permission, AccessKeyPermissionView::FullAccess) {
-                        return Err(crate::Error::KeyPool(format!(
-                            "KMS delegate key {} exists on-chain without FullAccess",
-                            key_ref.public_key
-                        )));
-                    }
-                    active_refs.push((key_ref, ak.nonce));
+                Ok(nonce) => active_refs.push((key_ref, nonce)),
+                Err(error) if is_unknown_access_key_error(&error) => {
+                    to_register.push(key_ref);
                 }
-                Err(_) => to_register.push(key_ref),
+                Err(error) => {
+                    return Err(crate::Error::KeyPool(format!(
+                        "failed to sync existing KMS delegate key {}: {error}",
+                        key_ref.public_key
+                    )));
+                }
             }
         }
 
@@ -211,6 +219,10 @@ impl KeyPool {
                         )));
                     }
                     return Ok(access_key.nonce);
+                }
+                // Missing key is definitive — do not burn retries.
+                Err(error) if is_unknown_access_key_error(&error) => {
+                    return Err(error);
                 }
                 Err(error) if attempt < MAX_ATTEMPTS => {
                     let delay_ms = 500 * u64::from(attempt).min(6);
@@ -296,4 +308,12 @@ impl KeyPool {
 
         Ok(())
     }
+}
+
+/// NEAR JSON-RPC returns this when ViewAccessKey finds no key (definitive miss).
+fn is_unknown_access_key_error(error: &crate::Error) -> bool {
+    let msg = error.to_string().to_ascii_lowercase();
+    msg.contains("does not exist while viewing")
+        || msg.contains("unknownaccesskey")
+        || msg.contains("unknown access key")
 }

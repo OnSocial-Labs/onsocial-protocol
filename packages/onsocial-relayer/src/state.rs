@@ -116,7 +116,17 @@ impl AppState {
             .ensure_delegate_pool(&rpc, config.delegate_pool_size)
             .await
         {
-            warn!(error = %e, "Failed to provision delegate signers");
+            return Err(crate::Error::KeyPool(format!(
+                "Failed to provision delegate signers (active={}, target={delegate_target}): {e}",
+                key_pool.active_delegate_count()
+            )));
+        }
+
+        if key_pool.active_delegate_count() < delegate_target {
+            return Err(crate::Error::KeyPool(format!(
+                "Delegate signer pool under-provisioned after bootstrap: active={}, target={delegate_target}",
+                key_pool.active_delegate_count()
+            )));
         }
 
         info!(
@@ -126,8 +136,7 @@ impl AppState {
             "Relayer ready with delegate signer pool"
         );
 
-        let ready =
-            std::sync::atomic::AtomicBool::new(key_pool.active_delegate_count() >= delegate_target);
+        let ready = std::sync::atomic::AtomicBool::new(true);
 
         Ok(Self {
             rpc,
