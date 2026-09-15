@@ -1,12 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import {
-  Divider,
-} from '@onsocial/ui';
+import { Divider } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
-import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
+import { DaoOrgHugSheet } from '@/features/protocol/dao-org-hug-sheet';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { listDaoMembershipSections } from '@/features/protocol/dao-group-roles';
@@ -25,7 +23,6 @@ import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { SHEET_Z } from '@/lib/sheet-z';
 
 /**
  * DAO membership — Group people as circles; Member roles show stake threshold
@@ -46,9 +43,6 @@ export function DaoMembersSheet({
 }) {
   const { accountId } = useAppWallet();
   const face = useMatchingDaoFaceEligibility(daoAccountId);
-  const [sheetOpen, setSheetOpen] = useState(open);
-  if (open && !sheetOpen) setSheetOpen(true);
-
   const [policy, setPolicy] = useState<ProtocolDaoPolicy | null>(
     () => readDaoFeedCache(daoAccountId)?.daoPolicy ?? null
   );
@@ -60,20 +54,8 @@ export function DaoMembersSheet({
   );
   const [error, setError] = useState<string | null>(null);
 
-  const requestClose = useCallback(() => {
-    setSheetOpen(false);
-  }, []);
-
-  const handleClosed = useCallback(() => {
-    setPolicy(null);
-    setFetchedEligibility(null);
-    setError(null);
-    setPending(false);
-    onClose();
-  }, [onClose]);
-
   useEffect(() => {
-    if (!sheetOpen) return;
+    if (!open) return;
     let cancelled = false;
     const cached = readDaoFeedCache(daoAccountId);
     if (cached?.daoPolicy) {
@@ -112,10 +94,10 @@ export function DaoMembersSheet({
     return () => {
       cancelled = true;
     };
-  }, [sheetOpen, daoAccountId]);
+  }, [open, daoAccountId]);
 
   useEffect(() => {
-    if (!sheetOpen || !accountId) {
+    if (!open || !accountId) {
       queueMicrotask(() => setFetchedEligibility(null));
       return;
     }
@@ -132,7 +114,7 @@ export function DaoMembersSheet({
     return () => {
       cancelled = true;
     };
-  }, [sheetOpen, accountId, daoAccountId, face]);
+  }, [open, accountId, daoAccountId, face]);
 
   const sections = useMemo(() => listDaoMembershipSections(policy), [policy]);
   const showProtocolRoleMarks = isProtocolFacePairDao(daoAccountId);
@@ -157,16 +139,13 @@ export function DaoMembersSheet({
   const viewerMeetsStake = Boolean(eligibility?.canPropose);
 
   return (
-    <DaoPageSlideOverScreen
-      pageAccountId={daoAccountId}
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleClosed}
+    <DaoOrgHugSheet
+      daoAccountId={daoAccountId}
+      open={open}
+      onClose={onClose}
       title="Members"
       subtitle={daoName?.trim() || daoAccountId}
-      closeAriaLabel="Back from members"
-      zIndex={SHEET_Z.board}
-      className="dao-members-slide"
+      closeAriaLabel="Close members"
       contentClassName="dao-members-sheet"
     >
       {pending && !policy ? (
@@ -254,7 +233,7 @@ export function DaoMembersSheet({
                     type="button"
                     className="dao-members-stake"
                     onClick={() => {
-                      requestClose();
+                      onClose();
                       onRequestStake();
                     }}
                   >
@@ -266,6 +245,6 @@ export function DaoMembersSheet({
           </section>
         )
       )}
-    </DaoPageSlideOverScreen>
+    </DaoOrgHugSheet>
   );
 }

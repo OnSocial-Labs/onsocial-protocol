@@ -21,7 +21,7 @@ export const SHEET_Z = {
   gesture: 56,
   /** Facts / settings / storage peeks. */
   facts: 57,
-  /** Lists + pickers (rooms, fans, activity, moods, composer). */
+  /** Lists + pickers (rooms, fans, activity, moods, composer, DAO members / treasury). */
   list: 58,
   /** Nested above a sheet (add member, time drum, mint-cap edit). */
   nested: 60,
@@ -29,7 +29,7 @@ export const SHEET_Z = {
   nestedConfirm: 62,
   /** Discover surfaces (DAO discover). */
   discover: 72,
-  /** Board lists (leaderboard, DAO members). */
+  /** Board lists (leaderboard). */
   board: 74,
   /** Task / media shells (protocol task, listen shell). */
   shell: 80,

@@ -9,7 +9,12 @@ import {
   useState,
 } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { OsPageSheet, OsProposalCardList } from '@onsocial/ui';
+import {
+  MultiplyIcon,
+  OsIconAction,
+  OsPageSheet,
+  OsProposalCardList,
+} from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
@@ -1819,7 +1824,14 @@ export function DaoWorkspacePanel({
             dockBack
             onDockBack={handleSheetBack}
             backFallbackHref={daoPortfolioPath(daoAccountId)}
-            leading={null}
+            leading={
+              <OsIconAction
+                ariaLabel={sheet.closeAriaLabel ?? 'Close proposals'}
+                onClick={() => requestCloseSheet?.()}
+              >
+                <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
+              </OsIconAction>
+            }
             moodId={pageMood.moodId}
             moodStyle={pageMood.moodStyle}
             scrollRootRef={scrollRootRef}
