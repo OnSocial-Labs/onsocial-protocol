@@ -2,11 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import {
-  Divider,
-} from '@onsocial/ui';
+import { Divider } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
-import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
+import { DaoOrgPageSheet } from '@/features/protocol/dao-org-page-sheet';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { listDaoMembershipSections } from '@/features/protocol/dao-group-roles';
@@ -25,7 +23,6 @@ import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { SHEET_Z } from '@/lib/sheet-z';
 
 /**
  * DAO membership — Group people as circles; Member roles show stake threshold
@@ -63,6 +60,10 @@ export function DaoMembersSheet({
   const requestClose = useCallback(() => {
     setSheetOpen(false);
   }, []);
+
+  useEffect(() => {
+    if (!open) setSheetOpen(false);
+  }, [open]);
 
   const handleClosed = useCallback(() => {
     setPolicy(null);
@@ -157,16 +158,15 @@ export function DaoMembersSheet({
   const viewerMeetsStake = Boolean(eligibility?.canPropose);
 
   return (
-    <DaoPageSlideOverScreen
-      pageAccountId={daoAccountId}
+    <DaoOrgPageSheet
+      daoAccountId={daoAccountId}
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
       title="Members"
       subtitle={daoName?.trim() || daoAccountId}
       closeAriaLabel="Back from members"
-      zIndex={SHEET_Z.board}
-      className="dao-members-slide"
+      panelClassName="dao-members-page"
       contentClassName="dao-members-sheet"
     >
       {pending && !policy ? (
@@ -266,6 +266,6 @@ export function DaoMembersSheet({
           </section>
         )
       )}
-    </DaoPageSlideOverScreen>
+    </DaoOrgPageSheet>
   );
 }

@@ -29,7 +29,7 @@ export const SHEET_Z = {
   nestedConfirm: 62,
   /** Discover surfaces (DAO discover). */
   discover: 72,
-  /** Board lists (leaderboard, DAO members). */
+  /** Board lists (leaderboard). DAO members / treasury use the org page overlay. */
   board: 74,
   /** Task / media shells (protocol task, listen shell). */
   shell: 80,

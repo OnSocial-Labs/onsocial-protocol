@@ -74,4 +74,42 @@ test.describe('DAO manage shell', () => {
       page.getByRole('textbox', { name: 'Search proposals' })
     ).toBeVisible({ timeout: 30_000 });
   });
+
+  test('Members and Treasury open as page overlays, not slide-overs', async ({
+    page,
+  }) => {
+    await gotoApp(page, daoPath);
+    await expectPortfolioIdentityOrSkip(page, DAO_ACCOUNT);
+    await waitForPortfolioClientReady(page);
+
+    const tools = page.getByRole('navigation', { name: 'DAO tools' });
+    await tools.getByRole('button', { name: 'Members' }).click();
+    await expectGlassSheetVisible(page);
+    const membersPage = page.locator(
+      '.glass-sheet-root.is-visible .dao-org-page.dao-members-page'
+    );
+    await expect(membersPage).toBeVisible({ timeout: 30_000 });
+    await expect(membersPage).toHaveAttribute('data-surface', 'page');
+    await expect(page.locator('.glass-sheet-root.is-visible')).toHaveAttribute(
+      'data-presentation',
+      'appear'
+    );
+    await expect(page.getByRole('dialog', { name: 'Members' })).toBeVisible();
+    await expect(page.locator('.dao-members-slide')).toHaveCount(0);
+    await expect(page.locator('[data-os-slide-over="true"]')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await expect(membersPage).toHaveCount(0, { timeout: 10_000 });
+
+    await tools.getByRole('button', { name: 'Treasury' }).click();
+    await expectGlassSheetVisible(page);
+    const treasuryPage = page.locator(
+      '.glass-sheet-root.is-visible .dao-org-page.dao-treasury-page'
+    );
+    await expect(treasuryPage).toBeVisible({ timeout: 30_000 });
+    await expect(treasuryPage).toHaveAttribute('data-surface', 'page');
+    await expect(page.getByRole('dialog', { name: 'Treasury' })).toBeVisible();
+    await expect(page.locator('.dao-treasury-slide')).toHaveCount(0);
+    await expect(page.locator('[data-os-slide-over="true"]')).toHaveCount(0);
+  });
 });

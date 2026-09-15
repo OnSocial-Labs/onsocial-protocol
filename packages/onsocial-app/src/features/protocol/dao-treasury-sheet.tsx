@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Divider } from '@onsocial/ui';
-import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
+import { DaoOrgPageSheet } from '@/features/protocol/dao-org-page-sheet';
 import {
   formatTreasuryAssetCompact,
   formatTreasuryAssetExact,
@@ -19,10 +19,7 @@ import {
 } from '@/lib/app-near-account-facts';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import type { ProtocolDaoTransferAsset } from '@/lib/protocol-dao-transfer-assets';
-import { SHEET_Z } from '@/lib/sheet-z';
 import { fetchProfileSupportBalanceYocto } from '@/lib/social-spend-profile';
-
-const TREASURY_Z = SHEET_Z.board;
 
 function treasuryAssetExplorerHref(
   asset: ProtocolDaoTransferAsset,
@@ -64,6 +61,10 @@ export function DaoTreasurySheet({
   const requestClose = useCallback(() => {
     setSheetOpen(false);
   }, []);
+
+  useEffect(() => {
+    if (!open) setSheetOpen(false);
+  }, [open]);
 
   const handleClosed = useCallback(() => {
     setAssets(null);
@@ -136,16 +137,15 @@ export function DaoTreasurySheet({
     !hasSupport;
 
   return (
-    <DaoPageSlideOverScreen
-      pageAccountId={daoAccountId}
+    <DaoOrgPageSheet
+      daoAccountId={daoAccountId}
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
       title="Treasury"
       subtitle={daoName?.trim() || daoAccountId}
       closeAriaLabel="Back from treasury"
-      zIndex={TREASURY_Z}
-      className="dao-treasury-slide"
+      panelClassName="dao-treasury-page"
       contentClassName="dao-treasury-sheet"
     >
       {pending && assets == null ? (
@@ -217,7 +217,9 @@ export function DaoTreasurySheet({
                       </span>
                     </span>
                     <span className="standing-row-aside">
-                      <span className="dao-treasury-balance">{formatTreasuryAssetCompact(asset)}</span>
+                      <span className="dao-treasury-balance">
+                        {formatTreasuryAssetCompact(asset)}
+                      </span>
                     </span>
                   </a>
                 </div>
@@ -226,6 +228,6 @@ export function DaoTreasurySheet({
           </div>
         </section>
       ) : null}
-    </DaoPageSlideOverScreen>
+    </DaoOrgPageSheet>
   );
 }

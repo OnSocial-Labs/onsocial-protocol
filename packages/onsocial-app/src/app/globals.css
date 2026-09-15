@@ -382,10 +382,12 @@
 }
 
 /*
- * Proposals mood page — same embedded OsAppScreen frost as composer.
+ * DAO org mood pages (Proposals / Members / Treasury) — same embedded
+ * OsAppScreen frost as composer.
  */
 .glass-sheet-panel.dao-proposals-page
-  > .glass-sheet-body.dao-proposals-page-body {
+  > .glass-sheet-body.dao-proposals-page-body,
+.glass-sheet-panel.dao-org-page > .glass-sheet-body.dao-org-page-body {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -394,7 +396,8 @@
   overflow: hidden;
 }
 
-.glass-sheet-panel.dao-proposals-page .os-app-screen--embedded {
+.glass-sheet-panel.dao-proposals-page .os-app-screen--embedded,
+.glass-sheet-panel.dao-org-page .os-app-screen--embedded {
   flex: 1 1 auto;
   width: 100%;
   height: 100%;
@@ -407,7 +410,8 @@
 
 .glass-sheet-panel.dao-proposals-page
   .os-app-screen--embedded
-  .os-app-screen-column {
+  .os-app-screen-column,
+.glass-sheet-panel.dao-org-page .os-app-screen--embedded .os-app-screen-column {
   max-width: none;
   height: 100%;
 }
@@ -12687,7 +12691,8 @@ a.os-surface-row {
     padding-bottom: var(--portfolio-dock-clearance, 4.75rem);
   }
 
-  .glass-sheet-root[data-keep-dock='true'] .dao-proposals-page .dao-workspace {
+  .glass-sheet-root[data-keep-dock='true'] .dao-proposals-page .dao-workspace,
+  .glass-sheet-root[data-keep-dock='true'] .dao-org-page .dao-org-page-content {
     padding-bottom: calc(1.25rem + var(--portfolio-dock-clearance, 4.75rem));
   }
 
@@ -29660,17 +29665,28 @@ a.os-surface-row {
 
   /*
    * DAO Members / Treasury — social-list inset (same as `.standing-panel`).
-   * Must target `.os-slide-over-content.…` like hub-manage so the pad survives
-   * CSS minify (bare `.dao-*-sheet { padding }` was dropped from the bundle).
+   * Pad lives on `.dao-org-page .dao-org-page-content` so it survives CSS
+   * minify (bare `.dao-*-sheet { padding }` was dropped from the bundle).
    */
-  .dao-members-slide .os-slide-over-content.dao-members-sheet,
-  .dao-treasury-slide .os-slide-over-content.dao-treasury-sheet {
-    gap: 0.65rem;
-    padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
-  }
-
+  .dao-org-page.os-page-sheet-panel,
   .dao-proposals-page.os-page-sheet-panel {
     --os-screen-body-pad-x: 1rem;
+  }
+
+  .dao-org-page-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  .dao-org-page .dao-org-page-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    min-width: 0;
+    padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
   }
 
   .dao-proposals-page-body {
@@ -40459,7 +40475,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 .dao-treasury-sheet {
   display: flex;
   flex-direction: column;
-  /* Gap + pad live on `.dao-*-slide .os-slide-over-content.dao-*-sheet`. */
+  /* Gap + pad live on `.dao-org-page .dao-org-page-content`. */
 }
 
 .dao-members-empty,
