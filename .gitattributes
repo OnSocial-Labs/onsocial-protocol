@@ -1,3 +1,5 @@
+# Force LF for shell/SQL — these were the recurring "full file changed"
+# ghosts when Windows/WSL touched them. Do not gitignore; renormalize.
 *.sh text eol=lf
 *.bash text eol=lf
 *.sql text eol=lf
