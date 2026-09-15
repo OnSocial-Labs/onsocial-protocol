@@ -223,6 +223,9 @@ test.describe('create drop', () => {
     await page.locator('.os-app-screen').evaluate((el) => {
       el.style.setProperty('--mood-bg', 'transparent');
     });
+    await expect
+      .poll(async () => panel.evaluate((el) => getComputedStyle(el).opacity))
+      .toBe('1');
     const fill = await panel.evaluate((el) => {
       const style = getComputedStyle(el);
       return {
