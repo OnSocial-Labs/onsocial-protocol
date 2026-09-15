@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useId } from 'react';
-import { OsPageSheet } from '@onsocial/ui';
+import { MultiplyIcon, OsIconAction, OsPageSheet } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useDaoPageMood } from '@/features/protocol/use-dao-page-mood';
 import { daoPortfolioPath } from '@/lib/app-routes';
@@ -11,8 +11,13 @@ import { daoPortfolioPath } from '@/lib/app-routes';
  * DAO org read pages (Members, Treasury) — same OsPageSheet + embedded
  * OsAppScreen as Proposals. Edit / Boost stay on `DaoPageSlideOverScreen`.
  *
- * z-index 45 sits under the page drawer (48) and summon dock (49) so
- * keepDock + dockBack stay clickable.
+ * Header × dismisses the overlay. Dock Back leaves the page (same dismiss
+ * here — these sheets have no inner stack). z-index 45 sits under the page
+ * drawer (48) and summon dock (49) so keepDock + dockBack stay clickable.
+ *
+ * GlassSheet already stays mounted through the exit animation — callers
+ * should pass parent `open` / `onClose` through and not re-fire `onClose`
+ * from `onClosed`.
  */
 export const DAO_ORG_PAGE_Z = 45;
 
@@ -76,7 +81,11 @@ export function DaoOrgPageSheet({
         dockBack
         onDockBack={onClose}
         backFallbackHref={daoPortfolioPath(daoAccountId)}
-        leading={null}
+        leading={
+          <OsIconAction ariaLabel={closeAriaLabel} onClick={onClose}>
+            <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
+          </OsIconAction>
+        }
         moodId={pageMood.moodId}
         moodStyle={pageMood.moodStyle}
       >

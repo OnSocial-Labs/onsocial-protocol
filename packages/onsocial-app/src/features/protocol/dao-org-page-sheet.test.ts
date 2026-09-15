@@ -9,6 +9,7 @@ const members = readFileSync(join(here, 'dao-members-sheet.tsx'), 'utf8');
 const treasury = readFileSync(join(here, 'dao-treasury-sheet.tsx'), 'utf8');
 const edit = readFileSync(join(here, 'dao-edit-sheet.tsx'), 'utf8');
 const boost = readFileSync(join(here, 'dao-boost-sheet.tsx'), 'utf8');
+const proposals = readFileSync(join(here, 'dao-workspace-panel.tsx'), 'utf8');
 const globalsCss = readFileSync(join(here, '../../app/globals.css'), 'utf8');
 
 describe('DAO org page overlay', () => {
@@ -21,13 +22,24 @@ describe('DAO org page overlay', () => {
     expect(wrapper).toContain('OsAppScreen');
     expect(wrapper).toContain('embedded');
     expect(wrapper).toContain('dockBack');
+    expect(wrapper).toContain('MultiplyIcon');
+    expect(wrapper).toContain('OsIconAction');
+    expect(wrapper).toContain('closeAriaLabel');
     expect(wrapper).toContain('useDaoPageMood');
+    expect(wrapper).not.toContain('leading={null}');
     expect(members).toContain('DaoOrgPageSheet');
     expect(members).not.toContain('DaoPageSlideOverScreen');
     expect(members).not.toContain('dao-members-slide');
+    expect(members).not.toContain('setMounted');
+    expect(members).not.toContain('onClosed');
     expect(treasury).toContain('DaoOrgPageSheet');
     expect(treasury).not.toContain('DaoPageSlideOverScreen');
     expect(treasury).not.toContain('dao-treasury-slide');
+    expect(treasury).not.toContain('setMounted');
+    expect(treasury).not.toContain('onClosed');
+    expect(proposals).toContain('MultiplyIcon');
+    expect(proposals).toContain('Close proposals');
+    expect(proposals).not.toContain('leading={null}');
   });
 
   it('leaves Edit / Boost on the DAO slide-over', () => {

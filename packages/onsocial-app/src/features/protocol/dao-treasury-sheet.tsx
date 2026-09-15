@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Divider } from '@onsocial/ui';
 import { DaoOrgPageSheet } from '@/features/protocol/dao-org-page-sheet';
 import {
@@ -46,9 +46,6 @@ export function DaoTreasurySheet({
   onClose: () => void;
 }) {
   const cachedTreasury = readDaoTreasuryCache(daoAccountId);
-  const [mounted, setMounted] = useState(open);
-  if (open && !mounted) setMounted(true);
-
   const [assets, setAssets] = useState<ProtocolDaoTransferAsset[] | null>(
     () => cachedTreasury?.assets ?? null
   );
@@ -57,15 +54,6 @@ export function DaoTreasurySheet({
   );
   const [pending, setPending] = useState(() => cachedTreasury == null);
   const [error, setError] = useState<string | null>(null);
-
-  const handleClosed = useCallback(() => {
-    setAssets(null);
-    setSupportYocto(null);
-    setError(null);
-    setPending(false);
-    setMounted(false);
-    onClose();
-  }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -129,17 +117,14 @@ export function DaoTreasurySheet({
     !hasAssets &&
     !hasSupport;
 
-  if (!mounted) return null;
-
   return (
     <DaoOrgPageSheet
       daoAccountId={daoAccountId}
       open={open}
       onClose={onClose}
-      onClosed={handleClosed}
       title="Treasury"
       subtitle={daoName?.trim() || daoAccountId}
-      closeAriaLabel="Back from treasury"
+      closeAriaLabel="Close treasury"
       panelClassName="dao-treasury-page"
       contentClassName="dao-treasury-sheet"
     >

@@ -95,10 +95,13 @@ test.describe('DAO manage shell', () => {
       'appear'
     );
     await expect(page.getByRole('dialog', { name: 'Members' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Close members' })
+    ).toBeVisible();
     await expect(page.locator('.dao-members-slide')).toHaveCount(0);
     await expect(page.locator('[data-os-slide-over="true"]')).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByRole('button', { name: 'Close members' }).click();
     await expect(membersPage).toHaveCount(0, { timeout: 10_000 });
 
     await tools.getByRole('button', { name: 'Treasury' }).click();
@@ -109,6 +112,9 @@ test.describe('DAO manage shell', () => {
     await expect(treasuryPage).toBeVisible({ timeout: 30_000 });
     await expect(treasuryPage).toHaveAttribute('data-surface', 'page');
     await expect(page.getByRole('dialog', { name: 'Treasury' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Close treasury' })
+    ).toBeVisible();
     await expect(page.locator('.dao-treasury-slide')).toHaveCount(0);
     await expect(page.locator('[data-os-slide-over="true"]')).toHaveCount(0);
   });

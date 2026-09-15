@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Divider } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
@@ -43,9 +43,6 @@ export function DaoMembersSheet({
 }) {
   const { accountId } = useAppWallet();
   const face = useMatchingDaoFaceEligibility(daoAccountId);
-  const [mounted, setMounted] = useState(open);
-  if (open && !mounted) setMounted(true);
-
   const [policy, setPolicy] = useState<ProtocolDaoPolicy | null>(
     () => readDaoFeedCache(daoAccountId)?.daoPolicy ?? null
   );
@@ -56,15 +53,6 @@ export function DaoMembersSheet({
     () => readDaoFeedCache(daoAccountId)?.daoPolicy == null
   );
   const [error, setError] = useState<string | null>(null);
-
-  const handleClosed = useCallback(() => {
-    setPolicy(null);
-    setFetchedEligibility(null);
-    setError(null);
-    setPending(false);
-    setMounted(false);
-    onClose();
-  }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -150,17 +138,14 @@ export function DaoMembersSheet({
     : null;
   const viewerMeetsStake = Boolean(eligibility?.canPropose);
 
-  if (!mounted) return null;
-
   return (
     <DaoOrgPageSheet
       daoAccountId={daoAccountId}
       open={open}
       onClose={onClose}
-      onClosed={handleClosed}
       title="Members"
       subtitle={daoName?.trim() || daoAccountId}
-      closeAriaLabel="Back from members"
+      closeAriaLabel="Close members"
       panelClassName="dao-members-page"
       contentClassName="dao-members-sheet"
     >
