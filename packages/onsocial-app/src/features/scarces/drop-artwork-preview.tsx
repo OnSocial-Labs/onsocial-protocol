@@ -10,6 +10,7 @@ import {
   useId,
   useRef,
   useState,
+  type CSSProperties,
   type DragEvent as ReactDragEvent,
   type ReactNode,
 } from 'react';
@@ -46,6 +47,12 @@ interface DropArtOverlayProps {
    * Surface material:
    * - `'page'` (default): Solid opaque canvas (`--bg`). Zero distraction / bleed through. Best for high-contrast art.
    * - `'glass'`: Atmospheric frosted blur scrim.
+   *
+   * Page fill is pinned to `--bg` on the panel. OsPageSheet `surface="page"`
+   * otherwise paints `var(--mood-bg, var(--bg))` with no frost and no scrim.
+   * Glass / Carbon set `--mood-bg: transparent` on the OS frame — CSS `var()`
+   * does not fall through when that value is `transparent`, so the New drop
+   * form would show through.
    */
   surface?: 'page' | 'glass';
 }
@@ -89,6 +96,13 @@ export function DropArtOverlay({
   const hasNav = Boolean(onPrev || onNext);
   const inlineSvg = svg?.trim() || null;
   const rasterSrc = src?.trim() || null;
+  const pageFillStyle: CSSProperties | undefined =
+    surface === 'page'
+      ? ({
+          background: 'var(--bg)',
+          ['--mood-bg']: 'var(--bg)',
+        } as CSSProperties)
+      : undefined;
 
   return (
     <OsPageSheet
@@ -102,6 +116,7 @@ export function DropArtOverlay({
       backdropLabel={`Close ${label}`}
       panelClassName="drop-art-page-sheet-panel"
       bodyClassName="drop-art-page-sheet-body"
+      {...(pageFillStyle ? { panelStyle: pageFillStyle } : {})}
       header={
         <div className="drop-art-overlay-chrome">
           <SheetCloseButton

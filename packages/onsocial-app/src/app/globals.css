@@ -497,6 +497,17 @@
 }
 
 /*
+ * Drop art OsPageSheet fill — unlayered so it beats glass-sheet.css
+ * `.glass-sheet-panel[data-surface='page'] { background: var(--mood-bg, var(--bg)) }`.
+ * Glass / Carbon set `--mood-bg: transparent` on the OS frame; page surface
+ * also skips frost + scrim. Pin to `--bg` so zoomed art sits on a solid canvas.
+ */
+.drop-art-page-sheet-panel.glass-sheet-panel[data-surface='page'] {
+  --mood-bg: var(--bg);
+  background: var(--bg, rgb(var(--bg-rgb)));
+}
+
+/*
  * Drop art OsPageSheet close — unlayered so it beats glass-sheet.css
  * (.glass-sheet-icon-action uses --fg). Icon only — no fill, border, or ring.
  */
