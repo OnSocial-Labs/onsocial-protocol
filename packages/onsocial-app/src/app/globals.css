@@ -39894,25 +39894,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.55rem;
 }
 
-.protocol-picker-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.protocol-picker-section-label {
-  margin: 0;
-  font-size: 0.68rem;
-  font-weight: 750;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgb(var(--fg-rgb) / 0.48);
-}
-
-.protocol-picker-section-list {
-  margin: 0;
-}
-
 .protocol-propose-kind-current {
   display: flex;
   flex-wrap: wrap;
@@ -40447,10 +40428,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 .dao-proposals-slide .dao-workspace {
   gap: 0.65rem;
-}
-
-.dao-manage-sheet-list {
-  margin: 0;
 }
 
 .dao-members-sheet,

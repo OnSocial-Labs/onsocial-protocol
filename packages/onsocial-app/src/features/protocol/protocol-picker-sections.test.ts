@@ -6,6 +6,10 @@ import {
   protocolPickerStakeGateMessage,
   shouldShowProtocolPickerOptions,
 } from '@/features/protocol/protocol-picker-sections';
+import {
+  buildProtocolPickerActionItems,
+  protocolPickerItemLockReason,
+} from '@/features/protocol/protocol-picker-sheet';
 
 type DemoId = 'a' | 'b' | 'c';
 
@@ -78,5 +82,59 @@ describe('shouldShowProtocolPickerOptions', () => {
     );
     expect(shouldShowProtocolPickerOptions('alice.near', 'error')).toBe(false);
     expect(shouldShowProtocolPickerOptions('alice.near', 'ready')).toBe(true);
+  });
+});
+
+describe('buildProtocolPickerActionItems', () => {
+  it('returns no rows until a wallet is ready', () => {
+    const sections = [
+      {
+        key: 'common',
+        label: 'Common',
+        options: [{ id: 'a' as const, label: 'Alpha', hint: 'One' }],
+      },
+    ];
+    expect(
+      buildProtocolPickerActionItems({
+        sections,
+        accountId: null,
+        loadState: 'ready',
+        highlightedId: null,
+        onSelect: () => undefined,
+      })
+    ).toEqual([]);
+  });
+
+  it('maps ready kinds onto ActionDrawer rows', () => {
+    const rows = buildProtocolPickerActionItems({
+      sections: [
+        {
+          key: 'common',
+          label: 'Common',
+          options: [{ id: 'a' as const, label: 'Alpha', hint: 'One' }],
+        },
+      ],
+      accountId: 'alice.near',
+      loadState: 'ready',
+      highlightedId: 'a',
+      onSelect: () => undefined,
+    });
+    expect(rows).toMatchObject([
+      {
+        id: 'a',
+        label: 'Alpha',
+        description: 'One',
+        section: 'Common',
+        disabled: false,
+        trailing: 'Last used',
+      },
+    ]);
+    expect(
+      protocolPickerItemLockReason({
+        accountId: 'alice.near',
+        loadState: 'ready',
+        readyReason: null,
+      })
+    ).toBeNull();
   });
 });

@@ -15,9 +15,9 @@ import {
   protocolPickerStakeGateMessage,
 } from '@/features/protocol/protocol-picker-sections';
 import {
-  ProtocolPickerOptionList,
   ProtocolPickerSheet,
   ProtocolPickerStatus,
+  buildProtocolPickerActionItems,
   useProtocolPickerEligibility,
 } from '@/features/protocol/protocol-picker-sheet';
 import { viewerHasPolicyActionPermission } from '@/features/protocol/protocol-propose-gate';
@@ -87,10 +87,26 @@ export function ProtocolSettingsActionSheet({
     [common, grouped]
   );
 
-  const selectAction = (actionId: ProtocolPolicyActionId) => {
-    rememberProtocolPolicyAction(actionId);
-    onSelectAction(actionId);
-  };
+  const items = useMemo(
+    () =>
+      buildProtocolPickerActionItems({
+        sections,
+        accountId,
+        loadState: eligibility.loadState,
+        highlightedId: highlightedAction,
+        onSelect: (actionId) => {
+          rememberProtocolPolicyAction(actionId);
+          onSelectAction(actionId);
+        },
+      }),
+    [
+      accountId,
+      eligibility.loadState,
+      highlightedAction,
+      onSelectAction,
+      sections,
+    ]
+  );
 
   return (
     <ProtocolPickerSheet
@@ -100,6 +116,7 @@ export function ProtocolSettingsActionSheet({
       copy="Choose a DAO policy change."
       closeAriaLabel="Close settings"
       backdropLabel="Close settings"
+      items={items}
     >
       <ProtocolPickerStatus
         accountId={accountId}
@@ -127,14 +144,6 @@ export function ProtocolSettingsActionSheet({
           No settings actions match your roles on this DAO.
         </p>
       ) : null}
-
-      <ProtocolPickerOptionList
-        sections={sections}
-        accountId={accountId}
-        loadState={eligibility.loadState}
-        highlightedId={highlightedAction}
-        onSelect={selectAction}
-      />
     </ProtocolPickerSheet>
   );
 }
