@@ -39749,9 +39749,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.62);
 }
 
-.protocol-picker-sheet-body.is-long {
-  /* Long kind lists scroll inside the hug cap (90dvh) instead of clipping at peek. */
-  max-height: min(90dvh, 720px);
+.protocol-picker-sheet-body {
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;

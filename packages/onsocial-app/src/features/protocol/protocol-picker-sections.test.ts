@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildProtocolPickerSections,
+  PROTOCOL_PICKER_LAYOUT,
   protocolPickerForeignStakeMessage,
   protocolPickerStakeGateMessage,
-  resolveProtocolPickerSheetLayout,
 } from '@/features/protocol/protocol-picker-sections';
 
 type DemoId = 'a' | 'b' | 'c';
@@ -60,18 +60,11 @@ describe('protocol picker copy', () => {
   });
 });
 
-describe('resolveProtocolPickerSheetLayout', () => {
-  it('peeks for short pickers', () => {
-    expect(resolveProtocolPickerSheetLayout(4)).toEqual({
-      initialDetent: 'peek',
-      peekRatio: 0.62,
-    });
-  });
-
-  it('opens full hug for long propose lists', () => {
-    expect(resolveProtocolPickerSheetLayout(12)).toEqual({
+describe('PROTOCOL_PICKER_LAYOUT', () => {
+  it('hugs content instead of expanding to a 90dvh catalog', () => {
+    expect(PROTOCOL_PICKER_LAYOUT).toEqual({
       initialDetent: 'full',
-      peekRatio: 0.9,
+      peekRatio: 1,
     });
   });
 });

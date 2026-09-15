@@ -24,6 +24,7 @@ import {
   buildProtocolCreatePayload,
   getCreatableProtocolRoleOptions,
   getProtocolRoleMemberOptions,
+  isProtocolCreateCompactKind,
   isProtocolCreateMembershipKind,
   protocolCreateComposeKindHint,
   protocolCreateKindHint,
@@ -674,6 +675,7 @@ export function ProtocolCreateSheet({
       backdropLabel="Close propose"
       formId={formId}
       footerState={footerState}
+      size={isProtocolCreateCompactKind(kind) ? 'compact' : 'tall'}
     >
       <form
         id={formId}

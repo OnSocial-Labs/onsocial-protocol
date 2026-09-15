@@ -44,6 +44,26 @@ test.describe('DAO manage shell', () => {
     await expect(manage).toHaveAttribute('aria-expanded', 'false');
   });
 
+  test('Propose opens a compact hug picker, not a page overlay', async ({
+    page,
+  }) => {
+    await gotoApp(page, daoPath);
+    await expectPortfolioIdentityOrSkip(page, DAO_ACCOUNT);
+    await waitForPortfolioClientReady(page);
+
+    await page.getByRole('button', { name: 'Manage' }).click();
+    await page.getByRole('button', { name: /Propose/ }).click();
+    await expectGlassSheetVisible(page);
+    const propose = page.getByRole('dialog', { name: 'Propose' });
+    await expect(propose).toBeVisible({ timeout: 30_000 });
+    await expect(propose).toHaveAttribute('data-sizing', 'hug');
+    await expect(propose).toHaveClass(/os-sheet-cap-standard/);
+    await expect(propose).not.toHaveAttribute('data-surface', 'page');
+    await expect(
+      page.getByRole('button', { name: 'Close propose' })
+    ).toBeVisible();
+  });
+
   test('Manage Info opens the policy snapshot', async ({ page }) => {
     await gotoApp(page, daoPath);
     await expectPortfolioIdentityOrSkip(page, DAO_ACCOUNT);

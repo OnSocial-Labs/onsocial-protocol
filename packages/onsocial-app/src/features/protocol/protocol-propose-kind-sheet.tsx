@@ -11,10 +11,8 @@ import {
 } from '@/features/protocol/protocol-create';
 import {
   buildProtocolPickerSections,
-  countProtocolPickerOptions,
   protocolPickerForeignStakeMessage,
   protocolPickerStakeGateMessage,
-  resolveProtocolPickerSheetLayout,
 } from '@/features/protocol/protocol-picker-sections';
 import {
   ProtocolPickerOptionList,
@@ -105,16 +103,6 @@ export function ProtocolProposeKindSheet({
     [common, grouped]
   );
 
-  const optionCount = useMemo(
-    () => countProtocolPickerOptions(common, grouped),
-    [common, grouped]
-  );
-
-  const sheetLayout = useMemo(
-    () => resolveProtocolPickerSheetLayout(optionCount),
-    [optionCount]
-  );
-
   const selectKind = (kind: ProtocolCreateKind) => {
     rememberProtocolCreateKind(kind);
     onSelectKind(kind);
@@ -136,8 +124,6 @@ export function ProtocolProposeKindSheet({
       copy="Choose what to put on-chain."
       closeAriaLabel="Close propose"
       backdropLabel="Close propose"
-      initialDetent={sheetLayout.initialDetent}
-      peekRatio={sheetLayout.peekRatio}
     >
       <ProtocolPickerStatus
         accountId={accountId}

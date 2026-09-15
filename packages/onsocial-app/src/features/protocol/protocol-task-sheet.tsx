@@ -4,6 +4,7 @@ import { useCallback, useId, useState, type ReactNode } from 'react';
 import {
   OsGestureSheet,
   type GestureSheetSignal,
+  type OsGestureSheetSize,
 } from '@onsocial/ui';
 import {
   CommerceSheetFooter,
@@ -15,6 +16,7 @@ import { PROTOCOL_TASK_SHEET_Z } from '@/features/protocol/protocol-sheet-z';
 /**
  * Full-height Protocol task sheet — same chrome as Scarces sell/list/buy
  * (`OsGestureSheet`, keyboard lift, pinned footer).
+ * Short compose kinds pass `size="compact"` (Signal / Join / Leave).
  * Keep Vote/Finalize on the compact peek action sheet.
  */
 export function ProtocolTaskSheet({
@@ -28,6 +30,7 @@ export function ProtocolTaskSheet({
   backdropLabel,
   formId,
   footerState,
+  size = 'tall',
   children,
 }: {
   open: boolean;
@@ -40,6 +43,7 @@ export function ProtocolTaskSheet({
   backdropLabel: string;
   formId?: string;
   footerState: CommerceSheetFooterState | null;
+  size?: OsGestureSheetSize;
   children: ReactNode;
 }) {
   const titleId = useId();
@@ -71,6 +75,7 @@ export function ProtocolTaskSheet({
       keyboardOpen={keyboardOpen}
       moodId={moodId}
       panelStyle={panelStyle}
+      size={size}
       bodyClassName="profile-support-sheet-body protocol-task-sheet-body"
       titleId={titleId}
       zIndex={PROTOCOL_TASK_SHEET_Z}

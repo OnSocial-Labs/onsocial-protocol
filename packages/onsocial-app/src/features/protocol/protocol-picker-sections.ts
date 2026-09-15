@@ -72,8 +72,11 @@ export function protocolPickerForeignStakeMessage(
     : `Need ${token} stake to propose.`;
 }
 
-/** Short pickers (Manage-scale) rest at peek; long lists open full hug (max 90dvh). */
-export const PROTOCOL_PICKER_PEEK_OPTION_LIMIT = 6;
+/** Propose / Settings pickers hug like the wallet — content height, standard cap. */
+export const PROTOCOL_PICKER_LAYOUT = {
+  initialDetent: 'full' as const,
+  peekRatio: 1,
+};
 
 export function countProtocolPickerOptions<T extends string>(
   common: ProtocolPickerOption<T>[],
@@ -83,14 +86,4 @@ export function countProtocolPickerOptions<T extends string>(
     common.length +
     grouped.reduce((total, group) => total + group.options.length, 0)
   );
-}
-
-export function resolveProtocolPickerSheetLayout(optionCount: number): {
-  initialDetent: 'peek' | 'full';
-  peekRatio: number;
-} {
-  if (optionCount <= PROTOCOL_PICKER_PEEK_OPTION_LIMIT) {
-    return { initialDetent: 'peek', peekRatio: 0.62 };
-  }
-  return { initialDetent: 'full', peekRatio: 0.9 };
 }

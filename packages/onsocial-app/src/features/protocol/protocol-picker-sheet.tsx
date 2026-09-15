@@ -9,8 +9,8 @@ import {
   OsHugSheet,
   OsSurfaceRow,
   OsSurfaceRowList,
-  type GlassSheetDetent,
 } from '@onsocial/ui';
+import { PROTOCOL_PICKER_LAYOUT } from '@/features/protocol/protocol-picker-sections';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { getProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
 import { isProtocolDaoGroupMember } from '@/features/protocol/protocol-propose-gate';
@@ -148,6 +148,7 @@ export function useProtocolPickerEligibility({
 
 /**
  * Hug shell for Protocol Propose / Settings action pickers.
+ * Wallet-like: content-sized hug, standard cap — not a 90dvh catalog.
  */
 export function ProtocolPickerSheet({
   open,
@@ -157,8 +158,6 @@ export function ProtocolPickerSheet({
   closeAriaLabel,
   backdropLabel,
   children,
-  initialDetent = 'peek',
-  peekRatio = 0.62,
 }: {
   open: boolean;
   onClose: () => void;
@@ -167,11 +166,7 @@ export function ProtocolPickerSheet({
   closeAriaLabel: string;
   backdropLabel: string;
   children: ReactNode;
-  initialDetent?: GlassSheetDetent;
-  peekRatio?: number;
 }) {
-  const longList = initialDetent === 'full';
-
   return (
     <OsHugSheet
       open={open}
@@ -181,14 +176,12 @@ export function ProtocolPickerSheet({
       closeAriaLabel={closeAriaLabel}
       backdropLabel={backdropLabel}
       zIndex={PROTOCOL_TASK_SHEET_Z}
+      chrome="plain"
       sizing="hug"
-      initialDetent={initialDetent}
-      peekRatio={peekRatio}
-      bodyClassName={
-        longList
-          ? 'protocol-action-sheet-body protocol-picker-sheet-body is-long'
-          : 'protocol-action-sheet-body protocol-picker-sheet-body'
-      }
+      initialDetent={PROTOCOL_PICKER_LAYOUT.initialDetent}
+      peekRatio={PROTOCOL_PICKER_LAYOUT.peekRatio}
+      panelClassName="os-sheet-cap-standard"
+      bodyClassName="protocol-action-sheet-body protocol-picker-sheet-body"
     >
       <div className="protocol-propose-kind">{children}</div>
     </OsHugSheet>

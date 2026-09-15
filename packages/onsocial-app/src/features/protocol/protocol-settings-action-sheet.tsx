@@ -11,10 +11,8 @@ import {
 } from '@/features/protocol/protocol-policy';
 import {
   buildProtocolPickerSections,
-  countProtocolPickerOptions,
   protocolPickerForeignStakeMessage,
   protocolPickerStakeGateMessage,
-  resolveProtocolPickerSheetLayout,
 } from '@/features/protocol/protocol-picker-sections';
 import {
   ProtocolPickerOptionList,
@@ -89,16 +87,6 @@ export function ProtocolSettingsActionSheet({
     [common, grouped]
   );
 
-  const optionCount = useMemo(
-    () => countProtocolPickerOptions(common, grouped),
-    [common, grouped]
-  );
-
-  const sheetLayout = useMemo(
-    () => resolveProtocolPickerSheetLayout(optionCount),
-    [optionCount]
-  );
-
   const selectAction = (actionId: ProtocolPolicyActionId) => {
     rememberProtocolPolicyAction(actionId);
     onSelectAction(actionId);
@@ -112,8 +100,6 @@ export function ProtocolSettingsActionSheet({
       copy="Choose a DAO policy change."
       closeAriaLabel="Close settings"
       backdropLabel="Close settings"
-      initialDetent={sheetLayout.initialDetent}
-      peekRatio={sheetLayout.peekRatio}
     >
       <ProtocolPickerStatus
         accountId={accountId}
