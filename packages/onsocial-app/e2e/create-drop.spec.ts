@@ -215,7 +215,25 @@ test.describe('create drop', () => {
     await page.getByRole('button', { name: 'Artwork preview' }).click();
     const overlay = page.getByRole('dialog', { name: 'Artwork preview' });
     await expect(overlay).toBeVisible();
-    await expect(page.locator('.drop-art-page-sheet-panel')).toBeVisible();
+    const panel = page.locator('.drop-art-page-sheet-panel');
+    await expect(panel).toBeVisible();
+
+    // Glass / Carbon set --mood-bg: transparent on the OS frame. Page surface
+    // used to inherit that with no frost — the New drop form showed through.
+    await page.locator('.os-app-screen').evaluate((el) => {
+      el.style.setProperty('--mood-bg', 'transparent');
+    });
+    const fill = await panel.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return {
+        backgroundColor: style.backgroundColor,
+        opacity: style.opacity,
+      };
+    });
+    expect(fill.opacity).toBe('1');
+    expect(fill.backgroundColor).not.toMatch(
+      /^(transparent|rgba\(\s*0,\s*0,\s*0,\s*0\s*\))$/i
+    );
 
     await page.getByRole('button', { name: 'Close preview' }).click();
     await expect(overlay).toHaveCount(0);
