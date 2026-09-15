@@ -75,6 +75,11 @@ packages/onsocial-relayer/examples/
 dist/
 .next/
 **/.next/
+# next dist dirs used by app package.json scripts (dev:testnet / dev:mainnet)
+.next-testnet/
+**/.next-testnet/
+.next-mainnet/
+**/.next-mainnet/
 
 # Prettier and pnpm configuration
 .pnpmrc
