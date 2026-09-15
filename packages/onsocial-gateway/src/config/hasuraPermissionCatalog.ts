@@ -830,6 +830,7 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'locked_amount',
       'effective_boost',
       'lock_months',
+      'unlock_at',
       'total_claimed',
       'total_credits_purchased',
       'last_event_type',

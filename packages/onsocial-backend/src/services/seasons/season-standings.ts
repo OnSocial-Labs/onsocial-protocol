@@ -664,12 +664,15 @@ export async function getSeasonStandings(
     indexerQuery<BoostRow>(
       `WITH ${joinedRallyCte(hasCutoff)}
        SELECT
-         account_id,
-         CASE
-           WHEN event_type = 'BOOST_UNLOCK' THEN '0'
-           WHEN event_type = 'BOOST_EXTEND' THEN COALESCE(new_effective_boost, effective_boost, '0')
-           ELSE COALESCE(effective_boost, new_effective_boost, '0')
-         END AS effective_boost
+         latest.account_id,
+         boost_live_effective_boost(
+           CASE
+             WHEN latest.event_type = 'BOOST_EXTEND'
+             THEN COALESCE(latest.new_effective_boost, latest.effective_boost, '0')
+             ELSE COALESCE(latest.effective_boost, latest.new_effective_boost, '0')
+           END,
+           COALESCE(bs.unlock_at, 0)
+         ) AS effective_boost
        FROM (
          SELECT DISTINCT ON (be.account_id)
            be.account_id,
@@ -682,7 +685,8 @@ export async function getSeasonStandings(
            AND be.event_type IN ('BOOST_LOCK', 'BOOST_EXTEND', 'BOOST_UNLOCK')
            ${boostWindow}
          ORDER BY be.account_id, be.block_height DESC, be.block_timestamp DESC, be.receipt_id DESC, be.id DESC
-       ) latest_boost`,
+       ) latest
+       LEFT JOIN booster_state bs ON bs.account_id = latest.account_id`,
       [...joinedCteParams]
     ),
   ]);

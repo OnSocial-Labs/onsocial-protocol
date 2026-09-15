@@ -26,30 +26,17 @@ export async function GET() {
     const os = createServerOnSocialClient();
     const res = await os.query.graphql<{
       leaderboardBoostAggregate?: AggregateCountNode | null;
-      boosterStateAggregate?: AggregateCountNode | null;
     }>({
       query: `{
         leaderboardBoostAggregate {
           aggregate { count }
         }
-        boosterStateAggregate(
-          where: {
-            _and: [
-              { effectiveBoost: { _neq: "0" } },
-              { effectiveBoost: { _neq: "" } }
-            ]
-          }
-        ) {
-          aggregate { count }
-        }
       }`,
     });
 
-    const fromLeaderboard = readAggregateCount(
+    const boosterCount = readAggregateCount(
       res.data?.leaderboardBoostAggregate
     );
-    const fromState = readAggregateCount(res.data?.boosterStateAggregate);
-    const boosterCount = fromLeaderboard > 0 ? fromLeaderboard : fromState;
     const payload: BoostNetworkSnapshot = { boosterCount };
 
     return NextResponse.json(payload, {

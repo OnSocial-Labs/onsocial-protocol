@@ -131,3 +131,17 @@ SELECT
   ''::text AS account_id,
   ''::text AS content_path
 WHERE false;
+
+-- Pre-unlock_at booster state. combined_schema CREATE TABLE IF NOT EXISTS
+-- will not add the column; 20260914_booster_state_unlock_at.sql must.
+CREATE TABLE IF NOT EXISTS booster_state (
+  account_id TEXT PRIMARY KEY,
+  locked_amount TEXT NOT NULL DEFAULT '0',
+  effective_boost TEXT NOT NULL DEFAULT '0',
+  lock_months BIGINT NOT NULL DEFAULT 0,
+  total_claimed TEXT NOT NULL DEFAULT '0',
+  total_credits_purchased TEXT NOT NULL DEFAULT '0',
+  last_event_type TEXT,
+  last_event_block BIGINT NOT NULL DEFAULT 0,
+  updated_at BIGINT NOT NULL DEFAULT 0
+);

@@ -5,7 +5,9 @@
 // Backed by three tables populated by the boost substreams indexer:
 //   - `boost_events`           — full event stream.
 //   - `booster_state`          — current per-account state (locked amount,
-//                                effective boost, total claimed/purchased).
+//                                effective boost, unlock_at, total claimed/purchased).
+//                                Live Influence rank uses `leaderboard_boost`, which
+//                                treats expired locks as 0 pool weight.
 //   - `boost_credit_purchases` — focused history of CREDITS_PURCHASE events.
 //
 // For *live* on-chain numbers (current claimable rewards, real-time
@@ -80,6 +82,8 @@ export interface BoosterStateRow {
   effectiveBoost: string;
   /** Lock period in months (one of 1, 6, 12, 24, 48; 0 if not locked). */
   lockMonths: number;
+  /** Unlock timestamp (ns since epoch). 0 if unlocked. */
+  unlockAt: number;
   /** yoctoSOCIAL string — cumulative rewards claimed. */
   totalClaimed: string;
   /** yoctoSOCIAL string — cumulative SOCIAL spent on credits. */
@@ -138,6 +142,7 @@ const BOOSTER_STATE_FIELDS = `
   lockedAmount
   effectiveBoost
   lockMonths
+  unlockAt
   totalClaimed
   totalCreditsPurchased
   lastEventType
@@ -247,25 +252,52 @@ export class BoostQuery {
     return res.data?.boosterState?.[0] ?? null;
   }
 
-  /** Top boosters by `effective_boost`, descending. Useful for leaderboards. */
+  /** Live top boosters from `leaderboard_boost` (expired locks excluded). */
   async topBoosters(
     opts: { limit?: number; offset?: number } = {}
   ): Promise<BoosterStateRow[]> {
     const limit = opts.limit ?? 50;
     const offset = opts.offset ?? 0;
     const res = await this._q.graphql<{
-      boosterState: BoosterStateRow[];
+      leaderboardBoost: Array<{
+        accountId: string;
+        lockedAmount: string;
+        effectiveBoost: string;
+        lockMonths: number;
+        totalClaimed: string | null;
+        totalCreditsPurchased: string | null;
+        lastEventBlock: number | null;
+      }>;
     }>({
       query: `query TopBoosters($limit: Int!, $offset: Int!) {
-        boosterState(
+        leaderboardBoost(
           limit: $limit,
           offset: $offset,
-          orderBy: [{effectiveBoost: DESC}]
-        ) { ${BOOSTER_STATE_FIELDS} }
+          orderBy: [{rank: ASC}]
+        ) {
+          accountId
+          lockedAmount
+          effectiveBoost
+          lockMonths
+          totalClaimed
+          totalCreditsPurchased
+          lastEventBlock
+        }
       }`,
       variables: { limit, offset },
     });
-    return res.data?.boosterState ?? [];
+    return (res.data?.leaderboardBoost ?? []).map((row) => ({
+      accountId: row.accountId,
+      lockedAmount: row.lockedAmount,
+      effectiveBoost: row.effectiveBoost,
+      lockMonths: row.lockMonths,
+      unlockAt: 0,
+      totalClaimed: row.totalClaimed ?? '0',
+      totalCreditsPurchased: row.totalCreditsPurchased ?? '0',
+      lastEventType: null,
+      lastEventBlock: row.lastEventBlock ?? 0,
+      updatedAt: 0,
+    }));
   }
 
   /** Top boosters by raw `locked_amount`, descending. */

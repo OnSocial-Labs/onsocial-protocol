@@ -4739,6 +4739,7 @@ describe('QueryModule', () => {
       lockedAmount: '10000000000000000',
       effectiveBoost: '12000000000000000',
       lockMonths: 12,
+      unlockAt: 1714000000000,
       totalClaimed: '500000000000000',
       totalCreditsPurchased: '0',
       lastEventType: 'BOOST_LOCK',
@@ -4794,6 +4795,7 @@ describe('QueryModule', () => {
         (fetch.mock.calls[0][1] as RequestInit).body as string
       );
       expect(body.variables).toEqual({ accountId: 'alice.near' });
+      expect(body.query).toMatch(/unlockAt/);
     });
 
     it('state returns null when no rows', async () => {
@@ -4801,17 +4803,38 @@ describe('QueryModule', () => {
       expect(await os.query.boost.state('bob.near')).toBeNull();
     });
 
-    it('topBoosters orders by effectiveBoost DESC', async () => {
+    it('topBoosters reads live leaderboard_boost by rank', async () => {
       const { os, fetch } = makeOs({
-        data: { boosterState: [sampleState] },
+        data: {
+          leaderboardBoost: [
+            {
+              accountId: 'alice.near',
+              lockedAmount: sampleState.lockedAmount,
+              effectiveBoost: sampleState.effectiveBoost,
+              lockMonths: sampleState.lockMonths,
+              totalClaimed: sampleState.totalClaimed,
+              totalCreditsPurchased: sampleState.totalCreditsPurchased,
+              lastEventBlock: sampleState.lastEventBlock,
+            },
+          ],
+        },
       });
-      await os.query.boost.topBoosters({ limit: 5 });
+      const rows = await os.query.boost.topBoosters({ limit: 5 });
+      expect(rows).toEqual([
+        {
+          ...sampleState,
+          unlockAt: 0,
+          lastEventType: null,
+          updatedAt: 0,
+        },
+      ]);
 
       const body = JSON.parse(
         (fetch.mock.calls[0][1] as RequestInit).body as string
       );
       expect(body.variables).toEqual({ limit: 5, offset: 0 });
-      expect(body.query).toMatch(/orderBy: \[\{effectiveBoost: DESC\}\]/);
+      expect(body.query).toMatch(/leaderboardBoost/);
+      expect(body.query).toMatch(/orderBy: \[\{rank: ASC\}\]/);
     });
 
     it('topLocked orders by lockedAmount DESC', async () => {

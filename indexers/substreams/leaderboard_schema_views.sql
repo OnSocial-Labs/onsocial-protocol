@@ -15,7 +15,7 @@
 --   core views             → thread_replies, quotes (conversation received)
 --
 -- Views:
---   1. leaderboard_boost       — ranked by effective_boost
+--   1. leaderboard_boost       — ranked by live effective_boost (expired locks excluded)
 --   2. leaderboard_rewards     — ranked by total_earned
 --   3. leaderboard_snapshots   — daily historical rankings (table)
 --   4. reward_activity_daily   — daily earnings per user
@@ -33,22 +33,51 @@
 -- persisting daily historical rankings.
 -- ============================================================================
 
+-- Live pool weight: expired locks (unlock_at reached) count as 0.
+-- unlock_at is nanoseconds; 0 means unlocked / unknown.
+-- Same 30-day month as contracts/boost-onsocial MONTH_NS.
+CREATE OR REPLACE FUNCTION boost_live_effective_boost(
+  effective_boost TEXT,
+  unlock_at BIGINT
+)
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT CASE
+    WHEN COALESCE(unlock_at, 0) > 0
+      AND unlock_at <= (EXTRACT(EPOCH FROM (NOW() AT TIME ZONE 'utc')) * 1000000000)::BIGINT
+    THEN '0'
+    ELSE COALESCE(NULLIF(effective_boost, ''), '0')
+  END
+$$;
+
 -- ────────────────────────────────────────────────────────────────────────────
--- 1. leaderboard_boost — ranked by effective_boost
+-- 1. leaderboard_boost — ranked by live effective_boost
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW leaderboard_boost AS
 SELECT
   account_id,
   locked_amount,
-  effective_boost,
+  live_boost AS effective_boost,
   lock_months,
   total_claimed,
   total_credits_purchased,
   last_event_block,
-  RANK() OVER (ORDER BY effective_boost::NUMERIC DESC) AS rank
-FROM booster_state
-WHERE effective_boost != '0' AND effective_boost != '';
+  RANK() OVER (ORDER BY live_boost::NUMERIC DESC) AS rank
+FROM (
+  SELECT
+    account_id,
+    locked_amount,
+    boost_live_effective_boost(effective_boost, unlock_at) AS live_boost,
+    lock_months,
+    total_claimed,
+    total_credits_purchased,
+    last_event_block
+  FROM booster_state
+) live
+WHERE live_boost != '0';
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 2. leaderboard_rewards — ranked by total earned rewards
@@ -157,22 +186,23 @@ SELECT
   COALESCE(r.total_earned, 0)                     AS total_earned,
   COALESCE(r.total_claimed, 0)                    AS total_claimed,
   COALESCE(s.standing_with_count, 0)               AS standing_with_count,
-  COALESCE(b.effective_boost, '0')::NUMERIC         AS effective_boost,
+  COALESCE(live.effective_boost, '0')::NUMERIC     AS effective_boost,
   COALESCE(b.lock_months, 0)                        AS lock_months,
   -- Standing weight: logarithmic (diminishing returns)
   (1.0 + LN(GREATEST(COALESCE(s.standing_with_count, 0), 1)))
                                                     AS standing_multiplier,
   -- Boost weight: linear with locked tokens
-  (1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18)
+  (1.0 + COALESCE(live.effective_boost, '0')::NUMERIC / 1e18)
                                                     AS boost_multiplier,
   -- Combined reward multiplier
   (1.0 + LN(GREATEST(COALESCE(s.standing_with_count, 0), 1)))
-    * (1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18)
+    * (1.0 + COALESCE(live.effective_boost, '0')::NUMERIC / 1e18)
                                                     AS reward_multiplier
 FROM accounts a
 LEFT JOIN leaderboard_rewards r ON r.account_id = a.account_id
 LEFT JOIN standing_counts s ON s.account_id = a.account_id
 LEFT JOIN booster_state b ON b.account_id = a.account_id
+LEFT JOIN leaderboard_boost live ON live.account_id = a.account_id
 WHERE a.account_id IS NOT NULL AND a.account_id != '';
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -392,7 +422,7 @@ WITH issuer_priors AS (
       1.0
       + LN(1.0 + COALESCE(s.standing_with_count, 0)::NUMERIC) / LN(21.0)
       + LN(
-          1.0 + COALESCE(b.effective_boost, '0')::NUMERIC / 1e18
+          1.0 + COALESCE(live.effective_boost, '0')::NUMERIC / 1e18
         ) / LN(11.0)
     ) AS issuer_weight
   FROM (
@@ -412,7 +442,7 @@ WITH issuer_priors AS (
       AND spender_id != ''
   ) a
   LEFT JOIN standing_counts s ON s.account_id = a.account_id
-  LEFT JOIN booster_state b ON b.account_id = a.account_id
+  LEFT JOIN leaderboard_boost live ON live.account_id = a.account_id
 ),
 weighted_stands AS (
   SELECT
@@ -641,7 +671,7 @@ joined AS (
     COALESCE(ar.amplify_points, 0)                              AS amplify_points,
     COALESCE(ar.amplify_social, 0)                              AS amplify_social,
     COALESCE(ar.amplify_events, 0)                              AS amplify_events,
-    COALESCE(b.effective_boost, '0')::NUMERIC / 1e18            AS boost,
+    COALESCE(live.effective_boost, '0')::NUMERIC / 1e18            AS boost,
     COALESCE(b.lock_months, 0)                                  AS lock_months,
     COALESCE(r.total_earned, 0) / 1e18                         AS rewards_earned,
     COALESCE(c.total_posts, 0)                                  AS total_posts,
@@ -675,6 +705,7 @@ joined AS (
   LEFT JOIN scarce_creator_fans  sf ON sf.account_id = a.account_id
   LEFT JOIN author_amplify_received ar ON ar.account_id = a.account_id
   LEFT JOIN booster_state        b  ON b.account_id  = a.account_id
+  LEFT JOIN leaderboard_boost    live ON live.account_id = a.account_id
   LEFT JOIN leaderboard_rewards  r  ON r.account_id  = a.account_id
   LEFT JOIN content_activity     c  ON c.account_id  = a.account_id
   LEFT JOIN scarces_activity     n  ON n.account_id  = a.account_id

@@ -52,6 +52,8 @@ CREATE TABLE IF NOT EXISTS booster_state (
   locked_amount TEXT NOT NULL DEFAULT '0',
   effective_boost TEXT NOT NULL DEFAULT '0',
   lock_months BIGINT NOT NULL DEFAULT 0,
+  -- Nanoseconds; 0 = unlocked. Derived from lock/extend timestamp + 30-day months.
+  unlock_at BIGINT NOT NULL DEFAULT 0,
   total_claimed TEXT NOT NULL DEFAULT '0',
   total_credits_purchased TEXT NOT NULL DEFAULT '0',
   last_event_type TEXT,

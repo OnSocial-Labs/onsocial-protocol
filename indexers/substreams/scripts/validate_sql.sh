@@ -141,10 +141,38 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
         fi
       done
 
+      unlock_at_exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = '"'"'public'"'"'
+            AND table_name = '"'"'booster_state'"'"'
+            AND column_name = '"'"'unlock_at'"'"'
+        );
+      ")"
+      if [ "$unlock_at_exists" != "t" ]; then
+        echo "error: expected booster_state.unlock_at in $db" >&2
+        exit 1
+      fi
+
       validate_guild_view_columns "$db"
       validate_profile_search_jobs_columns "$db"
       validate_posts_current_root "$db"
       validate_apps_relpath "$db"
+    }
+
+    validate_boost_live_weight() {
+      db="$1"
+      echo "    ${db}: boost expiry live weight"
+      apply_sql "$db" /work/tests/fixtures/boost_expiry_live.sql
+      actual="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atf /work/tests/fixtures/boost_expiry_live_assert.sql)"
+      expected="boost-live-fixture.near"
+      if [ "$actual" != "$expected" ]; then
+        echo "error: unexpected leaderboard_boost expiry rows in $db" >&2
+        echo "  expected: $expected" >&2
+        echo "  actual:   ${actual:-missing}" >&2
+        exit 1
+      fi
     }
 
     validate_apps_relpath() {
@@ -633,6 +661,7 @@ SQLEOF
     validate_expected_objects combined_validate
     validate_reputation_view_upgrade combined_validate
     validate_guild_view_upgrade combined_validate
+    validate_boost_live_weight combined_validate
 
     # Existing testnet DBs keep old CREATE TABLE shapes. Deploy applies
     # combined_schema (CREATE TABLE IF NOT EXISTS + CREATE INDEX) before
@@ -646,6 +675,7 @@ SQLEOF
     apply_views upgrade_validate
     validate_expected_objects upgrade_validate
     validate_scarces_catalog_upgrade_shape upgrade_validate
+    validate_boost_live_weight upgrade_validate
 
     echo ">>> Standalone package schemas"
     createdb -h /tmp standalone_validate
@@ -660,6 +690,7 @@ SQLEOF
     validate_expected_objects standalone_validate
     validate_guild_view_upgrade standalone_validate
     validate_notifications_schema standalone_validate
+    validate_boost_live_weight standalone_validate
   '
 
 echo ">>> Substreams SQL validation passed"

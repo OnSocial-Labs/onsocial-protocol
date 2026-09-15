@@ -263,6 +263,7 @@
           "last_event_block": "244426030",
           "locked_amount": "1000000000000000000",
           "lock_months": "1",
+          "unlock_at": "2592001775000000",
           "effective_boost": "4200000000000000000"
         }
       }
