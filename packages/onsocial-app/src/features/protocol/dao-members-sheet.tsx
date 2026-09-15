@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Divider } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
-import { DaoOrgPageSheet } from '@/features/protocol/dao-org-page-sheet';
+import { DaoOrgHugSheet } from '@/features/protocol/dao-org-hug-sheet';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { listDaoMembershipSections } from '@/features/protocol/dao-group-roles';
@@ -139,14 +139,13 @@ export function DaoMembersSheet({
   const viewerMeetsStake = Boolean(eligibility?.canPropose);
 
   return (
-    <DaoOrgPageSheet
+    <DaoOrgHugSheet
       daoAccountId={daoAccountId}
       open={open}
       onClose={onClose}
       title="Members"
       subtitle={daoName?.trim() || daoAccountId}
       closeAriaLabel="Close members"
-      panelClassName="dao-members-page"
       contentClassName="dao-members-sheet"
     >
       {pending && !policy ? (
@@ -246,6 +245,6 @@ export function DaoMembersSheet({
           </section>
         )
       )}
-    </DaoOrgPageSheet>
+    </DaoOrgHugSheet>
   );
 }

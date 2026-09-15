@@ -7,7 +7,7 @@ import { useDaoPageMood } from '@/features/protocol/use-dao-page-mood';
 /**
  * DAO org slide-overs (Edit / Boost) on a portfolio face — inherit that
  * page's mood wash, not the connected viewer's wallet mood. Members /
- * Treasury use `DaoOrgPageSheet` instead.
+ * Treasury use `DaoOrgHugSheet` instead.
  */
 export function DaoPageSlideOverScreen({
   pageAccountId,

@@ -383,12 +383,9 @@
 
 /*
  * DAO Proposals — embedded OsAppScreen frost as composer.
- * Members / Treasury — thin OsPageSheet overlay (SheetHeader, no nested
- * screen). Body stays a flex fill; the list scrolls in `.dao-org-page-content`.
  */
 .glass-sheet-panel.dao-proposals-page
-  > .glass-sheet-body.dao-proposals-page-body,
-.glass-sheet-panel.dao-org-page > .glass-sheet-body.dao-org-page-body {
+  > .glass-sheet-body.dao-proposals-page-body {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -29662,33 +29659,18 @@ a.os-surface-row {
   }
 
   /*
-   * DAO Members / Treasury — social-list inset (same as `.standing-panel`).
-   * Pad lives on `.dao-org-page .dao-org-page-content` so it survives CSS
-   * minify (bare `.dao-*-sheet { padding }` was dropped from the bundle).
+   * DAO Proposals — page-column inset.
+   * Members / Treasury hug drawers use `.os-hug-sheet-body` + `.dao-org-hug-content`.
    */
-  .dao-org-page.os-page-sheet-panel,
   .dao-proposals-page.os-page-sheet-panel {
     --os-screen-body-pad-x: 1rem;
   }
 
-  .dao-org-page-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-
-  .dao-org-page .dao-org-page-content {
+  .dao-org-hug-content {
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
-    flex: 1 1 auto;
     min-width: 0;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
   }
 
   .dao-proposals-page-body {
@@ -40477,7 +40459,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 .dao-treasury-sheet {
   display: flex;
   flex-direction: column;
-  /* Gap + pad live on `.dao-org-page .dao-org-page-content`. */
+  /* Gap lives on `.dao-org-hug-content`; inset on `.os-hug-sheet-body`. */
 }
 
 .dao-members-empty,

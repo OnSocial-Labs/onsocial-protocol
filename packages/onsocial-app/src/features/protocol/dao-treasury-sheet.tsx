@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Divider } from '@onsocial/ui';
-import { DaoOrgPageSheet } from '@/features/protocol/dao-org-page-sheet';
+import { DaoOrgHugSheet } from '@/features/protocol/dao-org-hug-sheet';
 import {
   formatTreasuryAssetCompact,
   formatTreasuryAssetExact,
@@ -118,14 +118,13 @@ export function DaoTreasurySheet({
     !hasSupport;
 
   return (
-    <DaoOrgPageSheet
+    <DaoOrgHugSheet
       daoAccountId={daoAccountId}
       open={open}
       onClose={onClose}
       title="Treasury"
       subtitle={daoName?.trim() || daoAccountId}
       closeAriaLabel="Close treasury"
-      panelClassName="dao-treasury-page"
       contentClassName="dao-treasury-sheet"
     >
       {pending && assets == null ? (
@@ -208,6 +207,6 @@ export function DaoTreasurySheet({
           </div>
         </section>
       ) : null}
-    </DaoOrgPageSheet>
+    </DaoOrgHugSheet>
   );
 }
