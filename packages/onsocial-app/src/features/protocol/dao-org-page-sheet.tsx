@@ -2,25 +2,20 @@
 
 import type { ReactNode } from 'react';
 import { useId } from 'react';
-import { MultiplyIcon, OsIconAction, OsPageSheet } from '@onsocial/ui';
-import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageSheet, SheetHeader } from '@onsocial/ui';
 import { useDaoPageMood } from '@/features/protocol/use-dao-page-mood';
-import { daoPortfolioPath } from '@/lib/app-routes';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 /**
- * DAO org read pages (Members, Treasury) — same OsPageSheet + embedded
- * OsAppScreen as Proposals. Edit / Boost stay on `DaoPageSlideOverScreen`.
- *
- * Header × dismisses the overlay. Dock Back leaves the page (same dismiss
- * here — these sheets have no inner stack). z-index 45 sits under the page
- * drawer (48) and summon dock (49) so keepDock + dockBack stay clickable.
+ * DAO org read overlays (Members, Treasury) — thin OsPageSheet page/appear
+ * with SheetHeader ×, same family as compose / DropArtOverlay. Dock tucks.
+ * Proposals stay a nested page with the summon dock visible. Edit / Boost
+ * stay on `DaoPageSlideOverScreen`.
  *
  * GlassSheet already stays mounted through the exit animation — callers
  * should pass parent `open` / `onClose` through and not re-fire `onClose`
  * from `onClosed`.
  */
-export const DAO_ORG_PAGE_Z = 45;
-
 export function DaoOrgPageSheet({
   open,
   onClose,
@@ -29,7 +24,7 @@ export function DaoOrgPageSheet({
   title,
   subtitle,
   closeAriaLabel,
-  zIndex = DAO_ORG_PAGE_Z,
+  zIndex = SHEET_Z.list,
   panelClassName,
   contentClassName,
   children,
@@ -61,7 +56,6 @@ export function DaoOrgPageSheet({
       onClosed={onClosed}
       surface="page"
       presentation="appear"
-      keepDock
       dragDismiss={false}
       zIndex={zIndex}
       ariaLabelledBy={titleId}
@@ -70,30 +64,17 @@ export function DaoOrgPageSheet({
       moodStyle={pageMood.moodStyle}
       panelClassName={panelClass}
       bodyClassName="dao-org-page-body"
-      header={null}
+      header={
+        <SheetHeader
+          titleId={titleId}
+          title={title}
+          subtitle={resolvedSubtitle}
+          onClose={onClose}
+          closeAriaLabel={closeAriaLabel}
+        />
+      }
     >
-      <OsAppScreen
-        title={title}
-        subtitle={resolvedSubtitle}
-        glassChrome
-        compactChrome
-        embedded
-        dockBack
-        onDockBack={onClose}
-        backFallbackHref={daoPortfolioPath(daoAccountId)}
-        leading={
-          <OsIconAction ariaLabel={closeAriaLabel} onClick={onClose}>
-            <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
-          </OsIconAction>
-        }
-        moodId={pageMood.moodId}
-        moodStyle={pageMood.moodStyle}
-      >
-        <span id={titleId} className="sr-only">
-          {title}
-        </span>
-        <div className={contentClass}>{children}</div>
-      </OsAppScreen>
+      <div className={contentClass}>{children}</div>
     </OsPageSheet>
   );
 }

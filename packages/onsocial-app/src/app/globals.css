@@ -382,8 +382,9 @@
 }
 
 /*
- * DAO org mood pages (Proposals / Members / Treasury) — same embedded
- * OsAppScreen frost as composer.
+ * DAO Proposals — embedded OsAppScreen frost as composer.
+ * Members / Treasury — thin OsPageSheet overlay (SheetHeader, no nested
+ * screen). Body stays a flex fill; the list scrolls in `.dao-org-page-content`.
  */
 .glass-sheet-panel.dao-proposals-page
   > .glass-sheet-body.dao-proposals-page-body,
@@ -396,8 +397,7 @@
   overflow: hidden;
 }
 
-.glass-sheet-panel.dao-proposals-page .os-app-screen--embedded,
-.glass-sheet-panel.dao-org-page .os-app-screen--embedded {
+.glass-sheet-panel.dao-proposals-page .os-app-screen--embedded {
   flex: 1 1 auto;
   width: 100%;
   height: 100%;
@@ -410,8 +410,7 @@
 
 .glass-sheet-panel.dao-proposals-page
   .os-app-screen--embedded
-  .os-app-screen-column,
-.glass-sheet-panel.dao-org-page .os-app-screen--embedded .os-app-screen-column {
+  .os-app-screen-column {
   max-width: none;
   height: 100%;
 }
@@ -12691,8 +12690,7 @@ a.os-surface-row {
     padding-bottom: var(--portfolio-dock-clearance, 4.75rem);
   }
 
-  .glass-sheet-root[data-keep-dock='true'] .dao-proposals-page .dao-workspace,
-  .glass-sheet-root[data-keep-dock='true'] .dao-org-page .dao-org-page-content {
+  .glass-sheet-root[data-keep-dock='true'] .dao-proposals-page .dao-workspace {
     padding-bottom: calc(1.25rem + var(--portfolio-dock-clearance, 4.75rem));
   }
 
@@ -29685,7 +29683,11 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
+    flex: 1 1 auto;
     min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
   }
 

@@ -13,20 +13,20 @@ const proposals = readFileSync(join(here, 'dao-workspace-panel.tsx'), 'utf8');
 const globalsCss = readFileSync(join(here, '../../app/globals.css'), 'utf8');
 
 describe('DAO org page overlay', () => {
-  it('wraps Members / Treasury in OsPageSheet like Proposals', () => {
-    expect(wrapper).toContain('export const DAO_ORG_PAGE_Z = 45');
+  it('wraps Members / Treasury in a thin OsPageSheet overlay', () => {
     expect(wrapper).toContain('OsPageSheet');
+    expect(wrapper).toContain('SheetHeader');
     expect(wrapper).toContain('surface="page"');
     expect(wrapper).toContain('presentation="appear"');
-    expect(wrapper).toContain('keepDock');
-    expect(wrapper).toContain('OsAppScreen');
-    expect(wrapper).toContain('embedded');
-    expect(wrapper).toContain('dockBack');
-    expect(wrapper).toContain('MultiplyIcon');
-    expect(wrapper).toContain('OsIconAction');
+    expect(wrapper).toContain('SHEET_Z.list');
     expect(wrapper).toContain('closeAriaLabel');
     expect(wrapper).toContain('useDaoPageMood');
-    expect(wrapper).not.toContain('leading={null}');
+    expect(wrapper).not.toContain('DAO_ORG_PAGE_Z');
+    expect(wrapper).not.toContain('OsAppScreen');
+    expect(wrapper).not.toContain('keepDock');
+    expect(wrapper).not.toContain('dockBack');
+    expect(wrapper).not.toContain('MultiplyIcon');
+    expect(wrapper).not.toContain('OsIconAction');
     expect(members).toContain('DaoOrgPageSheet');
     expect(members).not.toContain('DaoPageSlideOverScreen');
     expect(members).not.toContain('dao-members-slide');
@@ -37,6 +37,12 @@ describe('DAO org page overlay', () => {
     expect(treasury).not.toContain('dao-treasury-slide');
     expect(treasury).not.toContain('setMounted');
     expect(treasury).not.toContain('onClosed');
+  });
+
+  it('leaves Proposals on the keep-dock OsAppScreen page', () => {
+    expect(proposals).toContain('OsAppScreen');
+    expect(proposals).toContain('keepDock');
+    expect(proposals).toContain('dockBack');
     expect(proposals).toContain('MultiplyIcon');
     expect(proposals).toContain('Close proposals');
     expect(proposals).not.toContain('leading={null}');
@@ -49,10 +55,16 @@ describe('DAO org page overlay', () => {
     expect(boost).not.toContain('DaoOrgPageSheet');
   });
 
-  it('pads Members / Treasury as a keep-dock page, not a slide-over', () => {
+  it('pads Members / Treasury as an overlay list, not a keep-dock page', () => {
     expect(globalsCss).toContain('.dao-org-page .dao-org-page-content');
     expect(globalsCss).toMatch(
       /\.glass-sheet-panel\.dao-org-page > \.glass-sheet-body\.dao-org-page-body/
+    );
+    expect(globalsCss).not.toMatch(
+      /\.glass-sheet-panel\.dao-org-page \.os-app-screen--embedded/
+    );
+    expect(globalsCss).not.toContain(
+      ".glass-sheet-root[data-keep-dock='true'] .dao-org-page .dao-org-page-content"
     );
     expect(globalsCss).not.toContain('dao-members-slide');
     expect(globalsCss).not.toContain('dao-treasury-slide');

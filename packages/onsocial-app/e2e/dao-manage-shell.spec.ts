@@ -98,6 +98,12 @@ test.describe('DAO manage shell', () => {
     await expect(
       page.getByRole('button', { name: 'Close members' })
     ).toBeVisible();
+    await expect(membersPage.locator('.os-app-screen--embedded')).toHaveCount(0);
+    await expect(
+      page.locator(
+        '.glass-sheet-root.is-visible[data-keep-dock="true"] .dao-org-page.dao-members-page'
+      )
+    ).toHaveCount(0);
     await expect(page.locator('.dao-members-slide')).toHaveCount(0);
     await expect(page.locator('[data-os-slide-over="true"]')).toHaveCount(0);
 
@@ -115,6 +121,14 @@ test.describe('DAO manage shell', () => {
     await expect(
       page.getByRole('button', { name: 'Close treasury' })
     ).toBeVisible();
+    await expect(treasuryPage.locator('.os-app-screen--embedded')).toHaveCount(
+      0
+    );
+    await expect(
+      page.locator(
+        '.glass-sheet-root.is-visible[data-keep-dock="true"] .dao-org-page.dao-treasury-page'
+      )
+    ).toHaveCount(0);
     await expect(page.locator('.dao-treasury-slide')).toHaveCount(0);
     await expect(page.locator('[data-os-slide-over="true"]')).toHaveCount(0);
   });
