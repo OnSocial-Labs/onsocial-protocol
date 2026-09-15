@@ -126,7 +126,7 @@ export function PortfolioHiringLine({
             onClose={() => setPreviewOpen(false)}
             orgName={orgName}
             jobs={openJobs}
-            zIndex={SHEET_Z.lightboxNested}
+            zIndex={SHEET_Z.overlayNested}
           />
         </>
       ) : (

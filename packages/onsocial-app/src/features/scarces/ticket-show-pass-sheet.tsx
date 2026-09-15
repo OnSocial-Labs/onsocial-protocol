@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CopyIcon, Divider, ScaleUpIcon } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
-import { DropImageLightbox } from '@/features/scarces/drop-artwork-preview';
+import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -97,9 +97,7 @@ export function TicketShowPassSheet({
   const statusLoading = open && !statusReady;
 
   const passCode = livePayload?.trim() || '';
-  const passCodePreview = passCode
-    ? ticketPassLiveCodePreview(passCode)
-    : '';
+  const passCodePreview = passCode ? ticketPassLiveCodePreview(passCode) : '';
   const copyPassCode = useCallback(async () => {
     if (!passCode) return;
     try {
@@ -348,10 +346,7 @@ export function TicketShowPassSheet({
               </div>
             </div>
 
-            <Divider
-              variant="detail"
-              className="ticket-show-pass-divider"
-            />
+            <Divider variant="detail" className="ticket-show-pass-divider" />
 
             <div className="ticket-show-pass-meta">
               <span className="ticket-show-pass-seat">
@@ -404,7 +399,7 @@ export function TicketShowPassSheet({
       </div>
 
       {media && artEnlargeOpen ? (
-        <DropImageLightbox
+        <DropArtOverlay
           open={artEnlargeOpen}
           src={media}
           label={name}

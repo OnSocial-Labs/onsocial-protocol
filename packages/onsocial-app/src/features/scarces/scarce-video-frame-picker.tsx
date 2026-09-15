@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { DropImageLightbox } from '@/features/scarces/drop-artwork-preview';
+import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import {
   captureVideoElementFrame,
   defaultPosterSeekSeconds,
@@ -301,7 +301,7 @@ export function ScarceVideoFramePicker({
       ref={videoRef}
       className={
         videoHost === 'overlay'
-          ? 'scarce-card-lightbox-asset scarce-frame-lightbox-video'
+          ? 'drop-art-overlay-asset scarce-frame-overlay-video'
           : 'scarce-post-preview-asset'
       }
       muted
@@ -353,22 +353,22 @@ export function ScarceVideoFramePicker({
         />
       ) : null}
 
-      <DropImageLightbox
+      <DropArtOverlay
         open={zoomOpen}
         label="Adjust cover frame"
         closeAriaLabel="Close frame picker"
         onClose={() => setZoomOpen(false)}
       >
         <OverlayHostProbe onActiveChange={handleOverlayActive} />
-        <div className="scarce-frame-lightbox-stage">
+        <div className="scarce-frame-overlay-stage">
           {videoHost === 'overlay' ? videoEl : null}
           {capturing ? (
-            <div className="scarce-frame-lightbox-pending" aria-live="polite">
+            <div className="scarce-frame-overlay-pending" aria-live="polite">
               Grabbing frame…
             </div>
           ) : null}
         </div>
-        <div className="scarce-frame-lightbox-dock">
+        <div className="scarce-frame-overlay-dock">
           <FrameScrubber
             seek={seek}
             duration={duration}
@@ -379,7 +379,7 @@ export function ScarceVideoFramePicker({
             onCommit={commitFromControl}
           />
         </div>
-      </DropImageLightbox>
+      </DropArtOverlay>
     </div>
   );
 }

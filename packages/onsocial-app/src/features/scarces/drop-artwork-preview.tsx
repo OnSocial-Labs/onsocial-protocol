@@ -23,7 +23,7 @@ import {
 import { dropCreatePiecePickerClass } from '@/features/scarces/drop-create-layout';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
-interface DropImageLightboxProps {
+interface DropArtOverlayProps {
   open: boolean;
   label: string;
   onClose: () => void;
@@ -55,7 +55,7 @@ function stopSheetClick(event: { stopPropagation: () => void }) {
 }
 
 /** Shared zoom dialog inside OS container — uses OsPageSheet overlay. */
-export function DropImageLightbox({
+export function DropArtOverlay({
   open,
   src,
   svg,
@@ -68,7 +68,7 @@ export function DropImageLightbox({
   onPrev,
   onNext,
   surface = 'page',
-}: DropImageLightboxProps) {
+}: DropArtOverlayProps) {
   const titleId = useId();
 
   useEffect(() => {
@@ -103,17 +103,17 @@ export function DropImageLightbox({
       panelClassName="drop-art-page-sheet-panel"
       bodyClassName="drop-art-page-sheet-body"
       header={
-        <div className="scarce-card-lightbox-chrome">
+        <div className="drop-art-overlay-chrome">
           <SheetCloseButton
             onClick={onClose}
             ariaLabel={closeAriaLabel}
-            className="scarce-card-lightbox-close"
+            className="drop-art-overlay-close"
           />
         </div>
       }
       footer={
         footer ? (
-          <div className="scarce-card-lightbox-footer" onClick={stopSheetClick}>
+          <div className="drop-art-overlay-footer" onClick={stopSheetClick}>
             {footer}
           </div>
         ) : null
@@ -124,62 +124,56 @@ export function DropImageLightbox({
           {label}
         </p>
         {children ? (
-          <div className="scarce-card-lightbox-stage" onClick={stopSheetClick}>
+          <div className="drop-art-overlay-stage" onClick={stopSheetClick}>
             {children}
           </div>
         ) : (
           <div
-            className={`scarce-card-lightbox-stage${hasNav ? ' has-nav' : ''}`}
+            className={`drop-art-overlay-stage${hasNav ? ' has-nav' : ''}`}
             onClick={stopSheetClick}
           >
             {inlineSvg ? (
               <div
-                className="scarce-card-lightbox-asset scarce-card-lightbox-svg"
+                className="drop-art-overlay-asset drop-art-overlay-svg"
                 dangerouslySetInnerHTML={{ __html: inlineSvg }}
               />
             ) : rasterSrc ? (
               <img
                 key={rasterSrc}
-                className="scarce-card-lightbox-asset"
+                className="drop-art-overlay-asset"
                 src={rasterSrc}
                 alt=""
               />
             ) : null}
             {hasNav ? (
               <div
-                className="scarce-card-lightbox-nav-row"
+                className="drop-art-overlay-nav-row"
                 role="group"
                 aria-label="Cover style"
               >
                 {onPrev ? (
                   <button
                     type="button"
-                    className="scarce-card-lightbox-nav scarce-card-lightbox-nav--prev"
+                    className="drop-art-overlay-nav drop-art-overlay-nav--prev"
                     aria-label="Previous"
                     onClick={onPrev}
                   >
                     ‹
                   </button>
                 ) : (
-                  <span
-                    className="scarce-card-lightbox-nav-spacer"
-                    aria-hidden
-                  />
+                  <span className="drop-art-overlay-nav-spacer" aria-hidden />
                 )}
                 {onNext ? (
                   <button
                     type="button"
-                    className="scarce-card-lightbox-nav scarce-card-lightbox-nav--next"
+                    className="drop-art-overlay-nav drop-art-overlay-nav--next"
                     aria-label="Next"
                     onClick={onNext}
                   >
                     ›
                   </button>
                 ) : (
-                  <span
-                    className="scarce-card-lightbox-nav-spacer"
-                    aria-hidden
-                  />
+                  <span className="drop-art-overlay-nav-spacer" aria-hidden />
                 )}
               </div>
             ) : null}
@@ -309,7 +303,7 @@ export function DropSeatTile({
           <MultiplyIcon className="drop-cover-seat-remove-icon" aria-hidden />
         </button>
       ) : null}
-      <DropImageLightbox
+      <DropArtOverlay
         open={zoomOpen}
         src={src}
         label={label}
@@ -317,7 +311,7 @@ export function DropSeatTile({
         footer={
           onSetCover && !selected ? (
             <OsSheetActions
-              className="scarce-card-lightbox-actions"
+              className="drop-art-overlay-actions"
               layout="row-compact"
               tone="frosted-primary"
               borderless
@@ -370,7 +364,7 @@ export function DropArtworkPreview({
       >
         <img src={src} alt="" />
       </button>
-      <DropImageLightbox
+      <DropArtOverlay
         open={zoomOpen}
         src={src}
         label={label}

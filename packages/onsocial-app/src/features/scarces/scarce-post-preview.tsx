@@ -14,7 +14,7 @@ import {
   previewTextCard,
 } from '@onsocial/text-card';
 import type { PostRow } from '@onsocial/sdk';
-import { DropImageLightbox } from '@/features/scarces/drop-artwork-preview';
+import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { parsePostText } from '@/lib/post-display';
 import { displayName } from '@/lib/profile-display';
 import {
@@ -239,7 +239,7 @@ export function ScarcePostPreview({
       </button>
 
       {useMediumActivate ? null : (
-        <DropImageLightbox
+        <DropArtOverlay
           open={zoomOpen}
           label="Card preview"
           onClose={() => setZoomOpen(false)}

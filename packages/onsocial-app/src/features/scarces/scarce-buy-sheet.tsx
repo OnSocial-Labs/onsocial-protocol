@@ -66,7 +66,7 @@ interface ScarceBuySheetProps {
   onOpenChange: (open: boolean) => void;
   onPurchased?: (detail: ScarceBuySuccessDetail) => void;
   onMakeOffer?: (detail?: { amountNear?: string | null }) => void;
-  /** Stack above feed enlarge lightbox (z-index 80) when opened from player shell. */
+  /** Stack above the listen/read shell (z-index 80) when opened from the player. */
   zIndex?: number;
 }
 
