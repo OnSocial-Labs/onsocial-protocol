@@ -3,28 +3,17 @@
 import {
   useCallback,
   useEffect,
-  useId,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
-  type CSSProperties,
 } from 'react';
-import { createPortal } from 'react-dom';
-import { SheetCloseButton, useScrollLock } from '@onsocial/ui';
-import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
+import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import {
   captureVideoElementFrame,
   defaultPosterSeekSeconds,
   formatMediaDuration,
   PosterFrameError,
 } from '@/lib/post-media';
-
-const clientMountedSubscribe = () => () => {};
-const getClientMountedSnapshot = () => true;
-const getServerMountedSnapshot = () => false;
-const LIGHTBOX_EXIT_MS = 180;
 
 interface ScarceVideoFramePickerProps {
   videoUrl: string;
@@ -47,7 +36,6 @@ interface FrameScrubberProps {
   disabled: boolean;
   onScrub: (next: number) => void;
   onCommit: (target: EventTarget | null) => void;
-  tone?: 'sheet' | 'lightbox';
 }
 
 function FrameScrubber({
@@ -58,13 +46,10 @@ function FrameScrubber({
   disabled,
   onScrub,
   onCommit,
-  tone = 'sheet',
 }: FrameScrubberProps) {
   return (
     <label
-      className={`scarce-frame-picker-scrub${
-        tone === 'lightbox' ? ' scarce-frame-picker-scrub--lightbox' : ''
-      }`}
+      className="scarce-frame-picker-scrub"
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
     >
@@ -141,9 +126,23 @@ function absoluteMediaUrl(videoUrl: string): string {
   }
 }
 
+/** Flip the media host after OsPageSheet actually mounts children. */
+function OverlayHostProbe({
+  onActiveChange,
+}: {
+  onActiveChange: (active: boolean) => void;
+}) {
+  useLayoutEffect(() => {
+    onActiveChange(true);
+    return () => onActiveChange(false);
+  }, [onActiveChange]);
+  return null;
+}
+
 /**
- * Frame cover picker — one `<video>`, sheet + lightbox. Tap to enlarge for
- * precise scrubbing; compact scrub stays on the sheet for quick nudges.
+ * Frame cover picker — one `<video>`, sheet + OsPageSheet overlay.
+ * Tap to enlarge for precise scrubbing; compact scrub stays on the sheet
+ * for quick nudges. Overlay remounts the same media element and re-seeks.
  */
 export function ScarceVideoFramePicker({
   videoUrl,
@@ -155,23 +154,18 @@ export function ScarceVideoFramePicker({
   onError,
   onPendingChange,
 }: ScarceVideoFramePickerProps) {
-  const titleId = useId();
   const [duration, setDuration] = useState(0);
   const [seek, setSeek] = useState(0);
   const [ready, setReady] = useState(false);
   const [capturing, setCapturing] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const [entered, setEntered] = useState(false);
+  const [zoomOpen, setZoomOpen] = useState(false);
+  const [overlayMounted, setOverlayMounted] = useState(false);
   const requestRef = useRef(0);
   const metaBoundRef = useRef(false);
   const boundUrlRef = useRef<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const seekRef = useRef(0);
   const initialSeekRef = useRef(initialSeek);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
   const onFrameRef = useRef(onFrame);
   const onSeekCommitRef = useRef(onSeekCommit);
   const onErrorRef = useRef(onError);
@@ -183,29 +177,10 @@ export function ScarceVideoFramePicker({
   initialSeekRef.current = initialSeek;
   seekRef.current = seek;
 
-  const mounted = useSyncExternalStore(
-    clientMountedSubscribe,
-    getClientMountedSnapshot,
-    getServerMountedSnapshot
-  );
-  const lightboxOpen = expanded && !closing;
-  // Keep the element in the lightbox through the exit morph.
-  const videoHost = lightboxOpen || closing ? 'lightbox' : 'sheet';
-  const viewport = useVisualViewportSheetMetrics(expanded || closing);
-  useScrollLock(lightboxOpen);
-
-  const lightboxStyle = useMemo((): CSSProperties | undefined => {
-    if (typeof window === 'undefined') return undefined;
-    const vv = window.visualViewport;
-    if (!viewport.isMobile || !vv || viewport.height <= 0) return undefined;
-    return {
-      top: vv.offsetTop,
-      left: vv.offsetLeft,
-      width: vv.width,
-      height: vv.height,
-      ['--scarce-lightbox-vh' as string]: `${viewport.height}px`,
-    };
-  }, [viewport.height, viewport.isMobile]);
+  const videoHost = overlayMounted ? 'overlay' : 'sheet';
+  const handleOverlayActive = useCallback((active: boolean) => {
+    setOverlayMounted(active);
+  }, []);
 
   // Sync the single media element when the URL changes or the host remounts.
   useLayoutEffect(() => {
@@ -317,57 +292,6 @@ export function ScarceVideoFramePicker({
     captureAt(next);
   }
 
-  const requestClose = useCallback(() => {
-    setClosing(true);
-    setEntered(false);
-  }, []);
-
-  useEffect(() => {
-    if (!closing) return;
-    const timer = window.setTimeout(() => {
-      setClosing(false);
-      setExpanded(false);
-      triggerRef.current?.focus();
-    }, LIGHTBOX_EXIT_MS);
-    return () => window.clearTimeout(timer);
-  }, [closing]);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const frame = window.requestAnimationFrame(() => {
-      setEntered(true);
-      closeRef.current?.focus();
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [lightboxOpen]);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        requestClose();
-        return;
-      }
-      if (event.key !== 'Tab' || !panelRef.current) return;
-      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusable.length === 0) return;
-      const first = focusable[0]!;
-      const last = focusable[focusable.length - 1]!;
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [lightboxOpen, requestClose]);
-
   const max = Math.max(duration, 0.1);
   const progress = duration > 0 ? Math.min(1, seek / duration) : 0;
   const scrubDisabled = disabled || !ready || capturing;
@@ -376,8 +300,8 @@ export function ScarceVideoFramePicker({
     <video
       ref={videoRef}
       className={
-        videoHost === 'lightbox'
-          ? 'scarce-card-lightbox-asset scarce-frame-lightbox-video'
+        videoHost === 'overlay'
+          ? 'drop-art-overlay-asset scarce-frame-overlay-video'
           : 'scarce-post-preview-asset'
       }
       muted
@@ -391,18 +315,15 @@ export function ScarceVideoFramePicker({
   return (
     <div className="scarce-frame-picker">
       <button
-        ref={triggerRef}
         type="button"
         className="scarce-post-preview scarce-post-preview--cover scarce-frame-picker-stage"
         aria-label="Adjust cover frame"
         aria-haspopup="dialog"
-        aria-expanded={lightboxOpen}
+        aria-expanded={zoomOpen}
         disabled={disabled || !ready}
         onClick={() => {
           if (disabled || !ready) return;
-          setClosing(false);
-          setEntered(false);
-          setExpanded(true);
+          setZoomOpen(true);
         }}
       >
         {videoHost === 'sheet' ? (
@@ -420,7 +341,7 @@ export function ScarceVideoFramePicker({
           </div>
         ) : null}
       </button>
-      {ready && !lightboxOpen && !closing ? (
+      {ready && !zoomOpen && !overlayMounted ? (
         <FrameScrubber
           seek={seek}
           duration={duration}
@@ -432,61 +353,33 @@ export function ScarceVideoFramePicker({
         />
       ) : null}
 
-      {mounted && (expanded || closing)
-        ? createPortal(
-            <div
-              ref={panelRef}
-              className={`scarce-card-lightbox scarce-frame-lightbox${entered && !closing ? ' is-open' : ''}${closing ? ' is-closing' : ''}`}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={titleId}
-              style={lightboxStyle}
-              onClick={requestClose}
-            >
-              <p id={titleId} className="sr-only">
-                Adjust cover frame
-              </p>
-              <div className="scarce-card-lightbox-chrome">
-                <SheetCloseButton
-                  ref={closeRef}
-                  onClick={requestClose}
-                  ariaLabel="Close frame picker"
-                  className="scarce-card-lightbox-close"
-                />
-              </div>
-              <div
-                className="scarce-frame-lightbox-stage"
-                onClick={(event) => event.stopPropagation()}
-              >
-                {videoHost === 'lightbox' ? videoEl : null}
-                {capturing ? (
-                  <div
-                    className="scarce-frame-lightbox-pending"
-                    aria-live="polite"
-                  >
-                    Grabbing frame…
-                  </div>
-                ) : null}
-              </div>
-              <div
-                className="scarce-frame-lightbox-dock"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <FrameScrubber
-                  seek={seek}
-                  duration={duration}
-                  max={max}
-                  progress={progress}
-                  disabled={scrubDisabled}
-                  onScrub={scrubLive}
-                  onCommit={commitFromControl}
-                  tone="lightbox"
-                />
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
+      <DropArtOverlay
+        open={zoomOpen}
+        label="Adjust cover frame"
+        closeAriaLabel="Close frame picker"
+        onClose={() => setZoomOpen(false)}
+      >
+        <OverlayHostProbe onActiveChange={handleOverlayActive} />
+        <div className="scarce-frame-overlay-stage">
+          {videoHost === 'overlay' ? videoEl : null}
+          {capturing ? (
+            <div className="scarce-frame-overlay-pending" aria-live="polite">
+              Grabbing frame…
+            </div>
+          ) : null}
+        </div>
+        <div className="scarce-frame-overlay-dock">
+          <FrameScrubber
+            seek={seek}
+            duration={duration}
+            max={max}
+            progress={progress}
+            disabled={scrubDisabled}
+            onScrub={scrubLive}
+            onCommit={commitFromControl}
+          />
+        </div>
+      </DropArtOverlay>
     </div>
   );
 }

@@ -86,7 +86,9 @@ test.describe('create drop', () => {
     await expect(discard).toHaveCount(0);
     await expect(page).toHaveURL(/\/drops\/create\/?$/);
     await page.getByRole('button', { name: 'Back', exact: true }).click();
-    await expect(page.getByRole('dialog', { name: 'Discard draft?' })).toBeVisible();
+    await expect(
+      page.getByRole('dialog', { name: 'Discard draft?' })
+    ).toBeVisible();
     await page
       .locator('.os-sheet-action--danger')
       .filter({ hasText: 'Discard draft' })
@@ -195,6 +197,49 @@ test.describe('create drop', () => {
     expect(filledBox!.width / filledBox!.height).toBeCloseTo(1, 1);
     expect(filledBox!.width).toBeCloseTo(pieceBox!.width, 1);
     await expect(page.locator('.drop-cover-seat-grid')).toHaveCount(0);
+  });
+
+  test('taps artwork to open the OsPageSheet overlay', async ({ page }) => {
+    await openCreateDrop(page);
+    await setLookPreviewFile(
+      page,
+      'input.scarce-cover-file-input',
+      {
+        name: 'art.png',
+        mimeType: 'image/png',
+        buffer: COVER_PNG,
+      },
+      page.locator('.drop-create-piece.has-media')
+    );
+
+    await page.getByRole('button', { name: 'Artwork preview' }).click();
+    const overlay = page.getByRole('dialog', { name: 'Artwork preview' });
+    await expect(overlay).toBeVisible();
+    const panel = page.locator('.drop-art-page-sheet-panel');
+    await expect(panel).toBeVisible();
+
+    // Glass / Carbon set --mood-bg: transparent on the OS frame. Page surface
+    // used to inherit that with no frost — the New drop form showed through.
+    await page.locator('.os-app-screen').evaluate((el) => {
+      el.style.setProperty('--mood-bg', 'transparent');
+    });
+    await expect
+      .poll(async () => panel.evaluate((el) => getComputedStyle(el).opacity))
+      .toBe('1');
+    const fill = await panel.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return {
+        backgroundColor: style.backgroundColor,
+        opacity: style.opacity,
+      };
+    });
+    expect(fill.opacity).toBe('1');
+    expect(fill.backgroundColor).not.toMatch(
+      /^(transparent|rgba\(\s*0,\s*0,\s*0,\s*0\s*\))$/i
+    );
+
+    await page.getByRole('button', { name: 'Close preview' }).click();
+    await expect(overlay).toHaveCount(0);
   });
 
   test('names Audio and Writing attach on the piece', async ({ page }) => {
@@ -342,16 +387,16 @@ test.describe('create drop', () => {
     await expect(
       perWallet.getByText('Cap how many one wallet can collect.')
     ).toBeVisible();
-    await expect(
-      perWallet.getByLabel('Max editions per wallet')
-    ).toBeVisible();
+    await expect(perWallet.getByLabel('Max editions per wallet')).toBeVisible();
     await expect(perWallet.getByText('Opens', { exact: true })).toHaveCount(0);
     await perWallet.getByRole('button', { name: 'Done', exact: true }).click();
 
     await page.getByRole('button', { name: 'Transferable: Yes' }).click();
     const transferable = page.getByRole('dialog', { name: 'Transferable' });
     await expect(
-      transferable.getByText('Yes means they can resell. Soulbound stays with them.')
+      transferable.getByText(
+        'Yes means they can resell. Soulbound stays with them.'
+      )
     ).toBeVisible();
     await expect(
       transferable.getByRole('radiogroup', { name: 'Transferable' })
@@ -359,7 +404,9 @@ test.describe('create drop', () => {
     await expect(transferable.getByText('Opens', { exact: true })).toHaveCount(
       0
     );
-    await transferable.getByRole('button', { name: 'Done', exact: true }).click();
+    await transferable
+      .getByRole('button', { name: 'Done', exact: true })
+      .click();
     await expect(
       page.getByRole('button', { name: 'Transferable: Yes' })
     ).toBeVisible();
@@ -526,7 +573,9 @@ test.describe('create drop', () => {
     await page.getByRole('button', { name: 'Style: None' }).click();
     const style = page.getByRole('dialog', { name: 'Style' });
     await expect(style.locator('.drop-facets-chip-row')).toBeVisible();
-    await style.getByRole('button', { name: 'Generative', exact: true }).click();
+    await style
+      .getByRole('button', { name: 'Generative', exact: true })
+      .click();
     await style.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'Style: Generative' })

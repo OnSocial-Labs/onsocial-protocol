@@ -1,17 +1,8 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import {
-  THEME_MANIFEST,
-  type Palette,
-} from '@onsocial/text-card';
-import { DropImageLightbox } from '@/features/scarces/drop-artwork-preview';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { THEME_MANIFEST, type Palette } from '@onsocial/text-card';
+import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { ScarceChoiceField } from '@/features/scarces/scarce-choice-field';
 import {
   ScarceFinishSwatch,
@@ -110,10 +101,7 @@ function StyleSwatch({
   );
 }
 
-function paperHexFor(
-  style: CollageStyle,
-  paper: CollagePaper
-): string | null {
+function paperHexFor(style: CollageStyle, paper: CollagePaper): string | null {
   if (paper === 'auto') return null;
   const finish = THEME_MANIFEST.palettes.find((item) => item.key === paper);
   return finish?.bgFrom ?? null;
@@ -127,7 +115,7 @@ function inkHexFor(paper: CollagePaper): string | null {
 
 /**
  * Variation Drop packaging cover — thumb + arrows + choice chips
- * (Style / Paper / Title / Label). Tap thumb opens DropImageLightbox.
+ * (Style / Paper / Title / Label). Tap thumb opens DropArtOverlay.
  */
 export function DropCoverCollagePicker({
   images,
@@ -299,9 +287,7 @@ export function DropCoverCollagePicker({
   const styleOptions = COLLAGE_STYLES.map((style) => {
     // Each option previews on the paper that style would use (Auto vs Finish).
     const optionPaper =
-      value.paper === 'auto'
-        ? STYLE_PAPER[style]
-        : chipPaperHex;
+      value.paper === 'auto' ? STYLE_PAPER[style] : chipPaperHex;
     return {
       value: style,
       label: COLLAGE_STYLE_LABELS[style],
@@ -390,7 +376,7 @@ export function DropCoverCollagePicker({
               showTitle: value.showTitle,
               showLabel: value.showLabel,
               paper: value.paper,
-                    font: value.font,
+              font: value.font,
             })
           }
         />
@@ -457,7 +443,7 @@ export function DropCoverCollagePicker({
               showTitle: !value.showTitle,
               showLabel: value.showLabel,
               paper: value.paper,
-                    font: value.font,
+              font: value.font,
             });
           }}
         >
@@ -481,7 +467,7 @@ export function DropCoverCollagePicker({
               showTitle: value.showTitle,
               showLabel: !value.showLabel,
               paper: value.paper,
-                    font: value.font,
+              font: value.font,
             });
           }}
         >
@@ -504,7 +490,7 @@ export function DropCoverCollagePicker({
       {error ? <small className="drop-collage-error">{error}</small> : null}
 
       {value.previewUrl ? (
-        <DropImageLightbox
+        <DropArtOverlay
           open={zoomOpen}
           src={value.previewUrl}
           label="Drop cover"
@@ -512,8 +498,8 @@ export function DropCoverCollagePicker({
           onPrev={() => cycle(-1)}
           onNext={() => cycle(1)}
           footer={
-            <div className="drop-collage-lightbox-controls">
-              <div className="drop-collage-lightbox-controls-row">
+            <div className="drop-collage-overlay-controls">
+              <div className="drop-collage-overlay-controls-row">
                 <ScarceChoiceField
                   label="Style"
                   value={value.style}
@@ -527,14 +513,14 @@ export function DropCoverCollagePicker({
                       paperHex={chipPaperHex}
                     />
                   }
-                  zIndex={SHEET_Z.lightboxNested}
+                  zIndex={SHEET_Z.overlayNested}
                   onChange={(style) =>
                     void renderCommitted({
                       style,
                       showTitle: value.showTitle,
                       showLabel: value.showLabel,
                       paper: value.paper,
-                    font: value.font,
+                      font: value.font,
                     })
                   }
                 />
@@ -558,7 +544,7 @@ export function DropCoverCollagePicker({
                       size="chip"
                     />
                   }
-                  zIndex={SHEET_Z.lightboxNested}
+                  zIndex={SHEET_Z.overlayNested}
                   onChange={(paper) =>
                     void renderCommitted({
                       style: value.style,
@@ -578,7 +564,7 @@ export function DropCoverCollagePicker({
                   chipLeading={
                     <CollageFontSwatch font={value.font} size="chip" />
                   }
-                  zIndex={SHEET_Z.lightboxNested}
+                  zIndex={SHEET_Z.overlayNested}
                   onChange={(font) =>
                     void renderCommitted({
                       style: value.style,
@@ -590,7 +576,7 @@ export function DropCoverCollagePicker({
                   }
                 />
               </div>
-              <div className="drop-collage-lightbox-controls-row">
+              <div className="drop-collage-overlay-controls-row">
                 <button
                   type="button"
                   className={`os-surface-chip os-choice-chip${
@@ -606,7 +592,7 @@ export function DropCoverCollagePicker({
                       showTitle: !value.showTitle,
                       showLabel: value.showLabel,
                       paper: value.paper,
-                    font: value.font,
+                      font: value.font,
                     });
                   }}
                 >
@@ -630,7 +616,7 @@ export function DropCoverCollagePicker({
                       showTitle: value.showTitle,
                       showLabel: !value.showLabel,
                       paper: value.paper,
-                    font: value.font,
+                      font: value.font,
                     });
                   }}
                 >

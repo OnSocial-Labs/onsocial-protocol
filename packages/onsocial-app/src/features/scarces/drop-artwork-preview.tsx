@@ -2,15 +2,15 @@
 
 /**
  * Seat-tile artwork thumbs for create-drop — same size as variation sets,
- * Mage remove control, tap-to-zoom with the shared scarce card lightbox.
+ * Mage remove control, tap-to-zoom with the shared OsPageSheet overlay.
  */
 
 import {
-  useCallback,
   useEffect,
   useId,
   useRef,
   useState,
+  type CSSProperties,
   type DragEvent as ReactDragEvent,
   type ReactNode,
 } from 'react';
@@ -24,11 +24,19 @@ import {
 import { dropCreatePiecePickerClass } from '@/features/scarces/drop-create-layout';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
-interface DropImageLightboxProps {
+interface DropArtOverlayProps {
   open: boolean;
-  src: string;
   label: string;
   onClose: () => void;
+  /** After the OsPageSheet exit animation unmounts. */
+  onClosed?: () => void;
+  closeAriaLabel?: string;
+  /** Raster zoom. Omit when `svg` or `children` is the stage. */
+  src?: string;
+  /** Inline SVG (text cards). Nested https faces work in DOM SVG, not img. */
+  svg?: string | null;
+  /** Custom stage (video frame picker). Wins over `src` / `svg`. */
+  children?: ReactNode;
   /** Optional action under the zoomed art (e.g. Use in cover). */
   footer?: ReactNode;
   /** When set, show prev chevron + ← key. */
@@ -39,21 +47,32 @@ interface DropImageLightboxProps {
    * Surface material:
    * - `'page'` (default): Solid opaque canvas (`--bg`). Zero distraction / bleed through. Best for high-contrast art.
    * - `'glass'`: Atmospheric frosted blur scrim.
+   *
+   * Page fill is pinned to `--bg` on the panel (art is never a mood wash).
+   * OsPageSheet `surface="page"` is an opaque canvas; `glass` is frost.
    */
   surface?: 'page' | 'glass';
 }
 
+function stopSheetClick(event: { stopPropagation: () => void }) {
+  event.stopPropagation();
+}
+
 /** Shared zoom dialog inside OS container — uses OsPageSheet overlay. */
-export function DropImageLightbox({
+export function DropArtOverlay({
   open,
   src,
+  svg,
+  children,
   label,
   onClose,
+  onClosed,
+  closeAriaLabel = 'Close preview',
   footer,
   onPrev,
   onNext,
   surface = 'page',
-}: DropImageLightboxProps) {
+}: DropArtOverlayProps) {
   const titleId = useId();
 
   useEffect(() => {
@@ -72,33 +91,41 @@ export function DropImageLightbox({
   }, [open, onPrev, onNext]);
 
   const hasNav = Boolean(onPrev || onNext);
+  const inlineSvg = svg?.trim() || null;
+  const rasterSrc = src?.trim() || null;
+  const pageFillStyle: CSSProperties | undefined =
+    surface === 'page'
+      ? ({
+          background: 'var(--bg)',
+          ['--mood-bg']: 'var(--bg)',
+        } as CSSProperties)
+      : undefined;
 
   return (
     <OsPageSheet
       open={open}
       onClose={onClose}
+      onClosed={onClosed}
       surface={surface}
       presentation="appear"
       zIndex={SCARCE_Z.nestedOverCommerce}
       ariaLabelledBy={titleId}
-      backdropLabel={`Close ${label} preview`}
+      backdropLabel={`Close ${label}`}
       panelClassName="drop-art-page-sheet-panel"
       bodyClassName="drop-art-page-sheet-body"
+      {...(pageFillStyle ? { panelStyle: pageFillStyle } : {})}
       header={
-        <div className="scarce-card-lightbox-chrome">
+        <div className="drop-art-overlay-chrome">
           <SheetCloseButton
             onClick={onClose}
-            ariaLabel="Close preview"
-            className="scarce-card-lightbox-close"
+            ariaLabel={closeAriaLabel}
+            className="drop-art-overlay-close"
           />
         </div>
       }
       footer={
         footer ? (
-          <div
-            className="scarce-card-lightbox-footer"
-            onClick={(event) => event.stopPropagation()}
-          >
+          <div className="drop-art-overlay-footer" onClick={stopSheetClick}>
             {footer}
           </div>
         ) : null
@@ -108,49 +135,62 @@ export function DropImageLightbox({
         <p id={titleId} className="sr-only">
           {label}
         </p>
-        <div
-          className={`scarce-card-lightbox-stage${hasNav ? ' has-nav' : ''}`}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <img
-            key={src}
-            className="scarce-card-lightbox-asset"
-            src={src}
-            alt=""
-          />
-          {hasNav ? (
-            <div
-              className="scarce-card-lightbox-nav-row"
-              role="group"
-              aria-label="Cover style"
-            >
-              {onPrev ? (
-                <button
-                  type="button"
-                  className="scarce-card-lightbox-nav scarce-card-lightbox-nav--prev"
-                  aria-label="Previous"
-                  onClick={onPrev}
-                >
-                  ‹
-                </button>
-              ) : (
-                <span className="scarce-card-lightbox-nav-spacer" aria-hidden />
-              )}
-              {onNext ? (
-                <button
-                  type="button"
-                  className="scarce-card-lightbox-nav scarce-card-lightbox-nav--next"
-                  aria-label="Next"
-                  onClick={onNext}
-                >
-                  ›
-                </button>
-              ) : (
-                <span className="scarce-card-lightbox-nav-spacer" aria-hidden />
-              )}
-            </div>
-          ) : null}
-        </div>
+        {children ? (
+          <div className="drop-art-overlay-stage" onClick={stopSheetClick}>
+            {children}
+          </div>
+        ) : (
+          <div
+            className={`drop-art-overlay-stage${hasNav ? ' has-nav' : ''}`}
+            onClick={stopSheetClick}
+          >
+            {inlineSvg ? (
+              <div
+                className="drop-art-overlay-asset drop-art-overlay-svg"
+                dangerouslySetInnerHTML={{ __html: inlineSvg }}
+              />
+            ) : rasterSrc ? (
+              <img
+                key={rasterSrc}
+                className="drop-art-overlay-asset"
+                src={rasterSrc}
+                alt=""
+              />
+            ) : null}
+            {hasNav ? (
+              <div
+                className="drop-art-overlay-nav-row"
+                role="group"
+                aria-label="Cover style"
+              >
+                {onPrev ? (
+                  <button
+                    type="button"
+                    className="drop-art-overlay-nav drop-art-overlay-nav--prev"
+                    aria-label="Previous"
+                    onClick={onPrev}
+                  >
+                    ‹
+                  </button>
+                ) : (
+                  <span className="drop-art-overlay-nav-spacer" aria-hidden />
+                )}
+                {onNext ? (
+                  <button
+                    type="button"
+                    className="drop-art-overlay-nav drop-art-overlay-nav--next"
+                    aria-label="Next"
+                    onClick={onNext}
+                  >
+                    ›
+                  </button>
+                ) : (
+                  <span className="drop-art-overlay-nav-spacer" aria-hidden />
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
     </OsPageSheet>
   );
@@ -275,7 +315,7 @@ export function DropSeatTile({
           <MultiplyIcon className="drop-cover-seat-remove-icon" aria-hidden />
         </button>
       ) : null}
-      <DropImageLightbox
+      <DropArtOverlay
         open={zoomOpen}
         src={src}
         label={label}
@@ -283,7 +323,7 @@ export function DropSeatTile({
         footer={
           onSetCover && !selected ? (
             <OsSheetActions
-              className="scarce-card-lightbox-actions"
+              className="drop-art-overlay-actions"
               layout="row-compact"
               tone="frosted-primary"
               borderless
@@ -336,7 +376,7 @@ export function DropArtworkPreview({
       >
         <img src={src} alt="" />
       </button>
-      <DropImageLightbox
+      <DropArtOverlay
         open={zoomOpen}
         src={src}
         label={label}

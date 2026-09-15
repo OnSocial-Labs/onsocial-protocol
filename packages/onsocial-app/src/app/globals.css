@@ -497,23 +497,49 @@
 }
 
 /*
- * Scarce card lightbox — unlayered so it beats glass-sheet.css
+ * Light mood mix for OsPageSheet `surface="page"` — unlayered so it beats
+ * glass-sheet.css (25% / `--mood-preset-bg`). Same recipe as OsAppScreen.
+ */
+:root[data-theme='light'] .glass-sheet-panel[data-surface='page'][data-mood] {
+  background: color-mix(
+    in srgb,
+    var(--mood-preset-bg-light, var(--mood-preset-bg, var(--bg)))
+      var(--mood-bg-preset-mix, 30%),
+    var(--bg)
+  );
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .glass-sheet-panel[data-surface='page'][data-mood] {
+    background: color-mix(
+      in srgb,
+      var(--mood-preset-bg-light, var(--mood-preset-bg, var(--bg)))
+        var(--mood-bg-preset-mix, 30%),
+      var(--bg)
+    );
+  }
+}
+
+/*
+ * Drop art OsPageSheet fill — unlayered so it beats glass-sheet.css
+ * page+mood mix. Art zoom is always a solid `--bg` canvas, never a mood wash.
+ */
+.drop-art-page-sheet-panel.glass-sheet-panel[data-surface='page'] {
+  --mood-bg: var(--bg);
+  background: var(--bg, rgb(var(--bg-rgb)));
+}
+
+/*
+ * Drop art OsPageSheet close — unlayered so it beats glass-sheet.css
  * (.glass-sheet-icon-action uses --fg). Icon only — no fill, border, or ring.
  */
-.scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close,
-.drop-art-page-sheet-panel .glass-sheet-icon-action.scarce-card-lightbox-close,
-.scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
-.drop-art-page-sheet-panel .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
-.scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close:focus,
-.drop-art-page-sheet-panel .glass-sheet-icon-action.scarce-card-lightbox-close:focus,
-.scarce-card-lightbox
-  .glass-sheet-icon-action.scarce-card-lightbox-close:focus-visible,
+.drop-art-page-sheet-panel .glass-sheet-icon-action.drop-art-overlay-close,
+.drop-art-page-sheet-panel .glass-sheet-icon-action.drop-art-overlay-close:hover,
+.drop-art-page-sheet-panel .glass-sheet-icon-action.drop-art-overlay-close:focus,
 .drop-art-page-sheet-panel
-  .glass-sheet-icon-action.scarce-card-lightbox-close:focus-visible,
-.scarce-card-lightbox
-  .glass-sheet-icon-action.scarce-card-lightbox-close:active,
+  .glass-sheet-icon-action.drop-art-overlay-close:focus-visible,
 .drop-art-page-sheet-panel
-  .glass-sheet-icon-action.scarce-card-lightbox-close:active {
+  .glass-sheet-icon-action.drop-art-overlay-close:active {
   border: 0;
   outline: none;
   box-shadow: none;
@@ -524,12 +550,9 @@
   color: rgb(var(--fg-rgb) / 0.88);
 }
 
-.scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
-.drop-art-page-sheet-panel .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
-.scarce-card-lightbox
-  .glass-sheet-icon-action.scarce-card-lightbox-close:focus-visible,
+.drop-art-page-sheet-panel .glass-sheet-icon-action.drop-art-overlay-close:hover,
 .drop-art-page-sheet-panel
-  .glass-sheet-icon-action.scarce-card-lightbox-close:focus-visible {
+  .glass-sheet-icon-action.drop-art-overlay-close:focus-visible {
   color: rgb(var(--fg-rgb) / 1);
 }
 
@@ -22215,11 +22238,8 @@ a.os-surface-row {
   /*
    * Post-origin scarce medium — same canvas as listen enlarge (28rem cover).
    * Audio mounts ScarceClipListenSheet directly; viewer / loading reuse
-   * listen lightbox chrome with Mint/Buy + post engagement under the art.
+   * listen chrome with Mint/Buy + post engagement under the art.
    */
-  .scarce-card-lightbox.scarce-post-medium-lightbox.is-closing {
-    opacity: 0;
-  }
 
   .scarce-post-medium-listen {
     gap: 0.55rem;
@@ -22419,12 +22439,12 @@ a.os-surface-row {
   }
 
   .scarce-post-preview-svg,
-  .scarce-card-lightbox-svg {
+  .drop-art-overlay-svg {
     overflow: hidden;
   }
 
   .scarce-post-preview-svg svg,
-  .scarce-card-lightbox-svg svg {
+  .drop-art-overlay-svg svg {
     display: block;
     width: 100%;
     height: 100%;
@@ -22437,7 +22457,7 @@ a.os-surface-row {
     overflow: hidden;
   }
 
-  .drop-art-page-sheet-panel .scarce-card-lightbox-chrome {
+  .drop-art-page-sheet-panel .drop-art-overlay-chrome {
     position: absolute;
     top: calc(
       env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y, 0.3rem)
@@ -22453,7 +22473,7 @@ a.os-surface-row {
     height: var(--os-app-screen-nav-row-height, 2.35rem);
   }
 
-  .drop-art-page-sheet-panel .glass-sheet-icon-action.scarce-card-lightbox-close {
+  .drop-art-page-sheet-panel .glass-sheet-icon-action.drop-art-overlay-close {
     width: var(--os-app-screen-nav-row-height, 2.35rem);
     height: var(--os-app-screen-nav-row-height, 2.35rem);
     min-width: var(--os-app-screen-nav-row-height, 2.35rem);
@@ -22486,44 +22506,18 @@ a.os-surface-row {
     cursor: zoom-out;
   }
 
-  .drop-art-page-sheet-panel .scarce-card-lightbox-asset {
+  .drop-art-page-sheet-panel .drop-art-overlay-asset {
     opacity: 1;
     transform: none;
+    width: min(92vw, 600px);
     max-width: min(92vw, 560px);
     max-height: min(78dvh, 560px);
+    height: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
   }
 
-  .scarce-card-lightbox {
-    --scarce-lightbox-vh: 100dvh;
-    position: fixed;
-    inset: 0;
-    /* Above commerce sheets (90) — art zoom from list/buy must not sit under the drawer. */
-    z-index: 110;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    padding: max(1.25rem, env(safe-area-inset-top, 0px))
-      max(1.25rem, env(safe-area-inset-right, 0px))
-      max(1.25rem, env(safe-area-inset-bottom, 0px))
-      max(1.25rem, env(safe-area-inset-left, 0px));
-    background: var(--bg);
-    cursor: zoom-out;
-    opacity: 0;
-    transition: opacity 180ms ease;
-  }
-
-  .scarce-card-lightbox.is-open {
-    /* Solid opaque field — follows theme with zero see-through distraction. */
-    background: var(--bg);
-    opacity: 1;
-  }
-
-  .scarce-card-lightbox.is-closing {
-    opacity: 0;
-  }
-
-  .scarce-card-lightbox-chrome {
+  .drop-art-overlay-chrome {
     position: absolute;
     top: max(0.55rem, env(safe-area-inset-top, 0px));
     right: max(0.55rem, env(safe-area-inset-right, 0px));
@@ -22531,7 +22525,7 @@ a.os-surface-row {
   }
 
   /* Stage: cover on top; style arrows sit under the art, never on it. */
-  .scarce-card-lightbox-stage {
+  .drop-art-overlay-stage {
     position: relative;
     z-index: 1;
     display: flex;
@@ -22542,14 +22536,14 @@ a.os-surface-row {
     max-width: 100%;
   }
 
-  .scarce-card-lightbox-nav-row {
+  .drop-art-overlay-nav-row {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.85rem;
   }
 
-  .scarce-card-lightbox-nav {
+  .drop-art-overlay-nav {
     position: relative;
     top: auto;
     z-index: 2;
@@ -22573,25 +22567,25 @@ a.os-surface-row {
     cursor: pointer;
   }
 
-  .scarce-card-lightbox-nav-spacer {
+  .drop-art-overlay-nav-spacer {
     width: 2.35rem;
     height: 2.35rem;
   }
 
-  .scarce-card-lightbox-nav--prev,
-  .scarce-card-lightbox-nav--next {
+  .drop-art-overlay-nav--prev,
+  .drop-art-overlay-nav--next {
     left: auto;
     right: auto;
   }
 
-  .scarce-card-lightbox-nav:hover,
-  .scarce-card-lightbox-nav:focus-visible {
+  .drop-art-overlay-nav:hover,
+  .drop-art-overlay-nav:focus-visible {
     background: rgb(var(--fg-rgb) / 0.16);
     color: rgb(var(--fg-rgb) / 1);
     outline: none;
   }
 
-  .scarce-card-lightbox-footer {
+  .drop-art-overlay-footer {
     position: absolute;
     left: 0;
     right: 0;
@@ -22603,19 +22597,19 @@ a.os-surface-row {
     pointer-events: none;
   }
 
-  .scarce-card-lightbox-footer > * {
+  .drop-art-overlay-footer > * {
     pointer-events: auto;
   }
 
-  /* Lightbox CTA — frosted OsSheetAction, hug content on theme field. */
-  .scarce-card-lightbox-actions.os-sheet-actions--row-compact {
+  /* Overlay CTA — frosted OsSheetAction, hug content on theme field. */
+  .drop-art-overlay-actions.os-sheet-actions--row-compact {
     width: auto;
     max-width: min(100%, 18rem);
     gap: 0;
   }
 
-  .scarce-card-lightbox-actions.os-sheet-actions--row-compact .os-sheet-action,
-  .scarce-card-lightbox-actions.os-sheet-actions--row-compact
+  .drop-art-overlay-actions.os-sheet-actions--row-compact .os-sheet-action,
+  .drop-art-overlay-actions.os-sheet-actions--row-compact
     .os-sheet-action--primary {
     flex: 0 0 auto;
     width: auto;
@@ -22625,18 +22619,18 @@ a.os-surface-row {
     font-size: 0.88rem;
   }
 
-  .scarce-card-lightbox-actions.os-sheet-actions--borderless
+  .drop-art-overlay-actions.os-sheet-actions--borderless
     .os-sheet-action__shell {
     width: auto;
   }
 
   /* Color override lives unlayered below — @layer loses to glass-sheet.css. */
 
-  .scarce-card-lightbox-asset {
+  .drop-art-overlay-asset {
     display: block;
     /* 600px = 1800÷3 — integer scale for mint PNG zoom. */
-    width: min(92vw, calc(var(--scarce-lightbox-vh) * 0.92), 600px);
-    max-height: min(calc(var(--scarce-lightbox-vh) * 0.92), 600px);
+    width: min(92vw, 600px);
+    max-height: min(92dvh, 600px);
     height: auto;
     aspect-ratio: 1 / 1;
     object-fit: cover;
@@ -22648,36 +22642,21 @@ a.os-surface-row {
      */
     box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
     cursor: default;
-    transform: scale(0.95);
-    opacity: 0;
-    transition:
-      transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
-      opacity 180ms ease;
   }
 
   /* Light field: crisp 1px hairline + subtle soft ambient lift for white-on-white art. */
-  :root[data-theme='light'] .scarce-card-lightbox-asset {
+  :root[data-theme='light'] .drop-art-overlay-asset {
     box-shadow:
       0 0 0 1px rgb(var(--fg-rgb) / 0.08),
       0 12px 32px rgb(0 0 0 / 0.08);
   }
 
   @media (prefers-color-scheme: light) {
-    :root:not([data-theme]) .scarce-card-lightbox-asset {
+    :root:not([data-theme]) .drop-art-overlay-asset {
       box-shadow:
         0 0 0 1px rgb(var(--fg-rgb) / 0.08),
         0 12px 32px rgb(0 0 0 / 0.08);
     }
-  }
-
-  .scarce-card-lightbox.is-open .scarce-card-lightbox-asset {
-    transform: scale(1);
-    opacity: 1;
-  }
-
-  .scarce-card-lightbox.is-closing .scarce-card-lightbox-asset {
-    transform: scale(0.96);
-    opacity: 0;
   }
 
   .scarce-mood-picker-block {
@@ -22762,14 +22741,7 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.06);
   }
 
-  .scarce-frame-lightbox {
-    flex-direction: column;
-    justify-content: center;
-    gap: 1rem;
-    cursor: zoom-out;
-  }
-
-  .scarce-frame-lightbox-stage {
+  .scarce-frame-overlay-stage {
     position: relative;
     display: flex;
     align-items: center;
@@ -22779,14 +22751,14 @@ a.os-surface-row {
     min-height: 0;
   }
 
-  .scarce-frame-lightbox-video {
-    /* Leave room for the scrubber dock under the art. */
-    width: min(92vw, calc(var(--scarce-lightbox-vh) * 0.72), 36rem);
-    max-height: min(calc(var(--scarce-lightbox-vh) * 0.72), 36rem);
+  .drop-art-page-sheet-panel .scarce-frame-overlay-video {
+    width: min(92vw, 36rem);
+    max-width: min(92vw, 560px);
+    max-height: min(68dvh, 36rem);
     cursor: default;
   }
 
-  .scarce-frame-lightbox-pending {
+  .scarce-frame-overlay-pending {
     position: absolute;
     inset: auto 0 0.75rem;
     margin: 0 auto;
@@ -22800,36 +22772,13 @@ a.os-surface-row {
     pointer-events: none;
   }
 
-  .scarce-frame-lightbox-dock {
+  .scarce-frame-overlay-dock {
     width: min(92vw, 22rem);
     flex: 0 0 auto;
     display: flex;
     flex-direction: column;
     gap: 0.45rem;
     padding: 0 0.25rem max(0.25rem, env(safe-area-inset-bottom, 0px));
-  }
-
-  .scarce-frame-picker-scrub--lightbox .scarce-frame-picker-time {
-    color: rgb(255 255 255 / 0.62);
-  }
-
-  .scarce-frame-picker-scrub--lightbox .scarce-frame-picker-track::before {
-    background: rgb(255 255 255 / 0.2);
-  }
-
-  .scarce-frame-picker-scrub--lightbox .scarce-frame-picker-track::after {
-    background: rgb(255 255 255 / 0.72);
-  }
-
-  .scarce-frame-picker-scrub--lightbox
-    input[type='range']::-webkit-slider-thumb {
-    background: rgb(255 255 255 / 0.95);
-    box-shadow: 0 0 0 2px rgb(6 6 8 / 0.85);
-  }
-
-  .scarce-frame-picker-scrub--lightbox input[type='range']::-moz-range-thumb {
-    background: rgb(255 255 255 / 0.95);
-    box-shadow: 0 0 0 2px rgb(6 6 8 / 0.85);
   }
 
   .scarce-frame-picker-loading {
@@ -24079,23 +24028,6 @@ a.os-surface-row {
    * Full-screen listen — solid theme canvas (not dark art scrim).
    * Contract sits opposite the time pill (same slot as cover expand).
    */
-  .scarce-card-lightbox.scarce-clip-listen-lightbox,
-  .scarce-card-lightbox.scarce-clip-listen-lightbox.is-open,
-  .scarce-card-lightbox.scarce-clip-listen-lightbox.is-closing {
-    cursor: default;
-    align-items: stretch;
-    justify-content: stretch;
-    padding: 0;
-    background: var(--bg);
-    opacity: 1;
-    /* Under commerce (90) so Mint drawer can stack over the player shell. */
-    z-index: 80;
-  }
-
-  .scarce-card-lightbox.scarce-clip-listen-lightbox.is-closing {
-    opacity: 0;
-  }
-
   .scarce-clip-listen {
     display: flex;
     flex: 1;
@@ -26949,20 +26881,6 @@ a.os-surface-row {
     opacity: 0.88;
   }
 
-  .scarce-writing-read-lightbox .scarce-writing-read {
-    --writing-read-measure: min(34rem, 100%);
-    display: flex;
-    flex-direction: column;
-    gap: 0.7rem;
-    width: min(100%, 44rem);
-    max-height: min(var(--scarce-lightbox-vh, 100dvh), 100%);
-    margin: 0 auto;
-    padding: 0 1.1rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
-    padding-top: max(0.55rem, env(safe-area-inset-top, 0px));
-    min-height: 0;
-    box-sizing: border-box;
-  }
-
   .scarce-writing-read-progress {
     position: fixed;
     top: env(safe-area-inset-top, 0px);
@@ -27223,31 +27141,6 @@ a.os-surface-row {
 
   /* —— Ticket Show pass / Door —— */
   /* Fullscreen frost like drawers (not Listen’s solid canvas). */
-  .ticket-show-pass-lightbox.scarce-card-lightbox {
-    align-items: stretch;
-    justify-content: stretch;
-    padding: 0;
-    background: rgb(var(--bg-rgb) / 0);
-    cursor: default;
-    z-index: 110;
-  }
-
-  .ticket-show-pass-lightbox.scarce-card-lightbox.is-open {
-    background: var(--glass-scrim, rgb(var(--bg-rgb) / 0.28));
-    opacity: 1;
-  }
-
-  .ticket-show-pass-lightbox.scarce-card-lightbox.is-closing {
-    background: rgb(var(--bg-rgb) / 0);
-    opacity: 0;
-  }
-
-  @media (prefers-reduced-transparency: reduce) {
-    .ticket-show-pass-lightbox.scarce-card-lightbox.is-open {
-      background: var(--glass-scrim-solid, rgb(var(--bg-rgb) / 0.82));
-    }
-  }
-
   .ticket-show-pass {
     --pass-pad-x: max(0.85rem, env(safe-area-inset-left, 0px));
     --pass-pad-r: max(0.85rem, env(safe-area-inset-right, 0px));
@@ -29185,7 +29078,7 @@ a.os-surface-row {
     transform: translate3d(100%, 0, 0);
     transition: transform var(--os-motion-sheet, 280ms)
       var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1));
-    /* Above create-drop drawers; below lightbox zoom (scarce-card ~120+). */
+    /* Above create-drop drawers; below art overlay zoom. */
     pointer-events: auto;
   }
 
@@ -30068,7 +29961,7 @@ a.os-surface-row {
     padding: 0;
     border: 0;
     border-radius: 999px;
-    /* Theme transport — same idea as lightbox nav, not hard black. */
+    /* Theme transport — same idea as overlay nav, not hard black. */
     color: rgb(var(--fg-rgb) / 0.92);
     background: rgb(var(--fg-rgb) / 0.1);
     backdrop-filter: blur(10px);
@@ -30258,7 +30151,7 @@ a.os-surface-row {
     color: var(--signal-danger, #b42318);
   }
 
-  .drop-collage-lightbox-controls {
+  .drop-collage-overlay-controls {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -30266,7 +30159,7 @@ a.os-surface-row {
     width: min(100%, 22rem);
   }
 
-  .drop-collage-lightbox-controls-row {
+  .drop-collage-overlay-controls-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -30275,19 +30168,19 @@ a.os-surface-row {
     width: 100%;
   }
 
-  .drop-collage-lightbox-controls .os-choice-chip {
+  .drop-collage-overlay-controls .os-choice-chip {
     font-size: 0.62rem;
   }
 
-  .drop-collage-lightbox-controls .os-choice-chip > span,
-  .drop-collage-lightbox-controls .os-choice-chip-label,
-  .drop-collage-lightbox-controls .os-choice-chip-value {
+  .drop-collage-overlay-controls .os-choice-chip > span,
+  .drop-collage-overlay-controls .os-choice-chip-label,
+  .drop-collage-overlay-controls .os-choice-chip-value {
     font-size: inherit;
     font-weight: inherit;
     color: inherit;
   }
 
-  .drop-collage-lightbox-controls .os-choice-chip-label {
+  .drop-collage-overlay-controls .os-choice-chip-label {
     font-size: 0.72em;
     font-weight: 650;
     letter-spacing: 0.02em;
@@ -30295,18 +30188,18 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
-  .drop-collage-lightbox-controls .os-choice-chip-value {
+  .drop-collage-overlay-controls .os-choice-chip-value {
     font-weight: 550;
   }
 
   /* Same surface chip language as create Style / Paper — not action pills. */
-  .drop-collage-lightbox-control.os-surface-chip {
+  .drop-collage-overlay-control.os-surface-chip {
     padding: 0.12rem 0.28rem 0.12rem 0.2rem;
     gap: 0.15rem;
     cursor: default;
   }
 
-  .drop-collage-lightbox-step {
+  .drop-collage-overlay-step {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -30323,20 +30216,20 @@ a.os-surface-row {
     cursor: pointer;
   }
 
-  .drop-collage-lightbox-step:hover:not(:disabled),
-  .drop-collage-lightbox-step:focus-visible:not(:disabled) {
+  .drop-collage-overlay-step:hover:not(:disabled),
+  .drop-collage-overlay-step:focus-visible:not(:disabled) {
     background: rgb(var(--fg-rgb) / 0.1);
     color: var(--os-surface-emphasis);
     outline: none;
   }
 
-  .drop-collage-lightbox-step:disabled {
+  .drop-collage-overlay-step:disabled {
     opacity: 1;
     color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
   }
 
-  .drop-collage-lightbox-value {
+  .drop-collage-overlay-value {
     min-width: 2.75rem;
     max-width: 5.5rem;
   }

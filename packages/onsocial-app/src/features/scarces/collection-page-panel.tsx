@@ -56,7 +56,7 @@ import {
   CollectionActivitySkeleton,
   CollectionPageSkeleton,
 } from '@/features/scarces/collection-page-skeleton';
-import { DropImageLightbox } from '@/features/scarces/drop-artwork-preview';
+import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
 import { VariationSetPeek } from '@/features/scarces/variation-set-peek';
 import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
@@ -176,8 +176,11 @@ export function CollectionPagePanel({
   initialCreator?: CollectionCreatorFace | null;
   initialActivity?: CollectionActivityRow[];
 }) {
-  const { accountId: viewerAccountId, isConnected, isLoading: walletLoading } =
-    useAppWallet();
+  const {
+    accountId: viewerAccountId,
+    isConnected,
+    isLoading: walletLoading,
+  } = useAppWallet();
   const { setTxResult } = useAppTransactionFeedback();
   const nowPlaying = useCollectiblesNowPlayingOptional();
   const router = useRouter();
@@ -252,7 +255,7 @@ export function CollectionPagePanel({
   const [writingReadOpen, setWritingReadOpen] = useState(false);
   const [showPassOpen, setShowPassOpen] = useState(false);
   const [showPassTokenId, setShowPassTokenId] = useState<string | null>(null);
-  const [mediaLightboxOpen, setMediaLightboxOpen] = useState(false);
+  const [mediaOverlayOpen, setMediaOverlayOpen] = useState(false);
   /** Viewer is creator or door staff for redeem. */
   const [isRedeemer, setIsRedeemer] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
@@ -323,7 +326,10 @@ export function CollectionPagePanel({
     if (peekHoldsCollection(viewerAccountId, collectionId)) {
       queueMicrotask(() => {
         setHoldsEdition((prev) => (prev == null ? true : prev));
-        const token = peekOwnedTokenForCollection(viewerAccountId, collectionId);
+        const token = peekOwnedTokenForCollection(
+          viewerAccountId,
+          collectionId
+        );
         if (token) {
           setOwnedPassTokenId((prev) => prev ?? token);
         }
@@ -732,9 +738,7 @@ export function CollectionPagePanel({
       <OsAppScreen title="Drop" dockBack backFallbackHref={catalogLeaveHref}>
         <div className={MARKET_PAGE_CLASS}>
           <div className="market-page-empty">
-            <p className="market-page-empty-copy">
-              This drop isn’t available.
-            </p>
+            <p className="market-page-empty-copy">This drop isn’t available.</p>
             <OsEmptyAction href={catalogLeaveHref}>
               {catalogLeaveHref === APP_DROPS_PATH
                 ? 'Back to Drops'
@@ -961,7 +965,7 @@ export function CollectionPagePanel({
                 type="button"
                 className="scarce-clip-cover-expand collection-cover-read-expand"
                 aria-label="View artwork"
-                onClick={() => setMediaLightboxOpen(true)}
+                onClick={() => setMediaOverlayOpen(true)}
               >
                 <ScaleUpIcon
                   className="scarce-clip-cover-expand-icon"
@@ -1580,12 +1584,12 @@ export function CollectionPagePanel({
         />
       ) : null}
 
-      {view.mediaUrl && mediaLightboxOpen ? (
-        <DropImageLightbox
-          open={mediaLightboxOpen}
+      {view.mediaUrl && mediaOverlayOpen ? (
+        <DropArtOverlay
+          open={mediaOverlayOpen}
           src={view.mediaUrl}
           label={view.title}
-          onClose={() => setMediaLightboxOpen(false)}
+          onClose={() => setMediaOverlayOpen(false)}
         />
       ) : null}
     </OsAppScreen>

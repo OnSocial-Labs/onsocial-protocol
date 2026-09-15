@@ -39,8 +39,8 @@ export const SHEET_Z = {
   overShell: 90,
   /** Final confirms above everything (protocol / DAO / scarce nested). */
   confirm: 110,
-  /** Choice drawers nested inside a lightbox footer. */
-  lightboxNested: 130,
+  /** Choice drawers nested above an art overlay. */
+  overlayNested: 130,
 } as const;
 
 export type SheetZBand = keyof typeof SHEET_Z;

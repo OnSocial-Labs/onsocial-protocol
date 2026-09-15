@@ -1,18 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { DropImageLightbox } from '@/features/scarces/drop-artwork-preview';
+import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 
 /**
- * Commerce cover thumb — tap opens the same zoom lightbox as list / Drop art.
+ * Commerce cover thumb — tap opens the same zoom overlay as list / Drop art.
  */
-export function ScarceBuyCover({
-  src,
-  label,
-}: {
-  src: string;
-  label: string;
-}) {
+export function ScarceBuyCover({ src, label }: { src: string; label: string }) {
   const [zoomOpen, setZoomOpen] = useState(false);
   const trimmed = src.trim();
   if (!trimmed) return null;
@@ -29,7 +23,7 @@ export function ScarceBuyCover({
       >
         <img src={trimmed} alt="" />
       </button>
-      <DropImageLightbox
+      <DropArtOverlay
         open={zoomOpen}
         src={trimmed}
         label={`Preview ${label}`}

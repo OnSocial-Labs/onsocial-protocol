@@ -80,6 +80,9 @@ dist/
 **/.next-testnet/
 .next-mainnet/
 **/.next-mainnet/
+# Playwright / e2e Next dist (playwright.config.ts NEXT_DIST_DIR)
+.next-e2e/
+**/.next-e2e/
 
 # Prettier and pnpm configuration
 .pnpmrc

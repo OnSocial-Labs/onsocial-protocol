@@ -31,7 +31,11 @@ import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-tex
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
-import { fetchAccountJobs, JOBS_CHANGED_EVENT, notifyJobsChanged } from '@/lib/profile-jobs';
+import {
+  fetchAccountJobs,
+  JOBS_CHANGED_EVENT,
+  notifyJobsChanged,
+} from '@/lib/profile-jobs';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastError,
@@ -336,7 +340,7 @@ export function ProfileJobsEditor({
         label={isEditing ? 'Edit role' : 'New role'}
         closeAriaLabel="Close role form"
         backdropLabel="Close role form"
-        zIndex={SHEET_Z.lightboxNested}
+        zIndex={SHEET_Z.overlayNested}
         footer={
           <OsSheetFooter>
             <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -384,7 +388,9 @@ export function ProfileJobsEditor({
           </label>
           <label className="guild-field" htmlFor={`${formId}-description`}>
             <span>Description</span>
-            <div className={`${osFieldBorderedClassName} account-editor-jobs-rich`}>
+            <div
+              className={`${osFieldBorderedClassName} account-editor-jobs-rich`}
+            >
               <ProfileBioRichTextarea
                 id={`${formId}-description`}
                 value={description}
@@ -454,7 +460,7 @@ export function ProfileJobsEditor({
         min={todayDateInput()}
         label="Closes"
         confirmLabel="Set closes"
-        zIndex={SHEET_Z.lightboxNested}
+        zIndex={SHEET_Z.overlayNested}
         onClose={() => setClosesOpen(false)}
         onChange={setEnds}
       />
@@ -466,7 +472,7 @@ export function ProfileJobsEditor({
         keepEditingLabel="Keep"
         pending={busy && removeJobId !== null}
         pendingLabel="Removing…"
-        zIndex={SHEET_Z.lightboxNested}
+        zIndex={SHEET_Z.overlayNested}
         onDiscard={() => {
           if (removeJobId && !busy) void handleRemove(removeJobId);
         }}

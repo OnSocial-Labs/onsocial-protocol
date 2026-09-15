@@ -50,7 +50,8 @@ export type GlassSheetPresentation = 'enter' | 'swap' | 'appear';
 export type GlassSheetSizing = 'hug' | 'full';
 /**
  * `glass` — frosted panel + dim/blur scrim.
- * `page` — opaque OS/slide-page fill (`--mood-bg` / `--bg`), no frost.
+ * `page` — opaque canvas (`--bg`, or an opaque mood mix when `data-mood` is
+ * set). Never inherit a transparent `--mood-bg` (Glass/Carbon frames).
  */
 export type GlassSheetSurface = 'glass' | 'page';
 
@@ -275,8 +276,8 @@ export interface GlassSheetProps {
    */
   portalContainer?: HTMLElement | null;
   /**
-   * Panel material. `page` is opaque OS/slide fill (`--mood-bg` / `--bg`) with
-   * no frost and no scrim. Default `glass`.
+   * Panel material. `page` is an opaque canvas (`--bg` / opaque mood mix)
+   * with no frost and no scrim. Default `glass` (frost + dim scrim).
    */
   surface?: GlassSheetSurface;
   /**

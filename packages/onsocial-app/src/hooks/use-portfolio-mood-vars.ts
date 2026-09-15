@@ -50,6 +50,28 @@ const DISABLED_SNAPSHOT: PortfolioMoodVarsSnapshot = {
 let cachedSnapshot: PortfolioMoodVarsSnapshot = DISABLED_SNAPSHOT;
 let cachedSnapshotKey = 'disabled';
 
+function isTransparentCssColor(value: string): boolean {
+  const v = value.trim().toLowerCase();
+  return (
+    v === 'transparent' ||
+    v === 'rgba(0, 0, 0, 0)' ||
+    v === 'rgba(0,0,0,0)' ||
+    v === 'rgb(0, 0, 0, 0)'
+  );
+}
+
+/** Frame `--mood-bg` may be `transparent` (Glass/Carbon). Page sheets cannot. */
+export function resolveCopiedMoodBg(
+  moodBg: string,
+  fallbackBg: string
+): string {
+  const trimmed = moodBg.trim();
+  if (!trimmed || isTransparentCssColor(trimmed)) {
+    return fallbackBg.trim() || 'var(--bg)';
+  }
+  return trimmed;
+}
+
 function getPortfolioMoodId(): MoodId | null {
   if (typeof document === 'undefined') {
     return null;
@@ -87,12 +109,13 @@ function readPortfolioMoodStyle(): CSSProperties | undefined {
 
   const computed = getComputedStyle(frame);
   const vars: Record<string, string> = {};
+  const frameBg = computed.getPropertyValue('--bg').trim();
 
   for (const name of MOOD_CSS_VARS) {
     const value = computed.getPropertyValue(name).trim();
-    if (value) {
-      vars[name] = value;
-    }
+    if (!value) continue;
+    vars[name] =
+      name === '--mood-bg' ? resolveCopiedMoodBg(value, frameBg) : value;
   }
 
   if (getPortfolioMoodId() === 'glass') {

@@ -1,17 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type CSSProperties,
-} from 'react';
-import { createPortal } from 'react-dom';
-import { SheetCloseButton, useScrollLock } from '@onsocial/ui';
+import { useMemo, useState } from 'react';
 import type {
   CardFormat,
   MarkColor,
@@ -25,7 +14,7 @@ import {
   previewTextCard,
 } from '@onsocial/text-card';
 import type { PostRow } from '@onsocial/sdk';
-import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
+import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { parsePostText } from '@/lib/post-display';
 import { displayName } from '@/lib/profile-display';
 import {
@@ -35,11 +24,6 @@ import {
   parsePostMedia,
   type PostMediaItem,
 } from '@/lib/post-media';
-
-const clientMountedSubscribe = () => () => {};
-const getClientMountedSnapshot = () => true;
-const getServerMountedSnapshot = () => false;
-const LIGHTBOX_EXIT_MS = 180;
 
 /**
  * Fallback live SVG for feed/buy when no mint raster URL is supplied.
@@ -78,7 +62,7 @@ interface ScarcePostPreviewProps {
   variant?: 'sheet' | 'feed';
   /**
    * When set (feed medium shell), tap calls this instead of the zoom
-   * lightbox. Sheet / list pickers keep expand-to-zoom.
+   * overlay. Sheet / list pickers keep tap-to-zoom.
    */
   onActivate?: (detail: {
     mediaUrl: string | null;
@@ -125,7 +109,7 @@ export function postScarceAudio(post: PostRow): PostMediaItem | null {
   return items.find((item) => isRenderablePostAudioMime(item.mime)) ?? null;
 }
 
-/** Live card / cover preview — tap to expand. */
+/** Live card / cover preview — tap to expand in OsPageSheet. */
 export function ScarcePostPreview({
   post,
   cardBg = DEFAULT_MOOD,
@@ -140,26 +124,10 @@ export function ScarcePostPreview({
   variant = 'sheet',
   onActivate,
 }: ScarcePostPreviewProps) {
-  const titleId = useId();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
   const [heldListingCover, setHeldListingCover] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const [entered, setEntered] = useState(false);
-  const [fallbackIssuedAt] = useState(() => Date.now());
+  const [zoomOpen, setZoomOpen] = useState(false);
   const useMediumActivate = Boolean(onActivate);
-  const mounted = useSyncExternalStore(
-    clientMountedSubscribe,
-    getClientMountedSnapshot,
-    getServerMountedSnapshot
-  );
-  const lightboxOpen = !useMediumActivate && expanded && !closing;
-  const viewport = useVisualViewportSheetMetrics(
-    !useMediumActivate && (expanded || closing)
-  );
-  useScrollLock(lightboxOpen);
+  const [fallbackIssuedAt] = useState(() => Date.now());
 
   const cover = postScarceCoverImage(post);
   const incomingListingCover = mediaUrl?.trim() || null;
@@ -177,83 +145,6 @@ export function ScarcePostPreview({
   );
   const avatarUrl = creatorAvatarUrl?.trim() || '';
   const photoUrl = isPhotoCard ? cover?.url?.trim() || '' : '';
-
-  /** Pin the overlay to the visible viewport so a lingering keyboard cannot clip it. */
-  const lightboxStyle = useMemo((): CSSProperties | undefined => {
-    if (typeof window === 'undefined') return undefined;
-    const vv = window.visualViewport;
-    if (!viewport.isMobile || !vv || viewport.height <= 0) return undefined;
-    return {
-      top: vv.offsetTop,
-      left: vv.offsetLeft,
-      width: vv.width,
-      height: vv.height,
-      // Prefer visual viewport height over layout `dvh` while the keyboard is up.
-      ['--scarce-lightbox-vh' as string]: `${viewport.height}px`,
-    };
-  }, [viewport.height, viewport.isMobile]);
-
-  const requestClose = useCallback(() => {
-    setClosing(true);
-    setEntered(false);
-  }, []);
-
-  useEffect(() => {
-    if (!closing) return;
-    const timer = window.setTimeout(() => {
-      setClosing(false);
-      setExpanded(false);
-      triggerRef.current?.focus();
-    }, LIGHTBOX_EXIT_MS);
-    return () => window.clearTimeout(timer);
-  }, [closing]);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    // Dismiss the mobile keyboard before measuring / focusing chrome.
-    const active = document.activeElement;
-    if (
-      active instanceof HTMLElement &&
-      active !== closeRef.current &&
-      (active.tagName === 'INPUT' ||
-        active.tagName === 'TEXTAREA' ||
-        active.isContentEditable)
-    ) {
-      active.blur();
-    }
-    const frame = window.requestAnimationFrame(() => {
-      setEntered(true);
-      closeRef.current?.focus();
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [lightboxOpen]);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        requestClose();
-        return;
-      }
-      if (event.key !== 'Tab' || !panelRef.current) return;
-      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusable.length === 0) return;
-      const first = focusable[0]!;
-      const last = focusable[focusable.length - 1]!;
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [lightboxOpen, requestClose]);
 
   const textCardSvg = useMemo(() => {
     if (blockLiveSvg || listingCover || (cover && !isPhotoCard)) return null;
@@ -306,7 +197,6 @@ export function ScarcePostPreview({
   return (
     <>
       <button
-        ref={triggerRef}
         type="button"
         className={[
           'scarce-post-preview',
@@ -319,7 +209,7 @@ export function ScarcePostPreview({
           .join(' ')}
         aria-label={useMediumActivate ? 'Open Drop preview' : 'Preview card'}
         aria-haspopup={useMediumActivate ? undefined : 'dialog'}
-        aria-expanded={useMediumActivate ? undefined : lightboxOpen}
+        aria-expanded={useMediumActivate ? undefined : zoomOpen}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -330,9 +220,7 @@ export function ScarcePostPreview({
             });
             return;
           }
-          setClosing(false);
-          setEntered(false);
-          setExpanded(true);
+          setZoomOpen(true);
         }}
       >
         {inlineSvg ? (
@@ -350,47 +238,14 @@ export function ScarcePostPreview({
         )}
       </button>
 
-      {mounted && (expanded || closing)
-        ? createPortal(
-            <div
-              ref={panelRef}
-              className={`scarce-card-lightbox${entered && !closing ? ' is-open' : ''}${closing ? ' is-closing' : ''}`}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={titleId}
-              style={lightboxStyle}
-              onClick={requestClose}
-            >
-              <p id={titleId} className="sr-only">
-                Card preview
-              </p>
-              <div className="scarce-card-lightbox-chrome">
-                <SheetCloseButton
-                  ref={closeRef}
-                  onClick={requestClose}
-                  ariaLabel="Close preview"
-                  className="scarce-card-lightbox-close"
-                />
-              </div>
-              {inlineSvg ? (
-                <div
-                  className="scarce-card-lightbox-asset scarce-card-lightbox-svg"
-                  dangerouslySetInnerHTML={{ __html: inlineSvg }}
-                  onClick={(event) => event.stopPropagation()}
-                />
-              ) : (
-                <img
-                  key={rasterSrc!}
-                  className="scarce-card-lightbox-asset"
-                  src={rasterSrc!}
-                  alt=""
-                  onClick={(event) => event.stopPropagation()}
-                />
-              )}
-            </div>,
-            document.body
-          )
-        : null}
+      {useMediumActivate ? null : (
+        <DropArtOverlay
+          open={zoomOpen}
+          label="Card preview"
+          onClose={() => setZoomOpen(false)}
+          {...(inlineSvg ? { svg: inlineSvg } : { src: rasterSrc! })}
+        />
+      )}
     </>
   );
 }
