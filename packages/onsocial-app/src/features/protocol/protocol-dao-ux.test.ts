@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PROTOCOL_CREATE_KIND_COMMON,
   PROTOCOL_CREATE_KIND_OPTIONS,
+  isProtocolCreateCompactKind,
   isProtocolCreateKind,
   isProtocolCreateMembershipKind,
   protocolCreateKindHint,
@@ -457,6 +458,11 @@ describe('protocol propose kind UX helpers', () => {
     );
     expect(isProtocolCreateMembershipKind('join_self')).toBe(true);
     expect(isProtocolCreateMembershipKind('signal')).toBe(false);
+    expect(isProtocolCreateCompactKind('signal')).toBe(true);
+    expect(isProtocolCreateCompactKind('join_self')).toBe(true);
+    expect(isProtocolCreateCompactKind('leave_self')).toBe(true);
+    expect(isProtocolCreateCompactKind('transfer')).toBe(false);
+    expect(isProtocolCreateCompactKind('add_member')).toBe(false);
   });
 
   it('pins common kinds first and buries power contracts', () => {

@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   choiceDrawerHasPersistedSelection,
@@ -10,6 +13,11 @@ import {
   osActionDrawerConfirmClassName,
   osActionDrawerIconClassName,
 } from './action-drawer.js';
+
+const actionDrawerSrc = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), 'action-drawer.tsx'),
+  'utf8'
+);
 
 describe('choiceDrawerHasPersistedSelection', () => {
   it('treats empty token ids as a valid persisted selection', () => {
@@ -36,5 +44,11 @@ describe('choice / action drawer class names', () => {
     expect(osActionDrawerConfirmCancelClassName).toBe(
       'os-action-drawer-confirm-cancel'
     );
+  });
+
+  it('keeps confirm children and still lists items when both are set', () => {
+    expect(actionDrawerSrc).toContain('{children}');
+    expect(actionDrawerSrc).toContain('items && items.length > 0');
+    expect(actionDrawerSrc).toContain('chrome="choice"');
   });
 });

@@ -1,7 +1,10 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { OsHugSheet, OsSurfaceRow, OsSurfaceRowList } from '@onsocial/ui';
+import {
+  ActionDrawer,
+  type ActionDrawerItem,
+} from '@/components/ui/action-drawer';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 export type DaoManageAction =
@@ -16,7 +19,8 @@ export type DaoManageAction =
 
 /**
  * Portfolio Manage hub — Propose / Stake / Settings / Info / edit / claim / mood / boost.
- * Members and Treasury stay on the face chips (not duplicated here).
+ * Same ActionDrawer chrome as guild Manage. Members and Treasury stay on the
+ * face chips (not duplicated here).
  */
 export function DaoManageSheet({
   open,
@@ -59,75 +63,83 @@ export function DaoManageSheet({
     requestClose();
   };
 
+  const items: ActionDrawerItem[] = [
+    {
+      id: 'propose',
+      label: 'Propose',
+      description: 'Create a governance proposal',
+      onSelect: () => run('propose'),
+    },
+    ...(showStake
+      ? [
+          {
+            id: 'stake',
+            label: 'Stake',
+            description: 'Deposit and delegate SOCIAL',
+            onSelect: () => run('stake'),
+          } satisfies ActionDrawerItem,
+        ]
+      : []),
+    {
+      id: 'settings',
+      label: 'Settings',
+      description: 'Change policy via proposal',
+      onSelect: () => run('settings'),
+    },
+    {
+      id: 'info',
+      label: 'Info',
+      description: 'Policy, bond, and treasury snapshot',
+      onSelect: () => run('info'),
+    },
+    ...(canEdit
+      ? [
+          {
+            id: 'edit',
+            label: 'Edit profile',
+            description: 'Cover, crest, name, and about',
+            onSelect: () => run('edit'),
+          },
+          {
+            id: 'propose-mood',
+            label: 'Propose mood',
+            description: 'Council Call to set the page look',
+            onSelect: () => run('propose-mood'),
+          },
+          {
+            id: 'boost',
+            label: 'Boost',
+            description: 'Lock treasury SOCIAL into Boost',
+            onSelect: () => run('boost'),
+          },
+        ]
+      : []),
+    ...(showClaimSupport
+      ? [
+          {
+            id: 'claim-support',
+            label: 'Claim support',
+            description: `Propose collecting ${claimSupportLabel} to the DAO wallet`,
+            onSelect: () => run('claim-support'),
+          } satisfies ActionDrawerItem,
+        ]
+      : []),
+  ];
+
   return (
-    <OsHugSheet
+    <ActionDrawer
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
       label="Manage"
       copy={daoName?.trim() || 'DAO tools'}
+      listAriaLabel="DAO manage"
       closeAriaLabel="Close"
       backdropLabel="Close DAO manage"
       zIndex={SHEET_Z.facts}
-    >
-      <OsSurfaceRowList
-        className="dao-manage-sheet-list"
-        aria-label="DAO manage"
-      >
-        <OsSurfaceRow
-          label="Propose"
-          description="Create a governance proposal"
-          onClick={() => run('propose')}
-        />
-        {showStake ? (
-          <OsSurfaceRow
-            label="Stake"
-            description="Deposit and delegate SOCIAL"
-            onClick={() => run('stake')}
-          />
-        ) : null}
-        <OsSurfaceRow
-          label="Settings"
-          description="Change policy via proposal"
-          onClick={() => run('settings')}
-        />
-        <OsSurfaceRow
-          label="Info"
-          description="Policy, bond, and treasury snapshot"
-          onClick={() => run('info')}
-        />
-        {canEdit ? (
-          <OsSurfaceRow
-            label="Edit profile"
-            description="Cover, crest, name, and about"
-            onClick={() => run('edit')}
-          />
-        ) : null}
-        {canEdit ? (
-          <OsSurfaceRow
-            label="Propose mood"
-            description="Council Call to set the page look"
-            onClick={() => run('propose-mood')}
-          />
-        ) : null}
-        {canEdit ? (
-          <OsSurfaceRow
-            label="Boost"
-            description="Lock treasury SOCIAL into Boost"
-            onClick={() => run('boost')}
-          />
-        ) : null}
-        {showClaimSupport ? (
-          <OsSurfaceRow
-            label="Claim support"
-            description={`Propose collecting ${claimSupportLabel} to the DAO wallet`}
-            onClick={() => run('claim-support')}
-          />
-        ) : null}
-      </OsSurfaceRowList>
-      {councilAccessPending ? (
-        <p className="protocol-compose-note">Checking council access…</p>
-      ) : null}
-    </OsHugSheet>
+      panelClassName="os-sheet-cap-short"
+      items={items}
+      hint={councilAccessPending ? 'Checking council access…' : undefined}
+    />
   );
 }

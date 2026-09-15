@@ -382,7 +382,7 @@
 }
 
 /*
- * Proposals mood page — same embedded OsAppScreen frost as composer.
+ * DAO Proposals — embedded OsAppScreen frost as composer.
  */
 .glass-sheet-panel.dao-proposals-page
   > .glass-sheet-body.dao-proposals-page-body {
@@ -29659,18 +29659,18 @@ a.os-surface-row {
   }
 
   /*
-   * DAO Members / Treasury — social-list inset (same as `.standing-panel`).
-   * Must target `.os-slide-over-content.…` like hub-manage so the pad survives
-   * CSS minify (bare `.dao-*-sheet { padding }` was dropped from the bundle).
+   * DAO Proposals — page-column inset.
+   * Members / Treasury hug drawers use `.os-hug-sheet-body` + `.dao-org-hug-content`.
    */
-  .dao-members-slide .os-slide-over-content.dao-members-sheet,
-  .dao-treasury-slide .os-slide-over-content.dao-treasury-sheet {
-    gap: 0.65rem;
-    padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
-  }
-
   .dao-proposals-page.os-page-sheet-panel {
     --os-screen-body-pad-x: 1rem;
+  }
+
+  .dao-org-hug-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    min-width: 0;
   }
 
   .dao-proposals-page-body {
@@ -39749,9 +39749,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.62);
 }
 
-.protocol-picker-sheet-body.is-long {
-  /* Long kind lists scroll inside the hug cap (90dvh) instead of clipping at peek. */
-  max-height: min(90dvh, 720px);
+.protocol-picker-sheet-body {
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -39894,25 +39892,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.55rem;
-}
-
-.protocol-picker-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.protocol-picker-section-label {
-  margin: 0;
-  font-size: 0.68rem;
-  font-weight: 750;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgb(var(--fg-rgb) / 0.48);
-}
-
-.protocol-picker-section-list {
-  margin: 0;
 }
 
 .protocol-propose-kind-current {
@@ -40451,15 +40430,11 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.65rem;
 }
 
-.dao-manage-sheet-list {
-  margin: 0;
-}
-
 .dao-members-sheet,
 .dao-treasury-sheet {
   display: flex;
   flex-direction: column;
-  /* Gap + pad live on `.dao-*-slide .os-slide-over-content.dao-*-sheet`. */
+  /* Gap lives on `.dao-org-hug-content`; inset on `.os-hug-sheet-body`. */
 }
 
 .dao-members-empty,

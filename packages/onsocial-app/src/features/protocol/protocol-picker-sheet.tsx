@@ -1,16 +1,11 @@
 'use client';
 
+import { useEffect, useState, type ReactNode } from 'react';
 import {
-  useEffect,
-  useState,
-  type ReactNode,
-} from 'react';
-import {
-  OsHugSheet,
-  OsSurfaceRow,
-  OsSurfaceRowList,
-  type GlassSheetDetent,
-} from '@onsocial/ui';
+  ActionDrawer,
+  type ActionDrawerItem,
+} from '@/components/ui/action-drawer';
+import { shouldShowProtocolPickerOptions } from '@/features/protocol/protocol-picker-sections';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { getProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
 import { isProtocolDaoGroupMember } from '@/features/protocol/protocol-propose-gate';
@@ -147,7 +142,8 @@ export function useProtocolPickerEligibility({
 }
 
 /**
- * Hug shell for Protocol Propose / Settings action pickers.
+ * Propose / Settings pickers — ActionDrawer (choice hug, short cap).
+ * Wallet-like content height; not a 90dvh catalog.
  */
 export function ProtocolPickerSheet({
   open,
@@ -156,9 +152,8 @@ export function ProtocolPickerSheet({
   copy,
   closeAriaLabel,
   backdropLabel,
+  items,
   children,
-  initialDetent = 'peek',
-  peekRatio = 0.62,
 }: {
   open: boolean;
   onClose: () => void;
@@ -166,14 +161,11 @@ export function ProtocolPickerSheet({
   copy: string;
   closeAriaLabel: string;
   backdropLabel: string;
-  children: ReactNode;
-  initialDetent?: GlassSheetDetent;
-  peekRatio?: number;
+  items?: readonly ActionDrawerItem[];
+  children?: ReactNode;
 }) {
-  const longList = initialDetent === 'full';
-
   return (
-    <OsHugSheet
+    <ActionDrawer
       open={open}
       onClose={onClose}
       label={label}
@@ -181,17 +173,15 @@ export function ProtocolPickerSheet({
       closeAriaLabel={closeAriaLabel}
       backdropLabel={backdropLabel}
       zIndex={PROTOCOL_TASK_SHEET_Z}
-      sizing="hug"
-      initialDetent={initialDetent}
-      peekRatio={peekRatio}
-      bodyClassName={
-        longList
-          ? 'protocol-action-sheet-body protocol-picker-sheet-body is-long'
-          : 'protocol-action-sheet-body protocol-picker-sheet-body'
-      }
+      panelClassName="os-sheet-cap-short"
+      bodyClassName="protocol-action-sheet-body protocol-picker-sheet-body"
+      listAriaLabel={label}
+      items={items}
     >
-      <div className="protocol-propose-kind">{children}</div>
-    </OsHugSheet>
+      {children ? (
+        <div className="protocol-propose-kind">{children}</div>
+      ) : null}
+    </ActionDrawer>
   );
 }
 
@@ -263,7 +253,24 @@ export function ProtocolPickerStatus({
   );
 }
 
-export function ProtocolPickerOptionList<T extends string>({
+export function protocolPickerItemLockReason({
+  accountId,
+  loadState,
+  readyReason,
+}: {
+  accountId: string | null;
+  loadState: ProtocolPickerLoadState;
+  readyReason: string | null;
+}): string | null {
+  if (loadState === 'ready') return readyReason;
+  if (loadState === 'loading') return 'Checking…';
+  if (loadState === 'error') return 'Unavailable';
+  if (!accountId) return 'Connect a wallet';
+  return null;
+}
+
+/** ActionDrawer items for Propose / Settings — empty until a wallet can pick. */
+export function buildProtocolPickerActionItems<T extends string>({
   sections,
   accountId,
   loadState,
@@ -279,92 +286,25 @@ export function ProtocolPickerOptionList<T extends string>({
   loadState: ProtocolPickerLoadState;
   highlightedId: T | null;
   onSelect: (id: T) => void;
-}) {
-  return sections.map((section) => {
-    if (section.options.length === 0) return null;
+}): ActionDrawerItem[] {
+  if (!shouldShowProtocolPickerOptions(accountId, loadState)) return [];
 
-    return (
-      <ProtocolPickerSection key={section.key} label={section.label}>
-        {section.options.map((option) => {
-          const lockReason = protocolPickerItemLockReason({
-            accountId,
-            loadState,
-            readyReason: accountId ? null : 'Connect a wallet',
-          });
-
-          return (
-            <ProtocolPickerItem
-              key={option.id}
-              label={option.label}
-              hint={option.hint}
-              lockReason={lockReason}
-              isLast={highlightedId === option.id}
-              onSelect={() => onSelect(option.id)}
-            />
-          );
-        })}
-      </ProtocolPickerSection>
-    );
-  });
-}
-
-export function ProtocolPickerSection({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="protocol-picker-section">
-      <h3 className="protocol-picker-section-label">{label}</h3>
-      <OsSurfaceRowList as="div" className="protocol-picker-section-list">
-        {children}
-      </OsSurfaceRowList>
-    </section>
+  return sections.flatMap((section) =>
+    section.options.map((option) => {
+      const lockReason = protocolPickerItemLockReason({
+        accountId,
+        loadState,
+        readyReason: accountId ? null : 'Connect a wallet',
+      });
+      return {
+        id: option.id,
+        label: option.label,
+        description: lockReason ?? option.hint,
+        section: section.label,
+        disabled: Boolean(lockReason),
+        trailing: highlightedId === option.id ? 'Last used' : undefined,
+        onSelect: () => onSelect(option.id),
+      };
+    })
   );
-}
-
-export function ProtocolPickerItem({
-  label,
-  hint,
-  lockReason,
-  isLast,
-  onSelect,
-}: {
-  label: string;
-  hint: string;
-  lockReason: string | null;
-  isLast: boolean;
-  onSelect: () => void;
-}) {
-  const disabled = Boolean(lockReason);
-
-  return (
-    <OsSurfaceRow
-      label={label}
-      description={disabled && lockReason ? lockReason : hint}
-      badge={isLast ? 'Last used' : undefined}
-      active={isLast}
-      trailing={isLast ? 'none' : 'navigate'}
-      disabled={disabled}
-      onClick={onSelect}
-    />
-  );
-}
-
-export function protocolPickerItemLockReason({
-  accountId,
-  loadState,
-  readyReason,
-}: {
-  accountId: string | null;
-  loadState: ProtocolPickerLoadState;
-  readyReason: string | null;
-}): string | null {
-  if (loadState === 'ready') return readyReason;
-  if (loadState === 'loading') return 'Checking…';
-  if (loadState === 'error') return 'Unavailable';
-  if (!accountId) return 'Connect a wallet';
-  return null;
 }

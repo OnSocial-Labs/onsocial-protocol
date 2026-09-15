@@ -91,8 +91,8 @@ export interface ActionDrawerProps {
   /** Action list. Omitted when `children` drives a confirm/alternate body. */
   items?: readonly ActionDrawerItem[];
   /**
-   * Replaces the item list (e.g. a two-step confirm body). The shared header
-   * still renders, so drive `label`/`copy` from the confirm copy.
+   * Optional body above the item list (status copy, two-step confirm).
+   * Confirm flows omit `items` so only this body shows.
    */
   children?: ReactNode;
   /** Optional pinned footer (e.g. Done). */
@@ -108,6 +108,7 @@ export interface ActionDrawerProps {
   /** Extra body class. */
   bodyClassName?: string;
   panelStyle?: CSSProperties;
+  backdropLabel?: string;
   /**
    * Link renderer for `href` items. Apps with a client router should pass
    * their Link (e.g. Next.js). Defaults to a plain `<a>`.
@@ -138,6 +139,7 @@ export function ActionDrawer({
   panelClassName,
   bodyClassName,
   panelStyle,
+  backdropLabel,
   linkComponent: LinkComponent = DefaultActionDrawerLink,
 }: ActionDrawerProps) {
   const sections = useMemo(() => groupItems(items ?? []), [items]);
@@ -220,10 +222,10 @@ export function ActionDrawer({
       bodyClassName={bodyClassName}
       panelStyle={panelStyle}
       footer={footer}
+      backdropLabel={backdropLabel}
     >
-      {children ? (
-        children
-      ) : (
+      {children}
+      {items && items.length > 0 ? (
         <div
           className="os-choice-sheet-list"
           role="menu"
@@ -241,7 +243,7 @@ export function ActionDrawer({
             </div>
           ))}
         </div>
-      )}
+      ) : null}
       {hint ? <p className="os-choice-sheet-hint">{hint}</p> : null}
     </OsHugSheet>
   );

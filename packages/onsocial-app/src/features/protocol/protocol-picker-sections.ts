@@ -72,8 +72,19 @@ export function protocolPickerForeignStakeMessage(
     : `Need ${token} stake to propose.`;
 }
 
-/** Short pickers (Manage-scale) rest at peek; long lists open full hug (max 90dvh). */
-export const PROTOCOL_PICKER_PEEK_OPTION_LIMIT = 6;
+/** Propose / Settings pickers hug like the wallet — content height, short cap. */
+export const PROTOCOL_PICKER_LAYOUT = {
+  initialDetent: 'full' as const,
+  peekRatio: 1,
+};
+
+/** Kind rows only once a wallet can pick — no logged-out catalog dump. */
+export function shouldShowProtocolPickerOptions(
+  accountId: string | null,
+  loadState: 'idle' | 'loading' | 'ready' | 'error'
+): boolean {
+  return Boolean(accountId) && loadState === 'ready';
+}
 
 export function countProtocolPickerOptions<T extends string>(
   common: ProtocolPickerOption<T>[],
@@ -83,14 +94,4 @@ export function countProtocolPickerOptions<T extends string>(
     common.length +
     grouped.reduce((total, group) => total + group.options.length, 0)
   );
-}
-
-export function resolveProtocolPickerSheetLayout(optionCount: number): {
-  initialDetent: 'peek' | 'full';
-  peekRatio: number;
-} {
-  if (optionCount <= PROTOCOL_PICKER_PEEK_OPTION_LIMIT) {
-    return { initialDetent: 'peek', peekRatio: 0.62 };
-  }
-  return { initialDetent: 'full', peekRatio: 0.9 };
 }

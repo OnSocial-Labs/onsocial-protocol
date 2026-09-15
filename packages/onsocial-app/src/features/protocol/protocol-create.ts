@@ -191,6 +191,13 @@ export function isProtocolCreateMembershipKind(
   );
 }
 
+/** Short compose (Signal / Join / Leave) — compact gesture hug, not tall task chrome. */
+export function isProtocolCreateCompactKind(
+  kind: ProtocolCreateKind
+): boolean {
+  return kind === 'signal' || kind === 'join_self' || kind === 'leave_self';
+}
+
 export function isProtocolCreateKind(value: string): value is ProtocolCreateKind {
   return PROTOCOL_CREATE_KIND_OPTIONS.some((option) => option.id === value);
 }

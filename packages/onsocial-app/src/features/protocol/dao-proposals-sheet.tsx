@@ -53,7 +53,7 @@ export function DaoProposalsSheet({
         onClosed: handleClosed,
         title: 'Proposals',
         subtitle: daoName?.trim() || daoAccountId,
-        closeAriaLabel: 'Back from proposals',
+        closeAriaLabel: 'Close proposals',
       }}
     />
   );

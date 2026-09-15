@@ -22,26 +22,63 @@ test.describe('DAO manage shell', () => {
     });
     await expect(tools.getByRole('button', { name: 'Members' })).toBeVisible();
     await expect(tools.getByRole('button', { name: 'Treasury' })).toBeVisible();
-    const manage = tools.getByRole('button', { name: 'Manage' });
-    await expect(manage).toHaveAttribute('aria-expanded', 'false');
+    const manageButton = tools.getByRole('button', { name: 'Manage' });
+    await expect(manageButton).toHaveAttribute('aria-expanded', 'false');
 
-    await manage.click();
-    await expect(manage).toHaveAttribute('aria-expanded', 'true');
+    await manageButton.click();
+    await expect(manageButton).toHaveAttribute('aria-expanded', 'true');
     await expectGlassSheetVisible(page);
-    const sheet = page.locator('.glass-sheet-root.is-visible');
-    await expect(sheet.getByRole('heading', { name: 'Manage' })).toBeVisible();
-    await expect(sheet.getByRole('button', { name: /Propose/ })).toBeVisible();
-    await expect(sheet.getByRole('button', { name: /Stake/ })).toBeVisible({
+    const manageDialog = page.getByRole('dialog', { name: 'Manage' });
+    await expect(manageDialog).toBeVisible();
+    await expect(manageDialog).toHaveClass(/os-choice-sheet-panel/);
+    await expect(manageDialog).toHaveClass(/os-sheet-cap-short/);
+    await expect(
+      manageDialog.getByRole('heading', { name: 'Manage' })
+    ).toBeVisible();
+    await expect(
+      manageDialog.getByRole('menuitem', { name: /Propose/ })
+    ).toBeVisible();
+    await expect(
+      manageDialog.getByRole('menuitem', { name: /Stake/ })
+    ).toBeVisible({
       timeout: 30_000,
     });
-    await expect(sheet.getByRole('button', { name: /Settings/ })).toBeVisible();
-    await expect(sheet.getByRole('button', { name: /Info/ })).toBeVisible();
     await expect(
-      sheet.getByRole('button', { name: /Edit profile/ })
+      manageDialog.getByRole('menuitem', { name: /Settings/ })
+    ).toBeVisible();
+    await expect(
+      manageDialog.getByRole('menuitem', { name: /Info/ })
+    ).toBeVisible();
+    await expect(
+      manageDialog.getByRole('menuitem', { name: /Edit profile/ })
     ).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Close', exact: true }).click();
-    await expect(manage).toHaveAttribute('aria-expanded', 'false');
+    await expect(manageButton).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('Propose opens a compact hug picker, not a page overlay', async ({
+    page,
+  }) => {
+    await gotoApp(page, daoPath);
+    await expectPortfolioIdentityOrSkip(page, DAO_ACCOUNT);
+    await waitForPortfolioClientReady(page);
+
+    await page.getByRole('button', { name: 'Manage' }).click();
+    await page.getByRole('menuitem', { name: /Propose/ }).click();
+    await expectGlassSheetVisible(page);
+    const propose = page.getByRole('dialog', { name: 'Propose' });
+    await expect(propose).toBeVisible({ timeout: 30_000 });
+    await expect(propose).toHaveAttribute('data-sizing', 'hug');
+    await expect(propose).toHaveClass(/os-choice-sheet-panel/);
+    await expect(propose).toHaveClass(/os-sheet-cap-short/);
+    await expect(propose).not.toHaveAttribute('data-surface', 'page');
+    await expect(
+      page.getByRole('button', { name: 'Close propose' })
+    ).toBeVisible();
+    await expect(propose.getByText('Connect a wallet to propose.')).toBeVisible();
+    await expect(propose.getByText('COMMON')).toHaveCount(0);
+    await expect(propose.getByText('Signal')).toHaveCount(0);
   });
 
   test('Manage Info opens the policy snapshot', async ({ page }) => {
@@ -50,7 +87,7 @@ test.describe('DAO manage shell', () => {
     await waitForPortfolioClientReady(page);
 
     await page.getByRole('button', { name: 'Manage' }).click();
-    await page.getByRole('button', { name: /Info/ }).click();
+    await page.getByRole('menuitem', { name: /Info/ }).click();
     await expectGlassSheetVisible(page);
     await expect(
       page.getByText('On-chain policy snapshot for this board.')
@@ -73,5 +110,60 @@ test.describe('DAO manage shell', () => {
     await expect(
       page.getByRole('textbox', { name: 'Search proposals' })
     ).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('Members and Treasury open as hug drawers, not pages or slide-overs', async ({
+    page,
+  }) => {
+    await gotoApp(page, daoPath);
+    await expectPortfolioIdentityOrSkip(page, DAO_ACCOUNT);
+    await waitForPortfolioClientReady(page);
+
+    const tools = page.getByRole('navigation', { name: 'DAO tools' });
+    await tools.getByRole('button', { name: 'Members' }).click();
+    await expectGlassSheetVisible(page);
+    const membersSheet = page.locator(
+      '.glass-sheet-root.is-visible .dao-org-hug'
+    );
+    await expect(membersSheet).toBeVisible({ timeout: 30_000 });
+    await expect(membersSheet).toHaveAttribute('data-sizing', 'hug');
+    await expect(membersSheet).toHaveAttribute('data-surface', 'glass');
+    await expect(page.locator('.glass-sheet-root.is-visible')).toHaveAttribute(
+      'data-presentation',
+      'enter'
+    );
+    await expect(page.getByRole('dialog', { name: 'Members' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Close members' })
+    ).toBeVisible();
+    await expect(membersSheet.locator('.os-app-screen--embedded')).toHaveCount(
+      0
+    );
+    await expect(page.locator('.os-page-sheet-panel.dao-org-hug')).toHaveCount(
+      0
+    );
+    await expect(page.locator('.dao-members-slide')).toHaveCount(0);
+    await expect(page.locator('[data-os-slide-over="true"]')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Close members' }).click();
+    await expect(membersSheet).toHaveCount(0, { timeout: 10_000 });
+
+    await tools.getByRole('button', { name: 'Treasury' }).click();
+    await expectGlassSheetVisible(page);
+    const treasurySheet = page.locator(
+      '.glass-sheet-root.is-visible .dao-org-hug'
+    );
+    await expect(treasurySheet).toBeVisible({ timeout: 30_000 });
+    await expect(treasurySheet).toHaveAttribute('data-sizing', 'hug');
+    await expect(treasurySheet).toHaveAttribute('data-surface', 'glass');
+    await expect(page.getByRole('dialog', { name: 'Treasury' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Close treasury' })
+    ).toBeVisible();
+    await expect(treasurySheet.locator('.os-app-screen--embedded')).toHaveCount(
+      0
+    );
+    await expect(page.locator('.dao-treasury-slide')).toHaveCount(0);
+    await expect(page.locator('[data-os-slide-over="true"]')).toHaveCount(0);
   });
 });

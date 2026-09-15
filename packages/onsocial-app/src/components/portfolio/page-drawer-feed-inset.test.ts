@@ -48,5 +48,8 @@ describe('page drawer feed inset', () => {
     expect(globalsCss).toMatch(
       /\.glass-sheet-root\[data-keep-dock='true'\] \.dao-proposals-page \.dao-workspace \{[\s\S]*?padding-bottom: calc\(1\.25rem \+ var\(--portfolio-dock-clearance, 4\.75rem\)\);/
     );
+    expect(globalsCss).not.toContain(
+      ".glass-sheet-root[data-keep-dock='true'] .dao-org-page .dao-org-page-content"
+    );
   });
 });

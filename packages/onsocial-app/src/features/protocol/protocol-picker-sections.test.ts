@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildProtocolPickerSections,
+  PROTOCOL_PICKER_LAYOUT,
   protocolPickerForeignStakeMessage,
   protocolPickerStakeGateMessage,
-  resolveProtocolPickerSheetLayout,
+  shouldShowProtocolPickerOptions,
 } from '@/features/protocol/protocol-picker-sections';
+import {
+  buildProtocolPickerActionItems,
+  protocolPickerItemLockReason,
+} from '@/features/protocol/protocol-picker-sheet';
 
 type DemoId = 'a' | 'b' | 'c';
 
@@ -60,18 +65,76 @@ describe('protocol picker copy', () => {
   });
 });
 
-describe('resolveProtocolPickerSheetLayout', () => {
-  it('peeks for short pickers', () => {
-    expect(resolveProtocolPickerSheetLayout(4)).toEqual({
-      initialDetent: 'peek',
-      peekRatio: 0.62,
+describe('PROTOCOL_PICKER_LAYOUT', () => {
+  it('hugs content instead of expanding to a 90dvh catalog', () => {
+    expect(PROTOCOL_PICKER_LAYOUT).toEqual({
+      initialDetent: 'full',
+      peekRatio: 1,
     });
   });
+});
 
-  it('opens full hug for long propose lists', () => {
-    expect(resolveProtocolPickerSheetLayout(12)).toEqual({
-      initialDetent: 'full',
-      peekRatio: 0.9,
+describe('shouldShowProtocolPickerOptions', () => {
+  it('hides the catalog until a connected wallet is ready', () => {
+    expect(shouldShowProtocolPickerOptions(null, 'ready')).toBe(false);
+    expect(shouldShowProtocolPickerOptions('alice.near', 'loading')).toBe(
+      false
+    );
+    expect(shouldShowProtocolPickerOptions('alice.near', 'error')).toBe(false);
+    expect(shouldShowProtocolPickerOptions('alice.near', 'ready')).toBe(true);
+  });
+});
+
+describe('buildProtocolPickerActionItems', () => {
+  it('returns no rows until a wallet is ready', () => {
+    const sections = [
+      {
+        key: 'common',
+        label: 'Common',
+        options: [{ id: 'a' as const, label: 'Alpha', hint: 'One' }],
+      },
+    ];
+    expect(
+      buildProtocolPickerActionItems({
+        sections,
+        accountId: null,
+        loadState: 'ready',
+        highlightedId: null,
+        onSelect: () => undefined,
+      })
+    ).toEqual([]);
+  });
+
+  it('maps ready kinds onto ActionDrawer rows', () => {
+    const rows = buildProtocolPickerActionItems({
+      sections: [
+        {
+          key: 'common',
+          label: 'Common',
+          options: [{ id: 'a' as const, label: 'Alpha', hint: 'One' }],
+        },
+      ],
+      accountId: 'alice.near',
+      loadState: 'ready',
+      highlightedId: 'a',
+      onSelect: () => undefined,
     });
+    expect(rows).toMatchObject([
+      {
+        id: 'a',
+        label: 'Alpha',
+        description: 'One',
+        section: 'Common',
+        disabled: false,
+        trailing: 'Last used',
+      },
+    ]);
+    expect(
+      protocolPickerItemLockReason({
+        accountId: 'alice.near',
+        loadState: 'ready',
+        readyReason: null,
+      })
+    ).toBeNull();
   });
 });

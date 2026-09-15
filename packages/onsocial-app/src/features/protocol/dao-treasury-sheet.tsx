@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Divider } from '@onsocial/ui';
-import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
+import { DaoOrgHugSheet } from '@/features/protocol/dao-org-hug-sheet';
 import {
   formatTreasuryAssetCompact,
   formatTreasuryAssetExact,
@@ -19,10 +19,7 @@ import {
 } from '@/lib/app-near-account-facts';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import type { ProtocolDaoTransferAsset } from '@/lib/protocol-dao-transfer-assets';
-import { SHEET_Z } from '@/lib/sheet-z';
 import { fetchProfileSupportBalanceYocto } from '@/lib/social-spend-profile';
-
-const TREASURY_Z = SHEET_Z.board;
 
 function treasuryAssetExplorerHref(
   asset: ProtocolDaoTransferAsset,
@@ -49,9 +46,6 @@ export function DaoTreasurySheet({
   onClose: () => void;
 }) {
   const cachedTreasury = readDaoTreasuryCache(daoAccountId);
-  const [sheetOpen, setSheetOpen] = useState(open);
-  if (open && !sheetOpen) setSheetOpen(true);
-
   const [assets, setAssets] = useState<ProtocolDaoTransferAsset[] | null>(
     () => cachedTreasury?.assets ?? null
   );
@@ -61,20 +55,8 @@ export function DaoTreasurySheet({
   const [pending, setPending] = useState(() => cachedTreasury == null);
   const [error, setError] = useState<string | null>(null);
 
-  const requestClose = useCallback(() => {
-    setSheetOpen(false);
-  }, []);
-
-  const handleClosed = useCallback(() => {
-    setAssets(null);
-    setSupportYocto(null);
-    setError(null);
-    setPending(false);
-    onClose();
-  }, [onClose]);
-
   useEffect(() => {
-    if (!sheetOpen) return;
+    if (!open) return;
     let cancelled = false;
     const cached = readDaoTreasuryCache(daoAccountId);
     if (cached) {
@@ -123,7 +105,7 @@ export function DaoTreasurySheet({
     return () => {
       cancelled = true;
     };
-  }, [sheetOpen, daoAccountId]);
+  }, [open, daoAccountId]);
 
   const hasAssets = Boolean(assets && assets.length > 0);
   const hasSupport = supportYocto != null && supportYocto > 0n;
@@ -136,16 +118,13 @@ export function DaoTreasurySheet({
     !hasSupport;
 
   return (
-    <DaoPageSlideOverScreen
-      pageAccountId={daoAccountId}
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleClosed}
+    <DaoOrgHugSheet
+      daoAccountId={daoAccountId}
+      open={open}
+      onClose={onClose}
       title="Treasury"
       subtitle={daoName?.trim() || daoAccountId}
-      closeAriaLabel="Back from treasury"
-      zIndex={TREASURY_Z}
-      className="dao-treasury-slide"
+      closeAriaLabel="Close treasury"
       contentClassName="dao-treasury-sheet"
     >
       {pending && assets == null ? (
@@ -217,7 +196,9 @@ export function DaoTreasurySheet({
                       </span>
                     </span>
                     <span className="standing-row-aside">
-                      <span className="dao-treasury-balance">{formatTreasuryAssetCompact(asset)}</span>
+                      <span className="dao-treasury-balance">
+                        {formatTreasuryAssetCompact(asset)}
+                      </span>
                     </span>
                   </a>
                 </div>
@@ -226,6 +207,6 @@ export function DaoTreasurySheet({
           </div>
         </section>
       ) : null}
-    </DaoPageSlideOverScreen>
+    </DaoOrgHugSheet>
   );
 }

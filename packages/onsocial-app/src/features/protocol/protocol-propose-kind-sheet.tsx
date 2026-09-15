@@ -11,15 +11,13 @@ import {
 } from '@/features/protocol/protocol-create';
 import {
   buildProtocolPickerSections,
-  countProtocolPickerOptions,
   protocolPickerForeignStakeMessage,
   protocolPickerStakeGateMessage,
-  resolveProtocolPickerSheetLayout,
 } from '@/features/protocol/protocol-picker-sections';
 import {
-  ProtocolPickerOptionList,
   ProtocolPickerSheet,
   ProtocolPickerStatus,
+  buildProtocolPickerActionItems,
   useProtocolPickerEligibility,
 } from '@/features/protocol/protocol-picker-sheet';
 import { isProtocolCreateKindChainAvailable } from '@/features/protocol/protocol-propose-chain-filter';
@@ -105,21 +103,6 @@ export function ProtocolProposeKindSheet({
     [common, grouped]
   );
 
-  const optionCount = useMemo(
-    () => countProtocolPickerOptions(common, grouped),
-    [common, grouped]
-  );
-
-  const sheetLayout = useMemo(
-    () => resolveProtocolPickerSheetLayout(optionCount),
-    [optionCount]
-  );
-
-  const selectKind = (kind: ProtocolCreateKind) => {
-    rememberProtocolCreateKind(kind);
-    onSelectKind(kind);
-  };
-
   const statusLoadState = !accountId
     ? eligibility.loadState
     : pickerLoading
@@ -127,6 +110,21 @@ export function ProtocolProposeKindSheet({
       : pickerError
         ? 'error'
         : 'ready';
+
+  const items = useMemo(
+    () =>
+      buildProtocolPickerActionItems({
+        sections,
+        accountId,
+        loadState: statusLoadState,
+        highlightedId: highlightedKind,
+        onSelect: (kind) => {
+          rememberProtocolCreateKind(kind);
+          onSelectKind(kind);
+        },
+      }),
+    [accountId, highlightedKind, onSelectKind, sections, statusLoadState]
+  );
 
   return (
     <ProtocolPickerSheet
@@ -136,8 +134,7 @@ export function ProtocolProposeKindSheet({
       copy="Choose what to put on-chain."
       closeAriaLabel="Close propose"
       backdropLabel="Close propose"
-      initialDetent={sheetLayout.initialDetent}
-      peekRatio={sheetLayout.peekRatio}
+      items={items}
     >
       <ProtocolPickerStatus
         accountId={accountId}
@@ -165,14 +162,6 @@ export function ProtocolProposeKindSheet({
           No proposal types match your roles on this DAO.
         </p>
       ) : null}
-
-      <ProtocolPickerOptionList
-        sections={sections}
-        accountId={accountId}
-        loadState={statusLoadState}
-        highlightedId={highlightedKind}
-        onSelect={selectKind}
-      />
     </ProtocolPickerSheet>
   );
 }
