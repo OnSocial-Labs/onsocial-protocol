@@ -48,11 +48,8 @@ interface DropArtOverlayProps {
    * - `'page'` (default): Solid opaque canvas (`--bg`). Zero distraction / bleed through. Best for high-contrast art.
    * - `'glass'`: Atmospheric frosted blur scrim.
    *
-   * Page fill is pinned to `--bg` on the panel. OsPageSheet `surface="page"`
-   * otherwise paints `var(--mood-bg, var(--bg))` with no frost and no scrim.
-   * Glass / Carbon set `--mood-bg: transparent` on the OS frame — CSS `var()`
-   * does not fall through when that value is `transparent`, so the New drop
-   * form would show through.
+   * Page fill is pinned to `--bg` on the panel (art is never a mood wash).
+   * OsPageSheet `surface="page"` is an opaque canvas; `glass` is frost.
    */
   surface?: 'page' | 'glass';
 }

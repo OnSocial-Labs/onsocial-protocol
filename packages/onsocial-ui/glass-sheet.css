@@ -227,13 +227,26 @@
 }
 
 /*
- * Opaque OS / slide-page fill — same quiet base as `.os-app-screen.os-slide-over`
- * (`--mood-bg` when mood attrs/vars are set, else `--bg`). No frost / no scrim.
+ * Opaque OS / slide-page fill. Frost + scrim are off (`opaquePage` in JS).
+ * Paint `--bg`, not inherited `--mood-bg`: Glass/Carbon set `--mood-bg:
+ * transparent` on the OS frame, and CSS `var(--mood-bg, var(--bg))` does
+ * not fall through when the value is `transparent`.
+ * `data-mood` pages get an opaque preset mix (same recipe as OsAppScreen),
+ * never a see-through canvas.
  */
 .glass-sheet-panel[data-surface='page'] {
-  background: var(--mood-bg, var(--bg, rgb(var(--bg-rgb))));
+  background: var(--bg, rgb(var(--bg-rgb)));
   border: none;
   box-shadow: none;
+}
+
+.glass-sheet-panel[data-surface='page'][data-mood] {
+  background: color-mix(
+    in srgb,
+    var(--mood-preset-bg, var(--bg, rgb(var(--bg-rgb))))
+      var(--mood-bg-preset-mix, 25%),
+    var(--bg, rgb(var(--bg-rgb)))
+  );
 }
 
 /* Full-bleed phone-page panel (OsPageSheet). */

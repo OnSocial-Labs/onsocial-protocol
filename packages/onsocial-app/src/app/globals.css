@@ -497,10 +497,32 @@
 }
 
 /*
+ * Light mood mix for OsPageSheet `surface="page"` — unlayered so it beats
+ * glass-sheet.css (25% / `--mood-preset-bg`). Same recipe as OsAppScreen.
+ */
+:root[data-theme='light'] .glass-sheet-panel[data-surface='page'][data-mood] {
+  background: color-mix(
+    in srgb,
+    var(--mood-preset-bg-light, var(--mood-preset-bg, var(--bg)))
+      var(--mood-bg-preset-mix, 30%),
+    var(--bg)
+  );
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .glass-sheet-panel[data-surface='page'][data-mood] {
+    background: color-mix(
+      in srgb,
+      var(--mood-preset-bg-light, var(--mood-preset-bg, var(--bg)))
+        var(--mood-bg-preset-mix, 30%),
+      var(--bg)
+    );
+  }
+}
+
+/*
  * Drop art OsPageSheet fill — unlayered so it beats glass-sheet.css
- * `.glass-sheet-panel[data-surface='page'] { background: var(--mood-bg, var(--bg)) }`.
- * Glass / Carbon set `--mood-bg: transparent` on the OS frame; page surface
- * also skips frost + scrim. Pin to `--bg` so zoomed art sits on a solid canvas.
+ * page+mood mix. Art zoom is always a solid `--bg` canvas, never a mood wash.
  */
 .drop-art-page-sheet-panel.glass-sheet-panel[data-surface='page'] {
   --mood-bg: var(--bg);

@@ -20,7 +20,8 @@ export interface OsPageSheetProps {
   onClosed?: () => void;
   /**
    * `glass` — frosted standing / Discover cover.
-   * `page` — flat slide-over fill (`--mood-bg` / `--bg`), no frost.
+   * `page` — opaque canvas (`--bg`, or an opaque mood mix when `moodId` is
+   * set). No frost. Never a transparent fill.
    */
   surface?: OsPageSheetSurface;
   presentation?: GlassSheetPresentation;
