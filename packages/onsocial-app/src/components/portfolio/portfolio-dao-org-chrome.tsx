@@ -20,7 +20,14 @@ import { DaoProposalsSheet } from '@/features/protocol/dao-proposals-sheet';
 import { DaoTreasurySheet } from '@/features/protocol/dao-treasury-sheet';
 import type { DaoWorkspaceTool } from '@/features/protocol/dao-workspace-panel';
 import { DaoWorkspaceToolsHost } from '@/features/protocol/dao-workspace-tools-host';
-import { hasDaoProposalsDeepLink, clearDaoProposalDeepLink } from '@/features/protocol/protocol-proposal-family';
+import {
+  DAO_SUBMITTED_PROPOSAL_EVENT,
+  clearDaoProposalDeepLink,
+  hasDaoProposalsDeepLink,
+  openDaoSubmittedProposal,
+  type DaoSubmittedProposalDetail,
+} from '@/features/protocol/protocol-proposal-family';
+import { PROTOCOL_PROPOSAL_PARAM } from '@/lib/app-routes';
 import { useDaoPageCapability } from '@/hooks/use-dao-page-capability';
 import { softIndexDaoMemberships } from '@/features/protocol/my-daos-client';
 import {
@@ -125,6 +132,30 @@ function PortfolioDaoOrgChromeInner({
   }, [searchParams]);
 
   useEffect(() => {
+    const proposal = searchParams.get(PROTOCOL_PROPOSAL_PARAM)?.trim();
+    if (!proposal) return;
+    queueMicrotask(() => setOverlay('proposals'));
+  }, [searchParams]);
+
+  useEffect(() => {
+    const onSubmitted = (event: Event) => {
+      const detail = (event as CustomEvent<DaoSubmittedProposalDetail>).detail;
+      if (
+        detail?.daoAccountId?.trim().toLowerCase() !==
+        daoAccountId.trim().toLowerCase()
+      ) {
+        return;
+      }
+      setClaimConfirmOpen(false);
+      setOverlay('proposals');
+    };
+    window.addEventListener(DAO_SUBMITTED_PROPOSAL_EVENT, onSubmitted);
+    return () => {
+      window.removeEventListener(DAO_SUBMITTED_PROPOSAL_EVENT, onSubmitted);
+    };
+  }, [daoAccountId]);
+
+  useEffect(() => {
     let cancelled = false;
     void fetchProfileSupportBalanceYocto(daoAccountId, { fresh: true })
       .then((next) => {
@@ -155,9 +186,22 @@ function PortfolioDaoOrgChromeInner({
       ? formatSocialCompact(claimableYocto.toString())
       : null;
 
-  const handleProposed = useCallback(() => {
-    setOverlay(null);
-  }, []);
+  const openSubmittedProposal = useCallback(
+    (proposalId: number | null) => {
+      bumpDaoWorkspacePrefetch(daoAccountId);
+      openDaoSubmittedProposal(daoAccountId, proposalId);
+      setClaimConfirmOpen(false);
+      setOverlay('proposals');
+    },
+    [daoAccountId]
+  );
+
+  const handleProposed = useCallback(
+    (proposalId: number | null) => {
+      openSubmittedProposal(proposalId);
+    },
+    [openSubmittedProposal]
+  );
 
   const handleClaimSupport = useCallback(async () => {
     if (claimPending || !claimableYocto || claimableYocto <= 0n) return;
@@ -186,7 +230,7 @@ function PortfolioDaoOrgChromeInner({
       if (confirmed) {
         bumpDaoWorkspacePrefetch(daoAccountId);
         setClaimConfirmOpen(false);
-        setOverlay(null);
+        openSubmittedProposal(response.proposalId);
       }
     } catch (cause) {
       if (!isWalletUserCancellation(cause)) {
@@ -209,11 +253,21 @@ function PortfolioDaoOrgChromeInner({
     setTxResult,
     title,
     trackTransaction,
+    openSubmittedProposal,
   ]);
 
   const handleToolsHostClose = useCallback(() => {
     setToolRequest(null);
-    setOverlay((current) => (current === 'tools' ? null : current));
+    setOverlay((current) => {
+      if (current !== 'tools') return current;
+      if (typeof window !== 'undefined') {
+        const proposal = new URLSearchParams(window.location.search).get(
+          PROTOCOL_PROPOSAL_PARAM
+        );
+        if (proposal?.trim()) return 'proposals';
+      }
+      return null;
+    });
   }, []);
 
   const handleManageAction = useCallback(
@@ -406,6 +460,7 @@ function PortfolioDaoOrgChromeInner({
           setOverlay((current) => (current === 'boost' ? null : current))
         }
         onRequestStake={openStakeFromFace}
+        onProposed={handleProposed}
       />
     </>
   );

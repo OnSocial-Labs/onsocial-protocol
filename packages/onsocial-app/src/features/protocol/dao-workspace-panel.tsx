@@ -72,7 +72,10 @@ import {
   type ProtocolProposalFamily,
   upsertProtocolProposalApplication,
 } from '@/features/protocol/protocol-feed-filters';
-import { parseProtocolProposalFamily } from '@/features/protocol/protocol-proposal-family';
+import {
+  openDaoSubmittedProposal,
+  parseProtocolProposalFamily,
+} from '@/features/protocol/protocol-proposal-family';
 import {
   fetchProtocolFeed,
   fetchProtocolProposal,
@@ -857,12 +860,14 @@ export function DaoWorkspacePanel({
     async (proposalId: number | null) => {
       closeAllSheets();
       if (proposalId == null) {
+        openDaoSubmittedProposal(daoAccountId, null);
         bumpDaoWorkspacePrefetch(daoAccountId);
         void loadFeed();
         return;
       }
 
-      navigateToProposalDetail(proposalId);
+      setFocusedProposalId(proposalId);
+      openDaoSubmittedProposal(daoAccountId, proposalId);
 
       try {
         const refreshed = await fetchProtocolProposal({
@@ -881,13 +886,7 @@ export function DaoWorkspacePanel({
       bumpDaoWorkspacePrefetch(daoAccountId);
       void loadFeed();
     },
-    [
-      adoptLiveProposal,
-      closeAllSheets,
-      daoAccountId,
-      loadFeed,
-      navigateToProposalDetail,
-    ]
+    [adoptLiveProposal, closeAllSheets, daoAccountId, loadFeed]
   );
 
   useEffect(() => {

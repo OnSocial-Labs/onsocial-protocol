@@ -214,8 +214,14 @@ describe('protocol proposal family', () => {
     expect(parseProtocolProposalFamily('members')).toBe('membership');
     expect(parseProtocolProposalFamily('face')).toBe('face');
     expect(parseProtocolProposalFamily(null)).toBe('all');
-    expect(daoPortfolioPath('guild.sputnik-dao.near', { family: 'boost' })).toBe(
-      '/@guild.sputnik-dao.near?kind=boost'
+    expect(
+      daoPortfolioPath('guild.sputnik-dao.near', { family: 'boost' })
+    ).toBe('/@guild.sputnik-dao.near?kind=boost');
+  });
+
+  it('directs a raised proposal to `/@dao?proposal=` not the face', () => {
+    expect(daoPortfolioPath('guild.sputnik-dao.near', { proposal: 44 })).toBe(
+      '/@guild.sputnik-dao.near?proposal=44'
     );
   });
 
@@ -265,7 +271,10 @@ describe('protocol proposal presentation', () => {
     expect(
       deriveProtocolProposalPresentation({
         kind: {
-          AddMemberToRole: { member_id: 'bob.near', role: 'delegated_proposers' },
+          AddMemberToRole: {
+            member_id: 'bob.near',
+            role: 'delegated_proposers',
+          },
         },
         description: null,
         proposer: 'alice.near',
@@ -660,7 +669,11 @@ describe('protocol settings action UX helpers', () => {
       bounty_forgiveness_period: '0',
     };
     expect(
-      viewerHasPolicyActionPermission(policy, 'alice.near', 'update_vote_policy')
+      viewerHasPolicyActionPermission(
+        policy,
+        'alice.near',
+        'update_vote_policy'
+      )
     ).toBe(true);
     expect(
       viewerHasPolicyActionPermission(policy, 'alice.near', 'remove_role')

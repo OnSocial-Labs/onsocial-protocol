@@ -11,6 +11,10 @@ const info = readFileSync(join(here, 'protocol-dao-info-sheet.tsx'), 'utf8');
 const edit = readFileSync(join(here, 'dao-edit-sheet.tsx'), 'utf8');
 const boost = readFileSync(join(here, 'dao-boost-sheet.tsx'), 'utf8');
 const proposals = readFileSync(join(here, 'dao-workspace-panel.tsx'), 'utf8');
+const chrome = readFileSync(
+  join(here, '../../components/portfolio/portfolio-dao-org-chrome.tsx'),
+  'utf8'
+);
 const globalsCss = readFileSync(join(here, '../../app/globals.css'), 'utf8');
 
 describe('DAO org hug drawers', () => {
@@ -113,5 +117,15 @@ describe('DAO org hug drawers', () => {
     expect(members).not.toContain('dao-members-stake-actions');
     expect(info).toContain('footer={footer}');
     expect(info).not.toContain('protocol-dao-info-actions');
+  });
+
+  it('lands raised proposals on the proposal page instead of the face', () => {
+    expect(chrome).toContain('openDaoSubmittedProposal');
+    expect(chrome).toContain("setOverlay('proposals')");
+    expect(edit).toContain('onProposed?.(socialResponse.proposalId)');
+    expect(boost).toContain('onProposed?.(response.proposalId)');
+    expect(proposals).toContain(
+      'openDaoSubmittedProposal(daoAccountId, proposalId)'
+    );
   });
 });
