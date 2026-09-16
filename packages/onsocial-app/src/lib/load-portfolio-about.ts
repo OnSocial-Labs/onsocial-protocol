@@ -57,8 +57,8 @@ export const loadPortfolioAboutForAccount = cache(
       panel: {
         accountId,
         profileName,
-        bio: shell?.bio ?? null,
-        about: shell?.about ?? daoPage?.branding.about ?? null,
+        bio: daoPage?.branding.description ?? shell?.bio ?? null,
+        about: daoPage?.branding.about ?? shell?.about ?? null,
         lead: shell?.lead ?? null,
         aboutAlign: shell?.aboutAlign ?? 'left',
         tags: shell?.tags ?? [],

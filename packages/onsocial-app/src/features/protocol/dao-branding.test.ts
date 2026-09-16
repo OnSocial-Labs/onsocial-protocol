@@ -294,6 +294,56 @@ describe('dao branding', () => {
     expect(social.purpose).toBe(long);
   });
 
+  it('re-partitions a four-line peeled purpose dump so About keeps mid-copy', () => {
+    const purpose = [
+      'OnSocial exists to give every user full ownership of their digital identity and connections.',
+      'Your profile and social graph belong to you, not to any platform.',
+      'You can take everything with you, anywhere, at any time.',
+      'No one can delete or censor your connections.',
+      'Standing in solidarity is voluntary and meaningful — never forced or algorithmic.',
+      'This protocol is scarce by design. Attention, connection, and identity are treated as precious, not infinite.',
+      'The DAO exists only to protect these principles and keep the infrastructure running. Nothing more.',
+    ].join('\n');
+    const peeledFace = purpose.split('\n').slice(0, 4).join('\n');
+    const peeledAbout = purpose.split('\n').slice(4).join('\n');
+    const split = partitionDaoPurposeFaceAbout(purpose);
+    const branding = composeDaoBranding({
+      daoAccountId: 'governance.onsocial.testnet',
+      profile: {
+        accountId: 'governance.onsocial.testnet',
+        name: 'OnSocial Governance',
+        location: null,
+        industry: null,
+        kind: 'dao',
+        bio: peeledFace,
+        about: peeledAbout,
+        lead: null,
+        aboutAlign: 'left',
+        avatarUrl: 'https://cdn.example/a.png',
+        bannerUrl: null,
+        avatarMedia: { kind: 'image', url: 'https://cdn.example/a.png' },
+        bannerMedia: null,
+        links: {},
+        tags: [],
+        photos: [],
+        hashtags: [],
+        tickers: [],
+        mentions: [],
+      },
+      config: {
+        name: 'OnSocial Governance',
+        purpose,
+        metadata: JSON.stringify({
+          onsocial: { v: 1, name: 'OnSocial Governance', description: purpose },
+        }),
+      },
+    });
+    expect(branding.description).toBe(split.face);
+    expect(branding.about).toBe(split.about);
+    expect(branding.about).toContain('You can take everything with you');
+    expect(branding.about).toContain('The DAO exists only to protect');
+  });
+
   it('builds dao portfolio paths', () => {
     expect(daoPath('Demo.Sputnik-Dao.Near')).toBe('/@demo.sputnik-dao.near');
     expect(resolveDaoEntityKind('orphan.sputnik-dao.near')).toBe('community');

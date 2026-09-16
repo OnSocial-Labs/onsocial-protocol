@@ -178,7 +178,7 @@ export default async function AccountPage({
           location={shell?.location}
           industry={shell?.industry}
           bio={portfolioBio}
-          aboutBio={shell?.about ?? daoPage?.branding.about ?? null}
+          aboutBio={daoPage?.branding.about ?? shell?.about ?? null}
           lead={shell?.lead ?? null}
           tags={identityTopics}
           photoCount={shell?.photos.length ?? 0}

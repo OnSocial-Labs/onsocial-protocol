@@ -15,6 +15,7 @@ import type { ResolvedPageHero } from '@/lib/page-data';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import type { AppProfileShell } from '@/lib/profile-shell';
 import {
+  clampProfileBioFace,
   partitionDaoPurposeFaceAbout,
   resolveStoredProfileFaceAbout,
 } from '@/lib/profile-bio-face';
@@ -354,11 +355,17 @@ export function composeDaoBranding(opts: {
 
   const importedPurpose =
     meta?.description?.trim() || opts.config?.purpose?.trim() || '';
-  const publishedCopy = Boolean(profileBio || profileAbout);
+  const publishedEssay = [profileBio, profileAbout]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join('\n');
+  const profileFitsFace = Boolean(
+    profileBio && clampProfileBioFace(profileBio) === profileBio
+  );
   const partitioned =
-    source === 'profile' && publishedCopy
+    source === 'profile' && profileFitsFace
       ? resolveStoredProfileFaceAbout(profileBio, profileAbout)
-      : partitionDaoPurposeFaceAbout(importedPurpose || profileBio || '');
+      : partitionDaoPurposeFaceAbout(importedPurpose || publishedEssay);
   const face = partitioned.face;
   const aboutRemainder = partitioned.about;
 

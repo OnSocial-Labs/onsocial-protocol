@@ -125,10 +125,10 @@ export function resolveDaoPortfolioSummary(opts: {
 }): string | null {
   const tagline = opts.tagline?.trim();
   if (tagline) return tagline;
-  const shellBio = opts.shellBio?.trim();
-  if (shellBio) return partitionDaoPurposeFaceAbout(shellBio).face || null;
   const description = opts.daoPage?.branding.description?.trim();
   if (description) return description;
+  const shellBio = opts.shellBio?.trim();
+  if (shellBio) return partitionDaoPurposeFaceAbout(shellBio).face || null;
   const purpose = opts.daoPage?.configPurpose?.trim();
   if (purpose) return partitionDaoPurposeFaceAbout(purpose).face || null;
   return null;
