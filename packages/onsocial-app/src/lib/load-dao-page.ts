@@ -14,6 +14,10 @@ import {
 import { daoPath } from '@/lib/app-routes';
 import { isHeuristicDaoAccountId } from '@/lib/enrich-standing-with-dao';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
+import {
+  partitionDaoPurposeFaceAbout,
+  resolveStoredProfileFaceAbout,
+} from '@/lib/profile-bio-face';
 import { loadProfileShell, type AppProfileShell } from '@/lib/profile-shell';
 
 export type PortfolioDaoEntity = {
@@ -72,14 +76,15 @@ function profileShellFromBundle(
   if (!profile) return null;
   const avatarUrl = resolveProfileMediaUrl(profile.avatar);
   const bannerUrl = resolveProfileMediaUrl(profile.banner);
+  const { face, about } = resolveStoredProfileFaceAbout(profile.bio, null);
   return {
     accountId,
     name: profile.name?.trim() || null,
     location: null,
     industry: null,
     kind: null,
-    bio: profile.bio?.trim() || null,
-    about: null,
+    bio: face.trim() || null,
+    about: about.trim() || null,
     lead: null,
     aboutAlign: 'left',
     avatarUrl,
@@ -118,13 +123,15 @@ export function resolveDaoPortfolioSummary(opts: {
   shellBio?: string | null;
   daoPage?: DaoPageData | null;
 }): string | null {
-  return (
-    opts.tagline?.trim() ||
-    opts.shellBio?.trim() ||
-    opts.daoPage?.branding.description?.trim() ||
-    opts.daoPage?.configPurpose?.trim() ||
-    null
-  );
+  const tagline = opts.tagline?.trim();
+  if (tagline) return tagline;
+  const description = opts.daoPage?.branding.description?.trim();
+  if (description) return description;
+  const shellBio = opts.shellBio?.trim();
+  if (shellBio) return partitionDaoPurposeFaceAbout(shellBio).face || null;
+  const purpose = opts.daoPage?.configPurpose?.trim();
+  if (purpose) return partitionDaoPurposeFaceAbout(purpose).face || null;
+  return null;
 }
 
 async function resolvePortfolioDaoContext(

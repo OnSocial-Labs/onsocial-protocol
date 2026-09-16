@@ -27,8 +27,10 @@ function encodeJsonArgs(args: unknown): string {
 
 export type DaoSocialProfileDraft = {
   name: string;
-  /** Full purpose — face shows a clamped excerpt. */
+  /** OnSocial face (`profile/bio`) — clamped excerpt, not the full purpose. */
   bio?: string;
+  /** OnSocial About remainder (`profile/about`). `null` / empty clears. */
+  about?: string | null;
   avatar?: string | null;
   banner?: string | null;
   links?: Record<string, string> | null;
@@ -50,6 +52,7 @@ export function buildDaoSocialProfileProposalPayload(
     name: string;
     kind: 'dao';
     bio?: string;
+    about?: string | null;
     avatar?: string;
     banner?: string;
     links?: Record<string, string>;
@@ -57,6 +60,11 @@ export function buildDaoSocialProfileProposalPayload(
 
   const bio = draft.bio?.trim();
   if (bio) profile.bio = bio;
+
+  if (draft.about !== undefined) {
+    const about = draft.about?.trim() ?? '';
+    profile.about = about || null;
+  }
 
   const avatar = draft.avatar?.trim();
   if (avatar) profile.avatar = avatar;

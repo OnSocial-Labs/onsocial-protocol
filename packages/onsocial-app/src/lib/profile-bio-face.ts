@@ -39,9 +39,7 @@ function normalizeBioNewlines(text: string): string {
 export function collapseProfileBioBlankLines(text: string): string {
   const normalized = normalizeBioNewlines(text);
   const endsWithBreak = /\n$/.test(normalized);
-  const collapsed = normalized
-    .replace(/^\n+/, '')
-    .replace(/\n{3,}/g, '\n\n');
+  const collapsed = normalized.replace(/^\n+/, '').replace(/\n{3,}/g, '\n\n');
   if (!collapsed) return endsWithBreak ? '\n' : '';
   return endsWithBreak && !collapsed.endsWith('\n')
     ? `${collapsed}\n`
@@ -128,11 +126,7 @@ function findSentenceBreakBefore(
   return best;
 }
 
-function findWordBreakBefore(
-  text: string,
-  from: number,
-  to: number
-): number {
+function findWordBreakBefore(text: string, from: number, to: number): number {
   for (let i = to; i >= from; i--) {
     if (/\s/.test(text[i]!)) return i;
   }
@@ -283,6 +277,22 @@ export function clampProfileBioFace(face: string): string {
   return clampProfileBioFaceLines(normalized).replace(/\n+$/g, '');
 }
 
+/**
+ * Import a DAO purpose into OnSocial keys: face ≈ 160 wrap chars, About = the
+ * remainder only. Newlines count like spaces so a multi-line Sputnik purpose
+ * does not lose mid-copy to the four-line face peel. Short purpose stays on
+ * the face; About stays empty so the chip stays off.
+ */
+export function partitionDaoPurposeFaceAbout(purpose: string): {
+  face: string;
+  about: string;
+} {
+  const normalized = normalizeBioNewlines(purpose).trim();
+  if (!normalized) return { face: '', about: '' };
+  const { head, tail } = splitBioAtWrapBudget(normalized);
+  return { face: head.trim(), about: tail.trim() };
+}
+
 /** @deprecated Prefer separate `profile/bio` + `profile/about` writes. */
 export function joinProfileBioFaceAbout(face: string, about: string): string {
   const facePart = clampProfileBioFace(face);
@@ -320,7 +330,7 @@ export function profileAboutHasMoreThanFace(opts: {
   return Boolean(opts.aboutText?.trim());
 }
 
-/** Full About body for meta — face + continuation, then dao fallbacks. */
+/** Full About body for meta — published face + continuation, then full purpose. */
 export function resolvePortfolioAboutBio(opts: {
   shellBio?: string | null;
   shellAbout?: string | null;
@@ -337,12 +347,13 @@ export function resolvePortfolioAboutBio(opts: {
     .filter(Boolean)
     .join('\n');
   if (essay) return essay;
-  return (
-    opts.daoAbout?.trim() ||
-    opts.daoDescription?.trim() ||
-    opts.daoPurpose?.trim() ||
-    null
-  );
+  const purpose = opts.daoPurpose?.trim() || '';
+  if (purpose) return purpose;
+  const brandingEssay = [opts.daoDescription, opts.daoAbout]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join('\n');
+  return brandingEssay || null;
 }
 
 /** Real print only — empty / initials plates stay on the face. */

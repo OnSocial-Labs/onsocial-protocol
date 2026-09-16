@@ -26,8 +26,9 @@ export const DAO_CREATE_ADVANCED_HIDE = 'Hide advanced';
 /** Optional face publish — same create step, no Call / bond explainer. */
 export const DAO_CREATE_PUBLISH = 'Publish OnSocial profile';
 
-/** Edit config batch toggle — face outcome + honest two-proposal count. */
-export const DAO_EDIT_PUBLISH_HINT = 'Also write the OnSocial face · two proposals';
+/** Edit config batch toggle — Face + About outcome + honest two-proposal count. */
+export const DAO_EDIT_PUBLISH_HINT =
+  'Also write Face and About · two proposals';
 
 /** Same toggle voice as New drop description. */
 export function daoCreatePurposeToggle(opts: {

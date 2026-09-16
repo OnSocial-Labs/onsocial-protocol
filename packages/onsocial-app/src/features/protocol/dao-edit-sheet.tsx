@@ -57,8 +57,12 @@ import {
   type ProfileLinksInput,
 } from '@/lib/profile-links';
 import {
+  FACE_BIO_LIMIT_WARN,
+  FACE_BIO_WRAP_CHARS,
   PROFILE_BIO_LIMIT_WARN,
   PROFILE_BIO_MAX,
+  clampFaceEditorInput,
+  partitionDaoPurposeFaceAbout,
 } from '@/lib/profile-bio-face';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
@@ -121,6 +125,8 @@ export function DaoEditSheet({
 
   const [name, setName] = useState(baseline.name);
   const [purpose, setPurpose] = useState(baseline.purpose);
+  const [face, setFace] = useState(baseline.face);
+  const [about, setAbout] = useState(baseline.about);
   const [publishSocial, setPublishSocial] = useState(false);
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
     profileLinksInputFromRecord(baseline.links)
@@ -143,6 +149,8 @@ export function DaoEditSheet({
     if (!open) return;
     setName(baseline.name);
     setPurpose(baseline.purpose);
+    setFace(baseline.face);
+    setAbout(baseline.about);
     setPublishSocial(false);
     setLinks(profileLinksInputFromRecord(baseline.links));
     setLinkErrors({});
@@ -174,13 +182,16 @@ export function DaoEditSheet({
     const baselinePurpose = baseline.purpose.trim();
     // Compare editor field text only — never throw from link normalizers here.
     const linksDirty = PROFILE_LINK_EDITOR_FIELDS.some(
-      (field) =>
-        links[field.key].trim() !== baselineLinks[field.key].trim()
+      (field) => links[field.key].trim() !== baselineLinks[field.key].trim()
     );
+    const onSocialDirty = isSocial
+      ? face.trim() !== baseline.face.trim() ||
+        about.trim() !== baseline.about.trim()
+      : publishSocial;
     return (
       name.trim() !== baselineName ||
       purpose.trim() !== baselinePurpose ||
-      publishSocial ||
+      onSocialDirty ||
       linksDirty ||
       avatarFile !== null ||
       bannerFile !== null ||
@@ -188,13 +199,18 @@ export function DaoEditSheet({
       bannerRemoved
     );
   }, [
+    about,
     avatarFile,
     avatarRemoved,
     bannerFile,
     bannerRemoved,
+    baseline.about,
+    baseline.face,
     baseline.purpose,
     baseline.name,
     baselineLinks,
+    face,
+    isSocial,
     links,
     name,
     publishSocial,
@@ -372,7 +388,8 @@ export function DaoEditSheet({
       if (isSocial) {
         const socialPayload = buildDaoSocialProfileProposalPayload({
           name: name.trim(),
-          bio: purpose.trim() || undefined,
+          bio: face.trim() || undefined,
+          about: about.trim() || null,
           avatar,
           banner,
           links:
@@ -416,7 +433,8 @@ export function DaoEditSheet({
       if (batchSocial) {
         const socialPayload = buildDaoSocialProfileProposalPayload({
           name: name.trim(),
-          bio: purpose.trim() || undefined,
+          bio: face.trim() || undefined,
+          about: about.trim() || null,
           avatar,
           banner,
           links:
@@ -430,7 +448,8 @@ export function DaoEditSheet({
         });
         const confirmed = await trackTransaction({
           txHashes: batched.txHashes,
-          submittedMessage: txToastGovPending.actionSubmitted('Profile proposals'),
+          submittedMessage:
+            txToastGovPending.actionSubmitted('Profile proposals'),
           successMessage: txToastGovSuccess.daoChangeConfigProposed,
           failureMessage: txToastGovError.actionFailed('Profile proposals'),
         });
@@ -473,6 +492,55 @@ export function DaoEditSheet({
       setPending(false);
     }
   };
+
+  const faceAboutFields = (
+    <>
+      <OsField
+        label="Face"
+        htmlFor={`${formId}-face`}
+        hint={
+          face.length >= FACE_BIO_LIMIT_WARN
+            ? `${face.length}/${FACE_BIO_WRAP_CHARS}`
+            : undefined
+        }
+      >
+        <textarea
+          id={`${formId}-face`}
+          rows={3}
+          value={face}
+          maxLength={FACE_BIO_WRAP_CHARS}
+          disabled={pending}
+          placeholder="Short line on the OnSocial page…"
+          onChange={(event) =>
+            setFace(clampFaceEditorInput(event.target.value))
+          }
+          className={osFieldBorderedClassName}
+        />
+      </OsField>
+      <OsField
+        label="About"
+        htmlFor={`${formId}-about`}
+        hint={
+          about.length >= PROFILE_BIO_LIMIT_WARN
+            ? `${about.length}/${PROFILE_BIO_MAX}`
+            : undefined
+        }
+      >
+        <textarea
+          id={`${formId}-about`}
+          rows={4}
+          value={about}
+          maxLength={PROFILE_BIO_MAX}
+          disabled={pending}
+          placeholder="Continuation after the face…"
+          onChange={(event) =>
+            setAbout(event.target.value.slice(0, PROFILE_BIO_MAX))
+          }
+          className={osFieldBorderedClassName}
+        />
+      </OsField>
+    </>
+  );
 
   return (
     <>
@@ -544,28 +612,32 @@ export function DaoEditSheet({
             />
           </OsField>
 
-          <OsField
-            label="Purpose"
-            htmlFor={`${formId}-purpose`}
-            hint={
-              purpose.length >= PROFILE_BIO_LIMIT_WARN
-                ? `${purpose.length}/${PROFILE_BIO_MAX}`
-                : undefined
-            }
-          >
-            <textarea
-              id={`${formId}-purpose`}
-              rows={4}
-              value={purpose}
-              maxLength={PROFILE_BIO_MAX}
-              disabled={pending}
-              placeholder="What this DAO stewards…"
-              onChange={(event) =>
-                setPurpose(event.target.value.slice(0, PROFILE_BIO_MAX))
+          {!isSocial ? (
+            <OsField
+              label="Purpose"
+              htmlFor={`${formId}-purpose`}
+              hint={
+                purpose.length >= PROFILE_BIO_LIMIT_WARN
+                  ? `${purpose.length}/${PROFILE_BIO_MAX}`
+                  : undefined
               }
-              className={osFieldBorderedClassName}
-            />
-          </OsField>
+            >
+              <textarea
+                id={`${formId}-purpose`}
+                rows={4}
+                value={purpose}
+                maxLength={PROFILE_BIO_MAX}
+                disabled={pending}
+                placeholder="What this DAO stewards…"
+                onChange={(event) =>
+                  setPurpose(event.target.value.slice(0, PROFILE_BIO_MAX))
+                }
+                className={osFieldBorderedClassName}
+              />
+            </OsField>
+          ) : null}
+
+          {isSocial ? faceAboutFields : null}
 
           <div className="dao-edit-links">
             <ProfileLinksEditor
@@ -609,7 +681,14 @@ export function DaoEditSheet({
               role="switch"
               aria-checked={publishSocial}
               disabled={pending}
-              onClick={() => setPublishSocial((on) => !on)}
+              onClick={() => {
+                if (!publishSocial) {
+                  const split = partitionDaoPurposeFaceAbout(purpose);
+                  setFace(split.face);
+                  setAbout(split.about);
+                }
+                setPublishSocial((on) => !on);
+              }}
             >
               <span className="account-action-toggle-copy">
                 <span className="account-action-toggle-label">
@@ -626,6 +705,8 @@ export function DaoEditSheet({
             </button>
           ) : null}
 
+          {!isSocial && publishSocial ? faceAboutFields : null}
+
           {error ? <p className="guild-form-error">{error}</p> : null}
         </form>
       </DaoPageSlideOverScreen>
@@ -639,7 +720,7 @@ export function DaoEditSheet({
         title={isSocial ? 'Propose OnSocial profile?' : 'Propose profile?'}
         body={
           isSocial
-            ? 'Submit a Call proposal that writes cover, crest, name, and purpose to OnSocial. Live after council approval.'
+            ? 'Submit a Call proposal that writes cover, crest, name, Face, and About to OnSocial. Live after council approval.'
             : batchSocial
               ? 'Submit config and OnSocial together. Live after council approval.'
               : 'Submit a config proposal for cover, crest, name, and purpose. Live after council approval.'
