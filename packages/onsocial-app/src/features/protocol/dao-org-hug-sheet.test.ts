@@ -129,8 +129,17 @@ describe('DAO org hug drawers', () => {
     expect(faceBio).toContain('Close bio');
     expect(faceBio).toContain('Read full bio');
     expect(faceBio).toContain('daoFaceBioOverflows');
+    expect(faceBio).toContain('className="portfolio-bio-face-slot"');
+    expect(faceBio).toContain('bodyClassName="portfolio-bio-hug-body"');
+    expect(faceBio).toContain('aria-hidden');
     expect(faceBio).not.toContain('DropArt');
     expect(faceBio).not.toContain('OsPageSheet');
+    expect(globalsCss).toContain('button.portfolio-bio-face-slot');
+    expect(globalsCss).toContain('.portfolio-bio-hug-body');
+    expect(globalsCss).toContain('.portfolio-bio--full .portfolio-about-bio');
+    expect(globalsCss).toMatch(
+      /\.portfolio-bio--full[\s\S]*text-align:\s*center/
+    );
   });
 
   it('lands raised proposals on the proposal page instead of the face', () => {

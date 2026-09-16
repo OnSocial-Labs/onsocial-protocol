@@ -8138,10 +8138,16 @@ a.os-surface-row {
   }
 
   /* Face — first four lines, same blocks as About. Overflow opens a bio hug. */
-  .portfolio-bio--face {
+  .portfolio-bio--face,
+  .portfolio-bio--full {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 0.4em;
+    text-align: center;
+  }
+
+  .portfolio-bio--face {
     max-height: calc(1.5em * 4);
     overflow: hidden;
   }
@@ -8149,8 +8155,27 @@ a.os-surface-row {
   .portfolio-bio-face-slot {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
     gap: 0.1em;
+    width: 100%;
+    max-width: min(100%, var(--mood-bio-max-width, 20rem));
+  }
+
+  button.portfolio-bio-face-slot {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
+    cursor: pointer;
+  }
+
+  button.portfolio-bio-face-slot:focus-visible {
+    outline: 2px solid rgb(var(--fg-rgb) / 0.28);
+    outline-offset: 2px;
   }
 
   .portfolio-bio-expand {
@@ -8164,28 +8189,32 @@ a.os-surface-row {
     font-weight: 650;
     letter-spacing: 0.06em;
     line-height: 1;
-    cursor: pointer;
+    pointer-events: none;
   }
 
-  .portfolio-bio-expand:hover,
-  .portfolio-bio-expand:focus-visible {
+  button.portfolio-bio-face-slot:hover .portfolio-bio-expand,
+  button.portfolio-bio-face-slot:focus-visible .portfolio-bio-expand {
     color: rgb(var(--fg-rgb) / 0.82);
   }
 
-  .portfolio-bio-expand:focus-visible {
-    outline: 2px solid rgb(var(--fg-rgb) / 0.28);
-    outline-offset: 2px;
+  .portfolio-bio-hug-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .portfolio-bio--full {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4em;
+    margin: 0 auto;
+    width: 100%;
+    max-width: min(100%, var(--mood-bio-max-width, 20rem));
   }
 
   .portfolio-bio--face .portfolio-about-heading,
   .portfolio-bio--face .portfolio-about-bio,
-  .portfolio-bio--face .portfolio-about-list {
+  .portfolio-bio--face .portfolio-about-list,
+  .portfolio-bio--full .portfolio-about-heading,
+  .portfolio-bio--full .portfolio-about-bio,
+  .portfolio-bio--full .portfolio-about-list {
     margin: 0;
     max-width: none;
     font-size: inherit;
@@ -8193,17 +8222,23 @@ a.os-surface-row {
     font-weight: inherit;
     letter-spacing: inherit;
     color: inherit;
+    text-align: center;
   }
 
-  .portfolio-bio--face .portfolio-about-heading {
+  .portfolio-bio--face .portfolio-about-heading,
+  .portfolio-bio--full .portfolio-about-heading {
     font-weight: 650;
   }
 
-  .portfolio-bio--face .portfolio-about-list {
+  .portfolio-bio--face .portfolio-about-list,
+  .portfolio-bio--full .portfolio-about-list {
+    display: inline-block;
     padding-left: 1.1em;
+    text-align: start;
   }
 
-  .portfolio-bio--face .portfolio-about-list li + li {
+  .portfolio-bio--face .portfolio-about-list li + li,
+  .portfolio-bio--full .portfolio-about-list li + li {
     margin-top: 0.15em;
   }
 

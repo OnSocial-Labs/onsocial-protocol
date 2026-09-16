@@ -135,7 +135,7 @@ test.describe('DAO manage shell', () => {
 
     const expand = identity.getByRole('button', { name: 'Read full bio' });
     await expect(expand).toBeVisible({ timeout: 30_000 });
-    await expand.click();
+    await expand.getByText(/OnSocial exists to give every user/).click();
     await expectGlassSheetVisible(page);
 
     const bio = page.getByRole('dialog').filter({

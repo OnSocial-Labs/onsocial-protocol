@@ -36,7 +36,7 @@ interface PortfolioIdentityProps {
   bio?: string | null;
   /** About essay (`profile/about`) — opens About when set. */
   aboutBio?: string | null;
-  /** Full DAO purpose — face ellipsis opens a hug when longer than the lede. */
+  /** Full DAO purpose — overflowing face bio opens a hug. */
   fullBio?: string | null;
   /** Quiet About lead (`profile/lead`) — opens About when set. */
   lead?: string | null;
@@ -114,9 +114,7 @@ export function PortfolioIdentity({
       )}
 
       <div className="portfolio-identity-copy">
-        {displayKind !== 'org' &&
-        isDao &&
-        isProtocolFacePairDao(accountId) ? (
+        {displayKind !== 'org' && isDao && isProtocolFacePairDao(accountId) ? (
           <PortfolioDaoKindSwitch accountId={accountId} />
         ) : displayKind !== 'org' && isDao && kindLabel ? (
           <p className="portfolio-entity-kind">{kindLabel}</p>
@@ -170,6 +168,7 @@ export function PortfolioIdentity({
             text={summary}
             fullText={isDao && !tagline?.trim() ? fullBio : null}
             title={titleLabel}
+            moodId={mood.id}
           />
         ) : null}
         <PortfolioDepthLinks accountId={accountId} showAbout={showAbout} />
