@@ -278,10 +278,8 @@ export function clampProfileBioFace(face: string): string {
 }
 
 /**
- * Import a DAO purpose into OnSocial keys: face ≈ 160 wrap chars, About = the
- * remainder only. Newlines count like spaces so a multi-line Sputnik purpose
- * does not lose mid-copy to the four-line face peel. Short purpose stays on
- * the face; About stays empty so the chip stays off.
+ * Clip a DAO purpose to the face wrap budget. The tail is leftover copy for
+ * the full-bio drawer — never an About page essay.
  */
 export function partitionDaoPurposeFaceAbout(purpose: string): {
   face: string;
@@ -291,6 +289,31 @@ export function partitionDaoPurposeFaceAbout(purpose: string): {
   if (!normalized) return { face: '', about: '' };
   const { head, tail } = splitBioAtWrapBudget(normalized);
   return { face: head.trim(), about: tail.trim() };
+}
+
+/** Face shows an ellipsis + drawer when full purpose/bio is longer than the lede. */
+export function daoFaceBioOverflows(full: string, face: string): boolean {
+  const fullText = normalizeBioNewlines(full).trim();
+  const faceText = normalizeBioNewlines(face).trim();
+  if (!fullText) return false;
+  return fullText !== faceText;
+}
+
+/**
+ * True when `profile/about` is the leftover tail of Sputnik purpose — an earlier
+ * import wrote remainder into About. Hide it so About stays a page.
+ */
+export function isLegacyDaoPurposeRemainder(opts: {
+  about?: string | null;
+  purpose?: string | null;
+}): boolean {
+  const about = normalizeBioNewlines(opts.about ?? '').trim();
+  const purpose = normalizeBioNewlines(opts.purpose ?? '').trim();
+  if (!about || !purpose) return false;
+  const remainder = partitionDaoPurposeFaceAbout(purpose).about;
+  if (remainder.length > 0 && remainder === about) return true;
+  const peeled = purpose.split('\n').slice(PROFILE_BIO_FACE_LINES).join('\n').trim();
+  return peeled.length > 0 && peeled === about;
 }
 
 /** @deprecated Prefer separate `profile/bio` + `profile/about` writes. */
@@ -330,7 +353,7 @@ export function profileAboutHasMoreThanFace(opts: {
   return Boolean(opts.aboutText?.trim());
 }
 
-/** Full About body for meta — published face + continuation, then full purpose. */
+/** About-page meta — published face + More essay. Purpose is not About. */
 export function resolvePortfolioAboutBio(opts: {
   shellBio?: string | null;
   shellAbout?: string | null;
@@ -338,22 +361,21 @@ export function resolvePortfolioAboutBio(opts: {
   daoAbout?: string | null;
   daoPurpose?: string | null;
 }): string | null {
-  const { face, about } = resolveStoredProfileFaceAbout(
-    opts.shellBio,
-    opts.shellAbout
+  const purpose = opts.daoPurpose?.trim() || '';
+  const storedAbout = (opts.shellAbout ?? opts.daoAbout)?.trim() || '';
+  const more = isLegacyDaoPurposeRemainder({ about: storedAbout, purpose })
+    ? ''
+    : storedAbout;
+  const { face } = resolveStoredProfileFaceAbout(
+    opts.shellBio ?? opts.daoDescription,
+    more || null
   );
-  const essay = [face, about]
+  const essay = [face, more]
     .map((part) => part.trim())
     .filter(Boolean)
     .join('\n');
   if (essay) return essay;
-  const purpose = opts.daoPurpose?.trim() || '';
-  if (purpose) return purpose;
-  const brandingEssay = [opts.daoDescription, opts.daoAbout]
-    .map((part) => part?.trim())
-    .filter(Boolean)
-    .join('\n');
-  return brandingEssay || null;
+  return purpose || null;
 }
 
 /** Real print only — empty / initials plates stay on the face. */

@@ -139,13 +139,12 @@ describe('dao-social-profile', () => {
     expect(args.request.action.data['profile/links']).toContain('website');
   });
 
-  it('writes Face + About remainder, not the full purpose as bio', () => {
+  it('writes Face only, not purpose remainder as About', () => {
     const long =
       'We’re a community DAO that stewards shared infrastructure, funds public goods, and keeps the square crest honest for every builder who shows up to ship with us across seasons.';
     const payload = buildDaoSocialProfileProposalPayload({
       name: 'Long Guild',
       bio: long.slice(0, 80),
-      about: long.slice(80).trim(),
     });
     const kind = payload.proposal.kind as {
       FunctionCall: { actions: Array<{ args: string }> };
@@ -156,9 +155,28 @@ describe('dao-social-profile', () => {
       request: { action: { data: Record<string, string | null> } };
     };
     expect(args.request.action.data['profile/bio']).toBe(long.slice(0, 80));
-    expect(args.request.action.data['profile/about']).toBe(
-      long.slice(80).trim()
-    );
-    expect(args.request.action.data['profile/bio']).not.toBe(long);
+    expect(args.request.action.data['profile/about']).toBeUndefined();
+    expect(args.request.action.data['profile/photos']).toBeUndefined();
+  });
+
+  it('writes About page keys when a studio is provided', () => {
+    const payload = buildDaoSocialProfileProposalPayload({
+      name: 'Studio Guild',
+      bio: 'Short face.',
+      about: 'More on the page.',
+      lead: 'Our story',
+      photos: ['ipfs://print', 'ipfs://film'],
+    });
+    const kind = payload.proposal.kind as {
+      FunctionCall: { actions: Array<{ args: string }> };
+    };
+    const args = JSON.parse(
+      Buffer.from(kind.FunctionCall.actions[0]!.args, 'base64').toString('utf8')
+    ) as {
+      request: { action: { data: Record<string, string | null> } };
+    };
+    expect(args.request.action.data['profile/about']).toBe('More on the page.');
+    expect(args.request.action.data['profile/lead']).toBe('Our story');
+    expect(args.request.action.data['profile/photos']).toContain('ipfs://print');
   });
 });

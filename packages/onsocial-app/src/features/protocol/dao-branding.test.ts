@@ -145,7 +145,7 @@ describe('dao branding', () => {
     expect(daoEntityKindLabel(branding.kind)).toBe('Community DAO');
   });
 
-  it('keeps About as the remainder after a clamped face excerpt', () => {
+  it('clips a long unpublished purpose on the face and leaves About empty', () => {
     const long =
       'We’re a community DAO that stewards shared infrastructure, funds public goods, and keeps the square crest honest for every builder who shows up to ship with us across seasons.';
     expect(long.length).toBeGreaterThan(160);
@@ -164,9 +164,9 @@ describe('dao branding', () => {
     expect((branding.description ?? '').length).toBeLessThanOrEqual(160);
     const split = partitionDaoPurposeFaceAbout(long);
     expect(branding.description).toBe(split.face);
-    expect(branding.about).toBe(split.about);
-    expect(branding.about).not.toBe(long);
-    expect(split.about.length).toBeGreaterThan(0);
+    expect(branding.about).toBeNull();
+    expect(branding.purpose).toBe(long);
+    expect(branding.photos).toEqual([]);
   });
 
   it('falls back to sputnik purpose when profile bio is blank whitespace', () => {
@@ -259,7 +259,7 @@ describe('dao branding', () => {
     expect(social.purpose).toBe('Config purpose only');
   });
 
-  it('seeds social Face + About from a purpose partition when unpublished', () => {
+  it('seeds social Face from purpose and keeps About empty when unpublished', () => {
     const long =
       'We’re a community DAO that stewards shared infrastructure, funds public goods, and keeps the square crest honest for every builder who shows up to ship with us across seasons.';
     const branding = composeDaoBranding({
@@ -288,13 +288,14 @@ describe('dao branding', () => {
     });
     expect(config.purpose).toBe(long);
     expect(config.face).toBe(split.face);
-    expect(config.about).toBe(split.about);
+    expect(config.about).toBe('');
     expect(social.face).toBe(split.face);
-    expect(social.about).toBe(split.about);
+    expect(social.about).toBe('');
     expect(social.purpose).toBe(long);
+    expect(social.photos).toEqual([]);
   });
 
-  it('re-partitions a four-line peeled purpose dump so About keeps mid-copy', () => {
+  it('hides a leftover purpose dump so About stays a page', () => {
     const purpose = [
       'OnSocial exists to give every user full ownership of their digital identity and connections.',
       'Your profile and social graph belong to you, not to any platform.',
@@ -339,9 +340,8 @@ describe('dao branding', () => {
       },
     });
     expect(branding.description).toBe(split.face);
-    expect(branding.about).toBe(split.about);
-    expect(branding.about).toContain('You can take everything with you');
-    expect(branding.about).toContain('The DAO exists only to protect');
+    expect(branding.about).toBeNull();
+    expect(branding.purpose).toBe(purpose);
   });
 
   it('builds dao portfolio paths', () => {

@@ -36,6 +36,8 @@ interface PortfolioIdentityProps {
   bio?: string | null;
   /** About essay (`profile/about`) — opens About when set. */
   aboutBio?: string | null;
+  /** Full DAO purpose — face ellipsis opens a hug when longer than the lede. */
+  fullBio?: string | null;
   /** Quiet About lead (`profile/lead`) — opens About when set. */
   lead?: string | null;
   /** Curated identity topics (`profile/tags`) — person About only. */
@@ -61,6 +63,7 @@ export function PortfolioIdentity({
   industry = null,
   bio,
   aboutBio = null,
+  fullBio = null,
   lead = null,
   tags = null,
   photoCount = 0,
@@ -162,7 +165,13 @@ export function PortfolioIdentity({
             <span>{locationLabel}</span>
           </p>
         ) : null}
-        {summary ? <PortfolioFaceBio text={summary} /> : null}
+        {summary ? (
+          <PortfolioFaceBio
+            text={summary}
+            fullText={isDao && !tagline?.trim() ? fullBio : null}
+            title={titleLabel}
+          />
+        ) : null}
         <PortfolioDepthLinks accountId={accountId} showAbout={showAbout} />
         <PortfolioIdentityGestures
           pageAccountId={accountId}

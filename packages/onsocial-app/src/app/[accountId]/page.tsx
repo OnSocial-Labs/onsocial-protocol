@@ -176,12 +176,23 @@ export default async function AccountPage({
           accountId={accountId}
           profileName={shell?.name ?? daoPage?.branding.name}
           location={shell?.location}
-          industry={shell?.industry}
+          industry={shell?.industry ?? daoPage?.branding.industry}
           bio={portfolioBio}
-          aboutBio={daoPage?.branding.about ?? shell?.about ?? null}
-          lead={shell?.lead ?? null}
+          aboutBio={
+            daoEntity.isDao
+              ? (daoPage?.branding.about ?? null)
+              : (shell?.about ?? null)
+          }
+          fullBio={
+            daoPage?.branding.purpose ?? daoPage?.configPurpose ?? null
+          }
+          lead={shell?.lead ?? daoPage?.branding.lead ?? null}
           tags={identityTopics}
-          photoCount={shell?.photos.length ?? 0}
+          photoCount={
+            daoEntity.isDao
+              ? (daoPage?.branding.photos.length ?? shell?.photos.length ?? 0)
+              : (shell?.photos.length ?? 0)
+          }
           tagline={tagline}
           avatarUrl={shell?.avatarUrl ?? daoPage?.branding.avatarUrl}
           mood={mood}

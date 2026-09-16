@@ -29,8 +29,13 @@ export type DaoSocialProfileDraft = {
   name: string;
   /** OnSocial face (`profile/bio`) — clamped excerpt, not the full purpose. */
   bio?: string;
-  /** OnSocial About remainder (`profile/about`). `null` / empty clears. */
+  /** About More essay (`profile/about`). `null` / empty clears. */
   about?: string | null;
+  /** About lead (`profile/lead`). `null` / empty clears. */
+  lead?: string | null;
+  aboutAlign?: 'left' | 'center' | 'justify' | null;
+  /** About gallery (`profile/photos`). `null` / empty clears. */
+  photos?: string[] | null;
   avatar?: string | null;
   banner?: string | null;
   links?: Record<string, string> | null;
@@ -53,6 +58,9 @@ export function buildDaoSocialProfileProposalPayload(
     kind: 'dao';
     bio?: string;
     about?: string | null;
+    lead?: string | null;
+    aboutAlign?: 'left' | 'center' | 'justify' | null;
+    photos?: string[] | null;
     avatar?: string;
     banner?: string;
     links?: Record<string, string>;
@@ -64,6 +72,20 @@ export function buildDaoSocialProfileProposalPayload(
   if (draft.about !== undefined) {
     const about = draft.about?.trim() ?? '';
     profile.about = about || null;
+  }
+
+  if (draft.lead !== undefined) {
+    const lead = draft.lead?.trim() ?? '';
+    profile.lead = lead || null;
+  }
+
+  if (draft.aboutAlign !== undefined) {
+    profile.aboutAlign = draft.aboutAlign;
+  }
+
+  if (draft.photos !== undefined) {
+    profile.photos =
+      draft.photos && draft.photos.length > 0 ? draft.photos : null;
   }
 
   const avatar = draft.avatar?.trim();

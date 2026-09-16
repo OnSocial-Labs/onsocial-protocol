@@ -18,6 +18,8 @@ import {
   splitBioAtWrapBudget,
   splitProfileBioFaceAbout,
   partitionDaoPurposeFaceAbout,
+  daoFaceBioOverflows,
+  isLegacyDaoPurposeRemainder,
 } from './profile-bio-face';
 
 function faceFlatLen(text: string): number {
@@ -243,7 +245,7 @@ describe('partitionDaoPurposeFaceAbout', () => {
     });
   });
 
-  it('puts only the remainder in About', () => {
+  it('clips remainder for the face drawer, not as an About essay', () => {
     const long =
       'We’re a community DAO that stewards shared infrastructure, funds public goods, and keeps the square crest honest for every builder who shows up to ship with us across seasons.';
     const { face, about } = partitionDaoPurposeFaceAbout(long);
@@ -268,6 +270,33 @@ describe('partitionDaoPurposeFaceAbout', () => {
     expect(about).toContain('The DAO exists only to protect');
     expect(about).toContain('You can take everything with you');
     expect(face).not.toContain('The DAO exists only to protect');
+  });
+});
+
+describe('daoFaceBioOverflows', () => {
+  it('is false when purpose fits the face', () => {
+    expect(daoFaceBioOverflows('Short purpose', 'Short purpose')).toBe(false);
+  });
+
+  it('is true when purpose is longer than the face lede', () => {
+    const long =
+      'We’re a community DAO that stewards shared infrastructure, funds public goods, and keeps the square crest honest for every builder who shows up to ship with us across seasons.';
+    const { face } = partitionDaoPurposeFaceAbout(long);
+    expect(daoFaceBioOverflows(long, face)).toBe(true);
+  });
+});
+
+describe('isLegacyDaoPurposeRemainder', () => {
+  it('detects wrap-budget remainder written into About', () => {
+    const long =
+      'We’re a community DAO that stewards shared infrastructure, funds public goods, and keeps the square crest honest for every builder who shows up to ship with us across seasons.';
+    const { about } = partitionDaoPurposeFaceAbout(long);
+    expect(
+      isLegacyDaoPurposeRemainder({ about, purpose: long })
+    ).toBe(true);
+    expect(
+      isLegacyDaoPurposeRemainder({ about: 'Studio essay.', purpose: long })
+    ).toBe(false);
   });
 });
 
@@ -299,7 +328,7 @@ describe('resolvePortfolioAboutBio', () => {
     ).toBeNull();
   });
 
-  it('uses full unpublished purpose for meta instead of remainder-only', () => {
+  it('ignores leftover purpose remainder in About meta', () => {
     const long =
       'We’re a community DAO that stewards shared infrastructure, funds public goods, and keeps the square crest honest for every builder who shows up to ship with us across seasons.';
     const { face, about } = partitionDaoPurposeFaceAbout(long);
@@ -311,16 +340,16 @@ describe('resolvePortfolioAboutBio', () => {
         daoAbout: about,
         daoPurpose: long,
       })
-    ).toBe(long);
+    ).toBe(face);
     expect(
       resolvePortfolioAboutBio({
-        shellBio: null,
-        shellAbout: null,
+        shellBio: 'Face lede.',
+        shellAbout: 'Studio more.',
         daoDescription: face,
         daoAbout: about,
-        daoPurpose: null,
+        daoPurpose: long,
       })
-    ).toBe(`${face}\n${about}`);
+    ).toBe('Face lede.\nStudio more.');
   });
 });
 

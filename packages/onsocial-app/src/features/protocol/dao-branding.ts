@@ -14,10 +14,12 @@
 import type { ResolvedPageHero } from '@/lib/page-data';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import type { AppProfileShell } from '@/lib/profile-shell';
+import type { ProfileAboutAlign } from '@onsocial/sdk';
+import type { ProfileAboutPhoto } from '@/lib/profile-about-photos';
 import {
   clampProfileBioFace,
+  isLegacyDaoPurposeRemainder,
   partitionDaoPurposeFaceAbout,
-  resolveStoredProfileFaceAbout,
 } from '@/lib/profile-bio-face';
 import {
   resolveKnownBoardForDaoAccount,
@@ -36,8 +38,15 @@ export interface DaoBranding {
   name: string;
   /** Face excerpt — clamped from purpose / profile bio. */
   description: string | null;
-  /** About remainder after the face. Empty when copy fits the face. */
+  /** About More essay (`profile/about`). Never purpose remainder. */
   about: string | null;
+  /** Full Sputnik purpose / metadata description — face drawer source. */
+  purpose: string | null;
+  /** About lead (`profile/lead`). */
+  lead: string | null;
+  aboutAlign: ProfileAboutAlign;
+  photos: ProfileAboutPhoto[];
+  industry: string | null;
   /** Raw ipfs / https ref for round-trip. */
   avatar: string | null;
   banner: string | null;
@@ -252,8 +261,12 @@ export interface DaoEditBaseline {
   purpose: string;
   /** OnSocial face excerpt (~160). */
   face: string;
-  /** OnSocial About remainder. Empty when purpose fits the face. */
+  /** OnSocial About More essay. Empty until they write the page. */
   about: string;
+  lead: string;
+  aboutAlign: ProfileAboutAlign;
+  photos: ProfileAboutPhoto[];
+  industry: string | null;
   links: Record<string, string> | null;
   avatar: string | null;
   banner: string | null;
@@ -261,9 +274,26 @@ export interface DaoEditBaseline {
   bannerUrl: string | null;
 }
 
+function daoAboutPageFields(branding: DaoBranding): {
+  about: string;
+  lead: string;
+  aboutAlign: ProfileAboutAlign;
+  photos: ProfileAboutPhoto[];
+  industry: string | null;
+} {
+  return {
+    about: branding.about?.trim() ?? '',
+    lead: branding.lead?.trim() ?? '',
+    aboutAlign: branding.aboutAlign,
+    photos: branding.photos.map((photo) => ({ ...photo })),
+    industry: branding.industry,
+  };
+}
+
 /**
  * Config Edit seeds Sputnik metadata / purpose — never OnSocial profile bio.
- * Social Edit seeds Face + About (published keys, else a purpose partition).
+ * Social Edit seeds Face + About page (published keys). Purpose remainder
+ * is not About.
  */
 export function resolveDaoEditBaseline(opts: {
   mode: 'config' | 'social';
@@ -277,6 +307,7 @@ export function resolveDaoEditBaseline(opts: {
   const configPurpose = opts.configPurpose.trim();
   const purpose = meta?.description?.trim() || configPurpose || '';
   const fromPurpose = partitionDaoPurposeFaceAbout(purpose);
+  const aboutPage = daoAboutPageFields(opts.branding);
 
   if (opts.mode === 'config') {
     const avatar = meta?.avatar ?? null;
@@ -285,7 +316,7 @@ export function resolveDaoEditBaseline(opts: {
       name: meta?.name?.trim() || configName || opts.branding.daoAccountId,
       purpose,
       face: fromPurpose.face,
-      about: fromPurpose.about,
+      ...aboutPage,
       links: meta?.links ?? null,
       avatar,
       banner,
@@ -294,19 +325,15 @@ export function resolveDaoEditBaseline(opts: {
     };
   }
 
-  const hasBrandingCopy = Boolean(
-    opts.branding.description?.trim() || opts.branding.about?.trim()
-  );
+  const hasPublishedFace = Boolean(opts.branding.description?.trim());
 
   return {
     name: opts.branding.name,
     purpose,
-    face: hasBrandingCopy
+    face: hasPublishedFace
       ? (opts.branding.description ?? '').trim()
       : fromPurpose.face,
-    about: hasBrandingCopy
-      ? (opts.branding.about ?? '').trim()
-      : fromPurpose.about,
+    ...aboutPage,
     links: opts.branding.links,
     avatar: opts.branding.avatar,
     banner: opts.branding.banner,
@@ -327,7 +354,15 @@ export function composeDaoBranding(opts: {
   const profile = opts.profile;
   const profileName = profile?.name?.trim() || null;
   const profileBio = profile?.bio?.trim() || null;
-  const profileAbout = profile?.about?.trim() || null;
+  const importedPurpose =
+    meta?.description?.trim() || opts.config?.purpose?.trim() || '';
+  const profileAboutRaw = profile?.about?.trim() || null;
+  const profileAbout = isLegacyDaoPurposeRemainder({
+    about: profileAboutRaw,
+    purpose: importedPurpose,
+  })
+    ? null
+    : profileAboutRaw;
 
   const metaAvatar = meta?.avatar ?? null;
   const metaBanner = meta?.banner ?? null;
@@ -353,21 +388,14 @@ export function composeDaoBranding(opts: {
     opts.config?.name?.trim() ||
     daoAccountId;
 
-  const importedPurpose =
-    meta?.description?.trim() || opts.config?.purpose?.trim() || '';
-  const publishedEssay = [profileBio, profileAbout]
-    .map((part) => part?.trim())
-    .filter(Boolean)
-    .join('\n');
-  const profileFitsFace = Boolean(
+  const publishedFace =
     profileBio && clampProfileBioFace(profileBio) === profileBio
-  );
-  const partitioned =
-    source === 'profile' && profileFitsFace
-      ? resolveStoredProfileFaceAbout(profileBio, profileAbout)
-      : partitionDaoPurposeFaceAbout(importedPurpose || publishedEssay);
-  const face = partitioned.face;
-  const aboutRemainder = partitioned.about;
+      ? profileBio
+      : null;
+  const face =
+    (source === 'profile' && publishedFace) ||
+    clampProfileBioFace(importedPurpose || profileBio || '') ||
+    '';
 
   // Keep metadata IPFS refs for ChangeConfig round-trip even when display
   // prefers a profile shell URL.
@@ -393,7 +421,12 @@ export function composeDaoBranding(opts: {
     kind,
     name,
     description: face.trim() || null,
-    about: aboutRemainder.trim() || null,
+    about: profileAbout,
+    purpose: importedPurpose || null,
+    lead: profile?.lead?.trim() || null,
+    aboutAlign: profile?.aboutAlign ?? 'left',
+    photos: profile?.photos ?? [],
+    industry: profile?.industry?.trim() || null,
     avatar,
     banner,
     links:

@@ -58,11 +58,16 @@ export const loadPortfolioAboutForAccount = cache(
         accountId,
         profileName,
         bio: daoPage?.branding.description ?? shell?.bio ?? null,
-        about: daoPage?.branding.about ?? shell?.about ?? null,
-        lead: shell?.lead ?? null,
-        aboutAlign: shell?.aboutAlign ?? 'left',
+        about: daoEntity.isDao
+          ? (daoPage?.branding.about ?? null)
+          : (shell?.about ?? null),
+        lead: shell?.lead ?? daoPage?.branding.lead ?? null,
+        aboutAlign: shell?.aboutAlign ?? daoPage?.branding.aboutAlign ?? 'left',
         tags: shell?.tags ?? [],
-        photos: shell?.photos ?? [],
+        photos:
+          (daoEntity.isDao ? daoPage?.branding.photos : null) ??
+          shell?.photos ??
+          [],
         isDao: daoEntity.isDao,
         profileKind: shell?.kind ?? null,
         industry: shell?.industry ?? null,

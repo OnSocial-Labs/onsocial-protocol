@@ -77,7 +77,7 @@ import {
   profileLinksInputFromRecord,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
-import { partitionDaoPurposeFaceAbout } from '@/lib/profile-bio-face';
+import { clampProfileBioFace } from '@/lib/profile-bio-face';
 import {
   txToastGovError,
   txToastGovPending,
@@ -451,11 +451,9 @@ export function DaoCreatePanel() {
 
       if (publishSocial) {
         try {
-          const split = partitionDaoPurposeFaceAbout(purpose);
           const socialPayload = buildDaoSocialProfileProposalPayload({
             name: name.trim(),
-            bio: split.face || undefined,
-            about: split.about || null,
+            bio: clampProfileBioFace(purpose) || undefined,
             avatar,
             banner,
             links:
