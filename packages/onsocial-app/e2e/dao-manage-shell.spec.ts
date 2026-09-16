@@ -78,7 +78,9 @@ test.describe('DAO manage shell', () => {
     await expect(
       propose.getByRole('button', { name: 'Close propose' })
     ).toBeVisible();
-    await expect(propose.getByText('Connect a wallet to propose.')).toBeVisible();
+    await expect(
+      propose.getByText('Connect a wallet to propose.')
+    ).toBeVisible();
     await expect(propose.getByText('COMMON')).toHaveCount(0);
     await expect(propose.getByText('Signal')).toHaveCount(0);
   });
@@ -114,6 +116,44 @@ test.describe('DAO manage shell', () => {
     await expect(
       page.getByRole('textbox', { name: 'Search proposals' })
     ).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('long purpose face ellipsis opens a bio hug, not About', async ({
+    page,
+  }) => {
+    await gotoApp(page, daoPath);
+    await expectPortfolioIdentityOrSkip(page, DAO_ACCOUNT);
+    await waitForPortfolioClientReady(page);
+
+    const identity = page
+      .getByRole('main')
+      .locator('.portfolio-identity')
+      .first();
+    await expect(
+      identity.getByRole('link', { name: 'About', exact: true })
+    ).toHaveCount(0);
+
+    const expand = identity.getByRole('button', { name: 'Read full bio' });
+    await expect(expand).toBeVisible({ timeout: 30_000 });
+    await expand.click();
+    await expectGlassSheetVisible(page);
+
+    const bio = page.getByRole('dialog').filter({
+      has: page.getByRole('button', { name: 'Close bio' }),
+    });
+    await expect(bio).toBeVisible();
+    await expect(bio).toHaveAttribute('data-sizing', 'hug');
+    await expect(bio).not.toHaveAttribute('data-surface', 'page');
+    await expect(
+      bio.getByText(/The DAO exists only to protect these principles/)
+    ).toBeVisible();
+    await expect(page).not.toHaveURL(/\/about(?:\/|$|\?)/);
+
+    const close = bio.getByRole('button', { name: 'Close bio' });
+    await expect(close).toBeVisible();
+    await close.click();
+    await expect(bio).toHaveCount(0, { timeout: 10_000 });
+    await expect(expand).toBeVisible();
   });
 
   test('Members and Treasury open as hug drawers, not pages or slide-overs', async ({
