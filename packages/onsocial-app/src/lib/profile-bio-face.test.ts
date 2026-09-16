@@ -17,6 +17,7 @@ import {
   resolveStoredProfileFaceAbout,
   splitBioAtWrapBudget,
   splitProfileBioFaceAbout,
+  partitionDaoPurposeFaceAbout,
 } from './profile-bio-face';
 
 function faceFlatLen(text: string): number {
@@ -226,14 +227,30 @@ describe('resolveStoredProfileFaceAbout', () => {
 
   it('peels a legacy joined bio when about is empty', () => {
     expect(
-      resolveStoredProfileFaceAbout(
-        'Hello\n\n\n\nMore on About.\nEssay.',
-        ''
-      )
+      resolveStoredProfileFaceAbout('Hello\n\n\n\nMore on About.\nEssay.', '')
     ).toEqual({
       face: 'Hello',
       about: 'More on About.\nEssay.',
     });
+  });
+});
+
+describe('partitionDaoPurposeFaceAbout', () => {
+  it('keeps a short purpose on the face and leaves About empty', () => {
+    expect(partitionDaoPurposeFaceAbout('Purpose line')).toEqual({
+      face: 'Purpose line',
+      about: '',
+    });
+  });
+
+  it('puts only the remainder in About', () => {
+    const long =
+      'We’re a community DAO that stewards shared infrastructure, funds public goods, and keeps the square crest honest for every builder who shows up to ship with us across seasons.';
+    const { face, about } = partitionDaoPurposeFaceAbout(long);
+    expect(faceFlatLen(face)).toBeLessThanOrEqual(FACE_BIO_WRAP_CHARS);
+    expect(about.length).toBeGreaterThan(0);
+    expect(about).not.toBe(long);
+    expect(long.includes(about)).toBe(true);
   });
 });
 
@@ -263,6 +280,30 @@ describe('resolvePortfolioAboutBio', () => {
         daoPurpose: null,
       })
     ).toBeNull();
+  });
+
+  it('uses full unpublished purpose for meta instead of remainder-only', () => {
+    const long =
+      'We’re a community DAO that stewards shared infrastructure, funds public goods, and keeps the square crest honest for every builder who shows up to ship with us across seasons.';
+    const { face, about } = partitionDaoPurposeFaceAbout(long);
+    expect(
+      resolvePortfolioAboutBio({
+        shellBio: null,
+        shellAbout: null,
+        daoDescription: face,
+        daoAbout: about,
+        daoPurpose: long,
+      })
+    ).toBe(long);
+    expect(
+      resolvePortfolioAboutBio({
+        shellBio: null,
+        shellAbout: null,
+        daoDescription: face,
+        daoAbout: about,
+        daoPurpose: null,
+      })
+    ).toBe(`${face}\n${about}`);
   });
 });
 

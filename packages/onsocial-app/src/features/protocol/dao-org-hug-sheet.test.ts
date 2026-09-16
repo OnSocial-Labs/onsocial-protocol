@@ -45,7 +45,7 @@ describe('DAO org hug drawers', () => {
     expect(info).toContain('formatDaoRoleLabel');
     expect(info).toContain('OsSheetFooter');
     expect(info).not.toContain('ProtocolTaskSheet');
-    expect(info).not.toContain('primaryLabel: \'Close\'');
+    expect(info).not.toContain("primaryLabel: 'Close'");
   });
 
   it('leaves Proposals on the keep-dock OsAppScreen page', () => {
@@ -88,6 +88,9 @@ describe('DAO org hug drawers', () => {
     expect(edit).toContain('DAO_CREATE_PUBLISH');
     expect(edit).toContain('DAO_EDIT_PUBLISH_HINT');
     expect(edit).toContain('bondCount');
+    expect(edit).toContain('partitionDaoPurposeFaceAbout');
+    expect(edit).toContain('label="Face"');
+    expect(edit).toContain('label="About"');
   });
 
   it('pads Members / Treasury / Info as a hug list, not a page overlay', () => {

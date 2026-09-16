@@ -10,6 +10,7 @@ import {
   resolveDaoEditBaseline,
 } from '@/features/protocol/dao-branding';
 import { daoPath } from '@/lib/app-routes';
+import { partitionDaoPurposeFaceAbout } from '@/lib/profile-bio-face';
 
 describe('dao branding', () => {
   it('parses and rebuilds onsocial metadata without wiping siblings', () => {
@@ -140,11 +141,11 @@ describe('dao branding', () => {
     expect(branding.source).toBe('config');
     expect(branding.name).toBe('Orphan DAO');
     expect(branding.description).toBe('Purpose line');
-    expect(branding.about).toBe('Purpose line');
+    expect(branding.about).toBeNull();
     expect(daoEntityKindLabel(branding.kind)).toBe('Community DAO');
   });
 
-  it('keeps full purpose in About and a clamped face excerpt', () => {
+  it('keeps About as the remainder after a clamped face excerpt', () => {
     const long =
       'We’re a community DAO that stewards shared infrastructure, funds public goods, and keeps the square crest honest for every builder who shows up to ship with us across seasons.';
     expect(long.length).toBeGreaterThan(160);
@@ -161,7 +162,11 @@ describe('dao branding', () => {
     });
     expect(branding.description).toBeTruthy();
     expect((branding.description ?? '').length).toBeLessThanOrEqual(160);
-    expect(branding.about).toBe(long);
+    const split = partitionDaoPurposeFaceAbout(long);
+    expect(branding.description).toBe(split.face);
+    expect(branding.about).toBe(split.about);
+    expect(branding.about).not.toBe(long);
+    expect(split.about.length).toBeGreaterThan(0);
   });
 
   it('falls back to sputnik purpose when profile bio is blank whitespace', () => {
@@ -231,7 +236,8 @@ describe('dao branding', () => {
         metadata,
       },
     });
-    expect(branding.about).toContain('OnSocial exists');
+    expect(branding.description).toContain('OnSocial exists');
+    expect(branding.about).toBeNull();
     expect(
       resolveDaoEditBaseline({
         mode: 'config',
@@ -241,15 +247,51 @@ describe('dao branding', () => {
         configMetadata: metadata,
       }).purpose
     ).toBe('Config purpose only');
-    expect(
-      resolveDaoEditBaseline({
-        mode: 'social',
-        branding,
-        configName: 'Sputnik Name',
-        configPurpose: 'Sputnik purpose',
-        configMetadata: metadata,
-      }).purpose
-    ).toContain('OnSocial exists');
+    const social = resolveDaoEditBaseline({
+      mode: 'social',
+      branding,
+      configName: 'Sputnik Name',
+      configPurpose: 'Sputnik purpose',
+      configMetadata: metadata,
+    });
+    expect(social.face).toContain('OnSocial exists');
+    expect(social.about).toBe('');
+    expect(social.purpose).toBe('Config purpose only');
+  });
+
+  it('seeds social Face + About from a purpose partition when unpublished', () => {
+    const long =
+      'We’re a community DAO that stewards shared infrastructure, funds public goods, and keeps the square crest honest for every builder who shows up to ship with us across seasons.';
+    const branding = composeDaoBranding({
+      daoAccountId: 'long.sputnik-dao.near',
+      profile: null,
+      config: {
+        name: 'Long DAO',
+        purpose: long,
+        metadata: '',
+      },
+    });
+    const split = partitionDaoPurposeFaceAbout(long);
+    const social = resolveDaoEditBaseline({
+      mode: 'social',
+      branding,
+      configName: 'Long DAO',
+      configPurpose: long,
+      configMetadata: '',
+    });
+    const config = resolveDaoEditBaseline({
+      mode: 'config',
+      branding,
+      configName: 'Long DAO',
+      configPurpose: long,
+      configMetadata: '',
+    });
+    expect(config.purpose).toBe(long);
+    expect(config.face).toBe(split.face);
+    expect(config.about).toBe(split.about);
+    expect(social.face).toBe(split.face);
+    expect(social.about).toBe(split.about);
+    expect(social.purpose).toBe(long);
   });
 
   it('builds dao portfolio paths', () => {

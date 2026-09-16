@@ -14,7 +14,10 @@
 import type { ResolvedPageHero } from '@/lib/page-data';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import type { AppProfileShell } from '@/lib/profile-shell';
-import { resolveStoredProfileFaceAbout } from '@/lib/profile-bio-face';
+import {
+  partitionDaoPurposeFaceAbout,
+  resolveStoredProfileFaceAbout,
+} from '@/lib/profile-bio-face';
 import {
   resolveKnownBoardForDaoAccount,
   resolveProtocolDaoBoard,
@@ -30,9 +33,9 @@ export interface DaoBranding {
   daoAccountId: string;
   kind: DaoEntityKind;
   name: string;
-  /** Face excerpt — clamped from {@link purpose} for the portfolio face. */
+  /** Face excerpt — clamped from purpose / profile bio. */
   description: string | null;
-  /** Full purpose / mission — About shows this in full. */
+  /** About remainder after the face. Empty when copy fits the face. */
   about: string | null;
   /** Raw ipfs / https ref for round-trip. */
   avatar: string | null;
@@ -48,7 +51,7 @@ export interface DaoBranding {
 export interface DaoBrandingPayload {
   v: number;
   name?: string;
-  /** Full purpose (legacy key). Face is a clamped excerpt of this. */
+  /** Full purpose in Sputnik metadata. Face is a clamped excerpt of this. */
   description?: string | null;
   avatar?: string | null;
   banner?: string | null;
@@ -124,7 +127,10 @@ export function encodeDaoConfigMetadata(
   return utf8ToBase64(text);
 }
 
-function readString(record: Record<string, unknown>, key: string): string | null {
+function readString(
+  record: Record<string, unknown>,
+  key: string
+): string | null {
   const value = record[key];
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
@@ -174,7 +180,7 @@ export function buildDaoBrandingMetadata(
   existingMetadata: string | null | undefined,
   branding: {
     name?: string;
-    /** Full purpose — face shows a clamped excerpt. */
+    /** Full purpose — OnSocial face is a clamped excerpt on publish. */
     description?: string | null;
     avatar?: string | null;
     banner?: string | null;
@@ -241,7 +247,12 @@ function mediaFromUrl(url: string | null): ResolvedPageHero | null {
 /** Fields the Edit sheet seeds — mode picks the writable source of truth. */
 export interface DaoEditBaseline {
   name: string;
+  /** Full Sputnik purpose / metadata description — never clamped to 160. */
   purpose: string;
+  /** OnSocial face excerpt (~160). */
+  face: string;
+  /** OnSocial About remainder. Empty when purpose fits the face. */
+  about: string;
   links: Record<string, string> | null;
   avatar: string | null;
   banner: string | null;
@@ -251,7 +262,7 @@ export interface DaoEditBaseline {
 
 /**
  * Config Edit seeds Sputnik metadata / purpose — never OnSocial profile bio.
- * Social Edit seeds the composed face (profile wins when present).
+ * Social Edit seeds Face + About (published keys, else a purpose partition).
  */
 export function resolveDaoEditBaseline(opts: {
   mode: 'config' | 'social';
@@ -263,13 +274,17 @@ export function resolveDaoEditBaseline(opts: {
   const meta = parseDaoBrandingMetadata(opts.configMetadata);
   const configName = opts.configName.trim();
   const configPurpose = opts.configPurpose.trim();
+  const purpose = meta?.description?.trim() || configPurpose || '';
+  const fromPurpose = partitionDaoPurposeFaceAbout(purpose);
 
   if (opts.mode === 'config') {
     const avatar = meta?.avatar ?? null;
     const banner = meta?.banner ?? null;
     return {
       name: meta?.name?.trim() || configName || opts.branding.daoAccountId,
-      purpose: meta?.description?.trim() || configPurpose || '',
+      purpose,
+      face: fromPurpose.face,
+      about: fromPurpose.about,
       links: meta?.links ?? null,
       avatar,
       banner,
@@ -278,9 +293,19 @@ export function resolveDaoEditBaseline(opts: {
     };
   }
 
+  const hasBrandingCopy = Boolean(
+    opts.branding.description?.trim() || opts.branding.about?.trim()
+  );
+
   return {
     name: opts.branding.name,
-    purpose: opts.branding.about ?? '',
+    purpose,
+    face: hasBrandingCopy
+      ? (opts.branding.description ?? '').trim()
+      : fromPurpose.face,
+    about: hasBrandingCopy
+      ? (opts.branding.about ?? '').trim()
+      : fromPurpose.about,
     links: opts.branding.links,
     avatar: opts.branding.avatar,
     banner: opts.branding.banner,
@@ -301,6 +326,7 @@ export function composeDaoBranding(opts: {
   const profile = opts.profile;
   const profileName = profile?.name?.trim() || null;
   const profileBio = profile?.bio?.trim() || null;
+  const profileAbout = profile?.about?.trim() || null;
 
   const metaAvatar = meta?.avatar ?? null;
   const metaBanner = meta?.banner ?? null;
@@ -309,7 +335,7 @@ export function composeDaoBranding(opts: {
 
   const hasProfileMedia = Boolean(profile?.avatarUrl || profile?.bannerUrl);
   const hasMetaMedia = Boolean(metaAvatarUrl || metaBannerUrl);
-  const hasProfileCopy = Boolean(profileName || profileBio);
+  const hasProfileCopy = Boolean(profileName || profileBio || profileAbout);
   const hasMetaCopy = Boolean(meta?.name || meta?.description);
 
   let source: DaoBranding['source'] = 'config';
@@ -326,13 +352,15 @@ export function composeDaoBranding(opts: {
     opts.config?.name?.trim() ||
     daoAccountId;
 
-  const fullPurpose =
-    (source === 'profile' ? profileBio : null) ||
-    meta?.description?.trim() ||
-    profileBio ||
-    opts.config?.purpose?.trim() ||
-    '';
-  const { face } = resolveStoredProfileFaceAbout(fullPurpose, '');
+  const importedPurpose =
+    meta?.description?.trim() || opts.config?.purpose?.trim() || '';
+  const publishedCopy = Boolean(profileBio || profileAbout);
+  const partitioned =
+    source === 'profile' && publishedCopy
+      ? resolveStoredProfileFaceAbout(profileBio, profileAbout)
+      : partitionDaoPurposeFaceAbout(importedPurpose || profileBio || '');
+  const face = partitioned.face;
+  const aboutRemainder = partitioned.about;
 
   // Keep metadata IPFS refs for ChangeConfig round-trip even when display
   // prefers a profile shell URL.
@@ -358,7 +386,7 @@ export function composeDaoBranding(opts: {
     kind,
     name,
     description: face.trim() || null,
-    about: fullPurpose.trim() || null,
+    about: aboutRemainder.trim() || null,
     avatar,
     banner,
     links:

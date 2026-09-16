@@ -50,7 +50,7 @@ describe('DAO create Connect voice', () => {
 
   it('hints Edit batch publish as face outcome with two proposals', () => {
     expect(DAO_EDIT_PUBLISH_HINT).toBe(
-      'Also write the OnSocial face · two proposals'
+      'Also write Face and About · two proposals'
     );
     expect(DAO_EDIT_PUBLISH_HINT.toLowerCase()).not.toContain('wallet');
     expect(DAO_EDIT_PUBLISH_HINT).toMatch(/two proposals/i);
