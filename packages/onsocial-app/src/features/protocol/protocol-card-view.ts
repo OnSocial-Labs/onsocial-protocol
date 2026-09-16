@@ -185,11 +185,9 @@ export function resolveProtocolProposalVoteTallies(
     return {
       approvals: roleApprovals,
       rejects:
-        readRoleWeightVoteCount(proposal.vote_counts, votingRole?.name, 1) ??
-        0,
+        readRoleWeightVoteCount(proposal.vote_counts, votingRole?.name, 1) ?? 0,
       removes:
-        readRoleWeightVoteCount(proposal.vote_counts, votingRole?.name, 2) ??
-        0,
+        readRoleWeightVoteCount(proposal.vote_counts, votingRole?.name, 2) ?? 0,
     };
   }
 
@@ -373,9 +371,7 @@ function findProtocolRoleByName(
   );
 }
 
-function getProposalPolicyLabel(
-  proposal: ProtocolDaoProposal | null
-): string {
+function getProposalPolicyLabel(proposal: ProtocolDaoProposal | null): string {
   return getProtocolProposalPolicyLabel(proposal?.kind ?? null);
 }
 
@@ -514,9 +510,7 @@ function getEligibleVotersForProposal(
       normalizeAccount(account)
     );
     const voterSet = new Set(voters);
-    const candidateUnion = [
-      ...new Set([...members, membership.memberId]),
-    ];
+    const candidateUnion = [...new Set([...members, membership.memberId])];
     if (poolSize != null && candidateUnion.length > poolSize) {
       const eligible = [...voters];
       for (const member of members) {
@@ -965,8 +959,7 @@ export function deriveProtocolProposalView(opts: {
       status === 'Failed' ||
       (status === 'InProgress' && (expired || thresholdMet))) &&
     roleAllowsAction(viewerRole, proposalPolicyLabel, 'Finalize');
-  const votesIn =
-    status === 'InProgress' && thresholdMet && !expired;
+  const votesIn = status === 'InProgress' && thresholdMet && !expired;
 
   const voteEntries = Object.entries(proposal?.votes ?? {}).sort(
     ([left], [right]) => {
@@ -1080,6 +1073,169 @@ export function isTerminalProtocolProposalStatus(
   );
 }
 
+function parseVoteCountBucket(value: unknown): number {
+  return Number.parseInt(String(value ?? '0'), 10) || 0;
+}
+
+function isSparseProtocolProposalSnapshot(
+  proposal: ProtocolDaoProposal | null | undefined
+): boolean {
+  if (!proposal) return true;
+  return (
+    Object.keys(proposal.votes ?? {}).length === 0 &&
+    Object.keys(proposal.vote_counts ?? {}).length === 0
+  );
+}
+
+export function protocolProposalContainsVotes(
+  haystack: ProtocolDaoProposal | null | undefined,
+  needle: ProtocolDaoProposal | null | undefined
+): boolean {
+  if (!needle?.votes) return true;
+  const incomingVotes = haystack?.votes ?? {};
+  return Object.entries(needle.votes).every(([account, vote]) =>
+    Object.entries(incomingVotes).some(
+      ([id, incomingVote]) =>
+        normalizeAccount(id) === normalizeAccount(account) &&
+        incomingVote === vote
+    )
+  );
+}
+
+function mergeProtocolProposalVoteMaps(
+  current: Record<string, ProtocolDaoVote> | null | undefined,
+  incoming: Record<string, ProtocolDaoVote> | null | undefined
+): Record<string, ProtocolDaoVote> {
+  const merged: Record<string, ProtocolDaoVote> = { ...(current ?? {}) };
+  for (const [account, vote] of Object.entries(incoming ?? {})) {
+    const existingKey = Object.keys(merged).find(
+      (id) => normalizeAccount(id) === normalizeAccount(account)
+    );
+    if (!existingKey) merged[account] = vote;
+  }
+  return merged;
+}
+
+function mergeProtocolProposalVoteCounts(
+  current: ProtocolDaoProposal['vote_counts'] | null | undefined,
+  incoming: ProtocolDaoProposal['vote_counts'] | null | undefined
+): ProtocolDaoProposal['vote_counts'] {
+  const roles = new Set([
+    ...Object.keys(current ?? {}),
+    ...Object.keys(incoming ?? {}),
+  ]);
+  const merged: ProtocolDaoProposal['vote_counts'] = {};
+  for (const role of roles) {
+    const currentCounts = current?.[role] ?? (['0', '0', '0'] as const);
+    const incomingCounts = incoming?.[role] ?? (['0', '0', '0'] as const);
+    merged[role] = [
+      String(
+        Math.max(
+          parseVoteCountBucket(currentCounts[0]),
+          parseVoteCountBucket(incomingCounts[0])
+        )
+      ),
+      String(
+        Math.max(
+          parseVoteCountBucket(currentCounts[1]),
+          parseVoteCountBucket(incomingCounts[1])
+        )
+      ),
+      String(
+        Math.max(
+          parseVoteCountBucket(currentCounts[2]),
+          parseVoteCountBucket(incomingCounts[2])
+        )
+      ),
+    ];
+  }
+  return merged;
+}
+
+function pickForwardProtocolProposalStatus(
+  current: ProtocolDaoProposalStatus,
+  incoming: ProtocolDaoProposalStatus
+): ProtocolDaoProposalStatus {
+  if (current === incoming) return incoming;
+  const incomingTerminal = isTerminalProtocolProposalStatus(incoming);
+  const currentTerminal = isTerminalProtocolProposalStatus(current);
+  if (incomingTerminal && !currentTerminal) return incoming;
+  if (currentTerminal && !incomingTerminal) return current;
+  if (current === 'Approved' && incoming === 'Failed') return 'Failed';
+  if (currentTerminal && incomingTerminal) return current;
+  return incoming;
+}
+
+/**
+ * Sputnik RoleWeight conclude: approve/remove at threshold, else reject when
+ * remaining weight cannot pass. Kind-agnostic. TokenWeight stays InProgress.
+ */
+export function concludeProtocolProposal(
+  proposal: ProtocolDaoProposal,
+  daoPolicy: ProtocolDaoPolicy | null = null
+): ProtocolDaoProposal {
+  if (isTerminalProtocolProposalStatus(proposal.status)) return proposal;
+
+  const effectivePolicy = resolveEffectiveDaoPolicy(proposal, daoPolicy);
+  const proposalPolicyLabel = getProposalPolicyLabel(proposal);
+  const votingRole = getProposalVotingRole(
+    proposal,
+    effectivePolicy,
+    null,
+    proposalPolicyLabel
+  );
+  if (!votingRole) return proposal;
+
+  const votePolicy = resolveVotePolicy(
+    votingRole,
+    effectivePolicy,
+    proposalPolicyLabel
+  );
+  if (!votePolicy || votePolicy.weight_kind !== 'RoleWeight') return proposal;
+
+  const pool = getVotingPoolSize(votingRole, proposal, false);
+  if (pool == null || pool <= 0) return proposal;
+
+  const tallies = resolveProtocolProposalVoteTallies(
+    proposal,
+    votingRole,
+    votePolicy
+  );
+  const votesCast = tallies.approvals + tallies.rejects + tallies.removes;
+  const remaining = Math.max(pool - votesCast, 0);
+  const threshold = Math.max(
+    Number.parseInt(votePolicy.quorum ?? '0', 10) || 0,
+    toThresholdWeight(votePolicy.threshold, pool)
+  );
+  if (threshold <= 0) return proposal;
+
+  let status: ProtocolDaoProposalStatus = 'InProgress';
+  if (tallies.removes >= threshold) {
+    status = 'Removed';
+  } else if (tallies.approvals >= threshold) {
+    status = 'Approved';
+  } else if (tallies.approvals + remaining < threshold) {
+    status = 'Rejected';
+  }
+  if (status === proposal.status) return proposal;
+  return { ...proposal, status };
+}
+
+export function protocolProposalCaughtUp(
+  locked: ProtocolDaoProposal,
+  incoming: ProtocolDaoProposal
+): boolean {
+  if (!protocolProposalContainsVotes(incoming, locked)) return false;
+  if (
+    getProtocolProposalVotesCast(incoming) <
+    getProtocolProposalVotesCast(locked)
+  ) {
+    return false;
+  }
+  if (!isTerminalProtocolProposalStatus(locked.status)) return true;
+  return isTerminalProtocolProposalStatus(incoming.status);
+}
+
 export function shouldAdoptProtocolProposalSnapshot(
   current: ProtocolDaoProposal | null | undefined,
   incoming: ProtocolDaoProposal | null | undefined
@@ -1092,6 +1248,13 @@ export function shouldAdoptProtocolProposalSnapshot(
 
   if (incomingTerminal && !currentTerminal) return true;
   if (currentTerminal && !incomingTerminal) return false;
+  if (
+    isSparseProtocolProposalSnapshot(incoming) &&
+    !isSparseProtocolProposalSnapshot(current)
+  ) {
+    return false;
+  }
+  if (!protocolProposalContainsVotes(incoming, current)) return false;
 
   if (incoming.status !== current.status) return incomingTerminal;
 
@@ -1106,59 +1269,122 @@ export function mergeProtocolProposalSnapshot(
   incoming: ProtocolDaoProposal | null | undefined
 ): ProtocolDaoProposal | null {
   if (!incoming) return current ?? null;
-  if (
-    !current ||
-    shouldAdoptProtocolProposalSnapshot(current, incoming)
-  ) {
+  if (!current) return incoming;
+
+  const body = shouldAdoptProtocolProposalSnapshot(current, incoming)
+    ? incoming
+    : current;
+  return {
+    ...body,
+    votes: mergeProtocolProposalVoteMaps(current.votes, incoming.votes),
+    vote_counts: mergeProtocolProposalVoteCounts(
+      current.vote_counts,
+      incoming.vote_counts
+    ),
+    status: pickForwardProtocolProposalStatus(current.status, incoming.status),
+    policy_snapshot:
+      incoming.policy_snapshot ??
+      current.policy_snapshot ??
+      body.policy_snapshot ??
+      null,
+  };
+}
+
+export function protocolApplicationProposalId(
+  application: ProtocolApplication
+): number | null {
+  const live = resolveLiveProposal(application);
+  const id = live?.id ?? application.governance_proposal?.proposal_id ?? null;
+  return typeof id === 'number' && Number.isFinite(id) ? id : null;
+}
+
+export function applyProtocolProposalSnapshot(
+  row: ProtocolApplication,
+  snapshot: ProtocolDaoProposal
+): ProtocolApplication {
+  const gp = row.governance_proposal;
+  const previousSnapshot = gp?.snapshot ?? null;
+  if (!gp) {
     return {
-      ...incoming,
-      policy_snapshot:
-        incoming.policy_snapshot ?? current?.policy_snapshot ?? null,
+      ...row,
+      governance_proposal: {
+        proposal_id: snapshot.id ?? null,
+        status: snapshot.status,
+        proposer: snapshot.proposer,
+        description: snapshot.description,
+        dao_account: null,
+        tx_hash: null,
+        submitted_at: snapshot.submission_time,
+        kind: snapshot.kind,
+        snapshot,
+      },
     };
   }
-
   return {
-    ...current,
-    policy_snapshot:
-      current.policy_snapshot ?? incoming.policy_snapshot ?? null,
+    ...row,
+    governance_proposal: {
+      ...gp,
+      status: snapshot.status,
+      snapshot: {
+        ...snapshot,
+        policy_snapshot:
+          snapshot.policy_snapshot ?? previousSnapshot?.policy_snapshot ?? null,
+      },
+      kind: snapshot.kind,
+      description: snapshot.description,
+    },
   };
+}
+
+function mergeProtocolApplicationRow(
+  previous: ProtocolApplication | undefined,
+  row: ProtocolApplication
+): ProtocolApplication {
+  if (!previous?.governance_proposal?.snapshot && !row.governance_proposal) {
+    return row;
+  }
+  const gp = row.governance_proposal ?? previous?.governance_proposal;
+  if (!gp) return row;
+  const mergedSnapshot = mergeProtocolProposalSnapshot(
+    resolveLiveProposal(previous ?? row),
+    resolveLiveProposal(row)
+  );
+  if (!mergedSnapshot) return row;
+  return applyProtocolProposalSnapshot(row, mergedSnapshot);
 }
 
 export function mergeProtocolFeedApplications(
   current: ProtocolApplication[],
   incoming: ProtocolApplication[]
 ): ProtocolApplication[] {
-  const currentByAppId = new Map(current.map((row) => [row.app_id, row]));
-  return incoming.map((row) => {
-    const previous = currentByAppId.get(row.app_id);
-    if (!previous?.governance_proposal?.snapshot && !row.governance_proposal) {
-      return row;
-    }
-    const gp = row.governance_proposal ?? previous?.governance_proposal;
-    if (!gp) return row;
-    const mergedSnapshot = mergeProtocolProposalSnapshot(
-      resolveLiveProposal(previous ?? row),
-      resolveLiveProposal(row)
-    );
-    if (!mergedSnapshot) return row;
-    const previousSnapshot = previous?.governance_proposal?.snapshot ?? null;
-    return {
-      ...row,
-      governance_proposal: {
-        ...gp,
-        status: mergedSnapshot.status,
-        snapshot: {
-          ...mergedSnapshot,
-          policy_snapshot:
-            mergedSnapshot.policy_snapshot ??
-            previousSnapshot?.policy_snapshot ??
-            null,
-        },
-        kind: mergedSnapshot.kind,
-        description: mergedSnapshot.description,
-      },
-    };
+  const currentByProposalId = new Map<number, ProtocolApplication>();
+  const currentByAppId = new Map<string, ProtocolApplication>();
+  for (const row of current) {
+    currentByAppId.set(row.app_id, row);
+    const id = protocolApplicationProposalId(row);
+    if (id != null) currentByProposalId.set(id, row);
+  }
+
+  const seenProposalIds = new Set<number>();
+  const seenAppIds = new Set<string>();
+  const merged = incoming.map((row) => {
+    const id = protocolApplicationProposalId(row);
+    const previous =
+      (id != null ? currentByProposalId.get(id) : undefined) ??
+      currentByAppId.get(row.app_id);
+    if (id != null) seenProposalIds.add(id);
+    seenAppIds.add(row.app_id);
+    if (previous) seenAppIds.add(previous.app_id);
+    return mergeProtocolApplicationRow(previous, row);
   });
+
+  const extras = current.filter((row) => {
+    const id = protocolApplicationProposalId(row);
+    if (id != null && seenProposalIds.has(id)) return false;
+    return !seenAppIds.has(row.app_id);
+  });
+
+  return extras.length > 0 ? [...merged, ...extras] : merged;
 }
 
 export function applyOptimisticVote(
@@ -1175,7 +1401,7 @@ export function applyOptimisticVote(
       ([id]) => normalizeAccount(id) === viewer
     )
   ) {
-    return proposal;
+    return concludeProtocolProposal(proposal, daoPolicy);
   }
 
   const viewerRole = findViewerRole(daoPolicy, accountId);
@@ -1197,12 +1423,45 @@ export function applyOptimisticVote(
   const idx = vote === 'Approve' ? 0 : vote === 'Reject' ? 1 : 2;
   next[idx] = String((Number.parseInt(next[idx], 10) || 0) + 1);
   vote_counts[roleName] = next;
-  return {
-    ...proposal,
-    votes: {
-      ...proposal.votes,
-      [accountId.trim()]: vote,
+  return concludeProtocolProposal(
+    {
+      ...proposal,
+      votes: {
+        ...proposal.votes,
+        [accountId.trim()]: vote,
+      },
+      vote_counts,
     },
-    vote_counts,
-  };
+    daoPolicy
+  );
+}
+
+export function applyOptimisticFinalize(
+  proposal: ProtocolDaoProposal,
+  daoPolicy: ProtocolDaoPolicy | null = null
+): ProtocolDaoProposal {
+  if (isTerminalProtocolProposalStatus(proposal.status)) return proposal;
+  const concluded = concludeProtocolProposal(proposal, daoPolicy);
+  if (concluded.status !== 'InProgress') return concluded;
+
+  const effectivePolicy = resolveEffectiveDaoPolicy(proposal, daoPolicy);
+  const proposalPolicyLabel = getProposalPolicyLabel(proposal);
+  const votingRole = getProposalVotingRole(
+    proposal,
+    effectivePolicy,
+    null,
+    proposalPolicyLabel,
+    true
+  );
+  const votePolicy = resolveVotePolicy(
+    votingRole,
+    effectivePolicy,
+    proposalPolicyLabel
+  );
+  if (!votePolicy || votePolicy.weight_kind !== 'RoleWeight') return proposal;
+  const pool = votingRole
+    ? getVotingPoolSize(votingRole, proposal, true)
+    : null;
+  if (pool == null) return proposal;
+  return { ...proposal, status: 'Rejected' };
 }
