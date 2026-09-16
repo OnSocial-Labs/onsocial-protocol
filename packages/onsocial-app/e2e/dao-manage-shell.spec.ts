@@ -147,6 +147,9 @@ test.describe('DAO manage shell', () => {
     await expect(
       bio.getByText(/The DAO exists only to protect these principles/)
     ).toBeVisible();
+    await expect(
+      bio.locator('.portfolio-bio--full .portfolio-about-bio').first()
+    ).toHaveCSS('text-align', 'center');
     await expect(page).not.toHaveURL(/\/about(?:\/|$|\?)/);
 
     const close = bio.getByRole('button', { name: 'Close bio' });

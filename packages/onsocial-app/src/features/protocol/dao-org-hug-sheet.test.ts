@@ -136,6 +136,7 @@ describe('DAO org hug drawers', () => {
     expect(faceBio).not.toContain('OsPageSheet');
     expect(globalsCss).toContain('button.portfolio-bio-face-slot');
     expect(globalsCss).toContain('.portfolio-bio-hug-body');
+    expect(globalsCss).toContain('.glass-sheet-panel .portfolio-bio--full');
     expect(globalsCss).toContain('.portfolio-bio--full .portfolio-about-bio');
     expect(globalsCss).toMatch(
       /\.portfolio-bio--full[\s\S]*text-align:\s*center/
