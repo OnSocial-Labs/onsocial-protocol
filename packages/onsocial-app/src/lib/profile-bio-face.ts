@@ -278,15 +278,19 @@ export function clampProfileBioFace(face: string): string {
 }
 
 /**
- * Import a DAO purpose into OnSocial keys: face ≈ 160 chars, About = remainder
- * only. Short purpose stays on the face; About stays empty so the chip stays off.
+ * Import a DAO purpose into OnSocial keys: face ≈ 160 wrap chars, About = the
+ * remainder only. Newlines count like spaces so a multi-line Sputnik purpose
+ * does not lose mid-copy to the four-line face peel. Short purpose stays on
+ * the face; About stays empty so the chip stays off.
  */
 export function partitionDaoPurposeFaceAbout(purpose: string): {
   face: string;
   about: string;
 } {
-  const { face, about } = splitProfileBioFaceAbout(purpose.trim());
-  return { face: face.trim(), about: about.trim() };
+  const normalized = normalizeBioNewlines(purpose).trim();
+  if (!normalized) return { face: '', about: '' };
+  const { head, tail } = splitBioAtWrapBudget(normalized);
+  return { face: head.trim(), about: tail.trim() };
 }
 
 /** @deprecated Prefer separate `profile/bio` + `profile/about` writes. */

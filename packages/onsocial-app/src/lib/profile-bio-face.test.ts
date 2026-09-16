@@ -252,6 +252,23 @@ describe('partitionDaoPurposeFaceAbout', () => {
     expect(about).not.toBe(long);
     expect(long.includes(about)).toBe(true);
   });
+
+  it('uses the wrap budget on a multi-line purpose instead of a four-line peel', () => {
+    const purpose = [
+      'OnSocial exists to give every user full ownership of their digital identity and connections.',
+      'Your profile and social graph belong to you, not to any platform.',
+      'You can take everything with you, anywhere, at any time.',
+      'No one can delete or censor your connections.',
+      'Standing in solidarity is voluntary and meaningful — never forced or algorithmic.',
+      'This protocol is scarce by design. Attention, connection, and identity are treated as precious, not infinite.',
+      'The DAO exists only to protect these principles and keep the infrastructure running. Nothing more.',
+    ].join('\n');
+    const { face, about } = partitionDaoPurposeFaceAbout(purpose);
+    expect(faceFlatLen(face)).toBeLessThanOrEqual(FACE_BIO_WRAP_CHARS);
+    expect(about).toContain('The DAO exists only to protect');
+    expect(about).toContain('You can take everything with you');
+    expect(face).not.toContain('The DAO exists only to protect');
+  });
 });
 
 describe('resolvePortfolioAboutBio', () => {
