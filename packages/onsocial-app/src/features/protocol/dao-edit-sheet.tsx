@@ -67,6 +67,7 @@ import {
 import {
   FACE_BIO_LIMIT_WARN,
   FACE_BIO_WRAP_CHARS,
+  PROFILE_BIO_LIMIT_WARN,
   PROFILE_BIO_MAX,
   clampFaceEditorInput,
   clampProfileBioFace,
