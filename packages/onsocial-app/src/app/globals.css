@@ -29660,7 +29660,7 @@ a.os-surface-row {
 
   /*
    * DAO Proposals — page-column inset.
-   * Members / Treasury hug drawers use `.os-hug-sheet-body` + `.dao-org-hug-content`.
+   * Members / Treasury / Info hug drawers use `.os-hug-sheet-body` + `.dao-org-hug-content`.
    */
   .dao-proposals-page.os-page-sheet-panel {
     --os-screen-body-pad-x: 1rem;
@@ -38732,57 +38732,32 @@ a.protocol-board-chip {
   white-space: nowrap;
 }
 
-.protocol-dao-info-block {
-  display: flex;
-  flex-direction: column;
-  gap: 0.28rem;
-}
-
-.protocol-dao-info-eyebrow {
+.dao-info-lead {
   margin: 0;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgb(var(--fg-rgb) / 0.48);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: rgb(var(--fg-rgb) / 0.52);
 }
 
-.protocol-dao-info-value {
+.dao-info-empty {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: rgb(var(--fg-rgb) / 0.55);
+}
+
+.dao-info-warn {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--protocol-red, #c45c5c) 82%, transparent);
+}
+
+.dao-info-position-lead {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 700;
   color: rgb(var(--fg-rgb) / 0.92);
-}
-
-.protocol-dao-info-copy {
-  margin: 0;
-  font-size: 0.86rem;
-  line-height: 1.45;
-  color: rgb(var(--fg-rgb) / 0.72);
-}
-
-.protocol-dao-info-roles {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.protocol-dao-info-roles li {
-  padding: 0.28rem 0.55rem;
-  border-radius: 999px;
-  background: rgb(var(--fg-rgb) / 0.06);
-  font-size: 0.78rem;
-  font-weight: 650;
-  color: rgb(var(--fg-rgb) / 0.78);
-}
-
-.protocol-dao-info-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
 }
 
 /* Structure: OsProposalCard surface=bordered. Domain: status-tinted top lip. */
@@ -40536,50 +40511,24 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   align-items: center;
 }
 
-.dao-edit-cover {
-  border-radius: 0;
-  transform: none;
-  margin-bottom: 0.75rem;
+.dao-edit-hero {
+  margin-bottom: 0.85rem;
 }
 
-.dao-edit-crest-row {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  margin: 0 0 1rem;
+.dao-edit-hero .dao-look-preview {
+  margin-bottom: 0.55rem;
 }
 
-.dao-edit-crest-picker {
-  flex-shrink: 0;
-  width: 4.25rem;
-  height: 4.25rem;
-  border-radius: 1rem;
-  overflow: hidden;
-  border: 0;
-  padding: 0;
-  background: rgb(var(--fg-rgb) / 0.08);
-  color: rgb(var(--fg-rgb) / 0.55);
-  font-size: 1.4rem;
-  cursor: pointer;
-}
-
-.dao-edit-crest-picker img {
-  display: block;
+.dao-edit-publish {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  margin-top: 0.55rem;
 }
 
-.dao-edit-crest-hint,
 .dao-edit-footnote {
-  margin: 0;
+  margin: 0.35rem 0 0;
   font-size: 0.72rem;
   line-height: 1.4;
   color: rgb(var(--fg-rgb) / 0.48);
-}
-
-.dao-edit-footnote {
-  margin-top: 0.35rem;
 }
 
 .launcher-home {

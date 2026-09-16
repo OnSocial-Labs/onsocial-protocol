@@ -13,12 +13,14 @@ export type DaoManageAction =
   | 'settings'
   | 'info'
   | 'edit'
+  | 'publish-social'
   | 'claim-support'
   | 'propose-mood'
   | 'boost';
 
 /**
- * Portfolio Manage hub — Propose / Stake / Settings / Info / edit / claim / mood / boost.
+ * Portfolio Manage hub — Propose / Stake / Settings / Info / edit / publish /
+ * claim / mood / boost.
  * Same ActionDrawer chrome as guild Manage. Members and Treasury stay on the
  * face chips (not duplicated here).
  */
@@ -26,6 +28,7 @@ export function DaoManageSheet({
   open,
   daoName,
   canEdit,
+  canProposeCall = false,
   showStake = true,
   claimSupportLabel,
   councilAccessPending = false,
@@ -34,7 +37,10 @@ export function DaoManageSheet({
 }: {
   open: boolean;
   daoName?: string;
+  /** ChangeConfig — Edit profile (face branding). */
   canEdit: boolean;
+  /** FunctionCall — Publish OnSocial / mood / Boost / claim. */
+  canProposeCall?: boolean;
   /** Member + staking contract on this DAO — hide for council-only boards. */
   showStake?: boolean;
   /** When set, council can propose claiming the Support pot. */
@@ -46,7 +52,7 @@ export function DaoManageSheet({
 }) {
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
-  const showClaimSupport = Boolean(canEdit && claimSupportLabel);
+  const showClaimSupport = Boolean(canProposeCall && claimSupportLabel);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -97,8 +103,18 @@ export function DaoManageSheet({
           {
             id: 'edit',
             label: 'Edit profile',
-            description: 'Cover, crest, name, and about',
+            description: 'Cover, crest, name, face, and About (config)',
             onSelect: () => run('edit'),
+          } satisfies ActionDrawerItem,
+        ]
+      : []),
+    ...(canProposeCall
+      ? [
+          {
+            id: 'publish-social',
+            label: 'Publish OnSocial profile',
+            description: 'Call proposal for feeds and profile keys',
+            onSelect: () => run('publish-social'),
           },
           {
             id: 'propose-mood',

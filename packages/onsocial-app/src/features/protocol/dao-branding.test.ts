@@ -7,6 +7,7 @@ import {
   encodeDaoConfigMetadata,
   parseDaoBrandingMetadata,
   resolveDaoEntityKind,
+  resolveDaoEditBaseline,
 } from '@/features/protocol/dao-branding';
 import { daoPath } from '@/lib/app-routes';
 
@@ -139,7 +140,28 @@ describe('dao branding', () => {
     expect(branding.source).toBe('config');
     expect(branding.name).toBe('Orphan DAO');
     expect(branding.description).toBe('Purpose line');
+    expect(branding.about).toBe('Purpose line');
     expect(daoEntityKindLabel(branding.kind)).toBe('Community DAO');
+  });
+
+  it('keeps full purpose in About and a clamped face excerpt', () => {
+    const long =
+      'We’re a community DAO that stewards shared infrastructure, funds public goods, and keeps the square crest honest for every builder who shows up to ship with us across seasons.';
+    expect(long.length).toBeGreaterThan(160);
+    const branding = composeDaoBranding({
+      daoAccountId: 'long.sputnik-dao.near',
+      profile: null,
+      config: {
+        name: 'Long DAO',
+        purpose: long,
+        metadata: JSON.stringify({
+          onsocial: { v: 1, name: 'Long DAO', description: long },
+        }),
+      },
+    });
+    expect(branding.description).toBeTruthy();
+    expect((branding.description ?? '').length).toBeLessThanOrEqual(160);
+    expect(branding.about).toBe(long);
   });
 
   it('falls back to sputnik purpose when profile bio is blank whitespace', () => {
@@ -173,6 +195,61 @@ describe('dao branding', () => {
       },
     });
     expect(branding.description).toBe('Purpose line');
+  });
+
+  it('seeds config Edit from metadata/purpose, not OnSocial profile bio', () => {
+    const metadata = buildDaoBrandingMetadata('', {
+      name: 'Config Face',
+      description: 'Config purpose only',
+    });
+    const branding = composeDaoBranding({
+      daoAccountId: 'demo.sputnik-dao.near',
+      profile: {
+        accountId: 'demo.sputnik-dao.near',
+        name: 'Profile Name',
+        location: null,
+        industry: null,
+        kind: null,
+        bio: 'OnSocial exists to give every user full ownership',
+        about: null,
+        lead: null,
+        aboutAlign: 'left',
+        avatarUrl: 'https://cdn.example/a.png',
+        bannerUrl: null,
+        avatarMedia: { kind: 'image', url: 'https://cdn.example/a.png' },
+        bannerMedia: null,
+        links: {},
+        tags: [],
+        photos: [],
+        hashtags: [],
+        tickers: [],
+        mentions: [],
+      },
+      config: {
+        name: 'Sputnik Name',
+        purpose: 'Sputnik purpose',
+        metadata,
+      },
+    });
+    expect(branding.about).toContain('OnSocial exists');
+    expect(
+      resolveDaoEditBaseline({
+        mode: 'config',
+        branding,
+        configName: 'Sputnik Name',
+        configPurpose: 'Sputnik purpose',
+        configMetadata: metadata,
+      }).purpose
+    ).toBe('Config purpose only');
+    expect(
+      resolveDaoEditBaseline({
+        mode: 'social',
+        branding,
+        configName: 'Sputnik Name',
+        configPurpose: 'Sputnik purpose',
+        configMetadata: metadata,
+      }).purpose
+    ).toContain('OnSocial exists');
   });
 
   it('builds dao portfolio paths', () => {

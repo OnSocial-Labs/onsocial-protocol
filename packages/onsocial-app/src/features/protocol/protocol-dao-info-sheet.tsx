@@ -1,8 +1,17 @@
 'use client';
 
-import { useEffect, useId, useMemo, useState } from 'react';
-import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Divider,
+  OsSheetAction,
+  OsSheetActions,
+  OsSheetFooter,
+  SheetFactCopy,
+  SheetFactRow,
+  SheetFactSection,
+} from '@onsocial/ui';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
+import { DaoOrgHugSheet } from '@/features/protocol/dao-org-hug-sheet';
 import { daoRoleGroupMembers } from '@/features/protocol/protocol-dao-role-kind';
 import {
   getProtocolDaoConfig,
@@ -12,7 +21,6 @@ import {
 } from '@/features/protocol/protocol-eligibility';
 import { fetchProtocolDaoTransferAssets } from '@/features/protocol/protocol-dao-context-client';
 import { proposalPeriodNsToDays } from '@/features/protocol/protocol-policy';
-import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 import {
   ACTIVE_NEAR_EXPLORER_URL,
@@ -21,8 +29,11 @@ import {
 import { yoctoToNear } from '@/lib/app-near-rpc';
 import { formatNearCompact } from '@/lib/format-near-balance';
 import { formatSocialCompact } from '@/lib/format-social-balance';
+import { formatDaoRoleLabel } from '@/lib/page-drawer-meta';
 
-function formatVotePolicySummary(policy: ProtocolDaoPolicy | null): string {
+export function formatDaoVotePolicySummary(
+  policy: ProtocolDaoPolicy | null
+): string {
   const threshold = policy?.default_vote_policy?.threshold;
   if (!Array.isArray(threshold) || threshold.length < 2) return 'Unknown';
   const [num, den] = threshold;
@@ -38,17 +49,34 @@ function formatVotePolicySummary(policy: ProtocolDaoPolicy | null): string {
   return `${num}/${den} · ${pct}%`;
 }
 
-function resolveCouncilSize(policy: ProtocolDaoPolicy | null): number | null {
+/** Guardian/Council size note — label matches the role that supplied the count. */
+export function resolveDaoCouncilNote(
+  policy: ProtocolDaoPolicy | null
+): string | null {
   for (const roleId of ['guardians', 'council'] as const) {
     const role = policy?.roles?.find(
       (entry) => entry.name?.trim().toLowerCase() === roleId
     );
     const group = role ? daoRoleGroupMembers(role) : [];
-    if (group.length > 0) return group.length;
+    if (group.length > 0) {
+      return `${formatDaoRoleLabel(roleId)} ${group.length}`;
+    }
   }
   return null;
 }
 
+export function formatDaoInfoRoleList(
+  roleNames: readonly string[]
+): string | null {
+  const labels = roleNames
+    .map((name) => formatDaoRoleLabel(name) || name.trim())
+    .filter(Boolean);
+  return labels.length > 0 ? labels.join(' · ') : null;
+}
+
+/**
+ * DAO policy snapshot — same hug family as Members / Treasury.
+ */
 export function ProtocolDaoInfoSheet({
   open,
   onClose,
@@ -66,7 +94,6 @@ export function ProtocolDaoInfoSheet({
   onOpenStake: () => void;
   onOpenSettings: () => void;
 }) {
-  const formId = useId();
   const face = useMatchingDaoFaceEligibility(daoAccountId);
   const [loadState, setLoadState] = useState<
     'idle' | 'loading' | 'ready' | 'error'
@@ -123,190 +150,164 @@ export function ProtocolDaoInfoSheet({
 
   const eligibility = face?.eligibility ?? fetchedEligibility;
 
-  const roleNames =
-    daoPolicy?.roles
-      ?.map((role) => role.name?.trim())
-      .filter((name): name is string => Boolean(name)) ?? [];
+  const roleList = useMemo(() => {
+    const names =
+      daoPolicy?.roles
+        ?.map((role) => role.name?.trim())
+        .filter((name): name is string => Boolean(name)) ?? [];
+    return formatDaoInfoRoleList(names);
+  }, [daoPolicy]);
+
   const bondNear = daoPolicy?.proposal_bond
     ? yoctoToNear(daoPolicy.proposal_bond)
     : null;
   const periodDays = proposalPeriodNsToDays(daoPolicy?.proposal_period);
-  const councilSize = resolveCouncilSize(daoPolicy);
+  const councilNote = resolveDaoCouncilNote(daoPolicy);
   const quorum = daoPolicy?.default_vote_policy?.quorum?.trim() || '0';
-  const voteSummary = formatVotePolicySummary(daoPolicy);
+  const voteSummary = formatDaoVotePolicySummary(daoPolicy);
   const explorerHref = daoAccountId
     ? `${ACTIVE_NEAR_EXPLORER_URL}/address/${daoAccountId}`
     : null;
 
-  const footerState = useMemo((): CommerceSheetFooterState | null => {
-    if (!open) return null;
-    return {
-      visible: true,
-      primaryLabel: 'Close',
-      primaryPendingLabel: 'Close',
-      canSubmit: true,
-      pending: false,
-      primaryType: 'button',
-      onPrimaryClick: onClose,
-    };
-  }, [open, onClose]);
+  const positionValue = eligibility
+    ? viewerCanProposeOnDao(eligibility)
+      ? 'Can propose'
+      : eligibility.hasStakeProposePath
+        ? `Need ${formatSocialCompact(eligibility.remainingToThreshold)} more SOCIAL`
+        : eligibility.foreignStakeTokenLabel
+          ? `Need ${eligibility.foreignStakeTokenLabel} stake`
+          : 'Not on a proposing role'
+    : null;
+
+  const positionDetail = eligibility
+    ? `Delegated ${formatSocialCompact(eligibility.delegatedWeight)} · wallet ${formatSocialCompact(eligibility.walletBalance)} SOCIAL · ${formatNearCompact(eligibility.nearBalance)} NEAR`
+    : null;
+
+  if (!daoAccountId) return null;
+
+  const footer = (
+    <OsSheetFooter>
+      <OsSheetActions layout="row" tone="frosted-primary" borderless>
+        <OsSheetAction
+          type="button"
+          variant="ghost"
+          onClick={() => {
+            onClose();
+            onOpenSettings();
+          }}
+        >
+          Settings
+        </OsSheetAction>
+        <OsSheetAction
+          type="button"
+          variant="ghost"
+          onClick={() => {
+            onClose();
+            onOpenStake();
+          }}
+        >
+          Stake
+        </OsSheetAction>
+        {explorerHref ? (
+          <OsSheetAction
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              window.open(explorerHref, '_blank', 'noopener,noreferrer');
+            }}
+          >
+            Explorer
+          </OsSheetAction>
+        ) : null}
+      </OsSheetActions>
+    </OsSheetFooter>
+  );
 
   return (
-    <ProtocolTaskSheet
+    <DaoOrgHugSheet
       open={open}
       onClose={onClose}
-      verb="DAO"
-      handle={daoAccountId ?? undefined}
-      whisper="On-chain policy snapshot for this board."
+      daoAccountId={daoAccountId}
+      title="Info"
+      subtitle={configName || daoAccountId}
       closeAriaLabel="Close DAO info"
-      backdropLabel="Close DAO info"
-      formId={formId}
-      footerState={footerState}
+      contentClassName="dao-info-sheet os-sheet-facts"
+      footer={footer}
     >
-      <div className="protocol-compose protocol-task-form" id={formId}>
-        {loadState === 'loading' ? (
-          <p className="protocol-empty">Loading DAO info…</p>
-        ) : null}
+      <p className="dao-info-lead">
+        On-chain policy snapshot for this board.
+      </p>
 
-        {loadState === 'error' ? (
-          <p className="protocol-compose-note is-warn">
-            Could not load DAO config. Policy below still reflects the feed
-            snapshot.
-          </p>
-        ) : null}
+      {loadState === 'loading' ? (
+        <p className="dao-info-empty">Loading DAO info…</p>
+      ) : null}
 
-        {configName ? (
-          <div className="protocol-dao-info-block">
-            <p className="protocol-dao-info-eyebrow">Name</p>
-            <p className="protocol-dao-info-value">{configName}</p>
-          </div>
-        ) : null}
+      {loadState === 'error' ? (
+        <p className="dao-info-warn" role="alert">
+          Could not load DAO config. Policy below still reflects the feed
+          snapshot.
+        </p>
+      ) : null}
 
-        {configPurpose ? (
-          <div className="protocol-dao-info-block">
-            <p className="protocol-dao-info-eyebrow">Purpose</p>
-            <p className="protocol-dao-info-copy">{configPurpose}</p>
-          </div>
-        ) : null}
+      {configPurpose ? (
+        <>
+          <SheetFactSection title="About">
+            <SheetFactCopy>{configPurpose}</SheetFactCopy>
+          </SheetFactSection>
+          <Divider variant="detail" />
+        </>
+      ) : null}
 
-        <div className="protocol-policy-summary" aria-label="Policy snapshot">
-          <div className="protocol-policy-summary-cell">
-            <span className="protocol-policy-summary-label">Bond</span>
-            <span className="protocol-policy-summary-value">
-              {bondNear ? `${bondNear} NEAR` : '—'}
-            </span>
-          </div>
-          <div className="protocol-policy-summary-cell">
-            <span className="protocol-policy-summary-label">Period</span>
-            <span className="protocol-policy-summary-value">
-              {periodDays ? `${periodDays}d` : '—'}
-            </span>
-          </div>
-          <div className="protocol-policy-summary-cell">
-            <span className="protocol-policy-summary-label">Roles</span>
-            <span className="protocol-policy-summary-value">
-              {roleNames.length}
-            </span>
-          </div>
-          <div className="protocol-policy-summary-cell">
-            <span className="protocol-policy-summary-label">NEAR treasury</span>
-            <span className="protocol-policy-summary-value">
-              {treasuryBalances
-                ? `${formatNearCompact(treasuryBalances.nearYocto)} NEAR`
-                : '—'}
-            </span>
-          </div>
-          <div className="protocol-policy-summary-cell">
-            <span className="protocol-policy-summary-label">
-              SOCIAL treasury
-            </span>
-            <span className="protocol-policy-summary-value">
-              {treasuryBalances
-                ? `${formatSocialCompact(treasuryBalances.socialYocto)} SOCIAL`
-                : '—'}
-            </span>
-          </div>
-        </div>
+      <SheetFactSection title="Policy">
+        <SheetFactRow
+          label="Bond"
+          value={bondNear ? `${bondNear} NEAR` : '—'}
+        />
+        <SheetFactRow
+          label="Period"
+          value={periodDays ? `${periodDays}d` : '—'}
+        />
+        <SheetFactRow
+          label="NEAR treasury"
+          value={
+            treasuryBalances
+              ? `${formatNearCompact(treasuryBalances.nearYocto)} NEAR`
+              : '—'
+          }
+        />
+        <SheetFactRow
+          label="SOCIAL treasury"
+          value={
+            treasuryBalances
+              ? `${formatSocialCompact(treasuryBalances.socialYocto)} SOCIAL`
+              : '—'
+          }
+        />
+        <SheetFactRow label="Vote policy" value={voteSummary} />
+        <SheetFactCopy>
+          Quorum {quorum}
+          {councilNote ? ` · ${councilNote}` : ''}
+        </SheetFactCopy>
+        {roleList ? <SheetFactRow label="Roles" value={roleList} /> : null}
+      </SheetFactSection>
 
-        <div className="protocol-dao-info-block">
-          <p className="protocol-dao-info-eyebrow">Vote policy</p>
-          <p className="protocol-dao-info-value">{voteSummary}</p>
-          <p className="protocol-compose-note">
-            Quorum {quorum}
-            {councilSize != null ? ` · council ${councilSize}` : ''}
-          </p>
-        </div>
-
-        {roleNames.length > 0 ? (
-          <div className="protocol-dao-info-block">
-            <p className="protocol-dao-info-eyebrow">Roles</p>
-            <ul className="protocol-dao-info-roles">
-              {roleNames.map((name) => (
-                <li key={name}>{name}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {eligibility ? (
-          <div className="protocol-dao-info-block">
-            <p className="protocol-dao-info-eyebrow">Your position</p>
-            <p className="protocol-dao-info-value">
-              {viewerCanProposeOnDao(eligibility)
-                ? 'Can propose'
-                : eligibility.hasStakeProposePath
-                  ? `Need ${formatSocialCompact(eligibility.remainingToThreshold)} more SOCIAL`
-                  : eligibility.foreignStakeTokenLabel
-                    ? `Need ${eligibility.foreignStakeTokenLabel} stake`
-                    : 'Not on a proposing role'}
-            </p>
-            <p className="protocol-compose-note">
-              Delegated {formatSocialCompact(eligibility.delegatedWeight)} ·
-              wallet {formatSocialCompact(eligibility.walletBalance)} SOCIAL ·{' '}
-              {formatNearCompact(eligibility.nearBalance)} NEAR
-            </p>
-          </div>
-        ) : accountId && loadState === 'loading' ? (
-          <p className="protocol-compose-note">Checking your position…</p>
-        ) : accountId ? null : (
-          <p className="protocol-compose-note">
-            Connect a wallet to see your stake position.
-          </p>
-        )}
-
-        <div className="protocol-dao-info-actions">
-          <button
-            type="button"
-            className="protocol-tool"
-            onClick={() => {
-              onClose();
-              onOpenSettings();
-            }}
-          >
-            Settings
-          </button>
-          <button
-            type="button"
-            className="protocol-tool"
-            onClick={() => {
-              onClose();
-              onOpenStake();
-            }}
-          >
-            Stake
-          </button>
-          {explorerHref ? (
-            <a
-              className="protocol-tool is-ghost"
-              href={explorerHref}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Explorer
-            </a>
-          ) : null}
-        </div>
-      </div>
-    </ProtocolTaskSheet>
+      {positionValue ? (
+        <>
+          <Divider variant="detail" />
+          <SheetFactSection title="Your position">
+            <p className="dao-info-position-lead">{positionValue}</p>
+            {positionDetail ? (
+              <SheetFactCopy>{positionDetail}</SheetFactCopy>
+            ) : null}
+          </SheetFactSection>
+        </>
+      ) : accountId && loadState === 'loading' ? (
+        <p className="dao-info-empty">Checking your position…</p>
+      ) : accountId ? null : (
+        <p className="dao-info-empty">
+          Connect a wallet to see your stake position.
+        </p>
+      )}
+    </DaoOrgHugSheet>
   );
 }

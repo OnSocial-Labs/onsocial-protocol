@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   MultiplyIcon,
   OsIconAction,
@@ -128,6 +128,7 @@ import {
   readDaoFeedCache,
   writeDaoFeedCache,
 } from '@/lib/dao-workspace-prefetch';
+import { invalidateDaoPortfolioFaceCaches } from '@/lib/invalidate-dao-portfolio-face';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 /** Below page drawer (48) + launcher (60) so dock actions aren’t buried. */
@@ -185,6 +186,7 @@ export function DaoWorkspacePanel({
   const titleId = useId();
   const pageMood = useDaoPageMood(daoAccountId, Boolean(sheet?.open));
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<ProtocolFeedStatusFilter>(
     () => parseProtocolFeedStatus(searchParams.get(PROTOCOL_STATUS_PARAM))
   );
@@ -786,6 +788,19 @@ export function DaoWorkspacePanel({
     [daoAccountId, mergeProposal]
   );
 
+  const portfolioFaceRefreshIdsRef = useRef<Set<number>>(new Set());
+
+  const refreshPortfolioFaceIfApproved = useCallback(
+    (proposalId: number | null | undefined, status: string | null | undefined) => {
+      if (proposalId == null || status !== 'Approved') return;
+      if (portfolioFaceRefreshIdsRef.current.has(proposalId)) return;
+      portfolioFaceRefreshIdsRef.current.add(proposalId);
+      invalidateDaoPortfolioFaceCaches(daoAccountId);
+      router.refresh();
+    },
+    [daoAccountId, router]
+  );
+
   const schedulePostActionProposalRefresh = useCallback(
     (appId: string, proposalId: number) => {
       const refreshUntil = Date.now() + POST_ACTION_REFRESH_WINDOW_MS;
@@ -793,8 +808,11 @@ export function DaoWorkspacePanel({
       const tick = async () => {
         try {
           const proposal = await refreshProposalLive(appId, proposalId);
-          if (proposal && isTerminalProtocolProposalStatus(proposal.status)) {
-            return;
+          if (proposal) {
+            refreshPortfolioFaceIfApproved(proposalId, proposal.status);
+            if (isTerminalProtocolProposalStatus(proposal.status)) {
+              return;
+            }
           }
         } catch {
           // Best-effort live sync after wallet confirm.
@@ -809,7 +827,7 @@ export function DaoWorkspacePanel({
 
       void tick();
     },
-    [refreshProposalLive]
+    [refreshPortfolioFaceIfApproved, refreshProposalLive]
   );
 
   const adoptLiveProposal = useCallback(
@@ -904,12 +922,16 @@ export function DaoWorkspacePanel({
             });
           });
           if (refreshed.daoPolicy) setDaoPolicy(refreshed.daoPolicy);
+          refreshPortfolioFaceIfApproved(
+            proposalId,
+            refreshed.proposal.status
+          );
         })
         .catch(() => {
           // Best-effort live patch.
         });
     });
-  }, [daoAccountId]);
+  }, [daoAccountId, refreshPortfolioFaceIfApproved]);
 
   const handleAct = useCallback(
     async (action: ProtocolDaoAction) => {
@@ -1010,6 +1032,10 @@ export function DaoWorkspacePanel({
           }
           if (refreshed.proposal) {
             mergeProposal(actionApplication.app_id, refreshed.proposal);
+            refreshPortfolioFaceIfApproved(
+              proposalId,
+              refreshed.proposal.status
+            );
           }
           if (refreshed.daoPolicy) setDaoPolicy(refreshed.daoPolicy);
         } catch {
@@ -1041,6 +1067,7 @@ export function DaoWorkspacePanel({
       connect,
       getSigningWallet,
       mergeProposal,
+      refreshPortfolioFaceIfApproved,
       schedulePostActionProposalRefresh,
       trackTransaction,
       setTxResult,

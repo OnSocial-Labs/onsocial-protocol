@@ -29,6 +29,8 @@ function eligibility(
     canPropose: true,
     isGroupMember: false,
     canAddProposal: true,
+    canChangeConfig: true,
+    canProposeCall: true,
     hasStakeProposePath: true,
     foreignStakeTokenLabel: null,
     proposalBond: '100000000000000000000000', // 0.1 NEAR
@@ -128,6 +130,22 @@ describe('resolveDaoProposeBondGate', () => {
     expect(gate.bondLabel).toContain('NEAR');
   });
 
+  it('honors ChangeConfig override without offering Stake', () => {
+    const gate = resolveDaoProposeBondGate(
+      eligibility({
+        canAddProposal: true,
+        canChangeConfig: false,
+        hasStakeProposePath: true,
+        nearBalance: '200000000000000000000000',
+      }),
+      false,
+      { canPropose: false, allowStakeUnlock: false }
+    );
+    expect(gate.canPropose).toBe(false);
+    expect(gate.needsStake).toBe(false);
+    expect(gate.canSubmit).toBe(false);
+  });
+
   it('reports NEAR shortfall when bond exceeds wallet', () => {
     const gate = resolveDaoProposeBondGate(
       eligibility({
@@ -137,5 +155,26 @@ describe('resolveDaoProposeBondGate', () => {
     expect(gate.bondOk).toBe(false);
     expect(gate.canSubmit).toBe(false);
     expect(gate.shortfallNearLabel).toBeTruthy();
+  });
+
+  it('scales bond for same-tx batch (two add_proposal)', () => {
+    const gate = resolveDaoProposeBondGate(
+      eligibility({
+        nearBalance: '100000000000000000000000', // 0.1 — one bond only
+      }),
+      false,
+      { bondCount: 2 }
+    );
+    expect(gate.bondOk).toBe(false);
+    expect(gate.bondLabel).toContain('2×');
+    expect(
+      resolveDaoProposeBondGate(
+        eligibility({
+          nearBalance: '200000000000000000000000', // 0.2
+        }),
+        false,
+        { bondCount: 2 }
+      ).canSubmit
+    ).toBe(true);
   });
 });

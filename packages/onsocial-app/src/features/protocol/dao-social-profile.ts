@@ -27,6 +27,7 @@ function encodeJsonArgs(args: unknown): string {
 
 export type DaoSocialProfileDraft = {
   name: string;
+  /** Full purpose — face shows a clamped excerpt. */
   bio?: string;
   avatar?: string | null;
   banner?: string | null;

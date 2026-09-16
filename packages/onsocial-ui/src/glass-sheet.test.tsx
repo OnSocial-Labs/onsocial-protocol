@@ -3,7 +3,10 @@ import {
   GLASS_SHEET_PEEK_RATIO,
   GlassSheet,
   SheetHeader,
+  hugEnterNeedsArming,
+  nextHugEnterStableSample,
   resolveBackdropPresentation,
+  resolveHugEnterLockStyle,
   resolvePanelPresentation,
   resolveSheetCoverProgress,
   resolveSheetOffsetPx,
@@ -15,6 +18,47 @@ describe('GlassSheet', () => {
     expect(typeof GlassSheet).toBe('function');
     expect(typeof SheetHeader).toBe('function');
     expect(GLASS_SHEET_PEEK_RATIO).toBe(0.62);
+  });
+});
+
+describe('hug enter height lock', () => {
+  it('arms only for hug enter/appear presentations', () => {
+    expect(hugEnterNeedsArming('hug', 'enter')).toBe(true);
+    expect(hugEnterNeedsArming('hug', 'appear')).toBe(true);
+    expect(hugEnterNeedsArming('hug', 'swap')).toBe(false);
+    expect(hugEnterNeedsArming('full', 'enter')).toBe(false);
+  });
+
+  it('arms after consecutive equal height samples', () => {
+    const first = nextHugEnterStableSample(
+      { lastHeightPx: 0, matches: 0 },
+      480
+    );
+    expect(first.armed).toBe(false);
+    const second = nextHugEnterStableSample(first.state, 480);
+    expect(second.armed).toBe(true);
+    expect(second.state.lastHeightPx).toBe(480);
+  });
+
+  it('resets when height changes mid-settle', () => {
+    const first = nextHugEnterStableSample(
+      { lastHeightPx: 0, matches: 0 },
+      520
+    );
+    const changed = nextHugEnterStableSample(first.state, 480);
+    expect(changed.armed).toBe(false);
+    expect(changed.state.matches).toBe(1);
+    const settled = nextHugEnterStableSample(changed.state, 480);
+    expect(settled.armed).toBe(true);
+  });
+
+  it('locks height only while entering', () => {
+    expect(resolveHugEnterLockStyle(480, true)).toEqual({
+      height: 480,
+      maxHeight: 480,
+    });
+    expect(resolveHugEnterLockStyle(480, false)).toBeUndefined();
+    expect(resolveHugEnterLockStyle(null, true)).toBeUndefined();
   });
 });
 

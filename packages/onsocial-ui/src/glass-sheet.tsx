@@ -60,6 +60,8 @@ const DISMISS_GAP_PX = 96;
 const MOBILE_MAX_WIDTH_PX = 767;
 const SHEET_TRANSITION_MS = 320;
 const DRAG_ACTIVATION_PX = 4;
+/** Consecutive equal hug height samples before arming enter (avoids open→shrink). */
+const HUG_ENTER_STABLE_MATCHES = 2;
 /** Inline on sheet nodes — Tailwind/Lightning CSS drops unprefixed backdrop-filter. */
 export const GLASS_SHEET_BACKDROP_OPACITY = 0.28;
 export const GLASS_SHEET_BACKDROP_BLUR_PX = 16;
@@ -77,6 +79,60 @@ const SHEET_PRESENTATION_EASE = 'cubic-bezier(0.2, 0.9, 0.24, 1)';
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
+}
+
+export type HugEnterSampleState = {
+  lastHeightPx: number;
+  matches: number;
+};
+
+/** Whether hug sheets should delay/lock height through the enter motion. */
+export function hugEnterNeedsArming(
+  sizing: GlassSheetSizing,
+  presentation: GlassSheetPresentation
+): boolean {
+  return (
+    sizing === 'hug' && (presentation === 'enter' || presentation === 'appear')
+  );
+}
+
+/**
+ * Track consecutive equal content heights. Arm once the hug panel has held
+ * the same height for `neededMatches` samples (layout settle before enter).
+ */
+export function nextHugEnterStableSample(
+  state: HugEnterSampleState,
+  heightPx: number,
+  neededMatches = HUG_ENTER_STABLE_MATCHES
+): { state: HugEnterSampleState; armed: boolean } {
+  if (heightPx <= 0) {
+    return { state: { lastHeightPx: 0, matches: 0 }, armed: false };
+  }
+  if (heightPx === state.lastHeightPx) {
+    const matches = state.matches + 1;
+    return {
+      state: { lastHeightPx: heightPx, matches },
+      armed: matches >= neededMatches,
+    };
+  }
+  return {
+    state: { lastHeightPx: heightPx, matches: 1 },
+    armed: neededMatches <= 1,
+  };
+}
+
+/** Inline height freeze while hug enter runs — release after animation. */
+export function resolveHugEnterLockStyle(
+  lockedHeightPx: number | null,
+  entering: boolean
+): CSSProperties | undefined {
+  if (!entering || lockedHeightPx == null || lockedHeightPx <= 0) {
+    return undefined;
+  }
+  return {
+    height: lockedHeightPx,
+    maxHeight: lockedHeightPx,
+  };
 }
 
 /** 0 = fully presented, 1 = sheet fully translated down (portfolio revealed). */
@@ -704,6 +760,8 @@ export function GlassSheet({
   const reduceTransparency = usePrefersReducedTransparency();
   const sheetReady = open && !!portalTarget;
   const [enterAnimationDone, setEnterAnimationDone] = useState(false);
+  const [hugEnterArmed, setHugEnterArmed] = useState(false);
+  const [hugEnterLockedPx, setHugEnterLockedPx] = useState<number | null>(null);
   const [panelHeightPx, setPanelHeightPx] = useState(0);
   const [isDesktopSheet, setIsDesktopSheet] = useState(false);
   const { mounted, visible, handlePanelTransitionEnd } = useSheetPresence(
@@ -728,6 +786,18 @@ export function GlassSheet({
     panelHeightPx
   );
 
+  const hugEnterPending =
+    hugEnterNeedsArming(sizing, presentation) && !enterAnimationDone;
+  const panelIsOpen = visible && (!hugEnterPending || hugEnterArmed);
+  const showEnterAnimation =
+    (presentation === 'enter' || presentation === 'appear') &&
+    panelIsOpen &&
+    !enterAnimationDone;
+  const hugEnterLockStyle = resolveHugEnterLockStyle(
+    hugEnterLockedPx,
+    showEnterAnimation
+  );
+
   useLayoutEffect(() => {
     if (!mounted) {
       setPanelHeightPx(0);
@@ -748,6 +818,63 @@ export function GlassSheet({
     observer.observe(panel);
     return () => observer.disconnect();
   }, [mounted, open]);
+
+  useLayoutEffect(() => {
+    if (!mounted || !visible || !hugEnterPending || hugEnterArmed) {
+      return;
+    }
+
+    const panel = panelRef.current;
+    if (!panel) {
+      return;
+    }
+
+    let cancelled = false;
+    let sampleState: HugEnterSampleState = { lastHeightPx: 0, matches: 0 };
+    let raf = 0;
+
+    const arm = (heightPx: number) => {
+      if (cancelled) return;
+      setHugEnterLockedPx(heightPx);
+      setHugEnterArmed(true);
+    };
+
+    const sample = () => {
+      if (cancelled) return;
+      const next = nextHugEnterStableSample(sampleState, panel.offsetHeight);
+      sampleState = next.state;
+      if (next.armed) {
+        arm(sampleState.lastHeightPx);
+        return;
+      }
+      raf = window.requestAnimationFrame(sample);
+    };
+
+    const startSampling = () => {
+      if (cancelled) return;
+      raf = window.requestAnimationFrame(sample);
+    };
+
+    // Prefer fonts settled, but never block open — short fallback.
+    let fontsTimer = 0;
+    const fonts = document.fonts;
+    if (fonts?.status === 'loaded') {
+      startSampling();
+    } else if (fonts?.ready) {
+      void fonts.ready.then(() => {
+        if (!cancelled) startSampling();
+      });
+      fontsTimer = window.setTimeout(startSampling, 48);
+    } else {
+      startSampling();
+    }
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(raf);
+      if (fontsTimer) window.clearTimeout(fontsTimer);
+    };
+  }, [mounted, visible, hugEnterPending, hugEnterArmed]);
 
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${MOBILE_MAX_WIDTH_PX + 1}px)`);
@@ -792,13 +919,15 @@ export function GlassSheet({
   useEffect(() => {
     if (!open) {
       setEnterAnimationDone(false);
+      setHugEnterArmed(false);
+      setHugEnterLockedPx(null);
     }
   }, [open]);
 
-  const showEnterAnimation =
-    (presentation === 'enter' || presentation === 'appear') &&
-    visible &&
-    !enterAnimationDone;
+  const finishEnterAnimation = useCallback(() => {
+    setEnterAnimationDone(true);
+    setHugEnterLockedPx(null);
+  }, []);
 
   const handlePanelAnimationEnd = useCallback(
     (event: React.AnimationEvent<HTMLDivElement>) => {
@@ -808,10 +937,20 @@ export function GlassSheet({
       ) {
         return;
       }
-      setEnterAnimationDone(true);
+      finishEnterAnimation();
     },
-    []
+    [finishEnterAnimation]
   );
+
+  // Reduced-motion sets animation:none — animationend may never fire.
+  useEffect(() => {
+    if (!showEnterAnimation) return;
+    const timer = window.setTimeout(
+      finishEnterAnimation,
+      SHEET_TRANSITION_MS + 48
+    );
+    return () => window.clearTimeout(timer);
+  }, [finishEnterAnimation, showEnterAnimation]);
 
   useSheetFocusTrap(visible, panelRef);
 
@@ -858,7 +997,7 @@ export function GlassSheet({
         aria-labelledby={ariaLabelledBy}
         className={cn(
           'glass-sheet-panel',
-          visible && 'is-open',
+          panelIsOpen && 'is-open',
           showEnterAnimation && 'glass-sheet-panel--enter',
           dragging && 'is-dragging',
           panelClassName
@@ -871,6 +1010,7 @@ export function GlassSheet({
         style={
           {
             '--sheet-y': sheetY,
+            ...hugEnterLockStyle,
             ...(dragging ? { transform: `translateY(${sheetY})` } : {}),
             ...panelStyle,
           } as CSSProperties

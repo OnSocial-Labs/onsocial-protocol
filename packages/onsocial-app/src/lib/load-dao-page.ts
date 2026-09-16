@@ -99,17 +99,17 @@ async function resolveSputnikConfig(
   accountId: string,
   catalogRow: DaoCatalogLookupRow | null
 ): Promise<SputnikConfigView | null> {
-  const fromCatalog = configFromCatalogRow(catalogRow);
-  if (fromCatalog) return fromCatalog;
-
+  // Live chain wins — catalog can lag after ChangeConfig finalize.
   const chainConfig = await getProtocolDaoConfig(accountId).catch(() => null);
-  if (!chainConfig) return null;
-
-  const name = chainConfig.name?.trim() ?? '';
-  const purpose = chainConfig.purpose?.trim() ?? '';
-  const metadata = chainConfig.metadata?.trim() ?? '';
-  if (!name && !purpose && !metadata) return null;
-  return { name, purpose, metadata };
+  if (chainConfig) {
+    const name = chainConfig.name?.trim() ?? '';
+    const purpose = chainConfig.purpose?.trim() ?? '';
+    const metadata = chainConfig.metadata?.trim() ?? '';
+    if (name || purpose || metadata) {
+      return { name, purpose, metadata };
+    }
+  }
+  return configFromCatalogRow(catalogRow);
 }
 
 /** Face copy — tagline wins; then profile bio; then catalog / Sputnik purpose. */
@@ -173,7 +173,7 @@ async function resolvePortfolioDaoContext(
 
 /**
  * SSR bundle for DAO portfolio faces — backend catalog + indexed profile shell.
- * Sputnik config prefers `governance_dao_catalog`; chain view fills sync gaps.
+ * Sputnik config prefers live `get_config`; catalog fills when RPC is down.
  */
 export const loadPortfolioDaoContext = cache(async (accountId: string) =>
   resolvePortfolioDaoContext(accountId)

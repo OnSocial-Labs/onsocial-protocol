@@ -71,8 +71,9 @@ export function clampProfileBioFaceLines(
 }
 
 /**
- * Split at a wrap-char budget (newlines count like spaces). Prefers a word break
- * in the second half of the budget so face does not end mid-word.
+ * Split at a wrap-char budget (newlines count like spaces).
+ * Prefers a sentence end in the second half of the budget, then a word break,
+ * so the face does not stop mid-sentence (“protect those…”).
  */
 export function splitBioAtWrapBudget(
   text: string,
@@ -95,18 +96,47 @@ export function splitBioAtWrapBudget(
   }
 
   const minBreak = Math.floor(wrapChars * 0.5);
-  let breakAt = cutIndex;
-  for (let i = cutIndex; i >= minBreak; i--) {
-    if (/\s/.test(normalized[i]!)) {
-      breakAt = i;
-      break;
-    }
-  }
+  const sentenceBreak = findSentenceBreakBefore(normalized, minBreak, cutIndex);
+  const breakAt =
+    sentenceBreak ?? findWordBreakBefore(normalized, minBreak, cutIndex);
 
   return {
     head: normalized.slice(0, breakAt).replace(/\s+$/g, ''),
     tail: normalized.slice(breakAt).replace(/^\s+/g, ''),
   };
+}
+
+/** Index just after the last sentence-ending mark in `[from, to)`. */
+function findSentenceBreakBefore(
+  text: string,
+  from: number,
+  to: number
+): number | null {
+  let best: number | null = null;
+  for (let i = from; i < to; i++) {
+    const ch = text[i];
+    if (ch !== '.' && ch !== '!' && ch !== '?' && ch !== '…') continue;
+    const prev = text[i - 1];
+    const next = text[i + 1];
+    // Keep decimals like 2.5 together.
+    if (prev && /\d/.test(prev) && next && /\d/.test(next)) continue;
+    let end = i + 1;
+    while (end < to && /["'")\]]/.test(text[end]!)) end += 1;
+    if (end < to && !/\s/.test(text[end]!)) continue;
+    best = end;
+  }
+  return best;
+}
+
+function findWordBreakBefore(
+  text: string,
+  from: number,
+  to: number
+): number {
+  for (let i = to; i >= from; i--) {
+    if (/\s/.test(text[i]!)) return i;
+  }
+  return to;
 }
 
 function faceFlatLength(text: string): number {
@@ -295,6 +325,7 @@ export function resolvePortfolioAboutBio(opts: {
   shellBio?: string | null;
   shellAbout?: string | null;
   daoDescription?: string | null;
+  daoAbout?: string | null;
   daoPurpose?: string | null;
 }): string | null {
   const { face, about } = resolveStoredProfileFaceAbout(
@@ -305,8 +336,9 @@ export function resolvePortfolioAboutBio(opts: {
     .map((part) => part.trim())
     .filter(Boolean)
     .join('\n');
+  if (essay) return essay;
   return (
-    essay ||
+    opts.daoAbout?.trim() ||
     opts.daoDescription?.trim() ||
     opts.daoPurpose?.trim() ||
     null

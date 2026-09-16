@@ -44,6 +44,7 @@ export const loadPortfolioAboutForAccount = cache(
       shellBio: shell?.bio,
       shellAbout: shell?.about,
       daoDescription: daoPage?.branding.description,
+      daoAbout: daoPage?.branding.about,
       daoPurpose: daoPage?.configPurpose,
     });
 
@@ -57,7 +58,7 @@ export const loadPortfolioAboutForAccount = cache(
         accountId,
         profileName,
         bio: shell?.bio ?? null,
-        about: shell?.about ?? null,
+        about: shell?.about ?? daoPage?.branding.about ?? null,
         lead: shell?.lead ?? null,
         aboutAlign: shell?.aboutAlign ?? 'left',
         tags: shell?.tags ?? [],

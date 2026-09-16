@@ -14,6 +14,7 @@
 import type { ResolvedPageHero } from '@/lib/page-data';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import type { AppProfileShell } from '@/lib/profile-shell';
+import { resolveStoredProfileFaceAbout } from '@/lib/profile-bio-face';
 import {
   resolveKnownBoardForDaoAccount,
   resolveProtocolDaoBoard,
@@ -29,7 +30,10 @@ export interface DaoBranding {
   daoAccountId: string;
   kind: DaoEntityKind;
   name: string;
+  /** Face excerpt — clamped from {@link purpose} for the portfolio face. */
   description: string | null;
+  /** Full purpose / mission — About shows this in full. */
+  about: string | null;
   /** Raw ipfs / https ref for round-trip. */
   avatar: string | null;
   banner: string | null;
@@ -44,6 +48,7 @@ export interface DaoBranding {
 export interface DaoBrandingPayload {
   v: number;
   name?: string;
+  /** Full purpose (legacy key). Face is a clamped excerpt of this. */
   description?: string | null;
   avatar?: string | null;
   banner?: string | null;
@@ -169,6 +174,7 @@ export function buildDaoBrandingMetadata(
   existingMetadata: string | null | undefined,
   branding: {
     name?: string;
+    /** Full purpose — face shows a clamped excerpt. */
     description?: string | null;
     avatar?: string | null;
     banner?: string | null;
@@ -232,6 +238,57 @@ function mediaFromUrl(url: string | null): ResolvedPageHero | null {
   return url ? { kind: 'image', url } : null;
 }
 
+/** Fields the Edit sheet seeds — mode picks the writable source of truth. */
+export interface DaoEditBaseline {
+  name: string;
+  purpose: string;
+  links: Record<string, string> | null;
+  avatar: string | null;
+  banner: string | null;
+  avatarUrl: string | null;
+  bannerUrl: string | null;
+}
+
+/**
+ * Config Edit seeds Sputnik metadata / purpose — never OnSocial profile bio.
+ * Social Edit seeds the composed face (profile wins when present).
+ */
+export function resolveDaoEditBaseline(opts: {
+  mode: 'config' | 'social';
+  branding: DaoBranding;
+  configName: string;
+  configPurpose: string;
+  configMetadata: string;
+}): DaoEditBaseline {
+  const meta = parseDaoBrandingMetadata(opts.configMetadata);
+  const configName = opts.configName.trim();
+  const configPurpose = opts.configPurpose.trim();
+
+  if (opts.mode === 'config') {
+    const avatar = meta?.avatar ?? null;
+    const banner = meta?.banner ?? null;
+    return {
+      name: meta?.name?.trim() || configName || opts.branding.daoAccountId,
+      purpose: meta?.description?.trim() || configPurpose || '',
+      links: meta?.links ?? null,
+      avatar,
+      banner,
+      avatarUrl: resolveProfileMediaUrl(avatar),
+      bannerUrl: resolveProfileMediaUrl(banner),
+    };
+  }
+
+  return {
+    name: opts.branding.name,
+    purpose: opts.branding.about ?? '',
+    links: opts.branding.links,
+    avatar: opts.branding.avatar,
+    banner: opts.branding.banner,
+    avatarUrl: opts.branding.avatarUrl,
+    bannerUrl: opts.branding.bannerUrl,
+  };
+}
+
 /** Compose public DAO branding from profile shell + Sputnik config. */
 export function composeDaoBranding(opts: {
   daoAccountId: string;
@@ -269,12 +326,13 @@ export function composeDaoBranding(opts: {
     opts.config?.name?.trim() ||
     daoAccountId;
 
-  const description =
+  const fullPurpose =
     (source === 'profile' ? profileBio : null) ||
     meta?.description?.trim() ||
     profileBio ||
     opts.config?.purpose?.trim() ||
-    null;
+    '';
+  const { face } = resolveStoredProfileFaceAbout(fullPurpose, '');
 
   // Keep metadata IPFS refs for ChangeConfig round-trip even when display
   // prefers a profile shell URL.
@@ -299,7 +357,8 @@ export function composeDaoBranding(opts: {
     daoAccountId,
     kind,
     name,
-    description,
+    description: face.trim() || null,
+    about: fullPurpose.trim() || null,
     avatar,
     banner,
     links:

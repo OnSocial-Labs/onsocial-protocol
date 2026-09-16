@@ -13,6 +13,7 @@ import {
   DAO_CREATE_REMOVE_COVER,
   DAO_CREATE_REMOVE_CREST,
   DAO_CREATE_TITLE,
+  DAO_EDIT_PUBLISH_HINT,
   daoCreateNearShortHint,
   daoCreatePurposeToggle,
   daoCreateWhisper,
@@ -45,6 +46,14 @@ describe('DAO create Connect voice', () => {
     expect(DAO_CREATE_PUBLISH).toBe('Publish OnSocial profile');
     expect(DAO_CREATE_PUBLISH.toLowerCase()).not.toContain('call');
     expect(DAO_CREATE_PUBLISH.toLowerCase()).not.toContain('bond');
+  });
+
+  it('hints Edit batch publish as face outcome with two proposals', () => {
+    expect(DAO_EDIT_PUBLISH_HINT).toBe(
+      'Also write the OnSocial face · two proposals'
+    );
+    expect(DAO_EDIT_PUBLISH_HINT.toLowerCase()).not.toContain('wallet');
+    expect(DAO_EDIT_PUBLISH_HINT).toMatch(/two proposals/i);
   });
 
   it('whispers the attach amount without gas or bond', () => {

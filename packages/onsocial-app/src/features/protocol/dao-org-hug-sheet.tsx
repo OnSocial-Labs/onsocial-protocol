@@ -6,7 +6,7 @@ import { useDaoPageMood } from '@/features/protocol/use-dao-page-mood';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 /**
- * DAO org read drawers (Members, Treasury) — full-detent OsHugSheet, same
+ * DAO org read drawers (Members, Treasury, Info) — full-detent OsHugSheet, same
  * family as guild members / fans. Face stays underneath. Proposals stay a
  * nested keep-dock page. Edit / Boost stay on `DaoPageSlideOverScreen`.
  *

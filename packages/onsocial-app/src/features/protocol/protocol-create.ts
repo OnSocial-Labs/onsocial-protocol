@@ -23,6 +23,8 @@ import type {
 import { normalizeNearAccountId } from '@/lib/app-near-account';
 
 const ADD_PROPOSAL_GAS = '300000000000000';
+/** Per-action gas when batching multiple `add_proposal` (tx total ≤ ~300 TGas). */
+const ADD_PROPOSAL_BATCH_GAS = '120000000000000';
 
 export type ProtocolCreateKind =
   | 'signal'
@@ -444,31 +446,62 @@ export async function submitProtocolProposal(opts: {
   daoAccountId: string;
   payload: ProtocolProposalPayload;
 }): Promise<{ proposalId: number | null; txHashes: string[] }> {
+  const batched = await submitProtocolProposals({
+    wallet: opts.wallet,
+    accountId: opts.accountId,
+    daoAccountId: opts.daoAccountId,
+    payloads: [opts.payload],
+  });
+  return {
+    proposalId: batched.proposalIds[0] ?? null,
+    txHashes: batched.txHashes,
+  };
+}
+
+/**
+ * One wallet sign · N `add_proposal` actions (e.g. ChangeConfig + OnSocial Call).
+ * Each action deposits the DAO proposal bond.
+ */
+export async function submitProtocolProposals(opts: {
+  wallet: NearWalletBase;
+  accountId: string;
+  daoAccountId: string;
+  payloads: ProtocolProposalPayload[];
+}): Promise<{ proposalIds: Array<number | null>; txHashes: string[] }> {
+  const payloads = opts.payloads.filter(Boolean);
+  if (payloads.length === 0) {
+    throw new Error('No proposals to submit.');
+  }
+
   const proposalBond =
     (await getProtocolProposalBond(opts.daoAccountId).catch(() => null)) ??
     GOVERNANCE_PROPOSAL_BOND;
+  const gas =
+    payloads.length === 1 ? ADD_PROPOSAL_GAS : ADD_PROPOSAL_BATCH_GAS;
 
   const result = await opts.wallet.signAndSendTransaction({
     network: ACTIVE_NEAR_NETWORK,
     signerId: opts.accountId,
     receiverId: opts.daoAccountId,
-    actions: [
-      {
-        type: 'FunctionCall',
-        params: {
-          methodName: 'add_proposal',
-          args: opts.payload,
-          gas: ADD_PROPOSAL_GAS,
-          deposit: proposalBond,
-        },
+    actions: payloads.map((payload) => ({
+      type: 'FunctionCall' as const,
+      params: {
+        methodName: 'add_proposal',
+        args: payload,
+        gas,
+        deposit: proposalBond,
       },
-    ],
+    })),
   });
 
-  return {
-    proposalId: decodeProposalId(result),
-    txHashes: extractNearTransactionHashes(result),
-  };
+  const txHashes = extractNearTransactionHashes(result);
+  const lastId = decodeProposalId(result);
+  // Wallet receipts usually surface the last SuccessValue only.
+  const proposalIds = payloads.map((_, index) =>
+    index === payloads.length - 1 ? lastId : null
+  );
+
+  return { proposalIds, txHashes };
 }
 
 export async function submitProtocolSignalProposal(opts: {

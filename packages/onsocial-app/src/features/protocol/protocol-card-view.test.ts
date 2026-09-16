@@ -373,6 +373,8 @@ describe('protocol create + stake helpers', () => {
       canPropose: false,
       isGroupMember: false,
       canAddProposal: false,
+      canChangeConfig: false,
+      canProposeCall: false,
       hasStakeProposePath: true,
       foreignStakeTokenLabel: null,
       proposalBond: '0',

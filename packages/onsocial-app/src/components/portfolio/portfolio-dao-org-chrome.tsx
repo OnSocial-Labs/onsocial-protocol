@@ -6,7 +6,7 @@
  */
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { rememberCommunityDao } from '@/features/protocol/dao-accounts';
 import type { DaoBranding } from '@/features/protocol/dao-branding';
 import { DaoEditSheet } from '@/features/protocol/dao-edit-sheet';
@@ -27,6 +27,7 @@ import {
   bumpDaoWorkspacePrefetch,
   scheduleDaoWorkspacePrefetch,
 } from '@/lib/dao-workspace-prefetch';
+import { invalidateDaoPortfolioFaceCaches } from '@/lib/invalidate-dao-portfolio-face';
 import { buildDaoClaimSupportProposalPayload } from '@/features/protocol/dao-claim-support';
 import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
@@ -51,6 +52,7 @@ type PortfolioOverlay =
   | 'proposals'
   | 'tools'
   | 'edit'
+  | 'publish-social'
   | 'boost'
   | null;
 
@@ -72,6 +74,7 @@ function PortfolioDaoOrgChromeInner({
   configMetadata,
 }: PortfolioDaoOrgChromeProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const {
@@ -145,9 +148,10 @@ function PortfolioDaoOrgChromeInner({
     return () => unregisterDaoStakeRequest();
   }, [openStakeFromFace, registerDaoStakeRequest, unregisterDaoStakeRequest]);
 
-  const canEdit = canPropose;
+  const canEdit = Boolean(liveEligibility?.canChangeConfig);
+  const canProposeCall = Boolean(liveEligibility?.canProposeCall);
   const claimSupportLabel =
-    canEdit && claimableYocto != null && claimableYocto > 0n
+    canProposeCall && claimableYocto != null && claimableYocto > 0n
       ? formatSocialCompact(claimableYocto.toString())
       : null;
 
@@ -218,6 +222,10 @@ function PortfolioDaoOrgChromeInner({
         setOverlay('edit');
         return;
       }
+      if (action === 'publish-social') {
+        setOverlay('publish-social');
+        return;
+      }
       if (action === 'propose-mood') {
         setOverlay(null);
         requestOpenMoodSheet();
@@ -279,6 +287,7 @@ function PortfolioDaoOrgChromeInner({
         open={overlay === 'manage'}
         daoName={title}
         canEdit={canEdit}
+        canProposeCall={canProposeCall}
         showStake={!stakePathReady || hasStakeProposePath}
         claimSupportLabel={claimSupportLabel}
         councilAccessPending={councilAccessPending}
@@ -298,6 +307,8 @@ function PortfolioDaoOrgChromeInner({
         }
         eligibility={liveEligibility}
         eligibilityLoading={councilAccessPending}
+        canPropose={canProposeCall}
+        deniedDetail="Needs call permission on this DAO."
         pending={claimPending}
         proposeLabel="Propose"
         onDiscard={() => setClaimConfirmOpen(false)}
@@ -317,6 +328,10 @@ function PortfolioDaoOrgChromeInner({
         canPropose={canPropose}
         onClose={() => {
           clearDaoProposalDeepLink(daoAccountId);
+          // Soft-nav keeps SSR face props — revalidate when leaving proposals
+          // so Approved ChangeConfig / OnSocial profile show without hard refresh.
+          invalidateDaoPortfolioFaceCaches(daoAccountId);
+          router.refresh();
           setOverlay((current) => (current === 'proposals' ? null : current));
         }}
       />
@@ -352,11 +367,30 @@ function PortfolioDaoOrgChromeInner({
           open={overlay === 'edit'}
           daoAccountId={daoAccountId}
           branding={initialBranding}
+          mode="config"
           configName={configName ?? initialBranding.name}
           configPurpose={configPurpose ?? initialBranding.description ?? ''}
           configMetadata={configMetadata}
           onClose={() =>
             setOverlay((current) => (current === 'edit' ? null : current))
+          }
+          onProposed={handleProposed}
+        />
+      ) : null}
+
+      {initialBranding ? (
+        <DaoEditSheet
+          open={overlay === 'publish-social'}
+          daoAccountId={daoAccountId}
+          branding={initialBranding}
+          mode="social"
+          configName={configName ?? initialBranding.name}
+          configPurpose={configPurpose ?? initialBranding.description ?? ''}
+          configMetadata={configMetadata}
+          onClose={() =>
+            setOverlay((current) =>
+              current === 'publish-social' ? null : current
+            )
           }
           onProposed={handleProposed}
         />

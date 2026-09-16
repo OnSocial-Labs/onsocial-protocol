@@ -15,6 +15,7 @@ import {
   profileBioLines,
   resolvePortfolioAboutBio,
   resolveStoredProfileFaceAbout,
+  splitBioAtWrapBudget,
   splitProfileBioFaceAbout,
 } from './profile-bio-face';
 
@@ -88,6 +89,29 @@ describe('split/joinProfileBioFaceAbout', () => {
       face: 'Hello',
       about: 'More on About.\nEssay.',
     });
+  });
+});
+
+describe('splitBioAtWrapBudget', () => {
+  it('prefers a sentence end over a mid-sentence word break', () => {
+    const text =
+      'Your identity and connections belong to you — portable, uncensorable, and meaningful by choice. Scarce by design. The DAO exists only to protect those rights across every surface.';
+    expect(text.length).toBeGreaterThan(FACE_BIO_WRAP_CHARS);
+    const { head, tail } = splitBioAtWrapBudget(text);
+    expect(head).toBe(
+      'Your identity and connections belong to you — portable, uncensorable, and meaningful by choice. Scarce by design.'
+    );
+    expect(tail.startsWith('The DAO exists')).toBe(true);
+    expect(head.endsWith('those')).toBe(false);
+  });
+
+  it('falls back to a word break when there is no sentence end in range', () => {
+    const text =
+      'abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz morewords';
+    const { head, tail } = splitBioAtWrapBudget(text);
+    expect(faceFlatLen(head)).toBeLessThanOrEqual(FACE_BIO_WRAP_CHARS);
+    expect(tail.length).toBeGreaterThan(0);
+    expect(head.includes(' ')).toBe(true);
   });
 });
 

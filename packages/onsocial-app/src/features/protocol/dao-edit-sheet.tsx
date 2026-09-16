@@ -2,8 +2,8 @@
 
 /**
  * DAO profile editor — cover + square crest.
- * Publishes via ChangeConfig metadata (`onsocial` blob) so any Sputnik DAO
- * can brand without writing under the DAO's OnSocial profile keys directly.
+ * - `config` (default): ChangeConfig metadata (`onsocial` blob) for the face.
+ * - `social`: Call proposal that writes OnSocial `{dao}/profile/*` only.
  */
 
 import {
@@ -11,7 +11,6 @@ import {
   useEffect,
   useId,
   useMemo,
-  useRef,
   useState,
   type ChangeEvent,
   type FormEvent,
@@ -19,36 +18,48 @@ import {
 import {
   DiscardConfirmSheet,
   OsField,
-  OsFieldRemove,
   OsSheetAction,
   OsSheetActions,
-  ProfileEditorMediaToolbar,
   osFieldBorderedClassName,
   useDiscardConfirm,
 } from '@onsocial/ui';
 import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
+import { DaoLookPreview } from '@/features/protocol/dao-look-preview';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   buildDaoBrandingMetadata,
+  resolveDaoEditBaseline,
   type DaoBranding,
 } from '@/features/protocol/dao-branding';
 import { buildDaoSocialProfileProposalPayload } from '@/features/protocol/dao-social-profile';
 import { buildProtocolPolicyConfigPayload } from '@/features/protocol/protocol-policy';
-import { submitProtocolProposal } from '@/features/protocol/protocol-create';
+import {
+  submitProtocolProposal,
+  submitProtocolProposals,
+} from '@/features/protocol/protocol-create';
 import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
+import {
+  DAO_CREATE_PUBLISH,
+  DAO_EDIT_PUBLISH_HINT,
+} from '@/features/protocol/dao-create-voice';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useDaoPageCapability } from '@/hooks/use-dao-page-capability';
 import { bumpDaoWorkspacePrefetch } from '@/lib/dao-workspace-prefetch';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import {
+  PROFILE_LINK_EDITOR_FIELDS,
   normalizeProfileLinksInput,
   profileLinkEditorFieldErrors,
   profileLinksInputFromRecord,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
+import {
+  PROFILE_BIO_LIMIT_WARN,
+  PROFILE_BIO_MAX,
+} from '@/lib/profile-bio-face';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastGovError,
@@ -56,22 +67,22 @@ import {
   txToastGovSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
-import { SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR } from '@/lib/app-config';
-import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 
 const MAX_NAME = 64;
-const MAX_DESCRIPTION = 280;
-const BANNER_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
+
+export type DaoEditSheetMode = 'config' | 'social';
 
 interface DaoEditSheetProps {
   open: boolean;
   daoAccountId: string;
   branding: DaoBranding;
+  /** `config` = ChangeConfig (face). `social` = Call to OnSocial profile only. */
+  mode?: DaoEditSheetMode;
   configName: string;
   configPurpose: string;
   configMetadata: string;
   onClose: () => void;
-  /** After ChangeConfig proposal tx confirms — face stays as-is until approval. */
+  /** After proposal tx confirms — face stays as-is until approval. */
   onProposed?: () => void;
 }
 
@@ -79,12 +90,14 @@ export function DaoEditSheet({
   open,
   daoAccountId,
   branding,
+  mode = 'config',
   configName,
   configPurpose,
   configMetadata,
   onClose,
   onProposed,
 }: DaoEditSheetProps) {
+  const isSocial = mode === 'social';
   const formId = useId();
   const { getSigningWallet } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
@@ -93,17 +106,28 @@ export function DaoEditSheet({
     daoAccountId,
     true
   );
-  const moodPreview = usePortfolioMoodPreviewOptional();
 
-  const [name, setName] = useState(branding.name);
-  const [description, setDescription] = useState(branding.description ?? '');
+  const baseline = useMemo(
+    () =>
+      resolveDaoEditBaseline({
+        mode,
+        branding,
+        configName,
+        configPurpose,
+        configMetadata,
+      }),
+    [mode, branding, configName, configPurpose, configMetadata]
+  );
+
+  const [name, setName] = useState(baseline.name);
+  const [purpose, setPurpose] = useState(baseline.purpose);
+  const [publishSocial, setPublishSocial] = useState(false);
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
-    profileLinksInputFromRecord(branding.links)
+    profileLinksInputFromRecord(baseline.links)
   );
   const [linkErrors, setLinkErrors] = useState<
     Partial<Record<keyof ProfileLinksInput, string>>
   >({});
-  const [publishSocial, setPublishSocial] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -114,16 +138,14 @@ export function DaoEditSheet({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [proposeConfirmOpen, setProposeConfirmOpen] = useState(false);
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    setName(branding.name);
-    setDescription(branding.description ?? '');
-    setLinks(profileLinksInputFromRecord(branding.links));
-    setLinkErrors({});
+    setName(baseline.name);
+    setPurpose(baseline.purpose);
     setPublishSocial(false);
+    setLinks(profileLinksInputFromRecord(baseline.links));
+    setLinkErrors({});
     setAvatarFile(null);
     setBannerFile(null);
     setAvatarPreview(null);
@@ -132,7 +154,7 @@ export function DaoEditSheet({
     setBannerRemoved(false);
     setError(null);
     setProposeConfirmOpen(false);
-  }, [open, branding]);
+  }, [open, baseline]);
 
   useEffect(
     () => () => {
@@ -143,25 +165,23 @@ export function DaoEditSheet({
   );
 
   const baselineLinks = useMemo(
-    () =>
-      normalizeProfileLinksInput(
-        profileLinksInputFromRecord(branding.links),
-        undefined
-      ),
-    [branding.links]
+    () => profileLinksInputFromRecord(baseline.links),
+    [baseline.links]
   );
 
   const isDirty = useMemo(() => {
-    const baselineName = branding.name.trim();
-    const baselineDescription = (branding.description ?? '').trim();
-    const nextLinks = normalizeProfileLinksInput(links, undefined);
-    const linksDirty =
-      JSON.stringify(nextLinks) !== JSON.stringify(baselineLinks);
+    const baselineName = baseline.name.trim();
+    const baselinePurpose = baseline.purpose.trim();
+    // Compare editor field text only — never throw from link normalizers here.
+    const linksDirty = PROFILE_LINK_EDITOR_FIELDS.some(
+      (field) =>
+        links[field.key].trim() !== baselineLinks[field.key].trim()
+    );
     return (
       name.trim() !== baselineName ||
-      description.trim() !== baselineDescription ||
-      linksDirty ||
+      purpose.trim() !== baselinePurpose ||
       publishSocial ||
+      linksDirty ||
       avatarFile !== null ||
       bannerFile !== null ||
       avatarRemoved ||
@@ -172,14 +192,26 @@ export function DaoEditSheet({
     avatarRemoved,
     bannerFile,
     bannerRemoved,
+    baseline.purpose,
+    baseline.name,
     baselineLinks,
-    branding.description,
-    branding.name,
-    description,
     links,
     name,
     publishSocial,
+    purpose,
   ]);
+
+  const hasInvalidLinks = useMemo(
+    () => Object.keys(profileLinkEditorFieldErrors(links)).length > 0,
+    [links]
+  );
+
+  const hasProposeRight = isSocial
+    ? Boolean(eligibility?.canProposeCall)
+    : Boolean(eligibility?.canChangeConfig);
+  const canBatchSocial = !isSocial && Boolean(eligibility?.canProposeCall);
+  const batchSocial = canBatchSocial && publishSocial;
+  const bondCount = batchSocial ? 2 : 1;
 
   const {
     discardConfirmOpen,
@@ -270,14 +302,27 @@ export function DaoEditSheet({
   };
 
   const avatarSrc =
-    avatarPreview ?? (avatarRemoved ? null : branding.avatarUrl);
+    avatarPreview ?? (avatarRemoved ? null : baseline.avatarUrl);
   const bannerSrc =
-    bannerPreview ?? (bannerRemoved ? null : branding.bannerUrl);
-  const canSave = name.trim().length >= 2 && isDirty && !pending;
+    bannerPreview ?? (bannerRemoved ? null : baseline.bannerUrl);
+  const deniedDetail = isSocial
+    ? 'Needs call permission on this DAO.'
+    : 'Needs config permission on this DAO.';
+
+  const canSave =
+    name.trim().length >= 2 &&
+    isDirty &&
+    !pending &&
+    !hasInvalidLinks &&
+    hasProposeRight;
 
   const requestProposeConfirm = (event: FormEvent) => {
     event.preventDefault();
     if (!canSave) return;
+    if (!hasProposeRight) {
+      setError(deniedDetail);
+      return;
+    }
     const nextLinkErrors = profileLinkEditorFieldErrors(links);
     if (Object.keys(nextLinkErrors).length > 0) {
       setLinkErrors(nextLinkErrors);
@@ -290,6 +335,11 @@ export function DaoEditSheet({
 
   const save = async () => {
     if (!canSave) return;
+    if (!hasProposeRight) {
+      setError(deniedDetail);
+      setProposeConfirmOpen(false);
+      return;
+    }
     const nextLinkErrors = profileLinkEditorFieldErrors(links);
     if (Object.keys(nextLinkErrors).length > 0) {
       setLinkErrors(nextLinkErrors);
@@ -301,8 +351,8 @@ export function DaoEditSheet({
     setError(null);
     try {
       const { client } = await getClient();
-      let avatar = branding.avatar;
-      let banner = branding.banner;
+      let avatar = baseline.avatar;
+      let banner = baseline.banner;
       if (avatarFile) {
         const uploaded = await client.storage.upload(avatarFile);
         avatar = `ipfs://${uploaded.cid}`;
@@ -317,14 +367,41 @@ export function DaoEditSheet({
       }
 
       const normalizedLinks = normalizeProfileLinksInput(links, undefined);
-      const onChainName = (configName || name).trim() || name.trim();
-      const onChainPurpose =
-        (configPurpose || description).trim() ||
-        description.trim() ||
-        name.trim();
+      const { accountId: signerId, wallet } = await getSigningWallet();
+
+      if (isSocial) {
+        const socialPayload = buildDaoSocialProfileProposalPayload({
+          name: name.trim(),
+          bio: purpose.trim() || undefined,
+          avatar,
+          banner,
+          links:
+            Object.keys(normalizedLinks).length > 0 ? normalizedLinks : null,
+        });
+        const socialResponse = await submitProtocolProposal({
+          daoAccountId,
+          accountId: signerId,
+          wallet,
+          payload: socialPayload,
+        });
+        const confirmed = await trackTransaction({
+          txHashes: socialResponse.txHashes,
+          submittedMessage: txToastGovPending.publishingDaoProfile,
+          successMessage: txToastGovSuccess.daoProfileProposed,
+          failureMessage: txToastGovError.daoProfilePublishFailed,
+        });
+        if (!confirmed) return;
+        bumpDaoWorkspacePrefetch(daoAccountId);
+        setProposeConfirmOpen(false);
+        onProposed?.();
+        return;
+      }
+
+      const onChainName = name.trim() || configName.trim() || daoAccountId;
+      const onChainPurpose = purpose.trim() || onChainName;
       const metadata = buildDaoBrandingMetadata(configMetadata, {
         name: name.trim(),
-        description: description.trim() || null,
+        description: purpose.trim() || null,
         avatar,
         banner,
         links: Object.keys(normalizedLinks).length > 0 ? normalizedLinks : null,
@@ -335,7 +412,35 @@ export function DaoEditSheet({
         metadata,
         description: `Update DAO profile for ${name.trim()}.`,
       });
-      const { accountId: signerId, wallet } = await getSigningWallet();
+
+      if (batchSocial) {
+        const socialPayload = buildDaoSocialProfileProposalPayload({
+          name: name.trim(),
+          bio: purpose.trim() || undefined,
+          avatar,
+          banner,
+          links:
+            Object.keys(normalizedLinks).length > 0 ? normalizedLinks : null,
+        });
+        const batched = await submitProtocolProposals({
+          daoAccountId,
+          accountId: signerId,
+          wallet,
+          payloads: [payload, socialPayload],
+        });
+        const confirmed = await trackTransaction({
+          txHashes: batched.txHashes,
+          submittedMessage: txToastGovPending.actionSubmitted('Profile proposals'),
+          successMessage: txToastGovSuccess.daoChangeConfigProposed,
+          failureMessage: txToastGovError.actionFailed('Profile proposals'),
+        });
+        if (!confirmed) return;
+        bumpDaoWorkspacePrefetch(daoAccountId);
+        setProposeConfirmOpen(false);
+        onProposed?.();
+        return;
+      }
+
       const response = await submitProtocolProposal({
         daoAccountId,
         accountId: signerId,
@@ -351,39 +456,6 @@ export function DaoEditSheet({
       if (!confirmed) return;
 
       bumpDaoWorkspacePrefetch(daoAccountId);
-
-      if (publishSocial) {
-        try {
-          const socialPayload = buildDaoSocialProfileProposalPayload({
-            name: name.trim(),
-            bio: description.trim() || undefined,
-            avatar,
-            banner,
-            links:
-              Object.keys(normalizedLinks).length > 0 ? normalizedLinks : null,
-          });
-          const socialResponse = await submitProtocolProposal({
-            daoAccountId,
-            accountId: signerId,
-            wallet,
-            payload: socialPayload,
-          });
-          await trackTransaction({
-            txHashes: socialResponse.txHashes,
-            submittedMessage: txToastGovPending.publishingDaoProfile,
-            successMessage: txToastGovSuccess.daoProfileProposed,
-            failureMessage: txToastGovError.daoProfilePublishFailed,
-          });
-        } catch (cause) {
-          if (!isWalletUserCancellation(cause)) {
-            setTxResult({
-              type: 'error',
-              msg: txToastGovError.daoProfilePublishFailed,
-            });
-          }
-        }
-      }
-
       setProposeConfirmOpen(false);
       onProposed?.();
     } catch (cause) {
@@ -393,7 +465,9 @@ export function DaoEditSheet({
         msg:
           cause instanceof Error
             ? cause.message
-            : txToastGovError.actionFailed('DAO profile'),
+            : isSocial
+              ? txToastGovError.daoProfilePublishFailed
+              : txToastGovError.actionFailed('DAO profile'),
       });
     } finally {
       setPending(false);
@@ -408,9 +482,15 @@ export function DaoEditSheet({
         onClose={onClose}
         onBeforeClose={handleBeforeClose}
         onClosed={clearDiscardConfirm}
-        title="Edit DAO profile"
-        subtitle="Cover + square crest — publishes as a config proposal."
-        closeAriaLabel="Back from edit DAO"
+        title={isSocial ? 'Publish OnSocial profile' : 'Edit DAO profile'}
+        subtitle={
+          isSocial
+            ? 'Call proposal to OnSocial profile keys.'
+            : 'Publishes as a config proposal.'
+        }
+        closeAriaLabel={
+          isSocial ? 'Back from publish OnSocial' : 'Back from edit DAO'
+        }
         closeDisabled={pending}
         zIndex={SHEET_Z.overShell}
         className="hub-manage-slide"
@@ -426,7 +506,7 @@ export function DaoEditSheet({
                 pendingLabel="Proposing…"
                 disabled={!canSave}
               >
-                Propose profile
+                {isSocial ? 'Propose OnSocial' : 'Propose profile'}
               </OsSheetAction>
             </OsSheetActions>
           </div>
@@ -438,71 +518,15 @@ export function DaoEditSheet({
           onSubmit={(e) => requestProposeConfirm(e)}
         >
           <section className="dao-edit-hero" aria-label="DAO media">
-            <div
-              className={`account-editor-cover-stage dao-edit-cover${bannerSrc ? ' has-media' : ''}`}
-            >
-              <div className="account-editor-banner-wrap">
-                <div
-                  className={`account-editor-banner-button profile-editor-media-host${bannerSrc ? ' has-media' : ''}`}
-                >
-                  <button
-                    type="button"
-                    className="profile-editor-media-backdrop account-editor-banner-backdrop"
-                    disabled={pending}
-                    onClick={() => bannerInputRef.current?.click()}
-                    aria-label={bannerSrc ? 'Change cover' : 'Add cover'}
-                  >
-                    {bannerSrc ? (
-                      <img
-                        src={bannerSrc}
-                        alt=""
-                        className="account-editor-banner-image"
-                      />
-                    ) : (
-                      <span
-                        className="account-editor-banner-empty"
-                        aria-hidden
-                      />
-                    )}
-                    <span
-                      className={`account-editor-banner-overlay${bannerSrc ? ' has-media' : ''}`}
-                      aria-hidden
-                    />
-                  </button>
-                  <ProfileEditorMediaToolbar
-                    layout="banner"
-                    removeLabel={bannerSrc ? 'Remove cover' : undefined}
-                    onRemove={bannerSrc ? clearBanner : undefined}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="dao-edit-crest-row">
-              <button
-                type="button"
-                className={`dao-edit-crest-picker profile-editor-media-host profile-editor-media-host--squircle${avatarSrc ? ' has-media' : ''}`}
-                disabled={pending}
-                onClick={() => avatarInputRef.current?.click()}
-                aria-label={avatarSrc ? 'Change crest' : 'Add crest'}
-              >
-                {avatarSrc ? (
-                  <img src={avatarSrc} alt="" />
-                ) : (
-                  <span aria-hidden>+</span>
-                )}
-              </button>
-              {avatarSrc ? (
-                <OsFieldRemove
-                  aria-label="Remove crest"
-                  disabled={pending}
-                  onClick={clearAvatar}
-                />
-              ) : null}
-              <p className="dao-edit-crest-hint">
-                Square crest · rounded corners mark this as a DAO
-              </p>
-            </div>
+            <DaoLookPreview
+              coverUrl={bannerSrc}
+              crestUrl={avatarSrc}
+              disabled={pending}
+              onCoverChange={onBannerChange}
+              onCrestChange={(event) => void onAvatarChange(event)}
+              onRemoveCover={bannerSrc ? clearBanner : undefined}
+              onRemoveCrest={avatarSrc ? clearAvatar : undefined}
+            />
           </section>
 
           <OsField
@@ -521,18 +545,24 @@ export function DaoEditSheet({
           </OsField>
 
           <OsField
-            label="About"
-            htmlFor={`${formId}-about`}
-            hint={`${description.length}/${MAX_DESCRIPTION}`}
+            label="Purpose"
+            htmlFor={`${formId}-purpose`}
+            hint={
+              purpose.length >= PROFILE_BIO_LIMIT_WARN
+                ? `${purpose.length}/${PROFILE_BIO_MAX}`
+                : undefined
+            }
           >
             <textarea
-              id={`${formId}-about`}
-              rows={3}
-              value={description}
-              maxLength={MAX_DESCRIPTION}
+              id={`${formId}-purpose`}
+              rows={4}
+              value={purpose}
+              maxLength={PROFILE_BIO_MAX}
               disabled={pending}
               placeholder="What this DAO stewards…"
-              onChange={(event) => setDescription(event.target.value)}
+              onChange={(event) =>
+                setPurpose(event.target.value.slice(0, PROFILE_BIO_MAX))
+              }
               className={osFieldBorderedClassName}
             />
           </OsField>
@@ -572,48 +602,31 @@ export function DaoEditSheet({
             />
           </div>
 
-          <label className="dao-create-toggle dao-edit-social-toggle">
-            <input
-              type="checkbox"
-              checked={publishSocial}
+          {canBatchSocial ? (
+            <button
+              type="button"
+              className="account-action-toggle dao-edit-publish"
+              role="switch"
+              aria-checked={publishSocial}
               disabled={pending}
-              onChange={(event) => setPublishSocial(event.target.checked)}
-            />
-            <span>
-              Also publish OnSocial profile
-              <small>
-                Submits a second proposal (Call) so feeds can use the same crest
-                and name. ~{SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR} NEAR bond —
-                approve on the DAO after.
-              </small>
-            </span>
-          </label>
+              onClick={() => setPublishSocial((on) => !on)}
+            >
+              <span className="account-action-toggle-copy">
+                <span className="account-action-toggle-label">
+                  {DAO_CREATE_PUBLISH}
+                </span>
+                <span className="account-action-toggle-hint">
+                  {DAO_EDIT_PUBLISH_HINT}
+                </span>
+              </span>
+              <span
+                className={`account-safe-mode-switch${publishSocial ? ' is-on' : ''}`}
+                aria-hidden
+              />
+            </button>
+          ) : null}
 
           {error ? <p className="guild-form-error">{error}</p> : null}
-          <p className="dao-edit-footnote">
-            Saves as a DAO config proposal. Profile goes live after approval.
-          </p>
-
-          <input
-            ref={avatarInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="account-editor-file-input"
-            tabIndex={-1}
-            aria-hidden
-            disabled={pending}
-            onChange={(event) => void onAvatarChange(event)}
-          />
-          <input
-            ref={bannerInputRef}
-            type="file"
-            accept={BANNER_ACCEPT}
-            className="account-editor-file-input"
-            tabIndex={-1}
-            aria-hidden
-            disabled={pending}
-            onChange={onBannerChange}
-          />
         </form>
       </DaoPageSlideOverScreen>
       <DiscardConfirmSheet
@@ -623,24 +636,26 @@ export function DaoEditSheet({
       />
       <DaoProposeConfirmSheet
         open={proposeConfirmOpen}
-        title="Propose profile?"
+        title={isSocial ? 'Propose OnSocial profile?' : 'Propose profile?'}
         body={
-          publishSocial
-            ? 'Submit a config proposal for cover, crest, name, and about — plus a second Call for the OnSocial profile.'
-            : 'Submit a config proposal for cover, crest, name, and about. Live after council approval.'
+          isSocial
+            ? 'Submit a Call proposal that writes cover, crest, name, and purpose to OnSocial. Live after council approval.'
+            : batchSocial
+              ? 'Submit config and OnSocial together. Live after council approval.'
+              : 'Submit a config proposal for cover, crest, name, and purpose. Live after council approval.'
         }
         eligibility={eligibility}
         eligibilityLoading={eligibilityLoading}
+        canPropose={hasProposeRight}
+        allowStakeUnlock={false}
+        bondCount={bondCount}
+        deniedDetail={deniedDetail}
         pending={pending}
         proposeLabel="Propose"
         zIndex={SHEET_Z.confirm}
         onDiscard={() => setProposeConfirmOpen(false)}
         onPropose={() => {
           void save();
-        }}
-        onStake={() => {
-          setProposeConfirmOpen(false);
-          moodPreview?.requestDaoStake();
         }}
       />
     </>

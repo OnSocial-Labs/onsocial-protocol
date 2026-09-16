@@ -25,6 +25,13 @@ export function DaoProposeConfirmSheet({
   proposeLabel = 'Propose',
   discardLabel = 'Discard',
   stakeLabel = 'Stake to propose',
+  /** When set, replaces the default propose-right check (e.g. config permission). */
+  canPropose,
+  /** When false, never nudge Stake for this confirm. */
+  allowStakeUnlock = true,
+  /** How many proposal bonds this submit deposits (same-tx batch). */
+  bondCount = 1,
+  deniedDetail = 'You are not on a proposing role on this DAO.',
   zIndex = DISCARD_CONFIRM_Z,
   onDiscard,
   onPropose,
@@ -39,12 +46,20 @@ export function DaoProposeConfirmSheet({
   proposeLabel?: string;
   discardLabel?: string;
   stakeLabel?: string;
+  canPropose?: boolean;
+  allowStakeUnlock?: boolean;
+  bondCount?: number;
+  deniedDetail?: string;
   zIndex?: number;
   onDiscard: () => void;
   onPropose: () => void;
   onStake?: () => void;
 }) {
-  const gate = resolveDaoProposeBondGate(eligibility, eligibilityLoading);
+  const gate = resolveDaoProposeBondGate(eligibility, eligibilityLoading, {
+    canPropose,
+    allowStakeUnlock,
+    bondCount,
+  });
   const loading = eligibilityLoading && !eligibility;
 
   let detail: string;
@@ -57,7 +72,7 @@ export function DaoProposeConfirmSheet({
   } else if (gate.needsForeignStake) {
     detail = `Need ${gate.foreignStakeTokenLabel ?? "this DAO's token"} stake to propose.`;
   } else if (!gate.canPropose) {
-    detail = 'You are not on a proposing role on this DAO.';
+    detail = deniedDetail;
   } else if (!gate.bondOk) {
     detail = gate.shortfallNearLabel
       ? `Need ${gate.shortfallNearLabel} more spendable NEAR for the ${gate.bondLabel} bond.`

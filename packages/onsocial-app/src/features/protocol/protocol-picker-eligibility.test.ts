@@ -30,6 +30,8 @@ function eligibility(
     canPropose: false,
     isGroupMember: false,
     canAddProposal: false,
+    canChangeConfig: false,
+    canProposeCall: false,
     hasStakeProposePath: false,
     foreignStakeTokenLabel: null,
     proposalBond: '0',

@@ -88,12 +88,14 @@ test.describe('DAO manage shell', () => {
 
     await page.getByRole('button', { name: 'Manage' }).click();
     await page.getByRole('menuitem', { name: /Info/ }).click();
-    await expectGlassSheetVisible(page);
+    const info = page.getByRole('dialog', { name: 'Info' });
+    await expect(info).toBeVisible({ timeout: 30_000 });
+    await expect(info).toHaveAttribute('data-sizing', 'hug');
     await expect(
-      page.getByText('On-chain policy snapshot for this board.')
-    ).toBeVisible({ timeout: 30_000 });
+      info.getByText('On-chain policy snapshot for this board.')
+    ).toBeVisible();
     await expect(
-      page.getByText('Connect a wallet to see your stake position.')
+      info.getByText('Connect a wallet to see your stake position.')
     ).toBeVisible();
   });
 

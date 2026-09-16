@@ -16,6 +16,8 @@ import {
   getMemberProposeThreshold,
   isProtocolDaoGroupMember,
   resolveStakeProposeKind,
+  canProposeProtocolCreateKind,
+  canProposeProtocolPolicyAction,
   viewerCanAddProposalOnPolicy,
 } from '@/features/protocol/protocol-propose-gate';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
@@ -55,6 +57,16 @@ export interface ProtocolGovernanceEligibility {
    * Use for Manage / mood / Boost / claim / As-DAO entry.
    */
   canAddProposal: boolean;
+  /**
+   * Viewer can add a ChangeConfig proposal (`config:AddProposal`).
+   * Edit profile / config settings — stricter than {@link canAddProposal}.
+   */
+  canChangeConfig: boolean;
+  /**
+   * Viewer can add a FunctionCall proposal (`call:AddProposal`).
+   * Publish OnSocial / mood / Boost / claim — separate from ChangeConfig.
+   */
+  canProposeCall: boolean;
   /** Member propose role + SOCIAL staking contract — our Stake sheet can unlock. */
   hasStakeProposePath: boolean;
   /**
@@ -152,6 +164,8 @@ function resolveEligibilityRights(
   canProposeByWeight: boolean;
   isGroupMember: boolean;
   canAddProposal: boolean;
+  canChangeConfig: boolean;
+  canProposeCall: boolean;
   hasStakeProposePath: boolean;
   foreignStakeTokenLabel: string | null;
 } {
@@ -179,6 +193,18 @@ function resolveEligibilityRights(
       policy,
       accountId,
       delegatedWeight
+    ),
+    canChangeConfig: canProposeProtocolPolicyAction(
+      policy,
+      accountId,
+      delegatedWeight,
+      'update_config'
+    ),
+    canProposeCall: canProposeProtocolCreateKind(
+      policy,
+      accountId,
+      delegatedWeight,
+      'contract_config'
     ),
     hasStakeProposePath: stakeKind === 'social',
     foreignStakeTokenLabel:
@@ -393,6 +419,8 @@ async function loadProtocolGovernanceEligibility(
     canProposeByWeight,
     isGroupMember,
     canAddProposal,
+    canChangeConfig,
+    canProposeCall,
     hasStakeProposePath,
     foreignStakeTokenLabel: foreignLabel,
   } = rights;
@@ -422,6 +450,8 @@ async function loadProtocolGovernanceEligibility(
       canPropose: canProposeByWeight,
       isGroupMember,
       canAddProposal,
+      canChangeConfig,
+      canProposeCall,
       hasStakeProposePath,
       foreignStakeTokenLabel: foreignLabel,
       proposalBond,
@@ -516,6 +546,8 @@ async function loadProtocolGovernanceEligibility(
     canPropose: canProposeByWeight,
     isGroupMember,
     canAddProposal,
+    canChangeConfig,
+    canProposeCall,
     hasStakeProposePath,
     foreignStakeTokenLabel: foreignLabel,
     proposalBond,
