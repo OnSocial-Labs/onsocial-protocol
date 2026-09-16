@@ -423,7 +423,7 @@ function PortfolioDaoOrgChromeInner({
           branding={initialBranding}
           mode="config"
           configName={configName ?? initialBranding.name}
-          configPurpose={configPurpose ?? initialBranding.description ?? ''}
+          configPurpose={configPurpose ?? initialBranding.purpose ?? ''}
           configMetadata={configMetadata}
           onClose={() =>
             setOverlay((current) => (current === 'edit' ? null : current))
@@ -439,7 +439,7 @@ function PortfolioDaoOrgChromeInner({
           branding={initialBranding}
           mode="social"
           configName={configName ?? initialBranding.name}
-          configPurpose={configPurpose ?? initialBranding.description ?? ''}
+          configPurpose={configPurpose ?? initialBranding.purpose ?? ''}
           configMetadata={configMetadata}
           onClose={() =>
             setOverlay((current) =>

@@ -23,9 +23,17 @@ import {
   osFieldBorderedClassName,
   useDiscardConfirm,
 } from '@onsocial/ui';
+import {
+  formatProfileMediaRef,
+  normalizeProfileAboutAlign,
+  normalizeProfileLeadInput,
+  type ProfileAboutAlign,
+} from '@onsocial/sdk';
 import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
 import { DaoLookPreview } from '@/features/protocol/dao-look-preview';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
+import { ProfileAboutEditorSheet } from '@/components/wallet/profile-about-editor-sheet';
+import type { ProfileAboutPhotoDraft } from '@/components/wallet/profile-about-photos-editor';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -62,8 +70,13 @@ import {
   PROFILE_BIO_LIMIT_WARN,
   PROFILE_BIO_MAX,
   clampFaceEditorInput,
-  partitionDaoPurposeFaceAbout,
+  clampProfileBioFace,
+  profileAboutHasMoreThanFace,
 } from '@/lib/profile-bio-face';
+import {
+  parseProfileAboutPhotoRefs,
+  profileAboutPhotoRefsEqual,
+} from '@/lib/profile-about-photos';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastGovError,
@@ -127,6 +140,14 @@ export function DaoEditSheet({
   const [purpose, setPurpose] = useState(baseline.purpose);
   const [face, setFace] = useState(baseline.face);
   const [about, setAbout] = useState(baseline.about);
+  const [lead, setLead] = useState(baseline.lead);
+  const [aboutAlign, setAboutAlign] = useState<ProfileAboutAlign>(
+    baseline.aboutAlign
+  );
+  const [photos, setPhotos] = useState<ProfileAboutPhotoDraft[]>(
+    () => baseline.photos
+  );
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [publishSocial, setPublishSocial] = useState(false);
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
     profileLinksInputFromRecord(baseline.links)
@@ -151,6 +172,10 @@ export function DaoEditSheet({
     setPurpose(baseline.purpose);
     setFace(baseline.face);
     setAbout(baseline.about);
+    setLead(baseline.lead);
+    setAboutAlign(baseline.aboutAlign);
+    setPhotos(baseline.photos.map((photo) => ({ ...photo })));
+    setAboutOpen(false);
     setPublishSocial(false);
     setLinks(profileLinksInputFromRecord(baseline.links));
     setLinkErrors({});
@@ -186,7 +211,15 @@ export function DaoEditSheet({
     );
     const onSocialDirty = isSocial
       ? face.trim() !== baseline.face.trim() ||
-        about.trim() !== baseline.about.trim()
+        about.trim() !== baseline.about.trim() ||
+        normalizeProfileLeadInput(lead) !==
+          normalizeProfileLeadInput(baseline.lead) ||
+        aboutAlign !== baseline.aboutAlign ||
+        photos.some((photo) => Boolean(photo.file)) ||
+        !profileAboutPhotoRefsEqual(
+          photos.map((photo) => photo.ref.trim()).filter(Boolean),
+          baseline.photos.map((photo) => photo.ref)
+        )
       : publishSocial;
     return (
       name.trim() !== baselineName ||
@@ -200,19 +233,25 @@ export function DaoEditSheet({
     );
   }, [
     about,
+    aboutAlign,
     avatarFile,
     avatarRemoved,
     bannerFile,
     bannerRemoved,
     baseline.about,
+    baseline.aboutAlign,
     baseline.face,
+    baseline.lead,
+    baseline.photos,
     baseline.purpose,
     baseline.name,
     baselineLinks,
     face,
     isSocial,
+    lead,
     links,
     name,
+    photos,
     publishSocial,
     purpose,
   ]);
@@ -384,17 +423,31 @@ export function DaoEditSheet({
 
       const normalizedLinks = normalizeProfileLinksInput(links, undefined);
       const { accountId: signerId, wallet } = await getSigningWallet();
+      const photoRefs: string[] = [];
+      for (const photo of photos) {
+        if (photo.file) {
+          const uploaded = await client.storage.upload(photo.file);
+          photoRefs.push(formatProfileMediaRef(uploaded));
+        } else if (photo.ref.trim()) {
+          photoRefs.push(photo.ref.trim());
+        }
+      }
+      const nextPhotos = parseProfileAboutPhotoRefs(photoRefs);
+      const socialDraft = {
+        name: name.trim(),
+        bio: face.trim() || undefined,
+        about: about.trim() || null,
+        lead: normalizeProfileLeadInput(lead) || null,
+        aboutAlign: normalizeProfileAboutAlign(aboutAlign),
+        photos: nextPhotos.length > 0 ? nextPhotos : null,
+        avatar,
+        banner,
+        links:
+          Object.keys(normalizedLinks).length > 0 ? normalizedLinks : null,
+      };
 
       if (isSocial) {
-        const socialPayload = buildDaoSocialProfileProposalPayload({
-          name: name.trim(),
-          bio: face.trim() || undefined,
-          about: about.trim() || null,
-          avatar,
-          banner,
-          links:
-            Object.keys(normalizedLinks).length > 0 ? normalizedLinks : null,
-        });
+        const socialPayload = buildDaoSocialProfileProposalPayload(socialDraft);
         const socialResponse = await submitProtocolProposal({
           daoAccountId,
           accountId: signerId,
@@ -431,15 +484,7 @@ export function DaoEditSheet({
       });
 
       if (batchSocial) {
-        const socialPayload = buildDaoSocialProfileProposalPayload({
-          name: name.trim(),
-          bio: face.trim() || undefined,
-          about: about.trim() || null,
-          avatar,
-          banner,
-          links:
-            Object.keys(normalizedLinks).length > 0 ? normalizedLinks : null,
-        });
+        const socialPayload = buildDaoSocialProfileProposalPayload(socialDraft);
         const batched = await submitProtocolProposals({
           daoAccountId,
           accountId: signerId,
@@ -497,6 +542,22 @@ export function DaoEditSheet({
     }
   };
 
+  const aboutTriggerMeta = profileAboutHasMoreThanFace({
+    aboutText: about,
+    leadText: lead,
+    photoCount: photos.length,
+  })
+    ? [
+        lead.trim() ? 'Lead' : null,
+        photos.length > 0
+          ? `${photos.length} photo${photos.length === 1 ? '' : 's'}`
+          : null,
+        about.trim() ? 'More bio' : null,
+      ]
+        .filter(Boolean)
+        .join(' · ') || 'Lead, photos, more'
+    : 'Lead, photos, more';
+
   const faceAboutFields = (
     <>
       <OsField
@@ -521,28 +582,19 @@ export function DaoEditSheet({
           className={osFieldBorderedClassName}
         />
       </OsField>
-      <OsField
-        label="About"
-        htmlFor={`${formId}-about`}
-        hint={
-          about.length >= PROFILE_BIO_LIMIT_WARN
-            ? `${about.length}/${PROFILE_BIO_MAX}`
-            : undefined
-        }
+      <button
+        type="button"
+        className="account-editor-about-trigger"
+        disabled={pending}
+        aria-haspopup="dialog"
+        aria-expanded={aboutOpen}
+        onClick={() => setAboutOpen(true)}
       >
-        <textarea
-          id={`${formId}-about`}
-          rows={4}
-          value={about}
-          maxLength={PROFILE_BIO_MAX}
-          disabled={pending}
-          placeholder="Continuation after the face…"
-          onChange={(event) =>
-            setAbout(event.target.value.slice(0, PROFILE_BIO_MAX))
-          }
-          className={osFieldBorderedClassName}
-        />
-      </OsField>
+        <span className="account-editor-about-trigger-label">About</span>
+        <span className="account-editor-about-trigger-meta">
+          {aboutTriggerMeta}
+        </span>
+      </button>
     </>
   );
 
@@ -687,9 +739,7 @@ export function DaoEditSheet({
               disabled={pending}
               onClick={() => {
                 if (!publishSocial) {
-                  const split = partitionDaoPurposeFaceAbout(purpose);
-                  setFace(split.face);
-                  setAbout(split.about);
+                  setFace(clampFaceEditorInput(clampProfileBioFace(purpose)));
                 }
                 setPublishSocial((on) => !on);
               }}
@@ -724,7 +774,7 @@ export function DaoEditSheet({
         title={isSocial ? 'Propose OnSocial profile?' : 'Propose profile?'}
         body={
           isSocial
-            ? 'Submit a Call proposal that writes cover, crest, name, Face, and About to OnSocial. Live after council approval.'
+            ? 'Submit a Call proposal that writes cover, crest, name, Face, and the About page to OnSocial. Live after council approval.'
             : batchSocial
               ? 'Submit config and OnSocial together. Live after council approval.'
               : 'Submit a config proposal for cover, crest, name, and purpose. Live after council approval.'
@@ -742,6 +792,24 @@ export function DaoEditSheet({
         onPropose={() => {
           void save();
         }}
+      />
+      <ProfileAboutEditorSheet
+        open={aboutOpen}
+        onClose={() => setAboutOpen(false)}
+        profileName={name}
+        lead={lead}
+        onLeadChange={setLead}
+        aboutAlign={aboutAlign}
+        onAboutAlignChange={setAboutAlign}
+        aboutBio={about}
+        onAboutBioChange={setAbout}
+        tags={[]}
+        onTagsChange={() => undefined}
+        showCrafts={false}
+        industry={baseline.industry}
+        photos={photos}
+        onPhotosChange={setPhotos}
+        disabled={pending}
       />
     </>
   );

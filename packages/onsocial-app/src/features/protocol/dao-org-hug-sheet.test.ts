@@ -92,9 +92,10 @@ describe('DAO org hug drawers', () => {
     expect(edit).toContain('DAO_CREATE_PUBLISH');
     expect(edit).toContain('DAO_EDIT_PUBLISH_HINT');
     expect(edit).toContain('bondCount');
-    expect(edit).toContain('partitionDaoPurposeFaceAbout');
+    expect(edit).toContain('clampProfileBioFace');
     expect(edit).toContain('label="Face"');
-    expect(edit).toContain('label="About"');
+    expect(edit).toContain('ProfileAboutEditorSheet');
+    expect(edit).toContain('account-editor-about-trigger');
   });
 
   it('pads Members / Treasury / Info as a hug list, not a page overlay', () => {
@@ -117,6 +118,29 @@ describe('DAO org hug drawers', () => {
     expect(members).not.toContain('dao-members-stake-actions');
     expect(info).toContain('footer={footer}');
     expect(info).not.toContain('protocol-dao-info-actions');
+  });
+
+  it('opens a long DAO face bio in a hug drawer, not About', () => {
+    const faceBio = readFileSync(
+      join(here, '../../components/portfolio/portfolio-face-bio.tsx'),
+      'utf8'
+    );
+    expect(faceBio).toContain('OsHugSheet');
+    expect(faceBio).toContain('Close bio');
+    expect(faceBio).toContain('Read full bio');
+    expect(faceBio).toContain('daoFaceBioOverflows');
+    expect(faceBio).toContain('className="portfolio-bio-face-slot"');
+    expect(faceBio).toContain('bodyClassName="portfolio-bio-hug-body"');
+    expect(faceBio).toContain('aria-hidden');
+    expect(faceBio).not.toContain('DropArt');
+    expect(faceBio).not.toContain('OsPageSheet');
+    expect(globalsCss).toContain('button.portfolio-bio-face-slot');
+    expect(globalsCss).toContain('.portfolio-bio-hug-body');
+    expect(globalsCss).toContain('.glass-sheet-panel .portfolio-bio--full');
+    expect(globalsCss).toContain('.portfolio-bio--full .portfolio-about-bio');
+    expect(globalsCss).toMatch(
+      /\.portfolio-bio--full[\s\S]*text-align:\s*center/
+    );
   });
 
   it('lands raised proposals on the proposal page instead of the face', () => {

@@ -103,7 +103,7 @@ export function DaoManageSheet({
           {
             id: 'edit',
             label: 'Edit profile',
-            description: 'Cover, crest, name, face, and About (config)',
+            description: 'Cover, crest, name, and purpose (config)',
             onSelect: () => run('edit'),
           } satisfies ActionDrawerItem,
         ]
@@ -113,7 +113,7 @@ export function DaoManageSheet({
           {
             id: 'publish-social',
             label: 'Publish OnSocial profile',
-            description: 'Call proposal for feeds and profile keys',
+            description: 'Face, About page, and profile keys',
             onSelect: () => run('publish-social'),
           },
           {
