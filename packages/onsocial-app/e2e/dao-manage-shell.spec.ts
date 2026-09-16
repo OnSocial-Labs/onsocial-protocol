@@ -53,7 +53,9 @@ test.describe('DAO manage shell', () => {
       manageDialog.getByRole('menuitem', { name: /Edit profile/ })
     ).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    await manageDialog
+      .getByRole('button', { name: 'Close', exact: true })
+      .click();
     await expect(manageButton).toHaveAttribute('aria-expanded', 'false');
   });
 
@@ -74,7 +76,7 @@ test.describe('DAO manage shell', () => {
     await expect(propose).toHaveClass(/os-sheet-cap-short/);
     await expect(propose).not.toHaveAttribute('data-surface', 'page');
     await expect(
-      page.getByRole('button', { name: 'Close propose' })
+      propose.getByRole('button', { name: 'Close propose' })
     ).toBeVisible();
     await expect(propose.getByText('Connect a wallet to propose.')).toBeVisible();
     await expect(propose.getByText('COMMON')).toHaveCount(0);
@@ -134,10 +136,13 @@ test.describe('DAO manage shell', () => {
       'data-presentation',
       'enter'
     );
-    await expect(page.getByRole('dialog', { name: 'Members' })).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Close members' })
-    ).toBeVisible();
+    const membersDialog = page.getByRole('dialog', { name: 'Members' });
+    await expect(membersDialog).toBeVisible();
+    // Backdrop + header share this aria-label; only the header lives in the dialog.
+    const membersClose = membersDialog.getByRole('button', {
+      name: 'Close members',
+    });
+    await expect(membersClose).toBeVisible();
     await expect(membersSheet.locator('.os-app-screen--embedded')).toHaveCount(
       0
     );
@@ -147,7 +152,7 @@ test.describe('DAO manage shell', () => {
     await expect(page.locator('.dao-members-slide')).toHaveCount(0);
     await expect(page.locator('[data-os-slide-over="true"]')).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Close members' }).click();
+    await membersClose.click();
     await expect(membersSheet).toHaveCount(0, { timeout: 10_000 });
 
     await tools.getByRole('button', { name: 'Treasury' }).click();
@@ -158,9 +163,10 @@ test.describe('DAO manage shell', () => {
     await expect(treasurySheet).toBeVisible({ timeout: 30_000 });
     await expect(treasurySheet).toHaveAttribute('data-sizing', 'hug');
     await expect(treasurySheet).toHaveAttribute('data-surface', 'glass');
-    await expect(page.getByRole('dialog', { name: 'Treasury' })).toBeVisible();
+    const treasuryDialog = page.getByRole('dialog', { name: 'Treasury' });
+    await expect(treasuryDialog).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Close treasury' })
+      treasuryDialog.getByRole('button', { name: 'Close treasury' })
     ).toBeVisible();
     await expect(treasurySheet.locator('.os-app-screen--embedded')).toHaveCount(
       0
