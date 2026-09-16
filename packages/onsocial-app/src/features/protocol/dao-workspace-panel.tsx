@@ -33,13 +33,21 @@ import { useDaoPageMood } from '@/features/protocol/use-dao-page-mood';
 import { actOnProtocolProposal } from '@/features/protocol/protocol-act';
 import {
   actionLabel,
+  applyOptimisticFinalize,
   applyOptimisticVote,
+  applyProtocolProposalSnapshot,
   isProtocolApplicationSoftExpired,
   isTerminalProtocolProposalStatus,
   mergeProtocolFeedApplications,
   mergeProtocolProposalSnapshot,
+  protocolApplicationProposalId,
   resolveLiveProposal,
 } from '@/features/protocol/protocol-card-view';
+import {
+  overlayConfirmedProtocolApplications,
+  overlayConfirmedProtocolProposal,
+  recordConfirmedProtocolProposal,
+} from '@/features/protocol/protocol-proposal-ledger';
 import {
   readLastProtocolCreateKind,
   rememberProtocolCreateKind,
@@ -64,7 +72,10 @@ import {
   type ProtocolProposalFamily,
   upsertProtocolProposalApplication,
 } from '@/features/protocol/protocol-feed-filters';
-import { parseProtocolProposalFamily } from '@/features/protocol/protocol-proposal-family';
+import {
+  openDaoSubmittedProposal,
+  parseProtocolProposalFamily,
+} from '@/features/protocol/protocol-proposal-family';
 import {
   fetchProtocolFeed,
   fetchProtocolProposal,
@@ -214,8 +225,11 @@ export function DaoWorkspacePanel({
   );
 
   const cachedFeed = readDaoFeedCache(daoAccountId);
-  const [applications, setApplications] = useState<ProtocolApplication[]>(
-    () => cachedFeed?.applications ?? []
+  const [applications, setApplications] = useState<ProtocolApplication[]>(() =>
+    overlayConfirmedProtocolApplications(
+      daoAccountId,
+      cachedFeed?.applications ?? []
+    )
   );
   const [daoPolicy, setDaoPolicy] = useState<ProtocolDaoPolicy | null>(
     () => cachedFeed?.daoPolicy ?? null
@@ -507,7 +521,10 @@ export function DaoWorkspacePanel({
       const cached = readDaoFeedCache(daoAccountId);
       if (!soft && cached) {
         setApplications((current) =>
-          mergeProtocolFeedApplications(current, cached.applications)
+          overlayConfirmedProtocolApplications(
+            daoAccountId,
+            mergeProtocolFeedApplications(current, cached.applications)
+          )
         );
         setDaoPolicy((prev) => cached.daoPolicy ?? prev);
         setFeedSyncing(Boolean(cached.syncing));
@@ -522,7 +539,10 @@ export function DaoWorkspacePanel({
         const feed = await fetchProtocolFeed(daoAccountId, 'protocol');
         writeDaoFeedCache(daoAccountId, feed);
         setApplications((current) =>
-          mergeProtocolFeedApplications(current, feed.applications)
+          overlayConfirmedProtocolApplications(
+            daoAccountId,
+            mergeProtocolFeedApplications(current, feed.applications)
+          )
         );
         setDaoPolicy((prev) => feed.daoPolicy ?? prev);
         setFeedSyncing(Boolean(feed.syncing));
@@ -738,38 +758,32 @@ export function DaoWorkspacePanel({
       appId: string,
       nextProposal: NonNullable<ReturnType<typeof resolveLiveProposal>>
     ) => {
-      setApplications((current) =>
-        current.map((row) => {
-          if (row.app_id !== appId) return row;
-          const gp = row.governance_proposal;
-          const previousSnapshot = gp?.snapshot ?? null;
-          const mergedSnapshot = mergeProtocolProposalSnapshot(
-            resolveLiveProposal(row) ?? previousSnapshot,
-            nextProposal
-          );
-          if (!mergedSnapshot) return row;
-          return {
-            ...row,
-            governance_proposal: gp
-              ? {
-                  ...gp,
-                  status: mergedSnapshot.status,
-                  snapshot: {
-                    ...mergedSnapshot,
-                    policy_snapshot:
-                      mergedSnapshot.policy_snapshot ??
-                      previousSnapshot?.policy_snapshot ??
-                      null,
-                  },
-                  kind: mergedSnapshot.kind,
-                  description: mergedSnapshot.description,
-                }
-              : gp,
-          };
-        })
+      const confirmed = overlayConfirmedProtocolProposal(
+        daoAccountId,
+        nextProposal
       );
+      setApplications((current) => {
+        const proposalId = confirmed.id ?? nextProposal.id ?? null;
+        return overlayConfirmedProtocolApplications(
+          daoAccountId,
+          current.map((row) => {
+            const rowProposalId = protocolApplicationProposalId(row);
+            if (row.app_id !== appId && rowProposalId !== proposalId) {
+              return row;
+            }
+            const gp = row.governance_proposal;
+            const previousSnapshot = gp?.snapshot ?? null;
+            const mergedSnapshot = mergeProtocolProposalSnapshot(
+              resolveLiveProposal(row) ?? previousSnapshot,
+              confirmed
+            );
+            if (!mergedSnapshot) return row;
+            return applyProtocolProposalSnapshot(row, mergedSnapshot);
+          })
+        );
+      });
     },
-    []
+    [daoAccountId]
   );
 
   const refreshProposalLive = useCallback(
@@ -791,7 +805,10 @@ export function DaoWorkspacePanel({
   const portfolioFaceRefreshIdsRef = useRef<Set<number>>(new Set());
 
   const refreshPortfolioFaceIfApproved = useCallback(
-    (proposalId: number | null | undefined, status: string | null | undefined) => {
+    (
+      proposalId: number | null | undefined,
+      status: string | null | undefined
+    ) => {
       if (proposalId == null || status !== 'Approved') return;
       if (portfolioFaceRefreshIdsRef.current.has(proposalId)) return;
       portfolioFaceRefreshIdsRef.current.add(proposalId);
@@ -843,12 +860,14 @@ export function DaoWorkspacePanel({
     async (proposalId: number | null) => {
       closeAllSheets();
       if (proposalId == null) {
+        openDaoSubmittedProposal(daoAccountId, null);
         bumpDaoWorkspacePrefetch(daoAccountId);
         void loadFeed();
         return;
       }
 
-      navigateToProposalDetail(proposalId);
+      setFocusedProposalId(proposalId);
+      openDaoSubmittedProposal(daoAccountId, proposalId);
 
       try {
         const refreshed = await fetchProtocolProposal({
@@ -867,13 +886,7 @@ export function DaoWorkspacePanel({
       bumpDaoWorkspacePrefetch(daoAccountId);
       void loadFeed();
     },
-    [
-      adoptLiveProposal,
-      closeAllSheets,
-      daoAccountId,
-      loadFeed,
-      navigateToProposalDetail,
-    ]
+    [adoptLiveProposal, closeAllSheets, daoAccountId, loadFeed]
   );
 
   useEffect(() => {
@@ -892,39 +905,30 @@ export function DaoWorkspacePanel({
               proposalId
             );
             if (!match) return current;
-            return current.map((row) => {
-              if (row.app_id !== match.app_id) return row;
-              const gp = row.governance_proposal;
-              const previousSnapshot = gp?.snapshot ?? null;
-              const mergedSnapshot = mergeProtocolProposalSnapshot(
-                resolveLiveProposal(row) ?? previousSnapshot,
-                refreshed.proposal!
-              );
-              if (!mergedSnapshot) return row;
-              return {
-                ...row,
-                governance_proposal: gp
-                  ? {
-                      ...gp,
-                      status: mergedSnapshot.status,
-                      snapshot: {
-                        ...mergedSnapshot,
-                        policy_snapshot:
-                          mergedSnapshot.policy_snapshot ??
-                          previousSnapshot?.policy_snapshot ??
-                          null,
-                      },
-                      kind: mergedSnapshot.kind,
-                      description: mergedSnapshot.description,
-                    }
-                  : gp,
-              };
-            });
+            const confirmed = overlayConfirmedProtocolProposal(
+              daoAccountId,
+              refreshed.proposal!
+            );
+            return overlayConfirmedProtocolApplications(
+              daoAccountId,
+              current.map((row) => {
+                if (row.app_id !== match.app_id) return row;
+                const previousSnapshot =
+                  row.governance_proposal?.snapshot ?? null;
+                const mergedSnapshot = mergeProtocolProposalSnapshot(
+                  resolveLiveProposal(row) ?? previousSnapshot,
+                  confirmed
+                );
+                if (!mergedSnapshot) return row;
+                return applyProtocolProposalSnapshot(row, mergedSnapshot);
+              })
+            );
           });
           if (refreshed.daoPolicy) setDaoPolicy(refreshed.daoPolicy);
           refreshPortfolioFaceIfApproved(
             proposalId,
-            refreshed.proposal.status
+            overlayConfirmedProtocolProposal(daoAccountId, refreshed.proposal)
+              .status
           );
         })
         .catch(() => {
@@ -986,10 +990,14 @@ export function DaoWorkspacePanel({
         if (voteChoice) {
           const live = resolveLiveProposal(actionApplication);
           if (live) {
-            mergeProposal(
-              actionApplication.app_id,
-              applyOptimisticVote(live, signerId, voteChoice, daoPolicy)
+            const optimistic = applyOptimisticVote(
+              live,
+              signerId,
+              voteChoice,
+              daoPolicy
             );
+            recordConfirmedProtocolProposal(daoAccountId, optimistic);
+            mergeProposal(actionApplication.app_id, optimistic);
           }
           setConfirmedVotePulse({
             proposalId,
@@ -1001,6 +1009,14 @@ export function DaoWorkspacePanel({
                   : 'VoteRemove',
           });
           window.setTimeout(() => setConfirmedVotePulse(null), 3000);
+          navigateToProposalDetail(proposalId);
+        } else if (action === 'Finalize') {
+          const live = resolveLiveProposal(actionApplication);
+          if (live) {
+            const optimistic = applyOptimisticFinalize(live, daoPolicy);
+            recordConfirmedProtocolProposal(daoAccountId, optimistic);
+            mergeProposal(actionApplication.app_id, optimistic);
+          }
           navigateToProposalDetail(proposalId);
         }
 
@@ -1031,11 +1047,12 @@ export function DaoWorkspacePanel({
             });
           }
           if (refreshed.proposal) {
-            mergeProposal(actionApplication.app_id, refreshed.proposal);
-            refreshPortfolioFaceIfApproved(
-              proposalId,
-              refreshed.proposal.status
+            const overlaid = overlayConfirmedProtocolProposal(
+              daoAccountId,
+              refreshed.proposal
             );
+            mergeProposal(actionApplication.app_id, overlaid);
+            refreshPortfolioFaceIfApproved(proposalId, overlaid.status);
           }
           if (refreshed.daoPolicy) setDaoPolicy(refreshed.daoPolicy);
         } catch {

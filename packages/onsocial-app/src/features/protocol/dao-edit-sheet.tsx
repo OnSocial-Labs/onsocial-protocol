@@ -86,8 +86,8 @@ interface DaoEditSheetProps {
   configPurpose: string;
   configMetadata: string;
   onClose: () => void;
-  /** After proposal tx confirms — face stays as-is until approval. */
-  onProposed?: () => void;
+  /** After proposal tx confirms — open that proposal (face stays until approval). */
+  onProposed?: (proposalId: number | null) => void;
 }
 
 export function DaoEditSheet({
@@ -410,7 +410,7 @@ export function DaoEditSheet({
         if (!confirmed) return;
         bumpDaoWorkspacePrefetch(daoAccountId);
         setProposeConfirmOpen(false);
-        onProposed?.();
+        onProposed?.(socialResponse.proposalId);
         return;
       }
 
@@ -456,7 +456,11 @@ export function DaoEditSheet({
         if (!confirmed) return;
         bumpDaoWorkspacePrefetch(daoAccountId);
         setProposeConfirmOpen(false);
-        onProposed?.();
+        onProposed?.(
+          [...batched.proposalIds]
+            .reverse()
+            .find((id): id is number => id != null) ?? null
+        );
         return;
       }
 
@@ -476,7 +480,7 @@ export function DaoEditSheet({
 
       bumpDaoWorkspacePrefetch(daoAccountId);
       setProposeConfirmOpen(false);
-      onProposed?.();
+      onProposed?.(response.proposalId);
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
       setTxResult({

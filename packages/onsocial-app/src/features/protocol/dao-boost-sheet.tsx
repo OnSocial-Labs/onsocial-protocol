@@ -52,7 +52,10 @@ import { submitProtocolProposal } from '@/features/protocol/protocol-create';
 import type { ProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { bumpDaoWorkspacePrefetch } from '@/lib/dao-workspace-prefetch';
-import { formatSocialCompact, yoctoToSocial } from '@/lib/format-social-balance';
+import {
+  formatSocialCompact,
+  yoctoToSocial,
+} from '@/lib/format-social-balance';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
   SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS,
@@ -88,6 +91,7 @@ export function DaoBoostSheet({
   eligibilityLoading = false,
   onClose,
   onRequestStake,
+  onProposed,
 }: {
   open: boolean;
   daoAccountId: string;
@@ -96,6 +100,7 @@ export function DaoBoostSheet({
   eligibilityLoading?: boolean;
   onClose: () => void;
   onRequestStake?: () => void;
+  onProposed?: (proposalId: number | null) => void;
 }) {
   const formId = useId();
   const { getSigningWallet } = useAppWallet();
@@ -233,8 +238,7 @@ export function DaoBoostSheet({
           const period =
             lockPeriodOption(lockMonths)?.label ?? `${lockMonths} months`;
           setConfirm({
-            title:
-              mode === 'increase' ? 'Propose increase?' : 'Propose Boost?',
+            title: mode === 'increase' ? 'Propose increase?' : 'Propose Boost?',
             body:
               mode === 'increase'
                 ? `Add ${amountLabel} SOCIAL to the DAO Boost lock (${period}).`
@@ -342,7 +346,9 @@ export function DaoBoostSheet({
       });
       const confirmed = await trackTransaction({
         txHashes: response.txHashes,
-        submittedMessage: txToastGovPending.actionSubmitted(confirm.actionLabel),
+        submittedMessage: txToastGovPending.actionSubmitted(
+          confirm.actionLabel
+        ),
         successMessage:
           txToastGovSuccess.actionConfirmed(`${confirm.actionLabel} proposal`) +
           ' Approve to execute.',
@@ -357,13 +363,7 @@ export function DaoBoostSheet({
           resetLiveCounterAfterClaim();
         }
         await refresh();
-        if (mode === 'lock') {
-          onClose();
-        } else {
-          setMode(canUnlock ? 'unlock' : 'collect');
-          setAmountInput('');
-          setExtendMonths(null);
-        }
+        onProposed?.(response.proposalId);
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
@@ -424,11 +424,7 @@ export function DaoBoostSheet({
           ) : null
         }
       >
-        <form
-          id={formId}
-          className="hub-manage-form"
-          onSubmit={requestConfirm}
-        >
+        <form id={formId} className="hub-manage-form" onSubmit={requestConfirm}>
           {hasPosition ? (
             <div className="dao-boost-position" aria-live="polite">
               <p className="dao-boost-position-line">

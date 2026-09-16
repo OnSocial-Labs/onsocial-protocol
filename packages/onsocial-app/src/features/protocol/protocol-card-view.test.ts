@@ -6,7 +6,9 @@ import {
   resolveProtocolDaoBoard,
 } from '@/features/protocol/dao-accounts';
 import {
+  applyOptimisticFinalize,
   applyOptimisticVote,
+  concludeProtocolProposal,
   deriveProtocolProposalView,
   getProtocolProposalVotesCast,
   mergeProtocolFeedApplications,
@@ -167,11 +169,7 @@ describe('protocol create + stake helpers', () => {
         {
           name: 'proposers',
           kind: { Member: '50' },
-          permissions: [
-            'vote:AddProposal',
-            '*:VoteApprove',
-            '*:Finalize',
-          ],
+          permissions: ['vote:AddProposal', '*:VoteApprove', '*:Finalize'],
         },
       ],
     };
@@ -244,9 +242,9 @@ describe('protocol create + stake helpers', () => {
       },
     });
 
-    expect(
-      getRemoveProtocolPolicyRoleBlockReason(policy, 'guardians')
-    ).toMatch(/only full-access role/);
+    expect(getRemoveProtocolPolicyRoleBlockReason(policy, 'guardians')).toMatch(
+      /only full-access role/
+    );
     expect(() =>
       buildProtocolPolicyPayload({
         actionId: 'remove_role',
@@ -280,7 +278,12 @@ describe('protocol create + stake helpers', () => {
     };
 
     expect(
-      canProposeProtocolCreateKind(policy, 'alice.testnet', '0', 'contract_upgrade')
+      canProposeProtocolCreateKind(
+        policy,
+        'alice.testnet',
+        '0',
+        'contract_upgrade'
+      )
     ).toBe(true);
     expect(
       canProposeProtocolCreateKind(policy, 'bob.testnet', '50', 'signal')
@@ -289,7 +292,12 @@ describe('protocol create + stake helpers', () => {
       canProposeProtocolCreateKind(policy, 'bob.testnet', '100', 'signal')
     ).toBe(true);
     expect(
-      canProposeProtocolCreateKind(policy, 'bob.testnet', '100', 'contract_upgrade')
+      canProposeProtocolCreateKind(
+        policy,
+        'bob.testnet',
+        '100',
+        'contract_upgrade'
+      )
     ).toBe(false);
     expect(
       canProposeProtocolPolicyAction(
@@ -444,7 +452,9 @@ describe('protocol card view', () => {
   it('accepts numeric vote_counts buckets from chain snapshots', () => {
     const numericProposal: ProtocolDaoProposal = {
       ...proposal,
-      vote_counts: { council: [2, 0, 0] as unknown as [string, string, string] },
+      vote_counts: {
+        council: [2, 0, 0] as unknown as [string, string, string],
+      },
     };
     const view = deriveProtocolProposalView({
       application: {
@@ -498,6 +508,7 @@ describe('protocol card view', () => {
     );
     expect(next.votes['alice.testnet']).toBe('Approve');
     expect(sumVoteCounts(next.vote_counts, 0)).toBe(2);
+    expect(next.status).toBe('Approved');
   });
 
   it('does not regress terminal status when feed refresh is stale', () => {
@@ -517,9 +528,9 @@ describe('protocol card view', () => {
     expect(shouldAdoptProtocolProposalSnapshot(approved, staleOpen)).toBe(
       false
     );
-    expect(
-      mergeProtocolProposalSnapshot(approved, staleOpen)?.status
-    ).toBe('Approved');
+    expect(mergeProtocolProposalSnapshot(approved, staleOpen)?.status).toBe(
+      'Approved'
+    );
   });
 
   it('keeps fresher vote counts when feed refresh is stale', () => {
@@ -561,13 +572,10 @@ describe('protocol card view', () => {
         snapshot: proposal,
       },
     };
-    const merged = mergeProtocolFeedApplications(
-      [currentApp],
-      [staleFeedApp]
-    );
-    expect(sumVoteCounts(merged[0]?.governance_proposal?.snapshot?.vote_counts, 0)).toBe(
-      2
-    );
+    const merged = mergeProtocolFeedApplications([currentApp], [staleFeedApp]);
+    expect(
+      sumVoteCounts(merged[0]?.governance_proposal?.snapshot?.vote_counts, 0)
+    ).toBe(2);
   });
 
   it('keeps add-member vote pool stable when nominee appears in refreshed policy', () => {
@@ -575,7 +583,9 @@ describe('protocol card view', () => {
       id: 21,
       proposer: 'alice.testnet',
       description: 'Add berry to council',
-      kind: { AddMemberToRole: { member_id: 'berry.testnet', role: 'council' } },
+      kind: {
+        AddMemberToRole: { member_id: 'berry.testnet', role: 'council' },
+      },
       status: 'InProgress',
       vote_counts: { council: ['2', '0', '0'] },
       votes: {
@@ -650,7 +660,9 @@ describe('protocol card view', () => {
         roles: [
           {
             name: 'guardians',
-            kind: { Group: ['voter1.onsocial.testnet', 'voter2.onsocial.testnet'] },
+            kind: {
+              Group: ['voter1.onsocial.testnet', 'voter2.onsocial.testnet'],
+            },
           },
         ],
       },
@@ -1208,10 +1220,7 @@ describe('protocol card view', () => {
           {
             name: 'council',
             kind: {
-              Group: [
-                'greenghost.onsocial.testnet',
-                'voter2.onsocial.testnet',
-              ],
+              Group: ['greenghost.onsocial.testnet', 'voter2.onsocial.testnet'],
             },
           },
         ],
@@ -1376,5 +1385,293 @@ describe('protocol card view', () => {
     expect(view.canFinalize).toBe(true);
     expect(view.finalizeLabel).toBe('Finalize');
     expect(view.canApprove).toBe(false);
+  });
+});
+
+describe('protocol proposal conclude + monotonic merge', () => {
+  const twoCouncil: ProtocolDaoPolicy = {
+    proposal_period: String(7n * 24n * 60n * 60n * 1_000_000_000n),
+    default_vote_policy: {
+      quorum: '0',
+      threshold: [1, 2],
+      weight_kind: 'RoleWeight',
+    },
+    roles: [
+      {
+        name: 'council',
+        kind: { Group: ['alice.testnet', 'bob.testnet'] },
+        permissions: [
+          '*:VoteApprove',
+          '*:VoteReject',
+          '*:VoteRemove',
+          '*:Finalize',
+        ],
+      },
+    ],
+  };
+
+  const soloCouncil: ProtocolDaoPolicy = {
+    ...twoCouncil,
+    roles: [
+      {
+        name: 'council',
+        kind: { Group: ['alice.testnet'] },
+        permissions: [
+          '*:VoteApprove',
+          '*:VoteReject',
+          '*:VoteRemove',
+          '*:Finalize',
+        ],
+      },
+    ],
+  };
+
+  function openProposal(
+    kind: Record<string, unknown>,
+    votes: ProtocolDaoProposal['votes'] = {},
+    vote_counts: ProtocolDaoProposal['vote_counts'] = {
+      council: ['0', '0', '0'],
+    }
+  ): ProtocolDaoProposal {
+    return {
+      id: 44,
+      proposer: 'alice.testnet',
+      description: 'Board action',
+      kind,
+      status: 'InProgress',
+      vote_counts,
+      votes,
+      submission_time: String(BigInt(Date.now()) * 1_000_000n),
+    };
+  }
+
+  it('concludes 1-of-1 reject as Rejected for any kind', () => {
+    for (const kind of [
+      { FunctionCall: { receiver_id: 'boost.onsocial.testnet' } },
+      { Transfer: { token_id: '', receiver_id: 'bob.testnet', amount: '1' } },
+      { ChangeConfig: { name: 'OnSocial' } },
+      { AddMemberToRole: { member_id: 'berry.testnet', role: 'council' } },
+    ]) {
+      const next = applyOptimisticVote(
+        openProposal(kind),
+        'alice.testnet',
+        'Reject',
+        soloCouncil
+      );
+      expect(next.status).toBe('Rejected');
+      expect(next.votes['alice.testnet']).toBe('Reject');
+    }
+  });
+
+  it('concludes 1-of-1 approve as Approved', () => {
+    const next = applyOptimisticVote(
+      openProposal({ Vote: {} }),
+      'alice.testnet',
+      'Approve',
+      soloCouncil
+    );
+    expect(next.status).toBe('Approved');
+  });
+
+  it('concludes 1-of-1 remove as Removed', () => {
+    const next = applyOptimisticVote(
+      openProposal({ Vote: {} }),
+      'alice.testnet',
+      'Remove',
+      soloCouncil
+    );
+    expect(next.status).toBe('Removed');
+  });
+
+  it('rejects 2-of-2 when one reject makes passage impossible', () => {
+    const next = applyOptimisticVote(
+      openProposal({ Transfer: {} }),
+      'alice.testnet',
+      'Reject',
+      twoCouncil
+    );
+    expect(next.status).toBe('Rejected');
+    expect(sumVoteCounts(next.vote_counts, 1)).toBe(1);
+  });
+
+  it('keeps 2-of-2 in review after a single approve', () => {
+    const next = applyOptimisticVote(
+      openProposal({ Transfer: {} }),
+      'alice.testnet',
+      'Approve',
+      twoCouncil
+    );
+    expect(next.status).toBe('InProgress');
+    expect(sumVoteCounts(next.vote_counts, 0)).toBe(1);
+  });
+
+  it('does not conclude TokenWeight proposals locally', () => {
+    const tokenPolicy: ProtocolDaoPolicy = {
+      ...soloCouncil,
+      default_vote_policy: {
+        quorum: '0',
+        threshold: [1, 2],
+        weight_kind: 'TokenWeight',
+      },
+    };
+    const next = applyOptimisticVote(
+      openProposal({ Vote: {} }),
+      'alice.testnet',
+      'Reject',
+      tokenPolicy
+    );
+    expect(next.status).toBe('InProgress');
+    expect(next.votes['alice.testnet']).toBe('Reject');
+  });
+
+  it('finalizes an expired open proposal as Rejected when threshold is unmet', () => {
+    const finalized = applyOptimisticFinalize(
+      openProposal(
+        { Vote: {} },
+        { 'bob.testnet': 'Reject' },
+        { council: ['0', '1', '0'] }
+      ),
+      twoCouncil
+    );
+    expect(finalized.status).toBe('Rejected');
+  });
+
+  it('does not rewind a concluded reject when a sparse indexer row arrives', () => {
+    const rejected = applyOptimisticVote(
+      openProposal({ FunctionCall: {} }),
+      'alice.testnet',
+      'Reject',
+      soloCouncil
+    );
+    const stale = openProposal({ FunctionCall: {} });
+    expect(shouldAdoptProtocolProposalSnapshot(rejected, stale)).toBe(false);
+    const merged = mergeProtocolProposalSnapshot(rejected, stale);
+    expect(merged?.status).toBe('Rejected');
+    expect(merged?.votes['alice.testnet']).toBe('Reject');
+    expect(sumVoteCounts(merged?.vote_counts, 1)).toBe(1);
+  });
+
+  it('unions votes when two snapshots disagree instead of dropping one voter', () => {
+    const aliceReject = applyOptimisticVote(
+      openProposal({ Vote: {} }),
+      'alice.testnet',
+      'Reject',
+      twoCouncil
+    );
+    const bobApprove: ProtocolDaoProposal = {
+      ...openProposal({ Vote: {} }),
+      votes: { 'bob.testnet': 'Approve' },
+      vote_counts: { council: ['1', '0', '0'] },
+    };
+    const merged = mergeProtocolProposalSnapshot(aliceReject, bobApprove);
+    expect(merged?.votes['alice.testnet']).toBe('Reject');
+    expect(merged?.votes['bob.testnet']).toBe('Approve');
+    expect(sumVoteCounts(merged?.vote_counts, 0)).toBe(1);
+    expect(sumVoteCounts(merged?.vote_counts, 1)).toBe(1);
+    expect(merged?.status).toBe('Rejected');
+  });
+
+  it('keeps confirmed votes when the feed reuses a different app_id', () => {
+    const optimistic = applyOptimisticVote(
+      openProposal({ Transfer: {} }),
+      'alice.testnet',
+      'Reject',
+      soloCouncil
+    );
+    const currentApp: ProtocolApplication = {
+      app_id: 'indexer-uuid-9',
+      label: 'Transfer',
+      status: 'approved',
+      description: null,
+      created_at: '1',
+      governance_proposal: {
+        proposal_id: 44,
+        status: 'Rejected',
+        description: 'Board action',
+        dao_account: GOVERNANCE_DAO_ACCOUNT,
+        tx_hash: null,
+        submitted_at: optimistic.submission_time,
+        snapshot: optimistic,
+      },
+    };
+    const staleFeedApp: ProtocolApplication = {
+      app_id: 'protocol-proposal-44',
+      label: 'Transfer',
+      status: 'approved',
+      description: null,
+      created_at: '1',
+      governance_proposal: {
+        proposal_id: 44,
+        status: 'InProgress',
+        description: 'Board action',
+        dao_account: GOVERNANCE_DAO_ACCOUNT,
+        tx_hash: null,
+        submitted_at: optimistic.submission_time,
+        snapshot: openProposal({ Transfer: {} }),
+      },
+    };
+    const merged = mergeProtocolFeedApplications([currentApp], [staleFeedApp]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.app_id).toBe('protocol-proposal-44');
+    expect(merged[0]?.governance_proposal?.snapshot?.status).toBe('Rejected');
+    expect(
+      merged[0]?.governance_proposal?.snapshot?.votes?.['alice.testnet']
+    ).toBe('Reject');
+  });
+
+  it('keeps a confirmed row the incoming feed omitted', () => {
+    const optimistic = applyOptimisticVote(
+      openProposal({ Vote: {} }),
+      'alice.testnet',
+      'Approve',
+      soloCouncil
+    );
+    const currentApp: ProtocolApplication = {
+      app_id: 'protocol-proposal-44',
+      label: 'Signal',
+      status: 'approved',
+      description: null,
+      created_at: '1',
+      governance_proposal: {
+        proposal_id: 44,
+        status: 'Approved',
+        description: 'Board action',
+        dao_account: GOVERNANCE_DAO_ACCOUNT,
+        tx_hash: null,
+        submitted_at: optimistic.submission_time,
+        snapshot: optimistic,
+      },
+    };
+    const other: ProtocolApplication = {
+      ...currentApp,
+      app_id: 'protocol-proposal-1',
+      governance_proposal: {
+        ...currentApp.governance_proposal!,
+        proposal_id: 1,
+        snapshot: { ...openProposal({ Vote: {} }), id: 1 },
+      },
+    };
+    const merged = mergeProtocolFeedApplications([currentApp], [other]);
+    expect(merged.map((row) => row.app_id)).toEqual([
+      'protocol-proposal-1',
+      'protocol-proposal-44',
+    ]);
+    expect(
+      merged.find((row) => row.app_id === 'protocol-proposal-44')
+        ?.governance_proposal?.snapshot?.status
+    ).toBe('Approved');
+  });
+
+  it('leaves an unmet RoleWeight proposal InProgress', () => {
+    expect(
+      concludeProtocolProposal(
+        openProposal(
+          { Vote: {} },
+          { 'alice.testnet': 'Approve' },
+          { council: ['1', '0', '0'] }
+        ),
+        twoCouncil
+      ).status
+    ).toBe('InProgress');
   });
 });

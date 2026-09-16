@@ -12,7 +12,10 @@ import {
   parseProtocolFeedStatus,
   parseProtocolSearchQuery,
 } from '@/lib/app-routes';
-import { replaceBrowserUrl } from '@/lib/sync-browser-url-query';
+import {
+  pushBrowserUrl,
+  replaceBrowserUrl,
+} from '@/lib/sync-browser-url-query';
 
 export type ProtocolProposalFamily =
   | 'all'
@@ -123,6 +126,32 @@ export function clearDaoProposalDeepLink(daoAccountId: string): boolean {
       family: parseProtocolProposalFamily(params.get(PROTOCOL_FAMILY_PARAM)),
       proposal: null,
       q: parseProtocolSearchQuery(params.get(PROTOCOL_SEARCH_PARAM)),
+    })
+  );
+}
+
+export const DAO_SUBMITTED_PROPOSAL_EVENT = 'onsocial:dao-submitted-proposal';
+
+export type DaoSubmittedProposalDetail = {
+  daoAccountId: string;
+  proposalId: number | null;
+};
+
+/**
+ * After add_proposal confirms: shareable `/@dao?proposal=N` and open Proposals
+ * on that card. `proposalId` null still opens the feed.
+ */
+export function openDaoSubmittedProposal(
+  daoAccountId: string,
+  proposalId: number | null
+): void {
+  if (typeof window === 'undefined') return;
+  if (proposalId != null && Number.isInteger(proposalId)) {
+    pushBrowserUrl(daoPortfolioPath(daoAccountId, { proposal: proposalId }));
+  }
+  window.dispatchEvent(
+    new CustomEvent<DaoSubmittedProposalDetail>(DAO_SUBMITTED_PROPOSAL_EVENT, {
+      detail: { daoAccountId, proposalId },
     })
   );
 }
