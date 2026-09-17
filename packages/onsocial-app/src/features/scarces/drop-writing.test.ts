@@ -22,6 +22,13 @@ import {
   writingCommitTurn,
   writingEdgeTap,
   writingObjectProgress,
+  writingProgressAriaNow,
+  writingProgressEase,
+  writingProgressFillTransform,
+  WRITING_PROGRESS_EASE_MS,
+  WRITING_SCROLL_PERSIST_MS,
+  clampWritingProgress,
+  paintWritingProgressFill,
   writingPdfPageProgress,
   writingPdfNearPages,
   writingPdfVisiblePage,
@@ -126,7 +133,9 @@ describe('readableFromPostBody', () => {
       author: 'alice.near',
       postId: '9',
     });
-    expect(readableFromPostBody({ path: 'alice.near/post/9', text: '  ' })).toBeNull();
+    expect(
+      readableFromPostBody({ path: 'alice.near/post/9', text: '  ' })
+    ).toBeNull();
   });
 });
 
@@ -234,7 +243,9 @@ describe('writing manifesto', () => {
   it('builds bookPdf ref from a pinned PDF file', () => {
     const file = pdfFile('print-edition.pdf');
     expect(
-      bookPdfRefFromPinnedFile(file, { cid: 'bafybookpdfaaaaaaaaaaaaaaaaaaaaa' })
+      bookPdfRefFromPinnedFile(file, {
+        cid: 'bafybookpdfaaaaaaaaaaaaaaaaaaaaa',
+      })
     ).toEqual({
       cid: 'bafybookpdfaaaaaaaaaaaaaaaaaaaaa',
       mime: 'application/pdf',
@@ -248,9 +259,7 @@ describe('writing manifesto', () => {
   });
 
   it('rejects unknown manifesto formats', () => {
-    expect(
-      parseWritingManifest({ format: 'other', chapters: [] })
-    ).toBeNull();
+    expect(parseWritingManifest({ format: 'other', chapters: [] })).toBeNull();
   });
 
   it('skips invalid chapter CIDs', () => {
@@ -393,9 +402,9 @@ describe('writing read progress storage', () => {
     writeWritingScrollRatio('drop-1', 'alice.testnet', 2, 0.42);
     expect(readWritingScrollRatio('drop-1', 'alice.testnet', 2)).toBe(0.42);
     expect(readWritingScrollRatio('drop-1', 'alice.testnet', 0)).toBe(0);
-    expect(
-      writingScrollRatioStorageKey('drop-1', 'Alice.Testnet', 2)
-    ).toBe('onsocial.writing.scroll:drop-1:alice.testnet:2');
+    expect(writingScrollRatioStorageKey('drop-1', 'Alice.Testnet', 2)).toBe(
+      'onsocial.writing.scroll:drop-1:alice.testnet:2'
+    );
   });
 
   it('no-ops without an account', () => {
@@ -430,9 +439,7 @@ describe('writingObjectProgress', () => {
   });
 
   it('clamps empty and overflow counts', () => {
-    expect(writingObjectProgress({ chapterIndex: 0, chapterCount: 0 })).toBe(
-      0
-    );
+    expect(writingObjectProgress({ chapterIndex: 0, chapterCount: 0 })).toBe(0);
     expect(
       writingObjectProgress({
         chapterIndex: 9,
@@ -440,6 +447,41 @@ describe('writingObjectProgress', () => {
         chapterRatio: 2,
       })
     ).toBe(1);
+  });
+});
+
+describe('writing progress hairline', () => {
+  it('clamps and paints scaleX without a width tween', () => {
+    expect(clampWritingProgress(Number.NaN)).toBe(0);
+    expect(clampWritingProgress(-1)).toBe(0);
+    expect(clampWritingProgress(2)).toBe(1);
+    expect(writingProgressFillTransform(0.375)).toBe('scaleX(0.375)');
+    expect(writingProgressAriaNow(0.376)).toBe(38);
+    expect(writingProgressEase('scroll')).toBe(false);
+    expect(writingProgressEase('jump')).toBe(true);
+    expect(WRITING_PROGRESS_EASE_MS).toBe(220);
+    expect(WRITING_SCROLL_PERSIST_MS).toBe(180);
+
+    const classes = new Set<string>();
+    const fill = {
+      style: { transform: '' },
+      classList: {
+        toggle: (name: string, force?: boolean) => {
+          const on = force ?? !classes.has(name);
+          if (on) classes.add(name);
+          else classes.delete(name);
+        },
+        contains: (name: string) => classes.has(name),
+      },
+    } as unknown as HTMLElement;
+    paintWritingProgressFill(fill, 0.5, { ease: false });
+    expect(fill.style.transform).toBe('scaleX(0.5)');
+    expect(fill.classList.contains('is-ease')).toBe(false);
+    paintWritingProgressFill(fill, 0.8, { ease: true });
+    expect(fill.style.transform).toBe('scaleX(0.8)');
+    expect(fill.classList.contains('is-ease')).toBe(true);
+    paintWritingProgressFill(fill, 0.2, { ease: true, reducedMotion: true });
+    expect(fill.classList.contains('is-ease')).toBe(false);
   });
 });
 
@@ -456,12 +498,12 @@ describe('writingPdfPageProgress', () => {
 
 describe('writingSwipeDirection', () => {
   it('reads a clear horizontal swipe and ignores vertical scroll', () => {
-    expect(
-      writingSwipeDirection({ x: 120, y: 40 }, { x: 40, y: 44 })
-    ).toBe('next');
-    expect(
-      writingSwipeDirection({ x: 40, y: 40 }, { x: 120, y: 48 })
-    ).toBe('prev');
+    expect(writingSwipeDirection({ x: 120, y: 40 }, { x: 40, y: 44 })).toBe(
+      'next'
+    );
+    expect(writingSwipeDirection({ x: 40, y: 40 }, { x: 120, y: 48 })).toBe(
+      'prev'
+    );
     expect(
       writingSwipeDirection({ x: 40, y: 40 }, { x: 48, y: 160 })
     ).toBeNull();

@@ -56,8 +56,7 @@ export interface WritingManifestV1 {
 }
 
 /** CIDv0 (`Qm…`) and CIDv1 base32 (`bafy…` unixfs, `bafk…` raw audio/pdf). */
-const CID_RE =
-  /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|baf[a-z0-9]{20,})$/i;
+const CID_RE = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|baf[a-z0-9]{20,})$/i;
 
 export function isLikelyIpfsCid(value: string): boolean {
   return CID_RE.test(value.trim());
@@ -141,9 +140,7 @@ export function writingChaptersValid(
   return count >= 2 && count <= DROP_WRITING_MAX_CHAPTERS;
 }
 
-export function parseWritingFormat(
-  raw: unknown
-): WritingReleaseFormat | null {
+export function parseWritingFormat(raw: unknown): WritingReleaseFormat | null {
   if (typeof raw !== 'string') return null;
   const key = raw.trim().toLowerCase();
   if (key === 'issue' || key === 'book') return key;
@@ -231,9 +228,7 @@ export function bookPdfRefFromPinnedFile(
   };
 }
 
-export function parseWritingManifest(
-  raw: unknown
-): WritingManifestV1 | null {
+export function parseWritingManifest(raw: unknown): WritingManifestV1 | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const record = raw as Record<string, unknown>;
   if (record.format !== WRITING_MANIFEST_FORMAT) return null;
@@ -333,7 +328,9 @@ export function readableFromPostBody(opts: {
 }
 
 export function writingReadingSectionLabel(chapterCount: number): string {
-  const n = Number.isFinite(chapterCount) ? Math.max(0, Math.floor(chapterCount)) : 0;
+  const n = Number.isFinite(chapterCount)
+    ? Math.max(0, Math.floor(chapterCount))
+    : 0;
   if (n <= 0) return 'Writing';
   if (n === 1) return '1 chapter';
   return `${n} chapters`;
@@ -352,9 +349,8 @@ export function writingScrollRatioStorageKey(
   accountId: string,
   chapterIndex: number
 ): string {
-  const index = Number.isSafeInteger(chapterIndex) && chapterIndex >= 0
-    ? chapterIndex
-    : 0;
+  const index =
+    Number.isSafeInteger(chapterIndex) && chapterIndex >= 0 ? chapterIndex : 0;
   return `onsocial.writing.scroll:${collectionId.trim()}:${accountId.trim().toLowerCase()}:${index}`;
 }
 
@@ -416,7 +412,7 @@ export function writeWritingScrollRatio(
 ): void {
   if (!accountId?.trim() || typeof window === 'undefined') return;
   if (!Number.isFinite(scrollRatio)) return;
-  const clamped = Math.min(1, Math.max(0, scrollRatio));
+  const clamped = clampWritingProgress(scrollRatio);
   try {
     window.localStorage.setItem(
       writingScrollRatioStorageKey(collectionId, accountId, chapterIndex),
@@ -427,9 +423,40 @@ export function writeWritingScrollRatio(
   }
 }
 
-function clampUnit(value: number): number {
+/** Throttle for per-chapter scroll persist — flush on chapter change / unmount. */
+export const WRITING_SCROLL_PERSIST_MS = 180;
+/** Chapter jump / restore only. Scroll paints with no CSS duration. */
+export const WRITING_PROGRESS_EASE_MS = 220;
+
+export function clampWritingProgress(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.min(1, Math.max(0, value));
+}
+
+export function writingProgressFillTransform(ratio: number): string {
+  return `scaleX(${clampWritingProgress(ratio)})`;
+}
+
+export function writingProgressAriaNow(ratio: number): number {
+  return Math.round(clampWritingProgress(ratio) * 100);
+}
+
+export type WritingProgressSource = 'scroll' | 'jump';
+
+/** Ease the hairline on chapter jump / restore, never while the finger is moving. */
+export function writingProgressEase(source: WritingProgressSource): boolean {
+  return source === 'jump';
+}
+
+export function paintWritingProgressFill(
+  node: HTMLElement | null,
+  ratio: number,
+  opts?: { ease?: boolean; reducedMotion?: boolean }
+): void {
+  if (!node) return;
+  const ease = Boolean(opts?.ease) && !opts?.reducedMotion;
+  node.classList.toggle('is-ease', ease);
+  node.style.transform = writingProgressFillTransform(ratio);
 }
 
 /** Whole Issue / Book progress 0–1 (chapter index + work inside that chapter). */
@@ -440,11 +467,8 @@ export function writingObjectProgress(opts: {
 }): number {
   const count = Math.max(0, Math.floor(opts.chapterCount));
   if (count <= 0) return 0;
-  const index = Math.min(
-    count - 1,
-    Math.max(0, Math.floor(opts.chapterIndex))
-  );
-  return (index + clampUnit(opts.chapterRatio ?? 0)) / count;
+  const index = Math.min(count - 1, Math.max(0, Math.floor(opts.chapterIndex)));
+  return (index + clampWritingProgress(opts.chapterRatio ?? 0)) / count;
 }
 
 /** Progress inside a paged PDF (page index + work on that page). */
@@ -624,10 +648,15 @@ export function writingPinchScale(opts: {
 }): number {
   const start = opts.startDistance;
   if (!Number.isFinite(start) || start <= 0) {
-    return clampRange(opts.startScale, opts.min ?? PINCH_MIN, opts.max ?? PINCH_MAX);
+    return clampRange(
+      opts.startScale,
+      opts.min ?? PINCH_MIN,
+      opts.max ?? PINCH_MAX
+    );
   }
   const next =
-    opts.startScale * (Number.isFinite(opts.currentDistance) ? opts.currentDistance / start : 1);
+    opts.startScale *
+    (Number.isFinite(opts.currentDistance) ? opts.currentDistance / start : 1);
   return clampRange(next, opts.min ?? PINCH_MIN, opts.max ?? PINCH_MAX);
 }
 
