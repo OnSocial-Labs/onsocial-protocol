@@ -26,9 +26,10 @@ import {
   writingProgressEase,
   writingProgressFillTransform,
   WRITING_PROGRESS_EASE_MS,
+  WRITING_PROGRESS_EASE_VAR,
   WRITING_SCROLL_PERSIST_MS,
   clampWritingProgress,
-  paintWritingProgressFill,
+  paintWritingProgress,
   writingPdfPageProgress,
   writingPdfNearPages,
   writingPdfVisiblePage,
@@ -460,11 +461,18 @@ describe('writing progress hairline', () => {
     expect(writingProgressEase('scroll')).toBe(false);
     expect(writingProgressEase('jump')).toBe(true);
     expect(WRITING_PROGRESS_EASE_MS).toBe(220);
+    expect(WRITING_PROGRESS_EASE_VAR).toBe('--writing-progress-ease-ms');
     expect(WRITING_SCROLL_PERSIST_MS).toBe(180);
 
     const classes = new Set<string>();
+    const cssVars: Record<string, string> = {};
     const fill = {
-      style: { transform: '' },
+      style: {
+        transform: '',
+        setProperty: (name: string, value: string) => {
+          cssVars[name] = value;
+        },
+      },
       classList: {
         toggle: (name: string, force?: boolean) => {
           const on = force ?? !classes.has(name);
@@ -474,13 +482,31 @@ describe('writing progress hairline', () => {
         contains: (name: string) => classes.has(name),
       },
     } as unknown as HTMLElement;
-    paintWritingProgressFill(fill, 0.5, { ease: false });
+    const attrs: Record<string, string> = {};
+    const bar = {
+      setAttribute: (name: string, value: string) => {
+        attrs[name] = value;
+      },
+    } as unknown as HTMLElement;
+
+    expect(paintWritingProgress({ fill, bar, ratio: 0.5, ease: false })).toBe(
+      50
+    );
     expect(fill.style.transform).toBe('scaleX(0.5)');
     expect(fill.classList.contains('is-ease')).toBe(false);
-    paintWritingProgressFill(fill, 0.8, { ease: true });
+    expect(cssVars[WRITING_PROGRESS_EASE_VAR]).toBe('220ms');
+    expect(attrs['aria-valuenow']).toBe('50');
+    paintWritingProgress({ fill, bar, ratio: 0.8, ease: true });
     expect(fill.style.transform).toBe('scaleX(0.8)');
     expect(fill.classList.contains('is-ease')).toBe(true);
-    paintWritingProgressFill(fill, 0.2, { ease: true, reducedMotion: true });
+    expect(attrs['aria-valuenow']).toBe('80');
+    paintWritingProgress({
+      fill,
+      bar,
+      ratio: 0.2,
+      ease: true,
+      reducedMotion: true,
+    });
     expect(fill.classList.contains('is-ease')).toBe(false);
   });
 });

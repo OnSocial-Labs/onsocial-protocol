@@ -427,6 +427,7 @@ export function writeWritingScrollRatio(
 export const WRITING_SCROLL_PERSIST_MS = 180;
 /** Chapter jump / restore only. Scroll paints with no CSS duration. */
 export const WRITING_PROGRESS_EASE_MS = 220;
+export const WRITING_PROGRESS_EASE_VAR = '--writing-progress-ease-ms';
 
 export function clampWritingProgress(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -448,15 +449,27 @@ export function writingProgressEase(source: WritingProgressSource): boolean {
   return source === 'jump';
 }
 
-export function paintWritingProgressFill(
-  node: HTMLElement | null,
-  ratio: number,
-  opts?: { ease?: boolean; reducedMotion?: boolean }
-): void {
-  if (!node) return;
-  const ease = Boolean(opts?.ease) && !opts?.reducedMotion;
-  node.classList.toggle('is-ease', ease);
-  node.style.transform = writingProgressFillTransform(ratio);
+export function paintWritingProgress(opts: {
+  fill: HTMLElement | null;
+  bar?: HTMLElement | null;
+  ratio: number;
+  ease?: boolean;
+  reducedMotion?: boolean;
+}): number {
+  const ratio = clampWritingProgress(opts.ratio);
+  const fill = opts.fill;
+  if (fill) {
+    const ease = Boolean(opts.ease) && !opts.reducedMotion;
+    fill.style.setProperty(
+      WRITING_PROGRESS_EASE_VAR,
+      `${WRITING_PROGRESS_EASE_MS}ms`
+    );
+    fill.classList.toggle('is-ease', ease);
+    fill.style.transform = writingProgressFillTransform(ratio);
+  }
+  const now = writingProgressAriaNow(ratio);
+  opts.bar?.setAttribute('aria-valuenow', String(now));
+  return now;
 }
 
 /** Whole Issue / Book progress 0–1 (chapter index + work inside that chapter). */

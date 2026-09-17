@@ -27511,7 +27511,8 @@ a.os-surface-row {
   }
 
   .scarce-writing-read-progress-fill.is-ease {
-    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform var(--writing-progress-ease-ms)
+      cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .scarce-writing-read-top {

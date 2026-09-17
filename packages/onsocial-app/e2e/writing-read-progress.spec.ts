@@ -130,6 +130,8 @@ test.describe('writing read progress', () => {
       (el) => el.scrollHeight - el.clientHeight
     );
     expect(scrollable).toBeGreaterThan(200);
+    // Restore ignores scroll for 480ms so the jump ease can run.
+    await page.waitForTimeout(520);
     await body.evaluate((el) => {
       el.scrollTop = Math.round((el.scrollHeight - el.clientHeight) * 0.45);
     });

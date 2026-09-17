@@ -13,11 +13,12 @@ const css = readFileSync(join(here, '../../app/globals.css'), 'utf8');
 
 describe('writing read progress wiring', () => {
   it('paints the hairline with scaleX from a ref, not a width percent', () => {
-    expect(sheet).toContain('paintWritingProgressFill');
+    expect(sheet).toContain('paintWritingProgress');
     expect(sheet).toContain('fillRef');
     expect(sheet).toContain('requestAnimationFrame');
     expect(sheet).not.toContain('width: `${progressPct}%`');
     expect(sheet).not.toContain('setScrollRatio');
+    expect(sheet).not.toContain('aria-valuenow={0}');
   });
 
   it('eases only on chapter jump / restore and throttles persist', () => {
@@ -31,8 +32,11 @@ describe('writing read progress wiring', () => {
   it('does not tween width while scrolling', () => {
     expect(css).toContain('.scarce-writing-read-progress-fill.is-ease');
     expect(css).toContain(
-      'transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1)'
+      'transition: transform var(--writing-progress-ease-ms)'
     );
     expect(css).not.toContain('transition: width 120ms ease-out');
+    expect(css).not.toContain(
+      'transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1)'
+    );
   });
 });

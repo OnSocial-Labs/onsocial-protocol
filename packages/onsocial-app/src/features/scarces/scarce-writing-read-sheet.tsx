@@ -24,8 +24,7 @@ import {
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
 import {
-  paintWritingProgressFill,
-  writingProgressAriaNow,
+  paintWritingProgress,
   type ScarceReadableMedia,
   type WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
@@ -50,6 +49,7 @@ function WritingReadClose() {
   );
 }
 
+/** Isolated so chrome-quiet re-renders do not wipe the compositor fill. */
 const WritingReadProgress = memo(function WritingReadProgress({
   barRef,
   fillRef,
@@ -66,7 +66,6 @@ const WritingReadProgress = memo(function WritingReadProgress({
       role="progressbar"
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-valuenow={0}
       aria-label="Reading progress"
       onPointerDown={onPointerDown}
     >
@@ -115,7 +114,6 @@ export function WritingReadSheet({
   const liveAtRef = useRef(0);
   const fillRef = useRef<HTMLSpanElement | null>(null);
   const barRef = useRef<HTMLDivElement | null>(null);
-  const lastAriaRef = useRef(0);
   const rafRef = useRef(0);
   const pendingPaintRef = useRef<{ ratio: number; ease: boolean } | null>(null);
   const [wasOpen, setWasOpen] = useState(open);
@@ -133,13 +131,13 @@ export function WritingReadSheet({
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const applyPaint = useCallback((ratio: number, ease: boolean) => {
-    paintWritingProgressFill(fillRef.current, ratio, {
+    paintWritingProgress({
+      fill: fillRef.current,
+      bar: barRef.current,
+      ratio,
       ease,
       reducedMotion: prefersReducedMotion(),
     });
-    const now = writingProgressAriaNow(ratio);
-    lastAriaRef.current = now;
-    barRef.current?.setAttribute('aria-valuenow', String(now));
   }, []);
 
   const onReadingProgress = useCallback(
@@ -168,7 +166,6 @@ export function WritingReadSheet({
 
   useLayoutEffect(() => {
     if (!open) return;
-    lastAriaRef.current = 0;
     applyPaint(0, false);
   }, [open, applyPaint]);
 
