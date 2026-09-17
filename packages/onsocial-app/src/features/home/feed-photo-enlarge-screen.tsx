@@ -215,13 +215,14 @@ export function FeedPhotoEnlargeScreen({
       closeAriaLabel={quietClose}
       zIndex={SCARCE_Z.listenShell}
       footer={engagement}
+      stageLayout="fixed"
       className={slideClass}
       contentClassName="feed-photo-slide-body"
     >
       <div className="feed-photo-listen">
         <div className="feed-photo-stage">
           {showStage ? (
-            <div className="feed-photo-mood-face">{stage}</div>
+            stage
           ) : showNav ? (
             <div ref={trackRef} className="feed-photo-track">
               {photos.map((item, photoIndex) => (

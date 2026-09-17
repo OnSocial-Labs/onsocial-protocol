@@ -40,6 +40,12 @@ export type OsMediaFaceShellProps = {
   /** Hide jacket title text (a11y title still on the dialog). */
   quietTitle?: boolean;
   chromeQuiet?: boolean;
+  /**
+   * `fixed` — photo/thought/mood: stage fills the face; reply keyboard does
+   * not reflow media. `scroll` — writing/listen: page can scroll; keyboard
+   * lifts the body pad (default).
+   */
+  stageLayout?: 'fixed' | 'scroll';
   /** Extra root slide class (e.g. feed-photo-slide). */
   className?: string;
   contentClassName?: string;
@@ -66,6 +72,7 @@ export function OsMediaFaceShell({
   footerChrome = null,
   quietTitle = false,
   chromeQuiet = false,
+  stageLayout = 'scroll',
   className,
   contentClassName = 'scarce-read-slide-body',
   bodyClassName,
@@ -90,6 +97,7 @@ export function OsMediaFaceShell({
   const slideClass = [
     'scarce-read-slide',
     'os-media-face',
+    stageLayout === 'fixed' ? 'os-media-face--fixed-stage' : '',
     chromeQuiet ? 'is-chrome-quiet' : '',
     className?.trim() || '',
   ]

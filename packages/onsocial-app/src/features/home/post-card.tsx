@@ -243,7 +243,6 @@ function PostCardMenu({
   cancelScarcePending?: boolean;
   onMenuOpen?: () => void;
 }) {
-  const router = useRouter();
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { setTxResult } = useAppTransactionFeedback();
   // Arm relationship fetch only after the menu opens — avoids N fetches per feed.
@@ -1374,7 +1373,6 @@ export function PostCard({
   mediaResumeIndex = 0,
   detailLayout = false,
 }: PostCardProps) {
-  const router = useRouter();
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
@@ -2149,22 +2147,20 @@ export function PostCard({
         initialIndex={photoIndex}
         stage={
           enlargeMoodCover && article && articleCover ? (
-            <div className="feed-photo-mood-cover">
-              <PortfolioWritingCover
-                variant="article"
-                title={article.title}
-                coverUrl={null}
-                cardBg={articleCover.cardBg}
-                format={articleCover.format}
-                markShape={articleCover.markShape}
-                markColor={articleCover.markColor}
-                accountId={post.accountId}
-                displayName={authorProfile?.displayName}
-                avatarUrl={authorProfile?.avatarUrl}
-                postId={post.postId}
-                issuedAt={articleIssuedAt}
-              />
-            </div>
+            <PortfolioWritingCover
+              variant="face"
+              title={article.title}
+              coverUrl={null}
+              cardBg={articleCover.cardBg}
+              format={articleCover.format}
+              markShape={articleCover.markShape}
+              markColor={articleCover.markColor}
+              accountId={post.accountId}
+              displayName={authorProfile?.displayName}
+              avatarUrl={authorProfile?.avatarUrl}
+              postId={post.postId}
+              issuedAt={articleIssuedAt}
+            />
           ) : null
         }
         engagement={

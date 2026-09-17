@@ -265,6 +265,7 @@ export function ScarceFeedMediumSheet({
         closeAriaLabel="Back from preview"
         zIndex={SCARCE_Z.listenShell}
         footer={postChrome}
+        stageLayout="fixed"
         className="scarce-thought-slide"
         contentClassName="scarce-thought-slide-body"
       >

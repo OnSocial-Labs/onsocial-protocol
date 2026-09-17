@@ -30230,16 +30230,32 @@ a.os-surface-row {
     transform: translate3d(0, calc(100% + 0.75rem), 0);
   }
 
+  /* Scroll faces (writing / listen) — pad tracks keyboard lift. */
   :is(.os-app-screen, .app-surface, .portfolio-frame, .frame):has(
       > .portfolio-summon-dock[data-keyboard='open']
     )
-    .os-slide-over.scarce-read-slide[data-os-slide-over='true'][data-screen-footer='true']
+    .os-slide-over.scarce-read-slide:not(.os-media-face--fixed-stage)[data-os-slide-over='true'][data-screen-footer='true']
     .os-app-screen-body {
     padding-bottom: calc(
       max(
           var(--os-summon-dock-occupied, 0px),
           var(--portfolio-dock-clearance, 4.75rem)
         ) + var(--os-write-keyboard-lift, 0px)
+    );
+  }
+
+  /*
+   * Fixed-stage faces (photo / thought / mood) — freeze idle bottom band so
+   * contain-fit media does not reflow; compose floats over the lower edge.
+   */
+  :is(.os-app-screen, .app-surface, .portfolio-frame, .frame):has(
+      > .portfolio-summon-dock[data-keyboard='open']
+    )
+    .os-slide-over.os-media-face--fixed-stage[data-os-slide-over='true'][data-screen-footer='true']
+    .os-app-screen-body {
+    padding-bottom: calc(
+      var(--portfolio-dock-clearance, 4.75rem) +
+        var(--os-screen-footer-band, 4.25rem)
     );
   }
 
@@ -30405,8 +30421,7 @@ a.os-surface-row {
    * Photo / thought — fixed face, no vertical page scroll. Stage flexes into
    * the band under the jacket and above frost footer (image contain-fits).
    */
-  .scarce-read-slide.feed-photo-slide .os-app-screen-body,
-  .scarce-read-slide.scarce-thought-slide .os-app-screen-body {
+  .os-media-face--fixed-stage .os-app-screen-body {
     overflow: hidden;
   }
 
@@ -30434,11 +30449,10 @@ a.os-surface-row {
   }
 
   /*
-   * Photo / thought faces — fill the card under the jacket (no page scroll).
+   * Fixed-stage content — fill the card under the jacket (no page scroll).
    * Writing keeps auto-height page scroll via scarce-read-slide-body alone.
    */
-  .scarce-thought-slide .os-slide-over-content.scarce-thought-slide-body,
-  .feed-photo-slide .os-slide-over-content.feed-photo-slide-body {
+  .os-media-face--fixed-stage .os-slide-over-content {
     flex: 1 1 auto;
     width: 100%;
     min-height: 0;
@@ -30458,8 +30472,7 @@ a.os-surface-row {
     overflow: visible;
   }
 
-  .scarce-read-slide.feed-photo-slide .os-media-face-body,
-  .scarce-read-slide.scarce-thought-slide .os-media-face-body {
+  .os-media-face--fixed-stage .os-media-face-body {
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
@@ -30500,6 +30513,7 @@ a.os-surface-row {
     flex: 1 1 auto;
     width: 100%;
     min-height: 0;
+    height: 100%;
   }
 
   .scarce-thought-art {
@@ -30513,7 +30527,9 @@ a.os-surface-row {
   }
 
   .scarce-thought-art--svg {
-    width: min(100%, 28rem);
+    width: min(100%, var(--os-media-face-stage-max, 28rem));
+    max-height: 100%;
+    height: auto;
     aspect-ratio: 1 / 1;
     overflow: hidden;
   }
@@ -30558,63 +30574,14 @@ a.os-surface-row {
   }
 
   .feed-photo-stage {
+    container-type: size;
     display: flex;
     align-items: center;
     justify-content: center;
     flex: 1 1 auto;
     width: 100%;
     min-height: 0;
-  }
-
-  .feed-photo-mood-face {
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
     height: 100%;
-    min-height: 0;
-    padding: 0;
-    background: transparent;
-  }
-
-  /* Same contain sizing as `.feed-photo-image` — no thumb grey plate. */
-  .feed-photo-mood-cover {
-    position: relative;
-    box-sizing: border-box;
-    width: auto;
-    height: min(100%, var(--feed-photo-stage-max, 28rem));
-    max-width: 100%;
-    max-height: 100%;
-    aspect-ratio: 1 / 1;
-    border-radius: 0.85rem;
-    overflow: hidden;
-    line-height: 0;
-    background: transparent;
-  }
-
-  .feed-photo-mood-cover .portfolio-writing-cover-card,
-  .feed-photo-mood-cover .portfolio-writing-cover-fallback {
-    position: absolute;
-    inset: 0;
-    display: block;
-    width: 100%;
-    height: 100%;
-    background: transparent;
-  }
-
-  .feed-photo-mood-cover .portfolio-writing-cover-card svg {
-    display: block;
-    width: 100%;
-    height: 100%;
-    /* Article enlarge fills the square — list thumbs use contain and show a mat. */
-    object-fit: cover;
-    object-position: center;
-  }
-
-  .feed-photo-stage:has(.feed-photo-track) {
-    /* Flex fills the face — no fixed dvh that double-counts chrome. */
-    height: auto;
   }
 
   .feed-photo-track {
@@ -30656,6 +30623,32 @@ a.os-surface-row {
     object-fit: contain;
     border-radius: 0.85rem;
     background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  /* Mood / text-card SVG — contain like photos; keep inline for avatars. */
+  .feed-photo-image--svg {
+    box-sizing: border-box;
+    flex: 0 1 auto;
+    /* SVG width/height attrs must not block flex shrink below 600px. */
+    min-width: 0;
+    min-height: 0;
+    width: min(
+      100%,
+      100cqw,
+      100cqh,
+      var(--os-media-face-stage-max, 28rem)
+    );
+    max-width: 100%;
+    max-height: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+  }
+
+  .feed-photo-image--svg svg {
+    display: block;
+    width: 100%;
+    height: 100%;
   }
 
   .feed-photo-stage > .feed-photo-image {
@@ -30765,22 +30758,6 @@ a.os-surface-row {
   .scarce-read-slide .os-media-face-body {
     --writing-read-measure: min(34rem, 100%);
     --scarce-writing-p: 0;
-    /*
-     * Media stage fit — jacket + dots/gap + frost footer + dock, so one
-     * photo/cover lands fully in the phone face without vertical scroll.
-     */
-    --feed-photo-chrome: calc(
-      env(safe-area-inset-top, 0px) + 3.6rem + 2.4rem +
-        var(--os-screen-footer-band, 4.25rem) +
-        max(
-          var(--os-summon-dock-occupied, 0px),
-          var(--portfolio-dock-clearance, 4.75rem)
-        )
-    );
-    --feed-photo-stage-max: min(
-      42rem,
-      max(14rem, calc(100dvh - var(--feed-photo-chrome)))
-    );
     position: relative;
     display: flex;
     flex-direction: column;
@@ -30795,9 +30772,29 @@ a.os-surface-row {
     box-sizing: border-box;
   }
 
+  /*
+   * Shared stage budget for every media face (photo / mood / thought art).
+   * Stable dock clearance — not live occupied — so reply typing does not
+   * thrash contain-fit sizing.
+   */
+  .os-media-face {
+    --os-media-face-chrome: calc(
+      env(safe-area-inset-top, 0px) + 3.6rem + 2.4rem +
+        var(--os-screen-footer-band, 4.25rem) +
+        var(--portfolio-dock-clearance, 4.75rem)
+    );
+    --os-media-face-stage-max: min(
+      42rem,
+      max(14rem, calc(100dvh - var(--os-media-face-chrome)))
+    );
+    /* Alias used by legacy feed-photo / thought selectors. */
+    --feed-photo-stage-max: var(--os-media-face-stage-max);
+    --feed-photo-chrome: var(--os-media-face-chrome);
+  }
+
   /* No frost footer — reclaim that band for the photo/cover. */
-  .scarce-read-slide:not([data-screen-footer='true']) .os-media-face-body {
-    --feed-photo-chrome: calc(
+  .os-media-face:not([data-screen-footer='true']) {
+    --os-media-face-chrome: calc(
       env(safe-area-inset-top, 0px) + 3.6rem + 1.1rem +
         max(0.45rem, env(safe-area-inset-bottom, 0px))
     );

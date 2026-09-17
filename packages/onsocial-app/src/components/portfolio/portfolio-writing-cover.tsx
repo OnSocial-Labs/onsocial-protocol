@@ -19,6 +19,13 @@ function inlineSvgMarkup(svg: string): string {
   return svg.replace(/^<\?xml[^>]*>\s*/i, '');
 }
 
+/** Drop fixed width/height so the face stage can contain-fit (viewBox stays). */
+function faceSvgMarkup(svg: string): string {
+  return inlineSvgMarkup(svg)
+    .replace(/\swidth="[^"]*"/i, '')
+    .replace(/\sheight="[^"]*"/i, '');
+}
+
 function resolveCardMood(cardBg: string | null | undefined): MoodKey {
   return canonicalizeMoodKey(cardBg?.trim() ?? '') ?? DEFAULT_MOOD;
 }
@@ -35,11 +42,12 @@ function resolveMarkColor(color: string | null | undefined): MarkColor {
   return isMarkColor(color) ? color : 'auto';
 }
 
-export type PortfolioWritingCoverVariant = 'list' | 'article';
+export type PortfolioWritingCoverVariant = 'list' | 'article' | 'face';
 
 /**
  * Raster cover when present. Otherwise regenerate the text-card (create
  * pin / mint theme). List thumbs keep provenance aria-hidden upstream.
+ * `face` — contain-fit enlarge (inline SVG so byline avatars load).
  */
 export function PortfolioWritingCover({
   title,
@@ -107,11 +115,33 @@ export function PortfolioWritingCover({
 
   if (coverUrl) {
     return (
-      <img alt="" className="portfolio-writing-cover-photo" src={coverUrl} />
+      <img
+        alt=""
+        className={
+          variant === 'face'
+            ? 'feed-photo-image'
+            : 'portfolio-writing-cover-photo'
+        }
+        src={coverUrl}
+        draggable={variant === 'face' ? false : undefined}
+      />
     );
   }
 
   if (!svg) return <div className="portfolio-writing-cover-fallback" />;
+
+  /*
+   * Face enlarge — inline SVG (avatars are external <image href>; that
+   * cannot load inside an <img data:>). Square stage mirrors thought art.
+   */
+  if (variant === 'face') {
+    return (
+      <div
+        className="feed-photo-image feed-photo-image--svg"
+        dangerouslySetInnerHTML={{ __html: faceSvgMarkup(svg) }}
+      />
+    );
+  }
 
   return (
     <div
