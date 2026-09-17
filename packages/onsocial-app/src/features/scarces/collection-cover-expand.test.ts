@@ -27,4 +27,14 @@ describe('writing drop cover expand wiring', () => {
     expect(reader).toContain('aria-label="View cover"');
     expect(reader).toContain('setCoverOpen(true)');
   });
+
+  it('keeps the reader jacket + OS card portal (no viewport / scroll-quiet)', () => {
+    expect(reader).toContain('OsSlideOverScreen');
+    expect(reader).toContain('hideNav');
+    expect(reader).toContain('scarce-writing-read-title');
+    expect(reader).toContain('scarce-writing-read-progress');
+    expect(reader).not.toMatch(/^\s*viewport\s*$/m);
+    expect(reader).not.toContain('chromeQuiet');
+    expect(reader).not.toContain('onScrollDelta');
+  });
 });

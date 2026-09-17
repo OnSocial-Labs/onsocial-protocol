@@ -138,6 +138,12 @@ test.describe('collection drop page', () => {
           buttonX: button.getBoundingClientRect().x,
           readPad: Number.parseFloat(getComputedStyle(readCol).paddingLeft),
           footerPad: Number.parseFloat(getComputedStyle(footer).paddingLeft),
+          progressPosition: getComputedStyle(
+            root.querySelector('.scarce-writing-read-progress') ?? root
+          ).position,
+          slideParentIsCard: Boolean(
+            root.parentElement?.classList.contains('app-surface')
+          ),
         };
       });
       expect(insets).toBeTruthy();
@@ -147,6 +153,8 @@ test.describe('collection drop page', () => {
       ).toBeLessThan(2);
       expect(insets?.readPad).toBeCloseTo(18.4, 0);
       expect(insets?.footerPad).toBeCloseTo(18.4, 0);
+      expect(insets?.progressPosition).toBe('absolute');
+      expect(insets?.slideParentIsCard).toBe(true);
     });
 
     test('visitor writing cover opens the reader, not artwork zoom', async ({

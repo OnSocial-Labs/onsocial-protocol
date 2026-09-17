@@ -59,6 +59,7 @@ import { useOsPortalHost } from '@/contexts/os-portal-host-context';
 import { accountIdsEqual } from '@/lib/account-match';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
+import { useSummonDockOccupiedHeight } from '@/hooks/use-summon-dock-occupied-height';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { ThemeToggle } from '@/components/os/theme-toggle';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
@@ -293,6 +294,8 @@ export function SummonLauncher({
     portalTarget != null &&
     typeof document !== 'undefined' &&
     portalTarget !== document.body;
+  const summonDockRef = useRef<HTMLDivElement>(null);
+  useSummonDockOccupiedHeight(summonDockRef, !hideTrigger && !dockHidden);
   const sheetRef = useRef<HTMLElement>(null);
   const dragStateRef = useRef<{
     startY: number;
@@ -496,6 +499,7 @@ export function SummonLauncher({
     <>
       {!hideTrigger ? (
         <div
+          ref={summonDockRef}
           className={`portfolio-summon-dock${open ? ' is-launcher-open' : ''}${dockHidden ? ' is-scroll-hidden' : ''}${write ? ' is-writing' : ''}`}
           data-mood={dockMoodId ?? undefined}
           style={dockMoodStyle}

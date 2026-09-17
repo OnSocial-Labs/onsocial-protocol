@@ -12244,6 +12244,20 @@ a.os-surface-row {
     -webkit-overflow-scrolling: touch;
     /* Short clearance only — feed scrolls under the floating dock pill. */
     padding-bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px));
+    transition: padding-bottom var(--os-motion-dock, 260ms) ease;
+  }
+
+  /*
+   * Constant air above the dock — pad tracks measured dock height
+   * (`--os-summon-dock-occupied` from useSummonDockOccupiedHeight).
+   * Dock stays pinned; only the scroller clearance changes.
+   */
+  .os-app-screen:has(> .portfolio-summon-dock:not(.is-scroll-hidden))
+    .os-app-screen-body {
+    padding-bottom: calc(
+      var(--os-summon-dock-occupied, var(--portfolio-dock-clearance, 4.75rem)) +
+        0.4rem
+    );
   }
 
   /*
@@ -27113,6 +27127,12 @@ a.os-surface-row {
     margin-inline: auto;
   }
 
+  /* Immersive: measure is on the scroll body — don’t double-center. */
+  .collection-writing.is-immersive .collection-writing-pdf-page {
+    max-width: none;
+    margin-inline: 0;
+  }
+
   .collection-writing-pdf-folio {
     display: flex;
     flex-direction: column;
@@ -27387,12 +27407,21 @@ a.os-surface-row {
     display: inline;
   }
 
+  /*
+   * Immersive reader scroll lives on the text column — not the page edge.
+   * Books / chapters / articles share --writing-read-measure; the scrollbar
+   * must hug that measure (classic reader), never the OS card gutter.
+   */
   .collection-writing.is-immersive .collection-writing-body {
     flex: 1;
     min-height: 0;
+    width: 100%;
+    max-width: var(--writing-read-measure, 34rem);
+    margin-inline: auto;
     overflow: auto;
     overscroll-behavior: contain;
-    padding: 0.1rem 0.05rem 1.1rem;
+    padding: 0.1rem 0.35rem 1.1rem 0.05rem;
+    scrollbar-gutter: stable;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
     transition:
@@ -27418,9 +27447,8 @@ a.os-surface-row {
 
   .collection-writing.is-immersive .collection-writing-chapter-title {
     margin: 0 0 0.35rem;
-    max-width: var(--writing-read-measure, 34rem);
-    margin-inline: auto;
     width: 100%;
+    max-width: none;
     font-family: var(--font-newsreader), Georgia, 'Times New Roman', serif;
     font-size: 1.35rem;
     font-weight: 600;
@@ -27430,9 +27458,9 @@ a.os-surface-row {
   }
 
   .collection-writing.is-immersive .collection-writing-markdown {
-    max-width: var(--writing-read-measure, 34rem);
-    margin-inline: auto;
     width: 100%;
+    max-width: none;
+    margin-inline: 0;
     font-family: var(--font-newsreader), Georgia, 'Times New Roman', serif;
     font-size: 1.125rem;
     font-weight: 400;
@@ -27484,9 +27512,10 @@ a.os-surface-row {
     opacity: 0.88;
   }
 
-  .scarce-writing-read-progress {
-    position: fixed;
-    top: env(safe-area-inset-top, 0px);
+  /* Hairline flush to the OS card top — not inset by jacket padding. */
+  .scarce-read-slide .scarce-writing-read-progress {
+    position: absolute;
+    top: 0;
     left: 0;
     right: 0;
     z-index: 4;
@@ -27495,7 +27524,7 @@ a.os-surface-row {
     border-radius: 0;
     background: rgb(var(--fg-rgb) / 0.08);
     overflow: hidden;
-    pointer-events: auto;
+    pointer-events: none;
   }
 
   .scarce-writing-read-progress-fill {
@@ -27536,6 +27565,7 @@ a.os-surface-row {
     align-self: flex-start;
   }
 
+  /* Jacket owns chrome — collapse empty OS nav + body chrome inset. */
   .scarce-read-slide[data-hide-nav='true'] .os-app-screen-header {
     position: absolute;
     width: 0;
@@ -27545,22 +27575,9 @@ a.os-surface-row {
     pointer-events: none;
   }
 
-  .scarce-read-slide[data-hide-nav='true'][data-glass-chrome='true']
-    .os-app-screen-body {
+  .scarce-read-slide[data-hide-nav='true'] .os-app-screen-body {
     padding-top: 0;
     scroll-padding-top: 0;
-  }
-
-  .os-slide-over.scarce-read-slide[data-viewport='true'] {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    max-width: none;
-    max-height: none;
-    min-height: 0;
-    border: none;
-    border-radius: 0;
   }
 
   .collection-writing-body.is-turning-drag {
@@ -27624,31 +27641,6 @@ a.os-surface-row {
       transform: none;
       opacity: 1;
     }
-  }
-
-  .scarce-writing-read.is-chrome-quiet .scarce-writing-read-top,
-  .scarce-writing-read.is-chrome-quiet .scarce-writing-read-hero,
-  .scarce-writing-read.is-chrome-quiet .collection-writing-tools,
-  .scarce-writing-read.is-chrome-quiet .collection-writing-nav,
-  .scarce-writing-read.is-chrome-quiet .collection-writing-pdf-nav,
-  .scarce-writing-read.is-chrome-quiet .collection-writing-pdf-count,
-  .scarce-writing-read.is-chrome-quiet .scarce-writing-read-footer {
-    opacity: 0;
-    pointer-events: none;
-    visibility: hidden;
-  }
-
-  .scarce-writing-read.is-chrome-quiet .scarce-writing-read-hero,
-  .scarce-writing-read.is-chrome-quiet .collection-writing-tools,
-  .scarce-writing-read.is-chrome-quiet .collection-writing-nav,
-  .scarce-writing-read.is-chrome-quiet .collection-writing-pdf-nav,
-  .scarce-writing-read.is-chrome-quiet .collection-writing-pdf-count {
-    height: 0;
-    min-height: 0;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    transform: none;
   }
 
   .scarce-writing-read-art {
@@ -27736,7 +27728,13 @@ a.os-surface-row {
     flex-direction: column;
     flex: 1;
     min-height: 0;
+    min-width: 0;
     overflow: hidden;
+  }
+
+  .scarce-writing-read-body > .collection-writing {
+    min-width: 0;
+    width: 100%;
   }
 
   .scarce-writing-read-footer {
@@ -27749,7 +27747,6 @@ a.os-surface-row {
     .scarce-writing-read-hero,
     .scarce-writing-read-footer,
     .scarce-writing-read-progress-fill,
-    .scarce-writing-read.is-chrome-quiet .scarce-writing-read-hero,
     .collection-writing-body.is-turn-out-next,
     .collection-writing-body.is-turn-out-prev,
     .collection-writing-body.is-turn-in-next,
@@ -30260,6 +30257,8 @@ a.os-surface-row {
 
   .scarce-read-slide .scarce-writing-read {
     --writing-read-measure: min(34rem, 100%);
+    /* Static so the progress hairline positions against the slide card top. */
+    position: static;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -30267,7 +30266,8 @@ a.os-surface-row {
     max-height: none;
     height: 100%;
     margin: 0 auto;
-    padding: calc(env(safe-area-inset-top, 0px) + 0.4rem) 0.9rem
+    /* Jacket sits under the hairline; safe-area only (no extra top gap). */
+    padding: max(0.35rem, env(safe-area-inset-top, 0px)) 0.9rem
       max(0.55rem, env(safe-area-inset-bottom, 0px));
     min-height: 0;
     box-sizing: border-box;
@@ -30276,7 +30276,7 @@ a.os-surface-row {
   @media (min-width: 640px) {
     .scarce-read-slide .scarce-writing-read {
       width: min(100%, 42rem);
-      padding: 0.55rem 1.25rem 0.75rem;
+      padding: 0.45rem 1.25rem 0.75rem;
     }
   }
 

@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import {
   ChevronRightIcon,
   OsIconAction,
@@ -27,8 +21,6 @@ import type {
 } from '@/features/scarces/drop-writing';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
-const CHROME_QUIET_MS = 900;
-
 function inlineSvgMarkup(svg: string): string {
   return svg.replace(/^<\?xml[^>]*>\s*/i, '');
 }
@@ -47,8 +39,9 @@ function WritingReadClose() {
 }
 
 /**
- * Writing reader — the page is the window. Title lives on the jacket once.
- * Close sits opposite it. Progress is a hairline on the glass.
+ * Writing reader — OS phone-card slide (not full browser). Jacket is the
+ * header: cover + title + close. Subtle progress hairline on the slide top.
+ * No scroll-quiet — chrome stays so reading space isn’t reclaimed then lost.
  */
 export function WritingReadSheet({
   open,
@@ -82,75 +75,23 @@ export function WritingReadSheet({
   footer?: ReactNode;
 }) {
   const { isConnected, connect, isLoading } = useAppWallet();
-  const quietTimerRef = useRef<number | null>(null);
-  const liveAtRef = useRef(0);
   const [wasOpen, setWasOpen] = useState(open);
   const [scrollRatio, setScrollRatio] = useState(0);
-  const [chromeQuiet, setChromeQuiet] = useState(false);
   const [coverOpen, setCoverOpen] = useState(false);
 
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
       setScrollRatio(0);
-      setChromeQuiet(false);
       setCoverOpen(false);
     } else {
       setCoverOpen(false);
     }
   }
 
-  useEffect(() => {
-    if (!open) return;
-    liveAtRef.current =
-      typeof performance !== 'undefined' ? performance.now() + 600 : 0;
-  }, [open]);
-
-  const clearQuietTimer = useCallback(() => {
-    if (quietTimerRef.current != null) {
-      window.clearTimeout(quietTimerRef.current);
-      quietTimerRef.current = null;
-    }
-  }, []);
-
-  const wakeChrome = useCallback(() => {
-    clearQuietTimer();
-    setChromeQuiet(false);
-  }, [clearQuietTimer]);
-
-  const onChromeTap = useCallback(() => {
-    clearQuietTimer();
-    setChromeQuiet((quiet) => !quiet);
-  }, [clearQuietTimer]);
-
   const onReadingProgress = useCallback((ratio: number) => {
     setScrollRatio(ratio);
   }, []);
-
-  const onReadingScroll = useCallback(
-    (deltaY: number) => {
-      if (
-        typeof performance !== 'undefined' &&
-        performance.now() < liveAtRef.current
-      ) {
-        return;
-      }
-      if (deltaY > 2) {
-        clearQuietTimer();
-        setChromeQuiet(true);
-        return;
-      }
-      if (deltaY < -2) {
-        wakeChrome();
-        quietTimerRef.current = window.setTimeout(() => {
-          setChromeQuiet(true);
-        }, CHROME_QUIET_MS);
-      }
-    },
-    [clearQuietTimer, wakeChrome]
-  );
-
-  useEffect(() => () => clearQuietTimer(), [clearQuietTimer]);
 
   const name = title.trim() || 'Drop';
   const inlineSvg = coverSvg?.trim() ? inlineSvgMarkup(coverSvg.trim()) : null;
@@ -182,18 +123,17 @@ export function WritingReadSheet({
       onClose={onClose}
       title={name}
       hideNav
-      viewport
       elevateChrome={false}
       closeAriaLabel="Back from reader"
       zIndex={SCARCE_Z.listenShell}
-      className={`scarce-read-slide${chromeQuiet ? ' is-reading-quiet' : ''}`}
+      className="scarce-read-slide"
       contentClassName="scarce-read-slide-body"
       footer={connectFooter}
     >
       <div
         className={`scarce-writing-read${
-          chromeQuiet ? ' is-chrome-quiet' : ''
-        }${connectLocked ? ' is-connect-locked' : ''}`}
+          connectLocked ? ' is-connect-locked' : ''
+        }`}
       >
         <div
           className="scarce-writing-read-progress"
@@ -202,13 +142,13 @@ export function WritingReadSheet({
           aria-valuemax={100}
           aria-valuenow={progressPct}
           aria-label="Reading progress"
-          onPointerDown={wakeChrome}
         >
           <span
             className="scarce-writing-read-progress-fill"
             style={{ width: `${progressPct}%` }}
           />
         </div>
+
         <div className="scarce-writing-read-hero">
           <div className="scarce-writing-read-mast">
             {inlineSvg && !rasterCover ? (
@@ -257,8 +197,6 @@ export function WritingReadSheet({
               lockedHint={lockedHint}
               immersive
               onProgress={onReadingProgress}
-              onScrollDelta={onReadingScroll}
-              onChromeTap={onChromeTap}
             />
           ) : (
             <p className="scarce-feed-medium-empty">
