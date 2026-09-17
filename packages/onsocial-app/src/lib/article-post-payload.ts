@@ -101,8 +101,7 @@ export function resolveArticleCoverPin(
     normalizeArticleCoverMood(fallbackMood) ??
     defaults.mood;
   const voice = splitMoodKey(mood)?.voice;
-  const formatFromMood =
-    voice && isCardFormat(voice) ? voice : defaults.format;
+  const formatFromMood = voice && isCardFormat(voice) ? voice : defaults.format;
   return {
     mood,
     format: normalizeArticleCoverFormat(cover?.format) ?? formatFromMood,
@@ -430,10 +429,29 @@ export function shouldShowWritingSearch(_articleCount = 0): boolean {
   return true;
 }
 
+/** Live chrome query vs deferred list filter. Empty clears immediately. */
+export function resolveWritingListQuery(
+  liveQuery: string,
+  deferredQuery: string
+): string {
+  return liveQuery.trim() ? deferredQuery : liveQuery;
+}
+
 /** Chrome trailing count — “1 article” / “N articles”. */
 export function formatWritingArticleCountLabel(count: number): string {
   const n = Math.max(0, Math.floor(Number(count) || 0));
   return n === 1 ? '1 article' : `${n} articles`;
+}
+
+/** Idle: published total. While searching: cards currently on the shelf. */
+export function resolveWritingShelfCount(
+  total: number,
+  matchCount: number,
+  query: string
+): number {
+  return query.trim()
+    ? matchCount
+    : Math.max(0, Math.floor(Number(total) || 0));
 }
 
 export function articleMatchesQuery(

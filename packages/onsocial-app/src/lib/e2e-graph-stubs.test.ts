@@ -9,6 +9,7 @@ import {
   e2eSeriesCatalogRows,
   e2eVaultCollectionRows,
   e2eVaultOwnedRows,
+  e2eWritingShelfRows,
   extractGraphQuery,
   extractGraphRequest,
   isAppCatalogQuery,
@@ -100,6 +101,13 @@ describe('parseE2eGraphCookie', () => {
     );
   });
 
+  it('reads writing=shelf', () => {
+    expect(parseE2eGraphCookie('writing=shelf')).toEqual({ writing: 'shelf' });
+    expect(
+      serializeE2eGraphCookie({ catalog: 'empty', writing: 'shelf' })
+    ).toBe('catalog=empty&writing=shelf');
+  });
+
   it('ignores missing or unknown values', () => {
     expect(parseE2eGraphCookie(null)).toEqual({});
     expect(parseE2eGraphCookie('catalog=vault')).toEqual({});
@@ -107,6 +115,7 @@ describe('parseE2eGraphCookie', () => {
     expect(parseE2eGraphCookie('guild=catalog')).toEqual({});
     expect(parseE2eGraphCookie('market=catalog')).toEqual({});
     expect(parseE2eGraphCookie('drop=shop')).toEqual({});
+    expect(parseE2eGraphCookie('writing=vault')).toEqual({});
     expect(parseE2eGraphCookie('')).toEqual({});
   });
 });
@@ -220,7 +229,8 @@ describe('resolveE2eGraphStub', () => {
   });
 
   it('returns Audit Guild rows for GroupsByIds when opted in', () => {
-    const groupsQuery = 'query GroupsByIds($ids: [String!]!, $limit: Int!) { x }';
+    const groupsQuery =
+      'query GroupsByIds($ids: [String!]!, $limit: Int!) { x }';
     expect(isGroupsByIdsQuery(groupsQuery)).toBe(true);
     expect(
       resolveE2eGraphStub({
@@ -315,6 +325,21 @@ describe('resolveE2eGraphStub', () => {
         query: catalogQuery,
         variables: { creatorId: 'alice.near' },
         cookieValue: 'drop=default',
+      })
+    ).toBeNull();
+  });
+
+  it('returns Writing shelf articles when opted in', () => {
+    expect(
+      resolveE2eGraphStub({
+        query: 'query Posts($author: String!, $limit: Int!) { postsFeed }',
+        cookieValue: 'writing=shelf',
+      })
+    ).toEqual({ data: { postsFeed: e2eWritingShelfRows() } });
+    expect(
+      resolveE2eGraphStub({
+        query: 'query Posts($author: String!, $limit: Int!) { postsFeed }',
+        cookieValue: null,
       })
     ).toBeNull();
   });

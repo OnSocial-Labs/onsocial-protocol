@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { memo, useDeferredValue, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { PostRow } from '@onsocial/sdk';
 import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
@@ -23,6 +23,8 @@ import {
   parseArticleSnapshot,
   resolveArticleCover,
   resolveWritingEmptyState,
+  resolveWritingListQuery,
+  resolveWritingShelfCount,
   shouldShowWritingSearch,
 } from '@/lib/article-post-payload';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -51,7 +53,7 @@ export type PortfolioWritingPanelProps = {
   coverHints?: Record<string, WritingArticleCoverHint>;
 };
 
-function PortfolioWritingList({
+const PortfolioWritingList = memo(function PortfolioWritingList({
   accountId,
   titleLabel,
   avatarUrl,
@@ -182,13 +184,16 @@ function PortfolioWritingList({
       )}
     </article>
   );
-}
+});
 
 function useWritingShelfState(articleCount: number) {
   const [query, setQuery] = useState('');
+  /* Heading stays live; article cards wait for idle. Clear flushes immediately. */
+  const deferredQuery = useDeferredValue(query);
+  const listQuery = resolveWritingListQuery(query, deferredQuery);
   const showSearch = shouldShowWritingSearch(articleCount);
   const scrollRootRef = useRef<HTMLDivElement | null>(null);
-  return { query, setQuery, showSearch, scrollRootRef };
+  return { query, setQuery, listQuery, showSearch, scrollRootRef };
 }
 
 /** One compact glass shelf — hard refresh and profile overlay share this. */
@@ -202,12 +207,24 @@ function PortfolioWritingShelf({
   embedded?: boolean;
   onDockBack?: () => void;
 }) {
-  const { query, setQuery, showSearch, scrollRootRef } = useWritingShelfState(
-    panel.articles.length
-  );
+  const { query, setQuery, listQuery, showSearch, scrollRootRef } =
+    useWritingShelfState(panel.articles.length);
   /* Overlay: mood wash lives on the glass sheet — keep the screen clear. */
   const moodId = embedded ? null : mood.id;
-  const moodStyle = embedded ? undefined : portfolioMoodShellStyle(mood.cssVars);
+  const moodStyle = embedded
+    ? undefined
+    : portfolioMoodShellStyle(mood.cssVars);
+  const matchCount = useMemo(
+    () =>
+      panel.articles.filter((post) => articleMatchesQuery(post, listQuery))
+        .length,
+    [panel.articles, listQuery]
+  );
+  const shelfCount = resolveWritingShelfCount(
+    panel.articles.length,
+    matchCount,
+    listQuery
+  );
 
   return (
     <OsAppScreen
@@ -223,15 +240,13 @@ function PortfolioWritingShelf({
       moodStyle={moodStyle}
       scrollRootRef={scrollRootRef}
       embedded={embedded}
-      heading={
-        <WritingSearchHeading query={query} onQueryChange={setQuery} />
-      }
+      heading={<WritingSearchHeading query={query} onQueryChange={setQuery} />}
       toolbar={
         <WritingIdentityToolbar
           accountId={panel.accountId}
           titleLabel={panel.titleLabel}
           avatarUrl={panel.avatarUrl}
-          articleCount={panel.articles.length}
+          articleCount={shelfCount}
         />
       }
     >
@@ -239,7 +254,7 @@ function PortfolioWritingShelf({
       <PortfolioPersonalComposer pageAccountId={panel.accountId} />
       <PortfolioWritingList
         {...panel}
-        query={query}
+        query={listQuery}
         showSearch={showSearch}
       />
     </OsAppScreen>
@@ -276,11 +291,11 @@ export function PortfolioWritingOverlay({
 
 /** @deprecated Prefer {@link PortfolioWritingScreen} / {@link PortfolioWritingOverlay}. */
 export function PortfolioWritingPanel(panel: PortfolioWritingPanelProps) {
-  const { query, showSearch } = useWritingShelfState(panel.articles.length);
+  const { listQuery, showSearch } = useWritingShelfState(panel.articles.length);
   return (
     <PortfolioWritingList
       {...panel}
-      query={query}
+      query={listQuery}
       showSearch={showSearch}
     />
   );

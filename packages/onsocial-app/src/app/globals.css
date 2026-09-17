@@ -9136,15 +9136,6 @@ a.os-surface-row {
     text-underline-offset: 0.16em;
   }
 
-  .portfolio-writing-search {
-    display: block;
-    margin: 0.85rem 0 0;
-  }
-
-  .portfolio-writing-search-input {
-    width: 100%;
-  }
-
   .portfolio-writing-empty {
     display: grid;
     gap: 0.7rem;
