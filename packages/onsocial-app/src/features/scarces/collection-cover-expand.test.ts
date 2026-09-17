@@ -15,6 +15,7 @@ describe('writing drop cover expand wiring', () => {
     expect(panel).toContain('collectionCoverExpandAction');
     expect(panel).toContain('collectionOpensWritingReader');
     expect(panel).toContain("coverExpand === 'read'");
+    expect(panel).toContain('collection-cover-read-hit');
     expect(panel).toContain('aria-label="Open reader"');
     expect(panel).not.toContain(
       'hasReadables || canShowPass || (!isAudio && Boolean(view.mediaUrl))'

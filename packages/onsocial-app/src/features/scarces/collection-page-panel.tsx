@@ -954,14 +954,16 @@ export function CollectionPagePanel({
             {coverExpand === 'read' ? (
               <button
                 type="button"
-                className="scarce-clip-cover-expand collection-cover-read-expand"
+                className="scarce-clip-cover-expand collection-cover-read-expand collection-cover-read-hit"
                 aria-label="Open reader"
                 onClick={() => setWritingReadOpen(true)}
               >
-                <ScaleUpIcon
-                  className="scarce-clip-cover-expand-icon"
-                  aria-hidden
-                />
+                <span className="collection-cover-read-hit-chip" aria-hidden>
+                  <ScaleUpIcon
+                    className="scarce-clip-cover-expand-icon"
+                    aria-hidden
+                  />
+                </span>
               </button>
             ) : coverExpand === 'pass' ? (
               <button

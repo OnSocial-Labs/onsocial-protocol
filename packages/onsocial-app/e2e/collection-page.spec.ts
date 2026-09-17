@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   E2E_CHROME_TIMEOUT_MS,
+  dismissNextDevOverlay,
   expectConnectVoice,
   expectOsRowAction,
   gotoApp,
@@ -159,9 +160,35 @@ test.describe('collection drop page', () => {
       await expect(
         page.getByRole('button', { name: 'View artwork' })
       ).toHaveCount(0);
-      await page.getByRole('button', { name: 'Open reader' }).click();
+      const cover = page.getByRole('region', { name: 'Drop cover' });
+      const openReader = cover.getByRole('button', { name: 'Open reader' });
+      await expect(openReader).toBeVisible();
       const sheet = page.locator('.scarce-read-slide');
-      await expect(sheet).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        await dismissNextDevOverlay(page);
+        await openReader.click({ force: true });
+        try {
+          await expect(sheet).toBeVisible({ timeout: 8_000 });
+          await expect(sheet).toHaveClass(/is-open/);
+          await expect(
+            sheet.locator('.scarce-writing-read-title')
+          ).toBeInViewport();
+          await expect
+            .poll(async () =>
+              sheet.evaluate((el) => {
+                const t = getComputedStyle(el).transform;
+                return (
+                  t === 'none' ||
+                  /^matrix\(1,\s*0,\s*0,\s*1,\s*0(\.0+)?,\s*0(\.0+)?\)$/.test(t)
+                );
+              })
+            )
+            .toBe(true);
+          break;
+        } catch (error) {
+          if (attempt === 1) throw error;
+        }
+      }
       await expect(sheet.locator('.scarce-writing-read-title')).toHaveText(
         'Chapter One'
       );
