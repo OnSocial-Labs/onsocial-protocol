@@ -443,6 +443,17 @@ export function formatWritingArticleCountLabel(count: number): string {
   return n === 1 ? '1 article' : `${n} articles`;
 }
 
+/** Idle: published total. While searching: cards currently on the shelf. */
+export function resolveWritingShelfCount(
+  total: number,
+  matchCount: number,
+  query: string
+): number {
+  return query.trim()
+    ? matchCount
+    : Math.max(0, Math.floor(Number(total) || 0));
+}
+
 export function articleMatchesQuery(
   post: Pick<PostRow, 'value'>,
   query: string

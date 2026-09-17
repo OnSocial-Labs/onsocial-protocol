@@ -24,6 +24,7 @@ import {
   resolveArticleCover,
   resolveWritingEmptyState,
   resolveWritingListQuery,
+  resolveWritingShelfCount,
   shouldShowWritingSearch,
 } from '@/lib/article-post-payload';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -213,6 +214,17 @@ function PortfolioWritingShelf({
   const moodStyle = embedded
     ? undefined
     : portfolioMoodShellStyle(mood.cssVars);
+  const matchCount = useMemo(
+    () =>
+      panel.articles.filter((post) => articleMatchesQuery(post, listQuery))
+        .length,
+    [panel.articles, listQuery]
+  );
+  const shelfCount = resolveWritingShelfCount(
+    panel.articles.length,
+    matchCount,
+    listQuery
+  );
 
   return (
     <OsAppScreen
@@ -234,7 +246,7 @@ function PortfolioWritingShelf({
           accountId={panel.accountId}
           titleLabel={panel.titleLabel}
           avatarUrl={panel.avatarUrl}
-          articleCount={panel.articles.length}
+          articleCount={shelfCount}
         />
       }
     >

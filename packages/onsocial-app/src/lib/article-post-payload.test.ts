@@ -17,6 +17,7 @@ import {
   shouldShowWritingLink,
   shouldShowWritingSearch,
   resolveWritingListQuery,
+  resolveWritingShelfCount,
   formatWritingArticleCountLabel,
   formatWritingLikeLabel,
   formatWritingReadLabel,
@@ -436,6 +437,18 @@ describe('formatWritingArticleCountLabel', () => {
     expect(formatWritingArticleCountLabel(0)).toBe('0 articles');
     expect(formatWritingArticleCountLabel(1)).toBe('1 article');
     expect(formatWritingArticleCountLabel(3)).toBe('3 articles');
+  });
+});
+
+describe('resolveWritingShelfCount', () => {
+  it('keeps the published total until there is a query', () => {
+    expect(resolveWritingShelfCount(3, 3, '')).toBe(3);
+    expect(resolveWritingShelfCount(3, 3, '   ')).toBe(3);
+  });
+
+  it('follows visible matches while searching', () => {
+    expect(resolveWritingShelfCount(3, 1, 'lisbon')).toBe(1);
+    expect(resolveWritingShelfCount(3, 0, 'tokyo-miss')).toBe(0);
   });
 });
 

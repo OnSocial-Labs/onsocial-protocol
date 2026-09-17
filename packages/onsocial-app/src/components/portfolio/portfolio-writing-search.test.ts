@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 const here = dirname(fileURLToPath(import.meta.url));
 const chrome = readFileSync(join(here, 'portfolio-writing-chrome.tsx'), 'utf8');
 const panel = readFileSync(join(here, 'portfolio-writing-panel.tsx'), 'utf8');
+const globalsCss = readFileSync(join(here, '../../app/globals.css'), 'utf8');
 const navSearch = readFileSync(
   join(here, '../../../../onsocial-ui/src/os-app-chrome-nav-search.tsx'),
   'utf8'
@@ -27,12 +28,16 @@ describe('Writing shelf search', () => {
     expect(navSearch).toContain('inputMode="search"');
     expect(searchField).toContain('type="text"');
     expect(searchField).toContain('inputMode="search"');
+    expect(globalsCss).not.toContain('.portfolio-writing-search {');
+    expect(globalsCss).not.toContain('.portfolio-writing-search-input');
   });
 
   it('keeps typing live and defers the article-card filter', () => {
     expect(panel).toContain('useDeferredValue');
     expect(panel).toContain('resolveWritingListQuery');
+    expect(panel).toContain('resolveWritingShelfCount');
     expect(panel).toContain('query={listQuery}');
+    expect(panel).toContain('articleCount={shelfCount}');
     expect(panel).toContain('memo(function PortfolioWritingList');
   });
 });

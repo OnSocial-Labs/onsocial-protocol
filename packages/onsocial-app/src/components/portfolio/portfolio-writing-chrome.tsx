@@ -35,7 +35,7 @@ export function WritingSearchHeading({
   );
 }
 
-/** Slim sticky identity — count trails opposite; stays after search tucks. */
+/** Slim sticky identity — count trails opposite; matches the visible list. */
 export function WritingIdentityToolbar({
   accountId,
   titleLabel,

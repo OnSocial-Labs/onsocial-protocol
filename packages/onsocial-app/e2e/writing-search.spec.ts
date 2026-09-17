@@ -28,6 +28,9 @@ test.describe('Writing shelf search', () => {
     await expect(
       page.getByRole('link', { name: 'Tokyo lights' })
     ).toBeVisible();
+    await expect(page.locator('.portfolio-writing-chrome-kicker')).toHaveText(
+      '3 articles'
+    );
 
     await field.click();
     await field.pressSequentially('lisbon', { delay: 20 });
@@ -39,6 +42,9 @@ test.describe('Writing shelf search', () => {
     await expect(page.getByRole('link', { name: 'Tokyo lights' })).toHaveCount(
       0
     );
+    await expect(page.locator('.portfolio-writing-chrome-kicker')).toHaveText(
+      '1 article'
+    );
 
     await page.getByRole('button', { name: 'Clear search' }).click();
     await expect(field).toHaveValue('');
@@ -46,5 +52,8 @@ test.describe('Writing shelf search', () => {
     await expect(
       page.getByRole('link', { name: 'Tokyo lights' })
     ).toBeVisible();
+    await expect(page.locator('.portfolio-writing-chrome-kicker')).toHaveText(
+      '3 articles'
+    );
   });
 });
