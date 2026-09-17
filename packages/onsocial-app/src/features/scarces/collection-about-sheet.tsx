@@ -42,7 +42,10 @@ export function CollectionAboutTeaser({
   /** Clickable even when the line fits — About holds more than this teaser. */
   hasMore?: boolean;
 }) {
-  const lineRef = useRef<HTMLElement>(null);
+  const lineRef = useRef<HTMLElement | null>(null);
+  const setLineRef = (node: HTMLElement | null) => {
+    lineRef.current = node;
+  };
   const [truncated, setTruncated] = useState(false);
   const trimmed = text.trim();
   const line = trimmed || 'About';
@@ -72,7 +75,7 @@ export function CollectionAboutTeaser({
         onClick={onReadMore}
         aria-label={hasMore && !truncated ? 'More details' : 'Read more'}
       >
-        <span ref={lineRef} className="collection-about-teaser-line">
+        <span ref={setLineRef} className="collection-about-teaser-line">
           {line}
         </span>
       </button>
@@ -81,7 +84,7 @@ export function CollectionAboutTeaser({
 
   return (
     <div className="collection-about-teaser">
-      <p ref={lineRef} className="collection-about-teaser-line">
+      <p ref={setLineRef} className="collection-about-teaser-line">
         {line}
       </p>
     </div>
