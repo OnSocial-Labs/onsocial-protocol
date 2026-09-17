@@ -5,7 +5,7 @@
  *
  * Tests opt in with cookie `onsocial.e2e.graph`
  * (`catalog=night-roads`, `vault=default`, `hub=catalog`, `guild=empty`,
- * `market=shop`, `drop=default`, or combined).
+ * `market=shop`, `drop=default`, `writing=shelf`, or combined).
  * No cookie → live indexer / existing `page.route` only (SSR miss still works).
  */
 
@@ -30,6 +30,7 @@ export type E2eGraphHub = 'catalog' | 'empty' | 'held' | 'staff';
 export type E2eGraphGuild = 'empty' | 'missing' | 'member' | 'banned' | 'owner';
 export type E2eGraphMarket = 'shop' | 'shop-empty' | 'live-first';
 export type E2eGraphDrop = 'default' | 'held' | 'missing';
+export type E2eGraphWriting = 'shelf';
 export type E2eDropCollectionId =
   | 'night-drive'
   | 'chapter-one'
@@ -43,6 +44,7 @@ export type E2eGraphCookieValue = {
   guild?: E2eGraphGuild;
   market?: E2eGraphMarket;
   drop?: E2eGraphDrop;
+  writing?: E2eGraphWriting;
 };
 
 const TWO_NEAR_YOCTO = '2000000000000000000000000';
@@ -100,16 +102,16 @@ export function parseE2eGraphCookie(
     parsed.guild = guild;
   }
   const market = params.get('market');
-  if (
-    market === 'shop' ||
-    market === 'shop-empty' ||
-    market === 'live-first'
-  ) {
+  if (market === 'shop' || market === 'shop-empty' || market === 'live-first') {
     parsed.market = market;
   }
   const drop = params.get('drop');
   if (drop === 'default' || drop === 'held' || drop === 'missing') {
     parsed.drop = drop;
+  }
+  const writing = params.get('writing');
+  if (writing === 'shelf') {
+    parsed.writing = writing;
   }
   return parsed;
 }
@@ -122,6 +124,7 @@ export function serializeE2eGraphCookie(opts: E2eGraphCookieValue): string {
   if (opts.guild) params.set('guild', opts.guild);
   if (opts.market) params.set('market', opts.market);
   if (opts.drop) params.set('drop', opts.drop);
+  if (opts.writing) params.set('writing', opts.writing);
   return params.toString();
 }
 
@@ -148,6 +151,14 @@ export function isScarcesEventsQuery(query: string): boolean {
   return query.includes('ScarcesEvents');
 }
 
+export function isPostsFeedQuery(query: string): boolean {
+  return query.includes('postsFeed');
+}
+
+export function isPostsCurrentQuery(query: string): boolean {
+  return query.includes('postsCurrent') && !query.includes('postsFeed');
+}
+
 export function isCollectionCurrentQuery(query: string): boolean {
   return (
     query.includes('ScarcesCollectionCurrent') &&
@@ -172,9 +183,7 @@ export function isGroupsByIdsQuery(query: string): boolean {
 }
 
 export function isGroupFeedQuery(query: string): boolean {
-  return (
-    query.includes('GroupFeed') || query.includes('FilteredGroupFeed')
-  );
+  return query.includes('GroupFeed') || query.includes('FilteredGroupFeed');
 }
 
 export function isGroupMembershipForQuery(query: string): boolean {
@@ -198,9 +207,7 @@ export function isGroupPostCountQuery(query: string): boolean {
 }
 
 export function isProfileBatchQuery(query: string): boolean {
-  return (
-    query.includes('ProfileStatsBatch') || query.includes('ProfileKinds')
-  );
+  return query.includes('ProfileStatsBatch') || query.includes('ProfileKinds');
 }
 
 export function extractGraphRequest(body: unknown): {
@@ -860,8 +867,67 @@ export function e2eDropCurrentRows(
   ) {
     return [];
   }
+  return [e2eDropCollectionRow(collectionId, { ended: drop === 'held' })];
+}
+
+export const E2E_WRITING_ACCOUNT = 'alice.testnet';
+
+function e2eWritingArticleRow(opts: {
+  postId: string;
+  title: string;
+  text: string;
+  blockTimestamp: number;
+}) {
+  return {
+    accountId: E2E_WRITING_ACCOUNT,
+    postId: opts.postId,
+    value: JSON.stringify({
+      v: 1,
+      text: opts.text,
+      x: { onsocial: { article: { title: opts.title } } },
+    }),
+    blockHeight: 200,
+    blockTimestamp: opts.blockTimestamp,
+    receiptId: `receipt-${opts.postId}`,
+    parentPath: '',
+    parentAuthor: '',
+    parentType: '',
+    refPath: '',
+    refAuthor: '',
+    refType: '',
+    channel: '',
+    kind: 'post',
+    audiences: '',
+    groupId: '',
+    isGroupContent: false,
+    authorName: 'Alice',
+    authorAvatar: null,
+    groupName: null,
+    amplifyHeat: 1,
+  };
+}
+
+/** Writing shelf fixture — distinct titles so fast search can miss on purpose. */
+export function e2eWritingShelfRows() {
   return [
-    e2eDropCollectionRow(collectionId, { ended: drop === 'held' }),
+    e2eWritingArticleRow({
+      postId: 'night',
+      title: 'Night drive',
+      text: 'A river in Lisbon after dark.',
+      blockTimestamp: FIXTURE_CREATED_AT,
+    }),
+    e2eWritingArticleRow({
+      postId: 'print',
+      title: 'Quiet print',
+      text: 'Walking the Tagus.',
+      blockTimestamp: FIXTURE_CREATED_AT - 86_400_000,
+    }),
+    e2eWritingArticleRow({
+      postId: 'tokyo',
+      title: 'Tokyo lights',
+      text: 'Neon after rain.',
+      blockTimestamp: FIXTURE_CREATED_AT - 172_800_000,
+    }),
   ];
 }
 
@@ -872,6 +938,13 @@ export function resolveE2eGraphStub(opts: {
 }): { data: Record<string, unknown> } | null {
   const parsed = parseE2eGraphCookie(opts.cookieValue);
   const variables = opts.variables ?? {};
+
+  if (parsed.writing === 'shelf' && isPostsFeedQuery(opts.query)) {
+    return { data: { postsFeed: e2eWritingShelfRows() } };
+  }
+  if (parsed.writing === 'shelf' && isPostsCurrentQuery(opts.query)) {
+    return { data: { postsCurrent: e2eWritingShelfRows() } };
+  }
 
   if (parsed.hub && isAppRowQuery(opts.query)) {
     return { data: { scarcesApps: [e2eHubAppRow(parsed.hub)] } };
@@ -938,7 +1011,9 @@ export function resolveE2eGraphStub(opts: {
     isMarketShopCatalogQuery(opts.query, variables)
   ) {
     return {
-      data: { scarcesCollectionsCurrent: e2eMarketShopCatalogRows(parsed.market) },
+      data: {
+        scarcesCollectionsCurrent: e2eMarketShopCatalogRows(parsed.market),
+      },
     };
   }
   if (parsed.market && isActiveListingsQuery(opts.query)) {

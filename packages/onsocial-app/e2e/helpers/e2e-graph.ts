@@ -10,6 +10,7 @@ import {
   type E2eGraphHub,
   type E2eGraphMarket,
   type E2eGraphVault,
+  type E2eGraphWriting,
 } from '../../src/lib/e2e-graph-stubs';
 
 function e2eCookieUrl(): string {
@@ -85,4 +86,12 @@ export async function setE2eGraphDrop(
   drop: E2eGraphDrop
 ): Promise<void> {
   await setE2eGraphCookie(page, { drop });
+}
+
+/** Opt SSR into Writing shelf articles. */
+export async function setE2eGraphWriting(
+  page: Page,
+  writing: E2eGraphWriting
+): Promise<void> {
+  await setE2eGraphCookie(page, { writing });
 }
