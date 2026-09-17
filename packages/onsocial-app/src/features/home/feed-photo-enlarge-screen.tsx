@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type MutableRefObject,
   type ReactNode,
 } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon, OsIconAction } from '@onsocial/ui';
@@ -203,10 +204,6 @@ export function FeedPhotoEnlargeScreen({
   }, [open, index]);
 
   const showNav = photos.length > 1;
-  const setVideoRef = (photoIndex: number, node: HTMLVideoElement | null) => {
-    if (node) videoRefs.current.set(photoIndex, node);
-    else videoRefs.current.delete(photoIndex);
-  };
 
   return (
     <OsMediaFaceShell
@@ -232,18 +229,22 @@ export function FeedPhotoEnlargeScreen({
                   key={`${item.cid ?? item.url}:${photoIndex}`}
                   className="feed-photo-page"
                 >
-                  {mediaStage(item, {
-                    active: open && photoIndex === index,
-                    videoRef: (node) => setVideoRef(photoIndex, node),
-                  })}
+                  <FeedPhotoMediaStage
+                    item={item}
+                    active={open && photoIndex === index}
+                    photoIndex={photoIndex}
+                    videoRefs={videoRefs}
+                  />
                 </div>
               ))}
             </div>
           ) : (
-            mediaStage(photos[0] ?? null, {
-              active: open,
-              videoRef: (node) => setVideoRef(0, node),
-            })
+            <FeedPhotoMediaStage
+              item={photos[0] ?? null}
+              active={open}
+              photoIndex={0}
+              videoRefs={videoRefs}
+            />
           )}
         </div>
         {showNav ? (
@@ -297,13 +298,17 @@ export function FeedPhotoEnlargeScreen({
   );
 }
 
-function mediaStage(
-  item: PostMediaItem | null,
-  opts: {
-    active: boolean;
-    videoRef: (node: HTMLVideoElement | null) => void;
-  }
-) {
+function FeedPhotoMediaStage({
+  item,
+  active,
+  photoIndex,
+  videoRefs,
+}: {
+  item: PostMediaItem | null;
+  active: boolean;
+  photoIndex: number;
+  videoRefs: MutableRefObject<Map<number, HTMLVideoElement>>;
+}) {
   if (!item) {
     return (
       <div className="feed-photo-image feed-photo-image--empty" aria-hidden />
@@ -312,14 +317,17 @@ function mediaStage(
   if (isRenderablePostVideoMime(item.mime)) {
     return (
       <video
-        ref={opts.videoRef}
+        ref={(node) => {
+          if (node) videoRefs.current.set(photoIndex, node);
+          else videoRefs.current.delete(photoIndex);
+        }}
         src={item.url}
         className="feed-photo-image feed-photo-video"
         controls
         playsInline
         preload="metadata"
         // Active page plays with sound; inactive stays muted.
-        muted={!opts.active}
+        muted={!active}
       />
     );
   }
