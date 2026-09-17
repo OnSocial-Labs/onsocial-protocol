@@ -42,7 +42,7 @@ export function CollectionAboutTeaser({
   /** Clickable even when the line fits — About holds more than this teaser. */
   hasMore?: boolean;
 }) {
-  const lineRef = useRef<HTMLElement>(null);
+  const lineRef = useRef<HTMLSpanElement>(null);
   const [truncated, setTruncated] = useState(false);
   const trimmed = text.trim();
   const line = trimmed || 'About';
@@ -81,9 +81,9 @@ export function CollectionAboutTeaser({
 
   return (
     <div className="collection-about-teaser">
-      <p ref={lineRef} className="collection-about-teaser-line">
+      <span ref={lineRef} className="collection-about-teaser-line">
         {line}
-      </p>
+      </span>
     </div>
   );
 }
