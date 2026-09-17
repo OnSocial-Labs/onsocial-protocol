@@ -11,8 +11,10 @@ import {
   isWritingPdfMime,
   readWritingChapterIndex,
   readWritingScrollRatio,
+  WRITING_SCROLL_PERSIST_MS,
   writingObjectProgress,
   writingPointerRelease,
+  writingProgressEase,
   writingReaderTap,
   writingRubberBandOffset,
   writingScrollIsLayoutSnap,
@@ -53,22 +55,32 @@ export function CollectionWritingReader({
   immersive?: boolean;
   /** Listed article body alignment — matches Writing shelf. */
   textAlign?: 'left' | 'center' | 'justify' | null;
-  /** 0–1 scroll progress for the active chapter body. */
-  onProgress?: (ratio: number) => void;
+  /** 0–1 object progress. `ease` only on chapter jump / restore. */
+  onProgress?: (ratio: number, opts?: { ease?: boolean }) => void;
   /** Signed scroll delta (px) for chrome fade. */
   onScrollDelta?: (deltaY: number) => void;
   /** Center tap — show or hide jacket / OS chrome. */
   onChromeTap?: () => void;
 }) {
   const isBook =
-    writingFormat === 'book' ||
-    (writingFormat == null && readables.length > 1);
+    writingFormat === 'book' || (writingFormat == null && readables.length > 1);
 
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTopRef = useRef(0);
   const lastBoxRef = useRef({ scrollHeight: 0, clientHeight: 0 });
   /** Ignore scroll deltas while layout / restore settles after a chapter paint. */
   const settleUntilRef = useRef(0);
+  const persistTimerRef = useRef<number | null>(null);
+  const pendingPersistRef = useRef<{
+    collectionId: string;
+    accountId: string | null | undefined;
+    chapterIndex: number;
+    ratio: number;
+  } | null>(null);
+  const onProgressRef = useRef(onProgress);
+  useEffect(() => {
+    onProgressRef.current = onProgress;
+  }, [onProgress]);
   const gestureRef = useRef<{
     phase: 'idle' | 'held' | 'turning';
     start: {
@@ -93,7 +105,6 @@ export function CollectionWritingReader({
   const [chapterIndex, setChapterIndex] = useState(() =>
     readWritingChapterIndex(collectionId, accountId)
   );
-  const [chapterRatio, setChapterRatio] = useState(0);
   const [listKey, setListKey] = useState(() => readablesKey(readables));
   const [tocOpen, setTocOpen] = useState(false);
   const [fetchState, setFetchState] = useState<
@@ -106,15 +117,11 @@ export function CollectionWritingReader({
   if (nextKey !== listKey) {
     setListKey(nextKey);
     setChapterIndex(readWritingChapterIndex(collectionId, accountId));
-    setChapterRatio(0);
     setFetchState({ status: 'idle' });
     setTocOpen(false);
   }
 
-  const safeIndex = Math.min(
-    chapterIndex,
-    Math.max(0, readables.length - 1)
-  );
+  const safeIndex = Math.min(chapterIndex, Math.max(0, readables.length - 1));
   if (chapterIndex !== safeIndex && readables.length > 0) {
     setChapterIndex(safeIndex);
   }
@@ -159,14 +166,55 @@ export function CollectionWritingReader({
   }, [collectionId, accountId, safeIndex]);
 
   useEffect(() => {
-    onProgress?.(
+    return () => {
+      if (persistTimerRef.current != null) {
+        window.clearTimeout(persistTimerRef.current);
+        persistTimerRef.current = null;
+      }
+      const pending = pendingPersistRef.current;
+      pendingPersistRef.current = null;
+      if (!pending) return;
+      writeWritingScrollRatio(
+        pending.collectionId,
+        pending.accountId,
+        pending.chapterIndex,
+        pending.ratio
+      );
+    };
+  }, [collectionId, accountId, safeIndex]);
+
+  const scheduleWritingScrollPersist = (ratio: number) => {
+    pendingPersistRef.current = {
+      collectionId,
+      accountId,
+      chapterIndex: safeIndex,
+      ratio,
+    };
+    if (persistTimerRef.current != null) return;
+    persistTimerRef.current = window.setTimeout(() => {
+      persistTimerRef.current = null;
+      const pending = pendingPersistRef.current;
+      pendingPersistRef.current = null;
+      if (!pending) return;
+      writeWritingScrollRatio(
+        pending.collectionId,
+        pending.accountId,
+        pending.chapterIndex,
+        pending.ratio
+      );
+    }, WRITING_SCROLL_PERSIST_MS);
+  };
+
+  const reportProgress = (chapterRatio: number, source: 'scroll' | 'jump') => {
+    onProgressRef.current?.(
       writingObjectProgress({
         chapterIndex: safeIndex,
         chapterCount: readables.length,
         chapterRatio,
-      })
+      }),
+      { ease: writingProgressEase(source) }
     );
-  }, [chapterRatio, onProgress, readables.length, safeIndex]);
+  };
 
   const prefersReducedMotion = () =>
     typeof window !== 'undefined' &&
@@ -174,7 +222,6 @@ export function CollectionWritingReader({
 
   const applyChapter = (nextIndex: number) => {
     setChapterIndex(nextIndex);
-    setChapterRatio(0);
     setTocOpen(false);
     setPdfPageLabel(null);
     setDragDx(0);
@@ -260,18 +307,34 @@ export function CollectionWritingReader({
       };
       if (max <= 0) {
         lastScrollTopRef.current = 0;
-        if (!chapterIsPdf) setChapterRatio(1);
+        if (!chapterIsPdf) {
+          onProgressRef.current?.(
+            writingObjectProgress({
+              chapterIndex: safeIndex,
+              chapterCount: readables.length,
+              chapterRatio: 1,
+            }),
+            { ease: writingProgressEase('jump') }
+          );
+        }
         return false;
       }
       el.scrollTop = ratio * max;
       lastScrollTopRef.current = el.scrollTop;
-      setChapterRatio(ratio);
+      onProgressRef.current?.(
+        writingObjectProgress({
+          chapterIndex: safeIndex,
+          chapterCount: readables.length,
+          chapterRatio: ratio,
+        }),
+        { ease: writingProgressEase('jump') }
+      );
       return true;
     };
     apply();
     const frame = window.requestAnimationFrame(apply);
     return () => window.cancelAnimationFrame(frame);
-  }, [body, chapterIsPdf, collectionId, accountId, safeIndex]);
+  }, [body, chapterIsPdf, collectionId, accountId, safeIndex, readables.length]);
 
   // Prefetch next Markdown chapter (book only).
   useEffect(() => {
@@ -290,9 +353,14 @@ export function CollectionWritingReader({
     const el = bodyRef.current;
     if (!el) return;
     const max = el.scrollHeight - el.clientHeight;
-    const ratio = max > 0 ? el.scrollTop / max : 0;
-    writeWritingScrollRatio(collectionId, accountId, safeIndex, ratio);
-    setChapterRatio(ratio);
+    const ratio = max > 0 ? el.scrollTop / max : 1;
+    const settling =
+      typeof performance !== 'undefined' &&
+      performance.now() < settleUntilRef.current;
+    if (!settling) {
+      scheduleWritingScrollPersist(ratio);
+      reportProgress(ratio, 'scroll');
+    }
     const delta = el.scrollTop - lastScrollTopRef.current;
     const snap = writingScrollIsLayoutSnap({
       scrollHeight: el.scrollHeight,
@@ -308,12 +376,7 @@ export function CollectionWritingReader({
     if (snap) return;
     // Chapter paint / scroll restore changes scrollTop without a finger —
     // don't collapse the jacket.
-    if (
-      typeof performance !== 'undefined' &&
-      performance.now() < settleUntilRef.current
-    ) {
-      return;
-    }
+    if (settling) return;
     if (delta !== 0) onScrollDelta?.(delta);
   };
 
@@ -356,7 +419,8 @@ export function CollectionWritingReader({
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     const target = event.target as HTMLElement | null;
     if (target?.closest('a, button, input, textarea, [role="button"]')) return;
-    const width = bodyRef.current?.clientWidth || event.currentTarget.clientWidth;
+    const width =
+      bodyRef.current?.clientWidth || event.currentTarget.clientWidth;
     const zone =
       writingReaderTap({
         x: event.clientX - event.currentTarget.getBoundingClientRect().left,
@@ -627,9 +691,7 @@ export function CollectionWritingReader({
             {chapterIsPdf && chapterUrl ? (
               <CollectionWritingPdfPage
                 url={chapterUrl}
-                title={
-                  chapter.title?.trim() || `PDF chapter ${safeIndex + 1}`
-                }
+                title={chapter.title?.trim() || `PDF chapter ${safeIndex + 1}`}
                 initialRatio={readWritingScrollRatio(
                   collectionId,
                   accountId,

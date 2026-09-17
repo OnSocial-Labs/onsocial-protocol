@@ -1,11 +1,14 @@
 'use client';
 
 import {
+  memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import {
   ChevronRightIcon,
@@ -20,9 +23,10 @@ import {
 } from '@/components/app/os-slide-over-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
-import type {
-  ScarceReadableMedia,
-  WritingReleaseFormat,
+import {
+  paintWritingProgress,
+  type ScarceReadableMedia,
+  type WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
@@ -44,6 +48,31 @@ function WritingReadClose() {
     </OsIconAction>
   );
 }
+
+/** Isolated so chrome-quiet re-renders do not wipe the compositor fill. */
+const WritingReadProgress = memo(function WritingReadProgress({
+  barRef,
+  fillRef,
+  onPointerDown,
+}: {
+  barRef: RefObject<HTMLDivElement | null>;
+  fillRef: RefObject<HTMLSpanElement | null>;
+  onPointerDown: () => void;
+}) {
+  return (
+    <div
+      ref={barRef}
+      className="scarce-writing-read-progress"
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label="Reading progress"
+      onPointerDown={onPointerDown}
+    >
+      <span ref={fillRef} className="scarce-writing-read-progress-fill" />
+    </div>
+  );
+});
 
 /**
  * Writing reader — the page is the window. Title lives on the jacket once.
@@ -83,23 +112,75 @@ export function WritingReadSheet({
   const { isConnected, connect, isLoading } = useAppWallet();
   const quietTimerRef = useRef<number | null>(null);
   const liveAtRef = useRef(0);
+  const fillRef = useRef<HTMLSpanElement | null>(null);
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const rafRef = useRef(0);
+  const pendingPaintRef = useRef<{ ratio: number; ease: boolean } | null>(null);
   const [wasOpen, setWasOpen] = useState(open);
-  const [scrollRatio, setScrollRatio] = useState(0);
   const [chromeQuiet, setChromeQuiet] = useState(false);
 
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
-      setScrollRatio(0);
       setChromeQuiet(false);
     }
   }
+
+  const prefersReducedMotion = () =>
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const applyPaint = useCallback((ratio: number, ease: boolean) => {
+    paintWritingProgress({
+      fill: fillRef.current,
+      bar: barRef.current,
+      ratio,
+      ease,
+      reducedMotion: prefersReducedMotion(),
+    });
+  }, []);
+
+  const onReadingProgress = useCallback(
+    (ratio: number, opts?: { ease?: boolean }) => {
+      const ease = Boolean(opts?.ease);
+      if (ease) {
+        pendingPaintRef.current = null;
+        if (rafRef.current) {
+          window.cancelAnimationFrame(rafRef.current);
+          rafRef.current = 0;
+        }
+        applyPaint(ratio, true);
+        return;
+      }
+      pendingPaintRef.current = { ratio, ease: false };
+      if (rafRef.current) return;
+      rafRef.current = window.requestAnimationFrame(() => {
+        rafRef.current = 0;
+        const pending = pendingPaintRef.current;
+        pendingPaintRef.current = null;
+        if (pending) applyPaint(pending.ratio, false);
+      });
+    },
+    [applyPaint]
+  );
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    applyPaint(0, false);
+  }, [open, applyPaint]);
 
   useEffect(() => {
     if (!open) return;
     liveAtRef.current =
       typeof performance !== 'undefined' ? performance.now() + 600 : 0;
   }, [open]);
+
+  useEffect(
+    () => () => {
+      if (rafRef.current) window.cancelAnimationFrame(rafRef.current);
+    },
+    []
+  );
 
   const clearQuietTimer = useCallback(() => {
     if (quietTimerRef.current != null) {
@@ -117,10 +198,6 @@ export function WritingReadSheet({
     clearQuietTimer();
     setChromeQuiet((quiet) => !quiet);
   }, [clearQuietTimer]);
-
-  const onReadingProgress = useCallback((ratio: number) => {
-    setScrollRatio(ratio);
-  }, []);
 
   const onReadingScroll = useCallback(
     (deltaY: number) => {
@@ -151,7 +228,6 @@ export function WritingReadSheet({
   const inlineSvg = coverSvg?.trim() ? inlineSvgMarkup(coverSvg.trim()) : null;
   const rasterCover = cover?.trim() || null;
   const hasWriting = readables.length > 0 || bookPdf != null;
-  const progressPct = Math.round(Math.min(1, Math.max(0, scrollRatio)) * 100);
   const connectLocked = !canRead && !isConnected;
   const connectFooter = connectLocked ? (
     <OsSheetFooter>
@@ -190,20 +266,11 @@ export function WritingReadSheet({
           chromeQuiet ? ' is-chrome-quiet' : ''
         }${connectLocked ? ' is-connect-locked' : ''}`}
       >
-        <div
-          className="scarce-writing-read-progress"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={progressPct}
-          aria-label="Reading progress"
+        <WritingReadProgress
+          barRef={barRef}
+          fillRef={fillRef}
           onPointerDown={wakeChrome}
-        >
-          <span
-            className="scarce-writing-read-progress-fill"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
+        />
         <div className="scarce-writing-read-hero">
           <div className="scarce-writing-read-mast">
             {inlineSvg && !rasterCover ? (
