@@ -3,6 +3,7 @@ import {
   formatPostPeekExcerpt,
   formatPostTimestamp,
   formatRelativePostTimestamp,
+  formatWritingShelfTimestamp,
   parseDropPaintSnapshot,
   parsePostCollectionEmbed,
   parsePostPollEmbed,
@@ -294,5 +295,19 @@ describe('formatRelativePostTimestamp', () => {
       )
     ).toBe('2h');
     expect(formatRelativePostTimestamp(0, now)).toBe('Unknown time');
+  });
+});
+
+describe('formatWritingShelfTimestamp', () => {
+  const now = new Date('2026-07-07T12:00:00Z');
+
+  it('uses a full calendar date with year', () => {
+    expect(
+      formatWritingShelfTimestamp(now.getTime() - 10 * 3_600_000, now)
+    ).toMatch(/^[A-Z][a-z]{2} \d{1,2}, 2026$/);
+    expect(
+      formatWritingShelfTimestamp(new Date('2025-03-10T12:00:00Z').getTime(), now)
+    ).toContain('2025');
+    expect(formatWritingShelfTimestamp(0, now)).toBe('Unknown time');
   });
 });

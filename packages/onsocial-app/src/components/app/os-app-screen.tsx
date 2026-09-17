@@ -283,7 +283,12 @@ export function OsAppScreen({
             </div>
           ) : null}
         </header>
-        <main ref={setBodyRef} className="os-app-screen-body">
+        <main
+          ref={setBodyRef}
+          className="os-app-screen-body"
+          // Lenis may add `lenis` before nested hydration finishes.
+          suppressHydrationWarning
+        >
           {children}
         </main>
         {hasFooter ? (

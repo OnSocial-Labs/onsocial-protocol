@@ -1042,7 +1042,12 @@ export function GlassSheet({
 
         {header}
 
-        <div ref={bodyRef} className={cn('glass-sheet-body', bodyClassName)}>
+        <div
+          ref={bodyRef}
+          className={cn('glass-sheet-body', bodyClassName)}
+          // App Lenis may add `lenis` before nested hydration finishes.
+          suppressHydrationWarning
+        >
           {children}
         </div>
 

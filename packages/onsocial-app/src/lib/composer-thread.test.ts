@@ -31,13 +31,17 @@ describe('composer thread', () => {
     const withText = [emptyComposerBeat({ text: 'hello' })];
     expect(canAddComposerThreadBeat(withText)).toBe(true);
     const withFile = [
-      emptyComposerBeat({ files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })] }),
+      emptyComposerBeat({
+        files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })],
+      }),
     ];
     expect(canAddComposerThreadBeat(withFile)).toBe(true);
   });
 
   it('appends an empty beat and collapses it when focus leaves', () => {
-    const started = appendComposerThreadBeat([emptyComposerBeat({ text: 'one' })]);
+    const started = appendComposerThreadBeat([
+      emptyComposerBeat({ text: 'one' }),
+    ]);
     expect(started).toHaveLength(2);
     expect(composerBeatHasContent(started[1]!)).toBe(false);
     const collapsed = collapseTrailingEmptyComposerBeat(started, 0);
@@ -122,9 +126,9 @@ describe('composer thread', () => {
     const opened = removeComposerThreadBeat(beats, 0, 0);
     expect(opened.beats.map((row) => row.text)).toEqual(['two', 'three']);
     expect(opened.focus).toBe(0);
-    expect(removeComposerThreadBeat(beats.slice(0, 1), 0, 0).beats).toHaveLength(
-      1
-    );
+    expect(
+      removeComposerThreadBeat(beats.slice(0, 1), 0, 0).beats
+    ).toHaveLength(1);
   });
 
   it('stops plus at ten filled beats', () => {
@@ -177,12 +181,12 @@ describe('composer thread', () => {
       emptyComposerBeat({ text: 'one' }),
       emptyComposerBeat({ text: 'two' }),
     ];
-    expect(publishableComposerBeats(beats, true).map((row) => row.text)).toEqual(
-      ['one', 'two']
-    );
-    expect(publishableComposerBeats(beats, false).map((row) => row.text)).toEqual(
-      ['one']
-    );
+    expect(
+      publishableComposerBeats(beats, true).map((row) => row.text)
+    ).toEqual(['one', 'two']);
+    expect(
+      publishableComposerBeats(beats, false).map((row) => row.text)
+    ).toEqual(['one']);
   });
 
   it('maps titled article beats onto submit', () => {
@@ -193,7 +197,42 @@ describe('composer thread', () => {
         articleTitle: 'Hello',
       })
     );
-    expect(submit.article).toEqual({ title: 'Hello' });
+    expect(submit.article).toEqual({
+      title: 'Hello',
+      cover: {
+        mood: 'thought-night',
+        format: 'thought',
+        markShape: 'rule',
+        markColor: 'auto',
+      },
+    });
+  });
+
+  it('carries the picked cover craft onto submit', () => {
+    const beat = {
+      ...emptyComposerBeat({
+        text: 'body',
+        articleMode: true,
+        articleTitle: 'Hello',
+      }),
+      articleCoverTheme: {
+        cardFormat: 'poster' as const,
+        cardPalette: 'noir' as const,
+        cardBg: 'poster-noir' as const,
+        cardMarkShape: 'bar' as const,
+        cardMarkColor: 'amber' as const,
+        cardTitleAlign: 'left' as const,
+      },
+    };
+    expect(beatToComposerSubmit(beat).article).toEqual({
+      title: 'Hello',
+      cover: {
+        mood: 'poster-noir',
+        format: 'poster',
+        markShape: 'bar',
+        markColor: 'amber',
+      },
+    });
   });
 
   it('ignores articleMode without a title on submit', () => {

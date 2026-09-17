@@ -68,7 +68,7 @@ export function PortfolioShell({
       data-face-preview={isPreviewing ? 'true' : undefined}
       style={shellStyle as CSSProperties}
     >
-      <div className="portfolio-page">
+      <div className="portfolio-page" suppressHydrationWarning>
         {isGlassFinish ? (
           <div className="portfolio-glass-sheet" aria-hidden="true" />
         ) : null}

@@ -7,12 +7,19 @@ import {
   articleSnapshotExtra,
   articleTeaseSource,
   isArticlePost,
+  normalizeArticleCoverMood,
   normalizeArticleTitle,
   parseArticleSnapshot,
+  resolveArticleCover,
   resolveComposerArticle,
   resolvePostCardOpenHref,
   resolveWritingEmptyState,
   shouldShowWritingLink,
+  shouldShowWritingSearch,
+  formatWritingArticleCountLabel,
+  formatWritingLikeLabel,
+  formatWritingReadLabel,
+  WRITING_SEARCH_MIN_ARTICLES,
 } from './article-post-payload';
 
 function postValue(
@@ -25,6 +32,13 @@ function postValue(
     ...extra,
   });
 }
+
+const DEFAULT_COVER = {
+  mood: 'thought-night',
+  format: 'thought',
+  markShape: 'rule',
+  markColor: 'auto',
+} as const;
 
 describe('normalizeArticleTitle', () => {
   it('trims and collapses space', () => {
@@ -45,13 +59,75 @@ describe('normalizeArticleTitle', () => {
 describe('articleSnapshotExtra', () => {
   it('writes title and omits default left align', () => {
     expect(articleSnapshotExtra({ title: 'Night', align: 'left' })).toEqual({
-      onsocial: { article: { title: 'Night' } },
+      onsocial: {
+        article: { title: 'Night', cover: { ...DEFAULT_COVER } },
+      },
     });
   });
 
   it('stores non-left align', () => {
     expect(articleSnapshotExtra({ title: 'Night', align: 'justify' })).toEqual({
-      onsocial: { article: { title: 'Night', align: 'justify' } },
+      onsocial: {
+        article: {
+          title: 'Night',
+          align: 'justify',
+          cover: { ...DEFAULT_COVER },
+        },
+      },
+    });
+  });
+
+  it('pins the picked cover mood', () => {
+    expect(
+      articleSnapshotExtra({ title: 'Night', coverMood: 'poster-noir' })
+    ).toEqual({
+      onsocial: {
+        article: {
+          title: 'Night',
+          cover: {
+            mood: 'poster-noir',
+            format: 'poster',
+            markShape: 'rule',
+            markColor: 'auto',
+          },
+        },
+      },
+    });
+  });
+
+  it('pins the full cover craft', () => {
+    expect(
+      articleSnapshotExtra({
+        title: 'Night',
+        cover: {
+          mood: 'letter-light',
+          format: 'letter',
+          markShape: 'dot',
+          markColor: 'violet',
+        },
+      })
+    ).toEqual({
+      onsocial: {
+        article: {
+          title: 'Night',
+          cover: {
+            mood: 'letter-light',
+            format: 'letter',
+            markShape: 'dot',
+            markColor: 'violet',
+          },
+        },
+      },
+    });
+  });
+
+  it('falls back to the default mood for unknown keys', () => {
+    expect(
+      articleSnapshotExtra({ title: 'Night', coverMood: 'not-a-mood' })
+    ).toEqual({
+      onsocial: {
+        article: { title: 'Night', cover: { ...DEFAULT_COVER } },
+      },
     });
   });
 
@@ -69,6 +145,60 @@ describe('parseArticleSnapshot', () => {
         })
       )
     ).toEqual({ title: 'Night', align: 'center' });
+  });
+
+  it('round-trips the pinned cover mood', () => {
+    const extra = articleSnapshotExtra({
+      title: 'Night',
+      coverMood: 'journal-light',
+    });
+    expect(parseArticleSnapshot(postValue({ x: extra }))).toEqual({
+      title: 'Night',
+      align: 'left',
+      cover: {
+        mood: 'journal-light',
+        format: 'journal',
+        markShape: 'rule',
+        markColor: 'auto',
+      },
+    });
+  });
+
+  it('fills craft defaults for legacy mood-only covers', () => {
+    expect(
+      parseArticleSnapshot(
+        postValue({
+          x: {
+            onsocial: {
+              article: { title: 'Night', cover: { mood: 'mono-noir' } },
+            },
+          },
+        })
+      )
+    ).toEqual({
+      title: 'Night',
+      align: 'left',
+      cover: {
+        mood: 'mono-noir',
+        format: 'mono',
+        markShape: 'rule',
+        markColor: 'auto',
+      },
+    });
+  });
+
+  it('drops an unknown stored mood', () => {
+    expect(
+      parseArticleSnapshot(
+        postValue({
+          x: {
+            onsocial: {
+              article: { title: 'Night', cover: { mood: 'nope' } },
+            },
+          },
+        })
+      )
+    ).toEqual({ title: 'Night', align: 'left' });
   });
 
   it('is null without a title', () => {
@@ -90,7 +220,63 @@ describe('resolveComposerArticle', () => {
   it('normalizes a titled draft', () => {
     expect(
       resolveComposerArticle({ title: '  Night  ', align: 'justify' })
-    ).toEqual({ title: 'Night', align: 'justify' });
+    ).toEqual({
+      title: 'Night',
+      align: 'justify',
+      cover: { ...DEFAULT_COVER },
+    });
+  });
+
+  it('keeps a picked cover mood', () => {
+    expect(
+      resolveComposerArticle({ title: 'Night', coverMood: 'mono-noir' })
+    ).toEqual({
+      title: 'Night',
+      align: 'left',
+      cover: {
+        mood: 'mono-noir',
+        format: 'mono',
+        markShape: 'rule',
+        markColor: 'auto',
+      },
+    });
+  });
+
+  it('prefers a full cover pin over coverMood', () => {
+    expect(
+      resolveComposerArticle({
+        title: 'Night',
+        coverMood: 'mono-noir',
+        cover: {
+          mood: 'letter-light',
+          format: 'letter',
+          markShape: 'dot',
+          markColor: 'violet',
+        },
+      })
+    ).toEqual({
+      title: 'Night',
+      align: 'left',
+      cover: {
+        mood: 'letter-light',
+        format: 'letter',
+        markShape: 'dot',
+        markColor: 'violet',
+      },
+    });
+  });
+});
+
+describe('normalizeArticleCoverMood', () => {
+  it('canonicalizes legacy voice aliases', () => {
+    expect(normalizeArticleCoverMood('bold-night')).toBe('thought-night');
+    expect(normalizeArticleCoverMood('mono-matrix')).toBe('mono-matrix');
+  });
+
+  it('rejects non-strings and unknown keys', () => {
+    expect(normalizeArticleCoverMood(undefined)).toBeNull();
+    expect(normalizeArticleCoverMood(42)).toBeNull();
+    expect(normalizeArticleCoverMood('nope')).toBeNull();
   });
 });
 
@@ -220,6 +406,162 @@ describe('resolveWritingEmptyState', () => {
         canCompose: true,
       })
     ).toBeNull();
+  });
+});
+
+describe('shouldShowWritingSearch', () => {
+  it('always shows chrome search', () => {
+    expect(WRITING_SEARCH_MIN_ARTICLES).toBe(0);
+    expect(shouldShowWritingSearch(0)).toBe(true);
+    expect(shouldShowWritingSearch(3)).toBe(true);
+    expect(shouldShowWritingSearch(4)).toBe(true);
+  });
+});
+
+describe('formatWritingArticleCountLabel', () => {
+  it('singular and plural', () => {
+    expect(formatWritingArticleCountLabel(0)).toBe('0 articles');
+    expect(formatWritingArticleCountLabel(1)).toBe('1 article');
+    expect(formatWritingArticleCountLabel(3)).toBe('3 articles');
+  });
+});
+
+describe('writing cover + read label', () => {
+  it('prefers scarce media when the post has no still', () => {
+    const value = postValue({
+      x: { onsocial: { article: { title: 'Night' } } },
+    });
+    expect(articleCoverUrl(value)).toBeNull();
+    expect(
+      resolveArticleCover({
+        value,
+        scarceMediaUrl: 'https://cdn.example/cover.png',
+      })
+    ).toEqual({
+      coverUrl: 'https://cdn.example/cover.png',
+      cardBg: null,
+      format: null,
+      markShape: null,
+      markColor: null,
+      pinned: false,
+    });
+  });
+
+  it('reads drop paint media as a local cover', () => {
+    const value = postValue({
+      x: {
+        onsocial: {
+          article: { title: 'Night' },
+          drop: {
+            collectionId: 'drop-1',
+            mediaUrl: 'https://cdn.example/drop.png',
+          },
+        },
+      },
+    });
+    expect(articleCoverUrl(value)).toBe('https://cdn.example/drop.png');
+  });
+
+  it('labels longer pieces with a read time', () => {
+    expect(formatWritingReadLabel('Short.')).toBeNull();
+    expect(
+      formatWritingReadLabel(
+        Array.from({ length: 220 }, () => 'word').join(' ')
+      )
+    ).toBe('1 min read');
+  });
+});
+
+describe('formatWritingLikeLabel', () => {
+  it('omits zeros and pluralizes', () => {
+    expect(formatWritingLikeLabel(0)).toBeNull();
+    expect(formatWritingLikeLabel(1)).toBe('1 like');
+    expect(formatWritingLikeLabel(12)).toBe('12 likes');
+  });
+});
+
+describe('resolveArticleCover', () => {
+  it('pins the photo cover from post media', () => {
+    const value = postValue({
+      media: ['https://cdn.example/photo.jpg'],
+      x: {
+        onsocial: {
+          article: { title: 'Night', cover: { mood: 'poster-noir' } },
+        },
+      },
+    });
+    // A still always wins — post media is immutable, so the photo stays the
+    // cover even though a card mood was pinned alongside it.
+    expect(resolveArticleCover({ value })).toEqual({
+      coverUrl: 'https://cdn.example/photo.jpg',
+      cardBg: null,
+      format: null,
+      markShape: null,
+      markColor: null,
+      pinned: true,
+    });
+  });
+
+  it('uses the pinned mood over scarce hints', () => {
+    const value = postValue({
+      x: {
+        onsocial: {
+          article: { title: 'Night', cover: { mood: 'journal-light' } },
+        },
+      },
+    });
+    expect(
+      resolveArticleCover({
+        value,
+        scarceMediaUrl: 'https://cdn.example/minted.png',
+        scarceCardBg: 'mono-noir',
+      })
+    ).toEqual({
+      coverUrl: null,
+      cardBg: 'journal-light',
+      format: 'journal',
+      markShape: 'rule',
+      markColor: 'auto',
+      pinned: true,
+    });
+  });
+
+  it('falls back to the scarce card mood for legacy articles', () => {
+    const value = postValue({
+      x: { onsocial: { article: { title: 'Night' } } },
+    });
+    expect(resolveArticleCover({ value, scarceCardBg: 'dusk' })).toEqual({
+      coverUrl: null,
+      cardBg: null,
+      format: null,
+      markShape: null,
+      markColor: null,
+      pinned: false,
+    });
+    expect(resolveArticleCover({ value, scarceCardBg: 'journal-sky' })).toEqual(
+      {
+        coverUrl: null,
+        cardBg: 'journal-sky',
+        format: null,
+        markShape: null,
+        markColor: null,
+        pinned: false,
+      }
+    );
+  });
+
+  it('defaults to the default card for legacy articles without hints', () => {
+    const value = postValue({
+      x: { onsocial: { article: { title: 'Night' } } },
+    });
+    expect(resolveArticleCover({ value })).toEqual({
+      coverUrl: null,
+      cardBg: null,
+      format: null,
+      markShape: null,
+      markColor: null,
+      pinned: false,
+    });
   });
 });
 

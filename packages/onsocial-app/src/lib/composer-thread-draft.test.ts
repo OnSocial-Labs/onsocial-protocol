@@ -73,6 +73,33 @@ describe('composer thread draft', () => {
     clearComposerThreadDraft(key);
   });
 
+  it('keeps article cover craft across restore', () => {
+    const key = composerNewPostDraftKey('cover');
+    const beat = emptyComposerBeat({
+      text: 'body',
+      articleMode: true,
+      articleTitle: 'Title',
+    });
+    beat.articleCoverTheme = {
+      cardFormat: 'poster',
+      cardPalette: 'noir',
+      cardBg: 'poster-noir',
+      cardMarkShape: 'bar',
+      cardMarkColor: 'amber',
+      cardTitleAlign: 'left',
+    };
+    writeComposerThreadDraft(key, [beat]);
+    dropComposerThreadDraftMemory(key);
+    const draft = readComposerThreadDraft(key)[0];
+    expect(draft?.articleMode).toBe(true);
+    expect(draft?.articleTitle).toBe('Title');
+    expect(draft?.articleCoverTheme.cardBg).toBe('poster-noir');
+    expect(draft?.articleCoverTheme.cardFormat).toBe('poster');
+    expect(draft?.articleCoverTheme.cardMarkShape).toBe('bar');
+    expect(draft?.articleCoverTheme.cardMarkColor).toBe('amber');
+    clearComposerThreadDraft(key);
+  });
+
   it('treats any filled beat as dirty', () => {
     expect(composerThreadDraftIsDirty([emptyComposerBeat()])).toBe(false);
     expect(

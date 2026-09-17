@@ -4,6 +4,10 @@ import type { PostRow } from '@onsocial/sdk';
 import { isArticlePost } from '@/lib/article-post-payload';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
+import {
+  hydrateWritingArticleCovers,
+  type WritingArticleCoverHint,
+} from '@/lib/hydrate-writing-article-covers';
 import { fetchPublicPageData } from '@/lib/page-data';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
@@ -19,6 +23,7 @@ export type PortfolioWritingPageData = {
   avatarUrl: string | null;
   mood: ResolvedMood;
   articles: PostRow[];
+  coverHints: Record<string, WritingArticleCoverHint>;
 };
 
 export type PortfolioWritingArticlePageData = PortfolioWritingPageData & {
@@ -26,7 +31,10 @@ export type PortfolioWritingArticlePageData = PortfolioWritingPageData & {
 };
 
 export const fetchAccountArticles = cache(
-  async (accountId: string, limit = WRITING_SHELF_FETCH_LIMIT): Promise<PostRow[]> => {
+  async (
+    accountId: string,
+    limit = WRITING_SHELF_FETCH_LIMIT
+  ): Promise<PostRow[]> => {
     try {
       const os = createServerOnSocialClient();
       const page = await os.query.feed.recent({
@@ -54,12 +62,21 @@ export const loadPortfolioWritingForAccount = cache(
     ]);
     const titleLabel = displayName(accountId, shell?.name ?? undefined);
 
+    let coverHints: Record<string, WritingArticleCoverHint> = {};
+    try {
+      const os = createServerOnSocialClient();
+      coverHints = await hydrateWritingArticleCovers(articles, os);
+    } catch {
+      coverHints = {};
+    }
+
     return {
       accountId,
       titleLabel,
       avatarUrl: shell?.avatarUrl ?? null,
       mood: resolvePortfolioMood(data.config),
       articles,
+      coverHints,
     };
   }
 );
@@ -92,8 +109,24 @@ export async function loadPortfolioWritingArticlePage(
     })(),
   ]);
 
+  const article = post && isArticlePost(post) ? post : null;
+  let coverHints = page.coverHints;
+  if (article) {
+    const key = `${article.accountId}:${article.postId}`;
+    if (!coverHints[key]) {
+      try {
+        const os = createServerOnSocialClient();
+        const extra = await hydrateWritingArticleCovers([article], os);
+        coverHints = { ...coverHints, ...extra };
+      } catch {
+        /* shelf hints already best-effort */
+      }
+    }
+  }
+
   return {
     ...page,
-    post: post && isArticlePost(post) ? post : null,
+    coverHints,
+    post: article,
   };
 }

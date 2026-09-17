@@ -1,4 +1,5 @@
 import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-root';
+import { InterceptMisfireRecovery } from '@/components/overlay/intercept-misfire-recovery';
 import { PortfolioFaceOverlayLeave } from '@/components/portfolio/portfolio-face-overlay-leave';
 import { panelLabel } from '@/lib/overlay-routes';
 import { EndorsementsPanel } from '@/components/panels/endorsements-panel';
@@ -8,7 +9,10 @@ import {
   parseEndorsementsMode,
 } from '@/lib/load-endorsements-page';
 import { loadProfileShell } from '@/lib/profile-shell';
-import { resolveAccountId } from '@/lib/resolve-account';
+import {
+  isInterceptMisfireSegment,
+  resolveAccountId,
+} from '@/lib/resolve-account';
 
 type OverlayRouteProps = {
   params: Promise<{
@@ -23,6 +27,10 @@ export default async function EndorsementsOverlay({
   params,
   searchParams,
 }: OverlayRouteProps) {
+  const { accountId: routeSegment } = await params;
+  if (isInterceptMisfireSegment(routeSegment)) {
+    return <InterceptMisfireRecovery />;
+  }
   const accountId = await resolveAccountId(params);
   const resolvedSearch = await searchParams;
   const rawMode = Array.isArray(resolvedSearch?.mode)

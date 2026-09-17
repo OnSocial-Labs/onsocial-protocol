@@ -2,7 +2,11 @@
 
 import type { ReactNode } from 'react';
 import { cn } from './cn.js';
-import { ProfileAvatar, type ProfileAvatarShape } from './profile-avatar.js';
+import {
+  ProfileAvatar,
+  type ProfileAvatarShape,
+  type ProfileAvatarSize,
+} from './profile-avatar.js';
 import {
   standingIdentityAccountCopy,
   standingIdentityLabel,
@@ -31,6 +35,8 @@ export function OsChromeSubject({
   onClick,
   shellLoading = false,
   shape = 'circle',
+  /** Default `md` for primary nav peers; use `sm` under compact search chrome. */
+  avatarSize = 'md',
   className,
   avatarClassName,
   /** Omit root — parent supplies `osChromeSubjectClassName` (e.g. Next.js Link). */
@@ -51,6 +57,7 @@ export function OsChromeSubject({
   onClick?: () => void;
   shellLoading?: boolean;
   shape?: ProfileAvatarShape;
+  avatarSize?: ProfileAvatarSize;
   className?: string;
   avatarClassName?: string;
   unstyled?: boolean;
@@ -69,7 +76,7 @@ export function OsChromeSubject({
       <ProfileAvatar
         src={avatarUrl ?? null}
         fallbackInitial={fallbackInitial}
-        size="md"
+        size={avatarSize}
         shape={shape}
         shellLoading={shellLoading}
         className={cn('os-chrome-subject__avatar', avatarClassName)}

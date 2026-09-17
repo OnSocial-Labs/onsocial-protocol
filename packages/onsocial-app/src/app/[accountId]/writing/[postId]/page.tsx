@@ -35,7 +35,7 @@ export async function generateMetadata({
 export default async function PortfolioWritingArticlePage({
   params,
 }: WritingArticlePageProps) {
-  const { mood, accountId, titleLabel, avatarUrl, post, articles } =
+  const { mood, accountId, titleLabel, avatarUrl, post, articles, coverHints } =
     await loadPortfolioWritingArticlePage(params);
   if (!post) {
     return (
@@ -45,6 +45,7 @@ export default async function PortfolioWritingArticlePage({
         titleLabel={titleLabel}
         avatarUrl={avatarUrl}
         articles={articles}
+        coverHints={coverHints}
       />
     );
   }
@@ -55,6 +56,7 @@ export default async function PortfolioWritingArticlePage({
       titleLabel={titleLabel}
       avatarUrl={avatarUrl}
       post={post}
+      coverHint={coverHints[`${post.accountId}:${post.postId}`] ?? null}
     />
   );
 }

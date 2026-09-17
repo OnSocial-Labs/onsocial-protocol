@@ -1,8 +1,4 @@
-import {
-  postContentPath,
-  type OnSocial,
-  type PostRow,
-} from '@onsocial/sdk';
+import { postContentPath, type OnSocial, type PostRow } from '@onsocial/sdk';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { inheritedGuildReplyFeedMeta } from '@/features/guilds/guild-post-feed-meta';
 import type {
@@ -22,6 +18,7 @@ import {
 import {
   articleSnapshotExtra,
   resolveComposerArticle,
+  type ArticleComposeInput,
 } from '@/lib/article-post-payload';
 import {
   applyMediaKindOverride,
@@ -110,7 +107,7 @@ function buildOptimisticPost(args: {
     closesAt?: number;
   } | null;
   drop: ComposerDropDraft | null;
-  article?: { title: string; align?: 'left' | 'center' | 'justify' } | null;
+  article?: ArticleComposeInput | null;
   files?: File[];
   places?: string[];
   contentLabels?: PostContentLabels;
@@ -171,9 +168,9 @@ function buildOptimisticPost(args: {
           ? { kind: dropKind }
           : article
             ? { kind: 'longform' }
-          : mediaKind
-            ? { kind: mediaKind }
-            : {}),
+            : mediaKind
+              ? { kind: mediaKind }
+              : {}),
     };
   }
 

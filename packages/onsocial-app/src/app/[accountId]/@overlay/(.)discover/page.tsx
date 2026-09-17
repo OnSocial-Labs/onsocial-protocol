@@ -1,11 +1,15 @@
 import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-root';
+import { InterceptMisfireRecovery } from '@/components/overlay/intercept-misfire-recovery';
 import { PortfolioFaceOverlayLeave } from '@/components/portfolio/portfolio-face-overlay-leave';
 import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
 import { DiscoverOverlaySheet } from '@/features/discover/discover-panel';
 import { parseDiscoverProfileFilters } from '@/lib/discover-profiles';
 import { loadDiscoverProfilesPage } from '@/lib/discover-profiles-server';
 import { loadDiscoverTrendingSeed } from '@/lib/discover-trending-server';
-import { resolveAccountId } from '@/lib/resolve-account';
+import {
+  isInterceptMisfireSegment,
+  resolveAccountId,
+} from '@/lib/resolve-account';
 
 type DiscoverOverlayRouteProps = {
   params: Promise<{
@@ -23,6 +27,10 @@ export default async function DiscoverOverlayRoute({
   params,
   searchParams,
 }: DiscoverOverlayRouteProps) {
+  const { accountId: routeSegment } = await params;
+  if (isInterceptMisfireSegment(routeSegment)) {
+    return <InterceptMisfireRecovery />;
+  }
   const accountId = await resolveAccountId(params);
   const resolvedSearchParams = await searchParams;
   const initialQuery = normalizeProfileSearchQuery(

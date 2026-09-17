@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
@@ -113,8 +113,10 @@ import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
 import {
   articleTeaseSource,
   parseArticleSnapshot,
+  resolveArticleCover,
   resolvePostCardOpenHref,
 } from '@/lib/article-post-payload';
+import { PortfolioWritingCover } from '@/components/portfolio/portfolio-writing-cover';
 import {
   txToastConfirming,
   txToastError,
@@ -1637,7 +1639,15 @@ export function PostCard({
   const photoCover = postScarceCoverImage(post);
   const scarceCoverUrl =
     scarceEmbed?.mediaUrl?.trim() || dropPaint?.mediaUrl?.trim() || null;
+  const articleCover = article
+    ? resolveArticleCover({
+        value: post.value,
+        scarceMediaUrl: scarceCoverUrl,
+        scarceCardBg: scarceEmbed?.cardBg ?? null,
+      })
+    : null;
   const showScarceArt =
+    !article &&
     !photoCover &&
     Boolean(scarceEmbed) &&
     (scarceEmbed?.status === 'lazy_listing' ||
@@ -1646,6 +1656,10 @@ export function PostCard({
       scarceEmbed?.status === 'sold' ||
       scarceEmbed?.status === 'auction' ||
       scarceEmbed?.status === 'minted');
+  const articleIssuedAt =
+    typeof post.blockTimestamp === 'number'
+      ? post.blockTimestamp
+      : Number(post.blockTimestamp) || 0;
   const postAudio = postScarceAudio(post);
   const postPlayables: ScarcePlayableMedia[] = postAudio?.url
     ? [
@@ -1682,6 +1696,34 @@ export function PostCard({
     setFeedMediumCoverSvg(coverSvg);
     setFeedMediumOpen(true);
   };
+  /** Listed article face — same activate path ScarcePostPreview used. */
+  const articleHasScarceFace =
+    Boolean(article) &&
+    Boolean(scarceEmbed) &&
+    (scarceEmbed?.status === 'lazy_listing' ||
+      scarceEmbed?.status === 'drop' ||
+      scarceEmbed?.status === 'listed' ||
+      scarceEmbed?.status === 'sold' ||
+      scarceEmbed?.status === 'auction' ||
+      scarceEmbed?.status === 'minted');
+  const activateArticleCover = () => {
+    if (articleHasScarceFace) {
+      const mode = resolveScarceFeedMediumMode(
+        scarceEmbed?.mediumKind ?? dropPaint?.mediumKind
+      );
+      // Article face always opens the writing reader (not the art viewer).
+      openFeedMedium(mode === 'audio' ? 'audio' : 'writing');
+      return;
+    }
+    if (articleCover?.coverUrl && stillPhotos.length > 0) {
+      setPhotoIndex(0);
+      setPhotoOpen(true);
+      return;
+    }
+    if (articleHref) {
+      router.push(articleHref);
+    }
+  };
   const name = displayName(post.accountId, authorProfile?.displayName);
   const badges = postBadges(post, Boolean(poll), mediaItems.length > 0);
   const relationContext = showRelationBadge
@@ -1714,6 +1756,7 @@ export function PostCard({
     openHref ? 'post-card--openable' : '',
     detailLayout ? 'post-card--detail' : '',
     repostedBy ? 'post-card--reposted' : '',
+    article ? 'post-card--article' : '',
     className ?? '',
   ]
     .filter(Boolean)
@@ -1829,7 +1872,59 @@ export function PostCard({
               }
             />
           ) : null}
-          {mediaItems.length > 0 ? (
+          {article && articleCover ? (
+            <div
+              className={[
+                'scarce-post-preview',
+                'scarce-post-preview--feed',
+                articleCover.coverUrl
+                  ? 'scarce-post-preview--cover'
+                  : 'scarce-post-preview--card',
+                'post-card-article-cover',
+                articleCover.coverUrl ? 'is-photo' : 'is-card',
+              ].join(' ')}
+              role="button"
+              tabIndex={0}
+              aria-label={
+                articleHasScarceFace
+                  ? 'Open Drop preview'
+                  : articleCover.coverUrl
+                    ? 'Enlarge cover photo'
+                    : 'Read article'
+              }
+              onClick={(event: MouseEvent) => {
+                event.preventDefault();
+                event.stopPropagation();
+                activateArticleCover();
+              }}
+              onKeyDown={(event: KeyboardEvent) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                event.stopPropagation();
+                activateArticleCover();
+              }}
+              onPointerDown={(event: PointerEvent) => {
+                event.stopPropagation();
+              }}
+            >
+              <div className="portfolio-writing-cover post-card-article-cover-face">
+                <PortfolioWritingCover
+                  variant="list"
+                  title={article.title}
+                  coverUrl={articleCover.coverUrl}
+                  cardBg={articleCover.cardBg}
+                  format={articleCover.format}
+                  markShape={articleCover.markShape}
+                  markColor={articleCover.markColor}
+                  accountId={post.accountId}
+                  displayName={authorProfile?.displayName}
+                  avatarUrl={authorProfile?.avatarUrl}
+                  postId={post.postId}
+                  issuedAt={articleIssuedAt}
+                />
+              </div>
+            </div>
+          ) : mediaItems.length > 0 ? (
             <PostMediaStrip
               items={mediaItems}
               size={mediaFocused ? 'page' : 'compact'}

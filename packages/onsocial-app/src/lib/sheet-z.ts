@@ -5,14 +5,16 @@
  *
  * UI-package defaults that coincide with this scale: GlassSheet 50,
  * OsGestureSheet 56, OsHugSheet / ActionDrawer 60, DISCARD_CONFIRM_Z 96.
- * The OS summon launcher sits at 49 (os-launcher.css) — above pageDrawer (48)
- * so it can open over the keep-dock page sheet, below overlayHost 50+.
+ * The OS summon launcher sits at 51 (os-launcher.css) — above overlayHost
+ * (50) so Writing / About overlays don't bury it, below account (55+).
  */
 export const SHEET_Z = {
   /** Page content drawer, under the overlay host. */
   pageDrawer: 48,
   /** Portfolio glass host / overlay pages (OsPageSheet). */
   overlayHost: 50,
+  /** OS summon launcher — over overlay pages, under account / gestures. */
+  launcher: 51,
   /** Facts peeking above an overlay page (joined facts). */
   overlayFacts: 52,
   /** Account / wallet drawer. */

@@ -1,4 +1,5 @@
 import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-root';
+import { InterceptMisfireRecovery } from '@/components/overlay/intercept-misfire-recovery';
 import { PortfolioFaceOverlayLeave } from '@/components/portfolio/portfolio-face-overlay-leave';
 import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
 import { StandingOverlayRoute } from '@/components/panels/standing-overlay-route';
@@ -11,7 +12,10 @@ import { displayName } from '@/lib/profile-display';
 import { fetchProfileSignals } from '@/lib/profile-signals';
 import { loadProfileShell } from '@/lib/profile-shell';
 import { resolvePortfolioDaoEntity } from '@/lib/portfolio-dao-entity';
-import { resolveAccountId } from '@/lib/resolve-account';
+import {
+  isInterceptMisfireSegment,
+  resolveAccountId,
+} from '@/lib/resolve-account';
 import { redirect } from 'next/navigation';
 
 type StandingKindOverlayProps = {
@@ -28,6 +32,10 @@ export default async function StandingKindOverlay({
   params,
   searchParams,
 }: StandingKindOverlayProps) {
+  const { accountId: routeSegment } = await params;
+  if (isInterceptMisfireSegment(routeSegment)) {
+    return <InterceptMisfireRecovery />;
+  }
   const accountId = await resolveAccountId(params);
   const { kind: kindParam } = await params;
   const kind = parseStandingKind(kindParam);

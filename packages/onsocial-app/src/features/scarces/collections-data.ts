@@ -160,6 +160,11 @@ export interface CollectionView {
   royalty: Record<string, number> | null;
   sourcePostPath?: string;
   cardBg?: string;
+  /**
+   * Body alignment from a listed Writing article (`left` / `center` /
+   * `justify`). Only set when hydrated from the source post.
+   */
+  textAlign?: 'left' | 'center' | 'justify' | null;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -950,13 +955,18 @@ async function hydrateWritingFromSourcePost(
           ? JSON.stringify(raw)
           : '';
     if (!value.trim()) return view;
+    const article = parseArticleSnapshot(value);
     const readable = readableFromPostBody({
       path,
-      title: parseArticleSnapshot(value)?.title || view.title,
+      title: article?.title || view.title,
       text: parsePostText(value),
     });
     if (!readable) return view;
-    return { ...view, readables: [readable] };
+    return {
+      ...view,
+      readables: [readable],
+      textAlign: article?.align ?? 'left',
+    };
   } catch {
     return view;
   }

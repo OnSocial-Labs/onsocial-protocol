@@ -345,7 +345,12 @@ export function OsSlideOverScreen({
             <div className="os-app-screen-toolbar">{toolbar}</div>
           ) : null}
         </header>
-        <main ref={setBodyRef} className="os-app-screen-body">
+        <main
+          ref={setBodyRef}
+          className="os-app-screen-body"
+          // Lenis may add `lenis` before nested hydration finishes.
+          suppressHydrationWarning
+        >
           <div
             className={`os-slide-over-content${
               contentClassName ? ` ${contentClassName}` : ''

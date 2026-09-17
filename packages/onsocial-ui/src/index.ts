@@ -64,6 +64,7 @@ export {
   ChartFillIcon,
   ChartVerticalFillIcon,
   ImageFillIcon,
+  NoteTextFillIcon,
   MapMarkerFillIcon,
   FireFillIcon,
   FireBFillIcon,

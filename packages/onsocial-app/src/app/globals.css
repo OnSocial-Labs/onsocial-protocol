@@ -454,6 +454,66 @@
 }
 
 /*
+ * Writing overlay — same compact OsAppScreen as hard refresh. Unlayered so
+ * height beats `.os-app-screen { height: 100dvh }` and mood-bg stays on the
+ * glass sheet (inner screen stays transparent).
+ */
+.glass-sheet-panel.portfolio-writing-sheet-panel > .glass-sheet-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 0;
+  overflow: hidden;
+}
+
+.glass-sheet-panel.portfolio-writing-sheet-panel .overlay-panel-outlet {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+.glass-sheet-panel.portfolio-writing-sheet-panel .os-app-screen--embedded {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  background: transparent;
+  background-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.glass-sheet-panel.portfolio-writing-sheet-panel
+  .os-app-screen--embedded
+  .os-app-screen-column {
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+}
+
+.glass-sheet-panel.portfolio-writing-sheet-panel
+  .os-app-screen--embedded
+  .os-app-screen-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Writing identity under search — beat unlayered os-chrome-subject 1.05rem name. */
+.portfolio-writing-chrome-subject .os-chrome-subject__name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+/*
  * Immersive guild chrome — unlayered so white icons beat glass-sheet.css
  * (imported outside @layer). Light-mode --fg is dark; without this, back /
  * manage / settings vanish on dark banners.
@@ -462,9 +522,13 @@
  * portal into the host screen; a descendant selector would paint these
  * cover discs onto Listen/pass × (white ink + scrim bg).
  */
-.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
+.os-app-screen[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header:not(.is-elevated)
   .contextual-back,
-.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
+.os-app-screen[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header:not(.is-elevated)
   .glass-sheet-icon-action {
   box-sizing: border-box;
   width: 1.85rem;
@@ -483,9 +547,13 @@
   -webkit-backdrop-filter: blur(10px);
 }
 
-.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
+.os-app-screen[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header:not(.is-elevated)
   .glass-sheet-close-icon,
-.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
+.os-app-screen[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header:not(.is-elevated)
   .guild-manage-menu-icon {
   width: 1.25rem;
   height: 1.25rem;
@@ -575,8 +643,10 @@
  * (.glass-sheet-icon-action uses --fg). Icon only — no fill, border, or ring.
  */
 .drop-art-page-sheet-panel .glass-sheet-icon-action.drop-art-overlay-close,
-.drop-art-page-sheet-panel .glass-sheet-icon-action.drop-art-overlay-close:hover,
-.drop-art-page-sheet-panel .glass-sheet-icon-action.drop-art-overlay-close:focus,
+.drop-art-page-sheet-panel
+  .glass-sheet-icon-action.drop-art-overlay-close:hover,
+.drop-art-page-sheet-panel
+  .glass-sheet-icon-action.drop-art-overlay-close:focus,
 .drop-art-page-sheet-panel
   .glass-sheet-icon-action.drop-art-overlay-close:focus-visible,
 .drop-art-page-sheet-panel
@@ -591,7 +661,8 @@
   color: rgb(var(--fg-rgb) / 0.88);
 }
 
-.drop-art-page-sheet-panel .glass-sheet-icon-action.drop-art-overlay-close:hover,
+.drop-art-page-sheet-panel
+  .glass-sheet-icon-action.drop-art-overlay-close:hover,
 .drop-art-page-sheet-panel
   .glass-sheet-icon-action.drop-art-overlay-close:focus-visible {
   color: rgb(var(--fg-rgb) / 1);
@@ -604,19 +675,29 @@
  * above) so portaled slides don’t inherit white/scrim from album/play pages.
  */
 
-.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
+.os-app-screen[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header:not(.is-elevated)
   .contextual-back:hover,
-.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
+.os-app-screen[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header:not(.is-elevated)
   .glass-sheet-icon-action:hover,
-.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
+.os-app-screen[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header:not(.is-elevated)
   .glass-sheet-icon-action:focus-visible {
   background: var(--app-scrim-media-hover);
   color: rgb(255 255 255 / 1);
 }
 
-.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated
+.os-app-screen[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header.is-elevated
   .contextual-back,
-.os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated
+.os-app-screen[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header.is-elevated
   .glass-sheet-icon-action {
   filter: none;
   backdrop-filter: none;
@@ -741,7 +822,10 @@
   .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
   border-color: rgb(var(--fg-rgb) / 0.16);
   background: rgb(var(--fg-rgb) / 0.1);
-  color: var(--protocol-green-ink, var(--protocol-green-hover, var(--protocol-green)));
+  color: var(
+    --protocol-green-ink,
+    var(--protocol-green-hover, var(--protocol-green))
+  );
 }
 
 /*
@@ -4625,13 +4709,14 @@ a.os-surface-row {
   .profile-edit-slide[data-mood='signature'] .account-editor-name,
   .mood-sheet-item[data-mood='signature'] .mood-sheet-item-label {
     display: inline-block;
-    width: max-content;
+    width: auto;
     max-width: 100%;
     position: relative;
     padding-bottom: 0.38rem;
     font-size: clamp(1.75rem, 7vw, 2.35rem);
     line-height: 1.12;
-    text-wrap: normal;
+    text-wrap: balance;
+    overflow-wrap: break-word;
     color: var(--mood-text);
   }
 
@@ -7120,7 +7205,7 @@ a.os-surface-row {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 0.35em 0.45em;
     max-width: 100%;
     min-width: 0;
@@ -7138,6 +7223,8 @@ a.os-surface-row {
     font-weight: inherit;
     letter-spacing: inherit;
     line-height: inherit;
+    overflow-wrap: break-word;
+    text-wrap: balance;
   }
 
   .protocol-identity-mark-cluster {
@@ -7280,6 +7367,10 @@ a.os-surface-row {
   .portfolio-handle-row .portfolio-handle {
     flex: 0 1 auto;
     min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: 1em;
     letter-spacing: inherit;
     line-height: inherit;
@@ -8118,7 +8209,9 @@ a.os-surface-row {
     margin-inline: 0;
   }
 
-  .account-editor-jobs-form .account-editor-jobs-bio .account-editor-bio-chrome {
+  .account-editor-jobs-form
+    .account-editor-jobs-bio
+    .account-editor-bio-chrome {
     justify-content: flex-start;
   }
 
@@ -8361,13 +8454,8 @@ a.os-surface-row {
     box-sizing: border-box;
     overflow-x: clip;
     margin: 0 auto 3.25rem;
-    padding: max(
-        1rem,
-        calc(
-          env(safe-area-inset-top, 0px) + var(--os-screen-body-pad-top, 0.15rem)
-        )
-      )
-      var(--portfolio-about-pad-right)
+    /* Immersive — print / type flush the top; side inset stays. */
+    padding: 0 var(--portfolio-about-pad-right)
       calc(
         var(--os-screen-body-pad-bottom, 1.5rem) + 2rem +
           env(safe-area-inset-bottom, 0px)
@@ -8376,33 +8464,23 @@ a.os-surface-row {
   }
 
   /*
-   * Bookmark print: flush top only — side inset stays like before.
-   * Edge-bleed film: drop side inset so the second still meets the screen;
-   * text + print keep the inset themselves.
+   * Bookmark print: flush top, side inset kept. Film sits in the same
+   * column as print / essay — inset gallery tiles, not edge bleed.
    */
   .portfolio-about[data-has-print='true'] {
     max-width: 38rem;
-    padding-top: env(safe-area-inset-top, 0px);
   }
 
-  .portfolio-about[data-has-film='true'] {
-    padding-left: 0;
-    padding-right: 0;
-    overflow-x: visible;
-  }
-
-  .portfolio-about[data-has-film='true'] .portfolio-about-spread,
-  .portfolio-about[data-has-film='true'] .portfolio-about-film-lead,
-  .portfolio-about[data-has-film='true'] .portfolio-about-essay,
-  .portfolio-about[data-has-film='true'] .portfolio-about-closer {
-    padding-inline: var(--portfolio-about-inset) var(--portfolio-about-pad-right);
-    box-sizing: border-box;
-  }
-
-  /* Full page — leave is dock back; no About chrome. */
-  .os-app-screen:has(.portfolio-about) .os-app-screen-header {
+  /* Full page — leave is dock back; no About chrome.
+   * Direct column header only — nested OsSlideOver enlarge keeps ×. */
+  .os-app-screen:has(.portfolio-about):not(.os-slide-over)
+    > .os-app-screen-column
+    > .os-app-screen-header {
     padding: 0;
     min-height: 0;
+    height: 0;
+    overflow: hidden;
+    border: 0;
   }
 
   /*
@@ -8485,7 +8563,7 @@ a.os-surface-row {
     padding-bottom: 0;
   }
 
-  /* Square bookmark — flush top + left edge, sharp corners. */
+  /* Square bookmark — flush top, card radius only on the bottom. */
   .portfolio-about-print {
     margin: 0;
     width: 100%;
@@ -8496,13 +8574,15 @@ a.os-surface-row {
     align-items: stretch;
     justify-content: stretch;
     overflow: hidden;
-    border-radius: 0;
+    border-radius: 0 0 var(--os-surface-radius-tile, 0.85rem)
+      var(--os-surface-radius-tile, 0.85rem);
     background: rgb(var(--fg-rgb) / 0.04);
   }
 
   .portfolio-about[data-profile-kind='org'] .portfolio-about-print,
   .portfolio-about[data-profile-kind='dao'] .portfolio-about-print {
-    border-radius: 0;
+    border-radius: 0 0 var(--os-surface-radius-tile, 0.85rem)
+      var(--os-surface-radius-tile, 0.85rem);
   }
 
   .portfolio-about-still-open {
@@ -8832,16 +8912,15 @@ a.os-surface-row {
     margin-top: 0.4em;
   }
 
-  /* Film — edge-to-edge, sharp. Lean band solo (2.5:1); pair stays 3:2. */
+  /* Film — inset gallery tiles, same radius as cards. */
   .portfolio-about-film {
     display: grid;
-    gap: 0;
+    gap: 0.5rem;
     width: 100%;
     margin: 0;
     padding: 0;
     list-style: none;
     background: transparent;
-    border-radius: 0;
   }
 
   .portfolio-about-film[data-count='1'] {
@@ -8855,13 +8934,8 @@ a.os-surface-row {
   .portfolio-about-film > li {
     min-width: 0;
     overflow: hidden;
-    border-radius: 0;
+    border-radius: var(--os-surface-radius-tile, 0.85rem);
     background: rgb(var(--fg-rgb) / 0.04);
-  }
-
-  .portfolio-about[data-profile-kind='org'] .portfolio-about-film > li,
-  .portfolio-about[data-profile-kind='dao'] .portfolio-about-film > li {
-    border-radius: 0;
   }
 
   .portfolio-about-film-open {
@@ -8869,18 +8943,15 @@ a.os-surface-row {
     width: 100%;
     height: 100%;
     max-width: none;
+    border-radius: inherit;
   }
 
   .portfolio-about-film-shot {
     display: block;
     width: 100%;
-    aspect-ratio: 3 / 2;
+    aspect-ratio: 2 / 1;
     object-fit: cover;
     object-position: center;
-  }
-
-  .portfolio-about-film[data-count='1'] .portfolio-about-film-shot {
-    aspect-ratio: 2.5 / 1;
   }
 
   .portfolio-about-closer {
@@ -8914,12 +8985,50 @@ a.os-surface-row {
       var(--portfolio-writing-inset);
   }
 
+  /* List under glass chrome — chrome owns top inset; body is cards only. */
+  .portfolio-writing--list {
+    padding-top: 0.65rem;
+  }
+
+  .os-app-screen[data-glass-chrome='true'] .portfolio-writing--list {
+    padding-top: 0.55rem;
+  }
+
+  .portfolio-writing-chrome-subject {
+    min-width: 0;
+    flex: 1 1 auto;
+    height: var(--os-app-screen-nav-row-height, 2.35rem);
+    max-height: var(--os-app-screen-nav-row-height, 2.35rem);
+    gap: 0.4rem;
+  }
+
+  .portfolio-writing-chrome-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem 0.75rem;
+    width: 100%;
+    min-width: 0;
+    max-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  }
+
+  .portfolio-writing-chrome-kicker {
+    flex: 0 0 auto;
+    margin: 0 0 0 auto;
+    font-size: 0.68rem;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1;
+    color: rgb(var(--fg-rgb) / 0.42);
+    user-select: none;
+  }
+
   .portfolio-writing-masthead {
     margin: 0 0 1.15rem;
   }
 
   .portfolio-writing-kicker {
-    margin: 0 0 0.2rem;
+    margin: 0 0 0.55rem;
     font-size: 0.72rem;
     font-weight: 650;
     letter-spacing: 0.08em;
@@ -8932,19 +9041,99 @@ a.os-surface-row {
     text-decoration: none;
   }
 
-  .portfolio-writing-name,
-  .portfolio-writing-article-title {
+  /* Owner face — avatar + name + @id; name wraps, handle ellipsizes. */
+  .portfolio-writing-owner {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .portfolio-writing-owner-face {
+    flex: 0 0 auto;
+    margin-top: 0.12rem;
+    line-height: 0;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .portfolio-writing-owner-copy {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.12rem;
+    min-width: 0;
+  }
+
+  .portfolio-writing-name {
     margin: 0;
-    font-size: 1.65rem;
+    max-width: 100%;
+    font-size: clamp(1.25rem, 5.5vw, 1.65rem);
     font-weight: 650;
     letter-spacing: -0.02em;
     line-height: 1.2;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+
+  .portfolio-writing-handle {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.82rem;
+    font-weight: 550;
+    letter-spacing: 0.01em;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.45);
+    text-decoration: none;
+  }
+
+  .portfolio-writing-handle:hover,
+  .portfolio-writing-handle:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  /*
+   * Article title — About name face. Beside the print it uses the type
+   * column's cqi, same as the About name next to the first photo.
+   */
+  .portfolio-writing-article-title {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    font-family: var(
+      --mood-font-display,
+      var(--font-space-grotesk),
+      system-ui,
+      sans-serif
+    );
+    font-size: clamp(0.82rem, 11.5cqi, 1.85rem);
+    font-weight: var(--mood-display-weight, 600);
+    letter-spacing: var(--mood-display-tracking, -0.035em);
+    line-height: 0.95;
+    overflow-wrap: break-word;
+    text-wrap: pretty;
   }
 
   .portfolio-writing-byline {
     margin: 0.35rem 0 0;
     font-size: 0.9rem;
     color: rgb(var(--fg-rgb) / 0.58);
+  }
+
+  .portfolio-writing-byline a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .portfolio-writing-byline a:hover,
+  .portfolio-writing-byline a:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
   }
 
   .portfolio-writing-search {
@@ -9020,6 +9209,7 @@ a.os-surface-row {
 
   .portfolio-writing-cover-photo,
   .portfolio-writing-cover-card,
+  .portfolio-writing-cover-mark,
   .portfolio-writing-cover-fallback {
     position: absolute;
     inset: 0;
@@ -9030,11 +9220,38 @@ a.os-surface-row {
     object-position: center;
   }
 
+  .portfolio-writing-cover-mark {
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding: 0.55rem 0.65rem 0.5rem;
+    background: linear-gradient(
+      165deg,
+      rgb(var(--fg-rgb) / 0.1) 0%,
+      rgb(var(--fg-rgb) / 0.04) 55%,
+      rgb(var(--fg-rgb) / 0.08) 100%
+    );
+  }
+
+  .portfolio-writing-cover-mark-initial {
+    font-size: 2.05rem;
+    font-weight: 650;
+    letter-spacing: -0.04em;
+    line-height: 0.9;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
   .portfolio-writing-cover-card svg {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: contain;
+  }
+
+  .portfolio-writing-cover-card--list svg {
+    object-fit: cover;
+    object-position: top center;
   }
 
   .portfolio-writing-card-copy {
@@ -9049,61 +9266,252 @@ a.os-surface-row {
     line-height: 1.25;
   }
 
-  .portfolio-writing-card-excerpt,
-  .portfolio-writing-card-meta {
+  .portfolio-writing-card-excerpt {
     margin: 0.28rem 0 0;
     font-size: 0.86rem;
     line-height: 1.4;
     color: rgb(var(--fg-rgb) / 0.58);
-  }
-
-  .portfolio-writing-card-excerpt {
     display: -webkit-box;
     overflow: hidden;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
   }
 
-  .portfolio-writing-article-cover {
+  /* Facts row — feed/drops meta scale, not preview prose. */
+  .portfolio-writing-card-meta {
+    margin: 0.38rem 0 0;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  /*
+   * Article spread — About's first photo (square bookmark print | type).
+   * Cover flushes top; title / Writing / byline nest beside it.
+   */
+  .portfolio-writing-article {
+    width: min(100%, 38rem);
+    padding-top: 0;
+    container-type: inline-size;
+    container-name: portfolio-writing-article;
+  }
+
+  .os-app-screen:has(.portfolio-writing-article):not(.os-slide-over)
+    > .os-app-screen-column
+    > .os-app-screen-header {
+    padding: 0;
+    min-height: 0;
+    height: 0;
+    overflow: hidden;
+    border: 0;
+  }
+
+  .portfolio-writing-article-spread {
+    display: grid;
+    grid-template-columns: minmax(0, 34%) minmax(0, 1fr);
+    column-gap: clamp(0.55rem, 2.4cqi, 1.2rem);
+    row-gap: 0;
+    align-items: start;
     width: 100%;
-    margin: 0 0 1.2rem;
-    border-radius: 0.85rem;
-    aspect-ratio: 3 / 2;
+    margin: 0 0 1.5rem;
+    overflow-x: visible;
+  }
+
+  .portfolio-writing-article-cover {
+    position: relative;
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    line-height: 0;
+    border-radius: 0 0 var(--os-surface-radius-tile, 0.85rem)
+      var(--os-surface-radius-tile, 0.85rem);
+    background: rgb(var(--fg-rgb) / 0.04);
+  }
+
+  .portfolio-writing-article-cover.is-photo,
+  .portfolio-writing-article-cover.is-card {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    margin: 0;
+    border-radius: 0 0 var(--os-surface-radius-tile, 0.85rem)
+      var(--os-surface-radius-tile, 0.85rem);
+    box-shadow: none;
+  }
+
+  .portfolio-writing-article .portfolio-writing-masthead {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(0.48rem, 2.6cqi, 0.85rem);
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding-top: clamp(0.35rem, 2cqi, 0.75rem);
+    container-type: inline-size;
+    container-name: portfolio-writing-article-type;
+  }
+
+  .portfolio-writing-article-rule {
+    width: clamp(4.5rem, 52cqi, 8.5rem);
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .portfolio-writing-article .portfolio-writing-byline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.28rem 0.35rem;
+    margin: 0;
+    font-size: clamp(0.62rem, 5.4cqi, 0.8rem);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.35;
+    color: rgb(var(--fg-rgb) / 0.5);
+  }
+
+  .portfolio-writing-article .portfolio-writing-byline a {
+    color: inherit;
+  }
+
+  .portfolio-writing-byline-likes {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    letter-spacing: inherit;
+    line-height: inherit;
+    color: inherit;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .portfolio-writing-byline-likes:hover,
+  .portfolio-writing-byline-likes:focus-visible {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
+    outline: none;
+  }
+
+  .portfolio-writing-byline-sep {
+    color: rgb(var(--fg-rgb) / 0.28);
+    user-select: none;
+  }
+
+  /*
+   * Author under the cover|title spread — avatar + name |
+   * Like · Save · Thread · Share (icons). @id stays on profile / shelf / feed.
+   */
+  .portfolio-writing-article-author {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 1.25rem;
+  }
+
+  .portfolio-writing-article-face {
+    flex: 0 0 auto;
+    line-height: 0;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .portfolio-writing-article-author-name {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 0.95rem;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.94);
+    text-decoration: none;
+    overflow-wrap: break-word;
+    text-wrap: balance;
+  }
+
+  .portfolio-writing-article-author-name:hover,
+  .portfolio-writing-article-author-name:focus-visible {
+    color: rgb(var(--fg-rgb) / 1);
+  }
+
+  .portfolio-writing-article-actions {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.1rem;
+    margin-left: auto;
+  }
+
+  .portfolio-writing-article-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.15rem;
+    height: 2.15rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.48);
+    cursor: pointer;
+    transition:
+      color 140ms ease,
+      background 140ms ease;
+  }
+
+  .portfolio-writing-article-action:hover:not(:disabled),
+  .portfolio-writing-article-action:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+    background: rgb(var(--fg-rgb) / 0.06);
+    outline: none;
+  }
+
+  .portfolio-writing-article-action.is-active,
+  .portfolio-writing-article-action.is-copied {
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .portfolio-writing-article-action:disabled,
+  .portfolio-writing-article-action.is-pending {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  .portfolio-writing-article-action-icon {
+    display: block;
+    width: 1.05rem;
+    height: 1.05rem;
+  }
+
+  a.portfolio-writing-article-action {
+    text-decoration: none;
+  }
+
+  @container portfolio-writing-article (min-width: 28rem) {
+    .portfolio-writing-article-spread {
+      grid-template-columns: minmax(0, 36%) minmax(0, 1fr);
+      column-gap: 1.25rem;
+    }
+
+    .portfolio-writing-article-title {
+      font-size: clamp(1.05rem, 12cqi, 1.95rem);
+    }
   }
 
   .portfolio-writing-essay {
     margin: 0 0 1.35rem;
-  }
-
-  .portfolio-writing-article-footer {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.85rem 1.1rem;
-  }
-
-  .portfolio-writing-save {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    background: none;
-    color: rgb(var(--fg-rgb) / 0.62);
-    font: inherit;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .portfolio-writing-save.is-active {
-    color: rgb(var(--fg-rgb) / 0.88);
-  }
-
-  .portfolio-writing-save-icon {
-    width: 1rem;
-    height: 1rem;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -9226,18 +9634,12 @@ a.os-surface-row {
    * About More essay — not face bio. Full live column, start-aligned.
    * Must beat the mood bio max-width / centered face field above.
    */
-  .profile-edit-slide
-    .account-editor-bio-shell--about
-    .account-editor-bio,
+  .profile-edit-slide .account-editor-bio-shell--about .account-editor-bio,
   .profile-edit-slide
     .account-editor-bio-shell--about
     .account-editor-bio--wysiwyg,
-  .profile-edit-slide
-    .account-editor-bio-shell--about
-    .tiptap,
-  .profile-edit-slide
-    .account-editor-bio-shell--about
-    .ProseMirror {
+  .profile-edit-slide .account-editor-bio-shell--about .tiptap,
+  .profile-edit-slide .account-editor-bio-shell--about .ProseMirror {
     max-width: none;
     width: 100%;
     margin-inline: 0;
@@ -9253,18 +9655,12 @@ a.os-surface-row {
    * About Lead — centered in the middle like live .portfolio-about-film-lead.
    * Face-bio mood max-width left the field stuck on the left edge.
    */
-  .profile-edit-slide
-    .account-editor-bio-shell--about-lead
-    .account-editor-bio,
+  .profile-edit-slide .account-editor-bio-shell--about-lead .account-editor-bio,
   .profile-edit-slide
     .account-editor-bio-shell--about-lead
     .account-editor-bio--wysiwyg,
-  .profile-edit-slide
-    .account-editor-bio-shell--about-lead
-    .tiptap,
-  .profile-edit-slide
-    .account-editor-bio-shell--about-lead
-    .ProseMirror {
+  .profile-edit-slide .account-editor-bio-shell--about-lead .tiptap,
+  .profile-edit-slide .account-editor-bio-shell--about-lead .ProseMirror {
     max-width: 34ch;
     width: 100%;
     margin-inline: auto;
@@ -11391,7 +11787,9 @@ a.os-surface-row {
   }
 
   /* Immersive screens place the bar over top media, then harden on scroll. */
-  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header {
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header {
     position: absolute;
     inset: 0 0 auto;
     z-index: var(--os-chrome-header-z);
@@ -11411,12 +11809,18 @@ a.os-surface-row {
    * The layer is always mounted; opacity snaps with scroll so a flick does
    * not outrun the blur (a 220ms fade left a clear bar over content).
    */
-  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated {
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header.is-elevated {
     background: transparent;
   }
 
-  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header::before,
-  .os-app-screen[data-glass-chrome='true'] > .os-app-screen-column > .os-app-screen-header::before {
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header::before,
+  .os-app-screen[data-glass-chrome='true']
+    > .os-app-screen-column
+    > .os-app-screen-header::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -11441,14 +11845,18 @@ a.os-surface-row {
    * OsAppScreen freezes this var while search/toolbar rails hide so the
    * body inset does not jump (same contract as immersive guild rails).
    */
-  .os-app-screen[data-glass-chrome='true'] > .os-app-screen-column > .os-app-screen-header {
+  .os-app-screen[data-glass-chrome='true']
+    > .os-app-screen-column
+    > .os-app-screen-header {
     position: absolute;
     inset: 0 0 auto;
     z-index: var(--os-chrome-header-z);
     background: transparent;
   }
 
-  .os-app-screen[data-glass-chrome='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated::before {
+  .os-app-screen[data-glass-chrome='true']
+    > .os-app-screen-column
+    > .os-app-screen-header.is-elevated::before {
     opacity: 1;
   }
 
@@ -11490,8 +11898,19 @@ a.os-surface-row {
       env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y) +
         var(--os-app-screen-nav-row-height) +
         var(--os-app-chrome-chip-gap, 0.28rem) +
-        var(--os-app-chrome-rail-height, 1.85rem) +
-        var(--os-app-chrome-pad-y)
+        var(--os-app-chrome-rail-height, 1.85rem) + var(--os-app-chrome-pad-y)
+    );
+  }
+
+  /* Writing list — search + identity subject (two compact bands). */
+  .os-app-screen[data-compact-chrome='true'][data-scroll-tuck='search']:has(
+      .portfolio-writing-chrome-subject
+    ) {
+    --os-app-screen-chrome-height: calc(
+      env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y) +
+        var(--os-app-screen-nav-row-height) +
+        var(--os-app-chrome-chip-gap, 0.28rem) +
+        var(--os-app-screen-nav-row-height) + var(--os-app-chrome-pad-y)
     );
   }
 
@@ -11520,6 +11939,28 @@ a.os-surface-row {
     padding: calc(env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y))
       max(1rem, env(safe-area-inset-right, 0px)) var(--os-app-chrome-pad-y)
       max(1rem, env(safe-area-inset-left, 0px));
+  }
+
+  /*
+   * About / writing article: print flush to the top edge. Compact chrome's
+   * header pad must not win — direct column header only so nested enlarge
+   * (OsSlideOver) keeps its close chrome.
+   */
+  .os-app-screen[data-compact-chrome='true']:has(.portfolio-about):not(
+      .os-slide-over
+    )
+    > .os-app-screen-column
+    > .os-app-screen-header,
+  .os-app-screen[data-compact-chrome='true']:has(
+      .portfolio-writing-article
+    ):not(.os-slide-over)
+    > .os-app-screen-column
+    > .os-app-screen-header {
+    padding: 0;
+    min-height: 0;
+    height: 0;
+    overflow: hidden;
+    border: 0;
   }
 
   .os-app-screen[data-compact-chrome='true'] .os-app-screen-toolbar {
@@ -11597,21 +12038,33 @@ a.os-surface-row {
     opacity: 1;
   }
 
-  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header > *,
-  .os-app-screen[data-glass-chrome='true'] > .os-app-screen-column > .os-app-screen-header > * {
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header
+    > *,
+  .os-app-screen[data-glass-chrome='true']
+    > .os-app-screen-column
+    > .os-app-screen-header
+    > * {
     position: relative;
     z-index: 1;
   }
 
   @media (prefers-reduced-transparency: reduce) {
-    .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header::before,
-    .os-app-screen[data-glass-chrome='true'] > .os-app-screen-column > .os-app-screen-header::before {
+    .os-app-screen[data-immersive-header='true']
+      > .os-app-screen-column
+      > .os-app-screen-header::before,
+    .os-app-screen[data-glass-chrome='true']
+      > .os-app-screen-column
+      > .os-app-screen-header::before {
       background: rgb(var(--bg-rgb) / 0.94);
       backdrop-filter: none;
     }
   }
 
-  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header.is-elevated
     .os-app-screen-nav-row {
     align-items: center;
   }
@@ -11648,7 +12101,9 @@ a.os-surface-row {
     will-change: auto;
   }
 
-  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header.is-elevated
     .os-app-screen-heading {
     padding-top: 0;
     pointer-events: auto;
@@ -11898,7 +12353,8 @@ a.os-surface-row {
       var(
           --os-screen-chrome-height,
           var(--os-app-screen-chrome-height, 4.5rem)
-        ) + 0.35rem
+        ) +
+        0.35rem
     );
     width: max-content;
     max-width: min(calc(var(--os-column-width, 100%) - 1.7rem), 22rem);
@@ -14830,11 +15286,17 @@ a.os-surface-row {
   }
 
   /* About overlay = same studio page as hard-refresh `/about` (no header chrome). */
-  .glass-sheet-panel.portfolio-about-sheet-panel,
-  .glass-sheet-panel.portfolio-writing-sheet-panel {
+  .glass-sheet-panel.portfolio-about-sheet-panel {
     --glass-header-scrim-height: 0px;
   }
 
+  /*
+   * Writing overlay — header scrim off; layout/height for embedded screen
+   * lives unlayered (beats 100dvh + mood-bg).
+   */
+  .glass-sheet-panel.portfolio-writing-sheet-panel {
+    --glass-header-scrim-height: 0px;
+  }
 
   @keyframes overlay-panel-crossfade {
     from {
@@ -15278,11 +15740,11 @@ a.os-surface-row {
     padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
   }
 
-.os-app-chrome-page.discover-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
+  .os-app-chrome-page.discover-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
 
   @keyframes standing-panel-body-in {
     from {
@@ -18574,12 +19036,18 @@ a.os-surface-row {
     transition: opacity 140ms ease;
   }
 
-  .profile-about-edit-studio .portfolio-about-print:hover .profile-about-edit-role,
+  .profile-about-edit-studio
+    .portfolio-about-print:hover
+    .profile-about-edit-role,
   .profile-about-edit-studio
     .portfolio-about-print:focus-within
     .profile-about-edit-role,
-  .profile-about-edit-studio .portfolio-about-print.is-dragging .profile-about-edit-role,
-  .profile-about-edit-studio .portfolio-about-print.is-selected .profile-about-edit-role,
+  .profile-about-edit-studio
+    .portfolio-about-print.is-dragging
+    .profile-about-edit-role,
+  .profile-about-edit-studio
+    .portfolio-about-print.is-selected
+    .profile-about-edit-role,
   .profile-about-edit-film-item:hover .profile-about-edit-role,
   .profile-about-edit-film-item:focus-within .profile-about-edit-role,
   .profile-about-edit-film-item.is-dragging .profile-about-edit-role,
@@ -18798,9 +19266,7 @@ a.os-surface-row {
   .profile-about-edit-studio
     .account-editor-bio-shell--about-lead
     .account-editor-bio--wysiwyg,
-  .profile-about-edit-studio
-    .account-editor-bio-shell--about-lead
-    .tiptap,
+  .profile-about-edit-studio .account-editor-bio-shell--about-lead .tiptap,
   .profile-about-edit-studio
     .account-editor-bio-shell--about-lead
     .ProseMirror {
@@ -20453,7 +20919,8 @@ a.os-surface-row {
       var(
           --os-screen-chrome-height,
           var(--os-app-screen-chrome-height, 4.5rem)
-        ) + 0.45rem
+        ) +
+        0.45rem
     );
     bottom: auto;
     width: max-content;
@@ -20784,6 +21251,8 @@ a.os-surface-row {
   .post-card--openable .os-link,
   .post-card--openable .post-card-guild,
   .post-card--openable .post-card-scarce-buy,
+  .post-card--openable .post-card-scarce-link,
+  .post-card--openable .post-card-scarce-listen,
   .post-card--openable .scarce-post-preview {
     pointer-events: auto;
   }
@@ -21529,6 +21998,26 @@ a.os-surface-row {
 
   .post-media-strip--1 .post-media-tile--compact {
     max-height: 14rem;
+  }
+
+  /* Article face — reuse scarce feed jacket (300px · 1:1); face fills it. */
+  .post-card-article-cover {
+    cursor: default;
+  }
+
+  .post-card-article-cover.is-photo {
+    cursor: zoom-in;
+  }
+
+  .post-card-article-cover .post-card-article-cover-face {
+    width: 100%;
+    border-radius: 0.75rem;
+  }
+
+  .post-card-article-cover .portfolio-writing-cover-photo,
+  .post-card-article-cover .portfolio-writing-cover-card,
+  .post-card-article-cover .portfolio-writing-cover-fallback {
+    border-radius: 0.75rem;
   }
 
   .post-media-strip--1 .post-media-tile--page,
@@ -24846,9 +25335,7 @@ a.os-surface-row {
     width: calc(100% + (2 * var(--os-screen-body-pad-x, 1rem)));
     max-width: none;
     margin: 0 calc(-1 * var(--os-screen-body-pad-x, 1rem));
-    height: calc(
-      env(safe-area-inset-top, 0px) + var(--scarce-play-cover-band)
-    );
+    height: calc(env(safe-area-inset-top, 0px) + var(--scarce-play-cover-band));
   }
 
   /*
@@ -24993,9 +25480,7 @@ a.os-surface-row {
     font-size: 0.72rem;
   }
 
-  .os-app-screen-actions
-    .collectibles-play-drop-action
-    .os-sheet-action:hover,
+  .os-app-screen-actions .collectibles-play-drop-action .os-sheet-action:hover,
   .os-app-screen-actions
     .collectibles-play-drop-action
     .os-sheet-action:focus-visible {
@@ -25017,7 +25502,9 @@ a.os-surface-row {
   }
 
   /* On cover: frosted dark pill so the chip stays readable (← / shop recipe). */
-  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header:not(.is-elevated)
     .collectibles-play-drop-action
     .os-sheet-action {
     border: 0;
@@ -25028,10 +25515,14 @@ a.os-surface-row {
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
   }
 
-  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header:not(.is-elevated)
     .collectibles-play-drop-action
     .os-sheet-action:hover,
-  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header:not(.is-elevated)
     .collectibles-play-drop-action
     .os-sheet-action:focus-visible {
     border: 0;
@@ -25039,12 +25530,16 @@ a.os-surface-row {
     color: rgb(255 255 255 / 1);
   }
 
-  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header:not(.is-elevated)
     .collectibles-play-drop-live-label {
     color: var(--protocol-green);
   }
 
-  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header.is-elevated
     .collectibles-play-drop-action
     .os-sheet-action {
     filter: none;
@@ -25260,7 +25755,9 @@ a.os-surface-row {
   .collectibles-chrome-glass::before {
     content: '';
     position: absolute;
-    top: calc(-1 * var(--os-screen-chrome-height, var(--os-app-screen-chrome-height)));
+    top: calc(
+      -1 * var(--os-screen-chrome-height, var(--os-app-screen-chrome-height))
+    );
     inset-inline: calc(-1 * var(--os-screen-body-pad-x, 1rem));
     /*
      * Untucked, the sheet always reaches one strip slot below the rail, so a
@@ -25282,10 +25779,7 @@ a.os-surface-row {
 
   .os-app-screen:has(.os-app-screen-header.is-search-tucked)
     .collectibles-chrome-glass::before {
-    height: var(
-      --os-screen-chrome-height,
-      var(--os-app-screen-chrome-height)
-    );
+    height: var(--os-screen-chrome-height, var(--os-app-screen-chrome-height));
   }
 
   .os-app-screen[data-glass-chrome='true']:has(
@@ -25723,9 +26217,7 @@ a.os-surface-row {
     aspect-ratio: auto;
     max-width: none;
     margin-inline: calc(-1 * var(--os-screen-body-pad-x, 1rem));
-    height: calc(
-      env(safe-area-inset-top, 0px) + var(--scarce-play-cover-band)
-    );
+    height: calc(env(safe-area-inset-top, 0px) + var(--scarce-play-cover-band));
   }
 
   /* Soft top scrim so back / shop icons stay readable on bright covers. */
@@ -25814,7 +26306,9 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.55);
   }
 
-  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header:not(.is-elevated)
     .collection-header-status:not(.is-live) {
     background: var(--app-scrim-media);
     color: var(--app-on-media-ink);
@@ -25823,14 +26317,18 @@ a.os-surface-row {
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
   }
 
-  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header:not(.is-elevated)
     .collection-header-status.is-live {
     background: color-mix(in srgb, var(--protocol-green) 92%, transparent);
     color: #05130d;
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
   }
 
-  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header.is-elevated
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header.is-elevated
     .collection-header-status {
     filter: none;
     backdrop-filter: none;
@@ -25852,9 +26350,7 @@ a.os-surface-row {
     width: calc(100% + (2 * var(--os-screen-body-pad-x, 1rem)));
     max-width: none;
     margin: 0 calc(-1 * var(--os-screen-body-pad-x, 1rem));
-    height: calc(
-      env(safe-area-inset-top, 0px) + var(--scarce-play-cover-band)
-    );
+    height: calc(env(safe-area-inset-top, 0px) + var(--scarce-play-cover-band));
   }
 
   .collection-music-hero.is-immersive .scarce-clip-player-cover,
@@ -26876,7 +27372,8 @@ a.os-surface-row {
     border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
   }
 
-  .collection-writing.is-immersive .collection-writing-toc-downloads
+  .collection-writing.is-immersive
+    .collection-writing-toc-downloads
     .collection-writing-downloads {
     opacity: 1;
     margin: 0;
@@ -26907,7 +27404,9 @@ a.os-surface-row {
     padding: 0.1rem 0.05rem 1.1rem;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
-    transition: transform 180ms ease, opacity 180ms ease;
+    transition:
+      transform 180ms ease,
+      opacity 180ms ease;
   }
 
   .collection-writing.is-immersive .collection-writing-toc {
@@ -27167,15 +27666,23 @@ a.os-surface-row {
 
   .scarce-writing-read-cover {
     display: block;
-    width: 2.2rem;
+    /*
+     * Exact miniature of the pinned cover — same aspect, never cropped.
+     * Height is fixed for mast rhythm; width follows the cover's own ratio,
+     * capped so wide photo bands don't crowd the title.
+     */
     height: 3.15rem;
+    width: auto;
+    max-width: 4.6rem;
     border-radius: 0.28rem;
-    object-fit: cover;
+    object-fit: contain;
     background: rgb(var(--fg-rgb) / 0.08);
     box-shadow: 0 0.2rem 0.55rem rgb(0 0 0 / 0.14);
   }
 
+  /* Text cards are natively 1:1 — square jacket, not a cropped portrait. */
   .scarce-writing-read-cover--svg {
+    aspect-ratio: 1 / 1;
     overflow: hidden;
   }
 
@@ -27341,11 +27848,15 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.08);
     box-shadow: 0 3px 10px rgb(0 0 0 / 0.14);
     border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    transition: box-shadow 180ms ease, border-color 180ms ease;
+    transition:
+      box-shadow 180ms ease,
+      border-color 180ms ease;
   }
 
   .ticket-show-pass-mark-btn:hover .ticket-show-pass-mark {
-    box-shadow: 0 8px 22px rgb(0 0 0 / 0.24), 0 0 0 1px rgb(var(--fg-rgb) / 0.16);
+    box-shadow:
+      0 8px 22px rgb(0 0 0 / 0.24),
+      0 0 0 1px rgb(var(--fg-rgb) / 0.16);
     border-color: rgb(var(--fg-rgb) / 0.25);
   }
 
@@ -27368,7 +27879,10 @@ a.os-surface-row {
     justify-content: center;
     opacity: 0.82;
     transform: scale(0.94);
-    transition: opacity 160ms ease, transform 160ms cubic-bezier(0.16, 1, 0.3, 1), background-color 160ms ease;
+    transition:
+      opacity 160ms ease,
+      transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 160ms ease;
     pointer-events: none;
   }
 
@@ -28032,6 +28546,30 @@ a.os-surface-row {
     font-size: 0.92rem;
     line-height: 1.6;
     color: rgb(var(--fg-rgb) / 0.82);
+  }
+
+  .collection-writing-markdown[data-about-align='center'] p,
+  .collection-writing-markdown[data-about-align='center'] h1,
+  .collection-writing-markdown[data-about-align='center'] h2,
+  .collection-writing-markdown[data-about-align='center'] h3,
+  .collection-writing-markdown[data-about-align='center'] h4,
+  .collection-writing-markdown[data-about-align='center'] li {
+    text-align: center;
+  }
+
+  .collection-writing-markdown[data-about-align='center'] ul,
+  .collection-writing-markdown[data-about-align='center'] ol {
+    list-style-position: inside;
+    padding-inline-start: 0;
+  }
+
+  .collection-writing-markdown[data-about-align='justify'] p,
+  .collection-writing-markdown[data-about-align='justify'] h1,
+  .collection-writing-markdown[data-about-align='justify'] h2,
+  .collection-writing-markdown[data-about-align='justify'] h3,
+  .collection-writing-markdown[data-about-align='justify'] h4,
+  .collection-writing-markdown[data-about-align='justify'] li {
+    text-align: justify;
   }
 
   .collection-writing-markdown > :first-child {
@@ -32251,7 +32789,8 @@ a.os-surface-row {
   .drop-create-form .drop-cover-picker.drop-create-piece:focus-visible {
     border-color: transparent;
     background: rgb(var(--fg-rgb) / 0.07);
-    box-shadow: inset 0 0 0 1px rgb(var(--signal-reputation-rgb, 0 236 151) / 0.45);
+    box-shadow: inset 0 0 0 1px
+      rgb(var(--signal-reputation-rgb, 0 236 151) / 0.45);
   }
 
   .drop-create-title {
@@ -33568,7 +34107,9 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
-  .os-app-screen[data-immersive-header='true'] > .os-app-screen-column > .os-app-screen-header:not(.is-elevated)
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header:not(.is-elevated)
     .guild-manage-menu-trigger.has-badge
     .guild-manage-menu-icon {
     color: var(--app-on-media-ink);
@@ -35186,8 +35727,12 @@ a.os-surface-row {
   }
 
   .guild-composer-sheet-panel .os-app-screen--embedded .os-app-screen-body {
-    /* Match post thread: chrome clearance on scroller, inset on page root. */
-    padding-bottom: 0;
+    /*
+     * Sheet footer holds the compose toolbar (outside this scroller). Keep
+     * clearance so long article bodies can scroll the caret above it.
+     */
+    padding-bottom: calc(4.85rem + env(safe-area-inset-bottom, 0px));
+    scroll-padding-bottom: calc(4.85rem + env(safe-area-inset-bottom, 0px));
   }
 
   .guild-composer-sheet-panel
@@ -35510,6 +36055,10 @@ a.os-surface-row {
     transition:
       color 160ms ease,
       opacity 160ms ease;
+  }
+
+  .guild-composer-sheet-form[data-writing='article'] .guild-composer-char-count {
+    min-width: 4.75rem;
   }
 
   .guild-composer-char-count.is-idle {
@@ -36085,11 +36634,111 @@ a.os-surface-row {
     margin: 0 0 0.4rem;
   }
 
+  .guild-composer-cover {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    margin: 0 0 0.55rem;
+    padding: 0.35rem 0.45rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.09);
+    border-radius: 0.65rem;
+    background: rgb(var(--fg-rgb) / 0.03);
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition:
+      border-color 140ms ease,
+      background 140ms ease;
+  }
+
+  .guild-composer-cover:hover:not(:disabled) {
+    border-color: rgb(var(--fg-rgb) / 0.16);
+    background: rgb(var(--fg-rgb) / 0.05);
+  }
+
+  .guild-composer-cover:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  .guild-composer-cover-thumb {
+    position: relative;
+    flex: none;
+    width: 2.6rem;
+    /* The card's native frame — 600×600, same square wallets render. */
+    aspect-ratio: 1 / 1;
+    border-radius: 0.4rem;
+    overflow: hidden;
+    background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .guild-composer-cover-thumb img,
+  .guild-composer-cover-card,
+  .guild-composer-cover-card svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .guild-composer-cover-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.05rem;
+  }
+
+  .guild-composer-cover-label {
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .guild-composer-cover-value {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.88);
+  }
+
+  .guild-composer-cover-preview {
+    position: relative;
+    /* Square print, centered — the Drop page card recipe. */
+    width: min(100%, 17rem);
+    aspect-ratio: 1 / 1;
+    margin: 0 auto 0.75rem;
+    border-radius: 0.8rem;
+    overflow: hidden;
+    background: rgb(var(--fg-rgb) / 0.05);
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.06),
+      0 10px 32px rgb(0 0 0 / 0.1);
+  }
+
+  .guild-composer-cover-preview img,
+  .guild-composer-cover-preview .guild-composer-cover-card {
+    position: absolute;
+    inset: 0;
+  }
+
+  .guild-composer-cover-fields {
+    margin: 0 0 0.6rem;
+  }
+
+  .guild-composer-cover-note {
+    margin: 0 0 0.75rem;
+    font-size: 0.76rem;
+    line-height: 1.4;
+    color: rgb(var(--fg-rgb) / 0.52);
+  }
+
   /* Live article align preview — title + body track the tool selection. */
   .guild-composer-beat-body[data-article-align='center']
     .guild-composer-article-title,
-  .guild-composer-beat-body[data-article-align='center']
-    .guild-composer-input,
+  .guild-composer-beat-body[data-article-align='center'] .guild-composer-input,
   .guild-composer-beat-body[data-article-align='center']
     .guild-composer-input-backdrop {
     text-align: center;
@@ -36097,12 +36746,44 @@ a.os-surface-row {
 
   .guild-composer-beat-body[data-article-align='justify']
     .guild-composer-article-title,
-  .guild-composer-beat-body[data-article-align='justify']
-    .guild-composer-input,
+  .guild-composer-beat-body[data-article-align='justify'] .guild-composer-input,
   .guild-composer-beat-body[data-article-align='justify']
     .guild-composer-input-backdrop {
     text-align: justify;
     text-align-last: start;
+  }
+
+  /*
+   * Article writing chrome — quieter identity, longer measure, larger type.
+   * Distraction-free without leaving the compose sheet.
+   */
+  .guild-composer-sheet-form[data-writing='article'] {
+    gap: 0.55rem;
+    max-width: 40rem;
+    margin-inline: auto;
+    width: 100%;
+  }
+
+  .guild-composer-sheet-form[data-writing='article'] .guild-composer-destination-whisper,
+  .guild-composer-sheet-form[data-writing='article'] .guild-composer-identity {
+    opacity: 0.72;
+  }
+
+  .guild-composer-sheet-form[data-writing='article'] .guild-composer-article-title {
+    font-size: 1.28rem;
+    line-height: 1.28;
+    letter-spacing: -0.02em;
+  }
+
+  .guild-composer-sheet-form[data-writing='article'] .guild-composer-input,
+  .guild-composer-sheet-form[data-writing='article']
+    .guild-composer-input-backdrop {
+    font-size: 1.02rem;
+    line-height: 1.62;
+  }
+
+  .guild-composer-sheet-form[data-writing='article'] .guild-composer-input {
+    min-height: 11.5rem;
   }
 
   .guild-composer-place-field {
@@ -37333,7 +38014,6 @@ a.os-surface-row {
     justify-content: center;
     align-items: flex-start;
   }
-
 
   /* ── Endorsements overlay ───────────────────────────────── */
 
@@ -41991,8 +42671,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   .os-app-screen-body {
   padding-bottom: calc(
     var(--drop-create-keyboard-lift, 0px) +
-      var(--portfolio-dock-clearance, 4.75rem) +
-      var(--os-screen-footer-band)
+      var(--portfolio-dock-clearance, 4.75rem) + var(--os-screen-footer-band)
   );
 }
 
@@ -42005,23 +42684,21 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   );
 }
 
-.os-app-screen:has(.dao-create-form[data-keyboard='open'])
-  .os-app-screen-body {
+.os-app-screen:has(.dao-create-form[data-keyboard='open']) .os-app-screen-body {
   padding-bottom: calc(
     var(--drop-create-keyboard-lift, 0px) +
-      var(--portfolio-dock-clearance, 4.75rem) +
-      var(--os-screen-footer-band)
+      var(--portfolio-dock-clearance, 4.75rem) + var(--os-screen-footer-band)
   );
 }
 
 /* New drop / create places — lift dock while a field is focused. */
 .os-app-screen:has(
     :is(
-        .drop-create-form,
-        .guild-create-form,
-        .hub-create-form,
-        .dao-create-form
-      )[data-keyboard='open']
+      .drop-create-form,
+      .guild-create-form,
+      .hub-create-form,
+      .dao-create-form
+    )[data-keyboard='open']
   )
   > .portfolio-summon-dock {
   bottom: var(--drop-create-keyboard-lift, 0px);

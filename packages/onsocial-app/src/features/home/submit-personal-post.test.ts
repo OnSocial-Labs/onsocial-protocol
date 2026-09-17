@@ -85,9 +85,7 @@ describe('submitPersonalPost', () => {
       mediumKind: 'audio',
     });
     expect(result.optimisticPost?.kind).toBe('audio');
-    const collection = parsePostCollectionEmbed(
-      result.optimisticPost!.value
-    );
+    const collection = parsePostCollectionEmbed(result.optimisticPost!.value);
     expect(collection?.collectionId).toBe('drop-1');
     expect(collection?.tokenId).toBe('drop-1:2');
   });
@@ -150,11 +148,52 @@ describe('submitPersonalPost', () => {
     expect(postData.x?.onsocial?.article).toEqual({
       title: 'Night drive',
       align: 'justify',
+      cover: {
+        mood: 'thought-night',
+        format: 'thought',
+        markShape: 'rule',
+        markColor: 'auto',
+      },
     });
     expect(result.optimisticPost?.kind).toBe('longform');
     expect(parseArticleSnapshot(result.optimisticPost!.value)).toEqual({
       title: 'Night drive',
       align: 'justify',
+      cover: {
+        mood: 'thought-night',
+        format: 'thought',
+        markShape: 'rule',
+        markColor: 'auto',
+      },
+    });
+  });
+
+  it('pins the picked article cover mood', async () => {
+    const create = vi.fn().mockResolvedValue({ txHash: 'article-tx' });
+    const client = mockClient({ create });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'post',
+      target: null,
+      payload: {
+        text: 'The river at night.',
+        article: { title: 'Night drive', cover: { mood: 'journal-sky' } },
+      },
+      trackTransaction,
+    });
+
+    const [postData] = create.mock.calls[0]!;
+    expect(postData.x?.onsocial?.article).toEqual({
+      title: 'Night drive',
+      cover: {
+        mood: 'journal-sky',
+        format: 'journal',
+        markShape: 'rule',
+        markColor: 'auto',
+      },
     });
   });
 
@@ -368,7 +407,9 @@ describe('submitPersonalPost', () => {
     const [postData] = create.mock.calls[0]!;
     expect(postData.contentWarning).toBe('Spoilers');
     expect(postData.nsfw).toBe(true);
-    expect(result.optimisticPost?.value).toContain('"contentWarning":"Spoilers"');
+    expect(result.optimisticPost?.value).toContain(
+      '"contentWarning":"Spoilers"'
+    );
     expect(result.optimisticPost?.value).toContain('"nsfw":true');
   });
 
@@ -460,11 +501,12 @@ describe('submitPersonalPost', () => {
       nsfw: true,
       groupId: 'builders',
     });
-    expect(result.optimisticPost?.value).toContain('"contentWarning":"Spoilers"');
+    expect(result.optimisticPost?.value).toContain(
+      '"contentWarning":"Spoilers"'
+    );
     expect(result.optimisticPost?.value).toContain('"nsfw":true');
   });
 });
-
 
 describe('submitPersonalRepost', () => {
   it('writes personal empty-text repost with target feed meta', async () => {

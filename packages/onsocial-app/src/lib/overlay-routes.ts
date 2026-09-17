@@ -341,7 +341,10 @@ export function resolveOverlayPanelChrome(
     return { ariaTitle: 'About', hideTitle: true, expectsToolbar: false };
   }
 
-  if (panelKey === 'writing' || panelKey.startsWith('writing:')) {
+  if (panelKey === 'writing') {
+    return { ariaTitle: 'Writing', hideTitle: true, expectsToolbar: false };
+  }
+  if (panelKey.startsWith('writing:')) {
     return { ariaTitle: 'Writing', hideTitle: true, expectsToolbar: false };
   }
 

@@ -6,7 +6,12 @@
  * those roots instead of reopening document scroll.
  */
 
-/** Page + overlay overflow roots. New OsAppScreen / GlassSheet hosts pick up automatically. */
+/**
+ * Page + overlay overflow roots. New OsAppScreen / GlassSheet hosts pick up
+ * automatically. Lenis mutates each wrapper's `className` (`lenis`) — those
+ * nodes use `suppressHydrationWarning` so layout-provider bind cannot race
+ * nested Client hydration.
+ */
 export const APP_SMOOTH_SCROLL_ROOT_SELECTOR = [
   '.os-app-screen-body',
   '.portfolio-page',

@@ -1551,6 +1551,7 @@ export function CollectionPagePanel({
         readables={readables}
         bookPdf={view.bookPdf}
         writingFormat={view.writingFormat}
+        textAlign={view.textAlign ?? null}
         canRead={canReadWriting}
         lockedHint={writingLockedHint}
       />

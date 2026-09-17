@@ -1,10 +1,6 @@
 'use client';
 
-import type {
-  FocusEvent,
-  ReactNode,
-  RefObject,
-} from 'react';
+import type { FocusEvent, ReactNode, RefObject } from 'react';
 import {
   PROFILE_ABOUT_ALIGN_OPTIONS,
   type PostRow,
@@ -15,6 +11,7 @@ import { AccountAvatar } from '@/components/profile/account-avatar';
 import { ProfileAlignToolIcon } from '@/components/profile/profile-align-tool-icon';
 import { QuotedPostInset } from '@/features/home/post-card';
 import { PostMediaBlock } from '@/features/home/post-media';
+import { ComposerArticleCoverRow } from '@/features/guilds/composer-article-cover';
 import { ComposerHashtagTextarea } from '@/features/guilds/composer-hashtag-textarea';
 import type { ComposerMode } from '@/features/guilds/guild-composer-sheet';
 import type { MentionPriorityAccount } from '@/features/home/post-mention-suggestions';
@@ -76,6 +73,7 @@ export function ComposerThreadBeat({
   onFocusBeat,
   onScrollField,
   onOpenLabels,
+  onOpenCover,
   onMediaError,
 }: {
   row: ComposerSheetBeat;
@@ -109,6 +107,7 @@ export function ComposerThreadBeat({
   onFocusBeat: (options?: { focusPrimary?: boolean }) => void;
   onScrollField: (event: FocusEvent<HTMLElement>) => void;
   onOpenLabels: () => void;
+  onOpenCover: () => void;
   onMediaError: (message: string | null) => void;
 }) {
   const rowCanArticle =
@@ -161,9 +160,7 @@ export function ComposerThreadBeat({
         ) : null}
         <div
           className="guild-composer-beat-body"
-          {...(rowCanArticle
-            ? { 'data-article-align': row.articleAlign }
-            : {})}
+          {...(rowCanArticle ? { 'data-article-align': row.articleAlign } : {})}
         >
           {rowCanArticle ? (
             <label className="guild-composer-article-field">
@@ -187,6 +184,25 @@ export function ComposerThreadBeat({
                 }}
               />
             </label>
+          ) : null}
+          {rowCanArticle ? (
+            <ComposerArticleCoverRow
+              title={row.articleTitle}
+              accountId={accountId}
+              displayName={viewerName}
+              avatarUrl={viewerAvatarUrl}
+              photoPreviewUrl={
+                row.previews.find((preview) =>
+                  preview.mime.startsWith('image/')
+                )?.url ?? null
+              }
+              theme={row.articleCoverTheme}
+              disabled={pending}
+              onOpen={() => {
+                onFocusBeat();
+                onOpenCover();
+              }}
+            />
           ) : null}
           {rowCanArticle ? (
             <div
@@ -239,7 +255,7 @@ export function ComposerThreadBeat({
             }}
             priorityMentionAccounts={priorityMentionAccounts}
           />
-          {row.previews.length > 0 ? (
+          {row.previews.length > 0 && !rowCanArticle ? (
             <div
               ref={focused ? mediaStripRef : undefined}
               className="guild-composer-media-preview"
@@ -261,7 +277,9 @@ export function ComposerThreadBeat({
                             }
                             onMediaError(null);
                             onPatch({
-                              files: row.files.filter((_, i) => i !== fileIndex),
+                              files: row.files.filter(
+                                (_, i) => i !== fileIndex
+                              ),
                               previews: row.previews.filter(
                                 (_, i) => i !== fileIndex
                               ),
@@ -342,7 +360,9 @@ export function ComposerThreadBeat({
                         ready={!pending}
                         disabled={pending}
                         onClick={() => {
-                          if (row.pollOptions.length <= COMPOSER_MIN_POLL_OPTIONS) {
+                          if (
+                            row.pollOptions.length <= COMPOSER_MIN_POLL_OPTIONS
+                          ) {
                             return;
                           }
                           onPatch({

@@ -61,6 +61,7 @@ export function WritingReadSheet({
   readables,
   bookPdf = null,
   writingFormat = null,
+  textAlign = null,
   canRead,
   lockedHint,
   footer = null,
@@ -75,12 +76,14 @@ export function WritingReadSheet({
   readables: ScarceReadableMedia[];
   bookPdf?: ScarceReadableMedia | null;
   writingFormat?: WritingReleaseFormat | null;
+  textAlign?: 'left' | 'center' | 'justify' | null;
   canRead: boolean;
   lockedHint: string;
   footer?: ReactNode;
 }) {
   const { isConnected, connect, isLoading } = useAppWallet();
   const quietTimerRef = useRef<number | null>(null);
+  const liveAtRef = useRef(0);
   const [wasOpen, setWasOpen] = useState(open);
   const [scrollRatio, setScrollRatio] = useState(0);
   const [chromeQuiet, setChromeQuiet] = useState(false);
@@ -90,6 +93,8 @@ export function WritingReadSheet({
     if (open) {
       setScrollRatio(0);
       setChromeQuiet(false);
+      liveAtRef.current =
+        typeof performance !== 'undefined' ? performance.now() + 600 : 0;
     }
   }
 
@@ -116,6 +121,12 @@ export function WritingReadSheet({
 
   const onReadingScroll = useCallback(
     (deltaY: number) => {
+      if (
+        typeof performance !== 'undefined' &&
+        performance.now() < liveAtRef.current
+      ) {
+        return;
+      }
       if (deltaY > 2) {
         clearQuietTimer();
         setChromeQuiet(true);
@@ -223,6 +234,7 @@ export function WritingReadSheet({
               readables={readables}
               bookPdf={bookPdf}
               writingFormat={writingFormat}
+              textAlign={textAlign}
               canRead={canRead}
               lockedHint={lockedHint}
               immersive

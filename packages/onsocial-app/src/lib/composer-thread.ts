@@ -3,6 +3,11 @@ import type {
   ComposerDropDraft,
   ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
+import type { ScarceCardThemeOptions } from '@/features/scarces/scarce-card-mood-picker';
+import {
+  defaultArticleCoverTheme,
+  themeToArticleCoverPin,
+} from '@/lib/article-cover-theme';
 import { normalizeArticleTitle } from '@/lib/article-post-payload';
 import { normalizePlaceSlug } from '@/lib/post-place';
 
@@ -21,11 +26,16 @@ export type ComposerBeat = {
   articleMode: boolean;
   articleTitle: string;
   articleAlign: ProfileAboutAlign;
+  /** Text-card cover craft pinned at publish when no photo is attached. */
+  articleCoverTheme: ScarceCardThemeOptions;
 };
 
 export function emptyComposerBeat(
   seed?: Partial<
-    Pick<ComposerBeat, 'text' | 'files' | 'drop' | 'articleMode' | 'articleTitle'>
+    Pick<
+      ComposerBeat,
+      'text' | 'files' | 'drop' | 'articleMode' | 'articleTitle'
+    >
   >
 ): ComposerBeat {
   return {
@@ -42,6 +52,7 @@ export function emptyComposerBeat(
     articleMode: seed?.articleMode ?? false,
     articleTitle: seed?.articleTitle ?? '',
     articleAlign: 'left',
+    articleCoverTheme: defaultArticleCoverTheme(),
   };
 }
 
@@ -57,13 +68,13 @@ export function composerBeatHasContent(beat: ComposerBeat): boolean {
 /** One overlay flush. Each beat is its own post; past this the sheet and chain get heavy. */
 export const COMPOSER_THREAD_MAX_BEATS = 10;
 
-export function composerThreadAtMax(
-  beats: readonly ComposerBeat[]
-): boolean {
+export function composerThreadAtMax(beats: readonly ComposerBeat[]): boolean {
   return beats.length >= COMPOSER_THREAD_MAX_BEATS;
 }
 
-export function canAddComposerThreadBeat(beats: readonly ComposerBeat[]): boolean {
+export function canAddComposerThreadBeat(
+  beats: readonly ComposerBeat[]
+): boolean {
   if (composerThreadAtMax(beats)) return false;
   const last = beats[beats.length - 1];
   return Boolean(last && composerBeatHasContent(last));
@@ -105,7 +116,10 @@ export function collapseTrailingEmptyComposerBeat<T extends ComposerBeat>(
   nextFocus: number
 ): { beats: T[]; focus: number } {
   if (beats.length < 2) {
-    return { beats: [...beats], focus: Math.max(0, Math.min(nextFocus, beats.length - 1)) };
+    return {
+      beats: [...beats],
+      focus: Math.max(0, Math.min(nextFocus, beats.length - 1)),
+    };
   }
   const lastIndex = beats.length - 1;
   const last = beats[lastIndex]!;
@@ -194,28 +208,27 @@ export function beatToComposerSubmit(beat: ComposerBeat): ComposerSubmit {
     ? {
         article: {
           title: articleTitle,
-          ...(beat.articleAlign !== 'left'
-            ? { align: beat.articleAlign }
+          ...(beat.articleAlign !== 'left' ? { align: beat.articleAlign } : {}),
+          cover: themeToArticleCoverPin(beat.articleCoverTheme),
+        },
+      }
+    : {};
+  const poll = beat.pollEnabled
+    ? {
+        poll: {
+          options: beat.pollOptions
+            .map((option) => option.trim())
+            .filter(Boolean),
+          ...(beat.pollDurationMs != null
+            ? { durationMs: beat.pollDurationMs }
             : {}),
         },
       }
     : {};
-  const poll =
-    beat.pollEnabled
-      ? {
-          poll: {
-            options: beat.pollOptions.map((option) => option.trim()).filter(Boolean),
-            ...(beat.pollDurationMs != null
-              ? { durationMs: beat.pollDurationMs }
-              : {}),
-          },
-        }
-      : {};
   const placeSlug = normalizePlaceSlug(beat.placeDraft);
   const place = placeSlug ? { places: [placeSlug] } : {};
   const text =
-    beat.text.trim() ||
-    (beat.files.length > 0 && !beat.drop ? ' ' : beat.text);
+    beat.text.trim() || (beat.files.length > 0 && !beat.drop ? ' ' : beat.text);
   return {
     text,
     ...(beat.files.length > 0 ? { files: beat.files } : {}),
@@ -227,7 +240,9 @@ export function beatToComposerSubmit(beat: ComposerBeat): ComposerSubmit {
   };
 }
 
-export function composerBeatsToSubmit(beats: readonly ComposerBeat[]): ComposerSubmit | null {
+export function composerBeatsToSubmit(
+  beats: readonly ComposerBeat[]
+): ComposerSubmit | null {
   const filled = beats.filter(composerBeatHasContent);
   if (filled.length === 0) return null;
   const [root, ...rest] = filled;

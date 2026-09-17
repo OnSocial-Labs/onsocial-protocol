@@ -34,6 +34,7 @@ import {
   BookmarkFillIcon,
   PenFillIcon,
   MessageFillIcon,
+  NoteTextFillIcon,
   UserCircleFillIcon,
 } from './mage-fill-icons.js';
 
@@ -73,6 +74,7 @@ describe('mage fill icons', () => {
     expect(typeof BookmarkFillIcon).toBe('function');
     expect(typeof PenFillIcon).toBe('function');
     expect(typeof MessageFillIcon).toBe('function');
+    expect(typeof NoteTextFillIcon).toBe('function');
     expect(typeof UserCircleFillIcon).toBe('function');
   });
 });

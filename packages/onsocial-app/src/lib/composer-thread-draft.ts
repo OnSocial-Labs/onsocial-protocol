@@ -1,5 +1,12 @@
 import type { ProfileAboutAlign } from '@onsocial/sdk';
 import type { ComposerDropDraft } from '@/features/guilds/guild-composer-sheet';
+import type { ScarceCardThemeOptions } from '@/features/scarces/scarce-card-mood-picker';
+import {
+  articleCoverPinToTheme,
+  defaultArticleCoverTheme,
+  themeToArticleCoverPin,
+} from '@/lib/article-cover-theme';
+import type { ArticleCoverPin } from '@/lib/article-post-payload';
 import {
   composerBeatHasContent,
   emptyComposerBeat,
@@ -26,6 +33,8 @@ type StoredComposerBeat = {
   articleMode: boolean;
   articleTitle: string;
   articleAlign: ProfileAboutAlign;
+  /** Compact cover pin — same shape as publish. */
+  articleCover?: ArticleCoverPin;
 };
 
 const memoryFiles = new Map<string, File[][]>();
@@ -35,6 +44,14 @@ export const COMPOSER_THREAD_DRAFT_STORAGE_PREFIX = 'os-compose-thread:';
 
 function storageKey(key: string): string {
   return `${COMPOSER_THREAD_DRAFT_STORAGE_PREFIX}${key}`;
+}
+
+function themeFromStored(
+  cover: ArticleCoverPin | undefined
+): ScarceCardThemeOptions {
+  return cover
+    ? articleCoverPinToTheme(cover)
+    : defaultArticleCoverTheme();
 }
 
 function toStored(beat: ComposerBeat): StoredComposerBeat {
@@ -53,15 +70,18 @@ function toStored(beat: ComposerBeat): StoredComposerBeat {
     articleMode: beat.articleMode,
     articleTitle: beat.articleTitle,
     articleAlign: beat.articleAlign,
+    articleCover: themeToArticleCoverPin(beat.articleCoverTheme),
   };
 }
 
 function fromStored(stored: StoredComposerBeat, files: File[]): ComposerBeat {
+  const { articleCover, ...rest } = stored;
   return {
     ...emptyComposerBeat(),
-    ...stored,
+    ...rest,
     pollOptions: [...stored.pollOptions],
     files: [...files],
+    articleCoverTheme: themeFromStored(articleCover),
   };
 }
 

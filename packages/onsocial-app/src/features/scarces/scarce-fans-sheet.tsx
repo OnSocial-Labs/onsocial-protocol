@@ -19,8 +19,26 @@ import { profileListAccountToStandingSummary } from '@/lib/profile-list-account'
 import { SHEET_Z } from '@/lib/sheet-z';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
+export type ScarceFansSheetProps = {
+  open: boolean;
+  onClose: () => void;
+  fanIds: string[];
+  fanCount: number;
+  dropTitle?: string | null;
+  /** True while account ids are still loading (e.g. post likes fetch). */
+  idsLoading?: boolean;
+  label?: string;
+  countSingular?: string;
+  countPlural?: string;
+  emptyCopy?: string;
+  errorCopy?: string;
+  closeAriaLabel?: string;
+  backdropLabel?: string;
+};
+
 /**
- * Album fans roster — standing-style rows (skeleton → hydrated stats + Stand).
+ * Account roster sheet — standing-style rows (skeleton → hydrated stats + Stand).
+ * Album fans + post likes share this chrome.
  */
 export function ScarceFansSheet({
   open,
@@ -28,13 +46,15 @@ export function ScarceFansSheet({
   fanIds,
   fanCount,
   dropTitle,
-}: {
-  open: boolean;
-  onClose: () => void;
-  fanIds: string[];
-  fanCount: number;
-  dropTitle?: string | null;
-}) {
+  idsLoading = false,
+  label = 'Fans',
+  countSingular = 'fan',
+  countPlural = 'fans',
+  emptyCopy = 'No fans yet.',
+  errorCopy = 'Couldn’t load fans.',
+  closeAriaLabel = 'Close fans',
+  backdropLabel = 'Close fans',
+}: ScarceFansSheetProps) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { setTxResult } = useAppTransactionFeedback();
   const { updateStanding, isStandingPendingForTarget } =
@@ -52,7 +72,7 @@ export function ScarceFansSheet({
   } | null>(null);
 
   useEffect(() => {
-    if (!open || fanIds.length === 0) return;
+    if (!open || idsLoading || fanIds.length === 0) return;
     const key = requestKey;
     let cancelled = false;
 
@@ -69,7 +89,7 @@ export function ScarceFansSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, requestKey, fanIds, viewerAccountId]);
+  }, [open, requestKey, fanIds, viewerAccountId, idsLoading]);
 
   const handleClose = useCallback(() => {
     setFetched(null);
@@ -112,30 +132,46 @@ export function ScarceFansSheet({
 
   const countLabel = useMemo(() => {
     const n = Math.max(fanCount, fanIds.length);
-    return n === 1 ? '1 fan' : `${n} fans`;
-  }, [fanCount, fanIds.length]);
+    return n === 1 ? `1 ${countSingular}` : `${n} ${countPlural}`;
+  }, [countPlural, countSingular, fanCount, fanIds.length]);
 
   const accounts = useMemo(() => {
-    if (!open || fanIds.length === 0) return [];
+    if (!open || idsLoading || fanIds.length === 0) return [];
     if (fetched?.key !== requestKey) return null;
     return overlayViewerEndorsedOnAccounts(
       fetched.accounts,
       getGlobalViewerEndorsementLedger()
     );
-  }, [endorsementSyncVersion, fanIds.length, fetched, open, requestKey]);
+  }, [
+    endorsementSyncVersion,
+    fanIds.length,
+    fetched,
+    idsLoading,
+    open,
+    requestKey,
+  ]);
   const loadError =
-    Boolean(open) && fetched?.key === requestKey && fetched.error;
-  const showSkeleton = open && fanIds.length > 0 && accounts === null;
-  const skeletonCount = Math.min(8, Math.max(fanIds.length || fanCount, 1));
+    Boolean(open) &&
+    !idsLoading &&
+    fetched?.key === requestKey &&
+    fetched.error;
+  const showSkeleton =
+    open &&
+    (idsLoading ||
+      (fanIds.length > 0 && accounts === null));
+  const skeletonCount = Math.min(
+    8,
+    Math.max(fanIds.length || fanCount || 1, 1)
+  );
 
   return (
     <OsHugSheet
       open={open}
       onClose={handleClose}
-      label="Fans"
+      label={label}
       copy={dropTitle?.trim() || countLabel}
-      closeAriaLabel="Close fans"
-      backdropLabel="Close fans"
+      closeAriaLabel={closeAriaLabel}
+      backdropLabel={backdropLabel}
       zIndex={SHEET_Z.list}
       panelClassName="scarce-fans-sheet-panel os-sheet-cap-standard"
       bodyClassName="scarce-fans-sheet-body"
@@ -167,7 +203,7 @@ export function ScarceFansSheet({
         </div>
       ) : (
         <p className="scarce-fans-empty">
-          {loadError ? 'Couldn’t load fans.' : 'No fans yet.'}
+          {loadError ? errorCopy : emptyCopy}
         </p>
       )}
     </OsHugSheet>

@@ -332,6 +332,21 @@ export function formatRelativePostTimestamp(
   }).format(date);
 }
 
+/** Writing shelf meta — full calendar date (always includes year). */
+export function formatWritingShelfTimestamp(
+  blockTimestamp: number | string,
+  _now: Date = new Date()
+): string {
+  const date = resolvePostDate(blockTimestamp);
+  if (!date) return 'Unknown time';
+
+  return new Intl.DateTimeFormat(POST_TIMESTAMP_LOCALE, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
+}
+
 export function postKey(post: PostRow): string {
   return `${post.accountId}:${post.postId}`;
 }

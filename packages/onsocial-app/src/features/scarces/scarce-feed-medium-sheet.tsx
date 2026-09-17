@@ -87,6 +87,9 @@ export function ScarceFeedMediumSheet({
     useState<WritingReleaseFormat | null>(null);
   const [hydratedBookPdf, setHydratedBookPdf] =
     useState<ScarceReadableMedia | null>(null);
+  const [hydratedTextAlign, setHydratedTextAlign] = useState<
+    'left' | 'center' | 'justify' | null
+  >(null);
   const [hydrateSettled, setHydrateSettled] = useState(false);
   const [holdsEdition, setHoldsEdition] = useState<boolean | null>(null);
   const playables =
@@ -114,6 +117,7 @@ export function ScarceFeedMediumSheet({
       setHydratedReadables([]);
       setHydratedWritingFormat(null);
       setHydratedBookPdf(null);
+      setHydratedTextAlign(null);
       setHydrateSettled(false);
       setHoldsEdition(null);
     }
@@ -157,6 +161,7 @@ export function ScarceFeedMediumSheet({
                 setHydratedWritingFormat(hydrated.writingFormat);
               }
               if (hydrated.bookPdf) setHydratedBookPdf(hydrated.bookPdf);
+              setHydratedTextAlign(hydrated.textAlign ?? null);
             }
           }
         } else if (needsAudio && tokenId) {
@@ -273,6 +278,7 @@ export function ScarceFeedMediumSheet({
         readables={readables}
         bookPdf={bookPdf}
         writingFormat={writingFormat}
+        textAlign={hydratedTextAlign}
         canRead={canReadWriting}
         lockedHint={
           !hydrateSettled && !hasWriting

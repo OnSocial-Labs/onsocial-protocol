@@ -1,9 +1,8 @@
 import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-root';
-import { SimpleOverlayPanel } from '@/components/overlay/simple-overlay-panel';
-import { WritingOverlayLeave } from '@/components/portfolio/writing-overlay-leave';
-import { PortfolioWritingPanel } from '@/components/portfolio/portfolio-writing-panel';
+import { InterceptMisfireRecovery } from '@/components/overlay/intercept-misfire-recovery';
+import { PortfolioWritingOverlay } from '@/components/portfolio/portfolio-writing-panel';
 import { loadPortfolioWritingPage } from '@/lib/load-portfolio-writing';
-import { panelLabel } from '@/lib/overlay-routes';
+import { isInterceptMisfireSegment } from '@/lib/resolve-account';
 
 type WritingOverlayRouteProps = {
   params: Promise<{
@@ -14,22 +13,22 @@ type WritingOverlayRouteProps = {
 export default async function WritingOverlayRoute({
   params,
 }: WritingOverlayRouteProps) {
-  const { panel } = await loadPortfolioWritingPage(params).then((page) => ({
-    panel: {
-      accountId: page.accountId,
-      titleLabel: page.titleLabel,
-      avatarUrl: page.avatarUrl,
-      articles: page.articles,
-    },
-  }));
-  const title = panelLabel('writing');
+  const { accountId: routeSegment } = await params;
+  if (isInterceptMisfireSegment(routeSegment)) {
+    return <InterceptMisfireRecovery />;
+  }
+  const page = await loadPortfolioWritingPage(params);
 
   return (
     <OverlayInterceptRoot>
-      <SimpleOverlayPanel ariaTitle={title} hideTitle>
-        <WritingOverlayLeave accountId={panel.accountId} />
-        <PortfolioWritingPanel {...panel} />
-      </SimpleOverlayPanel>
+      <PortfolioWritingOverlay
+        mood={page.mood}
+        accountId={page.accountId}
+        titleLabel={page.titleLabel}
+        avatarUrl={page.avatarUrl}
+        articles={page.articles}
+        coverHints={page.coverHints}
+      />
     </OverlayInterceptRoot>
   );
 }

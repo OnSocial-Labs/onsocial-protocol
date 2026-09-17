@@ -105,6 +105,25 @@ function bindAppSmoothScrollRoots(): () => void {
 
 /** Wheel / trackpad coast on OS overflow roots. Phones stay on native overflow. */
 export function AppSmoothScrollProvider({ children }: { children: ReactNode }) {
-  useEffect(() => bindAppSmoothScrollRoots(), []);
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    let cancelled = false;
+    let raf2 = 0;
+    // Layout hydrates (and can run this effect) before nested Client screens
+    // finish. Lenis mutates `className` (`lenis`); binding too early races
+    // hydration on `.os-app-screen-body` / other overflow roots.
+    const raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        if (cancelled) return;
+        cleanup = bindAppSmoothScrollRoots();
+      });
+    });
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(raf1);
+      if (raf2 !== 0) window.cancelAnimationFrame(raf2);
+      cleanup?.();
+    };
+  }, []);
   return children;
 }

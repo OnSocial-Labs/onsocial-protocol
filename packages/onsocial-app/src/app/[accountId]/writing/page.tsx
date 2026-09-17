@@ -22,7 +22,7 @@ export async function generateMetadata({
 export default async function PortfolioWritingPage({
   params,
 }: WritingPageProps) {
-  const { mood, articles, accountId, titleLabel, avatarUrl } =
+  const { mood, articles, accountId, titleLabel, avatarUrl, coverHints } =
     await loadPortfolioWritingPage(params);
   return (
     <PortfolioWritingScreen
@@ -31,6 +31,7 @@ export default async function PortfolioWritingPage({
       titleLabel={titleLabel}
       avatarUrl={avatarUrl}
       articles={articles}
+      coverHints={coverHints}
     />
   );
 }

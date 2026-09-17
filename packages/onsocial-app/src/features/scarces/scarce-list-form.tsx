@@ -77,7 +77,11 @@ import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { parseArticleSnapshot } from '@/lib/article-post-payload';
+import {
+  defaultArticleCoverPin,
+  parseArticleSnapshot,
+} from '@/lib/article-post-payload';
+import { articleCoverPinToTheme } from '@/lib/article-cover-theme';
 import { parsePostText } from '@/lib/post-display';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import {
@@ -130,6 +134,7 @@ const DEFAULT_CARD_THEME: ScarceCardThemeOptions = {
   cardMarkColor: 'auto',
   cardTitleAlign: 'left',
 };
+
 const CARD_DEFAULTS_STORAGE_PREFIX = 'onsocial.scarces.card-defaults:';
 /** Match SDK `deriveTitle` — no trailing ellipsis (wallets add their own). */
 const MINT_TITLE_MAX = 108;
@@ -381,21 +386,30 @@ export function ScarceListForm({
     };
   }, [accountId]);
 
+  const mintBody = useMemo(() => parsePostText(post.value).trim(), [post]);
+  const articleSnapshot = useMemo(
+    () => parseArticleSnapshot(post.value),
+    [post]
+  );
+  const articleTitle = articleSnapshot?.title ?? null;
+  const articlePinnedCover = articleSnapshot?.cover ?? null;
+  /**
+   * Articles keep one face: the cover pinned at publish is the edition
+   * cover. No re-picking at mint — the pickers below stay hidden.
+   */
+  const articleCoverLocked = Boolean(articleTitle);
+
   const hasCoverImage = Boolean(postScarceCoverImage(post));
   const postVideo = useMemo(() => postScarceVideo(post), [post]);
   const postAudio = useMemo(() => postScarceAudio(post), [post]);
-  const showVideoCoverPicker = !hasCoverImage && Boolean(postVideo);
+  const showVideoCoverPicker =
+    !articleCoverLocked && !hasCoverImage && Boolean(postVideo);
   const showAudioCoverPicker =
-    !hasCoverImage && !postVideo && Boolean(postAudio);
+    !articleCoverLocked && !hasCoverImage && !postVideo && Boolean(postAudio);
   const showMediaCoverPicker = showVideoCoverPicker || showAudioCoverPicker;
   const usesPhotoCard = hasCoverImage && photoCardFormat !== 'cover';
   const usesGeneratedCard = (!hasCoverImage && !coverFile) || usesPhotoCard;
 
-  const mintBody = useMemo(() => parsePostText(post.value).trim(), [post]);
-  const articleTitle = useMemo(
-    () => parseArticleSnapshot(post.value)?.title ?? null,
-    [post]
-  );
   const mintTitle = useMemo(() => {
     if (articleTitle) return articleTitle;
     if (!mintBody) return `Post ${post.postId}`;
@@ -552,17 +566,25 @@ export function ScarceListForm({
       setDefaultsAccountId(null);
       return;
     }
-    setCardTheme(readCardDefaults(accountId));
+    // Articles mint with the pinned cover craft — never the user's
+    // last-used scarce defaults.
+    setCardTheme(
+      articleCoverLocked
+        ? articleCoverPinToTheme(articlePinnedCover ?? defaultArticleCoverPin())
+        : readCardDefaults(accountId)
+    );
     setDefaultsAccountId(accountId);
-  }, [accountId]);
+  }, [accountId, articleCoverLocked, articlePinnedCover]);
 
   useEffect(() => {
-    if (!accountId || defaultsAccountId !== accountId) return;
+    if (!accountId || defaultsAccountId !== accountId || articleCoverLocked) {
+      return;
+    }
     window.localStorage.setItem(
       `${CARD_DEFAULTS_STORAGE_PREFIX}${accountId}`,
       JSON.stringify(cardTheme)
     );
-  }, [accountId, cardTheme, defaultsAccountId]);
+  }, [accountId, articleCoverLocked, cardTheme, defaultsAccountId]);
 
   const applyAmountInput = useCallback((raw: string) => {
     setAmountInput(normalizeAmountInput(raw, NEAR_INPUT_DECIMALS));
@@ -906,7 +928,7 @@ export function ScarceListForm({
           role="group"
           aria-label="Scarce options"
         >
-          {hasCoverImage ? (
+          {hasCoverImage && !articleCoverLocked ? (
             <ScarceChoiceField
               label="Artwork"
               value={photoCardFormat}
@@ -965,7 +987,7 @@ export function ScarceListForm({
               onChange={(next) => selectMediaCoverMode(next)}
             />
           ) : null}
-          {usesGeneratedCard ? (
+          {usesGeneratedCard && !articleCoverLocked ? (
             <ScarceCardMoodPicker
               value={cardTheme}
               onChange={setCardTheme}
@@ -984,6 +1006,11 @@ export function ScarceListForm({
                     ] as const)
               }
             />
+          ) : null}
+          {articleCoverLocked ? (
+            <p className="scarce-mood-picker-hint">
+              Cover comes from the article — pinned when it was published.
+            </p>
           ) : null}
           <ScarceDetailsField
             title={mintTitle}

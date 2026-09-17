@@ -70,9 +70,9 @@
 .os-launcher-root {
   position: fixed;
   inset: 0;
-  /* Above page drawer (SHEET_Z.pageDrawer 48) so grip can open apps over it;
-     below overlayHost 50+ — other sheets stay modal over the launcher. */
-  z-index: 49;
+  /* Above overlayHost (50) so Writing / About don't bury apps;
+     below account / gesture sheets (55+). */
+  z-index: 51;
   display: flex;
   align-items: flex-end;
   justify-content: center;

@@ -339,7 +339,7 @@ export function ChartVerticalIcon({
   );
 }
 
-/** Mage `note-text` — text card / written cover. */
+/** Mage `note-text` — text card / written cover; pair with NoteTextFillIcon when active. */
 export function NoteTextIcon({
   strokeWidth = 2,
   ...props

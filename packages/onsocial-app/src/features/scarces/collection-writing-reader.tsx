@@ -38,6 +38,7 @@ export function CollectionWritingReader({
   lockedHint,
   /** Immersive read sheet — denser chrome, body scrolls inside the shell. */
   immersive = false,
+  textAlign = null,
   onProgress,
   onScrollDelta,
   onChromeTap,
@@ -50,6 +51,8 @@ export function CollectionWritingReader({
   canRead: boolean;
   lockedHint: string;
   immersive?: boolean;
+  /** Listed article body alignment — matches Writing shelf. */
+  textAlign?: 'left' | 'center' | 'justify' | null;
   /** 0–1 scroll progress for the active chapter body. */
   onProgress?: (ratio: number) => void;
   /** Signed scroll delta (px) for chrome fade. */
@@ -64,6 +67,8 @@ export function CollectionWritingReader({
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTopRef = useRef(0);
   const lastBoxRef = useRef({ scrollHeight: 0, clientHeight: 0 });
+  /** Ignore scroll deltas while layout / restore settles after a chapter paint. */
+  const settleUntilRef = useRef(0);
   const gestureRef = useRef<{
     phase: 'idle' | 'held' | 'turning';
     start: {
@@ -243,6 +248,8 @@ export function CollectionWritingReader({
   useEffect(() => {
     if (!bodyRef.current) return;
     if (!body && !chapterIsPdf) return;
+    settleUntilRef.current =
+      typeof performance !== 'undefined' ? performance.now() + 480 : 0;
     const ratio = readWritingScrollRatio(collectionId, accountId, safeIndex);
     const el = bodyRef.current;
     const apply = () => {
@@ -299,6 +306,14 @@ export function CollectionWritingReader({
     };
     lastScrollTopRef.current = el.scrollTop;
     if (snap) return;
+    // Chapter paint / scroll restore changes scrollTop without a finger —
+    // don't collapse the jacket.
+    if (
+      typeof performance !== 'undefined' &&
+      performance.now() < settleUntilRef.current
+    ) {
+      return;
+    }
     if (delta !== 0) onScrollDelta?.(delta);
   };
 
@@ -630,7 +645,10 @@ export function CollectionWritingReader({
               <p className="collection-writing-status is-error">{loadError}</p>
             ) : null}
             {body != null ? (
-              <div className="collection-writing-markdown">
+              <div
+                className="collection-writing-markdown"
+                data-about-align={textAlign ?? 'left'}
+              >
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeSanitize]}

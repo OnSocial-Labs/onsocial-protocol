@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   APP_SMOOTH_SCROLL_LENIS_OPTIONS,
@@ -8,6 +11,16 @@ import {
   shouldUseAppSmoothScroll,
 } from './app-smooth-scroll';
 
+const here = dirname(fileURLToPath(import.meta.url));
+const provider = readFileSync(
+  join(here, '../components/providers/app-smooth-scroll-provider.tsx'),
+  'utf8'
+);
+const osAppScreen = readFileSync(
+  join(here, '../components/app/os-app-screen.tsx'),
+  'utf8'
+);
+
 describe('app smooth scroll', () => {
   it('targets the page and overlay overflow roots', () => {
     expect(APP_SMOOTH_SCROLL_ROOT_SELECTOR).toContain('.os-app-screen-body');
@@ -17,6 +30,13 @@ describe('app smooth scroll', () => {
     expect(APP_SMOOTH_SCROLL_ROOT_SELECTOR).toContain(
       '.os-app-chrome-scroller'
     );
+  });
+
+  it('defers Lenis bind and suppresses class hydration on OsAppScreen body', () => {
+    expect(provider).toContain('requestAnimationFrame');
+    expect(provider).toContain('bindAppSmoothScrollRoots');
+    expect(osAppScreen).toContain('os-app-screen-body');
+    expect(osAppScreen).toContain('suppressHydrationWarning');
   });
 
   it('matches portal Lenis wheel coast', () => {

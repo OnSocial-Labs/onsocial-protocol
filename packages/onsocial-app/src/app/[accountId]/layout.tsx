@@ -1,6 +1,10 @@
 import type { ReactNode } from 'react';
 import { AccountLayoutClient } from '@/components/account/account-layout-client';
-import { resolveAccountId } from '@/lib/resolve-account';
+import { InterceptMisfireRecovery } from '@/components/overlay/intercept-misfire-recovery';
+import {
+  isInterceptMisfireSegment,
+  resolveAccountId,
+} from '@/lib/resolve-account';
 
 export default async function AccountLayout({
   children,
@@ -11,6 +15,10 @@ export default async function AccountLayout({
   overlay: ReactNode;
   params: Promise<{ accountId: string }>;
 }) {
+  const { accountId: routeSegment } = await params;
+  if (isInterceptMisfireSegment(routeSegment)) {
+    return <InterceptMisfireRecovery />;
+  }
   const accountId = await resolveAccountId(params);
 
   return (

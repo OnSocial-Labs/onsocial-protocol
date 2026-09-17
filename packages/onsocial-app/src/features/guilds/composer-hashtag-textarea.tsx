@@ -28,6 +28,7 @@ import { splitComposerRichText } from '@/features/home/post-rich-segments';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
+import { keepComposerCaretVisible } from '@/hooks/use-mobile-field-focus-scroll';
 
 const MENTION_SUGGEST_DEBOUNCE_MS = 220;
 
@@ -94,6 +95,8 @@ export function ComposerHashtagTextarea({
     el.style.height = '0px';
     el.style.height = `${el.scrollHeight}px`;
     el.style.overflowY = 'hidden';
+    // Sheet body is the scroller — follow the caret as the field grows.
+    keepComposerCaretVisible(el);
   }, [value]);
 
   useEffect(() => {
@@ -245,8 +248,25 @@ export function ComposerHashtagTextarea({
             onChange(event.target.value);
             syncCaret(event.currentTarget);
           }}
-          onClick={(event) => syncCaret(event.currentTarget)}
-          onKeyUp={(event) => syncCaret(event.currentTarget)}
+          onClick={(event) => {
+            syncCaret(event.currentTarget);
+            keepComposerCaretVisible(event.currentTarget);
+          }}
+          onKeyUp={(event) => {
+            syncCaret(event.currentTarget);
+            if (
+              event.key === 'ArrowUp' ||
+              event.key === 'ArrowDown' ||
+              event.key === 'ArrowLeft' ||
+              event.key === 'ArrowRight' ||
+              event.key === 'Home' ||
+              event.key === 'End' ||
+              event.key === 'PageUp' ||
+              event.key === 'PageDown'
+            ) {
+              keepComposerCaretVisible(event.currentTarget);
+            }
+          }}
           onSelect={(event) => syncCaret(event.currentTarget)}
           onKeyDown={onKeyDown}
           onFocus={(event) => {
