@@ -27655,6 +27655,16 @@ a.os-surface-row {
     flex-shrink: 0;
   }
 
+  button.scarce-writing-read-art {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+  }
+
   .scarce-writing-read-cover {
     display: block;
     /*
@@ -39308,6 +39318,55 @@ button.scarce-clip-cover-expand:focus-visible {
   background: var(--app-scrim-media-hover);
   color: rgb(255 255 255 / 1);
   outline: none;
+}
+
+/*
+ * Writing drop cover — the face is the Read hit. Chip stays in the corner.
+ */
+button.scarce-clip-cover-expand.collection-cover-read-hit {
+  inset: 0;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  filter: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 0.75rem;
+}
+
+.collection-cover.is-immersive.has-read
+  button.scarce-clip-cover-expand.collection-cover-read-hit {
+  padding: 0.75rem max(0.85rem, env(safe-area-inset-right, 0px))
+    max(0.85rem, env(safe-area-inset-bottom, 0px));
+}
+
+button.scarce-clip-cover-expand.collection-cover-read-hit:hover,
+button.scarce-clip-cover-expand.collection-cover-read-hit:focus-visible {
+  background: transparent;
+  color: var(--app-on-media-ink);
+}
+
+.collection-cover-read-hit-chip {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 9999px;
+  color: var(--app-on-media-ink);
+  background: var(--app-scrim-media);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
 }
 
 .scarce-clip-cover-expand-icon {

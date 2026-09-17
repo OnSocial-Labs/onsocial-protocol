@@ -20,6 +20,7 @@ import {
 } from '@/components/app/os-slide-over-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
+import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import type {
   ScarceReadableMedia,
   WritingReleaseFormat,
@@ -86,12 +87,16 @@ export function WritingReadSheet({
   const [wasOpen, setWasOpen] = useState(open);
   const [scrollRatio, setScrollRatio] = useState(0);
   const [chromeQuiet, setChromeQuiet] = useState(false);
+  const [coverOpen, setCoverOpen] = useState(false);
 
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
       setScrollRatio(0);
       setChromeQuiet(false);
+      setCoverOpen(false);
+    } else {
+      setCoverOpen(false);
     }
   }
 
@@ -207,20 +212,30 @@ export function WritingReadSheet({
         <div className="scarce-writing-read-hero">
           <div className="scarce-writing-read-mast">
             {inlineSvg && !rasterCover ? (
-              <div className="scarce-writing-read-art">
+              <button
+                type="button"
+                className="scarce-writing-read-art"
+                aria-label="View cover"
+                onClick={() => setCoverOpen(true)}
+              >
                 <div
                   className="scarce-writing-read-cover scarce-writing-read-cover--svg"
                   dangerouslySetInnerHTML={{ __html: inlineSvg }}
                 />
-              </div>
+              </button>
             ) : rasterCover ? (
-              <div className="scarce-writing-read-art">
+              <button
+                type="button"
+                className="scarce-writing-read-art"
+                aria-label="View cover"
+                onClick={() => setCoverOpen(true)}
+              >
                 <img
                   src={rasterCover}
                   alt=""
                   className="scarce-writing-read-cover"
                 />
-              </div>
+              </button>
             ) : null}
             <div className="scarce-writing-read-copy">
               <p className="scarce-writing-read-title">{name}</p>
@@ -256,6 +271,16 @@ export function WritingReadSheet({
           <div className="scarce-writing-read-footer">{footer}</div>
         ) : null}
       </div>
+
+      {(rasterCover || inlineSvg) && coverOpen ? (
+        <DropArtOverlay
+          open={coverOpen}
+          src={rasterCover ?? undefined}
+          svg={inlineSvg && !rasterCover ? inlineSvg : null}
+          label={name}
+          onClose={() => setCoverOpen(false)}
+        />
+      ) : null}
     </OsSlideOverScreen>
   );
 }

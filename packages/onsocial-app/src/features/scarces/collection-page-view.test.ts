@@ -5,8 +5,10 @@ import {
 } from '@/features/market/owned-vault-cache';
 import {
   collectionCatalogShell,
+  collectionCoverExpandAction,
   collectionCoverImmersive,
   collectionCoverSquare,
+  collectionOpensWritingReader,
   collectionChildLeaveHref,
   collectionDropBackHref,
   collectionShowCommerceMeter,
@@ -35,6 +37,72 @@ describe('collection page view', () => {
     expect(collectionCoverImmersive({ hasMedia: false, kind: 'art' })).toBe(
       false
     );
+  });
+
+  it('opens Read for writing covers even before chapters hydrate', () => {
+    expect(
+      collectionOpensWritingReader({ kind: 'writing', hasReadables: false })
+    ).toBe(true);
+    expect(
+      collectionOpensWritingReader({ kind: 'art', hasReadables: false })
+    ).toBe(false);
+    expect(
+      collectionOpensWritingReader({ kind: 'art', hasReadables: true })
+    ).toBe(true);
+    expect(
+      collectionCoverExpandAction({
+        kind: 'writing',
+        hasReadables: false,
+        canShowPass: false,
+        isAudio: false,
+        hasMedia: true,
+      })
+    ).toBe('read');
+    expect(
+      collectionCoverExpandAction({
+        kind: 'writing',
+        hasReadables: false,
+        canShowPass: false,
+        isAudio: false,
+        hasMedia: false,
+      })
+    ).toBe('read');
+    expect(
+      collectionCoverExpandAction({
+        kind: 'art',
+        hasReadables: false,
+        canShowPass: false,
+        isAudio: false,
+        hasMedia: true,
+      })
+    ).toBe('artwork');
+    expect(
+      collectionCoverExpandAction({
+        kind: 'audio',
+        hasReadables: false,
+        canShowPass: false,
+        isAudio: true,
+        hasMedia: true,
+      })
+    ).toBe(null);
+    expect(
+      collectionCoverExpandAction({
+        kind: 'ticket',
+        hasReadables: false,
+        canShowPass: true,
+        isAudio: false,
+        hasMedia: true,
+      })
+    ).toBe('pass');
+    expect(
+      collectionCoverExpandAction({
+        kind: 'ticket',
+        hasReadables: false,
+        canShowPass: false,
+        isAudio: false,
+        hasMedia: true,
+      })
+    ).toBe('artwork');
   });
 
   it('resolves ownership to holder / visitor / unknown', () => {
@@ -181,9 +249,9 @@ describe('collection page view', () => {
     expect(
       collectionDropBackHref({ useFirst: false, viewerAccountId: 'alice.near' })
     ).toBe('/drops');
-    expect(collectionDropBackHref({ useFirst: true, viewerAccountId: '' })).toBe(
-      '/drops'
-    );
+    expect(
+      collectionDropBackHref({ useFirst: true, viewerAccountId: '' })
+    ).toBe('/drops');
   });
 
   it('sends door and redeem loading to the drop', () => {

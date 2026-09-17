@@ -40,9 +40,11 @@ import {
 import { CollectionOwnerManageMenu } from '@/features/scarces/collection-owner-manage-menu';
 import {
   collectionCatalogShell,
+  collectionCoverExpandAction,
   collectionCoverImmersive,
   collectionCoverSquare,
   collectionDropBackHref,
+  collectionOpensWritingReader,
   collectionShowCommerceMeter,
   collectionShowInlineTracks,
   collectionUseFirst,
@@ -369,8 +371,10 @@ export function CollectionPagePanel({
   // Holdings "Read" deep-links with ?read=1 → open immersive reader once writing is present.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const hasWriting =
-      (view?.readables.length ?? 0) > 0 || view?.bookPdf != null;
+    const hasWriting = collectionOpensWritingReader({
+      kind: view?.kind,
+      hasReadables: (view?.readables.length ?? 0) > 0 || view?.bookPdf != null,
+    });
     if (!hasWriting) return;
     if (
       new URLSearchParams(window.location.search).get(COLLECTION_READ_QUERY) !==
@@ -381,7 +385,7 @@ export function CollectionPagePanel({
     queueMicrotask(() => {
       setWritingReadOpen(true);
     });
-  }, [collectionId, view?.readables.length, view?.bookPdf]);
+  }, [collectionId, view?.kind, view?.readables.length, view?.bookPdf]);
 
   // Collectibles "Show pass" deep-links with ?pass=1&t=… → open pass once token is known.
   useEffect(() => {
@@ -814,9 +818,20 @@ export function CollectionPagePanel({
       mediumKind === 'writing');
   const readables = view.readables;
   const hasReadables = readables.length > 0 || view.bookPdf != null;
+  const opensWritingReader = collectionOpensWritingReader({
+    kind: view.kind,
+    hasReadables,
+  });
   const canReadWriting = isOwner || holdsEdition === true;
   const canShowPass =
     isPassKind && holdsEdition === true && Boolean(ownedPassTokenId);
+  const coverExpand = collectionCoverExpandAction({
+    kind: view.kind,
+    hasReadables,
+    canShowPass,
+    isAudio,
+    hasMedia: Boolean(view.mediaUrl),
+  });
   const passActionLabel = holdingsActionLabel(mediumKind);
   const showCommerceMeter = collectionShowCommerceMeter({
     useFirst,
@@ -930,25 +945,27 @@ export function CollectionPagePanel({
               isSquareCover ? ' is-square' : ''
             }${isTextCardCover ? ' is-card' : ''}${
               immersive ? ' is-immersive' : ''
-            }${hasReadables || canShowPass || (!isAudio && Boolean(view.mediaUrl)) ? ' has-read' : ''}`}
+            }${coverExpand ? ' has-read' : ''}`}
             {...(view.cardBg && !view.mediaUrl
               ? { style: { background: view.cardBg } }
               : {})}
           >
             {view.mediaUrl ? <img src={view.mediaUrl} alt="" /> : null}
-            {hasReadables ? (
+            {coverExpand === 'read' ? (
               <button
                 type="button"
-                className="scarce-clip-cover-expand collection-cover-read-expand"
+                className="scarce-clip-cover-expand collection-cover-read-expand collection-cover-read-hit"
                 aria-label="Open reader"
                 onClick={() => setWritingReadOpen(true)}
               >
-                <ScaleUpIcon
-                  className="scarce-clip-cover-expand-icon"
-                  aria-hidden
-                />
+                <span className="collection-cover-read-hit-chip" aria-hidden>
+                  <ScaleUpIcon
+                    className="scarce-clip-cover-expand-icon"
+                    aria-hidden
+                  />
+                </span>
               </button>
-            ) : canShowPass ? (
+            ) : coverExpand === 'pass' ? (
               <button
                 type="button"
                 className="scarce-clip-cover-expand collection-cover-read-expand"
@@ -960,7 +977,7 @@ export function CollectionPagePanel({
                   aria-hidden
                 />
               </button>
-            ) : !isAudio && view.mediaUrl ? (
+            ) : coverExpand === 'artwork' ? (
               <button
                 type="button"
                 className="scarce-clip-cover-expand collection-cover-read-expand"
@@ -1068,7 +1085,7 @@ export function CollectionPagePanel({
             </div>
             {useFirst ? (
               <div className="collection-use-actions">
-                {hasReadables ? (
+                {opensWritingReader ? (
                   <div className="collection-reading-row">
                     <p className="collection-section-label">
                       {writingReadingSectionLabel(readables.length)}
@@ -1390,7 +1407,7 @@ export function CollectionPagePanel({
           </section>
         ) : null}
 
-        {!useFirst && hasReadables ? (
+        {!useFirst && opensWritingReader ? (
           <section className="collection-reading" aria-label="Reading">
             <div className="collection-reading-row">
               <p className="collection-section-label">
