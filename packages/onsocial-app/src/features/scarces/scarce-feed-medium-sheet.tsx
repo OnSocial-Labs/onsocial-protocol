@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { fetchScarceTokenMeta } from '@/features/market/market-listings';
 import {
   collectionCurrentRowToView,
   hydrateWritingManifest,
 } from '@/features/scarces/collections-data';
-import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
 import type {
   ScarceReadableMedia,
   WritingReleaseFormat,
@@ -30,10 +29,10 @@ function inlineSvgMarkup(svg: string): string {
 }
 
 /**
- * Feed / Drops cover tap → shared OsSlideOverScreen enlarge.
+ * Feed / Drops cover tap → shared media-face enlarge.
  *
- * Audio opens Listen. Writing opens Read. Thought/art uses its own screen
- * (not Listen chrome) without transport.
+ * Audio opens Listen. Writing opens Read. Thought/art uses the same jacket
+ * + frost footer without transport or progress.
  */
 export function ScarceFeedMediumSheet({
   open,
@@ -232,7 +231,7 @@ export function ScarceFeedMediumSheet({
     );
   }
 
-  if (immersiveWriting && collectionId) {
+  if (immersiveWriting) {
     return (
       <WritingReadSheet
         open={open}
@@ -240,14 +239,18 @@ export function ScarceFeedMediumSheet({
         title={name}
         cover={rasterCover}
         coverSvg={coverSvg}
-        collectionId={collectionId}
+        collectionId={collectionId?.trim() || ''}
         accountId={viewerAccountId}
         readables={readables}
         bookPdf={bookPdf}
         writingFormat={writingFormat}
         textAlign={hydratedTextAlign}
         canRead={canReadWriting}
-        lockedHint={writingLockedHint}
+        lockedHint={
+          !collectionId?.trim()
+            ? 'Open the Drop to read this release.'
+            : writingLockedHint
+        }
         footer={postChrome}
       />
     );
@@ -255,13 +258,13 @@ export function ScarceFeedMediumSheet({
 
   if (isOverlay) {
     return (
-      <OsSlideOverScreen
+      <OsMediaFaceShell
         open={open}
         onClose={() => onOpenChange(false)}
         title={name}
         closeAriaLabel="Back from preview"
         zIndex={SCARCE_Z.listenShell}
-        elevateChrome={false}
+        footer={postChrome}
         className="scarce-thought-slide"
         contentClassName="scarce-thought-slide-body"
       >
@@ -274,53 +277,10 @@ export function ScarceFeedMediumSheet({
                 : 'Loading audio…'}
             </p>
           ) : null}
-          {postChrome ? (
-            <div className="scarce-thought-footer">{postChrome}</div>
-          ) : null}
         </div>
-      </OsSlideOverScreen>
+      </OsMediaFaceShell>
     );
   }
 
-  return (
-    <OsSlideOverScreen
-      open={open}
-      onClose={() => onOpenChange(false)}
-      title={name}
-      subtitle="Read"
-      closeAriaLabel="Back from reader"
-      zIndex={SCARCE_Z.listenShell}
-      elevateChrome={false}
-      className="scarce-read-slide"
-      contentClassName="scarce-read-slide-body"
-    >
-      <div className="scarce-writing-read">
-        {postChrome ? (
-          <div className="scarce-writing-read-footer">{postChrome}</div>
-        ) : null}
-        {open && collectionId && hasWriting ? (
-          <div className="scarce-writing-read-body">
-            <CollectionWritingReader
-              collectionId={collectionId}
-              accountId={viewerAccountId}
-              readables={readables}
-              bookPdf={bookPdf}
-              writingFormat={writingFormat}
-              canRead={canReadWriting}
-              lockedHint={writingLockedHint}
-            />
-          </div>
-        ) : null}
-        {open && (!hasWriting || !collectionId) ? (
-          <p className="scarce-feed-medium-empty">
-            {!collectionId
-              ? 'Open the Drop to read this release.'
-              : hydrateSettled
-                ? 'Writing unavailable for this Drop.'
-                : 'Loading writing…'}
-          </p>
-        ) : null}
-      </div>
-    </OsSlideOverScreen>
-  );
+  return null;
 }

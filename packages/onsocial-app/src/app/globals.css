@@ -22902,7 +22902,8 @@ a.os-surface-row {
     width: 100%;
   }
 
-  .scarce-clip-listen:has(.scarce-clip-listen-footer) {
+  .scarce-clip-listen:has(.scarce-clip-listen-footer),
+  .scarce-read-slide.scarce-listen-slide .scarce-clip-listen {
     overflow-y: auto;
     overscroll-behavior: contain;
   }
@@ -27680,7 +27681,7 @@ a.os-surface-row {
     transition: opacity 220ms ease;
   }
 
-  .scarce-writing-read-hero {
+  .os-media-face-hero {
     position: sticky;
     top: 0;
     z-index: 5;
@@ -27699,34 +27700,35 @@ a.os-surface-row {
       transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  .scarce-writing-read-hero-glass {
+  .os-media-face-hero-glass {
     position: absolute;
     inset: 0;
     z-index: 0;
     pointer-events: none;
   }
 
-  .scarce-writing-read-hero > :not(.scarce-writing-read-hero-glass) {
+  .os-media-face-hero > :not(.os-media-face-hero-glass) {
     position: relative;
     z-index: 1;
   }
 
   @media (min-width: 640px) {
-    .scarce-writing-read-hero {
+    .os-media-face-hero {
       margin-inline: -1.25rem;
       padding-inline: 1.25rem;
     }
   }
 
   /* Scroll-down: jacket tucks; progress hairline stays. */
-  .scarce-writing-read.is-chrome-quiet .scarce-writing-read-hero,
-  .scarce-read-slide.is-chrome-quiet .scarce-writing-read-hero {
+  .scarce-writing-read.is-chrome-quiet .os-media-face-hero,
+  .os-media-face-body.is-chrome-quiet .os-media-face-hero,
+  .scarce-read-slide.is-chrome-quiet .os-media-face-hero {
     opacity: 0;
     pointer-events: none;
     transform: translate3d(0, calc(-100% - 0.15rem), 0);
   }
 
-  .scarce-writing-read-mast {
+  .os-media-face-mast {
     display: flex;
     align-items: center;
     gap: 0.65rem;
@@ -27734,7 +27736,7 @@ a.os-surface-row {
     flex: 1;
   }
 
-  .scarce-writing-read-close {
+  .os-media-face-close {
     flex-shrink: 0;
     align-self: flex-start;
   }
@@ -27867,7 +27869,7 @@ a.os-surface-row {
     );
   }
 
-  .scarce-writing-read-copy {
+  .os-media-face-copy {
     display: flex;
     flex-direction: column;
     gap: 0.18rem;
@@ -27883,7 +27885,7 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.42);
   }
 
-  .scarce-writing-read-title {
+  .os-media-face-title {
     margin: 0;
     font-size: 1.08rem;
     font-weight: 700;
@@ -27895,6 +27897,17 @@ a.os-surface-row {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+  }
+
+  .os-media-face-subtitle {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 550;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.55);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .scarce-writing-read-body {
@@ -27910,8 +27923,8 @@ a.os-surface-row {
 
   @media (prefers-reduced-motion: reduce) {
     .scarce-writing-read-top,
-    .scarce-writing-read-hero,
-    .scarce-writing-read-footer,
+    .os-media-face-hero,
+    .os-media-face-footer,
     .scarce-writing-read-progress-fill,
     .collection-writing-folio.is-turn-out-next,
     .collection-writing-folio.is-turn-out-prev,
@@ -27921,8 +27934,9 @@ a.os-surface-row {
       animation: none;
     }
 
-    .scarce-writing-read.is-chrome-quiet .scarce-writing-read-hero,
-    .scarce-read-slide.is-chrome-quiet .scarce-writing-read-hero {
+    .scarce-writing-read.is-chrome-quiet .os-media-face-hero,
+    .os-media-face-body.is-chrome-quiet .os-media-face-hero,
+    .scarce-read-slide.is-chrome-quiet .os-media-face-hero {
       transform: translate3d(0, calc(-100% - 0.15rem), 0);
     }
   }
@@ -27995,6 +28009,34 @@ a.os-surface-row {
     justify-content: center;
     touch-action: manipulation;
     transition: transform 120ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .ticket-show-pass-mark-btn--jacket {
+    margin: 0;
+    flex-shrink: 0;
+    border-radius: 0.55rem;
+  }
+
+  .ticket-show-pass-mark-btn--jacket .ticket-show-pass-mark {
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 0.55rem;
+    box-shadow: none;
+  }
+
+  .ticket-show-pass-mark-btn--jacket .ticket-show-pass-mark-expand {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .ticket-show-pass-mark-btn--jacket .ticket-show-pass-mark-expand-icon {
+    width: 0.65rem;
+    height: 0.65rem;
+  }
+
+  .ticket-show-pass-body > .ticket-show-pass-status {
+    text-align: center;
+    margin: 0 0 0.35rem;
   }
 
   .ticket-show-pass-mark-btn:active {
@@ -30231,7 +30273,7 @@ a.os-surface-row {
     padding: 0;
   }
 
-  .scarce-read-slide .scarce-writing-read-footer-glass {
+  .scarce-read-slide .os-media-face-footer-glass {
     position: absolute;
     top: 0;
     left: 0;
@@ -30250,29 +30292,73 @@ a.os-surface-row {
 
   .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
     .scarce-read-slide
-    .scarce-writing-read-footer-glass {
+    .os-media-face-footer-glass {
     bottom: 0;
   }
 
-  .scarce-read-slide .scarce-writing-read-footer {
+  .scarce-read-slide .os-media-face-footer {
     position: relative;
     z-index: 1;
     width: 100%;
-    max-width: min(100%, 28rem);
-    margin-inline: auto;
-    padding: 0.45rem 0.9rem 0.35rem;
+    max-width: none;
+    margin-inline: 0;
+    /* Same horizontal pad as the feed screen body. */
+    padding: 0.45rem var(--os-screen-body-pad-x, 1rem) 0.35rem;
     pointer-events: auto;
+    box-sizing: border-box;
   }
 
   @media (min-width: 640px) {
-    .scarce-read-slide .scarce-writing-read-footer {
-      padding-inline: 1.25rem;
+    .scarce-read-slide .os-media-face-footer {
+      padding-inline: var(--os-screen-body-pad-x, 1rem);
     }
   }
 
+  /*
+   * Same layout as feed engagement: four stats spread in 1fr tracks,
+   * save + share stay a tight trailing cluster on the right.
+   */
+  .scarce-read-slide .os-media-face-footer .post-card-engagement {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: none;
+    margin-top: 0;
+  }
+
+  .scarce-read-slide .os-media-face-footer .post-card-engagement-actions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: center;
+    gap: 0.2rem;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .scarce-read-slide .os-media-face-footer .post-card-engagement-actions > * {
+    justify-content: flex-start;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .scarce-read-slide .os-media-face-footer .post-card-engagement-trailing {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-shrink: 0;
+    justify-self: end;
+  }
+
+  .scarce-read-slide .os-media-face-footer .scarce-post-medium-chrome {
+    width: 100%;
+    max-width: none;
+  }
+
   @media (prefers-reduced-transparency: reduce) {
-    .scarce-writing-read-hero-glass,
-    .scarce-writing-read-footer-glass {
+    .os-media-face-hero-glass,
+    .os-media-face-footer-glass {
       background: rgb(var(--bg-rgb) / 0.94) !important;
       backdrop-filter: none !important;
     }
@@ -30315,13 +30401,22 @@ a.os-surface-row {
     -webkit-overflow-scrolling: touch;
   }
 
+  /*
+   * Photo / thought — fixed face, no vertical page scroll. Stage flexes into
+   * the band under the jacket and above frost footer (image contain-fits).
+   */
+  .scarce-read-slide.feed-photo-slide .os-app-screen-body,
+  .scarce-read-slide.scarce-thought-slide .os-app-screen-body {
+    overflow: hidden;
+  }
+
   .feed-photo-slide--quiet .os-app-screen-heading {
     min-width: 0;
     flex: 1;
   }
 
   .feed-photo-slide--quiet .feed-photo-listen {
-    padding: 0.2rem 0.75rem max(0.75rem, env(safe-area-inset-bottom, 0px));
+    padding: 0.15rem 0 0.35rem;
   }
 
   .feed-photo-slide--quiet .feed-photo-image {
@@ -30330,14 +30425,28 @@ a.os-surface-row {
   }
 
   .scarce-listen-slide .os-slide-over-content.scarce-listen-slide-body,
-  .ticket-pass-slide .os-slide-over-content.ticket-pass-slide-body,
-  .scarce-thought-slide .os-slide-over-content.scarce-thought-slide-body,
-  .feed-photo-slide .os-slide-over-content.feed-photo-slide-body {
+  .ticket-pass-slide .os-slide-over-content.ticket-pass-slide-body {
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
     padding: 0;
     overflow: hidden;
+  }
+
+  /*
+   * Photo / thought faces — fill the card under the jacket (no page scroll).
+   * Writing keeps auto-height page scroll via scarce-read-slide-body alone.
+   */
+  .scarce-thought-slide .os-slide-over-content.scarce-thought-slide-body,
+  .feed-photo-slide .os-slide-over-content.feed-photo-slide-body {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    height: 100%;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   .scarce-read-slide .os-slide-over-content.scarce-read-slide-body {
@@ -30347,6 +30456,14 @@ a.os-surface-row {
     height: auto;
     padding: 0;
     overflow: visible;
+  }
+
+  .scarce-read-slide.feed-photo-slide .os-media-face-body,
+  .scarce-read-slide.scarce-thought-slide .os-media-face-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    max-height: 100%;
   }
 
   /* Extended Listen — phone-tall columns may scroll so transport stays reachable. */
@@ -30365,22 +30482,22 @@ a.os-surface-row {
 
   .scarce-thought-body {
     display: flex;
-    flex: 1;
+    flex: 1 1 auto;
     flex-direction: column;
     gap: 0.45rem;
     width: 100%;
     min-height: 0;
     height: 100%;
-    overflow-y: auto;
+    overflow: hidden;
     box-sizing: border-box;
-    padding: 0.75rem 1rem max(1.05rem, env(safe-area-inset-bottom, 0px));
+    padding: 0.15rem 0 0.35rem;
   }
 
   .scarce-thought-stage {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 auto;
+    flex: 1 1 auto;
     width: 100%;
     min-height: 0;
   }
@@ -30389,7 +30506,7 @@ a.os-surface-row {
     width: auto;
     height: auto;
     max-width: 100%;
-    max-height: min(68dvh, 42rem);
+    max-height: 100%;
     object-fit: contain;
     border-radius: 0.85rem;
     background: rgb(var(--fg-rgb) / 0.06);
@@ -30421,34 +30538,83 @@ a.os-surface-row {
   }
 
   .scarce-thought-footer .post-card-scarce-cta,
-  .scarce-thought-footer .post-card-engagement {
+  .scarce-thought-footer .post-card-engagement,
+  .scarce-read-slide .os-media-face-footer .post-card-scarce-cta,
+  .scarce-read-slide .os-media-face-footer .post-card-engagement {
     margin-top: 0;
   }
 
   .feed-photo-listen {
     display: flex;
-    flex: 1;
+    flex: 1 1 auto;
     flex-direction: column;
     gap: 0.45rem;
     width: 100%;
     min-height: 0;
     height: 100%;
-    overflow-y: auto;
+    overflow: hidden;
     box-sizing: border-box;
-    padding: 0.75rem 1rem max(1.05rem, env(safe-area-inset-bottom, 0px));
+    padding: 0.15rem 0 0.35rem;
   }
 
   .feed-photo-stage {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 auto;
+    flex: 1 1 auto;
     width: 100%;
     min-height: 0;
   }
 
+  .feed-photo-mood-face {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  /* Same contain sizing as `.feed-photo-image` — no thumb grey plate. */
+  .feed-photo-mood-cover {
+    position: relative;
+    box-sizing: border-box;
+    width: auto;
+    height: min(100%, var(--feed-photo-stage-max, 28rem));
+    max-width: 100%;
+    max-height: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 0.85rem;
+    overflow: hidden;
+    line-height: 0;
+    background: transparent;
+  }
+
+  .feed-photo-mood-cover .portfolio-writing-cover-card,
+  .feed-photo-mood-cover .portfolio-writing-cover-fallback {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+  }
+
+  .feed-photo-mood-cover .portfolio-writing-cover-card svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* Article enlarge fills the square — list thumbs use contain and show a mat. */
+    object-fit: cover;
+    object-position: center;
+  }
+
   .feed-photo-stage:has(.feed-photo-track) {
-    height: min(68dvh, 42rem);
+    /* Flex fills the face — no fixed dvh that double-counts chrome. */
+    height: auto;
   }
 
   .feed-photo-track {
@@ -30493,7 +30659,11 @@ a.os-surface-row {
   }
 
   .feed-photo-stage > .feed-photo-image {
-    max-height: min(68dvh, 42rem);
+    max-height: 100%;
+  }
+
+  .feed-photo-video {
+    background: rgb(var(--fg-rgb) / 0.08);
   }
 
   .feed-photo-image--empty {
@@ -30565,7 +30735,8 @@ a.os-surface-row {
     flex: 0 0 auto;
   }
 
-  .feed-photo-footer .post-card-engagement {
+  .feed-photo-footer .post-card-engagement,
+  .scarce-read-slide .os-media-face-footer .post-card-engagement {
     margin-top: 0;
   }
 
@@ -30590,9 +30761,26 @@ a.os-surface-row {
     }
   }
 
-  .scarce-read-slide .scarce-writing-read {
+  .scarce-read-slide .scarce-writing-read,
+  .scarce-read-slide .os-media-face-body {
     --writing-read-measure: min(34rem, 100%);
     --scarce-writing-p: 0;
+    /*
+     * Media stage fit — jacket + dots/gap + frost footer + dock, so one
+     * photo/cover lands fully in the phone face without vertical scroll.
+     */
+    --feed-photo-chrome: calc(
+      env(safe-area-inset-top, 0px) + 3.6rem + 2.4rem +
+        var(--os-screen-footer-band, 4.25rem) +
+        max(
+          var(--os-summon-dock-occupied, 0px),
+          var(--portfolio-dock-clearance, 4.75rem)
+        )
+    );
+    --feed-photo-stage-max: min(
+      42rem,
+      max(14rem, calc(100dvh - var(--feed-photo-chrome)))
+    );
     position: relative;
     display: flex;
     flex-direction: column;
@@ -30607,8 +30795,17 @@ a.os-surface-row {
     box-sizing: border-box;
   }
 
+  /* No frost footer — reclaim that band for the photo/cover. */
+  .scarce-read-slide:not([data-screen-footer='true']) .os-media-face-body {
+    --feed-photo-chrome: calc(
+      env(safe-area-inset-top, 0px) + 3.6rem + 1.1rem +
+        max(0.45rem, env(safe-area-inset-bottom, 0px))
+    );
+  }
+
   @media (min-width: 640px) {
-    .scarce-read-slide .scarce-writing-read {
+    .scarce-read-slide .scarce-writing-read,
+    .scarce-read-slide .os-media-face-body {
       width: min(100%, 42rem);
       padding: 0 1.25rem 0.75rem;
     }
@@ -43603,4 +43800,36 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 .token-thank-list .os-surface-row.is-active {
   background: rgb(var(--fg-rgb) / 0.08);
+}
+
+/*
+ * Media-face frost engagement — unlayered so full-width feed layout beats
+ * any layered max-width / flex overrides (same trap as slide-over vs fixed).
+ */
+.scarce-read-slide .os-media-face-footer {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.scarce-read-slide .os-media-face-footer .post-card-engagement {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  width: 100%;
+  max-width: none;
+  gap: 0.75rem;
+}
+
+.scarce-read-slide .os-media-face-footer .post-card-engagement-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
+}
+
+.scarce-read-slide .os-media-face-footer .post-card-engagement-trailing {
+  display: flex;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  justify-self: end;
 }

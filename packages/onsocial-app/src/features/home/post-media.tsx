@@ -31,8 +31,8 @@ interface PostMediaBlockProps {
 }
 
 /**
- * Feed media tile — muted list autoplay for video; tap opens detail.
- * Stills enlarge in place; video tap opens the thread with sound.
+ * Feed media tile — muted list autoplay for video; tap opens media-face.
+ * Stills and video enlarge in the shared shell; thread-focused media stays inline.
  */
 export function PostMediaBlock({
   item,

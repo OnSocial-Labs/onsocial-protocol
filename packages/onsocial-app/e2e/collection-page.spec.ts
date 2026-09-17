@@ -138,7 +138,7 @@ test.describe('collection drop page', () => {
       await expect(page.getByText('Connect wallet')).toHaveCount(0);
       await expect(page.getByText('Manuscript')).toHaveCount(0);
       const insets = await sheet.evaluate((root) => {
-        const title = root.querySelector('.scarce-writing-read-title');
+        const title = root.querySelector('.os-media-face-title');
         const readCol = root.querySelector('.scarce-writing-read');
         if (!title || !readCol) return null;
         return {
@@ -182,7 +182,7 @@ test.describe('collection drop page', () => {
           await expect(sheet).toBeVisible({ timeout: 8_000 });
           await expect(sheet).toHaveClass(/is-open/);
           await expect(
-            sheet.locator('.scarce-writing-read-title')
+            sheet.locator('.os-media-face-title')
           ).toBeInViewport();
           await expect
             .poll(async () =>
@@ -200,7 +200,7 @@ test.describe('collection drop page', () => {
           if (attempt === 1) throw error;
         }
       }
-      await expect(sheet.locator('.scarce-writing-read-title')).toHaveText(
+      await expect(sheet.locator('.os-media-face-title')).toHaveText(
         'Chapter One'
       );
       await expect(page.locator('.drop-art-page-sheet-panel')).toHaveCount(0);

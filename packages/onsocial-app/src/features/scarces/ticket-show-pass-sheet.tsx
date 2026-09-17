@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { CopyIcon, Divider, ScaleUpIcon } from '@onsocial/ui';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -38,10 +38,7 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
 /**
- * Show pass — same OsSlideOverScreen chrome as Listen / Read.
- * Full viewer mood wash on the slide (no frosted ticket card — QR is
- * already stark white). Status once on the body; live code is a quiet
- * preview + copy glyph.
+ * Show pass — shared media-face jacket; QR + door chrome in the body.
  */
 export function TicketShowPassSheet({
   open,
@@ -268,43 +265,38 @@ export function TicketShowPassSheet({
       : null;
 
   return (
-    <OsSlideOverScreen
+    <OsMediaFaceShell
       open={open}
       onClose={onClose}
       title={name}
       closeAriaLabel="Back from pass"
       zIndex={SCARCE_Z.nestedOverCommerce}
-      elevateChrome={false}
       className="ticket-pass-slide"
       contentClassName="ticket-pass-slide-body"
+      mast={
+        media ? (
+          <button
+            type="button"
+            className="ticket-show-pass-mark-btn ticket-show-pass-mark-btn--jacket"
+            onClick={() => setArtEnlargeOpen(true)}
+            aria-label="View full artwork"
+          >
+            <img
+              src={media}
+              alt=""
+              className="ticket-show-pass-mark"
+              onError={() => setThumbFailed(true)}
+            />
+            <span className="ticket-show-pass-mark-expand" aria-hidden>
+              <ScaleUpIcon className="ticket-show-pass-mark-expand-icon" />
+            </span>
+          </button>
+        ) : null
+      }
     >
       <div className="ticket-show-pass">
         <div className="ticket-show-pass-body">
-          <div className="ticket-show-pass-header">
-            {media ? (
-              <button
-                type="button"
-                className="ticket-show-pass-mark-btn"
-                onClick={() => setArtEnlargeOpen(true)}
-                aria-label="View full artwork"
-              >
-                <img
-                  src={media}
-                  alt=""
-                  className="ticket-show-pass-mark"
-                  onError={() => setThumbFailed(true)}
-                />
-                <span className="ticket-show-pass-mark-expand" aria-hidden>
-                  <ScaleUpIcon className="ticket-show-pass-mark-expand-icon" />
-                </span>
-              </button>
-            ) : null}
-
-            <h2 className="ticket-show-pass-title">{name}</h2>
-            <p className={`ticket-show-pass-status${toneClass}`}>
-              {statusLine}
-            </p>
-          </div>
+          <p className={`ticket-show-pass-status${toneClass}`}>{statusLine}</p>
 
           {livePayload ? (
             <TicketPassQr
@@ -406,6 +398,6 @@ export function TicketShowPassSheet({
           onClose={() => setArtEnlargeOpen(false)}
         />
       ) : null}
-    </OsSlideOverScreen>
+    </OsMediaFaceShell>
   );
 }

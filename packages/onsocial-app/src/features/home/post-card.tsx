@@ -146,10 +146,8 @@ import {
 import {
   parsePostMedia,
   isRenderablePostVideoMime,
-  appendPostMediaIndex,
-  appendPostMediaUnmute,
   formatMediaDuration,
-  postStillImages,
+  postVisualMedia,
   resolveFeedMediaActivate,
   truncateQuoteText,
   type PostMediaItem,
@@ -1398,6 +1396,12 @@ export function PostCard({
   );
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
+  /** Article cover still when it isn’t already in post media. */
+  const [enlargeOverride, setEnlargeOverride] = useState<PostMediaItem[] | null>(
+    null
+  );
+  /** Mood / craft article cover — enlarge the card face (no raster URL). */
+  const [enlargeMoodCover, setEnlargeMoodCover] = useState(false);
   const enlargeWrite = photoOpen || feedMediumOpen;
   const focusWriteDock = useFocusWriteDock();
   useReplyWriteDock({
@@ -1632,7 +1636,8 @@ export function PostCard({
   const dropPaint = parseDropPaintSnapshot(post.value);
   const mediaItems = parsePostMedia(post.value);
   const hasMedia = mediaItems.length > 0;
-  const stillPhotos = postStillImages(mediaItems);
+  const visualMedia = postVisualMedia(mediaItems);
+  const enlargePhotos = enlargeOverride ?? visualMedia;
   const photoSubtitle = text.trim()
     ? truncatePostPreview(text.split(/\r?\n/, 1)[0] ?? '', 72)
     : null;
@@ -1646,6 +1651,7 @@ export function PostCard({
         scarceCardBg: scarceEmbed?.cardBg ?? null,
       })
     : null;
+  const articleCoverUrl = articleCover?.coverUrl?.trim() || '';
   const showScarceArt =
     !article &&
     !photoCover &&
@@ -1696,7 +1702,7 @@ export function PostCard({
     setFeedMediumCoverSvg(coverSvg);
     setFeedMediumOpen(true);
   };
-  /** Listed article face — same activate path ScarcePostPreview used. */
+  /** Listed writing Drop face — cover opens the reader (card stays card-sized). */
   const articleHasScarceFace =
     Boolean(article) &&
     Boolean(scarceEmbed) &&
@@ -1706,24 +1712,46 @@ export function PostCard({
       scarceEmbed?.status === 'sold' ||
       scarceEmbed?.status === 'auction' ||
       scarceEmbed?.status === 'minted');
+  /**
+   * Cover tap:
+   * - Drop face → writing/listen sheet
+   * - Photo cover → same media-face enlarge as feed photos (never the article)
+   * - Mood/craft card → same media-face with the card stage (Read → article)
+   */
   const activateArticleCover = () => {
     if (articleHasScarceFace) {
       const mode = resolveScarceFeedMediumMode(
         scarceEmbed?.mediumKind ?? dropPaint?.mediumKind
       );
-      // Article face always opens the writing reader (not the art viewer).
       openFeedMedium(mode === 'audio' ? 'audio' : 'writing');
       return;
     }
-    if (articleCover?.coverUrl && stillPhotos.length > 0) {
-      setPhotoIndex(0);
+    if (articleCoverUrl) {
+      setEnlargeMoodCover(false);
+      const existingIndex = visualMedia.findIndex(
+        (item) => item.url === articleCoverUrl
+      );
+      if (existingIndex >= 0) {
+        setEnlargeOverride(null);
+        setPhotoIndex(existingIndex);
+      } else {
+        setEnlargeOverride([
+          { url: articleCoverUrl, mime: 'image/jpeg' },
+          ...visualMedia,
+        ]);
+        setPhotoIndex(0);
+      }
       setPhotoOpen(true);
       return;
     }
-    if (articleHref) {
-      router.push(articleHref);
-    }
+    if (!articleCover) return;
+    setEnlargeOverride(null);
+    setEnlargeMoodCover(true);
+    setPhotoIndex(0);
+    setPhotoOpen(true);
   };
+  const articleCoverActivatable = Boolean(article && articleCover);
+
   const name = displayName(post.accountId, authorProfile?.displayName);
   const badges = postBadges(post, Boolean(poll), mediaItems.length > 0);
   const relationContext = showRelationBadge
@@ -1883,21 +1911,22 @@ export function PostCard({
                 'post-card-article-cover',
                 articleCover.coverUrl ? 'is-photo' : 'is-card',
               ].join(' ')}
-              role="button"
-              tabIndex={0}
+              role={articleCoverActivatable ? 'button' : undefined}
+              tabIndex={articleCoverActivatable ? 0 : undefined}
               aria-label={
-                articleHasScarceFace
-                  ? 'Open Drop preview'
-                  : articleCover.coverUrl
-                    ? 'Enlarge cover photo'
-                    : 'Read article'
+                articleCoverActivatable
+                  ? articleHasScarceFace
+                    ? 'Open Drop preview'
+                    : 'Enlarge cover'
+                  : undefined
               }
               onClick={(event: MouseEvent) => {
                 event.preventDefault();
                 event.stopPropagation();
-                activateArticleCover();
+                if (articleCoverActivatable) activateArticleCover();
               }}
               onKeyDown={(event: KeyboardEvent) => {
+                if (!articleCoverActivatable) return;
                 if (event.key !== 'Enter' && event.key !== ' ') return;
                 event.preventDefault();
                 event.stopPropagation();
@@ -1940,16 +1969,10 @@ export function PostCard({
                         index
                       );
                       if (action.kind === 'enlarge') {
-                        setPhotoIndex(action.stillIndex);
+                        setEnlargeMoodCover(false);
+                        setEnlargeOverride(null);
+                        setPhotoIndex(action.mediaIndex);
                         setPhotoOpen(true);
-                        return;
-                      }
-                      if (action.kind === 'thread' && openHref) {
-                        router.push(
-                          action.unmute
-                            ? appendPostMediaUnmute(openHref, action.mediaIndex)
-                            : appendPostMediaIndex(openHref, action.mediaIndex)
-                        );
                       }
                     }
                   : undefined
@@ -2113,11 +2136,37 @@ export function PostCard({
       />
       <FeedPhotoEnlargeScreen
         open={photoOpen}
-        onOpenChange={setPhotoOpen}
+        onOpenChange={(open) => {
+          setPhotoOpen(open);
+          if (!open) {
+            setEnlargeOverride(null);
+            setEnlargeMoodCover(false);
+          }
+        }}
         title={name}
         subtitle={photoSubtitle}
-        photos={stillPhotos}
+        photos={enlargeMoodCover ? [] : enlargePhotos}
         initialIndex={photoIndex}
+        stage={
+          enlargeMoodCover && article && articleCover ? (
+            <div className="feed-photo-mood-cover">
+              <PortfolioWritingCover
+                variant="article"
+                title={article.title}
+                coverUrl={null}
+                cardBg={articleCover.cardBg}
+                format={articleCover.format}
+                markShape={articleCover.markShape}
+                markColor={articleCover.markColor}
+                accountId={post.accountId}
+                displayName={authorProfile?.displayName}
+                avatarUrl={authorProfile?.avatarUrl}
+                postId={post.postId}
+                issuedAt={articleIssuedAt}
+              />
+            </div>
+          ) : null
+        }
         engagement={
           engagement ? (
             <PostEngagementRow

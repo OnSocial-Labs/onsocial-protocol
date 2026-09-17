@@ -11,13 +11,12 @@ import {
   PlayFillIcon,
   PreviousFillIcon,
 } from '@onsocial/ui';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { ScarceClipShareButton } from '@/features/scarces/scarce-clip-share-button';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
 /**
- * Listen enlarge — same OsSlideOverScreen chrome as Read / Pass.
- * Back lives in the OS nav row, clipped to the phone card.
+ * Listen enlarge — shared media-face jacket + frost footer; transport in body.
  */
 export function ScarceClipListenSheet({
   open,
@@ -114,14 +113,14 @@ export function ScarceClipListenSheet({
       : undefined;
 
   return (
-    <OsSlideOverScreen
+    <OsMediaFaceShell
       open={open}
       onClose={onClose}
       title={screenTitle}
       subtitle={screenSubtitle}
       closeAriaLabel="Back from listen"
       zIndex={SCARCE_Z.listenShell}
-      elevateChrome={false}
+      footer={footer}
       className="scarce-listen-slide"
       contentClassName="scarce-listen-slide-body"
     >
@@ -136,10 +135,6 @@ export function ScarceClipListenSheet({
             />
           )}
         </div>
-
-        {footer ? (
-          <div className="scarce-clip-listen-footer">{footer}</div>
-        ) : null}
 
         {showActions ? (
           <div className="scarce-clip-listen-actions">
@@ -213,11 +208,6 @@ export function ScarceClipListenSheet({
             ) : null}
           </div>
         ) : null}
-
-        <div className="scarce-clip-listen-copy">
-          <p className="scarce-clip-listen-track">{trackTitle}</p>
-          <p className="scarce-clip-listen-album">{albumTitle}</p>
-        </div>
 
         {hasLyrics && lyricsOpen ? (
           <pre id={lyricsId} className="scarce-clip-listen-lyrics">
@@ -364,7 +354,7 @@ export function ScarceClipListenSheet({
           ) : null}
         </div>
       </div>
-    </OsSlideOverScreen>
+    </OsMediaFaceShell>
   );
 }
 

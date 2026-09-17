@@ -9,11 +9,12 @@ import {
   type ReactNode,
 } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon, OsIconAction } from '@onsocial/ui';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import {
   feedPhotoIndexFromScroll,
   feedPhotoScrollLeft,
+  isRenderablePostVideoMime,
   stepFeedPhotoIndex,
   type PostMediaItem,
 } from '@/lib/post-media';
@@ -32,45 +33,50 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
- * Feed photo enlarge — own OsSlideOverScreen chrome (not Listen / thought).
- * Engagement (reply / like / quote / boost) sits under the photo.
+ * Feed media enlarge — photos + video in the shared media-face shell.
+ * Optional `stage` shows a non-URL face (mood / craft article cover).
  */
 export function FeedPhotoEnlargeScreen({
   open,
   onOpenChange,
   title,
   subtitle,
-  heading,
   quiet = false,
   photos,
   initialIndex = 0,
   engagement = null,
   closeAriaLabel,
+  stage = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   subtitle?: string | null;
-  heading?: ReactNode;
   /** Hide the visual title — picture + × only (About stills). */
   quiet?: boolean;
+  /** Image and/or video items (audio excluded upstream). */
   photos: PostMediaItem[];
   initialIndex?: number;
   engagement?: ReactNode;
   closeAriaLabel?: string;
+  /** Mood / craft cover — used when there is no raster media to enlarge. */
+  stage?: ReactNode;
 }) {
   const last = photos.length - 1;
   const [wasOpen, setWasOpen] = useState(open);
   const [index, setIndex] = useState(() => clampIndex(initialIndex, last));
   const trackRef = useRef<HTMLDivElement>(null);
+  const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
   const skipSnapRef = useRef(false);
   const prevOpenRef = useRef(open);
   const indexRef = useRef(index);
-  const quietHeading = quiet ? <></> : heading;
-  const quietClose = closeAriaLabel ?? (quiet ? 'Close photo' : 'Back from photo');
+  const quietClose =
+    closeAriaLabel ?? (quiet ? 'Close photo' : 'Back from media');
   const slideClass = quiet
     ? 'feed-photo-slide feed-photo-slide--quiet'
     : 'feed-photo-slide';
+  const hasVideo = photos.some((item) => isRenderablePostVideoMime(item.mime));
+  const showStage = Boolean(stage) && photos.length === 0;
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -175,47 +181,79 @@ export function FeedPhotoEnlargeScreen({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, photos.length, last, index, goTo]);
 
+  /* Play the active video with sound; pause neighbors. */
+  useEffect(() => {
+    if (!open) {
+      videoRefs.current.forEach((video) => {
+        video.pause();
+      });
+      return;
+    }
+    videoRefs.current.forEach((video, videoIndex) => {
+      if (videoIndex === index) {
+        video.muted = false;
+        void video.play().catch(() => {
+          /* autoplay may require a gesture — controls remain */
+        });
+        return;
+      }
+      video.pause();
+      video.muted = true;
+    });
+  }, [open, index]);
+
   const showNav = photos.length > 1;
+  const setVideoRef = (photoIndex: number, node: HTMLVideoElement | null) => {
+    if (node) videoRefs.current.set(photoIndex, node);
+    else videoRefs.current.delete(photoIndex);
+  };
 
   return (
-    <OsSlideOverScreen
+    <OsMediaFaceShell
       open={open}
       onClose={() => onOpenChange(false)}
       title={title}
-      subtitle={subtitle?.trim() || undefined}
-      heading={quietHeading}
+      subtitle={quiet ? null : subtitle}
+      quietTitle={quiet}
       closeAriaLabel={quietClose}
       zIndex={SCARCE_Z.listenShell}
-      elevateChrome={false}
+      footer={engagement}
       className={slideClass}
       contentClassName="feed-photo-slide-body"
     >
       <div className="feed-photo-listen">
         <div className="feed-photo-stage">
-          {showNav ? (
+          {showStage ? (
+            <div className="feed-photo-mood-face">{stage}</div>
+          ) : showNav ? (
             <div ref={trackRef} className="feed-photo-track">
               {photos.map((item, photoIndex) => (
                 <div
                   key={`${item.cid ?? item.url}:${photoIndex}`}
                   className="feed-photo-page"
                 >
-                  <img
-                    src={item.url}
-                    alt={item.alt?.trim() || ''}
-                    className="feed-photo-image"
-                    draggable={false}
-                  />
+                  {mediaStage(item, {
+                    active: open && photoIndex === index,
+                    videoRef: (node) => setVideoRef(photoIndex, node),
+                  })}
                 </div>
               ))}
             </div>
           ) : (
-            photoStage(photos[0] ?? null)
+            mediaStage(photos[0] ?? null, {
+              active: open,
+              videoRef: (node) => setVideoRef(0, node),
+            })
           )}
         </div>
         {showNav ? (
-          <div className="feed-photo-nav" role="group" aria-label="Photos">
+          <div
+            className="feed-photo-nav"
+            role="group"
+            aria-label={hasVideo ? 'Media' : 'Photos'}
+          >
             <OsIconAction
-              ariaLabel="Previous photo"
+              ariaLabel="Previous"
               className="feed-photo-nav-btn"
               disabled={index <= 0}
               onClick={() => goTo(stepFeedPhotoIndex(index, last, -1))}
@@ -232,14 +270,14 @@ export function FeedPhotoEnlargeScreen({
                       ? 'feed-photo-dot is-current'
                       : 'feed-photo-dot'
                   }
-                  aria-label={`Go to photo ${photoIndex + 1} of ${photos.length}`}
+                  aria-label={`Go to item ${photoIndex + 1} of ${photos.length}`}
                   aria-current={photoIndex === index ? 'true' : undefined}
                   onClick={() => goTo(photoIndex)}
                 />
               ))}
             </div>
             <OsIconAction
-              ariaLabel="Next photo"
+              ariaLabel="Next"
               className="feed-photo-nav-btn"
               disabled={index >= last}
               onClick={() => goTo(stepFeedPhotoIndex(index, last, 1))}
@@ -254,24 +292,41 @@ export function FeedPhotoEnlargeScreen({
             </span>
           </div>
         ) : null}
-        {engagement ? (
-          <div className="feed-photo-footer">{engagement}</div>
-        ) : null}
       </div>
-    </OsSlideOverScreen>
+    </OsMediaFaceShell>
   );
 }
 
-function photoStage(photo: PostMediaItem | null) {
-  if (!photo) {
+function mediaStage(
+  item: PostMediaItem | null,
+  opts: {
+    active: boolean;
+    videoRef: (node: HTMLVideoElement | null) => void;
+  }
+) {
+  if (!item) {
     return (
       <div className="feed-photo-image feed-photo-image--empty" aria-hidden />
     );
   }
+  if (isRenderablePostVideoMime(item.mime)) {
+    return (
+      <video
+        ref={opts.videoRef}
+        src={item.url}
+        className="feed-photo-image feed-photo-video"
+        controls
+        playsInline
+        preload="metadata"
+        // Active page plays with sound; inactive stays muted.
+        muted={!opts.active}
+      />
+    );
+  }
   return (
     <img
-      src={photo.url}
-      alt={photo.alt?.trim() || ''}
+      src={item.url}
+      alt={item.alt?.trim() || ''}
       className="feed-photo-image"
       draggable={false}
     />

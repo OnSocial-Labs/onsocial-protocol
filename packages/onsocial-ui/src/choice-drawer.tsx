@@ -129,7 +129,7 @@ export function ChoiceDrawer<T extends string>({
       <div className="os-choice-sheet-list" role="listbox" aria-label={label}>
         {sections.map((section, sectionIndex) => (
           <div
-            key={section.title ?? `section-${sectionIndex}`}
+            key={`section-${sectionIndex}`}
             className="os-choice-sheet-section"
           >
             {section.title ? (

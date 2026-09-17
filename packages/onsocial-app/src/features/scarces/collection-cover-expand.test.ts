@@ -33,11 +33,9 @@ describe('drop cover expand wiring', () => {
   });
 
   it('keeps the reader jacket + OS card portal (progress stays on quiet)', () => {
-    expect(reader).toContain('OsSlideOverScreen');
-    expect(reader).toContain('hideNav');
-    expect(reader).toContain('scarce-writing-read-title');
+    expect(reader).toContain('OsMediaFaceShell');
     expect(reader).toContain('scarce-writing-read-progress');
-    expect(reader).toContain('is-chrome-quiet');
+    expect(reader).toContain('chromeQuiet={chromeQuiet}');
     expect(reader).toContain('onScrollDelta');
     expect(reader).toContain('onChromeTap');
     expect(reader).not.toMatch(/^\s*viewport\s*$/m);

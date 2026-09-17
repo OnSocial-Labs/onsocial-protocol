@@ -5,7 +5,7 @@ import { SHEET_Z } from '@/lib/sheet-z';
  * Bands come from the shared app scale (@/lib/sheet-z):
  *
  * 56  default GlassSheet
- * 80  listen / read / thought / feed photo enlarge (OsSlideOverScreen)
+ * 80  listen / read / thought / feed photo / pass enlarge (OsMediaFaceShell)
  * 90  list / buy / bid when opened over the player shell
  * 110 art zoom + option drawers nested from commerce
  */

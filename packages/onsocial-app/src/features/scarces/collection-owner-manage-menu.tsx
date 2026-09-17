@@ -396,6 +396,20 @@ export function CollectionOwnerManageMenu({
         },
       });
     }
+    if (showDelete) {
+      list.push({
+        id: 'delete',
+        section: 'Sale',
+        label: 'Delete drop',
+        description: 'Only if nothing was minted — confirms first',
+        destructive: true,
+        disabled: ownerPending,
+        leading: <TrashIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          setPanel('delete');
+        },
+      });
+    }
     if (showCancel) {
       list.push({
         id: 'cancel',
@@ -428,20 +442,6 @@ export function CollectionOwnerManageMenu({
         description: 'Holders can claim until the window ends',
         disabled: true,
         onSelect: () => {},
-      });
-    }
-    if (showDelete) {
-      list.push({
-        id: 'delete',
-        section: 'Sale',
-        label: 'Delete drop',
-        description: 'Only if nothing was minted — confirms first',
-        destructive: true,
-        disabled: ownerPending,
-        leading: <TrashIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => {
-          setPanel('delete');
-        },
       });
     }
     return list;

@@ -57,6 +57,28 @@ export function postStillImages(
   return items.filter((item) => !isRenderablePostPlayableMime(item.mime));
 }
 
+/** Images + video for the shared media-face enlarge (not audio). */
+export function postVisualMedia(
+  items: readonly PostMediaItem[]
+): PostMediaItem[] {
+  return items.filter((item) => !isRenderablePostAudioMime(item.mime));
+}
+
+/** Index into `postVisualMedia(items)` for a media-strip index, or `-1`. */
+export function postVisualMediaIndex(
+  items: readonly PostMediaItem[],
+  mediaIndex: number
+): number {
+  const item = items[mediaIndex];
+  if (!item || isRenderablePostAudioMime(item.mime)) return -1;
+  let visualIndex = -1;
+  for (let i = 0; i <= mediaIndex; i += 1) {
+    const entry = items[i];
+    if (entry && !isRenderablePostAudioMime(entry.mime)) visualIndex += 1;
+  }
+  return visualIndex;
+}
+
 /** Index into `postStillImages(items)` for a media-strip index, or `-1`. */
 export function postStillImageIndex(
   items: readonly PostMediaItem[],
@@ -73,12 +95,11 @@ export function postStillImageIndex(
 }
 
 export type FeedMediaActivate =
-  | { kind: 'enlarge'; stillIndex: number }
-  | { kind: 'thread'; unmute: boolean; mediaIndex: number }
+  | { kind: 'enlarge'; mediaIndex: number }
   | { kind: 'none' };
 
 /**
- * Feed tile tap: stills enlarge in place; video goes to the thread with sound.
+ * Feed tile tap: image / video open the shared media-face enlarge.
  * Thread-focused media stays inline (`none`).
  */
 export function resolveFeedMediaActivate(
@@ -87,14 +108,9 @@ export function resolveFeedMediaActivate(
   options: { mediaFocused?: boolean } = {}
 ): FeedMediaActivate {
   if (options.mediaFocused) return { kind: 'none' };
-  const item = items[mediaIndex];
-  if (!item) return { kind: 'none' };
-  if (isRenderablePostVideoMime(item.mime)) {
-    return { kind: 'thread', unmute: true, mediaIndex };
-  }
-  const stillIndex = postStillImageIndex(items, mediaIndex);
-  if (stillIndex >= 0) return { kind: 'enlarge', stillIndex };
-  return { kind: 'thread', unmute: false, mediaIndex };
+  const mediaIndexInVisual = postVisualMediaIndex(items, mediaIndex);
+  if (mediaIndexInVisual < 0) return { kind: 'none' };
+  return { kind: 'enlarge', mediaIndex: mediaIndexInVisual };
 }
 
 /** Step one still. Stops at the ends — never wraps. */

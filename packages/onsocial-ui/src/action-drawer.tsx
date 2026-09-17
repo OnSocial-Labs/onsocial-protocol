@@ -233,7 +233,7 @@ export function ActionDrawer({
         >
           {sections.map((section, sectionIndex) => (
             <div
-              key={section.title ?? `section-${sectionIndex}`}
+              key={`section-${sectionIndex}`}
               className="os-choice-sheet-section"
             >
               {section.title ? (

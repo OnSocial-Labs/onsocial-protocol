@@ -13,6 +13,7 @@ import {
   postMediaStripClassName,
   postStillImageIndex,
   postStillImages,
+  postVisualMedia,
   readPostMediaUnmuteIndex,
   resolveFeedMediaActivate,
   stepFeedPhotoIndex,
@@ -218,6 +219,14 @@ describe('feed photo enlarge helpers', () => {
     ]);
   });
 
+  it('postVisualMedia keeps images and video, drops audio', () => {
+    expect(postVisualMedia([photoA, video, photoB, audio])).toEqual([
+      photoA,
+      video,
+      photoB,
+    ]);
+  });
+
   it('postStillImageIndex maps strip index onto stills', () => {
     const items = [video, photoA, audio, photoB];
     expect(postStillImageIndex(items, 0)).toBe(-1);
@@ -227,20 +236,19 @@ describe('feed photo enlarge helpers', () => {
     expect(postStillImageIndex(items, 9)).toBe(-1);
   });
 
-  it('resolveFeedMediaActivate enlarges stills and threads video', () => {
+  it('resolveFeedMediaActivate enlarges stills and video in the media face', () => {
     const items = [photoA, video, photoB];
     expect(resolveFeedMediaActivate(items, 0)).toEqual({
       kind: 'enlarge',
-      stillIndex: 0,
+      mediaIndex: 0,
     });
     expect(resolveFeedMediaActivate(items, 1)).toEqual({
-      kind: 'thread',
-      unmute: true,
+      kind: 'enlarge',
       mediaIndex: 1,
     });
     expect(resolveFeedMediaActivate(items, 2)).toEqual({
       kind: 'enlarge',
-      stillIndex: 1,
+      mediaIndex: 2,
     });
     expect(resolveFeedMediaActivate(items, 0, { mediaFocused: true })).toEqual({
       kind: 'none',
