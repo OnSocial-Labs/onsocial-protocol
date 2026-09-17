@@ -37,18 +37,29 @@ export function PostLikesSheet({
   const [likerIds, setLikerIds] = useState<string[]>([]);
   const [idsLoading, setIdsLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
 
-  useEffect(() => {
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (!open) {
       setLikerIds([]);
       setIdsLoading(false);
       setLoadFailed(false);
-      return;
+    } else {
+      setIdsLoading(true);
+      setLoadFailed(false);
     }
+  }
+
+  useEffect(() => {
+    if (!open) return;
 
     let cancelled = false;
-    setIdsLoading(true);
-    setLoadFailed(false);
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setIdsLoading(true);
+      setLoadFailed(false);
+    });
 
     void loadPostLikeAccountIds(postOwner, postId, { groupId })
       .then((ids) => {

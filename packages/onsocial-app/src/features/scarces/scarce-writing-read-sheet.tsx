@@ -9,7 +9,6 @@ import {
 } from 'react';
 import {
   ChevronRightIcon,
-  MultiplyIcon,
   OsIconAction,
   OsSheetAction,
   OsSheetActions,
@@ -93,10 +92,14 @@ export function WritingReadSheet({
     if (open) {
       setScrollRatio(0);
       setChromeQuiet(false);
-      liveAtRef.current =
-        typeof performance !== 'undefined' ? performance.now() + 600 : 0;
     }
   }
+
+  useEffect(() => {
+    if (!open) return;
+    liveAtRef.current =
+      typeof performance !== 'undefined' ? performance.now() + 600 : 0;
+  }, [open]);
 
   const clearQuietTimer = useCallback(() => {
     if (quietTimerRef.current != null) {
