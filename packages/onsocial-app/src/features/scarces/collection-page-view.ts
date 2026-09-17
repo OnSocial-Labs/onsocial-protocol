@@ -23,6 +23,34 @@ export function collectionCoverImmersive(opts: {
   return (opts.kind ?? '').trim().toLowerCase() !== 'art';
 }
 
+export type CollectionCoverExpandAction = 'read' | 'pass' | 'artwork' | null;
+
+/** Writing kind always opens Read — even before chapters hydrate. */
+export function collectionOpensWritingReader(opts: {
+  kind?: string | null;
+  hasReadables: boolean;
+}): boolean {
+  if (opts.hasReadables) return true;
+  return (opts.kind ?? '').trim().toLowerCase() === 'writing';
+}
+
+/**
+ * Cover ScaleUp on the drop page.
+ * Writing opens Read (same family as Listen / Pass). Art zooms.
+ */
+export function collectionCoverExpandAction(opts: {
+  kind?: string | null;
+  hasReadables: boolean;
+  canShowPass: boolean;
+  isAudio: boolean;
+  hasMedia: boolean;
+}): CollectionCoverExpandAction {
+  if (collectionOpensWritingReader(opts)) return 'read';
+  if (opts.canShowPass) return 'pass';
+  if (!opts.isAudio && opts.hasMedia) return 'artwork';
+  return null;
+}
+
 /**
  * Drop-page ownership for layout.
  * - `holder` — creator or confirmed edition hold (Play / Read first)
@@ -215,4 +243,3 @@ export function seedCollectionViewFromNowPlaying(
     royalty: null,
   };
 }
-

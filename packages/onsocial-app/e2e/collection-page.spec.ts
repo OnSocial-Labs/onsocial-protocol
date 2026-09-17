@@ -1,5 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { E2E_CHROME_TIMEOUT_MS, expectConnectVoice, expectOsRowAction, gotoApp } from './helpers';
+import {
+  E2E_CHROME_TIMEOUT_MS,
+  expectConnectVoice,
+  expectOsRowAction,
+  gotoApp,
+} from './helpers';
 import {
   COLLECTION_E2E_VIEWER,
   collectionPageRoot,
@@ -104,6 +109,12 @@ test.describe('collection drop page', () => {
       await expect(
         page.getByText('Connect to read.', { exact: true })
       ).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Open reader' })
+      ).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'View artwork' })
+      ).toHaveCount(0);
       await read.click();
       const sheet = page.locator('.scarce-read-slide');
       const footerConnect = sheet
@@ -135,6 +146,26 @@ test.describe('collection drop page', () => {
       ).toBeLessThan(2);
       expect(insets?.readPad).toBeCloseTo(18.4, 0);
       expect(insets?.footerPad).toBeCloseTo(18.4, 0);
+    });
+
+    test('visitor writing cover opens the reader, not artwork zoom', async ({
+      page,
+    }) => {
+      await setE2eGraphDrop(page, 'default');
+      await stubCollectionPageGraph(page);
+      await gotoApp(page, '/collection/chapter-one');
+
+      await expectCollectionPageSettled(page);
+      await expect(
+        page.getByRole('button', { name: 'View artwork' })
+      ).toHaveCount(0);
+      await page.getByRole('button', { name: 'Open reader' }).click();
+      const sheet = page.locator('.scarce-read-slide');
+      await expect(sheet).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+      await expect(sheet.locator('.scarce-writing-read-title')).toHaveText(
+        'Chapter One'
+      );
+      await expect(page.locator('.drop-art-page-sheet-panel')).toHaveCount(0);
     });
   });
 

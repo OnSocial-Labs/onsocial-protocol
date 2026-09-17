@@ -27655,6 +27655,16 @@ a.os-surface-row {
     flex-shrink: 0;
   }
 
+  button.scarce-writing-read-art {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+  }
+
   .scarce-writing-read-cover {
     display: block;
     /*
