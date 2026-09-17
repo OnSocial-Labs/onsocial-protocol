@@ -52,6 +52,30 @@ import {
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
 
+const WRITE_KEYBOARD_LIFT_VAR = '--os-write-keyboard-lift';
+
+function syncWriteKeyboardChrome(
+  dock: HTMLElement | null,
+  open: boolean,
+  lift: number
+) {
+  if (!dock) return;
+  const host = dock.parentElement;
+  const screen = dock.closest<HTMLElement>('.os-app-screen');
+  if (open) {
+    dock.setAttribute('data-keyboard', 'open');
+    const liftPx = `${Math.max(0, Math.round(lift))}px`;
+    dock.style.setProperty(WRITE_KEYBOARD_LIFT_VAR, liftPx);
+    host?.style.setProperty(WRITE_KEYBOARD_LIFT_VAR, liftPx);
+    screen?.style.setProperty(WRITE_KEYBOARD_LIFT_VAR, liftPx);
+    return;
+  }
+  dock.removeAttribute('data-keyboard');
+  dock.style.removeProperty(WRITE_KEYBOARD_LIFT_VAR);
+  host?.style.removeProperty(WRITE_KEYBOARD_LIFT_VAR);
+  screen?.style.removeProperty(WRITE_KEYBOARD_LIFT_VAR);
+}
+
 export function OsWriteDockReplyChip({
   label,
   onCancel,
@@ -132,16 +156,21 @@ export function OsWriteDock({
   mediaFilesRef.current = mediaFiles;
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [fieldFocused, setFieldFocused] = useState(false);
+  /** Keep vv tracking until keys finish closing after blur. */
+  const [trackKeyboard, setTrackKeyboard] = useState(false);
   const [composeExpanded, setComposeExpanded] = useState(
     Boolean(initialDraft.text.trim() || initialDraft.files.length)
   );
   const submitLockRef = useRef(false);
-  const viewport = useVisualViewportSheetMetrics(fieldFocused);
+  const viewport = useVisualViewportSheetMetrics(trackKeyboard);
   const hasContent = Boolean(text.trim() || mediaFiles.length);
   const hasReplyChrome = Boolean(above);
   const hasErrorChrome = Boolean(error);
   const keyboardOpen =
     fieldFocused && viewport.isMobile && viewport.lift > 0;
+  /** Press → tuck immediately; stay tucked until focus ends and keys are down. */
+  const keysChromeOpen =
+    fieldFocused || (viewport.isMobile && viewport.lift > 0);
   const footerOpen =
     composeExpanded || hasContent || hasErrorChrome || pending;
   const toolsOpen =
@@ -191,6 +220,16 @@ export function OsWriteDock({
     persistDraft(text, result.files);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  useEffect(() => {
+    if (fieldFocused) {
+      setTrackKeyboard(true);
+      return;
+    }
+    if (viewport.lift <= 0) {
+      setTrackKeyboard(false);
+    }
+  }, [fieldFocused, viewport.lift]);
 
   useEffect(() => {
     setWritePinned?.(toolsOpen || isTall || fieldFocused);
@@ -254,6 +293,16 @@ export function OsWriteDock({
     const dockExpanded = tallChrome;
     setIsTall((current) => (current === dockExpanded ? current : dockExpanded));
   }, [hasErrorChrome, hasReplyChrome, keyboardOpen, text]);
+
+  /* Focus + vv lift — dock rises with keys; read icons tuck in the same beat. */
+  useLayoutEffect(() => {
+    const dock =
+      textRef.current?.closest<HTMLElement>('.portfolio-summon-dock') ?? null;
+    syncWriteKeyboardChrome(dock, keysChromeOpen, viewport.lift);
+    return () => {
+      syncWriteKeyboardChrome(dock, false, 0);
+    };
+  }, [keysChromeOpen, viewport.lift]);
 
   const removeMediaAt = (index: number) => {
     setMediaFiles((current) => {
@@ -445,7 +494,14 @@ export function OsWriteDock({
             }}
             onFocus={(event) => {
               setFieldFocused(true);
+              setTrackKeyboard(true);
               setComposeExpanded(true);
+              const dock =
+                event.currentTarget.closest<HTMLElement>(
+                  '.portfolio-summon-dock'
+                ) ?? null;
+              // Same frame as press — don't wait for layout effect.
+              syncWriteKeyboardChrome(dock, true, viewport.lift);
               scrollFieldIntoView(event);
             }}
             onBlur={() => {
