@@ -24,12 +24,17 @@ function MediaFaceClose({ ariaLabel }: { ariaLabel: string }) {
 export type OsMediaFaceShellProps = {
   open: boolean;
   onClose: () => void;
+  /** Dialog / a11y name. Also the jacket headline unless `faceTitle` is set. */
   title: string;
+  /** Jacket headline — e.g. author name while `title` stays the article. */
+  faceTitle?: string | null;
+  /** Small label above the headline — Writing / Photo / Listen. */
+  eyebrow?: string | null;
   /** Secondary line under the jacket title (e.g. Listen track). */
   subtitle?: string | null;
   closeAriaLabel: string;
   zIndex?: number;
-  /** Optional thumb / cover art beside the title. */
+  /** Optional thumb / cover art / avatar beside the title. */
   mast?: ReactNode;
   /** Reading progress scrubber — omit for photo / art / listen. */
   progress?: ReactNode;
@@ -63,6 +68,8 @@ export function OsMediaFaceShell({
   open,
   onClose,
   title,
+  faceTitle = null,
+  eyebrow = null,
   subtitle = null,
   closeAriaLabel,
   zIndex = 80,
@@ -80,7 +87,9 @@ export function OsMediaFaceShell({
   children,
 }: OsMediaFaceShellProps) {
   const frostStyle = osChromeFrostStyle();
-  const name = title.trim() || 'Media';
+  const dialogName = title.trim() || 'Media';
+  const headline = (faceTitle?.trim() || dialogName).trim() || 'Media';
+  const brow = eyebrow?.trim() || '';
   const sub = subtitle?.trim() || '';
   const frostedFooter =
     footer != null ? (
@@ -115,7 +124,7 @@ export function OsMediaFaceShell({
     <OsSlideOverScreen
       open={open}
       onClose={onClose}
-      title={name}
+      title={dialogName}
       hideNav
       elevateChrome={false}
       closeAriaLabel={closeAriaLabel}
@@ -136,7 +145,16 @@ export function OsMediaFaceShell({
             {mast}
             {quietTitle ? null : (
               <div className="os-media-face-copy">
-                <p className="os-media-face-title">{name}</p>
+                {brow ? <p className="os-media-face-eyebrow">{brow}</p> : null}
+                <p
+                  className={
+                    faceTitle?.trim()
+                      ? 'os-media-face-title os-media-face-title--single'
+                      : 'os-media-face-title'
+                  }
+                >
+                  {headline}
+                </p>
                 {sub ? <p className="os-media-face-subtitle">{sub}</p> : null}
               </div>
             )}

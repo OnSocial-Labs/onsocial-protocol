@@ -46,6 +46,10 @@ export type PortfolioWritingArticlePanelProps = {
   avatarUrl?: string | null;
   post: PostRow;
   coverHint?: WritingArticleCoverHint | null;
+  /** Like / save / thread / share under the byline. Off when a footer owns them. */
+  showActions?: boolean;
+  /** Author face + name row. Off when the jacket mast already shows them. */
+  showAuthor?: boolean;
 };
 
 function absoluteArticleUrl(href: string): string | null {
@@ -63,6 +67,8 @@ export function PortfolioWritingArticlePanel({
   avatarUrl = null,
   post,
   coverHint = null,
+  showActions = true,
+  showAuthor = true,
 }: PortfolioWritingArticlePanelProps) {
   const article = parseArticleSnapshot(post.value);
   const cover = resolveArticleCover({
@@ -189,92 +195,100 @@ export function PortfolioWritingArticlePanel({
         </header>
       </div>
 
-      <div className="portfolio-writing-article-author">
-        <Link
-          href={authorHref}
-          className="portfolio-writing-article-face"
-          scroll={false}
-          aria-label={`View ${authorName}'s profile`}
-        >
-          <AccountAvatar
-            accountId={post.accountId}
-            src={avatarUrl}
-            fallbackInitial={authorName}
-            size="md"
-          />
-        </Link>
-        <Link
-          href={authorHref}
-          className="portfolio-writing-article-author-name"
-          scroll={false}
-        >
-          {authorName}
-        </Link>
-        <div className="portfolio-writing-article-actions">
-          <button
-            type="button"
-            className={`portfolio-writing-article-action${
-              liked ? ' is-active' : ''
-            }${likePending ? ' is-pending' : ''}`}
-            disabled={likePending}
-            aria-pressed={liked}
-            aria-label={liked ? 'Remove your like' : 'Like this article'}
-            title={liked ? 'Liked' : 'Like'}
-            onClick={() => {
-              void toggleReaction(post);
-            }}
-          >
-            {liked ? (
-              <HeartFillIcon className="portfolio-writing-article-action-icon" />
-            ) : (
-              <HeartIcon className="portfolio-writing-article-action-icon" />
-            )}
-          </button>
-          <button
-            type="button"
-            className={`portfolio-writing-article-action${
-              saved ? ' is-active' : ''
-            }${savePending ? ' is-pending' : ''}`}
-            disabled={savePending}
-            aria-pressed={saved}
-            aria-label={saved ? 'Remove from saved' : 'Save this article'}
-            title={saved ? 'Saved' : 'Save'}
-            onClick={() => {
-              void toggleSave(post);
-            }}
-          >
-            {saved ? (
-              <BookmarkFillIcon className="portfolio-writing-article-action-icon" />
-            ) : (
-              <BookmarkIcon className="portfolio-writing-article-action-icon" />
-            )}
-          </button>
-          <Link
-            href={personalPostPath(post.accountId, post.postId)}
-            className="portfolio-writing-article-action"
-            scroll={false}
-            aria-label="View thread"
-            title="Thread"
-          >
-            <MessageRoundIcon className="portfolio-writing-article-action-icon" />
-          </Link>
-          <button
-            type="button"
-            className={`portfolio-writing-article-action${
-              shareCopied ? ' is-copied' : ''
-            }`}
-            aria-label={shareCopied ? 'Link copied' : 'Share this article'}
-            title={shareCopied ? 'Link copied' : 'Share'}
-            onClick={shareArticle}
-          >
-            {shareCopied ? (
-              <CheckIcon className="portfolio-writing-article-action-icon" />
-            ) : (
-              <ShareIcon className="portfolio-writing-article-action-icon" />
-            )}
-          </button>
+      {showAuthor || showActions ? (
+        <div className="portfolio-writing-article-author">
+          {showAuthor ? (
+            <>
+              <Link
+                href={authorHref}
+                className="portfolio-writing-article-face"
+                scroll={false}
+                aria-label={`View ${authorName}'s profile`}
+              >
+                <AccountAvatar
+                  accountId={post.accountId}
+                  src={avatarUrl}
+                  fallbackInitial={authorName}
+                  size="md"
+                />
+              </Link>
+              <Link
+                href={authorHref}
+                className="portfolio-writing-article-author-name"
+                scroll={false}
+              >
+                {authorName}
+              </Link>
+            </>
+          ) : null}
+          {showActions ? (
+            <div className="portfolio-writing-article-actions">
+              <button
+                type="button"
+                className={`portfolio-writing-article-action${
+                  liked ? ' is-active' : ''
+                }${likePending ? ' is-pending' : ''}`}
+                disabled={likePending}
+                aria-pressed={liked}
+                aria-label={liked ? 'Remove your like' : 'Like this article'}
+                title={liked ? 'Liked' : 'Like'}
+                onClick={() => {
+                  void toggleReaction(post);
+                }}
+              >
+                {liked ? (
+                  <HeartFillIcon className="portfolio-writing-article-action-icon" />
+                ) : (
+                  <HeartIcon className="portfolio-writing-article-action-icon" />
+                )}
+              </button>
+              <button
+                type="button"
+                className={`portfolio-writing-article-action${
+                  saved ? ' is-active' : ''
+                }${savePending ? ' is-pending' : ''}`}
+                disabled={savePending}
+                aria-pressed={saved}
+                aria-label={saved ? 'Remove from saved' : 'Save this article'}
+                title={saved ? 'Saved' : 'Save'}
+                onClick={() => {
+                  void toggleSave(post);
+                }}
+              >
+                {saved ? (
+                  <BookmarkFillIcon className="portfolio-writing-article-action-icon" />
+                ) : (
+                  <BookmarkIcon className="portfolio-writing-article-action-icon" />
+                )}
+              </button>
+              <Link
+                href={personalPostPath(post.accountId, post.postId)}
+                className="portfolio-writing-article-action"
+                scroll={false}
+                aria-label="View thread"
+                title="Thread"
+              >
+                <MessageRoundIcon className="portfolio-writing-article-action-icon" />
+              </Link>
+              <button
+                type="button"
+                className={`portfolio-writing-article-action${
+                  shareCopied ? ' is-copied' : ''
+                }`}
+                aria-label={shareCopied ? 'Link copied' : 'Share this article'}
+                title={shareCopied ? 'Link copied' : 'Share'}
+                onClick={shareArticle}
+              >
+                {shareCopied ? (
+                  <CheckIcon className="portfolio-writing-article-action-icon" />
+                ) : (
+                  <ShareIcon className="portfolio-writing-article-action-icon" />
+                )}
+              </button>
+            </div>
+          ) : null}
         </div>
-      </div>
+      ) : null}
 
       {body.trim() ? (
         <div

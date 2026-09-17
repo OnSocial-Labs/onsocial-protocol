@@ -22017,8 +22017,9 @@ a.os-surface-row {
     cursor: default;
   }
 
-  .post-card-article-cover.is-photo {
-    cursor: zoom-in;
+  .post-card-article-cover.is-photo,
+  .post-card-article-cover.is-card {
+    cursor: pointer;
   }
 
   .post-card-article-cover .post-card-article-cover-face {
@@ -27876,7 +27877,8 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .scarce-writing-read-eyebrow {
+  .scarce-writing-read-eyebrow,
+  .os-media-face-eyebrow {
     margin: 0;
     font-size: 0.66rem;
     font-weight: 650;
@@ -27897,6 +27899,45 @@ a.os-surface-row {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+  }
+
+  .os-media-face-title--single {
+    -webkit-line-clamp: 1;
+    white-space: nowrap;
+    display: block;
+  }
+
+  /* Jacket identity — avatar + name only (article feed reader). */
+  .os-media-face-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+    max-width: 100%;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .os-media-face-identity:hover .os-media-face-identity-name,
+  .os-media-face-identity:focus-visible .os-media-face-identity-name {
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .os-media-face-identity .profile-avatar {
+    flex-shrink: 0;
+  }
+
+  .os-media-face-identity-name {
+    margin: 0;
+    min-width: 0;
+    font-size: 1.08rem;
+    font-weight: 700;
+    line-height: 1.22;
+    letter-spacing: -0.015em;
+    color: rgb(var(--fg-rgb) / 0.96);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .os-media-face-subtitle {
@@ -30770,6 +30811,17 @@ a.os-surface-row {
     /* No top pad — progress + jacket own the rim (kills the scroll-top gap). */
     padding: 0 0.9rem 0.55rem;
     box-sizing: border-box;
+  }
+
+  /* Feed article slide-over — essay panel inside media-face. */
+  .feed-article-slide .feed-article-read .portfolio-writing-article {
+    width: 100%;
+  }
+
+  .feed-article-slide .feed-article-read .portfolio-writing-byline,
+  .feed-article-slide .feed-article-read .portfolio-writing-card-excerpt,
+  .feed-article-slide .feed-article-read .portfolio-writing-article-author-name {
+    color: var(--feed-article-muted, rgb(var(--fg-rgb) / 0.58));
   }
 
   /*

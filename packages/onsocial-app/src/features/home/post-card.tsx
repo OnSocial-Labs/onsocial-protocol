@@ -54,6 +54,7 @@ import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
 import { writeDockDraftKey } from '@/lib/os-write-dock';
 import { guildPath } from '@/features/guilds/guilds-data';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
+import { FeedArticleReadScreen } from '@/features/home/feed-article-read-screen';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
 import { PostMediaStrip } from '@/features/home/post-media';
 import { PostPollEmbedCard } from '@/features/home/post-poll-embed';
@@ -1209,6 +1210,7 @@ function PostCardBody({
   expandDisabled = false,
   articleTitle = null,
   articleHref = null,
+  onReadArticle = null,
 }: {
   relationContext: PostRelationContext | null;
   relationTargetProfileName?: string | null;
@@ -1220,6 +1222,8 @@ function PostCardBody({
   expandDisabled?: boolean;
   articleTitle?: string | null;
   articleHref?: string | null;
+  /** Feed overlay reader — preferred over hard-nav when set. */
+  onReadArticle?: (() => void) | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const previewLimit = postFeedPreviewLimit(hasMedia);
@@ -1236,8 +1240,32 @@ function PostCardBody({
       : text;
   const showArticleRead =
     isArticle &&
-    Boolean(articleHref) &&
+    (Boolean(articleHref) || Boolean(onReadArticle)) &&
     (postPreviewNeedsExpand(text, previewLimit) || Boolean(articleTitle));
+
+  const readControl =
+    showArticleRead && onReadArticle ? (
+      <button
+        type="button"
+        className="post-card-show-more"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onReadArticle();
+        }}
+      >
+        Read
+      </button>
+    ) : showArticleRead && articleHref ? (
+      <Link
+        href={articleHref}
+        className="post-card-show-more"
+        scroll={false}
+        onClick={(event) => event.stopPropagation()}
+      >
+        Read
+      </Link>
+    ) : null;
 
   return (
     <>
@@ -1276,28 +1304,10 @@ function PostCardBody({
               {expanded ? 'Show less' : 'Show more'}
             </button>
           ) : null}
-          {showArticleRead && articleHref ? (
-            <Link
-              href={articleHref}
-              className="post-card-show-more"
-              scroll={false}
-              onClick={(event) => event.stopPropagation()}
-            >
-              Read
-            </Link>
-          ) : null}
+          {readControl}
         </div>
-      ) : showArticleRead && articleHref ? (
-        <div className="post-card-body-block">
-          <Link
-            href={articleHref}
-            className="post-card-show-more"
-            scroll={false}
-            onClick={(event) => event.stopPropagation()}
-          >
-            Read
-          </Link>
-        </div>
+      ) : readControl ? (
+        <div className="post-card-body-block">{readControl}</div>
       ) : null}
     </>
   );
@@ -1394,13 +1404,13 @@ export function PostCard({
   );
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
+  /** Mood / craft article — slide-over reader (stays on feed). */
+  const [articleOpen, setArticleOpen] = useState(false);
   /** Article cover still when it isn’t already in post media. */
   const [enlargeOverride, setEnlargeOverride] = useState<PostMediaItem[] | null>(
     null
   );
-  /** Mood / craft article cover — enlarge the card face (no raster URL). */
-  const [enlargeMoodCover, setEnlargeMoodCover] = useState(false);
-  const enlargeWrite = photoOpen || feedMediumOpen;
+  const enlargeWrite = photoOpen || feedMediumOpen || articleOpen;
   const focusWriteDock = useFocusWriteDock();
   useReplyWriteDock({
     target: post,
@@ -1412,6 +1422,7 @@ export function PostCard({
       ? (payload) => {
           setPhotoOpen(false);
           setFeedMediumOpen(false);
+          setArticleOpen(false);
           onExpandReply(post, payload);
         }
       : undefined,
@@ -1713,8 +1724,7 @@ export function PostCard({
   /**
    * Cover tap:
    * - Drop face → writing/listen sheet
-   * - Photo cover → same media-face enlarge as feed photos (never the article)
-   * - Mood/craft card → same media-face with the card stage (Read → article)
+   * - Any other article cover → article slide-over (back stays on this post)
    */
   const activateArticleCover = () => {
     if (articleHasScarceFace) {
@@ -1724,29 +1734,8 @@ export function PostCard({
       openFeedMedium(mode === 'audio' ? 'audio' : 'writing');
       return;
     }
-    if (articleCoverUrl) {
-      setEnlargeMoodCover(false);
-      const existingIndex = visualMedia.findIndex(
-        (item) => item.url === articleCoverUrl
-      );
-      if (existingIndex >= 0) {
-        setEnlargeOverride(null);
-        setPhotoIndex(existingIndex);
-      } else {
-        setEnlargeOverride([
-          { url: articleCoverUrl, mime: 'image/jpeg' },
-          ...visualMedia,
-        ]);
-        setPhotoIndex(0);
-      }
-      setPhotoOpen(true);
-      return;
-    }
-    if (!articleCover) return;
-    setEnlargeOverride(null);
-    setEnlargeMoodCover(true);
-    setPhotoIndex(0);
-    setPhotoOpen(true);
+    if (!article) return;
+    setArticleOpen(true);
   };
   const articleCoverActivatable = Boolean(article && articleCover);
 
@@ -1885,6 +1874,11 @@ export function PostCard({
             }
             articleTitle={article?.title ?? null}
             articleHref={articleHref}
+            onReadArticle={
+              article && !articleHasScarceFace
+                ? () => setArticleOpen(true)
+                : null
+            }
           />
           {poll ? (
             <PostPollEmbedCard
@@ -1915,7 +1909,7 @@ export function PostCard({
                 articleCoverActivatable
                   ? articleHasScarceFace
                     ? 'Open Drop preview'
-                    : 'Enlarge cover'
+                    : 'Read article'
                   : undefined
               }
               onClick={(event: MouseEvent) => {
@@ -1967,7 +1961,6 @@ export function PostCard({
                         index
                       );
                       if (action.kind === 'enlarge') {
-                        setEnlargeMoodCover(false);
                         setEnlargeOverride(null);
                         setPhotoIndex(action.mediaIndex);
                         setPhotoOpen(true);
@@ -2138,31 +2131,12 @@ export function PostCard({
           setPhotoOpen(open);
           if (!open) {
             setEnlargeOverride(null);
-            setEnlargeMoodCover(false);
           }
         }}
         title={name}
         subtitle={photoSubtitle}
-        photos={enlargeMoodCover ? [] : enlargePhotos}
+        photos={enlargePhotos}
         initialIndex={photoIndex}
-        stage={
-          enlargeMoodCover && article && articleCover ? (
-            <PortfolioWritingCover
-              variant="face"
-              title={article.title}
-              coverUrl={null}
-              cardBg={articleCover.cardBg}
-              format={articleCover.format}
-              markShape={articleCover.markShape}
-              markColor={articleCover.markColor}
-              accountId={post.accountId}
-              displayName={authorProfile?.displayName}
-              avatarUrl={authorProfile?.avatarUrl}
-              postId={post.postId}
-              issuedAt={articleIssuedAt}
-            />
-          ) : null
-        }
         engagement={
           engagement ? (
             <PostEngagementRow
@@ -2203,6 +2177,60 @@ export function PostCard({
               onToggleSave={onToggleSave}
               onAmplify={() => {
                 setPhotoOpen(false);
+                setAmplifyOpen(true);
+              }}
+              shareDrawerZIndex={SCARCE_Z.commerceOverListen}
+              post={post}
+            />
+          ) : null
+        }
+      />
+      <FeedArticleReadScreen
+        open={articleOpen}
+        onOpenChange={setArticleOpen}
+        post={post}
+        authorProfile={authorProfile}
+        cardBg={articleCover?.cardBg ?? null}
+        engagement={
+          engagement ? (
+            <PostEngagementRow
+              engagement={engagement}
+              shareHref={shareHref}
+              shareTitle={name}
+              reactionPending={reactionPending}
+              savePending={savePending}
+              sharePending={sharePending}
+              onReply={() => {
+                focusWriteDock();
+              }}
+              onQuote={
+                onQuote
+                  ? (target) => {
+                      setArticleOpen(false);
+                      onQuote(target);
+                    }
+                  : undefined
+              }
+              onRepost={
+                onRepost
+                  ? (target) => {
+                      setArticleOpen(false);
+                      onRepost(target);
+                    }
+                  : undefined
+              }
+              onUndoRepost={
+                onUndoRepost
+                  ? (target) => {
+                      setArticleOpen(false);
+                      onUndoRepost(target);
+                    }
+                  : undefined
+              }
+              onToggleReaction={onToggleReaction}
+              onToggleSave={onToggleSave}
+              onAmplify={() => {
+                setArticleOpen(false);
                 setAmplifyOpen(true);
               }}
               shareDrawerZIndex={SCARCE_Z.commerceOverListen}
