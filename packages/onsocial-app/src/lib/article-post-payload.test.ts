@@ -16,6 +16,7 @@ import {
   resolveWritingEmptyState,
   shouldShowWritingLink,
   shouldShowWritingSearch,
+  resolveWritingListQuery,
   formatWritingArticleCountLabel,
   formatWritingLikeLabel,
   formatWritingReadLabel,
@@ -415,6 +416,18 @@ describe('shouldShowWritingSearch', () => {
     expect(shouldShowWritingSearch(0)).toBe(true);
     expect(shouldShowWritingSearch(3)).toBe(true);
     expect(shouldShowWritingSearch(4)).toBe(true);
+  });
+});
+
+describe('resolveWritingListQuery', () => {
+  it('keeps the deferred needle while typing', () => {
+    expect(resolveWritingListQuery('lis', 'li')).toBe('li');
+    expect(resolveWritingListQuery('lisbon', 'lisbon')).toBe('lisbon');
+  });
+
+  it('flushes immediately when the field clears', () => {
+    expect(resolveWritingListQuery('', 'lisbon')).toBe('');
+    expect(resolveWritingListQuery('   ', 'lisbon')).toBe('   ');
   });
 });
 

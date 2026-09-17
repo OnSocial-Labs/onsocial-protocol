@@ -6,6 +6,7 @@ import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search'
 import { OsChromeSubject } from '@/components/profile/os-chrome-subject';
 import { formatWritingArticleCountLabel } from '@/lib/article-post-payload';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 
 export function WritingSearchHeading({
   query = '',
@@ -23,10 +24,13 @@ export function WritingSearchHeading({
         interactive && onQueryChange ? onQueryChange : () => undefined
       }
       placeholder="Search writing"
+      maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
       clearAriaLabel="Clear search"
       ariaLabel="Search writing"
       idleClassName="discover-nav-search-field"
-      leadingIcon={<NoteTextFillIcon className="search-field-icon" aria-hidden />}
+      leadingIcon={
+        <NoteTextFillIcon className="search-field-icon" aria-hidden />
+      }
     />
   );
 }

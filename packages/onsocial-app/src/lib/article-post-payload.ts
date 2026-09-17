@@ -101,8 +101,7 @@ export function resolveArticleCoverPin(
     normalizeArticleCoverMood(fallbackMood) ??
     defaults.mood;
   const voice = splitMoodKey(mood)?.voice;
-  const formatFromMood =
-    voice && isCardFormat(voice) ? voice : defaults.format;
+  const formatFromMood = voice && isCardFormat(voice) ? voice : defaults.format;
   return {
     mood,
     format: normalizeArticleCoverFormat(cover?.format) ?? formatFromMood,
@@ -428,6 +427,14 @@ export const WRITING_SEARCH_MIN_ARTICLES = 0;
 
 export function shouldShowWritingSearch(_articleCount = 0): boolean {
   return true;
+}
+
+/** Live chrome query vs deferred list filter. Empty clears immediately. */
+export function resolveWritingListQuery(
+  liveQuery: string,
+  deferredQuery: string
+): string {
+  return liveQuery.trim() ? deferredQuery : liveQuery;
 }
 
 /** Chrome trailing count — “1 article” / “N articles”. */
