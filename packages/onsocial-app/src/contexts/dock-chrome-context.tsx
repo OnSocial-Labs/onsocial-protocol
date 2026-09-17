@@ -21,6 +21,9 @@ interface DockChromeContextValue {
   setDockBack: (entry: DockBackRegistration | null) => void;
   headerOwnsConnect: boolean;
   setHeaderOwnsConnect: (owns: boolean) => void;
+  /** Immersive reader / listen tucked chrome — dock follows. */
+  immersiveChromeQuiet: boolean;
+  setImmersiveChromeQuiet: (quiet: boolean) => void;
 }
 
 const DockChromeContext = createContext<DockChromeContextValue | null>(null);
@@ -50,14 +53,17 @@ export function resolveDockConnectHintVisible({
 export function DockChromeProvider({ children }: { children: ReactNode }) {
   const [dockBack, setDockBack] = useState<DockBackRegistration | null>(null);
   const [headerOwnsConnect, setHeaderOwnsConnect] = useState(false);
+  const [immersiveChromeQuiet, setImmersiveChromeQuiet] = useState(false);
   const value = useMemo(
     () => ({
       dockBack,
       setDockBack,
       headerOwnsConnect,
       setHeaderOwnsConnect,
+      immersiveChromeQuiet,
+      setImmersiveChromeQuiet,
     }),
-    [dockBack, headerOwnsConnect]
+    [dockBack, headerOwnsConnect, immersiveChromeQuiet]
   );
   return (
     <DockChromeContext.Provider value={value}>
@@ -72,6 +78,10 @@ export function useDockBack(): DockBackRegistration | null {
 
 export function useHeaderOwnsConnect(): boolean {
   return useContext(DockChromeContext)?.headerOwnsConnect ?? false;
+}
+
+export function useImmersiveChromeQuiet(): boolean {
+  return useContext(DockChromeContext)?.immersiveChromeQuiet ?? false;
 }
 
 /** Register contextual back on the summon dock (clears on unmount). */
@@ -96,4 +106,16 @@ export function useRegisterHeaderOwnsConnect(owns: boolean) {
     setHeaderOwnsConnect(owns);
     return () => setHeaderOwnsConnect(false);
   }, [owns, setHeaderOwnsConnect]);
+}
+
+/** Immersive Read/Listen chrome quiet — tuck the summon dock with it. */
+export function useRegisterImmersiveChromeQuiet(quiet: boolean) {
+  const context = useContext(DockChromeContext);
+  const setImmersiveChromeQuiet = context?.setImmersiveChromeQuiet;
+
+  useLayoutEffect(() => {
+    if (!setImmersiveChromeQuiet) return;
+    setImmersiveChromeQuiet(quiet);
+    return () => setImmersiveChromeQuiet(false);
+  }, [quiet, setImmersiveChromeQuiet]);
 }

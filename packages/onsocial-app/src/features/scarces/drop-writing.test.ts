@@ -22,6 +22,7 @@ import {
   writingCommitTurn,
   writingEdgeTap,
   writingObjectProgress,
+  writingObjectProgressParts,
   writingPdfPageProgress,
   writingPdfNearPages,
   writingPdfVisiblePage,
@@ -440,6 +441,25 @@ describe('writingObjectProgress', () => {
         chapterRatio: 2,
       })
     ).toBe(1);
+  });
+
+  it('round-trips through writingObjectProgressParts', () => {
+    for (const sample of [0, 0.125, 0.375, 0.5, 0.99, 1]) {
+      const parts = writingObjectProgressParts({
+        ratio: sample,
+        chapterCount: 4,
+      });
+      expect(
+        writingObjectProgress({
+          chapterIndex: parts.chapterIndex,
+          chapterCount: 4,
+          chapterRatio: parts.chapterRatio,
+        })
+      ).toBeCloseTo(sample, 10);
+    }
+    expect(
+      writingObjectProgressParts({ ratio: 0.5, chapterCount: 0 })
+    ).toEqual({ chapterIndex: 0, chapterRatio: 0 });
   });
 });
 

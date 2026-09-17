@@ -6,7 +6,6 @@ import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { fetchScarceTokenMeta } from '@/features/market/market-listings';
 import {
   collectionCurrentRowToView,
-  fetchOwnsCollectionEdition,
   hydrateWritingManifest,
 } from '@/features/scarces/collections-data';
 import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
@@ -16,9 +15,7 @@ import type {
 } from '@/features/scarces/drop-writing';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
-import { writingReadLockedHint } from '@/features/scarces/writing-read-voice';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
-import { accountIdsEqual } from '@/lib/account-match';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   resolveScarceFeedMediumMode,
@@ -91,7 +88,6 @@ export function ScarceFeedMediumSheet({
     'left' | 'center' | 'justify' | null
   >(null);
   const [hydrateSettled, setHydrateSettled] = useState(false);
-  const [holdsEdition, setHoldsEdition] = useState<boolean | null>(null);
   const playables =
     playablesProp.length > 0 ? playablesProp : hydratedPlayables;
   const readables =
@@ -105,11 +101,6 @@ export function ScarceFeedMediumSheet({
   const immersiveWriting = mode === 'writing' && open;
   const isOverlay = mode === 'viewer' || (mode === 'audio' && !clip);
 
-  const isCreator =
-    Boolean(viewerAccountId?.trim()) &&
-    Boolean(creatorId?.trim()) &&
-    accountIdsEqual(viewerAccountId!, creatorId!);
-
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
@@ -119,7 +110,6 @@ export function ScarceFeedMediumSheet({
       setHydratedBookPdf(null);
       setHydratedTextAlign(null);
       setHydrateSettled(false);
-      setHoldsEdition(null);
     }
   }
 
@@ -190,34 +180,11 @@ export function ScarceFeedMediumSheet({
     tokenId,
   ]);
 
-  useEffect(() => {
-    if (!open || mode !== 'writing' || !collectionId) return;
-    if (isCreator) {
-      setHoldsEdition(true);
-      return;
-    }
-    if (!viewerAccountId?.trim()) {
-      setHoldsEdition(false);
-      return;
-    }
-    let cancelled = false;
-    void fetchOwnsCollectionEdition(collectionId, viewerAccountId).then(
-      (owns) => {
-        if (!cancelled) setHoldsEdition(owns);
-      }
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [open, mode, collectionId, viewerAccountId, isCreator]);
-
   const name = title.trim() || 'Drop';
   const hasWriting = readables.length > 0 || bookPdf != null;
-  const canReadWriting = isCreator || holdsEdition === true;
-  const writingLockedHint = writingReadLockedHint({
-    isConnected: Boolean(viewerAccountId?.trim()),
-    holdsEdition,
-  });
+  const canReadWriting = true;
+  const writingLockedHint =
+    !hydrateSettled && !hasWriting ? 'Loading writing…' : '';
   const inlineSvg = coverSvg?.trim() ? inlineSvgMarkup(coverSvg.trim()) : null;
   const rasterCover = cover?.trim() || null;
   const postChrome =
@@ -280,11 +247,7 @@ export function ScarceFeedMediumSheet({
         writingFormat={writingFormat}
         textAlign={hydratedTextAlign}
         canRead={canReadWriting}
-        lockedHint={
-          !hydrateSettled && !hasWriting
-            ? 'Loading writing…'
-            : writingLockedHint
-        }
+        lockedHint={writingLockedHint}
         footer={postChrome}
       />
     );

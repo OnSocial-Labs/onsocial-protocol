@@ -51,6 +51,7 @@ import {
   resolveDockConnectHintVisible,
   useDockBack,
   useHeaderOwnsConnect,
+  useImmersiveChromeQuiet,
 } from '@/contexts/dock-chrome-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
 import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
@@ -273,8 +274,12 @@ export function SummonLauncher({
   const writePinned = useWriteDockPinned();
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
+  const immersiveChromeQuiet = useImmersiveChromeQuiet();
+  const writing = Boolean(write) || writePinned;
   const dockHidden =
-    useDockAutoHide(open || writePinned || Boolean(write)) && !open;
+    (useDockAutoHide(open || writing) || immersiveChromeQuiet) &&
+    !open &&
+    !writing;
   const showDockBack = resolveDockBackVisible({
     dockBack,
     launcherOpen: open,
@@ -295,7 +300,10 @@ export function SummonLauncher({
     typeof document !== 'undefined' &&
     portalTarget !== document.body;
   const summonDockRef = useRef<HTMLDivElement>(null);
-  useSummonDockOccupiedHeight(summonDockRef, !hideTrigger && !dockHidden);
+  useSummonDockOccupiedHeight(
+    summonDockRef,
+    !hideTrigger && (!dockHidden || writing)
+  );
   const sheetRef = useRef<HTMLElement>(null);
   const dragStateRef = useRef<{
     startY: number;

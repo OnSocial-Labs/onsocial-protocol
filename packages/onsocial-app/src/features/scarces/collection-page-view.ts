@@ -23,7 +23,12 @@ export function collectionCoverImmersive(opts: {
   return (opts.kind ?? '').trim().toLowerCase() !== 'art';
 }
 
-export type CollectionCoverExpandAction = 'read' | 'pass' | 'artwork' | null;
+export type CollectionCoverExpandAction =
+  | 'read'
+  | 'listen'
+  | 'pass'
+  | 'artwork'
+  | null;
 
 /** Writing kind always opens Read — even before chapters hydrate. */
 export function collectionOpensWritingReader(opts: {
@@ -35,18 +40,20 @@ export function collectionOpensWritingReader(opts: {
 }
 
 /**
- * Cover ScaleUp on the drop page.
- * Writing opens Read (same family as Listen / Pass). Art zooms.
+ * Cover ScaleUp on the drop page — primary medium immersive:
+ * Writing → Read, audio → Listen, held pass → Show pass, else art zoom.
  */
 export function collectionCoverExpandAction(opts: {
   kind?: string | null;
   hasReadables: boolean;
   canShowPass: boolean;
   isAudio: boolean;
+  hasPlayables?: boolean;
   hasMedia: boolean;
 }): CollectionCoverExpandAction {
   if (collectionOpensWritingReader(opts)) return 'read';
   if (opts.canShowPass) return 'pass';
+  if (opts.isAudio && (opts.hasPlayables ?? false)) return 'listen';
   if (!opts.isAudio && opts.hasMedia) return 'artwork';
   return null;
 }

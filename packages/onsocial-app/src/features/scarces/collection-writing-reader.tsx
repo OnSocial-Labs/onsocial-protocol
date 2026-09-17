@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
@@ -12,6 +12,7 @@ import {
   readWritingChapterIndex,
   readWritingScrollRatio,
   writingObjectProgress,
+  writingObjectProgressParts,
   writingPointerRelease,
   writingReaderTap,
   writingRubberBandOffset,
@@ -42,6 +43,8 @@ export function CollectionWritingReader({
   onProgress,
   onScrollDelta,
   onChromeTap,
+  /** Imperative whole-object seek (0–1). Sheet scrubber assigns this. */
+  seekProgressRef,
 }: {
   collectionId: string;
   accountId?: string | null;
@@ -53,12 +56,13 @@ export function CollectionWritingReader({
   immersive?: boolean;
   /** Listed article body alignment — matches Writing shelf. */
   textAlign?: 'left' | 'center' | 'justify' | null;
-  /** 0–1 scroll progress for the active chapter body. */
+  /** 0–1 whole Issue / Book progress. */
   onProgress?: (ratio: number) => void;
   /** Signed scroll delta (px) for chrome fade. */
   onScrollDelta?: (deltaY: number) => void;
   /** Center tap — show or hide jacket / OS chrome. */
   onChromeTap?: () => void;
+  seekProgressRef?: MutableRefObject<((ratio: number) => void) | null>;
 }) {
   const isBook =
     writingFormat === 'book' ||
@@ -69,6 +73,22 @@ export function CollectionWritingReader({
   const lastBoxRef = useRef({ scrollHeight: 0, clientHeight: 0 });
   /** Ignore scroll deltas while layout / restore settles after a chapter paint. */
   const settleUntilRef = useRef(0);
+  const scrollRafRef = useRef<number | null>(null);
+  const pendingScrollRef = useRef<{
+    ratio: number;
+    delta: number;
+    snap: boolean;
+  } | null>(null);
+  /**
+   * Immersive Read — OS page scroll on `.os-app-screen-body` (not a nested
+   * text viewport). Inline Drop reading still scrolls this node.
+   */
+  const resolveScrollRoot = (): HTMLElement | null => {
+    const local = bodyRef.current;
+    if (!local) return null;
+    if (!immersive) return local;
+    return local.closest<HTMLElement>('.os-app-screen-body') ?? local;
+  };
   const gestureRef = useRef<{
     phase: 'idle' | 'held' | 'turning';
     start: {
@@ -180,6 +200,59 @@ export function CollectionWritingReader({
     setDragDx(0);
   };
 
+  const scrollChapterToRatio = (ratio: number) => {
+    const el = resolveScrollRoot();
+    if (!el) return;
+    const next = Math.min(1, Math.max(0, ratio));
+    const max = el.scrollHeight - el.clientHeight;
+    if (max <= 0) {
+      setChapterRatio(1);
+      return;
+    }
+    el.scrollTop = next * max;
+    lastScrollTopRef.current = el.scrollTop;
+    setChapterRatio(next);
+    writeWritingScrollRatio(collectionId, accountId, safeIndex, next);
+  };
+
+  useEffect(() => {
+    if (!seekProgressRef) return;
+    seekProgressRef.current = (objectRatio: number) => {
+      if (readables.length <= 0) {
+        scrollChapterToRatio(objectRatio);
+        return;
+      }
+      const parts = writingObjectProgressParts({
+        ratio: objectRatio,
+        chapterCount: readables.length,
+      });
+      writeWritingScrollRatio(
+        collectionId,
+        accountId,
+        parts.chapterIndex,
+        parts.chapterRatio
+      );
+      if (parts.chapterIndex !== safeIndex) {
+        // Instant jump — scrub should not play folio turn.
+        applyChapter(parts.chapterIndex);
+        setChapterRatio(parts.chapterRatio);
+        return;
+      }
+      scrollChapterToRatio(parts.chapterRatio);
+    };
+    return () => {
+      seekProgressRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- assign latest seek
+  }, [
+    seekProgressRef,
+    readables.length,
+    safeIndex,
+    collectionId,
+    accountId,
+    immersive,
+  ]);
+
   const goChapter = (nextIndex: number) => {
     const gesture = gestureRef.current;
     if (readables.length <= 0 || gesture.phase === 'turning') return;
@@ -246,12 +319,12 @@ export function CollectionWritingReader({
 
   // Restore scroll after markdown or the folio paints.
   useEffect(() => {
-    if (!bodyRef.current) return;
+    const el = resolveScrollRoot();
+    if (!el) return;
     if (!body && !chapterIsPdf) return;
     settleUntilRef.current =
       typeof performance !== 'undefined' ? performance.now() + 480 : 0;
     const ratio = readWritingScrollRatio(collectionId, accountId, safeIndex);
-    const el = bodyRef.current;
     const apply = () => {
       const max = el.scrollHeight - el.clientHeight;
       lastBoxRef.current = {
@@ -271,7 +344,9 @@ export function CollectionWritingReader({
     apply();
     const frame = window.requestAnimationFrame(apply);
     return () => window.cancelAnimationFrame(frame);
-  }, [body, chapterIsPdf, collectionId, accountId, safeIndex]);
+    // resolveScrollRoot reads bodyRef + immersive; re-run when chapter paints.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- bodyRef identity
+  }, [body, chapterIsPdf, collectionId, accountId, safeIndex, immersive]);
 
   // Prefetch next Markdown chapter (book only).
   useEffect(() => {
@@ -286,13 +361,10 @@ export function CollectionWritingReader({
     return () => controller.abort();
   }, [canRead, isBook, readables, safeIndex]);
 
-  const onBodyScroll = () => {
-    const el = bodyRef.current;
-    if (!el) return;
+  const flushScrollProgress = (el: HTMLElement) => {
     const max = el.scrollHeight - el.clientHeight;
     const ratio = max > 0 ? el.scrollTop / max : 0;
     writeWritingScrollRatio(collectionId, accountId, safeIndex, ratio);
-    setChapterRatio(ratio);
     const delta = el.scrollTop - lastScrollTopRef.current;
     const snap = writingScrollIsLayoutSnap({
       scrollHeight: el.scrollHeight,
@@ -305,16 +377,57 @@ export function CollectionWritingReader({
       clientHeight: el.clientHeight,
     };
     lastScrollTopRef.current = el.scrollTop;
-    if (snap) return;
-    // Chapter paint / scroll restore changes scrollTop without a finger —
-    // don't collapse the jacket.
-    if (
-      typeof performance !== 'undefined' &&
-      performance.now() < settleUntilRef.current
-    ) {
-      return;
-    }
-    if (delta !== 0) onScrollDelta?.(delta);
+    pendingScrollRef.current = { ratio, delta, snap };
+    if (scrollRafRef.current != null) return;
+    scrollRafRef.current = window.requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      const pending = pendingScrollRef.current;
+      if (!pending) return;
+      setChapterRatio(pending.ratio);
+      if (pending.snap) return;
+      if (
+        typeof performance !== 'undefined' &&
+        performance.now() < settleUntilRef.current
+      ) {
+        return;
+      }
+      if (pending.delta !== 0) onScrollDelta?.(pending.delta);
+    });
+  };
+
+  // Immersive: listen on OS page body. Inline: onScroll on the local body.
+  useEffect(() => {
+    if (!immersive) return;
+    const el = resolveScrollRoot();
+    if (!el) return;
+    const onScroll = () => flushScrollProgress(el);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    immersive,
+    collectionId,
+    accountId,
+    safeIndex,
+    onScrollDelta,
+    body,
+    chapterIsPdf,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollRafRef.current != null) {
+        window.cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = null;
+      }
+    };
+  }, []);
+
+  const onBodyScroll = () => {
+    if (immersive) return;
+    const el = bodyRef.current;
+    if (!el) return;
+    flushScrollProgress(el);
   };
 
   const selectChapter = (index: number) => {
@@ -322,7 +435,7 @@ export function CollectionWritingReader({
   };
 
   const scrollEnds = () => {
-    const el = bodyRef.current;
+    const el = resolveScrollRoot();
     if (!el) return { atStart: true, atEnd: true };
     return {
       atStart: el.scrollTop <= 2,
@@ -332,16 +445,17 @@ export function CollectionWritingReader({
 
   const turnFromGesture = (direction: 'next' | 'prev') => {
     const { atStart, atEnd } = scrollEnds();
-    if (chapterIsPdf && direction === 'next' && !atEnd) {
-      bodyRef.current?.scrollBy({
-        top: Math.round((bodyRef.current.clientHeight || 320) * 0.92),
+    const scroller = resolveScrollRoot();
+    if (chapterIsPdf && direction === 'next' && !atEnd && scroller) {
+      scroller.scrollBy({
+        top: Math.round((scroller.clientHeight || 320) * 0.92),
         behavior: prefersReducedMotion() ? 'auto' : 'smooth',
       });
       return;
     }
-    if (chapterIsPdf && direction === 'prev' && !atStart) {
-      bodyRef.current?.scrollBy({
-        top: -Math.round((bodyRef.current.clientHeight || 320) * 0.92),
+    if (chapterIsPdf && direction === 'prev' && !atStart && scroller) {
+      scroller.scrollBy({
+        top: -Math.round((scroller.clientHeight || 320) * 0.92),
         behavior: prefersReducedMotion() ? 'auto' : 'smooth',
       });
       return;
@@ -598,19 +712,12 @@ export function CollectionWritingReader({
 
           <div
             ref={bodyRef}
-            className={`collection-writing-body${
-              turnAnim ? ` is-turn-${turnAnim}` : ''
-            }${dragDx !== 0 && !turnAnim ? ' is-turning-drag' : ''}`}
-            style={
-              dragDx !== 0 && !turnAnim
-                ? { transform: `translateX(${dragDx}px)` }
-                : undefined
-            }
+            className="collection-writing-body"
+            suppressHydrationWarning
             onScroll={onBodyScroll}
             onPointerDown={onBodyPointerDown}
             onPointerMove={onBodyPointerMove}
             onPointerUp={onBodyPointerUp}
-            onAnimationEnd={onTurnAnimationEnd}
             onPointerCancel={() => {
               const gesture = gestureRef.current;
               if (gesture.phase === 'held') gesture.phase = 'idle';
@@ -619,44 +726,58 @@ export function CollectionWritingReader({
               setDragDx(0);
             }}
           >
-            {isBook && chapter ? (
-              <h3 className="collection-writing-chapter-title">
-                {chapterLabel}
-              </h3>
-            ) : null}
-            {chapterIsPdf && chapterUrl ? (
-              <CollectionWritingPdfPage
-                url={chapterUrl}
-                title={
-                  chapter.title?.trim() || `PDF chapter ${safeIndex + 1}`
-                }
-                initialRatio={readWritingScrollRatio(
-                  collectionId,
-                  accountId,
-                  safeIndex
-                )}
-                onVisiblePage={(pageIndex, pageCount) => {
-                  setPdfPageLabel(`${pageIndex + 1} / ${pageCount}`);
-                }}
-              />
-            ) : null}
-            {loading ? <CollectionWritingBodySkeleton /> : null}
-            {loadError ? (
-              <p className="collection-writing-status is-error">{loadError}</p>
-            ) : null}
-            {body != null ? (
-              <div
-                className="collection-writing-markdown"
-                data-about-align={textAlign ?? 'left'}
-              >
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeSanitize]}
+            <div
+              className={`collection-writing-folio${
+                turnAnim ? ` is-turn-${turnAnim}` : ''
+              }${dragDx !== 0 && !turnAnim ? ' is-turning-drag' : ''}`}
+              style={
+                dragDx !== 0 && !turnAnim
+                  ? { transform: `translateX(${dragDx}px)` }
+                  : undefined
+              }
+              onAnimationEnd={onTurnAnimationEnd}
+            >
+              {isBook && chapter ? (
+                <h3 className="collection-writing-chapter-title">
+                  {chapterLabel}
+                </h3>
+              ) : null}
+              {chapterIsPdf && chapterUrl ? (
+                <CollectionWritingPdfPage
+                  url={chapterUrl}
+                  title={
+                    chapter.title?.trim() || `PDF chapter ${safeIndex + 1}`
+                  }
+                  initialRatio={readWritingScrollRatio(
+                    collectionId,
+                    accountId,
+                    safeIndex
+                  )}
+                  onVisiblePage={(pageIndex, pageCount) => {
+                    setPdfPageLabel(`${pageIndex + 1} / ${pageCount}`);
+                  }}
+                />
+              ) : null}
+              {loading ? <CollectionWritingBodySkeleton /> : null}
+              {loadError ? (
+                <p className="collection-writing-status is-error">
+                  {loadError}
+                </p>
+              ) : null}
+              {body != null ? (
+                <div
+                  className="collection-writing-markdown"
+                  data-about-align={textAlign ?? 'left'}
                 >
-                  {body}
-                </ReactMarkdown>
-              </div>
-            ) : null}
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeSanitize]}
+                  >
+                    {body}
+                  </ReactMarkdown>
+                </div>
+              ) : null}
+            </div>
           </div>
 
           {isBook && !immersive ? (

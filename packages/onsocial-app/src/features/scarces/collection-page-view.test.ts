@@ -82,6 +82,17 @@ describe('collection page view', () => {
         hasReadables: false,
         canShowPass: false,
         isAudio: true,
+        hasPlayables: true,
+        hasMedia: true,
+      })
+    ).toBe('listen');
+    expect(
+      collectionCoverExpandAction({
+        kind: 'audio',
+        hasReadables: false,
+        canShowPass: false,
+        isAudio: true,
+        hasPlayables: false,
         hasMedia: true,
       })
     ).toBe(null);

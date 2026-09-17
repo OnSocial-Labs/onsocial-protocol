@@ -447,6 +447,20 @@ export function writingObjectProgress(opts: {
   return (index + clampUnit(opts.chapterRatio ?? 0)) / count;
 }
 
+/** Inverse of `writingObjectProgress` — scrubber → chapter + in-chapter ratio. */
+export function writingObjectProgressParts(opts: {
+  ratio: number;
+  chapterCount: number;
+}): { chapterIndex: number; chapterRatio: number } {
+  const count = Math.max(0, Math.floor(opts.chapterCount));
+  if (count <= 0) return { chapterIndex: 0, chapterRatio: 0 };
+  const unit = clampUnit(opts.ratio) * count;
+  const chapterIndex = Math.min(count - 1, Math.floor(unit));
+  const chapterRatio =
+    chapterIndex >= count - 1 ? clampUnit(unit - chapterIndex) : unit - chapterIndex;
+  return { chapterIndex, chapterRatio: clampUnit(chapterRatio) };
+}
+
 /** Progress inside a paged PDF (page index + work on that page). */
 export function writingPdfPageProgress(opts: {
   pageIndex: number;

@@ -29,8 +29,8 @@ import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 /**
- * One-line drop blurb. Shows inline “…” when the line truncates, or when
- * `hasMore` — About has Event / other metadata beyond this one-liner.
+ * One-line drop blurb. CSS ellipsis when long; whole line opens About
+ * when truncated or when `hasMore` (Event / other sheet details).
  */
 export function CollectionAboutTeaser({
   text,
@@ -39,12 +39,14 @@ export function CollectionAboutTeaser({
 }: {
   text: string;
   onReadMore: () => void;
-  /** Show … even when the line fits — About holds more than this teaser. */
+  /** Clickable even when the line fits — About holds more than this teaser. */
   hasMore?: boolean;
 }) {
-  const lineRef = useRef<HTMLParagraphElement>(null);
+  const lineRef = useRef<HTMLElement>(null);
   const [truncated, setTruncated] = useState(false);
   const trimmed = text.trim();
+  const line = trimmed || 'About';
+  const expandable = truncated || hasMore;
 
   useEffect(() => {
     const el = lineRef.current;
@@ -58,30 +60,30 @@ export function CollectionAboutTeaser({
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [trimmed]);
+  }, [trimmed, expandable]);
 
   if (!trimmed && !hasMore) return null;
 
-  const showExpand = truncated || hasMore;
-  const line = trimmed || 'About';
+  if (expandable) {
+    return (
+      <button
+        type="button"
+        className="collection-about-teaser is-expandable"
+        onClick={onReadMore}
+        aria-label={hasMore && !truncated ? 'More details' : 'Read more'}
+      >
+        <span ref={lineRef} className="collection-about-teaser-line">
+          {line}
+        </span>
+      </button>
+    );
+  }
 
   return (
-    <div
-      className={`collection-about-teaser${showExpand ? ' is-truncated' : ''}`}
-    >
+    <div className="collection-about-teaser">
       <p ref={lineRef} className="collection-about-teaser-line">
         {line}
       </p>
-      {showExpand ? (
-        <button
-          type="button"
-          className="collection-about-read-more"
-          onClick={onReadMore}
-          aria-label={hasMore && !truncated ? 'More details' : 'Read more'}
-        >
-          …
-        </button>
-      ) : null}
     </div>
   );
 }

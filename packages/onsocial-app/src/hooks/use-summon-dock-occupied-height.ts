@@ -18,12 +18,17 @@ export function useSummonDockOccupiedHeight(
     const dock = dockRef.current;
     if (!dock) return;
     const screen = dock.closest<HTMLElement>('.os-app-screen');
+    /* Portfolio card host may be `.app-surface` without `.os-app-screen`. */
+    const host = dock.parentElement;
 
     const sync = () => {
       const height = Math.ceil(dock.getBoundingClientRect().height);
       const value = `${Math.max(0, height)}px`;
       dock.style.setProperty(OCCUPIED_VAR, value);
       screen?.style.setProperty(OCCUPIED_VAR, value);
+      if (host && host !== screen) {
+        host.style.setProperty(OCCUPIED_VAR, value);
+      }
     };
 
     sync();
@@ -33,6 +38,9 @@ export function useSummonDockOccupiedHeight(
       resizeObserver.disconnect();
       dock.style.removeProperty(OCCUPIED_VAR);
       screen?.style.removeProperty(OCCUPIED_VAR);
+      if (host && host !== screen) {
+        host.style.removeProperty(OCCUPIED_VAR);
+      }
     };
   }, [dockRef, enabled]);
 }

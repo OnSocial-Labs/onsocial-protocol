@@ -72,6 +72,7 @@ import {
   fetchOwnedCollectionTokenId,
   fetchOwnsCollectionEdition,
   fetchWalletMintRemaining,
+  hydrateWritingManifest,
   isCollectionMintable,
   type CollectionStatus,
   type CollectionView,
@@ -85,7 +86,6 @@ import {
   canResumeDrop,
 } from '@/features/scarces/drop-owner-actions';
 import { writingReadingSectionLabel } from '@/features/scarces/drop-writing';
-import { writingReadLockedHint } from '@/features/scarces/writing-read-voice';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
@@ -255,6 +255,7 @@ export function CollectionPagePanel({
   const [factsOpen, setFactsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [writingReadOpen, setWritingReadOpen] = useState(false);
+  const [coverListenOpen, setCoverListenOpen] = useState(false);
   const [showPassOpen, setShowPassOpen] = useState(false);
   const [showPassTokenId, setShowPassTokenId] = useState<string | null>(null);
   const [mediaOverlayOpen, setMediaOverlayOpen] = useState(false);
@@ -290,6 +291,46 @@ export function CollectionPagePanel({
       cancelled = true;
     };
   }, [collectionId, initial, refreshKey]);
+
+  // SSR shell often skips client catalog refresh — still hydrate writing chapters.
+  useEffect(() => {
+    if (!view) return;
+    if (view.readables.length > 0 || view.bookPdf) return;
+    const kind = (view.kind ?? '').trim().toLowerCase();
+    if (
+      kind !== 'writing' &&
+      !view.writingManifestCid?.trim() &&
+      !view.sourcePostPath?.trim()
+    ) {
+      return;
+    }
+    let cancelled = false;
+    void hydrateWritingManifest(view).then((next) => {
+      if (cancelled) return;
+      if (next.readables.length === 0 && !next.bookPdf) return;
+      setView((prev) => {
+        if (!prev || prev.collectionId !== next.collectionId) return prev;
+        if (prev.readables.length > 0 || prev.bookPdf) return prev;
+        return {
+          ...prev,
+          readables: next.readables,
+          bookPdf: next.bookPdf,
+          writingFormat: next.writingFormat ?? prev.writingFormat,
+          textAlign: next.textAlign ?? prev.textAlign,
+        };
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    view?.collectionId,
+    view?.kind,
+    view?.writingManifestCid,
+    view?.sourcePostPath,
+    view?.readables.length,
+    view?.bookPdf,
+  ]);
 
   useEffect(() => {
     // SSR already seeded activity for first paint — refetch only after mint.
@@ -822,7 +863,8 @@ export function CollectionPagePanel({
     kind: view.kind,
     hasReadables,
   });
-  const canReadWriting = isOwner || holdsEdition === true;
+  /** Writing is public to read — edition is for collect / keep, not a soft DRM gate. */
+  const canReadWriting = true;
   const canShowPass =
     isPassKind && holdsEdition === true && Boolean(ownedPassTokenId);
   const coverExpand = collectionCoverExpandAction({
@@ -830,6 +872,7 @@ export function CollectionPagePanel({
     hasReadables,
     canShowPass,
     isAudio,
+    hasPlayables,
     hasMedia: Boolean(view.mediaUrl),
   });
   const passActionLabel = holdingsActionLabel(mediumKind);
@@ -848,10 +891,6 @@ export function CollectionPagePanel({
   const vaultHref = viewerAccountId
     ? portfolioCollectiblesPath(viewerAccountId)
     : null;
-  const writingLockedHint = writingReadLockedHint({
-    isConnected,
-    holdsEdition,
-  });
   const openOwnedPass = () => {
     const tokenId = ownedPassTokenId?.trim();
     if (!tokenId) return;
@@ -964,6 +1003,18 @@ export function CollectionPagePanel({
                     aria-hidden
                   />
                 </span>
+              </button>
+            ) : coverExpand === 'listen' ? (
+              <button
+                type="button"
+                className="scarce-clip-cover-expand collection-cover-read-expand"
+                aria-label="Open listen"
+                onClick={() => setCoverListenOpen(true)}
+              >
+                <ScaleUpIcon
+                  className="scarce-clip-cover-expand-icon"
+                  aria-hidden
+                />
               </button>
             ) : coverExpand === 'pass' ? (
               <button
@@ -1085,19 +1136,6 @@ export function CollectionPagePanel({
             </div>
             {useFirst ? (
               <div className="collection-use-actions">
-                {opensWritingReader ? (
-                  <div className="collection-reading-row">
-                    <p className="collection-section-label">
-                      {writingReadingSectionLabel(readables.length)}
-                    </p>
-                    <OsRowAction
-                      className="collectibles-holding-action"
-                      onClick={() => setWritingReadOpen(true)}
-                    >
-                      Read
-                    </OsRowAction>
-                  </div>
-                ) : null}
                 {canShowPass && vaultHref ? (
                   <div className="collection-reading-row">
                     <OsRowAction href={vaultHref}>
@@ -1118,11 +1156,34 @@ export function CollectionPagePanel({
                     {passActionLabel}
                   </OsRowAction>
                 ) : null}
+                {opensWritingReader &&
+                vaultHref &&
+                !canShowPass ? (
+                  <div className="collection-reading-row">
+                    <OsRowAction href={vaultHref}>
+                      Open Collectibles
+                    </OsRowAction>
+                    <OsRowAction
+                      className="collectibles-holding-action"
+                      onClick={() => setWritingReadOpen(true)}
+                    >
+                      Read
+                    </OsRowAction>
+                  </div>
+                ) : opensWritingReader && !canShowPass ? (
+                  <OsRowAction
+                    className="collectibles-holding-action"
+                    onClick={() => setWritingReadOpen(true)}
+                  >
+                    Read
+                  </OsRowAction>
+                ) : null}
                 {hasPlayables &&
                 listenOnPlayPage &&
                 holderPlayHref &&
                 vaultHref &&
-                !canShowPass ? (
+                !canShowPass &&
+                !opensWritingReader ? (
                   <div className="collection-reading-row">
                     <OsRowAction href={vaultHref}>
                       Open Collectibles
@@ -1146,7 +1207,7 @@ export function CollectionPagePanel({
                       Play
                     </OsRowAction>
                   </div>
-                ) : !canShowPass && vaultHref ? (
+                ) : !canShowPass && !opensWritingReader && vaultHref ? (
                   <OsRowAction href={vaultHref}>Open Collectibles</OsRowAction>
                 ) : null}
               </div>
@@ -1163,6 +1224,29 @@ export function CollectionPagePanel({
                   <span className="standing-row-shimmer collection-skeleton-use-pill" />
                   <span className="standing-row-shimmer collection-skeleton-use-pill" />
                 </div>
+              </div>
+            ) : hasPlayables && !opensWritingReader ? (
+              <div className="collection-use-actions">
+                {vaultHref ? (
+                  <div className="collection-reading-row">
+                    <OsRowAction href={vaultHref}>
+                      Open Collectibles
+                    </OsRowAction>
+                    <OsRowAction
+                      className="collectibles-holding-action"
+                      onClick={() => setCoverListenOpen(true)}
+                    >
+                      Play
+                    </OsRowAction>
+                  </div>
+                ) : (
+                  <OsRowAction
+                    className="collectibles-holding-action"
+                    onClick={() => setCoverListenOpen(true)}
+                  >
+                    Play
+                  </OsRowAction>
+                )}
               </div>
             ) : null}
             <div className="collection-product-row">
@@ -1417,9 +1501,6 @@ export function CollectionPagePanel({
                 Read
               </OsRowAction>
             </div>
-            {!canReadWriting ? (
-              <p className="collection-writing-locked">{writingLockedHint}</p>
-            ) : null}
           </section>
         ) : null}
 
@@ -1570,8 +1651,41 @@ export function CollectionPagePanel({
         writingFormat={view.writingFormat}
         textAlign={view.textAlign ?? null}
         canRead={canReadWriting}
-        lockedHint={writingLockedHint}
+        lockedHint=""
       />
+
+      {coverListenOpen && playables[0] ? (
+        <ScarceClipPlayer
+          key={`cover-listen-${playables[0].url}`}
+          clip={playables[0]}
+          tracks={playables}
+          poster={view.mediaUrl}
+          layout="cover"
+          showTransport
+          showTracks={false}
+          immersiveListen
+          onListenClose={() => setCoverListenOpen(false)}
+          persist={{
+            collectionId: view.collectionId,
+            title: view.title,
+            creatorId: view.creatorId,
+            seriesId: view.seriesId,
+            seriesTitle: view.seriesTitle,
+            audioFormat: view.audioFormat,
+            facets: view.facets,
+          }}
+          creatorId={view.creatorId}
+          canKeepOffline={
+            isOwner
+              ? true
+              : !viewerAccountId
+                ? false
+                : holdsEdition == null
+                  ? null
+                  : holdsEdition
+          }
+        />
+      ) : null}
 
       {showPassTokenId ? (
         <TicketShowPassSheet

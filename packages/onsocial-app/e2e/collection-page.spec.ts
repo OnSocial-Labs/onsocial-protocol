@@ -80,6 +80,11 @@ test.describe('collection drop page', () => {
     ).toHaveCount(0);
     await expect(page.locator('.collection-tracks')).toBeVisible();
     await expect(page.getByText('2 tracks').first()).toBeVisible();
+    await expect(
+      page
+        .locator('.collection-use-actions')
+        .getByRole('button', { name: 'Play', exact: true })
+    ).toBeVisible();
     await expect(page.locator('.collection-meta-creator-name')).toHaveText(
       'by Alice'
     );
@@ -91,7 +96,7 @@ test.describe('collection drop page', () => {
   test.describe('visitor writing at 390', () => {
     test.use({ viewport: { width: 390, height: 844 } });
 
-    test('visitor writing drop keeps Read locked under commerce', async ({
+    test('visitor writing drop opens Read under commerce', async ({
       page,
     }) => {
       await setE2eGraphDrop(page, 'default');
@@ -109,7 +114,10 @@ test.describe('collection drop page', () => {
       await expectOsRowAction(read);
       await expect(
         page.getByText('Connect to read.', { exact: true })
-      ).toBeVisible();
+      ).toHaveCount(0);
+      await expect(
+        page.getByText('Collect an edition to read.', { exact: true })
+      ).toHaveCount(0);
       await expect(
         page.getByRole('button', { name: 'Open reader' })
       ).toBeVisible();
@@ -118,26 +126,25 @@ test.describe('collection drop page', () => {
       ).toHaveCount(0);
       await read.click();
       const sheet = page.locator('.scarce-read-slide');
-      const footerConnect = sheet
-        .locator('.os-sheet-footer')
-        .getByRole('button', { name: 'Connect', exact: true });
-      await expect(footerConnect).toBeVisible({
+      await expect(sheet).toBeVisible({
         timeout: E2E_CHROME_TIMEOUT_MS,
       });
+      await expect(
+        sheet.locator('.os-sheet-footer').getByRole('button', {
+          name: 'Connect',
+          exact: true,
+        })
+      ).toHaveCount(0);
       await expect(page.getByText('Connect wallet')).toHaveCount(0);
       await expect(page.getByText('Manuscript')).toHaveCount(0);
       const insets = await sheet.evaluate((root) => {
         const title = root.querySelector('.scarce-writing-read-title');
-        const button = root.querySelector('.os-sheet-footer button');
         const readCol = root.querySelector('.scarce-writing-read');
-        const footer = root.querySelector('.os-sheet-footer');
-        if (!title || !button || !readCol || !footer) return null;
+        if (!title || !readCol) return null;
         return {
           viewport: window.innerWidth,
           titleX: title.getBoundingClientRect().x,
-          buttonX: button.getBoundingClientRect().x,
           readPad: Number.parseFloat(getComputedStyle(readCol).paddingLeft),
-          footerPad: Number.parseFloat(getComputedStyle(footer).paddingLeft),
           progressPosition: getComputedStyle(
             root.querySelector('.scarce-writing-read-progress') ?? root
           ).position,
@@ -148,11 +155,7 @@ test.describe('collection drop page', () => {
       });
       expect(insets).toBeTruthy();
       expect(insets?.viewport).toBe(390);
-      expect(
-        Math.abs((insets?.titleX ?? 0) - (insets?.buttonX ?? 0))
-      ).toBeLessThan(2);
       expect(insets?.readPad).toBeCloseTo(18.4, 0);
-      expect(insets?.footerPad).toBeCloseTo(18.4, 0);
       expect(insets?.progressPosition).toBe('absolute');
       expect(insets?.slideParentIsCard).toBe(true);
     });
@@ -235,7 +238,9 @@ test.describe('collection drop page', () => {
     ).toHaveAttribute('href', HOLDER_BACK);
   });
 
-  test('held writing drop puts Read in a vault pill', async ({ page }) => {
+  test('held writing drop puts Read beside Open Collectibles', async ({
+    page,
+  }) => {
     await seedE2eWallet(page);
     await setE2eGraphDrop(page, 'held');
     await stubCollectionPageGraph(page, {
@@ -249,8 +254,13 @@ test.describe('collection drop page', () => {
       collectionPageRoot(page).locator('.collection-title')
     ).toHaveText('Chapter One');
     await expectCollectionHolderChrome(page, HOLDER_BACK);
-    const read = page.getByRole('button', { name: 'Read', exact: true });
+    const actions = collectionPageRoot(page).locator('.collection-use-actions');
+    await expect(actions.getByText('Writing')).toHaveCount(0);
+    const read = actions.getByRole('button', { name: 'Read', exact: true });
     await expectOsRowAction(read);
+    await expect(
+      actions.getByRole('link', { name: 'Open Collectibles' })
+    ).toHaveAttribute('href', HOLDER_BACK);
     await expect(page.locator('.collection-writing-locked')).toHaveCount(0);
   });
 

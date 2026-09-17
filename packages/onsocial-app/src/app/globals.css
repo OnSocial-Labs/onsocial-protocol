@@ -26548,52 +26548,52 @@ a.os-surface-row {
 
   .collection-about-teaser {
     margin: 0.15rem 0 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    align-items: baseline;
-    column-gap: 0.4rem;
+    display: block;
     min-width: 0;
     width: 100%;
+    text-align: start;
   }
 
-  .collection-about-teaser.is-truncated {
-    grid-template-columns: minmax(0, 1fr) auto;
+  button.collection-about-teaser.is-expandable {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    cursor: pointer;
+    color: inherit;
+    /* UA button centers; keep teaser flush with title / meta. */
+    text-align: start;
   }
 
   .collection-about-teaser-line {
+    display: block;
+    width: 100%;
     margin: 0;
     min-width: 0;
     font-size: 0.84rem;
     line-height: 1.45;
     color: rgb(var(--fg-rgb) / 0.62);
+    text-align: start;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: color 160ms ease;
   }
 
-  .collection-about-read-more {
-    margin: 0;
-    padding: 0;
-    border: 0;
-    background: none;
-    color: rgb(var(--fg-rgb) / 0.72);
-    font: inherit;
-    font-size: 0.84rem;
-    font-weight: 650;
-    line-height: 1.45;
-    letter-spacing: 0.02em;
-    cursor: pointer;
+  @media (hover: hover) and (pointer: fine) {
+    button.collection-about-teaser.is-expandable:hover .collection-about-teaser-line {
+      color: var(--os-surface-emphasis);
+    }
   }
 
-  .collection-about-read-more:hover,
-  .collection-about-read-more:focus-visible {
-    color: var(--os-surface-emphasis);
-  }
-
-  .collection-about-read-more:focus-visible {
+  button.collection-about-teaser.is-expandable:focus-visible {
     outline: 2px solid rgb(var(--fg-rgb) / 0.28);
     outline-offset: 2px;
     border-radius: 0.25rem;
+  }
+
+  button.collection-about-teaser.is-expandable:focus-visible .collection-about-teaser-line {
+    color: var(--os-surface-emphasis);
   }
 
   .collection-about-sheet .collection-about-body {
@@ -27408,32 +27408,39 @@ a.os-surface-row {
   }
 
   /*
-   * Immersive reader scroll lives on the text column — not the page edge.
-   * Books / chapters / articles share --writing-read-measure; the scrollbar
-   * must hug that measure (classic reader), never the OS card gutter.
+   * Immersive Read — OS page scroll. Text is document flow; the slide body
+   * is the only scroller (no nested writing viewport).
    */
   .collection-writing.is-immersive .collection-writing-body {
-    flex: 1;
-    min-height: 0;
+    flex: none;
     width: 100%;
     max-width: var(--writing-read-measure, 34rem);
     margin-inline: auto;
-    overflow: auto;
-    overscroll-behavior: contain;
-    padding: 0.1rem 0.35rem 1.1rem 0.05rem;
-    scrollbar-gutter: stable;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
+    padding: 0.15rem 0.2rem 1.1rem;
     touch-action: pan-y;
-    transition:
-      transform 180ms ease,
-      opacity 180ms ease;
+  }
+
+  .collection-writing.is-immersive {
+    min-height: 0;
   }
 
   .collection-writing.is-immersive .collection-writing-toc {
-    max-height: 9rem;
+    max-height: min(9rem, 28dvh);
     overflow: auto;
+    overscroll-behavior: contain;
     padding: 0.15rem 0 0.25rem;
     border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
+  }
+
+  @media (max-height: 40rem) {
+    .collection-writing.is-immersive .collection-writing-toc {
+      max-height: min(6.5rem, 22dvh);
+    }
+
+    .collection-writing.is-immersive .collection-writing-toc-item {
+      padding: 0.32rem 0.15rem;
+    }
   }
 
   .collection-writing.is-immersive .collection-writing-toc-item {
@@ -27512,27 +27519,152 @@ a.os-surface-row {
     opacity: 0.88;
   }
 
-  /* Hairline flush to the OS card top — not inset by jacket padding. */
+  /* Sticky on the OS page scroller — flush to the card rim. */
   .scarce-read-slide .scarce-writing-read-progress {
-    position: absolute;
+    position: sticky;
     top: 0;
     left: 0;
     right: 0;
-    z-index: 4;
+    z-index: 6;
+    height: 1.1rem;
+    margin: 0 -0.9rem;
+    width: auto;
+    display: flex;
+    align-items: flex-start;
+    border-radius: 0;
+    background: transparent;
+    overflow: visible;
+    pointer-events: auto;
+    touch-action: none;
+    cursor: pointer;
+  }
+
+  @media (min-width: 640px) {
+    .scarce-read-slide .scarce-writing-read-progress {
+      margin-inline: -1.25rem;
+    }
+  }
+
+  .scarce-writing-read-progress.is-disabled {
+    cursor: default;
+    pointer-events: none;
+    opacity: 0.45;
+  }
+
+  .scarce-writing-read-progress-rail {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    z-index: 1;
     height: 0.12rem;
-    margin: 0;
     border-radius: 0;
     background: rgb(var(--fg-rgb) / 0.08);
-    overflow: hidden;
     pointer-events: none;
   }
 
   .scarce-writing-read-progress-fill {
-    display: block;
+    width: 100%;
     height: 100%;
-    border-radius: inherit;
+    border-radius: 0;
     background: color-mix(in srgb, var(--protocol-green) 70%, transparent);
-    transition: width 120ms ease-out;
+    transform: scaleX(var(--scarce-writing-p, 0));
+    transform-origin: left center;
+    will-change: transform;
+    transition: transform 120ms ease-out;
+    pointer-events: none;
+  }
+
+  .scarce-writing-read-progress.is-scrubbing .scarce-writing-read-progress-fill {
+    transition: none;
+  }
+
+  .scarce-writing-read-progress-knob {
+    position: absolute;
+    top: 0;
+    left: calc(var(--scarce-writing-p, 0) * 100%);
+    width: 0.72rem;
+    height: 0.72rem;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--protocol-green) 88%, white 12%);
+    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.12);
+    transform: translate(-50%, calc(0.12rem / 2 - 50%));
+    pointer-events: none;
+    opacity: 0;
+    transition:
+      opacity 140ms ease,
+      transform 120ms ease;
+  }
+
+  .scarce-writing-read-progress:hover .scarce-writing-read-progress-knob,
+  .scarce-writing-read-progress.is-scrubbing .scarce-writing-read-progress-knob,
+  .scarce-writing-read-progress:has(
+      .scarce-writing-read-progress-scrub:focus-visible
+    )
+    .scarce-writing-read-progress-knob {
+    opacity: 1;
+  }
+
+  .scarce-writing-read-progress.is-scrubbing .scarce-writing-read-progress-knob {
+    transform: translate(-50%, calc(0.12rem / 2 - 50%)) scale(1.28);
+  }
+
+  .scarce-writing-read-progress-scrub {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: inherit;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .scarce-writing-read-progress-scrub:disabled {
+    cursor: default;
+  }
+
+  .scarce-writing-read-progress-scrub::-webkit-slider-runnable-track {
+    height: 1.1rem;
+    background: transparent;
+    border: 0;
+  }
+
+  .scarce-writing-read-progress-scrub::-moz-range-track {
+    height: 1.1rem;
+    background: transparent;
+    border: 0;
+  }
+
+  .scarce-writing-read-progress-scrub::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1.1rem;
+    height: 1.1rem;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    opacity: 0;
+  }
+
+  .scarce-writing-read-progress-scrub::-moz-range-thumb {
+    width: 1.1rem;
+    height: 1.1rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    opacity: 0;
+  }
+
+  .scarce-writing-read-progress-scrub:focus-visible {
+    outline: none;
   }
 
   .scarce-writing-read-top {
@@ -27542,14 +27674,49 @@ a.os-surface-row {
   }
 
   .scarce-writing-read-hero {
+    position: sticky;
+    top: 0;
+    z-index: 5;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.55rem;
     min-width: 0;
+    flex-shrink: 0;
+    margin: 0 -0.9rem;
+    padding: max(0.55rem, env(safe-area-inset-top, 0px)) 0.9rem 0.5rem;
+    /* Fill/blur from osChromeFrostStyle() — match .os-chrome-glass / elevated headers. */
+    background: transparent;
     transition:
-      opacity 220ms ease,
-      transform 220ms ease;
+      opacity 200ms ease,
+      transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .scarce-writing-read-hero-glass {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .scarce-writing-read-hero > :not(.scarce-writing-read-hero-glass) {
+    position: relative;
+    z-index: 1;
+  }
+
+  @media (min-width: 640px) {
+    .scarce-writing-read-hero {
+      margin-inline: -1.25rem;
+      padding-inline: 1.25rem;
+    }
+  }
+
+  /* Scroll-down: jacket tucks; progress hairline stays. */
+  .scarce-writing-read.is-chrome-quiet .scarce-writing-read-hero,
+  .scarce-read-slide.is-chrome-quiet .scarce-writing-read-hero {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate3d(0, calc(-100% - 0.15rem), 0);
   }
 
   .scarce-writing-read-mast {
@@ -27580,30 +27747,30 @@ a.os-surface-row {
     scroll-padding-top: 0;
   }
 
-  .collection-writing-body.is-turning-drag {
+  .collection-writing-folio.is-turning-drag {
     transition: none;
   }
 
-  .collection-writing-body.is-turn-out-next,
-  .collection-writing-body.is-turn-out-prev,
-  .collection-writing-body.is-turn-in-next,
-  .collection-writing-body.is-turn-in-prev {
+  .collection-writing-folio.is-turn-out-next,
+  .collection-writing-folio.is-turn-out-prev,
+  .collection-writing-folio.is-turn-in-next,
+  .collection-writing-folio.is-turn-in-prev {
     will-change: transform, opacity;
   }
 
-  .collection-writing-body.is-turn-out-next {
+  .collection-writing-folio.is-turn-out-next {
     animation: writing-turn-out-next 200ms ease forwards;
   }
 
-  .collection-writing-body.is-turn-out-prev {
+  .collection-writing-folio.is-turn-out-prev {
     animation: writing-turn-out-prev 200ms ease forwards;
   }
 
-  .collection-writing-body.is-turn-in-next {
+  .collection-writing-folio.is-turn-in-next {
     animation: writing-turn-in-next 240ms ease;
   }
 
-  .collection-writing-body.is-turn-in-prev {
+  .collection-writing-folio.is-turn-in-prev {
     animation: writing-turn-in-prev 240ms ease;
   }
 
@@ -27724,12 +27891,9 @@ a.os-surface-row {
   }
 
   .scarce-writing-read-body {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
+    display: block;
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .scarce-writing-read-body > .collection-writing {
@@ -27737,23 +27901,22 @@ a.os-surface-row {
     width: 100%;
   }
 
-  .scarce-writing-read-footer {
-    flex-shrink: 0;
-    transition: opacity 220ms ease;
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .scarce-writing-read-top,
     .scarce-writing-read-hero,
     .scarce-writing-read-footer,
     .scarce-writing-read-progress-fill,
-    .collection-writing-body.is-turn-out-next,
-    .collection-writing-body.is-turn-out-prev,
-    .collection-writing-body.is-turn-in-next,
-    .collection-writing-body.is-turn-in-prev {
+    .collection-writing-folio.is-turn-out-next,
+    .collection-writing-folio.is-turn-out-prev,
+    .collection-writing-folio.is-turn-in-next,
+    .collection-writing-folio.is-turn-in-prev {
       transition: none;
-      transform: none;
       animation: none;
+    }
+
+    .scarce-writing-read.is-chrome-quiet .scarce-writing-read-hero,
+    .scarce-read-slide.is-chrome-quiet .scarce-writing-read-hero {
+      transform: translate3d(0, calc(-100% - 0.15rem), 0);
     }
   }
 
@@ -29795,7 +29958,12 @@ a.os-surface-row {
   }
 
   .os-slide-over.is-open {
-    transform: translate3d(0, 0, 0);
+    /*
+     * Settled open must be `none`, not translate3d(0,0,0). A resting
+     * transform makes the slide a backdrop root so header frost inside
+     * (writing jacket, glass chrome) cannot blur scrolling content.
+     */
+    transform: none;
   }
 
   .os-slide-over.is-closing {
@@ -29960,6 +30128,108 @@ a.os-surface-row {
     );
   }
 
+  /*
+   * Read keeps the face summon dock — footer rides above it and tracks live
+   * occupied height so reply/compose lifts the icon strip. Do NOT pin to the
+   * safe edge on jacket-quiet alone — dock may still be visible (e.g. reply).
+   */
+  .os-slide-over.scarce-read-slide[data-os-slide-over='true']
+    .os-app-screen-footer {
+    bottom: max(
+      var(--os-summon-dock-occupied, 0px),
+      var(--portfolio-dock-clearance, 4.75rem)
+    );
+    transition: bottom var(--os-motion-dock, 260ms) ease;
+  }
+
+  .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
+    .os-slide-over.scarce-read-slide[data-os-slide-over='true']
+    .os-app-screen-footer {
+    bottom: max(0.45rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .os-slide-over.scarce-read-slide[data-os-slide-over='true'][data-screen-footer='true']
+    .os-app-screen-body {
+    padding-bottom: calc(
+      max(
+          var(--os-summon-dock-occupied, 0px),
+          var(--portfolio-dock-clearance, 4.75rem)
+        ) + var(--os-screen-footer-band, 4.25rem)
+    );
+    transition: padding-bottom var(--os-motion-dock, 260ms) ease;
+  }
+
+  .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
+    .os-slide-over.scarce-read-slide[data-os-slide-over='true'][data-screen-footer='true']
+    .os-app-screen-body {
+    padding-bottom: calc(
+      max(0.45rem, env(safe-area-inset-bottom, 0px)) +
+        var(--os-screen-footer-band, 4.25rem)
+    );
+  }
+
+  /* Frost under icons — full page width on the footer (not the 28rem strip).
+   * Same osChromeFrostStyle() as elevated OS headers. */
+  .os-slide-over.scarce-read-slide[data-os-slide-over='true']
+    .os-app-screen-footer {
+    overflow: visible;
+  }
+
+  .scarce-read-slide .os-slide-over-footer-inner {
+    position: static;
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  .scarce-read-slide .scarce-writing-read-footer-glass {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 0;
+    bottom: calc(
+      -1 *
+        max(
+          var(--os-summon-dock-occupied, 0px),
+          var(--portfolio-dock-clearance, 4.75rem)
+        )
+    );
+    pointer-events: none;
+    transition: bottom var(--os-motion-dock, 260ms) ease;
+  }
+
+  .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
+    .scarce-read-slide
+    .scarce-writing-read-footer-glass {
+    bottom: 0;
+  }
+
+  .scarce-read-slide .scarce-writing-read-footer {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: min(100%, 28rem);
+    margin-inline: auto;
+    padding: 0.45rem 0.9rem 0.35rem;
+    pointer-events: auto;
+  }
+
+  @media (min-width: 640px) {
+    .scarce-read-slide .scarce-writing-read-footer {
+      padding-inline: 1.25rem;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .scarce-writing-read-hero-glass,
+    .scarce-writing-read-footer-glass {
+      background: rgb(var(--bg-rgb) / 0.94) !important;
+      backdrop-filter: none !important;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .os-slide-over {
       transition: none;
@@ -29988,6 +30258,15 @@ a.os-surface-row {
     flex-direction: column;
   }
 
+  /* Read — OS page scroll on the slide body (not a nested text viewport). */
+  .scarce-read-slide .os-app-screen-body {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-behavior: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .feed-photo-slide--quiet .os-app-screen-heading {
     min-width: 0;
     flex: 1;
@@ -30003,7 +30282,6 @@ a.os-surface-row {
   }
 
   .scarce-listen-slide .os-slide-over-content.scarce-listen-slide-body,
-  .scarce-read-slide .os-slide-over-content.scarce-read-slide-body,
   .ticket-pass-slide .os-slide-over-content.ticket-pass-slide-body,
   .scarce-thought-slide .os-slide-over-content.scarce-thought-slide-body,
   .feed-photo-slide .os-slide-over-content.feed-photo-slide-body {
@@ -30012,6 +30290,15 @@ a.os-surface-row {
     height: 100%;
     padding: 0;
     overflow: hidden;
+  }
+
+  .scarce-read-slide .os-slide-over-content.scarce-read-slide-body {
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 100%;
+    height: auto;
+    padding: 0;
+    overflow: visible;
   }
 
   /* Extended Listen — phone-tall columns may scroll so transport stays reachable. */
@@ -30257,27 +30544,35 @@ a.os-surface-row {
 
   .scarce-read-slide .scarce-writing-read {
     --writing-read-measure: min(34rem, 100%);
-    /* Static so the progress hairline positions against the slide card top. */
-    position: static;
+    --scarce-writing-p: 0;
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     width: min(100%, 44rem);
     max-height: none;
-    height: 100%;
+    height: auto;
+    min-height: 100%;
     margin: 0 auto;
-    /* Jacket sits under the hairline; safe-area only (no extra top gap). */
-    padding: max(0.35rem, env(safe-area-inset-top, 0px)) 0.9rem
-      max(0.55rem, env(safe-area-inset-bottom, 0px));
-    min-height: 0;
+    /* No top pad — progress + jacket own the rim (kills the scroll-top gap). */
+    padding: 0 0.9rem 0.55rem;
     box-sizing: border-box;
   }
 
   @media (min-width: 640px) {
     .scarce-read-slide .scarce-writing-read {
       width: min(100%, 42rem);
-      padding: 0.45rem 1.25rem 0.75rem;
+      padding: 0 1.25rem 0.75rem;
     }
+  }
+
+  /*
+   * Post icons — band height for OS screen footer clearance.
+   * Bottom / pad tracking lives with the slide-over footer overrides above
+   * (must beat `.os-slide-over … bottom: 0`).
+   */
+  .scarce-read-slide {
+    --os-screen-footer-band: 4.25rem;
   }
 
   /* Locked Connect — same 1.15rem sheet inset as Collect. */
@@ -30287,16 +30582,12 @@ a.os-surface-row {
   }
 
   .scarce-read-slide .os-slide-over-footer-inner {
-    max-width: min(100%, 44rem);
+    /* Static so footer-glass positions against the full-width screen footer. */
+    position: static;
+    max-width: none;
     width: 100%;
-    margin-inline: auto;
+    margin: 0;
     padding: 0;
-  }
-
-  @media (min-width: 640px) {
-    .scarce-read-slide .os-slide-over-footer-inner {
-      max-width: min(100%, 42rem);
-    }
   }
 
   .ticket-pass-slide .ticket-show-pass {
