@@ -30616,6 +30616,7 @@ a.os-surface-row {
 
   .feed-photo-stage {
     container-type: size;
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -30704,6 +30705,116 @@ a.os-surface-row {
     width: min(100%, 28rem);
     aspect-ratio: 1 / 1;
     background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  /*
+   * Caption overlays the stage — media size never changes.
+   * Peek → tap caption expands up (mute); tap caption or mute collapses.
+   */
+  .feed-photo-caption {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: stretch;
+    pointer-events: none;
+  }
+
+  .feed-photo-caption.is-expanded {
+    inset: 0;
+  }
+
+  .feed-photo-caption-mute {
+    flex: 1 1 auto;
+    min-height: 0;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+    background: rgb(0 0 0 / 0.22);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease;
+  }
+
+  .feed-photo-caption.is-expanded .feed-photo-caption-mute {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .feed-photo-caption-body {
+    display: block;
+    width: 100%;
+    max-width: min(100%, 34rem);
+    margin: 0 auto;
+    padding: 0.55rem 0.85rem 0.65rem;
+    border: 0;
+    text-align: left;
+    cursor: pointer;
+    color: rgb(255 255 255 / 0.9);
+    text-shadow:
+      0 1px 2px rgb(0 0 0 / 0.55),
+      0 0 18px rgb(0 0 0 / 0.35);
+    pointer-events: auto;
+    background: linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0) 0%,
+      rgb(0 0 0 / 0.32) 100%
+    );
+    max-height: 2.85rem;
+    overflow: hidden;
+    transition:
+      max-height 240ms cubic-bezier(0.22, 1, 0.36, 1),
+      padding 200ms ease,
+      background 200ms ease;
+  }
+
+  .feed-photo-caption.is-expanded .feed-photo-caption-body {
+    max-height: 18rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-top: 0.75rem;
+    padding-bottom: 0.85rem;
+    background: linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.05) 0%,
+      rgb(0 0 0 / 0.4) 100%
+    );
+  }
+
+  .feed-photo-caption-peek-text {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+  }
+
+  .feed-photo-caption-full {
+    display: block;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 0.92rem;
+    font-weight: 500;
+    line-height: 1.45;
+    letter-spacing: -0.01em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .feed-photo-caption-mute,
+    .feed-photo-caption-body {
+      transition: none;
+    }
   }
 
   .feed-photo-nav {

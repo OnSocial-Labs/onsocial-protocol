@@ -33,15 +33,19 @@ function prefersReducedMotion(): boolean {
   );
 }
 
+type CaptionMode = 'peek' | 'expanded';
+
 /**
  * Feed media enlarge — photos + video in the shared media-face shell.
  * Optional `stage` shows a non-URL face (mood / craft article cover).
+ * Caption peeks over the media (no rescale); tap toggles expand/collapse
+ * with a smooth rise + light mute.
  */
 export function FeedPhotoEnlargeScreen({
   open,
   onOpenChange,
   title,
-  subtitle,
+  caption = null,
   quiet = false,
   photos,
   initialIndex = 0,
@@ -52,7 +56,8 @@ export function FeedPhotoEnlargeScreen({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  subtitle?: string | null;
+  /** Full post body for under-stage peek / expand. */
+  caption?: string | null;
   /** Hide the visual title — picture + × only (About stills). */
   quiet?: boolean;
   /** Image and/or video items (audio excluded upstream). */
@@ -66,6 +71,9 @@ export function FeedPhotoEnlargeScreen({
   const last = photos.length - 1;
   const [wasOpen, setWasOpen] = useState(open);
   const [index, setIndex] = useState(() => clampIndex(initialIndex, last));
+  const captionText = caption?.trim() || '';
+  const hasCaption = Boolean(captionText) && !quiet;
+  const [captionMode, setCaptionMode] = useState<CaptionMode>('peek');
   const trackRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
   const skipSnapRef = useRef(false);
@@ -78,10 +86,14 @@ export function FeedPhotoEnlargeScreen({
     : 'feed-photo-slide';
   const hasVideo = photos.some((item) => isRenderablePostVideoMime(item.mime));
   const showStage = Boolean(stage) && photos.length === 0;
+  const captionExpanded = hasCaption && captionMode === 'expanded';
 
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setIndex(clampIndex(initialIndex, last));
+    if (open) {
+      setIndex(clampIndex(initialIndex, last));
+      setCaptionMode('peek');
+    }
   }
 
   const goTo = useCallback(
@@ -168,6 +180,11 @@ export function FeedPhotoEnlargeScreen({
   useEffect(() => {
     if (!open || photos.length < 2) return;
     const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && captionMode === 'expanded') {
+        event.preventDefault();
+        setCaptionMode('peek');
+        return;
+      }
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
         goTo(stepFeedPhotoIndex(index, last, -1));
@@ -180,7 +197,7 @@ export function FeedPhotoEnlargeScreen({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, photos.length, last, index, goTo]);
+  }, [open, photos.length, last, index, goTo, captionMode]);
 
   /* Play the active video with sound; pause neighbors. */
   useEffect(() => {
@@ -203,6 +220,16 @@ export function FeedPhotoEnlargeScreen({
     });
   }, [open, index]);
 
+  /* Video play collapses expand back to the under-media peek. */
+  useEffect(() => {
+    if (!open || !hasCaption || captionMode !== 'expanded') return;
+    const video = videoRefs.current.get(index);
+    if (!video || !isRenderablePostVideoMime(photos[index]?.mime)) return;
+    const onPlay = () => setCaptionMode('peek');
+    video.addEventListener('play', onPlay);
+    return () => video.removeEventListener('play', onPlay);
+  }, [open, index, photos, hasCaption, captionMode]);
+
   const showNav = photos.length > 1;
 
   return (
@@ -210,7 +237,6 @@ export function FeedPhotoEnlargeScreen({
       open={open}
       onClose={() => onOpenChange(false)}
       title={title}
-      subtitle={quiet ? null : subtitle}
       quietTitle={quiet}
       closeAriaLabel={quietClose}
       zIndex={SCARCE_Z.listenShell}
@@ -247,6 +273,43 @@ export function FeedPhotoEnlargeScreen({
               videoRefs={videoRefs}
             />
           )}
+          {hasCaption ? (
+            <div
+              className={
+                captionExpanded
+                  ? 'feed-photo-caption is-expanded'
+                  : 'feed-photo-caption is-peek'
+              }
+            >
+              <button
+                type="button"
+                className="feed-photo-caption-mute"
+                tabIndex={captionExpanded ? 0 : -1}
+                aria-hidden={!captionExpanded}
+                aria-label="Collapse caption"
+                onClick={() => setCaptionMode('peek')}
+              />
+              <button
+                type="button"
+                className="feed-photo-caption-body"
+                aria-expanded={captionExpanded}
+                aria-label={
+                  captionExpanded ? 'Collapse caption' : 'Show full post'
+                }
+                onClick={() =>
+                  setCaptionMode(captionExpanded ? 'peek' : 'expanded')
+                }
+              >
+                {captionExpanded ? (
+                  <span className="feed-photo-caption-full">{captionText}</span>
+                ) : (
+                  <span className="feed-photo-caption-peek-text">
+                    {captionText}
+                  </span>
+                )}
+              </button>
+            </div>
+          ) : null}
         </div>
         {showNav ? (
           <div

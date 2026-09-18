@@ -1647,9 +1647,7 @@ export function PostCard({
   const hasMedia = mediaItems.length > 0;
   const visualMedia = postVisualMedia(mediaItems);
   const enlargePhotos = enlargeOverride ?? visualMedia;
-  const photoSubtitle = text.trim()
-    ? truncatePostPreview(text.split(/\r?\n/, 1)[0] ?? '', 72)
-    : null;
+  const photoCaption = text.trim() || null;
   const photoCover = postScarceCoverImage(post);
   const scarceCoverUrl =
     scarceEmbed?.mediaUrl?.trim() || dropPaint?.mediaUrl?.trim() || null;
@@ -2134,7 +2132,7 @@ export function PostCard({
           }
         }}
         title={name}
-        subtitle={photoSubtitle}
+        caption={photoCaption}
         photos={enlargePhotos}
         initialIndex={photoIndex}
         engagement={
