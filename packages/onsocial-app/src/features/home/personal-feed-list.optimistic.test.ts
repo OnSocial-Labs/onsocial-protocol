@@ -20,7 +20,7 @@ function row(
 }
 
 describe('insertOptimisticFeedPost', () => {
-  it('splices a self-reply before its on-page parent instead of prepending', () => {
+  it('prepends a self-reply to the feed head even when its parent is on-page', () => {
     const parent = row('alice.near', 'root');
     const posts = [row('bob.near', 'other'), parent, row('carol.near', 'older')];
     const reply: PostRow = {
@@ -32,8 +32,8 @@ describe('insertOptimisticFeedPost', () => {
     const next = insertOptimisticFeedPost(posts, reply);
 
     expect(next.map((post) => post.postId)).toEqual([
-      'other',
       'reply',
+      'other',
       'root',
       'older',
     ]);
@@ -46,5 +46,14 @@ describe('insertOptimisticFeedPost', () => {
     const next = insertOptimisticFeedPost(posts, reply);
 
     expect(next.map((post) => post.postId)).toEqual(['reply', 'other']);
+  });
+
+  it('does not duplicate an already-listed post', () => {
+    const posts = [row('bob.near', 'other')];
+    const again = row('bob.near', 'other');
+
+    const next = insertOptimisticFeedPost(posts, again);
+
+    expect(next.map((post) => post.postId)).toEqual(['other']);
   });
 });
