@@ -685,10 +685,13 @@ export function FeedPhotoEnlargeScreen({
   }, [open]);
 
   /* Thread drawer — leave cinema so the film sits in the top band. */
+  if (threadOpen && cinema) {
+    setCinema(false);
+  }
   useEffect(() => {
-    if (!threadOpen || !cinema) return;
-    exitCinema();
-  }, [threadOpen, cinema, exitCinema]);
+    if (!threadOpen) return;
+    exitOsFullscreen();
+  }, [threadOpen]);
 
   const showNav = photos.length > 1 && !cinema && !threadOpen;
   const showVideoChrome = chromeVisible || scrubbing;
