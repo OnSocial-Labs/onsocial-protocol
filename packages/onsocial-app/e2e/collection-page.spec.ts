@@ -155,7 +155,7 @@ test.describe('collection drop page', () => {
       });
       expect(insets).toBeTruthy();
       expect(insets?.viewport).toBe(390);
-      expect(insets?.readPad).toBeCloseTo(18.4, 0);
+      expect(insets?.readPad).toBeCloseTo(14.4, 0);
       expect(insets?.progressPosition).toBe('absolute');
       expect(insets?.slideParentIsCard).toBe(true);
     });

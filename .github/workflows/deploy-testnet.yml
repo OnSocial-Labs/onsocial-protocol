@@ -374,9 +374,11 @@ jobs:
             done
 
             # ── Rolling restart: relayer-1 → verify → relayer-0 → verify
+            # Cold /ready waits on access_key sync for the whole delegate pool.
+            # Rate-limited Lava/FastNEAR often needs >2 min after the first roll.
             echo "Rolling relayer-1..."
             dc up -d --no-deps relayer-1 </dev/null
-            if ! check_container_health "relayer-1" "relayer-1" "http://localhost:3040/ready" 40 3; then
+            if ! check_container_health "relayer-1" "relayer-1" "http://localhost:3040/ready" 80 5; then
               echo "❌ relayer-1 health check failed — rolling back"
               print_service_logs "relayer-1"
               docker inspect --format '{{json .State}}' relayer-1 </dev/null || true
@@ -386,7 +388,7 @@ jobs:
 
             echo "Rolling relayer-0..."
             dc up -d --no-deps relayer-0 </dev/null
-            if ! check_container_health "relayer-0" "relayer-0" "http://localhost:3040/ready" 40 3; then
+            if ! check_container_health "relayer-0" "relayer-0" "http://localhost:3040/ready" 80 5; then
               echo "❌ relayer-0 health check failed — rolling back"
               print_service_logs "relayer-0"
               docker inspect --format '{{json .State}}' relayer-0 </dev/null || true

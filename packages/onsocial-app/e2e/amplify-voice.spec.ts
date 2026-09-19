@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoApp } from './helpers';
+import { dismissNextDevOverlay, gotoApp } from './helpers';
 import {
   AMPLIFY_E2E_AUTHOR,
   AMPLIFY_E2E_POST_ID,
@@ -14,8 +14,11 @@ test.describe('amplify voice', () => {
       page,
       `/@${AMPLIFY_E2E_AUTHOR}/posts/${AMPLIFY_E2E_POST_ID}`
     );
+    await dismissNextDevOverlay(page);
 
-    await page.getByRole('button', { name: 'Amplify this post' }).click();
+    const amplify = page.getByRole('button', { name: 'Amplify this post' });
+    await expect(amplify).toBeVisible({ timeout: 30_000 });
+    await amplify.click();
 
     const sheet = page.getByRole('dialog').filter({ hasText: 'Amplify' });
     await expect(sheet).toBeVisible({ timeout: 15_000 });

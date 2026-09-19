@@ -5,6 +5,7 @@ import {
   e2ePortfolioAccountId,
   gotoApp,
   searchField,
+  waitForPortfolioClientReady,
 } from './helpers';
 
 const ACCOUNT = e2ePortfolioAccountId();
@@ -17,6 +18,7 @@ test.describe('Writing shelf search', () => {
     await setE2eGraphWriting(page, 'shelf');
     await gotoApp(page, writingPath);
     await dismissNextDevOverlay(page);
+    await waitForPortfolioClientReady(page);
 
     const field = searchField(page, 'Search writing');
     await expect(field).toBeVisible({ timeout: 30_000 });
