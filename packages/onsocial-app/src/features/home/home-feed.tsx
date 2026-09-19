@@ -873,6 +873,9 @@ export function HomePagePanel({
       if (!shouldPrependOptimisticFeedPost(post)) return;
       clearUnseenPosts();
       setPosts((current) => insertOptimisticFeedPost(current, post));
+      // Your own post lands at the head — bring it into view so the action
+      // feels confirmed instead of disappearing above the fold.
+      scrollRootRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     },
     [clearUnseenPosts]
   );
