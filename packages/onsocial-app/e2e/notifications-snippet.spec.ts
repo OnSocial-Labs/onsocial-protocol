@@ -199,6 +199,19 @@ test.describe('activity post snippets', () => {
     ).toHaveCount(0);
     await expect(likeRow.getByText('liked your post', { exact: true })).toBeVisible();
 
+    const dayHeader = page.locator('.notifications-activity-day').first();
+    await expect(dayHeader).toBeVisible();
+    const dayLabel = ((await dayHeader.textContent()) ?? '').trim();
+    expect(dayLabel.length).toBeGreaterThan(0);
+    const timePattern = /^Today$/i.test(dayLabel)
+      ? /^(now|\d+m|\d+h)$/
+      : /\d{1,2}:\d{2}/;
+    for (const row of [mentionRow, likeRow, standRow, anniversaryRow]) {
+      const stamp = row.locator('.standing-row-time');
+      await expect(stamp).toHaveText(timePattern);
+      await expect(stamp).not.toHaveText(/ago|Sep \d+/);
+    }
+
     const mention = mentionSnippet.locator('.os-mention');
     await expect(mention).toHaveText('@alice.testnet');
     await expect(mention).toHaveCount(1);
@@ -235,7 +248,7 @@ test.describe('activity post snippets', () => {
     if (artifactDir) {
       await writeFile(
         `${artifactDir}/activity_snippet_computed_styles.json`,
-        `${JSON.stringify({ snippetStyles, badgeFills }, null, 2)}\n`
+        `${JSON.stringify({ snippetStyles, badgeFills, dayLabel }, null, 2)}\n`
       );
       const list = page.locator('.notifications-activity-list');
       await list.screenshot({
