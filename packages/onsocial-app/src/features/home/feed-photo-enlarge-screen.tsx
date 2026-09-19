@@ -260,13 +260,19 @@ export function FeedPhotoEnlargeScreen({
   /* Ignore the pointer that opened the drawer — footer unmounts and the
    * leftover pointerup lands on the film, which would close it instantly. */
   const ignoreFilmDismissRef = useRef(false);
+  const [trackedThreadOpen, setTrackedThreadOpen] = useState(threadOpen);
+  if (threadOpen !== trackedThreadOpen) {
+    setTrackedThreadOpen(threadOpen);
+    if (threadOpen) {
+      setCaptionMode('peek');
+      setCaptionClamped(true);
+    }
+  }
   useEffect(() => {
     if (!threadOpen) {
       ignoreFilmDismissRef.current = false;
       return;
     }
-    setCaptionMode('peek');
-    setCaptionClamped(true);
     ignoreFilmDismissRef.current = true;
     const timer = window.setTimeout(() => {
       ignoreFilmDismissRef.current = false;
