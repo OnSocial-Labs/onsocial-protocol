@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
@@ -53,7 +59,6 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
   const [band, setBand] = useState(0);
   const [dragging, setDragging] = useState(false);
   const bandRef = useRef(band);
-  bandRef.current = band;
   const dragRef = useRef<{
     startY: number;
     startBand: number;
@@ -64,7 +69,14 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
     active: boolean;
   } | null>(null);
   const dismissRef = useRef(onDismiss);
-  dismissRef.current = onDismiss;
+
+  useLayoutEffect(() => {
+    bandRef.current = band;
+  }, [band]);
+
+  useLayoutEffect(() => {
+    dismissRef.current = onDismiss;
+  }, [onDismiss]);
 
   useEffect(() => {
     if (!open) {
