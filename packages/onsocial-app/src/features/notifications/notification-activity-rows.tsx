@@ -59,7 +59,7 @@ const SOCIAL_BADGE_ICON: Record<NotificationActivityBadgeKind, FillIcon> = {
   repost: RepeatIcon,
   stand: UserFillIcon,
   endorse: StarMovingFillIcon,
-  anniversary: StarMovingFillIcon,
+  anniversary: StarsCFillIcon,
   support: GiftFillIcon,
   invite: UsersFillIcon,
   proposal: HomeFillIcon,

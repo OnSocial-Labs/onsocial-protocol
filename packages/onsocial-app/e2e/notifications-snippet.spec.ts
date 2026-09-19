@@ -163,9 +163,19 @@ test.describe('activity post snippets', () => {
       mentionRow.locator('[data-activity-badge="mention"]')
     ).toBeVisible();
     await expect(standRow.locator('[data-activity-badge="stand"]')).toBeVisible();
-    await expect(
-      anniversaryRow.locator('[data-activity-badge="anniversary"]')
-    ).toBeVisible();
+    const anniversaryBadge = anniversaryRow.locator(
+      '[data-activity-badge="anniversary"]'
+    );
+    await expect(anniversaryBadge).toBeVisible();
+    const anniversaryFill = await anniversaryBadge.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return {
+        background: style.backgroundColor,
+        color: style.color,
+      };
+    });
+    expect(anniversaryFill.background).not.toMatch(/rgba\(0,\s*0,\s*0,\s*0\)/);
+    expect(anniversaryFill.background).not.toBe('transparent');
     await expect(
       anniversaryRow.locator('.notifications-activity-mark--onsocial')
     ).toHaveCount(0);
