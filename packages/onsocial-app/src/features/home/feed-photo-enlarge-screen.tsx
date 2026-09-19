@@ -87,8 +87,9 @@ const VIDEO_PROGRESS_STEPS = 1000;
 
 /**
  * Feed media enlarge — photos + video in the shared media-face shell.
- * Caption is a 2-line peek on the film. Tap grows the post in place
- * (text height only — dim is a separate fade). Reply opens the thread.
+ * Caption is a 2-line peek on the film. Tap opens the rest in place —
+ * first two lines stay put, extra lines + post date reveal 0fr → 1fr.
+ * Reply opens the thread.
  * Progress is written straight to the DOM (no per-frame React render).
  */
 export function FeedPhotoEnlargeScreen({
@@ -96,6 +97,7 @@ export function FeedPhotoEnlargeScreen({
   onOpenChange,
   title,
   caption = null,
+  captionDate = null,
   quiet = false,
   photos,
   initialIndex = 0,
@@ -116,6 +118,8 @@ export function FeedPhotoEnlargeScreen({
   title: string;
   /** Full post body — film shows a 2-line peek; tap expands in place. */
   caption?: string | null;
+  /** Post creation date — shown at the end of the expanded caption. */
+  captionDate?: string | null;
   /** Hide the visual title — picture + × only (About stills). */
   quiet?: boolean;
   /** Image and/or video items (audio excluded upstream). */
@@ -146,9 +150,17 @@ export function FeedPhotoEnlargeScreen({
   const [wasOpen, setWasOpen] = useState(open);
   const [index, setIndex] = useState(() => clampIndex(initialIndex, last));
   const captionText = caption?.trim() || '';
+  const captionDateText = captionDate?.trim() || '';
   const hasCaption = Boolean(captionText) && !quiet;
+  const captionLooksLong =
+    captionText.split('\n').length > 2 || captionText.length > 72;
   const [captionMode, setCaptionMode] = useState<'peek' | 'expanded'>('peek');
+  const [captionHasMore, setCaptionHasMore] = useState(captionLooksLong);
+  const captionRef = useRef<HTMLDivElement>(null);
   const captionBodyRef = useRef<HTMLButtonElement>(null);
+  const captionClipRef = useRef<HTMLSpanElement>(null);
+  const captionInnerRef = useRef<HTMLSpanElement>(null);
+  const captionTextRef = useRef<HTMLSpanElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
@@ -175,14 +187,47 @@ export function FeedPhotoEnlargeScreen({
   const activeIsVideo = isRenderablePostVideo(photos[index] ?? {});
   const showStage = Boolean(stage) && photos.length === 0;
   const captionExpanded = hasCaption && captionMode === 'expanded';
-  const expandCaption = useCallback(() => {
-    setCaptionMode('expanded');
+  /*
+   * Measured px height (Radix-style) — the ease maps 1:1 to visible motion,
+   * no 0fr dead-zone. Peek = exactly 2 lines; open = full text + date,
+   * capped so long posts scroll instead of covering the film.
+   */
+  const measureCaption = useCallback(() => {
+    const caption = captionRef.current;
+    const clip = captionClipRef.current;
+    const inner = captionInnerRef.current;
+    const text = captionTextRef.current;
+    if (!caption || !clip || !inner || !text) return;
+    const cs = getComputedStyle(clip);
+    let lineHeight = parseFloat(cs.lineHeight);
+    if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
+      lineHeight = parseFloat(cs.fontSize) * 1.5;
+    }
+    const peekPx = Math.ceil(lineHeight * 2);
+    const textPx = text.scrollHeight;
+    const next = textPx > peekPx + 1;
+    setCaptionHasMore((prev) => (prev === next ? prev : next));
+    const rem =
+      parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const capPx = Math.min(rem * 12, window.innerHeight * 0.36);
+    const fullPx = Math.ceil(inner.scrollHeight);
+    const openPx = Math.max(peekPx, Math.min(fullPx, capPx));
+    caption.style.setProperty('--feed-caption-peek', `${peekPx}px`);
+    caption.style.setProperty('--feed-caption-open', `${openPx}px`);
   }, []);
+  const expandCaption = useCallback(() => {
+    measureCaption();
+    setCaptionMode('expanded');
+  }, [measureCaption]);
   const collapseCaption = useCallback(() => {
-    const body = captionBodyRef.current;
-    if (body) body.scrollTop = 0;
+    const inner = captionInnerRef.current;
+    if (inner) inner.scrollTop = 0;
     setCaptionMode('peek');
   }, []);
+  useLayoutEffect(() => {
+    if (!open || cinema || threadOpen || !hasCaption) return;
+    measureCaption();
+  }, [open, cinema, threadOpen, hasCaption, captionText, measureCaption]);
   const chromeQuiet =
     open &&
     activeIsVideo &&
@@ -946,7 +991,8 @@ export function FeedPhotoEnlargeScreen({
           />
         ) : null}
         <div
-          className={`feed-photo-caption${captionExpanded ? ' is-expanded' : ''}${chromeQuiet ? ' is-chrome-quiet' : ''}`}
+          ref={captionRef}
+          className={`feed-photo-caption${captionHasMore ? ' has-more' : ''}${captionExpanded ? ' is-expanded' : ''}${chromeQuiet ? ' is-chrome-quiet' : ''}`}
         >
           {peekIdentity ? (
             <div
@@ -973,10 +1019,23 @@ export function FeedPhotoEnlargeScreen({
                 revealChrome();
               }}
             >
-              <span className="feed-photo-caption-clip">
-                <span className="feed-photo-caption-clip-inner">
-                  <span className="feed-photo-caption-text">{captionText}</span>
+              <span ref={captionClipRef} className="feed-photo-caption-clip">
+                <span
+                  ref={captionInnerRef}
+                  className="feed-photo-caption-clip-inner"
+                >
+                  <span ref={captionTextRef} className="feed-photo-caption-text">
+                    {captionText}
+                  </span>
+                  {captionDateText ? (
+                    <span className="feed-photo-caption-date">
+                      {captionDateText}
+                    </span>
+                  ) : null}
                 </span>
+              </span>
+              <span className="feed-photo-caption-more" aria-hidden>
+                ...
               </span>
             </button>
           ) : null}

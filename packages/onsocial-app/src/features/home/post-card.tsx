@@ -2381,6 +2381,9 @@ export function PostCard({
           </div>
         }
         caption={photoCaption}
+        captionDate={
+          post.blockTimestamp ? formatPostTimestamp(post.blockTimestamp) : null
+        }
         photos={enlargePhotos}
         initialIndex={photoIndex}
         threadOpen={photoThreadOpen}

@@ -31321,7 +31321,7 @@ a.os-surface-row {
 
   /*
    * Caption stays on the film bottom. Dim is a separate fade (no layout).
-   * Text opens with 0fr → 1fr so it grows to the post, not a tall empty box.
+   * Peek is two lines + …. Extra lines + date open 0fr → 1fr under it.
    */
   .feed-photo-caption-dim {
     position: absolute;
@@ -31335,7 +31335,8 @@ a.os-surface-row {
     pointer-events: none;
     cursor: pointer;
     appearance: none;
-    transition: opacity 320ms cubic-bezier(0.2, 0.9, 0.24, 1);
+    transition: opacity var(--os-motion-overlay, 320ms)
+      var(--os-motion-ease-soft, cubic-bezier(0.22, 1, 0.36, 1));
   }
 
   .feed-photo-caption-dim.is-on {
@@ -31401,31 +31402,86 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.92);
     cursor: pointer;
     appearance: none;
-    overflow: hidden;
-    scrollbar-gutter: stable;
-    max-height: min(16rem, 42vh);
+    font-size: 0.92rem;
     -webkit-tap-highlight-color: transparent;
     pointer-events: auto;
+    transform: translateZ(0);
+    backface-visibility: hidden;
   }
 
-  .feed-photo-caption.is-expanded .feed-photo-caption-body {
-    overflow-y: auto;
-  }
-
+  /*
+   * Peek — exactly two lines. Height animates between measured px
+   * (--feed-caption-peek → --feed-caption-open) so the ease maps 1:1
+   * to visible motion (no 0fr dead-zone). Lines 1–2 never reflow.
+   */
   .feed-photo-caption-clip {
-    display: grid;
+    display: block;
+    overflow: hidden;
     font-size: 0.92rem;
-    grid-template-rows: minmax(3em, 0fr);
-    transition: grid-template-rows 320ms cubic-bezier(0.2, 0.9, 0.24, 1);
+    line-height: 1.5;
+    height: var(--feed-caption-peek, 3em);
+    transition: height var(--os-motion-overlay, 320ms)
+      var(--os-motion-ease-soft, cubic-bezier(0.22, 1, 0.36, 1));
   }
 
   .feed-photo-caption.is-expanded .feed-photo-caption-clip {
-    grid-template-rows: minmax(3em, 1fr);
+    height: var(--feed-caption-open, auto);
   }
 
   .feed-photo-caption-clip-inner {
-    min-height: 0;
-    overflow: hidden;
+    display: block;
+  }
+
+  .feed-photo-caption.is-expanded .feed-photo-caption-clip-inner {
+    max-height: min(12rem, 36vh);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .feed-photo-caption.is-expanded .feed-photo-caption-clip-inner::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  /*
+   * Dots overlay the body's bottom pad — pure opacity, never layout.
+   * The pad is constant while has-more is on, so nothing shifts.
+   */
+  .feed-photo-caption-body {
+    position: relative;
+  }
+
+  .feed-photo-caption.has-more .feed-photo-caption-body {
+    padding-bottom: 1.45rem;
+  }
+
+  .feed-photo-caption-more {
+    position: absolute;
+    left: var(--os-screen-body-pad-x, 1rem);
+    bottom: 0.5rem;
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    color: rgb(var(--fg-rgb) / 0.62);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--os-motion-chip, 160ms) ease;
+  }
+
+  .feed-photo-caption.has-more:not(.is-expanded) .feed-photo-caption-more {
+    opacity: 1;
+  }
+
+  .feed-photo-caption-date {
+    display: block;
+    padding: 0.55em 0 0.1em;
+    font-size: 0.78rem;
+    font-weight: 550;
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+    color: rgb(var(--fg-rgb) / 0.52);
   }
 
   .feed-photo-caption-body:focus-visible {
@@ -31437,6 +31493,8 @@ a.os-surface-row {
     contain: layout;
     pointer-events: auto;
     padding: 0.45rem var(--os-screen-body-pad-x, 1rem) 0.15rem;
+    transform: translateZ(0);
+    backface-visibility: hidden;
   }
 
   .feed-photo-caption-identity-row {
@@ -31486,7 +31544,8 @@ a.os-surface-row {
   @media (prefers-reduced-motion: reduce) {
     .feed-photo-caption,
     .feed-photo-caption-dim,
-    .feed-photo-caption-clip {
+    .feed-photo-caption-clip,
+    .feed-photo-caption-more {
       transition: none;
     }
   }
