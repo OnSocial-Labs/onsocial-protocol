@@ -623,6 +623,60 @@ export function isSystemNotification(
   return !notification.actor?.trim();
 }
 
+/**
+ * Social type glyph for the actor avatar. System rows keep the family mark
+ * (stars for anniversary, gift for collect) — never two icons on one row.
+ */
+export type NotificationActivityBadgeKind =
+  | 'like'
+  | 'mention'
+  | 'reply'
+  | 'quote'
+  | 'repost'
+  | 'stand'
+  | 'endorse'
+  | 'support'
+  | 'invite'
+  | 'proposal'
+  | 'sale';
+
+export function notificationActivityBadgeKind(
+  notification: Pick<Notification, 'type' | 'actor' | 'context'>
+): NotificationActivityBadgeKind | null {
+  if (isSystemNotification(notification)) return null;
+  switch (notification.type) {
+    case 'reaction':
+      return 'like';
+    case 'mention':
+      return 'mention';
+    case 'reply':
+      return 'reply';
+    case 'quote':
+      return 'quote';
+    case 'repost':
+      return 'repost';
+    case 'standing_new':
+      return 'stand';
+    case 'endorsement_new':
+      return 'endorse';
+    case 'endorsement_supported':
+    case 'profile_supported':
+      return 'support';
+    case 'group_invite':
+      return 'invite';
+    case 'group_proposal':
+    case 'dao_proposal':
+    case 'dao_proposal_vote':
+    case 'dao_proposal_resolved':
+      return 'proposal';
+    case 'scarces_sold':
+    case 'scarces_offer':
+      return 'sale';
+    default:
+      return null;
+  }
+}
+
 function systemFamily(type: string): NotificationSystemFamily {
   if (type.startsWith('boost_')) return 'boost';
   if (type.startsWith('reward_')) return 'collect';

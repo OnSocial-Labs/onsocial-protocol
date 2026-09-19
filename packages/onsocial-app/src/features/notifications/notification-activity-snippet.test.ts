@@ -23,6 +23,17 @@ describe('notification activity snippets', () => {
     expect(richText).toContain('<span key={`m-${index}`} className="os-mention">');
   });
 
+  it('badges the actor for likes and keeps anniversary on the stars mark', () => {
+    expect(rows).toContain('notificationActivityBadgeKind');
+    expect(rows).toContain('avatarBadge');
+    expect(rows).toContain('ActivityTypeBadge');
+    expect(rows).toContain("anniversary={item.type === 'profile_anniversary'}");
+    expect(rows).toContain('HeartFillIcon');
+    expect(rows).toContain('StarsCFillIcon');
+    expect(css).toContain('.notifications-activity-badge--like');
+    expect(css).toContain('.notifications-activity-mark--anniversary');
+  });
+
   it('locks Activity copy and snippet tokens to DM Sans', () => {
     expect(css).toMatch(
       /\.notifications-activity-verb \{\s*margin: 0;\s*font-family: var\(--app-font-sans\);/
