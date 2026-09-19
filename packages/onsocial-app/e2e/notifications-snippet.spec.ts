@@ -1,3 +1,4 @@
+import { writeFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
 import {
   NOTIFICATIONS_E2E_ACCOUNT,
@@ -112,13 +113,43 @@ test.describe('activity post snippets', () => {
     await expect(hashtag).toHaveText('#near');
     expect(await hashtag.evaluate((node) => node.tagName)).toBe('SPAN');
 
-    const snippetFont = await mentionSnippet.evaluate(
-      (node) => getComputedStyle(node).fontFamily
-    );
-    const mentionFont = await mention.evaluate(
-      (node) => getComputedStyle(node).fontFamily
-    );
-    expect(fontStackHasDmSans(snippetFont)).toBe(true);
-    expect(fontStackHasDmSans(mentionFont)).toBe(true);
+    const snippetStyles = await mentionSnippet.evaluate((node) => {
+      const mentionNode = node.querySelector('.os-mention');
+      const hashtagNode = node.querySelector('.os-hashtag');
+      const snippet = getComputedStyle(node);
+      const mentionStyle = mentionNode ? getComputedStyle(mentionNode) : null;
+      const hashtagStyle = hashtagNode ? getComputedStyle(hashtagNode) : null;
+      return {
+        snippetFont: snippet.fontFamily,
+        snippetWeight: snippet.fontWeight,
+        mentionFont: mentionStyle?.fontFamily ?? '',
+        mentionWeight: mentionStyle?.fontWeight ?? '',
+        mentionColor: mentionStyle?.color ?? '',
+        hashtagFont: hashtagStyle?.fontFamily ?? '',
+        hashtagColor: hashtagStyle?.color ?? '',
+        mentionTag: mentionNode?.tagName ?? '',
+      };
+    });
+    expect(fontStackHasDmSans(snippetStyles.snippetFont)).toBe(true);
+    expect(fontStackHasDmSans(snippetStyles.mentionFont)).toBe(true);
+    expect(fontStackHasDmSans(snippetStyles.hashtagFont)).toBe(true);
+    expect(snippetStyles.mentionWeight).toBe(snippetStyles.snippetWeight);
+    expect(snippetStyles.mentionTag).toBe('SPAN');
+
+    const artifactDir = process.env.E2E_ARTIFACTS;
+    if (artifactDir) {
+      await writeFile(
+        `${artifactDir}/activity_snippet_computed_styles.json`,
+        `${JSON.stringify(snippetStyles, null, 2)}\n`
+      );
+      const list = page.locator('.notifications-activity-list');
+      await list.screenshot({
+        path: `${artifactDir}/activity_post_snippets_dm_sans.png`,
+      });
+      await page.screenshot({
+        path: `${artifactDir}/activity_page_dm_sans.png`,
+        fullPage: true,
+      });
+    }
   });
 });
