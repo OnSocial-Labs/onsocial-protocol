@@ -31455,8 +31455,14 @@ a.os-surface-row {
     gap: 0;
   }
 
+  /* Keep the film radius while the drawer scales the band. */
   .feed-photo-slide--thread .feed-photo-video-wrap {
-    overflow: visible;
+    overflow: hidden;
+    border-radius: 0.85rem;
+  }
+
+  .feed-photo-slide--thread .feed-photo-video-wrap .feed-photo-video {
+    border-radius: 0.85rem;
   }
 
   .feed-photo-slide--thread .feed-photo-video-wrap > .feed-photo-video-dock--slot {
