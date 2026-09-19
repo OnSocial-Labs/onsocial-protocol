@@ -37,6 +37,22 @@ import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { buildNotificationDayRows } from '@/lib/notification-day-rows';
 import { displayName } from '@/lib/profile-display';
+import './notification-activity-badges.css';
+
+const ACTIVITY_BADGE_FILL: Record<NotificationActivityBadgeKind, string> = {
+  like: 'var(--protocol-red, #f25c5c)',
+  mention: 'var(--signal-standing, #5ecf9a)',
+  reply: 'var(--signal-standing, #5ecf9a)',
+  quote: 'var(--signal-reputation, var(--protocol-green, #00ec97))',
+  repost: 'var(--signal-reputation, var(--protocol-green, #00ec97))',
+  stand: 'var(--signal-standing, #5ecf9a)',
+  endorse: 'var(--signal-endorse, #dab872)',
+  anniversary: 'var(--signal-endorse, #dab872)',
+  support: 'var(--signal-reputation, var(--protocol-green, #00ec97))',
+  invite: 'var(--signal-standing, #5ecf9a)',
+  proposal: '#64748b',
+  sale: 'var(--signal-reputation, var(--protocol-green, #00ec97))',
+};
 
 type FillIcon = ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
 
@@ -146,6 +162,10 @@ function ActivityTypeBadge({ kind }: { kind: NotificationActivityBadgeKind }) {
     <span
       className={`notifications-activity-badge notifications-activity-badge--${kind}`}
       data-activity-badge={kind}
+      style={{
+        backgroundColor: ACTIVITY_BADGE_FILL[kind],
+        color: 'var(--app-on-media-ink, #fff)',
+      }}
     >
       <Icon className="notifications-activity-badge-icon" />
     </span>

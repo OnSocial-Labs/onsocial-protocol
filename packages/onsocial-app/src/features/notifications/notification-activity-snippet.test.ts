@@ -10,6 +10,10 @@ const richText = readFileSync(
   'utf8'
 );
 const css = readFileSync(join(here, '../../app/globals.css'), 'utf8');
+const badgeCss = readFileSync(
+  join(here, 'notification-activity-badges.css'),
+  'utf8'
+);
 const feedMeta = readFileSync(join(here, '../../app/feed-meta.css'), 'utf8');
 
 describe('notification activity snippets', () => {
@@ -33,21 +37,16 @@ describe('notification activity snippets', () => {
     expect(rows).toContain('StarMovingFillIcon');
     expect(rows).toContain('anniversary: StarsCFillIcon');
     expect(rows).toContain('stand: UserFillIcon');
-    expect(css).toContain('--signal-standing');
-    expect(css).toContain('--signal-reputation');
-    expect(css).toContain('--signal-endorse');
-    expect(css).toContain('--app-on-media-ink');
-    expect(css).toContain('.notifications-activity-badge--anniversary');
-    expect(css).toContain('.notifications-activity-badge--stand');
-    expect(css).toMatch(
-      /\.notifications-activity-badge--mention,[\s\S]*background-color: var\(--signal-standing/
-    );
-    expect(css).toMatch(
-      /\.notifications-activity-badge--sale \{[\s\S]*background-color: var\(--signal-reputation/
-    );
-    expect(css).toMatch(
-      /\.notifications-activity-badge--proposal \{[\s\S]*background-color: #64748b/
-    );
+    expect(rows).toContain("import './notification-activity-badges.css'");
+    expect(rows).toContain('ACTIVITY_BADGE_FILL');
+    expect(badgeCss).toContain('--signal-standing');
+    expect(badgeCss).toContain('--signal-reputation');
+    expect(badgeCss).toContain('--signal-endorse');
+    expect(badgeCss).toContain('--app-on-media-ink');
+    expect(badgeCss).toContain("[data-activity-badge='anniversary']");
+    expect(badgeCss).toContain("[data-activity-badge='mention']");
+    expect(badgeCss).toContain("[data-activity-badge='sale']");
+    expect(badgeCss).toContain("[data-activity-badge='proposal']");
     expect(css).toContain('.notifications-activity-mark--scarces');
     expect(css).toContain('.notifications-activity-mark--dao');
   });

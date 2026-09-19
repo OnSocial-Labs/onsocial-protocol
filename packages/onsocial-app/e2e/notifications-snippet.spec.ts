@@ -173,16 +173,26 @@ test.describe('activity post snippets', () => {
       [likeBadge, mentionBadge, standBadge, anniversaryBadge].map((badge) =>
         badge.evaluate((node) => {
           const style = getComputedStyle(node);
+          const wrap = node.closest('.standing-row-avatar-badge');
+          const wrapStyle = wrap ? getComputedStyle(wrap) : null;
           return {
+            className: node.className,
+            inline: node.getAttribute('style'),
             background: style.backgroundColor,
+            wrapBackground: wrapStyle?.backgroundColor ?? '',
             color: style.color,
           };
         })
       )
     );
     for (const fill of badgeFills) {
-      expect(fill.background).not.toMatch(/rgba\(0,\s*0,\s*0,\s*0\)/);
-      expect(fill.background).not.toBe('transparent');
+      const painted = [fill.background, fill.wrapBackground].some(
+        (value) =>
+          Boolean(value) &&
+          value !== 'transparent' &&
+          !/rgba\(\s*0,\s*0,\s*0,\s*0\s*\)/.test(value)
+      );
+      expect(painted, JSON.stringify(fill)).toBe(true);
     }
     await expect(
       anniversaryRow.locator('.notifications-activity-mark--onsocial')
@@ -225,7 +235,7 @@ test.describe('activity post snippets', () => {
     if (artifactDir) {
       await writeFile(
         `${artifactDir}/activity_snippet_computed_styles.json`,
-        `${JSON.stringify(snippetStyles, null, 2)}\n`
+        `${JSON.stringify({ snippetStyles, badgeFills }, null, 2)}\n`
       );
       const list = page.locator('.notifications-activity-list');
       await list.screenshot({
@@ -234,6 +244,20 @@ test.describe('activity post snippets', () => {
       await page.screenshot({
         path: `${artifactDir}/activity_page_dm_sans.png`,
         fullPage: true,
+      });
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await page.locator('html').evaluate((node) => {
+        node.setAttribute('data-theme', 'dark');
+      });
+      await list.screenshot({
+        path: `${artifactDir}/activity_type_discs_dark.png`,
+      });
+      await page.emulateMedia({ colorScheme: 'light' });
+      await page.locator('html').evaluate((node) => {
+        node.setAttribute('data-theme', 'light');
+      });
+      await list.screenshot({
+        path: `${artifactDir}/activity_type_discs_light.png`,
       });
     }
   });
