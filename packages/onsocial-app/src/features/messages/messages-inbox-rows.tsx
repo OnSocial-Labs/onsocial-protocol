@@ -42,7 +42,7 @@ export function MessagesInboxList({
 function MessagesInboxSkeletonRow() {
   return (
     <div
-      className="standing-row notifications-activity-row messages-inbox-row--skeleton"
+      className="standing-row standing-row--skeleton notifications-activity-row messages-inbox-row--skeleton"
       aria-hidden
     >
       <div className="standing-row-main">
@@ -126,7 +126,7 @@ export function MessagesInboxThreadRow({
           avatarUrl={avatarUrl}
         >
           {previewLine ? (
-            <span className="notifications-activity-snippet">{previewLine}</span>
+            <span className="standing-row-bio">{previewLine}</span>
           ) : null}
         </StandingIdentity>
       </div>
@@ -189,7 +189,7 @@ export function MessagesInboxPeopleRow({
           avatarUrl={avatarUrl}
         >
           {previewLine ? (
-            <span className="notifications-activity-snippet">{previewLine}</span>
+            <span className="standing-row-bio">{previewLine}</span>
           ) : null}
         </StandingIdentity>
       </div>

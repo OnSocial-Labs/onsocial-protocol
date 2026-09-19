@@ -545,19 +545,28 @@ export function pushNotificationUrl(row: {
     type === 'mention' ||
     type === 'reaction'
   ) {
-    const groupId = textField(context, 'groupId');
+    const contextGroupId = textField(context, 'groupId');
     const fromPath =
-      parsePushPostPath(textField(context, 'parentPath')) ??
-      parsePushPostPath(textField(context, 'refPath')) ??
-      parsePushPostPath(textField(context, 'reactionTargetPath')) ??
-      parsePushPostPath(textField(context, 'path'));
+      type === 'reaction'
+        ? (parsePushPostPath(textField(context, 'reactionTargetPath')) ??
+          parsePushReactionPath(textField(context, 'path')))
+        : (parsePushPostPath(textField(context, 'parentPath')) ??
+          parsePushPostPath(textField(context, 'refPath')) ??
+          parsePushPostPath(textField(context, 'path')));
     const postId = fromPath?.postId ?? textField(context, 'postId');
-    const author = fromPath?.author ?? actor;
+    const author = fromPath?.author ?? (type === 'reaction' ? null : actor);
+    const groupId = fromPath?.groupId ?? contextGroupId;
     if (author && postId) {
-      if (groupId) {
-        return `/groups/${encodeURIComponent(groupId)}/posts/${encodeURIComponent(author)}/${encodeURIComponent(postId)}`;
+      const href = groupId
+        ? `/groups/${encodeURIComponent(groupId)}/posts/${encodeURIComponent(author)}/${encodeURIComponent(postId)}`
+        : `/@${encodeURIComponent(author)}/posts/${encodeURIComponent(postId)}`;
+      if (type === 'reply') {
+        const replyId = textField(context, 'postId');
+        if (replyId && replyId !== postId) {
+          return `${href}?reply=${encodeURIComponent(replyId)}`;
+        }
       }
-      return `/@${encodeURIComponent(author)}/posts/${encodeURIComponent(postId)}`;
+      return href;
     }
   }
 
@@ -570,11 +579,35 @@ export function pushNotificationUrl(row: {
 
 function parsePushPostPath(
   path: string | null
-): { author: string; postId: string } | null {
+): { author: string; postId: string; groupId?: string } | null {
   if (!path) return null;
-  const match = path.trim().match(/^(.+)\/post\/(.+)$/);
-  if (!match?.[1] || !match[2]) return null;
-  return { author: match[1], postId: match[2] };
+  const trimmed = path.trim();
+  const group = trimmed.match(
+    /^([^/]+)\/groups\/([^/]+)\/content\/post\/(.+)$/
+  );
+  if (group?.[1] && group[2] && group[3]) {
+    return { author: group[1], postId: group[3], groupId: group[2] };
+  }
+  const personal = trimmed.match(/^([^/]+)\/post\/(.+)$/);
+  if (!personal?.[1] || !personal[2]) return null;
+  if (personal[1] === 'like' || personal[1] === 'love') return null;
+  return { author: personal[1], postId: personal[2] };
+}
+
+function parsePushReactionPath(
+  path: string | null
+): { author: string; postId: string; groupId?: string } | null {
+  if (!path) return null;
+  const trimmed = path.trim();
+  const v1 = trimmed.match(
+    /^[^/]+\/reaction\/([^/]+)\/[^/]+\/((?:groups\/[^/]+\/content\/)?post\/.+)$/
+  );
+  if (v1?.[1] && v1[2]) return parsePushPostPath(`${v1[1]}/${v1[2]}`);
+  const legacy = trimmed.match(
+    /^[^/]+\/reaction\/([^/]+)\/((?:groups\/[^/]+\/content\/)?post\/.+)$/
+  );
+  if (legacy?.[1] && legacy[2]) return parsePushPostPath(`${legacy[1]}/${legacy[2]}`);
+  return null;
 }
 
 export function buildWebPushPayload(row: NotificationRow): WebPushPayload {

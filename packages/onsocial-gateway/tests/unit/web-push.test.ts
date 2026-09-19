@@ -112,6 +112,16 @@ describe('pushNotificationUrl', () => {
         actor: 'bob.near',
         context: { parentPath: 'alice.near/post/9', postId: '10' },
       })
+    ).toBe('/@alice.near/posts/9?reply=10');
+    expect(
+      pushNotificationUrl({
+        notification_type: 'reaction',
+        actor: 'bob.near',
+        context: {
+          path: 'bob.near/reaction/alice.near/like/post/9',
+          reactionTargetPath: 'like/post/9',
+        },
+      })
     ).toBe('/@alice.near/posts/9');
     expect(
       pushNotificationUrl({

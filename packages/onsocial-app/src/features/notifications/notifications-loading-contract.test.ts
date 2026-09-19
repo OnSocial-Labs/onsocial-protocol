@@ -13,6 +13,7 @@ describe('notifications loading contract', () => {
     );
 
     expect(source).toContain('resolveAppLoadingPresentation');
+    expect(source).toContain('authPending');
     expect(source).toContain('loadingInitial');
     expect(source).toContain('loadingPresentation');
     expect(source).toContain('showActivitySkeleton');

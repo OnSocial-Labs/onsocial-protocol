@@ -18,6 +18,7 @@ import {
   notificationSystemChrome,
   notificationVerb,
   parseNotificationPostPath,
+  parseNotificationReactionPath,
 } from '@/lib/notification-display';
 
 describe('notification display', () => {
@@ -26,7 +27,23 @@ describe('notification display', () => {
       author: 'alice.testnet',
       postId: '42',
     });
+    expect(
+      parseNotificationPostPath('alice.near/groups/dao/content/post/g1')
+    ).toEqual({
+      author: 'alice.near',
+      postId: 'g1',
+      groupId: 'dao',
+    });
+    expect(parseNotificationPostPath('like/post/42')).toBeNull();
     expect(parseNotificationPostPath('bad')).toBeNull();
+    expect(
+      parseNotificationReactionPath(
+        'carol.near/reaction/alice.near/like/post/9'
+      )
+    ).toEqual({ author: 'alice.near', postId: '9' });
+    expect(
+      parseNotificationReactionPath('alice/reaction/bob.testnet/post/42')
+    ).toEqual({ author: 'bob.testnet', postId: '42' });
   });
 
   it('maps verbs', () => {
@@ -106,7 +123,29 @@ describe('notification display', () => {
         actor: 'bob.testnet',
         context: { parentPath: 'alice.testnet/post/9', postId: '10' },
       })
+    ).toBe('/@alice.testnet/posts/9?reply=10');
+
+    expect(
+      notificationHref({
+        type: 'reaction',
+        actor: 'bob.testnet',
+        context: {
+          path: 'bob.testnet/reaction/alice.testnet/like/post/9',
+          reactionTargetPath: 'like/post/9',
+        },
+      })
     ).toBe('/@alice.testnet/posts/9');
+
+    expect(
+      notificationHref({
+        type: 'quote',
+        actor: 'bob.testnet',
+        context: {
+          refPath: 'alice.near/groups/dao/content/post/g1',
+          postId: '88',
+        },
+      })
+    ).toBe('/groups/dao/posts/alice.near/g1');
 
     expect(
       notificationHref({
@@ -502,6 +541,16 @@ describe('notification display', () => {
         type: 'reaction',
         actor: 'bob.testnet',
         context: { reactionTargetPath: 'alice.testnet/post/9' },
+      })
+    ).toEqual({ author: 'alice.testnet', postId: '9' });
+    expect(
+      notificationSnippetPostRef({
+        type: 'reaction',
+        actor: 'bob.testnet',
+        context: {
+          path: 'bob.testnet/reaction/alice.testnet/like/post/9',
+          reactionTargetPath: 'like/post/9',
+        },
       })
     ).toEqual({ author: 'alice.testnet', postId: '9' });
     expect(

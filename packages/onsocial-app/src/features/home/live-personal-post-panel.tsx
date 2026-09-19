@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -58,7 +58,7 @@ import {
   collectRelationTargetAccountIds,
 } from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { fetchPersonalPost } from '@/lib/fetch-personal-post';
+import { fetchIndexedPost, fetchPersonalPost } from '@/lib/fetch-personal-post';
 import {
   THREAD_QUOTE_PAGE_SIZE,
   THREAD_REPLY_PAGE_SIZE,
@@ -68,9 +68,11 @@ import {
 } from '@/lib/load-personal-post-page';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
+  appendThreadFocusReply,
   personalPostContentPath,
   personalPostQuotesPath,
   postThreadPath,
+  THREAD_FOCUS_REPLY_QUERY,
 } from '@/lib/post-routes';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { resolveThreadLayout } from '@/lib/thread-layout';
@@ -132,6 +134,7 @@ export function LivePersonalPostPanel({
   } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const threadLayout = resolveThreadLayout(searchParams);
   const mediaUnmuted = searchParams.get('media') === 'unmute';
@@ -326,6 +329,17 @@ export function LivePersonalPostPanel({
         }
 
         const root = rootResult.value;
+        if (!root && !options.background) {
+          const indexed = await fetchIndexedPost({ author, postId });
+          if (indexed?.groupId) {
+            const href = postThreadPath(indexed);
+            const reply = searchParams.get(THREAD_FOCUS_REPLY_QUERY);
+            router.replace(
+              reply ? appendThreadFocusReply(href, reply) : href
+            );
+            return;
+          }
+        }
         // Soft refresh must not blank a painted SSR thread on a null miss.
         if (options.background && !root) {
           return;
@@ -365,7 +379,7 @@ export function LivePersonalPostPanel({
         );
       }
     },
-    [author, postId, rootPath]
+    [author, postId, rootPath, router, searchParams]
   );
 
   useEffect(() => {

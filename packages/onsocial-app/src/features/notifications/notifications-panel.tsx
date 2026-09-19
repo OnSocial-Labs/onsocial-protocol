@@ -52,7 +52,14 @@ const PAGE_SIZE = 40;
 export function NotificationsPanel() {
   const router = useRouter();
   const { openAccountSheet } = useAppAccountSheet();
-  const { accountId, isConnected, hasSocialSession } = useAppWallet();
+  const {
+    accountId,
+    isConnected,
+    hasSocialSession,
+    isLoading,
+    isBootstrappingSession,
+  } = useAppWallet();
+  const authPending = isLoading || isBootstrappingSession;
   const { getClient } = useAppOnSocialClient();
   const activityUnread = useNotificationsUnreadCount();
   const [items, setItems] = useState<Notification[] | null>(null);
@@ -312,7 +319,9 @@ export function NotificationsPanel() {
   };
 
   let body: ReactNode;
-  if (!isConnected || !accountId) {
+  if (authPending) {
+    body = <NotificationActivitySkeleton />;
+  } else if (!isConnected || !accountId) {
     body = (
       <OsAppChromePageStatus>
         Stands, mentions, sales, and more — connect to see activity.

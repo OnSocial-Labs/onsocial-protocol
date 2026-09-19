@@ -38,29 +38,38 @@ describe('notification activity snippets', () => {
     expect(rows).toContain('anniversary: StarsCFillIcon');
     expect(rows).toContain('stand: UserFillIcon');
     expect(rows).toContain("import './notification-activity-badges.css'");
-    expect(rows).toContain('ACTIVITY_BADGE_FILL');
+    expect(rows).toContain('ACTIVITY_BADGE_INK');
     expect(badgeCss).toContain('--signal-standing');
     expect(badgeCss).toContain('--signal-reputation');
     expect(badgeCss).toContain('--signal-endorse');
-    expect(badgeCss).toContain('--app-on-media-ink');
+    expect(badgeCss).toContain('--bg');
     expect(badgeCss).toContain("[data-activity-badge='anniversary']");
     expect(badgeCss).toContain("[data-activity-badge='mention']");
     expect(badgeCss).toContain("[data-activity-badge='sale']");
     expect(badgeCss).toContain("[data-activity-badge='proposal']");
+    expect(badgeCss).toContain("[data-activity-badge='repost']");
+    expect(badgeCss).toContain('stroke-width: 3');
     expect(css).toContain('.notifications-activity-mark--scarces');
     expect(css).toContain('.notifications-activity-mark--dao');
   });
 
-  it('locks Activity copy and snippet tokens to DM Sans', () => {
+  it('paints feed-style name plus account id, with the verb under', () => {
+    expect(rows).toContain('showHandle={false}');
+    expect(rows).toContain('ActivityFeedIdentity');
+    expect(rows).toContain('className="post-identity-handle"');
+    expect(rows).toContain('<ActivityVerb verb={verb} />');
+    expect(rows).toContain('<ActivityHint place={placeName} snippet={snippet} />');
+    expect(rows).toContain(
+      'className="standing-row-bio notifications-activity-snippet"'
+    );
+    expect(rows).toContain('className="notifications-activity-place"');
+    expect(rows).toContain('className="standing-row-sep"');
     expect(css).toMatch(
-      /\.notifications-activity-verb \{\s*margin: 0;\s*font-family: var\(--app-font-sans\);/
+      /\.notifications-activity-list \{\s*margin: 0;\s*min-width: 0;\s*font-family: var\(--app-font-sans\);/
     );
-    expect(css).toMatch(
-      /\.notifications-activity-place,\s*\.notifications-activity-snippet \{\s*display: block;[\s\S]*font-family: var\(--app-font-sans\);/
+    expect(feedMeta).toContain(
+      '.notifications-activity-list\n  .standing-row-bio'
     );
-    expect(feedMeta).toContain('.notifications-activity-snippet');
-    expect(feedMeta).toMatch(
-      /\.notifications-activity-snippet\s+:is\(\.os-hashtag, \.os-mention, \.os-ticker, \.os-link\) \{\s*font-family: inherit;/
-    );
+    expect(feedMeta).toContain('pointer-events: none');
   });
 });

@@ -111,17 +111,14 @@ button.post-thread-more:not(.post-thread-more--coil-tail) {
 }
 
 /*
- * Activity quotes — OS chrome owns DM Sans + snippet weight. Tokens keep
- * the signal color; do not force feed 300 or a second face mid-line.
+ * Activity post hints — standing-row-bio size, feed-meta token color/weight.
+ * Row is the only hit; tokens stay display-only.
  */
-.notifications-activity-snippet
+.notifications-activity-list
+  .standing-row-bio
   :is(.os-hashtag, .os-mention, .os-ticker, .os-link) {
-  font-family: inherit;
   font-size: inherit;
-  font-style: inherit;
-  font-weight: inherit;
   line-height: inherit;
-  letter-spacing: inherit;
   pointer-events: none;
   text-decoration: none;
 }
@@ -216,7 +213,8 @@ button.post-thread-more:not(.post-thread-more--coil-tail) {
     );
   }
 
-  .notifications-activity-snippet
+  .notifications-activity-list
+    .standing-row-bio
     :is(.os-hashtag, .os-mention, .os-ticker, .os-link):is(
       :hover,
       :focus-visible

@@ -39,11 +39,13 @@ export async function fetchPersonalPost(
 }
 
 /** Indexed post by author + id — personal or guild. */
-export async function fetchIndexedPost(ref: {
-  author: string;
-  postId: string;
-}): Promise<PostRow | null> {
-  const client = createReadOnlyOnSocialClient();
+export async function fetchIndexedPost(
+  ref: {
+    author: string;
+    postId: string;
+  },
+  client: OnSocial = createReadOnlyOnSocialClient()
+): Promise<PostRow | null> {
   const res = await client.query.graphql<{ postsCurrent: PostRow[] }>({
     query: `query IndexedPost($accountId: String!, $postId: String!) {
       postsCurrent(

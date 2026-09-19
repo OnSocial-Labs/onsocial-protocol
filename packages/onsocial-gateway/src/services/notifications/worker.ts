@@ -392,13 +392,33 @@ function parseMentions(value: string | null): string[] {
   return [];
 }
 
-function extractReactionTargetPath(path: string | null): string | null {
+/**
+ * v1 `{actor}/reaction/{owner}/{kind}/{contentPath}` or legacy without kind.
+ * Returns a content path (`owner/post/{id}` or guild equivalent).
+ */
+export function extractReactionTargetPath(
+  path: string | null
+): string | null {
   if (!path) {
     return null;
   }
 
-  const match = path.match(/\/reaction\/[^/]+\/(.+)$/);
-  return match?.[1] ?? null;
+  const trimmed = path.trim();
+  const v1 = trimmed.match(
+    /^[^/]+\/reaction\/([^/]+)\/[^/]+\/((?:groups\/[^/]+\/content\/)?post\/.+)$/
+  );
+  if (v1?.[1] && v1[2]) {
+    return `${v1[1]}/${v1[2]}`;
+  }
+
+  const legacy = trimmed.match(
+    /^[^/]+\/reaction\/([^/]+)\/((?:groups\/[^/]+\/content\/)?post\/.+)$/
+  );
+  if (legacy?.[1] && legacy[2]) {
+    return `${legacy[1]}/${legacy[2]}`;
+  }
+
+  return null;
 }
 
 export function mapDataUpdateNotifications(
@@ -464,6 +484,7 @@ export function mapDataUpdateNotifications(
         path: normalizeText(row.path),
         reactionTargetPath: extractReactionTargetPath(row.path),
         reactionValue: normalizeText(row.value),
+        groupId: normalizeText(row.group_id),
       },
     });
 

@@ -262,7 +262,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           setAccountId(nextAccountId);
           writeStoredWalletAccountId(nextAccountId);
           if (nextAccountId) {
-            void restoreSocialSessionQuietly(nextAccountId);
+            await restoreSocialSessionQuietly(nextAccountId);
           }
         }
       } catch {

@@ -1,12 +1,12 @@
 /*
- * Activity implementer discs — filled circle, Mage glyph centred,
- * on-media white ink. Same recipe in light and dark.
- * Painted on the standing wrap (`:has`) so the circle fills even if
- * the inner span’s background is dropped by the globals CSS pipeline.
+ * Activity implementer discs — page-colour cutout, Mage glyph in signal
+ * ink. The standing wrap already rings `--bg`; keep the disc the same so
+ * the mark punches out of the avatar instead of sitting as a candy stamp.
+ * Painted on the wrap (`:has`) so ink survives the globals CSS pipeline.
  */
 .standing-row-avatar-badge:has([data-activity-badge]) {
   overflow: hidden;
-  color: var(--app-on-media-ink, #fff);
+  background-color: var(--bg, rgb(var(--bg-rgb) / 1));
 }
 
 .notifications-activity-badge {
@@ -16,12 +16,20 @@
   height: 100%;
   border-radius: inherit;
   overflow: hidden;
-  color: var(--app-on-media-ink, #fff);
+  background-color: var(--bg, rgb(var(--bg-rgb) / 1));
 }
 
-.notifications-activity-badge-icon {
-  width: 0.58rem;
-  height: 0.58rem;
+.notifications-activity-list .standing-row-avatar-badge {
+  right: -0.18rem;
+  bottom: -0.18rem;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.notifications-activity-badge-icon,
+.notifications-activity-list .standing-row-avatar-badge svg {
+  width: 0.72rem;
+  height: 0.72rem;
   display: block;
   flex-shrink: 0;
   color: inherit;
@@ -29,7 +37,7 @@
 
 .standing-row-avatar-badge:has([data-activity-badge='like']),
 .notifications-activity-badge--like {
-  background-color: var(--protocol-red, #f25c5c);
+  color: var(--protocol-red, #f25c5c);
 }
 
 .standing-row-avatar-badge:has([data-activity-badge='stand']),
@@ -40,7 +48,7 @@
 .notifications-activity-badge--reply,
 .notifications-activity-badge--mention,
 .notifications-activity-badge--invite {
-  background-color: var(--signal-standing, #5ecf9a);
+  color: var(--signal-standing, #5ecf9a);
 }
 
 .standing-row-avatar-badge:has([data-activity-badge='quote']),
@@ -51,23 +59,44 @@
 .notifications-activity-badge--repost,
 .notifications-activity-badge--support,
 .notifications-activity-badge--sale {
-  background-color: var(--signal-reputation, var(--protocol-green, #00ec97));
+  color: var(--signal-reputation, var(--protocol-green, #00ec97));
 }
 
 .standing-row-avatar-badge:has([data-activity-badge='endorse']),
 .standing-row-avatar-badge:has([data-activity-badge='anniversary']),
 .notifications-activity-badge--endorse,
 .notifications-activity-badge--anniversary {
-  background-color: var(--signal-endorse, #dab872);
+  color: var(--signal-endorse, #dab872);
 }
 
 .standing-row-avatar-badge:has([data-activity-badge='proposal']),
 .notifications-activity-badge--proposal {
-  background-color: #64748b;
+  color: #64748b;
 }
 
 .notifications-activity-badge--anniversary .notifications-activity-badge-icon,
 .notifications-activity-badge--endorse .notifications-activity-badge-icon {
-  width: 0.7rem;
-  height: 0.7rem;
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+/*
+ * Repost is Mage stroke (no fill). Default 2 in a 24 box is ~1px at
+ * badge size — bump stroke + glyph so the cycle reads with the fills.
+ */
+.notifications-activity-badge--repost .notifications-activity-badge-icon,
+.notifications-activity-list
+  .standing-row-avatar-badge:has([data-activity-badge='repost'])
+  svg {
+  width: 0.82rem;
+  height: 0.82rem;
+  overflow: visible;
+}
+
+.notifications-activity-badge--repost svg path,
+.notifications-activity-list
+  .standing-row-avatar-badge:has([data-activity-badge='repost'])
+  svg
+  path {
+  stroke-width: 3;
 }

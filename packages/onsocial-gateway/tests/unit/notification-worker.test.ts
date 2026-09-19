@@ -11,6 +11,7 @@ import {
   mapScarcesEventNotifications,
   mapSocialSpendNotifications,
   lookupPriorEndorsementOperation,
+  extractReactionTargetPath,
   postSnippetFromValue,
   shouldNotifyEndorsementSet,
 } from '../../src/services/notifications/worker.js';
@@ -216,6 +217,20 @@ describe('mapDataUpdateNotifications', () => {
     expect(reactionNotifications).toHaveLength(1);
     expect(reactionNotifications[0]?.notificationType).toBe('reaction');
     expect(reactionNotifications[0]?.recipient).toBe('bob.testnet');
+    expect(reactionNotifications[0]?.context).toMatchObject({
+      reactionTargetPath: 'bob.testnet/post/42',
+    });
+    expect(
+      extractReactionTargetPath('carol.near/reaction/alice.near/like/post/9')
+    ).toBe('alice.near/post/9');
+    expect(
+      extractReactionTargetPath(
+        'carol.near/reaction/alice.near/like/groups/dao/content/post/g1'
+      )
+    ).toBe('alice.near/groups/dao/content/post/g1');
+    expect(extractReactionTargetPath('alice/reaction/bob.testnet/post/42')).toBe(
+      'bob.testnet/post/42'
+    );
     expect(standingNotifications).toHaveLength(1);
     expect(standingNotifications[0]?.notificationType).toBe('standing_new');
 

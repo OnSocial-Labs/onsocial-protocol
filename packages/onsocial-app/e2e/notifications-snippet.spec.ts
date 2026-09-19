@@ -241,7 +241,7 @@ test.describe('activity post snippets', () => {
     expect(fontStackHasDmSans(snippetStyles.snippetFont)).toBe(true);
     expect(fontStackHasDmSans(snippetStyles.mentionFont)).toBe(true);
     expect(fontStackHasDmSans(snippetStyles.hashtagFont)).toBe(true);
-    expect(snippetStyles.mentionWeight).toBe(snippetStyles.snippetWeight);
+    expect(snippetStyles.mentionWeight).toBe('300');
     expect(snippetStyles.mentionTag).toBe('SPAN');
 
     const artifactDir = process.env.E2E_ARTIFACTS;

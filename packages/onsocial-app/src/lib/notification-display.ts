@@ -1,4 +1,4 @@
-import type { Notification } from '@onsocial/sdk';
+import { REACTION_KINDS, type Notification } from '@onsocial/sdk';
 import { nearExplorerTxHref } from '@/lib/app-config';
 import {
   APP_GROUPS_PATH,
@@ -16,7 +16,7 @@ import {
   portfolioEndorsementPath,
   portfolioPath,
 } from '@/lib/overlay-routes';
-import { postThreadPath } from '@/lib/post-routes';
+import { appendThreadFocusReply, postThreadPath } from '@/lib/post-routes';
 
 /**
  * Activity list/count/mark-all skip mailbox DMs and your own money taps
@@ -266,10 +266,7 @@ export function notificationSnippetPostRef(
   }
   const context = notification.context;
   if (type === 'reaction') {
-    return (
-      parseNotificationPostPath(textField(context, 'reactionTargetPath')) ??
-      parseNotificationPostPath(textField(context, 'path'))
-    );
+    return notificationReactionPostRef(context);
   }
   const fromPath = parseNotificationPostPath(textField(context, 'path'));
   if (fromPath) return fromPath;
@@ -315,14 +312,75 @@ function socialAmountSnippet(
   return `${raw} SOCIAL`;
 }
 
-/** Parse `author/post/{id}` content paths used in notification context. */
+const NOTIFICATION_POST_REF_REACTION_AUTHORS = new Set<string>([
+  ...REACTION_KINDS,
+  'bookmark',
+]);
+
+const GROUP_POST_CONTENT_PATH =
+  /^([^/]+)\/groups\/([^/]+)\/content\/post\/(.+)$/;
+const PERSONAL_POST_CONTENT_PATH = /^([^/]+)\/post\/(.+)$/;
+const REACTION_V1_PATH =
+  /^[^/]+\/reaction\/([^/]+)\/[^/]+\/((?:groups\/[^/]+\/content\/)?post\/.+)$/;
+const REACTION_LEGACY_PATH =
+  /^[^/]+\/reaction\/([^/]+)\/((?:groups\/[^/]+\/content\/)?post\/.+)$/;
+
+export type NotificationPostRef = {
+  author: string;
+  postId: string;
+  groupId?: string;
+};
+
+/**
+ * Parse a personal (`author/post/{id}`) or guild
+ * (`author/groups/{g}/content/post/{id}`) content path.
+ * Rejects greedy leftovers (`like/post/1`, `author/groups/g/content/post/1`
+ * parsed as author `…/content`).
+ */
 export function parseNotificationPostPath(
   path: string | null | undefined
-): { author: string; postId: string } | null {
+): NotificationPostRef | null {
   if (!path?.trim()) return null;
-  const match = path.trim().match(/^(.+)\/post\/(.+)$/);
-  if (!match?.[1] || !match[2]) return null;
-  return { author: match[1], postId: match[2] };
+  const trimmed = path.trim();
+  const group = trimmed.match(GROUP_POST_CONTENT_PATH);
+  if (group?.[1] && group[2] && group[3]) {
+    return {
+      author: group[1],
+      postId: group[3],
+      groupId: group[2],
+    };
+  }
+  const personal = trimmed.match(PERSONAL_POST_CONTENT_PATH);
+  if (!personal?.[1] || !personal[2]) return null;
+  if (NOTIFICATION_POST_REF_REACTION_AUTHORS.has(personal[1])) return null;
+  if (personal[1].includes('/')) return null;
+  return { author: personal[1], postId: personal[2] };
+}
+
+/** v1 `{actor}/reaction/{owner}/{kind}/{contentPath}` or legacy without kind. */
+export function parseNotificationReactionPath(
+  path: string | null | undefined
+): NotificationPostRef | null {
+  if (!path?.trim()) return null;
+  const trimmed = path.trim();
+  const v1 = trimmed.match(REACTION_V1_PATH);
+  if (v1?.[1] && v1[2]) {
+    return parseNotificationPostPath(`${v1[1]}/${v1[2]}`);
+  }
+  const legacy = trimmed.match(REACTION_LEGACY_PATH);
+  if (legacy?.[1] && legacy[2]) {
+    return parseNotificationPostPath(`${legacy[1]}/${legacy[2]}`);
+  }
+  return null;
+}
+
+function notificationReactionPostRef(
+  context: Record<string, unknown> | null | undefined
+): NotificationPostRef | null {
+  return (
+    parseNotificationPostPath(textField(context, 'reactionTargetPath')) ??
+    parseNotificationReactionPath(textField(context, 'path'))
+  );
 }
 
 function reactionVerb(
@@ -412,21 +470,31 @@ export function notificationVerb(
 
 function postHrefFromContext(
   context: Record<string, unknown> | null,
-  actor: string | null
+  actor: string | null,
+  type?: string
 ): string | null {
-  const fromPath =
-    parseNotificationPostPath(textField(context, 'parentPath')) ??
-    parseNotificationPostPath(textField(context, 'refPath')) ??
-    parseNotificationPostPath(textField(context, 'reactionTargetPath')) ??
-    parseNotificationPostPath(textField(context, 'path'));
   const groupId = textField(context, 'groupId');
+  const fromPath =
+    type === 'reaction'
+      ? notificationReactionPostRef(context)
+      : (parseNotificationPostPath(textField(context, 'parentPath')) ??
+        parseNotificationPostPath(textField(context, 'refPath')) ??
+        parseNotificationPostPath(textField(context, 'path')));
   if (fromPath) {
-    return postThreadPath({
+    const href = postThreadPath({
       accountId: fromPath.author,
       postId: fromPath.postId,
-      groupId,
+      groupId: fromPath.groupId ?? groupId,
     });
+    if (type === 'reply') {
+      const replyId = textField(context, 'postId');
+      if (replyId && replyId !== fromPath.postId) {
+        return appendThreadFocusReply(href, replyId);
+      }
+    }
+    return href;
   }
+  if (type === 'reaction') return null;
   const postId = textField(context, 'postId');
   if (actor && postId) {
     return postThreadPath({
@@ -478,7 +546,7 @@ export function notificationHref(
     type === 'mention' ||
     type === 'reaction'
   ) {
-    const postHref = postHrefFromContext(context, actor);
+    const postHref = postHrefFromContext(context, actor, type);
     if (postHref) return postHref;
     if (actor) return portfolioPath(actor);
   }

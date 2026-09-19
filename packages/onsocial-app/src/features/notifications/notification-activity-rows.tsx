@@ -35,11 +35,12 @@ import {
 } from '@/lib/notification-display';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import { PostRichText } from '@/features/home/post-rich-text';
+import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { buildNotificationDayRows } from '@/lib/notification-day-rows';
 import { displayName } from '@/lib/profile-display';
 import './notification-activity-badges.css';
 
-const ACTIVITY_BADGE_FILL: Record<NotificationActivityBadgeKind, string> = {
+const ACTIVITY_BADGE_INK: Record<NotificationActivityBadgeKind, string> = {
   like: 'var(--protocol-red, #f25c5c)',
   mention: 'var(--signal-standing, #5ecf9a)',
   reply: 'var(--signal-standing, #5ecf9a)',
@@ -85,7 +86,7 @@ const SOCIAL_BADGE_ICON: Record<NotificationActivityBadgeKind, FillIcon> = {
 function NotificationActivitySkeletonRow() {
   return (
     <div
-      className="standing-row notifications-activity-row--skeleton"
+      className="standing-row standing-row--skeleton notifications-activity-row--skeleton"
       aria-hidden
     >
       <div className="standing-row-main">
@@ -163,8 +164,8 @@ function ActivityTypeBadge({ kind }: { kind: NotificationActivityBadgeKind }) {
       className={`notifications-activity-badge notifications-activity-badge--${kind}`}
       data-activity-badge={kind}
       style={{
-        backgroundColor: ACTIVITY_BADGE_FILL[kind],
-        color: 'var(--app-on-media-ink, #fff)',
+        backgroundColor: 'var(--bg, rgb(var(--bg-rgb) / 1))',
+        color: ACTIVITY_BADGE_INK[kind],
       }}
     >
       <Icon className="notifications-activity-badge-icon" />
@@ -172,27 +173,54 @@ function ActivityTypeBadge({ kind }: { kind: NotificationActivityBadgeKind }) {
   );
 }
 
-function ActivityCopy({
-  verb,
-  place,
-  snippet,
+function ActivityVerb({ verb }: { verb: string }) {
+  return <span className="notifications-activity-verb">{verb}</span>;
+}
+
+function ActivityFeedIdentity({
+  accountId,
+  profileName,
 }: {
-  verb: string;
-  place?: string | null;
-  snippet?: string | null;
+  accountId: string;
+  profileName?: string | null;
 }) {
+  const { name, handle } = standingIdentityLabel(accountId, profileName);
   return (
     <>
-      <span className="notifications-activity-verb">{verb}</span>
-      {place ? (
-        <span className="notifications-activity-place">{place}</span>
-      ) : null}
-      {snippet ? (
-        <span className="notifications-activity-snippet">
-          <PostRichText text={snippet} interactive={false} emptyFallback="" />
+      <span className="post-identity-name-marks">
+        <ProtocolNameTrailing accountId={accountId} />
+      </span>
+      {name ? (
+        <span className="post-identity-handle" title={`@${handle}`}>
+          @{handle}
         </span>
       ) : null}
     </>
+  );
+}
+
+function ActivityHint({
+  place,
+  snippet,
+}: {
+  place?: string | null;
+  snippet?: string | null;
+}) {
+  if (!place && !snippet) return null;
+  return (
+    <span className="standing-row-bio notifications-activity-snippet">
+      {place ? (
+        <span className="notifications-activity-place">{place}</span>
+      ) : null}
+      {place && snippet ? (
+        <span className="standing-row-sep" aria-hidden>
+          ·
+        </span>
+      ) : null}
+      {snippet ? (
+        <PostRichText text={snippet} interactive={false} emptyFallback="" />
+      ) : null}
+    </span>
   );
 }
 
@@ -290,11 +318,8 @@ export function NotificationActivityRows({
                 <span className="standing-row-name-row">
                   <span className="standing-row-name">{chrome.familyLabel}</span>
                 </span>
-                <ActivityCopy
-                  verb={chrome.action}
-                  place={placeName}
-                  snippet={snippet}
-                />
+                <ActivityVerb verb={chrome.action} />
+                <ActivityHint place={placeName} snippet={snippet} />
               </div>
             </>
           );
@@ -312,15 +337,19 @@ export function NotificationActivityRows({
               accountId={leadAccount}
               profileName={profile?.displayName}
               avatarUrl={profile?.avatarUrl}
+              showHandle={false}
               avatarBadge={
                 badgeKind ? <ActivityTypeBadge kind={badgeKind} /> : null
               }
+              nameTrailing={
+                <ActivityFeedIdentity
+                  accountId={leadAccount}
+                  profileName={profile?.displayName}
+                />
+              }
             >
-              <ActivityCopy
-                verb={verb}
-                place={placeName}
-                snippet={snippet}
-              />
+              <ActivityVerb verb={verb} />
+              <ActivityHint place={placeName} snippet={snippet} />
             </StandingIdentity>
           ) : (
             <>
@@ -329,7 +358,8 @@ export function NotificationActivityRows({
                 <span className="standing-row-name-row">
                   <span className="standing-row-name">{identityLabel}</span>
                 </span>
-                <ActivityCopy verb={verb} place={placeName} snippet={snippet} />
+                <ActivityVerb verb={verb} />
+                <ActivityHint place={placeName} snippet={snippet} />
               </div>
             </>
           );
