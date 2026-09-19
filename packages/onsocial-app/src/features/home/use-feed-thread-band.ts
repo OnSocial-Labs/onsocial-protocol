@@ -69,7 +69,6 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
     active: boolean;
   } | null>(null);
   const dismissRef = useRef(onDismiss);
-  const prevOpenRef = useRef(open);
 
   useLayoutEffect(() => {
     bandRef.current = band;
@@ -79,22 +78,20 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
     dismissRef.current = onDismiss;
   }, [onDismiss]);
 
-  /* Adjust band when open flips — render-time, not an effect. */
-  if (prevOpenRef.current !== open) {
-    prevOpenRef.current = open;
+  useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset band when drawer closes
       setBand(0);
       setDragging(false);
-    } else if (prefersReducedMotion()) {
-      setBand(FEED_THREAD_PEEK);
-    } else {
-      setBand(0);
+      return;
     }
-  }
-
-  /* Peek open: paint at 0, then ease to peek on the next frames. */
-  useEffect(() => {
-    if (!open || prefersReducedMotion()) return;
+    if (prefersReducedMotion()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- snap open without motion
+      setBand(FEED_THREAD_PEEK);
+      return;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- paint closed, then ease to peek
+    setBand(0);
     const id = requestAnimationFrame(() => {
       requestAnimationFrame(() => setBand(FEED_THREAD_PEEK));
     });
