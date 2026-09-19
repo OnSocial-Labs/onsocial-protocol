@@ -180,6 +180,11 @@ export {
 } from './profile-editor-media-toolbar.js';
 export { useDropdown } from './use-dropdown.js';
 export {
+  useOsReveal,
+  type OsRevealMeasureOptions,
+  type OsRevealRefs,
+} from './use-os-reveal.js';
+export {
   ProtocolMotionArrow,
   type ProtocolMotionArrowDirection,
   type ProtocolMotionArrowProps,

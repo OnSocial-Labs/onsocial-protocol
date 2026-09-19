@@ -1,0 +1,46 @@
+/*
+ * @onsocial/ui — measured-height reveal.
+ *
+ * Soft expand / collapse between exact px heights. The ease maps 1:1 to
+ * visible motion (no 0fr dead-zone), so it feels like the portal rails.
+ * Pair with `useOsReveal` which writes --os-reveal-closed / --os-reveal-open.
+ *
+ *   <div class="os-reveal is-open?">
+ *     <span class="os-reveal-clip">
+ *       <span class="os-reveal-inner">…content…</span>
+ *     </span>
+ *   </div>
+ */
+
+.os-reveal-clip {
+  display: block;
+  overflow: hidden;
+  height: var(--os-reveal-closed, auto);
+  transition: height var(--os-motion-overlay, 320ms)
+    var(--os-motion-ease-soft, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.os-reveal.is-open .os-reveal-clip {
+  height: var(--os-reveal-open, auto);
+}
+
+.os-reveal-inner {
+  display: block;
+}
+
+/* Open past the cap → scroll the inner, keep the clip height stable. */
+.os-reveal.is-open .os-reveal-inner.is-capped {
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.os-reveal.is-open .os-reveal-inner.is-capped::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-reveal-clip {
+    transition: none;
+  }
+}

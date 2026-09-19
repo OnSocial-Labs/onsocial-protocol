@@ -19,6 +19,7 @@ import {
   PlayFillIcon,
   ScaleDownIcon,
   ScaleUpIcon,
+  useOsReveal,
   VolumeMuteIcon,
   VolumeUpIcon,
 } from '@onsocial/ui';
@@ -156,10 +157,7 @@ export function FeedPhotoEnlargeScreen({
     captionText.split('\n').length > 2 || captionText.length > 72;
   const [captionMode, setCaptionMode] = useState<'peek' | 'expanded'>('peek');
   const [captionHasMore, setCaptionHasMore] = useState(captionLooksLong);
-  const captionRef = useRef<HTMLDivElement>(null);
-  const captionBodyRef = useRef<HTMLButtonElement>(null);
-  const captionClipRef = useRef<HTMLSpanElement>(null);
-  const captionInnerRef = useRef<HTMLSpanElement>(null);
+  const captionReveal = useOsReveal<HTMLDivElement>();
   const captionTextRef = useRef<HTMLSpanElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -188,42 +186,31 @@ export function FeedPhotoEnlargeScreen({
   const showStage = Boolean(stage) && photos.length === 0;
   const captionExpanded = hasCaption && captionMode === 'expanded';
   /*
-   * Measured px height (Radix-style) — the ease maps 1:1 to visible motion,
-   * no 0fr dead-zone. Peek = exactly 2 lines; open = full text + date,
-   * capped so long posts scroll instead of covering the film.
+   * Shared measured reveal (useOsReveal) — ease maps 1:1 to visible motion.
+   * Peek = exactly 2 lines; open = full text + date, capped so long posts
+   * scroll instead of covering the film.
    */
   const measureCaption = useCallback(() => {
-    const caption = captionRef.current;
-    const clip = captionClipRef.current;
-    const inner = captionInnerRef.current;
-    const text = captionTextRef.current;
-    if (!caption || !clip || !inner || !text) return;
-    const cs = getComputedStyle(clip);
-    let lineHeight = parseFloat(cs.lineHeight);
-    if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
-      lineHeight = parseFloat(cs.fontSize) * 1.5;
-    }
-    const peekPx = Math.ceil(lineHeight * 2);
-    const textPx = text.scrollHeight;
-    const next = textPx > peekPx + 1;
-    setCaptionHasMore((prev) => (prev === next ? prev : next));
     const rem =
       parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    const capPx = Math.min(rem * 12, window.innerHeight * 0.36);
-    const fullPx = Math.ceil(inner.scrollHeight);
-    const openPx = Math.max(peekPx, Math.min(fullPx, capPx));
-    caption.style.setProperty('--feed-caption-peek', `${peekPx}px`);
-    caption.style.setProperty('--feed-caption-open', `${openPx}px`);
-  }, []);
+    const maxOpenPx = Math.min(rem * 12, window.innerHeight * 0.36);
+    captionReveal.measure({ closedLines: 2, maxOpenPx });
+    const clip = captionReveal.clipRef.current;
+    const text = captionTextRef.current;
+    if (clip && text) {
+      const next = text.scrollHeight > clip.clientHeight + 1;
+      setCaptionHasMore((prev) => (prev === next ? prev : next));
+    }
+  }, [captionReveal]);
   const expandCaption = useCallback(() => {
     measureCaption();
     setCaptionMode('expanded');
   }, [measureCaption]);
   const collapseCaption = useCallback(() => {
-    const inner = captionInnerRef.current;
+    const inner = captionReveal.innerRef.current;
     if (inner) inner.scrollTop = 0;
     setCaptionMode('peek');
-  }, []);
+  }, [captionReveal]);
   useLayoutEffect(() => {
     if (!open || cinema || threadOpen || !hasCaption) return;
     measureCaption();
@@ -991,8 +978,8 @@ export function FeedPhotoEnlargeScreen({
           />
         ) : null}
         <div
-          ref={captionRef}
-          className={`feed-photo-caption${captionHasMore ? ' has-more' : ''}${captionExpanded ? ' is-expanded' : ''}${chromeQuiet ? ' is-chrome-quiet' : ''}`}
+          ref={captionReveal.hostRef}
+          className={`feed-photo-caption os-reveal${captionHasMore ? ' has-more' : ''}${captionExpanded ? ' is-expanded is-open' : ''}${chromeQuiet ? ' is-chrome-quiet' : ''}`}
         >
           {peekIdentity ? (
             <div
@@ -1006,7 +993,6 @@ export function FeedPhotoEnlargeScreen({
           {hasCaption ? (
             <button
               type="button"
-              ref={captionBodyRef}
               className="feed-photo-caption-body"
               aria-expanded={captionExpanded}
               aria-label={
@@ -1019,10 +1005,13 @@ export function FeedPhotoEnlargeScreen({
                 revealChrome();
               }}
             >
-              <span ref={captionClipRef} className="feed-photo-caption-clip">
+              <span
+                ref={captionReveal.clipRef}
+                className="feed-photo-caption-clip os-reveal-clip"
+              >
                 <span
-                  ref={captionInnerRef}
-                  className="feed-photo-caption-clip-inner"
+                  ref={captionReveal.innerRef}
+                  className="feed-photo-caption-clip-inner os-reveal-inner is-capped"
                 >
                   <span ref={captionTextRef} className="feed-photo-caption-text">
                     {captionText}

@@ -32,6 +32,7 @@
     "./os-gesture-sheet-header.css": "./os-gesture-sheet-header.css",
     "./os-standing-identity.css": "./os-standing-identity.css",
     "./os-chrome-subject.css": "./os-chrome-subject.css",
+    "./os-reveal.css": "./os-reveal.css",
     "./os-app-chrome.css": "./os-app-chrome.css",
     "./os-app-chrome-page.css": "./os-app-chrome-page.css",
     "./os-app-chrome-page-class-names": {
@@ -97,6 +98,7 @@
     "os-gesture-sheet-header.css",
     "os-standing-identity.css",
     "os-chrome-subject.css",
+    "os-reveal.css",
     "os-app-chrome.css",
     "os-app-chrome-page.css",
     "os-sheet-facts.css",

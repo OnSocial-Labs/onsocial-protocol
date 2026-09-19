@@ -21,6 +21,7 @@
 @import '@onsocial/ui/os-gesture-sheet-header.css';
 @import '@onsocial/ui/os-standing-identity.css';
 @import '@onsocial/ui/os-chrome-subject.css';
+@import '@onsocial/ui/os-reveal.css';
 @import '@onsocial/ui/os-app-chrome.css';
 @import '@onsocial/ui/os-app-chrome-page.css';
 @import '@onsocial/ui/os-sheet-facts.css';
@@ -31410,37 +31411,16 @@ a.os-surface-row {
   }
 
   /*
-   * Peek — exactly two lines. Height animates between measured px
-   * (--feed-caption-peek → --feed-caption-open) so the ease maps 1:1
-   * to visible motion (no 0fr dead-zone). Lines 1–2 never reflow.
+   * Peek — exactly two lines. Height animates via the shared os-reveal
+   * (measured px, soft ease) so lines 1–2 never reflow. Typography only here.
    */
   .feed-photo-caption-clip {
-    display: block;
-    overflow: hidden;
     font-size: 0.92rem;
     line-height: 1.5;
-    height: var(--feed-caption-peek, 3em);
-    transition: height var(--os-motion-overlay, 320ms)
-      var(--os-motion-ease-soft, cubic-bezier(0.22, 1, 0.36, 1));
-  }
-
-  .feed-photo-caption.is-expanded .feed-photo-caption-clip {
-    height: var(--feed-caption-open, auto);
-  }
-
-  .feed-photo-caption-clip-inner {
-    display: block;
   }
 
   .feed-photo-caption.is-expanded .feed-photo-caption-clip-inner {
     max-height: min(12rem, 36vh);
-    overflow-y: auto;
-    scrollbar-width: none;
-  }
-
-  .feed-photo-caption.is-expanded .feed-photo-caption-clip-inner::-webkit-scrollbar {
-    width: 0;
-    height: 0;
   }
 
   /*
@@ -31544,7 +31524,6 @@ a.os-surface-row {
   @media (prefers-reduced-motion: reduce) {
     .feed-photo-caption,
     .feed-photo-caption-dim,
-    .feed-photo-caption-clip,
     .feed-photo-caption-more {
       transition: none;
     }
