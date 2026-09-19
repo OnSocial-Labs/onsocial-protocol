@@ -36,8 +36,20 @@ describe('notification activity snippets', () => {
     expect(css).toContain('--signal-standing');
     expect(css).toContain('--signal-reputation');
     expect(css).toContain('--signal-endorse');
+    expect(css).toContain('--app-on-media-ink');
     expect(css).toContain('.notifications-activity-badge--anniversary');
     expect(css).toContain('.notifications-activity-badge--stand');
+    expect(css).toMatch(
+      /\.notifications-activity-badge--mention,[\s\S]*background-color: var\(--signal-standing/
+    );
+    expect(css).toMatch(
+      /\.notifications-activity-badge--sale \{[\s\S]*background-color: var\(--signal-reputation/
+    );
+    expect(css).toMatch(
+      /\.notifications-activity-badge--proposal \{[\s\S]*background-color: #64748b/
+    );
+    expect(css).toContain('.notifications-activity-mark--scarces');
+    expect(css).toContain('.notifications-activity-mark--dao');
   });
 
   it('locks Activity copy and snippet tokens to DM Sans', () => {

@@ -651,7 +651,7 @@ export function isSystemNotification(
 
 /**
  * Type glyph on the standing lead. Anniversary uses the member avatar +
- * StarMoving — same language as a like. Protocol-only rows keep the family mark.
+ * StarsC — same implementer disc as a like. Protocol-only rows keep the family mark.
  */
 export type NotificationActivityBadgeKind =
   | 'like'

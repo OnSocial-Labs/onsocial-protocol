@@ -44603,20 +44603,29 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 .notifications-activity-mark--collect,
-.notifications-activity-mark--onsocial {
+.notifications-activity-mark--scarces {
   color: var(--signal-reputation, var(--protocol-green));
 }
 
-.notifications-activity-mark--dao,
-.notifications-activity-mark--scarces,
+.notifications-activity-mark--onsocial {
+  color: var(--signal-endorse, #dab872);
+}
+
 .notifications-activity-mark--guild {
   color: var(--signal-standing, #5ecf9a);
 }
 
+.notifications-activity-mark--dao,
+.notifications-activity-mark--app,
+.notifications-activity-mark--activity {
+  color: rgb(var(--fg-rgb) / 0.72);
+}
+
 /*
- * Activity type discs — same signal tokens as stand / endorse / feed.
- * Mood screens retint these. Anniversary uses StarsC so the disc fills;
- * StarMoving is off-center at this size and reads empty.
+ * Activity type discs — Instagram implementer: filled circle, Mage fill
+ * centred, on-media white glyph. Same recipe in light and dark.
+ * Mood retints standing / endorse / reputation. Like stays crimson.
+ * Anniversary uses StarsC so the gold disc actually fills.
  */
 .notifications-activity-badge {
   display: grid;
@@ -44625,11 +44634,9 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   height: 100%;
   border-radius: inherit;
   overflow: hidden;
-  background: var(
-    --os-activity-badge,
-    rgb(var(--fg-rgb) / 0.72)
-  );
-  color: #fff;
+  background-color: var(--os-activity-badge, #64748b);
+  background-image: none;
+  color: var(--app-on-media-ink, #fff);
 }
 
 .notifications-activity-badge-icon {
@@ -44637,28 +44644,34 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   height: 0.58rem;
   display: block;
   flex-shrink: 0;
+  color: inherit;
 }
 
 .notifications-activity-badge--like {
   --os-activity-badge: var(--protocol-red, #ef4444);
+  background-color: var(--protocol-red, #ef4444);
 }
 
 .notifications-activity-badge--stand,
 .notifications-activity-badge--reply,
+.notifications-activity-badge--mention,
 .notifications-activity-badge--invite {
   --os-activity-badge: var(--signal-standing, #5ecf9a);
+  background-color: var(--signal-standing, #5ecf9a);
 }
 
-.notifications-activity-badge--mention,
 .notifications-activity-badge--quote,
 .notifications-activity-badge--repost,
-.notifications-activity-badge--support {
+.notifications-activity-badge--support,
+.notifications-activity-badge--sale {
   --os-activity-badge: var(--signal-reputation, var(--protocol-green));
+  background-color: var(--signal-reputation, var(--protocol-green));
 }
 
 .notifications-activity-badge--endorse,
 .notifications-activity-badge--anniversary {
   --os-activity-badge: var(--signal-endorse, #dab872);
+  background-color: var(--signal-endorse, #dab872);
 }
 
 .notifications-activity-badge--anniversary .notifications-activity-badge-icon,
@@ -44667,9 +44680,9 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   height: 0.7rem;
 }
 
-.notifications-activity-badge--proposal,
-.notifications-activity-badge--sale {
-  --os-activity-badge: rgb(var(--fg-rgb) / 0.72);
+.notifications-activity-badge--proposal {
+  --os-activity-badge: #64748b;
+  background-color: #64748b;
 }
 
 .notifications-activity-pip {
