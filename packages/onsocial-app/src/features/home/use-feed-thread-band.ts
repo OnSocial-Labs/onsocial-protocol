@@ -69,6 +69,7 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
     active: boolean;
   } | null>(null);
   const dismissRef = useRef(onDismiss);
+  const prevOpenRef = useRef(open);
 
   useLayoutEffect(() => {
     bandRef.current = band;
@@ -78,17 +79,22 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
     dismissRef.current = onDismiss;
   }, [onDismiss]);
 
-  useEffect(() => {
+  /* Adjust band when open flips — render-time, not an effect. */
+  if (prevOpenRef.current !== open) {
+    prevOpenRef.current = open;
     if (!open) {
       setBand(0);
       setDragging(false);
-      return;
-    }
-    if (prefersReducedMotion()) {
+    } else if (prefersReducedMotion()) {
       setBand(FEED_THREAD_PEEK);
-      return;
+    } else {
+      setBand(0);
     }
-    setBand(0);
+  }
+
+  /* Peek open: paint at 0, then ease to peek on the next frames. */
+  useEffect(() => {
+    if (!open || prefersReducedMotion()) return;
     const id = requestAnimationFrame(() => {
       requestAnimationFrame(() => setBand(FEED_THREAD_PEEK));
     });
