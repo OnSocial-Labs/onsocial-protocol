@@ -30830,6 +30830,9 @@ a.os-surface-row {
     min-width: 0;
     min-height: 0;
     position: relative;
+    /* Match the film radius so overlays never square-bleed past corners. */
+    overflow: hidden;
+    border-radius: 0.85rem;
   }
 
   .feed-photo-video-wrap .feed-photo-video {
@@ -30838,6 +30841,11 @@ a.os-surface-row {
     cursor: pointer;
   }
 
+  /*
+   * Pause / replay — glyph only, no full-field dim. A wash reads as
+   * corner shade on contain-fit / rounded film; the icon drop-shadow
+   * is enough.
+   */
   .feed-photo-video-play {
     position: absolute;
     inset: 0;
@@ -30849,7 +30857,7 @@ a.os-surface-row {
     border: 0;
     padding: 0;
     cursor: pointer;
-    background: rgb(0 0 0 / 0.22);
+    background: transparent;
   }
 
   .feed-photo-video-play-icon {
@@ -30867,7 +30875,7 @@ a.os-surface-row {
     align-items: center;
     justify-content: center;
     pointer-events: none;
-    background: rgb(0 0 0 / 0.12);
+    background: transparent;
   }
 
   .feed-photo-video-buffer-spin {
@@ -30893,7 +30901,7 @@ a.os-surface-row {
   }
 
   .feed-photo-video {
-    background: rgb(var(--fg-rgb) / 0.08);
+    background: transparent;
   }
 
   /*
