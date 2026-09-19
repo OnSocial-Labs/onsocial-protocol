@@ -26,6 +26,7 @@ import {
   type NotificationSystemFamily,
 } from '@/lib/notification-display';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
+import { PostRichText } from '@/features/home/post-rich-text';
 import { buildNotificationDayRows } from '@/lib/notification-day-rows';
 import { displayName } from '@/lib/profile-display';
 
@@ -132,7 +133,9 @@ function ActivityCopy({
         <span className="notifications-activity-place">{place}</span>
       ) : null}
       {snippet ? (
-        <span className="notifications-activity-snippet">{snippet}</span>
+        <span className="notifications-activity-snippet">
+          <PostRichText text={snippet} interactive={false} emptyFallback="" />
+        </span>
       ) : null}
     </>
   );
