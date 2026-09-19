@@ -43,6 +43,22 @@ const anniversaryNotification = {
   createdAt: '2026-09-10T08:00:00.000Z',
 };
 
+const standNotification = {
+  id: 'notification-stand',
+  recipient: NOTIFICATIONS_E2E_ACCOUNT,
+  actor: 'drew.testnet',
+  type: 'standing_new',
+  dedupeKey: 'stand-1',
+  read: true,
+  source: {
+    contract: null,
+    receiptId: null,
+    blockHeight: null,
+  },
+  context: {},
+  createdAt: '2026-09-10T08:15:00.000Z',
+};
+
 const likeNotification = {
   id: 'notification-like',
   recipient: NOTIFICATIONS_E2E_ACCOUNT,
@@ -96,6 +112,7 @@ async function stubSnippetNotifications(page: Page): Promise<void> {
         notifications: [
           mentionNotification,
           likeNotification,
+          standNotification,
           anniversaryNotification,
         ],
         nextCursor: null,
@@ -127,6 +144,7 @@ test.describe('activity post snippets', () => {
     await expect(page.getByText('mentioned you', { exact: true })).toBeVisible();
     await expect(page.getByText('liked your post', { exact: true })).toBeVisible();
     await expect(page.getByText('1 year on OnSocial', { exact: true })).toBeVisible();
+    await expect(page.getByText('stood with you', { exact: true })).toBeVisible();
 
     const likeRow = page
       .locator('.notifications-activity-row')
@@ -134,6 +152,9 @@ test.describe('activity post snippets', () => {
     const mentionRow = page
       .locator('.notifications-activity-row')
       .filter({ hasText: 'mentioned you' });
+    const standRow = page
+      .locator('.notifications-activity-row')
+      .filter({ hasText: 'stood with you' });
     const anniversaryRow = page
       .locator('.notifications-activity-row')
       .filter({ hasText: '1 year on OnSocial' });
@@ -141,11 +162,12 @@ test.describe('activity post snippets', () => {
     await expect(
       mentionRow.locator('[data-activity-badge="mention"]')
     ).toBeVisible();
+    await expect(standRow.locator('[data-activity-badge="stand"]')).toBeVisible();
     await expect(
-      anniversaryRow.locator('.notifications-activity-mark--anniversary')
+      anniversaryRow.locator('[data-activity-badge="anniversary"]')
     ).toBeVisible();
     await expect(
-      anniversaryRow.locator('[data-activity-badge]')
+      anniversaryRow.locator('.notifications-activity-mark--onsocial')
     ).toHaveCount(0);
     await expect(likeRow.getByText('liked your post', { exact: true })).toBeVisible();
 
