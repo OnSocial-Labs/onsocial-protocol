@@ -375,7 +375,9 @@ describe('pulseSelfReplyRootsToHydrate', () => {
       parentPath: 'alice.near/post/hello',
       parentAuthor: 'alice.near',
     });
-    expect(pulseSelfReplyRootsToHydrate([selfReply, hello], accounts)).toEqual([]);
+    expect(pulseSelfReplyRootsToHydrate([selfReply, hello], accounts)).toEqual(
+      []
+    );
   });
 });
 
