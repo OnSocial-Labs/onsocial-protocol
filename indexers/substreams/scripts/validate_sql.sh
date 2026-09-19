@@ -326,9 +326,10 @@ late_root=bob.near/post/late_root"
 
       apply_sql "$db" /work/tests/fixtures/feed_pulse_check.sql
       pulse_ids="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atf /work/tests/fixtures/feed_pulse_assert.sql)"
-      expected_pulse="root
-nested
-hello"
+      expected_pulse="hello
+note
+root
+nested"
       if [ "$pulse_ids" != "$expected_pulse" ]; then
         echo "error: unexpected feed_pulse cards in $db" >&2
         echo "  expected: $expected_pulse" >&2

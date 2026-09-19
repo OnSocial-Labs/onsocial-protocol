@@ -10,6 +10,7 @@ import {
 } from '@/features/home/personal-feed-list';
 import { PostRowSkeleton } from '@/features/home/post-card';
 import { usePersonalComposer } from '@/features/home/use-personal-composer';
+import { subscribePersonalReplyConfirmed } from '@/features/scarces/drop-compose-host';
 import { accountIdsEqual } from '@/lib/account-match';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { postKey } from '@/lib/post-display';
@@ -122,12 +123,20 @@ export function ProfileFeedClient({
   const destinationLabel = useMemo(() => `@${accountId} · Public`, [accountId]);
 
   const onConfirmed = useCallback(
-    (post: PostRow) => {
+    (post: PostRow, parent?: PostRow | null) => {
       if (post.accountId !== accountId) return;
       if (!shouldPrependOptimisticFeedPost(post)) return;
-      setPosts((current) => insertOptimisticFeedPost(current, post));
+      setPosts((current) => insertOptimisticFeedPost(current, post, parent));
     },
     [accountId]
+  );
+
+  useEffect(
+    () =>
+      subscribePersonalReplyConfirmed(({ parent, reply }) => {
+        onConfirmed(reply, parent);
+      }),
+    [onConfirmed]
   );
 
   const onUnreposted = useCallback(
@@ -148,13 +157,19 @@ export function ProfileFeedClient({
     [viewerId]
   );
 
-  const { openReply, openFullReply, openQuote, openRepost, openUndoRepost, sheet } =
-    usePersonalComposer({
-      registerPen: false,
-      destinationLabel,
-      onConfirmed,
-      onUnreposted,
-    });
+  const {
+    openReply,
+    openFullReply,
+    openQuote,
+    openRepost,
+    openUndoRepost,
+    sheet,
+  } = usePersonalComposer({
+    registerPen: false,
+    destinationLabel,
+    onConfirmed,
+    onUnreposted,
+  });
 
   const replyHandler = openReply;
   const quoteHandler = isConnected ? openQuote : undefined;

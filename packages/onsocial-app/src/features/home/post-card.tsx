@@ -1660,23 +1660,27 @@ export function PostCard({
     }
     let cancelled = false;
     void (async () => {
-      let item: OwnedScarceItem | null = null;
-      if (scarceTokenId) {
-        item = await fetchOwnedScarceByTokenId(viewerAccountId, scarceTokenId);
+      try {
+        let item: OwnedScarceItem | null = null;
+        if (scarceTokenId) {
+          item = await fetchOwnedScarceByTokenId(viewerAccountId, scarceTokenId);
+        }
+        if (!item && scarceCollectionId) {
+          item = await fetchOwnedScarceForCollection(
+            viewerAccountId,
+            scarceCollectionId
+          );
+        }
+        if (!item) {
+          item = await fetchOwnedScarceForSourcePost(
+            viewerAccountId,
+            sourcePostPath
+          );
+        }
+        if (!cancelled) setOwnedScarceByKey({ key: ownershipKey, item });
+      } catch {
+        if (!cancelled) setOwnedScarceByKey({ key: ownershipKey, item: null });
       }
-      if (!item && scarceCollectionId) {
-        item = await fetchOwnedScarceForCollection(
-          viewerAccountId,
-          scarceCollectionId
-        );
-      }
-      if (!item) {
-        item = await fetchOwnedScarceForSourcePost(
-          viewerAccountId,
-          sourcePostPath
-        );
-      }
-      if (!cancelled) setOwnedScarceByKey({ key: ownershipKey, item });
     })();
     return () => {
       cancelled = true;

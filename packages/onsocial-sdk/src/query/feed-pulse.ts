@@ -99,15 +99,74 @@ export function assemblePulsePage(input: {
   const nativeEvents: PulseEvent[] = [];
   const nativeKeys = new Set<string>();
   const nativePaths = new Set<string>();
+  const nativeRoots: PostRow[] = [];
+  const nativeReplies: PostRow[] = [];
   for (const row of input.native) {
     if (!isCircleNativePost(row, accounts)) continue;
-    nativeEvents.push({
-      heat: rankHeat(row),
-      height: rankHeight(row),
-      rows: [row],
-    });
     nativeKeys.add(postKey(row));
     nativePaths.add(postContentPath(row));
+    if (parentAuthorOf(row)) nativeReplies.push(row);
+    else nativeRoots.push(row);
+  }
+
+  const rootByPath = new Map(
+    nativeRoots.map((root) => [postContentPath(root), root] as const)
+  );
+  for (const parent of input.parents) {
+    const path = postContentPath(parent);
+    if (!rootByPath.has(path)) rootByPath.set(path, parent);
+  }
+  const peekByRootKey = new Map<string, PostRow>();
+  for (const reply of nativeReplies) {
+    const cardPath = pulseBridgeCardPath(reply);
+    const root = cardPath ? rootByPath.get(cardPath) : undefined;
+    if (!root) continue;
+    const rootKey = postKey(root);
+    const existing = peekByRootKey.get(rootKey);
+    if (
+      !existing ||
+      comparePulseRank(
+        { heat: rankHeat(reply), height: rankHeight(reply) },
+        { heat: rankHeat(existing), height: rankHeight(existing) },
+        input.sort
+      ) < 0
+    ) {
+      peekByRootKey.set(rootKey, reply);
+    }
+  }
+
+  const attachedReplies = new Set<string>();
+  const emittedRoots = new Set<string>();
+  for (const root of nativeRoots) {
+    const peek = peekByRootKey.get(postKey(root));
+    if (peek) attachedReplies.add(postKey(peek));
+    emittedRoots.add(postKey(root));
+    nativeEvents.push({
+      heat: peek ? rankHeat(peek) : rankHeat(root),
+      height: peek ? rankHeight(peek) : rankHeight(root),
+      rows: peek ? [root, peek] : [root],
+    });
+  }
+  for (const parent of input.parents) {
+    const key = postKey(parent);
+    if (emittedRoots.has(key)) continue;
+    const peek = peekByRootKey.get(key);
+    if (!peek) continue;
+    attachedReplies.add(postKey(peek));
+    emittedRoots.add(key);
+    nativeEvents.push({
+      heat: rankHeat(peek),
+      height: rankHeight(peek),
+      rows: [parent, peek],
+    });
+  }
+  for (const reply of nativeReplies) {
+    if (attachedReplies.has(postKey(reply))) continue;
+    nativeEvents.push({
+      heat: rankHeat(reply),
+      height: rankHeight(reply),
+      rows: [reply],
+    });
   }
 
   const bestBridge = new Map<string, PostRow>();
@@ -161,7 +220,7 @@ export function assemblePulsePage(input: {
   };
 }
 
-/** Native Circle row that `feed_pulse` emits as a one-row card. */
+/** Native Circle row that `feed_pulse` emits as a card root. */
 export function isPulseNativeCardRow(
   row: PostRow,
   accounts: ReadonlySet<string>
@@ -169,9 +228,20 @@ export function isPulseNativeCardRow(
   return accounts.has(row.accountId) && isCircleNativePost(row, accounts);
 }
 
+function isNativeSelfPeek(
+  root: PostRow,
+  peek: PostRow | undefined,
+  accounts: ReadonlySet<string>
+): peek is PostRow {
+  if (!peek || parentAuthorOf(root) || !isPulseNativeCardRow(peek, accounts)) {
+    return false;
+  }
+  return pulseBridgeCardPath(peek) === postContentPath(root);
+}
+
 /**
- * Split SQL `feed_pulse` rows into cards. Natives are one row; bridges are
- * `[strangerRoot, circlePeek]` in that order.
+ * Split SQL `feed_pulse` rows into cards. Native roots are one row, or
+ * `[root, newestSelfReply]`. Bridges are `[strangerRoot, circlePeek]`.
  */
 export function splitPulseFunctionRows(
   rows: readonly PostRow[],
@@ -182,7 +252,13 @@ export function splitPulseFunctionRows(
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
     if (isPulseNativeCardRow(row, accountSet)) {
-      cards.push([row]);
+      const peek = rows[i + 1];
+      if (isNativeSelfPeek(row, peek, accountSet)) {
+        cards.push([row, peek]);
+        i += 1;
+      } else {
+        cards.push([row]);
+      }
       continue;
     }
     if (!accountSet.has(row.accountId)) {
@@ -201,19 +277,105 @@ export function splitPulseFunctionRows(
   return cards;
 }
 
+function rowMatchesContentPath(row: PostRow, path: string): boolean {
+  if (postContentPath(row) === path) return true;
+  const ref = parsePostRefFromContentPath(path);
+  return Boolean(
+    ref && row.accountId === ref.accountId && row.postId === ref.postId
+  );
+}
+
+/** Root for a native self-reply, matched by path or account + post id. */
+export function resolvePulseThreadRoot(
+  reply: PostRow,
+  pool: readonly PostRow[]
+): PostRow | undefined {
+  const path = pulseBridgeCardPath(reply);
+  if (!path) return undefined;
+  return pool.find(
+    (row) => rowMatchesContentPath(row, path) && postKey(row) !== postKey(reply)
+  );
+}
+
+/**
+ * Old `feed_pulse` emits a self-reply as its own card. Pin the original
+ * in front so Pulse opens on [root, reply], same as a live lift.
+ */
+export function attachPulseSelfReplyRoots(
+  cards: readonly PostRow[][],
+  extraParents: readonly PostRow[],
+  accounts: readonly string[]
+): PostRow[][] {
+  const accountSet = new Set(accounts);
+  const pool = [...extraParents, ...cards.flat()];
+  const moved = new Set<string>();
+  const out: PostRow[][] = [];
+
+  for (const card of cards) {
+    const only = card[0];
+    if (
+      card.length === 1 &&
+      only &&
+      isPulseNativeCardRow(only, accountSet) &&
+      parentAuthorOf(only)
+    ) {
+      const root = resolvePulseThreadRoot(only, pool);
+      if (root) {
+        moved.add(postKey(root));
+        out.push([root, only]);
+        continue;
+      }
+    }
+    if (card.some((row) => moved.has(postKey(row)))) continue;
+    out.push(card);
+  }
+  return out;
+}
+
 export function paginatePulseFunctionRows(input: {
   rows: readonly PostRow[];
   accounts: readonly string[];
   offset: number;
   limit: number;
+  extraParents?: readonly PostRow[];
 }): Paginated<PostRow> {
-  const cards = splitPulseFunctionRows(input.rows, input.accounts);
+  const cards = attachPulseSelfReplyRoots(
+    splitPulseFunctionRows(input.rows, input.accounts),
+    input.extraParents ?? [],
+    input.accounts
+  );
   const sliced = cards.slice(0, input.limit);
   return {
     items: sliced.flat(),
     nextOffset:
       cards.length > input.limit ? input.offset + sliced.length : undefined,
   };
+}
+
+/**
+ * Self-reply roots missing from this Pulse page — hydrate so open-feed
+ * can show the original without waiting on a SQL deploy.
+ */
+export function pulseSelfReplyRootsToHydrate(
+  rows: readonly PostRow[],
+  accounts: readonly string[]
+): PulsePostRef[] {
+  const accountSet = new Set(accounts);
+  const seen = new Set<string>();
+  const refs: PulsePostRef[] = [];
+  for (const row of rows) {
+    if (!isPulseNativeCardRow(row, accountSet) || !parentAuthorOf(row)) {
+      continue;
+    }
+    const path = pulseBridgeCardPath(row);
+    if (!path || seen.has(path)) continue;
+    if (resolvePulseThreadRoot(row, rows)) continue;
+    const ref = parsePostRefFromContentPath(path);
+    if (!ref) continue;
+    seen.add(path);
+    refs.push(ref);
+  }
+  return refs;
 }
 
 /** Distinct parent refs that still need a `postsFeed` hydrate. */

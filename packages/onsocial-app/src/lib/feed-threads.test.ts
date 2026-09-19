@@ -27,6 +27,20 @@ describe('coalesceFeedThreads', () => {
     ]);
   });
 
+  it('joins a self-reply when Pulse listed the original first', () => {
+    const parent = post({ postId: 'root', blockTimestamp: 1 });
+    const reply = post({
+      postId: 'r1',
+      blockTimestamp: 2,
+      parentPath: parentPathFor('alice.near', 'root'),
+      parentAuthor: 'alice.near',
+    });
+
+    expect(coalesceFeedThreads([parent, reply])).toEqual([
+      { posts: [parent, reply] },
+    ]);
+  });
+
   it('joins a self-reply with its parent, parent first', () => {
     const parent = post({ postId: 'root', blockTimestamp: 1 });
     const reply = post({
@@ -51,9 +65,7 @@ describe('coalesceFeedThreads', () => {
     });
 
     // The reply lives on bob's thread page; the feed keeps only his post.
-    expect(coalesceFeedThreads([reply, parent])).toEqual([
-      { posts: [parent] },
-    ]);
+    expect(coalesceFeedThreads([reply, parent])).toEqual([{ posts: [parent] }]);
   });
 
   it('keeps cross-author replies when includeForeignReplies is set', () => {
@@ -144,11 +156,7 @@ describe('coalesceFeedThreads', () => {
 
     expect(
       coalesceFeedThreads([carolReply, daveReply, aliceReply, parent], {
-        stoodWithAccountIds: new Set([
-          'alice.near',
-          'carol.near',
-          'dave.near',
-        ]),
+        stoodWithAccountIds: new Set(['alice.near', 'carol.near', 'dave.near']),
       })
     ).toEqual([{ posts: [parent], standingPeek: carolReply }]);
   });
@@ -246,6 +254,19 @@ describe('coalesceFeedThreads', () => {
     });
 
     expect(coalesceFeedThreads([c, b, a])).toEqual([{ posts: [a, b, c] }]);
+  });
+
+  it('joins a self-reply when group vs personal parent paths disagree', () => {
+    const parent = post({ postId: 'root', groupId: 'dao' });
+    const reply = post({
+      postId: 'r1',
+      parentPath: 'alice.near/post/root',
+      parentAuthor: 'alice.near',
+    });
+
+    expect(coalesceFeedThreads([reply, parent])).toEqual([
+      { posts: [parent, reply] },
+    ]);
   });
 
   it('keeps a self-reply alone when the parent is not on this page', () => {

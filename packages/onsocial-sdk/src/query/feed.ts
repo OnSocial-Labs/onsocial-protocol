@@ -18,6 +18,7 @@ import {
   assemblePulsePage,
   paginatePulseFunctionRows,
   pulseParentRefsToHydrate,
+  pulseSelfReplyRootsToHydrate,
 } from './feed-pulse.js';
 
 export type { FeedSection, FeedSort };
@@ -608,11 +609,21 @@ export class FeedQuery {
           cardOffset: offset,
           sort,
         });
+        const selfRefs = pulseSelfReplyRootsToHydrate(rows, opts.accounts);
+        const extraParents =
+          selfRefs.length > 0
+            ? await this.hydrateStubRows(
+                'PulseSelfParents',
+                selfRefs,
+                selfRefs.length
+              )
+            : [];
         return paginatePulseFunctionRows({
           rows,
           accounts: opts.accounts,
           offset,
           limit,
+          extraParents,
         });
       } catch (err) {
         if (!isFeedPulseUnavailableError(err)) throw err;
@@ -667,7 +678,10 @@ export class FeedQuery {
       }),
     ]);
 
-    const parentRefs = pulseParentRefsToHydrate(bridges, opts.accounts);
+    const parentRefs = [
+      ...pulseParentRefsToHydrate(bridges, opts.accounts),
+      ...pulseSelfReplyRootsToHydrate(native, opts.accounts),
+    ];
     const parents =
       parentRefs.length > 0
         ? await this.hydrateStubRows(

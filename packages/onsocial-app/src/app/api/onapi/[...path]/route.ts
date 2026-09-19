@@ -7,6 +7,7 @@ import {
   extractGraphRequest,
   resolveE2eGraphStub,
 } from '@/lib/e2e-graph-stubs';
+import { isOnApiSameOriginRequest } from '@/lib/onapi-proxy-origin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -297,8 +298,14 @@ function buildTargetUrl(pathSegments: string[], search: string): string {
 }
 
 function isSameOriginRequest(request: NextRequest): boolean {
-  const origin = request.headers.get('origin');
-  return !origin || origin === request.nextUrl.origin;
+  return isOnApiSameOriginRequest({
+    origin: request.headers.get('origin'),
+    nextOrigin: request.nextUrl.origin,
+    host: request.headers.get('host'),
+    forwardedHost: request.headers.get('x-forwarded-host'),
+    forwardedProto: request.headers.get('x-forwarded-proto'),
+    protocol: request.nextUrl.protocol,
+  });
 }
 
 function getErrorMessage(error: unknown): string {

@@ -3,9 +3,11 @@ import type { PostRow } from './_shared.js';
 import {
   assemblePulsePage,
   isCircleNativePost,
+  attachPulseSelfReplyRoots,
   paginatePulseFunctionRows,
   parsePostRefFromContentPath,
   pulseParentRefsToHydrate,
+  pulseSelfReplyRootsToHydrate,
   splitPulseFunctionRows,
 } from './feed-pulse.js';
 
@@ -214,6 +216,51 @@ describe('assemblePulsePage', () => {
     expect(page.items.map((item) => item.postId)).toEqual(['root', 'r2']);
   });
 
+  it('folds a self-reply onto its root and ranks the card by the reply', () => {
+    const selfReply = row('alice.near', 'note', {
+      parentPath: 'alice.near/post/hello',
+      parentAuthor: 'alice.near',
+      rootPath: 'alice.near/post/hello',
+      blockHeight: 50,
+    });
+    const page = assemblePulsePage({
+      native: [native, selfReply],
+      bridges: [reply],
+      parents: [stranger],
+      accounts,
+      sort: 'recent',
+      offset: 0,
+      limit: 20,
+      take: 20,
+    });
+    expect(page.items.map((item) => item.postId)).toEqual([
+      'hello',
+      'note',
+      'root',
+      'r1',
+    ]);
+  });
+
+  it('pins a hydrated original when the self-reply root is off the native page', () => {
+    const hello = row('alice.near', 'hello', { blockHeight: 15 });
+    const selfReply = row('alice.near', 'note', {
+      parentPath: 'alice.near/post/hello',
+      parentAuthor: 'alice.near',
+      blockHeight: 50,
+    });
+    const page = assemblePulsePage({
+      native: [selfReply],
+      bridges: [],
+      parents: [hello],
+      accounts,
+      sort: 'recent',
+      offset: 0,
+      limit: 20,
+      take: 20,
+    });
+    expect(page.items.map((item) => item.postId)).toEqual(['hello', 'note']);
+  });
+
   it('skips a bridge when the parent did not hydrate', () => {
     const page = assemblePulsePage({
       native: [native],
@@ -247,6 +294,23 @@ describe('splitPulseFunctionRows', () => {
     ]);
   });
 
+  it('pairs a native root with its newest self-reply', () => {
+    const selfReply = row('alice.near', 'note', {
+      parentPath: 'alice.near/post/hello',
+      parentAuthor: 'alice.near',
+      rootPath: 'alice.near/post/hello',
+      blockHeight: 50,
+    });
+    const cards = splitPulseFunctionRows(
+      [native, selfReply, root, peek],
+      accounts
+    );
+    expect(cards.map((card) => card.map((item) => item.postId))).toEqual([
+      ['hello', 'note'],
+      ['root', 'r1'],
+    ]);
+  });
+
   it('pages SQL Pulse rows by cards', () => {
     const page = paginatePulseFunctionRows({
       rows: [root, peek, native],
@@ -256,6 +320,62 @@ describe('splitPulseFunctionRows', () => {
     });
     expect(page.items.map((item) => item.postId)).toEqual(['root', 'r1']);
     expect(page.nextOffset).toBe(1);
+  });
+});
+
+describe('attachPulseSelfReplyRoots', () => {
+  it('pins a missing original in front of a lone self-reply card', () => {
+    const hello = row('alice.near', 'hello', { blockHeight: 15 });
+    const selfReply = row('alice.near', 'note', {
+      parentPath: 'alice.near/post/hello',
+      parentAuthor: 'alice.near',
+      rootPath: 'alice.near/post/hello',
+      blockHeight: 50,
+    });
+    const cards = attachPulseSelfReplyRoots([[selfReply]], [hello], accounts);
+    expect(cards.map((card) => card.map((item) => item.postId))).toEqual([
+      ['hello', 'note'],
+    ]);
+  });
+
+  it('moves an on-page original up onto the self-reply card', () => {
+    const hello = row('alice.near', 'hello', { blockHeight: 15 });
+    const selfReply = row('alice.near', 'note', {
+      parentPath: 'alice.near/post/hello',
+      parentAuthor: 'alice.near',
+      blockHeight: 50,
+    });
+    const other = row('carol.near', 'x', { blockHeight: 40 });
+    const cards = attachPulseSelfReplyRoots(
+      [[selfReply], [other], [hello]],
+      [],
+      accounts
+    );
+    expect(cards.map((card) => card.map((item) => item.postId))).toEqual([
+      ['hello', 'note'],
+      ['x'],
+    ]);
+  });
+});
+
+describe('pulseSelfReplyRootsToHydrate', () => {
+  it('asks for a self-reply root that is not on the page', () => {
+    const selfReply = row('alice.near', 'note', {
+      parentPath: 'alice.near/post/hello',
+      parentAuthor: 'alice.near',
+    });
+    expect(pulseSelfReplyRootsToHydrate([selfReply], accounts)).toEqual([
+      { accountId: 'alice.near', postId: 'hello' },
+    ]);
+  });
+
+  it('skips hydrate when the original is already on the page', () => {
+    const hello = row('alice.near', 'hello');
+    const selfReply = row('alice.near', 'note', {
+      parentPath: 'alice.near/post/hello',
+      parentAuthor: 'alice.near',
+    });
+    expect(pulseSelfReplyRootsToHydrate([selfReply, hello], accounts)).toEqual([]);
   });
 });
 

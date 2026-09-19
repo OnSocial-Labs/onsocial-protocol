@@ -78,7 +78,7 @@ interface UsePersonalComposerOptions {
   destinationLabel?: string;
   /** Optional author map already loaded by the host feed. */
   authorProfiles?: Record<string, PostAuthorProfile>;
-  onConfirmed?: (post: PostRow) => void;
+  onConfirmed?: (post: PostRow, parent?: PostRow | null) => void;
   onUnreposted?: (target: PostRow) => void;
 }
 
@@ -475,7 +475,7 @@ export function usePersonalComposer({
           clearReply();
         }
         for (const post of landed) {
-          onConfirmed?.(post);
+          onConfirmed?.(post, mode === 'reply' ? target : undefined);
         }
         if (result.confirmed) {
           if (mode === 'post') {

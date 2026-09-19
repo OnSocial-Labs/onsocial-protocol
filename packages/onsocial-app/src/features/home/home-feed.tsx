@@ -75,7 +75,10 @@ import {
 } from '@/features/home/personal-feed-list';
 import { PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { usePersonalComposer } from '@/features/home/use-personal-composer';
-import { subscribePersonalPostConfirmed } from '@/features/scarces/drop-compose-host';
+import {
+  subscribePersonalPostConfirmed,
+  subscribePersonalReplyConfirmed,
+} from '@/features/scarces/drop-compose-host';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
   applyOptimisticAmplifyHeat,
@@ -98,6 +101,7 @@ import {
   summarizeUnseenFeedPosts,
   type UnseenFeedSummary,
 } from '@/lib/home-feed-new-posts';
+import { scrollFeedToNewest } from '@/lib/feed-scroll-to-newest';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 import { filterHiddenAuthors } from '@/lib/viewer-mute-block-filter';
 import {
@@ -796,7 +800,7 @@ export function HomePagePanel({
 
   const applyNewPosts = useCallback(() => {
     clearUnseenPosts();
-    scrollRootRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollFeedToNewest(scrollRootRef.current);
     setReloadNonce((value) => value + 1);
   }, [clearUnseenPosts]);
 
@@ -899,13 +903,11 @@ export function HomePagePanel({
   );
 
   const onConfirmed = useCallback(
-    (post: PostRow) => {
+    (post: PostRow, parent?: PostRow | null) => {
       if (!shouldPrependOptimisticFeedPost(post)) return;
       clearUnseenPosts();
-      setPosts((current) => insertOptimisticFeedPost(current, post));
-      // Your own post lands at the head — bring it into view so the action
-      // feels confirmed instead of disappearing above the fold.
-      scrollRootRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      setPosts((current) => insertOptimisticFeedPost(current, post, parent));
+      scrollFeedToNewest(scrollRootRef.current);
     },
     [clearUnseenPosts]
   );
@@ -929,6 +931,13 @@ export function HomePagePanel({
   );
 
   useEffect(() => subscribePersonalPostConfirmed(onConfirmed), [onConfirmed]);
+  useEffect(
+    () =>
+      subscribePersonalReplyConfirmed(({ parent, reply }) => {
+        onConfirmed(reply, parent);
+      }),
+    [onConfirmed]
+  );
 
   const {
     openReply,

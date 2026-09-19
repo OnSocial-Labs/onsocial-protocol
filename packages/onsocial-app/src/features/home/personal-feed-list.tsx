@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo } from 'react';
 import { Divider } from '@onsocial/ui';
-import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
+import {
+  postContentPath,
+  type PostRow,
+  type PostScarceEmbed,
+} from '@onsocial/sdk';
 import { FeedThreadBlock } from '@/features/guilds/feed-thread-block';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { postKey } from '@/features/home/post-card';
@@ -241,24 +245,54 @@ export function PersonalFeedList({
 
 /** Whether an optimistic row should appear in a coalesced feed list. */
 export function shouldPrependOptimisticFeedPost(post: PostRow): boolean {
-  // Guild writes belong on guild feeds, not the personal home/profile list.
-  if (post.groupId || post.isGroupContent) return false;
-  // Quotes and roots belong in the feed.
-  if (!post.parentPath) return true;
-  // Self-replies chain under the parent when it's on-page; others hide.
+  // New guild roots belong on guild feeds. Replies still land on Pulse —
+  // self-thread or a bridge onto a stranger parent.
+  if ((post.groupId || post.isGroupContent) && !post.parentPath) return false;
+  return true;
+}
+
+function isListedParent(row: PostRow, post: PostRow): boolean {
+  if (!post.parentPath) return false;
+  if (postContentPath(row) === post.parentPath) return true;
   const parentAuthor = post.parentAuthor ?? post.parentPath.split('/')[0];
-  return parentAuthor === post.accountId;
+  const parentPostId = post.parentPath.split('/').pop();
+  return row.accountId === parentAuthor && row.postId === parentPostId;
+}
+
+function listedParentForReply(
+  posts: readonly PostRow[],
+  post: PostRow,
+  snapshot?: PostRow | null
+): PostRow | undefined {
+  if (!post.parentPath) return undefined;
+  if (snapshot && isListedParent(snapshot, post)) return snapshot;
+  return posts.find((row) => isListedParent(row, post));
 }
 
 /**
- * Insert an optimistic post at the feed head. New activity — including a
- * self-reply — surfaces at the top; the thread page keeps the nesting.
+ * Insert an optimistic post at the feed head. A reply brings its parent
+ * with it so Pulse shows the original card + reply, not the reply alone.
+ * Safe to call twice — a reply-only insert still gets the parent on retry.
  */
 export function insertOptimisticFeedPost(
   posts: readonly PostRow[],
-  post: PostRow
+  post: PostRow,
+  parent?: PostRow | null
 ): PostRow[] {
   const key = postKey(post);
-  if (posts.some((row) => postKey(row) === key)) return [...posts];
-  return [post, ...posts];
+  const snapshot = listedParentForReply(posts, post, parent);
+  const withoutReply = posts.filter((row) => postKey(row) !== key);
+
+  if (!snapshot) {
+    if (withoutReply.length !== posts.length) return [...posts];
+    return [post, ...posts];
+  }
+
+  const reply = {
+    ...post,
+    parentPath: postContentPath(snapshot),
+    parentAuthor: snapshot.accountId,
+  };
+  const rest = withoutReply.filter((row) => postKey(row) !== postKey(snapshot));
+  return [reply, snapshot, ...rest];
 }

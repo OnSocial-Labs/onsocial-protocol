@@ -1,5 +1,46 @@
 import { postContentPath, type PostRow } from '@onsocial/sdk';
 
+function postRefKey(accountId: string, postId: string): string {
+  return `${accountId}\0${postId}`;
+}
+
+/** Personal or group content path → account + post id. */
+function parseContentPathRef(
+  path: string
+): { accountId: string; postId: string } | null {
+  const trimmed = path.trim();
+  const group = /^([^/]+)\/groups\/[^/]+\/content\/post\/(.+)$/.exec(trimmed);
+  if (group) return { accountId: group[1]!, postId: group[2]! };
+  const personal = /^([^/]+)\/post\/(.+)$/.exec(trimmed);
+  if (!personal) return null;
+  return { accountId: personal[1]!, postId: personal[2]! };
+}
+
+function indexFeedPosts(posts: readonly PostRow[]): {
+  byPath: Map<string, PostRow>;
+  byRef: Map<string, PostRow>;
+} {
+  const byPath = new Map<string, PostRow>();
+  const byRef = new Map<string, PostRow>();
+  for (const post of posts) {
+    byPath.set(postContentPath(post), post);
+    byRef.set(postRefKey(post.accountId, post.postId), post);
+  }
+  return { byPath, byRef };
+}
+
+function parentOnPage(
+  parentPath: string | undefined,
+  byPath: Map<string, PostRow>,
+  byRef: Map<string, PostRow>
+): PostRow | undefined {
+  if (!parentPath) return undefined;
+  const direct = byPath.get(parentPath);
+  if (direct) return direct;
+  const ref = parseContentPathRef(parentPath);
+  return ref ? byRef.get(postRefKey(ref.accountId, ref.postId)) : undefined;
+}
+
 /** Author who owns the post this row replies to, if any. */
 export function parentAuthorOf(post: PostRow): string | null {
   if (!post.parentPath) return null;
@@ -46,8 +87,7 @@ function upsertPendingStandingChain(
   const existing = pending.get(parentPath);
   if (
     !existing ||
-    standingChainNewestTimestamp(chain) >
-      standingChainNewestTimestamp(existing)
+    standingChainNewestTimestamp(chain) > standingChainNewestTimestamp(existing)
   ) {
     pending.set(parentPath, chain);
   }
@@ -70,11 +110,16 @@ function mergeStandingAttachment(
 
 function tryMergeStandingIntoBlock(
   blocks: CoalescedFeedBlock[],
-  parentPath: string,
+  parent: PostRow,
   chain: PostRow[]
 ): boolean {
+  const parentKey = postRefKey(parent.accountId, parent.postId);
   for (const block of blocks) {
-    if (block.posts.some((post) => postContentPath(post) === parentPath)) {
+    if (
+      block.posts.some(
+        (post) => postRefKey(post.accountId, post.postId) === parentKey
+      )
+    ) {
       mergeStandingAttachment(block, chain);
       return true;
     }
@@ -106,10 +151,7 @@ export function coalesceFeedThreads(
 ): CoalescedFeedBlock[] {
   const includeForeignReplies = Boolean(options.includeForeignReplies);
   const stoodWithAccountIds = options.stoodWithAccountIds;
-  const byPath = new Map<string, PostRow>();
-  for (const post of posts) {
-    byPath.set(postContentPath(post), post);
-  }
+  const { byPath, byRef } = indexFeedPosts(posts);
 
   const consumed = new Set<PostRow>();
   const blocks: CoalescedFeedBlock[] = [];
@@ -123,7 +165,7 @@ export function coalesceFeedThreads(
     consumed.add(post);
     let cursor = post;
     while (cursor.parentPath && parentAuthorOf(cursor) === cursor.accountId) {
-      const parent = byPath.get(cursor.parentPath);
+      const parent = parentOnPage(cursor.parentPath, byPath, byRef);
       if (!parent || consumed.has(parent)) break;
       chain.unshift(parent);
       consumed.add(parent);
@@ -131,18 +173,36 @@ export function coalesceFeedThreads(
     }
 
     const root = chain[0]!;
+
+    // Pulse flattens a card as [original, reply]. Global is newest-first
+    // [reply, original]. If the parent was already listed alone, tuck this
+    // self-reply under it — same block as the Global walk.
+    if (root.parentPath && parentAuthorOf(root) === root.accountId) {
+      const already = parentOnPage(root.parentPath, byPath, byRef);
+      if (already && consumed.has(already)) {
+        const parentKey = postRefKey(already.accountId, already.postId);
+        const listed = blocks.find(
+          (block) =>
+            block.posts.length === 1 &&
+            postRefKey(block.posts[0]!.accountId, block.posts[0]!.postId) ===
+              parentKey
+        );
+        if (listed) {
+          listed.posts.push(...chain);
+          continue;
+        }
+      }
+    }
+
     const rootIsForeignReply = isForeignReply(root);
 
     if (!includeForeignReplies && rootIsForeignReply) {
-      if (
-        stoodWithAccountIds?.has(root.accountId) &&
-        root.parentPath &&
-        byPath.has(root.parentPath)
-      ) {
-        if (!tryMergeStandingIntoBlock(blocks, root.parentPath, chain)) {
+      const standingParent = parentOnPage(root.parentPath, byPath, byRef);
+      if (stoodWithAccountIds?.has(root.accountId) && standingParent) {
+        if (!tryMergeStandingIntoBlock(blocks, standingParent, chain)) {
           upsertPendingStandingChain(
             pendingStandingByParentPath,
-            root.parentPath,
+            postRefKey(standingParent.accountId, standingParent.postId),
             chain
           );
         }
@@ -152,10 +212,11 @@ export function coalesceFeedThreads(
     }
 
     const block: CoalescedFeedBlock = { posts: chain };
-    const pending = pendingStandingByParentPath.get(postContentPath(root));
+    const pendingKey = postRefKey(root.accountId, root.postId);
+    const pending = pendingStandingByParentPath.get(pendingKey);
     if (pending) {
       mergeStandingAttachment(block, pending);
-      pendingStandingByParentPath.delete(postContentPath(root));
+      pendingStandingByParentPath.delete(pendingKey);
     }
     blocks.push(block);
   }

@@ -1011,9 +1011,10 @@ LEFT JOIN post_amplify_heat h
     ELSE p.account_id || '/post/' || p.post_id
   END;
 
--- Pulse — one page of Home cards: Circle natives plus stranger roots a
--- circle member replied into. `card_limit` / `card_offset` page events,
--- not raw rows. A bridge flattens to [root, newest circle peek].
+-- Pulse — one page of Home cards: Circle roots (plus newest self-reply)
+-- and stranger roots a circle member replied into. `card_limit` /
+-- `card_offset` page events, not raw rows. A card flattens to
+-- [root, newest peek] when a reply lifted it.
 CREATE OR REPLACE FUNCTION feed_pulse(
   accounts text[],
   card_limit integer,
@@ -1029,22 +1030,76 @@ AS $$
     FROM unnest(COALESCE(accounts, ARRAY[]::text[])) AS a
     WHERE a IS NOT NULL AND btrim(a) <> ''
   ),
-  native AS (
-    SELECT
-      p.*,
-      posts_current_own_path(p.account_id, p.post_id, p.group_id) AS event_key,
-      COALESCE(p.amplify_heat, 0) AS event_heat,
-      COALESCE(p.block_height, 0) AS event_height,
-      0 AS event_kind,
-      NULL::text AS peek_account_id,
-      NULL::text AS peek_post_id
+  native_roots AS (
+    SELECT p.*
     FROM posts_feed p
     JOIN circle c ON c.account_id = p.account_id
     WHERE p.parent_path IS NULL
       OR btrim(p.parent_path) = ''
-      OR EXISTS (
+  ),
+  native_circle_replies AS (
+    SELECT
+      p.*,
+      COALESCE(
+        NULLIF(btrim(p.root_path), ''),
+        NULLIF(btrim(p.parent_path), '')
+      ) AS card_path,
+      COALESCE(p.amplify_heat, 0) AS reply_heat,
+      COALESCE(p.block_height, 0) AS reply_height
+    FROM posts_feed p
+    JOIN circle c ON c.account_id = p.account_id
+    WHERE p.parent_path IS NOT NULL
+      AND btrim(p.parent_path) <> ''
+      AND EXISTS (
         SELECT 1 FROM circle parent WHERE parent.account_id = p.parent_author
       )
+  ),
+  best_self AS (
+    SELECT DISTINCT ON (card_path)
+      card_path,
+      account_id,
+      post_id,
+      reply_heat,
+      reply_height
+    FROM native_circle_replies
+    WHERE card_path IS NOT NULL AND btrim(card_path) <> ''
+    ORDER BY
+      card_path,
+      CASE WHEN sort = 'hot' THEN reply_heat ELSE 0 END DESC,
+      reply_height DESC
+  ),
+  native AS (
+    SELECT
+      p.*,
+      posts_current_own_path(p.account_id, p.post_id, p.group_id) AS event_key,
+      COALESCE(s.reply_heat, p.amplify_heat, 0) AS event_heat,
+      COALESCE(s.reply_height, p.block_height, 0) AS event_height,
+      0 AS event_kind,
+      s.account_id AS peek_account_id,
+      s.post_id AS peek_post_id
+    FROM native_roots p
+    LEFT JOIN best_self s
+      ON s.card_path
+        = posts_current_own_path(p.account_id, p.post_id, p.group_id)
+    UNION ALL
+    SELECT
+      p.*,
+      r.card_path AS event_key,
+      r.reply_heat AS event_heat,
+      r.reply_height AS event_height,
+      0 AS event_kind,
+      NULL::text AS peek_account_id,
+      NULL::text AS peek_post_id
+    FROM native_circle_replies r
+    JOIN posts_feed p
+      ON p.account_id = r.account_id
+     AND p.post_id = r.post_id
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM native_roots roots
+      WHERE posts_current_own_path(roots.account_id, roots.post_id, roots.group_id)
+        = r.card_path
+    )
   ),
   bridge_replies AS (
     SELECT
@@ -1175,7 +1230,7 @@ AS $$
     JOIN posts_feed p
       ON p.account_id = pg.peek_account_id
      AND p.post_id = pg.peek_post_id
-    WHERE pg.event_kind = 1
+    WHERE pg.peek_account_id IS NOT NULL
   )
   SELECT
     account_id,
