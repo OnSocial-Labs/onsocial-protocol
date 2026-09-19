@@ -270,15 +270,15 @@ describe('notification display', () => {
         context: {},
         createdAt,
       })
-    ).toBe('stood with you · 5m ago');
+    ).toBe('stood with you · 5m');
     expect(
       notificationDescription({
         type: 'endorsement_new',
         context: { snippet: 'Shipped it.' },
         createdAt,
       })
-    ).toBe('endorsed you · Shipped it. · 5m ago');
-    expect(formatNotificationTime(createdAt).label).toBe('5m ago');
+    ).toBe('endorsed you · Shipped it. · 5m');
+    expect(formatNotificationTime(createdAt).label).toBe('5m');
 
     expect(
       notificationDescription({
@@ -291,7 +291,7 @@ describe('notification display', () => {
         createdAt,
       })
     ).toBe(
-      'opened a proposal · gov.sputnik-dao.testnet · Fund builders · 5m ago'
+      'opened a proposal · gov.sputnik-dao.testnet · Fund builders · 5m'
     );
 
     expect(
@@ -303,7 +303,7 @@ describe('notification display', () => {
         },
         createdAt,
       })
-    ).toBe('Proposal approved · Fund builders · 5m ago');
+    ).toBe('Proposal approved · Fund builders · 5m');
 
     expect(
       notificationDescription({
@@ -314,7 +314,42 @@ describe('notification display', () => {
         },
         createdAt,
       })
-    ).toBe('approved your proposal · Fund builders · 5m ago');
+    ).toBe('approved your proposal · Fund builders · 5m');
+  });
+
+  it('stamps Today with relative recency and older days with clock time', () => {
+    const now = new Date(2026, 8, 19, 15, 4, 0);
+    expect(
+      formatNotificationTime(new Date(2026, 8, 19, 15, 3, 20).toISOString(), now)
+    ).toEqual({
+      label: 'now',
+      title: new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(new Date(2026, 8, 19, 15, 3, 20)),
+    });
+    expect(
+      formatNotificationTime(new Date(2026, 8, 19, 15, 0, 0).toISOString(), now)
+        .label
+    ).toBe('4m');
+    expect(
+      formatNotificationTime(new Date(2026, 8, 19, 13, 4, 0).toISOString(), now)
+        .label
+    ).toBe('2h');
+    const yesterday = new Date(2026, 8, 18, 14, 14, 0);
+    const older = formatNotificationTime(yesterday.toISOString(), now);
+    expect(older.label).toBe(
+      new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(yesterday)
+    );
+    expect(older.label).toMatch(/\d{1,2}:\d{2}/);
+    expect(older.label).not.toMatch(/Sep|ago/);
+    expect(older.title).toMatch(/Sep 18, 2026/);
   });
 
   it('splits verb and DAO snippet without time', () => {
