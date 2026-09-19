@@ -27759,9 +27759,23 @@ a.os-surface-row {
     flex: 1;
   }
 
-  .os-media-face-close {
+  .os-media-face-close,
+  .os-media-face-trailing {
     flex-shrink: 0;
     align-self: center;
+  }
+
+  .os-media-face-trailing .post-card-menu-trigger {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    width: auto;
+    height: auto;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .os-media-face-trailing .post-card-menu-icon {
+    width: 1.25rem;
+    height: 1.25rem;
   }
 
   /* Jacket owns chrome — collapse empty OS nav + body chrome inset. */

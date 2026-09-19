@@ -14,6 +14,8 @@ describe('extensionForMime', () => {
     expect(extensionForMime('application/pdf')).toBe('pdf');
     expect(extensionForMime('text/markdown')).toBe('md');
     expect(extensionForMime('application/zip')).toBe('zip');
+    expect(extensionForMime('image/jpeg')).toBe('jpg');
+    expect(extensionForMime('image/png')).toBe('png');
   });
 });
 

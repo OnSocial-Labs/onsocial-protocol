@@ -22,6 +22,11 @@ const MIME_EXTENSION: Record<string, string> = {
   'audio/m4a': 'm4a',
   'video/mp4': 'mp4',
   'video/webm': 'webm',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
   'application/pdf': 'pdf',
   'text/markdown': 'md',
   'text/x-markdown': 'md',
@@ -34,6 +39,7 @@ export function extensionForMime(mime: string): string {
   if (MIME_EXTENSION[key]) return MIME_EXTENSION[key]!;
   if (key.startsWith('audio/')) return 'audio';
   if (key.startsWith('video/')) return 'video';
+  if (key.startsWith('image/')) return 'jpg';
   if (key.startsWith('text/')) return 'txt';
   return 'bin';
 }
@@ -120,10 +126,10 @@ type SaveFilePicker = (options: {
 function mediaHref(opts: { cid?: string | null; url: string }): string {
   const cid = cidFromMediaRef(opts.cid, opts.url);
   const href = cid ? writingContentUrl(cid) : null;
-  if (!href) {
-    throw new Error('Could not resolve a downloadable file.');
-  }
-  return href;
+  if (href) return href;
+  const direct = opts.url.trim();
+  if (direct) return direct;
+  throw new Error('Could not resolve a downloadable file.');
 }
 
 type DirectoryPicker = (options?: {

@@ -11,12 +11,14 @@ import {
   CopyIcon,
   Divider,
   DotsVerticalIcon,
+  DownloadIcon,
   FireBFillIcon,
   FireBIcon,
   GiftIcon,
   HeartFillIcon,
   HeartIcon,
   MessageRoundIcon,
+  NoteTextIcon,
   ProtocolMotionArrow,
   MultiplyIcon,
   PulsingDots,
@@ -42,6 +44,7 @@ import {
   blockConfirmCopy,
 } from '@/lib/block-confirm-copy';
 import { displayName } from '@/lib/profile-display';
+import { isDownloadAbort } from '@/lib/media-download';
 import { PostAmplifySheet } from '@/features/home/post-amplify-sheet';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -235,6 +238,9 @@ interface PostCardProps {
 
 function PostCardMenu({
   href,
+  openPostHref,
+  onOpenPost,
+  onDownload,
   accountId,
   authorProfile,
   canCancelScarce = false,
@@ -244,6 +250,10 @@ function PostCardMenu({
   zIndex,
 }: {
   href?: string;
+  /** Thread page — enlarge ⋯ “Open post”. */
+  openPostHref?: string;
+  onOpenPost?: () => void;
+  onDownload?: () => void | Promise<void>;
   accountId: string;
   authorProfile?: PostAuthorProfile;
   canCancelScarce?: boolean;
@@ -273,6 +283,7 @@ function PostCardMenu({
   const [confirmBlock, setConfirmBlock] = useState(false);
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const isOpen = open && !closing;
   const requestClose = useCallback(() => {
     setClosing(true);
@@ -307,6 +318,23 @@ function PostCardMenu({
     }
     close();
   };
+
+  async function handleDownload() {
+    if (!onDownload || downloading) return;
+    setDownloading(true);
+    try {
+      await onDownload();
+      requestClose();
+    } catch (error) {
+      if (isDownloadAbort(error)) return;
+      setTxResult({
+        type: 'error',
+        msg: 'Could not download this file.',
+      });
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   async function handleStandToggle() {
     if (pending || isLoading || !gesturesArmed) return;
@@ -413,6 +441,18 @@ function PostCardMenu({
 
   const menuItems = useMemo<ActionDrawerItem[]>(() => {
     const items: ActionDrawerItem[] = [];
+    if (openPostHref) {
+      items.push({
+        id: 'open-post',
+        label: 'Open post',
+        href: openPostHref,
+        leading: <NoteTextIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          onOpenPost?.();
+          requestClose();
+        },
+      });
+    }
     if (showGestures) {
       items.push({
         id: 'stand',
@@ -524,6 +564,17 @@ function PostCardMenu({
         onSelect: () => void copyLink(),
       });
     }
+    if (onDownload) {
+      items.push({
+        id: 'download',
+        label: downloading ? 'Downloading…' : 'Download',
+        disabled: downloading,
+        leading: (
+          <DownloadIcon className="os-action-drawer-icon" aria-hidden />
+        ),
+        onSelect: () => void handleDownload(),
+      });
+    }
     return items;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -543,6 +594,9 @@ function PostCardMenu({
     cancelScarcePending,
     href,
     profileHref,
+    openPostHref,
+    onDownload,
+    downloading,
   ]);
 
   return (
@@ -564,7 +618,14 @@ function PostCardMenu({
           aria-expanded={isOpen}
           aria-label="Post options"
         >
-          <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
+          <DotsVerticalIcon
+            className={
+              openPostHref
+                ? 'glass-sheet-close-icon'
+                : 'post-card-menu-icon'
+            }
+            aria-hidden
+          />
         </button>
 
         <ActionDrawer
@@ -2117,6 +2178,7 @@ export function PostCard({
         onAmplified={(amplified, detail) =>
           onAmplifyConfirmed?.(amplified, detail)
         }
+        zIndex={SCARCE_Z.commerceOverListen}
       />
       <ScarceListSheet
         open={listScarceOpen}
@@ -2169,6 +2231,27 @@ export function PostCard({
           }
         }}
         title={enlargeTitle}
+        trailing={({ downloadCurrent }) => (
+          <PostCardMenu
+            href={shareHref}
+            openPostHref={postThreadPath(post)}
+            onOpenPost={() => {
+              setPhotoOpen(false);
+              setPhotoThreadOpen(false);
+            }}
+            onDownload={
+              enlargePhotos.length > 0 ? () => downloadCurrent() : undefined
+            }
+            accountId={post.accountId}
+            authorProfile={authorProfile}
+            canCancelScarce={canCancelScarce}
+            onCancelScarce={() => {
+              void handleCancelScarce();
+            }}
+            cancelScarcePending={cancelScarcePending}
+            zIndex={SCARCE_Z.commerceOverListen}
+          />
+        )}
         peekIdentity={
           <Link
             href={profileHref}
@@ -2246,7 +2329,6 @@ export function PostCard({
               onToggleReaction={onToggleReaction}
               onToggleSave={onToggleSave}
               onAmplify={() => {
-                setPhotoOpen(false);
                 setAmplifyOpen(true);
               }}
               shareDrawerZIndex={SCARCE_Z.commerceOverListen}

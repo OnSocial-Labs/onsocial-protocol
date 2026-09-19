@@ -36,6 +36,8 @@ export type OsMediaFaceShellProps = {
   zIndex?: number;
   /** Optional thumb / cover art / avatar beside the title. */
   mast?: ReactNode;
+  /** Trailing jacket control — e.g. post ⋯. */
+  trailing?: ReactNode;
   /** Reading progress scrubber — omit for photo / art / listen. */
   progress?: ReactNode;
   /** Post engagement / commerce — frosted band above the summon dock. */
@@ -87,6 +89,7 @@ export function OsMediaFaceShell({
   closeAriaLabel,
   zIndex = 80,
   mast = null,
+  trailing = null,
   progress = null,
   footer = null,
   aboveFooter = null,
@@ -173,6 +176,7 @@ export function OsMediaFaceShell({
             aria-hidden
             style={frostStyle}
           />
+          <MediaFaceClose ariaLabel={closeAriaLabel} />
           <div className="os-media-face-mast">
             {mast}
             {quietTitle ? null : (
@@ -191,7 +195,9 @@ export function OsMediaFaceShell({
               </div>
             )}
           </div>
-          <MediaFaceClose ariaLabel={closeAriaLabel} />
+          {trailing ? (
+            <div className="os-media-face-trailing">{trailing}</div>
+          ) : null}
         </div>
         {children}
       </div>

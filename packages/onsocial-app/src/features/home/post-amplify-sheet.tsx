@@ -24,6 +24,7 @@ interface PostAmplifySheetProps {
   authorName?: string | null;
   onOpenChange: (open: boolean) => void;
   onAmplified?: (post: PostRow, detail: PostAmplifySuccessDetail) => void;
+  zIndex?: number;
 }
 
 /** Money sheet for post Amplify — same family as profile Support. */
@@ -33,6 +34,7 @@ export function PostAmplifySheet({
   authorName = null,
   onOpenChange,
   onAmplified,
+  zIndex = SHEET_Z.overShell,
 }: PostAmplifySheetProps) {
   const titleId = useId();
   const [closing, setClosing] = useState(false);
@@ -83,7 +85,7 @@ export function PostAmplifySheet({
       panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
-      zIndex={SHEET_Z.gesture}
+      zIndex={zIndex}
     >
       {post ? (
         <PostAmplifyForm

@@ -24,6 +24,7 @@ import {
 } from '@onsocial/ui';
 import type { PostRow } from '@onsocial/sdk';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
+import { downloadIpfsMedia } from '@/lib/media-download';
 import { useComposeLauncher } from '@/contexts/compose-launcher-context';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import { FeedMediaThreadSheet } from '@/features/home/feed-media-thread-sheet';
@@ -115,6 +116,7 @@ export function FeedPhotoEnlargeScreen({
   stage = null,
   mast = null,
   peekIdentity = null,
+  trailing = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -142,6 +144,10 @@ export function FeedPhotoEnlargeScreen({
   mast?: ReactNode;
   /** Avatar + name + account above the caption peek. */
   peekIdentity?: ReactNode;
+  /** Jacket ⋯ — same post options drawer as the card. */
+  trailing?:
+    | ReactNode
+    | ((helpers: { downloadCurrent: () => Promise<void> }) => ReactNode);
 }) {
   const last = photos.length - 1;
   const [wasOpen, setWasOpen] = useState(open);
@@ -356,6 +362,21 @@ export function FeedPhotoEnlargeScreen({
     });
     revealChrome();
   }, [revealChrome]);
+
+  const downloadCurrent = useCallback(async () => {
+    const item = photos[index];
+    if (!item?.url) {
+      throw new Error('Could not download this file.');
+    }
+    await downloadIpfsMedia({
+      cid: item.cid,
+      url: item.url,
+      mime: item.mime || 'application/octet-stream',
+      title,
+      fallbackName: 'post',
+      exportFile: true,
+    });
+  }, [index, photos, title]);
 
   const exitCinema = useCallback(() => {
     setCinema(false);
@@ -945,13 +966,19 @@ export function FeedPhotoEnlargeScreen({
       </div>
     ) : null;
 
+  const trailingNode =
+    typeof trailing === 'function'
+      ? trailing({ downloadCurrent })
+      : trailing;
+
   return (
     <OsMediaFaceShell
       open={open}
       onClose={handleClose}
       title={title}
-      quietTitle={quiet || Boolean(mast)}
+      quietTitle
       mast={mast}
+      trailing={trailingNode}
       closeAriaLabel={quietClose}
       zIndex={SCARCE_Z.listenShell}
       footer={onFilm ? null : engagement}

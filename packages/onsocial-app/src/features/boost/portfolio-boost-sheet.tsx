@@ -80,6 +80,7 @@ import {
   yoctoToSocial,
 } from '@/lib/format-social-balance';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS,
   socialToYocto,
@@ -370,7 +371,7 @@ export function PortfolioBoostSheet({
   accountId,
   position,
   onOpenChange,
-  zIndex = 56,
+  zIndex = SHEET_Z.overShell,
 }: PortfolioBoostSheetProps) {
   const titleId = useId();
   const [closing, setClosing] = useState(false);
