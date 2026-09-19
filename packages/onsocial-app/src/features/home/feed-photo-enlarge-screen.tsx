@@ -148,7 +148,6 @@ export function FeedPhotoEnlargeScreen({
   const captionText = caption?.trim() || '';
   const hasCaption = Boolean(captionText) && !quiet;
   const [captionMode, setCaptionMode] = useState<'peek' | 'expanded'>('peek');
-  const [captionClamped, setCaptionClamped] = useState(true);
   const captionBodyRef = useRef<HTMLButtonElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -177,7 +176,6 @@ export function FeedPhotoEnlargeScreen({
   const showStage = Boolean(stage) && photos.length === 0;
   const captionExpanded = hasCaption && captionMode === 'expanded';
   const expandCaption = useCallback(() => {
-    setCaptionClamped(false);
     setCaptionMode('expanded');
   }, []);
   const collapseCaption = useCallback(() => {
@@ -185,11 +183,6 @@ export function FeedPhotoEnlargeScreen({
     if (body) body.scrollTop = 0;
     setCaptionMode('peek');
   }, []);
-  useEffect(() => {
-    if (captionExpanded || captionClamped) return;
-    const timer = window.setTimeout(() => setCaptionClamped(true), 340);
-    return () => window.clearTimeout(timer);
-  }, [captionExpanded, captionClamped]);
   const chromeQuiet =
     open &&
     activeIsVideo &&
@@ -219,7 +212,6 @@ export function FeedPhotoEnlargeScreen({
     if (open) {
       setIndex(clampIndex(initialIndex, last));
       setCaptionMode('peek');
-      setCaptionClamped(true);
       setVideoMuted(false);
       setScrubbing(false);
       setCinema(false);
@@ -265,7 +257,6 @@ export function FeedPhotoEnlargeScreen({
     setTrackedThreadOpen(threadOpen);
     if (threadOpen) {
       setCaptionMode('peek');
-      setCaptionClamped(true);
     }
   }
   useEffect(() => {
@@ -982,21 +973,9 @@ export function FeedPhotoEnlargeScreen({
                 revealChrome();
               }}
             >
-              <span
-                className="feed-photo-caption-clip"
-                onTransitionEnd={(event) => {
-                  if (event.propertyName !== 'grid-template-rows') return;
-                  if (!captionExpanded) setCaptionClamped(true);
-                }}
-              >
+              <span className="feed-photo-caption-clip">
                 <span className="feed-photo-caption-clip-inner">
-                  <span
-                    className={`feed-photo-caption-text${
-                      captionClamped ? ' is-clamped' : ''
-                    }`}
-                  >
-                    {captionText}
-                  </span>
+                  <span className="feed-photo-caption-text">{captionText}</span>
                 </span>
               </span>
             </button>

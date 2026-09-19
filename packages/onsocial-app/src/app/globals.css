@@ -31402,6 +31402,7 @@ a.os-surface-row {
     cursor: pointer;
     appearance: none;
     overflow: hidden;
+    scrollbar-gutter: stable;
     max-height: min(16rem, 42vh);
     -webkit-tap-highlight-color: transparent;
     pointer-events: auto;
@@ -31413,12 +31414,13 @@ a.os-surface-row {
 
   .feed-photo-caption-clip {
     display: grid;
-    grid-template-rows: minmax(2.76rem, 0fr);
+    font-size: 0.92rem;
+    grid-template-rows: minmax(3em, 0fr);
     transition: grid-template-rows 320ms cubic-bezier(0.2, 0.9, 0.24, 1);
   }
 
   .feed-photo-caption.is-expanded .feed-photo-caption-clip {
-    grid-template-rows: minmax(2.76rem, 1fr);
+    grid-template-rows: minmax(3em, 1fr);
   }
 
   .feed-photo-caption-clip-inner {
@@ -31431,6 +31433,8 @@ a.os-surface-row {
   }
 
   .feed-photo-caption-identity {
+    flex-shrink: 0;
+    contain: layout;
     pointer-events: auto;
     padding: 0.45rem var(--os-screen-body-pad-x, 1rem) 0.15rem;
   }
@@ -31461,21 +31465,22 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.12);
   }
 
+  .feed-photo-caption-identity .os-media-face-identity-copy {
+    width: 100%;
+  }
+
+  .feed-photo-caption-identity .os-media-face-identity-handle {
+    max-width: 100%;
+  }
+
   .feed-photo-caption-text {
     display: block;
     white-space: pre-wrap;
     word-break: break-word;
-    font-size: 0.92rem;
+    font-size: 1em;
     font-weight: 500;
     line-height: 1.5;
     letter-spacing: -0.01em;
-  }
-
-  .feed-photo-caption-text.is-clamped {
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
   }
 
   @media (prefers-reduced-motion: reduce) {
