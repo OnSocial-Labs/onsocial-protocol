@@ -30825,8 +30825,6 @@ a.os-surface-row {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: fit-content;
-    height: fit-content;
     max-width: 100%;
     max-height: 100%;
     min-width: 0;
@@ -30927,46 +30925,26 @@ a.os-surface-row {
    * Cinema — transport floats inside the stage so OS fullscreen keeps
    * pause / scrub / mute / exit. Tap the film to fade it.
    */
-  .feed-photo-stage > .feed-photo-video-dock--slot,
-  .feed-photo-video-wrap > .feed-photo-video-dock--slot {
+  .feed-photo-stage > .feed-photo-video-dock--slot {
     position: absolute;
     left: 50%;
     bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
     z-index: 6;
     width: min(92%, 34rem);
     transform: translateX(-50%);
-    transform-origin: bottom center;
     color: rgb(255 255 255 / 0.94);
     filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.55));
   }
 
-  .feed-photo-video-wrap > .feed-photo-video-dock--slot {
-    bottom: 0.45rem;
-  }
-
   .feed-photo-stage > .feed-photo-video-dock--slot .feed-photo-video-control,
-  .feed-photo-stage > .feed-photo-video-dock--slot .feed-photo-video-time,
-  .feed-photo-video-wrap > .feed-photo-video-dock--slot .feed-photo-video-control,
-  .feed-photo-video-wrap > .feed-photo-video-dock--slot .feed-photo-video-time {
+  .feed-photo-stage > .feed-photo-video-dock--slot .feed-photo-video-time {
     color: inherit;
   }
 
   .feed-photo-stage
     > .feed-photo-video-dock--slot
-    .feed-photo-video-progress-rail,
-  .feed-photo-video-wrap
-    > .feed-photo-video-dock--slot
     .feed-photo-video-progress-rail {
     background: rgb(255 255 255 / 0.28);
-  }
-
-  /* Compact film (drawer up) — drop the scrub; mini strip hides the dock. */
-  .feed-photo-video-dock.is-film-compact .feed-photo-video-progress {
-    display: none;
-  }
-
-  .feed-photo-video-dock.is-film-mini {
-    display: none;
   }
 
   /*
@@ -31409,147 +31387,6 @@ a.os-surface-row {
   .feed-photo-slide--cinema.is-chrome-quiet .os-media-face-hero {
     opacity: 0;
     pointer-events: none;
-  }
-
-  /*
-   * Reply thread — film and drawer share the face. Drawer height is
-   * `--feed-thread-band`; the stage flexes into the rest so the video
-   * scales up instead of sitting under a sheet.
-   */
-  .feed-photo-slide--thread.os-media-face--fixed-stage .os-media-face-body {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    max-height: 100%;
-    min-height: 0;
-  }
-
-  /* Jacket tucks — film owns the top band. Close stays on the film. */
-  .feed-photo-slide--thread .os-media-face-hero {
-    position: absolute;
-    top: 0;
-    left: -0.9rem;
-    right: -0.9rem;
-    margin: 0;
-    z-index: 6;
-  }
-
-  .feed-photo-slide--thread .os-media-face-hero-glass,
-  .feed-photo-slide--thread .os-media-face-mast {
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  @media (min-width: 640px) {
-    .feed-photo-slide--thread .os-media-face-hero {
-      left: -1.25rem;
-      right: -1.25rem;
-    }
-  }
-
-  .feed-photo-slide--thread .feed-photo-listen {
-    flex: 1 1 auto;
-    min-height: 0;
-    height: auto;
-    padding: 0;
-    gap: 0;
-  }
-
-  .feed-photo-slide--thread .feed-photo-video-wrap {
-    overflow: visible;
-  }
-
-  .feed-photo-slide--thread .feed-photo-video-wrap > .feed-photo-video-dock--slot {
-    z-index: 7;
-  }
-
-  .feed-photo-thread-host {
-    position: relative;
-    flex: 0 0 var(--feed-thread-band, 58%);
-    width: auto;
-    height: var(--feed-thread-band, 58%);
-    max-height: var(--feed-thread-band, 58%);
-    margin-inline: -0.9rem;
-    margin-bottom: -0.55rem;
-    z-index: 8;
-    overflow: hidden;
-    pointer-events: auto;
-    background: transparent;
-    transition:
-      flex-basis 320ms cubic-bezier(0.2, 0.9, 0.24, 1),
-      height 320ms cubic-bezier(0.2, 0.9, 0.24, 1),
-      max-height 320ms cubic-bezier(0.2, 0.9, 0.24, 1);
-  }
-
-  .feed-photo-slide--thread.is-thread-dragging .feed-photo-thread-host {
-    transition: none;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .feed-photo-thread-host {
-      transition: none;
-    }
-  }
-
-  @media (min-width: 640px) {
-    .feed-photo-thread-host {
-      margin-inline: -1.25rem;
-      margin-bottom: -0.75rem;
-    }
-  }
-
-  .feed-photo-thread-sheet {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-    background: var(--bg, rgb(var(--bg-rgb)));
-    border-radius: 1.1rem 1.1rem 0 0;
-    box-shadow: 0 -16px 40px -20px rgb(0 0 0 / 0.35);
-    overflow: hidden;
-    pointer-events: auto;
-  }
-
-  .feed-photo-thread-grip {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    min-height: 1.85rem;
-    padding: 0.55rem 0 0.2rem;
-    touch-action: none;
-    cursor: grab;
-    user-select: none;
-  }
-
-  .feed-photo-thread-grip:active {
-    cursor: grabbing;
-  }
-
-  .feed-photo-thread-grip-bar {
-    display: block;
-    width: 2.25rem;
-    height: 0.1875rem;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.28);
-    opacity: 0.55;
-  }
-
-  .feed-photo-thread-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: auto;
-    padding-inline: 0;
-    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
-    overscroll-behavior: contain;
-  }
-
-  .feed-media-thread-embed {
-    padding: 0.1rem 1rem 0.35rem;
-  }
-
-  .feed-media-thread-embed .guild-thread-column {
-    gap: 0.65rem;
   }
 
   .feed-photo-dots {
@@ -40299,32 +40136,6 @@ a.os-surface-row {
 
 .os-write-dock-footer-actions .os-write-dock-divider {
   margin-inline: 0.05rem;
-}
-
-/*
- * Media-face thread — unlayered so dock + film transport stay above the pane.
- */
-body:has(.feed-photo-slide--thread) .portfolio-summon-dock {
-  z-index: 95;
-}
-
-body:has(.feed-photo-slide--thread)
-  .portfolio-summon-dock
-  .portfolio-summon {
-  pointer-events: auto;
-}
-
-.feed-photo-slide--thread .feed-photo-video-wrap > .feed-photo-video-dock--slot {
-  z-index: 9;
-  pointer-events: auto;
-}
-
-/*
- * Thread film rim — unlayered so it beats `.os-media-face-body { padding-top: 0 }`.
- * Safe-area alone is 0 in the phone card; always add the 0.65rem OS rim.
- */
-.feed-photo-slide--thread.os-media-face--fixed-stage .os-media-face-body {
-  padding-top: calc(0.65rem + env(safe-area-inset-top, 0px));
 }
 
 /* Unlayered frost — beats layered imports; samples feed like header ::before. */

@@ -29,7 +29,6 @@ interface ProfileSupportSheetProps {
   /** Page owner mood when already known (portfolio). Otherwise fetched. */
   mood?: ResolvedMood | null;
   onOpenChange: (open: boolean) => void;
-  zIndex?: number;
 }
 
 /**
@@ -44,7 +43,6 @@ export function ProfileSupportSheet({
   avatarUrl: _avatarUrl = null,
   mood = null,
   onOpenChange,
-  zIndex = SHEET_Z.gesture,
 }: ProfileSupportSheetProps) {
   void _avatarUrl;
   const titleId = useId();
@@ -118,7 +116,7 @@ export function ProfileSupportSheet({
       panelClassName="profile-support-sheet-panel"
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
-      zIndex={zIndex}
+      zIndex={SHEET_Z.gesture}
       footer={
         footerState?.visible ? (
           <CommerceSheetFooter

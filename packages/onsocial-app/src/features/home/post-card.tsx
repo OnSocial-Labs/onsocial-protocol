@@ -216,10 +216,6 @@ interface PostCardProps {
   onPollVote?: (post: PostRow, optionIndex: number) => void;
   /** Thread root — page-sized focused media playback. */
   mediaFocused?: boolean;
-  /** Hide photo / video / cover — used when the film already sits above. */
-  hideMedia?: boolean;
-  /** Stack the ⋮ menu above a host sheet (media-face thread drawer). */
-  menuZIndex?: number;
   /** Detail opened with `?media=unmute` — resume video with sound. */
   mediaUnmuted?: boolean;
   /** Collage tile index to unmute (`?mi=`). */
@@ -239,7 +235,6 @@ function PostCardMenu({
   onCancelScarce,
   cancelScarcePending = false,
   onMenuOpen,
-  zIndex,
 }: {
   href?: string;
   accountId: string;
@@ -248,7 +243,6 @@ function PostCardMenu({
   onCancelScarce?: () => void;
   cancelScarcePending?: boolean;
   onMenuOpen?: () => void;
-  zIndex?: number;
 }) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { setTxResult } = useAppTransactionFeedback();
@@ -583,7 +577,6 @@ function PostCardMenu({
             confirmBlock ? 'Back to post options' : 'Close post options'
           }
           items={confirmBlock ? undefined : menuItems}
-          {...(zIndex != null ? { zIndex } : {})}
         >
           {confirmBlock ? (
             <BlockConfirmPanel
@@ -603,7 +596,6 @@ function PostCardMenu({
         avatarUrl={authorProfile?.avatarUrl}
         intent={viewerEndorsed ? 'auto' : 'create'}
         onOpenChange={setEndorseOpen}
-        {...(zIndex != null ? { zIndex } : {})}
       />
       <ProfileSupportSheet
         open={supportOpen}
@@ -611,7 +603,6 @@ function PostCardMenu({
         profileName={authorProfile?.displayName}
         avatarUrl={authorProfile?.avatarUrl}
         onOpenChange={setSupportOpen}
-        {...(zIndex != null ? { zIndex } : {})}
       />
     </>
   );
@@ -1388,8 +1379,6 @@ export function PostCard({
   pollVotePending,
   onPollVote,
   mediaFocused = false,
-  hideMedia = false,
-  menuZIndex,
   mediaUnmuted = false,
   mediaResumeIndex = 0,
   detailLayout = false,
@@ -1421,15 +1410,20 @@ export function PostCard({
   const [enlargeOverride, setEnlargeOverride] = useState<PostMediaItem[] | null>(
     null
   );
-  /** Photo/video face — Reply opens the thread drawer (write dock lives there). */
-  const [photoThreadOpen, setPhotoThreadOpen] = useState(false);
-  const enlargeWrite = feedMediumOpen || articleOpen;
+  /** Photo/video face — write dock only after Reply (transport owns the slot first). */
+  const [photoReplyWrite, setPhotoReplyWrite] = useState(false);
+  const enlargeWrite = photoReplyWrite || feedMediumOpen || articleOpen;
   const focusWriteDock = useFocusWriteDock();
-  const openPhotoThread = useCallback(() => {
-    setPhotoThreadOpen(true);
-  }, []);
-  const dismissPhotoThread = useCallback(() => {
-    setPhotoThreadOpen(false);
+  /* Compact chipless dock, focused on open (article parity — type right
+   * away; the bar stays visually compact until text). Provider holds the
+   * focus request until the dock registers. */
+  const startPhotoReplyWrite = useCallback(() => {
+    setPhotoReplyWrite(true);
+    focusWriteDock();
+  }, [focusWriteDock]);
+  /* Tap the media / Escape leaves the reply — draft persists via draftKey. */
+  const dismissPhotoReplyWrite = useCallback(() => {
+    setPhotoReplyWrite(false);
   }, []);
   useReplyWriteDock({
     target: post,
@@ -1440,12 +1434,15 @@ export function PostCard({
     onExpand: onExpandReply
       ? (payload) => {
           setPhotoOpen(false);
-          setPhotoThreadOpen(false);
+          setPhotoReplyWrite(false);
           setFeedMediumOpen(false);
           setArticleOpen(false);
           onExpandReply(post, payload);
         }
       : undefined,
+    onConfirmed: () => {
+      setPhotoReplyWrite(false);
+    },
   });
   const [menuForceEmbed, setMenuForceEmbed] = useState(false);
   const [cancelScarcePending, setCancelScarcePending] = useState(false);
@@ -1872,7 +1869,6 @@ export function PostCard({
                   onMenuOpen={() => {
                     if (isSelf) setMenuForceEmbed(true);
                   }}
-                  {...(menuZIndex != null ? { zIndex: menuZIndex } : {})}
                 />
               }
             />
@@ -1911,7 +1907,7 @@ export function PostCard({
               }
             />
           ) : null}
-          {hideMedia ? null : article && articleCover ? (
+          {article && articleCover ? (
             <div
               className={[
                 'scarce-post-preview',
@@ -2091,7 +2087,6 @@ export function PostCard({
             onToggleSave={onToggleSave}
             onAmplify={() => setAmplifyOpen(true)}
             post={post}
-            {...(menuZIndex != null ? { shareDrawerZIndex: menuZIndex } : {})}
           />
         ) : null}
       </div>
@@ -2151,18 +2146,14 @@ export function PostCard({
           setPhotoOpen(open);
           if (!open) {
             setEnlargeOverride(null);
-            setPhotoThreadOpen(false);
+            setPhotoReplyWrite(false);
           }
         }}
         title={name}
         caption={photoCaption}
         photos={enlargePhotos}
         initialIndex={photoIndex}
-        threadOpen={photoThreadOpen}
-        onDismissThread={dismissPhotoThread}
-        threadAuthor={post.accountId}
-        threadPostId={post.postId}
-        threadRoot={post}
+        onDismissReply={dismissPhotoReplyWrite}
         engagement={
           engagement ? (
             <PostEngagementRow
@@ -2172,7 +2163,7 @@ export function PostCard({
               reactionPending={reactionPending}
               savePending={savePending}
               sharePending={sharePending}
-              onReply={openPhotoThread}
+              onReply={startPhotoReplyWrite}
               onQuote={
                 onQuote
                   ? (target) => {

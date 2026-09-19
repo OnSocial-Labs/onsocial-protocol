@@ -72,7 +72,6 @@ import {
   personalPostQuotesPath,
   postThreadPath,
 } from '@/lib/post-routes';
-import { SHEET_Z } from '@/lib/sheet-z';
 import { resolveThreadLayout } from '@/lib/thread-layout';
 import {
   sortThreadReplyRows,
@@ -101,13 +100,6 @@ interface LivePersonalPostPanelProps {
   author: string;
   postId: string;
   initial?: PersonalPostPageData | null;
-  /**
-   * Media-face thread drawer — no OsAppScreen jacket. Same replies / quotes
-   * / write dock as `/@account/posts/:id`.
-   */
-  embedded?: boolean;
-  /** Hide root photo / video — the enlarge film already shows it. */
-  hideRootMedia?: boolean;
 }
 
 interface PersonalConversation {
@@ -120,8 +112,6 @@ export function LivePersonalPostPanel({
   author,
   postId,
   initial = null,
-  embedded = false,
-  hideRootMedia = false,
 }: LivePersonalPostPanelProps) {
   seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
   const {
@@ -409,15 +399,9 @@ export function LivePersonalPostPanel({
   }, []);
 
   useEffect(() => {
-    if (embedded || hideRootMedia || !mediaUnmuted) return;
+    if (!mediaUnmuted) return;
     playPostFocusVideo(mediaResumeIndex);
-  }, [
-    embedded,
-    hideRootMedia,
-    mediaUnmuted,
-    mediaResumeIndex,
-    conversation.root?.postId,
-  ]);
+  }, [mediaUnmuted, mediaResumeIndex, conversation.root?.postId]);
 
   const scheduleReconcile = useCallback(() => {
     for (const delay of RECONCILE_DELAYS_MS) {
@@ -644,7 +628,6 @@ export function LivePersonalPostPanel({
   const threadDraftKey = root
     ? writeDockDraftKey('post', postKey(root))
     : undefined;
-  const nestMenuZ = embedded ? SHEET_Z.confirm : undefined;
   const writeAbove = nestedDockReply && writeName ? (
     <OsWriteDockReplyChip
       label={writeName}
@@ -745,7 +728,6 @@ export function LivePersonalPostPanel({
             post={row.post}
             authorProfile={postAuthorProfiles[row.post.accountId]}
             actionHref={postThreadPath(row.post)}
-            menuZIndex={nestMenuZ}
             showRelationBadge={false}
             className={
               row.connectedToPrevious ? 'post-card--chain-cont' : undefined
@@ -789,7 +771,6 @@ export function LivePersonalPostPanel({
           post={quote}
           authorProfile={postAuthorProfiles[quote.accountId]}
           actionHref={postThreadPath(quote)}
-          menuZIndex={nestMenuZ}
           showRelationBadge={false}
           quotedPost={quoted}
           quotedAuthorProfile={
@@ -818,8 +799,16 @@ export function LivePersonalPostPanel({
     );
   });
 
-  const thread = (
-      <div className={embedded ? 'feed-media-thread-embed' : GUILDS_PAGE_CLASS}>
+  return (
+    <OsAppScreen
+      title="Post"
+      compactChrome
+      dockBack
+      glassChrome
+      backFallbackHref={portfolioPath(author)}
+      actions={connectAction}
+    >
+      <div className={GUILDS_PAGE_CLASS}>
         {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
 
         {loadState === 'missing' ? (
@@ -848,7 +837,6 @@ export function LivePersonalPostPanel({
                     post={ancestor}
                     authorProfile={postAuthorProfiles[ancestor.accountId]}
                     actionHref={postThreadPath(ancestor)}
-                    menuZIndex={nestMenuZ}
                     showRelationBadge={index === 0}
                     authorProfiles={postAuthorProfiles}
                     quotedPost={
@@ -900,8 +888,6 @@ export function LivePersonalPostPanel({
                     postAuthorProfiles[conversation.root.accountId]
                   }
                   mediaFocused
-                  hideMedia={hideRootMedia}
-                  menuZIndex={nestMenuZ}
                   mediaUnmuted={mediaUnmuted}
                   mediaResumeIndex={mediaResumeIndex}
                   detailLayout
@@ -1079,9 +1065,7 @@ export function LivePersonalPostPanel({
           </section>
         ) : null}
       </div>
-  );
-
-  const composer = modalTarget ? (
+      {modalTarget ? (
         <ComposerSheet
           key={`${postKey(modalTarget)}:${modalSeed.files
             .map((file) => `${file.name}:${file.size}:${file.lastModified}`)
@@ -1095,7 +1079,6 @@ export function LivePersonalPostPanel({
           initialFiles={modalSeed.files}
           pending={modalPending}
           error={modalError}
-          zIndex={embedded ? SHEET_Z.confirm : undefined}
           onClose={(draft) => {
             if (modalPending) return;
             if (modalMode === 'reply' && draft) {
@@ -1118,28 +1101,7 @@ export function LivePersonalPostPanel({
           }}
           onSubmit={(payload) => void submitFromModal(payload)}
         />
-      ) : null;
-
-  if (embedded) {
-    return (
-      <>
-        {thread}
-        {composer}
-      </>
-    );
-  }
-
-  return (
-    <OsAppScreen
-      title="Post"
-      compactChrome
-      dockBack
-      glassChrome
-      backFallbackHref={portfolioPath(author)}
-      actions={connectAction}
-    >
-      {thread}
-      {composer}
+      ) : null}
     </OsAppScreen>
   );
 }

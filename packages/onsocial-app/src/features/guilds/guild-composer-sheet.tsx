@@ -316,8 +316,6 @@ interface ComposerSheetProps {
   onSubmit: (
     payload: ComposerSubmit
   ) => void | Promise<void | ComposerPublishResult>;
-  /** Stack above a host sheet (media-face thread drawer). */
-  zIndex?: number;
 }
 
 function IdentityLine({
@@ -416,7 +414,6 @@ export function ComposerSheet({
   error,
   onClose,
   onSubmit,
-  zIndex = SHEET_Z.list,
 }: ComposerSheetProps) {
   const formId = useId();
   const titleId = useId();
@@ -1478,7 +1475,7 @@ export function ComposerSheet({
         onClose={requestClose}
         surface="page"
         presentation="appear"
-        zIndex={zIndex}
+        zIndex={SHEET_Z.list}
         ariaLabelledBy={titleId}
         backdropLabel="Close composer"
         moodId={viewerMoodId ?? undefined}
