@@ -42965,14 +42965,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: color-mix(in srgb, var(--protocol-green) 88%, rgb(var(--fg-rgb)));
 }
 
-.notifications-activity-mark--anniversary {
-  color: color-mix(
-    in srgb,
-    var(--protocol-amber, #f59e0b) 92%,
-    rgb(var(--fg-rgb))
-  );
-}
-
 .notifications-activity-badge {
   display: grid;
   place-items: center;
@@ -43005,7 +42997,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   background: var(--protocol-blue, #3b82f6);
 }
 
-.notifications-activity-badge--endorse {
+.notifications-activity-badge--endorse,
+.notifications-activity-badge--anniversary {
   background: var(--protocol-amber, #f59e0b);
 }
 

@@ -23,15 +23,19 @@ describe('notification activity snippets', () => {
     expect(richText).toContain('<span key={`m-${index}`} className="os-mention">');
   });
 
-  it('badges the actor for likes and keeps anniversary on the stars mark', () => {
+  it('badges likes, stands, and anniversary on the standing lead', () => {
     expect(rows).toContain('notificationActivityBadgeKind');
+    expect(rows).toContain('notificationLeadAccountId');
     expect(rows).toContain('avatarBadge');
     expect(rows).toContain('ActivityTypeBadge');
-    expect(rows).toContain("anniversary={item.type === 'profile_anniversary'}");
     expect(rows).toContain('HeartFillIcon');
-    expect(rows).toContain('StarsCFillIcon');
+    expect(rows).toContain('UserFillIcon');
+    expect(rows).toContain('StarMovingFillIcon');
+    expect(rows).toContain('anniversary: StarMovingFillIcon');
+    expect(rows).toContain('stand: UserFillIcon');
     expect(css).toContain('.notifications-activity-badge--like');
-    expect(css).toContain('.notifications-activity-mark--anniversary');
+    expect(css).toContain('.notifications-activity-badge--anniversary');
+    expect(css).toContain('.notifications-activity-badge--stand');
   });
 
   it('locks Activity copy and snippet tokens to DM Sans', () => {

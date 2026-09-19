@@ -14,7 +14,7 @@ import {
   ShopFillIcon,
   StarMovingFillIcon,
   StarsCFillIcon,
-  UserPlusFillIcon,
+  UserFillIcon,
   UsersFillIcon,
   standingIdentityLabel,
 } from '@onsocial/ui';
@@ -25,7 +25,7 @@ import {
   formatNotificationTime,
   isSystemNotification,
   notificationActivityBadgeKind,
-  notificationDaoAccountId,
+  notificationLeadAccountId,
   notificationDetail,
   notificationSnippetKey,
   notificationSnippetPostRef,
@@ -57,8 +57,9 @@ const SOCIAL_BADGE_ICON: Record<NotificationActivityBadgeKind, FillIcon> = {
   reply: MessageFillIcon,
   quote: NoteTextFillIcon,
   repost: RepeatIcon,
-  stand: UserPlusFillIcon,
+  stand: UserFillIcon,
   endorse: StarMovingFillIcon,
+  anniversary: StarMovingFillIcon,
   support: GiftFillIcon,
   invite: UsersFillIcon,
   proposal: HomeFillIcon,
@@ -127,19 +128,11 @@ export function NotificationActivityAppendSkeleton({
   );
 }
 
-function SystemMark({
-  family,
-  anniversary = false,
-}: {
-  family: NotificationSystemFamily;
-  anniversary?: boolean;
-}) {
+function SystemMark({ family }: { family: NotificationSystemFamily }) {
   const Icon = SYSTEM_FAMILY_ICON[family];
   return (
     <span
-      className={`notifications-activity-mark notifications-activity-mark--${family}${
-        anniversary ? ' notifications-activity-mark--anniversary' : ''
-      }`}
+      className={`notifications-activity-mark notifications-activity-mark--${family}`}
       aria-hidden
     >
       <Icon className="notifications-activity-mark-icon" />
@@ -231,12 +224,7 @@ export function NotificationActivityRows({
 
         const item = row.item;
         const previous = index > 0 ? rows[index - 1] : null;
-        const actor = item.actor?.trim() || null;
-        const daoAccountId = notificationDaoAccountId(item);
-        const leadAccount =
-          item.type === 'dao_proposal_resolved'
-            ? daoAccountId || actor
-            : actor;
+        const leadAccount = notificationLeadAccountId(item);
         const system = !leadAccount && isSystemNotification(item);
         const when = formatNotificationTime(item.createdAt);
         const unread = !item.read;
@@ -277,10 +265,7 @@ export function NotificationActivityRows({
           ariaLead = `${chrome.familyLabel}, ${chrome.action}`;
           body = (
             <>
-              <SystemMark
-                family={chrome.family}
-                anniversary={item.type === 'profile_anniversary'}
-              />
+              <SystemMark family={chrome.family} />
               <div className="standing-row-copy notifications-activity-system">
                 <span className="standing-row-name-row">
                   <span className="standing-row-name">{chrome.familyLabel}</span>
