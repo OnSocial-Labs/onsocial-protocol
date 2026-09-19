@@ -606,7 +606,8 @@ function parsePushReactionPath(
   const legacy = trimmed.match(
     /^[^/]+\/reaction\/([^/]+)\/((?:groups\/[^/]+\/content\/)?post\/.+)$/
   );
-  if (legacy?.[1] && legacy[2]) return parsePushPostPath(`${legacy[1]}/${legacy[2]}`);
+  if (legacy?.[1] && legacy[2])
+    return parsePushPostPath(`${legacy[1]}/${legacy[2]}`);
   return null;
 }
 

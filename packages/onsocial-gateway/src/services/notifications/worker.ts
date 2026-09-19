@@ -396,9 +396,7 @@ function parseMentions(value: string | null): string[] {
  * v1 `{actor}/reaction/{owner}/{kind}/{contentPath}` or legacy without kind.
  * Returns a content path (`owner/post/{id}` or guild equivalent).
  */
-export function extractReactionTargetPath(
-  path: string | null
-): string | null {
+export function extractReactionTargetPath(path: string | null): string | null {
   if (!path) {
     return null;
   }

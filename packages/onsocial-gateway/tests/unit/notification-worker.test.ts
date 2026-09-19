@@ -228,9 +228,9 @@ describe('mapDataUpdateNotifications', () => {
         'carol.near/reaction/alice.near/like/groups/dao/content/post/g1'
       )
     ).toBe('alice.near/groups/dao/content/post/g1');
-    expect(extractReactionTargetPath('alice/reaction/bob.testnet/post/42')).toBe(
-      'bob.testnet/post/42'
-    );
+    expect(
+      extractReactionTargetPath('alice/reaction/bob.testnet/post/42')
+    ).toBe('bob.testnet/post/42');
     expect(standingNotifications).toHaveLength(1);
     expect(standingNotifications[0]?.notificationType).toBe('standing_new');
 
