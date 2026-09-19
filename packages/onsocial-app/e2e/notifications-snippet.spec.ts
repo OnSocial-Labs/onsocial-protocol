@@ -158,24 +158,32 @@ test.describe('activity post snippets', () => {
     const anniversaryRow = page
       .locator('.notifications-activity-row')
       .filter({ hasText: '1 year on OnSocial' });
-    await expect(likeRow.locator('[data-activity-badge="like"]')).toBeVisible();
-    await expect(
-      mentionRow.locator('[data-activity-badge="mention"]')
-    ).toBeVisible();
-    await expect(standRow.locator('[data-activity-badge="stand"]')).toBeVisible();
+    const likeBadge = likeRow.locator('[data-activity-badge="like"]');
+    const mentionBadge = mentionRow.locator('[data-activity-badge="mention"]');
+    const standBadge = standRow.locator('[data-activity-badge="stand"]');
     const anniversaryBadge = anniversaryRow.locator(
       '[data-activity-badge="anniversary"]'
     );
+    await expect(likeBadge).toBeVisible();
+    await expect(mentionBadge).toBeVisible();
+    await expect(standBadge).toBeVisible();
     await expect(anniversaryBadge).toBeVisible();
-    const anniversaryFill = await anniversaryBadge.evaluate((node) => {
-      const style = getComputedStyle(node);
-      return {
-        background: style.backgroundColor,
-        color: style.color,
-      };
-    });
-    expect(anniversaryFill.background).not.toMatch(/rgba\(0,\s*0,\s*0,\s*0\)/);
-    expect(anniversaryFill.background).not.toBe('transparent');
+
+    const badgeFills = await Promise.all(
+      [likeBadge, mentionBadge, standBadge, anniversaryBadge].map((badge) =>
+        badge.evaluate((node) => {
+          const style = getComputedStyle(node);
+          return {
+            background: style.backgroundColor,
+            color: style.color,
+          };
+        })
+      )
+    );
+    for (const fill of badgeFills) {
+      expect(fill.background).not.toMatch(/rgba\(0,\s*0,\s*0,\s*0\)/);
+      expect(fill.background).not.toBe('transparent');
+    }
     await expect(
       anniversaryRow.locator('.notifications-activity-mark--onsocial')
     ).toHaveCount(0);
