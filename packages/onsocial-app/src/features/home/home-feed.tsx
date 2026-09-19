@@ -32,6 +32,7 @@ import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { HomeFeedSortToggle } from '@/features/home/home-feed-sort-toggle';
 import { APP_DISCOVER_PATH } from '@/lib/app-routes';
 import {
+  collectOutgoingStandingSources,
   fetchCircleFeedPage,
   fetchPulseFeedPage,
   isHomeFeedSocialLens,
@@ -159,10 +160,9 @@ function mergeFeedPosts(current: PostRow[], incoming: PostRow[]): PostRow[] {
 
 async function resolveStandingSources(accountId: string): Promise<string[]> {
   const client = createReadOnlyOnSocialClient();
-  const standing = await client.query.standings.outgoing(accountId, {
-    limit: 48,
-  });
-  return Array.from(new Set([accountId, ...standing]));
+  return collectOutgoingStandingSources(accountId, (id, opts) =>
+    client.query.standings.outgoing(id, opts)
+  );
 }
 
 async function fetchHomeFeedPageClient(

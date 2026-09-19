@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { OnSocial } from '@onsocial/sdk';
 import {
+  collectOutgoingStandingSources,
   fetchCircleFeedPage,
   fetchPulseFeedPage,
   isHomeFeedSocialLens,
+  STANDING_SOURCE_PAGE,
 } from '@/features/home/home-feed-pulse';
 
 function mockFeedClient(overrides: {
@@ -39,6 +41,26 @@ describe('home-feed-pulse', () => {
       offset: undefined,
       sort: undefined,
       nativeOnly: true,
+    });
+  });
+
+  it('loads every outgoing stand, not one page', async () => {
+    const first = Array.from(
+      { length: STANDING_SOURCE_PAGE },
+      (_, i) => `a${i}.near`
+    );
+    const outgoing = vi
+      .fn()
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(['old-friend.near']);
+
+    await expect(
+      collectOutgoingStandingSources('me.near', outgoing)
+    ).resolves.toEqual(['me.near', ...first, 'old-friend.near']);
+    expect(outgoing).toHaveBeenCalledTimes(2);
+    expect(outgoing).toHaveBeenNthCalledWith(2, 'me.near', {
+      limit: STANDING_SOURCE_PAGE,
+      offset: STANDING_SOURCE_PAGE,
     });
   });
 

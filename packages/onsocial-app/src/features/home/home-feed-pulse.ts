@@ -1,5 +1,33 @@
 import type { FeedSort, OnSocial, Paginated, PostRow } from '@onsocial/sdk';
 
+/** Hasura standing page — keep fetching until a short page. */
+export const STANDING_SOURCE_PAGE = 100;
+
+type OutgoingStandingPage = (
+  accountId: string,
+  opts: { limit: number; offset: number }
+) => Promise<readonly string[]>;
+
+/** You plus every outgoing stand — not one list page. */
+export async function collectOutgoingStandingSources(
+  accountId: string,
+  outgoing: OutgoingStandingPage
+): Promise<string[]> {
+  const standing: string[] = [];
+  let offset = 0;
+  for (;;) {
+    const page = await outgoing(accountId, {
+      limit: STANDING_SOURCE_PAGE,
+      offset,
+    });
+    if (page.length === 0) break;
+    standing.push(...page);
+    if (page.length < STANDING_SOURCE_PAGE) break;
+    offset += page.length;
+  }
+  return Array.from(new Set([accountId, ...standing]));
+}
+
 /** Strict stood-with feed — circle-only, no stranger bridges. */
 export async function fetchCircleFeedPage(
   client: OnSocial,
