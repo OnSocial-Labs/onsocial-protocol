@@ -1,0 +1,73 @@
+/*
+ * Activity implementer discs — filled circle, Mage glyph centred,
+ * on-media white ink. Same recipe in light and dark.
+ * Painted on the standing wrap (`:has`) so the circle fills even if
+ * the inner span’s background is dropped by the globals CSS pipeline.
+ */
+.standing-row-avatar-badge:has([data-activity-badge]) {
+  overflow: hidden;
+  color: var(--app-on-media-ink, #fff);
+}
+
+.notifications-activity-badge {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+  color: var(--app-on-media-ink, #fff);
+}
+
+.notifications-activity-badge-icon {
+  width: 0.58rem;
+  height: 0.58rem;
+  display: block;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.standing-row-avatar-badge:has([data-activity-badge='like']),
+.notifications-activity-badge--like {
+  background-color: var(--protocol-red, #f25c5c);
+}
+
+.standing-row-avatar-badge:has([data-activity-badge='stand']),
+.standing-row-avatar-badge:has([data-activity-badge='reply']),
+.standing-row-avatar-badge:has([data-activity-badge='mention']),
+.standing-row-avatar-badge:has([data-activity-badge='invite']),
+.notifications-activity-badge--stand,
+.notifications-activity-badge--reply,
+.notifications-activity-badge--mention,
+.notifications-activity-badge--invite {
+  background-color: var(--signal-standing, #5ecf9a);
+}
+
+.standing-row-avatar-badge:has([data-activity-badge='quote']),
+.standing-row-avatar-badge:has([data-activity-badge='repost']),
+.standing-row-avatar-badge:has([data-activity-badge='support']),
+.standing-row-avatar-badge:has([data-activity-badge='sale']),
+.notifications-activity-badge--quote,
+.notifications-activity-badge--repost,
+.notifications-activity-badge--support,
+.notifications-activity-badge--sale {
+  background-color: var(--signal-reputation, var(--protocol-green, #00ec97));
+}
+
+.standing-row-avatar-badge:has([data-activity-badge='endorse']),
+.standing-row-avatar-badge:has([data-activity-badge='anniversary']),
+.notifications-activity-badge--endorse,
+.notifications-activity-badge--anniversary {
+  background-color: var(--signal-endorse, #dab872);
+}
+
+.standing-row-avatar-badge:has([data-activity-badge='proposal']),
+.notifications-activity-badge--proposal {
+  background-color: #64748b;
+}
+
+.notifications-activity-badge--anniversary .notifications-activity-badge-icon,
+.notifications-activity-badge--endorse .notifications-activity-badge-icon {
+  width: 0.7rem;
+  height: 0.7rem;
+}

@@ -51,6 +51,7 @@ export function StandingIdentity({
   showHandle = 'when-named',
   copyLeading,
   nameTrailing,
+  avatarBadge,
   children,
   className,
   nameRowClassName,
@@ -67,6 +68,8 @@ export function StandingIdentity({
   copyLeading?: ReactNode;
   /** Inside `.standing-row-name-row` after the name (role badge, mood, status). */
   nameTrailing?: ReactNode;
+  /** Corner glyph on the avatar (Activity like / mention). */
+  avatarBadge?: ReactNode;
   /** After `.standing-row-head` inside `.standing-row-copy` (bio, kind, metrics). */
   children?: ReactNode;
   className?: string;
@@ -79,16 +82,29 @@ export function StandingIdentity({
   const handleVisible =
     showHandle === true || (showHandle === 'when-named' && Boolean(name));
 
+  const avatar = (
+    <ProfileAvatar
+      src={avatarUrl ?? null}
+      fallbackInitial={name || accountId}
+      size={size}
+      shape={shape}
+      className={avatarClassName}
+      shellLoading={shellLoading}
+    />
+  );
+
   return (
     <>
-      <ProfileAvatar
-        src={avatarUrl ?? null}
-        fallbackInitial={name || accountId}
-        size={size}
-        shape={shape}
-        className={avatarClassName}
-        shellLoading={shellLoading}
-      />
+      {avatarBadge ? (
+        <span className="standing-row-avatar-wrap">
+          {avatar}
+          <span className="standing-row-avatar-badge" aria-hidden>
+            {avatarBadge}
+          </span>
+        </span>
+      ) : (
+        avatar
+      )}
       <div className={cn('standing-row-copy', className)}>
         {copyLeading}
         <span className="standing-row-head">

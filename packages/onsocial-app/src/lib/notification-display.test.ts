@@ -13,6 +13,8 @@ import {
   notificationSnippetPostRefs,
   notificationProfileAccountIds,
   snippetFromPostValue,
+  notificationActivityBadgeKind,
+  notificationLeadAccountId,
   notificationSystemChrome,
   notificationVerb,
   parseNotificationPostPath,
@@ -57,6 +59,44 @@ describe('notification display', () => {
         reactionValue: JSON.stringify({ type: 'like' }),
       })
     ).toBe('liked your post');
+  });
+
+  it('maps social rows to one avatar badge and leaves system rows to the family mark', () => {
+    expect(
+      notificationActivityBadgeKind({
+        type: 'reaction',
+        actor: 'bob.testnet',
+        context: { reactionValue: JSON.stringify({ type: 'like' }) },
+      })
+    ).toBe('like');
+    expect(
+      notificationActivityBadgeKind({
+        type: 'mention',
+        actor: 'bob.testnet',
+        context: {},
+      })
+    ).toBe('mention');
+    expect(
+      notificationActivityBadgeKind({
+        type: 'standing_new',
+        actor: 'bob.testnet',
+        context: {},
+      })
+    ).toBe('stand');
+    expect(
+      notificationActivityBadgeKind({
+        type: 'profile_anniversary',
+        actor: '',
+        context: { years: 1 },
+      })
+    ).toBe('anniversary');
+    expect(
+      notificationActivityBadgeKind({
+        type: 'reward_credited',
+        actor: '',
+        context: {},
+      })
+    ).toBeNull();
   });
 
   it('deep-links social, guild, dao, and dm notifications', () => {
@@ -471,6 +511,27 @@ describe('notification display', () => {
         { actor: 'bob.testnet', context: {} },
       ])
     ).toEqual(['bob.testnet', 'gov.sputnik-dao.testnet']);
+  });
+
+  it('leads anniversary rows with the member, not a system mark', () => {
+    expect(
+      notificationLeadAccountId({
+        type: 'profile_anniversary',
+        actor: '',
+        recipient: 'alice.testnet',
+        context: { years: 1, accountId: 'alice.testnet' },
+      })
+    ).toBe('alice.testnet');
+    expect(
+      notificationProfileAccountIds([
+        {
+          type: 'profile_anniversary',
+          actor: '',
+          recipient: 'alice.testnet',
+          context: { years: 1, accountId: 'alice.testnet' },
+        },
+      ])
+    ).toEqual(['alice.testnet']);
   });
 
   it('classifies system chrome for boost / collect / dao resolved', () => {

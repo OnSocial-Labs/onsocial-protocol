@@ -127,12 +127,38 @@ export function notificationDaoAccountId(
   return textField(notification.context, 'daoAccountId');
 }
 
-/** Actor plus DAO place — so Activity can resolve DAO names. */
+/** Who the Activity row should paint as the standing lead. */
+export function notificationLeadAccountId(
+  notification: Pick<Notification, 'actor' | 'context'> &
+    Partial<Pick<Notification, 'type' | 'recipient'>>
+): string | null {
+  if (notification.type === 'profile_anniversary') {
+    return (
+      textField(notification.context, 'accountId') ??
+      notification.recipient?.trim() ??
+      notification.actor?.trim() ??
+      null
+    );
+  }
+  if (notification.type === 'dao_proposal_resolved') {
+    return (
+      notificationDaoAccountId(notification) ??
+      notification.actor?.trim() ??
+      null
+    );
+  }
+  return notification.actor?.trim() || null;
+}
+
+/** Actor plus DAO / anniversary leads — so Activity can resolve names. */
 export function notificationProfileAccountIds(
-  items: readonly Pick<Notification, 'actor' | 'context'>[]
+  items: readonly (Pick<Notification, 'actor' | 'context'> &
+    Partial<Pick<Notification, 'type' | 'recipient'>>)[]
 ): string[] {
   const ids = new Set<string>();
   for (const item of items) {
+    const lead = notificationLeadAccountId(item);
+    if (lead) ids.add(lead);
     const actor = item.actor?.trim();
     if (actor) ids.add(actor);
     const dao = notificationDaoAccountId(item);
@@ -621,6 +647,62 @@ export function isSystemNotification(
     return true;
   }
   return !notification.actor?.trim();
+}
+
+/**
+ * Type glyph on the standing lead. Anniversary uses the member avatar +
+ * StarsC — same implementer disc as a like. Protocol-only rows keep the family mark.
+ */
+export type NotificationActivityBadgeKind =
+  | 'like'
+  | 'mention'
+  | 'reply'
+  | 'quote'
+  | 'repost'
+  | 'stand'
+  | 'endorse'
+  | 'support'
+  | 'invite'
+  | 'proposal'
+  | 'sale'
+  | 'anniversary';
+
+export function notificationActivityBadgeKind(
+  notification: Pick<Notification, 'type' | 'actor' | 'context'>
+): NotificationActivityBadgeKind | null {
+  if (notification.type === 'profile_anniversary') return 'anniversary';
+  if (isSystemNotification(notification)) return null;
+  switch (notification.type) {
+    case 'reaction':
+      return 'like';
+    case 'mention':
+      return 'mention';
+    case 'reply':
+      return 'reply';
+    case 'quote':
+      return 'quote';
+    case 'repost':
+      return 'repost';
+    case 'standing_new':
+      return 'stand';
+    case 'endorsement_new':
+      return 'endorse';
+    case 'endorsement_supported':
+    case 'profile_supported':
+      return 'support';
+    case 'group_invite':
+      return 'invite';
+    case 'group_proposal':
+    case 'dao_proposal':
+    case 'dao_proposal_vote':
+    case 'dao_proposal_resolved':
+      return 'proposal';
+    case 'scarces_sold':
+    case 'scarces_offer':
+      return 'sale';
+    default:
+      return null;
+  }
 }
 
 function systemFamily(type: string): NotificationSystemFamily {
