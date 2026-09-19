@@ -21,6 +21,10 @@ function row(accountId: string, postId: string): PostRow {
   };
 }
 
+function parentPathFor(accountId: string, postId: string): string {
+  return `${accountId}/groups/dao/content/post/${postId}`;
+}
+
 describe('countUnseenFeedPosts', () => {
   it('counts head rows missing from seen keys', () => {
     const seen = feedPostKeySet([row('a.near', '1'), row('b.near', '2')]);
@@ -42,7 +46,7 @@ describe('countUnseenFeedPosts', () => {
         value: '{"text":"hi"}',
         blockHeight: 2,
         blockTimestamp: 2,
-        parentPath: 'bob.near/post/root',
+        parentPath: parentPathFor('bob.near', 'root'),
         parentAuthor: 'bob.near',
       },
       row('bob.near', 'root'),
@@ -66,6 +70,70 @@ describe('countUnseenFeedPosts', () => {
     expect(
       countUnseenFeedPosts(head, seen, { viewerAccountId: 'bob.near' })
     ).toBe(1);
+  });
+
+  it('counts a stood-with reply as one Pulse card', () => {
+    const parent = row('bob.near', 'root');
+    const reply: PostRow = {
+      accountId: 'alice.near',
+      postId: 'reply',
+      value: '{"text":"hi"}',
+      blockHeight: 2,
+      blockTimestamp: 2,
+      parentPath: parentPathFor('bob.near', 'root'),
+      parentAuthor: 'bob.near',
+    };
+    const stoodWith = new Set(['alice.near']);
+
+    expect(
+      countUnseenFeedPosts([reply, parent], feedPostKeySet([parent]), {
+        stoodWithAccountIds: stoodWith,
+      })
+    ).toBe(1);
+
+    expect(
+      summarizeUnseenFeedPosts([reply, parent], new Set(), {
+        stoodWithAccountIds: stoodWith,
+      })
+    ).toEqual({ count: 1, authorIds: ['alice.near'] });
+  });
+
+  it('does not chip the viewer own reply to a stranger', () => {
+    const parent = row('bob.near', 'root');
+    const reply: PostRow = {
+      accountId: 'me.near',
+      postId: 'reply',
+      value: '{"text":"hi"}',
+      blockHeight: 2,
+      blockTimestamp: 2,
+      parentPath: parentPathFor('bob.near', 'root'),
+      parentAuthor: 'bob.near',
+    };
+
+    expect(
+      countUnseenFeedPosts([reply, parent], new Set(), {
+        stoodWithAccountIds: new Set(['me.near', 'carol.near']),
+        viewerAccountId: 'me.near',
+      })
+    ).toBe(0);
+  });
+
+  it('counts an orphan stood-with reply when the parent is off the head', () => {
+    const reply: PostRow = {
+      accountId: 'alice.near',
+      postId: 'reply',
+      value: '{"text":"hi"}',
+      blockHeight: 2,
+      blockTimestamp: 2,
+      parentPath: parentPathFor('bob.near', 'missing'),
+      parentAuthor: 'bob.near',
+    };
+
+    expect(
+      summarizeUnseenFeedPosts([reply], new Set(), {
+        stoodWithAccountIds: new Set(['alice.near']),
+      })
+    ).toEqual({ count: 1, authorIds: ['alice.near'] });
   });
 });
 

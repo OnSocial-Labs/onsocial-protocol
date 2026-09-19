@@ -16,7 +16,11 @@ import {
   type PostRow,
   type PostScarceEmbed,
 } from '@onsocial/sdk';
-import { OnSocialMark, OsAppChromePage, OsAppChromeToolbarRail } from '@onsocial/ui';
+import {
+  OnSocialMark,
+  OsAppChromePage,
+  OsAppChromeToolbarRail,
+} from '@onsocial/ui';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
@@ -417,7 +421,11 @@ export function HomePagePanel({
   const activeLens = resolveHomeFeedLens(lens, isConnected);
 
   const stoodWithAccountIds = useMemo(() => {
-    if (activeFocus || !isHomeFeedSocialLens(activeLens) || !standingNetworkIds?.length) {
+    if (
+      activeFocus ||
+      !isHomeFeedSocialLens(activeLens) ||
+      !standingNetworkIds?.length
+    ) {
       return undefined;
     }
     return new Set(standingNetworkIds);
@@ -474,7 +482,11 @@ export function HomePagePanel({
   );
 
   useEffect(() => {
-    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam, place: placeParam });
+    const focus = parseHomeFeedFocus({
+      tag: tagParam,
+      ticker: tickerParam,
+      place: placeParam,
+    });
 
     // Paint SSR hot feed immediately; standing / non-hot sorts soft-upgrade.
     const canUseSsrBootstrap =
@@ -643,7 +655,11 @@ export function HomePagePanel({
     const baseOffset = nextOffsetRef.current;
     if (baseOffset === undefined) return;
 
-    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam, place: placeParam });
+    const focus = parseHomeFeedFocus({
+      tag: tagParam,
+      ticker: tickerParam,
+      place: placeParam,
+    });
 
     // Chrono-paged surfaces (any Recent feed) shift when new posts land at
     // the head; compensate so appended pages don't skip rows. Hot pages by
@@ -799,7 +815,11 @@ export function HomePagePanel({
     }
 
     newPostsProbeInFlightRef.current = true;
-    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam, place: placeParam });
+    const focus = parseHomeFeedFocus({
+      tag: tagParam,
+      ticker: tickerParam,
+      place: placeParam,
+    });
 
     try {
       // Always probe chronological head so “new” means newer content, not Hot churn.
@@ -832,6 +852,7 @@ export function HomePagePanel({
         {
           includeForeignReplies: Boolean(focus),
           viewerAccountId: accountId,
+          stoodWithAccountIds: focus ? undefined : stoodWithAccountIds,
         }
       );
       setUnseenPosts(summary);
@@ -840,7 +861,16 @@ export function HomePagePanel({
     } finally {
       newPostsProbeInFlightRef.current = false;
     }
-  }, [accountId, activeLens, lensReady, tagParam, tickerParam, placeParam, walletLoading]);
+  }, [
+    accountId,
+    activeLens,
+    lensReady,
+    stoodWithAccountIds,
+    tagParam,
+    tickerParam,
+    placeParam,
+    walletLoading,
+  ]);
 
   useEffect(() => {
     if (!lensReady || walletLoading) return;
@@ -900,8 +930,14 @@ export function HomePagePanel({
 
   useEffect(() => subscribePersonalPostConfirmed(onConfirmed), [onConfirmed]);
 
-  const { openReply, openFullReply, openQuote, openRepost, openUndoRepost, sheet } =
-    usePersonalComposer({
+  const {
+    openReply,
+    openFullReply,
+    openQuote,
+    openRepost,
+    openUndoRepost,
+    sheet,
+  } = usePersonalComposer({
     registerPen: Boolean(isConnected && accountId),
     destinationLabel,
     onConfirmed,

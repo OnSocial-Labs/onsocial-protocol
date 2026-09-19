@@ -1,7 +1,7 @@
 import type { PostRow } from '@onsocial/sdk';
 import { accountIdsEqual } from '@/lib/account-match';
 import { postKey } from '@/lib/post-display';
-import { isForeignReply } from '@/lib/feed-threads';
+import { coalesceFeedThreads, isForeignReply } from '@/lib/feed-threads';
 
 /** Head-page probe size for “new posts” detection. */
 export const HOME_FEED_NEW_PROBE_SIZE = 8;
@@ -22,31 +22,41 @@ export const EMPTY_UNSEEN_FEED_SUMMARY: UnseenFeedSummary = {
   authorIds: [],
 };
 
+export type SummarizeUnseenFeedOptions = {
+  includeForeignReplies?: boolean;
+  viewerAccountId?: string | null;
+  maxAuthors?: number;
+  /** Pulse — a new stood-with reply is one card, same as a new original. */
+  stoodWithAccountIds?: ReadonlySet<string>;
+};
+
 /** Count head-page posts the viewer has not loaded yet + unique authors. */
 export function summarizeUnseenFeedPosts(
   head: readonly PostRow[],
   seenKeys: ReadonlySet<string>,
-  options?: {
-    includeForeignReplies?: boolean;
-    viewerAccountId?: string | null;
-    maxAuthors?: number;
-  }
+  options?: SummarizeUnseenFeedOptions
 ): UnseenFeedSummary {
-  const maxAuthors = Math.max(0, options?.maxAuthors ?? HOME_FEED_NEW_AVATAR_SLOTS);
+  const maxAuthors = Math.max(
+    0,
+    options?.maxAuthors ?? HOME_FEED_NEW_AVATAR_SLOTS
+  );
+  const includeForeignReplies = Boolean(options?.includeForeignReplies);
+  const stoodWithAccountIds = options?.stoodWithAccountIds;
+  const viewerAccountId = options?.viewerAccountId;
+  const isViewer = (post: PostRow) =>
+    Boolean(
+      viewerAccountId && accountIdsEqual(post.accountId, viewerAccountId)
+    );
+
   let count = 0;
   const authorIds: string[] = [];
   const seenAuthors = new Set<string>();
+  const countedKeys = new Set<string>();
 
-  for (const post of head) {
-    if (seenKeys.has(postKey(post))) continue;
-    if (
-      options?.viewerAccountId &&
-      accountIdsEqual(post.accountId, options.viewerAccountId)
-    ) {
-      continue;
-    }
-    if (!options?.includeForeignReplies && isForeignReply(post)) continue;
-
+  const add = (post: PostRow) => {
+    const key = postKey(post);
+    if (countedKeys.has(key)) return;
+    countedKeys.add(key);
     count += 1;
     if (
       maxAuthors > 0 &&
@@ -55,6 +65,40 @@ export function summarizeUnseenFeedPosts(
     ) {
       seenAuthors.add(post.accountId);
       authorIds.push(post.accountId);
+    }
+  };
+
+  const blocks = coalesceFeedThreads([...head], {
+    includeForeignReplies,
+    stoodWithAccountIds,
+  });
+
+  for (const block of blocks) {
+    const peek = block.standingPeek;
+    if (peek && !seenKeys.has(postKey(peek))) {
+      // One Pulse card: the reply is the activity. Skip the stranger parent
+      // so a new bridge is "1 posted" (replier), not parent + reply.
+      if (!isViewer(peek)) add(peek);
+      continue;
+    }
+
+    for (const post of block.posts) {
+      if (seenKeys.has(postKey(post))) continue;
+      if (isViewer(post)) continue;
+      if (!includeForeignReplies && isForeignReply(post)) continue;
+      add(post);
+    }
+  }
+
+  // Peek whose parent is not on this head still counts — Pulse hydrates the
+  // parent, but a short probe should not drop the reply if it didn't.
+  if (stoodWithAccountIds) {
+    for (const post of head) {
+      if (seenKeys.has(postKey(post))) continue;
+      if (isViewer(post)) continue;
+      if (!isForeignReply(post)) continue;
+      if (!stoodWithAccountIds.has(post.accountId)) continue;
+      add(post);
     }
   }
 
@@ -65,7 +109,7 @@ export function summarizeUnseenFeedPosts(
 export function countUnseenFeedPosts(
   head: readonly PostRow[],
   seenKeys: ReadonlySet<string>,
-  options?: { includeForeignReplies?: boolean; viewerAccountId?: string | null }
+  options?: SummarizeUnseenFeedOptions
 ): number {
   return summarizeUnseenFeedPosts(head, seenKeys, options).count;
 }
