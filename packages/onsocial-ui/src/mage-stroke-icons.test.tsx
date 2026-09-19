@@ -63,6 +63,8 @@ import {
   UserMinusIcon,
   UserPlusIcon,
   VideoPlayerIcon,
+  VolumeMuteIcon,
+  VolumeUpIcon,
 } from './mage-stroke-icons.js';
 
 describe('mage stroke icons', () => {
@@ -130,5 +132,7 @@ describe('mage stroke icons', () => {
     expect(typeof DotsVerticalIcon).toBe('function');
     expect(typeof SlidersHorizontalIcon).toBe('function');
     expect(typeof VideoPlayerIcon).toBe('function');
+    expect(typeof VolumeMuteIcon).toBe('function');
+    expect(typeof VolumeUpIcon).toBe('function');
   });
 });

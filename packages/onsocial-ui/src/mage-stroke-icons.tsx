@@ -1534,3 +1534,67 @@ export function ShareIcon(props: MageStrokeIconProps) {
     </MageStrokeSvg>
   );
 }
+
+/** Mage `volume-up` — speaker + waves (unmute / audible). */
+export function VolumeUpIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M3 14.0881V9.91184C3 9.49649 3.14223 9.09814 3.39541 8.80445C3.64858 8.51075 3.99197 8.34575 4.35002 8.34575H6.24005C6.47678 8.34461 6.70927 8.2727 6.91506 8.13694L10.8842 5.5059C11.0892 5.37099 11.3211 5.30072 11.5569 5.30208C11.7926 5.30343 12.0239 5.37638 12.2278 5.51364C12.4317 5.65091 12.601 5.84771 12.719 6.08448C12.837 6.32125 12.8994 6.58972 12.9002 6.86318V17.1368C12.8994 17.4102 12.837 17.6787 12.719 17.9154C12.601 18.1522 12.4317 18.3491 12.2278 18.4863C12.0239 18.6235 11.7926 18.6965 11.5569 18.6979C11.3211 18.6992 11.0892 18.629 10.8842 18.494L6.91506 15.863C6.70927 15.7272 6.47678 15.6553 6.24005 15.6542H4.35002C3.99197 15.6542 3.64858 15.4891 3.39541 15.1955C3.14223 14.9018 3 14.5035 3 14.0881Z"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M16.2278 15.7145C17.2301 14.7122 17.7933 13.3528 17.7932 11.9353C17.7933 10.5178 17.2301 9.15836 16.2278 8.15601"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M18.4954 18.0409C20.099 16.4371 21 14.2621 21 11.9941C21 9.72604 20.099 7.55094 18.4954 5.94727"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Mage `volume-mute` — speaker + X (muted). */
+export function VolumeMuteIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M20.9514 9.55359L16.0486 14.4564"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M16.0486 9.55359L20.9514 14.4564"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M3.04858 14.0881V9.91184C3.04858 9.49649 3.19082 9.09814 3.44399 8.80445C3.69717 8.51075 4.04055 8.34575 4.3986 8.34575H6.28863C6.52536 8.34461 6.75785 8.2727 6.96364 8.13694L10.9328 5.5059C11.1378 5.37099 11.3696 5.30072 11.6055 5.30208C11.8412 5.30343 12.0725 5.37638 12.2763 5.51364C12.4803 5.65091 12.6496 5.84771 12.7675 6.08448C12.8856 6.32125 12.9479 6.58972 12.9488 6.86318V17.1368C12.9479 17.4102 12.8856 17.6787 12.7675 17.9154C12.6496 18.1522 12.4803 18.3491 12.2763 18.4863C12.0725 18.6235 11.8412 18.6965 11.6055 18.6979C11.3696 18.6992 11.1378 18.629 10.9328 18.494L6.96364 15.863C6.75785 15.7272 6.52536 15.6553 6.28863 15.6542H4.3986C4.04055 15.6542 3.69717 15.4891 3.44399 15.1955C3.19082 14.9018 3.04858 14.5035 3.04858 14.0881Z"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}

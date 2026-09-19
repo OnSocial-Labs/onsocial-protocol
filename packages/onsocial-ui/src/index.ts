@@ -160,6 +160,8 @@ export {
   UserMinusIcon,
   UserPlusIcon,
   VideoPlayerIcon,
+  VolumeMuteIcon,
+  VolumeUpIcon,
   type MageStrokeIconProps,
 } from './mage-stroke-icons.js';
 export {

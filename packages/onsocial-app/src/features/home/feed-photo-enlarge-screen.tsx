@@ -19,6 +19,8 @@ import {
   PlayFillIcon,
   ScaleDownIcon,
   ScaleUpIcon,
+  VolumeMuteIcon,
+  VolumeUpIcon,
 } from '@onsocial/ui';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { useComposeLauncher } from '@/contexts/compose-launcher-context';
@@ -664,7 +666,7 @@ export function FeedPhotoEnlargeScreen({
         className={`feed-photo-video-dock feed-photo-video-dock--slot${scrubbing ? ' is-scrubbing' : ''}${transportVisible ? '' : ' is-chrome-quiet'}`}
         style={{ '--feed-video-p': '0' } as CSSProperties}
       >
-        <div className="feed-photo-video-progress is-chrome-visible">
+        <div className="feed-photo-video-progress">
           <div
             ref={progressRailRef}
             className="feed-photo-video-progress-rail"
@@ -741,52 +743,68 @@ export function FeedPhotoEnlargeScreen({
             )}
           </button>
           <p className="feed-photo-video-time">
-            <span ref={timeCurrentRef}>0:00</span>
-            <span className="feed-photo-video-time-sep" aria-hidden>
+            <span
+              ref={timeCurrentRef}
+              className="scarce-clip-time-elapsed"
+              suppressHydrationWarning
+            >
+              0:00
+            </span>
+            <span className="scarce-clip-time-sep" aria-hidden>
               /
             </span>
-            <span>{formatVideoTime(videoDuration)}</span>
+            <span className="scarce-clip-time-total">
+              {formatVideoTime(videoDuration)}
+            </span>
           </p>
-          <button
-            type="button"
-            className={`feed-photo-video-control${
-              videoMuted ? ' is-muted' : ''
-            }`}
-            aria-label={videoMuted ? 'Unmute' : 'Mute'}
-            aria-pressed={videoMuted}
-            onClick={(event) => {
-              event.stopPropagation();
-              toggleMute();
-            }}
-          >
-            {videoMuted ? (
-              <VolumeMuteGlyph className="feed-photo-video-control-icon" />
-            ) : (
-              <VolumeHighGlyph className="feed-photo-video-control-icon" />
-            )}
-          </button>
-          <button
-            type="button"
-            className="feed-photo-video-control"
-            aria-label={cinema ? 'Exit full screen' : 'Full screen'}
-            aria-pressed={cinema}
-            onClick={(event) => {
-              event.stopPropagation();
-              toggleCinema();
-            }}
-          >
-            {cinema ? (
-              <ScaleDownIcon
-                className="feed-photo-video-control-icon"
-                aria-hidden
-              />
-            ) : (
-              <ScaleUpIcon
-                className="feed-photo-video-control-icon"
-                aria-hidden
-              />
-            )}
-          </button>
+          <div className="feed-photo-video-controls-end">
+            <button
+              type="button"
+              className={`feed-photo-video-control${
+                videoMuted ? ' is-muted' : ''
+              }`}
+              aria-label={videoMuted ? 'Unmute' : 'Mute'}
+              aria-pressed={videoMuted}
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleMute();
+              }}
+            >
+              {videoMuted ? (
+                <VolumeMuteIcon
+                  className="feed-photo-video-control-icon"
+                  aria-hidden
+                />
+              ) : (
+                <VolumeUpIcon
+                  className="feed-photo-video-control-icon"
+                  aria-hidden
+                />
+              )}
+            </button>
+            <button
+              type="button"
+              className="feed-photo-video-control"
+              aria-label={cinema ? 'Exit full screen' : 'Full screen'}
+              aria-pressed={cinema}
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleCinema();
+              }}
+            >
+              {cinema ? (
+                <ScaleDownIcon
+                  className="feed-photo-video-control-icon"
+                  aria-hidden
+                />
+              ) : (
+                <ScaleUpIcon
+                  className="feed-photo-video-control-icon"
+                  aria-hidden
+                />
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -1068,57 +1086,3 @@ function FeedPhotoMediaStage({
   );
 }
 
-/** Compact speaker glyphs — local to enlarge so we skip a ui-package churn. */
-function VolumeHighGlyph({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-    >
-      <path
-        d="M4.5 9.25h2.35L11 6.4v11.2l-4.15-2.85H4.5V9.25Z"
-        fill="currentColor"
-      />
-      <path
-        d="M14.2 9.1a3.4 3.4 0 0 1 0 5.8"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-      <path
-        d="M16.55 6.85a6.1 6.1 0 0 1 0 10.3"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function VolumeMuteGlyph({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-    >
-      <path
-        d="M4.5 9.25h2.35L11 6.4v11.2l-4.15-2.85H4.5V9.25Z"
-        fill="currentColor"
-      />
-      <path
-        d="M15.2 10.2 19.4 14.4M19.4 10.2 15.2 14.4"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
