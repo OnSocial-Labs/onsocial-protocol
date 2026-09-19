@@ -33,12 +33,16 @@ export default async function PersonalPostPage({
   const postId = decodeURIComponent(rawPostId);
   const initial = await loadPersonalPostPageData(accountId, postId);
   if (!initial) {
-    const indexed = await fetchIndexedPost(
-      { author: accountId, postId },
-      createServerOnSocialClient()
-    );
-    if (indexed?.groupId) {
-      redirect(postThreadPath(indexed));
+    try {
+      const indexed = await fetchIndexedPost(
+        { author: accountId, postId },
+        createServerOnSocialClient()
+      );
+      if (indexed?.groupId) {
+        redirect(postThreadPath(indexed));
+      }
+    } catch {
+      // Client panel hydrates when SSR indexer is missing or unauthenticated.
     }
   }
 
