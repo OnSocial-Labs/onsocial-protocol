@@ -672,7 +672,9 @@ export function HomePagePanel({
     const pendingShift = pendingFeedOffsetShift({
       newPostCount: unseenPostsRef.current.count,
       appliedShift: offsetShiftAppliedRef.current,
-      chronoPaged: sort !== 'hot',
+      // Pulse/Circle cards move when a later reply lifts them. A chrono
+      // offset shift then skips the old bottom and jumps to older leftovers.
+      chronoPaged: sort !== 'hot' && !isHomeFeedSocialLens(activeLens),
     });
     const offset = baseOffset + pendingShift;
 

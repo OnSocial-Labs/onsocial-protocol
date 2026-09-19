@@ -582,8 +582,8 @@ export class FeedQuery {
    * into. Rank a bridge by the circle reply. Each bridge flattens to
    * `[threadRoot, newestCircleReply]` so the app can peek without a second fetch.
    *
-   * Prefers SQL `feed_pulse` (one query, cards already grouped). Falls back to
-   * merging native + bridge streams while Hasura has not tracked the function.
+   * Prefers SQL `feed_pulse` (cards grouped by account + post id). Falls back
+   * to native + bridge streams only when Hasura has not tracked the function.
    *
    * `limit` / `offset` page cards (native post or one bridge), not raw rows.
    *
@@ -609,21 +609,11 @@ export class FeedQuery {
           cardOffset: offset,
           sort,
         });
-        const selfRefs = pulseSelfReplyRootsToHydrate(rows, opts.accounts);
-        const extraParents =
-          selfRefs.length > 0
-            ? await this.hydrateStubRows(
-                'PulseSelfParents',
-                selfRefs,
-                selfRefs.length
-              )
-            : [];
         return paginatePulseFunctionRows({
           rows,
           accounts: opts.accounts,
           offset,
           limit,
-          extraParents,
         });
       } catch (err) {
         if (!isFeedPulseUnavailableError(err)) throw err;

@@ -2,7 +2,7 @@
 DELETE FROM posts_current
 WHERE account_id IN ('bob.near', 'dave.near', 'alice.near')
   AND post_id IN (
-    'root', 'mid', 'nested', 'hello', 'note',
+    'root', 'mid', 'nested', 'hello', 'note', 'summer', 'late',
     'late_root', 'late_mid', 'late_nested'
   );
 
@@ -14,4 +14,6 @@ VALUES
   ('dave.near', 'mid', 'bob.near/post/root', 'bob.near', '', 20),
   ('alice.near', 'hello', '', '', '', 15),
   ('alice.near', 'note', 'alice.near/post/hello', 'alice.near', '', 50),
+  ('alice.near', 'summer', '', '', 'dao', 16),
+  ('alice.near', 'late', 'alice.near/post/summer', 'alice.near', '', 55),
   ('alice.near', 'nested', 'dave.near/post/mid', 'dave.near', '', 40);

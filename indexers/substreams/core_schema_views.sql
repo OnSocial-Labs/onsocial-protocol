@@ -1039,32 +1039,42 @@ AS $$
   ),
   native_circle_replies AS (
     SELECT
-      p.*,
-      COALESCE(
-        NULLIF(btrim(p.root_path), ''),
-        NULLIF(btrim(p.parent_path), '')
-      ) AS card_path,
-      COALESCE(p.amplify_heat, 0) AS reply_heat,
-      COALESCE(p.block_height, 0) AS reply_height
-    FROM posts_feed p
-    JOIN circle c ON c.account_id = p.account_id
-    WHERE p.parent_path IS NOT NULL
-      AND btrim(p.parent_path) <> ''
-      AND EXISTS (
-        SELECT 1 FROM circle parent WHERE parent.account_id = p.parent_author
-      )
+      r.*,
+      parsed.account_id AS card_account_id,
+      parsed.post_id AS card_post_id
+    FROM (
+      SELECT
+        p.*,
+        COALESCE(
+          NULLIF(btrim(p.root_path), ''),
+          NULLIF(btrim(p.parent_path), '')
+        ) AS card_path,
+        COALESCE(p.amplify_heat, 0) AS reply_heat,
+        COALESCE(p.block_height, 0) AS reply_height
+      FROM posts_feed p
+      JOIN circle c ON c.account_id = p.account_id
+      WHERE p.parent_path IS NOT NULL
+        AND btrim(p.parent_path) <> ''
+        AND EXISTS (
+          SELECT 1 FROM circle parent WHERE parent.account_id = p.parent_author
+        )
+    ) r
+    JOIN LATERAL parse_post_content_path(r.card_path) parsed
+      ON parsed.account_id IS NOT NULL
+     AND parsed.post_id IS NOT NULL
   ),
   best_self AS (
-    SELECT DISTINCT ON (card_path)
-      card_path,
+    SELECT DISTINCT ON (card_account_id, card_post_id)
+      card_account_id,
+      card_post_id,
       account_id,
       post_id,
       reply_heat,
       reply_height
     FROM native_circle_replies
-    WHERE card_path IS NOT NULL AND btrim(card_path) <> ''
     ORDER BY
-      card_path,
+      card_account_id,
+      card_post_id,
       CASE WHEN sort = 'hot' THEN reply_heat ELSE 0 END DESC,
       reply_height DESC
   ),
@@ -1079,8 +1089,8 @@ AS $$
       s.post_id AS peek_post_id
     FROM native_roots p
     LEFT JOIN best_self s
-      ON s.card_path
-        = posts_current_own_path(p.account_id, p.post_id, p.group_id)
+      ON s.card_account_id = p.account_id
+     AND s.card_post_id = p.post_id
     UNION ALL
     SELECT
       p.*,
@@ -1097,47 +1107,58 @@ AS $$
     WHERE NOT EXISTS (
       SELECT 1
       FROM native_roots roots
-      WHERE posts_current_own_path(roots.account_id, roots.post_id, roots.group_id)
-        = r.card_path
+      WHERE roots.account_id = r.card_account_id
+        AND roots.post_id = r.card_post_id
     )
   ),
   bridge_replies AS (
     SELECT
-      p.*,
-      COALESCE(
-        NULLIF(btrim(p.root_path), ''),
-        NULLIF(btrim(p.parent_path), '')
-      ) AS card_path,
-      COALESCE(p.amplify_heat, 0) AS reply_heat,
-      COALESCE(p.block_height, 0) AS reply_height
-    FROM posts_feed p
-    JOIN circle c ON c.account_id = p.account_id
-    WHERE p.parent_path IS NOT NULL
-      AND btrim(p.parent_path) <> ''
-      AND p.parent_author IS NOT NULL
-      AND btrim(p.parent_author) <> ''
-      AND NOT EXISTS (
-        SELECT 1 FROM circle parent WHERE parent.account_id = p.parent_author
-      )
+      r.*,
+      parsed.account_id AS card_account_id,
+      parsed.post_id AS card_post_id
+    FROM (
+      SELECT
+        p.*,
+        COALESCE(
+          NULLIF(btrim(p.root_path), ''),
+          NULLIF(btrim(p.parent_path), '')
+        ) AS card_path,
+        COALESCE(p.amplify_heat, 0) AS reply_heat,
+        COALESCE(p.block_height, 0) AS reply_height
+      FROM posts_feed p
+      JOIN circle c ON c.account_id = p.account_id
+      WHERE p.parent_path IS NOT NULL
+        AND btrim(p.parent_path) <> ''
+        AND p.parent_author IS NOT NULL
+        AND btrim(p.parent_author) <> ''
+        AND NOT EXISTS (
+          SELECT 1 FROM circle parent WHERE parent.account_id = p.parent_author
+        )
+    ) r
+    JOIN LATERAL parse_post_content_path(r.card_path) parsed
+      ON parsed.account_id IS NOT NULL
+     AND parsed.post_id IS NOT NULL
   ),
   best_bridge AS (
-    SELECT DISTINCT ON (card_path)
-      card_path,
+    SELECT DISTINCT ON (card_account_id, card_post_id)
+      card_account_id,
+      card_post_id,
       account_id,
       post_id,
       reply_heat,
       reply_height
     FROM bridge_replies
-    WHERE card_path IS NOT NULL AND btrim(card_path) <> ''
     ORDER BY
-      card_path,
+      card_account_id,
+      card_post_id,
       CASE WHEN sort = 'hot' THEN reply_heat ELSE 0 END DESC,
       reply_height DESC
   ),
   bridge_events AS (
     SELECT
       root.*,
-      b.card_path AS event_key,
+      posts_current_own_path(root.account_id, root.post_id, root.group_id)
+        AS event_key,
       b.reply_heat AS event_heat,
       b.reply_height AS event_height,
       1 AS event_kind,
@@ -1145,14 +1166,9 @@ AS $$
       b.post_id AS peek_post_id
     FROM best_bridge b
     JOIN posts_feed root
-      ON posts_current_own_path(root.account_id, root.post_id, root.group_id)
-        = b.card_path
+      ON root.account_id = b.card_account_id
+     AND root.post_id = b.card_post_id
     WHERE NOT EXISTS (
-      SELECT 1 FROM native n
-      WHERE posts_current_own_path(n.account_id, n.post_id, n.group_id)
-        = b.card_path
-    )
-    AND NOT EXISTS (
       SELECT 1 FROM native n
       WHERE n.account_id = root.account_id
         AND n.post_id = root.post_id

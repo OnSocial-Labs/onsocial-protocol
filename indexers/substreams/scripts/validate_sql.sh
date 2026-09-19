@@ -326,7 +326,9 @@ late_root=bob.near/post/late_root"
 
       apply_sql "$db" /work/tests/fixtures/feed_pulse_check.sql
       pulse_ids="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atf /work/tests/fixtures/feed_pulse_assert.sql)"
-      expected_pulse="hello
+      expected_pulse="summer
+late
+hello
 note
 root
 nested"
