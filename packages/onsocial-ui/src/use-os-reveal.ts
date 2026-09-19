@@ -56,7 +56,13 @@ export function useOsReveal<T extends HTMLElement>() {
     host.style.setProperty('--os-reveal-open', `${open}px`);
   }, []);
 
-  return { hostRef, clipRef, innerRef, measure } as const;
+  /** Reset inner scroll to the top — call on collapse so reopening starts at line 1. */
+  const resetScroll = useCallback(() => {
+    const inner = innerRef.current;
+    if (inner) inner.scrollTop = 0;
+  }, []);
+
+  return { hostRef, clipRef, innerRef, measure, resetScroll } as const;
 }
 
 export type OsRevealRefs<T extends HTMLElement> = {
@@ -64,4 +70,5 @@ export type OsRevealRefs<T extends HTMLElement> = {
   clipRef: RefObject<HTMLElement | null>;
   innerRef: RefObject<HTMLElement | null>;
   measure: (options?: OsRevealMeasureOptions) => void;
+  resetScroll: () => void;
 };

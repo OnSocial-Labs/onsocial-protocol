@@ -157,7 +157,13 @@ export function FeedPhotoEnlargeScreen({
     captionText.split('\n').length > 2 || captionText.length > 72;
   const [captionMode, setCaptionMode] = useState<'peek' | 'expanded'>('peek');
   const [captionHasMore, setCaptionHasMore] = useState(captionLooksLong);
-  const captionReveal = useOsReveal<HTMLDivElement>();
+  const {
+    hostRef: captionHostRef,
+    clipRef: captionClipRef,
+    innerRef: captionInnerRef,
+    measure: measureReveal,
+    resetScroll: resetCaptionScroll,
+  } = useOsReveal<HTMLDivElement>();
   const captionTextRef = useRef<HTMLSpanElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -194,8 +200,8 @@ export function FeedPhotoEnlargeScreen({
     const rem =
       parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
     const maxOpenPx = Math.min(rem * 12, window.innerHeight * 0.36);
-    captionReveal.measure({ closedLines: 2, maxOpenPx });
-    const clip = captionReveal.clipRef.current;
+    measureReveal({ closedLines: 2, maxOpenPx });
+    const clip = captionClipRef.current;
     const text = captionTextRef.current;
     if (!clip || !text) return;
     // Closed height is the measured 2-line peek, not the live (animated) box.
@@ -207,16 +213,15 @@ export function FeedPhotoEnlargeScreen({
     const peekPx = Math.ceil(lineHeight * 2);
     const next = text.scrollHeight > peekPx + 1;
     setCaptionHasMore((prev) => (prev === next ? prev : next));
-  }, [captionReveal]);
+  }, [measureReveal, captionClipRef]);
   const expandCaption = useCallback(() => {
     measureCaption();
     setCaptionMode('expanded');
   }, [measureCaption]);
   const collapseCaption = useCallback(() => {
-    const inner = captionReveal.innerRef.current;
-    if (inner) inner.scrollTop = 0;
+    resetCaptionScroll();
     setCaptionMode('peek');
-  }, [captionReveal]);
+  }, [resetCaptionScroll]);
   useLayoutEffect(() => {
     if (!open || cinema || threadOpen || !hasCaption) return;
     measureCaption();
@@ -992,7 +997,7 @@ export function FeedPhotoEnlargeScreen({
           />
         ) : null}
         <div
-          ref={captionReveal.hostRef}
+          ref={captionHostRef}
           className={`feed-photo-caption os-reveal${captionHasMore ? ' has-more' : ''}${captionExpanded ? ' is-expanded is-open' : ''}${chromeQuiet ? ' is-chrome-quiet' : ''}`}
         >
           {peekIdentity ? (
@@ -1020,11 +1025,11 @@ export function FeedPhotoEnlargeScreen({
               }}
             >
               <span
-                ref={captionReveal.clipRef}
+                ref={captionClipRef}
                 className="feed-photo-caption-clip os-reveal-clip"
               >
                 <span
-                  ref={captionReveal.innerRef}
+                  ref={captionInnerRef}
                   className="feed-photo-caption-clip-inner os-reveal-inner is-capped"
                 >
                   <span ref={captionTextRef} className="feed-photo-caption-text">
