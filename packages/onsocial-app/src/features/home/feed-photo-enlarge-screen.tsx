@@ -22,9 +22,15 @@ import {
   VolumeMuteIcon,
   VolumeUpIcon,
 } from '@onsocial/ui';
+import type { PostRow } from '@onsocial/sdk';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { useComposeLauncher } from '@/contexts/compose-launcher-context';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
+import { FeedMediaThreadSheet } from '@/features/home/feed-media-thread-sheet';
+import {
+  FEED_THREAD_FULL,
+  useFeedThreadBand,
+} from '@/features/home/use-feed-thread-band';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import {
   feedPhotoIndexFromScroll,
@@ -86,8 +92,8 @@ const VIDEO_PROGRESS_STEPS = 1000;
  * scrim, no panel); peek clamps to 2 lines, tap grows it in place.
  * Tap the media to toggle chrome (no auto-hide) — caption, footer, and
  * transport fade together. Video transport lives in the OS column footer
- * under engagement (inside the stage while cinema, so fullscreen keeps
- * controls); Reply in the engagement row swaps it for the write dock.
+ * under engagement (inside the stage while cinema or the thread drawer,
+ * so play / mute / time stay on the film). Reply opens the thread sheet.
  * Progress is written straight to the DOM (no per-frame React render).
  */
 export function FeedPhotoEnlargeScreen({
@@ -99,7 +105,11 @@ export function FeedPhotoEnlargeScreen({
   photos,
   initialIndex = 0,
   engagement = null,
-  onDismissReply = null,
+  threadOpen = false,
+  onDismissThread = null,
+  threadAuthor = null,
+  threadPostId = null,
+  threadRoot = null,
   closeAriaLabel,
   stage = null,
 }: {
@@ -114,8 +124,14 @@ export function FeedPhotoEnlargeScreen({
   photos: PostMediaItem[];
   initialIndex?: number;
   engagement?: ReactNode;
-  /** Tap the media / Escape while replying — restore the transport. */
-  onDismissReply?: (() => void) | null;
+  /** Reply drawer open — scale the film and park transport on it. */
+  threadOpen?: boolean;
+  /** Tap the film / Escape / swipe the sheet — restore full enlarge. */
+  onDismissThread?: (() => void) | null;
+  /** Seed the in-face thread drawer (stays inside this slide-over). */
+  threadAuthor?: string | null;
+  threadPostId?: string | null;
+  threadRoot?: PostRow | null;
   closeAriaLabel?: string;
   /** Mood / craft cover — used when there is no raster media to enlarge. */
   stage?: ReactNode;
@@ -160,10 +176,19 @@ export function FeedPhotoEnlargeScreen({
     !chromeVisible &&
     !scrubbing &&
     !captionExpanded &&
-    !writing;
+    !writing &&
+    !threadOpen;
+  const onFilm = cinema || threadOpen;
+  const dismissThread = useCallback(() => {
+    onDismissThread?.();
+  }, [onDismissThread]);
+  const { band: threadBand, dragging: threadDragging, gripHandlers } =
+    useFeedThreadBand(Boolean(open && threadOpen), dismissThread);
   const slideClass = [
     quiet ? 'feed-photo-slide feed-photo-slide--quiet' : 'feed-photo-slide',
     cinema ? 'feed-photo-slide--cinema' : '',
+    threadOpen ? 'feed-photo-slide--thread' : '',
+    threadDragging ? 'is-thread-dragging' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -210,15 +235,30 @@ export function FeedPhotoEnlargeScreen({
     setChromeVisible((prev) => !prev);
   }, []);
 
-  /* Tap the media while replying — leave the reply (article-style, no chip).
-   * Draft persists via draftKey; otherwise the tap toggles chrome. */
+  /* Ignore the pointer that opened the drawer — footer unmounts and the
+   * leftover pointerup lands on the film, which would close it instantly. */
+  const ignoreFilmDismissRef = useRef(false);
+  useEffect(() => {
+    if (!threadOpen) {
+      ignoreFilmDismissRef.current = false;
+      return;
+    }
+    ignoreFilmDismissRef.current = true;
+    const timer = window.setTimeout(() => {
+      ignoreFilmDismissRef.current = false;
+    }, 480);
+    return () => window.clearTimeout(timer);
+  }, [threadOpen]);
+
+  /* Tap the film while the thread is open — close the drawer. Draft stays. */
   const handleStageTap = useCallback(() => {
-    if (writing && onDismissReply) {
-      onDismissReply();
+    if (threadOpen && onDismissThread) {
+      if (ignoreFilmDismissRef.current) return;
+      onDismissThread();
       return;
     }
     toggleChrome();
-  }, [writing, onDismissReply, toggleChrome]);
+  }, [threadOpen, onDismissThread, toggleChrome]);
 
   /* Paint progress to the DOM — rail fill, scrub value, a11y, time label. */
   const paintProgress = useCallback((ratio: number, duration: number) => {
@@ -319,6 +359,9 @@ export function FeedPhotoEnlargeScreen({
       exitCinema();
       return;
     }
+    if (threadOpen) {
+      onDismissThread?.();
+    }
     setCinema(true);
     revealChrome();
     const node = stageRef.current as
@@ -333,7 +376,7 @@ export function FeedPhotoEnlargeScreen({
     void Promise.resolve(req?.()).catch(() => {
       /* CSS cinema still applies when Fullscreen API is blocked. */
     });
-  }, [cinema, exitCinema, revealChrome]);
+  }, [cinema, exitCinema, onDismissThread, revealChrome, threadOpen]);
 
   const handleClose = useCallback(() => {
     if (cinema) {
@@ -426,9 +469,9 @@ export function FeedPhotoEnlargeScreen({
         return;
       }
       if (event.key === 'Escape') {
-        if (writing && onDismissReply) {
+        if (threadOpen && onDismissThread) {
           event.preventDefault();
-          onDismissReply();
+          onDismissThread();
           return;
         }
         if (captionMode === 'expanded') {
@@ -501,8 +544,8 @@ export function FeedPhotoEnlargeScreen({
     cinema,
     chromeVisible,
     activeIsVideo,
-    writing,
-    onDismissReply,
+    threadOpen,
+    onDismissThread,
     toggleActiveVideo,
     toggleMute,
     toggleCinema,
@@ -573,7 +616,11 @@ export function FeedPhotoEnlargeScreen({
     video.addEventListener('durationchange', sync);
     video.addEventListener('play', sync);
     video.addEventListener('pause', sync);
-    video.addEventListener('ended', sync);
+    const onEnded = () => {
+      sync();
+      revealChrome();
+    };
+    video.addEventListener('ended', onEnded);
     video.addEventListener('waiting', onWaiting);
     video.addEventListener('playing', onPlaying);
     video.addEventListener('canplay', onCanPlay);
@@ -582,12 +629,12 @@ export function FeedPhotoEnlargeScreen({
       video.removeEventListener('durationchange', sync);
       video.removeEventListener('play', sync);
       video.removeEventListener('pause', sync);
-      video.removeEventListener('ended', sync);
+      video.removeEventListener('ended', onEnded);
       video.removeEventListener('waiting', onWaiting);
       video.removeEventListener('playing', onPlaying);
       video.removeEventListener('canplay', onCanPlay);
     };
-  }, [open, index, activeIsVideo, photos, paintProgress]);
+  }, [open, index, activeIsVideo, photos, paintProgress, revealChrome]);
 
   /* Frame-smooth progress while playing — DOM writes only, no re-render. */
   useEffect(() => {
@@ -637,15 +684,21 @@ export function FeedPhotoEnlargeScreen({
     exitOsFullscreen();
   }, [open]);
 
-  const showNav = photos.length > 1 && !cinema;
+  /* Thread drawer — leave cinema so the film sits in the top band. */
+  useEffect(() => {
+    if (!threadOpen || !cinema) return;
+    exitCinema();
+  }, [threadOpen, cinema, exitCinema]);
+
+  const showNav = photos.length > 1 && !cinema && !threadOpen;
   const showVideoChrome = chromeVisible || scrubbing;
   const playing = activeIsVideo && !videoPaused && !videoEnded;
-  /* Keep transport mounted while watching AND while replying — the face
-   * geometry (body padding, icon seat, peek) must never shift. While
-   * writing it fades out and the write dock owns the same slot.
-   * In cinema it moves inside the stage — fullscreen keeps its controls. */
+  /* Keep transport mounted while watching. On-film (cinema / thread) it
+   * stays visible; footer transport fades while chrome is quiet. */
   const transportMounted = open && activeIsVideo;
-  const transportVisible = transportMounted && showVideoChrome && !writing;
+  const transportVisible =
+    transportMounted &&
+    (threadOpen || (showVideoChrome && !writing));
 
   /* Repaint rail/time after the transport remounts (reply cancel, cinema). */
   useLayoutEffect(() => {
@@ -656,15 +709,17 @@ export function FeedPhotoEnlargeScreen({
     if (Number.isFinite(duration) && duration > 0) {
       paintProgress(video.currentTime / duration, duration);
     }
-  }, [transportMounted, cinema, paintProgress]);
+  }, [transportMounted, cinema, threadOpen, paintProgress]);
 
   const videoTransport = useMemo(() => {
     if (!transportMounted) return null;
     return (
       <div
         ref={transportRef}
-        className={`feed-photo-video-dock feed-photo-video-dock--slot${scrubbing ? ' is-scrubbing' : ''}${transportVisible ? '' : ' is-chrome-quiet'}`}
+        className={`feed-photo-video-dock feed-photo-video-dock--slot${scrubbing ? ' is-scrubbing' : ''}${transportVisible ? '' : ' is-chrome-quiet'}${threadOpen ? ' is-film-compact' : ''}${threadOpen && !videoEnded && threadBand >= FEED_THREAD_FULL - 0.02 ? ' is-film-mini' : ''}`}
         style={{ '--feed-video-p': '0' } as CSSProperties}
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
       >
         <div className="feed-photo-video-progress">
           <div
@@ -814,6 +869,8 @@ export function FeedPhotoEnlargeScreen({
     scrubbing,
     videoDuration,
     videoEnded,
+    threadOpen,
+    threadBand,
     playing,
     videoMuted,
     cinema,
@@ -825,11 +882,11 @@ export function FeedPhotoEnlargeScreen({
     toggleCinema,
   ]);
 
-  /* Tuck idle summon while the face is up; reply write dock wins via keepDock. */
-  useRegisterImmersiveChromeQuiet(open && !writing);
+  /* Tuck idle summon while the face is up; thread write dock wins via keepDock. */
+  useRegisterImmersiveChromeQuiet(open && !writing && !threadOpen);
 
   const captionNode =
-    hasCaption && !cinema ? (
+    hasCaption && !cinema && !threadOpen ? (
       <div
         className={`feed-photo-caption${captionExpanded ? ' is-expanded' : ''}${chromeQuiet ? ' is-chrome-quiet' : ''}`}
       >
@@ -866,16 +923,23 @@ export function FeedPhotoEnlargeScreen({
       open={open}
       onClose={handleClose}
       title={title}
-      quietTitle={quiet}
+      quietTitle={quiet || threadOpen}
       closeAriaLabel={quietClose}
       zIndex={SCARCE_Z.listenShell}
-      footer={cinema ? null : engagement}
-      transport={cinema ? null : videoTransport}
+      footer={onFilm ? null : engagement}
+      transport={onFilm ? null : videoTransport}
       stageLayout="fixed"
       chromeQuiet={chromeQuiet}
-      keepDock={writing}
+      keepDock={writing || threadOpen}
       className={slideClass}
       contentClassName="feed-photo-slide-body"
+      bodyStyle={
+        threadOpen
+          ? ({
+              '--feed-thread-band': `${(threadBand * 100).toFixed(1)}%`,
+            } as CSSProperties)
+          : undefined
+      }
     >
       <div className="feed-photo-listen">
         {/* Whole-stage tap (letterbox included): leave reply / toggle chrome. */}
@@ -905,19 +969,13 @@ export function FeedPhotoEnlargeScreen({
                     buffering={
                       open && photoIndex === index ? videoBuffering : false
                     }
-                    ended={open && photoIndex === index ? videoEnded : false}
-                    showCenterPlay={
-                      open &&
-                      photoIndex === index &&
-                      (videoPaused || videoEnded)
-                    }
                     onToggleChrome={
                       open && photoIndex === index ? handleStageTap : undefined
                     }
-                    onTogglePlayback={
-                      open && photoIndex === index
-                        ? toggleActiveVideo
-                        : undefined
+                    transport={
+                      onFilm && open && photoIndex === index
+                        ? videoTransport
+                        : null
                     }
                   />
                 </div>
@@ -931,14 +989,11 @@ export function FeedPhotoEnlargeScreen({
               videoRefs={videoRefs}
               muted={videoMuted}
               buffering={videoBuffering}
-              ended={videoEnded}
-              showCenterPlay={videoPaused || videoEnded}
               onToggleChrome={handleStageTap}
-              onTogglePlayback={toggleActiveVideo}
+              transport={onFilm ? videoTransport : null}
             />
           )}
           {captionNode}
-          {cinema ? videoTransport : null}
         </div>
         {showNav ? (
           <div
@@ -996,6 +1051,17 @@ export function FeedPhotoEnlargeScreen({
           </div>
         ) : null}
       </div>
+      {open && threadOpen && threadAuthor && threadPostId ? (
+        <div className="feed-photo-thread-host">
+          <FeedMediaThreadSheet
+            author={threadAuthor}
+            postId={threadPostId}
+            initialRoot={threadRoot}
+            band={threadBand}
+            gripHandlers={gripHandlers}
+          />
+        </div>
+      ) : null}
     </OsMediaFaceShell>
   );
 }
@@ -1007,10 +1073,8 @@ function FeedPhotoMediaStage({
   videoRefs,
   muted = true,
   buffering = false,
-  ended = false,
-  showCenterPlay = false,
   onToggleChrome,
-  onTogglePlayback,
+  transport = null,
 }: {
   item: PostMediaItem | null;
   active: boolean;
@@ -1018,10 +1082,8 @@ function FeedPhotoMediaStage({
   videoRefs: MutableRefObject<Map<number, HTMLVideoElement>>;
   muted?: boolean;
   buffering?: boolean;
-  ended?: boolean;
-  showCenterPlay?: boolean;
   onToggleChrome?: () => void;
-  onTogglePlayback?: () => void;
+  transport?: ReactNode;
 }) {
   if (!item) {
     return (
@@ -1029,7 +1091,6 @@ function FeedPhotoMediaStage({
     );
   }
   if (isRenderablePostVideo(item)) {
-    const showPlay = active && showCenterPlay && !buffering;
     return (
       <div className="feed-photo-video-wrap">
         <video
@@ -1056,19 +1117,7 @@ function FeedPhotoMediaStage({
             <span className="feed-photo-video-buffer-spin" aria-hidden />
           </div>
         ) : null}
-        {showPlay ? (
-          <button
-            type="button"
-            className="feed-photo-video-play"
-            aria-label={ended ? 'Replay' : 'Play'}
-            onClick={(event) => {
-              event.stopPropagation();
-              onTogglePlayback?.();
-            }}
-          >
-            <PlayFillIcon className="feed-photo-video-play-icon" aria-hidden />
-          </button>
-        ) : null}
+        {active ? transport : null}
       </div>
     );
   }
