@@ -29,6 +29,7 @@ import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context'
 import { FeedMediaThreadSheet } from '@/features/home/feed-media-thread-sheet';
 import {
   FEED_THREAD_FULL,
+  threadJacketT,
   useFeedThreadBand,
 } from '@/features/home/use-feed-thread-band';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
@@ -184,10 +185,12 @@ export function FeedPhotoEnlargeScreen({
   }, [onDismissThread]);
   const { band: threadBand, dragging: threadDragging, gripHandlers } =
     useFeedThreadBand(Boolean(open && threadOpen), dismissThread);
+  const jacketT = threadJacketT(Boolean(open && threadOpen), threadBand);
   const slideClass = [
     quiet ? 'feed-photo-slide feed-photo-slide--quiet' : 'feed-photo-slide',
     cinema ? 'feed-photo-slide--cinema' : '',
     threadOpen ? 'feed-photo-slide--thread' : '',
+    jacketT > 0.4 ? 'feed-photo-slide--thread-jacket' : '',
     threadDragging ? 'is-thread-dragging' : '',
   ]
     .filter(Boolean)
@@ -926,7 +929,7 @@ export function FeedPhotoEnlargeScreen({
       open={open}
       onClose={handleClose}
       title={title}
-      quietTitle={quiet || threadOpen}
+      quietTitle={quiet}
       closeAriaLabel={quietClose}
       zIndex={SCARCE_Z.listenShell}
       footer={onFilm ? null : engagement}
@@ -940,6 +943,7 @@ export function FeedPhotoEnlargeScreen({
         threadOpen
           ? ({
               '--feed-thread-band': `${(threadBand * 100).toFixed(1)}%`,
+              '--feed-jacket-t': jacketT.toFixed(3),
             } as CSSProperties)
           : undefined
       }

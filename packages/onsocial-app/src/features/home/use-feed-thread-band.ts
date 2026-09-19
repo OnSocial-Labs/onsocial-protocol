@@ -12,6 +12,13 @@ import type {
 
 /** Peek — comments + write dock, film still readable. */
 export const FEED_THREAD_PEEK = 0.58;
+/** Pull this far below peek and the jacket is fully back. */
+export const FEED_THREAD_JACKET_SPAN = 0.18;
+
+export function threadJacketT(open: boolean, band: number): number {
+  if (!open || band < 0.05 || band >= FEED_THREAD_PEEK) return 0;
+  return Math.min(1, (FEED_THREAD_PEEK - band) / FEED_THREAD_JACKET_SPAN);
+}
 /** Expanded — more thread, film is a top band. */
 export const FEED_THREAD_EXPANDED = 0.78;
 /**

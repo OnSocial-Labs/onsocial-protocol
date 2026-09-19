@@ -31424,27 +31424,37 @@ a.os-surface-row {
     min-height: 0;
   }
 
-  /* Jacket tucks — film owns the top band. Close stays on the film. */
+  /*
+   * In-flow enlarge jacket — same margin/padding so name is not on the
+   * edge. Height tracks the drawer so the film is pushed, never under.
+   */
   .feed-photo-slide--thread .os-media-face-hero {
-    position: absolute;
-    top: 0;
-    left: -0.9rem;
-    right: -0.9rem;
-    margin: 0;
     z-index: 6;
-  }
-
-  .feed-photo-slide--thread .os-media-face-hero-glass,
-  .feed-photo-slide--thread .os-media-face-mast {
-    opacity: 0;
+    box-sizing: border-box;
+    flex-shrink: 1;
+    min-height: 0;
+    overflow: hidden;
+    max-height: calc(var(--feed-jacket-t, 0) * 5.25rem);
+    padding-top: calc(
+      var(--feed-jacket-t, 0) * max(0.55rem, env(safe-area-inset-top, 0px))
+    );
+    padding-bottom: calc(var(--feed-jacket-t, 0) * 0.5rem);
+    opacity: var(--feed-jacket-t, 0);
+    transform: translate3d(
+      0,
+      calc((1 - var(--feed-jacket-t, 0)) * -0.15rem),
+      0
+    );
     pointer-events: none;
   }
 
-  @media (min-width: 640px) {
-    .feed-photo-slide--thread .os-media-face-hero {
-      left: -1.25rem;
-      right: -1.25rem;
-    }
+  .feed-photo-slide--thread.feed-photo-slide--thread-jacket
+    .os-media-face-hero {
+    pointer-events: auto;
+  }
+
+  .feed-photo-slide--thread.is-thread-dragging .os-media-face-hero {
+    transition: none;
   }
 
   .feed-photo-slide--thread .feed-photo-listen {
@@ -40326,11 +40336,11 @@ body:has(.feed-photo-slide--thread)
 }
 
 /*
- * Thread film rim — unlayered so it beats `.os-media-face-body { padding-top: 0 }`.
- * Safe-area alone is 0 in the phone card; always add the 0.65rem OS rim.
+ * Thread film rim — only a hair while the jacket is tucked. Hero
+ * collapse must actually go to 0 (see min-height) or this stacks.
  */
 .feed-photo-slide--thread.os-media-face--fixed-stage .os-media-face-body {
-  padding-top: calc(0.65rem + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 /* Unlayered frost — beats layered imports; samples feed like header ::before. */
