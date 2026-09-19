@@ -31,9 +31,11 @@ describe('notification activity snippets', () => {
     expect(rows).toContain('HeartFillIcon');
     expect(rows).toContain('UserFillIcon');
     expect(rows).toContain('StarMovingFillIcon');
-    expect(rows).toContain('anniversary: StarMovingFillIcon');
+    expect(rows).toContain('anniversary: StarsCFillIcon');
     expect(rows).toContain('stand: UserFillIcon');
-    expect(css).toContain('.notifications-activity-badge--like');
+    expect(css).toContain('--signal-standing');
+    expect(css).toContain('--signal-reputation');
+    expect(css).toContain('--signal-endorse');
     expect(css).toContain('.notifications-activity-badge--anniversary');
     expect(css).toContain('.notifications-activity-badge--stand');
   });
