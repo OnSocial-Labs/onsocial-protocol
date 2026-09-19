@@ -83,18 +83,12 @@ function formatVideoTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-type CaptionMode = 'peek' | 'expanded';
-
 const VIDEO_PROGRESS_STEPS = 1000;
 
 /**
  * Feed media enlarge — photos + video in the shared media-face shell.
- * Caption is bare themed text over the media bottom edge (soft bg-gradient
- * scrim, no panel); peek clamps to 2 lines, tap grows it in place.
- * Tap the media to toggle chrome (no auto-hide) — caption, footer, and
- * transport fade together. Video transport lives in the OS column footer
- * under engagement (inside the stage while cinema or the thread drawer,
- * so play / mute / time stay on the film). Reply opens the thread sheet.
+ * Caption is a 2-line peek on the film. Tap grows the post in place
+ * (text height only — dim is a separate fade). Reply opens the thread.
  * Progress is written straight to the DOM (no per-frame React render).
  */
 export function FeedPhotoEnlargeScreen({
@@ -120,7 +114,7 @@ export function FeedPhotoEnlargeScreen({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  /** Full post body for under-stage peek / expand. */
+  /** Full post body — film shows a 2-line peek; tap expands in place. */
   caption?: string | null;
   /** Hide the visual title — picture + × only (About stills). */
   quiet?: boolean;
@@ -153,7 +147,9 @@ export function FeedPhotoEnlargeScreen({
   const [index, setIndex] = useState(() => clampIndex(initialIndex, last));
   const captionText = caption?.trim() || '';
   const hasCaption = Boolean(captionText) && !quiet;
-  const [captionMode, setCaptionMode] = useState<CaptionMode>('peek');
+  const [captionMode, setCaptionMode] = useState<'peek' | 'expanded'>('peek');
+  const [captionClamped, setCaptionClamped] = useState(true);
+  const captionBodyRef = useRef<HTMLButtonElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
@@ -180,6 +176,20 @@ export function FeedPhotoEnlargeScreen({
   const activeIsVideo = isRenderablePostVideo(photos[index] ?? {});
   const showStage = Boolean(stage) && photos.length === 0;
   const captionExpanded = hasCaption && captionMode === 'expanded';
+  const expandCaption = useCallback(() => {
+    setCaptionClamped(false);
+    setCaptionMode('expanded');
+  }, []);
+  const collapseCaption = useCallback(() => {
+    const body = captionBodyRef.current;
+    if (body) body.scrollTop = 0;
+    setCaptionMode('peek');
+  }, []);
+  useEffect(() => {
+    if (captionExpanded || captionClamped) return;
+    const timer = window.setTimeout(() => setCaptionClamped(true), 340);
+    return () => window.clearTimeout(timer);
+  }, [captionExpanded, captionClamped]);
   const chromeQuiet =
     open &&
     activeIsVideo &&
@@ -209,6 +219,7 @@ export function FeedPhotoEnlargeScreen({
     if (open) {
       setIndex(clampIndex(initialIndex, last));
       setCaptionMode('peek');
+      setCaptionClamped(true);
       setVideoMuted(false);
       setScrubbing(false);
       setCinema(false);
@@ -254,6 +265,8 @@ export function FeedPhotoEnlargeScreen({
       ignoreFilmDismissRef.current = false;
       return;
     }
+    setCaptionMode('peek');
+    setCaptionClamped(true);
     ignoreFilmDismissRef.current = true;
     const timer = window.setTimeout(() => {
       ignoreFilmDismissRef.current = false;
@@ -502,7 +515,7 @@ export function FeedPhotoEnlargeScreen({
         }
         if (captionMode === 'expanded') {
           event.preventDefault();
-          setCaptionMode('peek');
+          collapseCaption();
           revealChrome();
           return;
         }
@@ -566,8 +579,9 @@ export function FeedPhotoEnlargeScreen({
     last,
     index,
     goTo,
-    captionMode,
     cinema,
+    captionMode,
+    collapseCaption,
     chromeVisible,
     activeIsVideo,
     threadOpen,
@@ -919,48 +933,70 @@ export function FeedPhotoEnlargeScreen({
     !cinema && !threadOpen && (hasCaption || Boolean(peekIdentity));
   const captionNode =
     showCaptionPeek ? (
-      <div
-        className={`feed-photo-caption${captionExpanded ? ' is-expanded' : ''}${chromeQuiet ? ' is-chrome-quiet' : ''}`}
-      >
+      <>
         {hasCaption ? (
           <button
             type="button"
-            className="feed-photo-caption-dismiss"
+            className={`feed-photo-caption-dim${captionExpanded ? ' is-on' : ''}`}
             aria-label="Collapse caption"
             tabIndex={captionExpanded ? 0 : -1}
             aria-hidden={!captionExpanded}
             onClick={(event) => {
               event.stopPropagation();
-              setCaptionMode('peek');
+              collapseCaption();
               revealChrome();
             }}
           />
         ) : null}
-        {peekIdentity ? (
-          <div
-            className="feed-photo-caption-identity"
-            onClick={(event) => event.stopPropagation()}
-            onPointerDown={(event) => event.stopPropagation()}
-          >
-            {peekIdentity}
-          </div>
-        ) : null}
-        {hasCaption ? (
-          <button
-            type="button"
-            className="feed-photo-caption-body"
-            aria-expanded={captionExpanded}
-            aria-label={captionExpanded ? 'Collapse caption' : 'Show full post'}
-            onClick={(event) => {
-              event.stopPropagation();
-              setCaptionMode(captionExpanded ? 'peek' : 'expanded');
-              revealChrome();
-            }}
-          >
-            <span className="feed-photo-caption-text">{captionText}</span>
-          </button>
-        ) : null}
-      </div>
+        <div
+          className={`feed-photo-caption${captionExpanded ? ' is-expanded' : ''}${chromeQuiet ? ' is-chrome-quiet' : ''}`}
+        >
+          {peekIdentity ? (
+            <div
+              className="feed-photo-caption-identity"
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              {peekIdentity}
+            </div>
+          ) : null}
+          {hasCaption ? (
+            <button
+              type="button"
+              ref={captionBodyRef}
+              className="feed-photo-caption-body"
+              aria-expanded={captionExpanded}
+              aria-label={
+                captionExpanded ? 'Collapse caption' : 'Show full post'
+              }
+              onClick={(event) => {
+                event.stopPropagation();
+                if (captionExpanded) collapseCaption();
+                else expandCaption();
+                revealChrome();
+              }}
+            >
+              <span
+                className="feed-photo-caption-clip"
+                onTransitionEnd={(event) => {
+                  if (event.propertyName !== 'grid-template-rows') return;
+                  if (!captionExpanded) setCaptionClamped(true);
+                }}
+              >
+                <span className="feed-photo-caption-clip-inner">
+                  <span
+                    className={`feed-photo-caption-text${
+                      captionClamped ? ' is-clamped' : ''
+                    }`}
+                  >
+                    {captionText}
+                  </span>
+                </span>
+              </span>
+            </button>
+          ) : null}
+        </div>
+      </>
     ) : null;
 
   const trailingNode =

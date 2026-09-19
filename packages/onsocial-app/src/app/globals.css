@@ -21436,6 +21436,13 @@ a.os-surface-row {
     min-width: 0;
   }
 
+  .post-identity-trailing {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
   .post-identity-main {
     display: flex;
     flex-direction: row;
@@ -31313,14 +31320,29 @@ a.os-surface-row {
   }
 
   /*
-   * Caption overlays the stage — media size never changes.
-   * Peek → tap caption expands over; outside / Esc / play collapses.
+   * Caption stays on the film bottom. Dim is a separate fade (no layout).
+   * Text opens with 0fr → 1fr so it grows to the post, not a tall empty box.
    */
-  /*
-   * Caption — bare text over the media, no background. Peek clamps to 2
-   * lines; expanded unclamps and scrolls. Legibility comes from a subtle
-   * gradient scrim at the bottom edge, not a panel.
-   */
+  .feed-photo-caption-dim {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: rgb(var(--bg-rgb) / 0.55);
+    opacity: 0;
+    pointer-events: none;
+    cursor: pointer;
+    appearance: none;
+    transition: opacity 320ms cubic-bezier(0.2, 0.9, 0.24, 1);
+  }
+
+  .feed-photo-caption-dim.is-on {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .feed-photo-caption {
     position: absolute;
     left: 0;
@@ -31330,11 +31352,33 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
+    overflow: visible;
     pointer-events: none;
-    background-color: transparent;
-    transition:
-      opacity 220ms ease,
-      background-color 200ms ease;
+    background: none;
+    transition: opacity 220ms ease;
+  }
+
+  /* Git wash (0 → 0.55) — just a bit taller so it starts above the avatar. */
+  .feed-photo-caption::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: -1.5rem;
+    z-index: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      rgb(var(--bg-rgb) / 0) 0%,
+      rgb(var(--bg-rgb) / 0.55) 100%
+    );
+  }
+
+  .feed-photo-caption-identity,
+  .feed-photo-caption-body {
+    position: relative;
+    z-index: 1;
   }
 
   /* Tap-quiet fades the caption with the rest of the chrome. */
@@ -31342,36 +31386,8 @@ a.os-surface-row {
     opacity: 0;
   }
 
-  .feed-photo-caption.is-chrome-quiet .feed-photo-caption-body,
-  .feed-photo-caption.is-chrome-quiet .feed-photo-caption-dismiss {
+  .feed-photo-caption.is-chrome-quiet .feed-photo-caption-body {
     pointer-events: none;
-  }
-
-  /*
-   * Expanded covers the stage — reading mode dims the media only (page
-   * chrome stays); the dimmed area above collapses on tap.
-   */
-  .feed-photo-caption.is-expanded {
-    top: 0;
-    background-color: rgb(var(--bg-rgb) / 0.55);
-  }
-
-  .feed-photo-caption-dismiss {
-    display: none;
-    flex: 1 1 auto;
-    min-height: 2.5rem;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    cursor: pointer;
-    appearance: none;
-    pointer-events: auto;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .feed-photo-caption.is-expanded .feed-photo-caption-dismiss {
-    display: block;
   }
 
   .feed-photo-caption-body {
@@ -31380,43 +31396,38 @@ a.os-surface-row {
     margin: 0;
     padding: 0.55rem var(--os-screen-body-pad-x, 1rem) 0.65rem;
     border: 0;
-    background: linear-gradient(
-      180deg,
-      rgb(var(--bg-rgb) / 0) 0%,
-      rgb(var(--bg-rgb) / 0.55) 100%
-    );
+    background: transparent;
     text-align: left;
     color: rgb(var(--fg-rgb) / 0.92);
     cursor: pointer;
     appearance: none;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow: hidden;
+    max-height: min(16rem, 42vh);
     -webkit-tap-highlight-color: transparent;
     pointer-events: auto;
-    /* Border-box: 2 lines (2.76rem) + 1.2rem pad — never clip the 2nd line. */
-    max-height: 4.1rem;
-    transition: max-height 160ms ease-out;
   }
 
   .feed-photo-caption.is-expanded .feed-photo-caption-body {
-    max-height: min(62%, 22rem);
+    overflow-y: auto;
+  }
+
+  .feed-photo-caption-clip {
+    display: grid;
+    grid-template-rows: minmax(2.76rem, 0fr);
+    transition: grid-template-rows 320ms cubic-bezier(0.2, 0.9, 0.24, 1);
+  }
+
+  .feed-photo-caption.is-expanded .feed-photo-caption-clip {
+    grid-template-rows: minmax(2.76rem, 1fr);
+  }
+
+  .feed-photo-caption-clip-inner {
+    min-height: 0;
+    overflow: hidden;
   }
 
   .feed-photo-caption-body:focus-visible {
     outline: none;
-  }
-
-  .feed-photo-caption:has(.feed-photo-caption-identity):not(.is-expanded) {
-    background: linear-gradient(
-      180deg,
-      rgb(var(--bg-rgb) / 0) 0%,
-      rgb(var(--bg-rgb) / 0.55) 100%
-    );
-  }
-
-  .feed-photo-caption:has(.feed-photo-caption-identity) .feed-photo-caption-body {
-    background: transparent;
   }
 
   .feed-photo-caption-identity {
@@ -31424,8 +31435,30 @@ a.os-surface-row {
     padding: 0.45rem var(--os-screen-body-pad-x, 1rem) 0.15rem;
   }
 
+  .feed-photo-caption-identity-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    min-width: 0;
+    width: 100%;
+  }
+
   .feed-photo-caption-identity .os-media-face-identity {
-    max-width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .feed-photo-caption-stand {
+    flex-shrink: 0;
+    margin-left: auto;
+    background: rgb(var(--bg-rgb) / 0.78);
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .feed-photo-caption-stand.is-standing {
+    background: rgb(var(--fg-rgb) / 0.12);
   }
 
   .feed-photo-caption-text {
@@ -31438,19 +31471,17 @@ a.os-surface-row {
     letter-spacing: -0.01em;
   }
 
-  .feed-photo-caption:not(.is-expanded) .feed-photo-caption-text {
+  .feed-photo-caption-text.is-clamped {
     display: -webkit-box;
     overflow: hidden;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
   }
 
-  .feed-photo-caption.is-expanded .feed-photo-caption-text {
-    display: block;
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .feed-photo-caption-body {
+    .feed-photo-caption,
+    .feed-photo-caption-dim,
+    .feed-photo-caption-clip {
       transition: none;
     }
   }

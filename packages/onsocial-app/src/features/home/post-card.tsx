@@ -127,7 +127,15 @@ import {
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { StandingToggle } from '@/components/ui/standing-toggle';
+import {
+  isDaoStandingTarget,
+  rememberDaoStandingTarget,
+} from '@/lib/dao-standing-account';
+import {
+  formatStandingActionError,
+  isWalletUserCancellation,
+} from '@/lib/wallet-errors';
 import {
   formatPostTimestamp,
   parseDropPaintSnapshot,
@@ -677,6 +685,76 @@ function PostCardMenu({
         {...(zIndex != null ? { zIndex } : {})}
       />
     </>
+  );
+}
+
+function PostPeekStandButton({
+  accountId,
+  name,
+  authorProfile,
+}: {
+  accountId: string;
+  name: string;
+  authorProfile?: PostAuthorProfile;
+}) {
+  const { isConnected, connect } = useAppWallet();
+  const { setTxResult } = useAppTransactionFeedback();
+  const { viewerStanding, theyStandWithViewer } =
+    useViewerRelationship(accountId);
+  const { updateStanding, isStandingPendingForTarget } =
+    useViewerStanding(accountId);
+  const pending = isStandingPendingForTarget(accountId);
+  const isDao = isDaoStandingTarget(accountId, authorProfile?.kind === 'dao');
+
+  async function handleStandToggle() {
+    if (pending) return;
+    if (!isConnected) {
+      await connect();
+      return;
+    }
+    if (isBlockEitherWay(accountId)) {
+      setTxResult({
+        type: 'error',
+        msg: 'Standing is unavailable while a block is in place.',
+      });
+      return;
+    }
+    if (isDao) rememberDaoStandingTarget(accountId);
+    try {
+      await updateStanding(
+        {
+          accountId,
+          name: authorProfile?.displayName?.trim() || name || null,
+          bio: null,
+          avatarUrl: authorProfile?.avatarUrl ?? null,
+          isDao: isDao || undefined,
+          theyStandWithViewer,
+        },
+        !viewerStanding
+      );
+    } catch (error) {
+      if (isWalletUserCancellation(error)) return;
+      setTxResult({
+        type: 'error',
+        msg: formatStandingActionError(error),
+      });
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className={`standing-action feed-photo-caption-stand group${
+        viewerStanding ? ' is-standing' : ''
+      }`}
+      disabled={pending}
+      onClick={() => void handleStandToggle()}
+      aria-label={
+        viewerStanding ? `Step back from ${name}` : `Stand with ${name}`
+      }
+    >
+      <StandingToggle active={viewerStanding} pending={pending} />
+    </button>
   );
 }
 
@@ -1935,20 +2013,29 @@ export function PostCard({
                   : undefined
               }
               trailing={
-                <PostCardMenu
-                  href={shareHref}
-                  accountId={post.accountId}
-                  authorProfile={authorProfile}
-                  canCancelScarce={canCancelScarce}
-                  onCancelScarce={() => {
-                    void handleCancelScarce();
-                  }}
-                  cancelScarcePending={cancelScarcePending}
-                  onMenuOpen={() => {
-                    if (isSelf) setMenuForceEmbed(true);
-                  }}
-                  {...(menuZIndex != null ? { zIndex: menuZIndex } : {})}
-                />
+                <div className="post-identity-trailing">
+                  {detailLayout && !isSelf ? (
+                    <PostPeekStandButton
+                      accountId={post.accountId}
+                      name={name}
+                      authorProfile={authorProfile}
+                    />
+                  ) : null}
+                  <PostCardMenu
+                    href={shareHref}
+                    accountId={post.accountId}
+                    authorProfile={authorProfile}
+                    canCancelScarce={canCancelScarce}
+                    onCancelScarce={() => {
+                      void handleCancelScarce();
+                    }}
+                    cancelScarcePending={cancelScarcePending}
+                    onMenuOpen={() => {
+                      if (isSelf) setMenuForceEmbed(true);
+                    }}
+                    {...(menuZIndex != null ? { zIndex: menuZIndex } : {})}
+                  />
+                </div>
               }
             />
           </div>
@@ -2253,36 +2340,45 @@ export function PostCard({
           />
         )}
         peekIdentity={
-          <Link
-            href={profileHref}
-            className="os-media-face-identity"
-            scroll={false}
-            aria-label={`View ${name}'s profile`}
-            onClick={() => {
-              setPhotoOpen(false);
-              setPhotoThreadOpen(false);
-            }}
-          >
-            <AccountAvatar
-              accountId={post.accountId}
-              kind={authorProfile?.kind}
-              src={authorProfile?.avatarUrl ?? null}
-              fallbackInitial={name}
-              size="lg"
-              className="post-card-avatar"
-            />
-            <span className="os-media-face-identity-copy">
-              <span className="os-media-face-identity-name-row">
-                <span className="os-media-face-identity-name">{name}</span>
-                <span className="post-identity-name-marks">
-                  <ProtocolNameTrailing accountId={post.accountId} />
+          <div className="feed-photo-caption-identity-row">
+            <Link
+              href={profileHref}
+              className="os-media-face-identity"
+              scroll={false}
+              aria-label={`View ${name}'s profile`}
+              onClick={() => {
+                setPhotoOpen(false);
+                setPhotoThreadOpen(false);
+              }}
+            >
+              <AccountAvatar
+                accountId={post.accountId}
+                kind={authorProfile?.kind}
+                src={authorProfile?.avatarUrl ?? null}
+                fallbackInitial={name}
+                size="lg"
+                className="post-card-avatar"
+              />
+              <span className="os-media-face-identity-copy">
+                <span className="os-media-face-identity-name-row">
+                  <span className="os-media-face-identity-name">{name}</span>
+                  <span className="post-identity-name-marks">
+                    <ProtocolNameTrailing accountId={post.accountId} />
+                  </span>
+                </span>
+                <span className="os-media-face-identity-handle">
+                  @{post.accountId}
                 </span>
               </span>
-              <span className="os-media-face-identity-handle">
-                @{post.accountId}
-              </span>
-            </span>
-          </Link>
+            </Link>
+            {photoOpen && !isSelf ? (
+              <PostPeekStandButton
+                accountId={post.accountId}
+                name={name}
+                authorProfile={authorProfile}
+              />
+            ) : null}
+          </div>
         }
         caption={photoCaption}
         photos={enlargePhotos}
