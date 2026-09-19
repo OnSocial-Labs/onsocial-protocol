@@ -5,10 +5,16 @@ import {
   Divider,
   FireFillIcon,
   GiftFillIcon,
+  HeartFillIcon,
   HomeFillIcon,
   InformationCircleFillIcon,
+  MessageFillIcon,
+  NoteTextFillIcon,
+  RepeatIcon,
   ShopFillIcon,
+  StarMovingFillIcon,
   StarsCFillIcon,
+  UserFillIcon,
   UsersFillIcon,
   standingIdentityLabel,
 } from '@onsocial/ui';
@@ -18,16 +24,35 @@ import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import {
   formatNotificationTime,
   isSystemNotification,
-  notificationDaoAccountId,
+  notificationActivityBadgeKind,
+  notificationLeadAccountId,
   notificationDetail,
   notificationSnippetKey,
   notificationSnippetPostRef,
   notificationSystemChrome,
+  type NotificationActivityBadgeKind,
   type NotificationSystemFamily,
 } from '@/lib/notification-display';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
+import { PostRichText } from '@/features/home/post-rich-text';
 import { buildNotificationDayRows } from '@/lib/notification-day-rows';
 import { displayName } from '@/lib/profile-display';
+import './notification-activity-badges.css';
+
+const ACTIVITY_BADGE_FILL: Record<NotificationActivityBadgeKind, string> = {
+  like: 'var(--protocol-red, #f25c5c)',
+  mention: 'var(--signal-standing, #5ecf9a)',
+  reply: 'var(--signal-standing, #5ecf9a)',
+  quote: 'var(--signal-reputation, var(--protocol-green, #00ec97))',
+  repost: 'var(--signal-reputation, var(--protocol-green, #00ec97))',
+  stand: 'var(--signal-standing, #5ecf9a)',
+  endorse: 'var(--signal-endorse, #dab872)',
+  anniversary: 'var(--signal-endorse, #dab872)',
+  support: 'var(--signal-reputation, var(--protocol-green, #00ec97))',
+  invite: 'var(--signal-standing, #5ecf9a)',
+  proposal: '#64748b',
+  sale: 'var(--signal-reputation, var(--protocol-green, #00ec97))',
+};
 
 type FillIcon = ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
 
@@ -40,6 +65,21 @@ const SYSTEM_FAMILY_ICON: Record<NotificationSystemFamily, FillIcon> = {
   app: InformationCircleFillIcon,
   onsocial: StarsCFillIcon,
   activity: InformationCircleFillIcon,
+};
+
+const SOCIAL_BADGE_ICON: Record<NotificationActivityBadgeKind, FillIcon> = {
+  like: HeartFillIcon,
+  mention: MessageFillIcon,
+  reply: MessageFillIcon,
+  quote: NoteTextFillIcon,
+  repost: RepeatIcon,
+  stand: UserFillIcon,
+  endorse: StarMovingFillIcon,
+  anniversary: StarsCFillIcon,
+  support: GiftFillIcon,
+  invite: UsersFillIcon,
+  proposal: HomeFillIcon,
+  sale: ShopFillIcon,
 };
 
 function NotificationActivitySkeletonRow() {
@@ -116,6 +156,22 @@ function SystemMark({ family }: { family: NotificationSystemFamily }) {
   );
 }
 
+function ActivityTypeBadge({ kind }: { kind: NotificationActivityBadgeKind }) {
+  const Icon = SOCIAL_BADGE_ICON[kind];
+  return (
+    <span
+      className={`notifications-activity-badge notifications-activity-badge--${kind}`}
+      data-activity-badge={kind}
+      style={{
+        backgroundColor: ACTIVITY_BADGE_FILL[kind],
+        color: 'var(--app-on-media-ink, #fff)',
+      }}
+    >
+      <Icon className="notifications-activity-badge-icon" />
+    </span>
+  );
+}
+
 function ActivityCopy({
   verb,
   place,
@@ -132,7 +188,9 @@ function ActivityCopy({
         <span className="notifications-activity-place">{place}</span>
       ) : null}
       {snippet ? (
-        <span className="notifications-activity-snippet">{snippet}</span>
+        <span className="notifications-activity-snippet">
+          <PostRichText text={snippet} interactive={false} emptyFallback="" />
+        </span>
       ) : null}
     </>
   );
@@ -186,12 +244,7 @@ export function NotificationActivityRows({
 
         const item = row.item;
         const previous = index > 0 ? rows[index - 1] : null;
-        const actor = item.actor?.trim() || null;
-        const daoAccountId = notificationDaoAccountId(item);
-        const leadAccount =
-          item.type === 'dao_proposal_resolved'
-            ? daoAccountId || actor
-            : actor;
+        const leadAccount = notificationLeadAccountId(item);
         const system = !leadAccount && isSystemNotification(item);
         const when = formatNotificationTime(item.createdAt);
         const unread = !item.read;
@@ -225,6 +278,8 @@ export function NotificationActivityRows({
         let ariaLead: string;
         let body: ReactNode;
 
+        const badgeKind = notificationActivityBadgeKind(item);
+
         if (system) {
           const chrome = notificationSystemChrome(item);
           ariaLead = `${chrome.familyLabel}, ${chrome.action}`;
@@ -257,6 +312,9 @@ export function NotificationActivityRows({
               accountId={leadAccount}
               profileName={profile?.displayName}
               avatarUrl={profile?.avatarUrl}
+              avatarBadge={
+                badgeKind ? <ActivityTypeBadge kind={badgeKind} /> : null
+              }
             >
               <ActivityCopy
                 verb={verb}

@@ -13,6 +13,8 @@ import {
   notificationSnippetPostRefs,
   notificationProfileAccountIds,
   snippetFromPostValue,
+  notificationActivityBadgeKind,
+  notificationLeadAccountId,
   notificationSystemChrome,
   notificationVerb,
   parseNotificationPostPath,
@@ -57,6 +59,44 @@ describe('notification display', () => {
         reactionValue: JSON.stringify({ type: 'like' }),
       })
     ).toBe('liked your post');
+  });
+
+  it('maps social rows to one avatar badge and leaves system rows to the family mark', () => {
+    expect(
+      notificationActivityBadgeKind({
+        type: 'reaction',
+        actor: 'bob.testnet',
+        context: { reactionValue: JSON.stringify({ type: 'like' }) },
+      })
+    ).toBe('like');
+    expect(
+      notificationActivityBadgeKind({
+        type: 'mention',
+        actor: 'bob.testnet',
+        context: {},
+      })
+    ).toBe('mention');
+    expect(
+      notificationActivityBadgeKind({
+        type: 'standing_new',
+        actor: 'bob.testnet',
+        context: {},
+      })
+    ).toBe('stand');
+    expect(
+      notificationActivityBadgeKind({
+        type: 'profile_anniversary',
+        actor: '',
+        context: { years: 1 },
+      })
+    ).toBe('anniversary');
+    expect(
+      notificationActivityBadgeKind({
+        type: 'reward_credited',
+        actor: '',
+        context: {},
+      })
+    ).toBeNull();
   });
 
   it('deep-links social, guild, dao, and dm notifications', () => {
@@ -230,15 +270,15 @@ describe('notification display', () => {
         context: {},
         createdAt,
       })
-    ).toBe('stood with you · 5m ago');
+    ).toBe('stood with you · 5m');
     expect(
       notificationDescription({
         type: 'endorsement_new',
         context: { snippet: 'Shipped it.' },
         createdAt,
       })
-    ).toBe('endorsed you · Shipped it. · 5m ago');
-    expect(formatNotificationTime(createdAt).label).toBe('5m ago');
+    ).toBe('endorsed you · Shipped it. · 5m');
+    expect(formatNotificationTime(createdAt).label).toBe('5m');
 
     expect(
       notificationDescription({
@@ -251,7 +291,7 @@ describe('notification display', () => {
         createdAt,
       })
     ).toBe(
-      'opened a proposal · gov.sputnik-dao.testnet · Fund builders · 5m ago'
+      'opened a proposal · gov.sputnik-dao.testnet · Fund builders · 5m'
     );
 
     expect(
@@ -263,7 +303,7 @@ describe('notification display', () => {
         },
         createdAt,
       })
-    ).toBe('Proposal approved · Fund builders · 5m ago');
+    ).toBe('Proposal approved · Fund builders · 5m');
 
     expect(
       notificationDescription({
@@ -274,7 +314,42 @@ describe('notification display', () => {
         },
         createdAt,
       })
-    ).toBe('approved your proposal · Fund builders · 5m ago');
+    ).toBe('approved your proposal · Fund builders · 5m');
+  });
+
+  it('stamps Today with relative recency and older days with clock time', () => {
+    const now = new Date(2026, 8, 19, 15, 4, 0);
+    expect(
+      formatNotificationTime(new Date(2026, 8, 19, 15, 3, 20).toISOString(), now)
+    ).toEqual({
+      label: 'now',
+      title: new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(new Date(2026, 8, 19, 15, 3, 20)),
+    });
+    expect(
+      formatNotificationTime(new Date(2026, 8, 19, 15, 0, 0).toISOString(), now)
+        .label
+    ).toBe('4m');
+    expect(
+      formatNotificationTime(new Date(2026, 8, 19, 13, 4, 0).toISOString(), now)
+        .label
+    ).toBe('2h');
+    const yesterday = new Date(2026, 8, 18, 14, 14, 0);
+    const older = formatNotificationTime(yesterday.toISOString(), now);
+    expect(older.label).toBe(
+      new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(yesterday)
+    );
+    expect(older.label).toMatch(/\d{1,2}:\d{2}/);
+    expect(older.label).not.toMatch(/Sep|ago/);
+    expect(older.title).toMatch(/Sep 18, 2026/);
   });
 
   it('splits verb and DAO snippet without time', () => {
@@ -471,6 +546,27 @@ describe('notification display', () => {
         { actor: 'bob.testnet', context: {} },
       ])
     ).toEqual(['bob.testnet', 'gov.sputnik-dao.testnet']);
+  });
+
+  it('leads anniversary rows with the member, not a system mark', () => {
+    expect(
+      notificationLeadAccountId({
+        type: 'profile_anniversary',
+        actor: '',
+        recipient: 'alice.testnet',
+        context: { years: 1, accountId: 'alice.testnet' },
+      })
+    ).toBe('alice.testnet');
+    expect(
+      notificationProfileAccountIds([
+        {
+          type: 'profile_anniversary',
+          actor: '',
+          recipient: 'alice.testnet',
+          context: { years: 1, accountId: 'alice.testnet' },
+        },
+      ])
+    ).toEqual(['alice.testnet']);
   });
 
   it('classifies system chrome for boost / collect / dao resolved', () => {

@@ -1,9 +1,14 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   StandingIdentity,
   standingIdentityAccountCopy,
   standingIdentityLabel,
 } from './standing-identity.js';
+
+const here = dirname(fileURLToPath(import.meta.url));
 
 describe('standingIdentityLabel', () => {
   it('speaks the local part when no custom name', () => {
@@ -56,5 +61,12 @@ describe('standingIdentityAccountCopy', () => {
 describe('StandingIdentity', () => {
   it('exports the identity cluster', () => {
     expect(typeof StandingIdentity).toBe('function');
+  });
+
+  it('accepts an optional avatar badge slot', () => {
+    const source = readFileSync(join(here, 'standing-identity.tsx'), 'utf8');
+    expect(source).toContain('avatarBadge');
+    expect(source).toContain('standing-row-avatar-wrap');
+    expect(source).toContain('standing-row-avatar-badge');
   });
 });

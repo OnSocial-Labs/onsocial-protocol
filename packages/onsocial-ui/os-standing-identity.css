@@ -67,6 +67,38 @@
   margin-top: 0.05rem;
 }
 
+.standing-row-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+  margin-top: 0.05rem;
+}
+
+.standing-row-avatar-wrap .standing-row-avatar-slot {
+  margin-top: 0;
+}
+
+.standing-row-avatar-badge {
+  position: absolute;
+  right: -0.14rem;
+  bottom: -0.14rem;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 0.92rem;
+  height: 0.92rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px var(--bg, rgb(var(--bg-rgb) / 1));
+  pointer-events: none;
+}
+
+.standing-row-avatar-badge svg {
+  width: 0.58rem;
+  height: 0.58rem;
+  display: block;
+}
+
 .standing-row:hover .standing-row-avatar-slot,
 .standing-row:focus-within .standing-row-avatar-slot {
   box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
