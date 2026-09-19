@@ -24,6 +24,25 @@ const mentionNotification = {
   createdAt: '2026-09-10T09:00:00.000Z',
 };
 
+const anniversaryNotification = {
+  id: 'notification-anniversary',
+  recipient: NOTIFICATIONS_E2E_ACCOUNT,
+  actor: null,
+  type: 'profile_anniversary',
+  dedupeKey: 'anniversary-1',
+  read: true,
+  source: {
+    contract: null,
+    receiptId: null,
+    blockHeight: null,
+  },
+  context: {
+    years: 1,
+    accountId: NOTIFICATIONS_E2E_ACCOUNT,
+  },
+  createdAt: '2026-09-10T08:00:00.000Z',
+};
+
 const likeNotification = {
   id: 'notification-like',
   recipient: NOTIFICATIONS_E2E_ACCOUNT,
@@ -74,7 +93,11 @@ async function stubSnippetNotifications(page: Page): Promise<void> {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        notifications: [mentionNotification, likeNotification],
+        notifications: [
+          mentionNotification,
+          likeNotification,
+          anniversaryNotification,
+        ],
         nextCursor: null,
       }),
     });
@@ -103,6 +126,28 @@ test.describe('activity post snippets', () => {
     await expect(mentionSnippet).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('mentioned you', { exact: true })).toBeVisible();
     await expect(page.getByText('liked your post', { exact: true })).toBeVisible();
+    await expect(page.getByText('1 year on OnSocial', { exact: true })).toBeVisible();
+
+    const likeRow = page
+      .locator('.notifications-activity-row')
+      .filter({ hasText: 'liked your post' });
+    const mentionRow = page
+      .locator('.notifications-activity-row')
+      .filter({ hasText: 'mentioned you' });
+    const anniversaryRow = page
+      .locator('.notifications-activity-row')
+      .filter({ hasText: '1 year on OnSocial' });
+    await expect(likeRow.locator('[data-activity-badge="like"]')).toBeVisible();
+    await expect(
+      mentionRow.locator('[data-activity-badge="mention"]')
+    ).toBeVisible();
+    await expect(
+      anniversaryRow.locator('.notifications-activity-mark--anniversary')
+    ).toBeVisible();
+    await expect(
+      anniversaryRow.locator('[data-activity-badge]')
+    ).toHaveCount(0);
+    await expect(likeRow.getByText('liked your post', { exact: true })).toBeVisible();
 
     const mention = mentionSnippet.locator('.os-mention');
     await expect(mention).toHaveText('@alice.testnet');

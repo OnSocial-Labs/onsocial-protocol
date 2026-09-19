@@ -5,10 +5,16 @@ import {
   Divider,
   FireFillIcon,
   GiftFillIcon,
+  HeartFillIcon,
   HomeFillIcon,
   InformationCircleFillIcon,
+  MessageFillIcon,
+  NoteTextFillIcon,
+  RepeatIcon,
   ShopFillIcon,
+  StarMovingFillIcon,
   StarsCFillIcon,
+  UserPlusFillIcon,
   UsersFillIcon,
   standingIdentityLabel,
 } from '@onsocial/ui';
@@ -18,11 +24,13 @@ import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import {
   formatNotificationTime,
   isSystemNotification,
+  notificationActivityBadgeKind,
   notificationDaoAccountId,
   notificationDetail,
   notificationSnippetKey,
   notificationSnippetPostRef,
   notificationSystemChrome,
+  type NotificationActivityBadgeKind,
   type NotificationSystemFamily,
 } from '@/lib/notification-display';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
@@ -41,6 +49,20 @@ const SYSTEM_FAMILY_ICON: Record<NotificationSystemFamily, FillIcon> = {
   app: InformationCircleFillIcon,
   onsocial: StarsCFillIcon,
   activity: InformationCircleFillIcon,
+};
+
+const SOCIAL_BADGE_ICON: Record<NotificationActivityBadgeKind, FillIcon> = {
+  like: HeartFillIcon,
+  mention: MessageFillIcon,
+  reply: MessageFillIcon,
+  quote: NoteTextFillIcon,
+  repost: RepeatIcon,
+  stand: UserPlusFillIcon,
+  endorse: StarMovingFillIcon,
+  support: GiftFillIcon,
+  invite: UsersFillIcon,
+  proposal: HomeFillIcon,
+  sale: ShopFillIcon,
 };
 
 function NotificationActivitySkeletonRow() {
@@ -105,14 +127,34 @@ export function NotificationActivityAppendSkeleton({
   );
 }
 
-function SystemMark({ family }: { family: NotificationSystemFamily }) {
+function SystemMark({
+  family,
+  anniversary = false,
+}: {
+  family: NotificationSystemFamily;
+  anniversary?: boolean;
+}) {
   const Icon = SYSTEM_FAMILY_ICON[family];
   return (
     <span
-      className={`notifications-activity-mark notifications-activity-mark--${family}`}
+      className={`notifications-activity-mark notifications-activity-mark--${family}${
+        anniversary ? ' notifications-activity-mark--anniversary' : ''
+      }`}
       aria-hidden
     >
       <Icon className="notifications-activity-mark-icon" />
+    </span>
+  );
+}
+
+function ActivityTypeBadge({ kind }: { kind: NotificationActivityBadgeKind }) {
+  const Icon = SOCIAL_BADGE_ICON[kind];
+  return (
+    <span
+      className={`notifications-activity-badge notifications-activity-badge--${kind}`}
+      data-activity-badge={kind}
+    >
+      <Icon className="notifications-activity-badge-icon" />
     </span>
   );
 }
@@ -228,12 +270,17 @@ export function NotificationActivityRows({
         let ariaLead: string;
         let body: ReactNode;
 
+        const badgeKind = notificationActivityBadgeKind(item);
+
         if (system) {
           const chrome = notificationSystemChrome(item);
           ariaLead = `${chrome.familyLabel}, ${chrome.action}`;
           body = (
             <>
-              <SystemMark family={chrome.family} />
+              <SystemMark
+                family={chrome.family}
+                anniversary={item.type === 'profile_anniversary'}
+              />
               <div className="standing-row-copy notifications-activity-system">
                 <span className="standing-row-name-row">
                   <span className="standing-row-name">{chrome.familyLabel}</span>
@@ -260,6 +307,9 @@ export function NotificationActivityRows({
               accountId={leadAccount}
               profileName={profile?.displayName}
               avatarUrl={profile?.avatarUrl}
+              avatarBadge={
+                badgeKind ? <ActivityTypeBadge kind={badgeKind} /> : null
+              }
             >
               <ActivityCopy
                 verb={verb}

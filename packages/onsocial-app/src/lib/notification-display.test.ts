@@ -13,6 +13,7 @@ import {
   notificationSnippetPostRefs,
   notificationProfileAccountIds,
   snippetFromPostValue,
+  notificationActivityBadgeKind,
   notificationSystemChrome,
   notificationVerb,
   parseNotificationPostPath,
@@ -57,6 +58,44 @@ describe('notification display', () => {
         reactionValue: JSON.stringify({ type: 'like' }),
       })
     ).toBe('liked your post');
+  });
+
+  it('maps social rows to one avatar badge and leaves system rows to the family mark', () => {
+    expect(
+      notificationActivityBadgeKind({
+        type: 'reaction',
+        actor: 'bob.testnet',
+        context: { reactionValue: JSON.stringify({ type: 'like' }) },
+      })
+    ).toBe('like');
+    expect(
+      notificationActivityBadgeKind({
+        type: 'mention',
+        actor: 'bob.testnet',
+        context: {},
+      })
+    ).toBe('mention');
+    expect(
+      notificationActivityBadgeKind({
+        type: 'standing_new',
+        actor: 'bob.testnet',
+        context: {},
+      })
+    ).toBe('stand');
+    expect(
+      notificationActivityBadgeKind({
+        type: 'profile_anniversary',
+        actor: '',
+        context: { years: 1 },
+      })
+    ).toBeNull();
+    expect(
+      notificationActivityBadgeKind({
+        type: 'reward_credited',
+        actor: '',
+        context: {},
+      })
+    ).toBeNull();
   });
 
   it('deep-links social, guild, dao, and dm notifications', () => {
