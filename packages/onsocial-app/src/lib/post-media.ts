@@ -120,15 +120,14 @@ export type FeedMediaActivate =
   | { kind: 'none' };
 
 /**
- * Feed tile tap: image / video open the shared media-face enlarge.
- * Thread-focused media stays inline (`none`).
+ * Feed or open-post tile tap: image / video open the shared media-face.
  */
 export function resolveFeedMediaActivate(
   items: readonly PostMediaItem[],
   mediaIndex: number,
   options: { mediaFocused?: boolean } = {}
 ): FeedMediaActivate {
-  if (options.mediaFocused) return { kind: 'none' };
+  void options;
   const mediaIndexInVisual = postVisualMediaIndex(items, mediaIndex);
   if (mediaIndexInVisual < 0) return { kind: 'none' };
   return { kind: 'enlarge', mediaIndex: mediaIndexInVisual };

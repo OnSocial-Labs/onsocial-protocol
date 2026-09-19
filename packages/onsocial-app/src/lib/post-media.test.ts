@@ -251,7 +251,8 @@ describe('feed photo enlarge helpers', () => {
       mediaIndex: 2,
     });
     expect(resolveFeedMediaActivate(items, 0, { mediaFocused: true })).toEqual({
-      kind: 'none',
+      kind: 'enlarge',
+      mediaIndex: 0,
     });
     expect(resolveFeedMediaActivate(items, 4)).toEqual({ kind: 'none' });
   });

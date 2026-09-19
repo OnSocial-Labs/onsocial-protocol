@@ -276,10 +276,9 @@ export function SummonLauncher({
   const write = compose?.type === 'write' ? compose.entry : null;
   const immersiveChromeQuiet = useImmersiveChromeQuiet();
   const writing = Boolean(write) || writePinned;
+  const autoHide = useDockAutoHide(open || writing);
   const dockHidden =
-    (useDockAutoHide(open || writing) || immersiveChromeQuiet) &&
-    !open &&
-    !writing;
+    !open && (immersiveChromeQuiet || (autoHide && !writing));
   const showDockBack = resolveDockBackVisible({
     dockBack,
     launcherOpen: open,

@@ -25,7 +25,6 @@ import {
 import type { PostRow } from '@onsocial/sdk';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { downloadIpfsMedia } from '@/lib/media-download';
-import { useComposeLauncher } from '@/contexts/compose-launcher-context';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import { FeedMediaThreadSheet } from '@/features/home/feed-media-thread-sheet';
 import {
@@ -179,8 +178,6 @@ export function FeedPhotoEnlargeScreen({
     closeAriaLabel ?? (quiet ? 'Close photo' : 'Back from media');
   const hasVideo = photos.some((item) => isRenderablePostVideo(item));
   const activeIsVideo = isRenderablePostVideo(photos[index] ?? {});
-  const compose = useComposeLauncher();
-  const writing = compose?.type === 'write';
   const showStage = Boolean(stage) && photos.length === 0;
   const captionExpanded = hasCaption && captionMode === 'expanded';
   const chromeQuiet =
@@ -189,7 +186,6 @@ export function FeedPhotoEnlargeScreen({
     !chromeVisible &&
     !scrubbing &&
     !captionExpanded &&
-    !writing &&
     !threadOpen;
   const onFilm = cinema || threadOpen;
   const dismissThread = useCallback(() => {
@@ -594,6 +590,7 @@ export function FeedPhotoEnlargeScreen({
     }
     videoRefs.current.forEach((video, videoIndex) => {
       if (videoIndex === index) {
+        video.loop = true;
         video.muted = videoMuted;
         void video.play().catch(() => {
           if (!videoMuted) {
@@ -731,7 +728,7 @@ export function FeedPhotoEnlargeScreen({
   const transportMounted = open && activeIsVideo;
   const transportVisible =
     transportMounted &&
-    (threadOpen || (showVideoChrome && !writing));
+    (threadOpen || showVideoChrome);
 
   /* Repaint rail/time after the transport remounts (reply cancel, cinema). */
   useLayoutEffect(() => {
@@ -916,7 +913,7 @@ export function FeedPhotoEnlargeScreen({
   ]);
 
   /* Tuck idle summon while the face is up; thread write dock wins via keepDock. */
-  useRegisterImmersiveChromeQuiet(open && !writing && !threadOpen);
+  useRegisterImmersiveChromeQuiet(open && !threadOpen);
 
   const showCaptionPeek =
     !cinema && !threadOpen && (hasCaption || Boolean(peekIdentity));
@@ -985,7 +982,7 @@ export function FeedPhotoEnlargeScreen({
       transport={onFilm ? null : videoTransport}
       stageLayout="fixed"
       chromeQuiet={chromeQuiet}
-      keepDock={writing || threadOpen}
+      keepDock={threadOpen}
       className={slideClass}
       contentClassName="feed-photo-slide-body"
       bodyStyle={
@@ -1157,6 +1154,7 @@ function FeedPhotoMediaStage({
           src={item.url}
           className="feed-photo-image feed-photo-video"
           playsInline
+          loop
           preload="metadata"
           muted={muted}
           onClick={(event) => {

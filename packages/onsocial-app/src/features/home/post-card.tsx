@@ -2048,7 +2048,7 @@ export function PostCard({
               resumeFocusedVideo={mediaUnmuted}
               resumeMediaIndex={mediaResumeIndex}
               onActivate={
-                !mediaFocused && hasMedia
+                hasMedia
                   ? (index) => {
                       const action = resolveFeedMediaActivate(
                         mediaItems,

@@ -11763,8 +11763,10 @@ a.os-surface-row {
     z-index: 40;
   }
 
-  /* Write bar sits over enlarge (80) and under commerce (90). */
-  .os-app-screen > .portfolio-summon-dock:has(.os-write-dock) {
+  /* Write bar over enlarge only while the face keeps the dock (thread). */
+  body:has([data-os-slide-over='true'][data-keep-dock='true'])
+    .os-app-screen
+    > .portfolio-summon-dock:has(.os-write-dock) {
     z-index: 85;
   }
 
@@ -13226,6 +13228,9 @@ a.os-surface-row {
   body:has([data-os-slide-over='true']:not([data-keep-dock='true']))
     .portfolio-os-layer
     > .portfolio-summon-dock,
+  body:has([data-os-slide-over='true']:not([data-keep-dock='true']))
+    .os-app-screen
+    > .portfolio-summon-dock,
   body:has(
       .os-slide-over[data-viewport='true']:not([data-keep-dock='true'])
     )
@@ -13245,6 +13250,10 @@ a.os-surface-row {
 
   body:has([data-os-slide-over='true']:not([data-keep-dock='true']))
     .portfolio-os-layer
+    > .portfolio-summon-dock
+    .portfolio-summon,
+  body:has([data-os-slide-over='true']:not([data-keep-dock='true']))
+    .os-app-screen
     > .portfolio-summon-dock
     .portfolio-summon,
   body:has(
@@ -21268,6 +21277,7 @@ a.os-surface-row {
   .post-card--openable .post-card-quote-inset--link,
   .post-card--openable .post-media-tile.is-activatable,
   .post-card--openable .post-media-unmute-gate,
+  .post-card--openable .post-media-mute,
   .post-card--openable .post-card-stat-button,
   .post-card--openable .post-card-react,
   .post-card--openable .post-card-amplify,
@@ -22211,6 +22221,20 @@ a.os-surface-row {
 
   .post-media-tile.is-activatable {
     cursor: pointer;
+  }
+
+  .post-media-mute {
+    position: absolute;
+    right: 0.65rem;
+    bottom: 0.65rem;
+    z-index: 2;
+    color: rgb(255 255 255 / 0.94);
+    filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.55));
+  }
+
+  .post-media-mute:hover,
+  .post-media-mute:focus-visible {
+    background: rgb(255 255 255 / 0.12);
   }
 
   .post-media-unmute-gate {

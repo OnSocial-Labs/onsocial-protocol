@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { VolumeMuteIcon, VolumeUpIcon } from '@onsocial/ui';
 import {
-  playPostFocusVideo,
   usePostVideoPlayback,
   type PostVideoPlaybackMode,
 } from '@/hooks/use-post-list-video';
@@ -18,7 +18,7 @@ interface PostMediaBlockProps {
   item: PostMediaItem;
   index?: number;
   size?: PostMediaSize;
-  /** Thread / detail surface — native controls. */
+  /** Thread / detail surface — inline play, mute only. */
   focused?: boolean;
   focusedVideoMuted?: boolean;
   initialVideoTime?: number;
@@ -32,7 +32,7 @@ interface PostMediaBlockProps {
 
 /**
  * Feed media tile — muted list autoplay for video; tap opens media-face.
- * Stills and video enlarge in the shared shell; thread-focused media stays inline.
+ * Open-post video stays inline with mute only; tap still opens the slider.
  */
 export function PostMediaBlock({
   item,
@@ -66,33 +66,12 @@ export function PostMediaBlock({
   const isListVideo = playbackMode === 'list';
   const isDetailVideo =
     playbackMode === 'detail-muted' || playbackMode === 'detail-unmuted';
-  const isActivatable = Boolean(onActivate) && !onRemove && !focused;
-  const wantsUnmutedAutoplay =
-    playbackMode === 'detail-unmuted' && resumeFocusedVideo;
-  const unmuteGateKey = wantsUnmutedAutoplay ? item.url : null;
-  const [clearedUnmuteGateKey, setClearedUnmuteGateKey] = useState<
-    string | null
-  >(null);
-  const showUnmuteGate =
-    unmuteGateKey !== null && clearedUnmuteGateKey !== unmuteGateKey;
+  const isActivatable = Boolean(onActivate) && !onRemove;
+  const [soundOff, setSoundOff] = useState(focusedVideoMuted);
 
   useEffect(() => {
-    if (!wantsUnmutedAutoplay) return;
-    const video = videoRef.current;
-    if (!video) return;
-
-    const hideIfPlaying = () => {
-      if (!video.paused && !video.muted) setClearedUnmuteGateKey(item.url);
-    };
-    video.addEventListener('play', hideIfPlaying);
-    video.addEventListener('volumechange', hideIfPlaying);
-    const timer = window.setTimeout(hideIfPlaying, 0);
-    return () => {
-      video.removeEventListener('play', hideIfPlaying);
-      video.removeEventListener('volumechange', hideIfPlaying);
-      window.clearTimeout(timer);
-    };
-  }, [wantsUnmutedAutoplay, videoRef, item.url]);
+    setSoundOff(focusedVideoMuted);
+  }, [focusedVideoMuted]);
 
   return (
     <div
@@ -121,14 +100,13 @@ export function PostMediaBlock({
         <video
           ref={playbackMode ? videoRef : undefined}
           src={item.url}
-          controls={isDetailVideo && !showUnmuteGate}
           playsInline
           muted={
             isListVideo ||
             playbackDisabled ||
-            (isDetailVideo && focusedVideoMuted)
+            (isDetailVideo && soundOff)
           }
-          loop={isListVideo}
+          loop={isListVideo || isDetailVideo}
           preload="metadata"
           data-post-focus-video={isDetailVideo ? String(index) : undefined}
           className="post-media-element"
@@ -142,19 +120,38 @@ export function PostMediaBlock({
           decoding="async"
         />
       )}
-      {showUnmuteGate ? (
+      {isDetailVideo ? (
         <button
           type="button"
-          className="post-media-unmute-gate"
-          aria-label="Play with sound"
+          className={`feed-photo-video-control post-media-mute${
+            soundOff ? ' is-muted' : ''
+          }`}
+          aria-label={soundOff ? 'Unmute' : 'Mute'}
+          aria-pressed={soundOff}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            playPostFocusVideo(index);
-            setClearedUnmuteGateKey(item.url);
+            const video = videoRef.current;
+            const next = !soundOff;
+            if (video) {
+              video.muted = next;
+              video.loop = true;
+              if (!next) void video.play().catch(() => {});
+            }
+            setSoundOff(next);
           }}
         >
-          <span className="post-media-unmute-gate-label">Play with sound</span>
+          {soundOff ? (
+            <VolumeMuteIcon
+              className="feed-photo-video-control-icon"
+              aria-hidden
+            />
+          ) : (
+            <VolumeUpIcon
+              className="feed-photo-video-control-icon"
+              aria-hidden
+            />
+          )}
         </button>
       ) : null}
       {onRemove ? (

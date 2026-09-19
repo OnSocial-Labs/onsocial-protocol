@@ -114,18 +114,16 @@ export function PortfolioSummonDock({
   }, [pageDrawerOpen]);
 
   const scrollRoot = pageDrawerOpen ? scrollNode : null;
+  const autoHide = useDockAutoHide(
+    previewPinned ||
+      openPinned ||
+      writePinned ||
+      Boolean(write) ||
+      (pageDrawerOpen && !scrollNode),
+    scrollRoot
+  );
   const scrollHidden =
-    (useDockAutoHide(
-      previewPinned ||
-        openPinned ||
-        writePinned ||
-        Boolean(write) ||
-        (pageDrawerOpen && !scrollNode),
-      scrollRoot
-    ) ||
-      immersiveChromeQuiet) &&
-    !osOpen &&
-    !write;
+    !osOpen && (immersiveChromeQuiet || (autoHide && !write));
 
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerStart = useRef<{

@@ -50,13 +50,11 @@ function applyInitialTime(video: HTMLVideoElement, initialTime: number) {
 function startDetailPlayback(
   video: HTMLVideoElement,
   muted: boolean,
-  initialTime: number,
-  resume: boolean
+  initialTime: number
 ) {
   applyInitialTime(video, initialTime);
   video.muted = muted;
-  video.loop = false;
-  if (!resume) return;
+  video.loop = true;
   claimActiveVideo(video);
   void video.play().catch(() => {});
 }
@@ -71,12 +69,12 @@ export function playPostFocusVideo(mediaIndex = 0) {
     (document.querySelector('[data-post-focus-video]') as HTMLVideoElement | null);
   if (!video) return;
   video.muted = false;
-  video.loop = false;
+  video.loop = true;
   claimActiveVideo(video);
   void video.play().catch(() => {});
 }
 
-/** List: muted autoplay one-at-a-time. Detail: muted or unmuted with controls. */
+/** List: muted autoplay one-at-a-time. Detail: muted or unmuted, mute only. */
 export function usePostVideoPlayback(
   mode: PostVideoPlaybackMode,
   detailOptions: PostVideoDetailOptions = {}
@@ -141,8 +139,7 @@ export function usePostVideoPlayback(
     if (!video) return;
 
     const muted = mode === 'detail-muted';
-    const begin = () =>
-      startDetailPlayback(video, muted, initialTime, resume || !muted);
+    const begin = () => startDetailPlayback(video, muted, initialTime);
 
     if (video.readyState >= 1) {
       begin();
