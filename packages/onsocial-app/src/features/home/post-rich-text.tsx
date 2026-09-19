@@ -23,11 +23,17 @@ export function PostRichText({
   showLinkIcon = false,
   /** Bio only — posts and DMs stay hashtag / mention / url. */
   inlineMarks = false,
+  /**
+   * Activity / list quotes: paint tokens in DM Sans, keep the row as the
+   * only hit. Feed / bio stay tappable.
+   */
+  interactive = true,
 }: {
   text: string;
   emptyFallback?: string;
   showLinkIcon?: boolean;
   inlineMarks?: boolean;
+  interactive?: boolean;
 }) {
   const activeFocus = useHomeActiveFocus();
 
@@ -68,16 +74,27 @@ export function PostRichText({
               key={`u-${index}`}
               href={segment.href}
               text={segment.value}
-              as="a"
+              as={interactive ? 'a' : 'span'}
               showIcon={showLinkIcon}
-              onClick={(event) => {
-                event.stopPropagation();
-              }}
+              onClick={
+                interactive
+                  ? (event) => {
+                      event.stopPropagation();
+                    }
+                  : undefined
+              }
             />
           );
         }
 
         if (segment.type === 'mention') {
+          if (!interactive) {
+            return (
+              <span key={`m-${index}`} className="os-mention">
+                {segment.value}
+              </span>
+            );
+          }
           return (
             <Link
               key={`m-${index}`}
@@ -96,17 +113,26 @@ export function PostRichText({
           const isActive =
             activeFocus?.kind === 'ticker' &&
             segment.slug === activeFocus.value;
+          const tickerClass = isActive ? 'os-ticker is-active' : 'os-ticker';
+          const tickerLabel = formatTickerDisplay(segment.slug);
+          if (!interactive) {
+            return (
+              <span key={`tk-${index}`} className={tickerClass}>
+                {tickerLabel}
+              </span>
+            );
+          }
           return (
             <Link
               key={`tk-${index}`}
               href={homeTickerPath(segment.slug)}
-              className={isActive ? 'os-ticker is-active' : 'os-ticker'}
+              className={tickerClass}
               scroll={false}
               onClick={(event) => {
                 event.stopPropagation();
               }}
             >
-              {formatTickerDisplay(segment.slug)}
+              {tickerLabel}
             </Link>
           );
         }
@@ -114,12 +140,20 @@ export function PostRichText({
         const slug = normalizeHashtagQuery(segment.value);
         const isActive =
           activeFocus?.kind === 'hashtag' && slug === activeFocus.value;
+        const hashtagClass = isActive ? 'os-hashtag is-active' : 'os-hashtag';
+        if (!interactive) {
+          return (
+            <span key={`h-${index}`} className={hashtagClass}>
+              {segment.value}
+            </span>
+          );
+        }
 
         return (
           <Link
             key={`h-${index}`}
             href={homeHashtagPath(slug)}
-            className={isActive ? 'os-hashtag is-active' : 'os-hashtag'}
+            className={hashtagClass}
             scroll={false}
             onClick={(event) => {
               event.stopPropagation();

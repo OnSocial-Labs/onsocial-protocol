@@ -44547,6 +44547,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 .notifications-activity-verb {
   margin: 0;
+  font-family: var(--app-font-sans);
   font-size: 0.72rem;
   font-weight: 500;
   line-height: 1.3;
@@ -44555,7 +44556,9 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 .notifications-activity-place,
 .notifications-activity-snippet {
+  display: block;
   margin: 0.08rem 0 0;
+  font-family: var(--app-font-sans);
   font-size: 0.7rem;
   font-weight: 500;
   line-height: 1.3;
