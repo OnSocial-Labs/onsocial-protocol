@@ -54,6 +54,7 @@ import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
 import { writeDockDraftKey } from '@/lib/os-write-dock';
 import { guildPath } from '@/features/guilds/guilds-data';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
+import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { FeedArticleReadScreen } from '@/features/home/feed-article-read-screen';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
 import { PostMediaStrip } from '@/features/home/post-media';
@@ -146,6 +147,7 @@ import {
 } from '@/lib/post-relation';
 import {
   parsePostMedia,
+  isRenderablePostVideo,
   isRenderablePostVideoMime,
   formatMediaDuration,
   postVisualMedia,
@@ -1667,6 +1669,18 @@ export function PostCard({
   const hasMedia = mediaItems.length > 0;
   const visualMedia = postVisualMedia(mediaItems);
   const enlargePhotos = enlargeOverride ?? visualMedia;
+  const enlargeHasVideo = enlargePhotos.some((item) =>
+    isRenderablePostVideo(item)
+  );
+  const enlargeHasPhoto = enlargePhotos.some(
+    (item) => !isRenderablePostVideo(item)
+  );
+  const enlargeTitle =
+    enlargeHasVideo && enlargeHasPhoto
+      ? 'Media'
+      : enlargeHasVideo
+        ? 'Video'
+        : 'Photo';
   const photoCaption = text.trim() || null;
   const photoCover = postScarceCoverImage(post);
   const scarceCoverUrl =
@@ -2154,7 +2168,39 @@ export function PostCard({
             setPhotoThreadOpen(false);
           }
         }}
-        title={name}
+        title={enlargeTitle}
+        peekIdentity={
+          <Link
+            href={profileHref}
+            className="os-media-face-identity"
+            scroll={false}
+            aria-label={`View ${name}'s profile`}
+            onClick={() => {
+              setPhotoOpen(false);
+              setPhotoThreadOpen(false);
+            }}
+          >
+            <AccountAvatar
+              accountId={post.accountId}
+              kind={authorProfile?.kind}
+              src={authorProfile?.avatarUrl ?? null}
+              fallbackInitial={name}
+              size="lg"
+              className="post-card-avatar"
+            />
+            <span className="os-media-face-identity-copy">
+              <span className="os-media-face-identity-name-row">
+                <span className="os-media-face-identity-name">{name}</span>
+                <span className="post-identity-name-marks">
+                  <ProtocolNameTrailing accountId={post.accountId} />
+                </span>
+              </span>
+              <span className="os-media-face-identity-handle">
+                @{post.accountId}
+              </span>
+            </span>
+          </Link>
+        }
         caption={photoCaption}
         photos={enlargePhotos}
         initialIndex={photoIndex}

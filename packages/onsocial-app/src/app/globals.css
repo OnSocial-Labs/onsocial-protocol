@@ -27704,14 +27704,18 @@ a.os-surface-row {
     position: sticky;
     top: 0;
     z-index: 5;
+    box-sizing: border-box;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.55rem;
     min-width: 0;
     flex-shrink: 0;
+    height: var(--os-app-screen-nav-row-height, 2.35rem);
+    min-height: var(--os-app-screen-nav-row-height, 2.35rem);
+    max-height: var(--os-app-screen-nav-row-height, 2.35rem);
     margin: 0 -0.9rem;
-    padding: max(0.55rem, env(safe-area-inset-top, 0px)) 0.9rem 0.5rem;
+    padding: 0 0.9rem;
     /* Fill/blur from osChromeFrostStyle() — match .os-chrome-glass / elevated headers. */
     background: transparent;
     transition:
@@ -27757,7 +27761,7 @@ a.os-surface-row {
 
   .os-media-face-close {
     flex-shrink: 0;
-    align-self: flex-start;
+    align-self: center;
   }
 
   /* Jacket owns chrome — collapse empty OS nav + body chrome inset. */
@@ -27925,15 +27929,24 @@ a.os-surface-row {
     display: block;
   }
 
-  /* Jacket identity — avatar + name only (article feed reader). */
+  /* Jacket identity — same metrics as the open post: avatar | name / @id. */
   .os-media-face-identity {
     display: flex;
-    align-items: center;
-    gap: 0.65rem;
+    align-items: flex-start;
+    gap: 0.75rem;
     min-width: 0;
     max-width: 100%;
     text-decoration: none;
     color: inherit;
+  }
+
+  a.os-media-face-identity:hover,
+  a.os-media-face-identity:focus-visible,
+  a.os-media-face-identity:hover .os-media-face-identity-name,
+  a.os-media-face-identity:hover .os-media-face-identity-handle,
+  a.os-media-face-identity:focus-visible .os-media-face-identity-name,
+  a.os-media-face-identity:focus-visible .os-media-face-identity-handle {
+    text-decoration: none;
   }
 
   .os-media-face-identity:hover .os-media-face-identity-name,
@@ -27943,16 +27956,48 @@ a.os-surface-row {
 
   .os-media-face-identity .profile-avatar {
     flex-shrink: 0;
+    margin-top: 0.05rem;
+  }
+
+  .os-media-face-identity-copy {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.08rem;
+  }
+
+  .os-media-face-identity-name-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3em;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .os-media-face-identity-name {
+    display: block;
+    flex: 0 1 auto;
     margin: 0;
     min-width: 0;
-    font-size: 1.08rem;
-    font-weight: 700;
-    line-height: 1.22;
-    letter-spacing: -0.015em;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
     color: rgb(var(--fg-rgb) / 0.96);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .os-media-face-identity-handle {
+    margin: 0;
+    min-width: 0;
+    font-size: 0.72rem;
+    font-weight: 550;
+    line-height: 1.5;
+    color: rgb(var(--fg-rgb) / 0.42);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -31324,6 +31369,27 @@ a.os-surface-row {
     outline: none;
   }
 
+  .feed-photo-caption:has(.feed-photo-caption-identity):not(.is-expanded) {
+    background: linear-gradient(
+      180deg,
+      rgb(var(--bg-rgb) / 0) 0%,
+      rgb(var(--bg-rgb) / 0.55) 100%
+    );
+  }
+
+  .feed-photo-caption:has(.feed-photo-caption-identity) .feed-photo-caption-body {
+    background: transparent;
+  }
+
+  .feed-photo-caption-identity {
+    pointer-events: auto;
+    padding: 0.45rem var(--os-screen-body-pad-x, 1rem) 0.15rem;
+  }
+
+  .feed-photo-caption-identity .os-media-face-identity {
+    max-width: 100%;
+  }
+
   .feed-photo-caption-text {
     display: block;
     white-space: pre-wrap;
@@ -31434,11 +31500,15 @@ a.os-surface-row {
     flex-shrink: 1;
     min-height: 0;
     overflow: hidden;
-    max-height: calc(var(--feed-jacket-t, 0) * 5.25rem);
-    padding-top: calc(
-      var(--feed-jacket-t, 0) * max(0.55rem, env(safe-area-inset-top, 0px))
+    height: calc(
+      var(--feed-jacket-t, 0) * var(--os-app-screen-nav-row-height, 2.35rem)
     );
-    padding-bottom: calc(var(--feed-jacket-t, 0) * 0.5rem);
+    min-height: 0;
+    max-height: calc(
+      var(--feed-jacket-t, 0) * var(--os-app-screen-nav-row-height, 2.35rem)
+    );
+    padding-top: 0;
+    padding-bottom: 0;
     opacity: var(--feed-jacket-t, 0);
     transform: translate3d(
       0,

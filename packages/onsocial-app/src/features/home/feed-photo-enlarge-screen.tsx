@@ -113,6 +113,8 @@ export function FeedPhotoEnlargeScreen({
   threadRoot = null,
   closeAriaLabel,
   stage = null,
+  mast = null,
+  peekIdentity = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -136,6 +138,10 @@ export function FeedPhotoEnlargeScreen({
   closeAriaLabel?: string;
   /** Mood / craft cover — used when there is no raster media to enlarge. */
   stage?: ReactNode;
+  /** Optional face mast (article-style). Photo/video uses peekIdentity. */
+  mast?: ReactNode;
+  /** Avatar + name + account above the caption peek. */
+  peekIdentity?: ReactNode;
 }) {
   const last = photos.length - 1;
   const [wasOpen, setWasOpen] = useState(open);
@@ -891,36 +897,51 @@ export function FeedPhotoEnlargeScreen({
   /* Tuck idle summon while the face is up; thread write dock wins via keepDock. */
   useRegisterImmersiveChromeQuiet(open && !writing && !threadOpen);
 
+  const showCaptionPeek =
+    !cinema && !threadOpen && (hasCaption || Boolean(peekIdentity));
   const captionNode =
-    hasCaption && !cinema && !threadOpen ? (
+    showCaptionPeek ? (
       <div
         className={`feed-photo-caption${captionExpanded ? ' is-expanded' : ''}${chromeQuiet ? ' is-chrome-quiet' : ''}`}
       >
-        <button
-          type="button"
-          className="feed-photo-caption-dismiss"
-          aria-label="Collapse caption"
-          tabIndex={captionExpanded ? 0 : -1}
-          aria-hidden={!captionExpanded}
-          onClick={(event) => {
-            event.stopPropagation();
-            setCaptionMode('peek');
-            revealChrome();
-          }}
-        />
-        <button
-          type="button"
-          className="feed-photo-caption-body"
-          aria-expanded={captionExpanded}
-          aria-label={captionExpanded ? 'Collapse caption' : 'Show full post'}
-          onClick={(event) => {
-            event.stopPropagation();
-            setCaptionMode(captionExpanded ? 'peek' : 'expanded');
-            revealChrome();
-          }}
-        >
-          <span className="feed-photo-caption-text">{captionText}</span>
-        </button>
+        {hasCaption ? (
+          <button
+            type="button"
+            className="feed-photo-caption-dismiss"
+            aria-label="Collapse caption"
+            tabIndex={captionExpanded ? 0 : -1}
+            aria-hidden={!captionExpanded}
+            onClick={(event) => {
+              event.stopPropagation();
+              setCaptionMode('peek');
+              revealChrome();
+            }}
+          />
+        ) : null}
+        {peekIdentity ? (
+          <div
+            className="feed-photo-caption-identity"
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            {peekIdentity}
+          </div>
+        ) : null}
+        {hasCaption ? (
+          <button
+            type="button"
+            className="feed-photo-caption-body"
+            aria-expanded={captionExpanded}
+            aria-label={captionExpanded ? 'Collapse caption' : 'Show full post'}
+            onClick={(event) => {
+              event.stopPropagation();
+              setCaptionMode(captionExpanded ? 'peek' : 'expanded');
+              revealChrome();
+            }}
+          >
+            <span className="feed-photo-caption-text">{captionText}</span>
+          </button>
+        ) : null}
       </div>
     ) : null;
 
@@ -929,7 +950,8 @@ export function FeedPhotoEnlargeScreen({
       open={open}
       onClose={handleClose}
       title={title}
-      quietTitle={quiet}
+      quietTitle={quiet || Boolean(mast)}
+      mast={mast}
       closeAriaLabel={quietClose}
       zIndex={SCARCE_Z.listenShell}
       footer={onFilm ? null : engagement}
