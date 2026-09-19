@@ -197,10 +197,16 @@ export function FeedPhotoEnlargeScreen({
     captionReveal.measure({ closedLines: 2, maxOpenPx });
     const clip = captionReveal.clipRef.current;
     const text = captionTextRef.current;
-    if (clip && text) {
-      const next = text.scrollHeight > clip.clientHeight + 1;
-      setCaptionHasMore((prev) => (prev === next ? prev : next));
+    if (!clip || !text) return;
+    // Closed height is the measured 2-line peek, not the live (animated) box.
+    const cs = getComputedStyle(clip);
+    let lineHeight = parseFloat(cs.lineHeight);
+    if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
+      lineHeight = parseFloat(cs.fontSize) * 1.5;
     }
+    const peekPx = Math.ceil(lineHeight * 2);
+    const next = text.scrollHeight > peekPx + 1;
+    setCaptionHasMore((prev) => (prev === next ? prev : next));
   }, [captionReveal]);
   const expandCaption = useCallback(() => {
     measureCaption();
@@ -214,7 +220,15 @@ export function FeedPhotoEnlargeScreen({
   useLayoutEffect(() => {
     if (!open || cinema || threadOpen || !hasCaption) return;
     measureCaption();
-  }, [open, cinema, threadOpen, hasCaption, captionText, measureCaption]);
+  }, [
+    open,
+    cinema,
+    threadOpen,
+    hasCaption,
+    captionText,
+    captionMode,
+    measureCaption,
+  ]);
   const chromeQuiet =
     open &&
     activeIsVideo &&
