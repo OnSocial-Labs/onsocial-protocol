@@ -165,7 +165,7 @@ export function PortfolioWritingArticlePanel({
             className="portfolio-writing-article-rule"
           />
           <p className="portfolio-writing-byline">
-            <Link href={writingPath(accountId)} scroll={false}>
+            <Link href={writingPath(accountId)} scroll={false} prefetch={false}>
               Writing
             </Link>
             {readLabel ? (
@@ -203,6 +203,7 @@ export function PortfolioWritingArticlePanel({
                 href={authorHref}
                 className="portfolio-writing-article-face"
                 scroll={false}
+                prefetch={false}
                 aria-label={`View ${authorName}'s profile`}
               >
                 <AccountAvatar
@@ -216,6 +217,7 @@ export function PortfolioWritingArticlePanel({
                 href={authorHref}
                 className="portfolio-writing-article-author-name"
                 scroll={false}
+                prefetch={false}
               >
                 {authorName}
               </Link>
@@ -265,6 +267,7 @@ export function PortfolioWritingArticlePanel({
                 href={personalPostPath(post.accountId, post.postId)}
                 className="portfolio-writing-article-action"
                 scroll={false}
+                prefetch={false}
                 aria-label="View thread"
                 title="Thread"
               >

@@ -40,11 +40,24 @@ export type OsMediaFaceShellProps = {
   progress?: ReactNode;
   /** Post engagement / commerce — frosted band above the summon dock. */
   footer?: ReactNode;
+  /**
+   * Words above engagement on the same frost (e.g. post caption peek).
+   * Keeps text off the media stage — themed ink, no scrim.
+   */
+  aboveFooter?: ReactNode;
   /** Full footer slot (skips frost wrap) — e.g. Connect actions. */
   footerChrome?: ReactNode;
+  /**
+   * Media transport (scrub + controls) in the dock slot under the engagement
+   * row — mirrors the write-bar seat on article faces. Icons keep the same
+   * dock-clearance seat as every other face. OS column only.
+   */
+  transport?: ReactNode;
   /** Hide jacket title text (a11y title still on the dialog). */
   quietTitle?: boolean;
   chromeQuiet?: boolean;
+  /** Keep summon dock above this face (video transport / reply write). */
+  keepDock?: boolean;
   /**
    * `fixed` — photo/thought/mood: stage fills the face; reply keyboard does
    * not reflow media. `scroll` — writing/listen: page can scroll; keyboard
@@ -76,9 +89,12 @@ export function OsMediaFaceShell({
   mast = null,
   progress = null,
   footer = null,
+  aboveFooter = null,
   footerChrome = null,
+  transport = null,
   quietTitle = false,
   chromeQuiet = false,
+  keepDock = false,
   stageLayout = 'scroll',
   className,
   contentClassName = 'scarce-read-slide-body',
@@ -92,22 +108,37 @@ export function OsMediaFaceShell({
   const brow = eyebrow?.trim() || '';
   const sub = subtitle?.trim() || '';
   const frostedFooter =
-    footer != null ? (
-      <>
+    footer != null || aboveFooter != null ? (
+      <div className="os-media-face-footer-frost">
         <div
           className="os-media-face-footer-glass"
           aria-hidden
           style={frostStyle}
         />
-        <div className="os-media-face-footer">{footer}</div>
-      </>
+        {aboveFooter != null ? (
+          <div className="os-media-face-footer-lede">{aboveFooter}</div>
+        ) : null}
+        {footer != null ? (
+          <div className="os-media-face-footer">{footer}</div>
+        ) : null}
+      </div>
     ) : null;
-  const screenFooter = footerChrome ?? frostedFooter;
+  const stackedFooter =
+    frostedFooter != null || transport != null ? (
+      <div
+        className={`os-media-face-footer-stack${transport ? ' has-transport' : ''}`}
+      >
+        {frostedFooter}
+        {transport}
+      </div>
+    ) : null;
+  const screenFooter = footerChrome ?? stackedFooter;
   const slideClass = [
     'scarce-read-slide',
     'os-media-face',
     stageLayout === 'fixed' ? 'os-media-face--fixed-stage' : '',
     chromeQuiet ? 'is-chrome-quiet' : '',
+    transport ? 'has-face-transport' : '',
     className?.trim() || '',
   ]
     .filter(Boolean)
@@ -127,6 +158,7 @@ export function OsMediaFaceShell({
       title={dialogName}
       hideNav
       elevateChrome={false}
+      keepDock={keepDock}
       closeAriaLabel={closeAriaLabel}
       zIndex={zIndex}
       className={slideClass}

@@ -27,26 +27,47 @@ export interface PostMediaItem {
   alt?: string;
 }
 
-export function isPostImageMime(mime: string): boolean {
+export function isPostImageMime(mime: string | null | undefined): boolean {
+  if (!mime) return false;
   return POST_IMAGE_MIMES.has(mime.toLowerCase());
 }
 
-export function isPostVideoMime(mime: string): boolean {
+export function isPostVideoMime(mime: string | null | undefined): boolean {
+  if (!mime) return false;
   return POST_VIDEO_MIMES.has(mime.toLowerCase());
 }
 
 /** Render-time video check — accept any video/* from stored media refs. */
-export function isRenderablePostVideoMime(mime: string): boolean {
+export function isRenderablePostVideoMime(
+  mime: string | null | undefined
+): boolean {
+  if (!mime) return false;
   return mime.toLowerCase().startsWith('video/');
 }
 
+/** Video item — mime first, then common file extensions when mime is missing. */
+export function isRenderablePostVideo(item: {
+  mime?: string | null;
+  url?: string | null;
+}): boolean {
+  if (isRenderablePostVideoMime(item.mime)) return true;
+  const url = item.url?.trim().toLowerCase() ?? '';
+  if (!url) return false;
+  return /\.(mp4|webm|mov|m4v)(\?|#|$)/.test(url);
+}
+
 /** Render-time audio check — accept any audio/* from stored media refs. */
-export function isRenderablePostAudioMime(mime: string): boolean {
+export function isRenderablePostAudioMime(
+  mime: string | null | undefined
+): boolean {
+  if (!mime) return false;
   return mime.toLowerCase().startsWith('audio/');
 }
 
 /** Video or audio — never the NEP-177 still cover. */
-export function isRenderablePostPlayableMime(mime: string): boolean {
+export function isRenderablePostPlayableMime(
+  mime: string | null | undefined
+): boolean {
   return isRenderablePostVideoMime(mime) || isRenderablePostAudioMime(mime);
 }
 

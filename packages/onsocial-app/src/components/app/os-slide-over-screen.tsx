@@ -111,6 +111,11 @@ export interface OsSlideOverScreenProps {
   contentClassName?: string;
   /** Scroll container for nested lists (`.os-app-screen-body`). */
   scrollRootRef?: RefObject<HTMLElement | null>;
+  /**
+   * Keep the summon dock visible above this slide (video transport / reply).
+   * Sets `data-keep-dock` so global tuck rules skip this layer.
+   */
+  keepDock?: boolean;
 }
 
 /**
@@ -142,6 +147,7 @@ export function OsSlideOverScreen({
   className,
   contentClassName,
   scrollRootRef,
+  keepDock = false,
 }: OsSlideOverScreenProps) {
   const titleId = useId();
   const headerRef = useRef<HTMLElement | null>(null);
@@ -274,6 +280,7 @@ export function OsSlideOverScreen({
       data-glass-chrome={useGlassChrome ? 'true' : undefined}
       data-screen-footer={hasFooter ? 'true' : undefined}
       data-os-slide-over="true"
+      data-keep-dock={keepDock ? 'true' : undefined}
       data-hide-nav={hideNav ? 'true' : undefined}
       data-viewport={viewport ? 'true' : undefined}
       data-mood={hasMood ? resolvedMoodId! : undefined}

@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -85,6 +86,8 @@ export function ComposeLauncherProvider({ children }: { children: ReactNode }) {
   const [writeDockMorph, setWriteDockMorph] = useState<WriteDockMorph>('idle');
   const [writeDockHasDraft, setWriteDockHasDraft] = useState(false);
   const writeFocusRef = useRef<(() => void) | null>(null);
+  /** Focus asked before the dock mounted (lazy reply) — fire on register. */
+  const pendingWriteFocusRef = useRef(false);
 
   const upsertCompose = useCallback((item: ComposeStackItem) => {
     setStack((current) => upsertComposeStack(current, item));
@@ -96,13 +99,21 @@ export function ComposeLauncherProvider({ children }: { children: ReactNode }) {
 
   const registerWriteFocus = useCallback((fn: () => void) => {
     writeFocusRef.current = fn;
+    if (pendingWriteFocusRef.current) {
+      pendingWriteFocusRef.current = false;
+      fn();
+    }
     return () => {
       if (writeFocusRef.current === fn) writeFocusRef.current = null;
     };
   }, []);
 
   const focusWriteDock = useCallback(() => {
-    writeFocusRef.current?.();
+    if (writeFocusRef.current) {
+      writeFocusRef.current();
+      return;
+    }
+    pendingWriteFocusRef.current = true;
   }, []);
 
   const surface = useMemo<ComposeLauncherSurface | null>(() => {
@@ -225,11 +236,13 @@ export function useRegisterWriteDock(entry: WriteDockRegistration | null) {
       ].join('\0')
     : '';
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     entryRef.current = entry;
   }, [entry]);
 
-  useEffect(() => {
+  /* Layout effect — the dock swap paints the same frame as the trigger
+   * (lazy reply mounts felt a beat late with a passive effect). */
+  useLayoutEffect(() => {
     if (!upsertCompose || !popCompose || !entryRef.current) return;
     const current = entryRef.current;
     upsertCompose({

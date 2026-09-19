@@ -13221,11 +13221,15 @@ a.os-surface-row {
    * Overlays portal into the card; tuck the face dock while other sheets are up.
    * The page drawer keeps the dock via keepDock (data-keep-dock) — any sheet
    * without it tucks the dock, including sheets opened above the drawer.
+   * Slide-overs with data-keep-dock (feed video enlarge) keep the dock too.
    */
-  body:has([data-os-slide-over='true'])
+  body:has([data-os-slide-over='true']:not([data-keep-dock='true']))
     .portfolio-os-layer
     > .portfolio-summon-dock,
-  body:has(.os-slide-over[data-viewport='true']) .portfolio-summon-dock,
+  body:has(
+      .os-slide-over[data-viewport='true']:not([data-keep-dock='true'])
+    )
+    .portfolio-summon-dock,
   body:has(.glass-sheet-root:not([data-keep-dock='true']))
     .portfolio-os-layer
     > .portfolio-summon-dock,
@@ -13239,11 +13243,13 @@ a.os-surface-row {
     pointer-events: none;
   }
 
-  body:has([data-os-slide-over='true'])
+  body:has([data-os-slide-over='true']:not([data-keep-dock='true']))
     .portfolio-os-layer
     > .portfolio-summon-dock
     .portfolio-summon,
-  body:has(.os-slide-over[data-viewport='true'])
+  body:has(
+      .os-slide-over[data-viewport='true']:not([data-keep-dock='true'])
+    )
     .portfolio-summon-dock
     .portfolio-summon,
   body:has(.glass-sheet-root:not([data-keep-dock='true']))
@@ -13256,6 +13262,18 @@ a.os-surface-row {
     .portfolio-summon,
   body:has(.os-launcher-root) .portfolio-summon-dock .portfolio-summon {
     pointer-events: none;
+  }
+
+  /* Video transport / reply write — above media-face slide (z ~80). */
+  body:has([data-os-slide-over='true'][data-keep-dock='true'])
+    .portfolio-summon-dock {
+    z-index: 90;
+  }
+
+  body:has([data-os-slide-over='true'][data-keep-dock='true'])
+    .portfolio-summon-dock
+    .portfolio-summon {
+    pointer-events: auto;
   }
 
   /* Same fixed pill over the page drawer (sheet z-index 48). */
@@ -30237,6 +30255,23 @@ a.os-surface-row {
     bottom: max(0.45rem, env(safe-area-inset-bottom, 0px));
   }
 
+  /*
+   * Video/photo transport lives IN the slide footer (OS column), under
+   * engagement — pin the whole stack to the safe edge while summon is tucked.
+   */
+  /*
+   * Icons keep the article seat (above the dock slot); the transport hangs
+   * below them into the dock slot — the write-bar position on article faces.
+   * The :has variant must repeat it — the tucked-summon rule outweighs us.
+   */
+  .os-slide-over.scarce-read-slide.has-face-transport[data-os-slide-over='true']
+    .os-app-screen-footer,
+  .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
+    .os-slide-over.scarce-read-slide.has-face-transport[data-os-slide-over='true']
+    .os-app-screen-footer {
+    bottom: var(--portfolio-dock-clearance, 4.75rem);
+  }
+
   .os-slide-over.scarce-read-slide[data-os-slide-over='true'][data-screen-footer='true']
     .os-app-screen-body {
     padding-bottom: calc(
@@ -30254,6 +30289,27 @@ a.os-surface-row {
     padding-bottom: calc(
       max(0.45rem, env(safe-area-inset-bottom, 0px)) +
         var(--os-screen-footer-band, 4.25rem)
+    );
+  }
+
+  /* Photo face (no transport) — hug engagement so the caption peek sits
+   * just above the frost edge, not floating above dead space. */
+  .os-slide-over.feed-photo-slide[data-os-slide-over='true'][data-screen-footer='true'] {
+    --os-screen-footer-band: 3.75rem;
+  }
+
+  .os-slide-over.scarce-read-slide.has-face-transport[data-os-slide-over='true'][data-screen-footer='true'] {
+    --os-screen-footer-band: 1.15rem;
+  }
+
+  .os-slide-over.scarce-read-slide.has-face-transport[data-os-slide-over='true'][data-screen-footer='true']
+    .os-app-screen-body,
+  .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
+    .os-slide-over.scarce-read-slide.has-face-transport[data-os-slide-over='true'][data-screen-footer='true']
+    .os-app-screen-body {
+    padding-bottom: calc(
+      var(--portfolio-dock-clearance, 4.75rem) +
+        var(--os-screen-footer-band, 3rem)
     );
   }
 
@@ -30351,6 +30407,44 @@ a.os-surface-row {
     .scarce-read-slide
     .os-media-face-footer-glass {
     bottom: 0;
+  }
+
+  /* Article look — frost bleeds down behind the dock-slot transport zone. */
+  .scarce-read-slide.has-face-transport .os-media-face-footer-glass,
+  .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
+    .scarce-read-slide.has-face-transport
+    .os-media-face-footer-glass {
+    bottom: calc(-1 * var(--portfolio-dock-clearance, 4.75rem));
+  }
+
+  .scarce-read-slide .os-media-face-footer-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /*
+   * Frost binds to the icon row only — same band height as article / cover.
+   * The transport floats above the frost edge as its own dock card.
+   */
+  .scarce-read-slide .os-media-face-footer-frost {
+    position: relative;
+    width: 100%;
+  }
+
+  /* Transport hangs below the icons into the dock slot (article write-bar
+   * seat) — tightened so it clears the screen edge by ~0.9rem. */
+  .scarce-read-slide .os-media-face-footer-stack > .feed-photo-video-dock--slot {
+    position: absolute;
+    top: calc(100% + 0.15rem);
+    left: 0;
+    right: 0;
+    width: auto;
+    margin-inline: var(--os-screen-body-pad-x, 1rem);
+    padding-block: 0.4rem 0.45rem;
   }
 
   .scarce-read-slide .os-media-face-footer {
@@ -30626,6 +30720,36 @@ a.os-surface-row {
     height: 100%;
   }
 
+  /*
+   * Media tone — dim slightly in dark mode, brighten in light mode.
+   * Follows the app data-theme toggle; prefers-color-scheme only covers
+   * no-toggle first paint. Cinema shows the film untouched.
+   */
+  .feed-photo-slide:not(.feed-photo-slide--cinema) .feed-photo-image,
+  .feed-photo-slide:not(.feed-photo-slide--cinema) .feed-photo-video {
+    filter: brightness(0.94);
+  }
+
+  :root[data-theme='light']
+    .feed-photo-slide:not(.feed-photo-slide--cinema)
+    .feed-photo-image,
+  :root[data-theme='light']
+    .feed-photo-slide:not(.feed-photo-slide--cinema)
+    .feed-photo-video {
+    filter: brightness(1.03);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme])
+      .feed-photo-slide:not(.feed-photo-slide--cinema)
+      .feed-photo-image,
+    :root:not([data-theme])
+      .feed-photo-slide:not(.feed-photo-slide--cinema)
+      .feed-photo-video {
+      filter: brightness(1.03);
+    }
+  }
+
   .feed-photo-track {
     display: flex;
     width: 100%;
@@ -30697,8 +30821,375 @@ a.os-surface-row {
     max-height: 100%;
   }
 
+  .feed-photo-stage > .feed-photo-video-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    max-height: 100%;
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+  }
+
+  .feed-photo-video-wrap .feed-photo-video {
+    max-width: 100%;
+    max-height: 100%;
+    cursor: pointer;
+  }
+
+  .feed-photo-video-play {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    background: rgb(0 0 0 / 0.22);
+  }
+
+  .feed-photo-video-play-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    color: rgb(255 255 255 / 0.94);
+    filter: drop-shadow(0 2px 10px rgb(0 0 0 / 0.35));
+  }
+
+  .feed-photo-video-buffer {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    background: rgb(0 0 0 / 0.12);
+  }
+
+  .feed-photo-video-buffer-spin {
+    width: 1.85rem;
+    height: 1.85rem;
+    border-radius: 999px;
+    border: 2px solid rgb(255 255 255 / 0.22);
+    border-top-color: rgb(255 255 255 / 0.92);
+    animation: feed-photo-video-spin 0.7s linear infinite;
+  }
+
+  @keyframes feed-photo-video-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .feed-photo-video-buffer-spin {
+      animation: none;
+      border-top-color: rgb(255 255 255 / 0.55);
+    }
+  }
+
   .feed-photo-video {
     background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  /*
+   * Media face transport — inside the OS column footer stack (under
+   * engagement). Not a viewport portal — column width only.
+   */
+  .feed-photo-video-dock--slot {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    pointer-events: auto;
+    transition: opacity 220ms var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1));
+  }
+
+  .feed-photo-video-dock--slot.is-chrome-quiet {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /*
+   * Cinema — transport floats inside the stage so OS fullscreen keeps
+   * pause / scrub / mute / exit. Tap the film to fade it.
+   */
+  .feed-photo-stage > .feed-photo-video-dock--slot {
+    position: absolute;
+    left: 50%;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    z-index: 6;
+    width: min(92%, 34rem);
+    transform: translateX(-50%);
+  }
+
+  .feed-photo-video-dock {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.28rem;
+    width: 100%;
+    min-width: 0;
+    padding: 0.5rem 0.65rem 0.55rem;
+    border: 0;
+    border-radius: 1.15rem;
+    background: var(--glass-surface, rgb(var(--bg-rgb) / 0.32));
+    color: rgb(var(--fg-rgb) / 0.92);
+    box-shadow: var(
+      --os-chrome-elev-shadow,
+      0 10px 32px -10px rgb(0 0 0 / 0.34)
+    );
+    backdrop-filter: blur(20px) saturate(1.3);
+    box-sizing: border-box;
+  }
+
+  .feed-photo-video-dock .feed-photo-video-progress {
+    position: relative;
+    height: 1.05rem;
+    margin: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    pointer-events: auto;
+    touch-action: none;
+    cursor: pointer;
+  }
+
+  .feed-photo-video-dock .feed-photo-video-progress-rail {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 0.1rem;
+    border-radius: 999px;
+    background: rgb(var(--fg-rgb) / 0.18);
+    opacity: 1;
+    transform: translateY(-50%);
+  }
+
+  .feed-photo-video-dock .feed-photo-video-progress-fill {
+    opacity: 1;
+    background: color-mix(in srgb, var(--protocol-green) 78%, white 8%);
+  }
+
+  .feed-photo-video-dock .feed-photo-video-progress-knob {
+    opacity: 1;
+  }
+
+  .feed-photo-video-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .feed-photo-video-control {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    box-shadow: none;
+    color: rgb(var(--fg-rgb) / 0.92);
+    cursor: pointer;
+    appearance: none;
+  }
+
+  .feed-photo-video-control:hover,
+  .feed-photo-video-control:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .feed-photo-video-control:focus-visible {
+    outline: none;
+  }
+
+  .feed-photo-video-control-icon {
+    width: 1.05rem;
+    height: 1.05rem;
+  }
+
+  .feed-photo-video-controls .feed-photo-video-time {
+    position: static;
+    top: auto;
+    right: auto;
+    margin: 0 auto 0 0.15rem;
+    padding: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-start;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.72);
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+  }
+
+  .feed-photo-video-time-sep {
+    opacity: 0.55;
+  }
+
+  .feed-photo-video-progress-rail {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    z-index: 1;
+    height: 0.08rem;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.18);
+    opacity: 0.42;
+    pointer-events: none;
+    transform: translateY(-50%);
+    transition:
+      height 140ms ease,
+      opacity 140ms ease,
+      background 140ms ease;
+  }
+
+  .feed-photo-video-progress:hover .feed-photo-video-progress-rail,
+  .feed-photo-video-progress.is-scrubbing .feed-photo-video-progress-rail,
+  .feed-photo-video-progress.is-chrome-visible .feed-photo-video-progress-rail,
+  .feed-photo-video-progress:has(
+      .feed-photo-video-progress-scrub:focus-visible
+    )
+    .feed-photo-video-progress-rail {
+    height: 0.14rem;
+    opacity: 1;
+    background: rgb(255 255 255 / 0.28);
+  }
+
+  .feed-photo-video-progress-fill {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    background: color-mix(in srgb, var(--protocol-green) 78%, white 8%);
+    transform: scaleX(var(--feed-video-p, 0));
+    transform-origin: left center;
+    will-change: transform;
+    pointer-events: none;
+    opacity: 0.72;
+  }
+
+  .feed-photo-video-progress:hover .feed-photo-video-progress-fill,
+  .feed-photo-video-progress.is-scrubbing .feed-photo-video-progress-fill,
+  .feed-photo-video-progress.is-chrome-visible .feed-photo-video-progress-fill {
+    opacity: 1;
+  }
+
+  .feed-photo-video-progress-knob {
+    position: absolute;
+    top: 50%;
+    left: calc(var(--feed-video-p, 0) * 100%);
+    width: 0.72rem;
+    height: 0.72rem;
+    border: 0;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--protocol-green) 88%, white 12%);
+    box-shadow: none;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    opacity: 0;
+    transition:
+      opacity 140ms ease,
+      transform 120ms ease;
+  }
+
+  .feed-photo-video-progress:hover .feed-photo-video-progress-knob,
+  .feed-photo-video-progress.is-scrubbing .feed-photo-video-progress-knob,
+  .feed-photo-video-progress.is-chrome-visible .feed-photo-video-progress-knob,
+  .feed-photo-video-progress:has(
+      .feed-photo-video-progress-scrub:focus-visible
+    )
+    .feed-photo-video-progress-knob {
+    opacity: 1;
+  }
+
+  .feed-photo-video-progress.is-scrubbing .feed-photo-video-progress-knob {
+    transform: translate(-50%, -50%) scale(1.28);
+  }
+
+  .feed-photo-video-progress-scrub {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+    appearance: none;
+    background: transparent;
+  }
+
+  .feed-photo-video-progress-scrub:disabled {
+    cursor: default;
+  }
+
+  .feed-photo-video-progress-scrub::-webkit-slider-runnable-track {
+    height: 100%;
+    background: transparent;
+  }
+
+  .feed-photo-video-progress-scrub::-moz-range-track {
+    height: 100%;
+    background: transparent;
+  }
+
+  .feed-photo-video-progress-scrub::-webkit-slider-thumb {
+    appearance: none;
+    width: 1px;
+    height: 1px;
+    background: transparent;
+    border: 0;
+  }
+
+  .feed-photo-video-progress-scrub::-moz-range-thumb {
+    width: 1px;
+    height: 1px;
+    background: transparent;
+    border: 0;
+  }
+
+  .feed-photo-video-progress-scrub:focus-visible {
+    outline: none;
+  }
+
+  .feed-photo-video-time {
+    position: absolute;
+    top: 0.85rem;
+    right: 0.55rem;
+    z-index: 2;
+    display: flex;
+    align-items: baseline;
+    gap: 0.2rem;
+    margin: 0;
+    padding: 0.12rem 0.4rem;
+    border-radius: 0.35rem;
+    background: rgb(0 0 0 / 0.42);
+    color: rgb(255 255 255 / 0.92);
+    font-size: 0.68rem;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+  }
+
+  .feed-photo-video-time-sep {
+    opacity: 0.55;
   }
 
   .feed-photo-image--empty {
@@ -30709,110 +31200,129 @@ a.os-surface-row {
 
   /*
    * Caption overlays the stage — media size never changes.
-   * Peek → tap caption expands up (mute); tap caption or mute collapses.
+   * Peek → tap caption expands over; outside / Esc / play collapses.
+   */
+  /*
+   * Caption — bare text over the media, no background. Peek clamps to 2
+   * lines; expanded unclamps and scrolls. Legibility comes from a subtle
+   * gradient scrim at the bottom edge, not a panel.
    */
   .feed-photo-caption {
     position: absolute;
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 4;
+    z-index: 5;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    align-items: stretch;
+    pointer-events: none;
+    background-color: transparent;
+    transition:
+      opacity 220ms ease,
+      background-color 200ms ease;
+  }
+
+  /* Tap-quiet fades the caption with the rest of the chrome. */
+  .feed-photo-caption.is-chrome-quiet {
+    opacity: 0;
+  }
+
+  .feed-photo-caption.is-chrome-quiet .feed-photo-caption-body,
+  .feed-photo-caption.is-chrome-quiet .feed-photo-caption-dismiss {
     pointer-events: none;
   }
 
+  /*
+   * Expanded covers the stage — reading mode dims the media only (page
+   * chrome stays); the dimmed area above collapses on tap.
+   */
   .feed-photo-caption.is-expanded {
-    inset: 0;
+    top: 0;
+    background-color: rgb(var(--bg-rgb) / 0.55);
   }
 
-  .feed-photo-caption-mute {
+  .feed-photo-caption-dismiss {
+    display: none;
     flex: 1 1 auto;
-    min-height: 0;
-    border: 0;
+    min-height: 2.5rem;
     margin: 0;
     padding: 0;
+    border: 0;
+    background: transparent;
     cursor: pointer;
-    background: rgb(0 0 0 / 0.22);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 200ms ease;
+    appearance: none;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
   }
 
-  .feed-photo-caption.is-expanded .feed-photo-caption-mute {
-    opacity: 1;
-    pointer-events: auto;
+  .feed-photo-caption.is-expanded .feed-photo-caption-dismiss {
+    display: block;
   }
 
   .feed-photo-caption-body {
     display: block;
     width: 100%;
-    max-width: min(100%, 34rem);
-    margin: 0 auto;
-    padding: 0.55rem 0.85rem 0.65rem;
+    margin: 0;
+    padding: 0.55rem var(--os-screen-body-pad-x, 1rem) 0.65rem;
     border: 0;
-    text-align: left;
-    cursor: pointer;
-    color: rgb(255 255 255 / 0.9);
-    text-shadow:
-      0 1px 2px rgb(0 0 0 / 0.55),
-      0 0 18px rgb(0 0 0 / 0.35);
-    pointer-events: auto;
     background: linear-gradient(
       180deg,
-      rgb(0 0 0 / 0) 0%,
-      rgb(0 0 0 / 0.32) 100%
+      rgb(var(--bg-rgb) / 0) 0%,
+      rgb(var(--bg-rgb) / 0.55) 100%
     );
-    max-height: 2.85rem;
-    overflow: hidden;
-    transition:
-      max-height 240ms cubic-bezier(0.22, 1, 0.36, 1),
-      padding 200ms ease,
-      background 200ms ease;
-  }
-
-  .feed-photo-caption.is-expanded .feed-photo-caption-body {
-    max-height: 18rem;
+    text-align: left;
+    color: rgb(var(--fg-rgb) / 0.92);
+    cursor: pointer;
+    appearance: none;
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding-top: 0.75rem;
-    padding-bottom: 0.85rem;
-    background: linear-gradient(
-      180deg,
-      rgb(0 0 0 / 0.05) 0%,
-      rgb(0 0 0 / 0.4) 100%
-    );
+    -webkit-tap-highlight-color: transparent;
+    pointer-events: auto;
+    /* Border-box: 2 lines (2.76rem) + 1.2rem pad — never clip the 2nd line. */
+    max-height: 4.1rem;
+    transition: max-height 160ms ease-out;
   }
 
-  .feed-photo-caption-peek-text {
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-size: 0.78rem;
-    font-weight: 500;
-    line-height: 1.35;
-    letter-spacing: -0.01em;
+  .feed-photo-caption.is-expanded .feed-photo-caption-body {
+    max-height: min(62%, 22rem);
   }
 
-  .feed-photo-caption-full {
+  .feed-photo-caption-body:focus-visible {
+    outline: none;
+  }
+
+  .feed-photo-caption-text {
     display: block;
     white-space: pre-wrap;
     word-break: break-word;
     font-size: 0.92rem;
     font-weight: 500;
-    line-height: 1.45;
+    line-height: 1.5;
     letter-spacing: -0.01em;
   }
 
+  .feed-photo-caption:not(.is-expanded) .feed-photo-caption-text {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .feed-photo-caption.is-expanded .feed-photo-caption-text {
+    display: block;
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .feed-photo-caption-mute,
     .feed-photo-caption-body {
+      transition: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .feed-photo-video-control,
+    .feed-photo-nav {
       transition: none;
     }
   }
@@ -30823,6 +31333,51 @@ a.os-surface-row {
     justify-content: center;
     gap: 0.2rem;
     flex: 0 0 auto;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+  }
+
+  .feed-photo-nav.is-chrome-quiet {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate3d(0, 0.35rem, 0);
+  }
+
+  /* Cinema / panoramic — edge-to-edge stage; still contain, never crop. */
+  .feed-photo-slide--cinema .feed-photo-listen {
+    padding: 0;
+    gap: 0;
+  }
+
+  .feed-photo-slide--cinema .feed-photo-stage,
+  .feed-photo-stage.is-cinema {
+    background: rgb(0 0 0);
+  }
+
+  .feed-photo-slide--cinema .feed-photo-image,
+  .feed-photo-slide--cinema .feed-photo-video {
+    border-radius: 0;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .feed-photo-slide--cinema .feed-photo-video-wrap {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Reply open (keep-dock while writing) — icons yield to the write dock. */
+  .feed-photo-slide--cinema .os-media-face-hero,
+  .feed-photo-slide.is-chrome-quiet .os-app-screen-footer,
+  .feed-photo-slide[data-keep-dock='true'] .os-app-screen-footer,
+  .feed-photo-slide.is-chrome-quiet .os-media-face-footer,
+  .feed-photo-slide.is-chrome-quiet .os-media-face-footer-glass {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .feed-photo-slide--cinema.is-chrome-quiet .os-media-face-hero {
+    opacity: 0;
+    pointer-events: none;
   }
 
   .feed-photo-dots {

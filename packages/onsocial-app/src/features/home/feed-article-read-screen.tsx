@@ -67,6 +67,7 @@ export function FeedArticleReadScreen({
           href={authorHref}
           className="os-media-face-identity"
           scroll={false}
+          prefetch={false}
           aria-label={`View ${authorName}'s profile`}
         >
           <AccountAvatar

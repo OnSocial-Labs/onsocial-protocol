@@ -18,6 +18,7 @@ import {
 import {
   resolveDockBackVisible,
   useDockBack,
+  useImmersiveChromeQuiet,
   type DockBackRegistration,
 } from '@/contexts/dock-chrome-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
@@ -82,6 +83,7 @@ export function PortfolioSummonDock({
   const write = compose?.type === 'write' ? compose.entry : null;
   const registeredDockBack = useDockBack();
   const dockBack = registeredDockBack ?? FACE_DOCK_BACK;
+  const immersiveChromeQuiet = useImmersiveChromeQuiet();
   const { effectiveMood, isPreviewingMood } = usePortfolioMoodPreview();
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
   const viewerDockMood = useViewerDockMood(pageAccountId);
@@ -113,14 +115,17 @@ export function PortfolioSummonDock({
 
   const scrollRoot = pageDrawerOpen ? scrollNode : null;
   const scrollHidden =
-    useDockAutoHide(
+    (useDockAutoHide(
       previewPinned ||
         openPinned ||
         writePinned ||
         Boolean(write) ||
         (pageDrawerOpen && !scrollNode),
       scrollRoot
-    ) && !osOpen;
+    ) ||
+      immersiveChromeQuiet) &&
+    !osOpen &&
+    !write;
 
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerStart = useRef<{

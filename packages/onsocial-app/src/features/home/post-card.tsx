@@ -1410,8 +1410,21 @@ export function PostCard({
   const [enlargeOverride, setEnlargeOverride] = useState<PostMediaItem[] | null>(
     null
   );
-  const enlargeWrite = photoOpen || feedMediumOpen || articleOpen;
+  /** Photo/video face — write dock only after Reply (transport owns the slot first). */
+  const [photoReplyWrite, setPhotoReplyWrite] = useState(false);
+  const enlargeWrite = photoReplyWrite || feedMediumOpen || articleOpen;
   const focusWriteDock = useFocusWriteDock();
+  /* Compact chipless dock, focused on open (article parity — type right
+   * away; the bar stays visually compact until text). Provider holds the
+   * focus request until the dock registers. */
+  const startPhotoReplyWrite = useCallback(() => {
+    setPhotoReplyWrite(true);
+    focusWriteDock();
+  }, [focusWriteDock]);
+  /* Tap the media / Escape leaves the reply — draft persists via draftKey. */
+  const dismissPhotoReplyWrite = useCallback(() => {
+    setPhotoReplyWrite(false);
+  }, []);
   useReplyWriteDock({
     target: post,
     enabled: enlargeWrite,
@@ -1421,11 +1434,15 @@ export function PostCard({
     onExpand: onExpandReply
       ? (payload) => {
           setPhotoOpen(false);
+          setPhotoReplyWrite(false);
           setFeedMediumOpen(false);
           setArticleOpen(false);
           onExpandReply(post, payload);
         }
       : undefined,
+    onConfirmed: () => {
+      setPhotoReplyWrite(false);
+    },
   });
   const [menuForceEmbed, setMenuForceEmbed] = useState(false);
   const [cancelScarcePending, setCancelScarcePending] = useState(false);
@@ -2129,12 +2146,14 @@ export function PostCard({
           setPhotoOpen(open);
           if (!open) {
             setEnlargeOverride(null);
+            setPhotoReplyWrite(false);
           }
         }}
         title={name}
         caption={photoCaption}
         photos={enlargePhotos}
         initialIndex={photoIndex}
+        onDismissReply={dismissPhotoReplyWrite}
         engagement={
           engagement ? (
             <PostEngagementRow
@@ -2144,9 +2163,7 @@ export function PostCard({
               reactionPending={reactionPending}
               savePending={savePending}
               sharePending={sharePending}
-              onReply={() => {
-                focusWriteDock();
-              }}
+              onReply={startPhotoReplyWrite}
               onQuote={
                 onQuote
                   ? (target) => {
