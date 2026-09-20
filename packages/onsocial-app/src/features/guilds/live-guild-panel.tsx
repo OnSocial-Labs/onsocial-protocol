@@ -536,7 +536,7 @@ export function LiveGuildPanel({
       screen?.style.removeProperty('--title-handoff');
       screen?.style.removeProperty('--os-rail-reveal');
     };
-  }, [loadState, shellPreview?.name]);
+  }, [loadState, shellPreview]);
 
   useInfiniteScrollSentinel({
     scrollRootRef,
@@ -621,7 +621,7 @@ export function LiveGuildPanel({
       }
       await refresh();
     },
-    [config?.memberDriven, refresh]
+    [config?.memberDriven, refresh, setOptimisticJoinPending]
   );
 
   const handleOwnerManage = useCallback(() => {
@@ -709,7 +709,7 @@ export function LiveGuildPanel({
       });
       scheduleReconcile();
     });
-  }, [groupId, scheduleReconcile]);
+  }, [groupId, scheduleReconcile, setLocalPosts]);
 
   const submitFromModal = async (payload: GuildComposerSubmit) => {
     if (!composer || modalPending) return;

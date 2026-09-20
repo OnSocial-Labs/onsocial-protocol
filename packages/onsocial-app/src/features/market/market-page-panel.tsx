@@ -1512,6 +1512,7 @@ export function MarketPagePanel({
       setTxResult,
       settleTokenId,
       trackTransaction,
+      viewerAccountId,
     ]
   );
 

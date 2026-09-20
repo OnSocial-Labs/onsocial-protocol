@@ -236,8 +236,16 @@ export function ComposerDropPicker({
         if (id.startsWith('__')) return;
         const drop = byKey.get(id);
         if (!drop) return;
-        const { description: _description, pickerKey: _key, ...draft } = drop;
-        onSelect(draft);
+        onSelect({
+          title: drop.title,
+          ...(drop.collectionId ? { collectionId: drop.collectionId } : {}),
+          ...(drop.tokenId ? { tokenId: drop.tokenId } : {}),
+          ...(drop.mediaUrl != null ? { mediaUrl: drop.mediaUrl } : {}),
+          ...(drop.mediumKind != null ? { mediumKind: drop.mediumKind } : {}),
+          ...(drop.sourcePostPath != null
+            ? { sourcePostPath: drop.sourcePostPath }
+            : {}),
+        });
       }}
       zIndex={zIndex}
     />

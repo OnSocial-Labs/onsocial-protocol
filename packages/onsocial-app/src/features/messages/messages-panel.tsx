@@ -12,7 +12,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import type { DmMessageRecord, DmThreadSummary, OnSocial } from '@onsocial/sdk';
 import {
   OsSheetAction,
-  OsSheetActions,
   OsIconAction,
   PulsingDots,
   QuestionMarkCircleFillIcon,

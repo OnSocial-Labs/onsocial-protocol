@@ -1835,7 +1835,6 @@ export function PostCard({
         scarceCardBg: scarceEmbed?.cardBg ?? null,
       })
     : null;
-  const articleCoverUrl = articleCover?.coverUrl?.trim() || '';
   const showScarceArt =
     !article &&
     !photoCover &&

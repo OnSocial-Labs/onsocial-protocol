@@ -698,6 +698,7 @@ export function HomePagePanel({
     accountId,
     activeFocusKey,
     activeLens,
+    clearUnseenPosts,
     initialPage,
     lensReady,
     reloadNonce,

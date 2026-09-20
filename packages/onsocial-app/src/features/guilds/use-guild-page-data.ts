@@ -878,7 +878,7 @@ export function useGuildPageData({
         setLoadingMore(false);
       }
     })();
-  }, [groupId, hasMorePosts, selectedFeedSpace, state.posts.length]);
+  }, [groupId, hasMorePosts, selectedFeedSpace, state.posts]);
 
   return {
     loadState,
