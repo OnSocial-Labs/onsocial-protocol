@@ -103,7 +103,6 @@ export function useArticleReadChrome(
   const lastTopRef = useRef(0);
   const holdLoudRef = useRef(holdLoud);
   const suppressTapUntilRef = useRef(0);
-  holdLoudRef.current = holdLoud;
 
   const syncFromRoot = useCallback((root: HTMLElement, fromResize = false) => {
     const next = articleReadProgress(
@@ -212,6 +211,7 @@ export function useArticleReadChrome(
   }, [enabled, onChromeTap, scrollRootRef, syncFromRoot]);
 
   useEffect(() => {
+    holdLoudRef.current = holdLoud;
     if (!enabled) return;
     revealChrome();
     if (!holdLoud) {
