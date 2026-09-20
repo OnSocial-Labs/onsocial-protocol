@@ -303,6 +303,8 @@ function DropLayerSheet({
   moodId?: string;
   moodStyle?: CSSProperties;
 }) {
+  const titleId = useId();
+
   return (
     <OsPageSheet
       open={open}
@@ -311,7 +313,7 @@ function DropLayerSheet({
       surface="page"
       presentation="appear"
       zIndex={zIndex}
-      ariaLabel="Drop"
+      ariaLabelledBy={titleId}
       backdropLabel="Back"
       keepDock
       moodId={moodId}
@@ -320,6 +322,9 @@ function DropLayerSheet({
       bodyClassName="drop-sheet-body"
       header={null}
     >
+      <span id={titleId} className="sr-only">
+        Drop
+      </span>
       <CollectionPagePanel
         collectionId={layer.collectionId}
         initial={null}
