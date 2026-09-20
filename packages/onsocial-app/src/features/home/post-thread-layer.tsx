@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -252,9 +253,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   );
   const seqRef = useRef(0);
   const stackRef = useRef(stack);
-  stackRef.current = stack;
-  const closingIdRef = useRef<string | null>(null);
-  closingIdRef.current = closingId;
+  const closingIdRef = useRef<string | null>(closingId);
+  useLayoutEffect(() => {
+    stackRef.current = stack;
+    closingIdRef.current = closingId;
+  }, [closingId, stack]);
 
   const beginCloseTop = useCallback(() => {
     const top = stackRef.current[stackRef.current.length - 1];
