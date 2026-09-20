@@ -66,7 +66,7 @@ import {
   THREAD_REPLY_TREE_MAX_NODES,
   type PersonalPostPageData,
 } from '@/lib/load-personal-post-page';
-import { portfolioPath } from '@/lib/overlay-routes';
+import { APP_HOME_PATH } from '@/lib/app-routes';
 import {
   appendThreadFocusReply,
   personalPostContentPath,
@@ -334,9 +334,7 @@ export function LivePersonalPostPanel({
           if (indexed?.groupId) {
             const href = postThreadPath(indexed);
             const reply = searchParams.get(THREAD_FOCUS_REPLY_QUERY);
-            router.replace(
-              reply ? appendThreadFocusReply(href, reply) : href
-            );
+            router.replace(reply ? appendThreadFocusReply(href, reply) : href);
             return;
           }
         }
@@ -659,12 +657,13 @@ export function LivePersonalPostPanel({
     ? writeDockDraftKey('post', postKey(root))
     : undefined;
   const nestMenuZ = embedded ? SHEET_Z.confirm : undefined;
-  const writeAbove = nestedDockReply && writeName ? (
-    <OsWriteDockReplyChip
-      label={writeName}
-      onCancel={() => setDockTarget(null)}
-    />
-  ) : null;
+  const writeAbove =
+    nestedDockReply && writeName ? (
+      <OsWriteDockReplyChip
+        label={writeName}
+        onCancel={() => setDockTarget(null)}
+      />
+    ) : null;
   useReplyWriteDock({
     target: writeTarget,
     enabled: Boolean(root),
@@ -833,119 +832,59 @@ export function LivePersonalPostPanel({
   });
 
   const thread = (
-      <div className={embedded ? 'feed-media-thread-embed' : GUILDS_PAGE_CLASS}>
-        {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
+    <div
+      className={hideRootMedia ? 'feed-media-thread-embed' : GUILDS_PAGE_CLASS}
+    >
+      {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
 
-        {loadState === 'missing' ? (
-          <section className="guild-state-card">
-            <p>We could not find this post in the indexed feed yet.</p>
-            <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
-          </section>
-        ) : null}
+      {loadState === 'missing' ? (
+        <section className="guild-state-card">
+          <p>We could not find this post in the indexed feed yet.</p>
+          <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
+        </section>
+      ) : null}
 
-        {loadState === 'error' ? (
-          <section className="guild-state-card is-error">
-            <p>{error ?? 'Could not load post thread.'}</p>
-            <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
-          </section>
-        ) : null}
+      {loadState === 'error' ? (
+        <section className="guild-state-card is-error">
+          <p>{error ?? 'Could not load post thread.'}</p>
+          <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
+        </section>
+      ) : null}
 
-        {loadState === 'ready' && conversation.root ? (
-          <section className="guild-thread-column">
-            <div className="guild-thread-context">
-              {ancestorChain.map((ancestor, index) => (
-                <div
-                  className={`guild-thread-ancestor post-thread-item post-thread-item--down${index > 0 ? ' post-thread-item--up' : ''}`}
-                  key={postKey(ancestor)}
-                >
-                  <PostCard
-                    post={ancestor}
-                    authorProfile={postAuthorProfiles[ancestor.accountId]}
-                    actionHref={postThreadPath(ancestor)}
-                    menuZIndex={nestMenuZ}
-                    showRelationBadge={index === 0}
-                    authorProfiles={postAuthorProfiles}
-                    quotedPost={
-                      ancestor.refPath
-                        ? quotedPosts[ancestor.refPath]
-                        : undefined
-                    }
-                    quotedAuthorProfile={
-                      ancestor.refPath
-                        ? postAuthorProfiles[
-                            quotedPosts[ancestor.refPath]?.accountId ?? ''
-                          ]
-                        : undefined
-                    }
-                    quotedHref={quotedHrefFor(
-                      ancestor.refPath
-                        ? quotedPosts[ancestor.refPath]
-                        : undefined
-                    )}
-                    engagement={
-                      engagement[postKey(ancestor)] ?? EMPTY_POST_ENGAGEMENT
-                    }
-                    reactionPending={isReactionPending(ancestor)}
-                    savePending={isSavePending(ancestor)}
-                    sharePending={isSharePending(ancestor)}
-                    onToggleReaction={toggleReaction}
-                    onToggleSave={toggleSave}
-                    onAmplifyConfirmed={confirmAmplify}
-                    onReply={replyHandler}
-                    onExpandReply={expandReply}
-                    onQuote={quoteHandler}
-                    onRepost={repostHandler}
-                    onUndoRepost={undoRepostHandler}
-                    pollTally={pollTallyFor(ancestor)}
-                    pollVotePending={isPollVotePending(ancestor)}
-                    onPollVote={(post, optionIndex) => {
-                      void castVote(post, optionIndex);
-                    }}
-                  />
-                </div>
-              ))}
-
+      {loadState === 'ready' && conversation.root ? (
+        <section className="guild-thread-column">
+          <div className="guild-thread-context">
+            {ancestorChain.map((ancestor, index) => (
               <div
-                className={`guild-thread-root${hasParent ? ' post-thread-item post-thread-item--up' : ''}`}
+                className={`guild-thread-ancestor post-thread-item post-thread-item--down${index > 0 ? ' post-thread-item--up' : ''}`}
+                key={postKey(ancestor)}
               >
                 <PostCard
-                  post={conversation.root}
-                  authorProfile={
-                    postAuthorProfiles[conversation.root.accountId]
-                  }
-                  mediaFocused
-                  hideMedia={hideRootMedia}
+                  post={ancestor}
+                  authorProfile={postAuthorProfiles[ancestor.accountId]}
+                  actionHref={postThreadPath(ancestor)}
                   menuZIndex={nestMenuZ}
-                  mediaUnmuted={mediaUnmuted}
-                  mediaResumeIndex={mediaResumeIndex}
-                  detailLayout
-                  showRelationBadge={!hasParent}
+                  showRelationBadge={index === 0}
                   authorProfiles={postAuthorProfiles}
                   quotedPost={
-                    conversation.root.refPath
-                      ? quotedPosts[conversation.root.refPath]
-                      : undefined
+                    ancestor.refPath ? quotedPosts[ancestor.refPath] : undefined
                   }
                   quotedAuthorProfile={
-                    conversation.root.refPath
+                    ancestor.refPath
                       ? postAuthorProfiles[
-                          quotedPosts[conversation.root.refPath]?.accountId ??
-                            ''
+                          quotedPosts[ancestor.refPath]?.accountId ?? ''
                         ]
                       : undefined
                   }
                   quotedHref={quotedHrefFor(
-                    conversation.root.refPath
-                      ? quotedPosts[conversation.root.refPath]
-                      : undefined
+                    ancestor.refPath ? quotedPosts[ancestor.refPath] : undefined
                   )}
                   engagement={
-                    engagement[postKey(conversation.root)] ??
-                    EMPTY_POST_ENGAGEMENT
+                    engagement[postKey(ancestor)] ?? EMPTY_POST_ENGAGEMENT
                   }
-                  reactionPending={isReactionPending(conversation.root)}
-                  savePending={isSavePending(conversation.root)}
-                  sharePending={isSharePending(conversation.root)}
+                  reactionPending={isReactionPending(ancestor)}
+                  savePending={isSavePending(ancestor)}
+                  sharePending={isSharePending(ancestor)}
                   onToggleReaction={toggleReaction}
                   onToggleSave={toggleSave}
                   onAmplifyConfirmed={confirmAmplify}
@@ -954,185 +893,237 @@ export function LivePersonalPostPanel({
                   onQuote={quoteHandler}
                   onRepost={repostHandler}
                   onUndoRepost={undoRepostHandler}
-                  pollTally={pollTallyFor(conversation.root)}
-                  pollVotePending={isPollVotePending(conversation.root)}
+                  pollTally={pollTallyFor(ancestor)}
+                  pollVotePending={isPollVotePending(ancestor)}
                   onPollVote={(post, optionIndex) => {
                     void castVote(post, optionIndex);
                   }}
                 />
               </div>
-            </div>
+            ))}
 
-            <Divider variant="detail" />
-
-            {threadLayout === 'tabs' ? (
-              <div className="guild-thread-chrome">
-                <div
-                  className="guild-thread-tabs"
-                  role="tablist"
-                  aria-label="Discussion content"
-                >
-                  <button
-                    type="button"
-                    role="tab"
-                    id="personal-thread-tab-replies"
-                    aria-controls="personal-thread-panel"
-                    aria-selected={activeThreadTab === 'replies'}
-                    className={
-                      activeThreadTab === 'replies' ? 'is-active' : undefined
-                    }
-                    onClick={() => {
-                      setThreadTabTouched(true);
-                      setActiveThreadTab('replies');
-                    }}
-                  >
-                    Replies
-                    <span className="guild-thread-tab-count">{replyCount}</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    id="personal-thread-tab-quotes"
-                    aria-controls="personal-thread-panel"
-                    aria-selected={activeThreadTab === 'quotes'}
-                    className={
-                      activeThreadTab === 'quotes' ? 'is-active' : undefined
-                    }
-                    onClick={() => {
-                      setThreadTabTouched(true);
-                      setActiveThreadTab('quotes');
-                    }}
-                  >
-                    Quotes
-                    <span className="guild-thread-tab-count">
-                      {quotes.length}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            ) : replyListRows.length > 0 || quoteTotal > 0 ? (
-              <div className="thread-controls-row">
-                {replyListRows.length > 0 ? (
-                  <ThreadRepliesSortButton
-                    sort={replySort}
-                    onChange={setReplySort}
-                  />
-                ) : (
-                  <span className="thread-controls-spacer" aria-hidden />
-                )}
-                {quoteTotal > 0 ? (
-                  <ThreadViewQuotesRow
-                    href={personalPostQuotesPath(author, postId)}
-                    quoteCount={quoteTotal}
-                  />
-                ) : null}
-              </div>
-            ) : null}
-
-            {threadLayout === 'tabs' ? (
-              <div
-                id="personal-thread-panel"
-                className="guild-connected-stack"
-                role="tabpanel"
-                aria-labelledby={
-                  activeThreadTab === 'replies'
-                    ? 'personal-thread-tab-replies'
-                    : 'personal-thread-tab-quotes'
+            <div
+              className={`guild-thread-root${hasParent ? ' post-thread-item post-thread-item--up' : ''}`}
+            >
+              <PostCard
+                post={conversation.root}
+                authorProfile={postAuthorProfiles[conversation.root.accountId]}
+                mediaFocused
+                hideMedia={hideRootMedia}
+                menuZIndex={nestMenuZ}
+                mediaUnmuted={mediaUnmuted}
+                mediaResumeIndex={mediaResumeIndex}
+                detailLayout
+                showRelationBadge={!hasParent}
+                authorProfiles={postAuthorProfiles}
+                quotedPost={
+                  conversation.root.refPath
+                    ? quotedPosts[conversation.root.refPath]
+                    : undefined
                 }
-              >
-                {activeThreadTab === 'replies' ? (
-                  replyListRows.length > 0 ? (
-                    replyListRows
-                  ) : (
-                    <div className="guild-state-card">No replies yet.</div>
-                  )
-                ) : quoteListRows.length > 0 ? (
-                  quoteListRows
-                ) : (
-                  <div className="guild-state-card">No quotes yet.</div>
+                quotedAuthorProfile={
+                  conversation.root.refPath
+                    ? postAuthorProfiles[
+                        quotedPosts[conversation.root.refPath]?.accountId ?? ''
+                      ]
+                    : undefined
+                }
+                quotedHref={quotedHrefFor(
+                  conversation.root.refPath
+                    ? quotedPosts[conversation.root.refPath]
+                    : undefined
                 )}
+                engagement={
+                  engagement[postKey(conversation.root)] ??
+                  EMPTY_POST_ENGAGEMENT
+                }
+                reactionPending={isReactionPending(conversation.root)}
+                savePending={isSavePending(conversation.root)}
+                sharePending={isSharePending(conversation.root)}
+                onToggleReaction={toggleReaction}
+                onToggleSave={toggleSave}
+                onAmplifyConfirmed={confirmAmplify}
+                onReply={replyHandler}
+                onExpandReply={expandReply}
+                onQuote={quoteHandler}
+                onRepost={repostHandler}
+                onUndoRepost={undoRepostHandler}
+                pollTally={pollTallyFor(conversation.root)}
+                pollVotePending={isPollVotePending(conversation.root)}
+                onPollVote={(post, optionIndex) => {
+                  void castVote(post, optionIndex);
+                }}
+              />
+            </div>
+          </div>
 
-                {(activeThreadTab === 'replies' && hasMoreReplies) ||
-                (activeThreadTab === 'quotes' && hasMoreQuotes) ? (
-                  <OsLoadMore
-                    onClick={() => void loadMore(activeThreadTab)}
-                    pending={loadingMore}
-                    disabled={loadingMore}
-                  >
-                    {loadingMore
-                      ? 'Loading…'
-                      : activeThreadTab === 'replies'
-                        ? 'Show more replies'
-                        : 'Show more quotes'}
-                  </OsLoadMore>
-                ) : null}
+          <Divider variant="detail" />
+
+          {threadLayout === 'tabs' ? (
+            <div className="guild-thread-chrome">
+              <div
+                className="guild-thread-tabs"
+                role="tablist"
+                aria-label="Discussion content"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  id="personal-thread-tab-replies"
+                  aria-controls="personal-thread-panel"
+                  aria-selected={activeThreadTab === 'replies'}
+                  className={
+                    activeThreadTab === 'replies' ? 'is-active' : undefined
+                  }
+                  onClick={() => {
+                    setThreadTabTouched(true);
+                    setActiveThreadTab('replies');
+                  }}
+                >
+                  Replies
+                  <span className="guild-thread-tab-count">{replyCount}</span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id="personal-thread-tab-quotes"
+                  aria-controls="personal-thread-panel"
+                  aria-selected={activeThreadTab === 'quotes'}
+                  className={
+                    activeThreadTab === 'quotes' ? 'is-active' : undefined
+                  }
+                  onClick={() => {
+                    setThreadTabTouched(true);
+                    setActiveThreadTab('quotes');
+                  }}
+                >
+                  Quotes
+                  <span className="guild-thread-tab-count">
+                    {quotes.length}
+                  </span>
+                </button>
               </div>
-            ) : (
-              <div className="guild-connected-stack">
-                {replyListRows.length > 0 ? (
+            </div>
+          ) : replyListRows.length > 0 || quoteTotal > 0 ? (
+            <div className="thread-controls-row">
+              {replyListRows.length > 0 ? (
+                <ThreadRepliesSortButton
+                  sort={replySort}
+                  onChange={setReplySort}
+                />
+              ) : (
+                <span className="thread-controls-spacer" aria-hidden />
+              )}
+              {quoteTotal > 0 ? (
+                <ThreadViewQuotesRow
+                  href={personalPostQuotesPath(author, postId)}
+                  quoteCount={quoteTotal}
+                />
+              ) : null}
+            </div>
+          ) : null}
+
+          {threadLayout === 'tabs' ? (
+            <div
+              id="personal-thread-panel"
+              className="guild-connected-stack"
+              role="tabpanel"
+              aria-labelledby={
+                activeThreadTab === 'replies'
+                  ? 'personal-thread-tab-replies'
+                  : 'personal-thread-tab-quotes'
+              }
+            >
+              {activeThreadTab === 'replies' ? (
+                replyListRows.length > 0 ? (
                   replyListRows
-                ) : quoteTotal === 0 ? (
-                  <ThreadDiscoverPeek
-                    author={author}
-                    excludePostId={postId}
-                    authorProfiles={postAuthorProfiles}
-                  />
-                ) : null}
+                ) : (
+                  <div className="guild-state-card">No replies yet.</div>
+                )
+              ) : quoteListRows.length > 0 ? (
+                quoteListRows
+              ) : (
+                <div className="guild-state-card">No quotes yet.</div>
+              )}
 
-                {hasMoreReplies ? (
-                  <OsLoadMore
-                    onClick={() => void loadMore('replies')}
-                    pending={loadingMore}
-                    disabled={loadingMore}
-                  >
-                    {loadingMore ? 'Loading…' : 'Show more replies'}
-                  </OsLoadMore>
-                ) : null}
-              </div>
-            )}
-          </section>
-        ) : null}
-      </div>
+              {(activeThreadTab === 'replies' && hasMoreReplies) ||
+              (activeThreadTab === 'quotes' && hasMoreQuotes) ? (
+                <OsLoadMore
+                  onClick={() => void loadMore(activeThreadTab)}
+                  pending={loadingMore}
+                  disabled={loadingMore}
+                >
+                  {loadingMore
+                    ? 'Loading…'
+                    : activeThreadTab === 'replies'
+                      ? 'Show more replies'
+                      : 'Show more quotes'}
+                </OsLoadMore>
+              ) : null}
+            </div>
+          ) : (
+            <div className="guild-connected-stack">
+              {replyListRows.length > 0 ? (
+                replyListRows
+              ) : quoteTotal === 0 ? (
+                <ThreadDiscoverPeek
+                  author={author}
+                  excludePostId={postId}
+                  authorProfiles={postAuthorProfiles}
+                />
+              ) : null}
+
+              {hasMoreReplies ? (
+                <OsLoadMore
+                  onClick={() => void loadMore('replies')}
+                  pending={loadingMore}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? 'Loading…' : 'Show more replies'}
+                </OsLoadMore>
+              ) : null}
+            </div>
+          )}
+        </section>
+      ) : null}
+    </div>
   );
 
   const composer = modalTarget ? (
-        <ComposerSheet
-          key={`${postKey(modalTarget)}:${modalSeed.files
-            .map((file) => `${file.name}:${file.size}:${file.lastModified}`)
-            .join('|')}`}
-          open
-          target={modalTarget}
-          targetAuthorProfile={postAuthorProfiles[modalTarget.accountId]}
-          mode={modalMode}
-          onModeChange={setModalMode}
-          initialText={modalSeed.text}
-          initialFiles={modalSeed.files}
-          pending={modalPending}
-          error={modalError}
-          zIndex={embedded ? SHEET_Z.confirm : undefined}
-          onClose={(draft) => {
-            if (modalPending) return;
-            if (modalMode === 'reply' && draft) {
-              const persistKey =
-                threadDraftKey &&
-                writeTarget &&
-                postKey(modalTarget) === postKey(writeTarget)
-                  ? threadDraftKey
-                  : writeDockDraftKey('post', postKey(modalTarget));
-              writeWriteDockDraft(
-                persistKey,
-                writeDockDraftFromComposer(draft)
-              );
-            }
-            setModalTarget(null);
-            setModalSeed({ text: '', files: [] });
-            if (modalMode === 'reply' && draft?.text.trim()) {
-              focusWriteDock();
-            }
-          }}
-          onSubmit={(payload) => void submitFromModal(payload)}
-        />
-      ) : null;
+    <ComposerSheet
+      key={`${postKey(modalTarget)}:${modalSeed.files
+        .map((file) => `${file.name}:${file.size}:${file.lastModified}`)
+        .join('|')}`}
+      open
+      target={modalTarget}
+      targetAuthorProfile={postAuthorProfiles[modalTarget.accountId]}
+      mode={modalMode}
+      onModeChange={setModalMode}
+      initialText={modalSeed.text}
+      initialFiles={modalSeed.files}
+      pending={modalPending}
+      error={modalError}
+      zIndex={embedded ? SHEET_Z.confirm : undefined}
+      onClose={(draft) => {
+        if (modalPending) return;
+        if (modalMode === 'reply' && draft) {
+          const persistKey =
+            threadDraftKey &&
+            writeTarget &&
+            postKey(modalTarget) === postKey(writeTarget)
+              ? threadDraftKey
+              : writeDockDraftKey('post', postKey(modalTarget));
+          writeWriteDockDraft(persistKey, writeDockDraftFromComposer(draft));
+        }
+        setModalTarget(null);
+        setModalSeed({ text: '', files: [] });
+        if (modalMode === 'reply' && draft?.text.trim()) {
+          focusWriteDock();
+        }
+      }}
+      onSubmit={(payload) => void submitFromModal(payload)}
+    />
+  ) : null;
 
   if (embedded) {
     return (
@@ -1149,7 +1140,7 @@ export function LivePersonalPostPanel({
       compactChrome
       dockBack
       glassChrome
-      backFallbackHref={portfolioPath(author)}
+      backFallbackHref={APP_HOME_PATH}
       actions={connectAction}
     >
       {thread}

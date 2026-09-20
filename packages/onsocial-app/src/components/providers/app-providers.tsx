@@ -16,6 +16,7 @@ import {
   RallySheetDeepLink,
   RallySheetProvider,
 } from '@/features/rally/rally-sheet-host';
+import { PostThreadLayerProvider } from '@/features/home/post-thread-layer';
 import {
   BoostSheetDeepLink,
   BoostSheetProvider,
@@ -77,23 +78,25 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                                 <OsGlassSheetPortalBridge>
                                   <BoostSheetProvider>
                                     <RallySheetProvider>
-                                      <CollectiblesNowPlayingProvider>
-                                        <DmUnreadHost>
-                                          <NotificationsHost>
-                                            <WebPushProvider>
-                                              {children}
-                                              <ViewerMuteBlockHost />
-                                              <DropComposeHost />
-                                              <Suspense fallback={null}>
-                                                <WalletSheetDeepLink />
-                                                <BoostSheetDeepLink />
-                                                <RallySheetDeepLink />
-                                              </Suspense>
-                                              <AppAccountSheetHost />
-                                            </WebPushProvider>
-                                          </NotificationsHost>
-                                        </DmUnreadHost>
-                                      </CollectiblesNowPlayingProvider>
+                                      <PostThreadLayerProvider>
+                                        <CollectiblesNowPlayingProvider>
+                                          <DmUnreadHost>
+                                            <NotificationsHost>
+                                              <WebPushProvider>
+                                                {children}
+                                                <ViewerMuteBlockHost />
+                                                <DropComposeHost />
+                                                <Suspense fallback={null}>
+                                                  <WalletSheetDeepLink />
+                                                  <BoostSheetDeepLink />
+                                                  <RallySheetDeepLink />
+                                                </Suspense>
+                                                <AppAccountSheetHost />
+                                              </WebPushProvider>
+                                            </NotificationsHost>
+                                          </DmUnreadHost>
+                                        </CollectiblesNowPlayingProvider>
+                                      </PostThreadLayerProvider>
                                     </RallySheetProvider>
                                   </BoostSheetProvider>
                                 </OsGlassSheetPortalBridge>

@@ -1,6 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
+} from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
@@ -57,6 +65,10 @@ import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
 import { writeDockDraftKey } from '@/lib/os-write-dock';
 import { guildPath } from '@/features/guilds/guilds-data';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
+import {
+  isUnmodifiedPrimaryClick,
+  usePostThreadLayer,
+} from '@/features/home/post-thread-layer';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { FeedArticleReadScreen } from '@/features/home/feed-article-read-screen';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
@@ -582,9 +594,7 @@ function PostCardMenu({
         id: 'download',
         label: downloading ? 'Downloading…' : 'Download',
         disabled: downloading,
-        leading: (
-          <DownloadIcon className="os-action-drawer-icon" aria-hidden />
-        ),
+        leading: <DownloadIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => void handleDownload(),
       });
     }
@@ -633,9 +643,7 @@ function PostCardMenu({
         >
           <DotsVerticalIcon
             className={
-              openPostHref
-                ? 'glass-sheet-close-icon'
-                : 'post-card-menu-icon'
+              openPostHref ? 'glass-sheet-close-icon' : 'post-card-menu-icon'
             }
             aria-hidden
           />
@@ -783,6 +791,7 @@ export function QuotedPostInset({
   href?: string;
 }) {
   const router = useRouter();
+  const { openPostThread } = usePostThreadLayer();
   const { safeMode } = useViewerSafeMode();
   const labels = parsePostContentLabels(post.value);
   const name = displayName(post.accountId, authorProfile?.displayName);
@@ -807,6 +816,7 @@ export function QuotedPostInset({
     }
     event.preventDefault();
     event.stopPropagation();
+    if (openPostThread({ href, root: post })) return;
     router.push(href);
   };
 
@@ -1366,6 +1376,8 @@ function PostCardBody({
   articleTitle = null,
   articleHref = null,
   onReadArticle = null,
+  onArticleHrefClick = null,
+  onArticleHrefNavigate = null,
 }: {
   relationContext: PostRelationContext | null;
   relationTargetProfileName?: string | null;
@@ -1379,6 +1391,8 @@ function PostCardBody({
   articleHref?: string | null;
   /** Feed overlay reader — preferred over hard-nav when set. */
   onReadArticle?: (() => void) | null;
+  onArticleHrefClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
+  onArticleHrefNavigate?: (event: { preventDefault(): void }) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const previewLimit = postFeedPreviewLimit(hasMedia);
@@ -1416,7 +1430,11 @@ function PostCardBody({
         href={articleHref}
         className="post-card-show-more"
         scroll={false}
-        onClick={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          onArticleHrefClick?.(event);
+        }}
+        onNavigate={onArticleHrefNavigate}
       >
         Read
       </Link>
@@ -1544,6 +1562,27 @@ export function PostCard({
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const { openPostThread } = usePostThreadLayer();
+  const interceptOpenHref = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>, href: string) => {
+      if (detailLayout) return;
+      if (!isUnmodifiedPrimaryClick(event)) return;
+      if (openPostThread({ href, root: post })) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    },
+    [detailLayout, openPostThread, post]
+  );
+  const interceptOpenNavigate = useCallback(
+    (event: { preventDefault(): void }, href: string) => {
+      if (detailLayout) return;
+      if (openPostThread({ href, root: post })) {
+        event.preventDefault();
+      }
+    },
+    [detailLayout, openPostThread, post]
+  );
   const { safeMode } = useViewerSafeMode();
   const [amplifyOpen, setAmplifyOpen] = useState(false);
   const [listScarceOpen, setListScarceOpen] = useState(false);
@@ -1565,9 +1604,9 @@ export function PostCard({
   /** Mood / craft article — slide-over reader (stays on feed). */
   const [articleOpen, setArticleOpen] = useState(false);
   /** Article cover still when it isn’t already in post media. */
-  const [enlargeOverride, setEnlargeOverride] = useState<PostMediaItem[] | null>(
-    null
-  );
+  const [enlargeOverride, setEnlargeOverride] = useState<
+    PostMediaItem[] | null
+  >(null);
   /** Photo/video face — Reply opens the thread drawer (write dock lives there). */
   const [photoThreadOpen, setPhotoThreadOpen] = useState(false);
   const enlargeWrite = feedMediumOpen || articleOpen;
@@ -1669,7 +1708,10 @@ export function PostCard({
       try {
         let item: OwnedScarceItem | null = null;
         if (scarceTokenId) {
-          item = await fetchOwnedScarceByTokenId(viewerAccountId, scarceTokenId);
+          item = await fetchOwnedScarceByTokenId(
+            viewerAccountId,
+            scarceTokenId
+          );
         }
         if (!item && scarceCollectionId) {
           item = await fetchOwnedScarceForCollection(
@@ -1966,6 +2008,8 @@ export function PostCard({
           href={openHref}
           className="post-card-hit"
           scroll={false}
+          onClick={(event) => interceptOpenHref(event, openHref)}
+          onNavigate={(event) => interceptOpenNavigate(event, openHref)}
           aria-label={
             articleHref && !detailLayout && !preferActionHref
               ? 'Read article'
@@ -2018,6 +2062,16 @@ export function PostCard({
               accountId={post.accountId}
               timestamp={detailLayout ? undefined : post.blockTimestamp}
               timeHref={detailLayout ? undefined : (openHref ?? undefined)}
+              onTimeClick={
+                openHref
+                  ? (event) => interceptOpenHref(event, openHref)
+                  : undefined
+              }
+              onTimeNavigate={
+                openHref
+                  ? (event) => interceptOpenNavigate(event, openHref)
+                  : undefined
+              }
               authorHref={profileHref}
               layout={detailLayout ? 'stacked' : 'inline'}
               channel={
@@ -2068,6 +2122,16 @@ export function PostCard({
             }
             articleTitle={article?.title ?? null}
             articleHref={readHref}
+            onArticleHrefClick={
+              readHref
+                ? (event) => interceptOpenHref(event, readHref)
+                : undefined
+            }
+            onArticleHrefNavigate={
+              readHref
+                ? (event) => interceptOpenNavigate(event, readHref)
+                : undefined
+            }
             onReadArticle={
               article && !articleHasScarceFace && !preferActionHref
                 ? () => setArticleOpen(true)

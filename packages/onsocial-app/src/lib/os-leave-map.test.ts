@@ -71,6 +71,14 @@ describe('os leave map', () => {
     });
   });
 
+  it('leaves a cold post permalink to Home', () => {
+    expect(row('personal-post')).toMatchObject({
+      dockBack: true,
+      parent: APP_HOME_PATH,
+      verdict: 'matches',
+    });
+  });
+
   it('has no leftover leave mismatches', () => {
     expect(osLeaveRowsByVerdict('mismatch')).toEqual([]);
     expect(row('collectibles-play-loading').verdict).toBe('matches');

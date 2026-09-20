@@ -1,13 +1,18 @@
 'use client';
 
 import Link from 'next/link';
+import type { PostRow } from '@onsocial/sdk';
 import {
   Divider,
   RepeatIcon,
   standingIdentityLabel,
 } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
+import {
+  isUnmodifiedPrimaryClick,
+  usePostThreadLayer,
+} from '@/features/home/post-thread-layer';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import type { PostRelationContext } from '@/lib/post-relation';
 import {
@@ -153,6 +158,7 @@ export function LauncherSocialPeekRow({
   relation,
   repostAttribution,
   relationTargetProfileName,
+  overlayRoot = null,
   showDivider = false,
 }: {
   href: string;
@@ -166,8 +172,11 @@ export function LauncherSocialPeekRow({
   relation?: PostRelationContext | null;
   repostAttribution?: string | null;
   relationTargetProfileName?: string | null;
+  /** Seed the overlay thread when this row is the post being opened. */
+  overlayRoot?: PostRow | null;
   showDivider?: boolean;
 }) {
+  const { openPostThread } = usePostThreadLayer();
   const { label } = standingIdentityLabel(accountId, profileName);
   const relationLead = launcherRelationLead({
     relation,
@@ -190,6 +199,18 @@ export function LauncherSocialPeekRow({
             className="standing-row-hit"
             scroll={false}
             aria-label={ariaLabel}
+            onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+              if (!isUnmodifiedPrimaryClick(event)) return;
+              if (openPostThread({ href, root: overlayRoot })) {
+                event.preventDefault();
+                event.stopPropagation();
+              }
+            }}
+            onNavigate={(event) => {
+              if (openPostThread({ href, root: overlayRoot })) {
+                event.preventDefault();
+              }
+            }}
           />
           <StandingIdentity
             accountId={accountId}

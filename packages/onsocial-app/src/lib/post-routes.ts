@@ -18,6 +18,51 @@ export function personalPostContentPath(
   return `${author}/post/${postId}`;
 }
 
+/**
+ * In-app page-sheet target: personal `/posts/` or `/writing/` permalinks.
+ * Guild threads and quotes screens stay real pages.
+ */
+export function parseInAppPostLayerHref(
+  href: string | null | undefined
+): { accountId: string; postId: string } | null {
+  if (!href) return null;
+  let pathname = href.trim();
+  if (!pathname) return null;
+  try {
+    if (/^https?:\/\//i.test(pathname)) {
+      pathname = new URL(pathname).pathname;
+    }
+  } catch {
+    return null;
+  }
+  const q = pathname.indexOf('?');
+  if (q !== -1) pathname = pathname.slice(0, q);
+  const hash = pathname.indexOf('#');
+  if (hash !== -1) pathname = pathname.slice(0, hash);
+  const match = pathname.match(/^\/@([^/]+)\/(?:posts|writing)\/([^/]+)\/?$/);
+  if (!match) return null;
+  try {
+    return {
+      accountId: decodeURIComponent(match[1]),
+      postId: decodeURIComponent(match[2]),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Canonical share permalink for a parsed in-app post layer. */
+export function canonicalizePostLayerHref(href: string): string | null {
+  const parsed = parseInAppPostLayerHref(href);
+  if (!parsed) return null;
+  const path = personalPostPath(parsed.accountId, parsed.postId);
+  const q = href.indexOf('?');
+  if (q === -1) return path;
+  const hash = href.indexOf('#');
+  const query = href.slice(q, hash === -1 ? undefined : hash);
+  return query ? `${path}${query}` : path;
+}
+
 /** Thread page for any post row — guild or personal. */
 export function postThreadPath(post: {
   accountId: string;
@@ -62,6 +107,20 @@ export function readThreadFocusReplyId(
 ): string | null {
   const id = searchParams.get(THREAD_FOCUS_REPLY_QUERY)?.trim();
   return id || null;
+}
+
+/**
+ * Overlay history updates `window.location` without Next `usePathname`.
+ * True when the browser is on a post permalink and the App Router is not.
+ */
+export function isOverlayPostLayerLocation(
+  nextPathname: string,
+  locationHref: string
+): boolean {
+  return (
+    parseInAppPostLayerHref(locationHref) != null &&
+    parseInAppPostLayerHref(nextPathname) == null
+  );
 }
 
 function parseSourcePostPath(

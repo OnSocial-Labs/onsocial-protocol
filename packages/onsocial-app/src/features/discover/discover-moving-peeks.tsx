@@ -147,6 +147,7 @@ export function MovingPostPeekSection({
               kind: post.kind,
               postId: post.postId,
             })}
+            overlayRoot={why === 'hot' ? post : null}
             showDivider={index > 0}
           />
         ))}

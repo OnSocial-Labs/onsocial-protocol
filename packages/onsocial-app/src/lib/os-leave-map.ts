@@ -247,13 +247,20 @@ export const OS_LEAVE_MAP = [
     verdict: 'matches',
     note: 'FACE_DOCK_BACK. Overlays register the face as parent.',
   },
+  {
+    id: 'personal-post',
+    place: 'Post',
+    route: '/@[accountId]/posts/[postId]',
+    dockBack: true,
+    parent: APP_HOME_PATH,
+    verdict: 'matches',
+    note: 'Cold permalink. In-app opens as an appear page sheet over the current place.',
+  },
 ] as const satisfies readonly OsLeaveMapRow[];
 
 export type OsLeaveMapId = (typeof OS_LEAVE_MAP)[number]['id'];
 
-export function osLeaveRowsByVerdict(
-  verdict: OsLeaveVerdict
-): OsLeaveMapRow[] {
+export function osLeaveRowsByVerdict(verdict: OsLeaveVerdict): OsLeaveMapRow[] {
   return OS_LEAVE_MAP.filter((row) => row.verdict === verdict);
 }
 

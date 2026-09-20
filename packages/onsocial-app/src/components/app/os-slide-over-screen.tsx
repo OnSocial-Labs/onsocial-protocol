@@ -1,11 +1,12 @@
 'use client';
 
 /**
- * Full-screen side slide — same glass surface as `OsAppScreen` (feed / create).
+ * Full-screen page layer — same glass surface as `OsAppScreen` (feed / create).
+ * Opens with the compose `appear` pop (opacity), not a side slide.
  * Close with × (same as sheets). Leave a place is the dock chevron.
  *
  * Portals into the registered `OsPortalHost` (OS / portfolio card with
- * overflow clip) so the panel slides from that edge only.
+ * overflow clip) so the panel is clipped to that card.
  */
 
 import {
@@ -92,8 +93,8 @@ export interface OsSlideOverScreenProps {
   closeDisabled?: boolean;
   /**
    * Close control glyph:
-   * - `'chevron-right'` (default): Mage chevron pointing right (matching slide exit direction).
-   * - `'multiply'`: classic × close glyph.
+   * - `'multiply'` (default): classic ×, same as compose.
+   * - `'chevron-right'`: Mage chevron pointing right.
    * Or pass a custom ReactNode.
    */
   closeIcon?: 'chevron-right' | 'multiply' | ReactNode;
@@ -119,7 +120,7 @@ export interface OsSlideOverScreenProps {
 }
 
 /**
- * Portaled slide-over page shell — feed chrome, viewer mood, × to dismiss.
+ * Portaled page-layer shell — feed chrome, viewer mood, × to dismiss.
  */
 export function OsSlideOverScreen({
   open,
@@ -140,7 +141,7 @@ export function OsSlideOverScreen({
   zIndex = 70,
   closeAriaLabel = 'Close',
   closeDisabled = false,
-  closeIcon = 'chevron-right',
+  closeIcon = 'multiply',
   moodId,
   moodStyle,
   style,
@@ -269,110 +270,108 @@ export function OsSlideOverScreen({
 
   return createPortal(
     <OsSlideOverCloseContext.Provider value={requestClose}>
-    <div
-      className={`os-app-screen app-surface os-slide-over${
-        entered && !closing ? ' is-open' : ''
-      }${closing ? ' is-closing' : ''}${hasMood ? ' os-app-screen--mood os-slide-over--mood' : ''}${
-        className ? ` ${className}` : ''
-      }`}
-      data-tone="os"
-      data-immersive-header={immersiveHeader ? 'true' : undefined}
-      data-glass-chrome={useGlassChrome ? 'true' : undefined}
-      data-screen-footer={hasFooter ? 'true' : undefined}
-      data-os-slide-over="true"
-      data-keep-dock={keepDock ? 'true' : undefined}
-      data-hide-nav={hideNav ? 'true' : undefined}
-      data-viewport={viewport ? 'true' : undefined}
-      data-mood={hasMood ? resolvedMoodId! : undefined}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      style={rootStyle}
-    >
-      <div className="os-app-screen-column">
-        <header
-          ref={headerRef}
-          className={`os-app-screen-header${
-            useGlassChrome && glassElevated ? ' is-elevated' : ''
-          }`}
-        >
-          {hideNav ? (
-            <h1 id={titleId} className="sr-only">
-              {title}
-            </h1>
-          ) : (
-            <div className="os-app-screen-nav-row">
-              <OsIconAction
-                ariaLabel={closeAriaLabel}
-                disabled={closeDisabled}
-                onClick={requestClose}
-              >
-                {closeIcon === 'chevron-right' ? (
-                  <ChevronRightIcon
-                    className="glass-sheet-close-icon"
-                    aria-hidden
-                  />
-                ) : closeIcon === 'multiply' ? (
-                  <MultiplyIcon
-                    className="glass-sheet-close-icon"
-                    aria-hidden
-                  />
-                ) : (
-                  closeIcon
-                )}
-              </OsIconAction>
-              <div className="os-app-screen-heading">
-                {heading ? (
-                  <>
-                    <h1 id={titleId} className="sr-only">
-                      {title}
-                    </h1>
-                    {subtitle ? (
-                      <p className="sr-only">{subtitle}</p>
-                    ) : null}
-                    {heading}
-                  </>
-                ) : (
-                  <>
-                    <h1 id={titleId} className="os-app-screen-title">
-                      {title}
-                    </h1>
-                    {subtitle ? (
-                      <p className="os-app-screen-subtitle">{subtitle}</p>
-                    ) : null}
-                  </>
-                )}
-              </div>
-              {actions ? (
-                <div className="os-app-screen-actions">{actions}</div>
-              ) : null}
-            </div>
-          )}
-          {toolbar ? (
-            <div className="os-app-screen-toolbar">{toolbar}</div>
-          ) : null}
-        </header>
-        <main
-          ref={setBodyRef}
-          className="os-app-screen-body"
-          // Lenis may add `lenis` before nested hydration finishes.
-          suppressHydrationWarning
-        >
-          <div
-            className={`os-slide-over-content${
-              contentClassName ? ` ${contentClassName}` : ''
+      <div
+        className={`os-app-screen app-surface os-slide-over${
+          entered && !closing ? ' is-open' : ''
+        }${closing ? ' is-closing' : ''}${hasMood ? ' os-app-screen--mood os-slide-over--mood' : ''}${
+          className ? ` ${className}` : ''
+        }`}
+        data-tone="os"
+        data-immersive-header={immersiveHeader ? 'true' : undefined}
+        data-glass-chrome={useGlassChrome ? 'true' : undefined}
+        data-screen-footer={hasFooter ? 'true' : undefined}
+        data-os-slide-over="true"
+        data-keep-dock={keepDock ? 'true' : undefined}
+        data-hide-nav={hideNav ? 'true' : undefined}
+        data-viewport={viewport ? 'true' : undefined}
+        data-mood={hasMood ? resolvedMoodId! : undefined}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        style={rootStyle}
+      >
+        <div className="os-app-screen-column">
+          <header
+            ref={headerRef}
+            className={`os-app-screen-header${
+              useGlassChrome && glassElevated ? ' is-elevated' : ''
             }`}
           >
-            {children}
-          </div>
-        </main>
-        {hasFooter ? (
-          <div className="os-app-screen-footer">
-            <div className="os-slide-over-footer-inner">{footer}</div>
-          </div>
-        ) : null}
+            {hideNav ? (
+              <h1 id={titleId} className="sr-only">
+                {title}
+              </h1>
+            ) : (
+              <div className="os-app-screen-nav-row">
+                <OsIconAction
+                  ariaLabel={closeAriaLabel}
+                  disabled={closeDisabled}
+                  onClick={requestClose}
+                >
+                  {closeIcon === 'chevron-right' ? (
+                    <ChevronRightIcon
+                      className="glass-sheet-close-icon"
+                      aria-hidden
+                    />
+                  ) : closeIcon === 'multiply' ? (
+                    <MultiplyIcon
+                      className="glass-sheet-close-icon"
+                      aria-hidden
+                    />
+                  ) : (
+                    closeIcon
+                  )}
+                </OsIconAction>
+                <div className="os-app-screen-heading">
+                  {heading ? (
+                    <>
+                      <h1 id={titleId} className="sr-only">
+                        {title}
+                      </h1>
+                      {subtitle ? <p className="sr-only">{subtitle}</p> : null}
+                      {heading}
+                    </>
+                  ) : (
+                    <>
+                      <h1 id={titleId} className="os-app-screen-title">
+                        {title}
+                      </h1>
+                      {subtitle ? (
+                        <p className="os-app-screen-subtitle">{subtitle}</p>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+                {actions ? (
+                  <div className="os-app-screen-actions">{actions}</div>
+                ) : null}
+              </div>
+            )}
+            {toolbar ? (
+              <div className="os-app-screen-toolbar">{toolbar}</div>
+            ) : null}
+          </header>
+          <main
+            ref={setBodyRef}
+            className="os-app-screen-body"
+            // Lenis may add `lenis` before nested hydration finishes.
+            suppressHydrationWarning
+          >
+            <div
+              className={`os-slide-over-content${
+                contentClassName ? ` ${contentClassName}` : ''
+              }`}
+            >
+              {children}
+            </div>
+          </main>
+          {hasFooter ? (
+            <div className="os-app-screen-footer">
+              <div className="os-slide-over-footer-inner">{footer}</div>
+            </div>
+          ) : null}
+        </div>
       </div>
-    </div>
     </OsSlideOverCloseContext.Provider>,
     portalHost
   );

@@ -387,7 +387,8 @@
   overflow: hidden;
 }
 
-.glass-sheet-panel.guild-composer-sheet-panel .os-app-screen--embedded {
+.glass-sheet-panel.guild-composer-sheet-panel .os-app-screen--embedded,
+.glass-sheet-panel.post-thread-sheet-panel .os-app-screen--embedded {
   flex: 1 1 auto;
   width: 100%;
   height: 100%;
@@ -396,6 +397,16 @@
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+.glass-sheet-panel.post-thread-sheet-panel
+  > .glass-sheet-body.post-thread-sheet-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 0;
+  overflow: hidden;
 }
 
 .glass-sheet-panel.leaderboard-page-sheet .os-app-screen--embedded {
@@ -410,6 +421,9 @@
 }
 
 .glass-sheet-panel.guild-composer-sheet-panel
+  .os-app-screen--embedded
+  .os-app-screen-column,
+.glass-sheet-panel.post-thread-sheet-panel
   .os-app-screen--embedded
   .os-app-screen-column {
   max-width: none;
@@ -30076,9 +30090,10 @@ a.os-surface-row {
   }
 
   /*
-   * Side slide — same .os-app-screen glass as feed. Portals into the
-   * registered OsPortalHost (`.app-surface` card). Absolute fill when nested
-   * so translateX(100%) is clipped to the phone edge; body fallback stays fixed.
+   * Page appear — same opacity pop as compose OsPageSheet (`appear`).
+   * Portals into the registered OsPortalHost (`.app-surface` card). Absolute
+   * fill when nested so the layer is clipped to the phone card; body fallback
+   * stays fixed.
    */
   .os-slide-over {
     position: fixed;
@@ -30086,9 +30101,10 @@ a.os-surface-row {
     width: 100%;
     height: 100%;
     max-width: none;
-    transform: translate3d(100%, 0, 0);
-    transition: transform var(--os-motion-sheet, 280ms)
-      var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1));
+    transform: none;
+    opacity: 0;
+    transition: opacity var(--os-motion-sheet, 280ms)
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
     /* Above create-drop drawers; below art overlay zoom. */
     pointer-events: auto;
   }
@@ -30159,14 +30175,16 @@ a.os-surface-row {
   .os-slide-over.is-open {
     /*
      * Settled open must be `none`, not translate3d(0,0,0). A resting
-     * transform makes the slide a backdrop root so header frost inside
+     * transform makes the layer a backdrop root so header frost inside
      * (writing jacket, glass chrome) cannot blur scrolling content.
      */
     transform: none;
+    opacity: 1;
   }
 
   .os-slide-over.is-closing {
-    transform: translate3d(100%, 0, 0);
+    transform: none;
+    opacity: 0;
   }
 
   /*
@@ -37344,7 +37362,8 @@ a.os-surface-row {
   /*
    * Composer — OsPageSheet hosts embedded OsAppScreen (shared glassChrome frost).
    */
-  .guild-composer-sheet-panel.glass-sheet-panel {
+  .guild-composer-sheet-panel.glass-sheet-panel,
+  .post-thread-sheet-panel.glass-sheet-panel {
     overflow: hidden;
   }
 

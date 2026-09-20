@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties, ReactNode } from 'react';
-import { ChevronRightIcon, OsIconAction } from '@onsocial/ui';
+import { MultiplyIcon, OsIconAction } from '@onsocial/ui';
 import {
   OsSlideOverScreen,
   useOsSlideOverClose,
@@ -16,7 +16,7 @@ function MediaFaceClose({ ariaLabel }: { ariaLabel: string }) {
       ariaLabel={ariaLabel}
       onClick={() => requestClose?.()}
     >
-      <ChevronRightIcon className="glass-sheet-close-icon" aria-hidden />
+      <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
     </OsIconAction>
   );
 }

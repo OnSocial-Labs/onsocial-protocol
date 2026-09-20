@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import Link from 'next/link';
 import { MessageFillIcon } from '@onsocial/ui';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
@@ -15,6 +15,8 @@ interface PostIdentityMetaProps {
   authorHref?: string;
   handleHref?: string;
   timeHref?: string;
+  onTimeClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
+  onTimeNavigate?: (event: { preventDefault(): void }) => void;
   /** Room label under the identity (guild “All” / mixed feeds / thread). */
   channel?: string;
   /** Trailing ··· — end of the name row. */
@@ -35,6 +37,8 @@ export function PostIdentityMeta({
   authorHref,
   handleHref,
   timeHref,
+  onTimeClick,
+  onTimeNavigate,
   channel,
   trailing,
   className,
@@ -42,8 +46,7 @@ export function PostIdentityMeta({
 }: PostIdentityMetaProps) {
   const timestampIso =
     timestamp != null ? postTimestampIso(timestamp) : undefined;
-  const showTime =
-    layout === 'inline' && timestamp != null && timestamp !== '';
+  const showTime = layout === 'inline' && timestamp != null && timestamp !== '';
   const profileHandleHref = handleHref ?? authorHref;
   const roomLabel = channel?.trim().replace(/^#/, '') || null;
   const stacked = layout === 'stacked';
@@ -85,6 +88,8 @@ export function PostIdentityMeta({
         className="post-identity-time"
         title={formatPostTimestamp(timestamp)}
         scroll={false}
+        onClick={onTimeClick}
+        onNavigate={onTimeNavigate}
         {...(timestampIso ? { dateTime: timestampIso } : {})}
       >
         {formatRelativePostTimestamp(timestamp)}
@@ -146,10 +151,7 @@ export function PostIdentityMeta({
       </div>
       {roomLabel ? (
         <span className="post-identity-channel">
-          <MessageFillIcon
-            className="post-identity-channel-icon"
-            aria-hidden
-          />
+          <MessageFillIcon className="post-identity-channel-icon" aria-hidden />
           <span className="post-identity-channel-label">{roomLabel}</span>
         </span>
       ) : null}

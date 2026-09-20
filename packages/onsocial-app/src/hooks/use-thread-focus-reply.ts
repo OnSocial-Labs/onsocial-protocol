@@ -4,7 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { postKey } from '@/lib/post-display';
-import { readThreadFocusReplyId, THREAD_FOCUS_REPLY_QUERY } from '@/lib/post-routes';
+import {
+  isOverlayPostLayerLocation,
+  readThreadFocusReplyId,
+  THREAD_FOCUS_REPLY_QUERY,
+} from '@/lib/post-routes';
 
 const HIGHLIGHT_MS = 2600;
 const SCROLL_RETRY_MS = 120;
@@ -28,14 +32,34 @@ export function useThreadFocusReply(
 
   const stripFocusQuery = useCallback(() => {
     if (clearedQueryRef.current) return;
-    const replyId = readThreadFocusReplyId(searchParams);
+    const locationHref =
+      typeof window === 'undefined'
+        ? ''
+        : `${window.location.pathname}${window.location.search}`;
+    const overlay = isOverlayPostLayerLocation(pathname, locationHref);
+    const source = overlay
+      ? new URLSearchParams(window.location.search)
+      : searchParams;
+    const replyId = readThreadFocusReplyId(source);
     if (!replyId) return;
     clearedQueryRef.current = true;
     pendingPostIdRef.current = replyId;
     onFocusReplyRef.current?.();
-    const next = new URLSearchParams(searchParams.toString());
+    const next = new URLSearchParams(source.toString());
     next.delete(THREAD_FOCUS_REPLY_QUERY);
     const qs = next.toString();
+    if (overlay) {
+      const url = qs
+        ? `${window.location.pathname}?${qs}`
+        : window.location.pathname;
+      History.prototype.replaceState.call(
+        window.history,
+        window.history.state,
+        '',
+        url
+      );
+      return;
+    }
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [pathname, router, searchParams]);
 
