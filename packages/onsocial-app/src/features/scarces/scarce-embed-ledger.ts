@@ -33,11 +33,14 @@ function scarceSeedPaintEqual(
 }
 
 /**
- * Seed lazy CTAs from SSR / page hydrate (safe during render; emits on change).
- * Overwrites stale seeds when paint data changes; never clobbers live overrides.
+ * Seed lazy CTAs from SSR / page hydrate.
+ * Render callers must not notify — emit would setState in subscribed cards
+ * during another component's render. Snapshot reads pick up the map in the
+ * same pass. Pass `{ notify: true }` only from effects / async hydrate.
  */
 export function seedScarceEmbedsFromSsr(
-  map: Record<string, PostScarceEmbed> | null | undefined
+  map: Record<string, PostScarceEmbed> | null | undefined,
+  options?: { notify?: boolean }
 ): void {
   if (!map) return;
   let changed = false;
@@ -49,7 +52,7 @@ export function seedScarceEmbedsFromSsr(
     ssrSeeds.set(key, embed);
     changed = true;
   }
-  if (changed) emit();
+  if (changed && options?.notify) emit();
 }
 
 export function getScarceEmbedSeed(key: string): PostScarceEmbed | null {

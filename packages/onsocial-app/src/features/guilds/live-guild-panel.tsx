@@ -456,7 +456,7 @@ export function LiveGuildPanel({
     void hydrateScarceEmbedsForPosts(client, feedPosts).then((map) => {
       if (cancelled) return;
       lastHydratedFeedKeysRef.current = keys;
-      seedScarceEmbedsFromSsr(map);
+      seedScarceEmbedsFromSsr(map, { notify: true });
     });
     return () => {
       cancelled = true;

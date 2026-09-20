@@ -358,6 +358,16 @@ describe('resolvePostCardOpenHref', () => {
       })
     ).toBe('/@alice/post/p1');
   });
+
+  it('opens the other post thread when the host prefers actionHref', () => {
+    expect(
+      resolvePostCardOpenHref({
+        articleHref: '/@alice/writing/p2',
+        actionHref: '/@alice/posts/p2',
+        preferActionHref: true,
+      })
+    ).toBe('/@alice/posts/p2');
+  });
 });
 
 describe('resolveWritingEmptyState', () => {

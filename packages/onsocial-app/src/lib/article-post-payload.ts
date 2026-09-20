@@ -402,7 +402,10 @@ export function resolvePostCardOpenHref(opts: {
   articleHref: string | null;
   actionHref?: string | null;
   detailLayout?: boolean;
+  /** Thread tail peeks — open the other post's thread, not the Writing overlay. */
+  preferActionHref?: boolean;
 }): string | null {
+  if (opts.preferActionHref) return opts.actionHref ?? opts.articleHref;
   if (opts.articleHref && !opts.detailLayout) return opts.articleHref;
   return opts.actionHref ?? null;
 }

@@ -242,6 +242,11 @@ interface PostCardProps {
    * the body above engagement icons.
    */
   detailLayout?: boolean;
+  /**
+   * Open `actionHref` even for titled articles — thread tail “More from”
+   * must not intercept onto Writing over this same conversation.
+   */
+  preferActionHref?: boolean;
 }
 
 function PostCardMenu({
@@ -1534,6 +1539,7 @@ export function PostCard({
   mediaUnmuted = false,
   mediaResumeIndex = 0,
   detailLayout = false,
+  preferActionHref = false,
 }: PostCardProps) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
@@ -1804,7 +1810,9 @@ export function PostCard({
     articleHref,
     actionHref,
     detailLayout,
+    preferActionHref,
   });
+  const readHref = preferActionHref ? openHref : articleHref;
   const labels = parsePostContentLabels(post.value);
   const poll = parsePostPollEmbed(post.value);
   const dropPaint = parseDropPaintSnapshot(post.value);
@@ -1959,7 +1967,9 @@ export function PostCard({
           className="post-card-hit"
           scroll={false}
           aria-label={
-            articleHref && !detailLayout ? 'Read article' : 'Open post'
+            articleHref && !detailLayout && !preferActionHref
+              ? 'Read article'
+              : 'Open post'
           }
         />
       ) : null}
@@ -2057,9 +2067,9 @@ export function PostCard({
               (isRepostRefType(post.refType) && !text.trim() && !article)
             }
             articleTitle={article?.title ?? null}
-            articleHref={articleHref}
+            articleHref={readHref}
             onReadArticle={
-              article && !articleHasScarceFace
+              article && !articleHasScarceFace && !preferActionHref
                 ? () => setArticleOpen(true)
                 : null
             }

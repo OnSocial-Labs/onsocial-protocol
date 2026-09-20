@@ -17,6 +17,14 @@ import { postThreadPath } from '@/lib/post-routes';
 
 const PEEK_FETCH_LIMIT = 8;
 
+function postIdsEqual(left: string, right: string): boolean {
+  try {
+    return decodeURIComponent(left) === decodeURIComponent(right);
+  } catch {
+    return left === right;
+  }
+}
+
 interface ThreadDiscoverPeekProps {
   /** Thread root author — "More from {author}" is tried first. */
   author: string;
@@ -49,7 +57,9 @@ export function ThreadDiscoverPeek({
       const ownPage = await client.query.feed
         .recent({ author, section: 'posts', limit: PEEK_FETCH_LIMIT })
         .catch(() => null);
-      const own = ownPage?.items.find((row) => row.postId !== excludePostId);
+      const own = ownPage?.items.find(
+        (row) => !postIdsEqual(row.postId, excludePostId)
+      );
       if (own) {
         if (!cancelled) setPeek({ post: own, own: true });
         return;
@@ -58,7 +68,11 @@ export function ThreadDiscoverPeek({
         .recent({ limit: PEEK_FETCH_LIMIT })
         .catch(() => null);
       const other = globalPage?.items.find(
-        (row) => !(row.accountId === author && row.postId === excludePostId)
+        (row) =>
+          !(
+            row.accountId === author &&
+            postIdsEqual(row.postId, excludePostId)
+          )
       );
       if (other && !cancelled) setPeek({ post: other, own: false });
     })();
@@ -101,6 +115,7 @@ export function ThreadDiscoverPeek({
         post={post}
         authorProfile={profile}
         actionHref={postThreadPath(post)}
+        preferActionHref
         showRelationBadge={false}
         engagement={engagement[postKey(post)] ?? EMPTY_POST_ENGAGEMENT}
         reactionPending={isReactionPending(post)}
