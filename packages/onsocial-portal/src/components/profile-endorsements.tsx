@@ -81,7 +81,6 @@ export function ProfileEndorsements({
   targetDisplayName,
   targetAvatarUrl = null,
   selfAvatarUrl = null,
-  hasSocialSession = false,
   onEndorse,
   onRemoveEndorsement,
   onSupportEndorsement,
@@ -104,9 +103,6 @@ export function ProfileEndorsements({
     received: 0,
     given: 0,
   });
-  const [viewerToTargetEndorsements, setViewerToTargetEndorsements] = useState<
-    EndorsementItem[]
-  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [endorseModalOpenInternal, setEndorseModalOpenInternal] =
@@ -154,7 +150,6 @@ export function ProfileEndorsements({
           received: Number(data.counts?.received ?? list.length),
           given: Number(data.counts?.given ?? data.given?.length ?? 0),
         });
-        setViewerToTargetEndorsements(data.viewerToTarget ?? []);
         setMyEndorsements(data.viewerToTarget ?? []);
       }
     } catch {
@@ -208,14 +203,6 @@ export function ProfileEndorsements({
           next: optimistic,
         })
       );
-      setViewerToTargetEndorsements((prev) =>
-        mergeEndorsementsAfterUpsert(prev, {
-          issuer: viewerAccountId,
-          target: accountId,
-          previousTopic,
-          next: optimistic,
-        })
-      );
       setEndorsements((current) =>
         mergeEndorsementsAfterUpsert(current, {
           issuer: viewerAccountId,
@@ -248,12 +235,6 @@ export function ProfileEndorsements({
       await onRemoveEndorsement(accountId, topic);
       const normalizedTopic = normalizeEndorsementTopic(topic ?? '');
       setMyEndorsements((prev) =>
-        prev.filter(
-          (item) =>
-            normalizeEndorsementTopic(item.topic ?? '') !== normalizedTopic
-        )
-      );
-      setViewerToTargetEndorsements((prev) =>
         prev.filter(
           (item) =>
             normalizeEndorsementTopic(item.topic ?? '') !== normalizedTopic

@@ -463,7 +463,6 @@ function NetworkNodeLabel({ children }: { children: string }) {
 
 function NetworkOrbitNode({
   node,
-  index,
   yOffset,
   dimmed,
   reduceMotion,
@@ -472,7 +471,6 @@ function NetworkOrbitNode({
   onSelectAccount,
 }: {
   node: PlacedNode;
-  index: number;
   yOffset: MotionValue<number>;
   dimmed: boolean;
   reduceMotion: boolean;
@@ -1203,7 +1201,6 @@ export function NetworkPanel({
                   <NetworkOrbitNode
                     key={node.account.accountId}
                     node={node}
-                    index={index}
                     yOffset={orbitFloats[index]}
                     dimmed={isDimmed(node.account)}
                     reduceMotion={Boolean(reduceMotion)}

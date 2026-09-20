@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -205,7 +198,6 @@ interface ProfileModalProps {
   onOpenChange: (open: boolean) => void;
   onEditProfile: () => void;
   onSelectAccount?: (accountId: string) => void;
-  onDiscoverProfiles?: () => void;
   onPageNavLabel?: (label: string) => void;
   onUpdateStanding: (
     accountId: string,
@@ -451,20 +443,6 @@ function mergeFetchedProfile(
 }
 
 const NEAR_EMPTY_CODE_HASH = '11111111111111111111111111111111';
-
-function formatNumericCompact(value: string | number): string {
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue) || numericValue === 0) return '0';
-  return new Intl.NumberFormat('en', {
-    notation: 'compact',
-    maximumFractionDigits: numericValue >= 100 ? 0 : 1,
-  }).format(numericValue);
-}
-
-function toFiniteNumber(value: string | number): number {
-  const numericValue = Number(value);
-  return Number.isFinite(numericValue) ? numericValue : 0;
-}
 
 function accountGradient(accountId: string): string {
   let hash = 0;
@@ -934,12 +912,10 @@ export function ProfileModal({
   selfAvatarUrl,
   selfBannerUrl,
   hasSocialSession = false,
-  isAuthorizingSession = false,
   variant = 'modal',
   onOpenChange,
   onEditProfile,
   onSelectAccount,
-  onDiscoverProfiles,
   onPageNavLabel,
   onUpdateStanding,
   onEndorse,
@@ -948,7 +924,6 @@ export function ProfileModal({
   onSupportEndorsement,
   onClaimSupportBalance,
   isSupportingProfile = false,
-  isClaimingSupportBalance = false,
 }: ProfileModalProps) {
   const isPage = variant === 'page';
   const active = Boolean(accountId) && (isPage || open);
@@ -1078,13 +1053,12 @@ export function ProfileModal({
       cancelled = true;
     };
   }, [accountId, active, isSelf]);
-  const presentedSocial = useMemo(
-    () =>
-      social && accountId
-        ? deriveProfileSocialStanding(social, accountId)
-        : null,
-    [accountId, deriveProfileSocialStanding, social, standingSyncVersion]
-  );
+  const presentedSocial = useMemo(() => {
+    void standingSyncVersion;
+    return social && accountId
+      ? deriveProfileSocialStanding(social, accountId)
+      : null;
+  }, [accountId, deriveProfileSocialStanding, social, standingSyncVersion]);
   const viewerStanding = Boolean(presentedSocial?.viewerStanding);
   const theyStandWithViewer = Boolean(
     !isSelf && presentedSocial?.theyStandWithViewer
