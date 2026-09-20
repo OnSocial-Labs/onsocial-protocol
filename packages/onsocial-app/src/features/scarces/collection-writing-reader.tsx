@@ -639,7 +639,7 @@ export function CollectionWritingReader({
             </span>
           </div>
         ) : null}
-        {canDownloadBook ? (
+        {canDownloadBook && bookPdf ? (
           <div className="collection-writing-download-row">
             <MediaDownloadControl
               className="collection-writing-download-control"
