@@ -247,7 +247,8 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   const viewerMood = useViewerDockMood();
   const [stack, setStack] = useState<PostThreadLayerTarget[]>([]);
   const [closingId, setClosingId] = useState<string | null>(null);
-  const pathnameAtOpenRef = useRef<string | null>(null);
+  const [underlayPath, setUnderlayPath] = useState<string | null>(null);
+  const underlayPathRef = useRef<string | null>(null);
   const underlayScrollRef = useRef<{ el: HTMLElement; top: number } | null>(
     null
   );
@@ -257,7 +258,20 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     stackRef.current = stack;
     closingIdRef.current = closingId;
-  }, [closingId, stack]);
+    underlayPathRef.current = underlayPath;
+  }, [closingId, stack, underlayPath]);
+
+  // Next left the page we opened over — drop the overlay without an effect.
+  if (
+    stack.length > 0 &&
+    underlayPath != null &&
+    pathname !== underlayPath &&
+    !parseInAppPostLayerHref(pathname)
+  ) {
+    setStack([]);
+    setClosingId(null);
+    setUnderlayPath(null);
+  }
 
   const beginCloseTop = useCallback(() => {
     const top = stackRef.current[stackRef.current.length - 1];
@@ -291,7 +305,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     }
     nativeHistoryReplaceState(
       withoutPostLayerHistoryState(),
-      pathnameAtOpenRef.current ?? '/home'
+      underlayPathRef.current ?? '/home'
     );
   }, [beginCloseTop, syncOverlayUrl]);
 
@@ -327,8 +341,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         postId: parsed.postId,
         root,
       };
-      if (pathnameAtOpenRef.current == null) {
-        pathnameAtOpenRef.current = pathname;
+      if (underlayPathRef.current == null) {
+        underlayPathRef.current = pathname;
+        setUnderlayPath(pathname);
         if (typeof window !== 'undefined') {
           underlayScrollRef.current = captureUnderlayScroll();
         }
@@ -369,53 +384,25 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     };
   }, [beginCloseTop, stack.length]);
 
-  useEffect(() => {
-    if (stack.length === 0) return;
-    if (pathnameAtOpenRef.current == null) return;
-
-    const locationHref =
-      typeof window === 'undefined'
-        ? pathname
-        : `${window.location.pathname}${window.location.search}`;
-    // pushState overlays can echo into Next on popstate. Stay on the stack
-    // until the user actually leaves for another app route.
-    if (
-      parseInAppPostLayerHref(locationHref) ||
-      parseInAppPostLayerHref(pathname)
-    ) {
-      return;
-    }
-
-    if (pathname !== pathnameAtOpenRef.current) {
-      closingIdRef.current = null;
-      setClosingId(null);
-      setStack([]);
-      pathnameAtOpenRef.current = null;
-      if (typeof window !== 'undefined') {
-        getPostLayerPopGuard().depth = 0;
-      }
-    }
-  }, [pathname, stack.length]);
-
   const handleSheetClosed = useCallback((id: string) => {
     if (closingIdRef.current !== id) return;
     closingIdRef.current = null;
     setClosingId(null);
-    setStack((prev) => {
-      const next = prev.filter((layer) => layer.id !== id);
-      if (next.length === 0) {
-        pathnameAtOpenRef.current = null;
-        const saved = underlayScrollRef.current;
-        underlayScrollRef.current = null;
-        if (saved?.el.isConnected) {
-          saved.el.scrollTop = saved.top;
-        }
+    const next = stackRef.current.filter((layer) => layer.id !== id);
+    stackRef.current = next;
+    setStack(next);
+    if (next.length === 0) {
+      underlayPathRef.current = null;
+      setUnderlayPath(null);
+      const saved = underlayScrollRef.current;
+      underlayScrollRef.current = null;
+      if (saved?.el.isConnected) {
+        saved.el.scrollTop = saved.top;
       }
-      if (typeof window !== 'undefined') {
-        getPostLayerPopGuard().depth = next.length > 0 ? 1 : 0;
-      }
-      return next;
-    });
+    }
+    if (typeof window !== 'undefined') {
+      getPostLayerPopGuard().depth = next.length > 0 ? 1 : 0;
+    }
   }, []);
 
   const value = useMemo(
