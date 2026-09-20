@@ -21,10 +21,7 @@ import { shouldMountPortfolioGlassHost } from '@/lib/portfolio-glass-host';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { useLivePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
 import { PostRowSkeleton } from '@/features/home/post-card';
-import {
-  OsPageSheet,
-  type GlassSheetPresentation,
-} from '@onsocial/ui';
+import { OsPageSheet, type GlassSheetPresentation } from '@onsocial/ui';
 
 function PortfolioGlassSheet({
   accountId,
@@ -129,7 +126,7 @@ function PortfolioGlassSheetFrame({
   }, [overlayPresent, requestDismiss, sheetOpen]);
 
   return (
-        <OsPageSheet
+    <OsPageSheet
       open={sheetOpen}
       onClose={requestDismiss}
       onClosed={onClosed}
@@ -140,11 +137,7 @@ function PortfolioGlassSheetFrame({
       ariaLabelledBy="overlay-title"
       backdropLabel="Close panel"
       bodyRef={scrollBodyRef}
-      keepDock={
-        panelKey === 'about' ||
-        panelKey === 'writing' ||
-        Boolean(panelKey?.startsWith('writing:'))
-      }
+      keepDock={panelKey === 'about' || panelKey === 'writing'}
       panelClassName={
         panelKey === 'about'
           ? 'portfolio-about-sheet-panel'

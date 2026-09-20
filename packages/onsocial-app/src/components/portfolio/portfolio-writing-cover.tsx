@@ -44,6 +44,45 @@ function resolveMarkColor(color: string | null | undefined): MarkColor {
 
 export type PortfolioWritingCoverVariant = 'list' | 'article' | 'face';
 
+export type WritingCoverPreviewInput = {
+  title: string;
+  accountId: string;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+  postId: string;
+  issuedAt: number;
+  cardBg?: string | null;
+  format?: CardFormat | string | null;
+  markShape?: MarkShape | string | null;
+  markColor?: MarkColor | string | null;
+};
+
+/** Text-card SVG for list / article / DropArtOverlay when there is no photo. */
+export function previewWritingCoverSvg(
+  input: WritingCoverPreviewInput
+): string {
+  const { svg: markup } = previewTextCard({
+    title: input.title,
+    format: resolveCardFormat(input.format),
+    creator: {
+      accountId: input.accountId,
+      displayName: input.displayName?.trim() || input.accountId,
+      ...(input.avatarUrl ? { avatar: input.avatarUrl } : {}),
+    },
+    theme: {
+      bg: resolveCardMood(input.cardBg),
+      markShape: resolveMarkShape(input.markShape),
+      markColor: resolveMarkColor(input.markColor),
+      titleAlign: 'left',
+    },
+    provenance: {
+      issuedAt: input.issuedAt > 0 ? input.issuedAt : 0,
+      postId: input.postId,
+    },
+  });
+  return inlineSvgMarkup(markup);
+}
+
 /**
  * Raster cover when present. Otherwise regenerate the text-card (create
  * pin / mint theme). List thumbs keep provenance aria-hidden upstream.
@@ -62,43 +101,24 @@ export function PortfolioWritingCover({
   markShape = null,
   markColor = null,
   variant = 'article',
-}: {
-  title: string;
+}: WritingCoverPreviewInput & {
   coverUrl?: string | null;
-  accountId: string;
-  displayName?: string | null;
-  avatarUrl?: string | null;
-  postId: string;
-  issuedAt: number;
-  cardBg?: string | null;
-  format?: CardFormat | string | null;
-  markShape?: MarkShape | string | null;
-  markColor?: MarkColor | string | null;
   variant?: PortfolioWritingCoverVariant;
 }) {
   const svg = useMemo(() => {
     if (coverUrl) return null;
-    const cardFormat = resolveCardFormat(format);
-    const { svg: markup } = previewTextCard({
+    return previewWritingCoverSvg({
       title,
-      format: cardFormat,
-      creator: {
-        accountId,
-        displayName: displayName?.trim() || accountId,
-        ...(avatarUrl ? { avatar: avatarUrl } : {}),
-      },
-      theme: {
-        bg: resolveCardMood(cardBg),
-        markShape: resolveMarkShape(markShape),
-        markColor: resolveMarkColor(markColor),
-        titleAlign: 'left',
-      },
-      provenance: {
-        issuedAt: issuedAt > 0 ? issuedAt : 0,
-        postId,
-      },
+      accountId,
+      displayName,
+      avatarUrl,
+      postId,
+      issuedAt,
+      cardBg,
+      format,
+      markShape,
+      markColor,
     });
-    return inlineSvgMarkup(markup);
   }, [
     accountId,
     avatarUrl,

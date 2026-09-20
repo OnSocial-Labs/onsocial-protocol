@@ -81,6 +81,7 @@ import {
   cancelPostScarceListing,
 } from '@/features/scarces/cancel-post-scarce';
 import { PostScarceCta } from '@/features/scarces/post-scarce-cta';
+import { isWritingFolioFormat } from '@/features/scarces/drop-writing';
 import {
   fetchOwnedScarceByTokenId,
   fetchOwnedScarceForCollection,
@@ -126,6 +127,7 @@ import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { parsePostContentLabels } from '@/lib/post-content-labels';
 import { accountIdsEqual } from '@/lib/account-match';
+import { consumeEssayReopen } from '@/lib/essay-return';
 import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
 import {
   articleTeaseSource,
@@ -1847,6 +1849,12 @@ export function PostCard({
 
   const text = parsePostText(post.value);
   const article = parseArticleSnapshot(post.value);
+  useEffect(() => {
+    if (!article) return;
+    if (consumeEssayReopen(post.accountId, post.postId)) {
+      setArticleOpen(true);
+    }
+  }, [article, post.accountId, post.postId]);
   const articleHref = article
     ? writingArticlePath(post.accountId, post.postId)
     : null;
@@ -1937,7 +1945,7 @@ export function PostCard({
     setFeedMediumCoverSvg(coverSvg);
     setFeedMediumOpen(true);
   };
-  /** Listed writing Drop face — cover opens the reader (card stays card-sized). */
+  /** Listed writing Drop face — cover stays card-sized. */
   const articleHasScarceFace =
     Boolean(article) &&
     Boolean(scarceEmbed) &&
@@ -1947,12 +1955,19 @@ export function PostCard({
       scarceEmbed?.status === 'sold' ||
       scarceEmbed?.status === 'auction' ||
       scarceEmbed?.status === 'minted');
+  const articleUsesDocumentReader =
+    Boolean(article) && !isWritingFolioFormat(collectionWritingFormat);
   /**
    * Cover tap:
-   * - Drop face → writing/listen sheet
-   * - Any other article cover → article slide-over (back stays on this post)
+   * - Article (listed or not) → article reader
+   * - Book / Issue drop → folio reader
+   * - Audio drop face → listen
    */
   const activateArticleCover = () => {
+    if (articleUsesDocumentReader) {
+      setArticleOpen(true);
+      return;
+    }
     if (articleHasScarceFace) {
       const mode = resolveScarceFeedMediumMode(
         scarceEmbed?.mediumKind ?? dropPaint?.mediumKind
@@ -2135,7 +2150,7 @@ export function PostCard({
                 : undefined
             }
             onReadArticle={
-              article && !articleHasScarceFace && !preferActionHref
+              article && articleUsesDocumentReader && !preferActionHref
                 ? () => setArticleOpen(true)
                 : null
             }
@@ -2167,9 +2182,11 @@ export function PostCard({
               tabIndex={articleCoverActivatable ? 0 : undefined}
               aria-label={
                 articleCoverActivatable
-                  ? articleHasScarceFace
-                    ? 'Open Drop preview'
-                    : 'Read article'
+                  ? articleUsesDocumentReader
+                    ? 'Read article'
+                    : articleHasScarceFace
+                      ? 'Open Drop preview'
+                      : 'Read article'
                   : undefined
               }
               onClick={(event: MouseEvent) => {
@@ -2275,6 +2292,10 @@ export function PostCard({
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
+                          if (articleUsesDocumentReader) {
+                            setArticleOpen(true);
+                            return;
+                          }
                           openFeedMedium('writing');
                         }}
                       >
@@ -2340,6 +2361,12 @@ export function PostCard({
         open={amplifyOpen}
         post={amplifyOpen ? post : null}
         authorName={authorProfile?.displayName}
+        workTitle={
+          collectionDropTitle?.trim() ||
+          tokenDropTitle?.trim() ||
+          dropPaint?.title?.trim() ||
+          null
+        }
         onOpenChange={setAmplifyOpen}
         onAmplified={(amplified, detail) =>
           onAmplifyConfirmed?.(amplified, detail)
@@ -2520,7 +2547,30 @@ export function PostCard({
         onOpenChange={setArticleOpen}
         post={post}
         authorProfile={authorProfile}
-        cardBg={articleCover?.cardBg ?? null}
+        commerce={
+          articleHasScarceFace &&
+          !isRepostShell &&
+          (scarceEmbed || canListScarce) ? (
+            <PostScarceCta
+              embed={
+                scarceEmbed ?? {
+                  status: 'none',
+                  events: [],
+                }
+              }
+              isAuthor={isSelf}
+              authorAccountId={scarceEmbed?.creatorId?.trim() || post.accountId}
+              canList={canListScarce}
+              onList={() => setListScarceOpen(true)}
+              canSell={canSellScarce}
+              onSell={() => setSellScarceOpen(true)}
+              sellListed={sellListedScarce}
+              alreadyOwnsEdition={Boolean(ownedScarceItem)}
+              onBuy={() => setBuyScarceOpen(true)}
+              onBid={() => setBidScarceOpen(true)}
+            />
+          ) : null
+        }
         engagement={
           engagement ? (
             <PostEngagementRow
@@ -2560,7 +2610,6 @@ export function PostCard({
               onToggleReaction={onToggleReaction}
               onToggleSave={onToggleSave}
               onAmplify={() => {
-                setArticleOpen(false);
                 setAmplifyOpen(true);
               }}
               shareDrawerZIndex={SCARCE_Z.commerceOverListen}

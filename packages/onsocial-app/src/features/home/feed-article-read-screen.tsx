@@ -1,93 +1,90 @@
 'use client';
 
-import { useMemo, type CSSProperties, type ReactNode } from 'react';
-import Link from 'next/link';
-import { canonicalizeMoodKey, MOODS } from '@onsocial/text-card';
+import { useRef, type ReactNode } from 'react';
 import type { PostRow } from '@onsocial/sdk';
-import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
+import { ChevronLeftIcon } from '@onsocial/ui';
+import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { ArticleReadProgress } from '@/components/portfolio/article-read-progress';
 import { PortfolioWritingArticlePanel } from '@/components/portfolio/portfolio-writing-article-panel';
-import { AccountAvatar } from '@/components/profile/account-avatar';
+import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import { useArticleReadChrome } from '@/hooks/use-article-read-chrome';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { parseArticleSnapshot } from '@/lib/article-post-payload';
-import { portfolioPath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
 
 /**
- * Feed article reader — same media-face slide-over as photo enlarge.
- * Close returns to the feed post; no route change.
+ * Feed article reader — same document as profile Writing.
+ * Quiet chrome: circle back at rest, fold on scroll, 2px progress, no dock.
+ * Reply briefly keeps the write dock. Card paper stays on the cover print.
  */
 export function FeedArticleReadScreen({
   open,
   onOpenChange,
   post,
   authorProfile,
-  cardBg = null,
   engagement = null,
+  commerce = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   post: PostRow;
   authorProfile?: PostAuthorProfile;
-  /** Text-card mood — solid face background when present. */
-  cardBg?: string | null;
   engagement?: ReactNode;
+  /** Listed article — Mint / Buy stays on the document, not a second reader. */
+  commerce?: ReactNode;
 }) {
+  const scrollRootRef = useRef<HTMLElement | null>(null);
   const article = parseArticleSnapshot(post.value);
   const articleTitle = article?.title?.trim() || 'Article';
   const authorName = displayName(post.accountId, authorProfile?.displayName);
-  const authorHref = portfolioPath(post.accountId);
-  const moodStyle = useMemo((): CSSProperties | undefined => {
-    const key = canonicalizeMoodKey(cardBg?.trim() ?? '');
-    if (!key) return undefined;
-    const mood = MOODS[key];
-    return {
-      background: mood.bgFrom,
-      color: mood.textPrimary,
-      ['--feed-article-muted' as string]: mood.textMuted,
-    };
-  }, [cardBg]);
+  const writePinned = useWriteDockPinned();
+  const { chromeQuiet, progress, wakeFooter } = useArticleReadChrome(
+    scrollRootRef,
+    open,
+    writePinned
+  );
+
+  const hasSocial = Boolean(commerce || engagement);
+  const showWakeFooter = hasSocial && wakeFooter && !writePinned;
+  const quiet = chromeQuiet && !writePinned;
 
   return (
-    <OsMediaFaceShell
+    <OsSlideOverScreen
       open={open}
       onClose={() => onOpenChange(false)}
       title={articleTitle}
-      quietTitle
+      heading={<></>}
+      immersiveHeader
       closeAriaLabel="Back from article"
+      closeIcon={<ChevronLeftIcon className="glass-sheet-close-icon" />}
       zIndex={SCARCE_Z.listenShell}
-      footer={engagement}
-      stageLayout="scroll"
-      className="feed-article-slide"
+      keepDock={writePinned}
+      scrollRootRef={scrollRootRef}
+      className={`feed-article-slide${quiet ? ' is-chrome-quiet' : ''}${
+        showWakeFooter ? ' is-wake-footer' : ''
+      }`}
       contentClassName="feed-article-slide-body"
-      bodyClassName="feed-article-read"
-      bodyStyle={moodStyle}
-      mast={
-        <Link
-          href={authorHref}
-          className="os-media-face-identity"
-          scroll={false}
-          prefetch={false}
-          aria-label={`View ${authorName}'s profile`}
-        >
-          <AccountAvatar
-            accountId={post.accountId}
-            src={authorProfile?.avatarUrl}
-            fallbackInitial={authorName}
-            size="md"
-          />
-          <span className="os-media-face-identity-name">{authorName}</span>
-        </Link>
+      footer={
+        hasSocial ? (
+          <div className="scarce-post-medium-chrome">
+            {commerce}
+            {engagement}
+          </div>
+        ) : null
       }
     >
-      <PortfolioWritingArticlePanel
-        accountId={post.accountId}
-        titleLabel={authorName}
-        avatarUrl={authorProfile?.avatarUrl}
-        post={post}
-        showActions={false}
-        showAuthor={false}
-      />
-    </OsMediaFaceShell>
+      <ArticleReadProgress progress={progress} />
+      <div className="feed-article-read">
+        <PortfolioWritingArticlePanel
+          accountId={post.accountId}
+          titleLabel={authorName}
+          avatarUrl={authorProfile?.avatarUrl}
+          post={post}
+          showActions={false}
+          showAuthor
+        />
+      </div>
+    </OsSlideOverScreen>
   );
 }

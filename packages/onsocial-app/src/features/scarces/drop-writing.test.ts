@@ -9,6 +9,7 @@ import {
   chaptersFromPinnedFiles,
   isDropWritingChapterMime,
   isDropWritingMime,
+  isWritingFolioFormat,
   isLikelyIpfsCid,
   parseSourcePostPath,
   parseWritingFormat,
@@ -106,6 +107,15 @@ describe('parseWritingFormat', () => {
     expect(parseWritingFormat('Book')).toBe('book');
     expect(parseWritingFormat('article')).toBeNull();
     expect(parseWritingFormat('album')).toBeNull();
+  });
+});
+
+describe('isWritingFolioFormat', () => {
+  it('is true only for book and issue', () => {
+    expect(isWritingFolioFormat('book')).toBe(true);
+    expect(isWritingFolioFormat('issue')).toBe(true);
+    expect(isWritingFolioFormat(null)).toBe(false);
+    expect(isWritingFolioFormat(undefined)).toBe(false);
   });
 });
 

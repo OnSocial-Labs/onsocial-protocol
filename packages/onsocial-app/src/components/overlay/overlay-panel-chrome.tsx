@@ -29,10 +29,15 @@ export function OverlayPanelChrome({
   const registerChrome = useOverlayChromeRegister();
   const headerPortal = useOverlayHeaderPortal();
   const close = useOverlayDismiss();
+  const hasToolbar = Boolean(toolbar);
 
   useLayoutEffect(() => {
-    registerChrome({ ariaTitle, scrollBodyRef });
-  }, [ariaTitle, registerChrome, scrollBodyRef]);
+    registerChrome({
+      ariaTitle,
+      scrollBodyRef,
+      hideHeader: hideTitle && !hasToolbar,
+    });
+  }, [ariaTitle, hasToolbar, hideTitle, registerChrome, scrollBodyRef]);
 
   if (!headerPortal) {
     return null;

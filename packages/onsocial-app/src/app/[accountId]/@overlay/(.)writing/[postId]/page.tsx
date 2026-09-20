@@ -1,11 +1,9 @@
 import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-root';
 import { InterceptMisfireRecovery } from '@/components/overlay/intercept-misfire-recovery';
-import { SimpleOverlayPanel } from '@/components/overlay/simple-overlay-panel';
 import { WritingOverlayLeave } from '@/components/portfolio/writing-overlay-leave';
-import { PortfolioWritingArticlePanel } from '@/components/portfolio/portfolio-writing-article-panel';
+import { PortfolioWritingArticleOverlay } from '@/components/portfolio/portfolio-writing-article-overlay';
 import { PortfolioWritingOverlay } from '@/components/portfolio/portfolio-writing-panel';
 import { loadPortfolioWritingArticlePage } from '@/lib/load-portfolio-writing';
-import { panelLabel } from '@/lib/overlay-routes';
 import { isInterceptMisfireSegment } from '@/lib/resolve-account';
 
 type WritingArticleOverlayRouteProps = {
@@ -23,7 +21,6 @@ export default async function WritingArticleOverlayRoute({
     return <InterceptMisfireRecovery />;
   }
   const page = await loadPortfolioWritingArticlePage(params);
-  const title = panelLabel('writing');
 
   if (!page.post) {
     return (
@@ -42,19 +39,17 @@ export default async function WritingArticleOverlayRoute({
 
   return (
     <OverlayInterceptRoot>
-      <SimpleOverlayPanel ariaTitle={title} hideTitle>
-        <WritingOverlayLeave accountId={page.accountId} fallback="shelf" />
-        <PortfolioWritingArticlePanel
-          accountId={page.accountId}
-          titleLabel={page.titleLabel}
-          avatarUrl={page.avatarUrl}
-          post={page.post}
-          coverHint={
-            page.coverHints[`${page.post.accountId}:${page.post.postId}`] ??
-            null
-          }
-        />
-      </SimpleOverlayPanel>
+      <WritingOverlayLeave accountId={page.accountId} fallback="shelf" />
+      <PortfolioWritingArticleOverlay
+        mood={page.mood}
+        accountId={page.accountId}
+        titleLabel={page.titleLabel}
+        avatarUrl={page.avatarUrl}
+        post={page.post}
+        coverHint={
+          page.coverHints[`${page.post.accountId}:${page.post.postId}`] ?? null
+        }
+      />
     </OverlayInterceptRoot>
   );
 }

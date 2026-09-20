@@ -561,13 +561,159 @@
 }
 
 .feed-photo-slide:not(.feed-photo-slide--thread) .os-media-face-hero,
-.scarce-thought-slide:not(.feed-photo-slide--thread) .os-media-face-hero,
-.feed-article-slide .os-media-face-hero {
+.scarce-thought-slide:not(.feed-photo-slide--thread) .os-media-face-hero {
   height: var(--os-app-screen-nav-row-height);
   min-height: var(--os-app-screen-nav-row-height);
   max-height: var(--os-app-screen-nav-row-height);
   margin-top: var(--os-app-chrome-pad-y, 0.3rem);
 }
+
+/*
+ * Article document (feed slide + profile Writing) — quiet chrome.
+ * Circle back only; title stays on the page; header folds on scroll.
+ */
+.os-slide-over.feed-article-slide[data-immersive-header='true']
+  .os-app-screen-heading,
+.portfolio-writing-article-screen .os-app-screen-heading {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.feed-article-slide .os-app-screen-header,
+.portfolio-writing-article-screen .os-app-screen-header {
+  transition:
+    opacity var(--os-motion-chrome, 220ms)
+      var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1)),
+    transform var(--os-motion-chrome, 220ms)
+      var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1));
+}
+
+.feed-article-slide.is-chrome-quiet .os-app-screen-header,
+.portfolio-writing-article-screen.is-chrome-quiet .os-app-screen-header {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, -0.4rem, 0);
+}
+
+.article-read-progress {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: 2px;
+  margin: 0;
+  pointer-events: none;
+}
+
+.article-read-progress-bar {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  background: rgb(var(--fg-rgb) / 0.42);
+  will-change: transform;
+}
+
+.feed-article-slide[data-screen-footer='true'],
+.portfolio-writing-article-screen[data-screen-footer='true'] {
+  /* One icon row + pads — not the old dock-sized hole. */
+  --os-screen-footer-band: 3.35rem;
+}
+
+.feed-article-slide .portfolio-writing.portfolio-writing-article,
+.portfolio-writing-article-screen .portfolio-writing.portfolio-writing-article {
+  /* Shelf list pad is for a dock. The wake footer owns this edge. */
+  padding-bottom: 0.15rem;
+}
+
+.feed-article-slide .portfolio-writing-essay,
+.portfolio-writing-article-screen .portfolio-writing-essay {
+  margin-bottom: 0.25rem;
+}
+
+.portfolio-writing-article-screen[data-screen-footer='true']
+  .os-app-screen-body {
+  padding-bottom: calc(
+    env(safe-area-inset-bottom, 0px) + var(--os-screen-footer-band)
+  );
+}
+
+.portfolio-writing-article-screen .os-app-screen-footer {
+  bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/*
+ * Same elevate frost as the immersive header: plate always mounted,
+ * opacity snaps (no fade — a flick outruns blur and type shows through).
+ * Standard backdrop-filter only — a -webkit- pair makes Lightning drop it.
+ */
+.feed-article-slide .os-app-screen-footer,
+.portfolio-writing-article-screen .os-app-screen-footer {
+  overflow: visible;
+  background: transparent;
+  pointer-events: none;
+}
+
+.feed-article-slide .os-app-screen-footer::before,
+.portfolio-writing-article-screen .os-app-screen-footer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: rgb(var(--bg-rgb) / 0.72);
+  backdrop-filter: blur(20px) saturate(1.3);
+  opacity: 0;
+}
+
+.feed-article-slide.is-wake-footer .os-app-screen-footer::before,
+.portfolio-writing-article-screen.is-wake-footer .os-app-screen-footer::before {
+  opacity: 1;
+}
+
+.feed-article-slide .os-app-screen-footer > *,
+.portfolio-writing-article-screen .os-app-screen-footer > * {
+  pointer-events: none;
+}
+
+.feed-article-slide.is-wake-footer .os-app-screen-footer,
+.portfolio-writing-article-screen.is-wake-footer .os-app-screen-footer {
+  pointer-events: auto;
+}
+
+.feed-article-slide.is-wake-footer .os-app-screen-footer > *,
+.portfolio-writing-article-screen.is-wake-footer .os-app-screen-footer > * {
+  pointer-events: auto;
+}
+
+.portfolio-writing-article-screen .os-app-screen-footer {
+  padding: 0.45rem 1rem 0.55rem;
+}
+
+.portfolio-writing-article-screen .portfolio-writing-article-actions {
+  width: 100%;
+  margin-left: 0;
+  justify-content: flex-start;
+}
+
+.feed-article-slide .os-slide-over-footer-inner,
+.portfolio-writing-article-screen .os-app-screen-footer > * {
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  transform: translate3d(0, 0.4rem, 0);
+  transition:
+    opacity var(--os-motion-chrome, 220ms)
+      var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1)),
+    transform var(--os-motion-chrome, 220ms)
+      var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1));
+}
+
+.feed-article-slide.is-wake-footer .os-slide-over-footer-inner,
+.portfolio-writing-article-screen.is-wake-footer .os-app-screen-footer > * {
+  opacity: 1;
+  transform: none;
+}
+
 
 /* Reader — flush to the rim. Progress is a hairline, not a spacer. */
 .scarce-read-slide:has(.scarce-writing-read) .os-media-face-hero {
@@ -673,6 +819,18 @@
 
 .os-slide-over[data-immersive-header='true'] .os-app-screen-header::before {
   content: none;
+}
+
+/*
+ * Article header stays a circle-back disc — no frost slab, no title.
+ * Cover editors still zero ::before; do not restore a plate here.
+ */
+
+/* Article print — tile radius on every corner. About keeps the square top. */
+.portfolio-writing-article-cover,
+.portfolio-writing-article-cover.is-photo,
+.portfolio-writing-article-cover.is-card {
+  border-radius: 0.85rem;
 }
 
 .os-slide-over[data-immersive-header='true'] .os-app-screen-heading {
@@ -9393,8 +9551,8 @@ a.os-surface-row {
   }
 
   /*
-   * Article spread — About's first photo (square bookmark print | type).
-   * Cover flushes top; title / Writing / byline nest beside it.
+   * Article spread — print | type. Cover is a tile (radius all corners).
+   * Square-top bookmark is About-only.
    */
   .portfolio-writing-article {
     width: min(100%, 38rem);
@@ -9403,15 +9561,15 @@ a.os-surface-row {
     container-name: portfolio-writing-article;
   }
 
-  .os-app-screen:has(.portfolio-writing-article):not(.os-slide-over)
-    > .os-app-screen-column
-    > .os-app-screen-header {
-    padding: 0;
-    min-height: 0;
-    height: 0;
-    overflow: hidden;
-    border: 0;
+  /* Immersive article — sit the print under the circle back, not under it. */
+  .os-app-screen[data-immersive-header='true']
+    .portfolio-writing.portfolio-writing-article {
+    padding-top: calc(
+      env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y, 0.3rem) +
+        var(--os-app-screen-nav-row-height, 2.35rem) + 0.35rem
+    );
   }
+
 
   .portfolio-writing-article-spread {
     display: grid;
@@ -9425,17 +9583,22 @@ a.os-surface-row {
   }
 
   .portfolio-writing-article-cover {
+    appearance: none;
     position: relative;
+    display: block;
     margin: 0;
+    padding: 0;
     width: 100%;
     max-width: 100%;
     min-width: 0;
     aspect-ratio: 1 / 1;
     overflow: hidden;
     line-height: 0;
-    border-radius: 0 0 var(--os-surface-radius-tile, 0.85rem)
-      var(--os-surface-radius-tile, 0.85rem);
+    border: 0;
+    border-radius: 0.85rem;
     background: rgb(var(--fg-rgb) / 0.04);
+    color: inherit;
+    cursor: zoom-in;
   }
 
   .portfolio-writing-article-cover.is-photo,
@@ -9443,8 +9606,7 @@ a.os-surface-row {
     width: 100%;
     aspect-ratio: 1 / 1;
     margin: 0;
-    border-radius: 0 0 var(--os-surface-radius-tile, 0.85rem)
-      var(--os-surface-radius-tile, 0.85rem);
+    border-radius: 0.85rem;
     box-shadow: none;
   }
 
@@ -9467,6 +9629,30 @@ a.os-surface-row {
     margin: 0;
   }
 
+  .portfolio-writing-article-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.18rem;
+    min-width: 0;
+    max-width: 100%;
+    color: rgb(var(--fg-rgb) / 0.5);
+  }
+
+  .portfolio-writing-dateline {
+    display: block;
+    max-width: 100%;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: clamp(0.62rem, 5.4cqi, 0.8rem);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.35;
+    color: inherit;
+  }
+
   .portfolio-writing-article .portfolio-writing-byline {
     display: flex;
     flex-wrap: wrap;
@@ -9477,7 +9663,7 @@ a.os-surface-row {
     font-weight: 500;
     letter-spacing: 0.01em;
     line-height: 1.35;
-    color: rgb(var(--fg-rgb) / 0.5);
+    color: inherit;
   }
 
   .portfolio-writing-article .portfolio-writing-byline a {
@@ -9511,43 +9697,29 @@ a.os-surface-row {
   }
 
   /*
-   * Author under the cover|title spread — avatar + name |
-   * Like · Save · Thread · Share (icons). @id stays on profile / shelf / feed.
+   * Author under the cover|title spread — avatar + name + @id |
+   * Stand opposite when it is not you. Tools stay in the wake footer.
    */
   .portfolio-writing-article-author {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 0.65rem;
     width: 100%;
     min-width: 0;
     margin: 0 0 1.25rem;
   }
 
-  .portfolio-writing-article-face {
-    flex: 0 0 auto;
-    line-height: 0;
-    color: inherit;
-    text-decoration: none;
-  }
-
-  .portfolio-writing-article-author-name {
-    display: block;
-    flex: 1 1 auto;
-    min-width: 0;
+  .portfolio-writing-article-author .os-media-face-identity {
+    flex: 0 1 auto;
+    width: max-content;
     max-width: 100%;
-    font-size: 0.95rem;
-    font-weight: 650;
-    letter-spacing: -0.015em;
-    line-height: 1.25;
-    color: rgb(var(--fg-rgb) / 0.94);
-    text-decoration: none;
-    overflow-wrap: break-word;
-    text-wrap: balance;
+    min-width: 0;
   }
 
-  .portfolio-writing-article-author-name:hover,
-  .portfolio-writing-article-author-name:focus-visible {
-    color: rgb(var(--fg-rgb) / 1);
+  .portfolio-writing-article-stand {
+    flex-shrink: 0;
+    margin-left: auto;
   }
 
   .portfolio-writing-article-actions {
@@ -9556,6 +9728,14 @@ a.os-surface-row {
     align-items: center;
     gap: 0.1rem;
     margin-left: auto;
+  }
+
+  .portfolio-writing-article-actions.is-afterword {
+    display: flex;
+    width: 100%;
+    margin: 0.35rem 0 0.75rem;
+    margin-left: 0;
+    justify-content: flex-start;
   }
 
   .portfolio-writing-article-action {
@@ -12066,11 +12246,6 @@ a.os-surface-row {
       .os-slide-over
     )
     > .os-app-screen-column
-    > .os-app-screen-header,
-  .os-app-screen[data-compact-chrome='true']:has(
-      .portfolio-writing-article
-    ):not(.os-slide-over)
-    > .os-app-screen-column
     > .os-app-screen-header {
     padding: 0;
     min-height: 0;
@@ -12230,7 +12405,9 @@ a.os-surface-row {
   .os-app-screen[data-immersive-header='true']
     .collection-hero
     .collection-title,
-  .os-app-screen[data-immersive-header='true'] .collectibles-play-title-row {
+  .os-app-screen[data-immersive-header='true'] .collectibles-play-title-row,
+  .os-app-screen[data-immersive-header='true']
+    .portfolio-writing-article-title {
     opacity: calc(1 - var(--title-handoff, 0));
     will-change: opacity;
   }
@@ -27586,6 +27763,27 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.5);
   }
 
+  .collection-writing-work {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin: 0 0 0.85rem;
+  }
+
+  .collection-writing-work-title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+
+  .collection-writing-byline {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
   .collection-writing.is-immersive .collection-writing-downloads {
     margin-top: 0.05rem;
     opacity: 0.72;
@@ -31760,10 +31958,11 @@ a.os-surface-row {
     height: 100%;
   }
 
-  /* Reply open (keep-dock while writing) — icons yield to the write dock. */
+  /* Quiet chrome / reply thread — footer yields. Keep-dock is for the
+   * summon + video transport seat; do not hide the face footer with it. */
   .feed-photo-slide--cinema .os-media-face-hero,
   .feed-photo-slide.is-chrome-quiet .os-app-screen-footer,
-  .feed-photo-slide[data-keep-dock='true'] .os-app-screen-footer,
+  .feed-photo-slide--thread .os-app-screen-footer,
   .feed-photo-slide.is-chrome-quiet .os-media-face-footer,
   .feed-photo-slide.is-chrome-quiet .os-media-face-footer-glass {
     opacity: 0;
@@ -32062,14 +32261,17 @@ a.os-surface-row {
     box-sizing: border-box;
   }
 
-  /* Feed article slide-over — essay panel inside media-face. */
+  /* Feed article slide-over — same document inset as profile Writing. */
+  .feed-article-slide .os-slide-over-content.feed-article-slide-body {
+    padding: 0;
+  }
+
   .feed-article-slide .feed-article-read .portfolio-writing-article {
-    width: 100%;
+    width: min(100%, 40rem);
   }
 
   .feed-article-slide .feed-article-read .portfolio-writing-byline,
-  .feed-article-slide .feed-article-read .portfolio-writing-card-excerpt,
-  .feed-article-slide .feed-article-read .portfolio-writing-article-author-name {
+  .feed-article-slide .feed-article-read .portfolio-writing-card-excerpt {
     color: var(--feed-article-muted, rgb(var(--fg-rgb) / 0.58));
   }
 
@@ -32106,6 +32308,10 @@ a.os-surface-row {
     .scarce-read-slide .os-media-face-body {
       width: min(100%, 42rem);
       padding: 0 1.25rem 0.75rem;
+    }
+
+    .feed-article-slide .os-slide-over-content.feed-article-slide-body {
+      padding: 0;
     }
   }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  amplifyWorkTitle,
   formatPostPeekExcerpt,
   formatPostTimestamp,
   formatRelativePostTimestamp,
@@ -165,6 +166,77 @@ describe('postKindBadge', () => {
   });
 });
 
+describe('amplifyWorkTitle', () => {
+  it('prefers article, poll, then drop title over caption', () => {
+    expect(
+      amplifyWorkTitle(
+        JSON.stringify({
+          v: 1,
+          text: 'The river at night.',
+          x: { onsocial: { article: { title: 'Night drive' } } },
+        })
+      )
+    ).toBe('Night drive');
+    expect(
+      amplifyWorkTitle(
+        JSON.stringify({
+          v: 1,
+          text: 'vote',
+          embeds: [
+            {
+              kind: 'poll',
+              question: 'What is your favourite colour?',
+              options: ['Red', 'Blue'],
+            },
+          ],
+        })
+      )
+    ).toBe('What is your favourite colour?');
+    expect(
+      amplifyWorkTitle(
+        JSON.stringify({
+          v: 1,
+          text: 'check this',
+          x: {
+            onsocial: {
+              drop: { collectionId: 'drop-1', title: 'Night Drop' },
+            },
+          },
+        })
+      )
+    ).toBe('Night Drop');
+  });
+
+  it('uses the first caption line, then a hydrated fallback', () => {
+    expect(
+      amplifyWorkTitle(JSON.stringify({ v: 1, text: 'Hello guild\nmore' }))
+    ).toBe('Hello guild');
+    expect(
+      amplifyWorkTitle(JSON.stringify({ v: 1, text: '' }), 'Merwuszek')
+    ).toBe('Merwuszek');
+  });
+
+  it('stays empty for untitled media — no Photo / Drop fallback', () => {
+    expect(amplifyWorkTitle(JSON.stringify({ v: 1, text: '' }))).toBe('');
+    expect(
+      amplifyWorkTitle(
+        JSON.stringify({
+          v: 1,
+          text: '',
+          embeds: [
+            {
+              kind: 'collection',
+              chain: 'near',
+              contract: 'scarces.onsocial.testnet',
+              collectionId: 'drop-1',
+            },
+          ],
+        })
+      )
+    ).toBe('');
+  });
+});
+
 describe('formatPostPeekExcerpt', () => {
   it('prefers article title, then post text, poll, then drop title', () => {
     expect(
@@ -306,7 +378,10 @@ describe('formatWritingShelfTimestamp', () => {
       formatWritingShelfTimestamp(now.getTime() - 10 * 3_600_000, now)
     ).toMatch(/^[A-Z][a-z]{2} \d{1,2}, 2026$/);
     expect(
-      formatWritingShelfTimestamp(new Date('2025-03-10T12:00:00Z').getTime(), now)
+      formatWritingShelfTimestamp(
+        new Date('2025-03-10T12:00:00Z').getTime(),
+        now
+      )
     ).toContain('2025');
     expect(formatWritingShelfTimestamp(0, now)).toBe('Unknown time');
   });

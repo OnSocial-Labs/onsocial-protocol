@@ -81,6 +81,16 @@ describe('shouldMountPortfolioGlassHost', () => {
     ).toBe(false);
   });
 
+  it('mounts an article intercept over the hard Writing shelf', () => {
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/writing/42',
+        layoutSegments: ['writing'],
+        overlaySlotMode: 'intercept',
+      })
+    ).toBe(true);
+  });
+
   it('does not mount on portfolio root', () => {
     expect(
       shouldMountPortfolioGlassHost({

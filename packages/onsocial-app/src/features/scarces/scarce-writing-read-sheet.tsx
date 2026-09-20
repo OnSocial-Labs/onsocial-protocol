@@ -42,9 +42,16 @@ import type {
   WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { isDownloadAbort } from '@/lib/media-download';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { displayName } from '@/lib/profile-display';
+
+function visibleWorkTitle(value: string): string {
+  const next = value.trim();
+  return next && next.toLowerCase() !== 'drop' ? next : '';
+}
 
 function inlineSvgMarkup(svg: string): string {
   return svg.replace(/^<\?xml[^>]*>\s*/i, '');
@@ -275,6 +282,12 @@ export function WritingReadSheet({
     'left' | 'center' | 'justify' | null
   >(null);
   const [hydrateSettled, setHydrateSettled] = useState(false);
+  const authorId = creatorId?.trim() || '';
+  const authorProfiles = usePostAuthorProfiles(authorId ? [authorId] : []);
+  const authorProfile = authorId ? authorProfiles[authorId] : undefined;
+  const authorName = authorId
+    ? displayName(authorId, authorProfile?.displayName)
+    : '';
   const [readerActions, setReaderActions] =
     useState<WritingReaderActions | null>(null);
 
@@ -418,7 +431,9 @@ export function WritingReadSheet({
     setChromeQuiet(false);
   }, [open, writePinned]);
 
-  const name = title.trim() || 'Drop';
+  const workTitle =
+    visibleWorkTitle(title) || readables[0]?.title?.trim() || '';
+  const dialogName = workTitle || authorName || 'Writing';
   const inlineSvg = coverSvg?.trim() ? inlineSvgMarkup(coverSvg.trim()) : null;
   const rasterCover = cover?.trim() || null;
   const hasWriting = readables.length > 0 || bookPdf != null;
@@ -446,34 +461,6 @@ export function WritingReadSheet({
       </OsSheetActions>
     </OsSheetFooter>
   ) : null;
-
-  const mast =
-    inlineSvg && !rasterCover ? (
-      <button
-        type="button"
-        className="scarce-writing-read-art"
-        aria-label="View cover"
-        onClick={() => setCoverOpen(true)}
-      >
-        <div
-          className="scarce-writing-read-cover scarce-writing-read-cover--svg"
-          dangerouslySetInnerHTML={{ __html: inlineSvg }}
-        />
-      </button>
-    ) : rasterCover ? (
-      <button
-        type="button"
-        className="scarce-writing-read-art"
-        aria-label="View cover"
-        onClick={() => setCoverOpen(true)}
-      >
-        <img
-          src={rasterCover}
-          alt=""
-          className="scarce-writing-read-cover"
-        />
-      </button>
-    ) : null;
 
   const progress = (
     <div
@@ -532,15 +519,14 @@ export function WritingReadSheet({
     <OsMediaFaceShell
       open={open}
       onClose={onClose}
-      title={name}
-      faceTitle={name}
+      title={dialogName}
+      quietTitle
       closeAriaLabel="Back from reader"
       zIndex={SCARCE_Z.listenShell}
       keepDock
-      mast={mast}
       trailing={
         <WritingReaderMenu
-          title={name}
+          title={authorName || dialogName}
           creatorId={creatorId}
           hasCover={Boolean(rasterCover || inlineSvg)}
           readerActions={readerActions}
@@ -577,7 +563,10 @@ export function WritingReadSheet({
             onScrollDelta={onScrollDelta}
             onChromeTap={onChromeTap}
             seekProgressRef={seekProgressRef}
-            workTitle={name}
+            workTitle={workTitle}
+            creatorId={authorId || null}
+            creatorName={authorName || null}
+            creatorAvatarUrl={authorProfile?.avatarUrl ?? null}
             onReaderActions={onReaderActions}
           />
         ) : (
@@ -594,7 +583,7 @@ export function WritingReadSheet({
           open={coverOpen}
           src={rasterCover ?? undefined}
           svg={inlineSvg && !rasterCover ? inlineSvg : null}
-          label={name}
+          label={dialogName}
           onClose={() => setCoverOpen(false)}
         />
       ) : null}

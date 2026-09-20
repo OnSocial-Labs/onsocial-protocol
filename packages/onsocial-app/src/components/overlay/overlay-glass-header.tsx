@@ -109,12 +109,13 @@ export function OverlayGlassHeader({ panelKey }: { panelKey: string | null }) {
   const chrome = useOverlayChrome();
   const close = useOverlayDismiss();
   const showFallback = hint != null && chrome == null;
+  const flushHeader = chrome?.hideHeader ?? Boolean(hint?.hideTitle);
 
   return (
     <div
       ref={setHeaderPortal}
       className={
-        hint?.hideTitle
+        flushHeader
           ? 'overlay-header-portal overlay-header-portal--flush'
           : 'overlay-header-portal'
       }

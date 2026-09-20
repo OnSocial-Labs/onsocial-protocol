@@ -14,14 +14,16 @@ import {
   type PostAmplifySuccessDetail,
 } from '@/features/home/post-amplify-form';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
-import { commercePartyLines } from '@/features/scarces/collection-creator-face';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
+import { amplifyWorkTitle } from '@/lib/post-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 interface PostAmplifySheetProps {
   open: boolean;
   post: PostRow | null;
   authorName?: string | null;
+  /** Hydrated drop / book title when the post body has no work name. */
+  workTitle?: string | null;
   onOpenChange: (open: boolean) => void;
   onAmplified?: (post: PostRow, detail: PostAmplifySuccessDetail) => void;
   zIndex?: number;
@@ -32,6 +34,7 @@ export function PostAmplifySheet({
   open,
   post,
   authorName = null,
+  workTitle = null,
   onOpenChange,
   onAmplified,
   zIndex = SHEET_Z.overShell,
@@ -41,9 +44,7 @@ export function PostAmplifySheet({
   const [formKey, setFormKey] = useState(0);
   const [wasOpen, setWasOpen] = useState(open);
   const sheetOpen = open && !closing && post != null;
-  const party = post
-    ? commercePartyLines(post.accountId, authorName)
-    : { name: '', handle: '' };
+  const subject = post ? amplifyWorkTitle(post.value, workTitle) : '';
   const authorMood = usePageOwnerMood(
     post?.accountId,
     Boolean(open || closing)
@@ -76,8 +77,7 @@ export function PostAmplifySheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       verb="Amplify"
-      personName={party.name}
-      handle={party.handle}
+      {...(subject ? { subject } : {})}
       signal="reputation"
       closeAriaLabel="Close amplify"
       backdropLabel="Close amplify"

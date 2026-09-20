@@ -81,6 +81,8 @@ export interface OsSlideOverScreenProps {
    * body offset — use this for cover/identity editors.
    */
   immersiveHeader?: boolean;
+  /** Scroll-elevated immersive header (title handoff). */
+  headerElevated?: boolean;
   /**
    * Glass chrome (absolute frost header + scroll elevate). Media slides
    * (Listen / pass / thought) pass false — plain in-flow header so × matches
@@ -137,6 +139,7 @@ export function OsSlideOverScreen({
   footer,
   children,
   immersiveHeader = false,
+  headerElevated = false,
   elevateChrome = true,
   zIndex = 70,
   closeAriaLabel = 'Close',
@@ -294,7 +297,9 @@ export function OsSlideOverScreen({
           <header
             ref={headerRef}
             className={`os-app-screen-header${
-              useGlassChrome && glassElevated ? ' is-elevated' : ''
+              headerElevated || (useGlassChrome && glassElevated)
+                ? ' is-elevated'
+                : ''
             }`}
           >
             {hideNav ? (

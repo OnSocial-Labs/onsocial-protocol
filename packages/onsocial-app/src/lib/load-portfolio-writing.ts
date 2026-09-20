@@ -49,18 +49,30 @@ export const fetchAccountArticles = cache(
   }
 );
 
-export const loadPortfolioWritingForAccount = cache(
+const loadPortfolioWritingChrome = cache(
   async (accountId: string): Promise<PortfolioWritingPageData> => {
     const data = await fetchPublicPageData(accountId);
     if (!data) {
       notFound();
     }
+    const shell = await loadProfileShell(accountId);
+    return {
+      accountId,
+      titleLabel: displayName(accountId, shell?.name ?? undefined),
+      avatarUrl: shell?.avatarUrl ?? null,
+      mood: resolvePortfolioMood(data.config),
+      articles: [],
+      coverHints: {},
+    };
+  }
+);
 
-    const [shell, articles] = await Promise.all([
-      loadProfileShell(accountId),
+export const loadPortfolioWritingForAccount = cache(
+  async (accountId: string): Promise<PortfolioWritingPageData> => {
+    const [chrome, articles] = await Promise.all([
+      loadPortfolioWritingChrome(accountId),
       fetchAccountArticles(accountId),
     ]);
-    const titleLabel = displayName(accountId, shell?.name ?? undefined);
 
     let coverHints: Record<string, WritingArticleCoverHint> = {};
     try {
@@ -71,10 +83,7 @@ export const loadPortfolioWritingForAccount = cache(
     }
 
     return {
-      accountId,
-      titleLabel,
-      avatarUrl: shell?.avatarUrl ?? null,
-      mood: resolvePortfolioMood(data.config),
+      ...chrome,
       articles,
       coverHints,
     };
@@ -96,8 +105,8 @@ export async function loadPortfolioWritingArticlePage(
     Promise.resolve({ accountId: resolved.accountId })
   );
   const postId = decodeURIComponent(resolved.postId ?? '').trim();
-  const [page, post] = await Promise.all([
-    loadPortfolioWritingForAccount(accountId),
+  const [chrome, post] = await Promise.all([
+    loadPortfolioWritingChrome(accountId),
     (async () => {
       if (!postId) return null;
       try {
@@ -110,22 +119,23 @@ export async function loadPortfolioWritingArticlePage(
   ]);
 
   const article = post && isArticlePost(post) ? post : null;
-  let coverHints = page.coverHints;
-  if (article) {
-    const key = `${article.accountId}:${article.postId}`;
-    if (!coverHints[key]) {
-      try {
-        const os = createServerOnSocialClient();
-        const extra = await hydrateWritingArticleCovers([article], os);
-        coverHints = { ...coverHints, ...extra };
-      } catch {
-        /* shelf hints already best-effort */
-      }
-    }
+  if (!article) {
+    return {
+      ...(await loadPortfolioWritingForAccount(accountId)),
+      post: null,
+    };
+  }
+
+  let coverHints: Record<string, WritingArticleCoverHint> = {};
+  try {
+    const os = createServerOnSocialClient();
+    coverHints = await hydrateWritingArticleCovers([article], os);
+  } catch {
+    coverHints = {};
   }
 
   return {
-    ...page,
+    ...chrome,
     coverHints,
     post: article,
   };

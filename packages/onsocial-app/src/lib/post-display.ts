@@ -372,6 +372,49 @@ export function truncatePostPreview(text: string, maxChars: number): string {
   return `${normalized.slice(0, maxChars).trimEnd()}…`;
 }
 
+function readStoredArticleTitle(value: string): string {
+  try {
+    const parsed = JSON.parse(value) as {
+      x?: { onsocial?: { article?: { title?: unknown } } };
+    };
+    const title = parsed.x?.onsocial?.article?.title;
+    return typeof title === 'string' ? title.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
+function firstMeaningfulLine(text: string): string {
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
+}
+
+/**
+ * Work title for Amplify chrome. Empty when the post has no named work —
+ * omit the line; never invent Photo / Video / Drop.
+ */
+export function amplifyWorkTitle(
+  value: string,
+  fallbackTitle?: string | null
+): string {
+  const articleTitle = readStoredArticleTitle(value);
+  if (articleTitle) return articleTitle;
+
+  const question = parsePostPollEmbed(value)?.question.trim() ?? '';
+  if (question) return question;
+
+  const dropTitle = parseDropPaintSnapshot(value)?.title?.trim() ?? '';
+  if (dropTitle) return dropTitle;
+
+  const fallback = fallbackTitle?.trim() ?? '';
+  if (fallback) return fallback;
+
+  return firstMeaningfulLine(parsePostText(value));
+}
+
 /**
  * One-line launcher peek copy — text first, then poll question / drop title,
  * then kind-aware fallbacks.
@@ -380,17 +423,7 @@ export function formatPostPeekExcerpt(
   value: string,
   options?: { kind?: string | null; postId?: string }
 ): string {
-  const articleTitle = (() => {
-    try {
-      const parsed = JSON.parse(value) as {
-        x?: { onsocial?: { article?: { title?: unknown } } };
-      };
-      const title = parsed.x?.onsocial?.article?.title;
-      return typeof title === 'string' ? title.trim() : '';
-    } catch {
-      return '';
-    }
-  })();
+  const articleTitle = readStoredArticleTitle(value);
   if (articleTitle) {
     return truncatePostPreview(articleTitle, POST_PEEK_EXCERPT_CHARS);
   }

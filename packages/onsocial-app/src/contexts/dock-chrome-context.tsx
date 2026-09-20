@@ -90,10 +90,16 @@ export function useRegisterDockBack(entry: DockBackRegistration | null) {
   const setDockBack = context?.setDockBack;
 
   useLayoutEffect(() => {
-    if (!setDockBack) return;
+    if (!setDockBack || !entry) return;
     setDockBack(entry);
     return () => setDockBack(null);
-  }, [entry?.ariaLabel, entry?.fallbackHref, entry?.onBack, entry, setDockBack]);
+  }, [
+    entry?.ariaLabel,
+    entry?.fallbackHref,
+    entry?.onBack,
+    entry,
+    setDockBack,
+  ]);
 }
 
 /** Header already has Connect / Start drop — hide the dock Connect hint. */

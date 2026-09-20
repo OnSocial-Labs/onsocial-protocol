@@ -12,6 +12,7 @@ import Link from 'next/link';
 import type { PostRow } from '@onsocial/sdk';
 import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { PortfolioEssayLeave } from '@/components/portfolio/portfolio-essay-leave';
 import { PortfolioPersonalComposer } from '@/components/portfolio/portfolio-personal-composer';
 import {
   WritingIdentityToolbar,
@@ -22,6 +23,7 @@ import { PostRichText } from '@/features/home/post-rich-text';
 import { useOverlayDismiss } from '@/contexts/overlay-dismiss-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useWritingComposeOpen } from '@/contexts/writing-compose-context';
+import { useEssayReturnSearch } from '@/hooks/use-essay-return-search';
 import {
   articleExcerpt,
   articleMatchesQuery,
@@ -38,6 +40,7 @@ import { accountIdsEqual } from '@/lib/account-match';
 import type { WritingArticleCoverHint } from '@/lib/hydrate-writing-article-covers';
 import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
+import { withEssayReturnSearch } from '@/lib/essay-return-href';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
 import {
@@ -77,6 +80,7 @@ const PortfolioWritingList = memo(function PortfolioWritingList({
   showSearch: boolean;
 }) {
   const { accountId: viewerId } = useAppWallet();
+  const returnSearch = useEssayReturnSearch();
   const isOwner = Boolean(viewerId && accountIdsEqual(viewerId, accountId));
   const openPost = useWritingComposeOpen();
   const { engagement } = usePostEngagement(articles);
@@ -137,9 +141,13 @@ const PortfolioWritingList = memo(function PortfolioWritingList({
             return (
               <li key={`${post.accountId}:${post.postId}`}>
                 <Link
-                  href={writingArticlePath(post.accountId, post.postId)}
+                  href={withEssayReturnSearch(
+                    writingArticlePath(post.accountId, post.postId),
+                    returnSearch
+                  )}
                   className="portfolio-writing-card"
                   scroll={false}
+                  prefetch
                   aria-label={article.title}
                 >
                   <div className="portfolio-writing-cover" aria-hidden>
@@ -282,7 +290,12 @@ export function PortfolioWritingScreen({
   mood,
   ...panel
 }: PortfolioWritingPanelProps & { mood: ResolvedMood }) {
-  return <PortfolioWritingShelf mood={mood} {...panel} />;
+  return (
+    <>
+      <PortfolioWritingShelf mood={mood} {...panel} />
+      <PortfolioEssayLeave accountId={panel.accountId} />
+    </>
+  );
 }
 
 /** Soft-nav Writing overlay — same compact chrome as hard refresh. */
@@ -301,18 +314,7 @@ export function PortfolioWritingOverlay({
         onDockBack={dismiss}
         {...panel}
       />
+      <PortfolioEssayLeave accountId={panel.accountId} />
     </>
-  );
-}
-
-/** @deprecated Prefer {@link PortfolioWritingScreen} / {@link PortfolioWritingOverlay}. */
-export function PortfolioWritingPanel(panel: PortfolioWritingPanelProps) {
-  const { listQuery, showSearch } = useWritingShelfState(panel.articles.length);
-  return (
-    <PortfolioWritingList
-      {...panel}
-      query={listQuery}
-      showSearch={showSearch}
-    />
   );
 }

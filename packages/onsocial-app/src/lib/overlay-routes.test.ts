@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   aboutPath,
+  essayLeaveHref,
+  parsePortfolioEssayFromParam,
+  parsePortfolioEssayParam,
+  parseWritingArticleHref,
+  portfolioFromEssayPath,
+  isAccountWritingPlace,
+  withEssayReturnSearch,
   writingArticlePath,
+  writingFromArticleHref,
+  writingFromEssayPath,
   writingPath,
   discoverPath,
   isFullPagePanelLayout,
@@ -169,7 +178,9 @@ describe('parsePortfolioEndorsementFocus', () => {
       issuer: 'bob.testnet',
       topic: 'design',
     });
-    expect(parsePortfolioEndorsementFocus(new URLSearchParams('q=hi'))).toBeNull();
+    expect(
+      parsePortfolioEndorsementFocus(new URLSearchParams('q=hi'))
+    ).toBeNull();
   });
 });
 
@@ -185,6 +196,63 @@ describe('writingPath', () => {
     expect(writingArticlePath('alice.testnet', '42')).toBe(
       '/@alice.testnet/writing/42'
     );
+  });
+});
+
+describe('portfolioFromEssayPath', () => {
+  it('marks the real face so dock leave is the essay', () => {
+    expect(portfolioFromEssayPath('alice.testnet', '42')).toBe(
+      '/@alice.testnet?essay=42'
+    );
+    expect(parsePortfolioEssayParam('42')).toBe('42');
+    expect(parsePortfolioEssayParam('')).toBeNull();
+  });
+
+  it('remembers the overlay you left', () => {
+    expect(portfolioFromEssayPath('alice.testnet', '42', '/home')).toBe(
+      '/@alice.testnet?essay=42&from=%2Fhome'
+    );
+    expect(parsePortfolioEssayFromParam('/home')).toBe('/home');
+    expect(parsePortfolioEssayFromParam('https://evil.test/x')).toBeNull();
+    expect(parseWritingArticleHref('/@alice.testnet/writing/42')).toEqual({
+      accountId: 'alice.testnet',
+      postId: '42',
+    });
+    expect(parseWritingArticleHref('/@alice.testnet/writing')).toBeNull();
+    expect(essayLeaveHref('alice.testnet', '42', '/home')).toBe('/home');
+    expect(
+      essayLeaveHref('alice.testnet', '42', '/@alice.testnet/writing/42')
+    ).toBe('/@alice.testnet/writing/42');
+    expect(essayLeaveHref('alice.testnet', '42')).toBe(
+      '/@alice.testnet/writing/42'
+    );
+    expect(writingFromEssayPath('alice.testnet', '42', '/home')).toBe(
+      '/@alice.testnet/writing?essay=42&from=%2Fhome'
+    );
+    expect(
+      withEssayReturnSearch(
+        '/@alice.testnet/writing/99',
+        'essay=42&from=%2Fhome'
+      )
+    ).toBe('/@alice.testnet/writing/99?essay=42&from=%2Fhome');
+    expect(
+      isAccountWritingPlace('alice.testnet', '/@alice.testnet/writing')
+    ).toBe(true);
+    expect(
+      isAccountWritingPlace('alice.testnet', '/@alice.testnet/writing/99')
+    ).toBe(true);
+    expect(isAccountWritingPlace('alice.testnet', '/home')).toBe(false);
+    expect(writingFromArticleHref('alice.testnet', '99', '/home')).toBe(
+      '/@alice.testnet/writing?essay=99&from=%2Fhome'
+    );
+    expect(
+      writingFromArticleHref(
+        'alice.testnet',
+        '99',
+        '/@alice.testnet/writing/42',
+        'essay=7&from=%2Fhome'
+      )
+    ).toBe('/@alice.testnet/writing?essay=7&from=%2Fhome');
   });
 });
 
@@ -218,9 +286,9 @@ describe('discoverPath', () => {
   });
 
   it('combines tab and search query', () => {
-    expect(
-      discoverPath('alice.testnet', { tab: 'profiles', q: 'near' })
-    ).toBe('/@alice.testnet/discover?tab=profiles&q=near');
+    expect(discoverPath('alice.testnet', { tab: 'profiles', q: 'near' })).toBe(
+      '/@alice.testnet/discover?tab=profiles&q=near'
+    );
   });
 });
 
@@ -322,9 +390,9 @@ describe('shouldOpenPortfolioGlassOverlay', () => {
     expect(
       shouldOpenPortfolioGlassOverlay('/@alice.testnet/standing/incoming', [])
     ).toBe(true);
-    expect(shouldOpenPortfolioGlassOverlay('/@alice.testnet/discover', [])).toBe(
-      true
-    );
+    expect(
+      shouldOpenPortfolioGlassOverlay('/@alice.testnet/discover', [])
+    ).toBe(true);
     expect(shouldOpenPortfolioGlassOverlay('/@alice.testnet/about', [])).toBe(
       true
     );

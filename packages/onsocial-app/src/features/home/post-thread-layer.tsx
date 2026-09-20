@@ -154,9 +154,8 @@ function nextStackedLayerZ(stack: PlaceLayerTarget[]): number {
 }
 
 function placeLayerHref(layer: PlaceLayerTarget): string {
-  return layer.kind === 'drop'
-    ? collectionPath(layer.collectionId)
-    : personalPostPath(layer.accountId, layer.postId);
+  if (layer.kind === 'drop') return collectionPath(layer.collectionId);
+  return personalPostPath(layer.accountId, layer.postId);
 }
 
 function seedEmbeddedThread(root: PostRow): PersonalPostPageData {
@@ -201,7 +200,13 @@ function withPostLayerHistoryState(): object {
 function captureUnderlayScroll(): { el: HTMLElement; top: number } | null {
   const bodies = document.querySelectorAll<HTMLElement>('.os-app-screen-body');
   for (const body of bodies) {
-    if (body.closest('.post-thread-sheet-panel, .drop-sheet-panel')) continue;
+    if (
+      body.closest(
+        '.post-thread-sheet-panel, .drop-sheet-panel'
+      )
+    ) {
+      continue;
+    }
     return { el: body, top: body.scrollTop };
   }
   return null;
@@ -533,7 +538,10 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       const remaining = stackRef.current.slice(0, -1);
       const prev = remaining[remaining.length - 1];
       if (prev) {
-        nativeHistoryPushState(withPostLayerHistoryState(), placeLayerHref(prev));
+        nativeHistoryPushState(
+          withPostLayerHistoryState(),
+          placeLayerHref(prev)
+        );
       }
       beginCloseTop();
     };
@@ -561,8 +569,12 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ openPostThread, openDrop, closePostThread }),
-    [openPostThread, openDrop, closePostThread]
+    () => ({
+      openPostThread,
+      openDrop,
+      closePostThread,
+    }),
+    [closePostThread, openDrop, openPostThread]
   );
 
   return (

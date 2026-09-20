@@ -30,6 +30,13 @@ const DROP_WRITING_CHAPTER_TEXT_MIMES = new Set([
 
 export type WritingReleaseFormat = 'issue' | 'book';
 
+/** Book / Issue folio reader — not a listed Writing article. */
+export function isWritingFolioFormat(
+  format?: WritingReleaseFormat | null
+): boolean {
+  return format === 'book' || format === 'issue';
+}
+
 export interface ScarceReadableRef {
   cid: string;
   mime: string;

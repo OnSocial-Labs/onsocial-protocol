@@ -24,6 +24,11 @@ import {
 } from '@/features/scarces/drop-writing';
 import { writingUntitledLabel } from '@/features/scarces/writing-read-voice';
 import { downloadIpfsMedia } from '@/lib/media-download';
+import { AccountAvatar } from '@/components/profile/account-avatar';
+import Link from 'next/link';
+import { portfolioPath } from '@/lib/overlay-routes';
+import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
+import { displayName } from '@/lib/profile-display';
 
 function readablesKey(readables: ScarceReadableMedia[]): string {
   return readables.map((entry) => entry.url).join('\0');
@@ -59,6 +64,9 @@ export function CollectionWritingReader({
   /** Imperative whole-object seek (0–1). Sheet scrubber assigns this. */
   seekProgressRef,
   workTitle = null,
+  creatorId = null,
+  creatorName = null,
+  creatorAvatarUrl = null,
   onReaderActions,
 }: {
   collectionId: string;
@@ -78,8 +86,11 @@ export function CollectionWritingReader({
   /** Center tap — show or hide jacket / OS chrome. */
   onChromeTap?: () => void;
   seekProgressRef?: MutableRefObject<((ratio: number) => void) | null>;
-  /** Work title in the jacket — hide a duplicate chapter chip. */
+  /** Work title on the page — jacket is chrome only. */
   workTitle?: string | null;
+  creatorId?: string | null;
+  creatorName?: string | null;
+  creatorAvatarUrl?: string | null;
   onReaderActions?: (actions: WritingReaderActions | null) => void;
 }) {
   const isBook =
@@ -608,6 +619,48 @@ export function CollectionWritingReader({
     Boolean(chapter?.title?.trim()) &&
     !titlesMatch(chapter?.title ?? '', workTitle ?? '');
   const showChapterChip = isBook || Boolean(pdfPageLabel) || namedChapter;
+  const creatorHref = creatorId?.trim()
+    ? portfolioPath(creatorId.trim())
+    : null;
+  const creatorLabel = creatorId
+    ? displayName(creatorId, creatorName)
+    : '';
+  const workHead =
+    immersive && (workTitle?.trim() || creatorHref) ? (
+      <div className="collection-writing-work">
+        {workTitle?.trim() ? (
+          <h1 className="collection-writing-work-title">{workTitle.trim()}</h1>
+        ) : null}
+        {creatorHref && creatorId ? (
+          <div className="collection-writing-byline">
+            <Link
+              href={creatorHref}
+              className="os-media-face-identity"
+              scroll={false}
+              prefetch={false}
+              aria-label={`View ${creatorLabel}'s profile`}
+            >
+              <AccountAvatar
+                accountId={creatorId}
+                src={creatorAvatarUrl}
+                fallbackInitial={creatorLabel}
+                size="lg"
+                className="post-card-avatar"
+              />
+              <span className="os-media-face-identity-copy">
+                <span className="os-media-face-identity-name-row">
+                  <span className="os-media-face-identity-name">{creatorLabel}</span>
+                  <span className="post-identity-name-marks">
+                    <ProtocolNameTrailing accountId={creatorId} />
+                  </span>
+                </span>
+                <span className="os-media-face-identity-handle">@{creatorId}</span>
+              </span>
+            </Link>
+          </div>
+        ) : null}
+      </div>
+    ) : null;
 
   const downloads =
     (canRead && chapter) || (canRead && bookPdf) ? (
@@ -727,6 +780,7 @@ export function CollectionWritingReader({
       className={`collection-writing${immersive ? ' is-immersive' : ''}`}
       aria-label="Reading"
     >
+      {workHead}
       {immersive ? (
         showChapterChip ? (
           <div className="collection-writing-tools">

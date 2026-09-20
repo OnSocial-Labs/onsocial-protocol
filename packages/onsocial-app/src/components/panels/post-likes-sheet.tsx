@@ -6,6 +6,7 @@ import {
   loadPostLikeAccountIds,
   mergeViewerIntoLikeAccountIds,
 } from '@/lib/load-post-like-account-ids';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 export type PostLikesSheetProps = {
   open: boolean;
@@ -18,6 +19,8 @@ export type PostLikesSheetProps = {
   title?: string | null;
   viewerAccountId?: string | null;
   viewerLiked?: boolean;
+  /** Over a reader shell (feed article / Writing). Default clears listen. */
+  zIndex?: number;
 };
 
 /**
@@ -33,6 +36,7 @@ export function PostLikesSheet({
   title = null,
   viewerAccountId = null,
   viewerLiked = false,
+  zIndex = SHEET_Z.overShell,
 }: PostLikesSheetProps) {
   const [likerIds, setLikerIds] = useState<string[]>([]);
   const [idsLoading, setIdsLoading] = useState(false);
@@ -107,6 +111,7 @@ export function PostLikesSheet({
       errorCopy="Couldn’t load likes."
       closeAriaLabel="Close likes"
       backdropLabel="Close likes"
+      zIndex={zIndex}
     />
   );
 }

@@ -11,6 +11,21 @@ import {
   applyDiscoverTabParam,
   type DiscoverTab,
 } from '@/features/discover/discover-tabs';
+import {
+  parsePortfolioEssayFromParam,
+  PORTFOLIO_ESSAY_FROM_PARAM,
+  PORTFOLIO_ESSAY_PARAM,
+  withEssayReturnSearch,
+} from '@/lib/essay-return-href';
+
+export {
+  essayReturnSearch,
+  parsePortfolioEssayFromParam,
+  parsePortfolioEssayParam,
+  PORTFOLIO_ESSAY_FROM_PARAM,
+  PORTFOLIO_ESSAY_PARAM,
+  withEssayReturnSearch,
+} from '@/lib/essay-return-href';
 
 const ENDORSEMENT_FOCUS_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -38,6 +53,50 @@ export const PORTFOLIO_FEED_SECTION_ID = 'portfolio-feed';
 
 export function portfolioPath(accountId: string): string {
   return `/@${encodeURIComponent(accountId)}`;
+}
+
+/** `/@id/writing/{postId}` — the article overlay, not the Writing shelf. */
+export function parseWritingArticleHref(
+  href: string | null | undefined
+): { accountId: string; postId: string } | null {
+  const from = parsePortfolioEssayFromParam(href);
+  if (!from) return null;
+  const pathname = from.split('?')[0] ?? '';
+  const match = pathname.match(/^\/@([^/]+)\/writing\/([^/]+)\/?$/);
+  if (!match) return null;
+  try {
+    const accountId = decodeURIComponent(match[1] ?? '').trim();
+    const postId = decodeURIComponent(match[2] ?? '').trim();
+    return accountId && postId ? { accountId, postId } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Dock leave after a real-face hop — same overlay you left, not the shelf. */
+export function essayLeaveHref(
+  accountId: string,
+  essayId: string,
+  fromHref?: string | null
+): string {
+  const from = parsePortfolioEssayFromParam(fromHref);
+  if (from) return from;
+  return writingArticlePath(accountId, essayId);
+}
+
+/** Real face from an open article. Chevron returns to that same overlay. */
+export function portfolioFromEssayPath(
+  accountId: string,
+  postId: string,
+  fromHref?: string | null
+): string {
+  const id = postId.trim();
+  if (!id) return portfolioPath(accountId);
+  const params = new URLSearchParams();
+  params.set(PORTFOLIO_ESSAY_PARAM, id);
+  const from = parsePortfolioEssayFromParam(fromHref);
+  if (from) params.set(PORTFOLIO_ESSAY_FROM_PARAM, from);
+  return `${portfolioPath(accountId)}?${params.toString()}`;
 }
 
 /** Shareable owner sheets on the profile face (`?sheet=`). */
@@ -148,7 +207,8 @@ export function portfolioEndorsementPath(
   const issuer = options?.issuer?.trim() || '';
   const topic = options?.topic?.trim() || '';
   if (id) params.set(ENDORSEMENT_FOCUS_PARAM, id);
-  const needsIssuer = Boolean(issuer) && (!id || ENDORSEMENT_FOCUS_UUID_PATTERN.test(id));
+  const needsIssuer =
+    Boolean(issuer) && (!id || ENDORSEMENT_FOCUS_UUID_PATTERN.test(id));
   if (needsIssuer) params.set(ENDORSEMENT_ISSUER_PARAM, issuer);
   if (topic && !id) params.set(ENDORSEMENT_TOPIC_PARAM, topic);
   const qs = params.toString();
@@ -178,6 +238,59 @@ export function aboutPath(accountId: string): string {
 /** Author Writing shelf — titled longform posts. */
 export function writingPath(accountId: string): string {
   return overlayPath(accountId, 'writing');
+}
+
+/** Real Writing shelf from an open article. Chevron returns to that reader. */
+export function writingFromEssayPath(
+  accountId: string,
+  postId: string,
+  fromHref?: string | null
+): string {
+  const marked = portfolioFromEssayPath(accountId, postId, fromHref);
+  const query = marked.indexOf('?');
+  return query === -1
+    ? writingPath(accountId)
+    : `${writingPath(accountId)}${marked.slice(query)}`;
+}
+
+function accountSegmentEquals(left: string, right: string): boolean {
+  try {
+    return (
+      decodeURIComponent(left).toLowerCase() ===
+      decodeURIComponent(right).toLowerCase()
+    );
+  } catch {
+    return left.toLowerCase() === right.toLowerCase();
+  }
+}
+
+/** Already on this author's Writing shelf or one of their articles. */
+export function isAccountWritingPlace(
+  accountId: string,
+  pathname: string | null | undefined
+): boolean {
+  const article = parseWritingArticleHref(pathname);
+  if (article) return accountSegmentEquals(article.accountId, accountId);
+  const path = (pathname ?? '').split('?')[0] ?? '';
+  return (
+    path === writingPath(accountId) || path === `${writingPath(accountId)}/`
+  );
+}
+
+/**
+ * Writing in the byline: mark a return when leaving the reader,
+ * or stay on this shelf when already in Writing.
+ */
+export function writingFromArticleHref(
+  accountId: string,
+  postId: string,
+  pathname: string,
+  search?: string | URLSearchParams | null
+): string {
+  if (isAccountWritingPlace(accountId, pathname)) {
+    return withEssayReturnSearch(writingPath(accountId), search);
+  }
+  return writingFromEssayPath(accountId, postId, pathname);
 }
 
 /** One article on the Writing shelf. */

@@ -12,6 +12,7 @@ import {
   resolveDaoPortfolioSummary,
 } from '@/lib/load-dao-page';
 import { PortfolioActivateStrip } from '@/components/portfolio/portfolio-activate-strip';
+import { PortfolioEssayLeave } from '@/components/portfolio/portfolio-essay-leave';
 import { PortfolioDaoOrgChrome } from '@/components/portfolio/portfolio-dao-org-chrome';
 import { PortfolioDeferredShelf } from '@/components/portfolio/portfolio-deferred-shelf';
 import { PortfolioEndorsementFocusHost } from '@/components/portfolio/portfolio-endorsement-focus-host';
@@ -135,6 +136,7 @@ export default async function AccountPage({
 
   return (
     <>
+      <PortfolioEssayLeave accountId={accountId} />
       <PortfolioProfileSeed
         accountId={accountId}
         displayName={name}
@@ -180,9 +182,7 @@ export default async function AccountPage({
               ? (daoPage?.branding.about ?? null)
               : (shell?.about ?? null)
           }
-          fullBio={
-            daoPage?.branding.purpose ?? daoPage?.configPurpose ?? null
-          }
+          fullBio={daoPage?.branding.purpose ?? daoPage?.configPurpose ?? null}
           lead={shell?.lead ?? daoPage?.branding.lead ?? null}
           tags={identityTopics}
           photoCount={

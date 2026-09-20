@@ -18,6 +18,8 @@ export interface GestureSheetHeaderProps {
   personName?: string;
   /** Quiet @handle under the title. Omit when unused or redundant. */
   handle?: string;
+  /** Work title under the verb (Amplify). Omit when the post has no named work. */
+  subject?: string;
   /** Face-gesture signal hue for the verb. */
   signal: GestureSheetSignal;
   closeAriaLabel: string;
@@ -28,7 +30,8 @@ export interface GestureSheetHeaderProps {
 
 /**
  * Shared chrome for social / commerce gesture sheets.
- * One title beat: verb + optional person; quiet handle; no duplicate face-card strip.
+ * Person sheets: verb + name; quiet handle; no duplicate face-card strip.
+ * Work sheets (Amplify): verb; optional subject. No author face.
  * Title uses a paragraph (not h2) so type matches standing subject — UA
  * heading styles would otherwise beat layered sheet CSS.
  *
@@ -39,12 +42,14 @@ export function GestureSheetHeader({
   verb,
   personName = '',
   handle = '',
+  subject = '',
   signal,
   closeAriaLabel,
   onClose,
   whisper = null,
 }: GestureSheetHeaderProps) {
   const person = personName.trim();
+  const workTitle = subject.trim();
   const handleLine = handle.trim() ? standingIdentityAccountCopy(handle) : '';
 
   return (
@@ -69,6 +74,9 @@ export function GestureSheetHeader({
               </>
             ) : null}
           </p>
+          {workTitle ? (
+            <p className="gesture-sheet-subject">{workTitle}</p>
+          ) : null}
           {handleLine ? (
             <p className="gesture-sheet-handle">{handleLine}</p>
           ) : null}

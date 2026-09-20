@@ -32,6 +32,7 @@ export interface OsGestureSheetProps {
   verb: string;
   personName?: string;
   handle?: string;
+  subject?: string;
   signal: GestureSheetSignal;
   whisper?: ReactNode;
   closeAriaLabel: string;
@@ -72,6 +73,7 @@ export function OsGestureSheet({
   verb,
   personName,
   handle,
+  subject,
   signal,
   whisper,
   closeAriaLabel,
@@ -130,6 +132,7 @@ export function OsGestureSheet({
             verb={verb}
             {...(personName != null ? { personName } : {})}
             {...(handle != null ? { handle } : {})}
+            {...(subject != null ? { subject } : {})}
             signal={signal}
             closeAriaLabel={closeAriaLabel}
             onClose={onClose}

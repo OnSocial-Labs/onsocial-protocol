@@ -13,6 +13,8 @@ import {
 export interface OverlayChromeConfig {
   ariaTitle: string;
   scrollBodyRef?: RefObject<HTMLDivElement | null>;
+  /** Collapse the glass header band (About / Writing shelf). */
+  hideHeader?: boolean;
 }
 
 interface OverlayChromeContextValue {
@@ -42,7 +44,7 @@ export function OverlayChromeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setHeaderPortal = useCallback((node: HTMLElement | null) => {
-    setHeaderPortalState(node);
+    setHeaderPortalState((prev) => (prev === node ? prev : node));
   }, []);
 
   const value = useMemo(

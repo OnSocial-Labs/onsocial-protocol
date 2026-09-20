@@ -97,7 +97,11 @@ import {
   canPauseDrop,
   canResumeDrop,
 } from '@/features/scarces/drop-owner-actions';
-import { writingReadingSectionLabel } from '@/features/scarces/drop-writing';
+import {
+  isWritingFolioFormat,
+  parseSourcePostPath,
+  writingReadingSectionLabel,
+} from '@/features/scarces/drop-writing';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
@@ -134,7 +138,11 @@ import {
   formatFutureRelativeTime,
   formatMarketRelativeTime,
 } from '@/features/market/market-listings';
-import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
+import {
+  portfolioCollectiblesPath,
+  portfolioPath,
+  writingArticlePath,
+} from '@/lib/overlay-routes';
 import { isInAppPostLayerHref } from '@/lib/post-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import { holdingsActionLabel } from '@/lib/portfolio-holdings';
@@ -451,9 +459,26 @@ export function CollectionPagePanel({
       return;
     }
     queueMicrotask(() => {
+      if (view && !isWritingFolioFormat(view.writingFormat)) {
+        const coords = parseSourcePostPath(view.sourcePostPath ?? '');
+        if (coords) {
+          const href = writingArticlePath(coords.author, coords.postId);
+          if (openPostThread({ href })) return;
+          router.push(href);
+          return;
+        }
+      }
       setWritingReadOpen(true);
     });
-  }, [collectionId, view?.kind, view?.readables.length, view?.bookPdf]);
+  }, [
+    collectionId,
+    openPostThread,
+    router,
+    view,
+    view?.kind,
+    view?.readables.length,
+    view?.bookPdf,
+  ]);
 
   // Collectibles "Show pass" deep-links with ?pass=1&t=… → open pass once token is known.
   useEffect(() => {
@@ -901,6 +926,22 @@ export function CollectionPagePanel({
     kind: view.kind,
     hasReadables,
   });
+  const listedArticleHref = !isWritingFolioFormat(view.writingFormat)
+    ? (() => {
+        const coords = parseSourcePostPath(view.sourcePostPath ?? '');
+        return coords
+          ? writingArticlePath(coords.author, coords.postId)
+          : null;
+      })()
+    : null;
+  const openWritingRead = () => {
+    if (listedArticleHref) {
+      if (openPostThread({ href: listedArticleHref })) return;
+      router.push(listedArticleHref);
+      return;
+    }
+    setWritingReadOpen(true);
+  };
   /** Writing is public to read — edition is for collect / keep, not a soft DRM gate. */
   const canReadWriting = true;
   const canShowPass =
@@ -1029,7 +1070,7 @@ export function CollectionPagePanel({
                 type="button"
                 className="scarce-clip-cover-expand collection-cover-read-expand collection-cover-read-hit"
                 aria-label="Open reader"
-                onClick={() => setWritingReadOpen(true)}
+                onClick={openWritingRead}
               >
                 <span className="collection-cover-read-hit-chip" aria-hidden>
                   <ScaleUpIcon
@@ -1199,7 +1240,7 @@ export function CollectionPagePanel({
                     </OsRowAction>
                     <OsRowAction
                       className="collectibles-holding-action"
-                      onClick={() => setWritingReadOpen(true)}
+                      onClick={openWritingRead}
                     >
                       Read
                     </OsRowAction>
@@ -1207,7 +1248,7 @@ export function CollectionPagePanel({
                 ) : opensWritingReader && !canShowPass ? (
                   <OsRowAction
                     className="collectibles-holding-action"
-                    onClick={() => setWritingReadOpen(true)}
+                    onClick={openWritingRead}
                   >
                     Read
                   </OsRowAction>
@@ -1531,7 +1572,7 @@ export function CollectionPagePanel({
               <p className="collection-section-label">
                 {writingReadingSectionLabel(readables.length)}
               </p>
-              <OsRowAction onClick={() => setWritingReadOpen(true)}>
+              <OsRowAction onClick={openWritingRead}>
                 Read
               </OsRowAction>
             </div>

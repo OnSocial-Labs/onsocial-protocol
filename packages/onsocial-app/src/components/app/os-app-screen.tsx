@@ -109,6 +109,8 @@ export interface OsAppScreenProps {
   style?: CSSProperties;
   /** Nested in OsPageSheet / overlay — skip summon launcher + flat host fill. */
   embedded?: boolean;
+  /** Extra class on the root `.os-app-screen`. */
+  className?: string;
   children: ReactNode;
 }
 
@@ -141,6 +143,7 @@ export function OsAppScreen({
   moodStyle,
   style,
   embedded = false,
+  className,
   children,
 }: OsAppScreenProps) {
   const glassMode = glassChrome && !immersiveHeader;
@@ -219,7 +222,7 @@ export function OsAppScreen({
   return (
     <div
       ref={embedded ? undefined : portalHostRef}
-      className={`os-app-screen app-surface${hasMood ? ' os-app-screen--mood' : ''}${embedded ? ' os-app-screen--embedded' : ''}`}
+      className={`os-app-screen app-surface${hasMood ? ' os-app-screen--mood' : ''}${embedded ? ' os-app-screen--embedded' : ''}${className ? ` ${className}` : ''}`}
       data-tone="os"
       data-immersive-header={immersiveHeader ? 'true' : undefined}
       data-immersive-banner={immersiveHeaderBanner ? 'true' : undefined}
