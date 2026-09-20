@@ -72,12 +72,8 @@ interface PortfolioShellRootProps {
   /** SSR seed only — live guild rows stream in via the deferred shelf. */
   guilds?: ProfileGuildSummary[];
   profileName?: string | null;
-  bio?: string | null;
-  profileLinks?: unknown;
   /** SSR seed only — joined/updated/scarce meta streams in via the shelf. */
   drawerMeta: PageDrawerMeta;
-  /** DAO incoming stand count for face gesture row. */
-  incomingStandingCount?: number;
   /** Streamed below-fold peeks (Suspense). */
   deferredShelf?: ReactNode;
   children: ReactNode;

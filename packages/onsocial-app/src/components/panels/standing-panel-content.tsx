@@ -13,7 +13,6 @@ import {
   profileListAccountToStandingSummary,
   standingAccountToProfileListAccount,
 } from '@/lib/profile-list-account';
-import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
 import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
 
 export function StandingPanelContent() {
@@ -41,16 +40,17 @@ export function StandingPanelContent() {
     handleUpdateStanding,
     accountId,
   } = useStandingPanel();
-  const { endorsementSyncVersion } = useViewerEndorsement(accountId);
+  const { endorsementLedger } = useViewerEndorsement(accountId);
 
   const isSearchEmpty = Boolean(query.trim());
-  const listAccounts = useMemo(() => {
-    void endorsementSyncVersion;
-    return overlayViewerEndorsedOnAccounts(
-      filteredAccounts.map(standingAccountToProfileListAccount),
-      getGlobalViewerEndorsementLedger()
-    );
-  }, [endorsementSyncVersion, filteredAccounts]);
+  const listAccounts = useMemo(
+    () =>
+      overlayViewerEndorsedOnAccounts(
+        filteredAccounts.map(standingAccountToProfileListAccount),
+        endorsementLedger
+      ),
+    [endorsementLedger, filteredAccounts]
+  );
   const listHasRows = listAccounts.length > 0;
 
   return (

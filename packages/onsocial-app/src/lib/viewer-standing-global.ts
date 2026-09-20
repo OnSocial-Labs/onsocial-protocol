@@ -17,6 +17,10 @@ export function isGlobalStandingPending(targetAccountId: string): boolean {
   return globalPendingTargets.has(targetAccountId);
 }
 
+export function copyGlobalStandingPendingTargets(): Set<string> {
+  return new Set(globalPendingTargets);
+}
+
 export function setGlobalStandingPending(
   targetAccountId: string,
   pending: boolean

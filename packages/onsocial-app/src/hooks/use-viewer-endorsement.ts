@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   EndorsementPanelItem,
   EndorsementsMode,
@@ -35,6 +35,11 @@ export function useViewerEndorsement(listAccountId: string) {
     });
   }, []);
 
+  const endorsementLedger = useMemo(
+    () => new Map(getGlobalViewerEndorsementLedger()),
+    [endorsementSyncVersion]
+  );
+
   const bumpEndorsementSync = useCallback(() => {
     bumpGlobalViewerEndorsementLedger();
   }, []);
@@ -58,12 +63,12 @@ export function useViewerEndorsement(listAccountId: string) {
     ) =>
       deriveEndorsementListItems({
         items,
-        ledger: ledgerRef.current,
+        ledger: endorsementLedger,
         mode,
         listAccountId,
         viewerAccountId,
       }),
-    [listAccountId]
+    [endorsementLedger, listAccountId]
   );
 
   const reconcileEndorsementListFromFetch = useCallback(
@@ -126,6 +131,7 @@ export function useViewerEndorsement(listAccountId: string) {
 
   return {
     endorsementSyncVersion,
+    endorsementLedger,
     isEndorsePendingForTarget,
     setEndorsePendingForTarget,
     deriveEndorsementItems,

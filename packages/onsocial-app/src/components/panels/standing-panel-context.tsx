@@ -51,7 +51,6 @@ import {
   derivePortfolioStandingCounts,
   type PortfolioStandingCounts,
 } from '@/lib/viewer-standing-ledger';
-import { getGlobalViewerStandingLedger } from '@/lib/viewer-standing-global';
 import { parseProfileKind, type ProfileKind } from '@onsocial/sdk';
 
 export type StandingShellVariant = 'overlay';
@@ -202,10 +201,11 @@ export function StandingPanelProvider({
   const {
     isConnected,
     standingSyncVersion,
+    standingLedger,
+    standingPendingIds,
     deriveStandingListAccounts,
     reconcileStandingListFromFetch,
     shouldFreshFetchStandingListFor,
-    isStandingPendingForTarget,
     updateStanding,
   } = useViewerStanding(accountId);
 
@@ -392,45 +392,41 @@ export function StandingPanelProvider({
   );
 
   const isSelf = Boolean(viewerAccountId && viewerAccountId === accountId);
-  const liveCounts = useMemo(() => {
-    void standingSyncVersion;
-    return derivePortfolioStandingCounts({
-      pageAccountId: accountId,
-      viewerAccountId: viewerAccountId ?? null,
-      counts,
+  const liveCounts = useMemo(
+    () =>
+      derivePortfolioStandingCounts({
+        pageAccountId: accountId,
+        viewerAccountId: viewerAccountId ?? null,
+        counts,
+        apiViewerStanding,
+        theyStandWithViewer,
+        ledger: standingLedger,
+        relationshipKnown: isSelf || !relationshipLoading,
+      }),
+    [
+      accountId,
       apiViewerStanding,
+      counts,
+      isSelf,
+      relationshipLoading,
+      standingLedger,
       theyStandWithViewer,
-      ledger: getGlobalViewerStandingLedger(),
-      relationshipKnown: isSelf || !relationshipLoading,
-    });
-  }, [
-    accountId,
-    apiViewerStanding,
-    counts,
-    isSelf,
-    relationshipLoading,
-    standingSyncVersion,
-    theyStandWithViewer,
-    viewerAccountId,
-  ]);
+      viewerAccountId,
+    ]
+  );
 
   const showDiscoverLink = isSelf && activeKind === 'outgoing';
 
   const { accounts: displayAccounts, totalAdjustment: listTotalAdjustment } =
-    useMemo(() => {
-      void standingSyncVersion;
-      return deriveStandingListAccounts(
-        accounts,
-        activeKind,
-        viewerAccountId ?? null
-      );
-    }, [
-      accounts,
-      deriveStandingListAccounts,
-      activeKind,
-      viewerAccountId,
-      standingSyncVersion,
-    ]);
+    useMemo(
+      () =>
+        deriveStandingListAccounts(
+          accounts,
+          activeKind,
+          viewerAccountId ?? null
+        ),
+      [accounts, deriveStandingListAccounts, activeKind, viewerAccountId]
+    );
 
   const totalCount = serverSearchActive
     ? listTotal
@@ -462,20 +458,14 @@ export function StandingPanelProvider({
   }, [displayAccounts, query, serverSearchActive]);
 
   const mergedPendingIds = useMemo(() => {
-    void standingSyncVersion;
     const merged = new Set(localPendingIds);
     for (const account of filteredAccounts) {
-      if (isStandingPendingForTarget(account.accountId)) {
+      if (standingPendingIds.has(account.accountId)) {
         merged.add(account.accountId);
       }
     }
     return merged;
-  }, [
-    filteredAccounts,
-    isStandingPendingForTarget,
-    localPendingIds,
-    standingSyncVersion,
-  ]);
+  }, [filteredAccounts, localPendingIds, standingPendingIds]);
 
   useEffect(() => {
     if (walletLoading) {

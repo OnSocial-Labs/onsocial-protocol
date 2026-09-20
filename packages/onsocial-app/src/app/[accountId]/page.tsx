@@ -158,10 +158,7 @@ export default async function AccountPage({
         config={data.config}
         stats={data.stats}
         profileName={shell?.name ?? daoPage?.branding.name}
-        bio={portfolioBio}
-        profileLinks={shell?.links ?? null}
         drawerMeta={drawerMeta}
-        incomingStandingCount={daoIncomingStanding}
         deferredShelf={
           <PortfolioDeferredShelf
             accountId={accountId}

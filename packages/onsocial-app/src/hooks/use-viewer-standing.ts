@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { connectBefore } from '@/lib/connect-continue-voice';
@@ -21,6 +21,7 @@ import {
 } from '@/lib/viewer-standing-ledger';
 import {
   bumpGlobalViewerStandingLedger,
+  copyGlobalStandingPendingTargets,
   getGlobalViewerStandingLedger,
   getGlobalViewerStandingLedgerVersion,
   isGlobalStandingPending,
@@ -48,6 +49,15 @@ export function useViewerStanding(listAccountId: string) {
     });
   }, []);
 
+  const standingLedger = useMemo(
+    () => new Map(getGlobalViewerStandingLedger()),
+    [standingSyncVersion]
+  );
+  const standingPendingIds = useMemo(
+    () => copyGlobalStandingPendingTargets(),
+    [standingSyncVersion]
+  );
+
   const bumpStandingSync = useCallback(() => {
     bumpGlobalViewerStandingLedger();
   }, []);
@@ -64,12 +74,12 @@ export function useViewerStanding(listAccountId: string) {
     ) =>
       deriveStandingAccountsList({
         accounts,
-        ledger: ledgerRef.current,
+        ledger: standingLedger,
         kind,
         listAccountId,
         viewerAccountId,
       }),
-    [listAccountId]
+    [listAccountId, standingLedger]
   );
 
   const reconcileStandingListFromFetch = useCallback(
@@ -182,6 +192,8 @@ export function useViewerStanding(listAccountId: string) {
     hasSocialSession,
     isConnected,
     standingSyncVersion,
+    standingLedger,
+    standingPendingIds,
     deriveStandingListAccounts,
     reconcileStandingListFromFetch,
     shouldFreshFetchStandingListFor,
