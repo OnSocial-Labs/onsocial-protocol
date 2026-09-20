@@ -98,14 +98,9 @@ type BoostTxAction = 'commit' | 'collect' | 'unlock' | 'renew' | 'extend';
 const LIVE_COUNTER_FRACTION_DIGITS = 4;
 const BOOST_MODE_SWAP_MS = 180;
 /**
- * Chip motion is 1.75s / 1.15s in CSS. Hold the +amount state a beat longer
- * so reveal fades in on the post-claim counter (portal boost timings).
- */
-const BOOST_COLLECT_CELEBRATION_HOLD_MS = 2100;
-const BOOST_COLLECT_CELEBRATION_HOLD_REDUCED_MS = 1400;
-/**
- * Max time the +amount chip can stay up if chain state never lands. The
- * normal path clears on the applied post-claim snapshot, not this fallback.
+ * Max time the +amount chip can stay up if chain state never lands. Chip
+ * motion is 1.75s / 1.15s in CSS; the normal path clears on the applied
+ * post-claim snapshot, not this fallback.
  */
 const BOOST_COLLECT_CELEBRATION_MAX_MS = 4500;
 const BOOST_COLLECT_CELEBRATION_MAX_REDUCED_MS = 3200;

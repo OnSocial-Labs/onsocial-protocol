@@ -18,6 +18,8 @@ type PickerDrop = ComposerDropDraft & {
   pickerKey: string;
 };
 
+const EMPTY_DROPS: PickerDrop[] = [];
+
 function DropThumb({ mediaUrl, title }: { mediaUrl?: string; title: string }) {
   if (mediaUrl) {
     return (
@@ -163,7 +165,7 @@ export function ComposerDropPicker({
 
   const ready = Boolean(accountId && result?.accountId === accountId);
   const errored = Boolean(accountId && errorFor?.accountId === accountId);
-  const drops = ready ? result!.drops : [];
+  const drops = ready ? result!.drops : EMPTY_DROPS;
   const loading = Boolean(open && accountId) && !ready && !errored;
 
   const byKey = useMemo(() => {

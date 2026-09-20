@@ -101,6 +101,7 @@ export function MarketFilterMenu({
   onFacetsChange,
   onClear,
   onOpenChange,
+  disabled = false,
   showFacets = true,
   vaultCreators = [],
   vaultSeries = [],
@@ -121,6 +122,8 @@ export function MarketFilterMenu({
   onFacetsChange: (facets: string[]) => void;
   onClear: () => void;
   onOpenChange?: (open: boolean) => void;
+  /** Loading shell — keep the drawer mounted; only lock the trigger. */
+  disabled?: boolean;
   /** Drops catalog omits genre facets until indexer supports them. */
   showFacets?: boolean;
   /** Creators actually held — Collectibles vault only. */
@@ -202,7 +205,11 @@ export function MarketFilterMenu({
         className={`${osFloatingPanelTriggerClassName}${
           sheetOpen ? ' is-open' : ''
         }`}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          if (disabled) return;
+          setOpen(true);
+        }}
+        disabled={disabled}
         aria-haspopup="dialog"
         aria-expanded={sheetOpen}
         aria-label={

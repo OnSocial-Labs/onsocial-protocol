@@ -47,6 +47,9 @@ test.describe('market discovery', () => {
     await expectTabVisible(page, 'Release format', 'Podcast');
     await tab(page, 'Release format', 'Podcast').click();
     await page.waitForURL(/audioFormat=podcast/);
+    if (!(await tab(page, 'Release format', 'Podcast').isVisible())) {
+      await openMarketFilter(page);
+    }
     await expectTabSelected(page, 'Release format', 'Podcast');
     await closeMarketFilter(page);
     await expectMarketFilterSummary(page, /Audio/);

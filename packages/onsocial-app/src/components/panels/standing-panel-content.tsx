@@ -44,14 +44,13 @@ export function StandingPanelContent() {
   const { endorsementSyncVersion } = useViewerEndorsement(accountId);
 
   const isSearchEmpty = Boolean(query.trim());
-  const listAccounts = useMemo(
-    () =>
-      overlayViewerEndorsedOnAccounts(
-        filteredAccounts.map(standingAccountToProfileListAccount),
-        getGlobalViewerEndorsementLedger()
-      ),
-    [endorsementSyncVersion, filteredAccounts]
-  );
+  const listAccounts = useMemo(() => {
+    void endorsementSyncVersion;
+    return overlayViewerEndorsedOnAccounts(
+      filteredAccounts.map(standingAccountToProfileListAccount),
+      getGlobalViewerEndorsementLedger()
+    );
+  }, [endorsementSyncVersion, filteredAccounts]);
   const listHasRows = listAccounts.length > 0;
 
   return (

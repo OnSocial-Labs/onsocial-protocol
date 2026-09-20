@@ -1,6 +1,13 @@
 'use client';
 
-import { memo, useDeferredValue, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import Link from 'next/link';
 import type { PostRow } from '@onsocial/sdk';
 import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
@@ -44,6 +51,10 @@ import {
   EMPTY_POST_ENGAGEMENT,
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
+import {
+  markPortfolioClientReady,
+  unmarkPortfolioClientReady,
+} from '@/lib/e2e-portfolio-ready';
 
 export type PortfolioWritingPanelProps = {
   accountId: string;
@@ -209,6 +220,11 @@ function PortfolioWritingShelf({
 }) {
   const { query, setQuery, listQuery, showSearch, scrollRootRef } =
     useWritingShelfState(panel.articles.length);
+
+  useEffect(() => {
+    markPortfolioClientReady();
+    return () => unmarkPortfolioClientReady();
+  }, []);
   /* Overlay: mood wash lives on the glass sheet — keep the screen clear. */
   const moodId = embedded ? null : mood.id;
   const moodStyle = embedded

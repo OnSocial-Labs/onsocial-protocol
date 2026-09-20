@@ -392,43 +392,45 @@ export function StandingPanelProvider({
   );
 
   const isSelf = Boolean(viewerAccountId && viewerAccountId === accountId);
-  const liveCounts = useMemo(
-    () =>
-      derivePortfolioStandingCounts({
-        pageAccountId: accountId,
-        viewerAccountId: viewerAccountId ?? null,
-        counts,
-        apiViewerStanding,
-        theyStandWithViewer,
-        ledger: getGlobalViewerStandingLedger(),
-        relationshipKnown: isSelf || !relationshipLoading,
-      }),
-    [
-      accountId,
-      apiViewerStanding,
+  const liveCounts = useMemo(() => {
+    void standingSyncVersion;
+    return derivePortfolioStandingCounts({
+      pageAccountId: accountId,
+      viewerAccountId: viewerAccountId ?? null,
       counts,
-      isSelf,
-      relationshipLoading,
-      standingSyncVersion,
+      apiViewerStanding,
       theyStandWithViewer,
-      viewerAccountId,
-    ]
-  );
+      ledger: getGlobalViewerStandingLedger(),
+      relationshipKnown: isSelf || !relationshipLoading,
+    });
+  }, [
+    accountId,
+    apiViewerStanding,
+    counts,
+    isSelf,
+    relationshipLoading,
+    standingSyncVersion,
+    theyStandWithViewer,
+    viewerAccountId,
+  ]);
 
   const showDiscoverLink = isSelf && activeKind === 'outgoing';
 
   const { accounts: displayAccounts, totalAdjustment: listTotalAdjustment } =
-    useMemo(
-      () =>
-        deriveStandingListAccounts(accounts, activeKind, viewerAccountId ?? null),
-      [
+    useMemo(() => {
+      void standingSyncVersion;
+      return deriveStandingListAccounts(
         accounts,
-        deriveStandingListAccounts,
         activeKind,
-        viewerAccountId,
-        standingSyncVersion,
-      ]
-    );
+        viewerAccountId ?? null
+      );
+    }, [
+      accounts,
+      deriveStandingListAccounts,
+      activeKind,
+      viewerAccountId,
+      standingSyncVersion,
+    ]);
 
   const totalCount = serverSearchActive
     ? listTotal

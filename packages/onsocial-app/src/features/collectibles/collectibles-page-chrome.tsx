@@ -1,20 +1,12 @@
 'use client';
 
-import {
-  ChevronDownIcon,
-  OsAppChromeToolbarRail,
-  StarsCFillIcon,
-  osFloatingPanelTriggerChevronClassName,
-  osFloatingPanelTriggerClassName,
-  osFloatingPanelTriggerLabelClassName,
-  osFloatingPanelTriggerMetaClassName,
-} from '@onsocial/ui';
+import { useCallback, useState } from 'react';
+import { OsAppChromeToolbarRail, StarsCFillIcon } from '@onsocial/ui';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
   MarketFilterMenu,
-  marketFilterTriggerLabel,
   type VaultFilterChip,
 } from '@/features/market/market-filter-menu';
 import {
@@ -54,8 +46,8 @@ export function CollectiblesSearchHeading({
 }
 
 /**
- * Kind rail + Filter drawer. Live menus on the ready panel; inert clone on
- * the loading shell so chrome height does not jump.
+ * Kind rail + Filter drawer. Keep the live Filter menu mounted while the
+ * library skeletons so an open drawer is not swapped for a dummy trigger.
  */
 export function CollectiblesFilterToolbar({
   medium,
@@ -115,31 +107,23 @@ export function CollectiblesFilterToolbar({
     label: tab.label,
   }));
   const facetMedium = normalizeDropFacetMedium(medium);
-  const creatorLabel =
-    selectedCreator &&
-    (vaultCreators.find((entry) => entry.id === selectedCreator)?.label ??
-      selectedCreator);
-  const seriesLabel =
-    selectedSeries &&
-    (vaultSeries.find((entry) => entry.id === selectedSeries)?.label ??
-      selectedSeries);
-  const filterLabel = marketFilterTriggerLabel({
-    medium,
-    audioFormat,
-    selectedFacets,
-    facetMedium,
-    creatorLabel: creatorLabel || null,
-    seriesLabel: seriesLabel || null,
-    sort,
-  });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const shellInert = inert && !menuOpen;
+  const handleMenuOpenChange = useCallback(
+    (open: boolean) => {
+      setMenuOpen(open);
+      onMenuOpenChange?.(open);
+    },
+    [onMenuOpenChange]
+  );
 
   return (
     <OsAppChromeToolbarRail
       className="market-listing-toolbar collectibles-filter-toolbar"
       data-collectibles-ready={ready ? '' : undefined}
       data-collectibles-loading={inert ? '' : undefined}
-      aria-hidden={inert || undefined}
-      style={inert ? { pointerEvents: 'none' } : undefined}
+      aria-hidden={shellInert || undefined}
+      style={shellInert ? { pointerEvents: 'none' } : undefined}
     >
       <div className="market-listing-filter-stack">
         <OsChipRail
@@ -147,59 +131,37 @@ export function CollectiblesFilterToolbar({
           ariaLabel="Collectible kind"
           value={medium}
           onValueChange={onMediumChange ?? (() => undefined)}
-          disabled={inert}
+          disabled={shellInert}
           tabIdFor={(id) => `collectibles-kind-tab-${id}`}
           ariaControls="collectibles-results"
           items={kindRailItems}
         />
       </div>
-      {inert ? (
-        <div className="standing-view-menu market-listing-sort-menu">
-          <button
-            type="button"
-            className={osFloatingPanelTriggerClassName}
-            disabled
-            aria-haspopup="dialog"
-            aria-expanded={false}
-            aria-label={`Open filter menu, ${filterLabel}`}
-          >
-            <span className={osFloatingPanelTriggerLabelClassName}>
-              {filterLabel}
-            </span>
-            <span className={osFloatingPanelTriggerMetaClassName}>
-              <ChevronDownIcon
-                className={osFloatingPanelTriggerChevronClassName}
-                aria-hidden
-              />
-            </span>
-          </button>
-        </div>
-      ) : (
-        <MarketFilterMenu
-          medium={medium}
-          onMediumChange={onMediumChange ?? (() => undefined)}
-          facetMedium={facetMedium}
-          audioFormat={audioFormat}
-          selectedFacets={selectedFacets}
-          onAudioFormatChange={onAudioFormatChange ?? (() => undefined)}
-          onFacetsChange={onFacetsChange ?? (() => undefined)}
-          onClear={onClear ?? (() => undefined)}
-          onOpenChange={onMenuOpenChange}
-          vaultCreators={vaultCreators}
-          vaultSeries={vaultSeries}
-          selectedCreator={selectedCreator}
-          selectedSeries={selectedSeries}
-          onCreatorChange={onCreatorChange}
-          onSeriesChange={onSeriesChange}
-          sort={sort}
-          onSortChange={onSortChange}
-          jumpCreators={
-            jumpCreators.length >= COLLECTIBLES_LIBRARY_JUMP_MIN
-              ? jumpCreators
-              : []
-          }
-        />
-      )}
+      <MarketFilterMenu
+        medium={medium}
+        onMediumChange={onMediumChange ?? (() => undefined)}
+        facetMedium={facetMedium}
+        audioFormat={audioFormat}
+        selectedFacets={selectedFacets}
+        onAudioFormatChange={onAudioFormatChange ?? (() => undefined)}
+        onFacetsChange={onFacetsChange ?? (() => undefined)}
+        onClear={onClear ?? (() => undefined)}
+        onOpenChange={handleMenuOpenChange}
+        disabled={shellInert}
+        vaultCreators={vaultCreators}
+        vaultSeries={vaultSeries}
+        selectedCreator={selectedCreator}
+        selectedSeries={selectedSeries}
+        onCreatorChange={onCreatorChange}
+        onSeriesChange={onSeriesChange}
+        sort={sort}
+        onSortChange={onSortChange}
+        jumpCreators={
+          jumpCreators.length >= COLLECTIBLES_LIBRARY_JUMP_MIN
+            ? jumpCreators
+            : []
+        }
+      />
     </OsAppChromeToolbarRail>
   );
 }

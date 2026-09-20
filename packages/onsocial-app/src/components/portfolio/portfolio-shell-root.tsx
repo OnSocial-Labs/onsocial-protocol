@@ -93,9 +93,6 @@ function PortfolioShellPreviewBridge({
   config,
   stats,
   profileName,
-  bio = null,
-  profileLinks = null,
-  incomingStandingCount = 0,
   deferredShelf = null,
   children,
 }: Omit<

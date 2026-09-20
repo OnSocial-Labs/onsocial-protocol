@@ -1,13 +1,7 @@
 'use client';
 
-import {
-  ChevronDownIcon,
-  OsAppChromeToolbarRail,
-  osFloatingPanelTriggerChevronClassName,
-  osFloatingPanelTriggerClassName,
-  osFloatingPanelTriggerLabelClassName,
-  osFloatingPanelTriggerMetaClassName,
-} from '@onsocial/ui';
+import { useCallback, useState } from 'react';
+import { OsAppChromeToolbarRail } from '@onsocial/ui';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import type {
   DropAudioFormatFilter,
@@ -15,10 +9,7 @@ import type {
 } from '@/features/drops/drops-data';
 import { DROPS_SORT_LABELS } from '@/features/drops/drops-catalog-layout';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
-import {
-  MarketFilterMenu,
-  marketFilterTriggerLabel,
-} from '@/features/market/market-filter-menu';
+import { MarketFilterMenu } from '@/features/market/market-filter-menu';
 import type { MarketMediumFilter } from '@/features/market/market-medium';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 
@@ -27,9 +18,9 @@ export const DROPS_BASE_SORTS = DROPS_SORT_LABELS.filter(
 );
 
 /**
- * Sort rail + Filter. Live menus on the ready panel; inert clone on the
- * loading shell so chrome height does not jump. Saved stays off the loading
- * rail — it only appears when a wallet is connected.
+ * Sort rail + Filter. Keep the live Filter menu mounted while listings
+ * skeleton so an open drawer is not swapped for a dummy trigger.
+ * Saved stays off the loading rail — it only appears when a wallet is connected.
  */
 export function DropsListingToolbar({
   sort,
@@ -57,12 +48,15 @@ export function DropsListingToolbar({
   onMenuOpenChange?: (open: boolean) => void;
 }) {
   const facetMedium = normalizeDropFacetMedium(medium);
-  const filterLabel = marketFilterTriggerLabel({
-    medium,
-    audioFormat,
-    selectedFacets: [],
-    facetMedium,
-  });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const shellInert = inert && !menuOpen;
+  const handleMenuOpenChange = useCallback(
+    (open: boolean) => {
+      setMenuOpen(open);
+      onMenuOpenChange?.(open);
+    },
+    [onMenuOpenChange]
+  );
   const sorts = showSaved
     ? [...DROPS_BASE_SORTS, { id: 'saved' as const, label: 'Saved' }]
     : DROPS_BASE_SORTS;
@@ -72,8 +66,8 @@ export function DropsListingToolbar({
       className="market-listing-toolbar"
       data-drops-ready={ready ? '' : undefined}
       data-drops-loading={inert ? '' : undefined}
-      aria-hidden={inert || undefined}
-      style={inert ? { pointerEvents: 'none' } : undefined}
+      aria-hidden={shellInert || undefined}
+      style={shellInert ? { pointerEvents: 'none' } : undefined}
     >
       <div className="market-listing-filter-stack">
         <OsChipRail
@@ -81,7 +75,7 @@ export function DropsListingToolbar({
           ariaLabel="Drop sort"
           value={sort}
           onValueChange={onSortChange ?? (() => undefined)}
-          disabled={inert}
+          disabled={shellInert}
           tabIdFor={(id) => `drops-sort-tab-${id}`}
           items={sorts.map((entry) => ({
             id: entry.id,
@@ -89,41 +83,19 @@ export function DropsListingToolbar({
           }))}
         />
       </div>
-      {inert ? (
-        <div className="standing-view-menu market-listing-sort-menu">
-          <button
-            type="button"
-            className={osFloatingPanelTriggerClassName}
-            disabled
-            aria-haspopup="dialog"
-            aria-expanded={false}
-            aria-label={`Open filter menu, ${filterLabel}`}
-          >
-            <span className={osFloatingPanelTriggerLabelClassName}>
-              {filterLabel}
-            </span>
-            <span className={osFloatingPanelTriggerMetaClassName}>
-              <ChevronDownIcon
-                className={osFloatingPanelTriggerChevronClassName}
-                aria-hidden
-              />
-            </span>
-          </button>
-        </div>
-      ) : (
-        <MarketFilterMenu
-          medium={medium}
-          onMediumChange={onMediumChange ?? (() => undefined)}
-          facetMedium={facetMedium}
-          audioFormat={audioFormat}
-          selectedFacets={[]}
-          onAudioFormatChange={onAudioFormatChange ?? (() => undefined)}
-          onFacetsChange={() => undefined}
-          onClear={onClear ?? (() => undefined)}
-          onOpenChange={onMenuOpenChange}
-          showFacets={false}
-        />
-      )}
+      <MarketFilterMenu
+        medium={medium}
+        onMediumChange={onMediumChange ?? (() => undefined)}
+        facetMedium={facetMedium}
+        audioFormat={audioFormat}
+        selectedFacets={[]}
+        onAudioFormatChange={onAudioFormatChange ?? (() => undefined)}
+        onFacetsChange={() => undefined}
+        onClear={onClear ?? (() => undefined)}
+        onOpenChange={handleMenuOpenChange}
+        disabled={shellInert}
+        showFacets={false}
+      />
     </OsAppChromeToolbarRail>
   );
 }

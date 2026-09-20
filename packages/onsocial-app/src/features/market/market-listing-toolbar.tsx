@@ -1,16 +1,10 @@
 'use client';
 
-import {
-  ChevronDownIcon,
-  OsAppChromeToolbarRail,
-  osFloatingPanelTriggerChevronClassName,
-  osFloatingPanelTriggerClassName,
-  osFloatingPanelTriggerLabelClassName,
-  osFloatingPanelTriggerMetaClassName,
-} from '@onsocial/ui';
+import { useCallback, useState } from 'react';
+import { OsAppChromeToolbarRail } from '@onsocial/ui';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
-import { MarketFilterMenu, marketFilterTriggerLabel } from '@/features/market/market-filter-menu';
+import { MarketFilterMenu } from '@/features/market/market-filter-menu';
 import {
   MARKET_LISTING_FILTERS,
   type MarketListingFilter,
@@ -20,16 +14,10 @@ import type { MarketListingSort } from '@/features/market/market-listings';
 import type { MarketMediumFilter } from '@/features/market/market-medium';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 
-const SORT_LABELS: Record<MarketListingSort, string> = {
-  newest: 'Newest',
-  'price-asc': 'Price ↑',
-  'price-desc': 'Price ↓',
-  ending: 'Ending soon',
-};
-
 /**
- * Listing-type + Filter + Sort rail. Live menus on the ready panel; inert
- * clone on the loading shell so chrome height does not jump.
+ * Listing-type + Filter + Sort rail. Keep live menus mounted while listings
+ * skeleton — swapping them for dummy buttons unmounts an open Filter drawer
+ * (Podcast tab) the moment the catalog reloads.
  */
 export function MarketListingToolbar({
   listingFilter,
@@ -67,29 +55,32 @@ export function MarketListingToolbar({
   /** Creator shop — listing-type chips are browse chrome, not a shop door. */
   hideListingTypes?: boolean;
 }) {
-  const filterLabel = marketFilterTriggerLabel({
-    medium,
-    audioFormat,
-    selectedFacets,
-    facetMedium,
-  });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const shellInert = inert && !menuOpen;
+  const handleMenuOpenChange = useCallback(
+    (open: boolean) => {
+      setMenuOpen(open);
+      onMenuOpenChange?.(open);
+    },
+    [onMenuOpenChange]
+  );
 
   return (
     <OsAppChromeToolbarRail
       className="market-listing-toolbar"
       data-market-ready={ready ? '' : undefined}
       data-market-loading={inert ? '' : undefined}
-      aria-hidden={inert || undefined}
-      style={inert ? { pointerEvents: 'none' } : undefined}
+      aria-hidden={shellInert || undefined}
+      style={shellInert ? { pointerEvents: 'none' } : undefined}
     >
       {hideListingTypes ? null : (
-        <div className="market-listing-filter-stack">
+        <div className="standing-view-menu market-listing-filter-stack">
           <OsChipRail
             className="market-listing-filters"
             ariaLabel="Listing type"
             value={listingFilter}
             onValueChange={onListingFilterChange ?? (() => undefined)}
-            disabled={inert}
+            disabled={shellInert}
             tabIdFor={(id) => `market-listing-tab-${id}`}
             ariaControls="market-listing-results"
             items={MARKET_LISTING_FILTERS.map((tab) => ({
@@ -99,70 +90,24 @@ export function MarketListingToolbar({
           />
         </div>
       )}
-      {inert ? (
-        <>
-          <div className="standing-view-menu market-listing-sort-menu">
-            <button
-              type="button"
-              className={osFloatingPanelTriggerClassName}
-              disabled
-              aria-haspopup="dialog"
-              aria-expanded={false}
-              aria-label={`Open filter menu, ${filterLabel}`}
-            >
-              <span className={osFloatingPanelTriggerLabelClassName}>
-                {filterLabel}
-              </span>
-              <span className={osFloatingPanelTriggerMetaClassName}>
-                <ChevronDownIcon
-                  className={osFloatingPanelTriggerChevronClassName}
-                  aria-hidden
-                />
-              </span>
-            </button>
-          </div>
-          <div className="standing-view-menu market-listing-sort-menu">
-            <button
-              type="button"
-              className={osFloatingPanelTriggerClassName}
-              disabled
-              aria-haspopup="dialog"
-              aria-expanded={false}
-              aria-label="Open sort menu"
-            >
-              <span className={osFloatingPanelTriggerLabelClassName}>
-                {SORT_LABELS[listingSort]}
-              </span>
-              <span className={osFloatingPanelTriggerMetaClassName}>
-                <ChevronDownIcon
-                  className={osFloatingPanelTriggerChevronClassName}
-                  aria-hidden
-                />
-              </span>
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          <MarketFilterMenu
-            medium={medium}
-            onMediumChange={onMediumChange ?? (() => undefined)}
-            facetMedium={facetMedium}
-            audioFormat={audioFormat}
-            selectedFacets={selectedFacets}
-            onAudioFormatChange={onAudioFormatChange ?? (() => undefined)}
-            onFacetsChange={onFacetsChange ?? (() => undefined)}
-            onClear={onClear ?? (() => undefined)}
-            onOpenChange={onMenuOpenChange}
-          />
-          <MarketListingSortMenu
-            sort={listingSort}
-            onSortChange={onSortChange ?? (() => undefined)}
-            endingDisabled={listingFilter === 'fixed'}
-            onOpenChange={onMenuOpenChange}
-          />
-        </>
-      )}
+      <MarketFilterMenu
+        medium={medium}
+        onMediumChange={onMediumChange ?? (() => undefined)}
+        facetMedium={facetMedium}
+        audioFormat={audioFormat}
+        selectedFacets={selectedFacets}
+        onAudioFormatChange={onAudioFormatChange ?? (() => undefined)}
+        onFacetsChange={onFacetsChange ?? (() => undefined)}
+        onClear={onClear ?? (() => undefined)}
+        onOpenChange={handleMenuOpenChange}
+        disabled={shellInert}
+      />
+      <MarketListingSortMenu
+        sort={listingSort}
+        onSortChange={onSortChange ?? (() => undefined)}
+        endingDisabled={listingFilter === 'fixed'}
+        onOpenChange={handleMenuOpenChange}
+      />
     </OsAppChromeToolbarRail>
   );
 }
