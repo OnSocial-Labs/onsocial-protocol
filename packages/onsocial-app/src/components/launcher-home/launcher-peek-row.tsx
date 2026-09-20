@@ -13,6 +13,7 @@ import {
   isUnmodifiedPrimaryClick,
   usePostThreadLayer,
 } from '@/features/home/post-thread-layer';
+import { isInAppPostLayerHref } from '@/lib/post-routes';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import type { PostRelationContext } from '@/lib/post-relation';
 import {
@@ -201,15 +202,15 @@ export function LauncherSocialPeekRow({
             aria-label={ariaLabel}
             onClick={(event: MouseEvent<HTMLAnchorElement>) => {
               if (!isUnmodifiedPrimaryClick(event)) return;
-              if (openPostThread({ href, root: overlayRoot })) {
-                event.preventDefault();
-                event.stopPropagation();
-              }
+              if (!isInAppPostLayerHref(href)) return;
+              event.preventDefault();
+              event.stopPropagation();
+              openPostThread({ href, root: overlayRoot });
             }}
             onNavigate={(event) => {
-              if (openPostThread({ href, root: overlayRoot })) {
-                event.preventDefault();
-              }
+              if (!isInAppPostLayerHref(href)) return;
+              event.preventDefault();
+              openPostThread({ href, root: overlayRoot });
             }}
           />
           <StandingIdentity

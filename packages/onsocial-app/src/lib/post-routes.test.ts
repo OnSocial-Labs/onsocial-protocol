@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   appendThreadFocusReply,
   canonicalizePostLayerHref,
+  isInAppPostLayerHref,
   isOverlayPostLayerLocation,
   parseInAppPostLayerHref,
   personalPostContentPath,
@@ -60,6 +61,19 @@ describe('parseInAppPostLayerHref', () => {
     expect(
       parseInAppPostLayerHref('/@alice.testnet/posts/123/quotes')
     ).toBeNull();
+  });
+});
+
+describe('isInAppPostLayerHref', () => {
+  it('is true for personal post and writing permalinks', () => {
+    expect(isInAppPostLayerHref('/@alice.testnet/posts/123')).toBe(true);
+    expect(isInAppPostLayerHref('/@alice.testnet/writing/123')).toBe(true);
+  });
+
+  it('is false for guild threads so they stay real pages', () => {
+    expect(
+      isInAppPostLayerHref('/groups/dao/posts/alice.testnet/123')
+    ).toBe(false);
   });
 });
 

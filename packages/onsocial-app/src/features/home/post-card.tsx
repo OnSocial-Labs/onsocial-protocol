@@ -178,7 +178,7 @@ import {
   truncateQuoteText,
   type PostMediaItem,
 } from '@/lib/post-media';
-import { postThreadPath } from '@/lib/post-routes';
+import { isInAppPostLayerHref, postThreadPath } from '@/lib/post-routes';
 import { shareUrl } from '@/lib/share-url';
 import type { PollTally } from '@/lib/poll-votes';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
@@ -639,7 +639,7 @@ function PostCardMenu({
           }}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
-          aria-label="Post options"
+          aria-label="More"
         >
           <DotsVerticalIcon
             className={
@@ -659,13 +659,11 @@ function PostCardMenu({
                   accountId,
                   profileName: authorProfile?.displayName,
                 }).title
-              : 'Post options'
+              : authorLabel
           }
           copy={confirmBlock ? authorLabel : undefined}
-          listAriaLabel="Post options"
-          closeAriaLabel={
-            confirmBlock ? 'Back to post options' : 'Close post options'
-          }
+          listAriaLabel={authorLabel}
+          closeAriaLabel={confirmBlock ? 'Back' : 'Close'}
           items={confirmBlock ? undefined : menuItems}
           {...(zIndex != null ? { zIndex } : {})}
         >
@@ -816,7 +814,10 @@ export function QuotedPostInset({
     }
     event.preventDefault();
     event.stopPropagation();
-    if (openPostThread({ href, root: post })) return;
+    if (isInAppPostLayerHref(href)) {
+      openPostThread({ href, root: post });
+      return;
+    }
     router.push(href);
   };
 
@@ -1567,19 +1568,19 @@ export function PostCard({
     (event: MouseEvent<HTMLAnchorElement>, href: string) => {
       if (detailLayout) return;
       if (!isUnmodifiedPrimaryClick(event)) return;
-      if (openPostThread({ href, root: post })) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
+      if (!isInAppPostLayerHref(href)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      openPostThread({ href, root: post });
     },
     [detailLayout, openPostThread, post]
   );
   const interceptOpenNavigate = useCallback(
     (event: { preventDefault(): void }, href: string) => {
       if (detailLayout) return;
-      if (openPostThread({ href, root: post })) {
-        event.preventDefault();
-      }
+      if (!isInAppPostLayerHref(href)) return;
+      event.preventDefault();
+      openPostThread({ href, root: post });
     },
     [detailLayout, openPostThread, post]
   );

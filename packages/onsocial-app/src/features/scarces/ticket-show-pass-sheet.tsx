@@ -271,6 +271,7 @@ export function TicketShowPassSheet({
       title={name}
       closeAriaLabel="Back from pass"
       zIndex={SCARCE_Z.nestedOverCommerce}
+      keepDock
       className="ticket-pass-slide"
       contentClassName="ticket-pass-slide-body"
       mast={

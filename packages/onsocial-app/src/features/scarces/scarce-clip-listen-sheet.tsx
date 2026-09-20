@@ -120,6 +120,7 @@ export function ScarceClipListenSheet({
       subtitle={screenSubtitle}
       closeAriaLabel="Back from listen"
       zIndex={SCARCE_Z.listenShell}
+      keepDock
       footer={footer}
       className="scarce-listen-slide"
       contentClassName="scarce-listen-slide-body"

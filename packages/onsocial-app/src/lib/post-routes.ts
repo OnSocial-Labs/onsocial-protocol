@@ -51,6 +51,16 @@ export function parseInAppPostLayerHref(
   }
 }
 
+/**
+ * Personal post / writing permalink — consume the click and open a sheet.
+ * Do not let Next replace the underlay behind an open post or enlarge drawer.
+ */
+export function isInAppPostLayerHref(
+  href: string | null | undefined
+): boolean {
+  return parseInAppPostLayerHref(href) != null;
+}
+
 /** Canonical share permalink for a parsed in-app post layer. */
 export function canonicalizePostLayerHref(href: string): string | null {
   const parsed = parseInAppPostLayerHref(href);

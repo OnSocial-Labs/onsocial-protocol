@@ -96,10 +96,12 @@ export function CollectionAboutSheet({
   open,
   onClose,
   view,
+  zIndex = SHEET_Z.facts,
 }: {
   open: boolean;
   onClose: () => void;
   view: CollectionView;
+  zIndex?: number;
 }) {
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
@@ -138,7 +140,7 @@ export function CollectionAboutSheet({
       copy={view.title}
       closeAriaLabel="Close about"
       backdropLabel="Close about"
-      zIndex={SHEET_Z.facts}
+      zIndex={zIndex}
       panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
     >

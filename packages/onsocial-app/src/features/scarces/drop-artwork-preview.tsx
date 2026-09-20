@@ -108,6 +108,7 @@ export function DropArtOverlay({
       onClosed={onClosed}
       surface={surface}
       presentation="appear"
+      keepDock
       zIndex={SCARCE_Z.nestedOverCommerce}
       ariaLabelledBy={titleId}
       backdropLabel={`Close ${label}`}

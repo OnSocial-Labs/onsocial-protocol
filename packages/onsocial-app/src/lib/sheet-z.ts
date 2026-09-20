@@ -46,3 +46,26 @@ export const SHEET_Z = {
 } as const;
 
 export type SheetZBand = keyof typeof SHEET_Z;
+
+/**
+ * Post / drop appear-sheet z. The first sheet stays at `overlayHost` (50)
+ * so Reply / facts / manage (57–80) can sit on it. A nested reply, or a
+ * first sheet opened while a media face is up, lifts to `overShell` (90).
+ */
+export function nextPostLayerZIndex(
+  previousTopZ: number | null,
+  mediaFaceOpen = false
+): number {
+  if (previousTopZ == null) {
+    return mediaFaceOpen ? SHEET_Z.overShell : SHEET_Z.overlayHost;
+  }
+  return Math.max(previousTopZ + 1, SHEET_Z.overShell);
+}
+
+/** True when a photo / thought / listen face is covering the OS card. */
+export function isOsMediaFaceOpen(): boolean {
+  if (typeof document === 'undefined') return false;
+  return Boolean(
+    document.querySelector('[data-os-slide-over="true"]:not(.is-closing)')
+  );
+}

@@ -135,6 +135,7 @@ import {
   formatMarketRelativeTime,
 } from '@/features/market/market-listings';
 import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
+import { isInAppPostLayerHref } from '@/lib/post-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import { holdingsActionLabel } from '@/lib/portfolio-holdings';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
@@ -1605,15 +1606,15 @@ export function CollectionPagePanel({
             className="collection-source-link"
             onClick={(event: MouseEvent<HTMLAnchorElement>) => {
               if (!isUnmodifiedPrimaryClick(event)) return;
-              if (openPostThread({ href: sourceHref })) {
-                event.preventDefault();
-                event.stopPropagation();
-              }
+              if (!isInAppPostLayerHref(sourceHref)) return;
+              event.preventDefault();
+              event.stopPropagation();
+              openPostThread({ href: sourceHref });
             }}
             onNavigate={(event) => {
-              if (openPostThread({ href: sourceHref })) {
-                event.preventDefault();
-              }
+              if (!isInAppPostLayerHref(sourceHref)) return;
+              event.preventDefault();
+              openPostThread({ href: sourceHref });
             }}
           >
             View source post
@@ -1691,6 +1692,7 @@ export function CollectionPagePanel({
         cover={view.mediaUrl}
         collectionId={view.collectionId}
         accountId={viewerAccountId}
+        creatorId={view.creatorId}
         readables={readables}
         bookPdf={view.bookPdf}
         writingFormat={view.writingFormat}

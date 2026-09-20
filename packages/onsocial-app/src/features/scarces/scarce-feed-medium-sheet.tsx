@@ -302,6 +302,7 @@ export function ScarceFeedMediumSheet({
         coverSvg={coverSvg}
         collectionId={collectionId?.trim() || ''}
         accountId={viewerAccountId}
+        creatorId={creatorId}
         readables={readables}
         bookPdf={bookPdf}
         writingFormat={writingFormat}
@@ -338,7 +339,7 @@ export function ScarceFeedMediumSheet({
         zIndex={SCARCE_Z.listenShell}
         footer={threadActive ? null : postChrome}
         stageLayout="fixed"
-        keepDock={threadActive}
+        keepDock
         className={slideClass}
         contentClassName="scarce-thought-slide-body"
         bodyStyle={

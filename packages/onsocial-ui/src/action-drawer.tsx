@@ -114,6 +114,10 @@ export interface ActionDrawerProps {
    * their Link (e.g. Next.js). Defaults to a plain `<a>`.
    */
   linkComponent?: ComponentType<ActionDrawerLinkProps>;
+  /** Sit the list above the summon / write dock. */
+  keepDock?: boolean;
+  /** `null` → document.body so the list can sit above an OS slide-over. */
+  portalContainer?: HTMLElement | null;
 }
 
 /**
@@ -141,6 +145,8 @@ export function ActionDrawer({
   panelStyle,
   backdropLabel,
   linkComponent: LinkComponent = DefaultActionDrawerLink,
+  keepDock = false,
+  portalContainer,
 }: ActionDrawerProps) {
   const sections = useMemo(() => groupItems(items ?? []), [items]);
 
@@ -223,6 +229,8 @@ export function ActionDrawer({
       panelStyle={panelStyle}
       footer={footer}
       backdropLabel={backdropLabel}
+      keepDock={keepDock}
+      {...(portalContainer !== undefined ? { portalContainer } : {})}
     >
       {children}
       {items && items.length > 0 ? (

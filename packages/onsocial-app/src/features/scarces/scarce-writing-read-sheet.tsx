@@ -3,21 +3,35 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
   type ReactNode,
 } from 'react';
 import {
+  ActionDrawer,
+  type ActionDrawerItem,
+  DotsVerticalIcon,
+  DownloadIcon,
+  GiftIcon,
+  ImageIcon,
+  NoteTextIcon,
   OsSheetAction,
   OsSheetActions,
   OsSheetFooter,
+  UserIcon,
 } from '@onsocial/ui';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
+import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
-import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
+import {
+  CollectionWritingReader,
+  type WritingReaderActions,
+} from '@/features/scarces/collection-writing-reader';
 import {
   collectionCurrentRowToView,
   hydrateWritingManifest,
@@ -29,9 +43,177 @@ import type {
 } from '@/features/scarces/drop-writing';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { isDownloadAbort } from '@/lib/media-download';
+import { portfolioPath } from '@/lib/overlay-routes';
 
 function inlineSvgMarkup(svg: string): string {
   return svg.replace(/^<\?xml[^>]*>\s*/i, '');
+}
+
+function WritingReaderMenu({
+  title,
+  creatorId,
+  hasCover,
+  readerActions,
+  onOpenCover,
+  onOpenContents,
+}: {
+  title: string;
+  creatorId?: string | null;
+  hasCover: boolean;
+  readerActions: WritingReaderActions | null;
+  onOpenCover: () => void;
+  onOpenContents: () => void;
+}) {
+  const { setTxResult } = useAppTransactionFeedback();
+  const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [downloading, setDownloading] = useState<'chapter' | 'book' | null>(
+    null
+  );
+  const isOpen = open && !closing;
+  const requestClose = useCallback(() => setClosing(true), []);
+  const handleClosed = useCallback(() => {
+    setClosing(false);
+    setOpen(false);
+  }, []);
+  const authorId = creatorId?.trim() || '';
+
+  const runDownload = async (
+    kind: 'chapter' | 'book',
+    download: () => Promise<void>
+  ) => {
+    if (downloading) return;
+    setDownloading(kind);
+    try {
+      await download();
+      requestClose();
+    } catch (error) {
+      if (isDownloadAbort(error)) return;
+      setTxResult({
+        type: 'error',
+        msg:
+          kind === 'book'
+            ? 'Could not download this book.'
+            : 'Could not download this chapter.',
+      });
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const items = useMemo<ActionDrawerItem[]>(() => {
+    const next: ActionDrawerItem[] = [];
+    if (readerActions?.isBook) {
+      next.push({
+        id: 'contents',
+        label: 'Contents',
+        leading: <NoteTextIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          onOpenContents();
+          requestClose();
+        },
+      });
+    }
+    if (readerActions?.canDownloadChapter) {
+      next.push({
+        id: 'download-chapter',
+        label: downloading === 'chapter' ? 'Downloading…' : 'Download chapter',
+        disabled: downloading != null,
+        leading: <DownloadIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: () => void runDownload('chapter', readerActions.downloadChapter),
+      });
+    }
+    if (readerActions?.canDownloadBook) {
+      next.push({
+        id: 'download-book',
+        label: downloading === 'book' ? 'Downloading…' : 'Download book',
+        disabled: downloading != null,
+        leading: <DownloadIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: () => void runDownload('book', readerActions.downloadBook),
+      });
+    }
+    if (hasCover) {
+      next.push({
+        id: 'cover',
+        label: 'Cover',
+        leading: <ImageIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          onOpenCover();
+          requestClose();
+        },
+      });
+    }
+    if (authorId) {
+      next.push({
+        id: 'author',
+        label: 'Author',
+        href: portfolioPath(authorId),
+        leading: <UserIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: () => requestClose(),
+      });
+      next.push({
+        id: 'support',
+        label: 'Support',
+        leading: <GiftIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          setSupportOpen(true);
+          requestClose();
+        },
+      });
+    }
+    return next;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    authorId,
+    downloading,
+    hasCover,
+    onOpenContents,
+    onOpenCover,
+    readerActions,
+  ]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <>
+      <div className={`post-card-menu${isOpen ? ' is-open' : ''}`}>
+        <button
+          type="button"
+          className={`post-card-menu-trigger${isOpen ? ' is-open' : ''}`}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setOpen(true);
+          }}
+          aria-haspopup="dialog"
+          aria-expanded={isOpen}
+          aria-label="More"
+        >
+          <DotsVerticalIcon className="glass-sheet-close-icon" aria-hidden />
+        </button>
+        <ActionDrawer
+          open={isOpen}
+          onClose={requestClose}
+          onClosed={handleClosed}
+          label={title}
+          listAriaLabel={title}
+          closeAriaLabel="Close"
+          items={items}
+          zIndex={SCARCE_Z.nestedOverCommerce}
+        />
+      </div>
+      {authorId ? (
+        <ProfileSupportSheet
+          open={supportOpen}
+          pageAccountId={authorId}
+          onOpenChange={setSupportOpen}
+          zIndex={SCARCE_Z.nestedOverCommerce}
+        />
+      ) : null}
+    </>
+  );
 }
 
 /**
@@ -48,6 +230,7 @@ export function WritingReadSheet({
   coverSvg = null,
   collectionId,
   accountId = null,
+  creatorId = null,
   readables: readablesProp,
   bookPdf: bookPdfProp = null,
   writingFormat: writingFormatProp = null,
@@ -63,6 +246,7 @@ export function WritingReadSheet({
   coverSvg?: string | null;
   collectionId: string;
   accountId?: string | null;
+  creatorId?: string | null;
   readables: ScarceReadableMedia[];
   bookPdf?: ScarceReadableMedia | null;
   writingFormat?: WritingReleaseFormat | null;
@@ -91,6 +275,8 @@ export function WritingReadSheet({
     'left' | 'center' | 'justify' | null
   >(null);
   const [hydrateSettled, setHydrateSettled] = useState(false);
+  const [readerActions, setReaderActions] =
+    useState<WritingReaderActions | null>(null);
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -106,8 +292,10 @@ export function WritingReadSheet({
       setHydratedWritingFormat(null);
       setHydratedTextAlign(null);
       setHydrateSettled(false);
+      setReaderActions(null);
     } else {
       setCoverOpen(false);
+      setReaderActions(null);
     }
   }
 
@@ -205,6 +393,20 @@ export function WritingReadSheet({
     chromeQuietAccumRef.current = 0;
     setChromeQuiet((quiet) => !quiet);
   }, []);
+
+  const onReaderActions = useCallback((next: WritingReaderActions | null) => {
+    setReaderActions(next);
+  }, []);
+
+  const onOpenCover = useCallback(() => {
+    setCoverOpen(true);
+  }, []);
+
+  const onOpenContents = useCallback(() => {
+    chromeQuietAccumRef.current = 0;
+    setChromeQuiet(false);
+    readerActions?.openContents();
+  }, [readerActions]);
 
   useRegisterImmersiveChromeQuiet(open && chromeQuiet);
 
@@ -331,9 +533,21 @@ export function WritingReadSheet({
       open={open}
       onClose={onClose}
       title={name}
+      faceTitle={name}
       closeAriaLabel="Back from reader"
       zIndex={SCARCE_Z.listenShell}
+      keepDock
       mast={mast}
+      trailing={
+        <WritingReaderMenu
+          title={name}
+          creatorId={creatorId}
+          hasCover={Boolean(rasterCover || inlineSvg)}
+          readerActions={readerActions}
+          onOpenCover={onOpenCover}
+          onOpenContents={onOpenContents}
+        />
+      }
       progress={progress}
       footer={showPostFooter ? footer : null}
       footerChrome={connectFooter}
@@ -363,6 +577,8 @@ export function WritingReadSheet({
             onScrollDelta={onScrollDelta}
             onChromeTap={onChromeTap}
             seekProgressRef={seekProgressRef}
+            workTitle={name}
+            onReaderActions={onReaderActions}
           />
         ) : (
           <p className="scarce-feed-medium-empty">

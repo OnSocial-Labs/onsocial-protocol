@@ -34,6 +34,7 @@ export type ScarceFansSheetProps = {
   errorCopy?: string;
   closeAriaLabel?: string;
   backdropLabel?: string;
+  zIndex?: number;
 };
 
 /**
@@ -54,6 +55,7 @@ export function ScarceFansSheet({
   errorCopy = 'Couldn’t load fans.',
   closeAriaLabel = 'Close fans',
   backdropLabel = 'Close fans',
+  zIndex = SHEET_Z.list,
 }: ScarceFansSheetProps) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { setTxResult } = useAppTransactionFeedback();
@@ -172,7 +174,7 @@ export function ScarceFansSheet({
       copy={dropTitle?.trim() || countLabel}
       closeAriaLabel={closeAriaLabel}
       backdropLabel={backdropLabel}
-      zIndex={SHEET_Z.list}
+      zIndex={zIndex}
       panelClassName="scarce-fans-sheet-panel os-sheet-cap-standard"
       bodyClassName="scarce-fans-sheet-body"
     >

@@ -29,6 +29,19 @@ function readablesKey(readables: ScarceReadableMedia[]): string {
   return readables.map((entry) => entry.url).join('\0');
 }
 
+function titlesMatch(left: string, right: string): boolean {
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
+export type WritingReaderActions = {
+  isBook: boolean;
+  canDownloadChapter: boolean;
+  canDownloadBook: boolean;
+  downloadChapter: () => Promise<void>;
+  downloadBook: () => Promise<void>;
+  openContents: () => void;
+};
+
 export function CollectionWritingReader({
   collectionId,
   accountId,
@@ -45,6 +58,8 @@ export function CollectionWritingReader({
   onChromeTap,
   /** Imperative whole-object seek (0–1). Sheet scrubber assigns this. */
   seekProgressRef,
+  workTitle = null,
+  onReaderActions,
 }: {
   collectionId: string;
   accountId?: string | null;
@@ -63,6 +78,9 @@ export function CollectionWritingReader({
   /** Center tap — show or hide jacket / OS chrome. */
   onChromeTap?: () => void;
   seekProgressRef?: MutableRefObject<((ratio: number) => void) | null>;
+  /** Work title in the jacket — hide a duplicate chapter chip. */
+  workTitle?: string | null;
+  onReaderActions?: (actions: WritingReaderActions | null) => void;
 }) {
   const isBook =
     writingFormat === 'book' ||
@@ -432,6 +450,7 @@ export function CollectionWritingReader({
 
   const selectChapter = (index: number) => {
     goChapter(index);
+    setTocOpen(false);
   };
 
   const scrollEnds = () => {
@@ -532,10 +551,68 @@ export function CollectionWritingReader({
     setDragDx(0);
   };
 
+  const canDownloadChapter = Boolean(
+    canRead &&
+      chapter &&
+      (chapter.cid ||
+        (chapter.url && !chapter.url.startsWith('post:')))
+  );
+  const canDownloadBook = Boolean(canRead && bookPdf);
+  const downloadChapter = async () => {
+    if (!chapter) return;
+    await downloadIpfsMedia({
+      cid: chapter.cid,
+      url: chapter.url,
+      mime: chapter.mime,
+      title: chapter.title,
+      fallbackName: `chapter-${safeIndex + 1}`,
+    });
+  };
+  const downloadBook = async () => {
+    if (!bookPdf) return;
+    await downloadIpfsMedia({
+      cid: bookPdf.cid,
+      url: bookPdf.url,
+      mime: bookPdf.mime,
+      title: bookPdf.title,
+      fallbackName: 'book',
+    });
+  };
+
+  const onReaderActionsRef = useRef(onReaderActions);
+  onReaderActionsRef.current = onReaderActions;
+
+  useEffect(() => {
+    onReaderActionsRef.current?.({
+      isBook,
+      canDownloadChapter,
+      canDownloadBook,
+      downloadChapter,
+      downloadBook,
+      openContents: () => setTocOpen(true),
+    });
+  }, [
+    canDownloadBook,
+    canDownloadChapter,
+    chapter,
+    bookPdf,
+    isBook,
+    safeIndex,
+  ]);
+
+  useEffect(() => {
+    return () => onReaderActionsRef.current?.(null);
+  }, []);
+
+  const namedChapter =
+    Boolean(chapter?.title?.trim()) &&
+    !titlesMatch(chapter?.title ?? '', workTitle ?? '');
+  const showChapterChip = isBook || Boolean(pdfPageLabel) || namedChapter;
+
   const downloads =
     (canRead && chapter) || (canRead && bookPdf) ? (
       <div className="collection-writing-downloads">
-        {canRead && chapter ? (
+        {canDownloadChapter ? (
           <div className="collection-writing-download-row">
             <MediaDownloadControl
               className="collection-writing-download-control"
@@ -562,7 +639,7 @@ export function CollectionWritingReader({
             </span>
           </div>
         ) : null}
-        {canRead && bookPdf ? (
+        {canDownloadBook ? (
           <div className="collection-writing-download-row">
             <MediaDownloadControl
               className="collection-writing-download-control"
@@ -651,47 +728,34 @@ export function CollectionWritingReader({
       aria-label="Reading"
     >
       {immersive ? (
-        <div className="collection-writing-tools">
-          {isBook || downloads ? (
-            <div className="collection-writing-toc-wrap">
-              <button
-                type="button"
-                className={`collection-writing-chapter-chip${
-                  tocOpen ? ' is-open' : ''
-                }`}
-                aria-expanded={tocOpen}
-                aria-label={
-                  isBook
-                    ? `${safeIndex + 1} of ${readables.length}: ${chapterLabel}`
-                    : (pdfPageLabel ?? chapterLabel)
-                }
-                onClick={() => setTocOpen((open) => !open)}
-              >
-                <span className="collection-writing-chapter-chip-meta">
-                  {isBook
-                    ? `${safeIndex + 1} / ${readables.length}${
-                        pdfPageLabel ? ` · ${pdfPageLabel}` : ''
-                      }`
-                    : (pdfPageLabel ?? chapterLabel)}
-                </span>
-              </button>
-              {tocOpen ? (
-                <>
-                  {isBook ? tocList : null}
-                  {downloads ? (
-                    <div className="collection-writing-toc-downloads">
-                      {downloads}
-                    </div>
-                  ) : null}
-                </>
-              ) : null}
-            </div>
-          ) : (
-            <p className="collection-writing-article-label">
-              {pdfPageLabel ?? chapterLabel}
-            </p>
-          )}
-        </div>
+        showChapterChip ? (
+          <div className="collection-writing-tools">
+            {isBook ? (
+              <div className="collection-writing-toc-wrap">
+                <button
+                  type="button"
+                  className={`collection-writing-chapter-chip${
+                    tocOpen ? ' is-open' : ''
+                  }`}
+                  aria-expanded={tocOpen}
+                  aria-label={`Contents: ${safeIndex + 1} of ${readables.length}`}
+                  onClick={() => setTocOpen((open) => !open)}
+                >
+                  <span className="collection-writing-chapter-chip-meta">
+                    {`${safeIndex + 1} / ${readables.length}${
+                      pdfPageLabel ? ` · ${pdfPageLabel}` : ''
+                    }`}
+                  </span>
+                </button>
+                {tocOpen ? tocList : null}
+              </div>
+            ) : (
+              <p className="collection-writing-article-label">
+                {pdfPageLabel ?? chapterLabel}
+              </p>
+            )}
+          </div>
+        ) : null
       ) : (
         <div className="collection-writing-head">
           <p className="collection-section-label">

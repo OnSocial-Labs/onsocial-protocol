@@ -92,6 +92,13 @@ export interface OsHugSheetProps {
   presentation?: GlassSheetPresentation;
   /** Optional fixed title id when the host also references it. */
   titleId?: string;
+  /** Sit the hug panel above the summon / write dock. */
+  keepDock?: boolean;
+  /**
+   * GlassSheet portal. `null` → `document.body` (escape a filtered OS card).
+   * Omit to use the app clip host.
+   */
+  portalContainer?: HTMLElement | null;
 }
 
 /**
@@ -128,6 +135,8 @@ export function OsHugSheet({
   peekRatio = 1,
   presentation,
   titleId: titleIdProp,
+  keepDock = false,
+  portalContainer,
 }: OsHugSheetProps) {
   const generatedTitleId = useId();
   const titleId = titleIdProp ?? generatedTitleId;
@@ -148,6 +157,8 @@ export function OsHugSheet({
       ariaLabelledBy={titleId}
       backdropLabel={backdropLabel ?? closeLabel}
       sizing={sizing}
+      keepDock={keepDock}
+      {...(portalContainer !== undefined ? { portalContainer } : {})}
       {...(moodId ? { moodId } : {})}
       {...(presentation ? { presentation } : {})}
       panelClassName={cn(

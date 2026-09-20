@@ -988,6 +988,7 @@ export function LiveGuildPostPanel({
       title={guildDisplayName(guildName, groupId)}
       titleHref={guildPath(groupId)}
       dockBack
+      compactChrome
       backFallbackHref={guildPath(groupId)}
       actions={membershipActions}
     >

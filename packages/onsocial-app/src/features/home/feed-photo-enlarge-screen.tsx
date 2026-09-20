@@ -1070,7 +1070,7 @@ export function FeedPhotoEnlargeScreen({
       transport={onFilm ? null : videoTransport}
       stageLayout="fixed"
       chromeQuiet={chromeQuiet}
-      keepDock={threadOpen}
+      keepDock={threadOpen || !cinema}
       className={slideClass}
       contentClassName="feed-photo-slide-body"
       bodyStyle={

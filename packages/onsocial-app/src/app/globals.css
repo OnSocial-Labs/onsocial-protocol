@@ -101,6 +101,15 @@
  * Unlayered so Mage width/height="24" attrs don't win. Search-field icons stay
  * on .search-field-icon (smaller) and are outside this selector.
  */
+.os-app-screen-nav-row .glass-sheet-icon-action {
+  box-sizing: border-box;
+  width: var(--os-app-screen-nav-row-height, 2.35rem);
+  height: var(--os-app-screen-nav-row-height, 2.35rem);
+  min-width: var(--os-app-screen-nav-row-height, 2.35rem);
+  min-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  padding: 0;
+}
+
 .os-app-screen-nav-row .glass-sheet-icon-action > svg {
   display: block;
   flex-shrink: 0;
@@ -540,46 +549,70 @@
 }
 
 /*
- * Post page sheets + media enlarge — same 1.85rem header icon box.
- * Compact index chrome (2.35–2.75rem) pulled glyphs in.
- * Unlayered so it beats glass-sheet.css 2.75rem (imported outside @layer).
+ * Photo / card / article enlarge — compact nav (same as Market / Drops).
+ * Writing reader keeps its own mast; drop immersive handoff is untouched.
  */
-.post-thread-sheet-panel
-  .os-app-screen
-  > .os-app-screen-column
-  > .os-app-screen-header
-  .glass-sheet-icon-action,
-.os-app-screen:has(.guild-thread-root)
-  > .os-app-screen-column
-  > .os-app-screen-header
-  .glass-sheet-icon-action,
-.os-media-face-close.glass-sheet-icon-action,
-.os-media-face-trailing .glass-sheet-icon-action,
-.os-media-face-trailing .post-card-menu-trigger {
-  box-sizing: border-box;
-  width: 1.85rem;
-  height: 1.85rem;
-  min-width: 1.85rem;
-  min-height: 1.85rem;
-  max-width: 1.85rem;
-  max-height: 1.85rem;
-  padding: 0;
+.feed-photo-slide,
+.scarce-thought-slide,
+.feed-article-slide,
+.scarce-read-slide:has(.scarce-writing-read) {
+  --os-app-screen-nav-row-height: 2.35rem;
+  --os-app-chrome-pad-y: 0.3rem;
 }
 
-/*
- * Enlarge jacket — same seat as Post overlay (0.65rem pad, 2.75rem row).
- * Do not inherit Discover compact 2.35rem / 0.3rem or the chevron sits high.
- */
-.os-media-face {
-  --os-app-screen-nav-row-height: 2.75rem;
-  --os-app-chrome-pad-y: 0.65rem;
-}
-
-.os-media-face:not(.feed-photo-slide--thread) .os-media-face-hero {
+.feed-photo-slide:not(.feed-photo-slide--thread) .os-media-face-hero,
+.scarce-thought-slide:not(.feed-photo-slide--thread) .os-media-face-hero,
+.feed-article-slide .os-media-face-hero {
   height: var(--os-app-screen-nav-row-height);
   min-height: var(--os-app-screen-nav-row-height);
   max-height: var(--os-app-screen-nav-row-height);
-  margin-top: 0.65rem;
+  margin-top: var(--os-app-chrome-pad-y, 0.3rem);
+}
+
+/* Reader — flush to the rim. Progress is a hairline, not a spacer. */
+.scarce-read-slide:has(.scarce-writing-read) .os-media-face-hero {
+  height: var(--os-app-screen-nav-row-height);
+  min-height: var(--os-app-screen-nav-row-height);
+  max-height: var(--os-app-screen-nav-row-height);
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.scarce-read-slide:has(.scarce-writing-read) .os-media-face-body {
+  gap: 0;
+}
+
+.scarce-read-slide:has(.scarce-writing-read) .scarce-writing-read-progress {
+  height: 0;
+  margin: 0 -1rem;
+  overflow: visible;
+}
+
+.scarce-read-slide:has(.scarce-writing-read) .scarce-writing-read-progress-scrub {
+  inset: 0 0 auto;
+  height: 0.85rem;
+}
+
+.feed-photo-slide .os-media-face-close.glass-sheet-icon-action,
+.feed-photo-slide .os-media-face-trailing .glass-sheet-icon-action,
+.feed-photo-slide .os-media-face-trailing .post-card-menu-trigger,
+.scarce-thought-slide .os-media-face-close.glass-sheet-icon-action,
+.scarce-thought-slide .os-media-face-trailing .glass-sheet-icon-action,
+.scarce-thought-slide .os-media-face-trailing .post-card-menu-trigger,
+.feed-article-slide .os-media-face-close.glass-sheet-icon-action,
+.feed-article-slide .os-media-face-trailing .glass-sheet-icon-action,
+.scarce-read-slide:has(.scarce-writing-read)
+  .os-media-face-close.glass-sheet-icon-action,
+.scarce-read-slide:has(.scarce-writing-read)
+  .os-media-face-trailing .post-card-menu-trigger {
+  box-sizing: border-box;
+  width: var(--os-app-screen-nav-row-height);
+  height: var(--os-app-screen-nav-row-height);
+  min-width: var(--os-app-screen-nav-row-height);
+  min-height: var(--os-app-screen-nav-row-height);
+  max-width: var(--os-app-screen-nav-row-height);
+  max-height: var(--os-app-screen-nav-row-height);
+  padding: 0;
 }
 
 /*
@@ -768,6 +801,14 @@
   > .os-app-screen-column
   > .os-app-screen-header.is-elevated
   .glass-sheet-icon-action {
+  box-sizing: border-box;
+  width: var(--os-app-screen-nav-row-height, 2.35rem);
+  height: var(--os-app-screen-nav-row-height, 2.35rem);
+  min-width: var(--os-app-screen-nav-row-height, 2.35rem);
+  min-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  max-width: var(--os-app-screen-nav-row-height, 2.35rem);
+  max-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  padding: 0;
   filter: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -954,7 +995,11 @@
   max-height: none;
   margin-inline: auto;
   /* Clear immersive nav + a little air before the card object. */
-  margin-top: calc(env(safe-area-inset-top, 0px) + 4.75rem);
+  margin-top: calc(
+    env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y, 0.3rem) +
+      var(--os-app-screen-nav-row-height, 2.35rem) +
+      var(--os-app-chrome-pad-y, 0.3rem) + 0.4rem
+  );
   border-radius: 0.75rem;
   aspect-ratio: 1 / 1;
   height: auto;
@@ -11671,14 +11716,16 @@ a.os-surface-row {
   /* Full-viewport OS glass app surface (Home, Discover, Market, Guilds). */
   .os-app-screen {
     --glass-header-scrim-height: var(--glass-screen-header-scrim-height);
-    /* Immersive elevate chrome + sticky room filter strip. */
-    --os-app-screen-nav-row-height: 2.75rem;
+    /* One nav scale — Market / Post / immersive drop share this seat. */
+    --os-app-screen-nav-row-height: 2.35rem;
+    --os-app-chrome-pad-y: 0.3rem;
     --os-app-screen-chrome-height: calc(
-      0.65rem + var(--os-app-screen-nav-row-height) + 0.65rem
+      var(--os-app-chrome-pad-y) + var(--os-app-screen-nav-row-height) +
+        var(--os-app-chrome-pad-y)
     );
     --os-app-screen-elevated-chrome-height: calc(
-      env(safe-area-inset-top, 0px) + 0.65rem +
-        var(--os-app-screen-nav-row-height) + 0.45rem
+      env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y) +
+        var(--os-app-screen-nav-row-height) + var(--os-app-chrome-pad-y)
     );
     /*
      * Shared chrome scale — any screen with in-body chrome consumes these:
@@ -11843,8 +11890,11 @@ a.os-surface-row {
     position: relative;
     z-index: 2;
     flex-shrink: 0;
-    padding: calc(env(safe-area-inset-top, 0px) + 0.65rem)
-      max(1rem, env(safe-area-inset-right, 0px)) 0.65rem
+    padding: calc(
+        env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y, 0.3rem)
+      )
+      max(1rem, env(safe-area-inset-right, 0px))
+      var(--os-app-chrome-pad-y, 0.3rem)
       max(1rem, env(safe-area-inset-left, 0px));
   }
 
@@ -11857,8 +11907,8 @@ a.os-surface-row {
     z-index: var(--os-chrome-header-z);
     /* No isolation — lets elevated frost backdrop-filter sample content under. */
     overflow: hidden;
-    /* Match elevated bottom pad — stable height (no elevate jump). */
-    padding-bottom: 0.45rem;
+    /* Same pad as rest — stable height (no elevate jump). */
+    padding-bottom: var(--os-app-chrome-pad-y, 0.3rem);
     background: transparent;
     transition:
       background 220ms ease,
@@ -12128,11 +12178,11 @@ a.os-surface-row {
     }
   }
 
-  .os-app-screen[data-immersive-header='true']
-    > .os-app-screen-column
-    > .os-app-screen-header.is-elevated
-    .os-app-screen-nav-row {
+  .os-app-screen[data-immersive-header='true'] .os-app-screen-nav-row {
     align-items: center;
+    height: var(--os-app-screen-nav-row-height);
+    min-height: var(--os-app-screen-nav-row-height);
+    max-height: var(--os-app-screen-nav-row-height);
   }
 
   /* Stable title size — changing it on elevate jumps the nav row. */
@@ -13365,6 +13415,12 @@ a.os-surface-row {
 
   /* Room for the portfolio dock under a keep-dock mood page. */
   .glass-sheet-root[data-keep-dock='true'] .glass-sheet-body {
+    padding-bottom: var(--portfolio-dock-clearance, 4.75rem);
+  }
+
+  /* Hug / choice sheets — sit the panel on the dock, not under it. */
+  .glass-sheet-root--hosted[data-keep-dock='true'],
+  .glass-sheet-root[data-keep-dock='true'] {
     padding-bottom: var(--portfolio-dock-clearance, 4.75rem);
   }
 
@@ -23181,6 +23237,14 @@ a.os-surface-row {
     overflow: hidden;
   }
 
+  .drop-art-overlay-svg.drop-art-overlay-asset {
+    width: min(100%, 28rem);
+    height: auto;
+    max-width: 100%;
+    max-height: min(100%, 28rem);
+    aspect-ratio: 1 / 1;
+  }
+
   .scarce-post-preview-svg svg,
   .drop-art-overlay-svg svg {
     display: block;
@@ -23237,22 +23301,19 @@ a.os-surface-row {
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-    padding: max(1.25rem, env(safe-area-inset-top, 0px))
-      max(1.25rem, env(safe-area-inset-right, 0px))
-      max(1.25rem, env(safe-area-inset-bottom, 0px))
-      max(1.25rem, env(safe-area-inset-left, 0px));
+    /* Same well as other screens: chrome top, 1rem sides, air above the dock. */
+    padding: var(
+        --os-screen-chrome-height,
+        var(--os-app-screen-chrome-height, var(--os-app-chrome-compact-height))
+      )
+      var(--os-screen-body-pad-x, 1rem)
+      0.4rem;
     cursor: zoom-out;
   }
 
   .drop-art-page-sheet-panel .drop-art-overlay-asset {
     opacity: 1;
     transform: none;
-    width: min(92vw, 600px);
-    max-width: min(92vw, 560px);
-    max-height: min(78dvh, 560px);
-    height: auto;
-    aspect-ratio: 1 / 1;
-    object-fit: cover;
   }
 
   .drop-art-overlay-chrome {
@@ -23267,11 +23328,15 @@ a.os-surface-row {
     position: relative;
     z-index: 1;
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 0.65rem;
-    max-width: 100%;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
   }
 
   .drop-art-overlay-nav-row {
@@ -23327,7 +23392,7 @@ a.os-surface-row {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--portfolio-dock-clearance, 4.75rem) + 0.4rem);
     z-index: 3;
     display: flex;
     justify-content: center;
@@ -23366,13 +23431,14 @@ a.os-surface-row {
 
   .drop-art-overlay-asset {
     display: block;
-    /* 600px = 1800÷3 — integer scale for mint PNG zoom. */
-    width: min(92vw, 600px);
-    max-height: min(92dvh, 600px);
+    /* Largest square in the stage — fills as the screen shrinks. */
+    width: auto;
     height: auto;
+    max-width: min(100%, 28rem);
+    max-height: min(100%, 28rem);
     aspect-ratio: 1 / 1;
-    object-fit: cover;
-    border-radius: 0.85rem;
+    object-fit: contain;
+    border-radius: 0.75rem;
     /*
      * Best-in-class gallery presentation:
      * Dark field: Zero drop shadow (no murky black puddles or white glow halos).
@@ -25610,10 +25676,14 @@ a.os-surface-row {
   }
 
   .os-app-screen-actions .collectibles-play-drop-action .os-sheet-action {
+    box-sizing: border-box;
+    height: 1.5rem;
+    min-height: 1.5rem;
+    max-height: 1.5rem;
     gap: 0.32rem;
-    padding: 0.34rem 0.62rem;
+    padding: 0 0.5rem;
     border: 0;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
   }
 
   .os-app-screen-actions .collectibles-play-drop-action .os-sheet-action:hover,
@@ -26421,10 +26491,14 @@ a.os-surface-row {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.34rem 0.62rem;
+    box-sizing: border-box;
+    height: 1.5rem;
+    min-height: 1.5rem;
+    max-height: 1.5rem;
+    padding: 0 0.5rem;
     border-radius: 9999px;
     border: 0;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 600;
     letter-spacing: 0.01em;
     line-height: 1;
@@ -27422,7 +27496,7 @@ a.os-surface-row {
   .collection-writing.is-immersive {
     display: flex;
     flex-direction: column;
-    gap: 0.7rem;
+    gap: 0.4rem;
     min-height: 0;
     flex: 1;
   }
@@ -27462,6 +27536,17 @@ a.os-surface-row {
   .collection-writing-chapter-chip:hover,
   .collection-writing-chapter-chip:focus-visible {
     outline: none;
+  }
+
+  .collection-writing-chapter-chip:hover
+    .collection-writing-chapter-chip-meta,
+  .collection-writing-chapter-chip:focus-visible
+    .collection-writing-chapter-chip-meta,
+  .collection-writing-chapter-chip.is-open
+    .collection-writing-chapter-chip-meta {
+    color: rgb(var(--fg-rgb) / 0.72);
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
   }
 
   .collection-writing-chapter-chip:focus-visible
@@ -27992,17 +28077,16 @@ a.os-surface-row {
   .scarce-writing-read-cover {
     display: block;
     /*
-     * Exact miniature of the pinned cover — same aspect, never cropped.
-     * Height is fixed for mast rhythm; width follows the cover's own ratio,
-     * capped so wide photo bands don't crowd the title.
+     * Thumb in the compact one-line jacket — same aspect, never cropped.
+     * Tap enlarges. Width follows ratio, capped so it doesn't crowd the title.
      */
-    height: 3.15rem;
+    height: 1.85rem;
     width: auto;
-    max-width: 4.6rem;
-    border-radius: 0.28rem;
+    max-width: 2.6rem;
+    border-radius: 0.22rem;
     object-fit: contain;
     background: rgb(var(--fg-rgb) / 0.08);
-    box-shadow: 0 0.2rem 0.55rem rgb(0 0 0 / 0.14);
+    box-shadow: 0 0.12rem 0.35rem rgb(0 0 0 / 0.16);
   }
 
   /* Text cards are natively 1:1 — square jacket, not a cropped portrait. */
@@ -28044,9 +28128,9 @@ a.os-surface-row {
 
   .os-media-face-title {
     margin: 0;
-    font-size: 1.08rem;
+    font-size: 0.95rem;
     font-weight: 700;
-    line-height: 1.22;
+    line-height: 1.25;
     letter-spacing: -0.015em;
     color: rgb(var(--fg-rgb) / 0.96);
     overflow: hidden;
@@ -28054,6 +28138,12 @@ a.os-surface-row {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+  }
+
+  .scarce-read-slide:has(.scarce-writing-read) .os-media-face-title {
+    -webkit-line-clamp: 1;
+    white-space: nowrap;
+    display: block;
   }
 
   .os-media-face-title--single {
@@ -28628,10 +28718,14 @@ a.os-surface-row {
   }
 
   .os-app-screen-actions .ticket-door-event-action .os-sheet-action {
+    box-sizing: border-box;
+    height: 1.5rem;
+    min-height: 1.5rem;
+    max-height: 1.5rem;
     gap: 0.32rem;
-    padding: 0.34rem 0.62rem;
+    padding: 0 0.5rem;
     border: 0;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
   }
 
   .os-app-screen-actions .ticket-door-event-action .os-sheet-action:hover,
@@ -30821,7 +30915,7 @@ a.os-surface-row {
     height: 100%;
     overflow: hidden;
     box-sizing: border-box;
-    padding: 0.15rem 0 0.35rem;
+    padding: 0.15rem var(--os-screen-body-pad-x, 1rem) 0.35rem;
   }
 
   .scarce-thought-stage {
@@ -30888,7 +30982,7 @@ a.os-surface-row {
     height: 100%;
     overflow: hidden;
     box-sizing: border-box;
-    padding: 0.15rem 0 0.35rem;
+    padding: 0.15rem var(--os-screen-body-pad-x, 1rem) 0.35rem;
   }
 
   .feed-photo-stage {
@@ -37453,11 +37547,6 @@ a.os-surface-row {
   .guild-thread-root > .post-card {
     margin: 0;
     padding: 0.35rem 0;
-  }
-
-  .guild-thread-root .post-card-body-block {
-    font-size: 1.02rem;
-    line-height: 1.55;
   }
 
   /*

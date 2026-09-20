@@ -32,7 +32,7 @@ import {
   parseInAppPostLayerHref,
   personalPostPath,
 } from '@/lib/post-routes';
-import { SHEET_Z } from '@/lib/sheet-z';
+import { isOsMediaFaceOpen, nextPostLayerZIndex } from '@/lib/sheet-z';
 
 const LivePersonalPostPanel = dynamic(
   () =>
@@ -107,12 +107,14 @@ type PostThreadLayerTarget = {
   accountId: string;
   postId: string;
   root: PostRow | null;
+  zIndex: number;
 };
 
 type DropLayerTarget = {
   id: string;
   kind: 'drop';
   collectionId: string;
+  zIndex: number;
 };
 
 type PlaceLayerTarget = PostThreadLayerTarget | DropLayerTarget;
@@ -144,6 +146,11 @@ function isOverlayPlacePathname(pathname: string): boolean {
     parseInAppPostLayerHref(pathname) != null ||
     parseInAppDropLayerHref(pathname) != null
   );
+}
+
+function nextStackedLayerZ(stack: PlaceLayerTarget[]): number {
+  const top = stack[stack.length - 1];
+  return nextPostLayerZIndex(top?.zIndex ?? null, isOsMediaFaceOpen());
 }
 
 function placeLayerHref(layer: PlaceLayerTarget): string {
@@ -263,6 +270,7 @@ function PostThreadSheet({
       <OsAppScreen
         title="Post"
         glassChrome
+        compactChrome
         embedded
         heading={
           <span id={titleId} className="os-app-screen-title">
@@ -429,6 +437,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         accountId: parsed.accountId,
         postId: parsed.postId,
         root,
+        zIndex: nextStackedLayerZ(stackRef.current),
       };
       if (underlayPathRef.current == null) {
         underlayPathRef.current = pathname;
@@ -484,6 +493,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         id: `drop-layer-${++seqRef.current}`,
         kind: 'drop',
         collectionId: parsed.collectionId,
+        zIndex: nextStackedLayerZ(stackRef.current),
       };
       if (underlayPathRef.current == null) {
         underlayPathRef.current = pathname;
@@ -560,7 +570,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           open: layer.id !== closingId,
           onClose: isTop ? closePostThread : () => {},
           onClosed: () => handleSheetClosed(layer.id),
-          zIndex: SHEET_Z.overlayHost + index,
+          zIndex: layer.zIndex,
           moodId: viewerMood.moodId ?? undefined,
           moodStyle: viewerMood.style,
         };

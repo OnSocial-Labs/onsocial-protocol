@@ -1139,6 +1139,7 @@ export function LivePersonalPostPanel({
       title="Post"
       dockBack
       glassChrome
+      compactChrome
       backFallbackHref={APP_HOME_PATH}
       actions={connectAction}
     >

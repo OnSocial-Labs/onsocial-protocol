@@ -7,6 +7,7 @@ import {
   ChevronDownIcon,
   type ActionDrawerItem,
 } from '@onsocial/ui';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   THREAD_REPLY_SORT_OPTIONS,
   type ThreadReplySort,
@@ -15,15 +16,20 @@ import {
 interface ThreadRepliesSortButtonProps {
   sort: ThreadReplySort;
   onChange: (sort: ThreadReplySort) => void;
+  zIndex?: number;
 }
 
 /**
  * `Replies ▾` — quiet section control on the thread controls row; opens the
  * sort drawer (Relevant / Trending / Recent). Ranked sorts flatten the tree.
+ *
+ * Above the Reply / enlarge face (80) and write dock (95) — nested-choice
+ * band (130). First post/drop sheets stay at 50 so this list can sit on them.
  */
 export function ThreadRepliesSortButton({
   sort,
   onChange,
+  zIndex = SHEET_Z.overlayNested,
 }: ThreadRepliesSortButtonProps) {
   const [open, setOpen] = useState(false);
 
@@ -48,7 +54,12 @@ export function ThreadRepliesSortButton({
         className="thread-replies-sort"
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => setOpen(true)}
+        aria-label="Sort replies"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen(true);
+        }}
       >
         Replies
         <ChevronDownIcon className="thread-replies-sort-chevron" aria-hidden />
@@ -56,8 +67,10 @@ export function ThreadRepliesSortButton({
       <ActionDrawer
         open={open}
         onClose={() => setOpen(false)}
-        label="Sort replies"
+        label="Replies"
         items={items}
+        zIndex={zIndex}
+        keepDock
       />
     </>
   );

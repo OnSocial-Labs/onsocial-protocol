@@ -65,6 +65,7 @@ export function CollectionOwnerManageMenu({
   renewable = false,
   eventEndsAtMs = null,
   onManaged,
+  zIndex,
 }: {
   collectionId: string;
   title: string;
@@ -74,6 +75,7 @@ export function CollectionOwnerManageMenu({
   kind?: string | null;
   renewable?: boolean;
   eventEndsAtMs?: number | null;
+  zIndex?: number;
   onManaged: (
     change:
       | 'paused'
@@ -518,6 +520,7 @@ export function CollectionOwnerManageMenu({
         }
         closeAriaLabel={panel === 'menu' ? 'Close' : 'Back to manage'}
         items={panel === 'menu' ? items : undefined}
+        {...(zIndex != null ? { zIndex } : {})}
       >
         {panel === 'delete' ? (
           <DropDeleteConfirmPanel
