@@ -51,7 +51,7 @@ permissions:
 jobs:
   validate:
     name: Validate Inputs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Check host configuration
         run: |
@@ -64,7 +64,7 @@ jobs:
   deploy:
     name: Deploy spkg to Hetzner
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment:
       name: testnet
     if: >

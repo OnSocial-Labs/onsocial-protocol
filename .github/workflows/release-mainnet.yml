@@ -115,7 +115,7 @@ permissions:
 jobs:
   validate:
     name: Validate Release Request
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       run_data_before: ${{ steps.flags.outputs.run_data_before }}
       run_app_release: ${{ steps.flags.outputs.run_app_release }}
@@ -239,7 +239,7 @@ jobs:
       - app_release
       - data_after
     if: ${{ always() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Write release summary
         run: |

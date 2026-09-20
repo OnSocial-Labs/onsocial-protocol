@@ -38,7 +38,7 @@ env:
 jobs:
   check:
     name: Build & Check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -73,7 +73,7 @@ jobs:
 
   e2e:
     name: Playwright
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     needs: check
     env:
@@ -106,7 +106,7 @@ jobs:
           set -euo pipefail
           # Google Chrome apt mirrors occasionally hash-mismatch on Actions.
           # Retry --with-deps, then fall back to browser-only install (deps are
-          # usually already present on ubuntu-latest / warm runners).
+          # usually already present on ubuntu-26.04 / warm runners).
           for attempt in 1 2 3; do
             if pnpm --filter @onsocial/app exec playwright install --with-deps chromium; then
               exit 0

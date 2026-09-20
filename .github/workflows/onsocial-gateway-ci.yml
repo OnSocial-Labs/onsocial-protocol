@@ -41,7 +41,7 @@ env:
 jobs:
   build-and-test:
     name: Build & Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     
     services:
@@ -176,7 +176,7 @@ jobs:
   # Deploy parity: full indexer schema + view retrack + bulk permission recreate.
   hasura-permission-sync:
     name: Hasura permission sync (deploy parity)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 25
 
     services:

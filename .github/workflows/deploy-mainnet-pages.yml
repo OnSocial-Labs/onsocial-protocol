@@ -34,7 +34,7 @@ concurrency:
 jobs:
   validate:
     name: Validate Inputs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Check confirmation
         run: |
@@ -54,7 +54,7 @@ jobs:
   deploy:
     name: Deploy Mainnet Pages
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment: mainnet
 
     steps:

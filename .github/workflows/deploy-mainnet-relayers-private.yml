@@ -58,7 +58,7 @@ permissions:
 jobs:
   validate:
     name: Validate Inputs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Check confirmation
         run: |
@@ -256,7 +256,7 @@ jobs:
     name: Build Relayer Image
     needs: validate
     if: ${{ github.event.inputs.dry_run != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       image_tag: ${{ steps.tag.outputs.value }}
     steps:

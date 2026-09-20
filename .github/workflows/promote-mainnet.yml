@@ -147,7 +147,7 @@ permissions:
 jobs:
   validate:
     name: Validate Inputs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Check confirmation and tag
         run: |
@@ -652,7 +652,7 @@ jobs:
       - deploy-relayer-0-only
       - deploy-relayer-0-after-relayer-1
     if: ${{ always() && (needs.validate.result == 'success') && (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') && (needs.deploy-gateway.result == 'success' || needs.deploy-gateway.result == 'skipped') && (needs.deploy-relayer-1.result == 'success' || needs.deploy-relayer-1.result == 'skipped') && (needs.deploy-relayer-0-only.result == 'success' || needs.deploy-relayer-0-only.result == 'skipped') && (needs.deploy-relayer-0-after-relayer-1.result == 'success' || needs.deploy-relayer-0-after-relayer-1.result == 'skipped') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment:
       name: mainnet
     steps:

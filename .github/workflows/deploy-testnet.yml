@@ -41,7 +41,7 @@ jobs:
   # ── Build & push Docker images to GHCR ──────────────────────────────
   build:
     name: Build Images
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       matrix:
         include:
@@ -108,7 +108,7 @@ jobs:
   deploy:
     name: Deploy to Testnet
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment: testnet
 
     steps:
