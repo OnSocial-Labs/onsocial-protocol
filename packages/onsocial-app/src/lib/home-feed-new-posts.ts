@@ -118,6 +118,67 @@ export function feedPostKeySet(posts: readonly PostRow[]): Set<string> {
   return new Set(posts.map(postKey));
 }
 
+function parentPostKey(post: PostRow): string | null {
+  if (!post.parentPath) return null;
+  const accountId = post.parentAuthor ?? post.parentPath.split('/')[0];
+  const postId = post.parentPath.split('/').pop();
+  if (!accountId || !postId) return null;
+  return `${accountId}:${postId}`;
+}
+
+export type MergeHomeFeedHeadResult = {
+  posts: PostRow[];
+  /** New head cards — bump `nextOffset` by this, not by raw row count. */
+  insertedCount: number;
+};
+
+/**
+ * Fold a refreshed page-0 into the already-loaded list.
+ *
+ * New keys prepend in incoming order. Already-seen rows keep their
+ * positions so loaded pages below the fold are not thrown away.
+ * Overlapping keys take the incoming row's fields (heat, body, …).
+ *
+ * `insertedCount` is cards, not rows: a new `[root, reply]` pair is one
+ * card, matching Pulse / SQL page offsets.
+ */
+export function mergeHomeFeedHead(
+  current: readonly PostRow[],
+  incoming: readonly PostRow[]
+): MergeHomeFeedHeadResult {
+  if (current.length === 0) {
+    return { posts: [...incoming], insertedCount: incoming.length };
+  }
+  if (incoming.length === 0) {
+    return { posts: [...current], insertedCount: 0 };
+  }
+
+  const currentKeys = new Set(current.map(postKey));
+  const incomingByKey = new Map(incoming.map((row) => [postKey(row), row]));
+
+  const newHead: PostRow[] = [];
+  const newHeadKeys = new Set<string>();
+  for (const row of incoming) {
+    const key = postKey(row);
+    if (currentKeys.has(key) || newHeadKeys.has(key)) continue;
+    newHeadKeys.add(key);
+    newHead.push(row);
+  }
+
+  let insertedCount = 0;
+  for (const row of newHead) {
+    const parentKey = parentPostKey(row);
+    if (parentKey && newHeadKeys.has(parentKey)) continue;
+    insertedCount += 1;
+  }
+
+  const rest = current.map((row) => incomingByKey.get(postKey(row)) ?? row);
+  if (newHead.length === 0) {
+    return { posts: rest, insertedCount: 0 };
+  }
+  return { posts: [...newHead, ...rest], insertedCount };
+}
+
 /**
  * Compact chip count — `1` / `2` / `3` / `3+`.
  * Probe saturation still drives the unseen count; display caps at three-plus.

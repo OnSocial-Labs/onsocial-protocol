@@ -18,6 +18,8 @@ describe('home feed loading contract', () => {
     const source = readFileSync(join(homeSrc, 'home-feed.tsx'), 'utf8');
 
     expect(source).toContain('isCurrentLoadingRequest');
+    expect(source).toContain('mergeHomeFeedHead');
+    expect(source).toContain('growFeedWindow');
     expect(source).not.toContain('loadIdRef.current !== loadId');
     expect(source).not.toContain('loadIdRef.current === loadId');
   });

@@ -15,10 +15,8 @@ import {
   type FeedSort,
 } from './_shared.js';
 import {
-  assemblePulsePage,
   paginatePulseFunctionRows,
-  pulseParentRefsToHydrate,
-  pulseSelfReplyRootsToHydrate,
+  pulseAccountsTextArray,
 } from './feed-pulse.js';
 
 export type { FeedSection, FeedSort };
@@ -56,8 +54,6 @@ const FEED_POST_ROW_FIELDS_WITH_ROOT = `${FEED_POST_ROW_FIELDS}
   rootPath rootAuthor`;
 const FEED_POST_ROW_FIELDS_NO_HEAT_WITH_ROOT = `${FEED_POST_ROW_FIELDS_NO_HEAT}
   rootPath rootAuthor`;
-const POST_ROW_FIELDS_WITH_ROOT = `${POST_ROW_FIELDS}
-  rootPath rootAuthor`;
 
 function isPostsFeedUnavailableError(err: unknown): boolean {
   if (!(err instanceof GraphQLValidationError)) return false;
@@ -69,20 +65,6 @@ function isPostsFeedUnavailableError(err: unknown): boolean {
     hay.includes('field "postsfeed"') ||
     hay.includes("field 'postsfeed'")
   );
-}
-
-function isFeedPulseUnavailableError(err: unknown): boolean {
-  if (!(err instanceof GraphQLValidationError)) return false;
-  const hay =
-    `${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
-  return hay.includes('feedpulse') || hay.includes('feed_pulse');
-}
-
-function isRootPathUnavailableError(err: unknown): boolean {
-  if (!(err instanceof GraphQLValidationError)) return false;
-  const hay =
-    `${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
-  return hay.includes('rootpath') || hay.includes('root_path');
 }
 
 function isAmplifyHeatUnavailableError(err: unknown): boolean {
@@ -114,13 +96,6 @@ function accountsFeedWhere(nativeOnly: boolean): string {
           ]}`;
 }
 
-const PULSE_BRIDGE_WHERE = `where: {_and: [
-            {accountId: {_in: $accounts}},
-            {parentPath: {_neq: ""}},
-            {parentAuthor: {_neq: ""}},
-            {parentAuthor: {_nin: $accounts}}
-          ]}`;
-
 export class FeedQuery {
   /** Set when GraphQL rejects `postsFeed` (view not tracked yet). */
   private postsFeedFallback = new SchemaFallback();
@@ -130,9 +105,6 @@ export class FeedQuery {
 
   /** Set when topic index views reject `heat` ordering (column not tracked yet). */
   private topicHeatFallback = new SchemaFallback();
-
-  /** Set when GraphQL rejects `feedPulse` (function not tracked yet). */
-  private feedPulseFallback = new SchemaFallback();
 
   constructor(private _q: QueryModule) {}
 
@@ -259,78 +231,6 @@ export class FeedQuery {
       variables: args.variables,
     });
     return this.enrichFeedPosts(res.data?.postsCurrent ?? []);
-  }
-
-  private async queryPulseBridgeRows(args: {
-    variables: Record<string, unknown>;
-    orderBy: string;
-    chronoOrder: string;
-  }): Promise<PostRow[]> {
-    const withRoot = {
-      variables: args.variables,
-      postsFeedQuery: `query PulseBridges($accounts: [String!]!, $limit: Int!, $offset: Int!) {
-        postsFeed(
-          ${PULSE_BRIDGE_WHERE},
-          limit: $limit, offset: $offset,
-          orderBy: ${args.orderBy}
-        ) {
-          ${FEED_POST_ROW_FIELDS_WITH_ROOT}
-        }
-      }`,
-      postsFeedQueryNoHeat: `query PulseBridges($accounts: [String!]!, $limit: Int!, $offset: Int!) {
-        postsFeed(
-          ${PULSE_BRIDGE_WHERE},
-          limit: $limit, offset: $offset,
-          orderBy: ${args.chronoOrder}
-        ) {
-          ${FEED_POST_ROW_FIELDS_NO_HEAT_WITH_ROOT}
-        }
-      }`,
-      postsCurrentQuery: `query PulseBridges($accounts: [String!]!, $limit: Int!, $offset: Int!) {
-        postsCurrent(
-          ${PULSE_BRIDGE_WHERE},
-          limit: $limit, offset: $offset,
-          orderBy: [{blockHeight: DESC}]
-        ) {
-          ${POST_ROW_FIELDS_WITH_ROOT}
-        }
-      }`,
-    };
-    try {
-      return await this.queryFeedRows(withRoot);
-    } catch (err) {
-      if (!isRootPathUnavailableError(err)) throw err;
-      return this.queryFeedRows({
-        variables: args.variables,
-        postsFeedQuery: `query PulseBridges($accounts: [String!]!, $limit: Int!, $offset: Int!) {
-        postsFeed(
-          ${PULSE_BRIDGE_WHERE},
-          limit: $limit, offset: $offset,
-          orderBy: ${args.orderBy}
-        ) {
-          ${FEED_POST_ROW_FIELDS}
-        }
-      }`,
-        postsFeedQueryNoHeat: `query PulseBridges($accounts: [String!]!, $limit: Int!, $offset: Int!) {
-        postsFeed(
-          ${PULSE_BRIDGE_WHERE},
-          limit: $limit, offset: $offset,
-          orderBy: ${args.chronoOrder}
-        ) {
-          ${FEED_POST_ROW_FIELDS_NO_HEAT}
-        }
-      }`,
-        postsCurrentQuery: `query PulseBridges($accounts: [String!]!, $limit: Int!, $offset: Int!) {
-        postsCurrent(
-          ${PULSE_BRIDGE_WHERE},
-          limit: $limit, offset: $offset,
-          orderBy: [{blockHeight: DESC}]
-        ) {
-          ${POST_ROW_FIELDS}
-        }
-      }`,
-      });
-    }
   }
 
   /**
@@ -537,18 +437,18 @@ export class FeedQuery {
     sort: FeedSort;
   }): Promise<PostRow[]> {
     const variables = {
-      accounts: args.accounts,
-      cardLimit: args.cardLimit,
-      cardOffset: args.cardOffset,
+      accounts: pulseAccountsTextArray(args.accounts),
+      card_limit: args.cardLimit,
+      card_offset: args.cardOffset,
       sort: args.sort,
     };
     const query = (
       fields: string
-    ) => `query Pulse($accounts: [String!]!, $cardLimit: Int!, $cardOffset: Int!, $sort: String) {
+    ) => `query Pulse($accounts: _text, $card_limit: Int!, $card_offset: Int!, $sort: String) {
         feedPulse(args: {
           accounts: $accounts,
-          cardLimit: $cardLimit,
-          cardOffset: $cardOffset,
+          card_limit: $card_limit,
+          card_offset: $card_offset,
           sort: $sort
         }) {
           ${fields}
@@ -579,13 +479,10 @@ export class FeedQuery {
 
   /**
    * Pulse feed — Circle posts plus stranger threads a circle member replied
-   * into. Rank a bridge by the circle reply. Each bridge flattens to
+   * into. Rank a card by the circle reply. Each card flattens to
    * `[threadRoot, newestCircleReply]` so the app can peek without a second fetch.
    *
-   * Prefers SQL `feed_pulse` (cards grouped by account + post id). Falls back
-   * to native + bridge streams only when Hasura has not tracked the function.
-   *
-   * `limit` / `offset` page cards (native post or one bridge), not raw rows.
+   * SQL `feed_pulse` only. `limit` / `offset` page cards, not raw rows.
    *
    * ```ts
    * const { items } = await os.query.feed.pulse({ accounts, limit: 20, sort: 'hot' });
@@ -601,95 +498,17 @@ export class FeedQuery {
     const limit = opts.limit ?? 20;
     const offset = opts.offset ?? 0;
     const sort = opts.sort ?? 'recent';
-    if (!this.feedPulseFallback.active) {
-      try {
-        const rows = await this.queryFeedPulseRows({
-          accounts: opts.accounts,
-          cardLimit: limit + 1,
-          cardOffset: offset,
-          sort,
-        });
-        return paginatePulseFunctionRows({
-          rows,
-          accounts: opts.accounts,
-          offset,
-          limit,
-        });
-      } catch (err) {
-        if (!isFeedPulseUnavailableError(err)) throw err;
-        this.feedPulseFallback.trip();
-      }
-    }
-    const take = offset + limit;
-    const orderBy = feedOrderByClause(sort);
-    const chronoOrder = feedOrderByClause('recent');
-    const nativeWhere = accountsFeedWhere(true);
-    const variables = {
+    const rows = await this.queryFeedPulseRows({
       accounts: opts.accounts,
-      limit: take,
-      offset: 0,
-    };
-
-    const [native, bridges] = await Promise.all([
-      this.queryFeedRows({
-        variables,
-        postsFeedQuery: `query PulseNative($accounts: [String!]!, $limit: Int!, $offset: Int!) {
-        postsFeed(
-          ${nativeWhere},
-          limit: $limit, offset: $offset,
-          orderBy: ${orderBy}
-        ) {
-          ${FEED_POST_ROW_FIELDS}
-        }
-      }`,
-        postsFeedQueryNoHeat: `query PulseNative($accounts: [String!]!, $limit: Int!, $offset: Int!) {
-        postsFeed(
-          ${nativeWhere},
-          limit: $limit, offset: $offset,
-          orderBy: ${chronoOrder}
-        ) {
-          ${FEED_POST_ROW_FIELDS_NO_HEAT}
-        }
-      }`,
-        postsCurrentQuery: `query PulseNative($accounts: [String!]!, $limit: Int!, $offset: Int!) {
-        postsCurrent(
-          ${nativeWhere},
-          limit: $limit, offset: $offset,
-          orderBy: [{blockHeight: DESC}]
-        ) {
-          ${POST_ROW_FIELDS}
-        }
-      }`,
-      }),
-      this.queryPulseBridgeRows({
-        variables,
-        orderBy,
-        chronoOrder,
-      }),
-    ]);
-
-    const parentRefs = [
-      ...pulseParentRefsToHydrate(bridges, opts.accounts),
-      ...pulseSelfReplyRootsToHydrate(native, opts.accounts),
-    ];
-    const parents =
-      parentRefs.length > 0
-        ? await this.hydrateStubRows(
-            'PulseParents',
-            parentRefs,
-            parentRefs.length
-          )
-        : [];
-
-    return assemblePulsePage({
-      native,
-      bridges,
-      parents,
-      accounts: opts.accounts,
+      cardLimit: limit + 1,
+      cardOffset: offset,
       sort,
+    });
+    return paginatePulseFunctionRows({
+      rows,
+      accounts: opts.accounts,
       offset,
       limit,
-      take,
     });
   }
 

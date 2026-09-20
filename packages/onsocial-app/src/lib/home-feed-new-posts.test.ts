@@ -6,6 +6,7 @@ import {
   feedPostKeySet,
   homeFeedNewPostsCountLabel,
   homeFeedNewPostsLabel,
+  mergeHomeFeedHead,
   pendingFeedOffsetShift,
   summarizeUnseenFeedPosts,
 } from './home-feed-new-posts';
@@ -174,6 +175,102 @@ describe('homeFeedNewPostsLabel', () => {
     expect(homeFeedNewPostsLabel(3)).toBe('3 posted');
     expect(homeFeedNewPostsLabel(8)).toBe('8+ posted');
     expect(homeFeedNewPostsLabel(0)).toBe('');
+  });
+});
+
+describe('mergeHomeFeedHead', () => {
+  it('prepends only new keys and keeps the loaded tail order', () => {
+    const loaded = [
+      row('a.near', 'old-0'),
+      row('b.near', 'old-1'),
+      row('c.near', 'july'),
+    ];
+    const page0 = [
+      row('d.near', 'new-0'),
+      row('a.near', 'old-0'),
+      row('b.near', 'old-1'),
+    ];
+    const merged = mergeHomeFeedHead(loaded, page0);
+    expect(merged.insertedCount).toBe(1);
+    expect(merged.posts.map((post) => post.postId)).toEqual([
+      'new-0',
+      'old-0',
+      'old-1',
+      'july',
+    ]);
+  });
+
+  it('does not drop a loaded page when page-0 is a full refresh', () => {
+    const loaded = [
+      row('a.near', '1'),
+      row('b.near', '2'),
+      row('c.near', '3'),
+      row('d.near', 'july'),
+    ];
+    const page0 = [row('a.near', '1'), row('b.near', '2'), row('c.near', '3')];
+    const merged = mergeHomeFeedHead(loaded, page0);
+    expect(merged.insertedCount).toBe(0);
+    expect(merged.posts.map((post) => post.postId)).toEqual([
+      '1',
+      '2',
+      '3',
+      'july',
+    ]);
+  });
+
+  it('counts a new root plus its reply as one card', () => {
+    const parent = row('bob.near', 'july');
+    const reply: PostRow = {
+      accountId: 'bob.near',
+      postId: 'note',
+      value: '{"text":"reply"}',
+      blockHeight: 2,
+      blockTimestamp: 2,
+      parentPath: parentPathFor('bob.near', 'july'),
+      parentAuthor: 'bob.near',
+    };
+    const loaded = [row('a.near', 'older')];
+    const merged = mergeHomeFeedHead(loaded, [parent, reply]);
+    expect(merged.insertedCount).toBe(1);
+    expect(merged.posts.map((post) => post.postId)).toEqual([
+      'july',
+      'note',
+      'older',
+    ]);
+  });
+
+  it('patches overlapping rows in place without moving them', () => {
+    const loaded = [
+      { ...row('a.near', 'keep'), amplifyHeat: 1 },
+      row('b.near', 'july'),
+    ];
+    const page0 = [{ ...row('a.near', 'keep'), amplifyHeat: 9 }];
+    const merged = mergeHomeFeedHead(loaded, page0);
+    expect(merged.insertedCount).toBe(0);
+    expect(merged.posts[0]?.amplifyHeat).toBe(9);
+    expect(merged.posts[1]?.postId).toBe('july');
+  });
+
+  it('keeps an already-loaded parent in place when a new reply lands', () => {
+    const parent = row('bob.near', 'july');
+    const reply: PostRow = {
+      accountId: 'bob.near',
+      postId: 'note',
+      value: '{"text":"reply"}',
+      blockHeight: 2,
+      blockTimestamp: 2,
+      parentPath: parentPathFor('bob.near', 'july'),
+      parentAuthor: 'bob.near',
+    };
+    const loaded = [row('a.near', 'newer'), parent, row('c.near', 'older')];
+    const merged = mergeHomeFeedHead(loaded, [reply, parent]);
+    expect(merged.insertedCount).toBe(1);
+    expect(merged.posts.map((post) => post.postId)).toEqual([
+      'note',
+      'newer',
+      'july',
+      'older',
+    ]);
   });
 });
 

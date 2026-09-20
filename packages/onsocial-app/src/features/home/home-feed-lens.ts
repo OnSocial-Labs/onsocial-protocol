@@ -39,7 +39,7 @@ export function homeFeedLensLabel(lens: HomeFeedLens): string {
 export function homeFeedLensSubtitle(lens: HomeFeedLens): string {
   switch (lens) {
     case 'pulse':
-      return 'People you stand with — and where they show up.';
+      return 'Latest from people you stand with — their posts, and threads they joined.';
     case 'circle':
       return 'Posts from you and people you stand with only.';
     case 'global':
@@ -65,7 +65,7 @@ export function homeFeedLensEmptyCopy(lens: HomeFeedLens): string {
 export function homeFeedLensDescription(lens: HomeFeedLens): string {
   switch (lens) {
     case 'pulse':
-      return 'Your stood-with network, with soft edges';
+      return 'Activity from people you stand with';
     case 'circle':
       return 'You and people you stand with';
     case 'global':
@@ -75,7 +75,9 @@ export function homeFeedLensDescription(lens: HomeFeedLens): string {
   }
 }
 
-function normalizeStoredHomeFeedLens(value: string | null): HomeFeedLens | null {
+function normalizeStoredHomeFeedLens(
+  value: string | null
+): HomeFeedLens | null {
   if (value === 'standing') return 'pulse';
   if (value === 'pulse' || value === 'global' || value === 'saved') {
     return value;

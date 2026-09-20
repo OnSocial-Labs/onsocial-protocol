@@ -14,7 +14,9 @@ describe('home-feed-lens', () => {
     expect(homeFeedLensLabel('circle')).toBe('Circle');
     expect(homeFeedLensLabel('global')).toBe('Global');
     expect(homeFeedLensLabel('saved')).toBe('Saved');
-    expect(homeFeedLensSubtitle('pulse')).toMatch(/stand with/i);
+    expect(homeFeedLensSubtitle('pulse')).toMatch(
+      /Latest from people you stand with/i
+    );
     expect(homeFeedLensSubtitle('circle')).toMatch(/stand with only/i);
     expect(homeFeedLensSubtitle('global')).toMatch(/OnSocial/);
     expect(homeFeedLensSubtitle('saved')).toMatch(/bookmark/i);

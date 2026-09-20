@@ -11,6 +11,18 @@ export type PulsePostRef = {
   groupId?: string;
 };
 
+/**
+ * Hasura tracks `feed_pulse(accounts text[])` as `_text`, not `[String!]!`.
+ * Quote every id so dots in NEAR accounts stay one element.
+ */
+export function pulseAccountsTextArray(accounts: readonly string[]): string {
+  return `{${accounts
+    .map(
+      (account) => `"${account.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+    )
+    .join(',')}}`;
+}
+
 /** Parse a personal or group content path into account + post id. */
 export function parsePostRefFromContentPath(path: string): PulsePostRef | null {
   const trimmed = path.trim();
@@ -210,9 +222,12 @@ export function assemblePulsePage(input: {
   const sliced = events.slice(input.offset, input.offset + input.limit);
   const nativeExhausted = input.native.length < input.take;
   const bridgesExhausted = input.bridges.length < input.take;
+  // Folding replies onto roots shrinks the card list. Streams that still
+  // have rows mean older unreplied posts were not in this take yet.
   const hasMore =
     events.length > input.offset + input.limit ||
-    (sliced.length === input.limit && (!nativeExhausted || !bridgesExhausted));
+    !nativeExhausted ||
+    !bridgesExhausted;
 
   return {
     items: sliced.flatMap((event) => event.rows),
@@ -339,16 +354,20 @@ export function paginatePulseFunctionRows(input: {
   limit: number;
   extraParents?: readonly PostRow[];
 }): Paginated<PostRow> {
+  // SQL already applied cardOffset and asked for limit+1 cards. Join
+  // originals onto replies after that — merged card count is not the
+  // page window, or a first page of 24 events looks exhausted.
+  const sqlCards = splitPulseFunctionRows(input.rows, input.accounts);
+  const hasMore = sqlCards.length > input.limit;
   const cards = attachPulseSelfReplyRoots(
-    splitPulseFunctionRows(input.rows, input.accounts),
+    sqlCards,
     input.extraParents ?? [],
     input.accounts
   );
   const sliced = cards.slice(0, input.limit);
   return {
     items: sliced.flat(),
-    nextOffset:
-      cards.length > input.limit ? input.offset + sliced.length : undefined,
+    nextOffset: hasMore ? input.offset + input.limit : undefined,
   };
 }
 

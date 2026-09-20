@@ -6,6 +6,7 @@ import {
   attachPulseSelfReplyRoots,
   paginatePulseFunctionRows,
   parsePostRefFromContentPath,
+  pulseAccountsTextArray,
   pulseParentRefsToHydrate,
   pulseSelfReplyRootsToHydrate,
   splitPulseFunctionRows,
@@ -27,6 +28,14 @@ function row(
 }
 
 const accounts = ['alice.near', 'carol.near'];
+
+describe('pulseAccountsTextArray', () => {
+  it('quotes NEAR accounts for Hasura _text', () => {
+    expect(pulseAccountsTextArray(['alice.near', 'bob.near'])).toBe(
+      '{"alice.near","bob.near"}'
+    );
+  });
+});
 
 describe('parsePostRefFromContentPath', () => {
   it('parses personal and group paths', () => {
@@ -163,6 +172,30 @@ describe('assemblePulsePage', () => {
     });
     expect(page.items).toEqual([stranger, reply]);
     expect(page.nextOffset).toBe(1);
+  });
+
+  it('keeps paging when replies fold below the requested card limit', () => {
+    const roots = Array.from({ length: 6 }, (_, i) =>
+      row('alice.near', `root-${i}`, { blockHeight: 100 - i })
+    );
+    const replies = roots.map((root, i) =>
+      row('alice.near', `note-${i}`, {
+        parentPath: `alice.near/post/${root.postId}`,
+        parentAuthor: 'alice.near',
+        blockHeight: 200 - i,
+      })
+    );
+    const page = assemblePulsePage({
+      native: [...replies, ...roots],
+      bridges: [],
+      parents: [],
+      accounts,
+      sort: 'recent',
+      offset: 0,
+      limit: 10,
+      take: 12,
+    });
+    expect(page.nextOffset).toBeDefined();
   });
 
   it('cards a nested reply on the thread root, not the mid-thread parent', () => {
@@ -320,6 +353,29 @@ describe('splitPulseFunctionRows', () => {
     });
     expect(page.items.map((item) => item.postId)).toEqual(['root', 'r1']);
     expect(page.nextOffset).toBe(1);
+  });
+
+  it('still has more after joining on-page originals onto replies', () => {
+    const hello = row('alice.near', 'hello', { blockHeight: 15 });
+    const selfReply = row('alice.near', 'note', {
+      parentPath: 'alice.near/post/hello',
+      parentAuthor: 'alice.near',
+      blockHeight: 50,
+    });
+    const other = row('carol.near', 'x', { blockHeight: 40 });
+    const older = row('carol.near', 'y', { blockHeight: 10 });
+    const page = paginatePulseFunctionRows({
+      rows: [selfReply, other, hello, older],
+      accounts,
+      offset: 0,
+      limit: 2,
+    });
+    expect(page.items.map((item) => item.postId)).toEqual([
+      'hello',
+      'note',
+      'x',
+    ]);
+    expect(page.nextOffset).toBe(2);
   });
 });
 

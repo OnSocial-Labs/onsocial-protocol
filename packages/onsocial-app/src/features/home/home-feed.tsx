@@ -98,6 +98,7 @@ import {
   HOME_FEED_NEW_POLL_MS,
   HOME_FEED_NEW_PROBE_SIZE,
   homeFeedNewPostsCountLabel,
+  mergeHomeFeedHead,
   pendingFeedOffsetShift,
   summarizeUnseenFeedPosts,
   type UnseenFeedSummary,
@@ -119,6 +120,26 @@ import {
 } from '@/lib/viewer-mute-global';
 
 const HOME_FEED_PAGE_SIZE = 24;
+
+function homeFeedSessionKey(input: {
+  lens: HomeFeedLens;
+  sort: HomeFeedSort;
+  focusKey: string | null;
+  accountId: string | null;
+}): string {
+  const accountScoped =
+    input.lens === 'saved' || isHomeFeedSocialLens(input.lens);
+  return `${input.lens}|${input.sort}|${input.focusKey ?? ''}|${
+    accountScoped ? (input.accountId ?? '') : ''
+  }`;
+}
+
+const HOME_FEED_SSR_SESSION_KEY = homeFeedSessionKey({
+  lens: 'global',
+  sort: 'hot',
+  focusKey: null,
+  accountId: null,
+});
 
 async function fetchSavedFeedPage(
   accountId: string,
@@ -365,6 +386,9 @@ export function HomePagePanel({
   /** Skip duplicate global/hot fetch after SSR seed; cleared on lens/sort/focus. */
   const ssrHotGlobalSkipRef = useRef(initialPage != null);
   const ssrHotGlobalReloadNonceRef = useRef(0);
+  const feedSessionKeyRef = useRef<string | null>(
+    initialPage != null ? HOME_FEED_SSR_SESSION_KEY : null
+  );
 
   useEffect(() => {
     nextOffsetRef.current = nextOffset;
@@ -385,6 +409,16 @@ export function HomePagePanel({
 
   const clearUnseenPosts = useCallback(() => {
     setUnseenPosts(EMPTY_UNSEEN_FEED_SUMMARY);
+  }, []);
+
+  const growFeedWindow = useCallback((insertedCount: number) => {
+    if (insertedCount <= 0) return;
+    const current = nextOffsetRef.current;
+    if (current === undefined) return;
+    const next = current + insertedCount;
+    nextOffsetRef.current = next;
+    setNextOffset(next);
+    offsetShiftAppliedRef.current += insertedCount;
   }, []);
 
   useEffect(() => {
@@ -565,7 +599,18 @@ export function HomePagePanel({
     setEngagementError(null);
     setLoadError(null);
     clearUnseenPosts();
-    offsetShiftAppliedRef.current = 0;
+
+    const sessionKey = homeFeedSessionKey({
+      lens: activeLens,
+      sort,
+      focusKey: homeFeedFocusKey(focus),
+      accountId,
+    });
+    const mergeHead =
+      feedSessionKeyRef.current === sessionKey && postsLengthRef.current > 0;
+    if (!mergeHead) {
+      offsetShiftAppliedRef.current = 0;
+    }
 
     const keepPrevious = postsLengthRef.current > 0;
     if (keepPrevious) {
@@ -598,16 +643,28 @@ export function HomePagePanel({
         for (const [key, floor] of amplifyHeatFloorsRef.current) {
           if (floor.untilMs <= nowMs) amplifyHeatFloorsRef.current.delete(key);
         }
+        let insertedCount = 0;
         setPosts((current) => {
-          revokeDroppedOptimisticMedia(current, items);
           const ranked =
             sort === 'hot'
               ? mergeAmplifyHeatFloors(items, amplifyHeatFloorsRef.current)
               : items;
+          if (mergeHead && current.length > 0) {
+            const merged = mergeHomeFeedHead(current, ranked);
+            insertedCount = merged.insertedCount;
+            revokeDroppedOptimisticMedia(current, merged.posts);
+            return merged.posts;
+          }
+          revokeDroppedOptimisticMedia(current, ranked);
           return ranked;
         });
-        setNextOffset(result.page.nextOffset);
-        nextOffsetRef.current = result.page.nextOffset;
+        feedSessionKeyRef.current = sessionKey;
+        if (mergeHead) {
+          growFeedWindow(insertedCount);
+        } else {
+          setNextOffset(result.page.nextOffset);
+          nextOffsetRef.current = result.page.nextOffset;
+        }
         setSsrBootstrapDone(true);
         ssrBootstrapDoneRef.current = true;
       } catch (cause) {
@@ -649,6 +706,7 @@ export function HomePagePanel({
     tickerParam,
     placeParam,
     walletLoading,
+    growFeedWindow,
   ]);
 
   const loadMore = useCallback(() => {
@@ -908,10 +966,17 @@ export function HomePagePanel({
     (post: PostRow, parent?: PostRow | null) => {
       if (!shouldPrependOptimisticFeedPost(post)) return;
       clearUnseenPosts();
-      setPosts((current) => insertOptimisticFeedPost(current, post, parent));
+      let grown = 0;
+      setPosts((current) => {
+        const next = insertOptimisticFeedPost(current, post, parent);
+        grown = next.length - current.length;
+        return next;
+      });
+      // One new card at the head — not raw rows (reply + parent is still 1).
+      if (grown > 0) growFeedWindow(1);
       scrollFeedToNewest(scrollRootRef.current);
     },
-    [clearUnseenPosts]
+    [clearUnseenPosts, growFeedWindow]
   );
 
   const onUnreposted = useCallback(

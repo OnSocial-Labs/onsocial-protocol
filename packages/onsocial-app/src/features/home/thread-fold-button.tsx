@@ -26,7 +26,7 @@ export function ThreadCoilTailLink({ href }: { href: string }) {
       href={href}
       className="post-thread-more post-thread-more--coil-tail"
       scroll={false}
-      aria-label="Open thread"
+      aria-label="Open the rest of this thread"
     >
       <span className="post-thread-more-coil" aria-hidden />
     </Link>
