@@ -23,6 +23,11 @@ import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
 import {
+  canonicalizeDropLayerHref,
+  collectionPath,
+  parseInAppDropLayerHref,
+} from '@/lib/app-routes';
+import {
   canonicalizePostLayerHref,
   parseInAppPostLayerHref,
   personalPostPath,
@@ -33,6 +38,14 @@ const LivePersonalPostPanel = dynamic(
   () =>
     import('@/features/home/live-personal-post-panel').then(
       (mod) => mod.LivePersonalPostPanel
+    ),
+  { ssr: false }
+);
+
+const CollectionPagePanel = dynamic(
+  () =>
+    import('@/features/scarces/collection-page-panel').then(
+      (mod) => mod.CollectionPagePanel
     ),
   { ssr: false }
 );
@@ -90,13 +103,23 @@ function withoutPostLayerHistoryState(): object {
 
 type PostThreadLayerTarget = {
   id: string;
+  kind: 'post';
   accountId: string;
   postId: string;
   root: PostRow | null;
 };
 
+type DropLayerTarget = {
+  id: string;
+  kind: 'drop';
+  collectionId: string;
+};
+
+type PlaceLayerTarget = PostThreadLayerTarget | DropLayerTarget;
+
 type PostThreadLayerValue = {
   openPostThread: (input: { href: string; root?: PostRow | null }) => boolean;
+  openDrop: (input: { href: string }) => boolean;
   closePostThread: () => void;
 };
 
@@ -104,8 +127,30 @@ const PostThreadLayerContext = createContext<PostThreadLayerValue | null>(null);
 
 const NOOP_LAYER: PostThreadLayerValue = {
   openPostThread: () => false,
+  openDrop: () => false,
   closePostThread: () => {},
 };
+
+function collectionIdsEqual(left: string, right: string): boolean {
+  try {
+    return decodeURIComponent(left).trim() === decodeURIComponent(right).trim();
+  } catch {
+    return left.trim() === right.trim();
+  }
+}
+
+function isOverlayPlacePathname(pathname: string): boolean {
+  return (
+    parseInAppPostLayerHref(pathname) != null ||
+    parseInAppDropLayerHref(pathname) != null
+  );
+}
+
+function placeLayerHref(layer: PlaceLayerTarget): string {
+  return layer.kind === 'drop'
+    ? collectionPath(layer.collectionId)
+    : personalPostPath(layer.accountId, layer.postId);
+}
 
 function seedEmbeddedThread(root: PostRow): PersonalPostPageData {
   return {
@@ -149,7 +194,7 @@ function withPostLayerHistoryState(): object {
 function captureUnderlayScroll(): { el: HTMLElement; top: number } | null {
   const bodies = document.querySelectorAll<HTMLElement>('.os-app-screen-body');
   for (const body of bodies) {
-    if (body.closest('.post-thread-sheet-panel')) continue;
+    if (body.closest('.post-thread-sheet-panel, .drop-sheet-panel')) continue;
     return { el: body, top: body.scrollTop };
   }
   return null;
@@ -217,7 +262,6 @@ function PostThreadSheet({
     >
       <OsAppScreen
         title="Post"
-        compactChrome
         glassChrome
         embedded
         heading={
@@ -242,10 +286,54 @@ function PostThreadSheet({
   );
 }
 
+function DropLayerSheet({
+  layer,
+  open,
+  onClose,
+  onClosed,
+  zIndex,
+  moodId,
+  moodStyle,
+}: {
+  layer: DropLayerTarget;
+  open: boolean;
+  onClose: () => void;
+  onClosed: () => void;
+  zIndex: number;
+  moodId?: string;
+  moodStyle?: CSSProperties;
+}) {
+  return (
+    <OsPageSheet
+      open={open}
+      onClose={onClose}
+      onClosed={onClosed}
+      surface="page"
+      presentation="appear"
+      zIndex={zIndex}
+      ariaLabel="Drop"
+      backdropLabel="Back"
+      keepDock
+      moodId={moodId}
+      moodStyle={moodStyle}
+      panelClassName="drop-sheet-panel"
+      bodyClassName="drop-sheet-body"
+      header={null}
+    >
+      <CollectionPagePanel
+        collectionId={layer.collectionId}
+        initial={null}
+        embedded
+        onClose={onClose}
+      />
+    </OsPageSheet>
+  );
+}
+
 export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const viewerMood = useViewerDockMood();
-  const [stack, setStack] = useState<PostThreadLayerTarget[]>([]);
+  const [stack, setStack] = useState<PlaceLayerTarget[]>([]);
   const [closingId, setClosingId] = useState<string | null>(null);
   const [underlayPath, setUnderlayPath] = useState<string | null>(null);
   const underlayPathRef = useRef<string | null>(null);
@@ -266,7 +354,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     stack.length > 0 &&
     underlayPath != null &&
     pathname !== underlayPath &&
-    !parseInAppPostLayerHref(pathname)
+    !isOverlayPlacePathname(pathname)
   ) {
     setStack([]);
     setClosingId(null);
@@ -296,7 +384,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     if (prev) {
       // Stay on the single overlay history entry. Extra pushes made the
       // second Back traverse into /@account/posts/:id and remount Home.
-      syncOverlayUrl(personalPostPath(prev.accountId, prev.postId));
+      syncOverlayUrl(placeLayerHref(prev));
       return;
     }
     if (historyHasPostLayer()) {
@@ -328,7 +416,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
       const top = stackRef.current[stackRef.current.length - 1];
       if (
-        top &&
+        top?.kind === 'post' &&
         accountIdsEqual(top.accountId, parsed.accountId) &&
         top.postId === parsed.postId
       ) {
@@ -337,9 +425,65 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
       const next: PostThreadLayerTarget = {
         id: `post-layer-${++seqRef.current}`,
+        kind: 'post',
         accountId: parsed.accountId,
         postId: parsed.postId,
         root,
+      };
+      if (underlayPathRef.current == null) {
+        underlayPathRef.current = pathname;
+        setUnderlayPath(pathname);
+        if (typeof window !== 'undefined') {
+          underlayScrollRef.current = captureUnderlayScroll();
+        }
+      }
+      const isFirst = stackRef.current.length === 0;
+      closingIdRef.current = null;
+      setClosingId(null);
+      setStack((prev) => [...prev, next]);
+
+      if (typeof window === 'undefined') return true;
+      getPostLayerPopGuard().depth = 1;
+      const currentUrl = `${window.location.pathname}${window.location.search}`;
+      if (currentUrl === canonical) return true;
+      if (isFirst) {
+        nativeHistoryPushState(withPostLayerHistoryState(), canonical);
+      } else {
+        nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
+      }
+      return true;
+    },
+    [pathname]
+  );
+
+  const openDrop = useCallback(
+    ({ href }: { href: string }) => {
+      const parsed = parseInAppDropLayerHref(href);
+      if (!parsed) return false;
+      const canonical = canonicalizeDropLayerHref(href);
+      if (!canonical) return false;
+
+      const currentPage = parseInAppDropLayerHref(pathname);
+      if (
+        currentPage &&
+        collectionIdsEqual(currentPage.collectionId, parsed.collectionId) &&
+        stackRef.current.length === 0
+      ) {
+        return true;
+      }
+
+      const top = stackRef.current[stackRef.current.length - 1];
+      if (
+        top?.kind === 'drop' &&
+        collectionIdsEqual(top.collectionId, parsed.collectionId)
+      ) {
+        return true;
+      }
+
+      const next: DropLayerTarget = {
+        id: `drop-layer-${++seqRef.current}`,
+        kind: 'drop',
+        collectionId: parsed.collectionId,
       };
       if (underlayPathRef.current == null) {
         underlayPathRef.current = pathname;
@@ -375,10 +519,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       const remaining = stackRef.current.slice(0, -1);
       const prev = remaining[remaining.length - 1];
       if (prev) {
-        nativeHistoryPushState(
-          withPostLayerHistoryState(),
-          personalPostPath(prev.accountId, prev.postId)
-        );
+        nativeHistoryPushState(withPostLayerHistoryState(), placeLayerHref(prev));
       }
       beginCloseTop();
     };
@@ -406,8 +547,8 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ openPostThread, closePostThread }),
-    [openPostThread, closePostThread]
+    () => ({ openPostThread, openDrop, closePostThread }),
+    [openPostThread, openDrop, closePostThread]
   );
 
   return (
@@ -415,18 +556,18 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       {children}
       {stack.map((layer, index) => {
         const isTop = index === stack.length - 1;
-        return (
-          <PostThreadSheet
-            key={layer.id}
-            layer={layer}
-            open={layer.id !== closingId}
-            onClose={isTop ? closePostThread : () => {}}
-            onClosed={() => handleSheetClosed(layer.id)}
-            zIndex={SHEET_Z.overlayHost + index}
-            moodId={viewerMood.moodId ?? undefined}
-            moodStyle={viewerMood.style}
-          />
-        );
+        const shared = {
+          open: layer.id !== closingId,
+          onClose: isTop ? closePostThread : () => {},
+          onClosed: () => handleSheetClosed(layer.id),
+          zIndex: SHEET_Z.overlayHost + index,
+          moodId: viewerMood.moodId ?? undefined,
+          moodStyle: viewerMood.style,
+        };
+        if (layer.kind === 'drop') {
+          return <DropLayerSheet key={layer.id} layer={layer} {...shared} />;
+        }
+        return <PostThreadSheet key={layer.id} layer={layer} {...shared} />;
       })}
     </PostThreadLayerContext.Provider>
   );

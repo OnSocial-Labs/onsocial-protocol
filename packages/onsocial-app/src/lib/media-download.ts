@@ -27,6 +27,7 @@ const MIME_EXTENSION: Record<string, string> = {
   'image/png': 'png',
   'image/webp': 'webp',
   'image/gif': 'gif',
+  'image/svg+xml': 'svg',
   'application/pdf': 'pdf',
   'text/markdown': 'md',
   'text/x-markdown': 'md',

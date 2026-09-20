@@ -16,6 +16,7 @@ describe('extensionForMime', () => {
     expect(extensionForMime('application/zip')).toBe('zip');
     expect(extensionForMime('image/jpeg')).toBe('jpg');
     expect(extensionForMime('image/png')).toBe('png');
+    expect(extensionForMime('image/svg+xml')).toBe('svg');
   });
 });
 

@@ -70,11 +70,13 @@
   height: 100%;
   max-height: none;
   border-radius: 0;
+  clip-path: none;
 }
 
 @media (min-width: 640px) {
   .glass-sheet-root--hosted {
-    border-radius: 1.25rem;
+    /* Root is inset -1px; grow the radius so the extra pixel follows the OS curve. */
+    border-radius: calc(1.25rem + 1px);
   }
 
   .glass-sheet-root--hosted .glass-sheet-backdrop,
@@ -150,6 +152,8 @@
   isolation: isolate;
   border: 1px solid var(--glass-border, transparent);
   border-radius: 1.25rem 1.25rem 0 0;
+  /* Keep frost / shadow from painting a square chip in the rounded corners. */
+  clip-path: inset(0 round 1.25rem 1.25rem 0 0);
   background: transparent;
   color: rgb(var(--fg-rgb) / 0.96);
   box-shadow: var(--glass-shadow, none);
@@ -254,6 +258,7 @@
   height: 100dvh;
   max-height: none;
   border-radius: 0;
+  clip-path: none;
   --glass-header-scrim-height: min(5.5rem, 24%);
 }
 

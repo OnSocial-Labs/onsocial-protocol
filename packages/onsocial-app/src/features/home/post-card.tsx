@@ -52,7 +52,7 @@ import {
   blockConfirmCopy,
 } from '@/lib/block-confirm-copy';
 import { displayName } from '@/lib/profile-display';
-import { isDownloadAbort } from '@/lib/media-download';
+import { downloadIpfsMedia, isDownloadAbort } from '@/lib/media-download';
 import { PostAmplifySheet } from '@/features/home/post-amplify-sheet';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -1607,9 +1607,10 @@ export function PostCard({
   const [enlargeOverride, setEnlargeOverride] = useState<
     PostMediaItem[] | null
   >(null);
-  /** Photo/video face — Reply opens the thread drawer (write dock lives there). */
+  /** Photo/video / card-art face — Reply opens the thread drawer (write dock lives there). */
   const [photoThreadOpen, setPhotoThreadOpen] = useState(false);
-  const enlargeWrite = feedMediumOpen || articleOpen;
+  const enlargeWrite =
+    articleOpen || (feedMediumOpen && feedMediumMode !== 'viewer');
   const focusWriteDock = useFocusWriteDock();
   const openPhotoThread = useCallback(() => {
     setPhotoThreadOpen(true);
@@ -2569,8 +2570,67 @@ export function PostCard({
       />
       <ScarceFeedMediumSheet
         open={feedMediumOpen}
-        onOpenChange={setFeedMediumOpen}
+        onOpenChange={(next) => {
+          setFeedMediumOpen(next);
+          if (!next) setPhotoThreadOpen(false);
+        }}
         mode={feedMediumMode}
+        threadOpen={photoThreadOpen}
+        onDismissThread={dismissPhotoThread}
+        threadAuthor={post.accountId}
+        threadPostId={post.postId}
+        threadRoot={post}
+        trailing={
+          <PostCardMenu
+            href={shareHref}
+            openPostHref={postThreadPath(post)}
+            onOpenPost={() => {
+              setFeedMediumOpen(false);
+              setPhotoThreadOpen(false);
+            }}
+            onDownload={
+              scarceCoverUrl || feedMediumCoverSvg
+                ? async () => {
+                    if (scarceCoverUrl) {
+                      await downloadIpfsMedia({
+                        url: scarceCoverUrl,
+                        mime: 'image/jpeg',
+                        title: dropListenTitle,
+                        fallbackName: 'drop',
+                        exportFile: true,
+                      });
+                      return;
+                    }
+                    const svg = feedMediumCoverSvg?.trim();
+                    if (!svg) {
+                      throw new Error('Could not download this file.');
+                    }
+                    const blob = new Blob([svg], { type: 'image/svg+xml' });
+                    const objectUrl = URL.createObjectURL(blob);
+                    try {
+                      await downloadIpfsMedia({
+                        url: objectUrl,
+                        mime: 'image/svg+xml',
+                        title: dropListenTitle,
+                        fallbackName: 'drop',
+                        exportFile: true,
+                      });
+                    } finally {
+                      URL.revokeObjectURL(objectUrl);
+                    }
+                  }
+                : undefined
+            }
+            accountId={post.accountId}
+            authorProfile={authorProfile}
+            canCancelScarce={canCancelScarce}
+            onCancelScarce={() => {
+              void handleCancelScarce();
+            }}
+            cancelScarcePending={cancelScarcePending}
+            zIndex={SCARCE_Z.commerceOverListen}
+          />
+        }
         title={dropListenTitle}
         cover={scarceCoverUrl}
         coverSvg={feedMediumCoverSvg}
@@ -2622,11 +2682,11 @@ export function PostCard({
               savePending={savePending}
               sharePending={sharePending}
               onReply={
-                onReply
-                  ? () => {
+                feedMediumMode === 'viewer'
+                  ? openPhotoThread
+                  : () => {
                       focusWriteDock();
                     }
-                  : undefined
               }
               onQuote={
                 onQuote

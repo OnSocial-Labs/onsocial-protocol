@@ -566,6 +566,69 @@ export function collectionPath(
   return query ? `${base}?${query}` : base;
 }
 
+function hrefPathname(href: string): string | null {
+  let pathname = href.trim();
+  if (!pathname) return null;
+  try {
+    if (/^https?:\/\//i.test(pathname)) {
+      pathname = new URL(pathname).pathname;
+    }
+  } catch {
+    return null;
+  }
+  const q = pathname.indexOf('?');
+  if (q !== -1) pathname = pathname.slice(0, q);
+  const hash = pathname.indexOf('#');
+  if (hash !== -1) pathname = pathname.slice(0, hash);
+  return pathname;
+}
+
+/**
+ * In-app page-sheet target: public `/collection/{id}`.
+ * Door / redeem stay real pages.
+ */
+export function parseInAppDropLayerHref(
+  href: string | null | undefined
+): { collectionId: string } | null {
+  if (!href) return null;
+  const pathname = hrefPathname(href);
+  if (!pathname) return null;
+  const match = pathname.match(/^\/collection\/([^/]+)\/?$/);
+  if (!match) return null;
+  try {
+    const collectionId = decodeURIComponent(match[1]).trim();
+    return collectionId ? { collectionId } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Canonical share permalink for a parsed in-app drop layer. */
+export function canonicalizeDropLayerHref(href: string): string | null {
+  const parsed = parseInAppDropLayerHref(href);
+  if (!parsed) return null;
+  const path = collectionPath(parsed.collectionId);
+  const q = href.indexOf('?');
+  if (q === -1) return path;
+  const hash = href.indexOf('#');
+  const query = href.slice(q, hash === -1 ? undefined : hash);
+  return query ? `${path}${query}` : path;
+}
+
+/**
+ * Overlay history updates `window.location` without Next `usePathname`.
+ * True when the browser is on a drop permalink and the App Router is not.
+ */
+export function isOverlayDropLayerLocation(
+  nextPathname: string,
+  locationHref: string
+): boolean {
+  return (
+    parseInAppDropLayerHref(locationHref) != null &&
+    parseInAppDropLayerHref(nextPathname) == null
+  );
+}
+
 /** Public app (store) page. */
 export function appPath(appId: string): string {
   const id = appId.trim();

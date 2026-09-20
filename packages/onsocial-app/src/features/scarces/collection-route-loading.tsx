@@ -22,7 +22,6 @@ export function CollectionPageLoadingScreen() {
       backFallbackHref={APP_DROPS_PATH}
       immersiveHeader
     >
-      <div aria-hidden className="os-chrome-glass" />
       <CollectionPageSkeleton />
     </OsAppScreen>
   );

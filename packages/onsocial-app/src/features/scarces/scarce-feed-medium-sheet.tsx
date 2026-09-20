@@ -1,7 +1,21 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
+import type { PostRow } from '@onsocial/sdk';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
+import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
+import { FeedMediaThreadSheet } from '@/features/home/feed-media-thread-sheet';
+import {
+  threadJacketT,
+  useFeedThreadBand,
+} from '@/features/home/use-feed-thread-band';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { fetchScarceTokenMeta } from '@/features/market/market-listings';
 import {
@@ -32,7 +46,7 @@ function inlineSvgMarkup(svg: string): string {
  * Feed / Drops cover tap → shared media-face enlarge.
  *
  * Audio opens Listen. Writing opens Read. Thought/art uses the same jacket
- * + frost footer without transport or progress.
+ * + frost footer; Reply opens the video-style thread drawer and write dock.
  */
 export function ScarceFeedMediumSheet({
   open,
@@ -51,6 +65,12 @@ export function ScarceFeedMediumSheet({
   viewerAccountId = null,
   commerce = null,
   engagement = null,
+  threadOpen = false,
+  onDismissThread = null,
+  threadAuthor = null,
+  threadPostId = null,
+  threadRoot = null,
+  trailing = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -71,6 +91,14 @@ export function ScarceFeedMediumSheet({
   commerce?: ReactNode;
   /** Post reply / quote / like / boost row. */
   engagement?: ReactNode;
+  /** Reply drawer — same as video enlarge (write dock lives there). */
+  threadOpen?: boolean;
+  onDismissThread?: (() => void) | null;
+  threadAuthor?: string | null;
+  threadPostId?: string | null;
+  threadRoot?: PostRow | null;
+  /** Jacket ⋯ — same post options as video enlarge. */
+  trailing?: ReactNode;
 }) {
   const [wasOpen, setWasOpen] = useState(open);
   const [hydratedPlayables, setHydratedPlayables] = useState<
@@ -179,6 +207,39 @@ export function ScarceFeedMediumSheet({
     tokenId,
   ]);
 
+  const dismissThread = useCallback(() => {
+    onDismissThread?.();
+  }, [onDismissThread]);
+  const { band: threadBand, dragging: threadDragging, gripHandlers } =
+    useFeedThreadBand(Boolean(open && isOverlay && threadOpen), dismissThread);
+  const jacketT = threadJacketT(
+    Boolean(open && isOverlay && threadOpen),
+    threadBand
+  );
+  useRegisterImmersiveChromeQuiet(open && isOverlay && !threadOpen);
+
+  /* Ignore the pointer that opened the drawer — footer unmounts and the
+   * leftover pointerup lands on the art, which would close it instantly. */
+  const ignoreArtDismissRef = useRef(false);
+  useEffect(() => {
+    if (!threadOpen) {
+      ignoreArtDismissRef.current = false;
+      return;
+    }
+    ignoreArtDismissRef.current = true;
+    const timer = window.setTimeout(() => {
+      ignoreArtDismissRef.current = false;
+    }, 480);
+    return () => window.clearTimeout(timer);
+  }, [threadOpen]);
+
+  const handleArtTap = useCallback(() => {
+    if (threadOpen && onDismissThread) {
+      if (ignoreArtDismissRef.current) return;
+      onDismissThread();
+    }
+  }, [threadOpen, onDismissThread]);
+
   const name = title.trim() || 'Drop';
   const hasWriting = readables.length > 0 || bookPdf != null;
   const canReadWriting = true;
@@ -257,19 +318,40 @@ export function ScarceFeedMediumSheet({
   }
 
   if (isOverlay) {
+    const threadActive = Boolean(open && threadOpen);
+    const slideClass = [
+      'scarce-thought-slide',
+      threadActive ? 'feed-photo-slide--thread' : '',
+      jacketT > 0.4 ? 'feed-photo-slide--thread-jacket' : '',
+      threadDragging ? 'is-thread-dragging' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
     return (
       <OsMediaFaceShell
         open={open}
         onClose={() => onOpenChange(false)}
         title={name}
-        closeAriaLabel="Back from preview"
+        quietTitle
+        trailing={trailing}
+        closeAriaLabel="Back"
         zIndex={SCARCE_Z.listenShell}
-        footer={postChrome}
+        footer={threadActive ? null : postChrome}
         stageLayout="fixed"
-        className="scarce-thought-slide"
+        keepDock={threadActive}
+        className={slideClass}
         contentClassName="scarce-thought-slide-body"
+        bodyStyle={
+          threadActive
+            ? ({
+                '--feed-thread-band': `${(threadBand * 100).toFixed(1)}%`,
+                '--feed-jacket-t': jacketT.toFixed(3),
+              } as CSSProperties)
+            : undefined
+        }
       >
-        <div className="scarce-thought-body">
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+        <div className="scarce-thought-body" onClick={handleArtTap}>
           <div className="scarce-thought-stage">{coverArt}</div>
           {mode === 'audio' ? (
             <p className="scarce-feed-medium-empty">
@@ -279,6 +361,17 @@ export function ScarceFeedMediumSheet({
             </p>
           ) : null}
         </div>
+        {threadActive && threadAuthor && threadPostId ? (
+          <div className="feed-photo-thread-host">
+            <FeedMediaThreadSheet
+              author={threadAuthor}
+              postId={threadPostId}
+              initialRoot={threadRoot}
+              band={threadBand}
+              gripHandlers={gripHandlers}
+            />
+          </div>
+        ) : null}
       </OsMediaFaceShell>
     );
   }

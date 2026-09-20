@@ -200,7 +200,7 @@ export const OS_LEAVE_MAP = [
     dockBack: true,
     parent: APP_DROPS_PATH,
     verdict: 'matches',
-    note: 'Visitor leave is Drops. Holder leave is the vault. Launcher lights Drops.',
+    note: 'Visitor leave is Drops. Holder leave is the vault. Launcher lights Drops. In-app Discover Just sold opens as an appear page sheet over the current place.',
   },
   {
     id: 'drop-loading',

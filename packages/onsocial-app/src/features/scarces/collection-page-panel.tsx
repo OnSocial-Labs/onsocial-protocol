@@ -1,9 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  ChevronLeftIcon,
   Divider,
   OsHugSheet,
   HeartFillIcon,
@@ -17,6 +25,10 @@ import {
   ShopFillIcon,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import {
+  isUnmodifiedPrimaryClick,
+  usePostThreadLayer,
+} from '@/features/home/post-thread-layer';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
@@ -167,16 +179,29 @@ function scheduleLine(
   return null;
 }
 
+function collectionOverlayBack(onClose?: () => void) {
+  return (
+    <OsIconAction ariaLabel="Back" onClick={() => onClose?.()}>
+      <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+    </OsIconAction>
+  );
+}
+
 export function CollectionPagePanel({
   collectionId,
   initial,
   initialCreator = null,
   initialActivity = EMPTY_ACTIVITY,
+  embedded = false,
+  onClose,
 }: {
   collectionId: string;
   initial: CollectionView | null;
   initialCreator?: CollectionCreatorFace | null;
   initialActivity?: CollectionActivityRow[];
+  /** Nested in an appear page sheet — sheet Back, not launcher leave. */
+  embedded?: boolean;
+  onClose?: () => void;
 }) {
   const {
     accountId: viewerAccountId,
@@ -186,6 +211,7 @@ export function CollectionPagePanel({
   const { setTxResult } = useAppTransactionFeedback();
   const nowPlaying = useCollectiblesNowPlayingOptional();
   const router = useRouter();
+  const { openPostThread } = usePostThreadLayer();
   const collectionSaves = useScarceCollectionSaves({
     collectionIds: [collectionId],
     onError: (message) => setTxResult({ type: 'error', msg: message }),
@@ -769,26 +795,37 @@ export function CollectionPagePanel({
     return (
       <OsAppScreen
         title="Drop"
-        dockBack
+        embedded={embedded}
+        dockBack={!embedded}
         backFallbackHref={catalogLeaveHref}
+        leading={embedded ? collectionOverlayBack(onClose) : undefined}
         immersiveHeader
       >
-        <div aria-hidden className="os-chrome-glass" />
         <CollectionPageSkeleton />
       </OsAppScreen>
     );
   }
   if (catalogShell === 'unavailable' || !view) {
     return (
-      <OsAppScreen title="Drop" dockBack backFallbackHref={catalogLeaveHref}>
+      <OsAppScreen
+        title="Drop"
+        embedded={embedded}
+        dockBack={!embedded}
+        backFallbackHref={catalogLeaveHref}
+        leading={embedded ? collectionOverlayBack(onClose) : undefined}
+      >
         <div className={MARKET_PAGE_CLASS}>
           <div className="market-page-empty">
             <p className="market-page-empty-copy">This drop isn’t available.</p>
-            <OsEmptyAction href={catalogLeaveHref}>
-              {catalogLeaveHref === APP_DROPS_PATH
-                ? 'Back to Drops'
-                : 'Back to Collectibles'}
-            </OsEmptyAction>
+            {embedded ? (
+              <OsEmptyAction onClick={onClose}>Back</OsEmptyAction>
+            ) : (
+              <OsEmptyAction href={catalogLeaveHref}>
+                {catalogLeaveHref === APP_DROPS_PATH
+                  ? 'Back to Drops'
+                  : 'Back to Collectibles'}
+              </OsEmptyAction>
+            )}
           </div>
         </div>
       </OsAppScreen>
@@ -946,8 +983,10 @@ export function CollectionPagePanel({
   return (
     <OsAppScreen
       title={view.title}
-      dockBack
+      embedded={embedded}
+      dockBack={!embedded}
       backFallbackHref={dropBackHref}
+      leading={embedded ? collectionOverlayBack(onClose) : undefined}
       immersiveHeader={immersive}
       headerElevated={immersive ? headerElevated : false}
       scrollRootRef={scrollRootRef}
@@ -964,12 +1003,6 @@ export function CollectionPagePanel({
         </>
       }
     >
-      {immersive ? (
-        <div
-          aria-hidden
-          className={`os-chrome-glass${headerElevated ? ' is-frosted' : ''}`}
-        />
-      ) : null}
       <div
         className={osChromePageClassName(
           'collection-page',
@@ -1570,6 +1603,18 @@ export function CollectionPagePanel({
             href={sourceHref}
             scroll={false}
             className="collection-source-link"
+            onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+              if (!isUnmodifiedPrimaryClick(event)) return;
+              if (openPostThread({ href: sourceHref })) {
+                event.preventDefault();
+                event.stopPropagation();
+              }
+            }}
+            onNavigate={(event) => {
+              if (openPostThread({ href: sourceHref })) {
+                event.preventDefault();
+              }
+            }}
           >
             View source post
           </Link>

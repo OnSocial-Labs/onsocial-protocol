@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import type { MouseEvent } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import {
   LauncherSocialPeekList,
@@ -15,6 +16,10 @@ import {
 import type { DiscoverScarcePeek } from '@/features/discover/discover-scarce-peeks';
 import { communityMonogram } from '@/components/community-cards/community-monogram';
 import { placeFallbackCoverStyle } from '@/components/community-cards/community-cover';
+import {
+  isUnmodifiedPrimaryClick,
+  usePostThreadLayer,
+} from '@/features/home/post-thread-layer';
 import { appPath, collectionPath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import type { DiscoverTrendingHub } from '@/lib/discover-trending-server';
@@ -273,6 +278,8 @@ export function MovingCoverPeekSection({
   kind: 'traded' | 'loved' | 'sold';
   rows: DiscoverScarcePeek[] | null;
 }) {
+  const { openDrop } = usePostThreadLayer();
+  const overlayDrops = kind === 'sold';
   const resolvedSeeAll = seeAll ?? (seeAllHref ? { href: seeAllHref } : null);
   if (rows === null) {
     return (
@@ -295,11 +302,23 @@ export function MovingCoverPeekSection({
                 : null
               : movingScarceSignalLabel(kind, scarce.signalCount);
           const meta = signal || scarce.appId?.trim() || null;
+          const href = collectionPath(scarce.collectionId);
           return (
             <li key={`${heading}-${scarce.collectionId}`}>
               <Link
-                href={collectionPath(scarce.collectionId)}
+                href={href}
                 className="discover-cover-peek"
+                onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+                  if (!overlayDrops || !isUnmodifiedPrimaryClick(event)) return;
+                  if (openDrop({ href })) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }
+                }}
+                onNavigate={(event) => {
+                  if (!overlayDrops) return;
+                  if (openDrop({ href })) event.preventDefault();
+                }}
               >
                 <MovingCoverThumb
                   src={scarce.coverUrl}

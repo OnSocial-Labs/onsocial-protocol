@@ -388,7 +388,8 @@
 }
 
 .glass-sheet-panel.guild-composer-sheet-panel .os-app-screen--embedded,
-.glass-sheet-panel.post-thread-sheet-panel .os-app-screen--embedded {
+.glass-sheet-panel.post-thread-sheet-panel .os-app-screen--embedded,
+.glass-sheet-panel.drop-sheet-panel .os-app-screen--embedded {
   flex: 1 1 auto;
   width: 100%;
   height: 100%;
@@ -400,7 +401,8 @@
 }
 
 .glass-sheet-panel.post-thread-sheet-panel
-  > .glass-sheet-body.post-thread-sheet-body {
+  > .glass-sheet-body.post-thread-sheet-body,
+.glass-sheet-panel.drop-sheet-panel > .glass-sheet-body.drop-sheet-body {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -420,10 +422,19 @@
   -webkit-backdrop-filter: none;
 }
 
+.os-app-screen--embedded {
+  /* Overlay screens portal inside the underlay OsAppScreen — do not inherit
+     Discover / Home chrome height as a second header pad. */
+  --os-screen-chrome-height: 0px;
+}
+
 .glass-sheet-panel.guild-composer-sheet-panel
   .os-app-screen--embedded
   .os-app-screen-column,
 .glass-sheet-panel.post-thread-sheet-panel
+  .os-app-screen--embedded
+  .os-app-screen-column,
+.glass-sheet-panel.drop-sheet-panel
   .os-app-screen--embedded
   .os-app-screen-column {
   max-width: none;
@@ -526,6 +537,49 @@
   font-weight: 600;
   letter-spacing: -0.015em;
   line-height: 1.2;
+}
+
+/*
+ * Post page sheets + media enlarge — same 1.85rem header icon box.
+ * Compact index chrome (2.35–2.75rem) pulled glyphs in.
+ * Unlayered so it beats glass-sheet.css 2.75rem (imported outside @layer).
+ */
+.post-thread-sheet-panel
+  .os-app-screen
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action,
+.os-app-screen:has(.guild-thread-root)
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action,
+.os-media-face-close.glass-sheet-icon-action,
+.os-media-face-trailing .glass-sheet-icon-action,
+.os-media-face-trailing .post-card-menu-trigger {
+  box-sizing: border-box;
+  width: 1.85rem;
+  height: 1.85rem;
+  min-width: 1.85rem;
+  min-height: 1.85rem;
+  max-width: 1.85rem;
+  max-height: 1.85rem;
+  padding: 0;
+}
+
+/*
+ * Enlarge jacket — same seat as Post overlay (0.65rem pad, 2.75rem row).
+ * Do not inherit Discover compact 2.35rem / 0.3rem or the chevron sits high.
+ */
+.os-media-face {
+  --os-app-screen-nav-row-height: 2.75rem;
+  --os-app-chrome-pad-y: 0.65rem;
+}
+
+.os-media-face:not(.feed-photo-slide--thread) .os-media-face-hero {
+  height: var(--os-app-screen-nav-row-height);
+  min-height: var(--os-app-screen-nav-row-height);
+  max-height: var(--os-app-screen-nav-row-height);
+  margin-top: 0.65rem;
 }
 
 /*
@@ -11875,7 +11929,9 @@ a.os-surface-row {
     z-index: 1;
   }
 
-  .os-app-screen[data-glass-chrome='true'] .os-app-screen-body {
+  .os-app-screen[data-glass-chrome='true']
+    > .os-app-screen-column
+    > .os-app-screen-body {
     padding-top: var(
       --os-screen-chrome-height,
       var(--os-app-screen-chrome-height)
@@ -11943,7 +11999,9 @@ a.os-surface-row {
     min-height: var(--os-app-screen-nav-row-height);
   }
 
-  .os-app-screen[data-compact-chrome='true'] .os-app-screen-header {
+  .os-app-screen[data-compact-chrome='true']
+    > .os-app-screen-column
+    > .os-app-screen-header {
     padding: calc(env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y))
       max(1rem, env(safe-area-inset-right, 0px)) var(--os-app-chrome-pad-y)
       max(1rem, env(safe-area-inset-left, 0px));
@@ -27760,8 +27818,8 @@ a.os-surface-row {
     height: var(--os-app-screen-nav-row-height, 2.35rem);
     min-height: var(--os-app-screen-nav-row-height, 2.35rem);
     max-height: var(--os-app-screen-nav-row-height, 2.35rem);
-    margin: 0 -0.9rem;
-    padding: 0 0.9rem;
+    margin: 0 -1rem;
+    padding: 0 1rem;
     /* Fill/blur from osChromeFrostStyle() — match .os-chrome-glass / elevated headers. */
     background: transparent;
     transition:
@@ -27811,11 +27869,26 @@ a.os-surface-row {
     align-self: center;
   }
 
+  /*
+   * Same 1.85rem header icon box as post / drop page sheets so the
+   * chevron sits on the same inset as Back on the source post.
+   */
+  .os-media-face-close.glass-sheet-icon-action,
+  .os-media-face-trailing .glass-sheet-icon-action,
   .os-media-face-trailing .post-card-menu-trigger {
-    min-width: 2.75rem;
-    min-height: 2.75rem;
-    width: auto;
-    height: auto;
+    box-sizing: border-box;
+    width: 1.85rem;
+    height: 1.85rem;
+    min-width: 1.85rem;
+    min-height: 1.85rem;
+    max-width: 1.85rem;
+    max-height: 1.85rem;
+    padding: 0;
+  }
+
+  .os-media-face-trailing .post-card-menu-trigger {
+    width: 1.85rem;
+    height: 1.85rem;
     color: rgb(var(--fg-rgb) / 0.72);
   }
 
@@ -30122,7 +30195,8 @@ a.os-surface-row {
 
   @media (min-width: 640px) {
     .app-surface > .os-slide-over {
-      border-radius: 1.25rem;
+      /* Overlay is inset -1px; grow the radius so corner clip matches the OS card. */
+      border-radius: calc(1.25rem + 1px);
     }
   }
 
@@ -31657,7 +31731,8 @@ a.os-surface-row {
     transition: none;
   }
 
-  .feed-photo-slide--thread .feed-photo-listen {
+  .feed-photo-slide--thread .feed-photo-listen,
+  .feed-photo-slide--thread .scarce-thought-body {
     flex: 1 1 auto;
     min-height: 0;
     height: auto;
@@ -31683,12 +31758,15 @@ a.os-surface-row {
     position: relative;
     flex: 0 0 var(--feed-thread-band, 58%);
     width: auto;
+    min-width: 0;
+    max-width: none;
     height: var(--feed-thread-band, 58%);
     max-height: var(--feed-thread-band, 58%);
-    margin-inline: -0.9rem;
+    margin-inline: -1rem;
     margin-bottom: -0.55rem;
     z-index: 8;
     overflow: hidden;
+    border-radius: 1.1rem 1.1rem 0 0;
     pointer-events: auto;
     background: transparent;
     transition:
@@ -31718,10 +31796,12 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     height: 100%;
+    min-width: 0;
     min-height: 0;
     background: var(--bg, rgb(var(--bg-rgb)));
     border-radius: 1.1rem 1.1rem 0 0;
-    box-shadow: 0 -16px 40px -20px rgb(0 0 0 / 0.35);
+    /* Lift lived as a rectangular shadow in the host’s square clip. */
+    box-shadow: none;
     overflow: hidden;
     pointer-events: auto;
   }
@@ -31736,10 +31816,26 @@ a.os-surface-row {
     touch-action: none;
     cursor: grab;
     user-select: none;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+    background: transparent;
+    box-shadow: none;
   }
 
   .feed-photo-thread-grip:active {
     cursor: grabbing;
+  }
+
+  .feed-photo-thread-grip:focus,
+  .feed-photo-thread-grip:focus-visible,
+  .feed-photo-thread-grip:hover {
+    outline: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .feed-photo-thread-grip:focus-visible .feed-photo-thread-grip-bar {
+    opacity: 0.9;
   }
 
   .feed-photo-thread-grip-bar {
@@ -31753,14 +31849,19 @@ a.os-surface-row {
 
   .feed-photo-thread-body {
     flex: 1 1 auto;
+    min-width: 0;
     min-height: 0;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
     padding-inline: 0;
     padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
     overscroll-behavior: contain;
   }
 
   .feed-media-thread-embed {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
     padding: 0.1rem 1rem 0.35rem;
   }
 
@@ -31863,7 +31964,7 @@ a.os-surface-row {
     min-height: 100%;
     margin: 0 auto;
     /* No top pad — progress + jacket own the rim (kills the scroll-top gap). */
-    padding: 0 0.9rem 0.55rem;
+    padding: 0 1rem 0.55rem;
     box-sizing: border-box;
   }
 
@@ -37363,7 +37464,8 @@ a.os-surface-row {
    * Composer — OsPageSheet hosts embedded OsAppScreen (shared glassChrome frost).
    */
   .guild-composer-sheet-panel.glass-sheet-panel,
-  .post-thread-sheet-panel.glass-sheet-panel {
+  .post-thread-sheet-panel.glass-sheet-panel,
+  .drop-sheet-panel.glass-sheet-panel {
     overflow: hidden;
   }
 

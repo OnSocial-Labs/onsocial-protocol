@@ -1137,7 +1137,6 @@ export function LivePersonalPostPanel({
   return (
     <OsAppScreen
       title="Post"
-      compactChrome
       dockBack
       glassChrome
       backFallbackHref={APP_HOME_PATH}
