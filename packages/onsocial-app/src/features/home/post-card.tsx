@@ -1434,7 +1434,7 @@ function PostCardBody({
           event.stopPropagation();
           onArticleHrefClick?.(event);
         }}
-        onNavigate={onArticleHrefNavigate}
+        onNavigate={onArticleHrefNavigate ?? undefined}
       >
         Read
       </Link>
