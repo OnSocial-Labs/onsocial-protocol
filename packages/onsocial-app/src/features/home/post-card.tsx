@@ -1391,8 +1391,8 @@ function PostCardBody({
   articleHref?: string | null;
   /** Feed overlay reader — preferred over hard-nav when set. */
   onReadArticle?: (() => void) | null;
-  onArticleHrefClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
-  onArticleHrefNavigate?: (event: { preventDefault(): void }) => void;
+  onArticleHrefClick?: ((event: MouseEvent<HTMLAnchorElement>) => void) | null;
+  onArticleHrefNavigate?: ((event: { preventDefault(): void }) => void) | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const previewLimit = postFeedPreviewLimit(hasMedia);
