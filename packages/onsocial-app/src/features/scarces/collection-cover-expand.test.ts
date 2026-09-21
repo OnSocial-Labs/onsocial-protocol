@@ -26,6 +26,10 @@ describe('drop cover expand wiring', () => {
     );
   });
 
+  it('yields the route SSR skeleton to loading.tsx', () => {
+    expect(panel).toContain('collectionRouteYieldsLoadingSkeleton');
+  });
+
   it('lets the reader jacket zoom art, not the drop cover', () => {
     expect(reader).toContain('DropArtOverlay');
     expect(reader).toContain('onOpenCover');

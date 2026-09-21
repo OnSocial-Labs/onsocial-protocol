@@ -127,6 +127,7 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     implementationFiles: [
       'features/scarces/collection-page-skeleton.tsx',
       'features/scarces/collection-page-panel.tsx',
+      'features/scarces/collection-route-loading.tsx',
     ],
   },
   {

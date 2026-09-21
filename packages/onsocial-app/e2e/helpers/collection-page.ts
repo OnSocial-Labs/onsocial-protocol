@@ -118,8 +118,8 @@ export async function seedE2eWallet(
 }
 
 /**
- * Loading.tsx and the panel skeleton can both be mounted during the
- * SSR-miss handoff — never use strict `toBeVisible()` on this locator.
+ * Route `loading.tsx` owns the SSR skeleton; the panel paints after hydrate
+ * (and in the drop overlay). Expect one node.
  */
 export function collectionPageSkeleton(page: Page): Locator {
   return page.locator('[data-collection-page-skeleton]');
