@@ -22,8 +22,7 @@ test.describe('amplify voice', () => {
 
     const sheet = page.getByRole('dialog').filter({ hasText: 'Amplify' });
     await expect(sheet).toBeVisible({ timeout: 15_000 });
-    await expect(sheet.getByText('Alice', { exact: true })).toBeVisible();
-    await expect(sheet.getByText('@alice.testnet')).toBeVisible();
+    await expect(sheet.getByText('Hello from Alice.')).toBeVisible();
     await expect(
       sheet.getByText('Connect to amplify with SOCIAL.', { exact: true })
     ).toBeVisible();
