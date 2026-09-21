@@ -144,8 +144,6 @@ export function useArticleReadChrome(
 
   useEffect(() => {
     if (!enabled) {
-      setChromeQuiet(false);
-      setProgress(0);
       accumRef.current = 0;
       lastTopRef.current = 0;
       return;
@@ -213,17 +211,19 @@ export function useArticleReadChrome(
   useEffect(() => {
     holdLoudRef.current = holdLoud;
     if (!enabled) return;
-    revealChrome();
     if (!holdLoud) {
       suppressTapUntilRef.current =
         performance.now() + ARTICLE_CHROME_TAP_SUPPRESS_MS;
     }
-  }, [enabled, holdLoud, revealChrome]);
+  }, [enabled, holdLoud]);
+
+  const quiet = enabled && !holdLoud && chromeQuiet;
+  const readProgress = enabled ? progress : 0;
 
   return {
-    chromeQuiet,
-    progress,
-    wakeFooter: articleWakeFooterVisible(chromeQuiet),
+    chromeQuiet: quiet,
+    progress: readProgress,
+    wakeFooter: articleWakeFooterVisible(quiet),
     onChromeTap,
     revealChrome,
   };
