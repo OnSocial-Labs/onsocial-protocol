@@ -274,9 +274,11 @@ async function resolveStakeTokenContext(
 export async function getProtocolDaoStakeProposePath(
   daoAccountId: string
 ): Promise<boolean> {
+  // Throw on RPC miss so callers fail-open (keep Stake) instead of treating
+  // a swallowed view error as "this board has no staking contract".
   const [policy, stakingContractRaw] = await Promise.all([
-    tryViewNearContract<ProtocolDaoPolicy>(daoAccountId, 'get_policy'),
-    tryViewNearContract<string>(daoAccountId, 'get_staking_contract'),
+    viewNearContract<ProtocolDaoPolicy>(daoAccountId, 'get_policy'),
+    viewNearContract<string>(daoAccountId, 'get_staking_contract'),
   ]);
   const stakingContractId = stakingContractRaw?.trim() || null;
   const { stakeTokenId } = await resolveStakeTokenContext(stakingContractId);
