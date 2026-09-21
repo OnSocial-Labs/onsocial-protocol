@@ -68,8 +68,8 @@ describe('os leave map', () => {
       dockBack: true,
       parent: APP_HOME_PATH,
       verdict: 'matches',
+      note: expect.stringMatching(/Origin stack/),
     });
-    expect(row('portfolio-face').note).toMatch(/Origin stack/);
   });
 
   it('leaves a cold post permalink to Home', () => {
