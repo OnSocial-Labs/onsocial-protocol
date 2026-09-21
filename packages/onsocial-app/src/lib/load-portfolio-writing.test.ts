@@ -15,4 +15,13 @@ describe('loadPortfolioWritingChrome', () => {
     expect(src).toContain('e2eGraphStubsAllowed');
     expect(src).toContain('if (stubChrome) return stubChrome');
   });
+
+  it('paints chrome from shell + page config and never 404s the shelf', () => {
+    expect(src).toContain('loadWritingPageConfig');
+    expect(src).toContain('loadProfileShell');
+    expect(src).toContain('pages.getConfig');
+    expect(src).not.toContain('fetchPublicPageData');
+    expect(src).not.toContain('notFound');
+    expect(src).not.toContain('account/exists');
+  });
 });
