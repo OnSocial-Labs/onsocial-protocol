@@ -26,7 +26,11 @@ export function PortfolioWritingArticleCommerce({ post }: { post: PostRow }) {
   };
 
   return (
-    <div ref={rootRef}>
+    <div
+      ref={(node) => {
+        rootRef.current = node;
+      }}
+    >
       <PostScarceCta
         embed={embed}
         isAuthor={Boolean(viewerId && accountIdsEqual(viewerId, post.accountId))}
