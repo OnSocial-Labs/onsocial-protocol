@@ -28,7 +28,7 @@ describe('drop cover expand wiring', () => {
 
   it('lets the reader jacket zoom art, not the drop cover', () => {
     expect(reader).toContain('DropArtOverlay');
-    expect(reader).toContain('aria-label="View cover"');
+    expect(reader).toContain('onOpenCover');
     expect(reader).toContain('setCoverOpen(true)');
   });
 
