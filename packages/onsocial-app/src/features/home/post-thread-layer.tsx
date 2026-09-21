@@ -32,7 +32,11 @@ import {
   parseInAppPostLayerHref,
   personalPostPath,
 } from '@/lib/post-routes';
-import { isOsMediaFaceOpen, nextPostLayerZIndex } from '@/lib/sheet-z';
+import {
+  isOsMediaFaceOpen,
+  nextPostLayerZIndex,
+  SHEET_Z,
+} from '@/lib/sheet-z';
 
 const LivePersonalPostPanel = dynamic(
   () =>
@@ -570,6 +574,30 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         return true;
       }
 
+      // One post on screen. Another post replaces this reader so reply and
+      // sort drawers stay above the icons instead of opening under a pile.
+      if (stackRef.current.length > 0) {
+        const next: PostThreadLayerTarget = {
+          id: `post-layer-${++seqRef.current}`,
+          kind: 'post',
+          accountId: parsed.accountId,
+          postId: parsed.postId,
+          root,
+          zIndex: stackRef.current[0]?.zIndex ?? SHEET_Z.overlayHost,
+        };
+        closingIdRef.current = null;
+        setClosingId(null);
+        stackRef.current = [next];
+        setStack([next]);
+        if (typeof window === 'undefined') return true;
+        getPostLayerPopGuard().depth = 1;
+        const currentUrl = `${window.location.pathname}${window.location.search}`;
+        if (currentUrl !== canonical) {
+          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
+        }
+        return true;
+      }
+
       const next: PostThreadLayerTarget = {
         id: `post-layer-${++seqRef.current}`,
         kind: 'post',
@@ -625,6 +653,26 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         top?.kind === 'drop' &&
         collectionIdsEqual(top.collectionId, parsed.collectionId)
       ) {
+        return true;
+      }
+
+      if (stackRef.current.length > 0) {
+        const next: DropLayerTarget = {
+          id: `drop-layer-${++seqRef.current}`,
+          kind: 'drop',
+          collectionId: parsed.collectionId,
+          zIndex: stackRef.current[0]?.zIndex ?? SHEET_Z.overlayHost,
+        };
+        closingIdRef.current = null;
+        setClosingId(null);
+        stackRef.current = [next];
+        setStack([next]);
+        if (typeof window === 'undefined') return true;
+        getPostLayerPopGuard().depth = 1;
+        const currentUrl = `${window.location.pathname}${window.location.search}`;
+        if (currentUrl !== canonical) {
+          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
+        }
         return true;
       }
 
