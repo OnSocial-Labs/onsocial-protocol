@@ -7,7 +7,10 @@ const messagesDir = dirname(fileURLToPath(import.meta.url));
 
 describe('messages loading contract', () => {
   it('derives cold, refresh, and thread error presentation from the shared contract', () => {
-    const source = readFileSync(join(messagesDir, 'messages-panel.tsx'), 'utf8');
+    const source = readFileSync(
+      join(messagesDir, 'messages-panel.tsx'),
+      'utf8'
+    );
 
     expect(source).toContain('resolveAppLoadingPresentation');
     expect(source).toContain('loadingThreads');
@@ -16,6 +19,8 @@ describe('messages loading contract', () => {
     expect(source).toContain('refreshingMessages');
     expect(source).toContain('showThreadListSkeleton');
     expect(source).toContain('showThreadSkeleton');
+    expect(source).toContain('peekMessagesInboxSession');
+    expect(source).toContain('writeMessagesInboxSession');
     expect(source).toContain("setErrorSource('thread')");
   });
 

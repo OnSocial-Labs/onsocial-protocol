@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -33,6 +34,12 @@ import {
   getCachedAppGatewayAuth,
 } from '@/lib/app-gateway-auth';
 import { APP_HOME_PATH, messagesPath } from '@/lib/app-routes';
+import { accountIdsEqual } from '@/lib/account-match';
+import {
+  peekMessagesInboxSession,
+  readMessagesInboxSession,
+  writeMessagesInboxSession,
+} from '@/lib/messages-inbox-session';
 import { DM_PEER_MESSAGES_UNAVAILABLE } from '@/lib/dm/copy';
 import {
   decryptDmMessage,
@@ -121,8 +128,14 @@ export function MessagesPanel() {
   const threadParam = searchParams.get('thread')?.trim() ?? '';
   const { accountId, isConnected, hasSocialSession } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
+  const restoredSessionRef = useRef(
+    accountId ? readMessagesInboxSession(accountId) : peekMessagesInboxSession()
+  );
+  const restoredSession = restoredSessionRef.current;
 
-  const [threads, setThreads] = useState<DmThreadSummary[] | null>(null);
+  const [threads, setThreads] = useState<DmThreadSummary[] | null>(
+    () => restoredSession?.threads ?? null
+  );
   const [messages, setMessages] = useState<DmMessageRecord[] | null>(null);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [loadingThreads, setLoadingThreads] = useState(false);
@@ -158,7 +171,7 @@ export function MessagesPanel() {
   const [showSealedArchive, setShowSealedArchive] = useState(false);
   const [inboxPreviewByThread, setInboxPreviewByThread] = useState<
     Record<string, string>
-  >({});
+  >(() => restoredSession?.inboxPreviewByThread ?? {});
   const activeThreadIdRef = useRef(activeThreadId);
   const threadsRef = useRef(threads);
   const messagesRef = useRef(messages);
@@ -167,10 +180,31 @@ export function MessagesPanel() {
   const accountGenRef = useRef(0);
   const accountIdRef = useRef(accountId);
   const inboxPreviewCacheRef = useRef(
-    new Map<string, { messageId: string; text: string }>()
+    new Map<string, { messageId: string; text: string }>(
+      restoredSession
+        ? restoredSession.threads.flatMap((row) => {
+            const text = restoredSession.inboxPreviewByThread[row.threadId];
+            return text
+              ? [
+                  [
+                    row.threadId,
+                    { messageId: row.lastMessageId, text },
+                  ] as const,
+                ]
+              : [];
+          })
+        : []
+    )
   );
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const pinThreadToLatestRef = useRef(true);
+  const inboxPreviewByThreadRef = useRef(inboxPreviewByThread);
+  const lastScrollTopRef = useRef(restoredSession?.scrollTop ?? 0);
+  const pendingScrollTopRef = useRef<number | null>(
+    restoredSession && restoredSession.scrollTop > 0
+      ? restoredSession.scrollTop
+      : null
+  );
 
   useEffect(() => {
     activeThreadIdRef.current = activeThreadId;
@@ -183,6 +217,23 @@ export function MessagesPanel() {
   useEffect(() => {
     threadsRef.current = threads;
   }, [threads]);
+
+  useLayoutEffect(() => {
+    inboxPreviewByThreadRef.current = inboxPreviewByThread;
+    accountIdRef.current = accountId;
+  }, [accountId, inboxPreviewByThread]);
+
+  useEffect(() => {
+    const scrollRoot = scrollRootRef.current;
+    return () => {
+      writeMessagesInboxSession({
+        accountId: accountIdRef.current,
+        threads: threadsRef.current,
+        inboxPreviewByThread: inboxPreviewByThreadRef.current,
+        scrollTop: scrollRoot ? scrollRoot.scrollTop : lastScrollTopRef.current,
+      });
+    };
+  }, []);
 
   useEffect(() => {
     accountIdRef.current = accountId;
@@ -207,6 +258,33 @@ export function MessagesPanel() {
   const threadOpen = Boolean(activeThreadId && isUnlocked);
   const viewport = useVisualViewportSheetMetrics(threadOpen);
   const keyboardOpen = threadOpen && viewport.isMobile && viewport.lift > 0;
+
+  useLayoutEffect(() => {
+    const top = pendingScrollTopRef.current;
+    const node = scrollRootRef.current;
+    if (!node || threadOpen) return;
+    if (top != null) {
+      node.scrollTop = top;
+      if (node.scrollTop > 0 || node.scrollHeight > top) {
+        pendingScrollTopRef.current = null;
+      }
+    }
+    lastScrollTopRef.current = node.scrollTop;
+  }, [threadOpen, threads?.length]);
+
+  useEffect(() => {
+    const node = scrollRootRef.current;
+    if (!node || threadOpen) return undefined;
+    const record = () => {
+      lastScrollTopRef.current = node.scrollTop;
+    };
+    record();
+    node.addEventListener('scroll', record, { passive: true });
+    return () => {
+      record();
+      node.removeEventListener('scroll', record);
+    };
+  }, [threadOpen, threads?.length]);
   const [inboxSearchActive, setInboxSearchActive] = useState(false);
   const [privateInfoOpen, setPrivateInfoOpen] = useState(false);
 
@@ -524,6 +602,10 @@ export function MessagesPanel() {
   }, [releaseOutgoingMedia]);
 
   useEffect(() => {
+    if (!accountId) return;
+    const restored = restoredSessionRef.current;
+    if (restored && accountIdsEqual(restored.accountId, accountId)) return;
+    restoredSessionRef.current = null;
     clearThreadState();
   }, [accountId, clearThreadState]);
 
@@ -539,17 +621,26 @@ export function MessagesPanel() {
       const expectedAccount = accountId;
       try {
         const { client } = await withAuth();
-        if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
+        if (
+          accountGenRef.current !== gen ||
+          !isCurrentAccount(expectedAccount)
+        ) {
           return false;
         }
         const { threads: next } = await client.dm.listThreads();
-        if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
+        if (
+          accountGenRef.current !== gen ||
+          !isCurrentAccount(expectedAccount)
+        ) {
           return false;
         }
         setThreads(next);
         return true;
       } catch (cause) {
-        if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
+        if (
+          accountGenRef.current !== gen ||
+          !isCurrentAccount(expectedAccount)
+        ) {
           return false;
         }
         setError(
@@ -559,7 +650,10 @@ export function MessagesPanel() {
         if (threadsRef.current == null) setThreads([]);
         return false;
       } finally {
-        if (accountGenRef.current === gen && isCurrentAccount(expectedAccount)) {
+        if (
+          accountGenRef.current === gen &&
+          isCurrentAccount(expectedAccount)
+        ) {
           if (initial) setLoadingThreads(false);
           else setRefreshingThreads(false);
         }
@@ -1137,7 +1231,9 @@ export function MessagesPanel() {
     void (async () => {
       try {
         await bootstrapKeys();
-        const threadsReady = await refreshThreads({ initial: true });
+        const threadsReady = await refreshThreads({
+          initial: threadsRef.current == null,
+        });
         if (!threadsReady) return;
         if (threadParam) {
           await openThread(threadParam);
@@ -1553,7 +1649,7 @@ export function MessagesPanel() {
         : threads == null
           ? 'cold'
           : 'empty',
-    { hasPaintedRows: Boolean(threads?.length) }
+    { hasPaintedRows: threads != null }
   );
   const threadPresentation = resolveAppLoadingPresentation(
     errorSource === 'thread'
@@ -1567,8 +1663,7 @@ export function MessagesPanel() {
   );
   const showThreadListSkeleton = threadListPresentation === 'skeleton';
   const showThreadListRefreshing = threadListPresentation === 'preserve';
-  const showThreadSkeleton =
-    threadOpen && threadPresentation === 'skeleton';
+  const showThreadSkeleton = threadOpen && threadPresentation === 'skeleton';
   const showThreadRefreshing = threadPresentation === 'preserve';
   const threadChromeHeading =
     threadOpen && peerFromThread ? (
