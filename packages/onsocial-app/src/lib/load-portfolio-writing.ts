@@ -1,5 +1,4 @@
 import { cache } from 'react';
-import { notFound } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { isArticlePost } from '@/lib/article-post-payload';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
@@ -15,7 +14,7 @@ import {
 } from '@/lib/hydrate-writing-article-covers';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
-import { fetchPublicPageData } from '@/lib/page-data';
+import type { PublicPageConfig } from '@/lib/page-data';
 import { displayName } from '@/lib/profile-display';
 import { loadProfileShell } from '@/lib/profile-shell';
 import { resolveAccountId } from '@/lib/resolve-account';
@@ -75,21 +74,32 @@ async function e2eWritingShelfChrome(
   };
 }
 
+async function loadWritingPageConfig(
+  accountId: string
+): Promise<PublicPageConfig> {
+  try {
+    const os = createServerOnSocialClient();
+    const config = await os.query.pages.getConfig(accountId);
+    return (config ?? {}) as PublicPageConfig;
+  } catch {
+    return {};
+  }
+}
+
 const loadPortfolioWritingChrome = cache(
   async (accountId: string): Promise<PortfolioWritingPageData> => {
     const stubChrome = await e2eWritingShelfChrome(accountId);
     if (stubChrome) return stubChrome;
 
-    const data = await fetchPublicPageData(accountId);
-    if (!data) {
-      notFound();
-    }
-    const shell = await loadProfileShell(accountId);
+    const [shell, config] = await Promise.all([
+      loadProfileShell(accountId),
+      loadWritingPageConfig(accountId),
+    ]);
     return {
       accountId,
       titleLabel: displayName(accountId, shell?.name ?? undefined),
       avatarUrl: shell?.avatarUrl ?? null,
-      mood: resolvePortfolioMood(data.config),
+      mood: resolvePortfolioMood(config),
       articles: [],
       coverHints: {},
     };
