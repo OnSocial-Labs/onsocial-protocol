@@ -6,9 +6,11 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   useComposeLauncher,
@@ -36,17 +38,24 @@ import { SummonLauncher } from '@/components/os/summon-launcher';
 import { PortfolioSummonComposeButton } from '@/components/portfolio/portfolio-summon-compose-button';
 import { OsDockBackZone } from '@/components/wallet/os-dock-back-zone';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
+import {
+  consumeOsFaceLeaveHref,
+  readOsFaceLeaveHref,
+  subscribeOsFaceLeave,
+} from '@/lib/os-face-leave-store';
 
 const DOCK_HINT_KEY = 'onpage-portfolio-dock-hint-seen';
 const LONG_PRESS_MS = 480;
 const SWIPE_UP_PX = 28;
 const TAP_SLOP_PX = 12;
 
-/** Face default — leave to Home. Overlays register a face parent via context. */
-const FACE_DOCK_BACK: DockBackRegistration = {
-  fallbackHref: APP_HOME_PATH,
-  ariaLabel: 'Back',
-};
+function useFaceLeaveHref(): string {
+  return useSyncExternalStore(
+    subscribeOsFaceLeave,
+    readOsFaceLeaveHref,
+    () => APP_HOME_PATH
+  );
+}
 
 export interface PortfolioSummonDockProps {
   pageAccountId: string;
@@ -82,7 +91,20 @@ export function PortfolioSummonDock({
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
   const registeredDockBack = useDockBack();
-  const dockBack = registeredDockBack ?? FACE_DOCK_BACK;
+  const faceLeaveHref = useFaceLeaveHref();
+  const router = useRouter();
+  const leaveToOrigin = useCallback(() => {
+    router.push(consumeOsFaceLeaveHref());
+  }, [router]);
+  const faceDockBack = useMemo<DockBackRegistration>(
+    () => ({
+      fallbackHref: faceLeaveHref,
+      ariaLabel: 'Back',
+      onBack: leaveToOrigin,
+    }),
+    [faceLeaveHref, leaveToOrigin]
+  );
+  const dockBack = registeredDockBack ?? faceDockBack;
   const immersiveChromeQuiet = useImmersiveChromeQuiet();
   const { effectiveMood, isPreviewingMood } = usePortfolioMoodPreview();
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();

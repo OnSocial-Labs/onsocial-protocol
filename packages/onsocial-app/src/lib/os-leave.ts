@@ -11,6 +11,8 @@ export const OS_INDEX_LEAVE_HREF = APP_HOME_PATH;
 /**
  * OS leave — one motion: go up to the parent place.
  * History-back is not the default (deep links / launcher open can leave the OS).
+ * Face dock Back uses the origin stack (`os-face-leave`) when the face was
+ * opened from Discover / Home / another face; else Home.
  * Stack panes pass `onBack` (e.g. close a Messages thread).
  */
 export function resolveOsLeave({

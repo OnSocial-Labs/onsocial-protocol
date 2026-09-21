@@ -245,7 +245,7 @@ export const OS_LEAVE_MAP = [
     dockBack: true,
     parent: APP_HOME_PATH,
     verdict: 'matches',
-    note: 'FACE_DOCK_BACK. Overlays register the face as parent.',
+    note: 'FACE_DOCK_BACK. Origin stack when opened from Discover/Home/another face; else Home. Overlays register the face as parent.',
   },
   {
     id: 'personal-post',

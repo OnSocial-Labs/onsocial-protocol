@@ -63,12 +63,13 @@ describe('os leave map', () => {
     });
   });
 
-  it('leaves the portfolio face to Home', () => {
+  it('leaves the portfolio face to the origin place, else Home', () => {
     expect(row('portfolio-face')).toMatchObject({
       dockBack: true,
       parent: APP_HOME_PATH,
       verdict: 'matches',
     });
+    expect(row('portfolio-face').note).toMatch(/Origin stack/);
   });
 
   it('leaves a cold post permalink to Home', () => {
