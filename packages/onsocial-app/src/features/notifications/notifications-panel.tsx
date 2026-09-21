@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -28,6 +35,12 @@ import {
   getCachedAppGatewayAuth,
 } from '@/lib/app-gateway-auth';
 import { APP_HOME_PATH, messagesPath } from '@/lib/app-routes';
+import { accountIdsEqual } from '@/lib/account-match';
+import {
+  peekActivityInboxSession,
+  readActivityInboxSession,
+  writeActivityInboxSession,
+} from '@/lib/activity-inbox-session';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
 import {
   NotificationActivityAppendSkeleton,
@@ -62,8 +75,14 @@ export function NotificationsPanel() {
   const authPending = isLoading || isBootstrappingSession;
   const { getClient } = useAppOnSocialClient();
   const activityUnread = useNotificationsUnreadCount();
-  const [items, setItems] = useState<Notification[] | null>(null);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const restoredSessionRef = useRef(peekActivityInboxSession());
+  const restoredSession = restoredSessionRef.current;
+  const [items, setItems] = useState<Notification[] | null>(
+    () => restoredSession?.items ?? null
+  );
+  const [nextCursor, setNextCursor] = useState<string | null>(
+    () => restoredSession?.nextCursor ?? null
+  );
   const [loadingInitial, setLoadingInitial] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,29 +93,82 @@ export function NotificationsPanel() {
   const accountGenRef = useRef(0);
   const accountIdRef = useRef(accountId);
   const previousUnreadRef = useRef<number | null>(null);
+  const itemsRef = useRef(items);
+  const nextCursorRef = useRef(nextCursor);
+  const scrollRootRef = useRef<HTMLElement | null>(null);
+  const lastScrollTopRef = useRef(restoredSession?.scrollTop ?? 0);
+  const pendingScrollTopRef = useRef<number | null>(
+    restoredSession && restoredSession.scrollTop > 0
+      ? restoredSession.scrollTop
+      : null
+  );
+
+  useLayoutEffect(() => {
+    itemsRef.current = items;
+    nextCursorRef.current = nextCursor;
+    accountIdRef.current = accountId;
+  }, [accountId, items, nextCursor]);
 
   useEffect(() => {
-    accountIdRef.current = accountId;
+    const scrollRoot = scrollRootRef.current;
+    return () => {
+      writeActivityInboxSession({
+        accountId: accountIdRef.current,
+        items: itemsRef.current,
+        nextCursor: nextCursorRef.current,
+        scrollTop: scrollRoot ? scrollRoot.scrollTop : lastScrollTopRef.current,
+      });
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const top = pendingScrollTopRef.current;
+    const node = scrollRootRef.current;
+    if (!node) return;
+    if (top != null) {
+      node.scrollTop = top;
+      if (node.scrollTop > 0 || node.scrollHeight > top) {
+        pendingScrollTopRef.current = null;
+      }
+    }
+    lastScrollTopRef.current = node.scrollTop;
+  }, [items?.length]);
+
+  useEffect(() => {
+    const node = scrollRootRef.current;
+    if (!node) return undefined;
+    const record = () => {
+      lastScrollTopRef.current = node.scrollTop;
+    };
+    record();
+    node.addEventListener('scroll', record, { passive: true });
+    return () => {
+      record();
+      node.removeEventListener('scroll', record);
+    };
+  }, [items?.length]);
+
+  useEffect(() => {
     accountGenRef.current += 1;
   }, [accountId]);
 
-  const isCurrentAccount = useCallback((expected: string | null | undefined) => {
-    if (!expected) return false;
-    const current = accountIdRef.current;
-    return Boolean(
-      current && current.toLowerCase() === expected.toLowerCase()
-    );
-  }, []);
+  const isCurrentAccount = useCallback(
+    (expected: string | null | undefined) => {
+      if (!expected) return false;
+      const current = accountIdRef.current;
+      return Boolean(
+        current && current.toLowerCase() === expected.toLowerCase()
+      );
+    },
+    []
+  );
 
   const profileIds = useMemo(
     () => notificationProfileAccountIds(items ?? []),
     [items]
   );
   const profiles = usePostAuthorProfiles(profileIds);
-  const groupIds = useMemo(
-    () => notificationGroupIds(items ?? []),
-    [items]
-  );
+  const groupIds = useMemo(() => notificationGroupIds(items ?? []), [items]);
   const guildNames = useGuildDisplayNames(groupIds);
   const collectionIds = useMemo(
     () => notificationCollectionIds(items ?? []),
@@ -161,13 +233,21 @@ export function NotificationsPanel() {
   }, [accountId, isCurrentAccount, withAuth]);
 
   useEffect(() => {
-    setItems(null);
-    setNextCursor(null);
-    setLoadingInitial(false);
-    setError(null);
-    setErrorSource(null);
     previousUnreadRef.current = null;
     if (!isConnected || !accountId || !hasSocialSession) return;
+    const restored = restoredSessionRef.current;
+    if (restored && !accountIdsEqual(restored.accountId, accountId)) {
+      restoredSessionRef.current = null;
+      setItems(null);
+      setNextCursor(null);
+      pendingScrollTopRef.current = null;
+    } else if (restored) {
+      const matched = readActivityInboxSession(accountId);
+      if (matched) {
+        setItems(matched.items);
+        setNextCursor(matched.nextCursor);
+      }
+    }
     void loadInitial();
   }, [accountId, hasSocialSession, isConnected, loadInitial]);
 
@@ -318,30 +398,16 @@ export function NotificationsPanel() {
     }
   };
 
+  const showRestoredInbox =
+    items != null && (authPending || (isConnected && hasSocialSession));
+
   let body: ReactNode;
-  if (authPending) {
-    body = <NotificationActivitySkeleton />;
-  } else if (!isConnected || !accountId) {
-    body = (
-      <OsAppChromePageStatus>
-        Stands, mentions, sales, and more — connect to see activity.
-      </OsAppChromePageStatus>
-    );
-  } else if (!hasSocialSession) {
-    body = (
-      <OsAppChromePageStatus>
-        Connect your session to load activity.
-      </OsAppChromePageStatus>
-    );
-  } else {
+  if (showRestoredInbox || (isConnected && hasSocialSession && accountId)) {
     body = (
       <>
         {error ? (
           errorPresentation === 'overlay' ? (
-            <OsChromeListAlert
-              message={error}
-              onRetry={retryError}
-            />
+            <OsChromeListAlert message={error} onRetry={retryError} />
           ) : (
             <OsAppChromePageStatus error role="alert">
               {error}
@@ -384,10 +450,23 @@ export function NotificationsPanel() {
         )}
 
         <p className="notifications-panel-footnote">
-          Private messages live in{' '}
-          <Link href={messagesPath()}>Messages</Link>.
+          Private messages live in <Link href={messagesPath()}>Messages</Link>.
         </p>
       </>
+    );
+  } else if (authPending) {
+    body = <NotificationActivitySkeleton />;
+  } else if (!isConnected || !accountId) {
+    body = (
+      <OsAppChromePageStatus>
+        Stands, mentions, sales, and more — connect to see activity.
+      </OsAppChromePageStatus>
+    );
+  } else {
+    body = (
+      <OsAppChromePageStatus>
+        Connect your session to load activity.
+      </OsAppChromePageStatus>
     );
   }
 
@@ -401,6 +480,7 @@ export function NotificationsPanel() {
       backFallbackHref={APP_HOME_PATH}
       heading={<p className="os-app-screen-title">Activity</p>}
       actions={markAllAction}
+      scrollRootRef={scrollRootRef}
     >
       <OsAppChromePage className="notifications-panel">{body}</OsAppChromePage>
     </OsAppScreen>

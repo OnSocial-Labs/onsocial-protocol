@@ -19,6 +19,8 @@ describe('notifications loading contract', () => {
     expect(source).toContain('showActivitySkeleton');
     expect(source).toContain('showActivityRefreshing');
     expect(source).toContain('showAppendSkeleton');
+    expect(source).toContain('showRestoredInbox');
+    expect(source).toContain('peekActivityInboxSession');
     expect(source).toContain('errorPresentation');
   });
 
