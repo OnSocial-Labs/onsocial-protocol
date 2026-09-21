@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -110,6 +110,8 @@ interface LivePersonalPostPanelProps {
   embedded?: boolean;
   /** Hide root photo / video — the enlarge film already shows it. */
   hideRootMedia?: boolean;
+  /** False while the drawer is closing or no longer the screen in front. */
+  replyDockEnabled?: boolean;
 }
 
 interface PersonalConversation {
@@ -124,6 +126,7 @@ export function LivePersonalPostPanel({
   initial = null,
   embedded = false,
   hideRootMedia = false,
+  replyDockEnabled = true,
 }: LivePersonalPostPanelProps) {
   seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
   const {
@@ -135,6 +138,7 @@ export function LivePersonalPostPanel({
   const { getClient } = useAppOnSocialClient();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const threadLayout = resolveThreadLayout(searchParams);
   const mediaUnmuted = searchParams.get('media') === 'unmute';
@@ -666,7 +670,10 @@ export function LivePersonalPostPanel({
     ) : null;
   useReplyWriteDock({
     target: writeTarget,
-    enabled: Boolean(root),
+    enabled:
+      Boolean(root) &&
+      replyDockEnabled &&
+      !(hideRootMedia && pathname !== APP_HOME_PATH),
     disabled: Boolean(modalTarget),
     placeholder: WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
     above: writeAbove,

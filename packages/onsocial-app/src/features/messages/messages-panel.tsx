@@ -28,6 +28,7 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
+import { useListScrollRestore } from '@/hooks/use-list-scroll-restore';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import {
   ensureAppGatewayAuth,
@@ -35,6 +36,10 @@ import {
 } from '@/lib/app-gateway-auth';
 import { APP_HOME_PATH, messagesPath } from '@/lib/app-routes';
 import { accountIdsEqual } from '@/lib/account-match';
+import {
+  createListScrollMemory,
+  scrollTopToPersist,
+} from '@/lib/list-scroll-restore';
 import {
   peekMessagesInboxSession,
   readMessagesInboxSession,
@@ -199,11 +204,8 @@ export function MessagesPanel() {
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const pinThreadToLatestRef = useRef(true);
   const inboxPreviewByThreadRef = useRef(inboxPreviewByThread);
-  const lastScrollTopRef = useRef(restoredSession?.scrollTop ?? 0);
-  const pendingScrollTopRef = useRef<number | null>(
-    restoredSession && restoredSession.scrollTop > 0
-      ? restoredSession.scrollTop
-      : null
+  const scrollMemoryRef = useRef(
+    createListScrollMemory(restoredSession?.scrollTop ?? 0)
   );
 
   useEffect(() => {
@@ -224,13 +226,13 @@ export function MessagesPanel() {
   }, [accountId, inboxPreviewByThread]);
 
   useEffect(() => {
-    const scrollRoot = scrollRootRef.current;
     return () => {
+      const live = scrollRootRef.current?.scrollTop ?? 0;
       writeMessagesInboxSession({
         accountId: accountIdRef.current,
         threads: threadsRef.current,
         inboxPreviewByThread: inboxPreviewByThreadRef.current,
-        scrollTop: scrollRoot ? scrollRoot.scrollTop : lastScrollTopRef.current,
+        scrollTop: scrollTopToPersist(scrollMemoryRef.current, live),
       });
     };
   }, []);
@@ -259,32 +261,12 @@ export function MessagesPanel() {
   const viewport = useVisualViewportSheetMetrics(threadOpen);
   const keyboardOpen = threadOpen && viewport.isMobile && viewport.lift > 0;
 
-  useLayoutEffect(() => {
-    const top = pendingScrollTopRef.current;
-    const node = scrollRootRef.current;
-    if (!node || threadOpen) return;
-    if (top != null) {
-      node.scrollTop = top;
-      if (node.scrollTop > 0 || node.scrollHeight > top) {
-        pendingScrollTopRef.current = null;
-      }
-    }
-    lastScrollTopRef.current = node.scrollTop;
-  }, [threadOpen, threads?.length]);
-
-  useEffect(() => {
-    const node = scrollRootRef.current;
-    if (!node || threadOpen) return undefined;
-    const record = () => {
-      lastScrollTopRef.current = node.scrollTop;
-    };
-    record();
-    node.addEventListener('scroll', record, { passive: true });
-    return () => {
-      record();
-      node.removeEventListener('scroll', record);
-    };
-  }, [threadOpen, threads?.length]);
+  useListScrollRestore(
+    scrollRootRef,
+    scrollMemoryRef,
+    threads?.length,
+    !threadOpen
+  );
   const [inboxSearchActive, setInboxSearchActive] = useState(false);
   const [privateInfoOpen, setPrivateInfoOpen] = useState(false);
 

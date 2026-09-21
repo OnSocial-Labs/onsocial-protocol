@@ -9,6 +9,7 @@ import {
   isAccountWritingPlace,
   withEssayReturnSearch,
   writingArticlePath,
+  isWritingShelfPath,
   writingFromArticleHref,
   writingFromEssayPath,
   writingPath,
@@ -242,6 +243,12 @@ describe('portfolioFromEssayPath', () => {
       isAccountWritingPlace('alice.testnet', '/@alice.testnet/writing/99')
     ).toBe(true);
     expect(isAccountWritingPlace('alice.testnet', '/home')).toBe(false);
+    expect(
+      isWritingShelfPath('alice.testnet', '/@alice.testnet/writing')
+    ).toBe(true);
+    expect(
+      isWritingShelfPath('alice.testnet', '/@alice.testnet/writing/99')
+    ).toBe(false);
     expect(writingFromArticleHref('alice.testnet', '99', '/home')).toBe(
       '/@alice.testnet/writing?essay=99&from=%2Fhome'
     );

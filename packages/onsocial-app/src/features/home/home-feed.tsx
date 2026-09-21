@@ -3,7 +3,6 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -82,6 +81,7 @@ import {
   subscribePersonalReplyConfirmed,
 } from '@/features/scarces/drop-compose-host';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { useListScrollRestore } from '@/hooks/use-list-scroll-restore';
 import {
   applyOptimisticAmplifyHeat,
   mergeAmplifyHeatFloors,
@@ -112,6 +112,10 @@ import {
   writeHomeFeedSession,
 } from '@/lib/home-feed-session';
 import { scrollFeedToNewest } from '@/lib/feed-scroll-to-newest';
+import {
+  createListScrollMemory,
+  scrollTopToPersist,
+} from '@/lib/list-scroll-restore';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 import { filterHiddenAuthors } from '@/lib/viewer-mute-block-filter';
 import {
@@ -287,12 +291,9 @@ export function HomePagePanel({
   const restoredSessionRef = useRef(peekHomeFeedSession());
   const restoredSession = restoredSessionRef.current;
   const sessionRestoreReloadNonceRef = useRef(0);
-  const pendingScrollTopRef = useRef<number | null>(
-    restoredSession && restoredSession.scrollTop > 0
-      ? restoredSession.scrollTop
-      : null
+  const scrollMemoryRef = useRef(
+    createListScrollMemory(restoredSession?.scrollTop ?? 0)
   );
-  const lastScrollTopRef = useRef(restoredSession?.scrollTop ?? 0);
   const [posts, setPosts] = useState<PostRow[]>(
     () => restoredSession?.posts ?? initialPage?.items ?? []
   );
@@ -413,43 +414,19 @@ export function HomePagePanel({
 
   useEffect(() => {
     return () => {
+      const live = scrollRootRef.current?.scrollTop ?? 0;
       writeHomeFeedSession({
         sessionKey: feedSessionKeyRef.current,
         posts: postsRef.current,
         nextOffset: nextOffsetRef.current,
         standingNetworkIds: standingSourcesRef.current,
         offsetShiftApplied: offsetShiftAppliedRef.current,
-        scrollTop: lastScrollTopRef.current,
+        scrollTop: scrollTopToPersist(scrollMemoryRef.current, live),
       });
     };
   }, []);
 
-  useLayoutEffect(() => {
-    const top = pendingScrollTopRef.current;
-    const node = scrollRootRef.current;
-    if (!node) return;
-    if (top != null) {
-      node.scrollTop = top;
-      if (node.scrollTop > 0 || node.scrollHeight > top) {
-        pendingScrollTopRef.current = null;
-      }
-    }
-    lastScrollTopRef.current = node.scrollTop;
-  }, [visiblePosts.length]);
-
-  useEffect(() => {
-    const node = scrollRootRef.current;
-    if (!node) return undefined;
-    const record = () => {
-      lastScrollTopRef.current = node.scrollTop;
-    };
-    record();
-    node.addEventListener('scroll', record, { passive: true });
-    return () => {
-      record();
-      node.removeEventListener('scroll', record);
-    };
-  }, [visiblePosts.length]);
+  useListScrollRestore(scrollRootRef, scrollMemoryRef, visiblePosts.length);
 
   useEffect(() => {
     nextOffsetRef.current = nextOffset;
@@ -588,6 +565,33 @@ export function HomePagePanel({
       place: placeParam,
     });
 
+    if (walletLoading || !lensReady) return;
+
+    const sessionKey = homeFeedSessionKey({
+      lens: activeLens,
+      sort,
+      focusKey: homeFeedFocusKey(focus),
+      accountId,
+    });
+    const restored = restoredSessionRef.current;
+    if (
+      restored &&
+      restored.posts.length > 0 &&
+      restored.sessionKey === sessionKey &&
+      reloadNonce === sessionRestoreReloadNonceRef.current
+    ) {
+      standingSourcesRef.current = restored.standingNetworkIds
+        ? [...restored.standingNetworkIds]
+        : null;
+      setStandingNetworkIds(standingSourcesRef.current);
+      feedSessionKeyRef.current = sessionKey;
+      setSsrBootstrapDone(true);
+      ssrBootstrapDoneRef.current = true;
+      setIsLoading(false);
+      setIsRefreshing(false);
+      return;
+    }
+
     // Paint SSR hot feed immediately; standing / non-hot sorts soft-upgrade.
     const canUseSsrBootstrap =
       !ssrBootstrapDoneRef.current &&
@@ -636,34 +640,6 @@ export function HomePagePanel({
       postsLengthRef.current > 0
     ) {
       // Fall through with keepPrevious below.
-    }
-
-    if (walletLoading || !lensReady) {
-      return;
-    }
-
-    const sessionKey = homeFeedSessionKey({
-      lens: activeLens,
-      sort,
-      focusKey: homeFeedFocusKey(focus),
-      accountId,
-    });
-    const restored = restoredSessionRef.current;
-    if (
-      restored &&
-      restored.sessionKey === sessionKey &&
-      reloadNonce === sessionRestoreReloadNonceRef.current
-    ) {
-      standingSourcesRef.current = restored.standingNetworkIds
-        ? [...restored.standingNetworkIds]
-        : null;
-      setStandingNetworkIds(standingSourcesRef.current);
-      feedSessionKeyRef.current = sessionKey;
-      setSsrBootstrapDone(true);
-      ssrBootstrapDoneRef.current = true;
-      setIsLoading(false);
-      setIsRefreshing(false);
-      return;
     }
 
     // Explicit reload (amplify reconcile, pull) may refresh global hot once.

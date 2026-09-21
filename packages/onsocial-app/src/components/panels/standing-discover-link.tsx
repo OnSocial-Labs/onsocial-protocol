@@ -1,34 +1,16 @@
 'use client';
 
-import type { MouseEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { OsIconAction, UserPlusFillIcon } from '@onsocial/ui';
+import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { useStandingPanel } from '@/components/panels/standing-panel-context';
-import { discoverPath } from '@/lib/overlay-routes';
 
 const DISCOVER_PROFILES_LABEL = 'Discover profiles to stand with';
 const DISCOVER_DAOS_LABEL = 'Discover DAOs to stand with';
 
 function discoverLabel(isDaoSubject: boolean): string {
   return isDaoSubject ? DISCOVER_DAOS_LABEL : DISCOVER_PROFILES_LABEL;
-}
-
-/** Hard full-page nav — never soft-swaps into portfolio glass Discover. */
-function assignFullPageNav(
-  event: MouseEvent<HTMLAnchorElement>,
-  href: string
-) {
-  if (
-    event.button !== 0 ||
-    event.metaKey ||
-    event.ctrlKey ||
-    event.shiftKey ||
-    event.altKey
-  ) {
-    return;
-  }
-
-  event.preventDefault();
-  window.location.assign(href);
 }
 
 function DiscoverNavLink({
@@ -43,14 +25,14 @@ function DiscoverNavLink({
   children: ReactNode;
 }) {
   return (
-    <a
+    <Link
       href={href}
       className={className}
       aria-label={ariaLabel}
-      onClick={(event) => assignFullPageNav(event, href)}
+      scroll={false}
     >
       {children}
-    </a>
+    </Link>
   );
 }
 
@@ -65,7 +47,7 @@ export function DiscoverProfilesLink({
   variant?: 'accent' | 'chrome';
   ariaLabel?: string;
 }) {
-  const href = discoverPath(accountId, { tab });
+  const href = appDiscoverTabHref(tab);
 
   if (variant === 'chrome') {
     return (
@@ -94,10 +76,9 @@ export function DiscoverProfilesLink({
 
 export function StandingDiscoverLink({
   variant = 'accent',
-  closeOverlay: _closeOverlay = false,
 }: {
   variant?: 'accent' | 'chrome';
-  /** @deprecated Discover from standing is always hard full-page nav. */
+  /** @deprecated Discover opens in the tab. The sheet stays underneath. */
   closeOverlay?: boolean;
 }) {
   const { accountId, isDaoSubject } = useStandingPanel();

@@ -3,12 +3,17 @@
 import { useEffect, type ReactNode } from 'react';
 import Lenis from 'lenis';
 import {
+  registerAppLenis,
+  unregisterAppLenis,
+} from '@/lib/app-lenis-registry';
+import {
   APP_SMOOTH_SCROLL_LENIS_OPTIONS,
   APP_SMOOTH_SCROLL_ROOT_SELECTOR,
   APP_SMOOTH_WHEEL_MEDIA,
   isAppSmoothScrollLocked,
   shouldUseAppSmoothScroll,
 } from '@/lib/app-smooth-scroll';
+import { LIST_SCROLL_RESTORE_SLOP_PX } from '@/lib/list-scroll-restore';
 
 function bindAppSmoothScroll(wrapper: HTMLElement): () => void {
   const lenis = new Lenis({
@@ -17,9 +22,21 @@ function bindAppSmoothScroll(wrapper: HTMLElement): () => void {
     eventsTarget: wrapper,
     ...APP_SMOOTH_SCROLL_LENIS_OPTIONS,
   });
+  registerAppLenis(wrapper, lenis);
+  const pending = Number(wrapper.dataset.osScrollRestore);
+  if (
+    Number.isFinite(pending) &&
+    pending > 0 &&
+    lenis.limit + LIST_SCROLL_RESTORE_SLOP_PX >= pending
+  ) {
+    lenis.scrollTo(pending, { immediate: true, force: true });
+  }
 
   const syncLock = () => {
-    if (isAppSmoothScrollLocked(wrapper.dataset)) {
+    if (
+      isAppSmoothScrollLocked(wrapper.dataset) ||
+      wrapper.closest('[data-feed-session="covered"]')
+    ) {
       lenis.stop();
     } else {
       lenis.start();
@@ -32,9 +49,17 @@ function bindAppSmoothScroll(wrapper: HTMLElement): () => void {
     attributes: true,
     attributeFilter: ['data-scroll-locked'],
   });
+  const coverHost = wrapper.closest('[data-feed-session]');
+  if (coverHost) {
+    lockObserver.observe(coverHost, {
+      attributes: true,
+      attributeFilter: ['data-feed-session'],
+    });
+  }
 
   return () => {
     lockObserver.disconnect();
+    unregisterAppLenis(wrapper);
     lenis.destroy();
   };
 }

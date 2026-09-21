@@ -264,6 +264,16 @@ function accountSegmentEquals(left: string, right: string): boolean {
   }
 }
 
+/** The shelf itself, not an article on it. */
+export function isWritingShelfPath(
+  accountId: string,
+  pathname: string | null | undefined
+): boolean {
+  const path = (pathname ?? '').split('?')[0] ?? '';
+  const shelf = writingPath(accountId);
+  return path === shelf || path === `${shelf}/`;
+}
+
 /** Already on this author's Writing shelf or one of their articles. */
 export function isAccountWritingPlace(
   accountId: string,

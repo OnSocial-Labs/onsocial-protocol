@@ -12,6 +12,7 @@ import {
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { useListScrollRestore } from '@/hooks/use-list-scroll-restore';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import {
@@ -45,10 +46,13 @@ import {
   readDiscoverTabScroll,
   readElementScrollTop,
   rememberDiscoverTabScroll,
-  scheduleDiscoverTabScrollRestore,
-  writeElementScrollTop,
   type DiscoverTabScrollMap,
 } from '@/lib/discover-tab-scroll';
+import {
+  createListScrollMemory,
+  resetListScrollMemory,
+  scrollTopToPersist,
+} from '@/lib/list-scroll-restore';
 import type { DiscoverFaceFilter } from '@onsocial/sdk';
 import {
   applyDiscoverFilterParams,
@@ -218,12 +222,11 @@ export function useDiscoverProfiles(
   );
   const restoredSession = restoredSessionRef.current;
   const sessionRestoreReloadNonceRef = useRef(0);
-  const pendingScrollTopRef = useRef<number | null>(
-    restoredSession
-      ? readDiscoverTabScroll(restoredSession.tabScroll, tab) || null
-      : null
+  const scrollMemoryRef = useRef(
+    createListScrollMemory(
+      restoredSession ? readDiscoverTabScroll(restoredSession.tabScroll, tab) : 0
+    )
   );
-  const restoredTabRef = useRef(tab);
   const [profiles, setProfiles] = useState<DiscoverProfileSummary[]>(
     () => restoredSession?.profiles ?? initialPage?.profiles ?? []
   );
@@ -284,12 +287,12 @@ export function useDiscoverProfiles(
     });
   }, [craft, face, hasMore, industry, normalizedQuery, profiles, tab]);
   useEffect(() => {
-    const scrollRoot = scrollRootRef?.current ?? null;
     return () => {
+      const live = readElementScrollTop(scrollRootRef?.current);
       const tabScroll = rememberDiscoverTabScroll(
         tabScrollRef.current,
         tabRef.current,
-        readElementScrollTop(scrollRoot)
+        scrollTopToPersist(scrollMemoryRef.current, live)
       );
       writeDiscoverListSession({
         sessionKey: sessionKeyRef.current,
@@ -303,10 +306,15 @@ export function useDiscoverProfiles(
   const commitTab = useCallback(
     (current: DiscoverTab, next: DiscoverTab): DiscoverTab => {
       if (current === next) return current;
+      const live = readElementScrollTop(scrollRootRef?.current);
       tabScrollRef.current = rememberDiscoverTabScroll(
         tabScrollRef.current,
         current,
-        readElementScrollTop(scrollRootRef?.current)
+        scrollTopToPersist(scrollMemoryRef.current, live)
+      );
+      resetListScrollMemory(
+        scrollMemoryRef.current,
+        readDiscoverTabScroll(tabScrollRef.current, next)
       );
       return next;
     },
@@ -319,25 +327,11 @@ export function useDiscoverProfiles(
     [commitTab]
   );
 
-  useLayoutEffect(() => {
-    if (tab !== restoredTabRef.current) {
-      pendingScrollTopRef.current = null;
-    }
-    const pending = pendingScrollTopRef.current;
-    if (pending != null) {
-      const node = scrollRootRef?.current;
-      if (!node) return undefined;
-      writeElementScrollTop(node, pending);
-      if (node.scrollTop > 0 || node.scrollHeight > pending) {
-        pendingScrollTopRef.current = null;
-      }
-      return undefined;
-    }
-    return scheduleDiscoverTabScrollRestore(
-      scrollRootRef?.current,
-      readDiscoverTabScroll(tabScrollRef.current, tab)
-    );
-  }, [profiles.length, scrollRootRef, tab]);
+  useListScrollRestore(
+    scrollRootRef,
+    scrollMemoryRef,
+    `${tab}:${profiles.length}`
+  );
 
   const skipFilterScrollResetRef = useRef(true);
   useEffect(() => {
@@ -346,6 +340,7 @@ export function useDiscoverProfiles(
       return;
     }
     tabScrollRef.current = {};
+    resetListScrollMemory(scrollMemoryRef.current, 0);
   }, [face, industry, craft, normalizedQuery]);
 
   const setFace = useCallback((next: DiscoverFaceFilter) => {

@@ -41,11 +41,15 @@ export interface OsPageSheetProps {
   moodStyle?: CSSProperties;
   dragDismiss?: boolean;
   portalContainer?: HTMLElement | null;
+  /** Extra class on the portaled root (park a sheet without unmounting it). */
+  rootClassName?: string;
   /**
    * Keep the portfolio summon dock visible (Propose / compose). Default false —
    * overlays tuck the dock.
    */
   keepDock?: boolean;
+  /** When false, the page under the sheet can still scroll. Default true. */
+  lockScroll?: boolean;
 }
 
 /**
@@ -72,9 +76,11 @@ export function OsPageSheet({
   moodStyle,
   dragDismiss = false,
   portalContainer,
+  rootClassName,
   keepDock = false,
+  lockScroll = true,
 }: OsPageSheetProps) {
-  useScrollLock(open);
+  useScrollLock(open && lockScroll);
 
   const mergedPanelStyle =
     moodStyle || panelStyle
@@ -98,6 +104,7 @@ export function OsPageSheet({
       bodyRef={bodyRef}
       bodyClassName={bodyClassName}
       panelClassName={cn(osPageSheetPanelClassName, panelClassName)}
+      rootClassName={rootClassName}
       keepDock={keepDock}
       {...(mergedPanelStyle ? { panelStyle: mergedPanelStyle } : {})}
       {...(moodId ? { moodId } : {})}

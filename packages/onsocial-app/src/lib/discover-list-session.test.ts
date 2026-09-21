@@ -118,7 +118,7 @@ describe('discover list session snapshot', () => {
 });
 
 describe('discover list session wiring', () => {
-  it('restores from memory on remount and paints before awaited SSR', () => {
+  it('restores from memory on remount without a second server paint', () => {
     const libDir = dirname(fileURLToPath(import.meta.url));
     const hookSrc = readFileSync(
       join(libDir, '../hooks/use-discover-profiles.ts'),
@@ -133,8 +133,8 @@ describe('discover list session wiring', () => {
     expect(hookSrc).toContain('skipFilterScrollResetRef');
     expect(hookSrc).not.toContain('localStorage');
     expect(hookSrc).not.toContain('sessionStorage.setItem');
-    expect(routeSrc).toContain('fallback={<DiscoverClient />}');
-    expect(routeSrc).toContain('DiscoverPaintedPage');
-    expect(routeSrc).toContain("dynamic = 'force-dynamic'");
+    expect(routeSrc).toContain('DiscoverPagePanel');
+    expect(routeSrc).not.toContain('fallback={<DiscoverClient />}');
+    expect(routeSrc).not.toContain("dynamic = 'force-dynamic'");
   });
 });

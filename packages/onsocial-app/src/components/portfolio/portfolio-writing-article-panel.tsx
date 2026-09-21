@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type Ref } from 'react';
+import { useMemo, useState, type MouseEvent, type Ref } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
@@ -38,6 +38,7 @@ import {
 } from '@/lib/article-post-payload';
 import type { WritingArticleCoverHint } from '@/lib/hydrate-writing-article-covers';
 import {
+  isWritingShelfPath,
   portfolioFromEssayPath,
   writingArticlePath,
   writingFromArticleHref,
@@ -70,6 +71,11 @@ export type PortfolioWritingArticlePanelProps = {
   showAuthor?: boolean;
   /** Optional page title node (unused by quiet article chrome). */
   titleRef?: Ref<HTMLHeadingElement>;
+  /**
+   * This author's shelf is already open under the reader.
+   * Writing closes back onto that list instead of pushing another one.
+   */
+  onReturnToShelf?: () => void;
 };
 
 export function PortfolioWritingArticleActions({
@@ -259,6 +265,7 @@ export function PortfolioWritingArticlePanel({
   showActions = true,
   showAuthor = true,
   titleRef,
+  onReturnToShelf,
 }: PortfolioWritingArticlePanelProps) {
   const article = parseArticleSnapshot(post.value);
   const cover = resolveArticleCover({
@@ -281,6 +288,21 @@ export function PortfolioWritingArticlePanel({
     pathname,
     returnSearch
   );
+  const shelfAlreadyOpen = isWritingShelfPath(accountId, pathname);
+  const onWritingClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      event.button !== 0
+    ) {
+      return;
+    }
+    if (!shelfAlreadyOpen) return;
+    event.preventDefault();
+    onReturnToShelf?.();
+  };
   const { accountId: viewerAccountId } = useAppWallet();
   const { engagement } = usePostEngagement([post]);
   const row = engagement[postKey(post)] ?? EMPTY_POST_ENGAGEMENT;
@@ -376,7 +398,9 @@ export function PortfolioWritingArticlePanel({
               </time>
             ) : null}
             <p className="portfolio-writing-byline">
-              <AccountPlaceLink href={writingHref}>Writing</AccountPlaceLink>
+              <AccountPlaceLink href={writingHref} onClick={onWritingClick}>
+                Writing
+              </AccountPlaceLink>
               {readLabel ? (
                 <>
                   <span className="portfolio-writing-byline-sep" aria-hidden>

@@ -19,7 +19,7 @@ let findScrollContainer: ScrollLockContainerFinder = () => {
     // Overlay pages own their scroller — lock the screen behind them, never the slide / glass.
     if (
       body.closest(
-        '.os-slide-over, [data-os-slide-over="true"], .glass-sheet-root, .os-launcher-root'
+        '.os-slide-over, [data-os-slide-over="true"], .glass-sheet-root, .os-launcher-root, [data-feed-session="covered"]'
       )
     ) {
       continue;

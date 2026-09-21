@@ -168,6 +168,20 @@ export function OsSlideOverScreen({
     getServerMountedSnapshot
   );
   const registeredHost = useOsPortalHost();
+  /**
+   * Stay on the screen that opened this layer. A later screen (the author)
+   * must not pull an open article out of the hidden feed.
+   */
+  const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
+  let nextPortalHost = portalHost;
+  if (!renderOpen || viewport) {
+    nextPortalHost = null;
+  } else if (portalHost == null || !portalHost.isConnected) {
+    nextPortalHost = registeredHost;
+  }
+  if (nextPortalHost !== portalHost) {
+    setPortalHost(nextPortalHost);
+  }
   const viewerMood = useViewerDockMood();
   const resolvedMoodId = moodId !== undefined ? moodId : viewerMood.moodId;
   const resolvedMoodStyle =
@@ -189,7 +203,14 @@ export function OsSlideOverScreen({
 
   const layerOpen = renderOpen && !closing;
   const hasFooter = footer != null;
-  useScrollLock(renderOpen);
+  /**
+   * The article stays mounted under a covered Home feed. It must not lock
+   * the page in front, or take Escape, until that feed is on screen again.
+   */
+  const parked = Boolean(
+    nextPortalHost?.closest('[data-feed-session="covered"]')
+  );
+  useScrollLock(renderOpen && !parked);
 
   const finishExit = useCallback(() => {
     setClosing(false);
@@ -218,7 +239,7 @@ export function OsSlideOverScreen({
   }, [layerOpen]);
 
   useEffect(() => {
-    if (!layerOpen) return;
+    if (!layerOpen || parked) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       if (event.defaultPrevented) return;
@@ -227,7 +248,7 @@ export function OsSlideOverScreen({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [layerOpen, requestClose]);
+  }, [layerOpen, parked, requestClose]);
 
   useOsScreenChromeHeightSync({ enabled: renderOpen, headerRef });
 
@@ -257,13 +278,13 @@ export function OsSlideOverScreen({
 
   if (!mounted || !renderOpen) return null;
 
-  const portalHost =
+  const portalTarget =
     typeof document !== 'undefined'
-      ? viewport || !registeredHost
+      ? viewport || !nextPortalHost
         ? document.body
-        : registeredHost
+        : nextPortalHost
       : null;
-  if (!portalHost) return null;
+  if (!portalTarget) return null;
 
   const rootStyle: CSSProperties = {
     ...resolvedMoodStyle,
@@ -378,6 +399,6 @@ export function OsSlideOverScreen({
         </div>
       </div>
     </OsSlideOverCloseContext.Provider>,
-    portalHost
+    portalTarget
   );
 }

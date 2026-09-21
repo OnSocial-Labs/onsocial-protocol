@@ -23,6 +23,7 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppAccountSheet } from '@/contexts/app-account-sheet-context';
 import { useActivityPostSnippets } from '@/hooks/use-activity-post-snippets';
+import { useListScrollRestore } from '@/hooks/use-list-scroll-restore';
 import { useCollectionDisplayNames } from '@/hooks/use-collection-display-names';
 import { useGuildDisplayNames } from '@/hooks/use-guild-display-names';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -42,6 +43,11 @@ import {
   writeActivityInboxSession,
 } from '@/lib/activity-inbox-session';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
+import {
+  createListScrollMemory,
+  resetListScrollMemory,
+  scrollTopToPersist,
+} from '@/lib/list-scroll-restore';
 import {
   NotificationActivityAppendSkeleton,
   NotificationActivityRows,
@@ -96,11 +102,8 @@ export function NotificationsPanel() {
   const itemsRef = useRef(items);
   const nextCursorRef = useRef(nextCursor);
   const scrollRootRef = useRef<HTMLElement | null>(null);
-  const lastScrollTopRef = useRef(restoredSession?.scrollTop ?? 0);
-  const pendingScrollTopRef = useRef<number | null>(
-    restoredSession && restoredSession.scrollTop > 0
-      ? restoredSession.scrollTop
-      : null
+  const scrollMemoryRef = useRef(
+    createListScrollMemory(restoredSession?.scrollTop ?? 0)
   );
 
   useLayoutEffect(() => {
@@ -110,43 +113,18 @@ export function NotificationsPanel() {
   }, [accountId, items, nextCursor]);
 
   useEffect(() => {
-    const scrollRoot = scrollRootRef.current;
     return () => {
+      const live = scrollRootRef.current?.scrollTop ?? 0;
       writeActivityInboxSession({
         accountId: accountIdRef.current,
         items: itemsRef.current,
         nextCursor: nextCursorRef.current,
-        scrollTop: scrollRoot ? scrollRoot.scrollTop : lastScrollTopRef.current,
+        scrollTop: scrollTopToPersist(scrollMemoryRef.current, live),
       });
     };
   }, []);
 
-  useLayoutEffect(() => {
-    const top = pendingScrollTopRef.current;
-    const node = scrollRootRef.current;
-    if (!node) return;
-    if (top != null) {
-      node.scrollTop = top;
-      if (node.scrollTop > 0 || node.scrollHeight > top) {
-        pendingScrollTopRef.current = null;
-      }
-    }
-    lastScrollTopRef.current = node.scrollTop;
-  }, [items?.length]);
-
-  useEffect(() => {
-    const node = scrollRootRef.current;
-    if (!node) return undefined;
-    const record = () => {
-      lastScrollTopRef.current = node.scrollTop;
-    };
-    record();
-    node.addEventListener('scroll', record, { passive: true });
-    return () => {
-      record();
-      node.removeEventListener('scroll', record);
-    };
-  }, [items?.length]);
+  useListScrollRestore(scrollRootRef, scrollMemoryRef, items?.length);
 
   useEffect(() => {
     accountGenRef.current += 1;
@@ -240,7 +218,7 @@ export function NotificationsPanel() {
       restoredSessionRef.current = null;
       setItems(null);
       setNextCursor(null);
-      pendingScrollTopRef.current = null;
+      resetListScrollMemory(scrollMemoryRef.current, 0);
     } else if (restored) {
       const matched = readActivityInboxSession(accountId);
       if (matched) {

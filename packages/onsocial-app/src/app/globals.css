@@ -397,6 +397,11 @@
 }
 
 .glass-sheet-panel.guild-composer-sheet-panel .os-app-screen--embedded,
+.glass-sheet-root.post-thread-sheet-parked {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .glass-sheet-panel.post-thread-sheet-panel .os-app-screen--embedded,
 .glass-sheet-panel.drop-sheet-panel .os-app-screen--embedded {
   flex: 1 1 auto;
@@ -418,6 +423,14 @@
   flex: 1 1 auto;
   padding: 0;
   overflow: hidden;
+}
+
+.glass-sheet-panel.post-thread-sheet-panel .post-thread-sheet-fill {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
 }
 
 .glass-sheet-panel.leaderboard-page-sheet .os-app-screen--embedded {
@@ -13524,21 +13537,40 @@ a.os-surface-row {
    * The page drawer keeps the dock via keepDock (data-keep-dock) — any sheet
    * without it tucks the dock, including sheets opened above the drawer.
    * Slide-overs with data-keep-dock (feed video enlarge) keep the dock too.
+   * An article left open on the hidden Home feed is not a sheet on this page.
    */
-  body:has([data-os-slide-over='true']:not([data-keep-dock='true']))
+  body:has(
+      [data-os-slide-over='true']:not([data-keep-dock='true']):not(
+          [data-feed-session='covered'] *
+        )
+    )
     .portfolio-os-layer
     > .portfolio-summon-dock,
-  body:has([data-os-slide-over='true']:not([data-keep-dock='true']))
+  body:has(
+      [data-os-slide-over='true']:not([data-keep-dock='true']):not(
+          [data-feed-session='covered'] *
+        )
+    )
     .os-app-screen
     > .portfolio-summon-dock,
   body:has(
-      .os-slide-over[data-viewport='true']:not([data-keep-dock='true'])
+      .os-slide-over[data-viewport='true']:not([data-keep-dock='true']):not(
+          [data-feed-session='covered'] *
+        )
     )
     .portfolio-summon-dock,
-  body:has(.glass-sheet-root:not([data-keep-dock='true']))
+  body:has(
+      .glass-sheet-root:not([data-keep-dock='true']):not(
+          [data-feed-session='covered'] *
+        )
+    )
     .portfolio-os-layer
     > .portfolio-summon-dock,
-  body:has(.glass-sheet-root:not([data-keep-dock='true']))
+  body:has(
+      .glass-sheet-root:not([data-keep-dock='true']):not(
+          [data-feed-session='covered'] *
+        )
+    )
     .os-app-screen
     > .portfolio-summon-dock,
   body:has(.os-launcher-root) .portfolio-summon-dock {
@@ -13548,24 +13580,42 @@ a.os-surface-row {
     pointer-events: none;
   }
 
-  body:has([data-os-slide-over='true']:not([data-keep-dock='true']))
+  body:has(
+      [data-os-slide-over='true']:not([data-keep-dock='true']):not(
+          [data-feed-session='covered'] *
+        )
+    )
     .portfolio-os-layer
     > .portfolio-summon-dock
     .portfolio-summon,
-  body:has([data-os-slide-over='true']:not([data-keep-dock='true']))
+  body:has(
+      [data-os-slide-over='true']:not([data-keep-dock='true']):not(
+          [data-feed-session='covered'] *
+        )
+    )
     .os-app-screen
     > .portfolio-summon-dock
     .portfolio-summon,
   body:has(
-      .os-slide-over[data-viewport='true']:not([data-keep-dock='true'])
+      .os-slide-over[data-viewport='true']:not([data-keep-dock='true']):not(
+          [data-feed-session='covered'] *
+        )
     )
     .portfolio-summon-dock
     .portfolio-summon,
-  body:has(.glass-sheet-root:not([data-keep-dock='true']))
+  body:has(
+      .glass-sheet-root:not([data-keep-dock='true']):not(
+          [data-feed-session='covered'] *
+        )
+    )
     .portfolio-os-layer
     > .portfolio-summon-dock
     .portfolio-summon,
-  body:has(.glass-sheet-root:not([data-keep-dock='true']))
+  body:has(
+      .glass-sheet-root:not([data-keep-dock='true']):not(
+          [data-feed-session='covered'] *
+        )
+    )
     .os-app-screen
     > .portfolio-summon-dock
     .portfolio-summon,
@@ -41051,6 +41101,20 @@ body:has(.feed-photo-slide--thread)
         26%,
       rgb(var(--fg-rgb) / 0.06)
     );
+  }
+
+  /*
+   * Post and drop pages fill the phone. The card border belongs on the home
+   * screen, not on this inner screen — a short thread would otherwise stop
+   * mid-page and draw the rounded bottom lip.
+   */
+  .glass-sheet-panel.post-thread-sheet-panel
+    .os-app-screen.app-surface.os-app-screen--embedded,
+  .glass-sheet-panel.drop-sheet-panel
+    .os-app-screen.app-surface.os-app-screen--embedded {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
 }
 

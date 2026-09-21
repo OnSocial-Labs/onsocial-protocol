@@ -3,6 +3,10 @@
 import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { PortfolioGlassHost } from '@/components/overlay/portfolio-glass-host';
+import {
+  PortfolioPanelContinue,
+  PortfolioShelfHopFrame,
+} from '@/components/portfolio/portfolio-panel-continue';
 import { PortfolioProfileSeedProvider } from '@/contexts/portfolio-profile-seed-context';
 import { WritingComposeProvider } from '@/contexts/writing-compose-context';
 import { parseOverlayPanelKey } from '@/lib/overlay-routes';
@@ -25,7 +29,8 @@ export function AccountLayoutClient({
   return (
     <PortfolioProfileSeedProvider>
       <WritingComposeProvider>
-        {children}
+        <PortfolioShelfHopFrame>{children}</PortfolioShelfHopFrame>
+        <PortfolioPanelContinue accountId={accountId} />
         {feedInlineRedirect ? (
           overlay
         ) : (

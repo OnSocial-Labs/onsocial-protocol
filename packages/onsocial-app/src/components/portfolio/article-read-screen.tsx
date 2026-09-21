@@ -49,6 +49,7 @@ function ArticleReadBody(
           coverHint={panel.coverHint}
           showActions={false}
           showAuthor
+          onReturnToShelf={panel.onReturnToShelf}
         />
       </div>
     </>
