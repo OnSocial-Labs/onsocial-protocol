@@ -60,6 +60,19 @@ export function searchField(page: Page, name: string | RegExp): Locator {
   return page.getByRole('textbox', { name });
 }
 
+/**
+ * Writing / Discover search tucks the nav row (`overflow: hidden`, height 0)
+ * which drops the textbox from the a11y tree. Scroll the screen body to top
+ * so dock auto-hide reveals it.
+ */
+export async function revealChromeSearch(page: Page): Promise<void> {
+  const body = page.locator('.os-app-screen-body').first();
+  if ((await body.count()) === 0) return;
+  await body.evaluate((el) => {
+    el.scrollTop = 0;
+  });
+}
+
 export async function expectSearchVisible(
   page: Page,
   name: string | RegExp,
