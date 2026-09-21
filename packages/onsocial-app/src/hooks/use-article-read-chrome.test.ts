@@ -89,6 +89,8 @@ describe('shouldIgnoreArticleChromeTap', () => {
 describe('isArticleChromeTapTarget', () => {
   it('rejects non-elements', () => {
     expect(isArticleChromeTapTarget(null)).toBe(false);
-    expect(isArticleChromeTapTarget('p')).toBe(false);
+    expect(
+      isArticleChromeTapTarget('p' as unknown as EventTarget)
+    ).toBe(false);
   });
 });
