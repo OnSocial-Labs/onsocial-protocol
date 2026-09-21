@@ -28,7 +28,8 @@ describe('feed session host wiring', () => {
 
     expect(host).toContain('HomePagePanel');
     expect(host).toContain("visibility: 'hidden'");
-    expect(host).toContain('if (onFeed) setMounted(true)');
+    expect(host).toContain('if (onFeed && !mounted)');
+    expect(host).toContain('setMounted(true)');
     expect(host).toContain('data-feed-session');
     expect(providers).toContain('FeedSessionHost');
     expect(route).not.toContain('HomePagePanel');
