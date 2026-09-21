@@ -1,23 +1,12 @@
-import { APP_HOME_PATH } from '@/lib/app-routes';
 import {
   EMPTY_OS_FACE_LEAVE_STATE,
-  peekOsFaceLeaveHref,
-  reduceOsFaceLeaveConsume,
-  reduceOsFaceLeaveHop,
   type OsFaceLeaveState,
 } from '@/lib/os-face-leave';
 
 const STACK_KEY = 'onsocial.os.face-leave-stack';
 const LAST_KEY = 'onsocial.os.face-leave-last';
 
-let state: OsFaceLeaveState = loadState();
-const listeners = new Set<() => void>();
-
-function emit(): void {
-  for (const listener of listeners) listener();
-}
-
-function loadState(): OsFaceLeaveState {
+export function loadOsFaceLeaveState(): OsFaceLeaveState {
   if (typeof sessionStorage === 'undefined') {
     return { ...EMPTY_OS_FACE_LEAVE_STATE };
   }
@@ -37,9 +26,7 @@ function loadState(): OsFaceLeaveState {
   }
 }
 
-function persist(next: OsFaceLeaveState): void {
-  state = next;
-  emit();
+export function persistOsFaceLeaveState(next: OsFaceLeaveState): void {
   if (typeof sessionStorage === 'undefined') return;
   try {
     if (next.lastHref) sessionStorage.setItem(LAST_KEY, next.lastHref);
@@ -50,34 +37,6 @@ function persist(next: OsFaceLeaveState): void {
   }
 }
 
-export function subscribeOsFaceLeave(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
+export function clearOsFaceLeaveStorageForTests(): void {
+  persistOsFaceLeaveState({ ...EMPTY_OS_FACE_LEAVE_STATE });
 }
-
-export function readOsFaceLeaveHref(): string {
-  return peekOsFaceLeaveHref(state);
-}
-
-export function applyOsFaceLeaveHop(href: string): void {
-  persist(reduceOsFaceLeaveHop(state, href));
-}
-
-/** Dock Back — parent origin, else Home. Marks the hop as a leave so we do not re-push. */
-export function consumeOsFaceLeaveHref(): string {
-  const next = reduceOsFaceLeaveConsume(state);
-  persist(next.state);
-  return next.href;
-}
-
-export function clearOsFaceLeaveForTests(): void {
-  persist({ ...EMPTY_OS_FACE_LEAVE_STATE });
-}
-
-export function readOsFaceLeaveStateForTests(): OsFaceLeaveState {
-  return state;
-}
-
-export { APP_HOME_PATH };

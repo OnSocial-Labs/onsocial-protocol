@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
@@ -24,13 +23,13 @@ import {
   type DockBackRegistration,
 } from '@/contexts/dock-chrome-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
+import { useOsFaceLeave } from '@/components/providers/os-face-leave-provider';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
-import { APP_HOME_PATH } from '@/lib/app-routes';
 import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
 import { ownerPortfolioOsApps, visitorPortfolioOsApps } from '@/lib/os-apps';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
@@ -38,24 +37,11 @@ import { SummonLauncher } from '@/components/os/summon-launcher';
 import { PortfolioSummonComposeButton } from '@/components/portfolio/portfolio-summon-compose-button';
 import { OsDockBackZone } from '@/components/wallet/os-dock-back-zone';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
-import {
-  consumeOsFaceLeaveHref,
-  readOsFaceLeaveHref,
-  subscribeOsFaceLeave,
-} from '@/lib/os-face-leave-store';
 
 const DOCK_HINT_KEY = 'onpage-portfolio-dock-hint-seen';
 const LONG_PRESS_MS = 480;
 const SWIPE_UP_PX = 28;
 const TAP_SLOP_PX = 12;
-
-function useFaceLeaveHref(): string {
-  return useSyncExternalStore(
-    subscribeOsFaceLeave,
-    readOsFaceLeaveHref,
-    () => APP_HOME_PATH
-  );
-}
 
 export interface PortfolioSummonDockProps {
   pageAccountId: string;
@@ -91,11 +77,11 @@ export function PortfolioSummonDock({
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
   const registeredDockBack = useDockBack();
-  const faceLeaveHref = useFaceLeaveHref();
+  const { leaveHref: faceLeaveHref, consumeLeave } = useOsFaceLeave();
   const router = useRouter();
   const leaveToOrigin = useCallback(() => {
-    router.push(consumeOsFaceLeaveHref());
-  }, [router]);
+    router.push(consumeLeave());
+  }, [consumeLeave, router]);
   const faceDockBack = useMemo<DockBackRegistration>(
     () => ({
       fallbackHref: faceLeaveHref,

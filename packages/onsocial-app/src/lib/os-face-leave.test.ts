@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { APP_HOME_PATH } from '@/lib/app-routes';
 import {
   EMPTY_OS_FACE_LEAVE_STATE,
@@ -13,21 +13,44 @@ import {
   type OsFaceLeaveState,
 } from './os-face-leave';
 import {
-  applyOsFaceLeaveHop,
-  clearOsFaceLeaveForTests,
-  consumeOsFaceLeaveHref,
-  readOsFaceLeaveHref,
+  clearOsFaceLeaveStorageForTests,
+  loadOsFaceLeaveState,
+  persistOsFaceLeaveState,
 } from './os-face-leave-store';
-
-afterEach(() => {
-  clearOsFaceLeaveForTests();
-});
 
 function hop(
   href: string,
   state: OsFaceLeaveState = EMPTY_OS_FACE_LEAVE_STATE
 ): OsFaceLeaveState {
   return reduceOsFaceLeaveHop(state, href);
+}
+
+function installMemorySession() {
+  const data = new Map<string, string>();
+  const storage = {
+    get length() {
+      return data.size;
+    },
+    clear() {
+      data.clear();
+    },
+    getItem(key: string) {
+      return data.get(key) ?? null;
+    },
+    key(index: number) {
+      return [...data.keys()][index] ?? null;
+    },
+    removeItem(key: string) {
+      data.delete(key);
+    },
+    setItem(key: string, value: string) {
+      data.set(key, String(value));
+    },
+  } satisfies Storage;
+  Object.defineProperty(globalThis, 'sessionStorage', {
+    configurable: true,
+    value: storage,
+  });
 }
 
 describe('normalizeOsLeaveHref', () => {
@@ -100,19 +123,31 @@ describe('os face leave hop', () => {
   });
 });
 
-describe('os face leave store', () => {
-  it('round-trips Discover → face → consume', () => {
-    applyOsFaceLeaveHop('/discover');
-    applyOsFaceLeaveHop('/@alice.near');
-    expect(readOsFaceLeaveHref()).toBe('/discover');
-    expect(consumeOsFaceLeaveHref()).toBe('/discover');
-    applyOsFaceLeaveHop('/discover');
-    expect(readOsFaceLeaveHref()).toBe(APP_HOME_PATH);
+describe('os face leave persist', () => {
+  beforeEach(() => {
+    installMemorySession();
+    clearOsFaceLeaveStorageForTests();
+  });
+
+  afterEach(() => {
+    clearOsFaceLeaveStorageForTests();
+  });
+
+  it('round-trips Discover → face → consume through sessionStorage', () => {
+    const onFace = hop('/@alice.near', hop('/discover'));
+    persistOsFaceLeaveState(onFace);
+    const loaded = loadOsFaceLeaveState();
+    expect(peekOsFaceLeaveHref(loaded)).toBe('/discover');
+    const consumed = reduceOsFaceLeaveConsume(loaded);
+    persistOsFaceLeaveState(consumed.state);
+    expect(consumed.href).toBe('/discover');
+    persistOsFaceLeaveState(hop('/discover', consumed.state));
+    expect(peekOsFaceLeaveHref(loadOsFaceLeaveState())).toBe(APP_HOME_PATH);
   });
 });
 
 describe('os face leave wiring', () => {
-  it('tracks hops in providers and consumes on the face dock', () => {
+  it('tracks hops in the layout provider and consumes on the face dock', () => {
     const libDir = dirname(fileURLToPath(import.meta.url));
     const dock = readFileSync(
       join(libDir, '../components/portfolio/portfolio-summon-dock.tsx'),
@@ -122,8 +157,9 @@ describe('os face leave wiring', () => {
       join(libDir, '../components/providers/app-providers.tsx'),
       'utf8'
     );
-    expect(dock).toContain('consumeOsFaceLeaveHref');
-    expect(dock).toContain('readOsFaceLeaveHref');
-    expect(providers).toContain('OsFaceLeaveTracker');
+    expect(dock).toContain('useOsFaceLeave');
+    expect(dock).toContain('consumeLeave');
+    expect(providers).toContain('OsFaceLeaveProvider');
+    expect(providers).not.toContain('OsFaceLeaveTracker');
   });
 });

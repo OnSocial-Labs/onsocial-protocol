@@ -32,7 +32,7 @@ import { ViewerProfileShellProvider } from '@/contexts/viewer-profile-shell-cont
 import { ViewerWalletMoodProvider } from '@/contexts/viewer-wallet-mood-context';
 import { DropComposeHost } from '@/features/scarces/drop-compose-host';
 import { ViewerMuteBlockHost } from '@/components/providers/viewer-mute-block-host';
-import { OsFaceLeaveTracker } from '@/components/providers/os-face-leave-tracker';
+import { OsFaceLeaveProvider } from '@/components/providers/os-face-leave-provider';
 import { DmUnreadHost } from '@/components/providers/dm-unread-host';
 import { NotificationsHost } from '@/components/providers/notifications-host';
 import { AppSmoothScrollProvider } from '@/components/providers/app-smooth-scroll-provider';
@@ -75,36 +75,35 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                         <PortfolioCustomizeProvider>
                           <ComposeLauncherProvider>
                             <DockChromeProvider>
-                              <Suspense fallback={null}>
-                                <OsFaceLeaveTracker />
-                              </Suspense>
-                              <OsPortalHostProvider>
-                                <OsGlassSheetPortalBridge>
-                                  <BoostSheetProvider>
-                                    <RallySheetProvider>
-                                      <PostThreadLayerProvider>
-                                        <CollectiblesNowPlayingProvider>
-                                          <DmUnreadHost>
-                                            <NotificationsHost>
-                                              <WebPushProvider>
-                                                {children}
-                                                <ViewerMuteBlockHost />
-                                                <DropComposeHost />
-                                                <Suspense fallback={null}>
-                                                  <WalletSheetDeepLink />
-                                                  <BoostSheetDeepLink />
-                                                  <RallySheetDeepLink />
-                                                </Suspense>
-                                                <AppAccountSheetHost />
-                                              </WebPushProvider>
-                                            </NotificationsHost>
-                                          </DmUnreadHost>
-                                        </CollectiblesNowPlayingProvider>
-                                      </PostThreadLayerProvider>
-                                    </RallySheetProvider>
-                                  </BoostSheetProvider>
-                                </OsGlassSheetPortalBridge>
-                              </OsPortalHostProvider>
+                              <OsFaceLeaveProvider>
+                                <OsPortalHostProvider>
+                                  <OsGlassSheetPortalBridge>
+                                    <BoostSheetProvider>
+                                      <RallySheetProvider>
+                                        <PostThreadLayerProvider>
+                                          <CollectiblesNowPlayingProvider>
+                                            <DmUnreadHost>
+                                              <NotificationsHost>
+                                                <WebPushProvider>
+                                                  {children}
+                                                  <ViewerMuteBlockHost />
+                                                  <DropComposeHost />
+                                                  <Suspense fallback={null}>
+                                                    <WalletSheetDeepLink />
+                                                    <BoostSheetDeepLink />
+                                                    <RallySheetDeepLink />
+                                                  </Suspense>
+                                                  <AppAccountSheetHost />
+                                                </WebPushProvider>
+                                              </NotificationsHost>
+                                            </DmUnreadHost>
+                                          </CollectiblesNowPlayingProvider>
+                                        </PostThreadLayerProvider>
+                                      </RallySheetProvider>
+                                    </BoostSheetProvider>
+                                  </OsGlassSheetPortalBridge>
+                                </OsPortalHostProvider>
+                              </OsFaceLeaveProvider>
                             </DockChromeProvider>
                           </ComposeLauncherProvider>
                         </PortfolioCustomizeProvider>
