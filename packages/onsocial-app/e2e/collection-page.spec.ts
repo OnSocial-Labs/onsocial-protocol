@@ -9,6 +9,7 @@ import {
 import {
   COLLECTION_E2E_VIEWER,
   collectionPageRoot,
+  collectionPageSkeleton,
   expectCollectionHolderChrome,
   expectCollectionPageSettled,
   expectCollectionVisitorChrome,
@@ -25,7 +26,7 @@ test.describe('collection drop page', () => {
   }) => {
     await stubCollectionPageGraph(page, { catalogDelayMs: 2500 });
     await gotoApp(page, '/collection/night-drive');
-    await expect(page.locator('[data-collection-page-skeleton]')).toBeVisible({
+    await expect(collectionPageSkeleton(page).first()).toBeVisible({
       timeout: 8_000,
     });
     await expect(page.getByText('This drop isn’t available.')).toHaveCount(0);
@@ -34,9 +35,7 @@ test.describe('collection drop page', () => {
     ).toHaveText('Night Drive', {
       timeout: 12_000,
     });
-    await expect(page.locator('[data-collection-page-skeleton]')).toHaveCount(
-      0
-    );
+    await expect(collectionPageSkeleton(page)).toHaveCount(0);
   });
 
   test('SSR catalog hit paints Night Drive without the skeleton', async ({
@@ -60,9 +59,7 @@ test.describe('collection drop page', () => {
     await expect(page.getByText('This drop isn’t available.')).toBeVisible({
       timeout: 12_000,
     });
-    await expect(page.locator('[data-collection-page-skeleton]')).toHaveCount(
-      0
-    );
+    await expect(collectionPageSkeleton(page)).toHaveCount(0);
   });
 
   test('visitor audio drop keeps commerce first', async ({ page }) => {

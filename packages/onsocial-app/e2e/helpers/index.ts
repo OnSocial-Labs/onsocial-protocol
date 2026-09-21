@@ -45,6 +45,7 @@ export {
   expectSearchHidden,
   expectSearchVisible,
   typeDiscoverPeopleSearch,
+  revealChromeSearch,
   expectTabSelected,
   expectTabVisible,
   searchField,

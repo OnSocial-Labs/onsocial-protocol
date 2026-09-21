@@ -117,13 +117,21 @@ export async function seedE2eWallet(
   );
 }
 
+/**
+ * Loading.tsx and the panel skeleton can both be mounted during the
+ * SSR-miss handoff — never use strict `toBeVisible()` on this locator.
+ */
+export function collectionPageSkeleton(page: Page): Locator {
+  return page.locator('[data-collection-page-skeleton]');
+}
+
 /** Settled drop shell — excludes loading.tsx / SSR-miss skeletons. */
 export function collectionPageRoot(page: Page): Locator {
   return page.locator('.collection-page:not(.collection-page--skeleton)');
 }
 
 export async function expectCollectionPageSettled(page: Page): Promise<void> {
-  await expect(page.locator('[data-collection-page-skeleton]')).toHaveCount(0, {
+  await expect(collectionPageSkeleton(page)).toHaveCount(0, {
     timeout: E2E_CHROME_TIMEOUT_MS,
   });
   await expect(collectionPageRoot(page)).toHaveCount(1);

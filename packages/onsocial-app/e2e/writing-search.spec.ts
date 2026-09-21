@@ -4,6 +4,7 @@ import {
   dismissNextDevOverlay,
   e2ePortfolioAccountId,
   gotoApp,
+  revealChromeSearch,
   searchField,
   waitForPortfolioClientReady,
 } from './helpers';
@@ -19,13 +20,14 @@ test.describe('Writing shelf search', () => {
     await gotoApp(page, writingPath);
     await waitForPortfolioClientReady(page);
     await dismissNextDevOverlay(page);
+    await expect(page.getByRole('link', { name: 'Night drive' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await revealChromeSearch(page);
 
     const field = searchField(page, 'Search writing');
     await expect(field).toBeVisible({ timeout: 30_000 });
     await expect(field).toHaveAttribute('type', 'text');
-    await expect(page.getByRole('link', { name: 'Night drive' })).toBeVisible({
-      timeout: 30_000,
-    });
     await expect(page.getByRole('link', { name: 'Quiet print' })).toBeVisible();
     await expect(
       page.getByRole('link', { name: 'Tokyo lights' })
