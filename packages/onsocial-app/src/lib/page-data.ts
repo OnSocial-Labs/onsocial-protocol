@@ -4,6 +4,11 @@ import type { OnSocial } from '@onsocial/sdk';
 import { ACTIVE_API_URL } from '@/lib/app-config';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import { isHeuristicDaoAccountId } from '@/lib/enrich-standing-with-dao';
+import {
+  loadProfileShell,
+  type AppProfileShell,
+} from '@/lib/profile-shell';
+
 export interface PublicPageProfile {
   name?: string;
   bio?: string;
@@ -160,6 +165,32 @@ export function hasPageActivationData(
   );
 }
 
+/**
+ * Gateway `/data/account/exists` is only for unknown empty accounts.
+ * Live indexer faces and DAO orgs skip that hop so TTFB is not blocked,
+ * and an exists 404 cannot blank a page the indexer already has.
+ */
+export function publicPageNeedsExistsProbe(opts: {
+  isDao: boolean;
+  hasShell: boolean;
+  activated: boolean;
+}): boolean {
+  return !opts.isDao && !opts.hasShell && !opts.activated;
+}
+
+function activationProfileFromShell(
+  shell: AppProfileShell | null
+): Parameters<typeof hasPageActivationData>[0] {
+  if (!shell) return null;
+  return {
+    name: shell.name,
+    bio: shell.bio,
+    avatarUrl: shell.avatarUrl,
+    links: shell.links ?? null,
+    tags: shell.tags,
+  };
+}
+
 async function fetchAccountExists(accountId: string): Promise<boolean | null> {
   const response = await fetch(
     `${stripTrailingSlash(ACTIVE_API_URL)}/data/account/exists?accountId=${encodeURIComponent(accountId)}`,
@@ -211,63 +242,31 @@ async function fetchPublicPageDataFromIndexer(
   os: OnSocial,
   accountId: string
 ): Promise<PublicPageData | null> {
-  // DAO org faces always exist on-chain — skip gateway exists probe on the hot path.
-  if (isHeuristicDaoAccountId(accountId)) {
-    const [materialisedProfile, indexedConfig] = await Promise.all([
-      os.profiles.get(accountId),
-      os.query.pages.getConfig(accountId).catch(() => null),
-    ]);
-
-    const config = (indexedConfig ?? {}) as PublicPageConfig;
-    const activated = hasPageActivationData(
-      materialisedProfile
-        ? {
-            name: materialisedProfile.name ?? null,
-            bio: materialisedProfile.bio ?? null,
-            avatarUrl: os.profiles.avatarUrl(materialisedProfile),
-            links: materialisedProfile.links ?? null,
-            tags: materialisedProfile.tags ?? [],
-          }
-        : null,
-      config
-    );
-
-    return {
-      accountId,
-      activated,
-      profile: {},
-      config,
-      stats: EMPTY_STATS,
-      recentPosts: [],
-      badges: [],
-    };
-  }
-
-  // Indexer page/main only — empty/lag soft-fills client-side; never SSR chain.
-  const [exists, materialisedProfile, indexedConfig] = await Promise.all([
-    fetchAccountExists(accountId),
-    os.profiles.get(accountId),
+  // Indexer page/main + React-cached shell (shared with /@account and About).
+  // Never SSR chain. Empty/lag still soft-fills once exists allows it.
+  const [shell, indexedConfig] = await Promise.all([
+    loadProfileShell(accountId),
     os.query.pages.getConfig(accountId).catch(() => null),
   ]);
 
-  if (exists === false) {
-    return null;
-  }
-
   const config = (indexedConfig ?? {}) as PublicPageConfig;
-
   const activated = hasPageActivationData(
-    materialisedProfile
-      ? {
-          name: materialisedProfile.name ?? null,
-          bio: materialisedProfile.bio ?? null,
-          avatarUrl: os.profiles.avatarUrl(materialisedProfile),
-          links: materialisedProfile.links ?? null,
-          tags: materialisedProfile.tags ?? [],
-        }
-      : null,
+    activationProfileFromShell(shell),
     config
   );
+
+  if (
+    publicPageNeedsExistsProbe({
+      isDao: isHeuristicDaoAccountId(accountId),
+      hasShell: Boolean(shell),
+      activated,
+    })
+  ) {
+    const exists = await fetchAccountExists(accountId);
+    if (exists === false) {
+      return null;
+    }
+  }
 
   return {
     accountId,
