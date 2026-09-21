@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Suspense, type ComponentProps } from 'react';
+import { Suspense } from 'react';
 import { parseDiscoverTab } from '@/features/discover/discover-tabs';
 import { DiscoverPagePanel } from '@/features/discover/discover-page-panel';
 import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
@@ -8,8 +8,6 @@ import { parseDiscoverProfileFilters } from '@/lib/discover-profiles';
 import { loadDiscoverProfilesPage } from '@/lib/discover-profiles-server';
 import { loadDiscoverTrendingSeed } from '@/lib/discover-trending-server';
 import { loadGuildsIndexPage } from '@/lib/load-guilds-index-page';
-
-export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Discover • OnSocial',
@@ -26,24 +24,7 @@ type DiscoverPageProps = {
   }>;
 };
 
-function DiscoverClient(props: ComponentProps<typeof DiscoverPagePanel> = {}) {
-  return (
-    <Suspense fallback={null}>
-      <DiscoverPagePanel {...props} />
-    </Suspense>
-  );
-}
-
-export default function DiscoverPage({ searchParams }: DiscoverPageProps) {
-  return (
-    <Suspense fallback={<DiscoverClient />}>
-      <DiscoverPaintedPage searchParams={searchParams} />
-    </Suspense>
-  );
-}
-
-/** SSR / streamed seed. Client back-nav paints the fallback first (session snapshot). */
-async function DiscoverPaintedPage({ searchParams }: DiscoverPageProps) {
+export default async function DiscoverPage({ searchParams }: DiscoverPageProps) {
   const resolvedSearchParams = await searchParams;
   const initialQuery = normalizeProfileSearchQuery(
     Array.isArray(resolvedSearchParams?.q)
@@ -96,10 +77,12 @@ async function DiscoverPaintedPage({ searchParams }: DiscoverPageProps) {
   ]);
 
   return (
-    <DiscoverClient
-      initialPage={initialPage}
-      initialTrending={initialTrending}
-      initialGuilds={initialGuilds}
-    />
+    <Suspense fallback={null}>
+      <DiscoverPagePanel
+        initialPage={initialPage}
+        initialTrending={initialTrending}
+        initialGuilds={initialGuilds}
+      />
+    </Suspense>
   );
 }
