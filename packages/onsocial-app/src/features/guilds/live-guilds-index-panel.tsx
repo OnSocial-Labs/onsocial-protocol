@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
 import {
   LauncherHomeMineStatus,
@@ -21,6 +21,10 @@ import { GuildsLatestPostsPanel } from '@/features/guilds/guilds-latest-posts-pa
 import { guildPath } from '@/features/guilds/guilds-data';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import {
+  readLauncherMineSession,
+  writeLauncherMineSession,
+} from '@/lib/launcher-mine-session';
 
 /**
  * Guilds launcher — one Home: mine (horizontal) + latest posts under a divider.
@@ -28,11 +32,28 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
  */
 export function LiveGuildsIndexPanel() {
   const { accountId } = useAppWallet();
-  const [myGuilds, setMyGuilds] = useState<GuildSummaryCardModel[] | null>(
-    null
+  const [myGuilds, setMyGuilds] = useState<GuildSummaryCardModel[] | null>(() =>
+    readLauncherMineSession('guilds', accountId)
   );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const accountIdRef = useRef(accountId);
+  const myGuildsRef = useRef(myGuilds);
+
+  useEffect(() => {
+    accountIdRef.current = accountId;
+    myGuildsRef.current = myGuilds;
+  }, [accountId, myGuilds]);
+
+  useEffect(() => {
+    return () => {
+      writeLauncherMineSession({
+        kind: 'guilds',
+        accountId: accountIdRef.current,
+        items: myGuildsRef.current,
+      });
+    };
+  }, []);
 
   const discoverGuildsHref = appDiscoverTabHref('guilds');
 
@@ -45,11 +66,14 @@ export function LiveGuildsIndexPanel() {
       return;
     }
     let cancelled = false;
+    const restored = readLauncherMineSession<GuildSummaryCardModel>(
+      'guilds',
+      accountId
+    );
     queueMicrotask(() => {
-      if (!cancelled) {
-        setMyGuilds(null);
-        setLoadError(null);
-      }
+      if (cancelled) return;
+      setMyGuilds(restored);
+      setLoadError(null);
     });
     void (async () => {
       try {
@@ -58,11 +82,16 @@ export function LiveGuildsIndexPanel() {
           limit: 50,
         });
         if (cancelled) return;
-        setMyGuilds(items.map((row) => guildSummaryCardFromMembership(row)));
+        const next = items.map((row) => guildSummaryCardFromMembership(row));
+        setMyGuilds(next);
+        writeLauncherMineSession({
+          kind: 'guilds',
+          accountId,
+          items: next,
+        });
         setLoadError(null);
       } catch (cause) {
         if (cancelled) return;
-        setMyGuilds(null);
         setLoadError(
           cause instanceof Error ? cause.message : 'Could not load guilds.'
         );

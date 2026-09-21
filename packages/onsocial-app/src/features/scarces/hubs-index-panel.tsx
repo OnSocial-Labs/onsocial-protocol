@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
 import {
   LauncherHomeMineStatus,
@@ -21,6 +21,10 @@ import {
 import { HubsLatestDropsPanel } from '@/features/scarces/hubs-latest-drops-panel';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { APP_APP_CREATE_PATH, appPath } from '@/lib/app-routes';
+import {
+  readLauncherMineSession,
+  writeLauncherMineSession,
+} from '@/lib/launcher-mine-session';
 
 /**
  * Hubs launcher — one Home: mine (horizontal) + latest drops under a divider.
@@ -28,9 +32,28 @@ import { APP_APP_CREATE_PATH, appPath } from '@/lib/app-routes';
  */
 export function HubsIndexPanel() {
   const { accountId } = useAppWallet();
-  const [myHubs, setMyHubs] = useState<AppView[] | null>(null);
+  const [myHubs, setMyHubs] = useState<AppView[] | null>(() =>
+    readLauncherMineSession('hubs', accountId)
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const accountIdRef = useRef(accountId);
+  const myHubsRef = useRef(myHubs);
+
+  useEffect(() => {
+    accountIdRef.current = accountId;
+    myHubsRef.current = myHubs;
+  }, [accountId, myHubs]);
+
+  useEffect(() => {
+    return () => {
+      writeLauncherMineSession({
+        kind: 'hubs',
+        accountId: accountIdRef.current,
+        items: myHubsRef.current,
+      });
+    };
+  }, []);
 
   const discoverHubsHref = appDiscoverTabHref('hubs');
 
@@ -43,21 +66,25 @@ export function HubsIndexPanel() {
       return;
     }
     let cancelled = false;
+    const restored = readLauncherMineSession<AppView>('hubs', accountId);
     queueMicrotask(() => {
-      if (!cancelled) {
-        setMyHubs(null);
-        setLoadError(null);
-      }
+      if (cancelled) return;
+      setMyHubs(restored);
+      setLoadError(null);
     });
     void fetchPublishableApps(accountId, { limit: 24 })
       .then((rows) => {
         if (cancelled) return;
         setMyHubs(rows);
+        writeLauncherMineSession({
+          kind: 'hubs',
+          accountId,
+          items: rows,
+        });
         setLoadError(null);
       })
       .catch((cause) => {
         if (cancelled) return;
-        setMyHubs(null);
         setLoadError(
           cause instanceof Error ? cause.message : 'Could not load hubs.'
         );
