@@ -283,6 +283,7 @@ function PostThreadSheet({
   useLayoutEffect(() => {
     if (!parked) return;
     let hushed = false;
+    let sheetRoot: HTMLElement | null = null;
     const quiet = (event: Event) => {
       const target = event.target;
       if (!(target instanceof HTMLMediaElement)) return;
@@ -296,6 +297,7 @@ function PostThreadSheet({
     const apply = () => {
       const root = bodyRef.current?.closest('.glass-sheet-root');
       if (!(root instanceof HTMLElement)) return;
+      sheetRoot = root;
       if (root.style.visibility !== 'hidden') {
         root.style.visibility = 'hidden';
         root.style.pointerEvents = 'none';
@@ -323,7 +325,7 @@ function PostThreadSheet({
       observer.disconnect();
       window.removeEventListener('wheel', allowScroll, true);
       window.removeEventListener('touchmove', allowScroll, true);
-      const root = bodyRef.current?.closest('.glass-sheet-root');
+      const root = sheetRoot;
       if (root instanceof HTMLElement) {
         root.removeEventListener('play', quiet, true);
         root.style.visibility = '';
@@ -461,7 +463,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   const [underlayPath, setUnderlayPath] = useState<string | null>(null);
   /** Portfolio face opened from the post. The post stays mounted underneath. */
   const [profileHop, setProfileHop] = useState<string | null>(null);
-  const sawProfileHopRef = useRef(false);
+  const [sawProfileHop, setSawProfileHop] = useState(false);
   const underlayPathRef = useRef<string | null>(null);
   const underlayScrollRef = useRef<{ el: HTMLElement; top: number } | null>(
     null
@@ -480,14 +482,16 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   const onProfileHop =
     profileHop != null &&
     (pathname === profileHop || pathname.startsWith(`${profileHop}?`));
-  if (onProfileHop) sawProfileHopRef.current = true;
+  if (onProfileHop && !sawProfileHop) {
+    setSawProfileHop(true);
+  }
   if (
     profileHop &&
-    sawProfileHopRef.current &&
+    sawProfileHop &&
     underlayPath != null &&
     pathname === underlayPath
   ) {
-    sawProfileHopRef.current = false;
+    setSawProfileHop(false);
     setProfileHop(null);
   }
   if (
@@ -497,7 +501,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     !isOverlayPlacePathname(pathname) &&
     !onProfileHop
   ) {
-    sawProfileHopRef.current = false;
+    if (sawProfileHop) setSawProfileHop(false);
     setProfileHop(null);
     setStack([]);
     setClosingId(null);

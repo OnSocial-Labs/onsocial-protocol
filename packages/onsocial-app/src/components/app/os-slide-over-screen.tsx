@@ -172,14 +172,15 @@ export function OsSlideOverScreen({
    * Stay on the screen that opened this layer. A later screen (the author)
    * must not pull an open article out of the hidden feed.
    */
-  const portalHostRef = useRef<HTMLElement | null>(null);
+  const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
+  let nextPortalHost = portalHost;
   if (!renderOpen || viewport) {
-    portalHostRef.current = null;
-  } else if (
-    portalHostRef.current == null ||
-    !portalHostRef.current.isConnected
-  ) {
-    portalHostRef.current = registeredHost;
+    nextPortalHost = null;
+  } else if (portalHost == null || !portalHost.isConnected) {
+    nextPortalHost = registeredHost;
+  }
+  if (nextPortalHost !== portalHost) {
+    setPortalHost(nextPortalHost);
   }
   const viewerMood = useViewerDockMood();
   const resolvedMoodId = moodId !== undefined ? moodId : viewerMood.moodId;
@@ -206,13 +207,9 @@ export function OsSlideOverScreen({
    * The article stays mounted under a covered Home feed. It must not lock
    * the page in front, or take Escape, until that feed is on screen again.
    */
-  const [parked, setParked] = useState(false);
-  useLayoutEffect(() => {
-    const next = Boolean(
-      portalHostRef.current?.closest('[data-feed-session="covered"]')
-    );
-    setParked((current) => (current === next ? current : next));
-  });
+  const parked = Boolean(
+    nextPortalHost?.closest('[data-feed-session="covered"]')
+  );
   useScrollLock(renderOpen && !parked);
 
   const finishExit = useCallback(() => {
@@ -281,13 +278,13 @@ export function OsSlideOverScreen({
 
   if (!mounted || !renderOpen) return null;
 
-  const portalHost =
+  const portalTarget =
     typeof document !== 'undefined'
-      ? viewport || !portalHostRef.current
+      ? viewport || !nextPortalHost
         ? document.body
-        : portalHostRef.current
+        : nextPortalHost
       : null;
-  if (!portalHost) return null;
+  if (!portalTarget) return null;
 
   const rootStyle: CSSProperties = {
     ...resolvedMoodStyle,
@@ -402,6 +399,6 @@ export function OsSlideOverScreen({
         </div>
       </div>
     </OsSlideOverCloseContext.Provider>,
-    portalHost
+    portalTarget
   );
 }

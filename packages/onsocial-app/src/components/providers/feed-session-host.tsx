@@ -55,9 +55,9 @@ export function FeedSessionHost({ children }: { children: ReactNode }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const coveredScrollRef = useRef(0);
 
-  useEffect(() => {
-    if (onFeed) setMounted(true);
-  }, [onFeed]);
+  if (onFeed && !mounted) {
+    setMounted(true);
+  }
 
   useEffect(() => {
     const body = hostRef.current?.querySelector('.os-app-screen-body');
