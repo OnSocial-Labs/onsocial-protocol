@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -57,6 +58,7 @@ import {
   hubActivityMeta,
   hubCatalogShell,
   hubPageBackHref,
+  hubRouteYieldsLoadingSkeleton,
   hubUseFirst,
   ownedItemsInHub,
   peekHeldHubItems,
@@ -97,6 +99,10 @@ import {
 import { displayName } from '@/lib/profile-display';
 import { formatProfileCount } from '@/lib/profile-social-standings';
 
+const clientMountedSubscribe = () => () => {};
+const getClientMountedSnapshot = () => true;
+const getServerMountedSnapshot = () => false;
+
 /** Two-letter monogram from the store name for the logo fallback. */
 function monogram(title: string): string {
   const parts = title.trim().split(/\s+/).filter(Boolean);
@@ -118,6 +124,11 @@ export function AppPagePanel({
 }) {
   const router = useRouter();
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
+  const clientMounted = useSyncExternalStore(
+    clientMountedSubscribe,
+    getClientMountedSnapshot,
+    getServerMountedSnapshot
+  );
   const [app, setApp] = useState<AppView | null>(initial);
   const [notFound, setNotFound] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -492,6 +503,9 @@ export function AppPagePanel({
   }
 
   if (!app) {
+    if (hubRouteYieldsLoadingSkeleton(clientMounted)) {
+      return null;
+    }
     return (
       <OsAppScreen
         title="Hub"
@@ -675,7 +689,8 @@ export function AppPagePanel({
 
         </section>
 
-        {catalogShell === 'skeleton' ? (
+        {catalogShell === 'skeleton' &&
+        !hubRouteYieldsLoadingSkeleton(clientMounted) ? (
           <HubPageSkeleton listOnly />
         ) : null}
 

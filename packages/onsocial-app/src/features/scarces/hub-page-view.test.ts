@@ -7,6 +7,7 @@ import {
   hubActivityMeta,
   hubCatalogShell,
   hubPageBackHref,
+  hubRouteYieldsLoadingSkeleton,
   hubUseFirst,
   ownedItemsInHub,
   peekHeldHubItems,
@@ -72,6 +73,11 @@ describe('hub page view', () => {
         clientSettled: false,
       })
     ).toBe('empty');
+  });
+
+  it('lets route loading.tsx own the SSR skeleton', () => {
+    expect(hubRouteYieldsLoadingSkeleton(false)).toBe(true);
+    expect(hubRouteYieldsLoadingSkeleton(true)).toBe(false);
   });
 
   it('joins activity into a compact house meta line', () => {

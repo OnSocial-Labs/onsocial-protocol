@@ -13,6 +13,7 @@ import {
   seriesDisplayTitle,
   seriesPageBackHref,
   seriesRouteLoadingBackHref,
+  seriesRouteYieldsLoadingSkeleton,
   seriesShopActionLabel,
   seriesUseFirst,
   shopRowCreatorLabel,
@@ -97,6 +98,11 @@ describe('series page view', () => {
         clientSettled: true,
       })
     ).toBe('empty');
+  });
+
+  it('lets route loading.tsx own the SSR skeleton', () => {
+    expect(seriesRouteYieldsLoadingSkeleton(false)).toBe(true);
+    expect(seriesRouteYieldsLoadingSkeleton(true)).toBe(false);
   });
 
   it('uses Collect on live shop rows and Open otherwise', () => {
