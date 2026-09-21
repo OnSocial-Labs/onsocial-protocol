@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -103,6 +104,13 @@ import {
   summarizeUnseenFeedPosts,
   type UnseenFeedSummary,
 } from '@/lib/home-feed-new-posts';
+import {
+  HOME_FEED_SSR_SESSION_KEY,
+  homeFeedSessionKey,
+  homeFeedSessionProbeDelayMs,
+  peekHomeFeedSession,
+  writeHomeFeedSession,
+} from '@/lib/home-feed-session';
 import { scrollFeedToNewest } from '@/lib/feed-scroll-to-newest';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 import { filterHiddenAuthors } from '@/lib/viewer-mute-block-filter';
@@ -120,26 +128,6 @@ import {
 } from '@/lib/viewer-mute-global';
 
 const HOME_FEED_PAGE_SIZE = 24;
-
-function homeFeedSessionKey(input: {
-  lens: HomeFeedLens;
-  sort: HomeFeedSort;
-  focusKey: string | null;
-  accountId: string | null;
-}): string {
-  const accountScoped =
-    input.lens === 'saved' || isHomeFeedSocialLens(input.lens);
-  return `${input.lens}|${input.sort}|${input.focusKey ?? ''}|${
-    accountScoped ? (input.accountId ?? '') : ''
-  }`;
-}
-
-const HOME_FEED_SSR_SESSION_KEY = homeFeedSessionKey({
-  lens: 'global',
-  sort: 'hot',
-  focusKey: null,
-  accountId: null,
-});
 
 async function fetchSavedFeedPage(
   accountId: string,
@@ -296,10 +284,21 @@ export function HomePagePanel({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { accountId, isConnected, isLoading: walletLoading } = useAppWallet();
-  const [posts, setPosts] = useState<PostRow[]>(() => initialPage?.items ?? []);
+  const restoredSessionRef = useRef(peekHomeFeedSession());
+  const restoredSession = restoredSessionRef.current;
+  const sessionRestoreReloadNonceRef = useRef(0);
+  const pendingScrollTopRef = useRef<number | null>(
+    restoredSession && restoredSession.scrollTop > 0
+      ? restoredSession.scrollTop
+      : null
+  );
+  const lastScrollTopRef = useRef(restoredSession?.scrollTop ?? 0);
+  const [posts, setPosts] = useState<PostRow[]>(
+    () => restoredSession?.posts ?? initialPage?.items ?? []
+  );
   const [standingNetworkIds, setStandingNetworkIds] = useState<
     readonly string[] | null
-  >(null);
+  >(() => restoredSession?.standingNetworkIds ?? null);
   const [muteBlockSyncVersion, setMuteBlockSyncVersion] = useState(
     () =>
       getGlobalViewerMuteLedgerVersion() + getGlobalViewerBlockLedgerVersion()
@@ -324,9 +323,11 @@ export function HomePagePanel({
     [posts, muteBlockSyncVersion]
   );
   const [nextOffset, setNextOffset] = useState<number | undefined>(
-    () => initialPage?.nextOffset
+    () => restoredSession?.nextOffset ?? initialPage?.nextOffset
   );
-  const [isLoading, setIsLoading] = useState(() => initialPage == null);
+  const [isLoading, setIsLoading] = useState(
+    () => restoredSession == null && initialPage == null
+  );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -339,7 +340,7 @@ export function HomePagePanel({
   const [lensReady, setLensReady] = useState(false);
   const [sort, setSort] = useState<HomeFeedSort>('hot');
   const [ssrBootstrapDone, setSsrBootstrapDone] = useState(
-    () => initialPage != null
+    () => restoredSession != null || initialPage != null
   );
   const sortInitializedRef = useRef(false);
   const sortUserChangedRef = useRef(false);
@@ -370,25 +371,85 @@ export function HomePagePanel({
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const loadIdRef = useRef(0);
   const appendInFlightRef = useRef(false);
-  const standingSourcesRef = useRef<string[] | null>(null);
-  const nextOffsetRef = useRef<number | undefined>(initialPage?.nextOffset);
-  const postsLengthRef = useRef(initialPage?.items.length ?? 0);
+  const standingSourcesRef = useRef<string[] | null>(
+    restoredSession?.standingNetworkIds
+      ? [...restoredSession.standingNetworkIds]
+      : null
+  );
+  const nextOffsetRef = useRef<number | undefined>(
+    restoredSession?.nextOffset ?? initialPage?.nextOffset
+  );
+  const postsLengthRef = useRef(
+    restoredSession?.posts.length ?? initialPage?.items.length ?? 0
+  );
+  const postsRef = useRef<PostRow[]>(
+    restoredSession?.posts ?? initialPage?.items ?? []
+  );
   const amplifyReconcileTimerRef = useRef<number | null>(null);
   const amplifyHeatFloorsRef = useRef<Map<string, AmplifyHeatFloor>>(new Map());
-  const seenPostKeysRef = useRef<Set<string>>(new Set());
+  const seenPostKeysRef = useRef<Set<string>>(
+    feedPostKeySet(restoredSession?.posts ?? initialPage?.items ?? [])
+  );
   const newPostsProbeInFlightRef = useRef(false);
   const unseenPostsRef = useRef<UnseenFeedSummary>(EMPTY_UNSEEN_FEED_SUMMARY);
   /** Head growth already folded into `nextOffset` by load-more compensation. */
-  const offsetShiftAppliedRef = useRef(0);
+  const offsetShiftAppliedRef = useRef(
+    restoredSession?.offsetShiftApplied ?? 0
+  );
   const isRefreshingRef = useRef(false);
-  const isLoadingRef = useRef(initialPage == null);
-  const ssrBootstrapDoneRef = useRef(initialPage != null);
+  const isLoadingRef = useRef(restoredSession == null && initialPage == null);
+  const ssrBootstrapDoneRef = useRef(
+    restoredSession != null || initialPage != null
+  );
   /** Skip duplicate global/hot fetch after SSR seed; cleared on lens/sort/focus. */
-  const ssrHotGlobalSkipRef = useRef(initialPage != null);
+  const ssrHotGlobalSkipRef = useRef(
+    restoredSession == null && initialPage != null
+  );
   const ssrHotGlobalReloadNonceRef = useRef(0);
   const feedSessionKeyRef = useRef<string | null>(
-    initialPage != null ? HOME_FEED_SSR_SESSION_KEY : null
+    restoredSession?.sessionKey ??
+      (initialPage != null ? HOME_FEED_SSR_SESSION_KEY : null)
   );
+
+  useEffect(() => {
+    return () => {
+      writeHomeFeedSession({
+        sessionKey: feedSessionKeyRef.current,
+        posts: postsRef.current,
+        nextOffset: nextOffsetRef.current,
+        standingNetworkIds: standingSourcesRef.current,
+        offsetShiftApplied: offsetShiftAppliedRef.current,
+        scrollTop: lastScrollTopRef.current,
+      });
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const top = pendingScrollTopRef.current;
+    const node = scrollRootRef.current;
+    if (!node) return;
+    if (top != null) {
+      node.scrollTop = top;
+      if (node.scrollTop > 0 || node.scrollHeight > top) {
+        pendingScrollTopRef.current = null;
+      }
+    }
+    lastScrollTopRef.current = node.scrollTop;
+  }, [visiblePosts.length]);
+
+  useEffect(() => {
+    const node = scrollRootRef.current;
+    if (!node) return undefined;
+    const record = () => {
+      lastScrollTopRef.current = node.scrollTop;
+    };
+    record();
+    node.addEventListener('scroll', record, { passive: true });
+    return () => {
+      record();
+      node.removeEventListener('scroll', record);
+    };
+  }, [visiblePosts.length]);
 
   useEffect(() => {
     nextOffsetRef.current = nextOffset;
@@ -396,6 +457,7 @@ export function HomePagePanel({
 
   useEffect(() => {
     postsLengthRef.current = posts.length;
+    postsRef.current = posts;
     seenPostKeysRef.current = feedPostKeySet(posts);
   }, [posts]);
 
@@ -580,6 +642,30 @@ export function HomePagePanel({
       return;
     }
 
+    const sessionKey = homeFeedSessionKey({
+      lens: activeLens,
+      sort,
+      focusKey: homeFeedFocusKey(focus),
+      accountId,
+    });
+    const restored = restoredSessionRef.current;
+    if (
+      restored &&
+      restored.sessionKey === sessionKey &&
+      reloadNonce === sessionRestoreReloadNonceRef.current
+    ) {
+      standingSourcesRef.current = restored.standingNetworkIds
+        ? [...restored.standingNetworkIds]
+        : null;
+      setStandingNetworkIds(standingSourcesRef.current);
+      feedSessionKeyRef.current = sessionKey;
+      setSsrBootstrapDone(true);
+      ssrBootstrapDoneRef.current = true;
+      setIsLoading(false);
+      setIsRefreshing(false);
+      return;
+    }
+
     // Explicit reload (amplify reconcile, pull) may refresh global hot once.
     if (
       ssrHotGlobalSkipRef.current &&
@@ -600,12 +686,6 @@ export function HomePagePanel({
     setLoadError(null);
     clearUnseenPosts();
 
-    const sessionKey = homeFeedSessionKey({
-      lens: activeLens,
-      sort,
-      focusKey: homeFeedFocusKey(focus),
-      accountId,
-    });
     const mergeHead =
       feedSessionKeyRef.current === sessionKey && postsLengthRef.current > 0;
     if (!mergeHead) {
@@ -944,7 +1024,10 @@ export function HomePagePanel({
       void probeNewPosts();
     };
 
-    const warmupId = window.setTimeout(tick, 12_000);
+    const warmupId = window.setTimeout(
+      tick,
+      homeFeedSessionProbeDelayMs(Boolean(restoredSessionRef.current))
+    );
     const intervalId = window.setInterval(tick, HOME_FEED_NEW_POLL_MS);
     const onVisibility = () => {
       if (document.visibilityState === 'visible') tick();

@@ -8,16 +8,22 @@ export const metadata: Metadata = {
   description: 'Your OnSocial home feed.',
 };
 
-export default async function HomePage() {
-  const paint = await loadHomeFeedPage({ sort: 'hot' });
-
+export default function HomePage() {
   return (
-    <Suspense fallback={null}>
-      <HomePagePanel
-        initialPage={paint?.page ?? null}
-        initialEngagement={paint?.engagement ?? null}
-        initialScarceEmbeds={paint?.scarceEmbeds ?? null}
-      />
+    <Suspense fallback={<HomePagePanel />}>
+      <HomeFeedPaintedPage />
     </Suspense>
+  );
+}
+
+/** SSR / streamed seed. Client back-nav paints the fallback first (session snapshot). */
+async function HomeFeedPaintedPage() {
+  const paint = await loadHomeFeedPage({ sort: 'hot' });
+  return (
+    <HomePagePanel
+      initialPage={paint?.page ?? null}
+      initialEngagement={paint?.engagement ?? null}
+      initialScarceEmbeds={paint?.scarceEmbeds ?? null}
+    />
   );
 }
