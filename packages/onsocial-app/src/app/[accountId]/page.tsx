@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
 import { displayName } from '@/lib/profile-display';
 import { fetchPublicPageData, resolvePageAvatarMode } from '@/lib/page-data';
@@ -7,17 +8,21 @@ import { readPageHeroSourceExplicit } from '@/lib/page-face';
 import { resolveAccountId, resolveAccountPage } from '@/lib/resolve-account';
 import { loadProfileShell } from '@/lib/profile-shell';
 import { fetchProfileSignals } from '@/lib/profile-signals';
+import { resolveDaoPortfolioSummary } from '@/lib/load-dao-page';
 import {
-  loadPortfolioDaoContextWithProfile,
-  resolveDaoPortfolioSummary,
-} from '@/lib/load-dao-page';
+  loadPortfolioHeroDaoContext,
+  portfolioHeroAwaitsSignals,
+} from '@/lib/portfolio-hero-path';
 import { PortfolioActivateStrip } from '@/components/portfolio/portfolio-activate-strip';
 import { PortfolioEssayLeave } from '@/components/portfolio/portfolio-essay-leave';
 import { PortfolioDaoOrgChrome } from '@/components/portfolio/portfolio-dao-org-chrome';
 import { PortfolioDeferredShelf } from '@/components/portfolio/portfolio-deferred-shelf';
+import {
+  PortfolioDeferredProfileSeed,
+  PortfolioDeferredSignals,
+} from '@/components/portfolio/portfolio-deferred-signals';
 import { PortfolioEndorsementFocusHost } from '@/components/portfolio/portfolio-endorsement-focus-host';
 import { PortfolioIdentity } from '@/components/portfolio/portfolio-identity';
-import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
 import { PortfolioShellRoot } from '@/components/portfolio/portfolio-shell-root';
 import { PortfolioProfileSeed } from '@/components/portfolio/portfolio-profile-seed';
@@ -40,13 +45,11 @@ export async function generateMetadata({
 }: AccountPageProps): Promise<Metadata> {
   const accountId = await resolveAccountId(params);
   const shellPromise = loadProfileShell(accountId);
-  const [shell, data, daoContext] = await Promise.all([
+  const [shell, data] = await Promise.all([
     shellPromise,
     fetchPublicPageData(accountId),
-    shellPromise.then((profileShell) =>
-      loadPortfolioDaoContextWithProfile(accountId, profileShell)
-    ),
   ]);
+  const daoContext = await loadPortfolioHeroDaoContext(accountId, shell);
   const titleLabel = displayName(
     accountId,
     shell?.name ?? daoContext.page?.branding.name ?? undefined
@@ -84,24 +87,14 @@ export default async function AccountPage({
     data.config,
     search?.avatarMode ?? search?.avatar ?? null
   );
-  // Hero-critical path only — drawer meta, guild rows, and peeks stream via
-  // the deferred shelf Suspense boundary after first paint.
-  const shellPromise = loadProfileShell(accountId);
-  const [shell, signals, daoContext, openJobs] = await Promise.all([
-    shellPromise,
-    fetchProfileSignals(accountId),
-    shellPromise.then((profileShell) =>
-      loadPortfolioDaoContextWithProfile(accountId, profileShell)
-    ),
-    (async () => {
-      try {
-        return await createServerOnSocialClient().query.jobs.openForAccount(
-          accountId
-        );
-      } catch {
-        return [];
-      }
-    })(),
+  // Hero: shell + page config. Org faces also wait for DAO chrome (and
+  // signals for the logged-out stand count). Person signals stream below.
+  const shell = await loadProfileShell(accountId);
+  const [daoContext, signals] = await Promise.all([
+    loadPortfolioHeroDaoContext(accountId, shell),
+    portfolioHeroAwaitsSignals(accountId)
+      ? fetchProfileSignals(accountId)
+      : Promise.resolve(null),
   ]);
   const { entity: daoEntity, page: daoPage } = daoContext;
   const portfolioBio = resolveDaoPortfolioSummary({
@@ -118,6 +111,7 @@ export default async function AccountPage({
     data.stats.postCount ?? 0
   );
   const identityTopics = shell?.tags ?? [];
+  const avatarUrl = shell?.avatarUrl ?? daoPage?.branding.avatarUrl ?? null;
   // Cheap SSR seed — joined/updated/scarce meta hydrates from the shelf.
   const drawerMeta: PageDrawerMeta = {
     name,
@@ -133,20 +127,31 @@ export default async function AccountPage({
   const daoIncomingStanding = daoEntity.isDao
     ? (signals?.standingCount ?? data.stats.standingCount ?? 0)
     : 0;
+  const seedCounts = {
+    incoming: signals?.standingCount ?? 0,
+    outgoing: signals?.standingWithCount ?? 0,
+    mutual: signals?.mutualStandingCount ?? 0,
+  };
 
   return (
     <>
       <PortfolioEssayLeave accountId={accountId} />
-      <PortfolioProfileSeed
-        accountId={accountId}
-        displayName={name}
-        avatarUrl={shell?.avatarUrl ?? daoPage?.branding.avatarUrl ?? null}
-        counts={{
-          incoming: signals?.standingCount ?? 0,
-          outgoing: signals?.standingWithCount ?? 0,
-          mutual: signals?.mutualStandingCount ?? 0,
-        }}
-      />
+      {signals ? (
+        <PortfolioProfileSeed
+          accountId={accountId}
+          displayName={name}
+          avatarUrl={avatarUrl}
+          counts={seedCounts}
+        />
+      ) : (
+        <Suspense fallback={null}>
+          <PortfolioDeferredProfileSeed
+            accountId={accountId}
+            displayName={name}
+            avatarUrl={avatarUrl}
+          />
+        </Suspense>
+      )}
       <PortfolioShellRoot
         mood={mood}
         pageAccountId={accountId}
@@ -197,7 +202,6 @@ export default async function AccountPage({
           profileKind={shell?.kind ?? null}
           kindLabel={daoEntity.kindLabel}
           incomingStandingCount={daoIncomingStanding}
-          openJobs={openJobs}
         />
 
         {daoEntity.isDao ? null : (
@@ -224,6 +228,11 @@ export default async function AccountPage({
 
         {signals && !daoEntity.isDao ? (
           <PortfolioSignalsShell accountId={accountId} signals={signals} />
+        ) : null}
+        {!signals ? (
+          <Suspense fallback={null}>
+            <PortfolioDeferredSignals accountId={accountId} />
+          </Suspense>
         ) : null}
         <PortfolioLinks links={shell?.links} />
       </PortfolioShellRoot>
