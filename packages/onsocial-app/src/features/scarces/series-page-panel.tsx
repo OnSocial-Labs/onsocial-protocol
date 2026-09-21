@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import {
   Divider,
@@ -37,6 +37,7 @@ import {
   seriesCatalogShell,
   seriesDisplayTitle,
   seriesPageBackHref,
+  seriesRouteYieldsLoadingSkeleton,
   seriesUseFirst,
 } from '@/features/scarces/series-page-view';
 import { SeriesShopRow } from '@/features/scarces/series-shop-row';
@@ -50,6 +51,10 @@ import {
   groupHoldingsForRail,
   toPortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
+
+const clientMountedSubscribe = () => () => {};
+const getClientMountedSnapshot = () => true;
+const getServerMountedSnapshot = () => false;
 
 interface SeriesPagePanelProps {
   creatorId: string;
@@ -73,6 +78,11 @@ export function SeriesPagePanel({
   drops,
 }: SeriesPagePanelProps) {
   const { accountId } = useAppWallet();
+  const clientMounted = useSyncExternalStore(
+    clientMountedSubscribe,
+    getClientMountedSnapshot,
+    getServerMountedSnapshot
+  );
   const [branding, setBranding] = useState(initialBranding);
   const [editing, setEditing] = useState(false);
   const [nowMs] = useState(() => Date.now());
@@ -203,6 +213,9 @@ export function SeriesPagePanel({
   });
 
   if (catalogShell === 'skeleton') {
+    if (seriesRouteYieldsLoadingSkeleton(clientMounted)) {
+      return null;
+    }
     return (
       <OsAppScreen
         title={title}

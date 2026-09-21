@@ -23,6 +23,11 @@ export function hubCatalogShell(opts: {
   return 'empty';
 }
 
+/** Route `loading.tsx` owns the SSR skeleton; the panel paints after hydrate. */
+export function hubRouteYieldsLoadingSkeleton(clientMounted: boolean): boolean {
+  return !clientMounted;
+}
+
 /** Holders only — staff keep create/settings without vault chrome. */
 export function hubUseFirst(opts: {
   holdsEditionInHub: boolean | null;

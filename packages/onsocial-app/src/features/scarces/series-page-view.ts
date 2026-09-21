@@ -51,6 +51,11 @@ export function seriesCatalogShell(opts: {
   return 'empty';
 }
 
+/** Route `loading.tsx` owns the SSR skeleton; the panel paints after hydrate. */
+export function seriesRouteYieldsLoadingSkeleton(clientMounted: boolean): boolean {
+  return !clientMounted;
+}
+
 export function seriesShopActionLabel(status: string): string {
   return status === 'live' ? 'Collect' : 'Open';
 }

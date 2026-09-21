@@ -78,7 +78,7 @@ test.describe('hub page', () => {
       catalogDelayMs: 2500,
     });
     await gotoApp(page, HUB_E2E_PATH);
-    await expect(page.locator('[data-hub-page-skeleton]').first()).toBeVisible({
+    await expect(page.locator('[data-hub-page-skeleton]')).toBeVisible({
       timeout: 8_000,
     });
     await expect(page.getByText('No drops in this hub yet.')).toHaveCount(0);

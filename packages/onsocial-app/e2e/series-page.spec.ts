@@ -110,9 +110,7 @@ test.describe('series page', () => {
       catalogDelayMs: 2500,
     });
     await gotoApp(page, NIGHT_ROADS_PATH);
-    await expect(
-      page.locator('[data-series-page-skeleton]').first()
-    ).toBeVisible({
+    await expect(page.locator('[data-series-page-skeleton]')).toBeVisible({
       timeout: 8_000,
     });
     await expect(page.getByText('No drops in this series yet.')).toHaveCount(0);
