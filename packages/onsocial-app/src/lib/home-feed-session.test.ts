@@ -140,7 +140,8 @@ describe('home feed session wiring', () => {
     expect(pageSrc).toContain('homeFeedSessionProbeDelayMs');
     expect(pageSrc).not.toContain('localStorage');
     expect(pageSrc).not.toContain('sessionStorage.setItem');
-    expect(routeSrc).toContain('fallback={<HomePagePanel />}');
+    expect(routeSrc).toContain('fallback={<HomeFeedClient />}');
     expect(routeSrc).toContain('HomeFeedPaintedPage');
+    expect(routeSrc).toContain("dynamic = 'force-dynamic'");
   });
 });
